@@ -78,9 +78,9 @@ responsible for refusing it.
 
 ## Reducing variance on shared / CI runners
 
-GitHub-hosted runners are noisy noisy because the host is shared.
-The following practices materially reduce measurement variance and
-should be applied whenever a number is going to be quoted publicly:
+GitHub-hosted runners are noisy because the host is shared.  The
+following practices materially reduce measurement variance and should
+be applied whenever a number is going to be quoted publicly:
 
 1. **Pin the CPU set.** On Linux:
    ```bash

@@ -117,6 +117,57 @@ def test_successful_run_command(tmp_path: Path) -> None:
     payload = _read(out)
     assert payload["run_rc"] == 0
     assert payload["lyapunov_valid"] is True
+    # Timing/timeout schema invariants.
+    assert payload["run_timed_out"] is False
+    assert payload["run_timeout_s"] is None
+    assert isinstance(payload["run_elapsed_s"], float)
+    assert payload["run_elapsed_s"] >= 0.0
+
+
+def test_ablation_config_with_nested_lyapunov_block_passes(tmp_path: Path) -> None:
+    """The shipped ablation config carries a nested ``lyapunov:`` block."""
+    ablation = _REPO_ROOT / "configs" / "ablation_3r_lyapunov.yaml"
+    out = tmp_path / "result.json"
+    rc = run_ablation.main(
+        ["--config", str(ablation), "--out", str(out), "--skip-run"]
+    )
+    assert rc == 0, out.read_text() if out.exists() else "(no result file)"
+    payload = _read(out)
+    assert payload["lyapunov_valid"] is True
+    assert payload["lyapunov_details"]["mode"] == "quadratic"
+
+
+def test_timeout_kills_runaway_subprocess(tmp_path: Path) -> None:
+    cfg = tmp_path / "ok.yaml"
+    cfg.write_text(
+        "lambda: 0.25\n"
+        "A: [[-0.25, 0.0], [0.0, -0.5]]\n"
+        "P: [[1.0, 0.0], [0.0, 1.0]]\n"
+        "run_command: 'python -c \"import time; time.sleep(30)\"'\n"
+    )
+    out = tmp_path / "result.json"
+    rc = run_ablation.main(
+        ["--config", str(cfg), "--out", str(out), "--timeout", "0.5"]
+    )
+    assert rc == 124  # GNU timeout(1) exit code
+    payload = _read(out)
+    assert payload["run_timed_out"] is True
+    assert payload["run_timeout_s"] == 0.5
+
+
+def test_negative_timeout_rejected(tmp_path: Path) -> None:
+    cfg = tmp_path / "ok.yaml"
+    cfg.write_text(
+        "lambda: 0.25\n"
+        "A: [[-0.25, 0.0], [0.0, -0.5]]\n"
+        "P: [[1.0, 0.0], [0.0, 1.0]]\n"
+        "run_command: 'echo hi'\n"
+    )
+    out = tmp_path / "result.json"
+    rc = run_ablation.main(
+        ["--config", str(cfg), "--out", str(out), "--timeout", "-1"]
+    )
+    assert rc == 2
 
 
 @pytest.mark.parametrize("argv", [[], ["--out", "x"]])

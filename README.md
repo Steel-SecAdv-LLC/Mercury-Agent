@@ -45,7 +45,7 @@
 **Contact:** steel.sa.llc@gmail.com
 **License:** GNU General Public License v3.0
 **Version:** v1.7.0
-**Date:** 2026-05-20
+**Date:** 2026-05-22
 **AI Co-Architects:** Eris ✠ | Eden ♱ | Devin ⚛︎ | Claude ⊛
 
 ---
@@ -72,7 +72,7 @@ The framework embodies a **Civilization-First** philosophy, prioritizing ethical
 > This ensures the code and all future improvements remain free and open source forever, even if used by corporations or governments.
 >
 > **Status:** Research-grade | Community-tested | Not externally audited
-> **Last Updated:** 2026-05-20
+> **Last Updated:** 2026-05-22
 >
 
 ---
@@ -119,7 +119,7 @@ These numbers are produced by `scripts/measure_codebase_scale.py` and refreshed 
 | Live real-world data loaders | **14** (USGS, NOAA, NASA, FEMA, EPA, financial, energy, network security, …) |
 | FastAPI routes | **5 modules** (auth, batch, detection, export, models) + voice + health |
 | Test modules / total test LOC | **275 modules / ~94,260 LOC** |
-| GitHub Actions workflows | **7** (CI, benchmark, security, docker, format, release, PQC check) |
+| GitHub Actions workflows | **11** (CI, ISO hardening, benchmark, security, docker, format, release, PQC production check, dataset reachability, network tests, dependabot auto-merge) |
 
 **The neuro-symbolic claim is real, not naming theatre.**  Concrete evidence in-repo:
 
@@ -664,6 +664,7 @@ The 3R mechanism is integrated throughout Mercury Agent:
 - [Use Cases by Sector](#use-cases-by-sector)
 - [Performance Metrics](#performance-metrics)
 - [Quick Start](#quick-start)
+- [Reproducible Verification](#reproducible-verification)
 - [Testing and Quality Assurance](#testing-and-quality-assurance)
 - [Documentation](#documentation)
 - [Cross-Platform Support](#cross-platform-support)
@@ -755,8 +756,8 @@ Optimized for both accuracy and interpretability:
 | Production Security | OWASP validation, PQC support, JWT authentication |
 | Comprehensive Testing | ~5,100+ tests collected across 258 files (verified `pytest --collect-only`; grows with optional ML deps installed), property-based testing, security scanning |
 | Benchmark Coverage | 64 reproducible datasets (of 75 attempted; 47 ADBench + 28 domain), Mean AUC 0.8285, Median AUC 0.9091 |
-| Cross-Platform | Linux, macOS, Windows, Docker, Kubernetes, 10+ external platforms |
-| Mathematical Rigor | Lyapunov stability, sigma_quadratic constraints |
+| Cross-Platform | Linux (Ubuntu 22.04+ supported in CI), macOS 13+, Windows 10/11 (via WSL2), Docker, Kubernetes (Helm chart); 8 integrated observability platforms (Prometheus, Elastic/OpenSearch, Splunk, Datadog, Azure Anomaly Detector, Netdata, Grafana, InfluxDB) |
+| Mathematical Rigor | Lyapunov stability (`λ = 0.25`, certified by `tools/lyapunov_validator.py`), σ_Immutable ≥ 0.96, Benevolence ≥ 0.99 |
 | Codebase Scale | 492 Python modules in `src/omni_mercury_engine/` (~280,951 LOC), 163 `nn.Module` subclasses, 14 live data loaders — see [Codebase Scale](#codebase-scale-measured-not-estimated) above |
 
 </details>
@@ -1126,6 +1127,103 @@ kubectl get pods -l app=mercury-agent
 
 ---
 
+## Reproducible Verification
+
+<details>
+<summary><strong>Executable Lyapunov Certificate</strong></summary>
+
+The Lyapunov decay rate `λ` cited throughout this README and `docs/MATH_SPEC.md` is not a prose claim -- it is enforced by an executable certificate.
+
+**Single source of truth.** `configs/lyapunov_canonical.yaml` declares the
+canonical linear surrogate `(A, P)` of the fusion-trajectory dynamics and
+the certified rate `λ = 0.25`.  `LyapunovConstants.LAMBDA_CONVERGENCE`
+in `src/omni_mercury_engine/core/centralized_constants.py` is the matching
+Python constant; the reconciliation test
+`tests/tools/test_lyapunov_reconciliation.py` fails CI the moment they
+diverge.
+
+**Mathematical kernel.** `tools/lyapunov_validator.py` implements two
+modes:
+
+| Mode | Inputs | Method |
+|---|---|---|
+| `quadratic` | `(A, P)` matrices, claimed `λ` | Symmetric-definite generalized eigenvalue problem `Q v = μ P v` with `Q = AᵀP + PA`, solved via Cholesky + `numpy.linalg.eigvalsh`.  Certifies `λ* = −μ_max`. |
+| `samples` | `[{V, Vdot}, …]`, claimed `λ` | Worst observed ratio `infₛ(−Vdotₛ / Vₛ)`.  Suitable for non-linear `V` and regression gating, not a proof. |
+
+The canonical config certifies `λ = 0.5` and the claim `0.25` is therefore satisfied with a 2× margin (and a 1e-8 tolerance for floating-point round-off).
+
+**CLI.**
+
+```bash
+# Certify any Lyapunov YAML (top-level A/P/λ, or a nested `lyapunov:` block).
+python -m tools.lyapunov_validator configs/lyapunov_canonical.yaml
+
+# JSON output, suitable for piping into jq / CI annotations.
+python -m tools.lyapunov_validator configs/ablation_3r_lyapunov.yaml | jq .
+```
+
+Exit codes: `0` certified pass · `1` claim does not hold · `2` config error.
+
+</details>
+
+<details>
+<summary><strong>Ablation Runner with Lyapunov Pre-Gate</strong></summary>
+
+`scripts/run_ablation.py` is the canonical entry-point for experiments that must not run unless their Lyapunov claim is provably satisfied.  The pre-gate is non-negotiable.
+
+```bash
+# Single-purpose Lyapunov certificate -- gate only.
+python scripts/run_ablation.py \
+    --config configs/lyapunov_canonical.yaml \
+    --out artifacts/lyapunov_check.json \
+    --skip-run
+
+# Multi-variant ablation with the certificate carried in a nested `lyapunov:` block.
+python scripts/run_ablation.py \
+    --config configs/ablation_3r_lyapunov.yaml \
+    --out artifacts/ablation_result.json \
+    --timeout 1800
+```
+
+Exit codes: `0` success · `2` config not found · `3` Lyapunov gate failed (experiment not launched) · `4` no `run_command` declared · `124` `--timeout` exceeded (GNU `timeout(1)` convention).  Results are always written as JSON so downstream tooling can diff against historical baselines without re-parsing logs.
+
+</details>
+
+<details>
+<summary><strong>Hardware Benchmark Harness</strong></summary>
+
+`scripts/run_hardware_benchmark.py` produces reproducible performance numbers for the validator pipeline, paired with the environment fingerprint that makes the result scientifically comparable.  Full operating guide: [`docs/HARDWARE_HARNESS.md`](docs/HARDWARE_HARNESS.md).
+
+```bash
+python scripts/run_hardware_benchmark.py \
+    --config configs/lyapunov_canonical.yaml \
+    --iters 2000 --warmup 200 \
+    --out artifacts/hwbench.json
+
+# Treat measured throughput as a regression gate:
+python scripts/run_hardware_benchmark.py --min-ops-per-sec 1500
+```
+
+The JSON report contains the certificate result, the environment fingerprint (Python version, NumPy version, platform, CPU count, CPU affinity, scaling governor), and the timing block (mean / p50 / p95 / p99 / max / total).  Throughput is computed from total wall-clock time rather than `1 / mean` to avoid the inverse-mean bias that otherwise over-states ops/sec on skewed latency distributions.
+
+</details>
+
+<details>
+<summary><strong>Documentation Drift Gate</strong></summary>
+
+`scripts/check_readme_lyapunov.py` blocks any pull request whose `README.md` or `docs/MATH_SPEC.md` claims a Lyapunov-context `λ` that disagrees with `LyapunovConstants.LAMBDA_CONVERGENCE`.  The gate matches three prose forms (`λ = ...`, `\lambda = ...`, `lambda = ...`), excludes the unrelated `LAMBDA_DECAY` double-helix adaptation rate, and refuses to pass vacuously: if `--require-hits` is supplied and a required file produces zero matches, the gate exits non-zero with an explicit "would be vacuous" diagnostic.
+
+```bash
+# Equivalent to the ISO Hardening CI gate:
+python scripts/check_readme_lyapunov.py
+```
+
+This gate is the second mandatory checkpoint: changing `LAMBDA_CONVERGENCE` requires updating the canonical config, the documentation, and the reconciliation test in lock-step.
+
+</details>
+
+---
+
 ## Testing and Quality Assurance
 
 > **Note:** Running the full test suite requires dev dependencies. Install with: `pip install -e ".[dev]"`
@@ -1189,22 +1287,41 @@ Ethics tests (e.g., in `test_ai_ethics.py`) use keyword-based scoring with boost
 <details>
 <summary><strong>Continuous Integration</strong></summary>
 
-GitHub Actions automatically tests:
+GitHub Actions enforce the following gates on every pull request and push to `main`/`develop`:
 
-| Check | Description |
-|-------|-------------|
-| Python Tests | pytest on Python 3.11 and 3.12, Ubuntu |
-| Code Quality | black, flake8, ruff, mypy, pydocstyle |
-| Security Scanning | bandit, safety, pip-audit, semgrep |
-| Docker Builds | Multi-stage production image with Trivy scan |
-| Ethics Audit | Ethical AI alignment verification |
-| Performance Benchmark | Regression detection for key operations |
+| Workflow | Job | Blocking | Description |
+|----------|-----|----------|-------------|
+| `ci.yml` | Code Quality | yes | black, flake8, ruff, mypy (strict), pydocstyle |
+| `ci.yml` | Workflow Hardening | yes | actionlint + zizmor + repository workflow invariants |
+| `ci.yml` | Type Checking | yes | mypy on `src/` and graduated strict test directories |
+| `ci.yml` | Security Scan | yes | bandit, safety, pip-audit, semgrep against an isolated install |
+| `ci.yml` | Core Tests | yes | pytest, ≥ 25 % combined stmt+branch coverage on the curated core lane |
+| `ci.yml` | Neuro-Symbolic Tests | yes | 7-phase cognitive architecture + safeguards + ethics regression suite |
+| `ci.yml` | Integration Tests | yes | `tests/integration/` against mocked external services |
+| `ci.yml` | Performance Benchmark | PR-only | TTLCache / synthetic-gradient regression gate |
+| `ci.yml` | Ethics Audit | yes | `benchmarks/run_ethics_audit.py` (EthicalAutonomyGovernor, σ_Immutable, OAE) |
+| `ci.yml` | ML Tests | nightly/PR-to-main | Full suite under `tests/`, ≥ 50 % coverage, real AMA Cryptography build |
+| `ci.yml` | Docker Build + Trivy | yes | Multi-stage runtime image, CRITICAL/HIGH = 0 (ignore-unfixed) |
+| `ci.yml` | Docs Build | yes | Sphinx build of the narrative docs |
+| `iso-hardening.yml` | Docs λ Drift Gate | yes | `scripts/check_readme_lyapunov.py` -- canonical λ = 0.25 across docs |
+| `iso-hardening.yml` | Examples Parity | yes | `examples/*.py` must run end-to-end and emit known markers |
+| `iso-hardening.yml` | Load Tests | yes | k6 smoke + locust headless against the live API, SLO p95 < 500 ms |
+| `iso-hardening.yml` | ISO Hardening Success | yes | Rollup of the three gates above (single required status check) |
+| `security.yml` | Container/SAST scan | yes | Trivy + Semgrep with deterministic SARIF categories |
+| `pqc-production-check.yml` | PQC Production Readiness | yes | KAT vectors, NIST FIPS ACVP-Server vectors, real AMA Cryptography build |
+| `benchmark.yml` | Live Benchmark | scheduled | Refreshes `benchmarks/mercury_benchmark_results.json` + README block |
+| `dataset-reachability.yml` | Loader Reachability | nightly | Offline lane + nightly network lane for the 11 unreachable loaders |
+| `network-tests.yml` | External Source Probe | nightly | Diagnostic probe of upstream data providers |
+| `docker.yml` | Docker Release | tag-driven | Push runtime image with provenance attestation |
+| `format.yml` | Formatting check | yes | Drift guard for `black` / `ruff format` output |
+| `release.yml` | Tagged Release | tag-driven | sdist + wheel + signed artifacts |
 
 ### CI Matrix
 
-- **Python Versions**: 3.11, 3.12
-- **Platforms**: Ubuntu Latest
-- **Jobs**: code-quality, type-checking, security-scan, core-tests, ml-tests, integration-tests, ethics-audit, performance-benchmark, docker-build
+- **Python Versions**: 3.11, 3.12, 3.13 (declared in `pyproject.toml` and exercised by `ci.yml`'s `code-quality` / `core-tests` / `type-checking` matrix).
+- **Platforms**: Ubuntu Latest (Linux x86_64).  macOS and Windows are supported as install targets but are not part of the CI matrix (see [Cross-Platform Support](#cross-platform-support)).
+- **Coverage floors**: `COVERAGE_THRESHOLD_CORE = 25 %` on the curated core lane, `COVERAGE_THRESHOLD_FULL = 50 %` on the ML lane.  The 85 % figure quoted under [Code Quality Standards](#code-quality-standards) is the aspirational nightly target, not the merge gate; the floors above are the actual blocking thresholds and are documented in `.github/workflows/ci.yml` alongside the measured baseline that justifies them.
+- **Required status checks**: `Code Quality`, `Workflow Hardening`, `Type Checking`, `Security Scan`, `Core Tests`, `Neuro-Symbolic Tests`, `Integration Tests`, `Performance Benchmark`, `CI Success` (rollup), `ISO Hardening Success` (rollup), `PQC Production Readiness`.
 
 </details>
 
@@ -1274,7 +1391,8 @@ mypy src/
 | [docs/API_REFERENCE.md](docs/API_REFERENCE.md) | REST API endpoints and usage |
 | [docs/BENCHMARKS.md](docs/BENCHMARKS.md) | Benchmark methodology and results |
 | [docs/DOMAIN_PERFORMANCE.md](docs/DOMAIN_PERFORMANCE.md) | Per-domain precision/recall analysis |
-| [docs/MATH_SPEC.md](docs/MATH_SPEC.md) | Mathematical foundations specification |
+| [docs/HARDWARE_HARNESS.md](docs/HARDWARE_HARNESS.md) | Reproducible hardware-benchmark methodology and environment fingerprint schema |
+| [docs/MATH_SPEC.md](docs/MATH_SPEC.md) | Mathematical foundations specification (including Lyapunov certificate proof) |
 | [docs/ORACLE_NOISE_COLOR.md](docs/ORACLE_NOISE_COLOR.md) | Oracle noise color calibration theory |
 | [docs/ROUTING_GUIDE.md](docs/ROUTING_GUIDE.md) | Request routing and fallback chains |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Feature roadmap and planned work |
@@ -1380,13 +1498,13 @@ helm install mercury-agent ./helm/mercury-agent -f values.yaml
 The double-helix evolution engine follows:
 
 ```
-dS/dt = sum_i w_i * term_i(S) - lambda * (S - S*)
+dS/dt = sum_i w_i * term_i(S) - LAMBDA_DECAY * (S - S*)
 ```
 
 Where:
 - `S` is the system state
 - `w_i` are term weights (18 terms)
-- `lambda = 0.18` is the Lyapunov decay rate
+- `LAMBDA_DECAY = 0.18` is the **double-helix adaptation rate** (defined in `src/omni_mercury_engine/core/double_helix_engine.py`); it controls how quickly the evolutionary state pulls back toward `S*` and is intentionally slower than the Lyapunov *convergence* rate `LAMBDA_CONVERGENCE = 0.25` so that fusion-trajectory stabilisation outruns adaptation. The two constants are distinct by design — do not collapse them into a single "λ" in prose.
 - `S*` is the equilibrium state
 
 **Note:** Previously labeled "quantum" terms are classical algorithms (simulated annealing, Boltzmann sampling, Hamiltonian projection).
@@ -1396,9 +1514,9 @@ Where:
 <details>
 <summary><strong>Ethical Constraints</strong></summary>
 
-- **Lyapunov Stability**: `V(state) = ||state - target||^2` with O(e^{-0.13t}) convergence
-- **sigma_quadratic Constraint**: `(x * E * x) / ||x||^2 >= 0.96`
-- **Bias Detection**: Fairlearn demographic parity, equalized odds, 80% rule
+- **Lyapunov Stability**: For the fusion-trajectory Lyapunov candidate `V(state) = ||state - target||^2`, the certified bound is `V(t) ≤ e^{-λ t}` with `λ = 0.25` (see `docs/MATH_SPEC.md` §2.2 for the proof and `configs/lyapunov_canonical.yaml` for the executable certificate consumed by `tools/lyapunov_validator.py`).
+- **σ_Immutable Constraint**: `(x · E · x) / ||x||^2 ≥ 0.96` -- the second mandatory hard gate at every detect / analyze / predict surface (see `omni_mercury_engine.security.sigma_immutable_gate`).
+- **Bias Detection**: Fairlearn demographic parity, equalized odds, 80% rule.
 
 </details>
 
@@ -2028,12 +2146,13 @@ The human architect does not hold formal credentials in machine learning or medi
 
 ### What We Did Right
 
-- **Standards-based design:** Built on OWASP security guidelines, NIST PQC standards, Fairlearn fairness metrics
-- **Quantified claims:** All performance metrics are measured and documented with methodology
-- **Comprehensive testing:** 5,900+ tests with property-based testing and security scanning
-- **Transparent limitations:** Documentation explicitly distinguishes validated vs. pending claims
-- **Ethical governance:** Fairlearn bias auditing integrated throughout the ML pipeline
-- **Academic grounding:** Medical modules reference JAMA guidelines, security follows OWASP
+- **Standards-based design:** Built on OWASP security guidelines, NIST PQC standards, Fairlearn fairness metrics.
+- **Quantified claims:** All performance metrics are measured and documented with methodology; no figure appears in this README without a referenced source.
+- **Comprehensive testing:** ~5,100 tests collected on a minimal install across 258 test files (`pytest --collect-only -q`, 2026-05-03), growing further when the optional ML/API extras are present; the suite combines unit tests, property-based testing (Hypothesis), KAT vectors (RFC 8032 / NIST ACVP-Server), and load-test SLO assertions (k6 + locust).
+- **Executable mathematical certificates:** The Lyapunov decay rate `λ = 0.25` cited throughout the documentation is enforced by `tools/lyapunov_validator.py` (generalized symmetric-definite eigenvalue analysis), the canonical YAML `configs/lyapunov_canonical.yaml`, and the `Docs λ Drift Gate` CI job -- a documentation claim that disagrees with the certificate fails CI rather than going to print.
+- **Transparent limitations:** Documentation explicitly distinguishes validated vs. pending claims, and benchmark figures are paired with the dataset, the methodology document, and the date of the run that produced them.
+- **Ethical governance:** Fairlearn bias auditing integrated throughout the ML pipeline; σ_Immutable + Benevolence gates are mandatory hard gates at every public detection / analysis / prediction surface (no advisory mode).
+- **Academic grounding:** Medical modules reference JAMA Sepsis-3 guidelines, security follows OWASP, post-quantum cryptography is built against AMA Cryptography v3.2.0 (NIST FIPS 203/204/205 KAT vectors verified bit-for-bit).
 
 ### What Requires Caution
 
@@ -2073,6 +2192,6 @@ THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE AUTHORS AND 
 
 </div>
 
-*Last updated: 2026-05-05*
+*Last updated: 2026-05-22*
 
 </div>

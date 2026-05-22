@@ -1,7 +1,13 @@
 # Mercury Agent — ISO Hardening CI
 #
-# Two independent jobs that the strengthening plan calls out as
-# missing gates:
+# Three independent gates that the strengthening plan called out as
+# missing or incomplete:
+#
+#   * docs-lambda-drift: scan README.md and docs/MATH_SPEC.md for any
+#     Lyapunov-context λ claim that disagrees with the canonical value
+#     in `LyapunovConstants.LAMBDA_CONVERGENCE` /
+#     `configs/lyapunov_canonical.yaml`.  Catches documentation rot
+#     where someone updates one but forgets the other.
 #
 #   * examples-parity: every shippable `examples/*.py` script must
 #     exit 0 and emit the expected completion marker.  Catches the
@@ -12,8 +18,13 @@
 #     and run `k6` in smoke mode and `locust` headless mode against
 #     it, failing the job if SLO thresholds are violated.
 #
-# Both jobs run on PRs and on pushes to main/develop so regressions
-# are caught at PR time, not after merge.  They are intentionally
+# A final `iso-hardening-success` rollup aggregates the three sub-jobs
+# into a single required status check so branch protection has one
+# stable name to gate on; cancelled jobs are treated as failures so a
+# concurrency-cancelled upstream cannot silently turn the rollup green.
+#
+# All jobs run on PRs and on pushes to main/develop so regressions are
+# caught at PR time, not after merge.  This workflow is intentionally
 # separate from `.github/workflows/ci.yml` to keep the existing
 # carefully-tuned CI surface untouched.
 
@@ -255,3 +266,44 @@ jobs:
           name: load-test-artifacts
           path: artifacts/
           retention-days: 7
+
+  # =========================================================================
+  # Rollup status check
+  # =========================================================================
+  # A single required status check that aggregates the three sub-jobs
+  # above.  Branch protection should require ONLY this rollup; the
+  # individual jobs remain visible in the Checks tab for triage.
+  # ``cancelled`` is treated as a blocking outcome alongside ``failure``
+  # so a concurrency-cancelled upstream cannot silently turn this green.
+  iso-hardening-success:
+    name: ISO Hardening Success
+    runs-on: ubuntu-latest
+    needs: [docs-lambda-drift, examples-parity, load-tests]
+    if: always()
+    timeout-minutes: 5
+    steps:
+      - name: Aggregate sub-job outcomes
+        env:
+          DRIFT_RESULT: ${{ needs.docs-lambda-drift.result }}
+          EXAMPLES_RESULT: ${{ needs.examples-parity.result }}
+          LOAD_RESULT: ${{ needs.load-tests.result }}
+        run: |
+          set -euo pipefail
+          fail=0
+          for entry in \
+              "docs-lambda-drift:${DRIFT_RESULT}" \
+              "examples-parity:${EXAMPLES_RESULT}" \
+              "load-tests:${LOAD_RESULT}"; do
+            name="${entry%%:*}"
+            result="${entry##*:}"
+            case "$result" in
+              success) printf 'OK   %s: %s\n' "$name" "$result" ;;
+              skipped) printf 'SKIP %s: %s\n' "$name" "$result" ;;
+              *)       printf 'FAIL %s: %s\n' "$name" "$result"; fail=1 ;;
+            esac
+          done
+          if [ "$fail" -ne 0 ]; then
+            echo "ISO Hardening rollup FAILED" >&2
+            exit 1
+          fi
+          echo "ISO Hardening rollup PASSED"

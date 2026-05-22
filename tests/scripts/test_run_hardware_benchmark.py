@@ -67,16 +67,24 @@ def test_canonical_run_exit_0_and_schema(tmp_path: Path) -> None:
     assert t["iters"] == 30
     assert t["warmup"] == 5
     assert t["samples"] == 25
-    for key in ("mean_s", "p50_s", "p95_s", "p99_s", "max_s", "ops_per_sec"):
+    for key in ("mean_s", "p50_s", "p95_s", "p99_s", "max_s", "total_s", "ops_per_sec"):
         assert isinstance(t[key], float)
         assert t[key] > 0
     # Percentile ordering must hold (sanity check on the helper).
     assert t["p50_s"] <= t["p95_s"] <= t["p99_s"] <= t["max_s"]
+    # Throughput is total-time-based, not 1/mean.  These two formulas
+    # agree only when the distribution is perfectly symmetric; for a
+    # CPU-bound numerical workload the difference is tiny but the
+    # invariant ``ops_per_sec == samples / total_s`` must hold exactly.
+    assert abs(t["ops_per_sec"] - (t["samples"] / t["total_s"])) < 1e-9
 
     # Environment fingerprint must capture the version-sensitive bits.
     env = report["environment"]
     for key in ("python", "numpy", "platform", "cpu_count"):
         assert env[key], f"missing environment field {key!r}"
+    # ``cpu_governor`` may be None on non-Linux runners; the key must
+    # still be present so consumers can detect missing data explicitly.
+    assert "cpu_governor" in env
 
 
 def test_throughput_floor_triggers_regression_exit(tmp_path: Path) -> None:
