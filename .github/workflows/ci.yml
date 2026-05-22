@@ -370,7 +370,8 @@ jobs:
         # * tests/datasets/      -- v1.7.0
         # * tests/ethical/       -- v1.7.0 follow-up
         # * tests/safeguards/    -- v1.7.0 follow-up
-        # * tests/tools/         -- operator-tooling hardening PR
+        # * tests/tools/         -- operator-tooling hardening PR (#239)
+        #                            + ISO hardening Lyapunov validator (#238)
         run: |
           mypy tests/datasets/ tests/ethical/ tests/safeguards/ tests/tools/ \
             --disallow-subclassing-any \
@@ -703,6 +704,8 @@ jobs:
             tests/datasets/ \
             tests/api/ \
             tests/automl/ \
+            tests/tools/ \
+            tests/scripts/test_run_ablation.py \
             tests/test_adaptive_detector.py \
             tests/test_acceleration_dynamics.py \
             tests/test_advanced_ml_capabilities.py \

@@ -1,0 +1,150 @@
+"""Tests for :mod:`tools.lyapunov_validator`.
+
+These tests exercise the validator on both *certified-positive* and
+*certified-negative* cases.  They are designed to:
+
+* prove that a known-good linear system passes (certified lambda for
+  ``A = diag(-0.25, -0.5)``, ``P = I`` is exactly ``0.5``);
+* prove that the canonical config ``configs/lyapunov_canonical.yaml``
+  remains consistent with the validator (this is the regression guard
+  that the rest of the codebase depends on);
+* prove that the validator rejects a non-positive-definite ``P``;
+* prove that the validator rejects a system whose decay rate is *less*
+  than the claimed lambda (false-claim guard);
+* exercise the sample-based fallback path.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import numpy as np
+import pytest
+
+from tools.lyapunov_validator import (
+    canonical_lambda_for_linear_system,
+    is_positive_definite,
+    validate_lyapunov_from_config,
+    validate_quadratic,
+    validate_samples,
+)
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+_CANONICAL_CFG = _REPO_ROOT / "configs" / "lyapunov_canonical.yaml"
+
+
+class TestPositiveDefinite:
+    def test_identity_is_pd(self) -> None:
+        assert is_positive_definite(np.eye(3))
+
+    def test_zero_is_not_pd(self) -> None:
+        assert not is_positive_definite(np.zeros((3, 3)))
+
+    def test_negative_definite_is_not_pd(self) -> None:
+        assert not is_positive_definite(-np.eye(2))
+
+    def test_non_symmetric_is_not_pd(self) -> None:
+        M = np.array([[1.0, 2.0], [0.0, 1.0]])
+        assert not is_positive_definite(M)
+
+
+class TestCanonicalLambda:
+    def test_diagonal_decay(self) -> None:
+        # A = diag(-a, -b), P = I => Q = -2 diag(a, b), pencil eigvals
+        # are {-2a, -2b}; max is -2*min(a, b); certified lambda is
+        # 2 * min(a, b).
+        A = np.diag([-0.25, -0.5])
+        P = np.eye(2)
+        assert canonical_lambda_for_linear_system(A, P) == pytest.approx(0.5)
+
+    def test_unstable_system_yields_negative_lambda(self) -> None:
+        A = np.array([[1.0, 0.0], [0.0, -1.0]])
+        P = np.eye(2)
+        lam = canonical_lambda_for_linear_system(A, P)
+        assert lam < 0  # certifies no exponential decay
+
+
+class TestValidateQuadratic:
+    def test_canonical_claim_holds(self) -> None:
+        A = np.diag([-0.25, -0.5])
+        P = np.eye(2)
+        ok, details = validate_quadratic(A, P, claimed_lambda=0.25)
+        assert ok
+        assert details["computed_lambda"] == pytest.approx(0.5)
+
+    def test_overclaim_is_rejected(self) -> None:
+        A = np.diag([-0.25, -0.5])
+        P = np.eye(2)
+        ok, details = validate_quadratic(A, P, claimed_lambda=0.75)
+        assert not ok
+        assert details["computed_lambda"] == pytest.approx(0.5)
+
+    def test_non_pd_P_is_rejected(self) -> None:
+        A = -np.eye(2)
+        P = -np.eye(2)  # not PD
+        ok, details = validate_quadratic(A, P, claimed_lambda=0.1)
+        assert not ok
+        assert "not positive definite" in details["error"]
+
+
+class TestValidateSamples:
+    def test_decay_samples_pass(self) -> None:
+        samples = [{"x": [1.0], "V": 1.0, "Vdot": -0.5}]
+        ok, details = validate_samples(samples, claimed_lambda=0.25)
+        assert ok
+        assert details["computed_lambda"] == pytest.approx(0.5)
+
+    def test_worst_ratio_dominates(self) -> None:
+        samples = [
+            {"V": 1.0, "Vdot": -1.0},  # ratio = 1.0
+            {"V": 1.0, "Vdot": -0.1},  # ratio = 0.1 (worst)
+        ]
+        ok, details = validate_samples(samples, claimed_lambda=0.2)
+        assert not ok
+        assert details["computed_lambda"] == pytest.approx(0.1)
+
+    def test_empty_samples_rejected(self) -> None:
+        ok, details = validate_samples([], claimed_lambda=0.0)
+        assert not ok
+        assert "no samples" in details["error"]
+
+    def test_nonpositive_V_rejected(self) -> None:
+        ok, details = validate_samples(
+            [{"V": 0.0, "Vdot": -1.0}], claimed_lambda=0.0
+        )
+        assert not ok
+        assert "V must be > 0" in details["error"]
+
+
+class TestValidateFromConfig:
+    def test_canonical_config_passes(self) -> None:
+        """Regression guard for the canonical lambda used repo-wide."""
+        ok, details = validate_lyapunov_from_config(_CANONICAL_CFG)
+        assert ok, f"canonical Lyapunov config no longer certifies: {details}"
+        assert details["mode"] == "quadratic"
+        # Canonical claim is 0.25; certified must remain >= 0.25.
+        assert details["computed_lambda"] >= 0.25
+
+    def test_missing_config_returns_error(self, tmp_path: Path) -> None:
+        ok, details = validate_lyapunov_from_config(tmp_path / "missing.yaml")
+        assert not ok
+        assert "not found" in details["error"]
+
+    def test_samples_mode(self, tmp_path: Path) -> None:
+        cfg = tmp_path / "samples.yaml"
+        cfg.write_text(
+            "lambda: 0.25\n"
+            "lyapunov_samples:\n"
+            "  - {V: 1.0, Vdot: -0.5}\n"
+            "  - {V: 2.0, Vdot: -1.0}\n"
+        )
+        ok, details = validate_lyapunov_from_config(cfg)
+        assert ok
+        assert details["mode"] == "samples"
+
+    def test_neither_matrices_nor_samples(self, tmp_path: Path) -> None:
+        cfg = tmp_path / "bad.yaml"
+        cfg.write_text("lambda: 0.25\n")
+        ok, details = validate_lyapunov_from_config(cfg)
+        assert not ok
+        assert "neither" in details["error"]
