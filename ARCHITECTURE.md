@@ -4,7 +4,7 @@ Applies to Mercury Agent **v1.7.x**. Last updated: 2026-05-22.
 
 ## Overview
 
-The Mercury Agent is a neuro-symbolic AI framework that integrates 22+ diverse scientific and computational paradigms — a deep-learning core (163 `torch.nn.Module` subclasses across visual, behavioural, physics-based, fusion and differentiable-logic theorem-proving subsystems, imported across 120 source files) coupled with an explicit symbolic layer (knowledge graphs, rule bases, formal verification, AST-based code analysis, case-based reasoning) — into a unified hybrid-fusion architecture. Multi-domain anomaly detection is one of the capabilities this AI exposes, not the limit of what it is. This document describes the system architecture, data flow, and key design decisions.
+The Mercury Agent is a neuro-symbolic AI framework that integrates 22+ diverse scientific and computational paradigms — a deep-learning core (165 `torch.nn.Module` subclasses across visual, behavioural, physics-based, fusion and differentiable-logic theorem-proving subsystems, imported across 122 source files) coupled with an explicit symbolic layer (knowledge graphs, rule bases, formal verification, AST-based code analysis, case-based reasoning) — into a unified hybrid-fusion architecture. Multi-domain anomaly detection is one of the capabilities this AI exposes, not the limit of what it is. This document describes the system architecture, data flow, and key design decisions.
 
 ## System Architecture Diagram
 
@@ -1168,7 +1168,7 @@ The Mercury Agent successfully integrates **22+ detection engines** with **11 in
   integrations, loaders, medical, metrics, ml, models, narrative,
   ocean, quantum_computing, resilience, safeguards, scaling,
   security, space, streaming, tools, utils, validation)
-- **~280,950 LOC** in `src/omni_mercury_engine/` (492 source files)
+- **~295,647 LOC** in `src/omni_mercury_engine/` (512 source files; verified by `scripts/measure_codebase_scale.py`)
 - **~310 test modules** under `tests/`, ~5,100 tests collected on a
   minimal install (~6,000+ once `[ml]` / `[api]` extras are present);
   see the README "Testing and Quality Assurance" section for the exact

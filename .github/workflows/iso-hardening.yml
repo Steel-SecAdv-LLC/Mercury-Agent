@@ -230,7 +230,10 @@ jobs:
         run: |
           set -euo pipefail
           warmup_payload='{"data": [1.0, 2.1, 1.5, 1.9, 2.3, 1.7, 2.0, 1.8, 2.2, 1.6, 1.9, 2.4, 1.5, 2.1, 1.8, 2.0], "sensitivity": 0.5}'
-          for i in 1 2 3 4 5; do
+          # ``_`` rather than a named loop variable: shellcheck SC2034
+          # flags an unused loop counter, and the count is the only
+          # thing that matters here -- we don't reference the index.
+          for _ in 1 2 3 4 5; do
             curl -fsS "$MERCURY_API_HOST/health" > /dev/null
             curl -fsS -X POST \
               -H "Content-Type: application/json" \

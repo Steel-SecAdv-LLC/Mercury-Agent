@@ -109,23 +109,23 @@ These numbers are produced by `scripts/measure_codebase_scale.py` and refreshed 
 
 | Measurement | Value |
 |---|---|
-| Python source files in `src/omni_mercury_engine/` | **492** |
-| Source lines of code (LOC) | **~280,951** |
-| Top-level subpackages (cognitive, core, detectors, ml, models, agentic, …) | **42** |
-| Files importing PyTorch | **120** |
-| Distinct `torch.nn.Module` subclasses | **163** |
+| Python source files in `src/omni_mercury_engine/` | **512** |
+| Source lines of code (LOC) | **~295,647** |
+| Top-level subpackages (cognitive, core, detectors, ml, models, agentic, …) | **45** |
+| Files importing PyTorch | **122** |
+| Distinct `torch.nn.Module` subclasses | **165** |
 | Primary classes (`*Agent` / `*Engine` / `*Reasoner` / `*Detector`) | **230 unique** |
 | Cognitive subsystem (neuro-symbolic core) LOC | **30,073** across 23 modules |
 | Live real-world data loaders | **14** (USGS, NOAA, NASA, FEMA, EPA, financial, energy, network security, …) |
 | FastAPI routes | **5 modules** (auth, batch, detection, export, models) + voice + health |
-| Test modules / total test LOC | **275 modules / ~94,260 LOC** |
+| Test modules (`test_*.py`) / total test LOC | **310 modules / ~107,407 LOC** |
 | GitHub Actions workflows | **11** (CI, ISO hardening, benchmark, security, docker, format, release, PQC production check, dataset reachability, network tests, dependabot auto-merge) |
 
 **The neuro-symbolic claim is real, not naming theatre.**  Concrete evidence in-repo:
 
 * `src/omni_mercury_engine/cognitive/` — 30,073 LOC, 23 modules, including `neural_memory_layer.py`, `symbolic_logic_layer.py`, `neurosymbolic_fusion.py`, `differentiable_logic.py` (with `NeuralPredicateEncoder`, `DifferentiableRuleModule`, `NeuralTheoremProver`, `CounterfactualReasoner` — all real `nn.Module` subclasses), `cognitive_evolution_engine.py`, `chain_of_thought.py`, `multi_hop_reasoner.py`, `causal_discovery.py`, `case_based_reasoning.py`, `predictive_coding.py`, `formal_verification.py`, `knowledge_graph.py`, `multi_agent_coordination.py`, `reflexion.py`, `plasticity_engine.py`, `hierarchical_planning.py`, `ipb_engine.py`.
 * `src/omni_mercury_engine/core/neurosymbolic_hub.py` — 1,446 LOC; defines `KnowledgeGraph`, `NeuralEncoder`, `SymbolicRule`, `NeuroSymbolicHub`, `ExplainableOutput`, `FusionMode`.
-* PyTorch is a hard runtime dependency (`torch>=2.2.0`, `torchvision>=0.17.0`, `pytorch-lightning>=2.0.0`); 120 source files import it and **163** classes subclass `torch.nn.Module`.
+* PyTorch is a hard runtime dependency (`torch>=2.2.0`, `torchvision>=0.17.0`, `pytorch-lightning>=2.0.0`); 122 source files import it and **165** classes subclass `torch.nn.Module`.
 
 Mercury Agent is a **neuro-symbolic AI** that exposes anomaly detection as one of its capabilities — it is not "an anomaly detection library that happens to use neural networks."
 
@@ -758,7 +758,7 @@ Optimized for both accuracy and interpretability:
 | Benchmark Coverage | 64 reproducible datasets (of 75 attempted; 47 ADBench + 28 domain), Mean AUC 0.8285, Median AUC 0.9091 |
 | Cross-Platform | Linux (Ubuntu 22.04+ supported in CI), macOS 13+, Windows 10/11 (via WSL2), Docker, Kubernetes (Helm chart); 8 integrated observability platforms (Prometheus, Elastic/OpenSearch, Splunk, Datadog, Azure Anomaly Detector, Netdata, Grafana, InfluxDB) |
 | Mathematical Rigor | Lyapunov stability (`λ = 0.25`, certified by `tools/lyapunov_validator.py`), σ_Immutable ≥ 0.96, Benevolence ≥ 0.99 |
-| Codebase Scale | 492 Python modules in `src/omni_mercury_engine/` (~280,951 LOC), 163 `nn.Module` subclasses, 14 live data loaders — see [Codebase Scale](#codebase-scale-measured-not-estimated) above |
+| Codebase Scale | 512 Python modules in `src/omni_mercury_engine/` (~295,647 LOC), 165 `nn.Module` subclasses, 14 live data loaders — see [Codebase Scale](#codebase-scale-measured-not-estimated) above |
 
 </details>
 
