@@ -129,14 +129,20 @@ jobs:
         run: black --check --diff src/ tests/
 
       - name: Run Ruff (fast linting)
-        # Ruff linting is now blocking - codebase has been cleaned up
-        run: ruff check src/ tests/ --output-format=github
+        # Ruff linting is now blocking - codebase has been cleaned up.
+        # ``scripts/`` is in scope: operator tooling lives there and must
+        # meet the same linting bar as src/ and tests/.  Per-file
+        # acceptances (e.g. S310 for GitHub-API-only urllib usage) are
+        # documented in ``pyproject.toml [tool.ruff.lint.per-file-ignores]``.
+        # ``tools/`` is also in scope: the CLI primitives in that directory
+        # ship as part of Mercury's operator surface and must lint clean.
+        run: ruff check src/ tests/ scripts/ tools/ --output-format=github
 
       - name: Run Flake8 (linting)
         # Flake8 linting is now blocking - codebase has been cleaned up
         # Ignoring E402 (module level import not at top), E501 (line too long, handled by Black)
         # F841 (unused variable) is handled by ruff which respects underscore convention
-        run: flake8 src/ tests/ --max-line-length=100 --extend-ignore=E203,W503,E402,E501,F841
+        run: flake8 src/ tests/ scripts/ tools/ --max-line-length=100 --extend-ignore=E203,W503,E402,E501,F841
 
       - name: Verify IsolationForest removed from detection path
         run: |
@@ -438,11 +444,12 @@ jobs:
         # the audit-tool transitives (``nltk``, ``joblib``, etc.)
         # OUT of the scanned surface — they belong to the auditor,
         # not to Mercury.  Removing them from the audit scope is
-        # the architectural remediation for the
-        # ``--ignore-vuln`` history previously documented in
-        # ``docs/SECURITY.md``: Mercury does not ship
-        # those packages, so they must not appear in Mercury's
-        # vulnerability report regardless of advisory state.
+        # the architectural remediation for the historical
+        # ``--ignore-vuln`` posture (tracked under the 2026-05-20
+        # security entries in ``CHANGELOG.md`` — "Permanent supply-
+        # chain remediations"): Mercury does not ship those packages,
+        # so they must not appear in Mercury's vulnerability report
+        # regardless of advisory state.
         #
         # ``click>=8.2`` is re-pinned at the **runner** level (not
         # just inside the Mercury audit venv): the ``safety`` CLI

@@ -40,10 +40,12 @@ from __future__ import annotations
 import math
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
-from numpy.typing import NDArray
+
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
 
 __all__ = [
     "canonical_lambda_for_linear_system",

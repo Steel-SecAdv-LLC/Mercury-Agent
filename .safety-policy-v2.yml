@@ -13,11 +13,18 @@
 #
 # Per-CVE risk acceptance is **not** done in this file.  The blocking
 # Safety step in .github/workflows/ci.yml passes accepted CVEs via
-# ``--ignore <id1>,<id2>,...`` driven by docs/SECURITY.md.
-# That document is the source of truth for accepted Python-package
-# CVEs; this file is purely a "shut up safety check's auto-discovery"
-# shim.  Do not add ignore entries here — add them to docs/SECURITY.md
-# and to the ``--ignore`` flag in ci.yml.
+# ``--ignore <id1>,<id2>,...`` *only* if a new finding requires
+# explicit acceptance; the current CI invocation runs with zero
+# ``--ignore`` flags (verified in `.github/workflows/ci.yml`'s
+# ``Run Safety`` step) because Mercury's audit surface has zero
+# Python-package CVEs after the 2026-05-20 supply-chain remediation
+# round (pyjwt → native_jwt, joblib → concurrent.futures,
+# nltk audit-tool isolation).  Per-CVE rationale, when needed, is
+# documented in the dated security entries of ``CHANGELOG.md``.
+# This file is purely a "shut up safety check's auto-discovery" shim.
+# Do not add ignore entries here — track them in ``CHANGELOG.md`` and
+# wire them into the ``--ignore`` flag in ci.yml only when blocking a
+# real finding becomes inappropriate.
 #
 # OS-level CVEs (which appear in Trivy scans of the built image) are
 # documented in .safety-policy.yml (v3, human-readable) and enforced

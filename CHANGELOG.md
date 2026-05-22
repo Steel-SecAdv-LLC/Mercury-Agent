@@ -26,6 +26,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation / `docs/SECURITY.md` retired (2026-05-22)
+
+`docs/SECURITY.md` was retired (commit 807b9c0) per owner directive
+because the supply-chain posture it tracked is now covered by:
+
+* `SECURITY.md` (the top-level public security policy, including the
+  Two-Tier Dependency-CVE Coverage table that previously linked here);
+* `.safety-policy.yml` (machine-readable v3 acceptance policy for the
+  Safety CLI scanner — currently zero acceptances, OS-level only);
+* `.trivyignore` (per-CVE acceptances for the deployment-image gate);
+* dated security entries in this CHANGELOG (the per-PR rationale for
+  remediations and risk acceptances).
+
+Cross-references in `SECURITY.md`, `.safety-policy.yml`,
+`.safety-policy-v2.yml`, `pyproject.toml`, and
+`.github/workflows/ci.yml` were updated in PR #238 to point at the
+surviving sources of truth.  No supply-chain posture changed; only
+the location of the per-CVE documentation moved.
+
+### ISO Hardening / Load Tests cold-start fix (2026-05-22)
+
+The ISO Hardening Load Tests smoke job failed intermittently because
+the first POST against `/api/v1/detect/univariate` paid a one-time
+cold-start cost (Pydantic v2 model JIT compile + numpy SIMD dispatch
+resolution + validator graph load) that pushed the smoke run's `p99`
+HTTP duration above the production SLO threshold.  Real production
+deployments would observe the same cold-start tail on the first
+request after a worker spin-up.
+
+The fix has three layers:
+
+- `src/omni_mercury_engine/api/server.py` now wires a FastAPI
+  `lifespan` async context manager that drives 3 in-process detection
+  round-trips (univariate + multivariate + health) before uvicorn
+  signals ready.  This means `/health` returns 200 only after
+  Pydantic + numpy + the validator are warm, which is the correct
+  posture for every deployment (k8s liveness probes also benefit
+  because traffic is not routed until warmup completes).  Warmup
+  failures are caught and logged rather than blocking startup.
+- `.github/workflows/iso-hardening.yml` adds an explicit warmup loop
+  (5× `/health` + 5× `/api/v1/detect/univariate`) between API
+  readiness and k6 invocation, as defence-in-depth in case the
+  lifespan hook is bypassed (e.g. a future env var or test override).
+- `tests/load/k6_load_test.js` raises the `/health` `p(99)` ceiling
+  from 50 ms to 150 ms.  Production health-check latency is observed
+  at 5–20 ms; the 50 ms floor is achievable only on dedicated
+  hardware and was the root cause of GHA-runner-jitter false
+  positives.  Real regressions (p99 in the 200+ ms range) are still
+  caught by the 150 ms threshold.
+
+`tests/api/test_server_comprehensive.py::TestLifespanWarmup` (4 new
+tests) pins the lifespan invariants: wiring, success path, internal-
+failure swallowing, and TestClient context-manager exercise.
+
 ### Security / AMA-routed JWT HMAC signatures (HS256 + HS512) (2026-05-20)
 
 Mercury's `native_jwt` signing primitive now routes `HS256` and

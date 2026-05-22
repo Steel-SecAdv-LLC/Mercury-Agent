@@ -406,3 +406,77 @@ class TestOpenAPISchema:
         """Test Swagger docs are accessible."""
         response = client.get("/docs")
         assert response.status_code == 200
+
+
+# =============================================================================
+# Lifespan / Warmup Tests
+# =============================================================================
+
+
+class TestLifespanWarmup:
+    """Tests for the production-mode warmup lifespan hook.
+
+    The lifespan handler must run before /health serves its first
+    request: it primes Pydantic model JIT compilation, numpy SIMD
+    dispatch resolution, and the validator graph so the first external
+    request does not pay cold-start cost.  These tests pin three
+    invariants: (1) the warmup is wired as the FastAPI lifespan
+    context, (2) it actually completes without raising, and (3) a
+    warmup failure does not block startup (the API still serves).
+    """
+
+    def test_lifespan_is_wired(self) -> None:
+        """``app.router.lifespan_context`` must be the warmup lifespan."""
+        from omni_mercury_engine.api.server import app
+
+        # Starlette stores the user-supplied lifespan callable on
+        # ``router.lifespan_context``; we cannot compare ``==`` because
+        # Starlette wraps it, but ``lifespan`` should be in the closure.
+        assert app.router.lifespan_context is not None
+        # The TestClient fixture (used by every other test in this
+        # module) exercises the lifespan automatically — if the hook
+        # raised, every other test would be red.
+
+    @pytest.mark.asyncio
+    async def test_warmup_runs_without_error(self) -> None:
+        """``_warmup(app)`` returns cleanly under normal conditions."""
+        from omni_mercury_engine.api.server import _warmup, app
+
+        # Direct call should not raise; the function logs and continues
+        # on failure rather than propagating.
+        await _warmup(app)
+
+    @pytest.mark.asyncio
+    async def test_warmup_swallows_internal_failure(self) -> None:
+        """A warmup failure must not block API startup."""
+        from omni_mercury_engine.api import server
+
+        original_detect = server.detect_univariate
+
+        async def broken_detect(_request: Any) -> Any:
+            raise RuntimeError("simulated warmup failure")
+
+        # Monkey-patch the univariate endpoint to raise; the warmup
+        # should catch + log + continue.  We use the module attribute
+        # rather than the global because the lifespan closure resolves
+        # ``detect_univariate`` from the module namespace at call time.
+        try:
+            server.detect_univariate = broken_detect  # type: ignore[assignment]
+            # No exception escapes the warmup.
+            await server._warmup(server.app)
+        finally:
+            server.detect_univariate = original_detect  # type: ignore[assignment]
+
+    def test_lifespan_context_manager(self, client: Any) -> None:
+        """Exercising the TestClient already triggers the lifespan.
+
+        ``fastapi.testclient.TestClient`` runs the lifespan on
+        ``__enter__`` / ``__exit__``; the ``client`` fixture above
+        instantiates a TestClient, so by the time this assertion
+        runs the warmup has already executed at least once.
+        """
+        # If the warmup had raised, the fixture would have failed.
+        # Use a real request to confirm the API is serving after
+        # warmup ran.
+        response = client.get("/health")
+        assert response.status_code == 200

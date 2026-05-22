@@ -13,9 +13,9 @@ immediately previous line at the maintainers' discretion.
 
 | Version | Status               | Security updates |
 | ------- | -------------------- | ---------------- |
-| 1.6.x   | **Current**          | :white_check_mark: |
-| 1.5.x   | Previous (EOL on next minor) | Critical CVEs only |
-| < 1.5   | End-of-life          | :x:              |
+| 1.7.x   | **Current**          | :white_check_mark: |
+| 1.6.x   | Previous (EOL on next minor) | Critical CVEs only |
+| < 1.6   | End-of-life          | :x:              |
 
 ## Reporting a Vulnerability
 
@@ -70,15 +70,37 @@ Mercury Agent implements multiple layers of security:
 
 ### Post-Quantum Cryptography (PQC) Backend Audit Status
 
-Mercury Agent uses NIST-approved post-quantum cryptographic algorithms (ML-DSA-65/Dilithium, Kyber-1024, SPHINCS+-256f) for quantum-resistant security. The following table documents the audit status of available PQC backends:
+Mercury Agent uses NIST-approved post-quantum cryptographic algorithms
+sourced from AMA Cryptography v3.2.0 (pinned in
+`pyproject.toml [project.optional-dependencies].pqc` and the
+`AMA_REF` env var of `.github/workflows/ci.yml` /
+`.github/workflows/pqc-production-check.yml`):
+
+| Algorithm | Parameter set | FIPS standard | Mercury type |
+|-----------|---------------|---------------|--------------|
+| ML-KEM (Kyber) | ML-KEM-1024 (NIST L5) | FIPS 203 | `KyberKeyPair`, `KyberEncapsulation` |
+| ML-DSA (Dilithium) | ML-DSA-65 (NIST L3, ctx-aware §5.2) | FIPS 204 | `DilithiumKeyPair` |
+| SLH-DSA (SPHINCS+) | SLH-DSA-SHAKE-128s (NIST L1) | FIPS 205 | `SlhDsaKeyPair(param_set="SHAKE-128s")` |
+| SLH-DSA (SPHINCS+) | SLH-DSA-SHA2-256f (NIST L5) | FIPS 205 | `SlhDsaKeyPair(param_set="SHA2-256f")` |
+| Legacy SPHINCS+ | SPHINCS+-SHA2-256f-simple | (pre-FIPS-205 NIST round-3 name) | `SphincsKeyPair` |
+
+The legacy `SphincsKeyPair` surface (Mercury's pre-v1.6.x SPHINCS+ entry
+point) and the FIPS 205 `SlhDsaKeyPair` surface coexist: callers can
+continue using the legacy `sphincs_sign`/`sphincs_verify` functions, or
+upgrade to `slhdsa_sign`/`slhdsa_verify` for the parameter-driven FIPS
+205 contract (with FIPS 205 §10.2 binding-context support). The
+authoritative source-of-truth for the algorithm names exposed to
+callers is `src/omni_mercury_engine/security/pqc_backends.py` (see the
+`@dataclass DilithiumKeyPair / KyberKeyPair / SphincsKeyPair /
+SlhDsaKeyPair` declarations).
 
 | Backend | Status | Recommendation |
 |---------|--------|----------------|
-| AMA Cryptography (Native C) | Community-tested, NOT externally audited | Production (sole backend — hard-required) |
+| AMA Cryptography (Native C, v3.2.0) | Community-tested, NOT externally audited | Production (sole backend — hard-required) |
 
 **Important Security Considerations:**
 
-1. **Algorithm vs Implementation**: The algorithms (ML-DSA-65, Kyber-1024, SPHINCS+) are NIST-approved and standardized. However, implementation correctness is NOT externally verified for the AMA Cryptography backend.
+1. **Algorithm vs Implementation**: The algorithms (ML-DSA-65, ML-KEM-1024, SLH-DSA) are NIST-approved (FIPS 203 / FIPS 204 / FIPS 205) and standardized. However, implementation correctness is NOT externally verified for the AMA Cryptography backend.
 
 2. **Production Deployments**: For production deployments requiring compliance:
    - Obtain an independent security audit of the AMA Cryptography native C library
@@ -87,7 +109,7 @@ Mercury Agent uses NIST-approved post-quantum cryptographic algorithms (ML-DSA-6
 
 3. **Sole Backend**: Mercury Agent **hard-requires** AMA Cryptography. There is no fallback chain — if AMA Cryptography is not installed, Mercury refuses to start. The native C library must be built for PQC algorithms:
    ```bash
-   pip install "ama-cryptography @ git+https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git"
+   pip install "ama-cryptography @ git+https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git@v3.2.0"
    cmake -B build -DAMA_USE_NATIVE_PQC=ON && cmake --build build
    ```
 
@@ -95,11 +117,35 @@ Mercury Agent uses NIST-approved post-quantum cryptographic algorithms (ML-DSA-6
 
 5. **Constant-Time Requirement**: AMA Cryptography's native C library provides constant-time implementations. Set `AMA_REQUIRE_CONSTANT_TIME=true` to enforce this at startup.
 
+6. **HMAC routing (v1.7.x)**: AMA Cryptography v3.2.0 also surfaces
+   ACVP-validated HMAC-SHA-256 / HMAC-SHA-512 bindings
+   (`native_hmac_sha256`, `native_hmac_sha256_2`). Mercury's
+   `native_jwt` module routes HS256 and HS512 through these bindings
+   when available, falling back transparently to the stdlib `hmac`
+   path otherwise. See `tests/security/test_native_jwt_ama_routing.py`
+   for the RFC 4231 KAT + stdlib byte-equivalence + interoperability
+   invariants.
+
+**KAT and ACVP evidence:**
+
+- `tests/security/test_ama_kat.py` pins Ed25519 RFC 8032 §7.1 vectors,
+  ML-DSA-65 round-trip, ML-KEM-1024 encaps/decaps round-trip,
+  SPHINCS+ round-trip, and ML-DSA deterministic-signing reproducibility.
+- `tests/security/test_nist_fips_kat.py` verifies bit-for-bit
+  reproducibility against curated NIST ACVP-Server test vectors
+  (FIPS 203, 204, 205): ML-DSA-65 deterministic sigGen, ML-KEM-1024
+  decapsulation, SLH-DSA-SHAKE-128s sigGen. Source:
+  [usnistgov/ACVP-Server](https://github.com/usnistgov/ACVP-Server).
+
 **References:**
 - [NIST PQC Standardization](https://csrc.nist.gov/projects/post-quantum-cryptography)
+- [FIPS 203 — ML-KEM](https://csrc.nist.gov/pubs/fips/203/final)
+- [FIPS 204 — ML-DSA](https://csrc.nist.gov/pubs/fips/204/final)
+- [FIPS 205 — SLH-DSA](https://csrc.nist.gov/pubs/fips/205/final)
 - [AMA Cryptography](https://github.com/Steel-SecAdv-LLC/AMA-Cryptography)
-- [Dilithium (CRYSTALS)](https://pq-crystals.org/dilithium/)
-- [Kyber (CRYSTALS)](https://pq-crystals.org/kyber/)
+- [CRYSTALS-Dilithium (pre-FIPS reference)](https://pq-crystals.org/dilithium/)
+- [CRYSTALS-Kyber (pre-FIPS reference)](https://pq-crystals.org/kyber/)
+- [SPHINCS+ (pre-FIPS reference)](https://sphincs.org/)
 
 ### API Security
 
@@ -242,11 +288,18 @@ Mercury Agent runs **two complementary CVE gates** on every PR:
 
 | Tier | Tool | Scope | Source of truth |
 |------|------|-------|-----------------|
-| Python-package | `safety check` (v3.7.0) + `pip-audit` (v2.10.0) | Editable install (`pip install -e ".[api]"`) | [`docs/SECURITY.md`](docs/SECURITY.md) |
+| Python-package | `safety check` (v3.7.0) + `pip-audit` (v2.10.0) | Editable install (`pip install -e ".[api]"`) | `.safety-policy-v2.yml` + `[CHANGELOG.md](CHANGELOG.md)` (per-CVE rationale tracked under the dated security entries) |
 | Deployment-image | Trivy | Built Docker image (full runtime + OS) | [`.trivyignore`](.trivyignore) |
 
-Both gates must be GREEN for any PR to merge. See `docs/SECURITY.md`
-for the per-CVE rationale and 90-day re-review cadence.
+Both gates must be GREEN for any PR to merge. The Python-package gate
+runs with **zero risk acceptance**: the policy files are no-op shims
+and no `--ignore` / `--ignore-vuln` flags are wired into either CI
+workflow. Findings are remediated by upgrade, isolation, or native
+re-implementation — see the CHANGELOG entries dated 2026-05-20
+("Permanent supply-chain remediations") for the current
+remediation ledger. The deployment-image gate honours the per-CVE
+acceptances enumerated in `.trivyignore` (10 CVEs, all reviewed
+quarterly).
 
 ## Security Audits
 
@@ -319,5 +372,5 @@ We thank the security researchers who have helped improve Mercury Agent's securi
 
 ---
 
-*Last Updated: 2026-05-20*
+*Last Updated: 2026-05-22*
 *Version: 1.7.0*

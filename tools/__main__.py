@@ -11,13 +11,27 @@ Adding a new tool: implement ``main(argv: Sequence[str] | None = None)
 the module name to :data:`_REGISTRY` below.  The dispatcher imports the
 module lazily so a missing optional dep in one tool does not break
 ``python -m tools list`` for the others.
+
+Every new tool must ship with:
+
+* tests covering at minimum a CLI smoke path (exit codes + JSON schema),
+* runtime API references verified against the actual production
+  surface (no assumed function names — a tool that imports a symbol
+  the production module does not export is a regression, not a feature),
+* documentation under the README's "Reproducible Verification" section.
+
+Untested or scaffolding-only tools must not land here; the registry is
+the operator's contract.
 """
 
 from __future__ import annotations
 
 import importlib
 import sys
-from collections.abc import Sequence
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 # Registry of operator tools.  Each entry maps a CLI name to
 # ``(module_dotted_path, entry_point_attr)``.  The entry-point attr is
@@ -26,9 +40,6 @@ from collections.abc import Sequence
 # of breaking the whole dispatcher.
 _REGISTRY: dict[str, tuple[str, str]] = {
     "lyapunov_validator": ("tools.lyapunov_validator", "_cli"),
-    "sigma_immutable_verifier": ("tools.sigma_immutable_verifier", "main"),
-    "pqc_capability_probe": ("tools.pqc_capability_probe", "main"),
-    "kat_runner_standalone": ("tools.kat_runner_standalone", "main"),
 }
 
 
