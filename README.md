@@ -700,7 +700,7 @@ Mercury Agent addresses all three challenges through:
 
 - **Unified Framework**: 18+ detection engines under a single hybrid fusion architecture covering medical, security, space, infrastructure, and environmental domains
 - **Ethical Governance**: Fairlearn bias detection with demographic parity, equalized odds, and 80% rule enforcement; 180+ ethical scalars with Lyapunov stability
-- **Production Security**: OWASP-compliant input validation, post-quantum cryptography support (Kyber-1024, ML-DSA-65), JWT authentication, rate limiting
+- **Production Security**: OWASP-compliant input validation, post-quantum cryptography (Kyber-1024 / ML-KEM-1024, ML-DSA-65, SPHINCS+-SHA2-256f-simple) via AMA Cryptography v3.2.0, JWT authentication, rate limiting
 
 ### Target Use Cases
 
@@ -722,7 +722,7 @@ See [Use Cases by Sector](#use-cases-by-sector) for detailed scenarios.
 
 | Layer | Protection | Components |
 |-------|------------|------------|
-| 1. Core Infrastructure | Security foundation | Kyber-1024/ML-DSA-65 PQC, JWT auth, OWASP validation |
+| 1. Core Infrastructure | Security foundation | Kyber-1024 / ML-DSA-65 / SPHINCS+ PQC (AMA Cryptography v3.2.0), JWT auth, OWASP validation |
 | 2. ML/AI Pipeline | Detection intelligence | 18+ engines, hybrid fusion, multi-head attention |
 | 3. Ethical Governance | Fairness assurance | Fairlearn bias audit, 180+ ethical scalars, Lyapunov stability |
 
@@ -810,7 +810,7 @@ Optimized for both accuracy and interpretability:
 
 - **Threat Detection**: SQL injection, XSS, path traversal detection with pattern matching and ML classification
 - **Intelligence Fusion**: 13-source fusion (OSINT, SIGINT, HUMINT, GEOINT) with bias-aware aggregation
-- **Cyber Fortress**: Hash integrity verification, quantum-resistant validation with Kyber-1024/ML-DSA-65
+- **Cyber Fortress**: Hash integrity verification, quantum-resistant validation with Kyber-1024 / ML-DSA-65 (AMA Cryptography v3.2.0)
 - **Traffic Analysis**: Encrypted traffic anomaly detection with privacy-preserving techniques
 
 </details>
@@ -1653,10 +1653,11 @@ Mercury Agent employs a comprehensive security architecture designed for product
 - Signature verification
 - Rate limiting (token bucket algorithm)
 
-**Post-Quantum Cryptography**:
-- Kyber-1024 key encapsulation
-- ML-DSA-65 digital signatures
-- Classical fallback for compatibility
+**Post-Quantum Cryptography (AMA Cryptography v3.2.0):**
+- **Kyber-1024 / ML-KEM-1024** key encapsulation (NIST Level 5, exposed as `KyberKeyPair(algorithm="Kyber1024")` in `src/omni_mercury_engine/security/pqc_backends.py`).
+- **ML-DSA-65** lattice signatures (FIPS 204 name for the Dilithium-3 parameter set; supports the §5.2 context-aware sign API from AMA v3.1.0+).
+- **SPHINCS+-SHA2-256f-simple** hash-based signatures plus the FIPS 205 SLH-DSA parameter family.
+- Hard-required at import time: there is no classical RSA / ECDSA fallback in `pqc_backends.py`. Set `AMA_REQUIRE_REAL_PQC=true` to refuse to start when the AMA native C library is missing; otherwise a `PQCProductionWarning` surfaces in development and the import gate documents the degraded posture.
 
 **Rust Cryptographic Module** (`rust_crypto/`):
 - AES-256-GCM and ChaCha20-Poly1305 AEAD encryption
