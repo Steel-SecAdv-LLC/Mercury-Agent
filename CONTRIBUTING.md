@@ -4,8 +4,8 @@
 
 | Property | Value |
 |----------|-------|
-| Document Version | 2.5 |
-| Last Updated | 2026-05-19 |
+| Document Version | 2.6 |
+| Last Updated | 2026-05-22 |
 | Classification | Public |
 | Maintainer | Steel Security Advisors LLC |
 | Applies to | Mercury Agent v1.7.x |
@@ -314,9 +314,34 @@ pytest tests/detectors/ -v
 
 ### Test Coverage Requirements
 
-- **Minimum coverage:** 85% for new code
-- **Target coverage:** 90% overall
-- **Core modules:** 95% coverage (fusion, detectors, models)
+Two thresholds matter and they do different things:
+
+- **Merge gates (blocking).** CI enforces a measured floor on every
+  PR:
+  - `COVERAGE_THRESHOLD_CORE = 25 %` on the curated core-tests lane
+    (see `.github/workflows/ci.yml` for the file selection).
+  - `COVERAGE_THRESHOLD_FULL = 50 %` on the full ml-tests lane
+    (which runs the entire `tests/` tree with the AMA Cryptography
+    native build).
+  These floors are deliberately positioned below the most recent
+  measured baseline (CORE ≈ 31.9 % combined stmt+branch; FULL
+  ≈ 59.8 % lines on the 2026-05-17 main-branch nightly) so CI noise
+  and dataset-availability flakes do not produce false PR failures
+  while still surfacing real coverage regressions.  **Do not lower
+  these floors back toward the historical 10/15 values to unblock
+  unrelated work** — they document a non-regression guarantee.
+
+- **Aspirational target (non-blocking).** `pyproject.toml
+  [tool.coverage.report]` sets `fail_under = 85`, the long-term
+  quality bar for the full suite.  PRs that move the measured
+  number toward this target are welcome; PRs that move it away from
+  this target without a stated reason will be questioned in review.
+
+New code in a PR should at minimum not regress the relevant lane
+floor.  PRs that add a new module under `src/omni_mercury_engine/`
+should also include unit tests for the new surface — review will
+flag missing tests, but the merge gate is the lane floor, not a
+per-file percentage.
 
 ### Writing Tests
 
@@ -458,7 +483,8 @@ Brief description of changes.
 - [ ] Documentation updated
 - [ ] Tests added/updated
 - [ ] All tests pass
-- [ ] Coverage >= 85%
+- [ ] Coverage does not regress the lane floors (CORE >= 25 %,
+      FULL >= 50 %) and trends toward the 85 % aspirational target
 - [ ] Security scan clean
 
 ## Testing
@@ -522,7 +548,9 @@ class NewEngineModel(BaseModel):
 - [ ] Type hints on all methods
 - [ ] Docstrings on all public methods
 - [ ] Cyclomatic complexity <10 per function
-- [ ] Unit tests with >= 85% coverage
+- [ ] Unit tests covering the new surface (the merge gate is the
+      core / full lane floor; per-file coverage is reviewed
+      qualitatively, not enforced)
 - [ ] Integration test with fusion network
 - [ ] Example script in `examples/`
 
@@ -575,6 +603,7 @@ Contributors will be recognized in:
 | 2.3.0 | 2026-02-21 | Updated to v1.5.1, fixed test directory references, aligned with CI |
 | 2.4.0 | 2026-05-05 | Updated to v1.6.x, added Wave B dual-gate hard ethics, AMA Cryptography sole PQC backend, pickle/training-data removal, TODO discipline |
 | 2.5.0 | 2026-05-19 | Updated to v1.6.x / v1.7 development cycle. Added v1.7 do-not-restore items (SafeHTTPClient `allow_untrusted`, MockLLMAdapter silent fallback, `security/` vs `compliance/` boundary). Linked medical / drone / compliance integration-ready contracts. |
+| 2.6.0 | 2026-05-22 | Replaced aspirational 85 / 90 / 95 % coverage claims with the actual measured-floor merge gates (CORE 25 %, FULL 50 %) plus the 85 % aspirational target.  Aligned the PR-template and new-engine checklists with the same posture. |
 
 ---
 

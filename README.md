@@ -770,7 +770,7 @@ Optimized for both accuracy and interpretability:
 | Hybrid Fusion Network | **Complete** | Multi-head attention, ensemble averaging |
 | Bias Detection | **Complete** | Fairlearn metrics, built-in fallback |
 | Input Validation | **Complete** | OWASP-compliant, SQL/XSS/injection detection |
-| JWT Authentication | **Complete** | PyJWT with proper validation |
+| JWT Authentication | **Complete** | Native stdlib `omni_mercury_engine.security.native_jwt` (HS256/HS384/HS512); HS256+HS512 route through AMA Cryptography v3.2.0 ACVP-validated HMAC when available |
 | Property Testing | **Complete** | Hypothesis-based test suite |
 | Post-Quantum Crypto | **Complete** | AMA Cryptography (sole PQC backend) |
 | Real-Data Validation | **Pending** | Requires MIMIC-III, NSL-KDD datasets |
@@ -1185,7 +1185,7 @@ python scripts/run_ablation.py \
     --timeout 1800
 ```
 
-Exit codes: `0` success · `2` config not found · `3` Lyapunov gate failed (experiment not launched) · `4` no `run_command` declared · `124` `--timeout` exceeded (GNU `timeout(1)` convention).  Results are always written as JSON so downstream tooling can diff against historical baselines without re-parsing logs.
+Exit codes: `0` success · `2` config not found or `--timeout` invalid (no JSON report; absence of the output file is the explicit "no run attempted" signal for pollers) · `3` Lyapunov gate failed, experiment not launched (JSON report **is** written with the failed certificate's `computed_lambda` / `claimed_lambda` so CI dashboards can render the diagnosis) · `4` no `run_command` declared (JSON report written) · `124` `--timeout` exceeded, GNU `timeout(1)` convention (JSON report written with `run_timed_out=true`).  Process-group isolation is enforced via `start_new_session=True` + `os.killpg` so shell-spawned grandchildren are reaped on timeout (POSIX); Windows uses the documented weaker `Popen.terminate()` fallback.
 
 </details>
 
@@ -1260,12 +1260,15 @@ The test suite includes:
   some test modules are gated behind those imports).
 - **Property-based testing** with Hypothesis for edge case discovery
 - **Security scanning** with Bandit integrated in CI/CD
-- **Coverage tracking**: regenerated per release via
-  `pytest --cov=src/omni_mercury_engine --cov-report=term`. Historical
-  internal target is ≥85% across core modules; the headline number
-  should be re-measured rather than asserted on a stale badge.
+- **Coverage tracking**: the merge gate enforces measured floors
+  (CORE ≥ 25 %, FULL ≥ 50 %) on every PR; `pyproject.toml
+  [tool.coverage.report] fail_under = 85` is the long-term
+  aspirational target.  Coverage is regenerated per release via
+  `pytest --cov=src/omni_mercury_engine --cov-report=term`; do not
+  assert a percentage from this README — re-measure on the head of
+  `main`.
 
-**New Test Suites (v1.4.0):**
+**Notable Test Suites (historical, v1.4.x → v1.6.x):**
 - `test_enhanced_anomaly_detection.py`: 38+ tests for enhanced statistical methods, cross-platform hub, ensemble coordination
 - `test_cortical_network.py`: 40+ tests for 6-layer cortical architecture
 - `test_statistical_real.py`: 30+ tests for Z-score, IQR, adaptive detection
@@ -1275,12 +1278,32 @@ The test suite includes:
 - `test_advanced_optimizers.py`: 50+ tests for SyntheticGradient/DTP/AMAV integration
 - `test_mercury_amacrypto.py`: 60+ tests for AMA Cryptography PQC adapter and EWMA timing monitor
 
-**Test Suite Stabilization (v1.6.0 Patch):**
+**v1.7 development-cycle additions:**
+- `tests/security/test_native_jwt.py` + `tests/security/test_native_jwt_ama_routing.py`: 46 tests pinning the native JWT module (HS256/HS512 byte-equivalence with stdlib, RFC 4231 KAT, AMA-routing vs stdlib-fallback interoperability, `alg: none` rejection).
+- `tests/security/test_cve_2026_6357_regression.py`: regression guard for the pip CVE-2026-6357 floor across every install path in CI.
+- `tests/security/test_nist_fips_kat.py`: NIST FIPS 203/204/205 ACVP-Server KAT vectors verified bit-for-bit (ML-DSA-65 deterministic sigGen, ML-KEM-1024 decapsulation, SLH-DSA-SHAKE-128s sigGen).
+- `tests/tools/test_lyapunov_validator.py` + `tests/tools/test_lyapunov_reconciliation.py`: pin the executable Lyapunov certificate against documentation drift and against `LyapunovConstants.LAMBDA_CONVERGENCE`.
+- `tests/scripts/test_check_readme_lyapunov.py` + `tests/scripts/test_run_ablation.py` + `tests/scripts/test_run_hardware_benchmark.py`: lock the ISO Hardening operator-tool surface (drift gate, ablation runner pre-gate, hardware harness throughput math).
+- `tests/api/test_server_comprehensive.py::TestLifespanWarmup`: 4 tests pinning the API warmup lifespan (wiring, success path, internal-failure swallowing, TestClient lifecycle).
+- `tests/datasets/test_unreachable_loaders_{offline,network}.py`: two-lane reachability harness for the 11 datasets whose upstream sources are not currently fetchable.
+- `tests/validation/test_synthetic_policy_gate.py`: locks the `MERCURY_ALLOW_SYNTHETIC` policy gate across every loader that previously exposed a `use_synthetic` kwarg bypass.
+
+**Test Suite Stabilization (v1.6.0 Patch — historical):**
 - Fixed 100+ test failures caused by missing FastAPI dependency, uninitialized federation attributes, and unreachable synthetic data thresholds
 - All fixes are minimal and targeted — no unnecessary refactoring
 
-**Ethics Scoring Notes:**
-Ethics tests (e.g., in `test_ai_ethics.py`) use keyword-based scoring with boosts. For example, compassion scoring uses a base of 0.55 with a +0.1 boost when 'backup' is present in parameters. For robustness, consider switching to boolean flags in future iterations—current implementation awards points for keyword presence in stringified params.
+**Ethics Scoring (`test_ai_ethics.py`):**
+
+The legacy heuristic ethics tests use keyword-presence scoring against
+stringified action parameters — for example, the compassion check awards
+a base 0.55 plus a +0.1 boost when `create_backup` appears in the
+serialised params.  The dual hard ethical gate contract (Benevolence
++ σ_Immutable, raising `EthicalConstraintViolationError(check=…)` at
+every public detect / analyze / predict surface) is the production
+decision-boundary and is exercised by
+`tests/ethical/test_hard_enforcement.py`; the keyword tests are
+retained for backward compatibility with the v1.x heuristic surface
+and should not be read as the operative ethics contract.
 
 </details>
 
@@ -1305,7 +1328,7 @@ GitHub Actions enforce the following gates on every pull request and push to `ma
 | `ci.yml` | Docs Build | yes | Sphinx build of the narrative docs |
 | `iso-hardening.yml` | Docs λ Drift Gate | yes | `scripts/check_readme_lyapunov.py` -- canonical λ = 0.25 across docs |
 | `iso-hardening.yml` | Examples Parity | yes | `examples/*.py` must run end-to-end and emit known markers |
-| `iso-hardening.yml` | Load Tests | yes | k6 smoke + locust headless against the live API, SLO p95 < 500 ms |
+| `iso-hardening.yml` | Load Tests | yes | k6 smoke + locust headless against the live API with FastAPI lifespan warmup + CI warmup loop, SLO `p(95) < 500 ms` on detection endpoints, `p(99) < 150 ms` on `/health` |
 | `iso-hardening.yml` | ISO Hardening Success | yes | Rollup of the three gates above (single required status check) |
 | `security.yml` | Container/SAST scan | yes | Trivy + Semgrep with deterministic SARIF categories |
 | `pqc-production-check.yml` | PQC Production Readiness | yes | KAT vectors, NIST FIPS ACVP-Server vectors, real AMA Cryptography build |
@@ -1331,11 +1354,12 @@ GitHub Actions enforce the following gates on every pull request and push to `ma
 | Layer | Protection |
 |-------|------------|
 | Input Validation | OWASP-compliant SQL/XSS/injection detection |
-| Authentication | JWT with proper expiration and signature verification |
-| Cryptography | ML-DSA-65/Kyber-1024/SPHINCS+ via AMA Cryptography |
-| Rust Crypto | AES-256-GCM, ChaCha20-Poly1305, BLAKE3, Argon2id via PyO3 (see `rust_crypto/`) |
-| Rate Limiting | Token bucket algorithm with configurable limits |
-| Secret Detection | detect-secrets in pre-commit hooks |
+| Authentication | Native stdlib JWT (`security/native_jwt.py`) with constant-time HMAC verification; `alg: none` rejected by construction; HS256/HS512 route through AMA Cryptography v3.2.0 ACVP-validated HMAC when available |
+| Post-Quantum Cryptography | ML-DSA-65 (FIPS 204 §5.2), ML-KEM-1024 / Kyber-1024 (FIPS 203), SLH-DSA-SHAKE-128s + legacy SPHINCS+-SHA2-256f-simple (FIPS 205); sole backend = AMA Cryptography v3.2.0 (hard-required under `AMA_REQUIRE_REAL_PQC=true`) |
+| Classical Cryptography | AES-256-GCM, ChaCha20-Poly1305, BLAKE3, Argon2id via Rust + PyO3 (`rust_crypto/`); constant-time comparisons |
+| Rate Limiting | Token bucket algorithm with configurable limits (100 req/min, 20 burst by default) |
+| Secret Detection | `detect-secrets` in pre-commit hooks |
+| PII Masking | Automatic redaction in logs (email, phone, SSN, card, IP, Bearer tokens, generic secret-key patterns) |
 
 See [SECURITY.md](SECURITY.md) for complete security analysis.
 
@@ -1607,7 +1631,7 @@ bandit -r src/
 |----------|-----------|
 | Python | PEP 8, type hints, docstrings |
 | Security | OWASP validation, no hardcoded secrets |
-| Testing | 85% code coverage target |
+| Testing | CI floors: CORE ≥ 25 %, FULL ≥ 50 % (measured); aspirational target 85 % (`[tool.coverage.report] fail_under = 85`) |
 | Ethics | Fairlearn bias auditing on all ML models |
 
 </details>
@@ -1724,10 +1748,12 @@ The **GlobalOmniScalarNetwork (GOSNN)** is the intelligence fusion hub aggregati
 
 The **AMA Cryptography adapter** provides post-quantum cryptographic security with GOSNN synapse integration:
 
-**PQC Algorithms:**
-- **Kyber-1024**: Post-quantum key encapsulation (NIST Level 5)
-- **ML-DSA-65 (Dilithium)**: Post-quantum digital signatures (192-bit quantum security)
-- **EWMA/MAD Timing Monitor**: <2% overhead anomaly detection
+**PQC Algorithms** (sourced from AMA Cryptography v3.2.0):
+- **ML-KEM-1024 / Kyber-1024**: Post-quantum key encapsulation, FIPS 203, NIST Level 5
+- **ML-DSA-65 (Dilithium-3)**: Post-quantum digital signatures, FIPS 204 §5.2 (context-aware deterministic signing), NIST Level 3 (≈ 192-bit classical security strength)
+- **SLH-DSA-SHAKE-128s / SHA2-256f**: Hash-based digital signatures, FIPS 205, NIST Level 1 / Level 5 respectively
+- **SPHINCS+-SHA2-256f-simple**: Legacy pre-FIPS-205 hash-based signatures, retained for backward compatibility
+- **EWMA/MAD Timing Monitor**: <2% overhead crypto-operation anomaly detection
 
 **Correctness evidence (in-repo, measured-and-published):**
 - **Known-Answer Tests:** `tests/security/test_ama_kat.py` pins
@@ -1766,9 +1792,21 @@ from omni_mercury_engine.integrations.mercury_amacrypto import create_ama_crypto
 
 adapter = create_ama_cryptography_adapter(gosnn_synapse_enabled=True)
 if adapter.is_available():
-    keypair = adapter.generate_dilithium_keypair()
+    keypair = adapter.generate_dilithium_keypair()  # cached on the adapter
+    # ``private_key=None`` uses the cached secret_key from above; pass an
+    # explicit ``private_key=keypair.secret_key`` if you manage your own
+    # key lifecycle.
     signature = adapter.sign_dilithium(message)
 ```
+
+The lower-level functional surface (no GOSNN coupling, no timing
+monitor) lives in `omni_mercury_engine.security.pqc_backends`:
+`generate_dilithium_keypair`, `dilithium_sign`, `dilithium_verify`,
+`generate_kyber_keypair`, `kyber_encapsulate`, `kyber_decapsulate`,
+`generate_sphincs_keypair`, `sphincs_sign`, `sphincs_verify`, and the
+FIPS 205 parameter-driven `slhdsa_*` family.  Use the adapter for
+operator workflows; use the functional surface for one-shot
+cryptography in tests, scripts, and library code.
 
 </details>
 
@@ -2061,7 +2099,14 @@ the Free Software Foundation, either version 3 of the License, or
 - **Fairlearn**: MIT license
 - **Hypothesis**: MPL 2.0 license
 - **FastAPI**: MIT license
-- **PyJWT**: MIT license
+- **AMA Cryptography**: GNU GPL v3.0 (pinned to `v3.2.0`; the sole PQC backend, and the source of the ACVP-validated native HMAC bindings consumed by `omni_mercury_engine.security.native_jwt`)
+
+PyJWT was retired from the dependency surface in v1.7.0; Mercury now
+ships a pure-stdlib JOSE implementation
+(`omni_mercury_engine.security.native_jwt`) with constant-time
+signature verification and `alg: none` rejected by construction.  The
+full rationale is documented in `CHANGELOG.md` under the 2026-05-20
+"Permanent supply-chain remediations" entry.
 
 ### Dependency Graph
 

@@ -42,8 +42,11 @@ import argparse
 import math
 import re
 import sys
-from collections.abc import Iterable, Sequence
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Sequence
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 

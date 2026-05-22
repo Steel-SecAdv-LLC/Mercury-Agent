@@ -140,9 +140,9 @@ api = [
     # ``omni_mercury_engine.security.native_jwt`` HS256 implementation
     # (pure stdlib) to retire the upstream-disputed PYSEC-2025-183 /
     # CVE-2025-45768 advisory from the audited supply chain.  No
-    # third-party JWT library is required at runtime; see
-    # ``docs/SECURITY.md`` ("Permanent supply-chain
-    # remediations") for the rationale.
+    # third-party JWT library is required at runtime; see the
+    # 2026-05-20 "Permanent supply-chain remediation" entry in
+    # ``CHANGELOG.md`` for the rationale.
 ]
 
 # SOTA anomaly detection models (TranAD, MAAT, etc.)
@@ -204,8 +204,9 @@ streaming = [
 #
 # ``joblib`` removed in v1.7.0: ``ParallelExecutor`` now uses
 # :mod:`concurrent.futures` from the stdlib, retiring the
-# upstream-disputed PYSEC-2024-277 / CVE-2024-34997 advisory.  See
-# ``docs/SECURITY.md`` for the supply-chain rationale.
+# upstream-disputed PYSEC-2024-277 / CVE-2024-34997 advisory.  See the
+# 2026-05-20 "Permanent supply-chain remediation" entry in
+# ``CHANGELOG.md`` for the supply-chain rationale.
 optimization = [
     "psutil>=7.2.2",
 ]
@@ -933,6 +934,11 @@ ignore = [
 "__init__.py" = ["F401"]
 "benchmarks/**/*.py" = ["S102", "S108", "S310", "S607", "PTH100", "C408", "PLR1722", "F841", "B015", "SIM118", "B006"]
 "docs/**/*.py" = ["RUF015"]
+# scripts/persist_benchmark_to_pr.py: every urllib.urlopen call targets the
+# hardcoded ``GITHUB_API = "https://api.github.com"`` constant defined at
+# module top-level; no user input is interpolated into the scheme/host, so
+# S310's "audit URL open for permitted schemes" finding does not apply.
+"scripts/persist_benchmark_to_pr.py" = ["S310"]
 # S310: urlopen calls use TrustedEndpoints class with hardcoded HTTPS URLs
 # TrustedEndpoints.validate_url() provides SSRF protection via domain allowlist
 "src/omni_mercury_engine/datasets/*.py" = ["S310"]

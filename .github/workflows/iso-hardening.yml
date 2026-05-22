@@ -207,6 +207,38 @@ jobs:
           fi
           exit 1
 
+      - name: Warm up API endpoints before load measurement
+        # The FastAPI lifespan hook in ``omni_mercury_engine.api.server``
+        # already drives an in-process detection round before /health
+        # returns 200, but that warmup runs synchronously inside the
+        # same uvicorn worker that just imported torch + sklearn.  On
+        # GHA's ``ubuntu-latest`` SKUs the first *out-of-process* POST
+        # (Python validator → numpy SIMD dispatch resolution → Pydantic
+        # response serialization → uvicorn JSON encode) still incurs
+        # a one-time 200-400 ms tail because the cold-start cost is
+        # shared between the lifespan hook and the first external
+        # caller.  Running 5 detection + 5 health round-trips here
+        # before k6 starts measuring guarantees the smoke-run sample
+        # window only contains warm requests, which is the right
+        # behaviour for an SLO regression gate: we are measuring
+        # steady-state latency, not first-call cold-start.
+        #
+        # Each call is silenced (-fsS) so a non-200 response surfaces
+        # via curl's exit code rather than being swallowed.  The
+        # heredoc emits a deterministic 16-sample series so the
+        # warmup is reproducible across runs.
+        run: |
+          set -euo pipefail
+          warmup_payload='{"data": [1.0, 2.1, 1.5, 1.9, 2.3, 1.7, 2.0, 1.8, 2.2, 1.6, 1.9, 2.4, 1.5, 2.1, 1.8, 2.0], "sensitivity": 0.5}'
+          for i in 1 2 3 4 5; do
+            curl -fsS "$MERCURY_API_HOST/health" > /dev/null
+            curl -fsS -X POST \
+              -H "Content-Type: application/json" \
+              -d "$warmup_payload" \
+              "$MERCURY_API_HOST/api/v1/detect/univariate" > /dev/null
+          done
+          echo "Warmup complete: 5 health + 5 univariate-detect round-trips"
+
       - name: Run k6 smoke test
         run: |
           set -euo pipefail
@@ -214,9 +246,16 @@ jobs:
           # Override the scenarios in the file with a CI-sized smoke
           # run (constant 1 VU for 30 s); the in-file thresholds still
           # apply and k6 exits non-zero when they are breached.
+          #
+          # ``--quiet`` suppresses k6's progress bar so the GHA log
+          # stays diff-friendly across reruns.  ``--summary-export``
+          # is still the supported way to emit a machine-readable
+          # summary in k6 0.5x; the deprecation warning printed to
+          # stderr is informational.
           k6 run \
             --vus 1 \
             --duration 30s \
+            --quiet \
             --summary-export=artifacts/k6_summary.json \
             tests/load/k6_load_test.js
 

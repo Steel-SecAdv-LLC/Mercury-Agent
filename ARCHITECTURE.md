@@ -1,6 +1,6 @@
 # Mercury Agent Architecture
 
-Applies to Mercury Agent **v1.7.x**. Last updated: 2026-05-20.
+Applies to Mercury Agent **v1.7.x**. Last updated: 2026-05-22.
 
 ## Overview
 
@@ -1137,7 +1137,7 @@ The Mercury Agent successfully integrates **22+ detection engines** with **11 in
 - ✅ Optional distributed computing support (AsyncMessageQueue, PubSub)
 - ✅ NIST SP 800-53 compliance (AC-2, AU-2, SC-13, SI-4)
 - ✅ Windows compatibility guidance (WSL, pre-built wheels, VS Build Tools)
-- ✅ Research-grade with **6,300+ tests across 276 test files**; CI enforces per-job hard coverage floors via `--cov-fail-under` flags in `.github/workflows/ci.yml` (`COVERAGE_THRESHOLD_CORE=15` for the core subset, `COVERAGE_THRESHOLD_FULL=35` for the full suite — set just below the 36.03% interim measured baseline); `.coveragerc` intentionally does not set `fail_under` (so partial-suite jobs like `neuro-symbolic-tests` do not silently inherit a floor designed for a different coverage shape); `pyproject.toml [tool.coverage.report] fail_under=85` remains the strict aspirational target for the planned coverage push.
+- ✅ Research-grade with **~5,100 tests collected** on a minimal install (verified by `pytest --collect-only -q` 2026-05-03); the surface grows to **6,000+ collected** once the `[ml]` / `[api]` extras are present.  CI enforces per-job hard coverage floors via `--cov-fail-under` flags in `.github/workflows/ci.yml`: `COVERAGE_THRESHOLD_CORE = 25` on the curated core lane and `COVERAGE_THRESHOLD_FULL = 50` on the full suite (each set roughly 10 points below the most recent measured baseline so CI noise + dataset-availability flakes do not produce false PR failures).  `.coveragerc` intentionally does not set `fail_under` (so partial-suite jobs like `neuro-symbolic-tests` do not silently inherit a floor designed for a different coverage shape); `pyproject.toml [tool.coverage.report] fail_under = 85` remains the strict aspirational target.
 
 ### Infrastructure Monitoring Achievements:
 - ✅ **11 specialized modules** organized by impact theme (resilience, cyber, humanitarian, economic, scientific)
@@ -1169,9 +1169,13 @@ The Mercury Agent successfully integrates **22+ detection engines** with **11 in
   ocean, quantum_computing, resilience, safeguards, scaling,
   security, space, streaming, tools, utils, validation)
 - **~280,950 LOC** in `src/omni_mercury_engine/` (492 source files)
-- **276 test files / 6,300+ test functions** under `tests/`
-- **Coverage:** measured per release — see CI artefact, not a hard
-  pinned percentage
+- **~310 test modules** under `tests/`, ~5,100 tests collected on a
+  minimal install (~6,000+ once `[ml]` / `[api]` extras are present);
+  see the README "Testing and Quality Assurance" section for the exact
+  collection methodology.
+- **Coverage:** measured per release — see the per-PR coverage report
+  artefacts, not a stale pinned percentage. CI merge gates enforce
+  CORE ≥ 25 % / FULL ≥ 50 %; the aspirational target is 85 %.
 - **Documentation:** 29 markdown files at the project surface
   (top-level + `docs/` + ancillary READMEs)
 - **Optimization experiments:** logged under `benchmarks/`

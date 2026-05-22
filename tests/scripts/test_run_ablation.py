@@ -143,6 +143,14 @@ def test_timeout_kills_runaway_subprocess(tmp_path: Path) -> None:
     assert payload["run_timeout_s"] == 0.5
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason=(
+        "POSIX-only contract: process-group isolation relies on "
+        "start_new_session + os.killpg, which are unavailable on Windows. "
+        "Windows uses Popen.terminate() with the documented weaker guarantee."
+    ),
+)
 def test_timeout_kills_orphaned_grandchild(tmp_path: Path) -> None:
     """Process-group isolation: shell-spawned grandchildren must be reaped.
 
@@ -157,11 +165,7 @@ def test_timeout_kills_orphaned_grandchild(tmp_path: Path) -> None:
     no YAML-quoted code) so the test's failure mode is unambiguous:
     a leftover sentinel proves the orphan survived.
     """
-    import platform
     import time
-
-    if platform.system() == "Windows":  # pragma: no cover - POSIX-only contract
-        return
 
     sentinel = tmp_path / "grandchild.sentinel"
     cfg = tmp_path / "ok.yaml"

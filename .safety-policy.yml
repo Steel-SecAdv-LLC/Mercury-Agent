@@ -5,12 +5,14 @@
 # schedule so that CI can hard-fail on NEW vulnerabilities while allowing
 # known, risk-assessed exceptions through.
 #
-# Last Updated: 2026-05-02 (PR #148 — confirms documentation-only role
-#   alongside .safety-policy-v2.yml shim and per-CVE CLI ignore flags
-#   driven by docs/SECURITY.md; OS-level acceptances below
-#   continue to be enforced by Trivy via .trivyignore)
+# Last Updated: 2026-05-22 (PR #238 — refreshed cross-references after
+#   `docs/SECURITY.md` was retired per owner directive; the Python-package
+#   gate runs with zero risk acceptance and the OS-level acceptances
+#   below remain enforced by Trivy via `.trivyignore`.  Per-CVE
+#   rationale that previously lived in `docs/SECURITY.md` is now tracked
+#   under the dated security entries in `CHANGELOG.md`.)
 # Reviewed By: Steel Security Advisors LLC
-# Next Review: 2026-08-02 (quarterly; aligned with docs/SECURITY.md)
+# Next Review: 2026-08-02 (quarterly)
 #
 # Reference: https://docs.safetycli.com/safety-docs/policy-file
 
