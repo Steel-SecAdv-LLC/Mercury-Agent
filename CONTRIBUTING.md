@@ -575,6 +575,7 @@ Contributors will be recognized in:
 | 2.3.0 | 2026-02-21 | Updated to v1.5.1, fixed test directory references, aligned with CI |
 | 2.4.0 | 2026-05-05 | Updated to v1.6.x, added Wave B dual-gate hard ethics, AMA Cryptography sole PQC backend, pickle/training-data removal, TODO discipline |
 | 2.5.0 | 2026-05-19 | Updated to v1.6.x / v1.7 development cycle. Added v1.7 do-not-restore items (SafeHTTPClient `allow_untrusted`, MockLLMAdapter silent fallback, `security/` vs `compliance/` boundary). Linked medical / drone / compliance integration-ready contracts. |
+| 2.6.0 | 2026-05-22 | Re-tracked Applies-to header against the cut v1.7.0 release (was lagging at "v1.7 development cycle" prose). Reconciled AMA Cryptography pin to the v3.2.0 validated surface used by CI's `AMA_REF` and the `[pqc]` extra. |
 
 ---
 

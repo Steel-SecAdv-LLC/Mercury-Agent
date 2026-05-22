@@ -19,35 +19,43 @@ from __future__ import annotations
 """
 Mercury Agent - Post-Quantum Cryptography Backends
 
-AMA Cryptography v2.0 is the sole PQC implementation.
+AMA Cryptography is the sole PQC implementation. The validated upstream
+surface is pinned to ``v3.2.0`` (matching the production PQC gate's
+``AMA_REF`` and the ``[pqc]`` extra in ``pyproject.toml``); ``v3.1.0+``
+is required for the FIPS 204 §5.2 ctx-aware ML-DSA-65 sign path and the
+FIPS 205 SLH-DSA-SHAKE-128s surface, and ``v3.2.0+`` for the native
+HMAC-SHA-256 / HMAC-SHA-512 bindings consumed by ``security/ama_hmac.py``.
 
-Previous versions used a 4-tier fallback chain (AMA → liboqs → pqcrypto →
-SIMULATION).  As of this version Mercury **hard-requires** AMA Cryptography
-and the fallback chain has been removed entirely.  AMA v2.0 carries its own
-native C backend — it *is* the implementation.  Retaining weaker fallbacks
-only widened the attack surface.
+Previous Mercury versions used a 4-tier fallback chain (AMA → liboqs →
+pqcrypto → SIMULATION). Mercury now **hard-requires** AMA Cryptography
+and the fallback chain has been removed entirely. AMA carries its own
+native C backend — it *is* the implementation. Retaining weaker
+fallbacks only widened the attack surface.
 
 SECURITY NOTICE
 ===============
 Backend audit status:
 
-| Backend            | Status                        | Recommendation           |
-|--------------------|-------------------------------|--------------------------|
-| AMA Cryptography   | Community-tested, NOT audited | Development/Testing      |
+| Backend          | Status                        | Recommendation                           |
+|------------------|-------------------------------|------------------------------------------|
+| AMA Cryptography | Community-tested, NOT audited | Production (sole backend, hard-required) |
 
 For production deployments requiring compliance:
-- Obtain independent security audit of chosen backend
-- Consider FIPS 140-2 Level 3+ HSM for master secrets
-- Document risk acceptance for unaudited cryptographic code
+- Obtain an independent security audit of the AMA Cryptography native
+  C library.
+- Consider FIPS 140-2 Level 3+ HSM for master secrets.
+- Document risk acceptance for unaudited cryptographic code.
 
-The algorithms (ML-DSA-65, Kyber-1024, SPHINCS+) are NIST-approved.
-Implementation correctness is NOT externally verified.
+The algorithms (ML-DSA-65, Kyber-1024, SPHINCS+ / SLH-DSA-SHAKE-128s)
+are NIST-approved (FIPS 203 / 204 / 205). Implementation correctness
+is NOT externally verified.
 
 References:
     - NIST PQC Standardization: https://csrc.nist.gov/projects/post-quantum-cryptography
     - AMA Cryptography: https://github.com/Steel-SecAdv-LLC/AMA-Cryptography
-    - Dilithium: https://pq-crystals.org/dilithium/
-    - Kyber: https://pq-crystals.org/kyber/
+    - ML-DSA / Dilithium: https://pq-crystals.org/dilithium/
+    - ML-KEM / Kyber:     https://pq-crystals.org/kyber/
+    - SLH-DSA / SPHINCS+: https://sphincs.org/
 """
 
 import logging
@@ -96,7 +104,9 @@ try:
     DILITHIUM_AVAILABLE = _AMA_DILITHIUM
     KYBER_AVAILABLE = _AMA_KYBER
     SPHINCS_AVAILABLE = _AMA_SPHINCS
-    logger.info("AMA Cryptography v2.0 PQC backend loaded (sole backend)")
+    logger.info(
+        "AMA Cryptography PQC backend loaded (sole backend; pinned surface v3.2.0)"
+    )
 except ImportError:
     logger.warning(
         "AMA Cryptography is not installed. Post-quantum cryptography features "

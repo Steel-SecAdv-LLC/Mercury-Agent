@@ -109,9 +109,26 @@ GITHUB_API = "https://api.github.com"
 USER_AGENT = "mercury-agent-benchmark-bot"
 
 
+def _assert_github_api_url(url: str) -> None:
+    """Defence-in-depth gate matching the per-file S310 suppression.
+
+    Both urlopen sites in this module construct their URL by concatenating
+    ``GITHUB_API`` with a caller-supplied ``path``; the only way the
+    resulting URL could escape ``https://api.github.com/`` is if ``path``
+    contains a scheme/netloc (e.g. ``//evil.example/...``). Enforcing the
+    prefix here makes that impossible at runtime and lets ruff's S310
+    suppression remain narrow and reviewable.
+    """
+    if not url.startswith(f"{GITHUB_API}/"):
+        raise RuntimeError(
+            f"refusing to open non-GitHub-API URL via urllib: {url!r}"
+        )
+
+
 def _api(method: str, path: str, token: str, payload: dict[str, Any] | None = None) -> Any:
     """Issue a GitHub REST API call and return parsed JSON (or {} on 204)."""
     url = f"{GITHUB_API}{path}"
+    _assert_github_api_url(url)
     data = json.dumps(payload).encode("utf-8") if payload is not None else None
     headers = {
         "Authorization": f"Bearer {token}",
@@ -122,9 +139,9 @@ def _api(method: str, path: str, token: str, payload: dict[str, Any] | None = No
     if data is not None:
         headers["Content-Type"] = "application/json"
 
-    req = urllib.request.Request(url, data=data, method=method, headers=headers)
+    req = urllib.request.Request(url, data=data, method=method, headers=headers)  # noqa: S310
     try:
-        with urllib.request.urlopen(req) as resp:
+        with urllib.request.urlopen(req) as resp:  # noqa: S310
             body = resp.read()
             if not body:
                 return {}
@@ -300,17 +317,18 @@ def enable_automerge(owner: str, repo: str, pr_number: int, merge_method: str, t
         "variables": {"pr": pr_node_id, "method": merge_method.upper()},
     }
     url = f"{GITHUB_API}/graphql"
+    _assert_github_api_url(url)
     headers = {
         "Authorization": f"Bearer {token}",
         "User-Agent": USER_AGENT,
         "Accept": "application/json",
         "Content-Type": "application/json",
     }
-    req = urllib.request.Request(
+    req = urllib.request.Request(  # noqa: S310
         url, data=json.dumps(payload).encode("utf-8"), method="POST", headers=headers
     )
     try:
-        with urllib.request.urlopen(req) as resp:
+        with urllib.request.urlopen(req) as resp:  # noqa: S310
             body = json.loads(resp.read())
         if "errors" in body:
             print(f"  Auto-merge enable failed: {body['errors']}", file=sys.stderr)

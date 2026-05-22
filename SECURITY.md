@@ -11,11 +11,11 @@ minor lines reach end-of-life when a new minor is published; users are
 expected to upgrade promptly. Critical CVEs may be back-ported to the
 immediately previous line at the maintainers' discretion.
 
-| Version | Status               | Security updates |
-| ------- | -------------------- | ---------------- |
-| 1.6.x   | **Current**          | :white_check_mark: |
-| 1.5.x   | Previous (EOL on next minor) | Critical CVEs only |
-| < 1.5   | End-of-life          | :x:              |
+| Version | Status                          | Security updates    |
+| ------- | ------------------------------- | ------------------- |
+| 1.7.x   | **Current**                     | :white_check_mark:  |
+| 1.6.x   | Previous (EOL on next minor)    | Critical CVEs only  |
+| < 1.6   | End-of-life                     | :x:                 |
 
 ## Reporting a Vulnerability
 
@@ -240,13 +240,17 @@ Accepted risks are reviewed quarterly. As of the 2026-05-19 review, documented a
 
 Mercury Agent runs **two complementary CVE gates** on every PR:
 
-| Tier | Tool | Scope | Source of truth |
-|------|------|-------|-----------------|
-| Python-package | `safety check` (v3.7.0) + `pip-audit` (v2.10.0) | Editable install (`pip install -e ".[api]"`) | [`docs/SECURITY.md`](docs/SECURITY.md) |
-| Deployment-image | Trivy | Built Docker image (full runtime + OS) | [`.trivyignore`](.trivyignore) |
+| Tier             | Tool                                              | Scope                                            | Source of truth                                |
+|------------------|---------------------------------------------------|--------------------------------------------------|------------------------------------------------|
+| Python-package   | `safety check` (v3.7.0) + `pip-audit` (v2.10.0)   | Editable install (`pip install -e ".[api]"`)    | [`.safety-policy.yml`](.safety-policy.yml)     |
+| Deployment-image | Trivy                                             | Built Docker image (full runtime + OS)           | [`.trivyignore`](.trivyignore)                 |
 
-Both gates must be GREEN for any PR to merge. See `docs/SECURITY.md`
-for the per-CVE rationale and 90-day re-review cadence.
+Both gates must be GREEN for any PR to merge. The Python-package
+rationale lives in `.safety-policy.yml` and `.safety-policy-v2.yml`;
+the deployment-image rationale (per-CVE acceptance notes, 90-day
+re-review cadence) lives in `.trivyignore`. The previous
+`docs/SECURITY.md` ledger has been retired — its accepted-risk content
+is now the table above plus the per-CVE notes in `.trivyignore`.
 
 ## Security Audits
 
@@ -319,5 +323,7 @@ We thank the security researchers who have helped improve Mercury Agent's securi
 
 ---
 
-*Last Updated: 2026-05-20*
+*Last Updated: 2026-05-22*
 *Version: 1.7.0*
+*AMA Cryptography pin: v3.2.0 (validated surface used by CI's
+`AMA_REF: v3.2.0` and the production PQC gate)*

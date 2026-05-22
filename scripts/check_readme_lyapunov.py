@@ -37,13 +37,16 @@ import math
 import re
 import sys
 from pathlib import Path
-from typing import Iterable, List, Sequence, Tuple
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Sequence
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:  # pragma: no cover - import bootstrap
     sys.path.insert(0, str(_REPO_ROOT))
 
-from omni_mercury_engine.core.centralized_constants import LYAPUNOV  # noqa: E402
+from omni_mercury_engine.core.centralized_constants import LYAPUNOV
 
 # Regex patterns -- each must contain ONE capturing group for the
 # numeric λ value.  Patterns are evaluated against each line of each
@@ -51,7 +54,7 @@ from omni_mercury_engine.core.centralized_constants import LYAPUNOV  # noqa: E40
 # Lyapunov-context λ mention; the test in
 # tests/tools/test_check_readme_lyapunov.py exercises the script
 # end-to-end so additions are validated automatically.
-_LYAPUNOV_PATTERNS: Tuple[re.Pattern[str], ...] = (
+_LYAPUNOV_PATTERNS: tuple[re.Pattern[str], ...] = (
     # "convergence rate λ=0.25"
     re.compile(r"convergence rate\s*[`']?\s*[λΛ]\s*=\s*([0-9]*\.?[0-9]+)"),
     # "λ=0.25" / "lambda = 0.25" inline math (must be near "Lyapunov")
@@ -64,7 +67,7 @@ _LYAPUNOV_PATTERNS: Tuple[re.Pattern[str], ...] = (
 # to be considered a Lyapunov claim.  This prevents false positives on
 # unrelated mentions of λ (e.g. the uncertainty-fusion λ in
 # ``core/fusion.py``).
-_CONTEXT_TOKENS: Tuple[str, ...] = (
+_CONTEXT_TOKENS: tuple[str, ...] = (
     "Lyapunov",
     "lyapunov",
     "stability envelope",
@@ -83,16 +86,16 @@ def _line_has_context(lines: Sequence[str], idx: int) -> bool:
     return any(tok in window for tok in _CONTEXT_TOKENS)
 
 
-def find_lambda_claims(text: str) -> List[Tuple[int, str, float]]:
+def find_lambda_claims(text: str) -> list[tuple[int, str, float]]:
     """Yield ``(line_no, line_text, claimed_lambda)`` triples.
 
     Only matches in a Lyapunov stability context are returned.
     Line numbers are 1-based.
     """
     lines = text.splitlines()
-    results: List[Tuple[int, str, float]] = []
+    results: list[tuple[int, str, float]] = []
     for i, line in enumerate(lines):
-        seen_spans: set[Tuple[int, int]] = set()
+        seen_spans: set[tuple[int, int]] = set()
         for pat in _LYAPUNOV_PATTERNS:
             for m in pat.finditer(line):
                 span = m.span(1)
@@ -111,9 +114,9 @@ def find_lambda_claims(text: str) -> List[Tuple[int, str, float]]:
 
 def check_files(
     files: Iterable[Path], canonical: float, tol: float = 1e-9
-) -> List[str]:
+) -> list[str]:
     """Return a list of human-readable mismatch messages (empty == OK)."""
-    errors: List[str] = []
+    errors: list[str] = []
     for path in files:
         if not path.exists():
             errors.append(f"{path}: file not found")

@@ -58,7 +58,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from tools.lyapunov_validator import (  # noqa: E402  (path setup above)
+from tools.lyapunov_validator import (
     validate_lyapunov_from_config,
     validate_quadratic,
 )

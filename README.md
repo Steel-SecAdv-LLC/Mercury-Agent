@@ -32,7 +32,7 @@
               |                                                                               |
               |   LAYER 3: Ethics        |   LAYER 2: ML/AI        |   LAYER 1: Security      |
               |   -------------------    |   -------------------   |   -------------------    |
-              |   Benevolence >= 0.99    |   Fusion Network        |   Kyber768/Dilithium3    |
+              |   Benevolence >= 0.99    |   Fusion Network        |   Kyber-1024/ML-DSA-65   |
               |   Lyapunov Stability     |   Ensemble Averaging    |   JWT Authentication     |
               |   Civilization-First     |   Property Testing      |   Rate Limiting          |
               |                                                                               |
@@ -45,7 +45,7 @@
 **Contact:** steel.sa.llc@gmail.com
 **License:** GNU General Public License v3.0
 **Version:** v1.7.0
-**Date:** 2026-05-20
+**Date:** 2026-05-22
 **AI Co-Architects:** Eris ✠ | Eden ♱ | Devin ⚛︎ | Claude ⊛
 
 ---
@@ -72,7 +72,7 @@ The framework embodies a **Civilization-First** philosophy, prioritizing ethical
 > This ensures the code and all future improvements remain free and open source forever, even if used by corporations or governments.
 >
 > **Status:** Research-grade | Community-tested | Not externally audited
-> **Last Updated:** 2026-05-20
+> **Last Updated:** 2026-05-22
 >
 
 ---
@@ -699,7 +699,7 @@ Mercury Agent addresses all three challenges through:
 
 - **Unified Framework**: 18+ detection engines under a single hybrid fusion architecture covering medical, security, space, infrastructure, and environmental domains
 - **Ethical Governance**: Fairlearn bias detection with demographic parity, equalized odds, and 80% rule enforcement; 180+ ethical scalars with Lyapunov stability
-- **Production Security**: OWASP-compliant input validation, post-quantum cryptography support (Kyber768, Dilithium3), JWT authentication, rate limiting
+- **Production Security**: OWASP-compliant input validation, NIST-standardised post-quantum cryptography (ML-KEM / Kyber-1024 key encapsulation, ML-DSA-65 digital signatures, SLH-DSA-SHAKE-128s / SPHINCS+ stateless hash signatures) via the AMA Cryptography native backend; native JWT authentication; token-bucket rate limiting
 
 ### Target Use Cases
 
@@ -721,7 +721,7 @@ See [Use Cases by Sector](#use-cases-by-sector) for detailed scenarios.
 
 | Layer | Protection | Components |
 |-------|------------|------------|
-| 1. Core Infrastructure | Security foundation | Kyber768/Dilithium3 PQC, JWT auth, OWASP validation |
+| 1. Core Infrastructure | Security foundation | Kyber-1024 / ML-DSA-65 / SPHINCS+ PQC (NIST FIPS 203/204/205) via AMA Cryptography, native JWT auth, OWASP input validation |
 | 2. ML/AI Pipeline | Detection intelligence | 18+ engines, hybrid fusion, multi-head attention |
 | 3. Ethical Governance | Fairness assurance | Fairlearn bias audit, 180+ ethical scalars, Lyapunov stability |
 
@@ -809,7 +809,7 @@ Optimized for both accuracy and interpretability:
 
 - **Threat Detection**: SQL injection, XSS, path traversal detection with pattern matching and ML classification
 - **Intelligence Fusion**: 13-source fusion (OSINT, SIGINT, HUMINT, GEOINT) with bias-aware aggregation
-- **Cyber Fortress**: Hash integrity verification, quantum-resistant validation with Kyber768/Dilithium3
+- **Cyber Fortress**: Hash integrity verification, quantum-resistant validation with Kyber-1024 / ML-DSA-65 (AMA Cryptography native backend)
 - **Traffic Analysis**: Encrypted traffic anomaly detection with privacy-preserving techniques
 
 </details>
@@ -843,45 +843,55 @@ Optimized for both accuracy and interpretability:
 ## Performance Metrics
 
 <details>
-<summary><strong>Latency Benchmarks</strong></summary>
+<summary><strong>Latency &amp; Throughput &mdash; reproducibility-first</strong></summary>
 
-| Configuration | CPU Latency | GPU Latency (RTX 4090) |
-|---------------|-------------|------------------------|
-| Full (22+ engines) | ~500ms | ~50ms |
-| Standard | ~250ms | ~25ms |
-| Fast (statistical only) | ~100ms | ~10ms |
+Mercury Agent treats performance numbers as **reproducible artifacts**,
+not marketing assertions. The previous "Full / Standard / Fast" latency
+table and the per-operation throughput table cited figures from a single
+2026-01-27 synthetic-data run on a non-disclosed host with no
+environment fingerprint &mdash; that does not meet the v1.7 hardware-harness
+contract, so the tables have been retired.
 
-*Benchmarks: Synthetic data, Python 3.12, Ubuntu 22.04. Real-world performance may vary 20-40%.*
+Performance numbers cited anywhere in Mercury documentation must now be
+regenerated with the deterministic hardware harness shipped in v1.7:
+
+```bash
+# Per scripts/run_hardware_benchmark.py &mdash; deterministic, fingerprinted,
+# JSON-out for diffing against historical baselines.
+python scripts/run_hardware_benchmark.py \
+    --config configs/lyapunov_canonical.yaml \
+    --iters 5000 --warmup 500 \
+    --out artifacts/hwbench.json
+```
+
+The JSON report pairs every measured `mean_s` / `ops_per_sec` with an
+`environment` block (Python, NumPy, platform, CPU count, CPU affinity)
+so two runs are *only* comparable when those fields match. See
+[`docs/HARDWARE_HARNESS.md`](docs/HARDWARE_HARNESS.md) for the
+operating procedure, CI integration pattern, and dedicated-hardware
+guidance for numbers that will be quoted in release notes.
+
+A separate **load-test smoke gate** (`.github/workflows/iso-hardening.yml`
+&rarr; `load-tests` job) exercises the API surface (`/health`,
+`/api/v1/detect/univariate`, `/api/v1/detect/multivariate`) under k6 and
+locust with a CI-sized envelope; thresholds are calibrated for the 1-VU
+30-second smoke run rather than reused from a 50-VU production shape.
+
+### Memory footprint (component-level, order-of-magnitude)
+
+The figures below are order-of-magnitude estimates derived from each
+component's `torch.nn.Module` parameter count &mdash; not measured RSS &mdash;
+and are useful only for **sizing**, not for capacity planning. Run the
+hardware harness above against your own workload for a measured number.
+
+| Component                | Approximate footprint |
+|--------------------------|-----------------------|
+| Harmonic Encoder         | ~10 MB                |
+| Fusion Network           | ~50 MB                |
+| DeepFace (VGG-Face)      | ~200 MB               |
+| Full Runtime (with `[ml]`) | ~500 MB             |
 
 </details>
-
-<details>
-<summary><strong>Memory Footprint</strong></summary>
-
-| Component | Memory |
-|-----------|--------|
-| Harmonic Encoder | ~10 MB |
-| Fusion Network | ~50 MB |
-| DeepFace (VGG-Face) | ~200 MB |
-| Full Runtime | ~500 MB |
-
-</details>
-
-<details>
-<summary><strong>Module Performance</strong></summary>
-
-| Operation | Latency | Throughput |
-|-----------|---------|------------|
-| Module Instantiation (1) | 0.020ms | 49,932 ops/sec |
-| Module Instantiation (12) | 0.057ms | 17,697 ops/sec |
-| Space Exploration | 0.206ms | 2,919,469 samples/sec |
-| Cosmic Ray Detection | 0.324ms | 3,081,781 samples/sec |
-| Collatz Exploration | 67.07ms | 74,544 cases/sec |
-
-*Module performance benchmarks measured on synthetic data (2026-01-27). Results may vary by hardware.*
-
-</details>
-
 
 ---
 
@@ -1535,14 +1545,18 @@ Mercury Agent employs a comprehensive security architecture designed for product
 - Signature verification
 - Rate limiting (token bucket algorithm)
 
-**Post-Quantum Cryptography**:
-- Kyber768 key encapsulation
-- Dilithium3 digital signatures
-- Classical fallback for compatibility
+**Post-Quantum Cryptography** (NIST-standardised, AMA Cryptography native backend, validated surface pinned to `v3.2.0`):
+- **Kyber-1024 / ML-KEM-1024** (FIPS 203, NIST Level 5) key encapsulation
+- **ML-DSA-65 / Dilithium3** (FIPS 204) digital signatures, with FIPS 204 §5.2 context-aware signing on AMA ≥ v3.1.0
+- **SLH-DSA-SHAKE-128s / SPHINCS+** (FIPS 205, NIST Level 1) stateless hash-based signatures on AMA ≥ v3.1.0
+- Hard-required at import: there is no classical fallback chain. Set `AMA_REQUIRE_REAL_PQC=true` to fail-closed when the native C library is missing; without it Mercury emits a `PQCProductionWarning` and continues with degraded posture so development environments stay usable.
 
 **Rust Cryptographic Module** (`rust_crypto/`):
 - AES-256-GCM and ChaCha20-Poly1305 AEAD encryption
-- BLAKE3 hashing (6.5x faster than Python `cryptography`)
+- BLAKE3 hashing (Rust implementation; speedup over `hashlib` /
+  `cryptography` is workload-dependent and is *not* asserted here.
+  Rerun the hardware harness on your input distribution before
+  quoting a number)
 - Argon2id key derivation
 - Constant-time comparisons (timing-attack resistant)
 - Python bindings via PyO3; build with `maturin develop`
@@ -1605,10 +1619,11 @@ The **GlobalOmniScalarNetwork (GOSNN)** is the intelligence fusion hub aggregati
 
 The **AMA Cryptography adapter** provides post-quantum cryptographic security with GOSNN synapse integration:
 
-**PQC Algorithms:**
-- **Kyber-1024**: Post-quantum key encapsulation (NIST Level 5)
-- **ML-DSA-65 (Dilithium)**: Post-quantum digital signatures (192-bit quantum security)
-- **EWMA/MAD Timing Monitor**: <2% overhead anomaly detection
+**PQC Algorithms** (NIST-standardised, via AMA Cryptography native backend, validated surface pinned to `v3.2.0`):
+- **Kyber-1024 / ML-KEM-1024** (FIPS 203): post-quantum key encapsulation (NIST Level 5)
+- **ML-DSA-65** (FIPS 204): post-quantum digital signatures (~192-bit classical-equivalent quantum security category)
+- **SLH-DSA-SHAKE-128s / SPHINCS+** (FIPS 205): stateless hash-based signatures (NIST Level 1) on AMA &ge; v3.1.0
+- **EWMA/MAD Timing Monitor**: per-call timing anomaly detector for the PQC adapter; overhead is measured per-deployment with the hardware harness rather than asserted globally
 
 **Correctness evidence (in-repo, measured-and-published):**
 - **Known-Answer Tests:** `tests/security/test_ama_kat.py` pins
@@ -1694,14 +1709,23 @@ autonomy = compute_ethical_autonomy(
 </details>
 
 <details>
-<summary><strong>Advanced Optimizers</strong> - 2-3x Training Speedup</summary>
+<summary><strong>Advanced Optimizers</strong></summary>
 
-The **OmniFusionModel** now supports advanced optimizers for accelerated training:
+The **OmniFusionModel** supports three advanced optimisers for
+gradient-decoupled or biologically-plausible training. Per-workload
+speedup over standard backprop is dataset- and architecture-dependent;
+the hardware harness (`scripts/run_hardware_benchmark.py`) is the
+canonical way to measure it for a given configuration. The "2-3&times;
+speedup" claim previously quoted here was unsourced and has been
+retired.
 
 **Optimizer Types:**
-- **SyntheticGradient**: Decoupled layer updates for 2-3x speedup
-- **DifferenceTargetPropagation (DTP)**: Biologically plausible learning
-- **AuxiliaryMaxVariance (AMAV)**: Multi-task loss with variance maximization
+- **SyntheticGradient**: decoupled layer updates &mdash; trades a fast
+  synthetic-gradient predictor for end-to-end backprop synchronisation
+- **DifferenceTargetPropagation (DTP)**: target-propagation learning
+  rule with biological-plausibility framing
+- **AuxiliaryMaxVariance (AMAV)**: multi-task auxiliary loss with
+  variance-maximisation regularisation
 
 **Training Integration:**
 ```python
@@ -1712,14 +1736,17 @@ stats = model.train_with_advanced_optimizers(
     optimizer_type="synthetic_gradient",  # or "dtp", "amav", "all"
     epochs=300,
     track_lyapunov=True,
-    lambda_lyapunov=0.25
+    lambda_lyapunov=0.25,
 )
 ```
 
 **Convergence Metrics:**
-- Lyapunov stability tracking (λ=0.25)
-- Speedup factor estimation
-- Loss convergence monitoring
+- Lyapunov stability tracking (canonical &lambda;=0.25 from
+  `configs/lyapunov_canonical.yaml`, gated by
+  `scripts/check_readme_lyapunov.py` &mdash; any drift in this number is
+  a CI failure)
+- Per-epoch loss convergence and validation-AUC tracking
+- Optional per-iteration timing for hardware-harness comparison
 
 </details>
 
@@ -2028,12 +2055,12 @@ The human architect does not hold formal credentials in machine learning or medi
 
 ### What We Did Right
 
-- **Standards-based design:** Built on OWASP security guidelines, NIST PQC standards, Fairlearn fairness metrics
-- **Quantified claims:** All performance metrics are measured and documented with methodology
-- **Comprehensive testing:** 5,900+ tests with property-based testing and security scanning
-- **Transparent limitations:** Documentation explicitly distinguishes validated vs. pending claims
-- **Ethical governance:** Fairlearn bias auditing integrated throughout the ML pipeline
-- **Academic grounding:** Medical modules reference JAMA guidelines, security follows OWASP
+- **Standards-based design:** Built on OWASP security guidelines, NIST FIPS 203/204/205 post-quantum standards, and Fairlearn fairness metrics
+- **Reproducible claims:** Every performance number cited in docs must be regeneratable with `scripts/run_hardware_benchmark.py` (see [`docs/HARDWARE_HARNESS.md`](docs/HARDWARE_HARNESS.md)); benchmark headline numbers are pinned to a JSON artifact (`benchmarks/mercury_benchmark_results.json`) committed back from CI on every push to `main`
+- **Comprehensive testing:** ~5,100 tests collected across 258 test files in a minimal install (`pytest --collect-only`), growing when the optional ML extras are installed; property-based fuzzing via Hypothesis; Bandit + Safety + pip-audit + Trivy security gates on every PR
+- **Transparent limitations:** Documentation explicitly distinguishes validated vs. pending claims, and the Lyapunov &lambda; drift gate (`scripts/check_readme_lyapunov.py`) refuses any prose change that contradicts the canonical value
+- **Ethical governance:** Fairlearn bias auditing integrated throughout the ML pipeline; two hard ethical gates (Benevolence &ge; 0.99 and &sigma;<sub>Immutable</sub>) at every public detect/analyze/predict surface
+- **Academic grounding:** Medical modules reference JAMA Sepsis-3 / Framingham guidance, security follows OWASP, compliance integrators cover NIST CSF 2.0 and FIRST.org TLP 2.0
 
 ### What Requires Caution
 
@@ -2073,6 +2100,6 @@ THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE AUTHORS AND 
 
 </div>
 
-*Last updated: 2026-05-05*
+*Last updated: 2026-05-22*
 
 </div>

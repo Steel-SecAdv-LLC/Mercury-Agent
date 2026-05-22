@@ -24,11 +24,12 @@ It delegates all cryptographic operations to AMA while providing Mercury-
 specific ergonomics (security-level selection, audit-trail packaging, GOSNN
 scalar integration).
 
-Capabilities gained through AMA v2.0:
+Capabilities gained through the validated AMA Cryptography surface
+(pinned to ``v3.2.0``):
 - AES-256-GCM authenticated encryption
 - 6-layer crypto packages (hash + HMAC + Ed25519 + ML-DSA-65 + HKDF + RFC 3161)
 - Ethical HKDF context binding
-- Cython-accelerated math (18-37x speedup when native C library is built)
+- Cython-accelerated math (18-37× speedup when native C library is built)
 
 Security Levels:
 - CLASSICAL: Ed25519/RSA (fast, widely supported)

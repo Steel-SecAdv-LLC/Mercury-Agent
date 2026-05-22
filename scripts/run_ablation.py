@@ -41,16 +41,19 @@ import json
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict, Sequence
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:  # pragma: no cover - import bootstrap
     sys.path.insert(0, str(_REPO_ROOT))
 
-from tools.lyapunov_validator import validate_lyapunov_from_config  # noqa: E402
+from tools.lyapunov_validator import validate_lyapunov_from_config
 
 
-def _write_result(out_path: Path, result: Dict[str, Any]) -> None:
+def _write_result(out_path: Path, result: dict[str, Any]) -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(result, indent=2, sort_keys=True))
 
@@ -102,7 +105,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
 
     valid, details = validate_lyapunov_from_config(cfg_path)
-    result: Dict[str, Any] = {
+    result: dict[str, Any] = {
         "config": str(cfg_path),
         "lyapunov_valid": bool(valid),
         "lyapunov_details": details,

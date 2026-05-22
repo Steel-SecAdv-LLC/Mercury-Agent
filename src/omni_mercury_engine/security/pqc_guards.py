@@ -20,13 +20,15 @@ from __future__ import annotations
 Post-Quantum Cryptography Production Guards
 
 Ensures PQC environment is properly configured for production use.
-AMA Cryptography v2.0 is the sole PQC backend — there are no fallbacks.
+AMA Cryptography is the sole PQC backend — there are no fallbacks.
+The validated upstream surface is pinned to ``v3.2.0`` (matching the
+CI ``AMA_REF`` and the ``[pqc]`` extra in ``pyproject.toml``).
 
-Mercury Agent hard-requires AMA Cryptography.  If the package is not
+Mercury Agent hard-requires AMA Cryptography. If the package is not
 installed, ``pqc_backends`` will raise ``ImportError`` at module load.
 These guards verify that the *native C library* inside AMA is built so
-that real PQC algorithms (ML-DSA-65, Kyber-1024, SPHINCS+) are available
-at runtime.
+that real PQC algorithms (ML-DSA-65, ML-KEM-1024 / Kyber-1024,
+SLH-DSA-SHAKE-128s / SPHINCS+) are available at runtime.
 """
 
 import logging
