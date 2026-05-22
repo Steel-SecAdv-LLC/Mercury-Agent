@@ -25,7 +25,7 @@ Applies to Mercury Agent **v1.7.x**. Last updated: 2026-05-20.
 | `omni_mercury_engine.utils.profiling` | CPU / memory / wall-clock profiling decorators | [`PROFILING.md`](PROFILING.md) |
 | `omni_mercury_engine.security.safe_http` | SSRF / DNS-rebinding defence layer | [`DATASOURCES.md`](DATASOURCES.md), [`MIGRATION-1.6-to-1.7.md`](MIGRATION-1.6-to-1.7.md) §1 |
 | `omni_mercury_engine._env` | `MERCURY_ENV` production-mode primitive | [`MIGRATION-1.6-to-1.7.md`](MIGRATION-1.6-to-1.7.md) §3 |
-| `omni_mercury_engine._pqc_gate` | Import-time PQC production gate | [`SECURITY.md`](../SECURITY.md), [`INSTALLATION.md`](INSTALLATION.md) |
+| `omni_mercury_engine._pqc_gate` | Import-time PQC production gate | [`SECURITY.md`](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/SECURITY.md), [`INSTALLATION.md`](INSTALLATION.md) |
 
 ---
 

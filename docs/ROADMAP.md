@@ -1,6 +1,36 @@
 # Mercury Agent - Strategic Engineering Roadmap
 
-Applies to Mercury Agent **v1.7.x**. Last updated: 2026-05-20.
+Applies to Mercury Agent **v1.7.x**. Last updated: 2026-05-21.
+
+## v1.7.x Deferred Items (consolidated)
+
+The following items are deliberately deferred past the v1.7.0 release
+cut. Each row names the surface, the precise gap, and the locking
+artifact that pins behaviour today so a future PR cannot regress the
+contract while the feature is built out.
+
+| # | Surface | Gap | Locked by |
+|---|---------|-----|-----------|
+| 1 | σ_Immutable Wave C — narrative voice + federation | `narrative/voice.py::{speak, process_detection, alert}` and `federation/aggregator.py::{submit, aggregate}` + `federated_learning/server.py::_execute_round` do not run the σ_Immutable dual-gate; adding it requires an interface review. | `tests/ethical/test_hard_enforcement.py` pins the dual-gate at the three existing boundary surfaces (engine, orchestrator, neurosymbolic hub). |
+| 2 | AMA HMAC-SHA-384 binding (HS384 path) | AMA Cryptography v3.2.0 ships HMAC-SHA-256 + HMAC-SHA-512 in C with Python bindings; HMAC-SHA-384 is not yet implemented. `native_jwt` routes HS384 through stdlib `hmac` until upstream lands the binding. | `tests/security/test_native_jwt_ama_routing.py::TestSigningBackendSurface::test_hs384_is_always_stdlib`. |
+| 3 | VLM detector surface | `detectors/vlm/base_vlm.py` — five abstract methods (`_initialize_model`, `_create_prompt`, `_parse_response`, `detect`, `extract_features`) raise `NotImplementedError`. Strategic decision (2026-05): keep native detectors; do not ship BLIP/GPT adapters. To be marked experimental or removed. | None — strategic-decision row; future PR removes or re-classifies the surface. |
+| 4 | Visual base detector | `detectors/visual/base_visual.py` — three abstract methods (`fit`, `detect`, `extract_features`) raise `NotImplementedError`. Aggressive native-detector improvement is the chosen path. | Same as #3. |
+| 5 | GOSNN coupling wired into FL aggregator training loop | `federated_learning.gosnn_coupling.{GOSNNCouplingServer, GOSNNCouplingClient}` already implement the bidirectional `client → server → client` round-trip (publish / ingest / aggregate / receive with HMAC-protected digests), but `FederatedServer._execute_round` in `federated_learning/server.py` does not invoke them — it consumes `client.train_round()`’s `LocalUpdate` and never routes weights through the GOSNN coupling protocol. | `tests/federated/test_no_silent_failure.py::test_gosnn_bidirectional_round_trip_two_clients` (plus the idempotent / shape-mismatch / digest-corruption companions) pins the bidirectional coupling contract today; the forward PR that wires `_execute_round` to `GOSNNCoupling{Server,Client}` must extend the same test file with a round that drives the aggregator path end-to-end so the integration cannot regress silently. |
+| 6 | Intersectional fairness metrics | Bias audits currently measure marginal demographic parity only — no `(race, gender)`-style joint subgroup metrics. | No `tests/fairness/` directory exists today; a forward PR creates it. |
+| 7 | Concrete `AttentionProvider` implementation | `AttentionProvider` ABC exists in `gosnn_optimizer.py`; no concrete provider is wired to a real attention surface. Placeholder is deterministic-seed + `logger.warning()`. | `tests/core/test_gosnn_placeholder_cures.py` pins the placeholder warning path; a real provider must arrive with its own regression suite. |
+| 8 | Mutation testing on σ_Immutable hot path | No `mutmut` / `cosmic-ray` configuration in `pyproject.toml`; no workflow runs mutation tests. The σ_Immutable hot path lives in `src/omni_mercury_engine/security/{sigma_immutable_gate.py, sigma_immutable_corpus.py}`. | None — net-new gate. |
+| 9 | Lyapunov-stability benchmark for σ_Immutable hard-gate under sustained load | No empirical benchmark validates the `V̇ ≤ -λV` Lyapunov claim. `configs/ablation_3r_lyapunov.yaml` references `scripts/run_ablation.py` which does not exist. README references λ at three different values (0.25, 0.18, 0.13) — constants need reconciliation against the benchmark when authored. | None — net-new benchmark. |
+| 10 | `tests/load/` wired into CI | `tests/load/{k6_load_test.js, locustfile.py}` exists but no workflow invokes them. | None — net-new CI workflow. |
+| 11 | Examples-parity CI | No workflow asserts `examples/*.py` runs end-to-end. | None — net-new CI workflow. |
+| 12 | `tests/loaders/` + `tests/narrative/` graduate to strict mypy lane | Both directories are not yet in `ci.yml`'s strict-mypy invocation (`tests/datasets/`, `tests/ethical/`, `tests/safeguards/` are). Files need full annotations first. | `.github/workflows/ci.yml` job `type-checking` step "Run MyPy strict on graduated test directories". |
+| 13 (closed) | Core coverage floor bump 15 → 25 | **CLOSED in v1.7.x.** Core lane expanded to include `tests/detectors/`, `tests/ml/`, `tests/datasets/`, `tests/api/`, `tests/automl/`, plus 13 root-level `test_*.py` additions. Measured combined stmt+branch coverage on the expanded lane is ≥25 % with a several-point cushion. | `.github/workflows/ci.yml` env `COVERAGE_THRESHOLD_CORE: 25` + the per-job `--cov-fail-under` flag in the `core-tests` job. |
+
+Items 1, 2, 3, 4, 5, 6, 7 also appear as status rows in the capability
+table below — the rollup above is the single authoritative open-items
+list. When an item closes, update both the row above and the capability
+table in the same commit.
+
+---
 
 > **Capability status (2026-05-19 — replaces all prior status tables).**
 >
@@ -29,7 +59,7 @@ Applies to Mercury Agent **v1.7.x**. Last updated: 2026-05-20.
 > | 3 | Real Quantum Computing | ✓ | — | partial | `executor.py` defaults to `BackendType.SIMULATOR` and uses `AerSimulator`. Real-hardware path (IBM Quantum, IonQ) requires user credentials and is not exercised in CI. Treat as "simulated by default; real hardware untested in-tree." |
 > | 4 | Advanced Harmonics | ✓ | — | ✓ | `harmonics/analyzer.py`, `features.py`, `transform.py` are wired and exercised by the 21-probe ensemble and detector pipeline. |
 > | 5 | AutoML | ✓ | — | ✓ | `automl/optimizer.py`, `schedulers.py`, `search_space.py` (~1,135 LOC main file). `tests/automl/test_scheduler_completion.py` exercises the scheduler. Hyperparameter search wired into training loop. |
-> | 6 | Federated Learning | ✓ | ✓ | partial | `federated_learning/client.py`, `server.py`, `privacy.py` implemented. The 2026-03 in-tree audit (`docs/COMPREHENSIVE_REPO_AUDIT.md`) flags one-way GOSNN integration and conformal prediction failing silently with `confidence_intervals=None`; until those are closed, treat as partial. |
+> | 6 | Federated Learning | ✓ | ✓ | partial | `federated_learning/client.py`, `server.py`, `privacy.py` implemented. Treated as partial because GOSNN integration is one-way (aggregator → GOSNN scalar update has no reverse path) and conformal prediction in `core/gosnn_integration.py::GOSNNIntegration.detect()` previously returned `confidence_intervals=None` on failure — the silent path is closed by `ConformalMisconfigurationError` (see CHANGELOG), and the bidirectional feedback gap remains open. |
 > | 7 | Explainability | ✓ | — | ✓ | `explainability/shap.py`, `counterfactuals.py`, `gdpr_compliance.py` (~2,400 LOC combined). No `NotImplementedError`; design surface present. Pending broader test coverage but core paths run. |
 >
 > **Cross-cutting items not in the above seven, but tracked:**
@@ -38,8 +68,8 @@ Applies to Mercury Agent **v1.7.x**. Last updated: 2026-05-20.
 > |------------|:--------:|:-------:|:----------:|-------|
 > | Safe training-data loader (no pickle) | ✓ | — | ✓ | `omni_mercury_engine.security.safe_load` (added in `[Unreleased]`); 25 tests cover .npz validation, HMAC signing, tamper detection. Pickle code path **deleted** from the engine. |
 > | Pickle migration tool | ✓ | — | ✓ | `python -m omni_mercury_engine.tools.migrate_pkl`; 9 tests cover hardened-subprocess relaunch, schema validation, refusal-by-default. |
-> | VLM detectors | ✓ | ✓ | — | `detectors/vlm/base_vlm.py:184,205,219,250,264` — 5 abstract methods raise `NotImplementedError`. Strategic decision (2026-05): keep native detectors; do **not** ship BLIP/GPT adapters. Surface to be marked experimental or removed in v1.7. |
-> | Visual base detector | ✓ | ✓ | — | `detectors/visual/base_visual.py:294,312,326` — 3 abstract methods raise `NotImplementedError`. Aggressive native-detector improvement is the chosen path. |
+> | VLM detectors | ✓ | ✓ | — | `detectors/vlm/base_vlm.py` — five abstract methods (`_initialize_model`, `_create_prompt`, `_parse_response`, `detect`, `extract_features`) raise `NotImplementedError`. Strategic decision (2026-05): keep native detectors; do **not** ship BLIP/GPT adapters. Surface to be marked experimental or removed in v1.7. |
+> | Visual base detector | ✓ | ✓ | — | `detectors/visual/base_visual.py` — three abstract methods (`fit`, `detect`, `extract_features`) raise `NotImplementedError`. Aggressive native-detector improvement is the chosen path. |
 > | Ethics enforcement | ✓ | — | ✓ | Hard-enforced at the decision boundary (Phase 2 cure, May 2026; σ_Immutable promotion completed before v1.7.0 cut, Wave B Vector 2+4 closure shipped post-cut). `CognitiveOrchestrator.analyze`, `OmniMercuryEngine.detect_with_fusion`/`detect_with_fusion_calibrated`, and `NeuroSymbolicHub.predict` all raise `EthicalViolation` on benevolence-threshold violation via `BenevolenceScorer.enforce`; the `strict_ethics=False` flag is deprecated and ignored. The engine's boundary scorer is constructed eagerly at init so the first concurrent call cannot race the gate. σ_Immutable is trained (99.6% val_acc; weights at `src/omni_mercury_engine/security/sigma_immutable_weights.pt`) and is now a **second hard gate** at every boundary surface: `EthicalConstraintViolationError(check="sigma_immutable")` is raised on sub-threshold scalar vectors and `check="gosnn_unavailable"` is raised when GOSNN itself cannot run.  Every public boundary routes the caller-supplied `domain` through `omni_mercury_engine.cognitive.ethical_bounding.sanitize_domain` (canonical helper added in `[Unreleased]`) so a hostile / typo'd hint cannot inject harm or positive keywords into the scorer or audit surface, and `NeuroSymbolicHub.predict` pre-flights the σ_Immutable gate on empty batches (closing the silent no-op bypass identified in the v1.7 audit).  Decision-boundary contract documented in `src/omni_mercury_engine/ethical/__init__.py`. Regression suite: `tests/ethical/test_hard_enforcement.py` (covers both the BenevolenceScorer first-gate and the σ_Immutable / gosnn_unavailable second-gate at all three boundary surfaces plus the Wave B Vector 2+4 closures; wired into the `Neuro-Symbolic Tests` CI job — a benevolence- or σ_Immutable-threshold regression cannot merge silently).  **σ_Immutable Wave C — narrative voice (`narrative/voice.py::speak`, `process_detection`, `alert`) and federation (`federation/aggregator.py::submit`, `aggregate`, `federated_learning/server.py::_execute_round`) — is the next milestone after v1.7.0.**  Those subsystems do not currently carry σ_Immutable wiring; adding the same dual-gate (benevolence + σ_Immutable) without breaking the existing calling contract requires an interface review that was out of scope for the v1.7.0 release cut. |
 > | 21-probe Anomaly Math Arrest ensemble | ✓ | — | ✓ | Phase 2 audit complete (May 2026). All 21 probes are registered and fit-participate on representative corpora; `AnomalyMathArrest.detect` discriminates injected anomalies across `earthquake` / `tsunami` / `pandemic` / `marine` / `geomagnetic` / `default` domain affinity orderings. No live `IsolationForest` import or instantiation remains in `src/` — the only references are documentation strings explaining what the ensemble replaced. Regression suite: `tests/detectors/test_math_arrest_dominant_path.py` (11 tests). |
 > | FEMA Disaster loader label polarity | ✓ | — | ✓ | v1.7.0. `FEMADisasterLoader._select_anomaly_polarity` enforces the minority-as-anomaly convention used everywhere else in Mercury; the loader exposes `labels_inverted` so benchmark reporters can surface the flip alongside their AUC numbers. Closes the README "1 of the 64 (FEMA Disaster) is a known-broken loader" footnote item. Regression suite: `tests/datasets/test_disaster.py::TestFEMAInvertedScoresCorrection`. |
@@ -738,12 +768,14 @@ class MercuryAutoML:
 
 > **Status: Designed + Stubbed (partial Functional).**
 > `federated_learning/client.py`, `server.py`, and `privacy.py` are
-> implemented, but the 2026-03 in-tree audit
-> (`docs/COMPREHENSIVE_REPO_AUDIT.md`) flags one-way GOSNN integration
-> and conformal prediction failing silently with
-> `confidence_intervals=None`. Until those are closed, treat as
-> partial. The design below was written pre-implementation; actual API
-> may differ.
+> implemented. Two gaps keep this row at "partial": GOSNN integration
+> is one-way (aggregator → GOSNN scalar update has no reverse path),
+> and `core/gosnn_integration.py::GOSNNIntegration.detect()` previously
+> swallowed conformal failures into `confidence_intervals=None`. The
+> silent-failure path is closed via `ConformalMisconfigurationError`
+> (see CHANGELOG); the bidirectional-feedback gap is tracked in the
+> v1.7.x Deferred Items rollup at the top of this document. The
+> design below was written pre-implementation; actual API may differ.
 
 ### Current State
 - Centralized training only
@@ -1052,22 +1084,33 @@ class ExplainableAnomalyDetector:
 
 CI enforces two job-scoped coverage floors (set in `.github/workflows/ci.yml`):
 
-| Lane                       | v1.7.0 floor | Measured baseline (2026-05-17, run #1182 on `main`) | Headroom |
+| Lane                       | v1.7.x floor | Measured baseline | Headroom |
 |----------------------------|:------------:|:----------------------------------------------------:|:--------:|
-| `COVERAGE_THRESHOLD_FULL` (ML/full lane) | **50** | 59.84 % | ~9.8 pts |
-| `COVERAGE_THRESHOLD_CORE` (core lane)    | **15** | 16.62 % | ~1.6 pts |
+| `COVERAGE_THRESHOLD_FULL` (ML/full lane) | **50** | 59.84 % (2026-05-17, run #1182 on `main`) | ~9.8 pts |
+| `COVERAGE_THRESHOLD_CORE` (core lane)    | **25** | 31.87 % (expanded lane, 2026-05-21)       | ~6.9 pts |
 
 `.coveragerc` intentionally carries no `fail_under` — the gates are
 job-scoped only — and `pyproject.toml [tool.coverage.report] fail_under
 = 85` remains the strict aspirational nightly bar.
 
-The strengthening plan §5 P1 target is `CORE: 25 / FULL: 50`. `FULL`
-graduated to 50 in v1.7.0 because the 59.84 % baseline gives nearly
-ten points of cushion. `CORE` stays at 15 until a dedicated
-coverage pass for the core lane lands — bumping to 25 today would
-fail on the next push (the core lane runs a strictly smaller
-fraction of `src/` against the full source tree, and 16.62 % is the
-ceiling at the moment). The intended sequencing is:
+The strengthening plan §5 P1 target `CORE: 25 / FULL: 50` is complete.
+`FULL` graduated to 50 in v1.7.0; `CORE` graduated from 15 to 25 in
+v1.7.x once the core-lane runlist was widened in
+`.github/workflows/ci.yml` to include `tests/detectors/`, `tests/ml/`,
+`tests/datasets/`, `tests/api/`, `tests/automl/`, plus thirteen
+root-level `test_*.py` additions (full list in the `core-tests` job).
+`tests/security/` is intentionally **excluded** from the core lane —
+its `conftest.py` hard-fails collection unless `MERCURY_PQC_REAL_AMA`
+is set and the AMA Cryptography native build is provisioned, which is
+the lightweight core lane's explicit non-goal; that tree continues to
+run under the `ml-tests` and `Neuro-Symbolic Tests` jobs which carry
+the real-AMA install. The measured combined stmt+branch coverage on
+the expanded core lane (with `tests/security/` excluded) is well above
+the new 25 floor, with the per-job `--cov-fail-under` flag on the
+`core-tests` matrix locking that headroom. The `[api]` extras are now
+installed in the core lane so the API-surface tests collect cleanly.
+
+When raising the floor again, the sequencing is unchanged:
 
 1. Land core-lane tests for the highest-marginal-coverage modules
    identified in `coverage report --skip-covered --sort=cover`.
@@ -1075,7 +1118,7 @@ ceiling at the moment). The intended sequencing is:
 3. Bump `COVERAGE_THRESHOLD_CORE` to within ~1 pt of the new ceiling
    in the same commit.
 
-Do **not** lower either floor back toward 10 to unblock unrelated
+Do **not** lower either floor back toward 10/15 to unblock unrelated
 work — the floors document a non-regression guarantee, not a
 preference.
 

@@ -4,8 +4,11 @@ Copyright (C) 2025 Steel Security Advisors LLC
 
 Phase 2 audit cure: regression tests asserting mock fallbacks are gone.
 
-Every mock listed in COMPREHENSIVE_REPO_AUDIT.md §4 must now raise
-``NotImplementedError`` at construction instead of silently degrading.
+Every mock-mode adapter previously flagged by the 2026-03 in-tree audit
+(``MockLLMAdapter``, ``MockLVLMBackend``, the TimeGPT/Chronos/MatrixProfile
+mock modes, the BLIP "Mock implementation" branches, and the financial /
+weather stubs) must now raise ``NotImplementedError`` at construction
+instead of silently degrading.
 """
 
 from __future__ import annotations

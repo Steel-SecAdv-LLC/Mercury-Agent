@@ -272,7 +272,7 @@ expected schema.
 ## See also
 
 - [`docs/API_REFERENCE.md`](API_REFERENCE.md) — quick-import index.
-- [`SECURITY.md`](../SECURITY.md) — how Mercury Agent positions
+- [`SECURITY.md`](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/SECURITY.md) — how Mercury Agent positions
   itself against NIST / OWASP / CWE.
 - `CHANGELOG.md` "[Unreleased]" section — the full port narrative
   (PR #223 + #228) with line-level provenance.

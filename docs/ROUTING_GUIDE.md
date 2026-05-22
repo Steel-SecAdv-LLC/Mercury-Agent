@@ -33,7 +33,7 @@ Mercury Agent provides a flexible routing infrastructure for request handling, p
 > unconditionally regardless of `fail_fast`, so an ethical refusal
 > propagates out of the chain even when other failure modes are
 > still being absorbed. See the top-level
-> [`../ARCHITECTURE.md`](../ARCHITECTURE.md) §"Dual-Gate Hard
+> [`ARCHITECTURE.md`](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/ARCHITECTURE.md) §"Dual-Gate Hard
 > Ethical Enforcement" and [`MATH_SPEC.md`](MATH_SPEC.md) §2.1.5
 > for the full contract.
 

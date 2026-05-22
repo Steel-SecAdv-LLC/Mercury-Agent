@@ -4,7 +4,7 @@ Copyright (C) 2025 Steel Security Advisors LLC
 
 Phase 2 ITEM 3 regression: GOSNN placeholder cures.
 
-Pins three contracts called out by docs/COMPREHENSIVE_REPO_AUDIT.md:
+Pins three contracts called out by the 2026-03 in-tree audit:
 
 1. ``GOSNNOptimizer.optimize`` does NOT generate random attention
    tensors when no ``AttentionProvider`` is configured.  Instead it

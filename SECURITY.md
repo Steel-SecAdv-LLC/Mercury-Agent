@@ -242,10 +242,10 @@ Mercury Agent runs **two complementary CVE gates** on every PR:
 
 | Tier | Tool | Scope | Source of truth |
 |------|------|-------|-----------------|
-| Python-package | `safety check` (v3.7.0) + `pip-audit` (v2.10.0) | Editable install (`pip install -e ".[api]"`) | [`docs/PYTHON_DEP_CVE_AUDIT.md`](docs/PYTHON_DEP_CVE_AUDIT.md) |
+| Python-package | `safety check` (v3.7.0) + `pip-audit` (v2.10.0) | Editable install (`pip install -e ".[api]"`) | [`docs/SECURITY.md`](docs/SECURITY.md) |
 | Deployment-image | Trivy | Built Docker image (full runtime + OS) | [`.trivyignore`](.trivyignore) |
 
-Both gates must be GREEN for any PR to merge. See `docs/PYTHON_DEP_CVE_AUDIT.md`
+Both gates must be GREEN for any PR to merge. See `docs/SECURITY.md`
 for the per-CVE rationale and 90-day re-review cadence.
 
 ## Security Audits

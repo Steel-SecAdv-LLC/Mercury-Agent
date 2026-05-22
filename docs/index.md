@@ -16,7 +16,7 @@ for the post-quantum cryptographic substrate.
   mandatory hard ethical gates** — Benevolence, then σ_Immutable —
   and raises `EthicalConstraintViolationError(check=…)` on failure.
   There is no advisory mode. See the top-level
-  [`ARCHITECTURE.md`](../ARCHITECTURE.md) §"Dual-Gate Hard Ethical
+  [`ARCHITECTURE.md`](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/ARCHITECTURE.md) §"Dual-Gate Hard Ethical
   Enforcement" and [`MATH_SPEC.md`](MATH_SPEC.md) §2.1.5
   "σ_Immutable Hard Gate (Wave B, PR #179)".
 - **Sole PQC backend (with a soft import path for non-PQC dev).**
@@ -40,7 +40,7 @@ for the post-quantum cryptographic substrate.
   PQC stubs from `security/pqc_backends.py` carry development.
   `security/pqc_guards.check_pqc_production_readiness()` remains
   available for callers that want the same check at a finer
-  boundary. See [`SECURITY.md`](../SECURITY.md) for the full
+  boundary. See [`SECURITY.md`](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/SECURITY.md) for the full
   contract.
 - **Two distinct benchmark cuts.** The README headline is the
   **64/75 reproducibility set** (Mean AUC 0.8285, Mean Oracle F1
@@ -93,9 +93,7 @@ LIVE_DATA_VALIDATION
 ORACLE_NOISE_COLOR
 DEPLOYMENT
 ROADMAP
-PYTHON_DEP_CVE_AUDIT
-CROSS_DOMAIN_ANALYSIS
-COMPREHENSIVE_REPO_AUDIT
+SECURITY
 MIGRATION-1.6-to-1.7
 COMPLIANCE
 PROFILING

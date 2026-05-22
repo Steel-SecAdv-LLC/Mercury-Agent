@@ -155,15 +155,14 @@ def _ensure_index() -> Path:
         "ORACLE_NOISE_COLOR",
         "DEPLOYMENT",
         "ROADMAP",
-        "PYTHON_DEP_CVE_AUDIT",
-        "CROSS_DOMAIN_ANALYSIS",
+        "SECURITY",
     ]
     available = {p.stem: p for p in docs_root.glob("*.md") if p.name != "index.md"}
     entries = [name for name in ordered if name in available]
     # Append any markdown file we didn't explicitly list so we never
     # silently drop a doc surface from the index.
     for name in sorted(available):
-        if name not in entries and name != "COMPREHENSIVE_REPO_AUDIT":
+        if name not in entries:
             entries.append(name)
     body = [
         "# Mercury Agent Documentation",

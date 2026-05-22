@@ -130,7 +130,7 @@ api = [
     # (pure stdlib) to retire the upstream-disputed PYSEC-2025-183 /
     # CVE-2025-45768 advisory from the audited supply chain.  No
     # third-party JWT library is required at runtime; see
-    # ``docs/PYTHON_DEP_CVE_AUDIT.md`` ("Permanent supply-chain
+    # ``docs/SECURITY.md`` ("Permanent supply-chain
     # remediations") for the rationale.
 ]
 
@@ -194,7 +194,7 @@ streaming = [
 # ``joblib`` removed in v1.7.0: ``ParallelExecutor`` now uses
 # :mod:`concurrent.futures` from the stdlib, retiring the
 # upstream-disputed PYSEC-2024-277 / CVE-2024-34997 advisory.  See
-# ``docs/PYTHON_DEP_CVE_AUDIT.md`` for the supply-chain rationale.
+# ``docs/SECURITY.md`` for the supply-chain rationale.
 optimization = [
     "psutil>=7.2.2",
 ]

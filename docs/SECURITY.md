@@ -1,4 +1,8 @@
-# Python Dependency CVE Audit
+# Mercury Agent — Supply-Chain Security Posture
+
+> Source-of-truth ledger for Mercury Agent's Python supply chain.
+> The project-level vulnerability disclosure policy lives in the
+> top-level [`SECURITY.md`](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/SECURITY.md).
 
 **Audit Date:** 2026-05-20 (permanent supply-chain remediation; native re-implementation of pyjwt + joblib eliminates the last three open advisories with **zero risk acceptance**)
 **Next Review:** 2026-08-20 (90 days; quarterly cadence)
@@ -31,7 +35,7 @@ been resolved by either a direct upgrade or by a permanent
 supply-chain remediation (native re-implementation in Mercury's
 own source tree, eliminating the third-party dependency).  This is
 the "zero risk acceptance" posture documented in
-[`SECURITY.md`](../SECURITY.md): we do not carry waivers for
+[`SECURITY.md`](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/SECURITY.md): we do not carry waivers for
 disputed advisories, and we do not extend re-review windows
 indefinitely — we remove the exposed dependency instead.
 

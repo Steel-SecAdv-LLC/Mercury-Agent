@@ -136,10 +136,11 @@ advisories or accepting risk.
   `jwt` / `joblib` mypy override entries from
   `[[tool.mypy.overrides]]`.
 
-- **`docs/PYTHON_DEP_CVE_AUDIT.md`** deletes the three IGNORE rows
-  and replaces them with a "Permanent supply-chain remediations"
-  ledger documenting each removal, the in-tree replacement, the
-  commit, and the test that locks the remediation.
+- **`docs/SECURITY.md`** (the supply-chain posture ledger) deletes
+  the three IGNORE rows and replaces them with a "Permanent
+  supply-chain remediations" section documenting each removal, the
+  in-tree replacement, the commit, and the test that locks the
+  remediation.
 
 Verification on the isolated Mercury [api] install (42 packages,
 Python 3.12, 2026-05-20):
@@ -331,22 +332,19 @@ documentation:
   integrator, TLP 2.0 handler, OSHA / eCFR detector, drone anomaly
   detector, endocrinology detector, anesthesiology predictor,
   performance profiling toolkit).
-- **Updated: `docs/COMPREHENSIVE_REPO_AUDIT.md`** — resolution-status
-  banner extended with seven additional finding-themes resolved in
-  the v1.7 cycle.
 - **Updated: `docs/DATASOURCES.md`** — "Last verified" bumped to
   2026-05-19; v1.7 reachability harness and the 65/65 / 64/75 /
   51/55 benchmark trajectory reconciled.
-- **Updated: `docs/PYTHON_DEP_CVE_AUDIT.md`** — audit date /
-  next-review bumped (2026-05-19 → 2026-08-19); v1.7 dependency
-  surface (`openpyxl` for the `compliance` extra, exact `v3.2.0`
+- **Updated: `docs/SECURITY.md`** (renamed from
+  `docs/PYTHON_DEP_CVE_AUDIT.md`) — audit date / next-review bumped
+  (2026-05-19 → 2026-08-19); v1.7 dependency surface (`openpyxl` for
+  the `compliance` extra, exact `v3.2.0`
   pin for the `pqc` extra) documented.
 - **Updated: `docs/medical/SETUP.md`, `docs/BENCHMARKS.md`,
   `docs/ROUTING_GUIDE.md`, `docs/MATH_SPEC.md`,
   `docs/LIVE_DATA_VALIDATION.md`, `docs/ORACLE_NOISE_COLOR.md`,
-  `docs/CROSS_DOMAIN_ANALYSIS.md`, `docs/DOMAIN_PERFORMANCE.md`,
-  `benchmarks/DATASETS.md`** — date-stamped to 2026-05-19 with v1.7
-  context where applicable.
+  `docs/DOMAIN_PERFORMANCE.md`, `benchmarks/DATASETS.md`** —
+  date-stamped to 2026-05-19 with v1.7 context where applicable.
 - **Updated: `rust_crypto/README.md`** — clarified scope (classical
   crypto, **not** PQC); pointed PQC use cases at
   AMA Cryptography v3.2.0 and the `[pqc]` extra.
@@ -1270,19 +1268,14 @@ and regression tests:
     `SIGMA_ETHICAL_BAND_END=27`, `SIGMA_USED_BAND_END=180`),
     threshold provenance, test-only bypass note, composition with
     the sigmoid benevolence gate. Date refreshed.
-  - `docs/index.md` — landing page rewritten to surface the Wave B
-    dual-gate contract, AMA Cryptography sole-backend hard-require,
-    honest-benchmark framing (64/75), and pickle-removal up front;
-    `COMPREHENSIVE_REPO_AUDIT` added to the toctree.
+  - `docs/index.md` — landing page rewritten to surface the dual-gate
+    ethical contract, AMA Cryptography sole-backend hard-require,
+    honest-benchmark framing (64/75), and pickle-removal up front.
   - `docs/ROUTING_GUIDE.md` — top-of-file callout that hard ethical
     gates run *inside* the prediction call and **must not** be
     masked by fallback handlers. "Fallback only applies to
     data-source / connectivity / latency failures" clarification
     added to the Overview.
-  - `docs/COMPREHENSIVE_REPO_AUDIT.md` — historical-document banner
-    and resolution-status table mapping the original CRITICAL/HIGH
-    findings to the PRs that remediated them (#166 / #167 / #168 /
-    #144 / #162 / #165 / #179).
   - `docs/BENCHMARKS.md`, `docs/DATASOURCES.md`,
     `docs/LIVE_DATA_VALIDATION.md` — reconciled the local 51/55
     figure with the canonical 64/75 reproducibility set as **two
@@ -1571,17 +1564,16 @@ and regression tests:
 
 ### TODO / FIXME Discipline
 
-- **Inline markers restored** for unresolved findings from
-  `docs/COMPREHENSIVE_REPO_AUDIT.md` (Phase 2 ITEM 6). High-impact
-  cited lines now carry
+- **Inline markers restored** for unresolved findings from the
+  2026-03 in-tree audit (ITEM 6). High-impact cited lines now carry
   `# TODO(audit-2026-03, severity=critical|high|medium|low):` markers
   at the cited locations
   (`core/ai_ethics.py:139,141`, `core/ethical_governor.py:209-210`,
-  `core/three_r/fusion.py:91`). Findings closed by Phase 2 (GOSNN
-  attention placeholder, GOSNN dead `_fusion`, conformal silent
-  failure, ethics-decision-boundary advisory mode) are marked
-  **CLOSED** in the audit doc with citations to the regression
-  suites. `CONTRIBUTING.md` codifies the rule going forward: every
+  `core/three_r/fusion.py:91`). Findings closed in the same cycle
+  (GOSNN attention placeholder, GOSNN dead `_fusion`, conformal
+  silent failure, ethics-decision-boundary advisory mode) are marked
+  with citations to the regression suites in their respective source
+  files. `CONTRIBUTING.md` codifies the rule going forward: every
   new `TODO` / `FIXME` MUST include a severity tag and a citing
   reference.
 
@@ -1631,8 +1623,8 @@ and regression tests:
 ### Added (Wave A — post-PR-167 punch list, items 3, 4, 6, 7, 9)
 
 - **Federated silent-failure gaps closed (item 9).** Two distinct gaps the
-  2026-03 in-tree audit (`docs/COMPREHENSIVE_REPO_AUDIT.md` §1) flagged on
-  the federated/GOSNN path are now closed:
+  2026-03 in-tree audit flagged on the federated/GOSNN path are now
+  closed:
   1. `core/gosnn_integration.py::GOSNNIntegration.detect()` no longer
      swallows conformal failures into `confidence_intervals=None`. New
      exception `ConformalMisconfigurationError` is raised on any
