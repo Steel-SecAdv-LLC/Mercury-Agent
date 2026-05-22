@@ -163,7 +163,7 @@ def _probe_loader(
         record["outcome"] = "not-implemented"
         record["exception_type"] = type(exc).__name__
         record["exception_message"] = str(exc)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         record["outcome"] = "error"
         record["exception_type"] = type(exc).__name__
         record["exception_message"] = str(exc)

@@ -118,6 +118,7 @@ def _collect(args: argparse.Namespace) -> Certificate:
     layer_error: str | None = None
     try:
         import torch  # noqa: F401 — required for the layer
+
         from omni_mercury_engine.ml.three_r_attention import ThreeRAttentionBlock
 
         # ``ThreeRAttentionBlock`` requires (d_model, n_heads); use a tiny
@@ -129,7 +130,7 @@ def _collect(args: argparse.Namespace) -> Certificate:
         layer_values["w_O"] = float(layer.w_O.detach().cpu().item())
     except ImportError as exc:
         layer_error = f"torch not installed: {exc}"
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         layer_error = f"{type(exc).__name__}: {exc}"
 
     body: dict[str, Any] = {

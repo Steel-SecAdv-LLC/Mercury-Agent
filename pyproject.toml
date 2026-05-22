@@ -912,6 +912,10 @@ ignore = [
 # TrustedEndpoints.validate_url() provides SSRF protection via domain allowlist
 "src/omni_mercury_engine/datasets/*.py" = ["S310"]
 "src/omni_mercury_engine/detectors/**/*.py" = ["S310"]
+# Operator tools intentionally accept user paths and shell out to a
+# hardcoded `git` executable for release manifest provenance.  The
+# subprocess invocations have no user input in the program name.
+"src/omni_mercury_engine/tools/*.py" = ["S603", "S607", "TC003", "PLW0108", "SIM118", "PTH105", "PTH108"]
 "src/omni_mercury_engine/validation/data_loaders.py" = ["S310"]
 "src/omni_mercury_engine/security/input_validation.py" = ["S310"]
 # C408: dict() is idiomatic for Plotly visualization code

@@ -50,7 +50,7 @@ import sys
 import traceback
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -133,7 +133,7 @@ class Certificate:
             "schema": self.schema,
             "tool": self.tool,
             "mercury_version": mercury_version(),
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
             "status": self.status,
             "warnings": list(self.warnings),
             "body": dict(self.body),
@@ -255,15 +255,14 @@ def emit(certificate: Certificate, args: argparse.Namespace) -> int:
             print(f"wrote certificate: {out}\nwrote signature  : {sig_path}", file=sys.stderr)
         else:
             print(f"wrote certificate: {out}", file=sys.stderr)
+    elif signature is not None:
+        envelope_with_sig = dict(envelope)
+        envelope_with_sig["signature"] = signature
+        sys.stdout.write(
+            json.dumps(envelope_with_sig, sort_keys=True, indent=2, default=str) + "\n"
+        )
     else:
-        if signature is not None:
-            envelope_with_sig = dict(envelope)
-            envelope_with_sig["signature"] = signature
-            sys.stdout.write(
-                json.dumps(envelope_with_sig, sort_keys=True, indent=2, default=str) + "\n"
-            )
-        else:
-            sys.stdout.write(json.dumps(envelope, sort_keys=True, indent=2, default=str) + "\n")
+        sys.stdout.write(json.dumps(envelope, sort_keys=True, indent=2, default=str) + "\n")
 
     status = certificate.status
     if status == "ok":
@@ -305,7 +304,7 @@ def run_tool(
         return EXIT_DEPENDENCY
     except SystemExit:
         raise
-    except Exception as exc:  # noqa: BLE001 — top-level CLI boundary, must not crash
+    except Exception as exc:
         # Operator-visible failure with a structured fallback envelope so
         # downstream automation still receives parseable JSON.
         tb = traceback.format_exc() if os.environ.get("MERCURY_TOOLS_DEBUG") else None
@@ -338,12 +337,12 @@ class DependencyMissing(RuntimeError):
 
 
 __all__ = [
-    "Certificate",
-    "DependencyMissing",
     "EXIT_DEPENDENCY",
     "EXIT_FAIL",
     "EXIT_OK",
     "EXIT_USAGE",
+    "Certificate",
+    "DependencyMissing",
     "add_common_arguments",
     "emit",
     "mercury_version",

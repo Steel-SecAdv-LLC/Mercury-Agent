@@ -178,6 +178,76 @@ def _load_data(filepath: str) -> np.ndarray[Any, Any]:
 # =============================================================================
 
 
+@main.command("verify-corpus")
+@click.option(
+    "--corpus",
+    "-c",
+    default=None,
+    help="Path to sigma_immutable_corpus.json (defaults to the in-tree copy).",
+)
+@click.option(
+    "--signature",
+    "-s",
+    default=None,
+    help="Path to sigma_immutable_corpus.sig.json (defaults to <corpus>.sig.json).",
+)
+@click.option(
+    "--require-mldsa/--no-require-mldsa",
+    default=False,
+    help="Fail if the ML-DSA-65 signature cannot be verified (default: allow Ed25519-only).",
+)
+def verify_corpus(corpus: str | None, signature: str | None, require_mldsa: bool) -> None:
+    """Verify the σ_Immutable corpus signature bundle (Ed25519 + ML-DSA-65)."""
+    argv: list[str] = []
+    if corpus:
+        argv += ["--corpus", corpus]
+    if signature:
+        argv += ["--signature", signature]
+    if require_mldsa:
+        argv += ["--require-mldsa"]
+    from omni_mercury_engine.tools.sigma_immutable_verifier import main as _verifier_main
+
+    raise SystemExit(_verifier_main(argv))
+
+
+@main.command("tool", context_settings={"ignore_unknown_options": True})
+@click.argument("name", required=True)
+@click.argument("tool_args", nargs=-1, type=click.UNPROCESSED)
+def tool(name: str, tool_args: tuple[str, ...]) -> None:
+    """Run an operator tool by name (see `mercury-agent tool list`).
+
+    Examples:
+
+    \b
+        mercury-agent tool list
+        mercury-agent tool sigma_immutable_verifier
+        mercury-agent tool algorithm_name_drift_gate
+        mercury-agent tool config_validator --strict
+    """
+    import importlib
+    import pkgutil
+
+    import omni_mercury_engine.tools as _tools_pkg
+
+    available = sorted(
+        m.name
+        for m in pkgutil.iter_modules(_tools_pkg.__path__)
+        if not m.name.startswith("_") and m.name != "migrate_pkl"
+    )
+    if name == "list":
+        for n in available:
+            click.echo(n)
+        return
+    if name not in available:
+        click.echo(f"Unknown tool: {name!r}. Run `mercury-agent tool list` for available tools.")
+        raise SystemExit(2)
+    module = importlib.import_module(f"omni_mercury_engine.tools.{name}")
+    if not hasattr(module, "main"):
+        click.echo(f"Tool {name!r} has no main() entry point")
+        raise SystemExit(2)
+    raise SystemExit(module.main(list(tool_args)))
+
+
 @main.group()
 def physics() -> None:
     """Physics-inspired anomaly detection commands."""
