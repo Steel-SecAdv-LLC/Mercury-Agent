@@ -150,13 +150,36 @@ def validate_quadratic(
     """
     A_arr = _as_float_matrix("A", A)
     P_arr = _as_float_matrix("P", P)
+    # Shape consistency must be checked BEFORE the matmul: ``_as_float_matrix``
+    # only enforces that each input is square, so without this guard a config
+    # supplying mismatched dimensions (e.g. ``A`` 2x2, ``P`` 3x3) would let
+    # ``A_arr.T @ P_arr`` raise ``numpy.linalg.LinAlgError`` / ``ValueError``
+    # out of this function — breaking the "always return ``(False, {error})``
+    # rather than raise" contract documented on ``validate_lyapunov_from_config``.
+    if A_arr.shape != P_arr.shape:
+        return False, {
+            "error": (f"A and P must have matching shape; got {A_arr.shape} vs {P_arr.shape}"),
+            "claimed_lambda": float(claimed_lambda),
+        }
     if not is_positive_definite(P_arr):
         return False, {
             "error": "P not positive definite",
             "claimed_lambda": float(claimed_lambda),
         }
-    Q = A_arr.T @ P_arr + P_arr @ A_arr
-    mu = generalized_eigvals_sym_pd(Q, P_arr)
+    try:
+        Q = A_arr.T @ P_arr + P_arr @ A_arr
+        mu = generalized_eigvals_sym_pd(Q, P_arr)
+    except (np.linalg.LinAlgError, ValueError) as exc:
+        # Defence-in-depth: degenerate matrices (e.g. ``P`` that passes the
+        # eigvalue floor for positive-definiteness but is still too
+        # ill-conditioned for the Cholesky factorisation inside
+        # ``generalized_eigvals_sym_pd``) must surface as a structured
+        # error, not a raised exception, so CI gates render the failed
+        # certificate inline rather than 500-ing the runner.
+        return False, {
+            "error": f"eigenvalue analysis failed: {exc}",
+            "claimed_lambda": float(claimed_lambda),
+        }
     max_mu = float(mu.max())
     computed_lambda = -max_mu
     ok = computed_lambda >= (claimed_lambda - tol)
@@ -249,8 +272,8 @@ def validate_lyapunov_from_config(cfg_path: Path) -> tuple[bool, dict[str, Any]]
     Returns ``(ok, details)`` with ``details["mode"]`` indicating which
     path was taken.  Missing/invalid config returns ``(False, {...})``
     rather than raising, to keep callers (CI gates) simple.  PyYAML is
-    declared as a core dependency in ``pyproject.toml``; if it is none
-    the less missing (e.g. a deeply-minimal install), the validator
+    declared as a core dependency in ``pyproject.toml``; if it is
+    nonetheless missing (e.g. a deeply-minimal install), the validator
     returns a structured error rather than letting the ``ImportError``
     propagate.
     """
@@ -268,7 +291,15 @@ def validate_lyapunov_from_config(cfg_path: Path) -> tuple[bool, dict[str, Any]]
     if not cfg_path.exists():
         return False, {"error": f"config not found: {cfg_path}"}
     try:
-        cfg = yaml.safe_load(cfg_path.read_text()) or {}
+        raw = cfg_path.read_text()
+    except OSError as exc:
+        # Defence-in-depth: ``exists()`` returned True but a permission
+        # change / TOCTOU race / transient FS error can still make the
+        # subsequent ``read_text`` raise.  Convert to a structured error
+        # so CI gates see (False, {...}) rather than an unhandled OSError.
+        return False, {"error": f"cannot read config {cfg_path}: {exc}"}
+    try:
+        cfg = yaml.safe_load(raw) or {}
     except yaml.YAMLError as exc:
         return False, {"error": f"invalid yaml: {exc}"}
     if not isinstance(cfg, Mapping):

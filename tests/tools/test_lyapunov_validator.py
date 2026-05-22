@@ -94,6 +94,20 @@ class TestValidateQuadratic:
         assert not ok
         assert "not positive definite" in details["error"]
 
+    def test_shape_mismatch_returns_structured_error(self) -> None:
+        """A and P with different (but individually square) shapes must
+        produce ``(False, {"error": ...})`` rather than raising.  Without
+        the explicit shape check, ``A.T @ P + P @ A`` would propagate a
+        ``ValueError`` out of ``validate_quadratic``, breaking the
+        ``validate_lyapunov_from_config`` non-raising contract.
+        """
+        A = np.diag([-0.25, -0.5])  # 2x2
+        P = np.eye(3)  # 3x3 — incompatible
+        ok, details = validate_quadratic(A, P, claimed_lambda=0.1)
+        assert not ok
+        assert "matching shape" in details["error"]
+        assert details["claimed_lambda"] == pytest.approx(0.1)
+
 
 class TestValidateSamples:
     def test_decay_samples_pass(self) -> None:
@@ -220,6 +234,36 @@ class TestValidateFromConfig:
         ok, details = validate_lyapunov_from_config(ablation)
         assert ok, f"ablation config no longer certifies: {details}"
         assert details["mode"] == "quadratic"
+
+    def test_unreadable_config_returns_structured_error(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A config that exists but cannot be read (permission / TOCTOU /
+        transient FS error) must surface as ``(False, {"error": ...})``,
+        not as an unhandled ``OSError``.  Without the explicit catch the
+        ``exists()`` check could pass and ``read_text()`` could still
+        raise on the very next syscall.
+        """
+        cfg = tmp_path / "unreadable.yaml"
+        cfg.write_text("lambda: 0.25\nA: [[-0.25]]\nP: [[1.0]]\n")
+
+        # Simulate the read-after-exists race by patching ``Path.read_text``
+        # to raise PermissionError just for this specific path.  We monkey-
+        # patch at the class level so the validator's call site picks up
+        # the patched method.
+        original_read_text = Path.read_text
+
+        def fake_read_text(self: Path, *args: object, **kwargs: object) -> str:
+            if self == cfg:
+                raise PermissionError(13, "simulated permission denied", str(self))
+            return original_read_text(self, *args, **kwargs)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(Path, "read_text", fake_read_text)
+
+        ok, details = validate_lyapunov_from_config(cfg)
+        assert not ok
+        assert "cannot read config" in details["error"]
+        assert "simulated permission denied" in details["error"]
 
 
 class TestExtractLyapunovBlock:

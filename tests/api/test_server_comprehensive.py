@@ -461,11 +461,11 @@ class TestLifespanWarmup:
         # rather than the global because the lifespan closure resolves
         # ``detect_univariate`` from the module namespace at call time.
         try:
-            server.detect_univariate = broken_detect  # type: ignore[assignment]
+            server.detect_univariate = broken_detect
             # No exception escapes the warmup.
             await server._warmup(server.app)
         finally:
-            server.detect_univariate = original_detect  # type: ignore[assignment]
+            server.detect_univariate = original_detect
 
     def test_lifespan_context_manager(self, client: Any) -> None:
         """Exercising the TestClient already triggers the lifespan.

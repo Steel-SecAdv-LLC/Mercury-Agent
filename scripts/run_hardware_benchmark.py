@@ -26,8 +26,12 @@ The harness measures:
   This is what makes a measurement *scientifically* comparable: a
   number without its fingerprint is worthless.
 
-The harness deliberately uses only the standard library plus NumPy.
-No new third-party dependencies are introduced.
+The harness uses only the project's declared core dependencies:
+``numpy`` (the Lyapunov validator's only numerical dep) and
+``pyyaml`` (the canonical config format).  Both are pinned in
+``pyproject.toml [project.dependencies]``, so installing
+``mercury-agent`` is sufficient to run the harness — no extras are
+required.  No new third-party dependencies are introduced.
 
 Usage::
 

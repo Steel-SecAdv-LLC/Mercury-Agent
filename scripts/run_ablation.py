@@ -96,8 +96,13 @@ def _run_command(cmd: str, cwd: Path, timeout: float | None) -> dict[str, Any]:
     long-running child the shell spawned would survive as an orphan and
     keep consuming CI runner resources after the wrapper reported
     rc=124.  On non-POSIX platforms (Windows), ``start_new_session`` is
-    a no-op and we fall back to Popen.terminate(), accepting the
-    weaker guarantee documented by ``subprocess``.
+    a no-op AND ``os.killpg`` / ``os.getpgid`` are not exposed at all
+    on the ``os`` module — we explicitly detect this case via
+    ``hasattr(os, "killpg")`` and fall back to ``Popen.terminate()``
+    / ``Popen.kill()``, accepting the weaker guarantee documented by
+    ``subprocess``.  Without the explicit ``hasattr`` check the
+    Windows path would raise ``AttributeError`` (which is NOT in the
+    except tuple below) instead of returning rc=124.
 
     A non-None ``timeout`` enforces a wall-clock bound: the subprocess
     is killed on expiry and the function returns the canonical
@@ -107,6 +112,11 @@ def _run_command(cmd: str, cwd: Path, timeout: float | None) -> dict[str, Any]:
     import os
     import signal
     import time as _time
+
+    # Whether the running interpreter actually exposes the POSIX
+    # process-group primitives.  Computed once rather than at each call
+    # site so the Windows fallback is unambiguous.
+    has_pgrp = hasattr(os, "killpg") and hasattr(os, "getpgid")
 
     started = _time.monotonic()
     timed_out = False
@@ -120,18 +130,25 @@ def _run_command(cmd: str, cwd: Path, timeout: float | None) -> dict[str, Any]:
         rc = proc.wait(timeout=timeout)
     except subprocess.TimeoutExpired:
         timed_out = True
-        # Signal the whole process group so the shell's children die too.
-        try:
-            os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
-        except (ProcessLookupError, PermissionError, OSError):  # pragma: no cover
+        # Signal the whole process group so the shell's children die too
+        # (POSIX); on Windows fall back to the weaker per-process terminate.
+        if has_pgrp:
+            try:
+                os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+            except (ProcessLookupError, PermissionError, OSError):  # pragma: no cover
+                proc.terminate()
+        else:  # pragma: no cover - Windows / Jython / WASI fallback
             proc.terminate()
         # Grace window for graceful exit.
         try:
             rc = proc.wait(timeout=5.0)
         except subprocess.TimeoutExpired:
-            try:
-                os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
-            except (ProcessLookupError, PermissionError, OSError):  # pragma: no cover
+            if has_pgrp:
+                try:
+                    os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+                except (ProcessLookupError, PermissionError, OSError):  # pragma: no cover
+                    proc.kill()
+            else:  # pragma: no cover - Windows / Jython / WASI fallback
                 proc.kill()
             proc.wait()
             rc = _TIMEOUT_EXIT_CODE

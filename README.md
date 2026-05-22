@@ -1204,7 +1204,7 @@ python scripts/run_hardware_benchmark.py \
 python scripts/run_hardware_benchmark.py --min-ops-per-sec 1500
 ```
 
-The JSON report contains the certificate result, the environment fingerprint (Python version, NumPy version, platform, CPU count, CPU affinity, scaling governor), and the timing block (mean / p50 / p95 / p99 / max / total).  Throughput is computed from total wall-clock time rather than `1 / mean` to avoid the inverse-mean bias that otherwise over-states ops/sec on skewed latency distributions.
+The JSON report contains the certificate result, the environment fingerprint (Python version, NumPy version, platform, CPU count, CPU affinity, scaling governor), and the timing block (mean / p50 / p95 / p99 / max / total).  Throughput is reported as `samples / total_s` (which equals `1 / mean_s` exactly when `mean_s` is the arithmetic mean of the same samples — `statistics.fmean`, in this harness — up to floating-point rounding).  The harness emits both `total_s` and `ops_per_sec` so the assertable invariant `ops_per_sec == samples / total_s` can be checked directly by downstream tooling without re-deriving the mean; this also keeps the contract stable if the central-tendency estimator is ever swapped for a trimmed or median variant.
 
 </details>
 

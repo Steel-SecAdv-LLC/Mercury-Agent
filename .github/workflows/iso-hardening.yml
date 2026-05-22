@@ -214,14 +214,19 @@ jobs:
         # same uvicorn worker that just imported torch + sklearn.  On
         # GHA's ``ubuntu-latest`` SKUs the first *out-of-process* POST
         # (Python validator → numpy SIMD dispatch resolution → Pydantic
-        # response serialization → uvicorn JSON encode) still incurs
-        # a one-time 200-400 ms tail because the cold-start cost is
-        # shared between the lifespan hook and the first external
-        # caller.  Running 5 detection + 5 health round-trips here
-        # before k6 starts measuring guarantees the smoke-run sample
-        # window only contains warm requests, which is the right
-        # behaviour for an SLO regression gate: we are measuring
-        # steady-state latency, not first-call cold-start.
+        # response serialization → uvicorn JSON encode → kernel TCP
+        # ACK timing) still incurs a one-time 200-400 ms tail because
+        # the cold-start cost is shared between the lifespan hook and
+        # the first external caller, AND the network stack between the
+        # warmup curl and uvicorn has its own first-request cost.
+        # Running 10 round-trips per endpoint here before k6 starts
+        # measuring guarantees the smoke-run sample window only
+        # contains warm requests, which is the right behaviour for an
+        # SLO regression gate: we are measuring steady-state latency,
+        # not first-call cold-start.  Multivariate is included because
+        # the k6 default function calls it 30 % of the time and it has
+        # its own numpy code path (L2 norm, axis-wise mean/std) that
+        # would otherwise cold-start on the first multivariate request.
         #
         # Each call is silenced (-fsS) so a non-200 response surfaces
         # via curl's exit code rather than being swallowed.  The
@@ -229,18 +234,23 @@ jobs:
         # warmup is reproducible across runs.
         run: |
           set -euo pipefail
-          warmup_payload='{"data": [1.0, 2.1, 1.5, 1.9, 2.3, 1.7, 2.0, 1.8, 2.2, 1.6, 1.9, 2.4, 1.5, 2.1, 1.8, 2.0], "sensitivity": 0.5}'
+          warmup_payload_univariate='{"data": [1.0, 2.1, 1.5, 1.9, 2.3, 1.7, 2.0, 1.8, 2.2, 1.6, 1.9, 2.4, 1.5, 2.1, 1.8, 2.0], "sensitivity": 0.5}'
+          warmup_payload_multivariate='{"data": [[1.0, 2.0, 3.0], [1.1, 2.1, 3.1], [1.0, 2.0, 3.0], [1.2, 2.2, 3.2], [1.1, 2.1, 3.1], [1.0, 2.0, 3.0], [1.3, 2.3, 3.3], [1.1, 2.1, 3.1]], "sensitivity": 0.5}'
           # ``_`` rather than a named loop variable: shellcheck SC2034
           # flags an unused loop counter, and the count is the only
           # thing that matters here -- we don't reference the index.
-          for _ in 1 2 3 4 5; do
+          for _ in 1 2 3 4 5 6 7 8 9 10; do
             curl -fsS "$MERCURY_API_HOST/health" > /dev/null
             curl -fsS -X POST \
               -H "Content-Type: application/json" \
-              -d "$warmup_payload" \
+              -d "$warmup_payload_univariate" \
               "$MERCURY_API_HOST/api/v1/detect/univariate" > /dev/null
+            curl -fsS -X POST \
+              -H "Content-Type: application/json" \
+              -d "$warmup_payload_multivariate" \
+              "$MERCURY_API_HOST/api/v1/detect/multivariate" > /dev/null
           done
-          echo "Warmup complete: 5 health + 5 univariate-detect round-trips"
+          echo "Warmup complete: 10 health + 10 univariate + 10 multivariate round-trips"
 
       - name: Run k6 smoke test
         run: |

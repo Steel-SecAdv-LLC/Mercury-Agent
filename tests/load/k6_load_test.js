@@ -270,11 +270,22 @@ export default function() {
         anomalyDetectionTrend.add(duration);
         requestsProcessed.add(1);
 
+        // ``check()`` decisions count as ``errors`` (the boolean ``success``
+        // feeds ``errorRate.add(!success)`` below).  Keep only the
+        // *correctness* checks here -- status, body, correlation-ID
+        // propagation.  Latency is already a separate threshold dimension
+        // (``http_req_duration``, ``anomaly_detection_duration``,
+        // ``http_req_duration{endpoint:univariate}``), and binding it
+        // inside this check would conflate "1 % of requests errored" with
+        // "1 % of requests were a few ms over the latency budget" -- which
+        // produces false positives on shared CI infrastructure where
+        // even a single GC pause can push one of 20 samples over the
+        // per-request ceiling, breaching ``rate<0.01`` without any real
+        // correctness regression.
         const success = check(res, {
             'univariate status is 200': (r) => r.status === 200,
             'univariate has response body': (r) => r.body && r.body.length > 0,
             'has correlation ID': checkCorrelationId,
-            'response time OK': (r) => duration < 1000,
         });
 
         if (res.status === 200) {
