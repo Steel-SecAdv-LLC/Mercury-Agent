@@ -304,38 +304,60 @@ jobs:
       - name: Assert k6 SLO thresholds
         run: |
           set -euo pipefail
-          test -s artifacts/k6_summary.json
-          # Emit a structured per-threshold report to BOTH the workflow
-          # log AND ``$GITHUB_STEP_SUMMARY`` -- the latter renders in the
-          # job's Summary panel on the GHA UI, which is publicly visible
-          # without log-tab authentication.  This means a failed smoke
-          # run produces an actionable diagnosis on the PR's checks
-          # surface, not just in a log behind a sign-in wall.
+          # Prefer the rich JSON written by ``handleSummary()`` (added
+          # to ``tests/load/k6_load_test.js``); fall back to the
+          # stripped-down ``--summary-export`` schema if the
+          # ``handleSummary`` file was not produced (e.g. an earlier
+          # k6 version that does not support it).
+          if [ -s artifacts/k6_summary_full.json ]; then
+              summary_file=artifacts/k6_summary_full.json
+          else
+              summary_file=artifacts/k6_summary.json
+          fi
+          test -s "$summary_file"
+          export K6_SUMMARY_FILE="$summary_file"
           python - <<'PY'
           import json
           import os
           import pathlib
           import sys
 
-          data = json.loads(pathlib.Path("artifacts/k6_summary.json").read_text())
+          summary_file = pathlib.Path(os.environ["K6_SUMMARY_FILE"])
+          data = json.loads(summary_file.read_text())
           metrics = data.get("metrics", {})
+
+          # k6 has emitted two threshold schemas across recent versions:
+          #   * ``--summary-export`` (v0.45+): ``thresholds[expr]`` is a
+          #     bare bool (``True`` = pass, ``False`` = breach), and the
+          #     metric has no ``values`` block.
+          #   * ``handleSummary`` (the current canonical surface):
+          #     ``thresholds[expr]`` is a dict with ``ok`` / ``lastFailed``
+          #     keys, AND the metric has a full ``values`` dict with
+          #     ``rate``, ``count``, ``avg``, ``min``, ``max``, ``med``,
+          #     ``p(50)``, ``p(95)``, ``p(99)``, etc.
+          # Handle both so the diagnostic does not crash on a future
+          # schema rollback or older k6 install.
+          def threshold_ok(info: object) -> bool | None:
+              if isinstance(info, dict):
+                  ok = info.get("ok")
+                  return bool(ok) if ok is not None else None
+              if isinstance(info, bool):
+                  return info
+              return None
 
           breaches: list[str] = []
           summary: list[str] = []
           total_thresholds = 0
           for metric_name, m in sorted(metrics.items()):
+              if not isinstance(m, dict):
+                  continue
               thresholds = m.get("thresholds") or {}
               if not thresholds:
                   continue
-              # k6 stashes the actual measured values on the metric
-              # itself (``values`` dict), keyed by aggregation name
-              # ("p(95)", "rate", "med", "max", ...).  Look the
-              # threshold expression up against this dict so the
-              # breach line carries the measured number.
               values = m.get("values") or {}
               for expr, info in sorted(thresholds.items()):
                   total_thresholds += 1
-                  ok = info.get("ok")
+                  ok = threshold_ok(info)
                   agg = expr.split("<")[0].split(">")[0].split("=")[0].strip()
                   measured = values.get(agg)
                   measured_str = (
