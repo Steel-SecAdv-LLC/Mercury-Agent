@@ -78,20 +78,7 @@ jobs:
         python-version: ["3.11", "3.12", "3.13"]
 
     steps:
-      - name: Checkout code (attempt 1)
-        id: checkout
-        continue-on-error: true
-        uses: actions/checkout@v6
-
-      - name: Pause before checkout retry (transient flake stabilisation)
-        if: steps.checkout.outcome == 'failure'
-        shell: bash
-        run: |
-          echo "::warning::actions/checkout@v6 first attempt failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
-          sleep 15
-
-      - name: Checkout code (attempt 2, runs only on first-attempt failure)
-        if: steps.checkout.outcome == 'failure'
+      - name: Checkout code
         uses: actions/checkout@v6
 
       - name: Set up Python
@@ -154,20 +141,7 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - name: Checkout code (attempt 1)
-        id: checkout
-        continue-on-error: true
-        uses: actions/checkout@v6
-
-      - name: Pause before checkout retry (transient flake stabilisation)
-        if: steps.checkout.outcome == 'failure'
-        shell: bash
-        run: |
-          echo "::warning::actions/checkout@v6 first attempt failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
-          sleep 15
-
-      - name: Checkout code (attempt 2, runs only on first-attempt failure)
-        if: steps.checkout.outcome == 'failure'
+      - name: Checkout code
         uses: actions/checkout@v6
 
       - name: Set up Python
@@ -218,20 +192,7 @@ jobs:
         python-version: ["3.11", "3.12", "3.13"]
 
     steps:
-      - name: Checkout code (attempt 1)
-        id: checkout
-        continue-on-error: true
-        uses: actions/checkout@v6
-
-      - name: Pause before checkout retry (transient flake stabilisation)
-        if: steps.checkout.outcome == 'failure'
-        shell: bash
-        run: |
-          echo "::warning::actions/checkout@v6 first attempt failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
-          sleep 15
-
-      - name: Checkout code (attempt 2, runs only on first-attempt failure)
-        if: steps.checkout.outcome == 'failure'
+      - name: Checkout code
         uses: actions/checkout@v6
 
       - name: Set up Python
@@ -349,20 +310,7 @@ jobs:
     if: github.event.inputs.run_security_scan != 'false'
 
     steps:
-      - name: Checkout code (attempt 1)
-        id: checkout
-        continue-on-error: true
-        uses: actions/checkout@v6
-
-      - name: Pause before checkout retry (transient flake stabilisation)
-        if: steps.checkout.outcome == 'failure'
-        shell: bash
-        run: |
-          echo "::warning::actions/checkout@v6 first attempt failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
-          sleep 15
-
-      - name: Checkout code (attempt 2, runs only on first-attempt failure)
-        if: steps.checkout.outcome == 'failure'
+      - name: Checkout code
         uses: actions/checkout@v6
 
       - name: Set up Python
@@ -556,20 +504,7 @@ jobs:
         python-version: ["3.11", "3.12", "3.13"]
 
     steps:
-      - name: Checkout code (attempt 1)
-        id: checkout
-        continue-on-error: true
-        uses: actions/checkout@v6
-
-      - name: Pause before checkout retry (transient flake stabilisation)
-        if: steps.checkout.outcome == 'failure'
-        shell: bash
-        run: |
-          echo "::warning::actions/checkout@v6 first attempt failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
-          sleep 15
-
-      - name: Checkout code (attempt 2, runs only on first-attempt failure)
-        if: steps.checkout.outcome == 'failure'
+      - name: Checkout code
         uses: actions/checkout@v6
 
       - name: Free up disk space
@@ -687,20 +622,7 @@ jobs:
     needs: [code-quality]
 
     steps:
-      - name: Checkout code (attempt 1)
-        id: checkout
-        continue-on-error: true
-        uses: actions/checkout@v6
-
-      - name: Pause before checkout retry (transient flake stabilisation)
-        if: steps.checkout.outcome == 'failure'
-        shell: bash
-        run: |
-          echo "::warning::actions/checkout@v6 first attempt failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
-          sleep 15
-
-      - name: Checkout code (attempt 2, runs only on first-attempt failure)
-        if: steps.checkout.outcome == 'failure'
+      - name: Checkout code
         uses: actions/checkout@v6
 
       - name: Free up disk space
@@ -793,20 +715,7 @@ jobs:
       (github.event_name == 'pull_request' && (github.base_ref == 'main' || github.base_ref == 'develop'))
 
     steps:
-      - name: Checkout code (attempt 1)
-        id: checkout
-        continue-on-error: true
-        uses: actions/checkout@v6
-
-      - name: Pause before checkout retry (transient flake stabilisation)
-        if: steps.checkout.outcome == 'failure'
-        shell: bash
-        run: |
-          echo "::warning::actions/checkout@v6 first attempt failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
-          sleep 15
-
-      - name: Checkout code (attempt 2, runs only on first-attempt failure)
-        if: steps.checkout.outcome == 'failure'
+      - name: Checkout code
         uses: actions/checkout@v6
 
       - name: Free up disk space
@@ -943,20 +852,7 @@ jobs:
     needs: [core-tests]
 
     steps:
-      - name: Checkout code (attempt 1)
-        id: checkout
-        continue-on-error: true
-        uses: actions/checkout@v6
-
-      - name: Pause before checkout retry (transient flake stabilisation)
-        if: steps.checkout.outcome == 'failure'
-        shell: bash
-        run: |
-          echo "::warning::actions/checkout@v6 first attempt failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
-          sleep 15
-
-      - name: Checkout code (attempt 2, runs only on first-attempt failure)
-        if: steps.checkout.outcome == 'failure'
+      - name: Checkout code
         uses: actions/checkout@v6
 
       - name: Free up disk space
@@ -1001,20 +897,7 @@ jobs:
     needs: [core-tests]
 
     steps:
-      - name: Checkout code (attempt 1)
-        id: checkout
-        continue-on-error: true
-        uses: actions/checkout@v6
-
-      - name: Pause before checkout retry (transient flake stabilisation)
-        if: steps.checkout.outcome == 'failure'
-        shell: bash
-        run: |
-          echo "::warning::actions/checkout@v6 first attempt failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
-          sleep 15
-
-      - name: Checkout code (attempt 2, runs only on first-attempt failure)
-        if: steps.checkout.outcome == 'failure'
+      - name: Checkout code
         uses: actions/checkout@v6
 
       - name: Free up disk space
@@ -1052,20 +935,7 @@ jobs:
       github.event_name == 'schedule'
 
     steps:
-      - name: Checkout code (attempt 1)
-        id: checkout
-        continue-on-error: true
-        uses: actions/checkout@v6
-
-      - name: Pause before checkout retry (transient flake stabilisation)
-        if: steps.checkout.outcome == 'failure'
-        shell: bash
-        run: |
-          echo "::warning::actions/checkout@v6 first attempt failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
-          sleep 15
-
-      - name: Checkout code (attempt 2, runs only on first-attempt failure)
-        if: steps.checkout.outcome == 'failure'
+      - name: Checkout code
         uses: actions/checkout@v6
 
       - name: Free up disk space
@@ -1167,20 +1037,7 @@ jobs:
     if: github.event_name != 'schedule'
 
     steps:
-      - name: Checkout code (attempt 1)
-        id: checkout
-        continue-on-error: true
-        uses: actions/checkout@v6
-
-      - name: Pause before checkout retry (transient flake stabilisation)
-        if: steps.checkout.outcome == 'failure'
-        shell: bash
-        run: |
-          echo "::warning::actions/checkout@v6 first attempt failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
-          sleep 15
-
-      - name: Checkout code (attempt 2, runs only on first-attempt failure)
-        if: steps.checkout.outcome == 'failure'
+      - name: Checkout code
         uses: actions/checkout@v6
 
       - name: Free up disk space
@@ -1317,20 +1174,7 @@ jobs:
     if: github.event_name == 'push' || github.event_name == 'pull_request'
 
     steps:
-      - name: Checkout code (attempt 1)
-        id: checkout
-        continue-on-error: true
-        uses: actions/checkout@v6
-
-      - name: Pause before checkout retry (transient flake stabilisation)
-        if: steps.checkout.outcome == 'failure'
-        shell: bash
-        run: |
-          echo "::warning::actions/checkout@v6 first attempt failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
-          sleep 15
-
-      - name: Checkout code (attempt 2, runs only on first-attempt failure)
-        if: steps.checkout.outcome == 'failure'
+      - name: Checkout code
         uses: actions/checkout@v6
 
       - name: Set up Python
