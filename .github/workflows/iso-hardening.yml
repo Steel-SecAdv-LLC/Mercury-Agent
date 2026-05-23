@@ -64,9 +64,24 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Install package for λ drift gate import
+        # The gate is now import-based (the previous regex-against-a-regex
+        # approach left room for the *parsed* constant to silently
+        # disagree with the *runtime* constant).  Importing
+        # ``omni_mercury_engine.core.double_helix_engine.LAMBDA_DECAY``
+        # requires numpy on the path; ``pip install -e .`` is the
+        # minimum that makes both LAMBDA_CONVERGENCE and LAMBDA_DECAY
+        # importable.  No [ml]/[api] extras are needed for this job.
+        # ``pip>=26.1`` upgrade comes first per CVE-2026-6357 regression
+        # guard enforced by ``scripts/check_workflow_hardening.py``.
+        run: |
+          python -m pip install --upgrade "pip>=26.1"
+          pip install -e .
+
       - name: Check Lyapunov λ consistency in docs
         run: |
-          # No third-party dependency: the script is stdlib-only.
+          # Import-based gate: imports the canonical constants from
+          # the package and asserts every documented numeric matches.
           python scripts/check_readme_lyapunov.py
 
   examples-parity:

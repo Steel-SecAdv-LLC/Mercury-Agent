@@ -121,9 +121,22 @@ class FusionWeightConfig(BaseModel):
     """Configuration for fusion layer weights with uncertainty weighting.
 
     Implements uncertainty-weighted fusion:
-    weight_i = softmax(logit_i - lambda * uncertainty_i)
+    weight_i = softmax(logit_i - uncertainty_lambda * uncertainty_i)
 
-    Where lambda controls the uncertainty penalty (default 0.25).
+    ``uncertainty_lambda`` is the fusion-layer **uncertainty penalty
+    parameter** — a tunable hyperparameter controlling how strongly
+    per-detector uncertainty discounts a detector's vote.  Its default
+    value (``0.25``) is a calibration starting point, NOT a documented
+    theorem constant: callers may sweep it freely at runtime without
+    tripping any gate.
+
+    Do not conflate this hyperparameter with the Lyapunov decay rate
+    ``λ`` referenced in ``docs/MATH_SPEC.md`` §2.2 and enforced by
+    ``configs/lyapunov_canonical.yaml`` / ``LyapunovConstants.LAMBDA_CONVERGENCE``
+    — that ``λ`` is a closed-form stability bound certified by
+    ``tools/lyapunov_validator.py`` and gated by
+    ``scripts/check_readme_lyapunov.py``.  The two values are numerically
+    identical today by coincidence; their semantic roles are not.
     """
 
     # Base detector weights (will be normalized)
