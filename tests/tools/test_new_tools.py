@@ -23,6 +23,7 @@ import json
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import numpy.typing as npt
 import pytest
 
 from omni_mercury_engine.tools import TOOL_REGISTRY
@@ -32,7 +33,9 @@ if TYPE_CHECKING:
 
 
 def _load_cert(out: Path) -> dict[str, Any]:
-    return json.loads(out.read_text())
+    parsed = json.loads(out.read_text())
+    assert isinstance(parsed, dict), f"expected dict envelope, got {type(parsed)}"
+    return parsed
 
 
 def _drop_volatile(env: dict[str, Any]) -> dict[str, Any]:
@@ -217,7 +220,7 @@ class TestLiveDatasetProtectionGate:
        AUROC signal that the live distribution provides.
     """
 
-    def _save_npy(self, path: Path, arr: np.ndarray) -> None:
+    def _save_npy(self, path: Path, arr: npt.NDArray[Any]) -> None:
         np.save(path, arr)
 
     def test_faithful_reenactment_passes(self, tmp_path: Path) -> None:
@@ -643,7 +646,7 @@ class TestTimeSourceProbe:
 # Smoke registry: every tool returns a valid envelope on ``--help``
 
 
-_HELP_EXEMPT = frozenset(
+_HELP_EXEMPT: frozenset[str] = frozenset(
     {
         # Tools that exec subprocesses or open browsers — too expensive for the smoke test.
     }

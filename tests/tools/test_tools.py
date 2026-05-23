@@ -56,7 +56,9 @@ if TYPE_CHECKING:
 
 
 def _load_cert(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text())
+    parsed = json.loads(path.read_text())
+    assert isinstance(parsed, dict), f"expected dict envelope, got {type(parsed)}"
+    return parsed
 
 
 def test_sigma_immutable_verifier_default_corpus(tmp_path: Path) -> None:
