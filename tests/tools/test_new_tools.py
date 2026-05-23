@@ -659,10 +659,14 @@ class TestPqcCapabilityProbe:
         rc = TOOL_REGISTRY["pqc_capability_probe"](["--output", str(out)])
         cert = _load_cert(out)
         assert cert["schema"] == "mercury.tools.pqc_capability_probe/v1"
-        assert cert["status"] in {"ok", "warn", "fail"}
-        # When AMA is absent the probe still completes — rc 0 (warn) or
-        # 1 (fail) is acceptable, but the envelope must be parseable.
-        assert rc in (0, 1)
+        # Without ``--require-real`` the contract is: ``ok``/``warn``
+        # both exit 0, ``fail`` is reserved for ``--require-real`` (and
+        # would mean the gate caught a missing-required primitive).
+        assert cert["status"] in {"ok", "warn"}, (
+            f"non-require run must not return 'fail' (got {cert['status']!r}); "
+            f"warnings={cert['warnings']!r}"
+        )
+        assert rc == 0
         body = cert["body"]
         assert "flags" in body
         assert "probes" in body
@@ -789,14 +793,24 @@ class TestKatRunnerStandalone:
         # is absent — assert *one of* the documented outcomes.
         summary = cert["body"]["summary"]
         assert summary["passed"] >= 3  # ed25519 always passes
+        # A KAT *failure* is never acceptable on this path — only
+        # passes (ed25519) and skips (PQC when AMA absent) are valid.
+        # Without this assertion an upstream regression that flipped
+        # ed25519 to fail would slip through under ``rc in (0, 1)``.
+        assert summary["failed"] == 0, (
+            f"KAT vectors failed unexpectedly: {summary!r} / "
+            f"records={cert['body']['records']!r}"
+        )
         if summary["skipped"] > 0:
             assert cert["status"] == "warn"
             for record in cert["body"]["records"]:
                 if record.get("skipped"):
                     assert "reason" in record
                     assert record["reason"], "skipped record must carry a reason"
-        # rc must follow the warn/ok exit-code contract (no --require).
-        assert rc in (0, 1)
+        # Without ``--require`` the exit-code contract is rc==0 for
+        # both ``ok`` and ``warn`` (per ``tools._base.emit``).
+        assert rc == 0
+        assert cert["status"] in {"ok", "warn"}
 
 
 class TestSigmaImmutableVerifier:
@@ -900,22 +914,53 @@ class TestOaeWeightCertifierTorchAbsentContract:
             assert "torch" in layer_error or "ImportError" in layer_error
             assert layer_error in cert["warnings"]
 
-    def test_derivation_drift_still_fails(self, tmp_path: Path) -> None:
-        """Tightening the tolerance below the structural sum-to-one
-        tolerance triggers a hard fail — the auxiliary-vs-load-bearing
-        change must not weaken the actual drift gate."""
-        # The φ derivation passes at any reasonable tolerance, but the
-        # certifier's gate is the absolute tolerance to documented
-        # 3-decimal-precision approximations (5e-4).  Operators pinning
-        # the contract still get hard failures on real drift.
+    def test_derivation_drift_still_fails(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A drifted ``MATH.GOLDEN_RATIO`` triggers a hard ``fail`` certificate.
+
+        The previous version of this test only exercised the
+        happy-path (default config) and asserted the structural
+        sum-to-one invariant — it never actually drove the certifier
+        into its drift-detection branch.  This version monkeypatches
+        the constant to a non-canonical value so the load-bearing
+        ``MATH.GOLDEN_RATIO drifted from canonical value`` exit
+        path is exercised end-to-end.
+        """
+        # Replace MATH with a dataclass clone carrying a drifted ratio,
+        # so the certifier's ``math.isclose(phi, …, abs_tol=1e-15)``
+        # gate trips on the first comparison.
+        import dataclasses
+
+        from omni_mercury_engine.core import centralized_constants as cc
+
+        drifted = dataclasses.replace(cc.MATH, GOLDEN_RATIO=1.5)
+        monkeypatch.setattr(cc, "MATH", drifted)
+
         out = tmp_path / "c.json"
         rc = TOOL_REGISTRY["oae_weight_certifier"](["--output", str(out)])
         cert = _load_cert(out)
-        # Confirm the sum-to-one structural invariant is being asserted.
-        weights = cert["body"]["expected"]
-        assert abs(weights["w_R"] + weights["w_H"] + weights["w_O"] - 1.0) < 1e-12, (
-            "structural sum-to-one invariant lost"
+        assert cert["status"] == "fail", (
+            f"drifted GOLDEN_RATIO must trigger a fail certificate "
+            f"(got {cert['status']!r}, body={cert['body']!r})"
         )
+        assert cert["body"]["error"] == "MATH.GOLDEN_RATIO drifted from canonical value"
+        assert rc == 1, "fail certificate must produce non-zero exit code"
+
+    def test_default_run_preserves_sum_to_one(self, tmp_path: Path) -> None:
+        """Happy-path sanity: default args produce the canonical sum-to-one tuple.
+
+        The drift-detection assertion above is the load-bearing contract;
+        this companion test pins the happy path so a regression in either
+        direction (drift not detected / canonical not produced) is caught.
+        """
+        out = tmp_path / "c.json"
+        rc = TOOL_REGISTRY["oae_weight_certifier"](["--output", str(out)])
+        cert = _load_cert(out)
+        weights = cert["body"]["expected"]
+        assert (
+            abs(weights["w_R"] + weights["w_H"] + weights["w_O"] - 1.0) < 1e-12
+        ), "structural sum-to-one invariant lost"
         assert rc == 0
 
 
@@ -973,9 +1018,9 @@ class TestApiContractDiffResilientToLazyImportFailures:
         out = tmp_path / "c.json"
         rc = TOOL_REGISTRY["api_contract_diff"](["--snapshot", str(snap), "--output", str(out)])
         cert = _load_cert(out)
-        assert cert["status"] == "ok", (
-            f"snapshot mode must succeed even when optional backends are absent: {cert!r}"
-        )
+        assert (
+            cert["status"] == "ok"
+        ), f"snapshot mode must succeed even when optional backends are absent: {cert!r}"
         assert rc == 0
         # The snapshot file itself must be written.
         assert snap.exists()

@@ -66,9 +66,9 @@ class TestRegistry:
         }
         for name, mapping in expected.items():
             assert name in _REGISTRY, f"{name!r} missing from dispatcher registry"
-            assert _REGISTRY[name] == mapping, (
-                f"{name!r} registry mapping drifted: {_REGISTRY[name]!r} != {mapping!r}"
-            )
+            assert (
+                _REGISTRY[name] == mapping
+            ), f"{name!r} registry mapping drifted: {_REGISTRY[name]!r} != {mapping!r}"
 
     def test_registry_entries_are_resolvable(self) -> None:
         """Every registered (module, attr) must actually exist.
@@ -81,9 +81,9 @@ class TestRegistry:
 
         for name, (module_path, attr) in _REGISTRY.items():
             mod = importlib.import_module(module_path)
-            assert hasattr(mod, attr), (
-                f"registry tool {name!r} maps to {module_path}.{attr} which does not exist"
-            )
+            assert hasattr(
+                mod, attr
+            ), f"registry tool {name!r} maps to {module_path}.{attr} which does not exist"
 
     def test_registry_entries_are_callable(self) -> None:
         """Every registered entry must resolve to a callable taking ``argv``.
@@ -203,12 +203,17 @@ class TestDispatchesToGraduatedTools:
 
         out = tmp_path / "cert.json"
         rc = _main(["pqc_capability_probe", "--output", str(out)])
-        # rc is 0 (ok / warn-without-require) or 1 (warn-with-require);
-        # the contract here is that the dispatcher reaches the tool and
-        # the tool emits a parseable envelope.
-        assert rc in (0, 1)
+        # Without ``--require-real`` the contract is rc==0 for both
+        # ``ok`` and ``warn`` (per ``tools._base.emit``).  Allowing
+        # ``rc == 1`` here would silently accept a ``fail`` certificate
+        # — never the intended outcome for this dispatch smoke.
+        assert rc == 0
         cert = json.loads(out.read_text())
         assert cert["schema"] == "mercury.tools.pqc_capability_probe/v1"
+        assert cert["status"] in {"ok", "warn"}, (
+            f"dispatched probe must not return 'fail' without --require-real "
+            f"(got {cert['status']!r})"
+        )
 
     def test_dispatch_sigma_immutable_verifier(self, tmp_path: Path) -> None:
         """``python -m tools sigma_immutable_verifier`` runs end-to-end."""
@@ -216,6 +221,8 @@ class TestDispatchesToGraduatedTools:
 
         out = tmp_path / "cert.json"
         rc = _main(["sigma_immutable_verifier", "--output", str(out)])
-        assert rc in (0, 1)
+        # Same exit-code contract as pqc_capability_probe above.
+        assert rc == 0
         cert = json.loads(out.read_text())
         assert cert["schema"] == "mercury.tools.sigma_immutable_verifier/v1"
+        assert cert["status"] in {"ok", "warn"}

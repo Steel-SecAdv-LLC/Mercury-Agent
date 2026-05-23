@@ -29,7 +29,6 @@ from scipy import stats
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
 from assets.loaders import generate_seti_signal
-
 from omni_mercury_engine.emergent.emergent_life_detector import EmergentLifeDetector
 
 

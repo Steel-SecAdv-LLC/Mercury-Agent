@@ -137,15 +137,21 @@ def _snapshot_surface() -> dict[str, Any]:
     """Snapshot the public re-export surface of :mod:`omni_mercury_engine`.
 
     Walks ``__all__`` (or the public ``dir()`` if absent) and records the
-    kind/signature/module of each exported symbol.  Some entries are
-    re-exported via the module's ``__getattr__`` hook and trigger lazy
-    imports (e.g. ``OmniMercuryEngine`` pulls in
-    :mod:`omni_mercury_engine.engine` → :mod:`torch`).  When an optional
-    backend is absent that lazy import raises
-    :class:`ModuleNotFoundError`; the snapshot must NOT crash because of
-    a single unreachable symbol — instead the symbol is recorded as
-    ``"unavailable"`` so the diff path can still observe it and the
-    operator sees an explicit gap rather than a missing snapshot.
+    kind/signature/module of each exported symbol.  Two failure modes
+    are distinguished so the snapshot reflects the actual cause:
+
+    * **Optional-backend lazy import failure** (``ImportError`` /
+      ``ModuleNotFoundError``).  E.g. ``OmniMercuryEngine`` pulls in
+      :mod:`omni_mercury_engine.engine` → :mod:`torch`.  Recorded as
+      ``"kind": "unavailable"`` with the lazy-import error preserved.
+      The snapshot does NOT crash because of a single unreachable
+      symbol — the diff path can still observe its presence in
+      ``__all__``.
+    * **Symbol listed in ``__all__`` but not actually exported**
+      (``AttributeError``).  This is an ABI break the tool exists to
+      detect, not a transient backend gap — recorded as
+      ``"kind": "missing_export"`` so the diff path surfaces it as a
+      structural problem (different from "optional backend missing").
     """
     mod = importlib.import_module(_MODULE)
     public = getattr(mod, "__all__", None)
@@ -153,16 +159,17 @@ def _snapshot_surface() -> dict[str, Any]:
         public = sorted(name for name in dir(mod) if not name.startswith("_"))
     entries: dict[str, dict[str, Any]] = {}
     unavailable: dict[str, str] = {}
+    missing_exports: dict[str, str] = {}
     for name in sorted(public):
         try:
             obj = getattr(mod, name)
-        except Exception as exc:
-            # Lazy ``__getattr__`` resolution failed — typically because
-            # an optional ML backend (torch, etc.) is not installed.
-            # Record the symbol with the lazy-import error so the diff
-            # tool can still observe its presence in ``__all__`` and
-            # surface a clean "unavailable" classification to the
-            # operator rather than aborting the entire snapshot.
+        except ImportError as exc:
+            # Lazy ``__getattr__`` resolution failed because an optional
+            # ML backend is not installed.  Record the symbol with the
+            # lazy-import error so the diff tool can still observe its
+            # presence in ``__all__`` and surface a clean "unavailable"
+            # classification to the operator rather than aborting the
+            # entire snapshot.
             unavailable[name] = f"{type(exc).__name__}: {exc}"
             entries[name] = {
                 "kind": "unavailable",
@@ -171,6 +178,21 @@ def _snapshot_surface() -> dict[str, Any]:
                 "module": _MODULE,
                 "qualname": name,
                 "lazy_import_error": unavailable[name],
+            }
+            continue
+        except AttributeError as exc:
+            # ``__all__`` lists a name the module does not actually
+            # expose.  This is the ABI break the tool exists to detect,
+            # not a transient backend gap.  Record it distinctly so the
+            # diff path can surface it as a structural problem.
+            missing_exports[name] = f"{type(exc).__name__}: {exc}"
+            entries[name] = {
+                "kind": "missing_export",
+                "signature": None,
+                "signature_detail": None,
+                "module": _MODULE,
+                "qualname": name,
+                "attribute_error": missing_exports[name],
             }
             continue
         if obj is None:
@@ -190,6 +212,8 @@ def _snapshot_surface() -> dict[str, Any]:
     }
     if unavailable:
         snapshot["unavailable_lazy_imports"] = unavailable
+    if missing_exports:
+        snapshot["missing_exports"] = missing_exports
     return snapshot
 
 
@@ -225,16 +249,27 @@ def _collect(args: argparse.Namespace) -> Certificate:
             atomic_write_text(
                 Path(args.snapshot), json.dumps(snap, indent=2, sort_keys=True) + "\n"
             )
+        snap_warnings: list[str] = []
+        # ``missing_exports`` is a structural ABI break — a name listed in
+        # ``__all__`` that does not resolve via ``getattr``.  Surface it as
+        # a warning on the snapshot envelope so the operator sees it even
+        # before the diff lane runs.  Optional-backend ``unavailable``
+        # entries are NOT escalated: they are an expected configuration
+        # gap, not an ABI defect.
+        for name, err in (snap.get("missing_exports") or {}).items():
+            snap_warnings.append(f"missing export in __all__: {name} ({err})")
+        snap_status = "warn" if snap_warnings else "ok"
         return Certificate(
             tool="api_contract_diff",
             schema=_SCHEMA,
-            status="ok",
+            status=snap_status,
             body={
                 "mode": "snapshot",
                 "output": args.snapshot,
                 "dry_run": bool(args.dry_run),
                 **snap,
             },
+            warnings=snap_warnings,
         )
 
     saved = json.loads(Path(args.against).read_text())

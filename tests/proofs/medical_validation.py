@@ -29,7 +29,6 @@ from scipy import stats
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
 from assets.loaders import generate_mimic_vitals
-
 from omni_mercury_engine.medical.medical_cure_predictor import MedicalCurePredictor
 
 

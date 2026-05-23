@@ -20,6 +20,8 @@ from __future__ import annotations
 
 """Test suite for 3R Mechanism"""
 
+import importlib.util
+
 import numpy as np
 import pytest
 
@@ -29,6 +31,12 @@ from omni_mercury_engine.core.three_r_mechanism import (
     ResonanceEngine,
     ThreeRMechanism,
 )
+
+# Optional-dep flag: ``ThreeRMechanism._neural_verifier`` requires torch.
+# Used to gate the ``TestNeuralVerifierIntegration`` class at the bottom
+# of this file so its assertions about ``_torch_available is True`` skip
+# cleanly under minimal CI images instead of failing the run.
+_HAS_TORCH_FOR_NEURAL_VERIFIER = importlib.util.find_spec("torch") is not None
 
 
 class TestRecursionEngine:
@@ -712,11 +720,6 @@ class TestNewEnginePatterns:
         assert "classified_issues" in result
         assert "refactoring_suggestions" in result
         assert "optimization_status" in result
-
-
-import importlib.util
-
-_HAS_TORCH_FOR_NEURAL_VERIFIER = importlib.util.find_spec("torch") is not None
 
 
 @pytest.mark.skipif(
