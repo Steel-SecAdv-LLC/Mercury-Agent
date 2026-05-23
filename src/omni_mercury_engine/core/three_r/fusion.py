@@ -138,8 +138,8 @@ class OmniAvaEquation:
             phi_sum = self.phi + 2.0  # ≈ 3.618
             self.weights = {
                 "w_R": self.phi / phi_sum,  # ≈ 0.4472
-                "w_H": 1.0 / phi_sum,        # ≈ 0.2764
-                "w_O": 1.0 / phi_sum,        # ≈ 0.2764
+                "w_H": 1.0 / phi_sum,  # ≈ 0.2764
+                "w_O": 1.0 / phi_sum,  # ≈ 0.2764
             }
         else:
             total = sum(initial_weights.values())
