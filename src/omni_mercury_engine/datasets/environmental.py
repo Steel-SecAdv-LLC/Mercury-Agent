@@ -491,8 +491,7 @@ class NOAAWeatherLoader(DatasetLoader):
                     break
                 if target_records is not None and len(all_features) >= target_records:
                     logger.info(
-                        "Open-Meteo: collected %d records (>= target %d); "
-                        "stopping early.",
+                        "Open-Meteo: collected %d records (>= target %d); " "stopping early.",
                         len(all_features),
                         target_records,
                     )
@@ -790,9 +789,7 @@ class WildfireDataLoader(DatasetLoader):
             for url in ordered_urls:
                 remaining = overall_deadline - _time.monotonic()
                 if remaining <= 0:
-                    last_err = TimeoutError(
-                        "NASA FIRMS multi-mirror budget exhausted"
-                    )
+                    last_err = TimeoutError("NASA FIRMS multi-mirror budget exhausted")
                     break
                 attempt_budget = max(2.0, min(per_url_timeout, remaining))
                 try:
