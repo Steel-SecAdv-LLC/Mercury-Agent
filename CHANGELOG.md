@@ -64,7 +64,11 @@ The fix has three layers:
   Pydantic + numpy + the validator are warm, which is the correct
   posture for every deployment (k8s liveness probes also benefit
   because traffic is not routed until warmup completes).  Warmup
-  failures are caught and logged rather than blocking startup.
+  failures propagate out of the lifespan hook and crash the worker
+  so the orchestrator marks the deployment unhealthy — silently
+  swallowing a warmup exception would let a broken detection path
+  serve traffic to real callers, which is worse than a worker
+  crashloop on a real regression.
 - `.github/workflows/iso-hardening.yml` adds an explicit warmup loop
   (5× `/health` + 5× `/api/v1/detect/univariate`) between API
   readiness and k6 invocation, as defence-in-depth in case the
@@ -77,8 +81,9 @@ The fix has three layers:
   caught by the 150 ms threshold.
 
 `tests/api/test_server_comprehensive.py::TestLifespanWarmup` (4 new
-tests) pins the lifespan invariants: wiring, success path, internal-
-failure swallowing, and TestClient context-manager exercise.
+tests) pins the lifespan invariants: wiring, success path,
+internal-failure propagation (the fail-fast contract above), and
+TestClient context-manager exercise.
 
 ### Security / AMA-routed JWT HMAC signatures (HS256 + HS512) (2026-05-20)
 

@@ -9,7 +9,7 @@ stability proof matches:
   ``src/omni_mercury_engine/core/centralized_constants.py``; and
 * ``configs/lyapunov_canonical.yaml``'s ``lambda`` field.
 
-The gate matches three forms found in shipped documentation:
+The gate matches four forms found in shipped documentation:
 
 1. Greek inline math (``λ=0.25`` / ``λ = 0.25``).
 2. LaTeX inline math (``$\\lambda = 0.25$`` and the bare ``\\lambda = 0.25``
@@ -19,6 +19,11 @@ The gate matches three forms found in shipped documentation:
    ``_LYAPUNOV_TOKENS``).  This prevents the unrelated double-helix
    evolution rate ``LAMBDA_DECAY = 0.18`` (a *different* λ, documented
    in ``core/double_helix_engine.py``) from being flagged.
+4. Explicit symbolic key (``lambda_lyapunov = 0.25``) used by the
+   centralized-constants form when the docs render the Python
+   identifier verbatim.  No anchor window is required for this
+   pattern because ``lambda_lyapunov`` is already an unambiguous
+   Lyapunov-namespaced symbol.
 
 Exit codes
 ----------
