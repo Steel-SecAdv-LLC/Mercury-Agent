@@ -113,9 +113,18 @@ def sigmoid(x: NDArray[np.floating[Any]]) -> NDArray[np.floating[Any]]:
     Returns:
         Activated output in [0, 1]
     """
-    # Clip to prevent overflow
-    x_clipped = np.clip(x, -500, 500)
-    return 1.0 / (1.0 + np.exp(-x_clipped))
+    # Numerically-stable form: avoid the ``exp(+large)`` overflow
+    # path entirely.  For ``x >= 0``: ``sigmoid(x) = 1 / (1 + exp(-x))``
+    # where ``exp(-x) <= 1``.  For ``x < 0``: rewrite as
+    # ``sigmoid(x) = exp(x) / (1 + exp(x))`` where ``exp(x) <= 1``.
+    # This is exact in float64 and never overflows, replacing the
+    # earlier clip-to-[-500, 500] hack which still tripped
+    # ``exp(500)`` (1.4e217, finite) but blew up on ``exp(-(-500))``.
+    pos_mask = x >= 0
+    exp_neg_abs = np.exp(-np.abs(x))
+    return np.asarray(
+        np.where(pos_mask, 1.0 / (1.0 + exp_neg_abs), exp_neg_abs / (1.0 + exp_neg_abs))
+    )
 
 
 def tanh(x: NDArray[np.floating[Any]]) -> NDArray[np.floating[Any]]:

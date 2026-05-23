@@ -1928,9 +1928,16 @@ class MercuryAnomalyDetector(BaseDetector):
                 rho_vals = []
                 for other in other_scores:
                     try:
-                        rho, _ = sp_stats.spearmanr(comp_scores, other)
-                        if np.isnan(rho):
+                        # ``spearmanr`` on a constant array emits a
+                        # ``ConstantInputWarning`` and returns NaN —
+                        # which the next branch already maps to 0.0.
+                        # Detect the degenerate case ahead of time so
+                        # the warning is never emitted at all.
+                        if np.ptp(comp_scores) == 0.0 or np.ptp(other) == 0.0:
                             rho = 0.0
+                        else:
+                            rho_result, _ = sp_stats.spearmanr(comp_scores, other)
+                            rho = 0.0 if np.isnan(rho_result) else float(rho_result)
                     except Exception:
                         rho = 0.0
                     rho_vals.append(rho)

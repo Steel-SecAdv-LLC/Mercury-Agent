@@ -164,6 +164,16 @@ class TestLearningRateScheduler:
         initial_lr = scheduler.get_last_lr()[0]
         assert initial_lr == 0.1
 
+        # Real PyTorch ordering contract: ``optimizer.step()`` must
+        # precede the first ``scheduler.step()``; otherwise PyTorch
+        # emits ``UserWarning: Detected call of lr_scheduler.step()
+        # before optimizer.step()``.  Drive one genuine optimisation
+        # step so the test exercises the actual training-loop
+        # invariant.
+        loss = model(torch.randn(1, 10)).sum()
+        loss.backward()
+        optimizer.step()
+
         # Step through 5 epochs
         for _ in range(5):
             scheduler.step()
@@ -180,6 +190,11 @@ class TestLearningRateScheduler:
         initial_lr = scheduler.get_last_lr()[0]
         assert initial_lr == 0.1
 
+        # See ``test_step_scheduler`` for the ordering rationale.
+        loss = model(torch.randn(1, 10)).sum()
+        loss.backward()
+        optimizer.step()
+
         # Step to end
         for _ in range(10):
             scheduler.step()
@@ -192,6 +207,11 @@ class TestLearningRateScheduler:
         model = nn.Linear(10, 1)
         optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
         scheduler = LearningRateScheduler(optimizer, mode="plateau", step_size=2, gamma=0.5)
+
+        # See ``test_step_scheduler`` for the ordering rationale.
+        loss = model(torch.randn(1, 10)).sum()
+        loss.backward()
+        optimizer.step()
 
         # Simulate no improvement
         scheduler.step(metric=1.0)

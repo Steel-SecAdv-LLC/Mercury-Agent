@@ -604,19 +604,7 @@ class TrustedEndpoints:
             "archive.ics.uci.edu",
             "intrusion-detection.distrinet-research.be",  # CICIDS 2017 improved dataset
             # Weather APIs
-            # ``archive-api.open-meteo.com`` is Open-Meteo's ERA5 reanalysis
-            # archive (historical-only, lagged by ~5 days).  In practice it
-            # is reachable only over a narrow IP path that frequently times
-            # out from GitHub-hosted runners and other commodity egress
-            # paths.  ``api.open-meteo.com`` is the live forecast endpoint
-            # which also exposes the same hourly variables via the
-            # ``past_days`` parameter (rolling 92-day window) and is the
-            # endpoint Mercury's ``NOAAWeatherLoader`` actually hits.
-            # Both are kept in the allowlist so any operator config that
-            # still references the archive URL continues to clear SSRF
-            # validation; the loader itself targets the forecast host.
             "archive-api.open-meteo.com",
-            "api.open-meteo.com",
             # NASA JPL Solar System Dynamics (CNEOS Near-Earth Objects)
             "ssd-api.jpl.nasa.gov",
             # Code/Data Repositories
@@ -788,17 +776,9 @@ class TrustedEndpoints:
     )
 
     # ==========================================================================
-    # Open-Meteo Weather APIs
+    # Open-Meteo Weather Archive API
     # ==========================================================================
-    # ``OPEN_METEO_ARCHIVE`` is the ERA5 reanalysis endpoint (historical
-    # data lagged by ~5 days).  ``OPEN_METEO_FORECAST`` is the live
-    # endpoint that also exposes a rolling 92-day historical window via
-    # the ``past_days`` parameter.  The forecast endpoint is consistently
-    # reachable from CI runners (Cloudflare-backed Anycast); the archive
-    # endpoint is intermittently unreachable from many egress paths,
-    # which is why ``NOAAWeatherLoader`` targets the forecast host.
     OPEN_METEO_ARCHIVE = "https://archive-api.open-meteo.com/v1/archive"
-    OPEN_METEO_FORECAST = "https://api.open-meteo.com/v1/forecast"
 
     # ==========================================================================
     # UCI ML Repository - NSL-KDD Dataset

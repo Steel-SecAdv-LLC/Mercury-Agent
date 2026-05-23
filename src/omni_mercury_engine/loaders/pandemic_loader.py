@@ -620,19 +620,28 @@ class PandemicLoader(BaseDomainLoader):
         )
 
         # ---- case acceleration: 7d avg / 30d trailing avg ----
+        # ``np.where(cond, a/b, 0.0)`` evaluates ``a/b`` for every
+        # element first, including the ``b<=threshold`` cases that
+        # would divide by zero.  Use ``np.divide`` with the matching
+        # ``where=`` mask so the suppressed lane is never evaluated
+        # and no RuntimeWarning is raised.
         rolling_30d = self._rolling_mean(new_cases, window=30)
-        case_acceleration = np.where(
-            rolling_30d > 1.0,
-            new_cases_smoothed / rolling_30d,
-            0.0,
+        case_mask = rolling_30d > 1.0
+        case_acceleration = np.divide(
+            new_cases_smoothed,
+            rolling_30d,
+            out=np.zeros_like(new_cases_smoothed, dtype=np.float64),
+            where=case_mask,
         )
 
         # ---- death acceleration ----
         deaths_30d = self._rolling_mean(new_deaths, window=30)
-        death_acceleration = np.where(
-            deaths_30d > 0.1,
-            new_deaths_smoothed / deaths_30d,
-            0.0,
+        death_mask = deaths_30d > 0.1
+        death_acceleration = np.divide(
+            new_deaths_smoothed,
+            deaths_30d,
+            out=np.zeros_like(new_deaths_smoothed, dtype=np.float64),
+            where=death_mask,
         )
 
         # Stack into feature matrix

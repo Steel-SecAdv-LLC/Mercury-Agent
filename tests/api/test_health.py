@@ -24,10 +24,11 @@ except ImportError:
     HAS_HEALTH = False
 
 
-pytestmark = [
-    pytest.mark.skipif(not HAS_HEALTH, reason="health module not available"),
-    pytest.mark.asyncio,
-]
+# Only the file-level skip is module-wide; ``pytest.mark.asyncio``
+# is applied per-test via pytest-asyncio's auto mode (pyproject sets
+# ``asyncio_mode = "auto"``) so it must NOT be added module-wide,
+# otherwise plain synchronous tests trigger a PytestWarning.
+pytestmark = pytest.mark.skipif(not HAS_HEALTH, reason="health module not available")
 
 
 class TestHealthChecker:

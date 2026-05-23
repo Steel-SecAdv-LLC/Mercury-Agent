@@ -178,68 +178,6 @@ def _load_data(filepath: str) -> np.ndarray[Any, Any]:
 # =============================================================================
 
 
-@main.command("verify-corpus")
-@click.option(
-    "--corpus",
-    "-c",
-    default=None,
-    help="Path to sigma_immutable_corpus.json (defaults to the in-tree copy).",
-)
-@click.option(
-    "--signature",
-    "-s",
-    default=None,
-    help="Path to sigma_immutable_corpus.sig.json (defaults to <corpus>.sig.json).",
-)
-@click.option(
-    "--require-mldsa/--no-require-mldsa",
-    default=False,
-    help="Fail if the ML-DSA-65 signature cannot be verified (default: allow Ed25519-only).",
-)
-def verify_corpus(corpus: str | None, signature: str | None, require_mldsa: bool) -> None:
-    """Verify the σ_Immutable corpus signature bundle (Ed25519 + ML-DSA-65)."""
-    # The underlying ``sigma_immutable_verifier`` argparse names are
-    # ``--corpus-path`` / ``--sig-path`` / ``--require-pqc``.  The
-    # user-facing CLI surface keeps the more intuitive names (``--corpus``
-    # / ``--signature`` / ``--require-mldsa``) and we translate here so
-    # the wrapper does not silently fail with "unrecognized arguments".
-    argv: list[str] = []
-    if corpus:
-        argv += ["--corpus-path", corpus]
-    if signature:
-        argv += ["--sig-path", signature]
-    if require_mldsa:
-        argv += ["--require-pqc"]
-    from omni_mercury_engine.tools.sigma_immutable_verifier import main as _verifier_main
-
-    raise SystemExit(_verifier_main(argv))
-
-
-@main.command("tool", context_settings={"ignore_unknown_options": True})
-@click.argument("name", required=True)
-@click.argument("tool_args", nargs=-1, type=click.UNPROCESSED)
-def tool(name: str, tool_args: tuple[str, ...]) -> None:
-    r"""Run an operator tool by name (see `mercury-agent tool list`).
-
-    Examples:
-        \b
-        mercury-agent tool list
-        mercury-agent tool sigma_immutable_verifier
-        mercury-agent tool algorithm_name_drift_gate
-        mercury-agent tool config_validator --strict
-    """
-    from omni_mercury_engine.tools import TOOL_REGISTRY
-
-    if name == "list":
-        for n in TOOL_REGISTRY.names():
-            click.echo(n)
-        return
-    if name not in TOOL_REGISTRY:
-        click.echo(f"Unknown tool: {name!r}. Run `mercury-agent tool list` for available tools.")
-        raise SystemExit(2)
-    raise SystemExit(TOOL_REGISTRY[name](list(tool_args)))
-
-
 @main.group()
 def physics() -> None:
     """Physics-inspired anomaly detection commands."""

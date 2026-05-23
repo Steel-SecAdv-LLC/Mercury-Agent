@@ -97,6 +97,17 @@ class TemporalAnomalyDetector(BaseDetector):
         data_np = data.cpu().numpy() if TORCH_AVAILABLE and isinstance(data, torch.Tensor) else data
         assert isinstance(data_np, np.ndarray)
 
+        # Sanitise non-finite inputs at the boundary.  The detector
+        # contract is "output scores are always finite" (asserted by
+        # ``test_inf_in_data_sanitized``/``test_nan_in_data_sanitized``);
+        # cleansing here pushes that guarantee in front of the
+        # intermediate z-score / soft-normalization ops so they cannot
+        # propagate inf or NaN, which would otherwise surface as
+        # noisy RuntimeWarnings even though the final ``nan_to_num``
+        # already cleans the output.
+        if data_np.dtype.kind == "f" and not np.all(np.isfinite(data_np)):
+            data_np = np.nan_to_num(data_np, nan=0.0, posinf=0.0, neginf=0.0)
+
         trend_anomalies = self._detect_trend_anomalies(data_np)
         change_anomalies = self._detect_sudden_changes(data_np)
 
