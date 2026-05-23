@@ -82,12 +82,12 @@ def http_get_with_retry(
     url: str,
     *,
     headers: dict[str, str] | None = None,
-    timeout: int = 60,
+    timeout: float = 60.0,
     retries: int = 3,
     backoff: float = 2.0,
     retry_on_status: tuple[int, ...] = (408, 425, 429, 500, 502, 503, 504),
     allow_http: bool = False,
-    timeout_per_attempt: int | None = None,
+    timeout_per_attempt: float | None = None,
 ) -> bytes:
     """HTTP GET with scheme/domain validation, default UA, and exponential backoff.
 
