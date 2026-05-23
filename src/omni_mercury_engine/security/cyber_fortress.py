@@ -108,17 +108,36 @@ class ResonanceHashIntegrityChecker(LoggerMixin):
             Integrity check results with resonance-based drift detection
         """
         threshold = threshold_std if threshold_std is not None else self.threshold_std
+
+        # Duplicate detection operates on the *original* hash strings
+        # (cryptographically unique under SHA3-256 for any practical
+        # ``num_packets``) rather than on the modulated ``hash_signal``
+        # below.  Reusing ``hash_signal`` here would conflate two
+        # unrelated phenomena: real replay/tampering (duplicate hash
+        # strings) and the birthday-paradox collisions that *any*
+        # modulo-bounded projection of cryptographically random inputs
+        # will exhibit.  With the previous ``hash_signal % 10000``
+        # projection, a clean ``num_packets=500`` chain produced an
+        # expected ``500^2 / (2 * 10000) ≈ 12.5`` natural collisions
+        # (~2.5 %), with a tail that crossed the 5 % gate ~1 in
+        # ~2000 runs — a flake mode, not a real tamper signal.
+        # Counting duplicates on the raw hash strings makes the gate
+        # exact: a SHA3-256 chain of length up to ~2^128 still has
+        # negligible natural-collision probability, so any duplicate
+        # observed here genuinely indicates replay/tampering.
+        total_count = len(hash_chain)
+        unique_hash_count = len(set(hash_chain))
+        duplicate_ratio = (
+            1.0 - (unique_hash_count / total_count) if total_count > 0 else 0.0
+        )
+
         hash_signal = np.array(
             [int(hashlib.sha3_256(h.encode()).hexdigest()[:16], 16) % 10000 for h in hash_chain],
             dtype=np.float32,
         )
 
-        unique_count = len(np.unique(hash_signal))
-        total_count = len(hash_signal)
-        duplicate_ratio = 1.0 - (unique_count / total_count)
-
         if duplicate_ratio > 0.05:
-            duplicate_count = total_count - unique_count
+            duplicate_count = total_count - unique_hash_count
             return {
                 "integrity_verified": False,
                 "resonance_anomalies": duplicate_count,
