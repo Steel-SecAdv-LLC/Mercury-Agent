@@ -127,9 +127,7 @@ class ResonanceHashIntegrityChecker(LoggerMixin):
         # observed here genuinely indicates replay/tampering.
         total_count = len(hash_chain)
         unique_hash_count = len(set(hash_chain))
-        duplicate_ratio = (
-            1.0 - (unique_hash_count / total_count) if total_count > 0 else 0.0
-        )
+        duplicate_ratio = 1.0 - (unique_hash_count / total_count) if total_count > 0 else 0.0
 
         hash_signal = np.array(
             [int(hashlib.sha3_256(h.encode()).hexdigest()[:16], 16) % 10000 for h in hash_chain],
