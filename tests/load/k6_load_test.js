@@ -360,6 +360,58 @@ export function teardown(data) {
     console.log(`\nTest completed in ${duration.toFixed(1)} seconds`);
 }
 
+// k6 ``handleSummary`` is the supported way to emit a structured
+// post-test report in v0.49+ ('--summary-export' is in maintenance
+// mode and produces only a stripped-down ``{expr: bool}`` schema with
+// no measured percentiles).  We write the FULL ``data`` object the
+// test runtime hands us -- per-metric trends with mean/p50/p95/p99,
+// the ``thresholds`` block with ``ok`` flags AND breach states, and
+// the check pass/fail counters -- so the CI diagnostic can name the
+// failing threshold AND the value that breached it.  Path is fixed
+// to ``artifacts/k6_summary_full.json``; the workflow uses
+// ``--summary-export`` only as a back-compat surface (the diagnostic
+// reader prefers the full file when present, falls back to the
+// minimal one).
+export function handleSummary(data) {
+    return {
+        'artifacts/k6_summary_full.json': JSON.stringify(data, null, 2),
+        // Preserve stdout end-of-test summary for human-readable CI logs.
+        stdout: textSummary(data, { indent: ' ', enableColors: false }),
+    };
+}
+
+// Minimal text-summary fallback so the override above does not silence
+// k6's normal end-of-test stdout summary.  Mirrors what k6's built-in
+// summary printer produces -- if a future k6 release ships a richer
+// default, switch this back to an ``import {textSummary} from 'https://...'``
+// once the offline-network constraint allows it.
+function textSummary(data, _opts) {
+    const lines = [];
+    lines.push('');
+    lines.push('Metrics:');
+    const metrics = (data && data.metrics) || {};
+    for (const name of Object.keys(metrics).sort()) {
+        const m = metrics[name];
+        const v = (m && m.values) || {};
+        const parts = Object.keys(v)
+            .sort()
+            .map((k) => `${k}=${typeof v[k] === 'number' ? v[k].toFixed(4) : v[k]}`)
+            .join(' ');
+        lines.push(`  ${name}: ${parts}`);
+        const thresholds = (m && m.thresholds) || {};
+        for (const expr of Object.keys(thresholds).sort()) {
+            const t = thresholds[expr];
+            // In modern k6, ``thresholds[expr]`` is an object with
+            // ``ok`` / ``lastFailed`` fields when called from
+            // handleSummary (NOT the bool the --summary-export
+            // schema produces).  Tolerate both shapes.
+            const ok = typeof t === 'object' && t !== null ? t.ok : t;
+            lines.push(`    threshold ${expr}: ${ok ? 'OK' : 'BREACH'}`);
+        }
+    }
+    return lines.join('\n') + '\n';
+}
+
 // =============================================================================
 // Scenarios
 // =============================================================================
