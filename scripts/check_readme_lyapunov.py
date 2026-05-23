@@ -139,6 +139,16 @@ def _import_lambda_decay() -> float:
     return float(module.LAMBDA_DECAY)
 
 
+def _lambda_convergence_provider() -> float:
+    """Resolve the convergence importer at call time."""
+    return _import_lambda_convergence()
+
+
+def _lambda_decay_provider() -> float:
+    """Resolve the decay importer at call time."""
+    return _import_lambda_decay()
+
+
 # ---------------------------------------------------------------------------
 # Pattern building blocks.
 #
@@ -197,16 +207,7 @@ CHECKS: tuple[LambdaCheck, ...] = (
     # -----------------------------------------------------------------
     LambdaCheck(
         name="lambda_lyapunov",
-        # is wrong here.  We intentionally use a lambda thunk rather than
-        # a direct function reference so that
-        # ``_import_lambda_convergence`` is resolved by *name* in
-        # module-level scope on every call; that is the contract that
-        # lets the test suite ``monkeypatch.setattr(crl,
-        # "_import_lambda_convergence", ...)`` rebind the import target
-        # and have the gate see the new value.  Replacing the lambda
-        # with a direct reference would freeze the binding at registry
-        # construction time and break the monkeypatch contract.
-        canonical_provider=lambda: _import_lambda_convergence(),
+        canonical_provider=_lambda_convergence_provider,
         patterns=(
             # 1. Greek inline math: "λ=0.25", "Λ = 0.25"
             re.compile(r"[λΛ]\s*=\s*" + _NUM),
@@ -264,9 +265,7 @@ CHECKS: tuple[LambdaCheck, ...] = (
     # -----------------------------------------------------------------
     LambdaCheck(
         name="lambda_decay",
-        # See PLW0108 explanation on lambda_lyapunov above: the thunk
-        # is load-bearing for the monkeypatch contract.
-        canonical_provider=lambda: _import_lambda_decay(),
+        canonical_provider=_lambda_decay_provider,
         patterns=(
             # 1. Constant-assignment form rendered verbatim in prose:
             #    "LAMBDA_DECAY = 0.18".
