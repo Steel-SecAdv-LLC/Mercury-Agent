@@ -105,7 +105,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: ./.github/actions/checkout-with-retry
+        uses: actions/checkout@v6
 
       - name: Free up disk space
         run: |

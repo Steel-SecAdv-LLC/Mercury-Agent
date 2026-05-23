@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: ./.github/actions/checkout-with-retry
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-python@v6
         with:
