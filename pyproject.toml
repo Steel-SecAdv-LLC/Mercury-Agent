@@ -65,10 +65,12 @@ dependencies = [
     # operator tooling: ``tools.lyapunov_validator``,
     # ``scripts.run_ablation``, ``scripts.run_hardware_benchmark``.  We
     # declare it as a core dep so every install path that ships these
-    # tools also ships a usable YAML parser.  The stdlib-only drift gate
-    # (``scripts/check_readme_lyapunov.py``) deliberately does NOT use
-    # this dependency -- it parses the canonical YAML with a regex so
-    # the ``docs-lambda-drift`` CI job can run on a bare checkout.
+    # tools also ships a usable YAML parser.  Note: the λ drift gate
+    # (``scripts/check_readme_lyapunov.py``) is import-based — it
+    # imports ``LyapunovConstants.LAMBDA_CONVERGENCE`` and
+    # ``double_helix_engine.LAMBDA_DECAY`` directly, so the
+    # ``docs-lambda-drift`` and ``workflow-hardening`` CI jobs run
+    # ``pip install -e .`` before invoking the gate.
     "pyyaml>=6.0",
 ]
 

@@ -218,6 +218,18 @@ jobs:
           pip install "zizmor==1.24.1"
           go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
 
+      - name: Install package for λ drift gate import
+        # The Lyapunov λ drift gate
+        # (scripts/check_readme_lyapunov.py) IMPORTS the canonical
+        # constants from the package — by design, so that the
+        # documentation gate cannot disagree with the runtime value.
+        # We install the package (and its runtime deps, notably numpy
+        # which double_helix_engine.py imports at module load) here so
+        # the gate has both LAMBDA_CONVERGENCE and LAMBDA_DECAY in
+        # scope.  An editable install is fine for the workflow-hardening
+        # lane; it does not need [ml]/[api] extras.
+        run: pip install -e .
+
       - name: Run actionlint
         run: |
           "$(go env GOPATH)/bin/actionlint" \
@@ -237,6 +249,19 @@ jobs:
 
       - name: Run suppression hygiene checks
         run: python scripts/check_suppression_hygiene.py
+
+      - name: Run Lyapunov λ documentation drift gate
+        # Import-based λ drift gate: imports
+        # LyapunovConstants.LAMBDA_CONVERGENCE and
+        # double_helix_engine.LAMBDA_DECAY from the package and
+        # asserts every documented numeric in README.md and
+        # docs/MATH_SPEC.md matches.  Each check carries its own
+        # ``min_occurrences`` floor so silently deleting every
+        # documented mention cannot achieve a vacuous-green pass.
+        # Co-located with the suppression/workflow hygiene gates so a
+        # docs-drift regression is caught at the same stage as a
+        # workflow-permissions regression.
+        run: python scripts/check_readme_lyapunov.py
 
   # ===========================================================================
   # Stage 2: Type Checking

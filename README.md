@@ -1211,14 +1211,16 @@ The JSON report contains the certificate result, the environment fingerprint (Py
 <details>
 <summary><strong>Documentation Drift Gate</strong></summary>
 
-`scripts/check_readme_lyapunov.py` blocks any pull request whose `README.md` or `docs/MATH_SPEC.md` claims a Lyapunov-context `λ` that disagrees with `LyapunovConstants.LAMBDA_CONVERGENCE`.  The gate matches three prose forms (`λ = ...`, `\lambda = ...`, `lambda = ...`), excludes the unrelated `LAMBDA_DECAY` double-helix adaptation rate, and refuses to pass vacuously: if `--require-hits` is supplied and a required file produces zero matches, the gate exits non-zero with an explicit "would be vacuous" diagnostic.
+`scripts/check_readme_lyapunov.py` blocks any pull request whose `README.md` or `docs/MATH_SPEC.md` documents a numeric λ that disagrees with the **imported** source-of-truth constants.  The gate is plural: it carries a registry with one entry per canonical constant referenced in user-facing docs, currently `λ_lyapunov = LyapunovConstants.LAMBDA_CONVERGENCE` (the fusion-trajectory Lyapunov decay rate) and `λ_decay = omni_mercury_engine.core.double_helix_engine.LAMBDA_DECAY` (the double-helix evolutionary adaptation rate).  Each check imports its canonical at call time (rather than parsing a YAML or constants file with a regex), matches every Greek / LaTeX / English prose form of its symbol, applies anchor-token context filtering so unrelated `λ`s are ignored, and enforces a `min_occurrences` floor so silently deleting every documented mention cannot achieve a vacuous-green pass.
 
 ```bash
-# Equivalent to the ISO Hardening CI gate:
+# Equivalent to the ISO Hardening / Workflow Hardening CI gate.
+# Requires ``pip install -e .`` so the importer can resolve numpy
+# (which double_helix_engine imports at module load).
 python scripts/check_readme_lyapunov.py
 ```
 
-This gate is the second mandatory checkpoint: changing `LAMBDA_CONVERGENCE` requires updating the canonical config, the documentation, and the reconciliation test in lock-step.
+This gate is the second mandatory checkpoint: changing `LAMBDA_CONVERGENCE` or `LAMBDA_DECAY` requires updating the canonical config, the documentation, and (for `LAMBDA_CONVERGENCE`) the reconciliation test in lock-step.
 
 </details>
 
