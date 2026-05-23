@@ -92,7 +92,15 @@ class TestMedicalDatasets:
             loader.load(DatasetSplit.ALL)
 
     def test_physionet_loader_ecg(self, tmpdir: Any) -> None:
-        """Test PhysioNet ECG loader."""
+        """Test PhysioNet ECG loader.
+
+        ``PhysioNetLoader.download()`` already takes the synthetic
+        path automatically when no local data is present and
+        ``MERCURY_ALLOW_SYNTHETIC=1`` is set (the conftest default for
+        the unit-test suite) -- it makes no network call, so no
+        monkey-patch is needed here.  Live coverage lives in
+        ``tests/test_loaders_live.py @pytest.mark.network``.
+        """
         config = DatasetConfig(
             name="physionet",
             data_dir=tmpdir,
@@ -144,8 +152,14 @@ class TestSpaceDatasets:
         with pytest.raises(DataSourceUnavailableError, match="deprecated"):
             loader.load(DatasetSplit.ALL)
 
-    def test_exoplanet_loader(self, tmpdir: Any) -> None:
-        """Test exoplanet loader."""
+    def test_exoplanet_loader(self, tmpdir: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test exoplanet loader synthetic-fallback path.
+
+        Patches the upstream NASA TAP download to return False so the
+        loader uses its synthetic generator, isolating the test from
+        NASA Exoplanet Archive availability.  Live-API coverage is in
+        ``tests/test_loaders_live.py @pytest.mark.network``.
+        """
         config = DatasetConfig(
             name="exoplanet",
             data_dir=tmpdir,
@@ -153,13 +167,22 @@ class TestSpaceDatasets:
             max_samples=50,
         )
         loader = NASAExoplanetLoader(config)
+        monkeypatch.setattr(loader, "_download_from_nasa_tap", lambda: False)
 
         features, labels = loader.load(DatasetSplit.ALL)
 
         assert features.shape[1] == len(NASAExoplanetLoader.FEATURE_NAMES)
 
-    def test_solar_dynamics_loader(self, tmpdir: Any) -> None:
-        """Test solar dynamics loader."""
+    def test_solar_dynamics_loader(self, tmpdir: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test solar dynamics loader synthetic-fallback path.
+
+        Patches the upstream NOAA SWPC download to return False so the
+        loader exercises its synthetic solar-cycle generator,
+        isolating the test from SWPC availability.  The ``labels == 1``
+        assertion is satisfied by the synthetic ``kp_index >= 7``
+        storm criterion (~22% of samples for the deterministic test
+        seed).  Live-API coverage is in ``tests/test_loaders_live.py``.
+        """
         config = DatasetConfig(
             name="solar",
             data_dir=tmpdir,
@@ -167,6 +190,7 @@ class TestSpaceDatasets:
             max_samples=100,
         )
         loader = SolarDynamicsLoader(config)
+        monkeypatch.setattr(loader, "_download_from_swpc", lambda: False)
 
         features, labels = loader.load(DatasetSplit.ALL)
 
@@ -182,8 +206,14 @@ class TestEnvironmentalDatasets:
         with tempfile.TemporaryDirectory() as d:
             yield d
 
-    def test_earthquake_loader(self, tmpdir: Any) -> None:
-        """Test earthquake catalog loader."""
+    def test_earthquake_loader(self, tmpdir: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test earthquake catalog loader synthetic-fallback path.
+
+        Patches the upstream USGS fdsnws download to return False so the
+        loader exercises its synthetic Gutenberg-Richter generator.
+        Live-API coverage is in
+        ``tests/test_loaders_live.py @pytest.mark.network``.
+        """
         config = DatasetConfig(
             name="earthquake",
             data_dir=tmpdir,
@@ -191,13 +221,25 @@ class TestEnvironmentalDatasets:
             max_samples=100,
         )
         loader = USGSEarthquakeLoader(config)
+        monkeypatch.setattr(loader, "_download_from_usgs", lambda: False)
 
         features, labels = loader.load(DatasetSplit.ALL)
 
         assert features.shape[1] == len(USGSEarthquakeLoader.FEATURE_NAMES)
 
-    def test_weather_loader(self, tmpdir: Any) -> None:
-        """Test weather data loader."""
+    def test_weather_loader(self, tmpdir: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test weather loader synthetic-fallback path.
+
+        The file's contract (see module docstring) is offline unit testing
+        against the synthetic generator.  We force the synthetic path by
+        patching the upstream Open-Meteo download to return False — the
+        exact signal the loader already produces on a 503, timeout, or
+        TLS-handshake stall.  Without this patch, the test makes eight
+        sequential HTTP calls (one per LOCATIONS entry) with per-attempt
+        timeouts, and an Open-Meteo outage trips pytest-timeout before
+        the synthetic fallback is reached.  Live-API coverage lives in
+        ``tests/test_loaders_live.py`` under ``@pytest.mark.network``.
+        """
         config = DatasetConfig(
             name="weather",
             data_dir=tmpdir,
@@ -205,10 +247,12 @@ class TestEnvironmentalDatasets:
             max_samples=100,
         )
         loader = NOAAWeatherLoader(config)
+        monkeypatch.setattr(loader, "_download_from_open_meteo", lambda: False)
 
         features, labels = loader.load(DatasetSplit.ALL)
 
         assert features.shape[1] == len(NOAAWeatherLoader.FEATURE_NAMES)
+        assert loader.is_real_data is False
 
     def test_wildfire_loader(self, tmpdir: Any) -> None:
         """Test wildfire detection loader."""
@@ -267,8 +311,13 @@ class TestSecurityDatasets:
 
         assert len(features) == 100
 
-    def test_threat_intel_loader(self, tmpdir: Any) -> None:
-        """Test threat intelligence loader."""
+    def test_threat_intel_loader(self, tmpdir: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test threat intelligence loader synthetic-fallback path.
+
+        Patches the upstream MITRE ATT&CK download to return False so the
+        loader exercises its synthetic threat-intel generator.  Live-API
+        coverage is in ``tests/test_loaders_live.py``.
+        """
         config = DatasetConfig(
             name="threat-intel",
             data_dir=tmpdir,
@@ -276,6 +325,7 @@ class TestSecurityDatasets:
             max_samples=100,
         )
         loader = ThreatIntelLoader(config)
+        monkeypatch.setattr(loader, "_download_from_mitre", lambda: False)
 
         features, labels = loader.load(DatasetSplit.ALL)
 
