@@ -298,20 +298,15 @@ jobs:
         run: |
           set -euo pipefail
           test -s artifacts/k6_summary.json
-          # k6 sets ``thresholds.*.ok = false`` when a threshold is
-          # breached.  We emit a detailed per-metric / per-threshold
-          # report INLINE in the GHA log (the artifact download is the
-          # secondary surface) so a failing smoke run produces an
-          # actionable diagnosis without leaving the workflow UI:
-          #
-          #   - for each breached threshold: the metric, the threshold
-          #     expression, and the actual measured percentile / rate
-          #     value k6 computed -- so the failure mode is named, not
-          #     "process completed with exit code 1".
-          #   - for each PASSING threshold: a one-line summary so the
-          #     log doubles as the smoke-run latency report.
+          # Emit a structured per-threshold report to BOTH the workflow
+          # log AND ``$GITHUB_STEP_SUMMARY`` -- the latter renders in the
+          # job's Summary panel on the GHA UI, which is publicly visible
+          # without log-tab authentication.  This means a failed smoke
+          # run produces an actionable diagnosis on the PR's checks
+          # surface, not just in a log behind a sign-in wall.
           python - <<'PY'
           import json
+          import os
           import pathlib
           import sys
 
@@ -336,36 +331,50 @@ jobs:
                   ok = info.get("ok")
                   agg = expr.split("<")[0].split(">")[0].split("=")[0].strip()
                   measured = values.get(agg)
-                  measured_str = f"{measured:.2f}" if isinstance(measured, (int, float)) else str(measured)
-                  if ok is False:
-                      breaches.append(
-                          f"BREACH  {metric_name}  threshold={expr!r}  measured[{agg}]={measured_str}"
-                      )
-                  else:
-                      summary.append(
-                          f"OK      {metric_name}  threshold={expr!r}  measured[{agg}]={measured_str}"
-                      )
+                  measured_str = (
+                      f"{measured:.4f}" if isinstance(measured, (int, float)) else str(measured)
+                  )
+                  line = (
+                      f"{'BREACH' if ok is False else 'OK    '}  "
+                      f"{metric_name:<35} threshold={expr!r:<28} measured[{agg}]={measured_str}"
+                  )
+                  (breaches if ok is False else summary).append(line)
 
+          http_reqs = (metrics.get("http_reqs") or {}).get("values") or {}
+          http_req_failed = (metrics.get("http_req_failed") or {}).get("values") or {}
+          errors_metric = (metrics.get("errors") or {}).get("values") or {}
+          counters = (
+              f"http_reqs.count={http_reqs.get('count', '?')} "
+              f"http_reqs.rate={http_reqs.get('rate', '?')} "
+              f"http_req_failed.rate={http_req_failed.get('rate', '?')} "
+              f"errors.rate={errors_metric.get('rate', '?')} "
+              f"errors.passes={errors_metric.get('passes', '?')} "
+              f"errors.fails={errors_metric.get('fails', '?')}"
+          )
+
+          # ----- workflow log -----
           print(f"k6 threshold report ({total_thresholds} thresholds evaluated):")
           for line in summary:
               print(f"  {line}")
           for line in breaches:
               print(f"  {line}")
+          print(f"\nRequest counters: {counters}")
 
-          # If breaches were found, also dump request error counts so the
-          # "errors: rate<0.01" failure mode is debuggable inline.
+          # ----- step summary (publicly visible on the job page) -----
+          gha_summary = os.environ.get("GITHUB_STEP_SUMMARY")
+          if gha_summary:
+              with pathlib.Path(gha_summary).open("a", encoding="utf-8") as fh:
+                  fh.write("## k6 Smoke Threshold Report\n\n")
+                  fh.write(f"**{total_thresholds} thresholds evaluated, {len(breaches)} breached.**\n\n")
+                  fh.write(f"`{counters}`\n\n")
+                  fh.write("```\n")
+                  for line in summary:
+                      fh.write(f"{line}\n")
+                  for line in breaches:
+                      fh.write(f"{line}\n")
+                  fh.write("```\n")
+
           if breaches:
-              http_reqs = (metrics.get("http_reqs") or {}).get("values") or {}
-              http_req_failed = (metrics.get("http_req_failed") or {}).get("values") or {}
-              errors_metric = (metrics.get("errors") or {}).get("values") or {}
-              print()
-              print("Error-rate diagnostics:")
-              print(f"  http_reqs.count = {http_reqs.get('count', '?')}")
-              print(f"  http_reqs.rate = {http_reqs.get('rate', '?')}")
-              print(f"  http_req_failed.rate = {http_req_failed.get('rate', '?')}")
-              print(f"  errors.rate = {errors_metric.get('rate', '?')}")
-              print(f"  errors.passes = {errors_metric.get('passes', '?')}")
-              print(f"  errors.fails = {errors_metric.get('fails', '?')}")
               sys.exit(1)
           PY
 
@@ -375,46 +384,75 @@ jobs:
           mkdir -p artifacts
           # Headless: 5 users, 1 spawn/sec, 30s.  --exit-code-on-error 1
           # makes locust propagate a non-zero exit when any request
-          # fails (default would mask request failures).
+          # fails (default would mask request failures).  ``|| true`` so
+          # we still reach the assertion step (which emits the
+          # structured diagnostic to ``$GITHUB_STEP_SUMMARY``); the
+          # assertion step is the actual gate.
           locust -f tests/load/locustfile.py \
             --host "$MERCURY_API_HOST" \
             --headless --users 5 --spawn-rate 1 --run-time 30s \
             --csv artifacts/locust \
             --exit-code-on-error 1 \
-            --only-summary
+            --only-summary \
+            || true
 
       - name: Assert locust SLO thresholds
         run: |
           set -euo pipefail
           test -s artifacts/locust_stats.csv
           python - <<'PY'
-          import csv, pathlib, sys
-          stats = list(csv.DictReader(
-              pathlib.Path("artifacts/locust_stats.csv").open()
-          ))
-          aggregated = next(
-              (r for r in stats if r.get("Name") == "Aggregated"),
-              None,
-          )
+          import csv
+          import os
+          import pathlib
+          import sys
+
+          stats = list(csv.DictReader(pathlib.Path("artifacts/locust_stats.csv").open()))
+          aggregated = next((r for r in stats if r.get("Name") == "Aggregated"), None)
+
+          gha_summary = os.environ.get("GITHUB_STEP_SUMMARY")
+
+          def emit_summary(lines: list[str]) -> None:
+              for line in lines:
+                  print(line)
+              if gha_summary:
+                  with pathlib.Path(gha_summary).open("a", encoding="utf-8") as fh:
+                      fh.write("## Locust Smoke Threshold Report\n\n")
+                      for line in lines:
+                          fh.write(line + "\n")
+                      fh.write("\n")
+
           if aggregated is None:
-              print("locust produced no aggregated row", file=sys.stderr)
+              emit_summary(["BREACH: locust produced no aggregated row in stats.csv"])
               sys.exit(1)
+
           # Mirrors the SLO constants documented inside
           # tests/load/locustfile.py (SLO_P95_MS = 500).
           p95 = float(aggregated.get("95%", "0") or 0)
-          failure_rate = (
-              float(aggregated.get("Failure Count", 0) or 0)
-              / max(float(aggregated.get("Request Count", 0) or 0), 1.0)
-          )
+          req_count = float(aggregated.get("Request Count", 0) or 0)
+          fail_count = float(aggregated.get("Failure Count", 0) or 0)
+          failure_rate = fail_count / max(req_count, 1.0)
+          avg_rt = float(aggregated.get("Average Response Time", 0) or 0)
+
           breaches = []
           if p95 > 500:
-              breaches.append(f"p95 latency {p95}ms > 500ms SLO")
+              breaches.append(f"BREACH p95 latency {p95}ms > 500ms SLO")
           if failure_rate > 0.01:
-              breaches.append(f"failure rate {failure_rate:.4f} > 1% SLO")
+              breaches.append(
+                  f"BREACH failure_rate {failure_rate:.4f} > 1% SLO "
+                  f"(fail_count={fail_count} / req_count={req_count})"
+              )
+
+          report = [
+              f"OK     locust p95={p95}ms (SLO: <500ms)",
+              f"OK     locust failure_rate={failure_rate:.4f} (SLO: <0.01)",
+              f"INFO   locust avg_response_time={avg_rt}ms request_count={req_count}",
+          ]
           if breaches:
-              print("locust SLO breaches:", *breaches, sep="\n  ")
+              report = breaches + report
+
+          emit_summary(report)
+          if breaches:
               sys.exit(1)
-          print(f"OK: locust p95={p95}ms, failure_rate={failure_rate:.4f}")
           PY
 
       - name: Stop API server
