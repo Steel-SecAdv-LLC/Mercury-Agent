@@ -165,6 +165,33 @@ jobs:
     - name: Build Docker image
       run: docker build -t mercury-agent:scan .
 
+    - name: Install Trivy binary
+      # The bundled ``aquasecurity/setup-trivy`` action that
+      # ``aquasecurity/trivy-action@v0.36.0`` invokes for us has a
+      # known failure mode on PR runs whose ``actions/cache`` entry
+      # for ``trivy-binary-v0.70.0-Linux-X64`` is cold: setup-trivy
+      # then falls back to a sparse ``actions/checkout`` of the
+      # ``aquasecurity/trivy`` repo at the tagged release SHA to run
+      # the ``contrib/install.sh`` shipped in that tree.  That sparse
+      # checkout's sub-object fetch trips ``fatal: could not read
+      # Username for 'https://github.com': terminal prompts disabled``
+      # because the GitHub-issued ``GITHUB_TOKEN`` credential helper
+      # installed by ``actions/checkout`` is not propagated to the
+      # deferred promisor-remote fetch underneath the sparse view.
+      #
+      # We sidestep that flake at source by installing the same Trivy
+      # version directly from the project's documented release-binary
+      # install script (which only ever talks to
+      # ``github.com/aquasecurity/trivy/releases``, never to the
+      # source tree) and then passing ``skip-setup-trivy: true`` to
+      # the action below so it consumes our binary instead of
+      # attempting its own.  Same Trivy version, same scan policy,
+      # deterministic install path — no weakening of the gate.
+      run: |
+        curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+          | sudo sh -s -- -b /usr/local/bin v0.70.0
+        trivy --version
+
     - name: Run Trivy vulnerability scanner
       uses: aquasecurity/trivy-action@v0.36.0
       with:
@@ -181,6 +208,9 @@ jobs:
         skip-dirs: '/var/lib/apt/lists,/var/cache/apt'
         skip-files: '/opt/venv/lib/python3.12/site-packages/torch/include/ATen/Tensor.h,/opt/venv/lib/python3.12/site-packages/tensorflow/include/tensorflow/compiler/mlir/tensorflow/ir/tf_all_ops.h.inc,/opt/venv/lib/python3.13/site-packages/torch/include/ATen/Tensor.h,/opt/venv/lib/python3.13/site-packages/tensorflow/include/tensorflow/compiler/mlir/tensorflow/ir/tf_all_ops.h.inc'
         timeout: '15m'
+        # Use the binary installed in the explicit step above; see
+        # that step's comment for the upstream-flake rationale.
+        skip-setup-trivy: true
 
     - name: Upload Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v4
@@ -207,12 +237,30 @@ jobs:
         skip-files: '/opt/venv/lib/python3.12/site-packages/torch/include/ATen/Tensor.h,/opt/venv/lib/python3.12/site-packages/tensorflow/include/tensorflow/compiler/mlir/tensorflow/ir/tf_all_ops.h.inc,/opt/venv/lib/python3.13/site-packages/torch/include/ATen/Tensor.h,/opt/venv/lib/python3.13/site-packages/tensorflow/include/tensorflow/compiler/mlir/tensorflow/ir/tf_all_ops.h.inc'
         timeout: '15m'
         exit-code: '1'
+        # Trivy binary is already installed by the explicit
+        # ``Install Trivy binary`` step above (same job); skip the
+        # bundled setup-trivy sparse-checkout to avoid the
+        # cold-cache failure mode documented there.
+        skip-setup-trivy: true
 
   filesystem-scan:
     name: Filesystem Security Scan (Trivy)
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v6
+
+    - name: Install Trivy binary
+      # See ``container-scan`` job's ``Install Trivy binary`` step
+      # for the upstream-flake rationale: ``setup-trivy``'s sparse
+      # checkout of the trivy source repo fails when the binary
+      # cache is cold, because the deferred promisor-remote fetch
+      # under the sparse view is not credentialed.  We install the
+      # release binary directly (release-asset download path only,
+      # never source-tree clone) and skip the bundled setup step.
+      run: |
+        curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+          | sudo sh -s -- -b /usr/local/bin v0.70.0
+        trivy --version
 
     - name: Run Trivy filesystem scanner
       uses: aquasecurity/trivy-action@v0.36.0
@@ -226,6 +274,9 @@ jobs:
         ignore-unfixed: true
         # Skip test files and documentation
         skip-dirs: 'tests,docs,benchmarks'
+        # Use the binary installed in the explicit step above; see
+        # that step's comment for the upstream-flake rationale.
+        skip-setup-trivy: true
 
     - name: Upload Trivy filesystem results
       uses: github/codeql-action/upload-sarif@v4
