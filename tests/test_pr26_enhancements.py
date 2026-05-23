@@ -22,6 +22,8 @@ from __future__ import annotations
 Tests for PR #26 enhancements: DB term, N term, RNG utility, LWE encryption
 """
 
+import importlib.util
+
 import numpy as np
 import pytest
 
@@ -34,6 +36,12 @@ from omni_mercury_engine.utils.rng import (
     reset_global_rng,
     set_global_seed,
 )
+
+# Tests below exercise detectors / oracles / orchestrators whose
+# production code imports torch at module level.  Skip cleanly
+# at class boundaries when the optional ``ml`` extra is absent.
+_HAS_TORCH = importlib.util.find_spec("torch") is not None
+requires_torch = pytest.mark.skipif(not _HAS_TORCH, reason="torch (optional 'ml' extra) required")
 
 
 class TestDeterministicRNG:
@@ -93,6 +101,7 @@ class TestDeterministicRNG:
         assert np.all((randint_result >= 0) & (randint_result < 10))
 
 
+@requires_torch
 class TestDimensionalDBTerm:
     """Test DB term implementation in DimensionalAnalyzer"""
 
@@ -221,6 +230,7 @@ class TestLWEEncryption:
         assert decrypted.decode() == data
 
 
+@requires_torch
 class TestIntegration:
     """Integration tests for PR #26 enhancements"""
 

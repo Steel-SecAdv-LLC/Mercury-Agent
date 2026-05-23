@@ -34,12 +34,33 @@ Coverage targets:
   - Conformal uncertainty bands are within [0, 1]
 """
 
+import importlib.util as _importlib_util
+
 import numpy as np
 import pytest
 
 from omni_mercury_engine.core.config import DataCharacteristics
 from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 from omni_mercury_engine.ml.mercury_ml import roc_auc_score
+
+# ``omni_mercury_engine.detectors.spectral_domain_frequency`` imports
+# torch at module level (the FrequencyDomainOracle / SpectralDomainOracle
+# classes extend torch.nn.Module).  The first half of this file
+# exercises pure-NumPy ``MercuryAnomalyDetector`` paths which run
+# without torch; the FrequencyDomain*, SpectralDomain*, Cepstral*,
+# PhaseCoherence, SpectralFlux, SelectiveInferenceTruncation and
+# ExtractFeaturesContract classes need torch.  ``requires_torch``
+# below gates only those classes so the pure-NumPy half stays
+# discoverable in CI images without the optional ``ml`` extra.
+_HAS_TORCH = _importlib_util.find_spec("torch") is not None
+requires_torch = pytest.mark.skipif(
+    not _HAS_TORCH,
+    reason=(
+        "torch (optional 'ml' extra) is required for FrequencyDomain "
+        "and SpectralDomain oracle stacks"
+    ),
+)
+
 
 # ---------------------------------------------------------------------------
 # Synthetic dataset generators
@@ -211,18 +232,18 @@ class TestDataTypeDetection:
         X = np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
         det = MercuryAnomalyDetector()
         result = det._detect_data_characteristics(X)
-        assert (
-            result == DataCharacteristics.UNKNOWN
-        ), f"Expected UNKNOWN for small data, got {result.value}"
+        assert result == DataCharacteristics.UNKNOWN, (
+            f"Expected UNKNOWN for small data, got {result.value}"
+        )
 
     def test_gaussian_tabular_detected(self) -> None:
         """Shuffled Gaussian data should be detected as TABULAR."""
         X, _ = _make_gaussian_dataset()
         det = MercuryAnomalyDetector()
         result = det._detect_data_characteristics(X)
-        assert (
-            result == DataCharacteristics.TABULAR
-        ), f"Expected TABULAR for shuffled Gaussian, got {result.value}"
+        assert result == DataCharacteristics.TABULAR, (
+            f"Expected TABULAR for shuffled Gaussian, got {result.value}"
+        )
 
 
 class TestComponentPerformance:
@@ -275,9 +296,9 @@ class TestUnsupervisedAdaptiveWeighting:
         det = MercuryAnomalyDetector()
         det.fit(X)
         weights = det._adaptive_weights
-        assert (
-            weights[1] < 0.05
-        ), f"Kinematic weight on tabular data should be < 0.05, got {weights[1]:.4f}"
+        assert weights[1] < 0.05, (
+            f"Kinematic weight on tabular data should be < 0.05, got {weights[1]:.4f}"
+        )
 
     def test_temporal_preserves_kinematic(self) -> None:
         """KinematicScore weight should be preserved on temporal data."""
@@ -286,9 +307,9 @@ class TestUnsupervisedAdaptiveWeighting:
         det.fit(X)
         weights = det._adaptive_weights
         # On temporal data, kinematic should have some weight
-        assert (
-            weights[1] > 0.0
-        ), f"Kinematic weight on temporal data should be > 0, got {weights[1]:.4f}"
+        assert weights[1] > 0.0, (
+            f"Kinematic weight on temporal data should be > 0, got {weights[1]:.4f}"
+        )
 
     def test_weights_sum_to_one(self) -> None:
         """Adaptive weights must always sum to 1."""
@@ -304,9 +325,9 @@ class TestUnsupervisedAdaptiveWeighting:
         X, _ = _make_tabular_dataset()
         det = MercuryAnomalyDetector()
         det.fit(X)
-        assert np.all(
-            det._adaptive_weights >= 0
-        ), f"Negative weights detected: {det._adaptive_weights}"
+        assert np.all(det._adaptive_weights >= 0), (
+            f"Negative weights detected: {det._adaptive_weights}"
+        )
 
     def test_data_type_stored(self) -> None:
         """Data type should be stored after fit()."""
@@ -365,9 +386,9 @@ class TestPerComponentValidation:
         det.fit(X)
         result = det.validate()
         # Should have reasonable AUC on synthetic test
-        assert (
-            result["ensemble_auc"] >= 0.3
-        ), f"Ensemble AUC on validation: {result['ensemble_auc']:.4f}"
+        assert result["ensemble_auc"] >= 0.3, (
+            f"Ensemble AUC on validation: {result['ensemble_auc']:.4f}"
+        )
 
     def test_validate_unfitted_returns_safe(self) -> None:
         """Validate on unfitted detector should return safe defaults."""
@@ -509,9 +530,9 @@ class TestBackwardCompatibility:
             "threshold",
             "calibration_diagnostics",
         }
-        assert expected_keys.issubset(
-            set(result.keys())
-        ), f"Missing keys: {expected_keys - set(result.keys())}"
+        assert expected_keys.issubset(set(result.keys())), (
+            f"Missing keys: {expected_keys - set(result.keys())}"
+        )
 
     def test_detector_type_unchanged(self) -> None:
         X, _ = _make_gaussian_dataset()
@@ -585,6 +606,7 @@ class TestEdgeCasesNewFeatures:
 # ===========================================================================
 
 
+@requires_torch
 class TestFrequencyDomainOracleBandCounts:
     """Verify all 7 domains have the correct number of frequency bands."""
 
@@ -618,6 +640,7 @@ class TestFrequencyDomainOracleBandCounts:
             assert oracle._oracle_config.domain == domain
 
 
+@requires_torch
 class TestFrequencyDomainOracleNyquist:
     """Verify Nyquist filtering excludes bands above sample_rate / 2."""
 
@@ -638,9 +661,9 @@ class TestFrequencyDomainOracleNyquist:
 
         oracle = FrequencyDomainOracle({"domain": "environmental", "sample_rate": 20.0})
         weight_sum = sum(w for _, _, _, w in oracle._bands)
-        assert (
-            abs(weight_sum - 1.0) < 1e-6
-        ), f"Weights should sum to 1.0 after Nyquist filtering, got {weight_sum}"
+        assert abs(weight_sum - 1.0) < 1e-6, (
+            f"Weights should sum to 1.0 after Nyquist filtering, got {weight_sum}"
+        )
 
     def test_full_sample_rate_keeps_all_bands(self) -> None:
         from omni_mercury_engine.detectors.spectral_domain_frequency import (
@@ -653,6 +676,7 @@ class TestFrequencyDomainOracleNyquist:
         assert len(oracle._bands) == len(DOMAIN_FREQUENCY_BANDS["medical"])
 
 
+@requires_torch
 class TestFrequencyDomainOracleDetection:
     """Verify detect() returns FrequencyBandResult objects with valid p-values."""
 
@@ -723,6 +747,7 @@ class TestFrequencyDomainOracleDetection:
         )
 
 
+@requires_torch
 class TestFrequencyDomainOracleBinarySegmentation:
     """Verify binary segmentation finds change points in signals with injected mean shifts."""
 
@@ -742,6 +767,7 @@ class TestFrequencyDomainOracleBinarySegmentation:
         assert any(40 <= cp <= 60 for cp in cps), f"Expected CP near 50, got {cps}"
 
 
+@requires_torch
 class TestFrequencyDomainOracleSelectiveInference:
     """Verify SI p-values are correct for genuine CPs and noise."""
 
@@ -768,6 +794,7 @@ class TestFrequencyDomainOracleSelectiveInference:
         assert p > 0.05, f"SI p-value for noise should be > 0.05, got {p}"
 
 
+@requires_torch
 class TestFrequencyDomainOracleFeatures:
     """Verify extract_features returns correct shape and type."""
 
@@ -806,6 +833,7 @@ class TestFrequencyDomainOracleFeatures:
         assert features.dtype == torch.float32
 
 
+@requires_torch
 class TestFrequencyDomainOracleParseval:
     """Verify Parseval validation uses existing matrix, not recomputing FFT."""
 
@@ -833,6 +861,7 @@ class TestFrequencyDomainOracleParseval:
         assert result is True or result is False  # Returns bool
 
 
+@requires_torch
 class TestFrequencyDomainOracleConfig:
     """Verify OracleConfig is constructed exactly once (no double-init bug)."""
 
@@ -857,9 +886,9 @@ class TestFrequencyDomainOracleConfig:
         oracle.fit(rng.standard_normal((5, 512)))
         result = oracle.detect(rng.standard_normal(512))
         iv = result["influence_vector"]
-        assert isinstance(
-            iv.band_scores, dict
-        ), f"band_scores should be dict, got {type(iv.band_scores)}"
+        assert isinstance(iv.band_scores, dict), (
+            f"band_scores should be dict, got {type(iv.band_scores)}"
+        )
 
 
 # ===========================================================================
@@ -867,6 +896,7 @@ class TestFrequencyDomainOracleConfig:
 # ===========================================================================
 
 
+@requires_torch
 class TestExtractFeaturesContract:
     """Verify extract_features returns torch.Tensor per BaseDetector."""
 
@@ -903,6 +933,7 @@ class TestExtractFeaturesContract:
         )
 
 
+@requires_torch
 class TestSelectiveInferenceTruncation:
     """Verify SI produces more conservative p-values than naive z-test."""
 
@@ -1037,6 +1068,7 @@ class TestSelectiveInferenceTruncation:
         )
 
 
+@requires_torch
 class TestSpectralFlux:
     """Verify spectral flux detects rate-of-spectral-change anomalies."""
 
@@ -1090,6 +1122,7 @@ class TestSpectralFlux:
         assert oracle._compute_spectral_flux(fm) == 0.0
 
 
+@requires_torch
 class TestPhaseCoherence:
     """Verify phase coherence detects inter-band relationship breakdown."""
 
@@ -1128,6 +1161,7 @@ class TestPhaseCoherence:
         assert oracle._compute_phase_coherence(empty_signal) == 1.0
 
 
+@requires_torch
 class TestCepstralCoefficients:
     """Verify cepstral analysis detects harmonic structure changes."""
 
@@ -1205,6 +1239,7 @@ class TestOracleAutoActivation:
         assert ORACLE_DOMAIN_POLICY["space"] == "neutral"
 
 
+@requires_torch
 class TestSpectralDomainOracleFeatures:
     """Verify feature extraction shape and dtype."""
 
