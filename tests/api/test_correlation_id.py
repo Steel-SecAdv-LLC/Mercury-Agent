@@ -14,6 +14,11 @@ from typing import Any
 
 import pytest
 
+# Correlation ID middleware lives in the optional ``api`` extra (fastapi);
+# skip cleanly when it's absent so the rest of the suite is still
+# discoverable.
+pytest.importorskip("fastapi")
+
 
 class TestCorrelationIDMiddleware:
     """Tests for CorrelationIDMiddleware."""

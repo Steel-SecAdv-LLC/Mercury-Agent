@@ -20,6 +20,14 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
+# ``omni_mercury_engine.metrics`` re-exports both NumPy- and torch-
+# backed metrics; importing the package transitively pulls in the
+# pixel-level metric helpers that depend on torchvision.  Skip the
+# whole module cleanly when the optional ``ml`` extra is absent.
+pytest.importorskip("torch")
+
 """
 Tests for Anomaly Detection Metrics module.
 

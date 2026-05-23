@@ -21,6 +21,7 @@ from __future__ import annotations
 """Test suite for 3R Mechanism"""
 
 import numpy as np
+import pytest
 
 from omni_mercury_engine.core.three_r_mechanism import (
     RecursionEngine,
@@ -713,6 +714,19 @@ class TestNewEnginePatterns:
         assert "optimization_status" in result
 
 
+import importlib.util
+
+_HAS_TORCH_FOR_NEURAL_VERIFIER = importlib.util.find_spec("torch") is not None
+
+
+@pytest.mark.skipif(
+    not _HAS_TORCH_FOR_NEURAL_VERIFIER,
+    reason=(
+        "ThreeRMechanism._neural_verifier requires torch; these tests "
+        "assert ``_torch_available is True`` which is only the case "
+        "with the optional ``ml`` extra installed."
+    ),
+)
 class TestNeuralVerifierIntegration:
     """Tests for neural verifier integration with ThreeRMechanism."""
 
