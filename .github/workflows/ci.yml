@@ -1087,6 +1087,34 @@ jobs:
           docker builder prune -af || true
           df -h /mnt /
 
+      - name: Install Trivy binary
+        # The bundled ``aquasecurity/setup-trivy`` action that
+        # ``aquasecurity/trivy-action@v0.36.0`` invokes for us has a
+        # known failure mode on PR runs whose ``actions/cache`` entry
+        # for ``trivy-binary-v0.70.0-Linux-X64`` is cold: setup-trivy
+        # then falls back to a sparse ``actions/checkout`` of the
+        # ``aquasecurity/trivy`` repo at the tagged release SHA in
+        # order to run the ``contrib/install.sh`` shipped in that
+        # tree.  That sparse checkout's sub-object fetch trips
+        # ``fatal: could not read Username for 'https://github.com':
+        # terminal prompts disabled`` because the GitHub-issued
+        # ``GITHUB_TOKEN`` credential helper installed by
+        # ``actions/checkout`` is not propagated to the deferred
+        # promisor-remote fetch underneath the sparse view.
+        #
+        # We sidestep that flake at source by installing the same
+        # Trivy version directly from the project's documented
+        # release-binary install script (which only ever talks to
+        # ``github.com/aquasecurity/trivy/releases``, never to the
+        # source tree) and then passing ``skip-setup-trivy: true``
+        # below so the action consumes our binary instead of
+        # attempting its own.  Same Trivy version, same scan policy,
+        # deterministic install path — no weakening of the gate.
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+            | sudo sh -s -- -b /usr/local/bin v0.70.0
+          trivy --version
+
       - name: Scan Docker image with Trivy
         env:
           TMPDIR: /mnt/trivy-tmp
@@ -1116,6 +1144,9 @@ jobs:
           ignore-unfixed: true
           exit-code: '1'
           timeout: '10m'
+          # Use the binary installed in the explicit step above; see
+          # that step's comment for the upstream-flake rationale.
+          skip-setup-trivy: true
 
       - name: Upload Trivy results
         if: always()
