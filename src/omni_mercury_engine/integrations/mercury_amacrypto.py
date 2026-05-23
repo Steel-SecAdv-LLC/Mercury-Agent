@@ -92,8 +92,6 @@ else:
         # Surfacing it as a ``UserWarning`` made every consumer see a
         # spurious pytest warning even when stubs are the intended
         # configuration.
-        import logging
-
         logging.getLogger(__name__).info(
             "ama_cryptography.adaptive_posture not available. "
             "Adaptive posture features will use stubs."

@@ -81,8 +81,6 @@ except ImportError:
     # notification is routed through ``logging`` rather than
     # ``warnings`` (a ``UserWarning`` made every consuming test see
     # a spurious pytest warning).
-    import logging
-
     logging.getLogger(__name__).info(
         "ama_cryptography.crypto_api not available. "
         "Install ama-cryptography[pqc] for full cryptographic support."
