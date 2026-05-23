@@ -51,9 +51,13 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--detector",
-        default="isoforest",
-        choices=["isoforest", "gosnn", "fusion"],
-        help="Detector to profile (default: isoforest).",
+        default="mathmercury",
+        choices=["mathmercury", "gosnn", "fusion"],
+        help=(
+            "Detector to profile (default: mathmercury). Mercury Agent "
+            "retired IsolationForest as a live anomaly path; the AnomalyMath"
+            "Arrest ensemble is the sole baseline."
+        ),
     )
     parser.add_argument("--n", type=int, default=256, help="Sample count (default 256).")
     parser.add_argument("--d", type=int, default=32, help="Feature dim (default 32).")
@@ -77,11 +81,16 @@ def _rss_kb() -> int:
 
 
 def _build_detector(name: str, X: npt.NDArray[np.float64]) -> tuple[Any, Any]:
-    if name == "isoforest":
-        from sklearn.ensemble import IsolationForest
+    if name == "mathmercury":
+        # AnomalyMathArrest is the sole live anomaly path — Mercury Agent
+        # explicitly retired IsolationForest at the architecture level, and
+        # ``tests/detectors/test_math_arrest_dominant_path.py`` enforces the
+        # invariant.  The ensemble's ``detect`` returns per-row scores.
+        from omni_mercury_engine.detectors.math_arrest.arrest import AnomalyMathArrest
 
-        m = IsolationForest(random_state=0, contamination="auto").fit(X)
-        return m, lambda batch: -m.score_samples(batch)
+        m = AnomalyMathArrest()
+        m.fit(X)
+        return m, m.detect
     if name == "gosnn":
         from omni_mercury_engine.core.global_omni_scalar_network import GlobalOmniScalarNetwork
 
