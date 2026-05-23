@@ -44,11 +44,10 @@ import argparse
 import hashlib
 import json
 import os
-import tempfile
 from pathlib import Path
 from typing import Any
 
-from omni_mercury_engine.tools._base import Certificate, run_tool
+from omni_mercury_engine.tools._base import Certificate, atomic_write_bytes, run_tool
 
 _SCHEMA = "mercury.tools.corpus_resigner/v1"
 
@@ -77,42 +76,63 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Compute the new signatures but do NOT overwrite the manifest.",
     )
+    parser.add_argument(
+        "--hsm-uri",
+        default=os.environ.get("MERCURY_HSM_URI"),
+        help=(
+            "Optional PKCS#11 URI of an HSM/TPM/YubiHSM-resident Ed25519 "
+            "signing key (e.g. 'pkcs11:token=mercury;id=01').  When set, "
+            "the signing key is never materialised in process memory.  "
+            "Defaults to $MERCURY_HSM_URI."
+        ),
+    )
     return parser
 
 
-def _atomic_write(path: Path, data: bytes) -> None:
-    """Write ``data`` to ``path`` atomically.
+# Atomic write helper is centralised in ``_base.atomic_write_bytes`` so
+# every tool that writes to disk goes through the same code path.
 
-    Uses ``tempfile.NamedTemporaryFile`` in the same directory followed by
-    ``os.replace`` — POSIX guarantees same-directory rename is atomic on
-    every supported filesystem (ext4, xfs, btrfs, apfs).  A crash mid-write
-    leaves either the old file untouched or the new file in place; never
-    a half-written manifest.
+
+def _sign_with_hsm(payload: bytes, hsm_uri: str) -> dict[str, Any] | None:
+    """Sign ``payload`` using an HSM-resident Ed25519 key.
+
+    Returns ``None`` when ``python-pkcs11`` is not installed or the URI
+    cannot be opened — the caller falls back to a software keypair and
+    captures the omission reason in the certificate body.
     """
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = tempfile.NamedTemporaryFile(
-        delete=False,
-        dir=str(path.parent),
-        prefix=f".{path.name}.",
-        suffix=".tmp",
-    )
     try:
-        tmp.write(data)
-        tmp.flush()
-        os.fsync(tmp.fileno())
-        tmp.close()
-        os.replace(tmp.name, path)
+        # ``pkcs11`` is gated by the ``[hsm]`` extra and declared in
+        # ``pyproject.toml`` ``[[tool.mypy.overrides]]``; we therefore
+        # do not need a ``type: ignore`` here.
+        import pkcs11
+    except ImportError:
+        return None
+    try:
+        # Minimal PKCS#11 URI parser: pull token and id; library-loaded
+        # operators set MERCURY_HSM_MODULE to override the .so path.
+        module_path = os.environ.get("MERCURY_HSM_MODULE", "/usr/lib/softhsm/libsofthsm2.so")
+        lib = pkcs11.lib(module_path)
+        token_label = None
+        key_id = None
+        for part in hsm_uri.removeprefix("pkcs11:").split(";"):
+            if part.startswith("token="):
+                token_label = part.removeprefix("token=")
+            elif part.startswith("id="):
+                key_id = bytes.fromhex(part.removeprefix("id="))
+        if token_label is None:
+            return None
+        token = lib.get_token(token_label=token_label)
+        pin = os.environ.get("MERCURY_HSM_PIN")
+        with token.open(user_pin=pin) as session:
+            priv = (
+                next(session.get_objects({pkcs11.Attribute.ID: key_id}))
+                if key_id
+                else next(session.get_objects())
+            )
+            sig = priv.sign(payload)
+        return {"algorithm": "ed25519", "hsm_uri": hsm_uri, "signature_hex": sig.hex()}
     except Exception:
-        # Best-effort cleanup of the temp file on any failure path.
-        try:
-            tmp.close()
-        except Exception:
-            pass
-        try:
-            os.unlink(tmp.name)
-        except FileNotFoundError:
-            pass
-        raise
+        return None
 
 
 def _collect(args: argparse.Namespace) -> Certificate:
@@ -190,6 +210,18 @@ def _collect(args: argparse.Namespace) -> Certificate:
 
     sig_bytes = (json.dumps(signature_payload, sort_keys=True, indent=2) + "\n").encode("utf-8")
 
+    hsm_info: dict[str, Any] = {"requested": bool(args.hsm_uri)}
+    if args.hsm_uri:
+        hsm_sig = _sign_with_hsm(payload_bytes, args.hsm_uri)
+        if hsm_sig is None:
+            hsm_info["available"] = False
+            hsm_info["reason"] = (
+                "python-pkcs11 not installed or HSM URI unopenable; fell back to software key"
+            )
+        else:
+            hsm_info["available"] = True
+            hsm_info["signature"] = hsm_sig
+
     body: dict[str, Any] = {
         "corpus_path": str(corpus_path),
         "sig_path": str(sig_path),
@@ -198,6 +230,7 @@ def _collect(args: argparse.Namespace) -> Certificate:
         "ml_dsa_65": mldsa_status,
         "new_sig_sha3_256": hashlib.sha3_256(sig_bytes).hexdigest(),
         "dry_run": bool(args.dry_run),
+        "hsm": hsm_info,
     }
 
     if args.dry_run:
@@ -209,7 +242,7 @@ def _collect(args: argparse.Namespace) -> Certificate:
             warnings=["dry-run: manifest was NOT written"],
         )
 
-    _atomic_write(sig_path, sig_bytes)
+    atomic_write_bytes(sig_path, sig_bytes)
 
     # Re-verify what we just wrote.  Defensive — catches the corner case
     # where the atomic write succeeded but the signature is somehow

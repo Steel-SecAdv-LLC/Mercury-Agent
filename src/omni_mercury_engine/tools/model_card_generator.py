@@ -36,8 +36,9 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
-from omni_mercury_engine.tools._base import Certificate, run_tool
+from omni_mercury_engine.tools._base import Certificate, atomic_write_text, run_tool
 
 _SCHEMA = "mercury.tools.model_card_generator/v1"
 
@@ -77,6 +78,20 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Free-text intended use statement.",
     )
     parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Compute the card but do NOT write --markdown.",
+    )
+    parser.add_argument(
+        "--evidence-dir",
+        default=None,
+        help=(
+            "Optional directory containing sibling certificates (benevolence_calibration_report, "
+            "fairness_subgroup_explorer, adversarial_probe).  When present they are spliced "
+            "into the card's metrics / fairness sections as signed evidence."
+        ),
+    )
+    parser.add_argument(
         "--limitations",
         default=(
             "Mercury's σ_Immutable and benevolence gates remain authoritative; "
@@ -95,7 +110,9 @@ def _load_class(identifier: str) -> Any:
     return getattr(module, class_name)
 
 
-def _compute_metrics(detector_obj: Any, X: np.ndarray, y: np.ndarray | None) -> dict[str, Any]:
+def _compute_metrics(
+    detector_obj: Any, X: npt.NDArray[np.float64], y: npt.NDArray[np.float64] | None
+) -> dict[str, Any]:
     out: dict[str, Any] = {}
     score_fn = (
         getattr(detector_obj, "score_samples", None)
@@ -169,11 +186,13 @@ def _collect(args: argparse.Namespace) -> Certificate:
             schema=_SCHEMA,
             status="warn",
             body={"detector": args.detector, "error": "detector class requires constructor args"},
-            warnings=["instantiate the detector outside this tool and use the future --pickle flag"],
+            warnings=[
+                "instantiate the detector outside this tool and use the future --pickle flag"
+            ],
         )
 
-    X: np.ndarray | None = None
-    y: np.ndarray | None = None
+    X: npt.NDArray[np.float64] | None = None
+    y: npt.NDArray[np.float64] | None = None
     if args.data:
         X = np.load(args.data, allow_pickle=False)
         if hasattr(detector_obj, "fit"):
@@ -202,8 +221,35 @@ def _collect(args: argparse.Namespace) -> Certificate:
         },
     }
 
-    if args.markdown:
-        Path(args.markdown).write_text(_card_to_markdown(card))
+    if args.evidence_dir:
+        ev_dir = Path(args.evidence_dir)
+        if ev_dir.is_dir():
+            evidence: dict[str, Any] = {}
+            for sibling in sorted(ev_dir.glob("*.json")):
+                try:
+                    blob = json.loads(sibling.read_text())
+                except (OSError, json.JSONDecodeError):
+                    continue
+                schema = blob.get("schema", "")
+                if not schema.startswith("mercury.tools."):
+                    continue
+                tool_name = schema.removeprefix("mercury.tools.").split("/")[0]
+                if tool_name in {
+                    "benevolence_calibration_report",
+                    "fairness_subgroup_explorer",
+                    "adversarial_probe",
+                    "oae_dimensionality_probe",
+                }:
+                    evidence[tool_name] = {
+                        "status": blob.get("status"),
+                        "body": blob.get("body"),
+                        "path": str(sibling),
+                    }
+            if evidence:
+                card["evidence"] = evidence
+
+    if args.markdown and not args.dry_run:
+        atomic_write_text(Path(args.markdown), _card_to_markdown(card))
 
     return Certificate(
         tool="model_card_generator",

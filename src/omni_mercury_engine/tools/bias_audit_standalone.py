@@ -33,6 +33,7 @@ import argparse
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 from omni_mercury_engine.tools._base import Certificate, DependencyMissing, run_tool
 
@@ -77,7 +78,9 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _score_with_detector(X: np.ndarray, detector: str, threshold: float) -> np.ndarray:
+def _score_with_detector(
+    X: npt.NDArray[np.float64], detector: str, threshold: float
+) -> npt.NDArray[np.float64]:
     if detector == "isoforest":
         from sklearn.ensemble import IsolationForest
 
@@ -87,7 +90,8 @@ def _score_with_detector(X: np.ndarray, detector: str, threshold: float) -> np.n
         # Min-max to [0, 1] so the threshold is interpretable.
         lo, hi = float(raw.min()), float(raw.max())
         norm = (raw - lo) / (hi - lo) if hi > lo else np.zeros_like(raw)
-        return (norm >= threshold).astype(int)
+        labels: npt.NDArray[np.float64] = (norm >= threshold).astype(np.float64)
+        return labels
     if detector == "fusion":
         # The fusion detector requires substantially more wiring than a
         # standalone bias audit ought to bring up — score via the
@@ -101,7 +105,8 @@ def _score_with_detector(X: np.ndarray, detector: str, threshold: float) -> np.n
         raw = -model.score_samples(X)
         lo, hi = float(raw.min()), float(raw.max())
         norm = (raw - lo) / (hi - lo) if hi > lo else np.zeros_like(raw)
-        return (norm >= threshold).astype(int)
+        labels = (norm >= threshold).astype(np.float64)
+        return labels
     raise ValueError(f"unknown detector: {detector}")
 
 
@@ -128,17 +133,11 @@ def _collect(args: argparse.Namespace) -> Certificate:
         )
 
     y_pred = _score_with_detector(X, args.detector, args.threshold)
-    y_true = (
-        np.load(args.labels, allow_pickle=False) if args.labels else y_pred.copy()
-    )
+    y_true = np.load(args.labels, allow_pickle=False) if args.labels else y_pred.copy()
     if y_true.shape[0] != X.shape[0]:
-        raise ValueError(
-            f"--labels must match N; got {y_true.shape[0]} vs {X.shape[0]}"
-        )
+        raise ValueError(f"--labels must match N; got {y_true.shape[0]} vs {X.shape[0]}")
 
-    dpd = float(
-        demographic_parity_difference(y_true, y_pred, sensitive_features=sensitive)
-    )
+    dpd = float(demographic_parity_difference(y_true, y_pred, sensitive_features=sensitive))
     eod = float(equalized_odds_difference(y_true, y_pred, sensitive_features=sensitive))
 
     sel_frame = MetricFrame(
@@ -166,7 +165,9 @@ def _collect(args: argparse.Namespace) -> Certificate:
     if eod > 0.1:
         warnings.append(f"EOD {eod:.3f} > 0.10 (significant error-rate disparity)")
     if four_fifths < 0.8:
-        warnings.append(f"four-fifths ratio {four_fifths:.3f} < 0.80 (US EEOC disparate-impact threshold)")
+        warnings.append(
+            f"four-fifths ratio {four_fifths:.3f} < 0.80 (US EEOC disparate-impact threshold)"
+        )
     status = "ok" if not warnings else "warn"
     return Certificate(
         tool="bias_audit_standalone",

@@ -53,6 +53,7 @@ import math
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 from omni_mercury_engine.tools._base import Certificate, run_tool
 
@@ -113,14 +114,14 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _load_trajectory(path: str) -> np.ndarray:
+def _load_trajectory(path: str) -> npt.NDArray[np.float64]:
     arr = np.load(path, allow_pickle=False)
     if arr.ndim != 1:
         raise ValueError(f"trajectory must be 1-D, got shape {arr.shape}")
     return np.asarray(arr, dtype=np.float64)
 
 
-def _synth_trajectory(eps: float, lam: float, n: int, noise: float) -> np.ndarray:
+def _synth_trajectory(eps: float, lam: float, n: int, noise: float) -> npt.NDArray[np.float64]:
     # ``lam_actual`` is intentionally slightly larger than the contractual
     # ``lam`` so the synthetic trajectory comfortably sits under the
     # bound — a real training run is expected to decay no slower than

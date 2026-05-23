@@ -50,6 +50,7 @@ import argparse
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 from omni_mercury_engine.tools._base import Certificate, DependencyMissing, run_tool
 
@@ -106,7 +107,7 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _ethical_band_probes(n: int, seed: int) -> np.ndarray:
+def _ethical_band_probes(n: int, seed: int) -> npt.NDArray[np.float32]:
     """Synthesise ``n`` positive (ethical-band) probes.
 
     Reproduces the exact labelling rule used by
@@ -186,9 +187,7 @@ def _collect(args: argparse.Namespace) -> Certificate:
 
     warnings: list[str] = []
     if total and pass_rate + 1e-12 < args.pass_rate:
-        warnings.append(
-            f"observed pass-rate {pass_rate:.4f} below required {args.pass_rate:.4f}"
-        )
+        warnings.append(f"observed pass-rate {pass_rate:.4f} below required {args.pass_rate:.4f}")
         status = "fail"
     else:
         status = "ok"

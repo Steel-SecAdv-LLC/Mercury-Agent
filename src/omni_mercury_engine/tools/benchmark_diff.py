@@ -87,7 +87,9 @@ def _normalise(doc: Any) -> dict[str, dict[str, dict[str, float]]]:
             det = str(row.get("detector", "unknown"))
             ds = str(row.get("dataset", "unknown"))
             metrics = {
-                k: float(row[k]) for k in _METRIC_KEYS if k in row and isinstance(row[k], (int, float))
+                k: float(row[k])
+                for k in _METRIC_KEYS
+                if k in row and isinstance(row[k], (int, float))
             }
             if metrics:
                 out.setdefault(det, {})[ds] = metrics

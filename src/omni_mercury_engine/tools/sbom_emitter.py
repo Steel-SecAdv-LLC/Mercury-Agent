@@ -36,11 +36,12 @@ import datetime as _dt
 import hashlib
 import importlib.metadata as _md
 import json
+import os
 import uuid
 from pathlib import Path
 from typing import Any
 
-from omni_mercury_engine.tools._base import Certificate, run_tool
+from omni_mercury_engine.tools._base import Certificate, atomic_write_text, run_tool
 
 _SCHEMA = "mercury.tools.sbom_emitter/v1"
 
@@ -59,6 +60,20 @@ def _build_parser() -> argparse.ArgumentParser:
         "--root-name",
         default="omni-mercury-engine",
         help="Distribution name to treat as the SBOM root (default: omni-mercury-engine).",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Build the SBOM but do NOT write --sbom-path.",
+    )
+    parser.add_argument(
+        "--serial-number",
+        default=None,
+        help=(
+            "Pin the CycloneDX serialNumber (urn:uuid:...).  Defaults to a "
+            "deterministic UUID derived from the component digests so two "
+            "runs with identical inputs produce byte-identical SBOMs."
+        ),
     )
     return parser
 
@@ -96,7 +111,7 @@ def _component_for(dist: _md.Distribution) -> dict[str, Any]:
     return component
 
 
-def _build_sbom(root_name: str) -> dict[str, Any]:
+def _build_sbom(root_name: str, serial_number: str | None = None) -> dict[str, Any]:
     components: list[dict[str, Any]] = []
     seen: set[str] = set()
     for dist in _md.distributions():
@@ -116,14 +131,40 @@ def _build_sbom(root_name: str) -> dict[str, Any]:
             root_purl = c["bom-ref"]
             break
 
+    # Deterministic serialNumber: UUIDv5 over the sorted component
+    # digests so two runs with the same environment produce byte-
+    # identical SBOMs (modulo timestamp).  Operators can override via
+    # ``--serial-number`` when re-using a previously published SBOM.
+    if serial_number is None:
+        agg = hashlib.sha256(
+            "\n".join(c.get("bom-ref", c["name"]) for c in components).encode("utf-8")
+        ).hexdigest()
+        serial_number = f"urn:uuid:{uuid.UUID(agg[:32])}"
+
+    # Deterministic timestamp under SOURCE_DATE_EPOCH (in seconds since
+    # the Unix epoch) so a reproducible-build environment can pin the
+    # SBOM's wall-clock too.
+    sde = os.environ.get("SOURCE_DATE_EPOCH")
+    if sde and sde.isdigit():
+        ts_dt = _dt.datetime.fromtimestamp(int(sde), tz=_dt.UTC)
+    else:
+        ts_dt = _dt.datetime.now(_dt.UTC)
+    timestamp = ts_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
     return {
         "bomFormat": "CycloneDX",
         "specVersion": "1.5",
-        "serialNumber": f"urn:uuid:{uuid.uuid4()}",
+        "serialNumber": serial_number,
         "version": 1,
         "metadata": {
-            "timestamp": _dt.datetime.now(_dt.UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "tools": [{"vendor": "Steel Security Advisors", "name": "mercury.sbom_emitter", "version": "1"}],
+            "timestamp": timestamp,
+            "tools": [
+                {
+                    "vendor": "Steel Security Advisors",
+                    "name": "mercury.sbom_emitter",
+                    "version": "1",
+                }
+            ],
             "component": (
                 {"type": "application", "bom-ref": root_purl, "name": root_name}
                 if root_purl
@@ -135,9 +176,9 @@ def _build_sbom(root_name: str) -> dict[str, Any]:
 
 
 def _collect(args: argparse.Namespace) -> Certificate:
-    sbom = _build_sbom(args.root_name)
-    if args.sbom_path:
-        Path(args.sbom_path).write_text(json.dumps(sbom, indent=2, sort_keys=True))
+    sbom = _build_sbom(args.root_name, args.serial_number)
+    if args.sbom_path and not args.dry_run:
+        atomic_write_text(Path(args.sbom_path), json.dumps(sbom, indent=2, sort_keys=True) + "\n")
     return Certificate(
         tool="sbom_emitter",
         schema=_SCHEMA,
@@ -146,6 +187,7 @@ def _collect(args: argparse.Namespace) -> Certificate:
             "component_count": len(sbom["components"]),
             "root_name": args.root_name,
             "sbom_path": args.sbom_path,
+            "dry_run": bool(args.dry_run),
             "sbom": sbom,
         },
     )

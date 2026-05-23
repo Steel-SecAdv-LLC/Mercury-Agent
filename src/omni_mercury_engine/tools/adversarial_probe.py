@@ -32,6 +32,7 @@ import argparse
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 from omni_mercury_engine.tools._base import Certificate, run_tool
 
@@ -69,9 +70,7 @@ def _build_parser() -> argparse.ArgumentParser:
         default=32,
         help="Perturbation samples per example (default 32).",
     )
-    parser.add_argument(
-        "--seed", type=int, default=0, help="Random seed (default 0)."
-    )
+    parser.add_argument("--seed", type=int, default=0, help="Random seed (default 0).")
     parser.add_argument(
         "--bound",
         type=float,
@@ -81,7 +80,7 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _build_scorer(name: str, X: np.ndarray) -> Any:
+def _build_scorer(name: str, X: npt.NDArray[np.float64]) -> Any:
     if name == "isoforest":
         from sklearn.ensemble import IsolationForest
 

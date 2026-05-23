@@ -41,9 +41,7 @@ def _build_parser() -> argparse.ArgumentParser:
         prog="python -m omni_mercury_engine.tools.gosnn_scalar_dump",
         description="Dump the current omni-scalar vector of a GOSNN instance.",
     )
-    parser.add_argument(
-        "--seed", type=int, default=0, help="Seed used to drive any random init."
-    )
+    parser.add_argument("--seed", type=int, default=0, help="Seed used to drive any random init.")
     parser.add_argument(
         "--probe-input",
         action="store_true",
@@ -67,12 +65,18 @@ def _collect(args: argparse.Namespace) -> Certificate:
     if args.probe_input:
         rng = np.random.default_rng(args.seed)
         X = rng.standard_normal((8, 16)).astype(np.float64)
-        try:
-            net.detect_anomaly(X)
-        except Exception:
-            # Probe failure shouldn't block the dump; the scalars
-            # captured below are still the initial-state contract.
-            pass
+        # ``GlobalOmniScalarNetwork`` exposes ``evaluate`` on the
+        # numpy-vector surface but historically also ``detect_anomaly``
+        # on the torch surface; we resolve via ``getattr`` so the dump
+        # remains usable across GOSNN revisions and silently skips when
+        # neither entrypoint is present.  Probe failure must never
+        # block the scalar dump.
+        probe = getattr(net, "detect_anomaly", None) or getattr(net, "evaluate", None)
+        if callable(probe):
+            try:
+                probe(X)
+            except Exception:
+                pass
 
     # Best-effort scalar extraction — GOSNN exposes a few candidate
     # attributes; we try them all and report whichever yields a numeric

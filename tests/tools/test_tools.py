@@ -28,11 +28,8 @@ identifier and a deterministic exit code mapping.
 from __future__ import annotations
 
 import json
-import sys
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import numpy as np
 import pytest
 
 from omni_mercury_engine.tools import (
@@ -53,6 +50,9 @@ from omni_mercury_engine.tools import (
     synthetic_fallback_auditor,
     workflow_version_drift_gate,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def _load_cert(path: Path) -> dict[str, Any]:
@@ -122,9 +122,7 @@ def test_workflow_version_drift_gate_detects_drift(tmp_path: Path) -> None:
     )
     (root / ".github" / "workflows" / "ci.yml").write_text("env:\n  AMA_REF: v2.0\n")
     out = tmp_path / "cert.json"
-    rc = workflow_version_drift_gate.main(
-        ["--root", str(root), "--output", str(out)]
-    )
+    rc = workflow_version_drift_gate.main(["--root", str(root), "--output", str(out)])
     cert = _load_cert(out)
     assert cert["status"] == "fail"
     assert rc == 1
@@ -163,9 +161,7 @@ def test_dataset_checksum_manifest_roundtrip(tmp_path: Path) -> None:
     (data_dir / "b.bin").write_bytes(b"another file")
 
     manifest_path = tmp_path / "manifest.json"
-    rc = dataset_checksum_manifest.main(
-        [str(data_dir), "--output", str(manifest_path)]
-    )
+    rc = dataset_checksum_manifest.main([str(data_dir), "--output", str(manifest_path)])
     assert rc == 0
     cert = _load_cert(manifest_path)
     assert cert["status"] == "ok"
@@ -198,9 +194,7 @@ def test_benchmark_diff_flags_regression(tmp_path: Path) -> None:
     prev.write_text(json.dumps({"d": {"smap": {"auc": 0.95}}}))
     curr.write_text(json.dumps({"d": {"smap": {"auc": 0.80}}}))
     out = tmp_path / "cert.json"
-    rc = benchmark_diff.main(
-        [str(prev), str(curr), "--fail-on-regression", "--output", str(out)]
-    )
+    rc = benchmark_diff.main([str(prev), str(curr), "--fail-on-regression", "--output", str(out)])
     cert = _load_cert(out)
     assert cert["status"] == "fail"
     assert cert["body"]["regression_count"] == 1
@@ -337,9 +331,7 @@ def test_synthetic_fallback_auditor_flags_high_fraction(tmp_path: Path) -> None:
 
 def test_helm_values_linter_handles_missing_chart(tmp_path: Path) -> None:
     out = tmp_path / "cert.json"
-    rc = helm_values_linter.main(
-        ["--values", str(tmp_path / "missing.yaml"), "--output", str(out)]
-    )
+    rc = helm_values_linter.main(["--values", str(tmp_path / "missing.yaml"), "--output", str(out)])
     cert = _load_cert(out)
     assert cert["status"] in {"warn", "fail"}
     assert rc in {0, 1}
@@ -352,7 +344,7 @@ def test_image_surface_auditor_dockerfile_mode(tmp_path: Path) -> None:
         "RUN apt-get update && apt-get install -y gcc && rm -rf /var/lib/apt/lists/*\n"
         "USER 1000\n"
         "ENV LD_LIBRARY_PATH=/opt/ama/lib\n"
-        "ENTRYPOINT [\"/opt/mercury/bin/run\"]\n"
+        'ENTRYPOINT ["/opt/mercury/bin/run"]\n'
     )
     out = tmp_path / "cert.json"
     rc = image_surface_auditor.main(

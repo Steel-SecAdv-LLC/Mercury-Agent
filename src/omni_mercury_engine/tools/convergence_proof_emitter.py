@@ -46,8 +46,9 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
-from omni_mercury_engine.tools._base import Certificate, run_tool
+from omni_mercury_engine.tools._base import Certificate, atomic_write_text, run_tool
 
 _SCHEMA = "mercury.tools.convergence_proof_emitter/v1"
 _BEGIN = "<!-- CONVERGENCE-PROOF:BEGIN -->"
@@ -94,10 +95,15 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Compute the block but do NOT write the doc; exit non-zero if it differs.",
     )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Render the block and report what would change, but do NOT write the doc.",
+    )
     return parser
 
 
-def _canonical_A() -> np.ndarray:
+def _canonical_A() -> npt.NDArray[np.float64]:
     """Return the canonical 3x3 fusion linearisation matrix.
 
     A = -lambda * I — the simplest Lyapunov-stable linearisation that
@@ -111,20 +117,18 @@ def _canonical_A() -> np.ndarray:
 
 
 def _render_latex(
-    A: np.ndarray,
-    P: np.ndarray,
+    A: npt.NDArray[np.float64],
+    P: npt.NDArray[np.float64],
     lam: float,
-    Q: np.ndarray,
+    Q: npt.NDArray[np.float64],
     Q_min_eig: float,
     P_max_eig: float,
     bound_rate: float,
 ) -> str:
     """Render the proof block as LaTeX-friendly Markdown."""
 
-    def _matrix(name: str, mat: np.ndarray) -> str:
-        rows = " \\\\ ".join(
-            " & ".join(f"{v:+.6f}" for v in row.tolist()) for row in mat
-        )
+    def _matrix(name: str, mat: npt.NDArray[np.float64]) -> str:
+        rows = " \\\\ ".join(" & ".join(f"{v:+.6f}" for v in row.tolist()) for row in mat)
         return f"{name} = \\begin{{bmatrix}} {rows} \\end{{bmatrix}}"
 
     return (
@@ -167,17 +171,43 @@ def _render_latex(
     )
 
 
+class _SentinelError(ValueError):
+    """Raised when MATH_SPEC.md has malformed sentinels (one without the other)."""
+
+
 def _splice(doc: Path, block: str) -> tuple[str, str]:
     """Return (old, new) doc contents after splicing ``block`` between sentinels.
 
-    If the sentinels are absent, append a new sentinelled section at
-    the end of the document.
+    Contract:
+
+    * If **both** sentinels are present, replace only the bytes
+      strictly between them.  Bytes outside the sentinels are preserved
+      byte-for-byte (no trailing-newline drift, no whitespace
+      normalisation).
+    * If **neither** sentinel is present, append a fresh sentinelled
+      section at the end of the doc.
+    * If **exactly one** sentinel is present the doc is malformed and we
+      fail loud — silently writing a second copy of the block would
+      corrupt the doc.
+    * Idempotent: repeated runs with the same ``block`` produce
+      byte-identical output.
     """
-    if doc.exists():
-        old = doc.read_text()
-    else:
-        old = ""
-    if _BEGIN in old and _END in old:
+    old = doc.read_text() if doc.exists() else ""
+    has_begin = _BEGIN in old
+    has_end = _END in old
+    if has_begin ^ has_end:
+        raise _SentinelError(
+            f"{doc}: one sentinel present but not the other "
+            f"(BEGIN={has_begin}, END={has_end}); refusing to splice"
+        )
+    if has_begin and has_end:
+        # Multiple BEGIN/END pairs would also be malformed; require
+        # exactly one each.
+        if old.count(_BEGIN) != 1 or old.count(_END) != 1:
+            raise _SentinelError(
+                f"{doc}: sentinels must appear exactly once each "
+                f"(BEGIN={old.count(_BEGIN)}, END={old.count(_END)})"
+            )
         pattern = re.compile(
             re.escape(_BEGIN) + r".*?" + re.escape(_END),
             flags=re.DOTALL,
@@ -188,7 +218,7 @@ def _splice(doc: Path, block: str) -> tuple[str, str]:
         replacement = f"{_BEGIN}\n{block}\n{_END}"
         new = pattern.sub(lambda _m: replacement, old)
     else:
-        sep = "" if old.endswith("\n") else "\n"
+        sep = "" if old.endswith("\n") or old == "" else "\n"
         new = f"{old}{sep}\n## Convergence proof\n\n{_BEGIN}\n{block}\n{_END}\n"
     return old, new
 
@@ -221,7 +251,20 @@ def _collect(args: argparse.Namespace) -> Certificate:
 
     block = _render_latex(A, P, lam, Q, Q_min_eig, P_max_eig, bound_rate)
     doc = Path(args.doc)
-    old, new = _splice(doc, block)
+    try:
+        old, new = _splice(doc, block)
+    except _SentinelError as exc:
+        return Certificate(
+            tool="convergence_proof_emitter",
+            schema=_SCHEMA,
+            status="fail",
+            body={
+                "doc": str(doc),
+                "error": "malformed_sentinels",
+                "detail": str(exc),
+            },
+            warnings=[str(exc)],
+        )
 
     body: dict[str, Any] = {
         "doc": str(doc),
@@ -242,10 +285,14 @@ def _collect(args: argparse.Namespace) -> Certificate:
             f"derived bound rate {bound_rate:.6f} is below the contractual lambda {lam:.6f}"
         )
 
-    if args.check:
-        status = "ok" if not body["changed"] else "fail"
-        if status == "fail":
-            warnings.append("docs/MATH_SPEC.md is out of sync with the derived proof block")
+    if args.check or args.dry_run:
+        body["dry_run"] = bool(args.dry_run)
+        status = "ok" if not body["changed"] else ("fail" if args.check else "warn")
+        if body["changed"]:
+            warnings.append(
+                f"{doc} is out of sync with the derived proof block ("
+                f"--check would fail; --dry-run would write)"
+            )
         return Certificate(
             tool="convergence_proof_emitter",
             schema=_SCHEMA,
@@ -254,8 +301,7 @@ def _collect(args: argparse.Namespace) -> Certificate:
             warnings=warnings,
         )
 
-    doc.parent.mkdir(parents=True, exist_ok=True)
-    doc.write_text(new)
+    atomic_write_text(doc, new)
     return Certificate(
         tool="convergence_proof_emitter",
         schema=_SCHEMA,

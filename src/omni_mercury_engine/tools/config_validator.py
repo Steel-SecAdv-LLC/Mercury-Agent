@@ -152,7 +152,9 @@ def _load_doc(path: Path) -> Any:
                 "PyYAML is not installed; install with `pip install pyyaml` "
                 "to validate YAML configs (JSON configs work without it)."
             )
-        import yaml  # type: ignore[import-not-found]
+        # PyYAML is declared in ``pyproject.toml`` mypy overrides; no
+        # ``type: ignore`` required.
+        import yaml
 
         return yaml.safe_load(text)
     if path.suffix.lower() == ".json":
@@ -185,8 +187,7 @@ def _validate_section(
         expected_type = types.get(key)
         if expected_type and not isinstance(value, expected_type):
             errors.append(
-                f"{section_name}.{key} expected {expected_type}, "
-                f"got {type(value).__name__}"
+                f"{section_name}.{key} expected {expected_type}, " f"got {type(value).__name__}"
             )
     return errors
 
@@ -201,10 +202,13 @@ def _validate(doc: Any, strict: bool) -> list[str]:
     # of named profiles (each value being a config).  We auto-detect: if
     # every value is itself a mapping containing at least one known
     # section, treat it as a profile bundle.
-    is_profile_bundle = all(
-        isinstance(v, dict) and any(k in _SECTION_SCHEMAS for k in v.keys())
-        for v in doc.values()
-    ) and len(doc) > 0
+    is_profile_bundle = (
+        all(
+            isinstance(v, dict) and any(k in _SECTION_SCHEMAS for k in v.keys())
+            for v in doc.values()
+        )
+        and len(doc) > 0
+    )
     profiles = doc.items() if is_profile_bundle else [("<root>", doc)]
     for profile_name, profile_body in profiles:
         if not isinstance(profile_body, dict):

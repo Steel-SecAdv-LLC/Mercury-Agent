@@ -124,10 +124,16 @@ def _collect(args: argparse.Namespace) -> Certificate:
         # ``ThreeRAttentionBlock`` requires (d_model, n_heads); use a tiny
         # config to keep the construction cheap.  We only read the
         # registered buffers (w_R, w_H, w_O), not the forward pass.
+        #
+        # ``register_buffer`` results in ``nn.Module`` attributes that
+        # mypy types as ``Tensor | None``.  We resolve via ``getattr``
+        # so the type-checker sees ``Any`` and trusts the documented
+        # buffer surface; a missing attribute raises ``AttributeError``
+        # and falls through to the ``Exception`` handler below.
         layer = ThreeRAttentionBlock(d_model=64, n_heads=4, dropout=0.0)
-        layer_values["w_R"] = float(layer.w_R.detach().cpu().item())
-        layer_values["w_H"] = float(layer.w_H.detach().cpu().item())
-        layer_values["w_O"] = float(layer.w_O.detach().cpu().item())
+        for name in ("w_R", "w_H", "w_O"):
+            buf = getattr(layer, name)
+            layer_values[name] = float(buf.detach().cpu().item())
     except ImportError as exc:
         layer_error = f"torch not installed: {exc}"
     except Exception as exc:

@@ -39,7 +39,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from omni_mercury_engine.tools._base import Certificate, run_tool
+from omni_mercury_engine.tools._base import Certificate, atomic_write_text, run_tool
 
 _SCHEMA = "mercury.tools.api_contract_diff/v1"
 _MODULE = "omni_mercury_engine"
@@ -64,6 +64,11 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="PATH",
         help="Diff the current public surface against the snapshot at PATH.",
     )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Compute the snapshot/diff but do NOT write the snapshot file.",
+    )
     return parser
 
 
@@ -78,19 +83,61 @@ def _classify(obj: Any) -> str:
 
 
 def _signature(obj: Any) -> str | None:
+    """Return the full ``inspect.signature`` string for ``obj``.
+
+    Captures parameter names, defaults, annotations, and the return
+    annotation — the same level of detail an external auditor would
+    review.  Falls back to ``None`` for objects whose signature cannot
+    be introspected (e.g. C builtins, classes without ``__init__``).
+    """
     try:
         return str(inspect.signature(obj))
     except (TypeError, ValueError):
         return None
 
 
+def _signature_detail(obj: Any) -> dict[str, Any] | None:
+    """Return a structured signature view: parameters, defaults, return.
+
+    The structured form is what ``api_contract_diff`` diffs across
+    snapshots so the diff highlights parameter renames and default
+    changes — not just the textual signature string.
+    """
+    try:
+        sig = inspect.signature(obj)
+    except (TypeError, ValueError):
+        return None
+    params: list[dict[str, Any]] = []
+    for p in sig.parameters.values():
+        params.append(
+            {
+                "name": p.name,
+                "kind": p.kind.name,
+                "default": (
+                    "<no-default>" if p.default is inspect.Parameter.empty else repr(p.default)
+                ),
+                "annotation": (
+                    "<no-annotation>"
+                    if p.annotation is inspect.Parameter.empty
+                    else str(p.annotation)
+                ),
+            }
+        )
+    return {
+        "parameters": params,
+        "return": (
+            "<no-annotation>"
+            if sig.return_annotation is inspect.Signature.empty
+            else str(sig.return_annotation)
+        ),
+    }
+
+
 def _snapshot_surface() -> dict[str, Any]:
     mod = importlib.import_module(_MODULE)
     public = getattr(mod, "__all__", None)
     if public is None:
-        public = sorted(
-            name for name in dir(mod) if not name.startswith("_")
-        )
+        public = sorted(name for name in dir(mod) if not name.startswith("_"))
     entries: dict[str, dict[str, Any]] = {}
     for name in sorted(public):
         obj = getattr(mod, name, None)
@@ -99,6 +146,7 @@ def _snapshot_surface() -> dict[str, Any]:
         entries[name] = {
             "kind": _classify(obj),
             "signature": _signature(obj),
+            "signature_detail": _signature_detail(obj),
             "module": getattr(obj, "__module__", None),
             "qualname": getattr(obj, "__qualname__", name),
         }
@@ -118,7 +166,15 @@ def _diff(saved: dict[str, Any], current: dict[str, Any]) -> dict[str, Any]:
     changed: list[dict[str, Any]] = []
     for name in sorted(set(saved_e) & set(current_e)):
         s, c = saved_e[name], current_e[name]
-        if s.get("signature") != c.get("signature") or s.get("kind") != c.get("kind"):
+        # We diff the textual signature, the structured detail, and the
+        # kind.  The structured detail catches parameter renames and
+        # default changes that a textual diff would also catch but
+        # the structured form makes mechanically reviewable.
+        if (
+            s.get("signature") != c.get("signature")
+            or s.get("signature_detail") != c.get("signature_detail")
+            or s.get("kind") != c.get("kind")
+        ):
             changed.append({"name": name, "before": s, "after": c})
     return {
         "removed": removed,
@@ -130,12 +186,20 @@ def _diff(saved: dict[str, Any], current: dict[str, Any]) -> dict[str, Any]:
 def _collect(args: argparse.Namespace) -> Certificate:
     if args.snapshot:
         snap = _snapshot_surface()
-        Path(args.snapshot).write_text(json.dumps(snap, indent=2, sort_keys=True))
+        if not args.dry_run:
+            atomic_write_text(
+                Path(args.snapshot), json.dumps(snap, indent=2, sort_keys=True) + "\n"
+            )
         return Certificate(
             tool="api_contract_diff",
             schema=_SCHEMA,
             status="ok",
-            body={"mode": "snapshot", "output": args.snapshot, **snap},
+            body={
+                "mode": "snapshot",
+                "output": args.snapshot,
+                "dry_run": bool(args.dry_run),
+                **snap,
+            },
         )
 
     saved = json.loads(Path(args.against).read_text())

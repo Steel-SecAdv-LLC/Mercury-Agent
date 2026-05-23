@@ -224,28 +224,16 @@ def tool(name: str, tool_args: tuple[str, ...]) -> None:
         mercury-agent tool algorithm_name_drift_gate
         mercury-agent tool config_validator --strict
     """
-    import importlib
-    import pkgutil
+    from omni_mercury_engine.tools import TOOL_REGISTRY
 
-    import omni_mercury_engine.tools as _tools_pkg
-
-    available = sorted(
-        m.name
-        for m in pkgutil.iter_modules(_tools_pkg.__path__)
-        if not m.name.startswith("_") and m.name != "migrate_pkl"
-    )
     if name == "list":
-        for n in available:
+        for n in TOOL_REGISTRY.names():
             click.echo(n)
         return
-    if name not in available:
+    if name not in TOOL_REGISTRY:
         click.echo(f"Unknown tool: {name!r}. Run `mercury-agent tool list` for available tools.")
         raise SystemExit(2)
-    module = importlib.import_module(f"omni_mercury_engine.tools.{name}")
-    if not hasattr(module, "main"):
-        click.echo(f"Tool {name!r} has no main() entry point")
-        raise SystemExit(2)
-    raise SystemExit(module.main(list(tool_args)))
+    raise SystemExit(TOOL_REGISTRY[name](list(tool_args)))
 
 
 @main.group()

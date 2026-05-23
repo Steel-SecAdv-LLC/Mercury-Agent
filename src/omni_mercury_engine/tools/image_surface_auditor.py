@@ -103,9 +103,9 @@ def _audit_dockerfile(path: Path) -> tuple[list[str], dict[str, Any]]:
 
     for tool in _DEV_TOOLS:
         # Crude but effective: warn if any dev tool is installed and not removed in the same RUN.
-        if re.search(rf"\bapt(-get)?\s+install[^\n]*\b{tool}\b", text, re.IGNORECASE) and not re.search(
-            rf"\bapt-get\s+(purge|remove)[^\n]*\b{tool}\b", text, re.IGNORECASE
-        ):
+        if re.search(
+            rf"\bapt(-get)?\s+install[^\n]*\b{tool}\b", text, re.IGNORECASE
+        ) and not re.search(rf"\bapt-get\s+(purge|remove)[^\n]*\b{tool}\b", text, re.IGNORECASE):
             findings.append(f"dev tool {tool!r} installed but not purged in the final image")
     return findings, facts
 
@@ -130,7 +130,11 @@ def _audit_rootfs(root: Path) -> tuple[list[str], dict[str, Any]]:
     if apt_lists.exists() and any(apt_lists.iterdir()):
         findings.append("/var/lib/apt/lists is non-empty (apt cache not cleaned)")
 
-    passwd = (root / "etc" / "passwd").read_text(errors="replace") if (root / "etc" / "passwd").exists() else ""
+    passwd = (
+        (root / "etc" / "passwd").read_text(errors="replace")
+        if (root / "etc" / "passwd").exists()
+        else ""
+    )
     non_root_users = [ln for ln in passwd.splitlines() if not ln.startswith("root:")]
     facts["non_root_user_count"] = len(non_root_users)
     if not non_root_users:
