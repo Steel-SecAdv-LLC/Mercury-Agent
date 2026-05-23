@@ -135,7 +135,7 @@ class Certificate:
     warnings: list[str] = field(default_factory=list)
 
     def envelope(self) -> dict[str, Any]:
-        """Return the full envelope (header + body) as a plain dict."""
+        """Serialise the certificate (header + body) as a plain dict."""
         return {
             "schema": self.schema,
             "tool": self.tool,

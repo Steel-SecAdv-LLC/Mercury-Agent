@@ -214,11 +214,10 @@ def verify_corpus(corpus: str | None, signature: str | None, require_mldsa: bool
 @click.argument("name", required=True)
 @click.argument("tool_args", nargs=-1, type=click.UNPROCESSED)
 def tool(name: str, tool_args: tuple[str, ...]) -> None:
-    """Run an operator tool by name (see `mercury-agent tool list`).
+    r"""Run an operator tool by name (see `mercury-agent tool list`).
 
     Examples:
-
-    \b
+        \b
         mercury-agent tool list
         mercury-agent tool sigma_immutable_verifier
         mercury-agent tool algorithm_name_drift_gate
