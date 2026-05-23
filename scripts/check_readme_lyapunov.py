@@ -206,7 +206,7 @@ CHECKS: tuple[LambdaCheck, ...] = (
         # and have the gate see the new value.  Replacing the lambda
         # with a direct reference would freeze the binding at registry
         # construction time and break the monkeypatch contract.
-        canonical_provider=lambda: _import_lambda_convergence(),  # noqa: PLW0108
+        canonical_provider=lambda: _import_lambda_convergence(),
         patterns=(
             # 1. Greek inline math: "λ=0.25", "Λ = 0.25"
             re.compile(r"[λΛ]\s*=\s*" + _NUM),
@@ -266,7 +266,7 @@ CHECKS: tuple[LambdaCheck, ...] = (
         name="lambda_decay",
         # See PLW0108 explanation on lambda_lyapunov above: the thunk
         # is load-bearing for the monkeypatch contract.
-        canonical_provider=lambda: _import_lambda_decay(),  # noqa: PLW0108
+        canonical_provider=lambda: _import_lambda_decay(),
         patterns=(
             # 1. Constant-assignment form rendered verbatim in prose:
             #    "LAMBDA_DECAY = 0.18".
@@ -293,7 +293,7 @@ CHECKS: tuple[LambdaCheck, ...] = (
         # replacement.
         min_occurrences=1,
         description=(
-            "Double-helix evolutionary adaptation rate " "(double_helix_engine.LAMBDA_DECAY)."
+            "Double-helix evolutionary adaptation rate (double_helix_engine.LAMBDA_DECAY)."
         ),
     ),
 )
