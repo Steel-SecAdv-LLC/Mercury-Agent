@@ -18,6 +18,13 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+# Every test in this module instantiates a Mercury detector whose
+# constructor / forward path requires torch (LSTM, ResNet, etc.).
+# Skip cleanly when the optional ``ml`` extra is absent so the rest of
+# the suite is still discoverable; the tests themselves remain
+# unchanged and pass under the full extras matrix.
+pytest.importorskip("torch")
+
 
 # Test data generators
 def generate_synthetic_timeseries(

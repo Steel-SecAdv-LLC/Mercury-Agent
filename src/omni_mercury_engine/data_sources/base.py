@@ -441,14 +441,25 @@ class DataSourceBase(ABC):
         self._last_health_check: float = 0.0
         self._is_healthy: bool = True
 
-        # Circuit breaker for fault tolerance
+        # Circuit breaker for fault tolerance.  ``excluded_exceptions``
+        # historically pinned ``httpx.HTTPError`` unconditionally, which
+        # raised ``NameError: name 'httpx' is not defined`` at
+        # constructor time on installs without the optional ``data``
+        # extra — even for data sources whose ``fetch`` path doesn't
+        # touch HTTP (consciousness simulators, in-memory sources,
+        # etc.).  Build the exclusion tuple conditionally so the
+        # constructor remains usable; HTTP-shaped data sources still
+        # raise a clean error from the ``_get_client`` /
+        # ``_get_sync_client`` lazy accessors if the operator actually
+        # tries an HTTP request without httpx installed.
         self._circuit_breaker: CircuitBreaker | None = None
         if self.config.circuit_breaker.enabled:
             cb_config = self.config.circuit_breaker
+            excluded: tuple[type[Exception], ...] = (httpx.HTTPError,) if HTTPX_AVAILABLE else ()
             self._circuit_breaker = CircuitBreaker(
                 failure_threshold=cb_config.failure_threshold,
                 recovery_timeout=cb_config.recovery_timeout,
-                excluded_exceptions=(httpx.HTTPError,),
+                excluded_exceptions=excluded,
                 enable_exponential_backoff=cb_config.enable_exponential_backoff,
                 backoff_base=cb_config.backoff_base,
                 max_backoff_timeout=cb_config.max_backoff_timeout,

@@ -23,6 +23,13 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+# Every detector exercised in this module (ABMS medical, intelligence
+# fusion, Schumann resonance, chemistry, parapsychology) lives on the
+# torch backbone — the module-level imports inside each test pull in
+# torch transitively.  Skip cleanly at collection time when torch is
+# absent so the rest of the suite stays discoverable.
+pytest.importorskip("torch")
+
 
 def test_medical_abms_import() -> None:
     """Test ABMS medical module imports correctly"""

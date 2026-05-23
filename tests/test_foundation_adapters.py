@@ -31,6 +31,14 @@ import importlib.util
 import pytest
 
 HAS_TORCH = importlib.util.find_spec("torch") is not None
+if not HAS_TORCH:
+    # Every foundation adapter (TimeGPT, Chronos, Matrix Profile,
+    # FoundationEnsemble) requires torch — they extend
+    # ``BaseFoundationAdapter`` which lives on the torch backbone.
+    # Skip the whole module cleanly when torch is absent so the rest of
+    # the suite is still discoverable in CI images without the
+    # optional ``ml`` extra.
+    pytest.skip("torch required for foundation adapters", allow_module_level=True)
 
 
 pytestmark = pytest.mark.foundation

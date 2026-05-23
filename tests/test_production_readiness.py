@@ -124,11 +124,22 @@ class TestBenevolenceScorerEnforce:
 
 
 class TestCognitiveOrchestratorEthicalGate:
-    """Tests for ethical gate wiring into CognitiveOrchestrator."""
+    """Tests for ethical gate wiring into CognitiveOrchestrator.
+
+    The σ_Immutable gate fails closed with
+    ``EthicalConstraintViolationError(check='gosnn_unavailable')`` when
+    torch is absent (the documented Wave B contract in
+    ``tests/ethical/test_hard_enforcement.py``).  Exercising
+    ``orchestrator.analyze`` therefore requires torch — without it the
+    gate would reject every call, which is the correct safeguard
+    behaviour but not what these benevolence-wiring tests are designed
+    to verify.  Skip cleanly at the class boundary.
+    """
 
     def test_analyze_includes_benevolence_score(self) -> None:
         """analyze() always scores benevolence; the result exposes both
         the score and the permissibility flag."""
+        pytest.importorskip("torch")
         import warnings
 
         from omni_mercury_engine.cognitive.orchestrator import CognitiveOrchestrator
@@ -251,12 +262,12 @@ class TestRefactoringTransformerGuardClause:
         #      function-body scope, NOT nested inside any ``ast.If``.
         # Either contract failing means we accepted a no-op silently.
         first = func_def.body[0]
-        assert isinstance(
-            first, ast.If
-        ), f"expected guard clause as first statement, got {type(first).__name__}"
-        assert isinstance(first.test, ast.UnaryOp) and isinstance(
-            first.test.op, ast.Not
-        ), "guard test must be an inverted predicate (UnaryOp(Not))"
+        assert isinstance(first, ast.If), (
+            f"expected guard clause as first statement, got {type(first).__name__}"
+        )
+        assert isinstance(first.test, ast.UnaryOp) and isinstance(first.test.op, ast.Not), (
+            "guard test must be an inverted predicate (UnaryOp(Not))"
+        )
         assert (
             len(first.body) == 1 and isinstance(first.body[0], ast.Return) and not first.orelse
         ), "guard body must be a single early-return with no else branch"
@@ -264,12 +275,12 @@ class TestRefactoringTransformerGuardClause:
         # The former nested body must now live at function-body scope.
         rest = func_def.body[1:]
         assert len(rest) == 2, f"expected 2 hoisted statements, got {len(rest)}"
-        assert isinstance(
-            rest[0], ast.Assign
-        ), f"first hoisted stmt must be the original assignment, got {type(rest[0]).__name__}"
-        assert isinstance(
-            rest[1], ast.Return
-        ), f"second hoisted stmt must be the original return, got {type(rest[1]).__name__}"
+        assert isinstance(rest[0], ast.Assign), (
+            f"first hoisted stmt must be the original assignment, got {type(rest[0]).__name__}"
+        )
+        assert isinstance(rest[1], ast.Return), (
+            f"second hoisted stmt must be the original return, got {type(rest[1]).__name__}"
+        )
 
         # And the rewritten function must still execute correctly.
         compiled = compile(new_tree, "<test-guard>", "exec")
@@ -338,9 +349,9 @@ class TestRefactoringTransformerGuardClause:
             isinstance(first_if.test, ast.UnaryOp) and isinstance(first_if.test.op, ast.Not)
         ), "first if's predicate was inverted — that is the broken transform."
         # And the original assignment must still live inside its body.
-        assert len(first_if.body) == 1 and isinstance(
-            first_if.body[0], ast.Assign
-        ), "first if's body must still contain the original assignment."
+        assert len(first_if.body) == 1 and isinstance(first_if.body[0], ast.Assign), (
+            "first if's body must still contain the original assignment."
+        )
 
         # Confirm the function still compiles and runs cleanly with both
         # branches reachable.
@@ -567,9 +578,9 @@ class TestRefactoringTransformerConstantHoisting:
         match_stmt = next(s for s in func_def.body if isinstance(s, ast.Match))
         for case in match_stmt.cases:
             if isinstance(case.pattern, ast.MatchValue):
-                assert isinstance(
-                    case.pattern.value, ast.Constant
-                ), "match value pattern was rewritten — would silently change semantics."
+                assert isinstance(case.pattern.value, ast.Constant), (
+                    "match value pattern was rewritten — would silently change semantics."
+                )
 
         # Output must compile and dispatch on the integer 42 (not bind).
         compiled = compile(new_tree, "<test-match>", "exec")

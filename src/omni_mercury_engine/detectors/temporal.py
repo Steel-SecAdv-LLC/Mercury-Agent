@@ -51,15 +51,45 @@ class TemporalAnomalyDetector(BaseDetector):
         self.window_size = self.config.get("window_size", 10)
         self.change_threshold = self.config.get("change_threshold", 2.0)
 
-        self.lstm = nn.LSTM(
-            input_size=1,
-            hidden_size=32,
-            num_layers=2,
-            batch_first=True,
-        )
+        # LSTM is optional: it powers the documented "LSTM-based
+        # forecasting" feature but trend / change / seasonality
+        # analysis run on pure NumPy.  Previously ``__init__``
+        # unconditionally constructed ``nn.LSTM``, which raised
+        # ``NameError: name 'nn' is not defined`` when the optional
+        # ``ml`` extra was absent (``nn`` was conditionally imported
+        # but used unconditionally — a real bug).  Construct lazily:
+        # callers without torch can still use the non-LSTM detection
+        # paths, and callers that DO try the LSTM path receive a clear
+        # ImportError from :meth:`_lstm` rather than a confusing
+        # NameError leaking the implementation detail.
+        self.lstm: Any | None = None
+        if TORCH_AVAILABLE:
+            self.lstm = nn.LSTM(
+                input_size=1,
+                hidden_size=32,
+                num_layers=2,
+                batch_first=True,
+            )
 
         self.baseline_mean: float | None = None
         self.baseline_std: float | None = None
+
+    def _lstm(self) -> Any:
+        """Return the LSTM, raising a clear error when torch is absent.
+
+        Trend / change / seasonality detection paths do not need the
+        LSTM; only the forecasting branch consults it.  Surface the
+        missing-torch condition with an actionable message instead of
+        the historical ``NameError: name 'nn' is not defined`` cascade.
+        """
+        if self.lstm is None:
+            raise ImportError(
+                "TemporalAnomalyDetector LSTM forecasting requires PyTorch. "
+                "Install with `pip install 'mercury-agent[ml]'` or use the "
+                "trend / change / seasonality detection paths which run on "
+                "NumPy only."
+            )
+        return self.lstm
 
     def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> TemporalAnomalyDetector:
         """Fit detector to normal time series."""
@@ -157,7 +187,7 @@ class TemporalAnomalyDetector(BaseDetector):
             data_tensor = torch.tensor(data_np, dtype=torch.float32).unsqueeze(-1)
 
         with torch.no_grad():
-            _, (hidden, _) = self.lstm(data_tensor)
+            _, (hidden, _) = self._lstm()(data_tensor)
             lstm_features = hidden[-1]
 
         return lstm_features

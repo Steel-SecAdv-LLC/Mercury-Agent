@@ -12,13 +12,27 @@ Tests for audit improvements including:
 
 from __future__ import annotations
 
+import importlib.util
 import logging
 import time
 
 import numpy as np
 import pytest
 
+# ``omni_mercury_engine.api.server`` lives in the optional ``api``
+# extra (fastapi).  Compute the skip flag once at module top so the
+# decorator below is a static, readable condition.
+_HAS_FASTAPI = importlib.util.find_spec("fastapi") is not None
 
+
+@pytest.mark.skipif(
+    not _HAS_FASTAPI,
+    reason=(
+        "fastapi (optional 'api' extra) is required for the api.server "
+        "PIIMaskingFilter; the other audit-improvement tests in this "
+        "module do not need fastapi so the skip is scoped to this class."
+    ),
+)
 class TestPIIMaskingFilter:
     """Test PII masking in log messages."""
 
