@@ -491,7 +491,7 @@ class NOAAWeatherLoader(DatasetLoader):
                     break
                 if target_records is not None and len(all_features) >= target_records:
                     logger.info(
-                        "Open-Meteo: collected %d records (>= target %d); " "stopping early.",
+                        "Open-Meteo: collected %d records (>= target %d); stopping early.",
                         len(all_features),
                         target_records,
                     )
@@ -1106,12 +1106,202 @@ class USGSGeochemistryLoader(DatasetLoader):
             reason="USGS MRData API requires bulk download",
         )
 
+    # Mapping from this loader's FEATURE_NAMES to the NURE-HSSR CSV columns.
+    # Metal values are sediment ppm (mg/kg); ca/fe are sediment percent;
+    # pH is the unitless field measurement.  The NURE schema is published at
+    # https://mrdata.usgs.gov/nure/sediment/about.php and has been stable
+    # since the dataset's final release (Open-File Report 97-492, 1997;
+    # last bulk-CSV recompile 2014-12-01).
+    _NURE_FIELD_MAP: dict[str, str] = {
+        "latitude": "latitude",
+        "longitude": "longitude",
+        "arsenic": "as_ppm",
+        "lead": "pb_ppm",
+        "mercury": "hg_ppm",
+        "cadmium": "cd_ppm",
+        "copper": "cu_ppm",
+        "zinc": "zn_ppm",
+        "iron": "fe_pct",
+        "calcium": "ca_pct",
+        "ph": "ph",
+    }
+
     def _download_from_usgs(self) -> bool:
-        """Attempt to download USGS geochemistry data."""
-        # Note: USGS MRData requires complex WFS/WMS queries
-        # For production, integrate with their downloadable datasets
-        # For now, use synthetic data with realistic distributions
-        return False
+        """Download the USGS NURE-HSSR stream-sediment geochemistry bulk CSV.
+
+        NURE-HSSR (National Uranium Resource Evaluation Hydrogeochemical and
+        Stream Sediment Reconnaissance) is a 1973-1984 US government program
+        that collected ~400K stream-sediment samples across the continental
+        US and analysed them for ~50 elements per sample.  The bulk CSV is
+        published as a 39 MB ZIP at
+        ``https://mrdata.usgs.gov/nure/sediment/nuresed-csv.zip`` and is
+        public-domain US Government data.
+
+        The parser materialises only the eleven columns this loader's
+        ``FEATURE_NAMES`` schema exposes (lat/lon plus the EPA-screening
+        metals + Fe/Ca/pH), stops once ``max_samples`` rows match the
+        configured region filter, and writes the result to
+        ``usgs_geochemistry_real.npz``.
+
+        Returns:
+            True iff a non-empty ``usgs_geochemistry_real.npz`` was
+            produced.  False if the upstream is unreachable or the parser
+            cannot recognise the CSV schema; the caller then either falls
+            back to synthetic data (``MERCURY_ALLOW_SYNTHETIC=1``) or
+            raises :class:`DataSourceUnavailableError`.
+        """
+        cache_file = self.data_path / "usgs_geochemistry_real.npz"
+        if cache_file.exists():
+            self._is_real_data = True
+            return True
+
+        url = TrustedEndpoints.USGS_NURE_SEDIMENT_CSV
+        try:
+            logger.info("Downloading USGS NURE-HSSR stream-sediment CSV from %s", url)
+            content = http_get_with_retry(url, timeout=300, timeout_per_attempt=90)
+        except Exception as e:
+            logger.warning("USGS NURE download failed: %s", e)
+            return False
+
+        try:
+            features, labels = self._parse_nure_csv_zip(content)
+        except (ValueError, KeyError, OSError) as e:
+            logger.warning("USGS NURE CSV parse failed: %s", e)
+            return False
+
+        if features.shape[0] == 0:
+            logger.warning(
+                "USGS NURE returned 0 rows after region filter "
+                "(lat %s, lon %s); refusing to write an empty cache",
+                (self.region["lat_min"], self.region["lat_max"]),
+                (self.region["lon_min"], self.region["lon_max"]),
+            )
+            return False
+
+        self.data_path.mkdir(parents=True, exist_ok=True)
+        np.savez_compressed(cache_file, features=features, labels=labels)
+        self._is_real_data = True
+        logger.info(
+            "USGS NURE-HSSR loaded: %d samples, %.1f%% EPA-screening anomalies",
+            features.shape[0],
+            100.0 * labels.mean(),
+        )
+        return True
+
+    def _parse_nure_csv_zip(
+        self, content: bytes
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+        """Parse the NURE-HSSR bulk CSV ZIP into the FEATURE_NAMES schema.
+
+        The NURE encoding represents below-detection-limit values as a
+        negative number whose absolute value is the detection threshold
+        (so ``-5`` means "below 5 ppm").  We substitute half the threshold
+        per the USGS-recommended convention for censored geochemical data
+        (https://pubs.usgs.gov/of/1997/ofr-97-0492/ §"Quality controls").
+        """
+        import csv
+        import zipfile
+
+        target = self.config.max_samples or 5000
+        rows: list[list[float]] = []
+
+        with zipfile.ZipFile(io.BytesIO(content)) as zf:
+            csv_name = next((n for n in zf.namelist() if n.lower().endswith(".csv")), None)
+            if csv_name is None:
+                raise ValueError(f"NURE ZIP missing CSV member (members: {zf.namelist()})")
+
+            required = set(self._NURE_FIELD_MAP.values())
+            with zf.open(csv_name) as fh:
+                text_stream = io.TextIOWrapper(fh, encoding="utf-8", errors="replace")
+                reader = csv.DictReader(text_stream)
+                fieldnames = set(reader.fieldnames or [])
+                missing = sorted(required - fieldnames)
+                if missing:
+                    raise ValueError(
+                        f"NURE CSV missing required columns: {missing} "
+                        f"(have {sorted(fieldnames)[:8]}...)"
+                    )
+
+                # Materialise only the rows that pass the region filter
+                # and only up to ``target`` rows; the full CSV is 235 MB.
+                for record in reader:
+                    if len(rows) >= target:
+                        break
+                    row = self._parse_nure_row(record)
+                    if row is not None:
+                        rows.append(row)
+
+        if not rows:
+            n_feat = len(self.FEATURE_NAMES)
+            return (
+                np.empty((0, n_feat), dtype=np.float32),
+                np.empty(0, dtype=np.int64),
+            )
+
+        features = np.array(rows, dtype=np.float32)
+        # EPA-screening-level anomaly labels.  Matches the synthetic-fallback
+        # convention: any one of As/Pb/Hg/Cd/Cu/Zn over screening triggers.
+        labels = (
+            (features[:, 2] > self.EPA_SCREENING_LEVELS["arsenic"])
+            | (features[:, 3] > self.EPA_SCREENING_LEVELS["lead"])
+            | (features[:, 4] > self.EPA_SCREENING_LEVELS["mercury"])
+            | (features[:, 5] > self.EPA_SCREENING_LEVELS["cadmium"])
+            | (features[:, 6] > self.EPA_SCREENING_LEVELS["copper"])
+            | (features[:, 7] > self.EPA_SCREENING_LEVELS["zinc"])
+        ).astype(np.int64)
+        return features, labels
+
+    def _parse_nure_row(self, record: dict[str, str]) -> list[float] | None:
+        """Parse a single NURE CSV row into the FEATURE_NAMES schema.
+
+        Returns the row vector if it passes the region filter and yields
+        a valid lat/lon, else None.
+        """
+        try:
+            lat = float(record["latitude"])
+            lon = float(record["longitude"])
+        except (ValueError, TypeError, KeyError):
+            return None
+        if not (
+            self.region["lat_min"] <= lat <= self.region["lat_max"]
+            and self.region["lon_min"] <= lon <= self.region["lon_max"]
+        ):
+            return None
+
+        row: list[float] = [lat, lon]
+        # Metals and major elements with below-detection-limit handling.
+        for feature_name in (
+            "arsenic",
+            "lead",
+            "mercury",
+            "cadmium",
+            "copper",
+            "zinc",
+            "iron",
+            "calcium",
+        ):
+            col = self._NURE_FIELD_MAP[feature_name]
+            raw = record.get(col, "")
+            try:
+                val = float(raw) if raw not in ("", None) else 0.0
+            except (ValueError, TypeError):
+                val = 0.0
+            if val < 0:
+                # Below-detection: substitute half the detection threshold.
+                val = abs(val) / 2.0
+            row.append(val)
+
+        # pH is unitless and must fall in [0, 14]; outside that range it is
+        # treated as a missing field measurement.
+        raw_ph = record.get("ph", "") or ""
+        try:
+            ph = float(raw_ph) if raw_ph not in ("", None) else 0.0
+        except (ValueError, TypeError):
+            ph = 0.0
+        if ph <= 0 or ph > 14:
+            ph = 0.0
+        row.append(ph)
+        return row
 
     def _create_synthetic_geochemistry(self) -> bool:
         """Create synthetic geochemistry data based on realistic distributions."""
