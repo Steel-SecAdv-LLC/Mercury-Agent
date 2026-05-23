@@ -18,11 +18,22 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 Operator tool: synthetic-fallback auditor.
 
-Scans a benchmark results JSON for any dataset using >50% synthetic
-data and flags it.  README already says this triggers a warning at
-runtime; this tool enforces it post-hoc on the recorded benchmark
-artefact so a CI gate can fail-closed on stealthy synthetic-fallback
-contamination.
+**Live-first data policy.**  Mercury Agent's data pipeline is
+live-first; synthetic data is only ever a transient reenactment of
+the most-recently-collected live corpus.  This auditor scans a
+benchmark results JSON for any dataset using >50 % synthetic data
+and flags it so an operator can confirm:
+
+* the live source was genuinely unreachable when the reenactment
+  occurred,
+* the reenactment has a :mod:`synthetic_provenance_tag` recording
+  which live snapshot it reproduced, and
+* the :mod:`live_dataset_protection_gate` passed against the live
+  reference before the run was released.
+
+The README already says synthetic fallback triggers a warning at
+runtime; this tool enforces the post-hoc fail-closed CI gate so
+stealthy synthetic-fallback contamination cannot ship undetected.
 """
 
 from __future__ import annotations

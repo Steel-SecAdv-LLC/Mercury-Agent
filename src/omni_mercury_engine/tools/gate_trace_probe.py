@@ -152,7 +152,9 @@ def _surface_engine_detect() -> dict[str, Any]:
         try:
             result = engine.detect(X)  # most common public surface
             status = "ok"
-            outcome: dict[str, Any] = {"keys": sorted(result.keys()) if isinstance(result, dict) else None}
+            outcome: dict[str, Any] = {
+                "keys": sorted(result.keys()) if isinstance(result, dict) else None
+            }
         except Exception as exc:
             status = "raised"
             outcome = {"exception_type": type(exc).__name__, "message": str(exc)}
@@ -238,9 +240,7 @@ def _collect(args: argparse.Namespace) -> Certificate:
     selected = args.surfaces or list(_SURFACES)
     unknown = set(selected) - set(_SURFACES)
     if unknown:
-        raise ValueError(
-            f"unknown surfaces: {sorted(unknown)}; known: {sorted(_SURFACES)}"
-        )
+        raise ValueError(f"unknown surfaces: {sorted(unknown)}; known: {sorted(_SURFACES)}")
 
     records: list[dict[str, Any]] = []
     for name in selected:

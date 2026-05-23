@@ -98,7 +98,9 @@ def _gpu_info() -> dict[str, Any]:
         if torch.cuda.is_available():
             info["available"] = True
             info["count"] = torch.cuda.device_count()
-            info["devices"] = [torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())]
+            info["devices"] = [
+                torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())
+            ]
     except ImportError:
         info["torch"] = "not installed"
     return info

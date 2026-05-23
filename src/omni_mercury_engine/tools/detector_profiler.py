@@ -34,6 +34,7 @@ import time
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 from omni_mercury_engine.tools._base import Certificate, run_tool
 
@@ -75,7 +76,7 @@ def _rss_kb() -> int:
     return int(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
 
 
-def _build_detector(name: str, X: np.ndarray) -> tuple[Any, Any]:
+def _build_detector(name: str, X: npt.NDArray[np.float64]) -> tuple[Any, Any]:
     if name == "isoforest":
         from sklearn.ensemble import IsolationForest
 
@@ -85,7 +86,18 @@ def _build_detector(name: str, X: np.ndarray) -> tuple[Any, Any]:
         from omni_mercury_engine.core.global_omni_scalar_network import GlobalOmniScalarNetwork
 
         net = GlobalOmniScalarNetwork()
-        return net, lambda batch: net.detect_anomaly(batch)
+        # GOSNN exposes ``detect_anomaly`` on the torch surface and
+        # ``evaluate`` on the numpy surface; the public attribute set
+        # has shifted across revisions, so we resolve via ``getattr``
+        # rather than hard-pinning a method name that may not exist in
+        # all installed configurations.
+        probe = getattr(net, "detect_anomaly", None) or getattr(net, "evaluate", None)
+        if not callable(probe):
+            raise RuntimeError(
+                "GlobalOmniScalarNetwork exposes neither ``detect_anomaly`` "
+                "nor ``evaluate`` — profiler cannot exercise the detector."
+            )
+        return net, probe
     if name == "fusion":
         from omni_mercury_engine.engine import MercuryEngine
 
@@ -166,9 +178,7 @@ def _collect(args: argparse.Namespace) -> Certificate:
             f"GOSNN median latency {lat['median_ms']:.2f}ms exceeds README's <100ms claim"
         )
     if cache_hit_rate is not None and cache_hit_rate < 0.5:
-        warnings.append(
-            f"cache hit rate {cache_hit_rate:.2%} below README's >50% claim"
-        )
+        warnings.append(f"cache hit rate {cache_hit_rate:.2%} below README's >50% claim")
     status = "ok" if not warnings else "warn"
     return Certificate(
         tool="detector_profiler",

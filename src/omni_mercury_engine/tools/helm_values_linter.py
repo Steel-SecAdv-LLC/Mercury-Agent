@@ -83,7 +83,9 @@ def _collect(args: argparse.Namespace) -> Certificate:
             body={"path": str(path)},
             warnings=["PyYAML not installed; cannot parse values.yaml"],
         )
-    import yaml  # type: ignore[import-not-found]
+    # PyYAML is declared in ``pyproject.toml`` mypy overrides; no
+    # ``type: ignore`` is required.
+    import yaml
 
     doc = yaml.safe_load(path.read_text()) or {}
 

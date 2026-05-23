@@ -1,0 +1,180 @@
+"""
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+------------------------------------------------------------------------
+
+Operator tool: GPU capability probe.
+
+Enumerates CUDA / ROCm / MPS / CPU backends, driver versions, and FP16
+/ BF16 / INT8 support.  Sibling of :mod:`pqc_capability_probe`.
+
+Used by :mod:`release_manifest_builder` to record the runtime device
+matrix; the manifest pins what was tested, this tool pins what's
+currently available, and the gate fails when they diverge.
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import shutil
+import subprocess
+from typing import Any
+
+from omni_mercury_engine.tools._base import Certificate, run_tool
+
+_SCHEMA = "mercury.tools.gpu_capability_probe/v1"
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="python -m omni_mercury_engine.tools.gpu_capability_probe",
+        description="Enumerate CUDA/ROCm/MPS/CPU capability and runtime device matrix.",
+    )
+    parser.add_argument(
+        "--expected-manifest",
+        default=None,
+        help=(
+            "Optional release_manifest.json — if supplied the tool fails "
+            "when the current device matrix diverges from manifest['device_matrix']."
+        ),
+    )
+    return parser
+
+
+def _probe_cuda() -> dict[str, Any]:
+    try:
+        import torch
+    except ImportError:
+        return {"available": False, "reason": "torch not installed"}
+    available = bool(torch.cuda.is_available())
+    info: dict[str, Any] = {"available": available, "device_count": torch.cuda.device_count()}
+    if available:
+        info["devices"] = [
+            {
+                "index": i,
+                "name": torch.cuda.get_device_name(i),
+                "compute_capability": list(torch.cuda.get_device_capability(i)),
+                "total_memory_bytes": torch.cuda.get_device_properties(i).total_memory,
+            }
+            for i in range(torch.cuda.device_count())
+        ]
+    info["cuda_version"] = getattr(torch.version, "cuda", None)
+    return info
+
+
+def _probe_rocm() -> dict[str, Any]:
+    try:
+        import torch
+    except ImportError:
+        return {"available": False, "reason": "torch not installed"}
+    return {
+        "available": bool(getattr(torch.version, "hip", None)),
+        "hip_version": getattr(torch.version, "hip", None),
+    }
+
+
+def _probe_mps() -> dict[str, Any]:
+    try:
+        import torch
+    except ImportError:
+        return {"available": False, "reason": "torch not installed"}
+    backend = getattr(torch.backends, "mps", None)
+    if backend is None:
+        return {"available": False, "reason": "torch.backends.mps absent"}
+    return {
+        "available": bool(backend.is_available()),
+        "is_built": bool(getattr(backend, "is_built", lambda: False)()),
+    }
+
+
+def _probe_dtypes() -> dict[str, Any]:
+    try:
+        import torch
+    except ImportError:
+        return {"fp16": False, "bf16": False, "int8": False}
+    return {
+        "fp16": bool(torch.cuda.is_available() and torch.cuda.is_bf16_supported()),
+        "bf16": bool(torch.cuda.is_available() and torch.cuda.is_bf16_supported()),
+        "int8": True,
+    }
+
+
+def _nvidia_smi() -> dict[str, Any]:
+    bin_path = shutil.which("nvidia-smi")
+    if not bin_path:
+        return {"available": False}
+    try:
+        out = (
+            subprocess.check_output(
+                [bin_path, "--query-gpu=driver_version,name,memory.total", "--format=csv,noheader"],
+                stderr=subprocess.DEVNULL,
+                timeout=5,
+            )
+            .decode()
+            .strip()
+        )
+        return {"available": True, "raw": out}
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        return {"available": False, "reason": "nvidia-smi failed"}
+
+
+def _collect(args: argparse.Namespace) -> Certificate:
+    body: dict[str, Any] = {
+        "cuda": _probe_cuda(),
+        "rocm": _probe_rocm(),
+        "mps": _probe_mps(),
+        "dtypes": _probe_dtypes(),
+        "nvidia_smi": _nvidia_smi(),
+        "env": {
+            k: v
+            for k, v in os.environ.items()
+            if k.startswith(("CUDA_", "HIP_", "ROCM_", "PYTORCH_"))
+        },
+    }
+    warnings: list[str] = []
+    if args.expected_manifest:
+        import json
+        from pathlib import Path
+
+        try:
+            manifest = json.loads(Path(args.expected_manifest).read_text())
+        except (OSError, json.JSONDecodeError) as exc:
+            warnings.append(f"expected manifest unreadable: {exc}")
+        else:
+            saved = manifest.get("body", {}).get("device_matrix") or manifest.get("device_matrix")
+            if saved is not None:
+                # Compare on the small projection that matters for gating —
+                # cuda/rocm/mps availability and CUDA major version.
+                proj = {
+                    "cuda_available": body["cuda"].get("available"),
+                    "rocm_available": body["rocm"].get("available"),
+                    "mps_available": body["mps"].get("available"),
+                    "cuda_version": body["cuda"].get("cuda_version"),
+                }
+                if saved != proj:
+                    warnings.append(f"device matrix drift: saved={saved}, current={proj}")
+                body["projection"] = proj
+                body["saved_projection"] = saved
+    status = "fail" if warnings and args.expected_manifest else "ok"
+    return Certificate(
+        tool="gpu_capability_probe",
+        schema=_SCHEMA,
+        status=status,
+        body=body,
+        warnings=warnings,
+    )
+
+
+def main(argv: list[str] | None = None) -> int:
+    """CLI entry-point."""
+    return run_tool(_build_parser, _collect, argv)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

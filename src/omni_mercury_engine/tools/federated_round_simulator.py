@@ -32,6 +32,7 @@ import argparse
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 from omni_mercury_engine.tools._base import Certificate, DependencyMissing, run_tool
 
@@ -55,6 +56,24 @@ def _build_parser() -> argparse.ArgumentParser:
         default=1.0,
         help="DP epsilon (default 1.0); lower = more noise.",
     )
+    parser.add_argument(
+        "--adversarial",
+        choices=("none", "byzantine", "gradient_inversion"),
+        default="none",
+        help=(
+            "Inject an adversarial peer into the round.  ``byzantine`` flips "
+            "one node's gradient sign and scales it 10x; "
+            "``gradient_inversion`` attempts to recover the original input "
+            "from the aggregated gradient and reports residual recovery "
+            "error.  The MLE aggregator + DP noise must still hold."
+        ),
+    )
+    parser.add_argument(
+        "--byzantine-scale",
+        type=float,
+        default=10.0,
+        help="Multiplier applied to the flipped-sign Byzantine node's update.",
+    )
     return parser
 
 
@@ -74,6 +93,19 @@ def _collect(args: argparse.Namespace) -> Certificate:
         rng.standard_normal(args.dim).astype(np.float64) + 0.5 * (i - args.nodes / 2)
         for i in range(args.nodes)
     ]
+    honest_mean = np.mean(np.stack(node_updates, axis=0), axis=0)
+    secret_input: npt.NDArray[np.float64] | None = None
+    if args.adversarial == "byzantine":
+        # Peer 0 is the adversary: flip the sign and scale.  The MLE
+        # aggregator should clip or down-weight the outlier so the
+        # aggregate stays close to the honest mean.
+        node_updates[0] = -float(args.byzantine_scale) * node_updates[0]
+    elif args.adversarial == "gradient_inversion":
+        # A naive gradient-inversion attack: the adversary observes the
+        # aggregate and tries to recover one peer's input.  We capture
+        # peer 0's input as the ``secret`` and report how close the
+        # inversion estimate gets to it after aggregation + DP noise.
+        secret_input = node_updates[0].copy()
 
     try:
         agg = FederatedAggregator(epsilon=args.epsilon)
@@ -83,7 +115,7 @@ def _collect(args: argparse.Namespace) -> Certificate:
 
     # Try a sequence of common aggregator method names.  Each method, if
     # present, is wrapped to capture the aggregated result.
-    aggregated: np.ndarray | None = None
+    aggregated: npt.NDArray[np.float64] | None = None
     method_used: str | None = None
     for method in ("aggregate", "aggregate_round", "federated_average", "fed_avg"):
         fn = getattr(agg, method, None)
@@ -113,12 +145,37 @@ def _collect(args: argparse.Namespace) -> Certificate:
     # Pure unweighted mean for the noise-injection check.
     noiseless_mean = np.mean(np.stack(node_updates, axis=0), axis=0)
     noise_delta = aggregated - noiseless_mean
+    adversarial_summary: dict[str, Any] = {"mode": args.adversarial}
+    if args.adversarial == "byzantine":
+        # The honest reference (without the adversary) is held aside.
+        # The aggregator's job is to stay near it despite the flipped peer.
+        deviation = float(np.linalg.norm(aggregated - honest_mean))
+        baseline = float(np.linalg.norm(honest_mean) + 1e-12)
+        adversarial_summary["deviation_from_honest"] = deviation
+        adversarial_summary["deviation_ratio"] = deviation / baseline
+        # If the aggregator forwards the adversary's contribution un-clipped,
+        # the deviation explodes (≥ byzantine_scale).  Permit up to 0.5 of
+        # the honest baseline.
+        adversarial_summary["survived"] = adversarial_summary["deviation_ratio"] <= 0.5
+    elif args.adversarial == "gradient_inversion" and secret_input is not None:
+        # Naive inversion: subtract every other peer's update from the
+        # aggregate and check whether the residual matches the secret.
+        others = np.stack(node_updates[1:], axis=0).sum(axis=0)
+        recovered = float(args.nodes) * aggregated - others
+        residual = float(np.linalg.norm(recovered - secret_input))
+        baseline = float(np.linalg.norm(secret_input) + 1e-12)
+        adversarial_summary["residual_l2"] = residual
+        adversarial_summary["residual_ratio"] = residual / baseline
+        # DP noise should make recovery hard: residual_ratio >= 0.25 is
+        # the operator-visible privacy guarantee.
+        adversarial_summary["privacy_held"] = adversarial_summary["residual_ratio"] >= 0.25
     body: dict[str, Any] = {
         "nodes": args.nodes,
         "dim": args.dim,
         "seed": args.seed,
         "epsilon": args.epsilon,
         "method_used": method_used,
+        "adversarial": adversarial_summary,
         "aggregated_summary": {
             "mean": float(aggregated.mean()),
             "std": float(aggregated.std()),
@@ -133,6 +190,16 @@ def _collect(args: argparse.Namespace) -> Certificate:
         },
     }
     warnings: list[str] = []
+    if args.adversarial == "byzantine" and not adversarial_summary.get("survived", True):
+        warnings.append(
+            f"Byzantine peer survived aggregation: deviation_ratio={adversarial_summary['deviation_ratio']:.3f}"
+        )
+    if args.adversarial == "gradient_inversion" and not adversarial_summary.get(
+        "privacy_held", True
+    ):
+        warnings.append(
+            f"Gradient inversion recovered too much: residual_ratio={adversarial_summary['residual_ratio']:.3f}"
+        )
     if method_used == "fallback:numpy.mean":
         warnings.append(
             "FederatedAggregator API method not detected — used numpy.mean fallback; "

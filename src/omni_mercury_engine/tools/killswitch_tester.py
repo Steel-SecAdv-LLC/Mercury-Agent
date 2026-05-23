@@ -90,9 +90,7 @@ def _collect(args: argparse.Namespace) -> Certificate:
     except ImportError as exc:
         from omni_mercury_engine.tools._base import DependencyMissing
 
-        raise DependencyMissing(
-            f"OODAAgent import failed (missing extras?): {exc}"
-        ) from exc
+        raise DependencyMissing(f"OODAAgent import failed (missing extras?): {exc}") from exc
 
     agent = OODAAgent()
 
@@ -183,9 +181,7 @@ def _collect(args: argparse.Namespace) -> Certificate:
     }
     warnings: list[str] = []
     if trip_latency_ms > args.sla_ms:
-        warnings.append(
-            f"trip latency {trip_latency_ms:.3f}ms exceeds SLA {args.sla_ms:.1f}ms"
-        )
+        warnings.append(f"trip latency {trip_latency_ms:.3f}ms exceeds SLA {args.sla_ms:.1f}ms")
     status = "ok" if body["within_sla"] else "fail"
     return Certificate(
         tool="killswitch_tester",

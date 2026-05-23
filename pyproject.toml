@@ -507,6 +507,20 @@ module = [
     # override declares them as a typed-boundary equivalent.
     "calibration_validation",
     "mercury_benchmark",
+    # Optional in-tree modules the tools surface ``try/except``-imports.
+    # The ML detector and federated aggregator surfaces ship behind
+    # ``[ml]`` / ``[federated]`` extras and are *expected* to be absent
+    # in the default install; the tools above (``gosnn_latency_sla_gate``,
+    # ``memory_leak_sentinel``, ``federated_round_simulator``) treat
+    # the ``ImportError`` as a warn-status exit so the mypy boundary
+    # must follow suit.
+    "omni_mercury_engine.ml.gosnn_detector",
+    "omni_mercury_engine.federated.aggregator",
+    # PKCS#11 HSM bindings (``python-pkcs11``) ship behind the ``[hsm]``
+    # extra and are absent in the default install; ``corpus_resigner``
+    # and ``audit_log_signer`` surface a ``try/except ImportError`` so
+    # the cert body can record the omission reason.
+    "pkcs11",
 ]
 ignore_missing_imports = true
 

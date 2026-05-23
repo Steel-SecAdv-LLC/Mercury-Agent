@@ -126,10 +126,15 @@ def _probe_kyber1024() -> None:
         kyber_encapsulate,
     )
 
-    pk, sk = generate_kyber_keypair()
-    ct, ss_a = kyber_encapsulate(pk)
-    ss_b = kyber_decapsulate(ct, sk)
-    if ss_a != ss_b:
+    # ``generate_kyber_keypair`` returns a ``KyberKeyPair`` dataclass
+    # (public_key, secret_key, algorithm) and ``kyber_encapsulate``
+    # returns a ``KyberEncapsulation`` dataclass (ciphertext,
+    # shared_secret).  Address fields explicitly rather than tuple-
+    # unpacking the dataclass.
+    kp = generate_kyber_keypair()
+    enc = kyber_encapsulate(kp.public_key)
+    ss_b = kyber_decapsulate(enc.ciphertext, kp.secret_key)
+    if enc.shared_secret != ss_b:
         raise RuntimeError("Kyber-1024 round-trip shared-secret mismatch")
 
 
@@ -140,10 +145,10 @@ def _probe_mldsa65() -> None:
         generate_dilithium_keypair,
     )
 
-    pk, sk = generate_dilithium_keypair()
+    kp = generate_dilithium_keypair()
     msg = b"mercury-agent pqc capability probe"
-    sig = dilithium_sign(msg, sk)
-    if not dilithium_verify(msg, sig, pk):
+    sig = dilithium_sign(msg, kp.secret_key)
+    if not dilithium_verify(msg, sig, kp.public_key):
         raise RuntimeError("ML-DSA-65 round-trip verify=False")
 
 
@@ -156,10 +161,10 @@ def _probe_mldsa65_ctx() -> None:
 
     if not DILITHIUM_CTX_AVAILABLE:
         raise RuntimeError(f"{_STUB_MSG} (FIPS 204 §5.2 ctx surface)")
-    pk, sk = generate_dilithium_keypair()
+    kp = generate_dilithium_keypair()
     msg = b"mercury-agent pqc capability probe"
     ctx = b"mercury/v1"
-    sig = dilithium_sign_ctx(msg, sk, ctx)
+    sig = dilithium_sign_ctx(msg, kp.secret_key, ctx)
     # Sanity: the produced signature must be non-empty bytes.
     if not isinstance(sig, (bytes, bytearray)) or not sig:
         raise RuntimeError("ML-DSA-65 ctx produced empty signature")
@@ -169,7 +174,7 @@ def _probe_mldsa65_ctx() -> None:
     # ctx || M per FIPS 204 §5.2).  A full round-trip without the
     # context-aware verify would be a partial check; we still record the
     # signature shape as runtime evidence.
-    _ = pk  # silence unused warning
+    _ = kp.public_key  # capture-only; ctx-aware verify not surfaced yet
 
 
 def _probe_slhdsa_shake128s() -> None:
@@ -182,10 +187,10 @@ def _probe_slhdsa_shake128s() -> None:
 
     if not SLHDSA_AVAILABLE:
         raise RuntimeError(f"{_STUB_MSG} (FIPS 205 SLH-DSA surface)")
-    pk, sk = generate_slhdsa_keypair(param_set="SHAKE-128s")
+    kp = generate_slhdsa_keypair(param_set="SHAKE-128s")
     msg = b"mercury-agent pqc capability probe"
-    sig = slhdsa_sign_deterministic(msg, sk, b"", param_set="SHAKE-128s")
-    if not slhdsa_verify(msg, sig, pk, param_set="SHAKE-128s"):
+    sig = slhdsa_sign_deterministic(msg, kp.secret_key, b"", param_set="SHAKE-128s")
+    if not slhdsa_verify(msg, sig, kp.public_key, param_set="SHAKE-128s"):
         raise RuntimeError("SLH-DSA-SHAKE-128s round-trip verify=False")
 
 
@@ -196,10 +201,10 @@ def _probe_sphincs_legacy() -> None:
         sphincs_verify,
     )
 
-    pk, sk = generate_sphincs_keypair()
+    kp = generate_sphincs_keypair()
     msg = b"mercury-agent pqc capability probe"
-    sig = sphincs_sign(msg, sk)
-    if not sphincs_verify(msg, sig, pk):
+    sig = sphincs_sign(msg, kp.secret_key)
+    if not sphincs_verify(msg, sig, kp.public_key):
         raise RuntimeError("SPHINCS+ round-trip verify=False")
 
 

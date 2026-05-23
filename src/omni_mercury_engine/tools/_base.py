@@ -19,24 +19,29 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 Shared infrastructure for ``omni_mercury_engine.tools.*`` operator
 utilities.
 
-This module is intentionally kept dependency-free (stdlib + numpy via
-caller-supplied paths only).  It defines the contracts every operator
-tool in the package follows:
+This module is intentionally kept dependency-free (stdlib + ``cryptography``
+for the optional Ed25519 detached signature only). It defines the
+contracts every operator tool in the package follows:
 
 * a single, machine-readable JSON document on stdout (always), with a
   small set of common envelope fields (``schema``, ``tool``,
   ``mercury_version``, ``generated_at``, ``status``);
+* a **handwritten envelope validator** that every tool must round-trip
+  its certificate through before emit — drift fails the tool closed
+  with ``schema_validation_failed``;
 * stable, documented exit codes (:data:`EXIT_OK`,
   :data:`EXIT_FAIL`, :data:`EXIT_USAGE`, :data:`EXIT_DEPENDENCY`);
-* optional Ed25519 detached signature over the certificate bytes so
-  that an external auditor can re-verify the artefact independently of
-  the issuing host;
+* optional Ed25519 detached signature over the exact bytes written to
+  ``--output`` (not a re-serialised copy) so an external auditor can
+  re-verify the artefact independently of the issuing host;
+* **atomic writes** for the certificate and the side-car signature so a
+  crashed run never leaves a half-written file on disk;
 * a single ``run_tool(...)`` driver that converts an in-process
-  ``Certificate`` into the canonical CLI output (file write + signature
-  side-car) and returns the right exit code.
+  ``Certificate`` into the canonical CLI output and returns the right
+  exit code.
 
 Tools must never print free-form text to stdout — stdout is a JSON
-channel for downstream automation.  Human-readable progress goes to
+channel for downstream automation. Human-readable progress goes to
 stderr.
 """
 
@@ -46,7 +51,9 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import sys
+import tempfile
 import traceback
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
@@ -136,8 +143,47 @@ class Certificate:
             "generated_at": datetime.now(UTC).isoformat(),
             "status": self.status,
             "warnings": list(self.warnings),
-            "body": dict(self.body),
+            "body": _coerce_deterministic(dict(self.body)),
         }
+
+
+# ---------------------------------------------------------------------------
+# Deterministic coercion
+# ---------------------------------------------------------------------------
+#
+# Tools must produce byte-identical output (modulo ``generated_at``) for
+# byte-identical input.  Two failure modes the audit caught in practice:
+#
+#   1. Plain ``set`` instances embedded in the body — Python set
+#      iteration order is insertion order, but reconstructed sets
+#      (e.g. ``set(a) | set(b)``) are not guaranteed across runs.
+#   2. Plain ``float`` values printed via ``repr`` — ``json.dumps``
+#      itself is deterministic for finite floats, but ``f"{v!r}"``
+#      inside error strings is sensitive to NaN/Inf representation.
+#
+# ``_coerce_deterministic`` walks the body recursively and converts
+# every ``set``/``frozenset`` into a sorted list (string-keyed by
+# default) and normalises non-finite floats to a stable token.
+
+
+_NON_FINITE = {float("inf"): "inf", float("-inf"): "-inf"}
+
+
+def _coerce_deterministic(obj: Any) -> Any:
+    if isinstance(obj, dict):
+        return {str(k): _coerce_deterministic(v) for k, v in obj.items()}
+    if isinstance(obj, (set, frozenset)):
+        return sorted(_coerce_deterministic(item) for item in obj)
+    if isinstance(obj, (list, tuple)):
+        return [_coerce_deterministic(item) for item in obj]
+    if isinstance(obj, float):
+        # NaN compares unequal to itself; pin to a stable token so two
+        # runs with NaN-bearing inputs still diff to nothing.
+        if obj != obj:  # noqa: PLR0124 — NaN check is intentional
+            return "NaN"
+        if obj in _NON_FINITE:
+            return _NON_FINITE[obj]
+    return obj
 
 
 def to_json_bytes(payload: Mapping[str, Any]) -> bytes:
@@ -150,6 +196,102 @@ def to_json_bytes(payload: Mapping[str, Any]) -> bytes:
       and numpy scalar types serialise without per-call adapters.
     """
     return json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
+
+
+# ---------------------------------------------------------------------------
+# Envelope validator (handwritten — no jsonschema dependency)
+# ---------------------------------------------------------------------------
+#
+# Every tool round-trips its emitted envelope through this validator
+# before writing to disk.  Drift fails the run closed.  The schema
+# string format is ``mercury.tools.<name>/v<version>`` so a future v2
+# can drop fields without silently downgrading v1 consumers.
+
+
+_SCHEMA_RE = re.compile(r"^mercury\.tools\.[a-z][a-z0-9_]*/v\d+$")
+_TOOL_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+_STATUS_VALUES: frozenset[str] = frozenset({"ok", "warn", "fail"})
+
+
+class EnvelopeValidationError(ValueError):
+    """Raised when a certificate envelope drifts from the v1 contract."""
+
+
+def validate_envelope(envelope: Mapping[str, Any]) -> None:
+    """Validate a certificate envelope against the v1 contract.
+
+    Raises :class:`EnvelopeValidationError` on the first drift.  The
+    contract is intentionally minimal so v1 stays stable across
+    releases:
+
+    * ``schema`` matches ``mercury.tools.<name>/v<n>``;
+    * ``tool`` matches the schema's tool segment;
+    * ``mercury_version`` is a non-empty string;
+    * ``generated_at`` is an RFC3339-ish ISO string (parseable by
+      :func:`datetime.fromisoformat`);
+    * ``status`` is one of ``ok``/``warn``/``fail``;
+    * ``warnings`` is a list of strings;
+    * ``body`` is a dict.
+
+    The validator is handwritten (no ``jsonschema`` dependency) per the
+    operator-tools brief: native first.
+    """
+    required = {"schema", "tool", "mercury_version", "generated_at", "status", "warnings", "body"}
+    missing = required - set(envelope.keys())
+    if missing:
+        raise EnvelopeValidationError(f"missing envelope fields: {sorted(missing)}")
+    extra = set(envelope.keys()) - required - {"signature"}
+    if extra:
+        raise EnvelopeValidationError(f"unknown envelope fields: {sorted(extra)}")
+
+    schema = envelope["schema"]
+    if not isinstance(schema, str) or not _SCHEMA_RE.match(schema):
+        raise EnvelopeValidationError(
+            f"schema must match 'mercury.tools.<name>/v<n>', got {schema!r}"
+        )
+
+    tool = envelope["tool"]
+    if not isinstance(tool, str) or not _TOOL_RE.match(tool):
+        raise EnvelopeValidationError(f"tool must match '[a-z][a-z0-9_]*', got {tool!r}")
+
+    # Schema tool-segment must match the declared tool field.
+    schema_tool = schema.removeprefix("mercury.tools.").rsplit("/v", 1)[0]
+    if schema_tool != tool:
+        raise EnvelopeValidationError(f"schema tool segment {schema_tool!r} != tool field {tool!r}")
+
+    mv = envelope["mercury_version"]
+    if not isinstance(mv, str) or not mv:
+        raise EnvelopeValidationError(f"mercury_version must be a non-empty string, got {mv!r}")
+
+    ts = envelope["generated_at"]
+    if not isinstance(ts, str) or not ts:
+        raise EnvelopeValidationError(f"generated_at must be an ISO string, got {ts!r}")
+    try:
+        datetime.fromisoformat(ts)
+    except ValueError as exc:
+        raise EnvelopeValidationError(f"generated_at not parseable: {exc}") from exc
+
+    status = envelope["status"]
+    if status not in _STATUS_VALUES:
+        raise EnvelopeValidationError(
+            f"status must be one of {sorted(_STATUS_VALUES)}, got {status!r}"
+        )
+
+    warnings = envelope["warnings"]
+    if not isinstance(warnings, list) or not all(isinstance(w, str) for w in warnings):
+        raise EnvelopeValidationError("warnings must be list[str]")
+
+    body = envelope["body"]
+    if not isinstance(body, dict):
+        raise EnvelopeValidationError(f"body must be a dict, got {type(body).__name__}")
+
+    sig = envelope.get("signature")
+    if sig is not None:
+        if not isinstance(sig, dict):
+            raise EnvelopeValidationError("signature must be a dict when present")
+        for field_name in ("algorithm", "public_key_hex", "signature_hex", "payload_sha3_256"):
+            if field_name not in sig:
+                raise EnvelopeValidationError(f"signature is missing required field {field_name!r}")
 
 
 # ---------------------------------------------------------------------------
@@ -191,13 +333,85 @@ def sign_certificate_ed25519(payload: bytes, secret_key_hex: str) -> dict[str, s
     }
 
 
+def verify_certificate_ed25519(payload: bytes, signature_record: Mapping[str, Any]) -> bool:
+    """Verify a detached Ed25519 signature record against ``payload``.
+
+    Returns True on success, raises :class:`ValueError` on a malformed
+    record, and returns False on a cryptographic verification failure.
+    Used by :class:`signed_release_bundle` and the round-trip tests.
+    """
+    from cryptography.exceptions import InvalidSignature
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+
+    if signature_record.get("algorithm") != "ed25519":
+        raise ValueError(f"expected algorithm 'ed25519', got {signature_record.get('algorithm')!r}")
+    expected_digest = signature_record.get("payload_sha3_256")
+    actual_digest = hashlib.sha3_256(payload).hexdigest()
+    if expected_digest != actual_digest:
+        return False
+    pk = Ed25519PublicKey.from_public_bytes(bytes.fromhex(signature_record["public_key_hex"]))
+    try:
+        pk.verify(bytes.fromhex(signature_record["signature_hex"]), payload)
+    except InvalidSignature:
+        return False
+    return True
+
+
+# ---------------------------------------------------------------------------
+# Atomic file writes
+# ---------------------------------------------------------------------------
+
+
+def atomic_write_bytes(path: Path, data: bytes) -> None:
+    """Write ``data`` to ``path`` atomically.
+
+    Uses ``tempfile.NamedTemporaryFile`` in the same directory followed by
+    ``os.replace`` — POSIX guarantees same-directory rename is atomic on
+    every supported filesystem (ext4, xfs, btrfs, apfs).  A crash mid-write
+    leaves either the old file untouched or the new file in place; never
+    a half-written manifest.
+
+    Every tool that writes to disk uses this helper (centralised in
+    :func:`emit`) so the atomic-replace invariant is enforced by the
+    framework, not re-implemented per-tool.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = tempfile.NamedTemporaryFile(
+        delete=False,
+        dir=str(path.parent),
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+    )
+    try:
+        tmp.write(data)
+        tmp.flush()
+        os.fsync(tmp.fileno())
+        tmp.close()
+        os.replace(tmp.name, path)
+    except Exception:
+        try:
+            tmp.close()
+        except Exception:
+            pass
+        try:
+            os.unlink(tmp.name)
+        except FileNotFoundError:
+            pass
+        raise
+
+
+def atomic_write_text(path: Path, text: str) -> None:
+    """Wrapper around :func:`atomic_write_bytes` for text content."""
+    atomic_write_bytes(path, text.encode("utf-8"))
+
+
 # ---------------------------------------------------------------------------
 # CLI driver
 # ---------------------------------------------------------------------------
 
 
 def add_common_arguments(parser: argparse.ArgumentParser) -> None:
-    """Attach the shared ``--output`` / ``--sign-key-hex`` flags.
+    """Attach the shared CLI flags used by every tool.
 
     Every tool accepts:
 
@@ -207,7 +421,9 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
     * ``--sign-key-hex HEX``: Ed25519 secret seed (64 hex chars).
       When supplied the tool writes a ``<output>.sig.json`` side-car
       next to the certificate.  Without ``--output`` the signature
-      record is embedded in the envelope under ``"signature"``.
+      record is embedded in the envelope under ``"signature"``.  The
+      signature is computed over the **exact bytes written to disk**,
+      not a re-serialised copy.
     * ``--require``: when set, the tool exits non-zero unless
       ``status == "ok"``.  Operators use this to convert evidence
       collection into a hard gate.
@@ -233,25 +449,61 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
 def emit(certificate: Certificate, args: argparse.Namespace) -> int:
     """Write the certificate per CLI args and return the exit code.
 
-    * Honours ``--output`` (path) and ``--sign-key-hex`` (Ed25519 seed).
+    * Validates the envelope against the v1 contract; drift becomes a
+      ``schema_validation_failed`` certificate (the original tool body
+      is preserved under ``body.original`` for forensic value).
+    * Atomically writes the certificate bytes to ``--output`` (when set)
+      and signs **those exact bytes** when ``--sign-key-hex`` is set.
     * Maps ``status`` → exit code: ``"ok"``→0, ``"warn"``→0 (warnings
       are non-fatal by default), anything else→1.  ``--require``
       escalates ``"warn"`` to 1 as well.
     """
     envelope = certificate.envelope()
+    try:
+        validate_envelope(envelope)
+    except EnvelopeValidationError as exc:
+        # Replace the drifted envelope with a fail-closed one — preserve
+        # the original body for the operator to debug.
+        fallback = Certificate(
+            tool=certificate.tool if _TOOL_RE.match(certificate.tool or "") else "unknown_tool",
+            schema=(
+                certificate.schema
+                if _SCHEMA_RE.match(certificate.schema or "")
+                else "mercury.tools.error/v1"
+            ),
+            status="fail",
+            body={
+                "error": "schema_validation_failed",
+                "detail": str(exc),
+                "original": dict(certificate.body),
+            },
+            warnings=[f"envelope rejected: {exc}"] + list(certificate.warnings),
+        )
+        envelope = fallback.envelope()
+        # The fallback envelope itself is guaranteed valid by construction.
+        validate_envelope(envelope)
+        certificate = fallback
+
     canonical = to_json_bytes(envelope)
 
     signature: dict[str, str] | None = None
-    if args.sign_key_hex:
+    if args.sign_key_hex and not args.output:
+        # Inline-signature path: sign the canonical *embedded* envelope
+        # bytes and round-trip the augmented envelope through stdout.
         signature = sign_certificate_ed25519(canonical, args.sign_key_hex)
 
     if args.output:
         out = Path(args.output)
-        out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_bytes(canonical)
-        if signature is not None:
+        atomic_write_bytes(out, canonical)
+        if args.sign_key_hex:
+            # Sign the exact bytes we just wrote (read-back to guarantee
+            # we're signing what an external auditor will read).
+            written = out.read_bytes()
+            signature = sign_certificate_ed25519(written, args.sign_key_hex)
             sig_path = out.with_suffix(out.suffix + ".sig.json")
-            sig_path.write_text(json.dumps(signature, sort_keys=True, indent=2))
+            atomic_write_bytes(
+                sig_path, (json.dumps(signature, sort_keys=True, indent=2) + "\n").encode("utf-8")
+            )
             print(f"wrote certificate: {out}\nwrote signature  : {sig_path}", file=sys.stderr)
         else:
             print(f"wrote certificate: {out}", file=sys.stderr)
@@ -308,9 +560,15 @@ def run_tool(
         # Operator-visible failure with a structured fallback envelope so
         # downstream automation still receives parseable JSON.
         tb = traceback.format_exc() if os.environ.get("MERCURY_TOOLS_DEBUG") else None
+        prog = parser.prog or "unknown"
+        # ``parser.prog`` defaults to the python -m form; pull the last
+        # path segment so the tool name validates against ``_TOOL_RE``.
+        tool_name = prog.rsplit(".", 1)[-1] if "." in prog else prog
+        if not _TOOL_RE.match(tool_name):
+            tool_name = "unknown_tool"
         fallback = Certificate(
-            tool=parser.prog or "unknown",
-            schema="mercury.tools.error/v1",
+            tool=tool_name,
+            schema=f"mercury.tools.{tool_name}/v1",
             status="fail",
             body={
                 "error_type": type(exc).__name__,
@@ -336,6 +594,39 @@ class DependencyMissing(RuntimeError):
     """
 
 
+# ---------------------------------------------------------------------------
+# Production-vs-development environment selection
+# ---------------------------------------------------------------------------
+
+
+def mercury_env() -> str:
+    """Return the active deployment environment.
+
+    Reads ``MERCURY_ENV`` and accepts ``production`` / ``staging`` /
+    ``development`` / ``ci``.  Unknown values fall through to
+    ``development`` so a typo never silently lifts a fail-closed gate
+    into a production warning.
+    """
+    raw = os.environ.get("MERCURY_ENV", "development").strip().lower()
+    if raw in {"production", "staging", "development", "ci"}:
+        return raw
+    return "development"
+
+
+def require_real_component(name: str, present: bool, env: str | None = None) -> None:
+    """Fail closed in production when a real component is absent.
+
+    Tools that have a stub fallback (HSM, hardware RNG, secure enclave)
+    must call this before emitting an ``ok`` certificate.  In production
+    the stub fallback is unacceptable; in development it is reported as
+    a warning by the caller, not enforced here.
+    """
+    if not present and (env or mercury_env()) == "production":
+        raise RuntimeError(
+            f"{name} is unavailable but MERCURY_ENV=production requires the real component"
+        )
+
+
 __all__ = [
     "EXIT_DEPENDENCY",
     "EXIT_FAIL",
@@ -343,10 +634,17 @@ __all__ = [
     "EXIT_USAGE",
     "Certificate",
     "DependencyMissing",
+    "EnvelopeValidationError",
     "add_common_arguments",
+    "atomic_write_bytes",
+    "atomic_write_text",
     "emit",
+    "mercury_env",
     "mercury_version",
+    "require_real_component",
     "run_tool",
     "sign_certificate_ed25519",
     "to_json_bytes",
+    "validate_envelope",
+    "verify_certificate_ed25519",
 ]

@@ -62,9 +62,11 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def _git(args: list[str]) -> str | None:
     try:
-        return subprocess.check_output(
-            ["git", *args], cwd=str(_REPO_ROOT), stderr=subprocess.DEVNULL
-        ).decode().strip()
+        return (
+            subprocess.check_output(["git", *args], cwd=str(_REPO_ROOT), stderr=subprocess.DEVNULL)
+            .decode()
+            .strip()
+        )
     except Exception:
         return None
 
