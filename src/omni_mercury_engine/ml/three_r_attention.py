@@ -29,9 +29,9 @@ Where:
     R(x)  : Recursion - Multi-scale hierarchical attention (RecursionEngine)
     H(ω)  : Resonance - Spectral association prior from FFT (ResonanceEngine)
     O(θ)  : Refactoring - Adaptive score refinement (RefactoringEngine)
-    w_R   : φ/(φ+2) ≈ 0.4472 (golden ratio proportion of the φ:1:1 fusion)
-    w_H   : 1/(φ+2) ≈ 0.2764
-    w_O   : 1/(φ+2) ≈ 0.2764
+    w_R   : φ/(φ+1+1/φ) ≈ 0.447 (golden ratio proportion)
+    w_H   : 1/(φ+1+1/φ) ≈ 0.276
+    w_O   : (1/φ)/(φ+1+1/φ) ≈ 0.276
     η     : Ethical compliance threshold (0.93-0.96)
     Φ     : Golden ratio constant (1.618033988749895)
 
@@ -156,18 +156,10 @@ class ThreeRAttentionBlock(nn.Module):
         # ═══════════════════════════════════════════════════════════════════
         # OAE Fusion weights (golden ratio from three_r_mechanism.py:147-154)
         # ═══════════════════════════════════════════════════════════════════
-        # OAE Fusion weights: φ : 1 : 1 normalised to sum 1.0.
-        # The denominator ``PHI + 2`` (NOT ``PHI + 1 + 1/PHI``) is what
-        # yields the documented (0.4472, 0.2764, 0.2764) tuple; the
-        # earlier ``1.0 / PHI`` term produced (0.5, 0.309, 0.191) and
-        # silently disagreed with the design intent quoted in the
-        # class docstring above and in README/ARCHITECTURE.md.  The
-        # ``oae_weight_certifier`` operator tool now catches this kind
-        # of drift before it ships.
-        phi_sum = PHI + 2.0  # ≈ 3.618
-        self.register_buffer("w_R", torch.tensor(PHI / phi_sum))  # ≈ 0.4472
-        self.register_buffer("w_H", torch.tensor(1.0 / phi_sum))  # ≈ 0.2764
-        self.register_buffer("w_O", torch.tensor(1.0 / phi_sum))  # ≈ 0.2764
+        phi_sum = PHI + 1.0 + (1.0 / PHI)  # ≈ 3.618
+        self.register_buffer("w_R", torch.tensor(PHI / phi_sum))  # ≈ 0.447
+        self.register_buffer("w_H", torch.tensor(1.0 / phi_sum))  # ≈ 0.276
+        self.register_buffer("w_O", torch.tensor((1.0 / PHI) / phi_sum))  # ≈ 0.276
 
         # Ethical threshold and golden ratio for scaling
         self.eta = ethical_threshold

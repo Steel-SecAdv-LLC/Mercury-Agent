@@ -661,8 +661,11 @@ def apply_ethical_constraints(
     # Scale scores by harm prevention scalar to prioritize detection
     adjusted_scores = anomaly_scores * harm_prevention_scalar
 
-    # Ensure minimum sensitivity for edge cases
-    score_floor = adjusted_scores.max() * (1 - min_recall_threshold)
-    adjusted_scores = torch.maximum(adjusted_scores, torch.tensor(score_floor))
+    # Ensure minimum sensitivity for edge cases.  ``score_floor`` is
+    # already a 0-d torch scalar (from ``adjusted_scores.max()``); use
+    # ``detach().clone()`` rather than ``torch.tensor(...)`` to avoid
+    # the "copy construct from a tensor" UserWarning.
+    score_floor = (adjusted_scores.max() * (1 - min_recall_threshold)).detach().clone()
+    adjusted_scores = torch.maximum(adjusted_scores, score_floor)
 
     return adjusted_scores

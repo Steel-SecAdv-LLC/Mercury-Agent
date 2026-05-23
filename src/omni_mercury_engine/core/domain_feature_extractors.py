@@ -137,31 +137,38 @@ class BaseDomainExtractor(ABC):
                 "q75",
             ]
 
-        # Basic statistics
+        # Basic statistics.  ``np.std`` with ``ddof=0`` (default) is the
+        # correct estimator for a 1-sample window (sample std is zero
+        # by construction); the explicit ddof keeps numpy from
+        # emitting a "Degrees of freedom <= 0 for slice" warning when
+        # the upstream extractor was called with a single observation.
         features.extend(
             [
-                np.mean(data),
-                np.std(data),
-                np.min(data),
-                np.max(data),
+                float(np.mean(data)),
+                float(np.std(data, ddof=0)),
+                float(np.min(data)),
+                float(np.max(data)),
             ]
         )
         names.extend(["mean", "std", "min", "max"])
 
-        # Higher-order statistics
-        if len(data) >= 3:
-            features.append(stats.skew(data))
-            names.append("skewness")
+        # Higher-order statistics.  ``skew``/``kurtosis`` are
+        # mathematically undefined for a constant sample (variance = 0)
+        # and scipy correctly emits a catastrophic-cancellation warning
+        # in that regime.  Detect the degenerate case explicitly and
+        # report the conventional value (0.0) instead of computing it.
+        is_constant = bool(np.ptp(data) == 0.0)
+        if len(data) >= 3 and not is_constant:
+            features.append(float(stats.skew(data)))
         else:
-            features.append(0.0)  # type: ignore[arg-type, unused-ignore]
-            names.append("skewness")
+            features.append(0.0)
+        names.append("skewness")
 
-        if len(data) >= 4:
-            features.append(stats.kurtosis(data))
-            names.append("kurtosis")
+        if len(data) >= 4 and not is_constant:
+            features.append(float(stats.kurtosis(data)))
         else:
-            features.append(0.0)  # type: ignore[arg-type, unused-ignore]
-            names.append("kurtosis")
+            features.append(0.0)
+        names.append("kurtosis")
 
         # Percentiles
         features.extend(
@@ -347,6 +354,14 @@ class MedicalFeatureExtractor(BaseDomainExtractor):
 
         start_time = time.perf_counter()
         data = np.asarray(data, dtype=np.float64)
+        # Sanitise non-finite values at entry. The output contract
+        # (``np.nan_to_num`` below) already promises finite features;
+        # cleansing here removes intermediate numpy/scipy warnings
+        # ('subtract', 'matmul', 'remainder' on inf) without changing
+        # that contract, and yields a semantically meaningful feature
+        # value rather than a clamped sentinel (e.g. mean is computed
+        # over the finite subset rather than forced to ``posinf=1.0``).
+        data = np.nan_to_num(data, nan=0.0, posinf=0.0, neginf=0.0)
 
         all_features = []
         all_names = []
@@ -475,15 +490,20 @@ class MedicalFeatureExtractor(BaseDomainExtractor):
                 features.extend([0.0, 0.0, 0.0])  # type: ignore[list-item, unused-ignore]
                 names.extend(["hrv_rmssd", "hrv_sdnn", "hrv_pnn50"])
 
-        # 3. Cross-vital correlations
+        # 3. Cross-vital correlations.  ``np.corrcoef`` requires at
+        # least two observations per variable to produce a defined
+        # covariance (``ddof=1`` divides by ``N-1``); on a single
+        # sample we skip the call entirely and report 0.0 rather than
+        # let numpy emit "Degrees of freedom <= 0 for slice".
         if n_vitals >= 2:
-            corr_matrix = np.corrcoef(data.T)
-            corr_matrix = np.nan_to_num(corr_matrix, nan=0.0)
-
-            # Mean absolute cross-correlation
-            upper_tri = np.triu_indices(n_vitals, k=1)
-            cross_corr = np.abs(corr_matrix[upper_tri])  # type: ignore[index, unused-ignore]
-            mean_cross_corr = np.mean(cross_corr) if len(cross_corr) > 0 else 0.0
+            if n_samples >= 2:
+                corr_matrix = np.corrcoef(data.T)
+                corr_matrix = np.nan_to_num(corr_matrix, nan=0.0)
+                upper_tri = np.triu_indices(n_vitals, k=1)
+                cross_corr = np.abs(corr_matrix[upper_tri])  # type: ignore[index, unused-ignore]
+                mean_cross_corr = np.mean(cross_corr) if len(cross_corr) > 0 else 0.0
+            else:
+                mean_cross_corr = 0.0
             features.append(mean_cross_corr)  # type: ignore[arg-type, unused-ignore]
             names.append("vital_cross_correlation")
 
@@ -628,6 +648,8 @@ class FinancialFeatureExtractor(BaseDomainExtractor):
 
         start_time = time.perf_counter()
         data = np.asarray(data, dtype=np.float64)
+        # Sanitise non-finite values at entry; see MedicalFeatureExtractor.
+        data = np.nan_to_num(data, nan=0.0, posinf=0.0, neginf=0.0)
 
         all_features = []
         all_names = []
@@ -1082,6 +1104,8 @@ class InfrastructureFeatureExtractor(BaseDomainExtractor):
 
         start_time = time.perf_counter()
         data = np.asarray(data, dtype=np.float64)
+        # Sanitise non-finite values at entry; see MedicalFeatureExtractor.
+        data = np.nan_to_num(data, nan=0.0, posinf=0.0, neginf=0.0)
 
         all_features = []
         all_names = []
@@ -1211,8 +1235,12 @@ class InfrastructureFeatureExtractor(BaseDomainExtractor):
                 "corr_determinant",
             ]
 
-        # Compute correlation matrix
-        corr_matrix = np.corrcoef(data.T)
+        # Compute correlation matrix.  ``np.corrcoef`` on a constant
+        # column produces NaN through a ``stddev=0`` divide; suppress
+        # that single divide-by-zero locally and sanitise the matrix
+        # immediately so downstream stats are well-defined.
+        with np.errstate(invalid="ignore", divide="ignore"):
+            corr_matrix = np.corrcoef(data.T)
         corr_matrix = np.nan_to_num(corr_matrix, nan=0.0)
 
         # Extract upper triangle (excluding diagonal)
@@ -1269,14 +1297,20 @@ class InfrastructureFeatureExtractor(BaseDomainExtractor):
                 names.extend([f"lag{lag}_mean_corr", f"lag{lag}_max_corr"])
                 continue
 
-            # Compute lagged correlations between all variable pairs
+            # Compute lagged correlations between all variable pairs.
+            # ``np.corrcoef`` on a constant slice produces NaN through
+            # a ``stddev=0`` divide; suppress the divide locally and
+            # rely on the subsequent ``np.isnan`` filter so the
+            # numerically-undefined case is dropped quietly instead
+            # of raising a RuntimeWarning.
             lagged_corrs = []
             for i in range(n_vars):
                 for j in range(i + 1, n_vars):
                     var_i = data[:-lag, i]
                     var_j = data[lag:, j]
                     if len(var_i) > 0 and len(var_j) > 0:
-                        corr = np.corrcoef(var_i, var_j)[0, 1]
+                        with np.errstate(invalid="ignore", divide="ignore"):
+                            corr = np.corrcoef(var_i, var_j)[0, 1]
                         if not np.isnan(corr):
                             lagged_corrs.append(corr)
 
@@ -1514,11 +1548,13 @@ class InfrastructureFeatureExtractor(BaseDomainExtractor):
         names.append("attack_step_injection_ratio")
 
         # 4. Correlation breaking (normal correlations suddenly change)
-        # Use first and second half of data
+        # Use first and second half of data.  Constant slices yield
+        # ``stddev=0`` divides; suppress them locally and sanitise.
         if n_samples > 20 and n_vars >= 2:
             half = n_samples // 2
-            corr1 = np.corrcoef(data[:half].T)
-            corr2 = np.corrcoef(data[half:].T)
+            with np.errstate(invalid="ignore", divide="ignore"):
+                corr1 = np.corrcoef(data[:half].T)
+                corr2 = np.corrcoef(data[half:].T)
             corr1 = np.nan_to_num(corr1, nan=0.0)
             corr2 = np.nan_to_num(corr2, nan=0.0)
 

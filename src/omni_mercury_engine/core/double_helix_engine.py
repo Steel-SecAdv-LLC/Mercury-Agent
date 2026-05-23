@@ -248,7 +248,14 @@ class MercuryEquationEngine:
         # Temperature decay schedule
         temperature = 1.0 / (1 + len(self.evolution_history) * 0.01)
         energy = -0.5 * state @ state
-        boltzmann_factor = np.exp(-energy / max(temperature, 0.01))
+        # Clamp the exponent to ``[-500, 500]``: float64 ``exp(>709)``
+        # overflows to +inf and then poisons downstream matmuls with
+        # NaN.  500 keeps the dynamic range absurdly large
+        # (``exp(500) ~ 1.4e217``) while staying finite, so a
+        # high-energy state still produces a meaningful Boltzmann
+        # factor instead of corrupting the rest of the iteration.
+        exponent = float(-energy / max(temperature, 0.01))
+        boltzmann_factor = float(np.exp(np.clip(exponent, -500.0, 500.0)))
 
         noise = self._rng.standard_normal(self.dimension) * temperature
         return np.asarray(boltzmann_factor * noise * 0.1)
@@ -277,8 +284,16 @@ class MercuryEquationEngine:
         attention_scores = state_2d @ state_2d.T
         attention_scores = attention_scores / np.sqrt(self.dimension)
 
-        attention_weights = np.exp(attention_scores - np.max(attention_scores))
-        attention_weights = attention_weights / attention_weights.sum(axis=1, keepdims=True)
+        # Numerically-stable softmax along the row axis.  Subtracting
+        # the per-row max makes the largest argument exactly zero,
+        # then clipping the residual to ``-700`` prevents underflow
+        # to zero from poisoning the row sum (which would otherwise
+        # divide by zero and produce NaN on extreme inputs).
+        shifted = attention_scores - np.max(attention_scores, axis=1, keepdims=True)
+        attention_weights = np.exp(np.clip(shifted, -700.0, 0.0))
+        row_sums = attention_weights.sum(axis=1, keepdims=True)
+        row_sums = np.where(row_sums > 0, row_sums, 1.0)
+        attention_weights = attention_weights / row_sums
 
         attended = (attention_weights @ state_2d).flatten()
         return np.asarray((attended - state) * 0.1)
@@ -479,6 +494,24 @@ class MercuryEquationEngine:
                 contributions[term_name] = float(np.linalg.norm(contribution))
 
         new_state = state + delta
+        # Guard the iteration: if any single term produced a
+        # non-finite component (e.g. ``boltzmann_factor`` saturating
+        # at the clipped exponent for an extreme input, or an
+        # unbounded matmul norm), reset that component to zero
+        # rather than letting the NaN/Inf poison the ethical
+        # projection and the next iteration.
+        if not np.all(np.isfinite(new_state)):
+            new_state = np.nan_to_num(new_state, nan=0.0, posinf=0.0, neginf=0.0)
+
+        # Bound the state magnitude *per element* to keep ``state @
+        # state`` under the float64 overflow threshold (~1.8e308).
+        # 1e150 squared is 1e300, well within range, while still
+        # being absurdly above any physically meaningful state norm
+        # the engine should produce.  An unbounded random input
+        # would otherwise overflow ``new_state @ new_state`` and
+        # propagate NaN through every subsequent matmul.
+        _MAGNITUDE_CAP = 1.0e150
+        np.clip(new_state, -_MAGNITUDE_CAP, _MAGNITUDE_CAP, out=new_state)
 
         Ex = self.ethical_matrix @ new_state
         x_norm_sq = new_state @ new_state

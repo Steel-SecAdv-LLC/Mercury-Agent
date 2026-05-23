@@ -704,8 +704,16 @@ class PCA:
         X_centered: NDArray[np.float64] = np.asarray(X - self.mean_, dtype=np.float64)
         _U, S, Vt = np.linalg.svd(X_centered, full_matrices=False)
         self.components_ = Vt[: self.n_components]
-        # Explained variance
-        explained_var = (S**2) / (n_samples - 1)
+        # Explained variance.  ``n_samples == 1`` collapses the
+        # sample-variance denominator to zero; in that degenerate
+        # case there is no variance to explain, so set the values
+        # explicitly rather than letting the divide emit a
+        # RuntimeWarning and produce inf/nan that the ratio branch
+        # then has to clean up.
+        if n_samples > 1:
+            explained_var = (S**2) / (n_samples - 1)
+        else:
+            explained_var = np.zeros_like(S)
         self.explained_variance_ = explained_var[: self.n_components]
         total_var = explained_var.sum()
         if total_var > 0:

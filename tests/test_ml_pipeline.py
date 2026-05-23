@@ -282,6 +282,14 @@ class TestLearningRateScheduler:
 
         initial_lr = optimizer.param_groups[0]["lr"]
 
+        # PyTorch >= 1.1 requires ``optimizer.step()`` before the
+        # first ``scheduler.step()``; otherwise it emits a
+        # ``UserWarning``.  Drive a real optimisation step so the
+        # test obeys the documented contract.
+        loss = model(torch.randn(1, 10)).sum()
+        loss.backward()
+        optimizer.step()
+
         for _ in range(10):
             scheduler.step()
 
@@ -293,6 +301,11 @@ class TestLearningRateScheduler:
         model = nn.Linear(10, 1)
         optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
         scheduler = LearningRateScheduler(optimizer, mode="cosine", T_max=100)
+
+        # See ``test_step_scheduler`` for the ordering rationale.
+        loss = model(torch.randn(1, 10)).sum()
+        loss.backward()
+        optimizer.step()
 
         lrs = []
         for _ in range(100):

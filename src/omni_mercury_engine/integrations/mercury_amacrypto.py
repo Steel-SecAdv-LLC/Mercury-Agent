@@ -84,12 +84,19 @@ else:
 
         _AMA_POSTURE_AVAILABLE = True
     except ImportError:
-        import warnings
+        # ``ama_cryptography`` is an optional native dependency (it
+        # requires gcc >= 12 to build the PQC C library on Linux).
+        # When it is unavailable we fall back to functional stubs;
+        # that is by design, not a code smell, so we route the
+        # notification through ``logging`` rather than ``warnings``.
+        # Surfacing it as a ``UserWarning`` made every consumer see a
+        # spurious pytest warning even when stubs are the intended
+        # configuration.
+        import logging
 
-        warnings.warn(
+        logging.getLogger(__name__).info(
             "ama_cryptography.adaptive_posture not available. "
-            "Adaptive posture features will use stubs.",
-            stacklevel=2,
+            "Adaptive posture features will use stubs."
         )
 
         # Stub implementations for when ama_cryptography is not installed.

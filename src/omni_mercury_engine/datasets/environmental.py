@@ -345,20 +345,8 @@ class NOAAWeatherLoader(DatasetLoader):
     CITATION = """Open-Meteo Free Weather API. https://open-meteo.com/"""
     REQUIRES_CREDENTIALS = False
 
-    # Open-Meteo API endpoint (via TrustedEndpoints for SSRF prevention).
-    #
-    # We target ``api.open-meteo.com/v1/forecast`` with the ``past_days``
-    # parameter rather than ``archive-api.open-meteo.com/v1/archive``
-    # because the forecast host sits behind a Cloudflare Anycast edge
-    # and is consistently reachable from GitHub-hosted runners, whereas
-    # the archive host (a single Hetzner-backed origin) is intermittently
-    # unreachable from many CI egress paths -- the test
-    # ``test_weather_loader`` was hanging at ``sock.connect`` for the
-    # 300s pytest-timeout because of that.  The forecast endpoint exposes
-    # an identical 8-variable hourly schema and a rolling 92-day
-    # historical window, which is what this loader needs for unsupervised
-    # anomaly-detection features.
-    OPEN_METEO_URL = TrustedEndpoints.OPEN_METEO_FORECAST
+    # Open-Meteo API endpoint (via TrustedEndpoints for SSRF prevention)
+    OPEN_METEO_URL = TrustedEndpoints.OPEN_METEO_ARCHIVE
 
     # Major cities for diverse weather sampling
     LOCATIONS = [
@@ -382,30 +370,6 @@ class NOAAWeatherLoader(DatasetLoader):
         "cloud_cover",
         "apparent_temperature",
     ]
-
-    # Open-Meteo forecast API caps ``past_days`` at 92.
-    _MAX_PAST_DAYS = 92
-    # Hourly schema requested from Open-Meteo (must match the keys
-    # consumed below; kept as a single source of truth so a schema
-    # drift surfaces immediately as a missing-key error rather than
-    # silently zero-filling).
-    _HOURLY_VARIABLES = (
-        "temperature_2m",
-        "relative_humidity_2m",
-        "surface_pressure",
-        "wind_speed_10m",
-        "wind_direction_10m",
-        "precipitation",
-        "cloud_cover",
-        "apparent_temperature",
-    )
-    # Default per-location budget (s); chosen so the full 8-location
-    # walk fits inside ~80s on a healthy network and never blows the
-    # 300s pytest-timeout on a degraded one.
-    _PER_LOCATION_TIMEOUT_S = 10.0
-    # Hard wall-clock cap for the entire multi-location download.
-    # Mirrors the per-location budget assumption (8 * 10s + slack).
-    _OVERALL_DEADLINE_S = 90.0
 
     def __init__(self, config: DatasetConfig) -> None:
         super().__init__(config)
@@ -437,17 +401,9 @@ class NOAAWeatherLoader(DatasetLoader):
         )
 
     def _download_from_open_meteo(self) -> bool:
-        """Download weather data from Open-Meteo forecast API (past_days window).
-
-        The forecast endpoint accepts ``past_days`` (1..92), returning the
-        same 8-variable hourly schema as the archive endpoint without the
-        archive's ~5-day reanalysis lag or its intermittent CI
-        reachability problems.  The whole multi-location walk is bounded
-        by both a per-request timeout and an overall wall-clock deadline
-        so a slow or unresponsive upstream cannot hang the loader.
-        """
-        import time
+        """Download weather data from Open-Meteo Archive API."""
         import urllib.parse
+        from datetime import UTC, datetime, timedelta
 
         dataset_dir = self.data_path
         dataset_dir.mkdir(parents=True, exist_ok=True)
@@ -459,69 +415,30 @@ class NOAAWeatherLoader(DatasetLoader):
             return True
 
         try:
-            overall_deadline = time.monotonic() + self._OVERALL_DEADLINE_S
-            past_days = max(1, min(self.days_back, self._MAX_PAST_DAYS))
+            # Open-Meteo Archive lags realtime by ~5 days; use UTC for stable
+            # day boundaries.
+            end_date = datetime.now(UTC) - timedelta(days=5)
+            start_date = end_date - timedelta(days=self.days_back)
 
-            # Adaptive target: when ``max_samples`` is small (test
-            # configurations use 100), we do not need to drain every
-            # one of the 8 locations -- ~3x oversampling is plenty for
-            # downstream random selection while keeping the download
-            # bounded.  When ``max_samples`` is unset (production), we
-            # walk every location to maximise diversity.
-            if self.config.max_samples:
-                target_records = max(self.config.max_samples * 3, 256)
-            else:
-                target_records = None
-
-            all_features: list[list[float]] = []
-            locations_processed = 0
+            all_features = []
 
             TrustedEndpoints.validate_url(self.OPEN_METEO_URL)
             for loc in self.LOCATIONS:
-                now = time.monotonic()
-                if now >= overall_deadline:
-                    logger.warning(
-                        "Open-Meteo download budget (%.0fs) exhausted after "
-                        "%d/%d locations with %d records.",
-                        self._OVERALL_DEADLINE_S,
-                        locations_processed,
-                        len(self.LOCATIONS),
-                        len(all_features),
-                    )
-                    break
-                if target_records is not None and len(all_features) >= target_records:
-                    logger.info(
-                        "Open-Meteo: collected %d records (>= target %d); " "stopping early.",
-                        len(all_features),
-                        target_records,
-                    )
-                    break
-
                 params = {
                     "latitude": loc["lat"],
                     "longitude": loc["lon"],
-                    "past_days": past_days,
-                    "forecast_days": 1,
-                    "hourly": ",".join(self._HOURLY_VARIABLES),
+                    "start_date": start_date.strftime("%Y-%m-%d"),
+                    "end_date": end_date.strftime("%Y-%m-%d"),
+                    "hourly": "temperature_2m,relative_humidity_2m,surface_pressure,"
+                    "wind_speed_10m,wind_direction_10m,precipitation,cloud_cover,"
+                    "apparent_temperature",
                 }
                 url = f"{self.OPEN_METEO_URL}?{urllib.parse.urlencode(params)}"
 
-                per_location_budget = max(
-                    2.0,
-                    min(self._PER_LOCATION_TIMEOUT_S, overall_deadline - now),
-                )
-                logger.info(
-                    "Downloading weather data for %s (budget %.1fs)...",
-                    loc["name"],
-                    per_location_budget,
-                )
+                logger.info(f"Downloading weather data for {loc['name']}...")
                 try:
                     content = http_get_with_retry(
-                        url,
-                        timeout=per_location_budget,
-                        timeout_per_attempt=per_location_budget,
-                        retries=2,
-                        backoff=0.5,
+                        url, timeout=60, timeout_per_attempt=20, retries=1
                     )
                 except Exception as e:
                     logger.warning("Open-Meteo location %s failed: %s", loc["name"], e)
@@ -532,45 +449,20 @@ class NOAAWeatherLoader(DatasetLoader):
                 if not hourly:
                     continue
 
-                # Validate schema: every requested variable must be
-                # present, otherwise Open-Meteo changed the contract
-                # and we want a loud failure rather than a silent
-                # zero-fill that pollutes the dataset.
-                missing = [v for v in self._HOURLY_VARIABLES if v not in hourly]
-                if missing:
-                    logger.warning(
-                        "Open-Meteo schema drift for %s: missing variables %s",
-                        loc["name"],
-                        missing,
-                    )
-                    continue
-
-                times = hourly.get("time", [])
-                n_records = len(times)
-                # Each variable is a parallel list to ``time`` of the
-                # same length; we already validated presence above.
-                temperature = hourly["temperature_2m"]
-                humidity = hourly["relative_humidity_2m"]
-                pressure = hourly["surface_pressure"]
-                wind_speed = hourly["wind_speed_10m"]
-                wind_direction = hourly["wind_direction_10m"]
-                precipitation = hourly["precipitation"]
-                cloud_cover = hourly["cloud_cover"]
-                apparent_temperature = hourly["apparent_temperature"]
+                n_records = len(hourly.get("time", []))
                 for i in range(n_records):
                     row = [
-                        temperature[i] if temperature[i] is not None else 0.0,
-                        humidity[i] if humidity[i] is not None else 50.0,
-                        pressure[i] if pressure[i] is not None else 1013.0,
-                        wind_speed[i] if wind_speed[i] is not None else 0.0,
-                        wind_direction[i] if wind_direction[i] is not None else 0.0,
-                        precipitation[i] if precipitation[i] is not None else 0.0,
-                        cloud_cover[i] if cloud_cover[i] is not None else 0.0,
-                        apparent_temperature[i] if apparent_temperature[i] is not None else 0.0,
+                        hourly.get("temperature_2m", [None] * n_records)[i] or 0,
+                        hourly.get("relative_humidity_2m", [None] * n_records)[i] or 50,
+                        hourly.get("surface_pressure", [None] * n_records)[i] or 1013,
+                        hourly.get("wind_speed_10m", [None] * n_records)[i] or 0,
+                        hourly.get("wind_direction_10m", [None] * n_records)[i] or 0,
+                        hourly.get("precipitation", [None] * n_records)[i] or 0,
+                        hourly.get("cloud_cover", [None] * n_records)[i] or 0,
+                        hourly.get("apparent_temperature", [None] * n_records)[i] or 0,
                     ]
                     all_features.append(row)
 
-                locations_processed += 1
                 logger.info(f"  Downloaded {n_records} hourly records from {loc['name']}")
 
             if not all_features:
@@ -774,38 +666,13 @@ class WildfireDataLoader(DatasetLoader):
                 if alt not in ordered_urls:
                     ordered_urls.append(alt)
 
-            # Bounded multi-mirror walk.  Each URL gets a tight per-
-            # attempt timeout (15s) and one retry; the overall walk
-            # is capped by ``overall_deadline`` so a degraded NASA
-            # FIRMS edge cannot consume the full pytest-timeout
-            # budget while the loader hops between mirrors.
-            import time as _time
-
-            per_url_timeout = 15.0
-            overall_deadline = _time.monotonic() + 60.0
-
             content_text: str | None = None
             last_err: Exception | None = None
             for url in ordered_urls:
-                remaining = overall_deadline - _time.monotonic()
-                if remaining <= 0:
-                    last_err = TimeoutError("NASA FIRMS multi-mirror budget exhausted")
-                    break
-                attempt_budget = max(2.0, min(per_url_timeout, remaining))
                 try:
                     TrustedEndpoints.validate_url(url)
-                    logger.info(
-                        "Downloading fire data from NASA FIRMS (%s, budget %.1fs)...",
-                        url,
-                        attempt_budget,
-                    )
-                    body = http_get_with_retry(
-                        url,
-                        timeout=attempt_budget,
-                        timeout_per_attempt=attempt_budget,
-                        retries=1,
-                        backoff=0.5,
-                    )
+                    logger.info("Downloading fire data from NASA FIRMS (%s)...", url)
+                    body = http_get_with_retry(url, timeout=120, timeout_per_attempt=20, retries=1)
                     content_text = body.decode("utf-8", errors="replace")
                     break
                 except Exception as e:

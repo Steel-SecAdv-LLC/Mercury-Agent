@@ -74,12 +74,18 @@ try:
 
     AMA_CRYPTO_API_AVAILABLE = True
 except ImportError:
-    import warnings
+    # ``ama_cryptography`` is an optional native dependency (PQC C
+    # library; requires gcc >= 12 on Linux).  When it is unavailable
+    # we expose a Python-native fallback for AES-GCM elsewhere in
+    # this module; that is the documented behaviour, so the
+    # notification is routed through ``logging`` rather than
+    # ``warnings`` (a ``UserWarning`` made every consuming test see
+    # a spurious pytest warning).
+    import logging
 
-    warnings.warn(
+    logging.getLogger(__name__).info(
         "ama_cryptography.crypto_api not available. "
-        "Install ama-cryptography[pqc] for full cryptographic support.",
-        stacklevel=2,
+        "Install ama-cryptography[pqc] for full cryptographic support."
     )
 
     _AmaAESGCMProvider = None  # type: ignore[assignment, misc, unused-ignore]

@@ -129,17 +129,13 @@ class OmniAvaEquation:
         self.lambda_lyapunov = self.convergence_rate_param
         self.phi = self.golden_ratio
 
-        # Initialize weights using golden ratio proportions if not provided.
-        # PHI : 1 : 1 normalised to sum 1.0 → denominator ``PHI + 2``.  See
-        # the docstring fix in ``ml/three_r_attention.py`` for the full
-        # derivation rationale; both call sites are kept in lock-step by
-        # the ``oae_weight_certifier`` operator tool.
+        # Initialize weights using golden ratio proportions if not provided
         if initial_weights is None:
-            phi_sum = self.phi + 2.0  # ≈ 3.618
+            phi_sum = self.phi + 1.0 + (1.0 / self.phi)
             self.weights = {
-                "w_R": self.phi / phi_sum,  # ≈ 0.4472
-                "w_H": 1.0 / phi_sum,  # ≈ 0.2764
-                "w_O": 1.0 / phi_sum,  # ≈ 0.2764
+                "w_R": self.phi / phi_sum,
+                "w_H": 1.0 / phi_sum,
+                "w_O": (1.0 / self.phi) / phi_sum,
             }
         else:
             total = sum(initial_weights.values())

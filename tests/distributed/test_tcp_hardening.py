@@ -57,7 +57,10 @@ from omni_mercury_engine.distributed.tcp_transport import (
     _frame,
 )
 
-pytestmark = pytest.mark.asyncio
+# ``asyncio_mode = "auto"`` in pyproject already routes ``async def``
+# tests through pytest-asyncio.  Applying the marker module-wide
+# erroneously tags the synchronous ``test_subprocess_three_node_cluster``
+# as asyncio and trips a PytestWarning, so we omit it here.
 
 
 # ---------------------------------------------------------------------------
