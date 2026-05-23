@@ -1286,7 +1286,7 @@ The test suite includes:
 - `tests/security/test_nist_fips_kat.py`: NIST FIPS 203/204/205 ACVP-Server KAT vectors verified bit-for-bit (ML-DSA-65 deterministic sigGen, ML-KEM-1024 decapsulation, SLH-DSA-SHAKE-128s sigGen).
 - `tests/tools/test_lyapunov_validator.py` + `tests/tools/test_lyapunov_reconciliation.py`: pin the executable Lyapunov certificate against documentation drift and against `LyapunovConstants.LAMBDA_CONVERGENCE`.
 - `tests/scripts/test_check_readme_lyapunov.py` + `tests/scripts/test_run_ablation.py` + `tests/scripts/test_run_hardware_benchmark.py`: lock the ISO Hardening operator-tool surface (drift gate, ablation runner pre-gate, hardware harness throughput math).
-- `tests/api/test_server_comprehensive.py::TestLifespanWarmup`: 4 tests pinning the API warmup lifespan (wiring, success path, internal-failure swallowing, TestClient lifecycle).
+- `tests/api/test_server_comprehensive.py::TestLifespanWarmup`: 4 tests pinning the API warmup lifespan (wiring, success path, internal-failure propagation under the fail-fast contract, TestClient lifecycle).
 - `tests/datasets/test_unreachable_loaders_{offline,network}.py`: two-lane reachability harness for the 11 datasets whose upstream sources are not currently fetchable.
 - `tests/validation/test_synthetic_policy_gate.py`: locks the `MERCURY_ALLOW_SYNTHETIC` policy gate across every loader that previously exposed a `use_synthetic` kwarg bypass.
 
