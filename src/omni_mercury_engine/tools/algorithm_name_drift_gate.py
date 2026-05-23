@@ -113,11 +113,29 @@ _DEPRECATED: set[str] = {
     "RSA-2048",
 }
 
-_ALLOWED_ALGORITHM_MENTIONS: dict[str, set[tuple[str, int]]] = {
-    "Dilithium-3": {
-        ("README.md", 1690),  # FIPS 204 name for the Dilithium-3 parameter set
-        ("README.md", 1761),  # ML-DSA-65 (Dilithium-3) FIPS 204 annotation
-    },
+# Allow-listed mentions of deprecated algorithm names.  Keyed by
+# canonical algorithm; each entry is a list of ``(relative_doc_path,
+# context_substring)`` pairs.  The substring is a stable fragment of
+# the allowed line — e.g. ``"FIPS 204 name for the Dilithium-3
+# parameter set"`` — so the gate accepts the mention by *content*,
+# not by line number.  Pinning by content used to be by ``(doc,
+# line_number)`` tuples, but that coupled the gate to absolute line
+# positions: any unrelated README edit above the pinned line shifted
+# the number and turned a green gate red.  The content form is robust
+# to insertions/deletions anywhere in the file, and the substring is
+# self-documenting — the comment beside each entry explains *why*
+# this mention is permitted (typically: it documents the FIPS-204
+# mapping or quotes the legacy name in a glossary, not advocates use).
+_ALLOWED_ALGORITHM_MENTIONS: dict[str, list[tuple[str, str]]] = {
+    "Dilithium-3": [
+        # README PQC section — explains ML-DSA-65 as the FIPS 204 name
+        # for the Dilithium-3 parameter set (the existence of the name
+        # mapping is the whole point of this mention).
+        ("README.md", "FIPS 204 name for the Dilithium-3 parameter set"),
+        # README API reference glossary — pins the FIPS 204 / Dilithium-3
+        # equivalence for operators reading the AMA Cryptography reference.
+        ("README.md", "ML-DSA-65 (Dilithium-3)"),
+    ],
 }
 
 
@@ -166,28 +184,39 @@ def _default_docs(root: Path) -> list[Path]:
     return [c for c in candidates if c.is_file()]
 
 
-def _scan_doc(path: Path) -> dict[str, list[int]]:
-    """Return ``{canonical_name: [line_no, ...]}`` for ``path``."""
+def _scan_doc(path: Path) -> dict[str, list[tuple[int, str]]]:
+    """Return ``{canonical_name: [(line_no, line_text), ...]}`` for ``path``.
+
+    Capturing the line text alongside the number lets the allow-list
+    operate on line *content* rather than position, so README edits
+    above a pinned mention do not turn a green gate red.
+    """
     text = path.read_text(errors="replace")
-    hits: dict[str, list[int]] = {}
+    hits: dict[str, list[tuple[int, str]]] = {}
     for raw, canonical in _KNOWN_ALGORITHMS.items():
         pattern = re.compile(rf"\b{raw}\b", re.IGNORECASE)
         for ln, line in enumerate(text.splitlines(), start=1):
             if pattern.search(line):
-                hits.setdefault(canonical, []).append(ln)
+                hits.setdefault(canonical, []).append((ln, line))
     return hits
 
 
-def _allowed_lines(root: Path, doc: Path, algorithm: str) -> set[int]:
+def _allowed_contexts(root: Path, doc: Path, algorithm: str) -> list[str]:
+    """Return the context substrings that allow ``algorithm`` in ``doc``."""
     try:
         rel = str(doc.relative_to(root))
     except ValueError:
         rel = str(doc)
-    return {
-        line
-        for allowed_doc, line in _ALLOWED_ALGORITHM_MENTIONS.get(algorithm, set())
+    return [
+        substring
+        for allowed_doc, substring in _ALLOWED_ALGORITHM_MENTIONS.get(algorithm, [])
         if allowed_doc == rel
-    }
+    ]
+
+
+def _line_is_allowed(line_text: str, allowed_contexts: list[str]) -> bool:
+    """Return True iff ``line_text`` contains any allowed-context substring."""
+    return any(substring in line_text for substring in allowed_contexts)
 
 
 def _pqc_declarations() -> dict[str, bool]:
@@ -217,6 +246,12 @@ def _collect(args: argparse.Namespace) -> Certificate:
             "pass --docs explicitly or run from the repo root"
         )
 
+    # Internal scan keeps both line numbers and line text so the
+    # allowlist can match by content (line-position-stable).  The
+    # certificate body exposes just the line numbers for the
+    # operator-visible ``per_doc_hits`` field; the text is consumed
+    # only by the content-based allowlist check below.
+    raw_per_doc: dict[str, dict[str, list[tuple[int, str]]]] = {}
     per_doc: dict[str, dict[str, list[int]]] = {}
     union_hits: set[str] = set()
     for d in docs:
@@ -226,7 +261,8 @@ def _collect(args: argparse.Namespace) -> Certificate:
             rel = str(d)
         scan = _scan_doc(d)
         if scan:
-            per_doc[rel] = scan
+            raw_per_doc[rel] = scan
+            per_doc[rel] = {alg: [ln for ln, _ in entries] for alg, entries in scan.items()}
             union_hits.update(scan.keys())
 
     declarations = _pqc_declarations()
@@ -236,12 +272,16 @@ def _collect(args: argparse.Namespace) -> Certificate:
     for alg in sorted(union_hits):
         if alg in _DEPRECATED:
             occurrences = []
-            for doc in sorted(per_doc):
-                if alg not in per_doc[doc]:
+            for doc in sorted(raw_per_doc):
+                if alg not in raw_per_doc[doc]:
                     continue
                 doc_path = root / doc
-                allowed = _allowed_lines(root, doc_path, alg)
-                lines = [line for line in per_doc[doc][alg] if line not in allowed]
+                allowed = _allowed_contexts(root, doc_path, alg)
+                lines = [
+                    ln
+                    for ln, line_text in raw_per_doc[doc][alg]
+                    if not _line_is_allowed(line_text, allowed)
+                ]
                 if lines:
                     occurrences.append({"doc": doc, "lines": lines})
             if not occurrences:

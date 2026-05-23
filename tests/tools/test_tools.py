@@ -116,12 +116,43 @@ def test_algorithm_name_drift_gate_detects_unallowed_dilithium3(tmp_path: Path) 
 
 
 def test_algorithm_name_drift_gate_allows_fips204_readme_annotations(tmp_path: Path) -> None:
+    """The two README annotations that quote ``Dilithium-3`` to anchor the
+    FIPS-204 / legacy-name mapping must clear the gate.
+
+    Pinned by **content**, not by line number — the previous form
+    coupled the assertion to absolute README line positions and broke
+    every time an unrelated section above the pinned lines gained or
+    lost a paragraph.  The gate's allowlist itself is now content-based
+    (``algorithm_name_drift_gate._ALLOWED_ALGORITHM_MENTIONS``), so the
+    test only needs to assert that the gate's output reflects that:
+    the scan finds Dilithium-3 mentions in README.md, exactly the two
+    FIPS-204 annotation lines are still present (identified by their
+    stable substrings), and the cert is ``ok``.
+    """
     out = tmp_path / "cert.json"
-    readme = Path(__file__).resolve().parents[2] / "README.md"
-    rc = algorithm_name_drift_gate.main(["--docs", str(readme), "--output", str(out)])
+    readme_path = Path(__file__).resolve().parents[2] / "README.md"
+    rc = algorithm_name_drift_gate.main(["--docs", str(readme_path), "--output", str(out)])
     cert = _load_cert(out)
     assert cert["status"] == "ok", cert["warnings"]
-    assert cert["body"]["per_doc_hits"]["README.md"]["Dilithium-3"] == [1690, 1761]
+
+    readme_lines = readme_path.read_text(errors="replace").splitlines()
+    found_lines = cert["body"]["per_doc_hits"]["README.md"]["Dilithium-3"]
+    # Resolve each reported line number back to its text and assert the
+    # two FIPS-204 annotation substrings are present.  This is robust
+    # to insertions/deletions anywhere above (or below) the pinned
+    # mentions because we match by content, not absolute position.
+    found_texts = [readme_lines[ln - 1] for ln in found_lines]
+    assert any(
+        "FIPS 204 name for the Dilithium-3 parameter set" in text for text in found_texts
+    ), f"FIPS 204 parameter-set annotation missing; found: {found_texts!r}"
+    assert any(
+        "ML-DSA-65 (Dilithium-3)" in text for text in found_texts
+    ), f"ML-DSA-65 (Dilithium-3) annotation missing; found: {found_texts!r}"
+    # The gate is permissive only for the two documented annotations:
+    # if a third Dilithium-3 mention sneaks in, the gate would fail
+    # status='ok' above.  Pin the count so an over-permissive allowlist
+    # also surfaces here.
+    assert len(found_lines) == 2, f"unexpected Dilithium-3 mention count: {found_lines!r}"
     assert rc == 0
 
 
