@@ -34,7 +34,15 @@ _APT_INSTALL = re.compile(
     r"\bapt(?:-get)?\s+install\s+([^\n]+)",
     re.IGNORECASE,
 )
-_APK_INSTALL = re.compile(r"\bapk\s+(?:add|update)\s+([^\n]+)", re.IGNORECASE)
+# Only ``apk add`` is version-pinnable.  ``apk update`` (and ``apk
+# upgrade``) refresh the package index but take no version-pinnable
+# arguments — matching them here produced false positives that
+# flagged switch tokens from neighbouring ``apk update`` lines as
+# unpinned packages.  Operator flags such as ``--no-cache`` or
+# ``--virtual <name>`` on ``apk add`` itself are stripped by the
+# argument tokeniser (``_check_apk``), so we only need to anchor on
+# the ``apk add`` keyword pair here.
+_APK_INSTALL = re.compile(r"\bapk\s+add\b\s+([^\n]+)", re.IGNORECASE)
 _PIP_INSTALL = re.compile(r"\bpip\s+install\s+([^\n]+)", re.IGNORECASE)
 _FROM_DIGEST = re.compile(r"^FROM\s+\S+@sha256:[0-9a-f]{64}", re.IGNORECASE | re.MULTILINE)
 _FROM_LINE = re.compile(

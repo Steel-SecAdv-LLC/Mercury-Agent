@@ -10,7 +10,7 @@ the Free Software Foundation, either version 3 of the License, or
 
 Operator tool: emit upstream licence + redistribution terms + SPDX
 expression for every dataset loader registered under
-``omni_mercury_engine.data.loaders``.
+``omni_mercury_engine.loaders``.
 
 Each loader module is expected to expose a module-level
 ``DATASET_LICENSE`` dict::
@@ -45,7 +45,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--package",
-        default="omni_mercury_engine.data.loaders",
+        default="omni_mercury_engine.loaders",
         help="Loader package to walk.",
     )
     return parser

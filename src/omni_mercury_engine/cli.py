@@ -198,13 +198,18 @@ def _load_data(filepath: str) -> np.ndarray[Any, Any]:
 )
 def verify_corpus(corpus: str | None, signature: str | None, require_mldsa: bool) -> None:
     """Verify the σ_Immutable corpus signature bundle (Ed25519 + ML-DSA-65)."""
+    # The underlying ``sigma_immutable_verifier`` argparse names are
+    # ``--corpus-path`` / ``--sig-path`` / ``--require-pqc``.  The
+    # user-facing CLI surface keeps the more intuitive names (``--corpus``
+    # / ``--signature`` / ``--require-mldsa``) and we translate here so
+    # the wrapper does not silently fail with "unrecognized arguments".
     argv: list[str] = []
     if corpus:
-        argv += ["--corpus", corpus]
+        argv += ["--corpus-path", corpus]
     if signature:
-        argv += ["--signature", signature]
+        argv += ["--sig-path", signature]
     if require_mldsa:
-        argv += ["--require-mldsa"]
+        argv += ["--require-pqc"]
     from omni_mercury_engine.tools.sigma_immutable_verifier import main as _verifier_main
 
     raise SystemExit(_verifier_main(argv))

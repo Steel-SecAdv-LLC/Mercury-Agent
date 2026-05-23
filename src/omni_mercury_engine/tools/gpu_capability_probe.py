@@ -98,11 +98,42 @@ def _probe_dtypes() -> dict[str, Any]:
         import torch
     except ImportError:
         return {"fp16": False, "bf16": False, "int8": False}
+    if not torch.cuda.is_available():
+        # MPS / ROCm fall through to CPU here; the surrounding accelerator
+        # block records what the runtime actually exposes.
+        return {"fp16": False, "bf16": False, "int8": False}
+    # FP16: NVIDIA Tensor-Core FP16 is available on compute capability
+    # 5.3+ (Maxwell-int8 / Pascal+).  The cheapest authoritative check
+    # is to attempt a tiny FP16 allocation + matmul; if torch / the
+    # driver disagrees with the device, the operation raises and we
+    # report ``False`` without crashing the probe.
+    fp16_supported = _can_compute(torch, torch.float16)
+    bf16_supported = bool(torch.cuda.is_bf16_supported())
     return {
-        "fp16": bool(torch.cuda.is_available() and torch.cuda.is_bf16_supported()),
-        "bf16": bool(torch.cuda.is_available() and torch.cuda.is_bf16_supported()),
+        "fp16": fp16_supported,
+        "bf16": bf16_supported,
+        # INT8 inference is supported on every CUDA-capable GPU torch ships
+        # for via ``torch.int8`` kernels; we surface it explicitly so the
+        # certificate body is symmetric.
         "int8": True,
     }
+
+
+def _can_compute(torch_mod: Any, dtype: Any) -> bool:
+    """Return True when a tiny CUDA matmul in ``dtype`` succeeds.
+
+    This is the authoritative FP16 check (cheaper than parsing compute
+    capability + driver feature tables) and never raises out of the
+    probe — any failure becomes ``False`` so the certificate still
+    serialises.
+    """
+    try:
+        a = torch_mod.zeros((2, 2), device="cuda", dtype=dtype)
+        b = torch_mod.zeros((2, 2), device="cuda", dtype=dtype)
+        _ = a @ b
+        return True
+    except Exception:
+        return False
 
 
 def _nvidia_smi() -> dict[str, Any]:

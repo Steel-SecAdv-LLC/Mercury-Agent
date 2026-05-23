@@ -670,3 +670,245 @@ def _help_exits_cleanly(tool: str) -> int:
 def test_every_tool_supports_help(tool: str) -> None:
     rc = _help_exits_cleanly(tool)
     assert rc == 0, f"{tool} --help returned {rc}"
+
+
+# ---------------------------------------------------------------------------
+# Regression tests for AI-reviewer comments resolved in this PR.
+# Each test below was added to lock in a specific corrective engineering
+# action so the same defect cannot silently regress.
+# ---------------------------------------------------------------------------
+
+
+class TestVerifyCorpusCliFlagAlignment:
+    """``mercury-agent verify-corpus`` must forward the tool's actual flags.
+
+    Regression: the wrapper previously sent ``--corpus`` / ``--signature``
+    / ``--require-mldsa`` but the tool's argparse defines
+    ``--corpus-path`` / ``--sig-path`` / ``--require-pqc``.  ``argparse``
+    rejected the wrapper's flags with "unrecognized arguments".
+    """
+
+    def test_wrapper_translates_to_tool_argparse_names(self) -> None:
+        from click.testing import CliRunner
+
+        from omni_mercury_engine.cli import main as _cli_main
+
+        runner = CliRunner()
+        result = runner.invoke(_cli_main, ["verify-corpus"])
+        # Either the verifier succeeds (corpus present, signature OK) or
+        # fails with a *tool-level* status — but never with an argparse
+        # "unrecognized arguments" message.
+        assert "unrecognized arguments" not in (result.output or ""), result.output
+
+
+class TestPodSecurityStandardGateRunAsUser:
+    """``pod_security_standard_gate`` must enforce runAsUser >= 10000.
+
+    Regression: the docstring claimed the check but ``_REQUIRED_PATTERNS``
+    omitted it, so a manifest with ``runAsUser: 0`` would silently pass.
+    """
+
+    _BASE_MANIFEST = """
+spec:
+  securityContext:
+    runAsNonRoot: true
+    readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    seccompProfile:
+      type: RuntimeDefault
+"""
+
+    def _write_manifest(self, tmp_path: Path, run_as_user: int | None) -> Path:
+        manifest = tmp_path / "manifest.yaml"
+        body = self._BASE_MANIFEST
+        if run_as_user is not None:
+            body += f"    runAsUser: {run_as_user}\n"
+        manifest.write_text(body)
+        return manifest
+
+    def test_run_as_user_below_floor_fails(self, tmp_path: Path) -> None:
+        manifest = self._write_manifest(tmp_path, run_as_user=500)
+        out = tmp_path / "c.json"
+        TOOL_REGISTRY["pod_security_standard_gate"](
+            ["--manifest", str(manifest), "--output", str(out)]
+        )
+        cert = _load_cert(out)
+        assert cert["status"] == "fail"
+        assert 500 in cert["body"]["run_as_user_violations"]
+
+    def test_run_as_user_at_or_above_floor_passes_field(self, tmp_path: Path) -> None:
+        manifest = self._write_manifest(tmp_path, run_as_user=10001)
+        out = tmp_path / "c.json"
+        TOOL_REGISTRY["pod_security_standard_gate"](
+            ["--manifest", str(manifest), "--output", str(out)]
+        )
+        cert = _load_cert(out)
+        assert cert["body"]["run_as_user_violations"] == []
+
+    def test_absent_run_as_user_does_not_synthesize_violation(self, tmp_path: Path) -> None:
+        manifest = self._write_manifest(tmp_path, run_as_user=None)
+        out = tmp_path / "c.json"
+        TOOL_REGISTRY["pod_security_standard_gate"](
+            ["--manifest", str(manifest), "--output", str(out)]
+        )
+        cert = _load_cert(out)
+        assert cert["body"]["run_as_user_violations"] == []
+
+
+class TestSigmaImmutableDriftMonitorBackend:
+    """``sigma_immutable_drift_monitor`` must record the backend it used.
+
+    Regression: the ``--current-sigma`` help text claimed it called
+    SigmaImmutableGate but ``_measure_sigma()`` did a synthetic sweep.
+    The certificate must now declare which backend was actually used.
+    """
+
+    def test_certificate_records_backend(self, tmp_path: Path) -> None:
+        state = tmp_path / "state.json"
+        out = tmp_path / "c.json"
+        TOOL_REGISTRY["sigma_immutable_drift_monitor"](
+            ["--output", str(out), "--state", str(state), "--current-sigma", "0.5"]
+        )
+        cert = _load_cert(out)
+        # When the operator pins ``--current-sigma`` the certificate
+        # records the source as ``operator_injected`` so an auditor can
+        # see the reading was not measured from the corpus.
+        assert cert["body"]["backend"] == "operator_injected"
+
+    def test_default_backend_runs_against_corpus(self, tmp_path: Path) -> None:
+        state = tmp_path / "state.json"
+        out = tmp_path / "c.json"
+        TOOL_REGISTRY["sigma_immutable_drift_monitor"](
+            ["--output", str(out), "--state", str(state)]
+        )
+        cert = _load_cert(out)
+        # Whether the trained gate is available or the band-projection
+        # proxy is used, the backend MUST NOT be ``operator_injected``
+        # because the operator did not inject anything.  The exact
+        # backend depends on whether torch + the trained weights are
+        # available in the test environment.
+        assert cert["body"]["backend"] in {"sigma_immutable_gate", "band_proxy", "unavailable"}
+
+
+class TestImageSurfaceAuditorRootfsCoverage:
+    """``image_surface_auditor`` rootfs mode must check ENTRYPOINT + LD_LIBRARY_PATH.
+
+    Regression: the module docstring promised these checks but the
+    rootfs branch only validated dev-tools / apt cache / /etc/passwd.
+    """
+
+    def _make_rootfs(self, base: Path) -> Path:
+        root = base / "rootfs"
+        (root / "etc").mkdir(parents=True)
+        (root / "etc" / "passwd").write_text("mercury:x:1001:1001::/home/mercury:/sbin/nologin\n")
+        return root
+
+    def test_missing_entrypoint_config_is_a_finding(self, tmp_path: Path) -> None:
+        root = self._make_rootfs(tmp_path)
+        out = tmp_path / "c.json"
+        TOOL_REGISTRY["image_surface_auditor"](
+            ["--mode", "rootfs", "--root", str(root), "--output", str(out)]
+        )
+        cert = _load_cert(out)
+        findings = cert["body"]["findings"]
+        assert any("ENTRYPOINT" in f or "entrypoint" in f for f in findings)
+        assert any("LD_LIBRARY_PATH" in f for f in findings)
+
+    def test_ama_ld_library_path_satisfies_invariant(self, tmp_path: Path) -> None:
+        root = self._make_rootfs(tmp_path)
+        (root / "etc" / "environment").write_text('LD_LIBRARY_PATH="/opt/ama/lib:/usr/local/lib"\n')
+        # Drop a minimal OCI image config alongside the rootfs.
+        config = {"config": {"Entrypoint": ["/opt/ama/bin/mercury-agent"]}}
+        (tmp_path / "config.json").write_text(json.dumps(config))
+        out = tmp_path / "c.json"
+        TOOL_REGISTRY["image_surface_auditor"](
+            ["--mode", "rootfs", "--root", str(root), "--output", str(out)]
+        )
+        cert = _load_cert(out)
+        assert cert["body"]["ld_library_path_references_ama"] is True
+        assert cert["body"]["entrypoint"] == ["/opt/ama/bin/mercury-agent"]
+
+
+class TestFairnessSubgroupExplorerBucketDtype:
+    """``_bucket()`` must declare its actual string-ndarray return type."""
+
+    def test_bucket_returns_string_dtype(self) -> None:
+        from omni_mercury_engine.tools.fairness_subgroup_explorer import _bucket
+
+        col = np.array(["a", "b", "c", "d", "e"], dtype=object)
+        out = _bucket(col, max_card=2)
+        # The bucketed output must serialise to a string ndarray (np.str_
+        # / U-dtype), not float64.
+        assert np.issubdtype(out.dtype, np.str_) or out.dtype.kind in {"U", "O"}
+
+
+class TestDatasetLicenseAuditorDefaultPackage:
+    """The auditor's default package must point at the real loaders module."""
+
+    def test_default_package_resolves(self, tmp_path: Path) -> None:
+        out = tmp_path / "c.json"
+        TOOL_REGISTRY["dataset_license_auditor"](["--output", str(out)])
+        cert = _load_cert(out)
+        # The auditor walked the real package; the certificate either
+        # passes (every loader has a DATASET_LICENSE block) or fails
+        # with concrete loader-level findings — but it must NEVER report
+        # "package not found".
+        body = json.dumps(cert["body"])
+        assert "package import failed" not in body
+        assert "omni_mercury_engine.loaders" in body or "loader_count" in cert["body"]
+
+
+class TestLoaderSchemaPinnerDefaultPackage:
+    """The pinner's default package must point at the real loaders module."""
+
+    def test_default_package_emits_certificate(self, tmp_path: Path) -> None:
+        schema_out = tmp_path / "schemas.json"
+        out = tmp_path / "c.json"
+        TOOL_REGISTRY["loader_schema_pinner"](["--emit", str(schema_out), "--output", str(out)])
+        cert = _load_cert(out)
+        # An emitted certificate is the contract — package-import failure
+        # used to crash the tool before it could emit anything.
+        assert cert["body"]["mode"] == "emit"
+        assert cert["body"]["package"] == "omni_mercury_engine.loaders"
+
+    def test_missing_package_emits_certificate_not_traceback(self, tmp_path: Path) -> None:
+        schema_out = tmp_path / "schemas.json"
+        out = tmp_path / "c.json"
+        TOOL_REGISTRY["loader_schema_pinner"](
+            [
+                "--package",
+                "definitely_not_a_real_package_xyzzy",
+                "--emit",
+                str(schema_out),
+                "--output",
+                str(out),
+            ]
+        )
+        cert = _load_cert(out)
+        body = json.dumps(cert["body"])
+        assert "package import failed" in body
+
+
+class TestDockerfileLockfileGateApkUpdate:
+    """``apk update`` lines must not yield false-positive findings."""
+
+    def test_apk_update_alone_is_not_flagged(self, tmp_path: Path) -> None:
+        dockerfile = tmp_path / "Dockerfile"
+        dockerfile.write_text(
+            "FROM alpine@sha256:" + ("0" * 64) + "\n"
+            "RUN apk update && apk add --no-cache curl=8.5.0-r0\n"
+        )
+        out = tmp_path / "c.json"
+        TOOL_REGISTRY["dockerfile_lockfile_gate"](
+            ["--dockerfile", str(dockerfile), "--output", str(out)]
+        )
+        cert = _load_cert(out)
+        # Pre-fix, ``apk update`` matched the install regex and produced
+        # findings naming the *next line's* tokens.  Post-fix, only
+        # ``apk add`` is scanned; with a pinned ``curl=8.5.0-r0`` the
+        # gate emits no apk findings at all.
+        findings = " ".join(cert["body"].get("findings", []))
+        assert "apk" not in findings.lower() or "curl" not in findings

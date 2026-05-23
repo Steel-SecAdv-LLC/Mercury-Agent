@@ -83,6 +83,26 @@ _FORBIDDEN_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("hostIPC_true", re.compile(r"hostIPC\s*:\s*true", re.MULTILINE)),
 )
 
+# Captures every explicit ``runAsUser: <int>`` so the gate can assert
+# the documented "runAsUser >= 10000 when explicitly set" invariant.
+# The PSS restricted profile forbids root (UID 0); Mercury Agent
+# tightens this further to a non-system, non-reserved UID floor of
+# 10_000.  When the field is absent we cannot assert anything (Kubernetes
+# may infer from the image), and the surrounding ``runAsNonRoot: true``
+# gate already covers root; the integer floor is only enforced where the
+# value is materialised in the manifest.
+_RUN_AS_USER_PATTERN: re.Pattern[str] = re.compile(r"^\s*runAsUser\s*:\s*(-?\d+)\s*$", re.MULTILINE)
+_RUN_AS_USER_FLOOR = 10_000
+
+
+def _collect_run_as_user_violations(text: str) -> list[int]:
+    """Return every ``runAsUser`` integer below the documented floor."""
+    return [
+        int(match.group(1))
+        for match in _RUN_AS_USER_PATTERN.finditer(text)
+        if int(match.group(1)) < _RUN_AS_USER_FLOOR
+    ]
+
 
 def _collect(args: argparse.Namespace) -> Certificate:
     path = Path(args.manifest)
@@ -103,11 +123,20 @@ def _collect(args: argparse.Namespace) -> Certificate:
         if pat.search(text):
             forbidden.append(name)
 
+    run_as_user_violations = _collect_run_as_user_violations(text)
+    if run_as_user_violations:
+        forbidden.append(
+            "runAsUser_below_floor:"
+            + ",".join(str(uid) for uid in sorted(set(run_as_user_violations)))
+        )
+
     body: dict[str, Any] = {
         "manifest": str(path),
         "size_bytes": len(text.encode("utf-8")),
         "missing_required": missing,
         "forbidden_present": forbidden,
+        "run_as_user_floor": _RUN_AS_USER_FLOOR,
+        "run_as_user_violations": sorted(set(run_as_user_violations)),
     }
     failures = missing + forbidden
     return Certificate(
