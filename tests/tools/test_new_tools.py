@@ -1022,6 +1022,509 @@ class TestApiContractDiffResilientToLazyImportFailures:
 
 
 # ---------------------------------------------------------------------------
+# Behavioural coverage for the six remaining tools that previously had
+# no direct tests (only ``--help`` was exercised by the parametrized
+# smoke).  Each class hermetically exercises the tool's primary
+# contract; environmental dependencies (torch, fairlearn) are
+# explicitly handled via the documented ``DependencyMissing`` /
+# graceful-degradation paths rather than skipped.
+
+
+class TestGosnnScalarDump:
+    """Dumps the omni-scalar vector of a freshly constructed GOSNN."""
+
+    def test_emits_valid_envelope(self, tmp_path: Path) -> None:
+        out = tmp_path / "c.json"
+        rc = TOOL_REGISTRY["gosnn_scalar_dump"](["--output", str(out)])
+        cert = _load_cert(out)
+        assert cert["schema"] == "mercury.tools.gosnn_scalar_dump/v1"
+        assert cert["status"] in {"ok", "warn"}
+        # The probe MUST record what it tried, even when no scalar
+        # attribute exists — the body shape is the operator contract.
+        for key in ("class", "module", "scalar_sources", "scalars", "bands"):
+            assert key in cert["body"], f"body missing {key!r}"
+        # ``class`` is the constructed GOSNN type name.
+        assert cert["body"]["class"] == "GlobalOmniScalarNetwork"
+        assert rc in (0, 1)
+
+    def test_no_scalars_found_emits_warn_with_clear_finding(self, tmp_path: Path) -> None:
+        """If the scalar-attribute probe finds nothing, the tool must
+        report ``warn`` AND surface the structural-contract message so
+        the operator knows the GOSNN class drifted from the dump's
+        expected attribute set."""
+        out = tmp_path / "c.json"
+        TOOL_REGISTRY["gosnn_scalar_dump"](["--output", str(out)])
+        cert = _load_cert(out)
+        if cert["status"] == "warn":
+            assert cert["body"]["scalars"] == {}
+            assert any(
+                "GOSNN structural contract" in w or "omni-scalar attribute" in w
+                for w in cert["warnings"]
+            ), f"warn path must explain the gap; got {cert['warnings']!r}"
+
+    def test_bands_carry_documented_statistics(self, tmp_path: Path) -> None:
+        """When scalars ARE found, the ``bands`` summary must include
+        the documented count/min/max/mean/std keys per attribute."""
+        out = tmp_path / "c.json"
+        TOOL_REGISTRY["gosnn_scalar_dump"](["--output", str(out)])
+        cert = _load_cert(out)
+        for attr, stats in cert["body"]["bands"].items():
+            for key in ("count", "min", "max", "mean", "std"):
+                assert key in stats, f"bands[{attr!r}] missing {key!r}"
+            assert stats["count"] > 0, f"bands[{attr!r}] empty"
+            assert stats["min"] <= stats["max"]
+
+    def test_probe_input_does_not_break(self, tmp_path: Path) -> None:
+        """The ``--probe-input`` flag must never block the dump even if
+        the probe call raises — the docstring guarantees probe failure
+        is non-fatal."""
+        out = tmp_path / "c.json"
+        rc = TOOL_REGISTRY["gosnn_scalar_dump"](
+            ["--probe-input", "--seed", "42", "--output", str(out)]
+        )
+        cert = _load_cert(out)
+        assert cert["schema"] == "mercury.tools.gosnn_scalar_dump/v1"
+        assert rc in (0, 1)
+
+
+class TestGateTraceProbe:
+    """Traces Mercury gate invocations across detect/analyze/predict surfaces."""
+
+    def test_unknown_surface_fails_loud(self, tmp_path: Path) -> None:
+        """Typos in --surfaces must surface as a clean ValueError → fail,
+        not silently skip — the surface name is the operator's contract."""
+        out = tmp_path / "c.json"
+        rc = TOOL_REGISTRY["gate_trace_probe"](
+            ["--surfaces", "definitely-not-a-real-surface", "--output", str(out)]
+        )
+        cert = _load_cert(out)
+        assert cert["status"] == "fail"
+        assert cert["body"]["error_type"] == "ValueError"
+        assert "unknown surfaces" in cert["body"]["error_message"].lower()
+        # The known-surfaces enumeration must appear in the error so
+        # the operator can self-correct without reading the source.
+        for known in ("engine.detect", "hub.predict", "orchestrator.analyze"):
+            assert known in cert["body"]["error_message"]
+        assert rc == 1
+
+    def test_orchestrator_surface_records_outcome(self, tmp_path: Path) -> None:
+        """Restricting to a single surface must run and record a per-surface
+        outcome — ``status`` is one of {ok, raised, import-failed, probe-error}
+        and ``gates_fired`` is a list (possibly empty)."""
+        out = tmp_path / "c.json"
+        TOOL_REGISTRY["gate_trace_probe"](
+            ["--surfaces", "orchestrator.analyze", "--output", str(out)]
+        )
+        cert = _load_cert(out)
+        assert cert["schema"] == "mercury.tools.gate_trace_probe/v1"
+        assert cert["body"]["surfaces"] == ["orchestrator.analyze"]
+        assert len(cert["body"]["records"]) == 1
+        record = cert["body"]["records"][0]
+        assert record["surface"] == "CognitiveOrchestrator.analyze"
+        assert record["status"] in {"ok", "raised", "import-failed", "probe-error"}
+        assert isinstance(record["gates_fired"], list)
+        assert isinstance(record["gate_calls"], list)
+
+
+class TestDetectorProfiler:
+    """Per-detector latency + RSS + cache-hit-rate profiler."""
+
+    def test_mathmercury_emits_latency_stats(self, tmp_path: Path) -> None:
+        """The hermetic ``mathmercury`` path (no torch dependency) must
+        complete and emit the documented latency-stats record."""
+        out = tmp_path / "c.json"
+        rc = TOOL_REGISTRY["detector_profiler"](
+            [
+                "--detector",
+                "mathmercury",
+                "--n",
+                "64",
+                "--d",
+                "8",
+                "--repeat",
+                "5",
+                "--warmup",
+                "1",
+                "--output",
+                str(out),
+            ]
+        )
+        cert = _load_cert(out)
+        assert cert["schema"] == "mercury.tools.detector_profiler/v1"
+        assert cert["status"] in {"ok", "warn"}
+        body = cert["body"]
+        for key in (
+            "detector",
+            "n",
+            "d",
+            "warmup",
+            "repeat",
+            "errors_during_repeat",
+            "latency",
+            "rss_kb_before",
+            "rss_kb_after_fit",
+            "rss_kb_after_run",
+            "rss_delta_kb_fit",
+            "rss_delta_kb_run",
+            "cache_hit_rate",
+        ):
+            assert key in body, f"body missing {key!r}"
+        assert body["detector"] == "mathmercury"
+        assert body["n"] == 64
+        assert body["d"] == 8
+        assert body["repeat"] == 5
+        assert rc in (0, 1)
+
+    def test_latency_summary_has_documented_quantiles(self, tmp_path: Path) -> None:
+        """The latency dict must carry the documented percentile keys —
+        the README quotes <100ms median, so median is contractual."""
+        out = tmp_path / "c.json"
+        TOOL_REGISTRY["detector_profiler"](
+            [
+                "--detector",
+                "mathmercury",
+                "--n",
+                "32",
+                "--d",
+                "4",
+                "--repeat",
+                "5",
+                "--warmup",
+                "1",
+                "--output",
+                str(out),
+            ]
+        )
+        cert = _load_cert(out)
+        lat = cert["body"]["latency"]
+        for key in ("min_ms", "median_ms", "p95_ms", "p99_ms", "max_ms", "mean_ms"):
+            assert key in lat, f"latency missing {key!r}"
+            assert isinstance(lat[key], (int, float))
+            assert lat[key] >= 0.0
+        # Ordering invariant: min ≤ median ≤ max.
+        assert lat["min_ms"] <= lat["median_ms"] <= lat["max_ms"]
+
+
+class TestBiasAuditStandalone:
+    """Fairlearn-backed bias audit — relies on the optional ``fairlearn`` dep."""
+
+    def test_dependency_missing_exits_code_3(self, tmp_path: Path) -> None:
+        """When fairlearn is not installed the tool must exit with the
+        documented ``EXIT_DEPENDENCY`` (3), distinct from ``EXIT_FAIL``
+        (1).  Operators rely on this distinction to tell "system not
+        built right" apart from "system built right but the artefact is
+        bad" — confusing the two leads to wrong remediation.
+        """
+        try:
+            import fairlearn  # noqa: F401
+        except ImportError:
+            pass
+        else:
+            pytest.skip("fairlearn is installed in this environment; this test is for absence")
+        data = tmp_path / "X.npy"
+        sensitive = tmp_path / "s.npy"
+        np.save(data, np.random.RandomState(0).randn(20, 4))
+        np.save(sensitive, (np.random.RandomState(1).rand(20) > 0.5).astype(int))
+        out = tmp_path / "c.json"
+        rc = TOOL_REGISTRY["bias_audit_standalone"](
+            [
+                "--data",
+                str(data),
+                "--sensitive",
+                str(sensitive),
+                "--detector",
+                "mathmercury",
+                "--output",
+                str(out),
+            ]
+        )
+        # EXIT_DEPENDENCY semantics: rc == 3, no certificate file
+        # written (the dependency check happens before any I/O).
+        assert rc == 3, f"expected EXIT_DEPENDENCY=3, got {rc!r}"
+        assert not out.exists(), "EXIT_DEPENDENCY path must not write a certificate"
+
+    def test_required_args_enforced(self, tmp_path: Path) -> None:
+        """``--data`` and ``--sensitive`` are required; missing them is
+        an argparse usage error (exit code 2), not a tool failure."""
+        out = tmp_path / "c.json"
+        # ``argparse`` exits via SystemExit(2) on missing required args.
+        with pytest.raises(SystemExit) as exc_info:
+            TOOL_REGISTRY["bias_audit_standalone"](["--output", str(out)])
+        assert exc_info.value.code == 2
+
+
+class TestModelCardGenerator:
+    """Google-style model card emission for a Mercury detector."""
+
+    @staticmethod
+    def _write_fake_detector_module(directory: Path, name: str = "fakedet_mod") -> str:
+        """Write a tiny module exporting a fake detector class and return
+        the ``module:Class`` identifier.  Avoids depending on whichever
+        Mercury detectors are torch-free in the current env."""
+        module_path = directory / f"{name}.py"
+        module_path.write_text(
+            "import numpy as np\n"
+            "class FakeDetector:\n"
+            "    '''Toy detector for model_card_generator tests.'''\n"
+            "    def fit(self, X):\n"
+            "        self._mean = X.mean(axis=0)\n"
+            "        return self\n"
+            "    def score_samples(self, X):\n"
+            "        return -np.linalg.norm(X - self._mean, axis=1)\n"
+            "class RequiresArgs:\n"
+            "    '''Detector that cannot be default-constructed.'''\n"
+            "    def __init__(self, *, n_components):\n"
+            "        self.n_components = n_components\n"
+        )
+        return f"{name}:FakeDetector"
+
+    def test_invalid_detector_format_fails_loud(self, tmp_path: Path) -> None:
+        """``--detector`` without ``:`` is a usage error caught at runtime."""
+        out = tmp_path / "c.json"
+        rc = TOOL_REGISTRY["model_card_generator"](
+            ["--detector", "no_colon_here", "--output", str(out)]
+        )
+        cert = _load_cert(out)
+        assert cert["status"] == "fail"
+        assert cert["body"]["error_type"] == "ValueError"
+        assert "module.path:ClassName" in cert["body"]["error_message"]
+        assert rc == 1
+
+    def test_emits_card_with_simple_detector(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        ident = self._write_fake_detector_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+        out = tmp_path / "c.json"
+        rc = TOOL_REGISTRY["model_card_generator"](["--detector", ident, "--output", str(out)])
+        cert = _load_cert(out)
+        assert cert["schema"] == "mercury.tools.model_card_generator/v1"
+        assert cert["status"] == "ok"
+        card = cert["body"]["card"]
+        for key in (
+            "detector",
+            "model_details",
+            "intended_use",
+            "limitations",
+            "metrics",
+            "fairness",
+            "provenance",
+        ):
+            assert key in card
+        assert card["model_details"]["class_name"] == "FakeDetector"
+        assert rc == 0
+
+    def test_data_drives_metrics(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """When --data is provided the metrics block must populate."""
+        ident = self._write_fake_detector_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+        data = tmp_path / "X.npy"
+        np.save(data, np.random.RandomState(0).randn(50, 4))
+        out = tmp_path / "c.json"
+        TOOL_REGISTRY["model_card_generator"](
+            ["--detector", ident, "--data", str(data), "--output", str(out)]
+        )
+        cert = _load_cert(out)
+        metrics = cert["body"]["card"]["metrics"]
+        assert "score_summary" in metrics
+        summary = metrics["score_summary"]
+        assert summary["n"] == 50
+        for key in ("min", "max", "mean", "std"):
+            assert key in summary
+
+    def test_markdown_emission(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """When --markdown is supplied a human-readable file is written."""
+        ident = self._write_fake_detector_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+        md = tmp_path / "card.md"
+        out = tmp_path / "c.json"
+        TOOL_REGISTRY["model_card_generator"](
+            ["--detector", ident, "--markdown", str(md), "--output", str(out)]
+        )
+        assert md.exists()
+        text = md.read_text()
+        assert text.startswith("# Model Card")
+        assert "## Intended use" in text
+        assert "## Limitations" in text
+        assert "## Metrics" in text
+
+    def test_dry_run_does_not_write_markdown(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """--dry-run honours the contract: certificate still written,
+        side-effect Markdown file untouched."""
+        ident = self._write_fake_detector_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+        md = tmp_path / "card.md"
+        out = tmp_path / "c.json"
+        TOOL_REGISTRY["model_card_generator"](
+            ["--detector", ident, "--markdown", str(md), "--dry-run", "--output", str(out)]
+        )
+        cert = _load_cert(out)
+        assert cert["status"] == "ok"
+        assert not md.exists(), "--dry-run must NOT write the markdown side-effect"
+
+    def test_class_requiring_constructor_args_returns_warn(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Detector classes that need explicit __init__ args must NOT
+        crash the tool — they degrade to ``warn`` with a clear message."""
+        self._write_fake_detector_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+        out = tmp_path / "c.json"
+        rc = TOOL_REGISTRY["model_card_generator"](
+            ["--detector", "fakedet_mod:RequiresArgs", "--output", str(out)]
+        )
+        cert = _load_cert(out)
+        assert cert["status"] == "warn"
+        assert "constructor args" in cert["body"]["error"]
+        assert rc in (0, 1)
+
+    def test_evidence_dir_splices_sibling_certificates(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """``--evidence-dir`` must splice well-known sibling certs into
+        the card's ``evidence`` field."""
+        ident = self._write_fake_detector_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+        ev_dir = tmp_path / "evidence"
+        ev_dir.mkdir()
+        # Synthesize a sibling cert for fairness_subgroup_explorer.
+        (ev_dir / "fair.json").write_text(
+            json.dumps(
+                {
+                    "schema": "mercury.tools.fairness_subgroup_explorer/v1",
+                    "tool": "fairness_subgroup_explorer",
+                    "status": "ok",
+                    "body": {"groups": []},
+                }
+            )
+        )
+        # Junk file — should be ignored, not crash the splice.
+        (ev_dir / "noise.json").write_text("{}")
+        out = tmp_path / "c.json"
+        TOOL_REGISTRY["model_card_generator"](
+            [
+                "--detector",
+                ident,
+                "--evidence-dir",
+                str(ev_dir),
+                "--output",
+                str(out),
+            ]
+        )
+        cert = _load_cert(out)
+        card = cert["body"]["card"]
+        assert "evidence" in card
+        assert "fairness_subgroup_explorer" in card["evidence"]
+        assert card["evidence"]["fairness_subgroup_explorer"]["status"] == "ok"
+
+
+class TestAdversarialProbe:
+    """Empirical Lipschitz bound on detector response to perturbations."""
+
+    def test_emits_valid_envelope_on_2d_data(self, tmp_path: Path) -> None:
+        data = tmp_path / "X.npy"
+        np.save(data, np.random.RandomState(0).randn(16, 4).astype(np.float64))
+        out = tmp_path / "c.json"
+        rc = TOOL_REGISTRY["adversarial_probe"](
+            [
+                "--data",
+                str(data),
+                "--epsilon",
+                "1e-3",
+                "--samples",
+                "4",
+                "--seed",
+                "0",
+                "--output",
+                str(out),
+            ]
+        )
+        cert = _load_cert(out)
+        assert cert["schema"] == "mercury.tools.adversarial_probe/v1"
+        assert cert["status"] in {"ok", "warn"}
+        body = cert["body"]
+        assert body["detector"] == "mathmercury"
+        assert body["n"] == 16
+        assert body["d"] == 4
+        assert body["epsilon"] == 1e-3
+        assert body["samples"] == 4
+        assert isinstance(body["exceedances"], int)
+        summary = body["empirical_lipschitz_summary"]
+        for key in ("min", "median", "p95", "max", "mean"):
+            assert key in summary
+        assert summary["min"] <= summary["median"] <= summary["max"]
+        assert rc in (0, 1)
+
+    def test_1d_data_fails_loud(self, tmp_path: Path) -> None:
+        """The probe insists on a 2-D (N, D) feature matrix."""
+        data = tmp_path / "bad.npy"
+        np.save(data, np.zeros(10, dtype=np.float64))  # 1-D
+        out = tmp_path / "c.json"
+        rc = TOOL_REGISTRY["adversarial_probe"](
+            ["--data", str(data), "--samples", "2", "--output", str(out)]
+        )
+        cert = _load_cert(out)
+        assert cert["status"] == "fail"
+        assert cert["body"]["error_type"] == "ValueError"
+        assert "(N, D)" in cert["body"]["error_message"]
+        assert rc == 1
+
+    def test_seed_determinism(self, tmp_path: Path) -> None:
+        """Same seed + same data ⇒ same empirical_lipschitz summary."""
+        data = tmp_path / "X.npy"
+        np.save(data, np.random.RandomState(0).randn(16, 4).astype(np.float64))
+        out1 = tmp_path / "c1.json"
+        out2 = tmp_path / "c2.json"
+        for out in (out1, out2):
+            TOOL_REGISTRY["adversarial_probe"](
+                [
+                    "--data",
+                    str(data),
+                    "--samples",
+                    "4",
+                    "--seed",
+                    "7",
+                    "--output",
+                    str(out),
+                ]
+            )
+        s1 = _load_cert(out1)["body"]["empirical_lipschitz_summary"]
+        s2 = _load_cert(out2)["body"]["empirical_lipschitz_summary"]
+        assert s1 == s2, f"non-deterministic empirical Lipschitz under fixed seed: {s1!r} vs {s2!r}"
+
+    def test_tight_bound_triggers_warn(self, tmp_path: Path) -> None:
+        """A bound below realistic empirical Lipschitz must surface as
+        ``warn`` with the exceedance count populated.  Operators use
+        ``--require`` to escalate to fail when needed."""
+        data = tmp_path / "X.npy"
+        np.save(data, np.random.RandomState(0).randn(16, 4).astype(np.float64))
+        out = tmp_path / "c.json"
+        rc = TOOL_REGISTRY["adversarial_probe"](
+            [
+                "--data",
+                str(data),
+                "--epsilon",
+                "1e-2",
+                "--samples",
+                "4",
+                "--seed",
+                "0",
+                "--bound",
+                "1e-9",  # impossibly tight
+                "--output",
+                str(out),
+            ]
+        )
+        cert = _load_cert(out)
+        assert cert["status"] == "warn"
+        assert cert["body"]["exceedances"] > 0
+        assert any("Lipschitz" in w for w in cert["warnings"])
+        assert rc == 0  # warn maps to 0 without --require
+
+
+# ---------------------------------------------------------------------------
 # Smoke registry: every tool returns a valid envelope on ``--help``
 
 
