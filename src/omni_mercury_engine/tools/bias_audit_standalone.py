@@ -65,9 +65,13 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--detector",
-        default="isoforest",
-        choices=["isoforest", "fusion"],
-        help="Detector to score the data with (default: isoforest).",
+        default="mathmercury",
+        choices=["mathmercury", "fusion"],
+        help=(
+            "Detector to score the data with (default: mathmercury). "
+            "Mercury Agent retired IsolationForest as a live anomaly "
+            "path; the AnomalyMathArrest ensemble is the sole baseline."
+        ),
     )
     parser.add_argument(
         "--threshold",
@@ -81,31 +85,20 @@ def _build_parser() -> argparse.ArgumentParser:
 def _score_with_detector(
     X: npt.NDArray[np.float64], detector: str, threshold: float
 ) -> npt.NDArray[np.float64]:
-    if detector == "isoforest":
-        from sklearn.ensemble import IsolationForest
+    # The Mercury-Agent architecture retires IsolationForest at the
+    # ``src/`` invariant level; ``AnomalyMathArrest`` is the sole live
+    # baseline.  ``--detector fusion`` falls through to the same
+    # ensemble until a fusion-specific surface is wired — documented
+    # in the tool's --help.
+    if detector in {"mathmercury", "fusion"}:
+        from omni_mercury_engine.detectors.math_arrest.arrest import AnomalyMathArrest
 
-        model = IsolationForest(random_state=0, contamination="auto")
+        model = AnomalyMathArrest()
         model.fit(X)
-        raw = -model.score_samples(X)
-        # Min-max to [0, 1] so the threshold is interpretable.
+        raw = model.detect(X)
         lo, hi = float(raw.min()), float(raw.max())
         norm = (raw - lo) / (hi - lo) if hi > lo else np.zeros_like(raw)
         labels: npt.NDArray[np.float64] = (norm >= threshold).astype(np.float64)
-        return labels
-    if detector == "fusion":
-        # The fusion detector requires substantially more wiring than a
-        # standalone bias audit ought to bring up — score via the
-        # isoforest path for now and let operators supply pre-scored
-        # predictions via a future ``--predictions`` flag.  Documented
-        # in the tool's --help.
-        from sklearn.ensemble import IsolationForest
-
-        model = IsolationForest(random_state=0, contamination="auto")
-        model.fit(X)
-        raw = -model.score_samples(X)
-        lo, hi = float(raw.min()), float(raw.max())
-        norm = (raw - lo) / (hi - lo) if hi > lo else np.zeros_like(raw)
-        labels = (norm >= threshold).astype(np.float64)
         return labels
     raise ValueError(f"unknown detector: {detector}")
 

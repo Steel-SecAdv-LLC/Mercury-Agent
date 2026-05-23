@@ -54,9 +54,13 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--detector",
-        default="isoforest",
-        choices=["isoforest"],
-        help="Detector to probe (default isoforest).",
+        default="mathmercury",
+        choices=["mathmercury"],
+        help=(
+            "Detector to probe (default mathmercury). Mercury Agent "
+            "retired IsolationForest as a live anomaly path; the "
+            "AnomalyMathArrest ensemble is the sole baseline."
+        ),
     )
     parser.add_argument(
         "--epsilon",
@@ -81,11 +85,14 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _build_scorer(name: str, X: npt.NDArray[np.float64]) -> Any:
-    if name == "isoforest":
-        from sklearn.ensemble import IsolationForest
+    if name == "mathmercury":
+        # AnomalyMathArrest is the sole live anomaly path — enforced by
+        # ``tests/detectors/test_math_arrest_dominant_path.py``.
+        from omni_mercury_engine.detectors.math_arrest.arrest import AnomalyMathArrest
 
-        m = IsolationForest(random_state=0, contamination="auto").fit(X)
-        return lambda batch: -m.score_samples(batch)
+        m = AnomalyMathArrest()
+        m.fit(X)
+        return lambda batch: m.detect(batch)
     raise ValueError(f"unknown detector: {name}")
 
 
