@@ -52,6 +52,7 @@ from omni_mercury_engine.tools import (
     workflow_version_drift_gate,
 )
 
+
 def _load_cert(path: Path) -> dict[str, Any]:
     parsed = json.loads(path.read_text())
     assert isinstance(parsed, dict), f"expected dict envelope, got {type(parsed)}"
