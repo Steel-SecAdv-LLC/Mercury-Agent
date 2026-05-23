@@ -13,6 +13,11 @@ Comprehensive tests for:
 
 import numpy as np
 import pytest
+
+# ``hypothesis`` is a test-only dependency; skip cleanly at collection
+# time when it is not installed (e.g. minimal CI images).
+pytest.importorskip("hypothesis")
+
 from hypothesis import (
     given,
     settings,

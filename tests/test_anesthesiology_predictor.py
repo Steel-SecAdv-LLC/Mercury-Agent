@@ -7,6 +7,12 @@ from datetime import UTC, datetime, timedelta
 import numpy as np
 import pytest
 
+# ``omni_mercury_engine.medical.anesthesiology_predictor`` imports
+# ``torch`` at module level; skip cleanly at collection time so the
+# rest of the suite is still discoverable without the optional ``ml``
+# extra installed.
+pytest.importorskip("torch")
+
 from omni_mercury_engine.medical.anesthesiology_predictor import (
     AnesthesiaPredictionResult,
     AnesthesiologyPredictor,

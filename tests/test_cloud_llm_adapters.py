@@ -39,6 +39,12 @@ from unittest.mock import patch
 
 import pytest
 
+# ``omni_mercury_engine.models.foundation.llm_adapter`` transitively
+# imports ``torch`` via :mod:`base_foundation`.  Skip the entire module
+# cleanly at collection time when torch is absent so the rest of the
+# suite stays discoverable in CI images without the optional ``ml`` extra.
+pytest.importorskip("torch")
+
 from omni_mercury_engine.models.foundation.llm_adapter import LLMConfig, LLMProvider
 from omni_mercury_engine.models.foundation.ollama_adapter import (
     CohereCloudAdapter,
