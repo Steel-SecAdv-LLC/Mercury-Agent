@@ -134,13 +134,45 @@ def _signature_detail(obj: Any) -> dict[str, Any] | None:
 
 
 def _snapshot_surface() -> dict[str, Any]:
+    """Snapshot the public re-export surface of :mod:`omni_mercury_engine`.
+
+    Walks ``__all__`` (or the public ``dir()`` if absent) and records the
+    kind/signature/module of each exported symbol.  Some entries are
+    re-exported via the module's ``__getattr__`` hook and trigger lazy
+    imports (e.g. ``OmniMercuryEngine`` pulls in
+    :mod:`omni_mercury_engine.engine` → :mod:`torch`).  When an optional
+    backend is absent that lazy import raises
+    :class:`ModuleNotFoundError`; the snapshot must NOT crash because of
+    a single unreachable symbol — instead the symbol is recorded as
+    ``"unavailable"`` so the diff path can still observe it and the
+    operator sees an explicit gap rather than a missing snapshot.
+    """
     mod = importlib.import_module(_MODULE)
     public = getattr(mod, "__all__", None)
     if public is None:
         public = sorted(name for name in dir(mod) if not name.startswith("_"))
     entries: dict[str, dict[str, Any]] = {}
+    unavailable: dict[str, str] = {}
     for name in sorted(public):
-        obj = getattr(mod, name, None)
+        try:
+            obj = getattr(mod, name)
+        except Exception as exc:
+            # Lazy ``__getattr__`` resolution failed — typically because
+            # an optional ML backend (torch, etc.) is not installed.
+            # Record the symbol with the lazy-import error so the diff
+            # tool can still observe its presence in ``__all__`` and
+            # surface a clean "unavailable" classification to the
+            # operator rather than aborting the entire snapshot.
+            unavailable[name] = f"{type(exc).__name__}: {exc}"
+            entries[name] = {
+                "kind": "unavailable",
+                "signature": None,
+                "signature_detail": None,
+                "module": _MODULE,
+                "qualname": name,
+                "lazy_import_error": unavailable[name],
+            }
+            continue
         if obj is None:
             continue
         entries[name] = {
@@ -150,12 +182,15 @@ def _snapshot_surface() -> dict[str, Any]:
             "module": getattr(obj, "__module__", None),
             "qualname": getattr(obj, "__qualname__", name),
         }
-    return {
+    snapshot: dict[str, Any] = {
         "module": _MODULE,
         "version": getattr(mod, "__version__", None),
         "public_count": len(entries),
         "entries": entries,
     }
+    if unavailable:
+        snapshot["unavailable_lazy_imports"] = unavailable
+    return snapshot
 
 
 def _diff(saved: dict[str, Any], current: dict[str, Any]) -> dict[str, Any]:
