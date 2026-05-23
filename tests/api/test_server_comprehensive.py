@@ -421,8 +421,10 @@ class TestLifespanWarmup:
     dispatch resolution, and the validator graph so the first external
     request does not pay cold-start cost.  These tests pin three
     invariants: (1) the warmup is wired as the FastAPI lifespan
-    context, (2) it actually completes without raising, and (3) a
-    warmup failure does not block startup (the API still serves).
+    context, (2) it actually completes without raising under normal
+    conditions, and (3) a warmup failure propagates out of the
+    lifespan hook (fail-fast) so a broken detection path cannot
+    serve traffic.
     """
 
     def test_lifespan_is_wired(self) -> None:
@@ -442,8 +444,10 @@ class TestLifespanWarmup:
         """``_warmup(app)`` returns cleanly under normal conditions."""
         from omni_mercury_engine.api.server import _warmup, app
 
-        # Direct call should not raise; the function logs and continues
-        # on failure rather than propagating.
+        # Direct call should not raise under normal conditions; if the
+        # detection path is healthy the warmup completes silently.
+        # Failure semantics (fail-fast propagation) are pinned by
+        # ``test_warmup_propagates_internal_failure`` below.
         await _warmup(app)
 
     @pytest.mark.asyncio

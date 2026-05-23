@@ -85,7 +85,11 @@ def is_positive_definite(M: NDArray[np.float64], tol: float = _PD_TOL) -> bool:
     if M.ndim != 2 or M.shape[0] != M.shape[1]:
         return False
     sym = 0.5 * (M + M.T)
-    if not np.allclose(M, sym, atol=max(tol, 1e-12)):
+    # ``rtol=0`` pins the symmetry check to the absolute tolerance only.
+    # Without this, numpy's default ``rtol`` would let large-magnitude
+    # matrices pass with absolute asymmetry exceeding ``tol`` once the
+    # relative term dominates -- silently certifying a non-symmetric P.
+    if not np.allclose(M, sym, atol=max(tol, 1e-12), rtol=0.0):
         return False
     vals = np.linalg.eigvalsh(sym)
     return bool(float(vals.min()) > tol)

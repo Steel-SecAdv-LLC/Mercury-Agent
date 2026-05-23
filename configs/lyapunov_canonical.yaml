@@ -14,9 +14,11 @@
 # and run the test suite.
 
 # Continuous-time linear surrogate of the fusion-score trajectory used
-# to certify the global decay rate.  The (-0.25, -0.5) diagonal gives a
-# minimum eigenvalue of 0.25 for the symmetric pencil (A^T P + P A, P)
-# when P is the identity, yielding the canonical lambda below.
+# to certify the global decay rate.  With P = I, A^T P + P A = 2 A,
+# so the generalized eigenvalues of the symmetric pencil
+# (A^T P + P A, P) are {-0.5, -1.0}.  The certified rate is therefore
+# computed_lambda = -max_eig = 0.5, and the canonical claim below
+# (0.25) is satisfied with margin.
 A:
   - [-0.25, 0.0]
   - [0.0, -0.5]

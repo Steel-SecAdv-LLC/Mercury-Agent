@@ -59,6 +59,7 @@ import platform
 import statistics
 import sys
 import time
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -253,9 +254,31 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR: cannot load config: {exc}", file=sys.stderr)
         return 2
 
-    A = np.asarray(cfg["A"], dtype=np.float64)
-    P = np.asarray(cfg["P"], dtype=np.float64)
-    claimed_lambda = float(cfg["lambda"])
+    # The benchmark times the quadratic-Lyapunov certificate path
+    # (Cholesky + symmetric generalized eigen-decomposition on
+    # A^T P + P A vs P), so it requires the explicit matrices.
+    # ``validate_lyapunov_from_config`` also accepts (a) a nested
+    # ``lyapunov:`` block and (b) ``lyapunov_samples`` mode -- both
+    # would pass the gate above but lack the top-level ``A``/``P``
+    # this loop needs, KeyError-ing the runner.  Resolve the nested
+    # form transparently; reject samples-mode with a documented
+    # config error (rc=2) instead of crashing.
+    lyapunov_block = cfg.get("lyapunov") if isinstance(cfg.get("lyapunov"), Mapping) else None
+    matrix_src = lyapunov_block if (lyapunov_block and "A" in lyapunov_block) else cfg
+    if "A" not in matrix_src or "P" not in matrix_src or "lambda" not in matrix_src:
+        print(
+            "ERROR: hardware benchmark requires a quadratic Lyapunov certificate "
+            "(A, P, lambda) -- samples-mode certificates are accepted by the "
+            "validator but cannot be timed by this harness. Provide a config "
+            "with explicit A/P matrices (either at the top level or under a "
+            "`lyapunov:` block).",
+            file=sys.stderr,
+        )
+        return 2
+
+    A = np.asarray(matrix_src["A"], dtype=np.float64)
+    P = np.asarray(matrix_src["P"], dtype=np.float64)
+    claimed_lambda = float(matrix_src["lambda"])
 
     timing = benchmark(A, P, claimed_lambda, iters=args.iters, warmup=args.warmup)
 
