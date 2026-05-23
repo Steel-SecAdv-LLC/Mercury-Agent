@@ -229,9 +229,12 @@ def _probe_native_hmac_sha256_2() -> None:
 
 
 def _probe_ed25519_classical() -> None:
-    """Ed25519 is mandatory and uses ``cryptography``, not AMA — but
-    operators want a single report.  We still surface it as ``real`` so
-    the certificate is end-to-end."""
+    """Verify classical Ed25519 round-trip.
+
+    Ed25519 is mandatory and uses ``cryptography``, not AMA — but
+    operators want a single report.  We still surface it as ``real``
+    so the certificate is end-to-end.
+    """
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
     sk = Ed25519PrivateKey.from_private_bytes(secrets.token_bytes(32))
