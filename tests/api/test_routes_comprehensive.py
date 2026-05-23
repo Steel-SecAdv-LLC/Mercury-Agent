@@ -19,6 +19,14 @@ from __future__ import annotations
 import os
 from typing import Any
 
+import pytest
+
+# ``fastapi.testclient`` and the Mercury API routes module are part of
+# the optional ``api`` extra.  Skip cleanly at collection time so the
+# rest of the suite is still discoverable in CI images that intentionally
+# do not install the API extra (e.g. detector-only environments).
+pytest.importorskip("fastapi")
+
 # Disable rate limiting BEFORE importing the server module.
 # This must happen before any import of omni_mercury_engine.api.server,
 # as the middleware reads the env var at module-load time.

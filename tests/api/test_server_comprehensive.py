@@ -23,6 +23,12 @@ from typing import Any
 from unittest.mock import patch
 
 import pytest
+
+# ``fastapi.testclient`` is part of the optional ``api`` extra; skip
+# the entire module cleanly at collection time when it's absent so the
+# rest of the suite is still discoverable.
+pytest.importorskip("fastapi")
+
 from fastapi.testclient import TestClient
 
 

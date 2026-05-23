@@ -22,6 +22,13 @@ from unittest.mock import patch
 import pytest
 import requests
 
+# ``omni_mercury_engine.medical`` re-exports the anesthesiology +
+# endocrinology modules from its ``__init__``, both of which import
+# ``torch`` at module level.  Even though this test module only needs
+# ``medical.data_sources``, the package ``__init__`` chain forces a
+# torch import, so skip cleanly when torch is absent.
+pytest.importorskip("torch")
+
 from omni_mercury_engine.medical.data_sources import (
     CGMDataSource,
     CGMReading,

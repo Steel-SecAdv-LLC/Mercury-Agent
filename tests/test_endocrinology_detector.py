@@ -7,6 +7,12 @@ from datetime import UTC, datetime, timedelta
 import numpy as np
 import pytest
 
+# ``omni_mercury_engine.medical`` re-exports ``endocrinology_detector``
+# from its ``__init__``, which transitively imports
+# ``anesthesiology_predictor`` and ``torch``.  Skip cleanly at
+# collection time when torch is absent.
+pytest.importorskip("torch")
+
 from omni_mercury_engine.medical.data_sources import (
     CGMDataSource,
     CGMReading,

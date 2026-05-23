@@ -21,6 +21,12 @@ from unittest.mock import patch
 
 import pytest
 
+# ``omni_mercury_engine.models.foundation.llm_adapter`` transitively
+# imports ``torch`` via :mod:`base_foundation`; skip cleanly at
+# collection time when torch is not installed so the rest of the suite
+# is still discoverable in CI images without the optional ``ml`` extra.
+pytest.importorskip("torch")
+
 from omni_mercury_engine._env import (
     MERCURY_ENV_PRODUCTION,
     MERCURY_ENV_VAR,
@@ -62,9 +68,9 @@ class TestVoiceLLMMissingProvider:
         with caplog.at_level("WARNING", logger="omni_mercury_engine.narrative.voice"):
             voice = MercuryVoice(enable_llm=True)
         assert voice._llm_adapter is None
-        assert any(
-            "template-only narration" in r.message for r in caplog.records
-        ), "Expected a warning naming the template-only fallback"
+        assert any("template-only narration" in r.message for r in caplog.records), (
+            "Expected a warning naming the template-only fallback"
+        )
 
     def test_production_fails_closed(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv(MERCURY_ENV_VAR, MERCURY_ENV_PRODUCTION)

@@ -24,6 +24,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+# ``omni_mercury_engine.api.auth`` imports ``fastapi`` at module level
+# (HTTPException / Request / status), so the entire api/auth module
+# fails to import in environments without the optional ``api`` extra.
+# Skip cleanly at collection time so the rest of the suite is still
+# discoverable, rather than emitting a ``ModuleNotFoundError`` that
+# halts pytest before any test can run.
+pytest.importorskip("fastapi")
+
 from omni_mercury_engine.api.auth import (
     APIKey,
     APIKeyAuth,

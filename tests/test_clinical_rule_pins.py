@@ -27,6 +27,13 @@ from typing import TYPE_CHECKING, Any, Final
 
 import pytest
 
+# Both ``omni_mercury_engine.medical.anesthesiology_predictor`` and
+# ``omni_mercury_engine.medical.endocrinology_detector`` import
+# ``torch`` at module level; skip cleanly at collection time when
+# torch is not installed so the rest of the suite is still
+# discoverable in CI images without the optional ``ml`` extra.
+pytest.importorskip("torch")
+
 from omni_mercury_engine.compliance import osha_anomaly
 from omni_mercury_engine.medical import anesthesiology_predictor, endocrinology_detector
 
@@ -37,7 +44,7 @@ FDA_AFREZZA_LABEL_URL: Final[str] = (
     "https://www.accessdata.fda.gov/drugsatfda_docs/label/2014/022472lbl.pdf"
 )
 FDA_INSULIN_LABEL_URL: Final[str] = (
-    "https://www.fda.gov/drugs/postmarket-drug-safety-information-patients-and-providers/" "insulin"
+    "https://www.fda.gov/drugs/postmarket-drug-safety-information-patients-and-providers/insulin"
 )
 FDA_GLP1_BLACK_BOX_URL: Final[str] = (
     "https://www.fda.gov/safety/medical-product-safety-information/"
