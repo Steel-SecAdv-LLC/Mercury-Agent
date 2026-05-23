@@ -493,7 +493,20 @@ class DataSourceBase(ABC):
         return headers
 
     async def _get_client(self) -> httpx.AsyncClient:
-        """Get or create async HTTP client."""
+        """Get or create async HTTP client.
+
+        Raises:
+            ImportError: When the optional ``data`` extra (``httpx``)
+                is not installed.  Constructor-time circuit-breaker
+                wiring already degrades gracefully without httpx; this
+                guard surfaces an actionable error the first time an
+                HTTP-backed source actually tries to fetch.
+        """
+        if not HTTPX_AVAILABLE:
+            raise ImportError(
+                "HTTP data sources require httpx. "
+                "Install with `pip install 'mercury-agent[data]'`."
+            )
         if self._client is None:
             self._client = httpx.AsyncClient(
                 timeout=self.config.timeout_seconds,
@@ -503,7 +516,19 @@ class DataSourceBase(ABC):
         return self._client
 
     def _get_sync_client(self) -> httpx.Client:
-        """Get or create sync HTTP client."""
+        """Get or create sync HTTP client.
+
+        Raises:
+            ImportError: When the optional ``data`` extra (``httpx``)
+                is not installed.  See :meth:`_get_client` for the
+                rationale — surfaces the missing dependency at first
+                use rather than at constructor time.
+        """
+        if not HTTPX_AVAILABLE:
+            raise ImportError(
+                "HTTP data sources require httpx. "
+                "Install with `pip install 'mercury-agent[data]'`."
+            )
         if self._sync_client is None:
             self._sync_client = httpx.Client(
                 timeout=self.config.timeout_seconds,

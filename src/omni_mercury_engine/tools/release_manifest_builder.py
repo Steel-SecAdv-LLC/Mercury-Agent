@@ -90,7 +90,7 @@ def _read_ama_ref() -> str | None:
     return m.group("ref") if m else None
 
 
-def _fusion_weights() -> dict[str, float] | str:
+def _fusion_weights() -> dict[str, float]:
     """Return the canonical (w_R, w_H, w_O) fusion weights.
 
     The φ derivation is pure mathematics: ``three_r_attention.PHI`` is
@@ -102,21 +102,22 @@ def _fusion_weights() -> dict[str, float] | str:
     ``str``-typed ``"unavailable: …"`` placeholder where every other
     consumer expects a ``dict``.  Source the constant directly from
     :mod:`omni_mercury_engine.core.centralized_constants` — the same
-    module ``three_r_attention.PHI`` is derived from — so the manifest
-    is always typed correctly regardless of whether torch is present.
+    module ``three_r_attention.PHI`` is derived from — and import only
+    the stdlib-only ``MATH`` namespace so the manifest dict-contract
+    holds in every environment.  If that import ever does break it
+    is a packaging regression worth surfacing as a tool ``fail``
+    certificate via the standard ``run_tool`` exception path, not a
+    string-typed placeholder that silently corrupts downstream readers.
     """
-    try:
-        from omni_mercury_engine.core.centralized_constants import MATH
+    from omni_mercury_engine.core.centralized_constants import MATH
 
-        phi = float(MATH.GOLDEN_RATIO)
-        phi_sum = phi + 2.0
-        return {
-            "w_R": phi / phi_sum,
-            "w_H": 1.0 / phi_sum,
-            "w_O": 1.0 / phi_sum,
-        }
-    except Exception as exc:
-        return f"unavailable: {exc}"
+    phi = float(MATH.GOLDEN_RATIO)
+    phi_sum = phi + 2.0
+    return {
+        "w_R": phi / phi_sum,
+        "w_H": 1.0 / phi_sum,
+        "w_O": 1.0 / phi_sum,
+    }
 
 
 def _ethical_constants() -> dict[str, Any]:

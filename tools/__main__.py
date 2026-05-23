@@ -90,12 +90,18 @@ def _print_help(*, missing: str | None = None) -> None:
         "usage: python -m tools <subcommand> [args...]\n\nAvailable subcommands:",
         file=sys.stderr,
     )
+    # Print each tool with its actual module path so operators see the
+    # correct ``python -m <module>`` invocation for the *registered*
+    # location — the registry mixes top-level ``tools.*`` and packaged
+    # ``omni_mercury_engine.tools.*`` modules, so a single blanket hint
+    # like ``python -m tools.<name>`` would be misleading for the latter.
+    name_width = max((len(n) for n in _REGISTRY), default=0)
     for name in sorted(_REGISTRY):
-        print(f"  {name}", file=sys.stderr)
-    print(
-        "\nEach subcommand also accepts ``python -m tools.<name>`` directly.",
-        file=sys.stderr,
-    )
+        module_path, _ = _REGISTRY[name]
+        print(
+            f"  {name:<{name_width}}  (also: python -m {module_path})",
+            file=sys.stderr,
+        )
 
 
 def _resolve_entrypoint(name: str) -> _ToolEntrypoint:

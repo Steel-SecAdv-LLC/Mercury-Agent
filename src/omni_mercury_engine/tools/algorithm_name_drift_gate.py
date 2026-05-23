@@ -115,8 +115,8 @@ _DEPRECATED: set[str] = {
 
 _ALLOWED_ALGORITHM_MENTIONS: dict[str, set[tuple[str, int]]] = {
     "Dilithium-3": {
-        ("README.md", 1684),  # FIPS 204 name for the Dilithium-3 parameter set
-        ("README.md", 1755),  # ML-DSA-65 (Dilithium-3) FIPS 204 annotation
+        ("README.md", 1690),  # FIPS 204 name for the Dilithium-3 parameter set
+        ("README.md", 1761),  # ML-DSA-65 (Dilithium-3) FIPS 204 annotation
     },
 }
 

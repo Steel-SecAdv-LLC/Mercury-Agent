@@ -175,8 +175,23 @@ class TemporalAnomalyDetector(BaseDetector):
         }
 
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
-        """Extract temporal features for ML fusion."""
-        data_np = data.cpu().numpy() if TORCH_AVAILABLE and isinstance(data, torch.Tensor) else data
+        """Extract temporal features for ML fusion.
+
+        Returns LSTM hidden-state features; requires the optional ``ml``
+        extra (torch).  When torch is absent every reference in this
+        method body (``torch.tensor``, ``torch.no_grad``) would raise
+        ``NameError: name 'torch' is not defined`` before reaching
+        :meth:`_lstm`.  Guard at the entry so callers receive the same
+        actionable ImportError surface as ``_lstm()``.
+        """
+        if not TORCH_AVAILABLE:
+            raise ImportError(
+                "TemporalAnomalyDetector.extract_features requires PyTorch. "
+                "Install with `pip install 'mercury-agent[ml]'`, or use "
+                "detect()/fit() which run on NumPy only."
+            )
+
+        data_np = data.cpu().numpy() if isinstance(data, torch.Tensor) else data
 
         if not self._is_fitted:
             self.fit(data_np)

@@ -167,9 +167,9 @@ def test_execute_workflow_branches_on_true() -> None:
     executed_ids = [r["step_id"] for r in result["steps_executed"]]
     # The action recorded must be the one on the true branch.
     assert "true_path" in executed_ids
-    assert "false_path" not in executed_ids, (
-        f"branch on_true did not skip the false_path step; executed={executed_ids!r}"
-    )
+    assert (
+        "false_path" not in executed_ids
+    ), f"branch on_true did not skip the false_path step; executed={executed_ids!r}"
     # The decision itself is recorded in autonomous_decisions.
     assert result["autonomous_decisions"][0]["decision"] is True
 
@@ -195,9 +195,9 @@ def test_execute_workflow_branches_on_false() -> None:
     result = system.execute_workflow(workflow, np.array([-1.0, -2.0, -3.0]))
     executed_ids = [r["step_id"] for r in result["steps_executed"]]
     assert "false_path" in executed_ids
-    assert "true_path" not in executed_ids, (
-        f"branch on_false did not skip the true_path step; executed={executed_ids!r}"
-    )
+    assert (
+        "true_path" not in executed_ids
+    ), f"branch on_false did not skip the true_path step; executed={executed_ids!r}"
     assert result["autonomous_decisions"][0]["decision"] is False
 
 
@@ -247,9 +247,9 @@ def test_execute_workflow_branch_cycle_detected() -> None:
         ],
     }
     result = system.execute_workflow(workflow, np.array([10.0, 20.0, 30.0]))
-    assert result["status"] == "branching_cycle_detected", (
-        f"expected branching_cycle_detected, got {result['status']!r}"
-    )
+    assert (
+        result["status"] == "branching_cycle_detected"
+    ), f"expected branching_cycle_detected, got {result['status']!r}"
     assert "branching_errors" in result
     cycle_entry = next(e for e in result["branching_errors"] if "max_jumps" in e.get("reason", ""))
     assert cycle_entry["max_jumps"] >= 64

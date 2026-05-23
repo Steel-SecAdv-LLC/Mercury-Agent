@@ -121,7 +121,7 @@ def test_algorithm_name_drift_gate_allows_fips204_readme_annotations(tmp_path: P
     rc = algorithm_name_drift_gate.main(["--docs", str(readme), "--output", str(out)])
     cert = _load_cert(out)
     assert cert["status"] == "ok", cert["warnings"]
-    assert cert["body"]["per_doc_hits"]["README.md"]["Dilithium-3"] == [1684, 1755]
+    assert cert["body"]["per_doc_hits"]["README.md"]["Dilithium-3"] == [1690, 1761]
     assert rc == 0
 
 
