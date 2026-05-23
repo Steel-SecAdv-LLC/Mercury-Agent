@@ -26,21 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Checkout repository (attempt 1)
-        id: checkout
-        continue-on-error: true
-        uses: actions/checkout@v6
-
-      - name: Pause before checkout retry (transient flake stabilisation)
-        if: steps.checkout.outcome == 'failure'
-        shell: bash
-        run: |
-          echo "::warning::actions/checkout@v6 first attempt failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
-          sleep 15
-
-      - name: Checkout repository (attempt 2, runs only on first-attempt failure)
-        if: steps.checkout.outcome == 'failure'
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-python@v6
         with:
