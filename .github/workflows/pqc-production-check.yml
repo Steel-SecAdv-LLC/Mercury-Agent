@@ -33,7 +33,7 @@ jobs:
       # KAT), not just the main security-tests step.
       MERCURY_PQC_REAL_AMA: "1"
     steps:
-      - uses: ./.github/actions/checkout-with-retry
+      - uses: actions/checkout@v6
 
       - name: Set up Python
         uses: actions/setup-python@v6

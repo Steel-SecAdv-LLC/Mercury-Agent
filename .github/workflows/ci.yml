@@ -79,7 +79,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: ./.github/actions/checkout-with-retry
+        uses: actions/checkout@v6
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -142,7 +142,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: ./.github/actions/checkout-with-retry
+        uses: actions/checkout@v6
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -193,7 +193,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: ./.github/actions/checkout-with-retry
+        uses: actions/checkout@v6
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -311,7 +311,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: ./.github/actions/checkout-with-retry
+        uses: actions/checkout@v6
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -505,7 +505,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: ./.github/actions/checkout-with-retry
+        uses: actions/checkout@v6
 
       - name: Free up disk space
         run: |
@@ -623,7 +623,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: ./.github/actions/checkout-with-retry
+        uses: actions/checkout@v6
 
       - name: Free up disk space
         run: |
@@ -716,7 +716,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: ./.github/actions/checkout-with-retry
+        uses: actions/checkout@v6
 
       - name: Free up disk space
         run: |
@@ -853,7 +853,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: ./.github/actions/checkout-with-retry
+        uses: actions/checkout@v6
 
       - name: Free up disk space
         run: |
@@ -898,7 +898,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: ./.github/actions/checkout-with-retry
+        uses: actions/checkout@v6
 
       - name: Free up disk space
         run: |
@@ -936,7 +936,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: ./.github/actions/checkout-with-retry
+        uses: actions/checkout@v6
 
       - name: Free up disk space
         run: |
@@ -1038,7 +1038,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: ./.github/actions/checkout-with-retry
+        uses: actions/checkout@v6
 
       - name: Free up disk space
         run: |
@@ -1175,7 +1175,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: ./.github/actions/checkout-with-retry
+        uses: actions/checkout@v6
 
       - name: Set up Python
         uses: actions/setup-python@v6
