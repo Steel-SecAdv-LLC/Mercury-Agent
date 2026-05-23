@@ -164,12 +164,12 @@ class TestNanoSafeguardDetector:
         )
 
     @pytest.fixture
-    def normal_data(self) -> np.ndarray:
+    def normal_data(self) -> np.ndarray[Any, Any]:
         """Create normal data for testing."""
         return np.random.randn(100, 10)
 
     @pytest.fixture
-    def anomalous_data(self) -> np.ndarray:
+    def anomalous_data(self) -> np.ndarray[Any, Any]:
         """Create anomalous data for testing."""
         data = np.random.randn(100, 10)
         data[50:60, :] = 100.0

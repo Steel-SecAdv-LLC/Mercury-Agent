@@ -79,7 +79,21 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def _collect(args: argparse.Namespace) -> Certificate:
     try:
-        from omni_mercury_engine.federated.aggregator import FederatedAggregator
+        # The first-party aggregator lives under
+        # ``omni_mercury_engine.federation`` (not ``.federated``); the
+        # original import path was a typo that made this tool always
+        # raise ``DependencyMissing`` even when the capability is
+        # present.  Try the real path first, then keep the legacy
+        # path as a fallback for downstream forks that may have
+        # renamed the package.
+        try:
+            from omni_mercury_engine.federation.aggregator import (
+                FederatedAggregator,
+            )
+        except ImportError:
+            from omni_mercury_engine.federated.aggregator import (  # type: ignore[no-redef]
+                FederatedAggregator,
+            )
     except ImportError as exc:
         raise DependencyMissing(
             f"FederatedAggregator import failed (federated extra missing?): {exc}"
@@ -107,10 +121,18 @@ def _collect(args: argparse.Namespace) -> Certificate:
         # inversion estimate gets to it after aggregation + DP noise.
         secret_input = node_updates[0].copy()
 
+    # ``FederatedAggregator`` is structural across forks — first-party
+    # currently has a no-arg / (min_nodes, max_age_seconds) ctor while
+    # downstream privacy-extended forks accept ``epsilon=``.  Probe with
+    # ``epsilon`` first via a generic ``Any``-typed call (mypy correctly
+    # rejects passing ``epsilon`` to the in-tree class otherwise) and
+    # fall back to the no-arg ctor; this preserves operator ergonomics
+    # without weakening the type gate on the in-tree class.
+    _agg_factory: Any = FederatedAggregator
     try:
-        agg = FederatedAggregator(epsilon=args.epsilon)
+        agg = _agg_factory(epsilon=args.epsilon)
     except TypeError:
-        # Older signature without epsilon — try the no-arg ctor.
+        # In-tree signature does not accept ``epsilon``.
         agg = FederatedAggregator()
 
     # Try a sequence of common aggregator method names.  Each method, if

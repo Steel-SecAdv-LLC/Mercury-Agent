@@ -90,7 +90,7 @@ class _CountingScorer(BenevolenceScorer):
 
 
 @pytest.fixture
-def synthetic_drift_scores() -> np.ndarray:
+def synthetic_drift_scores() -> np.ndarray[Any, Any]:
     """Bimodal score distribution — drives at least one EM-style refinement step.
 
     Two well-separated Gaussian clusters at 0.18 and 0.82 give the
@@ -101,7 +101,8 @@ def synthetic_drift_scores() -> np.ndarray:
     rng = np.random.default_rng(seed=20260504)
     low = rng.normal(loc=0.18, scale=0.04, size=200).clip(0.0, 1.0)
     high = rng.normal(loc=0.82, scale=0.04, size=200).clip(0.0, 1.0)
-    return np.concatenate([low, high]).astype(np.float64)
+    out: np.ndarray[Any, Any] = np.concatenate([low, high]).astype(np.float64)
+    return out
 
 
 @pytest.fixture
@@ -122,7 +123,7 @@ def cached_scorer() -> tuple[CachedBenevolenceScorer, _CountingScorer]:
 
 def _gated_calibration(
     manager: AdaptiveDomainThresholdManager,
-    scores: np.ndarray,
+    scores: np.ndarray[Any, Any],
     cache: CachedBenevolenceScorer,
 ) -> dict[str, Any]:
     """Run calibrate_iterative and call cache.enforce once per visited threshold.
@@ -162,7 +163,7 @@ def _gated_calibration(
 
 def test_calibrate_iterative_with_cache_converges_within_budget(
     manager: AdaptiveDomainThresholdManager,
-    synthetic_drift_scores: np.ndarray,
+    synthetic_drift_scores: np.ndarray[Any, Any],
     cached_scorer: tuple[CachedBenevolenceScorer, _CountingScorer],
 ) -> None:
     cache, inner = cached_scorer
@@ -188,7 +189,7 @@ def test_calibrate_iterative_with_cache_converges_within_budget(
 
 def test_repeated_calibration_reuses_cache_within_same_ruleset(
     manager: AdaptiveDomainThresholdManager,
-    synthetic_drift_scores: np.ndarray,
+    synthetic_drift_scores: np.ndarray[Any, Any],
     cached_scorer: tuple[CachedBenevolenceScorer, _CountingScorer],
 ) -> None:
     cache, inner = cached_scorer
@@ -215,7 +216,7 @@ def test_repeated_calibration_reuses_cache_within_same_ruleset(
 
 def test_ruleset_version_bump_invalidates_without_breaking_budget(
     manager: AdaptiveDomainThresholdManager,
-    synthetic_drift_scores: np.ndarray,
+    synthetic_drift_scores: np.ndarray[Any, Any],
     cached_scorer: tuple[CachedBenevolenceScorer, _CountingScorer],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -264,7 +265,7 @@ def test_ruleset_version_bump_invalidates_without_breaking_budget(
 
 def test_ruleset_revert_does_not_resurrect_purged_entries(
     manager: AdaptiveDomainThresholdManager,
-    synthetic_drift_scores: np.ndarray,
+    synthetic_drift_scores: np.ndarray[Any, Any],
     cached_scorer: tuple[CachedBenevolenceScorer, _CountingScorer],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
