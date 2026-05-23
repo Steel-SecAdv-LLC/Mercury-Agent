@@ -35,7 +35,7 @@ try:
     ASSETS_AVAILABLE = True
 except ImportError:
     ASSETS_AVAILABLE = False
-    generate_pcap_data = None
+    generate_pcap_data = None  # type: ignore[assignment]
 
 pytestmark = pytest.mark.skipif(
     not ASSETS_AVAILABLE, reason="assets module not available (requires real data loaders)"

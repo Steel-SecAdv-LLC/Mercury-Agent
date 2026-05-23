@@ -43,8 +43,8 @@ try:
     ASSETS_AVAILABLE = True
 except ImportError:
     ASSETS_AVAILABLE = False
-    generate_mimic_vitals = None
-    generate_medical_image = None
+    generate_mimic_vitals = None  # type: ignore[assignment]
+    generate_medical_image = None  # type: ignore[assignment]
 
 pytestmark = pytest.mark.skipif(
     not ASSETS_AVAILABLE, reason="assets module not available (requires real data loaders)"
