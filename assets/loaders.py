@@ -211,7 +211,7 @@ def generate_seti_signal(
 
     rng = _rng(seed)
     noise = rng.standard_normal(num_samples)
-    cosmic_signal: np.ndarray = noise.astype(np.float64)
+    cosmic_signal: np.ndarray[Any, Any] = noise.astype(np.float64)
 
     if inject_technosignature:
         t = np.arange(num_samples, dtype=np.float64)
@@ -226,9 +226,11 @@ def generate_seti_signal(
             pulse_centres = np.arange(period // 2, num_samples, period)
             envelope = np.zeros(num_samples)
             for centre in pulse_centres:
-                lo = max(0, centre - 4 * width)
-                hi = min(num_samples, centre + 4 * width + 1)
-                envelope[lo:hi] += np.exp(-((np.arange(lo, hi) - centre) ** 2) / (2.0 * width**2))
+                lo = int(max(0, int(centre) - 4 * width))
+                hi = int(min(num_samples, int(centre) + 4 * width + 1))
+                envelope[lo:hi] += np.exp(
+                    -((np.arange(lo, hi) - int(centre)) ** 2) / (2.0 * width**2)
+                )
             cosmic_signal = cosmic_signal + 5.0 * envelope
         else:  # chirp
             f0, f1 = 0.02, 0.40

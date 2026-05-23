@@ -38,7 +38,7 @@ try:
     ASSETS_AVAILABLE = True
 except ImportError:
     ASSETS_AVAILABLE = False
-    generate_seti_signal = None
+    generate_seti_signal = None  # type: ignore[assignment]
 
 pytestmark = pytest.mark.skipif(
     not ASSETS_AVAILABLE, reason="assets module not available (requires real data loaders)"

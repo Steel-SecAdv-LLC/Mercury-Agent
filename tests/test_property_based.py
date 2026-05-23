@@ -588,18 +588,28 @@ class TestValidationPipelineProperties:
 
     @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
     @given(st.text(min_size=1, max_size=50))
-    @settings(max_examples=20)
+    @settings(
+        max_examples=20,
+        # The first invocation pays a one-time cost importing every
+        # concrete loader class registered in ``_LOADER_REGISTRY``.
+        # That cost is amortised across the property run, but the first
+        # example can otherwise blow past the default 200ms deadline;
+        # disable the per-example deadline (still bounded by
+        # ``max_examples``) instead of asserting an artificial wall-
+        # clock budget on a one-time import.
+        deadline=None,
+    )
     def test_invalid_dataset_name_handled(self, dataset_name: str) -> None:
-        """Invalid dataset names should be handled gracefully."""
-        # get_loader was removed from validation.data_loaders; tolerate either
-        # state (still available in some forks) without breaking the type gate.
-        try:
-            from omni_mercury_engine.validation.data_loaders import (  # type: ignore[attr-defined]
-                get_loader,
-            )
-        except (ImportError, AttributeError):
-            pytest.skip("get_loader not available")
-            return  # Explicit return after skip for static analysis
+        """Invalid dataset names should be handled gracefully.
+
+        ``get_loader`` is re-shipped from
+        :mod:`omni_mercury_engine.validation.data_loaders`; the import
+        is no longer guarded because the symbol is now part of the
+        package's stable surface (see ``_LOADER_REGISTRY`` next to the
+        concrete loaders).  Any future drift will surface as an
+        ``ImportError`` at collection time rather than a silent skip.
+        """
+        from omni_mercury_engine.validation.data_loaders import get_loader
 
         # Property: Invalid dataset names should not crash
         try:
