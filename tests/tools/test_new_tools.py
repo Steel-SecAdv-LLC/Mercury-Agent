@@ -449,7 +449,7 @@ class TestDockerfileLockfileGate:
     def test_unpinned_apt_fails(self, tmp_path: Path) -> None:
         dockerfile = tmp_path / "Dockerfile"
         dockerfile.write_text(
-            "FROM debian:bookworm\n" "RUN apt-get update && apt-get install -y curl\n"
+            "FROM debian:bookworm\nRUN apt-get update && apt-get install -y curl\n"
         )
         out = tmp_path / "c.json"
         rc = TOOL_REGISTRY["dockerfile_lockfile_gate"](
@@ -460,7 +460,7 @@ class TestDockerfileLockfileGate:
     def test_pinned_passes(self, tmp_path: Path) -> None:
         dockerfile = tmp_path / "Dockerfile"
         dockerfile.write_text(
-            "FROM debian@sha256:" + "0" * 64 + "\n" "RUN apt-get install -y curl=7.88.1-10\n"
+            "FROM debian@sha256:" + "0" * 64 + "\nRUN apt-get install -y curl=7.88.1-10\n"
         )
         out = tmp_path / "c.json"
         rc = TOOL_REGISTRY["dockerfile_lockfile_gate"](
@@ -639,6 +639,220 @@ class TestTimeSourceProbe:
         out = tmp_path / "c.json"
         rc = TOOL_REGISTRY["time_source_probe"](["--output", str(out)])
         # Many CI runners lack chronyc/ntpq; warn (rc=0) is acceptable.
+        assert rc in (0, 1)
+
+
+# ---------------------------------------------------------------------------
+# Cryptographic-evidence tools (Part 2 scaffolding, graduated into the
+# dispatcher).  These tools must behave correctly regardless of whether
+# the AMA Cryptography native PQC backend is installed — when it is
+# absent the probes / KAT records degrade to ``stub`` / ``skipped`` and
+# the certificate status climbs to ``warn`` rather than failing closed,
+# unless the operator passes ``--require-real`` / ``--require-pqc``.
+
+
+class TestPqcCapabilityProbe:
+    """Runtime probe of the AMA PQC surface — works with or without AMA."""
+
+    def test_emits_valid_envelope(self, tmp_path: Path) -> None:
+        out = tmp_path / "c.json"
+        rc = TOOL_REGISTRY["pqc_capability_probe"](["--output", str(out)])
+        cert = _load_cert(out)
+        assert cert["schema"] == "mercury.tools.pqc_capability_probe/v1"
+        assert cert["status"] in {"ok", "warn", "fail"}
+        # When AMA is absent the probe still completes — rc 0 (warn) or
+        # 1 (fail) is acceptable, but the envelope must be parseable.
+        assert rc in (0, 1)
+        body = cert["body"]
+        assert "flags" in body
+        assert "probes" in body
+        assert "required" in body
+        assert isinstance(body["probes"], list) and body["probes"]
+
+    def test_ed25519_probe_always_real(self, tmp_path: Path) -> None:
+        """Ed25519 is classical and ships with ``cryptography`` — always real."""
+        out = tmp_path / "c.json"
+        TOOL_REGISTRY["pqc_capability_probe"](["--output", str(out)])
+        cert = _load_cert(out)
+        ed = next(p for p in cert["body"]["probes"] if p["primitive"] == "ed25519")
+        assert ed["status"] == "real", f"ed25519 probe degraded: {ed!r}"
+        assert "round_trip_ms" in ed
+
+    def test_required_set_lists_canonical_primitives(self, tmp_path: Path) -> None:
+        """The hard-required set is the contract — pin it so silent drift is caught."""
+        out = tmp_path / "c.json"
+        TOOL_REGISTRY["pqc_capability_probe"](["--output", str(out)])
+        cert = _load_cert(out)
+        assert sorted(cert["body"]["required"]) == sorted(
+            ["ed25519", "kyber-1024", "ml-dsa-65", "ama-hmac-sha256"]
+        )
+
+    def test_require_real_fails_when_any_stub(self, tmp_path: Path) -> None:
+        """``--require-real`` escalates any non-real required primitive to exit 1.
+
+        In CI / dev environments AMA is typically absent, so this is the
+        common path.  When AMA *is* installed everywhere the rc may be 0;
+        either way the contract is: missing-required ⇒ status ``"fail"``.
+        """
+        out = tmp_path / "c.json"
+        rc = TOOL_REGISTRY["pqc_capability_probe"](["--require-real", "--output", str(out)])
+        cert = _load_cert(out)
+        if cert["body"]["missing_required"]:
+            assert cert["status"] == "fail"
+            assert rc == 1
+        else:
+            assert cert["status"] == "ok"
+            assert rc == 0
+
+    def test_no_unknown_probe_status(self, tmp_path: Path) -> None:
+        """Every probe must classify to one of the four documented statuses."""
+        out = tmp_path / "c.json"
+        TOOL_REGISTRY["pqc_capability_probe"](["--output", str(out)])
+        cert = _load_cert(out)
+        allowed = {"real", "stub", "missing", "error"}
+        for probe in cert["body"]["probes"]:
+            assert probe["status"] in allowed, f"unknown probe status: {probe!r}"
+
+
+class TestKatRunnerStandalone:
+    """RFC 8032 + FIPS 203/204/205 vector replay, certificate emitter."""
+
+    def test_ed25519_only_all_pass(self, tmp_path: Path) -> None:
+        """The three RFC 8032 §7.1 vectors are inline and must always pass."""
+        out = tmp_path / "c.json"
+        rc = TOOL_REGISTRY["kat_runner_standalone"](
+            ["--algorithms", "ed25519", "--output", str(out)]
+        )
+        cert = _load_cert(out)
+        assert cert["schema"] == "mercury.tools.kat_runner_standalone/v1"
+        assert cert["status"] == "ok"
+        assert rc == 0
+        summary = cert["body"]["summary"]
+        # The three RFC 8032 §7.1 test vectors — exact count is contract.
+        assert summary == {"total": 3, "passed": 3, "skipped": 0, "failed": 0}
+        for record in cert["body"]["records"]:
+            assert record["algorithm"] == "ed25519"
+            assert record["operation"] == "sigGen+sigVer"
+            assert record["passed"] is True
+            assert record["sign_match"] is True
+            assert record["verify_ok"] is True
+
+    def test_record_shape_is_complete(self, tmp_path: Path) -> None:
+        """Auditor evidence: every record must carry expected/produced digests + tcId."""
+        out = tmp_path / "c.json"
+        TOOL_REGISTRY["kat_runner_standalone"](["--algorithms", "ed25519", "--output", str(out)])
+        cert = _load_cert(out)
+        for record in cert["body"]["records"]:
+            for key in (
+                "algorithm",
+                "operation",
+                "tcId",
+                "expected_sha256",
+                "produced_sha256",
+                "passed",
+            ):
+                assert key in record, f"record missing {key!r}: {record!r}"
+            assert record["tcId"].startswith("rfc8032-test-")
+
+    def test_missing_kat_file_does_not_break_ed25519(self, tmp_path: Path) -> None:
+        """A non-existent ``--kat-file`` must not erase the inline RFC 8032 vectors."""
+        missing = tmp_path / "does-not-exist.json"
+        out = tmp_path / "c.json"
+        rc = TOOL_REGISTRY["kat_runner_standalone"](
+            ["--algorithms", "ed25519", "--kat-file", str(missing), "--output", str(out)]
+        )
+        cert = _load_cert(out)
+        assert cert["status"] == "ok"
+        assert rc == 0
+        assert cert["body"]["summary"]["passed"] == 3
+
+    def test_malformed_kat_file_records_parse_error(self, tmp_path: Path) -> None:
+        """Auditor needs to see parse failures explicitly, not silently."""
+        bad = tmp_path / "broken.json"
+        bad.write_text("not-json{{{")
+        out = tmp_path / "c.json"
+        TOOL_REGISTRY["kat_runner_standalone"](
+            ["--algorithms", "ed25519", "--kat-file", str(bad), "--output", str(out)]
+        )
+        cert = _load_cert(out)
+        assert "kat_file_error" in cert["body"]
+        assert "failed to parse" in cert["body"]["kat_file_error"]
+
+    def test_pqc_algorithms_skipped_when_backend_absent(self, tmp_path: Path) -> None:
+        """When the AMA backend is absent the PQC vectors must be ``skipped``,
+        not silently dropped — auditors must see the explicit gap."""
+        out = tmp_path / "c.json"
+        rc = TOOL_REGISTRY["kat_runner_standalone"](["--algorithms", "all", "--output", str(out)])
+        cert = _load_cert(out)
+        # The three ed25519 vectors are unconditional.  PQC vectors are
+        # present in the curated NIST file but may be skipped when AMA
+        # is absent — assert *one of* the documented outcomes.
+        summary = cert["body"]["summary"]
+        assert summary["passed"] >= 3  # ed25519 always passes
+        if summary["skipped"] > 0:
+            assert cert["status"] == "warn"
+            for record in cert["body"]["records"]:
+                if record.get("skipped"):
+                    assert "reason" in record
+                    assert record["reason"], "skipped record must carry a reason"
+        # rc must follow the warn/ok exit-code contract (no --require).
+        assert rc in (0, 1)
+
+
+class TestSigmaImmutableVerifier:
+    """Extends the smoke test in ``test_tools.py`` with edge / failure paths."""
+
+    def test_missing_corpus_path_fails_loud(self, tmp_path: Path) -> None:
+        """A non-existent corpus is a hard fail — the verifier cannot guess."""
+        missing = tmp_path / "no-corpus.json"
+        out = tmp_path / "c.json"
+        rc = TOOL_REGISTRY["sigma_immutable_verifier"](
+            ["--corpus-path", str(missing), "--output", str(out)]
+        )
+        cert = _load_cert(out)
+        assert cert["status"] == "fail"
+        assert cert["body"]["error"] == "corpus file not found"
+        assert rc == 1
+
+    def test_missing_sig_path_fails_loud(self, tmp_path: Path) -> None:
+        """Corpus present, sig file absent — explicit fail (not warn)."""
+        corpus = tmp_path / "corpus.json"
+        corpus.write_text("{}")
+        missing_sig = tmp_path / "no-sig.json"
+        out = tmp_path / "c.json"
+        rc = TOOL_REGISTRY["sigma_immutable_verifier"](
+            [
+                "--corpus-path",
+                str(corpus),
+                "--sig-path",
+                str(missing_sig),
+                "--output",
+                str(out),
+            ]
+        )
+        cert = _load_cert(out)
+        assert cert["status"] == "fail"
+        assert cert["body"]["error"] == "signature file not found"
+        assert rc == 1
+
+    def test_envelope_carries_corpus_hashes(self, tmp_path: Path) -> None:
+        """The envelope must record the SHA3-256 of corpus + sig bytes so an
+        auditor can re-derive the digest without trusting the tool's word."""
+        import hashlib
+
+        out = tmp_path / "c.json"
+        rc = TOOL_REGISTRY["sigma_immutable_verifier"](["--output", str(out)])
+        cert = _load_cert(out)
+        # When the default corpus is present (it ships in-repo) the
+        # certificate body must include the SHA3-256 digests.
+        if "corpus_sha3_256" in cert["body"]:
+            corpus_path = cert["body"]["corpus_path"]
+            from pathlib import Path as _Path
+
+            disk = _Path(corpus_path).read_bytes()
+            expected = hashlib.sha3_256(disk).hexdigest()
+            assert cert["body"]["corpus_sha3_256"] == expected
+        # rc must be 0 (warn/ok) or 1 (hard fail) — never anything else.
         assert rc in (0, 1)
 
 

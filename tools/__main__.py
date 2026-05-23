@@ -1,15 +1,26 @@
 """Aggregate dispatcher for ``python -m tools <subcommand>``.
 
-Lists every operator tool under :mod:`tools` and dispatches to its
-``main()`` (or ``_cli()``) entry-point.  Each individual tool also
-remains independently invocable via ``python -m tools.<name>`` -- the
-dispatcher does not replace that, it adds a single discoverable
-entry-point that lists what is available and routes by name.
+Lists curated operator tools and dispatches to their ``main()``
+(or ``_cli()``) entry-point.  Each individual tool also remains
+independently invocable via ``python -m <module>`` -- the dispatcher
+does not replace that, it adds a single discoverable entry-point that
+lists what is available and routes by name.
+
+Two tool locations are supported:
+
+* top-level ``tools/<name>.py`` (e.g. :mod:`tools.lyapunov_validator`),
+  used for tools whose entry-point is ``_cli`` and whose import chain
+  must remain dependency-light;
+* ``omni_mercury_engine.tools.<name>`` (the package's operator-tool
+  surface, e.g. :mod:`omni_mercury_engine.tools.sigma_immutable_verifier`),
+  whose entry-point is ``main`` and which already ship with full
+  certificate-envelope + Ed25519 sidecar infrastructure via
+  :mod:`omni_mercury_engine.tools._base`.
 
 Adding a new tool: implement ``main(argv: Sequence[str] | None = None)
--> int`` (or ``_cli(argv) -> int``) in ``tools/<your_tool>.py`` and add
-the module name to :data:`_REGISTRY` below.  The dispatcher imports the
-module lazily so a missing optional dep in one tool does not break
+-> int`` (or ``_cli(argv) -> int``) and add a ``(name → (module, attr))``
+entry to :data:`_REGISTRY` below.  The dispatcher imports the module
+lazily so a missing optional dep in one tool does not break
 ``python -m tools list`` for the others.
 
 Every new tool must ship with:
@@ -51,6 +62,24 @@ class _ToolEntrypoint(Protocol):
 # of breaking the whole dispatcher.
 _REGISTRY: dict[str, tuple[str, str]] = {
     "lyapunov_validator": ("tools.lyapunov_validator", "_cli"),
+    # Cryptographic evidence tools graduated from
+    # ``omni_mercury_engine.tools.*`` after their behavioural tests
+    # landed in ``tests/tools/test_new_tools.py``.  These ship with the
+    # standard ``_base.run_tool`` envelope (Ed25519 sidecar, atomic
+    # write, ``--require`` semantics) so the dispatcher does not need
+    # any per-tool plumbing — it just routes by name.
+    "sigma_immutable_verifier": (
+        "omni_mercury_engine.tools.sigma_immutable_verifier",
+        "main",
+    ),
+    "pqc_capability_probe": (
+        "omni_mercury_engine.tools.pqc_capability_probe",
+        "main",
+    ),
+    "kat_runner_standalone": (
+        "omni_mercury_engine.tools.kat_runner_standalone",
+        "main",
+    ),
 }
 
 
