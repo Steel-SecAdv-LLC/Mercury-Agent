@@ -172,10 +172,16 @@ Measured on **64 reproducible real-world datasets\*** (of 75 attempted: 47 ADBen
 > minority-as-anomaly convention used everywhere else in Mercury, locked
 > by `tests/datasets/test_disaster.py::TestFEMAInvertedScoresCorrection`);
 > the headline-table AUC for "Disaster (FEMA)" is rerun on the next
-> benchmark refresh. The 11 unreachable loaders now have a two-lane
-> reachability harness — an always-on offline lane
-> (`tests/datasets/test_unreachable_loaders_offline.py`) plus a nightly
-> network lane (`tests/datasets/test_unreachable_loaders_network.py` +
+> benchmark refresh. **USGS Geochemistry** moved from "synthetic-only
+> stub" to "real NURE-HSSR bulk-CSV downloader" in the v1.7.1 work
+> (commit on `claude/optimistic-meitner-Bg8GP`); it remains on the
+> watch list because the harness's job is to detect future upstream
+> outages on top of loader-code regressions, but it now contributes
+> real data when `mrdata.usgs.gov` is reachable. The 11 unreachable
+> loaders have a two-lane reachability harness — an always-on offline
+> lane (`tests/datasets/test_unreachable_loaders_offline.py`) plus a
+> nightly network lane
+> (`tests/datasets/test_unreachable_loaders_network.py` +
 > `.github/workflows/dataset-reachability.yml`, 04:17 UTC) — so an
 > upstream provider outage surfaces as a failed nightly run rather than
 > as a benchmark silently dropping a dataset. See `docs/ROADMAP.md` for

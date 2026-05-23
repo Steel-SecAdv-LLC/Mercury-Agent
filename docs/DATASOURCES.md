@@ -128,6 +128,14 @@ Auth: None (public domain, US Government)
 Loader: `FEMADisasterLoader` in `src/omni_mercury_engine/datasets/disaster.py`
 Status: Live API. Not included in mercury_benchmark.py suite (API-based, not static dataset).
 
+### USGS Geochemistry (NURE-HSSR Stream Sediment)
+
+Source: `https://mrdata.usgs.gov/nure/sediment/nuresed-csv.zip`
+Auth: None (public domain, US Government)
+Loader: `USGSGeochemistryLoader` in `src/omni_mercury_engine/datasets/environmental.py`
+Status: Bulk CSV. 397,609 stream-sediment samples across the continental US (1973-1984 NURE-HSSR program). The loader materialises only the eleven columns its `FEATURE_NAMES` schema exposes (lat/lon + EPA-screening metals + Fe/Ca/pH) and applies the standard USGS half-threshold convention for below-detection-limit values. Anomaly labels follow the EPA Regional Screening Levels for soil contamination.
+Note: Listed below in the unreachable-11 watch list — the harness exists to catch upstream-provider outages on top of loader-code regressions, so this loader stays on the watch list even after gaining a real downloader.
+
 > **v1.7.0 label-polarity fix.** Prior to v1.7.0 the FEMA Disaster
 > loader handed the anomaly detector inverted labels — historical
 > FEMA records make "DR + multi-program" the majority class, which

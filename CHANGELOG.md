@@ -26,6 +26,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### USGS Geochemistry — real NURE-HSSR downloader (2026-05-23)
+
+`USGSGeochemistryLoader._download_from_usgs` was previously a literal
+stub that returned `False` immediately and fell through to the
+synthetic-distribution generator.  It now downloads and parses the
+USGS NURE-HSSR (National Uranium Resource Evaluation Hydrogeochemical
+and Stream Sediment Reconnaissance) bulk CSV from
+`https://mrdata.usgs.gov/nure/sediment/nuresed-csv.zip` — a 39 MB
+zipped CSV containing ~397K stream-sediment samples collected
+across the continental US between 1973 and 1984, with per-sample
+geochemistry for ~50 elements.  Public domain (US Government).
+
+The new `_parse_nure_csv_zip` helper:
+
+* materialises only the eleven columns the loader's `FEATURE_NAMES`
+  schema exposes (lat/lon + EPA-screening metals + Fe/Ca/pH), so the
+  235 MB expanded CSV is streamed without buffering the unused 134
+  columns,
+* stops once `max_samples` rows pass the configured region filter,
+* applies the USGS-recommended below-detection-limit convention
+  (NURE encodes "below threshold" as `-threshold`; the parser
+  substitutes `threshold / 2` per Open-File Report 97-492),
+* clamps invalid pH measurements (`<= 0` or `> 14`) to `0`,
+* tags rows with the same EPA-screening-level anomaly labels the
+  synthetic path used, so downstream detectors see a consistent
+  feature/label contract whether real or synthetic data is in use.
+
+Coverage:
+
+* `tests/datasets/test_usgs_geochemistry.py` — 13 new unit tests
+  exercising the happy path, below-detection handling, region
+  filtering, max-samples cap, EPA-screening labels, pH clamping,
+  schema-drift detection (missing required column raises),
+  empty-zip rejection, cached-skip behaviour, and the two
+  synthetic-fallback policy paths.  Tests are offline-only;
+  the live network probe is the existing
+  `tests/datasets/test_unreachable_loaders_network.py` USGS row
+  which now exercises the real download() path end-to-end when
+  `MERCURY_NETWORK_TESTS=1`.
+* `src/omni_mercury_engine/security/input_validation.py` —
+  `TrustedEndpoints.USGS_NURE_SEDIMENT_CSV` added.  The host
+  `mrdata.usgs.gov` was already in `TRUSTED_DOMAINS`, so no SSRF
+  allowlist surface change.
+
+`USGSGeochemistry` remains in the reachability-harness watch list
+(the harness exists to catch *upstream-provider* outages on top of
+loader-code regressions; a working downloader does not retire the
+provider-availability concern).  The benchmark "Empirical Benchmark
+Results" headline still cites 64/75 because the next benchmark
+refresh hasn't run yet — but `USGSGeochemistryLoader.is_real_data`
+now returns `True` when the NURE CSV is reachable.
+
 ### Documentation / `docs/SECURITY.md` retired (2026-05-22)
 
 `docs/SECURITY.md` was retired (commit 807b9c0) per owner directive

@@ -859,6 +859,11 @@ class TrustedEndpoints:
     # ==========================================================================
     USGS_MRDATA_GEOCHEM = "https://mrdata.usgs.gov/geochem"
     USGS_MRDATA_GEOPHYS = "https://mrdata.usgs.gov/geophysics"
+    # NURE-HSSR (National Uranium Resource Evaluation Hydrogeochemical and
+    # Stream Sediment Reconnaissance) bulk CSV — ~400K stream-sediment samples
+    # across the continental US (1973-1984).  Zipped CSV, ~39 MB on disk,
+    # ~235 MB expanded.  Public domain (US Government).
+    USGS_NURE_SEDIMENT_CSV = "https://mrdata.usgs.gov/nure/sediment/nuresed-csv.zip"
 
     # ==========================================================================
     # NASA JPL - Center for Near Earth Object Studies (CNEOS)
@@ -967,7 +972,7 @@ class TrustedEndpoints:
     WHO_GHO_API = "https://ghoapi.azureedge.net/api/"
 
     # NASA Global Landslide Catalog (COOLR)
-    NASA_COOLR = "https://maps.nccs.nasa.gov/arcgis/rest/services/" "global_landslide_catalog/"
+    NASA_COOLR = "https://maps.nccs.nasa.gov/arcgis/rest/services/global_landslide_catalog/"
 
     # PhysioNet Sepsis Challenge 2019
     PHYSIONET_SEPSIS_2019 = "https://physionet.org/content/challenge-2019/"
