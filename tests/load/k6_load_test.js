@@ -210,21 +210,20 @@ function getHeaders() {
     return headers;
 }
 
-// k6's ``response.headers`` is keyed by the *exact case* the server
-// emits, not by an HTTP-canonicalised form.  Mercury's correlation-ID
-// middleware (``omni_mercury_engine.api.server.CorrelationIDMiddleware``)
-// sets the response header via ``response.headers[HEADER_NAME] = ...``
-// with ``HEADER_NAME = "X-Correlation-ID"`` -- note the three uppercase
-// letters in the trailing ``ID``.  A lookup of ``"X-Correlation-Id"``
-// (only the leading ``I`` uppercase) returns ``undefined`` against that
-// server response, which would silently fail every request's check and
-// drive the ``errors`` rate to 100 %, breaching ``errors: rate<0.01``
-// even though every status is 200.  Match the server's exact case here,
-// and fall through to a case-insensitive scan as a defence-in-depth
-// fallback (so a future framework upgrade that decides to normalise
-// header case cannot silently invert this check back to false).
+// k6 stores ``response.headers`` keyed by the Go ``net/http`` canonical
+// MIME-header form (``textproto.CanonicalMIMEHeaderKey``), which is
+// also what k6's JS bindings expose.  The wire-level header Mercury's
+// ``CorrelationIDMiddleware`` emits is ``x-correlation-id`` (HTTP/1.1
+// + Starlette lowercases on the wire; HTTP/2 requires lowercase), and
+// k6 canonicalises that to ``X-Correlation-Id`` -- only the leading
+// ``I`` of ``Id`` is uppercase.  We do the primary lookup against that
+// canonical form (verified locally with k6 v0.55.2 against the live
+// API), and fall through to a case-insensitive scan as defence-in-
+// depth: if a future framework upgrade emits a non-canonical header
+// case or k6 changes its canonicalisation policy, the fallback still
+// matches.
 function checkCorrelationId(response) {
-    if (response.headers['X-Correlation-ID'] !== undefined) {
+    if (response.headers['X-Correlation-Id'] !== undefined) {
         return true;
     }
     for (const key of Object.keys(response.headers || {})) {
