@@ -439,7 +439,24 @@ _cors_allow_credentials = os.getenv("MERCURY_CORS_CREDENTIALS", "false").lower()
 
 # In production, explicitly specify allowed origins
 # In development, allow localhost origins
-if os.getenv("MERCURY_AGENT_ENV", "").lower() == "production":
+#
+# Production-mode selection prefers the canonical ``MERCURY_ENV`` (see
+# :mod:`omni_mercury_engine._env`); ``MERCURY_AGENT_ENV`` is retained
+# as a backward-compatible alias because the v1.7.0 release shipped
+# with the API server reading it directly, and operators may already
+# have it baked into deployment manifests.  When both are set,
+# ``MERCURY_ENV=production`` wins (matches the rest of the codebase);
+# ``MERCURY_AGENT_ENV`` is honoured only when ``MERCURY_ENV`` is unset.
+from omni_mercury_engine._env import is_production as _mercury_is_production
+
+_mercury_env_raw = os.getenv("MERCURY_ENV", "").strip()
+_agent_env_raw = os.getenv("MERCURY_AGENT_ENV", "").strip().lower()
+if _mercury_env_raw:
+    _is_production = _mercury_is_production()
+else:
+    _is_production = _agent_env_raw == "production"
+
+if _is_production:
     # Production: require explicit origin configuration
     if _cors_origins_env:
         _raw_origins = [origin.strip() for origin in _cors_origins_env.split(",") if origin.strip()]

@@ -26,12 +26,30 @@ the ``AMA_REF`` env var of ``.github/workflows/ci.yml`` /
 lock-step when upgrading.
 
 Previous versions used a 4-tier fallback chain (AMA → liboqs → pqcrypto →
-SIMULATION).  As of v1.7.0 Mercury **hard-requires** AMA Cryptography
-and the fallback chain has been removed entirely.  AMA v3.2.0 carries
-its own native C backend — it *is* the implementation.  Retaining
-weaker fallbacks only widened the attack surface.  The v3.x surface
-adds FIPS 204 §5.2 context-aware ML-DSA-65 signing and FIPS 205
-SLH-DSA-SHAKE-128s; v3.2.0 specifically adds the
+SIMULATION).  As of v1.7.0 Mercury **hard-requires AMA Cryptography at
+call time** and the runtime fallback chain has been removed entirely.
+AMA v3.2.0 carries its own native C backend — it *is* the implementation.
+Retaining weaker fallbacks only widened the attack surface.
+
+Import contract (soft-import / hard-call)
+-----------------------------------------
+The import surface intentionally tolerates a missing ``ama_cryptography``
+package: the ``ImportError`` branch below installs ``_stub_*`` placeholders
+that **raise** ``RuntimeError`` the moment any PQC primitive is invoked.
+This split exists so non-PQC CI lanes (docs drift gate, examples-parity,
+format, code-quality, type-checking) can collect and import the security
+package without provisioning the AMA native build, while every lane that
+actually exercises PQC (``ml-tests``, ``verify-real-pqc``,
+``pqc-production-check``) builds AMA from source and gets the real
+backend.  In production, the
+:func:`omni_mercury_engine.security.pqc_guards.assert_pqc_available`
+gate (called from any PQC code path) enforces ``AMA_REQUIRE_REAL_PQC=1``
+and refuses to start the worker if the stubs are still bound.  There is
+no silent fallback at any layer; the contract is "PQC works or PQC raises",
+never "PQC degrades".
+
+The v3.x surface adds FIPS 204 §5.2 context-aware ML-DSA-65 signing and
+FIPS 205 SLH-DSA-SHAKE-128s; v3.2.0 specifically adds the
 ``native_hmac_sha256`` / ``native_hmac_sha256_2`` Python bindings
 consumed by ``omni_mercury_engine.security.native_jwt`` for HS256 /
 HS512 JOSE signing.

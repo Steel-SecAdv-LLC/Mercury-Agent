@@ -38,13 +38,13 @@ on:
 
 permissions:
   contents: read
-  # ``pull-requests: write`` is required by the Load Tests job's
-  # ``Post Load Test diagnostic on failure`` step, which posts a PR
-  # comment with the structured threshold-breach report so the
-  # failure is visible on the PR's checks surface without requiring
-  # log-tab authentication.  The token is scoped to the workflow's
-  # GITHUB_TOKEN, which for same-repo PRs has write access.
-  pull-requests: write
+# ``pull-requests: write`` is intentionally NOT granted at the workflow
+# level.  Only the ``load-tests`` job's ``Post Load Test diagnostic on
+# failure`` step needs it, so we narrow the scope to that job alone via
+# a job-level ``permissions:`` block (see ``load-tests`` below).  The
+# other jobs (``docs-lambda-drift``, ``examples-parity``,
+# ``iso-hardening-success``) get the workflow default (``contents: read``)
+# and cannot be coerced into PR-comment posting even if compromised.
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -117,6 +117,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     needs: [examples-parity]
+    permissions:
+      # ``contents: read`` for actions/checkout; ``pull-requests: write``
+      # for the ``Post Load Test diagnostic on failure`` step further
+      # down.  Narrowed to this job (not workflow-wide) so the other
+      # ISO Hardening jobs cannot post PR comments even if compromised.
+      contents: read
+      pull-requests: write
     env:
       MERCURY_API_HOST: http://127.0.0.1:8000
     steps:
@@ -175,7 +182,7 @@ jobs:
           # Start the API; rate-limit disabled so smoke traffic doesn't
           # trip 429s and corrupt the SLO measurement.
           OMNI_RATE_LIMIT_ENABLED=false \
-          MERCURY_AGENT_ENV=development \
+          MERCURY_ENV=development \
             python -m uvicorn omni_mercury_engine.api.server:app \
               --host 127.0.0.1 --port 8000 --log-level info \
               > artifacts/api.log 2>&1 &
@@ -536,7 +543,24 @@ jobs:
           import urllib.error
           import urllib.request
 
-          k6_path = pathlib.Path("artifacts/k6_summary.json")
+          # Prefer the rich ``handleSummary`` schema (full ``values`` +
+          # dict-shaped ``thresholds``); fall back to the stripped-down
+          # ``--summary-export`` file (bool-shaped ``thresholds``, no
+          # ``values``) so a future k6 rollback or an in-flight schema
+          # change does not silently empty the PR comment.  This mirrors
+          # the dual-schema handling in the ``Assert k6 SLO thresholds``
+          # step above so both reporters render the same data.
+          k6_full_path = pathlib.Path("artifacts/k6_summary_full.json")
+          k6_export_path = pathlib.Path("artifacts/k6_summary.json")
+          if k6_full_path.is_file() and k6_full_path.stat().st_size:
+              k6_path = k6_full_path
+              k6_schema = "handleSummary"
+          elif k6_export_path.is_file() and k6_export_path.stat().st_size:
+              k6_path = k6_export_path
+              k6_schema = "summary-export"
+          else:
+              k6_path = None
+              k6_schema = None
           locust_stats_path = pathlib.Path("artifacts/locust_stats.csv")
           api_log_path = pathlib.Path("artifacts/api.log")
 
@@ -547,7 +571,7 @@ jobs:
           parts.append("")
 
           # ---- k6 summary -------------------------------------------------
-          if k6_path.is_file() and k6_path.stat().st_size:
+          if k6_path is not None:
               try:
                   data = json.loads(k6_path.read_text())
                   metrics = data.get("metrics", {})
@@ -556,13 +580,21 @@ jobs:
                       thresholds = m.get("thresholds") or {}
                       values = m.get("values") or {}
                       for expr, info in sorted(thresholds.items()):
-                          ok = info.get("ok")
+                          # ``info`` is a dict in ``handleSummary`` but a
+                          # bare bool in ``--summary-export``; normalise.
+                          if isinstance(info, dict):
+                              ok = info.get("ok")
+                          else:
+                              ok = bool(info)
                           agg = expr.split("<")[0].split(">")[0].split("=")[0].strip()
-                          measured = values.get(agg)
+                          # ``values`` only exists in handleSummary; the
+                          # summary-export schema has no per-metric values
+                          # block, so this gracefully renders ``measured=?``.
+                          measured = values.get(agg) if isinstance(values, dict) else None
                           measured_str = (
                               f"{measured:.4f}"
                               if isinstance(measured, (int, float))
-                              else str(measured)
+                              else ("?" if measured is None else str(measured))
                           )
                           rows.append(
                               f"{'BREACH' if ok is False else 'OK    '}  "
@@ -570,9 +602,14 @@ jobs:
                               f"measured[{agg}]={measured_str}"
                           )
 
-                  http_reqs = (metrics.get("http_reqs") or {}).get("values") or {}
-                  http_req_failed = (metrics.get("http_req_failed") or {}).get("values") or {}
-                  errors_metric = (metrics.get("errors") or {}).get("values") or {}
+                  def _values(name: str) -> dict[str, object]:
+                      m = metrics.get(name) or {}
+                      v = m.get("values") if isinstance(m, dict) else None
+                      return v if isinstance(v, dict) else {}
+
+                  http_reqs = _values("http_reqs")
+                  http_req_failed = _values("http_req_failed")
+                  errors_metric = _values("errors")
                   counters = (
                       f"http_reqs.count={http_reqs.get('count', '?')}  "
                       f"http_req_failed.rate={http_req_failed.get('rate', '?')}  "
@@ -581,16 +618,20 @@ jobs:
                       f"errors.fails={errors_metric.get('fails', '?')}"
                   )
 
-                  parts.append("#### k6 thresholds")
+                  parts.append(f"#### k6 thresholds (schema: `{k6_schema}`, file: `{k6_path}`)")
                   parts.append(f"`{counters}`")
                   parts.append("```")
                   for row in rows:
                       parts.append(row)
                   parts.append("```")
               except Exception as exc:  # pragma: no cover - diagnostic-only
-                  parts.append(f"k6 summary parse error: {exc}")
+                  parts.append(f"k6 summary parse error ({k6_schema}, {k6_path}): {exc}")
           else:
-              parts.append("k6 summary file missing or empty (run did not reach k6 step).")
+              parts.append(
+                  "k6 summary file missing or empty "
+                  "(neither artifacts/k6_summary_full.json nor "
+                  "artifacts/k6_summary.json -- run did not reach k6 step)."
+              )
 
           # ---- locust summary --------------------------------------------
           if locust_stats_path.is_file() and locust_stats_path.stat().st_size:

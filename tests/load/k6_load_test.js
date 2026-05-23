@@ -4,14 +4,28 @@
  * High-performance load testing using k6 for Mercury Agent API.
  * Provides detailed metrics, thresholds, and scenario-based testing.
  *
+ * Prerequisite:
+ *   ``handleSummary()`` writes a structured JSON report to
+ *   ``artifacts/k6_summary_full.json`` so the CI diagnostic step can
+ *   re-render the threshold breaches inline on the PR.  k6 does NOT
+ *   create the parent directory itself, so callers MUST ensure the
+ *   ``artifacts/`` directory exists before invoking ``k6 run`` --
+ *   otherwise the write silently no-ops and the CI diagnostic falls
+ *   back to the (much sparser) ``--summary-export`` schema.  The
+ *   workflow file ``.github/workflows/iso-hardening.yml`` does this
+ *   with ``mkdir -p artifacts`` before the k6 step.
+ *
  * Usage:
- *   # Basic load test
+ *   # Basic load test (create artifacts/ first)
+ *   mkdir -p artifacts
  *   k6 run tests/load/k6_load_test.js
  *
  *   # With custom options
+ *   mkdir -p artifacts
  *   k6 run --vus 100 --duration 5m tests/load/k6_load_test.js
  *
- *   # Export to JSON
+ *   # Export to JSON (orthogonal to handleSummary)
+ *   mkdir -p artifacts
  *   k6 run --out json=results.json tests/load/k6_load_test.js
  *
  *   # Cloud execution (requires k6 Cloud account)
