@@ -69,6 +69,7 @@ import json
 import os
 import tempfile
 import time
+import warnings
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
@@ -501,7 +502,22 @@ def _parse_csf_xlsx(payload: bytes) -> dict[NISTFunction, list[NISTCategory]]:
         ) from exc
 
     try:
-        workbook = openpyxl.load_workbook(io.BytesIO(payload), data_only=True)
+        # The NIST CSF 2.0 Reference Tool workbook ships without a
+        # default style block, which causes openpyxl >= 3.1 to emit
+        # ``UserWarning: Workbook contains no default style, apply
+        # openpyxl's default``.  The fallback openpyxl applies is the
+        # documented behaviour for this case and we have no influence
+        # over NIST's serialiser, so we scope a ``catch_warnings``
+        # block around the load call (only suppressing that exact
+        # message) instead of leaking the noise into every consumer.
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message=r"Workbook contains no default style",
+                category=UserWarning,
+                module=r"openpyxl(\..*)?",
+            )
+            workbook = openpyxl.load_workbook(io.BytesIO(payload), data_only=True)
     except Exception as exc:
         raise NISTCSFReferenceError(f"Failed to load NIST CSF reference workbook: {exc}") from exc
 

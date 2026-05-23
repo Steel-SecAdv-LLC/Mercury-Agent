@@ -1802,3 +1802,57 @@ class NOAAOceanLoader(DatasetLoader):
             self._labels[train_idx],
             self._labels[test_idx],
         )
+
+
+# ---------------------------------------------------------------------------
+# Public factory
+# ---------------------------------------------------------------------------
+
+# Map of canonical dataset names → concrete ``DatasetLoader`` class.
+# The keys are deliberately lowercase / hyphenated for ergonomic
+# operator use; ``get_loader`` lower-cases the input so callers may
+# pass any case variant.
+_LOADER_REGISTRY: dict[str, type[DatasetLoader]] = {
+    "nslkdd": NSLKDDLoader,
+    "nsl-kdd": NSLKDDLoader,
+    "usgs": USGSEarthquakeLoader,
+    "usgs-earthquake": USGSEarthquakeLoader,
+    "earthquake": USGSEarthquakeLoader,
+    "mimic": MIMICLoader,
+    "noaa-space-weather": NOAASpaceWeatherLoader,
+    "space-weather": NOAASpaceWeatherLoader,
+    "noaa-hurricane": NOAAHurricaneLoader,
+    "hurricane": NOAAHurricaneLoader,
+    "noaa-ocean": NOAAOceanLoader,
+    "ocean": NOAAOceanLoader,
+}
+
+
+def get_loader(name: str, **kwargs: Any) -> DatasetLoader:
+    """
+    Resolve a dataset name to a concrete :class:`DatasetLoader`.
+
+    The validation-pipeline previously shipped a factory of this name
+    but it was lost during a refactor; the operator tooling and the
+    property-based test in ``tests/test_property_based.py`` both
+    expect it.  Re-introducing it here keeps the factory side-by-side
+    with the concrete loaders so the next refactor cannot quietly
+    delete one but not the other.
+
+    Args:
+        name: Canonical loader name (case-insensitive). See
+            ``_LOADER_REGISTRY`` for the full list.
+        **kwargs: Forwarded to the loader constructor.
+
+    Returns:
+        A fresh, un-loaded :class:`DatasetLoader` instance.
+
+    Raises:
+        ValueError: If ``name`` is not a known loader.
+    """
+    key = name.strip().lower() if isinstance(name, str) else ""
+    cls = _LOADER_REGISTRY.get(key)
+    if cls is None:
+        known = ", ".join(sorted(set(_LOADER_REGISTRY)))
+        raise ValueError(f"Unknown dataset loader {name!r}; known loaders: {known}")
+    return cls(**kwargs)

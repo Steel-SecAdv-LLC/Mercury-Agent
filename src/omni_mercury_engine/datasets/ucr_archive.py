@@ -22,6 +22,7 @@ from typing import Any
 import numpy as np
 
 from .base import DatasetConfig, DatasetLoader, DatasetMetadata, DatasetSplit, safe_urlretrieve
+from .exceptions import DataSourceUnavailableError
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +90,15 @@ class UCRLoader(DatasetLoader):
         return result
 
     def download(self) -> bool:
-        """Download UCR archive (or specific dataset)."""
+        """Download UCR archive (or specific dataset).
+
+        Returns ``True`` on success, raises :class:`DataSourceUnavailableError`
+        on failure.  The reachability-harness contract forbids silent
+        ``return False`` here: the caller cannot distinguish "I tried and
+        the network was down" from "I tried and the data was malformed",
+        so we surface every failure path as the canonical exception and
+        still write the download-instructions sidecar for operators.
+        """
         import requests
 
         logger.info(f"Downloading UCR dataset: {self.dataset_name}")
@@ -102,6 +111,7 @@ class UCRLoader(DatasetLoader):
         # Try to download specific dataset first (smaller)
         specific_url = f"https://www.timeseriesclassification.com/Downloads/{self.dataset_name}.zip"
 
+        last_exc: Exception | None = None
         try:
             zip_path = self.data_path / f"{self.dataset_name}.zip"
             logger.info("  Trying dataset-specific download...")
@@ -115,10 +125,12 @@ class UCRLoader(DatasetLoader):
             logger.info(f"  Downloaded {self.dataset_name}")
             return True
 
-        except (requests.RequestException, ValueError):
-            logger.warning("  Dataset-specific download failed")
+        except (requests.RequestException, ValueError, zipfile.BadZipFile, OSError) as exc:
+            last_exc = exc
+            logger.warning("  Dataset-specific download failed: %s", exc)
 
-        # Provide instructions for full archive
+        # Provide instructions for full archive (operator sidecar; still
+        # emitted on the failure path so a human can take over).
         logger.info("")
         logger.info("For full UCR archive, download from:")
         logger.info(f"  {archive_url}")
@@ -132,7 +144,13 @@ class UCRLoader(DatasetLoader):
             f.write(f"Extract to: {self.data_path}\n\n")
             f.write("Or use timeseriesclassification.com for individual datasets\n")
 
-        return False
+        # Loud failure — see the docstring above.
+        raise DataSourceUnavailableError(
+            f"UCR dataset {self.dataset_name!r} could not be downloaded from "
+            f"{specific_url} (mirror unreachable or response not a valid zip). "
+            f"Manual download instructions written to {instructions_path}. "
+            f"Underlying error: {last_exc!r}"
+        ) from last_exc
 
     def load(
         self, split: DatasetSplit = DatasetSplit.ALL

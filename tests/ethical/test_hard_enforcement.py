@@ -76,7 +76,7 @@ def _synthetic_traffic_batch(
     rows: int,
     cols: int,
     anomaly_fraction: float = 0.25,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     """Return a structured ``(rows, cols)`` traffic-like feature batch.
 
     Args:
