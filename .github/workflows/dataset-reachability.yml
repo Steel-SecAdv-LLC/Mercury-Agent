@@ -76,7 +76,7 @@ jobs:
       AMA_REQUIRE_REAL_PQC: "false"
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: ./.github/actions/checkout-with-retry
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v6

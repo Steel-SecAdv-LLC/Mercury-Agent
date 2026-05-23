@@ -25,7 +25,7 @@ jobs:
     name: Dependency Security Scan
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v6
+    - uses: ./.github/actions/checkout-with-retry
 
     - name: Set up Python
       uses: actions/setup-python@v6
@@ -127,7 +127,7 @@ jobs:
     name: Container Security Scan (Trivy)
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v6
+    - uses: ./.github/actions/checkout-with-retry
 
     - name: Free disk space
       run: |
@@ -247,7 +247,7 @@ jobs:
     name: Filesystem Security Scan (Trivy)
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v6
+    - uses: ./.github/actions/checkout-with-retry
 
     - name: Install Trivy binary
       # See ``container-scan`` job's ``Install Trivy binary`` step
@@ -289,7 +289,7 @@ jobs:
     name: Secret Detection
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v6
+    - uses: ./.github/actions/checkout-with-retry
       with:
         fetch-depth: 0
 
@@ -310,7 +310,7 @@ jobs:
       matrix:
         language: [ 'python' ]
     steps:
-    - uses: actions/checkout@v6
+    - uses: ./.github/actions/checkout-with-retry
 
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v4
