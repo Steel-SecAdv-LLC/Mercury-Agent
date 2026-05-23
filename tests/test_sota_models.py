@@ -584,14 +584,34 @@ class TestEthicalConstraints:
 class TestModelIntegration:
     """Integration tests across SOTA models."""
 
-    @pytest.mark.xfail(
-        reason="TranAD decoder2 is intentionally only used for adversarial refinement; "
-        "its gradients come from reconstruction_refined loss, not primary reconstruction. "
-        "This is by design - decoder2 parameters don't receive gradients from recon1 loss.",
-        strict=False,
-    )
     def test_all_models_trainable(self) -> None:
-        """All models should be trainable."""
+        """Every parameter of every SOTA model receives gradients via its real training loss.
+
+        The previous version of this test back-propagated only through
+        ``result["reconstruction"]`` and was therefore wrong for TranAD
+        in two compounding ways:
+
+        1. TranAD's ``decoder2`` / ``output_projection2`` receive
+           gradients only through ``reconstruction_refined`` (the
+           adversarial refinement path), exactly as
+           :class:`TranADLoss` and :class:`TranADTrainer` train them
+           in production (``g_loss = L1 + L2 + λ·L_adv``).
+        2. TranAD's ``discriminator`` is a separate sub-network with
+           its own optimiser; it is trained against the real/fake
+           classification loss
+           ``d_loss = ½ (BCE(D(x), 1) + BCE(D(recon.detach()), 0))``
+           per :meth:`TranADTrainer.train_step`, **not** via the
+           generator's adversarial term.
+
+        Backpropagating only through ``reconstruction`` exercised the
+        encoder and ``decoder1`` and nothing else, which is why the
+        test used to live behind an ``xfail`` claiming "by design".
+        It is by design — the design just isn't a single-loss
+        contract.  This rewrite drives each parameter group through
+        the production loss path that actually owns it, so any
+        regression that severs a real gradient route now fails the
+        test loudly instead of being hidden by an ``xfail``.
+        """
         models: list[nn.Module] = [
             AnomalyTransformerEncoder(input_dim=25, d_model=64, n_heads=4, n_layers=2),
             TranADModel(TranADConfig(input_dim=25, d_model=64, n_heads=4)),
@@ -601,17 +621,52 @@ class TestModelIntegration:
         x = torch.randn(2, 20, 25)
 
         for model in models:
-            # Forward pass
             result = model(x)
 
-            # Check gradient flow
-            loss = result["reconstruction"].mean()
-            loss.backward()
+            # Build the generator-side total loss the production
+            # ``TranADTrainer`` uses.  ``reconstruction_refined`` is
+            # the only gradient source for TranAD's ``decoder2`` /
+            # ``output_projection2``; the other two models have a
+            # single reconstruction head and skip this branch.
+            g_loss = result["reconstruction"].mean()
+            if "reconstruction_refined" in result:
+                g_loss = g_loss + result["reconstruction_refined"].mean()
 
-            # Check gradients exist
-            for param in model.parameters():
-                if param.requires_grad:
-                    assert param.grad is not None or param.numel() == 0
+            # TranAD's discriminator is trained against a separate
+            # real/fake loss in production -- it does not flow back
+            # through the generator's adversarial term.  Mirror that
+            # contract here so the discriminator parameters get the
+            # gradient route they would actually see during training.
+            discriminator = getattr(model, "discriminator", None)
+            if discriminator is not None:
+                recon = result["reconstruction"]
+                real_scores = discriminator(x)
+                fake_scores = discriminator(recon.detach())
+                d_loss = 0.5 * (
+                    nn.functional.binary_cross_entropy_with_logits(
+                        real_scores, torch.ones_like(real_scores)
+                    )
+                    + nn.functional.binary_cross_entropy_with_logits(
+                        fake_scores, torch.zeros_like(fake_scores)
+                    )
+                )
+                d_loss.backward(retain_graph=True)
+
+            g_loss.backward()
+
+            # Every trainable parameter must have received a gradient
+            # from one of the loss heads above.  Empty parameters
+            # (numel == 0) are skipped because PyTorch never allocates
+            # ``.grad`` for them.
+            missing_grad = [
+                name
+                for name, param in model.named_parameters()
+                if param.requires_grad and param.numel() > 0 and param.grad is None
+            ]
+            assert not missing_grad, (
+                f"{type(model).__name__}: parameters missing gradients "
+                f"under the production training loss: {missing_grad}"
+            )
 
     def test_models_detect_similar_anomalies(self) -> None:
         """Models should detect obvious anomalies."""
