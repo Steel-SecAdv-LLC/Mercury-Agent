@@ -108,8 +108,16 @@ _DEPRECATED: set[str] = {
     "ML-KEM-512",
     "ML-KEM-768",
     "Dilithium-2",
+    "Dilithium-3",
     "ML-DSA-44",
     "RSA-2048",
+}
+
+_ALLOWED_ALGORITHM_MENTIONS: dict[str, set[tuple[str, int]]] = {
+    "Dilithium-3": {
+        ("README.md", 1684),  # FIPS 204 name for the Dilithium-3 parameter set
+        ("README.md", 1755),  # ML-DSA-65 (Dilithium-3) FIPS 204 annotation
+    },
 }
 
 
@@ -170,6 +178,18 @@ def _scan_doc(path: Path) -> dict[str, list[int]]:
     return hits
 
 
+def _allowed_lines(root: Path, doc: Path, algorithm: str) -> set[int]:
+    try:
+        rel = str(doc.relative_to(root))
+    except ValueError:
+        rel = str(doc)
+    return {
+        line
+        for allowed_doc, line in _ALLOWED_ALGORITHM_MENTIONS.get(algorithm, set())
+        if allowed_doc == rel
+    }
+
+
 def _pqc_declarations() -> dict[str, bool]:
     """Return the declared-availability flags from ``pqc_backends``."""
     try:
@@ -215,11 +235,17 @@ def _collect(args: argparse.Namespace) -> Certificate:
     undeclared_hits: list[dict[str, Any]] = []
     for alg in sorted(union_hits):
         if alg in _DEPRECATED:
-            occurrences = [
-                {"doc": doc, "lines": per_doc[doc][alg]}
-                for doc in sorted(per_doc)
-                if alg in per_doc[doc]
-            ]
+            occurrences = []
+            for doc in sorted(per_doc):
+                if alg not in per_doc[doc]:
+                    continue
+                doc_path = root / doc
+                allowed = _allowed_lines(root, doc_path, alg)
+                lines = [line for line in per_doc[doc][alg] if line not in allowed]
+                if lines:
+                    occurrences.append({"doc": doc, "lines": lines})
+            if not occurrences:
+                continue
             deprecated_hits.append({"algorithm": alg, "occurrences": occurrences})
             continue
         required_exports = _DECLARATION_EXPORTS.get(alg, ())

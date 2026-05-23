@@ -28,7 +28,8 @@ identifier and a deterministic exit code mapping.
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Any
+from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -50,10 +51,6 @@ from omni_mercury_engine.tools import (
     synthetic_fallback_auditor,
     workflow_version_drift_gate,
 )
-
-if TYPE_CHECKING:
-    from pathlib import Path
-
 
 def _load_cert(path: Path) -> dict[str, Any]:
     parsed = json.loads(path.read_text())
@@ -104,6 +101,27 @@ def test_algorithm_name_drift_gate_detects_kyber768(tmp_path: Path) -> None:
     assert cert["status"] == "fail"
     assert any("Kyber-768" in w for w in cert["warnings"])
     assert rc == 1
+
+
+def test_algorithm_name_drift_gate_detects_unallowed_dilithium3(tmp_path: Path) -> None:
+    bad = tmp_path / "BAD.md"
+    bad.write_text("Mercury uses Dilithium-3 signatures directly.\n")
+    out = tmp_path / "cert.json"
+    rc = algorithm_name_drift_gate.main(["--docs", str(bad), "--output", str(out)])
+    cert = _load_cert(out)
+    assert cert["status"] == "fail"
+    assert any("Dilithium-3" in w for w in cert["warnings"])
+    assert rc == 1
+
+
+def test_algorithm_name_drift_gate_allows_fips204_readme_annotations(tmp_path: Path) -> None:
+    out = tmp_path / "cert.json"
+    readme = Path(__file__).resolve().parents[2] / "README.md"
+    rc = algorithm_name_drift_gate.main(["--docs", str(readme), "--output", str(out)])
+    cert = _load_cert(out)
+    assert cert["status"] == "ok", cert["warnings"]
+    assert cert["body"]["per_doc_hits"]["README.md"]["Dilithium-3"] == [1684, 1755]
+    assert rc == 0
 
 
 def test_workflow_version_drift_gate_ok(tmp_path: Path) -> None:
