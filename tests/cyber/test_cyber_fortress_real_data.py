@@ -71,12 +71,18 @@ class TestRealDataValidation:
             result = checker.check_integrity(data["hash_chain"], threshold_std=threshold)
             anomaly_counts.append(result["resonance_anomalies"])
 
-        assert (
-            anomaly_counts[0] >= anomaly_counts[-1]
-        ), "Lower threshold should detect more anomalies"
+        assert anomaly_counts[0] >= anomaly_counts[-1], (
+            "Lower threshold should detect more anomalies"
+        )
 
     def test_encrypted_traffic_detection(self) -> None:
-        """Test encrypted traffic anomaly detection on simulated PCAP."""
+        """Test encrypted traffic anomaly detection on simulated PCAP.
+
+        ``CyberFortress`` instantiates ``EncryptedTrafficAnomalyDetector``
+        which requires torch.  The other tests in this class operate on
+        pure-NumPy hash chains and zero-day simulators and do not need
+        torch — only this single test method needs the skip guard."""
+        pytest.importorskip("torch")
         fortress = CyberFortress()
 
         results = []

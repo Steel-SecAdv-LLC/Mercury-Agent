@@ -16,10 +16,18 @@ Tests cover:
 
 from __future__ import annotations
 
+import importlib.util
 import sys
 from pathlib import Path
 
 import numpy as np
+import pytest
+
+# Tests below exercise detectors / oracles / orchestrators whose
+# production code imports torch at module level.  Skip cleanly
+# at class boundaries when the optional ``ml`` extra is absent.
+_HAS_TORCH = importlib.util.find_spec("torch") is not None
+requires_torch = pytest.mark.skipif(not _HAS_TORCH, reason="torch (optional 'ml' extra) required")
 
 # Ensure benchmarks/ is importable for threshold tests
 sys.path.insert(0, str(Path(__file__).parent.parent / "benchmarks"))
@@ -80,6 +88,7 @@ class TestDomainWeightPresets:
 # -----------------------------------------------------------------------
 
 
+@requires_torch
 class TestNoiseColorEstimation:
     """Tests for SpectralDomainOracle._estimate_noise_color."""
 
@@ -142,6 +151,7 @@ class TestNoiseColorEstimation:
 # -----------------------------------------------------------------------
 
 
+@requires_torch
 class TestAdaptiveAlpha:
     """Tests for SpectralDomainOracle._compute_adaptive_alpha."""
 
@@ -299,6 +309,7 @@ class TestEnsembleFlip:
 # -----------------------------------------------------------------------
 
 
+@requires_torch
 class TestOracleIntegration:
     """Tests for Oracle fit and detect integration."""
 
@@ -396,6 +407,7 @@ class TestOracleIntegration:
 # -----------------------------------------------------------------------
 
 
+@requires_torch
 class TestOracleInfluenceMultiplier:
     """Tests for _compute_influence_multiplier."""
 
@@ -526,6 +538,7 @@ class TestMultiStrategyThreshold:
 # -----------------------------------------------------------------------
 
 
+@requires_torch
 class TestSpectralHints:
     """Tests for DOMAIN_ANOMALY_SPECTRAL_HINTS constant."""
 
