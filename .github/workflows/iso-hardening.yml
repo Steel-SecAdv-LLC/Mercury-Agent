@@ -38,6 +38,13 @@ on:
 
 permissions:
   contents: read
+  # ``pull-requests: write`` is required by the Load Tests job's
+  # ``Post Load Test diagnostic on failure`` step, which posts a PR
+  # comment with the structured threshold-breach report so the
+  # failure is visible on the PR's checks surface without requiring
+  # log-tab authentication.  The token is scoped to the workflow's
+  # GITHUB_TOKEN, which for same-repo PRs has write access.
+  pull-requests: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -469,6 +476,163 @@ jobs:
           name: load-test-artifacts
           path: artifacts/
           retention-days: 7
+
+      - name: Post Load Test diagnostic on failure
+        # Posts the structured threshold-breach report to the PR as a
+        # comment when the Load Tests job fails.  The motivating
+        # constraint: GitHub Actions job logs require sign-in to view,
+        # even for public repos, so a job-log-only diagnostic is
+        # unreachable from the PR's review surface.  ``$GITHUB_STEP_
+        # SUMMARY`` has the same constraint.  A PR comment, by
+        # contrast, is rendered into the PR conversation thread and
+        # is fully accessible via the public REST API.  The comment
+        # is the diagnostic surface of last resort; the artifact at
+        # ``artifacts/k6_summary.json`` remains the authoritative
+        # post-mortem source.
+        #
+        # The step only runs on job failure (``if: failure()``) so a
+        # green run does not spam the PR with passing-threshold reports.
+        # ``continue-on-error: true`` means a token-permission issue or
+        # transient REST error during the comment post does NOT mask
+        # the original job failure -- the job is already failing; we
+        # are only adding visibility, not gating.
+        if: failure() && github.event_name == 'pull_request'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import pathlib
+          import urllib.error
+          import urllib.request
+
+          k6_path = pathlib.Path("artifacts/k6_summary.json")
+          locust_stats_path = pathlib.Path("artifacts/locust_stats.csv")
+          api_log_path = pathlib.Path("artifacts/api.log")
+
+          parts: list[str] = []
+          parts.append(f"### Load Tests (smoke) — diagnostic for `{os.environ['COMMIT_SHA'][:7]}`")
+          parts.append("")
+          parts.append(f"Workflow run: {os.environ['RUN_URL']}")
+          parts.append("")
+
+          # ---- k6 summary -------------------------------------------------
+          if k6_path.is_file() and k6_path.stat().st_size:
+              try:
+                  data = json.loads(k6_path.read_text())
+                  metrics = data.get("metrics", {})
+                  rows: list[str] = []
+                  for metric_name, m in sorted(metrics.items()):
+                      thresholds = m.get("thresholds") or {}
+                      values = m.get("values") or {}
+                      for expr, info in sorted(thresholds.items()):
+                          ok = info.get("ok")
+                          agg = expr.split("<")[0].split(">")[0].split("=")[0].strip()
+                          measured = values.get(agg)
+                          measured_str = (
+                              f"{measured:.4f}"
+                              if isinstance(measured, (int, float))
+                              else str(measured)
+                          )
+                          rows.append(
+                              f"{'BREACH' if ok is False else 'OK    '}  "
+                              f"{metric_name:<35} threshold={expr!r:<28} "
+                              f"measured[{agg}]={measured_str}"
+                          )
+
+                  http_reqs = (metrics.get("http_reqs") or {}).get("values") or {}
+                  http_req_failed = (metrics.get("http_req_failed") or {}).get("values") or {}
+                  errors_metric = (metrics.get("errors") or {}).get("values") or {}
+                  counters = (
+                      f"http_reqs.count={http_reqs.get('count', '?')}  "
+                      f"http_req_failed.rate={http_req_failed.get('rate', '?')}  "
+                      f"errors.rate={errors_metric.get('rate', '?')}  "
+                      f"errors.passes={errors_metric.get('passes', '?')}  "
+                      f"errors.fails={errors_metric.get('fails', '?')}"
+                  )
+
+                  parts.append("#### k6 thresholds")
+                  parts.append(f"`{counters}`")
+                  parts.append("```")
+                  for row in rows:
+                      parts.append(row)
+                  parts.append("```")
+              except Exception as exc:  # pragma: no cover - diagnostic-only
+                  parts.append(f"k6 summary parse error: {exc}")
+          else:
+              parts.append("k6 summary file missing or empty (run did not reach k6 step).")
+
+          # ---- locust summary --------------------------------------------
+          if locust_stats_path.is_file() and locust_stats_path.stat().st_size:
+              import csv
+
+              rows = list(csv.DictReader(locust_stats_path.open()))
+              aggregated = next((r for r in rows if r.get("Name") == "Aggregated"), None)
+              parts.append("")
+              parts.append("#### Locust aggregated row")
+              parts.append("```")
+              if aggregated is None:
+                  parts.append("(no Aggregated row produced)")
+              else:
+                  for k in (
+                      "Request Count",
+                      "Failure Count",
+                      "Average Response Time",
+                      "Median Response Time",
+                      "95%",
+                      "99%",
+                  ):
+                      parts.append(f"  {k}: {aggregated.get(k)}")
+              parts.append("```")
+          else:
+              parts.append("")
+              parts.append("Locust stats file missing or empty (run did not reach locust step).")
+
+          # ---- api.log tail ----------------------------------------------
+          if api_log_path.is_file() and api_log_path.stat().st_size:
+              lines = api_log_path.read_text(errors="replace").splitlines()[-40:]
+              parts.append("")
+              parts.append("#### uvicorn api.log (last 40 lines)")
+              parts.append("```")
+              for line in lines:
+                  parts.append(line)
+              parts.append("```")
+
+          body = "\n".join(parts)
+
+          # POST the comment.
+          repo = os.environ["REPO"]
+          pr = os.environ["PR_NUMBER"]
+          token = os.environ["GH_TOKEN"]
+          url = f"https://api.github.com/repos/{repo}/issues/{pr}/comments"
+          payload = json.dumps({"body": body}).encode("utf-8")
+          req = urllib.request.Request(
+              url,
+              data=payload,
+              method="POST",
+              headers={
+                  "Authorization": f"Bearer {token}",
+                  "Accept": "application/vnd.github+json",
+                  "X-GitHub-Api-Version": "2022-11-28",
+                  "Content-Type": "application/json",
+                  "User-Agent": "mercury-agent-loadtest-diag",
+              },
+          )
+          try:
+              with urllib.request.urlopen(req) as resp:  # noqa: S310 - api.github.com only
+                  print(f"PR comment posted: HTTP {resp.status}")
+          except urllib.error.HTTPError as exc:
+              body_text = exc.read().decode("utf-8", errors="replace")
+              print(f"FAILED to post PR comment: HTTP {exc.code} -- {body_text}")
+          PY
 
   # =========================================================================
   # Rollup status check
