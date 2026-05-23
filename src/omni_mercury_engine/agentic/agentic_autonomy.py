@@ -499,11 +499,40 @@ class AgenticAutonomy:
 
         current_data = input_data
 
-        for step_idx, step in enumerate(steps):
+        # Build a step-id → index map so ``decision_point`` steps can
+        # branch to a named target.  Steps without an explicit ``id``
+        # field receive the canonical ``step_{idx}`` synthetic id used
+        # everywhere else in this method.
+        id_to_idx: dict[str, int] = {}
+        for i, step in enumerate(steps):
+            sid = step.get("id", f"step_{i}")
+            id_to_idx[sid] = i
+
+        # Index-based iteration so ``decision_point`` can jump.  Cycle
+        # detection: every jump (vs. linear advance) counts against
+        # ``max_jumps``; once exceeded the workflow halts with an
+        # explicit ``branching_cycle_detected`` status so an infinite
+        # loop in operator-authored workflows fails closed rather than
+        # hanging the agent.  The bound scales with ``len(steps)`` so
+        # legitimately complex workflows still complete; ``4×`` mirrors
+        # the AWS Step Functions practical visit limit for a state.
+        max_jumps = max(len(steps) * 4, 64)
+        jumps_taken = 0
+        step_idx = 0
+
+        while 0 <= step_idx < len(steps):
+            step = steps[step_idx]
             step_id = step.get("id", f"step_{step_idx}")
             step_type = step.get("type", "unknown")
 
             self.state = AgentState.ANALYZING
+
+            # ``next_step_idx`` overrides the default linear advance
+            # when set by a ``decision_point``.  Branch targets that
+            # cannot be resolved are recorded as ``branching_errors``
+            # so the operator sees the gap; resolution failures fall
+            # through to linear advance rather than halting silently.
+            next_step_idx: int | None = None
 
             if step_type == "anomaly_detection":
                 result = self.autonomous_detect(current_data)
@@ -543,12 +572,23 @@ class AgenticAutonomy:
                     }
                 )
 
+                target_key: str | None = None
                 if decision and step.get("on_true"):
-                    pass  # next_step_id would be step["on_true"] for branching
+                    target_key = step["on_true"]
                 elif not decision and step.get("on_false"):
-                    pass  # next_step_id would be step["on_false"] for branching
-                else:
-                    continue
+                    target_key = step["on_false"]
+
+                if target_key is not None:
+                    if target_key in id_to_idx:
+                        next_step_idx = id_to_idx[target_key]
+                    else:
+                        workflow_results.setdefault("branching_errors", []).append(
+                            {
+                                "step_id": step_id,
+                                "target": target_key,
+                                "reason": "unknown step id",
+                            }
+                        )
 
             elif step_type == "action":
                 self.state = AgentState.ACTING
@@ -563,14 +603,35 @@ class AgenticAutonomy:
                     }
                 )
 
+            if next_step_idx is not None:
+                jumps_taken += 1
+                if jumps_taken > max_jumps:
+                    workflow_results.setdefault("branching_errors", []).append(
+                        {
+                            "step_id": step_id,
+                            "reason": "max_jumps exceeded; possible cycle",
+                            "max_jumps": max_jumps,
+                        }
+                    )
+                    workflow_results["status"] = "branching_cycle_detected"
+                    break
+                step_idx = next_step_idx
+            else:
+                step_idx += 1
+
         self.state = AgentState.LEARNING
         self._learn_from_workflow(workflow_results)
 
         self.state = AgentState.IDLE
 
-        workflow_results["status"] = (
-            "completed" if not workflow_results["human_oversight_required"] else "escalated"
-        )
+        # Preserve an already-set terminal status (e.g.
+        # ``branching_cycle_detected``).  Only synthesize the
+        # ``completed``/``escalated`` status when no terminal state
+        # has been raised by the executor loop itself.
+        if "status" not in workflow_results:
+            workflow_results["status"] = (
+                "completed" if not workflow_results["human_oversight_required"] else "escalated"
+            )
         workflow_results["total_steps"] = len(steps)
         workflow_results["completed_steps"] = len(workflow_results["steps_executed"])
 
