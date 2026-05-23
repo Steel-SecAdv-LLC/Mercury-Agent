@@ -272,6 +272,26 @@ Changelog = "https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/CHANGEL
 # =============================================================================
 # Setuptools Configuration
 # =============================================================================
+# Explicit package discovery: restrict setuptools auto-find to the
+# ``src/`` layout's ``omni_mercury_engine`` package tree only.  Without
+# this block, modern setuptools (>= 64) auto-discovery would also
+# consider top-level repo directories (``tools/``, ``scripts/``,
+# ``benchmarks/``, ``configs/``) for inclusion, and a future regression
+# that, say, dropped an ``__init__.py`` into ``benchmarks/`` would
+# silently start shipping a ``benchmarks`` top-level package alongside
+# ``omni_mercury_engine`` in the installed wheel.  Pinning the
+# discovery rules here (``where=["src"]`` + ``include`` whitelist +
+# ``namespaces=false``) makes the wheel's top-level surface a
+# deliberate engineering decision, not an artifact of which
+# directories happen to exist at build time.  The ``tools/`` package
+# at the repo root remains importable for ``python -m tools.X`` from
+# a source checkout (which is how the operator scripts are invoked)
+# but does NOT enter ``pip install mercury-agent`` namespace.
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["omni_mercury_engine*"]
+namespaces = false
+
 # Ship the PEP 561 ``py.typed`` marker inside the installed package so
 # downstream mypy / pyright runs (and our own CI critical-tests gate)
 # treat ``omni_mercury_engine`` as a typed library rather than an
