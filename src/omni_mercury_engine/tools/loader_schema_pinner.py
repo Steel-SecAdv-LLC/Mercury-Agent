@@ -44,7 +44,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--package",
-        default="omni_mercury_engine.data.loaders",
+        default="omni_mercury_engine.loaders",
         help="Loader package to walk.",
     )
     group = parser.add_mutually_exclusive_group(required=True)
@@ -78,7 +78,15 @@ def _loader_schema(module: Any) -> dict[str, Any]:
 
 
 def _walk(package: str) -> dict[str, dict[str, Any]]:
-    pkg = importlib.import_module(package)
+    # Surface package-level import failures in the certificate body
+    # instead of letting them crash the tool — the v1 envelope contract
+    # requires every invocation to emit a JSON certificate, even when
+    # the loader package itself is absent (which is itself the
+    # operator-visible finding).
+    try:
+        pkg = importlib.import_module(package)
+    except ImportError as exc:
+        return {package: {"error": f"package import failed: {exc}"}}
     out: dict[str, dict[str, Any]] = {}
     for m in pkgutil.iter_modules(pkg.__path__):
         if m.name.startswith("_"):

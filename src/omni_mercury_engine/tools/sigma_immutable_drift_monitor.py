@@ -57,32 +57,76 @@ def _build_parser() -> argparse.ArgumentParser:
         type=float,
         default=None,
         help=(
-            "Inject the current sigma reading.  When omitted the tool calls "
-            "SigmaImmutableGate to compute it from the in-repo corpus."
+            "Inject the current sigma reading.  When omitted the tool runs "
+            "SigmaImmutableGate.evaluate() over the signed in-repo corpus "
+            "and reports the mean σ score; if torch / the trained weights "
+            "are unavailable, falls back to the band-projection proxy and "
+            "records the fallback in the certificate ``warnings``."
         ),
     )
     return parser
 
 
-def _measure_sigma() -> float:
-    """Return the current σ_Immutable band mean over the in-repo corpus.
+def _measure_sigma_from_corpus() -> tuple[float, str, str | None]:
+    """Compute the σ band reading from the in-repo signed corpus.
 
-    Falls back to ``0.5`` (mid-band) if the gate is unavailable; the
-    fallback is captured in the certificate ``warnings`` so an operator
-    can see why the reading is non-authoritative.
+    Returns ``(sigma_mean, backend, warning)`` where ``backend`` is one
+    of ``"sigma_immutable_gate"`` (live GOSNN evaluation), ``"band_proxy"``
+    (closed-form benevolence-to-band projection — used when torch / the
+    trained weights are unavailable), or ``"unavailable"`` (no corpus,
+    no proxy).  ``warning`` is ``None`` on the authoritative path and a
+    human-readable string on every fallback so the operator can see why
+    the reading is non-authoritative.
     """
+    # First-choice: the trained ``SigmaImmutableGate`` evaluating the
+    # signed corpus.  This is the *same* code path that decides every
+    # boundary at runtime, so the drift monitor's baseline is
+    # operationally meaningful.
+    try:
+        from omni_mercury_engine.security.sigma_immutable_corpus import (
+            CORPUS_PATH,
+            load_corpus_bytes,
+            parse_corpus,
+        )
+        from omni_mercury_engine.security.sigma_immutable_gate import (
+            SigmaImmutableGate,
+        )
+
+        bundle = parse_corpus(load_corpus_bytes(CORPUS_PATH))
+        gate = SigmaImmutableGate(verify_corpus=False)
+        scores = [gate.evaluate(row).score for row in bundle.features]
+        if not scores:
+            raise RuntimeError("empty corpus")
+        return float(statistics.fmean(scores)), "sigma_immutable_gate", None
+    except Exception as gate_exc:
+        gate_warning = (
+            f"σ_Immutable gate evaluation unavailable "
+            f"({type(gate_exc).__name__}: {gate_exc}); falling back to "
+            "band-projection proxy"
+        )
+
+    # Second-choice: the closed-form ``project_benevolence_to_sigma_band``
+    # projection.  It is the analytic identity GOSNN converges to and is
+    # safe when torch / the trained weights are missing in an operator's
+    # environment.  Captured in the certificate so the on-call sees the
+    # backend they actually got.
     try:
         from omni_mercury_engine.security.sigma_immutable_gate import (
             project_benevolence_to_sigma_band,
         )
-    except ImportError:
-        return 0.5
-    # Average the band projection over a synthetic sweep of benevolence
-    # scores in [0, 1].  This is an inexpensive proxy for the real band
-    # value and is deterministic across runs — exactly what the drift
-    # monitor wants as a baseline.
-    samples = [project_benevolence_to_sigma_band(x / 64.0) for x in range(65)]
-    return float(statistics.fmean(samples))
+
+        samples = [project_benevolence_to_sigma_band(x / 64.0) for x in range(65)]
+        return float(statistics.fmean(samples)), "band_proxy", gate_warning
+    except ImportError as proxy_exc:
+        return (
+            0.5,
+            "unavailable",
+            (
+                f"{gate_warning}; band-projection proxy also unavailable "
+                f"({type(proxy_exc).__name__}: {proxy_exc}); reporting "
+                "mid-band 0.5 as a neutral placeholder"
+            ),
+        )
 
 
 def _collect(args: argparse.Namespace) -> Certificate:
@@ -97,7 +141,12 @@ def _collect(args: argparse.Namespace) -> Certificate:
         state = {}
     window: list[float] = list(state.get("window", []))
 
-    current = float(args.current_sigma) if args.current_sigma is not None else _measure_sigma()
+    backend = "operator_injected"
+    backend_warning: str | None = None
+    if args.current_sigma is not None:
+        current = float(args.current_sigma)
+    else:
+        current, backend, backend_warning = _measure_sigma_from_corpus()
     window.append(current)
     if len(window) > int(args.window):
         window = window[-int(args.window) :]
@@ -108,14 +157,17 @@ def _collect(args: argparse.Namespace) -> Certificate:
         "window": window,
         "last_sigma": current,
         "last_baseline": baseline,
+        "last_backend": backend,
         "samples": len(window),
     }
     atomic_write_text(state_path, json.dumps(state, indent=2, sort_keys=True) + "\n")
 
     status = "fail" if drift > float(args.band_tolerance) else "ok"
-    warnings = (
-        [f"σ band drift {drift:.4f} > tolerance {args.band_tolerance}"] if status == "fail" else []
-    )
+    warnings: list[str] = []
+    if status == "fail":
+        warnings.append(f"σ band drift {drift:.4f} > tolerance {args.band_tolerance}")
+    if backend_warning is not None:
+        warnings.append(backend_warning)
     return Certificate(
         tool="sigma_immutable_drift_monitor",
         schema=_SCHEMA,
@@ -127,6 +179,7 @@ def _collect(args: argparse.Namespace) -> Certificate:
             "tolerance": float(args.band_tolerance),
             "window_size": len(window),
             "state_path": str(state_path),
+            "backend": backend,
         },
         warnings=warnings,
     )

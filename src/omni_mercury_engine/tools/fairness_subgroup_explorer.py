@@ -73,13 +73,21 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _bucket(col: npt.NDArray[np.float64], max_card: int) -> npt.NDArray[np.float64]:
-    """Return the column with high-cardinality levels collapsed to 'other'."""
+def _bucket(col: npt.NDArray[Any], max_card: int) -> npt.NDArray[np.str_]:
+    """Return the column with high-cardinality levels collapsed to 'other'.
+
+    The output is always a string ndarray — the caller groups subgroups
+    by string identity (``"other"`` for the collapsed tail, the
+    original level name otherwise).  Accepting ``NDArray[Any]`` keeps
+    the function callable on numeric *and* object-typed inputs, which
+    is what ``np.unique`` returns when sensitive features are mixed
+    string / int columns.
+    """
     levels, counts = np.unique(col, return_counts=True)
     if len(levels) <= max_card:
         return col.astype(str)
-    keep = set(levels[np.argsort(-counts)][:max_card].astype(str))
-    return np.array(["other" if str(v) not in keep else str(v) for v in col], dtype=object)
+    keep = {str(v) for v in levels[np.argsort(-counts)][:max_card]}
+    return np.array(["other" if str(v) not in keep else str(v) for v in col], dtype=np.str_)
 
 
 def _collect(args: argparse.Namespace) -> Certificate:
