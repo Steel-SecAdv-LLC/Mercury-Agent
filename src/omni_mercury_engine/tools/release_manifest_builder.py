@@ -91,12 +91,27 @@ def _read_ama_ref() -> str | None:
 
 
 def _fusion_weights() -> dict[str, float] | str:
-    try:
-        from omni_mercury_engine.ml.three_r_attention import PHI
+    """Return the canonical (w_R, w_H, w_O) fusion weights.
 
-        phi_sum = PHI + 2.0
+    The φ derivation is pure mathematics: ``three_r_attention.PHI`` is
+    re-exported from ``centralized_constants.MATH.GOLDEN_RATIO`` and is
+    just the golden-ratio constant.  Importing
+    :mod:`omni_mercury_engine.ml.three_r_attention` transitively pulls
+    in ``torch`` (the layer extends :class:`torch.nn.Module`), so an
+    operator without the optional ``ml`` extra would receive a
+    ``str``-typed ``"unavailable: …"`` placeholder where every other
+    consumer expects a ``dict``.  Source the constant directly from
+    :mod:`omni_mercury_engine.core.centralized_constants` — the same
+    module ``three_r_attention.PHI`` is derived from — so the manifest
+    is always typed correctly regardless of whether torch is present.
+    """
+    try:
+        from omni_mercury_engine.core.centralized_constants import MATH
+
+        phi = float(MATH.GOLDEN_RATIO)
+        phi_sum = phi + 2.0
         return {
-            "w_R": PHI / phi_sum,
+            "w_R": phi / phi_sum,
             "w_H": 1.0 / phi_sum,
             "w_O": 1.0 / phi_sum,
         }

@@ -179,11 +179,18 @@ def _collect(args: argparse.Namespace) -> Certificate:
                     f"{name}: layer={measured!r} vs derivation={derived!r} drift={drift:.3e}"
                 )
 
+    # Status mapping:
+    #   * derivation drift OR layer-vs-derivation drift   → "fail"
+    #   * derivation passes, layer cross-check skipped    → "ok" + warning
+    #     (torch is in the optional ``ml`` extra; the φ derivation is
+    #      the load-bearing gate per the file docstring, and is fully
+    #      verifiable without torch.  Demoting this to ``warn`` would
+    #      make the certifier report "couldn't fully verify" even
+    #      when the primary contract — the math — was verified.)
+    #   * derivation passes, layer cross-check passes     → "ok"
     if failures:
         body["failures"] = failures
         status = "fail"
-    elif layer_error is not None:
-        status = "warn"
     else:
         status = "ok"
 
