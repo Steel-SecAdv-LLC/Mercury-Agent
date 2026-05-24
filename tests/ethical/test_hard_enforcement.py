@@ -401,6 +401,107 @@ class TestEngineFusionBoundary:
         assert "simulated GOSNN outage" in exc_info.value.details["underlying_error"]
 
 
+class TestEngineSigmaImmutableInputFilter:
+    """The engine boundary must source σ_Immutable's input vector via the
+    filtered ``GlobalOmniScalarNetwork._collect_all_scalars`` collector.
+
+    A direct iteration of ``scalar_groups`` would let diagnostic
+    measurement scalars (ISO 25010, Halstead, McCabe, NIST SAMATE, DORA,
+    SLSA, OpenSSF, ISO 5055, NIST SSDF) leak into the trained gate's
+    input vector — exactly the layout-poisoning failure the σ_Immutable
+    fix is meant to prevent.  These regressions catch any future
+    refactor that swaps in an unfiltered iteration at the boundary.
+    """
+
+    def test_engine_boundary_uses_filtered_collector(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """``engine.detect_with_fusion``'s σ_Immutable.enforce call must
+        receive the vector that ``_collect_all_scalars`` produced —
+        proving the engine sources from the filtered path."""
+        from omni_mercury_engine.core.global_omni_scalar_network import (
+            get_global_scalar_network,
+        )
+
+        gosnn = get_global_scalar_network()
+        engine = _make_engine_in_fusion_mode()
+
+        captured: dict[str, np.ndarray[Any, Any]] = {}
+        real_enforce = engine._sigma_immutable_gate.enforce
+
+        def capturing_enforce(
+            action: str,
+            scalar_vector: np.ndarray[Any, Any],
+            details: dict[str, Any] | None = None,
+        ) -> Any:
+            captured["vector"] = np.array(scalar_vector, copy=True)
+            return real_enforce(action=action, scalar_vector=scalar_vector, details=details)
+
+        monkeypatch.setattr(engine._sigma_immutable_gate, "enforce", capturing_enforce)
+
+        engine.detect_with_fusion(_synthetic_traffic_batch(seed=0, rows=4, cols=8))
+
+        expected = np.array(list(gosnn._collect_all_scalars().values()), dtype=np.float64)
+        assert "vector" in captured, "engine.detect_with_fusion did not invoke σ_Immutable.enforce"
+        # Length parity proves the source is _collect_all_scalars and not a
+        # raw ``scalar_groups`` iteration (which would emit 209 entries).
+        assert len(captured["vector"]) == len(expected), (
+            f"engine σ_Immutable vector had {len(captured['vector'])} entries; "
+            f"_collect_all_scalars produced {len(expected)}.  The engine has "
+            f"bypassed the operational filter."
+        )
+        np.testing.assert_array_almost_equal(captured["vector"], expected)
+
+    def test_engine_boundary_excludes_diagnostic_measurement_scalars(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The engine's σ_Immutable vector length must equal the operational
+        count (127), proving the 82 diagnostic measurement scalars
+        registered in SOFTWARE_ENGINEERING are filtered out.  Without the
+        filter, the vector would be 209 entries and overflow the
+        ``SIGMA_USED_BAND_END=180`` active band of the trained gate.
+        """
+        from omni_mercury_engine.core.global_omni_scalar_network import (
+            ScalarGroup,
+            get_global_scalar_network,
+        )
+
+        gosnn = get_global_scalar_network()
+
+        # Sanity precondition: the diagnostic family must actually be
+        # registered, otherwise the test is checking nothing.
+        se = gosnn.scalar_groups[ScalarGroup.SOFTWARE_ENGINEERING]
+        diagnostic_count = sum(1 for k in se if gosnn._is_metric_only_scalar(k))
+        assert (
+            diagnostic_count >= 1
+        ), "no diagnostic measurement scalars registered — test premise invalid"
+
+        engine = _make_engine_in_fusion_mode()
+        captured: dict[str, np.ndarray[Any, Any]] = {}
+        real_enforce = engine._sigma_immutable_gate.enforce
+
+        def capturing_enforce(
+            action: str,
+            scalar_vector: np.ndarray[Any, Any],
+            details: dict[str, Any] | None = None,
+        ) -> Any:
+            captured["vector"] = np.array(scalar_vector, copy=True)
+            return real_enforce(action=action, scalar_vector=scalar_vector, details=details)
+
+        monkeypatch.setattr(engine._sigma_immutable_gate, "enforce", capturing_enforce)
+
+        engine.detect_with_fusion(_synthetic_traffic_batch(seed=0, rows=4, cols=8))
+
+        total_registered = sum(len(v) for v in gosnn.scalar_groups.values())
+        operational_count = len(gosnn._collect_all_scalars())
+        assert "vector" in captured
+        # The vector hitting the gate must be operational-shaped, not
+        # registered-shaped.
+        assert len(captured["vector"]) == operational_count
+        assert len(captured["vector"]) < total_registered, (
+            "σ_Immutable input vector size equals total registered count; "
+            "diagnostic measurement scalars are NOT being filtered out"
+        )
+
+
 # ---------------------------------------------------------------------------
 # Wave B: σ_Immutable + gosnn_unavailable contract — promoted to hard gates.
 #
