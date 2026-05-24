@@ -706,6 +706,16 @@ jobs:
           pip install pytest pytest-cov pytest-asyncio sympy
 
       - name: Run core tests with coverage
+        env:
+          # Declare the [ml] contract to ``tests/conftest.py``'s
+          # ``pytest_sessionstart`` gate.  This lane installs the
+          # ``[ml,dev,api]`` extras above; the gate verifies torch is
+          # actually importable before any collection runs and aborts
+          # the session with a single loud error if not — replacing
+          # the historical ~30 class-level ``skipif(not _HAS_TORCH)``
+          # decorators that would have silently turned red tests into
+          # green skips.
+          MERCURY_REQUIRES_ML: "1"
         run: |
           # Core-lane test selection, expanded in v1.7.x for the
           # COVERAGE_THRESHOLD_CORE 15 -> 25 graduation.  Measured
@@ -851,6 +861,13 @@ jobs:
           pip install pytest pytest-cov pytest-asyncio pytest-timeout sympy
 
       - name: Run neuro-symbolic test suite
+        env:
+          # ``[ml,dev]`` is installed above; the cognitive / safeguards
+          # / ethics stack imports torch at module level.  Declare the
+          # contract so the SessionStart gate (``tests/conftest.py``)
+          # aborts loudly if the install drifted, instead of letting
+          # the run report green via per-class skip decorators.
+          MERCURY_REQUIRES_ML: "1"
         # Phase 1-7 cognitive architecture + safeguards + ethics framework.
         # All paths are blocking - there are no continue-on-error escape
         # hatches here.  If the AI's reasoning, alignment, or kill-switch
@@ -1043,6 +1060,14 @@ jobs:
         env:
           TORCH_HOME: ~/.cache/torch
           MERCURY_PQC_REAL_AMA: "1"
+          # ML Tests installs ``[all,dev]`` above (which pulls
+          # ``[ml]`` transitively).  Declare the contract so
+          # ``tests/conftest.py``'s ``pytest_sessionstart`` gate
+          # aborts the session — with one loud, actionable error —
+          # if the resolver ever silently dropped the torch wheel.
+          # Without this flag a broken install would surface as
+          # several thousand "green" skips rather than a CI red.
+          MERCURY_REQUIRES_ML: "1"
         run: |
           # Run tests in parallel with 4 workers, 300s timeout per test
           # Coverage threshold enforced to ensure production readiness

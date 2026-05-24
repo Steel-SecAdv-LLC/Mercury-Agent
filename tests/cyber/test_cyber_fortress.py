@@ -21,7 +21,6 @@ from __future__ import annotations
 """Comprehensive tests for Cyber Fortress module."""
 
 import numpy as np
-import pytest
 
 from omni_mercury_engine.security.cyber_fortress import (
     CyberFortress,
@@ -50,13 +49,7 @@ class TestMultiverseZeroDaySimulation:
 
 
 class TestCyberFortress:
-    """``CyberFortress`` instantiates ``EncryptedTrafficAnomalyDetector``
-    which requires torch.  ``ResonanceHashIntegrity`` and
-    ``MultiverseZeroDaySimulation`` above run without torch, so the
-    skip is scoped to this single class instead of the module."""
-
     def test_comprehensive_scan(self) -> None:
-        pytest.importorskip("torch")
         fortress = CyberFortress()
         system_data = {
             "hash_chain": [f"hash_{i}" for i in range(50)],

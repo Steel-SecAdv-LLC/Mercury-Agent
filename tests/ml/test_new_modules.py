@@ -27,16 +27,8 @@ Tests for new modules added in Caduceus ⚚'s branch:
 - engine_config.py: Pydantic-based configuration
 """
 
-import importlib.util
-
 import numpy as np
 import pytest
-
-# Tests below exercise detectors / oracles / orchestrators whose
-# production code imports torch at module level.  Skip cleanly
-# at class boundaries when the optional ``ml`` extra is absent.
-_HAS_TORCH = importlib.util.find_spec("torch") is not None
-requires_torch = pytest.mark.skipif(not _HAS_TORCH, reason="torch (optional 'ml' extra) required")
 
 
 class TestDriftDetection:
@@ -285,7 +277,6 @@ class TestOptimization:
         assert "cache" in components
 
 
-@requires_torch
 class TestLLMAdapter:
     """Tests for LLM adapter module.
 

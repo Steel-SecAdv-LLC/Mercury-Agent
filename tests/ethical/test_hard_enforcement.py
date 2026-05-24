@@ -28,7 +28,6 @@ regression cannot merge silently.
 
 from __future__ import annotations
 
-import importlib.util
 import warnings
 from typing import TYPE_CHECKING, Any
 
@@ -40,20 +39,6 @@ from omni_mercury_engine.cognitive.ethical_bounding import (
     EthicalConstraintViolationError,
 )
 from omni_mercury_engine.ethical import EthicalViolation
-
-# Tests below exercise the CognitiveOrchestrator / fusion / hub /
-# σ_Immutable gate stack.  These components import torch (LSTM,
-# fusion network, neural verifier) at module level; without the
-# optional ``ml`` extra the gate fails closed with
-# ``EthicalConstraintViolationError(check='gosnn_unavailable')``
-# which is the documented Wave B contract but blocks the
-# benevolence-wiring tests below from instantiating the engine
-# at all.  Skip cleanly at class boundaries.
-_HAS_TORCH = importlib.util.find_spec("torch") is not None
-requires_torch = pytest.mark.skipif(
-    not _HAS_TORCH,
-    reason="torch (optional 'ml' extra) required for orchestrator/fusion/hub stack",
-)
 
 if TYPE_CHECKING:
     from omni_mercury_engine.cognitive.orchestrator import CognitiveOrchestrator
@@ -192,7 +177,6 @@ class TestBenevolenceScorerEnforce:
 # ---------------------------------------------------------------------------
 
 
-@requires_torch
 class TestCognitiveOrchestratorBoundary:
     def _orchestrator(self) -> CognitiveOrchestrator:
         from omni_mercury_engine.cognitive.orchestrator import CognitiveOrchestrator
@@ -363,7 +347,6 @@ def _make_engine_in_fusion_mode() -> OmniMercuryEngine:
     return engine
 
 
-@requires_torch
 class TestEngineFusionBoundary:
     def test_detect_with_fusion_raises_on_benevolence_violation(self) -> None:
         engine = _make_engine_in_fusion_mode()
@@ -436,7 +419,6 @@ class TestEngineFusionBoundary:
 # ---------------------------------------------------------------------------
 
 
-@requires_torch
 class TestReservedChecksWaveB:
     """σ_Immutable and ``gosnn_unavailable`` are now hard gates."""
 
@@ -526,7 +508,6 @@ class TestSanitizeDomainHelper:
             assert sanitize_domain(non_string) == "general"
 
 
-@requires_torch
 class TestNeuroSymbolicHubEmptyBatchClosure:
     """Wave B Vector 4 closure: the empty-batch path is enforced too."""
 

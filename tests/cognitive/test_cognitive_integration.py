@@ -15,24 +15,7 @@ Verifies that all cognitive components integrate properly:
 
 from __future__ import annotations
 
-import importlib.util
-
 import numpy as np
-import pytest
-
-# Tests below exercise the CognitiveOrchestrator / fusion / hub /
-# σ_Immutable gate stack.  These components import torch (LSTM,
-# fusion network, neural verifier) at module level; without the
-# optional ``ml`` extra the gate fails closed with
-# ``EthicalConstraintViolationError(check='gosnn_unavailable')``
-# which is the documented Wave B contract but blocks the
-# benevolence-wiring tests below from instantiating the engine
-# at all.  Skip cleanly at class boundaries.
-_HAS_TORCH = importlib.util.find_spec("torch") is not None
-requires_torch = pytest.mark.skipif(
-    not _HAS_TORCH,
-    reason="torch (optional 'ml' extra) required for orchestrator/fusion/hub stack",
-)
 
 
 class TestPlasticityEngine:
@@ -288,7 +271,6 @@ class TestIndicatorSystem:
         assert indicator.name == "High Severity Anomaly"
 
 
-@requires_torch
 class TestCognitiveOrchestrator:
     """Tests for CognitiveOrchestrator integration."""
 
@@ -337,7 +319,6 @@ class TestCognitiveOrchestrator:
         assert "reasoner" in stats
 
 
-@requires_torch
 class TestTruthDecipherIntegration:
     """Tests for Truth Decipher Framework with Cognitive Integration."""
 

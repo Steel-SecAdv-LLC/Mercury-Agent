@@ -158,9 +158,21 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade "pip>=26.1"
-          pip install -e ".[dev]"
+          # Release validation runs the full ``tests/`` tree, which
+          # transitively touches engine/fusion/detector modules that
+          # import torch at module load.  Installing ``[ml]`` here
+          # matches the contract the SessionStart gate in
+          # ``tests/conftest.py`` enforces — without it, a release-time
+          # ``pytest tests/`` would either fail at first-collection
+          # (post-decorator-removal) or report a green run full of
+          # silent skips (pre-decorator-removal).  Both options were
+          # debt; this resolves it by giving the lane the deps its
+          # test selection actually requires.
+          pip install -e ".[ml,dev]"
 
       - name: Run tests
+        env:
+          MERCURY_REQUIRES_ML: "1"
         run: |
           set -o pipefail
           pytest tests/ -v --tb=short -x -q --timeout=60 2>&1 | head -100
