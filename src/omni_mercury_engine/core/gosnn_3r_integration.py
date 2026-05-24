@@ -4,7 +4,9 @@ Mercury Agent - GOSNN ↔ 3R Bidirectional Feedback Integration
 Copyright (C) 2025 Steel Security Advisors LLC
 
 Implements bidirectional synaptic integration between:
-- Global Omni-Scalar Network (GOSNN): 180 omni-scalars, ethical gating
+- Global Omni-Scalar Network (GOSNN): ~209 registered omni-scalars (127
+  operational drive the σ_Immutable gate; 82 diagnostic measurement
+  scalars are filtered out per the GOSNN layout contract), ethical gating
 - Three-R Mechanism: Recursion-Resonance-Refactoring
 
 Key Features:

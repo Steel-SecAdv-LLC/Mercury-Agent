@@ -1726,17 +1726,17 @@ All engines share a common fusion architecture with 128D normalization enabling 
 <details>
 <summary><strong>GOSNN Global Omni-Scalar Network</strong> - Synaptic Intelligence Hub</summary>
 
-The **GlobalOmniScalarNetwork (GOSNN)** is the intelligence fusion hub aggregating ~180 omni-scalars across 8 major categories:
+The **GlobalOmniScalarNetwork (GOSNN)** is the intelligence fusion hub. It registers ~209 omni-scalars across 8 major categories; **127 of them are *operational*** and drive the σ_Immutable gate, while the remaining 82 are diagnostic measurement scalars (descriptions of code / system under analysis) registered for discoverability and reporting but filtered out of the gate's input vector by `GlobalOmniScalarNetwork._is_metric_only_scalar`.
 
-**Scalar Categories (~180 total):**
-- **ETHICAL (~27)**: Core ethical values and Civilization-First principles
-- **COSMIC (~7)**: Universe-scale harmony and telos alignment
-- **QUANTUM_CONSCIOUSNESS (~7)**: Quantum-inspired processing
-- **HUMANITARIAN (~9)**: Crisis response and human welfare
-- **SECURITY (~6)**: Threat detection and cyber defense
-- **SOFTWARE_ENGINEERING (~45)**: Code quality, optimization, 3R synergy
-- **MEDICAL (~10)**: Healthcare and diagnostic support
-- **ADVANCED_REASONING (~15)**: Logic, inference, knowledge synthesis
+**Scalar Categories (~209 registered / 127 operational):**
+- **ETHICAL (~27)**: Core ethical values and Civilization-First principles (all operational)
+- **COSMIC (~7)**: Universe-scale harmony and telos alignment (all operational)
+- **QUANTUM_CONSCIOUSNESS (~7)**: Quantum-inspired processing (all operational)
+- **HUMANITARIAN (~9)**: Crisis response and human welfare (all operational)
+- **SECURITY (~6)**: Threat detection and cyber defense (all operational)
+- **SOFTWARE_ENGINEERING (~127 = 45 operational + 82 diagnostic)**: Code quality, optimization, 3R synergy (operational); plus ISO/IEC 25010 product quality, Halstead, McCabe + cognitive (SonarQube), Maintainability Index variants, NIST SAMATE assurance, DORA delivery, SLSA supply-chain, OpenSSF Scorecard, ISO/IEC 5055 (CISQ), NIST SSDF (SP 800-218) practices (diagnostic measurement)
+- **MEDICAL (~10)**: Healthcare and diagnostic support (all operational)
+- **ADVANCED_REASONING (~16)**: Logic, inference, knowledge synthesis (all operational)
 
 **Key Features:**
 - **Hard Ethical Gate (Wave B, PR #179)**: σ_Immutable is the **second mandatory hard gate** at every public detect / analyze / predict surface, running after the Benevolence gate. A score below threshold raises `EthicalConstraintViolationError(check="sigma_immutable")`; if GOSNN itself cannot run, the boundary raises `EthicalConstraintViolationError(check="gosnn_unavailable")`. There is no advisory mode and no public flag that disables either gate (test-only bypass requires the auditable module-level `omni_mercury_engine.engine._GOSNN_TESTING_BYPASS` flag).

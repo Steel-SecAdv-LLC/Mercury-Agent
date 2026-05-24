@@ -31,6 +31,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 from hypothesis import (
+    HealthCheck,
     given,
     settings,
     strategies as st,
@@ -210,9 +211,19 @@ class TestCalibration:
     """Property-based tests for calibration modules."""
 
     @given(probability_array(), binary_labels())
-    @settings(max_examples=30)
+    @settings(max_examples=30, deadline=None, suppress_health_check=[HealthCheck.too_slow])
     def test_platt_scaling_output_bounds(self, y_prob: Any, y_true: Any) -> None:
-        """Platt scaling should output valid probabilities."""
+        """Platt scaling should output valid probabilities.
+
+        ``deadline=None`` because ``PlattScaling.fit`` calls
+        ``sklearn.linear_model.LogisticRegression`` which routinely
+        exceeds Hypothesis' 200ms default deadline under ``-n 4``
+        parallel CPU contention (observed 224ms locally, ~3-4x in CI).
+        The test exercises correctness, not timing — speed is not the
+        contract under test.  Matches the pattern used elsewhere for
+        slow-but-correct property tests (e.g.
+        ``tests/test_property_based.py:106``).
+        """
         min_len = min(len(y_prob), len(y_true))
         y_prob = y_prob[:min_len]
         y_true = y_true[:min_len]

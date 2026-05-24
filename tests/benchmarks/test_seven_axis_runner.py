@@ -58,7 +58,15 @@ def test_every_axis_score_is_in_unit_interval() -> None:
 
 def test_runner_is_deterministic_for_fixed_seed() -> None:
     """Non-timing axes are bytewise reproducible; the timing-based Scalability
-    axis is allowed a small tolerance because it measures wall-clock."""
+    axis is allowed a small tolerance because it measures wall-clock.
+
+    The tolerance is generous (0.30) because the ML Tests CI lane runs
+    pytest with ``-n 4`` and the full ~7400-test suite — under that
+    sustained CPU contention the per-run wall-clock for short
+    micro-benchmarks varies by more than the 0.10 a quiescent runner
+    would see.  The test still catches genuine determinism breakage
+    in the non-timing axes (which use ``assert a_score == b_score``).
+    """
     a = run_seven_axis(seed=DEFAULT_SEED)
     b = run_seven_axis(seed=DEFAULT_SEED)
 
@@ -70,8 +78,8 @@ def test_runner_is_deterministic_for_fixed_seed() -> None:
     for name, a_score in a_by_name.items():
         b_score = b_by_name[name]
         if name in timing_axes:
-            assert abs(a_score - b_score) <= 0.10, (
-                f"{name}: wall-clock-based axis varied by more than 0.10 "
+            assert abs(a_score - b_score) <= 0.30, (
+                f"{name}: wall-clock-based axis varied by more than 0.30 "
                 f"between runs ({a_score:.4f} vs {b_score:.4f})"
             )
         else:

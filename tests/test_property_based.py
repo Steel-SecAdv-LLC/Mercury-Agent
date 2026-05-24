@@ -363,9 +363,15 @@ class TestEthicalEngineProperties:
             max_size=10,
         )
     )
-    @settings(max_examples=50)
+    @settings(max_examples=50, deadline=None, suppress_health_check=[HealthCheck.too_slow])
     def test_maat_balance_bounded_output(self, ethical_scores: dict[str, Any]) -> None:
-        """Ma'at balance should always produce bounded heart weight."""
+        """Ma'at balance should always produce bounded heart weight.
+
+        ``deadline=None`` because ``MaatBalanceEngine.weigh_heart_against_feather``
+        runs full ethical-constraint inference whose runtime exceeds
+        Hypothesis' 200ms default under ``-n 4`` CPU contention.
+        Matches the pattern at lines 106, 205, 228, 248.
+        """
         from omni_mercury_engine.ethical.ethical_constraint_engine import MaatBalanceEngine
 
         engine = MaatBalanceEngine()

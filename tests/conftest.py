@@ -105,7 +105,7 @@ DEFAULT_TEST_SEED = 42
 # operator action visible in the workflow YAML.
 
 
-def pytest_sessionstart(session: pytest.Session) -> None:  # noqa: D401
+def pytest_sessionstart(session: pytest.Session) -> None:
     """Fail-loud env gate: refuse to run if ``[ml]`` was promised but is absent.
 
     The contract is declared by ``MERCURY_REQUIRES_ML=1``.  When that

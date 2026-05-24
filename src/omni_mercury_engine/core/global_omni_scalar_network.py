@@ -19,17 +19,32 @@ from __future__ import annotations
 """
 Global Omni-Scalar Network (GOSNN) - Intelligence Fusion Hub
 
-Implements a comprehensive scalar monitoring and fusion system with
-~180 omni-scalars organized into 8 major categories:
+Implements a comprehensive scalar monitoring and fusion system.  Two
+counts matter and they are kept distinct everywhere in this module:
+
+  * **Registered scalars** (~209): every omni-scalar discoverable via
+    ``scalar_groups``.  Includes diagnostic measurement families that
+    describe code/system *under analysis* but do not drive the gate.
+  * **Operational scalars** (127): the subset that participates in the
+    σ_Immutable input vector and every fusion / aggregation that the
+    boundary's decision depends on.  ``_is_metric_only_scalar`` is the
+    single source of truth that separates the two — see the class-
+    level ``_METRIC_ONLY_PREFIXES`` block for the contract.
+
+Eight major categories:
 
 - ETHICAL (~27 scalars): Core ethical values and operational constraints
 - COSMIC (~7 scalars): Universe-scale harmony and telos alignment
 - QUANTUM_CONSCIOUSNESS (~7 scalars): Quantum-inspired processing
 - HUMANITARIAN (~9 scalars): Crisis response and human welfare
 - SECURITY (~6 scalars): Threat detection and cyber defense
-- SOFTWARE_ENGINEERING (~45 scalars): Code quality, optimization, and 3R synergy
+- SOFTWARE_ENGINEERING (~127 scalars: 45 operational + 82 diagnostic):
+  Code quality, optimization, 3R synergy, plus ISO/IEC 25010 product
+  quality, Halstead, McCabe/cognitive, MI variants, NIST SAMATE
+  assurance, DORA delivery, SLSA supply-chain, OpenSSF Scorecard,
+  ISO/IEC 5055 CISQ measures, and NIST SSDF (SP 800-218) practices
 - MEDICAL (~10 scalars): Healthcare and diagnostic support
-- ADVANCED_REASONING (~15 scalars): Logic, inference, and knowledge synthesis
+- ADVANCED_REASONING (~16 scalars): Logic, inference, and knowledge synthesis
 
 Key Features:
 - 37-dimensional quantum fusion with 32-head attention
@@ -89,17 +104,22 @@ except ImportError:
 
 
 class ScalarGroup(Enum):
-    """Thematic groups for omni-scalars (~180 total across 8 major categories)."""
+    """Thematic groups for omni-scalars (~209 registered; 127 operational)."""
 
-    # Core categories (~180 scalars total)
-    ETHICAL = "ethical"  # ~27 scalars
-    COSMIC = "cosmic"  # ~7 scalars
-    QUANTUM_CONSCIOUSNESS = "quantum_consciousness"  # ~7 scalars
-    HUMANITARIAN = "humanitarian"  # ~9 scalars
-    SECURITY = "security"  # ~6 scalars
-    SOFTWARE_ENGINEERING = "software_engineering"  # ~45 scalars (NEW)
-    MEDICAL = "medical"  # ~10 scalars (expanded)
-    ADVANCED_REASONING = "advanced_reasoning"  # ~15 scalars (NEW)
+    # Core categories — counts reflect registered entries.  The operational
+    # subset (what enters the σ_Immutable input vector) is the registered
+    # count minus the diagnostic measurement scalars listed in
+    # ``GlobalOmniScalarNetwork._METRIC_ONLY_PREFIXES`` / ``_METRIC_ONLY_KEYS``.
+    ETHICAL = "ethical"  # ~27 scalars (all operational)
+    COSMIC = "cosmic"  # ~7 scalars (all operational)
+    QUANTUM_CONSCIOUSNESS = "quantum_consciousness"  # ~7 scalars (all operational)
+    HUMANITARIAN = "humanitarian"  # ~9 scalars (all operational)
+    SECURITY = "security"  # ~6 scalars (all operational)
+    SOFTWARE_ENGINEERING = (
+        "software_engineering"  # ~127 scalars (45 operational + 82 diagnostic measurement)
+    )
+    MEDICAL = "medical"  # ~10 scalars (all operational)
+    ADVANCED_REASONING = "advanced_reasoning"  # ~16 scalars (all operational)
 
     # Legacy/specialized categories (for backward compatibility)
     MATHEMATICAL_MYSTERIES = "mathematical_mysteries"
@@ -495,15 +515,24 @@ class GlobalOmniScalarNetwork:
     """
     Global Omni-Scalar Network (GOSNN) - Central Intelligence Fusion Hub.
 
-    Aggregates ~180 omni-scalars across 8 major categories:
+    Registers ~209 omni-scalars across 8 major categories; 127 of them
+    are *operational* and feed the σ_Immutable gate / fusion path.  The
+    remaining 82 are diagnostic measurement scalars (descriptions of
+    code/system under analysis) that live in ``scalar_groups`` for
+    discoverability and reporting but are filtered out of the gate's
+    input vector by ``_is_metric_only_scalar``.
+
+    Registered breakdown (operational + diagnostic):
     - ETHICAL (~27): Core ethical values and Civilization-First principles
     - COSMIC (~7): Universe-scale harmony and telos alignment
     - QUANTUM_CONSCIOUSNESS (~7): Quantum-inspired processing
     - HUMANITARIAN (~9): Crisis response and human welfare
     - SECURITY (~6): Threat detection and cyber defense
-    - SOFTWARE_ENGINEERING (~45): Code quality, optimization, 3R synergy
+    - SOFTWARE_ENGINEERING (~127 = 45 op + 82 diag): Code quality, optimization,
+      3R synergy; plus ISO/IEC 25010, Halstead, McCabe/cognitive, MI variants,
+      NIST SAMATE, DORA, SLSA, OpenSSF Scorecard, ISO/IEC 5055, NIST SSDF
     - MEDICAL (~10): Healthcare and diagnostic support
-    - ADVANCED_REASONING (~15): Logic, inference, knowledge synthesis
+    - ADVANCED_REASONING (~16): Logic, inference, knowledge synthesis
 
     Key Features:
     - 37D quantum fusion with 32-head attention and triadic phi-weighting
@@ -530,6 +559,56 @@ class GlobalOmniScalarNetwork:
     MIN_EMPATHY = 1.22
     MIN_MORALITY = 1.20
     TARGET_BOOST_RATIO = 0.60
+
+    # ------------------------------------------------------------------
+    # Diagnostic measurement scalars excluded from the σ_Immutable input
+    # vector and from every operational aggregation (fusion, hierarchical
+    # accountability score, dimensional-state preparation).
+    #
+    # The σ_Immutable trained gate (see
+    # ``security/sigma_immutable_gate.py``) was trained on a fixed
+    # 256-D layout where ``[SIGMA_USED_BAND_END, SIGMA_IMMUTABLE_DIM)``
+    # is zero-padding by contract.  ``_collect_all_scalars`` produces
+    # the vector that gets fed to the gate, so growing it past
+    # ``SIGMA_USED_BAND_END=180`` would overflow into the zero-padded
+    # tail and the trained network would interpret the leak as a
+    # poisoned input.
+    #
+    # The ISO/IEC 25010, Halstead, McCabe + cognitive, Maintainability
+    # Index variants, NIST SAMATE, DORA delivery, SLSA supply-chain,
+    # OpenSSF Scorecard, ISO/IEC 5055 (CISQ), and NIST SSDF practice
+    # families are diagnostic measurement scalars (descriptions of code
+    # / system under analysis), not operational ethical signals that
+    # drive the boundary's decision.  They remain in ``scalar_groups``
+    # for discoverability, registration, and downstream reporting; they
+    # are filtered out of every operational path by the single helper
+    # ``_is_metric_only_scalar`` so the σ_Immutable layout contract,
+    # the hierarchical accountability bucket's semantics, and the
+    # fusion pipeline's dimensional layout stay consistent.
+    #
+    # Adding a new measurement family means updating these two
+    # allowlists once; no other call site needs to change.
+    # ------------------------------------------------------------------
+    _METRIC_ONLY_PREFIXES: tuple[str, ...] = (
+        "omni_iso25010_",
+        "omni_halstead_",
+        "omni_mccabe_",
+        "omni_samate_",
+        "omni_dora_",
+        "omni_slsa_",
+        "omni_ossf_",
+        "omni_iso5055_",
+        "omni_ssdf_",
+    )
+    _METRIC_ONLY_KEYS: frozenset[str] = frozenset(
+        {
+            "omni_cognitive_complexity_sonar",
+            "omni_npath_complexity",
+            "omni_maintainability_index_sei",
+            "omni_maintainability_index_vs",
+            "omni_maintainability_index_delta",
+        }
+    )
 
     def __new__(cls, *args: Any, **kwargs: Any) -> GlobalOmniScalarNetwork:
         """Singleton pattern implementation."""
@@ -682,7 +761,29 @@ class GlobalOmniScalarNetwork:
             "omnizero_trust": 1.22,
         }
 
-        # SOFTWARE_ENGINEERING scalars (~45 scalars for code quality, optimization, 3R synergy)
+        # SOFTWARE_ENGINEERING scalars.
+        # Spans ten families: one operational and nine diagnostic.
+        # The diagnostic families are filtered out of the σ_Immutable
+        # input vector and every operational aggregation; see the
+        # class-level ``_METRIC_ONLY_PREFIXES`` block.
+        #
+        #   Operational (drive the gate, 45):
+        #     1. Code-quality / optimization / 3R synergy (45)
+        #
+        #   Diagnostic measurement (registered but not operational, 82):
+        #     2. ISO/IEC 25010:2011 product-quality model (31)
+        #     3. Halstead complexity measures (7)
+        #     4. McCabe + cognitive (SonarQube) complexity (5)
+        #     5. Maintainability Index variants (3)
+        #     6. NIST SAMATE software assurance (10)
+        #     7. DORA / DevOps Research and Assessment delivery (4)
+        #     8. SLSA Supply-chain Levels for Software Artifacts v1.0 (4)
+        #     9. OpenSSF Scorecard checks (10)
+        #    10. ISO/IEC 5055 / CISQ automated source-code quality measures (4)
+        #    11. NIST SP 800-218 SSDF practice groups (4)
+        #
+        # Weights >1.0 are positive-direction scalars (more is better);
+        # weights <1.0 are penalty scalars (less is better, e.g. defect density).
         self.scalar_groups[ScalarGroup.SOFTWARE_ENGINEERING] = {
             # Code Quality Metrics (15 scalars)
             "omni_code_complexity": 1.20,  # Cyclomatic/cognitive complexity control
@@ -732,6 +833,125 @@ class GlobalOmniScalarNetwork:
             "omni_contract_compliance": 1.22,  # Design-by-contract adherence
             "omni_mutation_test_score": 1.24,  # Mutation testing effectiveness
             "omni_fuzzing_resilience": 1.26,  # Fuzz testing robustness
+            # ISO/IEC 25010:2011 - Functional Suitability (3)
+            "omni_iso25010_func_completeness": 1.22,  # Coverage of stated/implied needs
+            "omni_iso25010_func_correctness": 1.28,  # Correct results with needed precision
+            "omni_iso25010_func_appropriateness": 1.20,  # Fit-for-task suitability
+            # ISO/IEC 25010 - Performance Efficiency (3)
+            "omni_iso25010_perf_time_behavior": 1.25,  # Response/processing/throughput rates
+            "omni_iso25010_perf_resource_util": 1.22,  # Amounts/types of resources used
+            "omni_iso25010_perf_capacity": 1.20,  # Maximum limits meet requirements
+            # ISO/IEC 25010 - Compatibility (2)
+            "omni_iso25010_compat_coexistence": 1.18,  # Performs alongside other products
+            "omni_iso25010_compat_interoperability": 1.22,  # Exchanges info across systems
+            # ISO/IEC 25010 - Usability (6)
+            "omni_iso25010_usab_appropriateness_recog": 1.18,  # Users recognize suitability
+            "omni_iso25010_usab_learnability": 1.20,  # Effective learning with use
+            "omni_iso25010_usab_operability": 1.20,  # Easy to operate and control
+            "omni_iso25010_usab_user_error_protect": 1.25,  # Protects users from errors
+            "omni_iso25010_usab_ui_aesthetics": 1.15,  # Pleasing interaction
+            "omni_iso25010_usab_accessibility": 1.22,  # Usable by widest range of people
+            # ISO/IEC 25010 - Reliability (4)
+            "omni_iso25010_rel_maturity": 1.25,  # Meets reliability needs under normal use
+            "omni_iso25010_rel_availability": 1.28,  # Operational and accessible when required
+            "omni_iso25010_rel_fault_tolerance": 1.26,  # Operates despite faults
+            "omni_iso25010_rel_recoverability": 1.24,  # Recovers data and re-establishes state
+            # ISO/IEC 25010 - Security (5)
+            "omni_iso25010_sec_confidentiality": 1.30,  # Accessible only to authorized
+            "omni_iso25010_sec_integrity": 1.30,  # Prevents unauthorized modification
+            "omni_iso25010_sec_non_repudiation": 1.25,  # Actions proven to have taken place
+            "omni_iso25010_sec_accountability": 1.25,  # Actions traced to entity
+            "omni_iso25010_sec_authenticity": 1.28,  # Identity can be proved
+            # ISO/IEC 25010 - Maintainability (5)
+            "omni_iso25010_maint_modularity": 1.25,  # Discrete components, low impact change
+            "omni_iso25010_maint_reusability": 1.22,  # Asset reuse in more than one system
+            "omni_iso25010_maint_analyzability": 1.24,  # Effective assessment of impact
+            "omni_iso25010_maint_modifiability": 1.26,  # Effective modification w/o defects
+            "omni_iso25010_maint_testability": 1.28,  # Test criteria established and met
+            # ISO/IEC 25010 - Portability (3)
+            "omni_iso25010_port_adaptability": 1.20,  # Adapts to different environments
+            "omni_iso25010_port_installability": 1.18,  # Effective installation/uninstallation
+            "omni_iso25010_port_replaceability": 1.18,  # Replaces another product for same use
+            # Halstead complexity measures (Halstead 1977) - 7 derived measures.
+            # n1=distinct operators, n2=distinct operands, N1=total operators, N2=total operands.
+            # Penalty direction: lower volume/difficulty/effort/bugs is better.
+            "omni_halstead_vocabulary": 0.92,  # n = n1 + n2 (penalty: smaller is simpler)
+            "omni_halstead_length": 0.92,  # N = N1 + N2 (penalty)
+            "omni_halstead_volume": 0.88,  # V = N * log2(n) (penalty)
+            "omni_halstead_difficulty": 0.85,  # D = (n1/2) * (N2/n2) (penalty)
+            "omni_halstead_effort": 0.85,  # E = D * V (penalty)
+            "omni_halstead_time_to_program": 0.90,  # T = E / 18 seconds (penalty)
+            "omni_halstead_delivered_bugs": 0.80,  # B = V / 3000 (penalty: fewer bugs = better)
+            # McCabe cyclomatic + cognitive complexity (SonarQube definition) - 5 scalars
+            "omni_mccabe_cyclomatic_complexity": 0.85,  # CC = E - N + 2P (penalty)
+            "omni_mccabe_essential_complexity": 0.85,  # ev(G), unstructured residual (penalty)
+            "omni_mccabe_design_complexity": 0.88,  # iv(G), integration complexity (penalty)
+            "omni_cognitive_complexity_sonar": 0.82,  # SonarSource cognitive metric (penalty)
+            "omni_npath_complexity": 0.88,  # NPATH, acyclic execution paths (penalty)
+            # Maintainability Index variants (SEI / Microsoft VS) - 3 scalars.
+            # MI_SEI    = 171 - 5.2*ln(HV) - 0.23*CC - 16.2*ln(LOC)
+            # MI_VS     = MAX(0, (171 - 5.2*ln(HV) - 0.23*CC - 16.2*ln(LOC)) * 100/171)
+            # Already present: omni_maintainability_index (aggregate).
+            "omni_maintainability_index_sei": 1.25,  # SEI raw scale 0-171
+            "omni_maintainability_index_vs": 1.25,  # Visual Studio scale 0-100
+            "omni_maintainability_index_delta": 1.20,  # MI change over time (trend)
+            # NIST SAMATE software assurance metrics - 10 scalars.
+            # Drawn from SAMATE Reference Dataset (SARD), CWE coverage, SwAMM metrics.
+            "omni_samate_cwe_coverage": 1.28,  # Fraction of relevant CWEs covered by tooling
+            "omni_samate_sard_conformance": 1.24,  # Conformance to SARD test-suite expectations
+            "omni_samate_weakness_density": 0.82,  # CWE findings per kLOC (penalty)
+            "omni_samate_assurance_case_strength": 1.30,  # Assurance case argument strength
+            "omni_samate_tool_effectiveness": 1.25,  # Recall x precision on SAMATE benchmarks
+            "omni_samate_false_discovery_rate": 0.85,  # FDR on assurance tooling (penalty)
+            "omni_samate_residual_risk": 0.80,  # Residual security risk score (penalty)
+            "omni_samate_evidence_completeness": 1.25,  # Completeness of assurance evidence
+            "omni_samate_independent_verification": 1.28,  # IV&V coverage strength
+            "omni_samate_supply_chain_assurance": 1.30,  # SBOM/provenance assurance (NIST SSDF)
+            # DORA / DevOps Research and Assessment delivery metrics - 4 scalars.
+            # Four key metrics from Accelerate / State-of-DevOps reports
+            # (Forsgren, Humble, Kim).  Throughput pair (deployment freq,
+            # lead time) + stability pair (MTTR, change failure rate).
+            "omni_dora_deployment_frequency": 1.20,  # Elite teams ship many times per day
+            "omni_dora_lead_time_for_changes": 0.88,  # Time commit->prod (penalty: shorter better)
+            "omni_dora_mean_time_to_restore": 0.85,  # MTTR after incident (penalty)
+            "omni_dora_change_failure_rate": 0.82,  # Fraction of deploys causing incidents (penalty)
+            # SLSA Supply-chain Levels for Software Artifacts v1.0 - 4 scalars.
+            # Tracks the build-track maturity (L0..L3) plus the three
+            # SLSA properties that anchor each level.
+            "omni_slsa_level": 1.30,  # Achieved SLSA build-track level (0..3)
+            "omni_slsa_source_integrity": 1.30,  # Source is version-controlled and verified
+            "omni_slsa_build_provenance": 1.28,  # Build produces verifiable provenance attestation
+            "omni_slsa_dependency_attestation": 1.26,  # Transitive deps carry signed provenance
+            # OpenSSF Scorecard checks (Open Source Security Foundation) - 10 scalars.
+            # Aggregate of the 18 Scorecard checks collapsed onto the
+            # 10 most actionable signals; each is the project's per-check score.
+            "omni_ossf_branch_protection": 1.22,  # Main branch protected from force-push
+            "omni_ossf_code_review_required": 1.25,  # PRs require approving review
+            "omni_ossf_ci_tests_required": 1.20,  # CI runs and gates on tests
+            "omni_ossf_dependency_update_tool": 1.22,  # Dependabot / Renovate enabled
+            "omni_ossf_dangerous_workflow": 0.85,  # Untrusted-input workflow patterns (penalty)
+            "omni_ossf_pinned_dependencies": 1.24,  # Deps pinned by hash, not floating tag
+            "omni_ossf_sast_enabled": 1.26,  # CodeQL / Semgrep / equivalent runs in CI
+            "omni_ossf_token_permissions": 1.25,  # Workflow tokens scoped to least privilege
+            "omni_ossf_signed_releases": 1.28,  # Release artifacts carry cryptographic signature
+            "omni_ossf_vulnerabilities": 0.80,  # Open known-vuln count (penalty: fewer is better)
+            # ISO/IEC 5055 automated source code quality measures (CISQ) - 4 scalars.
+            # Code-base level health measures derived from rule catalogs
+            # spanning CWE, CERT, OMG; standardised by the Consortium for
+            # Information & Software Quality.
+            "omni_iso5055_reliability": 1.25,  # ISO 5055 Reliability factor
+            "omni_iso5055_performance_efficiency": 1.24,  # ISO 5055 Performance Efficiency
+            "omni_iso5055_security": 1.30,  # ISO 5055 Security factor
+            "omni_iso5055_maintainability": 1.22,  # ISO 5055 Maintainability factor
+            # NIST SP 800-218 Secure Software Development Framework (SSDF) - 4 scalars.
+            # The four practice groups from the SSDF v1.1.  Distinct from
+            # the single ``omni_samate_supply_chain_assurance`` aggregate above
+            # (which collapses SSDF into one assurance signal); these expand
+            # the framework so coverage gaps surface per-group.
+            "omni_ssdf_prepare_organization": 1.22,  # PO: define roles, policies, and toolchain
+            "omni_ssdf_protect_software": 1.28,  # PS: protect components from tamper / exposure
+            "omni_ssdf_produce_well_secured_software": 1.26,  # PW: design, build, verify securely
+            "omni_ssdf_respond_to_vulnerabilities": 1.25,  # RV: identify, assess, remediate disclosures
         }
 
         # MEDICAL scalars (~10 scalars for healthcare and diagnostics)
@@ -748,7 +968,7 @@ class GlobalOmniScalarNetwork:
             "omni_outcome_prediction": 1.25,  # Prognosis reliability
         }
 
-        # ADVANCED_REASONING scalars (~15 scalars for logic, inference, knowledge)
+        # ADVANCED_REASONING scalars (~16 scalars for logic, inference, knowledge)
         self.scalar_groups[ScalarGroup.ADVANCED_REASONING] = {
             "omni_logical_consistency": 1.28,  # Logical coherence
             "omni_inference_depth": 1.25,  # Reasoning chain depth
@@ -765,6 +985,7 @@ class GlobalOmniScalarNetwork:
             "omni_belief_revision": 1.24,  # Belief update consistency
             "omni_metacognitive_awareness": 1.22,  # Self-knowledge accuracy
             "omni_common_sense_reasoning": 1.25,  # Commonsense inference
+            "omni_metasymbolic_grounding": 1.27,  # Grounding of metasymbolic reasoning in evidence
         }
 
         # Initialize legacy alias mapping for backward compatibility
@@ -1113,31 +1334,58 @@ class GlobalOmniScalarNetwork:
         }
 
     def get_scalar_statistics(self) -> dict[str, Any]:
-        """Get comprehensive statistics about registered scalars."""
+        """Get comprehensive statistics about registered scalars.
+
+        The per-group stats are split into operational and diagnostic
+        measurement counts so the JSON output makes the σ_Immutable
+        filter visible: ``total_scalars`` is operational, every group's
+        ``count`` is operational, and ``count_metric_only`` exposes how
+        many diagnostic measurement scalars are registered but excluded
+        from the gate.  ``count_registered`` is the sum and matches what
+        is discoverable via ``scalar_groups[group]``.
+        """
         all_scalars = self._collect_all_scalars()
 
         if not all_scalars:
             return {
                 "total_scalars": 0,
+                "total_registered": 0,
+                "total_metric_only": 0,
                 "groups": {},
                 "global_intelligence_score": 0.5,
             }
 
         group_stats = {}
+        total_registered = 0
+        total_metric_only = 0
         for group in ScalarGroup:
             group_scalars = self.scalar_groups[group]
-            if group_scalars:
-                values = np.array(list(group_scalars.values()))
-                group_stats[group.value] = {
-                    "count": len(group_scalars),
-                    "mean": float(np.mean(values)),
-                    "std": float(np.std(values)),
-                    "min": float(np.min(values)),
-                    "max": float(np.max(values)),
-                }
+            if not group_scalars:
+                continue
+            operational = self._operational_scalars_for(group)
+            metric_only = self._metric_only_scalars_for(group)
+            total_registered += len(group_scalars)
+            total_metric_only += len(metric_only)
+            # Operational stats drive the gate; metric-only stats are
+            # reported separately so operators can see what's registered
+            # but not active without having to recompute the difference.
+            operational_values = np.array(list(operational.values())) if operational else None
+            group_stats[group.value] = {
+                "count": len(operational),
+                "count_registered": len(group_scalars),
+                "count_metric_only": len(metric_only),
+                "mean": (
+                    float(np.mean(operational_values)) if operational_values is not None else 0.0
+                ),
+                "std": float(np.std(operational_values)) if operational_values is not None else 0.0,
+                "min": float(np.min(operational_values)) if operational_values is not None else 0.0,
+                "max": float(np.max(operational_values)) if operational_values is not None else 0.0,
+            }
 
         return {
             "total_scalars": len(all_scalars),
+            "total_registered": total_registered,
+            "total_metric_only": total_metric_only,
             "registered_components": len(self.registered_scalars),
             "groups": group_stats,
             "global_intelligence_score": self.compute_global_intelligence_score(),
@@ -1145,24 +1393,88 @@ class GlobalOmniScalarNetwork:
             "bias_audit": self.perform_bias_audit(),
         }
 
+    @classmethod
+    def _is_metric_only_scalar(cls, key: str) -> bool:
+        """Return True for diagnostic measurement scalars excluded from the σ vector.
+
+        Single source of truth for the operational / diagnostic split.
+        Consulted by every consumer that participates in the
+        σ_Immutable layout contract (``_collect_all_scalars``,
+        ``_prepare_dimensional_states``, ``compute_hierarchical_score``)
+        as well as the reporting paths that surface the split to
+        operators (``get_scalar_statistics``).
+        """
+        if key in cls._METRIC_ONLY_KEYS:
+            return True
+        return any(key.startswith(prefix) for prefix in cls._METRIC_ONLY_PREFIXES)
+
+    def _operational_scalars_for(self, group: ScalarGroup) -> dict[str, float]:
+        """Return the operational subset of one group's scalars.
+
+        Operational scalars are those that participate in the
+        σ_Immutable input vector, the dimensional-state fusion, and
+        the hierarchical-score accountability bucket.  Diagnostic
+        measurement families are filtered out via
+        ``_is_metric_only_scalar``.
+
+        Centralising the filter here gives every operational call site
+        a single helper to call — adding a new measurement family
+        means updating ``_METRIC_ONLY_PREFIXES`` once and nothing else.
+        """
+        return {
+            k: v for k, v in self.scalar_groups[group].items() if not self._is_metric_only_scalar(k)
+        }
+
+    def _metric_only_scalars_for(self, group: ScalarGroup) -> dict[str, float]:
+        """Return the diagnostic measurement subset of one group's scalars.
+
+        Counterpart to :meth:`_operational_scalars_for`.  Surfaces the
+        scalars that ``_is_metric_only_scalar`` filters out so reporting
+        paths (``get_scalar_statistics``) can show the operational /
+        diagnostic split explicitly instead of letting a single
+        ``count`` field hide the difference.
+        """
+        return {
+            k: v for k, v in self.scalar_groups[group].items() if self._is_metric_only_scalar(k)
+        }
+
     def _collect_all_scalars(self) -> dict[str, float]:
-        """Collect all scalars from all groups."""
+        """Collect operational scalars (excludes diagnostic measurement scalars).
+
+        Diagnostic ISO/IEC 25010, Halstead, McCabe + cognitive,
+        Maintainability Index variants, NIST SAMATE, DORA, SLSA,
+        OpenSSF Scorecard, ISO/IEC 5055, and NIST SSDF entries live in
+        ``scalar_groups`` but are filtered out here so the σ_Immutable
+        trained gate continues to see the fixed operational layout it
+        was trained on.  See the class-level ``_METRIC_ONLY_PREFIXES``
+        comment for the contract.
+        """
         all_scalars: dict[str, float] = {}
-        for group_scalars in self.scalar_groups.values():
-            all_scalars.update(group_scalars)
+        for group in self.scalar_groups:
+            all_scalars.update(self._operational_scalars_for(group))
         return all_scalars
 
     def _prepare_dimensional_states(
         self, base_scalars: dict[str, float], context: dict[str, Any]
     ) -> list[np.ndarray[Any, Any]]:
-        """Prepare dimensional states for fusion."""
+        """Prepare dimensional states for fusion (operational scalars only).
+
+        Each per-group state vector contains only operational scalars;
+        diagnostic measurement families are filtered out via
+        :meth:`_operational_scalars_for` so the fusion pipeline's
+        dimensional layout matches what the σ_Immutable gate sees.
+        Previously this iterated the raw group dicts and relied on
+        the implicit invariant that measurement scalars sit past the
+        ``max_dimensions`` truncation horizon — that invariant is now
+        explicit instead of accidental.
+        """
         states = []
 
         base_values = np.array(list(base_scalars.values()))
         states.append(base_values)
 
         for group in ScalarGroup:
-            group_scalars = self.scalar_groups[group]
+            group_scalars = self._operational_scalars_for(group)
             if group_scalars:
                 group_values = np.array(list(group_scalars.values()))
                 states.append(group_values)
@@ -1256,12 +1568,17 @@ class GlobalOmniScalarNetwork:
             "beneficence": [],
         }
 
+        # Each bucket aggregates operational scalars only — diagnostic
+        # measurement families are filtered out so the same architectural
+        # split that protects the σ_Immutable input vector also protects
+        # the meaning of each hierarchical category score.
+
         # Safety: Medical + Security + Humanitarian
         for group_key in [ScalarGroup.MEDICAL, ScalarGroup.SECURITY, ScalarGroup.HUMANITARIAN]:
-            categories["safety"].extend(self.scalar_groups[group_key].values())
+            categories["safety"].extend(self._operational_scalars_for(group_key).values())
 
         # Fairness: Ethical equity/justice subset
-        ethical = self.scalar_groups[ScalarGroup.ETHICAL]
+        ethical = self._operational_scalars_for(ScalarGroup.ETHICAL)
         fairness_keys = [k for k in ethical if "equit" in k or "justic" in k or "bias" in k]
         categories["fairness"].extend(ethical[k] for k in fairness_keys)
 
@@ -1273,7 +1590,7 @@ class GlobalOmniScalarNetwork:
 
         # Accountability: Software Engineering + Advanced Reasoning
         for group_key in [ScalarGroup.SOFTWARE_ENGINEERING, ScalarGroup.ADVANCED_REASONING]:
-            categories["accountability"].extend(self.scalar_groups[group_key].values())
+            categories["accountability"].extend(self._operational_scalars_for(group_key).values())
 
         # Beneficence: Ethical benevolence/compassion + Cosmic
         beneficence_keys = [
@@ -1287,7 +1604,7 @@ class GlobalOmniScalarNetwork:
             or "hope" in k
         ]
         categories["beneficence"].extend(ethical[k] for k in beneficence_keys)
-        categories["beneficence"].extend(self.scalar_groups[ScalarGroup.COSMIC].values())
+        categories["beneficence"].extend(self._operational_scalars_for(ScalarGroup.COSMIC).values())
 
         # Level 2: Weighted mean within each category
         category_scores: dict[str, float] = {}
