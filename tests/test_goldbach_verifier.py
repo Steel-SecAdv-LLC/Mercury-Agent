@@ -36,12 +36,11 @@ from omni_mercury_engine.core.global_omni_scalar_network import (
 )
 from omni_mercury_engine.verifiers.goldbach import (
     GoldbachCertificate,
-    _is_prime_trial,
     find_partition,
-    is_prime,
     register_verified_scalar,
     verify_certificate,
 )
+from omni_mercury_engine.verifiers.primality import _is_prime_trial, is_prime
 
 
 @pytest.fixture(autouse=True)

@@ -28,11 +28,10 @@ however, is mechanically decidable: a claimed partition ``n = p + q`` is a finit
 that an independent oracle either confirms or refutes by checking primality of ``p`` and ``q``
 and the arithmetic ``p + q == n``.
 
-The primality oracle below is deterministic Miller-Rabin with a fixed witness set, which is
-exact for every ``n < 3.317 * 10**24`` -- far beyond any value this module handles.  It is
-plain auditable arithmetic: no model, no learned weights, no network call.  ``is_prime`` is
-cross-checked against ``_is_prime_trial`` (naive trial division) in the test-suite, so the
-oracle is itself validated by a second independent method.
+The primality oracle (:mod:`omni_mercury_engine.verifiers.primality`) is deterministic
+Miller-Rabin, exact for every ``n < 3.317 * 10**24`` -- far beyond any value this module
+handles.  It is plain auditable arithmetic: no model, no learned weights, no network call, and
+is itself cross-checked against naive trial division in the test-suite.
 
 The scalar registered into the GOSNN is *grounded*: its value is decided by the verdict
 (1.0 when the oracle confirms the partition, 0.0 when it refutes it), not chosen by hand.
@@ -43,57 +42,12 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from omni_mercury_engine.core.global_omni_scalar_network import ScalarGroup
+from omni_mercury_engine.verifiers.primality import is_prime
 
 if TYPE_CHECKING:
     from omni_mercury_engine.core.global_omni_scalar_network import GlobalOmniScalarNetwork
 
 logger = logging.getLogger(__name__)
-
-# Deterministic Miller-Rabin witnesses: exact primality test for all n < 3.317e24.
-_MR_WITNESSES: tuple[int, ...] = (2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37)
-
-
-def is_prime(n: int) -> bool:
-    """Deterministic primality test (Miller-Rabin, exact for n < 3.317e24).
-
-    Pure integer arithmetic -- the auditable oracle that adjudicates certificates.
-    """
-    if n < 2:
-        return False
-    for w in _MR_WITNESSES:
-        if n % w == 0:
-            return n == w
-    d = n - 1
-    r = 0
-    while d % 2 == 0:
-        d //= 2
-        r += 1
-    for a in _MR_WITNESSES:
-        x = pow(a, d, n)
-        if x == 1 or x == n - 1:
-            continue
-        for _ in range(r - 1):
-            x = pow(x, 2, n)
-            if x == n - 1:
-                break
-        else:
-            return False
-    return True
-
-
-def _is_prime_trial(n: int) -> bool:
-    """Naive trial-division primality test.
-
-    Obviously correct but slow; used only to independently validate :func:`is_prime`.
-    """
-    if n < 2:
-        return False
-    i = 2
-    while i * i <= n:
-        if n % i == 0:
-            return False
-        i += 1
-    return True
 
 
 @dataclass(frozen=True)

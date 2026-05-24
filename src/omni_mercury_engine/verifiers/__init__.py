@@ -16,22 +16,26 @@ https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-"""Oracle-validated verifiers that ground GOSNN scalars in independently checkable truth."""
+"""Oracle-validated verifiers that ground GOSNN scalars in independently checkable truth.
 
-from omni_mercury_engine.verifiers.goldbach import (
-    GoldbachCertificate,
-    Verdict,
-    find_partition,
-    is_prime,
-    register_verified_scalar,
-    verify_certificate,
-)
+Each verifier follows the same shape -- a certificate adjudicated by an oracle that is
+independent of any model, with the resulting scalar's value decided by the verdict:
+
+* :mod:`primality`    -- shared deterministic primality oracle
+* :mod:`goldbach`     -- Goldbach partition instances (number-theory tier)
+* :mod:`twin_primes`  -- twin-prime pair instances (number-theory tier)
+* :mod:`collatz`      -- Collatz trajectory instances (dynamical tier, semi-decidable)
+* :mod:`lean_theorem` -- theorems checked by the Lean 4 kernel (formal-proof tier)
+"""
+
+from omni_mercury_engine.verifiers import collatz, goldbach, lean_theorem, twin_primes
+from omni_mercury_engine.verifiers.primality import _is_prime_trial, is_prime
 
 __all__ = [
-    "GoldbachCertificate",
-    "Verdict",
-    "find_partition",
+    "_is_prime_trial",
+    "collatz",
+    "goldbach",
     "is_prime",
-    "register_verified_scalar",
-    "verify_certificate",
+    "lean_theorem",
+    "twin_primes",
 ]
