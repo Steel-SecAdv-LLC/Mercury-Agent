@@ -98,7 +98,9 @@ class ScalarGroup(Enum):
     QUANTUM_CONSCIOUSNESS = "quantum_consciousness"  # ~7 scalars
     HUMANITARIAN = "humanitarian"  # ~9 scalars
     SECURITY = "security"  # ~6 scalars
-    SOFTWARE_ENGINEERING = "software_engineering"  # ~100 scalars (ISO 25010 + Halstead + McCabe + SAMATE)
+    SOFTWARE_ENGINEERING = (
+        "software_engineering"  # ~100 scalars (ISO 25010 + Halstead + McCabe + SAMATE)
+    )
     MEDICAL = "medical"  # ~10 scalars (expanded)
     ADVANCED_REASONING = "advanced_reasoning"  # ~15 scalars (NEW)
 

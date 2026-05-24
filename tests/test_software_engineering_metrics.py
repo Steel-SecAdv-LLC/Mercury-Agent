@@ -67,24 +67,18 @@ class TestISO25010:
         "port": ["adaptability", "installability", "replaceability"],
     }
 
-    def test_all_eight_characteristics_present(
-        self, se_scalars: dict[str, float]
-    ) -> None:
+    def test_all_eight_characteristics_present(self, se_scalars: dict[str, float]) -> None:
         for prefix, subs in self.EXPECTED_TOP_LEVEL.items():
             for sub in subs:
                 key = f"omni_iso25010_{prefix}_{sub}"
                 assert key in se_scalars, f"missing ISO 25010 scalar: {key}"
 
-    def test_iso25010_subcharacteristic_count(
-        self, se_scalars: dict[str, float]
-    ) -> None:
+    def test_iso25010_subcharacteristic_count(self, se_scalars: dict[str, float]) -> None:
         # 3+3+2+6+4+5+5+3 = 31 sub-characteristics
         iso_keys = [k for k in se_scalars if k.startswith("omni_iso25010_")]
         assert len(iso_keys) == 31
 
-    def test_iso25010_security_is_high_weight(
-        self, se_scalars: dict[str, float]
-    ) -> None:
+    def test_iso25010_security_is_high_weight(self, se_scalars: dict[str, float]) -> None:
         # Confidentiality and integrity should be among the highest-weighted
         # ISO 25010 sub-characteristics (security-critical).
         assert se_scalars["omni_iso25010_sec_confidentiality"] >= 1.25
@@ -104,51 +98,36 @@ class TestHalstead:
         "omni_halstead_delivered_bugs",
     ]
 
-    def test_all_seven_halstead_measures_present(
-        self, se_scalars: dict[str, float]
-    ) -> None:
+    def test_all_seven_halstead_measures_present(self, se_scalars: dict[str, float]) -> None:
         for key in self.EXPECTED_KEYS:
             assert key in se_scalars, f"missing Halstead measure: {key}"
 
-    def test_halstead_measures_are_penalty_scalars(
-        self, se_scalars: dict[str, float]
-    ) -> None:
+    def test_halstead_measures_are_penalty_scalars(self, se_scalars: dict[str, float]) -> None:
         # All Halstead measures are penalty-direction (less is better).
         for key in self.EXPECTED_KEYS:
             assert (
                 se_scalars[key] < 1.0
             ), f"Halstead measure {key} should be a penalty scalar (weight < 1.0)"
 
-    def test_delivered_bugs_is_strongest_penalty(
-        self, se_scalars: dict[str, float]
-    ) -> None:
+    def test_delivered_bugs_is_strongest_penalty(self, se_scalars: dict[str, float]) -> None:
         # Delivered bugs (B = V / 3000) is the most safety-critical Halstead
         # derivation; weight should be at least as strong as effort.
-        assert (
-            se_scalars["omni_halstead_delivered_bugs"]
-            <= se_scalars["omni_halstead_effort"]
-        )
+        assert se_scalars["omni_halstead_delivered_bugs"] <= se_scalars["omni_halstead_effort"]
 
 
 class TestMcCabe:
     """McCabe + cognitive complexity (SonarQube definition)."""
 
-    def test_cyclomatic_and_cognitive_present(
-        self, se_scalars: dict[str, float]
-    ) -> None:
+    def test_cyclomatic_and_cognitive_present(self, se_scalars: dict[str, float]) -> None:
         assert "omni_mccabe_cyclomatic_complexity" in se_scalars
         assert "omni_cognitive_complexity_sonar" in se_scalars
 
-    def test_essential_design_and_npath_present(
-        self, se_scalars: dict[str, float]
-    ) -> None:
+    def test_essential_design_and_npath_present(self, se_scalars: dict[str, float]) -> None:
         assert "omni_mccabe_essential_complexity" in se_scalars
         assert "omni_mccabe_design_complexity" in se_scalars
         assert "omni_npath_complexity" in se_scalars
 
-    def test_all_complexity_metrics_are_penalty(
-        self, se_scalars: dict[str, float]
-    ) -> None:
+    def test_all_complexity_metrics_are_penalty(self, se_scalars: dict[str, float]) -> None:
         for key in [
             "omni_mccabe_cyclomatic_complexity",
             "omni_mccabe_essential_complexity",
@@ -162,9 +141,7 @@ class TestMcCabe:
 class TestMaintainabilityIndex:
     """SEI and Microsoft VS variants of the Maintainability Index."""
 
-    def test_sei_and_vs_variants_present(
-        self, se_scalars: dict[str, float]
-    ) -> None:
+    def test_sei_and_vs_variants_present(self, se_scalars: dict[str, float]) -> None:
         assert "omni_maintainability_index_sei" in se_scalars
         assert "omni_maintainability_index_vs" in se_scalars
         assert "omni_maintainability_index_delta" in se_scalars
@@ -190,15 +167,11 @@ class TestNISTSAMATE:
         "omni_samate_supply_chain_assurance",
     ]
 
-    def test_all_samate_metrics_present(
-        self, se_scalars: dict[str, float]
-    ) -> None:
+    def test_all_samate_metrics_present(self, se_scalars: dict[str, float]) -> None:
         for key in self.EXPECTED_KEYS:
             assert key in se_scalars, f"missing SAMATE metric: {key}"
 
-    def test_samate_penalty_direction_consistent(
-        self, se_scalars: dict[str, float]
-    ) -> None:
+    def test_samate_penalty_direction_consistent(self, se_scalars: dict[str, float]) -> None:
         # Weakness density, false discovery rate, residual risk -> penalty.
         for key in [
             "omni_samate_weakness_density",
@@ -207,9 +180,7 @@ class TestNISTSAMATE:
         ]:
             assert se_scalars[key] < 1.0
 
-    def test_samate_positive_direction_consistent(
-        self, se_scalars: dict[str, float]
-    ) -> None:
+    def test_samate_positive_direction_consistent(self, se_scalars: dict[str, float]) -> None:
         # All other SAMATE metrics are positive-direction.
         for key in [
             "omni_samate_cwe_coverage",
@@ -230,10 +201,6 @@ class TestGroupInvariants:
         # Dict literals deduplicate silently; verify total is the expected sum.
         assert len(se_scalars) == 101
 
-    def test_all_weights_in_sane_range(
-        self, se_scalars: dict[str, float]
-    ) -> None:
+    def test_all_weights_in_sane_range(self, se_scalars: dict[str, float]) -> None:
         for key, value in se_scalars.items():
-            assert (
-                0.5 < value < 2.0
-            ), f"weight for {key} = {value} is outside sane range (0.5, 2.0)"
+            assert 0.5 < value < 2.0, f"weight for {key} = {value} is outside sane range (0.5, 2.0)"
