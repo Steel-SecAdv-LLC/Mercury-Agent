@@ -16,7 +16,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 ------------------------------------------------------------------------
 
-Operator tool: dump the current ~180 omni-scalar values as JSON.
+Operator tool: dump the current ~235 omni-scalar values as JSON.
 
 The README's GOSNN section makes structural claims about the σ band
 of omni-scalars but an operator can't inspect them today.  This tool

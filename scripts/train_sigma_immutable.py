@@ -7,7 +7,7 @@ Train the σ_Immutable EthicalGate neural network.
 
 Labelling source
 ----------------
-The GOSNN scalar system carries ~180 dimensions across 8 categories
+The GOSNN scalar system carries ~235 dimensions across 8 categories
 (ETHICAL, COSMIC, QUANTUM_CONSCIOUSNESS, HUMANITARIAN, SECURITY,
 SOFTWARE_ENGINEERING, MEDICAL, ADVANCED_REASONING).  A scalar vector
 is **ethical** (label 1) when the 27 ETHICAL-category scalars are all
@@ -20,7 +20,7 @@ This is a defensible labelling source because:
   - The BenevolenceScorer's ``MINIMUM_BENEVOLENCE_FLOOR`` (0.70) sets the
     absolute baseline.
   - The training data spans the full scalar space — the network learns
-    non-obvious correlations among the 180 dimensions that a single
+    non-obvious correlations among the 235 dimensions that a single
     threshold check misses.
 
 Outputs

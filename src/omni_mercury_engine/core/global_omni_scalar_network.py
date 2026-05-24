@@ -20,14 +20,15 @@ from __future__ import annotations
 Global Omni-Scalar Network (GOSNN) - Intelligence Fusion Hub
 
 Implements a comprehensive scalar monitoring and fusion system with
-~180 omni-scalars organized into 8 major categories:
+~235 omni-scalars organized into 8 major categories:
 
 - ETHICAL (~27 scalars): Core ethical values and operational constraints
 - COSMIC (~7 scalars): Universe-scale harmony and telos alignment
 - QUANTUM_CONSCIOUSNESS (~7 scalars): Quantum-inspired processing
 - HUMANITARIAN (~9 scalars): Crisis response and human welfare
 - SECURITY (~6 scalars): Threat detection and cyber defense
-- SOFTWARE_ENGINEERING (~45 scalars): Code quality, optimization, and 3R synergy
+- SOFTWARE_ENGINEERING (~100 scalars): Code quality, optimization, 3R synergy,
+  ISO/IEC 25010 product quality, Halstead, McCabe/cognitive, NIST SAMATE assurance
 - MEDICAL (~10 scalars): Healthcare and diagnostic support
 - ADVANCED_REASONING (~15 scalars): Logic, inference, and knowledge synthesis
 
@@ -89,15 +90,15 @@ except ImportError:
 
 
 class ScalarGroup(Enum):
-    """Thematic groups for omni-scalars (~180 total across 8 major categories)."""
+    """Thematic groups for omni-scalars (~235 total across 8 major categories)."""
 
-    # Core categories (~180 scalars total)
+    # Core categories (~235 scalars total)
     ETHICAL = "ethical"  # ~27 scalars
     COSMIC = "cosmic"  # ~7 scalars
     QUANTUM_CONSCIOUSNESS = "quantum_consciousness"  # ~7 scalars
     HUMANITARIAN = "humanitarian"  # ~9 scalars
     SECURITY = "security"  # ~6 scalars
-    SOFTWARE_ENGINEERING = "software_engineering"  # ~45 scalars (NEW)
+    SOFTWARE_ENGINEERING = "software_engineering"  # ~100 scalars (ISO 25010 + Halstead + McCabe + SAMATE)
     MEDICAL = "medical"  # ~10 scalars (expanded)
     ADVANCED_REASONING = "advanced_reasoning"  # ~15 scalars (NEW)
 
@@ -495,13 +496,14 @@ class GlobalOmniScalarNetwork:
     """
     Global Omni-Scalar Network (GOSNN) - Central Intelligence Fusion Hub.
 
-    Aggregates ~180 omni-scalars across 8 major categories:
+    Aggregates ~235 omni-scalars across 8 major categories:
     - ETHICAL (~27): Core ethical values and Civilization-First principles
     - COSMIC (~7): Universe-scale harmony and telos alignment
     - QUANTUM_CONSCIOUSNESS (~7): Quantum-inspired processing
     - HUMANITARIAN (~9): Crisis response and human welfare
     - SECURITY (~6): Threat detection and cyber defense
-    - SOFTWARE_ENGINEERING (~45): Code quality, optimization, 3R synergy
+    - SOFTWARE_ENGINEERING (~100): Code quality, optimization, 3R synergy,
+      ISO/IEC 25010, Halstead, McCabe/cognitive, NIST SAMATE assurance
     - MEDICAL (~10): Healthcare and diagnostic support
     - ADVANCED_REASONING (~15): Logic, inference, knowledge synthesis
 
@@ -682,7 +684,15 @@ class GlobalOmniScalarNetwork:
             "omnizero_trust": 1.22,
         }
 
-        # SOFTWARE_ENGINEERING scalars (~45 scalars for code quality, optimization, 3R synergy)
+        # SOFTWARE_ENGINEERING scalars (~100 scalars).
+        # Spans five families:
+        #   1. Legacy code-quality / optimization / 3R synergy (45)
+        #   2. ISO/IEC 25010:2011 product-quality model (8 chars x sub-chars = 31)
+        #   3. Halstead complexity measures (7)
+        #   4. McCabe cyclomatic + cognitive complexity (SonarQube definition) (5)
+        #   5. NIST SAMATE software assurance metrics (10)
+        # Weights >1.0 are positive-direction scalars (more is better);
+        # weights <1.0 are penalty scalars (less is better, e.g. defect density).
         self.scalar_groups[ScalarGroup.SOFTWARE_ENGINEERING] = {
             # Code Quality Metrics (15 scalars)
             "omni_code_complexity": 1.20,  # Cyclomatic/cognitive complexity control
@@ -732,6 +742,80 @@ class GlobalOmniScalarNetwork:
             "omni_contract_compliance": 1.22,  # Design-by-contract adherence
             "omni_mutation_test_score": 1.24,  # Mutation testing effectiveness
             "omni_fuzzing_resilience": 1.26,  # Fuzz testing robustness
+            # ISO/IEC 25010:2011 - Functional Suitability (3)
+            "omni_iso25010_func_completeness": 1.22,  # Coverage of stated/implied needs
+            "omni_iso25010_func_correctness": 1.28,  # Correct results with needed precision
+            "omni_iso25010_func_appropriateness": 1.20,  # Fit-for-task suitability
+            # ISO/IEC 25010 - Performance Efficiency (3)
+            "omni_iso25010_perf_time_behavior": 1.25,  # Response/processing/throughput rates
+            "omni_iso25010_perf_resource_util": 1.22,  # Amounts/types of resources used
+            "omni_iso25010_perf_capacity": 1.20,  # Maximum limits meet requirements
+            # ISO/IEC 25010 - Compatibility (2)
+            "omni_iso25010_compat_coexistence": 1.18,  # Performs alongside other products
+            "omni_iso25010_compat_interoperability": 1.22,  # Exchanges info across systems
+            # ISO/IEC 25010 - Usability (6)
+            "omni_iso25010_usab_appropriateness_recog": 1.18,  # Users recognize suitability
+            "omni_iso25010_usab_learnability": 1.20,  # Effective learning with use
+            "omni_iso25010_usab_operability": 1.20,  # Easy to operate and control
+            "omni_iso25010_usab_user_error_protect": 1.25,  # Protects users from errors
+            "omni_iso25010_usab_ui_aesthetics": 1.15,  # Pleasing interaction
+            "omni_iso25010_usab_accessibility": 1.22,  # Usable by widest range of people
+            # ISO/IEC 25010 - Reliability (4)
+            "omni_iso25010_rel_maturity": 1.25,  # Meets reliability needs under normal use
+            "omni_iso25010_rel_availability": 1.28,  # Operational and accessible when required
+            "omni_iso25010_rel_fault_tolerance": 1.26,  # Operates despite faults
+            "omni_iso25010_rel_recoverability": 1.24,  # Recovers data and re-establishes state
+            # ISO/IEC 25010 - Security (5)
+            "omni_iso25010_sec_confidentiality": 1.30,  # Accessible only to authorized
+            "omni_iso25010_sec_integrity": 1.30,  # Prevents unauthorized modification
+            "omni_iso25010_sec_non_repudiation": 1.25,  # Actions proven to have taken place
+            "omni_iso25010_sec_accountability": 1.25,  # Actions traced to entity
+            "omni_iso25010_sec_authenticity": 1.28,  # Identity can be proved
+            # ISO/IEC 25010 - Maintainability (5)
+            "omni_iso25010_maint_modularity": 1.25,  # Discrete components, low impact change
+            "omni_iso25010_maint_reusability": 1.22,  # Asset reuse in more than one system
+            "omni_iso25010_maint_analyzability": 1.24,  # Effective assessment of impact
+            "omni_iso25010_maint_modifiability": 1.26,  # Effective modification w/o defects
+            "omni_iso25010_maint_testability": 1.28,  # Test criteria established and met
+            # ISO/IEC 25010 - Portability (3)
+            "omni_iso25010_port_adaptability": 1.20,  # Adapts to different environments
+            "omni_iso25010_port_installability": 1.18,  # Effective installation/uninstallation
+            "omni_iso25010_port_replaceability": 1.18,  # Replaces another product for same use
+            # Halstead complexity measures (Halstead 1977) - 7 derived measures.
+            # n1=distinct operators, n2=distinct operands, N1=total operators, N2=total operands.
+            # Penalty direction: lower volume/difficulty/effort/bugs is better.
+            "omni_halstead_vocabulary": 0.92,  # n = n1 + n2 (penalty: smaller is simpler)
+            "omni_halstead_length": 0.92,  # N = N1 + N2 (penalty)
+            "omni_halstead_volume": 0.88,  # V = N * log2(n) (penalty)
+            "omni_halstead_difficulty": 0.85,  # D = (n1/2) * (N2/n2) (penalty)
+            "omni_halstead_effort": 0.85,  # E = D * V (penalty)
+            "omni_halstead_time_to_program": 0.90,  # T = E / 18 seconds (penalty)
+            "omni_halstead_delivered_bugs": 0.80,  # B = V / 3000 (penalty: fewer bugs = better)
+            # McCabe cyclomatic + cognitive complexity (SonarQube definition) - 5 scalars
+            "omni_mccabe_cyclomatic_complexity": 0.85,  # CC = E - N + 2P (penalty)
+            "omni_mccabe_essential_complexity": 0.85,  # ev(G), unstructured residual (penalty)
+            "omni_mccabe_design_complexity": 0.88,  # iv(G), integration complexity (penalty)
+            "omni_cognitive_complexity_sonar": 0.82,  # SonarSource cognitive metric (penalty)
+            "omni_npath_complexity": 0.88,  # NPATH, acyclic execution paths (penalty)
+            # Maintainability Index variants (SEI / Microsoft VS) - 3 scalars.
+            # MI_SEI    = 171 - 5.2*ln(HV) - 0.23*CC - 16.2*ln(LOC)
+            # MI_VS     = MAX(0, (171 - 5.2*ln(HV) - 0.23*CC - 16.2*ln(LOC)) * 100/171)
+            # Already present: omni_maintainability_index (aggregate).
+            "omni_maintainability_index_sei": 1.25,  # SEI raw scale 0-171
+            "omni_maintainability_index_vs": 1.25,  # Visual Studio scale 0-100
+            "omni_maintainability_index_delta": 1.20,  # MI change over time (trend)
+            # NIST SAMATE software assurance metrics - 10 scalars.
+            # Drawn from SAMATE Reference Dataset (SARD), CWE coverage, SwAMM metrics.
+            "omni_samate_cwe_coverage": 1.28,  # Fraction of relevant CWEs covered by tooling
+            "omni_samate_sard_conformance": 1.24,  # Conformance to SARD test-suite expectations
+            "omni_samate_weakness_density": 0.82,  # CWE findings per kLOC (penalty)
+            "omni_samate_assurance_case_strength": 1.30,  # Assurance case argument strength
+            "omni_samate_tool_effectiveness": 1.25,  # Recall x precision on SAMATE benchmarks
+            "omni_samate_false_discovery_rate": 0.85,  # FDR on assurance tooling (penalty)
+            "omni_samate_residual_risk": 0.80,  # Residual security risk score (penalty)
+            "omni_samate_evidence_completeness": 1.25,  # Completeness of assurance evidence
+            "omni_samate_independent_verification": 1.28,  # IV&V coverage strength
+            "omni_samate_supply_chain_assurance": 1.30,  # SBOM/provenance assurance (NIST SSDF)
         }
 
         # MEDICAL scalars (~10 scalars for healthcare and diagnostics)

@@ -1726,15 +1726,15 @@ All engines share a common fusion architecture with 128D normalization enabling 
 <details>
 <summary><strong>GOSNN Global Omni-Scalar Network</strong> - Synaptic Intelligence Hub</summary>
 
-The **GlobalOmniScalarNetwork (GOSNN)** is the intelligence fusion hub aggregating ~180 omni-scalars across 8 major categories:
+The **GlobalOmniScalarNetwork (GOSNN)** is the intelligence fusion hub aggregating ~235 omni-scalars across 8 major categories:
 
-**Scalar Categories (~180 total):**
+**Scalar Categories (~235 total):**
 - **ETHICAL (~27)**: Core ethical values and Civilization-First principles
 - **COSMIC (~7)**: Universe-scale harmony and telos alignment
 - **QUANTUM_CONSCIOUSNESS (~7)**: Quantum-inspired processing
 - **HUMANITARIAN (~9)**: Crisis response and human welfare
 - **SECURITY (~6)**: Threat detection and cyber defense
-- **SOFTWARE_ENGINEERING (~45)**: Code quality, optimization, 3R synergy
+- **SOFTWARE_ENGINEERING (~100)**: Code quality, optimization, 3R synergy, ISO/IEC 25010 product quality, Halstead, McCabe + cognitive (SonarQube), NIST SAMATE assurance
 - **MEDICAL (~10)**: Healthcare and diagnostic support
 - **ADVANCED_REASONING (~15)**: Logic, inference, knowledge synthesis
 

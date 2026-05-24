@@ -473,6 +473,18 @@ class LearnableGOSNN:
                 ("omni_type_safety_index", 1.28),
                 ("omni_3r_synergy_factor", 1.35),
                 ("omni_precision_recall_harmonic", 1.25),
+                # ISO/IEC 25010 representative sub-characteristics
+                ("omni_iso25010_func_correctness", 1.28),
+                ("omni_iso25010_rel_availability", 1.28),
+                ("omni_iso25010_maint_testability", 1.28),
+                ("omni_iso25010_sec_integrity", 1.30),
+                # Halstead / McCabe / cognitive (penalty direction)
+                ("omni_halstead_delivered_bugs", 0.80),
+                ("omni_mccabe_cyclomatic_complexity", 0.85),
+                ("omni_cognitive_complexity_sonar", 0.82),
+                # NIST SAMATE assurance
+                ("omni_samate_assurance_case_strength", 1.30),
+                ("omni_samate_supply_chain_assurance", 1.30),
             ],
             ScalarCategory.MEDICAL: [
                 ("omni_diagnostic_accuracy", 1.30),
