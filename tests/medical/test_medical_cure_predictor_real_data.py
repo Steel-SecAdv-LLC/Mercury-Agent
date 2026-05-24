@@ -86,23 +86,29 @@ class TestRealDataValidation:
         assert all(0.0 <= r.confidence <= 1.0 for r in results)
 
     def test_vitals_benchmark_accuracy(self) -> None:
-        """Benchmark accuracy on simulated vital signs."""
+        """Benchmark accuracy on simulated vital signs.
+
+        Uses fixed seeds so the test is deterministic — without them
+        ``generate_mimic_vitals`` draws fresh noise per call and the
+        ``accuracy > 0.4`` floor occasionally falls under ``-n 4``
+        parallel runs even though the predictor is correct.
+        """
         predictor = MedicalCurePredictor(enable_imaging=False, enable_treatment_opt=False)
 
         true_positives = 0
         true_negatives = 0
 
-        for _ in range(15):
-            normal = generate_mimic_vitals(num_timesteps=288, inject_disease=False)
+        for i in range(15):
+            normal = generate_mimic_vitals(num_timesteps=288, inject_disease=False, seed=1000 + i)
             result = predictor.predict_and_cure(
                 {"vital_signs_sequence": normal["vital_signs_sequence"]}
             )
             if not result.disease_risk_detected:
                 true_negatives += 1
 
-        for _ in range(15):
+        for i in range(15):
             disease = generate_mimic_vitals(
-                num_timesteps=288, inject_disease=True, disease_type="sepsis"
+                num_timesteps=288, inject_disease=True, disease_type="sepsis", seed=2000 + i
             )
             result = predictor.predict_and_cure(
                 {"vital_signs_sequence": disease["vital_signs_sequence"]}
