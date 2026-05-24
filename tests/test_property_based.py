@@ -19,12 +19,6 @@ from typing import Any
 import numpy as np
 import pytest
 
-# Tests below exercise detectors / oracles / orchestrators whose
-# production code imports torch at module level.  Skip cleanly
-# at class boundaries when the optional ``ml`` extra is absent.
-_HAS_TORCH = importlib.util.find_spec("torch") is not None
-requires_torch = pytest.mark.skipif(not _HAS_TORCH, reason="torch (optional 'ml' extra) required")
-
 # Check if torch is available
 HAS_TORCH = importlib.util.find_spec("torch") is not None
 if HAS_TORCH:
@@ -357,7 +351,6 @@ class TestThreatDetectorProperties:
             assert result["is_threat"]
 
 
-@requires_torch
 class TestEthicalEngineProperties:
     """Property-based tests for ethical constraint engine."""
 
@@ -408,7 +401,6 @@ class TestEthicalEngineProperties:
         assert 0.0 <= result.overall_geometry_score <= 1.0
 
 
-@requires_torch
 class TestDetectorRegistryProperties:
     """Property-based tests for DetectorRegistry invariants."""
 

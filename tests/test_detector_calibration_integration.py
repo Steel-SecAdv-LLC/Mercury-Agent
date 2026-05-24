@@ -8,19 +8,10 @@ Tests that all detectors properly support auto-calibration and that the
 calibration system solves the F1=0 problem across all detector types.
 """
 
-import importlib.util
-
 import numpy as np
 import pytest
 
-# Tests below exercise detectors / oracles / orchestrators whose
-# production code imports torch at module level.  Skip cleanly
-# at class boundaries when the optional ``ml`` extra is absent.
-_HAS_TORCH = importlib.util.find_spec("torch") is not None
-requires_torch = pytest.mark.skipif(not _HAS_TORCH, reason="torch (optional 'ml' extra) required")
 
-
-@requires_torch
 class TestAllDetectorsAutoCalibration:
     """Test auto-calibration across all detector types."""
 
@@ -186,7 +177,6 @@ class TestF1ZeroProblemAllDetectors:
         assert result_cal["threshold"] <= result_cal["scores"].max()
 
 
-@requires_torch
 class TestCalibratedThresholdMethods:
     """Test different calibration methods across detectors."""
 
@@ -236,7 +226,6 @@ class TestCalibratedThresholdMethods:
         assert diagnostics.n_samples == len(X)
 
 
-@requires_torch
 class TestEngineCalibration:
     """Test engine-level calibration methods."""
 

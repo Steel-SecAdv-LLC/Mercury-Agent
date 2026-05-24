@@ -69,6 +69,87 @@ if HAS_TORCH:
 DEFAULT_TEST_SEED = 42
 
 
+# ---------------------------------------------------------------------------
+# Session-start ML-extra gate
+# ---------------------------------------------------------------------------
+#
+# Mercury Agent's test suite exercises engine, fusion, and detector code
+# whose production modules import torch at module load.  Historically this
+# was managed with ~30 class-level ``@pytest.mark.skipif(not _HAS_TORCH,
+# ...)`` decorators sprinkled across nine test files: when an operator
+# (or a CI lane) ran pytest without the ``[ml]`` extra, those classes
+# would silently turn into SKIPPED records and the run would report
+# green.  That pattern masked real regressions — a test that had become
+# importable because of an upstream API rename, but was now skipped on
+# the same lane that should be exercising it, looked identical to a
+# clean pass.
+#
+# This hook is the replacement: a single, declarative env-validation
+# gate.  CI lanes that install the ``[ml]`` extra (Core Tests, ML Tests,
+# Neuro-Symbolic Tests, the release lane after this PR) set the env
+# var ``MERCURY_REQUIRES_ML=1`` to declare the contract.  At session
+# start, the gate verifies the contract holds:
+#
+# * Contract declared + torch present  -> session continues normally.
+# * Contract declared + torch missing  -> session aborts at start with
+#   one loud, actionable message.  No "1842 tests skipped" green-wash.
+# * Contract NOT declared              -> session continues.  Tests
+#   whose imports require torch will fail at collection / runtime with
+#   the underlying ImportError; that is the correct failure mode for
+#   the minimal-install lanes (dataset-reachability, network-tests,
+#   pqc-production-check) which intentionally only collect tests their
+#   install set covers.
+#
+# The override env var is read on every session start so the gate
+# cannot be sidestepped silently — flipping it off is a deliberate
+# operator action visible in the workflow YAML.
+
+
+def pytest_sessionstart(session: pytest.Session) -> None:  # noqa: D401
+    """Fail-loud env gate: refuse to run if ``[ml]`` was promised but is absent.
+
+    The contract is declared by ``MERCURY_REQUIRES_ML=1``.  When that
+    flag is set and :mod:`torch` is not importable, the entire pytest
+    session is aborted with a clear remediation message instead of
+    proceeding into a run where torch-required tests would silently
+    skip into a misleading green.
+
+    The gate is intentionally unconditional once the flag is set: there
+    is no "second-chance" override that re-enables silent skipping.
+    The operator either provides the dependency the CI lane declared
+    it needs, or pytest refuses to lie about coverage.
+    """
+    if os.environ.get("MERCURY_REQUIRES_ML") != "1":
+        return
+    if HAS_TORCH:
+        return
+    pytest.exit(
+        "\n"
+        "===============================================================\n"
+        "  Mercury Agent ML-extra gate (MERCURY_REQUIRES_ML=1)\n"
+        "===============================================================\n"
+        "This pytest session declared the [ml] extra as a hard contract,\n"
+        "but `import torch` cannot be resolved in this interpreter.\n"
+        "\n"
+        "Likely causes:\n"
+        "  * The CI step ran `pip install -e '.[dev]'` without `[ml]`.\n"
+        "  * A pinned torch wheel failed to resolve and the install step\n"
+        "    succeeded with a warning instead of failing.\n"
+        "  * The lane was retargeted to a minimal-install image but the\n"
+        "    workflow YAML still exports MERCURY_REQUIRES_ML=1.\n"
+        "\n"
+        "Remediation:\n"
+        "  pip install -e '.[ml,dev]'        # full ML test surface\n"
+        "  pip install -e '.[all,dev]'       # everything the ml-tests lane installs\n"
+        "\n"
+        "If this lane intentionally does NOT need [ml], unset\n"
+        "MERCURY_REQUIRES_ML in the workflow YAML and select the test\n"
+        "subset explicitly (see dataset-reachability.yml for the pattern).\n"
+        "===============================================================\n",
+        returncode=2,
+    )
+
+
 @pytest.fixture(autouse=True)
 def set_random_seed() -> Iterator[None]:
     """

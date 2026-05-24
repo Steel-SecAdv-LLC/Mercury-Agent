@@ -20,8 +20,6 @@ from __future__ import annotations
 
 from typing import Any
 
-import pytest
-
 """
 Test detector modules
 """
@@ -67,13 +65,7 @@ def test_spatial_detector(sample_data: Any) -> None:
 
 
 def test_dimensional_detector(sample_data: Any) -> None:
-    """Test dimensional anomaly detection.
-
-    ``DimensionalAnalyzer`` constructs a ``NeuralProjection`` that
-    requires torch — skip cleanly when the optional ``ml`` extra is
-    absent.  The other detector tests in this file (statistical,
-    temporal, spatial, directive) run without torch."""
-    pytest.importorskip("torch")
+    """Test dimensional anomaly detection"""
     detector = DimensionalAnalyzer()
     detector.fit(sample_data)
     result = detector.detect(sample_data)

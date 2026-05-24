@@ -76,13 +76,7 @@ class TestRealDataValidation:
         ), "Lower threshold should detect more anomalies"
 
     def test_encrypted_traffic_detection(self) -> None:
-        """Test encrypted traffic anomaly detection on simulated PCAP.
-
-        ``CyberFortress`` instantiates ``EncryptedTrafficAnomalyDetector``
-        which requires torch.  The other tests in this class operate on
-        pure-NumPy hash chains and zero-day simulators and do not need
-        torch — only this single test method needs the skip guard."""
-        pytest.importorskip("torch")
+        """Test encrypted traffic anomaly detection on simulated PCAP."""
         fortress = CyberFortress()
 
         results = []

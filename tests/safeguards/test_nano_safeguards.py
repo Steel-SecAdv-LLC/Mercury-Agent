@@ -22,8 +22,6 @@ from typing import Any
 
 """Tests for Nano-Safeguards micro-anomaly detection."""
 
-import importlib.util
-
 import numpy as np
 import pytest
 
@@ -34,12 +32,6 @@ from omni_mercury_engine.safeguards.nano_safeguards import (
     NanoSafeguardResult,
     ResonanceAnalyzer,
 )
-
-# Tests below exercise detectors / oracles / orchestrators whose
-# production code imports torch at module level.  Skip cleanly
-# at class boundaries when the optional ``ml`` extra is absent.
-_HAS_TORCH = importlib.util.find_spec("torch") is not None
-requires_torch = pytest.mark.skipif(not _HAS_TORCH, reason="torch (optional 'ml' extra) required")
 
 
 class TestNanoSafeguardResult:
@@ -81,7 +73,6 @@ class TestNanoSafeguardResult:
         assert len(result.recommended_actions) == 1
 
 
-@requires_torch
 class TestHierarchicalMicroScanner:
     """Tests for HierarchicalMicroScanner."""
 
@@ -114,7 +105,6 @@ class TestHierarchicalMicroScanner:
         assert len(features) == 4
 
 
-@requires_torch
 class TestResonanceAnalyzer:
     """Tests for ResonanceAnalyzer."""
 
@@ -154,7 +144,6 @@ class TestResonanceAnalyzer:
         assert result["resonance_score"] == 0.0
 
 
-@requires_torch
 class TestNanoSafeguardDetector:
     """Tests for NanoSafeguardDetector."""
 
@@ -270,7 +259,6 @@ class TestNanoSafeguardDetector:
         assert isinstance(result.recommended_actions, list)
 
 
-@requires_torch
 class TestNanoSafeguardIntegration:
     """Integration tests for nano-safeguards."""
 
@@ -315,7 +303,6 @@ class TestNanoSafeguardIntegration:
             assert 0.0 <= result.confidence <= 1.0
 
 
-@requires_torch
 class TestNanoSafeguardEdgeCases:
     """Edge case tests for nano-safeguards."""
 

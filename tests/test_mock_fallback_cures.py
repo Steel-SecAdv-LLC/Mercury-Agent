@@ -21,10 +21,6 @@ import pytest
 
 
 def test_mock_llm_adapter_raises() -> None:
-    # ``llm_adapter`` transitively imports torch via base_foundation;
-    # the mock-fallback assertion can only be verified when the optional
-    # ``ml`` extra is installed.
-    pytest.importorskip("torch")
     from omni_mercury_engine.models.foundation.llm_adapter import MockLLMAdapter
 
     with pytest.raises(NotImplementedError, match="MockLLMAdapter cannot be used"):
@@ -37,8 +33,6 @@ def test_mock_llm_adapter_raises() -> None:
 
 
 def test_mock_lvlm_backend_initialize_raises() -> None:
-    # The VLM backends extend torch.nn.Module; skip when torch absent.
-    pytest.importorskip("torch")
     """MockLVLMBackend.initialize() raises NotImplementedError."""
     from omni_mercury_engine.detectors.vlm.lvlm_backends import MockLVLMBackend
 
