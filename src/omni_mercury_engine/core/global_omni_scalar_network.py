@@ -535,6 +535,42 @@ class GlobalOmniScalarNetwork:
     MIN_MORALITY = 1.20
     TARGET_BOOST_RATIO = 0.60
 
+    # ------------------------------------------------------------------
+    # Pure-measurement scalars excluded from the σ_Immutable input vector.
+    #
+    # The σ_Immutable trained gate (see
+    # ``security/sigma_immutable_gate.py``) was trained on a fixed
+    # 256-D layout where ``[SIGMA_USED_BAND_END, SIGMA_IMMUTABLE_DIM)``
+    # is zero-padding by contract.  ``_collect_all_scalars`` produces
+    # the vector that gets fed to the gate, so growing it past
+    # ``SIGMA_USED_BAND_END=180`` would overflow into the zero-padded
+    # tail and the trained network would interpret the leak as a
+    # poisoned input.
+    #
+    # The ISO/IEC 25010, Halstead, McCabe + cognitive, Maintainability
+    # Index SEI/VS, and NIST SAMATE families are diagnostic measurement
+    # scalars (descriptions of code under analysis), not operational
+    # ethical signals that drive the boundary's decision.  They remain
+    # in ``scalar_groups[SOFTWARE_ENGINEERING]`` for discoverability,
+    # registration, and downstream reporting; they are filtered out
+    # here so the σ_Immutable layout contract is preserved.
+    # ------------------------------------------------------------------
+    _METRIC_ONLY_PREFIXES: tuple[str, ...] = (
+        "omni_iso25010_",
+        "omni_halstead_",
+        "omni_mccabe_",
+        "omni_samate_",
+    )
+    _METRIC_ONLY_KEYS: frozenset[str] = frozenset(
+        {
+            "omni_cognitive_complexity_sonar",
+            "omni_npath_complexity",
+            "omni_maintainability_index_sei",
+            "omni_maintainability_index_vs",
+            "omni_maintainability_index_delta",
+        }
+    )
+
     def __new__(cls, *args: Any, **kwargs: Any) -> GlobalOmniScalarNetwork:
         """Singleton pattern implementation."""
         if cls._instance is None:
@@ -1231,11 +1267,35 @@ class GlobalOmniScalarNetwork:
             "bias_audit": self.perform_bias_audit(),
         }
 
+    @classmethod
+    def _is_metric_only_scalar(cls, key: str) -> bool:
+        """Return True for diagnostic measurement scalars excluded from the σ vector.
+
+        See the ``_METRIC_ONLY_PREFIXES``/``_METRIC_ONLY_KEYS`` class
+        attributes for the rationale.  These keys live in
+        ``scalar_groups`` for discoverability but must not enter the
+        trained σ_Immutable gate's input vector.
+        """
+        if key in cls._METRIC_ONLY_KEYS:
+            return True
+        return any(key.startswith(prefix) for prefix in cls._METRIC_ONLY_PREFIXES)
+
     def _collect_all_scalars(self) -> dict[str, float]:
-        """Collect all scalars from all groups."""
+        """Collect operational scalars (excludes pure-measurement scalars).
+
+        Diagnostic ISO/IEC 25010, Halstead, McCabe + cognitive,
+        Maintainability Index SEI/VS, and NIST SAMATE entries live in
+        ``scalar_groups[SOFTWARE_ENGINEERING]`` but are filtered out
+        here so the σ_Immutable trained gate continues to see the
+        fixed operational layout it was trained on.  See the class-
+        level ``_METRIC_ONLY_PREFIXES`` comment for the contract.
+        """
         all_scalars: dict[str, float] = {}
         for group_scalars in self.scalar_groups.values():
-            all_scalars.update(group_scalars)
+            for key, value in group_scalars.items():
+                if self._is_metric_only_scalar(key):
+                    continue
+                all_scalars[key] = value
         return all_scalars
 
     def _prepare_dimensional_states(

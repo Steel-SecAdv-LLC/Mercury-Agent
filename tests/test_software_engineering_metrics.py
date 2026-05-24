@@ -194,6 +194,57 @@ class TestNISTSAMATE:
             assert se_scalars[key] > 1.0
 
 
+class TestSigmaImmutableLayoutBudget:
+    """The σ_Immutable trained gate has a fixed 256-D input layout where
+    the active band ends at SIGMA_USED_BAND_END=180.  Pure-measurement
+    scalars (ISO 25010, Halstead, McCabe, NIST SAMATE, MI variants)
+    must NOT enter ``_collect_all_scalars`` or the trained network sees
+    non-zero values in its reserved zero-padded tail and rejects the
+    vector as poisoned.
+    """
+
+    def test_operational_scalar_count_within_band_budget(self) -> None:
+        from omni_mercury_engine.security.sigma_immutable_gate import (
+            SIGMA_USED_BAND_END,
+        )
+
+        gosnn = GlobalOmniScalarNetwork()
+        operational = gosnn._collect_all_scalars()
+        assert len(operational) <= SIGMA_USED_BAND_END, (
+            f"_collect_all_scalars returned {len(operational)} scalars; "
+            f"σ_Immutable trained network requires <= {SIGMA_USED_BAND_END}"
+        )
+
+    def test_metric_only_scalars_excluded(self) -> None:
+        gosnn = GlobalOmniScalarNetwork()
+        operational = gosnn._collect_all_scalars()
+        for key in operational:
+            assert not key.startswith("omni_iso25010_"), key
+            assert not key.startswith("omni_halstead_"), key
+            assert not key.startswith("omni_mccabe_"), key
+            assert not key.startswith("omni_samate_"), key
+            assert key != "omni_cognitive_complexity_sonar"
+            assert key != "omni_npath_complexity"
+            assert key != "omni_maintainability_index_sei"
+            assert key != "omni_maintainability_index_vs"
+            assert key != "omni_maintainability_index_delta"
+
+    def test_metric_only_scalars_still_discoverable(self) -> None:
+        # They must remain accessible via scalar_groups[SOFTWARE_ENGINEERING]
+        # for inspection/registration/reporting -- only the σ vector excludes them.
+        gosnn = GlobalOmniScalarNetwork()
+        se = gosnn.scalar_groups[ScalarGroup.SOFTWARE_ENGINEERING]
+        for key in (
+            "omni_iso25010_sec_integrity",
+            "omni_halstead_delivered_bugs",
+            "omni_mccabe_cyclomatic_complexity",
+            "omni_cognitive_complexity_sonar",
+            "omni_samate_supply_chain_assurance",
+            "omni_maintainability_index_sei",
+        ):
+            assert key in se, f"{key} should remain in scalar_groups[SE]"
+
+
 class TestGroupInvariants:
     """Cross-cutting invariants on the extended SOFTWARE_ENGINEERING group."""
 
