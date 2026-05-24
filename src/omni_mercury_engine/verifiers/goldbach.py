@@ -69,6 +69,7 @@ class Verdict:
     checker: str = "deterministic_miller_rabin"
 
     def as_metadata(self) -> dict[str, object]:
+        """Return a JSON-friendly mapping describing this verdict."""
         return {
             "valid": self.valid,
             "reason": self.reason,

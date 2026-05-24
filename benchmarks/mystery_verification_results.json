@@ -1,0 +1,101 @@
+{
+  "benchmark": "mystery_verification",
+  "lean_available": true,
+  "claim_count": 12,
+  "claims": [
+    {
+      "tier": "number_theory",
+      "label": "goldbach 100=3+97",
+      "is_true": true,
+      "oracle_accepts": true
+    },
+    {
+      "tier": "number_theory",
+      "label": "goldbach 100=9+91",
+      "is_true": false,
+      "oracle_accepts": false
+    },
+    {
+      "tier": "number_theory",
+      "label": "twin (11,13)",
+      "is_true": true,
+      "oracle_accepts": true
+    },
+    {
+      "tier": "number_theory",
+      "label": "twin (7,9)",
+      "is_true": false,
+      "oracle_accepts": false
+    },
+    {
+      "tier": "dynamical",
+      "label": "collatz 6 trajectory",
+      "is_true": true,
+      "oracle_accepts": true
+    },
+    {
+      "tier": "dynamical",
+      "label": "collatz 6 tampered",
+      "is_true": false,
+      "oracle_accepts": false
+    },
+    {
+      "tier": "physics",
+      "label": "E=mc^2",
+      "is_true": true,
+      "oracle_accepts": true
+    },
+    {
+      "tier": "physics",
+      "label": "E=mc",
+      "is_true": false,
+      "oracle_accepts": false
+    },
+    {
+      "tier": "paradox",
+      "label": "liar defense",
+      "is_true": true,
+      "oracle_accepts": true
+    },
+    {
+      "tier": "paradox",
+      "label": "bogus defense",
+      "is_true": false,
+      "oracle_accepts": false
+    },
+    {
+      "tier": "theorem",
+      "label": "lean 2+2=4",
+      "is_true": true,
+      "oracle_accepts": true
+    },
+    {
+      "tier": "theorem",
+      "label": "lean 2+2=5",
+      "is_true": false,
+      "oracle_accepts": false
+    }
+  ],
+  "credulous_baseline": {
+    "tp": 6,
+    "fp": 6,
+    "tn": 0,
+    "fn": 0,
+    "accuracy": 0.5,
+    "fabrication_detection_rate": 0.0
+  },
+  "oracle_grounded": {
+    "tp": 6,
+    "fp": 0,
+    "tn": 6,
+    "fn": 0,
+    "accuracy": 1.0,
+    "fabrication_detection_rate": 1.0
+  },
+  "delta": {
+    "fabrication_detection_rate": 1.0,
+    "accuracy": 0.5,
+    "grounded_mystery_scalars_before": 0,
+    "grounded_mystery_scalars_after": 8
+  }
+}

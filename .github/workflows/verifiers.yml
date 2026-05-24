@@ -1,0 +1,65 @@
+name: Verifiers
+
+# Oracle-validated verifier family: runs the full suite (including the live Lean theorem tier)
+# and the mystery-verification benchmark. Isolated from the main CI workflow by design.
+
+on:
+  pull_request:
+    paths:
+      - "src/omni_mercury_engine/verifiers/**"
+      - "tests/test_goldbach_verifier.py"
+      - "tests/test_twin_primes_verifier.py"
+      - "tests/test_collatz_verifier.py"
+      - "tests/test_lean_theorem_verifier.py"
+      - "tests/test_physics_verifier.py"
+      - "tests/test_paradox_verifier.py"
+      - "tests/test_verifier_oracles.py"
+      - "tests/test_mystery_registry.py"
+      - "benchmarks/mystery_verification_benchmark.py"
+      - ".github/workflows/verifiers.yml"
+  workflow_dispatch:
+
+jobs:
+  verifiers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install package and test tools
+        run: |
+          python -m pip install --upgrade "pip>=26.1"
+          pip install -e ".[ml]"
+          pip install pytest pytest-asyncio
+
+      - name: Install Lean 4 (theorem-tier oracle)
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -o elan-init.sh
+          sh elan-init.sh -y --default-toolchain stable
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Verify Lean is available
+        run: lean --version
+
+      - name: Run verifier test suite (Lean live)
+        run: |
+          pytest \
+            tests/test_goldbach_verifier.py \
+            tests/test_twin_primes_verifier.py \
+            tests/test_collatz_verifier.py \
+            tests/test_lean_theorem_verifier.py \
+            tests/test_physics_verifier.py \
+            tests/test_paradox_verifier.py \
+            tests/test_verifier_oracles.py \
+            tests/test_mystery_registry.py \
+            -v --no-cov
+
+      - name: Run mystery-verification benchmark and assert the delta
+        run: |
+          python benchmarks/mystery_verification_benchmark.py --out /tmp/mystery.json
+          python -c "import json; d = json.load(open('/tmp/mystery.json')); assert d['oracle_grounded']['fabrication_detection_rate'] == 1.0, d; assert d['credulous_baseline']['fabrication_detection_rate'] == 0.0, d; print('delta verified: fabrication detection 0.00 -> 1.00')"

@@ -18,24 +18,43 @@ from __future__ import annotations
 
 """Oracle-validated verifiers that ground GOSNN scalars in independently checkable truth.
 
-Each verifier follows the same shape -- a certificate adjudicated by an oracle that is
-independent of any model, with the resulting scalar's value decided by the verdict:
+Every verifier follows the same shape -- a certificate adjudicated by an oracle independent of
+any model, with the resulting scalar's value decided by the verdict. Three tiers are covered:
 
-* :mod:`primality`    -- shared deterministic primality oracle
-* :mod:`goldbach`     -- Goldbach partition instances (number-theory tier)
-* :mod:`twin_primes`  -- twin-prime pair instances (number-theory tier)
-* :mod:`collatz`      -- Collatz trajectory instances (dynamical tier, semi-decidable)
-* :mod:`lean_theorem` -- theorems checked by the Lean 4 kernel (formal-proof tier)
+* number-theory / dynamical instances: :mod:`goldbach`, :mod:`twin_primes`, :mod:`collatz`
+  (shared oracle: :mod:`primality`)
+* physical-law consistency: :mod:`physics` (shared oracle: :mod:`dimensional`)
+* formal proof and logical consistency: :mod:`lean_theorem`, :mod:`paradox`
+  (shared oracle: :mod:`propositional`)
+
+:class:`~omni_mercury_engine.verifiers.registry.MysteryRegistry` orchestrates all of them with
+provenance tracking and a bounded, σ_Immutable-safe scalar footprint.
 """
 
-from omni_mercury_engine.verifiers import collatz, goldbach, lean_theorem, twin_primes
+from omni_mercury_engine.verifiers import (
+    collatz,
+    dimensional,
+    goldbach,
+    lean_theorem,
+    paradox,
+    physics,
+    propositional,
+    twin_primes,
+)
 from omni_mercury_engine.verifiers.primality import _is_prime_trial, is_prime
+from omni_mercury_engine.verifiers.registry import LedgerEntry, MysteryRegistry
 
 __all__ = [
+    "LedgerEntry",
+    "MysteryRegistry",
     "_is_prime_trial",
     "collatz",
+    "dimensional",
     "goldbach",
     "is_prime",
     "lean_theorem",
+    "paradox",
+    "physics",
+    "propositional",
     "twin_primes",
 ]

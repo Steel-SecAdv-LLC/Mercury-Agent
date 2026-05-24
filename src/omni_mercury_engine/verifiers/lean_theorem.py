@@ -60,6 +60,7 @@ class LeanVerdict:
     checker: str = "lean4"
 
     def as_metadata(self) -> dict[str, object]:
+        """Return a JSON-friendly mapping describing this verdict."""
         return {
             "valid": self.valid,
             "available": self.available,

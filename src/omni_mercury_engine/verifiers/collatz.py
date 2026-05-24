@@ -63,9 +63,11 @@ class Verdict:
 
     @property
     def valid(self) -> bool:
+        """Whether the trajectory was confirmed to reach 1."""
         return self.status is Status.CONFIRMED
 
     def as_metadata(self) -> dict[str, object]:
+        """Return a JSON-friendly mapping describing this verdict."""
         return {"status": self.status.value, "reason": self.reason, "n": self.n}
 
 
