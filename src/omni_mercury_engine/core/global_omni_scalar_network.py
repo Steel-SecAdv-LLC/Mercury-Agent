@@ -561,6 +561,32 @@ class GlobalOmniScalarNetwork:
     TARGET_BOOST_RATIO = 0.60
 
     # ------------------------------------------------------------------
+    # Narrative/personality tuning scalars that live in the ETHICAL group
+    # but are NOT ethical safety floors.
+    #
+    # These three carry the narrative engine's output-style knobs (see
+    # ``narrative/personality.py`` and ``narrative/engine.py``): how much
+    # reasoning to expose, how verbose to make explanations, how forgiving
+    # the persona reads.  Their calibrated defaults are intentionally low
+    # (forgiveness 0.10, transparency 0.18, explainability 0.90) precisely
+    # because they tune *tone*, not ethics.  The σ_Immutable trainer's
+    # labelling rule ("all 27 ETHICAL dims >= 0.93") wrongly treats them
+    # as hard floors, which is why the production-default vector — which
+    # the engine actually feeds the gate — sits below that rule yet must
+    # operate.  The deterministic critical-ethical floor
+    # (``SigmaImmutableGate.enforce_ethical_floor``) therefore excludes
+    # them by name: the trained network's soft score still sees them, but
+    # they cannot trip (or, being low, falsely trip) the hard floor.
+    # ------------------------------------------------------------------
+    _NARRATIVE_ETHICAL_SCALARS: frozenset[str] = frozenset(
+        {
+            "omniforgiveness",
+            "omnitransparency",
+            "omniexplainability",
+        }
+    )
+
+    # ------------------------------------------------------------------
     # Diagnostic measurement scalars excluded from the σ_Immutable input
     # vector and from every operational aggregation (fusion, hierarchical
     # accountability score, dimensional-state preparation).
@@ -1436,6 +1462,31 @@ class GlobalOmniScalarNetwork:
         """
         return {
             k: v for k, v in self.scalar_groups[group].items() if self._is_metric_only_scalar(k)
+        }
+
+    def critical_ethical_anchors(self) -> dict[str, float]:
+        """Return the ETHICAL-group scalars subject to the hard ethical floor.
+
+        These are the genuine civilization-first ethical anchors
+        (benevolence, morality, empathy, justice, integrity,
+        accountability, …) whose collapse is a categorical safety breach.
+        Narrative/personality tuning scalars
+        (:data:`_NARRATIVE_ETHICAL_SCALARS`) are excluded — they live in
+        the ETHICAL group for historical reasons but tune output tone,
+        not ethics, and their calibrated defaults are intentionally low.
+
+        Consumed by :meth:`SigmaImmutableGate.enforce_ethical_floor` so
+        the deterministic floor and the scalar definitions share a single
+        source of truth (this method), never a duplicated name list.
+
+        Returns:
+            Mapping of anchor scalar name -> current value.
+        """
+        ethical = self.scalar_groups.get(ScalarGroup.ETHICAL, {})
+        return {
+            name: float(value)
+            for name, value in ethical.items()
+            if name not in self._NARRATIVE_ETHICAL_SCALARS
         }
 
     def _collect_all_scalars(self) -> dict[str, float]:

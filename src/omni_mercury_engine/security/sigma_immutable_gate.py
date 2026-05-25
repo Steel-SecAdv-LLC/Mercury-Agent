@@ -124,6 +124,21 @@ SIGMA_IMMUTABLE_IMPERMISSIBLE_HIGH: float = 0.5
 #: automatically.
 _PERMISSIBLE_INPUT_RANGE: float = 1.0 - MINIMUM_BENEVOLENCE_FLOOR
 
+#: Absolute baseline every genuine ethical safety anchor must hold at the
+#: anomaly-detection boundary.  Derived from
+#: :data:`MINIMUM_BENEVOLENCE_FLOOR` (the documented "absolute baseline
+#: below which the gate must fire", ``cognitive.ethical_bounding``): the
+#: deterministic floor generalises the established benevolence floor to
+#: every civilization-first ethical anchor, so a single collapsed anchor
+#: (e.g. benevolence driven to 0) is a categorical breach the hard gate
+#: refuses regardless of what the trained network's soft score says.
+#: This closes the false-assurance leak the discrimination probe found
+#: (``scripts/sigma_immutable_discrimination_check.py``): the synthetic-
+#: trained network, on its own, passed vectors with a single critical
+#: ethical dim zeroed.  The floor is deterministic (no synthetic data
+#: gates the safety-critical decision) and fail-closed.
+CRITICAL_ETHICAL_FLOOR: float = MINIMUM_BENEVOLENCE_FLOOR
+
 
 def project_benevolence_to_sigma_band(benevolence_score: float) -> float:
     """Project a clamped benevolence score into the σ_Immutable input band.
@@ -408,6 +423,73 @@ class SigmaImmutableGate:
             backend="torch",
         )
 
+    def critical_ethical_floor_violations(
+        self, anchors: dict[str, float]
+    ) -> list[tuple[str, float]]:
+        """Return the ethical anchors that sit below :data:`CRITICAL_ETHICAL_FLOOR`.
+
+        This is the deterministic half of the boundary gate.  It does not
+        touch the trained network — it is a pure, synthetic-data-free
+        threshold check on the *named* ethical safety anchors supplied by
+        :meth:`GlobalOmniScalarNetwork.critical_ethical_anchors`.
+
+        Args:
+            anchors: Mapping of ethical-anchor name -> value (already
+                excludes narrative/personality tuning scalars).
+
+        Returns:
+            List of ``(name, value)`` pairs below the floor, in input
+            order.  Empty when every anchor holds the floor.
+        """
+        return [
+            (name, float(value))
+            for name, value in anchors.items()
+            if float(value) < CRITICAL_ETHICAL_FLOOR
+        ]
+
+    def enforce_ethical_floor(
+        self,
+        action: str,
+        anchors: dict[str, float],
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        """Deterministic critical-ethical hard floor, composed before the network.
+
+        Raises a fail-closed violation if any genuine ethical safety
+        anchor has collapsed below :data:`CRITICAL_ETHICAL_FLOOR`.  Callers
+        run this *and* :meth:`enforce` (the trained-network check); the
+        boundary passes only when both do, so the synthetic-trained
+        network can never grant false assurance for a categorical ethical
+        breach.
+
+        Args:
+            action: Human-readable description of the gated action.
+            anchors: Named ethical safety anchors (see
+                :meth:`GlobalOmniScalarNetwork.critical_ethical_anchors`).
+            details: Optional structured context for any violation.
+
+        Raises:
+            EthicalConstraintViolationError: With
+                ``check="sigma_immutable_ethical_floor"`` when one or more
+                anchors are below the floor.
+        """
+        violations = self.critical_ethical_floor_violations(anchors)
+        if not violations:
+            return
+        merged_details: dict[str, Any] = {"action": action}
+        if details:
+            merged_details.update(details)
+        merged_details["floor"] = CRITICAL_ETHICAL_FLOOR
+        merged_details["floor_violations"] = dict(violations)
+        worst_value = min(value for _, value in violations)
+        raise EthicalConstraintViolationError(
+            action=action,
+            score=worst_value,
+            threshold=CRITICAL_ETHICAL_FLOOR,
+            check="sigma_immutable_ethical_floor",
+            details=merged_details,
+        )
+
     def enforce(
         self,
         action: str,
@@ -485,6 +567,7 @@ def get_sigma_immutable_gate() -> SigmaImmutableGate:
 
 __all__ = [
     "CORPUS_USED_DIM",
+    "CRITICAL_ETHICAL_FLOOR",
     "SIGMA_ETHICAL_BAND_END",
     "SIGMA_IMMUTABLE_DEFAULT_THRESHOLD",
     "SIGMA_IMMUTABLE_DIM",
