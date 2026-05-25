@@ -30,7 +30,7 @@ on:
       - "tests/test_verifier_oracles.py"
       - "tests/test_mystery_registry.py"
       - "tests/test_three_state_contract.py"
-      - "tests/security/test_sigma_immutable_discrimination.py"
+      - "tests/test_sigma_immutable_discrimination.py"
       - "benchmarks/mystery_verification_benchmark.py"
       - "scripts/sigma_immutable_discrimination_check.py"
       - ".github/workflows/verifiers.yml"
@@ -88,7 +88,7 @@ jobs:
             tests/test_verifier_oracles.py \
             tests/test_mystery_registry.py \
             tests/test_three_state_contract.py \
-            tests/security/test_sigma_immutable_discrimination.py \
+            tests/test_sigma_immutable_discrimination.py \
             -v -p no:cov
 
       - name: σ_Immutable discrimination probe (gate must discriminate, not false-assure)
