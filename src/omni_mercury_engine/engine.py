@@ -2432,6 +2432,24 @@ class OmniMercuryEngine(LoggerMixin):
                 # boundary's verdict matches the gate baked into GOSNN.
                 full_scalars = gosnn._collect_all_scalars()
                 scalar_vector = np.array(list(full_scalars.values()), dtype=np.float64)
+                # Deterministic critical-ethical floor, composed *before*
+                # the trained network.  The synthetic-trained gate, on its
+                # own, passed vectors with a single critical ethical dim
+                # zeroed (e.g. benevolence -> 0); the floor makes a
+                # collapsed anchor a categorical, fail-closed refusal that
+                # no learned score can override.  Anchor names come from
+                # GOSNN (single source of truth) and exclude the narrative
+                # tuning scalars that merely live in the ETHICAL group.
+                self._sigma_immutable_gate.enforce_ethical_floor(
+                    action=(
+                        f"OmniMercuryEngine.detect_with_fusion:" f"domain={domain or 'general'}"
+                    ),
+                    anchors=gosnn.critical_ethical_anchors(),
+                    details={
+                        "boundary": "OmniMercuryEngine.detect_with_fusion",
+                        "domain": domain,
+                    },
+                )
                 evaluation = self._sigma_immutable_gate.enforce(
                     action=(
                         f"OmniMercuryEngine.detect_with_fusion:" f"domain={domain or 'general'}"

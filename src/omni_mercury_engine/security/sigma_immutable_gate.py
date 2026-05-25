@@ -33,6 +33,7 @@ A failed verification is recorded once and turns every subsequent
 from __future__ import annotations
 
 import logging
+import math
 import threading
 from dataclasses import dataclass
 from pathlib import Path
@@ -123,6 +124,32 @@ SIGMA_IMMUTABLE_IMPERMISSIBLE_HIGH: float = 0.5
 #: from MINIMUM_BENEVOLENCE_FLOOR so a future floor change propagates
 #: automatically.
 _PERMISSIBLE_INPUT_RANGE: float = 1.0 - MINIMUM_BENEVOLENCE_FLOOR
+
+#: Per-anchor hard floor every genuine ethical safety anchor must clear at
+#: the anomaly-detection boundary.  Set to the σ_Immutable trainer's
+#: **ethical-band lower bound** (``SIGMA_IMMUTABLE_DEFAULT_THRESHOLD``,
+#: 0.93): the labelling rule in ``scripts/train_sigma_immutable.py`` draws
+#: every positive sample's ethical dimensions from ``U[0.93, 2.0]``, so an
+#: ethical anchor below 0.93 is, by that rule, a *negative*.  The
+#: deterministic floor enforces that per-anchor condition directly --
+#: exactly what the soft 256->64->1 network was supposed to learn but
+#: only approximates.
+#:
+#: Why 0.93 and not the lower ``MINIMUM_BENEVOLENCE_FLOOR`` (0.70): a
+#: held-out adversarial set showed a 0.70 floor leaves a [0.70, 0.93)
+#: gap.  Single-anchor degradation into that band (e.g. benevolence 0.80,
+#: morality 0.85) passed the floor and the network -- whose score is
+#: insensitive to a single anchor when the rest sit at their >=0.99
+#: defaults -- still scored above threshold.  0.93 closes the gap while
+#: keeping margin: every genuine anchor defaults to >= 0.99 (the lowest is
+#: omnibenevolence == BENEVOLENCE_IMMUTABLE), so the healthy operating
+#: point clears the floor by >= 0.06.  Narrative tuning scalars are
+#: excluded by name (see ``GlobalOmniScalarNetwork.critical_ethical_anchors``),
+#: so their intentionally-low defaults never trip it.
+#:
+#: The floor is deterministic (no synthetic data gates the safety-critical
+#: decision) and fail-closed.
+CRITICAL_ETHICAL_FLOOR: float = SIGMA_IMMUTABLE_DEFAULT_THRESHOLD
 
 
 def project_benevolence_to_sigma_band(benevolence_score: float) -> float:
@@ -408,6 +435,81 @@ class SigmaImmutableGate:
             backend="torch",
         )
 
+    def critical_ethical_floor_violations(
+        self, anchors: dict[str, float]
+    ) -> list[tuple[str, float]]:
+        """Return the ethical anchors that sit below :data:`CRITICAL_ETHICAL_FLOOR`.
+
+        This is the deterministic half of the boundary gate.  It does not
+        touch the trained network — it is a pure, synthetic-data-free
+        threshold check on the *named* ethical safety anchors supplied by
+        :meth:`GlobalOmniScalarNetwork.critical_ethical_anchors`.
+
+        A non-finite anchor (``NaN`` / ``±inf``) is always a violation:
+        ``NaN < floor`` is ``False``, so a collapsed-to-NaN anchor would
+        otherwise slip the floor *and* the network (which coerces NaN->0
+        and scores the result as PASS) — a fail-open hole.  The floor is
+        fail-closed, so any value that is not a finite number at-or-above
+        the floor refuses.
+
+        Args:
+            anchors: Mapping of ethical-anchor name -> value (already
+                excludes narrative/personality tuning scalars).
+
+        Returns:
+            List of ``(name, value)`` pairs that fail the floor (non-finite
+            or below it), in input order.  Empty when every anchor holds a
+            finite value at-or-above the floor.
+        """
+        return [
+            (name, float(value))
+            for name, value in anchors.items()
+            if not math.isfinite(float(value)) or float(value) < CRITICAL_ETHICAL_FLOOR
+        ]
+
+    def enforce_ethical_floor(
+        self,
+        action: str,
+        anchors: dict[str, float],
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        """Deterministic critical-ethical hard floor, composed before the network.
+
+        Raises a fail-closed violation if any genuine ethical safety
+        anchor has collapsed below :data:`CRITICAL_ETHICAL_FLOOR`.  Callers
+        run this *and* :meth:`enforce` (the trained-network check); the
+        boundary passes only when both do, so the synthetic-trained
+        network can never grant false assurance for a categorical ethical
+        breach.
+
+        Args:
+            action: Human-readable description of the gated action.
+            anchors: Named ethical safety anchors (see
+                :meth:`GlobalOmniScalarNetwork.critical_ethical_anchors`).
+            details: Optional structured context for any violation.
+
+        Raises:
+            EthicalConstraintViolationError: With
+                ``check="sigma_immutable_ethical_floor"`` when one or more
+                anchors are below the floor.
+        """
+        violations = self.critical_ethical_floor_violations(anchors)
+        if not violations:
+            return
+        merged_details: dict[str, Any] = {"action": action}
+        if details:
+            merged_details.update(details)
+        merged_details["floor"] = CRITICAL_ETHICAL_FLOOR
+        merged_details["floor_violations"] = dict(violations)
+        worst_value = min(value for _, value in violations)
+        raise EthicalConstraintViolationError(
+            action=action,
+            score=worst_value,
+            threshold=CRITICAL_ETHICAL_FLOOR,
+            check="sigma_immutable_ethical_floor",
+            details=merged_details,
+        )
+
     def enforce(
         self,
         action: str,
@@ -485,6 +587,7 @@ def get_sigma_immutable_gate() -> SigmaImmutableGate:
 
 __all__ = [
     "CORPUS_USED_DIM",
+    "CRITICAL_ETHICAL_FLOOR",
     "SIGMA_ETHICAL_BAND_END",
     "SIGMA_IMMUTABLE_DEFAULT_THRESHOLD",
     "SIGMA_IMMUTABLE_DIM",

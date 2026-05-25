@@ -106,48 +106,85 @@ DEFAULT_TEST_SEED = 42
 
 
 def pytest_sessionstart(session: pytest.Session) -> None:
-    """Fail-loud env gate: refuse to run if ``[ml]`` was promised but is absent.
+    """Fail-loud env gates: refuse to run if a declared tier's dep is absent.
 
-    The contract is declared by ``MERCURY_REQUIRES_ML=1``.  When that
-    flag is set and :mod:`torch` is not importable, the entire pytest
-    session is aborted with a clear remediation message instead of
-    proceeding into a run where torch-required tests would silently
-    skip into a misleading green.
+    Two must-run tier contracts are enforced here, each declared by an
+    env var the CI workflow YAML sets:
 
-    The gate is intentionally unconditional once the flag is set: there
-    is no "second-chance" override that re-enables silent skipping.
-    The operator either provides the dependency the CI lane declared
-    it needs, or pytest refuses to lie about coverage.
+    * ``MERCURY_REQUIRES_ML=1`` -- :mod:`torch` must import.  Covers the
+      engine / fusion / detector / σ_Immutable-gate test surface.
+    * ``MERCURY_REQUIRES_LEAN=1`` -- a Lean 4 toolchain must be on PATH.
+      Covers the formal-proof theorem tier
+      (``tests/test_lean_theorem_verifier.py::TestLiveLeanKernel``), which
+      otherwise ``skipif``-s itself away.  Without this gate, a broken
+      Lean install in the lane that owns the theorem tier
+      (``.github/workflows/verifiers.yml``) would let the live theorem
+      tests silently skip while the job still reports green -- "Lean
+      missing" masquerading as "Lean tests passed".
+
+    Each gate is unconditional once its flag is set: there is no
+    second-chance override that re-enables silent skipping.  The operator
+    either provides the dependency the lane declared it needs, or pytest
+    refuses to lie about coverage.  Lanes that legitimately do NOT own a
+    tier simply leave its flag unset (the tier then skips cleanly by
+    design in that thin env).
     """
-    if os.environ.get("MERCURY_REQUIRES_ML") != "1":
-        return
-    if HAS_TORCH:
-        return
-    pytest.exit(
-        "\n"
-        "===============================================================\n"
-        "  Mercury Agent ML-extra gate (MERCURY_REQUIRES_ML=1)\n"
-        "===============================================================\n"
-        "This pytest session declared the [ml] extra as a hard contract,\n"
-        "but `import torch` cannot be resolved in this interpreter.\n"
-        "\n"
-        "Likely causes:\n"
-        "  * The CI step ran `pip install -e '.[dev]'` without `[ml]`.\n"
-        "  * A pinned torch wheel failed to resolve and the install step\n"
-        "    succeeded with a warning instead of failing.\n"
-        "  * The lane was retargeted to a minimal-install image but the\n"
-        "    workflow YAML still exports MERCURY_REQUIRES_ML=1.\n"
-        "\n"
-        "Remediation:\n"
-        "  pip install -e '.[ml,dev]'        # full ML test surface\n"
-        "  pip install -e '.[all,dev]'       # everything the ml-tests lane installs\n"
-        "\n"
-        "If this lane intentionally does NOT need [ml], unset\n"
-        "MERCURY_REQUIRES_ML in the workflow YAML and select the test\n"
-        "subset explicitly (see dataset-reachability.yml for the pattern).\n"
-        "===============================================================\n",
-        returncode=2,
-    )
+    if os.environ.get("MERCURY_REQUIRES_ML") == "1" and not HAS_TORCH:
+        pytest.exit(
+            "\n"
+            "===============================================================\n"
+            "  Mercury Agent ML-extra gate (MERCURY_REQUIRES_ML=1)\n"
+            "===============================================================\n"
+            "This pytest session declared the [ml] extra as a hard contract,\n"
+            "but `import torch` cannot be resolved in this interpreter.\n"
+            "\n"
+            "Likely causes:\n"
+            "  * The CI step ran `pip install -e '.[dev]'` without `[ml]`.\n"
+            "  * A pinned torch wheel failed to resolve and the install step\n"
+            "    succeeded with a warning instead of failing.\n"
+            "  * The lane was retargeted to a minimal-install image but the\n"
+            "    workflow YAML still exports MERCURY_REQUIRES_ML=1.\n"
+            "\n"
+            "Remediation:\n"
+            "  pip install -e '.[ml,dev]'        # full ML test surface\n"
+            "  pip install -e '.[all,dev]'       # everything the ml-tests lane installs\n"
+            "\n"
+            "If this lane intentionally does NOT need [ml], unset\n"
+            "MERCURY_REQUIRES_ML in the workflow YAML and select the test\n"
+            "subset explicitly (see dataset-reachability.yml for the pattern).\n"
+            "===============================================================\n",
+            returncode=2,
+        )
+
+    if os.environ.get("MERCURY_REQUIRES_LEAN") == "1":
+        from omni_mercury_engine.verifiers.lean_theorem import lean_available
+
+        if not lean_available():
+            pytest.exit(
+                "\n"
+                "===============================================================\n"
+                "  Mercury Agent Lean theorem-tier gate (MERCURY_REQUIRES_LEAN=1)\n"
+                "===============================================================\n"
+                "This pytest session declared the Lean 4 theorem tier as a\n"
+                "hard contract, but no `lean` executable is on PATH.\n"
+                "\n"
+                "The live theorem tests "
+                "(test_lean_theorem_verifier.py::TestLiveLeanKernel)\n"
+                "are skipif(not lean_available()).  Without this gate a\n"
+                "failed Lean install would let them SKIP while the job stays\n"
+                "green -- 'Lean missing' masquerading as 'Lean tests passed'.\n"
+                "\n"
+                "Remediation (see .github/workflows/verifiers.yml):\n"
+                "  curl -fsSL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -o elan-init.sh\n"
+                "  sh elan-init.sh -y --default-toolchain stable\n"
+                '  echo "$HOME/.elan/bin" >> "$GITHUB_PATH"\n'
+                "\n"
+                "If this lane intentionally does NOT own the theorem tier,\n"
+                "leave MERCURY_REQUIRES_LEAN unset -- the tier then skips\n"
+                "cleanly by design in this thin environment.\n"
+                "===============================================================\n",
+                returncode=2,
+            )
 
 
 @pytest.fixture(autouse=True)

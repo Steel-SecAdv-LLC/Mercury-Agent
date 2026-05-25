@@ -183,13 +183,18 @@ class TestSigmaImmutableKAT:
         assert score1 == score2, "Gate produced non-deterministic scores"
 
     def test_nan_handling(self) -> None:
-        """NaN values in the scalar vector are replaced with zeros."""
+        """A non-finite scalar fails the gate closed (no NaN->0 coercion).
+
+        A NaN/±inf scalar means an upstream computation broke; the gate
+        refuses (score 0.0) rather than coercing NaN->0 and scoring the
+        result, which used to let a NaN-collapsed dim pass as healthy.
+        """
         vec = KAT_POSITIVE.copy()
         vec[0] = float("nan")
         vec[5] = float("nan")
         passes, score = self.gate.evaluate(vec)
-        assert isinstance(score, float)
-        assert 0.0 <= score <= 1.0
+        assert passes is False
+        assert score == 0.0
 
     def test_boundary_ethics_at_threshold(self) -> None:
         """Scalars exactly at threshold — the gate's learned boundary."""
