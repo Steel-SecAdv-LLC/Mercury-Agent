@@ -21,7 +21,7 @@ from __future__ import annotations
 This package is the governance counterpart to :mod:`omni_mercury_engine.verifiers`.
 Verifiers ground *operational* scalars in decidable oracles; governance grounds
 *metric-only* scalars in published formulas under the same cross-repo three-state invariant
-(:class:`~omni_mercury_engine.governance.contract.ScalarState`: GROUNDED / UNAVAILABLE /
+(:class:`~omni_mercury_engine.verifiers.three_state.ThreeState`: GROUNDED / UNAVAILABLE /
 UNDECIDABLE).  Because every scalar here is metric-only it is filtered out of the σ_Immutable
 operational vector, so the trained ethical gate is never perturbed.
 
@@ -42,12 +42,12 @@ from omni_mercury_engine.governance.contract import (
     GovernanceLedgerEntry,
     GovernanceRegistry,
     GovernanceScalar,
-    ScalarState,
     SignalClass,
     grounded,
     unavailable,
     undecidable,
 )
+from omni_mercury_engine.verifiers.three_state import ThreeState
 
 __all__ = [
     "GOVERNANCE_FAMILY_VET",
@@ -55,8 +55,8 @@ __all__ = [
     "GovernanceLedgerEntry",
     "GovernanceRegistry",
     "GovernanceScalar",
-    "ScalarState",
     "SignalClass",
+    "ThreeState",
     "ai_safety",
     "clinical",
     "eu_ai_act",

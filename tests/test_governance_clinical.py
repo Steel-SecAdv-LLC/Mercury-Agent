@@ -16,7 +16,7 @@ pytest.importorskip("numpy")  # governance.contract -> GOSNN imports numpy.
 
 from omni_mercury_engine._compat import HAS_TORCH
 from omni_mercury_engine.governance import clinical
-from omni_mercury_engine.governance.contract import ScalarState
+from omni_mercury_engine.governance.contract import ThreeState
 
 # A LOUD, explicit skip -- never a silent green-wash of the clinical arithmetic.
 requires_ml = pytest.mark.skipif(
@@ -69,12 +69,12 @@ def test_sofa_subscores_match_published_thresholds() -> None:
 def test_sofa_abstains_on_missing_inputs() -> None:
     """A missing organ input is UNAVAILABLE (kept), never a healthy organ."""
     scalars = clinical.sofa_scalars({"platelets_k_ul": 30})
-    assert _by_name(scalars, "omni_sofa_coagulation").state is ScalarState.GROUNDED
+    assert _by_name(scalars, "omni_sofa_coagulation").state is ThreeState.GROUNDED
     liver = _by_name(scalars, "omni_sofa_liver")
-    assert liver.state is ScalarState.UNAVAILABLE
+    assert liver.state is ThreeState.UNAVAILABLE
     assert liver.missing_inputs == ("bilirubin_mg_dl",)
     # The total is undefined unless all six organ inputs are present.
-    assert _by_name(scalars, "omni_sofa_total").state is ScalarState.UNAVAILABLE
+    assert _by_name(scalars, "omni_sofa_total").state is ThreeState.UNAVAILABLE
 
 
 def test_sofa_abstains_unavailable_when_calculator_absent() -> None:
@@ -82,7 +82,7 @@ def test_sofa_abstains_unavailable_when_calculator_absent() -> None:
     if HAS_TORCH:
         pytest.skip("torch present: the calculator-absent path is exercised only in a thin env")
     scalars = clinical.sofa_scalars({"pao2_fio2_ratio": 250})
-    assert all(s.state is ScalarState.UNAVAILABLE for s in scalars)
+    assert all(s.state is ThreeState.UNAVAILABLE for s in scalars)
 
 
 def test_news2_all_normal_is_zero() -> None:
@@ -97,7 +97,7 @@ def test_news2_all_normal_is_zero() -> None:
         "temperature_c": 37.0,
     }
     scalar = clinical.news2_scalar(vitals)
-    assert scalar.state is ScalarState.GROUNDED
+    assert scalar.state is ThreeState.GROUNDED
     assert scalar.value == pytest.approx(0.0)
     assert scalar.provenance["aggregate"] == 0
 
@@ -130,7 +130,7 @@ def test_news2_abstains_on_missing_parameter() -> None:
         # temperature_c missing
     }
     scalar = clinical.news2_scalar(vitals)
-    assert scalar.state is ScalarState.UNAVAILABLE
+    assert scalar.state is ThreeState.UNAVAILABLE
     assert scalar.value is None
     assert scalar.missing_inputs == ("temperature_c",)
 
@@ -145,7 +145,7 @@ def test_mews_worked_example_against_table() -> None:
         "avpu": "V",
     }
     scalar = clinical.mews_scalar(vitals)
-    assert scalar.state is ScalarState.GROUNDED
+    assert scalar.state is ThreeState.GROUNDED
     assert scalar.provenance["aggregate"] == 10
     assert scalar.value == pytest.approx(10 / 14)
     assert scalar.provenance["points"] == {
@@ -167,7 +167,7 @@ def test_mews_all_normal_is_zero() -> None:
         "avpu": "A",
     }
     scalar = clinical.mews_scalar(vitals)
-    assert scalar.state is ScalarState.GROUNDED
+    assert scalar.state is ThreeState.GROUNDED
     assert scalar.value == pytest.approx(0.0)
 
 
@@ -181,7 +181,7 @@ def test_mews_abstains_on_missing_or_bad_avpu() -> None:
             "temperature_c": 37.0,
         }
     )
-    assert missing.state is ScalarState.UNAVAILABLE
+    assert missing.state is ThreeState.UNAVAILABLE
     assert missing.missing_inputs == ("avpu",)
     bad = clinical.mews_scalar(
         {
@@ -192,7 +192,7 @@ def test_mews_abstains_on_missing_or_bad_avpu() -> None:
             "avpu": "Z",
         }
     )
-    assert bad.state is ScalarState.UNAVAILABLE
+    assert bad.state is ThreeState.UNAVAILABLE
 
 
 def test_meld_na_worked_example_against_formula() -> None:
@@ -200,7 +200,7 @@ def test_meld_na_worked_example_against_formula() -> None:
     scalar = clinical.meld_na_scalar(
         {"bilirubin_mg_dl": 2.0, "creatinine_mg_dl": 1.5, "inr": 1.2, "sodium_meq_l": 130}
     )
-    assert scalar.state is ScalarState.GROUNDED
+    assert scalar.state is ThreeState.GROUNDED
     assert scalar.provenance == {"meld": 15, "meld_na": 21}
     assert scalar.value == pytest.approx(21 / 40)
 
@@ -208,7 +208,7 @@ def test_meld_na_worked_example_against_formula() -> None:
 def test_meld_na_abstains_until_inr_and_sodium_flow() -> None:
     """MELD-Na is UNAVAILABLE (kept) when its INR/sodium labs have not flowed yet."""
     scalar = clinical.meld_na_scalar({"bilirubin_mg_dl": 2.0, "creatinine_mg_dl": 1.5})
-    assert scalar.state is ScalarState.UNAVAILABLE
+    assert scalar.state is ThreeState.UNAVAILABLE
     assert scalar.value is None
     assert scalar.missing_inputs == ("inr", "sodium_meq_l")
 

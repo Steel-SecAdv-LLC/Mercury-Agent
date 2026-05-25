@@ -14,8 +14,8 @@ from omni_mercury_engine.core.global_omni_scalar_network import (
 from omni_mercury_engine.governance.contract import (
     GOVERNANCE_FAMILY_VET,
     GovernanceRegistry,
-    ScalarState,
     SignalClass,
+    ThreeState,
     grounded,
     unavailable,
     undecidable,
@@ -33,9 +33,9 @@ def gosnn():
 
 def test_three_states_match_cross_repo_wire_values() -> None:
     """The governance states use the exact cross-repo wire vocabulary (PR #244 ThreeState)."""
-    assert ScalarState.GROUNDED.value == "grounded"
-    assert ScalarState.UNAVAILABLE.value == "unavailable"
-    assert ScalarState.UNDECIDABLE.value == "undecidable"
+    assert ThreeState.GROUNDED.value == "grounded"
+    assert ThreeState.UNAVAILABLE.value == "unavailable"
+    assert ThreeState.UNDECIDABLE.value == "undecidable"
 
 
 def test_grounded_clamps_into_unit_interval() -> None:
@@ -52,7 +52,7 @@ def test_unavailable_carries_missing_inputs_no_value() -> None:
         "omni_ews_news2", family="ews", reason="missing vitals", missing_inputs=("temperature_c",)
     )
     assert s.value is None
-    assert s.state is ScalarState.UNAVAILABLE
+    assert s.state is ThreeState.UNAVAILABLE
     assert s.missing_inputs == ("temperature_c",)
     assert not s.is_grounded
 
@@ -61,7 +61,7 @@ def test_undecidable_carries_no_value_and_never_grounds() -> None:
     """An UNDECIDABLE scalar (a dropped family's would-be scalar) has no value."""
     s = undecidable("omni_owasp_llm_mitigation", family="owasp_llm", reason="no runtime signal")
     assert s.value is None
-    assert s.state is ScalarState.UNDECIDABLE
+    assert s.state is ThreeState.UNDECIDABLE
     assert not s.is_grounded
 
 

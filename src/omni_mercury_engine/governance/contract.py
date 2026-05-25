@@ -30,22 +30,23 @@ The contract has **two orthogonal axes**, not one:
 * A *design-time* axis -- can a runtime signal for the scalar **ever exist at all** in
   this engine's observable surface?
 
-Their product gives exactly three states (mirroring the cross-repo invariant in
-:mod:`omni_mercury_engine.verifiers.three_state`, PR #244):
+Their product gives exactly three states, expressed with the shared cross-repo invariant
+:class:`omni_mercury_engine.verifiers.three_state.ThreeState` -- the governance side
+imports the same enum the verifier side uses, so the contract is one vocabulary, not two:
 
-* :attr:`ScalarState.GROUNDED` -- formula and inputs both present this run.  Registers a
+* :attr:`ThreeState.GROUNDED` -- formula and inputs both present this run.  Registers a
   metric-only scalar.
-* :attr:`ScalarState.UNAVAILABLE` -- the formula/oracle is real **and a runtime signal for
+* :attr:`ThreeState.UNAVAILABLE` -- the formula/oracle is real **and a runtime signal for
   it genuinely exists in this engine**, but the input is absent this run.  Registers
   nothing this run; the capability is real and fires when the signal appears.  A *kept*
   scalar (e.g. SOFA when a lab is missing, MELD-Na when sodium has not flowed yet).
-* :attr:`ScalarState.UNDECIDABLE` -- no oracle/formula exists, or **no runtime signal for
+* :attr:`ThreeState.UNDECIDABLE` -- no oracle/formula exists, or **no runtime signal for
   it can ever exist in this engine**.  Registers nothing, *ever*.  A *dropped* scalar.
 
 The distinction between the last two is a per-family **vetting judgment made once at
 design time** (see :class:`SignalClass` / :data:`GOVERNANCE_FAMILY_VET`), not a runtime
 computation.  Mapping the old two-state ``unavailable`` mechanically onto
-:attr:`ScalarState.UNAVAILABLE` would collapse three states back into two; a family is only
+:attr:`ThreeState.UNAVAILABLE` would collapse three states back into two; a family is only
 honest-by-default if its abstention is UNAVAILABLE *because a real signal exists*.
 """
 
@@ -58,30 +59,9 @@ from omni_mercury_engine.core.global_omni_scalar_network import (
     GlobalOmniScalarNetwork,
     ScalarGroup,
 )
+from omni_mercury_engine.verifiers.three_state import ThreeState
 
 logger = logging.getLogger(__name__)
-
-
-class ScalarState(Enum):
-    """The three-state verdict for a governance scalar: grounded, deferred, or impossible.
-
-    Member-and-value-identical to :class:`omni_mercury_engine.verifiers.three_state.ThreeState`
-    (PR #244), so a serialised governance state round-trips against the verifier side over
-    the same wire vocabulary.  It is kept as a separate symbol only because #243 and #244 are
-    parallel un-merged drafts; once both land, unify to a single import.
-    """
-
-    #: Formula and inputs both present this run.  Registers a metric-only scalar.
-    GROUNDED = "grounded"
-
-    #: Decidable in principle and a real runtime signal exists in this engine, but the
-    #: input was absent this run.  Registers nothing THIS run; re-running with the signal
-    #: present grounds it.  This is a *kept* scalar.
-    UNAVAILABLE = "unavailable"
-
-    #: No oracle/formula exists, or no runtime signal for it can ever exist in this engine.
-    #: Registers nothing, EVER.  This is a *dropped* scalar; the family must not be built.
-    UNDECIDABLE = "undecidable"
 
 
 class SignalClass(Enum):
@@ -268,7 +248,7 @@ class GovernanceScalar:
     Attributes:
         name: Metric-only scalar key (must match a ``_METRIC_ONLY_PREFIXES`` entry).
         family: Framework family this scalar belongs to (e.g. ``"sofa"``).
-        state: One of :class:`ScalarState` (GROUNDED / UNAVAILABLE / UNDECIDABLE).
+        state: One of :class:`ThreeState` (GROUNDED / UNAVAILABLE / UNDECIDABLE).
         value: Measurement in ``[0, 1]`` when GROUNDED, else ``None``.
         reason: Human-readable provenance or abstention reason.
         missing_inputs: For UNAVAILABLE, the input signals that were absent this run.
@@ -277,7 +257,7 @@ class GovernanceScalar:
 
     name: str
     family: str
-    state: ScalarState
+    state: ThreeState
     value: float | None
     reason: str
     missing_inputs: tuple[str, ...] = ()
@@ -286,7 +266,7 @@ class GovernanceScalar:
     @property
     def is_grounded(self) -> bool:
         """Whether this scalar was computed from a present input signal (registers)."""
-        return self.state is ScalarState.GROUNDED
+        return self.state is ThreeState.GROUNDED
 
     def as_metadata(self) -> dict[str, object]:
         """Return a JSON-friendly mapping describing this scalar."""
@@ -314,7 +294,7 @@ def grounded(
     return GovernanceScalar(
         name=name,
         family=family,
-        state=ScalarState.GROUNDED,
+        state=ThreeState.GROUNDED,
         value=clamped,
         reason=reason,
         provenance=provenance or {},
@@ -333,7 +313,7 @@ def unavailable(
     return GovernanceScalar(
         name=name,
         family=family,
-        state=ScalarState.UNAVAILABLE,
+        state=ThreeState.UNAVAILABLE,
         value=None,
         reason=reason,
         missing_inputs=tuple(missing_inputs),
@@ -352,7 +332,7 @@ def undecidable(
     return GovernanceScalar(
         name=name,
         family=family,
-        state=ScalarState.UNDECIDABLE,
+        state=ThreeState.UNDECIDABLE,
         value=None,
         reason=reason,
         provenance=provenance or {},

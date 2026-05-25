@@ -14,8 +14,8 @@ pytest.importorskip("numpy")  # governance.contract -> GOSNN imports numpy.
 from omni_mercury_engine.governance import ai_safety
 from omni_mercury_engine.governance.contract import (
     GOVERNANCE_FAMILY_VET,
-    ScalarState,
     SignalClass,
+    ThreeState,
 )
 
 
@@ -25,7 +25,7 @@ def test_nist_grounds_in_live_measure_metrics() -> None:
     scalar = ai_safety.nist_ai_rmf_measure_scalar(
         measurements={"fairness": 0.95, "performance": 0.85}
     )
-    assert scalar.state is ScalarState.GROUNDED
+    assert scalar.state is ThreeState.GROUNDED
     assert scalar.value == pytest.approx((0.95 + 0.85) / 2)
     assert scalar.provenance["function"] == "MEASURE"
 
@@ -33,16 +33,16 @@ def test_nist_grounds_in_live_measure_metrics() -> None:
 def test_nist_abstains_without_any_metric() -> None:
     """No MEASURE metric this run -> UNAVAILABLE (the capability is real; nothing produced)."""
     scalar = ai_safety.nist_ai_rmf_measure_scalar()
-    assert scalar.state is ScalarState.UNAVAILABLE
+    assert scalar.state is ThreeState.UNAVAILABLE
     assert scalar.missing_inputs == ("measurements",)
 
 
 def test_nist_ignores_unknown_or_out_of_range_metrics() -> None:
     """Only recognised unit-interval MEASURE metrics ground; junk abstains, never invents."""
     bad = ai_safety.nist_ai_rmf_measure_scalar(measurements={"made_up": 0.5, "fairness": 1.4})
-    assert bad.state is ScalarState.UNAVAILABLE
+    assert bad.state is ThreeState.UNAVAILABLE
     good = ai_safety.nist_ai_rmf_measure_scalar(measurements={"made_up": 0.5, "fairness": 0.7})
-    assert good.state is ScalarState.GROUNDED
+    assert good.state is ThreeState.GROUNDED
     assert good.value == pytest.approx(0.7)
 
 
@@ -55,7 +55,7 @@ def test_atlas_grounds_in_observed_threat_events() -> None:
             {"threat_type": "path_traversal", "confidence": 0.5},
         ]
     )
-    assert scalar.state is ScalarState.GROUNDED
+    assert scalar.state is ThreeState.GROUNDED
     assert scalar.value == pytest.approx(1.0)
     assert scalar.provenance["observed_tactics"] == ["discovery", "initial_access"]
 
@@ -63,15 +63,15 @@ def test_atlas_grounds_in_observed_threat_events() -> None:
 def test_atlas_partial_coverage() -> None:
     """A single observed tactic covers 1/2 of the engine's observable ATLAS surface."""
     scalar = ai_safety.mitre_atlas_scalar(observed_events=[{"threat_type": "xss"}])
-    assert scalar.state is ScalarState.GROUNDED
+    assert scalar.state is ThreeState.GROUNDED
     assert scalar.value == pytest.approx(0.5)
 
 
 def test_atlas_abstains_without_events_or_unmappable_events() -> None:
     """No event, or no event mapping to an observable tactic -> UNAVAILABLE."""
-    assert ai_safety.mitre_atlas_scalar().state is ScalarState.UNAVAILABLE
+    assert ai_safety.mitre_atlas_scalar().state is ThreeState.UNAVAILABLE
     unmapped = ai_safety.mitre_atlas_scalar(observed_events=[{"threat_type": "model_extraction"}])
-    assert unmapped.state is ScalarState.UNAVAILABLE
+    assert unmapped.state is ThreeState.UNAVAILABLE
 
 
 # --- OWASP LLM (dropped; UNDECIDABLE) ---------------------------------------------------
@@ -96,4 +96,4 @@ def test_ai_safety_scalars_full_inputs_are_both_grounded() -> None:
         nist_measurements={"fairness": 0.9},
         atlas_events=[{"threat_type": "sql_injection"}],
     )
-    assert all(s.state is ScalarState.GROUNDED for s in scalars)
+    assert all(s.state is ThreeState.GROUNDED for s in scalars)

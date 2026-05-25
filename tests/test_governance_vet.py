@@ -25,8 +25,8 @@ from omni_mercury_engine.governance import ai_safety, clinical, medical_device
 from omni_mercury_engine.governance.contract import (
     GOVERNANCE_FAMILY_VET,
     GovernanceRegistry,
-    ScalarState,
     SignalClass,
+    ThreeState,
 )
 
 
@@ -113,7 +113,7 @@ def test_every_kept_family_has_a_real_grounded_path() -> None:
             continue  # proven under the [ml] lane (see test_governance_clinical.py)
         produced = examples.get(family, [])
         assert any(
-            s.state is ScalarState.GROUNDED for s in produced
+            s.state is ThreeState.GROUNDED for s in produced
         ), f"kept family {family!r} has no real GROUNDED path -> UNDECIDABLE in disguise"
 
 
