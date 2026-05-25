@@ -3,6 +3,18 @@ name: Verifiers
 # Oracle-validated verifier family: runs the full suite (including the live Lean theorem tier)
 # and the mystery-verification benchmark. Isolated from the main CI workflow by design.
 
+# Least-privilege: this lane only reads the checkout, runs tests, and prints a
+# benchmark delta -- it never writes to the repo, so contents: read is the full
+# permission surface it needs.
+permissions:
+  contents: read
+
+# Cancel a superseded run on the same ref so a force-push does not pile up
+# 30-minute Lean installs.
+concurrency:
+  group: verifiers-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 on:
   pull_request:
     paths:
