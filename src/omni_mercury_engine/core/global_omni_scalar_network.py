@@ -219,9 +219,14 @@ class EthicalGate:
         Returns:
             Tuple of (passes_gate, ethical_score)
         """
-        if np.any(np.isnan(scalar_vector)):
-            self.logger.warning("NaN detected in scalar_vector; replacing with zeros")
-            scalar_vector = np.nan_to_num(scalar_vector, nan=0.0)
+        if not np.all(np.isfinite(scalar_vector)):
+            # Fail closed: a non-finite scalar (NaN / ±inf) means an
+            # upstream computation broke.  The previous behaviour coerced
+            # NaN->0 and scored anyway, which let a NaN-collapsed ethical
+            # dim score above threshold as PASS — a fail-open hole.  An
+            # unscoreable vector is an unsafe vector.
+            self.logger.warning("non-finite value in scalar_vector; failing closed (score=0.0)")
+            return False, 0.0
 
         if self.gate_network is not None and TORCH_AVAILABLE and self._trained:
             padded = np.zeros(self.input_dim)

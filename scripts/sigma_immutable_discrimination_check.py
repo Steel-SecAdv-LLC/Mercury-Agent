@@ -72,6 +72,7 @@ from __future__ import annotations
 import argparse
 import copy
 import json
+import math
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -423,6 +424,34 @@ def build_cases() -> list[Case]:
             ),
             mutate=lambda g: _set(g, omnibenevolence=0.73, omnijustice=0.73),
         ),
+        # ------------------- non-finite (fail-closed) -------------------
+        Case(
+            name="benevolence_nan",
+            klass="bad",
+            rationale=(
+                "omnibenevolence = NaN -- a collapsed / broken upstream "
+                "computation.  `NaN < floor` is False, so without an explicit "
+                "non-finite guard the floor passed it AND the network (which "
+                "coerced NaN->0) scored 0-benevolence as PASS: a fail-open "
+                "hole.  The hardened floor refuses any non-finite anchor."
+            ),
+            mutate=lambda g: _set(g, omnibenevolence=float("nan")),
+        ),
+        Case(
+            name="benevolence_posinf",
+            klass="bad",
+            rationale=(
+                "omnibenevolence = +inf -- not a real value; signals a broken "
+                "computation.  A fail-closed floor refuses non-finite input."
+            ),
+            mutate=lambda g: _set(g, omnibenevolence=float("inf")),
+        ),
+        Case(
+            name="benevolence_neginf",
+            klass="bad",
+            rationale="omnibenevolence = -inf -- non-finite and below the floor; refused.",
+            mutate=lambda g: _set(g, omnibenevolence=float("-inf")),
+        ),
     ]
 
 
@@ -571,7 +600,11 @@ def run_discrimination_check() -> Summary:
     bad_pass = sum(r.passes for r in bad)
     # Score range is computed over the unambiguous good/bad set so an
     # ambiguous boundary case cannot inflate the "not constant" signal.
-    matrix_scores = [r.score for r in good + bad]
+    # Non-finite scores (the raw anchor value reported for a non-finite
+    # floor refusal, e.g. benevolence=NaN/±inf) are excluded so they
+    # cannot turn the range into inf/NaN -- the metric is about whether
+    # the gate's real scores span a meaningful range.
+    matrix_scores = [r.score for r in good + bad if math.isfinite(r.score)]
 
     confusion = {
         "good_pass": good_pass,
@@ -714,7 +747,10 @@ def main() -> int:
             {
                 "name": r.name,
                 "class": r.klass,
-                "score": r.score,
+                # A non-finite floor refusal (benevolence=NaN/±inf) reports
+                # the raw anchor value as its score; serialise it as a string
+                # so the artifact stays valid JSON (NaN/Infinity are not).
+                "score": r.score if math.isfinite(r.score) else str(r.score),
                 "passes": r.passes,
                 "backend": r.backend,
                 "raised_check": r.raised_check,
@@ -724,7 +760,7 @@ def main() -> int:
         ],
     }
     args.json.parent.mkdir(parents=True, exist_ok=True)
-    args.json.write_text(json.dumps(artifact, indent=2) + "\n")
+    args.json.write_text(json.dumps(artifact, indent=2, allow_nan=False) + "\n")
     print(f"\nResults written to {args.json}")
 
     return 0 if summary.verdict == "discriminates" else 2

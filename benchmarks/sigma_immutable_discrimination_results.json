@@ -11,7 +11,7 @@
     "good_pass": 3,
     "good_refuse": 0,
     "bad_pass": 0,
-    "bad_refuse": 15
+    "bad_refuse": 18
   },
   "good_pass_rate": 1.0,
   "bad_pass_rate": 0.0,
@@ -200,6 +200,33 @@
       "backend": "sigma_immutable_ethical_floor",
       "raised_check": "sigma_immutable_ethical_floor",
       "rationale": "omnibenevolence and omnijustice both at 0.73 -- just above the old 0.70 floor, below the 0.93 threshold; rest default."
+    },
+    {
+      "name": "benevolence_nan",
+      "class": "bad",
+      "score": "nan",
+      "passes": false,
+      "backend": "sigma_immutable_ethical_floor",
+      "raised_check": "sigma_immutable_ethical_floor",
+      "rationale": "omnibenevolence = NaN -- a collapsed / broken upstream computation.  `NaN < floor` is False, so without an explicit non-finite guard the floor passed it AND the network (which coerced NaN->0) scored 0-benevolence as PASS: a fail-open hole.  The hardened floor refuses any non-finite anchor."
+    },
+    {
+      "name": "benevolence_posinf",
+      "class": "bad",
+      "score": "inf",
+      "passes": false,
+      "backend": "sigma_immutable_ethical_floor",
+      "raised_check": "sigma_immutable_ethical_floor",
+      "rationale": "omnibenevolence = +inf -- not a real value; signals a broken computation.  A fail-closed floor refuses non-finite input."
+    },
+    {
+      "name": "benevolence_neginf",
+      "class": "bad",
+      "score": "-inf",
+      "passes": false,
+      "backend": "sigma_immutable_ethical_floor",
+      "raised_check": "sigma_immutable_ethical_floor",
+      "rationale": "omnibenevolence = -inf -- non-finite and below the floor; refused."
     }
   ]
 }

@@ -33,6 +33,7 @@ A failed verification is recorded once and turns every subsequent
 from __future__ import annotations
 
 import logging
+import math
 import threading
 from dataclasses import dataclass
 from pathlib import Path
@@ -444,18 +445,26 @@ class SigmaImmutableGate:
         threshold check on the *named* ethical safety anchors supplied by
         :meth:`GlobalOmniScalarNetwork.critical_ethical_anchors`.
 
+        A non-finite anchor (``NaN`` / ``±inf``) is always a violation:
+        ``NaN < floor`` is ``False``, so a collapsed-to-NaN anchor would
+        otherwise slip the floor *and* the network (which coerces NaN->0
+        and scores the result as PASS) — a fail-open hole.  The floor is
+        fail-closed, so any value that is not a finite number at-or-above
+        the floor refuses.
+
         Args:
             anchors: Mapping of ethical-anchor name -> value (already
                 excludes narrative/personality tuning scalars).
 
         Returns:
-            List of ``(name, value)`` pairs below the floor, in input
-            order.  Empty when every anchor holds the floor.
+            List of ``(name, value)`` pairs that fail the floor (non-finite
+            or below it), in input order.  Empty when every anchor holds a
+            finite value at-or-above the floor.
         """
         return [
             (name, float(value))
             for name, value in anchors.items()
-            if float(value) < CRITICAL_ETHICAL_FLOOR
+            if not math.isfinite(float(value)) or float(value) < CRITICAL_ETHICAL_FLOOR
         ]
 
     def enforce_ethical_floor(

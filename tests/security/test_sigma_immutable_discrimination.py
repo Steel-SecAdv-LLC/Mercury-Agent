@@ -108,6 +108,18 @@ class TestCriticalEthicalFloor:
         violations = gate.critical_ethical_floor_violations({"omnijustice": 0.10})
         assert violations == [("omnijustice", 0.10)]
 
+    def test_non_finite_anchor_is_refused(self) -> None:
+        # NaN < floor is False, so a NaN-collapsed anchor would otherwise
+        # slip the floor (and the network, which coerces NaN->0, scores it
+        # PASS) -- a fail-open hole.  The floor fails closed on non-finite.
+        gate = self._floor_gate()
+        for bad in (float("nan"), float("inf"), float("-inf")):
+            violations = gate.critical_ethical_floor_violations({"omnibenevolence": bad})
+            assert [name for name, _ in violations] == ["omnibenevolence"]
+            with pytest.raises(EthicalConstraintViolationError) as exc:
+                gate.enforce_ethical_floor("test", {"omnibenevolence": bad})
+            assert exc.value.check == "sigma_immutable_ethical_floor"
+
 
 @pytest.mark.usefixtures("_reset_gosnn")
 class TestDiscriminationProbe:
@@ -149,5 +161,8 @@ class TestDiscriminationProbe:
             "single_critical_zeroed",
             "contradictory_opaque",
             "ethical_collapse_zero",
+            "benevolence_nan",
+            "benevolence_posinf",
+            "benevolence_neginf",
         ):
             assert not by_name[name].passes, f"{name} must be refused"
