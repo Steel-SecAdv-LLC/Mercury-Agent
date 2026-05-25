@@ -3,10 +3,24 @@ name: Verifiers
 # Oracle-validated verifier family: runs the full suite (including the live Lean theorem tier)
 # and the mystery-verification benchmark. Isolated from the main CI workflow by design.
 
+# Least-privilege: this lane only reads the checkout, runs tests, and prints a
+# benchmark delta -- it never writes to the repo, so contents: read is the full
+# permission surface it needs.
+permissions:
+  contents: read
+
+# Cancel a superseded run on the same ref so a force-push does not pile up
+# 30-minute Lean installs.
+concurrency:
+  group: verifiers-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 on:
   pull_request:
     paths:
       - "src/omni_mercury_engine/verifiers/**"
+      - "src/omni_mercury_engine/security/sigma_immutable_gate.py"
+      - "src/omni_mercury_engine/core/global_omni_scalar_network.py"
       - "tests/test_goldbach_verifier.py"
       - "tests/test_twin_primes_verifier.py"
       - "tests/test_collatz_verifier.py"
@@ -15,7 +29,10 @@ on:
       - "tests/test_paradox_verifier.py"
       - "tests/test_verifier_oracles.py"
       - "tests/test_mystery_registry.py"
+      - "tests/test_three_state_contract.py"
+      - "tests/security/test_sigma_immutable_discrimination.py"
       - "benchmarks/mystery_verification_benchmark.py"
+      - "scripts/sigma_immutable_discrimination_check.py"
       - ".github/workflows/verifiers.yml"
   workflow_dispatch:
 
@@ -47,6 +64,13 @@ jobs:
         run: lean --version
 
       - name: Run verifier test suite (Lean live)
+        # MERCURY_REQUIRES_ML / MERCURY_REQUIRES_LEAN make this lane's
+        # must-run tiers fail-loud: if torch or Lean is absent the pytest
+        # session aborts at start instead of letting the torch-gated and
+        # Lean-gated tests skip into a misleading green (see tests/conftest.py).
+        env:
+          MERCURY_REQUIRES_ML: "1"
+          MERCURY_REQUIRES_LEAN: "1"
         run: |
           pytest \
             tests/test_goldbach_verifier.py \
@@ -57,7 +81,17 @@ jobs:
             tests/test_paradox_verifier.py \
             tests/test_verifier_oracles.py \
             tests/test_mystery_registry.py \
+            tests/test_three_state_contract.py \
+            tests/security/test_sigma_immutable_discrimination.py \
             -v --no-cov
+
+      - name: σ_Immutable discrimination probe (gate must discriminate, not false-assure)
+        # Exits non-zero (2) if the gate is near-constant-PASS, so the
+        # headline safety finding of #242 is enforced before merge.
+        env:
+          MERCURY_REQUIRES_ML: "1"
+        run: |
+          python scripts/sigma_immutable_discrimination_check.py --json /tmp/sigma_discrimination.json
 
       - name: Run mystery-verification benchmark and assert the delta
         run: |
