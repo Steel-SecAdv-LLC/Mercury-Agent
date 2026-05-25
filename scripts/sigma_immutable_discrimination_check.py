@@ -77,6 +77,7 @@ import sys
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -123,7 +124,7 @@ KNOWN_FALSE_ASSURANCE: frozenset[str] = frozenset()
 # Cases
 # ---------------------------------------------------------------------------
 
-GroupMutator = Callable[[dict], None]
+GroupMutator = Callable[[dict[Any, dict[str, float]]], None]
 
 
 @dataclass
@@ -149,13 +150,13 @@ class Case:
     notes: str = ""
 
 
-def _eth(groups: dict) -> dict:
+def _eth(groups: dict[Any, dict[str, float]]) -> dict[str, float]:
     from omni_mercury_engine.core.global_omni_scalar_network import ScalarGroup
 
     return groups[ScalarGroup.ETHICAL]
 
 
-def _set(groups: dict, **values: float) -> None:
+def _set(groups: dict[Any, dict[str, float]], **values: float) -> None:
     band = _eth(groups)
     for key, val in values.items():
         if key not in band:
@@ -163,13 +164,13 @@ def _set(groups: dict, **values: float) -> None:
         band[key] = val
 
 
-def _set_all_eth(groups: dict, value: float) -> None:
+def _set_all_eth(groups: dict[Any, dict[str, float]], value: float) -> None:
     band = _eth(groups)
     for key in band:
         band[key] = value
 
 
-def _zero_n_leading(groups: dict, n: int) -> None:
+def _zero_n_leading(groups: dict[Any, dict[str, float]], n: int) -> None:
     """Zero the first ``n`` declared ethical scalars (deterministic order)."""
     band = _eth(groups)
     for key in list(band)[:n]:
@@ -490,7 +491,9 @@ class CaseResult:
         return self.klass == "bad" and self.passes
 
 
-def _evaluate_case(gate, gosnn, base_groups: dict, case: Case) -> CaseResult:
+def _evaluate_case(
+    gate: Any, gosnn: Any, base_groups: dict[Any, dict[str, float]], case: Case
+) -> CaseResult:
     """Score one case through the production boundary (engine.py:2433-2445).
 
     Replicates ``detect_with_fusion`` exactly: the deterministic
@@ -553,13 +556,13 @@ class Summary:
     gate_trained: bool
     threshold: float
     corpus_error: str | None
-    confusion: dict = field(default_factory=dict)
+    confusion: dict[str, int] = field(default_factory=dict)
     good_pass_rate: float = 0.0
     bad_pass_rate: float = 0.0
     separation: float = 0.0
     score_range: float = 0.0
-    false_assurance: list = field(default_factory=list)
-    unexpected_leaks: list = field(default_factory=list)
+    false_assurance: list[str] = field(default_factory=list)
+    unexpected_leaks: list[str] = field(default_factory=list)
     verdict: str = "unknown"
 
 

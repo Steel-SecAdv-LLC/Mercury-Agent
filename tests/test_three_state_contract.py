@@ -42,7 +42,7 @@ from omni_mercury_engine.verifiers.three_state import (
 
 
 @pytest.fixture(autouse=True)
-def _reset_gosnn() -> None:
+def _reset_gosnn():
     reset_global_network()
     yield
     reset_global_network()
@@ -152,9 +152,9 @@ class TestUndecidableRegistersNothingEver:
         # (UNDECIDABLE) must NOT collapse to the same state.
         unavailable = registry.submit_collatz(27, max_steps=5).state
         undecidable = registry.submit_undecidable("twin_prime_infinitude").state
+        assert unavailable is not undecidable
         assert unavailable is ThreeState.UNAVAILABLE
         assert undecidable is ThreeState.UNDECIDABLE
-        assert unavailable is not undecidable
 
 
 class TestSummarySurfacesThreeState:
@@ -166,6 +166,7 @@ class TestSummarySurfacesThreeState:
         registry.submit_undecidable("collatz_general")  # UNDECIDABLE
         summary = registry.summary()
         by_state = summary["by_state"]
+        assert isinstance(by_state, dict)
         assert by_state[ThreeState.GROUNDED.value] == 1
         assert by_state[ThreeState.UNAVAILABLE.value] == 1
         assert by_state[ThreeState.UNDECIDABLE.value] == 1

@@ -45,7 +45,7 @@ from scripts import sigma_immutable_discrimination_check as probe
 
 
 @pytest.fixture(autouse=True)
-def _reset_gosnn() -> None:
+def _reset_gosnn():
     reset_global_network()
     yield
     reset_global_network()

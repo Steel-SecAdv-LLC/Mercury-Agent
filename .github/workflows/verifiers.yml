@@ -83,7 +83,7 @@ jobs:
             tests/test_mystery_registry.py \
             tests/test_three_state_contract.py \
             tests/security/test_sigma_immutable_discrimination.py \
-            -v --no-cov
+            -v -p no:cov
 
       - name: σ_Immutable discrimination probe (gate must discriminate, not false-assure)
         # Exits non-zero (2) if the gate is near-constant-PASS, so the
