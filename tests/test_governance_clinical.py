@@ -29,7 +29,7 @@ requires_ml = pytest.mark.skipif(
 )
 
 
-def _by_name(scalars: list, name: str):
+def _by_name(scalars, name):
     """Return the scalar with ``name`` from a list of governance scalars."""
     return next(s for s in scalars if s.name == name)
 
@@ -46,7 +46,7 @@ def test_clinical_ml_suite_must_run_under_gate() -> None:
 @requires_ml
 def test_sofa_subscores_match_published_thresholds() -> None:
     """Each SOFA organ sub-score matches the published point table (Vincent 1996)."""
-    data = {
+    data: dict[str, object] = {
         "pao2_fio2_ratio": 250,  # 200<=x<300 -> 2
         "platelets_k_ul": 30,  # 20<=x<50  -> 3
         "bilirubin_mg_dl": 8.0,  # 6<=x<12   -> 3

@@ -23,7 +23,7 @@ from omni_mercury_engine.governance.contract import (
 
 
 @pytest.fixture()
-def gosnn() -> GlobalOmniScalarNetwork:
+def gosnn():
     """Provide a freshly reset GOSNN singleton and tear it down afterwards."""
     reset_global_network()
     network = GlobalOmniScalarNetwork()
