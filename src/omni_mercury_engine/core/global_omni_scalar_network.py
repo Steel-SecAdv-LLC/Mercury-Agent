@@ -590,6 +590,7 @@ class GlobalOmniScalarNetwork:
     # allowlists once; no other call site needs to change.
     # ------------------------------------------------------------------
     _METRIC_ONLY_PREFIXES: tuple[str, ...] = (
+        # Software-engineering diagnostic measurement families.
         "omni_iso25010_",
         "omni_halstead_",
         "omni_mccabe_",
@@ -599,6 +600,15 @@ class GlobalOmniScalarNetwork:
         "omni_ossf_",
         "omni_iso5055_",
         "omni_ssdf_",
+        # Governance / medical / AI-assurance families (see omni_mercury_engine.governance).
+        # Descriptive and abstention-first: registered for reporting, filtered out of the
+        # σ_Immutable operational vector exactly like the SE families above.
+        "omni_sofa_",
+        "omni_ews_",
+        "omni_iso14971_",
+        "omni_nist_airmf_",
+        "omni_owasp_llm_",
+        "omni_mitre_atlas_",
     )
     _METRIC_ONLY_KEYS: frozenset[str] = frozenset(
         {
