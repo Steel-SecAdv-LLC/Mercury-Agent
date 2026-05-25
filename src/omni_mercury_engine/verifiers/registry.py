@@ -43,6 +43,11 @@ from omni_mercury_engine.verifiers import (
     physics,
     twin_primes,
 )
+from omni_mercury_engine.verifiers.three_state import (
+    KNOWN_UNDECIDABLE_IN_GENERAL,
+    ThreeState,
+    three_state_of,
+)
 
 if TYPE_CHECKING:
     from omni_mercury_engine.core.global_omni_scalar_network import GlobalOmniScalarNetwork
@@ -61,7 +66,12 @@ class LedgerEntry:
 
     tier: str
     claim: str
-    status: str  # confirmed | refuted | inconclusive | unavailable
+    # Oracle-side status (the finer four-word vocabulary). Reconciled onto
+    # the cross-repo ThreeState invariant by the ``state`` property:
+    #   confirmed | refuted          -> ThreeState.GROUNDED
+    #   inconclusive | unavailable   -> ThreeState.UNAVAILABLE
+    #   undecidable                  -> ThreeState.UNDECIDABLE
+    status: str  # confirmed | refuted | inconclusive | unavailable | undecidable
     reason: str
     checker: str
     scalar_name: str | None
@@ -69,12 +79,23 @@ class LedgerEntry:
     registered: bool
     timestamp: float = field(default_factory=time.time)
 
+    @property
+    def state(self) -> ThreeState:
+        """This entry's verdict on the unified three-state contract.
+
+        The single cross-tier invariant shared with the governance side;
+        see :func:`omni_mercury_engine.verifiers.three_state.three_state_of`
+        for the per-status, cause-based reconciliation.
+        """
+        return three_state_of(self.status)
+
     def as_dict(self) -> dict[str, object]:
         """Return a JSON-friendly mapping for this ledger entry."""
         return {
             "tier": self.tier,
             "claim": self.claim,
             "status": self.status,
+            "state": self.state.value,
             "reason": self.reason,
             "checker": self.checker,
             "scalar_name": self.scalar_name,
@@ -269,17 +290,59 @@ class MysteryRegistry:
             provenance=verdict.as_metadata(),
         )
 
+    def submit_undecidable(self, problem: str, *, claim: str | None = None) -> LedgerEntry:
+        """Record a claim about a problem with no decision procedure in principle.
+
+        For the universally-quantified open conjectures behind the instance
+        verifiers -- Collatz-in-general, the infinitude of twin primes, any
+        Millennium-class problem -- an instance oracle can settle single
+        cases but never the universal statement.  This is the
+        :attr:`ThreeState.UNDECIDABLE` path: it **registers nothing, ever**
+        (distinct from ``UNAVAILABLE``, which is a decidable instance merely
+        not produced this run), and grounds no scalar.
+
+        Args:
+            problem: A key into
+                :data:`~omni_mercury_engine.verifiers.three_state.KNOWN_UNDECIDABLE_IN_GENERAL`
+                (e.g. ``"collatz_general"``), or any caller-asserted
+                undecidable-in-general problem name.
+            claim: Optional human-readable claim string for the ledger.
+
+        Returns:
+            The recorded :class:`LedgerEntry` (``status="undecidable"``,
+            ``registered=False``, ``value=None``).
+        """
+        description = KNOWN_UNDECIDABLE_IN_GENERAL.get(problem)
+        reason = description or (
+            f"{problem}: no decision procedure in principle (instance oracle "
+            "cannot settle a universal claim over an infinite domain)"
+        )
+        return self._record(
+            tier="open_problem",
+            claim=claim or problem,
+            status="undecidable",
+            reason=reason,
+            checker="none",
+            group=ScalarGroup.MATHEMATICAL_MYSTERIES,
+            scalar_name=f"omni_open_problem_{problem}",
+            component_name="open_problem_undecidable",
+            provenance={"problem": problem, "undecidable_in_general": True},
+        )
+
     def summary(self) -> dict[str, object]:
         """Return aggregate counts, registered-scalar count, and band headroom."""
         by_status: dict[str, int] = {}
+        by_state: dict[str, int] = {}
         by_tier: dict[str, int] = {}
         for e in self.ledger:
             by_status[e.status] = by_status.get(e.status, 0) + 1
+            by_state[e.state.value] = by_state.get(e.state.value, 0) + 1
             by_tier[e.tier] = by_tier.get(e.tier, 0) + 1
         operational = len(self._operational_scalars())
         return {
             "total_claims": len(self.ledger),
             "by_status": by_status,
+            "by_state": by_state,
             "by_tier": by_tier,
             "registered_scalars": sum(1 for e in self.ledger if e.registered),
             "operational_scalar_count": operational,
