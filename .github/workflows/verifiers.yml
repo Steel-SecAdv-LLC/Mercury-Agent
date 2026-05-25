@@ -51,7 +51,10 @@ jobs:
       - name: Install package and test tools
         run: |
           python -m pip install --upgrade "pip>=26.1"
-          pip install -e ".[ml]"
+          # The multi-hundred-MB torch wheel is the only network-bound install
+          # in this lane; raise pip's 15s default socket timeout and retry count
+          # so a transient registry stall does not fast-fail the whole job.
+          pip install --retries 10 --timeout 120 -e ".[ml]"
           pip install pytest pytest-asyncio
 
       - name: Install Lean 4 (theorem-tier oracle)
