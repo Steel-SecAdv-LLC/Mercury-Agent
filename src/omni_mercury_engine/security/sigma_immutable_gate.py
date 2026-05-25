@@ -124,20 +124,31 @@ SIGMA_IMMUTABLE_IMPERMISSIBLE_HIGH: float = 0.5
 #: automatically.
 _PERMISSIBLE_INPUT_RANGE: float = 1.0 - MINIMUM_BENEVOLENCE_FLOOR
 
-#: Absolute baseline every genuine ethical safety anchor must hold at the
-#: anomaly-detection boundary.  Derived from
-#: :data:`MINIMUM_BENEVOLENCE_FLOOR` (the documented "absolute baseline
-#: below which the gate must fire", ``cognitive.ethical_bounding``): the
-#: deterministic floor generalises the established benevolence floor to
-#: every civilization-first ethical anchor, so a single collapsed anchor
-#: (e.g. benevolence driven to 0) is a categorical breach the hard gate
-#: refuses regardless of what the trained network's soft score says.
-#: This closes the false-assurance leak the discrimination probe found
-#: (``scripts/sigma_immutable_discrimination_check.py``): the synthetic-
-#: trained network, on its own, passed vectors with a single critical
-#: ethical dim zeroed.  The floor is deterministic (no synthetic data
-#: gates the safety-critical decision) and fail-closed.
-CRITICAL_ETHICAL_FLOOR: float = MINIMUM_BENEVOLENCE_FLOOR
+#: Per-anchor hard floor every genuine ethical safety anchor must clear at
+#: the anomaly-detection boundary.  Set to the σ_Immutable trainer's
+#: **ethical-band lower bound** (``SIGMA_IMMUTABLE_DEFAULT_THRESHOLD``,
+#: 0.93): the labelling rule in ``scripts/train_sigma_immutable.py`` draws
+#: every positive sample's ethical dimensions from ``U[0.93, 2.0]``, so an
+#: ethical anchor below 0.93 is, by that rule, a *negative*.  The
+#: deterministic floor enforces that per-anchor condition directly --
+#: exactly what the soft 256->64->1 network was supposed to learn but
+#: only approximates.
+#:
+#: Why 0.93 and not the lower ``MINIMUM_BENEVOLENCE_FLOOR`` (0.70): a
+#: held-out adversarial set showed a 0.70 floor leaves a [0.70, 0.93)
+#: gap.  Single-anchor degradation into that band (e.g. benevolence 0.80,
+#: morality 0.85) passed the floor and the network -- whose score is
+#: insensitive to a single anchor when the rest sit at their >=0.99
+#: defaults -- still scored above threshold.  0.93 closes the gap while
+#: keeping margin: every genuine anchor defaults to >= 0.99 (the lowest is
+#: omnibenevolence == BENEVOLENCE_IMMUTABLE), so the healthy operating
+#: point clears the floor by >= 0.06.  Narrative tuning scalars are
+#: excluded by name (see ``GlobalOmniScalarNetwork.critical_ethical_anchors``),
+#: so their intentionally-low defaults never trip it.
+#:
+#: The floor is deterministic (no synthetic data gates the safety-critical
+#: decision) and fail-closed.
+CRITICAL_ETHICAL_FLOOR: float = SIGMA_IMMUTABLE_DEFAULT_THRESHOLD
 
 
 def project_benevolence_to_sigma_band(benevolence_score: float) -> float:

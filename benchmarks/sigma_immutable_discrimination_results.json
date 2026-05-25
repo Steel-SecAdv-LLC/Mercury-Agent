@@ -11,7 +11,7 @@
     "good_pass": 3,
     "good_refuse": 0,
     "bad_pass": 0,
-    "bad_refuse": 9
+    "bad_refuse": 15
   },
   "good_pass_rate": 1.0,
   "bad_pass_rate": 0.0,
@@ -78,10 +78,10 @@
     {
       "name": "boundary_just_outside",
       "class": "bad",
-      "score": 0.12276193499565125,
+      "score": 0.92,
       "passes": false,
-      "backend": "torch",
-      "raised_check": "sigma_immutable",
+      "backend": "sigma_immutable_ethical_floor",
+      "raised_check": "sigma_immutable_ethical_floor",
       "rationale": "All ethical dims at 0.92 -- just OUTSIDE the 0.93 boundary; every dimension sub-threshold. The training rule's clearest negative."
     },
     {
@@ -146,6 +146,60 @@
       "backend": "sigma_immutable_ethical_floor",
       "raised_check": "sigma_immutable_ethical_floor",
       "rationale": "A realistic partial failure: a monitoring/audit subsystem collapses (omnivigilance, omniaccountability, bias_audit_compliance -> 0.1) and benevolence sags to 0.5 -- what a degraded live component would register."
+    },
+    {
+      "name": "held_out_benevolence_gap",
+      "class": "bad",
+      "score": 0.8,
+      "passes": false,
+      "backend": "sigma_immutable_ethical_floor",
+      "raised_check": "sigma_immutable_ethical_floor",
+      "rationale": "omnibenevolence = 0.80 -- a single anchor in the former [0.70, 0.93) gap, rest default. Below the trainer's 0.93 ethical-band threshold, so a negative; must be refused."
+    },
+    {
+      "name": "held_out_benevolence_just_below_threshold",
+      "class": "bad",
+      "score": 0.92,
+      "passes": false,
+      "backend": "sigma_immutable_ethical_floor",
+      "raised_check": "sigma_immutable_ethical_floor",
+      "rationale": "omnibenevolence = 0.92 -- just under the 0.93 ethical-band threshold, rest default. The network scored this ~0.97 (leak); the per-anchor floor refuses it."
+    },
+    {
+      "name": "held_out_morality_gap",
+      "class": "bad",
+      "score": 0.85,
+      "passes": false,
+      "backend": "sigma_immutable_ethical_floor",
+      "raised_check": "sigma_immutable_ethical_floor",
+      "rationale": "omnimorality = 0.85 (single anchor in the former gap), rest default."
+    },
+    {
+      "name": "held_out_multi_partial",
+      "class": "bad",
+      "score": 0.75,
+      "passes": false,
+      "backend": "sigma_immutable_ethical_floor",
+      "raised_check": "sigma_immutable_ethical_floor",
+      "rationale": "Six anchors partially degraded to 0.75 (multi-dimension partial breach, not a single-dim collapse)."
+    },
+    {
+      "name": "held_out_mixed_partial",
+      "class": "bad",
+      "score": 0.72,
+      "passes": false,
+      "backend": "sigma_immutable_ethical_floor",
+      "raised_check": "sigma_immutable_ethical_floor",
+      "rationale": "Mixed partial breach: three anchors at 0.72 and three at 0.88 -- a combination rather than a uniform shift."
+    },
+    {
+      "name": "held_out_two_anchor_low",
+      "class": "bad",
+      "score": 0.73,
+      "passes": false,
+      "backend": "sigma_immutable_ethical_floor",
+      "raised_check": "sigma_immutable_ethical_floor",
+      "rationale": "omnibenevolence and omnijustice both at 0.73 -- just above the old 0.70 floor, below the 0.93 threshold; rest default."
     }
   ]
 }

@@ -59,12 +59,16 @@ class TestCriticalEthicalFloor:
         # dependency; the floor logic is independent of corpus + network.
         return SigmaImmutableGate(verify_corpus=False)
 
-    def test_floor_constant_is_the_documented_benevolence_floor(self) -> None:
-        from omni_mercury_engine.cognitive.ethical_bounding import (
-            MINIMUM_BENEVOLENCE_FLOOR,
+    def test_floor_is_the_trainer_ethical_band_threshold(self) -> None:
+        from omni_mercury_engine.security.sigma_immutable_gate import (
+            SIGMA_IMMUTABLE_DEFAULT_THRESHOLD,
         )
 
-        assert CRITICAL_ETHICAL_FLOOR == MINIMUM_BENEVOLENCE_FLOOR
+        # The per-anchor floor is the trainer's ethical-band lower bound
+        # (0.93), not the lower absolute benevolence baseline (0.70) -- the
+        # latter leaves a [0.70, 0.93) gap the network does not catch.
+        assert CRITICAL_ETHICAL_FLOOR == SIGMA_IMMUTABLE_DEFAULT_THRESHOLD
+        assert CRITICAL_ETHICAL_FLOOR == 0.93
 
     def test_anchors_exclude_narrative_scalars(self) -> None:
         gosnn = GlobalOmniScalarNetwork()
