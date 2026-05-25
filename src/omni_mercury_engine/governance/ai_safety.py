@@ -16,146 +16,193 @@ https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-"""AI-assurance conformance scalars (metric-only) -- abstain unless attested.
+"""AI-assurance governance scalars, each kept or dropped on a per-family **signal vet**.
 
-NIST AI RMF 1.0, the OWASP LLM Top 10 (2025), and MITRE ATLAS are **checklists**, not
-quantities.  An anomaly engine has no intrinsic runtime signal that yields, say, a NIST
-"GOVERN conformance" of 0.73.  Per the project's honesty contract this module therefore
-**abstains by default**: a conformance scalar is produced only from an explicit operator
-*attestation* (a mapping of catalog item -> satisfied bool).  With no attestation the
-whole family registers nothing -- exactly as a Collatz instance over budget is
-``inconclusive`` and a Lean tier with no toolchain is ``unavailable``.
+The three AI-assurance frameworks were treated as genuinely open and vetted against this
+engine's *actual* observable surface (not against their reputation as "just checklists").
+The verdicts (recorded in :data:`omni_mercury_engine.governance.contract.GOVERNANCE_FAMILY_VET`):
 
-When an attestation is supplied the value is an honest ``satisfied / assessed`` fraction
-over the catalog items the attestation actually covers; coverage is recorded in
-provenance so a partial attestation can never masquerade as full conformance.  The
-catalogs below are the published item identifiers, cited not imported.
+* **NIST AI RMF 1.0 -- UNAVAILABLE-capable (kept).**  GOVERN/MAP/MANAGE are governance
+  *processes* with no runtime signal, but the **MEASURE** function is quantitative and maps
+  onto genuine runtime trustworthiness metrics this engine computes: fairness
+  (``ml/bias_detection.py:49`` ``FairnessResult.overall_score``), performance
+  (``evaluation/metrics.py:33`` ``AnomalyMetrics.auc_roc``), and drift stability
+  (``ml/drift.py:63`` ``DriftResult``).  So the family is grounded *through MEASURE*.
+
+* **MITRE ATLAS -- UNAVAILABLE-capable (kept).**  The engine observes adversary activity
+  against its surface at runtime: ``security/threat_detection.py:135``
+  ``ThreatDetector.detect_all`` (wired live at ``engine.py:2759``) emits
+  ``threat_type``/``confidence``.  Honestly scoped: this covers the conventional/input-layer
+  tactics the web-payload detector surfaces (initial_access, discovery), **not** the
+  adversarial-ML tactics (evasion/poisoning/model-extraction) -- the engine has no detector
+  for those.
+
+* **OWASP Top 10 for LLM Applications (2025) -- UNDECIDABLE (dropped).**  The engine *does*
+  run an LLM (``models/foundation/llm_adapter.py:153``), but ships **no** prompt-injection /
+  output-handling / system-prompt-leakage / jailbreak detector, no per-category guardrail
+  output, and no token-consumption accounting (the API rate-limiter is generic).  No runtime
+  signal can produce a per-OWASP-category value; the only possible input is an operator
+  checklist, which is not a runtime signal -- so the family would be UNDECIDABLE-in-disguise
+  and is **not built**.  Its verdict is recorded in the vet table and asserted by tests.
+
+Both kept families are **metric-only**, so they never perturb the σ_Immutable gate, and each
+abstains UNAVAILABLE when its signal is absent this run rather than fabricating a value.
 """
 
 from typing import TYPE_CHECKING
 
-from omni_mercury_engine.governance.contract import GovernanceScalar, available, unavailable
+from omni_mercury_engine.governance.contract import GovernanceScalar, grounded, unavailable
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Mapping, Sequence
 
-# NIST AI RMF 1.0 core functions.
-_NIST_AI_RMF: tuple[str, ...] = ("govern", "map", "measure", "manage")
+_NIST_FAMILY = "nist_ai_rmf"
+_ATLAS_FAMILY = "mitre_atlas"
 
-# OWASP Top 10 for LLM Applications (2025).
-_OWASP_LLM: tuple[str, ...] = (
-    "llm01_prompt_injection",
-    "llm02_sensitive_information_disclosure",
-    "llm03_supply_chain",
-    "llm04_data_and_model_poisoning",
-    "llm05_improper_output_handling",
-    "llm06_excessive_agency",
-    "llm07_system_prompt_leakage",
-    "llm08_vector_and_embedding_weaknesses",
-    "llm09_misinformation",
-    "llm10_unbounded_consumption",
-)
+# NIST AI RMF 1.0 MEASURE-function trustworthiness characteristics that map to a *real*
+# runtime metric in this engine.  Each key cites its in-engine source; values are unit
+# trustworthiness scores in [0, 1] (1.0 = best).  (Robustness is deliberately excluded:
+# ``core/ethical_config.py:209 omni_adversarial_robustness`` is a static default constant,
+# not a runtime-computed measurement.)
+_NIST_MEASURE_METRICS: dict[str, str] = {
+    "fairness": "ml/bias_detection.py:49 FairnessResult.overall_score",
+    "performance": "evaluation/metrics.py:33 AnomalyMetrics.auc_roc",
+    "drift_stability": "ml/drift.py:63 DriftResult (1 - drifting-feature fraction)",
+}
 
-# MITRE ATLAS adversarial-ML tactics.
-_MITRE_ATLAS: tuple[str, ...] = (
-    "reconnaissance",
-    "resource_development",
-    "initial_access",
-    "ml_model_access",
-    "execution",
-    "persistence",
-    "privilege_escalation",
-    "defense_evasion",
-    "credential_access",
-    "discovery",
-    "collection",
-    "ml_attack_staging",
-    "exfiltration",
-    "impact",
+# The ATLAS tactics this engine's threat detectors can actually surface, keyed by the
+# ``threat_type`` strings emitted by ``security/threat_detection.py`` ``detect_*`` methods.
+# This is an honest *subset* of the 14-tactic ATLAS matrix.
+_THREAT_TYPE_TO_ATLAS_TACTIC: dict[str, str] = {
+    "sql_injection": "initial_access",
+    "xss": "initial_access",
+    "path_traversal": "discovery",
+}
+_ATLAS_OBSERVABLE_TACTICS: tuple[str, ...] = tuple(
+    sorted(set(_THREAT_TYPE_TO_ATLAS_TACTIC.values()))
 )
 
 
-def _conformance(
-    scalar_name: str,
-    family: str,
-    catalog: tuple[str, ...],
-    attestation: Mapping[str, bool] | None,
-    *,
-    label: str,
+def _is_unit(value: object) -> bool:
+    """Whether ``value`` is a real number in the closed unit interval ``[0, 1]``."""
+    if isinstance(value, bool):
+        return False
+    if not isinstance(value, (int, float)):
+        return False
+    return 0.0 <= float(value) <= 1.0
+
+
+def nist_ai_rmf_measure_scalar(
+    *, measurements: Mapping[str, float] | None = None
 ) -> GovernanceScalar:
-    """Build a conformance scalar from an attestation, or abstain when none is given."""
-    if not attestation:
+    """Ground NIST AI RMF (via the MEASURE function) in live trustworthiness metrics.
+
+    Args:
+        measurements: Mapping of MEASURE metric name (see :data:`_NIST_MEASURE_METRICS`) ->
+            unit score in ``[0, 1]``, sourced from the engine's runtime signals.  ``None``
+            or no recognised/valid metric this run abstains UNAVAILABLE (the capability is
+            real; the metric simply was not produced this execution).
+
+    Returns:
+        GROUNDED with the mean of the present MEASURE metrics, else an UNAVAILABLE abstention.
+    """
+    name = "omni_nist_airmf_measure"
+    if not measurements:
         return unavailable(
-            scalar_name,
-            family=family,
-            reason=f"{label}: no attestation supplied (checklist has no runtime signal)",
+            name,
+            family=_NIST_FAMILY,
+            reason="NIST AI RMF MEASURE: no runtime trustworthiness metric this run",
+            missing_inputs=("measurements",),
         )
-    assessed = [item for item in catalog if item in attestation]
-    if not assessed:
+    valid = {
+        k: float(v) for k, v in measurements.items() if k in _NIST_MEASURE_METRICS and _is_unit(v)
+    }
+    if not valid:
         return unavailable(
-            scalar_name,
-            family=family,
-            reason=f"{label}: attestation covers none of the {len(catalog)} catalog items",
+            name,
+            family=_NIST_FAMILY,
+            reason="NIST AI RMF MEASURE: no recognised metric in [0,1] supplied",
+            missing_inputs=tuple(sorted(_NIST_MEASURE_METRICS)),
         )
-    satisfied = sum(1 for item in assessed if attestation[item])
-    coverage = len(assessed) / len(catalog)
-    return available(
-        scalar_name,
-        satisfied / len(assessed),
-        family=family,
+    value = sum(valid.values()) / len(valid)
+    return grounded(
+        name,
+        value,
+        family=_NIST_FAMILY,
+        reason=f"NIST AI RMF MEASURE = mean over {sorted(valid)} ({len(valid)} metric(s))",
+        provenance={"measurements": valid, "function": "MEASURE"},
+    )
+
+
+def mitre_atlas_scalar(
+    *, observed_events: Sequence[Mapping[str, object]] | None = None
+) -> GovernanceScalar:
+    """Ground MITRE ATLAS coverage in observed runtime threat-detection events.
+
+    Args:
+        observed_events: Sequence of threat-detection outputs, each a mapping with a
+            ``threat_type`` key (as emitted by ``ThreatDetector.detect_*``).  ``None`` or an
+            empty sequence abstains UNAVAILABLE (the live detector exists at
+            ``engine.py:2759``; it simply observed nothing this run).
+
+    Returns:
+        GROUNDED with observed-tactic coverage = (distinct observable ATLAS tactics seen) /
+        (engine's observable ATLAS surface), else an UNAVAILABLE abstention.
+    """
+    name = "omni_mitre_atlas_coverage"
+    if not observed_events:
+        return unavailable(
+            name,
+            family=_ATLAS_FAMILY,
+            reason="MITRE ATLAS: no threat-detection event observed this run",
+            missing_inputs=("observed_events",),
+        )
+    observed_tactics = {
+        _THREAT_TYPE_TO_ATLAS_TACTIC[str(ev.get("threat_type"))]
+        for ev in observed_events
+        if str(ev.get("threat_type")) in _THREAT_TYPE_TO_ATLAS_TACTIC
+    }
+    if not observed_tactics:
+        return unavailable(
+            name,
+            family=_ATLAS_FAMILY,
+            reason="MITRE ATLAS: no event maps to an observable ATLAS tactic",
+            missing_inputs=("observed_events",),
+        )
+    coverage = len(observed_tactics) / len(_ATLAS_OBSERVABLE_TACTICS)
+    return grounded(
+        name,
+        coverage,
+        family=_ATLAS_FAMILY,
         reason=(
-            f"{label}: {satisfied}/{len(assessed)} assessed items satisfied "
-            f"(coverage {coverage:.0%} of {len(catalog)})"
+            f"MITRE ATLAS observed-tactic coverage = {len(observed_tactics)}/"
+            f"{len(_ATLAS_OBSERVABLE_TACTICS)} ({sorted(observed_tactics)})"
         ),
         provenance={
-            "satisfied": satisfied,
-            "assessed": len(assessed),
-            "catalog_size": len(catalog),
-            "coverage": coverage,
+            "observed_tactics": sorted(observed_tactics),
+            "observable_surface": list(_ATLAS_OBSERVABLE_TACTICS),
         },
     )
 
 
 def ai_safety_scalars(
     *,
-    nist_ai_rmf: Mapping[str, bool] | None = None,
-    owasp_llm: Mapping[str, bool] | None = None,
-    mitre_atlas: Mapping[str, bool] | None = None,
+    nist_measurements: Mapping[str, float] | None = None,
+    atlas_events: Sequence[Mapping[str, object]] | None = None,
 ) -> list[GovernanceScalar]:
-    """Build the three AI-assurance conformance scalars from optional attestations.
+    """Build the two kept AI-assurance scalars (NIST AI RMF MEASURE, MITRE ATLAS).
 
-    Each argument is an operator attestation mapping catalog item -> satisfied bool.
-    Any argument left ``None`` (the default) makes that scalar abstain, so the whole
-    family registers nothing unless real evidence is supplied.
+    OWASP LLM Top 10 is intentionally absent: it vets UNDECIDABLE (no runtime signal in this
+    engine) and is therefore not built -- see this module's docstring and the vet table.
 
     Args:
-        nist_ai_rmf: Attestation over :data:`_NIST_AI_RMF` functions.
-        owasp_llm: Attestation over the :data:`_OWASP_LLM` Top 10 items.
-        mitre_atlas: Attestation over :data:`_MITRE_ATLAS` tactics.
+        nist_measurements: Live MEASURE metrics for :func:`nist_ai_rmf_measure_scalar`.
+        atlas_events: Observed threat-detection events for :func:`mitre_atlas_scalar`.
 
     Returns:
-        Three :class:`GovernanceScalar` objects (available only where attested).
+        ``[nist_scalar, atlas_scalar]`` -- each GROUNDED only where its real signal is present.
     """
     return [
-        _conformance(
-            "omni_nist_airmf_conformance",
-            "nist_ai_rmf",
-            _NIST_AI_RMF,
-            nist_ai_rmf,
-            label="NIST AI RMF 1.0",
-        ),
-        _conformance(
-            "omni_owasp_llm_mitigation",
-            "owasp_llm",
-            _OWASP_LLM,
-            owasp_llm,
-            label="OWASP LLM Top 10 (2025)",
-        ),
-        _conformance(
-            "omni_mitre_atlas_coverage",
-            "mitre_atlas",
-            _MITRE_ATLAS,
-            mitre_atlas,
-            label="MITRE ATLAS",
-        ),
+        nist_ai_rmf_measure_scalar(measurements=nist_measurements),
+        mitre_atlas_scalar(observed_events=atlas_events),
     ]

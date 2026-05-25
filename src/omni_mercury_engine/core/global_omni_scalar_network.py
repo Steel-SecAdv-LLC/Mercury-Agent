@@ -601,14 +601,16 @@ class GlobalOmniScalarNetwork:
         "omni_iso5055_",
         "omni_ssdf_",
         # Governance / medical / AI-assurance families (see omni_mercury_engine.governance).
-        # Descriptive and abstention-first: registered for reporting, filtered out of the
-        # σ_Immutable operational vector exactly like the SE families above.
-        "omni_sofa_",
-        "omni_ews_",
-        "omni_iso14971_",
-        "omni_nist_airmf_",
-        "omni_owasp_llm_",
-        "omni_mitre_atlas_",
+        # Descriptive and three-state (GROUNDED/UNAVAILABLE/UNDECIDABLE): registered for
+        # reporting, filtered out of the σ_Immutable operational vector exactly like the SE
+        # families above.  Only families the per-family signal vet keeps appear here; dropped
+        # UNDECIDABLE families (e.g. OWASP LLM Top 10) carry no prefix.
+        "omni_sofa_",  # SOFA organ sub-scores + total
+        "omni_ews_",  # NEWS2 + MEWS early-warning aggregates
+        "omni_meld_",  # MELD-Na hepatic allocation score
+        "omni_iso14971_",  # ISO 14971 medical-device risk index
+        "omni_nist_airmf_",  # NIST AI RMF MEASURE conformance
+        "omni_mitre_atlas_",  # MITRE ATLAS observed-tactic coverage
     )
     _METRIC_ONLY_KEYS: frozenset[str] = frozenset(
         {

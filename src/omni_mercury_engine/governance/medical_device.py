@@ -21,15 +21,20 @@ from __future__ import annotations
 ISO 14971:2019 frames risk as the combination of the *probability of occurrence* of
 harm and the *severity* of that harm.  This module reproduces the standard's
 semi-quantitative 5x5 risk-index construction (severity 1-5 x probability 1-5) for
-reporting only; the standard is cited, not imported.  The scalar abstains when either
-input is absent or out of the 1-5 range -- a risk index is undefined without both
+reporting only; the standard is cited, not imported.
+
+The family vets **UNAVAILABLE-capable**: the engine emits runtime severity/confidence
+coordinates (``core/types.py:92`` ``ThreatLevel``; ``security/realtime_threat_detection.py``
+``ThreatSignature.severity``/``confidence``) from which a severity/probability pair can be
+sourced, so the scalar is GROUNDED when both coordinates are present and UNAVAILABLE when
+either is absent or out of the 1-5 range -- a risk index is undefined without both
 coordinates, and is never defaulted.
 
 ⚠️ NOT FOR DEVICE CLEARANCE.  Descriptive measurement for audit/reporting; it does not
 constitute an ISO 14971 risk-management file or any regulatory determination.
 """
 
-from omni_mercury_engine.governance.contract import GovernanceScalar, available, unavailable
+from omni_mercury_engine.governance.contract import GovernanceScalar, grounded, unavailable
 
 _FAMILY = "iso14971"
 _RISK_INDEX_MAX = 25.0  # severity (max 5) x probability (max 5)
@@ -67,13 +72,17 @@ def iso14971_risk_scalar(inputs: dict[str, object]) -> GovernanceScalar:
     severity = _coerce_level(inputs.get("severity"))
     probability = _coerce_level(inputs.get("probability"))
     if severity is None or probability is None:
+        missing = tuple(
+            k for k, v in (("severity", severity), ("probability", probability)) if v is None
+        )
         return unavailable(
             "omni_iso14971_risk_index",
             family=_FAMILY,
             reason="ISO 14971 risk index undefined: severity/probability absent or not in 1-5",
+            missing_inputs=missing,
         )
     risk_index = severity * probability
-    return available(
+    return grounded(
         "omni_iso14971_risk_index",
         risk_index / _RISK_INDEX_MAX,
         family=_FAMILY,

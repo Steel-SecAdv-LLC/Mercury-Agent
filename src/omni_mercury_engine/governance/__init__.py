@@ -16,37 +16,52 @@ https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-"""Descriptive (metric-only) governance scalars under an abstention-first contract.
+"""Descriptive (metric-only) governance scalars under a three-state honesty contract.
 
 This package is the governance counterpart to :mod:`omni_mercury_engine.verifiers`.
 Verifiers ground *operational* scalars in decidable oracles; governance grounds
-*metric-only* scalars in published formulas, and -- crucially -- abstains (registers
-nothing) whenever the required input signal is absent.  Because every scalar here is
-metric-only it is filtered out of the σ_Immutable operational vector, so the trained
-ethical gate is never perturbed.
+*metric-only* scalars in published formulas under the same cross-repo three-state invariant
+(:class:`~omni_mercury_engine.governance.contract.ScalarState`: GROUNDED / UNAVAILABLE /
+UNDECIDABLE).  Because every scalar here is metric-only it is filtered out of the σ_Immutable
+operational vector, so the trained ethical gate is never perturbed.
 
-Families: clinical (SOFA, NEWS2), medical-device risk (ISO 14971), and AI assurance
-(NIST AI RMF / OWASP LLM Top 10 / MITRE ATLAS, which abstain unless attested).
+Each family is kept or dropped by an explicit, codebase-evidenced **signal vet**
+(:data:`~omni_mercury_engine.governance.contract.GOVERNANCE_FAMILY_VET`):
+
+* Kept (UNAVAILABLE-capable): clinical SOFA / NEWS2 / MEWS / MELD-Na, medical-device
+  ISO 14971, AI-assurance NIST AI RMF (MEASURE) and MITRE ATLAS.
+* Dropped (UNDECIDABLE): OWASP LLM Top 10, IMDRF SaMD, ISO 42001/23894, NIST SP 1270,
+  IEEE 7000-series -- no runtime signal can exist for them in this engine.
+* Tag-only: the EU AI Act risk tier (a gate/tag, never a scalar).
 """
 
-from omni_mercury_engine.governance import ai_safety, clinical, medical_device
+from omni_mercury_engine.governance import ai_safety, clinical, eu_ai_act, medical_device
 from omni_mercury_engine.governance.contract import (
+    GOVERNANCE_FAMILY_VET,
+    FamilyVet,
     GovernanceLedgerEntry,
     GovernanceRegistry,
     GovernanceScalar,
-    ScalarStatus,
-    available,
+    ScalarState,
+    SignalClass,
+    grounded,
     unavailable,
+    undecidable,
 )
 
 __all__ = [
+    "GOVERNANCE_FAMILY_VET",
+    "FamilyVet",
     "GovernanceLedgerEntry",
     "GovernanceRegistry",
     "GovernanceScalar",
-    "ScalarStatus",
+    "ScalarState",
+    "SignalClass",
     "ai_safety",
-    "available",
     "clinical",
+    "eu_ai_act",
+    "grounded",
     "medical_device",
     "unavailable",
+    "undecidable",
 ]

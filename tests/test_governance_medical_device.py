@@ -1,4 +1,4 @@
-"""Tests for the ISO 14971 medical-device risk governance scalar."""
+"""Tests for the ISO 14971 medical-device risk governance scalar (three-state)."""
 
 from __future__ import annotations
 
@@ -7,32 +7,42 @@ import pytest
 pytest.importorskip("numpy")  # governance.contract -> GOSNN imports numpy.
 
 from omni_mercury_engine.governance import medical_device
-from omni_mercury_engine.governance.contract import ScalarStatus
+from omni_mercury_engine.governance.contract import ScalarState
 
 
-def test_risk_index_computes_and_tiers() -> None:
-    """severity x probability yields the normalized risk index and acceptability tier."""
+def test_iso14971_worked_example_and_tier() -> None:
+    """severity 4 x probability 4 = 16/25, in the 'unacceptable' band."""
     scalar = medical_device.iso14971_risk_scalar({"severity": 4, "probability": 4})
-    assert scalar.status is ScalarStatus.AVAILABLE
+    assert scalar.state is ScalarState.GROUNDED
     assert scalar.value == pytest.approx(16 / 25)
+    assert scalar.provenance["risk_index"] == 16
     assert scalar.provenance["tier"] == "unacceptable"
 
 
-def test_low_risk_is_acceptable() -> None:
-    """A low severity/probability combination lands in the acceptable band."""
-    scalar = medical_device.iso14971_risk_scalar({"severity": 2, "probability": 2})
-    assert scalar.value == pytest.approx(4 / 25)
+def test_iso14971_acceptable_band() -> None:
+    """severity 1 x probability 2 = 2/25, in the 'acceptable' band."""
+    scalar = medical_device.iso14971_risk_scalar({"severity": 1, "probability": 2})
+    assert scalar.value == pytest.approx(2 / 25)
     assert scalar.provenance["tier"] == "acceptable"
 
 
-def test_abstains_when_coordinate_missing() -> None:
-    """A missing coordinate abstains: a risk index needs both severity and probability."""
-    scalar = medical_device.iso14971_risk_scalar({"severity": 3})
-    assert scalar.status is ScalarStatus.UNAVAILABLE
+def test_iso14971_abstains_on_missing_coordinate() -> None:
+    """An absent coordinate abstains UNAVAILABLE, recording which is missing."""
+    scalar = medical_device.iso14971_risk_scalar({"severity": 4})
+    assert scalar.state is ScalarState.UNAVAILABLE
     assert scalar.value is None
+    assert scalar.missing_inputs == ("probability",)
 
 
-def test_abstains_on_out_of_range() -> None:
-    """Out-of-range levels (not 1-5) abstain rather than clamp silently."""
+def test_iso14971_abstains_on_out_of_range() -> None:
+    """A coordinate outside 1-5 abstains rather than being clamped to a fabricated value."""
     scalar = medical_device.iso14971_risk_scalar({"severity": 9, "probability": 3})
-    assert scalar.status is ScalarStatus.UNAVAILABLE
+    assert scalar.state is ScalarState.UNAVAILABLE
+    assert scalar.missing_inputs == ("severity",)
+
+
+def test_not_for_device_clearance_boundary_is_documented() -> None:
+    """The module must carry the not-for-device-clearance boundary in its source."""
+    import inspect
+
+    assert "NOT FOR DEVICE CLEARANCE" in inspect.getsource(medical_device).upper()
