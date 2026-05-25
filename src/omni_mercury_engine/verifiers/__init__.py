@@ -43,10 +43,17 @@ from omni_mercury_engine.verifiers import (
 )
 from omni_mercury_engine.verifiers.primality import _is_prime_trial, is_prime
 from omni_mercury_engine.verifiers.registry import LedgerEntry, MysteryRegistry
+from omni_mercury_engine.verifiers.three_state import (
+    KNOWN_UNDECIDABLE_IN_GENERAL,
+    ThreeState,
+    three_state_of,
+)
 
 __all__ = [
+    "KNOWN_UNDECIDABLE_IN_GENERAL",
     "LedgerEntry",
     "MysteryRegistry",
+    "ThreeState",
     "_is_prime_trial",
     "collatz",
     "dimensional",
@@ -56,5 +63,6 @@ __all__ = [
     "paradox",
     "physics",
     "propositional",
+    "three_state_of",
     "twin_primes",
 ]
