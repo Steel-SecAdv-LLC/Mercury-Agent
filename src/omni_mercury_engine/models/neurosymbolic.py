@@ -239,8 +239,15 @@ class SymbolicReasoningLayer:
 
         symbolic_confidence = len(rules_fired) / len(self.rules) if self.rules else 0.0
 
-        # Weighted combination: 60% neural, 40% symbolic
-        combined_confidence = 0.6 * neural_score + 0.4 * symbolic_confidence
+        # Adaptive neuro-symbolic blend (single canonical implementation),
+        # replacing the former hardcoded 0.6/0.4 static mix. Weighting adapts
+        # to how decisive each branch is. ``neural_score`` is expected to be the
+        # trained fusion network's calibrated probability when available.
+        from omni_mercury_engine.cognitive.neurosymbolic_fusion import (
+            adaptive_neurosymbolic_fuse,
+        )
+
+        combined_confidence, _ = adaptive_neurosymbolic_fuse(neural_score, symbolic_confidence)
 
         is_anomaly = combined_confidence > 0.5
 

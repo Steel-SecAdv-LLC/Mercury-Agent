@@ -93,6 +93,63 @@ class FusionStrategy(Enum):
     CONFIDENCE_WEIGHTED = "confidence_weighted"
 
 
+def adaptive_neurosymbolic_fuse(
+    neural_score: float,
+    symbolic_score: float,
+    neural_confidence: float | None = None,
+    symbolic_confidence: float | None = None,
+    strategy: FusionStrategy = FusionStrategy.CONFIDENCE_WEIGHTED,
+    neural_weight: float = 0.6,
+    symbolic_weight: float = 0.4,
+) -> tuple[float, float]:
+    """Canonical adaptive neural/symbolic blend (single source of truth).
+
+    Replaces the previously-duplicated hardcoded ``0.6*neural + 0.4*symbolic``
+    static blends. The weighting adapts to how decisive each branch is rather
+    than being fixed: a confident neural score and a weakly-firing rule set
+    weight neural more; strongly-firing rules weight symbolic more. When both
+    branches are equally (un)confident the result reduces to a near-even blend.
+
+    Args:
+        neural_score: Neural anomaly score in [0, 1].
+        symbolic_score: Symbolic anomaly score in [0, 1] (e.g. fraction of
+            rules fired).
+        neural_confidence: Confidence in the neural score. If None, derived
+            from decisiveness ``2*|neural_score - 0.5|``.
+        symbolic_confidence: Confidence in the symbolic score. If None, derived
+            from decisiveness ``2*|symbolic_score - 0.5|``.
+        strategy: Fusion strategy (CONFIDENCE_WEIGHTED softmax-style by default;
+            GATED, WEIGHTED_AVERAGE, HIERARCHICAL also supported).
+        neural_weight / symbolic_weight: Priors used only by WEIGHTED_AVERAGE.
+
+    Returns:
+        ``(fused_score, fused_confidence)`` both in [0, 1].
+    """
+    if neural_confidence is None:
+        neural_confidence = abs(neural_score - 0.5) * 2.0
+    if symbolic_confidence is None:
+        symbolic_confidence = abs(symbolic_score - 0.5) * 2.0
+
+    if strategy == FusionStrategy.WEIGHTED_AVERAGE:
+        fused_score = neural_weight * neural_score + symbolic_weight * symbolic_score
+        fused_conf = neural_weight * neural_confidence + symbolic_weight * symbolic_confidence
+    elif strategy == FusionStrategy.GATED:
+        gate = 1.0 / (1.0 + np.exp(-(neural_confidence - symbolic_confidence)))
+        fused_score = gate * neural_score + (1 - gate) * symbolic_score
+        fused_conf = gate * neural_confidence + (1 - gate) * symbolic_confidence
+    elif strategy == FusionStrategy.HIERARCHICAL:
+        fused_score = max(neural_score, symbolic_score)
+        fused_conf = max(neural_confidence, symbolic_confidence)
+    else:  # CONFIDENCE_WEIGHTED (default); ATTENTION handled by the engine
+        total = neural_confidence + symbolic_confidence + 1e-10
+        n_w = neural_confidence / total
+        s_w = symbolic_confidence / total
+        fused_score = n_w * neural_score + s_w * symbolic_score
+        fused_conf = (neural_confidence + symbolic_confidence) / 2.0
+
+    return float(np.clip(fused_score, 0.0, 1.0)), float(np.clip(fused_conf, 0.0, 1.0))
+
+
 class AnomalyCategory(Enum):
     """Categories of detected anomalies."""
 
@@ -664,14 +721,13 @@ class NeurosymbolicFusionEngine:
         neural_confidence: float,
         symbolic_confidence: float,
     ) -> tuple[float, float]:
-        """Fuse neural and symbolic scores based on strategy."""
-        if self.fusion_strategy == FusionStrategy.WEIGHTED_AVERAGE:
-            fused_score = self.neural_weight * neural_score + self.symbolic_weight * symbolic_score
-            fused_confidence = (
-                self.neural_weight * neural_confidence + self.symbolic_weight * symbolic_confidence
-            )
+        """Fuse neural and symbolic scores based on strategy.
 
-        elif self.fusion_strategy == FusionStrategy.ATTENTION:
+        ATTENTION uses this engine's stateful AttentionMechanism; every other
+        strategy delegates to the canonical ``adaptive_neurosymbolic_fuse`` so
+        there is a single blend implementation.
+        """
+        if self.fusion_strategy == FusionStrategy.ATTENTION:
             neural_features = np.array([neural_score, neural_confidence])
             symbolic_features = np.array([symbolic_score, symbolic_confidence])
             n_weight, s_weight = self.attention.compute_attention(
@@ -679,24 +735,17 @@ class NeurosymbolicFusionEngine:
             )
             fused_score = n_weight * neural_score + s_weight * symbolic_score
             fused_confidence = n_weight * neural_confidence + s_weight * symbolic_confidence
+            return float(fused_score), float(fused_confidence)
 
-        elif self.fusion_strategy == FusionStrategy.GATED:
-            fused_score, fused_confidence = self.gated_fusion.fuse(
-                neural_score, symbolic_score, neural_confidence, symbolic_confidence
-            )
-
-        elif self.fusion_strategy == FusionStrategy.CONFIDENCE_WEIGHTED:
-            total_conf = neural_confidence + symbolic_confidence + 1e-10
-            n_weight = neural_confidence / total_conf
-            s_weight = symbolic_confidence / total_conf
-            fused_score = n_weight * neural_score + s_weight * symbolic_score
-            fused_confidence = (neural_confidence + symbolic_confidence) / 2
-
-        else:
-            fused_score = max(neural_score, symbolic_score)
-            fused_confidence = max(neural_confidence, symbolic_confidence)
-
-        return float(fused_score), float(fused_confidence)
+        return adaptive_neurosymbolic_fuse(
+            neural_score,
+            symbolic_score,
+            neural_confidence,
+            symbolic_confidence,
+            strategy=self.fusion_strategy,
+            neural_weight=self.neural_weight,
+            symbolic_weight=self.symbolic_weight,
+        )
 
     def _compute_overall_score(
         self,
