@@ -762,7 +762,7 @@ class OmniFusionModel(nn.Module):
         """
         registry: dict[str, int] = {}
         for key, module in self._dynamic_projections.items():
-            linear = module[0]
+            linear = next(m for m in module.modules() if isinstance(m, nn.Linear))
             registry[key] = int(linear.in_features)
         return registry
 

@@ -48,12 +48,16 @@ Usage:
 
 import argparse
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 
 from omni_mercury_engine.engine import OmniMercuryEngine, default_fusion_checkpoint_path
 from omni_mercury_engine.ml.fusion_network import OmniFusionModel
 from omni_mercury_engine.ml.inference import FusionInference
+
+if TYPE_CHECKING:
+    import torch
 
 SEED = 20260526
 HIDDEN_DIM = 32
@@ -93,7 +97,7 @@ def build_dataset(seed: int = SEED) -> tuple[np.ndarray, np.ndarray]:
     return x[perm], y[perm]
 
 
-def extract_inference_features(engine: OmniMercuryEngine, x: np.ndarray) -> dict[str, "object"]:
+def extract_inference_features(engine: OmniMercuryEngine, x: np.ndarray) -> dict[str, torch.Tensor]:
     """Extract the full inference feature set per sample, stacked to (N, dim).
 
     Mirrors what ``detect_with_fusion`` feeds the fusion network for a single
@@ -125,7 +129,7 @@ def extract_inference_features(engine: OmniMercuryEngine, x: np.ndarray) -> dict
 
 def train(
     model: OmniFusionModel,
-    features: dict[str, "object"],
+    features: dict[str, torch.Tensor],
     y: np.ndarray,
     epochs: int,
     seed: int = SEED,
