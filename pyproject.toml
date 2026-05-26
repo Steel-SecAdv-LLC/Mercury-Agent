@@ -302,7 +302,9 @@ namespaces = false
 # in test code -- which is exactly the failure that surfaced once
 # ``--ignore-missing-imports`` was removed from the CI gates.
 [tool.setuptools.package-data]
-omni_mercury_engine = ["py.typed"]
+# Ship the py.typed marker and the default fusion checkpoint so a pip-installed
+# package can run detection out of the box (Issue #2: no training step).
+omni_mercury_engine = ["py.typed", "ml/checkpoints/*.pt"]
 
 # =============================================================================
 # Black Configuration

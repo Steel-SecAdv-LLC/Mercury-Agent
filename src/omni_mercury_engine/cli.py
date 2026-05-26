@@ -73,6 +73,10 @@ def detect(input: str, detector: str, output: str, threshold: float) -> None:
     data = _load_data(input)
 
     if detector == "fusion":
+        # Load the shipped default fusion checkpoint so detection runs with a
+        # trained, calibrated network out of the box (no training step needed).
+        if engine.load_default_checkpoint():
+            click.echo("Using default fusion checkpoint.", err=True)
         results = engine.detect_with_fusion(data)
     else:
         results = engine.detect(data, detector_types=[detector])
@@ -195,6 +199,8 @@ def explain(input: str, model: str) -> None:
     """Explain anomaly detection decision."""
     try:
         engine = _get_engine(mode=model)
+        if model == "fusion":
+            engine.load_default_checkpoint()
 
         data = _load_data(input)
 

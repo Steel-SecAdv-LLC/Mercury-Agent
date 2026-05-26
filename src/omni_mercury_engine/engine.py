@@ -134,6 +134,28 @@ from omni_mercury_engine.core.global_omni_scalar_network import (
 # ---------------------------------------------------------------------------
 _GOSNN_TESTING_BYPASS: bool = False
 
+# ---------------------------------------------------------------------------
+# Default fusion checkpoint (Issue #2).
+#
+# A versioned checkpoint shipped with the package so the headline fusion path
+# is real out of the box: ``detect``/``serve`` load it and score with a trained
+# network + calibrated probabilities without any training step. Produced by
+# ``scripts/train_default_fusion.py``.
+# ---------------------------------------------------------------------------
+from pathlib import Path as _Path
+
+FUSION_CHECKPOINT_FORMAT_VERSION: int = 1
+DEFAULT_FUSION_CHECKPOINT: _Path = (
+    _Path(__file__).parent / "ml" / "checkpoints" / "default_fusion_v1.pt"
+)
+
+try:  # avoid a hard import cycle with the package __init__
+    from importlib.metadata import version as _pkg_version
+
+    __version__ = _pkg_version("mercury-agent")
+except Exception:
+    __version__ = "1.7.0"
+
 # Core detectors - always imported (lightweight base classes)
 from omni_mercury_engine.detectors.dimensional import DimensionalAnalyzer
 from omni_mercury_engine.detectors.directive import SigmaDirectiveDetector
@@ -663,6 +685,7 @@ class OmniMercuryEngine(LoggerMixin):
         device: str = "cpu",
         cache_size: int = 128,
         memory_threshold_mb: float = 2048.0,
+        auto_load_checkpoint: bool = False,
     ) -> None:
         """Initialize the OmniMercuryEngine.
 
@@ -673,6 +696,11 @@ class OmniMercuryEngine(LoggerMixin):
             device: Computation device ('cpu' or 'cuda').
             cache_size: Maximum entries in feature cache. Default 128.
             memory_threshold_mb: Memory threshold for GC in MB. Default 2048.
+            auto_load_checkpoint: When True and mode='fusion', load the packaged
+                default fusion checkpoint at init so detection works without a
+                training step. Default False to keep a freshly-constructed
+                engine deterministically untrained; the ``detect``/``serve``
+                CLI entry points opt in.
 
         Raises:
             ValueError: If device is 'cuda' but CUDA is not available.
@@ -741,6 +769,9 @@ class OmniMercuryEngine(LoggerMixin):
         self._init_fusion()
         self._init_resilience()
         self._init_runtime_pipeline()
+
+        if auto_load_checkpoint and self.mode == "fusion":
+            self.load_default_checkpoint()
 
         logger.info(f"OmniMercuryEngine initialized (mode={mode}, device={self.device})")
 
@@ -3286,31 +3317,94 @@ class OmniMercuryEngine(LoggerMixin):
 
     def save_model(self, path: str) -> None:
         """
-        Save fusion model weights to file.
+        Save the fusion model to a versioned checkpoint.
+
+        The checkpoint bundles the model weights, the fitted temperature
+        calibrator (if any), and provenance metadata so that loading restores
+        trustworthy probabilities, not just the raw network. The format is a
+        dict; bare ``state_dict`` files saved by older code still load via
+        :meth:`load_model`.
 
         Args:
-            path: File path for saving the model.
+            path: File path for saving the checkpoint (``.pt``).
 
         Example:
             >>> engine.save_model("models/fusion_model.pt")
         """
-        if self.mode == "fusion":
-            torch.save(self.fusion_model.state_dict(), path)
+        if self.mode != "fusion":
+            return
+        temperature = None
+        if self._fusion_calibrator is not None and getattr(
+            self._fusion_calibrator, "_fitted", False
+        ):
+            temperature = float(self._fusion_calibrator.temperature)
+        checkpoint = {
+            "format_version": FUSION_CHECKPOINT_FORMAT_VERSION,
+            "mercury_version": __version__,
+            "state_dict": self.fusion_model.state_dict(),
+            "temperature": temperature,
+            "trained": bool(self._fusion_trained),
+        }
+        torch.save(checkpoint, path)
 
     def load_model(self, path: str) -> None:
         """
-        Load fusion model weights from file.
+        Load a fusion checkpoint (versioned dict or bare state_dict).
+
+        Restores the model weights and, when present, the temperature
+        calibrator so calibrated probabilities are available immediately.
 
         Args:
-            path: File path to load the model from.
+            path: File path to load the checkpoint from.
 
         Example:
             >>> engine.load_model("models/fusion_model.pt")
         """
-        if self.mode == "fusion":
-            self.fusion_model.load_state_dict(
-                torch.load(path, map_location=self.device, weights_only=True)
-            )
+        if self.mode != "fusion":
+            return
+        obj = torch.load(path, map_location=self.device, weights_only=True)
+
+        if isinstance(obj, dict) and "state_dict" in obj:
+            self.fusion_model.load_state_dict(obj["state_dict"])
+            temperature = obj.get("temperature")
+            if temperature is not None:
+                from omni_mercury_engine.core.calibration import TemperatureScaling
+
+                calibrator = TemperatureScaling()
+                calibrator.temperature = float(temperature)
+                calibrator._fitted = True
+                self._fusion_calibrator = calibrator
+            self._fusion_trained = bool(obj.get("trained", True))
+        else:
+            # Backward-compatible: a bare state_dict (OrderedDict of tensors).
+            self.fusion_model.load_state_dict(obj)
+            self._fusion_trained = True
+
+        self.fusion_model.eval()
+
+    def load_default_checkpoint(self) -> bool:
+        """Load the packaged default fusion checkpoint if present.
+
+        Makes the headline fusion path real out of the box: after this call a
+        freshly-installed engine scores with a trained network (and calibrated
+        probabilities) without any training step. Used by the ``detect`` and
+        ``serve`` CLI entry points.
+
+        Returns:
+            True if a default checkpoint was found and loaded, else False.
+        """
+        if self.mode != "fusion":
+            return False
+        if not DEFAULT_FUSION_CHECKPOINT.exists():
+            logger.debug("No default fusion checkpoint at %s", DEFAULT_FUSION_CHECKPOINT)
+            return False
+        try:
+            self.load_model(str(DEFAULT_FUSION_CHECKPOINT))
+            logger.info("Loaded default fusion checkpoint from %s", DEFAULT_FUSION_CHECKPOINT)
+            return True
+        except Exception as e:
+            logger.warning("Failed to load default fusion checkpoint: %s", e)
+            return False
 
     def get_cache_stats(self) -> dict[str, Any]:
         """Get feature cache statistics.
