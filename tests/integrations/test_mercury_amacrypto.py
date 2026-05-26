@@ -343,6 +343,22 @@ class TestAttackSimulation:
         result = adapter.simulate_attack(attack_type="replay")
         assert result["gosnn_triggered"] is True
 
+    def test_crypto_anomalies_register_as_security_not_ethical_anchors(self, adapter: Any) -> None:
+        from omni_mercury_engine.core.global_omni_scalar_network import (
+            GlobalOmniScalarNetwork,
+            ScalarGroup,
+            reset_global_network,
+        )
+
+        reset_global_network()
+        try:
+            adapter.simulate_attack(attack_type="side_channel")
+            gosnn = GlobalOmniScalarNetwork()
+            assert "omni_crypto_attack_severity" in gosnn.scalar_groups[ScalarGroup.SECURITY]
+            assert "omni_crypto_attack_severity" not in gosnn.critical_ethical_anchors()
+        finally:
+            reset_global_network()
+
 
 # =============================================================================
 # Anomaly Recording Tests

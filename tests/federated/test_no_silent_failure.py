@@ -93,6 +93,49 @@ def test_conformal_disabled_does_not_raise_and_returns_none_intervals() -> None:
     assert result.confidence_intervals is None
 
 
+def test_gosnn_integration_fit_wires_live_conformal_intervals() -> None:
+    """The documented fit() path must produce real conformal bounds."""
+
+    class _Detector:
+        def __init__(self, offset: float) -> None:
+            self.offset = offset
+
+        def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> _Detector:
+            return self
+
+        def detect(self, X: np.ndarray) -> dict[str, np.ndarray]:
+            scores = np.clip(np.mean(X, axis=1) + self.offset, 0.0, 1.0)
+            return {"scores": scores}
+
+    X = np.linspace(0.0, 1.0, 80, dtype=np.float64).reshape(40, 2)
+    y = (np.mean(X, axis=1) > 0.5).astype(int)
+    integration = GOSNNIntegration(
+        use_calibration=True,
+        use_conformal=True,
+        conformal_alpha=0.9,
+        benevolence_threshold=0.98,
+    )
+    integration.add_domain("statistical", detector=_Detector(0.0), weight=2.0)
+    integration.add_domain("temporal", detector=_Detector(0.1), weight=1.0)
+
+    integration.fit(X, y)
+    result = integration.detect(X[:6], return_details=True, use_cache=False)
+
+    assert result.confidence_intervals is not None
+    assert sorted(result.domain_scores) == ["statistical", "temporal"]
+    assert result.calibration_method == "auto"
+    assert result.ethical_compliance is True
+    intervals = result.confidence_intervals
+    assert intervals["coverage_level"] == 0.9
+    lower_bound = intervals["lower_bound"]
+    upper_bound = intervals["upper_bound"]
+    assert isinstance(lower_bound, np.ndarray)
+    assert isinstance(upper_bound, np.ndarray)
+    assert lower_bound.shape == (6,)
+    assert upper_bound.shape == (6,)
+    assert np.all(lower_bound <= upper_bound)
+
+
 # ---------------------------------------------------------------------------
 # (B) Bidirectional GOSNN round-trip
 # ---------------------------------------------------------------------------

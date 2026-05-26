@@ -264,7 +264,7 @@ class IntegrationResult:
     is_anomaly: np.ndarray
     anomaly_scores: np.ndarray
     calibrated_scores: np.ndarray
-    confidence_intervals: np.ndarray | None = None
+    confidence_intervals: dict[str, np.ndarray | float] | None = None
 
     # Domain contributions
     domain_scores: dict[str, np.ndarray] = field(default_factory=dict)
@@ -676,10 +676,16 @@ class GOSNNIntegration:
         #      we re-raise as ``ConformalMisconfigurationError`` instead of
         #      silently returning None. The engine refuses to degrade into
         #      "intervals unavailable" without the caller noticing.
-        confidence_intervals = None
+        confidence_intervals: dict[str, np.ndarray | float] | None = None
         if self._conformal is not None:
             try:
-                confidence_intervals = self._conformal.predict(X)
+                prediction_set = self._conformal.predict(calibrated_scores)
+                confidence_intervals = {
+                    "lower_bound": prediction_set.lower_bound,
+                    "upper_bound": prediction_set.upper_bound,
+                    "coverage_level": prediction_set.coverage_level,
+                    "quantile_threshold": prediction_set.quantile_threshold,
+                }
             except (ValueError, RuntimeError, AttributeError) as e:
                 logger.error(
                     "Conformal prediction failed (%s): %s. Raising "
@@ -790,7 +796,7 @@ class GOSNNIntegration:
             fused = self._fuse_predictions(domain_predictions)
 
             conformal = SplitConformalPredictor(coverage=self.conformal_alpha)
-            conformal.fit(fused, y_val)  # type: ignore[call-arg]
+            conformal.fit(fused)
             self._conformal = conformal  # type: ignore[assignment]
 
         except ImportError:
