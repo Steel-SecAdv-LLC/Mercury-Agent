@@ -134,7 +134,14 @@ face = [
 
 # API server
 api = [
-    "fastapi>=0.136.1",
+    # 0.136.3 is excluded: that single release is flagged malicious by
+    # OSV advisory MAL-2026-4750 — it injected an undocumented typosquat
+    # dependency (``fastar>=0.9.0``) into its ``[standard]`` extra,
+    # turning the canonical ``pip install "fastapi[standard]"`` path into
+    # a dependency-confusion vector.  The exclusion (not a floor bump)
+    # keeps Mercury on the validated 0.136.1 surface today while still
+    # accepting any clean post-0.136.3 release automatically.
+    "fastapi>=0.136.1,!=0.136.3",
     "httpx>=0.28.1",
     "uvicorn>=0.46.0",
     "python-multipart>=0.0.9",  # Required by FastAPI for form/file handling

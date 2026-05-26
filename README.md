@@ -100,20 +100,7 @@ A multi-panel visual summary appears in the [Current Benchmarks and Visual Proof
 Regression gates: ROC-AUC must stay ≥ 0.68 and Mean Oracle F1 ≥ 0.50 (set 15% below the 2026-02-15 measured baseline of AUC 0.803 / F1 0.589). CI fails the workflow if either drops below threshold.
 <!-- BENCHMARK:END -->
 
-> **Reading these numbers honestly — label provenance matters.** The
-> aggregate ROC-AUC above is computed over *all* successful datasets, which
-> mixes two evaluation regimes that are **not** comparable:
-> **externally-labeled** benchmarks (ADBench and the standard labeled
-> datasets, where anomaly labels come from an independent source) and
-> **self-labeled / threshold-derived** domain loaders (several environmental
-> loaders synthesize anomaly labels by thresholding the very signal being
-> scored — e.g. EPA air labels "PM2.5 > 35.4 µg/m³", and the NOAA ocean /
-> climate loaders flag points beyond ±3σ). Self-labeled evaluation is
-> susceptible to label leakage and inflates AUC toward 1.0, so it is useful
-> as an internal sanity check only and must not be read as performance on a
-> held-out benchmark. The **comparable headline number is the ADBench
-> externally-labeled result (Mean AUC ≈ 0.818)** — see *Label provenance and
-> comparability* in the expandable benchmarks below for the full split.
+**Comparability note.** The aggregate ROC-AUC above blends two evaluation regimes. Only externally-labeled datasets — ADBench and the standard labeled sets, where labels come from a source independent of the scored signal — are comparable to published baselines; the comparable headline is **ADBench Mean AUC 0.818**. Several environmental loaders are self-labeled by thresholding the signal they score, which inflates their AUC toward 1.0 (label leakage) and is reported for pipeline transparency only. See *Label provenance and comparability* in the benchmarks below for the full split.
 
 ---
 
