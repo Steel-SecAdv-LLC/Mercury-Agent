@@ -847,7 +847,7 @@ class FusionTrainer(_LightningBase):  # type: ignore[misc, valid-type]
         result: dict[str, torch.Tensor] = self.model(detector_features, return_attention=True)
         return result
 
-    def _safe_log(self, name: str, value: Any, **kwargs: Any) -> None:
+    def _safe_log(self, name: str, value: torch.Tensor, **kwargs: Any) -> None:
         """Log a metric only when attached to a ``pl.Trainer``.
 
         ``OmniMercuryEngine.train_fusion_model`` drives this module with a

@@ -88,7 +88,7 @@ class BiometricAnomalyModel:
         self.target_embedding_size = 128
 
     @staticmethod
-    def _is_image_input(data: Any) -> bool:
+    def _is_image_input(data: object) -> bool:
         """Return True only for inputs DeepFace can actually process.
 
         DeepFace accepts an image path or an array shaped like an image
