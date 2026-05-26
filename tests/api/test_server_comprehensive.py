@@ -19,7 +19,7 @@ Covers:
 from __future__ import annotations
 
 import os
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import patch
 
 import pytest
@@ -30,6 +30,9 @@ import pytest
 pytest.importorskip("fastapi")
 
 from fastapi.testclient import TestClient
+
+if TYPE_CHECKING:
+    from omni_mercury_engine.api.server import UnivariateRequest, UnivariateResponse
 
 
 @pytest.fixture
@@ -472,7 +475,8 @@ class TestLifespanWarmup:
 
         original_detect = server.detect_univariate
 
-        async def broken_detect(_request: Any) -> Any:
+        async def broken_detect(request: UnivariateRequest) -> UnivariateResponse:
+            _ = request
             raise RuntimeError("simulated warmup failure")
 
         try:

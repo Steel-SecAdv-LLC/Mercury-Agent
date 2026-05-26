@@ -14,7 +14,7 @@ Reference: Hypothesis documentation (https://hypothesis.readthedocs.io/)
 from __future__ import annotations
 
 import importlib.util
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pytest
@@ -25,8 +25,8 @@ if HAS_TORCH:
     import torch
 
 # Check if hypothesis is available
-hypothesis_available = True
-try:
+hypothesis_available = importlib.util.find_spec("hypothesis") is not None
+if TYPE_CHECKING or hypothesis_available:
     from hypothesis import (
         HealthCheck,
         assume,
@@ -35,8 +35,7 @@ try:
         strategies as st,
     )
     from hypothesis.extra import numpy as npst
-except ImportError:
-    hypothesis_available = False
+else:
 
     # Create dummy decorators for when hypothesis isn't available.
     # Each fallback is a runtime shim that defers to ``pytest.skip``
@@ -53,7 +52,7 @@ except ImportError:
 
         return decorator
 
-    class st:  # type: ignore[no-redef]
+    class st:
         @staticmethod
         def floats(*args: Any, **kwargs: Any) -> None:
             return None
@@ -86,12 +85,12 @@ except ImportError:
         def tuples(*args: Any, **kwargs: Any) -> None:
             return None
 
-    class npst:  # type: ignore[no-redef]
+    class npst:
         @staticmethod
         def arrays(*args: Any, **kwargs: Any) -> None:
             return None
 
-    class HealthCheck:  # type: ignore[no-redef]
+    class HealthCheck:
         too_slow = None
 
     def assume(condition: Any) -> None:
