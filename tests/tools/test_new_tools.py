@@ -1131,6 +1131,24 @@ class TestGosnnScalarDump:
         assert cert["schema"] == "mercury.tools.gosnn_scalar_dump/v1"
         assert rc in (0, 1)
 
+    def test_include_named_surfaces_diagnostic_scalars_without_gate_band(
+        self, tmp_path: Path
+    ) -> None:
+        out = tmp_path / "c.json"
+        rc = TOOL_REGISTRY["gosnn_scalar_dump"](["--include-named", "--output", str(out)])
+        cert = _load_cert(out)
+
+        assert rc == 0
+        named = cert["body"]["named_scalars"]
+        diagnostic = named["diagnostic"]["software_engineering"]
+        operational = named["operational"]["software_engineering"]
+        assert "omni_iso25010_func_correctness" in diagnostic
+        assert "omni_halstead_volume" in diagnostic
+        assert "omni_code_coverage" in operational
+        assert "omni_iso25010_func_correctness" not in operational
+        assert named["counts"]["diagnostic"] >= 82
+        assert cert["body"]["bands"]["operational_vector"]["count"] <= 180
+
 
 class TestGateTraceProbe:
     """Traces Mercury gate invocations across detect/analyze/predict surfaces."""
