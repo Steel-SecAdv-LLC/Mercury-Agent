@@ -621,6 +621,7 @@ class GlobalOmniScalarNetwork:
     # allowlists once; no other call site needs to change.
     # ------------------------------------------------------------------
     _METRIC_ONLY_PREFIXES: tuple[str, ...] = (
+        # Software-engineering diagnostic measurement families.
         "omni_iso25010_",
         "omni_halstead_",
         "omni_mccabe_",
@@ -630,6 +631,17 @@ class GlobalOmniScalarNetwork:
         "omni_ossf_",
         "omni_iso5055_",
         "omni_ssdf_",
+        # Governance / medical / AI-assurance families (see omni_mercury_engine.governance).
+        # Descriptive and three-state (GROUNDED/UNAVAILABLE/UNDECIDABLE): registered for
+        # reporting, filtered out of the σ_Immutable operational vector exactly like the SE
+        # families above.  Only families the per-family signal vet keeps appear here; dropped
+        # UNDECIDABLE families (e.g. OWASP LLM Top 10) carry no prefix.
+        "omni_sofa_",  # SOFA organ sub-scores + total
+        "omni_ews_",  # NEWS2 + MEWS early-warning aggregates
+        "omni_meld_",  # MELD-Na hepatic allocation score
+        "omni_iso14971_",  # ISO 14971 medical-device risk index
+        "omni_nist_airmf_",  # NIST AI RMF MEASURE conformance
+        "omni_mitre_atlas_",  # MITRE ATLAS observed-tactic coverage
     )
     _METRIC_ONLY_KEYS: frozenset[str] = frozenset(
         {
