@@ -207,3 +207,45 @@ class TestCheckPqcProductionReadinessAcceptsRealAma:
         # the value comes from ``security.pqc_backends.PQCBackend`` and
         # MUST resolve to the AMA Cryptography backend on this lane.
         assert "ama" in str(result["backend"]).lower()
+
+
+class TestProductionDefaultRequiresAma:
+    """AMA is mandatory at runtime in production (default-on).
+
+    With ``MERCURY_ENV=production`` and ``AMA_REQUIRE_REAL_PQC`` unset, the
+    gate must enforce against the real AMA backend rather than treating the
+    unset env var as a no-op (the pre-v1.7 behaviour). Because this file only
+    collects when the real AMA build is present, the gate must pass silently
+    here; the fail-closed branch (production + AMA absent) is exercised by
+    ``.github/workflows/pqc-production-check.yml``.
+    """
+
+    def _clear(self) -> dict[str, str]:
+        saved = {}
+        for name in ("AMA_REQUIRE_REAL_PQC", "AVA_REQUIRE_REAL_PQC", "MERCURY_ENV"):
+            if name in os.environ:
+                saved[name] = os.environ.pop(name)
+        return saved
+
+    def _restore(self, saved: dict[str, str]) -> None:
+        for name in ("AMA_REQUIRE_REAL_PQC", "AVA_REQUIRE_REAL_PQC", "MERCURY_ENV"):
+            os.environ.pop(name, None)
+        os.environ.update(saved)
+
+    def test_production_without_env_var_enforces_and_passes_with_real_ama(self) -> None:
+        assert DILITHIUM_AVAILABLE and KYBER_AVAILABLE and SPHINCS_AVAILABLE
+        saved = self._clear()
+        os.environ["MERCURY_ENV"] = "production"
+        try:
+            _enforce_pqc_production_gate()  # default-on in prod, AMA present -> no raise
+        finally:
+            self._restore(saved)
+
+    def test_explicit_false_opts_out_even_in_production(self) -> None:
+        saved = self._clear()
+        os.environ["MERCURY_ENV"] = "production"
+        os.environ["AMA_REQUIRE_REAL_PQC"] = "false"
+        try:
+            _enforce_pqc_production_gate()  # explicit opt-out wins -> no raise
+        finally:
+            self._restore(saved)

@@ -57,7 +57,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -90,7 +90,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -143,7 +143,7 @@ jobs:
       MERCURY_API_HOST: http://127.0.0.1:8000
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -515,7 +515,7 @@ jobs:
 
       - name: Upload load-test artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: load-test-artifacts
           path: artifacts/
