@@ -63,7 +63,15 @@ def main() -> None:
 
 @main.command()
 @click.option("--input", "-i", required=True, help="Input data file (CSV/JSON)")
-@click.option("--detector", "-d", default="fusion", help="Detector type")
+@click.option(
+    "--detector",
+    "-d",
+    default="statistical",
+    help=(
+        "Detector type. Defaults to 'statistical' (the trained Mercury "
+        "ensemble). Use 'fusion' for the neural fusion path."
+    ),
+)
 @click.option("--output", "-o", help="Output file for results")
 @click.option("--threshold", "-t", default=0.5, type=float, help="Anomaly threshold")
 def detect(input: str, detector: str, output: str, threshold: float) -> None:
@@ -73,6 +81,15 @@ def detect(input: str, detector: str, output: str, threshold: float) -> None:
     data = _load_data(input)
 
     if detector == "fusion":
+        if engine.load_default_fusion_checkpoint():
+            # Notice on stderr so stdout stays valid JSON for piping.
+            click.echo("Loaded shipped default fusion checkpoint.", err=True)
+        else:
+            click.echo(
+                "No default fusion checkpoint found; using untrained fusion "
+                "(run `mercury-agent train` or scripts/train_default_fusion.py).",
+                err=True,
+            )
         results = engine.detect_with_fusion(data)
     else:
         results = engine.detect(data, detector_types=[detector])
@@ -108,19 +125,114 @@ def security(payload: str) -> None:
 
 
 @main.command()
-@click.option("--data", "-d", required=True, help="Training data directory")
-@click.option("--output", "-o", required=True, help="Model output path")
+@click.option(
+    "--data",
+    "-d",
+    required=True,
+    help=(
+        "Training data file. Raw samples as .csv or .npy "
+        "(shape [n_samples, n_features]) are fed to fit_fusion, which "
+        "extracts detector features internally. A pre-built feature "
+        ".npz archive (per-detector arrays + a 'labels' array) is also "
+        "accepted and routed through the feature-archive trainer."
+    ),
+)
+@click.option(
+    "--labels",
+    "-l",
+    default=None,
+    help=(
+        "Optional labels file (.csv or .npy, 1=anomaly/0=normal) for "
+        "supervised training of raw .csv/.npy data. If omitted, "
+        "semi-supervised pseudo-labels are derived from detector consensus."
+    ),
+)
+@click.option("--output", "-o", required=True, help="Model output path (.pt)")
 @click.option("--epochs", "-e", default=50, type=int, help="Training epochs")
-def train(data: str, output: str, epochs: int) -> None:
-    """Train fusion model."""
+def train(data: str, labels: str | None, output: str, epochs: int) -> None:
+    """Train the fusion model on raw .csv/.npy data (or a feature .npz)."""
     try:
         engine = _get_engine(mode="fusion")
 
-        click.echo(f"Training fusion model on {data}...")
-        engine.train_fusion_model(data, epochs=epochs)
+        if data.endswith(".npz"):
+            # Pre-built feature archive: per-detector feature arrays + labels.
+            click.echo(f"Training fusion model from feature archive {data}...")
+            engine.train_fusion_model(data, epochs=epochs)
+        else:
+            # Raw samples: fit_fusion extracts detector features internally.
+            x = _load_data(data)
+            y = _load_labels(labels) if labels else None
+            if y is not None and len(y) != len(x):
+                raise ValueError(
+                    f"Label count ({len(y)}) does not match sample count ({len(x)})."
+                )
+            mode = "supervised" if y is not None else "semi-supervised"
+            click.echo(
+                f"Training fusion model on {len(x)} samples from {data} ({mode})..."
+            )
+            metrics = engine.fit_fusion(x, y, epochs=epochs)
+            click.echo(
+                f"Training complete: best_loss={metrics['best_loss']:.4f}, "
+                f"epochs_trained={metrics['epochs_trained']}"
+            )
 
         engine.save_model(output)
         click.echo(f"Model saved to {output}")
+    except (RuntimeError, ValueError, OSError) as e:
+        click.echo(f"Error: {e}", err=True)
+        raise SystemExit(1) from e
+
+
+@main.command("build-features")
+@click.option(
+    "--data",
+    "-d",
+    required=True,
+    help="Raw input samples as .csv or .npy (shape [n_samples, n_features]).",
+)
+@click.option(
+    "--labels",
+    "-l",
+    default=None,
+    help="Optional labels file (.csv or .npy, 1=anomaly/0=normal).",
+)
+@click.option("--output", "-o", required=True, help="Output feature archive path (.npz)")
+def build_features(data: str, labels: str | None, output: str) -> None:
+    """Build a feature .npz archive (per-detector features + labels).
+
+    The resulting archive can be fed back to ``train --data <archive>.npz``
+    for repeatable training without re-running detector feature extraction.
+    """
+    try:
+        if not output.endswith(".npz"):
+            raise ValueError(f"Output must be a .npz archive (got {output!r}).")
+
+        engine = _get_engine(mode="fusion")
+        x = _load_data(data)
+
+        feature_arrays: dict[str, np.ndarray[Any, Any]] = {}
+        for name, detector in engine.detectors.items():
+            if not detector.is_fitted():
+                detector.fit(x)
+            feats = detector.extract_features(x)
+            feature_arrays[name] = np.asarray(feats, dtype=np.float32)
+
+        if labels:
+            y = _load_labels(labels)
+            if len(y) != len(x):
+                raise ValueError(
+                    f"Label count ({len(y)}) does not match sample count ({len(x)})."
+                )
+        else:
+            # Derive pseudo-labels from detector consensus so the archive is
+            # self-contained and usable by the feature-archive trainer.
+            y = engine._generate_pseudo_labels(x)
+
+        np.savez(output, labels=np.asarray(y).reshape(-1), **feature_arrays)
+        click.echo(
+            f"Feature archive saved to {output} "
+            f"({len(x)} samples, detectors: {', '.join(feature_arrays)})"
+        )
     except (RuntimeError, ValueError, OSError) as e:
         click.echo(f"Error: {e}", err=True)
         raise SystemExit(1) from e
@@ -169,8 +281,26 @@ def _load_data(filepath: str) -> np.ndarray[Any, Any]:
             data = data.reshape(1, -1)
         return np.asarray(data)  # type: ignore[no-any-return, unused-ignore]
 
+    elif path.suffix == ".npy":
+        data = np.load(path, allow_pickle=False)
+        if data.ndim == 1:
+            data = data.reshape(1, -1)
+        return np.asarray(data, dtype=np.float32)
+
     else:
         raise ValueError(f"Unsupported file format: {path.suffix}")
+
+
+def _load_labels(filepath: str) -> np.ndarray[Any, Any]:
+    """Load 1-D training labels from a .csv or .npy file."""
+    path = Path(filepath)
+    if path.suffix == ".npy":
+        labels = np.load(path, allow_pickle=False)
+    elif path.suffix == ".csv":
+        labels = np.loadtxt(path, delimiter=",")
+    else:
+        raise ValueError(f"Unsupported label file format: {path.suffix} (use .csv or .npy)")
+    return np.asarray(labels).reshape(-1)
 
 
 # =============================================================================
@@ -517,9 +647,9 @@ def physics_uiux(
                 "scroll_reversals": scroll_analysis.scroll_reversals if scroll_analysis else 0,
             },
             "navigation_analysis": {
-                "unique_pages": nav_analysis.unique_pages if nav_analysis else 0,
+                "pages_visited": nav_analysis.pages_visited if nav_analysis else 0,
                 "navigation_loops": nav_analysis.navigation_loops if nav_analysis else 0,
-                "back_button_usage": nav_analysis.back_button_usage if nav_analysis else 0,
+                "backtrack_rate": float(nav_analysis.backtrack_rate) if nav_analysis else 0.0,
             },
             "session_analysis": {
                 "session_duration": (

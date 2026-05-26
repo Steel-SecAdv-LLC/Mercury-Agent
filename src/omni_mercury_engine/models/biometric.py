@@ -34,6 +34,15 @@ except ImportError:
     torch = None  # type: ignore[assignment, unused-ignore]
     TORCH_AVAILABLE = False
 
+import os
+
+# Quiet TensorFlow's C++/oneDNN startup banners before the deepface ->
+# retinaface -> tensorflow import chain runs (TF reads these only at
+# import time). ``setdefault`` so an operator who set them explicitly
+# keeps control.
+os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
+os.environ.setdefault("TF_ENABLE_ONEDNN_OPTS", "0")
+
 try:
     from deepface import DeepFace
 
@@ -86,6 +95,29 @@ class BiometricAnomalyModel:
         self.harmonic_decomposer = HarmonicDecomposer()
         self.fourier_analyzer = FourierAnalyzer()
         self.target_embedding_size = 128
+
+    @staticmethod
+    def _is_image_input(data: Any) -> bool:
+        """Return True only for inputs DeepFace can actually process.
+
+        DeepFace accepts an image path or an array shaped like an image
+        (H x W x C, or a batch N x H x W x C, with C in {1, 3, 4}). The
+        fusion pipeline routes 2-D tabular feature matrices through every
+        model, including this one; without this guard those tabular arrays
+        reach ``DeepFace.represent`` / ``DeepFace.analyze``, triggering a
+        ~92 MB model download and a stream of "DeepFace ... failed"
+        warnings before falling back. Restricting DeepFace to genuine
+        image input keeps the tabular detect path on the harmonic
+        fallback silently.
+        """
+        if isinstance(data, str):
+            return True
+        if isinstance(data, np.ndarray):
+            if data.ndim == 3 and data.shape[-1] in (1, 3, 4):
+                return True
+            if data.ndim == 4 and data.shape[-1] in (1, 3, 4):
+                return True
+        return False
 
     def _extract_harmonic_features(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Extract features using harmonic decomposition and Fourier analysis."""
@@ -191,13 +223,15 @@ class BiometricAnomalyModel:
         if isinstance(data, dict):
             data = data["reference"] if "reference" in data else np.array(next(iter(data.values())))
 
+        image_input = self._is_image_input(data)
+
         if not isinstance(data, np.ndarray):
             data = np.array(data)
 
         if data.ndim == 1:
             data = data.reshape(1, -1)
 
-        if DeepFace is not None:
+        if DeepFace is not None and image_input:
             try:
                 result = DeepFace.represent(
                     data, model_name=self.model_name, enforce_detection=False
@@ -241,10 +275,12 @@ class BiometricAnomalyModel:
             else:
                 data = np.array([])
 
+        image_input = self._is_image_input(data)
+
         if not isinstance(data, np.ndarray):
             data = np.array(data)
 
-        if DeepFace is not None:
+        if DeepFace is not None and image_input:
             try:
                 result = DeepFace.analyze(
                     data, actions=["age", "gender", "emotion"], enforce_detection=False

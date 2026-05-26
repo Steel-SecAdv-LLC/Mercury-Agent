@@ -100,6 +100,21 @@ A multi-panel visual summary appears in the [Current Benchmarks and Visual Proof
 Regression gates: ROC-AUC must stay ≥ 0.68 and Mean Oracle F1 ≥ 0.50 (set 15% below the 2026-02-15 measured baseline of AUC 0.803 / F1 0.589). CI fails the workflow if either drops below threshold.
 <!-- BENCHMARK:END -->
 
+> **Reading these numbers honestly — label provenance matters.** The
+> aggregate ROC-AUC above is computed over *all* successful datasets, which
+> mixes two evaluation regimes that are **not** comparable:
+> **externally-labeled** benchmarks (ADBench and the standard labeled
+> datasets, where anomaly labels come from an independent source) and
+> **self-labeled / threshold-derived** domain loaders (several environmental
+> loaders synthesize anomaly labels by thresholding the very signal being
+> scored — e.g. EPA air labels "PM2.5 > 35.4 µg/m³", and the NOAA ocean /
+> climate loaders flag points beyond ±3σ). Self-labeled evaluation is
+> susceptible to label leakage and inflates AUC toward 1.0, so it is useful
+> as an internal sanity check only and must not be read as performance on a
+> held-out benchmark. The **comparable headline number is the ADBench
+> externally-labeled result (Mean AUC ≈ 0.818)** — see *Label provenance and
+> comparability* in the expandable benchmarks below for the full split.
+
 ---
 
 <details>
@@ -161,6 +176,34 @@ Mercury Agent implements a comprehensive 7-phase cognitive architecture that pro
 
 Measured on **64 reproducible real-world datasets\*** (of 75 attempted: 47 ADBench + 28 domain loaders) across 12 domains. No synthetic data, no tuning. All numbers below are measured, not estimated. Benchmark run: 2026-03-04.
 
+#### Label provenance and comparability
+
+Not every row below is comparable to a published baseline, and the README is
+explicit about why. Datasets fall into two regimes:
+
+- **Externally-labeled (comparable).** Anomaly labels come from a source
+  independent of the features Mercury scores: ADBench's standardized labels,
+  NSL-KDD attack flags, BATADAL/iTrust attack windows, SMD/NAB annotations,
+  CWRU/MSDS fault labels. These are the numbers you can line up against other
+  detectors. **The honest headline is the 47-dataset ADBench result: Mean AUC
+  0.8180 / Mean F1 0.5859.**
+- **Self-labeled / threshold-derived (unsupervised-eval-only — *not*
+  comparable).** Several environmental loaders have no ground-truth anomaly
+  labels, so they manufacture labels from the data itself: EPA air labels
+  "daily mean PM2.5 > 35.4 µg/m³" (a threshold on a feature that is also scored),
+  and the NOAA ocean / NOAA-GSOD climate / FEMA disaster loaders flag points
+  beyond a ±3σ statistical threshold. When the label is a deterministic function
+  of a scored feature, the detector can recover it almost trivially, which is
+  why these rows sit at 0.97–1.00 AUC. That is **label leakage**, not
+  state-of-the-art accuracy: treat these as an internal pipeline/regression
+  sanity check, never as held-out benchmark performance, and do not average
+  them into a headline metric you intend to compare against other methods.
+
+The tables below are split along this line. The "aggregate over all datasets"
+figures (Mean AUC 0.8285 / Median 0.9091) are retained for continuity with the
+auto-generated block, but they blend both regimes and are therefore **not** a
+comparable benchmark headline.
+
 > **\*Reproducibility note.** 11 of the 75 attempted datasets are not currently
 > reproducible because their external data sources (SMAP, MSL, CICIDS-2017,
 > MIT-BIH, UCR, SWaT, WADI, USGS Geochemistry, NOAA StormEvents, NOAA ERDDAP,
@@ -207,27 +250,45 @@ Measured on **64 reproducible real-world datasets\*** (of 75 attempted: 47 ADBen
 | Mean Oracle F1 | 0.6370 |
 | Median Oracle F1 | 0.7168 |
 
-**Domain-Level Performance (12 Domains):**
+**Domain-Level Performance — externally-labeled (comparable):**
+
+These rows use labels from a source independent of the scored features and are
+the numbers to compare against other detectors.
 
 | Domain | Datasets | Mean AUC | Mean F1 | Oracle Active |
 |--------|----------|----------|---------|---------------|
-| Academic (CWRU, MSDS) | 2 | 1.0000 | 1.0000 | 0 |
+| **ADBench (47 datasets)** | 47 | **0.8180** | **0.5859** | 29 |
+| Academic (CWRU, MSDS)‡ | 2 | 1.0000 | 1.0000 | 0 |
 | General (ADRepository) | 1 | 1.0000 | 1.0000 | 0 |
-| Air Quality (EPA) | 1 | 0.9979 | 0.8644 | 1 |
-| Climate (NOAA GSOD) | 1 | 0.9910 | 0.8984 | 1 |
-| Ocean (NOAA Buoy) | 1 | 0.9792 | 0.9195 | 1 |
 | Industrial (BATADAL) | 1 | 0.9100 | 0.5657 | 0 |
-| Environmental | 3 | 0.9084 | 0.7327 | 3 |
 | Security (NSL-KDD, ThreatIntel) | 2 | 0.9017 | 0.7397 | 0 |
 | Space (NASA, Solar) | 2 | 0.8879 | 0.7902 | 2 |
-| ADBench (47 datasets) | 47 | 0.8180 | 0.5859 | 29 |
 | Time Series (SMD, NAB) | 2 | 0.6972 | 0.4401 | 2 |
-| Disaster (FEMA) | 1 | 0.0000† | 0.8471 | 0 |
+
+*‡ The Academic / General rows are genuinely labeled but tiny and easily
+separable; a 1.0000 AUC reflects dataset size, not headline accuracy. The
+representative externally-labeled figure is the 47-dataset ADBench row.*
+
+**Domain-Level Performance — self-labeled / threshold-derived (unsupervised-eval-only, NOT comparable):**
+
+These loaders synthesize labels by thresholding the signal they score, so high
+AUC here is label leakage (see *Label provenance and comparability* above), not
+benchmark performance. Listed for pipeline transparency only.
+
+| Domain | Datasets | Mean AUC | Mean F1 | Label rule (leaky) |
+|--------|----------|----------|---------|--------------------|
+| Air Quality (EPA) | 1 | 0.9979 | 0.8644 | PM2.5 > 35.4 µg/m³ threshold |
+| Climate (NOAA GSOD) | 1 | 0.9910 | 0.8984 | ±3σ statistical threshold |
+| Ocean (NOAA Buoy) | 1 | 0.9792 | 0.9195 | ±3σ statistical threshold |
+| Environmental (USGS/NOAA/EPA) | 3 | 0.9084 | 0.7327 | threshold-derived |
+| Disaster (FEMA) | 1 | 0.0000† | 0.8471 | threshold/polarity-derived |
 
 *\*† Pre-fix score from the 2026-03-04 benchmark run. The FEMA Disaster
 label-polarity bug is fixed in v1.7.0 (see the reproducibility note above
 and `CHANGELOG.md` → "FEMA Disaster loader — label-polarity correction");
-the headline AUC is rerun on the next benchmark refresh.*
+the headline AUC is rerun on the next benchmark refresh. Even after the fix,
+this row stays in the self-labeled group because its labels are
+threshold-derived, not externally sourced.*
 
 **Empirical Comparison vs Near-Peer Baselines (5-Fold CV):**
 
@@ -274,6 +335,7 @@ the headline AUC is rerun on the next benchmark refresh.*
 | Financial | - | No data (API unavailable) |
 
 **Honest Positioning:**
+- **Compare only the externally-labeled rows.** The self-labeled / threshold-derived domain loaders (air, climate, ocean, environmental, disaster) report 0.97–1.00 AUC because their labels are a deterministic threshold on the scored signal — that is label leakage, not accuracy. The comparable headline is ADBench Mean AUC 0.8180.
 - Mercury-Agent is an **unsupervised anomaly detector**, not a supervised classifier
 - Oracle F1 is an upper bound (best of multi-strategy threshold sweep), not operational performance
 - KinematicScore contributes near-random on shuffled tabular data (mean AUC 0.64)
@@ -338,20 +400,24 @@ Distribution of unsupervised adaptive weights across all datasets, and mean weig
 
 Mercury Agent validates its core `MercuryAnomalyDetector` against 28 domain-specific dataset loaders spanning 12 domains. The benchmark covers 75 total datasets (47 ADBench + 28 domain). Domain-level results (benchmark run 2026-03-04):
 
-| Domain | Datasets | Mean AUC | Data Sources |
-|--------|----------|----------|-------------|
-| Academic (CWRU, MSDS) | 2 | 1.0000 | Public repositories |
-| General (ADRepository) | 1 | 1.0000 | ADBench collection |
-| Air Quality | 1 | 0.9979 | EPA AQS |
-| Climate | 1 | 0.9910 | NOAA GSOD |
-| Ocean | 1 | 0.9792 | NOAA NDBC / buoys |
-| Industrial (BATADAL) | 1 | 0.9100 | iTrust |
-| Environmental | 3 | 0.9084 | USGS / NOAA / EPA |
-| Security (NSL-KDD, ThreatIntel) | 2 | 0.9017 | Public datasets |
-| Space (NASA, Solar) | 2 | 0.8879 | NASA APIs |
-| ADBench | 47 | 0.8180 | ADBench standardized |
-| Time Series (SMD, NAB) | 2 | 0.6972 | OmniAnomaly / Numenta |
-| Disaster (FEMA) | 1 | 0.0000† | OpenFEMA API |
+Label column: **ext** = externally-labeled (comparable); **self** =
+self-labeled / threshold-derived (unsupervised-eval-only, not comparable — see
+*Label provenance and comparability* above).
+
+| Domain | Datasets | Mean AUC | Labels | Data Sources |
+|--------|----------|----------|--------|-------------|
+| ADBench | 47 | **0.8180** | ext | ADBench standardized |
+| Academic (CWRU, MSDS) | 2 | 1.0000 | ext | Public repositories |
+| General (ADRepository) | 1 | 1.0000 | ext | ADBench collection |
+| Industrial (BATADAL) | 1 | 0.9100 | ext | iTrust |
+| Security (NSL-KDD, ThreatIntel) | 2 | 0.9017 | ext | Public datasets |
+| Space (NASA, Solar) | 2 | 0.8879 | ext | NASA APIs |
+| Time Series (SMD, NAB) | 2 | 0.6972 | ext | OmniAnomaly / Numenta |
+| Air Quality | 1 | 0.9979 | self | EPA AQS |
+| Climate | 1 | 0.9910 | self | NOAA GSOD |
+| Ocean | 1 | 0.9792 | self | NOAA NDBC / buoys |
+| Environmental | 3 | 0.9084 | self | USGS / NOAA / EPA |
+| Disaster (FEMA) | 1 | 0.0000† | self | OpenFEMA API |
 
 *\*† 2026-03-04 benchmark row, pre-fix. FEMA Disaster label-polarity bug
 fixed in v1.7.0; AUC is rerun on the next benchmark refresh — see the

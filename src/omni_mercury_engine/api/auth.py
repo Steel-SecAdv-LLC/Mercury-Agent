@@ -676,10 +676,8 @@ class JWTAuth:
                 # Log warning only once per class (not per instance)
                 if not JWTAuth._warned_about_fallback:
                     logger.warning(
-                        "JWT_SECRET_KEY not set - using insecure development fallback key. "
-                        "This is ONLY acceptable for local development. "
-                        "Set JWT_SECRET_KEY environment variable before deploying to production. "
-                        "Generate a secure key with: openssl rand -hex 32"
+                        "JWT_SECRET_KEY not set — using insecure dev fallback key "
+                        "(dev only; set JWT_SECRET_KEY before production)."
                     )
                     JWTAuth._warned_about_fallback = True
             else:

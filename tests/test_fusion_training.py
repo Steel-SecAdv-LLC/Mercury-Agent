@@ -317,6 +317,93 @@ class TestDynamicDimensions:
                 assert param.grad is not None, f"Projection {key} should have gradients"
 
 
+class TestSaveLoadRoundTrip:
+    """Save/load must round-trip dynamic projections (the load_model fix).
+
+    Dynamic projection layers are created lazily during forward and so do not
+    exist on a freshly constructed model; load_state_dict would otherwise fail
+    on the unexpected ``_dynamic_projections.*`` keys.
+    """
+
+    def test_projection_registry_export_rebuild(self) -> None:
+        from omni_mercury_engine.ml.fusion_network import OmniFusionModel
+
+        model = OmniFusionModel()
+        feats = {
+            "statistical": torch.randn(4, 99),  # forces a dynamic projection
+            "temporal": torch.randn(4, 77),
+        }
+        model(feats)
+        registry = model.export_projection_registry()
+        assert registry, "forward should have created dynamic projections"
+
+        state = model.state_dict()
+        fresh = OmniFusionModel()
+        with pytest.raises(RuntimeError):
+            # Without rebuilding, the dynamic-projection keys are unexpected.
+            fresh.load_state_dict(state)
+
+        fresh.rebuild_projection_registry(registry)
+        fresh.load_state_dict(state)  # now succeeds
+
+        model.eval()
+        fresh.eval()
+        with torch.no_grad():
+            torch.manual_seed(0)
+            a = model(feats)["anomaly_probs"]
+            torch.manual_seed(0)
+            b = fresh(feats)["anomaly_probs"]
+        assert torch.allclose(a, b, atol=1e-6)
+
+    def test_engine_save_load_with_dynamic_projections(self, tmp_path: Any) -> None:
+        """A trained engine with dynamic projections reloads in a fresh engine."""
+        from omni_mercury_engine.engine import OmniMercuryEngine
+
+        X, y = make_classification(
+            n_samples=160,
+            n_features=33,  # mismatched vs default dims -> dynamic projections
+            n_informative=8,
+            n_classes=2,
+            weights=[0.85, 0.15],
+            random_state=7,
+        )
+        X = X.astype(np.float32)
+
+        engine = OmniMercuryEngine(mode="fusion", device="cpu")
+        engine.fit_fusion(X, y, epochs=5, early_stopping_patience=3)
+
+        path = tmp_path / "fusion.pt"
+        engine.save_model(str(path))
+
+        loaded = OmniMercuryEngine(mode="fusion", device="cpu")
+        loaded.load_model(str(path))
+        assert loaded._fusion_trained
+
+        # Loaded model's projection registry matches the saved one.
+        assert (
+            engine.fusion_model.export_projection_registry()
+            == loaded.fusion_model.export_projection_registry()
+        )
+
+    def test_load_default_checkpoint_contract(self) -> None:
+        """Default-checkpoint loader: no-op in non-fusion mode; loads if present."""
+        from omni_mercury_engine.engine import (
+            OmniMercuryEngine,
+            default_fusion_checkpoint_path,
+        )
+
+        # Non-fusion mode never loads a fusion checkpoint.
+        non_fusion = OmniMercuryEngine(mode="statistical", device="cpu")
+        assert non_fusion.load_default_fusion_checkpoint() is False
+
+        # Fusion mode: returns True and marks trained iff the file is shipped.
+        fusion = OmniMercuryEngine(mode="fusion", device="cpu")
+        loaded = fusion.load_default_fusion_checkpoint()
+        assert loaded is default_fusion_checkpoint_path().exists()
+        if loaded:
+            assert fusion._fusion_trained
+
+
 class TestPseudoLabeling:
     """Test pseudo-label generation for semi-supervised learning."""
 
