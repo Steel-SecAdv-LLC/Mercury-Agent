@@ -59,7 +59,7 @@ import os
 _PQC_BUILD_RECOVERY_HINT = (
     "Build the AMA-Cryptography native library from a clone of the upstream\n"
     "repo (Mercury-Agent has no CMakeLists.txt of its own):\n"
-    "  git clone --depth 1 --branch v3.1.0 \\\n"
+    "  git clone --depth 1 --branch v3.2.0 \\\n"
     "      https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git /tmp/ama-cryptography\n"
     "  cd /tmp/ama-cryptography\n"
     "  cmake -B build -DAMA_USE_NATIVE_PQC=ON && cmake --build build\n"
@@ -88,7 +88,7 @@ def _enforce_pqc_production_gate() -> None:
     gate read the flags from per-algorithm submodules
     (``ama_cryptography.dilithium.DILITHIUM_AVAILABLE``) and from the
     top-level package (``ama_cryptography.DILITHIUM_AVAILABLE``).
-    Neither location is reliably populated by the real AMA v3.1.0
+    Neither location is reliably populated by the real AMA v3.2.0
     install — the canonical location is the ``pqc_backends`` submodule,
     which is where Mercury's own ``security/pqc_backends.py`` reads
     them.  Aligning the gate with that reader keeps both views of AMA

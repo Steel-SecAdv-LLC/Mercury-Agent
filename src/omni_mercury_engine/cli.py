@@ -238,10 +238,19 @@ def build_features(data: str, labels: str | None, output: str) -> None:
             # self-contained and usable by the feature-archive trainer.
             y = engine._generate_pseudo_labels(x)
 
-        # allow_pickle=False: the archive only ever holds numeric arrays, so
-        # forbid object/pickle serialisation (matches the allow_pickle=False
-        # loads in _load_data/_load_labels and keeps the .npz read path safe).
-        np.savez(output, allow_pickle=False, labels=np.asarray(y).reshape(-1), **feature_arrays)
+        save_kwargs: dict[str, np.ndarray[Any, Any]] = {
+            "labels": np.asarray(y).reshape(-1),
+            **feature_arrays,
+        }
+        # numpy >= 2.0 added an explicit ``allow_pickle`` parameter to
+        # ``np.savez``; on older numpy the **kwds catch-all silently stores
+        # it as a data array named "allow_pickle", corrupting the archive.
+        # Guard the kwarg behind a version check so the hardening applies
+        # where available without breaking numpy < 2.0.
+        if np.lib.NumpyVersion(np.__version__) >= "2.0.0":
+            np.savez(output, allow_pickle=False, **save_kwargs)
+        else:
+            np.savez(output, **save_kwargs)
         click.echo(
             f"Feature archive saved to {output} "
             f"({len(x)} samples, detectors: {', '.join(feature_arrays)})"
