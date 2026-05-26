@@ -833,7 +833,12 @@ class FusionTrainer(_LightningBase):  # type: ignore[misc, valid-type]
         self.classification_criterion = nn.CrossEntropyLoss()
         self.regression_criterion = nn.MSELoss()
 
-        self.save_hyperparameters(ignore=["model"])
+        # ``save_hyperparameters`` is a LightningModule API. ``train_fusion_model``
+        # also drives this class as a plain nn.Module helper (manual loop), in
+        # which case the base is nn.Module and the method is absent — guard it
+        # so the trainer is usable with or without pytorch-lightning installed.
+        if HAS_PYTORCH_LIGHTNING:
+            self.save_hyperparameters(ignore=["model"])
 
     def forward(self, detector_features: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
         """Forward."""
@@ -1011,8 +1016,9 @@ class ThreeRAnomalyTrainer(_LightningBase):  # type: ignore[misc, valid-type]
         self.learning_rate = learning_rate
         self.weight_decay = weight_decay
 
-        # Save hyperparameters for checkpointing
-        self.save_hyperparameters(ignore=["model", "criterion"])
+        # Save hyperparameters for checkpointing (LightningModule API only).
+        if HAS_PYTORCH_LIGHTNING:
+            self.save_hyperparameters(ignore=["model", "criterion"])
 
         # Metrics tracking
         self.training_stability_rate = 0.0

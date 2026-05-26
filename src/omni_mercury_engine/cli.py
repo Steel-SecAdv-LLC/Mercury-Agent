@@ -108,19 +108,81 @@ def security(payload: str) -> None:
 
 
 @main.command()
-@click.option("--data", "-d", required=True, help="Training data directory")
-@click.option("--output", "-o", required=True, help="Model output path")
+@click.option(
+    "--data",
+    "-d",
+    required=True,
+    help="Training data file (.csv/.npy raw features, or .npz pre-extracted feature archive)",
+)
+@click.option("--output", "-o", required=True, help="Model checkpoint output path (.pt)")
+@click.option(
+    "--labels",
+    "-y",
+    default=None,
+    help="Optional label file (.csv/.npy/.json) for raw .csv/.npy data; omit for semi-supervised pseudo-labels",
+)
 @click.option("--epochs", "-e", default=50, type=int, help="Training epochs")
-def train(data: str, output: str, epochs: int) -> None:
-    """Train fusion model."""
+def train(data: str, output: str, labels: str | None, epochs: int) -> None:
+    """Train the fusion model.
+
+    Two input modes are supported:
+
+    \b
+    * Raw features (.csv / .npy): the engine fits all base detectors, extracts
+      their features, and trains via the supervised/semi-supervised
+      ``fit_fusion`` path. Provide ``--labels`` for supervised training, or omit
+      it for detector-consensus pseudo-labels.
+    * Pre-extracted feature archive (.npz): trained directly via
+      ``train_fusion_model`` (see ``mercury-agent build-features``).
+    """
     try:
         engine = _get_engine(mode="fusion")
 
-        click.echo(f"Training fusion model on {data}...")
-        engine.train_fusion_model(data, epochs=epochs)
+        if data.endswith(".npz"):
+            click.echo(f"Training fusion model on feature archive {data}...")
+            metrics = engine.train_fusion_model(data, epochs=epochs)
+        else:
+            X = _load_data(data)
+            y = _load_labels(labels) if labels else None
+            if y is not None and len(y) != len(X):
+                raise ValueError(f"Label count ({len(y)}) does not match sample count ({len(X)}).")
+            mode_str = "supervised" if y is not None else "semi-supervised (pseudo-labels)"
+            click.echo(f"Training fusion model on raw features {data} [{mode_str}]...")
+            metrics = engine.fit_fusion(X, y, epochs=epochs)
 
+        click.echo(f"Best validation loss: {metrics.get('best_loss', float('nan')):.4f}")
         engine.save_model(output)
         click.echo(f"Model saved to {output}")
+    except (RuntimeError, ValueError, OSError) as e:
+        click.echo(f"Error: {e}", err=True)
+        raise SystemExit(1) from e
+
+
+@main.command("build-features")
+@click.option("--input", "-i", required=True, help="Raw feature file (.csv/.npy)")
+@click.option("--output", "-o", required=True, help="Output feature archive path (.npz)")
+@click.option(
+    "--labels",
+    "-y",
+    default=None,
+    help="Optional label file (.csv/.npy/.json); omit for semi-supervised pseudo-labels",
+)
+def build_features(input: str, output: str, labels: str | None) -> None:
+    """Build a reusable fusion-training feature archive (.npz) from raw data.
+
+    Runs the same detector fit + feature extraction that ``train`` performs on
+    raw input, but caches the result to an ``.npz`` so repeated training runs
+    skip the (expensive) extraction step. The archive is consumable by
+    ``mercury-agent train --data <archive>.npz``.
+    """
+    try:
+        engine = _get_engine(mode="fusion")
+        X = _load_data(input)
+        y = _load_labels(labels) if labels else None
+        if y is not None and len(y) != len(X):
+            raise ValueError(f"Label count ({len(y)}) does not match sample count ({len(X)}).")
+        path = engine.build_feature_npz(X, output, y=y)
+        click.echo(f"Feature archive written to {path}")
     except (RuntimeError, ValueError, OSError) as e:
         click.echo(f"Error: {e}", err=True)
         raise SystemExit(1) from e
@@ -169,8 +231,29 @@ def _load_data(filepath: str) -> np.ndarray[Any, Any]:
             data = data.reshape(1, -1)
         return np.asarray(data)  # type: ignore[no-any-return, unused-ignore]
 
+    elif path.suffix == ".npy":
+        data = np.load(path, allow_pickle=False).astype(np.float32)
+        if data.ndim == 1:
+            data = data.reshape(1, -1)
+        return np.asarray(data)  # type: ignore[no-any-return, unused-ignore]
+
     else:
         raise ValueError(f"Unsupported file format: {path.suffix}")
+
+
+def _load_labels(filepath: str) -> np.ndarray[Any, Any]:
+    """Load a 1-D label vector from CSV, NPY, or JSON."""
+    path = Path(filepath)
+    if path.suffix == ".npy":
+        y = np.load(path, allow_pickle=False)
+    elif path.suffix == ".csv":
+        y = np.loadtxt(path, delimiter=",")
+    elif path.suffix == ".json":
+        with open(path) as f:
+            y = np.array(json.load(f))
+    else:
+        raise ValueError(f"Unsupported label file format: {path.suffix}")
+    return np.asarray(y).ravel()
 
 
 # =============================================================================

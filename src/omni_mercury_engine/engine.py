@@ -922,31 +922,10 @@ class OmniMercuryEngine(LoggerMixin):
         n_samples = len(X)
         logger.info(f"Starting fusion training on {n_samples} samples...")
 
-        # Fit all base detectors first
-        logger.info(f"Fitting {len(self.detectors)} base detectors...")
-        for name, detector in self.detectors.items():
-            try:
-                if not detector.is_fitted():
-                    detector.fit(X)
-                    logger.debug(f"Fitted detector: {name}")
-            except Exception as e:
-                logger.warning(f"Failed to fit detector {name}: {e}")
-
-        # Extract features from all detectors
-        logger.info("Extracting detector features for fusion training...")
-        detector_features: dict[str, torch.Tensor] = {}
-        for name, detector in self.detectors.items():
-            try:
-                features = detector.extract_features(X)
-                if isinstance(features, np.ndarray):
-                    features = torch.tensor(features, dtype=torch.float32)
-                detector_features[name] = features
-                logger.debug(f"Extracted features from {name}: shape={features.shape}")
-            except Exception as e:
-                logger.warning(f"Failed to extract features from {name}: {e}")
-
-        if not detector_features:
-            raise RuntimeError("No detector features could be extracted")
+        # Fit base detectors and extract per-detector features for fusion.
+        # Shared with build_feature_npz() so the feature set produced by the
+        # offline builder is byte-for-byte the set fit_fusion() trains on.
+        detector_features = self._extract_fusion_features(X, fit_detectors=True)
 
         # Generate pseudo-labels if not provided (semi-supervised)
         if y is None:
@@ -1142,6 +1121,159 @@ class OmniMercuryEngine(LoggerMixin):
         )
 
         return pseudo_labels  # type: ignore[no-any-return, unused-ignore]
+
+    def _extract_fusion_features(
+        self,
+        X: np.ndarray[Any, Any],
+        *,
+        fit_detectors: bool = True,
+    ) -> dict[str, torch.Tensor]:
+        """Fit base detectors (optionally) and extract per-detector features.
+
+        This is the single source of truth for the detector feature set used by
+        fusion training. Both :meth:`fit_fusion` (raw in-memory path) and
+        :meth:`build_feature_npz` (offline feature-archive builder) call it so a
+        ``.npz`` produced by the builder reproduces exactly what ``fit_fusion``
+        would have extracted from the same raw ``X``.
+
+        Args:
+            X: Raw training features ``(n_samples, n_features)``.
+            fit_detectors: When True, unfitted detectors are fit on ``X`` before
+                extraction. Set False if detectors are already fit.
+
+        Returns:
+            Mapping of detector name to a float32 feature tensor.
+
+        Raises:
+            RuntimeError: If no detector produced features.
+        """
+        if fit_detectors:
+            logger.info(f"Fitting {len(self.detectors)} base detectors...")
+            for name, detector in self.detectors.items():
+                try:
+                    if not detector.is_fitted():
+                        detector.fit(X)
+                        logger.debug(f"Fitted detector: {name}")
+                except Exception as e:
+                    logger.warning(f"Failed to fit detector {name}: {e}")
+
+        logger.info("Extracting detector features for fusion...")
+        detector_features: dict[str, torch.Tensor] = {}
+        for name, detector in self.detectors.items():
+            try:
+                features = detector.extract_features(X)
+                if isinstance(features, np.ndarray):
+                    features = torch.tensor(features, dtype=torch.float32)
+                detector_features[name] = features
+                logger.debug(f"Extracted features from {name}: shape={features.shape}")
+            except Exception as e:
+                logger.warning(f"Failed to extract features from {name}: {e}")
+
+        if not detector_features:
+            raise RuntimeError("No detector features could be extracted")
+
+        return detector_features
+
+    def build_feature_npz(
+        self,
+        X: np.ndarray[Any, Any],
+        output_path: str,
+        y: np.ndarray[Any, Any] | None = None,
+        *,
+        contamination: float | None = None,
+    ) -> str:
+        """Build a fusion-training ``.npz`` archive from raw features.
+
+        Runs the same detector fit + feature-extraction that :meth:`fit_fusion`
+        performs internally and writes the result to an ``.npz`` whose layout is
+        directly consumable by :meth:`train_fusion_model` (one array per
+        detector plus a ``labels`` array). This is the bridge between the raw
+        path and the pre-extracted-feature path: it lets callers cache the
+        (expensive) feature extraction once and re-train cheaply.
+
+        Args:
+            X: Raw training features ``(n_samples, n_features)``.
+            output_path: Destination ``.npz`` path.
+            y: Optional binary labels (1=anomaly, 0=normal). If None, semi
+                supervised pseudo-labels are generated from detector consensus.
+            contamination: Expected anomaly fraction used only when ``y`` is
+                None. If None, estimated adaptively.
+
+        Returns:
+            The ``output_path`` written.
+
+        Raises:
+            ValueError: If mode is not 'fusion', or a detector name collides
+                with the reserved ``labels`` key.
+        """
+        if self.mode != "fusion":
+            raise ValueError("build_feature_npz() requires mode='fusion'")
+
+        X = np.asarray(X, dtype=np.float32)
+        if X.ndim == 1:
+            X = X.reshape(1, -1)
+
+        detector_features = self._extract_fusion_features(X, fit_detectors=True)
+
+        arrays: dict[str, np.ndarray[Any, Any]] = {}
+        for name, feat in detector_features.items():
+            if name == "labels":
+                raise ValueError(
+                    "Detector named 'labels' collides with the reserved labels "
+                    "key in the feature archive."
+                )
+            arrays[name] = feat.detach().cpu().numpy().astype(np.float32)
+
+        if y is None:
+            y = self._generate_pseudo_labels(X, contamination)
+        arrays["labels"] = np.asarray(y).astype(np.int64)
+
+        if not output_path.endswith(".npz"):
+            output_path = f"{output_path}.npz"
+        np.savez(output_path, **arrays)
+        logger.info(
+            f"Wrote fusion feature archive to {output_path} "
+            f"({len(arrays) - 1} detector feature groups, {len(arrays['labels'])} samples)"
+        )
+        return output_path
+
+    def score_fusion(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Return fusion anomaly probabilities for a batch of samples.
+
+        This is the batch evaluation/benchmarking counterpart to
+        :meth:`detect_with_fusion`. It extracts detector features and runs the
+        trained ``OmniFusionModel`` forward pass, returning one probability per
+        row. Detectors are NOT refit on ``X`` (refitting on evaluation data
+        would leak), so the engine must already be trained via
+        :meth:`fit_fusion` / :meth:`train_fusion_model`.
+
+        Unlike :meth:`detect_with_fusion`, this does not run the σ_Immutable /
+        benevolence ethical gates — it is for measuring detection quality (e.g.
+        ROC-AUC) over a labelled set, not for production decisions.
+
+        Args:
+            X: Features ``(n_samples, n_features)``.
+
+        Returns:
+            Array of anomaly probabilities in ``[0, 1]``, shape ``(n_samples,)``.
+
+        Raises:
+            ValueError: If mode is not 'fusion'.
+        """
+        if self.mode != "fusion":
+            raise ValueError("score_fusion() requires mode='fusion'")
+
+        X = np.asarray(X, dtype=np.float32)
+        if X.ndim == 1:
+            X = X.reshape(1, -1)
+
+        features = self._extract_fusion_features(X, fit_detectors=False)
+        self.fusion_model.eval()
+        with torch.no_grad():
+            batch = {name: feat.to(self.device) for name, feat in features.items()}
+            outputs = self.fusion_model(batch)
+            probs = outputs["anomaly_probs"].detach().cpu().numpy().reshape(-1)
+        return probs
 
     def enable_drift_detection(
         self,
