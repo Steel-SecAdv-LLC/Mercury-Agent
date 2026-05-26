@@ -604,7 +604,7 @@ class MercuryGuardianAdapter:
             gosnn.register_scalars(
                 component_name="ama_cryptography_pqc",
                 scalars=self._sanitize_scalars(anomaly.omni_scalars),
-                group=ScalarGroup.ETHICAL,
+                group=ScalarGroup.SECURITY,
                 metadata={
                     "anomaly_type": anomaly.anomaly_type.value,
                     "severity": anomaly.severity,
@@ -703,9 +703,9 @@ class MercuryGuardianAdapter:
             }
 
         # Augment with GOSNN-derived signals
-        anomaly_count = ethical_scalars.get("omni_crypto_anomaly_count", 0.0)
-        avg_severity = ethical_scalars.get("omni_crypto_avg_severity", 0.0)
-        timing_anomalies = ethical_scalars.get("omni_crypto_timing_anomalies", 0.0)
+        anomaly_count = security_scalars.get("omni_crypto_anomaly_count", 0.0)
+        avg_severity = security_scalars.get("omni_crypto_avg_severity", 0.0)
+        timing_anomalies = security_scalars.get("omni_crypto_timing_anomalies", 0.0)
 
         # Synthesize pattern alerts from GOSNN scalar anomalies
         if anomaly_count > 0 and avg_severity > 0.3:
@@ -793,7 +793,8 @@ class MercuryGuardianAdapter:
 
     def get_posture_summary(self) -> dict[str, Any]:
         """Get current adaptive posture state."""
-        return self._posture_controller.get_posture_summary()
+        summary: dict[str, Any] = self._posture_controller.get_posture_summary()
+        return summary
 
     def generate_dilithium_keypair(self) -> DilithiumKeyPair | None:
         """Generate ML-DSA-65 (Dilithium) keypair."""

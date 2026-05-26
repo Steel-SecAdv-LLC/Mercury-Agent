@@ -48,6 +48,11 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Run a synthetic detect_anomaly() to update the scalars before dumping.",
     )
+    parser.add_argument(
+        "--include-named",
+        action="store_true",
+        help="Include named scalar values grouped by operational vs diagnostic band.",
+    )
     return parser
 
 
@@ -79,12 +84,40 @@ def _collect(args: argparse.Namespace) -> Certificate:
             except Exception:
                 pass
 
-    # Best-effort scalar extraction — GOSNN exposes a few candidate
-    # attributes; we try them all and report whichever yields a numeric
-    # vector.  The redundant scan is intentional: it keeps this tool
-    # robust to GOSNN internal refactors.
-    scalars: dict[str, list[float]] = {}
-    bands: dict[str, dict[str, float]] = {}
+    operational_named: dict[str, dict[str, float]] = {}
+    diagnostic_named: dict[str, dict[str, float]] = {}
+    total_named_operational = 0
+    total_named_diagnostic = 0
+    if args.include_named:
+        for group in net.scalar_groups:
+            operational = net._operational_scalars_for(group)
+            diagnostic = net._metric_only_scalars_for(group)
+            operational_named[group.value] = {
+                name: float(value) for name, value in operational.items()
+            }
+            diagnostic_named[group.value] = {
+                name: float(value) for name, value in diagnostic.items()
+            }
+            total_named_operational += len(operational)
+            total_named_diagnostic += len(diagnostic)
+
+    operational_vector = np.asarray(list(net._collect_all_scalars().values()), dtype=np.float64)
+    scalars: dict[str, list[float]] = {
+        "operational_vector": operational_vector.tolist(),
+    }
+    bands: dict[str, dict[str, float]] = {
+        "operational_vector": {
+            "count": int(operational_vector.size),
+            "min": float(operational_vector.min()) if operational_vector.size else 0.0,
+            "max": float(operational_vector.max()) if operational_vector.size else 0.0,
+            "mean": float(operational_vector.mean()) if operational_vector.size else 0.0,
+            "std": float(operational_vector.std()) if operational_vector.size else 0.0,
+        }
+    }
+
+    # Best-effort legacy scalar extraction — GOSNN revisions may expose
+    # additional vector attributes. Include them after the canonical
+    # operational vector when they exist.
     for attr in (
         "scalars",
         "omni_scalars",
@@ -118,6 +151,16 @@ def _collect(args: argparse.Namespace) -> Certificate:
         "scalars": scalars,
         "bands": bands,
     }
+    if args.include_named:
+        body["named_scalars"] = {
+            "operational": operational_named,
+            "diagnostic": diagnostic_named,
+            "counts": {
+                "operational": total_named_operational,
+                "diagnostic": total_named_diagnostic,
+                "registered": total_named_operational + total_named_diagnostic,
+            },
+        }
     warnings: list[str] = []
     if not scalars:
         warnings.append(
