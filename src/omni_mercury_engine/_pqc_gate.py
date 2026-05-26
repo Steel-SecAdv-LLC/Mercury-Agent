@@ -95,9 +95,7 @@ def _enforce_pqc_production_gate() -> None:
     availability consistent and stops false-positive partial-install
     rejections in the verify-real-pqc CI lane.
     """
-    require_flag = os.environ.get(
-        "AMA_REQUIRE_REAL_PQC", os.environ.get("AVA_REQUIRE_REAL_PQC")
-    )
+    require_flag = os.environ.get("AMA_REQUIRE_REAL_PQC", os.environ.get("AVA_REQUIRE_REAL_PQC"))
     if require_flag is not None:
         # Explicit operator override wins in either direction and in any
         # mode: ``=true`` forces the gate on, ``=false`` (the documented

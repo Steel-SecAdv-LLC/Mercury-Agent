@@ -93,9 +93,7 @@ def build_dataset(seed: int = SEED) -> tuple[np.ndarray, np.ndarray]:
     return x[perm], y[perm]
 
 
-def extract_inference_features(
-    engine: OmniMercuryEngine, x: np.ndarray
-) -> dict[str, "object"]:
+def extract_inference_features(engine: OmniMercuryEngine, x: np.ndarray) -> dict[str, "object"]:
     """Extract the full inference feature set per sample, stacked to (N, dim).
 
     Mirrors what ``detect_with_fusion`` feeds the fusion network for a single
@@ -204,8 +202,10 @@ def main() -> int:
     np.random.seed(SEED)
 
     x, y = build_dataset()
-    print(f"Dataset: {x.shape[0]} samples, {x.shape[1]} features, "
-          f"{int(y.sum())} anomalies ({y.mean():.1%}).")
+    print(
+        f"Dataset: {x.shape[0]} samples, {x.shape[1]} features, "
+        f"{int(y.sum())} anomalies ({y.mean():.1%})."
+    )
 
     engine = OmniMercuryEngine(mode="fusion")
     print("Extracting full inference feature pipeline (detector + model features)...")

@@ -163,13 +163,9 @@ def train(data: str, labels: str | None, output: str, epochs: int) -> None:
             x = _load_data(data)
             y = _load_labels(labels) if labels else None
             if y is not None and len(y) != len(x):
-                raise ValueError(
-                    f"Label count ({len(y)}) does not match sample count ({len(x)})."
-                )
+                raise ValueError(f"Label count ({len(y)}) does not match sample count ({len(x)}).")
             mode = "supervised" if y is not None else "semi-supervised"
-            click.echo(
-                f"Training fusion model on {len(x)} samples from {data} ({mode})..."
-            )
+            click.echo(f"Training fusion model on {len(x)} samples from {data} ({mode})...")
             metrics = engine.fit_fusion(x, y, epochs=epochs)
             click.echo(
                 f"Training complete: best_loss={metrics['best_loss']:.4f}, "
@@ -220,9 +216,7 @@ def build_features(data: str, labels: str | None, output: str) -> None:
         if labels:
             y = _load_labels(labels)
             if len(y) != len(x):
-                raise ValueError(
-                    f"Label count ({len(y)}) does not match sample count ({len(x)})."
-                )
+                raise ValueError(f"Label count ({len(y)}) does not match sample count ({len(x)}).")
         else:
             # Derive pseudo-labels from detector consensus so the archive is
             # self-contained and usable by the feature-archive trainer.
@@ -247,6 +241,11 @@ def explain(input: str, model: str) -> None:
         engine = _get_engine(mode=model)
 
         data = _load_data(input)
+
+        # Use the same trained checkpoint the fusion detect path loads so
+        # explanations reflect the shipped model, not random-init weights.
+        if model == "fusion":
+            engine.load_default_fusion_checkpoint()
 
         result = engine.detect_with_fusion(data)
 

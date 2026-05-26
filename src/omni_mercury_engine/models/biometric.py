@@ -34,15 +34,6 @@ except ImportError:
     torch = None  # type: ignore[assignment, unused-ignore]
     TORCH_AVAILABLE = False
 
-import os
-
-# Quiet TensorFlow's C++/oneDNN startup banners before the deepface ->
-# retinaface -> tensorflow import chain runs (TF reads these only at
-# import time). ``setdefault`` so an operator who set them explicitly
-# keeps control.
-os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
-os.environ.setdefault("TF_ENABLE_ONEDNN_OPTS", "0")
-
 try:
     from deepface import DeepFace
 
