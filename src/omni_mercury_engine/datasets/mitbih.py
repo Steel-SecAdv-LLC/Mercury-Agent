@@ -102,6 +102,7 @@ class MITBIHLoader(DatasetLoader):
     """
 
     DATASET_NAME = "mitbih"
+    LABEL_SOURCE = "expert_annotated"  # cardiologist-annotated heartbeat classes
     DATASET_URL = "https://physionet.org/content/mitdb/1.0.0/"
     LICENSE = "Open Data Commons Attribution License v1.0"
     CITATION = (

@@ -438,6 +438,7 @@ class MSDSLoader(DatasetLoader):
     """
 
     DATASET_NAME = "msds"
+    LABEL_SOURCE = "statistical"  # synthetic multi-source generator (no real labels)
     DATASET_URL = "https://github.com/imperial-qore/TranAD"  # Included in TranAD repo
     LICENSE = "Apache-2.0"
     CITATION = """Multi-Source Data Stream synthetic benchmark."""

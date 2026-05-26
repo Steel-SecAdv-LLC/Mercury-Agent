@@ -1372,6 +1372,7 @@ class ThreatIntelLoader(DatasetLoader):
     """
 
     DATASET_NAME = "threat-intel"
+    LABEL_SOURCE = "statistical"  # labels = (num_phases>=2 & num_platforms>=3) heuristic threshold
     DATASET_URL = "https://attack.mitre.org/"
     LICENSE = "Apache 2.0 (MITRE ATT&CK)"
     CITATION = "MITRE ATT&CK. MITRE Corporation. https://attack.mitre.org/"

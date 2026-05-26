@@ -65,6 +65,7 @@ class NOAABuoyLoader(DatasetLoader):
     """
 
     DATASET_NAME = "noaa_buoy"
+    LABEL_SOURCE = "statistical"  # no ground-truth labels; manufactured from buoy signal stats
     DATASET_URL = "https://www.ndbc.noaa.gov/"
     LICENSE = "Public Domain (US Government)"
     CITATION = "NOAA National Data Buoy Center. https://www.ndbc.noaa.gov/"

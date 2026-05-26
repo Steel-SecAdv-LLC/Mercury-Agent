@@ -62,6 +62,7 @@ class NOAAGSODLoader(DatasetLoader):
     """
 
     DATASET_NAME = "noaa_gsod"
+    LABEL_SOURCE = "statistical"  # labels = per-station statistical anomaly mask (threshold)
     DATASET_URL = "https://www.ncei.noaa.gov/data/global-summary-of-the-day/"
     LICENSE = "Public Domain (US Government)"
     CITATION = "NOAA National Centers for Environmental Information. Global Summary of the Day."
