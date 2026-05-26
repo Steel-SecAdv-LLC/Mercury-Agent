@@ -144,7 +144,7 @@ from omni_mercury_engine.detectors.temporal import TemporalAnomalyDetector
 # Runtime pipeline modules - always imported (required for core functionality)
 from omni_mercury_engine.ml.drift import DriftResult, EnsembleDriftDetector
 from omni_mercury_engine.ml.fairness import BiasAuditConfig, FairnessAuditor, FairnessReport
-from omni_mercury_engine.ml.fusion_network import OmniFusionModel
+from omni_mercury_engine.ml.fusion_network import FocalLoss, OmniFusionModel
 from omni_mercury_engine.ml.inference import FusionInference
 from omni_mercury_engine.ml.optimization import OptimizationConfig, ParallelExecutor
 from omni_mercury_engine.utils.logging import LoggerMixin
@@ -818,6 +818,9 @@ class OmniMercuryEngine(LoggerMixin):
             )
             # Track training state - Fix for Issue #1
             self._fusion_trained = False
+            # Post-hoc temperature calibration (Guo et al. 2017), fit on a
+            # held-out val split during fit_fusion. Identity (T=1) until fit.
+            self._fusion_calibrator: Any = None
             logger.info(
                 "OmniFusionModel initialized (untrained). Call fit_fusion() "
                 "before detection for optimal performance."
@@ -871,6 +874,10 @@ class OmniMercuryEngine(LoggerMixin):
         early_stopping_patience: int = 10,
         validation_split: float = 0.2,
         contamination: float | None = None,
+        use_focal_loss: bool = True,
+        focal_alpha: float = 0.75,
+        focal_gamma: float = 2.0,
+        calibrate: bool = True,
     ) -> dict[str, Any]:
         """Fit the fusion model on training data with semi-supervised learning.
 
@@ -891,10 +898,20 @@ class OmniMercuryEngine(LoggerMixin):
             validation_split: Fraction of data for validation.
             contamination: Expected anomaly fraction for pseudo-labeling. If None,
                           estimated from data using adaptive methods.
+            use_focal_loss: Train with FocalLoss instead of BCE (default True).
+                Focal loss down-weights easy negatives so rare anomalies are not
+                drowned out under class imbalance (fixes probability collapse).
+            focal_alpha: Positive-class weight for focal loss (default 0.75).
+            focal_gamma: Focusing parameter for focal loss (default 2.0).
+            calibrate: Fit a post-hoc temperature scalar (Guo et al. 2017) on the
+                held-out validation split so outputs are trustworthy
+                probabilities, not just rankings (default True). Temperature
+                scaling is monotonic, so ranking/AUC is exactly preserved.
 
         Returns:
             Dictionary with training metrics including final_loss, best_loss,
-            epochs_trained, and convergence information.
+            epochs_trained, convergence information, and (when calibrated)
+            ``temperature`` plus ``ece_before``/``ece_after``.
 
         Raises:
             ValueError: If mode is not 'fusion'.
@@ -957,6 +974,21 @@ class OmniMercuryEngine(LoggerMixin):
             optimizer, mode="min", factor=0.5, patience=5
         )
 
+        # Loss criterion. FocalLoss addresses imbalanced-data collapse (rare
+        # anomalies swamped by easy negatives), which manifested as well-ranked
+        # but flattened/over-confident probabilities. Falls back to BCE when
+        # explicitly disabled. Both operate on the model's sigmoid output.
+        if use_focal_loss:
+            focal_criterion = FocalLoss(alpha=focal_alpha, gamma=focal_gamma)
+
+            def _loss_fn(probs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+                return focal_criterion(probs, targets)
+
+        else:
+
+            def _loss_fn(probs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+                return torch.nn.functional.binary_cross_entropy(probs, targets)
+
         best_val_loss = float("inf")
         best_state: dict[str, Any] | None = None
         epochs_without_improvement = 0
@@ -979,9 +1011,7 @@ class OmniMercuryEngine(LoggerMixin):
 
                 optimizer.zero_grad()
                 outputs = self.fusion_model(batch_features)
-                loss = torch.nn.functional.binary_cross_entropy(
-                    outputs["anomaly_probs"], batch_labels
-                )
+                loss = _loss_fn(outputs["anomaly_probs"], batch_labels)
                 loss.backward()  # type: ignore[no-untyped-call, unused-ignore]
                 torch.nn.utils.clip_grad_norm_(self.fusion_model.parameters(), 1.0)
                 optimizer.step()
@@ -1004,9 +1034,7 @@ class OmniMercuryEngine(LoggerMixin):
                     batch_labels = labels_tensor[batch_indices].to(device)
 
                     outputs = self.fusion_model(batch_features)
-                    loss = torch.nn.functional.binary_cross_entropy(
-                        outputs["anomaly_probs"], batch_labels
-                    )
+                    loss = _loss_fn(outputs["anomaly_probs"], batch_labels)
                     val_losses.append(loss.item())
 
             avg_train_loss = float(np.mean(train_losses))
@@ -1049,13 +1077,72 @@ class OmniMercuryEngine(LoggerMixin):
 
         logger.info(f"Fusion training complete. Best val_loss: {best_val_loss:.4f}")
 
-        return {
+        metrics: dict[str, Any] = {
             "final_loss": loss_history[-1]["val_loss"] if loss_history else 0.0,
             "best_loss": best_val_loss,
             "epochs_trained": len(loss_history),
             "best_epoch": len(loss_history) - epochs_without_improvement,
             "loss_history": loss_history,
             "early_stopped": epochs_without_improvement >= early_stopping_patience,
+        }
+
+        # Post-hoc temperature scaling (Guo et al. 2017): fit a single scalar on
+        # the held-out validation split so the sigmoid outputs are trustworthy
+        # probabilities. Monotonic, so ROC-AUC/ranking is exactly preserved.
+        self._fusion_calibrator = None
+        if calibrate and n_val > 0:
+            cal_metrics = self._fit_fusion_temperature(
+                detector_features, labels_tensor, val_indices
+            )
+            metrics.update(cal_metrics)
+
+        return metrics
+
+    def _fit_fusion_temperature(
+        self,
+        detector_features: dict[str, torch.Tensor],
+        labels_tensor: torch.Tensor,
+        val_indices: torch.Tensor,
+    ) -> dict[str, Any]:
+        """Fit post-hoc temperature scaling on the validation split.
+
+        Returns a dict with the learned ``temperature`` and validation
+        ``ece_before``/``ece_after`` (Expected Calibration Error). On failure
+        (e.g. single-class val split) calibration is left as identity (T=1).
+        """
+        from omni_mercury_engine.core.calibration import TemperatureScaling, compute_ece
+
+        device = next(self.fusion_model.parameters()).device
+        self.fusion_model.eval()
+        with torch.no_grad():
+            val_feats = {
+                name: feat[val_indices].to(device) for name, feat in detector_features.items()
+            }
+            val_probs = (
+                self.fusion_model(val_feats)["anomaly_probs"].detach().cpu().numpy().reshape(-1)
+            )
+        val_labels = labels_tensor[val_indices].cpu().numpy().reshape(-1).astype(int)
+
+        if len(np.unique(val_labels)) < 2:
+            logger.warning("Skipping temperature calibration: validation split is single-class")
+            return {"temperature": 1.0, "ece_before": None, "ece_after": None}
+
+        ece_before = float(compute_ece(val_labels, val_probs))
+        scaler = TemperatureScaling().fit(val_probs, val_labels)
+        if not getattr(scaler, "_fitted", False):
+            return {"temperature": 1.0, "ece_before": ece_before, "ece_after": ece_before}
+
+        calibrated = scaler.calibrate(val_probs)
+        ece_after = float(compute_ece(val_labels, calibrated))
+        self._fusion_calibrator = scaler
+        logger.info(
+            f"Temperature calibration: T={scaler.temperature:.4f}, "
+            f"ECE {ece_before:.4f} -> {ece_after:.4f}"
+        )
+        return {
+            "temperature": float(scaler.temperature),
+            "ece_before": ece_before,
+            "ece_after": ece_after,
         }
 
     def _generate_pseudo_labels(
@@ -1273,6 +1360,11 @@ class OmniMercuryEngine(LoggerMixin):
             batch = {name: feat.to(self.device) for name, feat in features.items()}
             outputs = self.fusion_model(batch)
             probs = outputs["anomaly_probs"].detach().cpu().numpy().reshape(-1)
+
+        # Apply post-hoc temperature calibration when available. Monotonic, so
+        # rankings/AUC are unchanged; only the probability values are corrected.
+        if self._fusion_calibrator is not None:
+            probs = np.asarray(self._fusion_calibrator.calibrate(probs)).reshape(-1)
         return probs
 
     def enable_drift_detection(

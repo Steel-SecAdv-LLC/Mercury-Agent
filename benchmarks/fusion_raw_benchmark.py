@@ -78,10 +78,28 @@ def _run_one(name: str, epochs: int, seed: int) -> float | None:
         print(f"  {name:<14} SKIP (single-class split; raise sample count or reseed)")
         return None
 
-    engine.fit_fusion(X_tr, y_tr, epochs=epochs, batch_size=64, early_stopping_patience=15)
-    probs = engine.score_fusion(X_te)
-    auc = roc_auc_score(y_te, probs)
-    print(f"  {name:<14} AUC={auc:.4f}  (n={len(X)}, anom={y.mean():.3%}, dim={X.shape[1]})")
+    from omni_mercury_engine.core.calibration import compute_ece
+
+    fit_metrics = engine.fit_fusion(
+        X_tr, y_tr, epochs=epochs, batch_size=64, early_stopping_patience=15
+    )
+
+    # Calibrated probabilities (default) and raw (calibrator bypassed) to show
+    # temperature scaling improves ECE while preserving AUC exactly (#3).
+    probs_cal = engine.score_fusion(X_te)
+    calibrator = engine._fusion_calibrator
+    engine._fusion_calibrator = None
+    probs_raw = engine.score_fusion(X_te)
+    engine._fusion_calibrator = calibrator
+
+    auc = roc_auc_score(y_te, probs_cal)
+    temp = fit_metrics.get("temperature", 1.0)
+    ece_raw = compute_ece(y_te, probs_raw)
+    ece_cal = compute_ece(y_te, probs_cal)
+    print(
+        f"  {name:<14} AUC={auc:.4f}  T={temp:.3f}  ECE {ece_raw:.4f}->{ece_cal:.4f}  "
+        f"(n={len(X)}, anom={y.mean():.3%}, dim={X.shape[1]})"
+    )
     return auc
 
 
