@@ -208,10 +208,26 @@ def build_features(data: str, labels: str | None, output: str) -> None:
 
         feature_arrays: dict[str, np.ndarray[Any, Any]] = {}
         for name, detector in engine.detectors.items():
-            if not detector.is_fitted():
-                detector.fit(x)
-            feats = detector.extract_features(x)
-            feature_arrays[name] = np.asarray(feats, dtype=np.float32)
+            # Mirror the graceful per-detector degradation of the inference
+            # feature pipeline (fit_fusion / _extract_detector_features): skip a
+            # detector that cannot fit/extract rather than aborting the whole
+            # archive, so build-features yields exactly the feature set the
+            # trainer would have used.
+            try:
+                if not detector.is_fitted():
+                    detector.fit(x)
+                feats = detector.extract_features(x)
+                # extract_features may return a torch.Tensor (possibly on GPU or
+                # grad-tracking). Convert via detach/cpu duck-typing so the CLI
+                # never imports torch and never trips numpy's grad/CUDA errors.
+                if hasattr(feats, "detach"):
+                    feats = feats.detach().cpu().numpy()
+                feature_arrays[name] = np.asarray(feats, dtype=np.float32)
+            except Exception as e:
+                click.echo(f"Skipping detector {name}: {e}", err=True)
+
+        if not feature_arrays:
+            raise RuntimeError("No detector features could be extracted from the input.")
 
         if labels:
             y = _load_labels(labels)

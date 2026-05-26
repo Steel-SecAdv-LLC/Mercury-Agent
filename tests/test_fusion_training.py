@@ -496,3 +496,54 @@ class TestEdgeCases:
         # Should handle gracefully
         metrics = engine.fit_fusion(X, y, epochs=10)
         assert metrics["epochs_trained"] > 0
+
+
+class TestBuildFeaturesCLI:
+    """End-to-end coverage for the ``build-features`` command and its
+    round-trip into ``train`` (the feature-archive path)."""
+
+    def test_build_features_archive_then_train(self, tmp_path: Any) -> None:
+        from click.testing import CliRunner
+
+        from omni_mercury_engine.cli import main
+
+        rng = np.random.default_rng(11)
+        x = rng.standard_normal((60, 12)).astype(np.float32)
+        data_path = tmp_path / "samples.npy"
+        np.save(data_path, x)
+
+        archive = tmp_path / "features.npz"
+        runner = CliRunner()
+        result = runner.invoke(main, ["build-features", "-d", str(data_path), "-o", str(archive)])
+        assert result.exit_code == 0, result.output
+        assert archive.exists()
+
+        with np.load(archive, allow_pickle=False) as npz:
+            keys = set(npz.files)
+            assert "labels" in keys
+            assert len(keys) > 1, "expected at least one detector feature array"
+            assert npz["labels"].shape[0] == len(x)
+            for key in keys - {"labels"}:
+                assert npz[key].shape[0] == len(x)
+
+        # The archive must round-trip into the feature-archive trainer.
+        model_path = tmp_path / "fusion.pt"
+        train_result = runner.invoke(
+            main, ["train", "-d", str(archive), "-o", str(model_path), "-e", "2"]
+        )
+        assert train_result.exit_code == 0, train_result.output
+        assert model_path.exists()
+
+    def test_build_features_rejects_non_npz_output(self, tmp_path: Any) -> None:
+        from click.testing import CliRunner
+
+        from omni_mercury_engine.cli import main
+
+        data_path = tmp_path / "samples.npy"
+        np.save(data_path, np.random.default_rng(3).standard_normal((10, 8)).astype(np.float32))
+
+        result = CliRunner().invoke(
+            main, ["build-features", "-d", str(data_path), "-o", str(tmp_path / "bad.bin")]
+        )
+        assert result.exit_code == 1
+        assert "must be a .npz" in result.output
