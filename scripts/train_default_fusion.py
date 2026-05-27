@@ -92,9 +92,7 @@ def build_dataset(seed: int = SEED) -> tuple[np.ndarray, np.ndarray]:
     return x[perm], y[perm]
 
 
-def _stratified_split(
-    y: np.ndarray, train_frac: float, seed: int
-) -> tuple[np.ndarray, np.ndarray]:
+def _stratified_split(y: np.ndarray, train_frac: float, seed: int) -> tuple[np.ndarray, np.ndarray]:
     rng = np.random.RandomState(seed)
     train_idx: list[int] = []
     test_idx: list[int] = []
