@@ -16,6 +16,12 @@ if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
   exit 0
 fi
 
+# Async: install in the background so the session starts immediately. The build
+# (AMA native lib + torch) is a few minutes on a cold container; the persisted
+# LD_LIBRARY_PATH and packages become available shortly after the prompt opens.
+# NOTE: this is the first line of stdout so Claude Code parses the async signal.
+echo '{"async": true, "asyncTimeout": 600000}'
+
 AMA_REF="v3.2.0"                 # keep in lockstep with pyproject.toml [pqc] pin
 AMA_SRC="/tmp/ama-cryptography"
 AMA_LIB="${AMA_SRC}/build/lib"
