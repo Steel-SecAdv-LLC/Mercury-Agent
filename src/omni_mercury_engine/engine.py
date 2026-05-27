@@ -1336,8 +1336,9 @@ class OmniMercuryEngine(LoggerMixin):
         # detect_with_fusion does, so the trained/served feature space matches.
         # Models that cannot process the input are skipped gracefully.
         for name, model in self.models.items():
+            extractor: Any = model
             try:
-                _record(name, model.extract_features(X))
+                _record(name, extractor.extract_features(X))
             except Exception as e:
                 logger.debug(f"Skipping model {name} during fusion feature extraction: {e}")
 

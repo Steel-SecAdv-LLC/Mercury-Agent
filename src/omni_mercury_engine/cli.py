@@ -284,6 +284,7 @@ def _load_data(filepath: str) -> np.ndarray[Any, Any]:
         raise ValueError(f"Unsupported file format: {path.suffix}")
 
 
+def _load_labels(filepath: str) -> np.ndarray[Any, Any]:
     """Load a 1-D label vector from CSV, NPY, or JSON."""
     path = Path(filepath)
     if path.suffix == ".npy":
