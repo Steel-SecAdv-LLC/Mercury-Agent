@@ -1,0 +1,89 @@
+name: Build Default Fusion Checkpoint
+
+# ---------------------------------------------------------------------------
+# Regenerates the shipped default fusion checkpoint
+# (src/omni_mercury_engine/models/checkpoints/default_fusion.pt).
+#
+# Why a workflow instead of a committed binary:
+#   * The checkpoint is real-data trained (pooled, genuinely-labelled ADBench)
+#     at hidden_dim=128 and is ~5 MB. Committing a regenerated multi-MB binary
+#     on every retrain bloats git history forever, and a generic pre-commit
+#     large-file cap should govern commit hygiene, not model architecture.
+#   * Instead it is produced at build time here and uploaded as an artifact;
+#     the release/packaging step bundles it into the wheel
+#     (``[tool.setuptools.package-data]`` already globs ``models/checkpoints/*.pt``).
+#
+# Determinism: scripts/train_default_fusion.py is fully seeded; given the same
+# cached ADBench inputs it reproduces the same weights.
+# ---------------------------------------------------------------------------
+
+on:
+  workflow_dispatch:
+    inputs:
+      source:
+        description: 'Training data source (real|synthetic)'
+        required: false
+        default: 'real'
+  release:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-checkpoint
+  cancel-in-progress: false
+
+jobs:
+  build-checkpoint:
+    name: Train and upload default fusion checkpoint
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      # ADBench downloads require the network; never silently fall back to
+      # synthetic data unless the operator explicitly dispatched it.
+      MERCURY_NETWORK_TESTS: "1"
+      AMA_REQUIRE_REAL_PQC: "false"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6.0.2
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install package with ML extras
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[ml]"
+
+      - name: Regenerate default fusion checkpoint
+        run: |
+          python -m scripts.train_default_fusion \
+            --source "${{ github.event.inputs.source || 'real' }}"
+
+      - name: Verify checkpoint loads and reports trained
+        run: |
+          python - <<'PY'
+          from omni_mercury_engine.engine import (
+              OmniMercuryEngine,
+              default_fusion_checkpoint_path,
+          )
+          path = default_fusion_checkpoint_path()
+          assert path.exists(), f"checkpoint not generated at {path}"
+          engine = OmniMercuryEngine(mode="fusion")
+          assert engine.load_default_fusion_checkpoint() is True
+          assert engine._fusion_trained is True
+          print(f"OK: {path} ({path.stat().st_size / 1024:.1f} KB)")
+          PY
+
+      - name: Upload checkpoint artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: default-fusion-checkpoint
+          path: src/omni_mercury_engine/models/checkpoints/default_fusion.pt
+          if-no-files-found: error
+          retention-days: 90

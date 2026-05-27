@@ -151,6 +151,12 @@ semgrep-report.json
 /data/
 # Allow source code data module
 !src/omni_mercury_engine/data/
+# Default fusion checkpoint is generated at build time (real-data trained,
+# ~5 MB) and bundled into the wheel — not committed. Regenerate with
+# `make checkpoint` / scripts/train_default_fusion.py. The security
+# sigma_immutable_weights.pt IS intentionally committed (pinned KAT artifact)
+# and is not matched here.
+src/omni_mercury_engine/models/checkpoints/*.pt
 logs/
 runs/
 
