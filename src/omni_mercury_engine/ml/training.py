@@ -833,10 +833,12 @@ class FusionTrainer(_LightningBase):  # type: ignore[misc, valid-type]
         self.classification_criterion = nn.CrossEntropyLoss()
         self.regression_criterion = nn.MSELoss()
 
-        # ``save_hyperparameters`` is a LightningModule API. ``train_fusion_model``
-        # also drives this class as a plain nn.Module helper (manual loop), in
-        # which case the base is nn.Module and the method is absent — guard it
-        # so the trainer is usable with or without pytorch-lightning installed.
+        # ``save_hyperparameters`` only exists on a real LightningModule.
+        # When pytorch-lightning is absent this class falls back to an
+        # nn.Module base and is driven directly by the manual training
+        # loop in ``OmniMercuryEngine.train_fusion_model`` (which calls
+        # ``configure_optimizers`` / ``training_step`` itself), so the
+        # Lightning checkpoint hook is not needed.
         if HAS_PYTORCH_LIGHTNING:
             self.save_hyperparameters(ignore=["model"])
 
@@ -844,6 +846,19 @@ class FusionTrainer(_LightningBase):  # type: ignore[misc, valid-type]
         """Forward."""
         result: dict[str, torch.Tensor] = self.model(detector_features, return_attention=True)
         return result
+
+    def _safe_log(self, name: str, value: torch.Tensor, **kwargs: Any) -> None:
+        """Log a metric only when attached to a ``pl.Trainer``.
+
+        ``OmniMercuryEngine.train_fusion_model`` drives this module with a
+        manual training loop rather than a ``pl.Trainer``. In that mode
+        ``LightningModule.log`` emits a "trainer reference is not
+        registered" warning and discards the value, so we skip it; the
+        loop tracks losses from the returned tensors directly. Under a
+        real ``pl.Trainer`` the metrics are logged as usual.
+        """
+        if getattr(self, "_trainer", None) is not None:
+            self.log(name, value, **kwargs)
 
     def training_step(
         self,
@@ -870,10 +885,10 @@ class FusionTrainer(_LightningBase):  # type: ignore[misc, valid-type]
             + self.regression_weight * regression_loss
         )
 
-        self.log("train_loss", total_loss)
-        self.log("train_anomaly_loss", anomaly_loss)
-        self.log("train_classification_loss", classification_loss)
-        self.log("train_regression_loss", regression_loss)
+        self._safe_log("train_loss", total_loss)
+        self._safe_log("train_anomaly_loss", anomaly_loss)
+        self._safe_log("train_classification_loss", classification_loss)
+        self._safe_log("train_regression_loss", regression_loss)
 
         result: torch.Tensor = total_loss
         return result
@@ -903,12 +918,12 @@ class FusionTrainer(_LightningBase):  # type: ignore[misc, valid-type]
             + self.regression_weight * regression_loss
         )
 
-        self.log("val_loss", total_loss)
-        self.log("val_anomaly_loss", anomaly_loss)
+        self._safe_log("val_loss", total_loss)
+        self._safe_log("val_anomaly_loss", anomaly_loss)
 
         preds = (outputs["anomaly_probs"] > 0.5).float()
         accuracy = (preds == anomaly_labels).float().mean()
-        self.log("val_accuracy", accuracy)
+        self._safe_log("val_accuracy", accuracy)
 
     def configure_optimizers(self) -> dict[str, Any]:
         """Configure optimizers."""
@@ -1016,7 +1031,9 @@ class ThreeRAnomalyTrainer(_LightningBase):  # type: ignore[misc, valid-type]
         self.learning_rate = learning_rate
         self.weight_decay = weight_decay
 
-        # Save hyperparameters for checkpointing (LightningModule API only).
+        # Save hyperparameters for checkpointing (LightningModule-only hook;
+        # skipped on the nn.Module fallback base when pytorch-lightning is
+        # not installed).
         if HAS_PYTORCH_LIGHTNING:
             self.save_hyperparameters(ignore=["model", "criterion"])
 

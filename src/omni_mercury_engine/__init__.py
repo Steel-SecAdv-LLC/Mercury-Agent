@@ -46,7 +46,17 @@ Anomaly detection is one of the capabilities this AI exposes — not the
 limit of what it is.
 """
 
+import os
 from typing import TYPE_CHECKING
+
+# Quiet TensorFlow's C++/oneDNN startup banners before anything in the package
+# can trigger the deepface -> retinaface -> tensorflow import chain (TF reads
+# these only at import time). Set here, at the earliest package entry point, so
+# every TF importer is covered regardless of import order (e.g. both
+# ``models.biometric`` and ``models.biometric_advanced``). ``setdefault`` keeps
+# an operator's explicit choice.
+os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
+os.environ.setdefault("TF_ENABLE_ONEDNN_OPTS", "0")
 
 # Type-only imports for static analysis (CodeQL, mypy, etc.)
 # These are not imported at runtime to support lazy loading

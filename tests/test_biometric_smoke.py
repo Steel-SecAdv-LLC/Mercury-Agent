@@ -121,3 +121,29 @@ def test_biometric_deepface_import_error() -> None:
 
     result = model.predict(image)
     assert "model_type" in result
+
+
+def test_is_image_input_guard() -> None:
+    """Tabular input must not be classified as image input (DeepFace guard)."""
+    f = BiometricAnomalyModel._is_image_input
+    # Genuine image / path inputs route to DeepFace.
+    assert f(np.zeros((64, 64, 3), dtype=np.uint8)) is True
+    assert f(np.zeros((4, 64, 64, 3), dtype=np.uint8)) is True
+    assert f("face.jpg") is True
+    # Tabular / vector inputs do not (prevents the 92 MB model download
+    # and DeepFace warnings during tabular fusion detect).
+    assert f(np.zeros((100, 12))) is False
+    assert f(np.zeros((64, 64))) is False
+    assert f(np.zeros(12)) is False
+
+
+def test_tabular_input_uses_harmonic_fallback() -> None:
+    """Tabular features go through the harmonic fallback regardless of DeepFace."""
+    model = BiometricAnomalyModel()
+    tabular = np.random.default_rng(0).normal(size=(8, 12)).astype(np.float32)
+    feats = model.extract_features(tabular)
+    arr = feats.detach().cpu().numpy() if hasattr(feats, "detach") else np.asarray(feats)
+    assert arr.shape[0] == 8
+    result = model.predict(tabular)
+    assert result["model_type"] == "biometric"
+    assert "anomaly_scores" in result
