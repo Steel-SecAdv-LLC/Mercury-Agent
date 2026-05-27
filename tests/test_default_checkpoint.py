@@ -18,7 +18,7 @@ import pytest
 pytest.importorskip("torch")
 
 import omni_mercury_engine.engine as engine_mod
-from omni_mercury_engine.engine import DEFAULT_FUSION_CHECKPOINT, OmniMercuryEngine
+from omni_mercury_engine.engine import OmniMercuryEngine, default_fusion_checkpoint_path
 
 
 def _engine() -> Any:
@@ -27,8 +27,9 @@ def _engine() -> Any:
 
 class TestDefaultCheckpoint:
     def test_checkpoint_is_packaged(self) -> None:
-        assert DEFAULT_FUSION_CHECKPOINT.exists(), (
-            f"default fusion checkpoint missing at {DEFAULT_FUSION_CHECKPOINT}; "
+        path = default_fusion_checkpoint_path()
+        assert path.exists(), (
+            f"default fusion checkpoint missing at {path}; "
             "regenerate with scripts/train_default_fusion.py"
         )
 
@@ -39,7 +40,7 @@ class TestDefaultCheckpoint:
 
     def test_load_default_checkpoint_marks_trained(self) -> None:
         eng = _engine()
-        assert eng.load_default_checkpoint() is True
+        assert eng.load_default_fusion_checkpoint() is True
         assert eng._fusion_trained is True
 
     def test_auto_load_constructor_flag(self) -> None:
@@ -48,7 +49,7 @@ class TestDefaultCheckpoint:
 
     def test_loaded_checkpoint_has_calibrator(self) -> None:
         eng = _engine()
-        eng.load_default_checkpoint()
+        eng.load_default_fusion_checkpoint()
         # The shipped checkpoint was trained with temperature calibration.
         assert eng._fusion_calibrator is not None
         assert eng._fusion_calibrator.temperature > 0.0
@@ -83,7 +84,8 @@ class TestCheckpointRoundTrip:
 
         blob = torch.load(path, map_location="cpu", weights_only=True)
         assert blob["format_version"] == engine_mod.FUSION_CHECKPOINT_FORMAT_VERSION
-        assert "state_dict" in blob and "mercury_version" in blob
+        assert "model_state_dict" in blob and "mercury_version" in blob
+        assert "feature_dims" in blob and "projection_registry" in blob
 
         fresh = _engine()
         fresh.load_model(path)

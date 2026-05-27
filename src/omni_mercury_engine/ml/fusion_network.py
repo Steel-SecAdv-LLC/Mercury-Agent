@@ -750,6 +750,47 @@ class OmniFusionModel(nn.Module):
 
         return self._dynamic_projections[key]
 
+    def export_projection_registry(self) -> dict[str, int]:
+        """Map each dynamic-projection key to its input dimension.
+
+        Dynamic projections are created lazily during ``forward`` based on
+        the feature dimensions actually seen, so they do not exist on a
+        freshly constructed model. Persisting this registry alongside the
+        state dict lets :meth:`rebuild_projection_registry` recreate the
+        same layers before ``load_state_dict``, which would otherwise fail
+        on the unexpected ``_dynamic_projections.*`` keys.
+        """
+        registry: dict[str, int] = {}
+        for key, module in self._dynamic_projections.items():
+            linear = next(m for m in module.modules() if isinstance(m, nn.Linear))
+            registry[key] = int(linear.in_features)
+        return registry
+
+    def rebuild_projection_registry(
+        self,
+        registry: dict[str, int],
+        device: torch.device | None = None,
+    ) -> None:
+        """Recreate dynamic-projection layers from a saved registry.
+
+        Reconstructs each ``_dynamic_projections`` entry with the recorded
+        input dimension so a saved ``state_dict`` can be loaded back. The
+        weights created here are placeholders; the subsequent
+        ``load_state_dict`` overwrites them with the trained values.
+        """
+        if device is None:
+            try:
+                device = next(self.parameters()).device
+            except StopIteration:
+                device = torch.device("cpu")
+        for key, input_dim in registry.items():
+            if key not in self._dynamic_projections:
+                self._dynamic_projections[key] = nn.Sequential(
+                    nn.Linear(int(input_dim), self.hidden_dim),
+                    nn.ReLU(),
+                    nn.LayerNorm(self.hidden_dim),
+                ).to(device)
+
     def forward(
         self,
         detector_features: dict[str, torch.Tensor],

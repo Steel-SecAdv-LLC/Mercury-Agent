@@ -8,16 +8,16 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 on:
+  # AMA takes a backseat to none: the real-AMA build + KAT gate runs on
+  # EVERY push and pull request (matching ci.yml's branch scope), not only
+  # when ``security/**`` changes. Any change that could touch the PQC
+  # surface — directly or transitively — is now gated on the native AMA
+  # backend being fully loadable and KAT-clean. Mark ``verify-real-pqc`` a
+  # required status check in branch protection to make the gate blocking.
   push:
-    paths:
-      - 'src/omni_mercury_engine/security/**'
-      - 'src/omni_mercury_engine/integrations/mercury_amacrypto.py'
-      - '.github/workflows/pqc-production-check.yml'
+    branches: [main, develop, feature/*]
   pull_request:
-    paths:
-      - 'src/omni_mercury_engine/security/**'
-      - 'src/omni_mercury_engine/integrations/mercury_amacrypto.py'
-      - '.github/workflows/pqc-production-check.yml'
+    branches: [main, develop]
   # Manual dispatch is the recovery path when a push to ``main`` is
   # accidentally suppressed by a skip-directive substring in the squash
   # merge commit message (see CONTRIBUTING.md "Squash-merge gotcha").
@@ -36,65 +36,40 @@ jobs:
       - name: Checkout repository (attempt 1)
         id: checkout
         continue-on-error: true
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Pause before checkout retry 1 (transient flake stabilisation)
         if: steps.checkout.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
+          echo "::warning::actions/checkout@v6.0.2 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
           sleep 15
 
       - name: Checkout repository (attempt 2, runs only on attempt-1 failure)
         id: checkout2
         if: steps.checkout.outcome == 'failure'
         continue-on-error: true
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Pause before checkout retry 2 (extended backoff)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6 attempts 1 and 2 both failed. Sleeping 60s before final retry."
+          echo "::warning::actions/checkout@v6.0.2 attempts 1 and 2 both failed. Sleeping 60s before final retry."
           sleep 60
 
       - name: Checkout repository (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
-      - name: Install build toolchain for AMA Cryptography native library
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            build-essential cmake ninja-build pkg-config
-
       - name: Install dependencies
         run: |
           python -m pip install --upgrade "pip>=26.1"
-          # AMA Cryptography v3.2.0's ``setup.py`` preflight enforces
-          # the supply-chain floors declared in
-          # ``pyproject.toml [build-system].requires``:
-          #   setuptools>=78.1.1  (PYSEC-2025-49 + GHSA-cx63-2mw6-8hw5)
-          #   wheel>=0.47.0       (GHSA-8rrh-rw8j-w5fx)
-          #   cmake>=4.3.2        (Dependabot supply-chain floor; the
-          #                        PyPI cmake shim's ``__version__`` is
-          #                        what setup.py's ``_check_cmake_version``
-          #                        Path A reads — must not be < 4.3.2 or
-          #                        the metadata-generation step fails).
-          # Floors are pinned explicitly (rather than relying on the
-          # resolver to upgrade an under-pinned ``cmake>=3.16`` to a
-          # 4.x) so the supply-chain contract is documented in CI.
-          # AMA_NO_CYTHON=1 below short-circuits the Cython / numpy
-          # preflight, so those are intentionally absent here.
-          python -m pip install --upgrade \
-            "setuptools>=78.1.1" \
-            "wheel>=0.47.0" \
-            "cmake>=4.3.2"
           # The verify-real-pqc job exercises the security suite end-to-end,
           # which includes ``tests/security/test_jwt_auth.py`` and
           # ``tests/security/test_audit_improvements.py``. Both reach the
@@ -105,67 +80,22 @@ jobs:
           # contract under CI.
           pip install -e ".[dev,api]"
 
-      - name: Build AMA Cryptography native C library
-        env:
-          # FIPS 204/205 KAT pinning (Phase 2): the byte-exact NIST ACVP
-          # reproduction in ``tests/security/test_nist_fips_kat.py`` requires
-          # the AMA v3.2.0 surface (``dilithium_sign_ctx`` for FIPS 204 §5.2
-          # ctx-aware ML-DSA-65 sign + ``slhdsa_sign_deterministic`` /
-          # ``slhdsa_verify`` for FIPS 205 SLH-DSA-SHAKE-128s NIST L1) plus
-          # the FIPS 204 §6.2 Algorithm 7 line 3 fix that pins
-          # ``rnd = 0^256`` in deterministic mode.
-          #
-          # AMA Cryptography PR #290 (merge commit 24c7fc7) landed on
-          # ``main`` on 2026-05-04 and was tagged ``v3.1.0`` from that
-          # same commit. ``v3.2.0`` (this pin) extends ``v3.1.0`` with
-          # the native HMAC-SHA-256 Python bindings
-          # (``native_hmac_sha256`` / ``native_hmac_sha256_2``) that
-          # Mercury's ``native_jwt`` HS256 path consumes. The tag ships
-          # the FIPS 204 §6.2 Algorithm 7
-          # rnd fix, the FIPS 204 §5.2 ctx-aware ``dilithium_sign_ctx``
-          # surface, the FIPS 205 NIST L1 SLH-DSA-SHAKE-128s public
-          # surface, the POST verify-only KAT against pinned NIST
-          # ACVP-Server tcId=342, INVARIANT-6 SK-wipe, no-alloc
-          # ``sha2_HT``, and the refreshed integrity digest. Pinning
-          # this CI job to the immutable tag (rather than the moving
-          # ``main`` branch) gives the byte-exact NIST ACVP
-          # reproduction in ``tests/security/test_nist_fips_kat.py``
-          # a stable reproducibility anchor.
-          AMA_REF: v3.2.0
-        run: |
-          # Clone and build the native C library explicitly via cmake so the
-          # compiled shared objects are available before the Python install.
-          # This satisfies INVARIANT-7 (native HMAC/HKDF/SHA3 backends required)
-          # which is enforced by ama_cryptography.crypto_api at import time.
-          git clone --branch "${AMA_REF}" --depth 1 \
-            https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git /tmp/ama-cryptography
-          cd /tmp/ama-cryptography
-          cmake -S . -B build \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DAMA_USE_NATIVE_PQC=ON \
-            -DAMA_BUILD_SHARED=ON \
-            -DAMA_BUILD_STATIC=ON \
-            -DAMA_BUILD_TESTS=OFF \
-            -DAMA_BUILD_EXAMPLES=OFF
-          cmake --build build -j "$(nproc)"
-
-      - name: Install AMA Cryptography Python package
-        run: |
-          # Install the Python package against the prebuilt native library.
-          # ``AMA_NO_CYTHON=1`` skips the optional Cython binding compilation
-          # because it is independent of the native C library and currently
-          # has an upstream syntax issue in ed25519_binding.pyx. The Python
-          # API loads ``libama_cryptography.so`` directly via ctypes/cffi at
-          # runtime, so the native HMAC/HKDF/SHA3 backends remain wired up
-          # and INVARIANT-7 is satisfied.
-          cd /tmp/ama-cryptography
-          AMA_NO_CYTHON=1 pip install --no-build-isolation .
-          # Surface the freshly built shared library on the loader search path
-          # so the ``ama_cryptography`` Python module can find it at import.
-          {
-            echo "LD_LIBRARY_PATH=/tmp/ama-cryptography/build/lib:/tmp/ama-cryptography/build:${LD_LIBRARY_PATH:-}"
-            echo "AMA_NO_CYTHON=1"
-          } >> "$GITHUB_ENV"
+      - name: Build + install AMA Cryptography (native PQC backend)
+        # FIPS 204/205 KAT pinning: the byte-exact NIST ACVP reproduction in
+        # ``tests/security/test_nist_fips_kat.py`` requires the AMA v3.2.0
+        # surface (``dilithium_sign_ctx`` for FIPS 204 §5.2 ctx-aware ML-DSA-65
+        # sign + ``slhdsa_sign_deterministic`` / ``slhdsa_verify`` for FIPS 205
+        # SLH-DSA-SHAKE-128s NIST L1) plus the FIPS 204 §6.2 Algorithm 7 line 3
+        # ``rnd = 0^256`` deterministic fix and the native HMAC-SHA-256 bindings
+        # (``native_hmac_sha256`` / ``native_hmac_sha256_2``) Mercury's
+        # ``native_jwt`` HS256 path consumes. Pinning the immutable tag (not the
+        # moving ``main`` branch) gives the KAT reproduction a stable anchor.
+        # The toolchain, supply-chain build floors, cmake build, and
+        # LD_LIBRARY_PATH export are encapsulated in the composite action so
+        # this build is identical across every lane that runs it.
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v3.2.0
 
       - name: Verify backend hierarchy
         run: |

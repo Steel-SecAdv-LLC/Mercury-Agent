@@ -3,12 +3,22 @@ Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
 Import-time PQC production gate.
 
-When ``AMA_REQUIRE_REAL_PQC=true`` (or the legacy ``AVA_REQUIRE_REAL_PQC``)
-is set, ``omni_mercury_engine``'s package import refuses to proceed unless
-the AMA Cryptography native C backend is fully loadable.  Without the env
-var, ``_enforce_pqc_production_gate`` is a no-op and Mercury imports
-against the soft PQC stubs in ``security.pqc_backends`` for development
-convenience.
+AMA is mandatory at runtime in production.  The gate's effective default is:
+
+* ``MERCURY_ENV=production`` (and ``AMA_REQUIRE_REAL_PQC`` unset) →
+  ``omni_mercury_engine`` package import refuses to proceed unless the AMA
+  Cryptography native C backend is fully loadable.  A production process can
+  no longer start against the soft PQC stubs.
+* ``MERCURY_ENV`` unset/``development`` (the default mode, used by CI and
+  local dev) → the gate is a silent no-op, so importing the package without
+  AMA's native build keeps working.
+
+An explicit ``AMA_REQUIRE_REAL_PQC`` (or the legacy ``AVA_REQUIRE_REAL_PQC``)
+overrides the mode-derived default in either direction: ``=true`` forces the
+gate on anywhere, ``=false`` is the documented opt-out for an AMA-less lane
+(set it in any CI job that does not build AMA).  When the gate is on it
+imports the soft PQC stubs in ``security.pqc_backends`` only as a last
+resort; a complete AMA native build is required to pass.
 
 Algorithm coverage matches
 ``security.pqc_guards.check_pqc_production_readiness``: the gate
@@ -49,7 +59,7 @@ import os
 _PQC_BUILD_RECOVERY_HINT = (
     "Build the AMA-Cryptography native library from a clone of the upstream\n"
     "repo (Mercury-Agent has no CMakeLists.txt of its own):\n"
-    "  git clone --depth 1 --branch v3.1.0 \\\n"
+    "  git clone --depth 1 --branch v3.2.0 \\\n"
     "      https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git /tmp/ama-cryptography\n"
     "  cd /tmp/ama-cryptography\n"
     "  cmake -B build -DAMA_USE_NATIVE_PQC=ON && cmake --build build\n"
@@ -78,16 +88,31 @@ def _enforce_pqc_production_gate() -> None:
     gate read the flags from per-algorithm submodules
     (``ama_cryptography.dilithium.DILITHIUM_AVAILABLE``) and from the
     top-level package (``ama_cryptography.DILITHIUM_AVAILABLE``).
-    Neither location is reliably populated by the real AMA v3.1.0
+    Neither location is reliably populated by the real AMA v3.2.0
     install — the canonical location is the ``pqc_backends`` submodule,
     which is where Mercury's own ``security/pqc_backends.py`` reads
     them.  Aligning the gate with that reader keeps both views of AMA
     availability consistent and stops false-positive partial-install
     rejections in the verify-real-pqc CI lane.
     """
-    require_real = os.environ.get(
-        "AMA_REQUIRE_REAL_PQC", os.environ.get("AVA_REQUIRE_REAL_PQC", "")
-    ).lower() in ("true", "1", "yes")
+    require_flag = os.environ.get("AMA_REQUIRE_REAL_PQC", os.environ.get("AVA_REQUIRE_REAL_PQC"))
+    if require_flag is not None:
+        # Explicit operator override wins in either direction and in any
+        # mode: ``=true`` forces the gate on, ``=false`` (the documented
+        # opt-out for an AMA-less CI/dev lane) forces it off.
+        require_real = require_flag.strip().lower() in ("true", "1", "yes", "on")
+    else:
+        # Default-on in production, opt-in elsewhere.  AMA is mandatory at
+        # runtime when ``MERCURY_ENV=production`` so a production process
+        # cannot start against the soft PQC stubs; development/CI (the
+        # default mode) stays a silent no-op so importing the package
+        # without AMA's native build keeps working unless real PQC is
+        # explicitly requested.  This is the "strict in production, do not
+        # surprise-break unrelated CI" contract — flip it per-lane with
+        # ``AMA_REQUIRE_REAL_PQC``.
+        from omni_mercury_engine._env import is_production
+
+        require_real = is_production()
     if not require_real:
         return
 

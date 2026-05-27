@@ -24,31 +24,31 @@ jobs:
       - name: Checkout repository (attempt 1)
         id: checkout
         continue-on-error: true
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Pause before checkout retry 1 (transient flake stabilisation)
         if: steps.checkout.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
+          echo "::warning::actions/checkout@v6.0.2 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
           sleep 15
 
       - name: Checkout repository (attempt 2, runs only on attempt-1 failure)
         id: checkout2
         if: steps.checkout.outcome == 'failure'
         continue-on-error: true
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Pause before checkout retry 2 (extended backoff)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6 attempts 1 and 2 both failed. Sleeping 60s before final retry."
+          echo "::warning::actions/checkout@v6.0.2 attempts 1 and 2 both failed. Sleeping 60s before final retry."
           sleep 60
 
       - name: Checkout repository (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Set up Python
         uses: actions/setup-python@v6

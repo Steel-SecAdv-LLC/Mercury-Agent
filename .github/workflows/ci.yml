@@ -81,31 +81,31 @@ jobs:
       - name: Checkout code (attempt 1)
         id: checkout
         continue-on-error: true
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Pause before checkout retry 1 (transient flake stabilisation)
         if: steps.checkout.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
+          echo "::warning::actions/checkout@v6.0.2 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
           sleep 15
 
       - name: Checkout code (attempt 2, runs only on attempt-1 failure)
         id: checkout2
         if: steps.checkout.outcome == 'failure'
         continue-on-error: true
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Pause before checkout retry 2 (extended backoff)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6 attempts 1 and 2 both failed. Sleeping 60s before final retry."
+          echo "::warning::actions/checkout@v6.0.2 attempts 1 and 2 both failed. Sleeping 60s before final retry."
           sleep 60
 
       - name: Checkout code (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -176,31 +176,31 @@ jobs:
       - name: Checkout code (attempt 1)
         id: checkout
         continue-on-error: true
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Pause before checkout retry 1 (transient flake stabilisation)
         if: steps.checkout.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
+          echo "::warning::actions/checkout@v6.0.2 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
           sleep 15
 
       - name: Checkout code (attempt 2, runs only on attempt-1 failure)
         id: checkout2
         if: steps.checkout.outcome == 'failure'
         continue-on-error: true
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Pause before checkout retry 2 (extended backoff)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6 attempts 1 and 2 both failed. Sleeping 60s before final retry."
+          echo "::warning::actions/checkout@v6.0.2 attempts 1 and 2 both failed. Sleeping 60s before final retry."
           sleep 60
 
       - name: Checkout code (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -278,31 +278,31 @@ jobs:
       - name: Checkout code (attempt 1)
         id: checkout
         continue-on-error: true
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Pause before checkout retry 1 (transient flake stabilisation)
         if: steps.checkout.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
+          echo "::warning::actions/checkout@v6.0.2 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
           sleep 15
 
       - name: Checkout code (attempt 2, runs only on attempt-1 failure)
         id: checkout2
         if: steps.checkout.outcome == 'failure'
         continue-on-error: true
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Pause before checkout retry 2 (extended backoff)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6 attempts 1 and 2 both failed. Sleeping 60s before final retry."
+          echo "::warning::actions/checkout@v6.0.2 attempts 1 and 2 both failed. Sleeping 60s before final retry."
           sleep 60
 
       - name: Checkout code (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -426,31 +426,31 @@ jobs:
       - name: Checkout code (attempt 1)
         id: checkout
         continue-on-error: true
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Pause before checkout retry 1 (transient flake stabilisation)
         if: steps.checkout.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
+          echo "::warning::actions/checkout@v6.0.2 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
           sleep 15
 
       - name: Checkout code (attempt 2, runs only on attempt-1 failure)
         id: checkout2
         if: steps.checkout.outcome == 'failure'
         continue-on-error: true
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Pause before checkout retry 2 (extended backoff)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6 attempts 1 and 2 both failed. Sleeping 60s before final retry."
+          echo "::warning::actions/checkout@v6.0.2 attempts 1 and 2 both failed. Sleeping 60s before final retry."
           sleep 60
 
       - name: Checkout code (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -647,31 +647,31 @@ jobs:
       - name: Checkout code (attempt 1)
         id: checkout
         continue-on-error: true
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Pause before checkout retry 1 (transient flake stabilisation)
         if: steps.checkout.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
+          echo "::warning::actions/checkout@v6.0.2 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
           sleep 15
 
       - name: Checkout code (attempt 2, runs only on attempt-1 failure)
         id: checkout2
         if: steps.checkout.outcome == 'failure'
         continue-on-error: true
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Pause before checkout retry 2 (extended backoff)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6 attempts 1 and 2 both failed. Sleeping 60s before final retry."
+          echo "::warning::actions/checkout@v6.0.2 attempts 1 and 2 both failed. Sleeping 60s before final retry."
           sleep 60
 
       - name: Checkout code (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Free up disk space
         run: |
@@ -705,6 +705,13 @@ jobs:
           pip install -e ".[ml,dev,api]"
           pip install pytest pytest-cov pytest-asyncio sympy
 
+      - name: Build + install AMA Cryptography (native PQC backend)
+        # AMA takes a backseat to none: every test lane now runs against the
+        # real native AMA backend so soft PQC stubs are never exercised in CI.
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v3.2.0
+
       - name: Run core tests with coverage
         env:
           # Declare the [ml] contract to ``tests/conftest.py``'s
@@ -716,22 +723,23 @@ jobs:
           # decorators that would have silently turned red tests into
           # green skips.
           MERCURY_REQUIRES_ML: "1"
+          # Require the real native AMA backend at package import (the build
+          # step above provisions it). Fails the lane closed if AMA cannot
+          # load rather than importing the soft PQC stubs.
+          AMA_REQUIRE_REAL_PQC: "true"
         run: |
           # Core-lane test selection, expanded in v1.7.x for the
           # COVERAGE_THRESHOLD_CORE 15 -> 25 graduation.  Measured
           # combined stmt+branch coverage on this selection (without
           # tests/security/) is well above the 25 floor.
           #
-          # tests/security/ is intentionally NOT in this lane:
-          # tests/security/conftest.py runs a pytest_configure hook
-          # that hard-fails any CI session unless MERCURY_PQC_REAL_AMA
-          # is set, which in turn requires the heavyweight AMA
-          # Cryptography native build that ml-tests provisions.  The
-          # core lane is intentionally lightweight; tests/security/
-          # is covered by ml-tests (which DOES build the AMA library)
-          # and Neuro-Symbolic Tests.  Adding it here without the
-          # AMA build would either fail at collection or weaken the
-          # MERCURY_PQC_REAL_AMA safeguard — neither acceptable.
+          # tests/security/ stays OUT of this lane even though AMA is now
+          # built here: its heavy KAT suite (NIST ACVP byte-exact vectors)
+          # would run three times across the core python matrix for no added
+          # signal. tests/security/ is covered once in ml-tests and again in
+          # the dedicated always-on ``PQC Production Readiness`` gate. The
+          # AMA build above still ensures THIS lane's package imports resolve
+          # to the real backend (AMA_REQUIRE_REAL_PQC=true), not soft stubs.
           #
           # When adding a directory below, prefer the directory form
           # (e.g. ``tests/ml/``) over listing individual files so the
@@ -805,31 +813,31 @@ jobs:
       - name: Checkout code (attempt 1)
         id: checkout
         continue-on-error: true
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Pause before checkout retry 1 (transient flake stabilisation)
         if: steps.checkout.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
+          echo "::warning::actions/checkout@v6.0.2 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
           sleep 15
 
       - name: Checkout code (attempt 2, runs only on attempt-1 failure)
         id: checkout2
         if: steps.checkout.outcome == 'failure'
         continue-on-error: true
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Pause before checkout retry 2 (extended backoff)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6 attempts 1 and 2 both failed. Sleeping 60s before final retry."
+          echo "::warning::actions/checkout@v6.0.2 attempts 1 and 2 both failed. Sleeping 60s before final retry."
           sleep 60
 
       - name: Checkout code (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Free up disk space
         run: |
@@ -860,6 +868,14 @@ jobs:
           pip install -e ".[ml,dev]"
           pip install pytest pytest-cov pytest-asyncio pytest-timeout sympy
 
+      - name: Build + install AMA Cryptography (native PQC backend)
+        # AMA takes a backseat to none: the cognitive/ethics stack imports the
+        # package (and thus the PQC gate); build real AMA so this lane runs
+        # against the native backend, never the soft stubs.
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v3.2.0
+
       - name: Run neuro-symbolic test suite
         env:
           # ``[ml,dev]`` is installed above; the cognitive / safeguards
@@ -868,6 +884,8 @@ jobs:
           # aborts loudly if the install drifted, instead of letting
           # the run report green via per-class skip decorators.
           MERCURY_REQUIRES_ML: "1"
+          # Require the real native AMA backend at import (built above).
+          AMA_REQUIRE_REAL_PQC: "true"
         # Phase 1-7 cognitive architecture + safeguards + ethics framework.
         # All paths are blocking - there are no continue-on-error escape
         # hatches here.  If the AI's reasoning, alignment, or kill-switch
@@ -931,31 +949,31 @@ jobs:
       - name: Checkout code (attempt 1)
         id: checkout
         continue-on-error: true
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Pause before checkout retry 1 (transient flake stabilisation)
         if: steps.checkout.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
+          echo "::warning::actions/checkout@v6.0.2 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
           sleep 15
 
       - name: Checkout code (attempt 2, runs only on attempt-1 failure)
         id: checkout2
         if: steps.checkout.outcome == 'failure'
         continue-on-error: true
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Pause before checkout retry 2 (extended backoff)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6 attempts 1 and 2 both failed. Sleeping 60s before final retry."
+          echo "::warning::actions/checkout@v6.0.2 attempts 1 and 2 both failed. Sleeping 60s before final retry."
           sleep 60
 
       - name: Checkout code (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Free up disk space
         run: |
@@ -985,81 +1003,27 @@ jobs:
           pip install -e ".[all,dev]"
           pip install pytest pytest-cov pytest-asyncio pytest-xdist pytest-timeout
 
-      - name: Install build toolchain for AMA Cryptography native library
+      - name: Build + install AMA Cryptography (native PQC backend)
         # ``ml-tests`` collects everything under ``tests/``, including
         # ``tests/security/test_pqc_gate_real_ama.py`` which imports
-        # ``ama_cryptography.pqc_backends`` at module scope and would
-        # fail collection if the native library were absent.  We build
-        # AMA Cryptography v3.2.0 here using the same procedure as
-        # ``.github/workflows/pqc-production-check.yml::verify-real-pqc``
-        # so the real-AMA tests run against the same dependency in
-        # both lanes — no mock, no skip, no silent stub.
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            build-essential cmake ninja-build pkg-config
-
-      - name: Install AMA Cryptography PEP 517 build-system floors
-        # AMA Cryptography v3.2.0's ``setup.py`` runs a preflight check
-        # against the supply-chain floors declared in
-        # ``pyproject.toml [build-system].requires``:
-        #   * setuptools>=78.1.1  — PYSEC-2025-49 + GHSA-cx63-2mw6-8hw5
-        #                           + closes Debian 68.x install_layout
-        #                           regression on bdist_wheel.
-        #   * wheel>=0.47.0       — GHSA-8rrh-rw8j-w5fx.
-        #   * cmake>=4.3.2        — Dependabot supply-chain floor.
-        # The subsequent ``pip install --no-build-isolation .`` step
-        # skips PEP 517 build-env creation (so the wheel-build can
-        # link against the libama_cryptography.so we just produced
-        # above without re-running CMake into a transient isolation
-        # dir), which means these floors must instead be present in
-        # the active environment.  Without the PyPI cmake shim,
-        # setup.py's ``_check_cmake_version()`` falls through to the
-        # system cmake (3.31.6 from apt) and aborts with the FATAL
-        # preflight error
-        #   ``cmake >= 4.3.2 required (found 3.31.6; reason:
-        #     Dependabot supply-chain floor)``.
-        # Pinning the floors explicitly here (rather than implicitly
-        # via ``cmake>=3.16`` and trusting the resolver to pick a
-        # 4.x) documents the supply-chain contract in CI itself.
-        # AMA_NO_CYTHON=1 in the install step below short-circuits the
-        # Cython / numpy floor checks, so they are intentionally not
-        # installed in this step.
-        run: |
-          python -m pip install --upgrade \
-            "setuptools>=78.1.1" \
-            "wheel>=0.47.0" \
-            "cmake>=4.3.2"
-
-      - name: Build AMA Cryptography native C library
-        env:
-          AMA_REF: v3.2.0
-        run: |
-          git clone --branch "${AMA_REF}" --depth 1 \
-            https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git /tmp/ama-cryptography
-          cd /tmp/ama-cryptography
-          cmake -S . -B build \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DAMA_USE_NATIVE_PQC=ON \
-            -DAMA_BUILD_SHARED=ON \
-            -DAMA_BUILD_STATIC=ON \
-            -DAMA_BUILD_TESTS=OFF \
-            -DAMA_BUILD_EXAMPLES=OFF
-          cmake --build build -j "$(nproc)"
-
-      - name: Install AMA Cryptography Python package
-        run: |
-          cd /tmp/ama-cryptography
-          AMA_NO_CYTHON=1 pip install --no-build-isolation .
-          {
-            echo "LD_LIBRARY_PATH=/tmp/ama-cryptography/build/lib:/tmp/ama-cryptography/build:${LD_LIBRARY_PATH:-}"
-            echo "AMA_NO_CYTHON=1"
-          } >> "$GITHUB_ENV"
+        # ``ama_cryptography.pqc_backends`` at module scope and would fail
+        # collection if the native library were absent. The composite action
+        # builds AMA v3.2.0 identically to every other lane (toolchain,
+        # supply-chain floors, cmake build, LD_LIBRARY_PATH export) — no mock,
+        # no skip, no silent stub.
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v3.2.0
 
       - name: Run full test suite with parallelization
         env:
           TORCH_HOME: ~/.cache/torch
           MERCURY_PQC_REAL_AMA: "1"
+          # AMA takes a backseat to none: require the real native AMA backend
+          # at package import. The build step above provisions it, so this
+          # fails the lane closed if AMA ever fails to load rather than
+          # silently importing the soft PQC stubs.
+          AMA_REQUIRE_REAL_PQC: "true"
           # ML Tests installs ``[all,dev]`` above (which pulls
           # ``[ml]`` transitively).  Declare the contract so
           # ``tests/conftest.py``'s ``pytest_sessionstart`` gate
@@ -1102,31 +1066,31 @@ jobs:
       - name: Checkout code (attempt 1)
         id: checkout
         continue-on-error: true
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Pause before checkout retry 1 (transient flake stabilisation)
         if: steps.checkout.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
+          echo "::warning::actions/checkout@v6.0.2 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
           sleep 15
 
       - name: Checkout code (attempt 2, runs only on attempt-1 failure)
         id: checkout2
         if: steps.checkout.outcome == 'failure'
         continue-on-error: true
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Pause before checkout retry 2 (extended backoff)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6 attempts 1 and 2 both failed. Sleeping 60s before final retry."
+          echo "::warning::actions/checkout@v6.0.2 attempts 1 and 2 both failed. Sleeping 60s before final retry."
           sleep 60
 
       - name: Checkout code (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Free up disk space
         run: |
@@ -1146,6 +1110,14 @@ jobs:
           pip install -e ".[api,dev]"
           pip install pytest pytest-asyncio httpx fastapi uvicorn
 
+      - name: Build + install AMA Cryptography (native PQC backend)
+        # AMA takes a backseat to none: integration imports the API/package
+        # surface (and the PQC gate); build real AMA so the lane runs against
+        # the native backend, never the soft stubs.
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v3.2.0
+
       - name: Run integration tests
         # Integration tests are a blocking gate.  For an anomaly detection
         # system that talks to external data sources (NASA, NOAA, DART buoys,
@@ -1153,6 +1125,9 @@ jobs:
         # surface.  Tests that depend on live external services should use
         # the @pytest.mark.integration marker and mock external calls.
         # Guard: skip cleanly if the directory doesn't exist yet.
+        env:
+          # Require the real native AMA backend at import (built above).
+          AMA_REQUIRE_REAL_PQC: "true"
         run: |
           if [ -d tests/integration ] && [ -n "$(find tests/integration -name 'test_*.py' 2>/dev/null)" ]; then
             pytest tests/integration/ -v --timeout=60
@@ -1173,31 +1148,31 @@ jobs:
       - name: Checkout code (attempt 1)
         id: checkout
         continue-on-error: true
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Pause before checkout retry 1 (transient flake stabilisation)
         if: steps.checkout.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
+          echo "::warning::actions/checkout@v6.0.2 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
           sleep 15
 
       - name: Checkout code (attempt 2, runs only on attempt-1 failure)
         id: checkout2
         if: steps.checkout.outcome == 'failure'
         continue-on-error: true
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Pause before checkout retry 2 (extended backoff)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6 attempts 1 and 2 both failed. Sleeping 60s before final retry."
+          echo "::warning::actions/checkout@v6.0.2 attempts 1 and 2 both failed. Sleeping 60s before final retry."
           sleep 60
 
       - name: Checkout code (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Free up disk space
         run: |
@@ -1237,31 +1212,31 @@ jobs:
       - name: Checkout code (attempt 1)
         id: checkout
         continue-on-error: true
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Pause before checkout retry 1 (transient flake stabilisation)
         if: steps.checkout.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
+          echo "::warning::actions/checkout@v6.0.2 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
           sleep 15
 
       - name: Checkout code (attempt 2, runs only on attempt-1 failure)
         id: checkout2
         if: steps.checkout.outcome == 'failure'
         continue-on-error: true
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Pause before checkout retry 2 (extended backoff)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6 attempts 1 and 2 both failed. Sleeping 60s before final retry."
+          echo "::warning::actions/checkout@v6.0.2 attempts 1 and 2 both failed. Sleeping 60s before final retry."
           sleep 60
 
       - name: Checkout code (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Free up disk space
         run: |
@@ -1365,31 +1340,31 @@ jobs:
       - name: Checkout code (attempt 1)
         id: checkout
         continue-on-error: true
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Pause before checkout retry 1 (transient flake stabilisation)
         if: steps.checkout.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
+          echo "::warning::actions/checkout@v6.0.2 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
           sleep 15
 
       - name: Checkout code (attempt 2, runs only on attempt-1 failure)
         id: checkout2
         if: steps.checkout.outcome == 'failure'
         continue-on-error: true
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Pause before checkout retry 2 (extended backoff)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6 attempts 1 and 2 both failed. Sleeping 60s before final retry."
+          echo "::warning::actions/checkout@v6.0.2 attempts 1 and 2 both failed. Sleeping 60s before final retry."
           sleep 60
 
       - name: Checkout code (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Free up disk space
         run: |
@@ -1528,31 +1503,31 @@ jobs:
       - name: Checkout code (attempt 1)
         id: checkout
         continue-on-error: true
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Pause before checkout retry 1 (transient flake stabilisation)
         if: steps.checkout.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
+          echo "::warning::actions/checkout@v6.0.2 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
           sleep 15
 
       - name: Checkout code (attempt 2, runs only on attempt-1 failure)
         id: checkout2
         if: steps.checkout.outcome == 'failure'
         continue-on-error: true
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Pause before checkout retry 2 (extended backoff)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6 attempts 1 and 2 both failed. Sleeping 60s before final retry."
+          echo "::warning::actions/checkout@v6.0.2 attempts 1 and 2 both failed. Sleeping 60s before final retry."
           sleep 60
 
       - name: Checkout code (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Set up Python
         uses: actions/setup-python@v6
