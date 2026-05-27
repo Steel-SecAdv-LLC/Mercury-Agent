@@ -9,18 +9,17 @@
 # AMA is not on PyPI and ships a native C library that must be compiled, so a
 # plain dependency list cannot install it; this mirrors the verified procedure
 # in .github/actions/build-ama-cryptography and src/omni_mercury_engine/_pqc_gate.py.
+#
+# Runs SYNCHRONOUSLY on purpose: AMA is Mercury's primary post-quantum crypto
+# control and the engine's PQC gate is fail-closed, so the protection must be in
+# place before the session can use Mercury — never racing the first commands.
+# The session waits for this to finish; the trade-off is a slower cold start.
 set -euo pipefail
 
 # Web-only: on a local machine the developer manages their own environment.
 if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
   exit 0
 fi
-
-# Async: install in the background so the session starts immediately. The build
-# (AMA native lib + torch) is a few minutes on a cold container; the persisted
-# LD_LIBRARY_PATH and packages become available shortly after the prompt opens.
-# NOTE: this is the first line of stdout so Claude Code parses the async signal.
-echo '{"async": true, "asyncTimeout": 600000}'
 
 AMA_REF="v3.2.0"                 # keep in lockstep with pyproject.toml [pqc] pin
 AMA_SRC="/tmp/ama-cryptography"
