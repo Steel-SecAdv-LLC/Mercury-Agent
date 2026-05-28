@@ -99,9 +99,13 @@ class _NativeLOF:
         kdist_neighbors = dists[idx, -1] if dists.ndim > 1 else dists
         # reachability distance = max(k-dist of neighbor, actual dist)
         reach = np.maximum(dists, kdist_neighbors)
-        # local reachability density = 1 / mean(reach-dist to k-neighbors)
+        # local reachability density = 1 / mean(reach-dist to k-neighbors).
+        # np.where evaluates both branches, so the divide must be guarded
+        # against zero with np.errstate to avoid a RuntimeWarning even
+        # though the where mask already selects 1.0 for the zero rows.
         mean_reach = reach.mean(axis=1)
-        self._lrd = np.where(mean_reach > 0, 1.0 / mean_reach, 1.0)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            self._lrd = np.where(mean_reach > 0, 1.0 / mean_reach, 1.0)
         return self
 
     def decision_function(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
@@ -114,7 +118,9 @@ class _NativeLOF:
         # Simplified LOF: use ratio of local densities as score
         reach = np.maximum(dists, 1e-10)
         mean_reach = reach.mean(axis=1)
-        lrd_query = np.where(mean_reach > 0, 1.0 / mean_reach, 1.0)
+        # Same divide-guard as the fit path (see comment above).
+        with np.errstate(divide="ignore", invalid="ignore"):
+            lrd_query = np.where(mean_reach > 0, 1.0 / mean_reach, 1.0)
         # LOF = mean(lrd_neighbors) / lrd_query
         neighbor_lrd = self._lrd[idx]
         mean_neighbor_lrd = neighbor_lrd.mean(axis=1)
