@@ -100,12 +100,19 @@ class _NativeLOF:
         # reachability distance = max(k-dist of neighbor, actual dist)
         reach = np.maximum(dists, kdist_neighbors)
         # local reachability density = 1 / mean(reach-dist to k-neighbors).
-        # np.where evaluates both branches, so the divide must be guarded
-        # against zero with np.errstate to avoid a RuntimeWarning even
-        # though the where mask already selects 1.0 for the zero rows.
+        # The previous code branched ``np.where(mean_reach > 0, 1/mr, 1.0)``,
+        # which a) raised divide-by-zero warnings (np.where evaluates both
+        # arms eagerly) and b) was semantically wrong: a cluster of duplicate
+        # points has mean_reach == 0, which means *infinite* density, not the
+        # 1.0 ("average density") the fallback assigned — so duplicates were
+        # mislabelled as borderline-anomalous instead of perfectly-normal.
+        # Floor mean_reach at the dtype's epsilon so duplicate rows yield a
+        # large finite LRD (≈ 1/eps) representing "very dense"; this matches
+        # sklearn.neighbors.LocalOutlierFactor's stabilisation and removes the
+        # warning by construction (no divide by zero ever happens).
         mean_reach = reach.mean(axis=1)
-        with np.errstate(divide="ignore", invalid="ignore"):
-            self._lrd = np.where(mean_reach > 0, 1.0 / mean_reach, 1.0)
+        eps = float(np.finfo(mean_reach.dtype).eps)
+        self._lrd = 1.0 / np.maximum(mean_reach, eps)
         return self
 
     def decision_function(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
@@ -115,16 +122,23 @@ class _NativeLOF:
         if k < 1:
             return np.zeros(len(X))
         dists, idx = self._tree.query(X, k=k)
-        # Simplified LOF: use ratio of local densities as score
+        # Simplified LOF: use ratio of local densities as score. ``reach`` is
+        # already floored at 1e-10 below, so ``mean_reach >= 1e-10`` and the
+        # ``1.0 / mean_reach`` divide is safe directly — the previous
+        # ``np.where(mean_reach > 0, ...)`` branch was dead code that only
+        # served to emit divide warnings.
         reach = np.maximum(dists, 1e-10)
         mean_reach = reach.mean(axis=1)
-        # Same divide-guard as the fit path (see comment above).
-        with np.errstate(divide="ignore", invalid="ignore"):
-            lrd_query = np.where(mean_reach > 0, 1.0 / mean_reach, 1.0)
-        # LOF = mean(lrd_neighbors) / lrd_query
+        lrd_query = 1.0 / mean_reach
+        # LOF = mean(lrd_neighbors) / lrd_query. The eps floor on the
+        # denominator matches the fit-time eps floor on ``mean_reach`` so the
+        # scale of LRDs is consistent across train and inference and the LOF
+        # ratio is well-defined even for extremely isolated query points
+        # (large mean_reach -> tiny lrd_query).
         neighbor_lrd = self._lrd[idx]
         mean_neighbor_lrd = neighbor_lrd.mean(axis=1)
-        lof = mean_neighbor_lrd / np.maximum(lrd_query, 1e-10)
+        eps = float(np.finfo(mean_reach.dtype).eps)
+        lof = mean_neighbor_lrd / np.maximum(lrd_query, eps)
         # decision_function returns negative for outliers (sklearn convention)
         return -(lof - 1.0)
 
