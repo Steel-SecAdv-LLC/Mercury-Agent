@@ -722,6 +722,11 @@ class OmniMercuryEngine(LoggerMixin):
         """
         self.config = config or EngineConfig()
         self.mode = mode
+        # Set of detector names that were auto-fit on inference data because
+        # they were not pre-fit. Initialised unconditionally so the leakage
+        # surface (warning + result-dict key) works for every engine mode,
+        # not only ``mode='fusion'``.
+        self._inference_auto_fit_detectors: set[str] = set()
 
         if not TORCH_AVAILABLE:
             raise ImportError(
@@ -1089,7 +1094,10 @@ class OmniMercuryEngine(LoggerMixin):
             focal_criterion = FocalLoss(alpha=focal_alpha, gamma=focal_gamma)
 
             def _loss_fn(probs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
-                return focal_criterion(probs, targets)
+                # ``FocalLoss.forward`` returns a Tensor but its nn.Module
+                # ``__call__`` is typed as ``Any`` in the torch stubs; cast so
+                # the wrapper's signature isn't degraded.
+                return torch.as_tensor(focal_criterion(probs, targets))
 
         else:
 
@@ -1634,7 +1642,10 @@ class OmniMercuryEngine(LoggerMixin):
 
         if not output_path.endswith(".npz"):
             output_path = f"{output_path}.npz"
-        np.savez(output_path, **arrays)
+        # numpy's ``savez`` stubs overload ``**kwds`` against the rarely-used
+        # ``allow_pickle`` bool kwarg, so mypy flags every keyword-arg call
+        # site. The runtime semantics are correct (one named array per kwarg).
+        np.savez(output_path, **arrays)  # type: ignore[arg-type]
         logger.info(
             f"Wrote fusion feature archive to {output_path} "
             f"({len(arrays) - 1} detector feature groups, {len(arrays['labels'])} samples)"
@@ -2685,6 +2696,18 @@ class OmniMercuryEngine(LoggerMixin):
         Note:
             Uses parallel processing when available for improved performance.
             Features are cached using the FeatureCache for repeated access.
+
+        Data leakage warning:
+            If a detector is not yet fit when this method is called, it is
+            auto-fit on ``data`` — which means the first batch passed to
+            ``detect_with_fusion`` becomes the detector's reference
+            distribution. This biases all subsequent scoring against that
+            first batch. The name of each detector that was auto-fit here is
+            recorded in ``self._inference_auto_fit_detectors`` and a
+            ``logger.warning`` is emitted the first time it happens, so the
+            caller can audit it. To avoid the leakage entirely, call
+            ``fit_fusion(X_train, y_train)`` (which fits all detectors on
+            ``X_train``) before any ``detect_with_fusion`` invocation.
         """
         detector_features = {}
         detector_scores = {}
@@ -2694,6 +2717,17 @@ class OmniMercuryEngine(LoggerMixin):
                 if not detector.is_fitted():
                     if isinstance(data, dict):
                         continue
+                    if name not in self._inference_auto_fit_detectors:
+                        logger.warning(
+                            "Detector %r was auto-fit on the first inference "
+                            "batch (n=%s) because it had no prior fit. The "
+                            "batch's distribution is now this detector's "
+                            "reference — call fit_fusion(X_train, y_train) "
+                            "before detect_with_fusion to avoid the leakage.",
+                            name,
+                            getattr(data, "shape", ("?",))[0] if hasattr(data, "shape") else "?",
+                        )
+                    self._inference_auto_fit_detectors.add(name)
                     detector.fit(data)
 
                 # Try to use cached features
@@ -3104,6 +3138,14 @@ class OmniMercuryEngine(LoggerMixin):
             "mode": "fusion",
             "threshold_used": float(threshold),
         }
+
+        # Surface any detectors that had to be auto-fit on the inference batch.
+        # Empty when training was done properly via fit_fusion; non-empty means
+        # the result is biased by the leakage and the caller should know.
+        if self._inference_auto_fit_detectors:
+            result["inference_auto_fit_detectors"] = sorted(
+                self._inference_auto_fit_detectors
+            )
 
         # Add GOSNN metadata if integration was enabled
         if gosnn_metadata:

@@ -672,7 +672,12 @@ def _benchmark_single(entry: dict[str, Any]) -> dict[str, Any]:
     try:
         t0 = time.perf_counter()
         detector.fit(X_train)
-        detector._benchmark_domain = category  # Domain preset prior
+        # ``_benchmark_domain`` is a runtime-only marker the benchmark plants
+        # on the detector so downstream weight selection knows which domain
+        # preset to use. mypy cannot see this dynamic attribute on the
+        # ``MercuryAnomalyDetector`` class, so silence the false positive
+        # without changing the runtime contract.
+        detector._benchmark_domain = category  # type: ignore[attr-defined]
         fit_ms = (time.perf_counter() - t0) * 1000
 
         t0 = time.perf_counter()
@@ -723,7 +728,13 @@ def _benchmark_single(entry: dict[str, Any]) -> dict[str, Any]:
     }
     weight_source = getattr(detector, "_weight_source", "unknown")
     data_type_val = getattr(detector, "_data_type", None)
-    data_type_str = data_type_val.name if hasattr(data_type_val, "name") else str(data_type_val)
+    # ``hasattr(..., "name")`` is a runtime narrowing mypy can't follow when the
+    # attribute lives on ``Any | None``; the explicit getattr trip keeps the
+    # invariant ("only read .name when it exists") visible to both reader and
+    # type checker.
+    data_type_str = (
+        getattr(data_type_val, "name", None) or str(data_type_val)
+    )
     oracle_metadata = getattr(detector, "_oracle_metadata", {"active": False})
 
     return {
@@ -937,9 +948,11 @@ def run_progressive_validation(
         first_half_auc = np.mean(split_aucs[: n_valid // 2])
         second_half_auc = np.mean(split_aucs[n_valid // 2 :])
         # If later splits degrade > 20% relative to earlier splits
+        # ``bool(np.bool_(...))`` collapses numpy's bool to a stdlib bool so
+        # both branches share a type and mypy is happy.
         if first_half_auc > 0.01:
             degradation = (first_half_auc - second_half_auc) / first_half_auc
-            leakage_detected = degradation > 0.20
+            leakage_detected = bool(degradation > 0.20)
         else:
             leakage_detected = False
     else:
