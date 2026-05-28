@@ -108,8 +108,10 @@ class UCRLoader(DatasetLoader):
 
         self.data_path.mkdir(parents=True, exist_ok=True)
 
-        # Try to download specific dataset first (smaller)
-        specific_url = f"https://www.timeseriesclassification.com/Downloads/{self.dataset_name}.zip"
+        # Try to download specific dataset first (smaller). The archive moved
+        # from ``/Downloads/`` to ``/aeon-toolkit/`` when the upstream project
+        # was renamed sktime -> aeon; the old path now 302s to a 404 page.
+        specific_url = f"https://timeseriesclassification.com/aeon-toolkit/{self.dataset_name}.zip"
 
         last_exc: Exception | None = None
         try:
@@ -156,28 +158,46 @@ class UCRLoader(DatasetLoader):
         self, split: DatasetSplit = DatasetSplit.ALL
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load UCR dataset."""
-        dataset_path = self.data_path / self.dataset_name
+        # Two on-disk layouts are supported:
+        #   1. Original UCR Archive 2018 zip: nested ``<name>/<name>_TRAIN.tsv``
+        #      tab-delimited.
+        #   2. Aeon-toolkit per-dataset zip (what the live mirror serves
+        #      since the sktime->aeon rename): flat ``<name>_TRAIN.txt``
+        #      whitespace-delimited, no nested directory, ``.tsv`` files
+        #      are not produced.
+        # We try both layouts and both extensions so a freshly-downloaded
+        # dataset and a pre-2024 cached one both load through the same path.
+        def _locate(stem: str) -> tuple[Path, str] | None:
+            for base in (self.data_path / self.dataset_name, self.data_path):
+                for ext, delim in ((".tsv", "\t"), (".txt", None)):
+                    p = base / f"{stem}{ext}"
+                    if p.exists():
+                        return p, delim
+            return None
 
-        # Check for extracted files
-        train_file = dataset_path / f"{self.dataset_name}_TRAIN.tsv"
-        test_file = dataset_path / f"{self.dataset_name}_TEST.tsv"
-
-        if not train_file.exists():
-            # Try alternate location
-            train_file = self.data_path / f"{self.dataset_name}_TRAIN.tsv"
-            test_file = self.data_path / f"{self.dataset_name}_TEST.tsv"
-
-        if not train_file.exists():
+        located_train = _locate(f"{self.dataset_name}_TRAIN")
+        if located_train is None:
             self.download()
-            if not train_file.exists():
+            located_train = _locate(f"{self.dataset_name}_TRAIN")
+            if located_train is None:
                 raise FileNotFoundError(
-                    f"UCR dataset {self.dataset_name} not found. "
+                    f"UCR dataset {self.dataset_name} not found at any known "
+                    f"layout under {self.data_path} after download. "
                     "Please download from UCR archive."
                 )
+        train_file, delim = located_train
+        located_test = _locate(f"{self.dataset_name}_TEST")
+        if located_test is None:
+            raise FileNotFoundError(
+                f"UCR train split located at {train_file} but matching "
+                f"{self.dataset_name}_TEST not found."
+            )
+        test_file, _ = located_test
 
-        # Load train and test
-        train_data = np.loadtxt(train_file, delimiter="\t")
-        test_data = np.loadtxt(test_file, delimiter="\t")
+        # ``delimiter=None`` lets ``np.loadtxt`` split on any run of
+        # whitespace, which is what the aeon-toolkit ``.txt`` files use.
+        train_data = np.loadtxt(train_file, delimiter=delim)
+        test_data = np.loadtxt(test_file, delimiter=delim)
 
         # First column is label
         train_labels = train_data[:, 0].astype(int)

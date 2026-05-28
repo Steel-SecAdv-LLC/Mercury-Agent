@@ -163,8 +163,8 @@ def _load_ucr(name: str, data_dir: str) -> tuple[np.ndarray, np.ndarray]:
 
     cfg = DatasetConfig(
         name=f"ucr-{name}",
-        source="ucr",
-        cache_dir=data_dir,
+        data_dir=data_dir,
+        cache_dir=str(Path(data_dir) / "_cache"),
         preprocessing={"dataset_name": name},
     )
     loader = UCRLoader(cfg)
