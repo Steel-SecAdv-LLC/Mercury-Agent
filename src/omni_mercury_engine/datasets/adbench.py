@@ -124,8 +124,49 @@ class ADBenchLoader(DatasetLoader):
 
     def __init__(self, config: DatasetConfig) -> None:
         super().__init__(config)
-        dataset_key = config.preprocessing.get("dataset", "fraud")
+        # Dataset selection precedence: an explicit ``preprocessing['dataset']``
+        # wins (the benchmark harness sets it per-index); otherwise derive the
+        # dataset from ``config.name`` so the registry entries registered as
+        # ``adbench-<name>`` actually load ``<name>`` instead of silently
+        # collapsing to the historical ``fraud`` default.
+        dataset_key = config.preprocessing.get("dataset")
+        if dataset_key is None:
+            dataset_key = self._dataset_key_from_name(config.name)
         self._resolve_dataset(dataset_key)
+
+    @staticmethod
+    def _dataset_key_from_name(name: str | None) -> str:
+        """Derive a catalog key from a (possibly registry-prefixed) config name.
+
+        Strips an ``adbench-``/``adbench_``/``adbench:`` prefix so the
+        ``DatasetRegistry.create("adbench-cardio", ...)`` path resolves to
+        ``cardio``. Falls back to the historical ``"fraud"`` default when the
+        name is empty, the bare ``"adbench"`` alias, or does not identify a
+        catalog entry — preserving behaviour for callers that set neither
+        ``preprocessing['dataset']`` nor a recognisable name.
+        """
+        raw = (name or "").strip()
+        low = raw.lower()
+        for prefix in ("adbench-", "adbench_", "adbench:"):
+            if low.startswith(prefix):
+                raw, low = raw[len(prefix) :], low[len(prefix) :]
+                break
+        if not low or low == "adbench":
+            return "fraud"
+        if low in _NAME_TO_INDEX:
+            return raw
+        try:
+            if int(raw) in ADBENCH_CATALOG:
+                return raw
+        except (ValueError, TypeError):
+            pass
+        logger.warning(
+            "ADBench config name %r does not identify a catalog dataset; "
+            "defaulting to 'fraud'. Pass preprocessing={'dataset': <name>} or "
+            "use a registered name like 'adbench-cardio'.",
+            name,
+        )
+        return "fraud"
 
     def _resolve_dataset(self, key: str) -> None:
         """Resolve a dataset name or index to canonical form."""
@@ -212,6 +253,17 @@ class ADBenchLoader(DatasetLoader):
                 source_url=url,
                 reason=str(e),
             ) from e
+
+    def _check_data_exists(self) -> bool:
+        """Whether *this* dataset's NPZ is cached.
+
+        Overrides the base directory-level check: all ADBench datasets share
+        one ``adbench/`` directory, so the default ``any(dir.iterdir())`` would
+        report data present for every dataset as soon as a single one is
+        cached, causing ``load()`` to skip the download and then fail on (or
+        mis-serve) the missing file. Gate on the specific NPZ instead.
+        """
+        return (self.data_path / self.npz_filename).exists()
 
     def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load the NPZ from local cache."""
