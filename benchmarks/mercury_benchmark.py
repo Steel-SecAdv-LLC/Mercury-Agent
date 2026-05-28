@@ -618,7 +618,7 @@ def _benchmark_single(entry: dict[str, Any]) -> dict[str, Any]:
     if len(unique_labels) < 2:
         msg = f"Only one class present (labels={unique_labels.tolist()})"
         print(f"  [{name}] SKIP: {msg}")
-        return {"name": name, "category": category, "error": msg}
+        return {"name": name, "category": category, "label_source": label_source, "error": msg}
 
     n_total = len(X_full)
     anomaly_ratio = float(y_full.mean())
@@ -635,7 +635,7 @@ def _benchmark_single(entry: dict[str, Any]) -> dict[str, Any]:
     if n_train < 5:
         msg = f"Too few normal samples for training ({n_train})"
         print(f"  [{name}] SKIP: {msg}")
-        return {"name": name, "category": category, "error": msg}
+        return {"name": name, "category": category, "label_source": label_source, "error": msg}
 
     rng = np.random.RandomState(42)
     train_idx = rng.choice(len(X_normal), n_train, replace=False)
@@ -681,7 +681,7 @@ def _benchmark_single(entry: dict[str, Any]) -> dict[str, Any]:
     except Exception as e:
         msg = f"Detector error: {e}"
         print(f"  [{name}] ERROR: {msg[:80]}")
-        return {"name": name, "category": category, "error": msg}
+        return {"name": name, "category": category, "label_source": label_source, "error": msg}
 
     scores = result["scores"]
     resonance = result["resonance_scores"]
