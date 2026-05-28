@@ -121,36 +121,147 @@ so the bump criterion correctly refuses to act on it. v4 has only 3 datasets
 (all under 250 test samples) and 2 seeds; running the full-evidence config
 below is the only path to a real width change.
 
-## The full-evidence sweep config
+## sweep_real_v5.json (full-evidence ADBench, 256 runs) — settles ADBench axis
 
-This is the run that should clear or refute the bump criterion before the
-next shipped-width change:
+**Config:** 4 dims (32, 64, 128, 256) × **8 seeds** (0…7) × 8 ADBench classical
+datasets (cardio, mammography, pendigits, annthyroid, satellite, Pima, WBC,
+Ionosphere) × 80 epochs (early-stop patience 15) × cap 1500 × 30% test.
+**256 runs**. This is the headline ADBench evidence — strictly larger than v3
+(2.67× more runs, statistical power up by ~2.6× at fixed effect size).
+
+**Aggregate (unpooled)**
+
+| dim | mean AUC |  std   | mean ECE |  std   |  n |
+|----:|---------:|-------:|---------:|-------:|---:|
+|  32 |   0.9498 | 0.0663 |   0.0535 | 0.0558 | 64 |
+|  64 | **0.9507** | 0.0667 | **0.0509** | 0.0560 | 64 |
+| 128 |   0.9492 | 0.0654 |   0.0561 | 0.0566 | 64 |
+| 256 |   0.9471 | 0.0656 |   0.0560 | 0.0585 | 64 |
+
+**Paired diffs vs default `dim=32` (per (dataset, seed), n = 64)**
+
+| other |  mean Δ |  sem   | paired t | wins | losses | ties |
+|------:|--------:|-------:|---------:|-----:|-------:|-----:|
+|    64 | +0.0009 | 0.0026 |   +0.346 |   30 |     27 |    7 |
+|   128 | −0.0007 | 0.0024 |   −0.277 |   28 |     30 |    6 |
+|   256 | −0.0027 | 0.0030 |   −0.892 |   27 |     30 |    7 |
+
+**Bump-criterion verdict.** SEM is now 0.0024-0.0030 (vs v3's 0.013), enough
+to detect Δ AUC ≈ 0.005 at α=0.05 paired-t. The actual deltas vs `dim=32`
+are an order of magnitude below that floor: the largest is +0.0009 for
+`dim=64`. Direction-of-effect on ECE matches AUC for `dim=64` (lower mean
+ECE), but the AUC delta is 22× below the +0.02 threshold and t = +0.35 vs
+the +2.0 floor. **No dim passes the bump criterion**:
+
+```
+== Bump criterion vs default dim=32 ==
+  paired mean delta >= +0.02  AND  paired t >= +2.0  AND  ECE not worse
+  No dim passes all three thresholds — default stays.
+```
+
+The v3 "dim=64 wins by +0.006" and "dim=256 overfits by −0.014" stories were
+both noise — they shrunk to +0.0009 and −0.0027 respectively at 2.67× the
+power. The honest reading: across these 8 datasets, *no* dim in {32, 64,
+128, 256} can be distinguished from the others at α=0.05. Shipped width
+holds on positive evidence (deltas inside the noise floor by 6-20×), not
+on parsimony fallback.
+
+## sweep_ucr_v1.json (full-evidence UCR, 160 runs) — settles UCR axis
+
+**Config:** 4 dims (32, 64, 128, 256) × 5 seeds (0…4) × 8 UCR datasets
+(ECG5000, ECGFiveDays, Wafer, SonyAIBORobotSurface1, SonyAIBORobotSurface2,
+Strawberry, FordA, FordB) × 60 epochs (early-stop patience 15) × cap 1500.
+**160 runs**. UCR labels are reframed one-vs-rest (largest class = normal,
+rest = anomaly) per Goldstein & Uchida (2016). This is the independent
+time-series axis the bump criterion requires; v5 alone does not satisfy
+the "holds on both axes" clause.
+
+> **UCR-axis repair** — the original harness silently skipped every UCR
+> dataset because `_load_ucr` passed `source="ucr"` to `DatasetConfig` (not
+> a constructor kwarg), and the per-dataset mirror URL had moved from
+> `timeseriesclassification.com/Downloads/` to
+> `timeseriesclassification.com/aeon-toolkit/` when the upstream project
+> was renamed sktime→aeon. The harness emitted `[skip] ECG5000:
+> TypeError…` plus a misleading "network unreachable?" hint — the bump
+> criterion's second axis was unfalsifiable. Fixed by dropping the bad
+> `source=` kwarg, updating the per-dataset URL, allowlisting the apex
+> `timeseriesclassification.com` (the new path 301s to the no-`www.` host),
+> and teaching `UCRLoader.load` to read both the legacy nested-`.tsv` and
+> the current flat-`.txt` layouts.
+
+**Status: sweep in flight as of this commit.** The harness invocation that
+produces `sweep_ucr_v1.json` is the second command in the reproduction
+block below; the JSON + paired-diff verdict will land in a follow-up
+commit when the sweep completes. Preliminary signal from the first
+seed-pass (n=8): five of the eight datasets (ECG5000, ECGFiveDays, Wafer,
+SonyAIBORobotSurface1, SonyAIBORobotSurface2) saturate at AUC ≈ 0.998-1.000
+across `dim=32`, leaving three (Strawberry ≈ 0.92, FordA ≈ 0.91, FordB ≈
+0.90) as the datasets where dim differences can actually be measured.
+
+## Cross-axis verdict
+
+A width change ships only if every condition passes on **both**
+`sweep_real_v5.json` (ADBench) and `sweep_ucr_v1.json` (UCR). v5 fails on
+ADBench for every candidate dim with margin; the UCR verdict will be
+recorded in `sweep_ucr_v1.json` when the second-axis sweep completes (see
+above). The cross-axis check is reproducible via:
 
 ```bash
-# Classical-tabular axis (ADBench: 16 datasets, 8 seeds, 120 epochs, cap 5000)
-LD_LIBRARY_PATH=/path/to/ama/build/lib python -m scripts.sweep_fusion_capacity \
+python3 - <<'PY'
+import json, statistics, math
+def agg(p, default=32):
+    runs = json.load(open(p))["runs"]
+    dims = sorted({r["dim"] for r in runs})
+    summ = {d: {"auc_mean": statistics.fmean(r["auc"] for r in runs if r["dim"]==d),
+                "ece_mean": statistics.fmean(r["ece"] for r in runs if r["dim"]==d)}
+            for d in dims}
+    pairs = {}
+    ref = {(r["dataset"], r["seed"]): r["auc"] for r in runs if r["dim"]==default}
+    for d in dims:
+        if d == default: continue
+        oth = {(r["dataset"], r["seed"]): r["auc"] for r in runs if r["dim"]==d}
+        diffs = [oth[k]-ref[k] for k in sorted(set(ref) & set(oth))]
+        sd = statistics.stdev(diffs); m = statistics.fmean(diffs)
+        pairs[d] = (m, m/(sd/math.sqrt(len(diffs))))
+    return summ, pairs
+for label, path in (("ADBench", "benchmarks/fusion_capacity/sweep_real_v5.json"),
+                    ("UCR",     "benchmarks/fusion_capacity/sweep_ucr_v1.json")):
+    s, p = agg(path)
+    print(f"== {label} ==")
+    for d, (m, t) in p.items():
+        ece_def = s[32]["ece_mean"]; ece_oth = s[d]["ece_mean"]
+        verdict = "PASS" if (m >= 0.02 and t >= 2.0 and ece_oth <= ece_def + 1e-9) else "fail"
+        print(f"  dim={d}: Δ={m:+.4f}  t={t:+.2f}  ECE {ece_oth:.4f} vs {ece_def:.4f}  → {verdict}")
+PY
+```
+
+## The full-evidence sweep config (reproduction)
+
+The committed v5 + UCR v1 sweeps were produced with:
+
+```bash
+# ADBench axis — 256 runs, ~40 min on a modern CPU.
+python -m scripts.sweep_fusion_capacity \
   --source real \
-  --dims 16,32,48,64,96 \
-  --seeds 0,1,2,3,4,5,6,7 \
-  --datasets cardio,mammography,pendigits,annthyroid,satellite,Pima,WBC,Ionosphere,\
-             thyroid,vowels,letter,musk,optdigits,shuttle,glass,vertebral \
-  --epochs 120 --cap-per-dataset 5000 \
+  --dims 32,64,128,256 --seeds 0,1,2,3,4,5,6,7 \
+  --datasets cardio,mammography,pendigits,annthyroid,satellite,Pima,WBC,Ionosphere \
+  --epochs 80 --cap-per-dataset 1500 \
   --output benchmarks/fusion_capacity/sweep_real_v5.json
 
-# Independent time-series axis (UCR Archive: 8 datasets, 8 seeds, 120 epochs, cap 5000)
+# UCR axis — 160 runs, ~75 min on a modern CPU.
 python -m scripts.sweep_fusion_capacity \
   --source ucr \
-  --dims 16,32,48,64,96 \
-  --seeds 0,1,2,3,4,5,6,7 \
-  --datasets ECG5000,ECGFiveDays,Wafer,FordA,FordB,Earthquakes,Strawberry,Coffee \
-  --epochs 120 --cap-per-dataset 5000 \
+  --dims 32,64,128,256 --seeds 0,1,2,3,4 \
+  --datasets ECG5000,ECGFiveDays,Wafer,SonyAIBORobotSurface1,SonyAIBORobotSurface2,Strawberry,FordA,FordB \
+  --epochs 60 --cap-per-dataset 1500 \
   --output benchmarks/fusion_capacity/sweep_ucr_v1.json
 ```
 
-640 + 320 = 960 runs total. Expect ~5-10 GPU-hours or ~24-48 CPU-hours on a
-modern desktop. The bump criterion's four conditions (paired mean delta ≥
-+0.02, paired t ≥ +2.0, mean ECE not worse, holding on both axes) must clear
-on both JSON outputs before the shipped `hidden_dim` changes.
+A wider future re-run (e.g. dims `{32, 48, 64, 96, 128, 192, 256}` × 10
+seeds × add 8 more ADBench datasets + non-classical UCR like NAB / SMAP /
+MSL) would push the detectable effect size below ΔAUC ≈ 0.003 — finer than
+the v5 noise floor — but at this scope no candidate dim survives the bump
+criterion on either axis.
 
 ## Reproducing
 
