@@ -71,7 +71,7 @@ This also refutes the single-seed PR #256 claim that `dim = 128` wins by
 +0.014: in v3, `dim = 128` versus `dim = 32` lands at mean Δ = −0.0010 (dead
 tied), and the original +0.014 was inside one-sigma seed noise.
 
-## sweep_real_v4.json (expanded, runs through the v4 harness)
+## sweep_real_v4.json (harness exercise, narrow datasets)
 
 The v4 harness adds:
 
@@ -82,11 +82,52 @@ The v4 harness adds:
   reframed one-vs-rest);
 * a clearer config docstring with the recommended full-evidence command.
 
-The full-evidence sweep config — what should be run before the next width
-decision — is:
+The committed `sweep_real_v4.json` is a **narrow harness-exercise run** —
+5 dims (16, 32, 48, 64, 96) × 2 seeds × 3 small ADBench datasets (WBC,
+Ionosphere, Pima) × 30 epochs × cap 1000 = **30 runs**. Its purpose is to
+demonstrate the v4 harness end-to-end through the bump-criterion reporter,
+not to settle the width question (3 small datasets cannot).
+
+**v4 aggregate (n = 6 per dim)**
+
+| dim | mean AUC | std    | mean ECE | std    |
+|----:|---------:|-------:|---------:|-------:|
+|  16 |   0.9233 | 0.0854 |   0.0909 | 0.0523 |
+|  32 |   0.9085 | 0.0945 |   0.1008 | 0.0679 |
+|  48 |   0.9163 | 0.0875 |   0.0931 | 0.0540 |
+|  64 |   0.9171 | 0.0876 |   0.0874 | 0.0652 |
+|  96 |   0.9237 | 0.0827 |   0.1005 | 0.0478 |
+
+**v4 paired diffs vs default `dim=32` (n = 6)**
+
+| other |  mean Δ | sem    | paired t |
+|------:|--------:|-------:|---------:|
+|    16 | **+0.0148** | 0.0060 | **+2.455** |
+|    48 | +0.0078 | 0.0092 |   +0.842 |
+|    64 | +0.0085 | 0.0098 |   +0.868 |
+|    96 | +0.0152 | 0.0081 |   +1.871 |
+
+**v4 bump-criterion verdict (printed by the harness):**
+
+```
+== Bump criterion vs default dim=32 ==
+  paired mean delta >= +0.02  AND  paired t >= +2.0  AND  ECE not worse
+  No dim passes all three thresholds — default stays.
+```
+
+A note on the apparent `dim=16 t=+2.455`: this is the strongest paired signal
+in the v4 run, but the mean delta (+0.0148) is **below** the +0.02 threshold,
+so the bump criterion correctly refuses to act on it. v4 has only 3 datasets
+(all under 250 test samples) and 2 seeds; running the full-evidence config
+below is the only path to a real width change.
+
+## The full-evidence sweep config
+
+This is the run that should clear or refute the bump criterion before the
+next shipped-width change:
 
 ```bash
-# Classical-tabular axis (ADBench, 16 datasets, 8 seeds, 120 epochs)
+# Classical-tabular axis (ADBench: 16 datasets, 8 seeds, 120 epochs, cap 5000)
 LD_LIBRARY_PATH=/path/to/ama/build/lib python -m scripts.sweep_fusion_capacity \
   --source real \
   --dims 16,32,48,64,96 \
@@ -96,7 +137,7 @@ LD_LIBRARY_PATH=/path/to/ama/build/lib python -m scripts.sweep_fusion_capacity \
   --epochs 120 --cap-per-dataset 5000 \
   --output benchmarks/fusion_capacity/sweep_real_v5.json
 
-# Independent time-series axis (UCR Archive)
+# Independent time-series axis (UCR Archive: 8 datasets, 8 seeds, 120 epochs, cap 5000)
 python -m scripts.sweep_fusion_capacity \
   --source ucr \
   --dims 16,32,48,64,96 \
@@ -106,11 +147,10 @@ python -m scripts.sweep_fusion_capacity \
   --output benchmarks/fusion_capacity/sweep_ucr_v1.json
 ```
 
-The interim `sweep_real_v4.json` committed alongside this README is a
-narrower-but-strictly-larger-than-v3 run (5 dims × 3 seeds × 8 datasets × 60
-epochs, cap 2000 = 120 runs vs v3's 96) that exercises the v4 harness through
-the new dims and the bump-criterion reporter. It is **not** intended to settle
-the width question — only the full-evidence sweep above can do that.
+640 + 320 = 960 runs total. Expect ~5-10 GPU-hours or ~24-48 CPU-hours on a
+modern desktop. The bump criterion's four conditions (paired mean delta ≥
++0.02, paired t ≥ +2.0, mean ECE not worse, holding on both axes) must clear
+on both JSON outputs before the shipped `hidden_dim` changes.
 
 ## Reproducing
 
