@@ -87,6 +87,17 @@ class _NativeLOF:
         self._tree: KDTree | None = None
         self._lrd: np.ndarray[Any, Any] | None = None  # local reachability densities of training
 
+    # Reachability floor used at both fit and inference time. Using one
+    # symbol (and the same numeric value at both sites) is load-bearing for
+    # correctness: a duplicate-cluster query point must produce
+    # ``lrd_query == mean(lrd_neighbors)`` so the LOF ratio evaluates to 1
+    # (decision == 0, the inlier point). An asymmetric floor (e.g. eps in
+    # fit, 1e-10 in inference) breaks the ratio by orders of magnitude and
+    # mis-classifies duplicate-cluster queries as massive outliers. The
+    # value matches ``sklearn.neighbors.LocalOutlierFactor``'s internal
+    # epsilon for the same reason.
+    _REACH_FLOOR: float = 1e-10
+
     def fit(self, X: np.ndarray[Any, Any]) -> _NativeLOF:
         self._tree = KDTree(X)
         k = min(self.k, len(X) - 1)
@@ -95,24 +106,18 @@ class _NativeLOF:
             return self
         dists, idx = self._tree.query(X, k=k + 1)  # +1 because query includes self
         dists, idx = dists[:, 1:], idx[:, 1:]  # drop self-neighbor
-        # k-distance of each neighbor
+        # k-distance of each neighbor (Breunig et al. 2000, eq. 1).
         kdist_neighbors = dists[idx, -1] if dists.ndim > 1 else dists
-        # reachability distance = max(k-dist of neighbor, actual dist)
+        # reachability distance = max(k-dist of neighbor, actual dist).
         reach = np.maximum(dists, kdist_neighbors)
-        # local reachability density = 1 / mean(reach-dist to k-neighbors).
-        # The previous code branched ``np.where(mean_reach > 0, 1/mr, 1.0)``,
-        # which a) raised divide-by-zero warnings (np.where evaluates both
-        # arms eagerly) and b) was semantically wrong: a cluster of duplicate
-        # points has mean_reach == 0, which means *infinite* density, not the
-        # 1.0 ("average density") the fallback assigned — so duplicates were
-        # mislabelled as borderline-anomalous instead of perfectly-normal.
-        # Floor mean_reach at the dtype's epsilon so duplicate rows yield a
-        # large finite LRD (≈ 1/eps) representing "very dense"; this matches
-        # sklearn.neighbors.LocalOutlierFactor's stabilisation and removes the
-        # warning by construction (no divide by zero ever happens).
         mean_reach = reach.mean(axis=1)
-        eps = float(np.finfo(mean_reach.dtype).eps)
-        self._lrd = 1.0 / np.maximum(mean_reach, eps)
+        # local reachability density = 1 / mean(reach-dist). The floor on
+        # ``mean_reach`` is the same constant the inference path uses on
+        # ``reach`` (and therefore on ``mean_reach``), so a duplicate-cluster
+        # training point and a duplicate-cluster query point end up with
+        # comparable LRDs and the LOF ratio collapses to ~1 (decision ~0,
+        # inlier) instead of blowing up by orders of magnitude.
+        self._lrd = 1.0 / np.maximum(mean_reach, self._REACH_FLOOR)
         return self
 
     def decision_function(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
@@ -122,24 +127,18 @@ class _NativeLOF:
         if k < 1:
             return np.zeros(len(X))
         dists, idx = self._tree.query(X, k=k)
-        # Simplified LOF: use ratio of local densities as score. ``reach`` is
-        # already floored at 1e-10 below, so ``mean_reach >= 1e-10`` and the
-        # ``1.0 / mean_reach`` divide is safe directly — the previous
-        # ``np.where(mean_reach > 0, ...)`` branch was dead code that only
-        # served to emit divide warnings.
-        reach = np.maximum(dists, 1e-10)
+        # Same floor as fit; see _REACH_FLOOR docstring for why this must
+        # match the fit-time floor exactly.
+        reach = np.maximum(dists, self._REACH_FLOOR)
         mean_reach = reach.mean(axis=1)
         lrd_query = 1.0 / mean_reach
-        # LOF = mean(lrd_neighbors) / lrd_query. The eps floor on the
-        # denominator matches the fit-time eps floor on ``mean_reach`` so the
-        # scale of LRDs is consistent across train and inference and the LOF
-        # ratio is well-defined even for extremely isolated query points
-        # (large mean_reach -> tiny lrd_query).
         neighbor_lrd = self._lrd[idx]
         mean_neighbor_lrd = neighbor_lrd.mean(axis=1)
-        eps = float(np.finfo(mean_reach.dtype).eps)
-        lof = mean_neighbor_lrd / np.maximum(lrd_query, eps)
-        # decision_function returns negative for outliers (sklearn convention)
+        # Both LRDs are on the same scale by construction (matched floors at
+        # fit and inference), so the LOF ratio is well-defined for every
+        # input and equals 1.0 for a query inside a duplicate cluster.
+        lof = mean_neighbor_lrd / lrd_query
+        # sklearn convention: negative = more anomalous, ~0 = inlier.
         return -(lof - 1.0)
 
 
