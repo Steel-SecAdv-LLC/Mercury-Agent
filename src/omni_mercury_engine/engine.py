@@ -1556,6 +1556,28 @@ class OmniMercuryEngine(LoggerMixin):
         selected = {k: v for k, v in features.items() if k in groups}
         return selected or features
 
+    def _apply_fusion_calibration(self, probs: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Apply the fitted post-hoc temperature calibration to a probability array.
+
+        Single source of truth for calibration application across the production
+        ``detect_with_fusion`` path and the benchmark ``score_fusion`` path, so
+        the calibrator persisted on the checkpoint reaches every consumer that
+        reads ``anomaly_probs`` from the network's output — not only the
+        benchmark path. Without this, ``fit_fusion``'s temperature scalar (Guo
+        et al. 2017) only corrects probabilities measured via ``score_fusion``
+        and ``mercury-agent detect`` users still get raw sigmoid output.
+
+        Monotonic, so ranking (and any AUC measured downstream) is preserved
+        exactly; only the probability values are corrected. A no-op when no
+        calibrator is fitted, so the contract degrades cleanly on legacy
+        checkpoints (and on engines that never trained calibration).
+        """
+        if self._fusion_calibrator is None:
+            return probs
+        arr = np.asarray(probs)
+        calibrated = np.asarray(self._fusion_calibrator.calibrate(arr.reshape(-1)))
+        return calibrated.reshape(arr.shape)
+
     def build_feature_npz(
         self,
         X: np.ndarray[Any, Any],
@@ -1660,9 +1682,10 @@ class OmniMercuryEngine(LoggerMixin):
 
         # Apply post-hoc temperature calibration when available. Monotonic, so
         # rankings/AUC are unchanged; only the probability values are corrected.
-        if self._fusion_calibrator is not None:
-            probs = np.asarray(self._fusion_calibrator.calibrate(probs)).reshape(-1)
-        return probs
+        # Same helper that ``detect_with_fusion`` calls so the benchmark path
+        # and the production path agree on what the checkpoint's temperature
+        # means.
+        return self._apply_fusion_calibration(probs).reshape(-1)
 
     def enable_drift_detection(
         self,
@@ -3043,6 +3066,17 @@ class OmniMercuryEngine(LoggerMixin):
             return_attention=True,
         )
 
+        # Calibrate at the production decision boundary, in-place into the
+        # result dict, so every downstream consumer (anomaly_prob, the
+        # threshold finder, drift signals) sees the same temperature-scaled
+        # probabilities the benchmark path serves through ``score_fusion``.
+        # Without this, the persisted post-hoc temperature scalar (Guo et al.
+        # 2017) trained by ``fit_fusion`` only affects ``score_fusion`` and
+        # the user-facing ``mercury-agent detect`` keeps returning raw sigmoid.
+        fusion_result["anomaly_probs"] = self._apply_fusion_calibration(
+            np.asarray(fusion_result["anomaly_probs"])
+        )
+
         anomaly_prob_val = fusion_result["anomaly_probs"][0]
         if isinstance(anomaly_prob_val, np.ndarray) or hasattr(anomaly_prob_val, "item"):
             anomaly_prob_val = anomaly_prob_val.item()
@@ -3180,6 +3214,12 @@ class OmniMercuryEngine(LoggerMixin):
             if isinstance(all_probs, torch.Tensor):
                 all_probs = all_probs.cpu().numpy()
             all_probs = np.asarray(all_probs).flatten()
+            # Calibrate before threshold selection: the threshold finder
+            # (Otsu/F1/percentile) must operate on the same probability scale
+            # as detect_with_fusion's calibrated anomaly_prob, otherwise the
+            # threshold and the scalar live on different scales and the
+            # is_anomaly verdict is internally inconsistent.
+            all_probs = self._apply_fusion_calibration(all_probs)
         else:
             all_probs = np.array([anomaly_prob])
 
