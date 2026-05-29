@@ -48,7 +48,7 @@ _trapz: Callable[..., float]
 if hasattr(np, "trapezoid"):
     _trapz = np.trapezoid
 else:
-    _trapz = np.trapz  # type: ignore[attr-defined,assignment,unused-ignore]  # NumPy <2.0 compat
+    _trapz = np.trapz  # type: ignore[assignment]
 
 
 @dataclass

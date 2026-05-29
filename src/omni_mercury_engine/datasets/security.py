@@ -201,7 +201,7 @@ class NSLKDDLoader(DatasetLoader):
         self.binary_labels = config.preprocessing.get("binary", True)
         self.include_test = config.preprocessing.get("include_test", True)
         self._features: np.ndarray[Any, Any] | None = None
-        self._labels: np.ndarray[Any, Any] | None = None  # type: ignore[assignment, unused-ignore]
+        self._labels: np.ndarray[Any, Any] | None = None  # type: ignore[assignment]
         self._is_real_data = False
         self._encoders: dict[str, dict[str, int]] = {}
 
@@ -673,7 +673,7 @@ class CICIDSLoader(DatasetLoader):
         self.local_path = config.preprocessing.get("local_path", None)
         self.retry_count = config.preprocessing.get("retry_count", 3)
         self._features: np.ndarray[Any, Any] | None = None
-        self._labels: np.ndarray[Any, Any] | None = None  # type: ignore[assignment, unused-ignore]
+        self._labels: np.ndarray[Any, Any] | None = None  # type: ignore[assignment]
         self._is_real_data = False
         self._label_names: list[str] = []
 

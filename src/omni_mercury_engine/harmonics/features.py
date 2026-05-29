@@ -137,7 +137,9 @@ class HarmonicFeatureExtractor:
 
         if self._normalize:
             total = np.sum(spectrum) + 1e-10
-            spectrum = spectrum / total  # type: ignore[assignment]
+            normalized_spectrum: np.ndarray[Any, Any] = np.empty(spectrum.shape, dtype=np.float64)
+            np.divide(spectrum, total, out=normalized_spectrum)
+            spectrum = normalized_spectrum
 
         return PowerSpectrum(
             l_max=l_max,

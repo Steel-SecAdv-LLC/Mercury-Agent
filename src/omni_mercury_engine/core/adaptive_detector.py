@@ -122,8 +122,8 @@ class AdaptiveThresholdCalibrator:
 
         if score_max - score_min < 1e-10:
             threshold = score_min
-            predictions = np.zeros(len(scores), dtype=np.int32)
-            return threshold, predictions
+            flat_predictions: NDArray[np.int32] = np.zeros(scores.shape, dtype=np.int32)
+            return threshold, flat_predictions
 
         normalized = ((scores - score_min) / (score_max - score_min) * 255).astype(np.int32)
 
@@ -157,7 +157,8 @@ class AdaptiveThresholdCalibrator:
                 best_threshold = t
 
         threshold = score_min + (best_threshold / 255) * (score_max - score_min)
-        predictions = (scores >= threshold).astype(np.int32)  # type: ignore[assignment]
+        predictions: NDArray[np.int32] = np.empty(scores.shape, dtype=np.int32)
+        predictions[:] = scores >= threshold
 
         return threshold, predictions
 

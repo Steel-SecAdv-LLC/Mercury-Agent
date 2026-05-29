@@ -710,7 +710,9 @@ class VoiceActivityDetector:
             frame = audio[start : start + self._frame_length]
             energy[i] = np.sum(frame**2)
 
-        energy = energy / (np.max(energy) + 1e-8)  # type: ignore[assignment]
+        normalized_energy: np.ndarray[Any, Any] = np.empty(energy.shape, dtype=np.float64)
+        np.divide(energy, np.max(energy) + 1e-8, out=normalized_energy)
+        energy = normalized_energy
 
         threshold = self._energy_threshold
 

@@ -562,14 +562,14 @@ class OnlineLearningPipeline:
         if self.update_strategy == UpdateStrategy.INCREMENTAL:
             # Single sample update
             if hasattr(self.model, "partial_fit"):
-                X = sample.features.reshape(1, -1)
+                X_single = sample.features.reshape(1, -1)
                 y = np.array([sample.label])
-                self.model.partial_fit(X, y)
+                self.model.partial_fit(X_single, y)
 
         elif self.update_strategy == UpdateStrategy.MINI_BATCH:
             # Mini-batch update
             if len(self.buffer) >= self.mini_batch_size:
-                X, y = self.buffer.get_all()  # type: ignore[assignment]
+                X, y = self.buffer.get_all()
                 if len(y) >= self.mini_batch_size:
                     # Sample mini-batch
                     indices = self.rng.choice(len(y), self.mini_batch_size, replace=False)

@@ -684,12 +684,14 @@ class AdaptiveDomainThresholdManager:
         scores = np.asarray(scores).flatten()
 
         # Apply probability calibration if available
-        calibrated_scores = scores.copy()
+        calibrated_scores: NDArray[np.float64] = np.empty(scores.shape, dtype=np.float64)
+        calibrated_scores[:] = scores
         prob_calibration_applied = False
 
         if self.probability_calibrator is not None:
             try:
-                calibrated_scores = self.probability_calibrator.calibrate(scores)  # type: ignore[assignment]
+                calibrated_result = self.probability_calibrator.calibrate(scores)
+                calibrated_scores[:] = calibrated_result
                 prob_calibration_applied = True
             except Exception as e:
                 logger.warning(f"Probability calibration failed: {e}")

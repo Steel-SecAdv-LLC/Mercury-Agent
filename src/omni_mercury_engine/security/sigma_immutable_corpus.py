@@ -171,13 +171,17 @@ def generate_corpus(
 
     # Deterministic shuffle so positives/negatives are interleaved at training.
     perm = rng.permutation(n_total)
-    features = features[perm]  # type: ignore[assignment]
-    labels = labels[perm]  # type: ignore[assignment]
+    shuffled_features: np.ndarray[Any, Any] = np.empty(features.shape, dtype=np.float32)
+    shuffled_features[:] = features[perm]
+    shuffled_labels: np.ndarray[Any, Any] = np.empty(labels.shape, dtype=np.float32)
+    shuffled_labels[:] = labels[perm]
 
     # Defensive copy + read-only view to enforce the trust boundary documented
     # for ``GOSNNCouplingServer.ingest`` and reused elsewhere in-tree.
-    features = np.array(features, copy=True)  # type: ignore[assignment]
-    labels = np.array(labels, copy=True)  # type: ignore[assignment]
+    features = np.empty(shuffled_features.shape, dtype=np.float32)
+    features[:] = shuffled_features
+    labels = np.empty(shuffled_labels.shape, dtype=np.float32)
+    labels[:] = shuffled_labels
     features.setflags(write=False)
     labels.setflags(write=False)
 

@@ -387,7 +387,9 @@ class AttentionOptimizer:
         weights[2 * heads_per_band :] = 1 / PHI
 
         # Normalize
-        weights = weights * (self.num_heads / np.sum(weights))  # type: ignore[assignment]
+        normalized_weights: np.ndarray[Any, Any] = np.empty(weights.shape, dtype=np.float64)
+        np.multiply(weights, self.num_heads / np.sum(weights), out=normalized_weights)
+        weights = normalized_weights
 
         return weights
 

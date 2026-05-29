@@ -417,7 +417,7 @@ class DBSCANDetector:
                     scores[i] = 0.0
         else:
             # No core points found - all could be anomalies
-            scores = np.ones(len(X), dtype=np.float64) * 0.5  # type: ignore[assignment]
+            scores = np.full(len(X), 0.5, dtype=np.float64)
 
         return AnomalyResult(
             is_anomaly=is_anomaly,

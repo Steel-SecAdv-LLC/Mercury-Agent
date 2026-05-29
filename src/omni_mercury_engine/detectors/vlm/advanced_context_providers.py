@@ -867,8 +867,10 @@ class AppearanceContextProvider(BaseContextProvider):
             return hist.flatten()
         else:
             # Grayscale histogram
-            hist, _ = np.histogram(frame.flatten(), bins=self.color_bins, range=(0, 256))  # type: ignore[assignment]
-            return hist / hist.sum()
+            gray_hist: np.ndarray[Any, Any] = np.empty(self.color_bins, dtype=np.float64)
+            counts, _ = np.histogram(frame.flatten(), bins=self.color_bins, range=(0, 256))
+            gray_hist[:] = counts
+            return gray_hist / gray_hist.sum()
 
     def _find_dominant_colors(
         self, frame: np.ndarray[Any, Any]

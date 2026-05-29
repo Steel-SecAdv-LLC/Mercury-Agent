@@ -637,7 +637,8 @@ class SMAPMSLLoader(DatasetLoader):
 
         # Concatenate all channels
         features = np.vstack(padded_features)
-        labels = np.concatenate(padded_labels)  # type: ignore[assignment]
+        labels = np.empty(sum(len(label) for label in padded_labels), dtype=np.int64)
+        labels = np.concatenate(padded_labels, out=labels)
 
         logger.info(f"Loaded {len(features)} {self.dataset} telemetry samples")
         logger.info(f"  Features: {features.shape[1]}, Anomalies: {labels.sum()}")

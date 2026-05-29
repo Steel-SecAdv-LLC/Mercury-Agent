@@ -304,7 +304,9 @@ class TriadicPhiWeighting:
         weights[2 * heads_per_band :] = self.phi_inverse
 
         # Normalize to sum to num_heads for stable gradients
-        weights = weights * (self.num_heads / np.sum(weights))  # type: ignore[assignment]
+        normalized_weights: np.ndarray[Any, Any] = np.empty(weights.shape, dtype=np.float64)
+        np.multiply(weights, self.num_heads / np.sum(weights), out=normalized_weights)
+        weights = normalized_weights
 
         return weights
 
