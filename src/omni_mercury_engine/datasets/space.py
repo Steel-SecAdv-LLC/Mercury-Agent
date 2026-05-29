@@ -105,6 +105,7 @@ class SETILoader(DatasetLoader):
     """
 
     DATASET_NAME = "seti"
+    LABEL_SOURCE = "statistical"  # synthetic signal generator (no real labels)
     DATASET_URL = "https://seti.berkeley.edu/"
     LICENSE = "Creative Commons Attribution 4.0"
     CITATION = """Anderson DP, Werthimer D, Cobb J. SETI@home: An Experiment in
@@ -266,6 +267,7 @@ class NASAExoplanetLoader(DatasetLoader):
     """
 
     DATASET_NAME = "exoplanet"
+    LABEL_SOURCE = "statistical"  # labels derived from threshold cuts on transit features
     DATASET_URL = "https://exoplanetarchive.ipac.caltech.edu/"
     LICENSE = "Public Domain"
     CITATION = """NASA Exoplanet Archive, which is operated by the California Institute
@@ -534,6 +536,7 @@ class SolarDynamicsLoader(DatasetLoader):
     """
 
     DATASET_NAME = "solar"
+    LABEL_SOURCE = "statistical"  # labels = X-ray flux > M-class threshold / z-score fallback
     DATASET_URL = "https://services.swpc.noaa.gov/"
     LICENSE = "Public Domain (NOAA)"
     CITATION = """NOAA Space Weather Prediction Center. https://www.swpc.noaa.gov/"""

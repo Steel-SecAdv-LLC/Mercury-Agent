@@ -48,6 +48,7 @@ class NOAAStormEventsLoader(DatasetLoader):
     """
 
     DATASET_NAME = "noaa_storm_events"
+    LABEL_SOURCE = "statistical"  # labels = threshold on damage/casualty feature columns
     DATASET_URL = "https://www.ncei.noaa.gov/pub/data/swdi/stormevents/csvfiles/"
     LICENSE = "Public Domain (US Government)"
     CITATION = (

@@ -164,3 +164,6 @@ runs/
 # OS
 .DS_Store
 Thumbs.db
+
+# Downloaded benchmark dataset cache (ADBench, etc.)
+cache/

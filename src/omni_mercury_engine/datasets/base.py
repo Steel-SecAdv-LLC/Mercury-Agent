@@ -310,6 +310,14 @@ class DatasetLoader(ABC):
     CITATION: str = ""
     REQUIRES_CREDENTIALS: bool = False
 
+    # Label provenance, declared at source. One of the values in
+    # ``datasets.metadata.VALID_LABEL_SOURCES``. Loaders that manufacture
+    # anomaly labels by thresholding a score/feature (z-score, percentile,
+    # domain cut) or by synthetic generation MUST override this to
+    # ``"statistical"`` so headline supervised AUC excludes them as circular.
+    # Defaults to ``"ground_truth"``; override to be honest.
+    LABEL_SOURCE: str = "ground_truth"
+
     def __init__(self, config: DatasetConfig) -> None:
         """
         Initialize dataset loader.

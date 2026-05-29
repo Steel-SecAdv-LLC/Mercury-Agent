@@ -54,6 +54,7 @@ class NOAAERDDAPLoader(DatasetLoader):
     """
 
     DATASET_NAME = "noaa_erddap"
+    LABEL_SOURCE = "statistical"  # labels = max z-score > 3.0 (threshold on features)
     DATASET_URL = "https://coastwatch.pfeg.noaa.gov/erddap/"
     LICENSE = "Public Domain (US Government)"
     CITATION = "NOAA CoastWatch / OceanWatch. ERDDAP Data Server."

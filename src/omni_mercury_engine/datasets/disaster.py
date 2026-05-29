@@ -55,6 +55,7 @@ class FEMADisasterLoader(DatasetLoader):
     """
 
     DATASET_NAME = "fema_disaster"
+    LABEL_SOURCE = "statistical"  # no ground-truth anomaly labels; heuristic polarity selection
     DATASET_URL = "https://www.fema.gov/about/openfema/data-sets"
     LICENSE = "Public Domain (US Government)"
     CITATION = """Federal Emergency Management Agency (FEMA). OpenFEMA Dataset:
@@ -660,6 +661,7 @@ class FEMAHazardMitigationLoader(DatasetLoader):
     """
 
     DATASET_NAME = "fema_hazard_mitigation"
+    LABEL_SOURCE = "statistical"  # no ground-truth anomaly labels; heuristic polarity selection
     DATASET_URL = "https://www.fema.gov/about/openfema/data-sets"
     LICENSE = "Public Domain (US Government)"
     CITATION = """Federal Emergency Management Agency (FEMA). OpenFEMA Dataset:
