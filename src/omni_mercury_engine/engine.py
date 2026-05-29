@@ -866,6 +866,10 @@ class OmniMercuryEngine(LoggerMixin):
             # untrained projections for aggregating/extra groups). None until
             # trained → no filtering, preserving the untrained-engine contract.
             self._fusion_feature_groups: list[str] | None = None
+            # Optional training provenance (source, datasets, seed, ...) recorded
+            # by training scripts and persisted in/restored from the checkpoint
+            # so a shipped artifact is self-describing for audit. None unless set.
+            self._fusion_provenance: dict[str, Any] | None = None
             logger.info(
                 "OmniFusionModel initialized (untrained). Call fit_fusion() "
                 "before detection for optimal performance."
@@ -971,12 +975,6 @@ class OmniMercuryEngine(LoggerMixin):
         if self.mode != "fusion":
             raise ValueError("fit_fusion() requires mode='fusion'")
 
-        # GPU check with fallback
-        device = self.device
-        if device.type == "cuda" and not torch.cuda.is_available():
-            logger.warning("CUDA requested but unavailable, falling back to CPU")
-            device = torch.device("cpu")
-
         # Convert to numpy if needed
         if isinstance(X, torch.Tensor):
             X = X.cpu().numpy()
@@ -997,8 +995,69 @@ class OmniMercuryEngine(LoggerMixin):
             logger.info("No labels provided, using semi-supervised pseudo-labeling...")
             y = self._generate_pseudo_labels(X, contamination)
 
+        return self._fit_fusion_on_features(
+            detector_features,
+            y,
+            epochs=epochs,
+            batch_size=batch_size,
+            learning_rate=learning_rate,
+            early_stopping_patience=early_stopping_patience,
+            validation_split=validation_split,
+            use_focal_loss=use_focal_loss,
+            focal_alpha=focal_alpha,
+            focal_gamma=focal_gamma,
+            calibrate=calibrate,
+        )
+
+    def _fit_fusion_on_features(
+        self,
+        detector_features: dict[str, torch.Tensor],
+        y: np.ndarray[Any, Any] | torch.Tensor,
+        *,
+        epochs: int = 50,
+        batch_size: int = 32,
+        learning_rate: float = 0.001,
+        early_stopping_patience: int = 10,
+        validation_split: float = 0.2,
+        use_focal_loss: bool = True,
+        focal_alpha: float = 0.75,
+        focal_gamma: float = 2.0,
+        calibrate: bool = True,
+    ) -> dict[str, Any]:
+        """Train the fusion head on a pre-extracted feature-group mapping.
+
+        Shared training + temperature-calibration tail for both
+        :meth:`fit_fusion` (single raw-input corpus) and
+        :meth:`fit_fusion_pooled` (multi-dataset prior). It operates purely on
+        an already-extracted ``{group_name: (N, dim) tensor}`` mapping plus
+        per-sample integer labels, so the caller owns feature extraction and
+        decides which groups are recorded in ``self._fusion_feature_groups``.
+        Sets ``self._fusion_trained`` and fits ``self._fusion_calibrator``
+        exactly as the single-corpus path always has, so a checkpoint saved
+        afterwards serves calibrated, group-restricted probabilities
+        identically however it was trained.
+
+        Args:
+            detector_features: Per-sample feature groups, each ``(N, dim)``.
+            y: Binary labels ``(N,)`` (1=anomaly, 0=normal).
+            epochs, batch_size, learning_rate, early_stopping_patience,
+            validation_split, use_focal_loss, focal_alpha, focal_gamma,
+            calibrate: As in :meth:`fit_fusion`.
+
+        Returns:
+            Training metrics (``best_loss``, ``epochs_trained`` ... plus
+            ``temperature``/``ece_before``/``ece_after`` when calibrated).
+        """
+        # GPU check with fallback
+        device = self.device
+        if device.type == "cuda" and not torch.cuda.is_available():
+            logger.warning("CUDA requested but unavailable, falling back to CPU")
+            device = torch.device("cpu")
+
         if isinstance(y, torch.Tensor):
             y = y.cpu().numpy()
+        y = np.asarray(y).reshape(-1)
+        n_samples = len(y)
 
         # Prepare training data
         labels_tensor = torch.tensor(y, dtype=torch.float32).unsqueeze(1)
@@ -1192,6 +1251,137 @@ class OmniMercuryEngine(LoggerMixin):
             "ece_before": ece_before,
             "ece_after": ece_after,
         }
+
+    def fit_fusion_pooled(
+        self,
+        datasets: list[tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]],
+        *,
+        engine_factory: Callable[[], OmniMercuryEngine] | None = None,
+        epochs: int = 50,
+        batch_size: int = 32,
+        learning_rate: float = 0.001,
+        early_stopping_patience: int = 10,
+        validation_split: float = 0.2,
+        use_focal_loss: bool = True,
+        focal_alpha: float = 0.75,
+        focal_gamma: float = 2.0,
+        calibrate: bool = True,
+    ) -> dict[str, Any]:
+        """Train one fusion head on a *pool* of labelled datasets.
+
+        Builds a general tabular-anomaly prior by extracting the inference
+        feature set from each dataset with **its own freshly-fit detectors**
+        (the base anomaly detectors are unsupervised and dataset-specific, so
+        reusing a single fit across heterogeneous corpora would be wrong), then
+        training the shared fusion head on the concatenation of the feature
+        groups every dataset has in common.
+
+        Only groups present **and** of identical width across all datasets are
+        pooled; a group whose dimensionality varies cannot be concatenated and
+        is dropped with a warning — and, by virtue of not entering
+        ``self._fusion_feature_groups``, is also skipped identically at
+        inference, so the head is never fed an untrained projection. Training,
+        calibration, group recording and the saved-checkpoint contract are
+        identical to :meth:`fit_fusion` because both funnel through
+        :meth:`_fit_fusion_on_features`.
+
+        Args:
+            datasets: ``(X, y)`` pairs. ``X`` is raw ``(n_i, d_i)`` (the input
+                dimensionality may differ per dataset); ``y`` is binary
+                ``(n_i,)``.
+            engine_factory: Builds the throwaway engine used to fit detectors
+                and extract features for a single dataset. Defaults to a fresh
+                fusion-mode engine of this class on the same device; injectable
+                for tests.
+            epochs, batch_size, learning_rate, early_stopping_patience,
+            validation_split, use_focal_loss, focal_alpha, focal_gamma,
+            calibrate: As in :meth:`fit_fusion`.
+
+        Returns:
+            Training metrics, augmented with ``pooled_datasets``,
+            ``pooled_samples`` and ``pooled_groups``.
+
+        Raises:
+            ValueError: If ``mode`` is not 'fusion' or ``datasets`` is empty.
+            RuntimeError: If no feature group is shared (with consistent width)
+                across every dataset.
+        """
+        if self.mode != "fusion":
+            raise ValueError("fit_fusion_pooled() requires mode='fusion'")
+        if not datasets:
+            raise ValueError("fit_fusion_pooled() requires at least one (X, y) dataset")
+
+        factory = engine_factory or (lambda: type(self)(mode="fusion", device=str(self.device)))
+
+        per_dataset: list[tuple[dict[str, torch.Tensor], np.ndarray[Any, Any]]] = []
+        for i, (raw_x, raw_y) in enumerate(datasets):
+            x_arr = np.asarray(raw_x, dtype=np.float32)
+            if x_arr.ndim == 1:
+                x_arr = x_arr.reshape(1, -1)
+            labels = np.asarray(raw_y).reshape(-1)
+            # Fresh detectors per source: extraction fits this engine's
+            # detectors on x_arr only, so each dataset's features reflect its
+            # own distribution.
+            extractor = factory()
+            feats = extractor._extract_fusion_features(x_arr, fit_detectors=True)
+            logger.info(
+                "Pooled source %d/%d: %d samples, groups=%s",
+                i + 1,
+                len(datasets),
+                len(labels),
+                sorted(feats),
+            )
+            per_dataset.append((feats, labels))
+
+        shared: set[str] | None = None
+        for feats, _ in per_dataset:
+            keys = set(feats)
+            shared = keys if shared is None else (shared & keys)
+
+        consistent: list[str] = []
+        for key in sorted(shared or set()):
+            widths = {feats[key].shape[1] for feats, _ in per_dataset}
+            if len(widths) == 1:
+                consistent.append(key)
+            else:
+                logger.warning(
+                    "Dropping feature group %r from the pool: width varies across "
+                    "datasets (%s); it cannot be concatenated.",
+                    key,
+                    sorted(widths),
+                )
+
+        if not consistent:
+            raise RuntimeError(
+                "No feature group is shared with consistent width across all pooled "
+                "datasets; cannot build a pooled fusion prior."
+            )
+
+        pooled = {key: torch.cat([feats[key] for feats, _ in per_dataset]) for key in consistent}
+        pooled_y = np.concatenate([labels for _, labels in per_dataset])
+        self._fusion_feature_groups = consistent
+
+        metrics = self._fit_fusion_on_features(
+            pooled,
+            pooled_y,
+            epochs=epochs,
+            batch_size=batch_size,
+            learning_rate=learning_rate,
+            early_stopping_patience=early_stopping_patience,
+            validation_split=validation_split,
+            use_focal_loss=use_focal_loss,
+            focal_alpha=focal_alpha,
+            focal_gamma=focal_gamma,
+            calibrate=calibrate,
+        )
+        metrics.update(
+            {
+                "pooled_datasets": len(per_dataset),
+                "pooled_samples": len(pooled_y),
+                "pooled_groups": consistent,
+            }
+        )
+        return metrics
 
     def _generate_pseudo_labels(
         self,
@@ -3547,6 +3737,7 @@ class OmniMercuryEngine(LoggerMixin):
             "projection_registry": self.fusion_model.export_projection_registry(),
             "temperature": temperature,
             "feature_groups": self._fusion_feature_groups,
+            "provenance": self._fusion_provenance,
             "fusion_trained": bool(self._fusion_trained),
         }
         torch.save(checkpoint, path)
@@ -3608,6 +3799,8 @@ class OmniMercuryEngine(LoggerMixin):
 
             groups = checkpoint.get("feature_groups")
             self._fusion_feature_groups = list(groups) if groups is not None else None
+            provenance = checkpoint.get("provenance")
+            self._fusion_provenance = dict(provenance) if provenance is not None else None
             self._fusion_trained = bool(checkpoint.get("fusion_trained", True))
         else:
             # Legacy bare state_dict (no metadata): load directly.
