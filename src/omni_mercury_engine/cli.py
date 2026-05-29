@@ -228,6 +228,73 @@ def build_features(data: str, labels: str | None, output: str) -> None:
 
 
 @main.command()
+@click.option("--input", "-i", required=True, help="Input data file (CSV/NPY)")
+@click.option("--output", "-o", help="Output file for the causal graph (JSON)")
+@click.option("--names", "-n", default=None, help="Comma-separated variable names")
+@click.option("--temporal", is_flag=True, help="Use Granger temporal causation instead of PC")
+@click.option("--seed", default=0, type=int, help="Seed for reproducible discovery")
+@click.option("--significance", default=0.05, type=float, help="Independence-test alpha")
+def causal(
+    input: str,
+    output: str | None,
+    names: str | None,
+    temporal: bool,
+    seed: int,
+    significance: float,
+) -> None:
+    """Discover causal structure (PC + Fisher-Z, or Granger temporal).
+
+    Surfaces the causal-discovery subsystem. Structure discovery is
+    deterministic for a fixed input and ``--seed``.
+
+    Examples:
+        mercury-agent causal -i data.csv --names A,B,C,D
+        mercury-agent causal -i series.csv --temporal --seed 0 -o graph.json
+    """
+    try:
+        engine = _get_engine(mode="fusion")
+        data = _load_data(input)
+        var_names = [s.strip() for s in names.split(",")] if names else None
+
+        if temporal:
+            graph = engine.discover_temporal_causation(
+                data, var_names, significance_level=significance, seed=seed
+            )
+        else:
+            graph = engine.discover_causal_structure(
+                data, var_names, significance_level=significance, seed=seed
+            )
+
+        if output:
+            with open(output, "w") as f:
+                json.dump(graph, f, indent=2, default=str)
+            click.echo(f"Causal graph saved to {output}")
+        else:
+            click.echo(json.dumps(graph, indent=2, default=str))
+    except (RuntimeError, ValueError, OSError) as e:
+        click.echo(f"Error: {e}", err=True)
+        raise SystemExit(1) from e
+
+
+@main.command("symbolic-rules")
+@click.option("--output", "-o", help="Output file for the rule graph (JSON)")
+def symbolic_rules(output: str | None) -> None:
+    """Export the symbolic logic layer's rule graph (nodes, edges, rules)."""
+    try:
+        engine = _get_engine(mode="fusion")
+        graph = engine.symbolic_rule_graph()
+        if output:
+            with open(output, "w") as f:
+                json.dump(graph, f, indent=2, default=str)
+            click.echo(f"Rule graph saved to {output}")
+        else:
+            click.echo(json.dumps(graph, indent=2, default=str))
+    except (RuntimeError, ValueError, OSError) as e:
+        click.echo(f"Error: {e}", err=True)
+        raise SystemExit(1) from e
+
+
+@main.command()
 @click.option("--input", "-i", required=True, help="Input data file")
 @click.option("--model", "-m", default="fusion", help="Model type")
 def explain(input: str, model: str) -> None:

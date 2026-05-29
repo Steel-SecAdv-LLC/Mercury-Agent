@@ -147,7 +147,14 @@ class SymbolicReasoningEngine:
                 )
 
         symbolic_confidence = len(symbolic_rules_fired) / len(self.rules) if self.rules else 0.0
-        combined_confidence = 0.6 * neural_score + 0.4 * symbolic_confidence
+
+        # Adaptive neuro-symbolic blend (single canonical implementation),
+        # replacing the former hardcoded 0.6/0.4 static mix.
+        from omni_mercury_engine.cognitive.neurosymbolic_fusion import (
+            adaptive_neurosymbolic_fuse,
+        )
+
+        combined_confidence, _ = adaptive_neurosymbolic_fuse(neural_score, symbolic_confidence)
 
         final_decision = "anomalous" if combined_confidence > 0.5 else "normal"
 

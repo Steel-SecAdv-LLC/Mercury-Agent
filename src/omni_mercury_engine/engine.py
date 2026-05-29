@@ -1698,6 +1698,116 @@ class OmniMercuryEngine(LoggerMixin):
         # means.
         return self._apply_fusion_calibration(probs).reshape(-1)
 
+    # ------------------------------------------------------------------
+    # Symbolic stack surface (Issue #4): causal discovery + rule graph.
+    # These expose the previously-dormant cognitive subsystems through the
+    # engine (and, via cli.py, the CLI). Structure discovery is deterministic
+    # for fixed input data and a fixed seed.
+    # ------------------------------------------------------------------
+    def discover_causal_structure(
+        self,
+        X: np.ndarray[Any, Any],
+        variable_names: list[str] | None = None,
+        *,
+        significance_level: float = 0.05,
+        max_conditioning_set: int = 4,
+        seed: int = 0,
+    ) -> dict[str, Any]:
+        """Discover causal structure via the PC algorithm (Fisher-Z CI tests).
+
+        Deterministic for fixed ``X`` and ``seed`` — the constraint-based
+        skeleton/orientation depends only on the data; ``seed`` fixes the
+        engine's bootstrap generator so the whole pipeline is reproducible.
+
+        Args:
+            X: Data matrix ``(n_samples, n_variables)``.
+            variable_names: Optional variable names (default ``X0..Xk``).
+            significance_level: Alpha for the conditional-independence tests.
+            max_conditioning_set: Maximum conditioning-set size in PC.
+            seed: Seed for the discovery engine's RNG (reproducibility).
+
+        Returns:
+            The discovered causal graph as a dict (nodes, edges, confounders,
+            colliders, is_cpdag).
+        """
+        from omni_mercury_engine.cognitive.causal_discovery import CausalDiscoveryEngine
+
+        X = np.asarray(X, dtype=float)
+        if X.ndim != 2:
+            raise ValueError(f"discover_causal_structure expects a 2-D matrix, got shape {X.shape}")
+
+        discovery = CausalDiscoveryEngine(
+            significance_level=significance_level,
+            max_conditioning_set=max_conditioning_set,
+            seed=seed,
+        )
+        graph = discovery.discover_structure(X, variable_names)
+        return graph.to_dict()
+
+    def discover_temporal_causation(
+        self,
+        X: np.ndarray[Any, Any],
+        variable_names: list[str] | None = None,
+        *,
+        max_lag: int = 5,
+        significance_level: float = 0.05,
+        seed: int = 0,
+    ) -> dict[str, Any]:
+        """Discover temporal (Granger) causation between time series.
+
+        Args:
+            X: Time-series matrix ``(n_timesteps, n_variables)``.
+            variable_names: Optional variable names.
+            max_lag: Maximum lag tested for Granger causality.
+            significance_level: Alpha for the F-test.
+            seed: Seed for reproducibility.
+
+        Returns:
+            The temporal causal graph as a dict.
+        """
+        from omni_mercury_engine.cognitive.causal_discovery import CausalDiscoveryEngine
+
+        X = np.asarray(X, dtype=float)
+        if X.ndim != 2:
+            raise ValueError(
+                f"discover_temporal_causation expects a 2-D matrix, got shape {X.shape}"
+            )
+
+        discovery = CausalDiscoveryEngine(
+            significance_level=significance_level,
+            enable_temporal=True,
+            max_lag=max_lag,
+            seed=seed,
+        )
+        graph = discovery.discover_temporal_causation(X, variable_names)
+        return graph.to_dict()
+
+    def symbolic_rule_graph(self) -> dict[str, Any]:
+        """Export the symbolic logic layer's rule graph (Issue #4).
+
+        Surfaces the previously-dormant rule graph: nodes/edges/rule-type
+        counts plus the individual rules (premise -> conclusion).
+
+        Returns:
+            Dict with graph statistics and the rule list.
+        """
+        from omni_mercury_engine.cognitive.symbolic_logic_layer import SymbolicLogicLayer
+
+        layer = SymbolicLogicLayer()
+        graph = layer.reasoner.logic_graph
+        rules = [
+            {
+                "rule_id": r.rule_id,
+                "type": r.rule_type.value,
+                "premise": r.premise,
+                "conclusion": r.conclusion,
+                "confidence": r.confidence,
+                "priority": r.priority,
+            }
+            for r in graph.rules.values()
+        ]
+        return {"statistics": graph.get_statistics(), "rules": rules}
+
     def enable_drift_detection(
         self,
         baseline_data: np.ndarray[Any, Any] | None = None,
