@@ -632,6 +632,8 @@ class TrustedEndpoints:
             "physionet.org",
             # TimeEval HiDrive — SMAP/MSL/SMD mirrors
             "my.hidrive.com",
+            # Zenodo — SMAP/MSL TimeEval archive (DOI: 10.5281/zenodo.5899270)
+            "zenodo.org",
             # BATADAL — Water Network Attack Detection
             "www.batadal.net",
             # MAST — Kepler Light Curves
@@ -652,8 +654,14 @@ class TrustedEndpoints:
             # the time-series classification consortium that publishes
             # the UCR/UEA archive; used by ``datasets/ucr_archive.py``
             # for per-dataset downloads alongside the full-archive UCR
-            # site.  Plain HTTP not required (HTTPS works).
+            # site.  Plain HTTP not required (HTTPS works).  Both the
+            # ``www.`` and apex hostnames are reachable on the current
+            # mirror; the apex form is what the per-dataset URL resolves
+            # to after the sktime->aeon move (``/aeon-toolkit/<name>.zip``).
             "www.timeseriesclassification.com",
+            "timeseriesclassification.com",
+            # UCR 2018 full archive (primary bulk-download source for UCR datasets)
+            "www.cs.ucr.edu",
             # CWRU Bearing Data Center (vibration / fault-diagnosis
             # benchmark).  Hosted on the Case Western Reserve University
             # engineering domain; used by ``datasets/ucr_archive.py``

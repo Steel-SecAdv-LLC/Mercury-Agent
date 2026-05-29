@@ -722,6 +722,11 @@ class OmniMercuryEngine(LoggerMixin):
         """
         self.config = config or EngineConfig()
         self.mode = mode
+        # Set of detector names that were auto-fit on inference data because
+        # they were not pre-fit. Initialised unconditionally so the leakage
+        # surface (warning + result-dict key) works for every engine mode,
+        # not only ``mode='fusion'``.
+        self._inference_auto_fit_detectors: set[str] = set()
 
         if not TORCH_AVAILABLE:
             raise ImportError(
@@ -1089,7 +1094,10 @@ class OmniMercuryEngine(LoggerMixin):
             focal_criterion = FocalLoss(alpha=focal_alpha, gamma=focal_gamma)
 
             def _loss_fn(probs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
-                return focal_criterion(probs, targets)
+                # ``FocalLoss.forward`` returns a Tensor but its nn.Module
+                # ``__call__`` is typed as ``Any`` in the torch stubs; cast so
+                # the wrapper's signature isn't degraded.
+                return torch.as_tensor(focal_criterion(probs, targets))
 
         else:
 
@@ -1556,6 +1564,28 @@ class OmniMercuryEngine(LoggerMixin):
         selected = {k: v for k, v in features.items() if k in groups}
         return selected or features
 
+    def _apply_fusion_calibration(self, probs: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Apply the fitted post-hoc temperature calibration to a probability array.
+
+        Single source of truth for calibration application across the production
+        ``detect_with_fusion`` path and the benchmark ``score_fusion`` path, so
+        the calibrator persisted on the checkpoint reaches every consumer that
+        reads ``anomaly_probs`` from the network's output — not only the
+        benchmark path. Without this, ``fit_fusion``'s temperature scalar (Guo
+        et al. 2017) only corrects probabilities measured via ``score_fusion``
+        and ``mercury-agent detect`` users still get raw sigmoid output.
+
+        Monotonic, so ranking (and any AUC measured downstream) is preserved
+        exactly; only the probability values are corrected. A no-op when no
+        calibrator is fitted, so the contract degrades cleanly on legacy
+        checkpoints (and on engines that never trained calibration).
+        """
+        if self._fusion_calibrator is None:
+            return probs
+        arr = np.asarray(probs)
+        calibrated = np.asarray(self._fusion_calibrator.calibrate(arr.reshape(-1)))
+        return calibrated.reshape(arr.shape)
+
     def build_feature_npz(
         self,
         X: np.ndarray[Any, Any],
@@ -1612,7 +1642,10 @@ class OmniMercuryEngine(LoggerMixin):
 
         if not output_path.endswith(".npz"):
             output_path = f"{output_path}.npz"
-        np.savez(output_path, **arrays)
+        # numpy's ``savez`` stubs overload ``**kwds`` against the rarely-used
+        # ``allow_pickle`` bool kwarg, so mypy flags every keyword-arg call
+        # site. The runtime semantics are correct (one named array per kwarg).
+        np.savez(output_path, **arrays)  # type: ignore[arg-type]
         logger.info(
             f"Wrote fusion feature archive to {output_path} "
             f"({len(arrays) - 1} detector feature groups, {len(arrays['labels'])} samples)"
@@ -1660,9 +1693,10 @@ class OmniMercuryEngine(LoggerMixin):
 
         # Apply post-hoc temperature calibration when available. Monotonic, so
         # rankings/AUC are unchanged; only the probability values are corrected.
-        if self._fusion_calibrator is not None:
-            probs = np.asarray(self._fusion_calibrator.calibrate(probs)).reshape(-1)
-        return probs
+        # Same helper that ``detect_with_fusion`` calls so the benchmark path
+        # and the production path agree on what the checkpoint's temperature
+        # means.
+        return self._apply_fusion_calibration(probs).reshape(-1)
 
     # ------------------------------------------------------------------
     # Symbolic stack surface (Issue #4): causal discovery + rule graph.
@@ -2772,6 +2806,18 @@ class OmniMercuryEngine(LoggerMixin):
         Note:
             Uses parallel processing when available for improved performance.
             Features are cached using the FeatureCache for repeated access.
+
+        Data leakage warning:
+            If a detector is not yet fit when this method is called, it is
+            auto-fit on ``data`` — which means the first batch passed to
+            ``detect_with_fusion`` becomes the detector's reference
+            distribution. This biases all subsequent scoring against that
+            first batch. The name of each detector that was auto-fit here is
+            recorded in ``self._inference_auto_fit_detectors`` and a
+            ``logger.warning`` is emitted the first time it happens, so the
+            caller can audit it. To avoid the leakage entirely, call
+            ``fit_fusion(X_train, y_train)`` (which fits all detectors on
+            ``X_train``) before any ``detect_with_fusion`` invocation.
         """
         detector_features = {}
         detector_scores = {}
@@ -2781,6 +2827,17 @@ class OmniMercuryEngine(LoggerMixin):
                 if not detector.is_fitted():
                     if isinstance(data, dict):
                         continue
+                    if name not in self._inference_auto_fit_detectors:
+                        logger.warning(
+                            "Detector %r was auto-fit on the first inference "
+                            "batch (n=%s) because it had no prior fit. The "
+                            "batch's distribution is now this detector's "
+                            "reference — call fit_fusion(X_train, y_train) "
+                            "before detect_with_fusion to avoid the leakage.",
+                            name,
+                            getattr(data, "shape", ("?",))[0] if hasattr(data, "shape") else "?",
+                        )
+                    self._inference_auto_fit_detectors.add(name)
                     detector.fit(data)
 
                 # Try to use cached features
@@ -3153,6 +3210,17 @@ class OmniMercuryEngine(LoggerMixin):
             return_attention=True,
         )
 
+        # Calibrate at the production decision boundary, in-place into the
+        # result dict, so every downstream consumer (anomaly_prob, the
+        # threshold finder, drift signals) sees the same temperature-scaled
+        # probabilities the benchmark path serves through ``score_fusion``.
+        # Without this, the persisted post-hoc temperature scalar (Guo et al.
+        # 2017) trained by ``fit_fusion`` only affects ``score_fusion`` and
+        # the user-facing ``mercury-agent detect`` keeps returning raw sigmoid.
+        fusion_result["anomaly_probs"] = self._apply_fusion_calibration(
+            np.asarray(fusion_result["anomaly_probs"])
+        )
+
         anomaly_prob_val = fusion_result["anomaly_probs"][0]
         if isinstance(anomaly_prob_val, np.ndarray) or hasattr(anomaly_prob_val, "item"):
             anomaly_prob_val = anomaly_prob_val.item()
@@ -3180,6 +3248,14 @@ class OmniMercuryEngine(LoggerMixin):
             "mode": "fusion",
             "threshold_used": float(threshold),
         }
+
+        # Surface any detectors that had to be auto-fit on the inference batch.
+        # Empty when training was done properly via fit_fusion; non-empty means
+        # the result is biased by the leakage and the caller should know.
+        if self._inference_auto_fit_detectors:
+            result["inference_auto_fit_detectors"] = sorted(
+                self._inference_auto_fit_detectors
+            )
 
         # Add GOSNN metadata if integration was enabled
         if gosnn_metadata:
@@ -3290,6 +3366,12 @@ class OmniMercuryEngine(LoggerMixin):
             if isinstance(all_probs, torch.Tensor):
                 all_probs = all_probs.cpu().numpy()
             all_probs = np.asarray(all_probs).flatten()
+            # Calibrate before threshold selection: the threshold finder
+            # (Otsu/F1/percentile) must operate on the same probability scale
+            # as detect_with_fusion's calibrated anomaly_prob, otherwise the
+            # threshold and the scalar live on different scales and the
+            # is_anomaly verdict is internally inconsistent.
+            all_probs = self._apply_fusion_calibration(all_probs)
         else:
             all_probs = np.array([anomaly_prob])
 

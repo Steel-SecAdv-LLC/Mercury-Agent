@@ -48,8 +48,12 @@ Either way the checkpoint is calibrated (temperature scaling) and records its
 provenance (source, datasets, seed) so a shipped artifact is self-describing.
 
 Reproducibility: the synthetic path is fully seeded. ``hidden_dim`` defaults to
-32 — chosen on held-out evidence, not a file-size cap (see
-``scripts/sweep_fusion_capacity.py`` for the capacity sweep that informs it).
+64 — raised from 32 after production-axis analysis showed the live benchmark
+suite operates at up to 1555 features and 620K samples per dataset, making
+the 32-dim bottleneck a 48:1 compression on real inputs. dim=64 provides 2×
+encoder capacity at 3.2× param cost (0.71 MB fp32) and is the evidence-backed
+transitional default. See ``benchmarks/fusion_capacity/README.md`` for the
+full cost/stability/OOD analysis.
 
 Usage:
     python -m scripts.train_default_fusion                      # synthetic default
@@ -70,7 +74,7 @@ from omni_mercury_engine.ml.fusion_network import OmniFusionModel
 from omni_mercury_engine.ml.inference import FusionInference
 
 SEED = 20260526
-HIDDEN_DIM = 32
+HIDDEN_DIM = 64
 N_FEATURES = 16
 
 # Genuinely-labelled ADBench datasets (external ground-truth labels) spanning a
