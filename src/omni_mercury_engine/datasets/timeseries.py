@@ -444,12 +444,17 @@ class SMAPMSLLoader(DatasetLoader):
     KDD 2018."""
     REQUIRES_CREDENTIALS = False
 
-    # Data URLs — OmniAnomaly GitHub mirror is the primary source.
-    # The original S3 URL (s3-us-west-2.amazonaws.com/telemanom/data.zip) returns 403.
+    # Data URLs — multiple mirrors tried in order.
+    # S3 (s3-us-west-2.amazonaws.com/telemanom/data.zip) returns 403.
+    # OmniAnomaly GitHub mirror is the primary; khundman repo is the canonical fallback.
     OMNIANOMALY_BASE_URL = "https://raw.githubusercontent.com/NetManAIOps/OmniAnomaly/master/data/"
+    TELEMANOM_BASE_URL = "https://raw.githubusercontent.com/khundman/telemanom/master/data/"
     LABELED_ANOMALIES_URL = (
         "https://raw.githubusercontent.com/khundman/telemanom/master/labeled_anomalies.csv"
     )
+    # Zenodo TimeEval archive — full SMAP/MSL preprocessed dataset (DOI: 10.5281/zenodo.5899270).
+    # Operator can download and extract train/ test/ subdirs manually; see error message below.
+    ZENODO_INSTRUCTIONS_URL = "https://zenodo.org/record/5899270"
 
     def __init__(self, config: DatasetConfig) -> None:
         super().__init__(config)
@@ -519,23 +524,30 @@ class SMAPMSLLoader(DatasetLoader):
                         if npy_path.exists():
                             downloaded += 1
                             continue
-                        url = f"{self.OMNIANOMALY_BASE_URL}{split}/{chan}.npy"
-                        try:
-                            safe_urlretrieve(url, npy_path)
-                            downloaded += 1
-                        except Exception:
-                            logger.debug("Channel %s download failed, skipping", chan)
+                        # Try OmniAnomaly mirror first, then canonical telemanom repo.
+                        mirrors = [
+                            f"{self.OMNIANOMALY_BASE_URL}{split}/{chan}.npy",
+                            f"{self.TELEMANOM_BASE_URL}{split}/{chan}.npy",
+                        ]
+                        for mirror_url in mirrors:
+                            try:
+                                safe_urlretrieve(mirror_url, npy_path)
+                                downloaded += 1
+                                break
+                            except Exception:
+                                logger.debug("Channel %s mirror %s failed", chan, mirror_url)
                 if downloaded > 0:
-                    logger.info(f"  Downloaded {downloaded} channel files from OmniAnomaly mirror")
+                    logger.info(f"  Downloaded {downloaded} channel files from GitHub mirrors")
                     return True
 
         raise DataSourceUnavailableError(
             loader_name=f"SMAP/MSL ({self.dataset})",
             source_url=self.OMNIANOMALY_BASE_URL,
             reason=(
-                "Could not download telemetry data from OmniAnomaly mirror. "
-                "Alternative: download from TimeEval HiDrive mirror "
-                "(https://my.hidrive.com/share/ma4p8w4qqb) "
+                "Could not download telemetry data from GitHub mirrors "
+                "(OmniAnomaly + khundman/telemanom). "
+                f"Manual install: download from Zenodo TimeEval archive "
+                f"({self.ZENODO_INSTRUCTIONS_URL}) "
                 f"and extract train/ and test/ directories to: {self.data_path}"
             ),
         )

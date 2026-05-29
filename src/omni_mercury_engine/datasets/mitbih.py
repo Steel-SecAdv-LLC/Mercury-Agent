@@ -102,6 +102,7 @@ class MITBIHLoader(DatasetLoader):
     """
 
     DATASET_NAME = "mitbih"
+    LABEL_SOURCE = "expert_annotated"  # cardiologist-annotated heartbeat classes
     DATASET_URL = "https://physionet.org/content/mitdb/1.0.0/"
     LICENSE = "Open Data Commons Attribution License v1.0"
     CITATION = (
@@ -128,8 +129,9 @@ class MITBIHLoader(DatasetLoader):
             raise DataSourceUnavailableError(
                 loader_name="MIT-BIH",
                 reason=(
-                    "wfdb library required: pip install wfdb "
-                    "Add 'wfdb' to pyproject.toml [project.optional-dependencies.medical]"
+                    "wfdb library required: pip install mercury-agent[medical] "
+                    "(or: pip install wfdb>=4.3.1). "
+                    "MIT-BIH data source: https://physionet.org/content/mitdb/1.0.0/"
                 ),
             ) from e
 

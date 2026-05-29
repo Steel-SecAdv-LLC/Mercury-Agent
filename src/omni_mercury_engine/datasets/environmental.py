@@ -52,6 +52,7 @@ class USGSEarthquakeLoader(DatasetLoader):
     """
 
     DATASET_NAME = "earthquake"
+    LABEL_SOURCE = "statistical"  # labels = magnitude>=5 OR depth>300 (threshold on features)
     DATASET_URL = "https://earthquake.usgs.gov/earthquakes/search/"
     LICENSE = "Public Domain (USGS)"
     CITATION = """U.S. Geological Survey (USGS) Earthquake Hazards Program.
@@ -340,6 +341,7 @@ class NOAAWeatherLoader(DatasetLoader):
     """
 
     DATASET_NAME = "weather"
+    LABEL_SOURCE = "statistical"  # labels = max z-score > 3.0 (threshold on features)
     DATASET_URL = "https://open-meteo.com/"
     LICENSE = "CC BY 4.0 (Open-Meteo)"
     CITATION = """Open-Meteo Free Weather API. https://open-meteo.com/"""
@@ -697,6 +699,7 @@ class WildfireDataLoader(DatasetLoader):
     """
 
     DATASET_NAME = "wildfire"
+    LABEL_SOURCE = "statistical"  # labels = FIRMS confidence > 70 (threshold on a feature)
     DATASET_URL = "https://firms.modaps.eosdis.nasa.gov/"
     LICENSE = "Public Domain (NASA)"
     CITATION = """NASA FIRMS (Fire Information for Resource Management System).
@@ -1025,6 +1028,7 @@ class USGSGeochemistryLoader(DatasetLoader):
     """
 
     DATASET_NAME = "geochemistry"
+    LABEL_SOURCE = "statistical"  # labels derived from detection-threshold cuts on concentrations
     DATASET_URL = "https://mrdata.usgs.gov/geochem/"
     LICENSE = "Public Domain (USGS)"
     CITATION = """U.S. Geological Survey (USGS). Mineral Resources Data System.

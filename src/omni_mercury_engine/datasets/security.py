@@ -735,7 +735,16 @@ class CICIDSLoader(DatasetLoader):
             return self._create_synthetic_fallback()
         raise DataSourceUnavailableError(
             loader_name="CICIDS-2017",
-            reason="All download sources failed. Place kaggle.json in ~/.kaggle/ or provide local_path.",
+            reason=(
+                "All download sources failed. Options: "
+                "(1) HuggingFace: pip install datasets, then set env var "
+                "MERCURY_CICIDS_HF_REV_BVK_CICIDS_2017=<commit-sha> "
+                "(get SHA via: python -c \"from huggingface_hub import HfApi; "
+                "print(HfApi().list_repo_commits('bvk/CICIDS-2017')[0].commit_id)\"); "
+                "(2) Kaggle: place kaggle.json in ~/.kaggle/ and run again; "
+                "(3) Manual: set preprocessing={'local_path': '/path/to/cicids2017/'}. "
+                "Official source: https://www.unb.ca/cic/datasets/ids-2017.html"
+            ),
         )
 
     def _load_from_local_path(self) -> bool:
@@ -1372,6 +1381,7 @@ class ThreatIntelLoader(DatasetLoader):
     """
 
     DATASET_NAME = "threat-intel"
+    LABEL_SOURCE = "statistical"  # labels = (num_phases>=2 & num_platforms>=3) heuristic threshold
     DATASET_URL = "https://attack.mitre.org/"
     LICENSE = "Apache 2.0 (MITRE ATT&CK)"
     CITATION = "MITRE ATT&CK. MITRE Corporation. https://attack.mitre.org/"

@@ -185,7 +185,15 @@ def _load_adbench() -> list[dict[str, Any]]:
             loader.download()
             X, y = loader._load_raw()
             y = (y > 0).astype(int)
-            entries.append({"name": name, "category": "adbench", "X": X, "y": y})
+            entries.append(
+                {
+                    "name": name,
+                    "category": "adbench",
+                    "X": X,
+                    "y": y,
+                    "label_source": getattr(ADBenchLoader, "LABEL_SOURCE", "ground_truth"),
+                }
+            )
         except Exception as e:
             entries.append({"name": name, "category": "adbench", "error": str(e)})
     return entries
@@ -222,6 +230,10 @@ def _load_domain_dataset(
         mod = importlib.import_module(f"omni_mercury_engine.datasets.{module}")
         loader_cls = getattr(mod, loader_class_name)
         from omni_mercury_engine.datasets.base import DatasetConfig
+
+        # Label provenance declared at source on the loader class. Manufactured
+        # (threshold/heuristic) labels are excluded from headline supervised AUC.
+        label_source = getattr(loader_cls, "LABEL_SOURCE", "ground_truth")
 
         cfg = DatasetConfig(name=name, preprocessing=kwargs)
         loader = loader_cls(cfg)
@@ -280,7 +292,13 @@ def _load_domain_dataset(
                 "category": category,
                 "error": "Labels have fewer than 2 distinct values",
             }
-        return {"name": name, "category": category, "X": X, "y": y}
+        return {
+            "name": name,
+            "category": category,
+            "X": X,
+            "y": y,
+            "label_source": label_source,
+        }
     except Exception as e:
         logger.warning("Dataset %s unavailable: %s", name, e)
         return {
@@ -386,24 +404,73 @@ def run_benchmark(
         gc.collect()
 
     # --- Summary ---
+    #
+    # Headline supervised AUC is computed ONLY over genuinely-labelled datasets
+    # (ground-truth / expert-annotated). Datasets whose anomaly labels were
+    # manufactured by thresholding a detector-like score/feature are circular:
+    # scoring a detector against them inflates AUC. They are reported separately
+    # under ``unsupervised_eval`` so the headline number is honest, and the
+    # inflation delta the exclusion removes is stated explicitly.
+    from omni_mercury_engine.datasets.metadata import is_supervised_eval_safe
+
     successful = [r for r in results if r.get("error") is None]
-    aucs = [r["ensemble_auc"] for r in successful if not np.isnan(r["ensemble_auc"])]
-    f1s = [r["oracle_f1"] for r in successful if r["oracle_f1"] > 0]
+
+    def _aucs(rows: list[dict[str, Any]]) -> list[float]:
+        return [r["ensemble_auc"] for r in rows if not np.isnan(r["ensemble_auc"])]
+
+    genuine = [
+        r for r in successful if is_supervised_eval_safe(r.get("label_source", "ground_truth"))
+    ]
+    manufactured = [
+        r for r in successful if not is_supervised_eval_safe(r.get("label_source", "ground_truth"))
+    ]
+
+    headline_aucs = _aucs(genuine)  # honest headline: genuine labels only
+    manufactured_aucs = _aucs(manufactured)
+    all_aucs = _aucs(successful)
+    f1s = [r["oracle_f1"] for r in genuine if r["oracle_f1"] > 0]
+
+    # Delta the de-leak introduces vs. the old (contaminated) all-datasets number.
+    deleak_delta = None
+    if headline_aucs and all_aucs:
+        deleak_delta = {
+            "median_auc_all_datasets": float(np.median(all_aucs)),
+            "median_auc_genuine_only": float(np.median(headline_aucs)),
+            "median_auc_delta": float(np.median(headline_aucs) - np.median(all_aucs)),
+            "mean_auc_all_datasets": float(np.mean(all_aucs)),
+            "mean_auc_genuine_only": float(np.mean(headline_aucs)),
+            "mean_auc_delta": float(np.mean(headline_aucs) - np.mean(all_aucs)),
+        }
 
     summary = {
         "total_datasets": len(results),
         "successful": len(successful),
         "failed": len(results) - len(successful),
-        "mean_auc": float(np.mean(aucs)) if aucs else None,
-        "median_auc": float(np.median(aucs)) if aucs else None,
-        "std_auc": float(np.std(aucs)) if aucs else None,
+        # Headline metrics: genuinely-labelled datasets only.
+        "headline_label_policy": "genuine_labels_only (ground_truth | expert_annotated)",
+        "n_genuine_labeled": len(genuine),
+        "mean_auc": float(np.mean(headline_aucs)) if headline_aucs else None,
+        "median_auc": float(np.median(headline_aucs)) if headline_aucs else None,
+        "std_auc": float(np.std(headline_aucs)) if headline_aucs else None,
         "mean_oracle_f1": float(np.mean(f1s)) if f1s else None,
         "median_oracle_f1": float(np.median(f1s)) if f1s else None,
+        # Excluded (unsupervised-eval-only) datasets, reported in isolation.
+        "unsupervised_eval": {
+            "n_datasets": len(manufactured),
+            "dataset_names": [r["name"] for r in manufactured],
+            "mean_auc": float(np.mean(manufactured_aucs)) if manufactured_aucs else None,
+            "median_auc": float(np.median(manufactured_aucs)) if manufactured_aucs else None,
+            "note": (
+                "Labels manufactured by thresholding a detector-like score/feature; "
+                "excluded from headline AUC as circular. Use for unsupervised eval only."
+            ),
+        },
+        "deleak_delta": deleak_delta,
     }
 
     # --- Per-component summary ---
     comp_aucs: dict[str, list[float]] = {"resonance": [], "kinematic": [], "info_geometry": []}
-    for r in successful:
+    for r in genuine:
         for comp in comp_aucs:
             v = r.get(f"{comp}_auc")
             if v is not None and not np.isnan(v):
@@ -528,12 +595,14 @@ def _benchmark_single(entry: dict[str, Any]) -> dict[str, Any]:
     """Benchmark a single dataset entry."""
     name = entry["name"]
     category = entry.get("category", "unknown")
+    label_source = entry.get("label_source", "ground_truth")
 
     if "error" in entry:
         print(f"  [{name}] SKIP: {entry['error'][:80]}")
         return {
             "name": name,
             "category": category,
+            "label_source": label_source,
             "error": entry["error"],
         }
 
@@ -549,7 +618,7 @@ def _benchmark_single(entry: dict[str, Any]) -> dict[str, Any]:
     if len(unique_labels) < 2:
         msg = f"Only one class present (labels={unique_labels.tolist()})"
         print(f"  [{name}] SKIP: {msg}")
-        return {"name": name, "category": category, "error": msg}
+        return {"name": name, "category": category, "label_source": label_source, "error": msg}
 
     n_total = len(X_full)
     anomaly_ratio = float(y_full.mean())
@@ -566,7 +635,7 @@ def _benchmark_single(entry: dict[str, Any]) -> dict[str, Any]:
     if n_train < 5:
         msg = f"Too few normal samples for training ({n_train})"
         print(f"  [{name}] SKIP: {msg}")
-        return {"name": name, "category": category, "error": msg}
+        return {"name": name, "category": category, "label_source": label_source, "error": msg}
 
     rng = np.random.RandomState(42)
     train_idx = rng.choice(len(X_normal), n_train, replace=False)
@@ -603,7 +672,12 @@ def _benchmark_single(entry: dict[str, Any]) -> dict[str, Any]:
     try:
         t0 = time.perf_counter()
         detector.fit(X_train)
-        detector._benchmark_domain = category  # Domain preset prior
+        # ``_benchmark_domain`` is a runtime-only marker the benchmark plants
+        # on the detector so downstream weight selection knows which domain
+        # preset to use. mypy cannot see this dynamic attribute on the
+        # ``MercuryAnomalyDetector`` class, so silence the false positive
+        # without changing the runtime contract.
+        detector._benchmark_domain = category  # type: ignore[attr-defined]
         fit_ms = (time.perf_counter() - t0) * 1000
 
         t0 = time.perf_counter()
@@ -612,7 +686,7 @@ def _benchmark_single(entry: dict[str, Any]) -> dict[str, Any]:
     except Exception as e:
         msg = f"Detector error: {e}"
         print(f"  [{name}] ERROR: {msg[:80]}")
-        return {"name": name, "category": category, "error": msg}
+        return {"name": name, "category": category, "label_source": label_source, "error": msg}
 
     scores = result["scores"]
     resonance = result["resonance_scores"]
@@ -654,12 +728,19 @@ def _benchmark_single(entry: dict[str, Any]) -> dict[str, Any]:
     }
     weight_source = getattr(detector, "_weight_source", "unknown")
     data_type_val = getattr(detector, "_data_type", None)
-    data_type_str = data_type_val.name if hasattr(data_type_val, "name") else str(data_type_val)
+    # ``hasattr(..., "name")`` is a runtime narrowing mypy can't follow when the
+    # attribute lives on ``Any | None``; the explicit getattr trip keeps the
+    # invariant ("only read .name when it exists") visible to both reader and
+    # type checker.
+    data_type_str = (
+        getattr(data_type_val, "name", None) or str(data_type_val)
+    )
     oracle_metadata = getattr(detector, "_oracle_metadata", {"active": False})
 
     return {
         "name": name,
         "category": category,
+        "label_source": label_source,
         "n_total": n_total,
         "n_train": len(X_train),
         "n_test": len(X_test),
@@ -701,11 +782,18 @@ def _print_table(
     )
     print("-" * 90)
     for r in successful:
+        # Mark datasets excluded from the headline (manufactured labels).
+        flag = (
+            ""
+            if r.get("label_source", "ground_truth") in ("ground_truth", "expert_annotated")
+            else " *"
+        )
         print(
             f"{r['name']:<25} {r['ensemble_auc']:>8.4f} {r['oracle_f1']:>8.4f} "
             f"{r['oracle_precision']:>8.4f} {r['oracle_recall']:>8.4f} "
-            f"{r['fit_ms']:>9.1f} {r['score_ms']:>10.1f}"
+            f"{r['fit_ms']:>9.1f} {r['score_ms']:>10.1f}{flag}"
         )
+    print("  (* = manufactured labels: unsupervised-eval-only, excluded from headline AUC)")
 
     failed = [r for r in results if r.get("error") is not None]
     if failed:
@@ -717,12 +805,41 @@ def _print_table(
     print(
         f"  Datasets: {summary['total_datasets']} total, {summary['successful']} successful, {summary['failed']} failed"
     )
+    print(f"  Headline policy: {summary.get('headline_label_policy')}")
     if summary.get("mean_auc") is not None:
-        print(f"  Mean AUC:   {summary['mean_auc']:.4f} +/- {summary['std_auc']:.4f}")
-        print(f"  Median AUC: {summary['median_auc']:.4f}")
+        print(
+            f"  Headline AUC (n={summary['n_genuine_labeled']} genuine): "
+            f"mean={summary['mean_auc']:.4f} +/- {summary['std_auc']:.4f}, "
+            f"median={summary['median_auc']:.4f}"
+        )
     if summary.get("mean_oracle_f1") is not None:
         print(f"  Mean Oracle F1:   {summary['mean_oracle_f1']:.4f}")
         print(f"  Median Oracle F1: {summary['median_oracle_f1']:.4f}")
+
+    ue = summary.get("unsupervised_eval", {})
+    if ue.get("n_datasets"):
+        med = ue.get("median_auc")
+        med_str = f"{med:.4f}" if med is not None else "n/a"
+        print(
+            f"\n--- Excluded (unsupervised-eval-only, manufactured labels): "
+            f"{ue['n_datasets']} datasets ---"
+        )
+        print(f"  median AUC (not headline): {med_str}")
+        print(f"  datasets: {', '.join(ue.get('dataset_names', []))}")
+
+    dd = summary.get("deleak_delta")
+    if dd:
+        print("\n--- De-leak delta (#6, stated in isolation) ---")
+        print(
+            f"  median AUC: all-datasets={dd['median_auc_all_datasets']:.4f} -> "
+            f"genuine-only={dd['median_auc_genuine_only']:.4f} "
+            f"(delta {dd['median_auc_delta']:+.4f})"
+        )
+        print(
+            f"  mean AUC:   all-datasets={dd['mean_auc_all_datasets']:.4f} -> "
+            f"genuine-only={dd['mean_auc_genuine_only']:.4f} "
+            f"(delta {dd['mean_auc_delta']:+.4f})"
+        )
 
     if component_summary:
         print("\n--- Per-Component AUC ---")
@@ -831,9 +948,11 @@ def run_progressive_validation(
         first_half_auc = np.mean(split_aucs[: n_valid // 2])
         second_half_auc = np.mean(split_aucs[n_valid // 2 :])
         # If later splits degrade > 20% relative to earlier splits
+        # ``bool(np.bool_(...))`` collapses numpy's bool to a stdlib bool so
+        # both branches share a type and mypy is happy.
         if first_half_auc > 0.01:
             degradation = (first_half_auc - second_half_auc) / first_half_auc
-            leakage_detected = degradation > 0.20
+            leakage_detected = bool(degradation > 0.20)
         else:
             leakage_detected = False
     else:

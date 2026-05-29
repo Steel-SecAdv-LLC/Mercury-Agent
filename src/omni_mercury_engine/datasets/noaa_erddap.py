@@ -54,6 +54,7 @@ class NOAAERDDAPLoader(DatasetLoader):
     """
 
     DATASET_NAME = "noaa_erddap"
+    LABEL_SOURCE = "statistical"  # labels = max z-score > 3.0 (threshold on features)
     DATASET_URL = "https://coastwatch.pfeg.noaa.gov/erddap/"
     LICENSE = "Public Domain (US Government)"
     CITATION = "NOAA CoastWatch / OceanWatch. ERDDAP Data Server."
@@ -76,7 +77,9 @@ class NOAAERDDAPLoader(DatasetLoader):
     # so retrying multiple offsets there would just re-issue an identical
     # request and log misleading "trying earlier date" messages — we make
     # a single attempt for that path instead.
-    _SSH_DATE_OFFSET_DAYS_FALLBACK = (7, 14, 21, 30)
+    # ERDDAP ingest lag on nesdisSSH1day can exceed 30 days during reprocessing;
+    # extend the fallback window to 180 days to survive extended outages.
+    _SSH_DATE_OFFSET_DAYS_FALLBACK = (7, 14, 21, 30, 45, 60, 90, 120, 180)
 
     def _build_ssh_url(self, base_url: str, date_str: str) -> str:
         """Construct the SSH ERDDAP URL with a time/lat/lon constraint."""

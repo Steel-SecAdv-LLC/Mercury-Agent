@@ -12,43 +12,60 @@ General Public License for more details.
 You should have received a copy of the GNU General Public License along with this program. If not,
 see
 https://www.gnu.org/licenses/.
+
+Train and persist the shipped default fusion checkpoint.
+
+The checkpoint produced here gives ``mercury-agent detect -d fusion`` (and any
+engine consumer that calls
+:meth:`OmniMercuryEngine.load_default_fusion_checkpoint`) a *trained*, calibrated
+fusion network out of the box instead of the random-init network that would
+otherwise ship.
+
+The network is trained through the real :meth:`OmniMercuryEngine.fit_fusion`
+path, which extracts the **exact feature set ``detect_with_fusion`` uses at
+inference** (base-detector features plus every domain-model feature that
+survives the input). The engine records those trained feature groups in the
+checkpoint and restricts inference to them, so the shipped weights transfer to
+the headline fusion path rather than merely loading. Training also applies
+FocalLoss and post-hoc temperature calibration, so the shipped probabilities are
+calibrated, not just well-ranked.
+
+Two data sources (``--source``):
+
+* ``synthetic`` (default) — a reproducible, network-free mixture of normal
+  Gaussian clusters and injected anomalies. This is what ships as the
+  **committed, deterministic** default checkpoint: same seed → same weights,
+  hash-pinnable, works offline, and auditable for supply-chain purposes.
+* ``real`` — an **opt-in** pooled prior over genuinely-labelled ADBench
+  datasets (``engine.fit_fusion_pooled``). It needs network access on first
+  run and is **not committed** (its weights depend on downloaded data and so
+  are not bit-reproducible across machines). Operators who want real-data
+  weights out of the box run ``make checkpoint`` / this script with
+  ``--source real``; everyone else gets the deterministic synthetic default
+  and can still fine-tune via ``mercury-agent train`` on their own corpus.
+
+Either way the checkpoint is calibrated (temperature scaling) and records its
+provenance (source, datasets, seed) so a shipped artifact is self-describing.
+
+Reproducibility: the synthetic path is fully seeded. ``hidden_dim`` defaults to
+64 — raised from 32 after production-axis analysis showed the live benchmark
+suite operates at up to 1555 features and 620K samples per dataset, making
+the 32-dim bottleneck a 48:1 compression on real inputs. dim=64 provides 2×
+encoder capacity at 3.2× param cost (0.71 MB fp32) and is the evidence-backed
+transitional default. See ``benchmarks/fusion_capacity/README.md`` for the
+full cost/stability/OOD analysis.
+
+Usage:
+    python -m scripts.train_default_fusion                      # synthetic default
+    python -m scripts.train_default_fusion --source real        # opt-in ADBench prior
+    python -m scripts.train_default_fusion --epochs 150 --output /tmp/f.pt
 """
 
 from __future__ import annotations
 
-"""Train and persist the shipped default fusion checkpoint.
-
-The checkpoint produced here gives ``mercury-agent detect -d fusion`` (and any
-engine consumer that calls :meth:`OmniMercuryEngine.load_default_fusion_checkpoint`)
-a *trained* fusion network out of the box instead of the random-init network the
-previous default shipped.
-
-Critically, the network is trained on the **exact feature pipeline that
-``detect_with_fusion`` uses at inference** — the concatenation of all base
-detector features and every domain-model feature that survives tabular input
-(extracted via ``OmniMercuryEngine._extract_features_parallel``). Training on
-detector features alone (as ``fit_fusion`` does) would leave the model facing a
-different, wider feature distribution at inference, so its trained weights would
-not transfer. Matching the pipeline is what makes the shipped checkpoint
-genuinely improve the headline fusion path rather than merely loading.
-
-It is a generic tabular baseline trained on a reproducible synthetic mixture of
-normal Gaussian clusters and injected anomalies; it is not a substitute for
-fitting on real domain data. Operators should fine-tune with
-``mercury-agent train`` on their own corpus.
-
-Reproducibility: dataset and training are fully seeded. The compact
-(``hidden_dim=32``) network keeps the artifact under the repository's 1 MB
-large-file limit.
-
-Usage:
-    python -m scripts.train_default_fusion
-    python -m scripts.train_default_fusion --epochs 120 --output /tmp/f.pt
-"""
-
 import argparse
+import sys
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -56,12 +73,25 @@ from omni_mercury_engine.engine import OmniMercuryEngine, default_fusion_checkpo
 from omni_mercury_engine.ml.fusion_network import OmniFusionModel
 from omni_mercury_engine.ml.inference import FusionInference
 
-if TYPE_CHECKING:
-    import torch
-
 SEED = 20260526
-HIDDEN_DIM = 32
+HIDDEN_DIM = 64
 N_FEATURES = 16
+
+# Genuinely-labelled ADBench datasets (external ground-truth labels) spanning a
+# range of sizes, dimensionalities and anomaly ratios. Used only for the opt-in
+# ``--source real`` prior; never the self-labelled (threshold-derived) loaders,
+# whose AUC is inflated by label leakage and would teach the prior nothing
+# honest.
+REAL_DATASETS = (
+    "cardio",
+    "mammography",
+    "pendigits",
+    "annthyroid",
+    "satellite",
+    "Pima",
+    "WBC",
+    "Ionosphere",
+)
 
 
 def build_dataset(seed: int = SEED) -> tuple[np.ndarray, np.ndarray]:
@@ -97,101 +127,79 @@ def build_dataset(seed: int = SEED) -> tuple[np.ndarray, np.ndarray]:
     return x[perm], y[perm]
 
 
-def extract_inference_features(engine: OmniMercuryEngine, x: np.ndarray) -> dict[str, torch.Tensor]:
-    """Extract the full inference feature set per sample, stacked to (N, dim).
+def _load_adbench(name: str, data_dir: str) -> tuple[np.ndarray, np.ndarray]:
+    """Load one genuinely-labelled ADBench dataset (z-scored).
 
-    Mirrors what ``detect_with_fusion`` feeds the fusion network for a single
-    sample, then stacks across samples so the network trains on exactly that
-    distribution. Models that aggregate over a batch (returning one row for
-    many inputs) are handled correctly because each sample is extracted on its
-    own (batch size 1).
+    Resolves through the registry name ``adbench-<name>`` so the corrected
+    :class:`ADBenchLoader` loads the right NPZ (the loader historically
+    collapsed every name to ``fraud``; see datasets/adbench.py). Returns
+    ``(X, y)`` with float32 features and binary int labels.
     """
-    import torch
+    from omni_mercury_engine.datasets.adbench import ADBenchLoader
+    from omni_mercury_engine.datasets.base import DatasetConfig
 
-    for detector in engine.detectors.values():
-        if not detector.is_fitted():
-            detector.fit(x)
-
-    per_key: dict[str, list[np.ndarray]] = {}
-    n = len(x)
-    for i in range(n):
-        feats, _ = engine._extract_features_parallel(x[i : i + 1])
-        for key, value in feats.items():
-            arr = value.detach().cpu().numpy() if hasattr(value, "detach") else np.asarray(value)
-            per_key.setdefault(key, []).append(arr.reshape(-1).astype(np.float32))
-        if (i + 1) % 250 == 0:
-            print(f"  extracted features for {i + 1}/{n} samples")
-
-    # Keep only keys present for every sample so the stacked tensors align.
-    keys = [k for k in per_key if len(per_key[k]) == n]
-    return {k: torch.tensor(np.stack(per_key[k]), dtype=torch.float32) for k in keys}
+    cfg = DatasetConfig(
+        name=f"adbench-{name.lower()}",
+        data_dir=data_dir,
+        cache_dir=str(Path(data_dir) / "_cache"),
+        download=True,
+    )
+    loader = ADBenchLoader(cfg)
+    loader.download()
+    raw_x, raw_y = loader._load_raw()
+    x = loader.preprocess(raw_x).astype(np.float32)
+    y = (np.asarray(raw_y).ravel() > 0).astype(np.int64)
+    return x, y
 
 
-def train(
-    model: OmniFusionModel,
-    features: dict[str, torch.Tensor],
-    y: np.ndarray,
-    epochs: int,
-    seed: int = SEED,
-) -> float:
-    """Supervised BCE training of the fusion network on pre-extracted features."""
-    import torch
-
-    g = torch.Generator().manual_seed(seed)
-    n = len(y)
-    labels = torch.tensor(y, dtype=torch.float32).unsqueeze(1)
-
-    n_val = max(1, int(n * 0.2))
-    perm = torch.randperm(n, generator=g)
-    val_idx, train_idx = perm[:n_val], perm[n_val:]
-
-    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=0.01)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", patience=5)
-
-    best_val = float("inf")
-    best_state = None
-    patience, since_improve = 15, 0
-    batch_size = 64
-
-    for epoch in range(epochs):
-        model.train()
-        order = train_idx[torch.randperm(len(train_idx), generator=g)]
-        for start in range(0, len(order), batch_size):
-            idx = order[start : start + batch_size]
-            batch = {k: v[idx] for k, v in features.items()}
-            optimizer.zero_grad()
-            out = model(batch)
-            loss = torch.nn.functional.binary_cross_entropy(out["anomaly_probs"], labels[idx])
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-            optimizer.step()
-
-        model.eval()
-        with torch.no_grad():
-            vbatch = {k: v[val_idx] for k, v in features.items()}
-            vloss = torch.nn.functional.binary_cross_entropy(
-                model(vbatch)["anomaly_probs"], labels[val_idx]
-            ).item()
-        scheduler.step(vloss)
-
-        if vloss < best_val:
-            best_val, since_improve = vloss, 0
-            best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
-        else:
-            since_improve += 1
-            if since_improve >= patience:
-                print(f"  early stop at epoch {epoch + 1}")
-                break
-
-    if best_state is not None:
-        model.load_state_dict(best_state)
-    model.eval()
-    return best_val
+def _stratified_split(y: np.ndarray, train_frac: float, seed: int) -> tuple[np.ndarray, np.ndarray]:
+    rng = np.random.RandomState(seed)
+    train_idx: list[int] = []
+    test_idx: list[int] = []
+    for cls in np.unique(y):
+        idx = np.where(y == cls)[0]
+        rng.shuffle(idx)
+        cut = max(1, int(len(idx) * train_frac))
+        train_idx += idx[:cut].tolist()
+        test_idx += idx[cut:].tolist()
+    return np.array(sorted(train_idx)), np.array(sorted(test_idx))
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description="Train the shipped default fusion checkpoint.")
+    parser.add_argument(
+        "--source",
+        choices=("synthetic", "real"),
+        default="synthetic",
+        help=(
+            "Training data. 'synthetic' (default) is the fully-seeded, "
+            "network-free Gaussian-mixture prior that ships as the committed, "
+            "deterministic checkpoint. 'real' is an opt-in pooled prior over "
+            "genuinely-labelled ADBench datasets (needs network on first run) "
+            "and is intentionally NOT committed."
+        ),
+    )
     parser.add_argument("--epochs", type=int, default=120)
+    parser.add_argument("--hidden-dim", type=int, default=HIDDEN_DIM)
+    parser.add_argument("--seed", type=int, default=SEED)
+    parser.add_argument(
+        "--datasets",
+        type=str,
+        default=",".join(REAL_DATASETS),
+        help="Comma-separated ADBench dataset names for --source real.",
+    )
+    parser.add_argument(
+        "--data-dir",
+        type=str,
+        default=str(Path.home() / ".cache" / "mercury_agent" / "adbench"),
+        help="Where real ADBench datasets are downloaded / cached (--source real).",
+    )
+    parser.add_argument(
+        "--cap-per-dataset",
+        type=int,
+        default=1500,
+        help="Max samples kept per ADBench dataset (seeded subsample) for --source real.",
+    )
     parser.add_argument(
         "--output",
         type=str,
@@ -202,34 +210,121 @@ def main() -> int:
 
     import torch
 
-    torch.manual_seed(SEED)
-    np.random.seed(SEED)
+    from omni_mercury_engine.ml.mercury_ml import roc_auc_score
 
-    x, y = build_dataset()
-    print(
-        f"Dataset: {x.shape[0]} samples, {x.shape[1]} features, "
-        f"{int(y.sum())} anomalies ({y.mean():.1%})."
-    )
+    torch.manual_seed(args.seed)
+    np.random.seed(args.seed)
 
-    engine = OmniMercuryEngine(mode="fusion")
-    print("Extracting full inference feature pipeline (detector + model features)...")
-    features = extract_inference_features(engine, x)
-    print(f"Feature groups ({len(features)}): {sorted(features)}")
+    engine = OmniMercuryEngine(mode="fusion", device="cpu")
+    # ``load_model`` rebuilds the engine's fusion model from the checkpoint's
+    # ``hidden_dim``/``feature_dims``, so any width here is self-describing on load.
+    if args.hidden_dim != engine.fusion_model.hidden_dim:
+        engine.fusion_model = OmniFusionModel(hidden_dim=args.hidden_dim).to(engine.device)
+        engine.fusion_inference = FusionInference(
+            model=engine.fusion_model, device=str(engine.device)
+        )
 
-    model = OmniFusionModel(hidden_dim=HIDDEN_DIM).to(engine.device)
-    best_val = train(model, features, y, epochs=args.epochs)
-    print(f"Training complete: best_val_loss={best_val:.4f}")
+    if args.source == "synthetic":
+        x, y = build_dataset(args.seed)
+        print(
+            f"Synthetic dataset: {x.shape[0]} samples, {x.shape[1]} features, "
+            f"{int(y.sum())} anomalies ({y.mean():.1%})."
+        )
+        train_idx, test_idx = _stratified_split(y, train_frac=0.7, seed=args.seed)
+        print(
+            "Training via fit_fusion (full inference feature pipeline + FocalLoss + calibration)..."
+        )
+        metrics = engine.fit_fusion(
+            x[train_idx],
+            y[train_idx],
+            epochs=args.epochs,
+            batch_size=64,
+            early_stopping_patience=15,
+        )
+        auc = float(roc_auc_score(y[test_idx], engine.score_fusion(x[test_idx])))
+        print(
+            f"  trained: best_loss={metrics['best_loss']:.4f}, "
+            f"T={metrics.get('temperature')}, held-out AUC={auc:.4f}, "
+            f"ECE {metrics.get('ece_before')}->{metrics.get('ece_after')}, "
+            f"groups={engine._fusion_feature_groups}"
+        )
+        provenance: dict[str, object] = {
+            "source": "synthetic_gaussian_mixture",
+            "datasets": [],
+            "seed": int(args.seed),
+            "hidden_dim": int(args.hidden_dim),
+        }
+    else:  # real: opt-in pooled ADBench prior
+        names = [n.strip() for n in args.datasets.split(",") if n.strip()]
+        print(
+            f"Opt-in REAL prior: pooling genuinely-labelled ADBench {names} (cache: {args.data_dir})."
+        )
+        print(
+            "NOTE: this regenerates the working-tree checkpoint with non-committed "
+            "real-data weights; the committed deterministic default stays in git."
+        )
+        rng = np.random.default_rng(args.seed)
+        datasets: list[tuple[np.ndarray, np.ndarray]] = []
+        used: list[str] = []
+        for name in names:
+            try:
+                dx, dy = _load_adbench(name, args.data_dir)
+            except Exception as exc:  # network / availability is the expected failure
+                print(f"  [skip] {name}: {type(exc).__name__}: {str(exc)[:80]}")
+                continue
+            if len(dx) > args.cap_per_dataset:
+                sel = rng.choice(len(dx), args.cap_per_dataset, replace=False)
+                dx, dy = dx[sel], dy[sel]
+            print(f"  [{name}] {len(dx)} samples x {dx.shape[1]} feats, {int(dy.sum())} anomalies")
+            datasets.append((dx, dy))
+            used.append(name)
+        if not datasets:
+            print(
+                "ERROR: no real datasets could be loaded (network unreachable?). "
+                "Use --source synthetic for the offline deterministic default.",
+                file=sys.stderr,
+            )
+            return 1
+        metrics = engine.fit_fusion_pooled(
+            datasets,
+            epochs=args.epochs,
+            batch_size=64,
+            early_stopping_patience=15,
+        )
+        print(
+            f"  trained on {metrics['pooled_datasets']} datasets / "
+            f"{metrics['pooled_samples']} pooled samples: best_loss={metrics['best_loss']:.4f}, "
+            f"T={metrics.get('temperature')}, "
+            f"val_ECE {metrics.get('ece_before')}->{metrics.get('ece_after')}, "
+            f"groups={metrics['pooled_groups']}"
+        )
+        provenance = {
+            "source": "adbench",
+            "datasets": used,
+            "seed": int(args.seed),
+            "hidden_dim": int(args.hidden_dim),
+            "cap_per_dataset": int(args.cap_per_dataset),
+        }
 
-    # Install the trained model on the engine and persist via the engine so
-    # the checkpoint carries feature_dims + the dynamic-projection registry.
-    engine.fusion_model = model
-    engine.fusion_inference = FusionInference(model=model, device=str(engine.device))
-    engine._fusion_trained = True
+    engine._fusion_provenance = provenance
 
     out = args.output
     Path(out).parent.mkdir(parents=True, exist_ok=True)
     engine.save_model(out)
-    print(f"Saved default fusion checkpoint -> {out} ({Path(out).stat().st_size / 1024:.1f} KB)")
+    size_kb = Path(out).stat().st_size / 1024
+    print(f"Saved default fusion checkpoint -> {out} ({size_kb:.1f} KB)")
+
+    # Sanity: a fresh engine loads it, reports trained, and restores calibration
+    # + provenance — exactly the contract detect_with_fusion relies on.
+    fresh = OmniMercuryEngine(mode="fusion", device="cpu")
+    fresh.load_model(out)
+    assert fresh._fusion_trained, "fresh engine should report trained after load"
+    assert fresh._fusion_calibrator is not None, "calibrator should be restored on load"
+    assert fresh._fusion_provenance == provenance, "provenance should round-trip via the checkpoint"
+    print(
+        "Verified: fresh engine loads the checkpoint, reports trained, restores "
+        f"calibrator + provenance (source={fresh._fusion_provenance['source']})."
+    )
     return 0
 
 

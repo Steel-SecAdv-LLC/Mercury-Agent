@@ -81,6 +81,8 @@ def detect(input: str, detector: str, output: str, threshold: float) -> None:
     data = _load_data(input)
 
     if detector == "fusion":
+        # Load the shipped default fusion checkpoint so detection runs with a
+        # trained, calibrated network out of the box (no training step needed).
         if engine.load_default_fusion_checkpoint():
             # Notice on stderr so stdout stays valid JSON for piping.
             click.echo("Loaded shipped default fusion checkpoint.", err=True)
@@ -132,9 +134,9 @@ def security(payload: str) -> None:
     help=(
         "Training data file. Raw samples as .csv or .npy "
         "(shape [n_samples, n_features]) are fed to fit_fusion, which "
-        "extracts detector features internally. A pre-built feature "
-        ".npz archive (per-detector arrays + a 'labels' array) is also "
-        "accepted and routed through the feature-archive trainer."
+        "extracts the full inference feature pipeline internally. A pre-built "
+        "feature .npz archive (per-detector/-model arrays + a 'labels' array) "
+        "is also accepted and routed through the feature-archive trainer."
     ),
 )
 @click.option(
@@ -142,36 +144,42 @@ def security(payload: str) -> None:
     "-l",
     default=None,
     help=(
-        "Optional labels file (.csv or .npy, 1=anomaly/0=normal) for "
+        "Optional labels file (.csv/.npy/.json, 1=anomaly/0=normal) for "
         "supervised training of raw .csv/.npy data. If omitted, "
         "semi-supervised pseudo-labels are derived from detector consensus."
     ),
 )
-@click.option("--output", "-o", required=True, help="Model output path (.pt)")
+@click.option("--output", "-o", required=True, help="Model checkpoint output path (.pt)")
 @click.option("--epochs", "-e", default=50, type=int, help="Training epochs")
 def train(data: str, labels: str | None, output: str, epochs: int) -> None:
-    """Train the fusion model on raw .csv/.npy data (or a feature .npz)."""
+    """Train the fusion model.
+
+    Two input modes are supported:
+
+    \b
+    * Raw features (.csv / .npy): the engine fits all base detectors, extracts
+      the full fusion feature pipeline, and trains via the
+      supervised/semi-supervised ``fit_fusion`` path. Provide ``--labels`` for
+      supervised training, or omit it for detector-consensus pseudo-labels.
+    * Pre-extracted feature archive (.npz): trained directly via
+      ``train_fusion_model`` (see ``mercury-agent build-features``).
+    """
     try:
         engine = _get_engine(mode="fusion")
 
         if data.endswith(".npz"):
-            # Pre-built feature archive: per-detector feature arrays + labels.
-            click.echo(f"Training fusion model from feature archive {data}...")
-            engine.train_fusion_model(data, epochs=epochs)
+            click.echo(f"Training fusion model on feature archive {data}...")
+            metrics = engine.train_fusion_model(data, epochs=epochs)
         else:
-            # Raw samples: fit_fusion extracts detector features internally.
-            x = _load_data(data)
+            X = _load_data(data)
             y = _load_labels(labels) if labels else None
-            if y is not None and len(y) != len(x):
-                raise ValueError(f"Label count ({len(y)}) does not match sample count ({len(x)}).")
-            mode = "supervised" if y is not None else "semi-supervised"
-            click.echo(f"Training fusion model on {len(x)} samples from {data} ({mode})...")
-            metrics = engine.fit_fusion(x, y, epochs=epochs)
-            click.echo(
-                f"Training complete: best_loss={metrics['best_loss']:.4f}, "
-                f"epochs_trained={metrics['epochs_trained']}"
-            )
+            if y is not None and len(y) != len(X):
+                raise ValueError(f"Label count ({len(y)}) does not match sample count ({len(X)}).")
+            mode_str = "supervised" if y is not None else "semi-supervised (pseudo-labels)"
+            click.echo(f"Training fusion model on {len(X)} samples from {data} [{mode_str}]...")
+            metrics = engine.fit_fusion(X, y, epochs=epochs)
 
+        click.echo(f"Best validation loss: {metrics.get('best_loss', float('nan')):.4f}")
         engine.save_model(output)
         click.echo(f"Model saved to {output}")
     except (RuntimeError, ValueError, OSError) as e:
@@ -190,67 +198,30 @@ def train(data: str, labels: str | None, output: str, epochs: int) -> None:
     "--labels",
     "-l",
     default=None,
-    help="Optional labels file (.csv or .npy, 1=anomaly/0=normal).",
+    help="Optional labels file (.csv/.npy/.json, 1=anomaly/0=normal); omit for "
+    "semi-supervised pseudo-labels.",
 )
 @click.option("--output", "-o", required=True, help="Output feature archive path (.npz)")
 def build_features(data: str, labels: str | None, output: str) -> None:
-    """Build a feature .npz archive (per-detector features + labels).
+    """Build a reusable fusion-training feature archive (.npz) from raw data.
 
-    The resulting archive can be fed back to ``train --data <archive>.npz``
-    for repeatable training without re-running detector feature extraction.
+    Delegates to ``engine.build_feature_npz``, which runs the *same* feature
+    extraction that ``fit_fusion`` performs on raw input, so the archive is
+    byte-for-byte the feature set the trainer would have used. Caching it to an
+    ``.npz`` lets repeated training runs skip the (expensive) extraction step.
+    The archive is consumable by ``mercury-agent train --data <archive>.npz``.
     """
     try:
         if not output.endswith(".npz"):
             raise ValueError(f"Output must be a .npz archive (got {output!r}).")
 
         engine = _get_engine(mode="fusion")
-        x = _load_data(data)
-
-        feature_arrays: dict[str, np.ndarray[Any, Any]] = {}
-        for name, detector in engine.detectors.items():
-            # Mirror the graceful per-detector degradation of the inference
-            # feature pipeline (fit_fusion / _extract_detector_features): skip a
-            # detector that cannot fit/extract rather than aborting the whole
-            # archive, so build-features yields exactly the feature set the
-            # trainer would have used.
-            try:
-                if not detector.is_fitted():
-                    detector.fit(x)
-                feats = detector.extract_features(x)
-                # extract_features may return a torch.Tensor (possibly on GPU or
-                # grad-tracking). Convert via detach/cpu duck-typing so the CLI
-                # never imports torch and never trips numpy's grad/CUDA errors.
-                if hasattr(feats, "detach"):
-                    feats = feats.detach().cpu().numpy()
-                feature_arrays[name] = np.asarray(feats, dtype=np.float32)
-            except Exception as e:
-                click.echo(f"Skipping detector {name}: {e}", err=True)
-
-        if not feature_arrays:
-            raise RuntimeError("No detector features could be extracted from the input.")
-
-        if labels:
-            y = _load_labels(labels)
-            if len(y) != len(x):
-                raise ValueError(f"Label count ({len(y)}) does not match sample count ({len(x)}).")
-        else:
-            # Derive pseudo-labels from detector consensus so the archive is
-            # self-contained and usable by the feature-archive trainer.
-            y = engine._generate_pseudo_labels(x)
-
-        labels_array = np.asarray(y, dtype=np.float32).reshape(-1)
-        for arr_name, arr_val in feature_arrays.items():
-            if arr_val.dtype.hasobject:
-                raise RuntimeError(
-                    f"Detector {arr_name!r} produced an object-dtype array; "
-                    "only numeric arrays are permitted in feature archives."
-                )
-        save_arrays: dict[str, Any] = {"labels": labels_array, **feature_arrays}
-        np.savez(output, **save_arrays)
-        click.echo(
-            f"Feature archive saved to {output} "
-            f"({len(x)} samples, detectors: {', '.join(feature_arrays)})"
-        )
+        X = _load_data(data)
+        y = _load_labels(labels) if labels else None
+        if y is not None and len(y) != len(X):
+            raise ValueError(f"Label count ({len(y)}) does not match sample count ({len(X)}).")
+        path = engine.build_feature_npz(X, output, y=y)
+        click.echo(f"Feature archive written to {path}")
     except (RuntimeError, ValueError, OSError) as e:
         click.echo(f"Error: {e}", err=True)
         raise SystemExit(1) from e
@@ -263,13 +234,12 @@ def explain(input: str, model: str) -> None:
     """Explain anomaly detection decision."""
     try:
         engine = _get_engine(mode=model)
-
-        data = _load_data(input)
-
         # Use the same trained checkpoint the fusion detect path loads so
         # explanations reflect the shipped model, not random-init weights.
         if model == "fusion":
             engine.load_default_fusion_checkpoint()
+
+        data = _load_data(input)
 
         result = engine.detect_with_fusion(data)
 
@@ -315,15 +285,18 @@ def _load_data(filepath: str) -> np.ndarray[Any, Any]:
 
 
 def _load_labels(filepath: str) -> np.ndarray[Any, Any]:
-    """Load 1-D training labels from a .csv or .npy file."""
+    """Load a 1-D label vector from CSV, NPY, or JSON."""
     path = Path(filepath)
     if path.suffix == ".npy":
-        labels = np.load(path, allow_pickle=False)
+        y = np.load(path, allow_pickle=False)
     elif path.suffix == ".csv":
-        labels = np.loadtxt(path, delimiter=",")
+        y = np.loadtxt(path, delimiter=",")
+    elif path.suffix == ".json":
+        with open(path) as f:
+            y = np.array(json.load(f))
     else:
-        raise ValueError(f"Unsupported label file format: {path.suffix} (use .csv or .npy)")
-    return np.asarray(labels).reshape(-1)
+        raise ValueError(f"Unsupported label file format: {path.suffix} (use .csv, .npy, or .json)")
+    return np.asarray(y).reshape(-1)
 
 
 # =============================================================================
