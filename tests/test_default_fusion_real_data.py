@@ -16,7 +16,6 @@ import numpy as np
 import pytest
 
 pytest.importorskip("torch")
-pytest.importorskip("sklearn")
 
 pytestmark = [pytest.mark.network, pytest.mark.slow]
 
@@ -39,9 +38,8 @@ def _subsample(x: np.ndarray, y: np.ndarray, cap: int, seed: int) -> tuple[np.nd
 
 
 def test_real_adbench_fit_fusion_learns_signal(tmp_path):
-    from sklearn.metrics import roc_auc_score
-
     from omni_mercury_engine.engine import OmniMercuryEngine
+    from omni_mercury_engine.ml.mercury_ml import roc_auc_score
 
     tdf = _load_train_module()
     x, y = tdf._load_adbench("cardio", str(tmp_path))

@@ -96,8 +96,8 @@ class TestBenchmarkExclusion:
 
     def test_domain_datasets_provenance_resolves(self) -> None:
         bench = importlib.import_module("benchmarks.mercury_benchmark")
-        manufactured_names = set()
-        genuine_names = set()
+        manufactured_names: set[str] = set()
+        genuine_names: set[str] = set()
         for name, _cat, cls_name, module, _kwargs in bench.DOMAIN_DATASETS:
             cls = _load_class(module, cls_name)
             src = getattr(cls, "LABEL_SOURCE", "ground_truth")

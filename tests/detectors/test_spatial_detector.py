@@ -258,7 +258,7 @@ class TestNativeLOFDuplicateClusterContract:
         ],
     )
     def test_duplicate_cluster_query_scores_as_inlier(
-        self, X_train: np.ndarray, label: str
+        self, X_train: np.ndarray[Any, Any], label: str
     ) -> None:
         """Query inside a duplicate cluster must score as an inlier (decision >= -0.5).
 
@@ -284,9 +284,7 @@ class TestNativeLOFDuplicateClusterContract:
         lof = _NativeLOF(n_neighbors=5).fit(X_train)
         far = np.array([[100.0, 100.0, 100.0]], dtype=np.float64)
         decision = float(lof.decision_function(far)[0])
-        assert decision < 0, (
-            f"far-isolated query mis-scored as inlier: decision={decision:.3e}"
-        )
+        assert decision < 0, f"far-isolated query mis-scored as inlier: decision={decision:.3e}"
 
     def test_train_inference_floor_symmetry(self) -> None:
         """The fit and inference paths must use the same _REACH_FLOOR constant.

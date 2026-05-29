@@ -753,7 +753,9 @@ class FEMAHazardMitigationLoader(DatasetLoader):
                 page_data = json.loads(content.decode("utf-8"))
                 # OpenFEMA v2 wraps records under the dataset name; fall back
                 # to a top-level list if the key is absent (API version drift).
-                page = page_data.get("HazardMitigationGrants", page_data if isinstance(page_data, list) else [])
+                page = page_data.get(
+                    "HazardMitigationGrants", page_data if isinstance(page_data, list) else []
+                )
                 if not page:
                     break
                 all_records.extend(page)

@@ -28,7 +28,7 @@ from omni_mercury_engine.core.calibration import compute_ece
 from omni_mercury_engine.ml.mercury_ml import roc_auc_score
 
 
-def _fixture(seed: int = 7, sep: float = 2.0) -> tuple[np.ndarray, np.ndarray]:
+def _fixture(seed: int = 7, sep: float = 2.0) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
     rng = np.random.RandomState(seed)
     normal = rng.normal(0.0, 1.0, (500, 12))
     anomaly = rng.normal(sep, 1.0, (60, 12))

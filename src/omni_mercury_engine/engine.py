@@ -3253,9 +3253,7 @@ class OmniMercuryEngine(LoggerMixin):
         # Empty when training was done properly via fit_fusion; non-empty means
         # the result is biased by the leakage and the caller should know.
         if self._inference_auto_fit_detectors:
-            result["inference_auto_fit_detectors"] = sorted(
-                self._inference_auto_fit_detectors
-            )
+            result["inference_auto_fit_detectors"] = sorted(self._inference_auto_fit_detectors)
 
         # Add GOSNN metadata if integration was enabled
         if gosnn_metadata:

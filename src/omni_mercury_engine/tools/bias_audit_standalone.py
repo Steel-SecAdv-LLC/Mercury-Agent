@@ -111,11 +111,12 @@ def _collect(args: argparse.Namespace) -> Certificate:
             equalized_odds_difference,
             selection_rate,
         )
-        from sklearn.metrics import accuracy_score
     except ImportError as exc:
         raise DependencyMissing(
-            f"fairlearn or scikit-learn missing: {exc}; install with `pip install fairlearn`"
+            f"fairlearn missing: {exc}; install with `pip install fairlearn`"
         ) from exc
+
+    from omni_mercury_engine.ml.mercury_ml import accuracy_score
 
     X = np.load(args.data, allow_pickle=False)
     sensitive = np.load(args.sensitive, allow_pickle=False)

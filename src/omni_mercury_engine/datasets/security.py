@@ -739,7 +739,7 @@ class CICIDSLoader(DatasetLoader):
                 "All download sources failed. Options: "
                 "(1) HuggingFace: pip install datasets, then set env var "
                 "MERCURY_CICIDS_HF_REV_BVK_CICIDS_2017=<commit-sha> "
-                "(get SHA via: python -c \"from huggingface_hub import HfApi; "
+                '(get SHA via: python -c "from huggingface_hub import HfApi; '
                 "print(HfApi().list_repo_commits('bvk/CICIDS-2017')[0].commit_id)\"); "
                 "(2) Kaggle: place kaggle.json in ~/.kaggle/ and run again; "
                 "(3) Manual: set preprocessing={'local_path': '/path/to/cicids2017/'}. "

@@ -164,6 +164,7 @@ class UCRLoader(DatasetLoader):
         self, split: DatasetSplit = DatasetSplit.ALL
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load UCR dataset."""
+
         # Two on-disk layouts are supported:
         #   1. Original UCR Archive 2018 zip: nested ``<name>/<name>_TRAIN.tsv``
         #      tab-delimited.
@@ -173,7 +174,7 @@ class UCRLoader(DatasetLoader):
         #      are not produced.
         # We try both layouts and both extensions so a freshly-downloaded
         # dataset and a pre-2024 cached one both load through the same path.
-        def _locate(stem: str) -> tuple[Path, str] | None:
+        def _locate(stem: str) -> tuple[Any, str] | None:
             for base in (self.data_path / self.dataset_name, self.data_path):
                 for ext, delim in ((".tsv", "\t"), (".txt", None)):
                     p = base / f"{stem}{ext}"

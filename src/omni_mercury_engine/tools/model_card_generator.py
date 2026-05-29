@@ -136,10 +136,11 @@ def _compute_metrics(
         "std": float(raw.std()),
     }
     if y is not None:
-        from sklearn.metrics import (
+        from omni_mercury_engine.ml.mercury_ml import (
             average_precision_score,
             f1_score,
-            precision_recall_fscore_support,
+            precision_score,
+            recall_score,
             roc_auc_score,
         )
 
@@ -152,9 +153,8 @@ def _compute_metrics(
         y_pred = (raw >= thresh).astype(int)
         out["threshold_used"] = thresh
         out["f1"] = float(f1_score(y, y_pred, zero_division=0))
-        p, r, f, _ = precision_recall_fscore_support(y, y_pred, average="binary", zero_division=0)
-        out["precision"] = float(p)
-        out["recall"] = float(r)
+        out["precision"] = float(precision_score(y, y_pred, zero_division=0))
+        out["recall"] = float(recall_score(y, y_pred, zero_division=0))
     return out
 
 

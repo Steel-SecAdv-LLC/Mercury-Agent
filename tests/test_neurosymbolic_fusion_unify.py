@@ -17,6 +17,8 @@ Licensed under GNU GPL v3
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 
 from omni_mercury_engine.cognitive.neurosymbolic_fusion import (
@@ -68,7 +70,9 @@ class TestParityOrBetter:
         # Observed scores: a branch is reliable (low noise) when it is decisive
         # (far from 0.5); unreliable branches are noisy. This is exactly the
         # regime confidence-weighting is designed for.
-        def observe(truth: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        def observe(
+            truth: np.ndarray[Any, Any],
+        ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
             decisiveness = np.abs(truth - 0.5) * 2.0
             noise = rng.normal(0, 0.35 * (1 - decisiveness))
             obs = np.clip(truth + noise, 0.0, 1.0)

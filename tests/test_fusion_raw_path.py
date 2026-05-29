@@ -27,7 +27,7 @@ import torch
 from omni_mercury_engine.ml.mercury_ml import roc_auc_score
 
 
-def _separable_fixture(seed: int = 7) -> tuple[np.ndarray, np.ndarray]:
+def _separable_fixture(seed: int = 7) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
     """Deterministic, clearly-separable anomaly fixture (no network).
 
     A compact normal Gaussian cluster plus a shifted anomaly cluster. The
