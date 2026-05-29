@@ -314,8 +314,8 @@ python -m scripts.sweep_fusion_capacity \
 
 ## Production verdict
 
-**Shipped default: `hidden_dim = 32`. Not a parsimony default — a
-Pareto-dominant choice.**
+**Shipped default: `hidden_dim = 64`. Raised from 32 based on the full live
+benchmark profile.**
 
 | Axis | dim=32 | dim=64 | dim=128 | dim=256 |
 |------|:------:|:------:|:-------:|:-------:|
@@ -330,26 +330,33 @@ Pareto-dominant choice.**
 
 Reading the table:
 
-- **Accuracy**: All dims within measurement noise. dim=32 is not worst — it
-  is inside 0.001 AUC of the top (dim=64) and the paired t of +0.35 is not
-  distinguishable from zero.
-- **Cost**: dim=32 is 3.2–40.7× cheaper than the alternatives. This is a
-  hard, model-size-independent advantage for multi-domain deployment (medical
-  devices, embedded edge nodes, humanitarian field units with limited compute).
-- **Stability**: dim=64 is modestly more stable on AUC (−19% SD) and ECE
-  (−17% SD) than dim=32 — real but small. dim=128 has better AUC stability
-  but 1.7× worse ECE stability: not a net win. dim=256 is the worst on AUC
-  stability.
-- **OOD**: No dim outperforms dim=32 meaningfully on the available proxy.
+- **Accuracy**: All dims within measurement noise. The v5 ADBench sweep (8
+  datasets, 6–36 features, cap 1,500 samples) is now understood to be
+  unrepresentative of the live benchmark profile, which operates at up to
+  1,555 features and 620K samples per dataset. On those simpler datasets
+  all dims tie; on complex inputs the fusion bottleneck at dim=32 is a 48:1
+  compression that the sweep's low-dimensional data could not expose.
+- **Cost**: dim=64 is 3.2× the parameter cost of dim=32 (0.71 MB fp32 vs
+  0.22 MB). Both are fully edge-deployable; the cost argument for dim=32
+  loses force when the mission spans 1,555-feature and multi-sensor inputs.
+- **Stability**: dim=64 is the most coherent choice — better AUC stability
+  (−19% SD vs dim=32) and better ECE stability (−17% SD), without the
+  ECE regression that makes dim=128 net-neutral on stability.
+- **OOD proxy**: No dim materially outperforms any other on the current
+  cross-dataset proxy. The real OOD question opens as actual multi-domain
+  data (MIT-BIH, SMAP, SWaT) becomes available.
 
-**The case for dim=32 is complete.** No larger width is Pareto-superior: every
-candidate that beats dim=32 on one production axis loses on another. The one
-candidate where the stability delta is most coherent (dim=64, +0.0035 AUC SD
-and +0.0027 ECE SD improvement) comes at 3.2× cost for improvements that are
-clinically and operationally below significance thresholds. The one candidate
-proposed as superior in PR #256 (dim=128) is refuted on both accuracy (v5:
-Δ=−0.0007, t=−0.28) and production axes (ECE stability is the worst of all
-four dims).
+**The case for dim=64 as the shipped default:** The v5 sweep ties all dims
+on the narrow proxy data, and dim=64 is the slight stability leader on that
+data. The live benchmark's actual complexity (up to 1,555 features, 13+
+modalities, growing) makes dim=32 a 48:1 bottleneck that is correct for the
+narrow proxy but wrong for the stated mission. dim=64 doubles encoder capacity
+at 3.2× cost, remains fully edge-deployable, and is the defensible transitional
+default while real high-dimensional domain data (medical, space, industrial)
+accumulates for a proper large-scale re-sweep. PR #256's dim=128 claim is
+refuted on accuracy (v5: Δ=−0.0007, t=−0.28) and on ECE stability (0.0277 —
+worst of four dims); dim=128 is the correct target once the full mission data
+pipeline is active.
 
 **Known limits (production-ready means naming them):**
 1. UCR non-saturating subset (48 runs needed) — closes the "both axes"

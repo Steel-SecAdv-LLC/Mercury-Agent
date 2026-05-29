@@ -260,7 +260,7 @@ gui = [
 
 # Full installation with all features
 all = [
-    "mercury-agent[ml,visual,vlm,foundation,face,api,sota,llm,drift,fairness,streaming,optimization,benchmark,domains,gui]",
+    "mercury-agent[ml,visual,vlm,foundation,medical,face,api,sota,llm,drift,fairness,streaming,optimization,benchmark,domains,gui]",
 ]
 
 # Test environment: all runtime features + dev tooling

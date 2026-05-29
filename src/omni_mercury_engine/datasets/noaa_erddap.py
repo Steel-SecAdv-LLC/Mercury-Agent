@@ -77,7 +77,9 @@ class NOAAERDDAPLoader(DatasetLoader):
     # so retrying multiple offsets there would just re-issue an identical
     # request and log misleading "trying earlier date" messages — we make
     # a single attempt for that path instead.
-    _SSH_DATE_OFFSET_DAYS_FALLBACK = (7, 14, 21, 30)
+    # ERDDAP ingest lag on nesdisSSH1day can exceed 30 days during reprocessing;
+    # extend the fallback window to 180 days to survive extended outages.
+    _SSH_DATE_OFFSET_DAYS_FALLBACK = (7, 14, 21, 30, 45, 60, 90, 120, 180)
 
     def _build_ssh_url(self, base_url: str, date_str: str) -> str:
         """Construct the SSH ERDDAP URL with a time/lat/lon constraint."""

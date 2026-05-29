@@ -732,10 +732,14 @@ class FEMAHazardMitigationLoader(DatasetLoader):
             skip = 0
             while len(all_records) < target:
                 page_top = min(page_size, target - len(all_records))
+                # OpenFEMA HazardMitigationGrants v2 date field is
+                # "lastRefresh" (ISO-8601). Avoid $orderby on optional fields
+                # that may be absent in some records — sort by id for safety.
                 params = {
                     "$top": str(page_top),
                     "$skip": str(skip),
-                    "$orderby": "dateApproved desc",
+                    "$orderby": "id asc",
+                    "$format": "json",
                 }
                 url = f"{api_url}?{urllib.parse.urlencode(params)}"
                 logger.info(
@@ -746,7 +750,10 @@ class FEMAHazardMitigationLoader(DatasetLoader):
                     target,
                 )
                 content = http_get_with_retry(url, timeout=120)
-                page = json.loads(content.decode("utf-8")).get("HazardMitigationGrants", [])
+                page_data = json.loads(content.decode("utf-8"))
+                # OpenFEMA v2 wraps records under the dataset name; fall back
+                # to a top-level list if the key is absent (API version drift).
+                page = page_data.get("HazardMitigationGrants", page_data if isinstance(page_data, list) else [])
                 if not page:
                     break
                 all_records.extend(page)

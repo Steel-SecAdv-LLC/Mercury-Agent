@@ -114,22 +114,28 @@ class UCRLoader(DatasetLoader):
         specific_url = f"https://timeseriesclassification.com/aeon-toolkit/{self.dataset_name}.zip"
 
         last_exc: Exception | None = None
-        try:
-            zip_path = self.data_path / f"{self.dataset_name}.zip"
-            logger.info("  Trying dataset-specific download...")
-            safe_urlretrieve(specific_url, zip_path)
+        # Try multiple mirrors: aeon-toolkit first (smaller, per-dataset), then
+        # the UCR 2018 per-dataset path which some mirrors still serve.
+        mirrors = [
+            specific_url,
+            f"https://www.cs.ucr.edu/~eamonn/time_series_data_2018/{self.dataset_name}.zip",
+        ]
+        for mirror_url in mirrors:
+            try:
+                zip_path = self.data_path / f"{self.dataset_name}.zip"
+                logger.info("  Trying UCR download from %s", mirror_url)
+                safe_urlretrieve(mirror_url, zip_path)
 
-            # Extract
-            with zipfile.ZipFile(zip_path, "r") as zf:
-                zf.extractall(self.data_path)
+                with zipfile.ZipFile(zip_path, "r") as zf:
+                    zf.extractall(self.data_path)
 
-            zip_path.unlink()
-            logger.info(f"  Downloaded {self.dataset_name}")
-            return True
+                zip_path.unlink()
+                logger.info(f"  Downloaded {self.dataset_name}")
+                return True
 
-        except (requests.RequestException, ValueError, zipfile.BadZipFile, OSError) as exc:
-            last_exc = exc
-            logger.warning("  Dataset-specific download failed: %s", exc)
+            except (requests.RequestException, ValueError, zipfile.BadZipFile, OSError) as exc:
+                last_exc = exc
+                logger.warning("  UCR mirror %s failed: %s", mirror_url, exc)
 
         # Provide instructions for full archive (operator sidecar; still
         # emitted on the failure path so a human can take over).

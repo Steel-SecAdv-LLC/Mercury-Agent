@@ -196,9 +196,11 @@ class SWaTLoader(DatasetLoader):
             loader_name="SWaT",
             source_url="https://itrust.sutd.edu.sg/itrust-labs-datasets/",
             reason=(
-                "SWaT/WADI requires iTrust registration: "
-                "https://itrust.sutd.edu.sg/itrust-labs-datasets/ "
-                "Download data and place in " + str(self.data_path)
+                "SWaT (51 sensors, water treatment plant) requires manual iTrust registration. "
+                "Steps: (1) register at https://itrust.sutd.edu.sg/itrust-labs-datasets/ "
+                "(2) download 'SWaT.A1 & A2_Dec 2015' and 'SWaT_Dataset_Attack_v0.xlsx' "
+                "(3) place extracted files in " + str(self.data_path) + ". "
+                "Once placed, re-run the benchmark — the loader will detect the files automatically."
             ),
         )
 
@@ -354,9 +356,11 @@ class WADILoader(DatasetLoader):
             loader_name="WADI",
             source_url="https://itrust.sutd.edu.sg/itrust-labs-datasets/",
             reason=(
-                "SWaT/WADI requires iTrust registration: "
-                "https://itrust.sutd.edu.sg/itrust-labs-datasets/ "
-                "Download data and place in " + str(self.data_path)
+                "WADI (127 sensors, water distribution network) requires manual iTrust registration. "
+                "Steps: (1) register at https://itrust.sutd.edu.sg/itrust-labs-datasets/ "
+                "(2) download 'WADI.A1_9 Oct 2017' and 'WADI_attackdata.csv' "
+                "(3) place extracted files in " + str(self.data_path) + ". "
+                "Once placed, re-run the benchmark — the loader will detect the files automatically."
             ),
         )
 
