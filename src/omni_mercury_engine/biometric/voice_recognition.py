@@ -24,12 +24,12 @@ logger = logging.getLogger(__name__)
 class VoiceFeatures:
     """Extracted voice features."""
 
-    mfcc: np.ndarray
-    delta_mfcc: np.ndarray
-    delta2_mfcc: np.ndarray
-    embedding: np.ndarray
-    pitch_contour: np.ndarray
-    energy_contour: np.ndarray
+    mfcc: np.ndarray[Any, Any]
+    delta_mfcc: np.ndarray[Any, Any]
+    delta2_mfcc: np.ndarray[Any, Any]
+    embedding: np.ndarray[Any, Any]
+    pitch_contour: np.ndarray[Any, Any]
+    energy_contour: np.ndarray[Any, Any]
     duration: float
     sample_rate: int
     quality_score: float
@@ -78,7 +78,7 @@ class AudioPreprocessor:
         self._frame_shift = int(sample_rate * frame_shift_ms / 1000)
         self._pre_emphasis = pre_emphasis
 
-    def preprocess(self, signal: np.ndarray) -> np.ndarray:
+    def preprocess(self, signal: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Preprocess audio signal.
 
@@ -101,7 +101,7 @@ class AudioPreprocessor:
 
         return emphasized
 
-    def frame(self, signal: np.ndarray) -> np.ndarray:
+    def frame(self, signal: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Divide signal into overlapping frames.
 
@@ -170,7 +170,7 @@ class MFCCExtractor:
         self._mel_filterbank = self._create_mel_filterbank()
         self._dct_matrix = self._create_dct_matrix()
 
-    def _create_mel_filterbank(self) -> np.ndarray:
+    def _create_mel_filterbank(self) -> np.ndarray[Any, Any]:
         """Create Mel filterbank matrix."""
         mel_min = self._hz_to_mel(self._fmin)
         mel_max = self._hz_to_mel(self._fmax)
@@ -195,7 +195,7 @@ class MFCCExtractor:
 
         return filterbank
 
-    def _create_dct_matrix(self) -> np.ndarray:
+    def _create_dct_matrix(self) -> np.ndarray[Any, Any]:
         """Create DCT matrix for MFCC computation."""
         n = self._n_mels
         k = self._n_mfcc
@@ -210,15 +210,15 @@ class MFCCExtractor:
 
         return dct_matrix
 
-    def _hz_to_mel(self, hz: float | np.ndarray) -> float | np.ndarray:
+    def _hz_to_mel(self, hz: float | np.ndarray[Any, Any]) -> float | np.ndarray[Any, Any]:
         """Convert frequency in Hz to Mel scale."""
         return 2595 * np.log10(1 + hz / 700)
 
-    def _mel_to_hz(self, mel: float | np.ndarray) -> float | np.ndarray:
+    def _mel_to_hz(self, mel: float | np.ndarray[Any, Any]) -> float | np.ndarray[Any, Any]:
         """Convert Mel scale to frequency in Hz."""
         return 700 * (10 ** (mel / 2595) - 1)
 
-    def extract(self, frames: np.ndarray) -> np.ndarray:
+    def extract(self, frames: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Extract MFCC features from frames.
 
@@ -250,9 +250,9 @@ class MFCCExtractor:
 
     def compute_deltas(
         self,
-        features: np.ndarray,
+        features: np.ndarray[Any, Any],
         n: int = 2,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """
         Compute delta (derivative) features.
 
@@ -299,7 +299,7 @@ class PitchExtractor:
         self._min_lag = int(sample_rate / max_pitch)
         self._max_lag = int(sample_rate / min_pitch)
 
-    def extract(self, frames: np.ndarray) -> np.ndarray:
+    def extract(self, frames: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Extract pitch contour from frames.
 
@@ -318,7 +318,7 @@ class PitchExtractor:
 
         return pitch
 
-    def _estimate_pitch(self, frame: np.ndarray) -> float:
+    def _estimate_pitch(self, frame: np.ndarray[Any, Any]) -> float:
         """Estimate pitch for a single frame using autocorrelation."""
         n = len(frame)
         autocorr = np.correlate(frame, frame, mode="full")
@@ -344,7 +344,7 @@ class EnergyExtractor:
         """Initialize the energy extractor."""
         self._floor = floor
 
-    def extract(self, frames: np.ndarray) -> np.ndarray:
+    def extract(self, frames: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Extract log energy from frames.
 
@@ -393,7 +393,7 @@ class SpeakerEmbedding:
         self._weights2 = rng.standard_normal((128, 64)) * 0.1
         self._weights3 = rng.standard_normal((128, embedding_dim)) * 0.1
 
-    def generate(self, features: np.ndarray) -> np.ndarray:
+    def generate(self, features: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Generate speaker embedding from features.
 
@@ -480,7 +480,7 @@ class VoiceMatcher:
             mfcc_distance=1 - mfcc_sim,
         )
 
-    def _cosine_similarity(self, a: np.ndarray, b: np.ndarray) -> float:
+    def _cosine_similarity(self, a: np.ndarray[Any, Any], b: np.ndarray[Any, Any]) -> float:
         """Compute cosine similarity between two vectors."""
         norm_a = np.linalg.norm(a)
         norm_b = np.linalg.norm(b)
@@ -511,7 +511,7 @@ class VoiceLivenessDetector:
 
     def detect(
         self,
-        audio_samples: list[np.ndarray],
+        audio_samples: list[np.ndarray[Any, Any]],
         sample_rate: int = 16000,
     ) -> VoiceLivenessResult:
         """
@@ -558,7 +558,7 @@ class VoiceLivenessDetector:
             },
         )
 
-    def _detect_replay(self, audio: np.ndarray, sample_rate: int) -> float:
+    def _detect_replay(self, audio: np.ndarray[Any, Any], sample_rate: int) -> float:
         """Detect replay attack artifacts."""
         audio = audio.astype(np.float64)
         audio = audio / (np.max(np.abs(audio)) + 1e-8)
@@ -596,7 +596,7 @@ class VoiceLivenessDetector:
         score = min(1.0, avg_flux / 1.0)
         return score
 
-    def _detect_synthetic(self, audio: np.ndarray, sample_rate: int) -> float:
+    def _detect_synthetic(self, audio: np.ndarray[Any, Any], sample_rate: int) -> float:
         """Detect synthetic speech artifacts."""
         audio = audio.astype(np.float64)
         audio = audio / (np.max(np.abs(audio)) + 1e-8)
@@ -632,7 +632,7 @@ class VoiceLivenessDetector:
 
         return float(min(1.0, 0.5 + pitch_peak / (avg_level * 4)))
 
-    def _analyze_channel(self, audio: np.ndarray, sample_rate: int) -> float:
+    def _analyze_channel(self, audio: np.ndarray[Any, Any], sample_rate: int) -> float:
         """Analyze recording channel characteristics."""
         audio = audio.astype(np.float64)
         audio = audio / (np.max(np.abs(audio)) + 1e-8)
@@ -686,7 +686,7 @@ class VoiceActivityDetector:
         self._sample_rate = sample_rate
         self._energy_threshold = energy_threshold
 
-    def detect(self, audio: np.ndarray) -> np.ndarray:
+    def detect(self, audio: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Detect voice activity in audio.
 
@@ -710,7 +710,7 @@ class VoiceActivityDetector:
             frame = audio[start : start + self._frame_length]
             energy[i] = np.sum(frame**2)
 
-        energy = energy / (np.max(energy) + 1e-8)
+        energy = energy / (np.max(energy) + 1e-8)  # type: ignore[assignment]
 
         threshold = self._energy_threshold
 
@@ -725,7 +725,7 @@ class VoiceActivityDetector:
 
     def get_speech_segments(
         self,
-        audio: np.ndarray,
+        audio: np.ndarray[Any, Any],
         min_duration_ms: float = 100.0,
     ) -> list[tuple[int, int]]:
         """
@@ -790,7 +790,7 @@ class VoiceRecognizer:
         self._vad = VoiceActivityDetector(sample_rate=sample_rate)
         self._liveness_required = liveness_required
 
-    def extract_features(self, audio: np.ndarray) -> VoiceFeatures:
+    def extract_features(self, audio: np.ndarray[Any, Any]) -> VoiceFeatures:
         """
         Extract voice features from audio.
 
@@ -830,9 +830,9 @@ class VoiceRecognizer:
 
     def verify(
         self,
-        probe_audio: np.ndarray,
+        probe_audio: np.ndarray[Any, Any],
         enrolled_features: VoiceFeatures,
-        liveness_samples: list[np.ndarray] | None = None,
+        liveness_samples: list[np.ndarray[Any, Any]] | None = None,
     ) -> tuple[VoiceMatchResult, VoiceLivenessResult | None]:
         """
         Verify a voice sample against enrolled features.
@@ -869,9 +869,9 @@ class VoiceRecognizer:
 
     def _compute_quality(
         self,
-        audio: np.ndarray,
-        mfcc: np.ndarray,
-        pitch: np.ndarray,
+        audio: np.ndarray[Any, Any],
+        mfcc: np.ndarray[Any, Any],
+        pitch: np.ndarray[Any, Any],
     ) -> float:
         """Compute voice sample quality score."""
         vad = self._vad.detect(audio)

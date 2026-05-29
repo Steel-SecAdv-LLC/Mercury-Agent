@@ -251,7 +251,7 @@ class TsunamiLoader(BaseDomainLoader):
             for e in _EVENT_CATALOG
         ]
 
-    def get_ground_truth(self, event_id: str) -> np.ndarray:
+    def get_ground_truth(self, event_id: str) -> np.ndarray[Any, Any]:
         """
         Return binary anomaly labels for a historical event.
 
@@ -296,7 +296,7 @@ class TsunamiLoader(BaseDomainLoader):
     # Feature engineering
     # ------------------------------------------------------------------
 
-    def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray:
+    def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray[Any, Any]:
         """
         Transform raw DART data into a feature matrix.
 
@@ -577,7 +577,7 @@ class TsunamiLoader(BaseDomainLoader):
 # ---------------------------------------------------------------------------
 
 
-def _rolling_mean(arr: np.ndarray, window: int) -> np.ndarray:
+def _rolling_mean(arr: np.ndarray[Any, Any], window: int) -> np.ndarray[Any, Any]:
     """
     Compute a rolling mean over *arr* with the given *window* size.
 
@@ -605,7 +605,7 @@ def _rolling_mean(arr: np.ndarray, window: int) -> np.ndarray:
     return result
 
 
-def _rolling_std(arr: np.ndarray, window: int) -> np.ndarray:
+def _rolling_std(arr: np.ndarray[Any, Any], window: int) -> np.ndarray[Any, Any]:
     """
     Compute a rolling standard deviation over *arr*.
 
@@ -632,7 +632,7 @@ def _rolling_std(arr: np.ndarray, window: int) -> np.ndarray:
     return result
 
 
-def _fill_non_finite(arr: np.ndarray) -> np.ndarray:
+def _fill_non_finite(arr: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
     """
     Replace non-finite values with forward-fill then backward-fill.
 

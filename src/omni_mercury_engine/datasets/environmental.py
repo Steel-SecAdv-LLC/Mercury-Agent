@@ -170,7 +170,7 @@ class USGSEarthquakeLoader(DatasetLoader):
 
     def _process_usgs_geojson(
         self, features_list: list[dict[str, Any]]
-    ) -> tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """
         Process USGS GeoJSON earthquake data.
 
@@ -843,7 +843,9 @@ class WildfireDataLoader(DatasetLoader):
             logger.warning(f"NASA FIRMS download failed: {e}")
             return False
 
-    def _process_firms_data(self, df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+    def _process_firms_data(
+        self, df: pd.DataFrame
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """
         Process NASA FIRMS CSV data.
 

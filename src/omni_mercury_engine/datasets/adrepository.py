@@ -250,8 +250,8 @@ class ADRepositoryLoader(DatasetLoader):
             raise ValueError(f"Unknown dataset '{dataset_name}'. Available: {available}")
 
         self.dataset_info = ADREPOSITORY_DATASETS[self.dataset_name]
-        self._features: np.ndarray | None = None
-        self._labels: np.ndarray | None = None  # type: ignore[assignment, unused-ignore]
+        self._features: np.ndarray[Any, Any] | None = None
+        self._labels: np.ndarray[Any, Any] | None = None  # type: ignore[assignment, unused-ignore]
         self._is_real_data = False
 
         logger.info(
@@ -280,7 +280,7 @@ class ADRepositoryLoader(DatasetLoader):
             logger.info("Falling back to synthetic approximation")
             return self._create_synthetic_fallback()
 
-    def _load_raw(self) -> tuple[np.ndarray, np.ndarray]:
+    def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load raw data from files (implements abstract method)."""
         dataset_dir = self.data_path / self.dataset_name
         filename = self.dataset_info["file"]
@@ -320,7 +320,7 @@ class ADRepositoryLoader(DatasetLoader):
 
         return self._features, self._labels
 
-    def preprocess(self, data: np.ndarray) -> np.ndarray:
+    def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Apply preprocessing (implements abstract method)."""
         # Basic normalization - zero mean, unit variance
         mean = np.mean(data, axis=0, keepdims=True)
@@ -451,7 +451,7 @@ class ADRepositoryLoader(DatasetLoader):
         self._is_real_data = False
         return True
 
-    def load_data(self) -> tuple[np.ndarray, np.ndarray]:
+    def load_data(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """
         Load dataset features and labels.
 
@@ -637,7 +637,7 @@ def load_dataset(
     name: str,
     data_dir: str = "./data/adrepository",
     max_samples: int | None = None,
-) -> tuple[np.ndarray, np.ndarray, dict[str, Any]]:
+) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], dict[str, Any]]:
     """
     Convenience function to load an ADRepository dataset.
 

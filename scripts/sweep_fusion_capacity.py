@@ -310,7 +310,9 @@ def main() -> int:
             for d in baseline_dims:
                 if d == baseline:
                     continue
-                ref = {(r["dataset"], r["seed"]): float(r["auc"]) for r in runs if r["dim"] == baseline}
+                ref = {
+                    (r["dataset"], r["seed"]): float(r["auc"]) for r in runs if r["dim"] == baseline
+                }
                 oth = {(r["dataset"], r["seed"]): float(r["auc"]) for r in runs if r["dim"] == d}
                 common = sorted(set(ref) & set(oth))
                 diffs = [oth[k] - ref[k] for k in common]
@@ -340,7 +342,9 @@ def main() -> int:
         for d in sorted(summary):
             if d == default_dim:
                 continue
-            ref = {(r["dataset"], r["seed"]): float(r["auc"]) for r in runs if r["dim"] == default_dim}
+            ref = {
+                (r["dataset"], r["seed"]): float(r["auc"]) for r in runs if r["dim"] == default_dim
+            }
             oth = {(r["dataset"], r["seed"]): float(r["auc"]) for r in runs if r["dim"] == d}
             common = sorted(set(ref) & set(oth))
             diffs = [oth[k] - ref[k] for k in common]

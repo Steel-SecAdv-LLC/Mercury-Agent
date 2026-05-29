@@ -282,7 +282,7 @@ class EnergyLoader(BaseDomainLoader):
             )
         return events
 
-    def get_ground_truth(self, event_id: str) -> np.ndarray:
+    def get_ground_truth(self, event_id: str) -> np.ndarray[Any, Any]:
         """
         Generate binary anomaly labels for a historical event.
 
@@ -337,7 +337,7 @@ class EnergyLoader(BaseDomainLoader):
     # Feature engineering
     # ------------------------------------------------------------------
 
-    def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray:
+    def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray[Any, Any]:
         """
         Transform raw energy/space-weather data into a feature matrix.
 
@@ -692,7 +692,9 @@ class EnergyLoader(BaseDomainLoader):
         return df
 
     @staticmethod
-    def _build_storm_profile(n_steps: int, peak_kp: int, storm_day: int = 40) -> np.ndarray:
+    def _build_storm_profile(
+        n_steps: int, peak_kp: int, storm_day: int = 40
+    ) -> np.ndarray[Any, Any]:
         """
         Build a synthetic Kp storm profile.
 
@@ -839,7 +841,7 @@ class EnergyLoader(BaseDomainLoader):
         return _FLARE_CLASS_MAP.get(letter, 0.0)
 
     @staticmethod
-    def _label_grid_anomalies(df: pd.DataFrame) -> np.ndarray:
+    def _label_grid_anomalies(df: pd.DataFrame) -> np.ndarray[Any, Any]:
         """
         Generate anomaly labels for grid demand/supply events.
 
@@ -862,7 +864,7 @@ class EnergyLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _safe_column(df: pd.DataFrame, column: str) -> np.ndarray:
+    def _safe_column(df: pd.DataFrame, column: str) -> np.ndarray[Any, Any]:
         """
         Extract a column as a float64 array, returning zeros if absent.
 
@@ -881,7 +883,7 @@ class EnergyLoader(BaseDomainLoader):
         return np.zeros(len(df), dtype=np.float64)
 
     @staticmethod
-    def _compute_rolling_sum(values: np.ndarray, window: int = 8) -> np.ndarray:
+    def _compute_rolling_sum(values: np.ndarray[Any, Any], window: int = 8) -> np.ndarray[Any, Any]:
         """
         Compute the rolling sum over a trailing window.
 
@@ -900,7 +902,7 @@ class EnergyLoader(BaseDomainLoader):
         return result
 
     @staticmethod
-    def _compute_rolling_max(values: np.ndarray, window: int = 8) -> np.ndarray:
+    def _compute_rolling_max(values: np.ndarray[Any, Any], window: int = 8) -> np.ndarray[Any, Any]:
         """
         Compute the rolling maximum over a trailing window.
 

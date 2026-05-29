@@ -182,8 +182,8 @@ class AdvancedHarmonicAnalyzer:
         self._similarity = HarmonicSimilarity()
 
         self._reference_db: HarmonicDatabase | None = None
-        self._mean_power_spectrum: np.ndarray | None = None
-        self._std_power_spectrum: np.ndarray | None = None
+        self._mean_power_spectrum: np.ndarray[Any, Any] | None = None
+        self._std_power_spectrum: np.ndarray[Any, Any] | None = None
         self._mean_complexity: float = 0.5
         self._std_complexity: float = 0.2
 
@@ -194,7 +194,7 @@ class AdvancedHarmonicAnalyzer:
 
     def decompose(
         self,
-        point_cloud: np.ndarray,
+        point_cloud: np.ndarray[Any, Any],
         sampling: str = "healpix",
     ) -> HarmonicCoefficients:
         """
@@ -214,7 +214,7 @@ class AdvancedHarmonicAnalyzer:
         coefficients: HarmonicCoefficients,
         n_theta: int = 64,
         n_phi: int = 128,
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """
         Reconstruct surface from coefficients.
 
@@ -232,7 +232,7 @@ class AdvancedHarmonicAnalyzer:
         self,
         coefficients: HarmonicCoefficients,
         descriptors: list[str] | None = None,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """
         Extract rotation-invariant features.
 
@@ -269,7 +269,7 @@ class AdvancedHarmonicAnalyzer:
 
     def fit(
         self,
-        point_clouds: list[np.ndarray],
+        point_clouds: list[np.ndarray[Any, Any]],
         labels: list[str] | None = None,
     ) -> AdvancedHarmonicAnalyzer:
         """
@@ -309,7 +309,7 @@ class AdvancedHarmonicAnalyzer:
 
     def detect_anomalies(
         self,
-        point_cloud: np.ndarray,
+        point_cloud: np.ndarray[Any, Any],
         threshold: float = 0.5,
     ) -> HarmonicAnomalyResult:
         """
@@ -364,7 +364,7 @@ class AdvancedHarmonicAnalyzer:
 
     def batch_detect(
         self,
-        point_clouds: list[np.ndarray],
+        point_clouds: list[np.ndarray[Any, Any]],
         threshold: float = 0.5,
     ) -> list[HarmonicAnomalyResult]:
         """

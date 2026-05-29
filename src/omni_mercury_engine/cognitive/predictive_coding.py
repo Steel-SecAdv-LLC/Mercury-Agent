@@ -118,7 +118,7 @@ class Prediction:
     prediction_id: str
     prediction_type: PredictionType
     level: ProcessingLevel
-    value: np.ndarray
+    value: np.ndarray[Any, Any]
     precision: float = DEFAULT_PRECISION
     timestamp: float = field(default_factory=time.time)
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -143,10 +143,10 @@ class PredictionError:
 
     error_id: str
     level: ProcessingLevel
-    prediction: np.ndarray
-    observation: np.ndarray
-    error: np.ndarray
-    precision_weighted_error: np.ndarray
+    prediction: np.ndarray[Any, Any]
+    observation: np.ndarray[Any, Any]
+    error: np.ndarray[Any, Any]
+    precision_weighted_error: np.ndarray[Any, Any]
     magnitude: float
     is_anomaly: bool = False
     timestamp: float = field(default_factory=time.time)
@@ -175,16 +175,16 @@ class GenerativeModel:
     """
 
     level: ProcessingLevel
-    weights: np.ndarray
-    bias: np.ndarray
+    weights: np.ndarray[Any, Any]
+    bias: np.ndarray[Any, Any]
     precision: float = DEFAULT_PRECISION
     learning_rate: float = DEFAULT_LEARNING_RATE
 
-    def predict(self, higher_level_state: np.ndarray) -> np.ndarray:
+    def predict(self, higher_level_state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Generate prediction from higher-level state."""
         return higher_level_state @ self.weights + self.bias
 
-    def update(self, error: np.ndarray, higher_level_state: np.ndarray) -> None:
+    def update(self, error: np.ndarray[Any, Any], higher_level_state: np.ndarray[Any, Any]) -> None:
         """Update weights based on prediction error."""
         # Gradient descent on prediction error
         grad_weights = np.outer(higher_level_state, error)
@@ -208,9 +208,9 @@ class BeliefState:
     """
 
     level: ProcessingLevel
-    mean: np.ndarray
-    variance: np.ndarray
-    precision: np.ndarray = field(default_factory=lambda: np.array([]))
+    mean: np.ndarray[Any, Any]
+    variance: np.ndarray[Any, Any]
+    precision: np.ndarray[Any, Any] = field(default_factory=lambda: np.array([]))
     timestamp: float = field(default_factory=time.time)
 
     def __post_init__(self) -> None:
@@ -286,8 +286,8 @@ class PrecisionEstimator:
 
     def estimate(
         self,
-        errors: np.ndarray,
-    ) -> np.ndarray:
+        errors: np.ndarray[Any, Any],
+    ) -> np.ndarray[Any, Any]:
         """
         Estimate precisions for an array of errors (simplified API).
 
@@ -444,7 +444,7 @@ class HierarchicalPredictiveCoder:
 
     def process(
         self,
-        observation: np.ndarray,
+        observation: np.ndarray[Any, Any],
         update_beliefs: bool = True,
     ) -> tuple[list[PredictionError], FreeEnergy]:
         """
@@ -556,8 +556,8 @@ class HierarchicalPredictiveCoder:
     def _compute_error(
         self,
         level: ProcessingLevel,
-        prediction: np.ndarray,
-        observation: np.ndarray,
+        prediction: np.ndarray[Any, Any],
+        observation: np.ndarray[Any, Any],
     ) -> PredictionError:
         """Compute prediction error at a level."""
         self._error_counter += 1
@@ -589,7 +589,7 @@ class HierarchicalPredictiveCoder:
     def _update_belief(
         self,
         level: ProcessingLevel,
-        bottom_up_signal: np.ndarray,
+        bottom_up_signal: np.ndarray[Any, Any],
     ) -> None:
         """Update belief at a level."""
         belief = self.beliefs[level]
@@ -681,8 +681,8 @@ class HierarchicalPredictiveCoder:
 
     def predict_and_compute_error(
         self,
-        observation: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray]:
+        observation: np.ndarray[Any, Any],
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """
         Predict and compute error for observation (simplified API).
 
@@ -717,7 +717,7 @@ class HierarchicalPredictiveCoder:
 
     def compute_free_energy(
         self,
-        error: np.ndarray,
+        error: np.ndarray[Any, Any],
     ) -> float:
         """
         Compute free energy from error array (simplified API).
@@ -740,10 +740,10 @@ class HierarchicalPredictiveCoder:
 
     def update_beliefs(
         self,
-        prior: np.ndarray,
-        observation: np.ndarray,
+        prior: np.ndarray[Any, Any],
+        observation: np.ndarray[Any, Any],
         learning_rate: float = 0.1,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """
         Update beliefs given prior and observation (simplified API).
 
@@ -815,7 +815,7 @@ class ActiveInferenceAgent:
 
     def select_action(
         self,
-        observation_or_state: np.ndarray,
+        observation_or_state: np.ndarray[Any, Any],
         available_actions: list[dict[str, Any]] | None = None,
         planning_horizon: int = 5,
     ) -> dict[str, Any] | tuple[int, float]:
@@ -866,7 +866,7 @@ class ActiveInferenceAgent:
 
     def _compute_action_fe(
         self,
-        state: np.ndarray,
+        state: np.ndarray[Any, Any],
         action: dict[str, Any],
     ) -> float:
         """Compute expected free energy for an action dict."""
@@ -910,7 +910,7 @@ class ActiveInferenceAgent:
     def update_from_outcome(
         self,
         action: int,
-        observation: np.ndarray,
+        observation: np.ndarray[Any, Any],
         success: bool,
     ) -> None:
         """
@@ -988,7 +988,7 @@ class PredictiveCodingDetector:
 
     def detect(
         self,
-        observation: np.ndarray,
+        observation: np.ndarray[Any, Any],
         update_model: bool = True,
     ) -> dict[str, Any]:
         """
@@ -1069,7 +1069,7 @@ class PredictiveCodingDetector:
 
     def fit(
         self,
-        data: np.ndarray,
+        data: np.ndarray[Any, Any],
         epochs: int = 10,
     ) -> dict[str, list[float]]:
         """
@@ -1117,7 +1117,7 @@ class PredictiveCodingDetector:
 
     def update(
         self,
-        observation: np.ndarray,
+        observation: np.ndarray[Any, Any],
     ) -> None:
         """
         Update the model with a new observation (simplified API).
@@ -1185,7 +1185,7 @@ class MercuryPredictiveCoding:
 
     def analyze(
         self,
-        features: np.ndarray,
+        features: np.ndarray[Any, Any],
         return_action: bool = False,
     ) -> dict[str, Any]:
         """
@@ -1221,7 +1221,7 @@ class MercuryPredictiveCoding:
 
     def train(
         self,
-        data: np.ndarray,
+        data: np.ndarray[Any, Any],
         epochs: int = 10,
     ) -> dict[str, list[float]]:
         """

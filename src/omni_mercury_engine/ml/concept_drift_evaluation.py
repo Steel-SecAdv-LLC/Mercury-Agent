@@ -109,8 +109,8 @@ class SplitPerformance:
     drift_score: float = 0.0
 
     # Additional metrics
-    predictions: np.ndarray | None = None
-    true_labels: np.ndarray | None = None
+    predictions: np.ndarray[Any, Any] | None = None
+    true_labels: np.ndarray[Any, Any] | None = None
     feature_importance: dict[str, float] | None = None
 
 

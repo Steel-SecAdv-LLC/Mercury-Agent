@@ -148,7 +148,7 @@ class EPAAirQualityLoader(DatasetLoader):
             ),
         ) from last_err
 
-    def _parse_epa_csv(self, text: str) -> tuple[np.ndarray, np.ndarray]:
+    def _parse_epa_csv(self, text: str) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Parse EPA daily PM2.5 CSV."""
         import csv
 

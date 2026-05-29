@@ -389,7 +389,9 @@ class NASAExoplanetLoader(DatasetLoader):
             logger.warning(f"NASA TAP download failed: {e}")
             return False
 
-    def _process_tap_data(self, records: list[Any]) -> tuple[np.ndarray, np.ndarray]:
+    def _process_tap_data(
+        self, records: list[Any]
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """
         Process TAP query results.
 
@@ -625,7 +627,9 @@ class SolarDynamicsLoader(DatasetLoader):
             logger.warning(f"NOAA SWPC download failed: {e}")
             return False
 
-    def _process_swpc_data(self, data: list[dict[str, Any]]) -> tuple[np.ndarray, np.ndarray]:
+    def _process_swpc_data(
+        self, data: list[dict[str, Any]]
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """
         Process NOAA SWPC X-ray flux data.
 

@@ -20,7 +20,7 @@ import pytest
 pytest.importorskip("torch")
 
 
-def _linear_sem(seed: int = 0, n: int = 800) -> np.ndarray:
+def _linear_sem(seed: int = 0, n: int = 800) -> np.ndarray[Any, Any]:
     """Known structure: A -> B -> C (chain); D independent."""
     rng = np.random.RandomState(seed)
     a = rng.normal(0, 1, n)
@@ -43,7 +43,7 @@ class TestCausalDiscoverySurface:
         g1 = engine.discover_causal_structure(X, ["A", "B", "C", "D"], seed=42)
         g2 = engine.discover_causal_structure(X, ["A", "B", "C", "D"], seed=42)
 
-        def edges(g: dict) -> list:
+        def edges(g: dict[str, Any]) -> list[tuple[Any, ...]]:
             return sorted(
                 (e["source"], e["target"], e["type"], round(e["strength"], 6)) for e in g["edges"]
             )

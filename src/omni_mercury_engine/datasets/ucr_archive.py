@@ -17,12 +17,15 @@ from __future__ import annotations
 
 import logging
 import zipfile
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from .base import DatasetConfig, DatasetLoader, DatasetMetadata, DatasetSplit, safe_urlretrieve
 from .exceptions import DataSourceUnavailableError
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +84,15 @@ class UCRLoader(DatasetLoader):
     def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load raw UCR data - redirects to load()."""
         return self.load()
+
+    def _locate_split_file(self, stem: str) -> tuple[Path, str | None] | None:
+        """Find a UCR split in original nested TSV or aeon flat TXT layouts."""
+        for base in (self.data_path / self.dataset_name, self.data_path):
+            for ext, delim in ((".tsv", "\t"), (".txt", None)):
+                candidate = base / f"{stem}{ext}"
+                if candidate.exists():
+                    return candidate, delim
+        return None
 
     def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Apply UCR-specific preprocessing (z-normalization)."""
@@ -163,28 +175,11 @@ class UCRLoader(DatasetLoader):
     def load(
         self, split: DatasetSplit = DatasetSplit.ALL
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """Load UCR dataset."""
-        # Two on-disk layouts are supported:
-        #   1. Original UCR Archive 2018 zip: nested ``<name>/<name>_TRAIN.tsv``
-        #      tab-delimited.
-        #   2. Aeon-toolkit per-dataset zip (what the live mirror serves
-        #      since the sktime->aeon rename): flat ``<name>_TRAIN.txt``
-        #      whitespace-delimited, no nested directory, ``.tsv`` files
-        #      are not produced.
-        # We try both layouts and both extensions so a freshly-downloaded
-        # dataset and a pre-2024 cached one both load through the same path.
-        def _locate(stem: str) -> tuple[Path, str] | None:
-            for base in (self.data_path / self.dataset_name, self.data_path):
-                for ext, delim in ((".tsv", "\t"), (".txt", None)):
-                    p = base / f"{stem}{ext}"
-                    if p.exists():
-                        return p, delim
-            return None
-
-        located_train = _locate(f"{self.dataset_name}_TRAIN")
+        """Load UCR data from original nested TSV or aeon flat TXT layouts."""
+        located_train = self._locate_split_file(f"{self.dataset_name}_TRAIN")
         if located_train is None:
             self.download()
-            located_train = _locate(f"{self.dataset_name}_TRAIN")
+            located_train = self._locate_split_file(f"{self.dataset_name}_TRAIN")
             if located_train is None:
                 raise FileNotFoundError(
                     f"UCR dataset {self.dataset_name} not found at any known "
@@ -192,7 +187,7 @@ class UCRLoader(DatasetLoader):
                     "Please download from UCR archive."
                 )
         train_file, delim = located_train
-        located_test = _locate(f"{self.dataset_name}_TEST")
+        located_test = self._locate_split_file(f"{self.dataset_name}_TEST")
         if located_test is None:
             raise FileNotFoundError(
                 f"UCR train split located at {train_file} but matching "

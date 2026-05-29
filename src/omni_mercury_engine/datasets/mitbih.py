@@ -142,7 +142,7 @@ class MITBIHLoader(DatasetLoader):
 
         self.data_path.mkdir(parents=True, exist_ok=True)
 
-        all_segments: list[np.ndarray] = []
+        all_segments: list[np.ndarray[Any, Any]] = []
         all_labels: list[int] = []
         loaded_records = 0
 

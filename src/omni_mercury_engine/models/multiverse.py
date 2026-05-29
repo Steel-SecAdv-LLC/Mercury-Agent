@@ -60,7 +60,7 @@ class Universe:
     """Represents a parallel universe (solution pathway)."""
 
     universe_id: str
-    state_vector: np.ndarray
+    state_vector: np.ndarray[Any, Any]
     probability_amplitude: float
     fitness: float
     state: UniverseState

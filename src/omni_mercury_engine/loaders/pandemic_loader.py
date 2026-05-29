@@ -432,7 +432,7 @@ class PandemicLoader(BaseDomainLoader):
         """
         return sorted({e.get("pathogen_class", "unknown") for e in _EVENT_CATALOG.values()})
 
-    def get_ground_truth(self, event_id: str) -> np.ndarray:
+    def get_ground_truth(self, event_id: str) -> np.ndarray[Any, Any]:
         """
         Generate binary anomaly labels for a historical pandemic event.
 
@@ -523,7 +523,7 @@ class PandemicLoader(BaseDomainLoader):
     # Feature engineering
     # ------------------------------------------------------------------
 
-    def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray:
+    def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray[Any, Any]:
         """
         Transform raw pandemic data into a feature matrix.
 
@@ -1097,7 +1097,7 @@ class PandemicLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _rolling_mean(values: np.ndarray, window: int = 7) -> np.ndarray:
+    def _rolling_mean(values: np.ndarray[Any, Any], window: int = 7) -> np.ndarray[Any, Any]:
         """
         Compute a trailing rolling mean over a 1-D array.
 
@@ -1121,9 +1121,9 @@ class PandemicLoader(BaseDomainLoader):
 
     @staticmethod
     def _compute_growth_rate(
-        new_cases: np.ndarray,
+        new_cases: np.ndarray[Any, Any],
         lag: int = 7,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """
         Compute case growth rate as ratio of current to lagged values.
 

@@ -25,7 +25,7 @@ pytest.importorskip("torch")
 import torch
 
 
-def _fixture(seed: int = 7, sep: float = 2.0) -> tuple[np.ndarray, np.ndarray]:
+def _fixture(seed: int = 7, sep: float = 2.0) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
     rng = np.random.RandomState(seed)
     normal = rng.normal(0.0, 1.0, (500, 12))
     anomaly = rng.normal(sep, 1.0, (60, 12))

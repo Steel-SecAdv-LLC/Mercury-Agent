@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 
@@ -25,10 +26,10 @@ class PowerSpectrum:
     """Power spectrum of spherical harmonic decomposition."""
 
     l_max: int
-    spectrum: np.ndarray
+    spectrum: np.ndarray[Any, Any]
     normalized: bool = True
 
-    def to_feature_vector(self) -> np.ndarray:
+    def to_feature_vector(self) -> np.ndarray[Any, Any]:
         """Convert to feature vector."""
         return self.spectrum.copy()
 
@@ -42,10 +43,10 @@ class Bispectrum:
     """Bispectrum (third-order statistics) of SH coefficients."""
 
     l_max: int
-    components: np.ndarray
+    components: np.ndarray[Any, Any]
     indices: list[tuple[int, int, int]]
 
-    def to_feature_vector(self) -> np.ndarray:
+    def to_feature_vector(self) -> np.ndarray[Any, Any]:
         """Convert to feature vector."""
         return self.components.copy()
 
@@ -56,8 +57,8 @@ class RotationInvariantDescriptor:
 
     power_spectrum: PowerSpectrum
     bispectrum: Bispectrum | None
-    zernike_moments: np.ndarray | None
-    energy_distribution: np.ndarray
+    zernike_moments: np.ndarray[Any, Any] | None
+    energy_distribution: np.ndarray[Any, Any]
     complexity_measure: float
 
 
@@ -136,7 +137,7 @@ class HarmonicFeatureExtractor:
 
         if self._normalize:
             total = np.sum(spectrum) + 1e-10
-            spectrum = spectrum / total
+            spectrum = spectrum / total  # type: ignore[assignment]
 
         return PowerSpectrum(
             l_max=l_max,
@@ -229,7 +230,7 @@ class HarmonicFeatureExtractor:
     def _compute_energy_distribution(
         self,
         coefficients: HarmonicCoefficients,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """Compute energy distribution across scales."""
         l_max = coefficients.l_max
         n_bands = min(5, (l_max + 1) // 4)

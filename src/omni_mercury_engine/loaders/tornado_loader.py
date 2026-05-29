@@ -254,7 +254,7 @@ class TornadoLoader(BaseDomainLoader):
             )
         return events
 
-    def get_ground_truth(self, event_id: str) -> np.ndarray:
+    def get_ground_truth(self, event_id: str) -> np.ndarray[Any, Any]:
         """
         Generate binary anomaly labels for a historical tornado event.
 
@@ -299,7 +299,7 @@ class TornadoLoader(BaseDomainLoader):
     # Feature engineering
     # ------------------------------------------------------------------
 
-    def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray:
+    def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray[Any, Any]:
         """
         Transform raw tornado data into a feature matrix.
 
@@ -554,10 +554,10 @@ class TornadoLoader(BaseDomainLoader):
     @staticmethod
     def _compute_temporal_clustering(
         timestamps: list[pd.Timestamp],
-        latitudes: np.ndarray,
-        longitudes: np.ndarray,
+        latitudes: np.ndarray[Any, Any],
+        longitudes: np.ndarray[Any, Any],
         radius_km: float = 100.0,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """
         Compute temporal clustering: tornado count per hour in surrounding region.
 
@@ -606,9 +606,9 @@ class TornadoLoader(BaseDomainLoader):
 
     @staticmethod
     def _compute_geographic_anomaly(
-        latitudes: np.ndarray,
-        longitudes: np.ndarray,
-    ) -> np.ndarray:
+        latitudes: np.ndarray[Any, Any],
+        longitudes: np.ndarray[Any, Any],
+    ) -> np.ndarray[Any, Any]:
         """
         Compute distance from the historical tornado density centroid.
 

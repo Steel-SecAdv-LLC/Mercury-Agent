@@ -320,7 +320,7 @@ class DetectionAgent(ABC):
     @abstractmethod
     def detect(
         self,
-        data: np.ndarray,
+        data: np.ndarray[Any, Any],
         context: dict[str, Any] | None = None,
     ) -> DetectionResult:
         """
@@ -401,7 +401,7 @@ class SimpleDetectionAgent(DetectionAgent):
 
     def detect(
         self,
-        data: np.ndarray,
+        data: np.ndarray[Any, Any],
         context: dict[str, Any] | None = None,
     ) -> DetectionResult:
         """Perform simple threshold-based detection."""
@@ -427,14 +427,14 @@ class SimpleDetectionAgent(DetectionAgent):
             reasoning=f"{self.role.value} detection with score {score:.3f}",
         )
 
-    def _statistical_score(self, data: np.ndarray) -> float:
+    def _statistical_score(self, data: np.ndarray[Any, Any]) -> float:
         """Compute statistical anomaly score."""
         mean = np.mean(data)
         std = np.std(data) + 1e-8
         z_scores = np.abs((data - mean) / std)
         return float(np.clip(np.max(z_scores) / 3, 0, 1))
 
-    def _temporal_score(self, data: np.ndarray) -> float:
+    def _temporal_score(self, data: np.ndarray[Any, Any]) -> float:
         """Compute temporal anomaly score."""
         if len(data) < 2:
             return 0.5
@@ -443,7 +443,7 @@ class SimpleDetectionAgent(DetectionAgent):
         max_diff = np.max(np.abs(diffs))
         return float(np.clip(max_diff / (mean_diff + 1e-8) / 5, 0, 1))
 
-    def _dimensional_score(self, data: np.ndarray) -> float:
+    def _dimensional_score(self, data: np.ndarray[Any, Any]) -> float:
         """Compute dimensional anomaly score."""
         if data.ndim == 1:
             data = data.reshape(1, -1)
@@ -454,7 +454,7 @@ class SimpleDetectionAgent(DetectionAgent):
         mean_dist = np.mean(distances)
         return float(np.clip((max_dist - mean_dist) / (mean_dist + 1e-8), 0, 1))
 
-    def _generic_score(self, data: np.ndarray) -> float:
+    def _generic_score(self, data: np.ndarray[Any, Any]) -> float:
         """Generic anomaly score."""
         return float(np.clip(np.max(np.abs(data)) / 10, 0, 1))
 
@@ -1036,7 +1036,7 @@ class AgentCoordinator:
 
     def coordinate_detection(
         self,
-        data: np.ndarray,
+        data: np.ndarray[Any, Any],
         context: dict[str, Any] | None = None,
         agent_ids: list[str] | None = None,
     ) -> ConsensusResult:
@@ -1188,7 +1188,7 @@ class MultiAgentDetectionSystem:
 
     def detect(
         self,
-        data: np.ndarray,
+        data: np.ndarray[Any, Any],
         context: dict[str, Any] | None = None,
         use_coalition: bool = False,
     ) -> dict[str, Any]:

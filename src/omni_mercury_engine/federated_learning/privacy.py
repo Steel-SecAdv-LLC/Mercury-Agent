@@ -91,10 +91,10 @@ class PrivacyAccountant:
     sample_rate: float = 1.0
 
     _queries: list[tuple[float, float]] = field(default_factory=list)
-    _rdp_orders: np.ndarray = field(
+    _rdp_orders: np.ndarray[Any, Any] = field(
         default_factory=lambda: np.array([1.5, 2, 2.5, 3, 4, 5, 6, 8, 16, 32, 64])
     )
-    _rdp_eps: np.ndarray | None = None
+    _rdp_eps: np.ndarray[Any, Any] | None = None
 
     def __post_init__(self) -> None:
         """Initialize RDP epsilon array."""
@@ -163,7 +163,7 @@ class PrivacyAccountant:
         rdp = (max_log + math.log(sum_exp)) / (order - 1)
         return max(0.0, rdp)
 
-    def _rdp_to_dp(self, rdp_eps: np.ndarray, delta: float) -> float:
+    def _rdp_to_dp(self, rdp_eps: np.ndarray[Any, Any], delta: float) -> float:
         """Convert RDP to (epsilon, delta)-DP."""
         if delta <= 0:
             return float("inf")
@@ -243,10 +243,10 @@ class DifferentialPrivacyMechanism(ABC):
     @abstractmethod
     def add_noise(
         self,
-        value: np.ndarray,
+        value: np.ndarray[Any, Any],
         sensitivity: float,
         epsilon: float,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """Add noise to satisfy differential privacy."""
         pass
 
@@ -280,10 +280,10 @@ class GaussianMechanism(DifferentialPrivacyMechanism):
 
     def add_noise(
         self,
-        value: np.ndarray,
+        value: np.ndarray[Any, Any],
         sensitivity: float,
         epsilon: float,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """Add Gaussian noise to the value."""
         sigma = self.compute_noise_scale(sensitivity, epsilon)
         noise = self._rng.normal(0, sigma, size=value.shape)
@@ -317,10 +317,10 @@ class LaplaceMechanism(DifferentialPrivacyMechanism):
 
     def add_noise(
         self,
-        value: np.ndarray,
+        value: np.ndarray[Any, Any],
         sensitivity: float,
         epsilon: float,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """Add Laplace noise to the value."""
         scale = self.compute_noise_scale(sensitivity, epsilon)
         noise = self._rng.laplace(0, scale, size=value.shape)
@@ -355,7 +355,7 @@ class GradientClipper:
         self._max_norm = max_norm
         self._norm_type = norm_type
 
-    def clip(self, gradients: np.ndarray) -> np.ndarray:
+    def clip(self, gradients: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Clip gradients to bounded norm.
 
@@ -374,7 +374,7 @@ class GradientClipper:
 
         return clipped
 
-    def _clip_single(self, gradient: np.ndarray) -> np.ndarray:
+    def _clip_single(self, gradient: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Clip a single gradient vector."""
         if self._norm_type == "l2":
             norm = np.linalg.norm(gradient)
@@ -436,10 +436,10 @@ class SecureAggregator:
 
     def aggregate(
         self,
-        updates: list[np.ndarray],
+        updates: list[np.ndarray[Any, Any]],
         weights: list[float] | None = None,
         sensitivity: float = 1.0,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """
         Securely aggregate client updates with DP noise.
 
@@ -516,9 +516,9 @@ class LocalDifferentialPrivacy:
 
     def privatize(
         self,
-        value: np.ndarray,
+        value: np.ndarray[Any, Any],
         sensitivity: float = 1.0,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """
         Apply local differential privacy to a value.
 
@@ -533,9 +533,9 @@ class LocalDifferentialPrivacy:
 
     def privatize_gradients(
         self,
-        gradients: np.ndarray,
+        gradients: np.ndarray[Any, Any],
         max_norm: float = 1.0,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """
         Privatize gradients with clipping and noise.
 
@@ -654,9 +654,9 @@ class PrivacyEngine:
 
     def privatize_gradients(
         self,
-        gradients: np.ndarray,
+        gradients: np.ndarray[Any, Any],
         batch_size: int | None = None,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """
         Privatize gradients with clipping and noise.
 
@@ -691,9 +691,9 @@ class PrivacyEngine:
 
     def privatize_model_update(
         self,
-        update: np.ndarray,
+        update: np.ndarray[Any, Any],
         sensitivity: float | None = None,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """
         Privatize a model update (weights delta).
 

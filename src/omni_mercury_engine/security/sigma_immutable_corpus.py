@@ -101,8 +101,8 @@ class CorpusBundle:
             calibrated to (0.93).
     """
 
-    features: np.ndarray
-    labels: np.ndarray
+    features: np.ndarray[Any, Any]
+    labels: np.ndarray[Any, Any]
     sha3_256: str
     seed: int
     positive: int
@@ -171,13 +171,13 @@ def generate_corpus(
 
     # Deterministic shuffle so positives/negatives are interleaved at training.
     perm = rng.permutation(n_total)
-    features = features[perm]
-    labels = labels[perm]
+    features = features[perm]  # type: ignore[assignment]
+    labels = labels[perm]  # type: ignore[assignment]
 
     # Defensive copy + read-only view to enforce the trust boundary documented
     # for ``GOSNNCouplingServer.ingest`` and reused elsewhere in-tree.
-    features = np.array(features, copy=True)
-    labels = np.array(labels, copy=True)
+    features = np.array(features, copy=True)  # type: ignore[assignment]
+    labels = np.array(labels, copy=True)  # type: ignore[assignment]
     features.setflags(write=False)
     labels.setflags(write=False)
 
@@ -196,8 +196,8 @@ def generate_corpus(
 
 
 def _canonical_bytes(
-    features: np.ndarray,
-    labels: np.ndarray,
+    features: np.ndarray[Any, Any],
+    labels: np.ndarray[Any, Any],
     seed: int,
     threshold: float,
 ) -> bytes:

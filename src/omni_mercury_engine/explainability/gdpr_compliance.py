@@ -263,8 +263,8 @@ Reference ID: {decision_id}
 
     def __init__(
         self,
-        model: Callable[[np.ndarray], np.ndarray] | Any,
-        background_data: np.ndarray,
+        model: Callable[[np.ndarray[Any, Any]], np.ndarray[Any, Any]] | Any,
+        background_data: np.ndarray[Any, Any],
         feature_names: list[str] | None = None,
         feature_descriptions: dict[str, str] | None = None,
         model_id: str = "unknown",
@@ -324,7 +324,7 @@ Reference ID: {decision_id}
 
     def explain_decision(
         self,
-        instance: np.ndarray,
+        instance: np.ndarray[Any, Any],
         decision_value: Any,
         subject_id: str,
         confidence: float | None = None,

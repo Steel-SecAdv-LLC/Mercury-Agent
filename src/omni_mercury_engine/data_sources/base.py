@@ -202,7 +202,7 @@ class DataPoint:
             metadata=data.get("metadata", {}),
         )
 
-    def to_feature_vector(self, feature_dim: int = 32) -> np.ndarray:
+    def to_feature_vector(self, feature_dim: int = 32) -> np.ndarray[Any, Any]:
         """
         Convert DataPoint to a feature vector for ML processing.
 

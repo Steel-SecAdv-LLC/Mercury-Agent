@@ -172,15 +172,15 @@ class KinematicFeatures:
         energy_state: Energy conservation state
     """
 
-    position: np.ndarray
-    velocity: np.ndarray
-    acceleration: np.ndarray
-    jerk: np.ndarray
-    kinetic_energy: np.ndarray
-    potential_energy: np.ndarray
-    total_energy: np.ndarray
-    momentum: np.ndarray
-    impulse: np.ndarray
+    position: np.ndarray[Any, Any]
+    velocity: np.ndarray[Any, Any]
+    acceleration: np.ndarray[Any, Any]
+    jerk: np.ndarray[Any, Any]
+    kinetic_energy: np.ndarray[Any, Any]
+    potential_energy: np.ndarray[Any, Any]
+    total_energy: np.ndarray[Any, Any]
+    momentum: np.ndarray[Any, Any]
+    impulse: np.ndarray[Any, Any]
     mean_velocity: float
     mean_acceleration: float
     max_jerk: float
@@ -204,7 +204,7 @@ class PhaseSpaceFeatures:
         attractor_type: Type of attractor detected
     """
 
-    trajectory: np.ndarray
+    trajectory: np.ndarray[Any, Any]
     lyapunov_exponent: float
     correlation_dimension: float
     recurrence_rate: float
@@ -593,7 +593,7 @@ class AccelerationDynamicsDetector(BaseDetector):
         self._phase_network.eval()
         self._energy_network.eval()
 
-    def fit(self, data: np.ndarray | torch.Tensor) -> AccelerationDynamicsDetector:
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> AccelerationDynamicsDetector:
         """
         Fit detector on reference/training data.
 
@@ -652,7 +652,7 @@ class AccelerationDynamicsDetector(BaseDetector):
 
         return self
 
-    def detect(self, data: np.ndarray | torch.Tensor) -> dict[str, Any]:
+    def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """
         Detect anomalies using acceleration dynamics analysis.
 
@@ -723,7 +723,7 @@ class AccelerationDynamicsDetector(BaseDetector):
             "calibration_diagnostics": calibration_diagnostics,
         }
 
-    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
+    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
         """
         Extract features for ML fusion.
 
@@ -802,7 +802,7 @@ class AccelerationDynamicsDetector(BaseDetector):
 
         return torch.tensor(np.array(all_features), dtype=torch.float32)
 
-    def _analyze_sample(self, signal: np.ndarray) -> AccelerationAnomalyResult:
+    def _analyze_sample(self, signal: np.ndarray[Any, Any]) -> AccelerationAnomalyResult:
         """
         Perform complete analysis on a single sample.
 
@@ -861,7 +861,7 @@ class AccelerationDynamicsDetector(BaseDetector):
             anomaly_descriptions=descriptions,
         )
 
-    def _compute_kinematic_features(self, signal: np.ndarray) -> KinematicFeatures:
+    def _compute_kinematic_features(self, signal: np.ndarray[Any, Any]) -> KinematicFeatures:
         """Compute all kinematic features from signal.
 
         Physics formulas applied:
@@ -951,9 +951,9 @@ class AccelerationDynamicsDetector(BaseDetector):
 
     def _classify_motion_state(
         self,
-        velocity: np.ndarray,
-        acceleration: np.ndarray,
-        jerk: np.ndarray,
+        velocity: np.ndarray[Any, Any],
+        acceleration: np.ndarray[Any, Any],
+        jerk: np.ndarray[Any, Any],
     ) -> MotionState:
         """
         Classify the motion state from kinematic features.
@@ -1004,7 +1004,7 @@ class AccelerationDynamicsDetector(BaseDetector):
 
         return MotionState.ANOMALOUS
 
-    def _classify_energy_state(self, total_energy: np.ndarray) -> EnergyState:
+    def _classify_energy_state(self, total_energy: np.ndarray[Any, Any]) -> EnergyState:
         """
         Classify energy conservation state.
 
@@ -1032,7 +1032,7 @@ class AccelerationDynamicsDetector(BaseDetector):
         else:
             return EnergyState.UNSTABLE
 
-    def _analyze_phase_space(self, signal: np.ndarray) -> PhaseSpaceFeatures:
+    def _analyze_phase_space(self, signal: np.ndarray[Any, Any]) -> PhaseSpaceFeatures:
         """
         Analyze phase space trajectory.
 
@@ -1085,10 +1085,10 @@ class AccelerationDynamicsDetector(BaseDetector):
 
     def _construct_delay_embedding(
         self,
-        signal: np.ndarray,
+        signal: np.ndarray[Any, Any],
         dim: int,
         delay: int,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """
         Construct delay coordinate embedding.
 
@@ -1115,7 +1115,7 @@ class AccelerationDynamicsDetector(BaseDetector):
 
         return embedding
 
-    def _estimate_lyapunov_exponent(self, trajectory: np.ndarray) -> float:
+    def _estimate_lyapunov_exponent(self, trajectory: np.ndarray[Any, Any]) -> float:
         """
         Estimate largest Lyapunov exponent.
 
@@ -1159,7 +1159,7 @@ class AccelerationDynamicsDetector(BaseDetector):
 
         return float(np.mean(divergences))
 
-    def _estimate_correlation_dimension(self, trajectory: np.ndarray) -> float:
+    def _estimate_correlation_dimension(self, trajectory: np.ndarray[Any, Any]) -> float:
         """
         Estimate correlation dimension using Grassberger-Procaccia algorithm.
 
@@ -1218,7 +1218,7 @@ class AccelerationDynamicsDetector(BaseDetector):
 
     def _compute_recurrence_metrics(
         self,
-        trajectory: np.ndarray,
+        trajectory: np.ndarray[Any, Any],
         threshold_percentile: float = 10.0,
     ) -> tuple[float, float]:
         """
@@ -1282,7 +1282,7 @@ class AccelerationDynamicsDetector(BaseDetector):
 
         return float(rr), float(det)
 
-    def _compute_phase_entropy(self, trajectory: np.ndarray) -> float:
+    def _compute_phase_entropy(self, trajectory: np.ndarray[Any, Any]) -> float:
         """
         Compute entropy of phase space distribution.
 
@@ -1518,10 +1518,10 @@ class AccelerationDynamicsDetector(BaseDetector):
 
 
 def compute_velocity(
-    position: np.ndarray,
+    position: np.ndarray[Any, Any],
     time_step: float = 1.0,
     method: str = "central",
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     """Compute velocity from position using finite differences.
 
     Implements: v = (x_f - x_i) / t
@@ -1549,9 +1549,9 @@ def compute_velocity(
 
 
 def compute_acceleration(
-    velocity: np.ndarray,
+    velocity: np.ndarray[Any, Any],
     time_step: float = 1.0,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     """Compute acceleration from velocity.
 
     Implements: a = (v_f - v_i) / t
@@ -1567,9 +1567,9 @@ def compute_acceleration(
 
 
 def compute_kinetic_energy(
-    velocity: np.ndarray,
+    velocity: np.ndarray[Any, Any],
     mass: float = 1.0,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     """Compute kinetic energy.
 
     Implements: KE = ½mv²
@@ -1585,9 +1585,9 @@ def compute_kinetic_energy(
 
 
 def compute_momentum(
-    velocity: np.ndarray,
+    velocity: np.ndarray[Any, Any],
     mass: float = 1.0,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     """Compute momentum.
 
     Implements: p = mv
@@ -1603,9 +1603,9 @@ def compute_momentum(
 
 
 def compute_impulse(
-    momentum: np.ndarray,
+    momentum: np.ndarray[Any, Any],
     time_step: float = 1.0,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     """Compute impulse (change in momentum).
 
     Implements: J = Δp = FΔt

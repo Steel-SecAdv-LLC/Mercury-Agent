@@ -75,7 +75,7 @@ class MemoryEmbedding:
 
     entry_id: str
     memory_type: MemoryType
-    embedding: np.ndarray
+    embedding: np.ndarray[Any, Any]
     timestamp: float
     importance: float = 0.5
     cluster_id: int = -1

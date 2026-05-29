@@ -30,7 +30,9 @@ logger = logging.getLogger(__name__)
 class ScoringFunction(Protocol):
     """Protocol for nonconformity scoring functions."""
 
-    def __call__(self, X: np.ndarray, y: np.ndarray | None = None) -> np.ndarray:
+    def __call__(
+        self, X: np.ndarray[Any, Any], y: np.ndarray[Any, Any] | None = None
+    ) -> np.ndarray[Any, Any]:
         """Compute nonconformity scores."""
         ...
 
@@ -39,11 +41,11 @@ class ScoringFunction(Protocol):
 class ConformalPredictionSet:
     """Result of conformal prediction."""
 
-    prediction: np.ndarray  # Point predictions
-    lower_bound: np.ndarray  # Lower confidence bound
-    upper_bound: np.ndarray  # Upper confidence bound
+    prediction: np.ndarray[Any, Any]  # Point predictions
+    lower_bound: np.ndarray[Any, Any]  # Lower confidence bound
+    upper_bound: np.ndarray[Any, Any]  # Upper confidence bound
     coverage_level: float  # Target coverage (e.g., 0.95)
-    set_sizes: np.ndarray  # Size of each prediction set
+    set_sizes: np.ndarray[Any, Any]  # Size of each prediction set
     quantile_threshold: float  # Computed quantile threshold
 
 
@@ -83,13 +85,13 @@ class SplitConformalPredictor:
         """
         self.coverage = coverage
         self.seed = seed
-        self.calibration_scores: np.ndarray | None = None
+        self.calibration_scores: np.ndarray[Any, Any] | None = None
         self.quantile_threshold: float | None = None
         self._fitted = False
 
     def fit(
         self,
-        nonconformity_scores: np.ndarray,
+        nonconformity_scores: np.ndarray[Any, Any],
     ) -> SplitConformalPredictor:
         """
         Fit the conformal predictor on calibration scores.
@@ -121,8 +123,8 @@ class SplitConformalPredictor:
 
     def predict(
         self,
-        new_scores: np.ndarray,
-        point_predictions: np.ndarray | None = None,
+        new_scores: np.ndarray[Any, Any],
+        point_predictions: np.ndarray[Any, Any] | None = None,
     ) -> ConformalPredictionSet:
         """
         Generate prediction sets for new examples.
@@ -204,7 +206,7 @@ class CrossConformalPredictor:
 
     def fit(
         self,
-        X: np.ndarray,
+        X: np.ndarray[Any, Any],
         scoring_fn: ScoringFunction,
     ) -> CrossConformalPredictor:
         """
@@ -400,7 +402,9 @@ class ConformalAnomalyDetector:
 
         self._fitted = False
 
-    def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> ConformalAnomalyDetector:
+    def fit(
+        self, X: np.ndarray[Any, Any], y: np.ndarray[Any, Any] | None = None
+    ) -> ConformalAnomalyDetector:
         """
         Fit detector and calibrate conformal predictor.
 
@@ -441,7 +445,9 @@ class ConformalAnomalyDetector:
             self.conformal.fit(cal_scores)
         elif isinstance(self.conformal, CrossConformalPredictor):
             # For cross-conformal, need scoring function
-            def score_fn(X_input: np.ndarray, y: np.ndarray | None = None) -> np.ndarray:
+            def score_fn(
+                X_input: np.ndarray[Any, Any], y: np.ndarray[Any, Any] | None = None
+            ) -> np.ndarray[Any, Any]:
                 return self._get_anomaly_scores(X_input)
 
             self.conformal.fit(X_cal, score_fn)  # type: ignore[arg-type]
@@ -449,7 +455,7 @@ class ConformalAnomalyDetector:
         self._fitted = True
         return self
 
-    def _get_anomaly_scores(self, X: np.ndarray) -> np.ndarray:
+    def _get_anomaly_scores(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Get anomaly scores from base detector with robust fallback cascade.
 
@@ -534,7 +540,7 @@ class ConformalAnomalyDetector:
         # Strategy 5: Ensemble scoring from feature statistics
         return self._compute_ensemble_anomaly_scores(X)
 
-    def _compute_ensemble_anomaly_scores(self, X: np.ndarray) -> np.ndarray:
+    def _compute_ensemble_anomaly_scores(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Compute anomaly scores using ensemble of statistical methods.
 
@@ -595,7 +601,7 @@ class ConformalAnomalyDetector:
 
         return np.asarray(np.clip(ensemble_scores, 0.0, 1.0))  # type: ignore[no-any-return, unused-ignore]
 
-    def predict(self, X: np.ndarray) -> np.ndarray:
+    def predict(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Predict anomalies with conformal guarantee.
 
@@ -618,8 +624,8 @@ class ConformalAnomalyDetector:
 
     def predict_with_uncertainty(
         self,
-        X: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        X: np.ndarray[Any, Any],
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """
         Predict with uncertainty quantification.
 
@@ -652,8 +658,8 @@ class ConformalAnomalyDetector:
 
     def evaluate_coverage(
         self,
-        X_test: np.ndarray,
-        y_test: np.ndarray,
+        X_test: np.ndarray[Any, Any],
+        y_test: np.ndarray[Any, Any],
     ) -> CoverageResult:
         """
         Evaluate prediction accuracy on test set.
@@ -741,8 +747,8 @@ class MondrianConformalPredictor:
 
     def fit(
         self,
-        nonconformity_scores: np.ndarray,
-        groups: np.ndarray,
+        nonconformity_scores: np.ndarray[Any, Any],
+        groups: np.ndarray[Any, Any],
     ) -> MondrianConformalPredictor:
         """
         Fit per-group conformal predictors.
@@ -802,9 +808,9 @@ class MondrianConformalPredictor:
 
     def predict(
         self,
-        scores: np.ndarray,
-        groups: np.ndarray,
-    ) -> np.ndarray:
+        scores: np.ndarray[Any, Any],
+        groups: np.ndarray[Any, Any],
+    ) -> np.ndarray[Any, Any]:
         """
         Predict anomalies with per-group coverage guarantees.
 
@@ -826,10 +832,10 @@ class MondrianConformalPredictor:
 
     def predict_with_uncertainty(
         self,
-        scores: np.ndarray,
-        group_ids: np.ndarray,
+        scores: np.ndarray[Any, Any],
+        group_ids: np.ndarray[Any, Any],
         alpha: float = 0.1,
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """
         Predict anomalies with per-group confidence intervals.
 
@@ -874,9 +880,9 @@ class MondrianConformalPredictor:
 
     def evaluate_group_coverage(
         self,
-        scores: np.ndarray,
-        labels: np.ndarray,
-        groups: np.ndarray,
+        scores: np.ndarray[Any, Any],
+        labels: np.ndarray[Any, Any],
+        groups: np.ndarray[Any, Any],
     ) -> dict[str, float | dict[int | str, float]]:
         """
         Evaluate per-group empirical coverage.
@@ -939,8 +945,8 @@ class ConformalCalibrationBridge:
 
     def calibrate(
         self,
-        calibration_scores: np.ndarray,
-        groups: np.ndarray | None = None,
+        calibration_scores: np.ndarray[Any, Any],
+        groups: np.ndarray[Any, Any] | None = None,
     ) -> dict[str, float]:
         """
         Calibrate all conformal predictors.
@@ -987,7 +993,7 @@ class ConformalCalibrationBridge:
 
 def add_conformal_to_detector(
     detector: Any,
-    X_cal: np.ndarray,
+    X_cal: np.ndarray[Any, Any],
     coverage: float = 0.95,
     method: str = "split",
 ) -> tuple[SplitConformalPredictor | CrossConformalPredictor, float]:
@@ -1026,7 +1032,9 @@ def add_conformal_to_detector(
     else:
         cross_conformal = CrossConformalPredictor(coverage=coverage)
 
-        def score_fn(X_input: np.ndarray, y: np.ndarray | None = None) -> np.ndarray:
+        def score_fn(
+            X_input: np.ndarray[Any, Any], y: np.ndarray[Any, Any] | None = None
+        ) -> np.ndarray[Any, Any]:
             return _extract_detector_scores(detector, X_input)
 
         cross_conformal.fit(X_cal, score_fn)  # type: ignore[arg-type]
@@ -1035,7 +1043,7 @@ def add_conformal_to_detector(
     return conformal, conformal.get_anomaly_threshold()
 
 
-def _extract_detector_scores(detector: Any, X: np.ndarray) -> np.ndarray:
+def _extract_detector_scores(detector: Any, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
     """Extract continuous anomaly scores from any detector.
 
     Uses a multi-strategy fallback cascade to obtain scores:
@@ -1106,7 +1114,7 @@ def _extract_detector_scores(detector: Any, X: np.ndarray) -> np.ndarray:
     return _compute_statistical_anomaly_scores(X)
 
 
-def _compute_statistical_anomaly_scores(X: np.ndarray) -> np.ndarray:
+def _compute_statistical_anomaly_scores(X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
     """
     Compute anomaly scores using ensemble of statistical methods.
 

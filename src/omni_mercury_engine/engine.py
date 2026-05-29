@@ -2315,7 +2315,7 @@ class OmniMercuryEngine(LoggerMixin):
     def _get_anomaly_threshold(
         self,
         current_score: float,
-        all_scores: np.ndarray | None = None,
+        all_scores: np.ndarray[Any, Any] | None = None,
     ) -> float:
         """Determine anomaly threshold based on configuration.
 
@@ -2657,7 +2657,7 @@ class OmniMercuryEngine(LoggerMixin):
         detection_result = self.detect(data)
 
         # Aggregate scores from all detectors
-        all_scores: list[np.ndarray] = []
+        all_scores: list[np.ndarray[Any, Any]] = []
         for detector_result in detection_result.get("detectors", {}).values():
             scores = detector_result.get("scores")
             if scores is not None:
@@ -3253,9 +3253,7 @@ class OmniMercuryEngine(LoggerMixin):
         # Empty when training was done properly via fit_fusion; non-empty means
         # the result is biased by the leakage and the caller should know.
         if self._inference_auto_fit_detectors:
-            result["inference_auto_fit_detectors"] = sorted(
-                self._inference_auto_fit_detectors
-            )
+            result["inference_auto_fit_detectors"] = sorted(self._inference_auto_fit_detectors)
 
         # Add GOSNN metadata if integration was enabled
         if gosnn_metadata:

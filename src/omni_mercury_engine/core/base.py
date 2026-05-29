@@ -409,7 +409,7 @@ class BaseDetector(ABC):
 
         Returns:
             Feature array or tensor of shape ``[batch_size, feature_dim]``.
-            Callers must handle both ``np.ndarray`` and ``torch.Tensor``.
+            Callers must handle both ``np.ndarray[Any, Any]`` and ``torch.Tensor``.
 
         Note:
             Features should be normalized and suitable for neural network input.

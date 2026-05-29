@@ -427,7 +427,7 @@ class FEMALoader(BaseDomainLoader):
             )
         return events
 
-    def get_ground_truth(self, event_id: str) -> np.ndarray:
+    def get_ground_truth(self, event_id: str) -> np.ndarray[Any, Any]:
         """
         Generate binary anomaly labels for a historical FEMA event.
 
@@ -479,7 +479,7 @@ class FEMALoader(BaseDomainLoader):
     # Feature engineering
     # ------------------------------------------------------------------
 
-    def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray:
+    def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray[Any, Any]:
         """
         Transform raw FEMA declaration data into a feature matrix.
 
@@ -577,7 +577,7 @@ class FEMALoader(BaseDomainLoader):
         )
 
         # Clean up non-finite values.
-        features = np.where(np.isinf(features), np.nan, features)
+        features = np.asarray(np.where(np.isinf(features), np.nan, features))
         for col_idx in range(features.shape[1]):
             col = features[:, col_idx]
             mask = np.isnan(col)
@@ -655,7 +655,7 @@ class FEMALoader(BaseDomainLoader):
         return df
 
     @staticmethod
-    def _bool_column(df: pd.DataFrame, col: str) -> np.ndarray:
+    def _bool_column(df: pd.DataFrame, col: str) -> np.ndarray[Any, Any]:
         """
         Extract a boolean column as a float64 array (1.0 / 0.0).
 
@@ -673,7 +673,7 @@ class FEMALoader(BaseDomainLoader):
     @staticmethod
     def _compute_days_since_last_same_state(
         df: pd.DataFrame,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """
         Compute days since the last declaration in the same state.
 
@@ -708,7 +708,7 @@ class FEMALoader(BaseDomainLoader):
     @staticmethod
     def _compute_trailing_counts(
         df: pd.DataFrame,
-    ) -> tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """
         Compute trailing 12-month declaration counts.
 
@@ -759,7 +759,7 @@ class FEMALoader(BaseDomainLoader):
     @staticmethod
     def _compute_time_between_declarations(
         df: pd.DataFrame,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """
         Compute seconds between consecutive declarations.
 
@@ -788,14 +788,14 @@ class FEMALoader(BaseDomainLoader):
             time_between[1:] = np.diff(epoch_s)
 
         # Clamp negative values (possible from unsorted or bad data).
-        time_between = np.maximum(time_between, 0.0)
+        time_between = np.asarray(np.maximum(time_between, 0.0))
 
         return time_between
 
     @staticmethod
     def _compute_geographic_cluster(
-        state_fips: np.ndarray,
-    ) -> np.ndarray:
+        state_fips: np.ndarray[Any, Any],
+    ) -> np.ndarray[Any, Any]:
         """Assign a geographic region cluster from state FIPS codes.
 
         Clusters are based on US Census Bureau regions:

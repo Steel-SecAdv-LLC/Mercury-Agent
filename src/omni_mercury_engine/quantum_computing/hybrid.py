@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 class OptimizationResult:
     """Result of hybrid quantum-classical optimization."""
 
-    optimal_parameters: np.ndarray
+    optimal_parameters: np.ndarray[Any, Any]
     optimal_value: float
     n_iterations: int
     convergence_history: list[float]
@@ -80,9 +80,9 @@ class ClassicalOptimizer:
 
     def minimize(
         self,
-        objective: Callable[[np.ndarray], float],
-        initial_params: np.ndarray,
-    ) -> tuple[np.ndarray, float, list[float]]:
+        objective: Callable[[np.ndarray[Any, Any]], float],
+        initial_params: np.ndarray[Any, Any],
+    ) -> tuple[np.ndarray[Any, Any], float, list[float]]:
         """
         Minimize the objective function.
 
@@ -104,9 +104,9 @@ class ClassicalOptimizer:
 
     def _cobyla_minimize(
         self,
-        objective: Callable[[np.ndarray], float],
-        initial_params: np.ndarray,
-    ) -> tuple[np.ndarray, float, list[float]]:
+        objective: Callable[[np.ndarray[Any, Any]], float],
+        initial_params: np.ndarray[Any, Any],
+    ) -> tuple[np.ndarray[Any, Any], float, list[float]]:
         """COBYLA optimization (gradient-free)."""
         params = initial_params.copy()
         history = []
@@ -139,9 +139,9 @@ class ClassicalOptimizer:
 
     def _spsa_minimize(
         self,
-        objective: Callable[[np.ndarray], float],
-        initial_params: np.ndarray,
-    ) -> tuple[np.ndarray, float, list[float]]:
+        objective: Callable[[np.ndarray[Any, Any]], float],
+        initial_params: np.ndarray[Any, Any],
+    ) -> tuple[np.ndarray[Any, Any], float, list[float]]:
         """SPSA optimization (stochastic gradient approximation)."""
         params = initial_params.copy()
         history = []
@@ -174,9 +174,9 @@ class ClassicalOptimizer:
 
     def _gradient_descent(
         self,
-        objective: Callable[[np.ndarray], float],
-        initial_params: np.ndarray,
-    ) -> tuple[np.ndarray, float, list[float]]:
+        objective: Callable[[np.ndarray[Any, Any]], float],
+        initial_params: np.ndarray[Any, Any],
+    ) -> tuple[np.ndarray[Any, Any], float, list[float]]:
         """Gradient descent with finite differences."""
         params = initial_params.copy()
         history = []
@@ -241,7 +241,7 @@ class HybridOptimizer:
         self,
         variational_circuit: VariationalCircuit,
         cost_function: Callable[[dict[str, int]], float],
-        initial_params: np.ndarray | None = None,
+        initial_params: np.ndarray[Any, Any] | None = None,
     ) -> OptimizationResult:
         """
         Optimize variational circuit parameters.
@@ -257,7 +257,7 @@ class HybridOptimizer:
         if initial_params is None:
             initial_params = self._rng.uniform(0, 2 * np.pi, variational_circuit.num_parameters)
 
-        def objective(params: np.ndarray) -> float:
+        def objective(params: np.ndarray[Any, Any]) -> float:
             circuit = variational_circuit.build(params)
             circuit.measure_all()
             result = self._executor.run(circuit)
@@ -300,10 +300,10 @@ class QuantumKernel:
 
     def compute_kernel_matrix(
         self,
-        X: np.ndarray,
-        Y: np.ndarray | None = None,
+        X: np.ndarray[Any, Any],
+        Y: np.ndarray[Any, Any] | None = None,
         shots: int = 1024,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """
         Compute quantum kernel matrix.
 
@@ -330,10 +330,10 @@ class QuantumKernel:
 
     def fit_svm(
         self,
-        X_train: np.ndarray,
-        y_train: np.ndarray,
+        X_train: np.ndarray[Any, Any],
+        y_train: np.ndarray[Any, Any],
         C: float = 1.0,
-    ) -> Callable[[np.ndarray], np.ndarray]:
+    ) -> Callable[[np.ndarray[Any, Any]], np.ndarray[Any, Any]]:
         """
         Fit quantum kernel SVM.
 
@@ -363,7 +363,7 @@ class QuantumKernel:
         self._sv_y = y_train[support_vectors]
         self._sv_alpha = alpha[support_vectors]
 
-        def predict(X_test: np.ndarray) -> np.ndarray:
+        def predict(X_test: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
             K_test = self.compute_kernel_matrix(X_test, self._sv_X)
             predictions = np.sign(np.sum(self._sv_alpha * self._sv_y * K_test, axis=1))
             return predictions
@@ -390,11 +390,11 @@ class VQEAnomalyDetector:
         self._variational = VariationalCircuit(num_qubits, ansatz, reps)
         self._optimizer = HybridOptimizer(executor)
         self._encoding = AnomalyEncodingCircuit(num_qubits, EncodingType.ANGLE)
-        self._optimal_params: np.ndarray | None = None
+        self._optimal_params: np.ndarray[Any, Any] | None = None
 
     def fit(
         self,
-        X_train: np.ndarray,
+        X_train: np.ndarray[Any, Any],
         maxiter: int = 50,
     ) -> VQEAnomalyDetector:
         """
@@ -429,7 +429,7 @@ class VQEAnomalyDetector:
 
         return self
 
-    def score(self, X: np.ndarray) -> np.ndarray:
+    def score(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Compute anomaly scores for samples.
 
@@ -531,7 +531,7 @@ class QAOAAnomalyDetector:
         self._num_qubits = num_qubits
         self._p = p
         self._executor = executor or QuantumExecutor()
-        self._optimal_params: np.ndarray | None = None
+        self._optimal_params: np.ndarray[Any, Any] | None = None
         self._builder = QuantumCircuitBuilder()
         self._rng: np.random.Generator = np.random.default_rng(seed)
 
@@ -570,7 +570,7 @@ class QAOAAnomalyDetector:
 
     def fit(
         self,
-        adjacency_matrix: np.ndarray,
+        adjacency_matrix: np.ndarray[Any, Any],
         maxiter: int = 50,
     ) -> QAOAAnomalyDetector:
         """
@@ -593,7 +593,7 @@ class QAOAAnomalyDetector:
 
         initial_params = self._rng.uniform(0, np.pi, 2 * self._p)
 
-        def objective(params: np.ndarray) -> float:
+        def objective(params: np.ndarray[Any, Any]) -> float:
             gamma = list(params[: self._p])
             beta = list(params[self._p :])
 
@@ -611,7 +611,7 @@ class QAOAAnomalyDetector:
 
         return self
 
-    def score(self, X: np.ndarray) -> np.ndarray:
+    def score(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Compute anomaly scores using QAOA.
 

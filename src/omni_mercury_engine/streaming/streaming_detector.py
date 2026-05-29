@@ -81,7 +81,7 @@ class StreamingDetector:
 
         _cls = _get_detector_class()
         self._detector = _cls(config=detector_config or {})
-        self._window: deque[np.ndarray] = deque(maxlen=window_size)
+        self._window: deque[np.ndarray[Any, Any]] = deque(maxlen=window_size)
         self._points_since_refit: int = 0
         self._total_points: int = 0
         self._is_fitted: bool = False
@@ -97,7 +97,7 @@ class StreamingDetector:
         return len(self._window) >= self.min_samples
 
     @property
-    def window_data(self) -> np.ndarray:
+    def window_data(self) -> np.ndarray[Any, Any]:
         """Current window as a numpy array."""
         if not self._window:
             return np.empty((0, 0))
@@ -124,7 +124,7 @@ class StreamingDetector:
         except Exception as exc:
             logger.warning("StreamingDetector refit failed: %s", exc)
 
-    def ingest(self, point: np.ndarray | list[float] | float) -> dict[str, Any] | None:
+    def ingest(self, point: np.ndarray[Any, Any] | list[float] | float) -> dict[str, Any] | None:
         """
         Ingest a single data point and optionally return detection results.
 
@@ -182,7 +182,9 @@ class StreamingDetector:
             logger.warning("StreamingDetector detection failed: %s", exc)
             return None
 
-    def ingest_batch(self, batch: np.ndarray | list[list[float]]) -> dict[str, Any] | None:
+    def ingest_batch(
+        self, batch: np.ndarray[Any, Any] | list[list[float]]
+    ) -> dict[str, Any] | None:
         """
         Ingest a batch of data points.
 
@@ -229,7 +231,9 @@ class StreamingDetector:
             logger.warning("StreamingDetector batch detection failed: %s", exc)
             return None
 
-    async def async_ingest(self, point: np.ndarray | list[float] | float) -> dict[str, Any] | None:
+    async def async_ingest(
+        self, point: np.ndarray[Any, Any] | list[float] | float
+    ) -> dict[str, Any] | None:
         """
         Async version of ingest for use with asyncio event loops.
 
@@ -243,7 +247,7 @@ class StreamingDetector:
             return await asyncio.get_event_loop().run_in_executor(None, self.ingest, point)
 
     async def async_ingest_batch(
-        self, batch: np.ndarray | list[list[float]]
+        self, batch: np.ndarray[Any, Any] | list[list[float]]
     ) -> dict[str, Any] | None:
         """
         Async version of ingest_batch.

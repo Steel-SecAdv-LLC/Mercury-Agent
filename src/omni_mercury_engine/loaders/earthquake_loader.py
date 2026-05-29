@@ -208,7 +208,7 @@ class EarthquakeLoader(BaseDomainLoader):
             )
         return events
 
-    def get_ground_truth(self, event_id: str) -> np.ndarray:
+    def get_ground_truth(self, event_id: str) -> np.ndarray[Any, Any]:
         """
         Generate binary anomaly labels for a historical earthquake event.
 
@@ -255,7 +255,7 @@ class EarthquakeLoader(BaseDomainLoader):
     # Feature engineering
     # ------------------------------------------------------------------
 
-    def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray:
+    def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray[Any, Any]:
         """
         Transform raw earthquake catalog into a feature matrix.
 
@@ -389,7 +389,7 @@ class EarthquakeLoader(BaseDomainLoader):
         return df
 
     @staticmethod
-    def _compute_seismicity_rate(times_ms: np.ndarray) -> np.ndarray:
+    def _compute_seismicity_rate(times_ms: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Compute the number of events in the preceding 1-hour window.
 
@@ -413,10 +413,10 @@ class EarthquakeLoader(BaseDomainLoader):
 
     @staticmethod
     def _compute_rolling_b_value(
-        magnitudes: np.ndarray,
+        magnitudes: np.ndarray[Any, Any],
         window: int = 50,
         min_events: int = 10,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """Estimate Gutenberg-Richter b-value over a trailing window.
 
         Uses the Aki-Utsu maximum-likelihood estimator:
@@ -453,9 +453,9 @@ class EarthquakeLoader(BaseDomainLoader):
 
     @staticmethod
     def _compute_mag_deviation(
-        magnitudes: np.ndarray,
+        magnitudes: np.ndarray[Any, Any],
         window: int = 20,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """
         Compute magnitude deviation from a trailing rolling mean.
 

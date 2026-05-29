@@ -403,7 +403,7 @@ class SigmaImmutableGate:
         """Recorded gate-loading error, if any (else ``None``)."""
         return self._gate_load_error
 
-    def evaluate(self, scalar_vector: np.ndarray) -> SigmaImmutableEvaluation:
+    def evaluate(self, scalar_vector: np.ndarray[Any, Any]) -> SigmaImmutableEvaluation:
         """Score ``scalar_vector`` against the σ_Immutable network.
 
         The vector is padded or truncated to the network's input width.
@@ -513,7 +513,7 @@ class SigmaImmutableGate:
     def enforce(
         self,
         action: str,
-        scalar_vector: np.ndarray,
+        scalar_vector: np.ndarray[Any, Any],
         details: dict[str, Any] | None = None,
     ) -> SigmaImmutableEvaluation:
         """Evaluate and raise on σ_Immutable / gosnn_unavailable failure.

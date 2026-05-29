@@ -157,7 +157,7 @@ class AdaptiveThresholdCalibrator:
                 best_threshold = t
 
         threshold = score_min + (best_threshold / 255) * (score_max - score_min)
-        predictions = (scores >= threshold).astype(np.int32)
+        predictions = (scores >= threshold).astype(np.int32)  # type: ignore[assignment]
 
         return threshold, predictions
 

@@ -247,7 +247,7 @@ class FinancialLoader(BaseDomainLoader):
             )
         return events
 
-    def get_ground_truth(self, event_id: str) -> np.ndarray:
+    def get_ground_truth(self, event_id: str) -> np.ndarray[Any, Any]:
         """
         Generate binary anomaly labels for a historical financial crisis.
 
@@ -301,7 +301,7 @@ class FinancialLoader(BaseDomainLoader):
     # Feature engineering
     # ------------------------------------------------------------------
 
-    def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray:
+    def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray[Any, Any]:
         """
         Transform raw financial data into a feature matrix.
 
@@ -520,7 +520,7 @@ class FinancialLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _compute_rate_of_change(values: np.ndarray) -> np.ndarray:
+    def _compute_rate_of_change(values: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Compute first-difference rate of change.
 
@@ -537,9 +537,9 @@ class FinancialLoader(BaseDomainLoader):
 
     @staticmethod
     def _compute_rolling_zscore(
-        values: np.ndarray,
+        values: np.ndarray[Any, Any],
         window: int = 252,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """
         Compute rolling z-score relative to a trailing lookback window.
 
@@ -570,10 +570,10 @@ class FinancialLoader(BaseDomainLoader):
 
     @staticmethod
     def _compute_rolling_correlation(
-        series_a: np.ndarray,
-        series_b: np.ndarray,
+        series_a: np.ndarray[Any, Any],
+        series_b: np.ndarray[Any, Any],
         window: int = 20,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """
         Compute rolling Pearson correlation between two series.
 

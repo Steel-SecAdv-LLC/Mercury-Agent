@@ -587,20 +587,20 @@ class MercuryAnomalyDetector(BaseDetector):
     @classmethod
     def from_statistics(
         cls,
-        mean: np.ndarray,
-        std: np.ndarray,
-        q1: np.ndarray,
-        q3: np.ndarray,
-        res_h_train: np.ndarray,
-        res_noise_ratio: np.ndarray,
-        kin_jerk_mean: np.ndarray,
-        kin_jerk_std: np.ndarray,
-        kin_accel_mean: np.ndarray,
-        kin_accel_std: np.ndarray,
-        ig_mean: np.ndarray,
-        ig_cov_inv: np.ndarray,
+        mean: np.ndarray[Any, Any],
+        std: np.ndarray[Any, Any],
+        q1: np.ndarray[Any, Any],
+        q3: np.ndarray[Any, Any],
+        res_h_train: np.ndarray[Any, Any],
+        res_noise_ratio: np.ndarray[Any, Any],
+        kin_jerk_mean: np.ndarray[Any, Any],
+        kin_jerk_std: np.ndarray[Any, Any],
+        kin_accel_mean: np.ndarray[Any, Any],
+        kin_accel_std: np.ndarray[Any, Any],
+        ig_mean: np.ndarray[Any, Any],
+        ig_cov_inv: np.ndarray[Any, Any],
         ig_log_det: float = 0.0,
-        adaptive_weights: np.ndarray | None = None,
+        adaptive_weights: np.ndarray[Any, Any] | None = None,
         data_type: str | None = None,
         oracle_ref_stats: dict[str, Any] | None = None,
     ) -> MercuryAnomalyDetector:
@@ -850,7 +850,7 @@ class MercuryAnomalyDetector(BaseDetector):
     # =====================================================================
 
     @staticmethod
-    def _component_separation(scores: np.ndarray, labels: np.ndarray) -> float:
+    def _component_separation(scores: np.ndarray[Any, Any], labels: np.ndarray[Any, Any]) -> float:
         """Measure discriminative power of a score component via AUC.
 
         Returns value in [0, 1] where:
@@ -879,9 +879,9 @@ class MercuryAnomalyDetector(BaseDetector):
 
     def _compute_adaptive_weights(
         self,
-        X: np.ndarray,
-        labels: np.ndarray,
-    ) -> np.ndarray:
+        X: np.ndarray[Any, Any],
+        labels: np.ndarray[Any, Any],
+    ) -> np.ndarray[Any, Any]:
         """
         Compute per-component ensemble weights proportional to AUC separation.
 
@@ -2347,7 +2347,9 @@ class MercuryAnomalyDetector(BaseDetector):
     # =====================================================================
 
     @staticmethod
-    def _residual_frequency_filter(scores: np.ndarray, cutoff_quantile: float = 0.75) -> np.ndarray:
+    def _residual_frequency_filter(
+        scores: np.ndarray[Any, Any], cutoff_quantile: float = 0.75
+    ) -> np.ndarray[Any, Any]:
         """
         Apply frequency-domain filtering to the score residual.
 
@@ -2505,9 +2507,9 @@ class MercuryAnomalyDetector(BaseDetector):
 
 
 def calibrate_scores(
-    scores: np.ndarray,
+    scores: np.ndarray[Any, Any],
     anomaly_ratio: float,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     """
     Correct score inversion for majority-anomaly datasets.
 

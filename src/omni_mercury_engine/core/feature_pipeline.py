@@ -84,7 +84,7 @@ class FeatureSchema:
 class FeatureExtractionResult:
     """Result from feature extraction with metadata."""
 
-    features: np.ndarray
+    features: np.ndarray[Any, Any]
     detector_name: str
     extraction_time_ms: float
     success: bool
@@ -113,17 +113,17 @@ class FeatureStandardizer:
         self._fitted = False
 
         # Statistics for different scaling strategies
-        self._mean: np.ndarray | None = None
-        self._std: np.ndarray | None = None
-        self._min: np.ndarray | None = None
-        self._max: np.ndarray | None = None
-        self._median: np.ndarray | None = None
-        self._iqr: np.ndarray | None = None
-        self._max_abs: np.ndarray | None = None
+        self._mean: np.ndarray[Any, Any] | None = None
+        self._std: np.ndarray[Any, Any] | None = None
+        self._min: np.ndarray[Any, Any] | None = None
+        self._max: np.ndarray[Any, Any] | None = None
+        self._median: np.ndarray[Any, Any] | None = None
+        self._iqr: np.ndarray[Any, Any] | None = None
+        self._max_abs: np.ndarray[Any, Any] | None = None
 
         logger.info(f"FeatureStandardizer initialized with strategy: {strategy.value}")
 
-    def fit(self, X: np.ndarray) -> "FeatureStandardizer":
+    def fit(self, X: np.ndarray[Any, Any]) -> "FeatureStandardizer":
         """
         Fit the standardizer on training data.
 
@@ -158,7 +158,7 @@ class FeatureStandardizer:
         logger.debug(f"FeatureStandardizer fitted on {X.shape[0]} samples")
         return self
 
-    def transform(self, X: np.ndarray) -> np.ndarray:
+    def transform(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Transform features using the fitted standardizer.
 
@@ -195,11 +195,11 @@ class FeatureStandardizer:
 
         return X  # NONE strategy
 
-    def fit_transform(self, X: np.ndarray) -> np.ndarray:
+    def fit_transform(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Fit and transform in one step."""
         return self.fit(X).transform(X)
 
-    def inverse_transform(self, X: np.ndarray) -> np.ndarray:
+    def inverse_transform(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Inverse transform to original scale.
 
@@ -264,13 +264,15 @@ class FeatureSelector:
         self.method = method
 
         self._fitted = False
-        self._feature_scores: np.ndarray | None = None
-        self._selected_indices: np.ndarray | None = None
+        self._feature_scores: np.ndarray[Any, Any] | None = None
+        self._selected_indices: np.ndarray[Any, Any] | None = None
         self._n_original_features: int = 0
 
         logger.info(f"FeatureSelector initialized with method: {method}")
 
-    def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> "FeatureSelector":
+    def fit(
+        self, X: np.ndarray[Any, Any], y: np.ndarray[Any, Any] | None = None
+    ) -> "FeatureSelector":
         """
         Fit the feature selector.
 
@@ -309,7 +311,9 @@ class FeatureSelector:
         logger.debug(f"FeatureSelector selected {n_select}/{X.shape[1]} features")
         return self
 
-    def _compute_mutual_info(self, X: np.ndarray, y: np.ndarray) -> np.ndarray:
+    def _compute_mutual_info(
+        self, X: np.ndarray[Any, Any], y: np.ndarray[Any, Any]
+    ) -> np.ndarray[Any, Any]:
         """Compute mutual information scores for each feature."""
         try:
             from omni_mercury_engine.ml.mercury_ml import mutual_info_classif
@@ -326,7 +330,7 @@ class FeatureSelector:
             logger.warning("mercury_ml mutual_info_classif not available, falling back to variance")
             return np.asarray(np.var(X, axis=0))  # type: ignore[no-any-return, unused-ignore]
 
-    def _compute_correlation_scores(self, X: np.ndarray) -> np.ndarray:
+    def _compute_correlation_scores(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Compute correlation-based scores (inverse of mean correlation)."""
         corr_matrix = np.corrcoef(X.T)
         # Handle NaN values
@@ -335,7 +339,7 @@ class FeatureSelector:
         mean_corr = np.mean(np.abs(corr_matrix), axis=1)
         return np.asarray(1.0 / (mean_corr + 1e-8))  # type: ignore[no-any-return, unused-ignore]
 
-    def transform(self, X: np.ndarray) -> np.ndarray:
+    def transform(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Transform features by selecting the fitted subset.
 
@@ -351,7 +355,9 @@ class FeatureSelector:
         X = np.asarray(X)
         return X[:, self._selected_indices]
 
-    def fit_transform(self, X: np.ndarray, y: np.ndarray | None = None) -> np.ndarray:
+    def fit_transform(
+        self, X: np.ndarray[Any, Any], y: np.ndarray[Any, Any] | None = None
+    ) -> np.ndarray[Any, Any]:
         """Fit and transform in one step."""
         return self.fit(X, y).transform(X)
 
@@ -361,7 +367,7 @@ class FeatureSelector:
             return {}
         return {i: float(score) for i, score in enumerate(self._feature_scores)}
 
-    def get_selected_indices(self) -> np.ndarray:
+    def get_selected_indices(self) -> np.ndarray[Any, Any]:
         """Get indices of selected features."""
         if self._selected_indices is None:
             return np.array([])
@@ -387,12 +393,12 @@ class FeatureImputer:
         self.max_history = max_history
 
         # Historical statistics per detector
-        self._detector_history: dict[str, list[np.ndarray]] = {}
-        self._detector_stats: dict[str, dict[str, np.ndarray]] = {}
+        self._detector_history: dict[str, list[np.ndarray[Any, Any]]] = {}
+        self._detector_stats: dict[str, dict[str, np.ndarray[Any, Any]]] = {}
 
         logger.info(f"FeatureImputer initialized with strategy: {strategy}")
 
-    def update_history(self, detector_name: str, features: np.ndarray) -> None:
+    def update_history(self, detector_name: str, features: np.ndarray[Any, Any]) -> None:
         """
         Update historical features for a detector.
 
@@ -420,7 +426,7 @@ class FeatureImputer:
             "last": history[-1],
         }
 
-    def impute(self, detector_name: str, n_features: int) -> np.ndarray:
+    def impute(self, detector_name: str, n_features: int) -> np.ndarray[Any, Any]:
         """
         Impute features for a failed detector.
 
@@ -502,7 +508,7 @@ class FeatureVersionManager:
         return self._schemas.get(key)
 
     def validate_features(
-        self, features: np.ndarray, schema_name: str, schema_version: str | None = None
+        self, features: np.ndarray[Any, Any], schema_name: str, schema_version: str | None = None
     ) -> tuple[bool, list[str]]:
         """
         Validate features against a schema.
@@ -546,7 +552,11 @@ class FeatureVersionManager:
         return is_valid, errors
 
     def create_schema_from_features(
-        self, name: str, version: str, features: np.ndarray, feature_names: list[str] | None = None
+        self,
+        name: str,
+        version: str,
+        features: np.ndarray[Any, Any],
+        feature_names: list[str] | None = None,
     ) -> FeatureSchema:
         """
         Create a schema from sample features.
@@ -759,11 +769,11 @@ class FeatureStore:
         """Generate cache key from detector name and data hash."""
         return f"features:{detector_name}:{data_hash}"
 
-    def _hash_data(self, data: np.ndarray) -> str:
+    def _hash_data(self, data: np.ndarray[Any, Any]) -> str:
         """Generate hash of input data."""
         return hashlib.sha3_256(data.tobytes()).hexdigest()[:16]
 
-    def get(self, detector_name: str, data: np.ndarray) -> np.ndarray | None:
+    def get(self, detector_name: str, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any] | None:
         """
         Get cached features.
 
@@ -790,7 +800,11 @@ class FeatureStore:
         return None
 
     def store(
-        self, detector_name: str, data: np.ndarray, features: np.ndarray, ttl: int | None = None
+        self,
+        detector_name: str,
+        data: np.ndarray[Any, Any],
+        features: np.ndarray[Any, Any],
+        ttl: int | None = None,
     ) -> bool:
         """
         Store features in cache.
@@ -817,7 +831,7 @@ class FeatureStore:
             logger.error(f"Failed to store features: {e}")
             return False
 
-    def invalidate(self, detector_name: str, data: np.ndarray) -> bool:
+    def invalidate(self, detector_name: str, data: np.ndarray[Any, Any]) -> bool:
         """Invalidate cached features."""
         data_hash = self._hash_data(data)
         key = self._generate_key(detector_name, data_hash)
@@ -883,7 +897,9 @@ class FeaturePipeline:
             f"selection_ratio={selection_ratio}, cache={cache_backend}"
         )
 
-    def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> "FeaturePipeline":
+    def fit(
+        self, X: np.ndarray[Any, Any], y: np.ndarray[Any, Any] | None = None
+    ) -> "FeaturePipeline":
         """
         Fit the pipeline on training data.
 
@@ -909,7 +925,7 @@ class FeaturePipeline:
 
     def transform(
         self,
-        X: np.ndarray,
+        X: np.ndarray[Any, Any],
         detector_name: str = "default",
         use_cache: bool = True,
     ) -> FeatureExtractionResult:
@@ -989,7 +1005,10 @@ class FeaturePipeline:
             )
 
     def fit_transform(
-        self, X: np.ndarray, y: np.ndarray | None = None, detector_name: str = "default"
+        self,
+        X: np.ndarray[Any, Any],
+        y: np.ndarray[Any, Any] | None = None,
+        detector_name: str = "default",
     ) -> FeatureExtractionResult:
         """Fit and transform in one step."""
         self.fit(X, y)

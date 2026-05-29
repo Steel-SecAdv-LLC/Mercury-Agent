@@ -93,13 +93,13 @@ class TTLCache:
         self._hits = 0
         self._misses = 0
 
-    def _compute_key(self, data: np.ndarray) -> str:
+    def _compute_key(self, data: np.ndarray[Any, Any]) -> str:
         """Compute cache key from numpy array using fast hashing."""
         # Use tobytes() for efficient array hashing
         # Using SHA3-256 for Ava-Guardian alignment
         return hashlib.sha3_256(data.tobytes()).hexdigest()
 
-    def get(self, data: np.ndarray) -> Any | None:
+    def get(self, data: np.ndarray[Any, Any]) -> Any | None:
         """Get cached result if valid."""
         key = self._compute_key(data)
         with self._lock:
@@ -116,7 +116,7 @@ class TTLCache:
             self._misses += 1
             return None
 
-    def set(self, data: np.ndarray, value: Any) -> None:
+    def set(self, data: np.ndarray[Any, Any], value: Any) -> None:
         """Store result in cache."""
         key = self._compute_key(data)
         with self._lock:
@@ -261,13 +261,13 @@ class IntegrationResult:
     """Result from integrated detection pipeline."""
 
     # Detection outputs
-    is_anomaly: np.ndarray
-    anomaly_scores: np.ndarray
-    calibrated_scores: np.ndarray
-    confidence_intervals: dict[str, np.ndarray | float] | None = None
+    is_anomaly: np.ndarray[Any, Any]
+    anomaly_scores: np.ndarray[Any, Any]
+    calibrated_scores: np.ndarray[Any, Any]
+    confidence_intervals: dict[str, np.ndarray[Any, Any] | float] | None = None
 
     # Domain contributions
-    domain_scores: dict[str, np.ndarray] = field(default_factory=dict)
+    domain_scores: dict[str, np.ndarray[Any, Any]] = field(default_factory=dict)
     domain_weights: dict[str, float] = field(default_factory=dict)
 
     # Ethical metrics
@@ -296,13 +296,13 @@ class IntegrationResult:
 class DetectorProtocol(Protocol):
     """Protocol for detectors in the integration layer."""
 
-    def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> Any:
+    def fit(self, X: np.ndarray[Any, Any], y: np.ndarray[Any, Any] | None = None) -> Any:
         """Fit the detector to ``(X, y)`` and return the fit handle."""
 
-    def detect(self, X: np.ndarray) -> dict[str, Any]:
+    def detect(self, X: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Run detection on ``X`` and return a result dict."""
 
-    def extract_features(self, X: np.ndarray) -> np.ndarray:
+    def extract_features(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Extract a feature matrix from ``X`` for the integration layer."""
 
 
@@ -516,8 +516,8 @@ class GOSNNIntegration:
 
     def fit(
         self,
-        X: np.ndarray,
-        y: np.ndarray | None = None,
+        X: np.ndarray[Any, Any],
+        y: np.ndarray[Any, Any] | None = None,
         validation_split: float = 0.2,
     ) -> GOSNNIntegration:
         """
@@ -599,7 +599,7 @@ class GOSNNIntegration:
 
     def detect(
         self,
-        X: np.ndarray,
+        X: np.ndarray[Any, Any],
         return_details: bool = False,
         use_cache: bool = True,
     ) -> IntegrationResult:
@@ -676,7 +676,7 @@ class GOSNNIntegration:
         #      we re-raise as ``ConformalMisconfigurationError`` instead of
         #      silently returning None. The engine refuses to degrade into
         #      "intervals unavailable" without the caller noticing.
-        confidence_intervals: dict[str, np.ndarray | float] | None = None
+        confidence_intervals: dict[str, np.ndarray[Any, Any] | float] | None = None
         if self._conformal is not None:
             try:
                 prediction_set = self._conformal.predict(calibrated_scores)
@@ -744,8 +744,8 @@ class GOSNNIntegration:
 
     def _setup_fusion(
         self,
-        domain_predictions: dict[str, np.ndarray],
-        y_val: np.ndarray | None,
+        domain_predictions: dict[str, np.ndarray[Any, Any]],
+        y_val: np.ndarray[Any, Any] | None,
     ) -> None:
         """Set up domain weights for prediction fusion."""
         # Initialize domain weights using ethical scores as quality multipliers.
@@ -765,8 +765,8 @@ class GOSNNIntegration:
 
     def _setup_calibration(
         self,
-        domain_predictions: dict[str, np.ndarray],
-        y_val: np.ndarray,
+        domain_predictions: dict[str, np.ndarray[Any, Any]],
+        y_val: np.ndarray[Any, Any],
     ) -> None:
         """Set up probability calibration."""
         try:
@@ -784,8 +784,8 @@ class GOSNNIntegration:
 
     def _setup_conformal(
         self,
-        domain_predictions: dict[str, np.ndarray],
-        y_val: np.ndarray,
+        domain_predictions: dict[str, np.ndarray[Any, Any]],
+        y_val: np.ndarray[Any, Any],
     ) -> None:
         """Set up conformal prediction."""
         try:
@@ -804,8 +804,8 @@ class GOSNNIntegration:
 
     def _fuse_predictions(
         self,
-        domain_scores: dict[str, np.ndarray],
-    ) -> np.ndarray:
+        domain_scores: dict[str, np.ndarray[Any, Any]],
+    ) -> np.ndarray[Any, Any]:
         """Fuse domain predictions using configured strategy."""
         if not domain_scores:
             return np.array([])
@@ -819,7 +819,7 @@ class GOSNNIntegration:
 
         return fused
 
-    def _compute_adaptive_threshold(self, scores: np.ndarray) -> float:
+    def _compute_adaptive_threshold(self, scores: np.ndarray[Any, Any]) -> float:
         """Compute adaptive threshold using Otsu's method."""
         if len(scores) < 10:
             return 0.5
@@ -865,9 +865,9 @@ class GOSNNIntegration:
 
     def _apply_benevolence_adjustment(
         self,
-        scores: np.ndarray,
+        scores: np.ndarray[Any, Any],
         threshold: float,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """Apply benevolence-aware adjustment to scores."""
         # Higher benevolence = more conservative (reduce false positives)
         # Lower benevolence = more aggressive (reduce false negatives)
@@ -884,7 +884,7 @@ class GOSNNIntegration:
 
     def _compute_benevolence_score(
         self,
-        domain_scores: dict[str, np.ndarray],
+        domain_scores: dict[str, np.ndarray[Any, Any]],
     ) -> float:
         """Compute overall benevolence score."""
         ethical_scores = []

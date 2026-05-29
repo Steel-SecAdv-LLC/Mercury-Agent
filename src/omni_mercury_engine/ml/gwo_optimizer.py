@@ -177,7 +177,7 @@ class GreyWolfOptimizer:
                 from omni_mercury_engine.ml.mercury_ml import cross_val_score
 
                 scores = cross_val_score(clf, X_selected, y, cv=3)
-                return 1.0 - float(np.mean(scores))
+                return 1.0 - float(np.mean(np.asarray(scores, dtype=np.float64)))
             except Exception as e:
                 logger.debug("Cross-validation failed for feature selection: %s", e)
                 return 1.0

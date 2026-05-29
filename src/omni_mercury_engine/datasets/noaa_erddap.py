@@ -190,7 +190,7 @@ class NOAAERDDAPLoader(DatasetLoader):
         )
         return True
 
-    def _parse_erddap_csv(self, text: str) -> tuple[np.ndarray, np.ndarray]:
+    def _parse_erddap_csv(self, text: str) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Parse ERDDAP CSV response into features and labels."""
         lines = text.strip().split("\n")
 

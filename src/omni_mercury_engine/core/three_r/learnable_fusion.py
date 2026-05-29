@@ -576,8 +576,8 @@ class Learnable3REngine:
 
     def compute(
         self,
-        data: np.ndarray | list[float],
-        context: np.ndarray | None = None,
+        data: np.ndarray[Any, Any] | list[float],
+        context: np.ndarray[Any, Any] | None = None,
     ) -> Learnable3RResult:
         """
         Compute learnable 3R fusion score.
@@ -616,7 +616,7 @@ class Learnable3REngine:
 
     def train_step(
         self,
-        data: np.ndarray,
+        data: np.ndarray[Any, Any],
         target: float,
     ) -> float:
         """
@@ -654,8 +654,8 @@ class Learnable3REngine:
 
     def fit(
         self,
-        X: np.ndarray,
-        y: np.ndarray,
+        X: np.ndarray[Any, Any],
+        y: np.ndarray[Any, Any],
         *,
         epochs: int = 100,
         batch_size: int = 32,
@@ -930,11 +930,11 @@ class Learnable3REngine:
             "stopped_early": patience_counter >= patience,
         }
 
-    def _numpy_fallback(self, data: np.ndarray | list[float]) -> Learnable3RResult:
+    def _numpy_fallback(self, data: np.ndarray[Any, Any] | list[float]) -> Learnable3RResult:
         """Numpy fallback when PyTorch is unavailable."""
         arr = np.array(data)
 
-        def recursion_score(x: np.ndarray, depth: int = 5) -> float:
+        def recursion_score(x: np.ndarray[Any, Any], depth: int = 5) -> float:
             if depth == 0 or len(x) < 2:
                 return float(np.std(x) / (np.mean(np.abs(x)) + 1e-8))
             mid = len(x) // 2

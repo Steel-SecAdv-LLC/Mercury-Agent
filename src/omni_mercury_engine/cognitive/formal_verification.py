@@ -917,10 +917,12 @@ class IntervalBoundPropagator:
 
     def propagate_linear(
         self,
-        input_bounds: tuple[np.ndarray, np.ndarray] | dict[str, tuple[float, float]],
-        weights: np.ndarray,
-        bias: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray] | dict[str, tuple[float, float]]:
+        input_bounds: (
+            tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]] | dict[str, tuple[float, float]]
+        ),
+        weights: np.ndarray[Any, Any],
+        bias: np.ndarray[Any, Any],
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]] | dict[str, tuple[float, float]]:
         """
         Propagate bounds through linear layer.
 
@@ -971,8 +973,8 @@ class IntervalBoundPropagator:
 
     def propagate_relu(
         self,
-        input_bounds: tuple[np.ndarray, np.ndarray],
-    ) -> tuple[np.ndarray, np.ndarray]:
+        input_bounds: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]],
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """
         Propagate bounds through ReLU.
 
@@ -992,8 +994,8 @@ class IntervalBoundPropagator:
 
     def verify_output_bounds(
         self,
-        input_bounds: tuple[np.ndarray, np.ndarray],
-        network_params: list[tuple[np.ndarray, np.ndarray]],
+        input_bounds: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]],
+        network_params: list[tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]],
         output_bounds: tuple[float, float],
     ) -> bool:
         """

@@ -684,7 +684,9 @@ class ThresholdCalibrationPipeline:
 
         # Build candidate thresholds spanning the score range
         s_min, s_max = float(np.min(scores)), float(np.max(scores))
-        candidates = np.linspace(s_min, s_max, n_candidate_thresholds)
+        candidates: NDArray[np.float64] = np.asarray(
+            np.linspace(s_min, s_max, n_candidate_thresholds), dtype=np.float64
+        )
 
         # Select calibration function
         if method == CalibrationStrategy.YOUDEN_J:

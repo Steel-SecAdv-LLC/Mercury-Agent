@@ -51,7 +51,7 @@ import hashlib
 import hmac
 import zipfile
 from pathlib import Path, PurePosixPath
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -223,7 +223,7 @@ def safe_load_training_data(
     max_uncompressed_bytes: int = DEFAULT_MAX_UNCOMPRESSED_BYTES,
     max_entries: int = DEFAULT_MAX_ENTRIES,
     verify_key: bytes | None = None,
-) -> dict[str, np.ndarray]:
+) -> dict[str, np.ndarray[Any, Any]]:
     """
     Load a training payload from a numpy ``.npz`` archive.
 

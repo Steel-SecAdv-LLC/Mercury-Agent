@@ -732,9 +732,7 @@ def _benchmark_single(entry: dict[str, Any]) -> dict[str, Any]:
     # attribute lives on ``Any | None``; the explicit getattr trip keeps the
     # invariant ("only read .name when it exists") visible to both reader and
     # type checker.
-    data_type_str = (
-        getattr(data_type_val, "name", None) or str(data_type_val)
-    )
+    data_type_str = getattr(data_type_val, "name", None) or str(data_type_val)
     oracle_metadata = getattr(detector, "_oracle_metadata", {"active": False})
 
     return {

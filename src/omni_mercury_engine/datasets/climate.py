@@ -267,7 +267,9 @@ class SimonsCMAPLoader(DatasetLoader):
             logger.warning(f"Simons CMAP download failed: {e}")
             return False
 
-    def _process_cmap_data(self, df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+    def _process_cmap_data(
+        self, df: pd.DataFrame
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """
         Process CMAP query results.
 
@@ -782,7 +784,7 @@ class CopernicusSeaLevelLoader(DatasetLoader):
             logger.warning(f"Copernicus CDS download failed: {e}")
             return False
 
-    def _process_netcdf(self, ds: Any) -> tuple[np.ndarray, np.ndarray]:
+    def _process_netcdf(self, ds: Any) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Process NetCDF sea level data."""
         lats = ds.variables["latitude"][:]
         lons = ds.variables["longitude"][:]
@@ -792,7 +794,7 @@ class CopernicusSeaLevelLoader(DatasetLoader):
         for t_idx in range(min(len(sla), 100)):  # Limit samples
             for lat_idx in range(0, len(lats), 10):  # Subsample spatially
                 for lon_idx in range(0, len(lons), 10):
-                    if not np.ma.is_masked(sla[t_idx, lat_idx, lon_idx]):
+                    if not np.ma.is_masked(sla[t_idx, lat_idx, lon_idx]):  # type: ignore[no-untyped-call]
                         row = [
                             lats[lat_idx],
                             lons[lon_idx],
@@ -1085,7 +1087,7 @@ class CopernicusERA5Loader(DatasetLoader):
             logger.warning(f"ERA5 CDS download failed: {e}")
             return False
 
-    def _process_era5_netcdf(self, ds: Any) -> tuple[np.ndarray, np.ndarray]:
+    def _process_era5_netcdf(self, ds: Any) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Process NetCDF ERA5 data."""
         lats = ds.variables.get("latitude", ds.variables.get("lat"))[:]
         lons = ds.variables.get("longitude", ds.variables.get("lon"))[:]

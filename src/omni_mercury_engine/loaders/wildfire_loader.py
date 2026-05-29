@@ -229,7 +229,7 @@ class WildfireLoader(BaseDomainLoader):
             )
         return events
 
-    def get_ground_truth(self, event_id: str) -> np.ndarray:
+    def get_ground_truth(self, event_id: str) -> np.ndarray[Any, Any]:
         """
         Generate binary anomaly labels for a historical wildfire event.
 
@@ -279,7 +279,7 @@ class WildfireLoader(BaseDomainLoader):
     # Feature engineering
     # ------------------------------------------------------------------
 
-    def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray:
+    def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray[Any, Any]:
         """
         Transform raw FIRMS data into a feature matrix.
 
@@ -456,7 +456,7 @@ class WildfireLoader(BaseDomainLoader):
         return df
 
     @staticmethod
-    def _parse_confidence(df: pd.DataFrame) -> np.ndarray:
+    def _parse_confidence(df: pd.DataFrame) -> np.ndarray[Any, Any]:
         """
         Parse the confidence column into numeric values.
 
@@ -495,7 +495,7 @@ class WildfireLoader(BaseDomainLoader):
         return np.array([_map_value(v) for v in conf], dtype=np.float64)
 
     @staticmethod
-    def _compute_hours_since_start(df: pd.DataFrame) -> np.ndarray:
+    def _compute_hours_since_start(df: pd.DataFrame) -> np.ndarray[Any, Any]:
         """
         Compute hours since the first detection in the DataFrame.
 
@@ -560,10 +560,10 @@ class WildfireLoader(BaseDomainLoader):
 
     def _compute_spatial_clustering(
         self,
-        lat: np.ndarray,
-        lon: np.ndarray,
+        lat: np.ndarray[Any, Any],
+        lon: np.ndarray[Any, Any],
         radius_km: float = 10.0,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """
         Count the number of other fire detections within a given radius.
 
@@ -606,10 +606,10 @@ class WildfireLoader(BaseDomainLoader):
 
     def _compute_spread_rate(
         self,
-        lat: np.ndarray,
-        lon: np.ndarray,
-        hours: np.ndarray,
-    ) -> np.ndarray:
+        lat: np.ndarray[Any, Any],
+        lon: np.ndarray[Any, Any],
+        hours: np.ndarray[Any, Any],
+    ) -> np.ndarray[Any, Any]:
         """
         Estimate fire spread rate from sequential detections.
 

@@ -15,6 +15,8 @@ Everything here is synthetic and offline (no network); ``torch`` is required.
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pytest
 
@@ -23,7 +25,9 @@ pytest.importorskip("torch")
 from omni_mercury_engine.engine import OmniMercuryEngine
 
 
-def _blob(n_normal: int, n_anom: int, n_features: int, seed: int) -> tuple[np.ndarray, np.ndarray]:
+def _blob(
+    n_normal: int, n_anom: int, n_features: int, seed: int
+) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
     """A small labelled Gaussian-cluster + outlier set of ``n_features`` dims."""
     rng = np.random.default_rng(seed)
     centers = rng.normal(0.0, 4.0, size=(3, n_features))

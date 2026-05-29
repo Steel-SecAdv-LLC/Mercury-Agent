@@ -282,7 +282,7 @@ def convert_numpy_for_json(obj: Any) -> Any:
         - np.bool_ -> bool
         - np.integer -> int
         - np.floating -> float
-        - np.ndarray -> list
+        - np.ndarray[Any, Any] -> list
 
     Example:
         >>> import numpy as np

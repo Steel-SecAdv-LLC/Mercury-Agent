@@ -291,7 +291,7 @@ class GradientWeightOptimizer(WeightOptimizer):
                 weights[name] = 1.0 / len(detector_scores)
 
         # Compute ensemble prediction
-        ensemble_scores = np.zeros(n_samples)
+        ensemble_scores: NDArray[np.float64] = np.zeros(n_samples, dtype=np.float64)
         total_weight = sum(weights.values())
 
         for name, scores in detector_scores.items():
@@ -356,17 +356,17 @@ class MetaLearner:
 
     def extract_meta_features(self, data: NDArray[np.float64]) -> NDArray[np.float64]:
         """Extract meta-features from data for detector selection."""
-        features = []
+        features: list[float] = []
 
         # Statistical features
-        features.append(np.mean(data))
-        features.append(np.std(data))
+        features.append(float(np.mean(data)))
+        features.append(float(np.std(data)))
         features.append(stats.skew(data.flatten()))
         features.append(stats.kurtosis(data.flatten()))
 
         # Percentiles
-        features.append(np.percentile(data, 25))
-        features.append(np.percentile(data, 75))
+        features.append(float(np.percentile(data, 25)))
+        features.append(float(np.percentile(data, 75)))
 
         # Range and scale
         features.append(np.max(data) - np.min(data))
@@ -374,7 +374,7 @@ class MetaLearner:
 
         # Dimensionality features
         if data.ndim > 1:
-            features.append(data.shape[1])  # n_features
+            features.append(float(data.shape[1]))  # n_features
             # Correlation strength
             if data.shape[1] > 1:
                 corr = np.corrcoef(data.T)
@@ -382,7 +382,7 @@ class MetaLearner:
             else:
                 features.append(0.0)  # type: ignore[arg-type, unused-ignore]
         else:
-            features.append(1)  # type: ignore[arg-type, unused-ignore]
+            features.append(1.0)
             features.append(0.0)  # type: ignore[arg-type, unused-ignore]
 
         return np.array(features[: self.n_features])

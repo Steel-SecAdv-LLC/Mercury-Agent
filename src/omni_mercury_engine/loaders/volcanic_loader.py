@@ -326,7 +326,7 @@ class VolcanicLoader(BaseDomainLoader):
             )
         return events
 
-    def get_ground_truth(self, event_id: str) -> np.ndarray:
+    def get_ground_truth(self, event_id: str) -> np.ndarray[Any, Any]:
         """
         Generate binary anomaly labels for a historical volcanic event.
 
@@ -381,7 +381,7 @@ class VolcanicLoader(BaseDomainLoader):
     # Feature engineering
     # ------------------------------------------------------------------
 
-    def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray:
+    def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray[Any, Any]:
         """
         Transform raw volcanic alert data into a feature matrix.
 
@@ -723,7 +723,7 @@ class VolcanicLoader(BaseDomainLoader):
         return geo_df
 
     @staticmethod
-    def _compute_deltas(values: np.ndarray) -> np.ndarray:
+    def _compute_deltas(values: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Compute the change from the previous value in a 1-D array.
 
@@ -741,8 +741,8 @@ class VolcanicLoader(BaseDomainLoader):
     @staticmethod
     def _compute_days_since_last_change(
         df: pd.DataFrame,
-        alert_level_numeric: np.ndarray,
-    ) -> np.ndarray:
+        alert_level_numeric: np.ndarray[Any, Any],
+    ) -> np.ndarray[Any, Any]:
         """
         Compute days since the most recent alert level change.
 
@@ -761,7 +761,7 @@ class VolcanicLoader(BaseDomainLoader):
         days_since = np.zeros(n, dtype=np.float64)
 
         # Try to parse alert_date into datetime for accurate calculation
-        timestamps: np.ndarray | None = None
+        timestamps: np.ndarray[Any, Any] | None = None
         if "alert_date" in df.columns:
             try:
                 parsed_dates = pd.to_datetime(df["alert_date"], errors="coerce", utc=True)

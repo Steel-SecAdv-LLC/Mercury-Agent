@@ -361,10 +361,10 @@ class BaseFoundationAdapter(BaseFoundationModel):
 
         # Forecasting state
         self._fitted = False
-        self._trend_coef: np.ndarray | None = None
+        self._trend_coef: np.ndarray[Any, Any] | None = None
         self._level: float = 0.0
         self._trend: float = 0.0
-        self._seasonal: np.ndarray | None = None
+        self._seasonal: np.ndarray[Any, Any] | None = None
         self._residual_std: float = 0.0
 
     def _initialize_model(self) -> None:
@@ -373,7 +373,7 @@ class BaseFoundationAdapter(BaseFoundationModel):
 
     def _estimate_trend(
         self,
-        series: np.ndarray,
+        series: np.ndarray[Any, Any],
     ) -> tuple[float, float]:
         """
         Estimate linear trend using least squares.
@@ -397,7 +397,7 @@ class BaseFoundationAdapter(BaseFoundationModel):
 
     def _exponential_smoothing(
         self,
-        series: np.ndarray,
+        series: np.ndarray[Any, Any],
         alpha: float = 0.3,
         beta: float = 0.1,
     ) -> tuple[float, float]:
@@ -429,9 +429,9 @@ class BaseFoundationAdapter(BaseFoundationModel):
 
     def _detect_seasonality(
         self,
-        series: np.ndarray,
+        series: np.ndarray[Any, Any],
         max_period: int = 52,
-    ) -> tuple[int | None, np.ndarray | None]:
+    ) -> tuple[int | None, np.ndarray[Any, Any] | None]:
         """
         Detect seasonal period using autocorrelation.
 
@@ -475,11 +475,11 @@ class BaseFoundationAdapter(BaseFoundationModel):
 
     def _bootstrap_confidence_interval(
         self,
-        series: np.ndarray,
-        forecast: np.ndarray,
+        series: np.ndarray[Any, Any],
+        forecast: np.ndarray[Any, Any],
         n_bootstrap: int = 100,
         confidence: float = 0.95,
-    ) -> tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """
         Estimate confidence intervals via residual bootstrapping.
 

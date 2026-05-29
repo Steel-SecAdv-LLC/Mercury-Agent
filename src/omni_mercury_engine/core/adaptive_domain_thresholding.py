@@ -630,12 +630,14 @@ class AdaptiveDomainThresholdManager:
             if priority > 0.5:
                 # Favor precision - increase threshold
                 adjustment = (priority - 0.5) * 0.2  # Max 10% increase
-                new_percentile = np.percentile(scores, (1 - self.config.contamination) * 100)
+                new_percentile = float(np.percentile(scores, (1 - self.config.contamination) * 100))
                 threshold = threshold + adjustment * (new_percentile - threshold)
             else:
                 # Favor recall - decrease threshold
                 adjustment = (0.5 - priority) * 0.2  # Max 10% decrease
-                new_percentile = np.percentile(scores, (1 - self.config.contamination * 2) * 100)
+                new_percentile = float(
+                    np.percentile(scores, (1 - self.config.contamination * 2) * 100)
+                )
                 threshold = threshold - adjustment * (threshold - new_percentile)
         else:
             # With labels, optimize for weighted F-beta score
@@ -687,7 +689,7 @@ class AdaptiveDomainThresholdManager:
 
         if self.probability_calibrator is not None:
             try:
-                calibrated_scores = self.probability_calibrator.calibrate(scores)
+                calibrated_scores = self.probability_calibrator.calibrate(scores)  # type: ignore[assignment]
                 prob_calibration_applied = True
             except Exception as e:
                 logger.warning(f"Probability calibration failed: {e}")

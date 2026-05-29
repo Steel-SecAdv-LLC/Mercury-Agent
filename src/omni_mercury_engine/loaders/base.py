@@ -7,7 +7,7 @@ Every domain loader MUST implement:
 - fetch_realtime() -> pd.DataFrame  (live data pull)
 - fetch_historical(event_id: str) -> pd.DataFrame  (specific event)
 - list_events() -> list[dict]  (available ground-truth events)
-- get_ground_truth(event_id: str) -> np.ndarray  (binary labels)
+- get_ground_truth(event_id: str) -> np.ndarray[Any, Any]  (binary labels)
 """
 
 from __future__ import annotations
@@ -152,7 +152,7 @@ class BaseDomainLoader(ABC):
         ...
 
     @abstractmethod
-    def get_ground_truth(self, event_id: str) -> np.ndarray:
+    def get_ground_truth(self, event_id: str) -> np.ndarray[Any, Any]:
         """
         Return binary anomaly labels for an event.
 
@@ -171,7 +171,7 @@ class BaseDomainLoader(ABC):
     # Feature engineering (override in subclass for domain-specific features)
     # =========================================================================
 
-    def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray:
+    def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray[Any, Any]:
         """
         Transform raw data into feature matrix for Mercury detector.
 
@@ -408,7 +408,7 @@ class BaseDomainLoader(ABC):
     # =========================================================================
 
     @staticmethod
-    def compute_data_hash(data: np.ndarray) -> str:
+    def compute_data_hash(data: np.ndarray[Any, Any]) -> str:
         """
         Compute SHA-256 hash of data array for provenance tracking.
 
@@ -420,7 +420,7 @@ class BaseDomainLoader(ABC):
         """
         return hashlib.sha256(data.tobytes()).hexdigest()
 
-    def get_provenance(self, event_id: str, data: np.ndarray) -> dict[str, Any]:
+    def get_provenance(self, event_id: str, data: np.ndarray[Any, Any]) -> dict[str, Any]:
         """
         Generate provenance metadata for benchmark results.
 

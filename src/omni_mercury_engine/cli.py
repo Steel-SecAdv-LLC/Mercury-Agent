@@ -152,7 +152,7 @@ def security(payload: str) -> None:
 @click.option("--output", "-o", required=True, help="Model checkpoint output path (.pt)")
 @click.option("--epochs", "-e", default=50, type=int, help="Training epochs")
 def train(data: str, labels: str | None, output: str, epochs: int) -> None:
-    """Train the fusion model.
+    r"""Train the fusion model.
 
     Two input modes are supported:
 

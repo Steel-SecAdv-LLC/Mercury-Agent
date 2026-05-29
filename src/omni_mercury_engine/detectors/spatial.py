@@ -43,7 +43,9 @@ try:
     from numba import jit
 
     @jit(nopython=True, cache=True)
-    def _compute_distances_jit(data: np.ndarray, center: np.ndarray) -> np.ndarray:
+    def _compute_distances_jit(
+        data: np.ndarray[Any, Any], center: np.ndarray[Any, Any]
+    ) -> np.ndarray[Any, Any]:
         """
         JIT-compiled Euclidean distance computation.
 
@@ -57,7 +59,9 @@ try:
         return distances
 
     @jit(nopython=True, cache=True)
-    def _compute_distance_scores_jit(distances: np.ndarray, radius_threshold: float) -> np.ndarray:
+    def _compute_distance_scores_jit(
+        distances: np.ndarray[Any, Any], radius_threshold: float
+    ) -> np.ndarray[Any, Any]:
         """JIT-compiled distance-based anomaly scoring."""
         n_samples = len(distances)
         scores = np.empty(n_samples, dtype=np.float64)

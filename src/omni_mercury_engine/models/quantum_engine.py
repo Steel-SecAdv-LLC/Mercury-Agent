@@ -54,7 +54,7 @@ logger = logging.getLogger(__name__)
 class QuantumState:
     """Represents a quantum state vector."""
 
-    amplitudes: np.ndarray
+    amplitudes: np.ndarray[Any, Any]
     num_qubits: int
 
     def normalize(self) -> None:

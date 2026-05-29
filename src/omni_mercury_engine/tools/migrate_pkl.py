@@ -423,7 +423,7 @@ def _do_migration(args: argparse.Namespace) -> int:
         return 3
 
     # ``**archive`` is typed ``dict[str, Any]`` (not the stricter
-    # ``dict[str, np.ndarray]``) so the spread satisfies numpy 2.x's
+    # ``dict[str, np.ndarray[Any, Any]]``) so the spread satisfies numpy 2.x's
     # ``savez(file, *args, allow_pickle: bool, **kwds: ArrayLike)``
     # stub — the kw-only ``allow_pickle: bool`` slot accepts ``Any``,
     # which matches ``bool``.  The runtime contract that values are
