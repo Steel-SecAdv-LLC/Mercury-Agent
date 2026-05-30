@@ -3507,6 +3507,20 @@ class OmniMercuryEngine(LoggerMixin):
         if llm_enhancement is not None:
             result["llm_enhancement"] = llm_enhancement
 
+        # Conformal uncertainty: when a conformal calibrator has been fit via
+        # calibrate_fusion_conformal(), attach the distribution-free label
+        # prediction set for this sample's calibrated probability so detect
+        # returns a calibrated probability *and* an uncertainty set, not a bare
+        # score. A no-op (no key added) until the calibrator is fit.
+        if self._fusion_conformal is not None:
+            pred_set = self._fusion_conformal.predict(np.array([float(anomaly_prob_val)]))
+            result["conformal"] = {
+                "prediction_set": pred_set.label_sets()[0],
+                "set_size": int(pred_set.set_size[0]),
+                "abstain": bool(pred_set.set_size[0] == 2),
+                "coverage": float(pred_set.coverage_level),
+            }
+
         return result
 
     def detect_with_fusion_calibrated(

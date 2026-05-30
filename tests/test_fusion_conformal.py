@@ -87,6 +87,26 @@ class TestConformalContract:
         for labels in out["prediction_sets"]:
             assert set(labels).issubset({0, 1})
 
+    def test_detect_with_fusion_attaches_conformal_when_calibrated(self) -> None:
+        torch.manual_seed(0)
+        np.random.seed(0)
+        X, y = _separable_fixture()
+        X_tr, y_tr, X_cal, y_cal, X_te, _ = _three_way(X, y)
+        engine = _engine()
+        engine.fit_fusion(X_tr, y_tr, epochs=15, batch_size=32, early_stopping_patience=10)
+
+        # Before calibration: production detect returns no conformal section.
+        assert "conformal" not in engine.detect_with_fusion(X_te[:1])
+
+        engine.calibrate_fusion_conformal(X_cal, y_cal, coverage=0.9)
+        result = engine.detect_with_fusion(X_te[:1])
+        assert "conformal" in result
+        conf = result["conformal"]
+        assert conf["coverage"] == pytest.approx(0.9)
+        assert conf["set_size"] in {0, 1, 2}
+        assert set(conf["prediction_set"]).issubset({0, 1})
+        assert isinstance(conf["abstain"], bool)
+
 
 class TestConformalCoverageRealData:
     """The coverage guarantee on real ADBench labels (network-gated)."""
