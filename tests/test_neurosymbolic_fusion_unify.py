@@ -17,12 +17,16 @@ Licensed under GNU GPL v3
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 
 from omni_mercury_engine.cognitive.neurosymbolic_fusion import (
     FusionStrategy,
     adaptive_neurosymbolic_fuse,
 )
+from omni_mercury_engine.core.symbolic_reasoning import SymbolicReasoningEngine
+from omni_mercury_engine.models.neurosymbolic import SymbolicReasoningLayer
 
 
 class TestCanonicalBlend:
@@ -58,7 +62,13 @@ class TestParityOrBetter:
     """Adaptive blend classifies at least as well as the old static blend on a
     fixture where confidence correlates with reliability."""
 
-    def _fixture(self, n: int = 4000, seed: int = 0):
+    def _fixture(self, n: int = 4000, seed: int = 0) -> tuple[
+        np.ndarray[Any, Any],
+        np.ndarray[Any, Any],
+        np.ndarray[Any, Any],
+        np.ndarray[Any, Any],
+        np.ndarray[Any, Any],
+    ]:
         rng = np.random.RandomState(seed)
         # Latent truth from two independent evidence sources.
         truth_n = rng.rand(n)
@@ -68,7 +78,9 @@ class TestParityOrBetter:
         # Observed scores: a branch is reliable (low noise) when it is decisive
         # (far from 0.5); unreliable branches are noisy. This is exactly the
         # regime confidence-weighting is designed for.
-        def observe(truth: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        def observe(
+            truth: np.ndarray[Any, Any],
+        ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
             decisiveness = np.abs(truth - 0.5) * 2.0
             noise = rng.normal(0, 0.35 * (1 - decisiveness))
             obs = np.clip(truth + noise, 0.0, 1.0)
@@ -121,3 +133,24 @@ class TestReasonSitesDelegate:
         src = inspect.getsource(c.SymbolicReasoningEngine.reason)
         assert "adaptive_neurosymbolic_fuse" in src
         assert "0.6 * neural_score + 0.4" not in src
+
+
+class TestNoRulesFiredSemantics:
+    def test_core_reason_no_rules_fired_preserves_neural_signal(self) -> None:
+        engine = SymbolicReasoningEngine()
+        engine.rules = []
+
+        result = engine.reason(np.array([0.8]), {})
+
+        assert result["symbolic_rules_fired"] == []
+        assert result["confidence"] >= 0.79
+        assert result["final_decision"] == "anomalous"
+
+    def test_models_reason_no_rules_fired_preserves_neural_signal(self) -> None:
+        layer = SymbolicReasoningLayer()
+
+        result = layer.reason(0.8, {})
+
+        assert result.rules_fired == []
+        assert result.confidence >= 0.79
+        assert result.result is True

@@ -237,7 +237,8 @@ class SymbolicReasoningLayer:
                 rules_fired.append(rule.name)
                 explanations.append(rule.generate_explanation())
 
-        symbolic_confidence = len(rules_fired) / len(self.rules) if self.rules else 0.0
+        symbolic_score = len(rules_fired) / len(self.rules) if self.rules else 0.0
+        symbolic_confidence = symbolic_score if rules_fired else 0.0
 
         # Adaptive neuro-symbolic blend (single canonical implementation),
         # replacing the former hardcoded 0.6/0.4 static mix. Weighting adapts
@@ -247,7 +248,11 @@ class SymbolicReasoningLayer:
             adaptive_neurosymbolic_fuse,
         )
 
-        combined_confidence, _ = adaptive_neurosymbolic_fuse(neural_score, symbolic_confidence)
+        combined_confidence, _ = adaptive_neurosymbolic_fuse(
+            neural_score,
+            symbolic_score,
+            symbolic_confidence=symbolic_confidence,
+        )
 
         is_anomaly = combined_confidence > 0.5
 
@@ -262,7 +267,7 @@ class SymbolicReasoningLayer:
             method="hybrid",
             rules_fired=rules_fired,
             neural_contribution=neural_score,
-            symbolic_contribution=symbolic_confidence,
+            symbolic_contribution=symbolic_score,
         )
 
     def _evaluate_rule(self, rule: SymbolicRule, context: dict[str, Any]) -> bool:
