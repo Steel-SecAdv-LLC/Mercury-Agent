@@ -24,6 +24,8 @@ pytest.importorskip("torch")
 
 import torch
 
+pytestmark = pytest.mark.xdist_group("fusion_calibration")
+
 from omni_mercury_engine.core.calibration import compute_ece
 from omni_mercury_engine.ml.mercury_ml import roc_auc_score
 
