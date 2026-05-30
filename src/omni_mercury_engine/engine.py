@@ -163,6 +163,7 @@ from omni_mercury_engine.ml.drift import DriftResult, EnsembleDriftDetector
 from omni_mercury_engine.ml.fairness import BiasAuditConfig, FairnessAuditor, FairnessReport
 from omni_mercury_engine.ml.fusion_network import FocalLoss, OmniFusionModel
 from omni_mercury_engine.ml.inference import FusionInference
+from omni_mercury_engine.ml.symbolic_constraint import SymbolicConstraintModule
 from omni_mercury_engine.ml.optimization import OptimizationConfig, ParallelExecutor
 from omni_mercury_engine.utils.logging import LoggerMixin
 
@@ -871,6 +872,13 @@ class OmniMercuryEngine(LoggerMixin):
             # untrained projections for aggregating/extra groups). None until
             # trained → no filtering, preserving the untrained-engine contract.
             self._fusion_feature_groups: list[str] | None = None
+            # Differentiable symbolic-constraint LTN co-trained with the fusion
+            # net when fit_fusion(symbolic_weight>0). Retained after training for
+            # explainability (learned detector reliabilities / rule satisfaction).
+            # None until a symbolic-regularised fit runs. The trained fusion net
+            # has already absorbed the constraint, so inference needs only the
+            # net; this handle is diagnostic, not required for scoring.
+            self._symbolic_module: SymbolicConstraintModule | None = None
             # Optional training provenance (source, datasets, seed, ...) recorded
             # by training scripts and persisted in/restored from the checkpoint
             # so a shipped artifact is self-describing for audit. None unless set.
@@ -932,6 +940,7 @@ class OmniMercuryEngine(LoggerMixin):
         focal_alpha: float = 0.75,
         focal_gamma: float = 2.0,
         calibrate: bool = True,
+        symbolic_weight: float = 0.0,
     ) -> dict[str, Any]:
         """Fit the fusion model on training data with semi-supervised learning.
 
@@ -961,11 +970,24 @@ class OmniMercuryEngine(LoggerMixin):
                 held-out validation split so outputs are trustworthy
                 probabilities, not just rankings (default True). Temperature
                 scaling is monotonic, so ranking/AUC is exactly preserved.
+            symbolic_weight: Weight ``lambda`` of the differentiable
+                symbolic-constraint loss co-trained with the supervised loss
+                (``total = supervised + lambda * (1 - satisfaction)``). The
+                constraint is a compact Logic Tensor Network
+                (:class:`~omni_mercury_engine.ml.symbolic_constraint.SymbolicConstraintModule`)
+                that ties the fusion output to the unsupervised agreement of the
+                base detectors. Default ``0.0`` reproduces the purely-neural
+                training path byte-for-byte; it stays off until the held-out
+                ablation (``benchmarks/neurosymbolic_ablation.py``) shows it
+                helps. Set ``>0`` (e.g. ``0.1``) to enable neuro-symbolic
+                co-training.
 
         Returns:
             Dictionary with training metrics including final_loss, best_loss,
             epochs_trained, convergence information, and (when calibrated)
-            ``temperature`` plus ``ece_before``/``ece_after``.
+            ``temperature`` plus ``ece_before``/``ece_after``. When
+            ``symbolic_weight > 0`` also includes ``symbolic_satisfaction`` and
+            ``symbolic_loss`` (final-epoch training values).
 
         Raises:
             ValueError: If mode is not 'fusion'.
@@ -995,6 +1017,12 @@ class OmniMercuryEngine(LoggerMixin):
         detector_features = self._extract_fusion_features(X, fit_detectors=True)
         self._fusion_feature_groups = sorted(detector_features.keys())
 
+        # Detector-consensus scores for symbolic co-training (only when enabled,
+        # to avoid the extra detect() pass on the purely-neural default path).
+        detector_scores: torch.Tensor | None = None
+        if symbolic_weight > 0:
+            detector_scores = self._extract_consensus_scores(X)
+
         # Generate pseudo-labels if not provided (semi-supervised)
         if y is None:
             logger.info("No labels provided, using semi-supervised pseudo-labeling...")
@@ -1012,6 +1040,8 @@ class OmniMercuryEngine(LoggerMixin):
             focal_alpha=focal_alpha,
             focal_gamma=focal_gamma,
             calibrate=calibrate,
+            symbolic_weight=symbolic_weight,
+            detector_scores=detector_scores,
         )
 
     def _fit_fusion_on_features(
@@ -1028,6 +1058,8 @@ class OmniMercuryEngine(LoggerMixin):
         focal_alpha: float = 0.75,
         focal_gamma: float = 2.0,
         calibrate: bool = True,
+        symbolic_weight: float = 0.0,
+        detector_scores: torch.Tensor | None = None,
     ) -> dict[str, Any]:
         """Train the fusion head on a pre-extracted feature-group mapping.
 
@@ -1048,10 +1080,19 @@ class OmniMercuryEngine(LoggerMixin):
             epochs, batch_size, learning_rate, early_stopping_patience,
             validation_split, use_focal_loss, focal_alpha, focal_gamma,
             calibrate: As in :meth:`fit_fusion`.
+            symbolic_weight: As in :meth:`fit_fusion`. When ``> 0`` and
+                ``detector_scores`` carries at least one channel, a
+                :class:`SymbolicConstraintModule` is co-optimised with the
+                fusion net and its ``(1 - satisfaction)`` loss is added to the
+                supervised loss.
+            detector_scores: Per-sample detector-consensus matrix
+                ``(N, n_detectors)`` aligned row-for-row with
+                ``detector_features``. Ignored when ``symbolic_weight == 0``.
 
         Returns:
             Training metrics (``best_loss``, ``epochs_trained`` ... plus
-            ``temperature``/``ece_before``/``ece_after`` when calibrated).
+            ``temperature``/``ece_before``/``ece_after`` when calibrated, and
+            ``symbolic_satisfaction``/``symbolic_loss`` when co-trained).
         """
         # GPU check with fallback
         device = self.device
@@ -1079,9 +1120,32 @@ class OmniMercuryEngine(LoggerMixin):
         self.fusion_model.train()
         self.fusion_model.to(device)
 
-        optimizer = torch.optim.AdamW(
-            self.fusion_model.parameters(), lr=learning_rate, weight_decay=0.01
+        # Neuro-symbolic co-training: when enabled, a SymbolicConstraintModule
+        # is optimised jointly with the fusion net and its (1 - satisfaction)
+        # loss is added per batch. The constraint's gradient flows into the
+        # net's anomaly head (shared ``anomaly_probs``), while its own learnable
+        # detector reliabilities / rule confidences adapt. Off (lambda == 0)
+        # leaves the optimiser, clipping and loss identical to the neural path.
+        symbolic_active = (
+            symbolic_weight > 0
+            and detector_scores is not None
+            and detector_scores.ndim == 2
+            and detector_scores.shape[1] > 0
         )
+        detector_scores_dev: torch.Tensor | None = None
+        if symbolic_active:
+            assert detector_scores is not None  # narrowed by symbolic_active
+            sym_module = SymbolicConstraintModule(num_detectors=detector_scores.shape[1]).to(device)
+            sym_module.train()
+            self._symbolic_module = sym_module
+            detector_scores_dev = detector_scores.to(device)
+            trainable_params = list(self.fusion_model.parameters()) + list(sym_module.parameters())
+        else:
+            sym_module = None
+            self._symbolic_module = None
+            trainable_params = list(self.fusion_model.parameters())
+
+        optimizer = torch.optim.AdamW(trainable_params, lr=learning_rate, weight_decay=0.01)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer, mode="min", factor=0.5, patience=5
         )
@@ -1108,6 +1172,9 @@ class OmniMercuryEngine(LoggerMixin):
         best_state: dict[str, Any] | None = None
         epochs_without_improvement = 0
         loss_history: list[dict[str, float]] = []
+        # Final-epoch symbolic diagnostics (populated only when co-training).
+        last_satisfaction: float = 1.0
+        last_symbolic_loss: float = 0.0
 
         for epoch in range(epochs):
             # Training phase
@@ -1127,8 +1194,14 @@ class OmniMercuryEngine(LoggerMixin):
                 optimizer.zero_grad()
                 outputs = self.fusion_model(batch_features)
                 loss = _loss_fn(outputs["anomaly_probs"], batch_labels)
+                if symbolic_active:
+                    assert sym_module is not None and detector_scores_dev is not None
+                    sym_out = sym_module(outputs["anomaly_probs"], detector_scores_dev[batch_indices])
+                    loss = loss + symbolic_weight * sym_out["loss"]
+                    last_satisfaction = float(sym_out["satisfaction"].detach())
+                    last_symbolic_loss = float(sym_out["loss"].detach())
                 loss.backward()  # type: ignore[no-untyped-call, unused-ignore]
-                torch.nn.utils.clip_grad_norm_(self.fusion_model.parameters(), 1.0)
+                torch.nn.utils.clip_grad_norm_(trainable_params, 1.0)
                 optimizer.step()
 
                 train_losses.append(loss.item())
@@ -1150,6 +1223,12 @@ class OmniMercuryEngine(LoggerMixin):
 
                     outputs = self.fusion_model(batch_features)
                     loss = _loss_fn(outputs["anomaly_probs"], batch_labels)
+                    if symbolic_active:
+                        assert sym_module is not None and detector_scores_dev is not None
+                        sym_out = sym_module(
+                            outputs["anomaly_probs"], detector_scores_dev[batch_indices]
+                        )
+                        loss = loss + symbolic_weight * sym_out["loss"]
                     val_losses.append(loss.item())
 
             avg_train_loss = float(np.mean(train_losses))
@@ -1188,6 +1267,8 @@ class OmniMercuryEngine(LoggerMixin):
             self.fusion_model.load_state_dict(best_state)
 
         self.fusion_model.eval()
+        if symbolic_active and sym_module is not None:
+            sym_module.eval()
         self._fusion_trained = True
 
         logger.info(f"Fusion training complete. Best val_loss: {best_val_loss:.4f}")
@@ -1200,6 +1281,10 @@ class OmniMercuryEngine(LoggerMixin):
             "loss_history": loss_history,
             "early_stopped": epochs_without_improvement >= early_stopping_patience,
         }
+        if symbolic_active:
+            metrics["symbolic_weight"] = float(symbolic_weight)
+            metrics["symbolic_satisfaction"] = last_satisfaction
+            metrics["symbolic_loss"] = last_symbolic_loss
 
         # Post-hoc temperature scaling (Guo et al. 2017): fit a single scalar on
         # the held-out validation split so the sigmoid outputs are trustworthy
@@ -1544,6 +1629,51 @@ class OmniMercuryEngine(LoggerMixin):
             raise RuntimeError("No fusion features could be extracted")
 
         return fusion_features
+
+    def _extract_consensus_scores(self, X: np.ndarray[Any, Any]) -> torch.Tensor:
+        """Build the per-sample, per-detector anomaly-score matrix for co-training.
+
+        Collects each base detector's and domain model's normalised anomaly
+        score (one scalar per sample, already squashed to ``[0, 1]`` by
+        :meth:`_normalize_scores`) and stacks the per-sample-aligned channels
+        into an ``(n_samples, n_detectors)`` matrix. This is the unsupervised
+        substrate the :class:`SymbolicConstraintModule` reasons over — the
+        detectors' independent "opinions" whose agreement structure the
+        symbolic rules tie the fusion output to.
+
+        Detectors are assumed already fit (``fit_fusion`` fits them before
+        calling this), so no fitting happens here; columns whose length does
+        not match ``n_samples`` are dropped to keep row-alignment with the
+        feature tensors. Returns an ``(n_samples, 0)`` tensor when no detector
+        score is available — the constraint then satisfies trivially.
+
+        Args:
+            X: Raw training features ``(n_samples, n_features)``.
+
+        Returns:
+            Float32 tensor ``(n_samples, n_detectors)`` of scores in ``[0, 1]``.
+        """
+        n_samples = len(X)
+        _, det_scores = self._extract_detector_features(X)
+        _, mod_scores = self._extract_model_features(X)
+
+        columns: list[torch.Tensor] = []
+        for name in sorted({**det_scores, **mod_scores}):
+            raw = {**det_scores, **mod_scores}[name]
+            col = torch.as_tensor(np.asarray(raw), dtype=torch.float32).reshape(-1)
+            if col.numel() != n_samples:
+                logger.debug(
+                    "Skipping consensus score %r: length %d != n_samples %d",
+                    name,
+                    col.numel(),
+                    n_samples,
+                )
+                continue
+            columns.append(col.clamp(0.0, 1.0))
+
+        if not columns:
+            return torch.zeros((n_samples, 0), dtype=torch.float32)
+        return torch.stack(columns, dim=1)
 
     def _restrict_to_trained_groups(
         self, features: dict[str, torch.Tensor]
