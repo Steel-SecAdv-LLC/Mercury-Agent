@@ -159,6 +159,15 @@ jobs:
           pip install -e ".[all,dev]"
           pip install pytest pytest-cov
 
+      - name: Anomaly regression guard (fast deterministic gate, WS-A)
+        # Per-dataset metric floors on a fixed genuine-label ADBench subset
+        # (seed 42), pinned in benchmarks/anomaly_regression_baseline.json.
+        # Fails fast (~20s) on a real detector regression before the heavy run.
+        # Context: docs/ANOMALY_REGRESSION_WS_A.md (the #261 "drop" was the
+        # #255 eval-honesty de-leak, not a detector regression).
+        run: |
+          python benchmarks/anomaly_regression_guard.py --check
+
       - name: Run mercury benchmark (gating)
         id: benchmark
         run: |

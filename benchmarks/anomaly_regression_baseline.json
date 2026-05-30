@@ -1,0 +1,92 @@
+{
+  "metadata": {
+    "purpose": "Deterministic regression guard for MercuryAnomalyDetector on a fixed genuine-label ADBench subset. NOT the headline benchmark (full 75-dataset run in mercury_benchmark.py).",
+    "detector": "MercuryAnomalyDetector",
+    "eval_path": "mercury_benchmark._benchmark_single",
+    "seed": 42,
+    "metric_definitions": {
+      "auc": "ROC-AUC of ensemble anomaly scores vs ground-truth labels",
+      "f1": "oracle (best-threshold) F1 via _oracle_threshold_f1 multi-strategy sweep"
+    },
+    "dataset_source": "https://github.com/Minqi824/ADBench",
+    "dataset_license": "MIT",
+    "commit": "df29d6ba595abbcbfe9633cb4be2a3e5ae4858f1",
+    "python": "3.11.15",
+    "margins": {
+      "auc": 0.03,
+      "f1": 0.05,
+      "mean_auc": 0.02,
+      "mean_f1": 0.03
+    }
+  },
+  "datasets": {
+    "breastw": {
+      "adbench_index": 4,
+      "n_samples": 683,
+      "n_features": 9,
+      "npz_sha256": "4f37ce07dbc25ddad8178fdc6d664ab46d2d0000ee28c2787c3c7ff3c03ef9f6",
+      "auc": 0.9976817822006107,
+      "f1": 0.9769392033542977
+    },
+    "cardio": {
+      "adbench_index": 6,
+      "n_samples": 1831,
+      "n_features": 21,
+      "npz_sha256": "bc5009bde6930b4d298b594f31b34485a9a17210cff0e8fb00a8c3068b885a2d",
+      "auc": 0.9575304677206851,
+      "f1": 0.798941798941799
+    },
+    "Ionosphere": {
+      "adbench_index": 18,
+      "n_samples": 351,
+      "n_features": 32,
+      "npz_sha256": "bca46cb0cfd1bf9ddef6cde5ad2215d54fb0189508d0d4c4eb98e788cad69001",
+      "auc": 0.9492906307065598,
+      "f1": 0.912
+    },
+    "WBC": {
+      "adbench_index": 42,
+      "n_samples": 223,
+      "n_features": 9,
+      "npz_sha256": "650f9dcb129248f67a291be0974f533ef259fcbde50fce5c8ad2a1cb2652d03b",
+      "auc": 0.9925233644859813,
+      "f1": 0.888888888888889
+    },
+    "Lymphography": {
+      "adbench_index": 21,
+      "n_samples": 148,
+      "n_features": 18,
+      "npz_sha256": "dad977b04f4ea65b78ccd0e9f76b45175bad605165b37e63f3cc177845e67037",
+      "auc": 0.9835680751173709,
+      "f1": 0.8
+    },
+    "Pima": {
+      "adbench_index": 29,
+      "n_samples": 768,
+      "n_features": 8,
+      "npz_sha256": "215454bb263a2f040945c9ea7bd7f06f1e89a61a3143bdb6f196e3887e801a7d",
+      "auc": 0.7408358208955225,
+      "f1": 0.7430340557275541
+    },
+    "glass": {
+      "adbench_index": 14,
+      "n_samples": 214,
+      "n_features": 7,
+      "npz_sha256": "aa7a8db1d475ba01a10488af454bc15220a3d5951b010b03b7020567d8152cdc",
+      "auc": 0.7454153182308523,
+      "f1": 0.28571428571428575
+    },
+    "pendigits": {
+      "adbench_index": 28,
+      "n_samples": 6870,
+      "n_features": 16,
+      "npz_sha256": "c4936b89dcdad59d303020e492f763a0f54170080d787c77497609acbb9c2d79",
+      "auc": 0.7611668690757163,
+      "f1": 0.2054054054054054
+    }
+  },
+  "aggregate": {
+    "mean_auc": 0.8910015410541624,
+    "mean_f1": 0.7013654547540288
+  }
+}
