@@ -244,9 +244,21 @@ class MultiverseOmniEngine:
             data = data.reshape(1, -1)
 
         batch_size = data.shape[0]
-        features = []
-
+        features: list[np.ndarray[Any, Any]] = []
         for i in range(batch_size):
+            working_universes = [
+                Universe(
+                    universe_id=universe.universe_id,
+                    state_vector=universe.state_vector.copy(),
+                    probability_amplitude=universe.probability_amplitude,
+                    fitness=universe.fitness,
+                    state=universe.state,
+                    timeline=universe.timeline,
+                    parent_universe=universe.parent_universe,
+                    metadata=dict(universe.metadata),
+                )
+                for universe in self.universes.values()
+            ]
 
             def fitness_fn(state: np.ndarray[Any, Any]) -> float:
                 data_dim = data[i].shape[0]
@@ -258,7 +270,45 @@ class MultiverseOmniEngine:
                     state_truncated = state
                 return float(-np.linalg.norm(state_truncated - data[i]))
 
-            converged = self.converge_multiverse(fitness_fn)
+            best_universe: Universe | None = None
+            for universe in working_universes:
+                fitness = fitness_fn(universe.state_vector)
+                universe.fitness = fitness
+                if best_universe is None or fitness > best_universe.fitness:
+                    best_universe = universe
+
+            total_fitness = sum(u.fitness for u in working_universes)
+            if total_fitness > 1e-10:
+                for universe in working_universes:
+                    universe.probability_amplitude = universe.fitness / total_fitness
+
+            sorted_universes = sorted(working_universes, key=lambda u: u.fitness, reverse=True)
+            top_universes = sorted_universes[: max(3, self.num_universes // 3)]
+            total_amplitude = sum(u.probability_amplitude for u in top_universes)
+            if total_amplitude < 1e-10:
+                weights = np.ones(len(top_universes)) / len(top_universes)
+            else:
+                weights = np.array(
+                    [u.probability_amplitude / total_amplitude for u in top_universes]
+                )
+
+            converged_state = np.zeros(self.state_dim)
+            for j, universe in enumerate(top_universes):
+                converged_state += weights[j] * universe.state_vector
+
+            converged = Universe(
+                universe_id="feature_converged",
+                state_vector=converged_state,
+                probability_amplitude=total_amplitude,
+                fitness=fitness_fn(converged_state),
+                state=UniverseState.CONVERGED,
+                timeline=self.timeline,
+                metadata={"type": "converged", "source": "feature_extraction"},
+            )
+            if self.best_universe is None or (
+                best_universe is not None and best_universe.fitness > self.best_universe.fitness
+            ):
+                self.best_universe = best_universe
 
             feature_vec = np.concatenate(
                 [
