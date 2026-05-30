@@ -65,6 +65,10 @@ from omni_mercury_engine.utils.rng import DeterministicRNG, set_global_seed
 if HAS_TORCH:
     import torch
 
+    if os.environ.get("PYTEST_XDIST_WORKER"):
+        torch.set_num_threads(1)
+        torch.set_num_interop_threads(1)
+
 # Default seed for reproducibility
 DEFAULT_TEST_SEED = 42
 

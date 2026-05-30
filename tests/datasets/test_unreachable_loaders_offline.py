@@ -138,10 +138,14 @@ def test_loader_fails_loudly_on_simulated_outage(
         raise ConnectionError(f"simulated upstream outage for {label}")
 
     # Patch every HTTP surface the unreachable loaders touch.  Some
-    # loaders use `requests` directly, some use the Mercury
-    # SafeHTTPClient wrapper, and some still call `urllib.request`.
+    # loaders use `requests` directly, some use requests.Session through
+    # third-party clients, some use the Mercury SafeHTTPClient wrapper,
+    # and some still call `urllib.request`.
     with (
         patch("requests.get", side_effect=_boom),
+        patch("requests.Session.request", side_effect=_boom),
+        patch("requests.Session.get", side_effect=_boom),
+        patch("urllib.request.urlopen", side_effect=_boom),
         patch("urllib.request.urlretrieve", side_effect=_boom),
         patch.object(safe_http_mod.SafeHTTPClient, "get", side_effect=_boom),
         patch.object(safe_http_mod.SafeHTTPClient, "get_bytes", side_effect=_boom),
