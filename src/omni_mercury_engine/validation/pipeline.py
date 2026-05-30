@@ -39,16 +39,12 @@ from scipy import stats
 
 logger = logging.getLogger(__name__)
 
-# NumPy 2.0+ compatibility: trapz was renamed to trapezoid
-if hasattr(np, "trapezoid"):
 
-    def _trapz(y: list[float], x: list[float]) -> float:
-        return float(np.trapezoid(y, x))
-
-else:
-
-    def _trapz(y: list[float], x: list[float]) -> float:
-        return float(np.trapz(y, x))
+def _trapz(y: list[float], x: list[float]) -> float:
+    total = 0.0
+    for left_y, right_y, left_x, right_x in zip(y[:-1], y[1:], x[:-1], x[1:], strict=True):
+        total += (right_x - left_x) * (left_y + right_y) / 2.0
+    return total
 
 
 @dataclass
