@@ -66,11 +66,18 @@ on:
 env:
   PYTHON_VERSION: "3.12"
   PIP_CACHE_DIR: ~/.cache/pip
-  # Performance thresholds - fail CI if below these values
-  # Measured baseline (2026-02-15): mean AUC 0.803, mean F1 0.589
-  # Thresholds set at 15% margin below measured performance as regression gates
-  MIN_ROC_AUC: "0.68"
-  MIN_F1: "0.50"
+  # Coarse headline backstop floors - fail CI if the genuine-label headline
+  # falls below these. Honest post-de-leak baseline (e9feeec, #261): mean
+  # AUC 0.8259, mean F1 0.6046 (genuine labels only; see
+  # docs/ANOMALY_REGRESSION_WS_A.md). AUC floor 0.75 keeps a ~9% margin under
+  # 0.8259 (AUC is stable enough across runs to hold a tight floor). F1 floor
+  # is held at 0.55 (~9% margin) NOT 0.60: the headline F1 (0.6046) averages
+  # over whichever genuine datasets load that run, so a 0.60 floor would flap
+  # on normal load-availability variance. Fine-grained, tight regression
+  # protection is the deterministic per-dataset guard
+  # (anomaly_regression_guard.py), not these coarse floors.
+  MIN_ROC_AUC: "0.75"
+  MIN_F1: "0.55"
   # Prevent silent synthetic data fallbacks in CI
   MERCURY_ALLOW_SYNTHETIC: "false"
   # CI-optimized benchmark settings to stay under 120 min timeout
