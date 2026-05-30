@@ -75,7 +75,7 @@ class Predicate:
     confidence: float = 1.0
     description: str = ""
     domain_constraints: list[str] = field(default_factory=list)
-    embedding: np.ndarray | None = None
+    embedding: np.ndarray[Any, Any] | None = None
 
     def __post_init__(self) -> None:
         if self.embedding is None:

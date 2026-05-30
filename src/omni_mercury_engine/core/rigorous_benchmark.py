@@ -38,15 +38,15 @@ logger = logging.getLogger(__name__)
 class AnomalyDetector(Protocol):
     """Protocol for anomaly detectors to benchmark."""
 
-    def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> None:
+    def fit(self, X: np.ndarray[Any, Any], y: np.ndarray[Any, Any] | None = None) -> None:
         """Fit the detector to training data."""
         ...
 
-    def predict(self, X: np.ndarray) -> np.ndarray:
+    def predict(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Predict anomaly labels (0=normal, 1=anomaly)."""
         ...
 
-    def predict_proba(self, X: np.ndarray) -> np.ndarray:
+    def predict_proba(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Predict anomaly probabilities."""
         ...
 
@@ -109,8 +109,8 @@ class BenchmarkResult:
     predict_times: list[float] = field(default_factory=list)
 
     # Per-fold predictions for statistical tests
-    fold_predictions: list[np.ndarray] = field(default_factory=list)
-    fold_labels: list[np.ndarray] = field(default_factory=list)
+    fold_predictions: list[np.ndarray[Any, Any]] = field(default_factory=list)
+    fold_labels: list[np.ndarray[Any, Any]] = field(default_factory=list)
 
     def finalize(self) -> None:
         """Compute all statistics after folds complete."""
@@ -182,11 +182,11 @@ def set_all_seeds(seed: int = GLOBAL_SEED) -> None:
 
 
 def stratified_split(
-    X: np.ndarray,
-    y: np.ndarray,
+    X: np.ndarray[Any, Any],
+    y: np.ndarray[Any, Any],
     test_size: float = 0.2,
     seed: int = GLOBAL_SEED,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
     """
     Perform stratified train/test split.
 
@@ -211,8 +211,8 @@ def stratified_split(
 
 
 def compute_event_metrics(
-    y_true: np.ndarray,
-    y_pred: np.ndarray,
+    y_true: np.ndarray[Any, Any],
+    y_pred: np.ndarray[Any, Any],
     tolerance: int = 0,
 ) -> tuple[float, float, float]:
     """
@@ -231,7 +231,7 @@ def compute_event_metrics(
         (event_precision, event_recall, event_f1)
     """
 
-    def get_events(arr: np.ndarray) -> list[tuple[int, int]]:
+    def get_events(arr: np.ndarray[Any, Any]) -> list[tuple[int, int]]:
         """Extract contiguous event ranges."""
         events = []
         in_event = False
@@ -290,8 +290,8 @@ def compute_event_metrics(
 
 
 def point_adjusted_f1(
-    y_true: np.ndarray,
-    y_pred: np.ndarray,
+    y_true: np.ndarray[Any, Any],
+    y_pred: np.ndarray[Any, Any],
 ) -> float:
     """
     Compute point-adjusted F1 score (PA-F1).
@@ -381,8 +381,8 @@ class RigorousBenchmarkHarness:
     def benchmark_detector(
         self,
         detector: Any,
-        X: np.ndarray,
-        y: np.ndarray,
+        X: np.ndarray[Any, Any],
+        y: np.ndarray[Any, Any],
         detector_name: str = "Unknown",
         dataset_name: str = "Unknown",
     ) -> BenchmarkResult:
@@ -590,8 +590,8 @@ class RigorousBenchmarkHarness:
 
 
 def run_baseline_benchmarks(
-    X: np.ndarray,
-    y: np.ndarray,
+    X: np.ndarray[Any, Any],
+    y: np.ndarray[Any, Any],
     dataset_name: str = "Dataset",
     n_folds: int = 10,
     seed: int = GLOBAL_SEED,
@@ -625,14 +625,14 @@ def run_baseline_benchmarks(
         def __init__(self) -> None:
             self.detector = MercuryAnomalyDetector()
 
-        def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> None:
+        def fit(self, X: np.ndarray[Any, Any], y: np.ndarray[Any, Any] | None = None) -> None:
             self.detector.fit(X)
 
-        def predict(self, X: np.ndarray) -> np.ndarray:
+        def predict(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
             result = self.detector.detect(X)
             return np.asarray(result["is_anomaly"].astype(int))  # type: ignore[no-any-return, unused-ignore]
 
-        def predict_proba(self, X: np.ndarray) -> np.ndarray:
+        def predict_proba(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
             result = self.detector.detect(X)
             return np.asarray(result["scores"])  # type: ignore[no-any-return, unused-ignore]
 

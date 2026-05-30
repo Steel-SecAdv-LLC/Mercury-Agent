@@ -97,7 +97,7 @@ class CrossSectorResult:
     """Results from cross-sector federated training."""
 
     sector_results: dict[str, TrainingResult]
-    global_model_weights: np.ndarray | None
+    global_model_weights: np.ndarray[Any, Any] | None
     total_clients: int
     total_samples: int
     participating_sectors: list[str]
@@ -176,9 +176,9 @@ class CISAFederatedCoordinator:
         self._sector_detectors: dict[str, FederatedAnomalyDetector] = {}
 
         # Track sector clients
-        self._sector_clients: dict[str, list[tuple[str, np.ndarray, np.ndarray | None]]] = {
-            sector: [] for sector in sectors
-        }
+        self._sector_clients: dict[
+            str, list[tuple[str, np.ndarray[Any, Any], np.ndarray[Any, Any] | None]]
+        ] = {sector: [] for sector in sectors}
 
         # Initialize sectors
         for sector in sectors:
@@ -247,8 +247,8 @@ class CISAFederatedCoordinator:
         self,
         sector: str,
         client_id: str,
-        X: np.ndarray,
-        y: np.ndarray | None = None,
+        X: np.ndarray[Any, Any],
+        y: np.ndarray[Any, Any] | None = None,
     ) -> None:
         """
         Add a client to a specific sector.
@@ -361,7 +361,7 @@ class CISAFederatedCoordinator:
     def _aggregate_across_sectors(
         self,
         sector_results: dict[str, TrainingResult],
-    ) -> tuple[np.ndarray | None, dict[str, float]]:
+    ) -> tuple[np.ndarray[Any, Any] | None, dict[str, float]]:
         """
         Aggregate models across sectors using weighted averaging.
 
@@ -407,7 +407,7 @@ class CISAFederatedCoordinator:
 
         return aggregated, metrics
 
-    def get_sector_model(self, sector: str) -> np.ndarray | None:
+    def get_sector_model(self, sector: str) -> np.ndarray[Any, Any] | None:
         """
         Get the trained model weights for a specific sector.
 
@@ -426,8 +426,8 @@ class CISAFederatedCoordinator:
     def predict_sector(
         self,
         sector: str,
-        X: np.ndarray,
-    ) -> np.ndarray:
+        X: np.ndarray[Any, Any],
+    ) -> np.ndarray[Any, Any]:
         """
         Predict anomalies using a sector's trained model.
 
@@ -446,8 +446,8 @@ class CISAFederatedCoordinator:
     def decision_function_sector(
         self,
         sector: str,
-        X: np.ndarray,
-    ) -> np.ndarray:
+        X: np.ndarray[Any, Any],
+    ) -> np.ndarray[Any, Any]:
         """
         Get anomaly scores using a sector's trained model.
 

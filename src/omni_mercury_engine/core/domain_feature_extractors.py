@@ -173,8 +173,8 @@ class BaseDomainExtractor(ABC):
         # Percentiles
         features.extend(
             [
-                np.percentile(data, 25),
-                np.percentile(data, 75),
+                float(np.percentile(data, 25)),
+                float(np.percentile(data, 75)),
             ]
         )
         names.extend(["q25", "q75"])
@@ -581,7 +581,7 @@ class MedicalFeatureExtractor(BaseDomainExtractor):
                         brief_crossings += 1
 
             alert_fatigue = brief_crossings / (n_vitals * len(data) + 1e-10)
-            features.append(alert_fatigue)
+            features.append(np.float64(alert_fatigue))
             names.append("alert_fatigue_indicator")
         else:
             features.append(0.0)  # type: ignore[arg-type, unused-ignore]

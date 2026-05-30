@@ -281,7 +281,7 @@ class SimplexManifold(Manifold):
         v_transported = v * scale
         # Project onto tangent space: sum(v_transported) must be 0
         v_transported -= y_safe * v_transported.sum()
-        return v_transported
+        return np.asarray(v_transported)
 
 
 # ---------------------------------------------------------------------------

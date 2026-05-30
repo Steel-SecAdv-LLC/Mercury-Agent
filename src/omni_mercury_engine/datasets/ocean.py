@@ -65,6 +65,7 @@ class NOAABuoyLoader(DatasetLoader):
     """
 
     DATASET_NAME = "noaa_buoy"
+    LABEL_SOURCE = "statistical"  # no ground-truth labels; manufactured from buoy signal stats
     DATASET_URL = "https://www.ndbc.noaa.gov/"
     LICENSE = "Public Domain (US Government)"
     CITATION = "NOAA National Data Buoy Center. https://www.ndbc.noaa.gov/"
@@ -124,8 +125,8 @@ class NOAABuoyLoader(DatasetLoader):
         super().__init__(config)
         self.stations = config.preprocessing.get("stations", list(self.BUOY_STATIONS.keys())[:5])
         self.anomaly_std = config.preprocessing.get("anomaly_std", 3.0)
-        self._features: np.ndarray | None = None
-        self._labels: np.ndarray | None = None  # type: ignore[assignment, unused-ignore]
+        self._features: np.ndarray[Any, Any] | None = None
+        self._labels: np.ndarray[Any, Any] | None = None  # type: ignore[assignment]
         self._is_real_data = False
 
     @property
@@ -227,7 +228,9 @@ class NOAABuoyLoader(DatasetLoader):
                 reason=f"NOAA Buoy download failed: {e}",
             )
 
-    def _process_buoy_data(self, df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+    def _process_buoy_data(
+        self, df: pd.DataFrame
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """
         Process buoy data for anomaly detection with comprehensive missing value handling.
 
@@ -500,7 +503,7 @@ class NOAABuoyLoader(DatasetLoader):
 
         raise FileNotFoundError("NOAA buoy data not found. Run download() first.")
 
-    def load_data(self) -> tuple[np.ndarray, np.ndarray]:
+    def load_data(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """
         Load NOAA buoy dataset.
 

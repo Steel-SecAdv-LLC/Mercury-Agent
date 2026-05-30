@@ -113,7 +113,7 @@ class FederatedAggregator:
         weights = np.array([s.n_samples / total_n for s in subs])
 
         # Weighted average helper
-        def wavg(arrays: list[np.ndarray]) -> np.ndarray:
+        def wavg(arrays: list[np.ndarray[Any, Any]]) -> np.ndarray[Any, Any]:
             result = np.zeros_like(arrays[0], dtype=np.float64)
             for a, w in zip(arrays, weights):
                 result = result + np.asarray(a, dtype=np.float64) * w
@@ -121,9 +121,9 @@ class FederatedAggregator:
 
         # Pooled std helper (parallel variance formula)
         def pooled_std(
-            means: list[np.ndarray],
-            stds: list[np.ndarray],
-        ) -> np.ndarray:
+            means: list[np.ndarray[Any, Any]],
+            stds: list[np.ndarray[Any, Any]],
+        ) -> np.ndarray[Any, Any]:
             global_mean = wavg(means)
             variances = [np.asarray(s, dtype=np.float64) ** 2 for s in stds]
             within = np.zeros_like(global_mean)

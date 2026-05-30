@@ -34,7 +34,7 @@ def prepare_for_detector(
         expected_columns: Loader's FEATURE_COLUMNS list.
 
     Returns:
-        np.ndarray of shape (n_samples, n_features), dtype float64.
+        np.ndarray[Any, Any] of shape (n_samples, n_features), dtype float64.
 
     Raises:
         ValueError: If columns missing, NaN present after cleaning, or empty DataFrame.

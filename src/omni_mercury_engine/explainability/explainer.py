@@ -66,7 +66,7 @@ class AnomalyExplanation:
     Combines multiple explanation methods into a unified result.
     """
 
-    instance: np.ndarray
+    instance: np.ndarray[Any, Any]
     anomaly_score: float
     is_anomaly: bool
     threshold: float
@@ -218,8 +218,8 @@ class MercuryExplainer:
 
     def __init__(
         self,
-        model: Callable[[np.ndarray], np.ndarray] | Any,
-        background_data: np.ndarray,
+        model: Callable[[np.ndarray[Any, Any]], np.ndarray[Any, Any]] | Any,
+        background_data: np.ndarray[Any, Any],
         feature_names: list[str] | None = None,
         feature_descriptions: dict[str, str] | None = None,
         feature_constraints: list[FeatureConstraint] | None = None,
@@ -303,7 +303,7 @@ class MercuryExplainer:
 
     def explain(
         self,
-        instance: np.ndarray,
+        instance: np.ndarray[Any, Any],
         anomaly_score: float | None = None,
         is_anomaly: bool | None = None,
         include_shap: bool = True,
@@ -389,8 +389,8 @@ class MercuryExplainer:
 
     def explain_batch(
         self,
-        instances: np.ndarray,
-        anomaly_scores: np.ndarray | None = None,
+        instances: np.ndarray[Any, Any],
+        anomaly_scores: np.ndarray[Any, Any] | None = None,
         include_shap: bool = True,
         include_counterfactuals: bool = False,
     ) -> list[AnomalyExplanation]:
@@ -424,8 +424,8 @@ class MercuryExplainer:
 
     def explain_global(
         self,
-        X: np.ndarray,
-        y: np.ndarray | None = None,
+        X: np.ndarray[Any, Any],
+        y: np.ndarray[Any, Any] | None = None,
     ) -> GlobalAnomalyExplanation:
         """
         Generate global explanation for the model.
@@ -456,7 +456,7 @@ class MercuryExplainer:
 
     def get_feature_importance(
         self,
-        X: np.ndarray,
+        X: np.ndarray[Any, Any],
         n_samples: int | None = None,
     ) -> dict[str, float]:
         """
@@ -478,7 +478,7 @@ class MercuryExplainer:
 
     def generate_report(
         self,
-        instance: np.ndarray,
+        instance: np.ndarray[Any, Any],
         subject_id: str,
         anomaly_score: float | None = None,
         explanation_level: ExplanationLevel = ExplanationLevel.STANDARD,

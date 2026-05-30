@@ -345,7 +345,7 @@ class HurricaneLoader(BaseDomainLoader):
             )
         return events
 
-    def get_ground_truth(self, event_id: str) -> np.ndarray:
+    def get_ground_truth(self, event_id: str) -> np.ndarray[Any, Any]:
         """
         Generate binary anomaly labels for a historical hurricane event.
 
@@ -390,7 +390,7 @@ class HurricaneLoader(BaseDomainLoader):
     # Feature engineering
     # ------------------------------------------------------------------
 
-    def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray:
+    def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray[Any, Any]:
         """Transform raw hurricane track data into a feature matrix.
 
         Only rapid-intensification-relevant derived features are
@@ -644,7 +644,7 @@ class HurricaneLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _compute_delta(values: np.ndarray, steps: int) -> np.ndarray:
+    def _compute_delta(values: np.ndarray[Any, Any], steps: int) -> np.ndarray[Any, Any]:
         """
         Compute the change in a variable over a fixed number of steps.
 
@@ -663,10 +663,10 @@ class HurricaneLoader(BaseDomainLoader):
 
     @staticmethod
     def _compute_track_deviation(
-        lat: np.ndarray,
-        lon: np.ndarray,
+        lat: np.ndarray[Any, Any],
+        lon: np.ndarray[Any, Any],
         window: int = 5,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """
         Compute deviation of track position from a running mean.
 
@@ -697,9 +697,9 @@ class HurricaneLoader(BaseDomainLoader):
 
     @staticmethod
     def _compute_translation_speed(
-        lat: np.ndarray,
-        lon: np.ndarray,
-    ) -> np.ndarray:
+        lat: np.ndarray[Any, Any],
+        lon: np.ndarray[Any, Any],
+    ) -> np.ndarray[Any, Any]:
         """
         Compute storm translation speed between consecutive track points.
 
@@ -740,8 +740,8 @@ class HurricaneLoader(BaseDomainLoader):
 
     @staticmethod
     def _label_rapid_intensification(
-        wind_kt: np.ndarray,
-    ) -> np.ndarray:
+        wind_kt: np.ndarray[Any, Any],
+    ) -> np.ndarray[Any, Any]:
         """
         Label track observations during rapid intensification periods.
 

@@ -41,7 +41,7 @@ class FederatedNode:
         self._n_features = 0
         self._data_hash = ""
 
-    def fit(self, X: np.ndarray) -> None:
+    def fit(self, X: np.ndarray[Any, Any]) -> None:
         """
         Fit MercuryAnomalyDetector on local data.
 

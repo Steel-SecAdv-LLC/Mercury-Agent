@@ -363,7 +363,7 @@ class MarineLoader(BaseDomainLoader):
             )
         return events
 
-    def get_ground_truth(self, event_id: str) -> np.ndarray:
+    def get_ground_truth(self, event_id: str) -> np.ndarray[Any, Any]:
         """
         Generate binary anomaly labels for a historical marine event.
 
@@ -438,7 +438,7 @@ class MarineLoader(BaseDomainLoader):
     # Feature engineering
     # ------------------------------------------------------------------
 
-    def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray:
+    def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray[Any, Any]:
         """
         Transform raw OBIS occurrence data into a feature matrix.
 
@@ -541,7 +541,7 @@ class MarineLoader(BaseDomainLoader):
             features[i, 2] = max(0.0, bl_richness - event_richness)
 
         # Clean up non-finite values.
-        features = np.where(np.isinf(features), np.nan, features)
+        features = np.asarray(np.where(np.isinf(features), np.nan, features))
         for col_idx in range(features.shape[1]):
             col = features[:, col_idx]
             mask = np.isnan(col)

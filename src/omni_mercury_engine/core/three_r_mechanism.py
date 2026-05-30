@@ -412,14 +412,14 @@ class _LegacyOAEWeightOptimizer:
         else:
             self.initial_weights = np.array([1 / 3, 1 / 3, 1 / 3])
 
-        self.optimized_weights: np.ndarray | None = None
+        self.optimized_weights: np.ndarray[Any, Any] | None = None
         self.optimization_history: list[dict[str, Any]] = []
 
     def _compute_oae_scores(
         self,
-        weights: np.ndarray,
-        X: np.ndarray,
-    ) -> np.ndarray:
+        weights: np.ndarray[Any, Any],
+        X: np.ndarray[Any, Any],
+    ) -> np.ndarray[Any, Any]:
         """
         Compute OAE scores for given weights and input data.
 
@@ -437,9 +437,9 @@ class _LegacyOAEWeightOptimizer:
 
     def _objective_function(
         self,
-        weights: np.ndarray,
-        X: np.ndarray,
-        y: np.ndarray,
+        weights: np.ndarray[Any, Any],
+        X: np.ndarray[Any, Any],
+        y: np.ndarray[Any, Any],
         threshold: float = 0.5,
     ) -> float:
         """
@@ -470,8 +470,8 @@ class _LegacyOAEWeightOptimizer:
 
     def optimize(
         self,
-        X: list[tuple[float, float, float]] | np.ndarray,
-        y: list[int] | np.ndarray,
+        X: list[tuple[float, float, float]] | np.ndarray[Any, Any],
+        y: list[int] | np.ndarray[Any, Any],
         threshold: float = 0.5,
     ) -> dict[str, Any]:
         """

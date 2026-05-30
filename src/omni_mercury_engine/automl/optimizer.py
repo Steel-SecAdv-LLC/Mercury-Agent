@@ -297,7 +297,7 @@ class GaussianProcessSampler(Sampler):
         self._n_candidates = n_candidates
         self._rng = np.random.default_rng(seed)
 
-        self._X: list[np.ndarray] = []
+        self._X: list[np.ndarray[Any, Any]] = []
         self._y: list[float] = []
         self._search_space: SearchSpace | None = None
         self._param_names: list[str] = []
@@ -351,7 +351,7 @@ class GaussianProcessSampler(Sampler):
 
         return best_config if best_config else search_space.sample()
 
-    def _config_to_vector(self, config: dict[str, Any]) -> np.ndarray:
+    def _config_to_vector(self, config: dict[str, Any]) -> np.ndarray[Any, Any]:
         """Convert config to numerical vector."""
         vector = []
         for name in self._param_names:
@@ -380,9 +380,9 @@ class GaussianProcessSampler(Sampler):
 
     def _predict(
         self,
-        x: np.ndarray,
-        X: np.ndarray,
-        y: np.ndarray,
+        x: np.ndarray[Any, Any],
+        X: np.ndarray[Any, Any],
+        y: np.ndarray[Any, Any],
     ) -> tuple[float, float]:
         """Predict mean and variance using GP."""
         length_scale = 0.5
@@ -407,10 +407,10 @@ class GaussianProcessSampler(Sampler):
 
     def _rbf_kernel(
         self,
-        X1: np.ndarray,
-        X2: np.ndarray,
+        X1: np.ndarray[Any, Any],
+        X2: np.ndarray[Any, Any],
         length_scale: float,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """RBF (Gaussian) kernel."""
         sq_dist = (
             np.sum(X1**2, axis=1).reshape(-1, 1)
@@ -738,11 +738,13 @@ class MercuryAutoML:
 
     def fit(
         self,
-        X_train: np.ndarray,
-        y_train: np.ndarray | None = None,
-        X_val: np.ndarray | None = None,
-        y_val: np.ndarray | None = None,
-        eval_func: Callable[[Any, np.ndarray, np.ndarray | None], float] | None = None,
+        X_train: np.ndarray[Any, Any],
+        y_train: np.ndarray[Any, Any] | None = None,
+        X_val: np.ndarray[Any, Any] | None = None,
+        y_val: np.ndarray[Any, Any] | None = None,
+        eval_func: (
+            Callable[[Any, np.ndarray[Any, Any], np.ndarray[Any, Any] | None], float] | None
+        ) = None,
     ) -> OptimizationResult:
         """
         Run hyperparameter optimization.
@@ -834,8 +836,8 @@ class MercuryAutoML:
     def _evaluate_model(
         self,
         model: Any,
-        X_val: np.ndarray,
-        y_val: np.ndarray | None,
+        X_val: np.ndarray[Any, Any],
+        y_val: np.ndarray[Any, Any] | None,
     ) -> float:
         """Evaluate model using the specified metric."""
         if self._task == "anomaly_detection":
@@ -859,8 +861,8 @@ class MercuryAutoML:
 
     def _compute_metric(
         self,
-        y_true: np.ndarray,
-        y_pred: np.ndarray,
+        y_true: np.ndarray[Any, Any],
+        y_pred: np.ndarray[Any, Any],
     ) -> float:
         """Compute the specified metric."""
         y_pred_binary = (y_pred > 0.5).astype(int) if y_pred.dtype == float else y_pred
@@ -907,7 +909,7 @@ class MercuryAutoML:
 
         return 0.0
 
-    def _compute_auc(self, y_true: np.ndarray, y_scores: np.ndarray) -> float:
+    def _compute_auc(self, y_true: np.ndarray[Any, Any], y_scores: np.ndarray[Any, Any]) -> float:
         """Compute Area Under ROC Curve."""
         sorted_indices = np.argsort(y_scores)[::-1]
         y_true_sorted = y_true[sorted_indices]
@@ -937,7 +939,9 @@ class MercuryAutoML:
 
         return auc
 
-    def _compute_average_precision(self, y_true: np.ndarray, y_scores: np.ndarray) -> float:
+    def _compute_average_precision(
+        self, y_true: np.ndarray[Any, Any], y_scores: np.ndarray[Any, Any]
+    ) -> float:
         """Compute Average Precision."""
         sorted_indices = np.argsort(y_scores)[::-1]
         y_true_sorted = y_true[sorted_indices]
@@ -1035,11 +1039,13 @@ class SimpleAnomalyModel:
         """Initialize simple anomaly model."""
         self._contamination = contamination
         self._threshold_percentile = threshold_percentile
-        self._mean: np.ndarray | None = None
-        self._std: np.ndarray | None = None
+        self._mean: np.ndarray[Any, Any] | None = None
+        self._std: np.ndarray[Any, Any] | None = None
         self._threshold: float = 0.0
 
-    def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> SimpleAnomalyModel:
+    def fit(
+        self, X: np.ndarray[Any, Any], y: np.ndarray[Any, Any] | None = None
+    ) -> SimpleAnomalyModel:
         """Fit the model."""
         self._mean = np.mean(X, axis=0)
         self._std = np.std(X, axis=0) + 1e-10
@@ -1049,7 +1055,7 @@ class SimpleAnomalyModel:
 
         return self
 
-    def decision_function(self, X: np.ndarray) -> np.ndarray:
+    def decision_function(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Compute anomaly scores."""
         if self._mean is None:
             return np.zeros(len(X))
@@ -1057,7 +1063,7 @@ class SimpleAnomalyModel:
         z_scores = np.abs((X - self._mean) / self._std)
         return np.mean(z_scores, axis=1)
 
-    def predict(self, X: np.ndarray) -> np.ndarray:
+    def predict(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Predict anomalies."""
         scores = self.decision_function(X)
         return (scores > self._threshold).astype(int)
@@ -1073,16 +1079,16 @@ class SimpleClassifier:
     ) -> None:
         """Initialize simple classifier."""
         self._n_neighbors = n_neighbors
-        self._X_train: np.ndarray | None = None
-        self._y_train: np.ndarray | None = None
+        self._X_train: np.ndarray[Any, Any] | None = None
+        self._y_train: np.ndarray[Any, Any] | None = None
 
-    def fit(self, X: np.ndarray, y: np.ndarray) -> SimpleClassifier:
+    def fit(self, X: np.ndarray[Any, Any], y: np.ndarray[Any, Any]) -> SimpleClassifier:
         """Fit the classifier."""
         self._X_train = X
         self._y_train = y
         return self
 
-    def predict(self, X: np.ndarray) -> np.ndarray:
+    def predict(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Predict classes."""
         if self._X_train is None:
             return np.zeros(len(X))
@@ -1109,16 +1115,16 @@ class SimpleRegressor:
     ) -> None:
         """Initialize simple regressor."""
         self._n_neighbors = n_neighbors
-        self._X_train: np.ndarray | None = None
-        self._y_train: np.ndarray | None = None
+        self._X_train: np.ndarray[Any, Any] | None = None
+        self._y_train: np.ndarray[Any, Any] | None = None
 
-    def fit(self, X: np.ndarray, y: np.ndarray) -> SimpleRegressor:
+    def fit(self, X: np.ndarray[Any, Any], y: np.ndarray[Any, Any]) -> SimpleRegressor:
         """Fit the regressor."""
         self._X_train = X
         self._y_train = y
         return self
 
-    def predict(self, X: np.ndarray) -> np.ndarray:
+    def predict(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Predict values."""
         if self._X_train is None:
             return np.zeros(len(X))

@@ -341,7 +341,7 @@ class SepsisLoader(BaseDomainLoader):
             )
         return events
 
-    def get_ground_truth(self, event_id: str) -> np.ndarray:
+    def get_ground_truth(self, event_id: str) -> np.ndarray[Any, Any]:
         """
         Return binary sepsis onset labels for a training set.
 
@@ -394,7 +394,7 @@ class SepsisLoader(BaseDomainLoader):
     # Feature engineering
     # ------------------------------------------------------------------
 
-    def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray:
+    def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray[Any, Any]:
         """Transform raw sepsis data into a feature matrix for Mercury.
 
         Engineered features per hourly observation:
@@ -616,7 +616,7 @@ class SepsisLoader(BaseDomainLoader):
     def _compute_derivatives(
         df: pd.DataFrame,
         columns: list[str],
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """
         Compute first-order derivatives (hourly rate of change).
 
@@ -658,7 +658,7 @@ class SepsisLoader(BaseDomainLoader):
         df: pd.DataFrame,
         columns: list[str],
         window: int = 6,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """
         Compute rolling standard deviation within each patient.
 

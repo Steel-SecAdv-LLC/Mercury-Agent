@@ -439,7 +439,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
 
     def fit(
         self,
-        data: np.ndarray | torch.Tensor | dict[str, Any] | list[UserInteraction],
+        data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any] | list[UserInteraction],
         data_type: str = "time_series",
     ) -> AdvancedPhysicsIntegratedDetector:
         """
@@ -511,7 +511,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
 
     def detect(
         self,
-        data: np.ndarray | torch.Tensor | dict[str, Any] | list[UserInteraction],
+        data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any] | list[UserInteraction],
         data_type: str = "time_series",
     ) -> dict[str, Any]:
         """
@@ -677,7 +677,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
 
     def extract_features(
         self,
-        data: np.ndarray | torch.Tensor | dict[str, Any],
+        data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],
         data_type: str = "time_series",
     ) -> torch.Tensor:
         """
@@ -882,7 +882,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
         if not feature_parts:
             return torch.zeros(1, 64)
 
-        # Normalize feature types: np.ndarray -> torch.Tensor
+        # Normalize feature types: np.ndarray[Any, Any] -> torch.Tensor
         normalized_parts: list[torch.Tensor] = []
         for raw in feature_parts:
             if isinstance(raw, np.ndarray):

@@ -162,7 +162,7 @@ class LocalUpdate:
     """Local model update from a client."""
 
     client_id: str
-    model_update: np.ndarray
+    model_update: np.ndarray[Any, Any]
     n_samples: int
     n_epochs: int
     loss_history: list[float] = field(default_factory=list)
@@ -193,10 +193,10 @@ class LocalTrainer(ABC):
     @abstractmethod
     def train(
         self,
-        model_weights: np.ndarray,
-        data: tuple[np.ndarray, np.ndarray | None],
+        model_weights: np.ndarray[Any, Any],
+        data: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any] | None],
         config: ClientConfig,
-    ) -> tuple[np.ndarray, list[float]]:
+    ) -> tuple[np.ndarray[Any, Any], list[float]]:
         """Train locally and return weight update."""
         pass
 
@@ -206,8 +206,17 @@ class SGDTrainer(LocalTrainer):
 
     def __init__(
         self,
-        loss_fn: Callable[[np.ndarray, np.ndarray, np.ndarray], float] | None = None,
-        grad_fn: Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray] | None = None,
+        loss_fn: (
+            Callable[[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]], float]
+            | None
+        ) = None,
+        grad_fn: (
+            Callable[
+                [np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]],
+                np.ndarray[Any, Any],
+            ]
+            | None
+        ) = None,
         seed: int | None = None,
     ) -> None:
         """
@@ -228,9 +237,9 @@ class SGDTrainer(LocalTrainer):
 
     def _default_loss(
         self,
-        weights: np.ndarray,
-        X: np.ndarray,
-        y: np.ndarray,
+        weights: np.ndarray[Any, Any],
+        X: np.ndarray[Any, Any],
+        y: np.ndarray[Any, Any],
     ) -> float:
         """Default MSE loss."""
         predictions = X @ weights
@@ -238,20 +247,20 @@ class SGDTrainer(LocalTrainer):
 
     def _default_gradient(
         self,
-        weights: np.ndarray,
-        X: np.ndarray,
-        y: np.ndarray,
-    ) -> np.ndarray:
+        weights: np.ndarray[Any, Any],
+        X: np.ndarray[Any, Any],
+        y: np.ndarray[Any, Any],
+    ) -> np.ndarray[Any, Any]:
         """Default gradient for MSE loss."""
         predictions = X @ weights
         return 2 * X.T @ (predictions - y) / len(y)
 
     def train(
         self,
-        model_weights: np.ndarray,
-        data: tuple[np.ndarray, np.ndarray | None],
+        model_weights: np.ndarray[Any, Any],
+        data: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any] | None],
         config: ClientConfig,
-    ) -> tuple[np.ndarray, list[float]]:
+    ) -> tuple[np.ndarray[Any, Any], list[float]]:
         """Train using SGD."""
         X, y = data
         if y is None:
@@ -306,8 +315,17 @@ class FedProxTrainer(LocalTrainer):
 
     def __init__(
         self,
-        loss_fn: Callable[[np.ndarray, np.ndarray, np.ndarray], float] | None = None,
-        grad_fn: Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray] | None = None,
+        loss_fn: (
+            Callable[[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]], float]
+            | None
+        ) = None,
+        grad_fn: (
+            Callable[
+                [np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]],
+                np.ndarray[Any, Any],
+            ]
+            | None
+        ) = None,
         seed: int | None = None,
     ) -> None:
         """Initialize FedProx trainer.
@@ -325,9 +343,9 @@ class FedProxTrainer(LocalTrainer):
 
     def _default_loss(
         self,
-        weights: np.ndarray,
-        X: np.ndarray,
-        y: np.ndarray,
+        weights: np.ndarray[Any, Any],
+        X: np.ndarray[Any, Any],
+        y: np.ndarray[Any, Any],
     ) -> float:
         """Default MSE loss."""
         predictions = X @ weights
@@ -335,20 +353,20 @@ class FedProxTrainer(LocalTrainer):
 
     def _default_gradient(
         self,
-        weights: np.ndarray,
-        X: np.ndarray,
-        y: np.ndarray,
-    ) -> np.ndarray:
+        weights: np.ndarray[Any, Any],
+        X: np.ndarray[Any, Any],
+        y: np.ndarray[Any, Any],
+    ) -> np.ndarray[Any, Any]:
         """Default gradient for MSE loss."""
         predictions = X @ weights
         return 2 * X.T @ (predictions - y) / len(y)
 
     def train(
         self,
-        model_weights: np.ndarray,
-        data: tuple[np.ndarray, np.ndarray | None],
+        model_weights: np.ndarray[Any, Any],
+        data: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any] | None],
         config: ClientConfig,
-    ) -> tuple[np.ndarray, list[float]]:
+    ) -> tuple[np.ndarray[Any, Any], list[float]]:
         """Train using FedProx with proximal term."""
         X, y = data
         if y is None:
@@ -423,7 +441,7 @@ class FederatedClient:
     def __init__(
         self,
         client_id: str,
-        local_data: tuple[np.ndarray, np.ndarray | None],
+        local_data: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any] | None],
         config: ClientConfig | None = None,
         trainer: LocalTrainer | None = None,
         privacy_seed: int | None = None,
@@ -481,7 +499,7 @@ class FederatedClient:
 
     def train_round(
         self,
-        global_weights: np.ndarray,
+        global_weights: np.ndarray[Any, Any],
         round_num: int,
     ) -> LocalUpdate:
         """
@@ -566,7 +584,7 @@ class FederatedClient:
 
     def update_data(
         self,
-        new_data: tuple[np.ndarray, np.ndarray | None],
+        new_data: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any] | None],
         append: bool = True,
     ) -> None:
         """

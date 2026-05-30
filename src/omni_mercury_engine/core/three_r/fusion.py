@@ -472,7 +472,7 @@ class DomainAdaptiveOAEWeights:
         Returns:
             Dict mapping domain name to weight dict.
         """
-        all_weights: list[np.ndarray] = []
+        all_weights: list[np.ndarray[Any, Any]] = []
 
         for domain, observations in self._domain_scores.items():
             if len(observations) < min_samples:

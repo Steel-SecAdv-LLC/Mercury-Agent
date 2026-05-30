@@ -24,7 +24,7 @@ class HarmonicCoefficients:
     """Spherical harmonic coefficients."""
 
     l_max: int
-    coefficients: np.ndarray
+    coefficients: np.ndarray[Any, Any]
     normalization: str = "ortho"
     real_basis: bool = True
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -51,12 +51,12 @@ class HarmonicCoefficients:
             power += np.abs(c) ** 2
         return power
 
-    def to_array(self) -> np.ndarray:
+    def to_array(self) -> np.ndarray[Any, Any]:
         """Convert to flat array representation."""
         return self.coefficients.copy()
 
     @classmethod
-    def from_array(cls, array: np.ndarray, l_max: int) -> HarmonicCoefficients:
+    def from_array(cls, array: np.ndarray[Any, Any], l_max: int) -> HarmonicCoefficients:
         """Create from flat array."""
         return cls(l_max=l_max, coefficients=array)
 
@@ -79,9 +79,9 @@ class AssociatedLegendre:
         self._normalization = normalization
         self._dtype = np.float64 if use_float64 else np.float32
 
-        self._plm_cache: dict[tuple[int, int], np.ndarray] = {}
+        self._plm_cache: dict[tuple[int, int], np.ndarray[Any, Any]] = {}
 
-    def compute(self, degree: int, m: int, cos_theta: np.ndarray) -> np.ndarray:
+    def compute(self, degree: int, m: int, cos_theta: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Compute P_l^m(cos(theta)) with proper normalization.
 
@@ -123,8 +123,8 @@ class AssociatedLegendre:
         self,
         degree: int,
         m: int,
-        cos_theta: np.ndarray,
-    ) -> np.ndarray:
+        cos_theta: np.ndarray[Any, Any],
+    ) -> np.ndarray[Any, Any]:
         """Compute P_l^m using stable recurrence."""
         sin_theta = np.sqrt(1 - cos_theta**2)
 
@@ -183,9 +183,9 @@ class SHBasis:
         self,
         degree: int,
         m: int,
-        theta: np.ndarray,
-        phi: np.ndarray,
-    ) -> np.ndarray:
+        theta: np.ndarray[Any, Any],
+        phi: np.ndarray[Any, Any],
+    ) -> np.ndarray[Any, Any]:
         """
         Compute spherical harmonic Y_l^m(theta, phi).
 
@@ -213,9 +213,9 @@ class SHBasis:
 
     def compute_all(
         self,
-        theta: np.ndarray,
-        phi: np.ndarray,
-    ) -> np.ndarray:
+        theta: np.ndarray[Any, Any],
+        phi: np.ndarray[Any, Any],
+    ) -> np.ndarray[Any, Any]:
         """
         Compute all spherical harmonics up to l_max.
 
@@ -268,8 +268,8 @@ class SphericalHarmonicTransform:
         self._basis = SHBasis(l_max, real_basis=True)
         self._legendre = AssociatedLegendre(l_max)
 
-        self._quadrature_weights: np.ndarray | None = None
-        self._quadrature_points: tuple[np.ndarray, np.ndarray] | None = None
+        self._quadrature_weights: np.ndarray[Any, Any] | None = None
+        self._quadrature_points: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]] | None = None
 
     @property
     def l_max(self) -> int:
@@ -283,10 +283,10 @@ class SphericalHarmonicTransform:
 
     def forward(
         self,
-        f: np.ndarray,
-        theta: np.ndarray,
-        phi: np.ndarray,
-        weights: np.ndarray | None = None,
+        f: np.ndarray[Any, Any],
+        theta: np.ndarray[Any, Any],
+        phi: np.ndarray[Any, Any],
+        weights: np.ndarray[Any, Any] | None = None,
     ) -> HarmonicCoefficients:
         """
         Forward spherical harmonic transform (analysis).
@@ -320,9 +320,9 @@ class SphericalHarmonicTransform:
     def inverse(
         self,
         coefficients: HarmonicCoefficients,
-        theta: np.ndarray,
-        phi: np.ndarray,
-    ) -> np.ndarray:
+        theta: np.ndarray[Any, Any],
+        phi: np.ndarray[Any, Any],
+    ) -> np.ndarray[Any, Any]:
         """
         Inverse spherical harmonic transform (synthesis).
 
@@ -346,7 +346,7 @@ class SphericalHarmonicTransform:
 
         return f
 
-    def _compute_weights(self, theta: np.ndarray) -> np.ndarray:
+    def _compute_weights(self, theta: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Compute quadrature weights for integration."""
         n = len(theta)
         weights = np.ones(n) * (4 * np.pi / n)
@@ -358,7 +358,7 @@ class SphericalHarmonicTransform:
 
     def decompose(
         self,
-        point_cloud: np.ndarray,
+        point_cloud: np.ndarray[Any, Any],
         sampling: str = "healpix",
     ) -> HarmonicCoefficients:
         """
@@ -390,7 +390,7 @@ class SphericalHarmonicTransform:
         coefficients: HarmonicCoefficients,
         n_theta: int = 64,
         n_phi: int = 128,
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """
         Reconstruct surface from spherical harmonic coefficients.
 
@@ -452,13 +452,13 @@ class FastSHTransform:
         self._legendre = AssociatedLegendre(self._l_max)
         self._cos_theta = np.cos(self._theta)
 
-        self._plm_table: dict[tuple[int, int], np.ndarray] = {}
+        self._plm_table: dict[tuple[int, int], np.ndarray[Any, Any]] = {}
         for degree in range(self._l_max + 1):
             for m in range(degree + 1):
                 plm = self._legendre.compute(degree, m, self._cos_theta)
                 self._plm_table[(degree, m)] = plm
 
-    def forward(self, f: np.ndarray) -> HarmonicCoefficients:
+    def forward(self, f: np.ndarray[Any, Any]) -> HarmonicCoefficients:
         """
         Fast forward SH transform using FFT.
 
@@ -495,7 +495,7 @@ class FastSHTransform:
             coefficients=coefficients,
         )
 
-    def inverse(self, coefficients: HarmonicCoefficients) -> np.ndarray:
+    def inverse(self, coefficients: HarmonicCoefficients) -> np.ndarray[Any, Any]:
         """
         Fast inverse SH transform using FFT.
 

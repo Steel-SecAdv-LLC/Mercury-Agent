@@ -335,7 +335,7 @@ class AttentionProvider(ABC):
     """
 
     @abstractmethod
-    def get_attention(self) -> np.ndarray:
+    def get_attention(self) -> np.ndarray[Any, Any]:
         """
         Return attention scores with shape ``(num_heads, seq_len, seq_len)``.
 
@@ -368,11 +368,11 @@ class AttentionOptimizer:
         self.triadic_weights = self._compute_triadic_weights()
 
         # Cached computations
-        self._attention_cache: dict[int, np.ndarray] = {}
+        self._attention_cache: dict[int, np.ndarray[Any, Any]] = {}
         self._cache_hits = 0
         self._cache_misses = 0
 
-    def _compute_triadic_weights(self) -> np.ndarray:
+    def _compute_triadic_weights(self) -> np.ndarray[Any, Any]:
         """Pre-compute triadic φ-weights."""
         weights = np.ones(self.num_heads)
         heads_per_band = self.num_heads // 3
@@ -387,15 +387,17 @@ class AttentionOptimizer:
         weights[2 * heads_per_band :] = 1 / PHI
 
         # Normalize
-        weights = weights * (self.num_heads / np.sum(weights))
+        normalized_weights: np.ndarray[Any, Any] = np.empty(weights.shape, dtype=np.float64)
+        np.multiply(weights, self.num_heads / np.sum(weights), out=normalized_weights)
+        weights = normalized_weights
 
         return weights
 
     def optimize_attention(
         self,
-        attention_scores: np.ndarray,
+        attention_scores: np.ndarray[Any, Any],
         use_cache: bool = True,
-    ) -> tuple[np.ndarray, float]:
+    ) -> tuple[np.ndarray[Any, Any], float]:
         """
         Apply optimized triadic φ-weighting.
 
@@ -491,7 +493,7 @@ class GOSNNOptimizer:
     def optimize(
         self,
         gosnn: Any,
-        X: np.ndarray | None = None,
+        X: np.ndarray[Any, Any] | None = None,
         context: dict[str, Any] | None = None,
     ) -> OptimizationResult:
         """
@@ -618,7 +620,7 @@ class GOSNNOptimizer:
 
         return result
 
-    def _profile_latency(self, gosnn: Any, X: np.ndarray | None) -> float:
+    def _profile_latency(self, gosnn: Any, X: np.ndarray[Any, Any] | None) -> float:
         """Profile GOSNN latency."""
         n_iterations = 10
         times = []
@@ -652,7 +654,7 @@ class GOSNNOptimizer:
 
 def optimize_gosnn(
     gosnn: Any,
-    X: np.ndarray | None = None,
+    X: np.ndarray[Any, Any] | None = None,
     sigma_immutable: float = SIGMA_IMMUTABLE_TARGET,
     **kwargs: Any,
 ) -> OptimizationResult:

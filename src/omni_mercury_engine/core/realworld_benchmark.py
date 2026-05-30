@@ -173,7 +173,7 @@ class SyntheticDataGenerator:
 
     def generate_smd_like(
         self, n_samples: int = 5000, n_features: int = 38
-    ) -> tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """
         Generate data mimicking SMD (Server Machine Dataset).
 
@@ -215,7 +215,7 @@ class SyntheticDataGenerator:
 
     def generate_nslkdd_like(
         self, n_samples: int = 5000, n_features: int = 41
-    ) -> tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """
         Generate data mimicking NSL-KDD.
 
@@ -247,7 +247,7 @@ class SyntheticDataGenerator:
 
     def generate_batadal_like(
         self, n_samples: int = 5000, n_features: int = 43
-    ) -> tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """
         Generate data mimicking BATADAL.
 
@@ -355,7 +355,9 @@ class RealWorldBenchmarkRunner:
             f"use_synthetic={use_synthetic}, min_real_samples={min_real_samples}"
         )
 
-    def load_dataset(self, name: str) -> tuple[np.ndarray, np.ndarray, DatasetInfo]:
+    def load_dataset(
+        self, name: str
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], DatasetInfo]:
         """
         Load a benchmark dataset.
 
@@ -434,7 +436,7 @@ class RealWorldBenchmarkRunner:
 
         return X, y, info
 
-    def _try_load_real(self, name: str) -> tuple[np.ndarray, np.ndarray] | None:
+    def _try_load_real(self, name: str) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]] | None:
         """Attempt to load real data files."""
         if not self.data_dir or not self.data_dir.exists():
             return None
@@ -470,7 +472,7 @@ class RealWorldBenchmarkRunner:
 
         return None
 
-    def _generate_synthetic(self, name: str) -> tuple[np.ndarray, np.ndarray]:
+    def _generate_synthetic(self, name: str) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Generate synthetic data for dataset."""
         name_key = name.upper().replace("-", "").replace("_", "")
 
@@ -664,8 +666,8 @@ class RealWorldBenchmarkRunner:
 
     def _compute_event_metrics(
         self,
-        y_true: np.ndarray,
-        y_pred: np.ndarray,
+        y_true: np.ndarray[Any, Any],
+        y_pred: np.ndarray[Any, Any],
     ) -> tuple[float, float]:
         """Compute event-based F1 and time-to-detection.
 
@@ -675,7 +677,7 @@ class RealWorldBenchmarkRunner:
         positive inside it.
         """
 
-        def get_events(arr: np.ndarray) -> list[tuple[int, int]]:
+        def get_events(arr: np.ndarray[Any, Any]) -> list[tuple[int, int]]:
             events: list[tuple[int, int]] = []
             in_event = False
             start = 0

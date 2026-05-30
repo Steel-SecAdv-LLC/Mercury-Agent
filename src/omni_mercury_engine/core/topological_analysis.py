@@ -167,13 +167,13 @@ class PersistenceDiagram:
             features are clamped to this value for numerical computation.
     """
 
-    pairs_dim0: np.ndarray = field(default_factory=lambda: np.empty((0, 2)))
-    pairs_dim1: np.ndarray = field(default_factory=lambda: np.empty((0, 2)))
+    pairs_dim0: np.ndarray[Any, Any] = field(default_factory=lambda: np.empty((0, 2)))
+    pairs_dim1: np.ndarray[Any, Any] = field(default_factory=lambda: np.empty((0, 2)))
     filtration_max: float = 0.0
 
     # -- convenience helpers -------------------------------------------------
 
-    def lifetimes(self, dim: int = 0) -> np.ndarray:
+    def lifetimes(self, dim: int = 0) -> np.ndarray[Any, Any]:
         """Return the persistence (death - birth) for each pair in *dim*.
 
         Args:
@@ -186,7 +186,7 @@ class PersistenceDiagram:
         if pairs.size == 0:
             return np.array([], dtype=np.float64)
         deaths = np.where(np.isinf(pairs[:, 1]), self.filtration_max, pairs[:, 1])
-        result: np.ndarray = deaths - pairs[:, 0]
+        result: np.ndarray[Any, Any] = deaths - pairs[:, 0]
         return result
 
     def betti_at(self, epsilon: float, dim: int = 0) -> int:
@@ -245,11 +245,11 @@ class VietorisRipsFiltration:
         self.max_edge_length = max_edge_length
         self.max_dimension = min(max_dimension, 1)  # cap at H1
         self.metric = metric
-        self._distance_matrix: np.ndarray | None = None
+        self._distance_matrix: np.ndarray[Any, Any] | None = None
 
     # -- public API ----------------------------------------------------------
 
-    def build(self, point_cloud: np.ndarray) -> PersistenceDiagram:
+    def build(self, point_cloud: np.ndarray[Any, Any]) -> PersistenceDiagram:
         """
         Compute the persistence diagram for *point_cloud*.
 
@@ -293,7 +293,7 @@ class VietorisRipsFiltration:
         pairs_dim0 = self._compute_h0(n_points, edges, filt_max)
 
         # -- H1 via edge-triangle reduction ----------------------------------
-        pairs_dim1: np.ndarray
+        pairs_dim1: np.ndarray[Any, Any]
         if self.max_dimension >= 1:
             pairs_dim1 = self._compute_h1(n_points, edges, filt_max)
         else:
@@ -313,7 +313,7 @@ class VietorisRipsFiltration:
         return diagram
 
     @property
-    def distance_matrix(self) -> np.ndarray | None:
+    def distance_matrix(self) -> np.ndarray[Any, Any] | None:
         """Return the last computed pairwise distance matrix, or ``None``."""
         return self._distance_matrix
 
@@ -346,7 +346,7 @@ class VietorisRipsFiltration:
         n_points: int,
         edges: list[tuple[float, int, int]],
         filt_max: float,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """
         Compute 0-dimensional persistent homology (connected components).
 
@@ -388,7 +388,7 @@ class VietorisRipsFiltration:
         n_points: int,
         edges: list[tuple[float, int, int]],
         filt_max: float,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """
         Compute 1-dimensional persistent homology (cycles / loops).
 
@@ -586,7 +586,7 @@ def wasserstein_distance_pd(
 # -- helpers for diagram distances -------------------------------------------
 
 
-def _diagram_points(dgm: PersistenceDiagram, dim: int) -> np.ndarray:
+def _diagram_points(dgm: PersistenceDiagram, dim: int) -> np.ndarray[Any, Any]:
     """
     Extract finite (birth, death) points from a diagram.
 
@@ -608,7 +608,9 @@ def _diagram_points(dgm: PersistenceDiagram, dim: int) -> np.ndarray:
     return pts
 
 
-def _augment_with_diagonal(pts: np.ndarray, other_pts: np.ndarray) -> np.ndarray:
+def _augment_with_diagonal(
+    pts: np.ndarray[Any, Any], other_pts: np.ndarray[Any, Any]
+) -> np.ndarray[Any, Any]:
     """
     Augment *pts* with diagonal projections of *other_pts*.
 
@@ -695,7 +697,7 @@ class TopologicalAnomalyDetector:
 
     # -- public API ----------------------------------------------------------
 
-    def fit(self, reference_data: np.ndarray) -> TopologicalAnomalyDetector:
+    def fit(self, reference_data: np.ndarray[Any, Any]) -> TopologicalAnomalyDetector:
         """
         Build the reference topological profile.
 
@@ -742,7 +744,7 @@ class TopologicalAnomalyDetector:
         )
         return self
 
-    def score(self, test_data: np.ndarray) -> dict[str, Any]:
+    def score(self, test_data: np.ndarray[Any, Any]) -> dict[str, Any]:
         """
         Score a test window / batch against the reference profile.
 
@@ -806,7 +808,7 @@ class TopologicalAnomalyDetector:
             "method": "topological_persistent_homology",
         }
 
-    def predict(self, test_data: np.ndarray) -> np.ndarray:
+    def predict(self, test_data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Return binary anomaly predictions for each row treated as a batch.
 
@@ -913,7 +915,9 @@ class TopologicalAnomalyDetector:
         score = 2.0 / (1.0 + np.exp(-0.5 * mean_dev)) - 1.0
         return float(np.clip(score, 0.0, 1.0))
 
-    def _calibrate_threshold(self, reference_data: np.ndarray, rng: np.random.RandomState) -> None:
+    def _calibrate_threshold(
+        self, reference_data: np.ndarray[Any, Any], rng: np.random.RandomState
+    ) -> None:
         """
         Auto-calibrate the anomaly threshold from reference data.
 

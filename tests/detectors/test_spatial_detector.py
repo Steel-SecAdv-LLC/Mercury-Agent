@@ -31,7 +31,7 @@ import pytest
 import torch
 
 from omni_mercury_engine.core.exceptions import DetectorException
-from omni_mercury_engine.detectors.spatial import SpatialAnomalyDetector
+from omni_mercury_engine.detectors.spatial import SpatialAnomalyDetector, _NativeLOF
 
 
 class TestSpatialAnomalyDetector:
@@ -220,3 +220,119 @@ class TestSpatialAnomalyDetector:
 
         assert np.min(result["scores"]) >= 0
         assert np.max(result["scores"]) <= 1
+
+
+class TestNativeLOFDuplicateClusterContract:
+    """Lock the LOF train/inference symmetry contract.
+
+    Regression coverage for the ``_NativeLOF._REACH_FLOOR`` symmetry: an
+    earlier implementation floored ``mean_reach`` at ``np.finfo.eps`` in
+    fit and at ``1e-10`` in ``decision_function``. The 5-orders-of-magnitude
+    mismatch broke the LOF ratio on duplicate-cluster queries, mapping them
+    to ``decision ~= -4.5e5`` (massive outlier) instead of ``~0`` (inlier).
+    These tests fail closed if the floors are ever unmatched again.
+    """
+
+    @pytest.mark.parametrize(
+        "X_train, label",
+        [
+            (np.zeros((30, 2), dtype=np.float64), "30 pure duplicates"),
+            (
+                np.vstack(
+                    [
+                        np.random.RandomState(13).randn(50, 2) * 5 + np.array([10.0, 10.0]),
+                        np.tile(np.zeros(2, dtype=np.float64), (8, 1)),
+                    ]
+                ),
+                "8 duplicates + 50 normal points",
+            ),
+            (
+                np.vstack(
+                    [
+                        np.zeros((10, 3), dtype=np.float64),
+                        np.array([[5.0, 5.0, 5.0], [6.0, 6.0, 6.0]], dtype=np.float64),
+                    ]
+                ),
+                "10 duplicates + 2 distant points",
+            ),
+        ],
+    )
+    def test_duplicate_cluster_query_scores_as_inlier(
+        self, X_train: np.ndarray[Any, Any], label: str
+    ) -> None:
+        """Query inside a duplicate cluster must score as an inlier (decision >= -0.5).
+
+        Previously this was -4.5e5 due to train/inference floor mismatch.
+        """
+        lof = _NativeLOF(n_neighbors=5).fit(X_train)
+        query = np.zeros((1, X_train.shape[1]), dtype=np.float64)
+        decision = float(lof.decision_function(query)[0])
+        assert decision >= -0.5, (
+            f"[{label}] duplicate-cluster query mis-scored as anomaly: "
+            f"decision={decision:.3e} (expected ~0). The fit and inference "
+            f"reach-floor symmetry is broken; see _NativeLOF._REACH_FLOOR."
+        )
+
+    def test_far_isolated_query_scores_as_outlier(self) -> None:
+        """A query far from any training cluster must score negative."""
+        X_train = np.vstack(
+            [
+                np.zeros((10, 3), dtype=np.float64),
+                np.array([[5.0, 5.0, 5.0], [6.0, 6.0, 6.0]], dtype=np.float64),
+            ]
+        )
+        lof = _NativeLOF(n_neighbors=5).fit(X_train)
+        far = np.array([[100.0, 100.0, 100.0]], dtype=np.float64)
+        decision = float(lof.decision_function(far)[0])
+        assert decision < 0, f"far-isolated query mis-scored as inlier: decision={decision:.3e}"
+
+    def test_train_inference_floor_symmetry(self) -> None:
+        """The fit and inference paths must use the same _REACH_FLOOR constant.
+
+        If the two ever drift apart, duplicate-cluster classification regresses.
+        """
+        assert _NativeLOF._REACH_FLOOR == 1e-10, (
+            "The _REACH_FLOOR must remain 1e-10 (sklearn convention) and the "
+            "single constant must be used by both fit and decision_function. "
+            "Any value is fine in principle as long as fit and decision_function "
+            "share it byte-for-byte; differing floors break the LOF ratio."
+        )
+
+    def test_matches_sklearn_sign_on_unambiguous_cases(self) -> None:
+        """Sign of decision_function must agree with sklearn on clear inlier/outlier cases.
+
+        sklearn.neighbors.LocalOutlierFactor is the de-facto reference; our
+        _NativeLOF is meant to track its semantic sign (positive/zero ~ inlier,
+        negative ~ outlier), even if absolute magnitudes differ. We restrict
+        to the unambiguous cases — duplicate-cluster centre and a query far
+        from any training point — because near-cluster queries depend on
+        density estimation details that both impls handle similarly but where
+        ``inlier vs outlier`` is judgement-dependent.
+        """
+        sklearn = pytest.importorskip("sklearn.neighbors")
+        rng = np.random.RandomState(7)
+        X_train = np.vstack(
+            [rng.randn(50, 2) * 3.0, np.tile(np.zeros(2, dtype=np.float64), (8, 1))]
+        )
+        native = _NativeLOF(n_neighbors=5).fit(X_train)
+        sk = sklearn.LocalOutlierFactor(n_neighbors=5, novelty=True).fit(X_train)
+
+        # Unambiguous inlier: a query placed exactly at the duplicate cluster.
+        # Both impls must score this as non-anomalous (decision >= -0.5 is
+        # the tolerance that accepts ~0 native and +0.5 sklearn).
+        q_dup = np.array([[0.0, 0.0]], dtype=np.float64)
+        n_dup = float(native.decision_function(q_dup)[0])
+        s_dup = float(sk.decision_function(q_dup)[0])
+        assert n_dup >= -0.5 and s_dup >= -0.5, (
+            f"duplicate-cluster query disagrees on inlier-ness: "
+            f"native={n_dup:.3e}, sklearn={s_dup:.3e}"
+        )
+
+        # Unambiguous outlier: a query 100 stds away. Both must be negative.
+        q_far = np.array([[100.0, 100.0]], dtype=np.float64)
+        n_far = float(native.decision_function(q_far)[0])
+        s_far = float(sk.decision_function(q_far)[0])
+        assert n_far < 0 and s_far < 0, (
+            f"far-isolated query disagrees on outlier-ness: "
+            f"native={n_far:.3e}, sklearn={s_far:.3e}"
+        )

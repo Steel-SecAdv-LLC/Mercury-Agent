@@ -791,7 +791,7 @@ class GolgiAnalyzer:
             "pathway_strengths": pathway_strengths,
         }
 
-    def visualize_dendrite_tree(self, layer_name: str) -> np.ndarray:
+    def visualize_dendrite_tree(self, layer_name: str) -> np.ndarray[Any, Any]:
         """
         Create dendritic tree visualization for a layer.
 

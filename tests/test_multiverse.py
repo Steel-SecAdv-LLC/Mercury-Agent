@@ -56,6 +56,17 @@ def test_multiverse_extract_features() -> None:
     assert features.shape[1] == 12
 
 
+def test_multiverse_extract_features_does_not_mutate_universe_count() -> None:
+    """Feature extraction should be per-sample, not universe-growing."""
+    engine = MultiverseOmniEngine(num_universes=5, state_dim=20)
+    data = np.random.randn(25, 15)
+
+    features = engine.extract_features(data)
+
+    assert features.shape == (25, 12)
+    assert len(engine.universes) == 5
+
+
 def test_multiverse_predict() -> None:
     """Test anomaly prediction"""
     engine = MultiverseOmniEngine(num_universes=5, state_dim=20)

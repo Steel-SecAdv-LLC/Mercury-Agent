@@ -145,7 +145,7 @@ class ArchetypalAnalysis:
     dominant_archetype: WisdomArchetype
     archetype_scores: dict[str, float]
     pattern_strength: float
-    alignment_vector: np.ndarray
+    alignment_vector: np.ndarray[Any, Any]
     recommendations: list[str] = field(default_factory=list)
 
 

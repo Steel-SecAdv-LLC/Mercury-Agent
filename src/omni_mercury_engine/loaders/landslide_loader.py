@@ -302,7 +302,7 @@ class LandslideLoader(BaseDomainLoader):
             )
         return events
 
-    def get_ground_truth(self, event_id: str) -> np.ndarray:
+    def get_ground_truth(self, event_id: str) -> np.ndarray[Any, Any]:
         """
         Generate binary anomaly labels for a historical landslide event.
 
@@ -351,7 +351,7 @@ class LandslideLoader(BaseDomainLoader):
     # Feature engineering (Mercury-native, no sklearn)
     # ------------------------------------------------------------------
 
-    def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray:
+    def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray[Any, Any]:
         """
         Transform raw landslide catalog data into a feature matrix.
 
@@ -433,7 +433,7 @@ class LandslideLoader(BaseDomainLoader):
         features[:, 9] = self._extract_day_of_year(df)
 
         # Clean up non-finite values (Mercury-native, no sklearn)
-        features = np.where(np.isinf(features), np.nan, features)
+        features = np.asarray(np.where(np.isinf(features), np.nan, features))
         for col_idx in range(features.shape[1]):
             col = features[:, col_idx]
             mask = np.isnan(col)
@@ -550,7 +550,7 @@ class LandslideLoader(BaseDomainLoader):
         df: pd.DataFrame,
         column: str,
         encoding_map: dict[str, int],
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """
         Encode a categorical column to numeric values using a fixed map.
 
@@ -573,7 +573,7 @@ class LandslideLoader(BaseDomainLoader):
         return np.asarray(encoded)
 
     @staticmethod
-    def _encode_country(df: pd.DataFrame) -> np.ndarray:
+    def _encode_country(df: pd.DataFrame) -> np.ndarray[Any, Any]:
         """
         Encode country/admin division to a stable numeric code.
 
@@ -595,7 +595,7 @@ class LandslideLoader(BaseDomainLoader):
         return np.asarray(codes)
 
     @staticmethod
-    def _extract_month(df: pd.DataFrame) -> np.ndarray:
+    def _extract_month(df: pd.DataFrame) -> np.ndarray[Any, Any]:
         """
         Extract month from event_date column.
 
@@ -619,7 +619,7 @@ class LandslideLoader(BaseDomainLoader):
         return months
 
     @staticmethod
-    def _extract_day_of_year(df: pd.DataFrame) -> np.ndarray:
+    def _extract_day_of_year(df: pd.DataFrame) -> np.ndarray[Any, Any]:
         """
         Extract day of year from event_date column.
 

@@ -51,24 +51,24 @@ class FittedStatistics:
     n_features: int
 
     # --- Basic statistics ---
-    mean: np.ndarray  # (n_features,)
-    std: np.ndarray  # (n_features,)
-    q1: np.ndarray  # (n_features,)
-    q3: np.ndarray  # (n_features,)
+    mean: np.ndarray[Any, Any]  # (n_features,)
+    std: np.ndarray[Any, Any]  # (n_features,)
+    q1: np.ndarray[Any, Any]  # (n_features,)
+    q3: np.ndarray[Any, Any]  # (n_features,)
 
     # --- ResonanceScore ---
-    res_h_train: np.ndarray  # (n_features,)
-    res_noise_ratio: np.ndarray  # (n_features,)
+    res_h_train: np.ndarray[Any, Any]  # (n_features,)
+    res_noise_ratio: np.ndarray[Any, Any]  # (n_features,)
 
     # --- KinematicScore ---
-    kin_jerk_mean: np.ndarray  # (n_features,)
-    kin_jerk_std: np.ndarray  # (n_features,)
-    kin_accel_mean: np.ndarray  # (n_features,)
-    kin_accel_std: np.ndarray  # (n_features,)
+    kin_jerk_mean: np.ndarray[Any, Any]  # (n_features,)
+    kin_jerk_std: np.ndarray[Any, Any]  # (n_features,)
+    kin_accel_mean: np.ndarray[Any, Any]  # (n_features,)
+    kin_accel_std: np.ndarray[Any, Any]  # (n_features,)
 
     # --- InfoGeometryScore ---
-    ig_mean: np.ndarray  # (n_features,)
-    ig_cov_inv: np.ndarray  # (n_features, n_features)
+    ig_mean: np.ndarray[Any, Any]  # (n_features,)
+    ig_cov_inv: np.ndarray[Any, Any]  # (n_features, n_features)
     ig_log_det: float = 0.0
 
     # --- Privacy metadata ---

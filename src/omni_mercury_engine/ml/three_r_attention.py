@@ -189,7 +189,7 @@ class ThreeRAttentionBlock(nn.Module):
     def init_from_resonance_engine(
         self,
         resonance_engine: ResonanceEngine,
-        training_data: np.ndarray,
+        training_data: np.ndarray[Any, Any],
     ) -> None:
         """
         Initialize H(ω) frequencies from actual ResonanceEngine.
@@ -505,7 +505,7 @@ class ThreeRAnomalyTransformer(nn.Module):
     def init_from_resonance_engine(
         self,
         resonance_engine: ResonanceEngine,
-        training_data: np.ndarray,
+        training_data: np.ndarray[Any, Any],
     ) -> None:
         """
         Initialize all layers from ResonanceEngine frequencies.

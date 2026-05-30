@@ -197,8 +197,8 @@ class SampleBuffer:
         with self._lock:
             if self.strategy == "reservoir":
                 samples = self._reservoir.copy()
-                self.rng.shuffle(samples)
-                return samples[:batch_size]
+                indices = self.rng.permutation(len(samples))
+                return [samples[int(i)] for i in indices[:batch_size]]
 
             samples = list(self._buffer)
             if len(samples) <= batch_size:
@@ -456,7 +456,7 @@ class OnlineLearningPipeline:
         self.buffer = SampleBuffer(max_size=buffer_size, strategy="fifo", random_state=random_state)
 
         # Reference data for drift detection
-        self._reference_data: np.ndarray | None = None
+        self._reference_data: np.ndarray[Any, Any] | None = None
         self._reference_size = 500
 
         # Drift detector
@@ -562,9 +562,9 @@ class OnlineLearningPipeline:
         if self.update_strategy == UpdateStrategy.INCREMENTAL:
             # Single sample update
             if hasattr(self.model, "partial_fit"):
-                X = sample.features.reshape(1, -1)
+                X_single = sample.features.reshape(1, -1)
                 y = np.array([sample.label])
-                self.model.partial_fit(X, y)
+                self.model.partial_fit(X_single, y)
 
         elif self.update_strategy == UpdateStrategy.MINI_BATCH:
             # Mini-batch update

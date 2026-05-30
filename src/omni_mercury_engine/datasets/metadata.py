@@ -17,6 +17,34 @@ if TYPE_CHECKING:
     from numpy.typing import NDArray
 
 
+# Label-provenance vocabulary shared across loaders and benchmarks.
+#
+# Anomaly labels are only trustworthy for *supervised* evaluation (headline
+# ROC-AUC) when they come from genuine ground truth or expert annotation.
+# Labels manufactured by thresholding a detector-like score/feature (e.g. a
+# z-score > 3, a percentile fence, or a domain cut on the same signal the
+# detector consumes) are circular: scoring a detector against them inflates
+# AUC. Such datasets are still useful for *unsupervised* evaluation, but must
+# be excluded from headline supervised metrics and reported separately.
+GENUINE_LABEL_SOURCES: frozenset[str] = frozenset({"ground_truth", "expert_annotated"})
+MANUFACTURED_LABEL_SOURCES: frozenset[str] = frozenset({"statistical"})
+NO_LABEL_SOURCES: frozenset[str] = frozenset({"none"})
+VALID_LABEL_SOURCES: frozenset[str] = (
+    GENUINE_LABEL_SOURCES | MANUFACTURED_LABEL_SOURCES | NO_LABEL_SOURCES
+)
+
+
+def is_supervised_eval_safe(label_source: str) -> bool:
+    """Return True if ``label_source`` is safe for headline supervised metrics.
+
+    Only genuine ground-truth / expert-annotated labels qualify. Heuristically
+    or threshold-manufactured labels ("statistical") and unlabeled datasets
+    ("none") are excluded so the headline AUC is not inflated by circular
+    labels. See :data:`GENUINE_LABEL_SOURCES`.
+    """
+    return label_source in GENUINE_LABEL_SOURCES
+
+
 @dataclass
 class LoaderDatasetMetadata:
     """
@@ -74,6 +102,11 @@ class LoaderDataset:
 
 
 __all__ = [
+    "GENUINE_LABEL_SOURCES",
+    "MANUFACTURED_LABEL_SOURCES",
+    "NO_LABEL_SOURCES",
+    "VALID_LABEL_SOURCES",
     "LoaderDataset",
     "LoaderDatasetMetadata",
+    "is_supervised_eval_safe",
 ]

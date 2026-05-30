@@ -757,7 +757,7 @@ class BGSELFStationSource(DataSourceBase):
 
     def _welch_power_estimate(
         self,
-        signal: np.ndarray,
+        signal: np.ndarray[Any, Any],
         fs: float,
         target_freq: float,
         window_size: int = 256,
@@ -803,7 +803,7 @@ class BGSELFStationSource(DataSourceBase):
 
     def _extract_schumann_resonances(
         self,
-        signal: np.ndarray,
+        signal: np.ndarray[Any, Any],
         fs: float = 100.0,
     ) -> dict[str, float]:
         """

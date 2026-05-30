@@ -354,7 +354,7 @@ class NetworkSecurityLoader(BaseDomainLoader):
             for event_id, meta in _EVENT_CATALOG.items()
         ]
 
-    def get_ground_truth(self, event_id: str) -> np.ndarray:
+    def get_ground_truth(self, event_id: str) -> np.ndarray[Any, Any]:
         """Return binary anomaly labels for a benchmark dataset.
 
         Labels are derived directly from the dataset: attack traffic is
@@ -408,7 +408,7 @@ class NetworkSecurityLoader(BaseDomainLoader):
     # Feature engineering
     # ------------------------------------------------------------------
 
-    def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray:
+    def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray[Any, Any]:
         """
         Transform raw network data into a feature matrix.
 
@@ -490,7 +490,7 @@ class NetworkSecurityLoader(BaseDomainLoader):
     # Internal: dataset loading via existing infrastructure
     # ------------------------------------------------------------------
 
-    def _load_labels_from_dataset(self, event_id: str) -> np.ndarray | None:
+    def _load_labels_from_dataset(self, event_id: str) -> np.ndarray[Any, Any] | None:
         """
         Load binary labels from existing dataset loaders.
 

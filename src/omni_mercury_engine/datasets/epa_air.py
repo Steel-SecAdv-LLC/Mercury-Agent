@@ -45,6 +45,7 @@ class EPAAirQualityLoader(DatasetLoader):
     """
 
     DATASET_NAME = "epa_air_quality"
+    LABEL_SOURCE = "statistical"  # labels = PM2.5 > AQI threshold (domain cut on the feature)
     DATASET_URL = "https://aqs.epa.gov/aqsweb/airdata/download_files.html"
     LICENSE = "Public Domain (US Government)"
     CITATION = "U.S. Environmental Protection Agency. Air Quality System (AQS)."
@@ -147,7 +148,7 @@ class EPAAirQualityLoader(DatasetLoader):
             ),
         ) from last_err
 
-    def _parse_epa_csv(self, text: str) -> tuple[np.ndarray, np.ndarray]:
+    def _parse_epa_csv(self, text: str) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Parse EPA daily PM2.5 CSV."""
         import csv
 

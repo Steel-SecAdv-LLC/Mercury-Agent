@@ -17,12 +17,15 @@ from __future__ import annotations
 
 import logging
 import zipfile
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from .base import DatasetConfig, DatasetLoader, DatasetMetadata, DatasetSplit, safe_urlretrieve
 from .exceptions import DataSourceUnavailableError
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +85,15 @@ class UCRLoader(DatasetLoader):
         """Load raw UCR data - redirects to load()."""
         return self.load()
 
+    def _locate_split_file(self, stem: str) -> tuple[Path, str | None] | None:
+        """Find a UCR split in original nested TSV or aeon flat TXT layouts."""
+        for base in (self.data_path / self.dataset_name, self.data_path):
+            for ext, delim in ((".tsv", "\t"), (".txt", None)):
+                candidate = base / f"{stem}{ext}"
+                if candidate.exists():
+                    return candidate, delim
+        return None
+
     def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Apply UCR-specific preprocessing (z-normalization)."""
         mean = np.mean(data, axis=1, keepdims=True)
@@ -108,26 +120,34 @@ class UCRLoader(DatasetLoader):
 
         self.data_path.mkdir(parents=True, exist_ok=True)
 
-        # Try to download specific dataset first (smaller)
-        specific_url = f"https://www.timeseriesclassification.com/Downloads/{self.dataset_name}.zip"
+        # Try to download specific dataset first (smaller). The archive moved
+        # from ``/Downloads/`` to ``/aeon-toolkit/`` when the upstream project
+        # was renamed sktime -> aeon; the old path now 302s to a 404 page.
+        specific_url = f"https://timeseriesclassification.com/aeon-toolkit/{self.dataset_name}.zip"
 
         last_exc: Exception | None = None
-        try:
-            zip_path = self.data_path / f"{self.dataset_name}.zip"
-            logger.info("  Trying dataset-specific download...")
-            safe_urlretrieve(specific_url, zip_path)
+        # Try multiple mirrors: aeon-toolkit first (smaller, per-dataset), then
+        # the UCR 2018 per-dataset path which some mirrors still serve.
+        mirrors = [
+            specific_url,
+            f"https://www.cs.ucr.edu/~eamonn/time_series_data_2018/{self.dataset_name}.zip",
+        ]
+        for mirror_url in mirrors:
+            try:
+                zip_path = self.data_path / f"{self.dataset_name}.zip"
+                logger.info("  Trying UCR download from %s", mirror_url)
+                safe_urlretrieve(mirror_url, zip_path)
 
-            # Extract
-            with zipfile.ZipFile(zip_path, "r") as zf:
-                zf.extractall(self.data_path)
+                with zipfile.ZipFile(zip_path, "r") as zf:
+                    zf.extractall(self.data_path)
 
-            zip_path.unlink()
-            logger.info(f"  Downloaded {self.dataset_name}")
-            return True
+                zip_path.unlink()
+                logger.info(f"  Downloaded {self.dataset_name}")
+                return True
 
-        except (requests.RequestException, ValueError, zipfile.BadZipFile, OSError) as exc:
-            last_exc = exc
-            logger.warning("  Dataset-specific download failed: %s", exc)
+            except (requests.RequestException, ValueError, zipfile.BadZipFile, OSError) as exc:
+                last_exc = exc
+                logger.warning("  UCR mirror %s failed: %s", mirror_url, exc)
 
         # Provide instructions for full archive (operator sidecar; still
         # emitted on the failure path so a human can take over).
@@ -155,29 +175,30 @@ class UCRLoader(DatasetLoader):
     def load(
         self, split: DatasetSplit = DatasetSplit.ALL
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """Load UCR dataset."""
-        dataset_path = self.data_path / self.dataset_name
-
-        # Check for extracted files
-        train_file = dataset_path / f"{self.dataset_name}_TRAIN.tsv"
-        test_file = dataset_path / f"{self.dataset_name}_TEST.tsv"
-
-        if not train_file.exists():
-            # Try alternate location
-            train_file = self.data_path / f"{self.dataset_name}_TRAIN.tsv"
-            test_file = self.data_path / f"{self.dataset_name}_TEST.tsv"
-
-        if not train_file.exists():
+        """Load UCR data from original nested TSV or aeon flat TXT layouts."""
+        located_train = self._locate_split_file(f"{self.dataset_name}_TRAIN")
+        if located_train is None:
             self.download()
-            if not train_file.exists():
+            located_train = self._locate_split_file(f"{self.dataset_name}_TRAIN")
+            if located_train is None:
                 raise FileNotFoundError(
-                    f"UCR dataset {self.dataset_name} not found. "
+                    f"UCR dataset {self.dataset_name} not found at any known "
+                    f"layout under {self.data_path} after download. "
                     "Please download from UCR archive."
                 )
+        train_file, delim = located_train
+        located_test = self._locate_split_file(f"{self.dataset_name}_TEST")
+        if located_test is None:
+            raise FileNotFoundError(
+                f"UCR train split located at {train_file} but matching "
+                f"{self.dataset_name}_TEST not found."
+            )
+        test_file, _ = located_test
 
-        # Load train and test
-        train_data = np.loadtxt(train_file, delimiter="\t")
-        test_data = np.loadtxt(test_file, delimiter="\t")
+        # ``delimiter=None`` lets ``np.loadtxt`` split on any run of
+        # whitespace, which is what the aeon-toolkit ``.txt`` files use.
+        train_data = np.loadtxt(train_file, delimiter=delim)
+        test_data = np.loadtxt(test_file, delimiter=delim)
 
         # First column is label
         train_labels = train_data[:, 0].astype(int)
@@ -438,6 +459,7 @@ class MSDSLoader(DatasetLoader):
     """
 
     DATASET_NAME = "msds"
+    LABEL_SOURCE = "statistical"  # synthetic multi-source generator (no real labels)
     DATASET_URL = "https://github.com/imperial-qore/TranAD"  # Included in TranAD repo
     LICENSE = "Apache-2.0"
     CITATION = """Multi-Source Data Stream synthetic benchmark."""

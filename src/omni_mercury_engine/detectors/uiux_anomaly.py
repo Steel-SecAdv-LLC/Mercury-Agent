@@ -242,7 +242,7 @@ class ClickAnalysis:
     dead_clicks: int
     double_click_rate: float
     click_accuracy: float
-    click_density_map: np.ndarray
+    click_density_map: np.ndarray[Any, Any]
     click_timing_stats: dict[str, float]
 
 
@@ -720,12 +720,12 @@ class UIUXAnomalyDetector(BaseDetector):
         # Reference statistics
         self._reference_timing_mean: float = 0.0
         self._reference_timing_std: float = 1.0
-        self._reference_click_density: np.ndarray | None = None
+        self._reference_click_density: np.ndarray[Any, Any] | None = None
         self._reference_scroll_velocity: float = 500.0
         self._reference_session_duration: float = 300.0
         self._page_transition_probs: dict[str, dict[str, float]] = {}
-        self._reference_features_mean: np.ndarray | None = None
-        self._reference_features_std: np.ndarray | None = None
+        self._reference_features_mean: np.ndarray[Any, Any] | None = None
+        self._reference_features_std: np.ndarray[Any, Any] | None = None
 
     def _init_networks(self) -> None:
         """Initialize neural network components."""
@@ -865,7 +865,7 @@ class UIUXAnomalyDetector(BaseDetector):
 
     def detect(
         self,
-        interactions: list[UserInteraction] | np.ndarray | torch.Tensor,
+        interactions: list[UserInteraction] | np.ndarray[Any, Any] | torch.Tensor,
     ) -> dict[str, Any]:
         """
         Detect UI/UX anomalies in user interactions.
@@ -974,7 +974,7 @@ class UIUXAnomalyDetector(BaseDetector):
 
     def _detect_from_features(
         self,
-        features: np.ndarray | torch.Tensor,
+        features: np.ndarray[Any, Any] | torch.Tensor,
     ) -> dict[str, Any]:
         """
         Detect from pre-computed features (for ML fusion).
@@ -1010,7 +1010,7 @@ class UIUXAnomalyDetector(BaseDetector):
 
     def extract_features(
         self,
-        interactions: list[UserInteraction] | np.ndarray | torch.Tensor,
+        interactions: list[UserInteraction] | np.ndarray[Any, Any] | torch.Tensor,
     ) -> torch.Tensor:
         """
         Extract features for ML fusion.
@@ -1034,7 +1034,7 @@ class UIUXAnomalyDetector(BaseDetector):
     def _extract_interaction_features(
         self,
         interactions: list[UserInteraction],
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """
         Extract numerical features from interactions.
 
@@ -1968,7 +1968,7 @@ def compute_click_heatmap(
     width: int = 1920,
     height: int = 1080,
     grid_size: int = 20,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     """
     Compute click density heatmap.
 

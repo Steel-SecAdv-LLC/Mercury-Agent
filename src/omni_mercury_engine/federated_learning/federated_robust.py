@@ -44,7 +44,7 @@ class ClientModel:
     """Client model in federated learning."""
 
     client_id: str
-    model_weights: np.ndarray
+    model_weights: np.ndarray[Any, Any]
     num_samples: int
     loss: float
     timestamp: datetime = field(default_factory=datetime.now)
@@ -55,7 +55,7 @@ class GlobalModel:
     """Global aggregated model."""
 
     round_number: int
-    weights: np.ndarray
+    weights: np.ndarray[Any, Any]
     participating_clients: int
     aggregated_loss: float
     timestamp: datetime = field(default_factory=datetime.now)

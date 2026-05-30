@@ -200,8 +200,8 @@ class NSLKDDLoader(DatasetLoader):
         super().__init__(config)
         self.binary_labels = config.preprocessing.get("binary", True)
         self.include_test = config.preprocessing.get("include_test", True)
-        self._features: np.ndarray | None = None
-        self._labels: np.ndarray | None = None  # type: ignore[assignment, unused-ignore]
+        self._features: np.ndarray[Any, Any] | None = None
+        self._labels: np.ndarray[Any, Any] | None = None  # type: ignore[assignment]
         self._is_real_data = False
         self._encoders: dict[str, dict[str, int]] = {}
 
@@ -311,7 +311,9 @@ class NSLKDDLoader(DatasetLoader):
                 reason=str(e),
             ) from e
 
-    def _process_nslkdd_dataframe(self, df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+    def _process_nslkdd_dataframe(
+        self, df: pd.DataFrame
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """
         Process NSL-KDD dataframe: encode categoricals and labels.
 
@@ -450,7 +452,7 @@ class NSLKDDLoader(DatasetLoader):
 
         raise FileNotFoundError("NSL-KDD data not found. Run download() first.")
 
-    def load_data(self) -> tuple[np.ndarray, np.ndarray]:
+    def load_data(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """
         Load NSL-KDD dataset features and labels.
 
@@ -670,8 +672,8 @@ class CICIDSLoader(DatasetLoader):
         self.subset = config.preprocessing.get("subset", "all")
         self.local_path = config.preprocessing.get("local_path", None)
         self.retry_count = config.preprocessing.get("retry_count", 3)
-        self._features: np.ndarray | None = None
-        self._labels: np.ndarray | None = None  # type: ignore[assignment, unused-ignore]
+        self._features: np.ndarray[Any, Any] | None = None
+        self._labels: np.ndarray[Any, Any] | None = None  # type: ignore[assignment]
         self._is_real_data = False
         self._label_names: list[str] = []
 
@@ -735,7 +737,16 @@ class CICIDSLoader(DatasetLoader):
             return self._create_synthetic_fallback()
         raise DataSourceUnavailableError(
             loader_name="CICIDS-2017",
-            reason="All download sources failed. Place kaggle.json in ~/.kaggle/ or provide local_path.",
+            reason=(
+                "All download sources failed. Options: "
+                "(1) HuggingFace: pip install datasets, then set env var "
+                "MERCURY_CICIDS_HF_REV_BVK_CICIDS_2017=<commit-sha> "
+                '(get SHA via: python -c "from huggingface_hub import HfApi; '
+                "print(HfApi().list_repo_commits('bvk/CICIDS-2017')[0].commit_id)\"); "
+                "(2) Kaggle: place kaggle.json in ~/.kaggle/ and run again; "
+                "(3) Manual: set preprocessing={'local_path': '/path/to/cicids2017/'}. "
+                "Official source: https://www.unb.ca/cic/datasets/ids-2017.html"
+            ),
         )
 
     def _load_from_local_path(self) -> bool:
@@ -989,7 +1000,9 @@ class CICIDSLoader(DatasetLoader):
             logger.warning(f"{source_name} download failed: {e}")
             return False
 
-    def _process_cicids_dataframe(self, df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+    def _process_cicids_dataframe(
+        self, df: pd.DataFrame
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """
         Process CICIDS dataframe: clean data and encode labels.
 
@@ -1185,7 +1198,7 @@ class CICIDSLoader(DatasetLoader):
 
     def _generate_benign_flow(
         self, n_features: int, rng: np.random.Generator | None = None
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """Generate synthetic benign network flow features."""
         if rng is None:
             rng = np.random.default_rng()
@@ -1200,7 +1213,7 @@ class CICIDSLoader(DatasetLoader):
 
     def _generate_dos_flow(
         self, n_features: int, rng: np.random.Generator | None = None
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """Generate synthetic DoS attack flow features."""
         if rng is None:
             rng = np.random.default_rng()
@@ -1213,7 +1226,7 @@ class CICIDSLoader(DatasetLoader):
 
     def _generate_portscan_flow(
         self, n_features: int, rng: np.random.Generator | None = None
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """Generate synthetic port scan flow features."""
         if rng is None:
             rng = np.random.default_rng()
@@ -1226,7 +1239,7 @@ class CICIDSLoader(DatasetLoader):
 
     def _generate_attack_flow(
         self, n_features: int, rng: np.random.Generator | None = None
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """Generate generic attack flow features."""
         if rng is None:
             rng = np.random.default_rng()
@@ -1270,7 +1283,7 @@ class CICIDSLoader(DatasetLoader):
 
         raise FileNotFoundError("CICIDS data not found. Run download() first.")
 
-    def load_data(self) -> tuple[np.ndarray, np.ndarray]:
+    def load_data(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """
         Load CICIDS dataset features and labels.
 
@@ -1372,6 +1385,7 @@ class ThreatIntelLoader(DatasetLoader):
     """
 
     DATASET_NAME = "threat-intel"
+    LABEL_SOURCE = "statistical"  # labels = (num_phases>=2 & num_platforms>=3) heuristic threshold
     DATASET_URL = "https://attack.mitre.org/"
     LICENSE = "Apache 2.0 (MITRE ATT&CK)"
     CITATION = "MITRE ATT&CK. MITRE Corporation. https://attack.mitre.org/"
@@ -1516,7 +1530,7 @@ class ThreatIntelLoader(DatasetLoader):
 
     def _process_mitre_data(
         self, techniques: list[dict[str, Any]]
-    ) -> tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """
         Process MITRE ATT&CK techniques into features.
 

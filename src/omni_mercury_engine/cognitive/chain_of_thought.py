@@ -1335,7 +1335,7 @@ class AnomalyChainOfThought:
     def analyze_anomaly(
         self,
         data: dict[str, Any],
-        anomaly_score_or_features: float | np.ndarray | None = None,
+        anomaly_score_or_features: float | np.ndarray[Any, Any] | None = None,
         domain: str = "general",
     ) -> dict[str, Any]:
         """

@@ -94,8 +94,8 @@ class DatasetLoader(ABC):
 
         Returns:
             Tuple of (features, labels, metadata)
-            - features: np.ndarray of shape (n_samples, n_features)
-            - labels: np.ndarray of shape (n_samples,) with 0=normal, 1=anomaly
+            - features: np.ndarray[Any, Any] of shape (n_samples, n_features)
+            - labels: np.ndarray[Any, Any] of shape (n_samples,) with 0=normal, 1=anomaly
             - metadata: DatasetMetadata with dataset information
         """
         ...

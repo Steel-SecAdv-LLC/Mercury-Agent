@@ -100,8 +100,8 @@ class AdaptiveThresholdOptimizer:
 
     def compute_threshold(
         self,
-        scores: np.ndarray,
-        labels: np.ndarray | None = None,
+        scores: np.ndarray[Any, Any],
+        labels: np.ndarray[Any, Any] | None = None,
     ) -> AdaptiveThresholdResult:
         """
         Compute adaptive threshold for anomaly scores.
@@ -124,7 +124,7 @@ class AdaptiveThresholdOptimizer:
         else:
             return self._percentile_threshold(scores)
 
-    def _otsu_threshold(self, scores: np.ndarray) -> AdaptiveThresholdResult:
+    def _otsu_threshold(self, scores: np.ndarray[Any, Any]) -> AdaptiveThresholdResult:
         """
         Compute threshold using Otsu's method.
 
@@ -182,7 +182,7 @@ class AdaptiveThresholdOptimizer:
             otsu_score=otsu_score,
         )
 
-    def _percentile_threshold(self, scores: np.ndarray) -> AdaptiveThresholdResult:
+    def _percentile_threshold(self, scores: np.ndarray[Any, Any]) -> AdaptiveThresholdResult:
         """Compute threshold using percentile."""
         threshold = np.percentile(scores, self.percentile)
 
@@ -194,8 +194,8 @@ class AdaptiveThresholdOptimizer:
 
     def _bayesian_threshold(
         self,
-        scores: np.ndarray,
-        labels: np.ndarray | None = None,
+        scores: np.ndarray[Any, Any],
+        labels: np.ndarray[Any, Any] | None = None,
     ) -> AdaptiveThresholdResult:
         """
         Compute threshold using Bayesian estimation.
@@ -262,8 +262,8 @@ class AdaptiveThresholdOptimizer:
 
     def _f1_max_threshold(
         self,
-        scores: np.ndarray,
-        labels: np.ndarray,
+        scores: np.ndarray[Any, Any],
+        labels: np.ndarray[Any, Any],
     ) -> AdaptiveThresholdResult:
         """Compute threshold that maximizes F1 score."""
         # Try different thresholds
@@ -313,7 +313,7 @@ class EventBasedMetrics:
         self.tolerance = tolerance
         self.min_event_length = min_event_length
 
-    def extract_events(self, labels: np.ndarray) -> list[tuple[int, int]]:
+    def extract_events(self, labels: np.ndarray[Any, Any]) -> list[tuple[int, int]]:
         """
         Extract contiguous events from binary labels.
 
@@ -343,8 +343,8 @@ class EventBasedMetrics:
 
     def compute_time_to_detection(
         self,
-        y_true: np.ndarray,
-        y_pred: np.ndarray,
+        y_true: np.ndarray[Any, Any],
+        y_pred: np.ndarray[Any, Any],
     ) -> float:
         """
         Compute average time-to-detection for anomaly events.
@@ -380,8 +380,8 @@ class EventBasedMetrics:
 
     def compute_event_metrics(
         self,
-        y_true: np.ndarray,
-        y_pred: np.ndarray,
+        y_true: np.ndarray[Any, Any],
+        y_pred: np.ndarray[Any, Any],
     ) -> dict[str, float]:
         """
         Compute comprehensive event-based metrics.
@@ -457,8 +457,8 @@ class SpatialAutocorrelation:
 
     def compute_morans_i(
         self,
-        values: np.ndarray,
-        weights: np.ndarray,
+        values: np.ndarray[Any, Any],
+        weights: np.ndarray[Any, Any],
     ) -> tuple[float, float, float]:
         """
         Compute Moran's I statistic for spatial autocorrelation.
@@ -514,8 +514,8 @@ class SpatialAutocorrelation:
 
     def compute_gearys_c(
         self,
-        values: np.ndarray,
-        weights: np.ndarray,
+        values: np.ndarray[Any, Any],
+        weights: np.ndarray[Any, Any],
     ) -> float:
         """
         Compute Geary's C statistic.
@@ -571,7 +571,7 @@ class ParallelDetectorExecutor:
     def execute_detectors(
         self,
         detectors: dict[str, Any],
-        data: np.ndarray,
+        data: np.ndarray[Any, Any],
         method: str = "detect",
     ) -> dict[str, Any]:
         """
@@ -655,8 +655,8 @@ class EnhancedBaseDetector:
 
     def fit(
         self,
-        X: np.ndarray,
-        y: np.ndarray | None = None,
+        X: np.ndarray[Any, Any],
+        y: np.ndarray[Any, Any] | None = None,
     ) -> EnhancedBaseDetector:
         """
         Fit enhanced detector.
@@ -691,7 +691,7 @@ class EnhancedBaseDetector:
 
     def detect(
         self,
-        X: np.ndarray,
+        X: np.ndarray[Any, Any],
         return_metrics: bool = False,
     ) -> dict[str, Any]:
         """
@@ -742,7 +742,7 @@ class EnhancedBaseDetector:
 
         return result
 
-    def extract_features(self, X: np.ndarray) -> np.ndarray:
+    def extract_features(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Extract features with enhancements."""
         if hasattr(self.base_detector, "extract_features"):
             features = self.base_detector.extract_features(X)
@@ -751,7 +751,7 @@ class EnhancedBaseDetector:
             return np.asarray(features)  # type: ignore[no-any-return, unused-ignore]
         return np.zeros((len(X), 32))
 
-    def _get_scores(self, X: np.ndarray) -> np.ndarray:
+    def _get_scores(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Get anomaly scores from base detector."""
         if hasattr(self.base_detector, "detect"):
             result = self.base_detector.detect(X)
@@ -763,7 +763,9 @@ class EnhancedBaseDetector:
             return np.asarray(result)  # type: ignore[no-any-return, unused-ignore]
         return np.zeros(len(X))
 
-    def _setup_calibration(self, scores: np.ndarray, labels: np.ndarray) -> None:
+    def _setup_calibration(
+        self, scores: np.ndarray[Any, Any], labels: np.ndarray[Any, Any]
+    ) -> None:
         """Set up calibration using Platt scaling."""
         try:
             from omni_mercury_engine.core.calibration import PlattScaling
@@ -776,8 +778,8 @@ class EnhancedBaseDetector:
 
     def _compute_domain_metrics(
         self,
-        X: np.ndarray,
-        scores: np.ndarray,
+        X: np.ndarray[Any, Any],
+        scores: np.ndarray[Any, Any],
     ) -> DomainMetrics:
         """Compute domain-specific metrics."""
         metrics = DomainMetrics()

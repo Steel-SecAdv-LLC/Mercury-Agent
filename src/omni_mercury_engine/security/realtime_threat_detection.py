@@ -66,9 +66,9 @@ class _RandomProjectionDetector:
         self.contamination = contamination
         self.n_projections = n_projections
         self._rng = np.random.default_rng(random_state)
-        self._projections: np.ndarray | None = None
-        self._medians: np.ndarray | None = None
-        self._mads: np.ndarray | None = None
+        self._projections: np.ndarray[Any, Any] | None = None
+        self._medians: np.ndarray[Any, Any] | None = None
+        self._mads: np.ndarray[Any, Any] | None = None
 
     def fit(self, X: np.ndarray[Any, Any]) -> None:
         n_features = X.shape[1]
@@ -127,8 +127,8 @@ class _RobustCovarianceDetector:
 
     def __init__(self, contamination: float = 0.1, random_state: int = 42) -> None:
         self.contamination = contamination
-        self._mean: np.ndarray | None = None
-        self._cov_inv: np.ndarray | None = None
+        self._mean: np.ndarray[Any, Any] | None = None
+        self._cov_inv: np.ndarray[Any, Any] | None = None
 
     def fit(self, X: np.ndarray[Any, Any]) -> None:
         n_samples, n_features = X.shape

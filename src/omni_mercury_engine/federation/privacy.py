@@ -13,7 +13,7 @@ Reference: Dwork & Roth, "The Algorithmic Foundations of Differential Privacy"
 from __future__ import annotations
 
 import copy
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -95,7 +95,9 @@ class DifferentialPrivacy:
         # Helper: clip then noise an array. Noise is drawn from the
         # instance-owned Generator (never the global np.random state) so
         # the (epsilon, delta)-DP guarantee is auditable.
-        def clip_and_noise(arr: np.ndarray, non_negative: bool = False) -> np.ndarray:
+        def clip_and_noise(
+            arr: np.ndarray[Any, Any], non_negative: bool = False
+        ) -> np.ndarray[Any, Any]:
             clipped = np.clip(arr, -self.clip_norm, self.clip_norm)
             noised_arr = clipped + self._rng.normal(0, noise_scale, arr.shape)
             if non_negative:

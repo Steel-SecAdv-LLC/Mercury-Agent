@@ -184,9 +184,9 @@ class BiometricAnomalyDetector:
     def enroll(
         self,
         identity: str,
-        iris_image: np.ndarray | None = None,
-        fingerprint_image: np.ndarray | None = None,
-        voice_sample: np.ndarray | None = None,
+        iris_image: np.ndarray[Any, Any] | None = None,
+        fingerprint_image: np.ndarray[Any, Any] | None = None,
+        voice_sample: np.ndarray[Any, Any] | None = None,
         **kwargs: Any,
     ) -> BiometricEnrollment:
         """
@@ -226,12 +226,12 @@ class BiometricAnomalyDetector:
     def verify(
         self,
         claimed_identity: str,
-        iris_image: np.ndarray | None = None,
-        fingerprint_image: np.ndarray | None = None,
-        voice_sample: np.ndarray | None = None,
-        iris_liveness_images: list[np.ndarray] | None = None,
-        fingerprint_liveness_images: list[np.ndarray] | None = None,
-        voice_liveness_samples: list[np.ndarray] | None = None,
+        iris_image: np.ndarray[Any, Any] | None = None,
+        fingerprint_image: np.ndarray[Any, Any] | None = None,
+        voice_sample: np.ndarray[Any, Any] | None = None,
+        iris_liveness_images: list[np.ndarray[Any, Any]] | None = None,
+        fingerprint_liveness_images: list[np.ndarray[Any, Any]] | None = None,
+        voice_liveness_samples: list[np.ndarray[Any, Any]] | None = None,
     ) -> BiometricVerificationResult:
         """
         Verify a claimed identity against enrolled biometrics.
@@ -343,9 +343,9 @@ class BiometricAnomalyDetector:
 
     def detect_anomaly(
         self,
-        iris_image: np.ndarray | None = None,
-        fingerprint_image: np.ndarray | None = None,
-        voice_sample: np.ndarray | None = None,
+        iris_image: np.ndarray[Any, Any] | None = None,
+        fingerprint_image: np.ndarray[Any, Any] | None = None,
+        voice_sample: np.ndarray[Any, Any] | None = None,
     ) -> BiometricAnomalyResult:
         """
         Detect anomalies in biometric samples without identity verification.

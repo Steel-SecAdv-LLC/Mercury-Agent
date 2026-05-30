@@ -71,7 +71,7 @@ class FrequencyFeatures:
 class AppearanceFeatures:
     """Container for appearance-based features."""
 
-    color_histogram: np.ndarray
+    color_histogram: np.ndarray[Any, Any]
     dominant_colors: list[tuple[tuple[int, int, int], float]]
     color_variance: float
     brightness_mean: float
@@ -126,7 +126,7 @@ class SemanticContextProvider(BaseContextProvider):
 
     def extract_context(
         self,
-        frames: np.ndarray | torch.Tensor,
+        frames: np.ndarray[Any, Any] | torch.Tensor,
         **kwargs: Any,
     ) -> ContextInfo:
         """
@@ -175,7 +175,7 @@ class SemanticContextProvider(BaseContextProvider):
             },
         )
 
-    def _extract_semantic_features(self, frame: np.ndarray) -> SemanticFeatures:
+    def _extract_semantic_features(self, frame: np.ndarray[Any, Any]) -> SemanticFeatures:
         """Extract semantic features from a single frame."""
         # Convert to grayscale if needed
         if frame.ndim == 3 and frame.shape[0] in [1, 3]:
@@ -225,7 +225,9 @@ class SemanticContextProvider(BaseContextProvider):
             clutter_score=float(clutter),
         )
 
-    def _compute_edge_density(self, gray: np.ndarray) -> tuple[float, np.ndarray, np.ndarray]:
+    def _compute_edge_density(
+        self, gray: np.ndarray[Any, Any]
+    ) -> tuple[float, np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Compute edge density using gradient magnitude."""
         # Sobel-like kernels
         k = self.edge_kernel_size
@@ -252,7 +254,7 @@ class SemanticContextProvider(BaseContextProvider):
 
         return density, grad_x, grad_y
 
-    def _compute_texture_uniformity(self, gray: np.ndarray) -> float:
+    def _compute_texture_uniformity(self, gray: np.ndarray[Any, Any]) -> float:
         """Compute texture uniformity using local variance."""
         # Compute local variance in 8x8 blocks
         h, w = gray.shape
@@ -273,7 +275,7 @@ class SemanticContextProvider(BaseContextProvider):
 
         return float(uniformity)
 
-    def _estimate_object_count(self, gray: np.ndarray, edge_density: float) -> int:
+    def _estimate_object_count(self, gray: np.ndarray[Any, Any], edge_density: float) -> int:
         """Estimate object count using connected components on edges."""
         # Simple thresholding based on edge density
         threshold = 0.1 + edge_density * 0.2
@@ -305,8 +307,8 @@ class SemanticContextProvider(BaseContextProvider):
 
     def _flood_fill(
         self,
-        binary: np.ndarray,
-        labels: np.ndarray,
+        binary: np.ndarray[Any, Any],
+        labels: np.ndarray[Any, Any],
         start_i: int,
         start_j: int,
         label: int,
@@ -326,7 +328,7 @@ class SemanticContextProvider(BaseContextProvider):
             stack.extend([(i + 1, j), (i - 1, j), (i, j + 1), (i, j - 1)])
 
     def _compute_dominant_orientations(
-        self, grad_x: np.ndarray, grad_y: np.ndarray, num_bins: int = 8
+        self, grad_x: np.ndarray[Any, Any], grad_y: np.ndarray[Any, Any], num_bins: int = 8
     ) -> list[float]:
         """Compute dominant gradient orientations."""
         # Compute angles
@@ -347,7 +349,7 @@ class SemanticContextProvider(BaseContextProvider):
 
         return dominant
 
-    def _compute_symmetry(self, gray: np.ndarray) -> float:
+    def _compute_symmetry(self, gray: np.ndarray[Any, Any]) -> float:
         """Compute bilateral symmetry score."""
         h, w = gray.shape
 
@@ -467,7 +469,7 @@ class FrequencyContextProvider(BaseContextProvider):
 
     def extract_context(
         self,
-        frames: np.ndarray | torch.Tensor,
+        frames: np.ndarray[Any, Any] | torch.Tensor,
         **kwargs: Any,
     ) -> ContextInfo:
         """
@@ -515,7 +517,7 @@ class FrequencyContextProvider(BaseContextProvider):
             },
         )
 
-    def _extract_frequency_features(self, frames: np.ndarray) -> FrequencyFeatures:
+    def _extract_frequency_features(self, frames: np.ndarray[Any, Any]) -> FrequencyFeatures:
         """Extract frequency-domain features."""
         t, c, h, w = frames.shape
 
@@ -545,7 +547,7 @@ class FrequencyContextProvider(BaseContextProvider):
             flicker_detected=flicker_detected,
         )
 
-    def _analyze_spatial_frequency(self, frame: np.ndarray) -> dict[str, Any]:
+    def _analyze_spatial_frequency(self, frame: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Analyze spatial frequency content using FFT."""
         # Normalize
         if frame.max() > 1.0:
@@ -625,7 +627,9 @@ class FrequencyContextProvider(BaseContextProvider):
             "spectral_spread": spectral_spread,
         }
 
-    def _analyze_temporal_frequency(self, gray_frames: np.ndarray) -> tuple[float | None, bool]:
+    def _analyze_temporal_frequency(
+        self, gray_frames: np.ndarray[Any, Any]
+    ) -> tuple[float | None, bool]:
         """Analyze temporal frequency content."""
         t = len(gray_frames)
 
@@ -727,7 +731,7 @@ class AppearanceContextProvider(BaseContextProvider):
 
     def extract_context(
         self,
-        frames: np.ndarray | torch.Tensor,
+        frames: np.ndarray[Any, Any] | torch.Tensor,
         **kwargs: Any,
     ) -> ContextInfo:
         """
@@ -777,7 +781,7 @@ class AppearanceContextProvider(BaseContextProvider):
             },
         )
 
-    def _extract_appearance_features(self, frame: np.ndarray) -> AppearanceFeatures:
+    def _extract_appearance_features(self, frame: np.ndarray[Any, Any]) -> AppearanceFeatures:
         """Extract appearance features from frame."""
         c, h, w = frame.shape
 
@@ -840,7 +844,7 @@ class AppearanceContextProvider(BaseContextProvider):
             gradient_magnitude_mean=gradient_magnitude_mean,
         )
 
-    def _compute_color_histogram(self, frame: np.ndarray) -> np.ndarray:
+    def _compute_color_histogram(self, frame: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Compute 3D color histogram."""
         c, h, w = frame.shape
 
@@ -863,10 +867,14 @@ class AppearanceContextProvider(BaseContextProvider):
             return hist.flatten()
         else:
             # Grayscale histogram
-            hist, _ = np.histogram(frame.flatten(), bins=self.color_bins, range=(0, 256))
-            return hist / hist.sum()
+            gray_hist: np.ndarray[Any, Any] = np.empty(self.color_bins, dtype=np.float64)
+            counts, _ = np.histogram(frame.flatten(), bins=self.color_bins, range=(0, 256))
+            gray_hist[:] = counts
+            return gray_hist / gray_hist.sum()
 
-    def _find_dominant_colors(self, frame: np.ndarray) -> list[tuple[tuple[int, int, int], float]]:
+    def _find_dominant_colors(
+        self, frame: np.ndarray[Any, Any]
+    ) -> list[tuple[tuple[int, int, int], float]]:
         """Find dominant colors using simple binning."""
         c, h, w = frame.shape
 
@@ -896,7 +904,7 @@ class AppearanceContextProvider(BaseContextProvider):
 
         return dominant
 
-    def _compute_color_variance(self, frame: np.ndarray) -> float:
+    def _compute_color_variance(self, frame: np.ndarray[Any, Any]) -> float:
         """Compute variance across color channels."""
         c, h, w = frame.shape
 
@@ -909,7 +917,7 @@ class AppearanceContextProvider(BaseContextProvider):
         else:
             return float(frame.var())
 
-    def _compute_saturation(self, frame: np.ndarray) -> float:
+    def _compute_saturation(self, frame: np.ndarray[Any, Any]) -> float:
         """Compute mean saturation for color image."""
         # Simple saturation: (max - min) / max for each pixel
         c_max = frame.max(axis=0)
@@ -920,7 +928,7 @@ class AppearanceContextProvider(BaseContextProvider):
 
         return float(saturation.mean())
 
-    def _compute_texture_features(self, gray: np.ndarray) -> tuple[float, float]:
+    def _compute_texture_features(self, gray: np.ndarray[Any, Any]) -> tuple[float, float]:
         """Compute texture energy and entropy using GLCM-like features."""
         # Quantize to fewer levels
         levels = 8
@@ -1070,7 +1078,7 @@ class EnhancedCombinedContextProvider:
 
     def extract_all_context(
         self,
-        frames: np.ndarray | torch.Tensor,
+        frames: np.ndarray[Any, Any] | torch.Tensor,
         context_types: list[str] | None = None,
     ) -> dict[str, ContextInfo]:
         """

@@ -387,13 +387,13 @@ class SpectralDomainFrequency(BaseDetector):
         self._bands = self._resolve_bands(raw_bands)
 
         # Reference statistics (populated by fit())
-        self._ref_band_powers: dict[str, np.ndarray] | None = None
+        self._ref_band_powers: dict[str, np.ndarray[Any, Any]] | None = None
         self._ref_band_means: dict[str, float] = {}
         self._ref_band_stds: dict[str, float] = {}
         self._ref_spectral_entropy_mean: float = 0.0
         self._ref_spectral_entropy_std: float = 1.0
-        self._ref_full_spectrum_mean: np.ndarray | None = None
-        self._ref_full_spectrum_std: np.ndarray | None = None
+        self._ref_full_spectrum_mean: np.ndarray[Any, Any] | None = None
+        self._ref_full_spectrum_std: np.ndarray[Any, Any] | None = None
 
         # Noise color estimation (from F1 Precision Directive)
         self._noise_beta: float = 0.0
@@ -443,8 +443,8 @@ class SpectralDomainFrequency(BaseDetector):
 
     def _compute_frequency_matrix(
         self,
-        signal: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray]:
+        signal: np.ndarray[Any, Any],
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """
         Compute windowed DFT with Hann window and 50 % overlap.
 
@@ -469,7 +469,7 @@ class SpectralDomainFrequency(BaseDetector):
         freqs_full = fftfreq(win_len, d=1.0 / self._oracle_config.sample_rate)
         pos_mask = freqs_full >= 0
 
-        windows: list[np.ndarray] = []
+        windows: list[np.ndarray[Any, Any]] = []
         start = 0
         while start + win_len <= n:
             segment = signal[start : start + win_len] * hann
@@ -500,8 +500,8 @@ class SpectralDomainFrequency(BaseDetector):
 
     def _validate_parseval_energy(
         self,
-        signal: np.ndarray,
-        freq_matrix: np.ndarray,
+        signal: np.ndarray[Any, Any],
+        freq_matrix: np.ndarray[Any, Any],
     ) -> bool:
         """
         Validate Parseval's theorem using the already-computed freq_matrix.
@@ -542,9 +542,9 @@ class SpectralDomainFrequency(BaseDetector):
 
     def _extract_band_powers(
         self,
-        freq_matrix: np.ndarray,
-        freqs: np.ndarray,
-    ) -> dict[str, np.ndarray]:
+        freq_matrix: np.ndarray[Any, Any],
+        freqs: np.ndarray[Any, Any],
+    ) -> dict[str, np.ndarray[Any, Any]]:
         """
         Extract per-band power time series from the frequency matrix.
 
@@ -559,7 +559,7 @@ class SpectralDomainFrequency(BaseDetector):
         Returns:
             ``{band_label: power_per_window}`` dict.
         """
-        band_powers: dict[str, np.ndarray] = {}
+        band_powers: dict[str, np.ndarray[Any, Any]] = {}
         for lo, hi, label, _w in self._bands:
             mask = (freqs >= lo) & (freqs < hi)
             if np.any(mask):
@@ -574,7 +574,7 @@ class SpectralDomainFrequency(BaseDetector):
 
     def _compute_spectral_entropy(
         self,
-        freq_matrix: np.ndarray,
+        freq_matrix: np.ndarray[Any, Any],
     ) -> float:
         """
         Shannon entropy of the mean power spectrum.
@@ -593,8 +593,8 @@ class SpectralDomainFrequency(BaseDetector):
 
     def _compute_spectral_centroid(
         self,
-        freq_matrix: np.ndarray,
-        freqs: np.ndarray,
+        freq_matrix: np.ndarray[Any, Any],
+        freqs: np.ndarray[Any, Any],
     ) -> float:
         """
         Centre of mass of the mean power spectrum in Hz.
@@ -616,7 +616,7 @@ class SpectralDomainFrequency(BaseDetector):
 
     def _compute_spectral_flux(
         self,
-        freq_matrix: np.ndarray,
+        freq_matrix: np.ndarray[Any, Any],
     ) -> float:
         """
         Compute spectral flux: rate of spectral change across frames.
@@ -646,7 +646,7 @@ class SpectralDomainFrequency(BaseDetector):
 
     def _compute_phase_coherence(
         self,
-        signal: np.ndarray,
+        signal: np.ndarray[Any, Any],
     ) -> float:
         """
         Compute mean inter-band phase coherence.
@@ -686,7 +686,7 @@ class SpectralDomainFrequency(BaseDetector):
         pos_freqs = freqs_full[freqs_full >= 0]
 
         # Build per-band time-domain approximations via inverse FFT masking
-        band_signals: list[np.ndarray] = []
+        band_signals: list[np.ndarray[Any, Any]] = []
         spectrum = fft(signal[:win_len] * np.hanning(win_len))
         for lo, hi, _label, _w in self._bands:
             mask_pos = (pos_freqs >= lo) & (pos_freqs <= hi)
@@ -745,7 +745,7 @@ class SpectralDomainFrequency(BaseDetector):
 
     def _compute_cepstral_peak(
         self,
-        freq_matrix: np.ndarray,
+        freq_matrix: np.ndarray[Any, Any],
     ) -> float:
         """Compute cepstral peak ratio for harmonic structure detection.
 
@@ -788,7 +788,7 @@ class SpectralDomainFrequency(BaseDetector):
 
     def _binary_segmentation_frequency(
         self,
-        band_power_series: np.ndarray,
+        band_power_series: np.ndarray[Any, Any],
     ) -> list[int]:
         """
         CUSUM-based recursive binary segmentation for change-point detection.
@@ -806,7 +806,7 @@ class SpectralDomainFrequency(BaseDetector):
 
     def _binseg_recurse(
         self,
-        series: np.ndarray,
+        series: np.ndarray[Any, Any],
         start: int,
         end: int,
         change_points: list[int],
@@ -857,7 +857,7 @@ class SpectralDomainFrequency(BaseDetector):
 
     def _compute_truncation_interval(
         self,
-        series: np.ndarray,
+        series: np.ndarray[Any, Any],
         cp_index: int,
         min_seg: int,
     ) -> tuple[float, float]:
@@ -971,7 +971,7 @@ class SpectralDomainFrequency(BaseDetector):
 
     def _selective_inference_p_value(
         self,
-        series: np.ndarray,
+        series: np.ndarray[Any, Any],
         change_point: int,
     ) -> float:
         """
@@ -1042,7 +1042,7 @@ class SpectralDomainFrequency(BaseDetector):
 
         return float(np.clip(p_value, 0.0, 1.0))
 
-    def _estimate_noise_sigma(self, series: np.ndarray) -> float:
+    def _estimate_noise_sigma(self, series: np.ndarray[Any, Any]) -> float:
         """
         MAD estimator on first differences (robust to outliers/CPs).
 
@@ -1065,7 +1065,9 @@ class SpectralDomainFrequency(BaseDetector):
     # Noise color estimation (F1 Precision Directive, Phase 4)
     # ------------------------------------------------------------------
 
-    def _estimate_noise_color(self, psd: np.ndarray, freqs: np.ndarray) -> tuple[float, str, float]:
+    def _estimate_noise_color(
+        self, psd: np.ndarray[Any, Any], freqs: np.ndarray[Any, Any]
+    ) -> tuple[float, str, float]:
         """Estimate the noise color exponent (beta) from the PSD.
 
         Fits log(PSD) = -beta * log(freq) + C using linear regression
@@ -1162,7 +1164,7 @@ class SpectralDomainFrequency(BaseDetector):
     def _compute_band_anomaly(
         self,
         band_label: str,
-        band_power_series: np.ndarray,
+        band_power_series: np.ndarray[Any, Any],
         ref_mean: float,
         ref_std: float,
         band_def: tuple[float, float, str, float],
@@ -1349,7 +1351,7 @@ class SpectralDomainFrequency(BaseDetector):
 
     def fit(
         self,
-        data: np.ndarray | Any,
+        data: np.ndarray[Any, Any] | Any,
     ) -> SpectralDomainFrequency:
         """
         Fit the Oracle on reference/training signals.
@@ -1359,7 +1361,7 @@ class SpectralDomainFrequency(BaseDetector):
 
         Args:
             data: Time-domain signals ``(N, T)`` or ``(T,)``.
-                  Accepts np.ndarray or torch.Tensor.
+                  Accepts np.ndarray[Any, Any] or torch.Tensor.
 
         Returns:
             Self for method chaining.
@@ -1377,9 +1379,11 @@ class SpectralDomainFrequency(BaseDetector):
             raise DetectorException("Cannot fit SpectralDomainFrequency with empty data.")
 
         # Collect per-band power statistics and spectral entropy
-        band_powers_all: dict[str, list[np.ndarray]] = {label: [] for _, _, label, _ in self._bands}
+        band_powers_all: dict[str, list[np.ndarray[Any, Any]]] = {
+            label: [] for _, _, label, _ in self._bands
+        }
         entropies: list[float] = []
-        all_spectra: list[np.ndarray] = []
+        all_spectra: list[np.ndarray[Any, Any]] = []
 
         for sample in data:
             freq_matrix, freqs = self._compute_frequency_matrix(sample)
@@ -1439,7 +1443,7 @@ class SpectralDomainFrequency(BaseDetector):
 
     def detect(
         self,
-        data: np.ndarray | Any,
+        data: np.ndarray[Any, Any] | Any,
     ) -> dict[str, Any]:
         """
         Detect frequency-domain anomalies.
@@ -1452,7 +1456,7 @@ class SpectralDomainFrequency(BaseDetector):
 
         Args:
             data: A single time-domain signal ``(T,)`` or batch ``(N, T)``.
-                  Accepts np.ndarray or torch.Tensor.
+                  Accepts np.ndarray[Any, Any] or torch.Tensor.
 
         Returns:
             Dict with keys:
@@ -1493,7 +1497,7 @@ class SpectralDomainFrequency(BaseDetector):
 
     def extract_features(
         self,
-        data: np.ndarray | Any,
+        data: np.ndarray[Any, Any] | Any,
     ) -> torch.Tensor:
         """
         Extract per-band spectral features as torch.Tensor.
@@ -1523,7 +1527,7 @@ class SpectralDomainFrequency(BaseDetector):
 
         Args:
             data: Time-domain signals ``(N, T)`` or ``(T,)``.
-                  Accepts np.ndarray or torch.Tensor.
+                  Accepts np.ndarray[Any, Any] or torch.Tensor.
 
         Returns:
             Feature tensor of shape ``(N, n_bands + 7)``, dtype float32.
@@ -1537,7 +1541,7 @@ class SpectralDomainFrequency(BaseDetector):
         if data.ndim == 1:
             data = data.reshape(1, -1)
 
-        features_list: list[np.ndarray] = []
+        features_list: list[np.ndarray[Any, Any]] = []
         for sample in data:
             result = self._detect_single(sample)
             iv = result["influence_vector"]
@@ -1567,7 +1571,7 @@ class SpectralDomainFrequency(BaseDetector):
     # Single-sample detection
     # ------------------------------------------------------------------
 
-    def _detect_single(self, signal: np.ndarray) -> dict[str, Any]:
+    def _detect_single(self, signal: np.ndarray[Any, Any]) -> dict[str, Any]:
         """
         Run the full 4-stage pipeline on a single 1-D signal.
 

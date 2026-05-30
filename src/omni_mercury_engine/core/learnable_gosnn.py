@@ -532,7 +532,7 @@ class LearnableGOSNN:
         state = self.scalar_states[name]
         return state.effective_value
 
-    def get_scalar_embedding(self, name: str) -> np.ndarray | None:
+    def get_scalar_embedding(self, name: str) -> np.ndarray[Any, Any] | None:
         """Get scalar embedding vector."""
         if not TORCH_AVAILABLE or self.scalar_embeddings is None:
             return None
@@ -542,7 +542,7 @@ class LearnableGOSNN:
 
         idx = self._scalar_name_to_idx[name]
         with torch.no_grad():
-            emb: np.ndarray = self.scalar_embeddings.scalar_embeddings[idx].cpu().numpy()
+            emb: np.ndarray[Any, Any] = self.scalar_embeddings.scalar_embeddings[idx].cpu().numpy()
         return emb
 
     def activate_scalars(

@@ -253,7 +253,7 @@ class FloodLoader(BaseDomainLoader):
             )
         return events
 
-    def get_ground_truth(self, event_id: str) -> np.ndarray:
+    def get_ground_truth(self, event_id: str) -> np.ndarray[Any, Any]:
         """
         Generate binary anomaly labels for a historical flood event.
 
@@ -317,7 +317,7 @@ class FloodLoader(BaseDomainLoader):
     # Feature engineering
     # ------------------------------------------------------------------
 
-    def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray:
+    def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray[Any, Any]:
         """
         Transform raw flood gauge data into a feature matrix.
 
@@ -620,8 +620,8 @@ class FloodLoader(BaseDomainLoader):
     @staticmethod
     def _compute_rate_of_rise(
         df: pd.DataFrame,
-        gauge_height: np.ndarray,
-    ) -> np.ndarray:
+        gauge_height: np.ndarray[Any, Any],
+    ) -> np.ndarray[Any, Any]:
         """
         Compute first derivative of gauge height in ft/hr.
 
@@ -661,9 +661,9 @@ class FloodLoader(BaseDomainLoader):
 
     @staticmethod
     def _compute_median_deviation(
-        gauge_height: np.ndarray,
+        gauge_height: np.ndarray[Any, Any],
         window: int = 96,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """Compute deviation from rolling median, normalized by median.
 
         The normalized deviation is defined as::
@@ -701,9 +701,9 @@ class FloodLoader(BaseDomainLoader):
 
     @staticmethod
     def _compute_peak_to_baseline(
-        gauge_height: np.ndarray,
+        gauge_height: np.ndarray[Any, Any],
         window: int = 288,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """Compute ratio of current gauge height to trailing baseline.
 
         The baseline is defined as the minimum gauge height observed
