@@ -13,6 +13,7 @@ Licensed under GNU GPL v3
 from __future__ import annotations
 
 import importlib
+from typing import Any, cast
 
 import pytest
 
@@ -52,12 +53,12 @@ GENUINE_LOADERS = [
 ]
 
 
-def _load_class(module: str, cls_name: str):
+def _load_class(module: str, cls_name: str) -> type[Any]:
     try:
         mod = importlib.import_module(f"omni_mercury_engine.datasets.{module}")
     except Exception as exc:  # optional dependency missing
         pytest.skip(f"module {module} unimportable: {exc}")
-    return getattr(mod, cls_name)
+    return cast("type[Any]", getattr(mod, cls_name))
 
 
 class TestProvenanceHelper:
@@ -96,8 +97,8 @@ class TestBenchmarkExclusion:
 
     def test_domain_datasets_provenance_resolves(self) -> None:
         bench = importlib.import_module("benchmarks.mercury_benchmark")
-        manufactured_names = set()
-        genuine_names = set()
+        manufactured_names: set[str] = set()
+        genuine_names: set[str] = set()
         for name, _cat, cls_name, module, _kwargs in bench.DOMAIN_DATASETS:
             cls = _load_class(module, cls_name)
             src = getattr(cls, "LABEL_SOURCE", "ground_truth")
