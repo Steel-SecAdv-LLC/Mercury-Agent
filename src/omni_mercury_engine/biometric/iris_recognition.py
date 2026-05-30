@@ -421,7 +421,7 @@ class IrisMatcher:
             mask2_shifted = np.roll(mask2, shift, axis=2)
 
             combined_mask = mask1 & mask2_shifted
-            bits_compared = np.sum(combined_mask)
+            bits_compared = int(np.sum(combined_mask))
 
             if bits_compared < 100:
                 continue

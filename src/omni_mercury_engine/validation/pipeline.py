@@ -32,22 +32,23 @@ Implements the validation framework described in VALIDATION_FRAMEWORK.md.
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, cast
+from typing import Any
 
 import numpy as np
 from scipy import stats
 
-if TYPE_CHECKING:
-    from collections.abc import Callable
-
 logger = logging.getLogger(__name__)
 
 # NumPy 2.0+ compatibility: trapz was renamed to trapezoid
-_trapz: Callable[..., float]
 if hasattr(np, "trapezoid"):
-    _trapz = cast("Callable[..., float]", np.trapezoid)
+
+    def _trapz(y: list[float], x: list[float]) -> float:
+        return float(np.trapezoid(y, x))
+
 else:
-    _trapz = cast("Callable[..., float]", np.trapz)
+
+    def _trapz(y: list[float], x: list[float]) -> float:
+        return float(np.trapz(y, x))
 
 
 @dataclass
