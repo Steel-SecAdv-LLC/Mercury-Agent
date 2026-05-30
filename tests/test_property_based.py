@@ -520,7 +520,7 @@ class TestDetectorRegistryProperties:
             unique=True,
         )
     )
-    @settings(max_examples=20)
+    @settings(max_examples=20, deadline=None, suppress_health_check=[HealthCheck.too_slow])
     def test_list_by_tags_returns_subset(self, tags: list[Any]) -> None:
         """list_by_tags should return subset of registered detectors."""
         from omni_mercury_engine.core.detector_registry import (

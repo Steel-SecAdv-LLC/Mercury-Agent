@@ -18,6 +18,8 @@ import numpy as np
 import pytest
 import torch
 
+pytestmark = pytest.mark.xdist_group("fusion_training")
+
 from omni_mercury_engine.ml.mercury_ml import make_classification
 
 

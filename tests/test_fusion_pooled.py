@@ -20,6 +20,9 @@ from typing import Any
 import numpy as np
 import pytest
 
+pytestmark = pytest.mark.xdist_group("fusion_pooled")
+
+
 pytest.importorskip("torch")
 
 from omni_mercury_engine.engine import OmniMercuryEngine
