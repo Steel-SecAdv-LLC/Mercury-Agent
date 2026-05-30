@@ -790,15 +790,21 @@ class CopernicusSeaLevelLoader(DatasetLoader):
         lons = ds.variables["longitude"][:]
         sla = ds.variables["sla"][:]  # Sea level anomaly
 
+        if isinstance(sla, np.ma.MaskedArray):
+            sla_values = np.asarray(sla.data, dtype=np.float64)
+            sla_values[np.asarray(sla.mask, dtype=bool)] = np.nan
+        else:
+            sla_values = np.asarray(sla, dtype=np.float64)
         rows = []
-        for t_idx in range(min(len(sla), 100)):  # Limit samples
+        for t_idx in range(min(len(sla_values), 100)):  # Limit samples
             for lat_idx in range(0, len(lats), 10):  # Subsample spatially
                 for lon_idx in range(0, len(lons), 10):
-                    if not np.ma.is_masked(sla[t_idx, lat_idx, lon_idx]):  # type: ignore[no-untyped-call]
+                    sla_value = float(sla_values[t_idx, lat_idx, lon_idx])
+                    if np.isfinite(sla_value):
                         row = [
                             lats[lat_idx],
                             lons[lon_idx],
-                            float(sla[t_idx, lat_idx, lon_idx]),
+                            sla_value,
                             0,  # ADT (if available)
                             0,  # ugos
                             0,  # vgos
