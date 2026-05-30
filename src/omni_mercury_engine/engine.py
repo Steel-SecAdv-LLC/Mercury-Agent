@@ -111,6 +111,10 @@ from omni_mercury_engine.cognitive.ethical_bounding import (
     sanitize_domain,
 )
 from omni_mercury_engine.core.config import EngineConfig
+from omni_mercury_engine.core.conformal_prediction import (
+    BinaryConformalClassifier,
+    BinaryPredictionSet,
+)
 from omni_mercury_engine.core.global_omni_scalar_network import (
     ScalarGroup,
     get_global_scalar_network,
@@ -879,6 +883,11 @@ class OmniMercuryEngine(LoggerMixin):
             # has already absorbed the constraint, so inference needs only the
             # net; this handle is diagnostic, not required for scoring.
             self._symbolic_module: SymbolicConstraintModule | None = None
+            # Class-conditional conformal classifier over the calibrated fusion
+            # probability, fit by calibrate_fusion_conformal() on a held-out
+            # labelled split. Turns the scalar probability into label prediction
+            # sets with a distribution-free coverage guarantee. None until fit.
+            self._fusion_conformal: BinaryConformalClassifier | None = None
             # Optional training provenance (source, datasets, seed, ...) recorded
             # by training scripts and persisted in/restored from the checkpoint
             # so a shipped artifact is self-describing for audit. None unless set.
@@ -1827,6 +1836,93 @@ class OmniMercuryEngine(LoggerMixin):
         # and the production path agree on what the checkpoint's temperature
         # means.
         return self._apply_fusion_calibration(probs).reshape(-1)
+
+    def calibrate_fusion_conformal(
+        self,
+        X_cal: np.ndarray[Any, Any],
+        y_cal: np.ndarray[Any, Any],
+        coverage: float = 0.9,
+    ) -> dict[str, Any]:
+        """Fit a conformal classifier on a held-out labelled calibration split.
+
+        Builds on the calibrated fusion probability (temperature-scaled by
+        :meth:`fit_fusion`) to provide *distribution-free* label prediction sets
+        with a coverage guarantee, complementing the point probability with a
+        rigorous uncertainty set. Must be called after the fusion model is
+        trained, on data **disjoint** from both training and the eventual test
+        set (exchangeability is what the guarantee rests on).
+
+        Args:
+            X_cal: Calibration features ``(n_cal, n_features)``, disjoint from
+                training data.
+            y_cal: Calibration binary labels ``(n_cal,)`` (1 = anomaly).
+            coverage: Target per-class coverage (e.g. 0.9 for 90%).
+
+        Returns:
+            Diagnostics dict with the target ``coverage``, the learned per-class
+            ``thresholds`` and ``n_calibration``.
+
+        Raises:
+            ValueError: If mode is not 'fusion'.
+            RuntimeError: If the fusion model is untrained.
+        """
+        if self.mode != "fusion":
+            raise ValueError("calibrate_fusion_conformal() requires mode='fusion'")
+        if not self._fusion_trained:
+            raise RuntimeError(
+                "Fusion model is untrained; call fit_fusion()/train_fusion_model() "
+                "before calibrate_fusion_conformal()."
+            )
+
+        probs = self.score_fusion(X_cal)
+        y = np.asarray(y_cal).astype(int).ravel()
+        self._fusion_conformal = BinaryConformalClassifier(coverage=coverage).fit(probs, y)
+        report = self._fusion_conformal.coverage_report(probs, y)
+        logger.info(
+            "Fusion conformal calibrated: coverage=%.2f thresholds=%s (n_cal=%d)",
+            coverage,
+            report["thresholds"],
+            len(y),
+        )
+        return {
+            "coverage": coverage,
+            "thresholds": report["thresholds"],
+            "n_calibration": int(len(y)),
+        }
+
+    def score_fusion_conformal(self, X: np.ndarray[Any, Any]) -> dict[str, Any]:
+        """Return calibrated probabilities *and* conformal label sets for a batch.
+
+        The uncertainty-aware counterpart to :meth:`score_fusion`: each sample
+        gets a calibrated ``P(anomaly)`` plus a conformal prediction set over
+        ``{normal, anomaly}`` whose ``set_size`` distinguishes confident calls
+        (singletons) from genuine uncertainty (``{normal, anomaly}``) and
+        atypical points (``{}``).
+
+        Args:
+            X: Features ``(n_samples, n_features)``.
+
+        Returns:
+            Dict with ``probabilities`` ``(n,)``, ``prediction_sets`` (list of
+            sorted label lists), ``set_sizes`` ``(n,)``, ``abstain`` ``(n,)``
+            bool (uncertain two-label sets), and the target ``coverage``.
+
+        Raises:
+            RuntimeError: If :meth:`calibrate_fusion_conformal` has not been run.
+        """
+        if self._fusion_conformal is None:
+            raise RuntimeError(
+                "Conformal calibrator not fitted; call calibrate_fusion_conformal() first."
+            )
+        probs = self.score_fusion(X)
+        pred: BinaryPredictionSet = self._fusion_conformal.predict(probs)
+        return {
+            "probabilities": probs,
+            "prediction_sets": pred.label_sets(),
+            "set_sizes": pred.set_size,
+            "abstain": pred.set_size == 2,
+            "coverage": pred.coverage_level,
+        }
 
     # ------------------------------------------------------------------
     # Symbolic stack surface (Issue #4): causal discovery + rule graph.
