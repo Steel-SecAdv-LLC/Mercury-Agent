@@ -167,10 +167,8 @@ class PlattScaling:
         Returns:
             Self for method chaining
         """
-        # Reshape for sklearn
         X = y_prob.reshape(-1, 1)
 
-        # Handle edge cases
         if len(np.unique(y_true)) < 2:
             logger.warning("Only one class present, calibration skipped")
             self._fitted = False
@@ -412,7 +410,6 @@ class CalibrationEnsemble:
         n = len(y_prob)
         n_val = int(n * validation_split)
 
-        # Split for validation
         idx = self._rng.permutation(n)
         train_idx, val_idx = idx[n_val:], idx[:n_val]
 
@@ -710,7 +707,6 @@ def _synthesize_probabilities_from_predictions(
     # Base probabilities
     base_probs = np.where(is_anomaly, 0.75, 0.25)
 
-    # Add variation based on feature distances
     feature_variation = _compute_feature_variation(X)
     anomaly_variation = feature_variation * 0.2
     normal_variation = (1 - feature_variation) * 0.2
@@ -733,7 +729,6 @@ def _compute_feature_variation(X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
     z_scores = np.abs((X - mean) / std)
     avg_z = np.mean(z_scores, axis=1)
 
-    # Normalize to [0, 1]
     min_z, max_z = np.min(avg_z), np.max(avg_z)
     if max_z > min_z:
         return np.asarray((avg_z - min_z) / (max_z - min_z))  # type: ignore[no-any-return, unused-ignore]

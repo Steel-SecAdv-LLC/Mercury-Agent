@@ -138,7 +138,6 @@ class EnhancedQuantumModel:
             state = state[:target_dim]
             state = state / np.linalg.norm(state)
 
-        # Create density matrix
         state = state.astype(complex)
         rho = np.outer(state, np.conj(state))
 
@@ -186,7 +185,6 @@ class EnhancedQuantumModel:
         Returns:
             Von Neumann entropy in bits
         """
-        # Compute eigenvalues
         eigenvalues = np.linalg.eigvalsh(rho)
 
         # Filter out small/negative values (numerical artifacts)

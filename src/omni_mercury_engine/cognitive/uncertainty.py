@@ -472,7 +472,6 @@ class HeteroscedasticEstimator:
         features_flat = features.flatten()[:10]
         stored_features = np.array(list(self._features))
 
-        # Compute distances to stored points
         distances = np.linalg.norm(stored_features - features_flat, axis=1)
 
         # Kernel-weighted local variance (Nadaraya-Watson style)
@@ -734,7 +733,6 @@ class UncertaintyQuantifier:
             is_overconfident,
         )
 
-        # Update running statistics
         alpha = 0.05  # EMA smoothing
         self._stats["avg_epistemic"] = (1 - alpha) * self._stats[
             "avg_epistemic"
@@ -859,7 +857,6 @@ class UncertaintyQuantifier:
         expected_conf_arr[~non_empty] = bin_centers[~non_empty]
         observed_acc_arr[~non_empty] = bin_centers[~non_empty]
 
-        # Convert to lists for compatibility
         expected_conf = expected_conf_arr.tolist()
         observed_acc = observed_acc_arr.tolist()
         bin_counts = bin_counts_arr.tolist()
@@ -1166,7 +1163,6 @@ class UncertaintyQuantifier:
             true_value: Observed true value
             features: Input features (for heteroscedastic update)
         """
-        # Update heteroscedastic estimator
         true_value_float = float(true_value) if isinstance(true_value, bool) else true_value
         self.heteroscedastic.update(prediction, true_value_float, features)
 
@@ -1177,7 +1173,6 @@ class UncertaintyQuantifier:
             covered = score < (1.96 * self._stats.get("avg_aleatoric", 0.1) + 0.1)
             self.aci.update(score, covered)
 
-        # Store for calibration
         self._predictions.append(prediction)
         self._confidences.append(confidence)
         outcome = (prediction > 0.5) == (true_value_float > 0.5)

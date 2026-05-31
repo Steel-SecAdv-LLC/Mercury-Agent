@@ -286,7 +286,6 @@ class TriadicPhiWeighting:
         self.phi = PHI
         self.phi_inverse = 1.0 / PHI
 
-        # Compute triadic weights for each head
         self.head_weights = self._compute_triadic_weights()
 
     def _compute_triadic_weights(self) -> np.ndarray[Any, Any]:

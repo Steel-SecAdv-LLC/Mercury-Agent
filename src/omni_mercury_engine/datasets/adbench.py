@@ -170,7 +170,6 @@ class ADBenchLoader(DatasetLoader):
 
     def _resolve_dataset(self, key: str) -> None:
         """Resolve a dataset name or index to canonical form."""
-        # Try as integer index
         try:
             idx = int(key)
             if idx in ADBENCH_CATALOG:
@@ -231,7 +230,6 @@ class ADBenchLoader(DatasetLoader):
             if "X" not in data or "y" not in data:
                 raise ValueError(f"NPZ missing X/y keys, found: {list(data.keys())}")
 
-            # Save locally
             self.data_path.mkdir(parents=True, exist_ok=True)
             with open(cache_file, "wb") as f:
                 f.write(content)
@@ -317,9 +315,8 @@ class ADBenchLoader(DatasetLoader):
         return list(ADBENCH_CATALOG.values())
 
 
-# Register key ADBench datasets individually
+# Register each catalog dataset individually, plus a generic "adbench" alias.
 for _idx, _name in ADBENCH_CATALOG.items():
     DatasetRegistry.register(f"adbench-{_name.lower()}", ADBenchLoader)
 
-# Also register the generic name
 DatasetRegistry.register("adbench", ADBenchLoader)

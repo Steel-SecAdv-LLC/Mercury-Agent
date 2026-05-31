@@ -713,7 +713,6 @@ class UIUXAnomalyDetector(BaseDetector):
             threshold=self.threshold,
         )
 
-        # Initialize neural components
         self.device = torch.device(self.config.get("device", "cpu"))
         self._init_networks()
 

@@ -469,7 +469,6 @@ class HierarchicalValueFunction:
         if "system_health" in state:
             base_value += (1 - state["system_health"]) * 0.2
 
-        # Store and return
         self._option_values[option][state_key] = base_value
         return base_value
 
@@ -550,7 +549,6 @@ class GoalDecomposer:
             goal_id = f"goal_dict_{self._decomposition_counter:06d}"
             priority = 0.5
 
-            # Find matching template
             template_key = self._find_template(description)
             if template_key:
                 template_subgoals = self._templates[template_key]
@@ -580,12 +578,10 @@ class GoalDecomposer:
         # Original Goal object handling
         subgoals: list[Subgoal] = []
 
-        # Find matching template
         template_key = self._find_template(goal.description)
         if template_key:
             template_subgoals = self._templates[template_key]
         else:
-            # Generate generic subgoals
             template_subgoals = self._generate_generic_subgoals(goal)
 
         # Create subgoals from template
@@ -823,7 +819,6 @@ class OptionLibrary:
 
         if option_id in self._options:
             option = self._options[option_id]
-            # Update expected reward with EMA
             alpha = 0.1
             option.expected_reward = (1 - alpha) * option.expected_reward + alpha * reward
 
@@ -977,10 +972,8 @@ class HierarchicalPlanner:
         self._plan_counter += 1
         plan_id = f"plan_{self._plan_counter:06d}"
 
-        # Build goal hierarchy
         goal_hierarchy = self._build_goal_hierarchy(root_goal, context)
 
-        # Decompose into subgoals
         all_subgoals: list[Subgoal] = []
         for goal in goal_hierarchy.values():
             if goal.level in [AbstractionLevel.STRATEGIC, AbstractionLevel.TACTICAL]:
@@ -996,12 +989,10 @@ class HierarchicalPlanner:
                 if isinstance(first_option, Option):
                     options_used.append(first_option)
 
-        # Estimate plan value
         estimated_reward = self._estimate_plan_reward(
             goal_hierarchy, all_subgoals, options_used, current_state
         )
 
-        # Estimate duration
         estimated_duration = sum(o.expected_duration for o in options_used)
 
         plan = HierarchicalPlan(
@@ -1164,7 +1155,6 @@ class HierarchicalPlanner:
                 success,
             )
 
-        # Update execution state
         execution_state.steps_taken += 1
         execution_state.reward_accumulated += reward
 
@@ -1224,7 +1214,6 @@ class HierarchicalPlanner:
                 else:
                     continue
 
-                # Generate child goals
                 child_goals = self._generate_child_goals(goal, child_level, context)
                 for child in child_goals:
                     hierarchy[child.goal_id] = child
@@ -1292,11 +1281,9 @@ class HierarchicalPlanner:
         """Update planner statistics."""
         n = self._stats["plans_created"]
 
-        # Update average depth
         depth = len(plan.goal_hierarchy)
         self._stats["avg_plan_depth"] = (self._stats["avg_plan_depth"] * (n - 1) + depth) / n
 
-        # Update average reward
         self._stats["avg_reward"] = (
             self._stats["avg_reward"] * (n - 1) + plan.estimated_reward
         ) / n

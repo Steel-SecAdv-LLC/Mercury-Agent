@@ -259,7 +259,6 @@ class MLPEncoder(FeatureEncoder):
         self.hidden_dims = hidden_dims or [128, 64]
         self.embedding_dim = embedding_dim
 
-        # Initialize weights
         self.weights: list[np.ndarray[Any, Any]] = []
         self.biases: list[np.ndarray[Any, Any]] = []
 
@@ -279,7 +278,6 @@ class MLPEncoder(FeatureEncoder):
             # ReLU for all but last layer
             if i < len(self.weights) - 1:
                 h = np.maximum(0, h)
-        # L2 normalize embeddings
         norm = np.linalg.norm(h, axis=-1, keepdims=True) + 1e-8
         return h / norm
 
@@ -322,7 +320,6 @@ if TORCH_AVAILABLE:
         def forward(self, x: torch.Tensor) -> torch.Tensor:
             """Forward pass."""
             embeddings = self.network(x)
-            # L2 normalize
             return F.normalize(embeddings, p=2, dim=-1)
 
         def encode(self, x: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
@@ -455,7 +452,6 @@ class PrototypicalNetworks:
             embedding = self.encoder.encode(features.reshape(1, -1))[0]
             class_embeddings_list[label].append(embedding)
 
-        # Compute prototypes
         prototypes = {}
         for class_id, embeddings in class_embeddings_list.items():
             embeddings_array = np.array(embeddings)
@@ -496,7 +492,6 @@ class PrototypicalNetworks:
         if not self.prototypes:
             raise ValueError("No prototypes computed. Call fit first.")
 
-        # Encode query
         query_embedding = self.encoder.encode(query.reshape(1, -1))[0]
 
         # Compute distances to all prototypes
@@ -556,7 +551,6 @@ class PrototypicalNetworks:
         if not self.prototypes:
             raise ValueError("No prototypes computed. Call compute_prototypes first.")
 
-        # Encode query
         query_embedding = self.encoder.encode(query_features.reshape(1, -1))[0]
 
         # Compute distances to all prototypes
@@ -599,10 +593,8 @@ class PrototypicalNetworks:
         """
         start_time = time.time()
 
-        # Compute prototypes
         self.compute_prototypes(task.support_set)
 
-        # Evaluate on query set
         X_query, y_query = task.get_query_arrays()
 
         correct = 0
@@ -690,13 +682,11 @@ class MAML:
         self.first_order = first_order
         self._init_seed: int | None = seed
 
-        # Initialize parameters
         self._init_parameters()
 
         # Store adapted parameters for prediction
         self._adapted_params: dict[str, np.ndarray[Any, Any]] | None = None
 
-        # Statistics
         self._stats = {
             "tasks_adapted": 0,
             "meta_updates": 0,
@@ -707,7 +697,6 @@ class MAML:
         """Initialize model parameters."""
         rng = np.random.default_rng(self._init_seed)
 
-        # Two-layer network
         scale1 = np.sqrt(2.0 / (self.input_dim + self.hidden_dim))
         scale2 = np.sqrt(2.0 / (self.hidden_dim + self.output_dim))
 
@@ -724,14 +713,11 @@ class MAML:
         params: dict[str, np.ndarray[Any, Any]],
     ) -> np.ndarray[Any, Any]:
         """Forward pass through network."""
-        # Hidden layer
         h = X @ params["W1"] + params["b1"]
         h = np.maximum(0, h)  # ReLU
 
-        # Output layer
         logits = h @ params["W2"] + params["b2"]
 
-        # Softmax
         exp_logits = np.exp(logits - logits.max(axis=-1, keepdims=True))
         probs = exp_logits / exp_logits.sum(axis=-1, keepdims=True)
 
@@ -761,12 +747,10 @@ class MAML:
         """Compute gradients via manual backprop."""
         n_samples = len(y)
 
-        # Forward pass
         h1 = X @ params["W1"] + params["b1"]
         h1_relu = np.maximum(0, h1)
         logits = h1_relu @ params["W2"] + params["b2"]
 
-        # Softmax
         exp_logits = np.exp(logits - logits.max(axis=-1, keepdims=True))
         probs = exp_logits / exp_logits.sum(axis=-1, keepdims=True)
 
@@ -783,7 +767,6 @@ class MAML:
         # dL/dh1_relu = dlogits @ W2.T
         dh1_relu = dlogits @ params["W2"].T
 
-        # ReLU backward
         dh1 = dh1_relu * (h1 > 0)
 
         # dL/dW1 = X.T @ dh1
@@ -852,7 +835,6 @@ class MAML:
         pre_preds = pre_probs.argmax(axis=1)
         pre_acc = (pre_preds == y_query).mean()
 
-        # Inner loop adaptation
         adapted_params = self._inner_loop(task, self.params)  # type: ignore[arg-type, unused-ignore]
         self._adapted_params = adapted_params
 
@@ -898,10 +880,8 @@ class MAML:
         total_loss = 0.0
 
         for task in task_batch:
-            # Adapt to task
             adapted_params = self._inner_loop(task, self.params)
 
-            # Compute loss on query set with adapted params
             X_query, y_query = task.get_query_arrays()
             loss, _ = self._compute_loss(X_query, y_query, adapted_params)
             total_loss += loss
@@ -912,11 +892,9 @@ class MAML:
             for key in meta_gradients:
                 meta_gradients[key] += grads[key]
 
-        # Average gradients
         for key in meta_gradients:
             meta_gradients[key] /= len(task_batch)
 
-        # Meta-update
         for key in self.params:
             self.params[key] = self.params[key] - self.outer_lr * meta_gradients[key]
 
@@ -973,23 +951,19 @@ class MAML:
             query_x = task_dict["query_x"]
             query_y = task_dict["query_y"]
 
-            # Inner loop adaptation
             adapted_params = {k: v.copy() for k, v in self.params.items()}
             for _ in range(self.inner_steps):
                 grads = self._compute_gradients(support_x, support_y, adapted_params)
                 for key in adapted_params:
                     adapted_params[key] = adapted_params[key] - self.inner_lr * grads[key]
 
-            # Compute loss on query set
             loss, _ = self._compute_loss(query_x, query_y, adapted_params)
             total_loss += loss
 
-            # Compute gradients for meta-update
             grads = self._compute_gradients(query_x, query_y, adapted_params)
             for key in meta_gradients:
                 meta_gradients[key] += grads[key]
 
-        # Average and apply meta-update
         for key in meta_gradients:
             meta_gradients[key] /= len(tasks)
         for key in self.params:
@@ -1093,7 +1067,6 @@ class Reptile:
             inner_steps=inner_steps,
         )
 
-        # Statistics
         self._stats = {
             "tasks_trained": 0,
             "meta_updates": 0,
@@ -1147,7 +1120,6 @@ class Reptile:
         Returns:
             Loss after update
         """
-        # Train on task
         adapted_params = self.task_training(task_x, task_y)
 
         # Reptile update: interpolate towards adapted params
@@ -1156,7 +1128,6 @@ class Reptile:
                 adapted_params[key] - self.maml.params[key]
             )
 
-        # Compute loss
         loss, _ = self.maml._compute_loss(task_x, task_y, adapted_params)
         self._stats["meta_updates"] += 1
         self._stats["total_loss"] += loss
@@ -1182,10 +1153,8 @@ class Reptile:
         Returns:
             Accuracy on query set
         """
-        # Adapt to support set
         adapted_params = self.task_training(support_x, support_y)
 
-        # Evaluate on query set
         loss, probs = self.maml._compute_loss(query_x, query_y, adapted_params)
         preds = probs.argmax(axis=1)
         accuracy = float((preds == query_y).mean())
@@ -1206,7 +1175,6 @@ class Reptile:
         total_loss = 0.0
 
         for task in task_batch:
-            # Adapt to task
             adapted_params = self.maml._inner_loop(task, self.maml.params)
 
             # Reptile update: interpolate towards adapted params
@@ -1215,7 +1183,6 @@ class Reptile:
                     adapted_params[key] - self.maml.params[key]
                 )
 
-            # Compute loss for monitoring
             X_query, y_query = task.get_query_arrays()
             loss, _ = self.maml._compute_loss(X_query, y_query, adapted_params)
             total_loss += loss
@@ -1280,7 +1247,6 @@ class MetaLearningAdapter:
         # Task counter
         self._task_counter = 0
 
-        # Statistics
         self._stats = {
             "tasks_created": 0,
             "adaptations_performed": 0,
@@ -1395,7 +1361,6 @@ class MetaLearningAdapter:
         task = task_or_support
         result = self._learner.adapt(task)
 
-        # Update statistics
         self._stats["adaptations_performed"] += 1
         if result is not None and hasattr(result, "post_adaptation_accuracy"):
             n = self._stats["adaptations_performed"]
@@ -1467,7 +1432,6 @@ class MetaLearningAdapter:
             task_name="Few-shot Detection",
         )
 
-        # Adapt and predict
         self.adapt(task)
         pred, probs = self.predict(query_features)
 
@@ -1586,7 +1550,6 @@ class MetaLearningAdapter:
             # The test expects hidden_dim (8), not embedding_dim (64)
             encoder = self._learner.encoder
             if hasattr(encoder, "layers") and len(encoder.layers) > 0:
-                # Get output from first hidden layer
                 h = samples @ encoder.layers[0].T
                 return np.maximum(0, h)  # ReLU
             # Fallback: truncate to hidden_dim
@@ -1791,7 +1754,6 @@ class MetaLearningAdapter:
             query_x = episode["query_x"]
             query_y = episode["query_y"]
 
-            # Adapt to support set
             if isinstance(self._learner, PrototypicalNetworks):
                 # Convert to dict format
                 support_dict: dict[str, list[Any]] = {}
@@ -1804,7 +1766,6 @@ class MetaLearningAdapter:
                     support_dict[key] = np.array(support_dict[key])  # type: ignore[assignment, unused-ignore]
                 self._learner.fit(support_dict)  # type: ignore[arg-type, unused-ignore]
 
-                # Predict
                 results = self._learner.batch_classify(query_x)
                 preds = [int(r["predicted_class"].split("_")[1]) for r in results]
                 accuracy = float((np.array(preds) == query_y).mean())
@@ -1920,7 +1881,6 @@ class AnomalyMetaLearner:
                     "mean_embedding": type_examples.mean(axis=0),
                 }
 
-                # Update feature importance
                 if self._feature_importance is None:
                     self._feature_importance = np.ones(type_examples.shape[1])
                 variance = type_examples.var(axis=0)
@@ -1952,7 +1912,6 @@ class AnomalyMetaLearner:
                     "mean_embedding": type_examples.mean(axis=0),
                 }
 
-                # Update feature importance
                 if self._feature_importance is None:
                     self._feature_importance = np.ones(type_examples.shape[1])
                 variance = type_examples.var(axis=0)
@@ -2051,7 +2010,6 @@ class AnomalyMetaLearner:
         # Fit the underlying adapter
         self.adapter.adapt_dict(support_dict)
 
-        # Update feature importance
         self._feature_importance = examples.var(axis=0)
         self._feature_importance = self._feature_importance / (
             self._feature_importance.max() + 1e-8

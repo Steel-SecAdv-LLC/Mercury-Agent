@@ -223,19 +223,14 @@ class PersonalityEngine:
             "omnihumility": self._get_scalar("omnihumility", domain),
         }
 
-        # Derive tone
         tone = self._derive_tone(scalars)
-
-        # Derive verbosity
         verbosity = self._derive_verbosity(scalars)
 
-        # Calculate derived factors
         reasoning_depth = self._calculate_reasoning_depth(scalars)
         empathy_level = self._calculate_empathy_level(scalars)
         persistence_factor = self._calculate_persistence(scalars)
         caution_factor = self._calculate_caution(scalars)
 
-        # Derive behavioral flags
         acknowledge_uncertainty = scalars["omnihumility"] > 1.1
         show_reasoning_chain = scalars["omnitransparency"] > self.HIGH_TRANSPARENCY_THRESHOLD
         include_historical_context = (
@@ -312,7 +307,6 @@ class PersonalityEngine:
         transparency = scalars.get("omnitransparency", 0.1)
         explainability = scalars.get("omniexplainability", 0.5)
 
-        # Combine factors
         combined = transparency * 5 + explainability
         depth = int(min(5, max(1, combined)))
 
@@ -439,11 +433,9 @@ class PersonalityEngine:
         """
         parts = []
 
-        # Add opening acknowledgment
         if modifiers.opening_acknowledgment:
             parts.append(modifiers.opening_acknowledgment)
 
-        # Add main text with softening if appropriate
         shaped_main = raw_text
         if modifiers.softening_words and profile.tone in (
             CommunicationTone.SUPPORTIVE,
@@ -455,19 +447,15 @@ class PersonalityEngine:
 
         parts.append(shaped_main)
 
-        # Add confidence framing
         if modifiers.confidence_framing and "confidence" not in raw_text.lower():
             parts.append(f"This assessment is made {modifiers.confidence_framing}.")
 
-        # Add uncertainty framing
         if modifiers.uncertainty_framing:
             parts.append(modifiers.uncertainty_framing)
 
-        # Add support statement
         if modifiers.support_statement:
             parts.append(modifiers.support_statement)
 
-        # Add follow-up prompt
         if modifiers.follow_up_prompt:
             parts.append(modifiers.follow_up_prompt)
 

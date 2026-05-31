@@ -368,7 +368,6 @@ class ThoughtGenerator:
         # Generate content based on type and context
         content = self._fill_template(template, thought_type, context)
 
-        # Calculate confidence based on evidence
         evidence = context.get("evidence", [])
         confidence = self._calculate_confidence(thought_type, evidence, parent)
 
@@ -598,7 +597,6 @@ class ChainOfThoughtEngine:
         start_time = time.time()
         strategy = strategy or self.default_strategy
 
-        # Store original values for restoration
         original_consistency_paths = self.consistency_paths
         original_max_depth = self.max_depth
 
@@ -710,7 +708,6 @@ class ChainOfThoughtEngine:
         )
         thoughts.append(conc_thought)
 
-        # Calculate overall confidence
         confidences = [t.confidence for t in thoughts]
         overall_confidence = float(np.min(confidences)) * 0.8 + float(np.mean(confidences)) * 0.2
 
@@ -734,7 +731,6 @@ class ChainOfThoughtEngine:
         self._chain_counter += 1
         chain_id = f"cot_sc_{self._chain_counter:06d}"
 
-        # Generate multiple reasoning paths
         paths: list[ThoughtChain] = []
         conclusions: list[str] = []
 
@@ -818,11 +814,9 @@ class ChainOfThoughtEngine:
         solutions: dict[str, str] = {}
 
         for sp in sorted_subproblems:
-            # Build context with solved prerequisites
             sp_context = context.copy()
             sp_context["solved"] = {dep: solutions.get(dep, "unknown") for dep in sp.dependencies}
 
-            # Analyze sub-problem
             analysis_thought = self.thought_generator.generate_thought(
                 ThoughtType.ANALYSIS,
                 {
@@ -860,7 +854,6 @@ class ChainOfThoughtEngine:
         )
         thoughts.append(conc_thought)
 
-        # Calculate confidence
         confidences = [t.confidence for t in thoughts]
         overall_confidence = float(np.min(confidences)) * 0.7 + float(np.mean(confidences)) * 0.3
 
@@ -909,7 +902,6 @@ class ChainOfThoughtEngine:
             branch = self._explore_branch(root, branch_context, max_depth=self.max_depth - 1)
             branches.append(branch)
 
-            # Score branch
             score = self._score_branch(branch)
             branch_scores.append(score)
 
@@ -917,7 +909,6 @@ class ChainOfThoughtEngine:
         best_idx = int(np.argmax(branch_scores))
         best_branch = branches[best_idx]
 
-        # Build final chain
         thoughts = [root] + best_branch
 
         # Add conclusion
@@ -973,7 +964,6 @@ class ChainOfThoughtEngine:
         analysis_steps = min(self.max_depth - 3, 5)
 
         for i in range(analysis_steps):
-            # Generate analysis/inference
             step_type = ThoughtType.ANALYSIS if i == 0 else ThoughtType.INFERENCE
             step_context = {
                 "subject": f"aspect {i + 1}",
@@ -985,7 +975,6 @@ class ChainOfThoughtEngine:
             step_thought = self.thought_generator.generate_thought(step_type, step_context, parent)
             thoughts.append(step_thought)
 
-            # Generate verification
             ver_context = {
                 "claim": step_thought.content,
                 "result": self._verify_claim(step_thought, context),
@@ -1017,7 +1006,6 @@ class ChainOfThoughtEngine:
         )
         thoughts.append(conc_thought)
 
-        # Calculate confidence with verification weight
         avg_verification = float(np.mean(verification_scores)) if verification_scores else 0.8
         thought_confidences = [t.confidence for t in thoughts]
         overall_confidence = (
@@ -1109,7 +1097,6 @@ class ChainOfThoughtEngine:
 
     def _derive_conclusion(self, thoughts: list[Thought], context: dict[str, Any]) -> str:
         """Derive final conclusion from thought chain."""
-        # Calculate weighted evidence
         high_conf_thoughts = [t for t in thoughts if t.confidence > 0.7]
 
         if "anomaly_score" in context:
@@ -1275,7 +1262,6 @@ class ChainOfThoughtEngine:
         self._stats["total_reasoning_sessions"] += 1
         self._stats["thoughts_generated"] += len(chain.thoughts)
 
-        # Update averages
         n = self._stats["chains_generated"]
         self._stats["avg_depth"] = (self._stats["avg_depth"] * (n - 1) + chain.reasoning_depth) / n
         self._stats["avg_confidence"] = (
@@ -1369,7 +1355,6 @@ class AnomalyChainOfThought:
         else:
             anomaly_score = data.get("score", data.get("anomaly_score", 0.5))
 
-        # Build context
         context = {
             "anomaly_score": anomaly_score,
             "is_anomaly": anomaly_score > self.anomaly_threshold,

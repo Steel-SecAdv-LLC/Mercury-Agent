@@ -694,11 +694,9 @@ class CausalDiscoveryEngine:
         n_samples, n_vars = data.shape
         names = variable_names or [f"X{i}" for i in range(n_vars)]
 
-        # Initialize with complete undirected graph
         adjacency = np.ones((n_vars, n_vars), dtype=bool)
         np.fill_diagonal(adjacency, False)
 
-        # Store separation sets
         separation_sets: dict[tuple[int, int], tuple[int, ...]] = {}
 
         # Phase 1: Edge removal via conditional independence tests
@@ -765,7 +763,6 @@ class CausalDiscoveryEngine:
         # Phase 3: Apply Meek's orientation rules
         directed = self._apply_meek_rules(adjacency, directed, n_vars)
 
-        # Build edges
         edges = []
         for i in range(n_vars):
             for j in range(n_vars):
@@ -869,7 +866,6 @@ class CausalDiscoveryEngine:
                 )
 
                 if is_causal:
-                    # Compute effect size (R-squared improvement)
                     strength = 1 - p_value  # Use p-value as proxy
 
                     edges.append(
@@ -947,7 +943,6 @@ class CausalDiscoveryEngine:
         ps_estimator = PropensityScoreEstimator(treatment_binary, covariates)
         ps_estimator.fit()
 
-        # Estimate ATE
         if method == "ipw":
             ate, se, p_value = ps_estimator.ipw_ate(outcome)
         elif method == "regression":
@@ -1025,7 +1020,6 @@ class CausalDiscoveryEngine:
             treatment = data[:, int_idx]
             outcome = data[:, target_idx]
 
-            # Find observations near intervention value
             tolerance = np.std(treatment) * 0.5
             mask = np.abs(treatment - intervention_value) < tolerance
 
@@ -1294,7 +1288,6 @@ class CausalDiscoveryEngine:
             idx = self._rng.choice(n, n, replace=True)
             sample = data[idx]
 
-            # Estimate ATE
             treatment = sample[:, cause_idx]
             outcome = sample[:, effect_idx]
             treatment_binary = (treatment > np.median(treatment)).astype(float)

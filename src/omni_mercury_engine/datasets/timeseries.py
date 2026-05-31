@@ -117,7 +117,8 @@ class NABLoader(DatasetLoader):
 
         logger.info("Downloading REAL NAB (Numenta Anomaly Benchmark) data...")
 
-        # Download labels first
+        # Labels must be present before data files so _parse_nab_file can
+        # tag each row; bail out early if they cannot be fetched.
         labels_path = self.data_path / "labels.json"
         try:
             logger.info("  Downloading anomaly labels...")
@@ -126,7 +127,6 @@ class NABLoader(DatasetLoader):
             logger.error(f"Failed to download NAB labels: {e}")
             return False
 
-        # Download data files
         downloaded_count = 0
         for category in self.categories:
             if category not in self.NAB_FILES:
@@ -221,7 +221,6 @@ class NABLoader(DatasetLoader):
 
             for row in reader:
                 try:
-                    # Parse timestamp
                     timestamp_str = row.get("timestamp", "")
                     try:
                         ts = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
@@ -231,13 +230,11 @@ class NABLoader(DatasetLoader):
                     except ValueError:
                         hour, day, month = 0, 1, 1
 
-                    # Parse value
                     value = float(row.get("value", 0))
 
                     feature_row = [value, hour, day, month]
                     features.append(feature_row)
 
-                    # Check if in anomaly window
                     is_anomaly = False
                     try:
                         ts = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))

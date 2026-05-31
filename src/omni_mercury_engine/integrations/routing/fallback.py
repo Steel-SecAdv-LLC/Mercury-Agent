@@ -327,7 +327,6 @@ class FallbackChain:
         fallback_count = 0
 
         for handler in self._handlers:
-            # Check condition
             if not handler.should_execute(*args, **kwargs):
                 reasons.append((handler.name, FallbackReason.SKIP, "condition failed"))
                 continue

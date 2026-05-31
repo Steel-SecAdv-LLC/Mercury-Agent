@@ -332,13 +332,11 @@ class PSYOPAnalyzer:
         # Identify exploited biases
         biases = self._detect_exploited_biases(content)
 
-        # Assess credibility
         credibility = self._assess_credibility(narrative_data)
 
         # Detect amplification
         amplification = self._detect_amplification_indicators(metrics, narrative_data)
 
-        # Generate narrative ID
         narrative_id = f"nar_{hash(content[:100])}"
 
         return NarrativeAnalysis(
@@ -561,7 +559,6 @@ class PSYOPAnalyzer:
         # Determine effective influence vectors
         vectors = self._determine_influence_vectors(media, demographics)
 
-        # Calculate receptivity score
         receptivity = self._calculate_receptivity(demographics, behavioral, media)
 
         # Identify key influencers
@@ -692,7 +689,6 @@ class PSYOPAnalyzer:
         timing = campaign_data.get("timing_data", {})
         network = campaign_data.get("network_data", {})
 
-        # Calculate detection confidence
         confidence = self._calculate_campaign_confidence(messages, accounts, timing, network)
 
         # Classify campaign category
@@ -913,10 +909,8 @@ class PSYOPAnalyzer:
         sentiment = environment_data.get("sentiment_data", {})
         operations = environment_data.get("detected_operations", [])
 
-        # Calculate polarization index
         polarization = self._calculate_polarization(sentiment, narratives)
 
-        # Assess information integrity
         integrity = self._assess_information_integrity(narratives, operations)
 
         # Identify dominant narratives
@@ -985,7 +979,6 @@ class PSYOPAnalyzer:
             Feature vector for fusion pipeline
         """
         if isinstance(data, dict):
-            # Extract features from PSYOP analysis
             features = np.zeros(32, dtype=np.float32)
 
             # Narrative analysis features

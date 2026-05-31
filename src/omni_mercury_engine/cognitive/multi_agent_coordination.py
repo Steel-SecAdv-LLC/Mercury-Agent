@@ -645,7 +645,6 @@ class ConsensusProtocol:
         # Average confidence
         confidence = np.mean([r.confidence for r in results])
 
-        # Find dissenters
         dissenting = [r.agent_id for r in results if r.is_anomaly != final_decision]
 
         return ConsensusResult(
@@ -784,7 +783,6 @@ class ConsensusProtocol:
 
         final_decision = avg_weighted_score > 0.5
 
-        # Calculate agreement weighted by confidence
         agreements = []
         for r in results:
             agrees = r.is_anomaly == final_decision

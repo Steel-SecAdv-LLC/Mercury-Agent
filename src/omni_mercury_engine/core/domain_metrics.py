@@ -207,7 +207,6 @@ class MetricsCalculator:
         # Benevolence metrics
         self._compute_benevolence_metrics(metrics, y_true, y_pred, y_prob)
 
-        # Compute overall score
         metrics.overall_score = self._compute_overall_score(metrics)
 
         return metrics
@@ -254,7 +253,6 @@ class MetricsCalculator:
         y_pred: np.ndarray[Any, Any],
     ) -> None:
         """Compute event-based metrics for time series data."""
-        # Extract events
         true_events = self._extract_events(y_true)
         pred_events = self._extract_events(y_pred)
 

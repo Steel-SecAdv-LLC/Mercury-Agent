@@ -325,7 +325,6 @@ class CognitiveOrchestrator(LoggerMixin):
         self._analysis_count += 1
         context = context or {}
 
-        # Extract core detection values
         anomaly_detected = detection_result.get("is_anomaly", False)
         anomaly_score = detection_result.get("anomaly_prob", 0.0)
         # Alias kept for downstream code that takes the value via the
@@ -335,7 +334,6 @@ class CognitiveOrchestrator(LoggerMixin):
         anomaly_prob = anomaly_score
         severity = detection_result.get("severity", 0.0)
 
-        # Initialize result
         result = CognitiveAnalysisResult(
             anomaly_detected=anomaly_detected,
             anomaly_score=anomaly_score,
@@ -376,7 +374,6 @@ class CognitiveOrchestrator(LoggerMixin):
 
         # === STEP 3: MULTI-HOP REASONING ===
         if anomaly_detected and anomaly_score > 0.5:
-            # Build premises from detection
             premises = [
                 Proposition(
                     prop_id="anomaly_detected",

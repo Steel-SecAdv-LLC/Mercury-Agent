@@ -293,7 +293,6 @@ class AdaptiveConformalInference:
         self.learning_rate = learning_rate
         self.threshold = initial_threshold
 
-        # Track coverage history
         self.coverage_history: list[float] = []
         self.threshold_history: list[float] = [initial_threshold]
         self.miscoverage_sum = 0.0
@@ -326,7 +325,6 @@ class AdaptiveConformalInference:
         self.threshold = self.threshold + self.learning_rate * gradient
         self.threshold = max(0.0, self.threshold)  # Ensure non-negative
 
-        # Track history
         self.threshold_history.append(self.threshold)
         self.n_updates += 1
         self.miscoverage_sum += miscoverage
@@ -420,7 +418,6 @@ class ConformalAnomalyDetector:
         n = len(X)
         n_cal = int(n * self.calibration_fraction)
 
-        # Split data
         idx = rng.permutation(n)
         train_idx, cal_idx = idx[n_cal:], idx[:n_cal]
 

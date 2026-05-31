@@ -954,7 +954,6 @@ class ConceptDriftEvaluator:
                 continue
             train_time = time.time() - train_start
 
-            # Predict
             inference_start = time.time()
             try:
                 y_pred = current_model.predict(X_test)
@@ -974,7 +973,6 @@ class ConceptDriftEvaluator:
                 continue
             inference_time = time.time() - inference_start
 
-            # Calculate metrics
             try:
                 from omni_mercury_engine.ml.mercury_ml import (
                     accuracy_score,

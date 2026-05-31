@@ -243,7 +243,6 @@ class SymbolicRule:
             elif part not in facts and not context.get(part):
                 return False, 0.0
 
-        # Track activation
         self.activation_count += 1
         self.last_activated = time.time()
 
@@ -972,7 +971,6 @@ class NeuroSymbolicHub:
         """
         rng = np.random.default_rng(self.seed)
 
-        # Fit neural encoder
         self.neural_encoder.fit(X, y)
 
         # If labels provided, set up calibration and learn fusion weights
@@ -1016,10 +1014,8 @@ class NeuroSymbolicHub:
 
     def _learn_fusion_weights(self, X: np.ndarray[Any, Any], y: np.ndarray[Any, Any]) -> None:
         """Learn optimal fusion weights."""
-        # Get neural scores
         neural_scores = self.neural_encoder.encode(X)
 
-        # Get symbolic scores
         symbolic_scores = []
         for i in range(len(X)):
             context = {"deviation_score": np.abs(X[i]).max()}
@@ -1150,7 +1146,6 @@ class NeuroSymbolicHub:
         for i in range(n_samples):
             sample_start = time.time()
 
-            # Build context for this sample
             sample_context = {
                 **context,
                 "deviation_score": float(
@@ -1165,7 +1160,6 @@ class NeuroSymbolicHub:
                 sample_context
             )
 
-            # Get rules fired
             _, rules_fired = self.knowledge_graph.forward_chain(sample_context)
 
             # Compute fused score based on mode

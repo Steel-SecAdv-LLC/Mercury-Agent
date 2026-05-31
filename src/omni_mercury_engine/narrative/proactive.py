@@ -513,17 +513,14 @@ class ProactiveMonitor:
         confidence = detection_result.get("confidence", 0.5)
         severity = detection_result.get("severity", 0.0)
 
-        # Generate summary based on type
         summary = self._generate_initiative_summary(
             initiative_type, anomaly_score, severity, domain
         )
 
-        # Generate recommendations
         recommendations = self._generate_initiative_recommendations(
             initiative_type, severity, confidence, domain
         )
 
-        # Determine priority
         priority = self._calculate_priority(initiative_type, severity, confidence, vigilance)
 
         event = InitiativeEvent(

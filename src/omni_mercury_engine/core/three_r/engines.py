@@ -249,7 +249,6 @@ class ResonanceEngine:
         if total_energy == 0:
             return 0.5
 
-        # Find dominant frequencies
         dominant_idx = magnitudes > np.mean(magnitudes)
         harmonic_energy = np.sum(magnitudes[dominant_idx] ** 2)
 

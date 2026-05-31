@@ -130,7 +130,6 @@ class BCMParameters:
         recent = activity_history[-100:]  # Use last 100 activities
         mean_activity_p = np.mean([y**self.p for y in recent])
 
-        # Update theta toward this value
         alpha = 1.0 / self.tau_theta
         return float((1 - alpha) * current_theta + alpha * mean_activity_p)
 
@@ -258,7 +257,6 @@ class PlasticConnection:
         delta = learning_rate * strength * (1.0 - self.weight)
         self.weight = min(1.0, max(0.0, self.weight + delta))
 
-        # Update consolidation
         self.consolidation_level = min(1.0, self.consolidation_level + 0.02 * self.activation_count)
 
         return self.weight - old_weight
@@ -314,7 +312,6 @@ class CompetitiveLearning:
             if np.sum(activities) > 0:
                 activities = activities / np.sum(activities)
 
-        # Track winner
         winner = int(np.argmax(activities))
         self.winner_history.append(winner)
 
@@ -563,7 +560,6 @@ class PlasticityEngine:
         # Record spike times for future STDP
         connection.activate_pre(strength)
 
-        # Compute STDP delta
         delta_t = (t_post - t_pre) * 1000  # Convert to ms
 
         # Only apply if spikes are close enough in time
@@ -595,7 +591,6 @@ class PlasticityEngine:
         new_theta = self.bcm_params.compute_theta(post_history, current_theta)
         self._bcm_thresholds[target] = new_theta
 
-        # Compute BCM weight change
         pre_activity = strength
         post_activity = post_history[-1] if post_history else strength
 
@@ -660,7 +655,6 @@ class PlasticityEngine:
                     0.01, self.learning_rate * (1 - self._recent_error_rate * 0.5)
                 )
 
-            # Update BCM learning rate
             self.bcm_params.eta = self._global_learning_rate
 
     def query_association(
@@ -732,7 +726,6 @@ class PlasticityEngine:
         with self._lock:
             connections_made = []
 
-            # Compute similarities
             similarities = []
             for known_id, known_vector in existing_patterns.items():
                 if np.linalg.norm(feature_vector) > 0 and np.linalg.norm(known_vector) > 0:

@@ -201,7 +201,6 @@ class DataTransformer:
             f"mercury_anomaly_confidence{{{labels}}} {event.confidence}",
         ]
 
-        # Add custom metrics
         for metric_name, metric_value in event.metrics.items():
             safe_name = metric_name.replace(".", "_").replace("-", "_")
             lines.append(f"mercury_{safe_name}{{{labels}}} {metric_value}")
@@ -429,7 +428,6 @@ class HTTPPlatformAdapter(PlatformAdapter):
 
             headers = dict(self.config.headers)
 
-            # Add authentication headers
             if self.config.auth_type == "api_key":
                 api_key = self.config.credentials.get("api_key", "")
                 headers["Authorization"] = f"Bearer {api_key}"
@@ -864,7 +862,6 @@ class CrossPlatformHub:
                 logger.error(f"Failed to publish to {platform_name}: {e}")
                 results[platform_name] = False
 
-        # Store for correlation
         if self.enable_correlation:
             async with self._lock:
                 self._event_buffer.append(event)
@@ -921,11 +918,9 @@ class CrossPlatformHub:
         Returns:
             Publication results per platform
         """
-        # Extract arrays from result
         scores = np.asarray(result.get("scores", [0.0]))
         is_anomaly = np.asarray(result.get("is_anomaly", [False]))
 
-        # Create events for anomalies or all points
         events = []
         for i in range(len(scores)):
             if is_anomaly[i]:  # Only create events for anomalies
@@ -1040,7 +1035,6 @@ def create_default_hub() -> CrossPlatformHub:
     """
     hub = CrossPlatformHub()
 
-    # Add default route (all events to all platforms)
     hub.add_route("*", [])
 
     return hub

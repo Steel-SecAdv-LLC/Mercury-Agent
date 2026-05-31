@@ -667,7 +667,6 @@ class FinancialService:
         change = price - previous_close
         change_percent = (change / previous_close * 100) if previous_close else 0
 
-        # Get OHLCV from indicators
         opens = indicators.get("open", [])
         highs = indicators.get("high", [])
         lows = indicators.get("low", [])
@@ -705,7 +704,6 @@ class FinancialService:
         """
         self._call_count += 1
 
-        # Check cache first
         cached = self._get_cached(symbol)
         if cached:
             return cached

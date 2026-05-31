@@ -526,7 +526,6 @@ class GDPRCompliance:
         """
         compliant, violation_strings = self.check_gdpr_compliance(context)
 
-        # Convert string violations to detailed objects
         violations = []
         for v_str in violation_strings:
             # Parse article from violation string

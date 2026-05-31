@@ -318,7 +318,6 @@ class RequestRouter:
             params = route.match(path)
             if params is not None:
                 if method in route.methods or "*" in route.methods:
-                    # Update metrics
                     route_key = f"{route.methods[0]}:{route.pattern}"
                     self._route_hits[route_key] = self._route_hits.get(route_key, 0) + 1
 

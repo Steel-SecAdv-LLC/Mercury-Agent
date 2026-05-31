@@ -445,12 +445,10 @@ class IPBEngine:
             # Determine threat category
             category = self._categorize_threat(report)
 
-            # Extract capabilities
             capabilities = report.get("capabilities", [])
             if not capabilities:
                 capabilities = self._infer_capabilities(report, domain)
 
-            # Calculate overall rating
             rating = self._calculate_threat_rating(report, domain)
 
             threat = ThreatCapability(
@@ -543,16 +541,13 @@ class IPBEngine:
         # Phase 4: Determine
         coas = self.determine_coas(domain, threats)
 
-        # Generate PIRs and collection priorities
         pirs = self._generate_pirs(threats, coas)
         collection = self._prioritize_collection(pirs, threats)
 
-        # Update running estimate
         running_estimate = {}
         if self.enable_running_estimates:
             running_estimate = self._update_running_estimate(domain, threats, coas)
 
-        # Calculate overall confidence
         confidence = self._calculate_assessment_confidence(effects, threats, coas)
 
         assessment = BattlefieldAssessment(
@@ -689,7 +684,6 @@ class IPBEngine:
             probability = 0.4
             impact = 0.8
 
-        # Generate phases
         phases = [
             {
                 "phase": "Preparation",
@@ -712,7 +706,6 @@ class IPBEngine:
             f"targeting_of_{environment.domain.value if environment else 'assets'}",
         ]
 
-        # Generate countermeasures
         countermeasures = [f"block_{cap.replace(' ', '_')}" for cap in threat.capabilities[:3]] + [
             "increase_monitoring",
             "activate_defenses",

@@ -302,7 +302,6 @@ class SecureHashChain:
 
             event_hash = self._hmac_hash(hash_input)
 
-            # Update chain state
             self._previous_hash = event_hash
             self._sequence_number += 1
 
@@ -452,7 +451,6 @@ class SecureAuditLogger:
         Returns:
             Event ID
         """
-        # Generate event ID
         event_id = f"AE-{secrets.token_hex(8)}"
 
         # Mask PII in details
@@ -780,7 +778,6 @@ class SecureAuditLogger:
         if severity:
             events = [e for e in events if e["severity"] == severity.value]
 
-        # Return most recent
         return events[-count:]
 
     def shutdown(self) -> None:

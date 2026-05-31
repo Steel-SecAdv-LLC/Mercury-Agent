@@ -642,9 +642,8 @@ class SolarDynamicsLoader(DatasetLoader):
         rows = []
 
         for record in data:
-            # Extract flux values (short and long wavelength)
             xray_short = record.get("flux", 0) or 0
-            # Some records have both, some have one
+            # Some records carry only short-wavelength flux; reuse it for long.
             xray_long = record.get("observed_flux", xray_short) or xray_short
 
             rows.append([xray_short, xray_long])

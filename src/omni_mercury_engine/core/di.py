@@ -172,7 +172,6 @@ class ServiceContainer:
             if service_type not in self._services:
                 raise ServiceNotFoundError(f"Service {service_type.__name__} is not registered")
 
-            # Check for circular dependencies
             if service_type in self._resolution_stack:
                 chain = " -> ".join(t.__name__ for t in self._resolution_stack)
                 raise CircularDependencyError(
@@ -181,28 +180,23 @@ class ServiceContainer:
 
             descriptor = self._services[service_type]
 
-            # Return existing singleton instance
             if descriptor.lifecycle == Lifecycle.SINGLETON and descriptor.instance:
                 return cast("T", descriptor.instance)
 
-            # Return scoped instance if exists
             if descriptor.lifecycle == Lifecycle.SCOPED and scope_id:
                 if scope_id in self._scoped_instances:
                     if service_type in self._scoped_instances[scope_id]:
                         return cast("T", self._scoped_instances[scope_id][service_type])
 
-            # Create new instance
             self._resolution_stack.add(service_type)
             try:
                 instance = self._create_instance(descriptor)
             finally:
                 self._resolution_stack.discard(service_type)
 
-            # Store singleton instance
             if descriptor.lifecycle == Lifecycle.SINGLETON:
                 descriptor.instance = instance
 
-            # Store scoped instance
             if descriptor.lifecycle == Lifecycle.SCOPED and scope_id:
                 if scope_id not in self._scoped_instances:
                     self._scoped_instances[scope_id] = {}

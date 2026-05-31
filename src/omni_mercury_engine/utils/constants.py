@@ -124,7 +124,6 @@ class MathConstant:
         elif precision == Precision.FLOAT64:
             return np.float64(self.value)
         elif precision == Precision.ARBITRARY and MPMATH_AVAILABLE:
-            # Return high-precision version
             return mpmath.mpf(str(self.value))
         return self.value
 

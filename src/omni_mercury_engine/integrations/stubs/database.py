@@ -116,7 +116,6 @@ class DatabaseStub:
         self._error_count = 0
         self._total_latency = 0.0
 
-        # Initialize default tables
         self._init_default_tables()
 
     def _init_default_tables(self) -> None:
@@ -163,11 +162,9 @@ class DatabaseStub:
         # Very basic SQL parsing
         query_upper = query.upper()
 
-        # Extract table name
         from_match = re.search(r"FROM\s+(\w+)", query_upper)
         table = from_match.group(1).lower() if from_match else ""
 
-        # Extract columns
         select_match = re.search(r"SELECT\s+(.*?)\s+FROM", query_upper)
         if select_match:
             cols_str = select_match.group(1)
@@ -178,7 +175,6 @@ class DatabaseStub:
         else:
             columns = []
 
-        # Extract WHERE clause
         where_match = re.search(r"WHERE\s+(.+?)(?:ORDER|LIMIT|$)", query_upper)
         where_clause = where_match.group(1).strip() if where_match else None
 
@@ -293,7 +289,7 @@ class DatabaseStub:
             if match:
                 table_name = match.group(1).lower()
                 columns_str = match.group(2)
-                # Parse column names (ignore types)
+                # column names only; types ignored
                 columns = []
                 for col_def in columns_str.split(","):
                     col_name = col_def.strip().split()[0].lower()
@@ -324,7 +320,6 @@ class DatabaseStub:
                 table_name = match.group(1).lower()
                 columns = [c.strip().lower() for c in match.group(2).split(",")]
                 values_str = match.group(3)
-                # Parse values (handle strings and numbers)
                 values: list[str | int | float | None] = []
                 for v in values_str.split(","):
                     v = v.strip()
@@ -340,7 +335,6 @@ class DatabaseStub:
                                 values.append(int(v))
                         except ValueError:
                             values.append(v)
-                # Create row
                 if table_name in self._tables:
                     row = dict(zip(columns, values))
                     self._tables[table_name].append(row)
@@ -832,7 +826,6 @@ class AsyncDatabase:
 
         elapsed = (datetime.now() - start_time).total_seconds() * 1000
 
-        # Convert Row objects to dicts
         if rows:
             columns = list(rows[0].keys())
             result_rows = [dict(row) for row in rows]

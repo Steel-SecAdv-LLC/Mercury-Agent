@@ -775,7 +775,6 @@ class MercuryVoice:
         """Build message from detection narrative."""
         parts = []
 
-        # Summary
         parts.append(narrative.summary)
 
         # Key reasoning if available
@@ -788,7 +787,6 @@ class MercuryVoice:
         if narrative.historical_context:
             parts.append(narrative.historical_context)
 
-        # Confidence
         parts.append(f"Confidence: {narrative.confidence_score:.0%}.")
 
         # Top recommendation

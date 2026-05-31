@@ -184,7 +184,6 @@ class SyntheticDataGenerator:
         """
         X = self.rng.standard_normal((n_samples, n_features))
 
-        # Add temporal correlations
         for i in range(1, n_samples):
             X[i] = 0.7 * X[i - 1] + 0.3 * X[i]
 

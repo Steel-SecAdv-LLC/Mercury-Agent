@@ -517,7 +517,6 @@ class CorticalColumn(nn.Module):
             layer_dims[CorticalLayer.INTERNAL_GRANULAR],
         )
 
-        # Output projection
         self.output_proj = nn.Linear(
             layer_dims[CorticalLayer.INTERNAL_PYRAMIDAL], config.output_dim
         )
@@ -872,7 +871,6 @@ class NisslAnalyzer:
             # Concatenate all batches
             all_acts = torch.cat(activations, dim=0)
 
-            # Compute metrics
             sparsity = (all_acts.abs() < 0.01).float().mean().item()
             mean_act = all_acts.mean().item()
             std_act = all_acts.std().item()

@@ -655,7 +655,6 @@ class FeedbackProcessor:
         credit = credits[index] if index < len(credits) else 0.0
         is_positive = credit > 0 or step.reward > 0
 
-        # Calculate weight
         weight = 1.0
         if self.weight_by_quality:
             weight = self._quality_weights.get(sequence.feedback_quality, 0.5)
@@ -925,7 +924,6 @@ class ChainOfHindsightEngine:
         self._sequence_counter += 1
         sequence_id = f"seq_{self._sequence_counter:06d}"
 
-        # Calculate total reward
         total_reward = sum(step.reward for step in steps)
 
         sequence = HistoricalSequence(
@@ -937,7 +935,6 @@ class ChainOfHindsightEngine:
             outcome=outcome,
         )
 
-        # Store sequence
         self._sequences.append(sequence)
         self._sequence_index[sequence_id] = len(self._sequences) - 1
 
@@ -1034,7 +1031,6 @@ class ChainOfHindsightEngine:
         if len(self._accumulated_signals) < min_signals:
             return []
 
-        # Aggregate signals by pattern
         aggregated = self.feedback_processor.aggregate_signals(self._accumulated_signals)
 
         updates: list[PolicyUpdate] = []
@@ -1068,7 +1064,6 @@ class ChainOfHindsightEngine:
         Returns:
             Recommendation or None
         """
-        # Find relevant policy updates
         relevant_updates = [
             u for u in self._policy_updates if self._context_matches(context, u.context_pattern)
         ]
@@ -1076,7 +1071,6 @@ class ChainOfHindsightEngine:
         if not relevant_updates:
             return None
 
-        # Return highest confidence update
         best_update = max(relevant_updates, key=lambda u: u.confidence * u.evidence_count)
 
         return {
@@ -1123,7 +1117,6 @@ class ChainOfHindsightEngine:
         if not self._sequences:
             return {"status": "no_data"}
 
-        # Analyze sequences
         total_reward = sum(s.total_reward for s in self._sequences)
         avg_reward = total_reward / len(self._sequences)
 
@@ -1161,7 +1154,6 @@ class ChainOfHindsightEngine:
         training_data = []
 
         for seq in self._sequences:
-            # Format: sequence with feedback annotations
             example = {
                 "sequence_id": seq.sequence_id,
                 "type": seq.sequence_type.value,
@@ -1191,7 +1183,6 @@ class ChainOfHindsightEngine:
         self._update_counter += 1
         update_id = f"update_{self._update_counter:06d}"
 
-        # Analyze signals
         positive_actions: list[str] = []
         negative_actions: list[str] = []
         total_weight = 0.0
@@ -1216,10 +1207,8 @@ class ChainOfHindsightEngine:
         most_common_positive = pos_counter.most_common(1)[0][0] if pos_counter else ""
         most_common_negative = neg_counter.most_common(1)[0][0] if neg_counter else ""
 
-        # Calculate confidence
         confidence = min(0.95, 0.5 + len(signals) * 0.05)
 
-        # Calculate expected improvement
         avg_weight = total_weight / len(signals)
         expected_improvement = avg_weight * self.learning_rate
 
@@ -1315,13 +1304,11 @@ class ChainOfHindsightEngine:
         self._stats["sequences_recorded"] += 1
         self._stats["signals_generated"] += len(signals)
 
-        # Update averages
         n = self._stats["sequences_recorded"]
         self._stats["avg_sequence_length"] = (
             self._stats["avg_sequence_length"] * (n - 1) + len(sequence)
         ) / n
 
-        # Update positive feedback ratio
         positive = (
             1
             if sequence.feedback_quality in [FeedbackQuality.GOOD, FeedbackQuality.EXCELLENT]
@@ -1429,7 +1416,6 @@ class AnomalyChainOfHindsight:
         Returns:
             Threshold adjustment recommendation
         """
-        # Analyze recent sequences
         recent_sequences = list(self.engine._sequences)[-50:]
         if not recent_sequences:
             return {"recommendation": "maintain", "confidence": 0.5}
@@ -1480,7 +1466,6 @@ class AnomalyChainOfHindsight:
         if not history:
             return {"pattern_insights": [], "threshold_recommendations": []}
 
-        # Analyze patterns in history
         scores = []
         labels = []
         for entry in history:
@@ -1491,12 +1476,10 @@ class AnomalyChainOfHindsight:
             if label is not None:
                 labels.append((score, label))
 
-        # Generate insights
         pattern_insights = []
         threshold_recommendations = []
 
         if labels:
-            # Analyze false positives and negatives
             fp_scores = [s for s, label in labels if s > 0.5 and not label]
             fn_scores = [s for s, label in labels if s <= 0.5 and label]
 

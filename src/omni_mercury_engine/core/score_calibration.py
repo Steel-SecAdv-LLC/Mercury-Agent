@@ -266,7 +266,6 @@ class ScoreDiagnostics:
         if len(scores) < min_samples:
             raise ValueError(f"Need at least {min_samples} samples, got {len(scores)}")
 
-        # Check for NaN/Inf
         n_invalid = np.sum(~np.isfinite(scores))
         if n_invalid > 0:
             logger.warning(
@@ -304,7 +303,6 @@ class ScoreDiagnostics:
         if labels.dtype not in (np.int32, np.int64, np.uint8, np.bool_):
             labels = labels.astype(np.int32)
 
-        # Validate binary
         unique_vals = np.unique(labels)
         if not np.all(np.isin(unique_vals, [0, 1])):
             raise ValueError(f"Labels must be binary (0 or 1), got unique values: {unique_vals}")
@@ -631,7 +629,6 @@ class AutoThresholdOptimizer:
                 confidence=0.0,
             )
 
-        # Handle AUTO method
         if method == CalibrationMethod.AUTO:
             method, confidence = self._select_best_method(scores, labels)
         else:
@@ -770,7 +767,6 @@ class AutoThresholdOptimizer:
         # Normalize to [0, 255] for histogram
         normalized = ((scores - score_min) / (score_max - score_min) * 255).astype(np.int32)
 
-        # Compute histogram
         hist, _ = np.histogram(normalized, bins=256, range=(0, 256))
         hist = hist.astype(np.float64)
         total = hist.sum()
@@ -1437,7 +1433,6 @@ class ThresholdConfidenceIntervalCalculator:
         if n < 20:
             logger.warning(f"Only {n} samples - CI may be unreliable. Consider >= 100 samples.")
 
-        # Initialize RNG
         rng = np.random.default_rng(self.random_state)
 
         # Compute point estimate
@@ -1710,7 +1705,6 @@ class LabelSmoothingCalibrator:
         labels = np.asarray(labels).flatten().astype(np.float64)
         predictions = np.asarray(predictions).flatten()
 
-        # Apply label smoothing
         smoothed = self.smooth(labels)
 
         # Temperature-scaled predictions

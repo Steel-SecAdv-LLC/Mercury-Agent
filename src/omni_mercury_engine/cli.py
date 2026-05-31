@@ -472,7 +472,6 @@ def physics_spectral(
             SpectralVibrationDetector,
         )
 
-        # Map mode string to enum
         mode_map = {
             "comprehensive": SpectralAnalysisMode.HYBRID_FUSION,
             "fft_only": SpectralAnalysisMode.FFT_STANDARD,
@@ -493,10 +492,8 @@ def physics_spectral(
         # Fit on the data (self-supervised for single-sample analysis)
         detector.fit(data.flatten() if data.ndim > 1 else data)
 
-        # Detect anomalies
         result = detector.detect(data.flatten() if data.ndim > 1 else data)
 
-        # Format output
         output_data = {
             "detector": "SpectralVibrationDetector",
             "mode": mode,
@@ -565,14 +562,11 @@ def physics_dynamics(
         detector = AccelerationDynamicsDetector(config)
         data = _load_data(input)
 
-        # Fit on the data
         signal = data.flatten() if data.ndim > 1 else data
         detector.fit(signal)
 
-        # Detect anomalies
         result = detector.detect(signal)
 
-        # Format output
         output_data = {
             "detector": "AccelerationDynamicsDetector",
             "is_anomaly": result.get("is_anomaly", False),
@@ -645,7 +639,6 @@ def physics_uiux(
 
         detector = UIUXAnomalyDetector(config)
 
-        # Load interaction data
         with open(input) as f:
             raw_data = json.load(f)
 
@@ -681,11 +674,9 @@ def physics_uiux(
             click.echo("Error: Need at least 5 interactions for analysis")
             raise SystemExit(1)
 
-        # Fit and detect
         detector.fit(interactions)
         result = detector.detect(interactions)
 
-        # Format output
         click_analysis = result.get("click_analysis")
         scroll_analysis = result.get("scroll_analysis")
         nav_analysis = result.get("navigation_analysis")
@@ -787,12 +778,10 @@ def physics_integrated(
             UserInteraction,
         )
 
-        # Parse fusion weights
         weights = [float(w) for w in fusion_weights.split(",")]
         if len(weights) != 3:
             weights = [0.4, 0.3, 0.3]
 
-        # Determine which detectors to enable
         enabled_detectors = []
         if spectral_input:
             enabled_detectors.append(PhysicsDetectorType.SPECTRAL_VIBRATION)
@@ -813,7 +802,6 @@ def physics_integrated(
 
         detector = AdvancedPhysicsIntegratedDetector(config)
 
-        # Load data for each input type
         spectral_data = None
         dynamics_data = None
         uiux_data = None
@@ -852,7 +840,6 @@ def physics_integrated(
                 )
                 uiux_data.append(interaction)
 
-        # Fit the detector
         fit_data = {
             "spectral": spectral_data,
             "dynamics": dynamics_data,
@@ -860,7 +847,6 @@ def physics_integrated(
         }
         detector.fit(fit_data)
 
-        # Detect anomalies
         detect_data = {
             "spectral": spectral_data,
             "dynamics": dynamics_data,
@@ -868,7 +854,6 @@ def physics_integrated(
         }
         result = detector.detect(detect_data)
 
-        # Format output
         output_data = {
             "detector": "AdvancedPhysicsIntegratedDetector",
             "is_anomaly": result.get("is_anomaly", False),
@@ -880,7 +865,6 @@ def physics_integrated(
             "three_r_alignment": result.get("three_r_alignment", {}),
         }
 
-        # Add individual detector results
         if "spectral_result" in result:
             output_data["detector_results"]["spectral"] = {
                 "anomaly_score": float(result["spectral_result"].get("anomaly_score", 0.0)),
@@ -1082,7 +1066,6 @@ def _start_voice_conversation(
     offline: bool,
 ) -> None:
     """Start the interactive voice conversation loop."""
-    # Print banner
     click.echo("\n" + "=" * 60)
     click.echo("  Mercury Agent - Interactive Voice Interface")
     click.echo("=" * 60)
@@ -1092,7 +1075,6 @@ def _start_voice_conversation(
     voice_instance: Any
     llm_chain: Any = None
 
-    # Try to import voice module
     try:
         from omni_mercury_engine.models.foundation.ollama_adapter import (
             FallbackLLMChain,
@@ -1109,7 +1091,6 @@ def _start_voice_conversation(
 
         voice_instance = create_mercury_voice()
 
-        # Print LLM status
         chain_status = llm_chain.get_chain_status()
         active = chain_status["active"]
         click.echo(f"  LLM: {active}")
@@ -1130,7 +1111,6 @@ def _start_voice_conversation(
     click.echo()
     click.echo("-" * 60)
 
-    # Print greeting
     try:
         greeting = voice_instance.greet(domain=domain)
         if hasattr(greeting, "message"):
@@ -1140,10 +1120,8 @@ def _start_voice_conversation(
     except Exception:
         click.echo("\nMercury: Hello. Mercury Agent ready for conversation.\n")
 
-    # Conversation loop
     while True:
         try:
-            # Get user input
             user_input = click.prompt(
                 click.style("You", fg="cyan"),
                 default="",
@@ -1153,7 +1131,6 @@ def _start_voice_conversation(
             if not user_input.strip():
                 continue
 
-            # Handle commands
             if user_input.startswith("/"):
                 command = user_input.lower().strip()
 
@@ -1178,7 +1155,6 @@ def _start_voice_conversation(
                     click.echo("Type /help for available commands.\n")
                     continue
 
-            # Process user message
             try:
                 response = voice_instance.speak(user_input, domain=domain)
 
@@ -1189,7 +1165,6 @@ def _start_voice_conversation(
                     message = response.get("message", "I received your message.")
                     confidence = response.get("confidence")
 
-                # Format response
                 click.echo()
                 click.echo(click.style("Mercury: ", fg="green") + message)
 

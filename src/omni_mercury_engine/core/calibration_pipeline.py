@@ -703,7 +703,6 @@ class ThresholdCalibrationPipeline:
         else:
             raise ValueError(f"Unknown calibration strategy: {method}")
 
-        # Update registry
         self._thresholds[threshold_name] = ThresholdRecord(
             name=threshold_name,
             value=best_threshold,

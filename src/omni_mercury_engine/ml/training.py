@@ -1054,7 +1054,6 @@ class ThreeRAnomalyTrainer(_LightningBase):  # type: ignore[misc, valid-type]
         """Training step with Lyapunov-constrained loss and supervised signal."""
         x, labels = batch
 
-        # Forward pass
         output = self.forward(x)
 
         # Compute loss WITH labels for supervised signal (critical for accuracy)
@@ -1092,7 +1091,6 @@ class ThreeRAnomalyTrainer(_LightningBase):  # type: ignore[misc, valid-type]
         """Validation step with metric computation."""
         x, labels = batch
 
-        # Forward pass
         output = self.forward(x)
 
         # Compute loss with labels for consistency

@@ -397,7 +397,6 @@ class MedicalFeatureExtractor(BaseDomainExtractor):
         # Combine all features
         features = np.concatenate(all_features) if all_features else np.array([])
 
-        # Handle NaN/Inf values
         features = np.nan_to_num(features, nan=0.0, posinf=1.0, neginf=-1.0)
 
         extraction_time = (time.perf_counter() - start_time) * 1000
@@ -685,7 +684,6 @@ class FinancialFeatureExtractor(BaseDomainExtractor):
         # Combine all features
         features = np.concatenate(all_features) if all_features else np.array([])
 
-        # Handle NaN/Inf values
         features = np.nan_to_num(features, nan=0.0, posinf=1.0, neginf=-1.0)
 
         extraction_time = (time.perf_counter() - start_time) * 1000
@@ -782,7 +780,6 @@ class FinancialFeatureExtractor(BaseDomainExtractor):
                 "benford_suspicious_digits",
             ]
 
-        # Extract first digits
         first_digits = []
         for amount in abs_amounts:
             digit_str = f"{amount:.10f}".lstrip("0").lstrip(".")
@@ -1141,7 +1138,6 @@ class InfrastructureFeatureExtractor(BaseDomainExtractor):
         # Combine all features
         features = np.concatenate(all_features) if all_features else np.array([])
 
-        # Handle NaN/Inf values
         features = np.nan_to_num(features, nan=0.0, posinf=1.0, neginf=-1.0)
 
         extraction_time = (time.perf_counter() - start_time) * 1000
@@ -1243,7 +1239,6 @@ class InfrastructureFeatureExtractor(BaseDomainExtractor):
             corr_matrix = np.corrcoef(data.T)
         corr_matrix = np.nan_to_num(corr_matrix, nan=0.0)
 
-        # Extract upper triangle (excluding diagonal)
         upper_tri = np.triu_indices(n_vars, k=1)
         correlations = corr_matrix[upper_tri]  # type: ignore[index, unused-ignore]
 

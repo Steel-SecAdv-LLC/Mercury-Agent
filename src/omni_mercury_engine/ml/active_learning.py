@@ -153,12 +153,10 @@ class UncertaintySampler(BaseSampler):
         # Clip to avoid log(0)
         probs = np.clip(probs, 1e-10, 1 - 1e-10)
 
-        # Binary entropy
         if probs.ndim == 1 or probs.shape[1] == 1:
             p = probs.flatten()
             return -(p * np.log(p) + (1 - p) * np.log(1 - p))
 
-        # Multi-class entropy
         return -np.sum(probs * np.log(probs), axis=1)
 
     def _compute_margin(self, probs: NDArray[np.float64]) -> NDArray[np.float64]:
@@ -167,7 +165,6 @@ class UncertaintySampler(BaseSampler):
             p = probs.flatten()
             return 1 - np.abs(2 * p - 1)  # Uncertainty = 1 - margin
 
-        # Sort probabilities
         sorted_probs = np.sort(probs, axis=1)
         margin = sorted_probs[:, -1] - sorted_probs[:, -2]
         return 1 - margin  # Uncertainty = 1 - margin
@@ -210,15 +207,12 @@ class UncertaintySampler(BaseSampler):
         Returns:
             QueryBatch with selected samples
         """
-        # Get probabilities
         if hasattr(model, "predict_proba"):
             probs = model.predict_proba(X_unlabeled)
         elif hasattr(model, "decision_function"):
-            # Convert decision function to probabilities
             scores = model.decision_function(X_unlabeled)
             probs = 1 / (1 + np.exp(-scores))
         else:
-            # Fallback to random sampling
             logger.warning("Model has no predict_proba, using random sampling")
             indices = self.rng.choice(
                 len(X_unlabeled), min(n_samples, len(X_unlabeled)), replace=False
@@ -232,10 +226,8 @@ class UncertaintySampler(BaseSampler):
                 strategy=self.strategy,
             )
 
-        # Compute uncertainty
         uncertainties = self.compute_uncertainty(probs)
 
-        # Select top uncertain samples
         n_select = min(n_samples, len(X_unlabeled))
         top_indices = np.argsort(uncertainties)[-n_select:][::-1]
 
@@ -278,7 +270,6 @@ class DiversitySampler(BaseSampler):
             # No reference - all samples equally diverse
             return np.ones(len(X_candidates))
 
-        # Compute distances to reference points
         distances = cdist(X_candidates, X_reference, metric=self.distance_metric)
 
         # Diversity = minimum distance to any reference point
@@ -309,20 +300,17 @@ class DiversitySampler(BaseSampler):
         selected_indices = []
         selected_features = []
 
-        # Initialize reference set with labeled samples
         if X_labeled is not None and len(X_labeled) > 0:
             reference = X_labeled.copy()
         else:
             reference = np.empty((0, X_unlabeled.shape[1]))
 
-        # Greedy selection
         remaining_indices = list(range(len(X_unlabeled)))
 
         for _ in range(n_select):
             if not remaining_indices:
                 break
 
-            # Compute diversity to current reference set
             X_remaining = X_unlabeled[remaining_indices]
             if len(reference) == 0:
                 # First selection - pick centroid-nearest
@@ -333,18 +321,15 @@ class DiversitySampler(BaseSampler):
                 diversity = self.compute_diversity(X_remaining, reference)
                 best_idx = np.argmax(diversity)
 
-            # Add to selected
             original_idx = remaining_indices[best_idx]
             selected_indices.append(original_idx)
             selected_features.append(X_unlabeled[original_idx])
 
-            # Update reference and remaining
             reference = np.vstack([reference, X_unlabeled[original_idx : original_idx + 1]])
             remaining_indices.pop(best_idx)
 
         selected_features_array = np.array(selected_features)
 
-        # Compute final diversity scores
         diversity_scores = (
             self.compute_diversity(selected_features_array, X_labeled).tolist()
             if X_labeled is not None
@@ -410,22 +395,18 @@ class HybridSampler(BaseSampler):
         Returns:
             QueryBatch with selected samples
         """
-        # Prefilter by uncertainty
         prefilter_n = min(int(n_samples * self.prefilter_ratio), len(X_unlabeled))
 
         uncertainty_batch = self.uncertainty_sampler.select(model, X_unlabeled, prefilter_n)
 
-        # Select from prefiltered using diversity
         X_prefiltered = uncertainty_batch.features
         prefiltered_indices = uncertainty_batch.indices
 
         if len(X_prefiltered) <= n_samples:
             return uncertainty_batch
 
-        # Compute diversity within prefiltered set
         diversity_scores = self.diversity_sampler.compute_diversity(X_prefiltered, X_labeled)
 
-        # Normalize scores
         uncertainties = np.array(uncertainty_batch.uncertainties)
         uncertainties_norm = (uncertainties - uncertainties.min()) / (
             uncertainties.max() - uncertainties.min() + 1e-10
@@ -434,12 +415,10 @@ class HybridSampler(BaseSampler):
             diversity_scores.max() - diversity_scores.min() + 1e-10
         )
 
-        # Combined score
         combined_scores = (
             self.uncertainty_weight * uncertainties_norm + self.diversity_weight * diversity_norm
         )
 
-        # Select top combined scores
         top_k = min(n_samples, len(combined_scores))
         top_local_indices = np.argsort(combined_scores)[-top_k:][::-1]
 
@@ -496,12 +475,10 @@ class QueryByCommitteeSampler(BaseSampler):
         n_samples = len(X_labeled)
 
         for _ in range(self.n_committee):
-            # Bootstrap sample
             indices = self.rng.choice(n_samples, n_samples, replace=True)
             X_boot = X_labeled[indices]
             y_boot = y_labeled[indices]
 
-            # Clone and train model
             try:
                 from omni_mercury_engine.ml.mercury_ml import clone
 
@@ -520,7 +497,6 @@ class QueryByCommitteeSampler(BaseSampler):
         X: NDArray[np.float64],
     ) -> NDArray[np.float64]:
         """Compute disagreement among committee members."""
-        # Collect predictions from all committee members
         predictions = []
         for model in committee:
             if hasattr(model, "predict_proba"):
@@ -596,13 +572,9 @@ class QueryByCommitteeSampler(BaseSampler):
                 strategy=SamplingStrategy.QUERY_BY_COMMITTEE,
             )
 
-        # Train committee
         committee = self._train_committee(model, X_labeled, y_labeled)
-
-        # Compute disagreement
         disagreement = self._compute_disagreement(committee, X_unlabeled)
 
-        # Select highest disagreement
         n_select = min(n_samples, len(X_unlabeled))
         top_indices = np.argsort(disagreement)[-n_select:][::-1]
 
@@ -653,10 +625,8 @@ class ActiveLearner:
         self.retrain_interval = retrain_interval
         self.rng = np.random.default_rng(random_state)
 
-        # Create sampler
         self.sampler = self._create_sampler()
 
-        # State tracking
         self._labeled_indices: list[int] = []
         self._labeled_X: list[NDArray[np.float64]] = []
         self._labeled_y: list[int] = []
@@ -803,14 +773,12 @@ class ActiveLearner:
             else:
                 indices = self.rng.choice(len(X), n_initial, replace=False).tolist()
 
-        # If labels provided, add to labeled set
         if y is not None:
             for idx in indices:
                 self._labeled_indices.append(idx)
                 self._labeled_X.append(X[idx])
                 self._labeled_y.append(int(y[idx]))
 
-            # Train initial model
             if len(self._labeled_y) > 0:
                 self._train_model()
 
@@ -837,7 +805,6 @@ class ActiveLearner:
         X = np.array(self._labeled_X)
         y = np.array(self._labeled_y)
 
-        # Check for both classes
         if len(np.unique(y)) < 2:
             logger.warning(
                 "Labeled set contains a single class (%s); model fit skipped. "
@@ -880,7 +847,6 @@ class ActiveLearner:
         if exclude_indices is None:
             exclude_indices = self._labeled_indices
 
-        # Create mask for unlabeled samples
         mask = np.ones(len(X_pool), dtype=bool)
         # Validate and filter exclude_indices to be within bounds
         if exclude_indices:
@@ -907,11 +873,9 @@ class ActiveLearner:
 
         X_unlabeled = X_pool[unlabeled_indices]
 
-        # Get labeled data for diversity computation
         X_labeled = np.array(self._labeled_X) if self._labeled_X else None
         y_labeled = np.array(self._labeled_y) if self._labeled_y else None
 
-        # Select samples
         n_to_select = min(self.batch_size, self.budget - self._queries_made)
         n_to_select = max(0, n_to_select)
 
@@ -954,7 +918,6 @@ class ActiveLearner:
         else:
             batch = self.sampler.select(self.model, X_unlabeled, n_to_select, X_labeled)
 
-        # Map back to original indices
         original_indices = [int(unlabeled_indices[i]) for i in batch.indices]
         batch.indices = original_indices
 
@@ -981,7 +944,6 @@ class ActiveLearner:
 
         self._iterations += 1
 
-        # Retrain if interval reached
         if self._iterations % self.retrain_interval == 0:
             self._train_model()
 
@@ -1054,19 +1016,14 @@ class ActiveLearner:
         max_iter = max_iterations or (self.budget // self.batch_size + 1)
 
         while iteration < max_iter and self._queries_made < self.budget:
-            # Select samples
             batch = self.query(X_pool)
 
             if len(batch) == 0:
                 break
 
-            # Get labels from oracle
             labels = oracle(batch)
-
-            # Update with labels
             self.update(labels, X_pool)
 
-            # Evaluate if test set provided
             if X_test is not None and y_test is not None:
                 self.evaluate(X_test, y_test)
 
@@ -1106,7 +1063,6 @@ def create_active_learner(
     return ActiveLearner(model=model, strategy=s, **kwargs)
 
 
-# Exports
 __all__ = [
     "ActiveLearner",
     "ActiveLearningState",

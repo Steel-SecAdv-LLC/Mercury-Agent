@@ -239,7 +239,6 @@ class MatrixProfileDetector(BaseFoundationModel):
         is_series = len(series_or_mp) > self.mp_config.window_size * 2
 
         if is_series:
-            # Compute matrix profile from series
             mp_result = self.compute_matrix_profile(series_or_mp)
             matrix_profile = mp_result["matrix_profile"]
         else:
@@ -255,7 +254,6 @@ class MatrixProfileDetector(BaseFoundationModel):
             if np.all(np.isinf(mp_copy)):
                 break
 
-            # Find max (most anomalous)
             idx = np.argmax(mp_copy)
             score = mp_copy[idx]
 
@@ -307,7 +305,6 @@ class MatrixProfileDetector(BaseFoundationModel):
         if series.ndim > 1:
             series = series.flatten()
 
-        # Compute matrix profile if not provided
         if matrix_profile is None or profile_index is None:
             mp_result = self.compute_matrix_profile(series)
             matrix_profile = mp_result["matrix_profile"]
@@ -321,7 +318,6 @@ class MatrixProfileDetector(BaseFoundationModel):
             exclusion_zone = self.mp_config.window_size // 2
 
             for _ in range(n_motifs):
-                # Find minimum (most similar pair)
                 idx = np.argmin(mp_copy)
                 partner_idx = profile_index[idx]
 
@@ -376,7 +372,6 @@ class MatrixProfileDetector(BaseFoundationModel):
 
         horizon = horizon or self.foundation_config.prediction_length
 
-        # Compute matrix profile
         mp_result = self.compute_matrix_profile(series)
 
         # Find most similar historical pattern to recent data
@@ -455,7 +450,6 @@ class MatrixProfileDetector(BaseFoundationModel):
             end = min(i + self.mp_config.window_size, len(series))
             scores[i:end] = np.maximum(scores[i:end], val)
 
-        # Normalize scores to [0, 1]
         if scores.max() > 0:
             scores = scores / scores.max()
 

@@ -229,7 +229,6 @@ class StackingFusion:
         if self.passthrough:
             meta_X = np.hstack([meta_X, X])
 
-        # Fit meta-learner
         self.meta_learner.fit(meta_X, y)
         self._fitted = True
 
@@ -603,7 +602,6 @@ class EthicallyConstrainedFusion:
         if n_detectors == 0:
             raise ValueError("Must add detectors before fitting")
 
-        # Fit all detectors and collect predictions
         detector_preds = []
 
         for name, detector in self.detectors.items():

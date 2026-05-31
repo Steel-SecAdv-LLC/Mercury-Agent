@@ -326,10 +326,8 @@ class NSLKDDLoader(DatasetLoader):
         # Extract and encode labels
         raw_labels = df["label"].str.strip()
         if self.binary_labels:
-            # Binary: 0 = normal, 1 = attack
             labels = np.array([0 if lbl == "normal" else 1 for lbl in raw_labels], dtype=np.int64)
         else:
-            # Multi-class: map to category
             labels = np.array(
                 [
                     self.CATEGORY_LABELS.get(self.ATTACK_CATEGORIES.get(lbl.strip(), "dos"), 1)
@@ -1047,12 +1045,10 @@ class CICIDSLoader(DatasetLoader):
 
         # Encode labels
         if self.binary_labels:
-            # Binary: 0 = BENIGN, 1 = any attack
             labels = np.array(
                 [0 if label == "BENIGN" else 1 for label in labels_raw], dtype=np.int64
             )
         else:
-            # Multi-class encoding
             labels = np.array([self._encode_label(label) for label in labels_raw], dtype=np.int64)
 
         # Store unique label names for metadata

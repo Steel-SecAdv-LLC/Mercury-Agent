@@ -276,7 +276,6 @@ class HealthChecker:
         if tags:
             checks_to_run = [c for c in self._checks if any(t in c.tags for t in tags)]
 
-        # Run checks concurrently
         tasks = [self.run_check(check) for check in checks_to_run]
         results = await asyncio.gather(*tasks)
 
@@ -401,7 +400,6 @@ async def check_disk() -> dict[str, Any]:
         }
 
 
-# Register default checks
 _health_checker.add_check("self", check_self, critical=True, tags=["core"])
 _health_checker.add_check("memory", check_memory, critical=False, tags=["system"])
 _health_checker.add_check("disk", check_disk, critical=False, tags=["system"])

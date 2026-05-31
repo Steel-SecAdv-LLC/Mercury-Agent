@@ -291,12 +291,10 @@ class MMDAdapter(BaseDomainAdapter):
         self.gamma = gamma
         self.n_components = n_components
 
-        # Learned components
         self.projection_matrix: NDArray[np.float64] | None = None
         self.source_mean: NDArray[np.float64] | None = None
         self.source_std: NDArray[np.float64] | None = None
 
-        # Classifier
         self._classifier: Any = None
 
     def _compute_kernel(
@@ -457,13 +455,11 @@ class CORALAdapter(BaseDomainAdapter):
         """
         self.regularization = regularization
 
-        # Learned components
         self.source_mean: NDArray[np.float64] | None = None
         self.target_mean: NDArray[np.float64] | None = None
         self.whitening_matrix: NDArray[np.float64] | None = None
         self.coloring_matrix: NDArray[np.float64] | None = None
 
-        # Classifier
         self._classifier: Any = None
 
     def _compute_cov_sqrt_inv(self, cov: NDArray[np.float64]) -> NDArray[np.float64]:
@@ -516,7 +512,6 @@ class CORALAdapter(BaseDomainAdapter):
         self.source_mean = np.mean(source_X, axis=0)
         self.target_mean = np.mean(target_X, axis=0)
 
-        # Center data
         source_centered = source_X - self.source_mean
         target_centered = target_X - self.target_mean
 
@@ -615,19 +610,16 @@ class SubspaceAlignmentAdapter(BaseDomainAdapter):
         """
         self.n_components = n_components
 
-        # Learned components
         self.source_basis: NDArray[np.float64] | None = None
         self.target_basis: NDArray[np.float64] | None = None
         self.alignment_matrix: NDArray[np.float64] | None = None
         self.source_mean: NDArray[np.float64] | None = None
         self.target_mean: NDArray[np.float64] | None = None
 
-        # Classifier
         self._classifier: Any = None
 
     def _compute_principal_subspace(self, X: NDArray[np.float64]) -> NDArray[np.float64]:
         """Compute principal subspace basis."""
-        # Center data
         X_centered = X - np.mean(X, axis=0)
 
         # SVD
@@ -803,7 +795,6 @@ class DANNAdapter(BaseDomainAdapter):
         target_y: NDArray[np.int64] | None = None,
     ) -> None:
         """Fit DANN using adversarial domain adaptation."""
-        # Normalize
         self.source_mean = np.mean(source_X, axis=0)
         self.source_std = np.std(source_X, axis=0) + 1e-10
         source_X_norm = (source_X - self.source_mean) / self.source_std
@@ -815,7 +806,6 @@ class DANNAdapter(BaseDomainAdapter):
         label_to_idx = {cls: i for i, cls in enumerate(self.classes)}
         source_y_idx = np.array([label_to_idx[y] for y in source_y])
 
-        # Initialize
         self._initialize_params(source_X.shape[1], n_classes)
 
         # Domain labels: 0 = source, 1 = target
@@ -873,7 +863,6 @@ class DANNAdapter(BaseDomainAdapter):
             d_src_feat = d_feat_from_label - self.lambda_domain * d_feat_from_domain[:batch_size]
             d_tgt_feat = -self.lambda_domain * d_feat_from_domain[batch_size:]
 
-            # ReLU backward
             d_src_feat = d_src_feat * (src_features > 0)
             d_tgt_feat = d_tgt_feat * (tgt_features > 0)
 
@@ -1011,7 +1000,6 @@ class JDAAdapter(BaseDomainAdapter):
         target_y: NDArray[np.int64] | None = None,
     ) -> None:
         """Fit JDA with iterative pseudo-labeling."""
-        # Normalize
         self.source_mean = np.mean(source_X, axis=0)
         self.source_std = np.std(source_X, axis=0) + 1e-10
         source_X_norm = (source_X - self.source_mean) / self.source_std
@@ -1323,7 +1311,6 @@ class OptimalTransportAdapter(BaseDomainAdapter):
         target_y: NDArray[np.int64] | None = None,
     ) -> None:
         """Fit optimal transport plan."""
-        # Normalize
         self.source_mean = np.mean(source_X, axis=0)
         self.source_std = np.std(source_X, axis=0) + 1e-10
         source_X_norm = (source_X - self.source_mean) / self.source_std
@@ -1616,11 +1603,9 @@ class CrossDomainTransferLearner:
         if self.feature_aligner:
             X = self.feature_aligner.align_target(X)
 
-        # Normalize
         if self.scaler is not None:
             X = self.scaler.transform(X)
 
-        # Predict
         preds = self.adapter.predict(X)
 
         # Decode labels
@@ -1678,7 +1663,6 @@ class CrossDomainTransferLearner:
         # Evaluate on target
         target_preds = self.predict(target_data.X)
 
-        # Calculate metrics
         accuracy = accuracy_score(target_data.y, target_preds)
         precision = precision_score(
             target_data.y, target_preds, average="weighted", zero_division=0

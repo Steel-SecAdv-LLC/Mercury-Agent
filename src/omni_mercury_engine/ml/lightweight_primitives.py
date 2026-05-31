@@ -295,7 +295,6 @@ class LightweightMLP:
                 bn_params["bn_mean"] = np.zeros(fan_out, dtype=np.float32)
                 bn_params["bn_var"] = np.ones(fan_out, dtype=np.float32)
 
-            # Determine activation
             if i == len(dims) - 2:
                 activation = self.config.output_activation
             else:
@@ -565,7 +564,6 @@ class IsolationScorer:
             np.float32
         )
 
-        # Normalize projections
         norms = np.linalg.norm(self._projections, axis=1, keepdims=True)
         self._projections = self._projections / (norms + 1e-10)
 
@@ -594,7 +592,6 @@ class IsolationScorer:
         if X.ndim == 1:
             X = X.reshape(1, -1)
 
-        # Project data
         projected = X @ self._projections.T
 
         # Count how many projections fall outside thresholds

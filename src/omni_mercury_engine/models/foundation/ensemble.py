@@ -114,7 +114,6 @@ class FoundationEnsemble(BaseFoundationModel):
         self.ensemble_config: EnsembleConfig = config
         super().__init__(config)
 
-        # Initialize weights
         n_models = len(config.models)
         if config.weights is None:
             self._weights = np.ones(n_models) / n_models
@@ -228,7 +227,6 @@ class FoundationEnsemble(BaseFoundationModel):
                 "upper": np.full((1, horizon), series.flatten()[-1] * 1.1),
             }
 
-        # Normalize weights
         valid_weights = np.array(valid_weights)  # type: ignore[assignment, unused-ignore]
         valid_weights = valid_weights / valid_weights.sum()  # type: ignore[attr-defined, unused-ignore]
 
@@ -420,7 +418,6 @@ class FoundationEnsemble(BaseFoundationModel):
         self._models[name] = model
         self.ensemble_config.models.append(name)
 
-        # Update weights
         current_weights = list(self._weights)
         current_weights.append(weight)
         self._weights = np.array(current_weights)

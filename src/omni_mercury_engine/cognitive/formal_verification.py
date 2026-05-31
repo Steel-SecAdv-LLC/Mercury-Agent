@@ -369,7 +369,6 @@ class ConstraintSolver:
         if not constraints:
             return {"satisfiable": True, "solution": {}}
 
-        # Extract variables and their bounds
         variables: dict[str, tuple[float, float]] = {}
         additional_constraints: list[dict[str, Any]] = []
 
@@ -445,7 +444,6 @@ class ConstraintSolver:
             Counterexample values or None
         """
         for _ in range(num_samples):
-            # Generate random values
             values = {}
             for var, (lower, upper) in search_bounds.items():
                 values[var] = self._rng.uniform(lower, upper)
@@ -773,7 +771,6 @@ class ReachabilityAnalyzer:
                     return False, 0
                 continue
 
-            # Calculate steps needed
             distance = abs(target - current)
             steps_needed = int(np.ceil(distance / max_change_per_step))
 
@@ -949,7 +946,6 @@ class IntervalBoundPropagator:
             W_pos = np.maximum(weights, 0)
             W_neg = np.minimum(weights, 0)
 
-            # Compute output bounds
             lower_out = W_pos @ lower_in + W_neg @ upper_in + bias
             upper_out = W_pos @ upper_in + W_neg @ lower_in + bias
 
@@ -965,7 +961,6 @@ class IntervalBoundPropagator:
         W_pos = np.maximum(weights, 0)
         W_neg = np.minimum(weights, 0)
 
-        # Compute output bounds
         lower_out = lower_in @ W_pos + upper_in @ W_neg + bias
         upper_out = upper_in @ W_pos + lower_in @ W_neg + bias
 
@@ -1160,7 +1155,6 @@ class FormalVerificationEngine:
         safety_report = self.safety_verifier.verify_decision(decision, context)
         reports.append(safety_report)
 
-        # Update stats
         if safety_report.result == VerificationResult.VERIFIED:
             self._stats["properties_verified"] += 1
         elif safety_report.result == VerificationResult.VIOLATED:
@@ -1183,7 +1177,6 @@ class FormalVerificationEngine:
             if elapsed > self.timeout_ms:
                 break
 
-        # Update average time
         n = self._stats["verifications_performed"]
         elapsed_ms = (time.time() - start_time) * 1000
         self._stats["avg_verification_time_ms"] = (

@@ -342,14 +342,12 @@ class TemporalPatternDetector:
         augmented_features: list[NDArray[np.float64]] = [X]
         self._feature_names = [f"orig_{i}" for i in range(n_features)]
 
-        # Add lag features
         for lag in range(1, self.lag_features + 1):
             lagged = np.zeros_like(X)
             lagged[lag:] = X[:-lag]
             augmented_features.append(lagged)
             self._feature_names.extend([f"lag{lag}_{i}" for i in range(n_features)])
 
-        # Add first differences
         if self.include_diff:
             diff = np.zeros_like(X)
             diff[1:] = X[1:] - X[:-1]
@@ -362,7 +360,6 @@ class TemporalPatternDetector:
             augmented_features.append(diff2)
             self._feature_names.extend([f"diff2_{i}" for i in range(n_features)])
 
-        # Add rolling statistics
         if self.include_rolling_stats:
             for window in self.window_sizes:
                 if window > n_samples:
@@ -625,7 +622,6 @@ class AdaptiveAnomalyDetector:
         ]:
             self._covariance_detector.fit(X)
 
-        # Fit Mercury-native backend detectors based on profile
         self._fit_backend_detectors(X)
 
         self._is_fitted = True

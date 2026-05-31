@@ -117,11 +117,9 @@ def compute_auc_roc(y_true: np.ndarray[Any, Any], y_score: np.ndarray[Any, Any])
 
 def _auc_roc_numpy(y_true: np.ndarray[Any, Any], y_score: np.ndarray[Any, Any]) -> float:
     """Pure numpy AUC-ROC implementation."""
-    # Sort by score descending
     desc_score_indices = np.argsort(y_score)[::-1]
     y_true_sorted = y_true[desc_score_indices]
 
-    # Compute TPR and FPR at each threshold
     n_pos = np.sum(y_true)
     n_neg = len(y_true) - n_pos
 
@@ -243,7 +241,6 @@ def compute_precision_at_k(
     if k <= 0 or k > len(y_true):
         k = len(y_true)
 
-    # Get indices of top-k scores
     top_k_indices = np.argsort(y_score)[-k:]
 
     # Count true positives in top-k
@@ -348,7 +345,6 @@ def compute_range_based_f1(
     if len(gt_segments) == 0 or len(pred_segments) == 0:
         return 0.0
 
-    # Compute range-based precision and recall
     precision = _range_precision(gt_segments, pred_segments, alpha, cardinality, bias)
     recall = _range_recall(gt_segments, pred_segments, alpha, cardinality, bias)
 
@@ -423,7 +419,6 @@ def evaluate_anomaly_detection(
     y_true = np.array(y_true).flatten().astype(int)
     y_score = np.array(y_score).flatten()
 
-    # Compute AUC metrics
     auc_roc = compute_auc_roc(y_true, y_score)
     auc_pr = compute_auc_pr(y_true, y_score)
 
@@ -433,10 +428,8 @@ def evaluate_anomaly_detection(
     if threshold is None:
         threshold = best_threshold
 
-    # Compute binary predictions
     y_pred = (y_score >= threshold).astype(int)
 
-    # Compute confusion matrix
     tp = int(np.sum((y_true == 1) & (y_pred == 1)))
     fp = int(np.sum((y_true == 0) & (y_pred == 1)))
     tn = int(np.sum((y_true == 0) & (y_pred == 0)))

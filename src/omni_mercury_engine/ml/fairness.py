@@ -142,10 +142,7 @@ class FairnessAuditor:
             group_rate = np.mean(predictions[mask])
             group_rates[str(group)] = float(group_rate)
 
-        # Compute overall rate
         overall_rate = np.mean(predictions)
-
-        # Compute disparities
         disparities = {g: abs(r - overall_rate) for g, r in group_rates.items()}
 
         return {
@@ -197,7 +194,6 @@ class FairnessAuditor:
                 fpr = 0.0
             group_fpr[str(group)] = float(fpr)
 
-        # Compute max differences
         tpr_values = list(group_tpr.values())
         fpr_values = list(group_fpr.values())
 
@@ -240,14 +236,12 @@ class FairnessAuditor:
             rate = np.mean(predictions[mask])
             group_rates[str(group)] = float(rate)
 
-        # Determine reference group
         if reference_group is None:
             # Use group with highest rate as reference
             reference_group = max(group_rates, key=lambda k: group_rates[k])
 
         reference_rate = group_rates.get(str(reference_group), 1.0)
 
-        # Compute impact ratios
         impact_ratios = {}
         for group, rate in group_rates.items():
             if reference_rate > 0:
@@ -256,7 +250,7 @@ class FairnessAuditor:
                 ratio = 1.0
             impact_ratios[group] = float(ratio)
 
-        # Check 4/5ths rule
+        # 4/5ths rule
         min_ratio = min(impact_ratios.values()) if impact_ratios else 1.0
         passes_rule = min_ratio >= 0.8
 
@@ -298,7 +292,6 @@ class FairnessAuditor:
             group_preds = predictions[mask]
             group_labels = labels[mask]
 
-            # Compute calibration error
             bin_edges = np.linspace(0, 1, n_bins + 1)
             calibration_errors = []
 
@@ -319,7 +312,6 @@ class FairnessAuditor:
                 "n_samples": int(np.sum(mask)),
             }
 
-        # Compute max calibration gap
         ece_values = [g["ece"] for g in group_calibration.values()]
         max_gap = max(ece_values) - min(ece_values) if ece_values else 0.0
 

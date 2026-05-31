@@ -289,12 +289,10 @@ class IndicatorDevelopmentSystem:
             pattern_key = self._extract_pattern_key(anomaly)
             self._pattern_history[pattern_key].append(anomaly)
 
-        # Find frequent patterns
         frequent_patterns = self._find_frequent_patterns(anomalies, min_support)
 
         indicators = []
         for pattern, support, occurrences in frequent_patterns:
-            # Generate name and description
             name = self._generate_indicator_name(pattern)
             description = self._generate_indicator_description(pattern, support)
 
@@ -355,7 +353,6 @@ class IndicatorDevelopmentSystem:
                 warnings.append(warning)
                 self._warnings.append(warning)
 
-                # Update indicator stats
                 indicator.trigger_count += 1
                 indicator.last_triggered = time.time()
 
@@ -420,7 +417,6 @@ class IndicatorDevelopmentSystem:
         """
         pir_id = f"pir_{domain}_{int(time.time())}"
 
-        # Generate collection tasks
         collection_tasks = self._generate_collection_tasks(question, domain)
 
         pir = IntelligenceRequirement(
@@ -518,12 +514,10 @@ class IndicatorDevelopmentSystem:
 
         for _key, occurrences in pattern_counts.items():
             if len(occurrences) >= max(min_count, self.min_pattern_occurrences):
-                # Extract common features
                 pattern = self._extract_common_features(occurrences)
                 support = len(occurrences) / len(anomalies)
                 frequent.append((pattern, support, occurrences))
 
-        # Sort by support
         frequent.sort(key=lambda x: x[1], reverse=True)
         return frequent[:10]  # Top 10 patterns
 

@@ -410,7 +410,6 @@ class AttentionOptimizer:
         """
         start_time = time.perf_counter()
 
-        # Check cache
         cache_key = hash(attention_scores.tobytes())
         if use_cache and cache_key in self._attention_cache:
             self._cache_hits += 1
@@ -514,13 +513,11 @@ class GOSNNOptimizer:
         # Profile pre-optimization
         pre_latency = self._profile_latency(gosnn, X)
 
-        # Collect all scalars
         all_scalars = gosnn._collect_all_scalars()
 
         # Record for importance analysis
         self.importance_analyzer.record_scalars(all_scalars)
 
-        # Compute importance
         output_value = gosnn.compute_global_intelligence_score()
         importances = self.importance_analyzer.compute_importance(all_scalars, output_value)
 

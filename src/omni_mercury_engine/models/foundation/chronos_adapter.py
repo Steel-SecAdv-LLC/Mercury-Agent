@@ -289,7 +289,6 @@ class ChronosAdapter(BaseFoundationModel):
                     logger.debug(f"Prediction at t={t} failed: {e}")
                     scores[t] = 0.0
 
-            # Normalize scores to [0, 1]
             if scores.max() > 0:
                 scores = scores / scores.max()
 

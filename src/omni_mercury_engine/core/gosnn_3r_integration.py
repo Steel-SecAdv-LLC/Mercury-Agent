@@ -352,7 +352,6 @@ class GOSNN3RIntegration:
         ):
             return
 
-        # Collect scalar group scores
         group_scores = {}
         for group in ScalarGroup:
             scalars = self.gosnn.scalar_groups.get(group, {})
@@ -370,7 +369,6 @@ class GOSNN3RIntegration:
                 normalized_score = np.clip(normalized_score, 0.0, 1.0)
                 weight_contributions[weight_key].append(normalized_score)
 
-        # Compute weighted averages
         for weight_key in ["w_R", "w_H", "w_O"]:
             if weight_contributions[weight_key]:
                 avg_contribution = np.mean(weight_contributions[weight_key])
@@ -387,7 +385,6 @@ class GOSNN3RIntegration:
             self.state.w_H /= total
             self.state.w_O /= total
 
-        # Update fusion equation weights
         self.fusion_equation.weights = {
             "w_R": self.state.w_R,
             "w_H": self.state.w_H,

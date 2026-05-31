@@ -250,7 +250,6 @@ class NarrativeEngine:
         self._synthesis_count += 1
         context = context or {}
 
-        # Extract core detection values
         anomaly_detected = detection_result.get("anomaly_detected", False)
         anomaly_score = detection_result.get("anomaly_score", 0.0)
         severity = detection_result.get("severity", 0.0)
@@ -260,15 +259,12 @@ class NarrativeEngine:
         # Get omni-scalars for style shaping
         scalars = self._get_personality_scalars(domain)
 
-        # Determine appropriate style
         style = style_override or self._determine_style(
             anomaly_detected, severity, confidence, scalars
         )
 
-        # Classify confidence level
         confidence_level = self._classify_confidence(confidence, is_reliable)
 
-        # Build reasoning chain narrative
         reasoning_narrative = self._verbalize_reasoning_chain(
             detection_result.get("reasoning_chain", []),
             detection_result.get("causal_factors", []),
@@ -277,7 +273,6 @@ class NarrativeEngine:
         # Get historical context if memory surface available
         historical_context, similar_events = self._get_historical_context(detection_result, domain)
 
-        # Generate uncertainty disclosure
         uncertainty_disclosure = self._generate_uncertainty_disclosure(
             confidence,
             is_reliable,
@@ -285,10 +280,8 @@ class NarrativeEngine:
             detection_result.get("aleatoric_uncertainty", 0.0),
         )
 
-        # Synthesize summary
         summary = self._generate_summary(anomaly_detected, anomaly_score, severity, domain, style)
 
-        # Synthesize detailed explanation
         detailed = self._generate_detailed_explanation(
             detection_result, domain, context, style, scalars
         )
@@ -302,10 +295,8 @@ class NarrativeEngine:
             detection_result.get("recommendations", []),
         )
 
-        # Determine urgency
         urgency = self._determine_urgency(anomaly_detected, severity, confidence)
 
-        # Generate next steps
         next_steps = self._generate_next_steps(anomaly_detected, confidence_level, domain)
 
         generation_time = (time.time() - start_time) * 1000

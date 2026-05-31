@@ -73,7 +73,6 @@ from omni_mercury_engine.validation.api_validators import (
 # Configure PII-masking logger
 logger = logging.getLogger(__name__)
 
-# Initialize API request validator with production configuration
 _validation_config = ValidationConfig(
     max_data_points=int(os.getenv("OMNI_MAX_DATA_POINTS", "100000")),
     max_features=int(os.getenv("OMNI_MAX_FEATURES", "1000")),
@@ -349,7 +348,6 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         response = await call_next(request)
 
-        # Add rate limit headers to all responses
         response.headers["X-RateLimit-Limit"] = str(info["limit"])
         response.headers["X-RateLimit-Remaining"] = str(info["remaining"])
         response.headers["X-RateLimit-Reset"] = str(info["reset"])
@@ -357,7 +355,6 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         return response
 
 
-# Register rate limiting middleware
 app.add_middleware(RateLimitMiddleware)  # type: ignore[arg-type, unused-ignore]
 
 
@@ -387,7 +384,6 @@ class CorrelationIDMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         """Process request with correlation ID tracking."""
-        # Extract or generate correlation ID
         correlation_id = (
             request.headers.get(self.HEADER_NAME)
             or request.headers.get(self.HEADER_ALIAS)
@@ -406,14 +402,11 @@ class CorrelationIDMiddleware(BaseHTTPMiddleware):
         try:
             response = await call_next(request)
 
-            # Calculate request duration
             duration_ms = (time.perf_counter() - start_time) * 1000
 
-            # Add tracing headers to response
             response.headers[self.HEADER_NAME] = correlation_id
             response.headers["X-Request-Duration-Ms"] = f"{duration_ms:.2f}"
 
-            # Log request completion with correlation ID
             logger.info(
                 f"Request completed: {request.method} {request.url.path} "
                 f"status={response.status_code} duration={duration_ms:.2f}ms "
@@ -483,7 +476,6 @@ else:
         "http://127.0.0.1:8000",
         "http://127.0.0.1:8080",
     ]
-    # Add any custom origins from environment
     if _cors_origins_env:
         _allowed_origins.extend([origin.strip() for origin in _cors_origins_env.split(",")])
 
@@ -995,19 +987,15 @@ async def detect_univariate(request: UnivariateRequest) -> UnivariateResponse:
         data = validation_result.sanitized_data["data"]
         sensitivity = validation_result.sanitized_data["sensitivity"]
 
-        # Calculate threshold based on sensitivity
         threshold = 2.0 + (1.0 - sensitivity) * 3.0
 
-        # Compute z-scores
         mean = np.mean(data)
         std = np.std(data)
         z_scores = np.abs((data - mean) / (std + 1e-8))
 
-        # Determine anomalies
         anomalies = (z_scores > threshold).tolist()
         scores = z_scores.tolist()
 
-        # Build detailed anomaly points
         anomaly_points = []
         for i, (is_anomaly, score, value) in enumerate(zip(anomalies, scores, data, strict=False)):
             if is_anomaly:
@@ -1020,7 +1008,6 @@ async def detect_univariate(request: UnivariateRequest) -> UnivariateResponse:
                     )
                 )
 
-        # Build summary
         anomaly_count = sum(anomalies)
         summary = {
             "total_points": len(data),
@@ -1162,10 +1149,8 @@ async def detect_multivariate(request: MultivariateRequest) -> MultivariateRespo
 
         n_samples, n_features = data.shape
 
-        # Calculate threshold based on sensitivity
         threshold = 2.0 + (1.0 - sensitivity) * 3.0
 
-        # Compute multivariate z-scores
         mean = np.mean(data, axis=0)
         std = np.std(data, axis=0) + 1e-8
         normalized = (data - mean) / std
@@ -1180,11 +1165,9 @@ async def detect_multivariate(request: MultivariateRequest) -> MultivariateRespo
             name: np.abs(normalized[:, i]).tolist() for i, name in enumerate(feature_names)
         }
 
-        # Determine anomalies
         anomalies = (z_scores > threshold).tolist()
         scores = z_scores.tolist()
 
-        # Build summary
         anomaly_count = sum(anomalies)
         summary = {
             "total_points": n_samples,
@@ -1241,7 +1224,6 @@ def custom_openapi() -> dict[str, Any]:
         tags=tags_metadata,  # type: ignore[arg-type, unused-ignore]
     )
 
-    # Add security schemes for future use
     openapi_schema["components"]["securitySchemes"] = {
         "ApiKeyAuth": {
             "type": "apiKey",
@@ -1257,7 +1239,6 @@ def custom_openapi() -> dict[str, Any]:
         },
     }
 
-    # Add rate limiting information
     openapi_schema["info"]["x-rate-limit"] = {
         "requests_per_minute": 100,
         "burst_limit": 20,

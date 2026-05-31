@@ -416,7 +416,6 @@ class BaseFoundationAdapter(BaseFoundationModel):
         if n < 2:
             return float(series[0]), 0.0
 
-        # Initialize
         level = float(series[0])
         trend = float(series[1] - series[0])
 
@@ -624,7 +623,6 @@ class BaseFoundationAdapter(BaseFoundationModel):
 
         is_anomaly = z_scores > threshold
 
-        # Normalize scores to [0, 1]
         max_z = z_scores.max()
         if max_z > 0:
             scores = z_scores / (max_z + 1e-8)

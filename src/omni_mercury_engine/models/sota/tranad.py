@@ -201,7 +201,6 @@ class TransformerEncoder(nn.Module):
         super().__init__()
         self.d_model = d_model
 
-        # Positional encoding
         self.pos_encoder = PositionalEncoding(d_model, dropout, max_len)
 
         # Transformer encoder layers
@@ -317,7 +316,6 @@ class TranADModel(nn.Module):
         super().__init__()
         self.config = config or TranADConfig()
 
-        # Input projection
         self.input_projection = nn.Linear(self.config.input_dim, self.config.d_model)
 
         # Focus score conditioning (optional)
@@ -417,7 +415,6 @@ class TranADModel(nn.Module):
         else:
             recon2 = recon1
 
-        # Compute anomaly scores
         error1 = (x - recon1) ** 2
         error2 = (x - recon2) ** 2
 
@@ -565,7 +562,6 @@ class AdversarialTrainer:
         """
         losses = {}
 
-        # Forward pass
         result = self.model(x)
         recon = result["reconstruction"]
 
@@ -744,7 +740,6 @@ class MAMLOptimizer:
             # This enables second-order gradient computation for meta-learning
             adapted_model = self.inner_loop(adapted_model, support_x, support_y, create_graph=True)
 
-            # Evaluate on query set
             result = adapted_model(query_x)
             recon = result["reconstruction"]
             task_loss = F.mse_loss(recon, query_x)
@@ -755,7 +750,6 @@ class MAMLOptimizer:
 
             meta_loss = meta_loss + task_loss
 
-        # Meta-update
         meta_loss = meta_loss / len(tasks)
 
         self.meta_optimizer.zero_grad()

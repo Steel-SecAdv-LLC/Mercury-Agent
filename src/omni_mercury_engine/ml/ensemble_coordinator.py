@@ -236,7 +236,6 @@ class BayesianWeightOptimizer(WeightOptimizer):
             )
             weights[name] = sampled + self.exploration_bonus * uncertainty
 
-        # Normalize weights
         total = sum(weights.values())
         if total > 0:
             weights = {k: v / total for k, v in weights.items()}
@@ -319,7 +318,6 @@ class GradientWeightOptimizer(WeightOptimizer):
             log_weight -= self.learning_rate * self._velocities[name]
             weights[name] = np.exp(log_weight)
 
-        # Normalize weights
         total = sum(weights.values())
         if total > 0:
             weights = {k: v / total for k, v in weights.items()}
@@ -532,7 +530,6 @@ class CascadingPipeline:
                 stage_scores > 0.5 + self.uncertainty_threshold
             )
 
-            # Map back to original indices
             confident_original = uncertain_indices[confident_mask]
             final_scores[confident_original] = stage_scores[confident_mask]
 
@@ -786,7 +783,6 @@ class EnsembleCoordinator:
             for name in detector_names:
                 weights[name] = 0.7 * weights[name] + 0.3 * meta_weights.get(name, weights[name])
 
-        # Normalize
         total = sum(weights.values())
         if total > 0:
             weights = {k: v / total for k, v in weights.items()}
@@ -939,7 +935,6 @@ class EnsembleCoordinator:
             base = weights.get(name, 1.0)
             gate_logits[:, i] = base + 0.1 * np.mean(gate_input, axis=1)
 
-        # Softmax
         gate_exp = np.exp(gate_logits - np.max(gate_logits, axis=1, keepdims=True))
         gate_weights = gate_exp / gate_exp.sum(axis=1, keepdims=True)
 
@@ -1026,7 +1021,6 @@ class EnsembleCoordinator:
             if entry.metrics.f1_score > 0:
                 entry.weight = entry.metrics.f1_score
 
-        # Normalize weights
         total = sum(entry.weight for entry in self._detectors.values())
         if total > 0:
             for entry in self._detectors.values():

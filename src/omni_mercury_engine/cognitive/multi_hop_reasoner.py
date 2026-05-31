@@ -305,7 +305,6 @@ class MultiHopReasoner:
                     conclusion_id = self._substitute(rule.conclusion, binding)
 
                     if conclusion_id not in working_memory:
-                        # Calculate confidence
                         premise_confidences = [
                             working_memory[binding[p]].confidence
                             * working_memory[binding[p]].truth_value
@@ -394,7 +393,6 @@ class MultiHopReasoner:
         if len(instances) < 2:
             return None
 
-        # Extract common features
         common_features = self._find_common_features(instances)
 
         if not common_features:
@@ -474,7 +472,6 @@ class MultiHopReasoner:
             h.prop_id: 1.0 / len(candidate_hypotheses) for h in candidate_hypotheses
         }
 
-        # Score each hypothesis
         scores = []
         for hypothesis in candidate_hypotheses:
             # P(H|O) ∝ P(O|H) * P(H)

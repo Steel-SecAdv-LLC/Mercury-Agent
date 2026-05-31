@@ -543,7 +543,6 @@ class GOSNNIntegration:
         y_train = y[train_idx] if y is not None else None
         y_val = y[val_idx] if y is not None else None
 
-        # Fit all domain detectors
         domain_predictions = {}
 
         for name, config in self.domains.items():
@@ -579,7 +578,6 @@ class GOSNNIntegration:
                 logger.warning(f"Failed to fit domain {name}: {e}")
                 domain_predictions[name] = np.zeros(len(X_val))
 
-        # Set up fusion
         self._setup_fusion(domain_predictions, y_val)
 
         # Set up calibration
@@ -630,7 +628,6 @@ class GOSNNIntegration:
                 result: IntegrationResult = cached_result
                 return result
 
-        # Collect domain predictions
         domain_scores = {}
         domain_features = {}
 
@@ -660,7 +657,6 @@ class GOSNNIntegration:
         # Fuse domain predictions
         fused_scores = self._fuse_predictions(domain_scores)
 
-        # Apply calibration
         if self._calibrator is not None:
             calibrated_scores = self._calibrator.calibrate(fused_scores)
         else:

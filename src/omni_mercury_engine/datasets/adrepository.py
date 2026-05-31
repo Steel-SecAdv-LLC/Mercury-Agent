@@ -322,7 +322,6 @@ class ADRepositoryLoader(DatasetLoader):
 
     def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Apply preprocessing (implements abstract method)."""
-        # Basic normalization - zero mean, unit variance
         mean = np.mean(data, axis=0, keepdims=True)
         std = np.std(data, axis=0, keepdims=True) + 1e-8
         return np.asarray((data - mean) / std)  # type: ignore[no-any-return, unused-ignore]
@@ -433,17 +432,13 @@ class ADRepositoryLoader(DatasetLoader):
         n_anomalies = int(n_samples * anomaly_ratio)
         n_normal = n_samples - n_anomalies
 
-        # Generate normal samples
         normal_data = rng.standard_normal((n_normal, n_features))
-
-        # Generate anomalies (shifted distribution)
+        # Anomalies are drawn from a shifted distribution to be separable.
         anomaly_data = rng.standard_normal((n_anomalies, n_features)) * 2 + 3
 
-        # Combine
         self._features = np.vstack([normal_data, anomaly_data]).astype(np.float32)
         self._labels = np.array([0] * n_normal + [1] * n_anomalies, dtype=np.int64)
 
-        # Shuffle
         perm = rng.permutation(n_samples)
         self._features = self._features[perm]
         self._labels = self._labels[perm]
@@ -525,12 +520,10 @@ class ADRepositoryLoader(DatasetLoader):
                 self._is_real_data = True
 
             elif suffix == ".zip":
-                # Extract and load
                 extract_dir = path.parent / path.stem
                 with zipfile.ZipFile(path, "r") as zf:
                     zf.extractall(extract_dir)
 
-                # Find npz or csv files
                 for f in extract_dir.rglob("*.npz"):
                     # External archives must round-trip via
                     # allow_pickle=False; legacy artefacts that need

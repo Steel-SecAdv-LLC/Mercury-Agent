@@ -393,10 +393,8 @@ class AnomalyTransformerEncoder(nn.Module):
         self.d_model = d_model
         self.n_layers = n_layers
 
-        # Input projection
         self.input_projection = nn.Linear(input_dim, d_model)
 
-        # Positional encoding
         self.pos_encoding = PositionalEncoding(d_model, dropout, max_len=window_size * 2)
 
         # Association Discrepancy layers
@@ -446,13 +444,11 @@ class AnomalyTransformerEncoder(nn.Module):
 
         h = self.norm(h)
 
-        # Reconstruction
         reconstruction = self.reconstruction_head(h)
 
         # Aggregate discrepancies
         total_discrepancy = torch.stack(all_discrepancies, dim=0).mean(dim=0)
 
-        # Compute anomaly score
         recon_error = ((x - reconstruction) ** 2).mean(dim=-1)
 
         # Association-weighted anomaly score

@@ -332,17 +332,14 @@ class PrecisionEstimator:
         Returns:
             Updated precision
         """
-        # Store error
         self._error_history[level].append(error_magnitude)
 
         if len(self._error_history[level]) < 10:
             return self._precisions[level]
 
-        # Estimate variance from recent errors
         errors = np.array(self._error_history[level])
         estimated_variance = np.var(errors) + 1e-8
 
-        # Update precision (inverse variance)
         target_precision = 1.0 / estimated_variance
         target_precision = np.clip(target_precision, self.min_precision, self.max_precision)
 
@@ -401,7 +398,6 @@ class HierarchicalPredictiveCoder:
             self.hidden_dims = hidden_dims or [64, 32, 16]
             self.num_levels = len(self.hidden_dims) + 1
 
-        # Build hierarchy
         self.levels = list(ProcessingLevel)[: len(self.hidden_dims) + 1]
         self.models: dict[ProcessingLevel, GenerativeModel] = {}
         self.beliefs: dict[ProcessingLevel, BeliefState] = {}
@@ -508,7 +504,6 @@ class HierarchicalPredictiveCoder:
         if update_beliefs:
             self._update_models(prediction_errors)
 
-        # Compute free energy
         free_energy = self._compute_free_energy(prediction_errors)
 
         return prediction_errors, free_energy
@@ -635,7 +630,6 @@ class HierarchicalPredictiveCoder:
                     (0, len(belief.mean) - len(top_down_prediction)),
                 )
 
-        # Update mean
         new_mean = (
             bottom_up_precision * bottom_up_signal + top_down_precision * top_down_prediction
         ) / total_precision
@@ -707,10 +701,8 @@ class HierarchicalPredictiveCoder:
         if prediction.shape != observation.shape:
             prediction = np.zeros_like(observation)
 
-        # Compute error
         error = observation - prediction
 
-        # Update beliefs
         self.process(observation, update_beliefs=True)
 
         return prediction, error
@@ -890,7 +882,6 @@ class ActiveInferenceAgent:
 
         Expected free energy = Expected surprise + Expected divergence from preferences
         """
-        # Estimate expected prediction error reduction
         avg_error = np.mean([e.magnitude for e in current_errors])
 
         # Historical action effectiveness
@@ -1006,7 +997,6 @@ class PredictiveCodingDetector:
         # Process through hierarchy
         errors, free_energy = self.coder.process(observation, update_beliefs=update_model)
 
-        # Calculate overall anomaly score
         total_error = sum(e.magnitude for e in errors)
         avg_error = total_error / len(errors) if errors else 0.0
 
@@ -1017,7 +1007,6 @@ class PredictiveCodingDetector:
         is_anomaly = anomaly_score > self.anomaly_threshold
         any_level_anomaly = any(e.is_anomaly for e in errors)
 
-        # Update statistics
         self._stats["detections"] += 1
         self._stats["total_predictions"] += 1
         if is_anomaly:
@@ -1249,7 +1238,6 @@ class MercuryPredictiveCoding:
         Returns:
             Enhanced result with prediction-based scores
         """
-        # Extract features from detection result
         features = detection_result.get("features", [])
         if isinstance(features, list):
             features = np.array(features)
@@ -1266,7 +1254,6 @@ class MercuryPredictiveCoding:
         prediction, error = self.detector.coder.predict_and_compute_error(features)
         free_energy = self.detector.coder.compute_free_energy(error)
 
-        # Compute prediction-based score
         prediction_error_magnitude = float(np.mean(np.abs(error)))
         prediction_based_score = 1.0 / (1.0 + np.exp(-prediction_error_magnitude + 1))
 

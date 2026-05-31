@@ -174,7 +174,6 @@ class EncoderEncoderStudent(nn.Module):
             nn.Sigmoid(),
         )
 
-        # Output projection
         self.output = nn.Conv2d(hidden_dim, in_channels, 1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:

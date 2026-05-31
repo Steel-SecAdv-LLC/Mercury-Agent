@@ -861,7 +861,6 @@ class SpectralVibrationDetector(BaseDetector):
 
         self.device = torch.device(self._spectral_config.device)
 
-        # Initialize neural network components
         self._init_networks()
 
         # Reference statistics for anomaly detection
@@ -938,7 +937,6 @@ class SpectralVibrationDetector(BaseDetector):
         if isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
 
-        # Validate input
         if data.size == 0:
             raise DetectorException("Cannot fit SpectralVibrationDetector with empty data.")
 

@@ -363,7 +363,6 @@ class AuthKeyManager:
             "audit_sign": 0,
         }
 
-        # Register initial keys for each purpose
         for purpose, purpose_id in [
             ("api_key", self.PURPOSE_API_KEY),
             ("jwt_sign", self.PURPOSE_JWT_SIGN),
@@ -542,7 +541,6 @@ class APIKeyAuth:
         Raises:
             HTTPException: If authentication fails.
         """
-        # Get key from header
         if api_key is None:
             api_key = request.headers.get(self.header_name)
 
@@ -579,10 +577,8 @@ class APIKeyAuth:
                 detail="API key has expired",
             )
 
-        # Update last used
         store.update_last_used(key_obj.key_id)
 
-        # Create user object
         user = User(
             id=key_obj.user_id,
             username=f"api_key:{key_obj.name}",
@@ -590,7 +586,6 @@ class APIKeyAuth:
             metadata={"key_id": key_obj.key_id, "auth_method": "api_key"},
         )
 
-        # Store user in request state
         request.state.user = user
 
         return user
@@ -646,7 +641,6 @@ class JWTAuth:
         self.using_fallback = False
 
         if self.secret_key is None:
-            # Check if we're in a production environment
             is_production = os.getenv("MERCURY_AGENT_ENV", "").lower() == "production"
             is_production = is_production or os.getenv("ENV", "").lower() == "production"
             is_production = is_production or os.getenv("ENVIRONMENT", "").lower() == "production"
@@ -778,7 +772,6 @@ class JWTAuth:
                 },
             )
 
-            # Extract user information from payload
             user_id = payload.get("sub")
             if not user_id:
                 logger.warning("JWT missing subject claim")
@@ -797,7 +790,6 @@ class JWTAuth:
                     )
                     return None
 
-            # Parse permissions from payload
             permission_names = payload.get("permissions", ["read"])
             permissions = set()
             for perm_name in permission_names:
@@ -1037,7 +1029,6 @@ async def rate_limit_middleware(
 
     response = await call_next(request)
 
-    # Add rate limit headers
     response.headers["X-RateLimit-Limit"] = str(info["limit"])
     response.headers["X-RateLimit-Remaining"] = str(info["remaining"])
     response.headers["X-RateLimit-Reset"] = str(info["reset"])

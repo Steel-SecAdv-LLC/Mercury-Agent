@@ -1288,7 +1288,6 @@ class RandomForestClassifier:
         self._trees = []
         importances = np.zeros(n_features)
         for _ in range(self.n_estimators):
-            # Bootstrap sample
             idx = rng.choice(n, n, replace=True)
             tree = _DecisionStump(max_depth=self.max_depth, rng=rng)
             tree.fit(X[idx], y[idx])
@@ -1487,7 +1486,6 @@ class GaussianMixture:
         n, d = X.shape
         rng = np.random.RandomState(self.random_state)
 
-        # Initialize
         idx = rng.choice(n, self.n_components, replace=False)
         self.means_ = X[idx].copy()
         self.covariances_ = np.array([np.eye(d)] * self.n_components)

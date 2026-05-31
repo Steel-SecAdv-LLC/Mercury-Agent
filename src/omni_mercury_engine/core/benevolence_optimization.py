@@ -73,7 +73,6 @@ class ParetoFront:
         if not self.solutions:
             return None
 
-        # Normalize objectives
         obj_matrix = np.array([s.objectives for s in self.solutions])
         if len(obj_matrix) == 0:
             return None
@@ -274,7 +273,6 @@ class MultiObjectiveLoss:
         # Fairness score (equalized odds)
         fairness = self._compute_fairness(predictions, labels, sensitive_attrs)
 
-        # Check constraints
         violations = []
         if benevolence < self.benevolence_threshold:
             violations.append(f"Benevolence {benevolence:.3f} < {self.benevolence_threshold}")
@@ -407,7 +405,6 @@ class ParetoOptimizer:
         # produce identical Pareto fronts.
         self._rng = np.random.default_rng(self.seed)
 
-        # Initialize population
         population = []
         for _ in range(self.population_size):
             params = np.array([self._rng.uniform(low, high) for low, high in bounds])

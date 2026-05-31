@@ -417,7 +417,6 @@ class FeatureImputer:
                 -self.max_history :
             ]
 
-        # Update statistics
         history = np.array(self._detector_history[detector_name])
         self._detector_stats[detector_name] = {
             "mean": np.mean(history, axis=0),
@@ -910,7 +909,6 @@ class FeaturePipeline:
         Returns:
             self for method chaining
         """
-        # Fit standardizer
         self.standardizer.fit(X)
 
         # Standardize before selection

@@ -371,7 +371,6 @@ class SHAPExplainer(BaseExplainer):
         """Fallback permutation importance when SHAP unavailable."""
         logger.info("Using permutation importance (SHAP unavailable)")
 
-        # Get predictions
         if hasattr(model, "predict_proba"):
             base_preds = model.predict_proba(X)[:, 1]
         else:
@@ -427,7 +426,6 @@ class SHAPExplainer(BaseExplainer):
         shap_values, base_value = self._compute_shap_values(X_explain, model)
         self._base_value = base_value
 
-        # Get predictions
         if hasattr(model, "predict_proba"):
             predictions = model.predict_proba(X_explain)[:, 1]
         else:
@@ -574,7 +572,6 @@ class SHAPExplainer(BaseExplainer):
         # Compute feature interactions (top pairs)
         interactions = self._compute_interactions(shap_values, feature_names)
 
-        # Get predictions
         if hasattr(model, "predict_proba"):
             predictions = model.predict_proba(X)[:, 1]
         else:

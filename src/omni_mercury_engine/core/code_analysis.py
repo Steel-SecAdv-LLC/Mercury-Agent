@@ -295,7 +295,6 @@ class NeurosymbolicEngine:
         logging.info(f"Starting neural training on {len(training_data)} examples")
         self.current_phase = TrainingPhase.SPECIALIZATION
 
-        # Extract features from AST data
         features, labels = self._prepare_training_data(training_data)
 
         if len(features) == 0:
@@ -507,7 +506,6 @@ class NeurosymbolicEngine:
                 label = 1 if ground_truth["complexity"] > 10 else 0
             labels_list.append(label)
 
-        # Convert to numpy arrays
         features = np.array(features_list, dtype=float)
         labels = np.array(labels_list, dtype=float)
 

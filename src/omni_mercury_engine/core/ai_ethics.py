@@ -180,7 +180,6 @@ class PreExecutionBlockingGate:
         action_params = action_params or {}
         timestamp = datetime.now(UTC).isoformat()
 
-        # Check action type against blocked patterns
         action_lower = action_type.lower()
         for pattern, category in self.blocked_patterns.items():
             if pattern in action_lower:
@@ -195,7 +194,6 @@ class PreExecutionBlockingGate:
                 logging.warning(f"BLOCKED ACTION: {action_type} - {result.reason}")
                 return result
 
-        # Check action params against blocked param patterns
         params_str = str(action_params).lower()
         for pattern, category in self.BLOCKED_PARAM_PATTERNS.items():
             if pattern in params_str or action_params.get(pattern, False):

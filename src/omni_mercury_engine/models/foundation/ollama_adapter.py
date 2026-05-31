@@ -597,7 +597,6 @@ class OpenAICloudAdapter(BaseLLMAdapter):
         """
         super().__init__(config)
 
-        # Get API key from config or environment
         self.api_key = config.api_key or os.environ.get("OPENAI_API_KEY")
         self.base_url = config.base_url or "https://api.openai.com/v1"
         self.model = config.model_name or "gpt-4o-mini"
@@ -685,7 +684,6 @@ class AnthropicCloudAdapter(BaseLLMAdapter):
         """
         super().__init__(config)
 
-        # Get API key from config or environment
         self.api_key = config.api_key or os.environ.get("ANTHROPIC_API_KEY")
         self.base_url = config.base_url or "https://api.anthropic.com"
         self.model = config.model_name or "claude-3-5-sonnet-20241022"
@@ -773,7 +771,6 @@ class HuggingFaceCloudAdapter(BaseLLMAdapter):
         """
         super().__init__(config)
 
-        # Get API key from config or environment
         self.api_key = config.api_key or os.environ.get("HUGGINGFACE_API_KEY")
         self.base_url = config.base_url or "https://api-inference.huggingface.co"
         self.model = config.model_name or "meta-llama/Llama-3.2-3B-Instruct"

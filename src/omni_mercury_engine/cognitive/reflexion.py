@@ -341,7 +341,6 @@ class ExperienceMemory:
         if len(self._experiences) >= self.max_size:
             self._evict_least_important()
 
-        # Store experience
         self._experiences[experience.experience_id] = experience
 
         # Update indices
@@ -381,7 +380,6 @@ class ExperienceMemory:
         else:
             candidates = list(self._experiences.values())
 
-        # Score by relevance
         scored = []
         for exp in candidates:
             similarity = self._compute_similarity(context, exp.decision.context)
@@ -390,7 +388,6 @@ class ExperienceMemory:
                 exp.access_count += 1
                 exp.last_accessed = time.time()
 
-        # Sort by similarity and importance
         scored.sort(key=lambda x: x[1] * x[0].importance, reverse=True)
 
         return [exp for exp, _ in scored[:top_k]]
@@ -423,7 +420,6 @@ class ExperienceMemory:
                 exp.access_count += 1
                 exp.last_accessed = time.time()
 
-        # Sort by similarity
         scored.sort(key=lambda x: x[1], reverse=True)
         return [exp for exp, _ in scored[:k]]
 
@@ -441,7 +437,6 @@ class ExperienceMemory:
         exp_ids = self._index_by_outcome.get(outcome_type, [])
         experiences = [self._experiences[eid] for eid in exp_ids if eid in self._experiences]
 
-        # Sort by importance and recency
         experiences.sort(key=lambda x: (x.importance, -x.decision.timestamp), reverse=True)
 
         return experiences[:top_k]
@@ -589,13 +584,11 @@ class HeuristicEvaluator:
                 past_experiences_or_outcome if isinstance(past_experiences_or_outcome, dict) else {}
             )
 
-            # Extract values from dicts
             confidence = decision_dict.get("confidence", 0.5)
             action = decision_dict.get("action", "unknown")
             success = outcome_dict.get("success", True)
             false_positive = outcome_dict.get("false_positive", False)
 
-            # Calculate score
             score = confidence
             if success:
                 score = min(1.0, score + 0.2)
@@ -604,7 +597,6 @@ class HeuristicEvaluator:
             if false_positive:
                 score = max(0.0, score - 0.2)
 
-            # Generate feedback
             feedback_parts = []
             if success:
                 feedback_parts.append(f"Action '{action}' succeeded.")
@@ -657,7 +649,6 @@ class HeuristicEvaluator:
             violations.append("Potential ethical concerns")
             suggestions.append("Review ethical implications")
 
-        # Calculate weighted score
         heuristic_score = sum(
             score * self.weights[component] for component, score in component_scores.items()
         )
@@ -997,19 +988,15 @@ class ReflexionEngine:
         # Determine reflection type based on outcome
         reflection_type = self._determine_reflection_type(experience.outcome)
 
-        # Generate analysis
         analysis = self._generate_analysis(experience, reflection_type)
 
-        # Extract insights
         insights = self._extract_insights(experience, reflection_type)
 
-        # Generate linguistic feedback
         feedback = self._generate_feedback(experience, reflection_type)
 
         # Suggest improvements
         improvements = self._suggest_improvements(experience, reflection_type)
 
-        # Calculate reflection confidence
         confidence = self._calculate_reflection_confidence(experience, insights)
 
         reflection = Reflection(
@@ -1053,7 +1040,6 @@ class ReflexionEngine:
         current_decision = decision
         best_score = 0.0
 
-        # Retrieve relevant experiences
         past_experiences = self.experience_memory.retrieve(
             context=decision.context,
             action=decision.action,
@@ -1082,7 +1068,6 @@ class ReflexionEngine:
                 current_decision, evaluation, past_experiences
             )
 
-        # Calculate improvement
         original_eval = self.heuristic_evaluator.evaluate(decision, past_experiences)
         final_eval = self.heuristic_evaluator.evaluate(current_decision, past_experiences)
         assert isinstance(original_eval, HeuristicEvaluation)
@@ -1116,14 +1101,12 @@ class ReflexionEngine:
         Returns:
             List of applicable feedback items
         """
-        # Retrieve relevant experiences with reflections
         experiences = self.experience_memory.retrieve(
             context=context,
             action=action,
             top_k=20,
         )
 
-        # Extract feedback from reflections
         feedback_items: list[LinguisticFeedback] = []
         for exp in experiences:
             if exp.reflection and exp.reflection.feedback:
@@ -1155,13 +1138,11 @@ class ReflexionEngine:
         Returns:
             Dict with improvements and analysis
         """
-        # Retrieve experiences with specified outcome
         experiences = self.experience_memory.retrieve_by_outcome(outcome_type, top_k)
 
         if not experiences:
             return {"improvements": [], "patterns": {}, "summary": "No experiences to analyze"}
 
-        # Analyze patterns in failures
         patterns: dict[str, int] = defaultdict(int)
         improvements: list[dict[str, Any]] = []
 
@@ -1316,7 +1297,6 @@ class ReflexionEngine:
             feedback_type = FeedbackType.EXPLORATORY
             priority = ImprovementPriority.MEDIUM
 
-        # Generate content from template
         templates = self._feedback_templates.get(
             feedback_type, self._feedback_templates[FeedbackType.NEUTRAL]
         )
@@ -1330,7 +1310,6 @@ class ReflexionEngine:
             outcome=outcome.outcome_type.value,
         )
 
-        # Generate actionable items
         actionable_items = self._generate_actionable_items(experience, reflection_type)
 
         return LinguisticFeedback(
@@ -1539,7 +1518,6 @@ class AnomalyReflexion:
         else:
             features_array = features
 
-        # Analyze features for refinement
         recommendations = []
         refined_score = score
 

@@ -257,7 +257,6 @@ class RateLimiter:
                 reset_at=int(now) + 60,
             )
         else:
-            # Calculate retry time
             time_to_next_token = 60.0 / self.requests_per_minute
             self.backend.set(identifier, now, 0, self.DEFAULT_TTL_SECONDS)
             return RateLimitInfo(

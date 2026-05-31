@@ -437,7 +437,6 @@ class HTTPClient:
                 content = await response.read()
                 elapsed = time.time() - start_time
 
-                # Convert aiohttp headers to dict
                 response_headers = {k: v for k, v in response.headers.items()}
 
                 return HTTPResponse(
@@ -531,7 +530,6 @@ class HTTPClient:
         merged_headers = self._merge_headers(headers)
         circuit_breaker = self._get_circuit_breaker(endpoint)
 
-        # Check circuit breaker
         if not circuit_breaker.allow_request():
             raise CircuitOpenError(endpoint)
 

@@ -177,7 +177,6 @@ class SparseAttention(nn.Module):
         attention = F.softmax(scores, dim=-1)
         attention = self.dropout(attention)
 
-        # Compute output
         context = torch.matmul(attention, V)
         context = context.transpose(1, 2).contiguous().view(batch_size, seq_len, self.d_model)
         output = self.W_O(context)
@@ -249,7 +248,6 @@ class SelectiveSSM(nn.Module):
         self.d_state = d_state
         self.d_inner = d_model * expand
 
-        # Input projection
         self.in_proj = nn.Linear(d_model, self.d_inner * 2)
 
         # Convolution for local context
@@ -271,7 +269,6 @@ class SelectiveSSM(nn.Module):
         # D (skip connection)
         self.D = nn.Parameter(torch.ones(self.d_inner))
 
-        # Output projection
         self.out_proj = nn.Linear(self.d_inner, d_model)
 
         self.dropout = nn.Dropout(dropout)
@@ -317,7 +314,6 @@ class SelectiveSSM(nn.Module):
         # Skip connection
         y = y + self.D * x_conv
 
-        # Output projection
         output = self.out_proj(y)
         output = self.dropout(output)
 
@@ -463,7 +459,6 @@ class GatedFeatureFusion(nn.Module):
         if gate_bias != 0:
             self.gate[-2].bias.data.fill_(gate_bias)  # type: ignore[operator, unused-ignore]
 
-        # Output projection
         self.out_proj = nn.Linear(d_model, d_model)
         self.norm = nn.LayerNorm(d_model)
 
@@ -488,7 +483,6 @@ class GatedFeatureFusion(nn.Module):
         # Compute gate
         gate = self.gate(combined)
 
-        # Gated fusion
         fused = gate * x_attn + (1 - gate) * x_ssm
 
         # Project and normalize
@@ -543,7 +537,6 @@ class MAATEncoderLayer(nn.Module):
             else None
         )
 
-        # Gated fusion
         self.gate_fusion = GatedFeatureFusion(
             d_model=config.d_model,
             gate_bias=config.gate_bias,
@@ -590,7 +583,6 @@ class MAATEncoderLayer(nn.Module):
         else:
             x_ssm = x
 
-        # Gated fusion
         if return_gates:
             x_fused, gate = self.gate_fusion(x_attn, x_ssm, return_gate=True)
         else:
@@ -628,10 +620,8 @@ class MAATModel(nn.Module):
         super().__init__()
         self.config = config or MAATConfig()
 
-        # Input projection
         self.input_proj = nn.Linear(self.config.input_dim, self.config.d_model)
 
-        # Positional encoding
         self.pos_encoding = PositionalEncoding(
             self.config.d_model, self.config.dropout, max_len=self.config.window_size * 2
         )
@@ -691,10 +681,8 @@ class MAATModel(nn.Module):
 
         h = self.norm(h)
 
-        # Reconstruction
         reconstruction = self.reconstruction_head(h)
 
-        # Compute anomaly score
         recon_error = ((x - reconstruction) ** 2).mean(dim=-1)
 
         # Association discrepancy enhancement

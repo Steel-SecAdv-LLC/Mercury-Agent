@@ -134,7 +134,6 @@ class AdaptiveThresholdOptimizer:
         # Normalize scores to [0, 1]
         scores_norm = (scores - scores.min()) / (scores.max() - scores.min() + 1e-10)
 
-        # Compute histogram
         hist, bin_edges = np.histogram(scores_norm, bins=self.n_bins, range=(0, 1))
         hist = hist.astype(float)
         bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
@@ -668,7 +667,6 @@ class EnhancedBaseDetector:
         Returns:
             Self for method chaining
         """
-        # Fit base detector
         self.base_detector.fit(X)
 
         # Get scores for threshold optimization
@@ -713,13 +711,11 @@ class EnhancedBaseDetector:
 
         scores = base_result.get("scores", np.zeros(len(X)))
 
-        # Apply adaptive threshold
         if self._threshold is not None:
             is_anomaly = scores > self._threshold
         else:
             is_anomaly = scores > 0.5
 
-        # Apply calibration if available
         if self._calibrator is not None:
             scores = self._calibrator.calibrate(scores)
 

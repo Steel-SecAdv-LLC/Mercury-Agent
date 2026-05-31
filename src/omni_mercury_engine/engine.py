@@ -489,7 +489,6 @@ class FeatureCache:
         value = compute_fn()
 
         with self.lock:
-            # Evict if necessary
             while len(self.cache) >= self.max_size and self.access_order:
                 oldest = self.access_order.pop(0)
                 self.cache.pop(oldest, None)
@@ -735,16 +734,13 @@ class OmniMercuryEngine(LoggerMixin):
 
         self.device = torch.device(device)
 
-        # Validate CUDA availability
         if device == "cuda" and not torch.cuda.is_available():
             logger.warning("CUDA requested but not available, falling back to CPU")
             self.device = torch.device("cpu")
 
-        # Initialize caching and memory management
         self.feature_cache = FeatureCache(max_size=cache_size)
         self.memory_monitor = MemoryMonitor(threshold_mb=memory_threshold_mb)
 
-        # Thread pool for parallel processing
         self._executor: ThreadPoolExecutor | None = None
 
         # Ethical boundary scorer — constructed eagerly at engine init so
@@ -820,7 +816,6 @@ class OmniMercuryEngine(LoggerMixin):
         from omni_mercury_engine.models.multiverse import MultiverseOmniEngine
         from omni_mercury_engine.models.neurosymbolic import NeurosymbolicEngine
 
-        # Use lazy import getter functions for specialized models
         self.models = {
             "quantum": get_quantum_model()(),
             "astrophysical": get_astrophysical_model()(),
@@ -980,7 +975,6 @@ class OmniMercuryEngine(LoggerMixin):
         if self.mode != "fusion":
             raise ValueError("fit_fusion() requires mode='fusion'")
 
-        # Convert to numpy if needed
         if isinstance(X, torch.Tensor):
             X = X.cpu().numpy()
 
@@ -995,7 +989,6 @@ class OmniMercuryEngine(LoggerMixin):
         detector_features = self._extract_fusion_features(X, fit_detectors=True)
         self._fusion_feature_groups = sorted(detector_features.keys())
 
-        # Generate pseudo-labels if not provided (semi-supervised)
         if y is None:
             logger.info("No labels provided, using semi-supervised pseudo-labeling...")
             y = self._generate_pseudo_labels(X, contamination)
@@ -1053,7 +1046,6 @@ class OmniMercuryEngine(LoggerMixin):
             Training metrics (``best_loss``, ``epochs_trained`` ... plus
             ``temperature``/``ece_before``/``ece_after`` when calibrated).
         """
-        # GPU check with fallback
         device = self.device
         if device.type == "cuda" and not torch.cuda.is_available():
             logger.warning("CUDA requested but unavailable, falling back to CPU")
@@ -1064,10 +1056,8 @@ class OmniMercuryEngine(LoggerMixin):
         y = np.asarray(y).reshape(-1)
         n_samples = len(y)
 
-        # Prepare training data
         labels_tensor = torch.tensor(y, dtype=torch.float32).unsqueeze(1)
 
-        # Create train/val split
         n_val = int(n_samples * validation_split)
         n_train = n_samples - n_val
 
@@ -1075,7 +1065,6 @@ class OmniMercuryEngine(LoggerMixin):
         train_indices = indices[:n_train]
         val_indices = indices[n_train:]
 
-        # Training loop with early stopping
         self.fusion_model.train()
         self.fusion_model.to(device)
 
@@ -1118,7 +1107,6 @@ class OmniMercuryEngine(LoggerMixin):
                 end_idx = min(start_idx + batch_size, n_train)
                 batch_indices = train_indices[start_idx:end_idx]
 
-                # Get batch features
                 batch_features = {
                     name: feat[batch_indices].to(device) for name, feat in detector_features.items()
                 }
@@ -1411,7 +1399,6 @@ class OmniMercuryEngine(LoggerMixin):
         """
         n_samples = len(X)
 
-        # Collect scores from all detectors
         all_scores: list[np.ndarray[Any, Any]] = []
         for name, detector in self.detectors.items():
             try:
@@ -1432,12 +1419,10 @@ class OmniMercuryEngine(LoggerMixin):
             distances = np.linalg.norm(X - mean, axis=1)
             all_scores = [distances / (distances.max() + 1e-8)]
 
-        # Ensemble score (average)
         ensemble_score = np.mean(all_scores, axis=0)
 
-        # Estimate contamination if not provided
         if contamination is None:
-            # Use IQR-based estimation
+            # IQR-based estimation
             q1, q3 = np.percentile(ensemble_score, [25, 75])
             iqr = q3 - q1
             upper_fence = q3 + 1.5 * iqr
@@ -2221,13 +2206,11 @@ class OmniMercuryEngine(LoggerMixin):
 
         n_samples = data.shape[0]
 
-        # Dynamic batch size based on memory
         if batch_size is None:
             batch_size = self._calculate_optimal_batch_size(data)
 
         results: list[dict[str, Any]] = []
 
-        # Process in batches
         with self.memory_monitor.track_allocation("batch_detection"):
             for start_idx in range(0, n_samples, batch_size):
                 end_idx = min(start_idx + batch_size, n_samples)
@@ -2250,7 +2233,6 @@ class OmniMercuryEngine(LoggerMixin):
                     for _i in range(len(batch_data)):
                         results.append(batch_result)
 
-                # Check memory and potentially trigger GC
                 self.memory_monitor.check_and_collect()
 
         return results
@@ -2270,7 +2252,6 @@ class OmniMercuryEngine(LoggerMixin):
         Returns:
             Optimal batch size.
         """
-        # Estimate memory per sample
         sample_size_bytes = data[0:1].nbytes if len(data) > 0 else 100
         # Account for intermediate computations (~10x multiplier)
         effective_size = sample_size_bytes * 10

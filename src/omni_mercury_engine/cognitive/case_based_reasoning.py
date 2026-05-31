@@ -242,7 +242,6 @@ class CaseBasedReasoner:
         else:
             candidate_ids = list(self._cases.keys())
 
-        # Compute similarities
         similarities: list[tuple[Case, float]] = []
         for case_id in candidate_ids:
             case = self._cases[case_id]
@@ -251,7 +250,6 @@ class CaseBasedReasoner:
                 similarities.append((case, similarity))
                 case.retrieval_count += 1
 
-        # Sort by similarity
         similarities.sort(key=lambda x: x[1], reverse=True)
         top_k = similarities[:k]
 
@@ -348,7 +346,6 @@ class CaseBasedReasoner:
         Returns:
             Proposed solution with metadata
         """
-        # RETRIEVE
         retrieval = self.retrieve(problem, k=k, domain_filter=domain)
 
         if not retrieval.best_match:
@@ -587,13 +584,11 @@ class CaseBasedReasoner:
         if not self.enable_forgetting:
             return
 
-        # Calculate utility scores
         utilities = []
         for case_id, case in self._cases.items():
             utility = self._calculate_utility(case)
             utilities.append((case_id, utility))
 
-        # Sort and remove lowest utility
         utilities.sort(key=lambda x: x[1])
         num_to_remove = max(1, len(utilities) // 10)
 

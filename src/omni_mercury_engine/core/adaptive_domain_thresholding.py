@@ -295,7 +295,6 @@ class IsotonicCalibrator:
         if len(scores) != len(labels):
             raise ValueError("scores and labels must have same length")
 
-        # Sort by scores
         sorted_indices = np.argsort(scores)
         sorted_scores = scores[sorted_indices]
         sorted_labels = labels[sorted_indices]
@@ -534,7 +533,6 @@ class AdaptiveDomainThresholdManager:
 
         self.domain = domain
 
-        # Load domain defaults
         defaults = DOMAIN_DEFAULTS.get(domain, DOMAIN_DEFAULTS[DomainType.GENERAL])
         self.config = DomainThresholdConfig(domain=domain, **defaults)
 
@@ -717,7 +715,6 @@ class AdaptiveDomainThresholdManager:
         if self._fitted and len(self._score_history) > 0:
             threshold = self._adaptive_adjustment(threshold, calibrated_scores)
 
-        # Track history
         self._score_history.append(calibrated_scores[-self.config.window_size :])
         if len(self._score_history) > 10:
             self._score_history = self._score_history[-10:]
@@ -1050,7 +1047,6 @@ class AdaptiveDomainThresholdManager:
         true_labels = np.asarray(true_labels).flatten()
         predictions = np.asarray(predictions).flatten()
 
-        # Compute metrics
         tp = np.sum((true_labels == 1) & predictions)
         fp = np.sum((true_labels == 0) & predictions)
         fn = np.sum((true_labels == 1) & ~predictions)

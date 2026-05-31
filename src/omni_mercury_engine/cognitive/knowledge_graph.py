@@ -633,17 +633,14 @@ class RandomWalkEmbedding:
         if not node_ids:
             return {}
 
-        # Build index
         self._node_to_idx = {nid: i for i, nid in enumerate(node_ids)}
         self._idx_to_node = {i: nid for i, nid in enumerate(node_ids)}
         n_nodes = len(node_ids)
 
-        # Initialize embeddings randomly
         scale = 0.5 / self.embedding_dim
         input_embeddings = self._rng.standard_normal((n_nodes, self.embedding_dim)) * scale
         output_embeddings = self._rng.standard_normal((n_nodes, self.embedding_dim)) * scale
 
-        # Generate random walks
         walks = self._generate_walks(adjacency, node_ids)
 
         # Train with skip-gram
@@ -764,7 +761,6 @@ class RandomWalkEmbedding:
         # Gradient
         error = (label - pred) * self.learning_rate
 
-        # Update
         input_emb[center] += error * output_emb[context]
         output_emb[context] += error * input_emb[center]
 
@@ -826,7 +822,6 @@ class GNNMessagePassing:
         h = node_features
 
         for layer in range(self.num_layers):
-            # Aggregate messages
             if self.aggregation == "mean":
                 messages = adj @ h
             elif self.aggregation == "sum":
@@ -1275,7 +1270,6 @@ class KnowledgeGraph:
             node_ids = list(self._nodes.keys())
 
             if method == "random_walk":
-                # Build adjacency for random walk
                 adjacency = {}
                 for nid in node_ids:
                     neighbors = []
@@ -1290,7 +1284,6 @@ class KnowledgeGraph:
                 n_nodes = len(node_ids)
                 node_to_idx = {nid: i for i, nid in enumerate(node_ids)}
 
-                # Build adjacency matrix
                 rows, cols, data = [], [], []
                 for nid in node_ids:
                     i = node_to_idx[nid]
@@ -1352,10 +1345,8 @@ class KnowledgeGraph:
             n_nodes = len(node_ids)
             node_to_idx = {nid: i for i, nid in enumerate(node_ids)}
 
-            # Initialize PageRank uniformly
             pagerank = np.ones(n_nodes) / n_nodes
 
-            # Build transition matrix
             out_degrees = np.zeros(n_nodes)
             for i, nid in enumerate(node_ids):
                 out_degrees[i] = len(self._edges.get(nid, []))
@@ -1389,7 +1380,6 @@ class KnowledgeGraph:
             # Normalize
             pagerank = pagerank / pagerank.sum()
 
-            # Store in nodes
             result = {}
             for i, nid in enumerate(node_ids):
                 result[nid] = float(pagerank[i])
@@ -1420,7 +1410,6 @@ class KnowledgeGraph:
             n_nodes = len(node_ids)
             node_to_idx = {nid: i for i, nid in enumerate(node_ids)}
 
-            # Build adjacency matrix
             rows, cols, data = [], [], []
             for nid in node_ids:
                 i = node_to_idx[nid]
@@ -1436,7 +1425,6 @@ class KnowledgeGraph:
 
             adj = sparse.csr_matrix((data, (rows, cols)), shape=(n_nodes, n_nodes))
 
-            # Compute Laplacian
             degrees = np.array(adj.sum(axis=1)).flatten()
             degrees = np.maximum(degrees, 1e-10)
             d_inv_sqrt = sparse.diags(1.0 / np.sqrt(degrees))
@@ -1455,7 +1443,6 @@ class KnowledgeGraph:
                 logger.debug("Spectral clustering failed, assigning all nodes to cluster 0: %s", e)
                 labels = np.zeros(n_nodes, dtype=int)
 
-            # Store in nodes
             result = {}
             for i, nid in enumerate(node_ids):
                 cluster_id = int(labels[i])
@@ -1541,7 +1528,6 @@ class KnowledgeGraph:
             if not embeddings:
                 return []
 
-            # Generate candidate pairs (non-existing edges)
             existing_edges = set()
             for nid in self._nodes:
                 for edge in self._edges.get(nid, []):
@@ -2013,7 +1999,6 @@ class KnowledgeGraph:
             prop = self.ontology.get_property(predicate)
             prop_info = prop.to_dict() if prop else {}
 
-            # Find supporting evidence
             supporting = []
 
             # For transitive properties, find intermediate nodes

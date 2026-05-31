@@ -202,7 +202,6 @@ class TruthDecipherFramework(LoggerMixin):
         # === PHASE 2: COGNITIVE ANALYSIS ===
         # This integrates: knowledge graph, uncertainty, causality, reasoning, CBR, indicators
         if self.enable_cognitive and self.cognitive:
-            # Get raw data as numpy for cognitive analysis
             if isinstance(data_stream, torch.Tensor):
                 raw_data = data_stream.cpu().numpy()
             elif isinstance(data_stream, dict):
@@ -226,7 +225,6 @@ class TruthDecipherFramework(LoggerMixin):
             result.similar_cases = cognitive_result.similar_historical_cases
             result.triggered_indicators = cognitive_result.triggered_indicators
 
-            # Add cognitive recommendations to the mix
             result.recommendations.extend(cognitive_result.recommended_actions)
 
         result.phase_completed = 2
@@ -468,7 +466,6 @@ class TruthDecipherFramework(LoggerMixin):
             ),
         }
 
-        # Add cognitive layer statistics
         if self.enable_cognitive and self.cognitive:
             stats["cognitive"] = self.cognitive.get_statistics()
 

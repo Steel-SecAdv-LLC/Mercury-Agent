@@ -446,7 +446,6 @@ def configure_logging(
         ...     log_file="/var/log/mercury-agent/app.log"
         ... )
     """
-    # Get the root logger for omni_mercury_engine
     root_logger = logging.getLogger("omni_mercury_engine")
 
     # Convert string level to int

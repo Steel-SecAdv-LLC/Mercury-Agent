@@ -269,17 +269,14 @@ class MercuryConversationInterface:
 
         domain = context.domain if context else self.default_domain
 
-        # Get personality profile
         profile = self.personality_engine.get_profile(domain)
 
-        # Generate narrative
         narrative = self.narrative_engine.synthesize(
             detection_result=detection_result,
             domain=domain,
             context={"session": context.session_id if context else None},
         )
 
-        # Get memory context
         memory_context = None
         historical_refs = []
         if self.memory_surface:
@@ -289,7 +286,6 @@ class MercuryConversationInterface:
             # Record this event for future memory
             self.memory_surface.record_event(detection_result, domain, outcome=None)
 
-        # Get communication modifiers
         modifiers = self.personality_engine.get_modifiers(
             severity=detection_result.get("severity", 0.0),
             confidence=detection_result.get("confidence", 0.5),
@@ -298,12 +294,10 @@ class MercuryConversationInterface:
             domain=domain,
         )
 
-        # Build main message
         message = self._build_message(
             narrative, memory_context, profile, modifiers, detection_result
         )
 
-        # Generate confidence statement
         confidence_statement = self.personality_engine.get_uncertainty_statement(
             confidence=detection_result.get("confidence", 0.5),
             epistemic=detection_result.get("epistemic_uncertainty", 0.0),
@@ -315,7 +309,6 @@ class MercuryConversationInterface:
         if self.proactive_monitor:
             self.proactive_monitor.submit(detection_result, domain)
 
-        # Generate follow-up suggestions
         follow_ups = self._generate_follow_ups(detection_result, profile, domain)
 
         # Collect warnings
@@ -328,7 +321,6 @@ class MercuryConversationInterface:
             else:
                 warnings.append(str(w))
 
-        # Update conversation history
         if context:
             context.conversation_history.append(
                 {
@@ -366,11 +358,9 @@ class MercuryConversationInterface:
         """Build the main response message."""
         parts = []
 
-        # Opening acknowledgment if appropriate
         if modifiers.opening_acknowledgment:
             parts.append(modifiers.opening_acknowledgment)
 
-        # Main summary
         parts.append(narrative.summary)
 
         # Historical context (if relevant and personality allows)

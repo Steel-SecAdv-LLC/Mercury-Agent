@@ -505,7 +505,6 @@ class PrototypicalNetworkNumpy(BaseFewShotLearner):
         assert self.projection_bias is not None
         embeddings = X @ self.projection_matrix + self.projection_bias
 
-        # L2 normalize
         norms = np.linalg.norm(embeddings, axis=1, keepdims=True) + 1e-10
         return embeddings / norms
 
@@ -612,7 +611,6 @@ class MatchingNetworkNumpy(BaseFewShotLearner):
         assert self.projection_bias is not None
         embeddings = X @ self.projection_matrix + self.projection_bias
 
-        # L2 normalize
         norms = np.linalg.norm(embeddings, axis=1, keepdims=True) + 1e-10
         return embeddings / norms
 
@@ -725,7 +723,6 @@ class SiameseNetworkNumpy(BaseFewShotLearner):
         # Apply ReLU
         embeddings = np.maximum(embeddings, 0)
 
-        # L2 normalize
         norms = np.linalg.norm(embeddings, axis=1, keepdims=True) + 1e-10
         return embeddings / norms
 
@@ -891,7 +888,6 @@ class MAMLNumpy(BaseFewShotLearner):
         """Compute gradients using backpropagation."""
         n = len(X)
 
-        # Forward pass
         h, logits = self._forward(X, W1, b1, W2, b2)
         probs = self._softmax(logits)
 
@@ -907,7 +903,6 @@ class MAMLNumpy(BaseFewShotLearner):
 
         # Gradient w.r.t. hidden layer
         d_h = d_logits @ W2.T
-        # ReLU backward
         d_h = d_h * (h > 0)
 
         # Gradient w.r.t. W1, b1
@@ -939,7 +934,6 @@ class MAMLNumpy(BaseFewShotLearner):
 
         # Inner loop: adapt to task
         for _ in range(self.inner_steps):
-            # Compute gradients
             dW1, db1, dW2, db2 = self._compute_gradients(
                 episode.support_X,
                 y_mapped,
@@ -1075,7 +1069,6 @@ class RelationNetworkNumpy(BaseFewShotLearner):
         h = np.maximum(0, X @ self.embed_W1 + self.embed_b1)
         embeddings = np.maximum(0, h @ self.embed_W2 + self.embed_b2)
 
-        # L2 normalize
         norms = np.linalg.norm(embeddings, axis=1, keepdims=True) + 1e-10
         return embeddings / norms
 
@@ -1206,7 +1199,6 @@ if TORCH_AVAILABLE:
                     x = x[..., : self.input_dim]
 
             embeddings = self.encoder(x)
-            # L2 normalize
             return F.normalize(embeddings, p=2, dim=-1)
 
         def fit_episode(self, episode: Episode) -> None:
@@ -1373,14 +1365,12 @@ class FewShotLearner:
             episode_time = time.time() - start_time
             episode_times.append(episode_time)
 
-            # Calculate accuracy
             acc = np.mean(preds == episode.query_y)
             episode_accuracies.append(acc)
 
             all_preds.extend(preds.tolist())
             all_true.extend(episode.query_y.tolist())
 
-        # Aggregate metrics
         all_preds_arr = np.array(all_preds)
         all_true_arr = np.array(all_true)
 
@@ -1474,14 +1464,12 @@ class FewShotLearner:
                 episode_time = time.time() - start_time
                 episode_times.append(episode_time)
 
-                # Calculate accuracy
                 acc = np.mean(preds == episode.query_y)
                 episode_accuracies.append(acc)
 
                 all_preds.extend(preds.tolist())
                 all_true.extend(episode.query_y.tolist())
 
-            # Aggregate metrics
             all_preds_arr = np.array(all_preds)
             all_true_arr = np.array(all_true)
 

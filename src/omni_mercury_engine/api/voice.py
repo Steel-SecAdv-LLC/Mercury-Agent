@@ -219,7 +219,6 @@ class GreetingResponse(BaseModel):
     )
 
 
-# Create router
 router = APIRouter(prefix="/api/v1/voice", tags=["Voice Interface"])
 
 

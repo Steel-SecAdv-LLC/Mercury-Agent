@@ -173,7 +173,6 @@ class ThreeRAttentionBlock(nn.Module):
         self.eta = ethical_threshold
         self.phi = PHI
 
-        # Output projection
         self.output_proj = nn.Linear(d_model, d_model)
         self.output_norm = nn.LayerNorm(d_model)
 
@@ -415,7 +414,6 @@ class ThreeRAnomalyTransformer(nn.Module):
         self.input_proj = nn.Linear(input_dim, d_model)
         self.input_norm = nn.LayerNorm(d_model)
 
-        # Positional encoding
         self.pos_encoding = nn.Parameter(torch.randn(1, 1024, d_model) * 0.02)
 
         # Stack of 3R attention blocks
@@ -483,7 +481,6 @@ class ThreeRAnomalyTransformer(nn.Module):
             h, scores = layer(h)
             layer_scores.append(scores)
 
-        # Reconstruction
         reconstruction = self.decoder(h)
 
         # Aggregate anomaly scores from all layers
