@@ -167,6 +167,7 @@ from omni_mercury_engine.ml.drift import DriftResult, EnsembleDriftDetector
 from omni_mercury_engine.ml.fairness import BiasAuditConfig, FairnessAuditor, FairnessReport
 from omni_mercury_engine.ml.fusion_network import FocalLoss, OmniFusionModel
 from omni_mercury_engine.ml.inference import FusionInference
+from omni_mercury_engine.ml.domain_encoders import DomainEncoderStack
 from omni_mercury_engine.ml.symbolic_constraint import SymbolicConstraintModule
 from omni_mercury_engine.ml.optimization import OptimizationConfig, ParallelExecutor
 from omni_mercury_engine.utils.logging import LoggerMixin
@@ -883,6 +884,15 @@ class OmniMercuryEngine(LoggerMixin):
             # has already absorbed the constraint, so inference needs only the
             # net; this handle is diagnostic, not required for scoring.
             self._symbolic_module: SymbolicConstraintModule | None = None
+            # Opt-in differentiable domain encoders (WS-B / Target 2): the
+            # FFT-spectral + finite-difference-kinematic + Fisher/entropy
+            # nn.Modules, jointly trained with the fusion net when
+            # fit_fusion(domain_encoder=True). None on the default path; when
+            # set, inference (_extract_fusion_features) injects its feature so
+            # serve matches training. ``_domain_scaler`` is the (mean, std) used
+            # to standardise the encoder input, applied identically at inference.
+            self._domain_encoder: DomainEncoderStack | None = None
+            self._domain_scaler: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]] | None = None
             # Class-conditional conformal classifier over the calibrated fusion
             # probability, fit by calibrate_fusion_conformal() on a held-out
             # labelled split. Turns the scalar probability into label prediction
@@ -950,6 +960,7 @@ class OmniMercuryEngine(LoggerMixin):
         focal_gamma: float = 2.0,
         calibrate: bool = True,
         symbolic_weight: float = 0.0,
+        domain_encoder: bool = False,
     ) -> dict[str, Any]:
         """Fit the fusion model on training data with semi-supervised learning.
 
@@ -1032,6 +1043,19 @@ class OmniMercuryEngine(LoggerMixin):
         if symbolic_weight > 0:
             detector_scores = self._extract_consensus_scores(X)
 
+        # WS-B: opt-in differentiable domain encoder. Standardise the raw input
+        # once (mean/std stored on the engine, re-applied identically at
+        # inference) and hand the tensor to the trainer, which builds + jointly
+        # trains the encoder. ``None`` on the default path keeps it byte-identical.
+        raw_inputs: torch.Tensor | None = None
+        if domain_encoder:
+            x_arr = np.nan_to_num(np.asarray(X, dtype=np.float32))
+            mean = x_arr.mean(axis=0)
+            std = x_arr.std(axis=0)
+            std[std < 1e-8] = 1.0
+            self._domain_scaler = (mean, std)
+            raw_inputs = torch.tensor((x_arr - mean) / std, dtype=torch.float32)
+
         # Generate pseudo-labels if not provided (semi-supervised)
         if y is None:
             logger.info("No labels provided, using semi-supervised pseudo-labeling...")
@@ -1051,6 +1075,7 @@ class OmniMercuryEngine(LoggerMixin):
             calibrate=calibrate,
             symbolic_weight=symbolic_weight,
             detector_scores=detector_scores,
+            raw_inputs=raw_inputs,
         )
 
     def _fit_fusion_on_features(
@@ -1069,6 +1094,7 @@ class OmniMercuryEngine(LoggerMixin):
         calibrate: bool = True,
         symbolic_weight: float = 0.0,
         detector_scores: torch.Tensor | None = None,
+        raw_inputs: torch.Tensor | None = None,
     ) -> dict[str, Any]:
         """Train the fusion head on a pre-extracted feature-group mapping.
 
@@ -1129,6 +1155,36 @@ class OmniMercuryEngine(LoggerMixin):
         self.fusion_model.train()
         self.fusion_model.to(device)
 
+        # WS-B: opt-in differentiable domain encoder. Built BEFORE the optimiser
+        # so the fusion projection it needs is registered and captured in
+        # ``trainable_params``. Off (raw_inputs is None) leaves every line below
+        # identical to the neural path.
+        domain_active = raw_inputs is not None
+        raw_inputs_dev: torch.Tensor | None = None
+        domain_dim = 64
+        if domain_active:
+            assert raw_inputs is not None  # narrowed by domain_active
+            dom_module: DomainEncoderStack | None = DomainEncoderStack(
+                raw_inputs.shape[1], output_dim=domain_dim
+            ).to(device)
+            assert dom_module is not None
+            dom_module.train()
+            self._domain_encoder = dom_module
+            # Pre-create the fusion projection for the injected feature group so
+            # its parameters exist before ``list(fusion_model.parameters())``.
+            self.fusion_model._get_or_create_projection("differentiable_domain", domain_dim, device)
+            if (
+                self._fusion_feature_groups is not None
+                and "differentiable_domain" not in self._fusion_feature_groups
+            ):
+                self._fusion_feature_groups = sorted(
+                    [*self._fusion_feature_groups, "differentiable_domain"]
+                )
+            raw_inputs_dev = raw_inputs.to(device)
+        else:
+            dom_module = None
+            self._domain_encoder = None
+
         # Neuro-symbolic co-training: when enabled, a SymbolicConstraintModule
         # is optimised jointly with the fusion net and its (1 - satisfaction)
         # loss is added per batch. The constraint's gradient flows into the
@@ -1153,6 +1209,10 @@ class OmniMercuryEngine(LoggerMixin):
             sym_module = None
             self._symbolic_module = None
             trainable_params = list(self.fusion_model.parameters())
+
+        if domain_active:
+            assert dom_module is not None
+            trainable_params = trainable_params + list(dom_module.parameters())
 
         optimizer = torch.optim.AdamW(trainable_params, lr=learning_rate, weight_decay=0.01)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
@@ -1179,6 +1239,7 @@ class OmniMercuryEngine(LoggerMixin):
 
         best_val_loss = float("inf")
         best_state: dict[str, Any] | None = None
+        best_domain_state: dict[str, Any] | None = None
         epochs_without_improvement = 0
         loss_history: list[dict[str, float]] = []
         # Final-epoch symbolic diagnostics (populated only when co-training).
@@ -1188,6 +1249,8 @@ class OmniMercuryEngine(LoggerMixin):
         for epoch in range(epochs):
             # Training phase
             self.fusion_model.train()
+            if domain_active and dom_module is not None:
+                dom_module.train()
             train_losses: list[float] = []
 
             for start_idx in range(0, n_train, batch_size):
@@ -1198,6 +1261,8 @@ class OmniMercuryEngine(LoggerMixin):
                 batch_features = {
                     name: feat[batch_indices].to(device) for name, feat in detector_features.items()
                 }
+                if domain_active and dom_module is not None and raw_inputs_dev is not None:
+                    batch_features["differentiable_domain"] = dom_module(raw_inputs_dev[batch_indices])
                 batch_labels = labels_tensor[batch_indices].to(device)
 
                 optimizer.zero_grad()
@@ -1217,6 +1282,8 @@ class OmniMercuryEngine(LoggerMixin):
 
             # Validation phase
             self.fusion_model.eval()
+            if domain_active and dom_module is not None:
+                dom_module.eval()
             val_losses: list[float] = []
 
             with torch.no_grad():
@@ -1228,6 +1295,10 @@ class OmniMercuryEngine(LoggerMixin):
                         name: feat[batch_indices].to(device)
                         for name, feat in detector_features.items()
                     }
+                    if domain_active and dom_module is not None and raw_inputs_dev is not None:
+                        batch_features["differentiable_domain"] = dom_module(
+                            raw_inputs_dev[batch_indices]
+                        )
                     batch_labels = labels_tensor[batch_indices].to(device)
 
                     outputs = self.fusion_model(batch_features)
@@ -1257,6 +1328,10 @@ class OmniMercuryEngine(LoggerMixin):
             if avg_val_loss < best_val_loss:
                 best_val_loss = avg_val_loss
                 best_state = {k: v.cpu().clone() for k, v in self.fusion_model.state_dict().items()}
+                if domain_active and dom_module is not None:
+                    best_domain_state = {
+                        k: v.cpu().clone() for k, v in dom_module.state_dict().items()
+                    }
                 epochs_without_improvement = 0
             else:
                 epochs_without_improvement += 1
@@ -1274,6 +1349,8 @@ class OmniMercuryEngine(LoggerMixin):
         # Restore best model
         if best_state is not None:
             self.fusion_model.load_state_dict(best_state)
+        if best_domain_state is not None and dom_module is not None:
+            dom_module.load_state_dict(best_domain_state)
 
         self.fusion_model.eval()
         if symbolic_active and sym_module is not None:
@@ -1636,6 +1713,18 @@ class OmniMercuryEngine(LoggerMixin):
 
         if not fusion_features:
             raise RuntimeError("No fusion features could be extracted")
+
+        # WS-B: inject the co-trained differentiable domain-encoder feature so
+        # inference matches training. ``_domain_encoder`` is None on the default
+        # path AND during the training-time extraction call (it is created later
+        # in _fit_fusion_on_features), so neither path is affected.
+        if self._domain_encoder is not None and self._domain_scaler is not None:
+            mean, std = self._domain_scaler
+            x_std = (np.nan_to_num(np.asarray(X, dtype=np.float32)) - mean) / std
+            self._domain_encoder.eval()
+            with torch.no_grad():
+                dom = self._domain_encoder(torch.tensor(x_std, dtype=torch.float32).to(self.device))
+            fusion_features["differentiable_domain"] = dom.detach().to(torch.float32).cpu()
 
         return fusion_features
 
