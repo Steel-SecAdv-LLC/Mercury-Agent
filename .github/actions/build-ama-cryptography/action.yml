@@ -23,7 +23,7 @@ runs:
       run: |
         sudo apt-get update
         sudo apt-get install -y --no-install-recommends \
-          build-essential cmake ninja-build pkg-config
+          build-essential gcc-12 g++-12 cmake ninja-build pkg-config
 
     - name: Install AMA Cryptography PEP 517 build-system floors
       # AMA's ``setup.py`` preflight enforces the supply-chain floors declared
@@ -57,7 +57,7 @@ runs:
         git clone --branch "${AMA_REF}" --depth 1 \
           https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git /tmp/ama-cryptography
         cd /tmp/ama-cryptography
-        cmake -S . -B build \
+        CC=/usr/bin/gcc-12 CXX=/usr/bin/g++-12 cmake -S . -B build \
           -DCMAKE_BUILD_TYPE=Release \
           -DAMA_USE_NATIVE_PQC=ON \
           -DAMA_BUILD_SHARED=ON \

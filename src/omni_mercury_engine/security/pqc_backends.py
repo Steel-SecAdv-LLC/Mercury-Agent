@@ -26,27 +26,12 @@ the ``AMA_REF`` env var of ``.github/workflows/ci.yml`` /
 lock-step when upgrading.
 
 Previous versions used a 4-tier fallback chain (AMA → liboqs → pqcrypto →
-SIMULATION).  As of v1.7.0 Mercury **hard-requires AMA Cryptography at
-call time** and the runtime fallback chain has been removed entirely.
-AMA v3.2.0 carries its own native C backend — it *is* the implementation.
-Retaining weaker fallbacks only widened the attack surface.
-
-Import contract (soft-import / hard-call)
------------------------------------------
-The import surface intentionally tolerates a missing ``ama_cryptography``
-package: the ``ImportError`` branch below installs ``_stub_*`` placeholders
-that **raise** ``RuntimeError`` the moment any PQC primitive is invoked.
-This split exists so non-PQC CI lanes (docs drift gate, examples-parity,
-format, code-quality, type-checking) can collect and import the security
-package without provisioning the AMA native build, while every lane that
-actually exercises PQC (``ml-tests``, ``verify-real-pqc``,
-``pqc-production-check``) builds AMA from source and gets the real
-backend.  In production, the
-:func:`omni_mercury_engine.security.pqc_guards.assert_pqc_available`
-gate (called from any PQC code path) enforces ``AMA_REQUIRE_REAL_PQC=1``
-and refuses to start the worker if the stubs are still bound.  There is
-no silent fallback at any layer; the contract is "PQC works or PQC raises",
-never "PQC degrades".
+SIMULATION), then a soft-import / hard-call stub bridge for AMA-less dev
+lanes.  Mercury now fails closed at module import: if
+``ama_cryptography.pqc_backends`` cannot be imported, or if the pinned v3.2.0
+FIPS 204/205 symbols are missing, this module does not load.  AMA v3.2.0
+carries its own native C backend — it *is* the implementation.  Retaining
+weaker fallbacks only widened the attack surface.
 
 The v3.x surface adds FIPS 204 §5.2 context-aware ML-DSA-65 signing and
 FIPS 205 SLH-DSA-SHAKE-128s; v3.2.0 specifically adds the
@@ -77,220 +62,56 @@ References:
     - Kyber: https://pq-crystals.org/kyber/
 """
 
-import logging
 import os
 import threading
 import time
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, NoReturn
-
-logger = logging.getLogger(__name__)
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # AMA Cryptography — sole PQC backend
 # ---------------------------------------------------------------------------
-AMA_CRYPTOGRAPHY_AVAILABLE = False
-DILITHIUM_AVAILABLE = False
-KYBER_AVAILABLE = False
-SPHINCS_AVAILABLE = False
-# SLH-DSA-SHAKE-128s (FIPS 205 NIST L1) is exposed by AMA ≥ v3.1.0 via the
-# same native SPHINCS+ infrastructure, but is gated on a separate Mercury
-# flag so callers can detect the new symbol surface without conflating it
-# with the legacy ``ama_sphincs_*`` API. The flag is set by the import
-# below and remains False when the installed AMA pre-dates v3.1.0.
-SLHDSA_AVAILABLE = False
-# FIPS 204 §5.2 ML-DSA-65 context-aware signing is a v3.1.0+ AMA addition.
-DILITHIUM_CTX_AVAILABLE = False
+from ama_cryptography.pqc_backends import (
+    DILITHIUM_AVAILABLE as _AMA_DILITHIUM,
+    KYBER_AVAILABLE as _AMA_KYBER,
+    SLHDSA_SHA2_256F_PUBLIC_KEY_BYTES as _AMA_SLHDSA_SHA2_256F_PK_BYTES,
+    SLHDSA_SHA2_256F_SECRET_KEY_BYTES as _AMA_SLHDSA_SHA2_256F_SK_BYTES,
+    SLHDSA_SHA2_256F_SIGNATURE_BYTES as _AMA_SLHDSA_SHA2_256F_SIG_BYTES,
+    SLHDSA_SHAKE_128S_PUBLIC_KEY_BYTES as _AMA_SLHDSA_SHAKE_128S_PK_BYTES,
+    SLHDSA_SHAKE_128S_SECRET_KEY_BYTES as _AMA_SLHDSA_SHAKE_128S_SK_BYTES,
+    SLHDSA_SHAKE_128S_SIGNATURE_BYTES as _AMA_SLHDSA_SHAKE_128S_SIG_BYTES,
+    SPHINCS_AVAILABLE as _AMA_SPHINCS,
+    dilithium_sign as _ama_dilithium_sign,
+    dilithium_sign_ctx as _ama_dilithium_sign_ctx,
+    dilithium_verify as _ama_dilithium_verify,
+    generate_dilithium_keypair as _ama_generate_dilithium_keypair,
+    generate_kyber_keypair as _ama_generate_kyber_keypair,
+    generate_slhdsa_keypair as _ama_generate_slhdsa_keypair,
+    generate_slhdsa_keypair_from_seed as _ama_generate_slhdsa_keypair_from_seed,
+    generate_sphincs_keypair as _ama_generate_sphincs_keypair,
+    kyber_decapsulate as _ama_kyber_decapsulate,
+    kyber_encapsulate as _ama_kyber_encapsulate,
+    slhdsa_sign as _ama_slhdsa_sign,
+    slhdsa_sign_deterministic as _ama_slhdsa_sign_deterministic,
+    slhdsa_sign_internal as _ama_slhdsa_sign_internal,
+    slhdsa_verify as _ama_slhdsa_verify,
+    sphincs_sign as _ama_sphincs_sign,
+    sphincs_verify as _ama_sphincs_verify,
+)
 
-try:
-    from ama_cryptography.pqc_backends import (
-        DILITHIUM_AVAILABLE as _AMA_DILITHIUM,
-        KYBER_AVAILABLE as _AMA_KYBER,
-        SPHINCS_AVAILABLE as _AMA_SPHINCS,
-        dilithium_sign as _ama_dilithium_sign,
-        dilithium_verify as _ama_dilithium_verify,
-        generate_dilithium_keypair as _ama_generate_dilithium_keypair,
-        generate_kyber_keypair as _ama_generate_kyber_keypair,
-        generate_sphincs_keypair as _ama_generate_sphincs_keypair,
-        kyber_decapsulate as _ama_kyber_decapsulate,
-        kyber_encapsulate as _ama_kyber_encapsulate,
-        sphincs_sign as _ama_sphincs_sign,
-        sphincs_verify as _ama_sphincs_verify,
-    )
-
-    AMA_CRYPTOGRAPHY_AVAILABLE = True
-    DILITHIUM_AVAILABLE = _AMA_DILITHIUM
-    KYBER_AVAILABLE = _AMA_KYBER
-    SPHINCS_AVAILABLE = _AMA_SPHINCS
-    logger.info("AMA Cryptography v3.2.0 PQC backend loaded (sole backend)")
-except ImportError:
-    logger.warning(
-        "AMA Cryptography is not installed. Post-quantum cryptography features "
-        "will be unavailable. Install with: pip install ama-cryptography"
-    )
-
-    # Stub functions that raise RuntimeError when called. The stubs are
-    # named ``_stub_*`` rather than ``_ama_*`` so mypy does not see two
-    # conditionally-defined functions sharing one name (which would trip
-    # the ``All conditional function variants must have identical
-    # signatures`` check the moment ama-cryptography enters the import
-    # path: the imported real functions return ``bytes``, the stubs
-    # ``NoReturn``). The ``_ama_*`` aliases are then assigned from the
-    # stubs with explicit ``# type: ignore[assignment]`` so mypy treats
-    # them as plain rebinding, not a conditional def — preserving the
-    # ergonomic call sites below while keeping the type-checker honest.
-    def _stub_generate_dilithium_keypair() -> NoReturn:
-        raise RuntimeError("AMA Cryptography not installed")
-
-    def _stub_dilithium_sign(message: bytes, secret_key: bytes) -> NoReturn:
-        raise RuntimeError("AMA Cryptography not installed")
-
-    def _stub_dilithium_verify(message: bytes, signature: bytes, public_key: bytes) -> NoReturn:
-        raise RuntimeError("AMA Cryptography not installed")
-
-    def _stub_generate_kyber_keypair() -> NoReturn:
-        raise RuntimeError("AMA Cryptography not installed")
-
-    def _stub_kyber_encapsulate(public_key: bytes) -> NoReturn:
-        raise RuntimeError("AMA Cryptography not installed")
-
-    def _stub_kyber_decapsulate(ciphertext: bytes, secret_key: bytes) -> NoReturn:
-        raise RuntimeError("AMA Cryptography not installed")
-
-    def _stub_generate_sphincs_keypair() -> NoReturn:
-        raise RuntimeError("AMA Cryptography not installed")
-
-    def _stub_sphincs_sign(message: bytes, secret_key: bytes) -> NoReturn:
-        raise RuntimeError("AMA Cryptography not installed")
-
-    def _stub_sphincs_verify(message: bytes, signature: bytes, public_key: bytes) -> NoReturn:
-        raise RuntimeError("AMA Cryptography not installed")
-
-    _ama_generate_dilithium_keypair = _stub_generate_dilithium_keypair  # type: ignore[assignment, unused-ignore]
-    _ama_dilithium_sign = _stub_dilithium_sign  # type: ignore[assignment, unused-ignore]
-    _ama_dilithium_verify = _stub_dilithium_verify  # type: ignore[assignment, unused-ignore]
-    _ama_generate_kyber_keypair = _stub_generate_kyber_keypair  # type: ignore[assignment, unused-ignore]
-    _ama_kyber_encapsulate = _stub_kyber_encapsulate  # type: ignore[assignment, unused-ignore]
-    _ama_kyber_decapsulate = _stub_kyber_decapsulate  # type: ignore[assignment, unused-ignore]
-    _ama_generate_sphincs_keypair = _stub_generate_sphincs_keypair  # type: ignore[assignment, unused-ignore]
-    _ama_sphincs_sign = _stub_sphincs_sign  # type: ignore[assignment, unused-ignore]
-    _ama_sphincs_verify = _stub_sphincs_verify  # type: ignore[assignment, unused-ignore]
-
-
-# ---------------------------------------------------------------------------
-# AMA ≥ v3.1.0 surface: FIPS 204 §5.2 ctx-aware ML-DSA-65 sign + FIPS 205
-# SLH-DSA-SHAKE-128s parameter set. These are imported in a separate
-# try/except so an older AMA install (v3.0.x without these symbols) still
-# loads the legacy surface above without ImportError.
-# ---------------------------------------------------------------------------
-try:
-    from ama_cryptography.pqc_backends import (
-        SLHDSA_SHA2_256F_PUBLIC_KEY_BYTES as _AMA_SLHDSA_SHA2_256F_PK_BYTES,
-        SLHDSA_SHA2_256F_SECRET_KEY_BYTES as _AMA_SLHDSA_SHA2_256F_SK_BYTES,
-        SLHDSA_SHA2_256F_SIGNATURE_BYTES as _AMA_SLHDSA_SHA2_256F_SIG_BYTES,
-        SLHDSA_SHAKE_128S_PUBLIC_KEY_BYTES as _AMA_SLHDSA_SHAKE_128S_PK_BYTES,
-        SLHDSA_SHAKE_128S_SECRET_KEY_BYTES as _AMA_SLHDSA_SHAKE_128S_SK_BYTES,
-        SLHDSA_SHAKE_128S_SIGNATURE_BYTES as _AMA_SLHDSA_SHAKE_128S_SIG_BYTES,
-        dilithium_sign_ctx as _ama_dilithium_sign_ctx,
-        generate_slhdsa_keypair as _ama_generate_slhdsa_keypair,
-        generate_slhdsa_keypair_from_seed as _ama_generate_slhdsa_keypair_from_seed,
-        slhdsa_sign as _ama_slhdsa_sign,
-        slhdsa_sign_deterministic as _ama_slhdsa_sign_deterministic,
-        slhdsa_sign_internal as _ama_slhdsa_sign_internal,
-        slhdsa_verify as _ama_slhdsa_verify,
-    )
-
-    DILITHIUM_CTX_AVAILABLE = bool(_AMA_DILITHIUM)
-    SLHDSA_AVAILABLE = bool(_AMA_SPHINCS)
-    SLHDSA_SHAKE_128S_PUBLIC_KEY_BYTES: int = int(_AMA_SLHDSA_SHAKE_128S_PK_BYTES)
-    SLHDSA_SHAKE_128S_SECRET_KEY_BYTES: int = int(_AMA_SLHDSA_SHAKE_128S_SK_BYTES)
-    SLHDSA_SHAKE_128S_SIGNATURE_BYTES: int = int(_AMA_SLHDSA_SHAKE_128S_SIG_BYTES)
-    SLHDSA_SHA2_256F_PUBLIC_KEY_BYTES: int = int(_AMA_SLHDSA_SHA2_256F_PK_BYTES)
-    SLHDSA_SHA2_256F_SECRET_KEY_BYTES: int = int(_AMA_SLHDSA_SHA2_256F_SK_BYTES)
-    SLHDSA_SHA2_256F_SIGNATURE_BYTES: int = int(_AMA_SLHDSA_SHA2_256F_SIG_BYTES)
-    logger.info(
-        "AMA ≥ v3.1.0 surface loaded: FIPS 204 §5.2 ctx-aware ML-DSA-65 + "
-        "FIPS 205 SLH-DSA-SHAKE-128s (NIST L1) / SHA2-256f (NIST L5)"
-    )
-except ImportError:
-    logger.warning(
-        "AMA ≥ v3.1.0 PQC surface not available (FIPS 204 §5.2 ctx-aware "
-        "ML-DSA-65 sign + SLH-DSA-SHAKE-128s missing). "
-        "Upgrade ama-cryptography ≥ 3.1.0 for full FIPS 204/205 KAT coverage."
-    )
-    # FIPS 205 NIST L1 (SHAKE-128s, n=16) and NIST L5 (SHA2-256f, n=32)
-    # canonical sizes per FIPS 205 Table 2 — used by callers for buffer
-    # allocation and length-validation even when the v3.1.0 surface is
-    # absent so they fail with ValueError rather than silently truncating.
-    SLHDSA_SHAKE_128S_PUBLIC_KEY_BYTES = 32
-    SLHDSA_SHAKE_128S_SECRET_KEY_BYTES = 64
-    SLHDSA_SHAKE_128S_SIGNATURE_BYTES = 7856
-    SLHDSA_SHA2_256F_PUBLIC_KEY_BYTES = 64
-    SLHDSA_SHA2_256F_SECRET_KEY_BYTES = 128
-    SLHDSA_SHA2_256F_SIGNATURE_BYTES = 49856
-
-    # Same ``_stub_*``-then-rebind pattern as the legacy except-branch above:
-    # mypy complains "All conditional function variants must have identical
-    # signatures" the moment a v3.1.0 ama-cryptography (with concrete return
-    # types) is in the import path alongside these NoReturn fallbacks. By
-    # naming the placeholders ``_stub_*`` and rebinding to ``_ama_*`` via
-    # plain assignment with ``# type: ignore[assignment]``, the conditional
-    # def is gone and the type-checker treats the dual-branch case as
-    # variable rebinding rather than incompatible-signature defs.
-    def _stub_dilithium_sign_ctx(message: bytes, secret_key: bytes, ctx: bytes) -> NoReturn:
-        raise RuntimeError(
-            "FIPS 204 §5.2 ctx-aware ML-DSA-65 sign requires ama-cryptography ≥ 3.1.0"
-        )
-
-    def _stub_generate_slhdsa_keypair(param_set: str = "SHAKE-128s") -> NoReturn:
-        raise RuntimeError(
-            "FIPS 205 SLH-DSA parameter-driven keygen requires ama-cryptography ≥ 3.1.0"
-        )
-
-    def _stub_generate_slhdsa_keypair_from_seed(
-        sk_seed: bytes, sk_prf: bytes, pk_seed: bytes, param_set: str = "SHAKE-128s"
-    ) -> NoReturn:
-        raise RuntimeError(
-            "FIPS 205 §10.1 SLH-DSA deterministic keygen requires ama-cryptography ≥ 3.1.0"
-        )
-
-    def _stub_slhdsa_sign(
-        message: bytes, secret_key: bytes, ctx: bytes = b"", param_set: str = "SHAKE-128s"
-    ) -> NoReturn:
-        raise RuntimeError("FIPS 205 SLH-DSA sign requires ama-cryptography ≥ 3.1.0")
-
-    def _stub_slhdsa_sign_deterministic(
-        message: bytes, secret_key: bytes, ctx: bytes = b"", param_set: str = "SHAKE-128s"
-    ) -> NoReturn:
-        raise RuntimeError("FIPS 205 deterministic SLH-DSA sign requires ama-cryptography ≥ 3.1.0")
-
-    def _stub_slhdsa_sign_internal(
-        message: bytes,
-        secret_key: bytes,
-        addrnd: bytes,
-        param_set: str = "SHAKE-128s",
-    ) -> NoReturn:
-        raise RuntimeError(
-            "FIPS 205 internal-interface SLH-DSA sign requires ama-cryptography ≥ 3.1.0"
-        )
-
-    def _stub_slhdsa_verify(
-        message: bytes,
-        signature: bytes,
-        public_key: bytes,
-        ctx: bytes = b"",
-        param_set: str = "SHAKE-128s",
-    ) -> NoReturn:
-        raise RuntimeError("FIPS 205 SLH-DSA verify requires ama-cryptography ≥ 3.1.0")
-
-    _ama_dilithium_sign_ctx = _stub_dilithium_sign_ctx  # type: ignore[assignment, unused-ignore]
-    _ama_generate_slhdsa_keypair = _stub_generate_slhdsa_keypair  # type: ignore[assignment, unused-ignore]
-    _ama_generate_slhdsa_keypair_from_seed = _stub_generate_slhdsa_keypair_from_seed  # type: ignore[assignment, unused-ignore]
-    _ama_slhdsa_sign = _stub_slhdsa_sign  # type: ignore[assignment, unused-ignore]
-    _ama_slhdsa_sign_deterministic = _stub_slhdsa_sign_deterministic  # type: ignore[assignment, unused-ignore]
-    _ama_slhdsa_sign_internal = _stub_slhdsa_sign_internal  # type: ignore[assignment, unused-ignore]
-    _ama_slhdsa_verify = _stub_slhdsa_verify  # type: ignore[assignment, unused-ignore]
+AMA_CRYPTOGRAPHY_AVAILABLE = True
+DILITHIUM_AVAILABLE = _AMA_DILITHIUM
+KYBER_AVAILABLE = _AMA_KYBER
+SPHINCS_AVAILABLE = _AMA_SPHINCS
+DILITHIUM_CTX_AVAILABLE = bool(_AMA_DILITHIUM)
+SLHDSA_AVAILABLE = bool(_AMA_SPHINCS)
+SLHDSA_SHAKE_128S_PUBLIC_KEY_BYTES: int = int(_AMA_SLHDSA_SHAKE_128S_PK_BYTES)
+SLHDSA_SHAKE_128S_SECRET_KEY_BYTES: int = int(_AMA_SLHDSA_SHAKE_128S_SK_BYTES)
+SLHDSA_SHAKE_128S_SIGNATURE_BYTES: int = int(_AMA_SLHDSA_SHAKE_128S_SIG_BYTES)
+SLHDSA_SHA2_256F_PUBLIC_KEY_BYTES: int = int(_AMA_SLHDSA_SHA2_256F_PK_BYTES)
+SLHDSA_SHA2_256F_SECRET_KEY_BYTES: int = int(_AMA_SLHDSA_SHA2_256F_SK_BYTES)
+SLHDSA_SHA2_256F_SIGNATURE_BYTES: int = int(_AMA_SLHDSA_SHA2_256F_SIG_BYTES)
 
 
 # Backward compatibility alias
@@ -753,7 +574,7 @@ def get_pqc_capabilities() -> dict[str, Any]:
             "kyber": KYBER_AVAILABLE,
             "sphincs": SPHINCS_AVAILABLE,
         },
-        "security_level": "production" if DILITHIUM_AVAILABLE else "development",
+        "security_level": "production",
         "require_constant_time": require_constant_time(),
     }
 
@@ -856,39 +677,37 @@ def validate_pqc_environment() -> dict[str, Any]:
         Dictionary with validation results and recommendations.
 
     Raises:
-        RuntimeError: If constant-time is required but unavailable.
+        RuntimeError: If any mandatory AMA/PQC backend surface is unavailable.
     """
     issues: list[str] = []
-    warnings: list[str] = []
 
     if require_constant_time() and not AMA_CRYPTOGRAPHY_AVAILABLE:
         issues.append("AMA_REQUIRE_CONSTANT_TIME=true but AMA Cryptography is not available.")
 
     if not DILITHIUM_AVAILABLE:
-        warnings.append(
+        issues.append(
             "ML-DSA-65 (Dilithium) not available. "
             "Build AMA native C library for post-quantum signatures."
         )
     if not KYBER_AVAILABLE:
-        warnings.append(
+        issues.append(
             "Kyber-1024 not available. Build AMA native C library for key encapsulation."
         )
     if not SPHINCS_AVAILABLE:
-        warnings.append(
+        issues.append(
             "SPHINCS+ not available. Build AMA native C library for hash-based signatures."
         )
 
-    is_production_ready = len(issues) == 0 and DILITHIUM_AVAILABLE
+    is_production_ready = len(issues) == 0
 
     result = {
         "production_ready": is_production_ready,
         "backend": get_active_backend().value,
         "issues": issues,
-        "warnings": warnings,
         "algorithms": get_pqc_capabilities()["algorithms"],
     }
 
-    if issues and require_constant_time():
+    if issues:
         raise RuntimeError(f"PQC environment validation failed: {'; '.join(issues)}")
 
     return result

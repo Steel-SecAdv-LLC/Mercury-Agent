@@ -64,10 +64,10 @@ def test_sigma_immutable_verifier_default_corpus(tmp_path: Path) -> None:
     rc = sigma_immutable_verifier.main(["--output", str(out)])
     cert = _load_cert(out)
     assert cert["schema"] == "mercury.tools.sigma_immutable_verifier/v1"
-    # Either fully verified (ok) or Ed25519-verified with ML-DSA omitted (warn).
-    assert cert["status"] in {"ok", "warn"}
+    assert cert["status"] == "ok"
     assert cert["body"]["signatures"]["ed25519"] == "verified"
-    assert rc in {0, 1}
+    assert cert["body"]["signatures"]["ml-dsa-65"] == "verified"
+    assert rc == 0
 
 
 def test_oae_weight_certifier_matches_phi(tmp_path: Path) -> None:

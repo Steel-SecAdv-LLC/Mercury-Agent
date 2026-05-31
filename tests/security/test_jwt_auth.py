@@ -7,7 +7,7 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 
-Tests for JWT authentication edge cases and fallback behavior.
+Tests for JWT authentication edge cases and fail-closed production behavior.
 
 Covers:
 - Missing JWT_SECRET_KEY environment variable
@@ -25,6 +25,7 @@ from typing import Any
 from unittest.mock import patch
 
 import pytest
+from ama_cryptography.crypto_api import HMAC_HKDF_AVAILABLE
 
 # ``api.auth`` imports fastapi at module level; skip cleanly when the
 # optional ``api`` extra is absent so the rest of the suite is still
@@ -83,13 +84,7 @@ class TestJWTAuthMissingKey:
 
             from omni_mercury_engine.api.auth import JWTAuth
 
-            try:
-                from ama_cryptography.crypto_api import HMAC_HKDF_AVAILABLE
-            except ImportError:
-                pytest.skip("AMA Cryptography not installed; HD path unreachable.")
-            if not HMAC_HKDF_AVAILABLE:
-                pytest.skip("AMA native HMAC/HKDF backend unavailable; HD path unreachable.")
-
+            assert HMAC_HKDF_AVAILABLE, "AMA native HMAC/HKDF backend is mandatory."
             auth = JWTAuth()
             assert (
                 auth.secret_key is not None and len(auth.secret_key) > 0

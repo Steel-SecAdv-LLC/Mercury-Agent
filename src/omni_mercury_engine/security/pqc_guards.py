@@ -30,8 +30,6 @@ at runtime.
 """
 
 import logging
-import os
-
 from omni_mercury_engine.security.pqc_backends import (
     AMA_CRYPTOGRAPHY_AVAILABLE,
     AVA_GUARDIAN_AVAILABLE,
@@ -66,7 +64,7 @@ def check_pqc_production_readiness() -> dict[str, bool | str]:
         Dictionary with availability status for each algorithm.
 
     Raises:
-        RuntimeError: If AMA_REQUIRE_REAL_PQC=true and native PQC not built.
+        RuntimeError: If any mandatory native PQC algorithm is unavailable.
     """
     backend = get_active_backend()
 
@@ -79,75 +77,23 @@ def check_pqc_production_readiness() -> dict[str, bool | str]:
         "ava_guardian": AVA_GUARDIAN_AVAILABLE,  # backward compat alias
     }
 
-    if DILITHIUM_AVAILABLE and KYBER_AVAILABLE and SPHINCS_AVAILABLE:
-        logger.info("AMA Cryptography native C backend: all PQC algorithms available")
-    elif DILITHIUM_AVAILABLE or KYBER_AVAILABLE or SPHINCS_AVAILABLE:
-        missing = []
-        if not DILITHIUM_AVAILABLE:
-            missing.append("ML-DSA-65")
-        if not KYBER_AVAILABLE:
-            missing.append("Kyber-1024")
-        if not SPHINCS_AVAILABLE:
-            missing.append("SPHINCS+")
-        logger.warning(
-            "AMA Cryptography native C backend: partial — missing %s. "
-            "Build with: cmake -B build -DAMA_USE_NATIVE_PQC=ON && cmake --build build",
-            ", ".join(missing),
-        )
-    else:
-        logger.warning(
-            "AMA Cryptography native C backend not built — no PQC algorithms available. "
-            "Build with: cmake -B build -DAMA_USE_NATIVE_PQC=ON && cmake --build build"
-        )
-
-    # Enforce production requirement if set (support both env var names for compat)
-    require_real = os.environ.get(
-        "AMA_REQUIRE_REAL_PQC", os.environ.get("AVA_REQUIRE_REAL_PQC", "")
-    ).lower() in (
-        "true",
-        "1",
-        "yes",
-    )
-
-    if require_real:
-        # Reject any partial install: Mercury exposes Dilithium, Kyber,
-        # AND SPHINCS+ surfaces, and a Dilithium-only build would let
-        # the process start in a cryptographically incomplete state.
-        #
-        # ``omni_mercury_engine._pqc_gate._enforce_pqc_production_gate``
-        # is an *independent* implementation of the same contract — it
-        # does NOT call into this helper, nor does this helper call into
-        # it.  The two are kept in sync by sharing the
-        # ``_PQC_BUILD_RECOVERY_HINT`` constant.
-        missing = []
-        if not DILITHIUM_AVAILABLE:
-            missing.append("ML-DSA-65 (Dilithium)")
-        if not KYBER_AVAILABLE:
-            missing.append("Kyber-1024")
-        if not SPHINCS_AVAILABLE:
-            missing.append("SPHINCS+")
-        if missing:
-            # Reuse the canonical recovery hint defined alongside the
-            # import-time gate so the two raise paths give operators
-            # identical remediation steps.
-            from omni_mercury_engine._pqc_gate import _PQC_BUILD_RECOVERY_HINT
-
-            raise RuntimeError(
-                "AMA_REQUIRE_REAL_PQC=true but the AMA Cryptography native C "
-                f"backend is incomplete; missing or unavailable: {', '.join(missing)}.\n"
-                f"{_PQC_BUILD_RECOVERY_HINT}"
-            )
-
+    missing = []
     if not DILITHIUM_AVAILABLE:
-        import warnings
+        missing.append("ML-DSA-65 (Dilithium)")
+    if not KYBER_AVAILABLE:
+        missing.append("Kyber-1024")
+    if not SPHINCS_AVAILABLE:
+        missing.append("SPHINCS+")
+    if missing:
+        from omni_mercury_engine._pqc_gate import _PQC_BUILD_RECOVERY_HINT
 
-        warnings.warn(
-            "PQC native algorithms not available. "
-            "Build AMA Cryptography's native C library for production security.",
-            PQCProductionWarning,
-            stacklevel=2,
+        raise RuntimeError(
+            "AMA/PQC is mandatory for Mercury, but the AMA Cryptography native C "
+            f"backend is incomplete; missing or unavailable: {', '.join(missing)}.\n"
+            f"{_PQC_BUILD_RECOVERY_HINT}"
         )
 
+    logger.info("AMA Cryptography native C backend: all PQC algorithms available")
     return results
 
 
@@ -165,10 +111,10 @@ def assert_no_simulation_in_production() -> None:
     Raises:
         RuntimeError: If native PQC algorithms are not available.
     """
-    if not DILITHIUM_AVAILABLE:
+    if not (DILITHIUM_AVAILABLE and KYBER_AVAILABLE and SPHINCS_AVAILABLE):
         raise RuntimeError(
             "PRODUCTION BLOCKED: Native PQC algorithms not available.\n"
-            "AMA Cryptography is installed but its native C library is not built.\n"
+            "AMA Cryptography is installed but its native C library is incomplete.\n"
             "Build with: cmake -B build -DAMA_USE_NATIVE_PQC=ON && cmake --build build\n"
             "\n"
             "Mercury Agent refuses to run without real PQC cryptography in production."

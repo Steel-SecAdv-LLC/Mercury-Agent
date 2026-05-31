@@ -57,7 +57,7 @@ def _build_parser() -> argparse.ArgumentParser:
         prog="python -m omni_mercury_engine.tools.corpus_resigner",
         description=(
             "Re-sign the σ_Immutable corpus on disk with Ed25519 (mandatory) "
-            "and ML-DSA-65 (when the AMA native PQC backend is built). "
+            "and ML-DSA-65 (mandatory AMA/PQC). "
             "Writes the manifest atomically and verifies it before returning."
         ),
     )
@@ -185,28 +185,18 @@ def _collect(args: argparse.Namespace) -> Certificate:
         },
     }
 
-    # ML-DSA-65 — best-effort; honest omission on absence.
-    mldsa_status: str
-    try:
-        mldsa_keypair = crypto.generate_signing_keypair(algorithm=AlgorithmType.ML_DSA_65)
-        mldsa_signature = crypto.sign(
-            payload_bytes,
-            mldsa_keypair.secret_key,
-            algorithm=AlgorithmType.ML_DSA_65,
-        )
-        signature_payload["signatures"][MLDSA65_ALG] = {
-            "algorithm": MLDSA65_ALG,
-            "public_key_hex": mldsa_keypair.public_key.hex(),
-            "signature_hex": mldsa_signature.signature.hex(),
-        }
-        mldsa_status = "signed"
-    except RuntimeError as exc:
-        signature_payload["signatures"][MLDSA65_ALG] = {
-            "algorithm": MLDSA65_ALG,
-            "omitted": True,
-            "omission_reason": str(exc),
-        }
-        mldsa_status = "omitted"
+    # ML-DSA-65 — mandatory.
+    mldsa_keypair = crypto.generate_signing_keypair(algorithm=AlgorithmType.ML_DSA_65)
+    mldsa_signature = crypto.sign(
+        payload_bytes,
+        mldsa_keypair.secret_key,
+        algorithm=AlgorithmType.ML_DSA_65,
+    )
+    signature_payload["signatures"][MLDSA65_ALG] = {
+        "algorithm": MLDSA65_ALG,
+        "public_key_hex": mldsa_keypair.public_key.hex(),
+        "signature_hex": mldsa_signature.signature.hex(),
+    }
 
     sig_bytes = (json.dumps(signature_payload, sort_keys=True, indent=2) + "\n").encode("utf-8")
 
@@ -227,7 +217,7 @@ def _collect(args: argparse.Namespace) -> Certificate:
         "sig_path": str(sig_path),
         "corpus_sha3_256": corpus_digest,
         "ed25519": "signed",
-        "ml_dsa_65": mldsa_status,
+        "ml_dsa_65": "signed",
         "new_sig_sha3_256": hashlib.sha3_256(sig_bytes).hexdigest(),
         "dry_run": bool(args.dry_run),
         "hsm": hsm_info,

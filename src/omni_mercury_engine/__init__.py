@@ -75,13 +75,11 @@ if TYPE_CHECKING:
 
 
 # ---------------------------------------------------------------------------
-# Production PQC gate.
+# PQC gate.
 #
-# When ``AMA_REQUIRE_REAL_PQC=true`` (or the legacy ``AVA_REQUIRE_REAL_PQC``)
-# is set, ``omni_mercury_engine`` package import refuses to proceed unless
-# the AMA Cryptography native C backend is fully loadable.  Without the env
-# var, the gate is a no-op and Mercury imports against the soft PQC stubs
-# in ``security/pqc_backends.py`` for development convenience.
+# Mercury package import refuses to proceed unless the AMA Cryptography
+# native C backend is fully loadable.  There is no AMA-less development,
+# CI, or production mode.
 #
 # Implementation lives in ``omni_mercury_engine._pqc_gate`` so it has a
 # stable importable location for unit tests; the function is invoked once

@@ -239,10 +239,8 @@ class TestPQCEnvironmentValidation:
         assert "production_ready" in result
         assert "backend" in result
         assert "issues" in result
-        assert "warnings" in result
         assert "algorithms" in result
         assert isinstance(result["issues"], list)
-        assert isinstance(result["warnings"], list)
 
 
 class TestGOSNNCache:

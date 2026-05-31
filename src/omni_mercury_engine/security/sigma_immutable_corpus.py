@@ -69,10 +69,8 @@ CORPUS_ETHICAL_DIMS: int = _SIGMA_ETHICAL_BAND_END
 CORPUS_THRESHOLD: float = 0.93
 CORPUS_SEED: int = 42
 
-# Algorithms used for signing — both must succeed at signing time on a
-# build with the AMA PQC C library available; at verification time, a
-# missing PQC backend causes the ML-DSA-65 signature to be skipped with
-# a warning (see "extras-gated PQC backend" in the rules).
+# Algorithms used for signing — both must succeed; the ML-DSA-65 signature is
+# mandatory because Mercury requires AMA/PQC at package import.
 ED25519_ALG: str = "ed25519"
 MLDSA65_ALG: str = "ml-dsa-65"
 
@@ -277,13 +275,9 @@ def sign_and_persist_corpus(
 ) -> dict[str, Any]:
     """Sign ``bundle`` with Ed25519 + ML-DSA-65 and persist both files.
 
-    Ed25519 signing is required (the classical baseline).  ML-DSA-65
-    signing is attempted unconditionally; if the AMA PQC backend is not
-    built into this environment, the helper records an explicit
-    ``ml-dsa-65`` *omission* in the signature file and continues — the
-    rules call out PQC as an "extras-gated PQC backend" so the absence
-    of the C library at sign time is not fatal as long as the on-disk
-    state honestly reports it.
+    Ed25519 signing is required as the classical baseline.  ML-DSA-65
+    signing is also required; Mercury cannot generate or persist a corpus
+    signature manifest without the AMA/PQC backend.
 
     Args:
         bundle: Corpus to sign.
@@ -303,9 +297,6 @@ def sign_and_persist_corpus(
 
     payload_bytes = write_corpus(bundle, corpus_path)
 
-    # Use a CLASSICAL-default crypto so signing works on every build,
-    # then opt into ML-DSA-65 explicitly so the failure mode is
-    # narrow and recoverable when the PQC backend is missing.
     crypto = MercuryCrypto(security_level=SecurityLevel.CLASSICAL)
 
     ed_keypair = crypto.generate_signing_keypair(algorithm=AlgorithmType.ED25519)
@@ -327,30 +318,19 @@ def sign_and_persist_corpus(
         },
     }
 
-    try:
-        mldsa_keypair = crypto.generate_signing_keypair(
-            algorithm=AlgorithmType.ML_DSA_65,
-        )
-        mldsa_signature = crypto.sign(
-            payload_bytes,
-            mldsa_keypair.secret_key,
-            algorithm=AlgorithmType.ML_DSA_65,
-        )
-        signature_payload["signatures"][MLDSA65_ALG] = {
-            "algorithm": MLDSA65_ALG,
-            "public_key_hex": mldsa_keypair.public_key.hex(),
-            "signature_hex": mldsa_signature.signature.hex(),
-        }
-    except RuntimeError as exc:
-        # AMA PQC native C library not built in this environment —
-        # honestly record the omission so a future verifier with the
-        # backend available knows the slot was intentionally empty.
-        signature_payload["signatures"][MLDSA65_ALG] = {
-            "algorithm": MLDSA65_ALG,
-            "omitted": True,
-            "omission_reason": str(exc),
-        }
-        logger.warning("ML-DSA-65 signing skipped (AMA PQC backend missing): %s", exc)
+    mldsa_keypair = crypto.generate_signing_keypair(
+        algorithm=AlgorithmType.ML_DSA_65,
+    )
+    mldsa_signature = crypto.sign(
+        payload_bytes,
+        mldsa_keypair.secret_key,
+        algorithm=AlgorithmType.ML_DSA_65,
+    )
+    signature_payload["signatures"][MLDSA65_ALG] = {
+        "algorithm": MLDSA65_ALG,
+        "public_key_hex": mldsa_keypair.public_key.hex(),
+        "signature_hex": mldsa_signature.signature.hex(),
+    }
 
     sig_bytes = (json.dumps(signature_payload, sort_keys=True, indent=2) + "\n").encode("utf-8")
     sig_path.parent.mkdir(parents=True, exist_ok=True)
@@ -420,20 +400,16 @@ def verify_corpus_signatures(
 ) -> dict[str, str]:
     """Verify all present signatures over the on-disk corpus.
 
-    The Ed25519 signature is mandatory.  The ML-DSA-65 signature is
-    verified iff the AMA PQC backend is available *and* the signature
-    file actually contains one (i.e. it was not marked ``omitted``).
-    Any present-but-failing signature raises
-    :class:`CorpusVerificationError`.
+    The Ed25519 and ML-DSA-65 signatures are mandatory.  Any missing,
+    omitted, or failing signature raises :class:`CorpusVerificationError`.
 
     Args:
         corpus_path: Path to the corpus JSON to verify.
         sig_path: Path to the signature JSON to verify against.
 
     Returns:
-        A mapping ``{algorithm: status}`` where ``status`` is one of
-        ``"verified"``, ``"omitted"``, or ``"skipped_no_backend"`` so
-        callers (and audit logs) can record what was actually checked.
+        A mapping ``{algorithm: "verified"}`` for the mandatory
+        signatures.
 
     Raises:
         CorpusVerificationError: When the corpus's SHA3-256 does not
@@ -483,40 +459,32 @@ def verify_corpus_signatures(
         )
     statuses[ED25519_ALG] = "verified"
 
-    # ----- ML-DSA-65 (extras-gated PQC) -----
+    # ----- ML-DSA-65 (mandatory PQC) -----
     mldsa = signatures.get(MLDSA65_ALG)
     if mldsa is None:
         raise CorpusVerificationError(
             f"σ_Immutable signature payload is missing the {MLDSA65_ALG!r} entry."
         )
     if mldsa.get("omitted"):
-        statuses[MLDSA65_ALG] = "omitted"
-    else:
-        from omni_mercury_engine.security.pqc_backends import DILITHIUM_AVAILABLE
-
-        if not DILITHIUM_AVAILABLE:
-            statuses[MLDSA65_ALG] = "skipped_no_backend"
-            logger.warning(
-                "ML-DSA-65 signature present in corpus manifest but the "
-                "AMA PQC backend is not built — skipping verification."
-            )
-        else:
-            ok = crypto.verify(
-                payload_bytes,
-                Signature(
-                    signature=bytes.fromhex(mldsa["signature_hex"]),
-                    algorithm=AlgorithmType.ML_DSA_65,
-                    public_key_hash=hashlib.sha3_256(
-                        bytes.fromhex(mldsa["public_key_hex"])
-                    ).hexdigest()[:16],
-                ),
-                bytes.fromhex(mldsa["public_key_hex"]),
-            )
-            if not ok:
-                raise CorpusVerificationError(
-                    "ML-DSA-65 signature verification failed for σ_Immutable corpus."
-                )
-            statuses[MLDSA65_ALG] = "verified"
+        raise CorpusVerificationError(
+            "ML-DSA-65 signature is marked omitted; AMA/PQC signing is mandatory."
+        )
+    ok = crypto.verify(
+        payload_bytes,
+        Signature(
+            signature=bytes.fromhex(mldsa["signature_hex"]),
+            algorithm=AlgorithmType.ML_DSA_65,
+            public_key_hash=hashlib.sha3_256(bytes.fromhex(mldsa["public_key_hex"])).hexdigest()[
+                :16
+            ],
+        ),
+        bytes.fromhex(mldsa["public_key_hex"]),
+    )
+    if not ok:
+        raise CorpusVerificationError(
+            "ML-DSA-65 signature verification failed for σ_Immutable corpus."
+        )
+    statuses[MLDSA65_ALG] = "verified"
 
     return statuses
 

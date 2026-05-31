@@ -49,55 +49,19 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-AMA_CRYPTO_API_AVAILABLE = False
+from ama_cryptography.crypto_api import (
+    AESGCMProvider as _AmaAESGCMProvider,
+    AlgorithmType as _AmaAlgorithmType,
+    AmaCryptography as _AmaCryptography,
+    CryptoPackageConfig as _AmaCryptoPackageConfig,
+    CryptoPackageResult as _AmaCryptoPackageResult,
+    create_crypto_package as _ama_create_crypto_package,
+    get_pqc_capabilities as _ama_get_pqc_capabilities,
+)
 
-# AMA classes / helpers are imported under private ``_Ama*`` / ``_ama_*``
-# aliases so the fallback branch below can rebind them to ``None`` without
-# mypy raising "Cannot assign to a type" / "Incompatible types in
-# assignment".  This mirrors the same pattern in ``pqc_backends.py``: a
-# narrowly-scoped mypy assignment suppressions on the fallback assignments declare
-# the rebinding intentional, and the public-facing names below are typed
-# ``Any`` so callers gated on ``AMA_CRYPTO_API_AVAILABLE`` can use them
-# as classes / callables.  Runtime behaviour is unchanged — calling
-# ``None`` (when AMA is missing) still raises ``TypeError`` at the point
-# of misuse, which is the correct fail-loud signal.
-try:
-    from ama_cryptography.crypto_api import (
-        AESGCMProvider as _AmaAESGCMProvider,
-        AlgorithmType as _AmaAlgorithmType,
-        AmaCryptography as _AmaCryptography,
-        CryptoPackageConfig as _AmaCryptoPackageConfig,
-        CryptoPackageResult as _AmaCryptoPackageResult,
-        create_crypto_package as _ama_create_crypto_package,
-        get_pqc_capabilities as _ama_get_pqc_capabilities,
-    )
+AMA_CRYPTO_API_AVAILABLE = True
 
-    AMA_CRYPTO_API_AVAILABLE = True
-except ImportError:
-    # ``ama_cryptography`` is an optional native dependency (PQC C
-    # library; requires gcc >= 12 on Linux).  When it is unavailable
-    # we expose a Python-native fallback for AES-GCM elsewhere in
-    # this module; that is the documented behaviour, so the
-    # notification is routed through ``logging`` rather than
-    # ``warnings`` (a ``UserWarning`` made every consuming test see
-    # a spurious pytest warning).
-    logging.getLogger(__name__).info(
-        "ama_cryptography.crypto_api not available. "
-        "Install ama-cryptography[pqc] for full cryptographic support."
-    )
-
-    _AmaAESGCMProvider = None  # type: ignore[assignment, misc, unused-ignore]
-    _AmaAlgorithmType = None  # type: ignore[assignment, misc, unused-ignore]
-    _AmaCryptography = None  # type: ignore[assignment, misc, unused-ignore]
-    _AmaCryptoPackageConfig = None  # type: ignore[assignment, misc, unused-ignore]
-    _AmaCryptoPackageResult = None  # type: ignore[assignment, misc, unused-ignore]
-    _ama_create_crypto_package = None  # type: ignore[assignment, misc, unused-ignore]
-    _ama_get_pqc_capabilities = None  # type: ignore[assignment, misc, unused-ignore]
-
-# Public aliases — kept for backward compatibility with any downstream
-# importer that referenced the old ``AESGCMProvider`` / ``AmaCryptography``
-# names directly.  Typed ``Any`` so callers gated on the
-# ``AMA_CRYPTO_API_AVAILABLE`` flag can use them as classes / callables.
+# Public aliases — kept for backward compatibility with downstream importers.
 AESGCMProvider: Any = _AmaAESGCMProvider
 AmaAlgorithmType: Any = _AmaAlgorithmType
 AmaCryptography: Any = _AmaCryptography
@@ -433,15 +397,11 @@ class HybridSignatureProvider:
 # ---------------------------------------------------------------------------
 
 # Map Mercury SecurityLevel → AMA AlgorithmType
-_SECURITY_LEVEL_TO_AMA: dict[SecurityLevel, Any]
-if AMA_CRYPTO_API_AVAILABLE and AmaAlgorithmType is not None:
-    _SECURITY_LEVEL_TO_AMA = {
-        SecurityLevel.CLASSICAL: AmaAlgorithmType.ED25519,
-        SecurityLevel.POST_QUANTUM: AmaAlgorithmType.ML_DSA_65,
-        SecurityLevel.HYBRID: AmaAlgorithmType.HYBRID_SIG,
-    }
-else:
-    _SECURITY_LEVEL_TO_AMA = {}
+_SECURITY_LEVEL_TO_AMA: dict[SecurityLevel, Any] = {
+    SecurityLevel.CLASSICAL: AmaAlgorithmType.ED25519,
+    SecurityLevel.POST_QUANTUM: AmaAlgorithmType.ML_DSA_65,
+    SecurityLevel.HYBRID: AmaAlgorithmType.HYBRID_SIG,
+}
 
 
 class MercuryCrypto:
@@ -470,23 +430,8 @@ class MercuryCrypto:
         self.security_level = security_level
         self.backend = backend
 
-        # AMA Cryptography instance — the real implementation.
-        # May fail if the native C library is not built or ama_cryptography
-        # is not installed; degrade gracefully so classical Ed25519 (via
-        # cryptography package) and simulation PQC still work.
-        self._ama = None
-        if AMA_CRYPTO_API_AVAILABLE and AmaCryptography is not None:
-            ama_algo = _SECURITY_LEVEL_TO_AMA.get(security_level)
-            try:
-                self._ama = AmaCryptography(algorithm=ama_algo)
-            except (RuntimeError, TypeError):
-                logger.warning(
-                    "AmaCryptography(%s) unavailable (native C library not built). "
-                    "Classical Ed25519 via Mercury's own provider remains available.",
-                    ama_algo,
-                )
-        else:
-            logger.info("ama_cryptography not installed; running with Mercury-native crypto only.")
+        ama_algo = _SECURITY_LEVEL_TO_AMA[security_level]
+        self._ama = AmaCryptography(algorithm=ama_algo)
 
         # Mercury provider wrappers for backward compatibility
         self.mldsa_provider = MLDSAProvider()
@@ -604,25 +549,9 @@ class MercuryCrypto:
         Returns:
             Dict with 'ciphertext', 'nonce', 'tag', 'aad' keys
         """
-        try:
-            if AESGCMProvider is None:
-                raise RuntimeError("AESGCMProvider not available")
-            provider = AESGCMProvider()
-            result: dict[str, Any] = provider.encrypt(plaintext, key, nonce=nonce, aad=aad)
-            return result
-        except RuntimeError:
-            # AMA native C backend not available — fall back to Mercury's
-            # Rust/Python AEAD from omni_mercury_engine.crypto
-            from omni_mercury_engine.crypto import encrypt as mercury_encrypt
-
-            ciphertext, used_nonce = mercury_encrypt(plaintext, key, nonce=nonce, aad=aad)
-            return {
-                "ciphertext": ciphertext,
-                "nonce": used_nonce,
-                "tag": b"",  # tag is appended to ciphertext in Mercury's impl
-                "aad": aad,
-                "backend": "mercury_crypto",
-            }
+        provider = AESGCMProvider()
+        result: dict[str, Any] = provider.encrypt(plaintext, key, nonce=nonce, aad=aad)
+        return result
 
     def decrypt(
         self,
@@ -645,16 +574,9 @@ class MercuryCrypto:
         Returns:
             Decrypted plaintext
         """
-        try:
-            if AESGCMProvider is None:
-                raise RuntimeError("AESGCMProvider not available")
-            provider = AESGCMProvider()
-            decrypted: bytes = provider.decrypt(ciphertext, key, nonce, tag, aad=aad)
-            return decrypted
-        except RuntimeError:
-            from omni_mercury_engine.crypto import decrypt as mercury_decrypt
-
-            return mercury_decrypt(ciphertext, key, nonce, aad=aad)
+        provider = AESGCMProvider()
+        decrypted: bytes = provider.decrypt(ciphertext, key, nonce, tag, aad=aad)
+        return decrypted
 
     def create_crypto_package(
         self,
@@ -681,7 +603,7 @@ class MercuryCrypto:
         data_bytes = json.dumps(data, sort_keys=True, default=str).encode()
 
         # 6-layer package via AMA
-        if config.use_six_layer and AMA_CRYPTO_API_AVAILABLE and AmaCryptoPackageConfig is not None:
+        if config.use_six_layer:
             ama_config = AmaCryptoPackageConfig(
                 signature_algorithm=AmaAlgorithmType.HYBRID_SIG,
             )
@@ -731,7 +653,7 @@ class MercuryCrypto:
     def get_capabilities(self) -> dict[str, Any]:
         """Get current cryptographic capabilities."""
         pqc_caps = get_pqc_capabilities()
-        ama_caps = ama_get_pqc_capabilities() if ama_get_pqc_capabilities is not None else {}
+        ama_caps = ama_get_pqc_capabilities()
         return {
             "security_level": self.security_level.value,
             "backend": self.backend.value,

@@ -32,9 +32,8 @@ What this file proves on every CI run
    - SPHINCS+ (SLH-DSA): key-pair generation → sign → verify
      round-trip + signature-rejection on a tampered message.
 
-3. The Mercury soft-stub branch in
-   ``security/pqc_backends.py`` is NOT in use — the imports come from
-   the real ``ama_cryptography.pqc_backends`` submodule.
+3. Mercury's mandatory ``security/pqc_backends.py`` import is backed by the
+   real ``ama_cryptography.pqc_backends`` submodule.
 """
 
 from __future__ import annotations
@@ -102,11 +101,7 @@ class TestDilithiumRoundTripAgainstNativeLib:
         assert dilithium_verify(message, signature, kp.public_key) is True
 
     def test_signature_rejects_tampered_message(self) -> None:
-        """Sign a message, verify against a *tampered* copy.  A real
-        ML-DSA-65 implementation must reject this; a stub that returned
-        ``True`` unconditionally would pass the round-trip test above
-        but fail this one — the contract is rejection of mismatch, not
-        just acceptance of identity."""
+        """Sign a message, verify against a *tampered* copy."""
         kp = generate_dilithium_keypair()
         message = b"Original payload."
         tampered = b"Original payload!"  # one byte different
@@ -209,16 +204,8 @@ class TestCheckPqcProductionReadinessAcceptsRealAma:
         assert "ama" in str(result["backend"]).lower()
 
 
-class TestProductionDefaultRequiresAma:
-    """AMA is mandatory at runtime in production (default-on).
-
-    With ``MERCURY_ENV=production`` and ``AMA_REQUIRE_REAL_PQC`` unset, the
-    gate must enforce against the real AMA backend rather than treating the
-    unset env var as a no-op (the pre-v1.7 behaviour). Because this file only
-    collects when the real AMA build is present, the gate must pass silently
-    here; the fail-closed branch (production + AMA absent) is exercised by
-    ``.github/workflows/pqc-production-check.yml``.
-    """
+class TestEnvVarsDoNotDisableAma:
+    """AMA is mandatory regardless of production/dev compatibility flags."""
 
     def _clear(self) -> dict[str, str]:
         saved = {}
@@ -232,20 +219,20 @@ class TestProductionDefaultRequiresAma:
             os.environ.pop(name, None)
         os.environ.update(saved)
 
-    def test_production_without_env_var_enforces_and_passes_with_real_ama(self) -> None:
+    def test_production_without_env_var_passes_with_real_ama(self) -> None:
         assert DILITHIUM_AVAILABLE and KYBER_AVAILABLE and SPHINCS_AVAILABLE
         saved = self._clear()
         os.environ["MERCURY_ENV"] = "production"
         try:
-            _enforce_pqc_production_gate()  # default-on in prod, AMA present -> no raise
+            _enforce_pqc_production_gate()
         finally:
             self._restore(saved)
 
-    def test_explicit_false_opts_out_even_in_production(self) -> None:
+    def test_explicit_false_does_not_disable_gate(self) -> None:
         saved = self._clear()
         os.environ["MERCURY_ENV"] = "production"
         os.environ["AMA_REQUIRE_REAL_PQC"] = "false"
         try:
-            _enforce_pqc_production_gate()  # explicit opt-out wins -> no raise
+            _enforce_pqc_production_gate()
         finally:
             self._restore(saved)

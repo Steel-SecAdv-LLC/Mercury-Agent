@@ -11,3 +11,9 @@ third-party library requires either declaring the new dep in
 silent reliance on a transitive dep is not acceptable for operator
 tooling that must run on minimal installs.
 """
+
+from __future__ import annotations
+
+from pkgutil import extend_path
+
+__path__ = extend_path(__path__, __name__)

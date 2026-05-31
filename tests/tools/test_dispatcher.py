@@ -221,8 +221,8 @@ class TestDispatchesToGraduatedTools:
 
         out = tmp_path / "cert.json"
         rc = _main(["sigma_immutable_verifier", "--output", str(out)])
-        # Same exit-code contract as pqc_capability_probe above.
         assert rc == 0
         cert = json.loads(out.read_text())
         assert cert["schema"] == "mercury.tools.sigma_immutable_verifier/v1"
-        assert cert["status"] in {"ok", "warn"}
+        assert cert["status"] == "ok"
+        assert cert["body"]["signatures"]["ml-dsa-65"] == "verified"

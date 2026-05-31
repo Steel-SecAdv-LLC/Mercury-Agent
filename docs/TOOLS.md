@@ -173,7 +173,7 @@ The following tools should run in the release workflow so each tagged
 build ships with a signed evidence bundle:
 
 ```bash
-mercury-agent verify-corpus --require-mldsa
+mercury-agent verify-corpus
 python -m omni_mercury_engine.tools.kat_runner_standalone \
     --output release/kat-cert.json --sign-key-hex "$KAT_SIGN_KEY"
 python -m omni_mercury_engine.tools.release_manifest_builder \

@@ -25,15 +25,9 @@ via ``python -m omni_mercury_engine.tools.sigma_immutable_verifier``.
 
 Exit codes (in addition to the package-wide set in :mod:`._base`):
 
-* ``EXIT_OK`` — every present signature verified, SHA3-256 matches.
+* ``EXIT_OK`` — every mandatory signature verified, SHA3-256 matches.
 * ``EXIT_FAIL`` — corpus / manifest tampered with, Ed25519 invalid,
-  or ML-DSA-65 present-but-invalid.  This is a hard install-time gate.
-
-The ML-DSA-65 ``omitted`` and ``skipped_no_backend`` paths produce a
-``"warn"`` status (because the σ_Immutable runtime gate itself still
-fires under the AMA-not-built branch — failing the operator tool would
-be a false negative).  Operators who need the strong PQC posture run
-with ``--require-pqc`` to escalate those branches to ``EXIT_FAIL``.
+  or ML-DSA-65 missing/omitted/invalid.  This is a hard install-time gate.
 """
 
 from __future__ import annotations
@@ -68,14 +62,6 @@ def _build_parser() -> argparse.ArgumentParser:
         "--sig-path",
         default=None,
         help="Override the signature JSON path (defaults to ``<corpus>.sig.json`` next to corpus).",
-    )
-    parser.add_argument(
-        "--require-pqc",
-        action="store_true",
-        help=(
-            "Escalate ML-DSA-65 'omitted' or 'skipped_no_backend' to a hard failure. "
-            "Use in PQC-required deployments where the AMA native backend MUST be built."
-        ),
     )
     return parser
 
@@ -137,25 +123,17 @@ def _collect(args: argparse.Namespace) -> Certificate:
 
     body["signatures"] = statuses
 
-    warnings: list[str] = []
     overall = "ok"
     for alg, status in statuses.items():
         if status == "verified":
             continue
-        msg = f"{alg}: {status}"
-        warnings.append(msg)
-        if args.require_pqc:
-            overall = "fail"
-
-    if overall == "ok" and warnings:
-        overall = "warn"
+        overall = "fail"
 
     return Certificate(
         tool="sigma_immutable_verifier",
         schema=_SCHEMA,
         status=overall,
         body=body,
-        warnings=warnings,
     )
 
 

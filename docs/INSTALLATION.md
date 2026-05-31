@@ -6,16 +6,14 @@ Applies to Mercury Agent **v1.7.x**. Last updated: 2026-05-20.
 
 - Python >= 3.11 (3.12 recommended; 3.13 supported)
 - pip >= 21.0
-- A C toolchain (clang or gcc) and CMake >= 3.20 for the AMA
-  Cryptography native PQC build (see "Post-Quantum Cryptography
-  backend" below); only required when running with
-  `AMA_REQUIRE_REAL_PQC=true`, but production deployments **must**
-  enable it.
+- GCC >= 12 and CMake >= 4.3.2 for the AMA Cryptography native PQC
+  build (see "Post-Quantum Cryptography backend" below). Mercury does
+  not import without real AMA/PQC.
 
-## Production-mode primitives (`MERCURY_ENV` + `AMA_REQUIRE_REAL_PQC`)
+## Production-mode primitives (`MERCURY_ENV` + AMA/PQC)
 
-Production deployments should set **both** of these environment
-variables before importing `omni_mercury_engine`:
+Production deployments should set these environment variables before
+importing `omni_mercury_engine`:
 
 ```bash
 export MERCURY_ENV=production
@@ -23,7 +21,8 @@ export AMA_REQUIRE_REAL_PQC=true
 export AMA_REQUIRE_CONSTANT_TIME=true   # recommended
 ```
 
-They are orthogonal:
+`AMA_REQUIRE_REAL_PQC` is retained for legacy workflow readability, but
+AMA/PQC is mandatory regardless of its value:
 
 - `MERCURY_ENV` (added in v1.7) is consumed by every collaborator that
   has a mock/stub fallback (`narrative.voice.MercuryVoice`, more to
@@ -32,11 +31,13 @@ They are orthogonal:
   warns and downgrades. An unknown value (e.g.
   `MERCURY_ENV=prod`) also raises — typos must be loud. See
   [`MIGRATION-1.6-to-1.7.md`](MIGRATION-1.6-to-1.7.md) §3.
-- `AMA_REQUIRE_REAL_PQC` gates the import-time PQC production check
-  (`omni_mercury_engine._pqc_gate._enforce_pqc_production_gate`). When
-  set, missing or partially-built AMA Cryptography raises
-  `RuntimeError` at `import omni_mercury_engine` time before any
-  other package state is materialised.
+- The import-time PQC check
+  (`omni_mercury_engine._pqc_gate._enforce_pqc_production_gate`) always
+  requires `ama_cryptography.pqc_backends` plus ML-DSA-65,
+  Kyber-1024, and SPHINCS+ native availability. Missing or
+  partially-built AMA Cryptography raises `RuntimeError` at
+  `import omni_mercury_engine` time before any other package state is
+  materialised.
 
 ## Quick Start
 
@@ -84,18 +85,14 @@ used for cross-domain transfer, calibration baselines, and benchmark comparisons
 ## Post-Quantum Cryptography backend
 
 Mercury Agent uses **AMA Cryptography** as the sole supported PQC
-backend (see `SECURITY.md` and PRs #144, #162). The package import
-is guarded — `security/pqc_backends.py` catches `ImportError` and
-keeps Mercury importable with stub functions, so a developer
-without the native library can still load the package — but
-an import-time production-gate check
+backend (see `SECURITY.md` and PRs #144, #162). Package import is
+guarded unconditionally: `security/pqc_backends.py` imports the real
+`ama_cryptography.pqc_backends` surface, and the import-time gate
 (`omni_mercury_engine._pqc_gate._enforce_pqc_production_gate`,
-invoked from `__init__.py` at import time) fails closed when
-`AMA_REQUIRE_REAL_PQC=true` and the AMA Cryptography native C
-backend is not loadable. With the env var set, `import
-omni_mercury_engine` raises `RuntimeError` before any other package
-state is materialised, so production deployments cannot accidentally
-fall through to stub PQC functions.
+invoked from `__init__.py`) requires ML-DSA-65, Kyber-1024, and
+SPHINCS+ native availability. Missing or partially-built AMA
+Cryptography raises `RuntimeError` before any other package state is
+materialised.
 
 For production, build and install the native library from the
 upstream AMA-Cryptography repository (note: the `cmake` step
@@ -110,29 +107,33 @@ The canonical build steps are exercised by
 git clone --depth 1 --branch v3.2.0 \
     https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git /tmp/ama-cryptography
 cd /tmp/ama-cryptography
-cmake -B build -DAMA_USE_NATIVE_PQC=ON
+python -m pip install --upgrade "setuptools>=78.1.1" "wheel>=0.47.0" "cmake>=4.3.2"
+CC=/usr/bin/gcc-12 CXX=/usr/bin/g++-12 cmake -B build \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DAMA_USE_NATIVE_PQC=ON \
+  -DAMA_BUILD_SHARED=ON \
+  -DAMA_BUILD_STATIC=ON \
+  -DAMA_BUILD_TESTS=OFF \
+  -DAMA_BUILD_EXAMPLES=OFF
 cmake --build build
 
 # 2. Install the Python package from the same checkout
 AMA_NO_CYTHON=1 pip install --no-build-isolation .
 
-# 3. Export the runtime loader path and the production gates
+# 3. Export the runtime loader path and the constant-time gate
 export LD_LIBRARY_PATH="/tmp/ama-cryptography/build/lib:/tmp/ama-cryptography/build:${LD_LIBRARY_PATH:-}"
-export AMA_REQUIRE_REAL_PQC=true
 export AMA_REQUIRE_CONSTANT_TIME=true   # recommended
 
 # 4. Return to the Mercury-Agent checkout for the rest of the install
 cd /path/to/Mercury-Agent
 ```
 
-With `AMA_REQUIRE_REAL_PQC=true`, the inlined production-gate
-check at `omni_mercury_engine/__init__.py::_enforce_pqc_production_gate`
-runs at package import and refuses to proceed if the native library
-is unloadable — `import omni_mercury_engine` raises `RuntimeError`
-before any other package state is materialised. Without the env
-var set, Mercury imports against stub PQC functions for
-development convenience. There is no fallback chain to a non-AMA
-backend.
+The inlined gate at
+`omni_mercury_engine/__init__.py::_enforce_pqc_production_gate` runs at
+package import and refuses to proceed if the native library is
+unloadable — `import omni_mercury_engine` raises `RuntimeError` before
+any other package state is materialised. There is no stub path and no
+fallback chain to a non-AMA backend.
 
 ## Verify Installation
 

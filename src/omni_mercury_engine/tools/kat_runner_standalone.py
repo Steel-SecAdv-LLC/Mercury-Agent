@@ -32,10 +32,9 @@ through a stripped-down driver so an auditor receives:
 * optional Ed25519 detached signature over the canonical bytes so
   the artefact is tamper-evident at rest.
 
-This is *evidence emission*, not test discovery.  When the AMA
-backend is missing the PQC vectors are recorded as ``skipped`` rather
-than silently dropped — an auditor sees explicit gaps instead of an
-"all passed" headline that is only true conditionally.
+This is *evidence emission*, not test discovery.  Mercury imports only
+with real AMA/PQC, so PQC vectors must execute rather than degrade to
+skips.
 """
 
 from __future__ import annotations
@@ -170,44 +169,26 @@ def _run_rfc8032_ed25519() -> list[dict[str, Any]]:
 
 
 def _ama_available() -> bool:
-    try:
-        from omni_mercury_engine.security import pqc_backends as pqc
+    from omni_mercury_engine.security import pqc_backends as pqc
 
-        return bool(pqc.AMA_CRYPTOGRAPHY_AVAILABLE)
-    except Exception:
-        return False
+    return bool(pqc.AMA_CRYPTOGRAPHY_AVAILABLE)
 
 
 def _ama_ctx_available() -> bool:
-    try:
-        from omni_mercury_engine.security import pqc_backends as pqc
+    from omni_mercury_engine.security import pqc_backends as pqc
 
-        return bool(pqc.DILITHIUM_CTX_AVAILABLE)
-    except Exception:
-        return False
+    return bool(pqc.DILITHIUM_CTX_AVAILABLE)
 
 
 def _ama_slhdsa_available() -> bool:
-    try:
-        from omni_mercury_engine.security import pqc_backends as pqc
+    from omni_mercury_engine.security import pqc_backends as pqc
 
-        return bool(pqc.SLHDSA_AVAILABLE)
-    except Exception:
-        return False
+    return bool(pqc.SLHDSA_AVAILABLE)
 
 
 def _run_mldsa65_siggen(vectors: list[dict[str, Any]]) -> list[dict[str, Any]]:
     if not _ama_ctx_available():
-        return [
-            {
-                "algorithm": "ml-dsa-65",
-                "operation": "sigGen",
-                "tcId": v["tcId"],
-                "skipped": True,
-                "reason": "AMA FIPS 204 §5.2 ctx surface unavailable",
-            }
-            for v in vectors
-        ]
+        raise RuntimeError("AMA FIPS 204 §5.2 ctx surface unavailable")
     from omni_mercury_engine.security.pqc_backends import dilithium_sign_ctx
 
     records: list[dict[str, Any]] = []
@@ -232,16 +213,7 @@ def _run_mldsa65_siggen(vectors: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def _run_mlkem1024_decaps(vectors: list[dict[str, Any]]) -> list[dict[str, Any]]:
     if not _ama_available():
-        return [
-            {
-                "algorithm": "ml-kem-1024",
-                "operation": "decapsulation",
-                "tcId": v["tcId"],
-                "skipped": True,
-                "reason": "AMA Cryptography not installed",
-            }
-            for v in vectors
-        ]
+        raise RuntimeError("AMA Cryptography unavailable")
     from omni_mercury_engine.security.pqc_backends import kyber_decapsulate
 
     records: list[dict[str, Any]] = []
@@ -265,16 +237,7 @@ def _run_mlkem1024_decaps(vectors: list[dict[str, Any]]) -> list[dict[str, Any]]
 
 def _run_slhdsa_shake128s_siggen(vectors: list[dict[str, Any]]) -> list[dict[str, Any]]:
     if not _ama_slhdsa_available():
-        return [
-            {
-                "algorithm": "slh-dsa-shake-128s",
-                "operation": "sigGen",
-                "tcId": v["tcId"],
-                "skipped": True,
-                "reason": "AMA FIPS 205 SLH-DSA surface unavailable",
-            }
-            for v in vectors
-        ]
+        raise RuntimeError("AMA FIPS 205 SLH-DSA surface unavailable")
     from omni_mercury_engine.security.pqc_backends import slhdsa_sign_deterministic
 
     records: list[dict[str, Any]] = []
@@ -332,7 +295,7 @@ def _collect(args: argparse.Namespace) -> Certificate:
             records.extend(_run_slhdsa_shake128s_siggen(vectors))
 
     total = len(records)
-    skipped = sum(1 for r in records if r.get("skipped"))
+    skipped = 0
     failed = sum(1 for r in records if r.get("passed") is False)
     passed = total - skipped - failed
 
@@ -345,12 +308,8 @@ def _collect(args: argparse.Namespace) -> Certificate:
     body["records"] = records
 
     warnings: list[str] = []
-    if skipped:
-        warnings.append(f"{skipped} vector(s) skipped (PQC backend absent)")
     if failed:
         status = "fail"
-    elif skipped:
-        status = "warn"
     else:
         status = "ok"
 
