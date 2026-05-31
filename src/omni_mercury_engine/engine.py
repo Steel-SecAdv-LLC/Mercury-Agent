@@ -1049,13 +1049,17 @@ class OmniMercuryEngine(LoggerMixin):
         # inference) and hand the tensor to the trainer, which builds + jointly
         # trains the encoder. ``None`` on the default path keeps it byte-identical.
         raw_inputs: torch.Tensor | None = None
+        domain_scaler: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]] | None = None
         if domain_encoder:
             x_arr = np.nan_to_num(np.asarray(X, dtype=np.float32))
             mean = x_arr.mean(axis=0)
             std = x_arr.std(axis=0)
             std[std < 1e-8] = 1.0
-            self._domain_scaler = (mean, std)
+            domain_scaler = (mean, std)
+            self._domain_scaler = domain_scaler
             raw_inputs = torch.tensor((x_arr - mean) / std, dtype=torch.float32)
+        else:
+            self._domain_scaler = None
 
         # Generate pseudo-labels if not provided (semi-supervised)
         if y is None:
@@ -1077,6 +1081,7 @@ class OmniMercuryEngine(LoggerMixin):
             symbolic_weight=symbolic_weight,
             detector_scores=detector_scores,
             raw_inputs=raw_inputs,
+            domain_scaler=domain_scaler,
             domain_encoder_config=domain_encoder_config,
         )
 
@@ -1097,6 +1102,7 @@ class OmniMercuryEngine(LoggerMixin):
         symbolic_weight: float = 0.0,
         detector_scores: torch.Tensor | None = None,
         raw_inputs: torch.Tensor | None = None,
+        domain_scaler: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]] | None = None,
         domain_encoder_config: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Train the fusion head on a pre-extracted feature-group mapping.
@@ -1167,6 +1173,7 @@ class OmniMercuryEngine(LoggerMixin):
         domain_dim = 64
         if domain_active:
             assert raw_inputs is not None  # narrowed by domain_active
+            assert domain_scaler is not None
             # output_dim is pinned to domain_dim (the fusion projection width);
             # domain_encoder_config sweeps the *internal* design (domains /
             # kernel widths / normalization) for WS-B design-space search.
@@ -1178,9 +1185,8 @@ class OmniMercuryEngine(LoggerMixin):
             assert dom_module is not None
             dom_module.train()
             self._domain_encoder = dom_module
-            # Pre-create the fusion projection for the injected feature group so
-            # its parameters exist before ``list(fusion_model.parameters())``.
-            self.fusion_model._get_or_create_projection("differentiable_domain", domain_dim, device)
+            self._domain_scaler = domain_scaler
+            self.fusion_model.register_feature_group("differentiable_domain", domain_dim, device)
             if (
                 self._fusion_feature_groups is not None
                 and "differentiable_domain" not in self._fusion_feature_groups
@@ -1192,6 +1198,7 @@ class OmniMercuryEngine(LoggerMixin):
         else:
             dom_module = None
             self._domain_encoder = None
+            self._domain_scaler = None
 
         # Neuro-symbolic co-training: when enabled, a SymbolicConstraintModule
         # is optimised jointly with the fusion net and its (1 - satisfaction)
@@ -1390,7 +1397,7 @@ class OmniMercuryEngine(LoggerMixin):
         self._fusion_calibrator = None
         if calibrate and n_val > 0:
             cal_metrics = self._fit_fusion_temperature(
-                detector_features, labels_tensor, val_indices
+                detector_features, labels_tensor, val_indices, raw_inputs_dev
             )
             metrics.update(cal_metrics)
 
@@ -1401,6 +1408,7 @@ class OmniMercuryEngine(LoggerMixin):
         detector_features: dict[str, torch.Tensor],
         labels_tensor: torch.Tensor,
         val_indices: torch.Tensor,
+        raw_inputs_dev: torch.Tensor | None = None,
     ) -> dict[str, Any]:
         """Fit post-hoc temperature scaling on the validation split.
 
@@ -1416,6 +1424,10 @@ class OmniMercuryEngine(LoggerMixin):
             val_feats = {
                 name: feat[val_indices].to(device) for name, feat in detector_features.items()
             }
+            if self._domain_encoder is not None and raw_inputs_dev is not None:
+                val_feats["differentiable_domain"] = self._domain_encoder(
+                    raw_inputs_dev[val_indices]
+                )
             val_probs = (
                 self.fusion_model(val_feats)["anomaly_probs"].detach().cpu().numpy().reshape(-1)
             )
@@ -4156,6 +4168,27 @@ class OmniMercuryEngine(LoggerMixin):
             "projection_registry": self.fusion_model.export_projection_registry(),
             "temperature": temperature,
             "feature_groups": self._fusion_feature_groups,
+            "domain_encoder_state_dict": (
+                self._domain_encoder.state_dict() if self._domain_encoder is not None else None
+            ),
+            "domain_encoder_config": (
+                {
+                    "input_dim": self._domain_encoder.input_dim,
+                    "hidden_dim": self._domain_encoder.hidden_dim,
+                    "per_encoder_dim": self._domain_encoder.per_encoder_dim,
+                    "output_dim": self._domain_encoder.output_dim,
+                    "domains": self._domain_encoder.domains,
+                    "encoder_kwargs": self._domain_encoder.encoder_kwargs,
+                    "normalize": self._domain_encoder.normalize,
+                }
+                if self._domain_encoder is not None
+                else None
+            ),
+            "domain_encoder_scaler": (
+                tuple(torch.tensor(part, dtype=torch.float32) for part in self._domain_scaler)
+                if self._domain_scaler is not None
+                else None
+            ),
             "provenance": self._fusion_provenance,
             "fusion_trained": bool(self._fusion_trained),
         }
@@ -4218,6 +4251,32 @@ class OmniMercuryEngine(LoggerMixin):
 
             groups = checkpoint.get("feature_groups")
             self._fusion_feature_groups = list(groups) if groups is not None else None
+            domain_state = checkpoint.get("domain_encoder_state_dict")
+            domain_config = checkpoint.get("domain_encoder_config")
+            domain_scaler = checkpoint.get("domain_encoder_scaler")
+            if domain_state is not None and domain_scaler is not None:
+                if isinstance(domain_config, dict):
+                    self._domain_encoder = DomainEncoderStack(
+                        input_dim=int(domain_config["input_dim"]),
+                        hidden_dim=int(domain_config["hidden_dim"]),
+                        per_encoder_dim=int(domain_config["per_encoder_dim"]),
+                        output_dim=int(domain_config["output_dim"]),
+                        domains=tuple(domain_config["domains"]),
+                        encoder_kwargs=dict(domain_config["encoder_kwargs"]),
+                        normalize=bool(domain_config["normalize"]),
+                    ).to(self.device)
+                    self._domain_encoder.load_state_dict(domain_state)
+                    self._domain_encoder.eval()
+                    self._domain_scaler = (
+                        np.asarray(domain_scaler[0], dtype=np.float32),
+                        np.asarray(domain_scaler[1], dtype=np.float32),
+                    )
+                else:
+                    self._domain_encoder = None
+                    self._domain_scaler = None
+            else:
+                self._domain_encoder = None
+                self._domain_scaler = None
             provenance = checkpoint.get("provenance")
             self._fusion_provenance = dict(provenance) if provenance is not None else None
             self._fusion_trained = bool(checkpoint.get("fusion_trained", True))

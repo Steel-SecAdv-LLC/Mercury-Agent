@@ -643,6 +643,9 @@ class OmniFusionModel(nn.Module):
 
         self.feature_dims = feature_dims
         self.hidden_dim = hidden_dim
+        self.num_heads = num_heads
+        self.dropout = dropout
+        self.num_classes = num_classes
 
         self.encoders = nn.ModuleDict(
             {
@@ -682,12 +685,7 @@ class OmniFusionModel(nn.Module):
         # Previously, new layers were created on every forward pass causing memory leaks
         self._dynamic_projections: nn.ModuleDict = nn.ModuleDict()
 
-        self.fusion_layer = HybridFusionLayer(
-            feature_dims=dict.fromkeys(feature_dims.keys(), hidden_dim),
-            hidden_dim=hidden_dim,
-            num_heads=num_heads,
-            dropout=dropout,
-        )
+        self.fusion_layer = self._build_fusion_layer()
 
         self.anomaly_head = nn.Sequential(
             nn.Linear(hidden_dim, 64),
@@ -709,6 +707,41 @@ class OmniFusionModel(nn.Module):
             nn.Dropout(dropout),
             nn.Linear(64, 1),
         )
+
+    def _build_fusion_layer(self) -> nn.Module:
+        """Build the hybrid layer from the current feature registry."""
+        return HybridFusionLayer(
+            feature_dims=dict.fromkeys(self.feature_dims.keys(), self.hidden_dim),
+            hidden_dim=self.hidden_dim,
+            num_heads=self.num_heads,
+            dropout=self.dropout,
+        )
+
+    def register_feature_group(
+        self,
+        name: str,
+        input_dim: int,
+        device: torch.device,
+    ) -> None:
+        """Add a train-time feature group before the optimizer is created."""
+        input_dim = int(input_dim)
+        previous_dim = self.feature_dims.get(name)
+        needs_fusion_rebuild = previous_dim != input_dim or name not in getattr(
+            self.fusion_layer, "detector_names", ()
+        )
+
+        self.feature_dims[name] = input_dim
+        if name not in self.encoders and (
+            name not in self.generic_encoders or previous_dim != input_dim
+        ):
+            self.generic_encoders[name] = nn.Sequential(
+                nn.Linear(input_dim, self.hidden_dim),
+                nn.ReLU(),
+                nn.Dropout(self.dropout),
+            ).to(device)
+
+        if needs_fusion_rebuild:
+            self.fusion_layer = self._build_fusion_layer().to(device)
 
     def _get_or_create_projection(
         self,

@@ -216,10 +216,16 @@ class DomainEncoderStack(nn.Module):
         normalize: bool = False,
     ) -> None:
         super().__init__()
+        self.input_dim = int(input_dim)
+        self.hidden_dim = int(hidden_dim)
+        self.per_encoder_dim = int(per_encoder_dim)
+        self.output_dim = int(output_dim)
         self.domains = tuple(domains)
+        self.normalize = bool(normalize)
         if not self.domains:
             raise ValueError("DomainEncoderStack needs at least one domain")
         encoder_kwargs = encoder_kwargs or {}
+        self.encoder_kwargs = {name: dict(values) for name, values in encoder_kwargs.items()}
         self.encoders = nn.ModuleDict()
         builders: dict[str, Any] = {
             "spectral": SpectralEncoder,

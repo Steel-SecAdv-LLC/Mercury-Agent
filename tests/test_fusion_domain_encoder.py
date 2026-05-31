@@ -110,3 +110,75 @@ class TestDomainEncoderActive:
         feats = engine._extract_fusion_features(X[:16], fit_detectors=False)
         assert "differentiable_domain" in feats
         assert feats["differentiable_domain"].shape[0] == 16
+
+    def test_temperature_calibration_uses_encoder_distribution(self) -> None:
+        torch.manual_seed(0)
+        np.random.seed(0)
+        X, y = _separable_fixture()
+        n_train = int(len(X) * 0.7)
+        engine = _engine()
+        engine.fit_fusion(
+            X[:n_train],
+            y[:n_train],
+            epochs=2,
+            batch_size=64,
+            validation_split=0.25,
+            domain_encoder=True,
+        )
+        assert "differentiable_domain" in (engine._fusion_feature_groups or [])
+
+        captured: dict[str, tuple[str, ...]] = {}
+        original_forward = engine.fusion_model.forward
+
+        def capture_forward(features: dict[str, torch.Tensor], *args: Any, **kwargs: Any) -> Any:
+            captured["keys"] = tuple(sorted(features))
+            return original_forward(features, *args, **kwargs)
+
+        engine.fusion_model.forward = capture_forward  # type: ignore[method-assign]
+        try:
+            labels = torch.tensor(y[:n_train], dtype=torch.float32).unsqueeze(1)
+            val_indices = torch.arange(max(1, n_train - 8), n_train)
+            mean, std = engine._domain_scaler
+            raw_inputs = torch.tensor(
+                (np.nan_to_num(X[:n_train].astype(np.float32)) - mean) / std,
+                dtype=torch.float32,
+            )
+            engine._fit_fusion_temperature(
+                engine._extract_fusion_features(X[:n_train], fit_detectors=False),
+                labels,
+                val_indices,
+                raw_inputs,
+            )
+        finally:
+            engine.fusion_model.forward = original_forward  # type: ignore[method-assign]
+
+        assert "differentiable_domain" in captured["keys"]
+
+    def test_domain_encoder_checkpoint_round_trips_scores(self, tmp_path: Any) -> None:
+        torch.manual_seed(0)
+        np.random.seed(0)
+        X, y = _separable_fixture()
+        n_train = int(len(X) * 0.7)
+        engine = _engine()
+        engine.fit_fusion(
+            X[:n_train],
+            y[:n_train],
+            epochs=2,
+            batch_size=64,
+            validation_split=0.25,
+            domain_encoder=True,
+        )
+
+        path = tmp_path / "domain-fusion.pt"
+        engine.save_model(str(path))
+
+        loaded = _engine()
+        loaded.load_model(str(path))
+        from omni_mercury_engine.ml.domain_encoders import DomainEncoderStack
+
+        assert isinstance(loaded._domain_encoder, DomainEncoderStack)
+        assert loaded._domain_scaler is not None
+        assert "differentiable_domain" in (loaded._fusion_feature_groups or [])
+
+        probe = X[n_train : n_train + 8]
+        assert np.allclose(engine.score_fusion(probe), loaded.score_fusion(probe), atol=1e-6)
