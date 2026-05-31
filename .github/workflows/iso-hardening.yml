@@ -159,6 +159,7 @@ jobs:
       pull-requests: write
     env:
       MERCURY_API_HOST: http://127.0.0.1:8000
+      AMA_REQUIRE_REAL_PQC: "true"
     steps:
       - name: Checkout
         uses: actions/checkout@v6.0.2
@@ -174,6 +175,11 @@ jobs:
           python -m pip install --upgrade "pip>=26.1"
           pip install -e ".[api,ml]"
           pip install "locust>=2.31.0"
+
+      - name: Build + install AMA Cryptography (native PQC backend)
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v3.2.0
 
       - name: Install k6
         run: |
