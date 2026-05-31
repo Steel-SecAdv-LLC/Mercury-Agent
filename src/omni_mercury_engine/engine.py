@@ -1882,10 +1882,8 @@ class OmniMercuryEngine(LoggerMixin):
 
         if not output_path.endswith(".npz"):
             output_path = f"{output_path}.npz"
-        # numpy's ``savez`` stubs overload ``**kwds`` against the rarely-used
-        # ``allow_pickle`` bool kwarg, so mypy flags every keyword-arg call
-        # site. The runtime semantics are correct (one named array per kwarg).
-        np.savez(output_path, **arrays)
+        save_feature_archive = cast("Any", np.savez)
+        save_feature_archive(output_path, **arrays)
         logger.info(
             f"Wrote fusion feature archive to {output_path} "
             f"({len(arrays) - 1} detector feature groups, {len(arrays['labels'])} samples)"

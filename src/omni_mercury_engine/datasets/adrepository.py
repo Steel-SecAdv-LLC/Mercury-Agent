@@ -251,7 +251,7 @@ class ADRepositoryLoader(DatasetLoader):
 
         self.dataset_info = ADREPOSITORY_DATASETS[self.dataset_name]
         self._features: np.ndarray[Any, Any] | None = None
-        self._labels: np.ndarray[Any, Any] | None = None
+        self._raw_labels: np.ndarray[Any, Any] | None = None
         self._is_real_data = False
 
         logger.info(
@@ -292,8 +292,8 @@ class ADRepositoryLoader(DatasetLoader):
             odds_path = dataset_dir / f"{self.dataset_name}.{odds_info['format']}"
             if odds_path.exists():
                 self._load_from_file(odds_path)
-                if self._features is not None and self._labels is not None:
-                    return self._features, self._labels
+                if self._features is not None and self._raw_labels is not None:
+                    return self._features, self._raw_labels
 
         if not local_path.exists():
             self.download()
@@ -304,8 +304,8 @@ class ADRepositoryLoader(DatasetLoader):
             odds_path = dataset_dir / f"{self.dataset_name}.{odds_info['format']}"
             if odds_path.exists():
                 self._load_from_file(odds_path)
-                if self._features is not None and self._labels is not None:
-                    return self._features, self._labels
+                if self._features is not None and self._raw_labels is not None:
+                    return self._features, self._raw_labels
 
         if local_path.exists():
             self._load_from_file(local_path)
@@ -315,10 +315,10 @@ class ADRepositoryLoader(DatasetLoader):
             self._create_synthetic_fallback()
 
         # Type guard for mypy - at this point both should be set
-        if self._features is None or self._labels is None:
+        if self._features is None or self._raw_labels is None:
             raise RuntimeError("Failed to load dataset features and labels")
 
-        return self._features, self._labels
+        return self._features, self._raw_labels
 
     def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Apply preprocessing (implements abstract method)."""
@@ -441,12 +441,12 @@ class ADRepositoryLoader(DatasetLoader):
 
         # Combine
         self._features = np.vstack([normal_data, anomaly_data]).astype(np.float32)
-        self._labels = np.array([0] * n_normal + [1] * n_anomalies, dtype=np.int64)
+        self._raw_labels = np.array([0] * n_normal + [1] * n_anomalies, dtype=np.int64)
 
         # Shuffle
         perm = rng.permutation(n_samples)
         self._features = self._features[perm]
-        self._labels = self._labels[perm]
+        self._raw_labels = self._raw_labels[perm]
 
         self._is_real_data = False
         return True
@@ -461,8 +461,8 @@ class ADRepositoryLoader(DatasetLoader):
         Returns:
             Tuple of (features, labels) numpy arrays.
         """
-        if self._features is not None and self._labels is not None:
-            return self._features, self._labels
+        if self._features is not None and self._raw_labels is not None:
+            return self._features, self._raw_labels
 
         return self._load_raw()
 
@@ -472,7 +472,7 @@ class ADRepositoryLoader(DatasetLoader):
 
         data = loadmat(str(path))
         self._features = data["X"].astype(np.float32)
-        self._labels = data["y"].ravel().astype(np.int64)
+        self._raw_labels = data["y"].ravel().astype(np.int64)
         self._is_real_data = True
         logger.info(f"Loaded .mat file from {path.name} (real_data=True)")
 
@@ -511,7 +511,7 @@ class ADRepositoryLoader(DatasetLoader):
                         "if you trust the source."
                     ) from exc
                 self._features = x_arr.astype(np.float32)
-                self._labels = y_arr.astype(np.int64)
+                self._raw_labels = y_arr.astype(np.int64)
                 self._is_real_data = True
 
             elif suffix == ".csv":
@@ -521,7 +521,7 @@ class ADRepositoryLoader(DatasetLoader):
 
                 # Assume last column is label
                 self._features = df.iloc[:, :-1].values.astype(np.float32)
-                self._labels = df.iloc[:, -1].values.astype(np.int64)
+                self._raw_labels = df.iloc[:, -1].values.astype(np.int64)
                 self._is_real_data = True
 
             elif suffix == ".zip":
@@ -558,15 +558,19 @@ class ADRepositoryLoader(DatasetLoader):
                         ) from exc
                     if x_arr is not None and y_arr is not None:
                         self._features = x_arr.astype(np.float32)
-                        self._labels = y_arr.astype(np.int64)
+                        self._raw_labels = y_arr.astype(np.int64)
                         self._is_real_data = True
                         break
 
             # Apply max_samples limit
-            if self._features is not None and self._labels is not None and self.config.max_samples:
+            if (
+                self._features is not None
+                and self._raw_labels is not None
+                and self.config.max_samples
+            ):
                 n = min(len(self._features), self.config.max_samples)
                 self._features = self._features[:n]
-                self._labels = self._labels[:n]
+                self._raw_labels = self._raw_labels[:n]
 
             if self._features is not None:
                 logger.info(
@@ -609,14 +613,14 @@ class ADRepositoryLoader(DatasetLoader):
             self.load_data()
 
         # Type guards for mypy - load_data() ensures these are not None
-        if self._features is None or self._labels is None:
+        if self._features is None or self._raw_labels is None:
             raise RuntimeError("Failed to load data")
 
         return {
             "n_samples": len(self._features),
             "n_features": self._features.shape[1],
-            "n_anomalies": int(self._labels.sum()),
-            "anomaly_ratio": float(self._labels.mean()),
+            "n_anomalies": int(self._raw_labels.sum()),
+            "anomaly_ratio": float(self._raw_labels.mean()),
             "feature_mean": float(self._features.mean()),
             "feature_std": float(self._features.std()),
             "is_real_data": self._is_real_data,

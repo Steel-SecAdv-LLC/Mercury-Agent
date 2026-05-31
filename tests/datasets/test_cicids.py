@@ -72,7 +72,7 @@ class TestCICIDSLoader:
         assert loader.subset == "all"  # Default
         assert loader._is_real_data is False  # Not loaded yet
         assert loader._features is None
-        assert loader._labels is None
+        assert loader._raw_labels is None
 
     def test_init_binary_false(self) -> None:
         """Test loader with multi-class classification."""
@@ -116,10 +116,10 @@ class TestCICIDSLoader:
 
         assert result is True
         assert loader._features is not None
-        assert loader._labels is not None
+        assert loader._raw_labels is not None
         assert loader._features.shape[0] == 1000
         assert loader._features.shape[1] == 78  # Typical CICIDS feature count
-        assert len(loader._labels) == 1000
+        assert len(loader._raw_labels) == 1000
         assert loader.is_real_data is False
 
     def test_synthetic_attack_distribution(self) -> None:

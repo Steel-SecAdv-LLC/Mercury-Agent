@@ -434,8 +434,8 @@ class FEMADisasterLoader(DatasetLoader):
         rng = np.random.default_rng(self.config.random_seed)
         n_samples = self.config.max_samples or 5000
 
-        feature_rows = []
-        labels = []
+        feature_rows: list[list[int]] = []
+        label_candidates: list[int] = []
 
         # State FIPS codes (sampling of major disaster-prone states)
         disaster_prone_states = [
@@ -520,10 +520,10 @@ class FEMADisasterLoader(DatasetLoader):
                 decl_code == 0  # DR type
                 and (ia_program + pa_program + hm_program) >= 2  # Multiple programs
             )
-            labels.append(1 if is_major else 0)
+            label_candidates.append(1 if is_major else 0)
 
         features = np.array(feature_rows, dtype=np.float32)
-        labels_arr = np.array(labels, dtype=bool)
+        labels_arr = np.array(label_candidates, dtype=bool)
         labels = self._select_anomaly_polarity(labels_arr)
 
         save_path = self.data_path / "synthetic_fema_disaster.npz"

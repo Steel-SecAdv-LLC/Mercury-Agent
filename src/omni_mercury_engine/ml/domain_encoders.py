@@ -97,6 +97,7 @@ class SpectralEncoder(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Encode feature vectors into spectral embeddings."""
         # Magnitude spectrum along the feature axis; abs() of a complex tensor
         # is differentiable w.r.t. the real input.
         spectrum = torch.fft.rfft(x, dim=-1)
@@ -151,6 +152,7 @@ class KinematicEncoder(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Encode feature vectors into kinematic embeddings."""
         signal = x.unsqueeze(1)  # (batch, 1, n_features)
         feats: list[torch.Tensor] = []
         for conv in self.convs:
@@ -186,6 +188,7 @@ class FisherEntropyEncoder(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Encode feature vectors into Fisher-entropy embeddings."""
         z = self.whiten(x)  # (batch, input_dim)
         mahal_sq = (z * z).sum(dim=-1, keepdim=True)  # Mahalanobis analog
         probs = torch.softmax(z, dim=-1)
@@ -240,6 +243,7 @@ class DomainEncoderStack(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Encode feature vectors with all active domain encoders."""
         parts = [self.encoders[name](x) for name in self.domains]
         return self.project(self.norm(torch.cat(parts, dim=-1)))
 

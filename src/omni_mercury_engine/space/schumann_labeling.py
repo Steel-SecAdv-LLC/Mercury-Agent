@@ -80,6 +80,7 @@ class EventWindow:
     magnitude: float
 
     def contains(self, t: datetime) -> bool:
+        """Return whether ``t`` falls inside this event window."""
         return self.start <= t <= self.end
 
 
@@ -95,6 +96,7 @@ class LabelCatalog:
         return int(any(w.contains(t) for w in self.windows))
 
     def positive_fraction(self, times: list[datetime]) -> float:
+        """Return the fraction of timestamps covered by positive windows."""
         if not times:
             return 0.0
         return sum(self.label(t) for t in times) / len(times)

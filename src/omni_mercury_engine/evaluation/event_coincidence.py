@@ -60,6 +60,7 @@ class PreregisteredCoincidenceTest:
     min_circular_shift: int = 1  # avoid the (near-)identity shift
 
     def as_dict(self) -> dict[str, Any]:
+        """Return a JSON-serializable protocol."""
         return {
             "name": self.name,
             "statistic": self.statistic,
@@ -72,6 +73,8 @@ class PreregisteredCoincidenceTest:
 
 @dataclass
 class CoincidenceResult:
+    """Result from one event-coincidence permutation test."""
+
     observed: float
     p_value: float
     n_in_window: int
@@ -80,6 +83,7 @@ class CoincidenceResult:
     statistic: str
 
     def as_dict(self) -> dict[str, Any]:
+        """Return a JSON-serializable result."""
         return {
             "observed": self.observed,
             "p_value": self.p_value,
@@ -113,8 +117,7 @@ def permutation_coincidence_test(
     seed: int = 0,
     min_circular_shift: int = 1,
 ) -> CoincidenceResult:
-    """One-sided circular-permutation test that ``scores`` are elevated inside
-    the fixed ``in_window`` mask beyond chance.
+    """Test whether ``scores`` are elevated inside the fixed event mask.
 
     The null circularly rolls ``scores`` by a random offset, preserving its
     autocorrelation while breaking alignment to the events. The one-sided
@@ -207,9 +210,11 @@ class CoincidenceReport:
 
     @property
     def any_significant(self) -> bool:
+        """Return whether any corrected comparison is significant."""
         return any(self.reject)
 
     def as_dict(self) -> dict[str, Any]:
+        """Return a JSON-serializable report."""
         return {
             "protocol": self.protocol,
             "results": [r.as_dict() for r in self.results],
@@ -223,8 +228,10 @@ def run_preregistered(
     score_streams: list[np.ndarray[Any, Any]],
     masks: list[np.ndarray[Any, Any]],
 ) -> CoincidenceReport:
-    """Run the pre-registered test over multiple (score, mask) pairs and apply
-    the registered multiple-comparison correction across them."""
+    """Run the pre-registered test over multiple score/mask pairs.
+
+    Applies the registered multiple-comparison correction across all pairs.
+    """
     if len(score_streams) != len(masks):
         raise ValueError("score_streams and masks must align")
     results = [

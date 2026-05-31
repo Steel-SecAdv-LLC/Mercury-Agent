@@ -62,6 +62,7 @@ class ConfoundReport:
     inversion_floor: float = INVERSION_FLOOR
 
     def as_dict(self) -> dict[str, Any]:
+        """Return a JSON-serializable report."""
         return {
             "confounded": self.confounded,
             "reasons": self.reasons,

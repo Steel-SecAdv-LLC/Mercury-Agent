@@ -484,11 +484,9 @@ class ParapsychologyDetector:
                 "Consciousness-field analysis is disabled "
                 "(enable_consciousness_field=False); nothing to load."
             )
-        loaded: Any = (
-            torch.load(state_dict, map_location="cpu")
-            if isinstance(state_dict, str)
-            else state_dict
-        )
+        loaded: Any = state_dict
+        if isinstance(state_dict, str):
+            loaded = torch.load(state_dict, map_location="cpu", weights_only=True)
         self.field_analyzer.load_state_dict(loaded)
         self.field_analyzer.eval()
         self._neural_trained = True

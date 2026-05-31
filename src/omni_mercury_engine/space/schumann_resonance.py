@@ -465,11 +465,9 @@ class SchumannResonanceDetector:
         Args:
             state_dict: An in-memory ``state_dict`` or a path to a saved one.
         """
-        loaded: Any = (
-            torch.load(state_dict, map_location="cpu")
-            if isinstance(state_dict, str)
-            else state_dict
-        )
+        loaded: Any = state_dict
+        if isinstance(state_dict, str):
+            loaded = torch.load(state_dict, map_location="cpu", weights_only=True)
         self.harmonic_analyzer.load_state_dict(loaded)
         self.harmonic_analyzer.eval()
         self._neural_trained = True

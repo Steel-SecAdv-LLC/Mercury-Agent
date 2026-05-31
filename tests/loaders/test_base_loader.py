@@ -47,7 +47,7 @@ class StubLoader(BaseDomainLoader):
     def list_events(self) -> list[dict[str, Any]]:
         return [{"event_id": "e1", "name": "Test Event", "date": "2024-01-01"}]
 
-    def get_ground_truth(self, event_id: str) -> np.ndarray:
+    def get_ground_truth(self, event_id: str) -> np.ndarray[Any, Any]:
         return np.array([0, 0, 1])
 
 

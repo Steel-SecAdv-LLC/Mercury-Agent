@@ -338,7 +338,7 @@ class SafeHFLoader:
         # ``datasets`` package to be installed.
         from datasets import load_dataset as _hf_load_dataset
 
-        return _hf_load_dataset(
+        return _hf_load_dataset(  # nosec B615 - HFModelPolicy.validate enforces SHA pinning.
             dataset_id,
             revision=revision,
             **kwargs,

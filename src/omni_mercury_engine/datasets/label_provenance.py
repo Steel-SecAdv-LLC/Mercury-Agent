@@ -290,8 +290,9 @@ def discover_loaders() -> dict[str, type[DatasetLoader]]:
 
 
 def scan_circular_label_construction(cls: type) -> bool:
-    """True if the loader manufactures labels from a feature threshold in a
-    *real* (non-synthetic) code path.
+    """Return whether a loader manufactures labels from a feature threshold.
+
+    Applies only to *real* (non-synthetic) code paths.
 
     The circular pattern (the exact thing PR #255/#262 de-leaked) is an
     assignment to ``labels``/``y`` whose value compares a feature matrix
