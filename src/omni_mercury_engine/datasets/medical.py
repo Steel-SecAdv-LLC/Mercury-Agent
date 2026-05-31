@@ -497,6 +497,7 @@ class PhysioNetLoader(DatasetLoader):
     """
 
     DATASET_NAME = "physionet"
+    LABEL_SOURCE = "expert_annotated"  # real PhysioNet databases carry expert ECG/event annotations
     DATASET_URL = "https://physionet.org/"
     LICENSE = "PhysioNet Open Access / Credentialed"
     CITATION = "Goldberger AL, et al. PhysioBank, PhysioToolkit, and PhysioNet. Circulation. 2000."

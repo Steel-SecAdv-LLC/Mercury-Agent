@@ -274,13 +274,22 @@ def derive_verdict(results: list[dict[str, Any]]) -> dict[str, Any]:
     the paired deltas. The constraint is recommended for default-on only if at
     least one gate clears its noise threshold with a majority of seeds agreeing.
     """
+    from omni_mercury_engine.evaluation.ablation_guard import (
+        check_ablation_confound,
+        confound_free_or_quarantine,
+    )
+
     full_auc_deltas: list[float] = []
     full_fpr_deltas: list[float] = []
     low_auc_deltas: list[float] = []
     full_seed_agree: list[float] = []
+    all_neural_aucs: list[float] = []
+    all_symbolic_aucs: list[float] = []
 
     for ds in results:
         for fr in ds["fractions"]:
+            all_neural_aucs.extend(fr.get("neural", {}).get("aucs", []))
+            all_symbolic_aucs.extend(fr.get("symbolic", {}).get("aucs", []))
             if fr["fraction"] >= 1.0:
                 full_auc_deltas.append(fr["delta_auc_mean"])
                 if not np.isnan(fr["delta_fpr_mean"]):
@@ -301,7 +310,13 @@ def derive_verdict(results: list[dict[str, Any]]) -> dict[str, Any]:
         and not np.isnan(mean_full_auc)
         and mean_low_auc > mean_full_auc
     )
-    passed = bool(gate_auc or gate_fp or gate_sample_eff)
+    raw_passed = bool(gate_auc or gate_fp or gate_sample_eff)
+
+    # Confound guard: reject a KEEP built on a collapsed (inverted-ranking) arm.
+    confound = check_ablation_confound(
+        all_neural_aucs, all_symbolic_aucs, max_degenerate_fraction=0.2
+    )
+    passed, note = confound_free_or_quarantine(raw_passed, confound)
 
     return {
         "mean_delta_auc_full_data": mean_full_auc,
@@ -311,11 +326,17 @@ def derive_verdict(results: list[dict[str, Any]]) -> dict[str, Any]:
         "gate_auc_up": bool(gate_auc),
         "gate_false_positives_down": bool(gate_fp),
         "gate_sample_efficiency_up": bool(gate_sample_eff),
+        "raw_passed": raw_passed,
+        "confound": confound.as_dict(),
         "passed": passed,
         "verdict": (
             "KEEP -- enable symbolic co-training by default"
             if passed
-            else "QUARANTINE -- keep symbolic_weight=0 default; no measured improvement"
+            else (
+                note
+                if confound.confounded
+                else "QUARANTINE -- keep symbolic_weight=0 default; no measured improvement"
+            )
         ),
     }
 

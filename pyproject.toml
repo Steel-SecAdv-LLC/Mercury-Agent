@@ -431,6 +431,7 @@ module = [
     "uvicorn.*",
     "httpx.*",
     "requests.*",
+    "urllib3.*",
     "cryptography.*",
     "bcrypt.*",
     "click.*",

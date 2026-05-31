@@ -56,6 +56,7 @@ class SimonsCMAPLoader(DatasetLoader):
     """
 
     DATASET_NAME = "simons_cmap"
+    LABEL_SOURCE = "statistical"  # labels = oxygen<2 | temp>30 | nitrate>30 threshold on features
     DATASET_URL = "https://simonscmap.com/"
     LICENSE = "CC BY 4.0"
     CITATION = """Ashkezari MD, et al. (2021). Simons Collaborative Marine Atlas Project
@@ -421,6 +422,7 @@ class WorldOceanDatabaseLoader(DatasetLoader):
     """
 
     DATASET_NAME = "world_ocean_database"
+    LABEL_SOURCE = "statistical"  # no ground-truth labels; manufactured/synthetic profile anomalies
     DATASET_URL = "https://www.ncei.noaa.gov/products/world-ocean-database"
     LICENSE = "Public Domain"
     CITATION = """WOD Team (2025). World Ocean Database data product series.
@@ -637,6 +639,7 @@ class CopernicusSeaLevelLoader(DatasetLoader):
     """
 
     DATASET_NAME = "copernicus_sea_level"
+    LABEL_SOURCE = "statistical"  # labels = |sea-level-anomaly| > 0.15 m threshold on a feature
     DATASET_URL = "https://cds.climate.copernicus.eu/datasets/satellite-sea-level-global"
     LICENSE = "CC BY 4.0"
     CITATION = """Copernicus Climate Change Service (C3S). Sea level gridded data
@@ -917,6 +920,7 @@ class CopernicusERA5Loader(DatasetLoader):
     """
 
     DATASET_NAME = "copernicus_era5"
+    LABEL_SOURCE = "statistical"  # labels = temperature/salinity-anomaly thresholds on features
     DATASET_URL = "https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels"
     LICENSE = "CC BY 4.0"
     CITATION = """Hersbach, H. et al. (2020). The ERA5 global reanalysis.

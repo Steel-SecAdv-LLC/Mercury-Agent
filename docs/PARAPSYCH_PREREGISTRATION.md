@@ -65,3 +65,51 @@ catalogs; fixed here so windows cannot be chosen post-hoc.)
 
 Record the numbers. `QUARANTINE` unless the real-data, multiple-comparison-
 corrected bar is cleared. Never assert psi; a clean null is a valid contribution.
+
+---
+
+## Harvest (this round): the scaffolding transfers to a real mission problem
+
+The psi null stands and is closed — re-hunting it would be motivated reasoning,
+not engineering. But the *scaffolding* built here is real, reusable
+scientific-integrity infrastructure: honest ingestion with explicit
+reachability, a **pre-registration** that fixes the analysis before the data is
+seen, a **null test**, and a **multiple-comparison correction**. That is exactly
+what a free, life-safety anomaly system needs whenever it asks *"do my detector's
+flags coincide with real events more than chance?"* — a question endemic to
+Mercury's space-weather / seismic / environmental-hazard mission, and the classic
+home of post-hoc-flexibility self-deception.
+
+**Generalized into a reusable tool** —
+`src/omni_mercury_engine/evaluation/event_coincidence.py`:
+
+* `PreregisteredCoincidenceTest` — fix statistic / permutation count / alpha /
+  correction up front (commit it with the analysis);
+* `permutation_coincidence_test` — a **circular time-shift permutation** null
+  (the gold standard for autocorrelated streams: it preserves the score's own
+  temporal structure and destroys only its alignment to the fixed event windows,
+  so a significant result cannot be an autocorrelation artifact);
+* `bonferroni` / `benjamini_hochberg` — multiple-comparison control.
+
+It is validated as a general tool (`tests/evaluation/test_event_coincidence.py`,
+8 tests): correct false-positive rate under a true null — including for
+*autocorrelated* random walks, the case the circular null is designed for — and
+real power against a planted signal.
+
+**Applied to a real, non-circular, in-scope problem** —
+`benchmarks/spaceweather_coincidence.py`:
+
+> Is the geomagnetic **Kp** index elevated inside independent **GOES** solar-flare
+> response windows beyond chance?
+
+Kp (a geomagnetic instrument) and GOES flares (an X-ray instrument) are
+physically coupled but **independently measured**, so the test is non-circular by
+construction (no label leak — the WS-A failure mode) and a positive result would
+be real. Both feeds are NOAA SWPC public domain (reused from
+`space/schumann_labeling.py`); a 6 h post-flare geomagnetic-response window is
+fixed a-priori. Live result (`artifacts/spaceweather_coincidence.json`):
+reachable, 2 Kp samples in-window, observed Kp elevation +0.32, **p = 0.34 →
+faithful NULL** (a quiet-week M-class flare cluster shows no significant
+geomagnetic coincidence) — reported plainly, no overclaim, with the synthetic
+positive-control + null confirming the machinery. The same tool now stands ready
+for any future weak-signal coincidence question in scope.

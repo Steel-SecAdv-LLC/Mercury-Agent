@@ -1,0 +1,94 @@
+{
+  "metadata": {
+    "purpose": "WS-C root-cause diagnostic for Schumann sub-net seed-instability",
+    "data": "OFFLINE deterministic synthetic ELF (no NOAA); ~10% positives",
+    "spectrum_size": 512,
+    "seeds": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "epochs": 40,
+    "collapse_auc_threshold": 0.5,
+    "metric": "ROC-AUC (mercury_ml, no sklearn)",
+    "shares": "schumann_eval.run_seed (one training core; no diagnosis/prod drift)"
+  },
+  "configs": [
+    {
+      "objective": "sigmoid",
+      "regime": "full_batch",
+      "per_seed_auc": [
+        1.0,
+        1.0,
+        0.3693,
+        0.7493,
+        0.8961,
+        1.0
+      ],
+      "mean_auc": 0.8357910379515318,
+      "min_auc": 0.36934156378600824,
+      "n_collapsed": 1,
+      "collapse_rate": 0.16666666666666666
+    },
+    {
+      "objective": "logits",
+      "regime": "full_batch",
+      "per_seed_auc": [
+        1.0,
+        1.0,
+        0.2359,
+        0.7826,
+        0.905,
+        0.9938
+      ],
+      "mean_auc": 0.8195587562871514,
+      "min_auc": 0.23593964334705075,
+      "n_collapsed": 1,
+      "collapse_rate": 0.16666666666666666
+    },
+    {
+      "objective": "sigmoid",
+      "regime": "minibatch",
+      "per_seed_auc": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean_auc": 1.0,
+      "min_auc": 1.0,
+      "n_collapsed": 0,
+      "collapse_rate": 0.0
+    },
+    {
+      "objective": "logits",
+      "regime": "minibatch",
+      "per_seed_auc": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean_auc": 1.0,
+      "min_auc": 1.0,
+      "n_collapsed": 0,
+      "collapse_rate": 0.0
+    }
+  ],
+  "diagnosis": {
+    "root_cause": "OPTIMISATION REGIME (full-batch). The collapse appears only with full-batch training (~epochs updates total) and is removed entirely by mini-batch SGD; it is independent of the objective and the LR. Not an ill-posed objective, not initialisation, not data volume.",
+    "fix": "Train with mini-batch SGD (run_seed default regime='minibatch').",
+    "regime_is_cause": true,
+    "max_full_batch_collapse_rate": 0.16666666666666666,
+    "max_minibatch_collapse_rate": 0.0,
+    "objective_effect_under_full_batch": 0.0,
+    "quarantine_note": "Training-stability blocker RESOLVED (root-caused + fixed). Quarantine still stands -- on the *data* blocker only: synthetic signal cannot lift it and no openly-licensed real ELF corpus was ingestible here."
+  }
+}

@@ -43,7 +43,7 @@ import json
 import logging
 import sys
 import warnings
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -56,6 +56,10 @@ sys.path.insert(0, str(_HERE.parent / "src"))
 from omni_mercury_engine.datasets.adbench import ADBenchLoader
 from omni_mercury_engine.datasets.base import DatasetConfig
 from omni_mercury_engine.engine import OmniMercuryEngine
+from omni_mercury_engine.evaluation.ablation_guard import (
+    check_ablation_confound,
+    confound_free_or_quarantine,
+)
 from omni_mercury_engine.ml.mercury_ml import roc_auc_score
 
 DEFAULT_DATASETS = ["cardio", "Pima", "thyroid"]
@@ -123,6 +127,8 @@ class FractionResult:
     encoder_f1: float
     seeds_encoder_wins: int
     n_seeds: int
+    baseline_seed_aucs: list[float] = field(default_factory=list)
+    encoder_seed_aucs: list[float] = field(default_factory=list)
 
 
 def _load_dataset(name: str) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
@@ -182,6 +188,8 @@ def run_dataset(name: str, seeds: list[int], fractions: list[float], epochs: int
             encoder_f1=float(np.mean(enc_f1s)),
             seeds_encoder_wins=wins,
             n_seeds=len(seeds),
+            baseline_seed_aucs=[float(a) for a in base_aucs],
+            encoder_seed_aucs=[float(a) for a in enc_aucs],
         )
         fraction_results.append(fr)
         print(
@@ -194,12 +202,17 @@ def run_dataset(name: str, seeds: list[int], fractions: list[float], epochs: int
 
 
 def derive_verdict(results: list[dict[str, Any]]) -> dict[str, Any]:
-    """Transparent KEEP/QUARANTINE verdict from measured deltas."""
+    """Transparent KEEP/QUARANTINE verdict from measured deltas, guarded against
+    the inverted-ranking confound that produced PR #262's spurious +0.48."""
     full_deltas, low_deltas = [], []
+    all_base_aucs: list[float] = []
+    all_enc_aucs: list[float] = []
     agree = 0
     n_low = 0
     for ds in results:
         for fr in ds["fractions"]:
+            all_base_aucs.extend(fr.get("baseline_seed_aucs", []))
+            all_enc_aucs.extend(fr.get("encoder_seed_aucs", []))
             if fr["fraction"] >= 1.0:
                 full_deltas.append(fr["delta_auc"])
             if fr["fraction"] in LOW_DATA_FRACTIONS:
@@ -210,19 +223,33 @@ def derive_verdict(results: list[dict[str, Any]]) -> dict[str, Any]:
     mean_full = float(np.mean(full_deltas)) if full_deltas else 0.0
     mean_low = float(np.mean(low_deltas)) if low_deltas else 0.0
     seed_agree = agree / n_low if n_low else 0.0
-    cleared = mean_low > _AUC_MEANINGFUL and seed_agree >= 0.5
+    raw_cleared = mean_low > _AUC_MEANINGFUL and seed_agree >= 0.5
+
+    # Confound guard: a KEEP built on a collapsed (inverted-ranking) arm is not
+    # real. Tolerate one noisy seed across the whole sweep, but flag systematic
+    # inversion -- exactly the artifact that faked the +0.48 in PR #262.
+    confound = check_ablation_confound(all_base_aucs, all_enc_aucs, max_degenerate_fraction=0.2)
+    cleared, note = confound_free_or_quarantine(raw_cleared, confound)
     return {
         "mean_full_data_delta_auc": mean_full,
         "mean_low_data_delta_auc": mean_low,
         "low_data_seed_agreement": seed_agree,
         "auc_meaningful_threshold": _AUC_MEANINGFUL,
+        "raw_cleared_bar": raw_cleared,
+        "confound": confound.as_dict(),
         "cleared_bar": cleared,
         "verdict": (
-            "KEEP -- the differentiable domain encoder improves the fusion path on real "
-            "labels, clearing the conservative bar"
+            (
+                "KEEP -- the differentiable domain encoder improves the fusion path on real "
+                "labels, clearing the conservative bar"
+            )
             if cleared
-            else "QUARANTINE -- keep domain_encoder=False default; wiring the differentiable "
-            "encoder into the fusion path does not clear the conservative bar"
+            else (
+                note
+                if confound.confounded
+                else "QUARANTINE -- keep domain_encoder=False default; wiring the differentiable "
+                "encoder into the fusion path does not clear the conservative bar"
+            )
         ),
     }
 

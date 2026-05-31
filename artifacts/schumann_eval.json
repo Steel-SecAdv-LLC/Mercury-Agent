@@ -2,16 +2,16 @@
   "metadata": {
     "purpose": "WS-C Schumann sub-net pre-registered evaluation",
     "label_provenance": {
-      "fetched_at": "2026-05-31T00:43:44.677006+00:00",
+      "fetched_at": "2026-05-31T03:27:17.545637+00:00",
       "sources": [
         {
           "url": "https://services.swpc.noaa.gov/json/planetary_k_index_1m.json",
-          "sha256": "cee49afd6c685a47da2b067ff7b04592712f098f8726b803b03c73873f6e5afc",
+          "sha256": "2bedb492d06aa8bd06af43e083b6d4f16a525176e3287dab5330e01b827acb85",
           "rows": 358
         },
         {
           "url": "https://services.swpc.noaa.gov/json/goes/primary/xrays-7-day.json",
-          "sha256": "5234c972e188ccf593cb05fa588f605ac4883467c2a330d5824051848018c2c1",
+          "sha256": "1cdb8ecfca53d917d229970ae732cb15bcf5cbe57085c55d63ffc97591b41d1b",
           "rows": 20156
         }
       ],
@@ -46,21 +46,22 @@
       33.8
     ],
     "split": "stratified_fallback_temporal_degenerate",
+    "training_recipe": "minibatch SGD + BCEWithLogitsLoss (WS-C stable recipe; the prior seed-collapse was a full-batch optimisation artifact -- see benchmarks/schumann_diagnostic.py)",
     "metric": "ROC-AUC (mercury_ml, no sklearn)",
     "seeds": [
       0,
       1,
       2
     ],
-    "n_samples": 1000,
-    "positive_fraction": 0.098,
+    "n_samples": 600,
+    "positive_fraction": 0.10666666666666667,
     "lift_bar_real_elf": 0.7
   },
   "per_seed_auc": [
-    0.9742333630232854,
     1.0,
-    0.22712813335029902
+    1.0,
+    1.0
   ],
-  "mean_auc": 0.7337871654578615,
-  "verdict": "QUARANTINE -- signal is synthetic; the pipeline (real NOAA labels -> encoder -> metric) is validated but the sub-net stays off-by-default until an openly-licensed real ELF corpus clears mean AUC >= 0.7. (synthetic mean AUC=0.7338, pipeline-plumbing only)"
+  "mean_auc": 1.0,
+  "verdict": "QUARANTINE -- signal is synthetic; the pipeline (real NOAA labels -> encoder -> metric) is validated but the sub-net stays off-by-default until an openly-licensed real ELF corpus clears mean AUC >= 0.7. (synthetic mean AUC=1.0000, pipeline-plumbing only)"
 }

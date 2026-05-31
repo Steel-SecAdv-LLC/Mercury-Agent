@@ -1,0 +1,89 @@
+{
+  "metadata": {
+    "purpose": "WS-D harvest: pre-registered space-weather event-coincidence test",
+    "question": "Is geomagnetic Kp elevated inside independent GOES flare windows?",
+    "non_circularity": "Kp (geomagnetic) and GOES flares (X-ray) are independent sensors",
+    "protocol": {
+      "name": "kp_elevated_in_goes_flare_windows",
+      "statistic": "mean_diff",
+      "n_permutations": 5000,
+      "alpha": 0.05,
+      "correction": "bonferroni",
+      "seed": 0
+    },
+    "null_model": "circular time-shift permutation (preserves Kp autocorrelation)"
+  },
+  "synthetic_validation": {
+    "positive_control": {
+      "observed": 2.358091560118981,
+      "p_value": 0.0001999600079984003,
+      "n_in_window": 72,
+      "n_total": 600,
+      "n_permutations": 5000,
+      "statistic": "mean_diff"
+    },
+    "null": {
+      "observed": 0.1627224573435639,
+      "p_value": 0.11137772445510898,
+      "n_in_window": 72,
+      "n_total": 600,
+      "n_permutations": 5000,
+      "statistic": "mean_diff"
+    },
+    "reject_after_correction": [
+      true,
+      false
+    ],
+    "machinery_ok": true
+  },
+  "real": {
+    "reachable": true,
+    "reason": "ok",
+    "provenance": {
+      "kp_url": "https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json",
+      "geomag_response_hours": 6.0,
+      "label_provenance": {
+        "fetched_at": "2026-05-31T03:43:31.615497+00:00",
+        "sources": [
+          {
+            "url": "https://services.swpc.noaa.gov/json/planetary_k_index_1m.json",
+            "sha256": "aeb866af0eedb0da86e33ac29ced6a63092fc5575b06056eb15c464e8abd9c0f",
+            "rows": 358
+          },
+          {
+            "url": "https://services.swpc.noaa.gov/json/goes/primary/xrays-7-day.json",
+            "sha256": "15185e8e26233ff75e10a0763ba3a100cb3e1e60cdfc76cbf17e421f44cb217d",
+            "rows": 20156
+          }
+        ],
+        "thresholds": {
+          "kp_storm": 5.0,
+          "flare_m_class_wm2": 1e-05,
+          "flare_x_class_wm2": 0.0001
+        },
+        "lag_windows": {
+          "flare_minutes": 60.0,
+          "storm_lead_hours": 1.0,
+          "storm_lag_hours": 3.0
+        },
+        "label_kind": "proxy_event_coincidence",
+        "license": "US Government public domain (NOAA SWPC)",
+        "n_windows": 21,
+        "n_storm_windows": 0,
+        "n_flare_windows": 21
+      },
+      "n_flare_windows": 21
+    },
+    "n_kp_samples": 57,
+    "result": {
+      "observed": 0.3199090909090909,
+      "p_value": 0.34333133373325336,
+      "n_in_window": 2,
+      "n_total": 57,
+      "n_permutations": 5000,
+      "statistic": "mean_diff"
+    },
+    "significant_bonferroni": false
+  },
+  "verdict": "NULL -- real Kp-vs-flare coincidence p=0.3433 (Bonferroni alpha=0.05); reported faithfully, no overclaim."
+}

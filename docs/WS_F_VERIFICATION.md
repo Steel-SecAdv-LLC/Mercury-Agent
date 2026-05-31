@@ -77,3 +77,42 @@ stack auditable: every neural submodule has a dataset/seed/metric/artifact/tests
 and an explicit active-or-quarantined status. For a free, life-safety system
 this auditability *is* the product — operators and contributors can see exactly
 what is trusted by default and what is held back, and why.
+
+---
+
+## Follow-on round (this PR): quarantines worked, not parked
+
+Every #262 quarantine was re-opened and driven to a documented resolution, and
+the verification scaffolding was made permanent. New/changed verification:
+
+* **WS-A — leak gate generalized.** `datasets/label_provenance.py`: a committed
+  audit of all 38 loaders + a static circularity heuristic. Found and fixed 4
+  climate loaders that manufactured labels but inherited the silent
+  `ground_truth` default (latent headline leaks). Gate: `--check` in
+  `benchmark.yml` + `tests/datasets/test_label_provenance_gate.py` (11).
+* **WS-B — confound guard + design sweep.** The hand-caught +0.48 confound is now
+  a reusable, tested guard (`evaluation/ablation_guard.py`, 10 tests) wired into
+  both ablations; `benchmarks/domain_encoder_sweep.py` sweeps fusion points ×
+  kernel widths × normalization, stratified by family/data-size, so the
+  default-off verdict rests on covered search. `DomainEncoderStack` and
+  `fit_fusion` gained backward-compatible `domain_encoder_config` (default path
+  byte-identical).
+* **WS-C — root-caused + fixed.** `benchmarks/schumann_diagnostic.py` isolates the
+  seed-collapse to the **full-batch** optimisation regime (not objective / init /
+  data); the mini-batch fix yields real-NOAA per-seed AUC `[1.0, 1.0, 1.0]`
+  (was `[0.97, 1.0, 0.23]`). `confidence_logits` added (inference byte-identical).
+  5 stability tests.
+* **WS-D — scaffolding harvested.** `evaluation/event_coincidence.py` generalises
+  the GCP pre-registration + circular-permutation null + multiple-comparison
+  correction into a reusable tool (8 tests, null-calibrated incl. autocorrelated
+  streams); applied to a real, non-circular space-weather coincidence test
+  (`benchmarks/spaceweather_coincidence.py`) → faithful NULL.
+* **E/F — living artifact.** `scripts/neural_coverage.py` generates
+  `NEURAL_SUBMODULE_COVERAGE.md` from a registry and gates
+  (`--check`) on doc-sync + existence of every referenced module/test/artifact,
+  in the `code-quality` lane + `tests/docs/test_neural_coverage_gate.py`.
+* **Pre-existing type-debt surfaced by the activated deps, fixed at root.** Under
+  the most-recent dependency set, mypy surfaced 6 now-unused `# type: ignore`
+  comments (newer numpy stubs), 1 `no-any-return`, and an undeclared `urllib3`
+  import boundary. All fixed surgically; `mypy src/omni_mercury_engine/` is clean
+  across 602 files.

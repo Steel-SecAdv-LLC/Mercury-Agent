@@ -85,10 +85,60 @@ supervised fusion net removes the inversion artifact and both arms are
 apples-to-apples. Reporting the +0.48 would have been theater; the honest signal
 is the sub-threshold +0.005.
 
+## Follow-on round: confound guard promoted + design space swept
+
+The quarantine above rested on a single encoder design and a hand-caught
+confound. This round closes both gaps so the default-off verdict stands on
+*covered* search and an *automated* integrity check.
+
+### The confound catch is now a reusable, tested guard
+
+The inverted-ranking confound that faked the +0.48 (a collapsed arm with
+AUC < 0.5 making the paired delta meaningless) is promoted into
+`src/omni_mercury_engine/evaluation/ablation_guard.py`
+(`check_ablation_confound` / `confound_free_or_quarantine`, 10 tests). It is
+**wired into the verdict of both** `domain_encoder_ablation.py` and
+`neurosymbolic_ablation.py`: a KEEP built on a degenerate arm is forced to
+QUARANTINE, and the per-cell confound flag is recorded in the artifact. This is
+symmetric rigor — it guards unearned optimism exactly as the noise thresholds
+guard over-read deltas. A confounded comparison can no longer be reported as a
+gain by accident.
+
+### Design-space sweep, stratified by family and data size
+
+`benchmarks/domain_encoder_sweep.py` sweeps the design axes the mandate named —
+**fusion points** (each encoder alone, leave-one-out, full stack), **kernel
+widths** (`(2,3)` / `(2,3,4)` / `(2,3,4,5,6)`), and **normalization** (spectral
+log1p vs sqrt; optional LayerNorm) — all through the real wired fusion path
+(`fit_fusion(domain_encoder=True, domain_encoder_config=...)`; the default path
+stays byte-identical, the config only reshapes the opt-in encoder). Cells are
+stratified into a **hard** family (Pima, glass — low-AUC/imbalanced, where a
+learnable encoder is most plausible) and a **ceiling** family (cardio, thyroid —
+saturated), crossed with low-data (0.25) vs full-data. Every cell is run through
+the confound guard.
+
+**Finding.** On the hard/low-data family the *baseline* fusion arm itself
+frequently inverts (AUC < 0.5) — so those cells are **confounded** and the guard
+excludes them: the modest low-data signal seen in the single-design ablation
+lived largely there and is not a clean encoder gain. The stratified verdict over
+the full grid (`stratified_verdict`) only counts confound-free cells against the
+conservative noise threshold; it is computed from the run and recorded verbatim
+in `artifacts/domain_encoder_sweep.json` (`verdict` field), so the default-off
+decision is reproducible rather than asserted.
+
+**→ VERDICT (from the artifact): QUARANTINE on covered search** —
+`domain_encoder=False` stays the default; no confound-free configuration clears
+the bar. The machinery + config surface are kept (genuine, reusable). If a future
+run surfaces a confound-free cell above threshold the verdict flips to
+`INVESTIGATE` (recorded), gating any promotion on stability across seeds/datasets.
+
 ## Provenance & evidence
 
 - Data: ADBench (MIT), `https://github.com/Minqi824/ADBench`; seeds 0/1/2;
   metric ROC-AUC via `mercury_ml` (**no sklearn**).
-- Tests: 16 (encoders) + 5 (fusion wiring, incl. off-path parity) — all green;
-  `flake8` + `mypy` clean; the 32 pre-existing fusion tests still pass.
-- Artifact: `artifacts/domain_encoder_ablation.json`.
+- Tests: 16 (encoders) + 5 (fusion wiring, incl. off-path parity) + 10
+  (confound guard) + 5 (sweep verdict) + 5 (ablation guard integration) — all
+  green; `flake8` + `ruff` + `mypy` clean; the pre-existing fusion tests still
+  pass.
+- Artifacts: `artifacts/domain_encoder_ablation.json`,
+  `artifacts/domain_encoder_sweep.json`.

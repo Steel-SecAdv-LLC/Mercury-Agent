@@ -147,6 +147,18 @@ class SchumannHarmonicAnalyzer(_NNBase):  # type: ignore[misc, unused-ignore]
 
         self.confidence_head = nn.Sequential(nn.Linear(64, 1), nn.Sigmoid())
 
+    def _features(
+        self, spectrum: torch.Tensor, temporal_sequence: torch.Tensor | None = None
+    ) -> torch.Tensor:
+        """Shared CNN/LSTM feature extractor (64-dim per sample)."""
+        cnn_features = self.cnn_encoder(spectrum).transpose(1, 2)
+        if temporal_sequence is not None:
+            lstm_out, _ = self.lstm(temporal_sequence)
+            features: torch.Tensor = lstm_out[:, -1, :]
+        else:
+            features = cnn_features.mean(dim=2)
+        return features
+
     def forward(
         self, spectrum: torch.Tensor, temporal_sequence: torch.Tensor | None = None
     ) -> tuple[torch.Tensor, torch.Tensor]:
@@ -160,20 +172,30 @@ class SchumannHarmonicAnalyzer(_NNBase):  # type: ignore[misc, unused-ignore]
         Returns:
             Tuple of (anomaly_logits, confidence)
         """
-        cnn_features = self.cnn_encoder(spectrum)
-
-        cnn_features = cnn_features.transpose(1, 2)
-
-        if temporal_sequence is not None:
-            lstm_out, _ = self.lstm(temporal_sequence)
-            features = lstm_out[:, -1, :]
-        else:
-            features = cnn_features.mean(dim=2)
-
+        features = self._features(spectrum, temporal_sequence)
         anomaly_logits = self.anomaly_classifier(features)
         confidence = self.confidence_head(features)
 
         return anomaly_logits, confidence
+
+    def confidence_logits(
+        self, spectrum: torch.Tensor, temporal_sequence: torch.Tensor | None = None
+    ) -> torch.Tensor:
+        """Pre-sigmoid confidence logit, for numerically-stable training.
+
+        ``confidence_head`` is ``Sequential(Linear, Sigmoid)``; this returns the
+        Linear output *before* the Sigmoid so callers can train with
+        ``BCEWithLogitsLoss`` (the correct objective) instead of ``BCELoss`` on a
+        clamped sigmoid. Inference (``forward``) is unchanged:
+        ``sigmoid(confidence_logits(x)) == forward(x)[1]`` exactly, and no
+        parameter names change (checkpoints stay loadable). See WS-C diagnosis in
+        ``docs/SCHUMANN_PREREGISTRATION.md``: the historical seed-instability was a
+        full-batch optimisation artifact, not this objective, but logit-space
+        training is the correct recipe regardless.
+        """
+        features = self._features(spectrum, temporal_sequence)
+        logit: torch.Tensor = self.confidence_head[0](features)  # Linear, pre-Sigmoid
+        return logit
 
 
 class SchumannResonanceDetector:

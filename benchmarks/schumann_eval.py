@@ -121,14 +121,35 @@ def _split_indices(
     return np.array(sorted(tr_l)), np.array(sorted(te_l)), "stratified_fallback_temporal_degenerate"
 
 
-def _run_seed(
+def run_seed(
     specs: np.ndarray[Any, Any],
     labels: np.ndarray[Any, Any],
     train_idx: np.ndarray[Any, Any],
     test_idx: np.ndarray[Any, Any],
     epochs: int,
     seed: int,
+    *,
+    batch_size: int = 64,
+    objective: str = "logits",
+    regime: str = "minibatch",
 ) -> float:
+    """Train the quarantined encoder for one seed; return test ROC-AUC.
+
+    The defaults are the **stable recipe** established by the WS-C root-cause
+    diagnosis (``benchmarks/schumann_diagnostic.py``): mini-batch SGD with a
+    logit-space objective. The historical per-seed collapse (AUC ``[.97,1,.23]``)
+    was **not** an ill-posed objective or a bad init -- it was a *full-batch*
+    optimisation artifact (only ~``epochs`` gradient updates total, too few for
+    some seeds to escape a sign-inverted basin). ``regime``/``objective`` are
+    exposed so the diagnostic can reproduce the collapse and the fix; production
+    use should keep the stable defaults.
+
+    * ``objective="logits"`` -> ``BCEWithLogitsLoss`` on
+      ``analyzer.confidence_logits`` (numerically correct);
+      ``"sigmoid"`` -> the historical ``BCELoss`` on a clamped sigmoid.
+    * ``regime="minibatch"`` -> shuffled mini-batches (the fix);
+      ``"full_batch"`` -> one update/epoch (the historical, unstable recipe).
+    """
     torch.manual_seed(seed)
     np.random.seed(seed)
     x_tr = torch.from_numpy(specs[train_idx]).unsqueeze(1)
@@ -136,19 +157,35 @@ def _run_seed(
     x_te = torch.from_numpy(specs[test_idx]).unsqueeze(1)
     model = _SchumannBinary()
     opt = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
-    # Class-weighted BCE: with ~10% positives the unweighted head collapses to a
-    # degenerate (sign-inverted) solution. pos_weight = n_neg/n_pos is standard
+    # Class weighting for ~10% positives (pos_weight = n_neg/n_pos) -- standard
     # imbalance handling, not tuning to a result.
     n_pos = float(y_tr.sum().item())
-    pos_w = (len(y_tr) - n_pos) / max(n_pos, 1.0)
-    weights = torch.where(y_tr > 0, torch.tensor(pos_w), torch.tensor(1.0))
-    loss_fn = nn.BCELoss(weight=weights)
-    model.train()
-    for _ in range(epochs):
+    pos_w = torch.tensor((len(y_tr) - n_pos) / max(n_pos, 1.0))
+    logit_loss = nn.BCEWithLogitsLoss(pos_weight=pos_w)
+
+    def _step(xb: torch.Tensor, yb: torch.Tensor) -> None:
         opt.zero_grad()
-        loss = loss_fn(model(x_tr).clamp(1e-6, 1 - 1e-6), y_tr)
+        if objective == "logits":
+            logits = model.analyzer.confidence_logits(xb).squeeze(-1)
+            loss = logit_loss(logits, yb)
+        else:  # historical "sigmoid" objective
+            w = torch.where(yb > 0, pos_w, torch.tensor(1.0))
+            loss = nn.BCELoss(weight=w)(model(xb).clamp(1e-6, 1 - 1e-6), yb)
         loss.backward()
         opt.step()
+
+    model.train()
+    if regime == "minibatch":
+        order = np.arange(len(y_tr))
+        shuffler = np.random.RandomState(seed)
+        for _ in range(epochs):
+            shuffler.shuffle(order)
+            for s in range(0, len(order), batch_size):
+                b = order[s : s + batch_size]
+                _step(x_tr[b], y_tr[b])
+    else:  # full_batch (historical, unstable)
+        for _ in range(epochs):
+            _step(x_tr, y_tr)
     model.eval()
     with torch.no_grad():
         scores = model(x_te).numpy()
@@ -174,7 +211,7 @@ def main() -> int:
 
     pos_frac = float(labels.mean())
     train_idx, test_idx, split_used = _split_indices(labels)
-    aucs = [_run_seed(specs, labels, train_idx, test_idx, args.epochs, s) for s in args.seeds]
+    aucs = [run_seed(specs, labels, train_idx, test_idx, args.epochs, s) for s in args.seeds]
     mean_auc = float(np.mean(aucs))
 
     artifact = {
@@ -185,6 +222,11 @@ def main() -> int:
             "signal": "SYNTHETIC physically-grounded ELF (NOT real) -- cannot lift quarantine",
             "schumann_peaks_hz": list(SCHUMANN_PEAKS_HZ),
             "split": split_used,
+            "training_recipe": (
+                "minibatch SGD + BCEWithLogitsLoss (WS-C stable recipe; the prior "
+                "seed-collapse was a full-batch optimisation artifact -- see "
+                "benchmarks/schumann_diagnostic.py)"
+            ),
             "metric": "ROC-AUC (mercury_ml, no sklearn)",
             "seeds": args.seeds,
             "n_samples": args.n,

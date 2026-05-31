@@ -152,6 +152,14 @@ jobs:
             exit 1
           fi
 
+      - name: Neural-submodule coverage gate (WS-E/F, dep-free)
+        # docs/NEURAL_SUBMODULE_COVERAGE.md is generated from the registry in
+        # scripts/neural_coverage.py. Fails if the doc is out of sync or if any
+        # referenced module / test file / committed artifact is missing, so the
+        # coverage table cannot silently rot. Regenerate: --update.
+        run: |
+          python scripts/neural_coverage.py --check
+
       - name: Run pydocstyle (docstring checks)
         # Blocking — the docstring contract is part of the source-of-truth API
         # surface and we do not allow it to drift silently.  ``[tool.pydocstyle]``

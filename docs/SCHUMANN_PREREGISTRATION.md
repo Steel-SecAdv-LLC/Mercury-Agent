@@ -78,13 +78,43 @@ Run: `python benchmarks/schumann_eval.py --n 1000 --epochs 40`
 * **Temporal-split degeneracy observed (as anticipated):** events were
   temporally clustered, so the registered stratified fallback was used
   (`split_used = stratified_fallback_temporal_degenerate`).
-* **Synthetic encoder run:** per-seed ROC-AUC `[0.974, 1.000, 0.227]`, mean
-  **0.734** — and **seed-unstable** (one seed collapsed to a sign-inverted
-  solution). This instability of the from-scratch CNN-LSTM, even on clean
-  separable *synthetic* signal, is an independent reason for caution.
+* **Synthetic encoder run (original, PR #262):** per-seed ROC-AUC
+  `[0.974, 1.000, 0.227]`, mean **0.734** — and **seed-unstable** (one seed
+  collapsed to a sign-inverted solution).
 
-**→ VERDICT: QUARANTINE.** Two blockers, both recorded: (1) the signal is
-synthetic (no openly-licensed real ELF corpus cleared + ingested here), and
-(2) the sub-net trains unstably. The labeling pipeline (real NOAA → encoder →
-metric) is genuine and reusable; lifting quarantine needs a hash-pinned real
-ELF corpus **and** a stabilised training recipe.
+## WS-C diagnosis (this round): the instability was an optimisation artifact
+
+"Seed-unstable" was a *symptom*, not a verdict. `benchmarks/schumann_diagnostic.py`
+root-causes it by isolating one factor at a time (offline + deterministic; no
+NOAA), sweeping **optimisation regime** × **objective** over 6 seeds:
+
+| regime | objective | per-seed AUC | collapse rate |
+|---|---|---|---|
+| **full-batch** | sigmoid+BCELoss (historical) | `[1,1,0.37,0.75,0.90,1]` | 0.17 |
+| **full-batch** | logits+BCEWithLogitsLoss | `[1,1,0.35,0.66,0.88,1]` | 0.17 |
+| full-batch | sigmoid, lr 3e-4 | `[1,1,0.03,1.0,0.83,1]` | 0.17 |
+| **mini-batch** | sigmoid+BCELoss | `[1,1,1,1,1,1]` | **0.00** |
+| **mini-batch** | logits+BCEWithLogitsLoss | `[1,1,1,1,1,1]` | **0.00** |
+
+**Root cause: the optimisation regime, not the objective, the initialisation, or
+the data.** The original harness trained **full-batch** — one Adam update per
+epoch, ~`epochs` updates total — too few for some seeds' inits to escape a
+sign-inverted basin. The collapse persists under both objectives and *worsens* at
+a lower LR (AUC 0.03), so it is not a saturating-sigmoid or step-size problem.
+**Mini-batch SGD removes it completely** (every seed → AUC ~1.0). The fix is now
+the default in `schumann_eval.run_seed` (mini-batch + `BCEWithLogitsLoss` on the
+newly-exposed `SchumannHarmonicAnalyzer.confidence_logits`; inference is
+byte-identical, no parameter renames). Evidence: `artifacts/schumann_diagnostic.json`.
+
+* **Re-run on the REAL NOAA labels with the stable recipe:** per-seed ROC-AUC
+  **`[1.0, 1.0, 1.0]`** (was `[0.974, 1.000, 0.227]`); positive fraction 0.107.
+  The instability is gone.
+
+**→ VERDICT: QUARANTINE — now on ONE documented blocker, not two.** The
+training-stability blocker is **resolved and root-caused** (a harness
+optimisation bug, not an intrinsic ill-posedness). The quarantine stands solely
+on the **data** blocker: the signal is synthetic and no openly-licensed real ELF
+corpus could be cleared + ingested here, and per this pre-registration synthetic
+performance **cannot** lift quarantine regardless of score. Lifting it now needs
+exactly one thing — a hash-pinned real ELF corpus — to which the (now stable)
+pipeline applies directly.

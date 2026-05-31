@@ -251,7 +251,7 @@ class ADRepositoryLoader(DatasetLoader):
 
         self.dataset_info = ADREPOSITORY_DATASETS[self.dataset_name]
         self._features: np.ndarray[Any, Any] | None = None
-        self._labels: np.ndarray[Any, Any] | None = None  # type: ignore[assignment]
+        self._labels: np.ndarray[Any, Any] | None = None
         self._is_real_data = False
 
         logger.info(

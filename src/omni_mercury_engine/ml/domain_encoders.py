@@ -74,9 +74,18 @@ class SpectralEncoder(nn.Module):
     learnable spectral representation.
     """
 
-    def __init__(self, input_dim: int, hidden_dim: int = 64, output_dim: int = 128) -> None:
+    def __init__(
+        self,
+        input_dim: int,
+        hidden_dim: int = 64,
+        output_dim: int = 128,
+        magnitude_transform: str = "log1p",
+    ) -> None:
         super().__init__()
         self.input_dim = int(input_dim)
+        if magnitude_transform not in ("log1p", "sqrt", "none"):
+            raise ValueError(f"unknown magnitude_transform: {magnitude_transform!r}")
+        self.magnitude_transform = magnitude_transform
         # rfft of a length-n real signal yields floor(n/2)+1 complex bins.
         n_bins = self.input_dim // 2 + 1
         self.spectral_filter = nn.Linear(n_bins, hidden_dim)
@@ -92,9 +101,13 @@ class SpectralEncoder(nn.Module):
         # is differentiable w.r.t. the real input.
         spectrum = torch.fft.rfft(x, dim=-1)
         magnitude = torch.abs(spectrum)
-        # log1p compresses dynamic range (stable; matches the static extractor's
-        # ratio-of-energies intuition without exploding on large bins).
-        magnitude = torch.log1p(magnitude)
+        # Dynamic-range compression (default log1p; sweepable for WS-B design
+        # search). log1p matches the static extractor's ratio-of-energies
+        # intuition without exploding on large bins.
+        if self.magnitude_transform == "log1p":
+            magnitude = torch.log1p(magnitude)
+        elif self.magnitude_transform == "sqrt":
+            magnitude = torch.sqrt(magnitude + 1e-9)
         return self.mlp(self.spectral_filter(magnitude))
 
 
@@ -107,18 +120,30 @@ class KinematicEncoder(nn.Module):
     feed a small MLP -- mirroring the static z-score-of-jerk scoring.
     """
 
-    def __init__(self, input_dim: int, hidden_dim: int = 64, output_dim: int = 128) -> None:
+    def __init__(
+        self,
+        input_dim: int,
+        hidden_dim: int = 64,
+        output_dim: int = 128,
+        kernel_widths: tuple[int, ...] = (2, 3, 4),
+    ) -> None:
         super().__init__()
         self.input_dim = int(input_dim)
+        self.kernel_widths = tuple(kernel_widths)
         self.convs = nn.ModuleList()
-        for order, stencil in _DIFF_STENCILS.items():
-            conv = nn.Conv1d(1, 1, kernel_size=len(stencil), bias=False)
-            with torch.no_grad():
-                conv.weight.copy_(torch.tensor(stencil).view(1, 1, -1))
+        for width in self.kernel_widths:
+            conv = nn.Conv1d(1, 1, kernel_size=width, bias=False)
+            # Initialise to the exact finite-difference stencil when one exists
+            # for this width (velocity/accel/jerk); otherwise leave the default
+            # learnable init. Either way the kernel is trained.
+            stencil = _DIFF_STENCILS.get(width - 1)
+            if stencil is not None and len(stencil) == width:
+                with torch.no_grad():
+                    conv.weight.copy_(torch.tensor(stencil).view(1, 1, -1))
             self.convs.append(conv)
-        # 3 difference orders x 3 summary stats (mean, std, max-abs).
+        # n difference orders x 3 summary stats (mean, std, max-abs).
         self.mlp = nn.Sequential(
-            nn.Linear(len(_DIFF_STENCILS) * 3, hidden_dim),
+            nn.Linear(len(self.kernel_widths) * 3, hidden_dim),
             nn.ReLU(),
             nn.Dropout(0.1),
             nn.Linear(hidden_dim, output_dim),
@@ -184,9 +209,14 @@ class DomainEncoderStack(nn.Module):
         per_encoder_dim: int = 64,
         output_dim: int = 128,
         domains: tuple[str, ...] = ("spectral", "kinematic", "fisher"),
+        encoder_kwargs: dict[str, dict[str, Any]] | None = None,
+        normalize: bool = False,
     ) -> None:
         super().__init__()
         self.domains = tuple(domains)
+        if not self.domains:
+            raise ValueError("DomainEncoderStack needs at least one domain")
+        encoder_kwargs = encoder_kwargs or {}
         self.encoders = nn.ModuleDict()
         builders: dict[str, Any] = {
             "spectral": SpectralEncoder,
@@ -196,7 +226,14 @@ class DomainEncoderStack(nn.Module):
         for name in self.domains:
             if name not in builders:
                 raise ValueError(f"unknown domain encoder: {name!r}")
-            self.encoders[name] = builders[name](input_dim, hidden_dim, per_encoder_dim)
+            self.encoders[name] = builders[name](
+                input_dim, hidden_dim, per_encoder_dim, **encoder_kwargs.get(name, {})
+            )
+        # Optional LayerNorm before projection (WS-B normalization design axis;
+        # default off keeps the stack byte-identical to the original).
+        self.norm: nn.Module = (
+            nn.LayerNorm(per_encoder_dim * len(self.domains)) if normalize else nn.Identity()
+        )
         self.project = nn.Sequential(
             nn.Linear(per_encoder_dim * len(self.domains), output_dim),
             nn.ReLU(),
@@ -204,7 +241,7 @@ class DomainEncoderStack(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         parts = [self.encoders[name](x) for name in self.domains]
-        return self.project(torch.cat(parts, dim=-1))
+        return self.project(self.norm(torch.cat(parts, dim=-1)))
 
 
 __all__ = [

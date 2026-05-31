@@ -166,6 +166,16 @@ jobs:
           pip install -e ".[all,dev]"
           pip install pytest pytest-cov
 
+      - name: Label-provenance leak gate (WS-A, repo-wide)
+        # Canonical circular-label detector. Fails if any dataset loader
+        # manufactures anomaly labels (feature threshold / synthetic) yet is
+        # counted as genuine in the supervised headline -- the exact leak class
+        # PR #255/#262 de-leaked. Closes the silent base-class default
+        # (LABEL_SOURCE="ground_truth") so no future PR can reintroduce a
+        # circular dataset. Context: docs/ANOMALY_REGRESSION_WS_A.md.
+        run: |
+          python -m omni_mercury_engine.datasets.label_provenance --check
+
       - name: Anomaly regression guard (fast deterministic gate, WS-A)
         # Per-dataset metric floors on a fixed genuine-label ADBench subset
         # (seed 42), pinned in benchmarks/anomaly_regression_baseline.json.

@@ -105,3 +105,66 @@ commit). `--check` fails non-zero below any floor.
 
 To re-pin after an *intended* detector change:
 `python benchmarks/anomaly_regression_guard.py --update`.
+
+## Generalization (this round): a repo-wide circular-label gate
+
+The #255/#262 de-leak removed 13 circular *manufactured-label* datasets from the
+supervised headline by declaring `LABEL_SOURCE = "statistical"` on those loaders.
+That fix had a structural weakness: **the base class silently defaults
+`LABEL_SOURCE = "ground_truth"`** (`datasets/base.py`), so any loader that
+manufactures anomaly labels (a feature threshold, a z-score fence, a synthetic
+generator) and simply forgets to override the attribute is counted as genuine —
+re-inflating the headline. Standing vigilance (re-auditing by hand each PR) does
+not scale; one canonical detector does.
+
+`src/omni_mercury_engine/datasets/label_provenance.py` is that detector:
+
+* **`LABEL_PROVENANCE_REGISTRY`** — the frozen result of a full audit of all
+  **38** concrete loaders: each maps to `(label_source, justification)`, where
+  the justification states *how the labels are derived*. Flipping a loader from
+  `statistical` to `ground_truth` to inflate a number now requires a reviewable
+  one-line diff here.
+* **`audit_label_provenance()`** — enumerates the live loaders and returns every
+  divergence: a loader missing from the registry (a *new* dataset whose
+  provenance was never declared → forces an audited entry), a declared
+  `LABEL_SOURCE` that disagrees with the audited value, an invalid value, or a
+  stale registry entry.
+* **`scan_circular_label_construction()`** — a static heuristic that reads each
+  loader's own source for the exact circular pattern
+  (`labels = (features[...] > threshold)` in a *real*, non-synthetic code path)
+  and flags any loader that manufactures labels while declared genuine. It fires
+  on the threshold pattern and is silent on genuine label-column reads
+  (verified against SWaT / NSL-KDD / NAB / ADBench / UCR — no false positives).
+
+### Residual circularity found and fixed
+
+Auditing the remaining tree with this methodology surfaced **four** loaders that
+manufactured labels by thresholding the same ocean/atmosphere features the
+detector consumes, yet inherited the silent `ground_truth` default:
+
+| loader | manufactured label rule |
+|---|---|
+| `climate.SimonsCMAPLoader` | `oxygen<2 \| temp>30 \| nitrate>30` |
+| `climate.CopernicusSeaLevelLoader` | `\|sea-level-anomaly\| > 0.15 m` |
+| `climate.CopernicusERA5Loader` | temperature / salinity-anomaly thresholds |
+| `climate.WorldOceanDatabaseLoader` | no real labels; synthetic/threshold profiles |
+
+None are in the current benchmark eval set, so the *headline today is
+unaffected* — but each was a latent leak: adding any to the eval set would have
+silently inflated the supervised AUC. All four are corrected to
+`LABEL_SOURCE = "statistical"` at source. Two medical loaders mislabeled by the
+same silent default (`PhysioNetLoader`, `CardiologyDataset`) were corrected to
+`expert_annotated`. Post-fix the tree is **15 ground_truth / 3 expert_annotated /
+20 statistical**, and the audit is clean.
+
+### The gate
+
+* **pytest:** `tests/datasets/test_label_provenance_gate.py` runs the full audit
+  (offline, no downloads) in the standard `tests/datasets/` lane.
+* **CI:** `python -m omni_mercury_engine.datasets.label_provenance --check` runs
+  as a fast named step in `benchmark.yml`, beside the regression guard.
+
+A future PR that adds a circular dataset now fails on one of: the loader is
+unregistered, the declaration disagrees with the audited value, or the
+circularity heuristic fires — so a circular dataset cannot re-enter the
+supervised headline silently.

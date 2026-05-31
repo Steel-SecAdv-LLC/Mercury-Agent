@@ -126,7 +126,7 @@ class NOAABuoyLoader(DatasetLoader):
         self.stations = config.preprocessing.get("stations", list(self.BUOY_STATIONS.keys())[:5])
         self.anomaly_std = config.preprocessing.get("anomaly_std", 3.0)
         self._features: np.ndarray[Any, Any] | None = None
-        self._labels: np.ndarray[Any, Any] | None = None  # type: ignore[assignment]
+        self._labels: np.ndarray[Any, Any] | None = None
         self._is_real_data = False
 
     @property

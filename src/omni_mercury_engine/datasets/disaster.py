@@ -524,7 +524,7 @@ class FEMADisasterLoader(DatasetLoader):
 
         features = np.array(feature_rows, dtype=np.float32)
         labels_arr = np.array(labels, dtype=bool)
-        labels = self._select_anomaly_polarity(labels_arr)  # type: ignore[assignment]
+        labels = self._select_anomaly_polarity(labels_arr)
 
         save_path = self.data_path / "synthetic_fema_disaster.npz"
         np.savez_compressed(

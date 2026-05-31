@@ -961,6 +961,7 @@ class OmniMercuryEngine(LoggerMixin):
         calibrate: bool = True,
         symbolic_weight: float = 0.0,
         domain_encoder: bool = False,
+        domain_encoder_config: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Fit the fusion model on training data with semi-supervised learning.
 
@@ -1076,6 +1077,7 @@ class OmniMercuryEngine(LoggerMixin):
             symbolic_weight=symbolic_weight,
             detector_scores=detector_scores,
             raw_inputs=raw_inputs,
+            domain_encoder_config=domain_encoder_config,
         )
 
     def _fit_fusion_on_features(
@@ -1095,6 +1097,7 @@ class OmniMercuryEngine(LoggerMixin):
         symbolic_weight: float = 0.0,
         detector_scores: torch.Tensor | None = None,
         raw_inputs: torch.Tensor | None = None,
+        domain_encoder_config: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Train the fusion head on a pre-extracted feature-group mapping.
 
@@ -1164,8 +1167,13 @@ class OmniMercuryEngine(LoggerMixin):
         domain_dim = 64
         if domain_active:
             assert raw_inputs is not None  # narrowed by domain_active
+            # output_dim is pinned to domain_dim (the fusion projection width);
+            # domain_encoder_config sweeps the *internal* design (domains /
+            # kernel widths / normalization) for WS-B design-space search.
+            dom_cfg = dict(domain_encoder_config or {})
+            dom_cfg.pop("output_dim", None)  # cannot override the projection width
             dom_module: DomainEncoderStack | None = DomainEncoderStack(
-                raw_inputs.shape[1], output_dim=domain_dim
+                raw_inputs.shape[1], output_dim=domain_dim, **dom_cfg
             ).to(device)
             assert dom_module is not None
             dom_module.train()
@@ -1877,7 +1885,7 @@ class OmniMercuryEngine(LoggerMixin):
         # numpy's ``savez`` stubs overload ``**kwds`` against the rarely-used
         # ``allow_pickle`` bool kwarg, so mypy flags every keyword-arg call
         # site. The runtime semantics are correct (one named array per kwarg).
-        np.savez(output_path, **arrays)  # type: ignore[arg-type]
+        np.savez(output_path, **arrays)
         logger.info(
             f"Wrote fusion feature archive to {output_path} "
             f"({len(arrays) - 1} detector feature groups, {len(arrays['labels'])} samples)"
