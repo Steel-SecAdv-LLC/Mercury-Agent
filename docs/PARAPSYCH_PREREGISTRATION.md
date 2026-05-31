@@ -1,0 +1,67 @@
+# WS-D — Parapsychology (GCP) sub-net: strict pre-registration
+
+Registered **before** any analysis. The Global Consciousness Project dataset's
+documented failure mode is **post-hoc analytic flexibility** (choosing the
+statistic/window after seeing the data). This pre-registration fixes every
+analytic degree of freedom in advance and is committed in the same change as the
+code. **No claim is made that "psi" is real.** A faithful null is the expected,
+scientifically valid outcome; the data decides.
+
+## Treatment
+
+Pure signal-processing / anomaly detection on synchronised hardware-RNG streams.
+Not a test of consciousness; a test of whether the streams deviate from the
+fair-coin null around a fixed, independently-defined event catalog.
+
+## Data
+
+* **Source:** GCP archive — per-second per-egg 200-bit sums (~65 nodes).
+  Documented raw-stream endpoint: `noosphere.princeton.edu` `eggdatareq`.
+* **Reachability (this environment):** the raw-stream host is **unreachable**
+  (and not on the trusted allowlist); `fetch_egg_stream()` reports
+  `reachable=False` honestly. The reachable mirror `global-mind.org/data/` serves
+  only aggregate **daily HTML summaries**, not the raw streams the encoder needs.
+* **Fallback:** a clearly-labelled **synthetic true-random** generator
+  (`Binomial(200, 0.5)`) validates the statistics/encoder plumbing under a known
+  null. Synthetic data **cannot** lift quarantine and is never presented as real.
+
+## Fixed event catalog (independent source)
+
+A small, fixed set of globally-attended events with fixed UTC windows, chosen
+from an independent public record **before** analysis (not data-driven):
+
+| Event | UTC window |
+|---|---|
+| New Year midnight (global) | each year, ±10 min around local midnights — canonical GCP formal event |
+| Major earthquake (M≥8, USGS) | quake time → +3 h |
+| Total solar eclipse totality | totality window |
+
+(For a real run these resolve to concrete timestamps from USGS / eclipse
+catalogs; fixed here so windows cannot be chosen post-hoc.)
+
+## Fixed statistics (no alternatives evaluated)
+
+* **Per-second network variance** = Σ z² over eggs, df = egg count (chi-square
+  under null).
+* **Cumulative Stouffer Z** over each event window = Σz / √N, ~N(0,1) under null.
+* **Differentiable encoder:** `ConsciousnessFieldAnalyzer` (LSTM + attention)
+  coherence score over the stream — reported alongside, not in place of, the
+  closed-form statistic.
+
+## Fixed parameters
+
+* Seed: 0 (and 1, 2 for the synthetic-null distribution). Window: 300 s.
+* Eggs: all available that second (NaN-skipped).
+
+## A-priori bar (set before running)
+
+* **Lift quarantine only if**, on **real** GCP data, the combined Stouffer Z
+  across the fixed catalog exceeds a **Bonferroni-corrected** |Z| threshold for
+  the number of events, AND the effect is stable across the fixed seeds.
+* **Expected outcome: null.** Report it plainly either way. Synthetic-null
+  results are plumbing validation only.
+
+## Verdict rule
+
+Record the numbers. `QUARANTINE` unless the real-data, multiple-comparison-
+corrected bar is cleared. Never assert psi; a clean null is a valid contribution.
