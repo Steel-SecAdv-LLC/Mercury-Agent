@@ -59,14 +59,18 @@ def run(datasets: list[str], seeds: list[int], epochs: int) -> dict[str, Any]:
         for s in seeds:
             sub = _stratified_split(y[pool], FRACTION, np.random.RandomState(s + 1))[0]
             tr = pool[sub]
-            base[s] = _fit_eval(x[tr], y[tr], x_te, y_te, epochs, s, domain_encoder=False, config=None)[0]
+            base[s] = _fit_eval(
+                x[tr], y[tr], x_te, y_te, epochs, s, domain_encoder=False, config=None
+            )[0]
         for cfg_name, cfg in CONFIGS.items():
             enc = []
             for s in seeds:
                 sub = _stratified_split(y[pool], FRACTION, np.random.RandomState(s + 1))[0]
                 tr = pool[sub]
                 enc.append(
-                    _fit_eval(x[tr], y[tr], x_te, y_te, epochs, s, domain_encoder=True, config=cfg or None)[0]
+                    _fit_eval(
+                        x[tr], y[tr], x_te, y_te, epochs, s, domain_encoder=True, config=cfg or None
+                    )[0]
                 )
             b = [base[s] for s in seeds]
             d = np.array(enc) - np.array(b)
