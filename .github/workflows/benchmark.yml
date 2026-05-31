@@ -166,6 +166,11 @@ jobs:
           pip install -e ".[all,dev]"
           pip install pytest pytest-cov
 
+      - name: Build + install AMA Cryptography (native PQC backend)
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v3.2.0
+
       - name: Label-provenance leak gate (WS-A, repo-wide)
         # Canonical circular-label detector. Fails if any dataset loader
         # manufactures anomaly labels (feature threshold / synthetic) yet is
@@ -173,6 +178,8 @@ jobs:
         # PR #255/#262 de-leaked. Closes the silent base-class default
         # (LABEL_SOURCE="ground_truth") so no future PR can reintroduce a
         # circular dataset. Context: docs/ANOMALY_REGRESSION_WS_A.md.
+        env:
+          AMA_REQUIRE_REAL_PQC: "true"
         run: |
           python -m omni_mercury_engine.datasets.label_provenance --check
 
@@ -182,11 +189,15 @@ jobs:
         # Fails fast (~20s) on a real detector regression before the heavy run.
         # Context: docs/ANOMALY_REGRESSION_WS_A.md (the #261 "drop" was the
         # #255 eval-honesty de-leak, not a detector regression).
+        env:
+          AMA_REQUIRE_REAL_PQC: "true"
         run: |
           python benchmarks/anomaly_regression_guard.py --check
 
       - name: Run mercury benchmark (gating)
         id: benchmark
+        env:
+          AMA_REQUIRE_REAL_PQC: "true"
         run: |
           python benchmarks/mercury_benchmark.py
 
