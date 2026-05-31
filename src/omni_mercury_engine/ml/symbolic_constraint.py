@@ -53,6 +53,7 @@ as a Real-Logic LTN weights its axioms.
 """
 
 from dataclasses import dataclass, field
+from typing import TypedDict
 
 import torch
 from torch import nn
@@ -65,6 +66,25 @@ __all__ = [
     "SymbolicConstraintModule",
     "consensus_rule_graph",
 ]
+
+
+class RuleExplanation(TypedDict):
+    """JSON-serialisable explanation for one symbolic rule."""
+
+    statement: str
+    description: str
+    satisfaction: float
+    confidence: float
+
+
+class SymbolicExplanation(TypedDict):
+    """JSON-serialisable symbolic-constraint explanation payload."""
+
+    graph: str
+    satisfaction: float
+    rules: dict[str, RuleExplanation]
+    detector_weights: list[float]
+
 
 # Clamp groundings away from the hard {0, 1} boundary so Reichenbach
 # implication and its dual keep well-conditioned gradients.
@@ -344,15 +364,16 @@ class SymbolicConstraintModule(nn.Module):
     @torch.no_grad()
     def explain(
         self, anomaly_prob: torch.Tensor, detector_scores: torch.Tensor
-    ) -> dict[str, object]:
+    ) -> SymbolicExplanation:
         """Human-readable breakdown of rule satisfaction and detector trust.
 
         Returns a JSON-serialisable dict mapping each rule name to its
         satisfaction and confidence, plus the learned per-detector weights.
         """
         out = self.forward(anomaly_prob, detector_scores)
-        rule_sat = out["rule_satisfaction"].detach().cpu().tolist()
-        rule_w = out["rule_weights"].detach().cpu().tolist()
+        rule_sat = [float(v) for v in out["rule_satisfaction"].detach().cpu().tolist()]
+        rule_w = [float(v) for v in out["rule_weights"].detach().cpu().tolist()]
+        detector_weights = [float(v) for v in out["detector_weights"].detach().cpu().tolist()]
         return {
             "graph": self.rule_graph.name,
             "satisfaction": float(out["satisfaction"].detach().cpu()),
@@ -365,5 +386,5 @@ class SymbolicConstraintModule(nn.Module):
                 }
                 for i, rule in enumerate(self.rule_graph.rules)
             },
-            "detector_weights": out["detector_weights"].detach().cpu().tolist(),
+            "detector_weights": detector_weights,
         }

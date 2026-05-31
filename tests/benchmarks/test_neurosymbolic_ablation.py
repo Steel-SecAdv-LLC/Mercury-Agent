@@ -43,13 +43,17 @@ class TestFprAtRecall:
         assert fpr_low <= fpr_high
 
 
-def _fraction(frac: float, d_auc: float, d_fpr: float, agree: int, n: int = 3) -> dict:
+def _fraction(
+    frac: float, d_auc: float, d_fpr: float, agree: int, n: int = 3
+) -> dict[str, float | int | dict[str, list[float]]]:
     return {
         "fraction": frac,
         "delta_auc_mean": d_auc,
         "delta_fpr_mean": d_fpr,
         "seeds_auc_better": agree,
         "n_seeds": n,
+        "neural": {"aucs": [0.70] * n},
+        "symbolic": {"aucs": [0.70 + d_auc] * n},
     }
 
 

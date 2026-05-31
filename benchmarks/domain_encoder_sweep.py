@@ -50,25 +50,24 @@ import numpy as np
 import torch
 
 _HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(_HERE))
+sys.path.insert(0, str(_HERE.parent))
 sys.path.insert(0, str(_HERE.parent / "src"))
 
-from domain_encoder_ablation import (
+from benchmarks.domain_encoder_ablation import (
     _f1_at_best_threshold,
     _load_dataset,
     _stratified_split,
-)  # noqa: E402
-
-from omni_mercury_engine.engine import OmniMercuryEngine  # noqa: E402
-from omni_mercury_engine.evaluation.ablation_guard import check_ablation_confound  # noqa: E402
-from omni_mercury_engine.ml.mercury_ml import roc_auc_score  # noqa: E402
+)
+from omni_mercury_engine.engine import OmniMercuryEngine
+from omni_mercury_engine.evaluation.ablation_guard import check_ablation_confound
+from omni_mercury_engine.ml.mercury_ml import roc_auc_score
 
 # Dataset families (by baseline difficulty). Hard = low-AUC/imbalanced where any
 # learnable-encoder gain is most plausible; ceiling = saturated, no headroom.
 HARD = ["Pima", "glass"]
 CEILING = ["cardio", "thyroid"]
 DEFAULT_DATASETS = HARD + CEILING
-FAMILY = {**{d: "hard" for d in HARD}, **{d: "ceiling" for d in CEILING}}
+FAMILY = {**dict.fromkeys(HARD, "hard"), **dict.fromkeys(CEILING, "ceiling")}
 
 DEFAULT_SEEDS = [0, 1, 2]
 DEFAULT_FRACTIONS = [0.25, 1.0]

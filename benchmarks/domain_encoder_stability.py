@@ -31,12 +31,11 @@ from typing import Any
 import numpy as np
 
 _HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(_HERE))
+sys.path.insert(0, str(_HERE.parent))
 sys.path.insert(0, str(_HERE.parent / "src"))
 
-from domain_encoder_ablation import _load_dataset, _stratified_split
-from domain_encoder_sweep import _fit_eval
-
+from benchmarks.domain_encoder_ablation import _load_dataset, _stratified_split
+from benchmarks.domain_encoder_sweep import _fit_eval
 from omni_mercury_engine.evaluation.ablation_guard import check_ablation_confound
 
 CONFIGS: dict[str, dict[str, Any]] = {

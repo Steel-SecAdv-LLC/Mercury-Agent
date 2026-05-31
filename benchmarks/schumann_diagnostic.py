@@ -51,10 +51,10 @@ from typing import Any
 import numpy as np
 
 _HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(_HERE))  # resolve sibling 'schumann_eval' as a top-level module
+sys.path.insert(0, str(_HERE.parent))
 sys.path.insert(0, str(_HERE.parent / "src"))
 
-from schumann_eval import SPECTRUM_SIZE, _synth_spectrum, run_seed  # noqa: E402
+from benchmarks.schumann_eval import SPECTRUM_SIZE, _synth_spectrum, run_seed
 
 COLLAPSE_AUC = 0.5  # AUC below this == sign-inverted / degenerate solution
 

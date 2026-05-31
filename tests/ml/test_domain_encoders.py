@@ -13,7 +13,10 @@ static extractor before learning).
 
 from __future__ import annotations
 
+from typing import cast
+
 import pytest
+from torch import nn
 
 pytest.importorskip("torch")
 
@@ -26,12 +29,13 @@ from omni_mercury_engine.ml.domain_encoders import (
     SpectralEncoder,
 )
 
-_ENCODERS = [SpectralEncoder, KinematicEncoder, FisherEntropyEncoder]
+_EncoderClass = type[SpectralEncoder] | type[KinematicEncoder] | type[FisherEntropyEncoder]
+_ENCODERS: tuple[_EncoderClass, ...] = (SpectralEncoder, KinematicEncoder, FisherEntropyEncoder)
 
 
 @pytest.mark.parametrize("cls", _ENCODERS)
 @pytest.mark.parametrize("in_dim", [8, 13, 21])
-def test_encoder_shape_and_finite(cls, in_dim) -> None:
+def test_encoder_shape_and_finite(cls: _EncoderClass, in_dim: int) -> None:
     torch.manual_seed(0)
     enc = cls(in_dim, hidden_dim=32, output_dim=64)
     out = enc(torch.randn(16, in_dim))
@@ -40,7 +44,7 @@ def test_encoder_shape_and_finite(cls, in_dim) -> None:
 
 
 @pytest.mark.parametrize("cls", _ENCODERS)
-def test_encoder_is_differentiable(cls) -> None:
+def test_encoder_is_differentiable(cls: _EncoderClass) -> None:
     """Gradient must flow back to the input -- the whole point of WS-B."""
     torch.manual_seed(0)
     enc = cls(21, hidden_dim=32, output_dim=64)
@@ -57,7 +61,8 @@ def test_kinematic_conv_initialised_to_finite_difference() -> None:
     enc = KinematicEncoder(21)
     expected = [[-1.0, 1.0], [1.0, -2.0, 1.0], [-1.0, 3.0, -3.0, 1.0]]
     for conv, exp in zip(enc.convs, expected):
-        assert conv.weight.detach().view(-1).tolist() == exp
+        conv1d = cast("nn.Conv1d", conv)
+        assert torch.detach(conv1d.weight).view(-1).tolist() == exp
 
 
 def test_spectral_uses_fft_grad_path() -> None:
