@@ -560,6 +560,8 @@ jobs:
           /tmp/mercury-audit-env/bin/pip install --upgrade "pip>=26.1"
           /tmp/mercury-audit-env/bin/pip install -e ".[api]" \
             --upgrade "click>=8.2" "typer>=0.20"
+          /tmp/mercury-audit-env/bin/pip install --upgrade \
+            "setuptools>=78.1.1" "wheel>=0.47.0" "cmake>=4.3.2"
           AMA_NO_CYTHON=1 /tmp/mercury-audit-env/bin/pip install --no-build-isolation /tmp/ama-cryptography
           /tmp/mercury-audit-env/bin/pip list --format=freeze \
             > /tmp/mercury-audit-env/requirements.txt

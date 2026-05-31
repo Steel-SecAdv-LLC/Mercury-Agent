@@ -51,7 +51,6 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
-
 from ama_cryptography.adaptive_posture import (
     CryptoPostureController,
     PostureAction,
@@ -59,7 +58,6 @@ from ama_cryptography.adaptive_posture import (
     PostureEvaluator,
     ThreatLevel,
 )
-
 
 logger = logging.getLogger(__name__)
 

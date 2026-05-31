@@ -690,9 +690,7 @@ def validate_pqc_environment() -> dict[str, Any]:
             "Build AMA native C library for post-quantum signatures."
         )
     if not KYBER_AVAILABLE:
-        issues.append(
-            "Kyber-1024 not available. Build AMA native C library for key encapsulation."
-        )
+        issues.append("Kyber-1024 not available. Build AMA native C library for key encapsulation.")
     if not SPHINCS_AVAILABLE:
         issues.append(
             "SPHINCS+ not available. Build AMA native C library for hash-based signatures."

@@ -78,7 +78,14 @@ jobs:
           python -m pip install --upgrade "pip>=26.1"
           pip install -e .
 
+      - name: Build + install AMA Cryptography (native PQC backend)
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v3.2.0
+
       - name: Check Lyapunov λ consistency in docs
+        env:
+          AMA_REQUIRE_REAL_PQC: "true"
         run: |
           # Import-based gate: imports the canonical constants from
           # the package and asserts every documented numeric matches.
@@ -103,7 +110,14 @@ jobs:
           python -m pip install --upgrade "pip>=26.1"
           pip install -e ".[ml]"
 
+      - name: Build + install AMA Cryptography (native PQC backend)
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v3.2.0
+
       - name: Run humanitarian_demo end-to-end
+        env:
+          AMA_REQUIRE_REAL_PQC: "true"
         run: |
           set -euo pipefail
           out=$(python examples/humanitarian_demo.py --module cyber)
@@ -113,6 +127,8 @@ jobs:
           echo "$out" | grep -q "HUMANITARIAN IMPACT"
 
       - name: Run live_anomaly_demo end-to-end (quiet, 5 samples)
+        env:
+          AMA_REQUIRE_REAL_PQC: "true"
         run: |
           set -euo pipefail
           out=$(python examples/live_anomaly_demo.py \
@@ -121,6 +137,8 @@ jobs:
           echo "$out" | grep -q "Demo complete"
 
       - name: Run physics_detectors_demo end-to-end (spectral)
+        env:
+          AMA_REQUIRE_REAL_PQC: "true"
         run: |
           set -euo pipefail
           out=$(python examples/physics_detectors_demo.py --module spectral)
