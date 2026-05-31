@@ -30,9 +30,6 @@ import warnings
 
 import numpy as np
 
-warnings.filterwarnings("ignore")
-logging.getLogger("omni_mercury_engine").setLevel(logging.ERROR)
-
 # Genuinely-labelled ADBench datasets (ground-truth anomaly labels), small
 # enough to train quickly on CPU. Excludes any heuristically/threshold-labelled
 # source so the reported AUC is honest (see loaders de-leak work).
@@ -104,6 +101,9 @@ def _run_one(name: str, epochs: int, seed: int) -> float | None:
 
 
 def main() -> int:
+    warnings.filterwarnings("ignore")
+    logging.getLogger("omni_mercury_engine").setLevel(logging.ERROR)
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--datasets", nargs="*", default=DEFAULT_DATASETS)
     parser.add_argument("--epochs", type=int, default=50)

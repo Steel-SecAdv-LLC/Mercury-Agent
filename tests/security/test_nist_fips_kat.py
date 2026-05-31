@@ -21,7 +21,8 @@ reproducibility checks** against NIST reference outputs.
 - SLH-DSA sigGen: verify that NIST-provided signatures are accepted by
   AMA's ``sphincs_verify``.
 
-When the AMA PQC backend is not installed these tests skip — no silent pass.
+AMA's PQC backend is mandatory; missing AMA/PQC fails module import rather than
+skipping.
 """
 
 from __future__ import annotations
@@ -31,6 +32,12 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+
+from omni_mercury_engine.security.pqc_backends import (
+    dilithium_sign_ctx,
+    kyber_decapsulate,
+    slhdsa_sign_deterministic,
+)
 
 # ---------------------------------------------------------------------------
 # Fixture: load curated NIST ACVP vectors
@@ -46,21 +53,6 @@ def _load_curated() -> dict[str, Any]:
         return data
 
 
-def _ama_pqc_available() -> bool:
-    try:
-        from omni_mercury_engine.security import pqc_backends as _pqc
-
-        return bool(_pqc.AMA_CRYPTOGRAPHY_AVAILABLE)
-    except Exception:
-        return False
-
-
-pqc_required = pytest.mark.skipif(
-    not _ama_pqc_available(),
-    reason="AMA Cryptography PQC backend not installed; NIST FIPS KATs require ama-cryptography[pqc].",
-)
-
-
 # ---------------------------------------------------------------------------
 # ML-DSA-65: sigGen verification
 # ---------------------------------------------------------------------------
@@ -72,7 +64,6 @@ def _mldsa65_siggen_vectors() -> list[dict[str, Any]]:
     return vectors
 
 
-@pqc_required
 @pytest.mark.parametrize(
     "vector",
     _mldsa65_siggen_vectors(),
@@ -87,8 +78,6 @@ def test_mldsa65_nist_siggen_verify(vector: dict[str, Any]) -> None:
     Signing with the legacy context-blind ``dilithium_sign`` would produce
     a sibling-but-different signature and silently miss the spec.
     """
-    from omni_mercury_engine.security.pqc_backends import dilithium_sign_ctx
-
     sk = bytes.fromhex(vector["sk"])
     message = bytes.fromhex(vector["message"])
     ctx = bytes.fromhex(vector.get("context", ""))
@@ -112,7 +101,6 @@ def _mlkem1024_decaps_vectors() -> list[dict[str, Any]]:
     return vectors
 
 
-@pqc_required
 @pytest.mark.parametrize(
     "vector",
     _mlkem1024_decaps_vectors(),
@@ -120,8 +108,6 @@ def _mlkem1024_decaps_vectors() -> list[dict[str, Any]]:
 )
 def test_mlkem1024_nist_decapsulation(vector: dict[str, Any]) -> None:
     """Verify NIST ML-KEM-1024 decapsulation produces expected shared secret."""
-    from omni_mercury_engine.security.pqc_backends import kyber_decapsulate
-
     dk = bytes.fromhex(vector["dk"])
     c = bytes.fromhex(vector["c"])
     expected_k = bytes.fromhex(vector["k"])
@@ -143,7 +129,6 @@ def _slhdsa_siggen_vectors() -> list[dict[str, Any]]:
     return vectors
 
 
-@pqc_required
 @pytest.mark.parametrize(
     "vector",
     _slhdsa_siggen_vectors(),
@@ -164,8 +149,6 @@ def test_slhdsa_nist_siggen_verify(vector: dict[str, Any]) -> None:
     (NIST L5) and is incompatible with these L1 vectors regardless of
     determinism, hence the explicit ``param_set='SHAKE-128s'`` here.
     """
-    from omni_mercury_engine.security.pqc_backends import slhdsa_sign_deterministic
-
     sk = bytes.fromhex(vector["sk"])
     message = bytes.fromhex(vector["message"])
     ctx = bytes.fromhex(vector.get("context", ""))

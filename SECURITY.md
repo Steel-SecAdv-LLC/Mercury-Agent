@@ -113,7 +113,7 @@ SlhDsaKeyPair` declarations).
    cmake -B build -DAMA_USE_NATIVE_PQC=ON && cmake --build build
    ```
 
-4. **Production Enforcement**: Mercury Agent refuses to run without real PQC cryptography in production. Set `AMA_REQUIRE_REAL_PQC=true` to enforce native PQC availability at startup.
+4. **Universal Enforcement**: Mercury Agent refuses to run without real PQC cryptography at package import. `AMA_REQUIRE_REAL_PQC=true` is retained for legacy workflow readability, but the gate is no longer optional.
 
 5. **Constant-Time Requirement**: AMA Cryptography's native C library provides constant-time implementations. Set `AMA_REQUIRE_CONSTANT_TIME=true` to enforce this at startup.
 
@@ -121,10 +121,10 @@ SlhDsaKeyPair` declarations).
    ACVP-validated HMAC-SHA-256 / HMAC-SHA-512 bindings
    (`native_hmac_sha256`, `native_hmac_sha256_2`). Mercury's
    `native_jwt` module routes HS256 and HS512 through these bindings
-   when available, falling back transparently to the stdlib `hmac`
-   path otherwise. See `tests/security/test_native_jwt_ama_routing.py`
-   for the RFC 4231 KAT + stdlib byte-equivalence + interoperability
-   invariants.
+   with no stdlib fallback; HS384 remains stdlib-only until AMA ships a
+   SHA-384 HMAC binding. See
+   `tests/security/test_native_jwt_ama_routing.py` for the RFC 4231 KAT
+   and fail-closed route locks.
 
 **KAT and ACVP evidence:**
 

@@ -48,112 +48,16 @@ import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import numpy as np
-
-# ---------------------------------------------------------------------------
-# AMA Cryptography Adaptive Posture import + stubs
-#
-# Mypy uses the real ``ama_cryptography.adaptive_posture`` types via the
-# ``TYPE_CHECKING`` branch — guaranteeing a single canonical type for every
-# symbol below. At runtime we attempt the real import and fall back to local
-# stub classes that match the real API surface. The stubs are therefore
-# defined exactly once on the runtime path, eliminating any need for
-# ``# type: ignore[no-redef]`` suppressions.
-# ---------------------------------------------------------------------------
-if TYPE_CHECKING:
-    from ama_cryptography.adaptive_posture import (
-        CryptoPostureController,
-        PostureAction,
-        PostureEvaluation,
-        PostureEvaluator,
-        ThreatLevel,
-    )
-
-    _AMA_POSTURE_AVAILABLE = True
-else:
-    try:
-        from ama_cryptography.adaptive_posture import (
-            CryptoPostureController,
-            PostureAction,
-            PostureEvaluation,
-            PostureEvaluator,
-            ThreatLevel,
-        )
-
-        _AMA_POSTURE_AVAILABLE = True
-    except ImportError:
-        # ``ama_cryptography`` is an optional native dependency (it
-        # requires gcc >= 12 to build the PQC C library on Linux).
-        # When it is unavailable we fall back to functional stubs;
-        # that is by design, not a code smell, so we route the
-        # notification through ``logging`` rather than ``warnings``.
-        # Surfacing it as a ``UserWarning`` made every consumer see a
-        # spurious pytest warning even when stubs are the intended
-        # configuration.
-        logging.getLogger(__name__).info(
-            "ama_cryptography.adaptive_posture not available. "
-            "Adaptive posture features will use stubs."
-        )
-
-        # Stub implementations for when ama_cryptography is not installed.
-        from enum import Enum as _Enum
-
-        class ThreatLevel(_Enum):
-            """Stub ThreatLevel enum (matches ama_cryptography.adaptive_posture)."""
-
-            NOMINAL = "nominal"
-            ELEVATED = "elevated"
-            HIGH = "high"
-            CRITICAL = "critical"
-
-        class PostureAction(_Enum):
-            """Stub PostureAction enum (matches ama_cryptography.adaptive_posture)."""
-
-            NONE = "none"
-            INCREASE_MONITORING = "increase_monitoring"
-            ROTATE_KEYS = "rotate_keys"
-            SWITCH_ALGORITHM = "switch_algorithm"
-            ROTATE_AND_SWITCH = "rotate_and_switch"
-
-        @dataclass
-        class PostureEvaluation:
-            """Stub PostureEvaluation."""
-
-            threat_level: ThreatLevel = ThreatLevel.NOMINAL
-            action: PostureAction = PostureAction.NONE
-            confidence: float = 0.0
-            signals: dict[str, Any] = field(default_factory=dict)
-            details: dict[str, Any] = field(default_factory=dict)
-
-        class PostureEvaluator:
-            """Stub PostureEvaluator."""
-
-            def evaluate(self, report: dict[str, Any]) -> PostureEvaluation:
-                return PostureEvaluation(
-                    threat_level=ThreatLevel.NOMINAL,
-                    action=PostureAction.NONE,
-                    confidence=0.0,
-                    signals={},
-                )
-
-        class CryptoPostureController:
-            """Stub CryptoPostureController."""
-
-            def __init__(self, **kwargs: Any) -> None:
-                pass
-
-            def get_posture_summary(self) -> dict[str, Any]:
-                """Return a stub posture summary."""
-                return {
-                    "status": "stub",
-                    "threat_level": "nominal",
-                    "action": "none",
-                }
-
-        _AMA_POSTURE_AVAILABLE = False
-
+from ama_cryptography.adaptive_posture import (
+    CryptoPostureController,
+    PostureAction,
+    PostureEvaluation,
+    PostureEvaluator,
+    ThreatLevel,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -163,8 +67,7 @@ logger = logging.getLogger(__name__)
 # Single source of truth used by both ``_evaluate_posture_from_gosnn`` and
 # ``get_gosnn_scalars`` when translating ``ama_cryptography.adaptive_posture``
 # enums into GOSNN scalar values. Values mirror the real
-# ``ThreatLevel``/``PostureAction`` semantics so stub and live enums are handled
-# identically. Every enum member MUST be covered here;
+# ``ThreatLevel``/``PostureAction`` semantics. Every enum member MUST be covered here;
 # ``tests/test_enum_compatibility.py`` enforces full coverage.
 # ---------------------------------------------------------------------------
 THREAT_LEVEL_MAP: dict[ThreatLevel, float] = {
@@ -181,129 +84,26 @@ ACTION_MAP: dict[PostureAction, float] = {
     PostureAction.ROTATE_AND_SWITCH: 4.0,
 }
 
-# Tracks which PQC backend produced the symbols imported below. Values:
-#   "ama_cryptography" — real ``ama_cryptography.pqc_backends`` import succeeded
-#   "ava_guardian"     — back-compat shim ``ava_guardian.pqc_backends`` succeeded
-#   "stub"             — neither package available; in-module stubs are in use
-# Surface this on ``MercuryGuardianAdapter.get_pqc_status()`` so operators can
-# tell at a glance whether they are running against a real PQC implementation.
-_PQC_BACKEND_SOURCE: str = "stub"
+from ama_cryptography.pqc_backends import (
+    DILITHIUM_AVAILABLE,
+    KYBER_AVAILABLE,
+    DilithiumKeyPair,
+    KyberEncapsulation,
+    KyberKeyPair,
+    dilithium_sign,
+    dilithium_verify,
+    generate_dilithium_keypair,
+    generate_kyber_keypair,
+    kyber_decapsulate,
+    kyber_encapsulate,
+)
 
-AMA_CRYPTOGRAPHY_AVAILABLE = False
-DILITHIUM_AVAILABLE = False
-KYBER_AVAILABLE = False
-
-# ---------------------------------------------------------------------------
-# AMA Cryptography PQC backends import + stubs
-#
-# Mypy gets the real types from ``ama_cryptography.pqc_backends`` via the
-# ``TYPE_CHECKING`` branch (single canonical type per symbol). At runtime we
-# attempt the real import, then a legacy ``ava_guardian`` shim, and finally
-# fall back to local stub dataclasses defined exactly once. This eliminates
-# the ``# type: ignore[no-redef, unused-ignore]`` suppressions previously
-# required to silence the conditional double-definition signal.
-# ---------------------------------------------------------------------------
-if TYPE_CHECKING:
-    from ama_cryptography.pqc_backends import (
-        DilithiumKeyPair,
-        KyberEncapsulation,
-        KyberKeyPair,
-        dilithium_sign,
-        dilithium_verify,
-        generate_dilithium_keypair,
-        generate_kyber_keypair,
-        kyber_decapsulate,
-        kyber_encapsulate,
-    )
-else:
-    try:
-        from ama_cryptography.pqc_backends import (
-            DILITHIUM_AVAILABLE as _DILITHIUM_AVAILABLE,
-            KYBER_AVAILABLE as _KYBER_AVAILABLE,
-            DilithiumKeyPair,
-            KyberEncapsulation,
-            KyberKeyPair,
-            dilithium_sign,
-            dilithium_verify,
-            generate_dilithium_keypair,
-            generate_kyber_keypair,
-            kyber_decapsulate,
-            kyber_encapsulate,
-        )
-
-        AMA_CRYPTOGRAPHY_AVAILABLE = True
-        DILITHIUM_AVAILABLE = _DILITHIUM_AVAILABLE
-        KYBER_AVAILABLE = _KYBER_AVAILABLE
-        _PQC_BACKEND_SOURCE = "ama_cryptography"
-        logger.info("AMA Cryptography PQC backends loaded successfully")
-    except ImportError:
-        try:
-            # ``ava-guardian`` is the legacy distribution name for the same PQC
-            # surface; it is kept as a compatibility shim for installs that
-            # haven't migrated to ``ama-cryptography`` yet. Mypy uses the
-            # ``ama_cryptography.pqc_backends`` types via the TYPE_CHECKING
-            # branch above, so this runtime fallback does not require a
-            # ``# type: ignore[no-redef]`` annotation.
-            from ava_guardian.pqc_backends import (
-                DILITHIUM_AVAILABLE as _DILITHIUM_AVAILABLE,
-                KYBER_AVAILABLE as _KYBER_AVAILABLE,
-                DilithiumKeyPair,
-                KyberEncapsulation,
-                KyberKeyPair,
-                dilithium_sign,
-                dilithium_verify,
-                generate_dilithium_keypair,
-                generate_kyber_keypair,
-                kyber_decapsulate,
-                kyber_encapsulate,
-            )
-
-            AMA_CRYPTOGRAPHY_AVAILABLE = True
-            DILITHIUM_AVAILABLE = _DILITHIUM_AVAILABLE
-            KYBER_AVAILABLE = _KYBER_AVAILABLE
-            _PQC_BACKEND_SOURCE = "ava_guardian"
-            logger.info("AMA Cryptography PQC backends loaded via ava-guardian compatibility shim")
-        except ImportError:
-            # _PQC_BACKEND_SOURCE remains "stub" — tracked at module top.
-            logger.warning(
-                "AMA Cryptography not available. Post-quantum cryptography features disabled. "
-                "Install ama-cryptography for PQC support."
-            )
-
-            @dataclass
-            class DilithiumKeyPair:
-                """Stub for DilithiumKeyPair when AMA Cryptography not available."""
-
-                public_key: bytes = b""
-                secret_key: bytes = field(default=b"", repr=False)
-
-            @dataclass
-            class KyberKeyPair:
-                """Stub for KyberKeyPair when AMA Cryptography not available."""
-
-                secret_key: bytes = field(default=b"", repr=False)
-                public_key: bytes = b""
-
-            @dataclass
-            class KyberEncapsulation:
-                """Stub for KyberEncapsulation when AMA Cryptography not available."""
-
-                ciphertext: bytes = b""
-                shared_secret: bytes = b""
-
-            def _stub_unavailable(*_args: Any, **_kwargs: Any) -> Any:
-                """Stub PQC operation when AMA Cryptography not available."""
-                raise ImportError(
-                    "AMA Cryptography (or ava-guardian) is required for PQC operations. "
-                    "Install with: pip install ama-cryptography"
-                )
-
-            generate_dilithium_keypair = _stub_unavailable
-            generate_kyber_keypair = _stub_unavailable
-            dilithium_sign = _stub_unavailable
-            dilithium_verify = _stub_unavailable
-            kyber_encapsulate = _stub_unavailable
-            kyber_decapsulate = _stub_unavailable
+_PQC_BACKEND_SOURCE: str = "ama_cryptography"
+AMA_CRYPTOGRAPHY_AVAILABLE = True
+if not DILITHIUM_AVAILABLE:
+    raise ImportError("AMA Cryptography ML-DSA-65 backend is mandatory for Mercury.")
+if not KYBER_AVAILABLE:
+    raise ImportError("AMA Cryptography Kyber-1024 backend is mandatory for Mercury.")
 
 
 # Backward compatibility alias
@@ -646,8 +446,8 @@ class MercuryGuardianAdapter:
             self._last_posture_evaluation = evaluation
 
             # Register posture decisions back into GOSNN as SECURITY scalars.
-            # Mappings are module-level (THREAT_LEVEL_MAP / ACTION_MAP) so the
-            # stub and real enum paths use the same single source of truth.
+            # Mappings are module-level (THREAT_LEVEL_MAP / ACTION_MAP) so
+            # posture scalar semantics have a single source of truth.
             posture_scalars: dict[str, float] = {
                 "omni_posture_threat_level": THREAT_LEVEL_MAP.get(evaluation.threat_level, 0.0),
                 "omni_posture_action": ACTION_MAP.get(evaluation.action, 0.0),
@@ -798,9 +598,8 @@ class MercuryGuardianAdapter:
 
     def generate_dilithium_keypair(self) -> DilithiumKeyPair | None:
         """Generate ML-DSA-65 (Dilithium) keypair."""
-        if not AMA_CRYPTOGRAPHY_AVAILABLE or not DILITHIUM_AVAILABLE:
-            logger.warning("Dilithium not available")
-            return None
+        if not DILITHIUM_AVAILABLE:
+            raise RuntimeError("AMA Cryptography ML-DSA-65 backend is mandatory for Mercury.")
 
         start_time = time.perf_counter()
         try:
@@ -834,9 +633,8 @@ class MercuryGuardianAdapter:
 
     def sign_dilithium(self, message: bytes, private_key: bytes | None = None) -> bytes | None:
         """Sign message with ML-DSA-65 (Dilithium)."""
-        if not AMA_CRYPTOGRAPHY_AVAILABLE or not DILITHIUM_AVAILABLE:
-            logger.warning("Dilithium not available")
-            return None
+        if not DILITHIUM_AVAILABLE:
+            raise RuntimeError("AMA Cryptography ML-DSA-65 backend is mandatory for Mercury.")
 
         if private_key is None:
             if self._dilithium_keypair is None:
@@ -885,9 +683,8 @@ class MercuryGuardianAdapter:
         self, message: bytes, signature: bytes, public_key: bytes | None = None
     ) -> bool:
         """Verify ML-DSA-65 (Dilithium) signature."""
-        if not AMA_CRYPTOGRAPHY_AVAILABLE or not DILITHIUM_AVAILABLE:
-            logger.warning("Dilithium not available")
-            return False
+        if not DILITHIUM_AVAILABLE:
+            raise RuntimeError("AMA Cryptography ML-DSA-65 backend is mandatory for Mercury.")
 
         if public_key is None:
             if self._dilithium_keypair is None:
@@ -940,9 +737,8 @@ class MercuryGuardianAdapter:
 
     def generate_kyber_keypair(self) -> KyberKeyPair | None:
         """Generate Kyber-1024 (ML-KEM) keypair."""
-        if not AMA_CRYPTOGRAPHY_AVAILABLE or not KYBER_AVAILABLE:
-            logger.warning("Kyber not available")
-            return None
+        if not KYBER_AVAILABLE:
+            raise RuntimeError("AMA Cryptography Kyber-1024 backend is mandatory for Mercury.")
 
         start_time = time.perf_counter()
         try:
@@ -976,9 +772,8 @@ class MercuryGuardianAdapter:
 
     def encapsulate_kyber(self, public_key: bytes | None = None) -> KyberEncapsulation | None:
         """Encapsulate shared secret with Kyber-1024."""
-        if not AMA_CRYPTOGRAPHY_AVAILABLE or not KYBER_AVAILABLE:
-            logger.warning("Kyber not available")
-            return None
+        if not KYBER_AVAILABLE:
+            raise RuntimeError("AMA Cryptography Kyber-1024 backend is mandatory for Mercury.")
 
         if public_key is None:
             if self._kyber_keypair is None:
@@ -1017,9 +812,8 @@ class MercuryGuardianAdapter:
 
     def decapsulate_kyber(self, ciphertext: bytes, secret_key: bytes | None = None) -> bytes | None:
         """Decapsulate shared secret with Kyber-1024."""
-        if not AMA_CRYPTOGRAPHY_AVAILABLE or not KYBER_AVAILABLE:
-            logger.warning("Kyber not available")
-            return None
+        if not KYBER_AVAILABLE:
+            raise RuntimeError("AMA Cryptography Kyber-1024 backend is mandatory for Mercury.")
 
         if secret_key is None:
             if self._kyber_keypair is None:

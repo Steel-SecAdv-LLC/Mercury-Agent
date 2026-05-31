@@ -18,7 +18,7 @@ Covers:
 - Crypto anomaly types and recording
 - GOSNN synapse integration
 - Attack simulation and detection
-- Graceful fallback when PQC unavailable
+- Fail-closed behaviour when PQC key material is absent
 """
 
 from __future__ import annotations
@@ -497,12 +497,12 @@ class TestModuleImports:
 
 
 # =============================================================================
-# Graceful Fallback Tests
+# Fail-Closed PQC Boundary Tests
 # =============================================================================
 
 
-class TestGracefulFallback:
-    """Tests for graceful fallback when PQC unavailable."""
+class TestFailClosedPqcBoundary:
+    """Tests for mandatory AMA/PQC without silently fabricating key material."""
 
     @pytest.fixture
     def adapter(self):
@@ -511,46 +511,34 @@ class TestGracefulFallback:
 
         return MercuryGuardianAdapter()
 
-    def test_dilithium_keygen_fallback(self, adapter: Any) -> None:
-        """Test Dilithium keygen returns None when unavailable."""
-        from omni_mercury_engine.integrations.mercury_guardian import DILITHIUM_AVAILABLE
-
+    def test_dilithium_keygen_returns_real_keypair(self, adapter: Any) -> None:
         result = adapter.generate_dilithium_keypair()
-        if not DILITHIUM_AVAILABLE:
-            assert result is None
-        else:
-            assert result is not None
+        assert result is not None
 
-    def test_kyber_keygen_fallback(self, adapter: Any) -> None:
-        """Test Kyber keygen returns None when unavailable."""
-        from omni_mercury_engine.integrations.mercury_guardian import KYBER_AVAILABLE
-
+    def test_kyber_keygen_returns_real_keypair(self, adapter: Any) -> None:
         result = adapter.generate_kyber_keypair()
-        if not KYBER_AVAILABLE:
-            assert result is None
-        else:
-            assert result is not None
+        assert result is not None
 
     def test_sign_without_keypair(self, adapter: Any) -> None:
-        """Test signing without keypair returns None."""
+        """No default keypair means no signature is fabricated."""
         result = adapter.sign_dilithium(b"test message")
         if adapter._dilithium_keypair is None:
             assert result is None
 
     def test_verify_without_keypair(self, adapter: Any) -> None:
-        """Test verification without keypair returns False."""
+        """No default keypair means verification fails closed."""
         result = adapter.verify_dilithium(b"test message", b"fake signature")
         if adapter._dilithium_keypair is None:
             assert result is False
 
     def test_encapsulate_without_keypair(self, adapter: Any) -> None:
-        """Test encapsulation without keypair returns None."""
+        """No default Kyber keypair means no encapsulation is fabricated."""
         result = adapter.encapsulate_kyber()
         if adapter._kyber_keypair is None:
             assert result is None
 
     def test_decapsulate_without_keypair(self, adapter: Any) -> None:
-        """Test decapsulation without keypair returns None."""
+        """No default Kyber keypair means no shared secret is fabricated."""
         result = adapter.decapsulate_kyber(b"fake ciphertext")
         if adapter._kyber_keypair is None:
             assert result is None

@@ -644,15 +644,12 @@ class TestTimeSourceProbe:
 
 # ---------------------------------------------------------------------------
 # Cryptographic-evidence tools (Part 2 scaffolding, graduated into the
-# dispatcher).  These tools must behave correctly regardless of whether
-# the AMA Cryptography native PQC backend is installed — when it is
-# absent the probes / KAT records degrade to ``stub`` / ``skipped`` and
-# the certificate status climbs to ``warn`` rather than failing closed,
-# unless the operator passes ``--require-real`` / ``--require-pqc``.
+# dispatcher).  Mercury imports only with real AMA/PQC, so the probe is
+# an evidence certificate over the loaded native primitives.
 
 
 class TestPqcCapabilityProbe:
-    """Runtime probe of the AMA PQC surface — works with or without AMA."""
+    """Runtime probe of the mandatory AMA PQC surface."""
 
     def test_emits_valid_envelope(self, tmp_path: Path) -> None:
         out = tmp_path / "c.json"
@@ -660,8 +657,7 @@ class TestPqcCapabilityProbe:
         cert = _load_cert(out)
         assert cert["schema"] == "mercury.tools.pqc_capability_probe/v1"
         # Without ``--require-real`` the contract is: ``ok``/``warn``
-        # both exit 0, ``fail`` is reserved for ``--require-real`` (and
-        # would mean the gate caught a missing-required primitive).
+        # both exit 0; ``fail`` is reserved for explicit enforcement mode.
         assert cert["status"] in {"ok", "warn"}, (
             f"non-require run must not return 'fail' (got {cert['status']!r}); "
             f"warnings={cert['warnings']!r}"
@@ -713,7 +709,7 @@ class TestPqcCapabilityProbe:
         out = tmp_path / "c.json"
         TOOL_REGISTRY["pqc_capability_probe"](["--output", str(out)])
         cert = _load_cert(out)
-        allowed = {"real", "stub", "missing", "error"}
+        allowed = {"real", "missing", "error"}
         for probe in cert["body"]["probes"]:
             assert probe["status"] in allowed, f"unknown probe status: {probe!r}"
 
@@ -782,35 +778,17 @@ class TestKatRunnerStandalone:
         assert "kat_file_error" in cert["body"]
         assert "failed to parse" in cert["body"]["kat_file_error"]
 
-    def test_pqc_algorithms_skipped_when_backend_absent(self, tmp_path: Path) -> None:
-        """When the AMA backend is absent the PQC vectors must be ``skipped``,
-        not silently dropped — auditors must see the explicit gap."""
+    def test_pqc_algorithms_execute_without_skips(self, tmp_path: Path) -> None:
         out = tmp_path / "c.json"
         rc = TOOL_REGISTRY["kat_runner_standalone"](["--algorithms", "all", "--output", str(out)])
         cert = _load_cert(out)
-        # The three ed25519 vectors are unconditional.  PQC vectors are
-        # present in the curated NIST file but may be skipped when AMA
-        # is absent — assert *one of* the documented outcomes.
         summary = cert["body"]["summary"]
-        assert summary["passed"] >= 3  # ed25519 always passes
-        # A KAT *failure* is never acceptable on this path — only
-        # passes (ed25519) and skips (PQC when AMA absent) are valid.
-        # Without this assertion an upstream regression that flipped
-        # ed25519 to fail would slip through under ``rc in (0, 1)``.
-        assert summary["failed"] == 0, (
-            f"KAT vectors failed unexpectedly: {summary!r} / "
-            f"records={cert['body']['records']!r}"
-        )
-        if summary["skipped"] > 0:
-            assert cert["status"] == "warn"
-            for record in cert["body"]["records"]:
-                if record.get("skipped"):
-                    assert "reason" in record
-                    assert record["reason"], "skipped record must carry a reason"
-        # Without ``--require`` the exit-code contract is rc==0 for
-        # both ``ok`` and ``warn`` (per ``tools._base.emit``).
+        assert summary["total"] > 3
+        assert summary["passed"] == summary["total"]
+        assert summary["failed"] == 0
+        assert summary["skipped"] == 0
         assert rc == 0
-        assert cert["status"] in {"ok", "warn"}
+        assert cert["status"] == "ok"
 
 
 class TestSigmaImmutableVerifier:
@@ -866,8 +844,9 @@ class TestSigmaImmutableVerifier:
             disk = _Path(corpus_path).read_bytes()
             expected = hashlib.sha3_256(disk).hexdigest()
             assert cert["body"]["corpus_sha3_256"] == expected
-        # rc must be 0 (warn/ok) or 1 (hard fail) — never anything else.
-        assert rc in (0, 1)
+        assert rc == 0
+        assert cert["status"] == "ok"
+        assert cert["body"]["signatures"]["ml-dsa-65"] == "verified"
 
 
 # ---------------------------------------------------------------------------
@@ -1628,9 +1607,9 @@ class TestVerifyCorpusCliFlagAlignment:
     """``mercury-agent verify-corpus`` must forward the tool's actual flags.
 
     Regression: the wrapper previously sent ``--corpus`` / ``--signature``
-    / ``--require-mldsa`` but the tool's argparse defines
-    ``--corpus-path`` / ``--sig-path`` / ``--require-pqc``.  ``argparse``
-    rejected the wrapper's flags with "unrecognized arguments".
+    / ``--require-mldsa`` directly to the tool. The tool's argparse defines
+    ``--corpus-path`` / ``--sig-path``; ML-DSA-65 verification is mandatory.
+    ``argparse`` rejected the wrapper's flags with "unrecognized arguments".
     """
 
     def test_wrapper_translates_to_tool_argparse_names(self) -> None:

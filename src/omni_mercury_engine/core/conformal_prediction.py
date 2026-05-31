@@ -991,6 +991,171 @@ class ConformalCalibrationBridge:
         return self.adaptive_predictor.update(score, true_label)
 
 
+@dataclass
+class BinaryPredictionSet:
+    """Conformal label prediction sets over ``{0 = normal, 1 = anomaly}``.
+
+    For each sample the set is the subset of labels the classifier cannot
+    confidently rule out at the target coverage. ``set_size`` is therefore in
+    ``{0, 1, 2}``: a singleton ``{1}``/``{0}`` is a confident anomaly/normal
+    call, ``{0, 1}`` flags genuine uncertainty (abstain), and ``{}`` flags an
+    atypical point neither class explains well.
+
+    Attributes:
+        contains_normal: ``(n,)`` bool -- label 0 is in the set.
+        contains_anomaly: ``(n,)`` bool -- label 1 is in the set.
+        set_size: ``(n,)`` int in ``{0, 1, 2}``.
+        probability: ``(n,)`` calibrated ``P(anomaly)`` used to build the sets.
+        coverage_level: Target coverage (e.g. 0.9).
+    """
+
+    contains_normal: np.ndarray[Any, Any]
+    contains_anomaly: np.ndarray[Any, Any]
+    set_size: np.ndarray[Any, Any]
+    probability: np.ndarray[Any, Any]
+    coverage_level: float
+
+    def label_sets(self) -> list[list[int]]:
+        """Return the per-sample label set as a list of sorted label lists."""
+        sets: list[list[int]] = []
+        for has0, has1 in zip(self.contains_normal, self.contains_anomaly):
+            labels = [lbl for lbl, has in ((0, bool(has0)), (1, bool(has1))) if has]
+            sets.append(labels)
+        return sets
+
+
+class BinaryConformalClassifier:
+    """Class-conditional (Mondrian) split-conformal classifier for anomaly detection.
+
+    Turns calibrated anomaly probabilities into label prediction sets with a
+    distribution-free coverage guarantee. Uses the Least-Ambiguous-set (LAC)
+    nonconformity score ``s(x, y) = 1 - p_hat(y | x)`` and calibrates a separate
+    quantile per class, so coverage holds **per class** (Mondrian) and hence
+    marginally -- the right notion for imbalanced anomaly data, where a single
+    marginal threshold would be swamped by the normal class.
+
+    Each class threshold reuses :class:`SplitConformalPredictor` (PR #242), so
+    the finite-sample quantile is identical to the rest of the conformal stack.
+    A point is admitted to label ``y`` iff ``1 - p_y <= q_y``.
+
+    Reference: Sadinle, Lei & Wasserman (2019), "Least Ambiguous Set-Valued
+    Classifiers With Bounded Error Levels".
+
+    Args:
+        coverage: Target per-class coverage (e.g. 0.9 for 90%).
+        seed: Random seed forwarded to the per-class predictors.
+    """
+
+    def __init__(self, coverage: float = 0.9, seed: int = 42) -> None:
+        if not 0.0 < coverage < 1.0:
+            raise ValueError(f"coverage must be in (0, 1), got {coverage}")
+        self.coverage = coverage
+        self.seed = seed
+        self._predictors: dict[int, SplitConformalPredictor] = {}
+        self._thresholds: dict[int, float] = {}
+        self._fitted = False
+
+    @staticmethod
+    def _class_probability(probs: np.ndarray[Any, Any], label: int) -> np.ndarray[Any, Any]:
+        """Return ``p_hat(label | x)`` for binary label ``0`` or ``1``."""
+        p1 = np.asarray(probs, dtype=float).ravel()
+        return p1 if label == 1 else 1.0 - p1
+
+    def fit(
+        self, probabilities: np.ndarray[Any, Any], labels: np.ndarray[Any, Any]
+    ) -> BinaryConformalClassifier:
+        """Calibrate per-class thresholds on held-out calibrated probabilities.
+
+        Args:
+            probabilities: ``(n_cal,)`` calibrated ``P(anomaly)`` on the
+                calibration split (e.g. from temperature-scaled fusion output).
+            labels: ``(n_cal,)`` binary ground-truth labels (1 = anomaly).
+
+        Returns:
+            Self for chaining.
+        """
+        probs = np.asarray(probabilities, dtype=float).ravel()
+        y = np.asarray(labels).astype(int).ravel()
+        if probs.shape != y.shape:
+            raise ValueError("probabilities and labels must have the same length")
+
+        for label in (0, 1):
+            mask = y == label
+            if not np.any(mask):
+                # No calibration data for this class: include it unconditionally
+                # (threshold 1.0) so the coverage guarantee stays conservative
+                # rather than silently dropping the class.
+                self._thresholds[label] = 1.0
+                continue
+            nonconformity = 1.0 - self._class_probability(probs[mask], label)
+            predictor = SplitConformalPredictor(coverage=self.coverage, seed=self.seed)
+            predictor.fit(nonconformity)
+            self._predictors[label] = predictor
+            self._thresholds[label] = predictor.get_anomaly_threshold()
+
+        self._fitted = True
+        return self
+
+    def predict(self, probabilities: np.ndarray[Any, Any]) -> BinaryPredictionSet:
+        """Build conformal label sets for new calibrated probabilities.
+
+        Args:
+            probabilities: ``(n,)`` calibrated ``P(anomaly)``.
+
+        Returns:
+            A :class:`BinaryPredictionSet`.
+        """
+        if not self._fitted:
+            raise RuntimeError("Must call fit() before predict()")
+        probs = np.asarray(probabilities, dtype=float).ravel()
+        contains: dict[int, np.ndarray[Any, Any]] = {}
+        for label in (0, 1):
+            nonconformity = 1.0 - self._class_probability(probs, label)
+            contains[label] = nonconformity <= self._thresholds[label] + 1e-12
+
+        set_size = contains[0].astype(int) + contains[1].astype(int)
+        return BinaryPredictionSet(
+            contains_normal=contains[0],
+            contains_anomaly=contains[1],
+            set_size=set_size,
+            probability=probs,
+            coverage_level=self.coverage,
+        )
+
+    def coverage_report(
+        self, probabilities: np.ndarray[Any, Any], labels: np.ndarray[Any, Any]
+    ) -> dict[str, Any]:
+        """Measure the *true* empirical coverage guarantee on a labelled set.
+
+        Unlike accuracy, this reports the fraction of points whose prediction
+        set contains the true label -- the quantity the conformal guarantee
+        bounds below by ``coverage``.
+
+        Returns:
+            Dict with marginal/per-class empirical coverage, average set size,
+            and the abstention/empty-set rates.
+        """
+        pred = self.predict(probabilities)
+        y = np.asarray(labels).astype(int).ravel()
+        covered = np.where(y == 1, pred.contains_anomaly, pred.contains_normal)
+
+        per_class: dict[int, float] = {}
+        for label in (0, 1):
+            mask = y == label
+            if np.any(mask):
+                per_class[label] = float(np.mean(covered[mask]))
+
+        return {
+            "target_coverage": self.coverage,
+            "empirical_coverage": float(np.mean(covered)) if len(y) else float("nan"),
+            "coverage_by_class": per_class,
+            "average_set_size": float(np.mean(pred.set_size)),
+            "abstain_rate": float(np.mean(pred.set_size == 2)),
+            "empty_rate": float(np.mean(pred.set_size == 0)),
+            "thresholds": dict(self._thresholds),
+        }
+
+
 def add_conformal_to_detector(
     detector: Any,
     X_cal: np.ndarray[Any, Any],

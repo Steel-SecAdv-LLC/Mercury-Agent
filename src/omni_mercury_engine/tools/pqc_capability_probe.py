@@ -18,9 +18,9 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 Operator tool: probe the AMA Cryptography PQC surface at runtime.
 
-``AMA_REQUIRE_REAL_PQC=true`` gates Mercury startup against the stub
-backends but does not produce a structured report of *what the
-operator actually got*.  This tool walks the live ``ama_cryptography``
+Mercury startup now gates unconditionally on real AMA/PQC, but operators
+still need a structured report of *what the process actually loaded*.
+This tool walks the live ``ama_cryptography``
 import surface, exercises each algorithm with a minimal round-trip,
 and reports the real/stub status of every primitive Mercury depends on:
 
@@ -31,13 +31,10 @@ and reports the real/stub status of every primitive Mercury depends on:
 * native HMAC-SHA-256 / HMAC-SHA-256-2 (used by the AMA-routed JWT
   HS256 signer)
 
-The "real vs stub" determination does **not** trust the
-``*_AVAILABLE`` flags alone; it actually runs a minimal sign/verify or
-encap/decap on each algorithm and records whether the primitive raised
-the documented ``"AMA Cryptography not installed"`` ``RuntimeError``
-(stub) or completed (real).  Flag-believing alone would miss the case
-where AMA is installed without the native C library — the flags are
-``True`` but the operation raises at first call.
+The "real vs error" determination does **not** trust the ``*_AVAILABLE``
+flags alone; it actually runs a minimal sign/verify or encap/decap on
+each algorithm.  Flag-believing alone would miss a broken native load
+that raises at first use.
 """
 
 from __future__ import annotations
@@ -52,11 +49,7 @@ from omni_mercury_engine.tools._base import Certificate, run_tool
 
 _SCHEMA = "mercury.tools.pqc_capability_probe/v1"
 
-# Documented stub-raise message — matches the contract enforced by
-# ``omni_mercury_engine.security.pqc_backends._stub_*`` and used by
-# ``mercury-agent`` to distinguish "AMA not installed" from a real
-# cryptographic failure.
-_STUB_MSG = "AMA Cryptography not installed"
+_UNAVAILABLE_MSG = "AMA native primitive unavailable"
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -64,7 +57,7 @@ def _build_parser() -> argparse.ArgumentParser:
         prog="python -m omni_mercury_engine.tools.pqc_capability_probe",
         description=(
             "Walk the AMA Cryptography PQC surface at runtime and report which "
-            "primitives are backed by real native code vs Python stubs."
+            "primitives are backed by real native code."
         ),
     )
     parser.add_argument(
@@ -81,8 +74,8 @@ def _build_parser() -> argparse.ArgumentParser:
 def _probe_one(name: str, fn: Any) -> dict[str, Any]:
     """Run a primitive's round-trip and classify the outcome.
 
-    Returns a record with ``status`` ∈ {``"real"``, ``"stub"``,
-    ``"missing"``, ``"error"``} plus timing and error detail.
+    Returns a record with ``status`` ∈ {``"real"``, ``"missing"``,
+    ``"error"``} plus timing and error detail.
     """
     record: dict[str, Any] = {"primitive": name}
     if fn is None:
@@ -95,24 +88,8 @@ def _probe_one(name: str, fn: Any) -> dict[str, Any]:
         record["status"] = "real"
         record["round_trip_ms"] = round((time.perf_counter() - t0) * 1000.0, 3)
     except RuntimeError as exc:
-        msg = str(exc)
-        # ``_STUB_MSG`` covers the bare "AMA Cryptography not installed"
-        # path; ``"not available in AMA Cryptography"`` and ``"Build the
-        # native C library"`` cover the case where the AMA Python wheel
-        # is installed but its native PQC backend was not built.  Both
-        # are operationally "stub-equivalent" — Mercury's PQC surface
-        # is not exercising real algorithms — so classify as ``stub``
-        # rather than ``error`` to keep the report actionable.
-        if (
-            _STUB_MSG in msg
-            or "not available in AMA Cryptography" in msg
-            or "Build the native C library" in msg
-        ):
-            record["status"] = "stub"
-            record["detail"] = msg
-        else:
-            record["status"] = "error"
-            record["detail"] = f"RuntimeError: {msg}"
+        record["status"] = "error"
+        record["detail"] = f"RuntimeError: {exc}"
     except Exception as exc:
         record["status"] = "error"
         record["detail"] = f"{type(exc).__name__}: {exc}"
@@ -160,7 +137,7 @@ def _probe_mldsa65_ctx() -> None:
     )
 
     if not DILITHIUM_CTX_AVAILABLE:
-        raise RuntimeError(f"{_STUB_MSG} (FIPS 204 §5.2 ctx surface)")
+        raise RuntimeError(f"{_UNAVAILABLE_MSG} (FIPS 204 §5.2 ctx surface)")
     kp = generate_dilithium_keypair()
     msg = b"mercury-agent pqc capability probe"
     ctx = b"mercury/v1"
@@ -186,7 +163,7 @@ def _probe_slhdsa_shake128s() -> None:
     )
 
     if not SLHDSA_AVAILABLE:
-        raise RuntimeError(f"{_STUB_MSG} (FIPS 205 SLH-DSA surface)")
+        raise RuntimeError(f"{_UNAVAILABLE_MSG} (FIPS 205 SLH-DSA surface)")
     kp = generate_slhdsa_keypair(param_set="SHAKE-128s")
     msg = b"mercury-agent pqc capability probe"
     sig = slhdsa_sign_deterministic(msg, kp.secret_key, b"", param_set="SHAKE-128s")
@@ -212,7 +189,7 @@ def _probe_native_hmac_sha256() -> None:
     from omni_mercury_engine.security.ama_hmac import HAS_AMA_HMAC_SHA256, ama_hmac_sha256
 
     if not HAS_AMA_HMAC_SHA256:
-        raise RuntimeError(f"{_STUB_MSG} (native HMAC-SHA-256 binding)")
+        raise RuntimeError(f"{_UNAVAILABLE_MSG} (native HMAC-SHA-256 binding)")
     tag = ama_hmac_sha256(b"\x00" * 32, b"mercury-agent pqc capability probe")
     if len(tag) != 32:
         raise RuntimeError(f"HMAC-SHA-256 tag size {len(tag)} != 32")
@@ -222,7 +199,7 @@ def _probe_native_hmac_sha256_2() -> None:
     from omni_mercury_engine.security.ama_hmac import HAS_AMA_HMAC_SHA256, ama_hmac_sha256_2
 
     if not HAS_AMA_HMAC_SHA256:
-        raise RuntimeError(f"{_STUB_MSG} (native HMAC-SHA-256-2 binding)")
+        raise RuntimeError(f"{_UNAVAILABLE_MSG} (native HMAC-SHA-256-2 binding)")
     tag = ama_hmac_sha256_2(b"\x00" * 32, b"hdr.", b"body")
     if len(tag) != 32:
         raise RuntimeError(f"HMAC-SHA-256-2 tag size {len(tag)} != 32")
@@ -254,9 +231,8 @@ _PROBES: dict[str, Any] = {
     "ama-hmac-sha256-2": _probe_native_hmac_sha256_2,
 }
 
-# Mercury's hard-required primitives — what ``AMA_REQUIRE_REAL_PQC=true``
-# is supposed to guarantee.  If any of these are not ``"real"`` the
-# tool fails under ``--require-real``.
+# Mercury's hard-required primitives.  If any of these are not ``"real"``
+# the tool fails under ``--require-real``.
 _REQUIRED = {"ed25519", "kyber-1024", "ml-dsa-65", "ama-hmac-sha256"}
 
 

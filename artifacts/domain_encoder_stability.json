@@ -1,0 +1,114 @@
+{
+  "metadata": {
+    "purpose": "WS-B: resolve the domain-encoder design-sweep INVESTIGATE flag",
+    "dataset_source": "https://github.com/Minqi824/ADBench (MIT)",
+    "configs": {
+      "full_default": "full default",
+      "wide_kernels": {
+        "encoder_kwargs": {
+          "kinematic": {
+            "kernel_widths": [
+              2,
+              3,
+              4,
+              5,
+              6
+            ]
+          }
+        }
+      }
+    },
+    "seeds": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "fraction": 0.25,
+    "epochs": 25,
+    "metric": "ROC-AUC (mercury_ml, no sklearn)"
+  },
+  "results": [
+    {
+      "dataset": "glass",
+      "test_positives": 3,
+      "config": "full_default",
+      "mean_delta_auc": 0.03756830601092896,
+      "std_delta_auc": 0.06215096333703782,
+      "min_delta_auc": -0.010928961748633892,
+      "max_delta_auc": 0.1584699453551912,
+      "confounded": false,
+      "baseline_inversions": 0,
+      "n_seeds": 8
+    },
+    {
+      "dataset": "glass",
+      "test_positives": 3,
+      "config": "wide_kernels",
+      "mean_delta_auc": -0.030737704918032807,
+      "std_delta_auc": 0.27135890026245646,
+      "min_delta_auc": -0.7213114754098361,
+      "max_delta_auc": 0.180327868852459,
+      "confounded": true,
+      "baseline_inversions": 0,
+      "n_seeds": 8
+    },
+    {
+      "dataset": "Pima",
+      "test_positives": 80,
+      "config": "full_default",
+      "mean_delta_auc": -0.0027552083333333074,
+      "std_delta_auc": 0.03186739041452248,
+      "min_delta_auc": -0.06366666666666665,
+      "max_delta_auc": 0.04750000000000004,
+      "confounded": true,
+      "baseline_inversions": 1,
+      "n_seeds": 8
+    },
+    {
+      "dataset": "Pima",
+      "test_positives": 80,
+      "config": "wide_kernels",
+      "mean_delta_auc": 0.033041666666666684,
+      "std_delta_auc": 0.046513476243151504,
+      "min_delta_auc": -0.015499999999999958,
+      "max_delta_auc": 0.13308333333333328,
+      "confounded": true,
+      "baseline_inversions": 1,
+      "n_seeds": 8
+    },
+    {
+      "dataset": "annthyroid",
+      "test_positives": 160,
+      "config": "full_default",
+      "mean_delta_auc": -0.0014257812500000078,
+      "std_delta_auc": 0.008665682156715133,
+      "min_delta_auc": -0.0141531250000001,
+      "max_delta_auc": 0.010709375000000021,
+      "confounded": false,
+      "baseline_inversions": 0,
+      "n_seeds": 8
+    },
+    {
+      "dataset": "annthyroid",
+      "test_positives": 160,
+      "config": "wide_kernels",
+      "mean_delta_auc": -0.0074660156250000165,
+      "std_delta_auc": 0.021386007675821654,
+      "min_delta_auc": -0.05583437499999999,
+      "max_delta_auc": 0.022228125000000043,
+      "confounded": false,
+      "baseline_inversions": 0,
+      "n_seeds": 8
+    }
+  ],
+  "verdict": {
+    "auc_meaningful_threshold": 0.002,
+    "survivors": [],
+    "verdict": "QUARANTINE -- INVESTIGATE flag resolved: no design survives the 8-seed, well-powered re-run (the sweep's best cell was small-sample / baseline-collapse, not a robust encoder gain). domain_encoder=False stays the default."
+  }
+}

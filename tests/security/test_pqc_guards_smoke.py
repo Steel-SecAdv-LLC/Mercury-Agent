@@ -18,8 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-import warnings
-
 from omni_mercury_engine.security.pqc_guards import (
     PQCSimulationWarning,
     assert_no_simulation_in_production,
@@ -28,9 +26,7 @@ from omni_mercury_engine.security.pqc_guards import (
 
 
 def test_check_pqc_production_readiness() -> None:
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", PQCSimulationWarning)
-        result = check_pqc_production_readiness()
+    result = check_pqc_production_readiness()
     assert isinstance(result, dict)
     assert "backend" in result
     assert "dilithium" in result

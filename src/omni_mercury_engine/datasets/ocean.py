@@ -126,7 +126,7 @@ class NOAABuoyLoader(DatasetLoader):
         self.stations = config.preprocessing.get("stations", list(self.BUOY_STATIONS.keys())[:5])
         self.anomaly_std = config.preprocessing.get("anomaly_std", 3.0)
         self._features: np.ndarray[Any, Any] | None = None
-        self._labels: np.ndarray[Any, Any] | None = None  # type: ignore[assignment]
+        self._raw_labels: np.ndarray[Any, Any] | None = None
         self._is_real_data = False
 
     @property
@@ -208,7 +208,7 @@ class NOAABuoyLoader(DatasetLoader):
             # Save to cache
             np.savez_compressed(cache_file, features=features, labels=labels)
             self._features = features
-            self._labels = labels
+            self._raw_labels = labels
             self._is_real_data = True
 
             logger.info(
@@ -469,15 +469,15 @@ class NOAABuoyLoader(DatasetLoader):
         labels = (z_scores.max(axis=1) > self.anomaly_std).astype(np.int64)
 
         self._features = features.astype(np.float32)
-        self._labels = labels
+        self._raw_labels = labels
         self._is_real_data = False
 
         save_path = self.data_path / "synthetic_noaa_buoy.npz"
-        np.savez_compressed(save_path, features=self._features, labels=self._labels)
+        np.savez_compressed(save_path, features=self._features, labels=self._raw_labels)
 
         logger.info(
             f"Generated SYNTHETIC {n_samples} NOAA buoy samples, "
-            f"{self._labels.sum()} anomalies (is_real_data=False)"
+            f"{self._raw_labels.sum()} anomalies (is_real_data=False)"
         )
         return True
 
@@ -485,21 +485,21 @@ class NOAABuoyLoader(DatasetLoader):
         """Load raw buoy data from cached files."""
         real_cache = self.data_path / "noaa_buoy_real.npz"
         if real_cache.exists():
-            data = np.load(real_cache)
+            data = np.load(real_cache, allow_pickle=False)
             self._features = data["features"]
-            self._labels = data["labels"]
+            self._raw_labels = data["labels"]
             self._is_real_data = True
             logger.info(f"Loaded REAL NOAA buoy data from {real_cache}")
-            return self._features, self._labels
+            return self._features, self._raw_labels
 
         synthetic_path = self.data_path / "synthetic_noaa_buoy.npz"
         if synthetic_path.exists() and ALLOW_SYNTHETIC:
-            data = np.load(synthetic_path)
+            data = np.load(synthetic_path, allow_pickle=False)
             self._features = data["features"]
-            self._labels = data["labels"]
+            self._raw_labels = data["labels"]
             self._is_real_data = False
             logger.info("Loaded SYNTHETIC NOAA buoy data (is_real_data=False)")
-            return self._features, self._labels
+            return self._features, self._raw_labels
 
         raise FileNotFoundError("NOAA buoy data not found. Run download() first.")
 
@@ -510,8 +510,8 @@ class NOAABuoyLoader(DatasetLoader):
         Returns:
             Tuple of (features, labels) numpy arrays
         """
-        if self._features is not None and self._labels is not None:
-            return self._features, self._labels
+        if self._features is not None and self._raw_labels is not None:
+            return self._features, self._raw_labels
 
         try:
             return self._load_raw()
@@ -548,14 +548,14 @@ class NOAABuoyLoader(DatasetLoader):
             self.load_data()
 
         # Type guards for mypy - load_data() ensures these are not None
-        if self._features is None or self._labels is None:
+        if self._features is None or self._raw_labels is None:
             raise RuntimeError("Failed to load data")
 
         return {
             "n_samples": len(self._features),
             "n_features": self._features.shape[1],
-            "n_anomalies": int(self._labels.sum()),
-            "anomaly_ratio": float(self._labels.mean()),
+            "n_anomalies": int(self._raw_labels.sum()),
+            "anomaly_ratio": float(self._raw_labels.mean()),
             "feature_means": {
                 name: float(self._features[:, i].mean())
                 for i, name in enumerate(self.FEATURE_COLS[: self._features.shape[1]])

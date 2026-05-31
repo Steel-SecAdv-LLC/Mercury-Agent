@@ -152,6 +152,14 @@ jobs:
             exit 1
           fi
 
+      - name: Neural-submodule coverage gate (WS-E/F, dep-free)
+        # docs/NEURAL_SUBMODULE_COVERAGE.md is generated from the registry in
+        # scripts/neural_coverage.py. Fails if the doc is out of sync or if any
+        # referenced module / test file / committed artifact is missing, so the
+        # coverage table cannot silently rot. Regenerate: --update.
+        run: |
+          python scripts/neural_coverage.py --check
+
       - name: Run pydocstyle (docstring checks)
         # Blocking — the docstring contract is part of the source-of-truth API
         # surface and we do not allow it to drift silently.  ``[tool.pydocstyle]``
@@ -230,6 +238,11 @@ jobs:
         # lane; it does not need [ml]/[api] extras.
         run: pip install -e .
 
+      - name: Build + install AMA Cryptography (native PQC backend)
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v3.2.0
+
       - name: Run actionlint
         run: |
           "$(go env GOPATH)/bin/actionlint" \
@@ -261,6 +274,8 @@ jobs:
         # Co-located with the suppression/workflow hygiene gates so a
         # docs-drift regression is caught at the same stage as a
         # workflow-permissions regression.
+        env:
+          AMA_REQUIRE_REAL_PQC: "true"
         run: python scripts/check_readme_lyapunov.py
 
   # ===========================================================================
@@ -330,6 +345,11 @@ jobs:
           pip install -e ".[ml]"
           pip install mypy types-requests \
             "pytest>=9.0.3" pytest-asyncio pytest-mock
+
+      - name: Build + install AMA Cryptography (native PQC backend)
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v3.2.0
 
       - name: Run MyPy
         # MyPy reads strict config from pyproject.toml automatically.
@@ -463,6 +483,11 @@ jobs:
         # genuine network / index issue and should fail the job.
         run: python -m pip install --upgrade "pip>=26.1"
 
+      - name: Build + install AMA Cryptography (native PQC backend)
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v3.2.0
+
       - name: Install bandit / safety / pip-audit (audit-tool layer)
         # Audit tools live in the *runner's* default Python and are
         # never installed into Mercury's environment.  This keeps
@@ -535,6 +560,9 @@ jobs:
           /tmp/mercury-audit-env/bin/pip install --upgrade "pip>=26.1"
           /tmp/mercury-audit-env/bin/pip install -e ".[api]" \
             --upgrade "click>=8.2" "typer>=0.20"
+          /tmp/mercury-audit-env/bin/pip install --upgrade \
+            "setuptools>=78.1.1" "wheel>=0.47.0" "cmake>=4.3.2"
+          AMA_NO_CYTHON=1 /tmp/mercury-audit-env/bin/pip install --no-build-isolation /tmp/ama-cryptography
           /tmp/mercury-audit-env/bin/pip list --format=freeze \
             > /tmp/mercury-audit-env/requirements.txt
           {
@@ -707,7 +735,7 @@ jobs:
 
       - name: Build + install AMA Cryptography (native PQC backend)
         # AMA takes a backseat to none: every test lane now runs against the
-        # real native AMA backend so soft PQC stubs are never exercised in CI.
+        # real native AMA backend; non-native PQC execution is not a CI mode.
         uses: ./.github/actions/build-ama-cryptography
         with:
           ama-ref: v3.2.0
@@ -725,7 +753,7 @@ jobs:
           MERCURY_REQUIRES_ML: "1"
           # Require the real native AMA backend at package import (the build
           # step above provisions it). Fails the lane closed if AMA cannot
-          # load rather than importing the soft PQC stubs.
+          # load.
           AMA_REQUIRE_REAL_PQC: "true"
         run: |
           # Core-lane test selection, expanded in v1.7.x for the
@@ -1018,11 +1046,9 @@ jobs:
       - name: Run full test suite with parallelization
         env:
           TORCH_HOME: ~/.cache/torch
-          MERCURY_PQC_REAL_AMA: "1"
           # AMA takes a backseat to none: require the real native AMA backend
           # at package import. The build step above provisions it, so this
-          # fails the lane closed if AMA ever fails to load rather than
-          # silently importing the soft PQC stubs.
+          # fails the lane closed if AMA ever fails to load.
           AMA_REQUIRE_REAL_PQC: "true"
           # ML Tests installs ``[all,dev]`` above (which pulls
           # ``[ml]`` transitively).  Declare the contract so
@@ -1189,10 +1215,17 @@ jobs:
           python -m pip install --upgrade "pip>=26.1"
           pip install numpy scipy torch scikit-learn sympy
 
+      - name: Build + install AMA Cryptography (native PQC backend)
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v3.2.0
+
       - name: Run ethics audit
         # Ethics audit enforces AI alignment — failures block the pipeline.
         # Verifies EthicalAutonomyGovernor, PreExecutionBlockingGate,
         # OmniAvaEquation immutability, and 8-pillar configuration.
+        env:
+          AMA_REQUIRE_REAL_PQC: "true"
         run: python benchmarks/run_ethics_audit.py
 
   # ===========================================================================
@@ -1254,9 +1287,16 @@ jobs:
           pip install -e .
           pip install pytest pytest-benchmark
 
+      - name: Build + install AMA Cryptography (native PQC backend)
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v3.2.0
+
       - name: Run performance benchmarks
         # Performance gate: Detect regressions in key operations
         # Targets: GOSNN detection <100ms, cache hit rate >50%
+        env:
+          AMA_REQUIRE_REAL_PQC: "true"
         run: |
           python -c "
           import time

@@ -60,11 +60,10 @@ extensions = [
 ]
 # ``sphinx_autodoc_typehints`` and ``sphinx.ext.autodoc`` are
 # intentionally *not* loaded.  Importing the package would require the
-# AMA native shared object plus optional ML dependencies, which would
+# mandatory AMA native shared object plus ML extras, which would
 # either gate the docs build on the entire native toolchain or
-# silently produce a partial API reference whenever an optional
-# dependency is missing.  Docstring quality is enforced separately by
-# ``pydocstyle`` in CI.
+# silently produce a partial API reference.  Docstring quality is
+# enforced separately by ``pydocstyle`` in CI.
 
 # myst_parser configuration — enable the markdown features used across
 # the existing narrative docs (heading anchors for cross-references,

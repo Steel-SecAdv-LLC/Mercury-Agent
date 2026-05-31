@@ -1,24 +1,14 @@
 """
 Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-Import-time PQC production gate.
+Import-time PQC gate.
 
-AMA is mandatory at runtime in production.  The gate's effective default is:
-
-* ``MERCURY_ENV=production`` (and ``AMA_REQUIRE_REAL_PQC`` unset) →
-  ``omni_mercury_engine`` package import refuses to proceed unless the AMA
-  Cryptography native C backend is fully loadable.  A production process can
-  no longer start against the soft PQC stubs.
-* ``MERCURY_ENV`` unset/``development`` (the default mode, used by CI and
-  local dev) → the gate is a silent no-op, so importing the package without
-  AMA's native build keeps working.
-
-An explicit ``AMA_REQUIRE_REAL_PQC`` (or the legacy ``AVA_REQUIRE_REAL_PQC``)
-overrides the mode-derived default in either direction: ``=true`` forces the
-gate on anywhere, ``=false`` is the documented opt-out for an AMA-less lane
-(set it in any CI job that does not build AMA).  When the gate is on it
-imports the soft PQC stubs in ``security.pqc_backends`` only as a last
-resort; a complete AMA native build is required to pass.
+AMA is mandatory for Mercury.  ``omni_mercury_engine`` package import refuses
+to proceed unless the AMA Cryptography native C backend is fully loadable;
+there is no development-mode or CI-mode escape hatch.  The
+``AMA_REQUIRE_REAL_PQC`` / legacy ``AVA_REQUIRE_REAL_PQC`` env vars are retained
+only for diagnostics and compatibility with older workflow comments — they no
+longer disable the gate.
 
 Algorithm coverage matches
 ``security.pqc_guards.check_pqc_production_readiness``: the gate
@@ -53,8 +43,6 @@ re-binding to keep the public package surface clean.
 """
 
 from __future__ import annotations
-
-import os
 
 _PQC_BUILD_RECOVERY_HINT = (
     "Build the AMA-Cryptography native library from a clone of the upstream\n"
@@ -95,32 +83,11 @@ def _enforce_pqc_production_gate() -> None:
     availability consistent and stops false-positive partial-install
     rejections in the verify-real-pqc CI lane.
     """
-    require_flag = os.environ.get("AMA_REQUIRE_REAL_PQC", os.environ.get("AVA_REQUIRE_REAL_PQC"))
-    if require_flag is not None:
-        # Explicit operator override wins in either direction and in any
-        # mode: ``=true`` forces the gate on, ``=false`` (the documented
-        # opt-out for an AMA-less CI/dev lane) forces it off.
-        require_real = require_flag.strip().lower() in ("true", "1", "yes", "on")
-    else:
-        # Default-on in production, opt-in elsewhere.  AMA is mandatory at
-        # runtime when ``MERCURY_ENV=production`` so a production process
-        # cannot start against the soft PQC stubs; development/CI (the
-        # default mode) stays a silent no-op so importing the package
-        # without AMA's native build keeps working unless real PQC is
-        # explicitly requested.  This is the "strict in production, do not
-        # surprise-break unrelated CI" contract — flip it per-lane with
-        # ``AMA_REQUIRE_REAL_PQC``.
-        from omni_mercury_engine._env import is_production
-
-        require_real = is_production()
-    if not require_real:
-        return
-
     try:
         import ama_cryptography.pqc_backends as ama_pqc_backends
     except ImportError as exc:
         raise RuntimeError(
-            "AMA_REQUIRE_REAL_PQC=true but the AMA Cryptography Python "
+            "AMA/PQC is mandatory for Mercury, but the AMA Cryptography Python "
             "package is not importable "
             "(import ama_cryptography.pqc_backends failed).\n"
             f"{_PQC_BUILD_RECOVERY_HINT}"
@@ -134,7 +101,7 @@ def _enforce_pqc_production_gate() -> None:
 
     if missing:
         raise RuntimeError(
-            "AMA_REQUIRE_REAL_PQC=true but the AMA Cryptography native C "
+            "AMA/PQC is mandatory for Mercury, but the AMA Cryptography native C "
             f"backend is incomplete; missing or unavailable: {', '.join(missing)}.\n"
             f"{_PQC_BUILD_RECOVERY_HINT}"
         )

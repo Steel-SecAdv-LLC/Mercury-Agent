@@ -399,7 +399,7 @@ class NISTCSFReferenceFetcher:
                 f"Update NIST_CSF_REFERENCE_URL if NIST CSRC has moved the endpoint."
             )
 
-        payload = response.content
+        payload: bytes = response.content
         if not payload:
             raise NISTCSFReferenceError(f"Empty payload returned from {self._url}")
         # XLSX files are ZIP archives; the OOXML magic is the standard

@@ -5,9 +5,9 @@ Runtime environment-mode primitive.
 
 Mercury historically had no single source of truth for "am I running in
 production?".  Individual modules invented ad-hoc env vars
-(``AMA_REQUIRE_REAL_PQC``, ``MERCURY_PQC_REAL_AMA``,
-``_GOSNN_TESTING_BYPASS``) for their own fail-closed gates, which works
-for narrowly-scoped contracts (PQC, GOSNN) but does not scale to "every
+(``AMA_REQUIRE_REAL_PQC``, ``_GOSNN_TESTING_BYPASS``) for their own
+fail-closed gates, which works for narrowly-scoped contracts (PQC, GOSNN)
+but does not scale to "every
 optional collaborator that has a development-friendly stub should
 hard-fail in production".
 

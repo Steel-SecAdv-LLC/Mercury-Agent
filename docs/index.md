@@ -25,19 +25,13 @@ for the post-quantum cryptographic substrate.
   supported post-quantum backend (PR #144). v3.2.0 also exposes the
   native HMAC-SHA-256 / HMAC-SHA-512 bindings consumed by Mercury's
   `native_jwt` HS256 / HS512 signing path (see CHANGELOG
-  `[Unreleased]` § "AMA-routed JWT HMAC signatures"). The package import is
-  guarded — `security/pqc_backends.py` catches `ImportError` and
-  keeps Mercury importable with stub functions, so a developer
-  without the native library can still load the package — but
-  the package import path runs a production-gate check
-  (`omni_mercury_engine._pqc_gate._enforce_pqc_production_gate`,
-  invoked from `__init__.py` at import time) that fails closed when
-  `AMA_REQUIRE_REAL_PQC=true` and the native AMA Cryptography
-  library is missing or partially built. The gate is automatic:
-  `import omni_mercury_engine` raises `RuntimeError` before any
-  other package state is materialised. With the env var
-  unset (the dev-mode default), the gate is a no-op and the soft
-  PQC stubs from `security/pqc_backends.py` carry development.
+  `[Unreleased]` § "AMA-routed JWT HMAC signatures"). Package import is
+  hard-gated: `omni_mercury_engine._pqc_gate._enforce_pqc_production_gate`
+  runs from `__init__.py`, imports `ama_cryptography.pqc_backends`,
+  and refuses to start unless ML-DSA-65, Kyber-1024, and SPHINCS+
+  are all backed by the native AMA library. `AMA_REQUIRE_REAL_PQC`
+  is retained only for legacy workflow readability; it no longer
+  creates a dev-mode escape hatch.
   `security/pqc_guards.check_pqc_production_readiness()` remains
   available for callers that want the same check at a finer
   boundary. See [`SECURITY.md`](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/SECURITY.md) for the full

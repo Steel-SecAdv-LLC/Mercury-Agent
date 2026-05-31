@@ -4,44 +4,23 @@ Copyright (C) 2025 Steel Security Advisors LLC
 
 Tests for the crypto_api module - cryptographic operations.
 
-AMA Cryptography v2.0 is the sole PQC backend.  There is no simulation
-mode — if AMA is installed but its native C library is not built, the
-PQC algorithm tests are skipped (not faked).
+AMA Cryptography v3.2.0 is a mandatory Mercury capability.  There is no
+simulation mode and no AMA-less skip path; missing AMA/PQC fails at import.
 """
 
 from __future__ import annotations
 
 import pytest
 
-# Import crypto module components
-try:
-    from omni_mercury_engine.security.crypto_api import (
-        AlgorithmType,
-        CryptoPackageConfig,
-        Ed25519Provider,
-        KeyPair,
-        MercuryCrypto,
-        SecurityLevel,
-        Signature,
-    )
-
-    HAS_CRYPTO = True
-except ImportError:
-    HAS_CRYPTO = False
-
-# Check native PQC availability (AMA always installed, but native C may not be built)
-try:
-    from omni_mercury_engine.security.pqc_backends import (
-        DILITHIUM_AVAILABLE,
-        KYBER_AVAILABLE,
-        SPHINCS_AVAILABLE,
-    )
-except ImportError:
-    DILITHIUM_AVAILABLE = False
-    KYBER_AVAILABLE = False
-    SPHINCS_AVAILABLE = False
-
-pytestmark = pytest.mark.skipif(not HAS_CRYPTO, reason="crypto_api not available")
+from omni_mercury_engine.security.crypto_api import (
+    AlgorithmType,
+    CryptoPackageConfig,
+    Ed25519Provider,
+    KeyPair,
+    MercuryCrypto,
+    SecurityLevel,
+    Signature,
+)
 
 
 class TestEd25519Provider:
@@ -217,10 +196,6 @@ class TestAlgorithmTypeEnum:
         assert hasattr(AlgorithmType, "ML_DSA_65") or hasattr(AlgorithmType, "DILITHIUM")
 
 
-@pytest.mark.skipif(
-    not DILITHIUM_AVAILABLE,
-    reason="ML-DSA-65 not available (AMA native C library not built)",
-)
 class TestPostQuantumProviders:
     """
     Tests for Post-Quantum Cryptographic Providers via crypto_api.
@@ -258,9 +233,6 @@ class TestPostQuantumProviders:
 
     def test_kyber_encapsulation(self) -> None:
         """Test Kyber key encapsulation roundtrip."""
-        if not KYBER_AVAILABLE:
-            pytest.skip("Kyber-1024 not available")
-
         from omni_mercury_engine.security.crypto_api import KyberProvider
 
         provider = KyberProvider()
@@ -278,9 +250,6 @@ class TestPostQuantumProviders:
 
     def test_sphincs_plus_signatures(self) -> None:
         """Test SPHINCS+ signature roundtrip."""
-        if not SPHINCS_AVAILABLE:
-            pytest.skip("SPHINCS+ not available")
-
         from omni_mercury_engine.security.crypto_api import SphincsProvider
 
         provider = SphincsProvider()
@@ -292,10 +261,6 @@ class TestPostQuantumProviders:
         assert is_valid is True, "SPHINCS+ should verify signatures correctly"
 
 
-@pytest.mark.skipif(
-    not DILITHIUM_AVAILABLE,
-    reason="ML-DSA-65 not available (AMA native C library not built)",
-)
 class TestHybridCryptography:
     """
     Tests for Hybrid Classical+Post-Quantum Operations.
@@ -463,10 +428,6 @@ class TestCryptoIntegration:
         assert caps is not None
 
 
-@pytest.mark.skipif(
-    not DILITHIUM_AVAILABLE,
-    reason="Requires AMA native C library (ML-DSA-65)",
-)
 class TestPQCRealImplementation:
     """
     Tests for real PQC cryptographic operations via AMA Cryptography.
@@ -490,7 +451,6 @@ class TestPQCRealImplementation:
 
         assert is_valid is True, "ML-DSA-65 should verify signatures correctly"
 
-    @pytest.mark.skipif(not KYBER_AVAILABLE, reason="Kyber-1024 not available")
     def test_real_kyber_encap_decap_matches(self) -> None:
         """Kyber encap/decap shared secret roundtrip."""
         from omni_mercury_engine.security.pqc_backends import (
@@ -507,7 +467,6 @@ class TestPQCRealImplementation:
             recovered == encapsulated.shared_secret
         ), "Kyber should produce matching shared secrets"
 
-    @pytest.mark.skipif(not SPHINCS_AVAILABLE, reason="SPHINCS+ not available")
     def test_real_sphincs_sign_verify_succeeds(self) -> None:
         """SPHINCS+ sign/verify roundtrip."""
         from omni_mercury_engine.security.pqc_backends import (

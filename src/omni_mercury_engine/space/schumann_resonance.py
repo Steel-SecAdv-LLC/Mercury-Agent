@@ -147,6 +147,18 @@ class SchumannHarmonicAnalyzer(_NNBase):  # type: ignore[misc, unused-ignore]
 
         self.confidence_head = nn.Sequential(nn.Linear(64, 1), nn.Sigmoid())
 
+    def _features(
+        self, spectrum: torch.Tensor, temporal_sequence: torch.Tensor | None = None
+    ) -> torch.Tensor:
+        """Shared CNN/LSTM feature extractor (64-dim per sample)."""
+        cnn_features = self.cnn_encoder(spectrum).transpose(1, 2)
+        if temporal_sequence is not None:
+            lstm_out, _ = self.lstm(temporal_sequence)
+            features: torch.Tensor = lstm_out[:, -1, :]
+        else:
+            features = cnn_features.mean(dim=2)
+        return features
+
     def forward(
         self, spectrum: torch.Tensor, temporal_sequence: torch.Tensor | None = None
     ) -> tuple[torch.Tensor, torch.Tensor]:
@@ -160,20 +172,30 @@ class SchumannHarmonicAnalyzer(_NNBase):  # type: ignore[misc, unused-ignore]
         Returns:
             Tuple of (anomaly_logits, confidence)
         """
-        cnn_features = self.cnn_encoder(spectrum)
-
-        cnn_features = cnn_features.transpose(1, 2)
-
-        if temporal_sequence is not None:
-            lstm_out, _ = self.lstm(temporal_sequence)
-            features = lstm_out[:, -1, :]
-        else:
-            features = cnn_features.mean(dim=2)
-
+        features = self._features(spectrum, temporal_sequence)
         anomaly_logits = self.anomaly_classifier(features)
         confidence = self.confidence_head(features)
 
         return anomaly_logits, confidence
+
+    def confidence_logits(
+        self, spectrum: torch.Tensor, temporal_sequence: torch.Tensor | None = None
+    ) -> torch.Tensor:
+        """Pre-sigmoid confidence logit, for numerically-stable training.
+
+        ``confidence_head`` is ``Sequential(Linear, Sigmoid)``; this returns the
+        Linear output *before* the Sigmoid so callers can train with
+        ``BCEWithLogitsLoss`` (the correct objective) instead of ``BCELoss`` on a
+        clamped sigmoid. Inference (``forward``) is unchanged:
+        ``sigmoid(confidence_logits(x)) == forward(x)[1]`` exactly, and no
+        parameter names change (checkpoints stay loadable). See WS-C diagnosis in
+        ``docs/SCHUMANN_PREREGISTRATION.md``: the historical seed-instability was a
+        full-batch optimisation artifact, not this objective, but logit-space
+        training is the correct recipe regardless.
+        """
+        features = self._features(spectrum, temporal_sequence)
+        logit: torch.Tensor = self.confidence_head[0](features)  # Linear, pre-Sigmoid
+        return logit
 
 
 class SchumannResonanceDetector:
@@ -211,6 +233,14 @@ class SchumannResonanceDetector:
         self.schumann_frequencies = [7.83, 14.3, 20.8, 27.3, 33.8]
 
         self.harmonic_analyzer = SchumannHarmonicAnalyzer(spectrum_size=512)
+        # Anti-theater guard: the CNN-LSTM analyser ships with random weights and
+        # no labelled Schumann anomaly corpus exists to train it. Until trained
+        # weights are loaded via load_neural_weights(), its softmax/confidence
+        # outputs are random noise, so detect_resonance_anomaly() must not derive
+        # anomaly_type / confidence / risk_score from them. It falls back to the
+        # deterministic FFT-physics assessment instead (see _physics_assessment).
+        self._neural_trained = False
+        self._warned_untrained = False
 
         self.ancient_knowledge = self._initialize_ancient_correlations()
 
@@ -304,24 +334,38 @@ class SchumannResonanceDetector:
 
         anomaly_detected = any([amplitude_anomaly, frequency_anomaly, power_shift])
 
-        spectrum_tensor = (
-            torch.tensor(power_spectrum[:512], dtype=torch.float32).unsqueeze(0).unsqueeze(0)
-        )
+        if self._neural_trained:
+            # Trained weights present: use the learned CNN-LSTM classifier.
+            spectrum_tensor = (
+                torch.tensor(power_spectrum[:512], dtype=torch.float32).unsqueeze(0).unsqueeze(0)
+            )
+            temporal_tensor = None
+            if temporal_history and len(temporal_history) > 0:
+                temporal_tensor = self._process_temporal_history(temporal_history)
 
-        temporal_tensor = None
-        if temporal_history and len(temporal_history) > 0:
-            temporal_tensor = self._process_temporal_history(temporal_history)
-
-        self.harmonic_analyzer.eval()
-        with torch.no_grad():
-            anomaly_logits, confidence = self.harmonic_analyzer(spectrum_tensor, temporal_tensor)
-
-        anomaly_probs = torch.softmax(anomaly_logits[0], dim=0)
-        anomaly_class = torch.argmax(anomaly_probs).item()
-        confidence_score = float(confidence[0].item())
-
-        anomaly_types = ["normal", "amplitude", "frequency", "combined"]
-        anomaly_type = anomaly_types[anomaly_class]  # type: ignore[index, unused-ignore]
+            self.harmonic_analyzer.eval()
+            with torch.no_grad():
+                anomaly_logits, confidence = self.harmonic_analyzer(
+                    spectrum_tensor, temporal_tensor
+                )
+            anomaly_probs = torch.softmax(anomaly_logits[0], dim=0)
+            anomaly_class = int(torch.argmax(anomaly_probs).item())
+            confidence_score = float(confidence[0].item())
+            anomaly_types = ["normal", "amplitude", "frequency", "combined"]
+            anomaly_type = anomaly_types[anomaly_class]
+        else:
+            # Untrained network -> do NOT present random outputs as signal.
+            # Derive the type and confidence from the deterministic FFT physics.
+            if not self._warned_untrained:
+                self.logger.warning(
+                    "SchumannHarmonicAnalyzer is untrained (random weights); using the "
+                    "deterministic FFT-physics assessment for anomaly_type/confidence. "
+                    "Load trained weights via load_neural_weights() to enable the CNN-LSTM."
+                )
+                self._warned_untrained = True
+            anomaly_type, confidence_score = self._physics_assessment(
+                amplitude_anomaly, frequency_anomaly, power_shift, fundamental_deviation
+            )
 
         risk_score = (
             confidence_score
@@ -370,6 +414,64 @@ class SchumannResonanceDetector:
         )
 
         return result
+
+    @staticmethod
+    def _physics_assessment(
+        amplitude_anomaly: bool,
+        frequency_anomaly: bool,
+        power_shift: bool,
+        fundamental_deviation: float,
+    ) -> tuple[str, float]:
+        """Deterministic anomaly type and confidence from the FFT physics.
+
+        Used when the neural analyser is untrained, so the reported
+        ``anomaly_type``/``confidence`` reflect real spectral evidence rather
+        than random-weight network output. The type follows which independent
+        spectral tests fired; the confidence combines how many fired (agreement)
+        with the fundamental-frequency deviation magnitude, bounded to ``[0, 1]``.
+
+        Args:
+            amplitude_anomaly: Amplitude test fired.
+            frequency_anomaly: Fundamental-frequency test fired.
+            power_shift: Spectral power-shift test fired.
+            fundamental_deviation: |f0 - 7.83| in Hz.
+
+        Returns:
+            ``(anomaly_type, confidence)`` with type in
+            ``{normal, amplitude, frequency, combined}``.
+        """
+        if amplitude_anomaly and frequency_anomaly:
+            anomaly_type = "combined"
+        elif frequency_anomaly:
+            anomaly_type = "frequency"
+        elif amplitude_anomaly or power_shift:
+            anomaly_type = "amplitude"
+        else:
+            anomaly_type = "normal"
+
+        n_flags = int(amplitude_anomaly) + int(frequency_anomaly) + int(power_shift)
+        evidence = n_flags / 3.0
+        dev_term = min(1.0, fundamental_deviation / 2.0)  # 2 Hz off -> saturate
+        confidence = float(min(1.0, 0.6 * evidence + 0.4 * dev_term))
+        return anomaly_type, confidence
+
+    def load_neural_weights(self, state_dict: dict[str, Any] | str) -> None:
+        """Load trained weights for the CNN-LSTM analyser and enable it.
+
+        Once trained weights exist (a labelled Schumann corpus is required to
+        produce them honestly), this activates the learned classifier path in
+        :meth:`detect_resonance_anomaly`.
+
+        Args:
+            state_dict: An in-memory ``state_dict`` or a path to a saved one.
+        """
+        loaded: Any = state_dict
+        if isinstance(state_dict, str):
+            loaded = torch.load(state_dict, map_location="cpu", weights_only=True)
+        self.harmonic_analyzer.load_state_dict(loaded)
+        self.harmonic_analyzer.eval()
+        self._neural_trained = True
+        self.logger.info("Schumann CNN-LSTM weights loaded; learned classifier enabled.")
 
     def _compute_power_spectrum(
         self, elf_signal: np.ndarray[Any, Any]

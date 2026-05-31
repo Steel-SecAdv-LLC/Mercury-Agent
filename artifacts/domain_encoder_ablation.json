@@ -1,0 +1,114 @@
+{
+  "metadata": {
+    "purpose": "WS-B differentiable domain-encoder wired into the fusion path: ablation",
+    "dataset_source": "https://github.com/Minqi824/ADBench",
+    "dataset_license": "MIT",
+    "seeds": [
+      0,
+      1,
+      2
+    ],
+    "fractions": [
+      0.25,
+      1.0
+    ],
+    "epochs": 25,
+    "metric": "ROC-AUC (mercury_ml, no sklearn); oracle-F1 101-pt sweep",
+    "arms": {
+      "baseline": "engine.fit_fusion(domain_encoder=False)",
+      "encoder": "engine.fit_fusion(domain_encoder=True) -- + DomainEncoderStack"
+    },
+    "isolation": "identical split/fusion/optimiser; only domain_encoder flag differs"
+  },
+  "results": [
+    {
+      "dataset": "cardio",
+      "fractions": [
+        {
+          "fraction": 0.25,
+          "n_train": 321,
+          "baseline_auc": 0.9839413841539807,
+          "encoder_auc": 0.9790567303190212,
+          "delta_auc": -0.004884653834959507,
+          "baseline_f1": 0.8604889060334605,
+          "encoder_f1": 0.8453905451843596,
+          "seeds_encoder_wins": 0,
+          "n_seeds": 3
+        },
+        {
+          "fraction": 1.0,
+          "n_train": 1281,
+          "baseline_auc": 0.9949888007289017,
+          "encoder_auc": 0.9957354188021209,
+          "delta_auc": 0.0007466180732191852,
+          "baseline_f1": 0.9102320946380352,
+          "encoder_f1": 0.9280326197757391,
+          "seeds_encoder_wins": 1,
+          "n_seeds": 3
+        }
+      ]
+    },
+    {
+      "dataset": "Pima",
+      "fractions": [
+        {
+          "fraction": 0.25,
+          "n_train": 135,
+          "baseline_auc": 0.5829444444444444,
+          "encoder_auc": 0.6026111111111111,
+          "delta_auc": 0.01966666666666672,
+          "baseline_f1": 0.5231427740442651,
+          "encoder_f1": 0.5393501125643301,
+          "seeds_encoder_wins": 2,
+          "n_seeds": 3
+        },
+        {
+          "fraction": 1.0,
+          "n_train": 538,
+          "baseline_auc": 0.6090833333333334,
+          "encoder_auc": 0.6191944444444444,
+          "delta_auc": 0.01011111111111096,
+          "baseline_f1": 0.5253382048603528,
+          "encoder_f1": 0.5197874598913071,
+          "seeds_encoder_wins": 1,
+          "n_seeds": 3
+        }
+      ]
+    },
+    {
+      "dataset": "thyroid",
+      "fractions": [
+        {
+          "fraction": 0.25,
+          "n_train": 660,
+          "baseline_auc": 0.9966356107660456,
+          "encoder_auc": 0.9962689786059351,
+          "delta_auc": -0.0003666321601104583,
+          "baseline_f1": 0.8420764555065824,
+          "encoder_f1": 0.8343036274070758,
+          "seeds_encoder_wins": 0,
+          "n_seeds": 3
+        },
+        {
+          "fraction": 1.0,
+          "n_train": 2640,
+          "baseline_auc": 0.998598171152519,
+          "encoder_auc": 0.9982962387853692,
+          "delta_auc": -0.0003019323671498153,
+          "baseline_f1": 0.9136293813713169,
+          "encoder_f1": 0.9122086160444768,
+          "seeds_encoder_wins": 0,
+          "n_seeds": 3
+        }
+      ]
+    }
+  ],
+  "verdict": {
+    "mean_full_data_delta_auc": 0.00351859893906011,
+    "mean_low_data_delta_auc": 0.004805126890532252,
+    "low_data_seed_agreement": 0.3333333333333333,
+    "auc_meaningful_threshold": 0.002,
+    "cleared_bar": false,
+    "verdict": "QUARANTINE -- keep domain_encoder=False default; wiring the differentiable encoder into the fusion path does not clear the conservative bar"
+  }
+}

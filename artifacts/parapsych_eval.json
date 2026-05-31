@@ -1,0 +1,44 @@
+{
+  "metadata": {
+    "purpose": "WS-D GCP parapsychology sub-net pre-registered evaluation",
+    "psi_claim": "NONE -- pure signal-processing / anomaly task; a null is valid",
+    "real_ingestion": {
+      "reachable": false,
+      "reason": "UnsafeURLError: SSRF Protection: Host 'noosphere.princeton.edu' not in trusted allowlist. Trusted hosts: ['api.eia.gov', 'api.obis.org', 'api.open-meteo.com', 'api.stlouisfed.o",
+      "provenance": {
+        "url": "https://noosphere.princeton.edu/cgi-bin/eggdatareq.pl?z=1&year=2020&month=01&day=01&stime=00:00:00&etime=00:05:00",
+        "source": "Global Consciousness Project (Princeton/ICRL)",
+        "format": "per-second per-egg 200-bit sums"
+      }
+    },
+    "signal_used": "SYNTHETIC true-random Binomial(200,0.5) -- cannot lift quarantine",
+    "statistics": "network variance + Stouffer Z (pre-registered)",
+    "bonferroni_z_threshold": 2.638,
+    "encoder": "wired + runs (untrained/quarantined); output not reported as meaningful"
+  },
+  "per_seed": [
+    {
+      "seed": 0,
+      "stouffer_z": -2.0718600741041047,
+      "two_sided_p": 0.038278492323505706,
+      "mean_network_variance": 65.30333333333333,
+      "significant_bonferroni": false
+    },
+    {
+      "seed": 1,
+      "stouffer_z": -1.5666528146550742,
+      "two_sided_p": 0.1171958656092925,
+      "mean_network_variance": 63.487399999999994,
+      "significant_bonferroni": false
+    },
+    {
+      "seed": 2,
+      "stouffer_z": 0.8624245136049107,
+      "two_sided_p": 0.38845395579845393,
+      "mean_network_variance": 63.71779999999999,
+      "significant_bonferroni": false
+    }
+  ],
+  "any_significant": false,
+  "verdict": "QUARANTINE -- real GCP stream unreachable here; on the synthetic null the pre-registered statistic is non-significant (expected null). No psi claim. Lift only on real, reachable data clearing the corrected bar."
+}

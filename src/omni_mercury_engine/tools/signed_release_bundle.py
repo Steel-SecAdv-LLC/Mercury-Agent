@@ -19,9 +19,8 @@ The bundle pins:
 * ``corpus.sig.json`` — the σ_Immutable corpus signature manifest,
 * ``kat_cert.json`` — the :mod:`kat_runner_standalone` certificate.
 
-The bundle is sealed with **both** Ed25519 and (when AMA is present)
-ML-DSA-65 — mirroring the σ_Immutable corpus signature scheme so the
-same verification routine works for both.
+The bundle is sealed with **both** Ed25519 and ML-DSA-65 — mirroring
+the σ_Immutable corpus signature scheme.
 """
 
 from __future__ import annotations
@@ -81,28 +80,23 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _ml_dsa_sign(payload: bytes) -> dict[str, Any]:
-    try:
-        from omni_mercury_engine.security.crypto_api import (
-            AlgorithmType,
-            MercuryCrypto,
-            SecurityLevel,
-        )
-    except ImportError as exc:
-        return {"algorithm": "ml-dsa-65", "omitted": True, "reason": str(exc)}
-    try:
-        # ``SecurityLevel.HYBRID`` enables both classical and PQC signing
-        # paths through the AMA-Cryptography providers.
-        crypto = MercuryCrypto(security_level=SecurityLevel.HYBRID)
-        kp = crypto.generate_signing_keypair(algorithm=AlgorithmType.ML_DSA_65)
-        sig = crypto.sign(payload, kp.secret_key, algorithm=AlgorithmType.ML_DSA_65)
-        return {
-            "algorithm": "ml-dsa-65",
-            "public_key_hex": kp.public_key.hex(),
-            "signature_hex": sig.signature.hex(),
-            "payload_sha3_256": hashlib.sha3_256(payload).hexdigest(),
-        }
-    except RuntimeError as exc:
-        return {"algorithm": "ml-dsa-65", "omitted": True, "reason": str(exc)}
+    from omni_mercury_engine.security.crypto_api import (
+        AlgorithmType,
+        MercuryCrypto,
+        SecurityLevel,
+    )
+
+    # ``SecurityLevel.HYBRID`` enables both classical and PQC signing paths
+    # through the AMA-Cryptography providers.
+    crypto = MercuryCrypto(security_level=SecurityLevel.HYBRID)
+    kp = crypto.generate_signing_keypair(algorithm=AlgorithmType.ML_DSA_65)
+    sig = crypto.sign(payload, kp.secret_key, algorithm=AlgorithmType.ML_DSA_65)
+    return {
+        "algorithm": "ml-dsa-65",
+        "public_key_hex": kp.public_key.hex(),
+        "signature_hex": sig.signature.hex(),
+        "payload_sha3_256": hashlib.sha3_256(payload).hexdigest(),
+    }
 
 
 def _collect(args: argparse.Namespace) -> Certificate:
@@ -167,10 +161,6 @@ def _collect(args: argparse.Namespace) -> Certificate:
         "dry_run": bool(args.dry_run),
     }
 
-    warnings: list[str] = []
-    if mldsa_sig.get("omitted"):
-        warnings.append(f"ML-DSA-65 omitted: {mldsa_sig.get('reason', 'unknown')}")
-
     if not args.dry_run:
         atomic_write_bytes(Path(args.bundle_path), bundle_bytes)
         sig_path = Path(args.bundle_path + ".sig.json")
@@ -192,13 +182,11 @@ def _collect(args: argparse.Namespace) -> Certificate:
         )
         body["sig_path"] = str(sig_path)
 
-    status = "warn" if warnings else "ok"
     return Certificate(
         tool="signed_release_bundle",
         schema=_SCHEMA,
-        status=status,
+        status="ok",
         body=body,
-        warnings=warnings,
     )
 
 

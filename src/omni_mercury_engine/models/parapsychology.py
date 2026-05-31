@@ -184,6 +184,13 @@ class ParapsychologyDetector:
         self.field_analyzer: ConsciousnessFieldAnalyzer | None = None
         if enable_consciousness_field:
             self.field_analyzer = ConsciousnessFieldAnalyzer(sequence_length=100)
+        # Anti-theater guard: the ConsciousnessFieldAnalyzer ships with random
+        # weights and there is no validated labelled corpus to train it on, so
+        # its output is not a meaningful "coherence". Until trained weights are
+        # loaded via load_neural_weights(), _analyze_field_coherence() abstains
+        # to the neutral 0.5 prior rather than reporting random-network output.
+        self._neural_trained = False
+        self._warned_untrained = False
 
         self.historical_baselines = self._initialize_baselines()
 
@@ -434,8 +441,25 @@ class ParapsychologyDetector:
         return (ci_lower, ci_upper)
 
     def _analyze_field_coherence(self, reg_output: np.ndarray[Any, Any]) -> float:
-        """Analyze consciousness field coherence (GCP-style)"""
+        """Analyze consciousness field coherence (GCP-style).
+
+        Returns a coherence value in ``[0, 1]``. The neural analyser is only
+        consulted when trained weights have been loaded; otherwise this abstains
+        to the neutral ``0.5`` prior rather than presenting random-weight output
+        as a coherence measurement (anti-theater).
+        """
         if self.field_analyzer is None or len(reg_output) < 10:
+            return 0.5
+
+        if not self._neural_trained:
+            if not self._warned_untrained:
+                self.logger.warning(
+                    "ConsciousnessFieldAnalyzer is untrained (random weights) and no "
+                    "validated corpus exists to train it; returning the neutral 0.5 "
+                    "coherence prior. Load trained weights via load_neural_weights() "
+                    "to enable the network."
+                )
+                self._warned_untrained = True
             return 0.5
 
         sequence = torch.tensor(reg_output[:100].reshape(-1, 1), dtype=torch.float32).unsqueeze(0)
@@ -445,6 +469,28 @@ class ParapsychologyDetector:
             coherence, _ = self.field_analyzer(sequence)
 
         return float(coherence[0].item())
+
+    def load_neural_weights(self, state_dict: dict[str, Any] | str) -> None:
+        """Load trained weights for the consciousness-field analyser and enable it.
+
+        Activates the neural path in :meth:`_analyze_field_coherence`. Requires a
+        validated labelled corpus to produce honest weights.
+
+        Args:
+            state_dict: An in-memory ``state_dict`` or a path to a saved one.
+        """
+        if self.field_analyzer is None:
+            raise RuntimeError(
+                "Consciousness-field analysis is disabled "
+                "(enable_consciousness_field=False); nothing to load."
+            )
+        loaded: Any = state_dict
+        if isinstance(state_dict, str):
+            loaded = torch.load(state_dict, map_location="cpu", weights_only=True)
+        self.field_analyzer.load_state_dict(loaded)
+        self.field_analyzer.eval()
+        self._neural_trained = True
+        self.logger.info("Consciousness-field weights loaded; neural analyser enabled.")
 
     def _compare_with_control(
         self, experimental_data: dict[str, Any], control_data: dict[str, Any]

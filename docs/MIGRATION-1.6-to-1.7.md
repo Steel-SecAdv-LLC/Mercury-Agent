@@ -116,12 +116,12 @@ modules will adopt it incrementally.
   `omni_mercury_engine._env.get_mercury_env`, by design — typos in
   deployment configuration must be loud.
 
-- `MERCURY_ENV` is orthogonal to `AMA_REQUIRE_REAL_PQC` /
-  `MERCURY_PQC_REAL_AMA`.  The PQC import gate
+- `MERCURY_ENV` is orthogonal to `AMA_REQUIRE_REAL_PQC`.  The PQC import gate
   (`omni_mercury_engine._pqc_gate._enforce_pqc_production_gate`)
   keeps its own contract because PQC has a hard-required-build
   dependency that is independent of the development/production
-  distinction.  Use both env vars in production.
+  distinction.  `AMA_REQUIRE_REAL_PQC` is retained for diagnostics and
+  legacy workflow readability; AMA/PQC is mandatory regardless of its value.
 
 Locking test: `tests/test_env.py`.
 

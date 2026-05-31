@@ -16,19 +16,13 @@ see https://www.gnu.org/licenses/.
 from __future__ import annotations
 
 """
-AMA-routed HMAC equivalence + fallback locks for native_jwt.
+AMA-routed HMAC locks for native_jwt.
 
 These tests pin that Mercury's :mod:`native_jwt` signing primitive
 produces byte-identical output whether routed through AMA
-Cryptography v3.2.0's native HMAC C backend or through stdlib
-``hmac`` over ``hashlib`` — verified against RFC 4231 known-answer
-vectors so neither path can silently drift from the FIPS 198-1 /
-RFC 2104 reference.
-
-The fallback path is exercised by monkeypatching
-:data:`omni_mercury_engine.security.ama_hmac.HAS_AMA_HMAC_SHA256`
-and the cached binding references so the test runs identically on
-environments that do *not* have AMA Cryptography installed.
+Cryptography v3.2.0's native HMAC C backend and match stdlib
+``hmac`` over ``hashlib`` for the same FIPS 198-1 / RFC 2104 wire format.
+AMA absence is not a test skip or fallback path; module import fails closed.
 """
 
 import hashlib
@@ -103,10 +97,6 @@ class TestSigningBackendSurface:
 # ----------------------------------------------------------------------- #
 
 
-@pytest.mark.skipif(
-    not ama_hmac.HAS_AMA_HMAC_SHA256,
-    reason="AMA Cryptography v3.2.0+ not installed; AMA HMAC path unreachable.",
-)
 class TestAMAKnownAnswerVectors:
     """AMA's HMAC-SHA-256 output matches RFC 4231 KAT bit-for-bit."""
 
@@ -145,19 +135,11 @@ class TestSignBoundaryEquivalence:
     HEADER = b"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
     PAYLOAD = b"eyJzdWIiOiJhbGljZSIsImV4cCI6MTk2MDAwMDAwMH0"
 
-    @pytest.mark.skipif(
-        not ama_hmac.HAS_AMA_HMAC_SHA256,
-        reason="AMA Cryptography v3.2.0+ not installed; cannot compare AMA vs stdlib.",
-    )
     def test_hs256_ama_matches_stdlib(self) -> None:
         ama = native_jwt._sign_ama(self.HEADER, self.PAYLOAD, self.KEY, "HS256")
         stdlib_sig = native_jwt._sign_stdlib(self.HEADER, self.PAYLOAD, self.KEY, "HS256")
         assert ama == stdlib_sig
 
-    @pytest.mark.skipif(
-        not ama_hmac.HAS_AMA_HMAC_SHA512,
-        reason="AMA Cryptography v3.2.0+ not installed; cannot compare AMA vs stdlib.",
-    )
     def test_hs512_ama_matches_stdlib(self) -> None:
         ama = native_jwt._sign_ama(self.HEADER, self.PAYLOAD, self.KEY, "HS512")
         stdlib_sig = native_jwt._sign_stdlib(self.HEADER, self.PAYLOAD, self.KEY, "HS512")
@@ -176,43 +158,39 @@ class TestSignBoundaryEquivalence:
 
 
 # ----------------------------------------------------------------------- #
-# Fallback path: AMA unavailable
+# Fail-closed path: AMA flag invalidated after import
 # ----------------------------------------------------------------------- #
 
 
-class TestFallbackWhenAMAAbsent:
-    """Mercury must fall back cleanly when AMA is not installed."""
+class TestFailClosedWhenAMAInvalidated:
+    """Mercury must not fall back when mandatory AMA HMAC is invalidated."""
 
-    def test_get_signing_backend_returns_stdlib(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(ama_hmac, "HAS_AMA_HMAC_SHA256", False)
-        monkeypatch.setattr(ama_hmac, "HAS_AMA_HMAC_SHA512", False)
-        assert native_jwt.get_signing_backend("HS256") == "stdlib"
-        assert native_jwt.get_signing_backend("HS512") == "stdlib"
-
-    def test_sign_uses_stdlib_when_ama_disabled(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(ama_hmac, "HAS_AMA_HMAC_SHA256", False)
-        monkeypatch.setattr(ama_hmac, "HAS_AMA_HMAC_SHA512", False)
-
-        # Both paths must produce the same bytes as the canonical
-        # stdlib one-shot HMAC.
-        header = b"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
-        payload = b"eyJzdWIiOiJib2IifQ"
-        key = b"fallback-test-key"
-        for alg, hashmod in (
-            ("HS256", hashlib.sha256),
-            ("HS512", hashlib.sha512),
-        ):
-            expected = stdlib_hmac.new(key, header + b"." + payload, hashmod).digest()
-            assert native_jwt._sign(header, payload, key, alg) == expected
-
-    def test_encode_decode_roundtrip_with_ama_disabled(
+    def test_get_signing_backend_rejects_hs256_without_ama(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(ama_hmac, "HAS_AMA_HMAC_SHA256", False)
+        with pytest.raises(RuntimeError, match="AMA HMAC-SHA-256"):
+            native_jwt.get_signing_backend("HS256")
+
+    def test_get_signing_backend_rejects_hs512_without_ama(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.setattr(ama_hmac, "HAS_AMA_HMAC_SHA512", False)
-        token = native_jwt.encode({"sub": "alice"}, "fallback-key", "HS256")
-        payload = native_jwt.decode(token, "fallback-key", ["HS256"])
-        assert payload == {"sub": "alice"}
+        with pytest.raises(RuntimeError, match="AMA HMAC-SHA-512"):
+            native_jwt.get_signing_backend("HS512")
+
+    def test_sign_rejects_hs256_when_ama_disabled(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(ama_hmac, "HAS_AMA_HMAC_SHA256", False)
+        header = b"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
+        payload = b"eyJzdWIiOiJib2IifQ"
+        key = b"fail-closed-test-key"
+        with pytest.raises(RuntimeError, match="AMA HMAC-SHA-256"):
+            native_jwt._sign(header, payload, key, "HS256")
+
+    def test_encode_rejects_hs256_with_ama_disabled(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(ama_hmac, "HAS_AMA_HMAC_SHA256", False)
+        with pytest.raises(RuntimeError, match="AMA HMAC-SHA-256"):
+            native_jwt.encode({"sub": "alice"}, "fail-closed-key", "HS256")
 
 
 # ----------------------------------------------------------------------- #
@@ -220,10 +198,6 @@ class TestFallbackWhenAMAAbsent:
 # ----------------------------------------------------------------------- #
 
 
-@pytest.mark.skipif(
-    not ama_hmac.HAS_AMA_HMAC_SHA256,
-    reason="AMA Cryptography v3.2.0+ not installed; cross-path test unreachable.",
-)
 class TestCrossPathInteroperability:
     """A token signed by either path must verify under the other.
 
@@ -231,26 +205,17 @@ class TestCrossPathInteroperability:
     performance / hardening optimisation, never a wire-format change.
     """
 
-    def test_ama_signed_verifies_with_stdlib(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        # Sign with AMA enabled.
-        assert ama_hmac.HAS_AMA_HMAC_SHA256
+    def test_ama_signed_verifies_after_stdlib_tamper_is_rejected(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         token = native_jwt.encode({"sub": "alice"}, "shared-key", "HS256")
 
-        # Verify with AMA disabled (stdlib path).
         monkeypatch.setattr(ama_hmac, "HAS_AMA_HMAC_SHA256", False)
-        monkeypatch.setattr(ama_hmac, "HAS_AMA_HMAC_SHA512", False)
-        payload = native_jwt.decode(token, "shared-key", ["HS256"])
-        assert payload == {"sub": "alice"}
+        with pytest.raises(RuntimeError, match="AMA HMAC-SHA-256"):
+            native_jwt.decode(token, "shared-key", ["HS256"])
 
-    def test_stdlib_signed_verifies_with_ama(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        # Sign with AMA disabled (stdlib path).
-        monkeypatch.setattr(ama_hmac, "HAS_AMA_HMAC_SHA256", False)
-        monkeypatch.setattr(ama_hmac, "HAS_AMA_HMAC_SHA512", False)
+    def test_ama_signed_verifies_with_ama(self) -> None:
         token = native_jwt.encode({"sub": "alice"}, "shared-key", "HS256")
-
-        # Verify with AMA re-enabled.
-        monkeypatch.setattr(ama_hmac, "HAS_AMA_HMAC_SHA256", True)
-        monkeypatch.setattr(ama_hmac, "HAS_AMA_HMAC_SHA512", True)
         payload = native_jwt.decode(token, "shared-key", ["HS256"])
         assert payload == {"sub": "alice"}
 

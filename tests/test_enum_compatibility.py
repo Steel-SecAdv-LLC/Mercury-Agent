@@ -4,8 +4,8 @@ Verifies that Mercury Agent's posture enums and their scalar mappings agree
 with the real ``ama_cryptography.adaptive_posture`` definitions. These tests
 exercise the *production* symbols exported from
 ``omni_mercury_engine.integrations.mercury_amacrypto`` so they fail loudly if
-the stub enums or module-level maps drift out of sync with the upstream
-``ama_cryptography`` package.
+module-level maps drift out of sync with the upstream ``ama_cryptography``
+package.
 
 Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
@@ -32,12 +32,8 @@ _MODULE_NAME = "omni_mercury_engine.integrations.mercury_amacrypto"
 
 @pytest.fixture(scope="module")
 def mercury_amacrypto() -> ModuleType:
-    """Import ``mercury_amacrypto`` or skip the test suite cleanly."""
-    try:
-        return importlib.import_module(_MODULE_NAME)
-    except ImportError as exc:  # pragma: no cover - environment safeguard
-        pytest.skip(f"{_MODULE_NAME} not importable: {exc}")
-        raise  # unreachable; satisfies mypy on the skip path
+    """Import ``mercury_amacrypto``; missing AMA fails collection."""
+    return importlib.import_module(_MODULE_NAME)
 
 
 EXPECTED_THREAT_LEVEL_MEMBERS = {"NOMINAL", "ELEVATED", "HIGH", "CRITICAL"}
@@ -48,8 +44,7 @@ EXPECTED_POSTURE_ACTION_MEMBERS = {
     "SWITCH_ALGORITHM",
     "ROTATE_AND_SWITCH",
 }
-# Enum members that were removed when the stubs were aligned with
-# ``ama_cryptography.adaptive_posture`` and must never reappear.
+# Legacy enum members that must never reappear.
 REMOVED_THREAT_LEVEL_MEMBERS = {"LOW", "MEDIUM"}
 REMOVED_POSTURE_ACTION_MEMBERS = {"ALERT"}
 
@@ -135,9 +130,9 @@ class TestEnumCompatibility:
         )
 
     def test_pqc_backend_source_value(self, mercury_amacrypto: ModuleType) -> None:
-        """``_PQC_BACKEND_SOURCE`` must be one of the documented states."""
+        """``_PQC_BACKEND_SOURCE`` must report the mandatory AMA backend."""
         source = mercury_amacrypto._PQC_BACKEND_SOURCE
-        assert source in {"ama_cryptography", "ava_guardian", "stub"}
+        assert source == "ama_cryptography"
 
     def test_get_pqc_status_includes_backend_source(self, mercury_amacrypto: ModuleType) -> None:
         """``get_pqc_status()`` must surface ``pqc_backend_source``."""

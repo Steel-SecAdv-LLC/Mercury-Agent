@@ -201,7 +201,7 @@ class NSLKDDLoader(DatasetLoader):
         self.binary_labels = config.preprocessing.get("binary", True)
         self.include_test = config.preprocessing.get("include_test", True)
         self._features: np.ndarray[Any, Any] | None = None
-        self._labels: np.ndarray[Any, Any] | None = None  # type: ignore[assignment]
+        self._raw_labels: np.ndarray[Any, Any] | None = None
         self._is_real_data = False
         self._encoders: dict[str, dict[str, int]] = {}
 
@@ -290,7 +290,7 @@ class NSLKDDLoader(DatasetLoader):
             # Save to cache
             np.savez_compressed(cache_file, features=features, labels=labels)
             self._features = features
-            self._labels = labels
+            self._raw_labels = labels
             self._is_real_data = True
 
             logger.info(
@@ -416,15 +416,15 @@ class NSLKDDLoader(DatasetLoader):
             )
 
         self._features = np.array(features, dtype=np.float32)
-        self._labels = np.array(labels, dtype=np.int64)
+        self._raw_labels = np.array(labels, dtype=np.int64)
         self._is_real_data = False
 
         save_path = self.data_path / "synthetic_nslkdd.npz"
-        np.savez_compressed(save_path, features=self._features, labels=self._labels)
+        np.savez_compressed(save_path, features=self._features, labels=self._raw_labels)
 
         logger.info(
             f"Generated SYNTHETIC {n_samples} NSL-KDD samples, "
-            f"{(self._labels > 0).sum()} attacks (is_real_data=False)"
+            f"{(self._raw_labels > 0).sum()} attacks (is_real_data=False)"
         )
         return True
 
@@ -433,22 +433,22 @@ class NSLKDDLoader(DatasetLoader):
         # Check for real data cache first
         real_cache = self.data_path / "nslkdd_real.npz"
         if real_cache.exists():
-            data = np.load(real_cache)
+            data = np.load(real_cache, allow_pickle=False)
             self._features = data["features"]
-            self._labels = data["labels"]
+            self._raw_labels = data["labels"]
             self._is_real_data = True
             logger.info(f"Loaded REAL NSL-KDD data from {real_cache}")
-            return self._features, self._labels
+            return self._features, self._raw_labels
 
         # Check for synthetic fallback only if ALLOW_SYNTHETIC
         synthetic_path = self.data_path / "synthetic_nslkdd.npz"
         if synthetic_path.exists() and ALLOW_SYNTHETIC:
-            data = np.load(synthetic_path)
+            data = np.load(synthetic_path, allow_pickle=False)
             self._features = data["features"]
-            self._labels = data["labels"]
+            self._raw_labels = data["labels"]
             self._is_real_data = False
             logger.info("Loaded SYNTHETIC NSL-KDD data (is_real_data=False)")
-            return self._features, self._labels
+            return self._features, self._raw_labels
 
         raise FileNotFoundError("NSL-KDD data not found. Run download() first.")
 
@@ -462,8 +462,8 @@ class NSLKDDLoader(DatasetLoader):
         Returns:
             Tuple of (features, labels) numpy arrays
         """
-        if self._features is not None and self._labels is not None:
-            return self._features, self._labels
+        if self._features is not None and self._raw_labels is not None:
+            return self._features, self._raw_labels
 
         try:
             return self._load_raw()
@@ -505,16 +505,18 @@ class NSLKDDLoader(DatasetLoader):
             self.load_data()
 
         # Type guards for mypy - load_data() ensures these are not None
-        if self._features is None or self._labels is None:
+        if self._features is None or self._raw_labels is None:
             raise RuntimeError("Failed to load data")
+
+        labels = self._raw_labels
 
         return {
             "n_samples": len(self._features),
             "n_features": self._features.shape[1],
-            "n_attacks": int((self._labels > 0).sum()) if self.binary_labels else None,
-            "attack_ratio": float((self._labels > 0).mean()) if self.binary_labels else None,
+            "n_attacks": int((labels > 0).sum()) if self.binary_labels else None,
+            "attack_ratio": float((labels > 0).mean()) if self.binary_labels else None,
             "class_distribution": {
-                str(k): int(v) for k, v in zip(*np.unique(self._labels, return_counts=True))
+                str(k): int(v) for k, v in zip(*np.unique(labels, return_counts=True))
             },
             "is_real_data": self._is_real_data,
         }
@@ -673,7 +675,7 @@ class CICIDSLoader(DatasetLoader):
         self.local_path = config.preprocessing.get("local_path", None)
         self.retry_count = config.preprocessing.get("retry_count", 3)
         self._features: np.ndarray[Any, Any] | None = None
-        self._labels: np.ndarray[Any, Any] | None = None  # type: ignore[assignment]
+        self._raw_labels: np.ndarray[Any, Any] | None = None
         self._is_real_data = False
         self._label_names: list[str] = []
 
@@ -822,7 +824,7 @@ class CICIDSLoader(DatasetLoader):
             # Save to cache
             np.savez_compressed(cache_file, features=features, labels=labels)
             self._features = features
-            self._labels = labels
+            self._raw_labels = labels
             self._is_real_data = True
 
             logger.info(
@@ -913,7 +915,7 @@ class CICIDSLoader(DatasetLoader):
             features, labels = self._process_cicids_dataframe(df)
             np.savez_compressed(cache_file, features=features, labels=labels)
             self._features = features
-            self._labels = labels
+            self._raw_labels = labels
             self._is_real_data = True
 
             logger.info(
@@ -986,7 +988,7 @@ class CICIDSLoader(DatasetLoader):
             # Save to cache
             np.savez_compressed(cache_file, features=features, labels=labels)
             self._features = features
-            self._labels = labels
+            self._raw_labels = labels
             self._is_real_data = True
 
             logger.info(
@@ -1184,15 +1186,15 @@ class CICIDSLoader(DatasetLoader):
             labels.append(0 if attack_type == "benign" else 1)
 
         self._features = np.array(features, dtype=np.float32)
-        self._labels = np.array(labels, dtype=np.int64)
+        self._raw_labels = np.array(labels, dtype=np.int64)
         self._is_real_data = False
 
         save_path = self.data_path / "synthetic_cicids.npz"
-        np.savez_compressed(save_path, features=self._features, labels=self._labels)
+        np.savez_compressed(save_path, features=self._features, labels=self._raw_labels)
 
         logger.info(
             f"Generated SYNTHETIC {n_samples} CICIDS samples, "
-            f"{self._labels.sum()} attacks (is_real_data=False)"
+            f"{self._raw_labels.sum()} attacks (is_real_data=False)"
         )
         return True
 
@@ -1259,12 +1261,12 @@ class CICIDSLoader(DatasetLoader):
         ]:
             cache_path = self.data_path / cache_name
             if cache_path.exists():
-                data = np.load(cache_path)
+                data = np.load(cache_path, allow_pickle=False)
                 self._features = data["features"]
-                self._labels = data["labels"]
+                self._raw_labels = data["labels"]
                 self._is_real_data = True
                 logger.info(f"Loaded CICIDS from {cache_name} (is_real_data=True)")
-                return self._features, self._labels
+                return self._features, self._raw_labels
 
         # Check for synthetic fallback only if ALLOW_SYNTHETIC
         synthetic_path = self.data_path / "synthetic_cicids.npz"
@@ -1274,12 +1276,12 @@ class CICIDSLoader(DatasetLoader):
                     loader_name="CICIDS-2017",
                     reason="Only synthetic cache exists and MERCURY_ALLOW_SYNTHETIC is not set.",
                 )
-            data = np.load(synthetic_path)
+            data = np.load(synthetic_path, allow_pickle=False)
             self._features = data["features"]
-            self._labels = data["labels"]
+            self._raw_labels = data["labels"]
             self._is_real_data = False
             logger.info("Loaded SYNTHETIC CICIDS data (is_real_data=False)")
-            return self._features, self._labels
+            return self._features, self._raw_labels
 
         raise FileNotFoundError("CICIDS data not found. Run download() first.")
 
@@ -1293,8 +1295,8 @@ class CICIDSLoader(DatasetLoader):
         Returns:
             Tuple of (features, labels) numpy arrays
         """
-        if self._features is not None and self._labels is not None:
-            return self._features, self._labels
+        if self._features is not None and self._raw_labels is not None:
+            return self._features, self._raw_labels
 
         try:
             return self._load_raw()
@@ -1350,10 +1352,10 @@ class CICIDSLoader(DatasetLoader):
             self.load_data()
 
         # Type guards for mypy - load_data() ensures these are not None
-        if self._features is None or self._labels is None:
+        if self._features is None or self._raw_labels is None:
             raise RuntimeError("Failed to load data")
 
-        labels = self._labels
+        labels = self._raw_labels
         features = self._features
 
         return {
@@ -1653,7 +1655,7 @@ class ThreatIntelLoader(DatasetLoader):
         # Check for real MITRE ATT&CK data first
         real_cache = self.data_path / "mitre_attack_real.npz"
         if real_cache.exists():
-            data = np.load(real_cache)
+            data = np.load(real_cache, allow_pickle=False)
             self._is_real_data = True
             logger.info(f"Loaded REAL MITRE ATT&CK data from {real_cache}")
             return data["features"], data["labels"]
@@ -1666,7 +1668,7 @@ class ThreatIntelLoader(DatasetLoader):
                     loader_name="ThreatIntel",
                     reason="Only synthetic cache exists and MERCURY_ALLOW_SYNTHETIC is not set.",
                 )
-            data = np.load(synthetic_path)
+            data = np.load(synthetic_path, allow_pickle=False)
             self._is_real_data = False
             logger.info("Loaded SYNTHETIC threat intel data (is_real_data=False)")
             return data["features"], data["labels"]
