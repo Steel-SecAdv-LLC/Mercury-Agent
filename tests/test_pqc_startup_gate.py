@@ -18,6 +18,7 @@ from __future__ import annotations
 import os
 
 import ama_cryptography.pqc_backends as ama_pqc_backends
+
 from omni_mercury_engine._pqc_gate import _enforce_pqc_production_gate
 
 
