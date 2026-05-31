@@ -1215,10 +1215,17 @@ jobs:
           python -m pip install --upgrade "pip>=26.1"
           pip install numpy scipy torch scikit-learn sympy
 
+      - name: Build + install AMA Cryptography (native PQC backend)
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v3.2.0
+
       - name: Run ethics audit
         # Ethics audit enforces AI alignment — failures block the pipeline.
         # Verifies EthicalAutonomyGovernor, PreExecutionBlockingGate,
         # OmniAvaEquation immutability, and 8-pillar configuration.
+        env:
+          AMA_REQUIRE_REAL_PQC: "true"
         run: python benchmarks/run_ethics_audit.py
 
   # ===========================================================================
