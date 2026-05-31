@@ -47,9 +47,6 @@ from typing import Any
 
 import numpy as np
 
-warnings.filterwarnings("ignore")
-logging.getLogger("omni_mercury_engine").setLevel(logging.ERROR)
-
 # Genuinely-labelled ADBench datasets (ground-truth anomaly labels), small
 # enough to train quickly on CPU. Must stay in lockstep with the de-leaked
 # headline set in benchmarks/fusion_raw_benchmark.py -- no statistically /
@@ -158,7 +155,7 @@ def _stratified_indices(
     for cls in np.unique(y):
         cls_idx = np.where(y == cls)[0]
         rng.shuffle(cls_idx)
-        cut = max(1, int(round(len(cls_idx) * frac)))
+        cut = max(1, round(len(cls_idx) * frac))
         keep.extend(cls_idx[:cut].tolist())
     return np.array(sorted(keep))
 
@@ -342,6 +339,9 @@ def derive_verdict(results: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def main() -> int:
+    warnings.filterwarnings("ignore")
+    logging.getLogger("omni_mercury_engine").setLevel(logging.ERROR)
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--datasets", nargs="*", default=DEFAULT_DATASETS)
     parser.add_argument("--seeds", nargs="*", type=int, default=DEFAULT_SEEDS)
