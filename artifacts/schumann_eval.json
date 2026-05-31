@@ -1,0 +1,66 @@
+{
+  "metadata": {
+    "purpose": "WS-C Schumann sub-net pre-registered evaluation",
+    "label_provenance": {
+      "fetched_at": "2026-05-31T00:43:44.677006+00:00",
+      "sources": [
+        {
+          "url": "https://services.swpc.noaa.gov/json/planetary_k_index_1m.json",
+          "sha256": "cee49afd6c685a47da2b067ff7b04592712f098f8726b803b03c73873f6e5afc",
+          "rows": 358
+        },
+        {
+          "url": "https://services.swpc.noaa.gov/json/goes/primary/xrays-7-day.json",
+          "sha256": "5234c972e188ccf593cb05fa588f605ac4883467c2a330d5824051848018c2c1",
+          "rows": 20156
+        }
+      ],
+      "thresholds": {
+        "kp_storm": 5.0,
+        "flare_m_class_wm2": 1e-05,
+        "flare_x_class_wm2": 0.0001
+      },
+      "lag_windows": {
+        "flare_minutes": 60.0,
+        "storm_lead_hours": 1.0,
+        "storm_lag_hours": 3.0
+      },
+      "label_kind": "proxy_event_coincidence",
+      "license": "US Government public domain (NOAA SWPC)",
+      "n_windows": 21,
+      "n_storm_windows": 0,
+      "n_flare_windows": 21
+    },
+    "label_noise": {
+      "false_positive": "Not every flare/storm produces a measurable Schumann perturbation; some positive-labelled windows carry no real ELF anomaly.",
+      "false_negative": "Schumann anomalies have other drivers (local lightning/Q-bursts, instrumental, seismo-EM); genuine anomalies in quiet windows are mislabelled negative.",
+      "timing": "Lag windows are documented approximations, not per-event ground truth; window edges are inherently fuzzy.",
+      "implication": "Reported metrics are upper-bounded by this label noise. Treat as weak supervision; do NOT present as hand-annotated ground truth."
+    },
+    "signal": "SYNTHETIC physically-grounded ELF (NOT real) -- cannot lift quarantine",
+    "schumann_peaks_hz": [
+      7.83,
+      14.3,
+      20.8,
+      27.3,
+      33.8
+    ],
+    "split": "stratified_fallback_temporal_degenerate",
+    "metric": "ROC-AUC (mercury_ml, no sklearn)",
+    "seeds": [
+      0,
+      1,
+      2
+    ],
+    "n_samples": 1000,
+    "positive_fraction": 0.098,
+    "lift_bar_real_elf": 0.7
+  },
+  "per_seed_auc": [
+    0.9742333630232854,
+    1.0,
+    0.22712813335029902
+  ],
+  "mean_auc": 0.7337871654578615,
+  "verdict": "QUARANTINE -- signal is synthetic; the pipeline (real NOAA labels -> encoder -> metric) is validated but the sub-net stays off-by-default until an openly-licensed real ELF corpus clears mean AUC >= 0.7. (synthetic mean AUC=0.7338, pipeline-plumbing only)"
+}
