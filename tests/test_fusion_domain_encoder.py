@@ -134,7 +134,7 @@ class TestDomainEncoderActive:
             captured["keys"] = tuple(sorted(features))
             return original_forward(features, *args, **kwargs)
 
-        engine.fusion_model.forward = capture_forward  # type: ignore[method-assign]
+        engine.fusion_model.forward = capture_forward
         try:
             labels = torch.tensor(y[:n_train], dtype=torch.float32).unsqueeze(1)
             val_indices = torch.arange(max(1, n_train - 8), n_train)
@@ -150,7 +150,7 @@ class TestDomainEncoderActive:
                 raw_inputs,
             )
         finally:
-            engine.fusion_model.forward = original_forward  # type: ignore[method-assign]
+            engine.fusion_model.forward = original_forward
 
         assert "differentiable_domain" in captured["keys"]
 
