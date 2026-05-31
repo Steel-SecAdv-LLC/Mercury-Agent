@@ -1,0 +1,1519 @@
+{
+  "metadata": {
+    "purpose": "WS-B differentiable domain-encoder design-space sweep + family stratification",
+    "dataset_source": "https://github.com/Minqi824/ADBench (MIT)",
+    "families": {
+      "hard": [
+        "Pima",
+        "glass"
+      ],
+      "ceiling": [
+        "cardio",
+        "thyroid"
+      ]
+    },
+    "design_grid": [
+      "full_default",
+      "spectral_only",
+      "kinematic_only",
+      "fisher_only",
+      "no_kinematic",
+      "no_spectral",
+      "narrow_kernels",
+      "wide_kernels",
+      "sqrt_spectral",
+      "layernorm"
+    ],
+    "seeds": [
+      0,
+      1,
+      2
+    ],
+    "fractions": [
+      0.25,
+      1.0
+    ],
+    "epochs": 25,
+    "metric": "ROC-AUC (mercury_ml, no sklearn)",
+    "confound_guard": "evaluation.ablation_guard (inverted-ranking, strict)"
+  },
+  "cells": [
+    {
+      "config": "full_default",
+      "dataset": "Pima",
+      "family": "hard",
+      "fraction": 0.25,
+      "baseline_aucs": [
+        0.4425,
+        0.5077,
+        0.5565
+      ],
+      "encoder_aucs": [
+        0.6315,
+        0.5506,
+        0.6032
+      ],
+      "delta_auc": 0.09284722222222219,
+      "confounded": true
+    },
+    {
+      "config": "full_default",
+      "dataset": "Pima",
+      "family": "hard",
+      "fraction": 1.0,
+      "baseline_aucs": [
+        0.6645,
+        0.5817,
+        0.6088
+      ],
+      "encoder_aucs": [
+        0.5862,
+        0.6176,
+        0.6062
+      ],
+      "delta_auc": -0.014999999999999902,
+      "confounded": false
+    },
+    {
+      "config": "full_default",
+      "dataset": "glass",
+      "family": "hard",
+      "fraction": 0.25,
+      "baseline_aucs": [
+        1.0,
+        0.8798,
+        0.8142
+      ],
+      "encoder_aucs": [
+        1.0,
+        0.9727,
+        0.9836
+      ],
+      "delta_auc": 0.08743169398907102,
+      "confounded": false
+    },
+    {
+      "config": "full_default",
+      "dataset": "glass",
+      "family": "hard",
+      "fraction": 1.0,
+      "baseline_aucs": [
+        0.1366,
+        0.8798,
+        0.9617
+      ],
+      "encoder_aucs": [
+        0.6339,
+        0.9563,
+        0.9399
+      ],
+      "delta_auc": 0.1839708561020036,
+      "confounded": true
+    },
+    {
+      "config": "full_default",
+      "dataset": "cardio",
+      "family": "ceiling",
+      "fraction": 0.25,
+      "baseline_aucs": [
+        0.9815,
+        0.9872,
+        0.9745
+      ],
+      "encoder_aucs": [
+        0.983,
+        0.9865,
+        0.977
+      ],
+      "delta_auc": 0.0010629816635662204,
+      "confounded": false
+    },
+    {
+      "config": "full_default",
+      "dataset": "cardio",
+      "family": "ceiling",
+      "fraction": 1.0,
+      "baseline_aucs": [
+        0.9926,
+        0.9912,
+        0.9944
+      ],
+      "encoder_aucs": [
+        0.9944,
+        0.9899,
+        0.9968
+      ],
+      "delta_auc": 0.0009870544018831806,
+      "confounded": false
+    },
+    {
+      "config": "full_default",
+      "dataset": "thyroid",
+      "family": "ceiling",
+      "fraction": 0.25,
+      "baseline_aucs": [
+        0.9963,
+        0.9968,
+        0.9927
+      ],
+      "encoder_aucs": [
+        0.9976,
+        0.9969,
+        0.9952
+      ],
+      "delta_auc": 0.0012832125603865485,
+      "confounded": false
+    },
+    {
+      "config": "full_default",
+      "dataset": "thyroid",
+      "family": "ceiling",
+      "fraction": 1.0,
+      "baseline_aucs": [
+        0.9983,
+        0.9984,
+        0.9985
+      ],
+      "encoder_aucs": [
+        0.9988,
+        0.9977,
+        0.9977
+      ],
+      "delta_auc": -0.000355848861283814,
+      "confounded": false
+    },
+    {
+      "config": "spectral_only",
+      "dataset": "Pima",
+      "family": "hard",
+      "fraction": 0.25,
+      "baseline_aucs": [
+        0.4425,
+        0.5077,
+        0.5565
+      ],
+      "encoder_aucs": [
+        0.6173,
+        0.5531,
+        0.6241
+      ],
+      "delta_auc": 0.09593055555555552,
+      "confounded": true
+    },
+    {
+      "config": "spectral_only",
+      "dataset": "Pima",
+      "family": "hard",
+      "fraction": 1.0,
+      "baseline_aucs": [
+        0.6645,
+        0.5817,
+        0.6088
+      ],
+      "encoder_aucs": [
+        0.6044,
+        0.5991,
+        0.5916
+      ],
+      "delta_auc": -0.019999999999999907,
+      "confounded": false
+    },
+    {
+      "config": "spectral_only",
+      "dataset": "glass",
+      "family": "hard",
+      "fraction": 0.25,
+      "baseline_aucs": [
+        1.0,
+        0.8798,
+        0.8142
+      ],
+      "encoder_aucs": [
+        0.4208,
+        0.9727,
+        0.9672
+      ],
+      "delta_auc": -0.11111111111111116,
+      "confounded": true
+    },
+    {
+      "config": "spectral_only",
+      "dataset": "glass",
+      "family": "hard",
+      "fraction": 1.0,
+      "baseline_aucs": [
+        0.1366,
+        0.8798,
+        0.9617
+      ],
+      "encoder_aucs": [
+        0.4098,
+        0.9399,
+        0.9344
+      ],
+      "delta_auc": 0.10200364298724951,
+      "confounded": true
+    },
+    {
+      "config": "spectral_only",
+      "dataset": "cardio",
+      "family": "ceiling",
+      "fraction": 0.25,
+      "baseline_aucs": [
+        0.9815,
+        0.9872,
+        0.9745
+      ],
+      "encoder_aucs": [
+        0.9808,
+        0.9864,
+        0.9782
+      ],
+      "delta_auc": 0.0007466180732189631,
+      "confounded": false
+    },
+    {
+      "config": "spectral_only",
+      "dataset": "cardio",
+      "family": "ceiling",
+      "fraction": 1.0,
+      "baseline_aucs": [
+        0.9926,
+        0.9912,
+        0.9944
+      ],
+      "encoder_aucs": [
+        0.9954,
+        0.9953,
+        0.9935
+      ],
+      "delta_auc": 0.002024726978221647,
+      "confounded": false
+    },
+    {
+      "config": "spectral_only",
+      "dataset": "thyroid",
+      "family": "ceiling",
+      "fraction": 0.25,
+      "baseline_aucs": [
+        0.9963,
+        0.9968,
+        0.9927
+      ],
+      "encoder_aucs": [
+        0.9978,
+        0.995,
+        0.9972
+      ],
+      "delta_auc": 0.0013479123533471915,
+      "confounded": false
+    },
+    {
+      "config": "spectral_only",
+      "dataset": "thyroid",
+      "family": "ceiling",
+      "fraction": 1.0,
+      "baseline_aucs": [
+        0.9983,
+        0.9984,
+        0.9985
+      ],
+      "encoder_aucs": [
+        0.9985,
+        0.9993,
+        0.9989
+      ],
+      "delta_auc": 0.0005175983436852549,
+      "confounded": false
+    },
+    {
+      "config": "kinematic_only",
+      "dataset": "Pima",
+      "family": "hard",
+      "fraction": 0.25,
+      "baseline_aucs": [
+        0.4425,
+        0.5077,
+        0.5565
+      ],
+      "encoder_aucs": [
+        0.6291,
+        0.5412,
+        0.6094
+      ],
+      "delta_auc": 0.0909861111111111,
+      "confounded": true
+    },
+    {
+      "config": "kinematic_only",
+      "dataset": "Pima",
+      "family": "hard",
+      "fraction": 1.0,
+      "baseline_aucs": [
+        0.6645,
+        0.5817,
+        0.6088
+      ],
+      "encoder_aucs": [
+        0.5803,
+        0.6365,
+        0.617
+      ],
+      "delta_auc": -0.007111111111111068,
+      "confounded": false
+    },
+    {
+      "config": "kinematic_only",
+      "dataset": "glass",
+      "family": "hard",
+      "fraction": 0.25,
+      "baseline_aucs": [
+        1.0,
+        0.8798,
+        0.8142
+      ],
+      "encoder_aucs": [
+        1.0,
+        0.9945,
+        0.9399
+      ],
+      "delta_auc": 0.08014571948998173,
+      "confounded": false
+    },
+    {
+      "config": "kinematic_only",
+      "dataset": "glass",
+      "family": "hard",
+      "fraction": 1.0,
+      "baseline_aucs": [
+        0.1366,
+        0.8798,
+        0.9617
+      ],
+      "encoder_aucs": [
+        0.5956,
+        0.9344,
+        0.918
+      ],
+      "delta_auc": 0.15664845173041897,
+      "confounded": true
+    },
+    {
+      "config": "kinematic_only",
+      "dataset": "cardio",
+      "family": "ceiling",
+      "fraction": 0.25,
+      "baseline_aucs": [
+        0.9815,
+        0.9872,
+        0.9745
+      ],
+      "encoder_aucs": [
+        0.9759,
+        0.9858,
+        0.9785
+      ],
+      "delta_auc": -0.0010123634891109345,
+      "confounded": false
+    },
+    {
+      "config": "kinematic_only",
+      "dataset": "cardio",
+      "family": "ceiling",
+      "fraction": 1.0,
+      "baseline_aucs": [
+        0.9926,
+        0.9912,
+        0.9944
+      ],
+      "encoder_aucs": [
+        0.9938,
+        0.9966,
+        0.9973
+      ],
+      "delta_auc": 0.003201599534312982,
+      "confounded": false
+    },
+    {
+      "config": "kinematic_only",
+      "dataset": "thyroid",
+      "family": "ceiling",
+      "fraction": 0.25,
+      "baseline_aucs": [
+        0.9963,
+        0.9968,
+        0.9927
+      ],
+      "encoder_aucs": [
+        0.9973,
+        0.99,
+        0.9957
+      ],
+      "delta_auc": -0.0009273636991029566,
+      "confounded": false
+    },
+    {
+      "config": "kinematic_only",
+      "dataset": "thyroid",
+      "family": "ceiling",
+      "fraction": 1.0,
+      "baseline_aucs": [
+        0.9983,
+        0.9984,
+        0.9985
+      ],
+      "encoder_aucs": [
+        0.9984,
+        0.9982,
+        0.9984
+      ],
+      "delta_auc": -8.626639061415364e-05,
+      "confounded": false
+    },
+    {
+      "config": "fisher_only",
+      "dataset": "Pima",
+      "family": "hard",
+      "fraction": 0.25,
+      "baseline_aucs": [
+        0.4425,
+        0.5077,
+        0.5565
+      ],
+      "encoder_aucs": [
+        0.6482,
+        0.5397,
+        0.5539
+      ],
+      "delta_auc": 0.07834722222222223,
+      "confounded": true
+    },
+    {
+      "config": "fisher_only",
+      "dataset": "Pima",
+      "family": "hard",
+      "fraction": 1.0,
+      "baseline_aucs": [
+        0.6645,
+        0.5817,
+        0.6088
+      ],
+      "encoder_aucs": [
+        0.5621,
+        0.6135,
+        0.6119
+      ],
+      "delta_auc": -0.022527777777777702,
+      "confounded": false
+    },
+    {
+      "config": "fisher_only",
+      "dataset": "glass",
+      "family": "hard",
+      "fraction": 0.25,
+      "baseline_aucs": [
+        1.0,
+        0.8798,
+        0.8142
+      ],
+      "encoder_aucs": [
+        0.6557,
+        0.9836,
+        0.9836
+      ],
+      "delta_auc": -0.023679417122040025,
+      "confounded": false
+    },
+    {
+      "config": "fisher_only",
+      "dataset": "glass",
+      "family": "hard",
+      "fraction": 1.0,
+      "baseline_aucs": [
+        0.1366,
+        0.8798,
+        0.9617
+      ],
+      "encoder_aucs": [
+        0.4536,
+        0.9399,
+        0.9399
+      ],
+      "delta_auc": 0.11839708561020024,
+      "confounded": true
+    },
+    {
+      "config": "fisher_only",
+      "dataset": "cardio",
+      "family": "ceiling",
+      "fraction": 0.25,
+      "baseline_aucs": [
+        0.9815,
+        0.9872,
+        0.9745
+      ],
+      "encoder_aucs": [
+        0.9754,
+        0.9902,
+        0.9801
+      ],
+      "delta_auc": 0.000784581704060594,
+      "confounded": false
+    },
+    {
+      "config": "fisher_only",
+      "dataset": "cardio",
+      "family": "ceiling",
+      "fraction": 1.0,
+      "baseline_aucs": [
+        0.9926,
+        0.9912,
+        0.9944
+      ],
+      "encoder_aucs": [
+        0.9942,
+        0.9965,
+        0.9957
+      ],
+      "delta_auc": 0.0027586905078269552,
+      "confounded": false
+    },
+    {
+      "config": "fisher_only",
+      "dataset": "thyroid",
+      "family": "ceiling",
+      "fraction": 0.25,
+      "baseline_aucs": [
+        0.9963,
+        0.9968,
+        0.9927
+      ],
+      "encoder_aucs": [
+        0.9969,
+        0.9973,
+        0.9947
+      ],
+      "delta_auc": 0.0010136300897169992,
+      "confounded": false
+    },
+    {
+      "config": "fisher_only",
+      "dataset": "thyroid",
+      "family": "ceiling",
+      "fraction": 1.0,
+      "baseline_aucs": [
+        0.9983,
+        0.9984,
+        0.9985
+      ],
+      "encoder_aucs": [
+        0.9982,
+        0.9982,
+        0.9984
+      ],
+      "delta_auc": -0.000129399585921397,
+      "confounded": false
+    },
+    {
+      "config": "no_kinematic",
+      "dataset": "Pima",
+      "family": "hard",
+      "fraction": 0.25,
+      "baseline_aucs": [
+        0.4425,
+        0.5077,
+        0.5565
+      ],
+      "encoder_aucs": [
+        0.6192,
+        0.5447,
+        0.6212
+      ],
+      "delta_auc": 0.09279166666666672,
+      "confounded": true
+    },
+    {
+      "config": "no_kinematic",
+      "dataset": "Pima",
+      "family": "hard",
+      "fraction": 1.0,
+      "baseline_aucs": [
+        0.6645,
+        0.5817,
+        0.6088
+      ],
+      "encoder_aucs": [
+        0.6123,
+        0.5997,
+        0.6072
+      ],
+      "delta_auc": -0.011972222222222051,
+      "confounded": false
+    },
+    {
+      "config": "no_kinematic",
+      "dataset": "glass",
+      "family": "hard",
+      "fraction": 0.25,
+      "baseline_aucs": [
+        1.0,
+        0.8798,
+        0.8142
+      ],
+      "encoder_aucs": [
+        1.0,
+        0.9563,
+        0.9781
+      ],
+      "delta_auc": 0.08014571948998173,
+      "confounded": false
+    },
+    {
+      "config": "no_kinematic",
+      "dataset": "glass",
+      "family": "hard",
+      "fraction": 1.0,
+      "baseline_aucs": [
+        0.1366,
+        0.8798,
+        0.9617
+      ],
+      "encoder_aucs": [
+        0.5847,
+        0.8087,
+        0.929
+      ],
+      "delta_auc": 0.11475409836065575,
+      "confounded": true
+    },
+    {
+      "config": "no_kinematic",
+      "dataset": "cardio",
+      "family": "ceiling",
+      "fraction": 0.25,
+      "baseline_aucs": [
+        0.9815,
+        0.9872,
+        0.9745
+      ],
+      "encoder_aucs": [
+        0.9745,
+        0.9889,
+        0.9788
+      ],
+      "delta_auc": -0.00035432722118888815,
+      "confounded": false
+    },
+    {
+      "config": "no_kinematic",
+      "dataset": "cardio",
+      "family": "ceiling",
+      "fraction": 1.0,
+      "baseline_aucs": [
+        0.9926,
+        0.9912,
+        0.9944
+      ],
+      "encoder_aucs": [
+        0.9938,
+        0.9953,
+        0.995
+      ],
+      "delta_auc": 0.001961454260152151,
+      "confounded": false
+    },
+    {
+      "config": "no_kinematic",
+      "dataset": "thyroid",
+      "family": "ceiling",
+      "fraction": 0.25,
+      "baseline_aucs": [
+        0.9963,
+        0.9968,
+        0.9927
+      ],
+      "encoder_aucs": [
+        0.9969,
+        0.9956,
+        0.9952
+      ],
+      "delta_auc": 0.0005930814354726532,
+      "confounded": false
+    },
+    {
+      "config": "no_kinematic",
+      "dataset": "thyroid",
+      "family": "ceiling",
+      "fraction": 1.0,
+      "baseline_aucs": [
+        0.9983,
+        0.9984,
+        0.9985
+      ],
+      "encoder_aucs": [
+        0.9989,
+        0.999,
+        0.9987
+      ],
+      "delta_auc": 0.0004960317460317443,
+      "confounded": false
+    },
+    {
+      "config": "no_spectral",
+      "dataset": "Pima",
+      "family": "hard",
+      "fraction": 0.25,
+      "baseline_aucs": [
+        0.4425,
+        0.5077,
+        0.5565
+      ],
+      "encoder_aucs": [
+        0.6609,
+        0.5104,
+        0.6212
+      ],
+      "delta_auc": 0.09526388888888893,
+      "confounded": true
+    },
+    {
+      "config": "no_spectral",
+      "dataset": "Pima",
+      "family": "hard",
+      "fraction": 1.0,
+      "baseline_aucs": [
+        0.6645,
+        0.5817,
+        0.6088
+      ],
+      "encoder_aucs": [
+        0.6204,
+        0.6322,
+        0.5874
+      ],
+      "delta_auc": -0.004999999999999893,
+      "confounded": false
+    },
+    {
+      "config": "no_spectral",
+      "dataset": "glass",
+      "family": "hard",
+      "fraction": 0.25,
+      "baseline_aucs": [
+        1.0,
+        0.8798,
+        0.8142
+      ],
+      "encoder_aucs": [
+        1.0,
+        0.9672,
+        0.9617
+      ],
+      "delta_auc": 0.07832422586520937,
+      "confounded": false
+    },
+    {
+      "config": "no_spectral",
+      "dataset": "glass",
+      "family": "hard",
+      "fraction": 1.0,
+      "baseline_aucs": [
+        0.1366,
+        0.8798,
+        0.9617
+      ],
+      "encoder_aucs": [
+        0.6721,
+        0.8142,
+        0.9344
+      ],
+      "delta_auc": 0.14754098360655732,
+      "confounded": true
+    },
+    {
+      "config": "no_spectral",
+      "dataset": "cardio",
+      "family": "ceiling",
+      "fraction": 0.25,
+      "baseline_aucs": [
+        0.9815,
+        0.9872,
+        0.9745
+      ],
+      "encoder_aucs": [
+        0.96,
+        0.9868,
+        0.9771
+      ],
+      "delta_auc": -0.006428508155853496,
+      "confounded": false
+    },
+    {
+      "config": "no_spectral",
+      "dataset": "cardio",
+      "family": "ceiling",
+      "fraction": 1.0,
+      "baseline_aucs": [
+        0.9926,
+        0.9912,
+        0.9944
+      ],
+      "encoder_aucs": [
+        0.9921,
+        0.9929,
+        0.9969
+      ],
+      "delta_auc": 0.001227490730546954,
+      "confounded": false
+    },
+    {
+      "config": "no_spectral",
+      "dataset": "thyroid",
+      "family": "ceiling",
+      "fraction": 0.25,
+      "baseline_aucs": [
+        0.9963,
+        0.9968,
+        0.9927
+      ],
+      "encoder_aucs": [
+        0.9985,
+        0.9965,
+        0.9974
+      ],
+      "delta_auc": 0.0021890096618357724,
+      "confounded": false
+    },
+    {
+      "config": "no_spectral",
+      "dataset": "thyroid",
+      "family": "ceiling",
+      "fraction": 1.0,
+      "baseline_aucs": [
+        0.9983,
+        0.9984,
+        0.9985
+      ],
+      "encoder_aucs": [
+        0.9977,
+        0.9979,
+        0.9983
+      ],
+      "delta_auc": -0.0004636818495514783,
+      "confounded": false
+    },
+    {
+      "config": "narrow_kernels",
+      "dataset": "Pima",
+      "family": "hard",
+      "fraction": 0.25,
+      "baseline_aucs": [
+        0.4425,
+        0.5077,
+        0.5565
+      ],
+      "encoder_aucs": [
+        0.5907,
+        0.5889,
+        0.5799
+      ],
+      "delta_auc": 0.08426388888888892,
+      "confounded": true
+    },
+    {
+      "config": "narrow_kernels",
+      "dataset": "Pima",
+      "family": "hard",
+      "fraction": 1.0,
+      "baseline_aucs": [
+        0.6645,
+        0.5817,
+        0.6088
+      ],
+      "encoder_aucs": [
+        0.6074,
+        0.5359,
+        0.6102
+      ],
+      "delta_auc": -0.03383333333333316,
+      "confounded": false
+    },
+    {
+      "config": "narrow_kernels",
+      "dataset": "glass",
+      "family": "hard",
+      "fraction": 0.25,
+      "baseline_aucs": [
+        1.0,
+        0.8798,
+        0.8142
+      ],
+      "encoder_aucs": [
+        1.0,
+        0.8962,
+        0.9617
+      ],
+      "delta_auc": 0.05464480874316946,
+      "confounded": false
+    },
+    {
+      "config": "narrow_kernels",
+      "dataset": "glass",
+      "family": "hard",
+      "fraction": 1.0,
+      "baseline_aucs": [
+        0.1366,
+        0.8798,
+        0.9617
+      ],
+      "encoder_aucs": [
+        0.2896,
+        0.9126,
+        0.9781
+      ],
+      "delta_auc": 0.06739526411657559,
+      "confounded": true
+    },
+    {
+      "config": "narrow_kernels",
+      "dataset": "cardio",
+      "family": "ceiling",
+      "fraction": 0.25,
+      "baseline_aucs": [
+        0.9815,
+        0.9872,
+        0.9745
+      ],
+      "encoder_aucs": [
+        0.9685,
+        0.9857,
+        0.9793
+      ],
+      "delta_auc": -0.003239563165154613,
+      "confounded": false
+    },
+    {
+      "config": "narrow_kernels",
+      "dataset": "cardio",
+      "family": "ceiling",
+      "fraction": 1.0,
+      "baseline_aucs": [
+        0.9926,
+        0.9912,
+        0.9944
+      ],
+      "encoder_aucs": [
+        0.9943,
+        0.9953,
+        0.9944
+      ],
+      "delta_auc": 0.0019361451729243973,
+      "confounded": false
+    },
+    {
+      "config": "narrow_kernels",
+      "dataset": "thyroid",
+      "family": "ceiling",
+      "fraction": 0.25,
+      "baseline_aucs": [
+        0.9963,
+        0.9968,
+        0.9927
+      ],
+      "encoder_aucs": [
+        0.9976,
+        0.9958,
+        0.9955
+      ],
+      "delta_auc": 0.0010136300897169992,
+      "confounded": false
+    },
+    {
+      "config": "narrow_kernels",
+      "dataset": "thyroid",
+      "family": "ceiling",
+      "fraction": 1.0,
+      "baseline_aucs": [
+        0.9983,
+        0.9984,
+        0.9985
+      ],
+      "encoder_aucs": [
+        0.9984,
+        0.9984,
+        0.9984
+      ],
+      "delta_auc": -1.0783298826755328e-05,
+      "confounded": false
+    },
+    {
+      "config": "wide_kernels",
+      "dataset": "Pima",
+      "family": "hard",
+      "fraction": 0.25,
+      "baseline_aucs": [
+        0.4425,
+        0.5077,
+        0.5565
+      ],
+      "encoder_aucs": [
+        0.6044,
+        0.5618,
+        0.6357
+      ],
+      "delta_auc": 0.09840277777777795,
+      "confounded": true
+    },
+    {
+      "config": "wide_kernels",
+      "dataset": "Pima",
+      "family": "hard",
+      "fraction": 1.0,
+      "baseline_aucs": [
+        0.6645,
+        0.5817,
+        0.6088
+      ],
+      "encoder_aucs": [
+        0.5898,
+        0.5846,
+        0.5893
+      ],
+      "delta_auc": -0.030444444444444385,
+      "confounded": false
+    },
+    {
+      "config": "wide_kernels",
+      "dataset": "glass",
+      "family": "hard",
+      "fraction": 0.25,
+      "baseline_aucs": [
+        1.0,
+        0.8798,
+        0.8142
+      ],
+      "encoder_aucs": [
+        1.0,
+        1.0,
+        0.9836
+      ],
+      "delta_auc": 0.09653916211293267,
+      "confounded": false
+    },
+    {
+      "config": "wide_kernels",
+      "dataset": "glass",
+      "family": "hard",
+      "fraction": 1.0,
+      "baseline_aucs": [
+        0.1366,
+        0.8798,
+        0.9617
+      ],
+      "encoder_aucs": [
+        0.4973,
+        0.765,
+        0.9508
+      ],
+      "delta_auc": 0.07832422586520948,
+      "confounded": true
+    },
+    {
+      "config": "wide_kernels",
+      "dataset": "cardio",
+      "family": "ceiling",
+      "fraction": 0.25,
+      "baseline_aucs": [
+        0.9815,
+        0.9872,
+        0.9745
+      ],
+      "encoder_aucs": [
+        0.9768,
+        0.9888,
+        0.9811
+      ],
+      "delta_auc": 0.0011389089252494822,
+      "confounded": false
+    },
+    {
+      "config": "wide_kernels",
+      "dataset": "cardio",
+      "family": "ceiling",
+      "fraction": 1.0,
+      "baseline_aucs": [
+        0.9926,
+        0.9912,
+        0.9944
+      ],
+      "encoder_aucs": [
+        0.9898,
+        0.9946,
+        0.9979
+      ],
+      "delta_auc": 0.0014173088847551085,
+      "confounded": false
+    },
+    {
+      "config": "wide_kernels",
+      "dataset": "thyroid",
+      "family": "ceiling",
+      "fraction": 0.25,
+      "baseline_aucs": [
+        0.9963,
+        0.9968,
+        0.9927
+      ],
+      "encoder_aucs": [
+        0.998,
+        0.9986,
+        0.9938
+      ],
+      "delta_auc": 0.0015204451345756098,
+      "confounded": false
+    },
+    {
+      "config": "wide_kernels",
+      "dataset": "thyroid",
+      "family": "ceiling",
+      "fraction": 1.0,
+      "baseline_aucs": [
+        0.9983,
+        0.9984,
+        0.9985
+      ],
+      "encoder_aucs": [
+        0.9988,
+        0.9977,
+        0.9989
+      ],
+      "delta_auc": 8.626639061415364e-05,
+      "confounded": false
+    },
+    {
+      "config": "sqrt_spectral",
+      "dataset": "Pima",
+      "family": "hard",
+      "fraction": 0.25,
+      "baseline_aucs": [
+        0.4425,
+        0.5077,
+        0.5565
+      ],
+      "encoder_aucs": [
+        0.6406,
+        0.5617,
+        0.5943
+      ],
+      "delta_auc": 0.09662500000000007,
+      "confounded": true
+    },
+    {
+      "config": "sqrt_spectral",
+      "dataset": "Pima",
+      "family": "hard",
+      "fraction": 1.0,
+      "baseline_aucs": [
+        0.6645,
+        0.5817,
+        0.6088
+      ],
+      "encoder_aucs": [
+        0.6082,
+        0.6132,
+        0.6096
+      ],
+      "delta_auc": -0.008041666666666503,
+      "confounded": false
+    },
+    {
+      "config": "sqrt_spectral",
+      "dataset": "glass",
+      "family": "hard",
+      "fraction": 0.25,
+      "baseline_aucs": [
+        1.0,
+        0.8798,
+        0.8142
+      ],
+      "encoder_aucs": [
+        1.0,
+        0.9126,
+        0.9399
+      ],
+      "delta_auc": 0.05282331511839711,
+      "confounded": false
+    },
+    {
+      "config": "sqrt_spectral",
+      "dataset": "glass",
+      "family": "hard",
+      "fraction": 1.0,
+      "baseline_aucs": [
+        0.1366,
+        0.8798,
+        0.9617
+      ],
+      "encoder_aucs": [
+        0.5082,
+        0.9235,
+        0.9508
+      ],
+      "delta_auc": 0.13479052823315119,
+      "confounded": true
+    },
+    {
+      "config": "sqrt_spectral",
+      "dataset": "cardio",
+      "family": "ceiling",
+      "fraction": 0.25,
+      "baseline_aucs": [
+        0.9815,
+        0.9872,
+        0.9745
+      ],
+      "encoder_aucs": [
+        0.9792,
+        0.9873,
+        0.9778
+      ],
+      "delta_auc": 0.00034167267757478914,
+      "confounded": false
+    },
+    {
+      "config": "sqrt_spectral",
+      "dataset": "cardio",
+      "family": "ceiling",
+      "fraction": 1.0,
+      "baseline_aucs": [
+        0.9926,
+        0.9912,
+        0.9944
+      ],
+      "encoder_aucs": [
+        0.9938,
+        0.9946,
+        0.9962
+      ],
+      "delta_auc": 0.0021512724143605277,
+      "confounded": false
+    },
+    {
+      "config": "sqrt_spectral",
+      "dataset": "thyroid",
+      "family": "ceiling",
+      "fraction": 0.25,
+      "baseline_aucs": [
+        0.9963,
+        0.9968,
+        0.9927
+      ],
+      "encoder_aucs": [
+        0.9971,
+        0.9975,
+        0.9915
+      ],
+      "delta_auc": 8.626639061415364e-05,
+      "confounded": false
+    },
+    {
+      "config": "sqrt_spectral",
+      "dataset": "thyroid",
+      "family": "ceiling",
+      "fraction": 1.0,
+      "baseline_aucs": [
+        0.9983,
+        0.9984,
+        0.9985
+      ],
+      "encoder_aucs": [
+        0.9986,
+        0.9962,
+        0.9835
+      ],
+      "delta_auc": -0.005628881987577716,
+      "confounded": false
+    },
+    {
+      "config": "layernorm",
+      "dataset": "Pima",
+      "family": "hard",
+      "fraction": 0.25,
+      "baseline_aucs": [
+        0.4425,
+        0.5077,
+        0.5565
+      ],
+      "encoder_aucs": [
+        0.6226,
+        0.5619,
+        0.6178
+      ],
+      "delta_auc": 0.09854166666666664,
+      "confounded": true
+    },
+    {
+      "config": "layernorm",
+      "dataset": "Pima",
+      "family": "hard",
+      "fraction": 1.0,
+      "baseline_aucs": [
+        0.6645,
+        0.5817,
+        0.6088
+      ],
+      "encoder_aucs": [
+        0.5774,
+        0.627,
+        0.6184
+      ],
+      "delta_auc": -0.010749999999999926,
+      "confounded": false
+    },
+    {
+      "config": "layernorm",
+      "dataset": "glass",
+      "family": "hard",
+      "fraction": 0.25,
+      "baseline_aucs": [
+        1.0,
+        0.8798,
+        0.8142
+      ],
+      "encoder_aucs": [
+        0.9836,
+        0.8798,
+        0.8689
+      ],
+      "delta_auc": 0.012750455373406244,
+      "confounded": false
+    },
+    {
+      "config": "layernorm",
+      "dataset": "glass",
+      "family": "hard",
+      "fraction": 1.0,
+      "baseline_aucs": [
+        0.1366,
+        0.8798,
+        0.9617
+      ],
+      "encoder_aucs": [
+        0.7377,
+        0.9563,
+        0.9672
+      ],
+      "delta_auc": 0.22768670309653916,
+      "confounded": true
+    },
+    {
+      "config": "layernorm",
+      "dataset": "cardio",
+      "family": "ceiling",
+      "fraction": 0.25,
+      "baseline_aucs": [
+        0.9815,
+        0.9872,
+        0.9745
+      ],
+      "encoder_aucs": [
+        0.9728,
+        0.9891,
+        0.9761
+      ],
+      "delta_auc": -0.0017336724751022548,
+      "confounded": false
+    },
+    {
+      "config": "layernorm",
+      "dataset": "cardio",
+      "family": "ceiling",
+      "fraction": 1.0,
+      "baseline_aucs": [
+        0.9926,
+        0.9912,
+        0.9944
+      ],
+      "encoder_aucs": [
+        0.9882,
+        0.9922,
+        0.9968
+      ],
+      "delta_auc": -0.0003543272211886661,
+      "confounded": false
+    },
+    {
+      "config": "layernorm",
+      "dataset": "thyroid",
+      "family": "ceiling",
+      "fraction": 0.25,
+      "baseline_aucs": [
+        0.9963,
+        0.9968,
+        0.9927
+      ],
+      "encoder_aucs": [
+        0.9972,
+        0.9931,
+        0.9959
+      ],
+      "delta_auc": 0.00010783298826777532,
+      "confounded": false
+    },
+    {
+      "config": "layernorm",
+      "dataset": "thyroid",
+      "family": "ceiling",
+      "fraction": 1.0,
+      "baseline_aucs": [
+        0.9983,
+        0.9984,
+        0.9985
+      ],
+      "encoder_aucs": [
+        0.998,
+        0.9983,
+        0.9985
+      ],
+      "delta_auc": -0.00015096618357490765,
+      "confounded": false
+    }
+  ],
+  "verdict": {
+    "auc_meaningful_threshold": 0.002,
+    "by_family_and_size": {
+      "ceiling/full_data": {
+        "n_cells": 20,
+        "n_confounded": 0,
+        "mean_clean_delta_auc": 0.0005792741993388084,
+        "max_clean_delta_auc": 0.003201599534312982,
+        "n_clean_cells_above_threshold": 4
+      },
+      "ceiling/low_data": {
+        "n_cells": 20,
+        "n_confounded": 0,
+        "mean_clean_delta_auc": -2.3300722895469583e-05,
+        "max_clean_delta_auc": 0.0021890096618357724,
+        "n_clean_cells_above_threshold": 1
+      },
+      "hard/full_data": {
+        "n_cells": 20,
+        "n_confounded": 10,
+        "mean_clean_delta_auc": -0.01646805555555545,
+        "max_clean_delta_auc": -0.004999999999999893,
+        "n_clean_cells_above_threshold": 0
+      },
+      "hard/low_data": {
+        "n_cells": 20,
+        "n_confounded": 11,
+        "mean_clean_delta_auc": 0.05768063145112326,
+        "max_clean_delta_auc": 0.09653916211293267,
+        "n_clean_cells_above_threshold": 8
+      }
+    },
+    "best_confound_free_delta": 0.09653916211293267,
+    "best_confound_free_where": "wide_kernels on glass (hard/low_data)",
+    "any_confound_free_cell_clears_threshold": true,
+    "verdict": "INVESTIGATE -- a confound-free cell clears the noise threshold; review before promoting (must also be stable across seeds/datasets)."
+  }
+}
