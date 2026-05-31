@@ -84,10 +84,10 @@ runs:
           echo "AMA_NO_CYTHON=1"
         } >> "$GITHUB_ENV"
         python - <<'PY'
-from ama_cryptography.pqc_backends import get_pqc_backend_info
+        from ama_cryptography.pqc_backends import get_pqc_backend_info
 
-info = get_pqc_backend_info()
-if not info.get("dilithium_available"):
-    raise SystemExit(f"AMA ML-DSA unavailable after install: {info!r}")
-print("AMA Cryptography native PQC backend verified")
-PY
+        info = get_pqc_backend_info()
+        if not info.get("dilithium_available"):
+            raise SystemExit(f"AMA ML-DSA unavailable after install: {info!r}")
+        print("AMA Cryptography native PQC backend verified")
+        PY
