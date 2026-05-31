@@ -51,12 +51,14 @@ def _engine() -> Any:
     return OmniMercuryEngine(mode="fusion", device="cpu")
 
 
-def _fit_and_score(domain_encoder: Any, *, pass_flag: bool) -> tuple[Any, dict[str, Any], np.ndarray]:
+def _fit_and_score(
+    domain_encoder: Any, *, pass_flag: bool
+) -> tuple[Any, dict[str, Any], np.ndarray]:
     torch.manual_seed(0)
     np.random.seed(0)
     X, y = _separable_fixture()
     n_train = int(len(X) * 0.7)
-    kw: dict[str, Any] = dict(epochs=8, batch_size=32, validation_split=0.25)
+    kw: dict[str, Any] = {"epochs": 8, "batch_size": 32, "validation_split": 0.25}
     if pass_flag:
         kw["domain_encoder"] = domain_encoder
     engine = _engine()

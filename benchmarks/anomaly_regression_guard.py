@@ -48,12 +48,13 @@ _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE))
 sys.path.insert(0, str(_HERE.parent / "src"))
 
-import mercury_benchmark as mb  # noqa: E402  (path set above)
-from omni_mercury_engine.datasets.adbench import (  # noqa: E402
+import mercury_benchmark as mb
+
+from omni_mercury_engine.datasets.adbench import (
     ADBENCH_CATALOG,
     ADBenchLoader,
 )
-from omni_mercury_engine.datasets.base import DatasetConfig  # noqa: E402
+from omni_mercury_engine.datasets.base import DatasetConfig
 
 BASELINE_PATH = _HERE / "anomaly_regression_baseline.json"
 
@@ -122,7 +123,7 @@ def evaluate() -> dict[str, Any]:
         f1 = float(res["oracle_f1"])
         datasets[name] = {
             "adbench_index": _NAME_TO_INDEX.get(name.lower()),
-            "n_samples": int(len(y)),
+            "n_samples": len(y),
             "n_features": int(X.shape[1]),
             "npz_sha256": sha,
             "auc": auc,

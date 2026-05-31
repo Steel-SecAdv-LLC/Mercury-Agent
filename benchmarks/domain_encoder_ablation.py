@@ -53,10 +53,10 @@ import torch
 _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE.parent / "src"))
 
-from omni_mercury_engine.datasets.adbench import ADBenchLoader  # noqa: E402
-from omni_mercury_engine.datasets.base import DatasetConfig  # noqa: E402
-from omni_mercury_engine.engine import OmniMercuryEngine  # noqa: E402
-from omni_mercury_engine.ml.mercury_ml import roc_auc_score  # noqa: E402
+from omni_mercury_engine.datasets.adbench import ADBenchLoader
+from omni_mercury_engine.datasets.base import DatasetConfig
+from omni_mercury_engine.engine import OmniMercuryEngine
+from omni_mercury_engine.ml.mercury_ml import roc_auc_score
 
 DEFAULT_DATASETS = ["cardio", "Pima", "thyroid"]
 DEFAULT_SEEDS = [0, 1, 2]
@@ -141,7 +141,7 @@ def _stratified_split(
     for cls in np.unique(y):
         idx = np.where(y == cls)[0]
         rng.shuffle(idx)
-        cut = max(1, int(round(len(idx) * train_frac)))
+        cut = max(1, round(len(idx) * train_frac))
         tr.extend(idx[:cut].tolist())
         te.extend(idx[cut:].tolist())
     return np.array(tr), np.array(te)

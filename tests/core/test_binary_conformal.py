@@ -22,9 +22,7 @@ from omni_mercury_engine.core.conformal_prediction import (
 )
 
 
-def _synthetic_probs(
-    n: int, seed: int, anomaly_rate: float = 0.3
-) -> tuple[np.ndarray, np.ndarray]:
+def _synthetic_probs(n: int, seed: int, anomaly_rate: float = 0.3) -> tuple[np.ndarray, np.ndarray]:
     """Overlapping but informative calibrated probabilities and labels."""
     rng = np.random.RandomState(seed)
     y = (rng.random(n) < anomaly_rate).astype(int)
@@ -119,4 +117,6 @@ class TestValidationAndEdgeCases:
         probs, y = _synthetic_probs(1500, seed=5)
         a = BinaryConformalClassifier(coverage=0.9).fit(probs, y)
         b = BinaryConformalClassifier(coverage=0.9).fit(probs, y)
-        assert a.coverage_report(probs, y)["thresholds"] == b.coverage_report(probs, y)["thresholds"]
+        assert (
+            a.coverage_report(probs, y)["thresholds"] == b.coverage_report(probs, y)["thresholds"]
+        )

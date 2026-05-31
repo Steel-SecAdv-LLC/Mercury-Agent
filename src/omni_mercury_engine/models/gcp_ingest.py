@@ -156,9 +156,7 @@ def stouffer_z(z: np.ndarray[Any, Any]) -> float:
     return float(flat.sum() / math.sqrt(flat.size))
 
 
-def synthetic_null_streams(
-    n_seconds: int, n_eggs: int, seed: int
-) -> np.ndarray[Any, Any]:
+def synthetic_null_streams(n_seconds: int, n_eggs: int, seed: int) -> np.ndarray[Any, Any]:
     """Clearly-SYNTHETIC true-random egg sums (Binomial(200, 0.5)). NOT real GCP.
 
     For validating the statistics/encoder plumbing under a known null; can never
@@ -169,13 +167,13 @@ def synthetic_null_streams(
 
 
 __all__ = [
-    "IngestResult",
-    "fetch_egg_stream",
-    "egg_sums_to_z",
-    "network_variance",
-    "stouffer_z",
-    "synthetic_null_streams",
     "BITS_PER_TRIAL",
     "NULL_MEAN",
     "NULL_STD",
+    "IngestResult",
+    "egg_sums_to_z",
+    "fetch_egg_stream",
+    "network_variance",
+    "stouffer_z",
+    "synthetic_null_streams",
 ]

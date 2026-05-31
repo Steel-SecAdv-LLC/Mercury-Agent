@@ -42,7 +42,7 @@ requires an openly-licensed *real* ELF corpus the proxy labels can be applied to
 import hashlib
 import json
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from omni_mercury_engine.datasets.base import http_get_with_retry
@@ -67,7 +67,7 @@ STORM_LAG = timedelta(hours=3)
 def _parse_time(s: str) -> datetime:
     s = s.replace("Z", "").strip()
     dt = datetime.fromisoformat(s)
-    return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt
+    return dt.replace(tzinfo=UTC) if dt.tzinfo is None else dt
 
 
 @dataclass
@@ -117,7 +117,7 @@ def fetch_catalogs(
     live public-domain feeds are fetched.
     """
     provenance: dict[str, Any] = {
-        "fetched_at": datetime.now(timezone.utc).isoformat(),
+        "fetched_at": datetime.now(UTC).isoformat(),
         "sources": [],
         "thresholds": {
             "kp_storm": KP_STORM_THRESHOLD,
@@ -202,11 +202,11 @@ def label_noise_disclosure() -> dict[str, str]:
 
 
 __all__ = [
+    "FLARE_M_CLASS",
+    "FLARE_X_CLASS",
+    "KP_STORM_THRESHOLD",
     "EventWindow",
     "LabelCatalog",
     "fetch_catalogs",
     "label_noise_disclosure",
-    "KP_STORM_THRESHOLD",
-    "FLARE_M_CLASS",
-    "FLARE_X_CLASS",
 ]

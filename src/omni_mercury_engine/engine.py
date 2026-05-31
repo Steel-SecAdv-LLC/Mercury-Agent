@@ -161,15 +161,15 @@ from omni_mercury_engine.detectors.directive import SigmaDirectiveDetector
 from omni_mercury_engine.detectors.spatial import SpatialAnomalyDetector
 from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 from omni_mercury_engine.detectors.temporal import TemporalAnomalyDetector
+from omni_mercury_engine.ml.domain_encoders import DomainEncoderStack
 
 # Runtime pipeline modules - always imported (required for core functionality)
 from omni_mercury_engine.ml.drift import DriftResult, EnsembleDriftDetector
 from omni_mercury_engine.ml.fairness import BiasAuditConfig, FairnessAuditor, FairnessReport
 from omni_mercury_engine.ml.fusion_network import FocalLoss, OmniFusionModel
 from omni_mercury_engine.ml.inference import FusionInference
-from omni_mercury_engine.ml.domain_encoders import DomainEncoderStack
-from omni_mercury_engine.ml.symbolic_constraint import SymbolicConstraintModule
 from omni_mercury_engine.ml.optimization import OptimizationConfig, ParallelExecutor
+from omni_mercury_engine.ml.symbolic_constraint import SymbolicConstraintModule
 from omni_mercury_engine.utils.logging import LoggerMixin
 
 if TYPE_CHECKING:
@@ -1262,7 +1262,9 @@ class OmniMercuryEngine(LoggerMixin):
                     name: feat[batch_indices].to(device) for name, feat in detector_features.items()
                 }
                 if domain_active and dom_module is not None and raw_inputs_dev is not None:
-                    batch_features["differentiable_domain"] = dom_module(raw_inputs_dev[batch_indices])
+                    batch_features["differentiable_domain"] = dom_module(
+                        raw_inputs_dev[batch_indices]
+                    )
                 batch_labels = labels_tensor[batch_indices].to(device)
 
                 optimizer.zero_grad()
@@ -1270,7 +1272,9 @@ class OmniMercuryEngine(LoggerMixin):
                 loss = _loss_fn(outputs["anomaly_probs"], batch_labels)
                 if symbolic_active:
                     assert sym_module is not None and detector_scores_dev is not None
-                    sym_out = sym_module(outputs["anomaly_probs"], detector_scores_dev[batch_indices])
+                    sym_out = sym_module(
+                        outputs["anomaly_probs"], detector_scores_dev[batch_indices]
+                    )
                     loss = loss + symbolic_weight * sym_out["loss"]
                     last_satisfaction = float(sym_out["satisfaction"].detach())
                     last_symbolic_loss = float(sym_out["loss"].detach())
@@ -1976,7 +1980,7 @@ class OmniMercuryEngine(LoggerMixin):
         return {
             "coverage": coverage,
             "thresholds": report["thresholds"],
-            "n_calibration": int(len(y)),
+            "n_calibration": len(y),
         }
 
     def score_fusion_conformal(self, X: np.ndarray[Any, Any]) -> dict[str, Any]:

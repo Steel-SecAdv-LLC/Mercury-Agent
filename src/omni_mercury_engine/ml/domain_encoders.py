@@ -208,8 +208,8 @@ class DomainEncoderStack(nn.Module):
 
 
 __all__ = [
-    "SpectralEncoder",
-    "KinematicEncoder",
-    "FisherEntropyEncoder",
     "DomainEncoderStack",
+    "FisherEntropyEncoder",
+    "KinematicEncoder",
+    "SpectralEncoder",
 ]

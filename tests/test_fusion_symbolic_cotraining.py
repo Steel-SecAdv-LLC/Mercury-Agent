@@ -89,7 +89,9 @@ class TestCoTrainingContract:
         # Constraint diagnostics are present and well-formed.
         assert metrics["symbolic_weight"] == pytest.approx(0.1)
         assert 0.0 <= metrics["symbolic_satisfaction"] <= 1.0
-        assert metrics["symbolic_loss"] == pytest.approx(1.0 - metrics["symbolic_satisfaction"], abs=1e-5)
+        assert metrics["symbolic_loss"] == pytest.approx(
+            1.0 - metrics["symbolic_satisfaction"], abs=1e-5
+        )
 
         # The constraint module is retained and learned over real channels.
         module = engine._symbolic_module
@@ -134,9 +136,7 @@ class TestStability:
             X, y = _separable_fixture()
             X_tr, y_tr, _, _ = _split(X, y)
             engine = _engine()
-            metrics = engine.fit_fusion(
-                X_tr, y_tr, epochs=8, batch_size=32, symbolic_weight=0.1
-            )
+            metrics = engine.fit_fusion(X_tr, y_tr, epochs=8, batch_size=32, symbolic_weight=0.1)
             return float(metrics["symbolic_satisfaction"])
 
         assert _run() == pytest.approx(_run(), abs=0.05)

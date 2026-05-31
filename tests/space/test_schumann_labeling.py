@@ -11,7 +11,7 @@ label-noise disclosure -- is verified reproducibly.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from omni_mercury_engine.space.schumann_labeling import (
     FLARE_M_CLASS,
@@ -45,9 +45,9 @@ def test_storm_window_from_high_kp() -> None:
     assert len(storms) == 1
     assert storms[0].magnitude == 6.0
     # labelled positive at the storm time
-    assert cat.label(datetime(2026, 1, 1, 3, 0, tzinfo=timezone.utc)) == 1
+    assert cat.label(datetime(2026, 1, 1, 3, 0, tzinfo=UTC)) == 1
     # quiet hours far from any driver are negative
-    assert cat.label(datetime(2026, 1, 1, 0, 0, tzinfo=timezone.utc)) == 0
+    assert cat.label(datetime(2026, 1, 1, 0, 0, tzinfo=UTC)) == 0
 
 
 def test_flare_windows_m_and_x() -> None:
@@ -57,8 +57,8 @@ def test_flare_windows_m_and_x() -> None:
     # sub-M flux and the wrong energy band do not create windows
     assert len(flares) == 2
     # flare onset is labelled positive; well after the lag it is negative
-    assert cat.label(datetime(2026, 1, 2, 1, 0, tzinfo=timezone.utc)) == 1
-    assert cat.label(datetime(2026, 1, 2, 5, 0, tzinfo=timezone.utc)) == 0
+    assert cat.label(datetime(2026, 1, 2, 1, 0, tzinfo=UTC)) == 1
+    assert cat.label(datetime(2026, 1, 2, 5, 0, tzinfo=UTC)) == 0
 
 
 def test_thresholds_are_documented_constants() -> None:

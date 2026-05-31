@@ -295,9 +295,7 @@ class SymbolicConstraintModule(nn.Module):
             return {
                 "satisfaction": sat,
                 "loss": 1.0 - sat,
-                "rule_satisfaction": torch.ones(
-                    len(self.rule_graph), device=device, dtype=dtype
-                ),
+                "rule_satisfaction": torch.ones(len(self.rule_graph), device=device, dtype=dtype),
                 "rule_weights": torch.softmax(self.rule_weights, dim=0),
                 "detector_weights": torch.empty(0, device=device, dtype=dtype),
             }
@@ -311,9 +309,7 @@ class SymbolicConstraintModule(nn.Module):
             consequent = grounded[rule.consequent]
             truth = self._implies(antecedent, consequent).clamp(_EPS, 1.0 - _EPS)  # (B, 1)
             # Universal quantification over the batch via smooth pmean.
-            rule_sat = FuzzyOperators.forall_pmean(
-                truth.squeeze(1), p=self.p_aggregator, dim=0
-            )
+            rule_sat = FuzzyOperators.forall_pmean(truth.squeeze(1), p=self.p_aggregator, dim=0)
             per_rule.append(rule_sat)
 
         rule_satisfaction = torch.stack(per_rule)  # (num_rules,)

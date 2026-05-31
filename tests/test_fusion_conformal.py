@@ -122,7 +122,7 @@ class TestConformalCoverageRealData:
             )
             loader.download()
             data = loader.load()
-        except Exception as exc:  # noqa: BLE001 - network/data unavailable
+        except Exception as exc:
             pytest.skip(f"ADBench {dataset} unavailable: {exc}")
 
         X = np.asarray(data[0], dtype=np.float32)

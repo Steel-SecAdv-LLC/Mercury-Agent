@@ -31,7 +31,7 @@ from pathlib import Path
 _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE.parent / "src"))
 
-from omni_mercury_engine.models.gcp_ingest import (  # noqa: E402
+from omni_mercury_engine.models.gcp_ingest import (
     egg_sums_to_z,
     fetch_egg_stream,
     network_variance,

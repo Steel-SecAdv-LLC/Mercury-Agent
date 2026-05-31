@@ -54,9 +54,7 @@ def test_network_variance_matches_chi_square_df() -> None:
 
 def test_stouffer_z_is_null_on_random_streams() -> None:
     """A true-random stream must not be flagged: |Z| stays small."""
-    zvals = [
-        stouffer_z(egg_sums_to_z(synthetic_null_streams(300, 64, seed=k))) for k in range(8)
-    ]
+    zvals = [stouffer_z(egg_sums_to_z(synthetic_null_streams(300, 64, seed=k))) for k in range(8)]
     # All within a generous null band; not a single |Z| > 3.5 across 8 seeds.
     assert all(abs(z) < 3.5 for z in zvals)
     assert abs(float(np.mean(zvals))) < 1.5

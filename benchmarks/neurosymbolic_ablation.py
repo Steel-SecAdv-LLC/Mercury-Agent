@@ -196,7 +196,7 @@ def run_dataset(
     """Run the paired ablation for one dataset across seeds and fractions."""
     try:
         X, y = _load_dataset(name)
-    except Exception as exc:  # noqa: BLE001 - report load failure honestly
+    except Exception as exc:
         print(f"  {name:<12} SKIP (load failed: {exc})")
         return None
 
@@ -313,7 +313,8 @@ def derive_verdict(results: list[dict[str, Any]]) -> dict[str, Any]:
         "gate_sample_efficiency_up": bool(gate_sample_eff),
         "passed": passed,
         "verdict": (
-            "KEEP -- enable symbolic co-training by default" if passed
+            "KEEP -- enable symbolic co-training by default"
+            if passed
             else "QUARANTINE -- keep symbolic_weight=0 default; no measured improvement"
         ),
     }
@@ -330,7 +331,9 @@ def main() -> int:
     args = parser.parse_args()
 
     print("Neuro-symbolic ablation (neural-only vs neural+symbolic, real ADBench labels)")
-    print(f"lambda={args.lam}  seeds={args.seeds}  fractions={args.fractions}  epochs={args.epochs}")
+    print(
+        f"lambda={args.lam}  seeds={args.seeds}  fractions={args.fractions}  epochs={args.epochs}"
+    )
     print("-" * 88)
 
     results: list[dict[str, Any]] = []

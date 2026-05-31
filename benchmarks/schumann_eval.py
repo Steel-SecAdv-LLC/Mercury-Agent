@@ -37,15 +37,15 @@ import numpy as np
 _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE.parent / "src"))
 
-import torch  # noqa: E402
-from torch import nn  # noqa: E402
+import torch
+from torch import nn
 
-from omni_mercury_engine.ml.mercury_ml import roc_auc_score  # noqa: E402
-from omni_mercury_engine.space.schumann_labeling import (  # noqa: E402
+from omni_mercury_engine.ml.mercury_ml import roc_auc_score
+from omni_mercury_engine.space.schumann_labeling import (
     fetch_catalogs,
     label_noise_disclosure,
 )
-from omni_mercury_engine.space.schumann_resonance import SchumannHarmonicAnalyzer  # noqa: E402
+from omni_mercury_engine.space.schumann_resonance import SchumannHarmonicAnalyzer
 
 SPECTRUM_SIZE = 512
 FREQ_MAX_HZ = 50.0
@@ -64,7 +64,7 @@ def _synth_spectrum(label: int, rng: np.random.RandomState) -> np.ndarray[Any, A
     freqs = np.linspace(0.1, FREQ_MAX_HZ, SPECTRUM_SIZE)
     spec = 1.0 / freqs  # 1/f background
     amp_boost = 1.0 + (0.6 * rng.rand() if label else 0.0)
-    f_shift = (0.15 * rng.rand() if label else 0.0)  # Hz upward shift on events
+    f_shift = 0.15 * rng.rand() if label else 0.0  # Hz upward shift on events
     width = 0.6 * (1.0 + (0.5 * rng.rand() if label else 0.0))  # Q broadening
     for i, f0 in enumerate(SCHUMANN_PEAKS_HZ):
         peak_amp = (amp_boost if i == 0 else 1.0) * (1.0 / (i + 1))
@@ -99,7 +99,9 @@ class _SchumannBinary(nn.Module):
         return confidence.squeeze(-1)  # type: ignore[no-any-return]
 
 
-def _split_indices(labels: np.ndarray[Any, Any]) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], str]:
+def _split_indices(
+    labels: np.ndarray[Any, Any],
+) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], str]:
     """Temporal earliest-70% split; seeded-stratified fallback if a fold is
     single-class (the available NOAA window's events are temporally clustered,
     a degeneracy registered in the pre-registration)."""
@@ -113,7 +115,7 @@ def _split_indices(labels: np.ndarray[Any, Any]) -> tuple[np.ndarray[Any, Any], 
     for cls in np.unique(labels):
         idx = np.where(labels == cls)[0]
         rng.shuffle(idx)
-        c = max(1, int(round(len(idx) * 0.7)))
+        c = max(1, round(len(idx) * 0.7))
         tr_l.extend(idx[:c].tolist())
         te_l.extend(idx[c:].tolist())
     return np.array(sorted(tr_l)), np.array(sorted(te_l)), "stratified_fallback_temporal_degenerate"
@@ -166,7 +168,9 @@ def main() -> int:
     times = sorted(_sample_times(catalog, args.n, rng))
     labels = np.array([catalog.label(t) for t in times], dtype=int)
     # Deterministic synthetic spectrum per sample (seeded by index).
-    specs = np.stack([_synth_spectrum(int(lb), np.random.RandomState(i)) for i, lb in enumerate(labels)])
+    specs = np.stack(
+        [_synth_spectrum(int(lb), np.random.RandomState(i)) for i, lb in enumerate(labels)]
+    )
 
     pos_frac = float(labels.mean())
     train_idx, test_idx, split_used = _split_indices(labels)
