@@ -163,8 +163,12 @@ hinge on `glass`'s 3-positive split (`artifacts/domain_encoder_stability.json`):
 |---|---|---|
 | glass (3) | +0.038 ± 0.062 | −0.031 ± 0.271 (one −0.72 blow-up) |
 | Pima (80) † | −0.003 ± 0.032 | +0.033 ± 0.047 † |
+| **annthyroid (160)** | **−0.001 ± 0.009** (clean) | **−0.008 ± 0.021** (clean) |
 
-† baseline inverts on ≥1 of 8 seeds → confound-flagged.
+† baseline inverts on ≥1 of 8 seeds → confound-flagged. On the **well-powered,
+confound-free** `annthyroid` cell — the deciding case — both designs are
+**zero-to-negative**, so the `wide_kernels` +0.033 seen on (confounded) `Pima`
+does **not** replicate on a clean comparison.
 
 The `glass` +0.097 that tripped `INVESTIGATE` was small-sample: at 8 seeds it
 falls to a noisy **+0.038 ± 0.062** (std > mean), and `wide_kernels` is actually
