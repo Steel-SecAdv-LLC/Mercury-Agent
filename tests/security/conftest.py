@@ -10,7 +10,10 @@ at import time.
 
 from __future__ import annotations
 
-import pytest
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import pytest
 
 
 def pytest_configure(config: pytest.Config) -> None:
