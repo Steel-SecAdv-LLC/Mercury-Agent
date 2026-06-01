@@ -95,7 +95,10 @@ def main() -> int:
                 rows.append(cell)
                 print(
                     f"  {name:<8} frac={frac:<4} seed={seed}  neu={a_neu:.4f}  "
-                    + "  ".join(f"{g.split('_')[-1][:4]}={cell[g]:.4f}(d={cell[g]-a_neu:+.4f})" for g in GRAPHS)
+                    + "  ".join(
+                        f"{g.split('_')[-1][:4]}={cell[g]:.4f}(d={cell[g]-a_neu:+.4f})"
+                        for g in GRAPHS
+                    )
                 )
 
     if n_cells == 0:
@@ -125,7 +128,9 @@ def main() -> int:
         ),
     }
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
-    Path(args.out).write_text(json.dumps({"cells": rows, "verdict": verdict}, indent=2, sort_keys=True))
+    Path(args.out).write_text(
+        json.dumps({"cells": rows, "verdict": verdict}, indent=2, sort_keys=True)
+    )
     print("-" * 88)
     for g in GRAPHS:
         print(

@@ -104,7 +104,7 @@ class TestDeriveVerdict:
         assert verdict["passed"] is True
 
 
-from benchmarks.neurosymbolic_ablation import derive_adaptive_verdict  # noqa: E402
+from benchmarks.neurosymbolic_ablation import derive_adaptive_verdict
 
 
 def _afraction(

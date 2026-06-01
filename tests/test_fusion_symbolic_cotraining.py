@@ -142,7 +142,9 @@ class TestStability:
         assert _run() == pytest.approx(_run(), abs=0.05)
 
 
-def _fixture_with_anomalies(n_normal: int, n_anom: int, dim: int = 12, seed: int = 7) -> tuple[np.ndarray, np.ndarray]:
+def _fixture_with_anomalies(
+    n_normal: int, n_anom: int, dim: int = 12, seed: int = 7
+) -> tuple[np.ndarray, np.ndarray]:
     """Separable fixture with a caller-chosen anomaly count (for the schedule)."""
     rng = np.random.RandomState(seed)
     normal = rng.normal(0.0, 1.0, (n_normal, dim))

@@ -18,6 +18,8 @@ neuro-symbolic component rather than theater:
 
 from __future__ import annotations
 
+import itertools
+
 import pytest
 
 pytest.importorskip("torch")
@@ -211,7 +213,7 @@ class TestScarcityWeightSchedule:
     def test_monotone_decay_in_positive_count(self) -> None:
         s = ScarcityWeightSchedule()
         weights = [s.weight_for(n) for n in (0, 5, 10, 25, 50)]
-        assert all(a >= b for a, b in zip(weights, weights[1:]))
+        assert all(a >= b for a, b in itertools.pairwise(weights))
 
     def test_max_at_zero_positives(self) -> None:
         s = ScarcityWeightSchedule(lam_max=0.1)

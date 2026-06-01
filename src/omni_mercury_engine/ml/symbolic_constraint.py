@@ -57,7 +57,7 @@ as a Real-Logic LTN weights its axioms.
 
 import math
 from dataclasses import dataclass, field
-from typing import TypedDict, Union
+from typing import TypedDict
 
 import torch
 from torch import nn
@@ -327,7 +327,7 @@ class ScarcityWeightSchedule:
 # A symbolic co-training weight may be given as a concrete ``lambda``
 # (``float``/``int``), the string ``"adaptive"`` (use the default scarcity
 # schedule), or an explicit :class:`ScarcityWeightSchedule`.
-SymbolicWeight = Union[float, int, str, ScarcityWeightSchedule]
+SymbolicWeight = float | int | str | ScarcityWeightSchedule
 
 _ADAPTIVE_ALIASES = frozenset({"adaptive", "scarcity", "auto"})
 
@@ -458,7 +458,9 @@ class SymbolicConstraintModule(nn.Module):
 
         key = semantics.strip().lower()
         if key not in _IMPLICATIONS:
-            raise ValueError(f"unknown semantics {semantics!r}; expected one of {sorted(_IMPLICATIONS)}")
+            raise ValueError(
+                f"unknown semantics {semantics!r}; expected one of {sorted(_IMPLICATIONS)}"
+            )
         self.semantics = key
         self._implies = _IMPLICATIONS[key]
         self._not = FuzzyOperators.not_standard

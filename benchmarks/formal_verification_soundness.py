@@ -138,7 +138,9 @@ def main() -> int:
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     Path(args.out).write_text(json.dumps(verdict, indent=2, sort_keys=True))
     print(f"  cases={args.n_cases}  soundness_rate={soundness_rate:.3f}  unsound={unsound}")
-    print(f"  tightness ratio: mean={mean_tightness:.2f}x  median={median_tightness:.2f}x  (1.0 = exact)")
+    print(
+        f"  tightness ratio: mean={mean_tightness:.2f}x  median={median_tightness:.2f}x  (1.0 = exact)"
+    )
     print("-" * 80)
     print(f"VERDICT: {verdict['verdict']}")
     print(f"report -> {args.out}")

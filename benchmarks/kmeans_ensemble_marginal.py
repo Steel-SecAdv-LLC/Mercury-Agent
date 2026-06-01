@@ -118,9 +118,7 @@ def main() -> int:
         return 1
 
     mean_delta = float(np.mean([r["delta_auc_mean"] for r in results]))
-    seed_agree = float(
-        np.mean([r["seeds_better"] / max(1, r["n_seeds"]) for r in results])
-    )
+    seed_agree = float(np.mean([r["seeds_better"] / max(1, r["n_seeds"]) for r in results]))
     passed = bool(mean_delta > _AUC_MEANINGFUL and seed_agree >= 0.5)
     verdict = {
         "mean_delta_auc": mean_delta,
@@ -133,7 +131,9 @@ def main() -> int:
         ),
     }
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
-    Path(args.out).write_text(json.dumps({"results": results, "verdict": verdict}, indent=2, sort_keys=True))
+    Path(args.out).write_text(
+        json.dumps({"results": results, "verdict": verdict}, indent=2, sort_keys=True)
+    )
     print("-" * 80)
     print(f"mean dAUC = {mean_delta:+.4f}   seed agreement = {seed_agree:.2f}")
     print(f"VERDICT: {verdict['verdict']}")

@@ -71,7 +71,9 @@ def _load_dataset(name: str) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]
     return np.asarray(data[0], dtype=np.float32), np.asarray(data[1]).astype(int).ravel()
 
 
-def _stratified(y: np.ndarray[Any, Any], frac: float, rng: np.random.RandomState) -> np.ndarray[Any, Any]:
+def _stratified(
+    y: np.ndarray[Any, Any], frac: float, rng: np.random.RandomState
+) -> np.ndarray[Any, Any]:
     keep: list[int] = []
     for cls in np.unique(y):
         idx = np.where(y == cls)[0]
@@ -172,9 +174,7 @@ CANDIDATES: dict[str, tuple[Callable[..., np.ndarray[Any, Any]], bool]] = {
 }
 
 
-def run_candidate(
-    name: str, datasets: list[str], seeds: list[int]
-) -> dict[str, Any]:
+def run_candidate(name: str, datasets: list[str], seeds: list[int]) -> dict[str, Any]:
     from omni_mercury_engine.ml.mercury_ml import roc_auc_score
 
     scorer, supervised = CANDIDATES[name]
@@ -260,9 +260,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--datasets", nargs="*", default=DEFAULT_DATASETS)
     parser.add_argument("--seeds", nargs="*", type=int, default=DEFAULT_SEEDS)
-    parser.add_argument(
-        "--out", default="artifacts/dormant_module_revival.json", type=str
-    )
+    parser.add_argument("--out", default="artifacts/dormant_module_revival.json", type=str)
     args = parser.parse_args()
 
     print("Dormant-module revival (standalone anomaly AUC on real ADBench labels)")

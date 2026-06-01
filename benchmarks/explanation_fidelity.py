@@ -51,7 +51,9 @@ N_EXPLAIN = 60  # test instances to explain
 
 def _make_data(
     seed: int,
-) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], set[int]]:
+) -> tuple[
+    np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], set[int]
+]:
     """Synthetic binary task; features 0..N_INFORMATIVE-1 drive the label."""
     rng = np.random.default_rng(seed)
     x = rng.normal(size=(N_SAMPLES, N_FEATURES)).astype(np.float32)
@@ -138,7 +140,9 @@ def run(seed: int) -> dict[str, Any]:
                 for i in range(N_FEATURES)
             ],
         )
-        comp_rand.append(float(evaluator.evaluate(predict_fn, instance, rand_expl)["comprehensiveness"]))
+        comp_rand.append(
+            float(evaluator.evaluate(predict_fn, instance, rand_expl)["comprehensiveness"])
+        )
 
     return {
         "seed": seed,
@@ -187,7 +191,9 @@ def main() -> int:
         ),
     }
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
-    Path(args.out).write_text(json.dumps({"results": results, "verdict": verdict}, indent=2, sort_keys=True))
+    Path(args.out).write_text(
+        json.dumps({"results": results, "verdict": verdict}, indent=2, sort_keys=True)
+    )
     print("-" * 80)
     print(
         f"recovery@{N_INFORMATIVE}={mean_recovery:.3f} (chance {chance:.3f})  "

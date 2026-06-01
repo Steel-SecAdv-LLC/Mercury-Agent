@@ -207,8 +207,12 @@ def _train_eval(
     )
     # Effective lambda actually applied: the schedule-resolved value for the
     # adaptive arm, the configured weight for the fixed/neural arms.
-    default_lam = float(symbolic_weight) if isinstance(symbolic_weight, (int, float)) else float("nan")
-    lam_eff = float(metrics.get("symbolic_weight_resolved", metrics.get("symbolic_weight", default_lam)))
+    default_lam = (
+        float(symbolic_weight) if isinstance(symbolic_weight, (int, float)) else float("nan")
+    )
+    lam_eff = float(
+        metrics.get("symbolic_weight_resolved", metrics.get("symbolic_weight", default_lam))
+    )
     probs = engine.score_fusion(X_te)
     return float(roc_auc_score(y_te, probs)), fpr_at_recall(y_te, probs), lam_eff
 
@@ -528,9 +532,7 @@ def main() -> int:
 
     results: list[dict[str, Any]] = []
     for name in args.datasets:
-        out = run_dataset(
-            name, args.seeds, args.fractions, args.lam, args.epochs, args.semantics
-        )
+        out = run_dataset(name, args.seeds, args.fractions, args.lam, args.epochs, args.semantics)
         if out is not None:
             results.append(out)
 

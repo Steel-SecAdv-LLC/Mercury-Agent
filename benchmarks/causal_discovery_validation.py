@@ -56,7 +56,11 @@ def _sample_sem(
 ) -> np.ndarray[Any, Any]:
     """Sample a standardised linear-Gaussian SEM with the given DAG."""
     n = adjacency.shape[0]
-    weights = adjacency * rng.uniform(0.8, 2.0, adjacency.shape) * rng.choice([-1.0, 1.0], adjacency.shape)
+    weights = (
+        adjacency
+        * rng.uniform(0.8, 2.0, adjacency.shape)
+        * rng.choice([-1.0, 1.0], adjacency.shape)
+    )
     x = np.zeros((n_samples, n))
     for j in range(n):  # nodes are in topological order (parents are i < j)
         parents = np.where(adjacency[:, j])[0]
@@ -163,7 +167,9 @@ def main() -> int:
         ),
     }
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
-    Path(args.out).write_text(json.dumps({"results": results, "verdict": verdict}, indent=2, sort_keys=True))
+    Path(args.out).write_text(
+        json.dumps({"results": results, "verdict": verdict}, indent=2, sort_keys=True)
+    )
     print("-" * 80)
     print(f"mean skeleton F1 = {mean_f1:.3f} (chance {mean_chance:.3f})")
     print(f"VERDICT: {verdict['verdict']}")
