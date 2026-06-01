@@ -1,0 +1,73 @@
+"""
+Mercury Agent
+Copyright (C) 2025 Steel Security Advisors LLC
+
+Tests for the revived k-means-distance detector
+(``omni_mercury_engine.detectors.kmeans_distance``), which promotes the
+previously-dormant ``cognitive.neural_memory_layer.KMeansClusterer`` to a
+first-class fusion detector. These verify the base-detector contract and that
+the distance signal actually separates anomalies on a clearly-separable fixture
+(``benchmarks/dormant_module_revival.py`` measures it on real ADBench labels).
+"""
+
+from __future__ import annotations
+
+import numpy as np
+import pytest
+
+from omni_mercury_engine.detectors.kmeans_distance import KMeansDistanceDetector
+from omni_mercury_engine.ml.mercury_ml import roc_auc_score
+
+
+def _separable(seed: int = 0) -> tuple[np.ndarray, np.ndarray]:
+    rng = np.random.RandomState(seed)
+    normal = rng.normal(0.0, 1.0, (300, 8))
+    anomaly = rng.normal(4.0, 1.0, (30, 8))
+    X = np.vstack([normal, anomaly]).astype(np.float32)
+    y = np.concatenate([np.zeros(300), np.ones(30)]).astype(int)
+    order = rng.permutation(len(X))
+    return X[order], y[order]
+
+
+class TestContract:
+    def test_unfitted_then_fitted(self) -> None:
+        det = KMeansDistanceDetector(n_clusters=4)
+        assert det.is_fitted() is False
+        det.fit(_separable()[0])
+        assert det.is_fitted() is True
+
+    def test_extract_features_shape(self) -> None:
+        X, _ = _separable()
+        det = KMeansDistanceDetector(n_clusters=8).fit(X)
+        feats = det.extract_features(X)
+        # one distance per centroid plus the nearest-centroid distance.
+        assert feats.shape == (len(X), 8 + 1)
+        assert np.isfinite(feats).all()
+
+    def test_extract_before_fit_raises(self) -> None:
+        with pytest.raises(RuntimeError, match="must be fit"):
+            KMeansDistanceDetector().extract_features(_separable()[0])
+
+    def test_more_clusters_than_samples_clamped(self) -> None:
+        X = np.random.RandomState(0).normal(size=(3, 8)).astype(np.float32)
+        det = KMeansDistanceDetector(n_clusters=8).fit(X)
+        assert det.extract_features(X).shape[0] == 3
+
+    def test_invalid_n_clusters(self) -> None:
+        with pytest.raises(ValueError):
+            KMeansDistanceDetector(n_clusters=0)
+
+
+class TestSignal:
+    def test_nearest_distance_separates_anomalies(self) -> None:
+        # Fit the clusterer on normal structure, then score a held-out mix by
+        # nearest-centroid distance; points far from every learned centroid (the
+        # anomalies) must rank above normals -- the property the revival measured
+        # on real ADBench labels. (Fitting on normal structure isolates the
+        # distance signal from the separate question of contaminated training.)
+        rng = np.random.RandomState(0)
+        normal_train = rng.normal(0.0, 1.0, (300, 8)).astype(np.float32)
+        Xte, yte = _separable(1)
+        det = KMeansDistanceDetector(n_clusters=8).fit(normal_train)
+        nearest = det.extract_features(Xte)[:, -1]
+        assert roc_auc_score(yte, nearest) > 0.9

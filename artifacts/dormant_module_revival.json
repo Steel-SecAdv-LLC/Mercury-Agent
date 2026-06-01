@@ -1,0 +1,84 @@
+{
+  "results": [
+    {
+      "candidate": "predictive_coding",
+      "errors": 0,
+      "mean_auc": 0.5357728803109353,
+      "min_auc": 0.458397952853598,
+      "n_runs": 15,
+      "per_dataset_auc": {
+        "Pima": 0.5373055555555556,
+        "WBC": 0.6084656084656085,
+        "breastw": 0.5282572628754987,
+        "cardio": 0.47715053763440857,
+        "thyroid": 0.5276854370236056
+      },
+      "supervised": false
+    },
+    {
+      "candidate": "kmeans_distance",
+      "errors": 0,
+      "mean_auc": 0.8608246160420588,
+      "min_auc": 0.5895,
+      "n_runs": 15,
+      "per_dataset_auc": {
+        "Pima": 0.6344722222222222,
+        "WBC": 0.980599647266314,
+        "breastw": 0.9819619471213245,
+        "cardio": 0.7621355459057072,
+        "thyroid": 0.944953717694727
+      },
+      "supervised": false
+    },
+    {
+      "candidate": "case_based_knn",
+      "errors": 0,
+      "mean_auc": 0.5722199702876235,
+      "min_auc": 0.5,
+      "n_runs": 15,
+      "per_dataset_auc": {
+        "Pima": 0.5053194444444444,
+        "WBC": 0.5,
+        "breastw": 0.5339757845317519,
+        "cardio": 0.6891025641025642,
+        "thyroid": 0.6327020583593567
+      },
+      "supervised": true
+    },
+    {
+      "candidate": "lof_reference",
+      "errors": 0,
+      "mean_auc": 0.6607632494137697,
+      "min_auc": 0.47898573200992556,
+      "n_runs": 15,
+      "per_dataset_auc": {
+        "Pima": 0.5863055555555556,
+        "WBC": 0.9276895943562611,
+        "breastw": 0.6110346288255851,
+        "cardio": 0.5093439826302729,
+        "thyroid": 0.669442485701174
+      },
+      "supervised": false
+    }
+  ],
+  "verdicts": {
+    "candidates": {
+      "case_based_knn": {
+        "carries_signal": false,
+        "mean_auc": 0.5722199702876235,
+        "verdict": "ARCHIVE -- no usable anomaly signal on real labels"
+      },
+      "kmeans_distance": {
+        "carries_signal": true,
+        "mean_auc": 0.8608246160420588,
+        "verdict": "REVIVE_CANDIDATE -- carries real signal; promote to ensemble-marginal ablation"
+      },
+      "predictive_coding": {
+        "carries_signal": false,
+        "mean_auc": 0.5357728803109353,
+        "verdict": "ARCHIVE -- no usable anomaly signal on real labels"
+      }
+    },
+    "lof_reference_mean_auc": 0.6607632494137697
+  }
+}

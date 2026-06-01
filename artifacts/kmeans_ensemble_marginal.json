@@ -1,0 +1,50 @@
+{
+  "results": [
+    {
+      "base_auc_mean": 0.9933302901196998,
+      "dataset": "cardio",
+      "delta_auc_mean": 0.001978088861838071,
+      "kmeans_auc_mean": 0.9953083789815378,
+      "n_seeds": 3,
+      "seeds_better": 3
+    },
+    {
+      "base_auc_mean": 0.995503364389234,
+      "dataset": "thyroid",
+      "delta_auc_mean": 0.0005930814354728012,
+      "kmeans_auc_mean": 0.9960964458247067,
+      "n_seeds": 3,
+      "seeds_better": 1
+    },
+    {
+      "base_auc_mean": 0.9948830409356727,
+      "dataset": "breastw",
+      "delta_auc_mean": -0.0013575605680869278,
+      "kmeans_auc_mean": 0.9935254803675857,
+      "n_seeds": 3,
+      "seeds_better": 1
+    },
+    {
+      "base_auc_mean": 0.9947916666666666,
+      "dataset": "WBC",
+      "delta_auc_mean": -0.0017361111111111234,
+      "kmeans_auc_mean": 0.9930555555555555,
+      "n_seeds": 3,
+      "seeds_better": 2
+    },
+    {
+      "base_auc_mean": 0.7873055555555554,
+      "dataset": "Pima",
+      "delta_auc_mean": -0.004027777777777741,
+      "kmeans_auc_mean": 0.7832777777777777,
+      "n_seeds": 3,
+      "seeds_better": 1
+    }
+  ],
+  "verdict": {
+    "mean_delta_auc": -0.000910055831932984,
+    "passed": false,
+    "seed_agreement": 0.5333333333333333,
+    "verdict": "HOLD -- no fused improvement beyond noise; keep optional (redundant with spatial)"
+  }
+}
