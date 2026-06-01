@@ -69,6 +69,15 @@ NN_MODULE_RE = re.compile(r"^\s*class\s+\w+\([^)]*\bnn\.Module\b[^)]*\):", re.MU
 DETECTOR_CLASS_RE = re.compile(r"^class\s+\w*Detector\b", re.MULTILINE)
 LOADER_CLASS_RE = re.compile(r"^class\s+\w*Loader\b", re.MULTILINE)
 
+# LOC figures are advertised as approximate (the ``~`` prefix) order-of-
+# magnitude scale, not exact line tallies.  Rounding them to the nearest
+# ``LOC_BUCKET`` keeps the CI drift gate stable under routine churn — adding a
+# few lines to one test must not force a README regeneration — while still
+# surfacing real structural growth.  Discrete counts (files, packages, classes,
+# workflows) are exact and never bucketed; those are the signal the original
+# rewrite was protecting (e.g. the 512→603 source-file drift).
+LOC_BUCKET = 1000
+
 SCALE_START = "<!-- SCALE:START -->"
 SCALE_END = "<!-- SCALE:END -->"
 # Stamped into the generated block so readers know how to regenerate it.
@@ -77,6 +86,16 @@ SCALE_PROVENANCE = (
     "and gated in CI (`scripts/measure_codebase_scale.py --check README.md`); "
     "do not hand-edit between the markers._"
 )
+
+
+def _round_loc(loc: int) -> int:
+    """Bucket an LOC count to the nearest ``LOC_BUCKET`` for stable display.
+
+    The README advertises LOC with a ``~`` prefix; bucketing makes the drift
+    gate insensitive to small, routine line churn while still tracking real
+    growth (any net change of at least half a bucket moves the figure).
+    """
+    return int(round(loc / LOC_BUCKET) * LOC_BUCKET)
 
 
 def _count_lines(paths: list[Path]) -> int:
@@ -156,7 +175,7 @@ def render_block(stats: dict[str, object]) -> str:
     """Render the deterministic README scale block (between the markers)."""
     rows = [
         ("Python source files in `src/omni_mercury_engine/`", f"**{stats['src_files']}**"),
-        ("Source lines of code (LOC)", f"**~{int(stats['src_loc']):,}**"),
+        ("Source lines of code (LOC)", f"**~{_round_loc(int(stats['src_loc'])):,}**"),
         (
             "Top-level subpackages (true Python packages with `__init__.py`)",
             f"**{stats['subpackage_count']}**",
@@ -173,7 +192,7 @@ def render_block(stats: dict[str, object]) -> str:
         ("Data-loader classes (`class *Loader`) in `loaders/`", f"**{stats['loader_classes']}**"),
         (
             "Test modules (`test_*.py`) / total test LOC",
-            f"**{stats['test_files']} modules / ~{int(stats['test_loc']):,} LOC**",
+            f"**{stats['test_files']} modules / ~{_round_loc(int(stats['test_loc'])):,} LOC**",
         ),
         ("GitHub Actions workflows", f"**{stats['workflow_count']}**"),
     ]

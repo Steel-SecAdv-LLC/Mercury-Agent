@@ -67,7 +67,10 @@ def _time_call(fn: Callable[[], Any], iters: int, warmup: int = 5) -> dict[str, 
 def _python_blake3_ref() -> tuple[Callable[[bytes], bytes], str]:
     """Pure-Python BLAKE3 reference, or the documented hashlib.sha256 fallback."""
     try:
-        import blake3  # type: ignore
+        # ``blake3`` is a declared ignore_missing_imports boundary in
+        # pyproject.toml; an inline ``# type: ignore`` here would be flagged
+        # unused whenever the wheel is installed.
+        import blake3
 
         return (lambda d: blake3.blake3(d).digest()), "blake3-wheel"
     except Exception:

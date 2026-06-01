@@ -57,7 +57,10 @@ def _t_sf(t_abs: float, df: int) -> float:
     """Two-sided p-value for a t statistic. Uses scipy if present, else a
     numerically-stable approximation via the regularized incomplete beta."""
     try:
-        from scipy import stats  # type: ignore
+        # ``scipy.*`` is a declared ignore_missing_imports boundary in
+        # pyproject.toml, so no inline ``# type: ignore`` is needed (and one
+        # would be flagged unused when scipy is installed, e.g. the [ml] lane).
+        from scipy import stats
 
         return float(2.0 * stats.t.sf(t_abs, df))
     except Exception:
@@ -128,7 +131,7 @@ def paired_stats(
     p_sign = _sign_test_p(n_pos, n)
     p_wilcoxon: float | None = None
     try:
-        from scipy import stats  # type: ignore
+        from scipy import stats
 
         if n > 0 and np.any(d != 0):
             p_wilcoxon = float(
@@ -171,6 +174,45 @@ def _series_matrix(cells: list[dict[str, Any]], key: str) -> np.ndarray:
     return np.array([float(c[key]) for c in cells], dtype=float)
 
 
+def holm_bonferroni(pvals: list[float]) -> list[float]:
+    """Holm–Bonferroni step-down adjusted p-values (family-wise error control).
+
+    Given ``m`` raw p-values, returns adjusted p-values such that rejecting
+    every hypothesis whose adjusted value is ``< alpha`` controls the
+    family-wise error rate at ``alpha`` — strictly more powerful than plain
+    Bonferroni while making no independence assumption.  The transform is the
+    cumulative-max of ``(m - rank) * p`` over p-values sorted ascending, each
+    clamped to ``[0, 1]``; ties and ordering are handled by argsort/inverse.
+    """
+    m = len(pvals)
+    if m == 0:
+        return []
+    order = sorted(range(m), key=lambda i: pvals[i])
+    adjusted = [0.0] * m
+    running = 0.0
+    for rank, idx in enumerate(order):
+        scaled = min(1.0, (m - rank) * pvals[idx])
+        running = max(running, scaled)  # enforce monotonicity (step-down)
+        adjusted[idx] = running
+    return adjusted
+
+
+def _apply_family_correction(comparisons: dict[str, dict[str, Any]]) -> None:
+    """Annotate each comparison in a reported family with Holm-adjusted
+    inference, in place.  The raw single-test fields are left untouched; the
+    family-wise verdict (``confirmed_familywise``) is what survives multiple
+    testing and is the defensible basis for any KEEP/REPLACE decision."""
+    names = sorted(comparisons)  # deterministic family order
+    raw_p = [float(comparisons[n]["p_value_ttest"]) for n in names]
+    adj_p = holm_bonferroni(raw_p)
+    for name, p_holm in zip(names, adj_p):
+        c = comparisons[name]
+        sig_fw = bool(p_holm < ALPHA and c["ci_excludes_zero"])
+        c["p_value_ttest_holm"] = p_holm
+        c["significant_familywise"] = sig_fw
+        c["confirmed_familywise"] = bool(c["clears_bar"] and sig_fw)
+
+
 def analyze(
     rulegraph_path: Path, semantics_path: Path, *, n_boot: int, seed: int
 ) -> dict[str, Any]:
@@ -181,6 +223,11 @@ def analyze(
             "bootstrap_resamples": n_boot,
             "bootstrap_seed": seed,
             "confirm_rule": "mean_diff > bar AND bootstrap CI95 lower > 0 AND paired t-test p < alpha",
+            "multiple_comparison_correction": "holm-bonferroni",
+            "familywise_confirm_rule": (
+                "mean_diff > bar AND bootstrap CI95 lower > 0 AND "
+                "Holm-adjusted paired t-test p < alpha (across the reported family)"
+            ),
         }
     }
 
@@ -212,22 +259,48 @@ def analyze(
         sem_prod, sem_neu, n_boot=n_boot, seed=seed
     )
 
+    # Family-wise correction over the full reported family of paired t-tests.
+    # Every comparison is annotated in place with Holm-adjusted inference;
+    # ``confirmed_familywise`` is the multiple-testing-defensible verdict.
+    comparisons = {k: v for k, v in out.items() if isinstance(v, dict) and "p_value_ttest" in v}
+    _apply_family_correction(comparisons)
+
     sal = out["rulegraph_salience_vs_consensus"]
     god = out["semantics_godel_vs_product"]
+    # Any alternative whose advantage survives both the single-test rule and
+    # the family-wise correction would force revisiting a default.
+    fw_winners = sorted(n for n, c in comparisons.items() if c["confirmed_familywise"])
+    # Claims that look significant uncorrected but dissolve under correction —
+    # surfaced explicitly so they are never quoted as confirmed findings.
+    uncorrected_only = sorted(
+        n for n, c in comparisons.items() if c["confirmed"] and not c["confirmed_familywise"]
+    )
     out["conclusion"] = {
-        "salience_beats_consensus": sal["confirmed"],
-        "godel_beats_product": god["confirmed"],
+        "salience_beats_consensus": sal["confirmed_familywise"],
+        "godel_beats_product": god["confirmed_familywise"],
+        "familywise_confirmed": fw_winners,
+        "confirmed_uncorrected_only": uncorrected_only,
         "verdict": (
             "Neither sub-threshold winner is confirmed by paired inference: "
             f"salience-vs-consensus mean Δ={sal['mean_diff']:+.4f} "
             f"(CI95 [{sal['bootstrap_ci95'][0]:+.4f}, {sal['bootstrap_ci95'][1]:+.4f}], "
-            f"p={sal['p_value_ttest']:.3f}); "
+            f"p={sal['p_value_ttest']:.3f}, Holm p={sal['p_value_ttest_holm']:.3f}); "
             f"godel-vs-product mean Δ={god['mean_diff']:+.4f} "
             f"(CI95 [{god['bootstrap_ci95'][0]:+.4f}, {god['bootstrap_ci95'][1]:+.4f}], "
-            f"p={god['p_value_ttest']:.3f}). "
+            f"p={god['p_value_ttest']:.3f}, Holm p={god['p_value_ttest_holm']:.3f}). "
             "This statistically corroborates PR #265's KEEP-default decisions."
-            if not (sal["confirmed"] or god["confirmed"])
-            else "At least one alternative is now statistically confirmed; revisit the default."
+            + (
+                f" Note: {', '.join(uncorrected_only)} clear the single-test bar "
+                "but do NOT survive Holm-Bonferroni across the 6-test family, so "
+                "they are not reported as confirmed."
+                if uncorrected_only
+                else ""
+            )
+            if not fw_winners
+            else (
+                f"Family-wise confirmed alternative(s): {', '.join(fw_winners)}; "
+                "revisit the corresponding default."
+            )
         ),
     }
     return out
@@ -260,7 +333,8 @@ def main(argv: list[str] | None = None) -> int:
         print(
             f"  {name:<34} n={s['n_cells']:>2}  meanΔ={s['mean_diff']:+.4f}  "
             f"CI95=[{ci[0]:+.4f},{ci[1]:+.4f}]  p_t={s['p_value_ttest']:.3f}  "
-            f"sign_p={s['p_value_sign_test']:.3f}  confirmed={s['confirmed']}"
+            f"p_holm={s['p_value_ttest_holm']:.3f}  "
+            f"confirmed_fw={s['confirmed_familywise']}"
         )
 
     print("Statistical significance — neuro-symbolic sub-threshold winners")

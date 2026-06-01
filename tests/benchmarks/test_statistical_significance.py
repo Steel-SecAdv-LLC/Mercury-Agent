@@ -59,6 +59,19 @@ def test_bootstrap_ci_is_seed_deterministic() -> None:
     assert ss._bootstrap_ci(d, 5000, 0) == ss._bootstrap_ci(d, 5000, 0)
 
 
+def test_holm_bonferroni_matches_reference() -> None:
+    # Reference values from the step-down definition.
+    assert ss.holm_bonferroni([]) == []
+    assert ss.holm_bonferroni([0.04]) == pytest.approx([0.04])
+    # Monotone, clamped at 1.0; smallest p scaled by m, enforced non-decreasing.
+    adj = ss.holm_bonferroni([0.01, 0.02, 0.03])
+    assert adj == pytest.approx([0.03, 0.04, 0.04])
+    assert all(0.0 <= a <= 1.0 for a in ss.holm_bonferroni([0.5, 0.4, 0.9, 0.045]))
+    # Adjusted p-values are never below the raw p-values (correction is upward).
+    raw = [0.001, 0.2, 0.045, 0.6, 0.31, 0.69]
+    assert all(a >= r for a, r in zip(ss.holm_bonferroni(raw), raw))
+
+
 @pytest.mark.skipif(
     not (RULEGRAPH.exists() and SEMANTICS.exists()),
     reason="sweep artifacts not present (run benchmarks.symbolic_*_sweep)",
@@ -74,3 +87,23 @@ def test_real_artifacts_corroborate_keep_decisions() -> None:
     # Structure / provenance present for reproducibility.
     assert result["method"]["bootstrap_seed"] == 0
     assert result["rulegraph_salience_vs_consensus"]["n_cells"] == 27
+
+
+@pytest.mark.skipif(
+    not (RULEGRAPH.exists() and SEMANTICS.exists()),
+    reason="sweep artifacts not present (run benchmarks.symbolic_*_sweep)",
+)
+def test_familywise_correction_demotes_marginal_neural_win() -> None:
+    """The single comparison that clears the uncorrected bar
+    (godel-vs-neural, p≈0.045) must NOT survive Holm-Bonferroni across the
+    6-test family — otherwise the report would over-claim 'co-training beats
+    neural-only' from a finding that is an artefact of multiple testing."""
+    result = ss.analyze(RULEGRAPH, SEMANTICS, n_boot=5000, seed=0)
+    god_neu = result["semantics_godel_vs_neural"]
+    assert god_neu["significant_at_0.05"] is True  # raw single-test
+    assert god_neu["p_value_ttest_holm"] > god_neu["p_value_ttest"]  # correction is upward
+    assert god_neu["confirmed_familywise"] is False  # dissolves under correction
+    # The report must surface this explicitly and confirm nothing family-wise.
+    assert result["conclusion"]["familywise_confirmed"] == []
+    assert "semantics_godel_vs_neural" in result["conclusion"]["confirmed_uncorrected_only"]
+    assert result["method"]["multiple_comparison_correction"] == "holm-bonferroni"

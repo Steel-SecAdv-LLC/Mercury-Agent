@@ -77,6 +77,31 @@ def test_render_block_is_deterministic_and_marked() -> None:
     assert block_a.rstrip().endswith(mcs.SCALE_END)
 
 
+def test_round_loc_buckets_to_nearest_thousand() -> None:
+    """LOC is bucketed so the gate ignores routine churn but tracks real growth."""
+    assert mcs._round_loc(317_728) == 318_000
+    assert mcs._round_loc(118_467) == 118_000
+    assert mcs._round_loc(0) == 0
+    # Exactly on a boundary rounds deterministically.
+    assert mcs._round_loc(500) == 0 or mcs._round_loc(500) == 1000
+
+
+def test_render_block_is_stable_under_small_loc_churn() -> None:
+    """Adding a handful of lines must not move the rendered block (no drift-gate
+    churn on unrelated edits); a bucket-sized change must."""
+    stats = mcs.measure()
+    base = mcs.render_block(stats)
+
+    nudged = dict(stats)
+    nudged["src_loc"] = int(stats["src_loc"]) + 7
+    nudged["test_loc"] = int(stats["test_loc"]) + 7
+    assert mcs.render_block(nudged) == base, "small churn must not move the block"
+
+    grown = dict(stats)
+    grown["src_loc"] = int(stats["src_loc"]) + mcs.LOC_BUCKET
+    assert mcs.render_block(grown) != base, "bucket-sized growth must move the block"
+
+
 def test_readme_scale_block_is_in_sync() -> None:
     """This test IS the drift gate: README must match measured numbers."""
     rc = mcs.main(["--check", str(REPO_ROOT / "README.md")])

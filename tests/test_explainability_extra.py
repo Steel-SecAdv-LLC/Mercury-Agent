@@ -25,7 +25,9 @@ def _linear_model(x: np.ndarray) -> np.ndarray:
     """Deterministic differentiable model: score = 3*f0 - 2*f1 + 0.5*f2."""
     x = np.atleast_2d(x)
     w = np.array([3.0, -2.0, 0.5])
-    return x @ w
+    # ``np.asarray`` pins the return to ndarray; the bare ``x @ w`` is typed
+    # ``Any`` by the numpy stubs and trips ``warn_return_any`` (no-any-return).
+    return np.asarray(x @ w)
 
 
 def test_availability_flags_are_bool() -> None:
