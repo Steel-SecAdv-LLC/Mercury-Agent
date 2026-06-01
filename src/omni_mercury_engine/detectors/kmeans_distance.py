@@ -80,7 +80,7 @@ class KMeansDistanceDetector:
         """
         from omni_mercury_engine.cognitive.neural_memory_layer import KMeansClusterer
 
-        arr = np.atleast_2d(np.nan_to_num(np.asarray(X, dtype=float)))
+        arr = np.atleast_2d(np.nan_to_num(np.asarray(X, dtype=np.float32)))
         self._mean = arr.mean(axis=0)
         self._std = arr.std(axis=0)
         self._std[self._std < 1e-8] = 1.0
@@ -94,7 +94,7 @@ class KMeansDistanceDetector:
         """Per-sample distance to every centroid, ``(n_samples, n_clusters)``."""
         if self._clusterer is None or self._mean is None or self._std is None:
             raise RuntimeError("KMeansDistanceDetector must be fit before use")
-        arr = np.atleast_2d(np.nan_to_num(np.asarray(X, dtype=float)))
+        arr = np.atleast_2d(np.nan_to_num(np.asarray(X, dtype=np.float32)))
         scaled = (arr - self._mean) / self._std
         dists = np.asarray(self._clusterer.get_cluster_distances(scaled), dtype=np.float32)
         if dists.ndim != 2 or dists.shape[0] != len(arr):

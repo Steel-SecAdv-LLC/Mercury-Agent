@@ -1028,10 +1028,10 @@ class OmniMercuryEngine(LoggerMixin):
                 labels are abundant. Pass ``0.0`` for the byte-for-byte
                 purely-neural path.
             symbolic_semantics: Implication operator for the symbolic constraint
-                when co-training is active -- ``"product"`` (default,
-                Reichenbach), ``"lukasiewicz"``, or ``"godel"`` (see
-                ``docs/NEUROSYMBOLIC.md`` §2.2). Ignored when the effective
-                weight is 0.
+                when co-training is active -- ``"product"`` / ``"reichenbach"``
+                (default; aliases for the smooth Reichenbach residuum),
+                ``"lukasiewicz"``, or ``"godel"`` (see ``docs/NEUROSYMBOLIC.md``
+                §2.2). Ignored when the effective weight is 0.
             symbolic_rule_graph: Rule graph for the constraint when co-training
                 is active -- ``"consensus"`` (default, two rules over a learned
                 consensus predicate) or ``"consensus_salience"`` (adds a
@@ -1061,7 +1061,7 @@ class OmniMercuryEngine(LoggerMixin):
 
         # Convert to numpy if needed
         if isinstance(X, torch.Tensor):
-            X = X.cpu().numpy()
+            X = X.detach().cpu().numpy()
         # Convert labels too (incl. CUDA tensors) so n_positive / schedule
         # resolution below is correct -- np.asarray on a live tensor is unreliable.
         if isinstance(y, torch.Tensor):
@@ -1466,7 +1466,9 @@ class OmniMercuryEngine(LoggerMixin):
         if symbolic_active:
             assert sym_module is not None  # narrowed by symbolic_active
             metrics["symbolic_weight"] = float(symbolic_weight)
-            metrics["symbolic_semantics"] = symbolic_semantics
+            # Record the module's normalized semantics (strip/lower, alias-resolved),
+            # not the raw argument, so the metric reflects what actually ran.
+            metrics["symbolic_semantics"] = sym_module.semantics
             metrics["symbolic_rule_graph"] = sym_module.rule_graph.name
             metrics["symbolic_satisfaction"] = last_satisfaction
             metrics["symbolic_loss"] = last_symbolic_loss
