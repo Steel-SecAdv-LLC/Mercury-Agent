@@ -1,21 +1,3 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
 """Main OmniMercuryEngine orchestrating all detectors and models.
 
 This module provides the core anomaly detection engine that integrates
@@ -88,6 +70,21 @@ See Also:
     - :class:`omni_mercury_engine.core.config.EngineConfig`
     - :class:`omni_mercury_engine.ml.fusion_network.OmniFusionModel`
 """
+
+# Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
+#
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+# General Public License as published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+# even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along with this program. If not,
+# see https://www.gnu.org/licenses/.
+
+from __future__ import annotations
 
 import gc
 import logging
@@ -182,6 +179,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from omni_mercury_engine.cognitive.ethical_bounding import BenevolenceScorer
+    from omni_mercury_engine.cognitive.orchestrator import CognitiveOrchestrator
 
     # Type hints for lazy-loaded models (improves IDE support without import cost)
     from omni_mercury_engine.medical.abms_disciplines import ABMSDisciplineDetector
@@ -782,9 +780,7 @@ class OmniMercuryEngine(LoggerMixin):
         # observes the same trained network and the same signed-corpus
         # verdict, so a corpus tampering at startup poisons every
         # decision boundary uniformly.
-        from omni_mercury_engine.security.sigma_immutable_gate import (
-            get_sigma_immutable_gate,
-        )
+        from omni_mercury_engine.security.sigma_immutable_gate import get_sigma_immutable_gate
 
         self._sigma_immutable_gate = get_sigma_immutable_gate()
 
@@ -912,6 +908,22 @@ class OmniMercuryEngine(LoggerMixin):
                 "before detection for optimal performance."
             )
 
+    def _symbolic_checkpoint_config(self) -> dict[str, Any] | None:
+        module = self._symbolic_module
+        if module is None:
+            return None
+        graph_name = {
+            "detector_consensus": "consensus",
+            "detector_consensus_salience": "consensus_salience",
+        }.get(module.rule_graph.name, module.rule_graph.name)
+        return {
+            "num_detectors": module.num_detectors,
+            "rule_graph": graph_name,
+            "semantics": module.semantics,
+            "learn_detector_reliability": module.learn_detector_reliability,
+            "p_aggregator": module.p_aggregator,
+        }
+
     def _init_resilience(self) -> None:
         """Initialize resilience and self-healing components."""
         self.self_healing = get_self_healing()()
@@ -934,6 +946,7 @@ class OmniMercuryEngine(LoggerMixin):
         self.drift_detector: EnsembleDriftDetector | None = None
         self.fairness_auditor: FairnessAuditor | None = None
         self.llm_detector: ZeroShotAnomalyDetector | None = None
+        self.cognitive_orchestrator: CognitiveOrchestrator | None = None
         self._baseline_features: np.ndarray[Any, Any] | None = None
 
         self.optimization_config = OptimizationConfig(
@@ -1920,6 +1933,35 @@ class OmniMercuryEngine(LoggerMixin):
         calibrated = np.asarray(self._fusion_calibrator.calibrate(arr.reshape(-1)))
         return calibrated.reshape(arr.shape)
 
+    def _symbolic_consistency_payload(
+        self,
+        X: np.ndarray[Any, Any],
+        probs: np.ndarray[Any, Any],
+    ) -> dict[str, Any] | None:
+        module = self._symbolic_module
+        if module is None:
+            return None
+        x_arr = np.asarray(X, dtype=np.float32)
+        if x_arr.ndim == 1:
+            x_arr = x_arr.reshape(1, -1)
+        probs_arr = np.asarray(probs, dtype=np.float32).reshape(-1)
+        detector_scores = self._extract_consensus_scores(x_arr)
+        if detector_scores.shape[0] != probs_arr.shape[0]:
+            return None
+
+        module.eval()
+        explanation = module.explain(
+            torch.tensor(probs_arr, dtype=torch.float32, device=self.device),
+            detector_scores.to(self.device),
+        )
+        return {
+            "graph": explanation["graph"],
+            "semantics": explanation["semantics"],
+            "satisfaction": explanation["satisfaction"],
+            "rules": explanation["rules"],
+            "detector_weights": explanation["detector_weights"],
+        }
+
     def build_feature_npz(
         self,
         X: np.ndarray[Any, Any],
@@ -2028,7 +2070,46 @@ class OmniMercuryEngine(LoggerMixin):
         # Same helper that ``detect_with_fusion`` calls so the benchmark path
         # and the production path agree on what the checkpoint's temperature
         # means.
-        return self._apply_fusion_calibration(probs).reshape(-1)
+        calibrated = self._apply_fusion_calibration(probs).reshape(-1)
+        return calibrated
+
+    def evaluate_neurosymbolic_feedback(
+        self,
+        X: np.ndarray[Any, Any],
+        y: np.ndarray[Any, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Measure neural-symbolic agreement on a held-out batch."""
+        if self.mode != "fusion":
+            raise ValueError("evaluate_neurosymbolic_feedback() requires mode='fusion'")
+        probs = self.score_fusion(X)
+        payload = self._symbolic_consistency_payload(X, probs)
+        if payload is None:
+            x_arr = np.asarray(X)
+            return {
+                "symbolic_active": False,
+                "n_samples": x_arr.reshape(1, -1).shape[0] if x_arr.ndim == 1 else x_arr.shape[0],
+            }
+
+        result: dict[str, Any] = {
+            "symbolic_active": True,
+            "n_samples": int(probs.shape[0]),
+            "mean_anomaly_prob": float(np.mean(probs)),
+            "symbolic_satisfaction": float(payload["satisfaction"]),
+            "symbolic_rule_graph": payload["graph"],
+            "symbolic_semantics": payload["semantics"],
+            "symbolic_rules": payload["rules"],
+            "symbolic_detector_weights": payload["detector_weights"],
+        }
+        if y is not None:
+            labels = np.asarray(y).reshape(-1)
+            if labels.shape[0] != probs.shape[0]:
+                raise ValueError(
+                    "labels length must match X rows for evaluate_neurosymbolic_feedback()"
+                )
+            predictions = (probs > 0.5).astype(int)
+            result["agreement_with_labels"] = float(np.mean(predictions == labels.astype(int)))
+            result["positive_rate"] = float(np.mean(predictions))
+        return result
 
     def calibrate_fusion_conformal(
         self,
@@ -2289,6 +2370,27 @@ class OmniMercuryEngine(LoggerMixin):
         )
         self.fairness_auditor = FairnessAuditor(config=audit_config)
         logger.info(f"Fairness auditing enabled with threshold={fairness_threshold}")
+
+    def enable_cognitive_analysis(
+        self,
+        *,
+        enable_plasticity: bool = True,
+        enable_causal: bool = True,
+        enable_ipb: bool = True,
+        enable_cbr: bool = True,
+        enable_indicators: bool = True,
+    ) -> None:
+        """Enable the cognitive orchestrator as a post-fusion feedback stage."""
+        from omni_mercury_engine.cognitive.orchestrator import CognitiveOrchestrator
+
+        self.cognitive_orchestrator = CognitiveOrchestrator(
+            enable_plasticity=enable_plasticity,
+            enable_causal=enable_causal,
+            enable_ipb=enable_ipb,
+            enable_cbr=enable_cbr,
+            enable_indicators=enable_indicators,
+        )
+        logger.info("Cognitive analysis enabled")
 
     def enable_llm_enhancement(
         self,
@@ -3695,10 +3797,37 @@ class OmniMercuryEngine(LoggerMixin):
                     "message": drift_result.message,
                 }
 
+        # Neuro-symbolic feedback diagnostics. The co-trained LTN is retained
+        # after fit/load so production inference can expose whether the current
+        # neural verdict still agrees with the symbolic detector-consensus
+        # graph that shaped training.
+        if isinstance(data, (np.ndarray, torch.Tensor)):
+            data_np = data.detach().cpu().numpy() if isinstance(data, torch.Tensor) else data
+            symbolic_payload = self._symbolic_consistency_payload(
+                np.asarray(data_np, dtype=np.float32),
+                np.asarray(fusion_result["anomaly_probs"], dtype=np.float32),
+            )
+            if symbolic_payload is not None:
+                result["symbolic_consistency"] = symbolic_payload
+
         # Runtime Pipeline Integration: LLM Enhancement (non-blocking)
         llm_enhancement = self._enhance_with_llm(data, result)  # type: ignore[arg-type, unused-ignore]
         if llm_enhancement is not None:
             result["llm_enhancement"] = llm_enhancement
+
+        if self.cognitive_orchestrator is not None and isinstance(data, (np.ndarray, torch.Tensor)):
+            raw_data = data.detach().cpu().numpy() if isinstance(data, torch.Tensor) else data
+            cognitive = self.cognitive_orchestrator.analyze(
+                detection_result=result,
+                raw_data=np.asarray(raw_data),
+                context={
+                    "domain": domain or "general",
+                    "symbolic_consistency": result.get("symbolic_consistency"),
+                    "gosnn_metadata": result.get("gosnn_metadata"),
+                    "drift_detection": result.get("drift_detection"),
+                },
+            )
+            result["cognitive_analysis"] = cognitive.to_dict()
 
         # Conformal uncertainty: when a conformal calibrator has been fit via
         # calibrate_fusion_conformal(), attach the distribution-free label
@@ -4250,6 +4379,10 @@ class OmniMercuryEngine(LoggerMixin):
             "projection_registry": self.fusion_model.export_projection_registry(),
             "temperature": temperature,
             "feature_groups": self._fusion_feature_groups,
+            "symbolic_constraint_state_dict": (
+                self._symbolic_module.state_dict() if self._symbolic_module is not None else None
+            ),
+            "symbolic_constraint_config": self._symbolic_checkpoint_config(),
             "domain_encoder_state_dict": (
                 self._domain_encoder.state_dict() if self._domain_encoder is not None else None
             ),
@@ -4333,12 +4466,29 @@ class OmniMercuryEngine(LoggerMixin):
 
             groups = checkpoint.get("feature_groups")
             self._fusion_feature_groups = list(groups) if groups is not None else None
+            symbolic_state = checkpoint.get("symbolic_constraint_state_dict")
+            symbolic_config = checkpoint.get("symbolic_constraint_config")
+            if symbolic_state is not None and isinstance(symbolic_config, dict):
+                symbolic_module = SymbolicConstraintModule(
+                    num_detectors=int(symbolic_config["num_detectors"]),
+                    rule_graph=resolve_rule_graph(str(symbolic_config["rule_graph"])),
+                    semantics=str(symbolic_config["semantics"]),
+                    learn_detector_reliability=bool(
+                        symbolic_config.get("learn_detector_reliability", True)
+                    ),
+                    p_aggregator=float(symbolic_config.get("p_aggregator", 2.0)),
+                ).to(self.device)
+                symbolic_module.load_state_dict(symbolic_state)
+                symbolic_module.eval()
+                self._symbolic_module = symbolic_module
+            else:
+                self._symbolic_module = None
             domain_state = checkpoint.get("domain_encoder_state_dict")
             domain_config = checkpoint.get("domain_encoder_config")
             domain_scaler = checkpoint.get("domain_encoder_scaler")
             if domain_state is not None and domain_scaler is not None:
                 if isinstance(domain_config, dict):
-                    self._domain_encoder = DomainEncoderStack(
+                    domain_encoder = DomainEncoderStack(
                         input_dim=int(domain_config["input_dim"]),
                         hidden_dim=int(domain_config["hidden_dim"]),
                         per_encoder_dim=int(domain_config["per_encoder_dim"]),
@@ -4347,8 +4497,9 @@ class OmniMercuryEngine(LoggerMixin):
                         encoder_kwargs=dict(domain_config["encoder_kwargs"]),
                         normalize=bool(domain_config["normalize"]),
                     ).to(self.device)
-                    self._domain_encoder.load_state_dict(domain_state)
-                    self._domain_encoder.eval()
+                    domain_encoder.load_state_dict(domain_state)
+                    domain_encoder.eval()
+                    self._domain_encoder = domain_encoder
                     self._domain_scaler = (
                         np.asarray(domain_scaler[0], dtype=np.float32),
                         np.asarray(domain_scaler[1], dtype=np.float32),
@@ -4366,6 +4517,7 @@ class OmniMercuryEngine(LoggerMixin):
             # Legacy bare state_dict (no metadata): load directly.
             self.fusion_model.load_state_dict(checkpoint)
             self._fusion_trained = True
+            self._symbolic_module = None
 
         self.fusion_model.eval()
 

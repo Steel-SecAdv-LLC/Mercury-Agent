@@ -62,7 +62,7 @@ def main() -> int:
     # deltas[sem] = list of (adaptive_sem - neural) AUC across cells; agree[sem]
     # counts cells where the semantics beat or tied neural.
     deltas: dict[str, list[float]] = {s: [] for s in SEMANTICS}
-    agree: dict[str, int] = {s: 0 for s in SEMANTICS}
+    agree: dict[str, int] = dict.fromkeys(SEMANTICS, 0)
     n_cells = 0
     rows: list[dict[str, Any]] = []
 

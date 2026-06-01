@@ -35,7 +35,7 @@ from omni_mercury_engine.ml.symbolic_constraint import SymbolicConstraintModule
 pytestmark = pytest.mark.xdist_group("fusion_symbolic_cotraining")
 
 
-def _separable_fixture(seed: int = 7) -> tuple[np.ndarray, np.ndarray]:
+def _separable_fixture(seed: int = 7) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
     """Deterministic, clearly-separable anomaly fixture (no network)."""
     rng = np.random.RandomState(seed)
     n_normal, n_anom, dim = 400, 50, 12
@@ -53,7 +53,9 @@ def _engine() -> Any:
     return OmniMercuryEngine(mode="fusion", device="cpu")
 
 
-def _split(X: np.ndarray, y: np.ndarray) -> tuple[Any, Any, Any, Any]:
+def _split(
+    X: np.ndarray[Any, Any], y: np.ndarray[Any, Any]
+) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
     n_train = int(len(X) * 0.7)
     return X[:n_train], y[:n_train], X[n_train:], y[n_train:]
 
@@ -118,6 +120,61 @@ class TestCoTrainingContract:
         assert set(explanation["rules"]) == {"R1_evidence", "R2_precision"}
         assert len(explanation["detector_weights"]) == module.num_detectors
 
+    def test_inference_surfaces_symbolic_consistency(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from omni_mercury_engine import engine as engine_mod
+
+        monkeypatch.setattr(engine_mod, "_GOSNN_TESTING_BYPASS", True)
+        torch.manual_seed(0)
+        np.random.seed(0)
+        X, y = _separable_fixture()
+        X_tr, y_tr, X_te, _ = _split(X, y)
+        engine = _engine()
+        engine.fit_fusion(
+            X_tr,
+            y_tr,
+            epochs=8,
+            batch_size=32,
+            symbolic_weight=0.1,
+            symbolic_rule_graph="consensus",
+        )
+
+        result = engine.detect_with_fusion(X_te[:4])
+
+        consistency = result["symbolic_consistency"]
+        assert consistency["graph"] == "detector_consensus"
+        assert consistency["semantics"] == "product"
+        assert 0.0 <= consistency["satisfaction"] <= 1.0
+        assert set(consistency["rules"]) == {"R1_evidence", "R2_precision"}
+
+    def test_symbolic_constraint_round_trips_through_checkpoint(self, tmp_path: Any) -> None:
+        torch.manual_seed(0)
+        np.random.seed(0)
+        X, y = _separable_fixture()
+        X_tr, y_tr, X_te, _ = _split(X, y)
+        engine = _engine()
+        engine.fit_fusion(
+            X_tr,
+            y_tr,
+            epochs=8,
+            batch_size=32,
+            symbolic_weight=0.1,
+            symbolic_rule_graph="consensus_salience",
+            symbolic_semantics="godel",
+        )
+        path = tmp_path / "symbolic-fusion.pt"
+        engine.save_model(str(path))
+
+        loaded = _engine()
+        loaded.load_model(str(path))
+
+        assert isinstance(loaded._symbolic_module, SymbolicConstraintModule)
+        assert loaded._symbolic_module.rule_graph.name == "detector_consensus_salience"
+        assert loaded._symbolic_module.semantics == "godel"
+        metrics = loaded.evaluate_neurosymbolic_feedback(X_te[:8])
+        assert metrics["symbolic_active"] is True
+        assert metrics["symbolic_rule_graph"] == "detector_consensus_salience"
+        assert 0.0 <= metrics["symbolic_satisfaction"] <= 1.0
+
 
 class TestStability:
     """Co-trained satisfaction is stable under a fixed seed.
@@ -144,7 +201,7 @@ class TestStability:
 
 def _fixture_with_anomalies(
     n_normal: int, n_anom: int, dim: int = 12, seed: int = 7
-) -> tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
     """Separable fixture with a caller-chosen anomaly count (for the schedule)."""
     rng = np.random.RandomState(seed)
     normal = rng.normal(0.0, 1.0, (n_normal, dim))
