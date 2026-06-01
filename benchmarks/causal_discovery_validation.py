@@ -67,7 +67,9 @@ def _sample_sem(
         x[:, j] = x[:, parents] @ weights[parents, j] + rng.normal(0, 1.0, n_samples)
     std = x.std(0)
     std[std < 1e-8] = 1.0
-    return (x - x.mean(0)) / std
+    # np.asarray pins the return to a concrete ndarray (numpy stubs type the
+    # mean/broadcast arithmetic as Any under some versions -> no-any-return).
+    return np.asarray((x - x.mean(0)) / std)
 
 
 def _skeleton(adjacency: np.ndarray[Any, Any]) -> set[frozenset[int]]:

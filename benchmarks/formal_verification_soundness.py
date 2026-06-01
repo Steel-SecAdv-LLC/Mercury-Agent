@@ -36,7 +36,7 @@ import json
 import logging
 import warnings
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 
@@ -57,7 +57,7 @@ def _random_net(rng: np.random.Generator) -> dict[str, np.ndarray[Any, Any]]:
 
 def _forward(x: np.ndarray[Any, Any], net: dict[str, np.ndarray[Any, Any]]) -> np.ndarray[Any, Any]:
     h = np.maximum(x @ net["W1"] + net["b1"], 0.0)
-    return h @ net["W2"] + net["b2"]
+    return np.asarray(h @ net["W2"] + net["b2"])
 
 
 def _ibp_bounds(
@@ -65,10 +65,20 @@ def _ibp_bounds(
 ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
     from omni_mercury_engine.cognitive.formal_verification import IntervalBoundPropagator
 
+    # propagate_linear returns ``tuple[ndarray, ndarray] | dict`` (a dual API);
+    # this harness only uses the tuple form, so narrow it so propagate_relu and
+    # the downstream ops see concrete ndarrays (not ndarray | str from the dict
+    # branch's key-unpacking).
     prop = IntervalBoundPropagator()
-    l1, u1 = prop.propagate_linear((lo, hi), net["W1"], net["b1"])
+    l1, u1 = cast(
+        "tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]",
+        prop.propagate_linear((lo, hi), net["W1"], net["b1"]),
+    )
     l1, u1 = prop.propagate_relu((l1, u1))
-    l2, u2 = prop.propagate_linear((l1, u1), net["W2"], net["b2"])
+    l2, u2 = cast(
+        "tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]",
+        prop.propagate_linear((l1, u1), net["W2"], net["b2"]),
+    )
     return np.atleast_1d(l2), np.atleast_1d(u2)
 
 
