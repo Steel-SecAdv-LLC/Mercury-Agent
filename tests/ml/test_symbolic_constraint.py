@@ -228,6 +228,12 @@ class TestScarcityWeightSchedule:
         s = ScarcityWeightSchedule()
         assert s.weight_for(-5) == s.weight_for(0)
 
+    def test_non_finite_params_rejected(self) -> None:
+        # NaN/inf params (e.g. from config) would make weight_for return NaN.
+        for kwargs in ({"lam_max": float("nan")}, {"n0": float("inf")}, {"floor": float("nan")}):
+            with pytest.raises(ValueError, match="finite"):
+                ScarcityWeightSchedule(**kwargs)
+
     def test_rejects_bad_params(self) -> None:
         with pytest.raises(ValueError):
             ScarcityWeightSchedule(n0=0.0)
@@ -277,6 +283,12 @@ class TestResolveSymbolicWeight:
             resolve_symbolic_weight(True, 5)
         with pytest.raises(ValueError, match="bool"):
             resolve_symbolic_weight(False, 5)
+
+    def test_non_finite_weight_rejected(self) -> None:
+        # NaN would silently disable co-training (nan > 0 is False); inf blows up.
+        for bad in (float("nan"), float("inf"), float("-inf")):
+            with pytest.raises(ValueError, match="finite"):
+                resolve_symbolic_weight(bad, 5)
 
 
 class TestImplicationSemantics:
@@ -362,6 +374,9 @@ class TestSalienceRuleGraph:
         names = {n for n, _ in module.named_parameters()}
         assert "salience_threshold" in names
         assert "salience_sharpness" in names
+        # One threshold per detector (the documented per-detector ThresholdRule).
+        assert module.salience_threshold is not None
+        assert module.salience_threshold.shape == (4,)
 
     def test_salience_grounds_and_backpropagates(self) -> None:
         module = SymbolicConstraintModule(

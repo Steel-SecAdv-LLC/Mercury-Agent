@@ -1062,6 +1062,10 @@ class OmniMercuryEngine(LoggerMixin):
         # Convert to numpy if needed
         if isinstance(X, torch.Tensor):
             X = X.cpu().numpy()
+        # Convert labels too (incl. CUDA tensors) so n_positive / schedule
+        # resolution below is correct -- np.asarray on a live tensor is unreliable.
+        if isinstance(y, torch.Tensor):
+            y = y.detach().cpu().numpy()
 
         n_samples = len(X)
         logger.info(f"Starting fusion training on {n_samples} samples...")
@@ -1460,6 +1464,7 @@ class OmniMercuryEngine(LoggerMixin):
             "early_stopped": epochs_without_improvement >= early_stopping_patience,
         }
         if symbolic_active:
+            assert sym_module is not None  # narrowed by symbolic_active
             metrics["symbolic_weight"] = float(symbolic_weight)
             metrics["symbolic_semantics"] = symbolic_semantics
             metrics["symbolic_rule_graph"] = sym_module.rule_graph.name

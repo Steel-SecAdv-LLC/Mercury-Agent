@@ -301,12 +301,15 @@ class ScarcityWeightSchedule:
     floor: float = 1e-3
 
     def __post_init__(self) -> None:
-        if self.lam_max < 0.0:
-            raise ValueError(f"lam_max must be >= 0, got {self.lam_max}")
-        if self.n0 <= 0.0:
-            raise ValueError(f"n0 must be > 0, got {self.n0}")
-        if self.floor < 0.0:
-            raise ValueError(f"floor must be >= 0, got {self.floor}")
+        # Non-finite parameters (e.g. NaN/inf from config) would make
+        # ``weight_for`` return NaN and silently disable the constraint via
+        # NaN comparisons, so reject them up front alongside the sign checks.
+        if not math.isfinite(self.lam_max) or self.lam_max < 0.0:
+            raise ValueError(f"lam_max must be a finite value >= 0, got {self.lam_max}")
+        if not math.isfinite(self.n0) or self.n0 <= 0.0:
+            raise ValueError(f"n0 must be a finite value > 0, got {self.n0}")
+        if not math.isfinite(self.floor) or self.floor < 0.0:
+            raise ValueError(f"floor must be a finite value >= 0, got {self.floor}")
 
     def weight_for(self, n_positive: int) -> float:
         """Resolve the effective ``lambda`` for a training set with ``n_positive`` anomalies.
@@ -371,8 +374,11 @@ def resolve_symbolic_weight(weight: SymbolicWeight, n_positive: int) -> float:
             f"symbolic_weight must be a number, 'adaptive', or a schedule; got bool {weight!r}"
         )
     lam = float(weight)
-    if lam < 0.0:
-        raise ValueError(f"symbolic_weight must be >= 0, got {lam}")
+    # Reject non-finite weights: NaN would silently disable co-training
+    # (``nan > 0`` is False) while propagating a non-finite lambda, and inf
+    # would blow up the loss -- both contradict the non-negative contract.
+    if not math.isfinite(lam) or lam < 0.0:
+        raise ValueError(f"symbolic_weight must be a finite value >= 0, got {lam}")
     return lam
 
 
@@ -450,7 +456,12 @@ class SymbolicConstraintModule(nn.Module):
         # is parameter-identical to before.
         self._has_salience = "Salient" in self.rule_graph.predicates
         if self._has_salience and self.num_detectors > 0:
-            self.salience_threshold: nn.Parameter | None = nn.Parameter(torch.tensor(0.5))
+            # One learnable soft threshold per detector (the differentiable
+            # ThresholdRule), broadcast over the batch in ``_salience``; the
+            # sharpness is shared.
+            self.salience_threshold: nn.Parameter | None = nn.Parameter(
+                torch.full((self.num_detectors,), 0.5)
+            )
             self.salience_sharpness: nn.Parameter | None = nn.Parameter(torch.tensor(1.0))
         else:
             self.register_parameter("salience_threshold", None)
