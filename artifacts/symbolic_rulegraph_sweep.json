@@ -1,0 +1,235 @@
+{
+  "cells": [
+    {
+      "consensus": 0.9257075471698113,
+      "consensus_salience": 0.9327639987827145,
+      "dataset": "cardio",
+      "frac": 0.1,
+      "neural": 0.9723447961046866,
+      "seed": 0
+    },
+    {
+      "consensus": 0.9730675593426659,
+      "consensus_salience": 0.9719263542300669,
+      "dataset": "cardio",
+      "frac": 0.1,
+      "neural": 0.9507760194765672,
+      "seed": 1
+    },
+    {
+      "consensus": 0.9860392574558734,
+      "consensus_salience": 0.9869141813755326,
+      "dataset": "cardio",
+      "frac": 0.1,
+      "neural": 0.9844796104686548,
+      "seed": 2
+    },
+    {
+      "consensus": 0.9722687157638467,
+      "consensus_salience": 0.975121728545344,
+      "dataset": "cardio",
+      "frac": 0.25,
+      "neural": 0.9724398965307364,
+      "seed": 0
+    },
+    {
+      "consensus": 0.991555082166768,
+      "consensus_salience": 0.9871424223980523,
+      "dataset": "cardio",
+      "frac": 0.25,
+      "neural": 0.9678940961655509,
+      "seed": 1
+    },
+    {
+      "consensus": 0.9878651856360317,
+      "consensus_salience": 0.9894248326232502,
+      "dataset": "cardio",
+      "frac": 0.25,
+      "neural": 0.9847458916615947,
+      "seed": 2
+    },
+    {
+      "consensus": 0.9881885270846014,
+      "consensus_salience": 0.9892726719415703,
+      "dataset": "cardio",
+      "frac": 0.5,
+      "neural": 0.9888161898965309,
+      "seed": 0
+    },
+    {
+      "consensus": 0.9960438222763238,
+      "consensus_salience": 0.9972611077297626,
+      "dataset": "cardio",
+      "frac": 0.5,
+      "neural": 0.9844415702982349,
+      "seed": 1
+    },
+    {
+      "consensus": 0.9918594035301278,
+      "consensus_salience": 0.9933049300060864,
+      "dataset": "cardio",
+      "frac": 0.5,
+      "neural": 0.9962720632988435,
+      "seed": 2
+    },
+    {
+      "consensus": 0.9881599378881989,
+      "consensus_salience": 0.9934329710144928,
+      "dataset": "thyroid",
+      "frac": 0.1,
+      "neural": 0.9921713250517599,
+      "seed": 0
+    },
+    {
+      "consensus": 0.9935300207039338,
+      "consensus_salience": 0.9931094720496896,
+      "dataset": "thyroid",
+      "frac": 0.1,
+      "neural": 0.990327380952381,
+      "seed": 1
+    },
+    {
+      "consensus": 0.9915890269151139,
+      "consensus_salience": 0.9896803830227744,
+      "dataset": "thyroid",
+      "frac": 0.1,
+      "neural": 0.9880305383022775,
+      "seed": 2
+    },
+    {
+      "consensus": 0.9891304347826088,
+      "consensus_salience": 0.9897774327122154,
+      "dataset": "thyroid",
+      "frac": 0.25,
+      "neural": 0.9756405279503106,
+      "seed": 0
+    },
+    {
+      "consensus": 0.9867688923395446,
+      "consensus_salience": 0.9891627846790891,
+      "dataset": "thyroid",
+      "frac": 0.25,
+      "neural": 0.9886128364389235,
+      "seed": 1
+    },
+    {
+      "consensus": 0.9951475155279503,
+      "consensus_salience": 0.9932873964803313,
+      "dataset": "thyroid",
+      "frac": 0.25,
+      "neural": 0.9968944099378881,
+      "seed": 2
+    },
+    {
+      "consensus": 0.99608566252588,
+      "consensus_salience": 0.9971208592132506,
+      "dataset": "thyroid",
+      "frac": 0.5,
+      "neural": 0.9941446687370601,
+      "seed": 0
+    },
+    {
+      "consensus": 0.9932712215320911,
+      "consensus_salience": 0.9892921842650103,
+      "dataset": "thyroid",
+      "frac": 0.5,
+      "neural": 0.9863806935817806,
+      "seed": 1
+    },
+    {
+      "consensus": 0.9977355072463769,
+      "consensus_salience": 0.9978649068322982,
+      "dataset": "thyroid",
+      "frac": 0.5,
+      "neural": 0.9988354037267082,
+      "seed": 2
+    },
+    {
+      "consensus": 0.984375,
+      "consensus_salience": 0.984375,
+      "dataset": "WBC",
+      "frac": 0.1,
+      "neural": 0.984375,
+      "seed": 0
+    },
+    {
+      "consensus": 1.0,
+      "consensus_salience": 1.0,
+      "dataset": "WBC",
+      "frac": 0.1,
+      "neural": 1.0,
+      "seed": 1
+    },
+    {
+      "consensus": 0.9791666666666666,
+      "consensus_salience": 0.9947916666666666,
+      "dataset": "WBC",
+      "frac": 0.1,
+      "neural": 0.984375,
+      "seed": 2
+    },
+    {
+      "consensus": 0.9895833333333333,
+      "consensus_salience": 0.984375,
+      "dataset": "WBC",
+      "frac": 0.25,
+      "neural": 0.984375,
+      "seed": 0
+    },
+    {
+      "consensus": 1.0,
+      "consensus_salience": 1.0,
+      "dataset": "WBC",
+      "frac": 0.25,
+      "neural": 1.0,
+      "seed": 1
+    },
+    {
+      "consensus": 0.984375,
+      "consensus_salience": 0.9895833333333333,
+      "dataset": "WBC",
+      "frac": 0.25,
+      "neural": 0.984375,
+      "seed": 2
+    },
+    {
+      "consensus": 0.9895833333333333,
+      "consensus_salience": 0.9895833333333333,
+      "dataset": "WBC",
+      "frac": 0.5,
+      "neural": 0.984375,
+      "seed": 0
+    },
+    {
+      "consensus": 1.0,
+      "consensus_salience": 1.0,
+      "dataset": "WBC",
+      "frac": 0.5,
+      "neural": 1.0,
+      "seed": 1
+    },
+    {
+      "consensus": 0.9791666666666666,
+      "consensus_salience": 0.984375,
+      "dataset": "WBC",
+      "frac": 0.5,
+      "neural": 0.9895833333333333,
+      "seed": 2
+    }
+  ],
+  "verdict": {
+    "recommended_default": "consensus",
+    "salience_beats_consensus": false,
+    "summary": {
+      "consensus": {
+        "mean_delta_auc": 0.0009465580731083451,
+        "seed_agreement": 0.6296296296296297
+      },
+      "consensus_salience": {
+        "mean_delta_auc": 0.0021569518267052575,
+        "seed_agreement": 0.8148148148148148
+      }
+    },
+    "verdict": "KEEP consensus default (the salience rule does not beat it beyond noise)"
+  }
+}

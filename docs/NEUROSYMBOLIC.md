@@ -230,6 +230,37 @@ not fire. The crisp operators are now live, tested, and selectable
 product/Reichenbach residuum, with the best-conditioned gradient, remains the
 measured default.
 
+## 2.3 Rule structure: minimal consensus vs richer salience (symbolic_logic_layer revival)
+
+The dormant `cognitive/symbolic_logic_layer.py` is entirely crisp (no autograd),
+so it cannot co-train directly — wiring its forward-chained output onto the loss
+would be exactly the post-hoc blend this work removed. But its core idea, the
+**`ThresholdRule`** (a variable crossing a threshold implies a conclusion), has a
+genuine differentiable analog. `consensus_salience_rule_graph` adds a third rule
+over a new `Salient` predicate: a soft-existential over per-detector *learnable
+soft thresholds* — "if **any** single detector saliently fires, fusion is
+anomalous" — a disjunctive recall axiom complementing the AND-like weighted
+`Consensus`. (It also revives the dormant existential / product-t-conorm
+aggregation in `FuzzyOperators`.)
+
+`benchmarks/symbolic_rulegraph_sweep.py` compares the two graphs **within the
+same cell** under the adaptive schedule. 27 cells (cardio / thyroid / WBC × 3
+seeds × fractions 0.1 / 0.25 / 0.5):
+
+| rule graph | mean low-data ΔAUC | seed agreement |
+|---|---|---|
+| consensus (default, 2 rules) | +0.0009 | 0.63 |
+| consensus_salience (3 rules) | +0.0022 | **0.81** |
+
+**Verdict: KEEP `consensus` as the default.** The salience rule is *directionally
+better* — higher mean ΔAUC and notably higher seed agreement (0.81 vs 0.63),
+recovering cells where the bare consensus regressed (e.g. thyroid@0.1, WBC@0.1) —
+but the +0.0013 margin is inside the ±0.002 noise floor, so the pre-registered
+switch rule does not fire. The richer graph is now live, tested, and selectable
+(`symbolic_rule_graph="consensus_salience"`) and is the most promising symbolic
+follow-up: a larger-N confirmation could clear the bar. To be ablated, not
+assumed.
+
 ## 3. Calibration + conformal uncertainty in the output
 
 Building on the conformal plumbing from PR #242, the fusion serve path now

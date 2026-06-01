@@ -77,13 +77,13 @@ order. None are deleted.
 
 | Rank | Module | LOC | What it is | Honest measurable signal? | Salvage | Revival path |
 |---|---|---|---|---|---|---|
-| 1 | `symbolic_logic_layer.py` | 1127 | Forward-chaining rule reasoner | **Maybe** — learned/forward-chained rules vs the 2-rule `consensus_rule_graph` in the co-training constraint (ADBench AUC) | **MED** | Induce rules → plug into `SymbolicConstraintModule` → ablate vs the consensus graph (extends the §1/neuro-symbolic work). |
-| 2 | `causal_discovery.py` | 1442 | Causal-graph discovery (already in optional API) | **Maybe** — causal-feature transform feeding the ensemble; needs a causal-ground-truth set to validate the graph itself | MED | Add discovered parents as features → ablate fused AUC; validate graph on a synthetic SCM with known edges. |
+| 1 | `symbolic_logic_layer.py` | 1127 | Forward-chaining rule reasoner (crisp) | **MEASURED ✓** — its `ThresholdRule` idea revived as a *differentiable* salience rule and ablated: consensus_salience +0.0022 vs consensus +0.0009 low-data ΔAUC, seed agreement 0.81 vs 0.63 — directionally better but +0.0013 sub-threshold | **done (KEEP consensus)** | Revived as the `consensus_salience` rule graph (`NEUROSYMBOLIC.md` §2.3); live, tested, selectable; the most promising symbolic follow-up, awaiting a larger-N confirmation. |
+| 2 | `causal_discovery.py` | 1442 | Causal-graph discovery | **No (per-sample) ✓ checked** — emits a causal *graph* (parents / d-separation / propensity-ATE), **not** an anomaly score; not ADBench-AUC-revivable. The optimistic "MED" was corrected after reading the interface | LOW | Outside the label-AUC surface; validating the graph needs a synthetic SCM with known edges (a separate, non-AUC harness). |
 | 3 | `explainability.py` | 1033 | LIME/SHAP explainers | **Yes, non-AUC** — explanation faithfulness (comprehensiveness/sufficiency) on the fusion model | MED | Wire to the fusion output → measure faithfulness, not detection. |
 | 4 | `formal_verification.py` | 1591 | Constraint solvers / safety verifiers | **Yes, non-AUC** — verifiable constraint-satisfaction guarantees on the σ_Immutable / ethics gates | MED | Encode a real safety invariant → measure verified-coverage; a guarantee, not a score. |
 | 5 | `neurosymbolic_hub.py` + `gosnn_3r_integration.py` + `fibring_fusion.py` | 1602+906+273 | Alternative GOSNN/fibring fusion head | **Maybe** — fused AUC vs the live `OmniFusionModel` | LOW | Wire as an alternative fusion head → ablate; high effort, likely redundant with the trained `OmniFusionModel`. |
 | 6 | `knowledge_graph.py` + `multi_hop_reasoner.py` | 2109+718 | Symbolic KB + multi-hop reasoning | **No (numeric)** — operate on symbolic facts, not feature vectors | LOW | Only via a rules/KB bridge to the symbolic constraint; no direct tabular signal. |
-| 7 | `neural_memory_layer.py` (remainder) | 941 | Text/dict memory + pattern detection (the `KMeansClusterer` within is already revived in §1) | **No (beyond the clusterer)** — the memory/embedding path is hash-projection over dicts, not tabular | LOW | The salvageable part (`KMeansClusterer`) is revived; the rest is a text-memory system. |
+| 7 | `neural_memory_layer.py` (remainder) | 941 | Text/dict memory + pattern detection (the `KMeansClusterer` within is revived in §1) | **No (beyond the clusterer) ✓ checked** — `get_anomaly_score()` is *the same* k-means-distance path already revived; the memory/embedding path is hash-projection over dicts, not tabular | LOW | The salvageable part (`KMeansClusterer`) is revived; the rest is a text-memory system. |
 | 8 | `predictive_coding.py` | 1296 | Predictive-coding / active-inference detector | **Measured — none** (0.536 AUC) | LOW | No revival path as a detector; retain as reference. |
 | 9 | `case_based_reasoning.py` | 625 | Case-based retrieval reasoner | **Measured — none** (0.572 AUC) | LOW | No revival path as a detector; retain as reference. |
 | 10 | `chain_of_thought.py` / `chain_of_hindsight.py` / `reflexion.py` | 1501/1548/1734 | LLM-style reasoning / self-reflection loops | **No** — generate text reasoning traces; no in-repo ground truth | LOW | Out of scope for anomaly detection; reference only. |
@@ -115,3 +115,30 @@ Revival is data-driven and incremental: a dormant module is promoted only when a
 pre-registered bar on real held-out labels is cleared, exactly as for the
 neuro-symbolic constraint. Everything else is retained, ranked, and awaiting a
 measurable signal — not deleted, and not asserted to work until it is shown to.
+
+## 5. The revival frontier (honest boundary)
+
+After measuring every dormant module that can produce a per-sample score on
+tabular features, **the ADBench-AUC-measurable revival surface is effectively
+exhausted**:
+
+* **Standalone detectors:** `kmeans_distance` was the only real signal (revived;
+  redundant in the ensemble, so kept opt-in). `predictive_coding` and
+  `case_based_reasoning` measured at chance. `neural_memory_layer.get_anomaly_score`
+  *is* the k-means path. Nothing else exposes a tabular anomaly score.
+* **Constraint enrichment:** the crisp t-norm semantics (§2.2) and the salience
+  rule graph (§2.3) are both measured; both are genuine, selectable, and
+  currently sub-threshold (product / consensus retained).
+
+The remaining dormant modules **cannot be honestly revived against ADBench AUC**
+because they do not speak that metric: `causal_discovery` emits a causal graph,
+`explainability` emits feature attributions, `formal_verification` emits
+satisfiability proofs, and the planning / reasoning / coordination machinery
+operates on symbolic or text inputs. Reviving them honestly requires building the
+*right* measurement harness for each — a synthetic-SCM causal-recovery benchmark,
+an explanation-faithfulness benchmark (comprehensiveness / sufficiency), a
+formal safety-coverage benchmark — not stretching them onto a detection metric
+they were never meant to clear. Those harnesses are the genuine next frontier;
+fabricating an AUC "win" for them would be the theater this ledger exists to
+prevent. Until such a harness exists for a given module, it stays ranked and
+retained, not revived and not deleted.
