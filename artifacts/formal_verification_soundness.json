@@ -1,0 +1,9 @@
+{
+  "mean_tightness_ratio": 1.9665205923297944,
+  "median_tightness_ratio": 1.7674411188462438,
+  "n_cases": 200,
+  "passed": true,
+  "soundness_rate": 1.0,
+  "unsound_cases": 0,
+  "verdict": "VALIDATED -- interval bound propagation is sound on every case (certificate always contains the true range); mean tightness 1.97x"
+}

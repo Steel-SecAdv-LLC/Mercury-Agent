@@ -80,7 +80,7 @@ order. None are deleted.
 | 1 | `symbolic_logic_layer.py` | 1127 | Forward-chaining rule reasoner (crisp) | **MEASURED ✓** — its `ThresholdRule` idea revived as a *differentiable* salience rule and ablated: consensus_salience +0.0022 vs consensus +0.0009 low-data ΔAUC, seed agreement 0.81 vs 0.63 — directionally better but +0.0013 sub-threshold | **done (KEEP consensus)** | Revived as the `consensus_salience` rule graph (`NEUROSYMBOLIC.md` §2.3); live, tested, selectable; the most promising symbolic follow-up, awaiting a larger-N confirmation. |
 | 2 | `causal_discovery.py` | 1442 | Causal-graph discovery | **VALIDATED ✓ (non-AUC)** — not an anomaly scorer, but on its *own* metric (skeleton recovery vs a known SEM) it recovers structure well above chance: mean F1 **0.853** vs chance 0.286, degrading gracefully as samples thin (`benchmarks/causal_discovery_validation.py`) | **revived (causal tool)** | A genuinely working constraint-based causal-discovery engine; revived and measured as a causal tool, not an anomaly detector. |
 | 3 | `explainability.py` | 1033 | IG / SHAP / LIME explainers + faithfulness evaluator | **VALIDATED ✓ (non-AUC, dep-free parts)** — IntegratedGradients recovers a model's informative features (recovery@3 **0.678** vs chance 0.300) and is ~2× more faithful than random (comprehensiveness **0.40 vs 0.22**); the `FaithfulnessEvaluator` works (`benchmarks/explanation_fidelity.py`). SHAP/LIME need the optional `shap`/`lime` libs (not installed) | **revived (IG + evaluator)** | Dep-free IntegratedGradients explainer + faithfulness evaluator revived & measured; SHAP/LIME remain dependency-gated. |
-| 4 | `formal_verification.py` | 1591 | Constraint solvers / safety verifiers | **Yes, non-AUC** — verifiable constraint-satisfaction guarantees on the σ_Immutable / ethics gates | MED | Encode a real safety invariant → measure verified-coverage; a guarantee, not a score. |
+| 4 | `formal_verification.py` | 1591 | Constraint solvers + interval-bound-propagation verifier | **VALIDATED ✓ (non-AUC)** — its `IntervalBoundPropagator` is **100% sound** over 200 random ReLU nets / input boxes (the certificate always contains the densely-sampled true output range) with ~1.8× tightness, non-vacuous (`benchmarks/formal_verification_soundness.py`) | **revived (verifier)** | A genuinely sound interval-bound-propagation verifier; revived and measured as a certified-bounds tool. |
 | 5 | `neurosymbolic_hub.py` + `gosnn_3r_integration.py` + `fibring_fusion.py` | 1602+906+273 | Alternative GOSNN/fibring fusion head | **Maybe** — fused AUC vs the live `OmniFusionModel` | LOW | Wire as an alternative fusion head → ablate; high effort, likely redundant with the trained `OmniFusionModel`. |
 | 6 | `knowledge_graph.py` + `multi_hop_reasoner.py` | 2109+718 | Symbolic KB + multi-hop reasoning | **No (numeric)** — operate on symbolic facts, not feature vectors | LOW | Only via a rules/KB bridge to the symbolic constraint; no direct tabular signal. |
 | 7 | `neural_memory_layer.py` (remainder) | 941 | Text/dict memory + pattern detection (the `KMeansClusterer` within is revived in §1) | **No (beyond the clusterer) ✓ checked** — `get_anomaly_score()` is *the same* k-means-distance path already revived; the memory/embedding path is hash-projection over dicts, not tabular | LOW | The salvageable part (`KMeansClusterer`) is revived; the rest is a text-memory system. |
@@ -149,8 +149,19 @@ detection metric it was never meant to clear:
   recovery@3 **0.678 vs chance 0.300**, comprehensiveness **0.40 vs 0.22** random.
   The IG explainer and the faithfulness evaluator are revived and measured; the
   `shap`/`lime` explainers stay dependency-gated until those libs are installed.
-* **Formal safety coverage — next.** A verified-coverage harness for
-  `formal_verification.py` over an encoded safety invariant.
+* **Formal soundness — built ✓, VALIDATED.** `benchmarks/formal_verification_soundness.py`
+  checks `formal_verification.py`'s `IntervalBoundPropagator` against densely-sampled
+  ground truth over random ReLU networks: **100% sound** (the certificate always
+  contains the true output range across 200 cases), ~1.8× tightness — a genuinely
+  sound, non-vacuous certified-bounds verifier.
+
+All three non-AUC frameworks land the same verdict that the AUC lens missed:
+measured against the **right** metric, `causal_discovery`, `explainability`
+(IntegratedGradients + faithfulness), and `formal_verification` (interval bound
+propagation) are **genuinely working tools** — not theatre. The remaining
+orphans (planning / reasoning / coordination / multi-agent machinery) operate on
+symbolic or text inputs with no in-repo ground truth; they stay ranked and
+retained until a fitting harness exists.
 
 Building these harnesses — not fabricating a metric win — is how the rest of the
 dormant subsystem earns its place. Until a module's harness exists and it clears
