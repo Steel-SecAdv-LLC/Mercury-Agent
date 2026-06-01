@@ -78,7 +78,7 @@ order. None are deleted.
 | Rank | Module | LOC | What it is | Honest measurable signal? | Salvage | Revival path |
 |---|---|---|---|---|---|---|
 | 1 | `symbolic_logic_layer.py` | 1127 | Forward-chaining rule reasoner (crisp) | **MEASURED ✓** — its `ThresholdRule` idea revived as a *differentiable* salience rule and ablated: consensus_salience +0.0022 vs consensus +0.0009 low-data ΔAUC, seed agreement 0.81 vs 0.63 — directionally better but +0.0013 sub-threshold | **done (KEEP consensus)** | Revived as the `consensus_salience` rule graph (`NEUROSYMBOLIC.md` §2.3); live, tested, selectable; the most promising symbolic follow-up, awaiting a larger-N confirmation. |
-| 2 | `causal_discovery.py` | 1442 | Causal-graph discovery | **No (per-sample) ✓ checked** — emits a causal *graph* (parents / d-separation / propensity-ATE), **not** an anomaly score; not ADBench-AUC-revivable. The optimistic "MED" was corrected after reading the interface | LOW | Outside the label-AUC surface; validating the graph needs a synthetic SCM with known edges (a separate, non-AUC harness). |
+| 2 | `causal_discovery.py` | 1442 | Causal-graph discovery | **VALIDATED ✓ (non-AUC)** — not an anomaly scorer, but on its *own* metric (skeleton recovery vs a known SEM) it recovers structure well above chance: mean F1 **0.853** vs chance 0.286, degrading gracefully as samples thin (`benchmarks/causal_discovery_validation.py`) | **revived (causal tool)** | A genuinely working constraint-based causal-discovery engine; revived and measured as a causal tool, not an anomaly detector. |
 | 3 | `explainability.py` | 1033 | LIME/SHAP explainers | **Yes, non-AUC** — explanation faithfulness (comprehensiveness/sufficiency) on the fusion model | MED | Wire to the fusion output → measure faithfulness, not detection. |
 | 4 | `formal_verification.py` | 1591 | Constraint solvers / safety verifiers | **Yes, non-AUC** — verifiable constraint-satisfaction guarantees on the σ_Immutable / ethics gates | MED | Encode a real safety invariant → measure verified-coverage; a guarantee, not a score. |
 | 5 | `neurosymbolic_hub.py` + `gosnn_3r_integration.py` + `fibring_fusion.py` | 1602+906+273 | Alternative GOSNN/fibring fusion head | **Maybe** — fused AUC vs the live `OmniFusionModel` | LOW | Wire as an alternative fusion head → ablate; high effort, likely redundant with the trained `OmniFusionModel`. |
@@ -130,15 +130,25 @@ exhausted**:
   rule graph (§2.3) are both measured; both are genuine, selectable, and
   currently sub-threshold (product / consensus retained).
 
-The remaining dormant modules **cannot be honestly revived against ADBench AUC**
-because they do not speak that metric: `causal_discovery` emits a causal graph,
-`explainability` emits feature attributions, `formal_verification` emits
-satisfiability proofs, and the planning / reasoning / coordination machinery
-operates on symbolic or text inputs. Reviving them honestly requires building the
-*right* measurement harness for each — a synthetic-SCM causal-recovery benchmark,
-an explanation-faithfulness benchmark (comprehensiveness / sufficiency), a
-formal safety-coverage benchmark — not stretching them onto a detection metric
-they were never meant to clear. Those harnesses are the genuine next frontier;
-fabricating an AUC "win" for them would be the theater this ledger exists to
-prevent. Until such a harness exists for a given module, it stays ranked and
-retained, not revived and not deleted.
+The remaining dormant modules **do not speak the AUC metric** — `causal_discovery`
+emits a causal graph, `explainability` emits feature attributions,
+`formal_verification` emits satisfiability proofs, and the planning / reasoning /
+coordination machinery operates on symbolic or text inputs. So each is revived
+(or not) against the **right** measurement harness, never stretched onto a
+detection metric it was never meant to clear:
+
+* **Causal recovery — built ✓, VALIDATED.** `benchmarks/causal_discovery_validation.py`
+  measures `causal_discovery` against a known synthetic linear-Gaussian SEM:
+  skeleton **F1 0.853 vs chance 0.286**, high precision throughout with recall
+  degrading gracefully as samples thin. A genuinely working causal tool — revived
+  and measured *as a causal engine*, not an anomaly detector. This is the template
+  for the rest.
+* **Explanation fidelity — next.** An explanation-faithfulness harness
+  (comprehensiveness / sufficiency / monotonicity) for `explainability.py`'s
+  SHAP / LIME against the trained fusion model.
+* **Formal safety coverage — next.** A verified-coverage harness for
+  `formal_verification.py` over an encoded safety invariant.
+
+Building these harnesses — not fabricating a metric win — is how the rest of the
+dormant subsystem earns its place. Until a module's harness exists and it clears
+the bar, the module stays ranked and retained, not revived and not deleted.
