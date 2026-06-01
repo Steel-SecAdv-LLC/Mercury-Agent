@@ -57,6 +57,13 @@ class TestContract:
         with pytest.raises(ValueError):
             KMeansDistanceDetector(n_clusters=0)
 
+    def test_single_sample_1d_input(self) -> None:
+        # A 1-D vector is one sample of n_features (not n_features samples):
+        # extract_features -> (1, k+1) and detect -> (1,), not transposed.
+        det = KMeansDistanceDetector(n_clusters=4).fit(_separable()[0])
+        assert det.extract_features(np.zeros(8, dtype=np.float32)).shape == (1, 4 + 1)
+        assert det.detect(np.zeros(8, dtype=np.float32))["scores"].shape == (1,)
+
 
 class TestSignal:
     def test_nearest_distance_separates_anomalies(self) -> None:

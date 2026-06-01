@@ -65,14 +65,22 @@ class KMeansDistanceDetector:
         self._scale: float = 1.0
 
     def is_fitted(self) -> bool:
+        """Return ``True`` once :meth:`fit` has learned the cluster centroids."""
         return self._clusterer is not None
 
     def fit(self, X: np.ndarray[Any, Any]) -> KMeansDistanceDetector:
+        """Fit the k-means clusterer on standardised features.
+
+        Args:
+            X: Training features ``(n_samples, n_features)``; a 1-D array is
+                treated as a single sample (``(1, n_features)``).
+
+        Returns:
+            ``self``, with centroids and the ``[0, 1]`` score scale learned.
+        """
         from omni_mercury_engine.cognitive.neural_memory_layer import KMeansClusterer
 
-        arr = np.nan_to_num(np.asarray(X, dtype=float))
-        if arr.ndim != 2:
-            arr = arr.reshape(len(arr), -1)
+        arr = np.atleast_2d(np.nan_to_num(np.asarray(X, dtype=float)))
         self._mean = arr.mean(axis=0)
         self._std = arr.std(axis=0)
         self._std[self._std < 1e-8] = 1.0
@@ -86,9 +94,7 @@ class KMeansDistanceDetector:
         """Per-sample distance to every centroid, ``(n_samples, n_clusters)``."""
         if self._clusterer is None or self._mean is None or self._std is None:
             raise RuntimeError("KMeansDistanceDetector must be fit before use")
-        arr = np.nan_to_num(np.asarray(X, dtype=float))
-        if arr.ndim != 2:
-            arr = arr.reshape(len(arr), -1)
+        arr = np.atleast_2d(np.nan_to_num(np.asarray(X, dtype=float)))
         scaled = (arr - self._mean) / self._std
         dists = np.asarray(self._clusterer.get_cluster_distances(scaled), dtype=np.float32)
         if dists.ndim != 2 or dists.shape[0] != len(arr):
@@ -96,6 +102,14 @@ class KMeansDistanceDetector:
         return dists
 
     def extract_features(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Per-sample fusion features: distance to each centroid plus the nearest.
+
+        Args:
+            X: Features ``(n_samples, n_features)``.
+
+        Returns:
+            ``(n_samples, n_clusters + 1)`` float32 feature block.
+        """
         dists = self._cluster_distances(X)
         nearest = dists.min(axis=1, keepdims=True)
         return np.concatenate([dists, nearest], axis=1).astype(np.float32)

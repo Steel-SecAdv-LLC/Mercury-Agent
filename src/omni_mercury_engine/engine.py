@@ -1084,7 +1084,7 @@ class OmniMercuryEngine(LoggerMixin):
         # Resolve the symbolic co-training weight to a concrete lambda. The
         # public argument may be a float, the string "adaptive", or a
         # ScarcityWeightSchedule; resolve_symbolic_weight maps all of these onto
-        # the scalar the training loop consumes, using the training split's
+        # the scalar the training loop consumes, using the provided labels'
         # anomaly count so the adaptive schedule spends the constraint only when
         # labels are scarce.
         n_positive = int(np.count_nonzero(np.asarray(y).reshape(-1) >= 0.5))
