@@ -121,10 +121,10 @@ def _count_class_matches(directory: Path, pattern: re.Pattern[str]) -> int:
 def measure() -> dict[str, object]:
     src_files = sorted(SRC.rglob("*.py")) if SRC.is_dir() else []
     test_files = sorted(TESTS.rglob("test_*.py")) if TESTS.is_dir() else []
-    subpackages = sorted(p.name for p in SRC.iterdir() if _is_package_dir(p)) if SRC.is_dir() else []
-    workflows = (
-        sorted(p.name for p in WORKFLOWS.glob("*.yml")) if WORKFLOWS.is_dir() else []
+    subpackages = (
+        sorted(p.name for p in SRC.iterdir() if _is_package_dir(p)) if SRC.is_dir() else []
     )
+    workflows = sorted(p.name for p in WORKFLOWS.glob("*.yml")) if WORKFLOWS.is_dir() else []
 
     torch_files = 0
     nn_module_classes = 0
@@ -161,9 +161,15 @@ def render_block(stats: dict[str, object]) -> str:
             "Top-level subpackages (true Python packages with `__init__.py`)",
             f"**{stats['subpackage_count']}**",
         ),
-        ("Files importing PyTorch (optional `[ml]` extra)", f"**{stats['torch_importing_files']}**"),
+        (
+            "Files importing PyTorch (optional `[ml]` extra)",
+            f"**{stats['torch_importing_files']}**",
+        ),
         ("Distinct `torch.nn.Module` subclasses", f"**{stats['nn_module_subclasses']}**"),
-        ("Detector classes (`class *Detector`) in `detectors/`", f"**{stats['detector_classes']}**"),
+        (
+            "Detector classes (`class *Detector`) in `detectors/`",
+            f"**{stats['detector_classes']}**",
+        ),
         ("Data-loader classes (`class *Loader`) in `loaders/`", f"**{stats['loader_classes']}**"),
         (
             "Test modules (`test_*.py`) / total test LOC",

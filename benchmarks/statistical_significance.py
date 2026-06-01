@@ -112,7 +112,9 @@ def _bootstrap_ci(d: np.ndarray, n_boot: int, seed: int) -> tuple[float, float]:
     return float(lo), float(hi)
 
 
-def paired_stats(a: np.ndarray, b: np.ndarray, *, n_boot: int, seed: int, bar: float) -> dict[str, Any]:
+def paired_stats(
+    a: np.ndarray, b: np.ndarray, *, n_boot: int, seed: int, bar: float
+) -> dict[str, Any]:
     """Paired inference on d = a - b (same cells)."""
     d = a - b
     n = len(d)
@@ -129,7 +131,9 @@ def paired_stats(a: np.ndarray, b: np.ndarray, *, n_boot: int, seed: int, bar: f
         from scipy import stats  # type: ignore
 
         if n > 0 and np.any(d != 0):
-            p_wilcoxon = float(stats.wilcoxon(d, zero_method="wilcox", alternative="two-sided").pvalue)
+            p_wilcoxon = float(
+                stats.wilcoxon(d, zero_method="wilcox", alternative="two-sided").pvalue
+            )
     except Exception:
         p_wilcoxon = None
 
@@ -156,7 +160,9 @@ def paired_stats(a: np.ndarray, b: np.ndarray, *, n_boot: int, seed: int, bar: f
     }
 
 
-def one_sample_over_neural(series: np.ndarray, neural: np.ndarray, *, n_boot: int, seed: int) -> dict[str, Any]:
+def one_sample_over_neural(
+    series: np.ndarray, neural: np.ndarray, *, n_boot: int, seed: int
+) -> dict[str, Any]:
     """Is the series' delta over the neural baseline distinguishable from 0?"""
     return paired_stats(series, neural, n_boot=n_boot, seed=seed, bar=0.0)
 
@@ -165,7 +171,9 @@ def _series_matrix(cells: list[dict[str, Any]], key: str) -> np.ndarray:
     return np.array([float(c[key]) for c in cells], dtype=float)
 
 
-def analyze(rulegraph_path: Path, semantics_path: Path, *, n_boot: int, seed: int) -> dict[str, Any]:
+def analyze(
+    rulegraph_path: Path, semantics_path: Path, *, n_boot: int, seed: int
+) -> dict[str, Any]:
     out: dict[str, Any] = {
         "method": {
             "alpha": ALPHA,
@@ -183,8 +191,12 @@ def analyze(rulegraph_path: Path, semantics_path: Path, *, n_boot: int, seed: in
     out["rulegraph_salience_vs_consensus"] = paired_stats(
         rg_sal, rg_con, n_boot=n_boot, seed=seed, bar=PREREGISTERED_BAR
     )
-    out["rulegraph_consensus_vs_neural"] = one_sample_over_neural(rg_con, rg_neu, n_boot=n_boot, seed=seed)
-    out["rulegraph_salience_vs_neural"] = one_sample_over_neural(rg_sal, rg_neu, n_boot=n_boot, seed=seed)
+    out["rulegraph_consensus_vs_neural"] = one_sample_over_neural(
+        rg_con, rg_neu, n_boot=n_boot, seed=seed
+    )
+    out["rulegraph_salience_vs_neural"] = one_sample_over_neural(
+        rg_sal, rg_neu, n_boot=n_boot, seed=seed
+    )
 
     sem = json.loads(semantics_path.read_text())["cells"]
     sem_god = _series_matrix(sem, "godel")
@@ -193,8 +205,12 @@ def analyze(rulegraph_path: Path, semantics_path: Path, *, n_boot: int, seed: in
     out["semantics_godel_vs_product"] = paired_stats(
         sem_god, sem_prod, n_boot=n_boot, seed=seed, bar=PREREGISTERED_BAR
     )
-    out["semantics_godel_vs_neural"] = one_sample_over_neural(sem_god, sem_neu, n_boot=n_boot, seed=seed)
-    out["semantics_product_vs_neural"] = one_sample_over_neural(sem_prod, sem_neu, n_boot=n_boot, seed=seed)
+    out["semantics_godel_vs_neural"] = one_sample_over_neural(
+        sem_god, sem_neu, n_boot=n_boot, seed=seed
+    )
+    out["semantics_product_vs_neural"] = one_sample_over_neural(
+        sem_prod, sem_neu, n_boot=n_boot, seed=seed
+    )
 
     sal = out["rulegraph_salience_vs_consensus"]
     god = out["semantics_godel_vs_product"]

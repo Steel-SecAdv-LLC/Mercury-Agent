@@ -15,8 +15,6 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
-import pytest
-
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = REPO_ROOT / "scripts" / "measure_codebase_scale.py"
 
@@ -82,7 +80,9 @@ def test_render_block_is_deterministic_and_marked() -> None:
 def test_readme_scale_block_is_in_sync() -> None:
     """This test IS the drift gate: README must match measured numbers."""
     rc = mcs.main(["--check", str(REPO_ROOT / "README.md")])
-    assert rc == 0, "README scale block drifted — run: python scripts/measure_codebase_scale.py --update README.md"
+    assert (
+        rc == 0
+    ), "README scale block drifted — run: python scripts/measure_codebase_scale.py --update README.md"
 
 
 def test_check_detects_drift(tmp_path: Path) -> None:

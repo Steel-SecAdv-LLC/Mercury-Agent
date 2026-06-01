@@ -28,17 +28,23 @@ import json
 import platform
 import statistics
 import subprocess
-import sys
 import time
 from pathlib import Path
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 def _git_commit() -> str:
     try:
-        return subprocess.check_output(
-            ["git", "rev-parse", "--short", "HEAD"], stderr=subprocess.DEVNULL
-        ).decode().strip()
+        return (
+            subprocess.check_output(
+                ["git", "rev-parse", "--short", "HEAD"], stderr=subprocess.DEVNULL
+            )
+            .decode()
+            .strip()
+        )
     except Exception:
         return "unknown"
 
@@ -131,8 +137,12 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  active backend:     {p['active_backend']} (rust_available={p['rust_available']})")
     print(f"  python reference:   {p['python_reference']}")
     print(f"  payload / iters:    {p['payload_mb']} MiB x {p['iterations']}")
-    print(f"  BLAKE3 active:      {result['blake3_active_backend_ms']['median_ms']:.3f} ms (median)")
-    print(f"  BLAKE3 python ref:  {result['blake3_python_reference_ms']['median_ms']:.3f} ms (median)")
+    print(
+        f"  BLAKE3 active:      {result['blake3_active_backend_ms']['median_ms']:.3f} ms (median)"
+    )
+    print(
+        f"  BLAKE3 python ref:  {result['blake3_python_reference_ms']['median_ms']:.3f} ms (median)"
+    )
     print(f"  speedup (rust/py):  {result['measured_speedup_rust_vs_python']}")
     print(f"  -> {result['claim']}")
     print(f"report -> {args.out}")

@@ -12,8 +12,6 @@ from __future__ import annotations
 
 import hashlib
 
-import pytest
-
 from omni_mercury_engine import crypto
 
 VALID_BACKENDS = {"rust", "python-cryptography", "hashlib-only"}
