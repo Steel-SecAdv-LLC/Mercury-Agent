@@ -942,6 +942,7 @@ ignore = [
     "PERF102", # Incorrect dict iterator (readability)
     "PERF401", # Manual list comprehension (readability preference)
     "PERF403", # Manual dict comprehension (readability)
+    "PLC0206", # Dict index missing items (readability)
     "PLC0415", # Import outside top level (conditional/lazy imports)
     "PLR0911", # Too many return statements
     "PLR0912", # Too many branches (complex logic is sometimes necessary)
