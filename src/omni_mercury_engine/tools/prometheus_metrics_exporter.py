@@ -12,7 +12,8 @@ Operator tool: handwritten Prometheus ``/metrics`` exposition.
 
 Emits the Prometheus text-format snapshot for the current
 benevolence histogram, σ band, OAE weights, gate-fire counts,
-killswitch trips, PQC capability bitmap, and cache hit rate.  No
+Mercury/AMA Disconnect engagements, PQC capability bitmap, and cache
+hit rate.  No
 ``prometheus_client`` dependency — the exposition format is small
 enough to write directly.
 """
@@ -78,7 +79,7 @@ def _collect_metrics() -> dict[str, Any]:
         "mercury_benevolence_floor": 0.99,
         "mercury_sigma_band_min": 0.0,
         "mercury_sigma_band_max": 1.0,
-        "mercury_killswitch_trips_total": 0.0,
+        "mercury_disconnect_engaged_total": 0.0,
         "mercury_gate_fires_total": 0.0,
         "mercury_cache_hit_rate": 0.0,
         "mercury_pqc_ml_kem_1024_available": 0.0,
