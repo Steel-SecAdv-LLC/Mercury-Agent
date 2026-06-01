@@ -27,8 +27,10 @@ import torch
 from omni_mercury_engine.ml.symbolic_constraint import (
     Rule,
     RuleGraph,
+    ScarcityWeightSchedule,
     SymbolicConstraintModule,
     consensus_rule_graph,
+    resolve_symbolic_weight,
 )
 
 
@@ -199,3 +201,63 @@ class TestExplain:
         out = module.explain(torch.rand(4, 1), torch.rand(4, 2))
         assert out["graph"] == "custom"
         assert set(out["rules"]) == {"only"}
+
+
+class TestScarcityWeightSchedule:
+    """Label-scarcity schedule: full strength when scarce, neural when abundant."""
+
+    def test_monotone_decay_in_positive_count(self) -> None:
+        s = ScarcityWeightSchedule()
+        weights = [s.weight_for(n) for n in (0, 5, 10, 25, 50)]
+        assert all(a >= b for a, b in zip(weights, weights[1:]))
+
+    def test_max_at_zero_positives(self) -> None:
+        s = ScarcityWeightSchedule(lam_max=0.1)
+        assert s.weight_for(0) == pytest.approx(0.1)
+
+    def test_snaps_to_zero_when_abundant(self) -> None:
+        # Far past the decay scale the weight floors to exactly 0 (neural path).
+        s = ScarcityWeightSchedule(lam_max=0.1, n0=25.0, floor=1e-3)
+        assert s.weight_for(10_000) == 0.0
+
+    def test_negative_count_treated_as_zero(self) -> None:
+        s = ScarcityWeightSchedule()
+        assert s.weight_for(-5) == s.weight_for(0)
+
+    def test_rejects_bad_params(self) -> None:
+        with pytest.raises(ValueError):
+            ScarcityWeightSchedule(n0=0.0)
+        with pytest.raises(ValueError):
+            ScarcityWeightSchedule(lam_max=-0.1)
+
+
+class TestResolveSymbolicWeight:
+    """resolve_symbolic_weight maps every spec onto a concrete lambda."""
+
+    def test_float_passthrough(self) -> None:
+        assert resolve_symbolic_weight(0.1, 999) == pytest.approx(0.1)
+        assert resolve_symbolic_weight(0.0, 1) == 0.0
+
+    def test_adaptive_aliases_use_schedule(self) -> None:
+        for alias in ("adaptive", "scarcity", "auto", "ADAPTIVE"):
+            assert resolve_symbolic_weight(alias, 5) == pytest.approx(
+                ScarcityWeightSchedule().weight_for(5)
+            )
+
+    def test_adaptive_resolves_low_for_abundant_high_for_scarce(self) -> None:
+        scarce = resolve_symbolic_weight("adaptive", 3)
+        abundant = resolve_symbolic_weight("adaptive", 10_000)
+        assert scarce > abundant
+        assert abundant == 0.0
+
+    def test_explicit_schedule_instance(self) -> None:
+        sched = ScarcityWeightSchedule(lam_max=0.2, n0=10.0)
+        assert resolve_symbolic_weight(sched, 0) == pytest.approx(0.2)
+
+    def test_unknown_string_raises(self) -> None:
+        with pytest.raises(ValueError):
+            resolve_symbolic_weight("nonsense", 5)
+
+    def test_negative_float_raises(self) -> None:
+        with pytest.raises(ValueError):
+            resolve_symbolic_weight(-0.5, 5)

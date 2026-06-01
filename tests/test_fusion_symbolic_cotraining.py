@@ -140,3 +140,42 @@ class TestStability:
             return float(metrics["symbolic_satisfaction"])
 
         assert _run() == pytest.approx(_run(), abs=0.05)
+
+
+def _fixture_with_anomalies(n_normal: int, n_anom: int, dim: int = 12, seed: int = 7) -> tuple[np.ndarray, np.ndarray]:
+    """Separable fixture with a caller-chosen anomaly count (for the schedule)."""
+    rng = np.random.RandomState(seed)
+    normal = rng.normal(0.0, 1.0, (n_normal, dim))
+    anomaly = rng.normal(3.0, 1.0, (n_anom, dim))
+    X = np.vstack([normal, anomaly]).astype(np.float32)
+    y = np.concatenate([np.zeros(n_normal), np.ones(n_anom)]).astype(np.int64)
+    order = rng.permutation(len(X))
+    return X[order], y[order]
+
+
+class TestAdaptiveSchedule:
+    """``symbolic_weight="adaptive"`` spends the constraint only when scarce."""
+
+    def test_adaptive_active_when_labels_scarce(self) -> None:
+        torch.manual_seed(0)
+        np.random.seed(0)
+        X, y = _fixture_with_anomalies(400, 8)  # few anomalies -> schedule ON
+        engine = _engine()
+        metrics = engine.fit_fusion(X, y, epochs=10, batch_size=32, symbolic_weight="adaptive")
+        assert metrics["symbolic_weight_spec"] == "adaptive"
+        assert metrics["symbolic_n_positive"] == 8
+        assert metrics["symbolic_weight_resolved"] > 0.0
+        assert "symbolic_satisfaction" in metrics
+        assert engine._symbolic_module is not None
+
+    def test_adaptive_decays_to_neural_path_when_abundant(self) -> None:
+        torch.manual_seed(0)
+        np.random.seed(0)
+        X, y = _fixture_with_anomalies(400, 400)  # many anomalies -> schedule OFF
+        engine = _engine()
+        metrics = engine.fit_fusion(X, y, epochs=10, batch_size=32, symbolic_weight="adaptive")
+        assert metrics["symbolic_weight_resolved"] == 0.0
+        # Resolving to 0 must reproduce the neural path: no constraint module,
+        # no satisfaction/loss diagnostics.
+        assert "symbolic_satisfaction" not in metrics
+        assert engine._symbolic_module is None

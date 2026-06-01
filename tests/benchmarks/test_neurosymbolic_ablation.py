@@ -93,3 +93,87 @@ class TestDeriveVerdict:
         verdict = derive_verdict(results)
         assert verdict["gate_sample_efficiency_up"] is True
         assert verdict["passed"] is True
+
+
+from benchmarks.neurosymbolic_ablation import derive_adaptive_verdict  # noqa: E402
+
+
+def _afraction(
+    frac: float, d_auc: float, d_fpr: float, agree: int, n: int = 3
+) -> dict[str, float | int | dict[str, list[float]]]:
+    """Fraction dict carrying the adaptive arm (vs the same neural baseline)."""
+    return {
+        "fraction": frac,
+        "delta_auc_adaptive_mean": d_auc,
+        "delta_fpr_adaptive_mean": d_fpr,
+        "seeds_auc_adaptive_better": agree,
+        "n_seeds": n,
+        "neural": {"aucs": [0.80] * n},
+        "adaptive": {"aucs": [0.80 + d_auc] * n},
+    }
+
+
+class TestDeriveAdaptiveVerdict:
+    """The adaptive arm must earn default-on by dominance, honestly."""
+
+    def test_keep_on_low_lift_without_full_regression(self) -> None:
+        results = [
+            {
+                "dataset": "d",
+                "fractions": [
+                    _afraction(0.1, 0.004, 0.0, 3),
+                    _afraction(0.25, 0.003, 0.0, 2),
+                    _afraction(1.0, 0.0, 0.0, 2),  # schedule ~ neural at full data
+                ],
+            }
+        ]
+        v = derive_adaptive_verdict(results)
+        assert v["gate_no_full_data_regression"] is True
+        assert v["gate_low_data_lift"] is True
+        assert v["passed"] is True
+        assert "KEEP" in v["verdict"]
+
+    def test_quarantine_on_full_data_regression(self) -> None:
+        results = [
+            {
+                "dataset": "d",
+                "fractions": [
+                    _afraction(0.1, 0.004, 0.0, 3),
+                    _afraction(1.0, -0.01, -0.02, 0),  # clear full-data regression
+                ],
+            }
+        ]
+        v = derive_adaptive_verdict(results)
+        assert v["gate_no_full_data_regression"] is False
+        assert v["passed"] is False
+        assert "QUARANTINE" in v["verdict"]
+
+    def test_quarantine_when_no_low_data_lift(self) -> None:
+        results = [
+            {
+                "dataset": "d",
+                "fractions": [
+                    _afraction(0.1, -0.003, 0.0, 1),  # adaptive does not help when scarce
+                    _afraction(1.0, 0.0, 0.0, 2),
+                ],
+            }
+        ]
+        v = derive_adaptive_verdict(results)
+        assert v["gate_low_data_lift"] is False
+        assert v["passed"] is False
+
+    def test_lift_must_be_seed_agreed(self) -> None:
+        # Positive mean low-data lift but only a minority of seeds agree -> no KEEP.
+        results = [
+            {
+                "dataset": "d",
+                "fractions": [
+                    _afraction(0.1, 0.004, 0.0, 0),
+                    _afraction(0.25, 0.004, 0.0, 1),
+                    _afraction(1.0, 0.0, 0.0, 2),
+                ],
+            }
+        ]
+        v = derive_adaptive_verdict(results)
+        assert v["gate_low_data_lift"] is False
+        assert v["passed"] is False

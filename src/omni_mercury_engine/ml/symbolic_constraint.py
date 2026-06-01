@@ -52,8 +52,9 @@ rule carries a learnable confidence weight (softmax-normalised), exactly
 as a Real-Logic LTN weights its axioms.
 """
 
+import math
 from dataclasses import dataclass, field
-from typing import TypedDict
+from typing import TypedDict, Union
 
 import torch
 from torch import nn
@@ -63,8 +64,11 @@ from omni_mercury_engine.models.neurosymbolic_enhanced import FuzzyOperators
 __all__ = [
     "Rule",
     "RuleGraph",
+    "ScarcityWeightSchedule",
     "SymbolicConstraintModule",
+    "SymbolicWeight",
     "consensus_rule_graph",
+    "resolve_symbolic_weight",
 ]
 
 
@@ -172,6 +176,124 @@ def consensus_rule_graph() -> RuleGraph:
             ),
         ),
     )
+
+
+@dataclass(frozen=True)
+class ScarcityWeightSchedule:
+    """Label-scarcity-adaptive schedule for the co-training weight ``lambda``.
+
+    The neuro-symbolic ablation (``benchmarks/neurosymbolic_ablation.py``,
+    recorded in ``docs/NEUROSYMBOLIC.md``) found the detector-consensus
+    constraint **helps when labels are scarce** and **washes out or slightly
+    regresses when they are abundant**: a single fixed ``lambda`` therefore
+    cannot win everywhere -- it pays its way in the low-data regime and taxes
+    the high-data regime. This schedule operationalises that measured finding
+    rather than assuming it: it spends the constraint *only where the ablation
+    showed it carries signal*, and the abundant-label regime is left as the
+    purely-neural path.
+
+    The binding quantity for anomaly detection is the number of **labelled
+    anomalies** ``n_pos`` -- with few positives the supervised decision boundary
+    is under-determined and the unsupervised consensus prior injects useful
+    structure; with many it is already well-pinned and the prior only adds bias.
+    The weight therefore decays smoothly with ``n_pos``::
+
+        lambda_eff(n_pos) = lam_max * exp(-n_pos / n0)
+
+    so ``lambda_eff -> lam_max`` as ``n_pos -> 0`` and ``lambda_eff -> 0`` as
+    ``n_pos`` grows. Below ``floor`` the weight snaps to exactly ``0`` so the
+    abundant-label regime reproduces the neural training path byte-for-byte
+    (no constraint module is even instantiated downstream).
+
+    The defaults are *pre-registered*, not tuned to pass the ablation:
+
+    * ``lam_max = 0.1`` -- the exact value already ablated as the fixed weight,
+      so the only new degree of freedom introduced here is the scarcity gating.
+    * ``n0 = 25`` -- an anomaly-count scale of a few dozen positives, below which
+      a handful of labels cannot pin a boundary in the ~6-30 feature dimensions
+      of the ADBench anomaly tasks and an unsupervised prior should contribute.
+
+    Attributes:
+        lam_max: Maximum symbolic weight, reached as ``n_pos -> 0``.
+        n0: Anomaly-count decay scale (positives); larger keeps ``lambda`` high
+            for more positives.
+        floor: Weights below this snap to ``0`` (neural path); keeps the
+            high-data regime exactly neural and avoids instantiating a
+            constraint module for a negligible weight.
+    """
+
+    lam_max: float = 0.1
+    n0: float = 25.0
+    floor: float = 1e-3
+
+    def __post_init__(self) -> None:
+        if self.lam_max < 0.0:
+            raise ValueError(f"lam_max must be >= 0, got {self.lam_max}")
+        if self.n0 <= 0.0:
+            raise ValueError(f"n0 must be > 0, got {self.n0}")
+        if self.floor < 0.0:
+            raise ValueError(f"floor must be >= 0, got {self.floor}")
+
+    def weight_for(self, n_positive: int) -> float:
+        """Resolve the effective ``lambda`` for a training set with ``n_positive`` anomalies.
+
+        Args:
+            n_positive: Number of labelled (or pseudo-labelled) anomalies in the
+                training split. Negative values are treated as ``0``.
+
+        Returns:
+            The effective non-negative symbolic weight; exactly ``0`` when the
+            decayed value falls below ``floor`` (the purely-neural regime).
+        """
+        n = max(0, int(n_positive))
+        lam = self.lam_max * math.exp(-n / self.n0)
+        return 0.0 if lam < self.floor else float(lam)
+
+
+# A symbolic co-training weight may be given as a concrete ``lambda`` (float),
+# the string ``"adaptive"`` (use the default scarcity schedule), or an explicit
+# :class:`ScarcityWeightSchedule`.
+SymbolicWeight = Union[float, str, ScarcityWeightSchedule]
+
+_ADAPTIVE_ALIASES = frozenset({"adaptive", "scarcity", "auto"})
+
+
+def resolve_symbolic_weight(weight: SymbolicWeight, n_positive: int) -> float:
+    """Resolve a symbolic-weight specification to a concrete ``lambda`` float.
+
+    This is the single place that maps the public ``symbolic_weight`` argument
+    of :meth:`OmniMercuryEngine.fit_fusion` onto the scalar the training loop
+    consumes, so the per-batch loss code stays a simple ``lambda * loss`` term
+    regardless of how the weight was specified.
+
+    Args:
+        weight: A concrete weight (``float``/``int``), the string ``"adaptive"``
+            (or ``"scarcity"``/``"auto"``) for the default scarcity schedule, or
+            an explicit :class:`ScarcityWeightSchedule`.
+        n_positive: Number of labelled anomalies in the training split, used to
+            resolve adaptive specifications.
+
+    Returns:
+        The effective non-negative symbolic weight as a ``float``.
+
+    Raises:
+        ValueError: If ``weight`` is a string other than a known adaptive alias,
+            or a numeric weight is negative.
+    """
+    if isinstance(weight, ScarcityWeightSchedule):
+        return weight.weight_for(n_positive)
+    if isinstance(weight, str):
+        key = weight.strip().lower()
+        if key in _ADAPTIVE_ALIASES:
+            return ScarcityWeightSchedule().weight_for(n_positive)
+        raise ValueError(
+            f"unknown symbolic_weight {weight!r}; expected a float, a "
+            f"ScarcityWeightSchedule, or one of {sorted(_ADAPTIVE_ALIASES)}"
+        )
+    lam = float(weight)
+    if lam < 0.0:
+        raise ValueError(f"symbolic_weight must be >= 0, got {lam}")
+    return lam
 
 
 class SymbolicConstraintModule(nn.Module):
