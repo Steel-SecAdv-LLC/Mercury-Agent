@@ -261,3 +261,55 @@ class TestResolveSymbolicWeight:
     def test_negative_float_raises(self) -> None:
         with pytest.raises(ValueError):
             resolve_symbolic_weight(-0.5, 5)
+
+
+class TestImplicationSemantics:
+    """The revived crisp implication operators are correct and differentiable."""
+
+    def test_lukasiewicz_known_values(self) -> None:
+        from omni_mercury_engine.models.neurosymbolic_enhanced import FuzzyOperators
+
+        x = torch.tensor([1.0, 0.0, 0.5, 0.8])
+        y = torch.tensor([0.0, 0.3, 0.5, 0.2])
+        got = FuzzyOperators.implies_lukasiewicz(x, y)
+        # min(1, 1 - x + y)
+        expected = torch.tensor([0.0, 1.0, 1.0, 0.4])
+        assert torch.allclose(got, expected, atol=1e-6)
+
+    def test_lukasiewicz_gradient_non_saturating(self) -> None:
+        # Where the implication is < 1 the slope in x is a constant -1 (bounded),
+        # unlike the product residuum whose slope vanishes as x -> 0.
+        from omni_mercury_engine.models.neurosymbolic_enhanced import FuzzyOperators
+
+        x = torch.tensor([0.9], requires_grad=True)
+        y = torch.tensor([0.1])
+        FuzzyOperators.implies_lukasiewicz(x, y).backward()
+        assert x.grad is not None and torch.isfinite(x.grad).all()
+        assert abs(float(x.grad) + 1.0) < 1e-6
+
+    def test_constraint_supports_each_semantics(self) -> None:
+        scores = torch.rand(16, 4)
+        prob = torch.rand(16, 1, requires_grad=True)
+        for sem in ("product", "reichenbach", "lukasiewicz", "godel"):
+            module = SymbolicConstraintModule(num_detectors=4, semantics=sem)
+            assert module.semantics == sem.lower() or (
+                sem == "reichenbach" and module.semantics == "reichenbach"
+            )
+            out = module(prob, scores)
+            assert torch.isfinite(out["satisfaction"])
+            assert 0.0 <= float(out["satisfaction"].detach()) <= 1.0
+
+    def test_lukasiewicz_constraint_backpropagates(self) -> None:
+        module = SymbolicConstraintModule(num_detectors=3, semantics="lukasiewicz")
+        prob = torch.rand(8, 1, requires_grad=True)
+        module.constraint_loss(prob, torch.rand(8, 3)).backward()
+        assert prob.grad is not None and torch.isfinite(prob.grad).all()
+
+    def test_explain_reports_semantics(self) -> None:
+        module = SymbolicConstraintModule(num_detectors=3, semantics="godel")
+        out = module.explain(torch.rand(8, 1), torch.rand(8, 3))
+        assert out["semantics"] == "godel"
+
+    def test_invalid_semantics_rejected(self) -> None:
+        with pytest.raises(ValueError, match="unknown semantics"):
+            SymbolicConstraintModule(num_detectors=3, semantics="bogus")

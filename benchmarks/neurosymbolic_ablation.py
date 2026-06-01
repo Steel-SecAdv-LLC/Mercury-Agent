@@ -174,6 +174,7 @@ def _train_eval(
     symbolic_weight: float | str,
     epochs: int,
     seed: int,
+    semantics: str = "product",
 ) -> tuple[float, float, float]:
     """Train one fusion model; return ``(auc, fpr_at_90_recall, lambda_eff)``.
 
@@ -200,6 +201,7 @@ def _train_eval(
         batch_size=64,
         early_stopping_patience=15,
         symbolic_weight=symbolic_weight,
+        symbolic_semantics=semantics,
     )
     # Effective lambda actually applied: the schedule-resolved value for the
     # adaptive arm, the configured weight for the fixed/neural arms.
@@ -210,7 +212,12 @@ def _train_eval(
 
 
 def run_dataset(
-    name: str, seeds: list[int], fractions: list[float], lam: float, epochs: int
+    name: str,
+    seeds: list[int],
+    fractions: list[float],
+    lam: float,
+    epochs: int,
+    semantics: str = "product",
 ) -> dict[str, Any] | None:
     """Run the paired ablation for one dataset across seeds and fractions."""
     try:
@@ -252,10 +259,17 @@ def run_dataset(
                 X[train_idx], y[train_idx], X[test_idx], y[test_idx], 0.0, epochs, seed
             )
             a_s, f_s, _ = _train_eval(
-                X[train_idx], y[train_idx], X[test_idx], y[test_idx], lam, epochs, seed
+                X[train_idx], y[train_idx], X[test_idx], y[test_idx], lam, epochs, seed, semantics
             )
             a_a, f_a, lam_a = _train_eval(
-                X[train_idx], y[train_idx], X[test_idx], y[test_idx], "adaptive", epochs, seed
+                X[train_idx],
+                y[train_idx],
+                X[test_idx],
+                y[test_idx],
+                "adaptive",
+                epochs,
+                seed,
+                semantics,
             )
             neu_auc.append(a_n)
             neu_fpr.append(f_n)
@@ -487,6 +501,12 @@ def main() -> int:
     parser.add_argument("--seeds", nargs="*", type=int, default=DEFAULT_SEEDS)
     parser.add_argument("--fractions", nargs="*", type=float, default=DEFAULT_FRACTIONS)
     parser.add_argument("--lam", type=float, default=0.1, help="symbolic_weight lambda")
+    parser.add_argument(
+        "--semantics",
+        default="product",
+        choices=["product", "reichenbach", "lukasiewicz", "godel"],
+        help="fuzzy implication semantics for the symbolic/adaptive arms",
+    )
     parser.add_argument("--epochs", type=int, default=20)
     parser.add_argument("--out", type=Path, default=Path("artifacts/neurosymbolic_ablation.json"))
     args = parser.parse_args()
@@ -499,7 +519,9 @@ def main() -> int:
 
     results: list[dict[str, Any]] = []
     for name in args.datasets:
-        out = run_dataset(name, args.seeds, args.fractions, args.lam, args.epochs)
+        out = run_dataset(
+            name, args.seeds, args.fractions, args.lam, args.epochs, args.semantics
+        )
         if out is not None:
             results.append(out)
 
@@ -520,6 +542,7 @@ def main() -> int:
             "fractions": args.fractions,
             "lambda": args.lam,
             "epochs": args.epochs,
+            "semantics": args.semantics,
             "arms": ["neural", "fixed", "adaptive"],
             "adaptive_schedule": {"type": "scarcity_exp", "lam_max": args.lam, "n0": 25.0},
         },

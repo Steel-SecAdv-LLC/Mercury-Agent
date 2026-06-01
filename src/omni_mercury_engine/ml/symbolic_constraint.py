@@ -88,6 +88,7 @@ class SymbolicExplanation(TypedDict):
     """JSON-serialisable symbolic-constraint explanation payload."""
 
     graph: str
+    semantics: str
     satisfaction: float
     rules: dict[str, RuleExplanation]
     detector_weights: list[float]
@@ -96,6 +97,18 @@ class SymbolicExplanation(TypedDict):
 # Clamp groundings away from the hard {0, 1} boundary so Reichenbach
 # implication and its dual keep well-conditioned gradients.
 _EPS: float = 1e-6
+
+# Selectable fuzzy implication semantics for the rule residua. All three are
+# real torch-differentiable tensor operators on FuzzyOperators; exposing them
+# here revives the crisp (Gödel / Łukasiewicz) operators -- previously dormant,
+# only ``implies_product`` was used -- as a measurable design axis settled by the
+# ablation rather than assumed. ``product``/``reichenbach`` is the smooth default.
+_IMPLICATIONS = {
+    "product": FuzzyOperators.implies_product,
+    "reichenbach": FuzzyOperators.implies_product,
+    "lukasiewicz": FuzzyOperators.implies_lukasiewicz,
+    "godel": FuzzyOperators.implies_godel,
+}
 
 
 @dataclass(frozen=True)
@@ -337,6 +350,7 @@ class SymbolicConstraintModule(nn.Module):
         learn_detector_reliability: bool = True,
         p_aggregator: float = 2.0,
         consensus_sharpness: float = 1.0,
+        semantics: str = "product",
     ) -> None:
         super().__init__()
         if num_detectors < 0:
@@ -365,7 +379,11 @@ class SymbolicConstraintModule(nn.Module):
         # crisp truth value; softplus keeps it strictly positive.
         self.sharpness_logit = nn.Parameter(torch.tensor(float(consensus_sharpness)))
 
-        self._implies = FuzzyOperators.implies_product
+        key = semantics.strip().lower()
+        if key not in _IMPLICATIONS:
+            raise ValueError(f"unknown semantics {semantics!r}; expected one of {sorted(_IMPLICATIONS)}")
+        self.semantics = key
+        self._implies = _IMPLICATIONS[key]
         self._not = FuzzyOperators.not_standard
 
     # -- predicate grounding -------------------------------------------------
@@ -501,6 +519,7 @@ class SymbolicConstraintModule(nn.Module):
         detector_weights = [float(v) for v in out["detector_weights"].detach().cpu().tolist()]
         return {
             "graph": self.rule_graph.name,
+            "semantics": self.semantics,
             "satisfaction": float(out["satisfaction"].detach().cpu()),
             "rules": {
                 rule.name: {

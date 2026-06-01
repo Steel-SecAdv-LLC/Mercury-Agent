@@ -964,6 +964,7 @@ class OmniMercuryEngine(LoggerMixin):
         focal_gamma: float = 2.0,
         calibrate: bool = True,
         symbolic_weight: SymbolicWeight = "adaptive",
+        symbolic_semantics: str = "product",
         domain_encoder: bool = False,
         domain_encoder_config: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
@@ -1112,6 +1113,7 @@ class OmniMercuryEngine(LoggerMixin):
             focal_gamma=focal_gamma,
             calibrate=calibrate,
             symbolic_weight=symbolic_weight_eff,
+            symbolic_semantics=symbolic_semantics,
             detector_scores=detector_scores,
             raw_inputs=raw_inputs,
             domain_scaler=domain_scaler,
@@ -1146,6 +1148,7 @@ class OmniMercuryEngine(LoggerMixin):
         focal_gamma: float = 2.0,
         calibrate: bool = True,
         symbolic_weight: float = 0.0,
+        symbolic_semantics: str = "product",
         detector_scores: torch.Tensor | None = None,
         raw_inputs: torch.Tensor | None = None,
         domain_scaler: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]] | None = None,
@@ -1261,7 +1264,9 @@ class OmniMercuryEngine(LoggerMixin):
         detector_scores_dev: torch.Tensor | None = None
         if symbolic_active:
             assert detector_scores is not None  # narrowed by symbolic_active
-            sym_module = SymbolicConstraintModule(num_detectors=detector_scores.shape[1]).to(device)
+            sym_module = SymbolicConstraintModule(
+                num_detectors=detector_scores.shape[1], semantics=symbolic_semantics
+            ).to(device)
             sym_module.train()
             self._symbolic_module = sym_module
             detector_scores_dev = detector_scores.to(device)
@@ -1434,6 +1439,7 @@ class OmniMercuryEngine(LoggerMixin):
         }
         if symbolic_active:
             metrics["symbolic_weight"] = float(symbolic_weight)
+            metrics["symbolic_semantics"] = symbolic_semantics
             metrics["symbolic_satisfaction"] = last_satisfaction
             metrics["symbolic_loss"] = last_symbolic_loss
 
