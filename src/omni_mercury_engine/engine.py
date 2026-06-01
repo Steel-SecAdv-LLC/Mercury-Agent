@@ -172,6 +172,7 @@ from omni_mercury_engine.ml.optimization import OptimizationConfig, ParallelExec
 from omni_mercury_engine.ml.symbolic_constraint import (
     SymbolicConstraintModule,
     SymbolicWeight,
+    resolve_rule_graph,
     resolve_symbolic_weight,
 )
 from omni_mercury_engine.utils.logging import LoggerMixin
@@ -965,6 +966,7 @@ class OmniMercuryEngine(LoggerMixin):
         calibrate: bool = True,
         symbolic_weight: SymbolicWeight = "adaptive",
         symbolic_semantics: str = "product",
+        symbolic_rule_graph: str = "consensus",
         domain_encoder: bool = False,
         domain_encoder_config: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
@@ -1114,6 +1116,7 @@ class OmniMercuryEngine(LoggerMixin):
             calibrate=calibrate,
             symbolic_weight=symbolic_weight_eff,
             symbolic_semantics=symbolic_semantics,
+            symbolic_rule_graph=symbolic_rule_graph,
             detector_scores=detector_scores,
             raw_inputs=raw_inputs,
             domain_scaler=domain_scaler,
@@ -1149,6 +1152,7 @@ class OmniMercuryEngine(LoggerMixin):
         calibrate: bool = True,
         symbolic_weight: float = 0.0,
         symbolic_semantics: str = "product",
+        symbolic_rule_graph: str = "consensus",
         detector_scores: torch.Tensor | None = None,
         raw_inputs: torch.Tensor | None = None,
         domain_scaler: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]] | None = None,
@@ -1265,7 +1269,9 @@ class OmniMercuryEngine(LoggerMixin):
         if symbolic_active:
             assert detector_scores is not None  # narrowed by symbolic_active
             sym_module = SymbolicConstraintModule(
-                num_detectors=detector_scores.shape[1], semantics=symbolic_semantics
+                num_detectors=detector_scores.shape[1],
+                rule_graph=resolve_rule_graph(symbolic_rule_graph),
+                semantics=symbolic_semantics,
             ).to(device)
             sym_module.train()
             self._symbolic_module = sym_module
@@ -1440,6 +1446,7 @@ class OmniMercuryEngine(LoggerMixin):
         if symbolic_active:
             metrics["symbolic_weight"] = float(symbolic_weight)
             metrics["symbolic_semantics"] = symbolic_semantics
+            metrics["symbolic_rule_graph"] = sym_module.rule_graph.name
             metrics["symbolic_satisfaction"] = last_satisfaction
             metrics["symbolic_loss"] = last_symbolic_loss
 

@@ -71,6 +71,8 @@ __all__ = [
     "SymbolicConstraintModule",
     "SymbolicWeight",
     "consensus_rule_graph",
+    "consensus_salience_rule_graph",
+    "resolve_rule_graph",
     "resolve_symbolic_weight",
 ]
 
@@ -192,6 +194,62 @@ def consensus_rule_graph() -> RuleGraph:
             ),
         ),
     )
+
+
+def consensus_salience_rule_graph() -> RuleGraph:
+    """Consensus rules plus a salience (any-strong-detector) recall rule.
+
+    This is the richer rule graph that revives the *threshold-rule* idea of the
+    dormant ``cognitive/symbolic_logic_layer.py`` (a ``ThresholdRule`` fires when
+    a variable crosses a threshold) as a **differentiable** axiom, and answers
+    the ledger's question: does richer symbolic structure beat the minimal
+    two-rule consensus?
+
+    The learned ``Consensus`` predicate is an AND-like *weighted mean* of the
+    detector scores -- it dilutes a single strong detector. ``Salient`` is its
+    disjunctive complement: a soft-existential over per-detector soft-threshold
+    indicators (the differentiable ``ThresholdRule``), high when **any** detector
+    crosses the learned threshold. The added rule is a recall axiom:
+
+    * ``R3_salience`` -- ``Salient -> Anomalous``.  If any single detector
+      saliently fires, the fusion network should not dismiss it.
+
+    Whether this richer graph actually helps on real labels is settled by
+    ``benchmarks/symbolic_rulegraph_sweep.py``; the default stays the minimal
+    consensus graph until it does.
+
+    Returns:
+        The three-rule consensus+salience :class:`RuleGraph`.
+    """
+    base = consensus_rule_graph()
+    return RuleGraph(
+        name="detector_consensus_salience",
+        rules=(
+            *base.rules,
+            Rule(
+                name="R3_salience",
+                antecedent="Salient",
+                consequent="Anomalous",
+                description="If any single detector saliently fires, fusion is anomalous.",
+            ),
+        ),
+    )
+
+
+_RULE_GRAPHS = {
+    "consensus": consensus_rule_graph,
+    "consensus_salience": consensus_salience_rule_graph,
+}
+
+
+def resolve_rule_graph(name: str | RuleGraph) -> RuleGraph:
+    """Resolve a rule-graph name (or an explicit graph) to a :class:`RuleGraph`."""
+    if isinstance(name, RuleGraph):
+        return name
+    key = name.strip().lower()
+    if key not in _RULE_GRAPHS:
+        raise ValueError(f"unknown rule graph {name!r}; expected one of {sorted(_RULE_GRAPHS)}")
+    return _RULE_GRAPHS[key]()
 
 
 @dataclass(frozen=True)
@@ -379,6 +437,19 @@ class SymbolicConstraintModule(nn.Module):
         # crisp truth value; softplus keeps it strictly positive.
         self.sharpness_logit = nn.Parameter(torch.tensor(float(consensus_sharpness)))
 
+        # Optional salience predicate (only when the rule graph references it):
+        # a learnable per-detector soft threshold (the differentiable analog of a
+        # ThresholdRule) aggregated by a soft-existential. Its learnable threshold
+        # and sharpness are added only when needed so the default consensus graph
+        # is parameter-identical to before.
+        self._has_salience = "Salient" in self.rule_graph.predicates
+        if self._has_salience and self.num_detectors > 0:
+            self.salience_threshold: nn.Parameter | None = nn.Parameter(torch.tensor(0.5))
+            self.salience_sharpness: nn.Parameter | None = nn.Parameter(torch.tensor(1.0))
+        else:
+            self.register_parameter("salience_threshold", None)
+            self.register_parameter("salience_sharpness", None)
+
         key = semantics.strip().lower()
         if key not in _IMPLICATIONS:
             raise ValueError(f"unknown semantics {semantics!r}; expected one of {sorted(_IMPLICATIONS)}")
@@ -410,6 +481,29 @@ class SymbolicConstraintModule(nn.Module):
         consensus = torch.sigmoid((consensus - 0.5) * 4.0 * sharpness)
         return consensus.clamp(_EPS, 1.0 - _EPS)
 
+    def _salience(self, detector_scores: torch.Tensor) -> torch.Tensor:
+        """Ground the ``Salient`` predicate: "some detector saliently fires".
+
+        Each detector score passes a learnable soft threshold
+        ``sigmoid((score - tau) * 4 * softplus(beta))`` -- the differentiable
+        analog of a crisp ``ThresholdRule`` -- and the per-detector indicators
+        are combined by a soft-existential (product t-conorm) so the predicate is
+        high when **any** detector crosses the threshold.
+
+        Args:
+            detector_scores: ``(B, D)`` per-detector anomaly scores in ``[0, 1]``.
+
+        Returns:
+            ``(B, 1)`` fuzzy truth value of "at least one detector is salient".
+        """
+        assert self.salience_threshold is not None and self.salience_sharpness is not None
+        beta = torch.nn.functional.softplus(self.salience_sharpness)
+        indicators = torch.sigmoid((detector_scores - self.salience_threshold) * 4.0 * beta)
+        indicators = indicators.clamp(_EPS, 1.0 - _EPS)
+        # Soft-existential (product t-conorm): 1 - prod(1 - indicator_k).
+        salient = 1.0 - torch.prod(1.0 - indicators, dim=1, keepdim=True)
+        return salient.clamp(_EPS, 1.0 - _EPS)
+
     def _ground(
         self, anomaly_prob: torch.Tensor, detector_scores: torch.Tensor
     ) -> dict[str, torch.Tensor]:
@@ -419,12 +513,17 @@ class SymbolicConstraintModule(nn.Module):
         """
         anomalous = anomaly_prob.clamp(_EPS, 1.0 - _EPS)
         consensus = self._consensus(detector_scores)
-        return {
+        grounded = {
             "Anomalous": anomalous,
             "NotAnomalous": self._not(anomalous),
             "Consensus": consensus,
             "NotConsensus": self._not(consensus),
         }
+        if self._has_salience and self.salience_threshold is not None:
+            salient = self._salience(detector_scores)
+            grounded["Salient"] = salient
+            grounded["NotSalient"] = self._not(salient)
+        return grounded
 
     # -- forward / loss ------------------------------------------------------
 

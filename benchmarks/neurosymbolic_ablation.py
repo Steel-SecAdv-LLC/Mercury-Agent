@@ -175,6 +175,7 @@ def _train_eval(
     epochs: int,
     seed: int,
     semantics: str = "product",
+    rule_graph: str = "consensus",
 ) -> tuple[float, float, float]:
     """Train one fusion model; return ``(auc, fpr_at_90_recall, lambda_eff)``.
 
@@ -202,6 +203,7 @@ def _train_eval(
         early_stopping_patience=15,
         symbolic_weight=symbolic_weight,
         symbolic_semantics=semantics,
+        symbolic_rule_graph=rule_graph,
     )
     # Effective lambda actually applied: the schedule-resolved value for the
     # adaptive arm, the configured weight for the fixed/neural arms.

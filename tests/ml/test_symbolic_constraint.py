@@ -30,6 +30,8 @@ from omni_mercury_engine.ml.symbolic_constraint import (
     ScarcityWeightSchedule,
     SymbolicConstraintModule,
     consensus_rule_graph,
+    consensus_salience_rule_graph,
+    resolve_rule_graph,
     resolve_symbolic_weight,
 )
 
@@ -313,3 +315,61 @@ class TestImplicationSemantics:
     def test_invalid_semantics_rejected(self) -> None:
         with pytest.raises(ValueError, match="unknown semantics"):
             SymbolicConstraintModule(num_detectors=3, semantics="bogus")
+
+
+class TestSalienceRuleGraph:
+    """The richer consensus+salience graph (revived ThresholdRule idea)."""
+
+    def test_graph_has_three_rules_and_salient_predicate(self) -> None:
+        g = consensus_salience_rule_graph()
+        assert len(g) == 3
+        assert {r.name for r in g.rules} == {"R1_evidence", "R2_precision", "R3_salience"}
+        assert "Salient" in g.predicates
+
+    def test_resolve_rule_graph(self) -> None:
+        assert resolve_rule_graph("consensus").name == "detector_consensus"
+        assert resolve_rule_graph("consensus_salience").name == "detector_consensus_salience"
+        with pytest.raises(ValueError, match="unknown rule graph"):
+            resolve_rule_graph("bogus")
+
+    def test_consensus_graph_has_no_salience_params(self) -> None:
+        # Default graph must stay parameter-identical to before (no salience).
+        module = SymbolicConstraintModule(num_detectors=4)
+        assert module._has_salience is False
+        assert module.salience_threshold is None
+        names = {n for n, _ in module.named_parameters()}
+        assert "salience_threshold" not in names
+
+    def test_salience_graph_registers_threshold_params(self) -> None:
+        module = SymbolicConstraintModule(
+            num_detectors=4, rule_graph=consensus_salience_rule_graph()
+        )
+        assert module._has_salience is True
+        names = {n for n, _ in module.named_parameters()}
+        assert "salience_threshold" in names
+        assert "salience_sharpness" in names
+
+    def test_salience_grounds_and_backpropagates(self) -> None:
+        module = SymbolicConstraintModule(
+            num_detectors=3, rule_graph=consensus_salience_rule_graph()
+        )
+        prob = torch.rand(8, 1, requires_grad=True)
+        out = module(prob, torch.rand(8, 3))
+        assert out["rule_satisfaction"].shape[0] == 3
+        assert torch.isfinite(out["satisfaction"])
+        out["loss"].backward()
+        assert prob.grad is not None and torch.isfinite(prob.grad).all()
+        assert module.salience_threshold is not None
+        assert module.salience_threshold.grad is not None
+
+    def test_salient_predicate_fires_on_single_strong_detector(self) -> None:
+        # One detector very high, the rest silent: the soft-existential Salient
+        # predicate should be high even though the (averaged) Consensus is not.
+        module = SymbolicConstraintModule(
+            num_detectors=4,
+            rule_graph=consensus_salience_rule_graph(),
+            learn_detector_reliability=False,
+        )
+        scores = torch.tensor([[0.99, 0.02, 0.02, 0.02]])
+        salient = module._salience(scores)
+        assert float(salient) > 0.6
