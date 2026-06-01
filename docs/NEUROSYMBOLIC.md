@@ -306,3 +306,52 @@ sets.
 * The Schumann and parapsychology networks remain quarantined, not revived: no
   real labelled corpus exists in-repo to train them honestly. Reviving them
   would require that data first — anything else would be theater.
+
+## 6. Statistical confirmation of the sub-threshold sweeps
+
+§2 made its KEEP decisions on *point* deltas plus a seed-agreement heuristic
+against a pre-registered **+0.002** mean-ΔAUC bar. `benchmarks/statistical_significance.py`
+adds the formal paired inference those calls deserve, computed directly from the
+committed sweep artifacts (no re-run): per-cell paired difference, paired
+**t-test**, **Wilcoxon** signed-rank (scipy, optional), exact **sign test**, and a
+seeded **bootstrap 95% CI**. A claim is "confirmed" only when the paired mean
+clears the bar **and** the 95% CI excludes 0 **and** the t-test is significant at
+α = 0.05.
+
+Result on the committed 27-cell sweep (`--seed 0 --boot 10000`):
+
+| Comparison | n | mean ΔAUC | bootstrap CI95 | t-test p | confirmed |
+|---|---|---|---|---|---|
+| salience vs consensus | 27 | +0.0012 | [−0.0002, +0.0028] | 0.134 | **No** |
+| gödel vs product | 27 | +0.0014 | [−0.0006, +0.0040] | 0.255 | **No** |
+| gödel vs neural-only | 27 | +0.0039 | [+0.0004, +0.0075] | 0.045 | **Yes** |
+| salience vs neural-only | 27 | +0.0022 | [−0.0021, +0.0057] | 0.298 | No |
+
+Reading: symbolic co-training with gödel semantics **significantly beats the
+neural-only baseline** (CI excludes 0), but the *choice between* gödel and
+product — and between the salience and consensus rule graphs — is **within the
+noise floor** at N = 27. This statistically corroborates the KEEP-product /
+KEEP-consensus defaults rather than overturning them.
+
+**Larger-N confirmation matrix (to settle the sub-threshold question).** The
+27-cell sweep is underpowered for a ±0.002 effect. To confirm or refute at
+adequate power, widen the same-cell design and re-run the analyzer:
+
+```bash
+# Datasets: add externally-labelled ADBench sets beyond {cardio, thyroid, WBC}.
+DATASETS="cardio thyroid WBC satellite pendigits mammography shuttle annthyroid optdigits glass"
+SEEDS="0 1 2 3 4 5 6 7 8 9"          # 10 seeds (was 3)
+FRACTIONS="0.05 0.1 0.25 0.5"        # 4 label fractions (was 3)
+# -> 10 datasets x 10 seeds x 4 fractions = 400 same-cells (was 27)
+
+python -m benchmarks.symbolic_rulegraph_sweep  --datasets $DATASETS --seeds $SEEDS --fractions $FRACTIONS
+python -m benchmarks.symbolic_semantics_sweep  --datasets $DATASETS --seeds $SEEDS --fractions $FRACTIONS
+python -m benchmarks.statistical_significance --seed 0 --boot 10000
+```
+
+Pre-registered decision (unchanged, bar not moved): switch a default only if the
+alternative clears mean ΔAUC > +0.002 **and** the bootstrap CI95 lower bound is
+> 0 **and** paired t-test p < 0.05 on the widened matrix. A ~400-cell sweep gives
+materially more power to detect a true +0.002 effect at the observed per-cell SD
+(~0.005) than N = 27 — i.e. the current "directionally better but sub-threshold"
+reading is an N problem, not a settled negative.
