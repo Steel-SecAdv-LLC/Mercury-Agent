@@ -196,6 +196,40 @@ python -m benchmarks.neurosymbolic_ablation \
     --out artifacts/neurosymbolic_ablation.json
 ```
 
+## 2.2 Implication semantics: crisp vs fuzzy (the dormant t-norms, revived)
+
+The constraint's rules are implications, so the implication *operator* is a real
+LTN design axis. Three residua now ship as torch-differentiable tensor operators
+in `FuzzyOperators`, but only the smooth product/Reichenbach form (`1 − x + x·y`)
+had ever been wired into the constraint — the Gödel (`x ≤ y ? 1 : y`) and
+Łukasiewicz (`min(1, 1 − x + y)`) operators were dormant. `SymbolicConstraintModule(semantics=...)`
+revives them as a selectable axis; `implies_lukasiewicz` (bounded, non-saturating
+gradient) was added to complete the set. This supersedes the orphaned *scalar*
+t-norm classes in `cognitive/differentiable_logic.py` with live, tested tensor
+operators in the measured path.
+
+Which residuum generalises best is settled by
+`benchmarks/symbolic_semantics_sweep.py`, comparing all three **within the same
+cell** (same dataset / seed / split / initialisation — an earlier separate-runs
+comparison was confounded by detector-fit noise and discarded). 27 cells
+(cardio / thyroid / WBC × 3 seeds × fractions 0.1 / 0.25 / 0.5), adaptive
+schedule:
+
+| semantics | mean low-data ΔAUC | seed agreement |
+|---|---|---|
+| product / reichenbach (default) | +0.0025 | 0.78 |
+| łukasiewicz | +0.0031 | 0.78 |
+| gödel | +0.0039 | 0.81 |
+
+**Verdict: KEEP `product` as the default.** All three semantics help in the
+low-data regime and are **statistically indistinguishable** — the crisp residua
+edge product by only +0.0006 / +0.0014 mean ΔAUC, inside the ±0.002 noise floor,
+so the pre-registered rule (switch only if crisp beats product by > +0.002) does
+not fire. The crisp operators are now live, tested, and selectable
+(`symbolic_semantics="godel"` / `"lukasiewicz"`) for future work; the smooth
+product/Reichenbach residuum, with the best-conditioned gradient, remains the
+measured default.
+
 ## 3. Calibration + conformal uncertainty in the output
 
 Building on the conformal plumbing from PR #242, the fusion serve path now
