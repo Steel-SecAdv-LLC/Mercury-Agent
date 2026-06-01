@@ -373,6 +373,40 @@ def test_spherical_harmonic_decomposition():
     assert np.all(power >= 0)  # Power is non-negative
 ```
 
+## Keeping docs and code in sync
+
+Documentation drift (numbers in the README that no longer match the code) is
+treated as a bug, not a cosmetic issue. Every quantitative or capability claim
+must be **measured and gated**, never hand-typed. Checklist before you claim a
+number:
+
+- [ ] **Structural counts** (source files, LOC, packages, detector/loader
+      classes, `nn.Module` subclasses, test modules, workflows) go *only* in the
+      README "Codebase Scale" block between the `<!-- SCALE:START/END -->`
+      markers. Regenerate with `python scripts/measure_codebase_scale.py --update
+      README.md`; CI fails on drift (`--check README.md`). Do not type these
+      numbers anywhere else — link to the block.
+- [ ] **Benchmark headline AUC/F1** comes from the committed
+      `benchmarks/mercury_benchmark_results.json` via the
+      `<!-- BENCHMARK:START/END -->` block (rendered by
+      `scripts/update_readme_benchmarks.py`). Cite that block, not a copied
+      literal. Keep the externally-comparable subset (ADBench) clearly separated
+      from the leakage-prone self-labeled loaders.
+- [ ] **Performance claims** (e.g. crypto speedups) must point at a reproducible
+      benchmark that writes a provenance-stamped artifact
+      (`benchmarks/crypto_backend_benchmark.py`). No unbenchmarked "Nx faster".
+- [ ] **Dependency posture** ("required" vs "optional extra") must match
+      `pyproject.toml`. torch is the `[ml]` extra; SHAP/LIME the
+      `[explainability]` extra; AMA/PQC is the only hard, fail-closed import gate.
+- [ ] **Behavioural claims** (env-var toggles, fallbacks, gates) must match a
+      test that pins the behaviour (e.g. `tests/test_pqc_startup_gate.py`).
+- [ ] **Experimental wins** must clear their pre-registered bar *and* survive
+      paired inference (`benchmarks/statistical_significance.py`) before a
+      default is changed. "Directionally better" is not "better".
+
+If you cannot measure it, do not assert it. Mark it as illustrative/target and
+link to the script that would verify it.
+
 ## Pull Request Process
 
 ### Before Submitting
@@ -390,10 +424,14 @@ def test_spherical_harmonic_decomposition():
    ruff check src/ tests/
    pytest tests/ -v
    mypy src/omni_mercury_engine/
+   # Docs/claims consistency gates (dependency-free):
+   python scripts/measure_codebase_scale.py --check README.md
+   python scripts/check_readme_lyapunov.py
    ```
 
 3. **Update documentation:**
-   - Update README.md if adding features
+   - Update README.md if adding features (regenerate the Codebase Scale block;
+     see "Keeping docs and code in sync" above)
    - Update SECURITY.md if affecting security
    - Add entries to CHANGELOG.md
 

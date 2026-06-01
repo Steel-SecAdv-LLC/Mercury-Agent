@@ -709,7 +709,7 @@ loss = loss_fn(
 ### Integration with Mercury Agent
 
 The 3R mechanism is integrated throughout Mercury Agent:
-- **Detectors**: All 18+ detection engines leverage 3R for feature extraction
+- **Detectors**: All 22+ detection engines leverage 3R for feature extraction
 - **Fusion Network**: Multi-head attention combines 3R outputs across domains
 - **Ethical Governance**: Refactoring engine ensures Lyapunov stability constraints
 - **Self-Healing**: CRISPR-inspired adaptation uses recursive pattern learning
@@ -763,7 +763,7 @@ Modern anomaly detection faces three critical challenges:
 
 Mercury Agent addresses all three challenges through:
 
-- **Unified Framework**: 18+ detection engines under a single hybrid fusion architecture covering medical, security, space, infrastructure, and environmental domains
+- **Unified Framework**: 22+ detection engines under a single hybrid fusion architecture covering medical, security, space, infrastructure, and environmental domains
 - **Ethical Governance**: Fairlearn bias detection with demographic parity, equalized odds, and 80% rule enforcement; 180+ ethical scalars with Lyapunov stability
 - **Production Security**: OWASP-compliant input validation, post-quantum cryptography (Kyber-1024 / ML-KEM-1024, ML-DSA-65, SPHINCS+-SHA2-256f-simple) via AMA Cryptography v3.2.0, JWT authentication, rate limiting
 
@@ -788,7 +788,7 @@ See [Use Cases by Sector](#use-cases-by-sector) for detailed scenarios.
 | Layer | Protection | Components |
 |-------|------------|------------|
 | 1. Core Infrastructure | Security foundation | Kyber-1024 / ML-DSA-65 / SPHINCS+ PQC (AMA Cryptography v3.2.0), JWT auth, OWASP validation |
-| 2. ML/AI Pipeline | Detection intelligence | 18+ engines, hybrid fusion, multi-head attention |
+| 2. ML/AI Pipeline | Detection intelligence | 22+ engines, hybrid fusion, multi-head attention |
 | 3. Ethical Governance | Fairness assurance | Fairlearn bias audit, 180+ ethical scalars, Lyapunov stability |
 
 ### Ethical AI Governance
@@ -804,7 +804,7 @@ The signature innovation providing transparent, auditable AI decision-making:
 
 Optimized for both accuracy and interpretability:
 
-- **Feature Fusion**: `torch.cat()` across 18+ detector outputs
+- **Feature Fusion**: `torch.cat()` across 22+ detector outputs
 - **Decision Fusion**: Weighted voting with learned importance scores
 - **Attention Fusion**: Multi-head attention (8 heads) for cross-domain correlation
 - **Final Score**: `0.7 * MLP + 0.3 * weighted_vote` ensemble
@@ -819,11 +819,11 @@ Optimized for both accuracy and interpretability:
 | Multi-Domain Coverage | 22+ detection engines across 12 domains (8 new statistical methods) |
 | Ethical Governance | Fairlearn bias detection, 180+ ethical scalars |
 | Production Security | OWASP validation, PQC support, JWT authentication |
-| Comprehensive Testing | ~5,100+ tests collected across 258 files (verified `pytest --collect-only`; grows with optional ML deps installed), property-based testing, security scanning |
-| Benchmark Coverage | 64 reproducible datasets (of 75 attempted; 47 ADBench + 28 domain), Mean AUC 0.8285, Median AUC 0.9091 |
+| Comprehensive Testing | thousands of tests across the test modules counted in the CI-gated [Codebase Scale](#codebase-scale-measured-not-estimated) block (grows with optional ML deps installed), property-based testing, security scanning |
+| Benchmark Coverage | 64 reproducible datasets (of 75 attempted; 47 ADBench + 28 domain); canonical Mean ROC-AUC **0.8466** / Median **0.9100** (CI-refreshed "Latest Benchmark Results" block above); externally-comparable subset ADBench Mean AUC **0.8180** |
 | Cross-Platform | Linux (Ubuntu 22.04+ supported in CI), macOS 13+, Windows 10/11 (via WSL2), Docker, Kubernetes (Helm chart); 8 integrated observability platforms (Prometheus, Elastic/OpenSearch, Splunk, Datadog, Azure Anomaly Detector, Netdata, Grafana, InfluxDB) |
 | Mathematical Rigor | Lyapunov stability (`λ = 0.25`, certified by `tools/lyapunov_validator.py`), σ_Immutable ≥ 0.96, Benevolence ≥ 0.99 |
-| Codebase Scale | 512 Python modules in `src/omni_mercury_engine/` (~295,647 LOC), 165 `nn.Module` subclasses, 14 live data loaders — see [Codebase Scale](#codebase-scale-measured-not-estimated) above |
+| Codebase Scale | All structural counts are measured and CI-gated in the [Codebase Scale](#codebase-scale-measured-not-estimated) block above (source files, LOC, packages, detector/loader classes, `nn.Module` subclasses, test modules, workflows) — no hand-typed figures |
 
 </details>
 
@@ -1320,8 +1320,10 @@ bandit -r src/ -f txt
 ### Test Coverage
 
 The test suite includes:
-- **~5,100 tests collected** across 258 test files (verified by
-  `pytest --collect-only -q` on 2026-05-03 in a minimal install with
+- **Thousands of tests** across the test modules counted in the CI-gated
+  [Codebase Scale](#codebase-scale-measured-not-estimated) block (the exact
+  module count is measured from disk, never hand-typed), verified by
+  `pytest --collect-only -q` in a minimal install with
   optional ML deps absent; expected to grow when `torch`,
   `torchvision`, `fastapi`, and other optional deps are installed —
   some test modules are gated behind those imports).
@@ -2275,7 +2277,7 @@ The human architect does not hold formal credentials in machine learning or medi
 
 - **Standards-based design:** Built on OWASP security guidelines, NIST PQC standards, Fairlearn fairness metrics.
 - **Quantified claims:** All performance metrics are measured and documented with methodology; no figure appears in this README without a referenced source.
-- **Comprehensive testing:** ~5,100 tests collected on a minimal install across 258 test files (`pytest --collect-only -q`, 2026-05-03), growing further when the optional ML/API extras are present; the suite combines unit tests, property-based testing (Hypothesis), KAT vectors (RFC 8032 / NIST ACVP-Server), and load-test SLO assertions (k6 + locust).
+- **Comprehensive testing:** thousands of tests on a minimal install across the test modules counted in the CI-gated [Codebase Scale](#codebase-scale-measured-not-estimated) block (`pytest --collect-only -q`), growing further when the optional ML/API extras are present; the suite combines unit tests, property-based testing (Hypothesis), KAT vectors (RFC 8032 / NIST ACVP-Server), and load-test SLO assertions (k6 + locust).
 - **Executable mathematical certificates:** The Lyapunov decay rate `λ = 0.25` cited throughout the documentation is enforced by `tools/lyapunov_validator.py` (generalized symmetric-definite eigenvalue analysis), the canonical YAML `configs/lyapunov_canonical.yaml`, and the `Docs λ Drift Gate` CI job -- a documentation claim that disagrees with the certificate fails CI rather than going to print.
 - **Transparent limitations:** Documentation explicitly distinguishes validated vs. pending claims, and benchmark figures are paired with the dataset, the methodology document, and the date of the run that produced them.
 - **Ethical governance:** Fairlearn bias auditing integrated throughout the ML pipeline; σ_Immutable + Benevolence gates are mandatory hard gates at every public detection / analysis / prediction surface (no advisory mode).
@@ -2285,7 +2287,7 @@ The human architect does not hold formal credentials in machine learning or medi
 
 - **No Independent Audit:** All security and performance analysis is self-assessed. Production deployment requires review by qualified professionals.
 - **AI-Generated Code:** May contain subtle implementation errors. All critical paths require independent verification.
-- **Domain-Specific Validation:** Core detection is benchmarked on **64 reproducible real datasets** (of 75 attempted; Mean AUC 0.8285, Median AUC 0.9091). 11 datasets currently fail to load due to unavailable external sources and are tracked by a two-lane reachability harness (offline + nightly network) as of v1.7.0. The FEMA Disaster loader's previously-flagged inverted-score bug is fixed in v1.7.0 (`FEMADisasterLoader._select_anomaly_polarity`); the headline AUC for that row is rerun on the next benchmark refresh. Domain-specific modules may require additional validation.
+- **Domain-Specific Validation:** Core detection is benchmarked on **64 reproducible real datasets** (of 75 attempted; canonical Mean ROC-AUC **0.8466** / Median **0.9100** from the CI-refreshed "Latest Benchmark Results" block; externally-comparable subset ADBench Mean AUC **0.8180**). 11 datasets currently fail to load due to unavailable external sources and are tracked by a two-lane reachability harness (offline + nightly network) as of v1.7.0. The FEMA Disaster loader's previously-flagged inverted-score bug is fixed in v1.7.0 (`FEMADisasterLoader._select_anomaly_polarity`); the headline AUC for that row is rerun on the next benchmark refresh. Domain-specific modules may require additional validation.
 - **Medical Applications:** No clinical validation. Medical modules require validation on real patient data before any deployment.
 - **Research Status:** This is a research-grade framework, not a production-ready product.
 
