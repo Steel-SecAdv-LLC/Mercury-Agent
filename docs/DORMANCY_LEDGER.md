@@ -79,7 +79,7 @@ order. None are deleted.
 |---|---|---|---|---|---|---|
 | 1 | `symbolic_logic_layer.py` | 1127 | Forward-chaining rule reasoner (crisp) | **MEASURED ✓** — its `ThresholdRule` idea revived as a *differentiable* salience rule and ablated: consensus_salience +0.0022 vs consensus +0.0009 low-data ΔAUC, seed agreement 0.81 vs 0.63 — directionally better but +0.0013 sub-threshold | **done (KEEP consensus)** | Revived as the `consensus_salience` rule graph (`NEUROSYMBOLIC.md` §2.3); live, tested, selectable; the most promising symbolic follow-up, awaiting a larger-N confirmation. |
 | 2 | `causal_discovery.py` | 1442 | Causal-graph discovery | **VALIDATED ✓ (non-AUC)** — not an anomaly scorer, but on its *own* metric (skeleton recovery vs a known SEM) it recovers structure well above chance: mean F1 **0.853** vs chance 0.286, degrading gracefully as samples thin (`benchmarks/causal_discovery_validation.py`) | **revived (causal tool)** | A genuinely working constraint-based causal-discovery engine; revived and measured as a causal tool, not an anomaly detector. |
-| 3 | `explainability.py` | 1033 | LIME/SHAP explainers | **Yes, non-AUC** — explanation faithfulness (comprehensiveness/sufficiency) on the fusion model | MED | Wire to the fusion output → measure faithfulness, not detection. |
+| 3 | `explainability.py` | 1033 | IG / SHAP / LIME explainers + faithfulness evaluator | **VALIDATED ✓ (non-AUC, dep-free parts)** — IntegratedGradients recovers a model's informative features (recovery@3 **0.678** vs chance 0.300) and is ~2× more faithful than random (comprehensiveness **0.40 vs 0.22**); the `FaithfulnessEvaluator` works (`benchmarks/explanation_fidelity.py`). SHAP/LIME need the optional `shap`/`lime` libs (not installed) | **revived (IG + evaluator)** | Dep-free IntegratedGradients explainer + faithfulness evaluator revived & measured; SHAP/LIME remain dependency-gated. |
 | 4 | `formal_verification.py` | 1591 | Constraint solvers / safety verifiers | **Yes, non-AUC** — verifiable constraint-satisfaction guarantees on the σ_Immutable / ethics gates | MED | Encode a real safety invariant → measure verified-coverage; a guarantee, not a score. |
 | 5 | `neurosymbolic_hub.py` + `gosnn_3r_integration.py` + `fibring_fusion.py` | 1602+906+273 | Alternative GOSNN/fibring fusion head | **Maybe** — fused AUC vs the live `OmniFusionModel` | LOW | Wire as an alternative fusion head → ablate; high effort, likely redundant with the trained `OmniFusionModel`. |
 | 6 | `knowledge_graph.py` + `multi_hop_reasoner.py` | 2109+718 | Symbolic KB + multi-hop reasoning | **No (numeric)** — operate on symbolic facts, not feature vectors | LOW | Only via a rules/KB bridge to the symbolic constraint; no direct tabular signal. |
@@ -143,9 +143,12 @@ detection metric it was never meant to clear:
   degrading gracefully as samples thin. A genuinely working causal tool — revived
   and measured *as a causal engine*, not an anomaly detector. This is the template
   for the rest.
-* **Explanation fidelity — next.** An explanation-faithfulness harness
-  (comprehensiveness / sufficiency / monotonicity) for `explainability.py`'s
-  SHAP / LIME against the trained fusion model.
+* **Explanation fidelity — built ✓, VALIDATED.** `benchmarks/explanation_fidelity.py`
+  trains a real model on data with a *known* informative-feature set and scores
+  the dependency-free `IntegratedGradientsExplainer` + `FaithfulnessEvaluator`:
+  recovery@3 **0.678 vs chance 0.300**, comprehensiveness **0.40 vs 0.22** random.
+  The IG explainer and the faithfulness evaluator are revived and measured; the
+  `shap`/`lime` explainers stay dependency-gated until those libs are installed.
 * **Formal safety coverage — next.** A verified-coverage harness for
   `formal_verification.py` over an encoded safety invariant.
 
