@@ -50,9 +50,16 @@ def test_benchmark_runs_and_is_honest_about_rust() -> None:
     assert prov["active_backend"] in VALID_BACKENDS
     assert "blake3_active_backend_ms" in result
     assert "blake3_python_reference_ms" in result
-    if prov["rust_available"] and prov["active_backend"] == "rust":
+    if (
+        prov["rust_available"]
+        and prov["active_backend"] == "rust"
+        and prov["python_reference"] == "blake3-wheel"
+    ):
         assert result["measured_speedup_rust_vs_python"] is not None
     else:
-        # No Rust => no fabricated speedup number.
+        # No Rust or no like-for-like Python BLAKE3 reference => no fabricated number.
         assert result["measured_speedup_rust_vs_python"] is None
-        assert "NOT built" in result["claim"]
+        assert (
+            "No Rust-vs-Python speedup measured" in result["claim"]
+            or "like-for-like" in result["claim"]
+        )

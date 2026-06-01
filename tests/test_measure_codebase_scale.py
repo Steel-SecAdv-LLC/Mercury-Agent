@@ -82,8 +82,8 @@ def test_round_loc_buckets_to_nearest_thousand() -> None:
     assert mcs._round_loc(317_728) == 318_000
     assert mcs._round_loc(118_467) == 118_000
     assert mcs._round_loc(0) == 0
-    # Exactly on a boundary rounds deterministically.
-    assert mcs._round_loc(500) == 0 or mcs._round_loc(500) == 1000
+    # Python's banker's rounding keeps the exact half-bucket boundary deterministic.
+    assert mcs._round_loc(500) == 0
 
 
 def test_render_block_is_stable_under_small_loc_churn() -> None:

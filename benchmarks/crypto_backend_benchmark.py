@@ -37,14 +37,26 @@ if TYPE_CHECKING:
 
 
 def _git_commit() -> str:
+    repo = Path(__file__).resolve().parents[1]
     try:
-        return (
+        commit = (
             subprocess.check_output(
-                ["git", "rev-parse", "--short", "HEAD"], stderr=subprocess.DEVNULL
+                ["git", "rev-parse", "--short", "HEAD"],
+                cwd=repo,
+                stderr=subprocess.DEVNULL,
             )
             .decode()
             .strip()
         )
+        dirty = (
+            subprocess.run(
+                ["git", "diff", "--quiet"],
+                cwd=repo,
+                check=False,
+            ).returncode
+            != 0
+        )
+        return f"{commit}-dirty" if dirty else commit
     except Exception:
         return "unknown"
 
@@ -106,12 +118,19 @@ def run(mb: float, iters: int) -> dict[str, Any]:
         "blake3_python_reference_ms": py_ref,
     }
 
-    if rust and backend == "rust":
+    if rust and backend == "rust" and py_ref_name == "blake3-wheel":
         speedup = py_ref["median_ms"] / active["median_ms"] if active["median_ms"] else 0.0
         result["measured_speedup_rust_vs_python"] = round(speedup, 2)
         result["claim"] = (
             f"BLAKE3 Rust backend measured {speedup:.2f}x vs Python "
             f"{py_ref_name} on {platform.platform()} (commit {result['provenance']['commit']})."
+        )
+    elif rust and backend == "rust":
+        result["measured_speedup_rust_vs_python"] = None
+        result["claim"] = (
+            "Rust backend built, but Python BLAKE3 reference is unavailable. "
+            "Install the `blake3` wheel to compute an honest like-for-like "
+            "Rust-vs-Python BLAKE3 speedup; no speedup figure emitted."
         )
     else:
         result["measured_speedup_rust_vs_python"] = None

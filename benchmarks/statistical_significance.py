@@ -143,7 +143,7 @@ def _sign_test_p(n_pos: int, n: int) -> float:
     return float(min(1.0, 2.0 * tail))
 
 
-def _bootstrap_ci(d: np.ndarray, n_boot: int, seed: int) -> tuple[float, float]:
+def _bootstrap_ci(d: np.ndarray[Any, Any], n_boot: int, seed: int) -> tuple[float, float]:
     rng = np.random.default_rng(seed)
     n = len(d)
     means = d[rng.integers(0, n, size=(n_boot, n))].mean(axis=1)
@@ -152,7 +152,12 @@ def _bootstrap_ci(d: np.ndarray, n_boot: int, seed: int) -> tuple[float, float]:
 
 
 def paired_stats(
-    a: np.ndarray, b: np.ndarray, *, n_boot: int, seed: int, bar: float
+    a: np.ndarray[Any, Any],
+    b: np.ndarray[Any, Any],
+    *,
+    n_boot: int,
+    seed: int,
+    bar: float,
 ) -> dict[str, Any]:
     """Paired inference on d = a - b (same cells)."""
     d = a - b
@@ -200,13 +205,17 @@ def paired_stats(
 
 
 def one_sample_over_neural(
-    series: np.ndarray, neural: np.ndarray, *, n_boot: int, seed: int
+    series: np.ndarray[Any, Any],
+    neural: np.ndarray[Any, Any],
+    *,
+    n_boot: int,
+    seed: int,
 ) -> dict[str, Any]:
     """Is the series' delta over the neural baseline distinguishable from 0?"""
     return paired_stats(series, neural, n_boot=n_boot, seed=seed, bar=0.0)
 
 
-def _series_matrix(cells: list[dict[str, Any]], key: str) -> np.ndarray:
+def _series_matrix(cells: list[dict[str, Any]], key: str) -> np.ndarray[Any, Any]:
     return np.array([float(c[key]) for c in cells], dtype=float)
 
 
@@ -326,9 +335,14 @@ def analyze(
             f"p={god['p_value_ttest']:.3f}, Holm p={god['p_value_ttest_holm']:.3f}). "
             "This statistically corroborates PR #265's KEEP-default decisions."
             + (
-                f" Note: {', '.join(uncorrected_only)} clear the single-test bar "
-                "but do NOT survive Holm-Bonferroni across the 6-test family, so "
-                "they are not reported as confirmed."
+                " Note: "
+                f"{', '.join(uncorrected_only)} "
+                f"{'clears' if len(uncorrected_only) == 1 else 'clear'} "
+                "the single-test bar but "
+                f"{'does' if len(uncorrected_only) == 1 else 'do'} NOT survive "
+                "Holm-Bonferroni across the 6-test family, so "
+                f"{'it is' if len(uncorrected_only) == 1 else 'they are'} "
+                "not reported as confirmed."
                 if uncorrected_only
                 else ""
             )

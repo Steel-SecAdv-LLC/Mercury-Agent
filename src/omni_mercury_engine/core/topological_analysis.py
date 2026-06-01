@@ -944,8 +944,8 @@ class TopologicalAnomalyDetector:
             sub_data = reference_data[idx]
             dgm = self._filtration.build(sub_data)
             feats = self._extract_features(dgm)
-            for k in all_features:
-                all_features[k].append(feats.get(k, 0.0))
+            for k, vals in all_features.items():
+                vals.append(feats.get(k, 0.0))
 
         # Record feature standard deviations for z-scoring
         for k, vals in all_features.items():
@@ -955,7 +955,7 @@ class TopologicalAnomalyDetector:
         # Score each sub-sample against the reference
         scores: list[float] = []
         for trial_idx in range(n_trials):
-            trial_feats = {k: all_features[k][trial_idx] for k in all_features}
+            trial_feats = {k: vals[trial_idx] for k, vals in all_features.items()}
             trial_feats["wasserstein_h0"] = 0.0
             trial_feats["wasserstein_h1"] = 0.0
             scores.append(self._aggregate_score(trial_feats))

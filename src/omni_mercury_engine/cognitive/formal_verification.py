@@ -16,7 +16,7 @@ https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-"""
+_MODULE_DESCRIPTION = """
 Formal Verification Module for Mercury Agent.
 
 Implements formal methods for safety-critical decision verification, inspired by:
@@ -757,12 +757,11 @@ class ReachabilityAnalyzer:
         total_steps = 0
         state = current_state.copy()
 
-        for variable in target_state:
+        for variable, target in target_state.items():
             if variable not in state:
                 continue
 
             current = state[variable]
-            target = target_state[variable]
 
             # Get transition bounds for this variable
             bounds = transition_bounds.get(variable, (-1.0, 1.0))
@@ -814,10 +813,10 @@ class ReachabilityAnalyzer:
             progress = step / steps
             intermediate = {}
 
-            for variable in target_state:
+            for variable, target in target_state.items():
                 if variable in current_state:
                     intermediate[variable] = current_state[variable] + progress * (
-                        target_state[variable] - current_state[variable]
+                        target - current_state[variable]
                     )
 
             path.append(intermediate)
@@ -867,7 +866,7 @@ class ReachabilityAnalyzer:
             state_info = state_machine.get(current, {})
             transitions = state_info.get("transitions", {})
 
-            for action, next_state in transitions.items():
+            for _action, next_state in transitions.items():
                 if next_state == target_state:
                     return {
                         "reachable": True,

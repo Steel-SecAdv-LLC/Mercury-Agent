@@ -16,7 +16,7 @@ https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-"""
+_MODULE_DESCRIPTION = """
 Meta-Learning Adapter for Mercury Agent.
 
 Implements fast adaptation to new anomaly types with few examples, inspired by:
@@ -814,8 +814,8 @@ class MAML:
             grads = self._compute_gradients(X_support, y_support, adapted_params)
 
             # SGD update
-            for key in adapted_params:
-                adapted_params[key] = adapted_params[key] - self.inner_lr * grads[key]
+            for key, value in adapted_params.items():
+                adapted_params[key] = value - self.inner_lr * grads[key]
 
         return adapted_params
 
@@ -946,8 +946,8 @@ class MAML:
 
         for _ in range(steps):
             grads = self._compute_gradients(support_x, support_y, adapted_params)
-            for key in adapted_params:
-                adapted_params[key] = adapted_params[key] - self.inner_lr * grads[key]
+            for key, value in adapted_params.items():
+                adapted_params[key] = value - self.inner_lr * grads[key]
 
         self._adapted_params = adapted_params
         return adapted_params
@@ -977,8 +977,8 @@ class MAML:
             adapted_params = {k: v.copy() for k, v in self.params.items()}
             for _ in range(self.inner_steps):
                 grads = self._compute_gradients(support_x, support_y, adapted_params)
-                for key in adapted_params:
-                    adapted_params[key] = adapted_params[key] - self.inner_lr * grads[key]
+                for key, value in adapted_params.items():
+                    adapted_params[key] = value - self.inner_lr * grads[key]
 
             # Compute loss on query set
             loss, _ = self._compute_loss(query_x, query_y, adapted_params)
@@ -1126,8 +1126,8 @@ class Reptile:
 
         for _ in range(steps):
             grads = self.maml._compute_gradients(task_x, task_y, adapted_params)
-            for key in adapted_params:
-                adapted_params[key] = adapted_params[key] - self.inner_lr * grads[key]
+            for key, value in adapted_params.items():
+                adapted_params[key] = value - self.inner_lr * grads[key]
 
         self._stats["tasks_trained"] += 1
         return adapted_params
@@ -1495,7 +1495,7 @@ class MetaLearningAdapter:
         """
         losses = []
 
-        for epoch in range(epochs):
+        for _epoch in range(epochs):
             epoch_loss = 0.0
 
             for task_dict in tasks:
@@ -1507,7 +1507,7 @@ class MetaLearningAdapter:
 
                     # Convert to arrays
                     support_x, support_y = [], []
-                    for idx, (class_name, features) in enumerate(support_dict.items()):
+                    for idx, (_class_name, features) in enumerate(support_dict.items()):
                         if features.ndim == 1:
                             features = features.reshape(1, -1)
                         for f in features:
@@ -1517,7 +1517,7 @@ class MetaLearningAdapter:
                     support_y = np.array(support_y)  # type: ignore[assignment, unused-ignore]
 
                     query_x, query_y = [], []
-                    for idx, (class_name, features) in enumerate(query_dict.items()):
+                    for idx, (_class_name, features) in enumerate(query_dict.items()):
                         if features.ndim == 1:
                             features = features.reshape(1, -1)
                         for f in features:
@@ -1556,8 +1556,8 @@ class MetaLearningAdapter:
                             if label not in support_dict_conv:
                                 support_dict_conv[label] = []
                             support_dict_conv[label].append(support_x[i])
-                        for key in support_dict_conv:
-                            support_dict_conv[key] = np.array(support_dict_conv[key])  # type: ignore[assignment, unused-ignore]
+                        for key, value in support_dict_conv.items():
+                            support_dict_conv[key] = np.array(value)  # type: ignore[assignment, unused-ignore]
                         self._learner.fit(support_dict_conv)  # type: ignore[arg-type, unused-ignore]
 
             losses.append(epoch_loss / max(len(tasks), 1))
@@ -1684,7 +1684,7 @@ class MetaLearningAdapter:
             all_data = []
             all_labels = []
             class_names = list(data.keys())
-            for idx, (class_name, features) in enumerate(data.items()):
+            for idx, (_class_name, features) in enumerate(data.items()):
                 if features.ndim == 1:
                     features = features.reshape(1, -1)
                 for f in features:
@@ -1800,8 +1800,8 @@ class MetaLearningAdapter:
                     if label not in support_dict:
                         support_dict[label] = []
                     support_dict[label].append(support_x[i])
-                for key in support_dict:
-                    support_dict[key] = np.array(support_dict[key])  # type: ignore[assignment, unused-ignore]
+                for key, value in support_dict.items():
+                    support_dict[key] = np.array(value)  # type: ignore[assignment, unused-ignore]
                 self._learner.fit(support_dict)  # type: ignore[arg-type, unused-ignore]
 
                 # Predict

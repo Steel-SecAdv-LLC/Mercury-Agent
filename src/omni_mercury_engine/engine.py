@@ -91,7 +91,7 @@ import logging
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Literal, cast, overload
 
 import numpy as np
 
@@ -885,6 +885,7 @@ class OmniMercuryEngine(LoggerMixin):
             # has already absorbed the constraint, so inference needs only the
             # net; this handle is diagnostic, not required for scoring.
             self._symbolic_module: SymbolicConstraintModule | None = None
+            self._symbolic_score_channels: list[str] | None = None
             # Opt-in differentiable domain encoders (WS-B / Target 2): the
             # FFT-spectral + finite-difference-kinematic + Fisher/entropy
             # nn.Modules, jointly trained with the fusion net when
@@ -1111,7 +1112,13 @@ class OmniMercuryEngine(LoggerMixin):
         # to avoid the extra detect() pass on the purely-neural default path).
         detector_scores: torch.Tensor | None = None
         if symbolic_weight_eff > 0:
-            detector_scores = self._extract_consensus_scores(X)
+            detector_scores, symbolic_channels = self._extract_consensus_scores(
+                X,
+                return_channels=True,
+            )
+            self._symbolic_score_channels = symbolic_channels
+        else:
+            self._symbolic_score_channels = None
 
         # WS-B: opt-in differentiable domain encoder. Standardise the raw input
         # once (mean/std stored on the engine, re-applied identically at
@@ -1313,6 +1320,7 @@ class OmniMercuryEngine(LoggerMixin):
         else:
             sym_module = None
             self._symbolic_module = None
+            self._symbolic_score_channels = None
             trainable_params = list(self.fusion_model.parameters())
 
         if domain_active:
@@ -1847,7 +1855,31 @@ class OmniMercuryEngine(LoggerMixin):
 
         return fusion_features
 
-    def _extract_consensus_scores(self, X: np.ndarray[Any, Any]) -> torch.Tensor:
+    @overload
+    def _extract_consensus_scores(
+        self,
+        X: np.ndarray[Any, Any],
+        *,
+        channels: list[str] | None = None,
+        return_channels: Literal[False] = False,
+    ) -> torch.Tensor: ...
+
+    @overload
+    def _extract_consensus_scores(
+        self,
+        X: np.ndarray[Any, Any],
+        *,
+        channels: list[str] | None = None,
+        return_channels: Literal[True],
+    ) -> tuple[torch.Tensor, list[str]]: ...
+
+    def _extract_consensus_scores(
+        self,
+        X: np.ndarray[Any, Any],
+        *,
+        channels: list[str] | None = None,
+        return_channels: bool = False,
+    ) -> torch.Tensor | tuple[torch.Tensor, list[str]]:
         """Build the per-sample, per-detector anomaly-score matrix for co-training.
 
         Collects each base detector's and domain model's normalised anomaly
@@ -1874,9 +1906,15 @@ class OmniMercuryEngine(LoggerMixin):
         _, det_scores = self._extract_detector_features(X)
         _, mod_scores = self._extract_model_features(X)
 
+        all_scores = {**det_scores, **mod_scores}
+        score_names = list(channels) if channels is not None else sorted(all_scores)
+
         columns: list[torch.Tensor] = []
-        for name in sorted({**det_scores, **mod_scores}):
-            raw = {**det_scores, **mod_scores}[name]
+        used_channels: list[str] = []
+        for name in score_names:
+            raw = all_scores.get(name)
+            if raw is None:
+                continue
             col = torch.as_tensor(np.asarray(raw), dtype=torch.float32).reshape(-1)
             if col.numel() != n_samples:
                 logger.debug(
@@ -1887,10 +1925,13 @@ class OmniMercuryEngine(LoggerMixin):
                 )
                 continue
             columns.append(col.clamp(0.0, 1.0))
+            used_channels.append(name)
 
         if not columns:
-            return torch.zeros((n_samples, 0), dtype=torch.float32)
-        return torch.stack(columns, dim=1)
+            scores = torch.zeros((n_samples, 0), dtype=torch.float32)
+        else:
+            scores = torch.stack(columns, dim=1)
+        return (scores, used_channels) if return_channels else scores
 
     def _restrict_to_trained_groups(
         self, features: dict[str, torch.Tensor]
@@ -1945,8 +1986,13 @@ class OmniMercuryEngine(LoggerMixin):
         if x_arr.ndim == 1:
             x_arr = x_arr.reshape(1, -1)
         probs_arr = np.asarray(probs, dtype=np.float32).reshape(-1)
-        detector_scores = self._extract_consensus_scores(x_arr)
+        detector_scores = self._extract_consensus_scores(
+            x_arr,
+            channels=self._symbolic_score_channels,
+        )
         if detector_scores.shape[0] != probs_arr.shape[0]:
+            return None
+        if detector_scores.shape[1] != module.num_detectors:
             return None
 
         module.eval()
@@ -1960,6 +2006,7 @@ class OmniMercuryEngine(LoggerMixin):
             "satisfaction": explanation["satisfaction"],
             "rules": explanation["rules"],
             "detector_weights": explanation["detector_weights"],
+            "detector_channels": list(self._symbolic_score_channels or []),
         }
 
     def build_feature_npz(
@@ -4383,6 +4430,7 @@ class OmniMercuryEngine(LoggerMixin):
                 self._symbolic_module.state_dict() if self._symbolic_module is not None else None
             ),
             "symbolic_constraint_config": self._symbolic_checkpoint_config(),
+            "symbolic_constraint_score_channels": self._symbolic_score_channels,
             "domain_encoder_state_dict": (
                 self._domain_encoder.state_dict() if self._domain_encoder is not None else None
             ),
@@ -4481,8 +4529,11 @@ class OmniMercuryEngine(LoggerMixin):
                 symbolic_module.load_state_dict(symbolic_state)
                 symbolic_module.eval()
                 self._symbolic_module = symbolic_module
+                channels = checkpoint.get("symbolic_constraint_score_channels")
+                self._symbolic_score_channels = list(channels) if channels is not None else None
             else:
                 self._symbolic_module = None
+                self._symbolic_score_channels = None
             domain_state = checkpoint.get("domain_encoder_state_dict")
             domain_config = checkpoint.get("domain_encoder_config")
             domain_scaler = checkpoint.get("domain_encoder_scaler")
