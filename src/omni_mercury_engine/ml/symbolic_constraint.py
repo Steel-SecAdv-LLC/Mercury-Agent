@@ -38,8 +38,11 @@ Why this is a *genuine* neuro-symbolic component (anti-theater):
   unsupervised agreement structure of independent detectors -- so it can
   improve sample-efficiency and reduce false positives rather than merely
   restating the supervised objective.  Whether it actually does so on real
-  held-out labels is settled empirically by ``benchmarks/neurosymbolic_ablation.py``;
-  the constraint stays gated off by default until that ablation passes.
+  held-out labels is settled empirically by ``benchmarks/neurosymbolic_ablation.py``.
+  A *fixed* weight was quarantined (it taxed the abundant-label regime); the
+  label-scarcity :class:`ScarcityWeightSchedule` cleared the ablation's dominance
+  bar, so co-training is on by default via ``symbolic_weight="adaptive"`` and
+  decays to the neural path when labels are abundant.
 
 The rule graph (default :func:`consensus_rule_graph`):
 

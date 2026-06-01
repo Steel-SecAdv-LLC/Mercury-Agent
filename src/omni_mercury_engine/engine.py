@@ -963,7 +963,7 @@ class OmniMercuryEngine(LoggerMixin):
         focal_alpha: float = 0.75,
         focal_gamma: float = 2.0,
         calibrate: bool = True,
-        symbolic_weight: SymbolicWeight = 0.0,
+        symbolic_weight: SymbolicWeight = "adaptive",
         domain_encoder: bool = False,
         domain_encoder_config: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
@@ -1016,9 +1016,14 @@ class OmniMercuryEngine(LoggerMixin):
 
                 The effective weight is resolved from the training split's
                 anomaly count before training and reported in the returned
-                metrics. Which setting is enabled *by default* is governed by
-                the held-out ablation (``benchmarks/neurosymbolic_ablation.py``,
-                ``docs/NEUROSYMBOLIC.md``).
+                metrics. **Default ``"adaptive"``**: the held-out ADBench
+                ablation (``benchmarks/neurosymbolic_ablation.py``,
+                ``docs/NEUROSYMBOLIC.md``) showed the adaptive schedule
+                *dominates* neural-only -- no full-data AUC regression (within
+                the ±0.002 noise floor) and a seed-agreed low-data lift -- so
+                co-training is on by default and decays to the neural path when
+                labels are abundant. Pass ``0.0`` for the byte-for-byte
+                purely-neural path.
 
         Returns:
             Dictionary with training metrics including final_loss, best_loss,

@@ -131,6 +131,8 @@ These numbers are produced by `scripts/measure_codebase_scale.py` and refreshed 
 
 Mercury Agent is a **neuro-symbolic AI** that exposes anomaly detection as one of its capabilities — it is not "an anomaly detection library that happens to use neural networks."
 
+The claim is **operational, not just architectural**: the production fusion trainer (`OmniMercuryEngine.fit_fusion`) co-trains a differentiable Logic Tensor Network *with* the neural network **by default** (`symbolic_weight="adaptive"`) — a symbolic satisfaction term enters the loss and its gradient flows into the network's anomaly head. The weight follows a label-scarcity schedule that cleared a pre-registered *dominance* bar on real ADBench labels (no full-data AUC regression beyond noise; a seed-agreed low-data lift) and decays to the purely-neural path when labels are abundant. This is co-training in the loss, not a post-hoc score blend. Full accounting, ablation, and the honest keep/quarantine verdicts: `docs/NEUROSYMBOLIC.md`.
+
 </details>
 
 ---

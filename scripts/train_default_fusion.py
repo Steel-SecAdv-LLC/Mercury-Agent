@@ -232,7 +232,8 @@ def main() -> int:
         )
         train_idx, test_idx = _stratified_split(y, train_frac=0.7, seed=args.seed)
         print(
-            "Training via fit_fusion (full inference feature pipeline + FocalLoss + calibration)..."
+            "Training via fit_fusion (full inference feature pipeline + FocalLoss + "
+            "calibration + adaptive neuro-symbolic co-training)..."
         )
         metrics = engine.fit_fusion(
             x[train_idx],
@@ -240,12 +241,17 @@ def main() -> int:
             epochs=args.epochs,
             batch_size=64,
             early_stopping_patience=15,
+            # Evidence-backed default (benchmarks/neurosymbolic_ablation.py): the
+            # label-scarcity schedule dominates neural-only, so the shipped model
+            # is co-trained, decaying to the neural path when labels are abundant.
+            symbolic_weight="adaptive",
         )
         auc = float(roc_auc_score(y[test_idx], engine.score_fusion(x[test_idx])))
         print(
             f"  trained: best_loss={metrics['best_loss']:.4f}, "
             f"T={metrics.get('temperature')}, held-out AUC={auc:.4f}, "
             f"ECE {metrics.get('ece_before')}->{metrics.get('ece_after')}, "
+            f"symbolic_λ={metrics.get('symbolic_weight_resolved')}, "
             f"groups={engine._fusion_feature_groups}"
         )
         provenance: dict[str, object] = {

@@ -181,4 +181,8 @@ class TestDomainEncoderActive:
         assert "differentiable_domain" in (loaded._fusion_feature_groups or [])
 
         probe = X[n_train : n_train + 8]
-        assert np.allclose(engine.score_fusion(probe), loaded.score_fusion(probe), atol=1e-6)
+        # float32 save/load round-trip of a domain-encoder + co-trained fusion
+        # model lands at ~1e-6..1e-5 (reduction order varies with BLAS threading);
+        # 1e-5 is the realistic closeness for a [0, 1] probability. (The prior
+        # 1e-6 was environment-sensitive even on the purely-neural path.)
+        assert np.allclose(engine.score_fusion(probe), loaded.score_fusion(probe), atol=1e-5)

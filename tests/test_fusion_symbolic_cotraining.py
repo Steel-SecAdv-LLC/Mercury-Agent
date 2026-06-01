@@ -179,3 +179,15 @@ class TestAdaptiveSchedule:
         # no satisfaction/loss diagnostics.
         assert "symbolic_satisfaction" not in metrics
         assert engine._symbolic_module is None
+
+    def test_adaptive_is_the_default(self) -> None:
+        # Evidence-backed default flip: calling fit_fusion without an explicit
+        # symbolic_weight must use the adaptive schedule (not the neural path).
+        torch.manual_seed(0)
+        np.random.seed(0)
+        X, y = _fixture_with_anomalies(400, 8)  # scarce -> schedule active by default
+        engine = _engine()
+        metrics = engine.fit_fusion(X, y, epochs=10, batch_size=32)
+        assert metrics["symbolic_weight_spec"] == "adaptive"
+        assert metrics["symbolic_weight_resolved"] > 0.0
+        assert engine._symbolic_module is not None
