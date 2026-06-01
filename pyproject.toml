@@ -258,9 +258,22 @@ gui = [
     "plotly>=5.18.0",
 ]
 
+# Third-party explainers (optional).  Mercury's default explainability path is
+# self-contained: IntegratedGradients + a faithfulness evaluator implemented
+# in-repo (no captum), validated by benchmarks/explanation_fidelity.py
+# (recovery@3 0.678, comprehensiveness 0.40 vs 0.22 random; see PR #265).
+# SHAP and LIME are model-agnostic alternatives that the explainability
+# adapters use *when present* and degrade gracefully when absent
+# (cognitive/explainability.py guards both behind SHAP_AVAILABLE / LIME_AVAILABLE).
+# Install this extra only if you want those external backends.
+explainability = [
+    "shap>=0.46.0",
+    "lime>=0.2.0.1",
+]
+
 # Full installation with all features
 all = [
-    "mercury-agent[ml,visual,vlm,foundation,medical,face,api,sota,llm,drift,fairness,streaming,optimization,benchmark,domains,gui]",
+    "mercury-agent[ml,visual,vlm,foundation,medical,face,api,sota,llm,drift,fairness,streaming,optimization,benchmark,domains,gui,explainability]",
 ]
 
 # Test environment: all runtime features + dev tooling
