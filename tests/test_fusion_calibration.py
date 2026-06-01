@@ -130,7 +130,16 @@ class TestCalibrationOnRealData:
         torch.manual_seed(0)
         np.random.seed(0)
         engine = OmniMercuryEngine(mode="fusion", device="cpu")
-        engine.fit_fusion(X[tr], y[tr], epochs=40, batch_size=64, early_stopping_patience=15)
+        # This is the calibration claim (#3): temperature scaling on the neural
+        # fusion output. Pin symbolic_weight=0.0 to isolate the calibration
+        # mechanism from neuro-symbolic co-training (#1, ablated separately in
+        # benchmarks/neurosymbolic_ablation.py). On a tiny near-ceiling dataset
+        # (WBC, ~7 train positives) the adaptive default sharpens already-
+        # saturated probabilities, creating ties that confound the tie-tolerance
+        # below -- orthogonal to what this test measures.
+        engine.fit_fusion(
+            X[tr], y[tr], epochs=40, batch_size=64, early_stopping_patience=15, symbolic_weight=0.0
+        )
 
         calibrated = engine.score_fusion(X[te])
         saved = engine._fusion_calibrator

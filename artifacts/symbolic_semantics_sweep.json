@@ -1,0 +1,267 @@
+{
+  "cells": [
+    {
+      "dataset": "cardio",
+      "frac": 0.1,
+      "godel": 0.9530964698721851,
+      "lukasiewicz": 0.9601719415702984,
+      "neural": 0.9723447961046866,
+      "product": 0.9257075471698113,
+      "seed": 0
+    },
+    {
+      "dataset": "cardio",
+      "frac": 0.1,
+      "godel": 0.9754640900791236,
+      "lukasiewicz": 0.9721545952525867,
+      "neural": 0.9556071211199026,
+      "product": 0.9731055995130858,
+      "seed": 1
+    },
+    {
+      "dataset": "cardio",
+      "frac": 0.1,
+      "godel": 0.9845176506390749,
+      "lukasiewicz": 0.9870283018867925,
+      "neural": 0.9856588557516737,
+      "product": 0.9872945830797323,
+      "seed": 2
+    },
+    {
+      "dataset": "cardio",
+      "frac": 0.25,
+      "godel": 0.9725730371272063,
+      "lukasiewicz": 0.9735620815581254,
+      "neural": 0.9672093730979915,
+      "product": 0.9721545952525867,
+      "seed": 0
+    },
+    {
+      "dataset": "cardio",
+      "frac": 0.25,
+      "godel": 0.991631162507608,
+      "lukasiewicz": 0.9913648813146683,
+      "neural": 0.9667909312233719,
+      "product": 0.9915931223371881,
+      "seed": 1
+    },
+    {
+      "dataset": "cardio",
+      "frac": 0.25,
+      "godel": 0.9900334753499695,
+      "lukasiewicz": 0.9886640292148509,
+      "neural": 0.9860392574558734,
+      "product": 0.988549908703591,
+      "seed": 2
+    },
+    {
+      "dataset": "cardio",
+      "frac": 0.5,
+      "godel": 0.9894438527084601,
+      "lukasiewicz": 0.9903758368837492,
+      "neural": 0.9891205112598904,
+      "product": 0.9898813146682898,
+      "seed": 0
+    },
+    {
+      "dataset": "cardio",
+      "frac": 0.5,
+      "godel": 0.9971469872185027,
+      "lukasiewicz": 0.9971850273889227,
+      "neural": 0.9838709677419355,
+      "product": 0.9942939744370054,
+      "seed": 1
+    },
+    {
+      "dataset": "cardio",
+      "frac": 0.5,
+      "godel": 0.9947884966524649,
+      "lukasiewicz": 0.9940276932440657,
+      "neural": 0.9961199026171637,
+      "product": 0.9949406573341448,
+      "seed": 2
+    },
+    {
+      "dataset": "thyroid",
+      "frac": 0.1,
+      "godel": 0.9927212732919255,
+      "lukasiewicz": 0.991006728778468,
+      "neural": 0.9911361283643894,
+      "product": 0.9916537267080746,
+      "seed": 0
+    },
+    {
+      "dataset": "thyroid",
+      "frac": 0.1,
+      "godel": 0.9928183229813665,
+      "lukasiewicz": 0.9935947204968945,
+      "neural": 0.9869306418219462,
+      "product": 0.9936270703933748,
+      "seed": 1
+    },
+    {
+      "dataset": "thyroid",
+      "frac": 0.1,
+      "godel": 0.9935623706004142,
+      "lukasiewicz": 0.9937241200828157,
+      "neural": 0.9871570910973085,
+      "product": 0.9919125258799171,
+      "seed": 2
+    },
+    {
+      "dataset": "thyroid",
+      "frac": 0.25,
+      "godel": 0.9882246376811594,
+      "lukasiewicz": 0.9890980848861284,
+      "neural": 0.9751229296066253,
+      "product": 0.9901009316770187,
+      "seed": 0
+    },
+    {
+      "dataset": "thyroid",
+      "frac": 0.25,
+      "godel": 0.9750258799171844,
+      "lukasiewicz": 0.974896480331263,
+      "neural": 0.9874482401656315,
+      "product": 0.9853778467908904,
+      "seed": 1
+    },
+    {
+      "dataset": "thyroid",
+      "frac": 0.25,
+      "godel": 0.9971208592132506,
+      "lukasiewicz": 0.9969591097308488,
+      "neural": 0.9967003105590063,
+      "product": 0.9967326604554865,
+      "seed": 2
+    },
+    {
+      "dataset": "thyroid",
+      "frac": 0.5,
+      "godel": 0.996376811594203,
+      "lukasiewicz": 0.9955357142857144,
+      "neural": 0.9959239130434783,
+      "product": 0.9964091614906834,
+      "seed": 0
+    },
+    {
+      "dataset": "thyroid",
+      "frac": 0.5,
+      "godel": 0.9930771221532092,
+      "lukasiewicz": 0.9622800207039338,
+      "neural": 0.9870600414078675,
+      "product": 0.9930124223602486,
+      "seed": 1
+    },
+    {
+      "dataset": "thyroid",
+      "frac": 0.5,
+      "godel": 0.9986413043478262,
+      "lukasiewicz": 0.9981560559006211,
+      "neural": 0.9978325569358178,
+      "product": 0.9975414078674949,
+      "seed": 2
+    },
+    {
+      "dataset": "WBC",
+      "frac": 0.1,
+      "godel": 0.984375,
+      "lukasiewicz": 0.984375,
+      "neural": 0.984375,
+      "product": 0.984375,
+      "seed": 0
+    },
+    {
+      "dataset": "WBC",
+      "frac": 0.1,
+      "godel": 1.0,
+      "lukasiewicz": 1.0,
+      "neural": 1.0,
+      "product": 1.0,
+      "seed": 1
+    },
+    {
+      "dataset": "WBC",
+      "frac": 0.1,
+      "godel": 0.9947916666666666,
+      "lukasiewicz": 0.9895833333333333,
+      "neural": 0.9791666666666666,
+      "product": 0.9895833333333333,
+      "seed": 2
+    },
+    {
+      "dataset": "WBC",
+      "frac": 0.25,
+      "godel": 0.984375,
+      "lukasiewicz": 0.9947916666666666,
+      "neural": 0.984375,
+      "product": 0.9895833333333333,
+      "seed": 0
+    },
+    {
+      "dataset": "WBC",
+      "frac": 0.25,
+      "godel": 1.0,
+      "lukasiewicz": 1.0,
+      "neural": 1.0,
+      "product": 1.0,
+      "seed": 1
+    },
+    {
+      "dataset": "WBC",
+      "frac": 0.25,
+      "godel": 0.9895833333333333,
+      "lukasiewicz": 0.984375,
+      "neural": 0.96875,
+      "product": 0.9895833333333333,
+      "seed": 2
+    },
+    {
+      "dataset": "WBC",
+      "frac": 0.5,
+      "godel": 0.9895833333333333,
+      "lukasiewicz": 0.9895833333333333,
+      "neural": 0.984375,
+      "product": 0.9791666666666666,
+      "seed": 0
+    },
+    {
+      "dataset": "WBC",
+      "frac": 0.5,
+      "godel": 1.0,
+      "lukasiewicz": 1.0,
+      "neural": 1.0,
+      "product": 1.0,
+      "seed": 1
+    },
+    {
+      "dataset": "WBC",
+      "frac": 0.5,
+      "godel": 0.984375,
+      "lukasiewicz": 0.9895833333333333,
+      "neural": 0.9895833333333333,
+      "product": 0.9791666666666666,
+      "seed": 2
+    }
+  ],
+  "verdict": {
+    "best_crisp": "godel",
+    "crisp_beats_product": false,
+    "recommended_default": "product",
+    "summary": {
+      "godel": {
+        "mean_delta_auc": 0.00387587288495953,
+        "seed_agreement": 0.8148148148148148
+      },
+      "lukasiewicz": {
+        "mean_delta_auc": 0.003088093363068655,
+        "seed_agreement": 0.7777777777777778
+      },
+      "product": {
+        "mean_delta_auc": 0.0024684748176813797,
+        "seed_agreement": 0.7777777777777778
+      }
+    },
+    "verdict": "KEEP product/reichenbach default (crisp does not beat it beyond noise)"
+  }
+}

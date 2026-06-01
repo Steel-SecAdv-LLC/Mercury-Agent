@@ -18,6 +18,8 @@ neuro-symbolic component rather than theater:
 
 from __future__ import annotations
 
+import itertools
+
 import pytest
 
 pytest.importorskip("torch")
@@ -27,8 +29,12 @@ import torch
 from omni_mercury_engine.ml.symbolic_constraint import (
     Rule,
     RuleGraph,
+    ScarcityWeightSchedule,
     SymbolicConstraintModule,
     consensus_rule_graph,
+    consensus_salience_rule_graph,
+    resolve_rule_graph,
+    resolve_symbolic_weight,
 )
 
 
@@ -199,3 +205,200 @@ class TestExplain:
         out = module.explain(torch.rand(4, 1), torch.rand(4, 2))
         assert out["graph"] == "custom"
         assert set(out["rules"]) == {"only"}
+
+
+class TestScarcityWeightSchedule:
+    """Label-scarcity schedule: full strength when scarce, neural when abundant."""
+
+    def test_monotone_decay_in_positive_count(self) -> None:
+        s = ScarcityWeightSchedule()
+        weights = [s.weight_for(n) for n in (0, 5, 10, 25, 50)]
+        assert all(a >= b for a, b in itertools.pairwise(weights))
+
+    def test_max_at_zero_positives(self) -> None:
+        s = ScarcityWeightSchedule(lam_max=0.1)
+        assert s.weight_for(0) == pytest.approx(0.1)
+
+    def test_snaps_to_zero_when_abundant(self) -> None:
+        # Far past the decay scale the weight floors to exactly 0 (neural path).
+        s = ScarcityWeightSchedule(lam_max=0.1, n0=25.0, floor=1e-3)
+        assert s.weight_for(10_000) == 0.0
+
+    def test_negative_count_treated_as_zero(self) -> None:
+        s = ScarcityWeightSchedule()
+        assert s.weight_for(-5) == s.weight_for(0)
+
+    def test_non_finite_params_rejected(self) -> None:
+        # NaN/inf params (e.g. from config) would make weight_for return NaN.
+        for kwargs in ({"lam_max": float("nan")}, {"n0": float("inf")}, {"floor": float("nan")}):
+            with pytest.raises(ValueError, match="finite"):
+                ScarcityWeightSchedule(**kwargs)
+
+    def test_rejects_bad_params(self) -> None:
+        with pytest.raises(ValueError):
+            ScarcityWeightSchedule(n0=0.0)
+        with pytest.raises(ValueError):
+            ScarcityWeightSchedule(lam_max=-0.1)
+
+
+class TestResolveSymbolicWeight:
+    """resolve_symbolic_weight maps every spec onto a concrete lambda."""
+
+    def test_float_passthrough(self) -> None:
+        assert resolve_symbolic_weight(0.1, 999) == pytest.approx(0.1)
+        assert resolve_symbolic_weight(0.0, 1) == 0.0
+
+    def test_adaptive_aliases_use_schedule(self) -> None:
+        for alias in ("adaptive", "scarcity", "auto", "ADAPTIVE"):
+            assert resolve_symbolic_weight(alias, 5) == pytest.approx(
+                ScarcityWeightSchedule().weight_for(5)
+            )
+
+    def test_adaptive_resolves_low_for_abundant_high_for_scarce(self) -> None:
+        scarce = resolve_symbolic_weight("adaptive", 3)
+        abundant = resolve_symbolic_weight("adaptive", 10_000)
+        assert scarce > abundant
+        assert abundant == 0.0
+
+    def test_explicit_schedule_instance(self) -> None:
+        sched = ScarcityWeightSchedule(lam_max=0.2, n0=10.0)
+        assert resolve_symbolic_weight(sched, 0) == pytest.approx(0.2)
+
+    def test_unknown_string_raises(self) -> None:
+        with pytest.raises(ValueError):
+            resolve_symbolic_weight("nonsense", 5)
+
+    def test_negative_float_raises(self) -> None:
+        with pytest.raises(ValueError):
+            resolve_symbolic_weight(-0.5, 5)
+
+    def test_int_weight_accepted(self) -> None:
+        # ``SymbolicWeight`` admits int; 0 / 1 must resolve as plain numbers.
+        assert resolve_symbolic_weight(0, 5) == 0.0
+        assert resolve_symbolic_weight(1, 5) == pytest.approx(1.0)
+
+    def test_bool_weight_rejected(self) -> None:
+        # bool is an int subclass; it must not silently enable/disable co-training.
+        with pytest.raises(ValueError, match="bool"):
+            resolve_symbolic_weight(True, 5)
+        with pytest.raises(ValueError, match="bool"):
+            resolve_symbolic_weight(False, 5)
+
+    def test_non_finite_weight_rejected(self) -> None:
+        # NaN would silently disable co-training (nan > 0 is False); inf blows up.
+        for bad in (float("nan"), float("inf"), float("-inf")):
+            with pytest.raises(ValueError, match="finite"):
+                resolve_symbolic_weight(bad, 5)
+
+
+class TestImplicationSemantics:
+    """The revived crisp implication operators are correct and differentiable."""
+
+    def test_lukasiewicz_known_values(self) -> None:
+        from omni_mercury_engine.models.neurosymbolic_enhanced import FuzzyOperators
+
+        x = torch.tensor([1.0, 0.0, 0.5, 0.8])
+        y = torch.tensor([0.0, 0.3, 0.5, 0.2])
+        got = FuzzyOperators.implies_lukasiewicz(x, y)
+        # min(1, 1 - x + y)
+        expected = torch.tensor([0.0, 1.0, 1.0, 0.4])
+        assert torch.allclose(got, expected, atol=1e-6)
+
+    def test_lukasiewicz_gradient_non_saturating(self) -> None:
+        # Where the implication is < 1 the slope in x is a constant -1 (bounded),
+        # unlike the product residuum whose slope vanishes as x -> 0.
+        from omni_mercury_engine.models.neurosymbolic_enhanced import FuzzyOperators
+
+        x = torch.tensor([0.9], requires_grad=True)
+        y = torch.tensor([0.1])
+        FuzzyOperators.implies_lukasiewicz(x, y).backward()
+        assert x.grad is not None and torch.isfinite(x.grad).all()
+        assert abs(float(x.grad) + 1.0) < 1e-6
+
+    def test_constraint_supports_each_semantics(self) -> None:
+        scores = torch.rand(16, 4)
+        prob = torch.rand(16, 1, requires_grad=True)
+        for sem in ("product", "reichenbach", "lukasiewicz", "godel"):
+            module = SymbolicConstraintModule(num_detectors=4, semantics=sem)
+            assert module.semantics == sem.lower() or (
+                sem == "reichenbach" and module.semantics == "reichenbach"
+            )
+            out = module(prob, scores)
+            assert torch.isfinite(out["satisfaction"])
+            assert 0.0 <= float(out["satisfaction"].detach()) <= 1.0
+
+    def test_lukasiewicz_constraint_backpropagates(self) -> None:
+        module = SymbolicConstraintModule(num_detectors=3, semantics="lukasiewicz")
+        prob = torch.rand(8, 1, requires_grad=True)
+        module.constraint_loss(prob, torch.rand(8, 3)).backward()
+        assert prob.grad is not None and torch.isfinite(prob.grad).all()
+
+    def test_explain_reports_semantics(self) -> None:
+        module = SymbolicConstraintModule(num_detectors=3, semantics="godel")
+        out = module.explain(torch.rand(8, 1), torch.rand(8, 3))
+        assert out["semantics"] == "godel"
+
+    def test_invalid_semantics_rejected(self) -> None:
+        with pytest.raises(ValueError, match="unknown semantics"):
+            SymbolicConstraintModule(num_detectors=3, semantics="bogus")
+
+
+class TestSalienceRuleGraph:
+    """The richer consensus+salience graph (revived ThresholdRule idea)."""
+
+    def test_graph_has_three_rules_and_salient_predicate(self) -> None:
+        g = consensus_salience_rule_graph()
+        assert len(g) == 3
+        assert {r.name for r in g.rules} == {"R1_evidence", "R2_precision", "R3_salience"}
+        assert "Salient" in g.predicates
+
+    def test_resolve_rule_graph(self) -> None:
+        assert resolve_rule_graph("consensus").name == "detector_consensus"
+        assert resolve_rule_graph("consensus_salience").name == "detector_consensus_salience"
+        with pytest.raises(ValueError, match="unknown rule graph"):
+            resolve_rule_graph("bogus")
+
+    def test_consensus_graph_has_no_salience_params(self) -> None:
+        # Default graph must stay parameter-identical to before (no salience).
+        module = SymbolicConstraintModule(num_detectors=4)
+        assert module._has_salience is False
+        assert module.salience_threshold is None
+        names = {n for n, _ in module.named_parameters()}
+        assert "salience_threshold" not in names
+
+    def test_salience_graph_registers_threshold_params(self) -> None:
+        module = SymbolicConstraintModule(
+            num_detectors=4, rule_graph=consensus_salience_rule_graph()
+        )
+        assert module._has_salience is True
+        names = {n for n, _ in module.named_parameters()}
+        assert "salience_threshold" in names
+        assert "salience_sharpness" in names
+        # One threshold per detector (the documented per-detector ThresholdRule).
+        assert module.salience_threshold is not None
+        assert module.salience_threshold.shape == (4,)
+
+    def test_salience_grounds_and_backpropagates(self) -> None:
+        module = SymbolicConstraintModule(
+            num_detectors=3, rule_graph=consensus_salience_rule_graph()
+        )
+        prob = torch.rand(8, 1, requires_grad=True)
+        out = module(prob, torch.rand(8, 3))
+        assert out["rule_satisfaction"].shape[0] == 3
+        assert torch.isfinite(out["satisfaction"])
+        out["loss"].backward()
+        assert prob.grad is not None and torch.isfinite(prob.grad).all()
+        assert module.salience_threshold is not None
+        assert module.salience_threshold.grad is not None
+
+    def test_salient_predicate_fires_on_single_strong_detector(self) -> None:
+        # One detector very high, the rest silent: the soft-existential Salient
+        # predicate should be high even though the (averaged) Consensus is not.
+        module = SymbolicConstraintModule(
+            num_detectors=4,
+            rule_graph=consensus_salience_rule_graph(),
+            learn_detector_reliability=False,
+        )
+        scores = torch.tensor([[0.99, 0.02, 0.02, 0.02]])
+        salient = module._salience(scores)
+        assert float(salient) > 0.6

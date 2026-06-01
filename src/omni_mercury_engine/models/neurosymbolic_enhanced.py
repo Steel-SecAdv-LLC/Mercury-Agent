@@ -118,6 +118,17 @@ class FuzzyOperators:
         return torch.where(x <= y, torch.ones_like(x), y)
 
     @staticmethod
+    def implies_lukasiewicz(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+        """Łukasiewicz implication: x → y = min(1, 1 - x + y).
+
+        Piecewise-linear, so it has a bounded, non-saturating gradient
+        everywhere x → y < 1 (unlike the Reichenbach/product form ``1 - x + x*y``
+        whose slope vanishes as the antecedent ``x → 0``). This is the residuum
+        of the Łukasiewicz t-norm ``max(0, x + y - 1)``.
+        """
+        return torch.clamp(1 - x + y, max=1.0)
+
+    @staticmethod
     def forall_product(x: torch.Tensor, dim: int = -1) -> torch.Tensor:
         """Product aggregator for universal quantification."""
         return torch.prod(x, dim=dim)

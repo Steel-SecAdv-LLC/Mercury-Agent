@@ -1,0 +1,36 @@
+{
+  "results": [
+    {
+      "chance_recovery": 0.3,
+      "comprehensiveness_ig": 0.401961825495566,
+      "comprehensiveness_random": 0.21356234659409326,
+      "n_explained": 60,
+      "recovery_at_k": 0.6222222222222222,
+      "seed": 0
+    },
+    {
+      "chance_recovery": 0.3,
+      "comprehensiveness_ig": 0.4111129463794551,
+      "comprehensiveness_random": 0.21850144062950577,
+      "n_explained": 60,
+      "recovery_at_k": 0.6333333333333332,
+      "seed": 1
+    },
+    {
+      "chance_recovery": 0.3,
+      "comprehensiveness_ig": 0.3949098835703873,
+      "comprehensiveness_random": 0.21892481641484987,
+      "n_explained": 60,
+      "recovery_at_k": 0.7777777777777778,
+      "seed": 2
+    }
+  ],
+  "verdict": {
+    "chance_recovery": 0.3,
+    "mean_comprehensiveness_ig": 0.40266155181513613,
+    "mean_comprehensiveness_random": 0.2169962012128163,
+    "mean_recovery_at_k": 0.6777777777777777,
+    "passed": true,
+    "verdict": "VALIDATED -- IntegratedGradients recovers the model's informative features and is faithful above a random baseline; revive the explainer + evaluator"
+  }
+}

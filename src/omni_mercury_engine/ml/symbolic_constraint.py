@@ -38,8 +38,11 @@ Why this is a *genuine* neuro-symbolic component (anti-theater):
   unsupervised agreement structure of independent detectors -- so it can
   improve sample-efficiency and reduce false positives rather than merely
   restating the supervised objective.  Whether it actually does so on real
-  held-out labels is settled empirically by ``benchmarks/neurosymbolic_ablation.py``;
-  the constraint stays gated off by default until that ablation passes.
+  held-out labels is settled empirically by ``benchmarks/neurosymbolic_ablation.py``.
+  A *fixed* weight was quarantined (it taxed the abundant-label regime); the
+  label-scarcity :class:`ScarcityWeightSchedule` cleared the ablation's dominance
+  bar, so co-training is on by default via ``symbolic_weight="adaptive"`` and
+  decays to the neural path when labels are abundant.
 
 The rule graph (default :func:`consensus_rule_graph`):
 
@@ -52,6 +55,7 @@ rule carries a learnable confidence weight (softmax-normalised), exactly
 as a Real-Logic LTN weights its axioms.
 """
 
+import math
 from dataclasses import dataclass, field
 from typing import TypedDict
 
@@ -63,8 +67,13 @@ from omni_mercury_engine.models.neurosymbolic_enhanced import FuzzyOperators
 __all__ = [
     "Rule",
     "RuleGraph",
+    "ScarcityWeightSchedule",
     "SymbolicConstraintModule",
+    "SymbolicWeight",
     "consensus_rule_graph",
+    "consensus_salience_rule_graph",
+    "resolve_rule_graph",
+    "resolve_symbolic_weight",
 ]
 
 
@@ -81,6 +90,7 @@ class SymbolicExplanation(TypedDict):
     """JSON-serialisable symbolic-constraint explanation payload."""
 
     graph: str
+    semantics: str
     satisfaction: float
     rules: dict[str, RuleExplanation]
     detector_weights: list[float]
@@ -89,6 +99,18 @@ class SymbolicExplanation(TypedDict):
 # Clamp groundings away from the hard {0, 1} boundary so Reichenbach
 # implication and its dual keep well-conditioned gradients.
 _EPS: float = 1e-6
+
+# Selectable fuzzy implication semantics for the rule residua. All three are
+# real torch-differentiable tensor operators on FuzzyOperators; exposing them
+# here revives the crisp (Gödel / Łukasiewicz) operators -- previously dormant,
+# only ``implies_product`` was used -- as a measurable design axis settled by the
+# ablation rather than assumed. ``product``/``reichenbach`` is the smooth default.
+_IMPLICATIONS = {
+    "product": FuzzyOperators.implies_product,
+    "reichenbach": FuzzyOperators.implies_product,
+    "lukasiewicz": FuzzyOperators.implies_lukasiewicz,
+    "godel": FuzzyOperators.implies_godel,
+}
 
 
 @dataclass(frozen=True)
@@ -174,6 +196,192 @@ def consensus_rule_graph() -> RuleGraph:
     )
 
 
+def consensus_salience_rule_graph() -> RuleGraph:
+    """Consensus rules plus a salience (any-strong-detector) recall rule.
+
+    This is the richer rule graph that revives the *threshold-rule* idea of the
+    dormant ``cognitive/symbolic_logic_layer.py`` (a ``ThresholdRule`` fires when
+    a variable crosses a threshold) as a **differentiable** axiom, and answers
+    the ledger's question: does richer symbolic structure beat the minimal
+    two-rule consensus?
+
+    The learned ``Consensus`` predicate is an AND-like *weighted mean* of the
+    detector scores -- it dilutes a single strong detector. ``Salient`` is its
+    disjunctive complement: a soft-existential over per-detector soft-threshold
+    indicators (the differentiable ``ThresholdRule``), high when **any** detector
+    crosses the learned threshold. The added rule is a recall axiom:
+
+    * ``R3_salience`` -- ``Salient -> Anomalous``.  If any single detector
+      saliently fires, the fusion network should not dismiss it.
+
+    Whether this richer graph actually helps on real labels is settled by
+    ``benchmarks/symbolic_rulegraph_sweep.py``; the default stays the minimal
+    consensus graph until it does.
+
+    Returns:
+        The three-rule consensus+salience :class:`RuleGraph`.
+    """
+    base = consensus_rule_graph()
+    return RuleGraph(
+        name="detector_consensus_salience",
+        rules=(
+            *base.rules,
+            Rule(
+                name="R3_salience",
+                antecedent="Salient",
+                consequent="Anomalous",
+                description="If any single detector saliently fires, fusion is anomalous.",
+            ),
+        ),
+    )
+
+
+_RULE_GRAPHS = {
+    "consensus": consensus_rule_graph,
+    "consensus_salience": consensus_salience_rule_graph,
+}
+
+
+def resolve_rule_graph(name: str | RuleGraph) -> RuleGraph:
+    """Resolve a rule-graph name (or an explicit graph) to a :class:`RuleGraph`."""
+    if isinstance(name, RuleGraph):
+        return name
+    key = name.strip().lower()
+    if key not in _RULE_GRAPHS:
+        raise ValueError(f"unknown rule graph {name!r}; expected one of {sorted(_RULE_GRAPHS)}")
+    return _RULE_GRAPHS[key]()
+
+
+@dataclass(frozen=True)
+class ScarcityWeightSchedule:
+    """Label-scarcity-adaptive schedule for the co-training weight ``lambda``.
+
+    The neuro-symbolic ablation (``benchmarks/neurosymbolic_ablation.py``,
+    recorded in ``docs/NEUROSYMBOLIC.md``) found the detector-consensus
+    constraint **helps when labels are scarce** and **washes out or slightly
+    regresses when they are abundant**: a single fixed ``lambda`` therefore
+    cannot win everywhere -- it pays its way in the low-data regime and taxes
+    the high-data regime. This schedule operationalises that measured finding
+    rather than assuming it: it spends the constraint *only where the ablation
+    showed it carries signal*, and the abundant-label regime is left as the
+    purely-neural path.
+
+    The binding quantity for anomaly detection is the number of **labelled
+    anomalies** ``n_pos`` -- with few positives the supervised decision boundary
+    is under-determined and the unsupervised consensus prior injects useful
+    structure; with many it is already well-pinned and the prior only adds bias.
+    The weight therefore decays smoothly with ``n_pos``::
+
+        lambda_eff(n_pos) = lam_max * exp(-n_pos / n0)
+
+    so ``lambda_eff -> lam_max`` as ``n_pos -> 0`` and ``lambda_eff -> 0`` as
+    ``n_pos`` grows. Below ``floor`` the weight snaps to exactly ``0`` so the
+    abundant-label regime reproduces the neural training path byte-for-byte
+    (no constraint module is even instantiated downstream).
+
+    The defaults are *pre-registered*, not tuned to pass the ablation:
+
+    * ``lam_max = 0.1`` -- the exact value already ablated as the fixed weight,
+      so the only new degree of freedom introduced here is the scarcity gating.
+    * ``n0 = 25`` -- an anomaly-count scale of a few dozen positives, below which
+      a handful of labels cannot pin a boundary in the ~6-30 feature dimensions
+      of the ADBench anomaly tasks and an unsupervised prior should contribute.
+
+    Attributes:
+        lam_max: Maximum symbolic weight, reached as ``n_pos -> 0``.
+        n0: Anomaly-count decay scale (positives); larger keeps ``lambda`` high
+            for more positives.
+        floor: Weights below this snap to ``0`` (neural path); keeps the
+            high-data regime exactly neural and avoids instantiating a
+            constraint module for a negligible weight.
+    """
+
+    lam_max: float = 0.1
+    n0: float = 25.0
+    floor: float = 1e-3
+
+    def __post_init__(self) -> None:
+        # Non-finite parameters (e.g. NaN/inf from config) would make
+        # ``weight_for`` return NaN and silently disable the constraint via
+        # NaN comparisons, so reject them up front alongside the sign checks.
+        if not math.isfinite(self.lam_max) or self.lam_max < 0.0:
+            raise ValueError(f"lam_max must be a finite value >= 0, got {self.lam_max}")
+        if not math.isfinite(self.n0) or self.n0 <= 0.0:
+            raise ValueError(f"n0 must be a finite value > 0, got {self.n0}")
+        if not math.isfinite(self.floor) or self.floor < 0.0:
+            raise ValueError(f"floor must be a finite value >= 0, got {self.floor}")
+
+    def weight_for(self, n_positive: int) -> float:
+        """Resolve the effective ``lambda`` for a training set with ``n_positive`` anomalies.
+
+        Args:
+            n_positive: Number of labelled (or pseudo-labelled) anomalies in the
+                training split. Negative values are treated as ``0``.
+
+        Returns:
+            The effective non-negative symbolic weight; exactly ``0`` when the
+            decayed value falls below ``floor`` (the purely-neural regime).
+        """
+        n = max(0, int(n_positive))
+        lam = self.lam_max * math.exp(-n / self.n0)
+        return 0.0 if lam < self.floor else float(lam)
+
+
+# A symbolic co-training weight may be given as a concrete ``lambda``
+# (``float``/``int``), the string ``"adaptive"`` (use the default scarcity
+# schedule), or an explicit :class:`ScarcityWeightSchedule`.
+SymbolicWeight = float | int | str | ScarcityWeightSchedule
+
+_ADAPTIVE_ALIASES = frozenset({"adaptive", "scarcity", "auto"})
+
+
+def resolve_symbolic_weight(weight: SymbolicWeight, n_positive: int) -> float:
+    """Resolve a symbolic-weight specification to a concrete ``lambda`` float.
+
+    This is the single place that maps the public ``symbolic_weight`` argument
+    of :meth:`OmniMercuryEngine.fit_fusion` onto the scalar the training loop
+    consumes, so the per-batch loss code stays a simple ``lambda * loss`` term
+    regardless of how the weight was specified.
+
+    Args:
+        weight: A concrete weight (``float``/``int``), the string ``"adaptive"``
+            (or ``"scarcity"``/``"auto"``) for the default scarcity schedule, or
+            an explicit :class:`ScarcityWeightSchedule`.
+        n_positive: Number of labelled anomalies in the training split, used to
+            resolve adaptive specifications.
+
+    Returns:
+        The effective non-negative symbolic weight as a ``float``.
+
+    Raises:
+        ValueError: If ``weight`` is a string other than a known adaptive alias,
+            a boolean, or a numeric weight is negative.
+    """
+    if isinstance(weight, ScarcityWeightSchedule):
+        return weight.weight_for(n_positive)
+    if isinstance(weight, str):
+        key = weight.strip().lower()
+        if key in _ADAPTIVE_ALIASES:
+            return ScarcityWeightSchedule().weight_for(n_positive)
+        raise ValueError(
+            f"unknown symbolic_weight {weight!r}; expected a float, a "
+            f"ScarcityWeightSchedule, or one of {sorted(_ADAPTIVE_ALIASES)}"
+        )
+    # ``bool`` is a subclass of ``int``; reject it explicitly so ``True`` cannot
+    # silently enable co-training (1.0) nor ``False`` silently disable it.
+    if isinstance(weight, bool):
+        raise ValueError(
+            f"symbolic_weight must be a number, 'adaptive', or a schedule; got bool {weight!r}"
+        )
+    lam = float(weight)
+    # Reject non-finite weights: NaN would silently disable co-training
+    # (``nan > 0`` is False) while propagating a non-finite lambda, and inf
+    # would blow up the loss -- both contradict the non-negative contract.
+    if not math.isfinite(lam) or lam < 0.0:
+        raise ValueError(f"symbolic_weight must be a finite value >= 0, got {lam}")
+    return lam
+
+
 class SymbolicConstraintModule(nn.Module):
     """Differentiable LTN constraint over detector consensus and fusion output.
 
@@ -212,6 +420,7 @@ class SymbolicConstraintModule(nn.Module):
         learn_detector_reliability: bool = True,
         p_aggregator: float = 2.0,
         consensus_sharpness: float = 1.0,
+        semantics: str = "product",
     ) -> None:
         super().__init__()
         if num_detectors < 0:
@@ -240,7 +449,31 @@ class SymbolicConstraintModule(nn.Module):
         # crisp truth value; softplus keeps it strictly positive.
         self.sharpness_logit = nn.Parameter(torch.tensor(float(consensus_sharpness)))
 
-        self._implies = FuzzyOperators.implies_product
+        # Optional salience predicate (only when the rule graph references it):
+        # a learnable per-detector soft threshold (the differentiable analog of a
+        # ThresholdRule) aggregated by a soft-existential. Its learnable threshold
+        # and sharpness are added only when needed so the default consensus graph
+        # is parameter-identical to before.
+        self._has_salience = "Salient" in self.rule_graph.predicates
+        if self._has_salience and self.num_detectors > 0:
+            # One learnable soft threshold per detector (the differentiable
+            # ThresholdRule), broadcast over the batch in ``_salience``; the
+            # sharpness is shared.
+            self.salience_threshold: nn.Parameter | None = nn.Parameter(
+                torch.full((self.num_detectors,), 0.5)
+            )
+            self.salience_sharpness: nn.Parameter | None = nn.Parameter(torch.tensor(1.0))
+        else:
+            self.register_parameter("salience_threshold", None)
+            self.register_parameter("salience_sharpness", None)
+
+        key = semantics.strip().lower()
+        if key not in _IMPLICATIONS:
+            raise ValueError(
+                f"unknown semantics {semantics!r}; expected one of {sorted(_IMPLICATIONS)}"
+            )
+        self.semantics = key
+        self._implies = _IMPLICATIONS[key]
         self._not = FuzzyOperators.not_standard
 
     # -- predicate grounding -------------------------------------------------
@@ -267,6 +500,29 @@ class SymbolicConstraintModule(nn.Module):
         consensus = torch.sigmoid((consensus - 0.5) * 4.0 * sharpness)
         return consensus.clamp(_EPS, 1.0 - _EPS)
 
+    def _salience(self, detector_scores: torch.Tensor) -> torch.Tensor:
+        """Ground the ``Salient`` predicate: "some detector saliently fires".
+
+        Each detector score passes a learnable soft threshold
+        ``sigmoid((score - tau) * 4 * softplus(beta))`` -- the differentiable
+        analog of a crisp ``ThresholdRule`` -- and the per-detector indicators
+        are combined by a soft-existential (product t-conorm) so the predicate is
+        high when **any** detector crosses the threshold.
+
+        Args:
+            detector_scores: ``(B, D)`` per-detector anomaly scores in ``[0, 1]``.
+
+        Returns:
+            ``(B, 1)`` fuzzy truth value of "at least one detector is salient".
+        """
+        assert self.salience_threshold is not None and self.salience_sharpness is not None
+        beta = torch.nn.functional.softplus(self.salience_sharpness)
+        indicators = torch.sigmoid((detector_scores - self.salience_threshold) * 4.0 * beta)
+        indicators = indicators.clamp(_EPS, 1.0 - _EPS)
+        # Soft-existential (product t-conorm): 1 - prod(1 - indicator_k).
+        salient = 1.0 - torch.prod(1.0 - indicators, dim=1, keepdim=True)
+        return salient.clamp(_EPS, 1.0 - _EPS)
+
     def _ground(
         self, anomaly_prob: torch.Tensor, detector_scores: torch.Tensor
     ) -> dict[str, torch.Tensor]:
@@ -276,12 +532,17 @@ class SymbolicConstraintModule(nn.Module):
         """
         anomalous = anomaly_prob.clamp(_EPS, 1.0 - _EPS)
         consensus = self._consensus(detector_scores)
-        return {
+        grounded = {
             "Anomalous": anomalous,
             "NotAnomalous": self._not(anomalous),
             "Consensus": consensus,
             "NotConsensus": self._not(consensus),
         }
+        if self._has_salience and self.salience_threshold is not None:
+            salient = self._salience(detector_scores)
+            grounded["Salient"] = salient
+            grounded["NotSalient"] = self._not(salient)
+        return grounded
 
     # -- forward / loss ------------------------------------------------------
 
@@ -376,6 +637,7 @@ class SymbolicConstraintModule(nn.Module):
         detector_weights = [float(v) for v in out["detector_weights"].detach().cpu().tolist()]
         return {
             "graph": self.rule_graph.name,
+            "semantics": self.semantics,
             "satisfaction": float(out["satisfaction"].detach().cpu()),
             "rules": {
                 rule.name: {

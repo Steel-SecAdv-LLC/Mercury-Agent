@@ -169,7 +169,12 @@ from omni_mercury_engine.ml.fairness import BiasAuditConfig, FairnessAuditor, Fa
 from omni_mercury_engine.ml.fusion_network import FocalLoss, OmniFusionModel
 from omni_mercury_engine.ml.inference import FusionInference
 from omni_mercury_engine.ml.optimization import OptimizationConfig, ParallelExecutor
-from omni_mercury_engine.ml.symbolic_constraint import SymbolicConstraintModule
+from omni_mercury_engine.ml.symbolic_constraint import (
+    SymbolicConstraintModule,
+    SymbolicWeight,
+    resolve_rule_graph,
+    resolve_symbolic_weight,
+)
 from omni_mercury_engine.utils.logging import LoggerMixin
 
 if TYPE_CHECKING:
@@ -959,7 +964,9 @@ class OmniMercuryEngine(LoggerMixin):
         focal_alpha: float = 0.75,
         focal_gamma: float = 2.0,
         calibrate: bool = True,
-        symbolic_weight: float = 0.0,
+        symbolic_weight: SymbolicWeight = "adaptive",
+        symbolic_semantics: str = "product",
+        symbolic_rule_graph: str = "consensus",
         domain_encoder: bool = False,
         domain_encoder_config: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
@@ -997,18 +1004,47 @@ class OmniMercuryEngine(LoggerMixin):
                 constraint is a compact Logic Tensor Network
                 (:class:`~omni_mercury_engine.ml.symbolic_constraint.SymbolicConstraintModule`)
                 that ties the fusion output to the unsupervised agreement of the
-                base detectors. Default ``0.0`` reproduces the purely-neural
-                training path byte-for-byte; it stays off until the held-out
-                ablation (``benchmarks/neurosymbolic_ablation.py``) shows it
-                helps. Set ``>0`` (e.g. ``0.1``) to enable neuro-symbolic
-                co-training.
+                base detectors. Accepts:
+
+                * a concrete float ``lambda`` -- e.g. ``0.1`` enables a fixed
+                  co-training weight; ``0.0`` reproduces the purely-neural
+                  training path byte-for-byte;
+                * the string ``"adaptive"`` -- use the label-scarcity schedule
+                  (:class:`~omni_mercury_engine.ml.symbolic_constraint.ScarcityWeightSchedule`),
+                  which spends the constraint only when labelled anomalies are
+                  scarce (where the held-out ablation showed it helps) and
+                  decays to the neural path as labels grow abundant;
+                * an explicit
+                  :class:`~omni_mercury_engine.ml.symbolic_constraint.ScarcityWeightSchedule`.
+
+                The effective weight is resolved from the provided labels'
+                anomaly count before training and reported in the returned
+                metrics. **Default ``"adaptive"``**: the held-out ADBench
+                ablation (``benchmarks/neurosymbolic_ablation.py``,
+                ``docs/NEUROSYMBOLIC.md``) showed the adaptive schedule
+                *dominates* neural-only -- no full-data AUC regression (within
+                the ±0.002 noise floor) and a seed-agreed low-data lift -- so
+                co-training is on by default and decays to the neural path when
+                labels are abundant. Pass ``0.0`` for the byte-for-byte
+                purely-neural path.
+            symbolic_semantics: Implication operator for the symbolic constraint
+                when co-training is active -- ``"product"`` / ``"reichenbach"``
+                (default; aliases for the smooth Reichenbach residuum),
+                ``"lukasiewicz"``, or ``"godel"`` (see ``docs/NEUROSYMBOLIC.md``
+                §2.2). Ignored when the effective weight is 0.
+            symbolic_rule_graph: Rule graph for the constraint when co-training
+                is active -- ``"consensus"`` (default, two rules over a learned
+                consensus predicate) or ``"consensus_salience"`` (adds a
+                soft-existential salience recall rule; §2.3). Ignored when the
+                effective weight is 0.
 
         Returns:
             Dictionary with training metrics including final_loss, best_loss,
             epochs_trained, convergence information, and (when calibrated)
-            ``temperature`` plus ``ece_before``/``ece_after``. When
-            ``symbolic_weight > 0`` also includes ``symbolic_satisfaction`` and
-            ``symbolic_loss`` (final-epoch training values).
+            ``temperature`` plus ``ece_before``/``ece_after``. When symbolic
+            co-training is active (the effective weight resolves > 0) also
+            includes ``symbolic_satisfaction``, ``symbolic_loss`` (final-epoch
+            training values), ``symbolic_semantics`` and ``symbolic_rule_graph``.
 
         Raises:
             ValueError: If mode is not 'fusion'.
@@ -1025,7 +1061,11 @@ class OmniMercuryEngine(LoggerMixin):
 
         # Convert to numpy if needed
         if isinstance(X, torch.Tensor):
-            X = X.cpu().numpy()
+            X = X.detach().cpu().numpy()
+        # Convert labels too (incl. CUDA tensors) so n_positive / schedule
+        # resolution below is correct -- np.asarray on a live tensor is unreliable.
+        if isinstance(y, torch.Tensor):
+            y = y.detach().cpu().numpy()
 
         n_samples = len(X)
         logger.info(f"Starting fusion training on {n_samples} samples...")
@@ -1038,10 +1078,26 @@ class OmniMercuryEngine(LoggerMixin):
         detector_features = self._extract_fusion_features(X, fit_detectors=True)
         self._fusion_feature_groups = sorted(detector_features.keys())
 
+        # Generate pseudo-labels if not provided (semi-supervised). Done here --
+        # before the symbolic weight is resolved -- because the label-scarcity
+        # schedule keys on the number of (pseudo-)labelled anomalies.
+        if y is None:
+            logger.info("No labels provided, using semi-supervised pseudo-labeling...")
+            y = self._generate_pseudo_labels(X, contamination)
+
+        # Resolve the symbolic co-training weight to a concrete lambda. The
+        # public argument may be a float, the string "adaptive", or a
+        # ScarcityWeightSchedule; resolve_symbolic_weight maps all of these onto
+        # the scalar the training loop consumes, using the provided labels'
+        # anomaly count so the adaptive schedule spends the constraint only when
+        # labels are scarce.
+        n_positive = int(np.count_nonzero(np.asarray(y).reshape(-1) >= 0.5))
+        symbolic_weight_eff = resolve_symbolic_weight(symbolic_weight, n_positive)
+
         # Detector-consensus scores for symbolic co-training (only when enabled,
         # to avoid the extra detect() pass on the purely-neural default path).
         detector_scores: torch.Tensor | None = None
-        if symbolic_weight > 0:
+        if symbolic_weight_eff > 0:
             detector_scores = self._extract_consensus_scores(X)
 
         # WS-B: opt-in differentiable domain encoder. Standardise the raw input
@@ -1061,12 +1117,7 @@ class OmniMercuryEngine(LoggerMixin):
         else:
             self._domain_scaler = None
 
-        # Generate pseudo-labels if not provided (semi-supervised)
-        if y is None:
-            logger.info("No labels provided, using semi-supervised pseudo-labeling...")
-            y = self._generate_pseudo_labels(X, contamination)
-
-        return self._fit_fusion_on_features(
+        metrics = self._fit_fusion_on_features(
             detector_features,
             y,
             epochs=epochs,
@@ -1078,12 +1129,32 @@ class OmniMercuryEngine(LoggerMixin):
             focal_alpha=focal_alpha,
             focal_gamma=focal_gamma,
             calibrate=calibrate,
-            symbolic_weight=symbolic_weight,
+            symbolic_weight=symbolic_weight_eff,
+            symbolic_semantics=symbolic_semantics,
+            symbolic_rule_graph=symbolic_rule_graph,
             detector_scores=detector_scores,
             raw_inputs=raw_inputs,
             domain_scaler=domain_scaler,
             domain_encoder_config=domain_encoder_config,
         )
+
+        # When the weight was specified adaptively (string/schedule), surface how
+        # it resolved -- including when it resolved to 0 (abundant labels ->
+        # neural path) -- so the choice is auditable. Plain numeric weights leave
+        # the metrics keys unchanged, preserving the neural-path contract. NumPy
+        # scalars (e.g. np.float32 from config/np ops) count as plain numeric;
+        # bool is excluded (it never reaches here -- resolve rejects it).
+        is_plain_number = isinstance(
+            symbolic_weight, (int, float, np.floating, np.integer)
+        ) and not isinstance(symbolic_weight, bool)
+        if not is_plain_number:
+            metrics["symbolic_weight_spec"] = (
+                symbolic_weight if isinstance(symbolic_weight, str) else "schedule"
+            )
+            metrics["symbolic_weight_resolved"] = float(symbolic_weight_eff)
+            metrics["symbolic_n_positive"] = n_positive
+
+        return metrics
 
     def _fit_fusion_on_features(
         self,
@@ -1100,6 +1171,8 @@ class OmniMercuryEngine(LoggerMixin):
         focal_gamma: float = 2.0,
         calibrate: bool = True,
         symbolic_weight: float = 0.0,
+        symbolic_semantics: str = "product",
+        symbolic_rule_graph: str = "consensus",
         detector_scores: torch.Tensor | None = None,
         raw_inputs: torch.Tensor | None = None,
         domain_scaler: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]] | None = None,
@@ -1215,7 +1288,11 @@ class OmniMercuryEngine(LoggerMixin):
         detector_scores_dev: torch.Tensor | None = None
         if symbolic_active:
             assert detector_scores is not None  # narrowed by symbolic_active
-            sym_module = SymbolicConstraintModule(num_detectors=detector_scores.shape[1]).to(device)
+            sym_module = SymbolicConstraintModule(
+                num_detectors=detector_scores.shape[1],
+                rule_graph=resolve_rule_graph(symbolic_rule_graph),
+                semantics=symbolic_semantics,
+            ).to(device)
             sym_module.train()
             self._symbolic_module = sym_module
             detector_scores_dev = detector_scores.to(device)
@@ -1387,7 +1464,12 @@ class OmniMercuryEngine(LoggerMixin):
             "early_stopped": epochs_without_improvement >= early_stopping_patience,
         }
         if symbolic_active:
+            assert sym_module is not None  # narrowed by symbolic_active
             metrics["symbolic_weight"] = float(symbolic_weight)
+            # Record the module's normalized semantics (strip/lower, alias-resolved),
+            # not the raw argument, so the metric reflects what actually ran.
+            metrics["symbolic_semantics"] = sym_module.semantics
+            metrics["symbolic_rule_graph"] = sym_module.rule_graph.name
             metrics["symbolic_satisfaction"] = last_satisfaction
             metrics["symbolic_loss"] = last_symbolic_loss
 

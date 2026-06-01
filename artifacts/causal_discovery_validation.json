@@ -1,0 +1,50 @@
+{
+  "results": [
+    {
+      "chance_f1": 0.32848484848484844,
+      "mean_f1": 0.9532467532467532,
+      "mean_precision": 0.95,
+      "mean_recall": 0.9666666666666668,
+      "mean_shd": 0.4,
+      "n_graphs": 5,
+      "n_samples": 1000,
+      "n_vars": 6
+    },
+    {
+      "chance_f1": 0.29727272727272724,
+      "mean_f1": 0.8969696969696969,
+      "mean_precision": 0.9266666666666667,
+      "mean_recall": 0.8809523809523808,
+      "mean_shd": 1.2,
+      "n_graphs": 5,
+      "n_samples": 200,
+      "n_vars": 6
+    },
+    {
+      "chance_f1": 0.24828757630754,
+      "mean_f1": 0.8898498597591157,
+      "mean_precision": 0.9400000000000001,
+      "mean_recall": 0.846969696969697,
+      "mean_shd": 2.4,
+      "n_graphs": 5,
+      "n_samples": 1000,
+      "n_vars": 10
+    },
+    {
+      "chance_f1": 0.26889259259259257,
+      "mean_f1": 0.6708148148148148,
+      "mean_precision": 0.8995959595959595,
+      "mean_recall": 0.5375,
+      "mean_shd": 8.2,
+      "n_graphs": 5,
+      "n_samples": 300,
+      "n_vars": 10
+    }
+  ],
+  "verdict": {
+    "mean_chance_f1": 0.28573443616442706,
+    "mean_skeleton_f1": 0.8527202811975951,
+    "passed": true,
+    "verdict": "VALIDATED -- causal_discovery recovers known structure well above chance; revive as a measured causal tool"
+  }
+}
