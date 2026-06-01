@@ -12,11 +12,8 @@ General Public License for more details.
 You should have received a copy of the GNU General Public License along with this program. If not,
 see
 https://www.gnu.org/licenses/.
-"""
 
-from __future__ import annotations
-
-"""K-means-distance fusion detector reviving the dormant cognitive clusterer.
+K-means-distance fusion detector reviving the dormant cognitive clusterer.
 
 Distance to the nearest learned cluster centroid is a classic unsupervised
 anomaly signal: a point far from *every* centroid is poorly explained by the
@@ -34,6 +31,8 @@ fusion ensemble (which already carries a distance/density detector) is settled
 separately by a fusion-marginal ablation; this class only makes the proven
 signal available as a standard detector.
 """
+
+from __future__ import annotations
 
 from typing import Any
 
@@ -61,6 +60,9 @@ class KMeansDistanceDetector:
         self._clusterer: Any = None
         self._mean: np.ndarray[Any, Any] | None = None
         self._std: np.ndarray[Any, Any] | None = None
+        # Robust scale (median training nearest-distance) used to squash the
+        # nearest-centroid distance into a [0, 1] score for ``detect``.
+        self._scale: float = 1.0
 
     def is_fitted(self) -> bool:
         return self._clusterer is not None
@@ -76,11 +78,14 @@ class KMeansDistanceDetector:
         self._std[self._std < 1e-8] = 1.0
         k = max(1, min(self.n_clusters, len(arr)))
         self._clusterer = KMeansClusterer(n_clusters=k).fit((arr - self._mean) / self._std)
+        nearest = self._cluster_distances(arr).min(axis=1)
+        self._scale = float(np.median(nearest)) + 1e-9
         return self
 
-    def extract_features(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    def _cluster_distances(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Per-sample distance to every centroid, ``(n_samples, n_clusters)``."""
         if self._clusterer is None or self._mean is None or self._std is None:
-            raise RuntimeError("KMeansDistanceDetector must be fit before extract_features")
+            raise RuntimeError("KMeansDistanceDetector must be fit before use")
         arr = np.nan_to_num(np.asarray(X, dtype=float))
         if arr.ndim != 2:
             arr = arr.reshape(len(arr), -1)
@@ -88,5 +93,29 @@ class KMeansDistanceDetector:
         dists = np.asarray(self._clusterer.get_cluster_distances(scaled), dtype=np.float32)
         if dists.ndim != 2 or dists.shape[0] != len(arr):
             dists = dists.reshape(len(arr), -1)
+        return dists
+
+    def extract_features(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        dists = self._cluster_distances(X)
         nearest = dists.min(axis=1, keepdims=True)
         return np.concatenate([dists, nearest], axis=1).astype(np.float32)
+
+    def detect(self, X: np.ndarray[Any, Any]) -> dict[str, Any]:
+        """Per-sample anomaly scores in ``[0, 1]`` (the live-inference contract).
+
+        ``OmniMercuryEngine.detect``/``detect_with_fusion`` call every detector's
+        ``detect`` and read ``result["scores"]``; without this the revived
+        detector would be silently skipped at inference. The nearest-centroid
+        distance is squashed monotonically into ``[0, 1]`` via
+        ``1 - exp(-d / scale)`` (``scale`` = median training nearest-distance),
+        so points near a centroid score ~0 and points far from every centroid
+        approach 1.
+        """
+        nearest = self._cluster_distances(X).min(axis=1)
+        scores = 1.0 - np.exp(-nearest / self._scale)
+        scores = np.clip(scores, 0.0, 1.0).astype(np.float32)
+        return {
+            "scores": scores,
+            "is_anomaly": scores > 0.5,
+            "confidence": scores,
+        }

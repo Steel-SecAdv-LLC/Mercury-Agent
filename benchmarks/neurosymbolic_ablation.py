@@ -355,14 +355,20 @@ def derive_verdict(results: list[dict[str, Any]]) -> dict[str, Any]:
     mean_low_auc = float(np.mean(low_auc_deltas)) if low_auc_deltas else float("nan")
     seed_agree = float(np.mean(full_seed_agree)) if full_seed_agree else float("nan")
 
+    # A constant always-on weight pays its cost in every regime, so it is only
+    # worth keeping if it does not regress full-data AUC beyond the noise floor.
+    # An FP-reduction (or low-data) gain bought with a meaningful full-data AUC
+    # regression is exactly what the adaptive schedule exists to avoid, so it
+    # must not read as KEEP for a fixed weight.
+    no_full_auc_regression = not np.isnan(mean_full_auc) and mean_full_auc >= -_AUC_MEANINGFUL
     gate_auc = mean_full_auc > _AUC_MEANINGFUL and seed_agree >= 0.5
-    gate_fp = mean_full_fpr > 0.0 and seed_agree >= 0.5
+    gate_fp = mean_full_fpr > 0.0 and no_full_auc_regression and seed_agree >= 0.5
     gate_sample_eff = (
         mean_low_auc > _SAMPLE_EFF_MEANINGFUL
         and not np.isnan(mean_full_auc)
         and mean_low_auc > mean_full_auc
     )
-    raw_passed = bool(gate_auc or gate_fp or gate_sample_eff)
+    raw_passed = bool((gate_auc or gate_fp or gate_sample_eff) and no_full_auc_regression)
 
     # Confound guard: reject a KEEP built on a collapsed (inverted-ranking) arm.
     confound = check_ablation_confound(
@@ -382,7 +388,8 @@ def derive_verdict(results: list[dict[str, Any]]) -> dict[str, Any]:
         "confound": confound.as_dict(),
         "passed": passed,
         "verdict": (
-            "KEEP -- enable symbolic co-training by default"
+            "A fixed weight clears an improvement gate, but a constant weight is "
+            "dominated by the adaptive schedule (the chosen default; see adaptive_verdict)"
             if passed
             else (
                 note
@@ -458,7 +465,7 @@ def derive_adaptive_verdict(results: list[dict[str, Any]]) -> dict[str, Any]:
     # Gate 2 -- low-data lift, seed-agreed and concentrated in the scarce regime.
     gate_low_data_lift = (
         not np.isnan(mean_low_auc)
-        and mean_low_auc > 0.0
+        and mean_low_auc > _AUC_MEANINGFUL
         and low_agree >= 0.5
         and (np.isnan(mean_full_auc) or mean_low_auc > mean_full_auc)
     )

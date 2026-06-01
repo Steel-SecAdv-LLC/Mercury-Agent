@@ -1034,6 +1034,6 @@
     "passed": true,
     "raw_passed": true,
     "seed_agreement_full_data": 0.5833333333333333,
-    "verdict": "KEEP -- enable symbolic co-training by default"
+    "verdict": "A fixed weight clears an improvement gate, but a constant weight is dominated by the adaptive schedule (the chosen default; see adaptive_verdict)"
   }
 }

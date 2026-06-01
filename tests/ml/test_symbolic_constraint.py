@@ -264,6 +264,18 @@ class TestResolveSymbolicWeight:
         with pytest.raises(ValueError):
             resolve_symbolic_weight(-0.5, 5)
 
+    def test_int_weight_accepted(self) -> None:
+        # ``SymbolicWeight`` admits int; 0 / 1 must resolve as plain numbers.
+        assert resolve_symbolic_weight(0, 5) == 0.0
+        assert resolve_symbolic_weight(1, 5) == pytest.approx(1.0)
+
+    def test_bool_weight_rejected(self) -> None:
+        # bool is an int subclass; it must not silently enable/disable co-training.
+        with pytest.raises(ValueError, match="bool"):
+            resolve_symbolic_weight(True, 5)
+        with pytest.raises(ValueError, match="bool"):
+            resolve_symbolic_weight(False, 5)
+
 
 class TestImplicationSemantics:
     """The revived crisp implication operators are correct and differentiable."""

@@ -72,12 +72,21 @@ class TestDeriveVerdict:
         assert verdict["passed"] is False
         assert "QUARANTINE" in verdict["verdict"]
 
-    def test_false_positive_gate_independent_of_auc(self) -> None:
-        # AUC flat but false positives clearly down, with seeds agreeing.
+    def test_false_positive_gate_passes_with_flat_auc(self) -> None:
+        # FP clearly down and full-data AUC not regressing -> the FP gate carries.
         results = [{"dataset": "d", "fractions": [_fraction(1.0, 0.0, 0.05, 2)]}]
         verdict = derive_verdict(results)
         assert verdict["gate_false_positives_down"] is True
         assert verdict["passed"] is True
+
+    def test_false_positive_with_auc_regression_quarantines(self) -> None:
+        # FP down but full-data AUC regresses beyond the noise floor: a constant
+        # weight must not be kept on an FP gain bought with an AUC regression.
+        results = [{"dataset": "d", "fractions": [_fraction(1.0, -0.01, 0.05, 2)]}]
+        verdict = derive_verdict(results)
+        assert verdict["gate_false_positives_down"] is False
+        assert verdict["passed"] is False
+        assert "QUARANTINE" in verdict["verdict"]
 
     def test_sample_efficiency_gate_rewards_low_data_gain(self) -> None:
         results = [

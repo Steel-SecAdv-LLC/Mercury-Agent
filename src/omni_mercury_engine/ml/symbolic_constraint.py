@@ -324,10 +324,10 @@ class ScarcityWeightSchedule:
         return 0.0 if lam < self.floor else float(lam)
 
 
-# A symbolic co-training weight may be given as a concrete ``lambda`` (float),
-# the string ``"adaptive"`` (use the default scarcity schedule), or an explicit
-# :class:`ScarcityWeightSchedule`.
-SymbolicWeight = Union[float, str, ScarcityWeightSchedule]
+# A symbolic co-training weight may be given as a concrete ``lambda``
+# (``float``/``int``), the string ``"adaptive"`` (use the default scarcity
+# schedule), or an explicit :class:`ScarcityWeightSchedule`.
+SymbolicWeight = Union[float, int, str, ScarcityWeightSchedule]
 
 _ADAPTIVE_ALIASES = frozenset({"adaptive", "scarcity", "auto"})
 
@@ -352,7 +352,7 @@ def resolve_symbolic_weight(weight: SymbolicWeight, n_positive: int) -> float:
 
     Raises:
         ValueError: If ``weight`` is a string other than a known adaptive alias,
-            or a numeric weight is negative.
+            a boolean, or a numeric weight is negative.
     """
     if isinstance(weight, ScarcityWeightSchedule):
         return weight.weight_for(n_positive)
@@ -363,6 +363,12 @@ def resolve_symbolic_weight(weight: SymbolicWeight, n_positive: int) -> float:
         raise ValueError(
             f"unknown symbolic_weight {weight!r}; expected a float, a "
             f"ScarcityWeightSchedule, or one of {sorted(_ADAPTIVE_ALIASES)}"
+        )
+    # ``bool`` is a subclass of ``int``; reject it explicitly so ``True`` cannot
+    # silently enable co-training (1.0) nor ``False`` silently disable it.
+    if isinstance(weight, bool):
+        raise ValueError(
+            f"symbolic_weight must be a number, 'adaptive', or a schedule; got bool {weight!r}"
         )
     lam = float(weight)
     if lam < 0.0:

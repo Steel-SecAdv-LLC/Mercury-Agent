@@ -71,3 +71,18 @@ class TestSignal:
         det = KMeansDistanceDetector(n_clusters=8).fit(normal_train)
         nearest = det.extract_features(Xte)[:, -1]
         assert roc_auc_score(yte, nearest) > 0.9
+
+    def test_detect_returns_unit_interval_scores(self) -> None:
+        # detect() is the live-inference contract: per-sample scores in [0, 1].
+        X, _ = _separable()
+        out = KMeansDistanceDetector(n_clusters=8).fit(X).detect(X)
+        scores = np.asarray(out["scores"])
+        assert scores.shape == (len(X),)
+        assert float(scores.min()) >= 0.0 and float(scores.max()) <= 1.0
+
+    def test_detect_scores_separate_anomalies(self) -> None:
+        # detect() must carry the same signal as the distance feature.
+        normal_train = np.random.RandomState(0).normal(0.0, 1.0, (300, 8)).astype(np.float32)
+        Xte, yte = _separable(1)
+        det = KMeansDistanceDetector(n_clusters=8).fit(normal_train)
+        assert roc_auc_score(yte, det.detect(Xte)["scores"]) > 0.9

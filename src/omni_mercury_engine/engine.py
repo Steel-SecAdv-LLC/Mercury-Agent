@@ -1017,7 +1017,7 @@ class OmniMercuryEngine(LoggerMixin):
                 * an explicit
                   :class:`~omni_mercury_engine.ml.symbolic_constraint.ScarcityWeightSchedule`.
 
-                The effective weight is resolved from the training split's
+                The effective weight is resolved from the provided labels'
                 anomaly count before training and reported in the returned
                 metrics. **Default ``"adaptive"``**: the held-out ADBench
                 ablation (``benchmarks/neurosymbolic_ablation.py``,
@@ -1027,13 +1027,24 @@ class OmniMercuryEngine(LoggerMixin):
                 co-training is on by default and decays to the neural path when
                 labels are abundant. Pass ``0.0`` for the byte-for-byte
                 purely-neural path.
+            symbolic_semantics: Implication operator for the symbolic constraint
+                when co-training is active -- ``"product"`` (default,
+                Reichenbach), ``"lukasiewicz"``, or ``"godel"`` (see
+                ``docs/NEUROSYMBOLIC.md`` §2.2). Ignored when the effective
+                weight is 0.
+            symbolic_rule_graph: Rule graph for the constraint when co-training
+                is active -- ``"consensus"`` (default, two rules over a learned
+                consensus predicate) or ``"consensus_salience"`` (adds a
+                soft-existential salience recall rule; §2.3). Ignored when the
+                effective weight is 0.
 
         Returns:
             Dictionary with training metrics including final_loss, best_loss,
             epochs_trained, convergence information, and (when calibrated)
-            ``temperature`` plus ``ece_before``/``ece_after``. When
-            ``symbolic_weight > 0`` also includes ``symbolic_satisfaction`` and
-            ``symbolic_loss`` (final-epoch training values).
+            ``temperature`` plus ``ece_before``/``ece_after``. When symbolic
+            co-training is active (the effective weight resolves > 0) also
+            includes ``symbolic_satisfaction``, ``symbolic_loss`` (final-epoch
+            training values), ``symbolic_semantics`` and ``symbolic_rule_graph``.
 
         Raises:
             ValueError: If mode is not 'fusion'.
@@ -1125,9 +1136,14 @@ class OmniMercuryEngine(LoggerMixin):
 
         # When the weight was specified adaptively (string/schedule), surface how
         # it resolved -- including when it resolved to 0 (abundant labels ->
-        # neural path) -- so the choice is auditable. Plain float weights leave
-        # the metrics keys unchanged, preserving the neural-path contract.
-        if not isinstance(symbolic_weight, (int, float)):
+        # neural path) -- so the choice is auditable. Plain numeric weights leave
+        # the metrics keys unchanged, preserving the neural-path contract. NumPy
+        # scalars (e.g. np.float32 from config/np ops) count as plain numeric;
+        # bool is excluded (it never reaches here -- resolve rejects it).
+        is_plain_number = isinstance(
+            symbolic_weight, (int, float, np.floating, np.integer)
+        ) and not isinstance(symbolic_weight, bool)
+        if not is_plain_number:
             metrics["symbolic_weight_spec"] = (
                 symbolic_weight if isinstance(symbolic_weight, str) else "schedule"
             )

@@ -59,7 +59,6 @@ DEFAULT_SEEDS = [0, 1, 2]
 # candidate into the live ensemble (it must beat the ensemble's existing
 # distance/density detector, not merely chance).
 _SIGNAL_AUC = 0.70  # mean held-out AUC to count as carrying real signal
-_ADDS_MARGIN = 0.01  # mean AUC a candidate must beat the LOF reference by
 
 
 def _load_dataset(name: str) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
@@ -203,8 +202,10 @@ def run_candidate(
             try:
                 scores = scorer(X_tr, y[tr], X_te)
                 auc = float(roc_auc_score(y[te], scores))
-                # An anomaly detector that ranks the wrong way (AUC < 0.5) still
-                # "carries signal" -- record |AUC - 0.5| oriented up, honestly.
+                # Raw held-out AUC. Each candidate's natural orientation is
+                # higher-score == more-anomalous, so a value below 0.5 means the
+                # signal is genuinely absent (not merely inverted); the >= 0.70
+                # gate then correctly reads it as "no signal".
                 ds_aucs.append(auc)
             except Exception:
                 errors += 1

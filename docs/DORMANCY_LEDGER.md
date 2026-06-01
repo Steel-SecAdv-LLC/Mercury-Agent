@@ -166,3 +166,21 @@ retained until a fitting harness exists.
 Building these harnesses — not fabricating a metric win — is how the rest of the
 dormant subsystem earns its place. Until a module's harness exists and it clears
 the bar, the module stays ranked and retained, not revived and not deleted.
+
+## 6. Consolidation — the deliberate stopping point
+
+The measurable revival frontier is now well covered: three modules revived on AUC
+(adaptive co-training, the salience rule, the k-means detector) and three on their
+own metrics (causal recovery, explanation fidelity, formal soundness). The
+**reasoning / planning / coordination tier** — `reflexion`, `chain_of_thought`,
+`chain_of_hindsight`, `hierarchical_planning`, `multi_agent_coordination`,
+`plasticity_engine`, `knowledge_graph`, `multi_hop_reasoner` (rows 6, 10, 11) — is
+explicitly marked **retained, no honest in-repo metric**. These operate on
+symbolic or text inputs with no ground truth in this repository; the only way to
+"measure" them would be to invent an arbitrary toy task, and a fabricated task is
+the theatre this ledger exists to prevent. They are kept as reference
+implementations, not deleted, and not asserted to work.
+
+This is a deliberate stopping point, not an omission: every module with an honest,
+non-contrived measurement has one; the rest wait — ranked and retained — for a
+real task to measure them against, should one arise.
