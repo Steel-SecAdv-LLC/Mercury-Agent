@@ -1,0 +1,25 @@
+{
+  "blake3_active_backend_ms": {
+    "mean_ms": 1.3886230600064664,
+    "median_ms": 1.378389500018784,
+    "min_ms": 1.3104639999710344
+  },
+  "blake3_python_reference_ms": {
+    "mean_ms": 1.2661741400143,
+    "median_ms": 1.2656280000555853,
+    "min_ms": 1.224665000108871
+  },
+  "claim": "Rust backend NOT built; active backend is 'python-cryptography'. No Rust-vs-Python speedup measured. Build it with `cd rust_crypto && maturin develop` to benchmark the acceleration.",
+  "measured_speedup_rust_vs_python": null,
+  "provenance": {
+    "active_backend": "python-cryptography",
+    "commit": "487daf2",
+    "iterations": 50,
+    "payload_mb": 0.5,
+    "platform": "Linux-6.18.5-x86_64-with-glibc2.39",
+    "processor": "x86_64",
+    "python": "3.11.15",
+    "python_reference": "hashlib-sha256",
+    "rust_available": false
+  }
+}
