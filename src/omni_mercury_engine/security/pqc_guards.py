@@ -48,7 +48,8 @@ class PQCProductionWarning(UserWarning):
 
     Retained as a stable, importable/catchable symbol for downstream
     integrators. NOTE: Mercury's import-time PQC gate
-    (``_pqc_gate._enforce_pqc_production_gate``) is now **fail-closed and
+    (``omni_mercury_engine._pqc_gate._enforce_pqc_production_gate``, invoked
+    from ``omni_mercury_engine/__init__.py``) is now **fail-closed and
     unconditional** — a missing or partial AMA build raises ``RuntimeError``
     at import rather than degrading with a warning. As a result this warning
     is *not* emitted by the package's own startup path; there is no degraded

@@ -70,32 +70,68 @@ def _t_sf(t_abs: float, df: int) -> float:
         return float(min(1.0, _betainc(df / 2.0, 0.5, x)))
 
 
+def _betacf(a: float, b: float, x: float) -> float:
+    """Lentz continued fraction for the incomplete beta (Numerical Recipes).
+
+    Converges rapidly only for ``x < (a + 1) / (a + b + 2)``; callers must use
+    the symmetry transform outside that range — see :func:`_betainc`.
+    """
+    fpmin = 1e-30
+    qab = a + b
+    qap = a + 1.0
+    qam = a - 1.0
+    c = 1.0
+    d = 1.0 - qab * x / qap
+    if abs(d) < fpmin:
+        d = fpmin
+    d = 1.0 / d
+    h = d
+    for m in range(1, 300):
+        m2 = 2 * m
+        # even step
+        aa = m * (b - m) * x / ((qam + m2) * (a + m2))
+        d = 1.0 + aa * d
+        if abs(d) < fpmin:
+            d = fpmin
+        c = 1.0 + aa / c
+        if abs(c) < fpmin:
+            c = fpmin
+        d = 1.0 / d
+        h *= d * c
+        # odd step
+        aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2))
+        d = 1.0 + aa * d
+        if abs(d) < fpmin:
+            d = fpmin
+        c = 1.0 + aa / c
+        if abs(c) < fpmin:
+            c = fpmin
+        d = 1.0 / d
+        delta = d * c
+        h *= delta
+        if abs(delta - 1.0) < 1e-15:
+            break
+    return h
+
+
 def _betainc(a: float, b: float, x: float) -> float:
+    """Regularized incomplete beta ``I_x(a, b)``, dependency-free.
+
+    Uses the continued fraction in its region of fast convergence and the
+    standard symmetry reflection ``I_x(a, b) = 1 - I_{1-x}(b, a)`` elsewhere.
+    The previous implementation omitted the reflection and mis-scaled the
+    tail, giving p-values off by up to ~1.5e-2 at small ``t`` / large ``df``
+    (e.g. t=0.1, df=100) on the SciPy-free path.
+    """
     if x <= 0.0:
         return 0.0
     if x >= 1.0:
         return 1.0
     lbeta = math.lgamma(a) + math.lgamma(b) - math.lgamma(a + b)
-    front = math.exp(math.log(x) * a + math.log(1.0 - x) * b - lbeta) / a
-    # Lentz continued fraction
-    f, c, d = 1.0, 1.0, 0.0
-    for i in range(0, 200):
-        m = i // 2
-        if i == 0:
-            num = 1.0
-        elif i % 2 == 0:
-            num = (m * (b - m) * x) / ((a + 2 * m - 1) * (a + 2 * m))
-        else:
-            num = -((a + m) * (a + b + m) * x) / ((a + 2 * m) * (a + 2 * m + 1))
-        d = 1.0 + num * d
-        d = 1e-30 if abs(d) < 1e-30 else d
-        d = 1.0 / d
-        c = 1.0 + num / c
-        c = 1e-30 if abs(c) < 1e-30 else c
-        f *= d * c
-        if abs(1.0 - d * c) < 1e-12:
-            break
-    return front * (f - 1.0)
+    front = math.exp(a * math.log(x) + b * math.log(1.0 - x) - lbeta)
+    if x < (a + 1.0) / (a + b + 2.0):
+        return front * _betacf(a, b, x) / a
+    return 1.0 - front * _betacf(b, a, 1.0 - x) / b
 
 
 def _sign_test_p(n_pos: int, n: int) -> float:

@@ -34,6 +34,33 @@ def test_t_sf_matches_scipy_when_available() -> None:
         assert ss._t_sf(t_abs, df) == pytest.approx(expected, rel=1e-3, abs=1e-4)
 
 
+def test_betainc_fallback_matches_scipy_special() -> None:
+    """The SciPy-free regularized incomplete beta must match scipy.special
+    across the full domain — including x near 1, where the symmetry branch is
+    required.  This validates the *fallback* path directly (the scipy path is
+    tautological against itself)."""
+    special = pytest.importorskip("scipy.special")
+    for a in (0.5, 1.0, 2.5, 13.0):
+        for b in (0.5, 1.0, 3.0):
+            for x in (0.01, 0.2, 0.5, 0.8, 0.99, 0.999):
+                assert ss._betainc(a, b, x) == pytest.approx(
+                    float(special.betainc(a, b, x)), abs=1e-10
+                )
+
+
+def test_t_sf_scipy_free_path_matches_scipy() -> None:
+    """The numpy-only Student-t two-sided p (computed via ``_betainc``) must
+    match scipy across a grid that includes the small-t / large-df corner the
+    old continued fraction got wrong (t=0.1, df=100 was off by ~1.5e-2)."""
+    scipy_stats = pytest.importorskip("scipy.stats")
+    for t_abs in (0.0, 0.1, 0.5, 1.0, 2.1, 3.5, 10.0):
+        for df in (1, 2, 5, 26, 100, 500):
+            x = df / (df + t_abs * t_abs)
+            fallback = float(min(1.0, ss._betainc(df / 2.0, 0.5, x)))
+            expected = float(2.0 * scipy_stats.t.sf(t_abs, df))
+            assert fallback == pytest.approx(expected, abs=1e-9)
+
+
 def test_paired_stats_detects_real_positive_effect() -> None:
     rng = np.random.default_rng(0)
     b = rng.normal(0.8, 0.02, size=200)

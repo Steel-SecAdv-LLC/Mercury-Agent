@@ -12,6 +12,11 @@ permissions:
   contents: write
   pull-requests: write
   issues: read
+  # Required by the "Re-trigger required checks" step, which dispatches
+  # ci.yml via the Actions API (workflow_dispatch).  Without actions: write
+  # the GITHUB_TOKEN dispatch call 403s and (being continue-on-error) fails
+  # silently, leaving benchmark PRs stuck on pending required checks.
+  actions: write
 
 concurrency:
   group: benchmark-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
