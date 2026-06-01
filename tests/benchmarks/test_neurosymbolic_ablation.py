@@ -13,7 +13,11 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from benchmarks.neurosymbolic_ablation import derive_verdict, fpr_at_recall
+from benchmarks.neurosymbolic_ablation import (
+    derive_adaptive_verdict,
+    derive_verdict,
+    fpr_at_recall,
+)
 
 
 class TestFprAtRecall:
@@ -102,9 +106,6 @@ class TestDeriveVerdict:
         verdict = derive_verdict(results)
         assert verdict["gate_sample_efficiency_up"] is True
         assert verdict["passed"] is True
-
-
-from benchmarks.neurosymbolic_ablation import derive_adaptive_verdict
 
 
 def _afraction(
