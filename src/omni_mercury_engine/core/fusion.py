@@ -1236,15 +1236,15 @@ class DoubleHelixEvolutionEngine:
         # ``np.outer(helix1, helix2).diagonal()`` only ever reads the diagonal
         # ``helix1[i] * helix2[i]`` yet allocates and fills the full n×n outer
         # product first (O(n²) time and memory).  Compute the diagonal directly
-        # (O(n)); ``min`` reproduces the rectangular-diagonal length for the
-        # defensive unequal-length path handled just below.
+        # (O(n)).  Build ``cross_coupling`` at ``helix1``'s length so it lines up
+        # with ``element_wise`` and fill only the ``m`` overlapping entries: in
+        # normal operation both strands are ``zeros_like(state)`` so ``m`` is the
+        # whole vector, while a defensively shorter ``helix2`` leaves a zero tail.
+        # (The prior ``> len(helix1)`` truncation branch was unreachable, since
+        # ``len(cross_coupling) == min(len(helix1), len(helix2)) <= len(helix1)``.)
         m = min(len(helix1), len(helix2))
-        cross_coupling = helix1[:m] * helix2[:m]
-
-        if len(cross_coupling) > len(helix1):
-            cross_coupling = cross_coupling[: len(helix1)]
-        elif len(cross_coupling) < len(helix1):
-            cross_coupling = self.np.pad(cross_coupling, (0, len(helix1) - len(cross_coupling)))
+        cross_coupling = self.np.zeros_like(helix1)
+        cross_coupling[:m] = helix1[:m] * helix2[:m]
 
         intertwined: np.ndarray[Any, Any] = element_wise + cross_coupling * 0.1
 

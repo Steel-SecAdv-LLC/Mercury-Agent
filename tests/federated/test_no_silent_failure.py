@@ -324,6 +324,46 @@ def test_install_global_state_advances_round_and_broadcasts() -> None:
         server.install_global_state(np.zeros(7), ["X"])
 
 
+def test_install_global_state_validates_shape_inside_lock() -> None:
+    """``install_global_state`` must validate the shape while holding the lock.
+
+    Regression for the TOCTOU flagged by review: ``_global_weights`` is mutated
+    under ``self._lock`` (in ``aggregate`` and in this method), so checking
+    ``candidate.shape`` against ``self._global_weights.shape`` *outside* the lock
+    admitted a race in which a concurrent round changed the expected shape
+    between the check and the assignment.  The behavioural raise on a reshaped
+    install is already pinned above; this proves *where* it happens by
+    instrumenting the lock — on a shape mismatch the lock must have been acquired
+    before the error is raised (pre-fix the error was raised before the lock was
+    ever taken, so ``events`` would be empty).
+    """
+    server = GOSNNCouplingServer(initial_weights=np.zeros(4, dtype=np.float64))
+
+    events: list[str] = []
+    real_lock = server._lock
+
+    class _TracingLock:
+        """Delegating context manager that records acquire/release order."""
+
+        def __enter__(self) -> Any:
+            events.append("acquire")
+            return real_lock.__enter__()
+
+        def __exit__(self, *exc: Any) -> Any:
+            events.append("release")
+            return real_lock.__exit__(*exc)
+
+    server._lock = _TracingLock()  # type: ignore[assignment]
+
+    with pytest.raises(GOSNNCouplingError, match="shape"):
+        server.install_global_state(np.zeros(7, dtype=np.float64), ["X"])
+
+    # Lock acquired before the shape check raised => the check runs inside the
+    # critical section, not before it.  The section was also properly exited.
+    assert events[:1] == ["acquire"]
+    assert "release" in events
+
+
 def test_federated_server_round_drives_gosnn_digested_fedavg_path() -> None:
     """ROADMAP #5: a real ``FederatedServer`` round must route weights through
     the bidirectional GOSNN coupling's digested FedAvg path end-to-end.

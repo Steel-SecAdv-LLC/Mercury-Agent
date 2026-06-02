@@ -244,12 +244,20 @@ class GOSNNCouplingServer:
                 the model must fail the round closed, not corrupt the state.
         """
         candidate = np.ascontiguousarray(np.asarray(new_weights, dtype=np.float64))
-        if candidate.shape != self._global_weights.shape:
-            raise GOSNNCouplingError(
-                f"install_global_state weights shape {candidate.shape} does not "
-                f"match global shape {self._global_weights.shape}"
-            )
         with self._lock:
+            # Validate the shape against the *current* global vector and install
+            # it in the same critical section.  ``_global_weights`` is mutated
+            # under ``self._lock`` (here and in ``aggregate``), so checking the
+            # shape outside the lock would admit a TOCTOU race in which a
+            # concurrent round changes the expected shape between the check and
+            # the assignment.  Holding the lock makes a strategy aggregator that
+            # silently reshaped the model fail the round closed, deterministically,
+            # rather than corrupting the global state.
+            if candidate.shape != self._global_weights.shape:
+                raise GOSNNCouplingError(
+                    f"install_global_state weights shape {candidate.shape} does not "
+                    f"match global shape {self._global_weights.shape}"
+                )
             self._global_weights = candidate
             self._last_aggregation_client_ids = sorted(contributing_client_ids)
             self._round_num += 1

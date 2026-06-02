@@ -387,6 +387,42 @@ class TestOmniMercuryEngine:
         fresh = float(np.linalg.det(engine.ethical_matrix) * (sn @ engine.ethical_matrix @ sn))
         assert engine._compute_purity_invariant(probe) == pytest.approx(fresh, abs=1e-9)
 
+    def test_intertwine_helixes_matches_dense_outer_diagonal(self) -> None:
+        """``_intertwine_helixes`` cross-term equals the dense outer-diagonal.
+
+        The cross-coupling term is the diagonal of ``np.outer(helix1, helix2)``
+        -- ``helix1[i] * helix2[i]`` -- which the hot path now computes directly
+        in O(n) instead of materialising the full n×n outer product just to read
+        its diagonal.  This pins that the optimisation is the *same* operation
+        (not a differently-shaped approximation) and that the result always
+        conforms to ``len(helix1)``, so dropping the unreachable ``> len(helix1)``
+        truncation branch changed no observable behaviour.  In live stepping the
+        two strands are always equal length (both ``zeros_like(state)``) -- the
+        only case ``element_wise`` admits -- which is what is exercised here.
+        """
+        for dim in (2, 5, 20, 80, 161):  # even, odd, and a non-power-of-two
+            engine = OmniMercuryEngine(state_dim=dim)
+            rng = np.random.default_rng(dim)
+            for _ in range(20):
+                h1 = rng.standard_normal(dim) * rng.uniform(0.05, 3.0)
+                h2 = rng.standard_normal(dim) * rng.uniform(0.05, 3.0)
+
+                element_wise = h1 * (1 + h2 / (np.linalg.norm(h2) + 1e-8))
+                cross = np.outer(h1, h2).diagonal()  # dense reference, len == dim
+                expected = element_wise + cross * 0.1
+
+                got = engine._intertwine_helixes(h1, h2)
+                assert got.shape == (dim,)  # conforms to len(helix1)
+                assert np.all(np.isfinite(got))
+                np.testing.assert_allclose(got, expected, atol=1e-12)
+
+            # Deterministic: identical inputs -> identical output, no RNG state.
+            a = rng.standard_normal(dim)
+            b = rng.standard_normal(dim)
+            assert np.array_equal(
+                engine._intertwine_helixes(a, b), engine._intertwine_helixes(a, b)
+            )
+
     def test_double_helix_architecture(self) -> None:
         """Test double-helix DNA-inspired architecture."""
         engine = OmniMercuryEngine(state_dim=20)
