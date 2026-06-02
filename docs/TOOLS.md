@@ -123,7 +123,7 @@ behaviour already maps ``fail`` → exit 1, ``warn`` → exit 0).
 | Tool | What it proves |
 | --- | --- |
 | ``gate_trace_probe`` | Exercises every public detect/analyze/predict surface and emits a JSON of which gates (Benevolence, σ_Immutable, GOSNN) fired and in what order. |
-| ``killswitch_tester`` | Trips the Phase-5 OODA kill-switch under load and measures trip latency against the documented SLA. |
+| ``disconnect_tester`` | Engages the Phase-5 OODA Mercury/AMA Disconnect under load and measures response latency against the documented SLA. |
 | ``gosnn_scalar_dump`` | Emits the current omni-scalar values of a GOSNN instance as JSON. |
 | ``federated_round_simulator`` | Drives the federated aggregator through a synthetic 3-node round and verifies aggregation + DP noise injection. |
 

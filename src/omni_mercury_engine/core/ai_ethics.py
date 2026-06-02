@@ -673,7 +673,7 @@ class EthicalAutonomyGovernor:
             kw in params_str or kw in context_str for kw in control_keywords
         ):
             score += 0.15
-        if context.get("kill_switch_available", False):
+        if context.get("disconnect_available", False):
             score += 0.1
 
         return min(1.0, score)

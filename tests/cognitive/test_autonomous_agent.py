@@ -413,19 +413,19 @@ class TestOODAAgent:
         assert "decision" in results
         assert "reflection" in results
 
-    def test_kill_switch(self) -> None:
-        """Test kill switch functionality."""
+    def test_disconnect(self) -> None:
+        """Test Mercury/AMA Disconnect functionality."""
         agent = OODAAgent()
-        agent.activate_kill_switch()
+        agent.activate_disconnect()
 
-        assert agent._kill_switch is True
+        assert agent._disconnect_engaged is True
         assert agent.state == AgentState.ERROR
 
         with pytest.raises(RuntimeError):
             agent.observe({"event": "test"})
 
-        agent.deactivate_kill_switch()
-        assert agent._kill_switch is False
+        agent.deactivate_disconnect()
+        assert agent._disconnect_engaged is False
 
     def test_pause_resume(self) -> None:
         """Test pause and resume."""

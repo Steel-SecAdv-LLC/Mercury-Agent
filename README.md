@@ -152,7 +152,7 @@ Mercury Agent implements a comprehensive 7-phase cognitive architecture that pro
 | **Phase 2** | Symbolic Logic Layer | NetworkX-based logic graphs | Explainable decisions, threshold rules, inference chains |
 | **Phase 3** | Neuro-Symbolic Fusion | Hybrid anomaly scoring | Attention-based fusion, confidence weighting, neural-symbolic integration |
 | **Phase 4** | Enhanced Anomaly Detection | Memory knowledge graph | Bayesian predictor, HMM predictor, external data integration |
-| **Phase 5** | Autonomous Agent | OODA loop implementation | Observe-Orient-Decide-Act-Reflect, user synchronization, kill switch |
+| **Phase 5** | Autonomous Agent | OODA loop implementation | Observe-Orient-Decide-Act-Reflect, user synchronization, Mercury/AMA Disconnect |
 | **Phase 6** | Ethical Bounding | Benevolence scoring (>=0.99) | Harm reduction, equity calculation (Gini), empathy module |
 | **Phase 7** | Cognitive Evolution Engine | Recursive self-improvement | Self-play simulation, genetic rule mutation, theory-of-mind |
 

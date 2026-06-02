@@ -926,8 +926,8 @@ jobs:
           AMA_REQUIRE_REAL_PQC: "true"
         # Phase 1-7 cognitive architecture + safeguards + ethics framework.
         # All paths are blocking - there are no continue-on-error escape
-        # hatches here.  If the AI's reasoning, alignment, or kill-switch
-        # logic fails, the PR fails.
+        # hatches here.  If the AI's reasoning, alignment, or Mercury/AMA
+        # Disconnect logic fails, the PR fails.
         #
         # ``tests/ethical/`` is the regression suite for the hard
         # ethics-enforcement decision boundary contract documented in

@@ -40,9 +40,9 @@ from omni_mercury_engine.tools import (
     config_validator,
     convergence_proof_emitter,
     dataset_checksum_manifest,
+    disconnect_tester,
     helm_values_linter,
     image_surface_auditor,
-    killswitch_tester,
     loader_reachability_probe,
     oae_weight_certifier,
     release_manifest_builder,
@@ -265,16 +265,16 @@ def test_benchmark_diff_clean(tmp_path: Path) -> None:
     assert rc == 0
 
 
-def test_killswitch_tester_within_sla(tmp_path: Path) -> None:
+def test_disconnect_tester_within_sla(tmp_path: Path) -> None:
     out = tmp_path / "cert.json"
-    rc = killswitch_tester.main(
+    rc = disconnect_tester.main(
         ["--warmup", "20", "--max-iterations", "5000", "--output", str(out)]
     )
     cert = _load_cert(out)
-    assert cert["schema"] == "mercury.tools.killswitch_tester/v1"
+    assert cert["schema"] == "mercury.tools.disconnect_tester/v1"
     assert cert["status"] == "ok"
     assert cert["body"]["within_sla"] is True
-    assert cert["body"]["trip_latency_ms"] < 1000.0
+    assert cert["body"]["disconnect_latency_ms"] < 1000.0
     assert rc == 0
 
 

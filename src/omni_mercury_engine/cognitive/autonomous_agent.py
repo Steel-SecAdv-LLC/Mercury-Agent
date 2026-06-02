@@ -661,7 +661,7 @@ class OODAAgent:
         self.actions: list[ActionResult] = []
         self.reflections: list[Reflection] = []
 
-        self._kill_switch = False
+        self._disconnect_engaged = False
         self._paused = False
 
         self.audit_log: list[dict[str, Any]] = []
@@ -679,8 +679,8 @@ class OODAAgent:
         Returns:
             Observation object
         """
-        if self._kill_switch:
-            raise RuntimeError("Agent kill switch activated")
+        if self._disconnect_engaged:
+            raise RuntimeError("Mercury/AMA Disconnect is engaged")
 
         self._check_paused()
         self.state = AgentState.OBSERVING
@@ -720,8 +720,8 @@ class OODAAgent:
         Returns:
             Orientation object
         """
-        if self._kill_switch:
-            raise RuntimeError("Agent kill switch activated")
+        if self._disconnect_engaged:
+            raise RuntimeError("Mercury/AMA Disconnect is engaged")
 
         self._check_paused()
         self.state = AgentState.ORIENTING
@@ -780,8 +780,8 @@ class OODAAgent:
         Returns:
             Decision object
         """
-        if self._kill_switch:
-            raise RuntimeError("Agent kill switch activated")
+        if self._disconnect_engaged:
+            raise RuntimeError("Mercury/AMA Disconnect is engaged")
 
         self._check_paused()
         self.state = AgentState.DECIDING
@@ -848,8 +848,8 @@ class OODAAgent:
         Returns:
             ActionResult if executed, None if blocked
         """
-        if self._kill_switch:
-            raise RuntimeError("Agent kill switch activated")
+        if self._disconnect_engaged:
+            raise RuntimeError("Mercury/AMA Disconnect is engaged")
 
         self._check_paused()
 
@@ -939,8 +939,8 @@ class OODAAgent:
         Returns:
             Reflection object
         """
-        if self._kill_switch:
-            raise RuntimeError("Agent kill switch activated")
+        if self._disconnect_engaged:
+            raise RuntimeError("Mercury/AMA Disconnect is engaged")
 
         self.state = AgentState.REFLECTING
 
@@ -1028,19 +1028,24 @@ class OODAAgent:
             "reflection": reflection,
         }
 
-    def activate_kill_switch(self) -> None:
-        """Activate the kill switch to stop all operations."""
-        self._kill_switch = True
-        self.state = AgentState.ERROR
-        self._audit("kill_switch_activated", {})
-        logger.warning("Agent kill switch activated")
+    def activate_disconnect(self) -> None:
+        """Engage the Mercury/AMA Disconnect, halting all agent operations.
 
-    def deactivate_kill_switch(self) -> None:
-        """Deactivate the kill switch."""
-        self._kill_switch = False
+        This is the operator-controlled stop: the agent stands down and refuses
+        to act at the next step boundary. It is a reversible safety pause, not a
+        destructive action — see :meth:`deactivate_disconnect` to resume.
+        """
+        self._disconnect_engaged = True
+        self.state = AgentState.ERROR
+        self._audit("disconnect_engaged", {})
+        logger.warning("Mercury/AMA Disconnect engaged")
+
+    def deactivate_disconnect(self) -> None:
+        """Release the Mercury/AMA Disconnect and return the agent to idle."""
+        self._disconnect_engaged = False
         self.state = AgentState.IDLE
-        self._audit("kill_switch_deactivated", {})
-        logger.info("Agent kill switch deactivated")
+        self._audit("disconnect_released", {})
+        logger.info("Mercury/AMA Disconnect released")
 
     def pause(self) -> None:
         """Pause agent operations."""
@@ -1056,7 +1061,7 @@ class OODAAgent:
 
     def _check_paused(self) -> None:
         """Check if agent is paused and wait if so."""
-        while self._paused and not self._kill_switch:
+        while self._paused and not self._disconnect_engaged:
             time.sleep(0.1)
 
     def _assess_data_quality(self, data: dict[str, Any]) -> float:
@@ -1261,7 +1266,7 @@ class OODAAgent:
             "decisions": len(self.decisions),
             "actions": len(self.actions),
             "reflections": len(self.reflections),
-            "kill_switch": self._kill_switch,
+            "disconnect_engaged": self._disconnect_engaged,
             "paused": self._paused,
             "user_sync": self.user_sync.get_statistics(),
             "maintenance": self.maintenance.get_statistics(),

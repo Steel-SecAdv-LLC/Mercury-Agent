@@ -101,7 +101,7 @@ _TOOL_NAMES: Final[tuple[str, ...]] = (
     "config_secret_redactor",
     # Observability & runtime evidence
     "gate_trace_probe",
-    "killswitch_tester",
+    "disconnect_tester",
     "gosnn_scalar_dump",
     "federated_round_simulator",
     "opentelemetry_span_emitter",
