@@ -26,6 +26,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Detectors — concrete offline `StatisticalVLMDetector` un-retires the VLM surface (2026-06-02)
+
+Finishes the VLM half of ROADMAP **#3**: the public `detectors.vlm` path now
+ships a *concrete, instantiable, network-free* detector instead of only an
+abstract base. `detectors/vlm/statistical_vlm.py::StatisticalVLMDetector`
+implements all five `BaseVLMDetector` contract methods for real, with no
+`transformers` import and no model download:
+
+* `extract_features` returns a deterministic `[N, 8]` per-frame salience
+  statistics tensor (luma mean/std, H/V gradient energy, p10/p90, bright/dark
+  fractions); `detect` maps those to a calibrated `[0, 1]` anomaly score and
+  runs the genuine VQA control flow (`_create_prompt` → score →
+  `_parse_response`).
+* The base classes stay genuine `@abstractmethod` ABCs (the existing
+  not-instantiable / `__abstractmethods__` contract tests are unchanged) — the
+  surrogate is an *added* concrete subclass, not a weakening of the base.
+
+**Surrogate, with a remediation plan (not a retirement).** The production VLM
+backends (AnyAnomaly / LAVAD / BLIP) require `transformers` + a HuggingFace
+download of a multi-billion-parameter LVLM, which is an external dependency not
+available in every environment. Rather than retire the surface or leave an
+un-instantiable ABC, the statistical detector preserves the public contract
+offline; the module docstring documents the exact steps to graduate to a
+trained LVLM (`pip install '...[vlm]'`, revision-pinned `BLIPVLMDetector` /
+`get_lvlm_backend`). Coverage: `tests/test_vlm_detectors.py::TestStatisticalVLMDetector`
+(11 tests — offline instantiation, full-contract shapes, salience ordering
+[textured > flat], determinism, channel-last video, uint8 normalisation,
+prompt/response round-trip).
+
 ### Security / σ_Immutable Wave C — narrative voice + federation dual-gate, GOSNN bidirectional coupling (2026-06-02)
 
 Closes ROADMAP v1.7.x deferred items **#1** (σ_Immutable Wave C —
