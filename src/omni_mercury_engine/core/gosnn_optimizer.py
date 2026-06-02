@@ -371,11 +371,24 @@ class MultiHeadAttentionProvider(AttentionProvider):
 
         if d_model % num_heads != 0:
             raise ValueError(f"d_model ({d_model}) must be divisible by num_heads ({num_heads})")
-        if seed is not None:
-            torch.manual_seed(seed)
         self.d_model = d_model
         self.num_heads = num_heads
-        self._attn = nn.MultiheadAttention(d_model, num_heads, batch_first=True)
+        # Deterministic parameter init *without* leaking RNG to callers.
+        # ``nn.MultiheadAttention`` draws its weights from the global torch RNG
+        # and offers no ``generator=`` hook, so when a seed is requested we
+        # snapshot the global RNG, seed locally just for the construction, then
+        # restore it.  Building the provider therefore cannot perturb a caller's
+        # downstream randomness -- the leak a bare ``torch.manual_seed(seed)``
+        # here would introduce.
+        if seed is not None:
+            rng_state = torch.get_rng_state()
+            try:
+                torch.manual_seed(seed)
+                self._attn = nn.MultiheadAttention(d_model, num_heads, batch_first=True)
+            finally:
+                torch.set_rng_state(rng_state)
+        else:
+            self._attn = nn.MultiheadAttention(d_model, num_heads, batch_first=True)
         self._attn.eval()
         self._last_attention: np.ndarray[Any, Any] | None = None
 

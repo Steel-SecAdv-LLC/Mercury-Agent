@@ -484,7 +484,10 @@ class MercuryVoice:
 
         # Response timing available via time.time() for future performance tracking
         self._queries_handled += 1
-        domain = domain or self.default_domain
+        # Rebind to the same canonical safe label the ethical gate evaluated, so
+        # personality lookup, retriever search, and turn logging below can never
+        # receive an arbitrary caller-supplied domain string.
+        domain = sanitize_domain(domain or self.default_domain)
 
         # Record user turn
         self._record_turn(ConversationType.QUERY, "user", user_input)
@@ -552,7 +555,10 @@ class MercuryVoice:
 
         start_time = time.time()
         self._detections_narrated += 1
-        domain = domain or self.default_domain
+        # Rebind to the same canonical safe label the ethical gate evaluated, so
+        # detection logging and narrative synthesis below cannot receive an
+        # arbitrary caller-supplied domain string.
+        domain = sanitize_domain(domain or self.default_domain)
 
         # Log detection for future retrieval
         self.retriever.log_detection(detection_result, domain)

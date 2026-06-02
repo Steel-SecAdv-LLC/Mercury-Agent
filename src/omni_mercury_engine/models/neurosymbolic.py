@@ -27,11 +27,15 @@ Unified Neurosymbolic Engine - Fusion of neural networks and symbolic reasoning
     (adaptive ``symbolic_weight`` schedule + conformal uncertainty on the
     serve path).  ``NeurosymbolicEngine`` here is a *symbolic-rules + ethical
     rules* reference surface; its neural-confidence path is a **deterministic
-    statistical heuristic**, not a trained network.  The previous
+    statistical heuristic**, not a trained network.  The original
     ``LogicTensorNetwork`` (a never-trained ``nn.Module`` whose forward pass
-    returned random-init noise) was **retired (2026-06-02)** — no untrained
-    "LTN" is constructed any more.  New code that wants genuine co-trained
-    neuro-symbolic inference must use ``ml/symbolic_constraint.py``.
+    returned random-init noise) had that **random-init network removed
+    (2026-06-02)**: the surface is now a **thin SCM-backed wrapper** whose
+    :meth:`LogicTensorNetwork.predict` delegates to
+    :meth:`SymbolicConstraintModule.predict` — a deterministic uniform-weight
+    consensus when untrained, and the module's learned detector reliabilities
+    when co-trained.  New code that wants genuine co-trained neuro-symbolic
+    inference should use that canonical module in ``ml/symbolic_constraint.py``.
 
 This module provides symbolic-reasoning + deterministic neural-heuristic
 capabilities for Mercury Agent:

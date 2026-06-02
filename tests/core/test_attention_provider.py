@@ -66,6 +66,28 @@ class TestMultiHeadAttentionProvider:
         b = MultiHeadAttentionProvider(d_model=64, num_heads=8, seed=7).observe(seq)
         np.testing.assert_allclose(a, b)
 
+    def test_construction_does_not_leak_global_rng(self) -> None:
+        """Building a *seeded* provider must not mutate the global torch RNG.
+
+        The seed is applied locally (snapshot/restore around parameter init),
+        so constructing the provider cannot perturb a caller's downstream
+        randomness.  Without the save/restore, the post-construction draw below
+        would shift because the constructor would have re-seeded the global RNG.
+        """
+        import torch
+
+        torch.manual_seed(12345)
+        expected = torch.rand(4)
+
+        torch.manual_seed(12345)
+        # Construct seeded providers *between* seeding and drawing: a leaked
+        # global ``manual_seed`` inside the constructor would change ``got``.
+        MultiHeadAttentionProvider(d_model=64, num_heads=8, seed=7)
+        MultiHeadAttentionProvider(d_model=32, num_heads=4, seed=999)
+        got = torch.rand(4)
+
+        np.testing.assert_array_equal(got.numpy(), expected.numpy())
+
     def test_accepts_batched_input(self) -> None:
         provider = MultiHeadAttentionProvider(d_model=64, num_heads=8, seed=0)
         seq = np.random.default_rng(0).standard_normal((3, 9, 64))  # (batch, seq, d)
