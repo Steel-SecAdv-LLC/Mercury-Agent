@@ -406,6 +406,16 @@ class MultiHeadAttentionProvider(AttentionProvider):
         return self._last_attention
 
     def get_attention(self) -> np.ndarray[Any, Any]:
+        """Return the per-head attention scores cached by the last :meth:`observe`.
+
+        Returns:
+            The most-recent ``(num_heads, seq_len, seq_len)`` attention scores.
+
+        Raises:
+            RuntimeError: If :meth:`observe` has not been run yet (no forward
+                pass), so the optimizer honestly skips the metric instead of
+                scoring noise.
+        """
         if self._last_attention is None:
             raise RuntimeError(
                 "No attention available: call observe(sequence) before "

@@ -123,6 +123,9 @@ def evaluate(epochs: int = GATE_EPOCHS, seed: int = SEED) -> dict[str, Any]:
     f1 = _f1_at(probs, y_test)
 
     engine.calibrate_fusion_conformal(x[cal_idx], y[cal_idx], coverage=GATE_COVERAGE_TARGET)
+    # ``calibrate_fusion_conformal`` populates ``_fusion_conformal``; assert so
+    # mypy can narrow the ``Optional`` (and the call fails closed if it did not).
+    assert engine._fusion_conformal is not None
     report = engine._fusion_conformal.coverage_report(
         np.asarray(engine.score_fusion(x[test_idx])), y_test
     )

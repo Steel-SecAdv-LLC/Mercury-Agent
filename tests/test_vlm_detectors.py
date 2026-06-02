@@ -214,16 +214,18 @@ class TestBaseVLMDetector:
         class _Concrete(BaseVLMDetector):
             def _initialize_model(self) -> None: ...
 
-            def _create_prompt(self, anomaly_description, context=None):  # type: ignore[no-untyped-def]
+            def _create_prompt(
+                self, anomaly_description: str, context: dict[str, Any] | None = None
+            ) -> str:
                 return ""
 
-            def _parse_response(self, response):  # type: ignore[no-untyped-def]
+            def _parse_response(self, response: str) -> tuple[bool, float, str]:
                 return (False, 0.0, "")
 
-            def detect(self, data):  # type: ignore[no-untyped-def]
+            def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
                 return {}
 
-            def extract_features(self, data):  # type: ignore[no-untyped-def]
+            def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
                 return torch.zeros(1)
 
         detector = _Concrete()

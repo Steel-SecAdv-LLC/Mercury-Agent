@@ -260,13 +260,13 @@ def _concrete_visual_detector() -> Any:
     from omni_mercury_engine.detectors.visual.base_visual import BaseVisualDetector
 
     class _Concrete(BaseVisualDetector):
-        def fit(self, data):  # type: ignore[no-untyped-def]
+        def fit(self, data: Any) -> BaseVisualDetector:
             return self
 
-        def detect(self, data):  # type: ignore[no-untyped-def]
+        def detect(self, data: Any) -> dict[str, Any]:
             return {}
 
-        def extract_features(self, data):  # type: ignore[no-untyped-def]
+        def extract_features(self, data: Any) -> torch.Tensor:
             return torch.zeros(1)
 
     return _Concrete()

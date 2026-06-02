@@ -58,6 +58,7 @@ class TestRetrieve:
 
         result = r.retrieve({"x": 0.78, "y": 0.22}, k=2)
         # Nearest case is the best match with high similarity.
+        assert result.best_match is not None
         assert result.best_match.case_id == "near"
         assert result.best_similarity > 0.9
         # Retrieval bookkeeping: the retrieved cases' counters incremented.

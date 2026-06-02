@@ -26,7 +26,7 @@ from omni_mercury_engine.engine import OmniMercuryEngine, default_fusion_checkpo
 def loaded_engine() -> OmniMercuryEngine:
     """A fusion engine with the shipped default checkpoint loaded."""
     eng = OmniMercuryEngine(mode="fusion", device="cpu")
-    eng.load_model(default_fusion_checkpoint_path())
+    eng.load_model(str(default_fusion_checkpoint_path()))
     return eng
 
 

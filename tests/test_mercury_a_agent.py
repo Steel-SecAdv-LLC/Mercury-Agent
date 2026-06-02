@@ -18,6 +18,8 @@ ethical gate that cannot be swallowed by the execution ``try/except``.
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pytest
 
@@ -35,12 +37,12 @@ def _task(
     description: str,
     *,
     tool: str | None = None,
-    tool_args: dict | None = None,
+    tool_args: dict[str, Any] | None = None,
     deps: list[str] | None = None,
     task_id: str = "t1",
     domain: DomainType = DomainType.GENERAL,
 ) -> Task:
-    meta: dict = {}
+    meta: dict[str, Any] = {}
     if tool is not None:
         meta["tool"] = tool
     if tool_args is not None:
