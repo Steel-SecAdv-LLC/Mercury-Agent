@@ -206,6 +206,31 @@ The adaptive-default and neural-only-escape (`symbolic_weight=0.0`) contracts
 remain pinned by the existing `test_adaptive_is_the_default` /
 `test_zero_weight_has_no_symbolic_state`.
 
+### Cognitive — behavioural coverage for knowledge-graph + case-based reasoning (2026-06-02)
+
+The largest cognitive file (`knowledge_graph.py`, 2109 LOC) and
+`case_based_reasoning.py` had public methods that were import-clean-only (no
+behavioural assertions).  Added behavioural tests pinning *algorithmic
+correctness* (not anomaly-detection salvage — the DORMANCY_LEDGER measured
+both at chance as detectors, a verdict left unchanged):
+
+* `tests/cognitive/test_knowledge_graph_behavioral.py` (15 tests) —
+  random-walk **embedding recovery** on a known two-cluster graph (intra >
+  inter cosine over 5 seeds), `GNNMessagePassing.forward` shape + neighbour
+  propagation, `LinkPredictor` / `KnowledgeGraph.predict_links` recovery of a
+  held-out intra-cluster edge, and transitive-closure / symmetric-relation
+  inference (including the empty result for non-transitive predicates).  Also
+  documents that `RandomWalkEmbedding.fit` shuffles its `node_ids` argument
+  in place.
+* `tests/cognitive/test_case_based_reasoning_behavioral.py` (11 tests) —
+  retrieval ranking + retrieval-count bookkeeping, domain filtering, the
+  REUSE-vs-REVISE branch in `solve` (with the honest `no_matching_cases`
+  result on an empty base), proportional `adapt` (numeric solution params
+  whose key references the changed feature scale; unrelated params untouched)
+  + adaptation history, and `learn_from_outcome` state updates.
+
+DORMANCY_LEDGER rows #6 / #9 updated to note the new behavioural coverage.
+
 ### USGS Geochemistry — real NURE-HSSR downloader (2026-05-23)
 
 `USGSGeochemistryLoader._download_from_usgs` was previously a literal
