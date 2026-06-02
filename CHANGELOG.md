@@ -100,6 +100,50 @@ Coverage:
   absolute post-step weights; plus `install_global_state` round-trip /
   reshape-fails-closed coverage.
 
+### Agentic — RL policy in the loop + real task execution, fail-closed (2026-06-02)
+
+Truthing-up the autonomous-agent surfaces flagged in the v1.7 audit.
+
+**`agentic/agentic_autonomy.py` — the RL policy now actually steers.**
+`autonomous_detect` previously hardcoded `_decide_action → "flag_anomaly"`
+and never consulted the Q-table, leaving `select_action_with_policy`,
+experience replay, and reward shaping as dead machinery.  It now derives an
+observation state, lets the **epsilon-greedy Q-policy** choose the action
+type (explore vs. exploit), materialises that action, and learns from it.
+The selection-time state features are carried on the `AgentAction` so the
+TD update writes the exact Q-key the policy read (no off-by-one drift from
+`action_history` mutating between selection and learning).  `_decide_action`
+now produces action-type-specific parameters and rationale.
+
+**`agentic/mercury_a_agent.py` — `_execute_task` does real work.**
+The prior implementation was a no-op that always returned `completed` with
+`output=f"Executed: {description}"`, forcing `success_rate` to 1.0.  It now:
+
+* runs a **fail-closed ethical gate** first (scores the task via
+  `BenevolenceScorer.enforce`, `sanitize_domain` on the domain hint), placed
+  *before* the execution `try/except` so a harmful task halts the plan
+  instead of being recorded as a benign result — mirroring the OODA
+  reference (`cognitive/autonomous_agent.py`);
+* dispatches a task that binds a registered tool (`task.metadata['tool']`)
+  to that tool for real, with genuine success / failure (a raising tool →
+  `status="failed"` with the error captured; the analysed batch is injected
+  as `data=` for tools that accept it);
+* marks a task with no bound tool as an honest `status="skipped"` — never a
+  fabricated `completed`.  `_execute_plan` now measures `success_rate` over
+  *executed* tasks, so a pure-reasoning plan reports `0.0`, not `1.0`.
+
+Coverage (both files previously had **zero** behavioural tests for these
+paths):
+
+* `tests/test_agentic_autonomy.py::TestReinforcementLearningPolicy` — Q-table
+  writes (`new_q == lr·reward`), reward-shaping contract, epsilon-greedy
+  exploit-best-Q vs. explore-all-actions, experience-replay convergence
+  logging, exploration decay, selection/learn Q-key consistency.
+* `tests/test_mercury_a_agent.py` (new, 12 tests) — real tool dispatch,
+  genuine tool failure, unregistered-tool failure, honest skip, fail-closed
+  ethical block (and that the tool never runs on a blocked task),
+  success-rate accounting, dependency gating, end-to-end `analyze`.
+
 ### USGS Geochemistry — real NURE-HSSR downloader (2026-05-23)
 
 `USGSGeochemistryLoader._download_from_usgs` was previously a literal

@@ -44,6 +44,12 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from omni_mercury_engine.cognitive.ethical_bounding import (
+    MINIMUM_BENEVOLENCE_FLOOR,
+    BenevolenceScorer,
+    sanitize_domain,
+)
+
 if TYPE_CHECKING:
     from collections.abc import Callable
 
@@ -815,6 +821,13 @@ class MercuryAgent:
         self.execution_history: list[dict[str, Any]] = []
         self.tools: dict[str, Callable[..., Any]] = {}
 
+        # Fail-closed ethical gate on the execution path (mirrors the OODA
+        # reference's pre-act ethical check).  Constructed eagerly; the floor
+        # matches the engine/orchestrator boundary contract.
+        self._benevolence_scorer = BenevolenceScorer(
+            benevolence_threshold=MINIMUM_BENEVOLENCE_FLOOR
+        )
+
         self.logger = logging.getLogger(__name__)
         self.logger.info(
             f"Mercury Agent '{name}' initialized (calibration={'enabled' if enable_calibration else 'disabled'})"
@@ -937,9 +950,15 @@ class MercuryAgent:
         return state
 
     def _execute_plan(self, plan: PlanResult, context: dict[str, Any]) -> dict[str, Any]:
-        """Execute a plan's tasks."""
+        """Execute a plan's tasks.
+
+        ``success_rate`` is measured over *executed* tasks (completed +
+        failed); honestly-skipped tasks (no tool bound) do not inflate it, so
+        a plan of pure reasoning tasks no longer reports a fabricated 1.0.
+        """
         tasks_completed: int = 0
         tasks_failed: int = 0
+        tasks_skipped: int = 0
         task_results: list[dict[str, Any]] = []
 
         for task in plan.tasks:
@@ -949,45 +968,126 @@ class MercuryAgent:
             task_result = self._execute_task(task, context)
             task_results.append(task_result)
 
-            if task_result["status"] == "completed":
+            status = task_result["status"]
+            if status == "completed":
                 tasks_completed += 1
+            elif status == "skipped":
+                tasks_skipped += 1
             else:
                 tasks_failed += 1
 
-        success_rate = tasks_completed / len(plan.tasks) if plan.tasks else 0.0
+        executed = tasks_completed + tasks_failed
+        success_rate = tasks_completed / executed if executed else 0.0
 
         return {
             "plan_id": plan.plan_id,
             "tasks_completed": tasks_completed,
             "tasks_failed": tasks_failed,
+            "tasks_skipped": tasks_skipped,
             "task_results": task_results,
             "success_rate": success_rate,
         }
 
+    def _enforce_task_ethics(self, task: Task) -> None:
+        """Fail-closed ethical gate on a task before any tool side-effect.
+
+        Mirrors the OODA reference (`cognitive/autonomous_agent.py`), which
+        scores the decision and refuses to act below its ethical threshold.
+        Here the *task itself* is scored (its description rides into the
+        action text alongside the agent's defensive-purpose keywords), so a
+        harmful goal that propagated into a task description fails closed —
+        the violation propagates as :class:`EthicalConstraintViolationError`
+        and halts the plan rather than being recorded as a benign result.
+        Domain hints are collapsed by ``sanitize_domain`` first.
+        """
+        safe_domain = sanitize_domain(getattr(task.domain, "value", str(task.domain)))
+        action = (
+            f"agentic_task:{safe_domain}:{task.description} audit verify protect "
+            "research evidence fair oversight monitor data care help support"
+        )
+        context = {
+            "purpose": "autonomous anomaly-analysis task execution",
+            "safety": "protect verify monitor evidence",
+            "domain": safe_domain,
+        }
+        # ``enforce`` raises EthicalConstraintViolationError on violation; it is
+        # intentionally NOT wrapped in the execution try/except below.
+        self._benevolence_scorer.enforce(action, context)
+
     def _execute_task(self, task: Task, context: dict[str, Any]) -> dict[str, Any]:
-        """Execute a single task."""
+        """Execute a single task by dispatching to a bound tool.
+
+        Real execution with genuine success/failure outcomes (replacing the
+        prior no-op that always reported ``completed``):
+
+        * The fail-closed ethical gate runs first and is not swallowed.
+        * A task that binds a registered tool via ``task.metadata['tool']``
+          is executed for real with ``task.metadata.get('tool_args', {})``;
+          a raising tool yields ``status="failed"`` with the error captured.
+        * An unregistered tool yields ``status="failed"``.
+        * A task with no bound tool yields an honest ``status="skipped"`` —
+          never a fabricated ``completed``.
+
+        ``context['data']`` is injected as ``data=`` for tools that accept it,
+        so detection-style tools can run on the analysed batch.
+        """
         task.status = "executing"
 
-        try:
-            result = {
+        # Fail-closed ethical gate (propagates; not inside the try/except).
+        self._enforce_task_ethics(task)
+
+        tool_name = task.metadata.get("tool")
+        if tool_name is None:
+            task.status = "skipped"
+            return {
                 "task_id": task.task_id,
                 "description": task.description,
-                "status": "completed",
-                "output": f"Executed: {task.description}",
+                "status": "skipped",
+                "reason": "no tool bound (task.metadata['tool'] unset)",
             }
-            task.status = "completed"
-            task.completed_at = time.time()
-
-        except Exception as e:
-            result = {
+        if tool_name not in self.tools:
+            task.status = "failed"
+            return {
                 "task_id": task.task_id,
                 "description": task.description,
                 "status": "failed",
+                "tool": tool_name,
+                "error": f"tool '{tool_name}' is not registered",
+            }
+
+        tool = self.tools[tool_name]
+        tool_args = dict(task.metadata.get("tool_args", {}))
+        # Offer the analysed batch to tools that declare a ``data`` parameter.
+        if "data" not in tool_args and "data" in context:
+            try:
+                import inspect
+
+                if "data" in inspect.signature(tool).parameters:
+                    tool_args["data"] = context["data"]
+            except (TypeError, ValueError):
+                pass
+
+        try:
+            output = tool(**tool_args)
+            task.result = output
+            task.status = "completed"
+            task.completed_at = time.time()
+            return {
+                "task_id": task.task_id,
+                "description": task.description,
+                "status": "completed",
+                "tool": tool_name,
+                "output": output,
+            }
+        except Exception as e:  # genuine tool execution failure
+            task.status = "failed"
+            return {
+                "task_id": task.task_id,
+                "description": task.description,
+                "status": "failed",
+                "tool": tool_name,
                 "error": str(e),
             }
-            task.status = "failed"
-
-        return result
 
     def _check_dependencies(self, task: Task, completed_results: list[dict[str, Any]]) -> bool:
         """Check if task dependencies are satisfied."""
