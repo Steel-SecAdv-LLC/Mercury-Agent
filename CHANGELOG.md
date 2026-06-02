@@ -144,6 +144,32 @@ paths):
   ethical block (and that the tool never runs on a blocked task),
   success-rate accounting, dependency gating, end-to-end `analyze`.
 
+### Detectors — VLM / visual base contracts are now honest ABCs (2026-06-02)
+
+Closes ROADMAP v1.7.x deferred items **#3** (VLM detector surface) and
+**#4** (visual base detector).  Both bases previously raised
+`NotImplementedError` from their contract methods — an ambiguous stub on a
+public path.  They are now genuine `@abstractmethod` declarations:
+
+* `detectors/vlm/base_vlm.py::BaseVLMDetector` — `_initialize_model`,
+  `_create_prompt`, `_parse_response`, `detect`, `extract_features` are
+  abstract; the class is explicitly **experimental** (the 2026-05 strategic
+  decision keeps native detectors and does not ship BLIP/GPT adapters).
+* `detectors/visual/base_visual.py::BaseVisualDetector` — `fit`, `detect`,
+  `extract_features` are abstract; the native SOTA detectors (PatchCore,
+  PaDiM, STFPM, ReverseDistillation, CFlow) remain the concrete
+  implementations.
+
+Direct instantiation of either base now raises `TypeError` (the honest
+Python idiom) rather than constructing an object whose methods explode at
+call time — no `NotImplementedError` remains on the public detector API.
+Concrete subclasses are unaffected (all already implement every contract
+method).  Coverage: `tests/test_vlm_detectors.py::TestBaseVLMDetector` and
+`tests/test_visual_detectors.py::TestBaseVisualDetector` pin the abstract
+contract (not-instantiable + `__abstractmethods__` set) and exercise the
+concrete helpers (`_sample_frames`, `preprocess`, `postprocess`) via minimal
+concrete subclasses.
+
 ### USGS Geochemistry — real NURE-HSSR downloader (2026-05-23)
 
 `USGSGeochemistryLoader._download_from_usgs` was previously a literal

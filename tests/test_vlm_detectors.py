@@ -178,25 +178,56 @@ class TestLAVADDetector:
 
 @pytest.mark.skipif(not HAS_TORCH, reason="torch not installed")
 class TestBaseVLMDetector:
-    """Tests for base VLM detector class."""
+    """Contract tests for the experimental VLM detector base (ROADMAP #3).
 
-    def test_base_vlm_initialization(self) -> None:
-        """Test BaseVLMDetector can be initialized."""
+    The base is a genuine ABC: the five contract methods are
+    ``@abstractmethod`` (no ``NotImplementedError`` stub on the public path),
+    so the base cannot be instantiated directly.
+    """
+
+    def test_base_is_abstract_not_instantiable(self) -> None:
+        """Direct instantiation raises TypeError, not a runtime NotImplementedError."""
         from omni_mercury_engine.detectors.vlm import BaseVLMDetector
 
-        detector = BaseVLMDetector()
-        assert detector is not None
+        with pytest.raises(TypeError):
+            BaseVLMDetector()  # type: ignore[abstract]
 
-    def test_frame_sampling(self) -> None:
-        """Test frame sampling functionality."""
+    def test_contract_methods_are_abstract(self) -> None:
+        """The five contract methods are declared abstract."""
         from omni_mercury_engine.detectors.vlm.base_vlm import BaseVLMDetector
 
-        detector = BaseVLMDetector()
+        assert BaseVLMDetector.__abstractmethods__ == frozenset(
+            {
+                "_initialize_model",
+                "_create_prompt",
+                "_parse_response",
+                "detect",
+                "extract_features",
+            }
+        )
 
+    def test_frame_sampling(self) -> None:
+        """The concrete ``_sample_frames`` helper works on a concrete subclass."""
+        from omni_mercury_engine.detectors.vlm.base_vlm import BaseVLMDetector
+
+        class _Concrete(BaseVLMDetector):
+            def _initialize_model(self) -> None: ...
+
+            def _create_prompt(self, anomaly_description, context=None):  # type: ignore[no-untyped-def]
+                return ""
+
+            def _parse_response(self, response):  # type: ignore[no-untyped-def]
+                return (False, 0.0, "")
+
+            def detect(self, data):  # type: ignore[no-untyped-def]
+                return {}
+
+            def extract_features(self, data):  # type: ignore[no-untyped-def]
+                return torch.zeros(1)
+
+        detector = _Concrete()
         # Create mock video [T, H, W, C]
         video = torch.randn(30, 224, 224, 3)
-
-        # Sample frames
         sampled = detector._sample_frames(video, n_frames=8)
         assert len(sampled) == 8
 

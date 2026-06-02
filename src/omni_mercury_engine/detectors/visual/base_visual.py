@@ -23,6 +23,7 @@ Provides unified interface for all visual anomaly detection algorithms,
 ensuring consistent API across PatchCore, PaDiM, STFPM, and other methods.
 """
 
+from abc import abstractmethod
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any
@@ -77,6 +78,15 @@ class VisualDetectorConfig:
 class BaseVisualDetector(BaseDetector, nn.Module):
     """
     Abstract base class for visual anomaly detectors.
+
+    .. note:: **Honest abstract contract (ROADMAP deferred item #4).**
+        ``fit`` / ``detect`` / ``extract_features`` are genuine
+        ``@abstractmethod`` declarations, so :class:`BaseVisualDetector`
+        cannot be instantiated directly (a ``TypeError`` is raised) — there
+        is no ``NotImplementedError`` stub on the public path. The native
+        SOTA detectors (PatchCore, PaDiM, STFPM, ReverseDistillation, CFlow)
+        are the concrete implementations, consistent with the 2026-05
+        strategic decision to keep native detectors.
 
     Extends BaseDetector with visual-specific functionality including
     image preprocessing, feature extraction, and anomaly map generation.
@@ -288,6 +298,7 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         kernel = kernel / kernel.sum()
         return kernel.view(1, 1, kernel_size, kernel_size)
 
+    @abstractmethod
     def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> BaseVisualDetector:
         """
         Fit detector to normal (non-anomalous) images.
@@ -298,11 +309,11 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         Returns:
             Self for method chaining
 
-        Note:
-            Subclasses must override this method.
+        Abstract contract — every native visual detector implements this.
         """
-        raise NotImplementedError("Subclasses must implement fit() for visual detectors.")
+        ...
 
+    @abstractmethod
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """
         Detect anomalies in images.
@@ -317,11 +328,11 @@ class BaseVisualDetector(BaseDetector, nn.Module):
                 - is_anomaly: Binary anomaly flags [N]
                 - features: Extracted features for fusion [N, D]
 
-        Note:
-            Subclasses must override this method.
+        Abstract contract — every native visual detector implements this.
         """
-        raise NotImplementedError("Subclasses must implement detect() for visual detectors.")
+        ...
 
+    @abstractmethod
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
         """
         Extract features for ML fusion pipeline.
@@ -332,12 +343,9 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         Returns:
             Feature tensor [N, feature_dim] normalized for fusion
 
-        Note:
-            Subclasses must override this method.
+        Abstract contract — every native visual detector implements this.
         """
-        raise NotImplementedError(
-            "Subclasses must implement extract_features() for visual detectors."
-        )
+        ...
 
     def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         """
