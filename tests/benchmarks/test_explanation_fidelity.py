@@ -47,3 +47,36 @@ def test_explainer_and_evaluator_run() -> None:
     scores = FaithfulnessEvaluator().evaluate(predict_fn, x_te[0], expl)
     assert "comprehensiveness" in scores
     assert np.isfinite(scores["comprehensiveness"])
+
+
+def test_faithfulness_non_regression_comprehensiveness_and_recovery() -> None:
+    """IG is faithful above random and recovers the informative features.
+
+    This is the committed faithfulness *non-regression* gate (WS5): it pins the
+    two contracts the serve-path explainer relies on, so a future change that
+    quietly breaks attribution quality fails CI rather than landing silently.
+
+    - Comprehensiveness: removing IG's top-ranked features moves the prediction
+      *more* than removing random features (``comp_ig > comp_random + 0.01``).
+    - Recovery@k: IG's top-k attributions land on the genuinely-informative
+      features well above chance (``recovery > 2 * chance``).
+
+    Mirrors the harness verdict (``benchmarks/explanation_fidelity.py``); two
+    seeds keep the gate fast while still averaging out per-seed noise.
+    """
+    from benchmarks.explanation_fidelity import run
+
+    seeds = (0, 1)
+    results = [run(s) for s in seeds]
+    mean_comp_ig = float(np.mean([r["comprehensiveness_ig"] for r in results]))
+    mean_comp_random = float(np.mean([r["comprehensiveness_random"] for r in results]))
+    mean_recovery = float(np.mean([r["recovery_at_k"] for r in results]))
+    chance = results[0]["chance_recovery"]
+
+    assert mean_comp_ig > mean_comp_random + 0.01, (
+        f"IG comprehensiveness {mean_comp_ig:.3f} not above random "
+        f"{mean_comp_random:.3f} + 0.01"
+    )
+    assert (
+        mean_recovery > 2 * chance
+    ), f"IG recovery@k {mean_recovery:.3f} not above 2x chance {2 * chance:.3f}"

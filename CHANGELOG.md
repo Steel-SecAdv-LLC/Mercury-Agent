@@ -26,6 +26,400 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Neuro-symbolic — `LogicTensorNetwork` re-wired to the canonical co-trained module (2026-06-02)
+
+Reverses PR #269's *retirement* of `LogicTensorNetwork` in favour of **wiring**
+it (the mission's "do not retire — implement its predict to call the canonical
+co-trained symbolic module"). The original class was a never-trained `nn.Module`
+whose random-init noise fed fusion as if a neural confidence; rather than delete
+the surface, it is rebuilt as a thin head over the canonical co-trained module:
+
+* **`SymbolicConstraintModule.predict(detector_scores) -> (B,)`** — new public
+  per-sample inference API exposing the module's fuzzy-logic `Consensus`
+  predicate (the *same* component co-trained with real gradients inside
+  `fit_fusion`). Fails closed on a shape/width mismatch.
+* **`models/neurosymbolic.py::LogicTensorNetwork`** is re-introduced as an
+  SCM-backed wrapper: `predict()` routes detector scores through
+  `SymbolicConstraintModule.predict`. **No random init** — an untrained module's
+  zero-initialised parameters yield a deterministic uniform-weight consensus; a
+  co-trained module (e.g. restored from a fusion checkpoint via `module=`)
+  applies its learned detector reliabilities. `NeurosymbolicEngine.ltn` is built
+  when torch is importable (honestly reported by `get_statistics`:
+  `ltn_available`, `ltn_backend="symbolic_constraint_module"`).
+* The raw-feature `neural_inference` is **kept** as an honestly-labelled
+  deterministic dispersion heuristic (it is a per-feature statistic, *not* a
+  trained signal, and says so) — distinct from the trained-capable detector
+  consensus now reachable via `ltn.predict`.
+
+Tests: `tests/ml/test_symbolic_constraint.py::TestPredictInference` (6 tests:
+per-sample shape/range, matches the consensus predicate, monotone in scores,
+zero-detector trivial case, fail-closed shape checks) and
+`tests/test_neurosymbolic_integration.py::{test_ltn_is_wired_to_canonical_symbolic_module,
+test_ltn_predict_delegates_to_symbolic_consensus}` (LTN exists, is SCM-backed,
+delegates exactly, deterministic, monotone). The prior `*_is_retired` assertions
+are flipped to wired assertions. `black`/`ruff`/`flake8` clean; `mypy --strict`
+clean on both changed source files.
+
+### MLOps — fusion AUC/F1 + conformal-coverage CI regression gate (2026-06-02)
+
+Finishes the WS5/WS6 "MLOps train→eval→register CI regression gates" item
+deferred by PR #269. The fusion train→eval→register pipeline + AUC/ECE sweep
+artifacts existed, but **no CI gate pinned the fusion AUC/F1 or the conformal
+coverage floor**, so a fusion-stack regression could merge silently.
+
+* **`benchmarks/fusion_regression_guard.py`** — deterministically trains the
+  real fusion path on a fixed seeded synthetic corpus (`symbolic_weight=0.0`,
+  `seed=20260526`), evaluates held-out AUC + F1, and measures empirical conformal
+  coverage from a disjoint calibration split. `--update` re-pins the committed
+  baseline (`benchmarks/fusion_capacity/fusion_gate_baseline.json`) **and** emits
+  a timestamped metrics artifact under `artifacts/fusion/<ts>/metrics.json`;
+  `--check` exits non-zero if AUC/F1 fall below `baseline − margin` or empirical
+  coverage drops below `target − 0.05`. Mirrors the existing
+  `anomaly_regression_guard.py` pattern.
+* **`.github/workflows/fusion-regression.yml`** — runs the gate on every PR to
+  `main`/`develop` (+ weekly + dispatch): builds AMA Cryptography (v3.2.0),
+  installs `.[ml]`, runs the fast gate-logic unit tests, then the real
+  `--check`.
+* **Committed measurement.** First baseline (`seed=20260526`, 8 epochs):
+  **AUC=1.0000, F1=0.9851, empirical coverage=0.9521** (target 0.90); the gate
+  `--check` re-trains and passes against it.
+
+**Why train, not load the shipped checkpoint.** A diagnostic found the
+checkpoint round-trip drifts per-sample probabilities (max |Δ|≈0.76; AUC
+survives at Δ≈0.002 but absolute probabilities — hence F1@0.5 / coverage — do
+not), and the shipped `default_fusion.pt` underperforms in-distribution
+(AUC≈0.70, base detectors auto-fit on inference because their state isn't
+persisted). The gate therefore trains in-process for a bit-stable measurement
+of *achievable* performance; the round-trip drift is a tracked follow-up (see
+ROADMAP). Tests: `tests/benchmarks/test_fusion_regression_guard.py` (5 fast
+gate-logic tests: floors, pass, AUC regression, coverage collapse, missing
+baseline).
+
+### Explainability — IntegratedGradients + faithfulness on the fusion serve path (2026-06-02)
+
+Finishes the WS5 "explanations on the serve path" item deferred by PR #269: the
+validated `IntegratedGradientsExplainer` + `FaithfulnessEvaluator`
+(`cognitive/explainability.py`, DORMANCY_LEDGER #3) are now wired into the
+detection path instead of living only in the benchmark harness.
+
+* `OmniMercuryEngine.detect_with_fusion(..., explain=False)` gained an opt-in
+  `explain` flag. When `True`, it attaches `result["explanation"]` — an IG
+  attribution of **the same `score_fusion` calibrated probability the result
+  reports** (so the explanation explains the served decision, not a proxy) plus
+  its faithfulness scores (comprehensiveness / sufficiency / monotonicity). The
+  attribution is computed by the new private helper `_explain_fusion_decision`.
+* Opt-in (default `False`) because IG over the full fusion stack costs
+  finite-difference forward passes per feature × interpolation step; steps are a
+  module constant (`_EXPLAIN_IG_STEPS = 32`, matching the harness) so tests/CI
+  can turn it down.
+
+**Faithfulness non-regression gate (measurement).**
+`tests/benchmarks/test_explanation_fidelity.py::test_faithfulness_non_regression_comprehensiveness_and_recovery`
+pins, across seeds, that IG comprehensiveness exceeds a random-attribution
+baseline by > 0.01 **and** recovery@k of the genuinely-informative features
+exceeds 2× chance — the same contract as the harness verdict, so a future
+attribution regression fails CI. Serve-path wiring is locked by
+`tests/test_fusion_explainability.py` (explanation absent by default; present,
+well-formed, JSON-serialisable, and matching the served probability when
+requested). Measured this run: comprehensiveness(IG) ≈ 0.40 vs random ≈ 0.22,
+recovery@k ≈ 0.68 (chance 0.30).
+
+### Detectors — concrete offline `StatisticalVLMDetector` un-retires the VLM surface (2026-06-02)
+
+Finishes the VLM half of ROADMAP **#3**: the public `detectors.vlm` path now
+ships a *concrete, instantiable, network-free* detector instead of only an
+abstract base. `detectors/vlm/statistical_vlm.py::StatisticalVLMDetector`
+implements all five `BaseVLMDetector` contract methods for real, with no
+`transformers` import and no model download:
+
+* `extract_features` returns a deterministic `[N, 8]` per-frame salience
+  statistics tensor (luma mean/std, H/V gradient energy, p10/p90, bright/dark
+  fractions); `detect` maps those to a calibrated `[0, 1]` anomaly score and
+  runs the genuine VQA control flow (`_create_prompt` → score →
+  `_parse_response`).
+* The base classes stay genuine `@abstractmethod` ABCs (the existing
+  not-instantiable / `__abstractmethods__` contract tests are unchanged) — the
+  surrogate is an *added* concrete subclass, not a weakening of the base.
+
+**Surrogate, with a remediation plan (not a retirement).** The production VLM
+backends (AnyAnomaly / LAVAD / BLIP) require `transformers` + a HuggingFace
+download of a multi-billion-parameter LVLM, which is an external dependency not
+available in every environment. Rather than retire the surface or leave an
+un-instantiable ABC, the statistical detector preserves the public contract
+offline; the module docstring documents the exact steps to graduate to a
+trained LVLM (`pip install '...[vlm]'`, revision-pinned `BLIPVLMDetector` /
+`get_lvlm_backend`). Coverage: `tests/test_vlm_detectors.py::TestStatisticalVLMDetector`
+(11 tests — offline instantiation, full-contract shapes, salience ordering
+[textured > flat], determinism, channel-last video, uint8 normalisation,
+prompt/response round-trip).
+
+### Security / σ_Immutable Wave C — narrative voice + federation dual-gate, GOSNN bidirectional coupling (2026-06-02)
+
+Closes ROADMAP v1.7.x deferred items **#1** (σ_Immutable Wave C —
+narrative voice + federation) and **#5** (GOSNN coupling wired into the
+FL aggregator training loop).
+
+**Shared σ_Immutable vector builder.** The canonical 256-D input-vector
+builder — previously a copy at the engine boundary, a copy in
+`CognitiveOrchestrator._build_sigma_immutable_vector`, and a copy in
+`NeuroSymbolicHub._build_sigma_immutable_vector` — is promoted to a single
+calibrated helper,
+`security.sigma_immutable_gate.build_sigma_immutable_vector(benevolence_score,
+severity, anomaly_prob)`, plus a shared `enforce_dual_ethical_gate(...)`
+primitive that runs `BenevolenceScorer.enforce` →
+`project_benevolence_to_sigma_band` → `SigmaImmutableGate.enforce`.  The
+engine and orchestrator now delegate to the helper (the engine's
+benevolence-only vector is reproduced byte-for-byte with
+`severity == anomaly_prob == 0`); the hub uses the shared helper for its
+base vector and keeps its one load-bearing difference (the richer
+per-sample neural / symbolic / fused overlay).  One source of truth, no
+drift between five boundaries.
+
+**Three previously-ungated public surfaces now carry the dual hard gate**
+(both gates fail closed; gates constructed eagerly in each `__init__`;
+every caller-supplied domain hint routed through `sanitize_domain`):
+
+* `narrative/voice.py::{speak, process_detection, alert}` — `alert` gains
+  an optional `domain=` kwarg (defaulting through `sanitize_domain`);
+  `process_detection` sources its σ_Immutable severity / anomaly signal
+  from the detection being narrated.
+* `federation/aggregator.py::{submit, aggregate}` — per-submission gate on
+  `submit`, round-level gate on `aggregate`.
+* `federated_learning/server.py::_execute_round` — round-level gate placed
+  **outside** the per-client `try/except` so a benevolence- or
+  σ_Immutable-violation fails the whole round closed instead of being
+  swallowed as one client's error.
+
+The synthetic-vector projection is calibrated against the *real* trained
+gate (not asserted): legitimate voice / federation calls score ≈ 1.0 and
+pass the 0.93 threshold, while sub-floor benevolence scores 0.0 and fails
+— verified in-tree, see below.
+
+**GOSNN coupling wired into the FL training loop.**
+`FederatedServer._execute_round` now routes every round's weights through
+`GOSNNCoupling{Server,Client}` (`publish → ingest → aggregate → receive`)
+with SHA3-256 + shape + round integrity, closing the one-way
+(server → client) gap.  Each client's absolute post-step weights
+(`global + model_update`) are published with a digest, ingested under
+shape / digest / round verification, aggregated, and broadcast back to
+every contributing client (digest re-verified on `receive`).  Unit-LR
+FedAvg flows through the coupling's own digested weighted mean
+(mathematically identical to `global + Σ wᵢ·model_updateᵢ`); FedAdam /
+SCAFFOLD / secure-aggregation / non-unit-LR FedAvg keep their
+strategy-specific numerics and are installed + broadcast through a new
+`GOSNNCouplingServer.install_global_state`, preserving the privacy-engine
+and secure-aggregation branches and the `LocalUpdate` / `RoundResult`
+field contracts.  A `GOSNNCouplingError` (digest / shape / round mismatch)
+fails the round closed.
+
+Coverage:
+
+* `tests/ethical/test_hard_enforcement.py` — three new boundary classes
+  (`TestNarrativeVoiceBoundary`, `TestFederatedAggregatorBoundary`,
+  `TestFederatedServerRoundBoundary`), each pinning the four-way contract
+  (legitimate pass on the real gate, `check="benevolence"`,
+  `check="sigma_immutable"`, `check="gosnn_unavailable"`), plus a test that
+  the FL round gate runs outside the per-client `try/except`.
+* `tests/federated/test_no_silent_failure.py` —
+  `test_federated_server_round_drives_gosnn_digested_fedavg_path` drives a
+  live `FederatedServer` round end-to-end through the coupling and asserts
+  the new global equals the sample-weighted FedAvg mean of the clients'
+  absolute post-step weights; plus `install_global_state` round-trip /
+  reshape-fails-closed coverage.
+
+### Agentic — RL policy in the loop + real task execution, fail-closed (2026-06-02)
+
+Truthing-up the autonomous-agent surfaces flagged in the v1.7 audit.
+
+**`agentic/agentic_autonomy.py` — the RL policy now actually steers.**
+`autonomous_detect` previously hardcoded `_decide_action → "flag_anomaly"`
+and never consulted the Q-table, leaving `select_action_with_policy`,
+experience replay, and reward shaping as dead machinery.  It now derives an
+observation state, lets the **epsilon-greedy Q-policy** choose the action
+type (explore vs. exploit), materialises that action, and learns from it.
+The selection-time state features are carried on the `AgentAction` so the
+TD update writes the exact Q-key the policy read (no off-by-one drift from
+`action_history` mutating between selection and learning).  `_decide_action`
+now produces action-type-specific parameters and rationale.
+
+**`agentic/mercury_a_agent.py` — `_execute_task` does real work.**
+The prior implementation was a no-op that always returned `completed` with
+`output=f"Executed: {description}"`, forcing `success_rate` to 1.0.  It now:
+
+* runs a **fail-closed ethical gate** first (scores the task via
+  `BenevolenceScorer.enforce`, `sanitize_domain` on the domain hint), placed
+  *before* the execution `try/except` so a harmful task halts the plan
+  instead of being recorded as a benign result — mirroring the OODA
+  reference (`cognitive/autonomous_agent.py`);
+* dispatches a task that binds a registered tool (`task.metadata['tool']`)
+  to that tool for real, with genuine success / failure (a raising tool →
+  `status="failed"` with the error captured; the analysed batch is injected
+  as `data=` for tools that accept it);
+* marks a task with no bound tool as an honest `status="skipped"` — never a
+  fabricated `completed`.  `_execute_plan` now measures `success_rate` over
+  *executed* tasks, so a pure-reasoning plan reports `0.0`, not `1.0`.
+
+Coverage (both files previously had **zero** behavioural tests for these
+paths):
+
+* `tests/test_agentic_autonomy.py::TestReinforcementLearningPolicy` — Q-table
+  writes (`new_q == lr·reward`), reward-shaping contract, epsilon-greedy
+  exploit-best-Q vs. explore-all-actions, experience-replay convergence
+  logging, exploration decay, selection/learn Q-key consistency.
+* `tests/test_mercury_a_agent.py` (new, 12 tests) — real tool dispatch,
+  genuine tool failure, unregistered-tool failure, honest skip, fail-closed
+  ethical block (and that the tool never runs on a blocked task),
+  success-rate accounting, dependency gating, end-to-end `analyze`.
+
+### Detectors — VLM / visual base contracts are now honest ABCs (2026-06-02)
+
+Closes ROADMAP v1.7.x deferred items **#3** (VLM detector surface) and
+**#4** (visual base detector).  Both bases previously raised
+`NotImplementedError` from their contract methods — an ambiguous stub on a
+public path.  They are now genuine `@abstractmethod` declarations:
+
+* `detectors/vlm/base_vlm.py::BaseVLMDetector` — `_initialize_model`,
+  `_create_prompt`, `_parse_response`, `detect`, `extract_features` are
+  abstract; the class is explicitly **experimental** (the 2026-05 strategic
+  decision keeps native detectors and does not ship BLIP/GPT adapters).
+* `detectors/visual/base_visual.py::BaseVisualDetector` — `fit`, `detect`,
+  `extract_features` are abstract; the native SOTA detectors (PatchCore,
+  PaDiM, STFPM, ReverseDistillation, CFlow) remain the concrete
+  implementations.
+
+Direct instantiation of either base now raises `TypeError` (the honest
+Python idiom) rather than constructing an object whose methods explode at
+call time — no `NotImplementedError` remains on the public detector API.
+Concrete subclasses are unaffected (all already implement every contract
+method).  Coverage: `tests/test_vlm_detectors.py::TestBaseVLMDetector` and
+`tests/test_visual_detectors.py::TestBaseVisualDetector` pin the abstract
+contract (not-instantiable + `__abstractmethods__` set) and exercise the
+concrete helpers (`_sample_frames`, `preprocess`, `postprocess`) via minimal
+concrete subclasses.
+
+### Neuro-symbolic — retire the untrained legacy LTN *random-init network*; co-training + conformal on the serve path (2026-06-02)
+
+> **Partially superseded by the `LogicTensorNetwork` re-wire entry above.**
+> This step removed the random-init *implementation*; the
+> `LogicTensorNetwork` *surface* was subsequently **re-wired** to the canonical
+> co-trained module — it is **not** left removed.
+
+**Retired the never-trained random-init network.**
+`models/neurosymbolic.py::LogicTensorNetwork` was a random-init `nn.Module`
+whose forward pass returned meaningless noise that
+`NeurosymbolicEngine.neural_inference` then fed into the fusion consensus *as
+if it were a neural confidence* — the "untrained network as if live"
+dishonesty the v1.7 audit flagged.  The random-init network is **removed** (the
+`LogicTensorNetwork` surface itself is re-wired to the canonical module, not
+retired — see the re-wire entry above); `neural_inference` now returns a
+**deterministic statistical heuristic** (robust standardized-dispersion through
+a logistic — bounded, reproducible, feature-responsive), and the module /
+`neural_inference` / `get_statistics` docstrings carry a migration note to the
+canonical *trained* neuro-symbolic surface,
+`ml/symbolic_constraint.py::SymbolicConstraintModule` (co-trained in
+`OmniMercuryEngine.fit_fusion`).  The module imports torch only lazily, inside
+the re-wired LTN wrapper; the `NeurosymbolicEngine` reference surface stays
+torch-free.  Regression: `tests/test_neurosymbolic_integration.py`
+(deterministic + feature-responsive `neural_inference`, migration pointer; the
+LTN-surface assertions were later flipped from *retired* to *wired* by the
+re-wire above).
+
+**Co-training + conformal verified together on the serve path.** New
+`tests/test_fusion_symbolic_cotraining.py::TestCoTrainingConformalServePath`:
+
+* `test_adaptive_cotraining_then_conformal_on_serve_path` — the production
+  default (`symbolic_weight="adaptive"`) co-trains a `SymbolicConstraintModule`
+  on a scarce-anomaly regime, then `calibrate_fusion_conformal` +
+  `score_fusion_conformal` produce valid, bounded prediction sets and
+  detection still separates the classes (ROC-AUC ≥ 0.85).
+* `test_checkpoint_round_trip_no_symbolic_dimension_drift` — after
+  co-training, `save_model` → `load_model` into a fresh engine reproduces
+  `score_fusion` to within 1e-5: the co-trained symbolic constraint
+  round-trips through the checkpoint (its `state_dict` + config are persisted
+  and restored) yet stays inference-inert, so the symbolic channels never
+  drift the persisted fusion dimensions consumed at scoring.
+
+The adaptive-default and neural-only-escape (`symbolic_weight=0.0`) contracts
+remain pinned by the existing `test_adaptive_is_the_default` /
+`test_zero_weight_has_no_symbolic_state`.
+
+### Cognitive — behavioural coverage for knowledge-graph + case-based reasoning (2026-06-02)
+
+The largest cognitive file (`knowledge_graph.py`, 2109 LOC) and
+`case_based_reasoning.py` had public methods that were import-clean-only (no
+behavioural assertions).  Added behavioural tests pinning *algorithmic
+correctness* (not anomaly-detection salvage — the DORMANCY_LEDGER measured
+both at chance as detectors, a verdict left unchanged):
+
+* `tests/cognitive/test_knowledge_graph_behavioral.py` (15 tests) —
+  random-walk **embedding recovery** on a known two-cluster graph (intra >
+  inter cosine over 5 seeds), `GNNMessagePassing.forward` shape + neighbour
+  propagation, `LinkPredictor` / `KnowledgeGraph.predict_links` recovery of a
+  held-out intra-cluster edge, and transitive-closure / symmetric-relation
+  inference (including the empty result for non-transitive predicates).  Also
+  documents that `RandomWalkEmbedding.fit` shuffles its `node_ids` argument
+  in place.
+* `tests/cognitive/test_case_based_reasoning_behavioral.py` (11 tests) —
+  retrieval ranking + retrieval-count bookkeeping, domain filtering, the
+  REUSE-vs-REVISE branch in `solve` (with the honest `no_matching_cases`
+  result on an empty base), proportional `adapt` (numeric solution params
+  whose key references the changed feature scale; unrelated params untouched)
+  + adaptation history, and `learn_from_outcome` state updates.
+
+DORMANCY_LEDGER rows #6 / #9 updated to note the new behavioural coverage.
+
+### Core — concrete `AttentionProvider` wired to real multi-head attention (2026-06-02)
+
+Closes ROADMAP deferred item **#7**.  `core/gosnn_optimizer.py::MultiHeadAttentionProvider`
+is the first concrete `AttentionProvider`, backed by a real
+`torch.nn.MultiheadAttention`: `observe(sequence)` runs a forward pass and
+caches the **per-head** `(num_heads, seq_len, seq_len)` attention weights
+(`average_attn_weights=False`); `get_attention()` returns them, or raises
+`RuntimeError` before any forward ("model not yet run") so the optimizer
+honestly skips the metric rather than scoring noise.  It defaults to 32 heads
+to match `AttentionOptimizer`'s triadic φ-weighting, so wiring it into
+`GOSNNOptimizer(attention_provider=…)` drives the real attention-overhead
+metric — the removed deterministic-random placeholder is fully replaced.
+Regression: `tests/core/test_attention_provider.py` (10 tests) — per-head
+shape, softmax-normalised rows, fail-closed pre-forward, determinism, batched
+input, and that a wired+observed provider drives the metric while an
+unobserved one fails closed to a skip.
+
+### Neuro-symbolic — label-scarcity-adaptive co-training default + dormant-module revival (PR #265, 2026-06-01)
+
+`symbolic_weight="adaptive"` is the **default** for `OmniMercuryEngine.fit_fusion`.
+A *fixed* `λ` was quarantined (no full-data win), but the label-scarcity
+`ScarcityWeightSchedule` (`lambda_eff(n_pos) = lam_max·exp(-n_pos / n0)`,
+defaults `lam_max=0.1, n0=25, floor=1e-3`) cleared a pre-registered dominance
+bar on real ADBench labels, so the `SymbolicConstraintModule` co-trains when
+positive labels are scarce and decays to the purely-neural path once they are
+abundant (de-quarantining the genuine, co-trained LTN).  Companion
+dormant-module revival survey (`benchmarks/dormant_module_revival.py`,
+`docs/DORMANCY_LEDGER.md`) measures each archived module against real held-out
+labels under the repo's fail-closed ablation discipline and records the
+keep / cut / quarantine verdict per module.
+
+### Neuro-symbolic — genuine co-training, conformal uncertainty, fail-closed AMA/PQC (PR #262, 2026-05-31)
+
+* **Genuine neuro-symbolic co-training.** `ml/symbolic_constraint.py::SymbolicConstraintModule`
+  — a differentiable fuzzy-logic constraint (product / Reichenbach /
+  Łukasiewicz / Gödel semantics) over a consensus rule graph — is co-trained
+  with the fusion network in `fit_fusion` when `symbolic_weight > 0`
+  (`loss += λ · (1 − satisfaction)`), with gradients flowing to both the
+  fusion model and the learnable rule confidences.  Pinned by
+  `tests/ml/test_symbolic_constraint.py` and `tests/test_fusion_symbolic_cotraining.py`.
+* **Conformal uncertainty on the serve path.** `BinaryConformalClassifier`
+  with `calibrate_fusion_conformal` / `score_fusion_conformal` adds
+  distribution-free prediction sets with a coverage guarantee on top of the
+  temperature-calibrated fusion probability; a misconfigured conformal
+  predictor raises `ConformalMisconfigurationError` instead of silently
+  returning `confidence_intervals=None`.  Pinned by `tests/test_fusion_conformal.py`
+  and `tests/federated/test_no_silent_failure.py`.
+* **Fail-closed AMA / PQC.** AMA Cryptography native PQC is mandatory at
+  package import regardless of `MERCURY_ENV`; Mercury fails closed (refuses to
+  import) without the validated `ama-cryptography` backend.  Pinned by
+  `tests/test_pqc_startup_gate.py` / `tests/security/test_pqc_gate_real_ama.py`.
+
 ### USGS Geochemistry — real NURE-HSSR downloader (2026-05-23)
 
 `USGSGeochemistryLoader._download_from_usgs` was previously a literal

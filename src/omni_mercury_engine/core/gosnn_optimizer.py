@@ -346,6 +346,97 @@ class AttentionProvider(ABC):
         ...  # pragma: no cover
 
 
+class MultiHeadAttentionProvider(AttentionProvider):
+    """Concrete :class:`AttentionProvider` backed by real multi-head attention.
+
+    Closes ROADMAP deferred item #7: a concrete provider wired to a genuine
+    attention surface (:class:`torch.nn.MultiheadAttention`), replacing the
+    removed deterministic-random placeholder.
+
+    Usage: construct, call :meth:`observe` with an input sequence to run a
+    forward pass through the wrapped attention (capturing **per-head** weights
+    via ``average_attn_weights=False``), then :meth:`get_attention` returns the
+    most-recent ``(num_heads, seq_len, seq_len)`` scores.  Before any forward,
+    :meth:`get_attention` raises ``RuntimeError`` per the ABC contract — the
+    optimizer then honestly skips the metric rather than scoring noise.
+
+    ``num_heads`` defaults to 32 to match :class:`AttentionOptimizer`'s 32-head
+    triadic φ-weighting, so the provider plugs straight into
+    :class:`GOSNNOptimizer`.
+    """
+
+    def __init__(self, d_model: int = 64, num_heads: int = 32, seed: int | None = None) -> None:
+        import torch
+        from torch import nn
+
+        if d_model % num_heads != 0:
+            raise ValueError(f"d_model ({d_model}) must be divisible by num_heads ({num_heads})")
+        self.d_model = d_model
+        self.num_heads = num_heads
+        # Deterministic parameter init *without* leaking RNG to callers.
+        # ``nn.MultiheadAttention`` draws its weights from the global torch RNG
+        # and offers no ``generator=`` hook, so when a seed is requested we
+        # snapshot the global RNG, seed locally just for the construction, then
+        # restore it.  Building the provider therefore cannot perturb a caller's
+        # downstream randomness -- the leak a bare ``torch.manual_seed(seed)``
+        # here would introduce.
+        if seed is not None:
+            rng_state = torch.get_rng_state()
+            try:
+                torch.manual_seed(seed)
+                self._attn = nn.MultiheadAttention(d_model, num_heads, batch_first=True)
+            finally:
+                torch.set_rng_state(rng_state)
+        else:
+            self._attn = nn.MultiheadAttention(d_model, num_heads, batch_first=True)
+        self._attn.eval()
+        self._last_attention: np.ndarray[Any, Any] | None = None
+
+    def observe(self, sequence: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Run a forward pass and cache the per-head attention scores.
+
+        Args:
+            sequence: ``(seq_len, d_model)`` or ``(batch, seq_len, d_model)``.
+
+        Returns:
+            The cached ``(num_heads, seq_len, seq_len)`` attention scores
+            (mean over the batch axis).
+        """
+        import torch
+
+        x = torch.as_tensor(np.asarray(sequence, dtype=np.float32))
+        if x.ndim == 2:
+            x = x.unsqueeze(0)
+        if x.ndim != 3 or int(x.shape[-1]) != self.d_model:
+            raise ValueError(
+                f"sequence must be (seq_len, {self.d_model}) or "
+                f"(batch, seq_len, {self.d_model}); got {tuple(x.shape)}"
+            )
+        with torch.no_grad():
+            _, attn = self._attn(x, x, x, need_weights=True, average_attn_weights=False)
+        # attn: (batch, num_heads, seq_len, seq_len) -> mean over batch.
+        self._last_attention = attn.mean(dim=0).detach().cpu().numpy().astype(np.float64)
+        return self._last_attention
+
+    def get_attention(self) -> np.ndarray[Any, Any]:
+        """Return the per-head attention scores cached by the last :meth:`observe`.
+
+        Returns:
+            The most-recent ``(num_heads, seq_len, seq_len)`` attention scores.
+
+        Raises:
+            RuntimeError: If :meth:`observe` has not been run yet (no forward
+                pass), so the optimizer honestly skips the metric instead of
+                scoring noise.
+        """
+        if self._last_attention is None:
+            raise RuntimeError(
+                "No attention available: call observe(sequence) before "
+                "get_attention() (model not yet run)."
+            )
+        return self._last_attention
+
+
 class AttentionOptimizer:
     """
     Optimizer for 32-head triadic φ-weighting attention.

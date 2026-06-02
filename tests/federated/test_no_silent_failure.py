@@ -295,3 +295,150 @@ def test_gosnn_round_trip_preserves_information_across_three_rounds() -> None:
         for c in clients[1:]:
             np.testing.assert_allclose(c.local_weights, clients[0].local_weights, atol=1e-12)
         assert state.round_num == round_num + 1
+
+
+def test_install_global_state_advances_round_and_broadcasts() -> None:
+    """The strategy-aggregator install path closes the bidirectional loop.
+
+    ``FederatedServer._execute_round`` uses ``install_global_state`` for
+    non-FedAvg strategies: per-client updates are still ingested through the
+    coupling for integrity, but the new global vector comes from the strategy
+    aggregator.  The install must advance the round, clear pending updates,
+    and produce a digest-checked state the client can ``receive``.
+    """
+    initial = np.zeros(4, dtype=np.float64)
+    server = GOSNNCouplingServer(initial_weights=initial)
+    client = GOSNNCouplingClient(client_id="X", local_weights=initial)
+    server.ingest(client.publish(round_num=0, local_update=np.ones(4), n_samples=10))
+
+    externally_aggregated = np.array([0.5, 0.5, 0.5, 0.5])
+    state = server.install_global_state(externally_aggregated, ["X"])
+
+    assert state.round_num == 1
+    assert server.n_pending_updates == 0
+    np.testing.assert_allclose(state.weights, externally_aggregated)
+    client.receive(state)
+    np.testing.assert_allclose(client.local_weights, externally_aggregated)
+    # A reshaped install must fail the round closed, not corrupt state.
+    with pytest.raises(GOSNNCouplingError, match="shape"):
+        server.install_global_state(np.zeros(7), ["X"])
+
+
+def test_install_global_state_validates_shape_inside_lock() -> None:
+    """``install_global_state`` must validate the shape while holding the lock.
+
+    Regression for the TOCTOU flagged by review: ``_global_weights`` is mutated
+    under ``self._lock`` (in ``aggregate`` and in this method), so checking
+    ``candidate.shape`` against ``self._global_weights.shape`` *outside* the lock
+    admitted a race in which a concurrent round changed the expected shape
+    between the check and the assignment.  The behavioural raise on a reshaped
+    install is already pinned above; this proves *where* it happens by
+    instrumenting the lock — on a shape mismatch the lock must have been acquired
+    before the error is raised (pre-fix the error was raised before the lock was
+    ever taken, so ``events`` would be empty).
+    """
+    server = GOSNNCouplingServer(initial_weights=np.zeros(4, dtype=np.float64))
+
+    events: list[str] = []
+    real_lock = server._lock
+
+    class _TracingLock:
+        """Delegating context manager that records acquire/release order."""
+
+        def __enter__(self) -> Any:
+            events.append("acquire")
+            return real_lock.__enter__()
+
+        def __exit__(self, *exc: Any) -> Any:
+            events.append("release")
+            return real_lock.__exit__(*exc)
+
+    server._lock = _TracingLock()  # type: ignore[assignment]
+
+    with pytest.raises(GOSNNCouplingError, match="shape"):
+        server.install_global_state(np.zeros(7, dtype=np.float64), ["X"])
+
+    # Lock acquired before the shape check raised => the check runs inside the
+    # critical section, not before it.  The section was also properly exited.
+    assert events[:1] == ["acquire"]
+    assert "release" in events
+
+
+def test_federated_server_round_drives_gosnn_digested_fedavg_path() -> None:
+    """ROADMAP #5: a real ``FederatedServer`` round must route weights through
+    the bidirectional GOSNN coupling's digested FedAvg path end-to-end.
+
+    Forward integration test the deferred-items rollup requires: it drives the
+    aggregator path (``publish → ingest → aggregate → receive``) through a live
+    server round and asserts the new global weights equal the sample-weighted
+    FedAvg mean of the clients' absolute post-step weights — proving the
+    round-trip is no longer the prior one-way ``aggregate``-only path.
+    """
+    from omni_mercury_engine.federated_learning.client import (
+        ClientConfig,
+        FederatedClient,
+        LocalTrainer,
+    )
+    from omni_mercury_engine.federated_learning.server import (
+        FederatedServer,
+        ServerConfig,
+    )
+
+    dim = 4
+    init = np.zeros(dim, dtype=np.float64)
+
+    class _FixedDeltaTrainer(LocalTrainer):
+        """Return a fixed weight delta so the FedAvg mean is known exactly."""
+
+        def __init__(self, delta: np.ndarray) -> None:
+            self._delta = np.asarray(delta, dtype=np.float64)
+
+        def train(
+            self,
+            model_weights: np.ndarray,
+            data: tuple[np.ndarray, np.ndarray | None],
+            config: Any,
+        ) -> tuple[np.ndarray, list[float]]:
+            return self._delta.copy(), [0.0]
+
+    server = FederatedServer(
+        initial_weights=init,
+        config=ServerConfig(min_clients=2, use_privacy=False, aggregation_strategy="fedavg"),
+        seed=0,
+    )
+    delta_a = np.array([0.1, 0.0, 0.0, 0.0])
+    delta_b = np.array([0.0, 0.0, 0.0, 0.2])
+    n_a, n_b = 10, 30
+    server.register_client(
+        FederatedClient(
+            "A",
+            (np.zeros((n_a, dim)), np.zeros(n_a)),
+            config=ClientConfig(client_id="A", use_privacy=False, min_samples=1),
+            trainer=_FixedDeltaTrainer(delta_a),
+        )
+    )
+    server.register_client(
+        FederatedClient(
+            "B",
+            (np.zeros((n_b, dim)), np.zeros(n_b)),
+            config=ClientConfig(client_id="B", use_privacy=False, min_samples=1),
+            trainer=_FixedDeltaTrainer(delta_b),
+        )
+    )
+
+    gosnn_round_before = server._gosnn_server.round_num
+    result = server._execute_round()
+
+    # Digested FedAvg weighted mean of the ABSOLUTE post-step weights:
+    #   global + (n_A·delta_A + n_B·delta_B) / (n_A + n_B)
+    expected = init + (n_a * delta_a + n_b * delta_b) / (n_a + n_b)
+    np.testing.assert_allclose(server.global_weights, expected, atol=1e-12)
+    np.testing.assert_allclose(result.global_weights, expected, atol=1e-12)
+    assert result.n_clients == 2
+    assert result.total_samples == n_a + n_b
+
+    # The coupling round advanced (proof publish → ingest → aggregate → receive
+    # ran) and the coupling's global state matches the server's global model.
+    assert server._gosnn_server.round_num == gosnn_round_before + 1
+    np.testing.assert_allclose(server._gosnn_server.global_weights, expected, atol=1e-12)
+    assert server._gosnn_server.current_global_state().contributing_client_ids == ["A", "B"]

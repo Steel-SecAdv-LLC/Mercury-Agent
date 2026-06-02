@@ -671,3 +671,260 @@ class TestNeuroSymbolicHubEmptyBatchClosure:
         # caller value (legacy behaviour preserved); only the audit
         # surface — ``self.domain`` — is sanitised.
         assert hub.domain == "general"
+
+
+# ---------------------------------------------------------------------------
+# σ_Immutable Wave C — narrative voice + federation boundaries.
+#
+# Wave C extends the dual hard gate (BenevolenceScorer.enforce first,
+# SigmaImmutableGate.enforce second) from the engine / orchestrator / hub
+# to the three previously-ungated public surfaces: narrative voice,
+# federation aggregator, and the FL-server training round.  Each surface is
+# pinned with the same four-way contract used at the existing boundaries:
+#
+#   * a legitimate call passes the *real* trained gate (no monkeypatch),
+#   * a benevolence-floor violation raises ``check="benevolence"``,
+#   * a sub-threshold σ_Immutable score raises ``check="sigma_immutable"``,
+#   * an unevaluable gate raises ``check="gosnn_unavailable"``.
+#
+# Closes ROADMAP v1.7.x deferred item #1.
+# ---------------------------------------------------------------------------
+
+
+def _force_sigma_immutable_failure(monkeypatch: pytest.MonkeyPatch, gate: Any) -> None:
+    """Make ``gate.enforce`` deterministically raise ``check="sigma_immutable"``.
+
+    Equivalent to a poisoned scalar vector scoring below threshold — the
+    second hard gate must surface it regardless of the benevolence verdict.
+    """
+
+    def _raise(action: Any, scalar_vector: Any, details: Any = None) -> None:
+        merged = {"action": action}
+        if details:
+            merged.update(details)
+        merged["sigma_immutable_score"] = 0.10
+        raise EthicalConstraintViolationError(
+            action=action,
+            score=0.10,
+            threshold=gate.threshold,
+            check="sigma_immutable",
+            details=merged,
+        )
+
+    monkeypatch.setattr(gate, "enforce", _raise)
+
+
+def _force_gosnn_unavailable(monkeypatch: pytest.MonkeyPatch, gate: Any) -> None:
+    """Make ``gate.enforce`` deterministically raise ``check="gosnn_unavailable"``.
+
+    Models the trained network being unevaluable (no torch / weights /
+    verified corpus): an unevaluable gate is an unsafe gate, so the boundary
+    must fail closed rather than degrade silently.
+    """
+
+    def _raise(action: Any, scalar_vector: Any, details: Any = None) -> None:
+        merged = {"action": action}
+        if details:
+            merged.update(details)
+        raise EthicalConstraintViolationError(
+            action=action,
+            score=0.0,
+            threshold=gate.threshold,
+            check="gosnn_unavailable",
+            details=merged,
+        )
+
+    monkeypatch.setattr(gate, "enforce", _raise)
+
+
+class TestNarrativeVoiceBoundary:
+    """σ_Immutable Wave C: ``MercuryVoice.{speak, process_detection, alert}``."""
+
+    def _voice(self) -> Any:
+        from omni_mercury_engine.narrative.voice import MercuryVoice
+
+        return MercuryVoice()
+
+    def test_speak_passes_on_legitimate_input(self) -> None:
+        voice = self._voice()
+        # Real dual gate (benevolence + trained σ_Immutable), no monkeypatch.
+        resp = voice.speak("what is the system status?", domain="cyber")
+        assert resp.message
+
+    def test_process_detection_passes_on_legitimate_high_severity(self) -> None:
+        voice = self._voice()
+        resp = voice.process_detection(
+            {"is_anomaly": True, "severity": 0.9, "anomaly_prob": 0.95},
+            domain="earthquake",
+        )
+        assert resp.message
+
+    def test_alert_accepts_domain_kwarg_and_passes(self) -> None:
+        voice = self._voice()
+        # The new ``domain=`` kwarg must be accepted and sanitised.
+        resp = voice.alert(
+            {"severity": 0.85, "confidence": 0.9, "summary": "spike"},
+            domain="damage destroy harm track expose",
+        )
+        assert "ALERT" in resp.message
+
+    def test_speak_raises_on_benevolence_violation(self) -> None:
+        voice = self._voice()
+        # Pin the floor above any achievable score so the first gate fires
+        # deterministically.
+        voice._benevolence_scorer.benevolence_threshold = 1.01
+        with pytest.raises(EthicalViolation) as exc_info:
+            voice.speak("status", domain="general")
+        assert exc_info.value.check == "benevolence"
+        assert exc_info.value.score < 1.01
+
+    def test_process_detection_raises_sigma_immutable(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        voice = self._voice()
+        _force_sigma_immutable_failure(monkeypatch, voice._sigma_immutable_gate)
+        with pytest.raises(EthicalViolation) as exc_info:
+            voice.process_detection({"is_anomaly": True, "severity": 0.5}, domain="general")
+        assert exc_info.value.check == "sigma_immutable"
+        assert exc_info.value.score < exc_info.value.threshold
+
+    def test_alert_raises_gosnn_unavailable(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        voice = self._voice()
+        _force_gosnn_unavailable(monkeypatch, voice._sigma_immutable_gate)
+        with pytest.raises(EthicalViolation) as exc_info:
+            voice.alert({"severity": 0.5, "confidence": 0.5}, domain="general")
+        assert exc_info.value.check == "gosnn_unavailable"
+
+
+class TestFederatedAggregatorBoundary:
+    """σ_Immutable Wave C: ``FederatedAggregator.{submit, aggregate}``."""
+
+    def _stats(self, node_id: str, seed: int) -> Any:
+        from omni_mercury_engine.federation.node import FederatedNode
+
+        rng = np.random.default_rng(seed)
+        node = FederatedNode(node_id)
+        node.fit(rng.standard_normal((64, 4)))
+        return node.export_statistics()
+
+    def _aggregator(self) -> Any:
+        from omni_mercury_engine.federation.aggregator import FederatedAggregator
+
+        return FederatedAggregator(min_nodes=2)
+
+    def test_submit_and_aggregate_pass_on_legitimate_input(self) -> None:
+        agg = self._aggregator()
+        # Real dual gate on both submit and round-level aggregate.
+        agg.submit(self._stats("a", 1))
+        agg.submit(self._stats("b", 2))
+        result = agg.aggregate()
+        assert result.n_features == 4
+
+    def test_submit_raises_on_benevolence_violation(self) -> None:
+        agg = self._aggregator()
+        agg._benevolence_scorer.benevolence_threshold = 1.01
+        with pytest.raises(EthicalViolation) as exc_info:
+            agg.submit(self._stats("a", 1))
+        assert exc_info.value.check == "benevolence"
+
+    def test_submit_raises_sigma_immutable(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        agg = self._aggregator()
+        _force_sigma_immutable_failure(monkeypatch, agg._sigma_immutable_gate)
+        with pytest.raises(EthicalViolation) as exc_info:
+            agg.submit(self._stats("a", 1))
+        assert exc_info.value.check == "sigma_immutable"
+
+    def test_aggregate_raises_gosnn_unavailable(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        agg = self._aggregator()
+        # Submit must succeed first (gate live), then the round-level
+        # aggregate fails closed once the gate goes unevaluable.
+        agg.submit(self._stats("a", 1))
+        agg.submit(self._stats("b", 2))
+        _force_gosnn_unavailable(monkeypatch, agg._sigma_immutable_gate)
+        with pytest.raises(EthicalViolation) as exc_info:
+            agg.aggregate()
+        assert exc_info.value.check == "gosnn_unavailable"
+
+
+class TestFederatedServerRoundBoundary:
+    """σ_Immutable Wave C: ``FederatedServer._execute_round`` (round-level)."""
+
+    def _server_with_two_clients(self) -> Any:
+        from omni_mercury_engine.federated_learning.client import (
+            ClientConfig,
+            FederatedClient,
+        )
+        from omni_mercury_engine.federated_learning.server import (
+            FederatedServer,
+            ServerConfig,
+        )
+
+        init = np.zeros(5, dtype=np.float64)
+        server = FederatedServer(
+            initial_weights=init,
+            config=ServerConfig(min_clients=2, use_privacy=False, aggregation_strategy="fedavg"),
+            seed=0,
+        )
+        rng = np.random.default_rng(3)
+        for cid, n in [("A", 100), ("B", 300)]:
+            X = rng.normal(0, 1, size=(n, 5))
+            y = (X.sum(1) > 0).astype(float)
+            server.register_client(
+                FederatedClient(
+                    cid,
+                    (X, y),
+                    config=ClientConfig(
+                        client_id=cid,
+                        use_privacy=False,
+                        learning_rate=0.05,
+                        min_samples=1,
+                    ),
+                )
+            )
+        return server
+
+    def test_round_passes_on_legitimate_input(self) -> None:
+        server = self._server_with_two_clients()
+        # Real dual gate; a legitimate training round must complete.
+        result = server._execute_round()
+        assert result.n_clients == 2
+        assert result.total_samples == 400
+
+    def test_round_raises_on_benevolence_violation(self) -> None:
+        server = self._server_with_two_clients()
+        server._benevolence_scorer.benevolence_threshold = 1.01
+        with pytest.raises(EthicalViolation) as exc_info:
+            server._execute_round()
+        assert exc_info.value.check == "benevolence"
+
+    def test_round_raises_sigma_immutable(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        server = self._server_with_two_clients()
+        _force_sigma_immutable_failure(monkeypatch, server._sigma_immutable_gate)
+        with pytest.raises(EthicalViolation) as exc_info:
+            server._execute_round()
+        assert exc_info.value.check == "sigma_immutable"
+
+    def test_round_raises_gosnn_unavailable(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        server = self._server_with_two_clients()
+        _force_gosnn_unavailable(monkeypatch, server._sigma_immutable_gate)
+        with pytest.raises(EthicalViolation) as exc_info:
+            server._execute_round()
+        assert exc_info.value.check == "gosnn_unavailable"
+
+    def test_round_gate_runs_outside_per_client_try_except(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The round-level gate must not be swallowed by the per-client
+        ``try/except`` that wraps ``client.train_round``.
+
+        A σ_Immutable violation has to escape ``_execute_round`` as an
+        ``EthicalViolation`` — if the gate were inside the per-client
+        ``try/except`` the exception would be logged and the round would
+        proceed.  This pins the placement.
+        """
+        server = self._server_with_two_clients()
+        _force_sigma_immutable_failure(monkeypatch, server._sigma_immutable_gate)
+        with pytest.raises(EthicalViolation):
+            server._execute_round()
+        # The round must NOT have advanced the global state past the gate.
+        assert server._gosnn_server.round_num == 0

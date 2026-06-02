@@ -402,3 +402,52 @@ class TestSalienceRuleGraph:
         scores = torch.tensor([[0.99, 0.02, 0.02, 0.02]])
         salient = module._salience(scores)
         assert float(salient) > 0.6
+
+
+class TestPredictInference:
+    """The public per-sample ``predict`` inference API (WS2 — the surface the
+    re-wired ``LogicTensorNetwork`` routes through)."""
+
+    def test_predict_returns_per_sample_consensus_in_unit_interval(self) -> None:
+        module = SymbolicConstraintModule(num_detectors=4)
+        out = module.predict(torch.rand(7, 4))
+        assert out.shape == (7,)
+        assert torch.all((out >= 0.0) & (out <= 1.0))
+
+    def test_predict_matches_consensus_predicate(self) -> None:
+        module = SymbolicConstraintModule(num_detectors=3)
+        scores = torch.rand(5, 3)
+        assert torch.allclose(module.predict(scores), module._consensus(scores).squeeze(-1))
+
+    def test_predict_is_monotone_in_scores(self) -> None:
+        module = SymbolicConstraintModule(num_detectors=4)
+        hi = float(module.predict(torch.full((1, 4), 0.9)))
+        lo = float(module.predict(torch.full((1, 4), 0.1)))
+        assert hi > lo
+
+    def test_predict_zero_detectors_is_trivial_half(self) -> None:
+        module = SymbolicConstraintModule(num_detectors=0)
+        out = module.predict(torch.zeros(3, 0))
+        assert out.shape == (3,)
+        assert torch.allclose(out, torch.full((3,), 0.5))
+
+    def test_predict_trivial_path_honors_input_device(self) -> None:
+        """The trivial 0.5 consensus is returned on the *input's* device, not an
+        implicit CPU tensor -- otherwise a caller running on an accelerator hits
+        a device mismatch (the non-trivial path already returns on the
+        module/input device). The always-available ``meta`` device stands in for
+        a non-CPU accelerator (pre-fix this returned a CPU tensor)."""
+        module = SymbolicConstraintModule(num_detectors=0)
+        out = module.predict(torch.zeros((4, 0), device="meta"))
+        assert out.device.type == "meta"
+        assert tuple(out.shape) == (4,)
+
+    def test_predict_rejects_width_mismatch(self) -> None:
+        module = SymbolicConstraintModule(num_detectors=4)
+        with pytest.raises(ValueError):
+            module.predict(torch.rand(2, 3))  # width 3 != num_detectors 4
+
+    def test_predict_rejects_non_2d(self) -> None:
+        module = SymbolicConstraintModule(num_detectors=4)
+        with pytest.raises(ValueError):
+            module.predict(torch.rand(4))

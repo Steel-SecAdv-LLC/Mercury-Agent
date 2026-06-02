@@ -1,0 +1,25 @@
+{
+  "metadata": {
+    "purpose": "Deterministic regression guard for the fusion AUC/F1 + conformal coverage floor on a fixed seeded synthetic corpus. Offline / network-free; the real-data fusion numbers live in benchmarks/fusion_capacity/sweep_real_v5.json.",
+    "seed": 20260526,
+    "epochs": 8,
+    "symbolic_weight": 0.0,
+    "n_train": 1002,
+    "n_cal": 334,
+    "n_test": 334,
+    "commit": "0793e74f4309103c49ed6e3c061d2594d92e6bf7",
+    "python": "3.11.15",
+    "margins": {
+      "auc": 0.05,
+      "f1": 0.07,
+      "coverage": 0.05
+    }
+  },
+  "auc": 1.0,
+  "f1": 0.9850746268656716,
+  "conformal": {
+    "target_coverage": 0.9,
+    "empirical_coverage": 0.9520958083832335,
+    "average_set_size": 0.9520958083832335
+  }
+}

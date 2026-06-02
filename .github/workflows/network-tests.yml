@@ -66,6 +66,16 @@ jobs:
           python -m pip install --upgrade "pip>=26.1"
           pip install -e ".[compliance,dev]"
 
+      # AMA Cryptography is Mercury's mandatory PQC backend: importing
+      # omni_mercury_engine runs the fail-closed _enforce_pqc_production_gate(),
+      # and tests/conftest.py imports the engine at collection time -- so even
+      # the network suite aborts at import without the native backend. The
+      # composite action exports LD_LIBRARY_PATH for the pytest step below.
+      - name: Build + install AMA Cryptography (native PQC backend)
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v3.2.0
+
       - name: Run @pytest.mark.network suite
         env:
           MERCURY_NETWORK_TESTS: "1"

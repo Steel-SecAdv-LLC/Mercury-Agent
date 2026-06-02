@@ -206,6 +206,141 @@ def project_benevolence_to_sigma_band(benevolence_score: float) -> float:
     )
 
 
+#: Width of the per-sample signal window that immediately follows the
+#: ethical band.  The orchestrator, the hub, and the Wave C surfaces all
+#: write their per-call severity / anomaly / neural-symbolic-fused signal
+#: into ``[SIGMA_IMMUTABLE_ETHICAL_DIMS, SIGMA_IMMUTABLE_ETHICAL_DIMS +
+#: SIGMA_SIGNAL_WINDOW)`` so the calibration is shared verbatim.
+SIGMA_SIGNAL_WINDOW: int = 33
+
+
+def _sigma_base_vector(benevolence_score: float) -> np.ndarray[Any, Any]:
+    """Build the shared σ_Immutable base vector (ethical band + active band).
+
+    Every boundary that scores a single ethical verdict shares this base:
+
+    * indices ``[0, SIGMA_IMMUTABLE_ETHICAL_DIMS)`` hold the projected
+      benevolence value (see :func:`project_benevolence_to_sigma_band`);
+    * indices ``[SIGMA_IMMUTABLE_ETHICAL_DIMS, SIGMA_USED_BAND_END)`` are
+      centred at ``1.0`` (the training ``U[0, 2]`` midpoint);
+    * the reserved tail ``[SIGMA_USED_BAND_END, SIGMA_IMMUTABLE_DIM)`` stays
+      zero so the corpus, the trainer, and every boundary agree on layout.
+
+    Callers overlay their per-sample signal on top of the returned vector
+    (the canonical single-verdict overlay lives in
+    :func:`build_sigma_immutable_vector`; the neuro-symbolic hub overlays a
+    richer per-sample neural / symbolic / fused signal of its own).
+    """
+    vector = np.zeros(SIGMA_IMMUTABLE_INPUT_DIM, dtype=np.float64)
+    vector[:SIGMA_IMMUTABLE_ETHICAL_DIMS] = project_benevolence_to_sigma_band(benevolence_score)
+    vector[SIGMA_IMMUTABLE_ETHICAL_DIMS:SIGMA_USED_BAND_END] = 1.0
+    return vector
+
+
+def build_sigma_immutable_vector(
+    benevolence_score: float,
+    severity: float = 0.0,
+    anomaly_prob: float = 0.0,
+) -> np.ndarray[Any, Any]:
+    """Canonical 256-D σ_Immutable input vector for single-verdict boundaries.
+
+    Promoted out of ``CognitiveOrchestrator._build_sigma_immutable_vector``
+    (Wave C) so the engine, orchestrator, narrative-voice, federation
+    aggregator, and FL-server boundaries all build their σ_Immutable input
+    from one shared, calibrated helper instead of duplicating the layout
+    (the prior copies silently risked drifting apart).
+
+    The first :data:`SIGMA_IMMUTABLE_ETHICAL_DIMS` columns carry the
+    projected benevolence verdict; the next :data:`SIGMA_SIGNAL_WINDOW`
+    columns carry the per-call severity / anomaly signal (broadcast
+    uniformly), and the remainder of the active band sits at the training
+    midpoint.  ``severity == anomaly_prob == 0`` reproduces the engine's
+    benevolence-only boundary vector byte-for-byte.
+
+    Args:
+        benevolence_score: Already-checked benevolence verdict in ``[0, 1]``.
+        severity: Per-call severity signal in ``[0, 1]``.
+        anomaly_prob: Per-call anomaly probability in ``[0, 1]``.
+
+    Returns:
+        ``(256,)`` float64 vector ready for :meth:`SigmaImmutableGate.enforce`.
+    """
+    vector = _sigma_base_vector(benevolence_score)
+    signal_perturbation = float(np.clip(0.5 * severity + 0.5 * anomaly_prob, 0.0, 1.0))
+    signal_window_end = SIGMA_IMMUTABLE_ETHICAL_DIMS + SIGMA_SIGNAL_WINDOW
+    vector[SIGMA_IMMUTABLE_ETHICAL_DIMS:signal_window_end] = 1.0 + 0.4 * signal_perturbation
+    return vector
+
+
+def enforce_dual_ethical_gate(
+    *,
+    benevolence_scorer: Any,
+    sigma_gate: SigmaImmutableGate,
+    action: str,
+    context: dict[str, Any],
+    boundary: str,
+    domain: str,
+    severity: float = 0.0,
+    anomaly_prob: float = 0.0,
+    extra_details: dict[str, Any] | None = None,
+) -> Any:
+    """Run the BenevolenceScorer + σ_Immutable dual hard ethical gate.
+
+    Single shared primitive for the σ_Immutable Wave C surfaces (narrative
+    voice, federation aggregator, FL server) so the benevolence-first /
+    σ_Immutable-second contract cannot drift between boundaries.  Mirrors
+    the inline dual-gate already wired at the engine, orchestrator, and
+    neuro-symbolic-hub boundaries.
+
+    Both gates fail closed and the σ_Immutable call is **not** wrapped in a
+    swallowing ``try/except`` — a violation propagates as
+    :class:`EthicalConstraintViolationError` so the caller's operation halts.
+
+    Args:
+        benevolence_scorer: Object exposing ``.enforce(action, context)``
+            (a :class:`BenevolenceScorer`); raises on benevolence violation.
+        sigma_gate: The process-wide :class:`SigmaImmutableGate`.
+        action: Positive-keyword-rich action description (the boundary's
+            *purpose*, not the anomalous payload).
+        context: Benevolence-scoring context dict.
+        boundary: Fully-qualified boundary name for the audit trail.
+        domain: Already-:func:`sanitize_domain`-d domain hint.
+        severity: Per-call severity in ``[0, 1]``.
+        anomaly_prob: Per-call anomaly probability in ``[0, 1]``.
+        extra_details: Optional structured context merged into the σ_Immutable
+            violation details.
+
+    Returns:
+        The :class:`EthicalScore` from the benevolence gate on success.
+
+    Raises:
+        EthicalConstraintViolationError: ``check="benevolence"`` (first gate),
+            ``check="sigma_immutable"`` or ``check="gosnn_unavailable"``
+            (second gate).
+    """
+    ethical_score = benevolence_scorer.enforce(action, context)
+    sigma_vector = build_sigma_immutable_vector(
+        benevolence_score=float(ethical_score.benevolence_score),
+        severity=severity,
+        anomaly_prob=anomaly_prob,
+    )
+    details: dict[str, Any] = {
+        "boundary": boundary,
+        "domain": domain,
+        "benevolence_score": float(ethical_score.benevolence_score),
+        "severity": float(severity),
+        "anomaly_prob": float(anomaly_prob),
+    }
+    if extra_details:
+        details.update(extra_details)
+    sigma_gate.enforce(
+        action=f"{boundary}:domain={domain}",
+        scalar_vector=sigma_vector,
+        details=details,
+    )
+    return ethical_score
+
+
 @dataclass(frozen=True)
 class SigmaImmutableEvaluation:
     """Outcome of a single σ_Immutable evaluation.
@@ -596,9 +731,12 @@ __all__ = [
     "SIGMA_IMMUTABLE_INPUT_DIM",
     "SIGMA_IMMUTABLE_PERMISSIBLE_HIGH",
     "SIGMA_IMMUTABLE_PERMISSIBLE_LOW",
+    "SIGMA_SIGNAL_WINDOW",
     "SIGMA_USED_BAND_END",
     "SigmaImmutableEvaluation",
     "SigmaImmutableGate",
+    "build_sigma_immutable_vector",
+    "enforce_dual_ethical_gate",
     "get_sigma_immutable_gate",
     "project_benevolence_to_sigma_band",
 ]

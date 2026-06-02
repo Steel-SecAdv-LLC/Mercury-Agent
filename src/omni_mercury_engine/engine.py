@@ -204,6 +204,11 @@ if TYPE_CHECKING:
 # Configure module logger
 logger = logging.getLogger(__name__)
 
+# Integrated-Gradients interpolation steps used by ``detect_with_fusion(explain=True)``.
+# Matches the validated harness (``benchmarks/explanation_fidelity.py``). Module-level
+# so the (expensive, opt-in) serve-path explainer can be turned down in tests.
+_EXPLAIN_IG_STEPS = 32
+
 
 def default_fusion_checkpoint_path() -> Path:
     """Return the path of the shipped default fusion checkpoint.
@@ -3327,20 +3332,15 @@ class OmniMercuryEngine(LoggerMixin):
         if _GOSNN_TESTING_BYPASS:
             return
         from omni_mercury_engine.security.sigma_immutable_gate import (
-            SIGMA_IMMUTABLE_ETHICAL_DIMS,
-            SIGMA_IMMUTABLE_INPUT_DIM,
-            SIGMA_USED_BAND_END,
-            project_benevolence_to_sigma_band,
+            build_sigma_immutable_vector,
         )
 
-        ethical_value = project_benevolence_to_sigma_band(float(ethical_score.benevolence_score))
-        sigma_vector = np.zeros(SIGMA_IMMUTABLE_INPUT_DIM, dtype=np.float64)
-        sigma_vector[:SIGMA_IMMUTABLE_ETHICAL_DIMS] = ethical_value
-        # Centre the non-ethical active band at the training U[0, 2]
-        # midpoint so a synthetic projected vector lives in the
-        # network's most-confident region for the corresponding
-        # benevolence verdict.
-        sigma_vector[SIGMA_IMMUTABLE_ETHICAL_DIMS:SIGMA_USED_BAND_END] = 1.0
+        # Shared single-verdict builder (σ_Immutable Wave C): the engine
+        # boundary scores benevolence only, so severity / anomaly_prob stay
+        # at their defaults — this reproduces the prior inline vector
+        # byte-for-byte while sourcing the layout from the one calibrated
+        # helper the orchestrator, hub, and Wave C surfaces all share.
+        sigma_vector = build_sigma_immutable_vector(float(ethical_score.benevolence_score))
 
         self._sigma_immutable_gate.enforce(
             action=(f"OmniMercuryEngine._enforce_ethics_at_boundary:" f"domain={safe_domain}"),
@@ -3515,6 +3515,7 @@ class OmniMercuryEngine(LoggerMixin):
         data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],
         domain: str | None = None,
         _enable_gosnn: bool = True,
+        explain: bool = False,
     ) -> dict[str, Any]:
         """
         Detect anomalies using ML fusion with GOSNN synaptic integration.
@@ -3554,6 +3555,12 @@ class OmniMercuryEngine(LoggerMixin):
                 would also skip the σ_Immutable second hard gate.  Unit
                 tests that need to bypass GOSNN must additionally set
                 the module-level :data:`_GOSNN_TESTING_BYPASS` flag.
+            explain: When ``True``, attach an ``explanation`` field — an
+                Integrated-Gradients attribution of this sample's calibrated
+                fusion probability (over the same ``score_fusion`` serve path)
+                plus its faithfulness scores. Off by default because IG over
+                the full fusion stack is expensive (finite-difference forward
+                passes per feature × interpolation step).
 
         Returns:
             Dictionary containing:
@@ -3563,6 +3570,8 @@ class OmniMercuryEngine(LoggerMixin):
                 - severity: Anomaly severity score
                 - detector_importance: Dict of detector weights
                 - mode: Detection mode ('fusion')
+                - explanation: (only when ``explain=True``) Integrated-Gradients
+                  feature attribution + faithfulness scores for this sample
                 - gosnn_metadata: GOSNN + σ_Immutable evaluation metadata:
                     - sigma_immutable_score: σ_Immutable score
                     - ethical_gate_passed: σ_Immutable threshold check
@@ -3890,7 +3899,51 @@ class OmniMercuryEngine(LoggerMixin):
                 "coverage": float(pred_set.coverage_level),
             }
 
+        # Explainability (opt-in): attach an Integrated-Gradients attribution of
+        # this sample's calibrated fusion probability, plus its faithfulness
+        # scores. Wired against the *same* serve-path probability the result
+        # reports (``score_fusion``), so the explanation explains the shipped
+        # decision rather than a proxy. Opt-in because IG over the full fusion
+        # stack is expensive (finite-diff forward passes per feature/step).
+        if explain and isinstance(data, (np.ndarray, torch.Tensor)):
+            result["explanation"] = self._explain_fusion_decision(data)
+
         return result
+
+    def _explain_fusion_decision(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
+        """Integrated-Gradients explanation of the serve-path fusion probability.
+
+        Computes an attribution of ``score_fusion``'s calibrated probability for
+        the first sample in ``data`` and evaluates its faithfulness
+        (comprehensiveness / sufficiency / monotonicity). Returns the explanation
+        as a JSON-serialisable dict for attachment to the detection result.
+
+        Args:
+            data: The same input passed to :meth:`detect_with_fusion`.
+
+        Returns:
+            ``Explanation.to_dict()`` augmented with ``faithfulness_scores``.
+        """
+        from omni_mercury_engine.cognitive.explainability import (
+            FaithfulnessEvaluator,
+            IntegratedGradientsExplainer,
+        )
+
+        arr = data.detach().cpu().numpy() if isinstance(data, torch.Tensor) else np.asarray(data)
+        instance = np.atleast_2d(arr.astype(np.float64))[0]
+
+        def _fusion_predict(x: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+            return np.asarray(
+                self.score_fusion(np.atleast_2d(np.asarray(x, dtype=np.float32))),
+                dtype=np.float64,
+            )
+
+        explainer = IntegratedGradientsExplainer(n_steps=_EXPLAIN_IG_STEPS)
+        explanation = explainer.explain(_fusion_predict, instance)
+        explanation.faithfulness_scores = FaithfulnessEvaluator().evaluate(
+            _fusion_predict, instance, explanation
+        )
+        return explanation.to_dict()
 
     def detect_with_fusion_calibrated(
         self,

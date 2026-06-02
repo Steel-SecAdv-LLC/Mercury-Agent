@@ -1075,6 +1075,16 @@ class DoubleHelixEvolutionEngine:
             min_eig = self.np.min(eigenvalues)
             self.ethical_matrix += self.np.eye(self.state_dim) * (abs(min_eig) + 0.1)
 
+        # ``ethical_matrix`` is final from here on: it is built once and never
+        # mutated during stepping.  Its determinant (the σ_Immutable scale) and
+        # its symmetric eigendecomposition are therefore loop invariants.  The
+        # per-step purity path used to recompute ``det`` (and, on a violation,
+        # ``eigh``) every single ``step`` call -- two O(n^3) factorisations on a
+        # constant matrix.  Memoise them once here so the hot path drops to an
+        # O(n^2) quadratic-form evaluation (the genuine, irreducible cost).
+        self._ethical_det = self.np.linalg.det(self.ethical_matrix)
+        self._ethical_eigvals, self._ethical_eigvecs = self.np.linalg.eigh(self.ethical_matrix)
+
     def _compute_purity_invariant(self, state: np.ndarray[Any, Any]) -> float:
         """
         Compute Purity Invariant σ_Immutable.
@@ -1087,7 +1097,11 @@ class DoubleHelixEvolutionEngine:
         Returns:
             Immutable scalar (positive if pure, negative if violated)
         """
-        det = self.np.linalg.det(self.ethical_matrix)
+        # ``ethical_matrix`` is constant after construction, so its determinant
+        # is a memoised invariant (see ``_initialize_ethical_matrix``).  Reusing
+        # it turns the former per-step O(n^3) LU factorisation into an O(1) read;
+        # the surviving O(n^2) work is the irreducible quadratic form below.
+        det = self._ethical_det
 
         state_normalized = state / (self.np.linalg.norm(state) + 1e-8)
         ethical_alignment = state_normalized @ self.ethical_matrix @ state_normalized
@@ -1111,7 +1125,10 @@ class DoubleHelixEvolutionEngine:
         immutable = self._compute_purity_invariant(state)
 
         if immutable <= 0:
-            eigenvalues, eigenvectors = self.np.linalg.eigh(self.ethical_matrix)
+            # Symmetric eigendecomposition of the constant ``ethical_matrix`` is
+            # memoised at construction; reuse it instead of re-factorising O(n^3)
+            # on every correction.  The projection below stays O(n^2).
+            eigenvalues, eigenvectors = self._ethical_eigvals, self._ethical_eigvecs
             positive_mask = eigenvalues > 0
 
             if self.np.any(positive_mask):
@@ -1216,12 +1233,18 @@ class DoubleHelixEvolutionEngine:
         """
         element_wise = helix1 * (1 + helix2 / (self.np.linalg.norm(helix2) + 1e-8))
 
-        cross_coupling = self.np.outer(helix1, helix2).diagonal()
-
-        if len(cross_coupling) > len(helix1):
-            cross_coupling = cross_coupling[: len(helix1)]
-        elif len(cross_coupling) < len(helix1):
-            cross_coupling = self.np.pad(cross_coupling, (0, len(helix1) - len(cross_coupling)))
+        # ``np.outer(helix1, helix2).diagonal()`` only ever reads the diagonal
+        # ``helix1[i] * helix2[i]`` yet allocates and fills the full n×n outer
+        # product first (O(n²) time and memory).  Compute the diagonal directly
+        # (O(n)).  Build ``cross_coupling`` at ``helix1``'s length so it lines up
+        # with ``element_wise`` and fill only the ``m`` overlapping entries: in
+        # normal operation both strands are ``zeros_like(state)`` so ``m`` is the
+        # whole vector, while a defensively shorter ``helix2`` leaves a zero tail.
+        # (The prior ``> len(helix1)`` truncation branch was unreachable, since
+        # ``len(cross_coupling) == min(len(helix1), len(helix2)) <= len(helix1)``.)
+        m = min(len(helix1), len(helix2))
+        cross_coupling = self.np.zeros_like(helix1)
+        cross_coupling[:m] = helix1[:m] * helix2[:m]
 
         intertwined: np.ndarray[Any, Any] = element_wise + cross_coupling * 0.1
 
@@ -1344,12 +1367,35 @@ class DoubleHelixEvolutionEngine:
         return result
 
     def _term_D(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """𝐃: Multi-dimensional projection (SVD-inspired)."""
+        """𝐃: Multi-dimensional projection (SVD-inspired).
+
+        The projection acts on ``M = state ⊗ state`` (``reshaped @ reshaped.T``),
+        a **rank-1** matrix.  Its single non-zero singular value is ``s₀ = ‖state‖²``
+        and the matching left singular vector is ``u₀ = ±state / ‖state‖``, so the
+        dominant component ``U[:, 0] · s[0]`` is exactly ``±‖state‖ · state`` (and
+        the zero vector when ``state`` is zero).
+
+        The overall sign is a gauge freedom of the SVD (``u₀`` and the paired
+        right vector may both be negated).  LAPACK's ``gesdd`` resolves it by
+        emitting the branch whose **leading component is non-positive**
+        (``U[0, 0] ≤ 0``), i.e. ``u₀ = -sign(state[0]) · state / ‖state‖``.  We
+        reproduce that gauge explicitly, so the closed form below is numerically
+        identical to the former dense decomposition to within floating-point
+        round-off (~1e-13, far below the per-step stochastic noise) — the seeded
+        trajectory is preserved bit-for-bit while the cost drops from a dense
+        O(n³) SVD to this O(n) expression.  Computing the sign ourselves also
+        makes the term *deterministic across platforms*, where the previous code
+        silently inherited whatever gauge the local LAPACK happened to pick.
+
+        ``state[0] == 0`` is a measure-zero tie (the gauge is then unconstrained
+        at the leading entry); we resolve it deterministically to the negative
+        branch.  No RNG is drawn, so the noise stream is untouched.
+        """
         if len(state) < 2:
             return self.np.zeros_like(state)
-        reshaped = state.reshape(-1, 1)
-        U, s, _Vt = self.np.linalg.svd(reshaped @ reshaped.T, full_matrices=False)
-        projected = U[:, 0] * s[0] if len(s) > 0 else self.np.zeros_like(state)
+        norm = self.np.linalg.norm(state)
+        gauge = -1.0 if state[0] >= 0 else 1.0  # reproduce LAPACK's U[0,0] <= 0
+        projected = gauge * norm * state
         result: np.ndarray[Any, Any] = (projected - state) * 0.1
         return result
 

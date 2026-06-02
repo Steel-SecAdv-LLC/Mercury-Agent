@@ -76,6 +76,7 @@ from omni_mercury_engine.detectors.vlm.lvlm_cache import (
     get_cached_backend,
     prewarm_backend,
 )
+from omni_mercury_engine.detectors.vlm.statistical_vlm import StatisticalVLMDetector
 
 __all__ = [
     # Detectors
@@ -95,6 +96,7 @@ __all__ = [
     # Context Providers (Basic)
     "PositionContextProvider",
     "SemanticContextProvider",
+    "StatisticalVLMDetector",
     "TemporalContextProvider",
     "VLMConfig",
     "create_blip_detector",
