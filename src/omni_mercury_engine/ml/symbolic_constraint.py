@@ -500,6 +500,46 @@ class SymbolicConstraintModule(nn.Module):
         consensus = torch.sigmoid((consensus - 0.5) * 4.0 * sharpness)
         return consensus.clamp(_EPS, 1.0 - _EPS)
 
+    def predict(self, detector_scores: torch.Tensor) -> torch.Tensor:
+        """Per-sample anomaly consensus probability — the module's inference API.
+
+        Exposes the grounded ``Consensus`` predicate (the *same* fuzzy-logic
+        aggregator co-trained inside :meth:`OmniMercuryEngine.fit_fusion`, where
+        its gradient flows into the fusion network) as a standalone per-sample
+        score. A co-trained module applies its learned detector reliabilities; an
+        untrained module falls back to the deterministic uniform-weight
+        consensus (parameters initialise to zero, so there is no random-init
+        noise). This is the real inference signal the legacy ``LogicTensorNetwork``
+        surface now routes through.
+
+        Args:
+            detector_scores: ``(B, D)`` per-detector anomaly scores in ``[0, 1]``,
+                where ``D == num_detectors``.
+
+        Returns:
+            ``(B,)`` consensus probabilities in ``[0, 1]`` (detached, no grad).
+
+        Raises:
+            ValueError: If ``detector_scores`` is not 2-D or its width does not
+                match ``num_detectors`` (fail closed on a shape mismatch rather
+                than silently broadcasting).
+        """
+        if detector_scores.ndim != 2:
+            raise ValueError(
+                f"detector_scores must be 2-D (B, D); got shape {tuple(detector_scores.shape)}"
+            )
+        batch = detector_scores.shape[0]
+        with torch.no_grad():
+            if self.num_detectors == 0 or detector_scores.shape[1] == 0:
+                # No detector channels -> trivial 0.5 consensus (no signal).
+                return torch.full((batch,), 0.5, dtype=detector_scores.dtype)
+            if detector_scores.shape[1] != self.num_detectors:
+                raise ValueError(
+                    f"detector_scores width {detector_scores.shape[1]} != "
+                    f"num_detectors {self.num_detectors}"
+                )
+            return self._consensus(detector_scores).squeeze(-1)
+
     def _salience(self, detector_scores: torch.Tensor) -> torch.Tensor:
         """Ground the ``Salient`` predicate: "some detector saliently fires".
 

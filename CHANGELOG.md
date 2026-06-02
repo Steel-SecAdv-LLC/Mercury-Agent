@@ -26,6 +26,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Neuro-symbolic — `LogicTensorNetwork` re-wired to the canonical co-trained module (2026-06-02)
+
+Reverses PR #269's *retirement* of `LogicTensorNetwork` in favour of **wiring**
+it (the mission's "do not retire — implement its predict to call the canonical
+co-trained symbolic module"). The original class was a never-trained `nn.Module`
+whose random-init noise fed fusion as if a neural confidence; rather than delete
+the surface, it is rebuilt as a thin head over the canonical co-trained module:
+
+* **`SymbolicConstraintModule.predict(detector_scores) -> (B,)`** — new public
+  per-sample inference API exposing the module's fuzzy-logic `Consensus`
+  predicate (the *same* component co-trained with real gradients inside
+  `fit_fusion`). Fails closed on a shape/width mismatch.
+* **`models/neurosymbolic.py::LogicTensorNetwork`** is re-introduced as an
+  SCM-backed wrapper: `predict()` routes detector scores through
+  `SymbolicConstraintModule.predict`. **No random init** — an untrained module's
+  zero-initialised parameters yield a deterministic uniform-weight consensus; a
+  co-trained module (e.g. restored from a fusion checkpoint via `module=`)
+  applies its learned detector reliabilities. `NeurosymbolicEngine.ltn` is built
+  when torch is importable (honestly reported by `get_statistics`:
+  `ltn_available`, `ltn_backend="symbolic_constraint_module"`).
+* The raw-feature `neural_inference` is **kept** as an honestly-labelled
+  deterministic dispersion heuristic (it is a per-feature statistic, *not* a
+  trained signal, and says so) — distinct from the trained-capable detector
+  consensus now reachable via `ltn.predict`.
+
+Tests: `tests/ml/test_symbolic_constraint.py::TestPredictInference` (6 tests:
+per-sample shape/range, matches the consensus predicate, monotone in scores,
+zero-detector trivial case, fail-closed shape checks) and
+`tests/test_neurosymbolic_integration.py::{test_ltn_is_wired_to_canonical_symbolic_module,
+test_ltn_predict_delegates_to_symbolic_consensus}` (LTN exists, is SCM-backed,
+delegates exactly, deterministic, monotone). The prior `*_is_retired` assertions
+are flipped to wired assertions. `black`/`ruff`/`flake8` clean; `mypy --strict`
+clean on both changed source files.
+
 ### MLOps — fusion AUC/F1 + conformal-coverage CI regression gate (2026-06-02)
 
 Finishes the WS5/WS6 "MLOps train→eval→register CI regression gates" item

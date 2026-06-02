@@ -156,15 +156,66 @@ class ReasoningResult:
     symbolic_contribution: float = 0.0
 
 
-# NOTE: ``LogicTensorNetwork`` (a never-trained ``nn.Module`` whose forward
-# pass returned random-init noise that was then fed into the fusion consensus
-# as if it were a neural confidence) was **retired on 2026-06-02**.  Presenting
-# an untrained network's output as a trained signal was the dishonesty the
-# v1.7 audit flagged.  ``NeurosymbolicEngine.neural_inference`` now returns a
-# deterministic statistical heuristic instead (see that method), and the
-# canonical *trained* neuro-symbolic component is
-# ``ml/symbolic_constraint.py::SymbolicConstraintModule`` (co-trained in
-# ``OmniMercuryEngine.fit_fusion``).  No replacement "LTN" class is exported.
+class LogicTensorNetwork:
+    """Neuro-symbolic inference head backed by the canonical co-trained module.
+
+    History: the original ``LogicTensorNetwork`` was a never-trained
+    ``nn.Module`` whose random-init forward pass was fed into fusion as if it
+    were a neural confidence — the dishonesty the v1.7 audit flagged. Rather
+    than leave that surface retired, it is **re-wired** here to the canonical
+    :class:`~omni_mercury_engine.ml.symbolic_constraint.SymbolicConstraintModule`:
+    :meth:`predict` routes detector scores through that module's fuzzy-logic
+    ``Consensus`` predicate — the *same* component co-trained (with real
+    gradients) inside :meth:`OmniMercuryEngine.fit_fusion`.
+
+    There is no random-init noise: an untrained module's parameters initialise
+    to zero, so its consensus is a deterministic uniform-weight aggregator; a
+    co-trained module (e.g. restored from a fusion checkpoint and passed as
+    ``module=``) applies its learned detector reliabilities. Either way the
+    output is a real, reproducible symbolic signal — never an unowned random
+    number.
+
+    Torch is imported lazily here so importing :mod:`...models.neurosymbolic`
+    stays torch-free; constructing an LTN requires torch (it builds/holds the
+    canonical torch module).
+    """
+
+    def __init__(self, num_detectors: int, module: Any = None) -> None:
+        """Build an SCM-backed inference head.
+
+        Args:
+            num_detectors: Number of per-detector score channels ``D``.
+            module: Optional pre-built / co-trained ``SymbolicConstraintModule``
+                to wrap. When ``None`` a fresh (deterministic, untrained) module
+                with ``num_detectors`` channels is constructed.
+        """
+        from omni_mercury_engine.ml.symbolic_constraint import SymbolicConstraintModule
+
+        self.num_detectors = int(num_detectors)
+        self.module = (
+            module
+            if module is not None
+            else SymbolicConstraintModule(num_detectors=self.num_detectors)
+        )
+        self.module.eval()
+
+    def predict(self, detector_scores: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Per-sample anomaly consensus via the canonical symbolic module.
+
+        Args:
+            detector_scores: ``(B, D)`` or ``(D,)`` per-detector scores in
+                ``[0, 1]``.
+
+        Returns:
+            ``(B,)`` consensus probabilities in ``[0, 1]`` as a NumPy array.
+        """
+        import torch
+
+        scores = torch.as_tensor(np.asarray(detector_scores, dtype=np.float64), dtype=torch.float32)
+        if scores.ndim == 1:
+            scores = scores.unsqueeze(0)
+        consensus = self.module.predict(scores)
+        return np.asarray(consensus.detach().cpu().numpy(), dtype=np.float64)
 
 
 class SymbolicReasoningLayer:
@@ -338,11 +389,15 @@ class NeurosymbolicEngine:
         self.golden_ratio = 0.618
         self.quantum_factor = 1.2
 
-        # The untrained ``LogicTensorNetwork`` was retired (2026-06-02).  The
-        # neural-confidence path is now a deterministic statistical heuristic
-        # (see ``neural_inference``); no untrained ``nn.Module`` is built.  The
-        # canonical *trained* neuro-symbolic surface is
-        # ``ml/symbolic_constraint.py::SymbolicConstraintModule``.
+        # Neuro-symbolic inference head, wired to the canonical co-trained
+        # SymbolicConstraintModule (no random-init network). Built eagerly when
+        # torch is importable; ``None`` (honestly reported by get_statistics) in
+        # a torch-free environment, since the canonical module is a torch module.
+        self.ltn: LogicTensorNetwork | None
+        try:
+            self.ltn = LogicTensorNetwork(num_detectors=input_dim)
+        except ImportError:
+            self.ltn = None
 
         self.knowledge_base: list[SymbolicRule] = []
         self.facts: set[str] = set()
@@ -442,17 +497,18 @@ class NeurosymbolicEngine:
         """
         Deterministic statistical anomaly-confidence for the legacy path.
 
-        .. note:: **Retired untrained network (2026-06-02).**
-            This previously forwarded an untrained :class:`LogicTensorNetwork`
-            whose random-init output was meaningless noise *presented as a
-            neural confidence*.  That network is gone.  This method now returns
-            a deterministic, reproducible statistic of the input features — a
-            robust standardized-dispersion signal passed through a logistic —
-            so the value is bounded, feature-responsive, and free of the
-            "untrained network as if live" dishonesty.  For genuine *trained*
-            neuro-symbolic inference use
+        .. note:: **Distinct from the trained consensus path (2026-06-02).**
+            This is a deterministic, reproducible statistic of *raw features* —
+            a robust standardized-dispersion signal through a logistic (bounded,
+            feature-responsive) — **not** a trained signal, and it is honestly
+            labelled as such. It is NOT the retired random-init network: the
+            ``LogicTensorNetwork`` surface is now re-wired to the canonical
             :class:`omni_mercury_engine.ml.symbolic_constraint.SymbolicConstraintModule`
-            (co-trained in ``OmniMercuryEngine.fit_fusion``).
+            (co-trained in ``OmniMercuryEngine.fit_fusion``); use
+            ``self.ltn.predict(detector_scores)`` for the trained-capable
+            neuro-symbolic *consensus* over per-detector scores. This heuristic
+            remains for the legacy raw-feature path where no detector scores
+            exist.
 
         Args:
             features: Input features (numpy array, 1-D row or 2-D batch).
@@ -707,11 +763,14 @@ class NeurosymbolicEngine:
             "symbolic_rules": len(self.symbolic_layer.rules),
             "facts_count": len(self.facts),
             "reasoning_mode": self.reasoning_mode.value,
-            # The untrained LogicTensorNetwork was retired (2026-06-02); the
-            # neural-confidence path is now a deterministic heuristic, so no
-            # trained network is "available" here.  Canonical trained
-            # neuro-symbolic: ml/symbolic_constraint.py::SymbolicConstraintModule.
-            "ltn_available": False,
+            # The LogicTensorNetwork is wired (2026-06-02) to the canonical
+            # co-trained SymbolicConstraintModule (no random-init network):
+            # ``ltn.predict`` routes detector scores through its fuzzy-logic
+            # consensus. Available whenever torch is importable. The legacy raw-
+            # feature ``neural_inference`` remains a deterministic heuristic (a
+            # per-feature dispersion statistic, distinct from detector consensus).
+            "ltn_available": self.ltn is not None,
+            "ltn_backend": "symbolic_constraint_module" if self.ltn is not None else None,
             "neural_inference_mode": "deterministic_heuristic",
             "input_dim": self.input_dim,
         }

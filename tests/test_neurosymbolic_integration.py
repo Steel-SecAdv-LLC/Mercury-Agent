@@ -71,26 +71,60 @@ def test_predict() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Legacy LTN retirement (2026-06-02).
+# LogicTensorNetwork re-wired to the canonical co-trained module (2026-06-02).
 #
-# The untrained ``LogicTensorNetwork`` (a never-trained nn.Module whose
-# random-init forward pass was fed into the fusion consensus as if it were a
-# neural confidence) was retired.  ``neural_inference`` is now a deterministic
-# statistical heuristic.  The canonical *trained* neuro-symbolic surface is
-# ``ml/symbolic_constraint.py::SymbolicConstraintModule``.
+# The original ``LogicTensorNetwork`` was a never-trained nn.Module whose
+# random-init noise was fed into fusion as if a neural confidence. Rather than
+# leave it retired, it is re-wired: ``LogicTensorNetwork.predict`` now routes
+# detector scores through the canonical co-trained
+# ``ml/symbolic_constraint.py::SymbolicConstraintModule`` consensus predicate
+# (deterministic untrained, learned-reliability when co-trained). The raw-
+# feature ``neural_inference`` remains an honestly-labelled heuristic.
 # ---------------------------------------------------------------------------
 
 
-def test_untrained_ltn_class_is_retired() -> None:
-    """No second 'LTN' remains exported/constructed while doing nothing."""
+def test_ltn_is_wired_to_canonical_symbolic_module() -> None:
+    """The LTN surface exists and is backed by SymbolicConstraintModule."""
     import omni_mercury_engine.models.neurosymbolic as nsm
 
-    assert not hasattr(nsm, "LogicTensorNetwork")
+    assert hasattr(nsm, "LogicTensorNetwork")
     engine = NeurosymbolicEngine(input_dim=64)
-    assert not hasattr(engine, "ltn")
+    assert hasattr(engine, "ltn")
+    assert engine.ltn is not None  # torch is present in the [ml] env
+    # It wraps the canonical module, not a bespoke random network.
+    from omni_mercury_engine.ml.symbolic_constraint import SymbolicConstraintModule
+
+    assert isinstance(engine.ltn.module, SymbolicConstraintModule)
     stats = engine.get_statistics()
-    assert stats["ltn_available"] is False
-    assert stats["neural_inference_mode"] == "deterministic_heuristic"
+    assert stats["ltn_available"] is True
+    assert stats["ltn_backend"] == "symbolic_constraint_module"
+
+
+def test_ltn_predict_delegates_to_symbolic_consensus() -> None:
+    """LTN.predict returns the canonical module's per-sample consensus.
+
+    Real signal, deterministic, and monotone in the detector scores (a batch of
+    high scores yields higher consensus than a batch of low scores) — and it
+    matches ``SymbolicConstraintModule.predict`` exactly (genuine delegation,
+    not a reimplementation).
+    """
+    import torch
+
+    from omni_mercury_engine.models.neurosymbolic import LogicTensorNetwork
+
+    ltn = LogicTensorNetwork(num_detectors=4)
+    high = np.full((3, 4), 0.9)
+    low = np.full((3, 4), 0.1)
+    p_high = ltn.predict(high)
+    p_low = ltn.predict(low)
+    assert p_high.shape == (3,)
+    assert np.all((p_high >= 0.0) & (p_high <= 1.0))
+    assert float(p_high.mean()) > float(p_low.mean())  # consensus is monotone
+    # Deterministic: same input -> same output (no random network).
+    assert np.allclose(ltn.predict(high), p_high)
+    # Genuine delegation to the wrapped module's predict.
+    direct = ltn.module.predict(torch.tensor(high, dtype=torch.float32)).numpy()
+    assert np.allclose(p_high, direct)
 
 
 def test_neural_inference_is_deterministic_and_feature_responsive() -> None:
