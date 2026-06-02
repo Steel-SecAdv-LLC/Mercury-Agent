@@ -199,6 +199,7 @@ def _emit_artifact(metrics: dict[str, Any]) -> Path:
 
 
 def main() -> int:
+    """CLI entry point: ``--update`` re-pins the baseline + emits an artifact; ``--check`` gates."""
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument(
         "--update", action="store_true", help="re-measure, re-pin baseline + emit artifact"
