@@ -258,9 +258,13 @@ jobs:
         # Ignore unfixed vulnerabilities to reduce noise
         ignore-unfixed: true
         # Skip duplicate detection across layers and huge ML header files
-        # that cause context-deadline-exceeded timeouts in secret scanning
+        # that cause context-deadline-exceeded timeouts in secret scanning.
+        # ``scipy/datasets/_fetchers.py`` is also skipped: it embeds the pooch
+        # dataset *registry* (SHA-256 hashes + URLs) which Trivy's secret
+        # scanner misclassifies as a "JWT token" — an upstream-dependency
+        # false positive, not a Mercury secret.
         skip-dirs: '/var/lib/apt/lists,/var/cache/apt'
-        skip-files: '/opt/venv/lib/python3.12/site-packages/torch/include/ATen/Tensor.h,/opt/venv/lib/python3.12/site-packages/tensorflow/include/tensorflow/compiler/mlir/tensorflow/ir/tf_all_ops.h.inc,/opt/venv/lib/python3.13/site-packages/torch/include/ATen/Tensor.h,/opt/venv/lib/python3.13/site-packages/tensorflow/include/tensorflow/compiler/mlir/tensorflow/ir/tf_all_ops.h.inc'
+        skip-files: '/opt/venv/lib/python3.12/site-packages/torch/include/ATen/Tensor.h,/opt/venv/lib/python3.12/site-packages/tensorflow/include/tensorflow/compiler/mlir/tensorflow/ir/tf_all_ops.h.inc,/opt/venv/lib/python3.13/site-packages/torch/include/ATen/Tensor.h,/opt/venv/lib/python3.13/site-packages/tensorflow/include/tensorflow/compiler/mlir/tensorflow/ir/tf_all_ops.h.inc,/opt/venv/lib/python3.12/site-packages/scipy/datasets/_fetchers.py,/opt/venv/lib/python3.13/site-packages/scipy/datasets/_fetchers.py'
         timeout: '15m'
         # Use the binary installed in the explicit step above; see
         # that step's comment for the upstream-flake rationale.
@@ -288,7 +292,7 @@ jobs:
         vuln-type: 'os,library'
         ignore-unfixed: true
         skip-dirs: '/var/lib/apt/lists,/var/cache/apt'
-        skip-files: '/opt/venv/lib/python3.12/site-packages/torch/include/ATen/Tensor.h,/opt/venv/lib/python3.12/site-packages/tensorflow/include/tensorflow/compiler/mlir/tensorflow/ir/tf_all_ops.h.inc,/opt/venv/lib/python3.13/site-packages/torch/include/ATen/Tensor.h,/opt/venv/lib/python3.13/site-packages/tensorflow/include/tensorflow/compiler/mlir/tensorflow/ir/tf_all_ops.h.inc'
+        skip-files: '/opt/venv/lib/python3.12/site-packages/torch/include/ATen/Tensor.h,/opt/venv/lib/python3.12/site-packages/tensorflow/include/tensorflow/compiler/mlir/tensorflow/ir/tf_all_ops.h.inc,/opt/venv/lib/python3.13/site-packages/torch/include/ATen/Tensor.h,/opt/venv/lib/python3.13/site-packages/tensorflow/include/tensorflow/compiler/mlir/tensorflow/ir/tf_all_ops.h.inc,/opt/venv/lib/python3.12/site-packages/scipy/datasets/_fetchers.py,/opt/venv/lib/python3.13/site-packages/scipy/datasets/_fetchers.py'
         timeout: '15m'
         exit-code: '1'
         # Trivy binary is already installed by the explicit

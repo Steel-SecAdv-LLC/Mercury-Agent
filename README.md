@@ -1294,6 +1294,14 @@ golden-ratio R/H/O equation signal. **`None` (the default) is an exact no-op**,
 so the legacy serve/benchmark path is byte-for-byte unchanged; the blend
 metadata is surfaced under `result["equation_profile"]`.
 
+Three profiles ship: `baseline_original_v1` and `quiet_horizon_v1` are **frozen**
+(fixed `0.70/0.30` split), while `phi_fibring_v1` harmonises the blend with
+Mercury's canonical fibring fusion (`core/fibring_fusion.py`) — a golden-ratio
+base split (`φ/(1+φ) : 1/(1+φ)` ≈ `0.618 : 0.382`) plus **correlation-aware
+decorrelation**: when the equation signal is redundant with the neural score
+(`|Pearson r| ≥ 0.85`) the lower-variance stream is shrunk by `1/(1+|r|)` and the
+weights renormalise, so a duplicated channel cannot double-count.
+
 Tests: `tests/tools/test_equation_optimizer.py` (pipeline artifacts + CLI smoke),
 `tests/core/test_equation_profiles.py` (bounded/distinct profiles, `None`
 pass-through, unknown-profile rejection, channel→R/H/O mapping),

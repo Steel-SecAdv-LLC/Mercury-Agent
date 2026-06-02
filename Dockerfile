@@ -119,9 +119,15 @@ ENV PATH="/opt/venv/bin:$PATH"
 #   CVE-2025-8869 (symlink extraction)
 #   CVE-2026-1703  (path traversal in wheel archives, GHSA-6vgw-5pg2-w6jp)
 #   CVE-2026-6357  (arbitrary code execution via malicious wheel)
-# The builder's venv already has pip>=26.1 via the copy above, but the base
-# python:3.13-slim-bookworm image ships its own pip that Trivy detects.
-RUN python -m pip install --upgrade --no-cache-dir "pip>=26.1" "setuptools>=78.1.1" && \
+# The builder's venv (copied above) already ships pip>=26.1, but the base
+# python:3.13-slim-bookworm image carries its OWN pip under /usr/local that
+# Trivy detects (pip-26.0.1.dist-info).  Because ``ENV PATH`` puts
+# /opt/venv/bin first, a bare ``python -m pip`` would upgrade the *venv* pip
+# (already patched) and leave the vulnerable *system* pip in place — so target
+# the system interpreter explicitly via its absolute path, and drop the
+# bundled ensurepip wheels that would otherwise re-seed a stale pip dist-info.
+RUN /usr/local/bin/python -m pip install --upgrade --no-cache-dir "pip>=26.1" "setuptools>=78.1.1" && \
+    rm -rf /usr/local/lib/python3.13/ensurepip/_bundled && \
     pip cache purge
 
 # Copy application code

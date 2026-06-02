@@ -26,6 +26,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Equations — golden-ratio fibring runtime profile + correlation-aware decorrelation (2026-06-02)
+
+Improves the *math* of the runtime equation blend by harmonising it with
+Mercury's canonical TIER-4.2 fusion (`core/fibring_fusion.py`) instead of an
+arbitrary fixed split.
+
+* **New `phi_fibring_v1` runtime profile** — blends the calibrated neural score
+  with the frozen OAE R/H/O equation signal using the **golden-ratio split**
+  `w_neural = φ/(1+φ) ≈ 0.618`, `w_equation = 1/(1+φ) ≈ 0.382` (the same
+  `_phi_base()` ratio the production fibring fusion uses), rather than the
+  source branch's ungrounded `0.70/0.30`.
+* **Correlation-aware decorrelation** — when the equation signal merely echoes
+  the neural score (`|Pearson r| ≥ REDUNDANCY_THRESHOLD = 0.85`, imported from
+  `fibring_fusion` as the single source of truth), the lower-variance (less
+  informative) stream's weight is shrunk by `1/(1+|r|)` and the pair is
+  renormalised — so a redundant equation channel cannot double-count. The
+  blend remains a convex combination of two `[0,1]` signals (output bounded).
+  `score_runtime_equation_profile` now reports `neural_weight`,
+  `equation_weight`, `correlation`, and `decorrelation_applied` in its metadata.
+* `baseline_original_v1` / `quiet_horizon_v1` stay **frozen** (fixed `0.70/0.30`,
+  no decorrelation), honouring the optimizer's freeze-and-add discipline.
+
+Tests: `tests/core/test_equation_profiles.py` gains golden-ratio-split,
+decorrelation-fires-on-redundant-signal, and distinct-from-baseline cases.
+`black`/`ruff`/`flake8` clean; `mypy --strict` clean.
+
+### Security — CodeQL/Trivy: real system-pip upgrade + scipy fetchers false-positive (2026-06-02)
+
+* **pip CVEs (CVE-2025-8869 / CVE-2026-1703 / CVE-2026-6357)** — the runtime
+  stage's `python -m pip install --upgrade pip>=26.1` was a no-op against the
+  vulnerable pip Trivy flags: `ENV PATH` puts `/opt/venv/bin` first, so it
+  upgraded the (already-patched) venv pip and left the base image's *system*
+  pip at `/usr/local` untouched. Fixed to target `/usr/local/bin/python`
+  explicitly and to drop the bundled `ensurepip` wheels that re-seed a stale
+  `pip-*.dist-info`.
+* **scipy "JWT token" false-positive** — `scipy/datasets/_fetchers.py` embeds
+  the pooch dataset *registry* (SHA-256 hashes + URLs), which Trivy's secret
+  scanner misclassifies as a JWT. Added to the existing Trivy `skip-files`
+  allowlist (the repo's established mechanism) in both scan steps, since it is
+  an upstream-dependency artifact, not a Mercury secret.
+
 ### Equations — universal equation optimizer + opt-in runtime equation profiles (2026-06-02)
 
 Marshals the previously-unintegrated **universal equation optimizer** work

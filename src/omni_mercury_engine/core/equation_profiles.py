@@ -1,7 +1,13 @@
 """Runtime equation profiles for Mercury fusion scores.
 
 Profiles preserve ``baseline_original_v1`` as the frozen reference while
-allowing candidate profiles to be selected explicitly at runtime.
+allowing candidate profiles to be selected explicitly at runtime. The
+``phi_fibring_v1`` candidate harmonises the neural/equation blend with
+Mercury's canonical golden-ratio fibring fusion
+(:mod:`omni_mercury_engine.core.fibring_fusion`): a phi-weighted base split
+(``phi/(1+phi) : 1/(1+phi)``) plus correlation-aware decorrelation, so a
+runtime equation signal that merely echoes the neural score cannot
+double-count.
 """
 
 from __future__ import annotations
@@ -11,11 +17,13 @@ from typing import Any
 
 import numpy as np
 
+from omni_mercury_engine.core.fibring_fusion import REDUNDANCY_THRESHOLD
 from omni_mercury_engine.core.three_r.types import GOLDEN_RATIO_CONSTANT
 
 _EPS = 1e-8
 BASELINE_PROFILE_ID = "baseline_original_v1"
 QUIET_HORIZON_PROFILE_ID = "quiet_horizon_v1"
+PHI_FIBRING_PROFILE_ID = "phi_fibring_v1"
 
 
 @dataclass(frozen=True)
@@ -28,6 +36,11 @@ class RuntimeEquationProfile:
     equation_weight: float
     ethical_exponent: float
     formula: str
+    # When True, ``score_runtime_equation_profile`` treats ``neural_weight`` /
+    # ``equation_weight`` as the *base* split and applies the canonical
+    # correlation-aware decorrelation (see ``core.fibring_fusion``) before the
+    # blend; static profiles keep their fixed weights.
+    decorrelate: bool = False
 
 
 _PROFILES = {
@@ -52,6 +65,23 @@ _PROFILES = {
             "S=0.70*N+0.30*(eta^sqrt(Phi)*(0.5+0.5*A_RHO)*"
             "(Phi*R+sqrt(HO)+cuberoot(RHO))/(Phi+2))"
         ),
+    ),
+    PHI_FIBRING_PROFILE_ID: RuntimeEquationProfile(
+        profile_id=PHI_FIBRING_PROFILE_ID,
+        description=(
+            "Golden-ratio fibring candidate: phi-weighted neural/equation base "
+            "split (phi/(1+phi) : 1/(1+phi)) with correlation-aware "
+            "decorrelation, harmonised with core.fibring_fusion so a redundant "
+            "equation signal cannot double-count the neural score."
+        ),
+        neural_weight=GOLDEN_RATIO_CONSTANT / (1.0 + GOLDEN_RATIO_CONSTANT),
+        equation_weight=1.0 / (1.0 + GOLDEN_RATIO_CONSTANT),
+        ethical_exponent=GOLDEN_RATIO_CONSTANT,
+        formula=(
+            "S=w_N*N+w_E*((w_R R+w_H H+w_O O)*eta^Phi); "
+            "(w_N,w_E)=fibring(phi/(1+phi), 1/(1+phi)) decorrelated@|r|>=0.85"
+        ),
+        decorrelate=True,
     ),
 }
 
@@ -116,7 +146,7 @@ def score_runtime_equation_profile(
 
     baseline_signal = (w_r * r + w_h * h + w_o * o) * np.power(eta_arr, profile.ethical_exponent)
 
-    if profile.profile_id == BASELINE_PROFILE_ID:
+    if profile.profile_id in (BASELINE_PROFILE_ID, PHI_FIBRING_PROFILE_ID):
         equation_signal = baseline_signal
     elif profile.profile_id == QUIET_HORIZON_PROFILE_ID:
         pairwise_spread = np.sqrt(((r - h) ** 2 + (h - o) ** 2 + (o - r) ** 2) / 3.0)
@@ -129,14 +159,21 @@ def score_runtime_equation_profile(
     else:  # pragma: no cover - get_equation_profile validates profile ids
         equation_signal = baseline_signal
 
-    scored = profile.neural_weight * np.clip(raw, 0.0, 1.0) + profile.equation_weight * np.clip(
-        equation_signal, 0.0, 1.0
+    raw_clipped = np.clip(raw, 0.0, 1.0)
+    eq_clipped = np.clip(equation_signal, 0.0, 1.0)
+    w_neural, w_equation, correlation, decorrelation_applied = _resolve_blend_weights(
+        raw_clipped, eq_clipped, profile
     )
+    scored = w_neural * raw_clipped + w_equation * eq_clipped
     metadata = {
         "profile_id": profile.profile_id,
         "applied": True,
         "formula": profile.formula,
         "description": profile.description,
+        "neural_weight": float(w_neural),
+        "equation_weight": float(w_equation),
+        "correlation": correlation,
+        "decorrelation_applied": decorrelation_applied,
         "component_means": {
             "recursion": float(np.mean(r)) if r.size else 0.0,
             "resonance": float(np.mean(h)) if h.size else 0.0,
@@ -146,6 +183,56 @@ def score_runtime_equation_profile(
         },
     }
     return np.clip(scored, 0.0, 1.0), metadata
+
+
+def _pearson_correlation(a: np.ndarray[Any, Any], b: np.ndarray[Any, Any]) -> float | None:
+    """Pearson correlation of two equal-length series, or ``None`` if undefined.
+
+    Mirrors ``fibring_fusion.FibringComposer._compute_correlation``: a series
+    with (near-)zero variance has an undefined correlation, returned as
+    ``None`` so no decorrelation fires.
+    """
+    if a.shape[0] < 2:
+        return None
+    if float(np.var(a)) <= _EPS or float(np.var(b)) <= _EPS:
+        return None
+    r = float(np.corrcoef(a, b)[0, 1])
+    return r if np.isfinite(r) else None
+
+
+def _resolve_blend_weights(
+    neural: np.ndarray[Any, Any],
+    equation: np.ndarray[Any, Any],
+    profile: RuntimeEquationProfile,
+) -> tuple[float, float, float | None, bool]:
+    """Resolve the ``(neural, equation)`` blend weights for a profile.
+
+    Static profiles return their fixed ``(neural_weight, equation_weight)``.
+    Profiles with ``decorrelate=True`` apply the canonical correlation-aware
+    decorrelation from :mod:`omni_mercury_engine.core.fibring_fusion`: when the
+    two signals are redundant (``|Pearson r| >= REDUNDANCY_THRESHOLD``) the
+    lower-variance (less informative) stream's weight is shrunk by
+    ``1/(1+|r|)`` and the pair is renormalised to sum to 1. The blend therefore
+    stays a convex combination of two ``[0, 1]`` signals (output bounded).
+    """
+    base_n = float(profile.neural_weight)
+    base_e = float(profile.equation_weight)
+    if not profile.decorrelate:
+        return base_n, base_e, None, False
+
+    correlation = _pearson_correlation(neural, equation)
+    if correlation is None or abs(correlation) < REDUNDANCY_THRESHOLD:
+        return base_n, base_e, correlation, False
+
+    shrink = 1.0 / (1.0 + abs(correlation))
+    if float(np.var(neural)) <= float(np.var(equation)):
+        base_n *= shrink
+    else:
+        base_e *= shrink
+    total = base_n + base_e
+    if total <= 0.0:  # pragma: no cover - phi base weights are strictly positive
+        return 0.5, 0.5, correlation, True
+    return base_n / total, base_e / total, correlation, True
 
 
 def components_from_score_channels(
