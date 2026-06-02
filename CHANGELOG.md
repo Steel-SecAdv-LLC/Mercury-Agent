@@ -231,6 +231,41 @@ both at chance as detectors, a verdict left unchanged):
 
 DORMANCY_LEDGER rows #6 / #9 updated to note the new behavioural coverage.
 
+### Neuro-symbolic — label-scarcity-adaptive co-training default + dormant-module revival (PR #265, 2026-06-01)
+
+`symbolic_weight="adaptive"` is the **default** for `OmniMercuryEngine.fit_fusion`.
+A *fixed* `λ` was quarantined (no full-data win), but the label-scarcity
+`ScarcityWeightSchedule` (`lambda_eff(n_pos) = lam_max·exp(-n_pos / n0)`,
+defaults `lam_max=0.1, n0=25, floor=1e-3`) cleared a pre-registered dominance
+bar on real ADBench labels, so the `SymbolicConstraintModule` co-trains when
+positive labels are scarce and decays to the purely-neural path once they are
+abundant (de-quarantining the genuine, co-trained LTN).  Companion
+dormant-module revival survey (`benchmarks/dormant_module_revival.py`,
+`docs/DORMANCY_LEDGER.md`) measures each archived module against real held-out
+labels under the repo's fail-closed ablation discipline and records the
+keep / cut / quarantine verdict per module.
+
+### Neuro-symbolic — genuine co-training, conformal uncertainty, fail-closed AMA/PQC (PR #262, 2026-05-31)
+
+* **Genuine neuro-symbolic co-training.** `ml/symbolic_constraint.py::SymbolicConstraintModule`
+  — a differentiable fuzzy-logic constraint (product / Reichenbach /
+  Łukasiewicz / Gödel semantics) over a consensus rule graph — is co-trained
+  with the fusion network in `fit_fusion` when `symbolic_weight > 0`
+  (`loss += λ · (1 − satisfaction)`), with gradients flowing to both the
+  fusion model and the learnable rule confidences.  Pinned by
+  `tests/ml/test_symbolic_constraint.py` and `tests/test_fusion_symbolic_cotraining.py`.
+* **Conformal uncertainty on the serve path.** `BinaryConformalClassifier`
+  with `calibrate_fusion_conformal` / `score_fusion_conformal` adds
+  distribution-free prediction sets with a coverage guarantee on top of the
+  temperature-calibrated fusion probability; a misconfigured conformal
+  predictor raises `ConformalMisconfigurationError` instead of silently
+  returning `confidence_intervals=None`.  Pinned by `tests/test_fusion_conformal.py`
+  and `tests/federated/test_no_silent_failure.py`.
+* **Fail-closed AMA / PQC.** AMA Cryptography native PQC is mandatory at
+  package import regardless of `MERCURY_ENV`; Mercury fails closed (refuses to
+  import) without the validated `ama-cryptography` backend.  Pinned by
+  `tests/test_pqc_startup_gate.py` / `tests/security/test_pqc_gate_real_ama.py`.
+
 ### USGS Geochemistry — real NURE-HSSR downloader (2026-05-23)
 
 `USGSGeochemistryLoader._download_from_usgs` was previously a literal
