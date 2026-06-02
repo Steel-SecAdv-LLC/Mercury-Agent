@@ -170,6 +170,42 @@ contract (not-instantiable + `__abstractmethods__` set) and exercise the
 concrete helpers (`_sample_frames`, `preprocess`, `postprocess`) via minimal
 concrete subclasses.
 
+### Neuro-symbolic — retire the untrained legacy LTN; co-training + conformal on the serve path (2026-06-02)
+
+**Retired the never-trained `LogicTensorNetwork`.**
+`models/neurosymbolic.py::LogicTensorNetwork` was a random-init `nn.Module`
+whose forward pass returned meaningless noise that
+`NeurosymbolicEngine.neural_inference` then fed into the fusion consensus *as
+if it were a neural confidence* — the "untrained network as if live"
+dishonesty the v1.7 audit flagged.  The class is **removed**;
+`neural_inference` now returns a **deterministic statistical heuristic**
+(robust standardized-dispersion through a logistic — bounded, reproducible,
+feature-responsive), and the module / `neural_inference` / `get_statistics`
+docstrings carry a migration note to the canonical *trained* neuro-symbolic
+surface, `ml/symbolic_constraint.py::SymbolicConstraintModule` (co-trained in
+`OmniMercuryEngine.fit_fusion`).  The module no longer imports torch.
+Regression: `tests/test_neurosymbolic_integration.py` (LTN class gone, no
+`self.ltn`, deterministic + feature-responsive `neural_inference`, migration
+pointer).
+
+**Co-training + conformal verified together on the serve path.** New
+`tests/test_fusion_symbolic_cotraining.py::TestCoTrainingConformalServePath`:
+
+* `test_adaptive_cotraining_then_conformal_on_serve_path` — the production
+  default (`symbolic_weight="adaptive"`) co-trains a `SymbolicConstraintModule`
+  on a scarce-anomaly regime, then `calibrate_fusion_conformal` +
+  `score_fusion_conformal` produce valid, bounded prediction sets and
+  detection still separates the classes (ROC-AUC ≥ 0.85).
+* `test_checkpoint_round_trip_no_symbolic_dimension_drift` — after
+  co-training, `save_model` → `load_model` into a fresh engine reproduces
+  `score_fusion` to within 1e-5 with **no** symbolic module on the reloaded
+  engine: the symbolic channels are training-only and never drift the
+  persisted fusion dimensions at inference.
+
+The adaptive-default and neural-only-escape (`symbolic_weight=0.0`) contracts
+remain pinned by the existing `test_adaptive_is_the_default` /
+`test_zero_weight_has_no_symbolic_state`.
+
 ### USGS Geochemistry — real NURE-HSSR downloader (2026-05-23)
 
 `USGSGeochemistryLoader._download_from_usgs` was previously a literal

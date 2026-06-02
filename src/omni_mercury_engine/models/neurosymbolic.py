@@ -19,16 +19,30 @@ from __future__ import annotations
 """
 Unified Neurosymbolic Engine - Fusion of neural networks and symbolic reasoning
 
-This module provides the core neurosymbolic AI capabilities for Mercury Agent,
-combining Logic Tensor Networks (LTN) with symbolic reasoning for:
-- Explainable anomaly detection
-- Ethical constraint enforcement
-- Hybrid neural-symbolic inference
+.. warning:: **Legacy / reference surface — not the canonical co-trained path.**
+    The **canonical, trained** neuro-symbolic component is
+    :class:`omni_mercury_engine.ml.symbolic_constraint.SymbolicConstraintModule`,
+    co-trained with the fusion network inside
+    :meth:`omni_mercury_engine.engine.OmniMercuryEngine.fit_fusion`
+    (adaptive ``symbolic_weight`` schedule + conformal uncertainty on the
+    serve path).  ``NeurosymbolicEngine`` here is a *symbolic-rules + ethical
+    rules* reference surface; its neural-confidence path is a **deterministic
+    statistical heuristic**, not a trained network.  The previous
+    ``LogicTensorNetwork`` (a never-trained ``nn.Module`` whose forward pass
+    returned random-init noise) was **retired (2026-06-02)** — no untrained
+    "LTN" is constructed any more.  New code that wants genuine co-trained
+    neuro-symbolic inference must use ``ml/symbolic_constraint.py``.
+
+This module provides symbolic-reasoning + deterministic neural-heuristic
+capabilities for Mercury Agent:
+- Explainable anomaly detection (rule-based)
+- Ethical constraint enforcement (symbolic rules)
+- Hybrid neural-heuristic / symbolic inference
 
 Architecture:
-    1. LogicTensorNetwork: Neural network with fuzzy logic operations
-    2. SymbolicReasoningLayer: PyReason-inspired rule-based reasoning
-    3. NeurosymbolicEngine: Unified interface for hybrid inference
+    1. SymbolicReasoningLayer: PyReason-inspired rule-based reasoning
+    2. NeurosymbolicEngine: Unified interface for hybrid inference
+       (deterministic neural heuristic + symbolic rules)
 
 Research Sources:
     - LTN: Logic Tensor Networks (Serafini & Garcez, 2016)
@@ -66,14 +80,11 @@ from omni_mercury_engine.utils.constants import OmniCodes
 # Omni-Code: Omni-Benevolent Stone (ethical foundation and humanitarian alignment)
 _FOUNDATION_HASH = OmniCodes.OMNI_BENEVOLENT.code
 
-try:
-    import torch
-    from torch import nn
-
-    TORCH_AVAILABLE = True
-except ImportError:
-    TORCH_AVAILABLE = False
-    logging.warning("PyTorch not available, neurosymbolic engine will use limited functionality")
+# PyTorch is no longer imported here: the only consumer was the retired
+# untrained ``LogicTensorNetwork``.  ``neural_inference`` is now a pure-NumPy
+# deterministic heuristic, so this module has no torch dependency.  Genuine
+# trained neuro-symbolic inference lives in
+# ``ml/symbolic_constraint.py::SymbolicConstraintModule``.
 
 
 class ReasoningMode(Enum):
@@ -145,35 +156,15 @@ class ReasoningResult:
     symbolic_contribution: float = 0.0
 
 
-class LogicTensorNetwork:
-    """
-    Logic Tensor Network for combining neural and symbolic reasoning.
-
-    Implements fuzzy logic operations over neural network outputs.
-    """
-
-    def __init__(self, input_dim: int, hidden_dim: int = 128) -> None:
-        self.input_dim = input_dim
-        self.hidden_dim = hidden_dim
-
-        if TORCH_AVAILABLE:
-            self.encoder = nn.Sequential(
-                nn.Linear(input_dim, hidden_dim),
-                nn.ReLU(),
-                nn.Dropout(0.2),
-                nn.Linear(hidden_dim, hidden_dim),
-                nn.ReLU(),
-                nn.Linear(hidden_dim, hidden_dim // 2),
-            )
-            self.logic_head = nn.Linear(hidden_dim // 2, 1)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Forward pass through LTN."""
-        if not TORCH_AVAILABLE:
-            raise RuntimeError("PyTorch required for neural forward pass")
-        features = self.encoder(x)
-        logits = self.logic_head(features)
-        return torch.sigmoid(logits)
+# NOTE: ``LogicTensorNetwork`` (a never-trained ``nn.Module`` whose forward
+# pass returned random-init noise that was then fed into the fusion consensus
+# as if it were a neural confidence) was **retired on 2026-06-02**.  Presenting
+# an untrained network's output as a trained signal was the dishonesty the
+# v1.7 audit flagged.  ``NeurosymbolicEngine.neural_inference`` now returns a
+# deterministic statistical heuristic instead (see that method), and the
+# canonical *trained* neuro-symbolic component is
+# ``ml/symbolic_constraint.py::SymbolicConstraintModule`` (co-trained in
+# ``OmniMercuryEngine.fit_fusion``).  No replacement "LTN" class is exported.
 
 
 class SymbolicReasoningLayer:
@@ -347,11 +338,11 @@ class NeurosymbolicEngine:
         self.golden_ratio = 0.618
         self.quantum_factor = 1.2
 
-        self.ltn: LogicTensorNetwork | None
-        if TORCH_AVAILABLE:
-            self.ltn = LogicTensorNetwork(input_dim)
-        else:
-            self.ltn = None
+        # The untrained ``LogicTensorNetwork`` was retired (2026-06-02).  The
+        # neural-confidence path is now a deterministic statistical heuristic
+        # (see ``neural_inference``); no untrained ``nn.Module`` is built.  The
+        # canonical *trained* neuro-symbolic surface is
+        # ``ml/symbolic_constraint.py::SymbolicConstraintModule``.
 
         self.knowledge_base: list[SymbolicRule] = []
         self.facts: set[str] = set()
@@ -449,39 +440,38 @@ class NeurosymbolicEngine:
 
     def neural_inference(self, features: np.ndarray[Any, Any]) -> float:
         """
-        Perform neural inference on features.
+        Deterministic statistical anomaly-confidence for the legacy path.
+
+        .. note:: **Retired untrained network (2026-06-02).**
+            This previously forwarded an untrained :class:`LogicTensorNetwork`
+            whose random-init output was meaningless noise *presented as a
+            neural confidence*.  That network is gone.  This method now returns
+            a deterministic, reproducible statistic of the input features — a
+            robust standardized-dispersion signal passed through a logistic —
+            so the value is bounded, feature-responsive, and free of the
+            "untrained network as if live" dishonesty.  For genuine *trained*
+            neuro-symbolic inference use
+            :class:`omni_mercury_engine.ml.symbolic_constraint.SymbolicConstraintModule`
+            (co-trained in ``OmniMercuryEngine.fit_fusion``).
 
         Args:
-            features: Input features (numpy array)
+            features: Input features (numpy array, 1-D row or 2-D batch).
 
         Returns:
-            Confidence score (0.0 to 1.0)
+            Confidence score in ``[0.0, 1.0]`` (deterministic for a given input).
         """
-        if not TORCH_AVAILABLE or self.ltn is None:
+        arr = np.asarray(features, dtype=np.float64).reshape(-1)
+        if arr.size == 0 or not np.all(np.isfinite(arr)):
             return 0.5
 
-        try:
-            if len(features.shape) == 1:
-                features = features.reshape(1, -1)
-
-            features_tensor = torch.FloatTensor(features)
-
-            if features_tensor.shape[1] < self.input_dim:
-                padding = torch.zeros(
-                    features_tensor.shape[0], self.input_dim - features_tensor.shape[1]
-                )
-                features_tensor = torch.cat([features_tensor, padding], dim=1)  # type: ignore[assignment, unused-ignore]
-            elif features_tensor.shape[1] > self.input_dim:
-                features_tensor = features_tensor[:, : self.input_dim]  # type: ignore[assignment, unused-ignore]
-
-            with torch.no_grad():
-                output = self.ltn.forward(features_tensor)
-
-            return float(output.item())
-
-        except Exception as e:
-            logging.error(f"Neural inference error: {e}")
-            return 0.5
+        # Robust dispersion: mean absolute deviation normalised by a robust
+        # scale (MAD, falling back to std).  Higher relative spread ⇒ higher
+        # anomaly confidence.  Deterministic and bounded via a logistic.
+        centre = float(np.median(arr))
+        mad = float(np.median(np.abs(arr - centre)))
+        scale = mad if mad > 1e-9 else float(np.std(arr) + 1e-9)
+        dispersion = float(np.mean(np.abs(arr - float(np.mean(arr)))) / scale)
+        return float(1.0 / (1.0 + np.exp(-(dispersion - 1.0))))
 
     def symbolic_inference(self, query: str) -> dict[str, Any]:
         """
@@ -717,6 +707,11 @@ class NeurosymbolicEngine:
             "symbolic_rules": len(self.symbolic_layer.rules),
             "facts_count": len(self.facts),
             "reasoning_mode": self.reasoning_mode.value,
-            "ltn_available": self.ltn is not None,
+            # The untrained LogicTensorNetwork was retired (2026-06-02); the
+            # neural-confidence path is now a deterministic heuristic, so no
+            # trained network is "available" here.  Canonical trained
+            # neuro-symbolic: ml/symbolic_constraint.py::SymbolicConstraintModule.
+            "ltn_available": False,
+            "neural_inference_mode": "deterministic_heuristic",
             "input_dim": self.input_dim,
         }
