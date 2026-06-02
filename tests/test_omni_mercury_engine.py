@@ -257,11 +257,17 @@ class TestOmniMercuryEngine:
           only ever **add** time, never remove it; the minimum
           observed time is therefore the closest unbiased proxy to
           the algorithm's actual best-case lower bound.
-        * We anchor the asymptotic-exponent assertion on the **largest**
-          dimension doubling (80 → 160) where the dense :math:`n^2`
-          QBM matvec dominates the constant-time fusion / sigma-gate
-          work; smaller doublings are dominated by fixed overhead and
-          are not informative about the asymptote.
+        * We anchor the assertion on the **largest** dimension doubling
+          (80 → 160): it carries the most per-step signal and is the
+          first place a regression to a *dense super-quadratic
+          factorization* (a full SVD / ``det`` / ``eigh`` on an
+          :math:`n \\times n` matrix, all O(n^3)) would re-inflate the
+          ratio.  At these CI-friendly sizes the per-step cost is in
+          fact dominated by fixed per-term Python/NumPy dispatch
+          overhead (~two dozen vector terms) plus the O(n^2) ``qbm_J``
+          matvec and σ-gate quadratic form, so the *measured* exponent
+          sits well below 1; the ceiling is the upper guard, not the
+          expected value.
         """
         import math
         import time
@@ -293,18 +299,93 @@ class TestOmniMercuryEngine:
         ratio_large = times[3] / times[2]
         exponent_large = math.log(ratio_large) / math.log(2.0)
 
-        # The empirical exponent has been measured at ~1.16 on a 2-core
-        # GitHub-hosted runner.  We allow up to 2.5 to leave headroom
-        # for noise *and* for the strict quadratic upper bound that
-        # the dense ``qbm_J`` matvec establishes; anything above 2.5
-        # would indicate an algorithmic regression worse than the
-        # underlying matrix math.
+        # With the per-step hot path holding no dense O(n^3) factorization
+        # (``_term_D`` projects via the rank-1 closed form; the σ_Immutable
+        # ``det``/``eigh`` are memoised loop invariants), the measured
+        # exponent over 80→160 is ~0.3-0.5 on a 2-core GitHub-hosted runner
+        # -- overhead-bounded at these sizes.  We retain a 2.5 ceiling as the
+        # upper guard: it leaves headroom for wall-clock noise while still
+        # tripping if a dense super-quadratic factorization is reintroduced
+        # onto the hot path (the original regression, an n×n SVD per step,
+        # drove this ratio to 2.53 and ~64 ms/step at n=160 vs ~1.3 ms now).
         assert exponent_large <= 2.5, (
             f"step() complexity exponent (80→160) is "
             f"{exponent_large:.2f}, exceeding the O(n^2.5) ceiling "
             f"(measured times: {[round(t, 4) for t in times]} for "
             f"sizes {sizes})."
         )
+
+    def test_term_D_matches_dense_svd_projection(self) -> None:
+        """``_term_D`` must equal the dense rank-1 SVD it replaced.
+
+        ``_term_D`` projects onto the dominant singular direction of the
+        rank-1 matrix ``state ⊗ state``.  It used to build that ``n×n``
+        matrix and run a full O(n³) ``np.linalg.svd``; it now uses the exact
+        O(n) closed form ``±‖state‖·state``.  This pins that the optimization
+        is *numerically* the same operation, not merely a faster one of a
+        different shape, so it can never silently drift.  The overall sign is
+        an intrinsic SVD gauge freedom, so we accept either branch (the
+        implementation reproduces LAPACK's ``U[0,0] ≤ 0`` gauge, but the
+        contract that matters here is equality *up to that gauge*).
+        """
+        for dim in (2, 5, 20, 80, 161):  # even, odd, and a non-power-of-two
+            engine = OmniMercuryEngine(state_dim=dim)
+            rng = np.random.default_rng(dim)
+            for _ in range(25):
+                state = rng.standard_normal(dim) * rng.uniform(0.05, 3.0)
+
+                reshaped = state.reshape(-1, 1)
+                u, s, _vt = np.linalg.svd(reshaped @ reshaped.T, full_matrices=False)
+                proj_ref = u[:, 0] * s[0]
+                pos = (proj_ref - state) * 0.1
+                neg = (-proj_ref - state) * 0.1
+
+                got = engine._term_D(state)
+                assert got.shape == (dim,)
+                assert np.all(np.isfinite(got))
+                assert np.allclose(got, pos, atol=1e-10) or np.allclose(
+                    got, neg, atol=1e-10
+                ), f"_term_D diverged from the dense-SVD projection at dim={dim}"
+
+            # Deterministic: no RNG draw, identical output on repeat calls.
+            fixed = rng.standard_normal(dim)
+            assert np.array_equal(engine._term_D(fixed), engine._term_D(fixed))
+
+        # The zero vector is the SVD's degenerate case: projection is zero.
+        z = OmniMercuryEngine(state_dim=8)
+        assert np.allclose(z._term_D(np.zeros(8)), (np.zeros(8) - np.zeros(8)) * 0.1)
+
+    def test_sigma_immutable_factorizations_are_cached_invariants(self) -> None:
+        """The σ_Immutable ``det``/``eigh`` are memoised loop invariants.
+
+        ``ethical_matrix`` is built once and never mutated during stepping, so
+        its determinant (used by ``_compute_purity_invariant``) and symmetric
+        eigendecomposition (used by ``_apply_purity_correction``) are cached at
+        construction instead of being re-factorised every ``step`` (the old
+        per-step O(n³) cost).  This asserts the cache equals a fresh
+        factorisation and *stays* correct after many steps -- i.e. the matrix
+        really is invariant and caching introduces no staleness.
+        """
+        engine = OmniMercuryEngine(state_dim=40)
+
+        assert engine._ethical_det == np.linalg.det(engine.ethical_matrix)
+        ev, evec = np.linalg.eigh(engine.ethical_matrix)
+        assert np.array_equal(engine._ethical_eigvals, ev)
+        assert np.array_equal(engine._ethical_eigvecs, evec)
+
+        matrix_before = engine.ethical_matrix.copy()
+        state = np.random.randn(40) * 0.1
+        for t in range(40):
+            state = engine.step(state, t=t)
+
+        # Matrix untouched -> cached det still matches a fresh recompute, and
+        # the purity invariant equals what the pre-cache code path would yield.
+        assert np.array_equal(engine.ethical_matrix, matrix_before)
+        assert engine._ethical_det == np.linalg.det(engine.ethical_matrix)
+        probe = np.random.randn(40) * 0.2
+        sn = probe / (np.linalg.norm(probe) + 1e-8)
+        fresh = float(np.linalg.det(engine.ethical_matrix) * (sn @ engine.ethical_matrix @ sn))
+        assert engine._compute_purity_invariant(probe) == pytest.approx(fresh, abs=1e-9)
 
     def test_double_helix_architecture(self) -> None:
         """Test double-helix DNA-inspired architecture."""
