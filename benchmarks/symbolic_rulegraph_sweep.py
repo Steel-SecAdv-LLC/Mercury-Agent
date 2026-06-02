@@ -61,7 +61,7 @@ def main() -> int:
     print("-" * 88)
 
     deltas: dict[str, list[float]] = {g: [] for g in GRAPHS}
-    agree: dict[str, int] = {g: 0 for g in GRAPHS}
+    agree: dict[str, int] = dict.fromkeys(GRAPHS, 0)
     n_cells = 0
     rows: list[dict[str, Any]] = []
 

@@ -258,9 +258,22 @@ gui = [
     "plotly>=5.18.0",
 ]
 
+# Third-party explainers (optional).  Mercury's default explainability path is
+# self-contained: IntegratedGradients + a faithfulness evaluator implemented
+# in-repo (no captum), validated by benchmarks/explanation_fidelity.py
+# (recovery@3 0.678, comprehensiveness 0.40 vs 0.22 random; see PR #265).
+# SHAP and LIME are model-agnostic alternatives that the explainability
+# adapters use *when present* and degrade gracefully when absent
+# (cognitive/explainability.py guards both behind SHAP_AVAILABLE / LIME_AVAILABLE).
+# Install this extra only if you want those external backends.
+explainability = [
+    "shap>=0.46.0",
+    "lime>=0.2.0.1",
+]
+
 # Full installation with all features
 all = [
-    "mercury-agent[ml,visual,vlm,foundation,medical,face,api,sota,llm,drift,fairness,streaming,optimization,benchmark,domains,gui]",
+    "mercury-agent[ml,visual,vlm,foundation,medical,face,api,sota,llm,drift,fairness,streaming,optimization,benchmark,domains,gui,explainability]",
 ]
 
 # Test environment: all runtime features + dev tooling
@@ -411,6 +424,7 @@ module = [
     "qutip.*",
     "pytorch_lightning.*",
     "tensorboard.*",
+    "psutil",
     "psutil.*",
     "structlog.*",
     "timm.*",
@@ -929,7 +943,6 @@ ignore = [
     "PERF102", # Incorrect dict iterator (readability)
     "PERF401", # Manual list comprehension (readability preference)
     "PERF403", # Manual dict comprehension (readability)
-    "PLC0206", # Dict index missing items (readability)
     "PLC0415", # Import outside top level (conditional/lazy imports)
     "PLR0911", # Too many return statements
     "PLR0912", # Too many branches (complex logic is sometimes necessary)
@@ -1004,6 +1017,16 @@ force-wrap-aliases = true
 combine-as-imports = true
 split-on-trailing-comma = true
 lines-after-imports = -1
+
+[tool.isort]
+profile = "black"
+line_length = 100
+known_first_party = ["omni_mercury_engine"]
+known_third_party = ["torch", "numpy", "scipy", "pandas", "fastapi"]
+sections = ["FUTURE", "STDLIB", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]
+combine_as_imports = true
+split_on_trailing_comma = true
+lines_after_imports = -1
 
 # =============================================================================
 # Pydocstyle Configuration

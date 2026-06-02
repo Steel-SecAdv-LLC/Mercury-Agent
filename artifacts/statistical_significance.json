@@ -1,0 +1,158 @@
+{
+  "conclusion": {
+    "confirmed_uncorrected_only": [
+      "semantics_godel_vs_neural"
+    ],
+    "familywise_confirmed": [],
+    "godel_beats_product": false,
+    "salience_beats_consensus": false,
+    "verdict": "Neither sub-threshold winner is confirmed by paired inference: salience-vs-consensus mean \u0394=+0.0012 (CI95 [-0.0002, +0.0028], p=0.134, Holm p=0.672); godel-vs-product mean \u0394=+0.0014 (CI95 [-0.0006, +0.0040], p=0.255, Holm p=1.000). This statistically corroborates PR #265's KEEP-default decisions. Note: semantics_godel_vs_neural clears the single-test bar but does NOT survive Holm-Bonferroni across the 6-test family, so it is not reported as confirmed."
+  },
+  "method": {
+    "alpha": 0.05,
+    "bootstrap_resamples": 10000,
+    "bootstrap_seed": 0,
+    "confirm_rule": "mean_diff > bar AND bootstrap CI95 lower > 0 AND paired t-test p < alpha",
+    "familywise_confirm_rule": "mean_diff > bar AND bootstrap CI95 lower > 0 AND Holm-adjusted paired t-test p < alpha (across the reported family)",
+    "multiple_comparison_correction": "holm-bonferroni",
+    "preregistered_bar": 0.002
+  },
+  "rulegraph_consensus_vs_neural": {
+    "bootstrap_ci95": [
+      -0.0039646116605860735,
+      0.005019016486401606
+    ],
+    "ci_excludes_zero": false,
+    "clears_bar": true,
+    "confirmed": false,
+    "confirmed_familywise": false,
+    "frac_positive": 0.4444444444444444,
+    "mean_diff": 0.0009465580731083451,
+    "n_cells": 27,
+    "n_positive": 12,
+    "p_value_sign_test": 0.7011080384254456,
+    "p_value_ttest": 0.6891516676611023,
+    "p_value_ttest_holm": 1.0,
+    "p_value_wilcoxon": 0.2913324248621564,
+    "preregistered_bar": 0.0,
+    "significant_at_0.05": false,
+    "significant_familywise": false,
+    "std_diff": 0.01215928009765774,
+    "t_stat": 0.40450256802307727
+  },
+  "rulegraph_salience_vs_consensus": {
+    "bootstrap_ci95": [
+      -0.00015226620297152925,
+      0.002842967338661846
+    ],
+    "ci_excludes_zero": false,
+    "clears_bar": false,
+    "confirmed": false,
+    "confirmed_familywise": false,
+    "frac_positive": 0.5555555555555556,
+    "mean_diff": 0.0012103937535969122,
+    "n_cells": 27,
+    "n_positive": 15,
+    "p_value_sign_test": 0.7011080384254456,
+    "p_value_ttest": 0.1343950538740058,
+    "p_value_ttest_holm": 0.6719752693700289,
+    "p_value_wilcoxon": 0.13530156727181036,
+    "preregistered_bar": 0.002,
+    "significant_at_0.05": false,
+    "significant_familywise": false,
+    "std_diff": 0.004070396616557033,
+    "t_stat": 1.5451542018284903
+  },
+  "rulegraph_salience_vs_neural": {
+    "bootstrap_ci95": [
+      -0.002107993520645573,
+      0.005719951812035814
+    ],
+    "ci_excludes_zero": false,
+    "clears_bar": true,
+    "confirmed": false,
+    "confirmed_familywise": false,
+    "frac_positive": 0.6296296296296297,
+    "mean_diff": 0.0021569518267052575,
+    "n_cells": 27,
+    "n_positive": 17,
+    "p_value_sign_test": 0.24778856337070465,
+    "p_value_ttest": 0.29839305931799387,
+    "p_value_ttest_holm": 1.0,
+    "p_value_wilcoxon": 0.03620777110801261,
+    "preregistered_bar": 0.0,
+    "significant_at_0.05": false,
+    "significant_familywise": false,
+    "std_diff": 0.010562279236791046,
+    "t_stat": 1.0611204465184263
+  },
+  "semantics_godel_vs_neural": {
+    "bootstrap_ci95": [
+      0.0003746969730408942,
+      0.007485794868831676
+    ],
+    "ci_excludes_zero": true,
+    "clears_bar": true,
+    "confirmed": true,
+    "confirmed_familywise": false,
+    "frac_positive": 0.6296296296296297,
+    "mean_diff": 0.00387587288495953,
+    "n_cells": 27,
+    "n_positive": 17,
+    "p_value_sign_test": 0.24778856337070465,
+    "p_value_ttest": 0.044866940267666605,
+    "p_value_ttest_holm": 0.26920164160599963,
+    "p_value_wilcoxon": 0.019403811890122465,
+    "preregistered_bar": 0.0,
+    "significant_at_0.05": true,
+    "significant_familywise": false,
+    "std_diff": 0.009555954203123261,
+    "t_stat": 2.1075473838816623
+  },
+  "semantics_godel_vs_product": {
+    "bootstrap_ci95": [
+      -0.000619536779147957,
+      0.004015627978223598
+    ],
+    "ci_excludes_zero": false,
+    "clears_bar": false,
+    "confirmed": false,
+    "confirmed_familywise": false,
+    "frac_positive": 0.5185185185185185,
+    "mean_diff": 0.00140739806727815,
+    "n_cells": 27,
+    "n_positive": 14,
+    "p_value_sign_test": 1.0,
+    "p_value_ttest": 0.2551868553560256,
+    "p_value_ttest_holm": 1.0,
+    "p_value_wilcoxon": 0.17784717550308826,
+    "preregistered_bar": 0.002,
+    "significant_at_0.05": false,
+    "significant_familywise": false,
+    "std_diff": 0.00628530072107955,
+    "t_stat": 1.1635171014926262
+  },
+  "semantics_product_vs_neural": {
+    "bootstrap_ci95": [
+      -0.0026295628230570503,
+      0.006705695193113257
+    ],
+    "ci_excludes_zero": false,
+    "clears_bar": true,
+    "confirmed": false,
+    "confirmed_familywise": false,
+    "frac_positive": 0.6296296296296297,
+    "mean_diff": 0.0024684748176813797,
+    "n_cells": 27,
+    "n_positive": 17,
+    "p_value_sign_test": 0.24778856337070465,
+    "p_value_ttest": 0.3172334194311619,
+    "p_value_ttest_holm": 1.0,
+    "p_value_wilcoxon": 0.0345185578112921,
+    "preregistered_bar": 0.0,
+    "significant_at_0.05": false,
+    "significant_familywise": false,
+    "std_diff": 0.012577909124475737,
+    "t_stat": 1.0197697627919569
+  }
+}

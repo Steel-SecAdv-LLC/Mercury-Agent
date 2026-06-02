@@ -44,7 +44,18 @@ logger = logging.getLogger(__name__)
 
 
 class PQCProductionWarning(UserWarning):
-    """Warning raised when native PQC algorithms are unavailable."""
+    """Public exception type for PQC-availability warnings.
+
+    Retained as a stable, importable/catchable symbol for downstream
+    integrators. NOTE: Mercury's import-time PQC gate
+    (``omni_mercury_engine._pqc_gate._enforce_pqc_production_gate``, invoked
+    from ``omni_mercury_engine/__init__.py``) is now **fail-closed and
+    unconditional** — a missing or partial AMA build raises ``RuntimeError``
+    at import rather than degrading with a warning. As a result this warning
+    is *not* emitted by the package's own startup path; there is no degraded
+    "dev mode" to warn about. It remains for third-party code that wants to
+    raise/catch a typed PQC warning in its own flows.
+    """
 
     pass
 

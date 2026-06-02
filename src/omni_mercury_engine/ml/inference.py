@@ -16,7 +16,7 @@ https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-"""
+_MODULE_DESCRIPTION = """
 Production inference utilities for fusion model
 """
 
@@ -298,8 +298,8 @@ class FusionInference:
             for k, v in detector_features.items()
         }
 
-        for k in features_tensor:
-            features_tensor[k] = features_tensor[k].to(self.device)
+        for k, tensor in features_tensor.items():
+            features_tensor[k] = tensor.to(self.device)
 
         with torch.no_grad():
             outputs = self.model(

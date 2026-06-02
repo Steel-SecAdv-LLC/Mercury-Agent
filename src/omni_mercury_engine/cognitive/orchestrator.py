@@ -1,15 +1,4 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-"""
-
-from __future__ import annotations
-
-"""
-Cognitive Orchestrator - Unified Integration Layer
+"""Cognitive Orchestrator - Unified Integration Layer
 
 This is NOT theater. This module wires together all cognitive components
 into the Mercury-Agent detection pipeline:
@@ -32,6 +21,14 @@ Data Flow:
                               [Case Library Updates]
                               [Indicator Development]
 """
+
+# Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
+#
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+# General Public License as published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
+
+from __future__ import annotations
 
 import logging
 import time
@@ -92,6 +89,10 @@ class CognitiveAnalysisResult:
     # IPB context
     threat_assessment: dict[str, Any] = field(default_factory=dict)
 
+    # Neuro-symbolic feedback
+    symbolic_consistency: dict[str, Any] = field(default_factory=dict)
+    feedback_signals: dict[str, Any] = field(default_factory=dict)
+
     # Ethical gate
     benevolence_score: float = 0.0
     ethical_permissible: bool = True
@@ -115,6 +116,8 @@ class CognitiveAnalysisResult:
             "recommendations": self.recommended_actions,
             "warnings": self.warnings,
             "knowledge_updates": self.knowledge_updates,
+            "symbolic_consistency": self.symbolic_consistency,
+            "feedback_signals": self.feedback_signals,
             "benevolence_score": self.benevolence_score,
             "ethical_permissible": self.ethical_permissible,
             "analysis_time_ms": self.analysis_time_ms,
@@ -213,9 +216,7 @@ class CognitiveOrchestrator(LoggerMixin):
         # as its threshold.  This ensures internal cognitive analysis passes
         # basic ethical verification without the stringent 0.99 threshold
         # designed for external user-facing action scoring.
-        from omni_mercury_engine.cognitive.ethical_bounding import (
-            MINIMUM_BENEVOLENCE_FLOOR,
-        )
+        from omni_mercury_engine.cognitive.ethical_bounding import MINIMUM_BENEVOLENCE_FLOOR
 
         self._benevolence_scorer = BenevolenceScorer(
             benevolence_threshold=MINIMUM_BENEVOLENCE_FLOOR,
@@ -226,9 +227,7 @@ class CognitiveOrchestrator(LoggerMixin):
         # analyze() boundary, mirroring the engine and hub boundaries.
         # The gate is the process-wide singleton — the same trained
         # network and signed-corpus verdict applies everywhere.
-        from omni_mercury_engine.security.sigma_immutable_gate import (
-            get_sigma_immutable_gate,
-        )
+        from omni_mercury_engine.security.sigma_immutable_gate import get_sigma_immutable_gate
 
         self._sigma_immutable_gate = get_sigma_immutable_gate()
 
@@ -341,6 +340,17 @@ class CognitiveOrchestrator(LoggerMixin):
             anomaly_score=anomaly_score,
             severity=severity,
         )
+        symbolic_consistency = context.get("symbolic_consistency")
+        if isinstance(symbolic_consistency, dict):
+            satisfaction = symbolic_consistency.get("satisfaction")
+            result.symbolic_consistency = symbolic_consistency
+            if isinstance(satisfaction, (int, float, np.floating)) and not isinstance(
+                satisfaction, bool
+            ):
+                result.feedback_signals["symbolic_satisfaction"] = float(satisfaction)
+                result.feedback_signals["neural_symbolic_disagreement"] = float(
+                    max(0.0, 1.0 - float(satisfaction))
+                )
 
         # === STEP 1: UNCERTAINTY QUANTIFICATION ===
         if raw_data is not None:
@@ -363,6 +373,8 @@ class CognitiveOrchestrator(LoggerMixin):
                 attributes={
                     "score": anomaly_score,
                     "severity": severity,
+                    "symbolic_consistency": result.symbolic_consistency,
+                    "feedback_signals": result.feedback_signals,
                     "timestamp": time.time(),
                     "context": context,
                 },
@@ -426,6 +438,7 @@ class CognitiveOrchestrator(LoggerMixin):
                 "score": anomaly_score,
                 "severity": severity,
                 "domain": context.get("domain", "general"),
+                "symbolic_satisfaction": result.feedback_signals.get("symbolic_satisfaction"),
             }
 
             cbr_result = self.cbr.solve(problem, domain=context.get("domain"))
@@ -456,6 +469,7 @@ class CognitiveOrchestrator(LoggerMixin):
                     "type": "anomaly",
                     "severity": severity,
                     "score": anomaly_score,
+                    "symbolic_satisfaction": result.feedback_signals.get("symbolic_satisfaction"),
                     "domain": context.get("domain"),
                 },
                 domain=context.get("domain"),
