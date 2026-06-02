@@ -58,6 +58,11 @@ class AgentAction:
     rationale: str
     outcome: float | None = None  # Reward/outcome after action execution
     state_hash: int | None = None  # Hash of state when action was taken
+    # State features captured at policy-selection time.  Carried through to
+    # ``_learn_from_action`` so the Q-table key the epsilon-greedy policy read
+    # from is the exact key the TD update writes to (no off-by-one drift from
+    # ``action_history`` mutating between selection and learning).
+    state_features: tuple[float, ...] | None = None
 
 
 @dataclass
@@ -174,7 +179,15 @@ class AgenticAutonomy:
 
         if anomaly_score > self.decision_threshold:
             self.state = AgentState.ACTING
-            action = self._decide_action(anomaly_score, observations)
+            # RL policy in the loop: derive the observation state, let the
+            # epsilon-greedy Q-policy choose the action type (explore vs.
+            # exploit the learned Q-table), then materialise that action.
+            # Replaces the prior hardcoded ``flag_anomaly`` so the Q-table the
+            # learner builds actually steers behaviour.
+            state_features = self._observation_state_features(anomaly_score)
+            action_type = self.select_action_with_policy(state_features)
+            action = self._decide_action(anomaly_score, observations, action_type)
+            action.state_features = state_features
             self.action_history.append(action)
 
             self.state = AgentState.LEARNING
@@ -188,9 +201,28 @@ class AgenticAutonomy:
             "anomaly_detected": bool(anomaly_score > self.decision_threshold),
             "anomaly_score": float(anomaly_score),
             "action_taken": action,
+            "action_type": action.action_type if action is not None else None,
             "autonomous": True,
             "human_oversight_needed": bool(anomaly_score < self.decision_threshold),
         }
+
+    def _observation_state_features(self, anomaly_score: float) -> tuple[float, ...]:
+        """Build Q-learning state features from the observation context.
+
+        Computed *before* the action is chosen so the epsilon-greedy policy
+        and the TD update key the Q-table on the same observation-derived
+        state (the action type is the decision variable, not part of the
+        state).  Layout matches :meth:`_extract_state_features` so the
+        replay buffer and the live update share a coordinate system.
+        """
+        features = [
+            float(anomaly_score),
+            1.0 if anomaly_score > 0.8 else 0.0,
+            1.0 if anomaly_score > 0.95 else 0.0,
+            self.autonomy_level,
+            len(self.action_history) / 100.0,
+        ]
+        return tuple(float(f) for f in features)
 
     def _observe_patterns(self, data: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Observe patterns in data."""
@@ -201,13 +233,34 @@ class AgenticAutonomy:
         score = abs(observations["mean"]) / (observations["std"] + 1e-8)
         return float(min(score / 10.0, 1.0))
 
-    def _decide_action(self, anomaly_score: float, observations: dict[str, Any]) -> AgentAction:
-        """Decide what action to take."""
+    def _decide_action(
+        self,
+        anomaly_score: float,
+        observations: dict[str, Any],
+        action_type: str = "flag_anomaly",
+    ) -> AgentAction:
+        """Materialise the policy-selected action.
+
+        ``action_type`` comes from :meth:`select_action_with_policy` (the
+        epsilon-greedy Q-policy).  Severity is derived from the anomaly score;
+        the rationale is action-type-specific so the audit trail records
+        *why* the policy chose that action, not a single template string.
+        """
+        severity = (
+            "critical" if anomaly_score > 0.95 else ("high" if anomaly_score > 0.8 else "medium")
+        )
+        rationales = {
+            "flag_anomaly": f"Flagging anomaly (score {anomaly_score:.3f})",
+            "escalate": f"Escalating {severity}-severity anomaly (score {anomaly_score:.3f})",
+            "suppress": f"Suppressing low-confidence signal (score {anomaly_score:.3f})",
+            "investigate": f"Investigating uncertain signal (score {anomaly_score:.3f})",
+            "log": f"Logging observation (score {anomaly_score:.3f})",
+        }
         return AgentAction(
-            action_type="flag_anomaly",
-            parameters={"severity": "high" if anomaly_score > 0.8 else "medium"},
+            action_type=action_type,
+            parameters={"severity": severity},
             confidence=anomaly_score,
-            rationale=f"Autonomous detection with score {anomaly_score:.3f}",
+            rationale=rationales.get(action_type, rationales["flag_anomaly"]),
         )
 
     def _learn_from_action(self, action: AgentAction) -> None:
@@ -224,8 +277,15 @@ class AgenticAutonomy:
         reward = self._compute_action_reward(action)
         action.outcome = reward
 
-        # Get state features from action context
-        state_features = self._extract_state_features(action)
+        # Prefer the state features the policy actually selected on (set in
+        # ``autonomous_detect``) so the TD update writes the exact Q-key the
+        # epsilon-greedy read; fall back to deriving them from the action for
+        # direct callers of ``_learn_from_action``.
+        state_features = (
+            action.state_features
+            if action.state_features is not None
+            else self._extract_state_features(action)
+        )
         action.state_hash = hash(state_features)
 
         # Store experience

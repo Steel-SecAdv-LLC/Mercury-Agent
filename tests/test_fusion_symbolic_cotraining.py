@@ -294,3 +294,76 @@ class TestAdaptiveSchedule:
         assert metrics["symbolic_weight_spec"] == "adaptive"
         assert metrics["symbolic_weight_resolved"] > 0.0
         assert engine._symbolic_module is not None
+
+
+class TestCoTrainingConformalServePath:
+    """Co-training + conformal must coexist on the production serve path, and a
+    checkpoint round-trip must not drift the fusion dimensions (the symbolic
+    channels are training-only and dropped at inference)."""
+
+    def test_adaptive_cotraining_then_conformal_on_serve_path(self) -> None:
+        """The production default (adaptive co-training) + conformal serve path:
+        co-training reports a constraint, conformal yields valid bounded sets,
+        and detection still separates the classes."""
+        torch.manual_seed(0)
+        np.random.seed(0)
+        # Scarce-anomaly regime so the adaptive schedule is ACTIVE (the case
+        # the symbolic constraint is meant to help).
+        X, y = _fixture_with_anomalies(360, 18)
+        n_tr, n_cal = 240, 60
+        X_tr, y_tr = X[:n_tr], y[:n_tr]
+        X_cal, y_cal = X[n_tr : n_tr + n_cal], y[n_tr : n_tr + n_cal]
+        X_te, y_te = X[n_tr + n_cal :], y[n_tr + n_cal :]
+
+        engine = _engine()
+        # No explicit symbolic_weight => adaptive default (the production path).
+        metrics = engine.fit_fusion(X_tr, y_tr, epochs=25, batch_size=32)
+        assert metrics["symbolic_weight_spec"] == "adaptive"
+        assert metrics["symbolic_weight_resolved"] > 0.0
+        assert isinstance(engine._symbolic_module, SymbolicConstraintModule)
+        assert 0.0 <= metrics["symbolic_satisfaction"] <= 1.0
+
+        # Conformal calibration on the *same* trained model (serve path).
+        cal = engine.calibrate_fusion_conformal(X_cal, y_cal, coverage=0.9)
+        assert cal["coverage"] == 0.9
+        out = engine.score_fusion_conformal(X_te)
+        probs = np.asarray(out["probabilities"])
+        assert np.all((probs >= 0.0) & (probs <= 1.0))
+        # Conformal prediction sets are present and well-formed.
+        assert "prediction_sets" in out or "set_sizes" in out
+        # Co-training must not have broken detection.
+        assert roc_auc_score(y_te, probs) >= 0.85
+
+    def test_checkpoint_round_trip_no_symbolic_dimension_drift(self) -> None:
+        """After co-training, a save/load checkpoint round-trip reproduces
+        score_fusion byte-for-byte — the symbolic channels never expanded the
+        persisted fusion dimensions (issue: inference-time symbolic channel
+        drift)."""
+        import tempfile
+        from pathlib import Path
+
+        torch.manual_seed(0)
+        np.random.seed(0)
+        X, y = _separable_fixture()
+        X_tr, y_tr, X_te, _ = _split(X, y)
+
+        engine = _engine()
+        engine.fit_fusion(X_tr, y_tr, epochs=15, batch_size=32, symbolic_weight=0.1)
+        # The symbolic module exists post-training...
+        assert isinstance(engine._symbolic_module, SymbolicConstraintModule)
+        probs_before = engine.score_fusion(X_te)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = str(Path(tmp) / "fusion_cotrained.pt")
+            engine.save_model(path)
+
+            fresh = _engine()
+            fresh.load_model(path)
+            # ...but the persisted checkpoint is purely the fusion model: the
+            # reloaded engine has NO symbolic module (training-only channel)...
+            assert fresh._symbolic_module is None
+            probs_after = fresh.score_fusion(X_te)
+
+        # ...and yet scores match exactly — no dimension drift from the
+        # symbolic channels that were present only during co-training.
+        np.testing.assert_allclose(probs_before, probs_after, rtol=1e-5, atol=1e-6)

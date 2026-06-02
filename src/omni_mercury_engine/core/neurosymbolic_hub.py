@@ -1437,29 +1437,19 @@ class NeuroSymbolicHub:
         """
         from omni_mercury_engine.security.sigma_immutable_gate import (
             SIGMA_IMMUTABLE_ETHICAL_DIMS,
-            SIGMA_IMMUTABLE_INPUT_DIM,
-            SIGMA_USED_BAND_END,
-            project_benevolence_to_sigma_band,
+            build_sigma_immutable_vector,
         )
 
-        vector = np.zeros(SIGMA_IMMUTABLE_INPUT_DIM, dtype=np.float64)
-        # Project benevolence into the upper half of the trained
-        # network's positive band.  See orchestrator's
-        # ``_build_sigma_immutable_vector`` for the rationale; the
-        # projection itself lives in
-        # :func:`security.sigma_immutable_gate.project_benevolence_to_sigma_band`
-        # so both boundaries can never silently drift apart.
-        ethical_value = project_benevolence_to_sigma_band(benevolence_score)
-        vector[:SIGMA_IMMUTABLE_ETHICAL_DIMS] = ethical_value
-
-        # Non-ethical band centred at 1.0 (matches the training U[0, 2]
-        # midpoint), with the per-sample neural / symbolic / fused /
-        # row signal adding small ±0.4 perturbation around centre so
-        # the σ_Immutable verdict tracks per-sample inputs without
-        # drifting into the network's negative-band response.  The end
-        # index is sourced from :data:`SIGMA_USED_BAND_END` so the
-        # boundary cannot drift away from the corpus / trainer layout.
-        vector[SIGMA_IMMUTABLE_ETHICAL_DIMS:SIGMA_USED_BAND_END] = 1.0
+        # Shared single-verdict base (ethical band projected from
+        # benevolence + active band centred at the training U[0, 2]
+        # midpoint) from the one calibrated helper.  σ_Immutable Wave C
+        # promoted this layout into
+        # :func:`security.sigma_immutable_gate.build_sigma_immutable_vector`
+        # so the hub no longer keeps a drift-prone copy; the hub then
+        # overlays its richer *per-sample* neural / symbolic / fused / row
+        # signal on the signal window below — its one load-bearing
+        # difference from the single-verdict boundaries.
+        vector = build_sigma_immutable_vector(benevolence_score)
         scaled_neural = float(np.clip(neural_score, 0.0, 1.0))
         scaled_symbolic = float(np.clip(symbolic_score, 0.0, 1.0))
         scaled_fused = float(np.clip(fused_score, 0.0, 1.0))

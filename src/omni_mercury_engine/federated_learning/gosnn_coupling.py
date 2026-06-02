@@ -221,6 +221,45 @@ class GOSNNCouplingServer:
                 contributing_client_ids=list(self._last_aggregation_client_ids),
             )
 
+    def install_global_state(
+        self,
+        new_weights: NDArray[np.float64],
+        contributing_client_ids: list[str],
+    ) -> GOSNNGlobalState:
+        """Install externally-aggregated weights as the new global state.
+
+        Used by ``FederatedServer._execute_round`` when the strategy
+        aggregator (FedAdam / SCAFFOLD / secure-aggregation, or a non-unit
+        learning-rate FedAvg) is authoritative for the numerical
+        aggregation: the per-client updates are still published and ingested
+        through this coupling for SHA3-256 + shape + round integrity, but the
+        new global vector comes from the strategy aggregator rather than this
+        server's own FedAvg.  This advances the round and clears the pending
+        updates so the bidirectional ``receive`` leg can still broadcast a
+        digest-checked state to every client.
+
+        Raises:
+            GOSNNCouplingError: If ``new_weights`` does not match the global
+                weight shape — a strategy aggregator that silently reshaped
+                the model must fail the round closed, not corrupt the state.
+        """
+        candidate = np.ascontiguousarray(np.asarray(new_weights, dtype=np.float64))
+        if candidate.shape != self._global_weights.shape:
+            raise GOSNNCouplingError(
+                f"install_global_state weights shape {candidate.shape} does not "
+                f"match global shape {self._global_weights.shape}"
+            )
+        with self._lock:
+            self._global_weights = candidate
+            self._last_aggregation_client_ids = sorted(contributing_client_ids)
+            self._round_num += 1
+            self._pending_updates.clear()
+            return GOSNNGlobalState(
+                round_num=self._round_num,
+                weights=self._global_weights.copy(),
+                contributing_client_ids=list(self._last_aggregation_client_ids),
+            )
+
 
 class GOSNNCouplingClient:
     """Client-side coupling: receives global state, publishes local updates."""

@@ -588,20 +588,12 @@ class CognitiveOrchestrator(LoggerMixin):
     ) -> np.ndarray[Any, Any]:
         """Build the σ_Immutable input vector from analysis context.
 
-        The vector mirrors the GOSNN scalar layout the trained network
-        was fitted on:
-
-        * The first 27 columns hold the *critical ethical scalars*
-          (benevolence, integrity, justice, …).  Without a live GOSNN
-          singleton at the orchestrator boundary, we project the
-          analysis ``benevolence_score`` into all 27 — the network
-          learned that all-27-above-threshold means ethical, so a
-          uniform high value is read as a clear pass and a uniform
-          low value as a clear failure.
-        * The next 153 columns carry the analysis severity / anomaly
-          signal so high-severity / high-anomaly inputs are scored
-          against the same statistical regime the network saw at
-          training time (``U[0, 2]`` non-ethical band).
+        Thin back-compatible wrapper around the canonical, shared
+        :func:`security.sigma_immutable_gate.build_sigma_immutable_vector`
+        helper (promoted out of this method during σ_Immutable Wave C so
+        the engine, hub, narrative-voice, federation aggregator, and
+        FL-server boundaries all build their σ_Immutable input from one
+        calibrated source instead of duplicated, drift-prone copies).
 
         Args:
             benevolence_score: Benevolence score from the orchestrator's
@@ -614,45 +606,14 @@ class CognitiveOrchestrator(LoggerMixin):
             :meth:`SigmaImmutableGate.enforce`.
         """
         from omni_mercury_engine.security.sigma_immutable_gate import (
-            SIGMA_IMMUTABLE_ETHICAL_DIMS,
-            SIGMA_IMMUTABLE_INPUT_DIM,
-            SIGMA_USED_BAND_END,
-            project_benevolence_to_sigma_band,
+            build_sigma_immutable_vector,
         )
 
-        vector = np.zeros(SIGMA_IMMUTABLE_INPUT_DIM, dtype=np.float64)
-        # Project benevolence score into the ethical band the trained
-        # network learned at:
-        #
-        # * ``benevolence >= MINIMUM_BENEVOLENCE_FLOOR (0.70)`` → maps
-        #   into ``[1.5, 2.0]`` (the upper half of the positive band
-        #   ``U[0.93, 2.0]`` the corpus uses).  Benevolence has already
-        #   been independently checked by ``BenevolenceScorer.enforce``;
-        #   by the time σ_Immutable runs at this boundary, the analysis
-        #   is known-permissible, so we project it into the part of the
-        #   distribution the network is most confident about.
-        # * ``benevolence < 0.70`` (a defensive bypass) → maps below
-        #   threshold so σ_Immutable still fires.
-        #
-        # Projection lives in
-        # :func:`security.sigma_immutable_gate.project_benevolence_to_sigma_band`
-        # so the same calibration is shared with the hub-side builder.
-        # The non-ethical-band end is sourced from
-        # :data:`SIGMA_USED_BAND_END` so the orchestrator, the hub, the
-        # corpus, and the trainer all agree on the layout.
-        ethical_value = project_benevolence_to_sigma_band(benevolence_score)
-        vector[:SIGMA_IMMUTABLE_ETHICAL_DIMS] = ethical_value
-        vector[SIGMA_IMMUTABLE_ETHICAL_DIMS:SIGMA_USED_BAND_END] = 1.0
-        # Per-sample signal perturbation lives in the 33-dim window
-        # ``[ETHICAL_DIMS, ETHICAL_DIMS + 33)`` (== ``[27, 60)`` for the
-        # canonical layout), which mirrors the region the hub-side
-        # builder uses for its three head dims plus 30-dim row signal.
-        # The orchestrator has only one scalar (severity+anomaly_prob)
-        # so it is broadcast uniformly across the window.
-        signal_perturbation = float(np.clip(0.5 * severity + 0.5 * anomaly_prob, 0.0, 1.0))
-        signal_window_end = SIGMA_IMMUTABLE_ETHICAL_DIMS + 33
-        vector[SIGMA_IMMUTABLE_ETHICAL_DIMS:signal_window_end] = 1.0 + 0.4 * signal_perturbation
-        return vector
+        return build_sigma_immutable_vector(
+            benevolence_score=benevolence_score,
+            severity=severity,
+            anomaly_prob=anomaly_prob,
+        )
 
     def learn_from_feedback(
         self,

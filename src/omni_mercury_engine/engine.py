@@ -3327,20 +3327,15 @@ class OmniMercuryEngine(LoggerMixin):
         if _GOSNN_TESTING_BYPASS:
             return
         from omni_mercury_engine.security.sigma_immutable_gate import (
-            SIGMA_IMMUTABLE_ETHICAL_DIMS,
-            SIGMA_IMMUTABLE_INPUT_DIM,
-            SIGMA_USED_BAND_END,
-            project_benevolence_to_sigma_band,
+            build_sigma_immutable_vector,
         )
 
-        ethical_value = project_benevolence_to_sigma_band(float(ethical_score.benevolence_score))
-        sigma_vector = np.zeros(SIGMA_IMMUTABLE_INPUT_DIM, dtype=np.float64)
-        sigma_vector[:SIGMA_IMMUTABLE_ETHICAL_DIMS] = ethical_value
-        # Centre the non-ethical active band at the training U[0, 2]
-        # midpoint so a synthetic projected vector lives in the
-        # network's most-confident region for the corresponding
-        # benevolence verdict.
-        sigma_vector[SIGMA_IMMUTABLE_ETHICAL_DIMS:SIGMA_USED_BAND_END] = 1.0
+        # Shared single-verdict builder (σ_Immutable Wave C): the engine
+        # boundary scores benevolence only, so severity / anomaly_prob stay
+        # at their defaults — this reproduces the prior inline vector
+        # byte-for-byte while sourcing the layout from the one calibrated
+        # helper the orchestrator, hub, and Wave C surfaces all share.
+        sigma_vector = build_sigma_immutable_vector(float(ethical_score.benevolence_score))
 
         self._sigma_immutable_gate.enforce(
             action=(f"OmniMercuryEngine._enforce_ethics_at_boundary:" f"domain={safe_domain}"),

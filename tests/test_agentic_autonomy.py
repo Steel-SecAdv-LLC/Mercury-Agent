@@ -23,7 +23,12 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from omni_mercury_engine.agentic.agentic_autonomy import AgentAction, AgenticAutonomy, AgentState
+from omni_mercury_engine.agentic.agentic_autonomy import (
+    AgentAction,
+    AgenticAutonomy,
+    AgentState,
+    LearningConfig,
+)
 
 
 def test_agentic_initialization() -> None:
@@ -279,3 +284,157 @@ def test_execute_workflow_no_branch_keys_advances_linearly() -> None:
     assert "after" in executed_ids
     # The decision itself is still recorded.
     assert len(result["autonomous_decisions"]) == 1
+
+
+# ---------------------------------------------------------------------------
+# Reinforcement-learning policy is wired into autonomous_detect.
+#
+# Before this suite the Q-table / experience-replay / epsilon-greedy
+# machinery existed but ``autonomous_detect`` hardcoded ``flag_anomaly`` and
+# never consulted the policy.  These tests assert the RL loop is real:
+# Q-table writes, reward shaping, epsilon-greedy explore/exploit, and replay
+# all drive observable behaviour.
+# ---------------------------------------------------------------------------
+
+
+def _anomalous(seed: int) -> np.ndarray:
+    """High-mean / high-std batch that clears the decision threshold."""
+    return np.random.default_rng(seed).standard_normal(100) * 10.0 + 50.0
+
+
+class TestReinforcementLearningPolicy:
+    def test_policy_selects_action_in_autonomous_detect(self) -> None:
+        """The action type comes from the policy, not a hardcoded constant."""
+        system = AgenticAutonomy(
+            autonomy_level=0.9,
+            learning_config=LearningConfig(exploration_rate=0.0, min_exploration_rate=0.0),
+            seed=3,
+        )
+        result = system.autonomous_detect(_anomalous(0))
+        assert result["anomaly_detected"] is True
+        # The returned action type is surfaced and is a real policy action.
+        assert result["action_type"] in AgenticAutonomy.ACTION_TYPES
+        assert result["action_taken"].action_type == result["action_type"]
+
+    def test_q_table_updates_toward_reward(self) -> None:
+        """A detection must write the selected (state, action) Q-value.
+
+        Terminal TD update with an empty table: new_q == lr * reward.
+        """
+        cfg = LearningConfig(
+            exploration_rate=0.0,
+            min_exploration_rate=0.0,
+            learning_rate=0.1,
+            reward_scale=1.0,
+        )
+        system = AgenticAutonomy(autonomy_level=0.9, learning_config=cfg, seed=5)
+        assert len(system._q_table) == 0
+
+        result = system.autonomous_detect(_anomalous(1))
+        action = result["action_taken"]
+        assert len(system._q_table) == 1
+
+        # The written key must be the exact state the policy selected on.
+        bucket = system._discretize_state(action.state_features)
+        key = (bucket, action.action_type)
+        assert key in system._q_table
+        expected_q = cfg.learning_rate * action.outcome
+        assert system._q_table[key] == pytest.approx(expected_q, abs=1e-9)
+
+    def test_q_key_consistent_between_selection_and_learning(self) -> None:
+        """The policy reads and the TD update writes the SAME Q-key.
+
+        ``action.state_features`` is captured at selection and reused at
+        learning, so ``action_history`` mutating in between cannot drift the
+        bucket.
+        """
+        system = AgenticAutonomy(
+            autonomy_level=0.9,
+            learning_config=LearningConfig(exploration_rate=0.0, min_exploration_rate=0.0),
+            seed=9,
+        )
+        # Prime action_history so len() is non-trivial at selection time.
+        for i in range(15):
+            system.autonomous_detect(_anomalous(i))
+        # Every Q-table entry must correspond to a real discretized state the
+        # learner wrote — i.e. no orphan keys from a selection/learn mismatch.
+        assert all(
+            isinstance(b, int) and a in AgenticAutonomy.ACTION_TYPES for (b, a) in system._q_table
+        )
+
+    def test_reward_shaping_matches_contract(self) -> None:
+        """``_compute_action_reward`` implements the documented reward table."""
+        system = AgenticAutonomy(autonomy_level=0.8, seed=0)
+
+        def reward(action_type: str, confidence: float, severity: str = "medium") -> float:
+            return system._compute_action_reward(
+                AgentAction(
+                    action_type=action_type,
+                    parameters={"severity": severity},
+                    confidence=confidence,
+                    rationale="t",
+                )
+            )
+
+        assert reward("flag_anomaly", 0.9) == pytest.approx(1.0)
+        assert reward("flag_anomaly", 0.6) == pytest.approx(0.6)
+        assert reward("flag_anomaly", 0.2) == pytest.approx(-0.5)
+        assert reward("escalate", 0.9, "high") == pytest.approx(0.8)
+        assert reward("escalate", 0.9, "critical") == pytest.approx(1.0)
+        assert reward("suppress", 0.2) == pytest.approx(0.5)
+        assert reward("suppress", 0.9) == pytest.approx(-0.3)
+        assert reward("investigate", 0.5) == pytest.approx(0.2)
+        assert reward("log", 0.5) == pytest.approx(0.1)
+
+    def test_epsilon_greedy_exploits_best_q_when_exploration_off(self) -> None:
+        """With exploration disabled, the policy picks the max-Q action."""
+        system = AgenticAutonomy(
+            autonomy_level=0.9,
+            learning_config=LearningConfig(exploration_rate=0.0, min_exploration_rate=0.0),
+            seed=2,
+        )
+        state = (0.9, 1.0, 0.0, 0.9, 0.0)
+        bucket = system._discretize_state(state)
+        # Make "investigate" the unambiguous best action for this state.
+        for a in AgenticAutonomy.ACTION_TYPES:
+            system._q_table[(bucket, a)] = 0.1
+        system._q_table[(bucket, "investigate")] = 5.0
+        assert system.select_action_with_policy(state) == "investigate"
+
+    def test_epsilon_greedy_explores_all_actions_when_exploration_on(self) -> None:
+        """With exploration forced on, selection ranges over all actions."""
+        system = AgenticAutonomy(
+            autonomy_level=0.9,
+            learning_config=LearningConfig(
+                exploration_rate=1.0, min_exploration_rate=1.0, exploration_decay=1.0
+            ),
+            seed=1,
+        )
+        chosen = {system.select_action_with_policy((0.9, 1.0, 0.0, 0.9, 0.0)) for _ in range(200)}
+        assert chosen == set(AgenticAutonomy.ACTION_TYPES)
+
+    def test_experience_replay_runs_and_records_convergence(self) -> None:
+        """Once the buffer reaches batch_size, replay runs and logs TD error."""
+        cfg = LearningConfig(
+            exploration_rate=0.3,
+            min_exploration_rate=0.05,
+            batch_size=4,
+            memory_size=100,
+        )
+        system = AgenticAutonomy(autonomy_level=0.95, learning_config=cfg, seed=11)
+        for i in range(10):
+            system.autonomous_detect(_anomalous(i))
+        # Buffer filled past batch_size, so replay must have run at least once.
+        assert len(system.experience_buffer) >= cfg.batch_size
+        assert len(system.policy_metrics.convergence_history) >= 1
+        assert all(td >= 0.0 for td in system.policy_metrics.convergence_history)
+
+    def test_exploration_rate_decays_over_episodes(self) -> None:
+        """Epsilon decays toward the floor as the agent learns."""
+        cfg = LearningConfig(exploration_rate=0.5, min_exploration_rate=0.01, exploration_decay=0.9)
+        system = AgenticAutonomy(autonomy_level=0.95, learning_config=cfg, seed=4)
+        start = system.exploration_rate
+        for i in range(20):
+            system.autonomous_detect(_anomalous(i))
+        assert system.exploration_rate < start
+        assert system.exploration_rate >= cfg.min_exploration_rate

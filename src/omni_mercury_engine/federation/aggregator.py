@@ -44,7 +44,17 @@ from typing import Any
 
 import numpy as np
 
+from omni_mercury_engine.cognitive.ethical_bounding import (
+    MINIMUM_BENEVOLENCE_FLOOR,
+    BenevolenceScorer,
+    sanitize_domain,
+)
 from omni_mercury_engine.federation.statistics import FittedStatistics
+from omni_mercury_engine.security.sigma_immutable_gate import (
+    SigmaImmutableGate,
+    enforce_dual_ethical_gate,
+    get_sigma_immutable_gate,
+)
 
 
 class FederatedAggregator:
@@ -63,18 +73,70 @@ class FederatedAggregator:
         self,
         min_nodes: int = 2,
         max_age_seconds: float = 86400.0,
+        domain: str | None = None,
     ) -> None:
         self.min_nodes = min_nodes
         self.max_age_seconds = max_age_seconds
         self._submissions: list[FittedStatistics] = []
         self._round: int = 0
+        # σ_Immutable Wave C: both ethical gates are constructed eagerly so
+        # the first concurrent ``submit`` / ``aggregate`` cannot race the
+        # gate into existence.  ``sanitize_domain`` collapses a hostile or
+        # typo'd domain hint to the whitelisted alphabet before it can ride
+        # into the scorer action text or the audit surface.
+        self._domain = sanitize_domain(domain)
+        # Mirror the engine/orchestrator boundary contract: clamp the
+        # benevolence floor to ``MINIMUM_BENEVOLENCE_FLOOR`` (0.70) so a
+        # legitimate, positive-keyword aggregation action clears the first
+        # gate while a harm-laden one does not.
+        self._benevolence_scorer = BenevolenceScorer(
+            benevolence_threshold=MINIMUM_BENEVOLENCE_FLOOR
+        )
+        self._sigma_immutable_gate: SigmaImmutableGate = get_sigma_immutable_gate()
+
+    def _enforce_ethics(self, boundary: str, extra_details: dict[str, Any] | None = None) -> None:
+        """Run the benevolence + σ_Immutable dual hard gate for federation.
+
+        Federated aggregation is a privacy-preserving statistics merge — a
+        benign, evidence-gathering action — so the action text is
+        positive-keyword-rich and severity / anomaly_prob stay at their
+        benign defaults.  Both gates fail closed; a violation raises
+        :class:`EthicalConstraintViolationError` and the federation
+        operation halts (the call is *not* wrapped in a swallowing
+        ``try/except``).
+        """
+        action = (
+            f"federated_statistics_aggregation:{self._domain}:audit verify "
+            "protect privacy research evidence fair oversight monitor data "
+            "care help support consent"
+        )
+        context = {
+            "purpose": "privacy-preserving federated statistics aggregation",
+            "safety": "protect verify monitor privacy consent evidence",
+            "domain": self._domain,
+        }
+        enforce_dual_ethical_gate(
+            benevolence_scorer=self._benevolence_scorer,
+            sigma_gate=self._sigma_immutable_gate,
+            action=action,
+            context=context,
+            boundary=boundary,
+            domain=self._domain,
+            extra_details=extra_details,
+        )
 
     def submit(self, stats: FittedStatistics) -> None:
         """
         Submit statistics from a node.
 
-        Validates freshness, sample count, and feature dimensionality.
+        Validates freshness, sample count, and feature dimensionality, then
+        runs the benevolence + σ_Immutable dual hard ethical gate before the
+        node's statistics are admitted to the round.
         """
+        self._enforce_ethics(
+            "FederatedAggregator.submit",
+            extra_details={"node_id": stats.node_id, "n_samples": int(stats.n_samples)},
+        )
         age = time.time() - stats.timestamp
         if age > self.max_age_seconds:
             raise ValueError(
@@ -107,6 +169,13 @@ class FederatedAggregator:
         """
         if len(self._submissions) < self.min_nodes:
             raise RuntimeError(f"Need {self.min_nodes} nodes, have {len(self._submissions)}")
+
+        # σ_Immutable Wave C: round-level dual hard gate before a global
+        # model is produced from the pooled statistics.  Fails closed.
+        self._enforce_ethics(
+            "FederatedAggregator.aggregate",
+            extra_details={"round": self._round, "n_nodes": len(self._submissions)},
+        )
 
         subs = self._submissions
         total_n = sum(s.n_samples for s in subs)

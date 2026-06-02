@@ -23,6 +23,7 @@ Provides unified interface for zero-shot VLM-based anomaly detection
 using Large Vision-Language Models (LVLMs).
 """
 
+from abc import abstractmethod
 from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, Any
@@ -95,6 +96,17 @@ class VLMConfig:
 class BaseVLMDetector(BaseDetector):
     """
     Abstract base class for VLM-based anomaly detectors.
+
+    .. note:: **Experimental surface (ROADMAP deferred item #3).**
+        Per the 2026-05 strategic decision Mercury ships *native* detectors
+        and does **not** ship BLIP / GPT VLM adapters as a supported path.
+        This base defines the VLM contract for the experimental
+        ``detectors.vlm`` subclasses (AnyAnomaly / LAVAD / BLIP); the five
+        contract methods below are genuine ``@abstractmethod`` declarations,
+        so :class:`BaseVLMDetector` cannot be instantiated directly (a
+        ``TypeError`` is raised) — there is no ``NotImplementedError`` stub
+        on the public path. Concrete experimental subclasses must implement
+        all five.
 
     Provides common functionality for zero-shot anomaly detection
     using Vision-Language Models.
@@ -182,17 +194,15 @@ class BaseVLMDetector(BaseDetector):
             self._initialize_model()
         return self._processor
 
+    @abstractmethod
     def _initialize_model(self) -> None:
-        """
-        Initialize the LVLM model and processor.
+        """Initialize the LVLM model and processor.
 
-        Note:
-            Subclasses must override this method.
+        Abstract contract — concrete experimental subclasses must implement.
         """
-        raise NotImplementedError(
-            "Subclasses must implement _initialize_model() for VLM detectors."
-        )
+        ...
 
+    @abstractmethod
     def _create_prompt(
         self,
         anomaly_description: str,
@@ -208,11 +218,11 @@ class BaseVLMDetector(BaseDetector):
         Returns:
             Formatted prompt string
 
-        Note:
-            Subclasses must override this method.
+        Abstract contract — concrete experimental subclasses must implement.
         """
-        raise NotImplementedError("Subclasses must implement _create_prompt() for VLM detectors.")
+        ...
 
+    @abstractmethod
     def _parse_response(self, response: str) -> tuple[bool, float, str]:
         """
         Parse LVLM response to extract anomaly decision.
@@ -223,10 +233,9 @@ class BaseVLMDetector(BaseDetector):
         Returns:
             Tuple of (is_anomaly, confidence, explanation)
 
-        Note:
-            Subclasses must override this method.
+        Abstract contract — concrete experimental subclasses must implement.
         """
-        raise NotImplementedError("Subclasses must implement _parse_response() for VLM detectors.")
+        ...
 
     def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> BaseVLMDetector:
         """VLM detectors are zero-shot - no fitting required.
@@ -241,6 +250,7 @@ class BaseVLMDetector(BaseDetector):
         self._is_fitted = True
         return self
 
+    @abstractmethod
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """
         Detect anomalies using VLM.
@@ -255,11 +265,11 @@ class BaseVLMDetector(BaseDetector):
                 - explanations: Natural language explanations
                 - features: Extracted features for fusion
 
-        Note:
-            Subclasses must override this method.
+        Abstract contract — concrete experimental subclasses must implement.
         """
-        raise NotImplementedError("Subclasses must implement detect() for VLM detectors.")
+        ...
 
+    @abstractmethod
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
         """
         Extract features for ML fusion pipeline.
@@ -270,10 +280,9 @@ class BaseVLMDetector(BaseDetector):
         Returns:
             Feature tensor for fusion
 
-        Note:
-            Subclasses must override this method.
+        Abstract contract — concrete experimental subclasses must implement.
         """
-        raise NotImplementedError("Subclasses must implement extract_features() for VLM detectors.")
+        ...
 
     def _sample_frames(
         self,

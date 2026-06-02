@@ -251,23 +251,61 @@ class TestFeatureExtractor:
         assert "layer2" in features or len(features) > 0
 
 
+def _concrete_visual_detector() -> Any:
+    """Minimal concrete subclass to exercise the base's concrete helpers.
+
+    The base is a genuine ABC (``fit`` / ``detect`` / ``extract_features``
+    are ``@abstractmethod``), so concrete contract methods are stubbed here.
+    """
+    from omni_mercury_engine.detectors.visual.base_visual import BaseVisualDetector
+
+    class _Concrete(BaseVisualDetector):
+        def fit(self, data):  # type: ignore[no-untyped-def]
+            return self
+
+        def detect(self, data):  # type: ignore[no-untyped-def]
+            return {}
+
+        def extract_features(self, data):  # type: ignore[no-untyped-def]
+            return torch.zeros(1)
+
+    return _Concrete()
+
+
 @pytest.mark.skipif(not HAS_TORCH or not HAS_TORCHVISION, reason="torch/torchvision not installed")
 class TestBaseVisualDetector:
-    """Tests for base visual detector class."""
+    """Contract tests for the visual detector base (ROADMAP #4).
 
-    def test_preprocessing(self, sample_image: Any) -> None:
-        """Test image preprocessing."""
+    The base is a genuine ABC: ``fit`` / ``detect`` / ``extract_features``
+    are ``@abstractmethod`` (no ``NotImplementedError`` stub on the public
+    path), so the base cannot be instantiated directly. The native SOTA
+    detectors are the concrete implementations.
+    """
+
+    def test_base_is_abstract_not_instantiable(self) -> None:
+        """Direct instantiation raises TypeError, not a runtime NotImplementedError."""
         from omni_mercury_engine.detectors.visual import BaseVisualDetector
 
-        detector = BaseVisualDetector()
+        with pytest.raises(TypeError):
+            BaseVisualDetector()  # type: ignore[abstract]
+
+    def test_contract_methods_are_abstract(self) -> None:
+        """The three contract methods are declared abstract."""
+        from omni_mercury_engine.detectors.visual import BaseVisualDetector
+
+        assert BaseVisualDetector.__abstractmethods__ == frozenset(
+            {"fit", "detect", "extract_features"}
+        )
+
+    def test_preprocessing(self, sample_image: Any) -> None:
+        """The concrete ``preprocess`` helper works on a concrete subclass."""
+        detector = _concrete_visual_detector()
         processed = detector.preprocess(sample_image)
         assert processed.shape[-2:] == (224, 224)
 
     def test_postprocessing(self, sample_image: Any) -> None:
-        """Test anomaly map postprocessing."""
-        from omni_mercury_engine.detectors.visual import BaseVisualDetector
-
-        detector = BaseVisualDetector()
+        """The concrete ``postprocess`` helper works on a concrete subclass."""
+        detector = _concrete_visual_detector()
         # Create dummy anomaly map
         anomaly_map = torch.randn(1, 56, 56)
         upsampled = detector.postprocess(anomaly_map, original_size=(224, 224))
