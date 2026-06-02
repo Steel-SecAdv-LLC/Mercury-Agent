@@ -26,6 +26,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Explainability — IntegratedGradients + faithfulness on the fusion serve path (2026-06-02)
+
+Finishes the WS5 "explanations on the serve path" item deferred by PR #269: the
+validated `IntegratedGradientsExplainer` + `FaithfulnessEvaluator`
+(`cognitive/explainability.py`, DORMANCY_LEDGER #3) are now wired into the
+detection path instead of living only in the benchmark harness.
+
+* `OmniMercuryEngine.detect_with_fusion(..., explain=False)` gained an opt-in
+  `explain` flag. When `True`, it attaches `result["explanation"]` — an IG
+  attribution of **the same `score_fusion` calibrated probability the result
+  reports** (so the explanation explains the served decision, not a proxy) plus
+  its faithfulness scores (comprehensiveness / sufficiency / monotonicity). The
+  attribution is computed by the new private helper `_explain_fusion_decision`.
+* Opt-in (default `False`) because IG over the full fusion stack costs
+  finite-difference forward passes per feature × interpolation step; steps are a
+  module constant (`_EXPLAIN_IG_STEPS = 32`, matching the harness) so tests/CI
+  can turn it down.
+
+**Faithfulness non-regression gate (measurement).**
+`tests/benchmarks/test_explanation_fidelity.py::test_faithfulness_non_regression_comprehensiveness_and_recovery`
+pins, across seeds, that IG comprehensiveness exceeds a random-attribution
+baseline by > 0.01 **and** recovery@k of the genuinely-informative features
+exceeds 2× chance — the same contract as the harness verdict, so a future
+attribution regression fails CI. Serve-path wiring is locked by
+`tests/test_fusion_explainability.py` (explanation absent by default; present,
+well-formed, JSON-serialisable, and matching the served probability when
+requested). Measured this run: comprehensiveness(IG) ≈ 0.40 vs random ≈ 0.22,
+recovery@k ≈ 0.68 (chance 0.30).
+
 ### Detectors — concrete offline `StatisticalVLMDetector` un-retires the VLM surface (2026-06-02)
 
 Finishes the VLM half of ROADMAP **#3**: the public `detectors.vlm` path now
