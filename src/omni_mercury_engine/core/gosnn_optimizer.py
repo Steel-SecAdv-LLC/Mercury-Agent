@@ -346,6 +346,74 @@ class AttentionProvider(ABC):
         ...  # pragma: no cover
 
 
+class MultiHeadAttentionProvider(AttentionProvider):
+    """Concrete :class:`AttentionProvider` backed by real multi-head attention.
+
+    Closes ROADMAP deferred item #7: a concrete provider wired to a genuine
+    attention surface (:class:`torch.nn.MultiheadAttention`), replacing the
+    removed deterministic-random placeholder.
+
+    Usage: construct, call :meth:`observe` with an input sequence to run a
+    forward pass through the wrapped attention (capturing **per-head** weights
+    via ``average_attn_weights=False``), then :meth:`get_attention` returns the
+    most-recent ``(num_heads, seq_len, seq_len)`` scores.  Before any forward,
+    :meth:`get_attention` raises ``RuntimeError`` per the ABC contract — the
+    optimizer then honestly skips the metric rather than scoring noise.
+
+    ``num_heads`` defaults to 32 to match :class:`AttentionOptimizer`'s 32-head
+    triadic φ-weighting, so the provider plugs straight into
+    :class:`GOSNNOptimizer`.
+    """
+
+    def __init__(self, d_model: int = 64, num_heads: int = 32, seed: int | None = None) -> None:
+        import torch
+        from torch import nn
+
+        if d_model % num_heads != 0:
+            raise ValueError(f"d_model ({d_model}) must be divisible by num_heads ({num_heads})")
+        if seed is not None:
+            torch.manual_seed(seed)
+        self.d_model = d_model
+        self.num_heads = num_heads
+        self._attn = nn.MultiheadAttention(d_model, num_heads, batch_first=True)
+        self._attn.eval()
+        self._last_attention: np.ndarray[Any, Any] | None = None
+
+    def observe(self, sequence: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Run a forward pass and cache the per-head attention scores.
+
+        Args:
+            sequence: ``(seq_len, d_model)`` or ``(batch, seq_len, d_model)``.
+
+        Returns:
+            The cached ``(num_heads, seq_len, seq_len)`` attention scores
+            (mean over the batch axis).
+        """
+        import torch
+
+        x = torch.as_tensor(np.asarray(sequence, dtype=np.float32))
+        if x.ndim == 2:
+            x = x.unsqueeze(0)
+        if x.ndim != 3 or int(x.shape[-1]) != self.d_model:
+            raise ValueError(
+                f"sequence must be (seq_len, {self.d_model}) or "
+                f"(batch, seq_len, {self.d_model}); got {tuple(x.shape)}"
+            )
+        with torch.no_grad():
+            _, attn = self._attn(x, x, x, need_weights=True, average_attn_weights=False)
+        # attn: (batch, num_heads, seq_len, seq_len) -> mean over batch.
+        self._last_attention = attn.mean(dim=0).detach().cpu().numpy().astype(np.float64)
+        return self._last_attention
+
+    def get_attention(self) -> np.ndarray[Any, Any]:
+        if self._last_attention is None:
+            raise RuntimeError(
+                "No attention available: call observe(sequence) before "
+                "get_attention() (model not yet run)."
+            )
+        return self._last_attention
+
+
 class AttentionOptimizer:
     """
     Optimizer for 32-head triadic φ-weighting attention.

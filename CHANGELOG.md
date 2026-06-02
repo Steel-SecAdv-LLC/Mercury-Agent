@@ -231,6 +231,23 @@ both at chance as detectors, a verdict left unchanged):
 
 DORMANCY_LEDGER rows #6 / #9 updated to note the new behavioural coverage.
 
+### Core — concrete `AttentionProvider` wired to real multi-head attention (2026-06-02)
+
+Closes ROADMAP deferred item **#7**.  `core/gosnn_optimizer.py::MultiHeadAttentionProvider`
+is the first concrete `AttentionProvider`, backed by a real
+`torch.nn.MultiheadAttention`: `observe(sequence)` runs a forward pass and
+caches the **per-head** `(num_heads, seq_len, seq_len)` attention weights
+(`average_attn_weights=False`); `get_attention()` returns them, or raises
+`RuntimeError` before any forward ("model not yet run") so the optimizer
+honestly skips the metric rather than scoring noise.  It defaults to 32 heads
+to match `AttentionOptimizer`'s triadic φ-weighting, so wiring it into
+`GOSNNOptimizer(attention_provider=…)` drives the real attention-overhead
+metric — the removed deterministic-random placeholder is fully replaced.
+Regression: `tests/core/test_attention_provider.py` (10 tests) — per-head
+shape, softmax-normalised rows, fail-closed pre-forward, determinism, batched
+input, and that a wired+observed provider drives the metric while an
+unobserved one fails closed to a skip.
+
 ### Neuro-symbolic — label-scarcity-adaptive co-training default + dormant-module revival (PR #265, 2026-06-01)
 
 `symbolic_weight="adaptive"` is the **default** for `OmniMercuryEngine.fit_fusion`.
