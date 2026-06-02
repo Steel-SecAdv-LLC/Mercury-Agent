@@ -2217,7 +2217,7 @@ class OmniMercuryEngine(LoggerMixin):
         score_channels = {
             name: feat.detach().cpu().numpy().mean(axis=1)
             for name, feat in features.items()
-            if getattr(feat, "ndim", 0) >= 2
+            if feat.ndim >= 2
         }
         profiled, _ = self._apply_runtime_equation_profile(
             calibrated,

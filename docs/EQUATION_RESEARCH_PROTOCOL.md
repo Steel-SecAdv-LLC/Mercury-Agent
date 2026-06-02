@@ -16,9 +16,9 @@ This protocol implements a hard-governed path for strengthening Mercury's in-hou
 
 ## Files
 
-- Protocol config: `/tmp/workspace/Steel-SecAdv-LLC/Mercury-Agent/configs/equation_research_protocol.yaml`
-- Runner: `/tmp/workspace/Steel-SecAdv-LLC/Mercury-Agent/scripts/run_equation_research_protocol.py`
-- Runtime comparison: `/tmp/workspace/Steel-SecAdv-LLC/Mercury-Agent/scripts/compare_runtime_equation_profiles.py`
+- Protocol config: `configs/equation_research_protocol.yaml`
+- Runner: `scripts/run_equation_research_protocol.py`
+- Runtime comparison: `scripts/compare_runtime_equation_profiles.py`
 - Report output (default): `artifacts/equation_research_protocol_result.json`
 
 ## Run

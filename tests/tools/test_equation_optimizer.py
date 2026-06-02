@@ -5,7 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from tools.equation_optimizer import _run_pipeline
+from tools.equation_optimizer import _cli, _run_pipeline
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -77,3 +77,52 @@ def test_cli_runs_and_reports_json(tmp_path: Path) -> None:
     assert payload["ok"] is True
     assert payload["winner_id"]
     assert payload["inventory_count"] >= 8
+
+
+def test_pipeline_and_cli_fail_closed_when_hard_constraints_fail(tmp_path: Path) -> None:
+    dataset = tmp_path / "dataset.json"
+    dataset.write_text(
+        json.dumps(
+            [
+                {
+                    "r": 0.7,
+                    "h": 0.6,
+                    "o": 0.5,
+                    "eta": 0.95,
+                    "label": 0.8,
+                    "alpha": 1.2,
+                    "lyapunov_lambda": 0.0,
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    out = tmp_path / "hard_gate_artifacts"
+    summary = _run_pipeline(
+        math_spec=_REPO_ROOT / "docs" / "MATH_SPEC.md",
+        dataset_path=dataset,
+        output_dir=out,
+        iterations=5,
+        seed=17,
+    )
+
+    assert summary["ok"] is False
+    assert summary["winner_constraints_ok"] is False
+    assert (
+        _cli(
+            [
+                "--math-spec",
+                str(_REPO_ROOT / "docs" / "MATH_SPEC.md"),
+                "--dataset",
+                str(dataset),
+                "--output-dir",
+                str(tmp_path / "cli_hard_gate_artifacts"),
+                "--iterations",
+                "5",
+                "--seed",
+                "17",
+            ]
+        )
+        == 1
+    )

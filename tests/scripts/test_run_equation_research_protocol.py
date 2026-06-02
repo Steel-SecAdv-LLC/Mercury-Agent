@@ -37,6 +37,19 @@ def _minimal_benchmark() -> dict[str, Any]:
     }
 
 
+def test_track_metric_treats_non_numeric_weight_as_zero() -> None:
+    measured = run_equation_research_protocol._track_metric(
+        {
+            "bad": {"n_measured": "not-a-number", "stats": {"mean_auc": 1.0}},
+            "good": {"n_measured": 2, "stats": {"mean_auc": 0.8}},
+        },
+        ["bad", "good"],
+        "mean_auc",
+    )
+
+    assert measured == 0.8
+
+
 def _minimal_ablation(include_theorem_fields: bool) -> dict[str, Any]:
     advance: dict[str, Any] = {
         "id": "advance_recursion_v1",

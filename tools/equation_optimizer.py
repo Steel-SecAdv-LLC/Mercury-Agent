@@ -475,8 +475,9 @@ def _run_pipeline(
     winner_eval = _select_winner(baseline_eval, best_eval)
 
     top_candidates = ranking[: min(40, len(ranking))]
+    winner_constraints_ok = bool(winner_eval["constraints_ok"])
     summary = {
-        "ok": True,
+        "ok": winner_constraints_ok,
         "dataset_source": dataset_source,
         "iterations": iterations,
         "seed": seed,
@@ -486,7 +487,7 @@ def _run_pipeline(
         "best_objective": float(best_eval["objective"]),
         "winner_id": winner_eval["candidate_id"],
         "winner_objective": float(winner_eval["objective"]),
-        "winner_constraints_ok": bool(winner_eval["constraints_ok"]),
+        "winner_constraints_ok": winner_constraints_ok,
     }
 
     _write_json(output_dir / "equation_inventory.json", {"surfaces": inventory})
@@ -612,7 +613,7 @@ def _cli(argv: list[str] | None = None) -> int:
         return 2
 
     print(json.dumps(summary, indent=2, sort_keys=True))
-    return 0
+    return 0 if bool(summary["ok"]) else 1
 
 
 if __name__ == "__main__":  # pragma: no cover - CLI entry-point

@@ -121,9 +121,10 @@ def _track_metric(domain_summary: dict[str, Any], domains: list[str], metric: st
         if not isinstance(stats, dict):
             continue
         metric_value = _as_float(stats.get(metric))
-        weight = int(domain_payload.get("n_measured", 0))
-        if metric_value is None or weight <= 0:
+        measured_count = _as_float(domain_payload.get("n_measured", 0))
+        if metric_value is None or measured_count is None or measured_count <= 0:
             continue
+        weight = int(measured_count)
         weighted += metric_value * weight
         total_weight += weight
     if total_weight == 0:

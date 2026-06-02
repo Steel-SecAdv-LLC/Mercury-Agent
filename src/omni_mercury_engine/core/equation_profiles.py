@@ -13,7 +13,7 @@ double-count.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 
@@ -88,13 +88,11 @@ _PROFILES = {
 
 def available_equation_profiles() -> tuple[str, ...]:
     """Return supported runtime profile identifiers."""
-
     return tuple(_PROFILES)
 
 
 def get_equation_profile(profile_id: str | None) -> RuntimeEquationProfile | None:
     """Return a profile by id, or ``None`` when no runtime profile is selected."""
-
     if profile_id is None:
         return None
     try:
@@ -128,7 +126,6 @@ def score_runtime_equation_profile(
     Returns:
         ``(scores, metadata)`` where scores are clipped to ``[0, 1]``.
     """
-
     profile = get_equation_profile(profile_id)
     raw = np.asarray(raw_scores, dtype=np.float64).reshape(-1)
     if profile is None:
@@ -241,7 +238,6 @@ def components_from_score_channels(
     raw_scores: np.ndarray[Any, Any],
 ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
     """Map detector/model score channels onto runtime R/H/O components."""
-
     raw = np.asarray(raw_scores, dtype=np.float64).reshape(-1)
     n = raw.shape[0]
     recursion: list[np.ndarray[Any, Any]] = []
@@ -281,5 +277,5 @@ def _mean_or_fallback(
     arrays: list[np.ndarray[Any, Any]], fallback: np.ndarray[Any, Any]
 ) -> np.ndarray[Any, Any]:
     if not arrays:
-        return np.clip(fallback, 0.0, 1.0)
-    return np.clip(np.mean(np.vstack(arrays), axis=0), 0.0, 1.0)
+        return cast("np.ndarray[Any, Any]", np.clip(fallback, 0.0, 1.0))
+    return cast("np.ndarray[Any, Any]", np.clip(np.mean(np.vstack(arrays), axis=0), 0.0, 1.0))

@@ -80,7 +80,7 @@ the proven baseline under the hard constraints, the frozen baseline wins.
   `docs/MATH_SPEC.md`, freezes the original equations as an immutable baseline
   (`preserve_original_equations=True`), searches a constrained universal
   candidate family, and promotes a winner only when it clears *hard* gates
-  (ethical floor `η ≥ 1.0`, output range `[0, 1]`, contraction `α ≤ 0.999`,
+  (ethical-compliance invariant, output range `[0, 1]`, contraction `α ≤ 0.999`,
   Lyapunov `λ ≥ 1e-6`). Emits versioned artifacts + rollback / continuous-
   revalidation metadata. Registered in the `python -m tools` dispatcher
   (entry-point `_cli`).

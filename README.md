@@ -1261,8 +1261,8 @@ Exit codes: `0` success · `2` config not found or `--timeout` invalid (no JSON 
 mathematical surfaces inventoried from [`docs/MATH_SPEC.md`](docs/MATH_SPEC.md).
 It **freezes the original equations as an immutable baseline**, searches a
 constrained universal candidate family, and only promotes a candidate that
-clears *hard* gates — ethical floor, output range `[0, 1]`, contraction
-`α ≤ 0.999`, and Lyapunov `λ ≥ 1e-6` — emitting versioned artifacts plus
+clears *hard* gates — ethical-compliance invariant, output range `[0, 1]`,
+contraction `α ≤ 0.999`, and Lyapunov `λ ≥ 1e-6` — emitting versioned artifacts plus
 rollback / continuous-revalidation metadata. When no candidate beats the proven
 baseline under the gates, the baseline wins (honest by construction). Full
 operating guide: [`docs/EQUATION_RESEARCH_PROTOCOL.md`](docs/EQUATION_RESEARCH_PROTOCOL.md).
@@ -1280,9 +1280,10 @@ python scripts/run_equation_research_protocol.py --config configs/equation_resea
 python scripts/compare_runtime_equation_profiles.py --seed 3 --n 800 --out artifacts/runtime_equation_compare.json
 ```
 
-Exit codes: `0` pipeline ok · `1` a hard gate failed. The winner JSON records
-every objective metric, the constraint-detail booleans, and the selected
-parameters so a promotion is fully auditable.
+Exit codes: `0` pipeline ok · `1` a hard gate failed after a completed run ·
+`2` tool/config/input exception. The winner JSON records every objective
+metric, the constraint-detail booleans, and the selected parameters so a
+promotion is fully auditable.
 
 **Runtime equation profiles (opt-in serve path).** The optimizer's frozen OAE
 surface is also exposed at inference through
