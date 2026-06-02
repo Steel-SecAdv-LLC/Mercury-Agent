@@ -325,9 +325,10 @@ pointer).
   detection still separates the classes (ROC-AUC ≥ 0.85).
 * `test_checkpoint_round_trip_no_symbolic_dimension_drift` — after
   co-training, `save_model` → `load_model` into a fresh engine reproduces
-  `score_fusion` to within 1e-5 with **no** symbolic module on the reloaded
-  engine: the symbolic channels are training-only and never drift the
-  persisted fusion dimensions at inference.
+  `score_fusion` to within 1e-5: the co-trained symbolic constraint
+  round-trips through the checkpoint (its `state_dict` + config are persisted
+  and restored) yet stays inference-inert, so the symbolic channels never
+  drift the persisted fusion dimensions consumed at scoring.
 
 The adaptive-default and neural-only-escape (`symbolic_weight=0.0`) contracts
 remain pinned by the existing `test_adaptive_is_the_default` /

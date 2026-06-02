@@ -359,11 +359,14 @@ class TestCoTrainingConformalServePath:
 
             fresh = _engine()
             fresh.load_model(path)
-            # ...but the persisted checkpoint is purely the fusion model: the
-            # reloaded engine has NO symbolic module (training-only channel)...
-            assert fresh._symbolic_module is None
+            # ...and the co-trained symbolic constraint round-trips through the
+            # checkpoint (its state_dict + config are persisted), so the
+            # reloaded engine restores it deterministically rather than
+            # dropping it...
+            assert isinstance(fresh._symbolic_module, SymbolicConstraintModule)
             probs_after = fresh.score_fusion(X_te)
 
-        # ...and yet scores match exactly — no dimension drift from the
-        # symbolic channels that were present only during co-training.
+        # ...and yet the served scores match exactly: the symbolic constraint is
+        # inference-inert (a training-only co-training signal) and never widens
+        # the persisted fusion dimensions consumed by score_fusion.
         np.testing.assert_allclose(probs_before, probs_after, rtol=1e-5, atol=1e-6)
