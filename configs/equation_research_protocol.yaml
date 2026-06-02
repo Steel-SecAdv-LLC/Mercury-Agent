@@ -1,0 +1,193 @@
+# Mercury equation-research protocol.
+# Preserves in-house equations while governing optimization experiments.
+
+control_model:
+  immutable_reference_surfaces:
+    - name: omni_ava_equation
+      path: src/omni_mercury_engine/core/three_r/fusion.py
+    - name: lyapunov_constants
+      path: src/omni_mercury_engine/core/centralized_constants.py
+    - name: banach_contraction_implementation
+      path: src/omni_mercury_engine/core/three_r/fusion.py
+    - name: conformal_prediction_surface
+      path: src/omni_mercury_engine/core/conformal_prediction.py
+    - name: sigma_immutable_gate
+      path: src/omni_mercury_engine/security/sigma_immutable_gate.py
+
+outcome_tracks:
+  - id: unknown_discovery
+    name: Unknown discovery track
+    domains: [adbench, timeseries, industrial, academic]
+    targets:
+      mean_auc: 0.78
+      mean_recall: 0.70
+
+  - id: humanitarian_impact
+    name: Humanitarian impact track
+    domains: [disaster, environmental, air_quality, climate]
+    targets:
+      mean_auc: 0.82
+      mean_recall: 0.74
+
+  - id: security_hardening
+    name: Security hardening track
+    domains: [security]
+    targets:
+      mean_auc: 0.88
+      mean_recall: 0.75
+
+hypothesis_matrix:
+  - component: recursion
+    hypothesis: Recursion enhancement improves unknown-discovery AUC.
+    acceptance:
+      - field: component_deltas.recursion.delta_auc
+        op: ">="
+        value: 0.005
+      - field: component_deltas.recursion.p_value
+        op: "<="
+        value: 0.05
+    fail_condition: No statistically-significant AUC lift.
+
+  - component: resonance
+    hypothesis: Resonance tuning improves robustness under domain shift.
+    acceptance:
+      - field: component_deltas.resonance.delta_auc
+        op: ">="
+        value: 0.003
+      - field: component_deltas.resonance.p_value
+        op: "<="
+        value: 0.05
+    fail_condition: Shift robustness does not improve significantly.
+
+  - component: optimization
+    hypothesis: Optimization term improves oracle F1 without ethical regressions.
+    acceptance:
+      - field: component_deltas.optimization.delta_oracle_f1
+        op: ">="
+        value: 0.01
+      - field: component_deltas.optimization.p_value
+        op: "<="
+        value: 0.05
+    fail_condition: F1 lift is not significant.
+
+  - component: ethical_gate
+    hypothesis: Benevolence gate remains strict after tuning.
+    acceptance:
+      - field: hard_gates.benevolence_violations
+        op: "=="
+        value: 0
+      - field: hard_gates.ethical_regressions
+        op: "=="
+        value: 0
+    fail_condition: Any benevolence hard-gate regression.
+
+  - component: sigma_immutable
+    hypothesis: Sigma immutable remains hard and non-bypassable.
+    acceptance:
+      - field: hard_gates.sigma_immutable_violations
+        op: "=="
+        value: 0
+      - field: hard_gates.gosnn_unavailable_violations
+        op: "=="
+        value: 0
+    fail_condition: Any sigma immutable boundary violation.
+
+optimization_plan:
+  commands:
+    - python scripts/run_ablation.py --config configs/ablation_3r_lyapunov.yaml --out artifacts/ablation_result.json --skip-run
+    - python -m benchmarks.neurosymbolic_ablation --out artifacts/neurosymbolic_ablation.json
+
+first_class_gates:
+  - name: uncertainty_gate
+    field: gates.uncertainty.coverage_ok
+    op: "=="
+    value: true
+  - name: calibration_gate
+    field: gates.calibration.ece
+    op: "<="
+    value: 0.05
+  - name: boundary_stress_gate
+    field: gates.boundary_stress.pass
+    op: "=="
+    value: true
+
+lane_consistency:
+  humanitarian_lane: lanes.humanitarian_first
+  security_lane: lanes.security_first
+  consistency_metrics:
+    mean_auc: 0.03
+    mean_recall: 0.04
+
+ai_equation_library:
+  known_reference_equations:
+    - id: maut_additive_utility
+      equation: "U(x)=sum_i w_i u_i(x_i), sum_i w_i=1, w_i>0"
+      purpose: "Composite utility grounding for measurable multi-objective trade-offs."
+      source: "Keeney & Raiffa, Decisions with Multiple Objectives, 1976"
+      mercury_use: "Justifies weighted scorecards only when each utility is normalized and weights are explicit."
+    - id: split_conformal_quantile
+      equation: "q_hat = Quantile_ceil((n+1)(1-alpha))/n({s_i}_{i=1}^n)"
+      purpose: "Finite-sample uncertainty coverage for calibrated prediction sets."
+      source: "Vovk, Gammerman & Shafer, Algorithmic Learning in a Random World, 2005"
+      mercury_use: "Guards anomaly thresholds and autonomous decisions against overconfident promotion."
+    - id: expected_calibration_error
+      equation: "ECE=sum_m |B_m|/n * |acc(B_m)-conf(B_m)|"
+      purpose: "Measures probability calibration rather than raw ranking quality."
+      source: "Guo et al., On Calibration of Modern Neural Networks, ICML 2017"
+      mercury_use: "Keeps fusion outputs operationally honest across anomaly fields and AI surfaces."
+    - id: cusum_drift
+      equation: "S_t=max(0,S_{t-1}+x_t-mu_0-k)"
+      purpose: "Sequential distribution-shift detection with tunable false-alarm behavior."
+      source: "Page, Continuous Inspection Schemes, Biometrika 1954"
+      mercury_use: "Candidate drift guard for continuous revalidation; not a replacement for Mercury equations."
+    - id: ltn_fuzzy_rule_satisfaction
+      equation: "sat(Phi)=mean_x G(Phi(x)); fuzzy connectives map formulas to [0,1]"
+      purpose: "Neuro-symbolic rule-grounding and differentiable constraint scoring."
+      source: "Badreddine et al., Logic Tensor Networks, Artificial Intelligence 2022"
+      mercury_use: "Supports evaluating symbolic-rule satisfaction alongside neural anomaly performance."
+  in_house_equations:
+    - id: oae_original_baseline
+      equation: "A=(w_R R(x)+w_H H(omega)+w_O O(theta))*eta(b)^p"
+      purpose: "Primary Mercury 3R anomaly-fusion equation."
+      source: "docs/MATH_SPEC.md and src/omni_mercury_engine/core/three_r/fusion.py"
+      preservation_rule: "Never replace; only optimize profiles around a frozen baseline with rollback."
+    - id: ugcm_candidate_family
+      equation: "G=eta^p*(lambda_a A+lambda_m M+lambda_i I)"
+      purpose: "Universal generalized composite candidate family: additive, multiplicative, and pairwise-interaction evidence."
+      source: "tools/equation_optimizer.py"
+      preservation_rule: "Candidate only; promoted only when it beats the original baseline under every hard gate."
+    - id: quiet_horizon_runtime_candidate
+      equation: "S=0.70*N+0.30*(eta^sqrt(Phi)*(0.5+0.5*A_RHO)*(Phi*R+sqrt(HO)+cuberoot(RHO))/(Phi+2))"
+      purpose: "Gentle runtime R/H/O agreement profile designed from Mercury's original OAE signals."
+      source: "src/omni_mercury_engine/core/equation_profiles.py"
+      preservation_rule: "Explicit opt-in runtime candidate; compare against baseline_original_v1 and reject on any hard-gate regression."
+    - id: benevolence_phi_index
+      equation: "B=(Phi*harm_reduction+equity)/(Phi+1)"
+      purpose: "Civilization-first benevolence score that weights missed-harm reduction above parity balancing."
+      source: "src/omni_mercury_engine/core/domain_metrics.py"
+      preservation_rule: "Keep as in-house ethical metric; calibrate thresholds empirically without weakening hard gates."
+    - id: gosnn_hierarchical_geometric_score
+      equation: "S=prod_c max(s_c,epsilon)^(w_c/sum_j w_j)"
+      purpose: "Neuro-symbolic omni-scalar aggregation that penalizes any weak category."
+      source: "src/omni_mercury_engine/core/global_omni_scalar_network.py"
+      preservation_rule: "Preserve geometric default for hard-category accountability."
+  required_fields: [id, equation, purpose, source]
+
+decision_justification:
+  - decision: "Preserve original in-house equations as immutable baselines."
+    reason: "The optimizer must strengthen Mercury's own equations rather than import an external formula; external literature is used only to justify constraints, diagnostics, and validation."
+  - decision: "Use weighted scalarization plus hard gates, not a free unconstrained search."
+    reason: "Weighted sums are interpretable, but ethical, sigma_immutable, stability, and output-range constraints are categorical feasibility requirements."
+  - decision: "Report calibration, uncertainty, robustness, latency, and generalization together."
+    reason: "A higher anomaly score is not sufficient if it is miscalibrated, brittle, slow, or fails outside the originating field."
+  - decision: "Keep theorem-to-test artifacts mandatory for promotion."
+    reason: "Every candidate must carry a claim, assumptions, proof sketch, empirical evidence, risk limits, and deployment constraints."
+
+theorem_artifact:
+  required_fields:
+    - claim
+    - assumptions
+    - proof_sketch
+    - empirical_evidence
+    - risk_limits
+    - deployment_constraints

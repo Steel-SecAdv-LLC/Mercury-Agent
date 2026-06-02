@@ -26,6 +26,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Equations — universal equation optimizer + opt-in runtime equation profiles (2026-06-02)
+
+Marshals the previously-unintegrated **universal equation optimizer** work
+(developed on `copilot/copilotimprove-universal-generalized-composite-met`, never
+opened as a PR) into a single branch, adapted to the current engine surface and
+re-verified end-to-end. The optimizer is reproducible and *safety-gated by
+construction* — it does not weaken any existing gate, and when no candidate beats
+the proven baseline under the hard constraints, the frozen baseline wins.
+
+* **`tools/equation_optimizer.py`** — inventories the equation surfaces from
+  `docs/MATH_SPEC.md`, freezes the original equations as an immutable baseline
+  (`preserve_original_equations=True`), searches a constrained universal
+  candidate family, and promotes a winner only when it clears *hard* gates
+  (ethical floor `η ≥ 1.0`, output range `[0, 1]`, contraction `α ≤ 0.999`,
+  Lyapunov `λ ≥ 1e-6`). Emits versioned artifacts + rollback / continuous-
+  revalidation metadata. Registered in the `python -m tools` dispatcher
+  (entry-point `_cli`).
+* **`scripts/run_equation_research_protocol.py`** + `configs/equation_research_protocol.yaml`
+  — a governed inventory → freeze → search → gate → decision-ledger runner.
+* **`scripts/compare_runtime_equation_profiles.py`** — compares the frozen
+  baseline against a candidate runtime profile on real data (AUC / ECE via
+  `core.calibration.compute_ece`, neuro-symbolic satisfaction, latency, per-domain
+  η), asserting the hard gates are preserved.
+* **`omni_mercury_engine.core.equation_profiles`** + engine wiring — an **opt-in**
+  runtime serve path. `OmniMercuryEngine(..., equation_profile=...)` (or a per-call
+  override on `score_fusion` / `detect_with_fusion` / `detect_with_fusion_calibrated`)
+  blends the calibrated neural probability with the golden-ratio R/H/O equation
+  signal and surfaces the blend metadata under `result["equation_profile"]`.
+  **`None` (default) is an exact no-op** — verified that the profile-less path
+  returns the calibrated array unchanged — so existing serve/benchmark behaviour
+  is byte-for-byte preserved. The per-domain η estimate (`_domain_eta`) is aligned
+  to the canonical OAE `DOMAIN_THRESHOLDS` convention (medical 0.93, humanitarian
+  0.95, infrastructure 0.995, default 0.96), correcting a stale source-branch table
+  that carried invented values and keys (`security`/`humanitarian`) silently zeroed
+  by `sanitize_domain`'s disjoint `EnvironmentDomain` vocabulary.
+
+Tests: `tests/tools/test_equation_optimizer.py` (pipeline artifacts + CLI smoke),
+`tests/core/test_equation_profiles.py` (bounded/distinct profiles, `None`
+pass-through, unknown-profile rejection, channel→R/H/O mapping),
+`tests/scripts/test_run_equation_research_protocol.py`,
+`tests/scripts/test_compare_runtime_equation_profiles.py`. Regression-verified
+against `tests/test_omni_mercury_engine.py`, `tests/test_fusion_explainability.py`,
+`tests/test_fusion_symbolic_cotraining.py`, `tests/test_neurosymbolic_integration.py`,
+and `tests/tools/test_dispatcher.py`. `black`/`ruff`/`flake8` clean; `mypy --strict`
+clean on all changed source files (the source branch's `mypy` gaps in
+`run_equation_research_protocol.py` were fixed in passing).
+
+### Docs — removed dangling `make checkpoint` reference (2026-06-02)
+
+`scripts/train_default_fusion.py`'s module docstring referenced a `make checkpoint`
+target that does not exist in-tree (the `Makefile` lived only on the rejected
+hidden_dim=128 `fusion-capacity-on-merits` branch). Corrected to point at the
+script directly so the documented invocation is real.
+
 ### Neuro-symbolic — `LogicTensorNetwork` re-wired to the canonical co-trained module (2026-06-02)
 
 Reverses PR #269's *retirement* of `LogicTensorNetwork` in favour of **wiring**

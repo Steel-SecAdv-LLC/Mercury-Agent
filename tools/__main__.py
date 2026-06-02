@@ -62,6 +62,13 @@ class _ToolEntrypoint(Protocol):
 # of breaking the whole dispatcher.
 _REGISTRY: dict[str, tuple[str, str]] = {
     "lyapunov_validator": ("tools.lyapunov_validator", "_cli"),
+    # Universal equation optimizer: inventories the MATH_SPEC equation
+    # surfaces, freezes the original equations as an immutable baseline,
+    # searches a constrained candidate family under hard ethical / Lyapunov /
+    # contraction gates, and emits versioned + rollback artifacts. Dependency-
+    # light (stdlib + numpy); entry-point ``_cli``. Tests:
+    # ``tests/tools/test_equation_optimizer.py`` (pipeline + CLI smoke).
+    "equation_optimizer": ("tools.equation_optimizer", "_cli"),
     # Cryptographic evidence tools graduated from
     # ``omni_mercury_engine.tools.*`` after their behavioural tests
     # landed in ``tests/tools/test_new_tools.py``.  These ship with the

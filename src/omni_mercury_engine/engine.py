@@ -112,6 +112,10 @@ from omni_mercury_engine.core.conformal_prediction import (
     BinaryConformalClassifier,
     BinaryPredictionSet,
 )
+from omni_mercury_engine.core.equation_profiles import (
+    components_from_score_channels,
+    score_runtime_equation_profile,
+)
 from omni_mercury_engine.core.global_omni_scalar_network import (
     ScalarGroup,
     get_global_scalar_network,
@@ -708,6 +712,7 @@ class OmniMercuryEngine(LoggerMixin):
         cache_size: int = 128,
         memory_threshold_mb: float = 2048.0,
         auto_load_checkpoint: bool = False,
+        equation_profile: str | None = None,
     ) -> None:
         """Initialize the OmniMercuryEngine.
 
@@ -723,6 +728,13 @@ class OmniMercuryEngine(LoggerMixin):
                 training step. Default False to keep a freshly-constructed
                 engine deterministically untrained; the ``detect``/``serve``
                 CLI entry points opt in.
+            equation_profile: Optional runtime equation profile id. ``None``
+                (default) preserves the legacy calibrated fusion probabilities
+                byte-for-byte; explicit profiles such as
+                ``baseline_original_v1`` or ``quiet_horizon_v1`` blend the
+                calibrated neural score with the frozen OAE R/H/O equation
+                signal at serve time (see
+                :mod:`omni_mercury_engine.core.equation_profiles`).
 
         Raises:
             ValueError: If device is 'cuda' but CUDA is not available.
@@ -736,6 +748,10 @@ class OmniMercuryEngine(LoggerMixin):
         """
         self.config = config or EngineConfig()
         self.mode = mode
+        # Optional runtime equation profile (default None = legacy behaviour).
+        # Resolved per call in ``_apply_runtime_equation_profile``; ``None``
+        # keeps ``score_fusion`` / ``detect_with_fusion`` outputs unchanged.
+        self.equation_profile = equation_profile
         # Set of detector names that were auto-fit on inference data because
         # they were not pre-fit. Initialised unconditionally so the leakage
         # surface (warning + result-dict key) works for every engine mode,
@@ -1979,6 +1995,66 @@ class OmniMercuryEngine(LoggerMixin):
         calibrated = np.asarray(self._fusion_calibrator.calibrate(arr.reshape(-1)))
         return calibrated.reshape(arr.shape)
 
+    def _apply_runtime_equation_profile(
+        self,
+        probs: np.ndarray[Any, Any],
+        score_channels: dict[str, Any],
+        *,
+        equation_profile: str | None = None,
+        domain: str | None = None,
+    ) -> tuple[np.ndarray[Any, Any], dict[str, Any] | None]:
+        """Blend calibrated neural probabilities with an explicit equation profile.
+
+        Opt-in: when neither the per-call ``equation_profile`` nor the
+        engine-level :attr:`equation_profile` selects a profile, the calibrated
+        probabilities are returned unchanged (and ``None`` metadata), so the
+        legacy serve/benchmark path is preserved byte-for-byte. When a profile
+        is selected, the detector/model score channels are mapped onto the
+        OAE R/H/O components and blended with the frozen baseline equation
+        signal (see :mod:`omni_mercury_engine.core.equation_profiles`).
+        """
+        profile_id = equation_profile if equation_profile is not None else self.equation_profile
+        if profile_id is None:
+            return probs, None
+
+        flat_probs = np.asarray(probs, dtype=np.float64).reshape(-1)
+        r, h, o = components_from_score_channels(score_channels, raw_scores=flat_probs)
+        scored, metadata = score_runtime_equation_profile(
+            flat_probs,
+            r,
+            h,
+            o,
+            eta=self._domain_eta(domain),
+            profile_id=profile_id,
+        )
+        return scored.reshape(np.asarray(probs).shape), metadata
+
+    def _domain_eta(self, domain: str | None) -> float:
+        """Return the OAE ethical-gate (η) estimate for a runtime equation profile.
+
+        The runtime equation profile *is* the OAE surface, so η follows the OAE
+        per-domain ethical-threshold convention (the values mirror
+        ``three_r_mechanism``'s OAE ``DOMAIN_THRESHOLDS``): ``medical`` relaxes
+        to 0.93 to avoid critical-domain false negatives, ``infrastructure``
+        tightens to 0.995, ``humanitarian`` to 0.95, with a conservative 0.96
+        default for everything else.
+
+        ``dict.get(..., 0.96)`` makes any unknown / ``None`` / unsafe domain
+        string collapse to the safe default, so no ``sanitize_domain`` pass is
+        needed here — and indeed must not be used: the OAE domain vocabulary
+        (``security`` / ``humanitarian``) is deliberately *not* a subset of
+        ``EnvironmentDomain``, so sanitising first would silently zero those
+        keys. η only scales a probability-bounded equation term, so a
+        float-table lookup carries no injection surface.
+        """
+        if not isinstance(domain, str):
+            return 0.96
+        return {
+            "medical": 0.93,
+            "humanitarian": 0.95,
+            "infrastructure": 0.995,
+        }.get(domain, 0.96)
+
     def _symbolic_consistency_payload(
         self,
         X: np.ndarray[Any, Any],
@@ -2078,7 +2154,13 @@ class OmniMercuryEngine(LoggerMixin):
         )
         return output_path
 
-    def score_fusion(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    def score_fusion(
+        self,
+        X: np.ndarray[Any, Any],
+        *,
+        equation_profile: str | None = None,
+        domain: str | None = None,
+    ) -> np.ndarray[Any, Any]:
         """Return fusion anomaly probabilities for a batch of samples.
 
         This is the batch evaluation/benchmarking counterpart to
@@ -2094,6 +2176,11 @@ class OmniMercuryEngine(LoggerMixin):
 
         Args:
             X: Features ``(n_samples, n_features)``.
+            equation_profile: Optional runtime equation profile override. When
+                omitted, :attr:`equation_profile` is used; when neither selects
+                a profile the calibrated probabilities are returned unchanged.
+            domain: Optional domain hint for the profile's ethical-gate (η)
+                estimate.
 
         Returns:
             Array of anomaly probabilities in ``[0, 1]``, shape ``(n_samples,)``.
@@ -2123,7 +2210,22 @@ class OmniMercuryEngine(LoggerMixin):
         # and the production path agree on what the checkpoint's temperature
         # means.
         calibrated = self._apply_fusion_calibration(probs).reshape(-1)
-        return calibrated
+        # Optional runtime equation profile (opt-in; exact no-op when unset, so
+        # the default benchmark/serve path is byte-for-byte unchanged). Channel
+        # values are per-group feature means as the R/H/O proxy when no explicit
+        # detector-score dict is in scope on the benchmark path.
+        score_channels = {
+            name: feat.detach().cpu().numpy().mean(axis=1)
+            for name, feat in features.items()
+            if getattr(feat, "ndim", 0) >= 2
+        }
+        profiled, _ = self._apply_runtime_equation_profile(
+            calibrated,
+            score_channels,
+            equation_profile=equation_profile,
+            domain=domain,
+        )
+        return np.asarray(profiled).reshape(-1)
 
     def evaluate_neurosymbolic_feedback(
         self,
@@ -3516,6 +3618,7 @@ class OmniMercuryEngine(LoggerMixin):
         domain: str | None = None,
         _enable_gosnn: bool = True,
         explain: bool = False,
+        equation_profile: str | None = None,
     ) -> dict[str, Any]:
         """
         Detect anomalies using ML fusion with GOSNN synaptic integration.
@@ -3561,6 +3664,12 @@ class OmniMercuryEngine(LoggerMixin):
                 plus its faithfulness scores. Off by default because IG over
                 the full fusion stack is expensive (finite-difference forward
                 passes per feature × interpolation step).
+            equation_profile: Optional runtime equation profile override. When
+                provided (or set engine-wide via :attr:`equation_profile`), the
+                calibrated neural fusion probability is blended with the
+                selected R/H/O equation profile before thresholding, and the
+                blend metadata is attached under ``result["equation_profile"]``.
+                ``None`` (default) leaves the calibrated probability unchanged.
 
         Returns:
             Dictionary containing:
@@ -3798,6 +3907,18 @@ class OmniMercuryEngine(LoggerMixin):
             np.asarray(fusion_result["anomaly_probs"])
         )
 
+        # Optional runtime equation profile (opt-in; exact no-op when unset).
+        # Applied on the calibrated probabilities so the blended score stays on
+        # the same temperature scale every downstream consumer reads.
+        fusion_result["anomaly_probs"], equation_profile_metadata = (
+            self._apply_runtime_equation_profile(
+                np.asarray(fusion_result["anomaly_probs"]),
+                all_scores,
+                equation_profile=equation_profile,
+                domain=domain,
+            )
+        )
+
         anomaly_prob_val = fusion_result["anomaly_probs"][0]
         if isinstance(anomaly_prob_val, np.ndarray) or hasattr(anomaly_prob_val, "item"):
             anomaly_prob_val = anomaly_prob_val.item()
@@ -3835,6 +3956,11 @@ class OmniMercuryEngine(LoggerMixin):
         # Add GOSNN metadata if integration was enabled
         if gosnn_metadata:
             result["gosnn_metadata"] = gosnn_metadata
+
+        # Surface the runtime equation-profile blend metadata when a profile
+        # was applied (absent on the default, profile-less serve path).
+        if equation_profile_metadata is not None:
+            result["equation_profile"] = equation_profile_metadata
 
         # Runtime Pipeline Integration: Drift Detection
         if self.drift_detector is not None:
@@ -3953,6 +4079,7 @@ class OmniMercuryEngine(LoggerMixin):
         contamination: float | None = None,
         domain: str | None = None,
         _enable_gosnn: bool = True,
+        equation_profile: str | None = None,
     ) -> dict[str, Any]:
         """Detect anomalies using ML fusion with automatic threshold calibration.
 
@@ -3975,6 +4102,11 @@ class OmniMercuryEngine(LoggerMixin):
             domain: Domain identifier for GOSNN threshold tuning
             _enable_gosnn: PRIVATE testing knob (see ``detect_with_fusion``).
                 Production code must leave this at the default ``True``.
+            equation_profile: Optional runtime equation profile override. When
+                set, both the per-sample fusion probability and the batch
+                probabilities used for threshold selection are blended on the
+                same profiled scale so the threshold and the verdict stay
+                internally consistent. ``None`` (default) is an exact no-op.
 
         Returns:
             Dictionary containing:
@@ -4007,6 +4139,7 @@ class OmniMercuryEngine(LoggerMixin):
             data=data,
             domain=domain,
             _enable_gosnn=_enable_gosnn,
+            equation_profile=equation_profile,
         )
 
         # Get fusion probability
@@ -4032,6 +4165,16 @@ class OmniMercuryEngine(LoggerMixin):
             # threshold and the scalar live on different scales and the
             # is_anomaly verdict is internally inconsistent.
             all_probs = self._apply_fusion_calibration(all_probs)
+            # Keep the batch threshold scale identical to the (possibly
+            # profile-blended) per-sample anomaly_prob returned by
+            # detect_with_fusion. Exact no-op when no profile is selected.
+            all_probs, _ = self._apply_runtime_equation_profile(
+                all_probs,
+                {**det_scores, **mod_scores},
+                equation_profile=equation_profile,
+                domain=domain,
+            )
+            all_probs = np.asarray(all_probs).flatten()
         else:
             all_probs = np.array([anomaly_prob])
 
