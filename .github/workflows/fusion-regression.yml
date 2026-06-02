@@ -1,0 +1,68 @@
+# Mercury-Agent Fusion Regression Gate
+# Fails CI if the fusion model's AUC/F1 regress below a pinned floor, or if
+# conformal empirical coverage drops below target - margin. Deterministic,
+# offline (synthetic corpus); the real-data fusion numbers live in
+# benchmarks/fusion_capacity/sweep_real_v5.json.
+# Copyright (C) 2025 Steel Security Advisors LLC
+
+name: Fusion Regression Gate
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fusion-regression-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+on:
+  pull_request:
+    # Every PR to a release branch runs the gate (no path filter: a regression
+    # can be introduced by changes that touch the fusion path indirectly).
+    branches: [main, develop]
+  workflow_dispatch:
+  schedule:
+    # Weekly, Sunday 03:00 UTC.
+    - cron: "0 3 * * 0"
+
+env:
+  PYTHON_VERSION: "3.12"
+  # Fail closed: the fusion/conformal path requires the ML extra.
+  MERCURY_REQUIRES_ML: "1"
+
+jobs:
+  fusion-regression:
+    name: Fusion AUC/F1 + Conformal Coverage Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Mercury [ml] + test tooling
+        run: |
+          python -m pip install --upgrade "pip>=26.1"
+          pip install -e ".[ml]"
+          pip install pytest scikit-learn hypothesis
+
+      # AMA Cryptography is the mandatory PQC backend; the package fails closed
+      # at import without it, so it must be built before anything imports
+      # omni_mercury_engine.
+      - name: Build AMA Cryptography (native PQC)
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v3.2.0
+
+      # Fast: pins the gate's pass/fail logic (floors, coverage floor) with
+      # synthetic metrics — no training.
+      - name: Gate-logic unit tests
+        run: pytest tests/benchmarks/test_fusion_regression_guard.py -q
+
+      # The real measurement: deterministically trains + evaluates the fusion
+      # path and fails if AUC/F1 < floor or conformal coverage < target - margin
+      # vs benchmarks/fusion_capacity/fusion_gate_baseline.json.
+      - name: Fusion regression + conformal coverage gate
+        run: python benchmarks/fusion_regression_guard.py --check

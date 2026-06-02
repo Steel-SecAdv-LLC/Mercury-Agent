@@ -26,6 +26,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### MLOps — fusion AUC/F1 + conformal-coverage CI regression gate (2026-06-02)
+
+Finishes the WS5/WS6 "MLOps train→eval→register CI regression gates" item
+deferred by PR #269. The fusion train→eval→register pipeline + AUC/ECE sweep
+artifacts existed, but **no CI gate pinned the fusion AUC/F1 or the conformal
+coverage floor**, so a fusion-stack regression could merge silently.
+
+* **`benchmarks/fusion_regression_guard.py`** — deterministically trains the
+  real fusion path on a fixed seeded synthetic corpus (`symbolic_weight=0.0`,
+  `seed=20260526`), evaluates held-out AUC + F1, and measures empirical conformal
+  coverage from a disjoint calibration split. `--update` re-pins the committed
+  baseline (`benchmarks/fusion_capacity/fusion_gate_baseline.json`) **and** emits
+  a timestamped metrics artifact under `artifacts/fusion/<ts>/metrics.json`;
+  `--check` exits non-zero if AUC/F1 fall below `baseline − margin` or empirical
+  coverage drops below `target − 0.05`. Mirrors the existing
+  `anomaly_regression_guard.py` pattern.
+* **`.github/workflows/fusion-regression.yml`** — runs the gate on every PR to
+  `main`/`develop` (+ weekly + dispatch): builds AMA Cryptography (v3.2.0),
+  installs `.[ml]`, runs the fast gate-logic unit tests, then the real
+  `--check`.
+* **Committed measurement.** First baseline (`seed=20260526`, 8 epochs):
+  **AUC=1.0000, F1=0.9851, empirical coverage=0.9521** (target 0.90); the gate
+  `--check` re-trains and passes against it.
+
+**Why train, not load the shipped checkpoint.** A diagnostic found the
+checkpoint round-trip drifts per-sample probabilities (max |Δ|≈0.76; AUC
+survives at Δ≈0.002 but absolute probabilities — hence F1@0.5 / coverage — do
+not), and the shipped `default_fusion.pt` underperforms in-distribution
+(AUC≈0.70, base detectors auto-fit on inference because their state isn't
+persisted). The gate therefore trains in-process for a bit-stable measurement
+of *achievable* performance; the round-trip drift is a tracked follow-up (see
+ROADMAP). Tests: `tests/benchmarks/test_fusion_regression_guard.py` (5 fast
+gate-logic tests: floors, pass, AUC regression, coverage collapse, missing
+baseline).
+
 ### Explainability — IntegratedGradients + faithfulness on the fusion serve path (2026-06-02)
 
 Finishes the WS5 "explanations on the serve path" item deferred by PR #269: the
