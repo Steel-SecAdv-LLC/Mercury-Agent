@@ -47,7 +47,7 @@ import numpy as np
 _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE.parent / "src"))
 
-from omni_mercury_engine.evaluation.event_coincidence import (  # noqa: E402
+from omni_mercury_engine.evaluation.event_coincidence import (
     PreregisteredCoincidenceTest,
     permutation_coincidence_test,
     run_preregistered,

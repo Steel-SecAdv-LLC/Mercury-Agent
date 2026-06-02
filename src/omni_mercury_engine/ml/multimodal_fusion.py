@@ -16,7 +16,7 @@ https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-"""
+_MODULE_DESCRIPTION = """
 Multimodal Fusion Network with Cross-Modal Attention
 
 Fuses features from multiple modalities (vision, text, time-series, graphs)
@@ -104,13 +104,13 @@ class MultimodalFusionNetwork(nn.Module):
             projected[name] = self.projections[name](features)
 
         attended = {}
-        for m1 in projected:
-            attended_m1 = [projected[m1]]
-            for m2 in projected:
+        for m1, projected_m1 in projected.items():
+            attended_m1 = [projected_m1]
+            for m2, projected_m2 in projected.items():
                 if m1 != m2:
                     key = f"{m1}_to_{m2}"
                     if key in self.cross_attentions:
-                        attended_m1.append(self.cross_attentions[key](projected[m1], projected[m2]))
+                        attended_m1.append(self.cross_attentions[key](projected_m1, projected_m2))
             attended[m1] = torch.mean(torch.stack(attended_m1), dim=0)
 
         fused = torch.cat([attended[name] for name in sorted(attended.keys())], dim=-1)

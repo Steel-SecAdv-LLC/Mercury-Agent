@@ -30,14 +30,23 @@ Implemented in Rust with Python bindings using PyO3. Last updated: 2026-05-19.
 
 ## Performance
 
-Rust implementations provide significant speedups:
+> **These figures are illustrative targets, not a verified measurement on this
+> repo's CI.** The Rust extension is opt-in and not built by default. To measure
+> the real speedup on your hardware (and write a provenance-stamped artifact),
+> run `python -m benchmarks.crypto_backend_benchmark` after
+> `cd rust_crypto && maturin develop`. When the extension is not built, that
+> benchmark reports the active Python backend and emits **no** speedup figure.
 
-| Operation | Python (cryptography) | Rust (mercury_crypto) | Speedup |
+Illustrative order-of-magnitude targets (unverified):
+
+| Operation | Python (cryptography) | Rust (mercury_crypto) | Speedup* |
 |-----------|----------------------|----------------------|---------|
-| BLAKE3 1MB | 5.2ms | 0.8ms | 6.5x |
-| AES-GCM encrypt 1MB | 8.1ms | 2.3ms | 3.5x |
-| Argon2id (64MB) | 350ms | 280ms | 1.25x |
-| SHA-256 1MB | 4.8ms | 1.2ms | 4.0x |
+| BLAKE3 1MB | 5.2ms | 0.8ms | ~6.5x |
+| AES-GCM encrypt 1MB | 8.1ms | 2.3ms | ~3.5x |
+| Argon2id (64MB) | 350ms | 280ms | ~1.25x |
+| SHA-256 1MB | 4.8ms | 1.2ms | ~4.0x |
+
+*Reproduce with `benchmarks/crypto_backend_benchmark.py`; do not cite without a measured artifact.
 
 ## Building
 

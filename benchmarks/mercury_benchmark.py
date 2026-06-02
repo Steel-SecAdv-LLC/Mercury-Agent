@@ -83,7 +83,11 @@ def _git_branch() -> str:
         return "unknown"
 
 
-def _cap_stratified(X: np.ndarray, y: np.ndarray, max_n: int) -> tuple[np.ndarray, np.ndarray]:
+def _cap_stratified(
+    X: np.ndarray[Any, Any],
+    y: np.ndarray[Any, Any],
+    max_n: int,
+) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
     """Cap dataset to max_n samples with stratified sampling to preserve anomaly ratio."""
     if len(X) <= max_n:
         return X, y
@@ -101,7 +105,7 @@ def _cap_stratified(X: np.ndarray, y: np.ndarray, max_n: int) -> tuple[np.ndarra
 
 
 def _oracle_threshold_f1(
-    y_true: np.ndarray, scores: np.ndarray
+    y_true: np.ndarray[Any, Any], scores: np.ndarray[Any, Any]
 ) -> tuple[float, float, float, float, str]:
     """Multi-strategy threshold selection returning best (f1, prec, rec, thr, strategy).
 
@@ -156,7 +160,7 @@ def _oracle_threshold_f1(
     return best_f1, best_prec, best_rec, best_thr, best_name
 
 
-def _safe_auc(y_true: np.ndarray, scores: np.ndarray) -> float:
+def _safe_auc(y_true: np.ndarray[Any, Any], scores: np.ndarray[Any, Any]) -> float:
     try:
         return float(roc_auc_score(y_true, scores))
     except ValueError:
@@ -471,10 +475,10 @@ def run_benchmark(
     # --- Per-component summary ---
     comp_aucs: dict[str, list[float]] = {"resonance": [], "kinematic": [], "info_geometry": []}
     for r in genuine:
-        for comp in comp_aucs:
+        for comp, vals in comp_aucs.items():
             v = r.get(f"{comp}_auc")
             if v is not None and not np.isnan(v):
-                comp_aucs[comp].append(v)
+                vals.append(v)
 
     component_summary = {}
     for comp, vals in comp_aucs.items():
@@ -538,7 +542,7 @@ def run_benchmark(
             ds["oracle_active_count"] += 1
 
     # Compute final stats per domain
-    for domain, ds in domain_summary.items():
+    for _domain, ds in domain_summary.items():
         ds["stats"] = {
             "mean_auc": float(np.mean(ds["_aucs"])) if ds["_aucs"] else None,
             "median_auc": float(np.median(ds["_aucs"])) if ds["_aucs"] else None,
@@ -856,8 +860,8 @@ def _print_table(
 
 def run_progressive_validation(
     detector: MercuryAnomalyDetector,
-    X: np.ndarray,
-    y: np.ndarray,
+    X: np.ndarray[Any, Any],
+    y: np.ndarray[Any, Any],
     n_splits: int = 5,
 ) -> dict[str, Any]:
     """Prequential (progressive) validation for time-series data.

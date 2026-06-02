@@ -47,7 +47,10 @@ import argparse
 import json
 import logging
 import warnings
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 import numpy as np
 

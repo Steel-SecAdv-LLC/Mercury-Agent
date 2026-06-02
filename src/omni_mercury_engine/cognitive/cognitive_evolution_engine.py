@@ -16,7 +16,7 @@ https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-"""
+_MODULE_DESCRIPTION = """
 Cognitive Evolution Engine Module
 
 Implements Phase 7 of the neuro-symbolic evolution:
@@ -828,10 +828,10 @@ class CounterfactualSimulator:
         """Identify causal factors in scenario."""
         factors = []
 
-        for key in scenario:
-            if isinstance(scenario[key], (int, float)):
+        for key, value in scenario.items():
+            if isinstance(value, (int, float)):
                 factors.append(f"{key}: quantitative factor")
-            elif isinstance(scenario[key], str):
+            elif isinstance(value, str):
                 factors.append(f"{key}: categorical factor")
 
         factors.append(f"intervention: {intervention[:30]}")

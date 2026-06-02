@@ -39,7 +39,10 @@ import json
 import logging
 import warnings
 from pathlib import Path
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 import numpy as np
 
@@ -97,7 +100,6 @@ def _train_predict_fn(
 
 def run(seed: int) -> dict[str, Any]:
     from omni_mercury_engine.cognitive.explainability import (
-        Explanation,
         FaithfulnessEvaluator,
         FeatureImportance,
         IntegratedGradientsExplainer,
