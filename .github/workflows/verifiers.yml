@@ -60,6 +60,19 @@ jobs:
           pip install -e ".[ml]"
           pip install pytest pytest-asyncio
 
+      # AMA Cryptography is Mercury's mandatory PQC backend: importing
+      # omni_mercury_engine runs _enforce_pqc_production_gate(), which fails
+      # closed (RuntimeError) when ama_cryptography is absent. tests/conftest.py
+      # imports the engine at collection time, so every engine-importing step
+      # below -- the verifier pytest session, the σ_Immutable probe, and the
+      # mystery benchmark -- needs the native backend built first. The composite
+      # action exports LD_LIBRARY_PATH + AMA_NO_CYTHON to $GITHUB_ENV, so those
+      # later steps inherit the loader path automatically.
+      - name: Build + install AMA Cryptography (native PQC backend)
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v3.2.0
+
       - name: Install Lean 4 (theorem-tier oracle)
         run: |
           curl -fsSL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -o elan-init.sh
