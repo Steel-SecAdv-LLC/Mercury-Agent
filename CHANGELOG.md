@@ -297,23 +297,32 @@ contract (not-instantiable + `__abstractmethods__` set) and exercise the
 concrete helpers (`_sample_frames`, `preprocess`, `postprocess`) via minimal
 concrete subclasses.
 
-### Neuro-symbolic — retire the untrained legacy LTN; co-training + conformal on the serve path (2026-06-02)
+### Neuro-symbolic — retire the untrained legacy LTN *random-init network*; co-training + conformal on the serve path (2026-06-02)
 
-**Retired the never-trained `LogicTensorNetwork`.**
+> **Partially superseded by the `LogicTensorNetwork` re-wire entry above.**
+> This step removed the random-init *implementation*; the
+> `LogicTensorNetwork` *surface* was subsequently **re-wired** to the canonical
+> co-trained module — it is **not** left removed.
+
+**Retired the never-trained random-init network.**
 `models/neurosymbolic.py::LogicTensorNetwork` was a random-init `nn.Module`
 whose forward pass returned meaningless noise that
 `NeurosymbolicEngine.neural_inference` then fed into the fusion consensus *as
 if it were a neural confidence* — the "untrained network as if live"
-dishonesty the v1.7 audit flagged.  The class is **removed**;
-`neural_inference` now returns a **deterministic statistical heuristic**
-(robust standardized-dispersion through a logistic — bounded, reproducible,
-feature-responsive), and the module / `neural_inference` / `get_statistics`
-docstrings carry a migration note to the canonical *trained* neuro-symbolic
-surface, `ml/symbolic_constraint.py::SymbolicConstraintModule` (co-trained in
-`OmniMercuryEngine.fit_fusion`).  The module no longer imports torch.
-Regression: `tests/test_neurosymbolic_integration.py` (LTN class gone, no
-`self.ltn`, deterministic + feature-responsive `neural_inference`, migration
-pointer).
+dishonesty the v1.7 audit flagged.  The random-init network is **removed** (the
+`LogicTensorNetwork` surface itself is re-wired to the canonical module, not
+retired — see the re-wire entry above); `neural_inference` now returns a
+**deterministic statistical heuristic** (robust standardized-dispersion through
+a logistic — bounded, reproducible, feature-responsive), and the module /
+`neural_inference` / `get_statistics` docstrings carry a migration note to the
+canonical *trained* neuro-symbolic surface,
+`ml/symbolic_constraint.py::SymbolicConstraintModule` (co-trained in
+`OmniMercuryEngine.fit_fusion`).  The module imports torch only lazily, inside
+the re-wired LTN wrapper; the `NeurosymbolicEngine` reference surface stays
+torch-free.  Regression: `tests/test_neurosymbolic_integration.py`
+(deterministic + feature-responsive `neural_inference`, migration pointer; the
+LTN-surface assertions were later flipped from *retired* to *wired* by the
+re-wire above).
 
 **Co-training + conformal verified together on the serve path.** New
 `tests/test_fusion_symbolic_cotraining.py::TestCoTrainingConformalServePath`:
