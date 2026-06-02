@@ -431,6 +431,17 @@ class TestPredictInference:
         assert out.shape == (3,)
         assert torch.allclose(out, torch.full((3,), 0.5))
 
+    def test_predict_trivial_path_honors_input_device(self) -> None:
+        """The trivial 0.5 consensus is returned on the *input's* device, not an
+        implicit CPU tensor -- otherwise a caller running on an accelerator hits
+        a device mismatch (the non-trivial path already returns on the
+        module/input device). The always-available ``meta`` device stands in for
+        a non-CPU accelerator (pre-fix this returned a CPU tensor)."""
+        module = SymbolicConstraintModule(num_detectors=0)
+        out = module.predict(torch.zeros((4, 0), device="meta"))
+        assert out.device.type == "meta"
+        assert tuple(out.shape) == (4,)
+
     def test_predict_rejects_width_mismatch(self) -> None:
         module = SymbolicConstraintModule(num_detectors=4)
         with pytest.raises(ValueError):

@@ -91,21 +91,29 @@ class TestRealToolDispatch:
             raise RuntimeError("kaboom")
 
         agent.register_tool("boom", boom)
-        result = agent._execute_task(_task("explode", tool="boom"), {})
+        task = _task("explode", tool="boom")
+        result = agent._execute_task(task, {})
         assert result["status"] == "failed"
         assert "kaboom" in result["error"]
+        # A terminal status stamps completed_at so timing/accounting is
+        # consistent across success and failure outcomes.
+        assert task.completed_at is not None
 
     def test_unregistered_tool_fails(self) -> None:
         agent = MercuryAgent(name="t")
-        result = agent._execute_task(_task("x", tool="ghost"), {})
+        task = _task("x", tool="ghost")
+        result = agent._execute_task(task, {})
         assert result["status"] == "failed"
         assert "not registered" in result["error"]
+        assert task.completed_at is not None
 
     def test_unbound_task_is_skipped_not_fake_completed(self) -> None:
         agent = MercuryAgent(name="t")
-        result = agent._execute_task(_task("just think"), {})
+        task = _task("just think")
+        result = agent._execute_task(task, {})
         assert result["status"] == "skipped"
         assert "no tool bound" in result["reason"]
+        assert task.completed_at is not None
 
 
 class TestExecutionEthicalGate:

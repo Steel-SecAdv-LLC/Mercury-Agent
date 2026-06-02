@@ -218,6 +218,14 @@ class LogicTensorNetwork:
         scores = torch.as_tensor(np.asarray(detector_scores, dtype=np.float64), dtype=torch.float32)
         if scores.ndim == 1:
             scores = scores.unsqueeze(0)
+        # ``scores`` is built on CPU above; relocate it onto the wrapped module's
+        # parameter device so a co-trained module that was ``.to(<accelerator>)``'d
+        # does not raise a device mismatch inside the consensus kernel.
+        try:
+            module_device = next(self.module.parameters()).device
+        except StopIteration:  # a module with no parameters -> stay on CPU
+            module_device = torch.device("cpu")
+        scores = scores.to(module_device)
         consensus = self.module.predict(scores)
         return np.asarray(consensus.detach().cpu().numpy(), dtype=np.float64)
 

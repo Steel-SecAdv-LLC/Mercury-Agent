@@ -127,6 +127,36 @@ def test_ltn_predict_delegates_to_symbolic_consensus() -> None:
     assert np.allclose(p_high, direct)
 
 
+def test_ltn_predict_relocates_scores_to_wrapped_module_device() -> None:
+    """LTN.predict moves its CPU-built scores onto the wrapped module's device.
+
+    A co-trained ``SymbolicConstraintModule`` that was ``.to(<accelerator>)``'d
+    must not raise a device mismatch: the wrapper builds ``scores`` on CPU, so it
+    has to relocate them onto the module's parameter device before delegating.
+    The always-available ``meta`` device stands in for a non-CPU accelerator
+    (pre-fix this raised "Tensor on device meta is not on the expected device
+    cpu!").
+    """
+    from unittest.mock import patch
+
+    import torch
+
+    from omni_mercury_engine.models.neurosymbolic import LogicTensorNetwork
+
+    ltn = LogicTensorNetwork(num_detectors=4)
+    ltn.module.to("meta")  # relocate the wrapped module off the default (CPU) device
+
+    # Hand back a real CPU tensor so the wrapper's ``.cpu().numpy()`` succeeds
+    # (a meta tensor carries no data); the contract under test is the *device*
+    # of the tensor the wrapper passes into ``module.predict``.
+    with patch.object(ltn.module, "predict", return_value=torch.full((3,), 0.5)) as mock_predict:
+        out = ltn.predict(np.full((3, 4), 0.9))
+
+    handed = mock_predict.call_args.args[0]
+    assert handed.device.type == "meta"  # scores were relocated onto the module's device
+    assert out.shape == (3,)
+
+
 def test_neural_inference_is_deterministic_and_feature_responsive() -> None:
     """The retired-network replacement is deterministic and bounded."""
     engine = NeurosymbolicEngine(input_dim=64)

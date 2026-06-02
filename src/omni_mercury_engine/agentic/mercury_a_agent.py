@@ -1039,6 +1039,7 @@ class MercuryAgent:
         tool_name = task.metadata.get("tool")
         if tool_name is None:
             task.status = "skipped"
+            task.completed_at = time.time()
             return {
                 "task_id": task.task_id,
                 "description": task.description,
@@ -1047,6 +1048,7 @@ class MercuryAgent:
             }
         if tool_name not in self.tools:
             task.status = "failed"
+            task.completed_at = time.time()
             return {
                 "task_id": task.task_id,
                 "description": task.description,
@@ -1081,6 +1083,7 @@ class MercuryAgent:
             }
         except Exception as e:  # genuine tool execution failure
             task.status = "failed"
+            task.completed_at = time.time()
             return {
                 "task_id": task.task_id,
                 "description": task.description,

@@ -532,7 +532,16 @@ class SymbolicConstraintModule(nn.Module):
         with torch.no_grad():
             if self.num_detectors == 0 or detector_scores.shape[1] == 0:
                 # No detector channels -> trivial 0.5 consensus (no signal).
-                return torch.full((batch,), 0.5, dtype=detector_scores.dtype)
+                # Honour the input's device so a caller running on an
+                # accelerator gets a same-device tensor (the non-trivial path
+                # below already returns on the module/input device); a default
+                # CPU tensor here would raise a device mismatch downstream.
+                return torch.full(
+                    (batch,),
+                    0.5,
+                    dtype=detector_scores.dtype,
+                    device=detector_scores.device,
+                )
             if detector_scores.shape[1] != self.num_detectors:
                 raise ValueError(
                     f"detector_scores width {detector_scores.shape[1]} != "
