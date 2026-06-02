@@ -44,6 +44,11 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+from omni_mercury_engine.cognitive.ethical_bounding import (
+    MINIMUM_BENEVOLENCE_FLOOR,
+    BenevolenceScorer,
+    sanitize_domain,
+)
 from omni_mercury_engine.narrative.engine import NarrativeEngine, NarrativeResult
 from omni_mercury_engine.narrative.personality import (
     PersonalityEngine,
@@ -53,6 +58,11 @@ from omni_mercury_engine.narrative.retriever import (
     KnowledgeRetriever,
     QueryIntent,
     SearchResponse,
+)
+from omni_mercury_engine.security.sigma_immutable_gate import (
+    SigmaImmutableGate,
+    enforce_dual_ethical_gate,
+    get_sigma_immutable_gate,
 )
 
 logger = logging.getLogger(__name__)
@@ -230,6 +240,58 @@ class MercuryVoice:
         self._queries_handled = 0
         self._detections_narrated = 0
         self._alerts_communicated = 0
+
+        # σ_Immutable Wave C: the narrative voice is a public boundary, so
+        # both ethical gates are constructed eagerly here (the first
+        # concurrent ``speak`` / ``process_detection`` / ``alert`` cannot
+        # race the gate into existence).  The benevolence floor is clamped
+        # to ``MINIMUM_BENEVOLENCE_FLOOR`` to mirror the engine/orchestrator
+        # boundary contract.
+        self._benevolence_scorer = BenevolenceScorer(
+            benevolence_threshold=MINIMUM_BENEVOLENCE_FLOOR
+        )
+        self._sigma_immutable_gate: SigmaImmutableGate = get_sigma_immutable_gate()
+
+    def _enforce_voice_ethics(
+        self,
+        boundary: str,
+        domain: str | None,
+        severity: float = 0.0,
+        anomaly_prob: float = 0.0,
+        extra_details: dict[str, Any] | None = None,
+    ) -> None:
+        """Run the benevolence + σ_Immutable dual hard gate for the voice path.
+
+        The action text evidences the voice's defensive, truth-dense
+        purpose (audit / verify / inform / protect) so a legitimate query,
+        detection narration, or alert clears the first gate; a harm-laden
+        domain hint is collapsed by ``sanitize_domain`` before it can ride
+        into the scorer or the audit surface.  Both gates fail closed — a
+        violation raises :class:`EthicalConstraintViolationError` and the
+        voice operation halts (it is *not* wrapped in a swallowing
+        ``try/except``).
+        """
+        safe_domain = sanitize_domain(domain if domain is not None else self.default_domain)
+        action = (
+            f"narrative_voice:{safe_domain}:audit verify inform protect explain "
+            "evidence fair oversight transparency care help support honesty"
+        )
+        context = {
+            "purpose": "truth-dense communication of detections and guidance",
+            "safety": "inform protect verify transparency evidence",
+            "domain": safe_domain,
+        }
+        enforce_dual_ethical_gate(
+            benevolence_scorer=self._benevolence_scorer,
+            sigma_gate=self._sigma_immutable_gate,
+            action=action,
+            context=context,
+            boundary=boundary,
+            domain=safe_domain,
+            severity=severity,
+            anomaly_prob=anomaly_prob,
+            extra_details=extra_details,
+        )
 
     def _init_llm(self) -> None:
         """Initialize the configured LLM adapter for enhanced responses.
@@ -416,6 +478,10 @@ class MercuryVoice:
         Returns:
             VoiceResponse with truth-dense communication
         """
+        # σ_Immutable Wave C dual hard ethical gate (benevolence + σ_Immutable)
+        # before any conversational work.  Fails closed.
+        self._enforce_voice_ethics("MercuryVoice.speak", domain)
+
         # Response timing available via time.time() for future performance tracking
         self._queries_handled += 1
         domain = domain or self.default_domain
@@ -469,6 +535,21 @@ class MercuryVoice:
         Returns:
             VoiceResponse with full narrative
         """
+        # σ_Immutable Wave C dual hard ethical gate.  Severity / anomaly
+        # signal is sourced from the detection being narrated so the
+        # σ_Immutable verdict tracks the actual payload.  Fails closed.
+        det_severity = float(detection_result.get("severity", 0.0) or 0.0)
+        det_anomaly = float(
+            detection_result.get("anomaly_prob", detection_result.get("anomaly_score", 0.0)) or 0.0
+        )
+        self._enforce_voice_ethics(
+            "MercuryVoice.process_detection",
+            domain,
+            severity=det_severity,
+            anomaly_prob=det_anomaly,
+            extra_details={"is_anomaly": bool(detection_result.get("is_anomaly", False))},
+        )
+
         start_time = time.time()
         self._detections_narrated += 1
         domain = domain or self.default_domain
@@ -506,6 +587,7 @@ class MercuryVoice:
         self,
         alert_content: dict[str, Any],
         alert_type: str = "anomaly",
+        domain: str | None = None,
     ) -> VoiceResponse:
         """
         Generate alert communication.
@@ -513,17 +595,32 @@ class MercuryVoice:
         Args:
             alert_content: Content of the alert
             alert_type: Type of alert
+            domain: Optional domain context.  Sanitised via
+                ``sanitize_domain`` before it reaches the σ_Immutable dual
+                gate or the audit surface; defaults to the voice's
+                configured ``default_domain`` when omitted.
 
         Returns:
             VoiceResponse for the alert
         """
-        start_time = time.time()
-        self._alerts_communicated += 1
-        # Profile available via self.personality_engine.get_profile() for future alert styling
-
         # Build alert message
         severity = alert_content.get("severity", 0.5)
         confidence = alert_content.get("confidence", 0.5)
+
+        # σ_Immutable Wave C dual hard ethical gate.  Alert severity drives
+        # the σ_Immutable signal window; confidence is read as the anomaly
+        # signal.  Fails closed before any alert is emitted.
+        self._enforce_voice_ethics(
+            "MercuryVoice.alert",
+            domain,
+            severity=float(severity or 0.0),
+            anomaly_prob=float(confidence or 0.0),
+            extra_details={"alert_type": alert_type},
+        )
+
+        start_time = time.time()
+        self._alerts_communicated += 1
+        # Profile available via self.personality_engine.get_profile() for future alert styling
 
         if severity > 0.8:
             urgency = "CRITICAL"

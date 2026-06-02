@@ -26,6 +26,80 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security / σ_Immutable Wave C — narrative voice + federation dual-gate, GOSNN bidirectional coupling (2026-06-02)
+
+Closes ROADMAP v1.7.x deferred items **#1** (σ_Immutable Wave C —
+narrative voice + federation) and **#5** (GOSNN coupling wired into the
+FL aggregator training loop).
+
+**Shared σ_Immutable vector builder.** The canonical 256-D input-vector
+builder — previously a copy at the engine boundary, a copy in
+`CognitiveOrchestrator._build_sigma_immutable_vector`, and a copy in
+`NeuroSymbolicHub._build_sigma_immutable_vector` — is promoted to a single
+calibrated helper,
+`security.sigma_immutable_gate.build_sigma_immutable_vector(benevolence_score,
+severity, anomaly_prob)`, plus a shared `enforce_dual_ethical_gate(...)`
+primitive that runs `BenevolenceScorer.enforce` →
+`project_benevolence_to_sigma_band` → `SigmaImmutableGate.enforce`.  The
+engine and orchestrator now delegate to the helper (the engine's
+benevolence-only vector is reproduced byte-for-byte with
+`severity == anomaly_prob == 0`); the hub uses the shared helper for its
+base vector and keeps its one load-bearing difference (the richer
+per-sample neural / symbolic / fused overlay).  One source of truth, no
+drift between five boundaries.
+
+**Three previously-ungated public surfaces now carry the dual hard gate**
+(both gates fail closed; gates constructed eagerly in each `__init__`;
+every caller-supplied domain hint routed through `sanitize_domain`):
+
+* `narrative/voice.py::{speak, process_detection, alert}` — `alert` gains
+  an optional `domain=` kwarg (defaulting through `sanitize_domain`);
+  `process_detection` sources its σ_Immutable severity / anomaly signal
+  from the detection being narrated.
+* `federation/aggregator.py::{submit, aggregate}` — per-submission gate on
+  `submit`, round-level gate on `aggregate`.
+* `federated_learning/server.py::_execute_round` — round-level gate placed
+  **outside** the per-client `try/except` so a benevolence- or
+  σ_Immutable-violation fails the whole round closed instead of being
+  swallowed as one client's error.
+
+The synthetic-vector projection is calibrated against the *real* trained
+gate (not asserted): legitimate voice / federation calls score ≈ 1.0 and
+pass the 0.93 threshold, while sub-floor benevolence scores 0.0 and fails
+— verified in-tree, see below.
+
+**GOSNN coupling wired into the FL training loop.**
+`FederatedServer._execute_round` now routes every round's weights through
+`GOSNNCoupling{Server,Client}` (`publish → ingest → aggregate → receive`)
+with SHA3-256 + shape + round integrity, closing the one-way
+(server → client) gap.  Each client's absolute post-step weights
+(`global + model_update`) are published with a digest, ingested under
+shape / digest / round verification, aggregated, and broadcast back to
+every contributing client (digest re-verified on `receive`).  Unit-LR
+FedAvg flows through the coupling's own digested weighted mean
+(mathematically identical to `global + Σ wᵢ·model_updateᵢ`); FedAdam /
+SCAFFOLD / secure-aggregation / non-unit-LR FedAvg keep their
+strategy-specific numerics and are installed + broadcast through a new
+`GOSNNCouplingServer.install_global_state`, preserving the privacy-engine
+and secure-aggregation branches and the `LocalUpdate` / `RoundResult`
+field contracts.  A `GOSNNCouplingError` (digest / shape / round mismatch)
+fails the round closed.
+
+Coverage:
+
+* `tests/ethical/test_hard_enforcement.py` — three new boundary classes
+  (`TestNarrativeVoiceBoundary`, `TestFederatedAggregatorBoundary`,
+  `TestFederatedServerRoundBoundary`), each pinning the four-way contract
+  (legitimate pass on the real gate, `check="benevolence"`,
+  `check="sigma_immutable"`, `check="gosnn_unavailable"`), plus a test that
+  the FL round gate runs outside the per-client `try/except`.
+* `tests/federated/test_no_silent_failure.py` —
+  `test_federated_server_round_drives_gosnn_digested_fedavg_path` drives a
+  live `FederatedServer` round end-to-end through the coupling and asserts
+  the new global equals the sample-weighted FedAvg mean of the clients'
+  absolute post-step weights; plus `install_global_state` round-trip /
+  reshape-fails-closed coverage.
+
 ### USGS Geochemistry — real NURE-HSSR downloader (2026-05-23)
 
 `USGSGeochemistryLoader._download_from_usgs` was previously a literal

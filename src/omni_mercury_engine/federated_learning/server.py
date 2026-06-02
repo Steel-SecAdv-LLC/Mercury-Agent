@@ -21,15 +21,29 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from omni_mercury_engine.cognitive.ethical_bounding import (
+    MINIMUM_BENEVOLENCE_FLOOR,
+    BenevolenceScorer,
+    sanitize_domain,
+)
 from omni_mercury_engine.federated_learning.client import (
     ClientManager,
     FederatedClient,
     LocalUpdate,
 )
+from omni_mercury_engine.federated_learning.gosnn_coupling import (
+    GOSNNCouplingClient,
+    GOSNNCouplingServer,
+)
 from omni_mercury_engine.federated_learning.privacy import (
     PrivacyEngine,
     PrivacyReport,
     SecureAggregator,
+)
+from omni_mercury_engine.security.sigma_immutable_gate import (
+    SigmaImmutableGate,
+    enforce_dual_ethical_gate,
+    get_sigma_immutable_gate,
 )
 
 if TYPE_CHECKING:
@@ -401,6 +415,21 @@ class FederatedServer:
                 seed=seed,
             )
 
+        # σ_Immutable Wave C: round-level dual ethical gate + bidirectional
+        # GOSNN coupling, both constructed eagerly so the first round cannot
+        # race them into existence.  The benevolence floor is clamped to
+        # ``MINIMUM_BENEVOLENCE_FLOOR`` to match the engine/orchestrator
+        # boundary contract.
+        self._ethics_domain = sanitize_domain(None)
+        self._benevolence_scorer = BenevolenceScorer(
+            benevolence_threshold=MINIMUM_BENEVOLENCE_FLOOR
+        )
+        self._sigma_immutable_gate: SigmaImmutableGate = get_sigma_immutable_gate()
+        # Bidirectional GOSNN coupling server, seeded from the same initial
+        # weights as the FL global model so the publish → ingest → aggregate
+        # → receive round-trip stays shape-locked to the model.
+        self._gosnn_server = GOSNNCouplingServer(initial_weights=self._global_weights)
+
     def _create_aggregator(self) -> Aggregator:
         """Create aggregator based on strategy."""
         strategy = self._config.aggregation_strategy.lower()
@@ -518,6 +547,102 @@ class FederatedServer:
             privacy_report=privacy_report,
         )
 
+    def _enforce_round_ethics(self, n_clients: int, total_samples: int) -> None:
+        """Round-level benevolence + σ_Immutable dual hard ethical gate.
+
+        Federated training is a privacy-preserving, consent-based collective
+        improvement action, so the action text is positive-keyword-rich and
+        severity / anomaly_prob stay benign.  Both gates fail closed; a
+        violation raises :class:`EthicalConstraintViolationError` and the
+        round halts.  Invoked at round granularity **outside** the per-client
+        ``try/except`` in :meth:`_execute_round` so a violation cannot be
+        swallowed as a single client's failure.
+        """
+        action = (
+            f"federated_training_round:{self._ethics_domain}:audit verify protect "
+            "privacy consent research evidence fair oversight monitor data care "
+            "help support"
+        )
+        context = {
+            "purpose": "privacy-preserving federated model training",
+            "safety": "protect verify privacy consent monitor evidence",
+            "domain": self._ethics_domain,
+        }
+        enforce_dual_ethical_gate(
+            benevolence_scorer=self._benevolence_scorer,
+            sigma_gate=self._sigma_immutable_gate,
+            action=action,
+            context=context,
+            boundary="FederatedServer._execute_round",
+            domain=self._ethics_domain,
+            extra_details={
+                "round": self._current_round,
+                "n_clients": n_clients,
+                "total_samples": total_samples,
+            },
+        )
+
+    def _route_round_through_gosnn(self, updates: list[LocalUpdate]) -> np.ndarray[Any, Any]:
+        """Route a round's client weights through the bidirectional GOSNN coupling.
+
+        ``publish → ingest → aggregate → receive``:
+
+        * Each client's **absolute** post-training weights (``global +
+          model_update``) are published with a SHA3-256 digest and ingested
+          under shape / digest / round verification.
+        * Unit-learning-rate FedAvg aggregates through the coupling's own
+          digested weighted mean — mathematically identical to
+          ``global + Σ wᵢ·model_updateᵢ`` because the per-client FedAvg
+          weights sum to one — so the weights flow through the *digested
+          FedAvg path*.  Every other strategy (FedAdam / SCAFFOLD /
+          secure-aggregation / non-unit-LR FedAvg) stays authoritative for
+          the numerics and is installed + broadcast through the coupling.
+        * Every contributing client then ``receive``s the new digest-checked
+          global state, closing the previously one-way (server → client) loop.
+
+        Runs **outside** the per-client ``try/except`` in
+        :meth:`_execute_round`, so a :class:`GOSNNCouplingError` (digest /
+        shape / round mismatch) fails the whole round closed.
+        """
+        original_dtype = self._global_weights.dtype
+        round_num = self._gosnn_server.round_num
+        coupling_clients: list[GOSNNCouplingClient] = []
+        for update in updates:
+            # Reconstruct each client's absolute post-training weights from
+            # the FedAvg delta the client published.
+            absolute = self._global_weights + update.model_update
+            client = GOSNNCouplingClient(update.client_id, self._global_weights)
+            published = client.publish(
+                round_num=round_num,
+                local_update=absolute,
+                n_samples=update.n_samples,
+            )
+            # Fail closed on shape / digest / round mismatch.
+            self._gosnn_server.ingest(published)
+            coupling_clients.append(client)
+
+        use_digested_fedavg = (
+            isinstance(self._aggregator, FedAvgAggregator)
+            and float(getattr(self._aggregator, "_learning_rate", 1.0)) == 1.0
+        )
+        if use_digested_fedavg:
+            global_state = self._gosnn_server.aggregate()
+        else:
+            # Strategy-specific aggregation stays authoritative; the coupling
+            # still installs + broadcasts the result so the bidirectional
+            # round-trip closes and the integrity digest is published.
+            new_weights = self._aggregator.aggregate(self._global_weights, updates)
+            global_state = self._gosnn_server.install_global_state(
+                new_weights, [u.client_id for u in updates]
+            )
+
+        # Bidirectional closure: every contributing client receives the new
+        # digest-checked global state (fail closed on shape / digest mismatch).
+        for client in coupling_clients:
+            client.receive(global_state)
+
+        return np.asarray(global_state.weights, dtype=original_dtype)
+
     def _execute_round(self) -> RoundResult:
         """Execute a single federated round."""
         self._status = ServerStatus.COLLECTING
@@ -556,13 +681,22 @@ class FederatedServer:
                 aggregation_time=0.0,
             )
 
+        # σ_Immutable Wave C round-level dual hard ethical gate.  Runs OUTSIDE
+        # the per-client try/except above so a benevolence- or σ_Immutable-
+        # violation fails the whole round closed instead of being swallowed
+        # as one client's error.
+        self._enforce_round_ethics(
+            n_clients=len(updates),
+            total_samples=sum(u.n_samples for u in updates),
+        )
+
         self._status = ServerStatus.AGGREGATING
         agg_start = time.time()
 
-        self._global_weights = self._aggregator.aggregate(
-            self._global_weights,
-            updates,
-        )
+        # Route the round's weights through the bidirectional GOSNN coupling
+        # (publish → ingest → aggregate → receive) with SHA3-256 + shape +
+        # round integrity, replacing the prior one-way aggregate-only path.
+        self._global_weights = self._route_round_through_gosnn(updates)
 
         agg_time = time.time() - agg_start
 
