@@ -13,13 +13,15 @@ floor or empirical conformal coverage drops below ``target − margin``.
 Why train rather than load the shipped checkpoint
 -------------------------------------------------
 Loading ``default_fusion.pt`` and scoring it is cheaper, but the checkpoint
-round-trip drifts per-sample probabilities (AUC survives, absolute probabilities
-and therefore F1@0.5 / coverage do not — see ``docs/FUSION_CAPACITY_STRATEGY.md``
-and the pipeline's ``round_trip_prob_max_delta`` disclosure). Training in-process
+round-trip drifts per-sample probabilities (AUC survives at Δ≈0.002, but absolute
+probabilities — and therefore F1@0.5 / conformal sets — drift by up to ≈0.76),
+and the shipped checkpoint underperforms in-distribution because base-detector
+state is not persisted (see ROADMAP v1.7.x deferred item #16). Training in-process
 with a fixed seed and ``symbolic_weight=0.0`` gives a bit-stable measurement of
 the fusion stack's *achievable* performance, which is exactly what a regression
-gate must pin. The synthetic path is fully offline (no network / ADBench), so the
-lane is deterministic and CI-safe; the strong real-data fusion numbers remain in
+gate must pin, and sidesteps the round-trip drift entirely. The synthetic path is
+fully offline (no network / ADBench), so the lane is deterministic and CI-safe;
+the strong real-data fusion numbers remain in
 ``benchmarks/fusion_capacity/sweep_real_v5.json`` (network-gated).
 
 Usage::
