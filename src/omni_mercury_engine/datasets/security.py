@@ -534,7 +534,7 @@ class CICIDSLoader(DatasetLoader):
     Data sources (in order of preference):
     1. Hugging Face: bvk/CICIDS-2017 (most reliable)
     2. Distrinet: Improved/corrected version
-    3. Official CIC: http://205.174.165.80 (often unreliable)
+    3. CIC legacy mirror hostname (often redirects/unavailable)
 
     Reference: https://www.unb.ca/cic/datasets/ids-2017.html
     """
@@ -576,7 +576,7 @@ class CICIDSLoader(DatasetLoader):
         },
         "cic_official": {
             "name": "CIC Official",
-            "url": "http://205.174.165.80/CICDataset/CIC-IDS-2017/Dataset/MachineLearningCSV.zip",
+            "url": "https://cicresearch.ca/CICDataset/CIC-IDS-2017/Dataset/MachineLearningCSV.zip",
             "format": "zip",
         },
     }
@@ -953,14 +953,7 @@ class CICIDSLoader(DatasetLoader):
 
             logger.info(f"Downloading CICIDS 2017 from {source_name}: {url}")
 
-            # The CIC-Official mirror (http://205.174.165.80/...) is the one
-            # documented research source for the original CICIDS-2017 zip
-            # that publishes over plain HTTP. Distrinet is HTTPS on a domain
-            # that is already in the TrustedEndpoints allowlist. Opt-in to
-            # http://for the CIC-Official path; HTTPS Distrinet stays under
-            # the default strict policy.
-            allow_http = url.lower().startswith("http://")
-            content = http_get_with_retry(url, timeout=300, allow_http=allow_http)
+            content = http_get_with_retry(url, timeout=300, timeout_per_attempt=30)
 
             # Process based on format
             if file_format == "zip":

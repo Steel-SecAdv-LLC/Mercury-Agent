@@ -19,7 +19,8 @@ Requires: wfdb library (pip install wfdb)
 from __future__ import annotations
 
 import logging
-from typing import Any
+from contextlib import contextmanager
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -27,6 +28,9 @@ from .base import DatasetConfig, DatasetLoader, DatasetRegistry
 from .exceptions import DataSourceUnavailableError
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 # All 48 MIT-BIH records
 MITBIH_RECORDS = [
@@ -84,6 +88,29 @@ MITBIH_RECORDS = [
 NORMAL_SYMBOLS = {"N", "L", "R", "e", "j"}
 
 
+@contextmanager
+def _wfdb_request_timeout(timeout: float) -> Iterator[None]:
+    """Apply a default timeout to WFDB's unbounded requests calls."""
+    import requests
+
+    original_request = requests.Session.request
+
+    def request_with_timeout(
+        session: requests.Session,
+        method: str,
+        url: str,
+        **kwargs: Any,
+    ) -> requests.Response:
+        kwargs.setdefault("timeout", timeout)
+        return original_request(session, method, url, **kwargs)
+
+    requests.Session.request = request_with_timeout  # type: ignore[assignment]
+    try:
+        yield
+    finally:
+        requests.Session.request = original_request  # type: ignore[method-assign]
+
+
 class MITBIHLoader(DatasetLoader):
     """
     MIT-BIH Arrhythmia Database loader.
@@ -115,6 +142,8 @@ class MITBIHLoader(DatasetLoader):
         super().__init__(config)
         self.records = config.preprocessing.get("records", MITBIH_RECORDS)
         self.segment_length = config.preprocessing.get("segment_length", 360)
+        self.request_timeout = float(config.preprocessing.get("request_timeout", 20.0))
+        self.max_record_failures = int(config.preprocessing.get("max_record_failures", 3))
 
     def download(self) -> bool:
         """
@@ -145,12 +174,13 @@ class MITBIHLoader(DatasetLoader):
         all_segments: list[np.ndarray[Any, Any]] = []
         all_labels: list[int] = []
         loaded_records = 0
+        consecutive_failures = 0
 
         for rec_id in self.records:
             try:
-                # Download from PhysioNet
-                record = wfdb.rdrecord(rec_id, pn_dir="mitdb")
-                annotation = wfdb.rdann(rec_id, "atr", pn_dir="mitdb")
+                with _wfdb_request_timeout(self.request_timeout):
+                    record = wfdb.rdrecord(rec_id, pn_dir="mitdb")
+                    annotation = wfdb.rdann(rec_id, "atr", pn_dir="mitdb")
 
                 signal = record.p_signal  # (n_samples, n_channels)
                 if signal is None:
@@ -178,20 +208,36 @@ class MITBIHLoader(DatasetLoader):
                     all_labels.append(is_anomaly)
 
                 loaded_records += 1
+                consecutive_failures = 0
                 logger.info("  Record %s: %d beats", rec_id, len(annotation.sample))
+                if self.config.max_samples and len(all_segments) >= self.config.max_samples:
+                    break
 
             except Exception as e:
+                consecutive_failures += 1
                 logger.warning("  Record %s failed: %s", rec_id, e)
+                if consecutive_failures >= self.max_record_failures:
+                    logger.warning(
+                        "Stopping MIT-BIH download after %d consecutive record failures",
+                        consecutive_failures,
+                    )
+                    break
 
-        if loaded_records == 0:
+        if loaded_records == 0 or not all_segments:
             raise DataSourceUnavailableError(
                 loader_name="MIT-BIH",
                 source_url=self.DATASET_URL,
-                reason="No MIT-BIH records could be downloaded",
+                reason=(
+                    "No MIT-BIH records could be downloaded before the bounded "
+                    f"failure threshold ({self.max_record_failures}) was reached"
+                ),
             )
 
         X = np.array(all_segments, dtype=np.float64)
         y = np.array(all_labels, dtype=np.int32)
+        if self.config.max_samples and len(X) > self.config.max_samples:
+            X = X[: self.config.max_samples]
+            y = y[: self.config.max_samples]
 
         np.savez_compressed(cache_file, X=X, y=y)
 

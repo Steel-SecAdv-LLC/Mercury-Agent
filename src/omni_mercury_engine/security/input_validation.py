@@ -603,6 +603,7 @@ class TrustedEndpoints:
             # Academic/Research Datasets
             "archive.ics.uci.edu",
             "intrusion-detection.distrinet-research.be",  # CICIDS 2017 improved dataset
+            "cicresearch.ca",  # CICIDS 2017 legacy mirror hostname
             # Weather APIs
             # ``archive-api.open-meteo.com`` is Open-Meteo's ERA5 reanalysis
             # archive (historical-only, lagged by ~5 days).  In practice it
