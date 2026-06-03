@@ -40,7 +40,7 @@ Two data sources (``--source``):
   datasets (``engine.fit_fusion_pooled``). It needs network access on first
   run and is **not committed** (its weights depend on downloaded data and so
   are not bit-reproducible across machines). Operators who want real-data
-  weights out of the box run ``make checkpoint`` / this script with
+  weights out of the box run this script with
   ``--source real``; everyone else gets the deterministic synthetic default
   and can still fine-tune via ``mercury-agent train`` on their own corpus.
 

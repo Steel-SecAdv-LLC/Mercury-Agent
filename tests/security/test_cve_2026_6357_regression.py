@@ -104,6 +104,22 @@ class TestWorkflowInventory:
             "matching upgrade lines."
         )
 
+    def test_dockerfile_removes_stale_system_pip_metadata(self) -> None:
+        """Runtime image must not retain the base image's vulnerable pip metadata."""
+        text = DOCKERFILE.read_text(encoding="utf-8")
+        assert "/usr/local/bin/python -m pip install --upgrade" in text
+        assert "pip-26.0.1.dist-info" in text
+        assert "ensurepip/_bundled" in text
+        assert "assert v >= (26, 1)" in text
+
+    def test_dockerfile_prunes_unused_dataset_fetchers(self) -> None:
+        """Runtime image must not ship unused network dataset fetchers."""
+        text = DOCKERFILE.read_text(encoding="utf-8")
+        assert "*/site-packages/scipy/datasets" in text
+        assert "*/site-packages/scipy/datasets/_fetchers.py" in text
+        assert "*/site-packages/skimage/data" in text
+        assert "*/site-packages/skimage/data/_fetchers.py" in text
+
 
 class TestHardeningChecker:
     """The production guard catches a freshly introduced regression."""

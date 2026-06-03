@@ -45,6 +45,14 @@ COPY src/ /app/src/
 # Install the package with all dependencies
 RUN pip install --no-cache-dir ".[all]"
 
+# Remove unused sample dataset fetchers before the virtualenv is copied into the
+# runtime image; deleting them only after ``COPY --from=builder`` still leaves
+# the registry-bearing files visible to layer-aware image scanners.
+RUN find /opt/venv -path '*/site-packages/scipy/datasets' -type d -prune -exec rm -rf {} + && \
+    find /opt/venv -path '*/site-packages/skimage/data' -type d -prune -exec rm -rf {} + && \
+    test -z "$(find /opt/venv -path '*/site-packages/scipy/datasets/_fetchers.py' -print -quit)" && \
+    test -z "$(find /opt/venv -path '*/site-packages/skimage/data/_fetchers.py' -print -quit)"
+
 # Copy remaining application files
 COPY . /app
 
@@ -119,10 +127,28 @@ ENV PATH="/opt/venv/bin:$PATH"
 #   CVE-2025-8869 (symlink extraction)
 #   CVE-2026-1703  (path traversal in wheel archives, GHSA-6vgw-5pg2-w6jp)
 #   CVE-2026-6357  (arbitrary code execution via malicious wheel)
-# The builder's venv already has pip>=26.1 via the copy above, but the base
-# python:3.13-slim-bookworm image ships its own pip that Trivy detects.
-RUN python -m pip install --upgrade --no-cache-dir "pip>=26.1" "setuptools>=78.1.1" && \
+# The builder's venv (copied above) already ships pip>=26.1, but the base
+# python:3.13-slim-bookworm image carries its OWN pip under /usr/local that
+# Trivy detects (pip-26.0.1.dist-info).  Because ``ENV PATH`` puts
+# /opt/venv/bin first, a bare ``python -m pip`` would upgrade the *venv* pip
+# (already patched) and leave the vulnerable *system* pip in place — so target
+# the system interpreter explicitly via its absolute path, and drop the
+# bundled ensurepip wheels that would otherwise re-seed a stale pip dist-info.
+RUN /usr/local/bin/python -m pip install --upgrade --no-cache-dir "pip>=26.1" "setuptools>=78.1.1" && \
+    find /opt/venv /usr/local/lib/python3.13 -name 'pip-26.0.1.dist-info' -type d -prune -exec rm -rf {} + && \
+    rm -rf /usr/local/lib/python3.13/ensurepip/_bundled && \
+    test -z "$(find /opt/venv /usr/local/lib/python3.13 -name 'pip-26.0.1.dist-info' -print -quit)" && \
+    /usr/local/bin/python -c "import pip; v = tuple(map(int, pip.__version__.split('.')[:2])); assert v >= (26, 1), pip.__version__" && \
     pip cache purge
+
+# Mercury never calls SciPy/scikit-image sample datasets in production.  Drop
+# those bundled fetcher packages from the runtime image so the container does
+# not ship unused network-fetching demo code or upstream registry strings that
+# secret scanners classify as JWT-shaped material.
+RUN find /opt/venv -path '*/site-packages/scipy/datasets' -type d -prune -exec rm -rf {} + && \
+    find /opt/venv -path '*/site-packages/skimage/data' -type d -prune -exec rm -rf {} + && \
+    test -z "$(find /opt/venv -path '*/site-packages/scipy/datasets/_fetchers.py' -print -quit)" && \
+    test -z "$(find /opt/venv -path '*/site-packages/skimage/data/_fetchers.py' -print -quit)"
 
 # Copy application code
 WORKDIR /app

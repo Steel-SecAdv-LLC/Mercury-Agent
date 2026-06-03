@@ -8,10 +8,12 @@ Tests for CICIDS 2017 dataset loader - REAL network intrusion data.
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import urlparse
 
 import numpy as np
 
 from omni_mercury_engine.datasets import CICIDSLoader, DatasetConfig
+from omni_mercury_engine.security.input_validation import TrustedEndpoints
 
 
 class TestCICIDSMetadata:
@@ -50,6 +52,16 @@ class TestCICIDSMetadata:
         # URL sources should have url
         assert "url" in CICIDSLoader.DATA_SOURCES["distrinet"]
         assert "url" in CICIDSLoader.DATA_SOURCES["cic_official"]
+
+    def test_cic_official_source_uses_trusted_hostname_not_raw_ip(self) -> None:
+        """The CIC fallback must not bypass SSRF allowlisting via a raw IP URL."""
+        url = CICIDSLoader.DATA_SOURCES["cic_official"]["url"]
+        parsed = urlparse(url)
+
+        assert parsed.scheme == "https"
+        assert parsed.hostname == "cicresearch.ca"
+        assert parsed.hostname in TrustedEndpoints.TRUSTED_DOMAINS
+        assert "205.174.165.80" not in url
 
     def test_cicids_files_defined(self) -> None:
         """Verify CICIDS CSV file names are defined."""
