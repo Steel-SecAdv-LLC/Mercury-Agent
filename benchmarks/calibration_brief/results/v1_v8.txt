@@ -1,0 +1,11 @@
+[PASS] V1: AUROC 0.918545 -> 0.918545  |delta|=0.00e+00  (prior 0.919708, delta=0)
+[PASS] V2: Brier 0.0760 -> 0.0694; oracle bound 0.0688; gap 0.0006  (prior 0.0763->0.0695, bound 0.0694)
+[PASS] V3: ECE 0.0517 -> 0.0032  (16.2x)  (prior 14.5x)
+[PASS] V4: t=0.05:cal=+0.1234/raw=+0.1163/all=+0.1053  t=0.10:cal=+0.1105/raw=+0.1049/all=+0.0556  t=0.15:cal=+0.0999/raw=+0.0965/all=+0.0000  t=0.20:cal=+0.0910/raw=+0.0902/all=+0.0000
+[PASS] V5: sup|c_theta(s)-s| on [0.02,0.98] = 0.028  (a,b,c=0.95,0.92,-0.05; prior 0.026)
+[PASS] V6: kappa=0.8738; dBrier_exact=0.00137; identity mismatch=6.94e-18; ECE 0.0032->0.0182 (5.7x)  (prior dBrier 0.00097, ECE->0.0173)
+[PASS] V7: target pi=0.05: ECE unadjusted 0.0542 -> adjusted 0.0037  (prior 0.055 -> 0.0034)
+[PASS] V8: scrambled AUROC 0.4026; monotone-Beta 0.4026 (stays); 50-bin remap 0.9009; oracle 0.9185  (prior 0.400->0.9125,orc 0.9208)
+[PASS] V8-anti: folded AUROC raw=0.4970 beta=0.4970 remap=0.4993 (all ~0.50; post-hoc maps cannot create discrimination)
+
+==== V1-V8 SUMMARY: 9/9 pre-registered checks PASS ====

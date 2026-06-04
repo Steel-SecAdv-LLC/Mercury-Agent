@@ -67,14 +67,17 @@ $$
 
 The default weights are derived from the golden ratio $\Phi = 1.618033988749895\ldots$:
 
+Because $1/\Phi = \Phi - 1$, the "$\Phi : 1 : 1/\Phi$" geometric scheme has the
+exact denominator
+
 $$
-\phi_{\text{sum}} = \Phi + 1 + \frac{1}{\Phi} \approx 2.8944
+\phi_{\text{sum}} = \Phi + 1 + \frac{1}{\Phi} = 2\Phi \approx 3.2361
 $$
 
 $$
-w_R = \frac{\Phi}{\phi_{\text{sum}}} \approx 0.5590, \qquad
-w_H = \frac{1}{\phi_{\text{sum}}} \approx 0.3455, \qquad
-w_O = \frac{1/\Phi}{\phi_{\text{sum}}} \approx 0.2135
+w_R = \frac{\Phi}{2\Phi} = 0.5000, \qquad
+w_H = \frac{1}{2\Phi} \approx 0.3090, \qquad
+w_O = \frac{1/\Phi}{2\Phi} \approx 0.1910
 $$
 
 **Normalization proof:** The weights sum to unity by algebraic identity:
@@ -83,15 +86,26 @@ $$
 w_R + w_H + w_O = \frac{\Phi + 1 + 1/\Phi}{\phi_{\text{sum}}} = \frac{\phi_{\text{sum}}}{\phi_{\text{sum}}} = 1.0 \quad \square
 $$
 
-> **Note:** The codebase documentation in `centralized_constants.py` records
-> approximate values $w_R \approx 0.447$, $w_H \approx 0.276$, $w_O \approx 0.276$.
-> The exact computed values from the code at `fusion.py` lines 106--111 are:
-> $\phi_{\text{sum}} = \Phi + 1.0 + 1.0/\Phi$, and weights are $\Phi/\phi_{\text{sum}}$,
-> $1.0/\phi_{\text{sum}}$, $(1.0/\Phi)/\phi_{\text{sum}}$ respectively.
-> Numerically: $w_R \approx 0.5590$, $w_H \approx 0.3455$, $w_O \approx 0.2135$.
-> The values 0.447/0.276/0.276 in `centralized_constants.py` line 394--396 are
-> rounded approximations that do not match the exact computation. The actual
-> runtime values from `fusion.py` are authoritative.
+> **Correction / reconciliation (calibration-brief audit V12b, X8).**
+> An earlier revision wrote $\phi_{\text{sum}} \approx 2.8944$ with weights
+> $0.5590 / 0.3455 / 0.2135$. That value is **arithmetically wrong**:
+> $\Phi + 1 + 1/\Phi = 2\Phi \approx 3.2361$, not $2.8944$. (The stray $2.8944$
+> equals $\Phi + 1 + 1/\phi_{\text{sum}} = 1.618 + 1 + 0.2764$ — a cross-mix of
+> the two schemes below.) The repository actually carries **two distinct**
+> golden-ratio derivations that disagree:
+>
+> | site | $\phi_{\text{sum}}$ | $(w_R, w_H, w_O)$ |
+> |------|---------------------|-------------------|
+> | `fusion.py` `__init__` (runtime default), README, `centralized_constants.py` | $\Phi + 2 \approx 3.6180$ | $(0.4472, 0.2764, 0.2764)$ |
+> | `fusion.py` optimiser-init / domain-defaults (`\Phi + 1 + 1/\Phi`) | $2\Phi \approx 3.2361$ | $(0.5000, 0.3090, 0.1910)$ |
+>
+> These must be reconciled to **one** derivation. The runtime/​README/​constants
+> path uses $\Phi + 2$ (equal $w_H, w_O$); that triple is therefore the
+> least-surprising single standard. A constrained-simplex sweep with nested CV
+> (calibration-brief X8) finds learned weights significantly outperform either
+> golden triple on held-out fused AUROC, so $\Phi$ should be documented as an
+> **initialisation / default**, not a proven optimum (per R3: no constant is
+> "optimal" without a sweep it survived).
 
 **Implementation:** `core/three_r/fusion.py`, lines 104--111.
 
@@ -732,9 +746,9 @@ The five ethical pillars are:
 | $z_{\text{threshold}}$ | 3.0 | `centralized_constants.py:363` | Z-score anomaly threshold | Gaussian theory: 99.7% coverage |
 | IQR multiplier | 1.5 | `centralized_constants.py:367` | IQR fence multiplier | Tukey (1977) |
 | MAD multiplier | 3.0 | `centralized_constants.py:375` | MAD-based threshold | Robust statistics convention |
-| $w_R$ (OAE Recursion) | $\Phi / \phi_{\text{sum}} \approx 0.559$ | `fusion.py:108` | Golden ratio proportion | Mathematically grounded |
-| $w_H$ (OAE Harmonic) | $1 / \phi_{\text{sum}} \approx 0.346$ | `fusion.py:109` | Golden ratio proportion | Mathematically grounded |
-| $w_O$ (OAE Optimization) | $(1/\Phi) / \phi_{\text{sum}} \approx 0.214$ | `fusion.py:110` | Golden ratio proportion | Mathematically grounded |
+| $w_R$ (OAE Recursion) | $\Phi / (\Phi+2) \approx 0.447$ | `fusion.py:139` (runtime default) | Golden ratio proportion | **Initialisation, not optimum** (see §2.1.1, X8) |
+| $w_H$ (OAE Harmonic) | $1 / (\Phi+2) \approx 0.276$ | `fusion.py:139` | Golden ratio proportion | **Initialisation, not optimum** |
+| $w_O$ (OAE Optimization) | $1 / (\Phi+2) \approx 0.276$ | `fusion.py:139` | Golden ratio proportion | **Initialisation, not optimum** |
 | $p$ (ethical exponent) | $\Phi = 1.618$ | `fusion.py:96` | Ethical scaling power | **UNJUSTIFIED:** needs parameter sweep |
 | Statistical fusion weights | 0.4 / 0.3 / 0.3 | `statistical.py:197` | Z / IQR / IF combination | **UNJUSTIFIED:** needs cross-validation |
 | Neural-symbolic weights | 0.6 / 0.4 | `centralized_constants.py:400-401` | Neural vs. symbolic | **UNJUSTIFIED:** needs empirical tuning |
@@ -1064,7 +1078,7 @@ in $(0, 1]$. No overflow risk.
 | $\varepsilon$ | Numerical stability epsilon ($10^{-8}$) | Section 1 |
 | $\eta(b)$ | Sigmoid benevolence gate function | Section 2.1.3 |
 | $\Phi$ | Golden ratio ($1.618\ldots$) | Section 2.1.1 |
-| $\phi_{\text{sum}}$ | Sum $\Phi + 1 + 1/\Phi$ ($\approx 2.894$) | Section 2.1.1 |
+| $\phi_{\text{sum}}$ | $\Phi + 1 + 1/\Phi = 2\Phi \approx 3.236$ (geometric scheme) or $\Phi + 2 \approx 3.618$ (runtime default) | Section 2.1.1 |
 | $H(\omega)$ | Resonance/harmonic score or power spectrum | Section 2.1, 2.4 |
 | $k$ | Sigmoid steepness parameter | Section 2.1.3 |
 | $\lambda$ | Lyapunov convergence rate (0.25) | Section 2.2 |

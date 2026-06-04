@@ -146,7 +146,7 @@ class PlattScaling:
             from omni_mercury_engine.ml.mercury_ml import LogisticRegression
         except ImportError as e:
             raise ImportError(
-                "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+                "This feature requires the bundled ML module omni_mercury_engine.ml.mercury_ml (pure numpy/scipy; no scikit-learn)."
             ) from e
 
         self.model = LogisticRegression(
@@ -224,7 +224,7 @@ class IsotonicCalibration:
             from omni_mercury_engine.ml.mercury_ml import IsotonicRegression
         except ImportError as e:
             raise ImportError(
-                "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+                "This feature requires the bundled ML module omni_mercury_engine.ml.mercury_ml (pure numpy/scipy; no scikit-learn)."
             ) from e
 
         self.model = IsotonicRegression(
@@ -328,7 +328,7 @@ class TemperatureScaling:
             from omni_mercury_engine.ml.mercury_ml import log_loss
         except ImportError as e:
             raise ImportError(
-                "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+                "This feature requires the bundled ML module omni_mercury_engine.ml.mercury_ml (pure numpy/scipy; no scikit-learn)."
             ) from e
 
         # Grid search for optimal temperature
@@ -431,7 +431,7 @@ class CalibrationEnsemble:
                 from omni_mercury_engine.ml.mercury_ml import brier_score_loss
             except ImportError as e:
                 raise ImportError(
-                    "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+                    "This feature requires the bundled ML module omni_mercury_engine.ml.mercury_ml (pure numpy/scipy; no scikit-learn)."
                 ) from e
 
             try:
@@ -467,6 +467,118 @@ class CalibrationEnsemble:
         return self.calibrators[self.best_method].calibrate(y_prob)
 
 
+class BetaCalibration:
+    """Beta calibration (Kull, Silva Filho & Flach, 2017), self-contained.
+
+    Maps a raw score s in [0, 1] to a calibrated probability::
+
+        c(s) = sigmoid(a * ln(s) - b * ln(1 - s) + c),   a, b >= 0
+
+    Fitted by minimising mean NLL + rho * ||theta - theta_id||^2 with
+    theta_id = (1, 1, 0) (the identity map) via L-BFGS-B with an analytic
+    gradient.  rho > 0 makes the objective strictly convex and coercive, so the
+    optimum is unique and finite even under perfect separation.
+
+    Why add this (Brief V10/V12a): unlike isotonic, Beta is *strictly monotone*,
+    so it preserves AUROC exactly -- the decisive property in small-data,
+    rank-must-not-degrade regimes where isotonic collapses ranking.  Pure
+    numpy/scipy; no scikit-learn.
+    """
+
+    def __init__(self, rho: float = 1e-3) -> None:
+        self.rho = rho
+        self.a = 1.0
+        self.b = 1.0
+        self.c = 0.0
+        self._fitted = False
+
+    @staticmethod
+    def _features(s: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        s = np.clip(np.asarray(s, dtype=float), 1e-12, 1 - 1e-12)
+        return np.column_stack([np.log(s), -np.log(1 - s), np.ones_like(s)])
+
+    def fit(
+        self, y_prob: np.ndarray[Any, Any], y_true: np.ndarray[Any, Any]
+    ) -> BetaCalibration:
+        """Fit Beta calibration. ``y_prob`` are raw scores, ``y_true`` binary labels."""
+        if len(np.unique(y_true)) < 2:
+            logger.warning("Only one class present, calibration skipped")
+            self._fitted = False
+            return self
+        from scipy import optimize
+
+        x = self._features(y_prob)
+        y = np.asarray(y_true, dtype=float)
+        n = len(y)
+        theta_id = np.array([1.0, 1.0, 0.0])
+        rho = self.rho
+
+        def obj(theta: np.ndarray[Any, Any]) -> tuple[float, np.ndarray[Any, Any]]:
+            z = x @ theta
+            p = np.where(z >= 0, 1.0 / (1.0 + np.exp(-z)), np.exp(z) / (1.0 + np.exp(z)))
+            pc = np.clip(p, 1e-12, 1 - 1e-12)
+            loss = -np.mean(y * np.log(pc) + (1 - y) * np.log(1 - pc))
+            loss += rho * float(np.sum((theta - theta_id) ** 2))
+            grad = x.T @ (p - y) / n + 2.0 * rho * (theta - theta_id)
+            return float(loss), grad
+
+        res = optimize.minimize(
+            obj, x0=theta_id.copy(), method="L-BFGS-B", jac=True,
+            bounds=[(0.0, None), (0.0, None), (None, None)],
+            options={"maxiter": 500, "ftol": 1e-12, "gtol": 1e-10},
+        )
+        self.a, self.b, self.c = (float(v) for v in res.x)
+        self._fitted = True
+        logger.debug(f"BetaCalibration fitted: a={self.a:.4f}, b={self.b:.4f}, c={self.c:.4f}")
+        return self
+
+    def calibrate(self, y_prob: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Apply Beta calibration."""
+        if not self._fitted:
+            return y_prob
+        z = self._features(y_prob) @ np.array([self.a, self.b, self.c])
+        return np.asarray(
+            np.where(z >= 0, 1.0 / (1.0 + np.exp(-z)), np.exp(z) / (1.0 + np.exp(z)))
+        )
+
+
+class StrictIsotonicCalibration:
+    """Isotonic calibration with a strictly-increasing tie-break (Brief X1).
+
+    Vanilla isotonic maps distinct scores to equal values (flat regions), which
+    creates ties that *reduce* AUROC -- measured loss on 5/6 ADBench datasets,
+    e.g. thyroid 0.9788 -> 0.9535.  This variant squeezes the isotonic output
+    into the open interval and adds an ``eps * s`` perturbation, making the map
+    strictly increasing in ``s`` and therefore AUROC-preserving (exact), while
+    leaving ECE essentially unchanged (within ~10% of vanilla isotonic).
+
+    NOTE: a naive ``clip(g + eps*s, 0, 1)`` re-saturates exactly the points
+    isotonic flattened to {0, 1}; squeezing first avoids that.
+    """
+
+    def __init__(self, eps: float = 1e-6, out_of_bounds: str = "clip") -> None:
+        self.eps = eps
+        self._iso = IsotonicCalibration(out_of_bounds=out_of_bounds)
+        self._fitted = False
+
+    def fit(
+        self, y_prob: np.ndarray[Any, Any], y_true: np.ndarray[Any, Any]
+    ) -> StrictIsotonicCalibration:
+        """Fit the underlying isotonic regression."""
+        self._iso.fit(y_prob, y_true)
+        self._fitted = self._iso._fitted
+        return self
+
+    def calibrate(self, y_prob: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Apply isotonic, then a squeezed strictly-increasing tie-break."""
+        if not self._fitted:
+            return y_prob
+        g = self._iso.calibrate(y_prob)
+        d = self.eps
+        s = np.asarray(y_prob, dtype=float)
+        return np.asarray(d + (1.0 - 2.0 * d) * g + self.eps * (s - 0.5))
+
+
 def evaluate_calibration(
     y_true: np.ndarray[Any, Any],
     y_prob_uncalibrated: np.ndarray[Any, Any],
@@ -491,7 +603,7 @@ def evaluate_calibration(
         from omni_mercury_engine.ml.mercury_ml import brier_score_loss, calibration_curve
     except ImportError as e:
         raise ImportError(
-            "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+            "This feature requires the bundled ML module omni_mercury_engine.ml.mercury_ml (pure numpy/scipy; no scikit-learn)."
         ) from e
 
     # Brier scores
@@ -583,7 +695,10 @@ def calibrate_detector(
     logger.info(f"Extracted scores using {score_source} for calibration")
 
     # Select calibrator
-    calibrator: CalibrationEnsemble | PlattScaling | IsotonicCalibration | TemperatureScaling
+    calibrator: (
+        CalibrationEnsemble | PlattScaling | IsotonicCalibration | TemperatureScaling
+        | BetaCalibration | StrictIsotonicCalibration
+    )
     if method == "auto":
         calibrator = CalibrationEnsemble()
     elif method == "platt":
@@ -592,6 +707,10 @@ def calibrate_detector(
         calibrator = IsotonicCalibration()
     elif method == "temperature":
         calibrator = TemperatureScaling()
+    elif method == "beta":
+        calibrator = BetaCalibration()
+    elif method == "strict_isotonic":
+        calibrator = StrictIsotonicCalibration()
     else:
         raise ValueError(f"Unknown calibration method: {method}")
 

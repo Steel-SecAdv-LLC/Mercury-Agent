@@ -1,0 +1,16 @@
+=== X8 Phi sweep (3-detector proxy; held-out fused AUROC) ===
+weights       test AUROC (mean+-sd)
+golden-A   0.8925 +- 0.0862
+golden-B   0.8943 +- 0.0880
+equal      0.8826 +- 0.0847
+learned    0.9087 +- 0.0864
+
+learned - golden-A : mean +0.0161  sd 0.0164  (paired over 30 runs)
+paired effect: t~5.31  (|t|<2 => golden indistinguishable from learned)
+
+learned-optimum centroid (w_R,w_H,w_O) = (0.705,0.045,0.250)
+  golden-A = (0.447,0.276,0.276)
+  golden-B = (0.500,0.309,0.191)
+  ||centroid - golden-A|| = 0.347
+
+RESOLUTION: learned SIGNIFICANTLY beats golden (|t|>=2) -> DEMOTE Phi to initialisation.
