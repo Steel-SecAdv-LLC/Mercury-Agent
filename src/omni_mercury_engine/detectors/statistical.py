@@ -16,22 +16,6 @@ https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-"""Statistical anomaly detector using Mercury's original mathematical frameworks.
-
-Ensemble composition (replaces prior z-score + IQR + IsolationForest):
-  - ResonanceScore  (40%): FFT-based harmonic spectral anomaly detection
-  - KinematicScore  (30%): Physics-based jerk/curvature dynamics
-  - InfoGeometryScore (30%): Fisher Information Matrix OOD detection
-
-All three methods are deterministic after fit, numerically stable, and
-produce continuous scores in [0, 1] for downstream fusion.
-
-References:
-  - Resonance: Mercury 3R ResonanceEngine (core/three_r/engines.py)
-  - Kinematics: AccelerationDynamicsDetector (detectors/acceleration_dynamics.py)
-  - InfoGeometry: IGEOOD / FisherInformationMatrix (core/info_geometry.py)
-"""
-
 import logging
 from typing import Any
 
@@ -40,6 +24,21 @@ from scipy import (
     linalg as sp_linalg,
     stats as sp_stats,
 )
+
+# Statistical anomaly detector using Mercury's original mathematical frameworks.
+#
+# Ensemble composition (replaces prior z-score + IQR + IsolationForest):
+#   - ResonanceScore  (40%): FFT-based harmonic spectral anomaly detection
+#   - KinematicScore  (30%): Physics-based jerk/curvature dynamics
+#   - InfoGeometryScore (30%): Fisher Information Matrix OOD detection
+#
+# All three methods are deterministic after fit, numerically stable, and
+# produce continuous scores in [0, 1] for downstream fusion.
+#
+# References:
+#   - Resonance: Mercury 3R ResonanceEngine (core/three_r/engines.py)
+#   - Kinematics: AccelerationDynamicsDetector (detectors/acceleration_dynamics.py)
+#   - InfoGeometry: IGEOOD / FisherInformationMatrix (core/info_geometry.py)
 
 try:
     import torch

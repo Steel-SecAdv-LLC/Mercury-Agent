@@ -44,7 +44,7 @@ class JointCertificate:
         )
 
     def price(self, logits: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Compute Mahalanobis price (distance) for each row in *logits*."""
+        """Return Mahalanobis distance for each row in *logits*."""
         z = np.atleast_2d(np.asarray(logits, dtype=np.float64)) - self.loc
         mahal = np.einsum("ij,jk,ik->i", z, self.precision, z)
         return np.sqrt(np.maximum(mahal, 0.0))
