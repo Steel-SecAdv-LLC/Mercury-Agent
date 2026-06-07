@@ -834,6 +834,7 @@ class OmniMercuryEngine(LoggerMixin):
             "dimensional": DimensionalAnalyzer(),
             "directive": SigmaDirectiveDetector(),
         }
+        self._last_detector_certificates: dict[str, Any] = {}
 
     def _init_models(self) -> None:
         """
@@ -3491,6 +3492,7 @@ class OmniMercuryEngine(LoggerMixin):
         """
         detector_features = {}
         detector_scores = {}
+        detector_certificates: dict[str, Any] = {}
 
         for name, detector in self.detectors.items():
             try:
@@ -3526,10 +3528,13 @@ class OmniMercuryEngine(LoggerMixin):
                 detector_features[name] = features
                 scores = result.get("scores", result.get("is_anomaly", 0))
                 detector_scores[name] = self._normalize_scores(scores, features.shape[0])
+                if "fusion_certificate" in result:
+                    detector_certificates[name] = result["fusion_certificate"]
             except (ValueError, TypeError, RuntimeError, KeyError, AttributeError, IndexError) as e:
                 logger.debug(f"Detector {name} feature extraction failed: {e}")
                 continue
 
+        self._last_detector_certificates = detector_certificates
         return detector_features, detector_scores
 
     def _extract_model_features(
@@ -3956,6 +3961,8 @@ class OmniMercuryEngine(LoggerMixin):
         # Add GOSNN metadata if integration was enabled
         if gosnn_metadata:
             result["gosnn_metadata"] = gosnn_metadata
+        if self._last_detector_certificates:
+            result["fusion_certificate"] = self._last_detector_certificates
 
         # Surface the runtime equation-profile blend metadata when a profile
         # was applied (absent on the default, profile-less serve path).

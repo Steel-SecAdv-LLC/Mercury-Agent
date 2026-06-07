@@ -4,30 +4,37 @@ Mirrors the honest-benchmark path: real loaders -> engineer_features ->
 get_ground_truth. Lets us iterate the detector offline (the live USGS/NOAA
 fetch is the slow/flaky part; the detector itself is fast).
 """
+
 from __future__ import annotations
-import warnings, json, importlib, os, time
+
+import importlib
+import json
+import os
+import time
+import warnings
+
 warnings.filterwarnings("ignore")
 import numpy as np
 
-CACHE = "/home/user/eqlab/cache"
+CACHE = os.environ.get("MERCURY_ENGINE_CALIBRATION_CACHE", "/home/ubuntu/eqlab/cache")
 os.makedirs(CACHE, exist_ok=True)
 
 LOADERS = {
     "earthquake": ("earthquake_loader", "EarthquakeLoader"),
-    "tsunami":    ("tsunami_loader", "TsunamiLoader"),
-    "tornado":    ("tornado_loader", "TornadoLoader"),
-    "marine":     ("marine_loader", "MarineLoader"),
-    "hurricane":  ("hurricane_loader", "HurricaneLoader"),
-    "wildfire":   ("wildfire_loader", "WildfireLoader"),
-    "flood":      ("flood_loader", "FloodLoader"),
-    "volcanic":   ("volcanic_loader", "VolcanicLoader"),
-    "landslide":  ("landslide_loader", "LandslideLoader"),
-    "energy":     ("energy_loader", "EnergyLoader"),
-    "fema":       ("fema_loader", "FEMALoader"),
-    "financial":  ("financial_loader", "FinancialLoader"),
+    "tsunami": ("tsunami_loader", "TsunamiLoader"),
+    "tornado": ("tornado_loader", "TornadoLoader"),
+    "marine": ("marine_loader", "MarineLoader"),
+    "hurricane": ("hurricane_loader", "HurricaneLoader"),
+    "wildfire": ("wildfire_loader", "WildfireLoader"),
+    "flood": ("flood_loader", "FloodLoader"),
+    "volcanic": ("volcanic_loader", "VolcanicLoader"),
+    "landslide": ("landslide_loader", "LandslideLoader"),
+    "energy": ("energy_loader", "EnergyLoader"),
+    "fema": ("fema_loader", "FEMALoader"),
+    "financial": ("financial_loader", "FinancialLoader"),
     "network_security": ("network_security_loader", "NetworkSecurityLoader"),
-    "pandemic":   ("pandemic_loader", "PandemicLoader"),
-    "sepsis":     ("sepsis_loader", "SepsisLoader"),
+    "pandemic": ("pandemic_loader", "PandemicLoader"),
+    "sepsis": ("sepsis_loader", "SepsisLoader"),
 }
 
 manifest = {}
@@ -47,18 +54,30 @@ for dom, (mod, cls) in LOADERS.items():
             raw = L.fetch_historical(eid)
             feats = np.asarray(L.engineer_features(raw), float)
             y = np.asarray(L.get_ground_truth(eid)).astype(int).reshape(-1)
-            m = min(len(feats), len(y)); feats = feats[:m]; y = y[:m]
+            m = min(len(feats), len(y))
+            feats = feats[:m]
+            y = y[:m]
             if len(feats) == 0 or y.min() == y.max():
-                print(f"  {dom}/{eid} skip(novar) n={len(feats)}", flush=True); continue
+                print(f"  {dom}/{eid} skip(novar) n={len(feats)}", flush=True)
+                continue
             fn = f"{CACHE}/{dom}__{eid}.npz"
             np.savez_compressed(fn, X=feats, y=y)
-            recs.append({"event": eid, "n": int(m), "pos": int(y.sum()),
-                         "feat_dim": int(feats.shape[1] if feats.ndim > 1 else 1),
-                         "dt": round(time.time()-t, 1)})
-            print(f"  {dom}/{eid} n={m} pos={int(y.sum())} dim={feats.shape[1] if feats.ndim>1 else 1} ({time.time()-t:.1f}s)", flush=True)
+            recs.append(
+                {
+                    "event": eid,
+                    "n": int(m),
+                    "pos": int(y.sum()),
+                    "feat_dim": int(feats.shape[1] if feats.ndim > 1 else 1),
+                    "dt": round(time.time() - t, 1),
+                }
+            )
+            print(
+                f"  {dom}/{eid} n={m} pos={int(y.sum())} dim={feats.shape[1] if feats.ndim > 1 else 1} ({time.time()-t:.1f}s)",
+                flush=True,
+            )
         except Exception as e:
             print(f"  {dom}/{eid} FETCH_ERR {type(e).__name__}: {str(e)[:70]}", flush=True)
-    manifest[dom] = {"status": "ok" if recs else "unreachable", "events": recs}
+    manifest[dom] = {"status": "ok" if recs else "unreachable", "events": recs}  # type: ignore[dict-item]
     print(f"{dom:18s} -> {len(recs)} events cached", flush=True)
 
 json.dump(manifest, open(f"{CACHE}/manifest.json", "w"), indent=2)

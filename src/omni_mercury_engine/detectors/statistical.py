@@ -58,6 +58,10 @@ except ImportError:
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.config import COMPONENT_COMPATIBILITY, DataCharacteristics
 from omni_mercury_engine.core.exceptions import DetectorException
+from omni_mercury_engine.core.governed_fusion import (
+    JointCertificate,
+    mahalanobis_score_to_price_threshold,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -155,6 +159,9 @@ class MercuryAnomalyDetector(BaseDetector):
         # Adaptive component weights (set during fit)
         self._adaptive_weights: np.ndarray[Any, Any] = np.array([0.40, 0.30, 0.30])
         self._weight_source: str = "default"
+        self._fusion_certificates_enabled: bool = bool(
+            self.config.get("fusion_certificates_enabled", True)
+        )
 
         # Oracle detector (set during fit if data is temporal)
         self._oracle_detector: Any = None
@@ -2067,7 +2074,7 @@ class MercuryAnomalyDetector(BaseDetector):
         # Legacy backward-compatibility keys
         iqr_anomalies = self._detect_iqr_anomalies(data)
 
-        return {
+        result = {
             "is_anomaly": is_anomaly,
             "scores": combined_scores,
             "z_scores": z_scores,
@@ -2092,6 +2099,43 @@ class MercuryAnomalyDetector(BaseDetector):
             "threshold": effective_threshold,
             "calibration_diagnostics": calibration_diagnostics,
             "oracle_metadata": oracle_meta,
+        }
+        if self._fusion_certificates_enabled:
+            certificate = self._mahalanobis_certificate_payload(
+                data,
+                effective_threshold=float(effective_threshold),
+                is_anomaly=np.asarray(is_anomaly, dtype=bool),
+            )
+            if certificate is not None:
+                result["fusion_certificate"] = certificate
+        return result
+
+    def _mahalanobis_certificate_payload(
+        self,
+        data: np.ndarray[Any, Any],
+        *,
+        effective_threshold: float,
+        is_anomaly: np.ndarray[Any, Any],
+    ) -> dict[str, Any] | None:
+        if self._ig_mean is None or self._ig_cov_inv is None:
+            return None
+        x = np.asarray(data, dtype=np.float64)
+        if x.ndim == 1:
+            x = x.reshape(-1, 1)
+        if x.shape[1] != len(self._ig_mean):
+            return None
+        p_tau = mahalanobis_score_to_price_threshold(effective_threshold, x.shape[1])
+        cert = JointCertificate(self._ig_mean, self._ig_cov_inv, p_tau)
+        payload = cert.certify(x)
+        return {
+            "model": "information_geometry_mahalanobis",
+            "threshold_score": float(effective_threshold),
+            "threshold_price": float(p_tau),
+            "verdict": np.asarray(is_anomaly, dtype=bool),
+            "price": payload["price"],
+            "certified_l2_radius": payload["certified_l2_radius"],
+            "witness": payload["witness"],
+            "witness_channel": payload["witness_channel"],
         }
 
     # =====================================================================

@@ -11,19 +11,33 @@ Usage:
   eval_offline.py            -> current engine operating point
   eval_offline.py --sweep    -> also compare candidate unsupervised thresholds
 """
+
 from __future__ import annotations
-import warnings, glob, os, sys, importlib
+
+import importlib
+import os
+import sys
+import warnings
+from pathlib import Path
+from typing import Any
+
 warnings.filterwarnings("ignore")
 import numpy as np
+
 from omni_mercury_engine.ml.mercury_ml import (
-    roc_auc_score, average_precision_score, f1_score, precision_score, recall_score,
+    average_precision_score,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
 )
 
-CACHE = "/home/user/eqlab/cache"
+CACHE = os.environ.get("MERCURY_ENGINE_CALIBRATION_CACHE", "/home/ubuntu/eqlab/cache")
 
 
-def _auc(y, s):
-    y = np.asarray(y).astype(int); s = np.asarray(s, float)
+def _auc(y: Any, s: Any) -> float:
+    y = np.asarray(y).astype(int)
+    s = np.asarray(s, float)
     if y.min() == y.max() or len(np.unique(s)) < 2:
         return float("nan")
     try:
@@ -32,7 +46,7 @@ def _auc(y, s):
         return float("nan")
 
 
-def _ap(y, s):
+def _ap(y: Any, s: Any) -> float:
     y = np.asarray(y).astype(int)
     if y.sum() == 0:
         return float("nan")
@@ -42,24 +56,31 @@ def _ap(y, s):
         return float("nan")
 
 
-def _prf(y, pred):
-    y = np.asarray(y).astype(int); pred = np.asarray(pred).astype(int)
-    return (f1_score(y, pred, zero_division=0),
-            precision_score(y, pred, zero_division=0),
-            recall_score(y, pred, zero_division=0))
+def _prf(y: Any, pred: Any) -> tuple[float, float, float]:
+    y = np.asarray(y).astype(int)
+    pred = np.asarray(pred).astype(int)
+    return (
+        f1_score(y, pred, zero_division=0),
+        precision_score(y, pred, zero_division=0),
+        recall_score(y, pred, zero_division=0),
+    )
 
 
 # ---- candidate unsupervised threshold rules (label-free) -------------------
-def _rule_thresholds(s):
+def _rule_thresholds(s: Any) -> dict[str, float]:
     s = np.asarray(s, float)
-    med = np.median(s); mad = np.median(np.abs(s - med))
-    q1, q3 = np.percentile(s, [25, 75]); iqr = q3 - q1
+    med = np.median(s)
+    mad = np.median(np.abs(s - med))
+    q1, q3 = np.percentile(s, [25, 75])
+    iqr = q3 - q1
     mu, sd = s.mean(), s.std()
     out = {"fixed0.5": 0.5}
     for p in (90, 95, 97, 98, 99):
         out[f"pct{p}"] = float(np.percentile(s, p))
     for k in (2.0, 2.5, 3.0, 3.5):
-        out[f"mad{k}"] = float(med + k * 1.4826 * mad) if mad > 1e-12 else float(np.percentile(s, 97))
+        out[f"mad{k}"] = (
+            float(med + k * 1.4826 * mad) if mad > 1e-12 else float(np.percentile(s, 97))
+        )
     out["iqr1.5"] = float(q3 + 1.5 * iqr)
     out["mu+2sd"] = float(mu + 2 * sd)
     out["mu+3sd"] = float(mu + 3 * sd)
@@ -69,30 +90,43 @@ def _rule_thresholds(s):
     return out
 
 
-def main():
+def main() -> None:
     sweep = "--sweep" in sys.argv
     stat = importlib.import_module("omni_mercury_engine.detectors.statistical")
     importlib.reload(stat)
     MAD = stat.MercuryAnomalyDetector
 
-    files = sorted(glob.glob(f"{CACHE}/*.npz"))
+    files = sorted(str(f) for f in Path(CACHE).glob("*.npz"))
     rows = []
-    rule_acc: dict[str, list] = {}
+    rule_acc: dict[str, list[float]] = {}
     for fn in files:
-        dom = os.path.basename(fn).split("__")[0]
-        eid = os.path.basename(fn)[len(dom) + 2:-4]
-        d = np.load(fn); X = d["X"]; y = d["y"].astype(int)
+        _bn = Path(fn).name
+        dom = _bn.split("__")[0]
+        eid = _bn[len(dom) + 2 : -4]
+        d = np.load(fn)
+        X = d["X"]
+        y = d["y"].astype(int)
         if X.ndim == 1:
             X = X.reshape(-1, 1)
         if y.min() == y.max():
             continue
-        det = MAD(); det.fit(X); R = det.detect(X)
+        det = MAD()
+        det.fit(X)
+        R = det.detect(X)
         s = np.asarray(R["scores"], float).reshape(-1)
         pred = np.asarray(R["is_anomaly"]).astype(int).reshape(-1)
         f1, pr, rc = _prf(y, pred)
-        rec = {"dom": dom, "event": eid, "n": len(y), "pos": int(y.sum()),
-               "auroc": _auc(y, s), "auprc": _ap(y, s),
-               "f1": f1, "prec": pr, "rec": rc}
+        rec = {
+            "dom": dom,
+            "event": eid,
+            "n": len(y),
+            "pos": int(y.sum()),
+            "auroc": _auc(y, s),
+            "auprc": _ap(y, s),
+            "f1": f1,
+            "prec": pr,
+            "rec": rc,
+        }
         rows.append(rec)
         if sweep:
             for name, thr in _rule_thresholds(s).items():
@@ -106,20 +140,31 @@ def main():
             rule_acc.setdefault("ORACLE", []).append(best)
 
     def m(key, subset=None):
-        xs = [r[key] for r in rows if (subset is None or r["dom"] == subset)
-              and isinstance(r.get(key), (int, float)) and r[key] == r[key]]
+        xs = [
+            r[key]
+            for r in rows
+            if (subset is None or r["dom"] == subset)
+            and isinstance(r.get(key), (int, float))
+            and r[key] == r[key]
+        ]
         return float(np.mean(xs)) if xs else float("nan")
 
-    doms = sorted(set(r["dom"] for r in rows))
+    doms = sorted({r["dom"] for r in rows})
     print(f"\n==== OFFLINE EVAL  {len(rows)} events / {len(doms)} domains ====")
-    print(f"{'domain':12s} {'nev':>3s} {'AUROC':>7s} {'AUPRC':>7s} {'F1':>7s} {'prec':>7s} {'rec':>7s}")
+    print(
+        f"{'domain':12s} {'nev':>3s} {'AUROC':>7s} {'AUPRC':>7s} {'F1':>7s} {'prec':>7s} {'rec':>7s}"
+    )
     for dom in doms:
         nev = sum(1 for r in rows if r["dom"] == dom)
-        print(f"{dom:12s} {nev:3d} {m('auroc',dom):7.3f} {m('auprc',dom):7.3f} "
-              f"{m('f1',dom):7.3f} {m('prec',dom):7.3f} {m('rec',dom):7.3f}")
+        print(
+            f"{dom:12s} {nev:3d} {m('auroc', dom):7.3f} {m('auprc', dom):7.3f} "
+            f"{m('f1', dom):7.3f} {m('prec', dom):7.3f} {m('rec', dom):7.3f}"
+        )
     print("-" * 56)
-    print(f"{'OVERALL':12s} {len(rows):3d} {m('auroc'):7.3f} {m('auprc'):7.3f} "
-          f"{m('f1'):7.3f} {m('prec'):7.3f} {m('rec'):7.3f}")
+    print(
+        f"{'OVERALL':12s} {len(rows):3d} {m('auroc'):7.3f} {m('auprc'):7.3f} "
+        f"{m('f1'):7.3f} {m('prec'):7.3f} {m('rec'):7.3f}"
+    )
 
     if sweep:
         print("\n---- candidate unsupervised threshold rules (mean F1 over all events) ----")
