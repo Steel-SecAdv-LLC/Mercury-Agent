@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Validate that source-control suppressions stay explicit and reviewable."""
 
 from __future__ import annotations

@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Benchmark: the advantage of oracle-grounded mystery scalars over a credulous baseline.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Benchmark: the advantage of oracle-grounded mystery scalars over a credulous baseline.
 
 The thesis of the verifier family is that grounding a scalar in an independent oracle lets the
 system *reject fabrications a credulous (model-trusting) baseline would accept*.  This benchmark
@@ -29,6 +11,8 @@ Two deltas are reported:
   * grounded mystery scalars: the previously empty categories (0) vs. the count the registry
     grounds from the true claims.
 """
+
+from __future__ import annotations
 
 import argparse
 import json

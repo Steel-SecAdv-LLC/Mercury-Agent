@@ -1,3 +1,4 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Deterministic fusion + conformal regression guard (WS5/WS6 CI gate).
 
 Why this exists

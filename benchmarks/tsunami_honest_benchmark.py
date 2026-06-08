@@ -1,15 +1,6 @@
 #!/usr/bin/env python3
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tsunami domain honest benchmark.
-
-Fetches real DART buoy data from NOAA NDBC, runs MercuryAnomalyDetector,
-and reports metrics for each ground-truth tsunami event.
-
-Data source: NOAA National Data Buoy Center (no API key required).
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tsunami domain honest benchmark."""
 
 from __future__ import annotations
 

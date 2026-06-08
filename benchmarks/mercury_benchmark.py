@@ -1,18 +1,5 @@
-"""
-Mercury Agent - Mercury Benchmark Suite
-Copyright (C) 2025 Steel Security Advisors LLC (GPL-3.0)
-
-Standalone benchmark that measures MercuryAnomalyDetector performance
-on real datasets.  Every number produced by this script is measured, not
-estimated.  If a loader fails the error is recorded and the script moves
-on -- no synthetic fallback, no silent skip.
-
-Usage:
-    python benchmarks/mercury_benchmark.py
-
-Output:
-    benchmarks/mercury_benchmark_results.json
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Mercury Benchmark Suite."""
 
 from __future__ import annotations
 
@@ -51,7 +38,6 @@ logger = logging.getLogger(__name__)
 MAX_SAMPLES = 10_000
 N_THRESHOLDS = 101
 OUTPUT_PATH = Path(__file__).parent / "mercury_benchmark_results.json"
-
 
 # ---------------------------------------------------------------------------
 # Dataset loading helpers
@@ -358,7 +344,6 @@ DOMAIN_DATASETS: list[tuple[str, str, str, str, dict[str, Any]]] = [
     ("SWaT", "industrial", "SWaTLoader", "industrial", {}),
     ("WADI", "industrial", "WADILoader", "industrial", {}),
 ]
-
 
 # ---------------------------------------------------------------------------
 # Main benchmark

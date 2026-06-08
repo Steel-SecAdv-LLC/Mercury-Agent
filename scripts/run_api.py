@@ -1,31 +1,6 @@
 #!/usr/bin/env python3
-"""
-Mercury Agent API Server Launcher
-
-Starts the FastAPI server for anomaly detection.
-
-Usage:
-    # Development mode (with reload)
-    python scripts/run_api.py
-
-    # Production mode
-    python scripts/run_api.py --production
-
-    # Custom host/port
-    python scripts/run_api.py --host 0.0.0.0 --port 8080
-
-    # With uvicorn directly
-    uvicorn omni_mercury_engine.api.server:app --host 0.0.0.0 --port 8000
-
-Environment Variables:
-    MERCURY_AGENT_ENV: Set to "production" for production settings
-    MERCURY_CORS_ORIGINS: Comma-separated allowed origins
-    OMNI_RATE_LIMIT_ENABLED: Enable rate limiting (default: true)
-    JWT_SECRET_KEY: Secret key for JWT authentication
-
-Copyright (C) 2025 Steel Security Advisors LLC
-Licensed under GPL-3.0-or-later
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Starts the FastAPI server for anomaly detection."""
 
 from __future__ import annotations
 

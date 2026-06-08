@@ -1,19 +1,6 @@
 #!/usr/bin/env python3
-"""
-Mercury Agent - Consolidated Benchmark Visualization Generator
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Generates consolidated publication-quality benchmark visualizations:
-1. anomaly_detection_panel.png - Keep (comprehensive anomaly detection analysis)
-2. benchmark_summary_live_data.png - Keep (live data benchmark summary)
-3. neuro_symbolic_benchmark_report.png - Keep (comprehensive report)
-4. mercury_performance_dashboard.png - NEW (combines performance_comparison, ethical_gating, test_coverage)
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Consolidated Benchmark Visualization Generator."""
 
 import json
 from pathlib import Path

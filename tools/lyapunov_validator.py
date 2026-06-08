@@ -1,3 +1,4 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Deterministic Lyapunov validator for Mercury Agent stability claims.
 
 This module provides an *executable* validator for the Lyapunov decay

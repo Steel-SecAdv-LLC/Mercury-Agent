@@ -1,15 +1,6 @@
 #!/usr/bin/env python3
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Volcanic domain honest benchmark.
-
-Fetches real volcanic alert data from USGS Volcano Hazards Program,
-runs MercuryAnomalyDetector, and reports metrics.
-
-Data source: USGS Volcano Hazards Program (no API key required).
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Volcanic domain honest benchmark."""
 
 from __future__ import annotations
 

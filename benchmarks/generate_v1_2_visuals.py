@@ -1,14 +1,6 @@
 #!/usr/bin/env python3
-"""
-Mercury Agent v1.7.0 - Comprehensive Benchmark Visualization Generator
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Generates consolidated publication-quality benchmark visualizations for v1.7.0:
-1. neuro_symbolic_benchmark_report.png - Main comprehensive report (6 panels)
-2. anomaly_detection_panel.png - Detection performance analysis (6 panels)
-3. benchmark_summary_live_data.png - Live data and module coverage (6 panels)
-4. mercury_performance_dashboard.png - Performance, ethics, quality (6 panels)
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Generates consolidated publication-quality benchmark visualizations for v1.7.0:."""
 
 import json
 from datetime import datetime

@@ -1,71 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
-
-Parameter Sweep Optimization for Mercury Agent OAE
-
-Bayesian optimization (TPE sampler via Optuna) over the full OAE parameter
-space.  The objective function synthesises anomaly data, applies the AVA
-Anomaly Fusion Equation, and returns a composite score combining weighted-F1,
-Expected Calibration Error (ECE), and a Lyapunov stability metric.
-
-Mathematical Framework
-----------------------
-Omni-Ava Equation (OAE):
-
-    .. math::
-
-        A = \\bigl(w_R \\cdot R(x) + w_H \\cdot H(\\omega)
-            + w_O \\cdot O(\\theta)\\bigr) \\cdot \\eta(b)^{p}
-
-Sigmoid Benevolence Gate:
-
-    .. math::
-
-        \\eta(b) = \\frac{1}{1 + \\exp\\bigl(-k \\cdot (b - b_0)\\bigr)}
-
-Lyapunov Stability Bound:
-
-    .. math::
-
-        V(S_t) \\leq \\varepsilon \\cdot e^{-\\lambda t}
-
-Banach Contraction (recursion):
-
-    .. math::
-
-        R(x, d) = f(x) + \\alpha \\cdot R(g(x),\\, d-1),
-        \\quad \\alpha \\in (0, 0.95)
-
-Composite Objective:
-
-    .. math::
-
-        J = 0.5 \\cdot F_1 + 0.3 \\cdot (1 - \\text{ECE})
-            + 0.2 \\cdot S_{\\text{Lyap}}
-
-References
-----------
-- Banach, S. (1922). Sur les operations dans les ensembles abstraits.
-- Khalil, H.K. (2002). Nonlinear Systems, 3rd ed.
-- Verhulst, P.-F. (1845). Recherches mathematiques sur la loi d'accroissement
-  de la population.
-- Akiba et al. (2019). Optuna: A Next-generation Hyperparameter Optimization
-  Framework. KDD.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 
@@ -126,7 +60,6 @@ _LAMBDA_DEFAULT: float = 0.25
 _ALPHA_MAX: float = 0.95
 _DEFAULT_B0: float = 0.93
 _DEFAULT_K: float = 25.0
-
 
 # ============================================================================
 # Data-classes for structured results

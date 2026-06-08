@@ -1,13 +1,6 @@
 #!/usr/bin/env python3
-"""Per-event AUC diagnostics for Mercury domain loaders.
-
-For each domain with >1 event, prints per-event AUC, N, anomaly ratio,
-and NaN count.  For events with AUC < 0.65, prints per-feature Cohen's d
-to identify weak feature separation between label=0 and label=1 groups.
-
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Per-event AUC diagnostics for Mercury domain loaders."""
 
 from __future__ import annotations
 

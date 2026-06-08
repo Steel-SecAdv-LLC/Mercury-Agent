@@ -1,15 +1,6 @@
 #!/usr/bin/env python3
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-FEMA cross-domain honest benchmark.
-
-Fetches real disaster declaration data from OpenFEMA,
-runs MercuryAnomalyDetector, and reports metrics.
-
-Data source: OpenFEMA API (no API key required).
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""FEMA cross-domain honest benchmark."""
 
 from __future__ import annotations
 

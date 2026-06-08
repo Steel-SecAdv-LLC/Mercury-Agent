@@ -1,3 +1,4 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Deterministic anomaly-detector regression guard.
 
 Why this exists

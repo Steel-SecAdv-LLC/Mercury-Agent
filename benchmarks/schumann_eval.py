@@ -1,3 +1,4 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Schumann sub-net evaluation (WS-C) -- pre-registered, opt-in, instrumented.
 
 Runs exactly the protocol in ``docs/SCHUMANN_PREREGISTRATION.md``:

@@ -1,15 +1,6 @@
 #!/usr/bin/env python3
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Financial crisis domain honest benchmark.
-
-Fetches real financial market data from FRED,
-runs MercuryAnomalyDetector, and reports metrics.
-
-Data source: Federal Reserve Economic Data (free API key required).
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Financial crisis domain honest benchmark."""
 
 from __future__ import annotations
 

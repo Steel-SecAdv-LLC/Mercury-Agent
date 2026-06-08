@@ -1,53 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-------------------------------------------------------------------------
-
-Deterministic, first-party synthetic-data generators for the
-``real-data`` validation suites.
-
-Each generator returns a dictionary whose keys match the field names
-that the detectors-under-test consume.  The shapes/statistics encode
-the documented structure of the corresponding upstream domain so the
-detectors exercise their full code paths against data whose ground
-truth is known by construction.
-
-Generators:
-    * :func:`generate_pcap_data`     — Hash-chained network packet
-      capture, with an optional tampering injector that introduces
-      duplicate / replayed packet hashes (the
-      :class:`ResonanceHashIntegrityChecker` flags duplicate
-      ratios above 5%).
-    * :func:`generate_seti_signal`   — Cosmic time-domain signal
-      with optional narrow-band or repeating-pulse technosignature
-      injection (the :class:`SETICosmicSignalAnalyzer` flags
-      magnitude excursions above ``threshold_std``).
-    * :func:`generate_mimic_vitals`  — MIMIC-III-style (heart-rate,
-      systolic BP, diastolic BP, temperature, respiratory rate)
-      vital-sign time series; the ``sepsis`` disease profile drives
-      the classic septic-shock physiology (febrile, tachycardic,
-      hypotensive, tachypneic) which the
-      :class:`TemporalVitalSignsDetector` is built to flag.
-    * :func:`generate_medical_image` — Synthetic 2D chest-radiograph
-      surrogate (low-pass-filtered Gaussian texture) with an
-      optional focal opacity / lesion injector.
-
-All generators use ``numpy.random.default_rng`` with explicit
-seeding so independent calls produce statistically-independent
-samples but a single call with a fixed seed is reproducible.  The
-``seed`` keyword is optional everywhere.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 

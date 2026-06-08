@@ -1,21 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Regenerate the ``<!-- BENCHMARK:START -->`` … ``<!-- BENCHMARK:END -->``.
 
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""Regenerate the ``<!-- BENCHMARK:START -->`` … ``<!-- BENCHMARK:END -->``
 block in ``README.md`` from the current and previous
 ``benchmarks/mercury_benchmark_results.json``.
 
@@ -29,15 +14,14 @@ of the result file.  If there is no previous snapshot (first run) the diff
 columns render as ``—``.
 
 Usage:
-    python scripts/update_readme_benchmarks.py \\
-        --results benchmarks/mercury_benchmark_results.json \\
-        --readme README.md \\
-        [--commit-sha <sha>]
+    python scripts/update_readme_benchmarks.py         --results benchmarks/mercury_benchmark_results.json         --readme README.md         [--commit-sha <sha>]
 
 Exit codes:
     0  README updated (or already up-to-date).
     2  Results file missing or malformed.
 """
+
+from __future__ import annotations
 
 import argparse
 import json

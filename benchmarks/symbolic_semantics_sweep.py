@@ -1,29 +1,5 @@
-"""
-Mercury Agent - Copyright (C) 2025 Steel Security Advisors LLC
-Licensed under GNU GPL v3
-
-Symbolic-constraint semantics sweep: does a *crisp* implication residuum
-(Gödel / Łukasiewicz) generalise better than the smooth product/Reichenbach
-default in the label-scarcity co-training constraint?
-
-The crisp operators were dormant in ``FuzzyOperators`` (only the product residuum
-was wired). ``SymbolicConstraintModule(semantics=...)`` exposes them; this is the
-gate that decides whether any of them should become the default. Crucially, all
-semantics are compared **within the same cell** -- same dataset, seed, split and
-network initialisation -- so the only difference is the implication operator
-(an earlier separate-runs comparison was confounded by run-to-run detector-fit
-noise and is not trustworthy).
-
-Pre-registered decision rule: switch the default away from ``product`` only if a
-crisp semantics beats it by > +0.002 mean low-data ΔAUC with a majority of seeds
-agreeing. The bar is not moved to manufacture a change.
-
-Usage::
-
-    python -m benchmarks.symbolic_semantics_sweep \\
-        --datasets cardio thyroid WBC --seeds 0 1 2 \\
-        --fractions 0.1 0.25 0.5 --out artifacts/symbolic_semantics_sweep.json
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Symbolic-constraint semantics sweep: does a *crisp* implication residuum."""
 
 from __future__ import annotations
 

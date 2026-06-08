@@ -1,4 +1,6 @@
-"""Space-weather event-coincidence: a real, mission-justified application of the
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Space-weather event-coincidence: a real, mission-justified application of the.
+
 WS-D pre-registered null-test machinery.
 
 WS-D built reusable scientific-integrity infrastructure (honest ingestion,

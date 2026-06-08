@@ -1,3 +1,4 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Mercury Agent developer/operator tooling.
 
 Modules placed under :mod:`tools` are *operator tools*, not part of the

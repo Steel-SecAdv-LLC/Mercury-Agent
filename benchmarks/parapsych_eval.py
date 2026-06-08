@@ -1,3 +1,4 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Parapsychology (GCP) sub-net evaluation (WS-D) -- pre-registered, opt-in.
 
 Runs the protocol in ``docs/PARAPSYCH_PREREGISTRATION.md``:

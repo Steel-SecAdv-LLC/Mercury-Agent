@@ -1,3 +1,4 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Universal equation optimizer for Mercury mathematical surfaces.
 
 This operator tool implements a reproducible optimization workflow that:

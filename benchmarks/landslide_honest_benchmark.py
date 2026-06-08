@@ -1,15 +1,6 @@
 #!/usr/bin/env python3
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Landslide domain honest benchmark.
-
-Fetches real landslide catalog data from NASA COOLR,
-runs MercuryAnomalyDetector, and reports metrics.
-
-Data source: NASA Global Landslide Catalog (no API key required).
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Landslide domain honest benchmark."""
 
 from __future__ import annotations
 

@@ -1,15 +1,6 @@
 #!/usr/bin/env python3
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Pandemic domain honest benchmark.
-
-Fetches real epidemiological data from Our World in Data,
-runs MercuryAnomalyDetector, and reports metrics.
-
-Data source: Our World in Data + WHO GHO (no API key required).
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Pandemic domain honest benchmark."""
 
 from __future__ import annotations
 

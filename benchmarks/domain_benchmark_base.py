@@ -1,16 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Base benchmark harness for domain-specific anomaly detection.
-
-Every domain benchmark MUST:
-- Load real data only (no synthetic generation)
-- Run MercuryAnomalyDetector ensemble
-- Report AUC, F1, precision, recall
-- Save results to JSON with timestamps and data hashes
-- Exit non-zero if data unavailable (do NOT fake results)
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Base benchmark harness for domain-specific anomaly detection."""
 
 from __future__ import annotations
 

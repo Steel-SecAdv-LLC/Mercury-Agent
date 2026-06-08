@@ -1,31 +1,5 @@
-"""
-Mercury Agent - Copyright (C) 2025 Steel Security Advisors LLC
-Licensed under GNU GPL v3
-
-Causal-discovery validation: does the dormant ``causal_discovery`` engine
-recover known causal structure?
-
-`causal_discovery.py` was orphaned and, judged by the anomaly-AUC lens, looked
-un-revivable -- it emits a causal *graph*, not a per-sample anomaly score. That
-is the wrong metric. The honest test for a constraint-based causal-discovery
-algorithm is **structural recovery against a known ground-truth DAG**: generate a
-linear-Gaussian structural equation model with a known graph, sample from it,
-run discovery, and compare the recovered skeleton to the truth.
-
-This is the non-AUC measurement framework the dormancy ledger calls for. It is
-self-contained (synthetic ground truth, no network) and reports standard causal-
-discovery metrics: skeleton precision / recall / F1 and the structural Hamming
-distance (SHD), against a random-graph chance baseline so "recovery" means beating
-chance, not merely being non-zero.
-
-Pre-registered bar: the engine is a *validated* causal tool if mean skeleton
-F1 >= 0.60 across the difficulty grid and clearly beats the chance baseline.
-
-Usage::
-
-    python -m benchmarks.causal_discovery_validation \\
-        --n-graphs 5 --out artifacts/causal_discovery_validation.json
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Causal-discovery validation: does the dormant ``causal_discovery`` engine."""
 
 from __future__ import annotations
 

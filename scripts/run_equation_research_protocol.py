@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Run the Mercury equation research protocol against benchmark artifacts.
 
 The protocol operationalizes eight governance requirements:

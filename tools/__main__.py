@@ -1,3 +1,4 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Aggregate dispatcher for ``python -m tools <subcommand>``.
 
 Lists curated operator tools and dispatches to their ``main()``

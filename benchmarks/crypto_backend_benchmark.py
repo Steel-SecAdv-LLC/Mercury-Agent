@@ -1,25 +1,5 @@
-"""
-Mercury Agent - Copyright (C) 2025 Steel Security Advisors LLC
-Licensed under GNU GPL v3
-
-Measured Rust-vs-Python crypto benchmark — replaces the unbenchmarked
-"BLAKE3 6.5x faster" README claim with a number you can reproduce.
-
-The Rust PyO3 module (`rust_crypto/`) is opt-in and not built by default, so
-`omni_mercury_engine.crypto` falls back to the `cryptography` package / `hashlib`.
-This script times the *active* backend against a pure-Python reference for the
-same primitives and reports the observed speedup. If the Rust backend is not
-built, it says so and emits **no** speedup figure rather than fabricating one.
-
-Usage::
-
-    # Python-only environment (default): records baseline, notes rust absent
-    python -m benchmarks.crypto_backend_benchmark
-
-    # After `cd rust_crypto && maturin develop`: measures the real speedup
-    python -m benchmarks.crypto_backend_benchmark --mb 1 --iters 200 \\
-        --out artifacts/crypto_backend_benchmark.json
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Measured Rust-vs-Python crypto benchmark — replaces the unbenchmarked."""
 
 from __future__ import annotations
 

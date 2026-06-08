@@ -1,5 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-only
-# Copyright (C) Steel Security Advisors LLC
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Seven-Axis Evaluation Matrix runner.
 
 Produces a deterministic table of seven externally-citable evaluation axes
@@ -49,7 +48,6 @@ DEFAULT_SEED: int = 20260504
 DOCS_PATH: Path = Path(__file__).resolve().parent.parent / "docs" / "BENCHMARKS.md"
 SECTION_HEADER: str = "## Seven-Axis Evaluation Matrix"
 SECTION_FOOTER: str = "<!-- end seven-axis-section -->"
-
 
 # ---------------------------------------------------------------------------
 # Generic helpers — kept local so the runner has zero sklearn/pandas deps.
@@ -405,7 +403,6 @@ def axis_interpretability(seed: int) -> AxisResult:
 # ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
-
 
 AXIS_FUNCTIONS = [
     axis_generalization,

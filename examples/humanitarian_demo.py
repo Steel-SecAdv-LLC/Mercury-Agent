@@ -1,29 +1,11 @@
 #!/usr/bin/env python3
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
-"""
-
-print("⚠️  SIMULATION-BASED PREDICTION - Consult domain experts before acting on results")
-
-"""
-Humanitarian Demo - Mercury Agent Novel Extensions
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Humanitarian Demo - Mercury Agent Novel Extensions.
 
 Demonstrates fortress mode, early disease detection, and SETI signal analysis.
 """
+
+print("⚠️  SIMULATION-BASED PREDICTION - Consult domain experts before acting on results")
 
 import argparse
 

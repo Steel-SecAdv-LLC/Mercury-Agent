@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Deterministic hardware micro-benchmark for the Lyapunov validator pipeline.
 
 This harness is intentionally small and self-contained.  It exists so
@@ -35,10 +36,7 @@ required.  No new third-party dependencies are introduced.
 
 Usage::
 
-    python scripts/run_hardware_benchmark.py \\
-        --config configs/lyapunov_canonical.yaml \\
-        --iters 2000 --warmup 200 \\
-        --out artifacts/hwbench.json
+    python scripts/run_hardware_benchmark.py         --config configs/lyapunov_canonical.yaml         --iters 2000 --warmup 200         --out artifacts/hwbench.json
 
 Exit codes::
 

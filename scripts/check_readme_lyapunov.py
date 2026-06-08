@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Verify documentation Lyapunov-λ claims match the canonical constants.
 
 This script is the **import-based** λ drift gate: instead of regex-parsing
@@ -83,7 +84,6 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Sequence
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
-
 
 # ---------------------------------------------------------------------------
 # Canonical-source resolution: ``import`` the constants from the package.
@@ -183,7 +183,6 @@ class LambdaCheck:
 
 
 _CONTEXT_LINES = 4
-
 
 CHECKS: tuple[LambdaCheck, ...] = (
     # -----------------------------------------------------------------

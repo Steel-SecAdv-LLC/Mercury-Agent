@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Repository-specific GitHub Actions hardening checks."""
 
 from __future__ import annotations

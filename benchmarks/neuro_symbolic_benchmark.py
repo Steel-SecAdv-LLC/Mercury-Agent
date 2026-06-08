@@ -1,23 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Neuro-Symbolic Benchmark Suite - 200 Epoch Training with Visualization
-
-This module runs comprehensive benchmarks for the neuro-symbolic evolution,
-generating publication-quality visualizations for:
-- Confidence evolution over epochs
-- Domain competence heatmaps
-- Anomaly detection precision/recall
-- Ethical benevolence scores
-- Memory growth curves
-- Neural-symbolic fusion metrics
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 import json
 import sys

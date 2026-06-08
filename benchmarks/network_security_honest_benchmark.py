@@ -1,15 +1,6 @@
 #!/usr/bin/env python3
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Network security domain honest benchmark.
-
-Uses NSL-KDD, CICIDS2017, and BATADAL datasets,
-runs MercuryAnomalyDetector, and reports metrics.
-
-Data source: CICIDS2017, NSL-KDD (public research datasets).
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Network security domain honest benchmark."""
 
 from __future__ import annotations
 

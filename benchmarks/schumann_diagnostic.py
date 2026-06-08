@@ -1,3 +1,4 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
 """WS-C root-cause diagnostic for the Schumann sub-net seed-instability.
 
 PR #262 quarantined the Schumann encoder partly because, even on clean separable

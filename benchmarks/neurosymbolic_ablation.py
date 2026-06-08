@@ -1,39 +1,5 @@
-"""
-Mercury Agent - Copyright (C) 2025 Steel Security Advisors LLC
-Licensed under GNU GPL v3
-
-Neuro-symbolic ablation: does symbolic co-training beat neural-only?
-
-This is the anti-theater gate for the differentiable symbolic-constraint LTN
-(:class:`omni_mercury_engine.ml.symbolic_constraint.SymbolicConstraintModule`).
-It compares two *otherwise identical* training runs on **real, genuinely
-labelled** ADBench datasets (NeurIPS 2022 ground truth):
-
-* ``neural``    -- ``engine.fit_fusion(..., symbolic_weight=0.0)``
-* ``symbolic``  -- ``engine.fit_fusion(..., symbolic_weight=lambda)``
-
-For each (dataset, seed, train-fraction) both conditions see the same split and
-the same network initialisation, so the only difference is the symbolic loss.
-We measure three things the gate accepts as evidence:
-
-1. **AUC up**            -- ROC-AUC on the held-out test set.
-2. **False-positives down** -- false-positive rate at a fixed 90% recall.
-3. **Sample-efficiency up** -- AUC gain concentrated in the low-data regime
-   (train fractions 0.1 / 0.25), where an unsupervised consensus prior should
-   help most.
-
-Ablation integrity (non-negotiable): metrics are computed on real held-out
-labels only. If ADBench cannot be downloaded the run reports that plainly and
-exits non-zero -- it never fabricates or simulates a pass.
-
-Usage::
-
-    python -m benchmarks.neurosymbolic_ablation
-    python -m benchmarks.neurosymbolic_ablation \\
-        --datasets breastw cardio thyroid --seeds 0 1 2 \\
-        --fractions 0.1 0.25 0.5 1.0 --lam 0.1 --epochs 20 \\
-        --out artifacts/neurosymbolic_ablation.json
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Neuro-symbolic ablation: does symbolic co-training beat neural-only?"""
 
 from __future__ import annotations
 

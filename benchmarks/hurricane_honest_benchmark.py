@@ -1,15 +1,6 @@
 #!/usr/bin/env python3
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Hurricane domain honest benchmark.
-
-Fetches real tropical cyclone data from IBTrACS, runs MercuryAnomalyDetector,
-and reports metrics for rapid intensification detection.
-
-Data source: NOAA IBTrACS (no API key required).
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Hurricane domain honest benchmark."""
 
 from __future__ import annotations
 

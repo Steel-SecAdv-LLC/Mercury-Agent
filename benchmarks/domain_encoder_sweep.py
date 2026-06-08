@@ -1,3 +1,4 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Differentiable domain-encoder DESIGN-SPACE sweep (WS-B follow-on).
 
 PR #262 ran one differentiable-encoder design and recorded a sub-threshold

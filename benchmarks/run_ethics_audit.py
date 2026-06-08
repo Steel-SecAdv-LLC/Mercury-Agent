@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Ethics audit for Mercury-Agent.
 
 This script is referenced by .github/workflows/ci.yml (Stage 7: Ethics Audit).

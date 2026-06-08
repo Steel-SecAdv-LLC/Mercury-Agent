@@ -1,20 +1,5 @@
-"""
-Mercury Agent - Calibration Validation Visualizations
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Generates three visualizations from calibration_validation_results.json:
-1. Calibration Improvement Bar Chart (MD-011)
-2. Conformal Coverage Plot (MD-005)
-3. Adaptive Weight Distribution (MD-003)
-
-Usage:
-    python scripts/generate_calibration_visuals.py
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Calibration Validation Visualizations."""
 
 from __future__ import annotations
 

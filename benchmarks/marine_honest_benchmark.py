@@ -1,15 +1,6 @@
 #!/usr/bin/env python3
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Marine biodiversity domain honest benchmark.
-
-Fetches real species occurrence data from OBIS,
-runs MercuryAnomalyDetector, and reports metrics.
-
-Data source: Ocean Biodiversity Information System (no API key required).
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Marine biodiversity domain honest benchmark."""
 
 from __future__ import annotations
 
