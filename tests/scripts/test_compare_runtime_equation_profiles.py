@@ -1,3 +1,6 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Test compare runtime equation profiles."""
+
 from __future__ import annotations
 
 import json

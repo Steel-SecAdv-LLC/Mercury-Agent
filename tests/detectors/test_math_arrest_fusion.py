@@ -1,5 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-only
-# Copyright (C) Steel Security Advisors LLC
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Fusion and decorrelator tests for the Anomaly Math Arrest."""
 
 from __future__ import annotations

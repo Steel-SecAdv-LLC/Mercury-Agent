@@ -1,5 +1,5 @@
-"""
-Tests for ML pipeline modules.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for ML pipeline modules.
 
 Tests fusion_network, training, inference, and related ML components.
 

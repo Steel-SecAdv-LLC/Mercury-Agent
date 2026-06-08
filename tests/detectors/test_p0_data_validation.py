@@ -1,27 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-from typing import Any
-
-"""
-P0 Data Validation Tests
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""P0 Data Validation Tests.
 
 Comprehensive test suite for P0 critical fixes addressing:
 1. Threshold validation ([0, 1] range enforcement)
@@ -34,6 +12,10 @@ Comprehensive test suite for P0 critical fixes addressing:
 These tests ensure the Mercury Agent anomaly detection pipeline
 produces reliable, finite scores even with edge-case inputs.
 """
+
+from __future__ import annotations
+
+from typing import Any
 
 import pytest
 

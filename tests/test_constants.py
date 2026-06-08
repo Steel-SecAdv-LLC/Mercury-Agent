@@ -1,5 +1,5 @@
-"""
-Tests for omni_mercury_engine.utils.constants module.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for omni_mercury_engine.utils.constants module.
 
 Tests mathematical constants, precision handling, and validation.
 """

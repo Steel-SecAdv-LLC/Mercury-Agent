@@ -1,14 +1,5 @@
-"""
-Mercury Agent - Security and Performance Audit Tests
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests for audit improvements including:
-- PII masking in logs
-- CORS configuration
-- PQC audit trail
-- GOSNN caching and performance monitoring
-- Gradient caching in advanced optimizers
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Security and Performance Audit Tests."""
 
 from __future__ import annotations
 

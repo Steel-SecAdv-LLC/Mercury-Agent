@@ -1,3 +1,4 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Tests for the ISO 14971 medical-device risk governance scalar (three-state)."""
 
 from __future__ import annotations

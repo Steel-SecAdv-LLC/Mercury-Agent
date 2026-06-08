@@ -1,25 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests for ``omni_mercury_engine.datasets.base.http_get_with_retry`` and
-``safe_urlretrieve``.
-
-These two helpers are the bulk-loader entry points (BATADAL, NAB, SMD,
-SMAP/MSL, UCR, ADRepository) into the central :class:`SafeHTTPClient`
-gate.  Coverage here pins:
-
-* the removal of the ``allow_untrusted`` per-call escape hatch (PR
-  #210) at the dataset-helper API surface;
-* the retry-on-transient / no-retry-on-permanent split that lets a
-  benchmark run fail fast on a configuration fault and fail over on
-  a flaky CDN;
-* the User-Agent injection that public CDNs (raw.githubusercontent.com,
-  www.fema.gov, www.ncei.noaa.gov) require to avoid silent 403/rate
-  limiting;
-* the ``safe_urlretrieve`` HTTPS-only contract (no ``allow_http``
-  carve-out at the helper level).
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for ``omni_mercury_engine.datasets.base.http_get_with_retry`` and."""
 
 from __future__ import annotations
 

@@ -1,9 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests for UI/UX Anomaly Detection Module.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for UI/UX Anomaly Detection Module."""
 
 from __future__ import annotations
 

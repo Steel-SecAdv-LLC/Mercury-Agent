@@ -1,3 +1,4 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Tests for Mercury-native federated anomaly detection.
 
 Covers: FederatedNode, FederatedAggregator, FittedStatistics,

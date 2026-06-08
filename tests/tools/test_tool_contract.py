@@ -1,34 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-------------------------------------------------------------------------
-
-Part 1 — Hardening contract tests.
-
-These tests are the regression guard for every operator-tool invariant
-the brief promises:
-
-* certificate envelope conformance (``mercury.tools.<name>/v1``);
-* deterministic output modulo ``generated_at``;
-* Ed25519 ``--sign-key-hex`` produces a detached signature over the
-  *exact* bytes written to ``--output`` and round-trips through
-  ``sigma_immutable_verifier``;
-* exit-code contract: ``fail → 1``, ``warn → 0``, ``--require warn → 1``;
-* atomic file writes (``tempfile.NamedTemporaryFile`` + ``os.replace``)
-  and ``--dry-run`` honoured;
-* :mod:`convergence_proof_emitter` sentinel splicing is idempotent,
-  byte-preserving, and fails loud on malformed input.
-
-Every test in this module either fails before the corresponding
-hardening fix in :mod:`omni_mercury_engine.tools._base` /
-:mod:`convergence_proof_emitter` and passes after, or pins a present
-invariant against regression.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 

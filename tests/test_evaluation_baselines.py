@@ -1,9 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests for evaluation baselines module.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for evaluation baselines module."""
 
 from __future__ import annotations
 

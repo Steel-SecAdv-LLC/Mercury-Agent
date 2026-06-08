@@ -1,12 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests for VLM/Visual detector enhancements including:
-- Advanced context providers (Semantic, Frequency, Appearance)
-- LVLM backend cache with pre-warming
-- Multi-modal fusion optimizer
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for VLM/Visual detector enhancements including:."""
 
 from __future__ import annotations
 

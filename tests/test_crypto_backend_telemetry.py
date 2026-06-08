@@ -1,12 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-Tests for the crypto backend telemetry contract
-(`omni_mercury_engine.crypto.get_crypto_backend` / `is_rust_available`) and
-the honest Rust-vs-Python benchmark.  These pin the behaviour that replaces the
-previously unbenchmarked "6.5x faster" README claim: the active backend is
-always observable, and the Python fallback is explicit.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for the crypto backend telemetry contract."""
 
 from __future__ import annotations
 

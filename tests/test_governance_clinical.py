@@ -1,3 +1,4 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Tests for clinical governance scalars (SOFA, NEWS2, MEWS, MELD-Na), three-state.
 
 CI honesty: the torch-backed SOFA worked examples are skipped *loudly* (explicit reason)

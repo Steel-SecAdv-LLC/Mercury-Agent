@@ -1,35 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
-
-------------------------------------------------------------------------
-
-Tests for ``omni_mercury_engine.security.safe_load``.
-
-These tests pin two contracts:
-
-1. **Pickle is gone.** ``train_fusion_model`` must not contain any
-   pickle import or ``.pkl`` branch. A guardian test asserts the
-   source text directly so a future refactor cannot quietly bring it
-   back.
-2. **The .npz loader is strict.** Any deviation from a clean numpy
-   archive -- wrong magic, oversized file, pickled objects inside
-   the archive, missing or mismatched HMAC -- raises
-   :class:`UnsafePayloadError`.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 

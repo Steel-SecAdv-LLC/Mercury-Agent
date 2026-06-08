@@ -1,36 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
-
-Tests for Omnidirectional cloud LLM adapters (xAI Grok, DeepSeek,
-Cursor, Cohere, Gemini).
-
-Coverage:
-    * each adapter constructs to an unavailable state when no API key
-      is supplied (no silent fallback to a fake "API error" string);
-    * each adapter calls SafeHTTPClient with ``user_configured=True``
-      so the SSRF gate fires on every cloud call;
-    * the SafeHTTPClient gate's ``UnsafeURLError`` propagates rather
-      than being swallowed into a generic error string;
-    * ``FallbackLLMChain._create_cloud_adapter`` routes each new
-      ``LLMProvider`` to the matching adapter class.
-
-These tests deliberately do NOT make real network requests; the
-HTTP layer is mocked at the ``SafeHTTPClient`` boundary.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 

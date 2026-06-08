@@ -1,10 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests for integrations/stubs/cache.py module.
-Comprehensive test coverage for cache stub functionality.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for integrations/stubs/cache.py module."""
 
 from __future__ import annotations
 

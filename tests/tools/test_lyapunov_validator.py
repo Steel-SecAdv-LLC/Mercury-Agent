@@ -1,3 +1,4 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Tests for :mod:`tools.lyapunov_validator`.
 
 These tests exercise the validator on both *certified-positive* and

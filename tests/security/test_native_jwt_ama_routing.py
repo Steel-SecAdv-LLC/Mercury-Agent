@@ -1,22 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-AMA-routed HMAC locks for native_jwt.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""AMA-routed HMAC locks for native_jwt.
 
 These tests pin that Mercury's :mod:`native_jwt` signing primitive
 produces byte-identical output whether routed through AMA
@@ -24,6 +7,8 @@ Cryptography v3.2.0's native HMAC C backend and match stdlib
 ``hmac`` over ``hashlib`` for the same FIPS 198-1 / RFC 2104 wire format.
 AMA absence is not a test skip or fallback path; module import fails closed.
 """
+
+from __future__ import annotations
 
 import hashlib
 import hmac as stdlib_hmac
@@ -43,7 +28,6 @@ _RFC4231_TC1_HS512 = bytes.fromhex(
     "daa833b7d6b8a702038b274eaea3f4e4be9d914eeb61f1702e696c203a126854"
 )
 
-
 # RFC 4231 §4.7 — Test Case 7.  Oversized-key (131 bytes) + long message.
 _RFC4231_TC7_KEY = b"\xaa" * 131
 _RFC4231_TC7_MSG = (
@@ -54,7 +38,6 @@ _RFC4231_TC7_MSG = (
 _RFC4231_TC7_HS256 = bytes.fromhex(
     "9b09ffa71b942fcb27635fbcd5b0e944bfdc63644f0713938a7f51535c3a35e2"
 )
-
 
 # ----------------------------------------------------------------------- #
 # Backend detection / health surface

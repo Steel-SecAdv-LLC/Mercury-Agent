@@ -1,26 +1,5 @@
-"""Tests for :mod:`omni_mercury_engine.compliance.nist_csf_integrator`.
-
-The compliance integrator is exercised end-to-end against both the
-offline (``"builtin"``) and live (``"live"``) reference sources. The
-live integrator path is exercised twice:
-
-* Hermetically, via :class:`requests_mock` fixtures that replay a real
-  ``csrc.nist.gov`` XLSX response captured into
-  ``tests/fixtures/compliance/nist_csf_olir_full.xlsx``. These tests
-  run by default in every CI lane and have **no** ``network`` marker.
-* Live, against ``csrc.nist.gov`` itself. These tests carry the
-  Mercury Agent ``@pytest.mark.network`` marker and are gated by the
-  ``MERCURY_NETWORK_TESTS=1`` environment variable; see
-  ``tests/conftest.py::pytest_collection_modifyitems`` for the
-  collection-time gate. The weekly
-  ``.github/workflows/network-tests.yml`` job sets that variable so
-  drift in the published NIST CSRC schema is caught within seven days
-  even though the per-PR default lane skips them.
-
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-Released under GPL-3.0+.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for :mod:`omni_mercury_engine.compliance.nist_csf_integrator`."""
 
 from __future__ import annotations
 

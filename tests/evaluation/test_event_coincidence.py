@@ -1,3 +1,4 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Tests for the pre-registered event-coincidence null-test (WS-D harvest).
 
 Validates the harvested GCP machinery as a general tool: it has the correct

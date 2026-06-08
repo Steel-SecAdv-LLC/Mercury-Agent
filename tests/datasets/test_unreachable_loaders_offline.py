@@ -1,5 +1,5 @@
-"""
-Offline reachability harness for the 11 unreachable Mercury dataset loaders.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Offline reachability harness for the 11 unreachable Mercury dataset loaders.
 
 This is the default-CI counterpart to
 :mod:`tests.datasets.test_unreachable_loaders_network`.  It does

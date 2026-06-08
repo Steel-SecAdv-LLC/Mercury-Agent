@@ -1,3 +1,4 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Tests for the reusable ablation confound guard (WS-B follow-on).
 
 Guards the exact failure that produced a spurious +0.48 "KEEP" in PR #262: a

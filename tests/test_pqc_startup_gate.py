@@ -1,17 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Smoke tests for the import-time PQC gate in
-``src/omni_mercury_engine/_pqc_gate.py::_enforce_pqc_production_gate``.
-
-Scope
------
-This file now pins the universal fail-closed contract: the gate always
-requires a real AMA Cryptography v3.2.0 native build.  The env vars
-``AMA_REQUIRE_REAL_PQC`` / ``AVA_REQUIRE_REAL_PQC`` are compatibility
-diagnostics only; unset or false values must not disable the gate.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Smoke tests for the import-time PQC gate in."""
 
 from __future__ import annotations
 

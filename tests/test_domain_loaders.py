@@ -1,26 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
-
-Comprehensive tests for all domain loaders.
-
-Tests cover instantiation, interface compliance, list_events() validation,
-feature engineering with mock data, mocked HTTP responses, sklearn-free
-verification, and BaseDomainLoader helper methods.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 
@@ -74,7 +53,6 @@ _LOADER_MODULE_PATHS = [entry[1] for entry in LOADER_REGISTRY]
 # Required keys every dict returned by list_events() must contain.
 _REQUIRED_EVENT_KEYS = {"event_id", "name", "date", "description"}
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -109,7 +87,6 @@ _LOADER_IDS = [entry[0] for entry in LOADER_REGISTRY]
 _LOADER_PARAMS = [
     pytest.param(entry[0], entry[1], entry[2], entry[3], id=entry[0]) for entry in LOADER_REGISTRY
 ]
-
 
 # =========================================================================
 # 1. Instantiation

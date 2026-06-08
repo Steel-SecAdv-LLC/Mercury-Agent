@@ -1,20 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests for the differentiable symbolic-constraint LTN layer
-(``omni_mercury_engine.ml.symbolic_constraint``).
-
-These verify the three properties that make the layer a *genuine*
-neuro-symbolic component rather than theater:
-
-1. Logical semantics -- agreement between detector consensus and the fusion
-   output is rewarded; contradiction is penalised.
-2. Differentiability -- the constraint loss backpropagates into both the
-   fusion output (shared weights) and the layer's own learnable parameters.
-3. Robustness -- degenerate inputs (no detectors, boundary probabilities)
-   stay finite and ``backward``-safe.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for the differentiable symbolic-constraint LTN layer."""
 
 from __future__ import annotations
 

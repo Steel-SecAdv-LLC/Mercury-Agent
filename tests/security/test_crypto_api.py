@@ -1,12 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests for the crypto_api module - cryptographic operations.
-
-AMA Cryptography v3.2.0 is a mandatory Mercury capability.  There is no
-simulation mode and no AMA-less skip path; missing AMA/PQC fails at import.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for the crypto_api module - cryptographic operations."""
 
 from __future__ import annotations
 

@@ -1,14 +1,5 @@
-"""
-Tests for label-provenance de-leaking (Issue #6: de-leak the loaders at source).
-
-Datasets whose anomaly labels were manufactured by thresholding a
-detector-like score/feature must be declared ``label_source="statistical"`` at
-source and excluded from the headline supervised AUC, with genuinely-labelled
-sets (ground-truth / expert-annotated) reported as the headline.
-
-Mercury Agent - Copyright (C) 2025 Steel Security Advisors LLC
-Licensed under GNU GPL v3
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for label-provenance de-leaking (Issue #6: de-leak the loaders at source)."""
 
 from __future__ import annotations
 

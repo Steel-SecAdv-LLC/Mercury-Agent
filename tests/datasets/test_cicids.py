@@ -1,9 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests for CICIDS 2017 dataset loader - REAL network intrusion data.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for CICIDS 2017 dataset loader - REAL network intrusion data."""
 
 from __future__ import annotations
 

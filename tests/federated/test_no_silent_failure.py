@@ -1,5 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-only
-# Copyright (C) Steel Security Advisors LLC
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Federated silent-failure regression suite (punch-list item 9).
 
 Covers two gaps the 2026-03 in-tree audit flagged on the federated path:

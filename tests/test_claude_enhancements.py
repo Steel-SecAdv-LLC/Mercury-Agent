@@ -1,24 +1,7 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Property-Based Tests for Caduceus ⚚ Enhancements."""
+
 from typing import Any
-
-"""
-Mercury Agent - Property-Based Tests for Caduceus ⚚ Enhancements
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Property-based tests using Hypothesis for:
-- Rigorous benchmark harness
-- Calibration modules (Platt, Isotonic, Temperature)
-- Conformal prediction
-- Stacking/Bayesian fusion
-- Multi-objective benevolence optimization
-
-These tests verify mathematical invariants and edge cases that
-unit tests might miss.
-"""
 
 # Import modules to test
 import pytest

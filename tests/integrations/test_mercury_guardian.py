@@ -1,25 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Tests for mercury_guardian backward-compatibility shim.
-
-Verifies that all names re-exported from mercury_guardian still resolve
-to the canonical implementations in mercury_amacrypto.
-
-Covers:
-- MercuryGuardianAdapter initialization and availability
-- EWMA/MAD timing anomaly detection
-- Crypto anomaly types and recording
-- GOSNN synapse integration
-- Attack simulation and detection
-- Fail-closed behaviour when PQC key material is absent
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 

@@ -1,3 +1,4 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Tests for :mod:`scripts.check_readme_lyapunov`.
 
 The script is the **import-based** λ drift gate: it imports the
@@ -39,7 +40,6 @@ from scripts import check_readme_lyapunov as crl
 if TYPE_CHECKING:
     import pytest
     from _pytest.monkeypatch import MonkeyPatch
-
 
 # ---------------------------------------------------------------------------
 # Category 1: clean repo passes.

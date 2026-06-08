@@ -1,9 +1,5 @@
-"""
-Tests for Quantum Computing Engine module.
-
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for Quantum Computing Engine module."""
 
 import numpy as np
 

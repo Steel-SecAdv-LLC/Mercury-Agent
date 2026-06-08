@@ -1,9 +1,5 @@
-"""
-Tests for CYBINT Sub-Processor module.
-
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for CYBINT Sub-Processor module."""
 
 import pytest
 

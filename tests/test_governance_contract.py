@@ -1,3 +1,4 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Tests for the three-state (GROUNDED/UNAVAILABLE/UNDECIDABLE) governance contract."""
 
 from __future__ import annotations

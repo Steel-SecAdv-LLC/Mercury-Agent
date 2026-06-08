@@ -1,3 +1,4 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Tests for AI-assurance scalars: NIST AI RMF (MEASURE) + MITRE ATLAS kept, OWASP dropped.
 
 These assert the per-family signal vet *behaviourally*: each kept family has a GROUNDED path

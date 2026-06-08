@@ -1,12 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Network-free unit tests for the neuro-symbolic ablation harness math
-(``benchmarks.neurosymbolic_ablation``): the false-positive-rate-at-recall
-metric and the transparent verdict logic. The full paired run requires real
-ADBench downloads and is exercised separately/manually.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Network-free unit tests for the neuro-symbolic ablation harness math."""
 
 from __future__ import annotations
 

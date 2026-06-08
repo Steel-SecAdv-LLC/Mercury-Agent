@@ -1,18 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Comprehensive tests for api/routes/ endpoint modules.
-
-Covers:
-- models.py: Model registration, listing, versioning, file upload
-- detection.py: Neurosymbolic, fusion, 3R detection endpoints
-- batch.py: Batch job submission, status, results, cancellation
-- export.py: Detection/audit export, metrics, streaming
-
-NOTE: FastAPI uses the parameter name `request` for the Pydantic body models
-in these routes, which means the JSON body must be nested under a `request` key.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Comprehensive tests for api/routes/ endpoint modules."""
 
 from __future__ import annotations
 
@@ -31,7 +18,6 @@ pytest.importorskip("fastapi")
 # This must happen before any import of omni_mercury_engine.api.server,
 # as the middleware reads the env var at module-load time.
 os.environ["OMNI_RATE_LIMIT_ENABLED"] = "false"
-
 
 import numpy as np
 import pytest

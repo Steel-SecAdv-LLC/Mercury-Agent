@@ -1,5 +1,5 @@
-"""
-Tests for omni_mercury_engine.security.int_sources module.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for omni_mercury_engine.security.int_sources module.
 
 Tests intelligence source processors (OSINT, COMINT, HUMINT, etc.).
 """

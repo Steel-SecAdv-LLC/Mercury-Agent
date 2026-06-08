@@ -1,3 +1,4 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Repo-wide label-provenance leak gate (WS-A follow-on).
 
 PR #262 de-leaked the supervised headline by excluding circular,

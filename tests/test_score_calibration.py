@@ -1,15 +1,7 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for Score Calibration System."""
+
 from typing import Any
-
-"""
-Tests for Score Calibration System
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests the complete calibration pipeline that solves the F1=0 problem:
-- AutoThresholdOptimizer with multiple methods
-- ScoreDiagnostics analysis
-- ScoreCalibrationManager integration
-- Benchmark diagnostics
-"""
 
 import numpy as np
 import pytest

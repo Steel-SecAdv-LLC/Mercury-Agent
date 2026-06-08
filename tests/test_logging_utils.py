@@ -1,5 +1,5 @@
-"""
-Tests for omni_mercury_engine.utils.logging module.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for omni_mercury_engine.utils.logging module.
 
 Tests structured logging, correlation IDs, and performance logging.
 """

@@ -1,13 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests for the formal-verification soundness harness
-(``benchmarks.formal_verification_soundness``): the revived
-``IntervalBoundPropagator`` must produce a *sound* certificate -- its interval
-must contain the true (densely-sampled) output range of a random ReLU network
-over an input box -- on every checked case.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for the formal-verification soundness harness."""
 
 from __future__ import annotations
 

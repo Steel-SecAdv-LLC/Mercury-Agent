@@ -1,12 +1,5 @@
-"""
-Tests for ensemble replacement: Resonance + Kinematic + InfoGeometry.
-
-Validates that the new MercuryAnomalyDetector ensemble (replacing
-IsolationForest) produces correct, bounded, and discriminative scores.
-
-Mercury Agent - Copyright (C) 2025 Steel Security Advisors LLC
-Licensed under GNU GPL v3
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for ensemble replacement: Resonance + Kinematic + InfoGeometry."""
 
 from __future__ import annotations
 

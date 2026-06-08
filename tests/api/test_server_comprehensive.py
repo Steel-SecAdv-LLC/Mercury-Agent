@@ -1,20 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Comprehensive tests for api/server.py module.
-
-Covers:
-- Health check endpoint
-- Univariate anomaly detection endpoint
-- Multivariate anomaly detection endpoint
-- CORS origin validation
-- PII masking filter
-- Severity classification
-- Rate limiting middleware
-- Correlation ID middleware
-- Request/response models
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Comprehensive tests for api/server.py module."""
 
 from __future__ import annotations
 

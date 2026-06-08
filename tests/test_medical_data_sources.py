@@ -1,3 +1,4 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Tests for the medical data-source adapters.
 
 The adapters parse real vendor responses captured as sanitized fixtures.

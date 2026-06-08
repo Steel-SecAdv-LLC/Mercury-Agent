@@ -1,5 +1,5 @@
-"""
-Mercury Agent - Neurocritical Care Predictor Tests
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Mercury Agent - Neurocritical Care Predictor Tests.
 
 Comprehensive test suite for neurocritical care components:
 - StrokeDetector: CNN-based stroke detection and classification

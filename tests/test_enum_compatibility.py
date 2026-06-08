@@ -1,20 +1,5 @@
-"""Integration tests for cross-repo enum compatibility.
-
-Verifies that Mercury Agent's posture enums and their scalar mappings agree
-with the real ``ama_cryptography.adaptive_posture`` definitions. These tests
-exercise the *production* symbols exported from
-``omni_mercury_engine.integrations.mercury_amacrypto`` so they fail loudly if
-module-level maps drift out of sync with the upstream ``ama_cryptography``
-package.
-
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Integration tests for cross-repo enum compatibility."""
 
 from __future__ import annotations
 

@@ -1,12 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests for real-world dataset loaders and benchmarks.
-
-These tests use synthetic fallback data for fast, offline unit testing.
-Real-data tests are in test_loaders_live.py (marked @pytest.mark.network).
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for real-world dataset loaders and benchmarks."""
 
 from __future__ import annotations
 

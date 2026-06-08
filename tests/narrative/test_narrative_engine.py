@@ -1,9 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests for NarrativeEngine - Truth-Dense Communication Synthesis.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for NarrativeEngine - Truth-Dense Communication Synthesis."""
 
 from typing import Any
 

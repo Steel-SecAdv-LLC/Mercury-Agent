@@ -1,17 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests for Advanced Anomaly Detection Modules
-
-Tests cover:
-- MultiScaleTransformerDetector (time-series)
-- ContrastiveLearningDetector (representation learning)
-- AdversarialAutoencoderDetector (industrial control)
-- COPODDetector (copula-based)
-- GWOEnsembleDetector (optimized ensemble)
-- PointAdjustmentEvaluator (evaluation protocol)
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for Advanced Anomaly Detection Modules."""
 
 from __future__ import annotations
 

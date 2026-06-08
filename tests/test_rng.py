@@ -1,5 +1,5 @@
-"""
-Tests for omni_mercury_engine.utils.rng module.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for omni_mercury_engine.utils.rng module.
 
 Tests the DeterministicRNG, RNGRegistry, RNGContext, and ThreadSafeRNGManager.
 """

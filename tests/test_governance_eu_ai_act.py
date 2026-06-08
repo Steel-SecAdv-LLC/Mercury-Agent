@@ -1,3 +1,4 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Tests for the EU AI Act risk tier gate -- a tag, never a registered scalar."""
 
 from __future__ import annotations

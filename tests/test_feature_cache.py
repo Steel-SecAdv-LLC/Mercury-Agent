@@ -1,9 +1,5 @@
-"""
-Tests for memory-efficient feature caching.
-
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for memory-efficient feature caching."""
 
 import pytest
 

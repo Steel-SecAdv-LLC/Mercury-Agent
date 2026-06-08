@@ -1,9 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests for Ethical Bounding and Benevolence Scoring module.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for Ethical Bounding and Benevolence Scoring module."""
 
 from __future__ import annotations
 

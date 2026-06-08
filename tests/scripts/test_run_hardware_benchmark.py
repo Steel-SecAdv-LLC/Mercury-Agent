@@ -1,3 +1,4 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Smoke tests for ``scripts/run_hardware_benchmark.py``.
 
 These tests verify exit-code semantics and the JSON report schema.

@@ -1,14 +1,5 @@
-"""
-Tests for surfacing the symbolic stack (Issue #4): causal discovery
-(PC + Fisher-Z + Granger) and the symbolic rule graph, through the engine
-and CLI.
-
-Done-criterion focus: discovery runs deterministically on a fixed seed and
-produces a stable graph on a known fixture.
-
-Mercury Agent - Copyright (C) 2025 Steel Security Advisors LLC
-Licensed under GNU GPL v3
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for surfacing the symbolic stack (Issue #4): causal discovery."""
 
 from __future__ import annotations
 

@@ -1,9 +1,5 @@
-"""
-Tests for Solar Storm Detector.
-
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for Solar Storm Detector."""
 
 from typing import Any
 

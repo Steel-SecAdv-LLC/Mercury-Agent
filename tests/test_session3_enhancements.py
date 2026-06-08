@@ -1,15 +1,7 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Neuro-Symbolic Hub and GOSNN Enhancement Tests."""
+
 from typing import Any
-
-"""
-Mercury Agent - Neuro-Symbolic Hub and GOSNN Enhancement Tests
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Comprehensive tests for:
-- Neuro-Symbolic Hub
-- GOSNN Optimizer
-- Real-World Benchmarks
-- Integration with previous sessions
-"""
 
 import numpy as np
 import pytest

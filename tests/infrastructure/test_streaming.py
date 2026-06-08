@@ -1,15 +1,5 @@
-"""
-Mercury Agent - Streaming Infrastructure Tests
-
-Tests for the SaaS streaming infrastructure including:
-- In-memory stream producer/consumer
-- Circuit breaker pattern
-- Streaming anomaly pipeline
-- Message serialization
-
-Copyright (C) 2025 Steel Security Advisors LLC
-Licensed under GPL-3.0-or-later
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Streaming Infrastructure Tests."""
 
 from __future__ import annotations
 

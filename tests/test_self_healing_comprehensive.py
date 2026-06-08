@@ -1,10 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Comprehensive tests for resilience/self_healing.py module.
-Targets coverage improvement for AdaptiveDefenseSystem and SelfHealingEngine.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Comprehensive tests for resilience/self_healing.py module."""
 
 from __future__ import annotations
 

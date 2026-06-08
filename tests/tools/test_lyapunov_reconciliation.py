@@ -1,3 +1,4 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Cross-component Lyapunov λ reconciliation tests.
 
 The canonical λ for the Mercury Agent fusion-trajectory stability proof

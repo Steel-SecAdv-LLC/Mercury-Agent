@@ -1,15 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Unit tests for the differentiable domain encoders (WS-B / Target 2).
-
-Verify each encoder's contract deterministically and without network:
-correct output shape, finite outputs, gradient flow (it is genuinely
-differentiable), eval-mode determinism, and that the kinematic conv is
-initialised to the exact finite-difference stencils (so it *starts* as the
-static extractor before learning).
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Unit tests for the differentiable domain encoders (WS-B / Target 2)."""
 
 from __future__ import annotations
 

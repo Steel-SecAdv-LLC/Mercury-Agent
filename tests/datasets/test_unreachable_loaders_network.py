@@ -1,5 +1,5 @@
-"""
-Reachability harness for the 11 currently-unreachable Mercury dataset loaders.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Reachability harness for the 11 currently-unreachable Mercury dataset loaders.
 
 This module addresses the strengthening-plan §5 P1 item: every loader
 flagged in the ``CHANGELOG.md`` reproducibility footnote as

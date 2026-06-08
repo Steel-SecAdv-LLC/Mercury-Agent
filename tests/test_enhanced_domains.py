@@ -1,15 +1,7 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for Enhanced Domain Components."""
+
 from typing import Any
-
-"""
-Mercury Agent - Tests for Enhanced Domain Components
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Comprehensive tests for:
-- Enhanced base domain detectors (adaptive thresholds, event metrics, spatial)
-- Enhanced model domain components (quantum, biometric, affective)
-- Domain metrics module
-- GOSNN integration layer
-"""
 
 import numpy as np
 import pytest

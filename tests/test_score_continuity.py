@@ -1,14 +1,7 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Unit tests for Issue #7: Score Continuity Fix."""
+
 from typing import Any
-
-"""
-Unit tests for Issue #7: Score Continuity Fix.
-
-Tests that temporal and directive detectors use soft normalization
-instead of hard clipping, preserving ranking information for extreme anomalies.
-
-Mercury Agent - Copyright (C) 2025 Steel Security Advisors LLC
-Licensed under GNU GPL v3
-"""
 
 import numpy as np
 import pytest

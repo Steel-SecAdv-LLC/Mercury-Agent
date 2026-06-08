@@ -1,12 +1,7 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Integration Tests for All Calibrated Detectors."""
+
 from typing import Any
-
-"""
-Integration Tests for All Calibrated Detectors
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests that all detectors properly support auto-calibration and that the
-calibration system solves the F1=0 problem across all detector types.
-"""
 
 import numpy as np
 import pytest

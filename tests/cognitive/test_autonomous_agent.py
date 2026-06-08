@@ -1,9 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests for Autonomous Agent - OODA Loop, User Sync, Self-Maintenance
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for Autonomous Agent - OODA Loop, User Sync, Self-Maintenance."""
 
 from __future__ import annotations
 

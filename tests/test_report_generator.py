@@ -1,5 +1,5 @@
-"""
-Tests for omni_mercury_engine.utils.report_generator module.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for omni_mercury_engine.utils.report_generator module.
 
 Tests report generation functionality.
 """

@@ -1,15 +1,5 @@
-"""
-Mercury Agent - Tests for Calibration Validation Harness
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Tests for benchmarks/calibration_validation.py covering all three
-math debt validations (MD-011, MD-003, MD-005) on synthetic data.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for Calibration Validation Harness."""
 
 from __future__ import annotations
 

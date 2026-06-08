@@ -1,11 +1,7 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for LSTM Autoencoder anomaly detection module."""
+
 from typing import Any
-
-"""
-Tests for LSTM Autoencoder anomaly detection module.
-
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-"""
 
 import pytest
 

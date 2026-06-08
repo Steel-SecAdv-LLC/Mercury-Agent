@@ -1,17 +1,5 @@
-"""
-Mercury Agent - Tests for Advanced ML Capabilities
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Comprehensive tests for:
-- Concept drift evaluation
-- Few-shot learning
-- Cross-domain transfer
-- SHAP explainability
-- Active learning
-- Online learning
-
-These tests validate Mercury's architectural advantages over pure supervised methods.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for Advanced ML Capabilities."""
 
 from __future__ import annotations
 
@@ -22,7 +10,6 @@ import pytest
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
-
 
 # =============================================================================
 # Test Fixtures

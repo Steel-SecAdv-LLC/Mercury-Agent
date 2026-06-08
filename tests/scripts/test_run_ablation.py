@@ -1,3 +1,4 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Tests for :mod:`scripts.run_ablation`.
 
 These tests exercise the orchestrator end-to-end as a library call

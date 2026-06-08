@@ -1,3 +1,4 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Tests for Phase 4 (Advanced Math Structures) and Phase 6 (System Coherence).
 
 Covers:

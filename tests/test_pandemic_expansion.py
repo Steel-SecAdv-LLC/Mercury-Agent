@@ -1,8 +1,5 @@
-"""Tests for pandemic loader multi-pathogen expansion.
-
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for pandemic loader multi-pathogen expansion."""
 
 from __future__ import annotations
 

@@ -1,3 +1,6 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Test equation optimizer."""
+
 from __future__ import annotations
 
 import json

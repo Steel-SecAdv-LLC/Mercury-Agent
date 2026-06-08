@@ -1,21 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-------------------------------------------------------------------------
-
-Tests for the Part 2 new operator tools.
-
-Each test invokes the tool through its registry entry-point with a
-deterministic seed (where applicable), asserts the certificate schema
-is the documented ``mercury.tools.<name>/v1``, and pins the
-deterministic-output contract for tools whose body is not coupled to
-host state.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 
@@ -1568,7 +1552,6 @@ class TestAdversarialProbe:
 
 # ---------------------------------------------------------------------------
 # Smoke registry: every tool returns a valid envelope on ``--help``
-
 
 _HELP_EXEMPT: frozenset[str] = frozenset(
     {

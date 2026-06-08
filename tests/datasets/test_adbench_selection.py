@@ -1,3 +1,4 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Offline regression tests for ADBench dataset selection.
 
 Guards two bugs where every ADBench dataset name silently collapsed to the

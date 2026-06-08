@@ -1,16 +1,7 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for Adaptive Anomaly Detector module."""
+
 from typing import Any
-
-"""
-Tests for Adaptive Anomaly Detector module.
-
-Validates:
-- AdaptiveThresholdCalibrator (fixes covtype F1=0 issue)
-- CovarianceAwareDetector (improves batadal AUC)
-- TemporalPatternDetector (enhances smd detection)
-- AdaptiveAnomalyDetector (unified interface)
-
-Copyright (C) 2025 Steel Security Advisors LLC
-"""
 
 import numpy as np
 import pytest

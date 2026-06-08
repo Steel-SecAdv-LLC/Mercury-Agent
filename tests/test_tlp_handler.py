@@ -1,13 +1,5 @@
-"""Tests for :mod:`omni_mercury_engine.compliance.tlp_handler`.
-
-Exercises the full public surface of the TLP 2.0 classifier ported from
-Omni-AXA-Engine, including the Mercury Agent addition of the
-``TLP:AMBER+STRICT`` colour and the strict-escalation logic.
-
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-Released under GPL-3.0+.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for :mod:`omni_mercury_engine.compliance.tlp_handler`."""
 
 from __future__ import annotations
 

@@ -1,3 +1,4 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Offline tests for the WS-B design-space sweep verdict logic.
 
 The full sweep trains the fusion path on ADBench (network + minutes) and is run

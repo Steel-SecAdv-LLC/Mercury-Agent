@@ -1,12 +1,5 @@
-"""
-Tests for the shipped default fusion checkpoint (Issue #2).
-
-A versioned checkpoint is packaged so a fresh install runs detection with a
-trained, calibrated network and no training step.
-
-Mercury Agent - Copyright (C) 2025 Steel Security Advisors LLC
-Licensed under GNU GPL v3
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for the shipped default fusion checkpoint (Issue #2)."""
 
 from __future__ import annotations
 

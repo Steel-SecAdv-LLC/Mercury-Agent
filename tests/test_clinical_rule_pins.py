@@ -1,23 +1,5 @@
-"""Rule-vs-citation pin harness.
-
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under
-the terms of the GNU General Public License as published by the Free Software
-Foundation, either version 3 of the License, or (at your option) any later
-version.
-
-Task 6 (PR 2 refinement): every FDA / ADA / NWS / ASA threshold that is
-cited in a docstring must equal the module-level constant the citation
-points to.  This is a lint, not a semantics check: it catches regressions
-where someone flips ``<`` to ``<=`` or rounds ``70.0`` to ``70`` while the
-docstring still cites the original number.  Failures surface the citation
-URL alongside the failing assertion so a reviewer can verify against the
-source document.
-
-Each row is rendered as a single line in the test session output so the
-live pin-table is visible during ``pytest -v``.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Rule-vs-citation pin harness."""
 
 from __future__ import annotations
 
@@ -79,7 +61,6 @@ _OPERATORS: Final[dict[str, Callable[[Any, Any], bool]]] = {
     "<=": operator.le,
     "contains": lambda lhs, rhs: rhs in lhs,
 }
-
 
 CLINICAL_RULE_PINS: Final[tuple[_ClinicalRulePin, ...]] = (
     _ClinicalRulePin(
@@ -155,7 +136,6 @@ CLINICAL_RULE_PINS: Final[tuple[_ClinicalRulePin, ...]] = (
         103.0,
     ),
 )
-
 
 _MODULES: Final[dict[str, Any]] = {
     "endocrinology_detector": endocrinology_detector,

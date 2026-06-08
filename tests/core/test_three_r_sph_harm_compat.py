@@ -1,15 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Pin the cross-SciPy-version equivalence of the inline ``sph_harm`` shim used.
 
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-"""
-
-from __future__ import annotations
-
-"""
-Pin the cross-SciPy-version equivalence of the inline ``sph_harm`` shim used
 inside ``ThreeRMechanism.analyze_with_spherical_harmonics``.
 
 SciPy ≥ 1.14 removed the legacy ``scipy.special.sph_harm`` and replaced it with
@@ -26,6 +17,8 @@ SciPy releases.
 This test reconstructs both wrappers and asserts they agree against a known
 reference value at a fixed (m, n, polar, azimuthal) point.
 """
+
+from __future__ import annotations
 
 import numpy as np
 import pytest

@@ -1,14 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests for the centralized _compat module.
-
-Verifies that:
-- All HAS_* flags are boolean
-- Convenience groupings are correct logical combinations
-- The module is importable without side effects
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for the centralized _compat module."""
 
 from __future__ import annotations
 

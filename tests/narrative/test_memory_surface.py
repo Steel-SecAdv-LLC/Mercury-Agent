@@ -1,9 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests for MemorySurface - Conversational Memory Integration.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for MemorySurface - Conversational Memory Integration."""
 
 import time
 from typing import Any

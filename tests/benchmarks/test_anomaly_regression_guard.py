@@ -1,3 +1,4 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Tests for the deterministic anomaly-detector regression guard (WS-A).
 
 Two tiers:

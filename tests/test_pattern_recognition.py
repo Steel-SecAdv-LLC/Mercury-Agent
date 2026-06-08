@@ -1,9 +1,5 @@
-"""
-Tests for Anti-Terrorism Pattern Recognition module.
-
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for Anti-Terrorism Pattern Recognition module."""
 
 from omni_mercury_engine.security.anti_terrorism.pattern_recognition import (
     TerrorismPatternDetector,

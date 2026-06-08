@@ -1,9 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests for the api_circuit_breakers module - circuit breaker pattern.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for the api_circuit_breakers module - circuit breaker pattern."""
 
 from __future__ import annotations
 
@@ -28,7 +24,6 @@ try:
     HAS_CIRCUIT_BREAKER = True
 except ImportError:
     HAS_CIRCUIT_BREAKER = False
-
 
 pytestmark = pytest.mark.skipif(not HAS_CIRCUIT_BREAKER, reason="circuit_breakers not available")
 

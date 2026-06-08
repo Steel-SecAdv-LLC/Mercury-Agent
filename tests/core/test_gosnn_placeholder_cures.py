@@ -1,22 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Phase 2 ITEM 3 regression: GOSNN placeholder cures.
-
-Pins three contracts called out by the 2026-03 in-tree audit:
-
-1. ``GOSNNOptimizer.optimize`` does NOT generate random attention
-   tensors when no ``AttentionProvider`` is configured.  Instead it
-   skips the attention-overhead metric and surfaces that fact in
-   ``recommendations``.
-2. When an ``AttentionProvider`` is wired and returns real tensors,
-   the metric is computed against those tensors (not against a
-   placeholder).
-3. Conformal prediction failures inside ``GOSNNIntegration.predict``
-   propagate to the caller — silent ``confidence_intervals=None`` with
-   only a warning is no longer the contract.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Phase 2 ITEM 3 regression: GOSNN placeholder cures."""
 
 from __future__ import annotations
 

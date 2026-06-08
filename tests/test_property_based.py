@@ -1,15 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Hypothesis-based Property Testing for Mercury-Agent Components.
-
-Uses property-based testing to verify invariants and edge cases that
-unit tests might miss. This approach generates thousands of test cases
-automatically to find edge cases and bugs.
-
-Reference: Hypothesis documentation (https://hypothesis.readthedocs.io/)
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Hypothesis-based Property Testing for Mercury-Agent Components."""
 
 from __future__ import annotations
 

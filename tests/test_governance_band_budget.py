@@ -1,3 +1,4 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Guard: governance scalars never perturb the σ_Immutable operational vector.
 
 This is the durable safety rail for the whole governance upgrade. It registers *every*

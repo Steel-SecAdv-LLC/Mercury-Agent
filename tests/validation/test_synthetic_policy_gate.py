@@ -1,44 +1,5 @@
-"""Regression suite for the synthetic-data policy gate.
-
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
-
-The validation-pipeline loaders historically exposed a ``use_synthetic``
-boolean argument that, when set to ``True``, returned synthetic data
-unconditionally -- bypassing the deployment-level
-``MERCURY_ALLOW_SYNTHETIC`` policy enforced by
-:func:`omni_mercury_engine.datasets.exceptions.check_synthetic_allowed`.
-
-The fix in v1.7.0 routes every synthetic-data branch through the policy
-gate so that a caller cannot opt out of policy:
-
-* When ``MERCURY_ALLOW_SYNTHETIC=1`` is set, ``use_synthetic=True`` is
-  honoured (the legacy contract for tests and explicit fallback chains).
-* When ``MERCURY_ALLOW_SYNTHETIC`` is unset or ``0``, every loader that
-  would otherwise return synthetic data raises
-  :class:`~omni_mercury_engine.datasets.exceptions.DataSourceUnavailableError`
-  -- including the caller-flag path.
-
-This file locks the closure with a parametrised regression that exercises
-every concrete loader on the bypass surface.  Without these tests, a
-future refactor could silently reintroduce the bypass and Mercury Agent
-would deliver synthetic data to a deployment that has explicitly
-forbidden it -- a particularly dangerous regression for the humanitarian
-crisis-response and missing-persons workloads Mercury Agent serves.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Regression suite for the synthetic-data policy gate."""
 
 from __future__ import annotations
 
@@ -58,7 +19,6 @@ from omni_mercury_engine.validation.data_loaders import (
 
 if TYPE_CHECKING:
     import pytest
-
 
 # ---------------------------------------------------------------------------
 # Helpers

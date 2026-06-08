@@ -1,14 +1,7 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Unit tests for signal integrity fixes."""
+
 from typing import Any
-
-"""
-Unit tests for signal integrity fixes.
-
-Tests for Issue #3 (Discrete Score Destruction) and Issue #5 (Contamination Mismatch).
-Validates that statistical detector produces continuous scores instead of discrete values.
-
-Mercury Agent - Copyright (C) 2025 Steel Security Advisors LLC
-Licensed under GNU GPL v3
-"""
 
 import numpy as np
 import pytest

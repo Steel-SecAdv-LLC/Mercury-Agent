@@ -1,14 +1,5 @@
-"""
-Mercury Agent - Comprehensive Tests for Enhanced Anomaly Detection Modules
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests for:
-- Enhanced Statistical Methods (MAD, LOF, DBSCAN, MCD, CUSUM, GESD)
-- Cross-Platform Hub
-- Ensemble Coordinator
-- Distributed Processor
-- Visualization Dashboard
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Comprehensive Tests for Enhanced Anomaly Detection Modules."""
 
 from __future__ import annotations
 

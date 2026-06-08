@@ -1,20 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Behavioural tests for ``agentic/mercury_a_agent.py``.
-
-Before this suite ``MercuryAgent._execute_task`` was a no-op that always
-reported ``completed`` (success_rate forced to 1.0) and carried zero tests.
-These tests pin the truthed-up contract: real tool dispatch with genuine
-success / failure, honest ``skipped`` for unbound tasks, and a fail-closed
-ethical gate that cannot be swallowed by the execution ``try/except``.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 

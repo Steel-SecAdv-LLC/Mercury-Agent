@@ -1,5 +1,5 @@
-"""
-Mercury Agent - Tests for Disaster Dataset Loaders
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Mercury Agent - Tests for Disaster Dataset Loaders.
 
 Tests for FEMA disaster declarations and hazard mitigation loaders.
 """

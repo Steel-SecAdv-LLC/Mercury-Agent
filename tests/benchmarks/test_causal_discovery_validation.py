@@ -1,12 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests for the causal-discovery validation harness
-(``benchmarks.causal_discovery_validation``): the synthetic-SEM generator, the
-skeleton metrics, and that the revived ``causal_discovery`` engine recovers a
-known structure well above chance on a small, deterministic problem.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for the causal-discovery validation harness."""
 
 from __future__ import annotations
 

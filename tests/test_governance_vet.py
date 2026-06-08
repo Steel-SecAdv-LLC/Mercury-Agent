@@ -1,3 +1,4 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Ties the per-family signal vet to behaviour.
 
 * Every UNAVAILABLE-capable family has a *real* GROUNDED path (a worked input -> a value)

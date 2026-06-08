@@ -1,3 +1,4 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
 """E/F: the neural-submodule coverage doc must stay a living, accurate artifact.
 
 `docs/NEURAL_SUBMODULE_COVERAGE.md` is generated from the registry in

@@ -1,5 +1,5 @@
-"""
-Mercury Agent - Tests for Lightweight Neural Primitives
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Mercury Agent - Tests for Lightweight Neural Primitives.
 
 Tests for pure NumPy implementations of neural network operations.
 """

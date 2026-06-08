@@ -1,5 +1,5 @@
-"""
-Mercury Agent - Pandemic Detector Tests
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Mercury Agent - Pandemic Detector Tests.
 
 Comprehensive test suite for pandemic detection components:
 - CaseSurgeDetector: Outbreak detection from time series

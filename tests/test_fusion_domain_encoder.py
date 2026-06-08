@@ -1,24 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Integration tests for the opt-in differentiable domain encoder in ``fit_fusion``
-(WS-B / Target 2). Verify the *contract*, deterministically and without network:
-
-* ``domain_encoder=False`` (and the default) is the unchanged neural path -- no
-  domain-encoder state, no injected feature group, and the served scores match
-  the default path to within the fusion path's own floating-point
-  non-determinism floor (~1e-15; true bit-equality is precluded by that
-  pre-existing noise, not by WS-B -- two identical default fits differ at the
-  same scale).
-* ``domain_encoder=True`` builds + jointly trains a ``DomainEncoderStack``,
-  injects its ``differentiable_domain`` feature into the trained groups, and
-  serves finite scores.
-
-Whether the encoder *improves* held-out detection is the empirical question
-settled by ``benchmarks/domain_encoder_ablation.py`` on real labels --
-deliberately NOT asserted here, where a synthetic pass would be meaningless.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Integration tests for the opt-in differentiable domain encoder in ``fit_fusion``."""
 
 from __future__ import annotations
 

@@ -1,30 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Hard ethical enforcement boundary regression suite.
-
-Phase 2 of the May 2026 audit cure flips ethics from "advisory" to
-"functional".  Every API surface listed as a *decision boundary* in
-``src/omni_mercury_engine/ethical/__init__.py`` MUST raise
-``EthicalConstraintViolationError`` (re-exported as ``EthicalViolation``)
-on a simulated benevolence-violation (``check="benevolence"``), and MUST
-NOT raise for legitimate inputs.  GOSNN's σ_Immutable score is
-informational metadata — it is not the enforcement gate today because
-the underlying neural network is untrained.
-
-This file is the regression that makes the contract durable: any future
-change that turns one of these boundaries back into a logger.warning,
-config-flag-disabled check, or "fall back to ethical_gate_passed=True"
-path will fail this suite.  The suite is wired into the
-``Neuro-Symbolic Tests`` job in ``.github/workflows/ci.yml`` so the
-regression cannot merge silently.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 

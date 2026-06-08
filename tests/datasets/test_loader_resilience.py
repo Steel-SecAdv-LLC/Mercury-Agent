@@ -1,3 +1,4 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Mercury Agent — Loader resilience / failover tests.
 
 Covers the corrective sweep that hardens the external-API loaders

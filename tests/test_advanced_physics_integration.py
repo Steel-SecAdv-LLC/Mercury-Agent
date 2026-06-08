@@ -1,9 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests for Advanced Physics Integration Module.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for Advanced Physics Integration Module."""
 
 from __future__ import annotations
 

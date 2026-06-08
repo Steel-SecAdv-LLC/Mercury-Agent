@@ -1,5 +1,5 @@
-"""
-Mercury Agent - Tests for Climate and Ocean Dataset Loaders
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Mercury Agent - Tests for Climate and Ocean Dataset Loaders.
 
 Tests for Simons CMAP, World Ocean Database, and Copernicus Sea Level loaders.
 """

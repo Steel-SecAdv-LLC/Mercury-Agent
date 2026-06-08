@@ -1,22 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Integration tests for neuro-symbolic co-training in ``fit_fusion``.
-
-These verify the *contract* of the symbolic-constraint path, deterministically
-and without network access:
-
-* ``symbolic_weight == 0`` is byte-for-byte the purely-neural path (no symbolic
-  state, identical metrics keys).
-* ``symbolic_weight > 0`` co-trains a ``SymbolicConstraintModule`` (retained on
-  the engine), reports satisfaction/loss, and does not break detection on a
-  clearly-separable fixture.
-
-Whether the constraint *improves* held-out detection is a separate, empirical
-question settled by ``benchmarks/neurosymbolic_ablation.py`` on real labels --
-deliberately NOT asserted here, where a synthetic pass would be meaningless.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Integration tests for neuro-symbolic co-training in ``fit_fusion``."""
 
 from __future__ import annotations
 

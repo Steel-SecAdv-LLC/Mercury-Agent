@@ -1,10 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests for security/threat_detection.py module.
-Comprehensive test coverage for threat detection functionality.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for security/threat_detection.py module."""
 
 from __future__ import annotations
 

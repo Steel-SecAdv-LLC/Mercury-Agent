@@ -1,3 +1,4 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Tests for the Mercury production-mode env primitive.
 
 Lives at ``tests/test_env.py`` rather than ``tests/security/`` because

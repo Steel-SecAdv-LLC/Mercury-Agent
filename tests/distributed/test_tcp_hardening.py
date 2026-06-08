@@ -1,14 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Phase 2 TCP transport hardening tests (Deliverable 9).
-
-- Mutual-TLS integration test (self-signed CA).
-- Replay-defense test.
-- Fuzzer-style malformed-frame test.
-- Subprocess-based 3-node cluster test.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Phase 2 TCP transport hardening tests (Deliverable 9)."""
 
 from __future__ import annotations
 
@@ -61,7 +52,6 @@ from omni_mercury_engine.distributed.tcp_transport import (
 # tests through pytest-asyncio.  Applying the marker module-wide
 # erroneously tags the synchronous ``test_subprocess_three_node_cluster``
 # as asyncio and trips a PytestWarning, so we omit it here.
-
 
 # ---------------------------------------------------------------------------
 # Helper: self-signed CA + node certs

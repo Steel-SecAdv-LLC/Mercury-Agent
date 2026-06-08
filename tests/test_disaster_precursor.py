@@ -1,9 +1,5 @@
-"""
-Tests for Disaster Precursor Detector.
-
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for Disaster Precursor Detector."""
 
 from typing import Any
 

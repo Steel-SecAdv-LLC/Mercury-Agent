@@ -1,19 +1,5 @@
-"""
-Tests for unifying the neuro-symbolic blend (Issue #5).
-
-The hardcoded ``0.6*neural + 0.4*symbolic`` static blends (previously duplicated
-in models/neurosymbolic.py and core/symbolic_reasoning.py) are replaced by a
-single canonical adaptive blend (``adaptive_neurosymbolic_fuse``). These tests
-prove:
-  * one implementation is used everywhere (both reason() sites delegate to it),
-  * sane reduction properties (equal confidence -> even blend), and
-  * parity-or-better classification vs. the old static blend on a fixture where
-    branch confidence correlates with reliability (the premise that justifies
-    confidence-weighted fusion).
-
-Mercury Agent - Copyright (C) 2025 Steel Security Advisors LLC
-Licensed under GNU GPL v3
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for unifying the neuro-symbolic blend (Issue #5)."""
 
 from __future__ import annotations
 

@@ -1,5 +1,5 @@
-"""
-Tests for omni_mercury_engine.medical.abms_disciplines module.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for omni_mercury_engine.medical.abms_disciplines module.
 
 Tests ABMS medical specialty-based anomaly detection.
 """

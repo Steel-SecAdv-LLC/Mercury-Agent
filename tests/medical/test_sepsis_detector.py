@@ -1,9 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests for the sepsis_detector module - medical sepsis detection.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for the sepsis_detector module - medical sepsis detection."""
 
 from __future__ import annotations
 
@@ -22,7 +18,6 @@ try:
     HAS_SEPSIS = True
 except ImportError:
     HAS_SEPSIS = False
-
 
 pytestmark = pytest.mark.skipif(not HAS_SEPSIS, reason="sepsis_detector not available")
 

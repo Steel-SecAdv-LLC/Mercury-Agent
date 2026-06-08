@@ -1,21 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Behavioural tests for ``cognitive/knowledge_graph.py``.
-
-These pin *algorithmic correctness* of the graph methods that were previously
-import-clean-only (no behavioural assertions): node-embedding recovery on a
-known two-cluster graph, GNN message passing, link-prediction recovery,
-transitive-closure inference, and symmetric-relation inference.  They do NOT
-claim the graph is a good anomaly *detector* (the DORMANCY_LEDGER measured that
-at chance) — they assert the methods compute what they say they compute.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 

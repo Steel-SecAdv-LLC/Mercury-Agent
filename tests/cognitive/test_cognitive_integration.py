@@ -1,5 +1,5 @@
-"""
-Tests for Cognitive Architecture Integration
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for Cognitive Architecture Integration.
 
 Verifies that all cognitive components integrate properly:
 - PlasticityEngine

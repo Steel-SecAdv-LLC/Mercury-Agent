@@ -1,5 +1,5 @@
-"""
-Mercury Agent - Cardiology Predictor Tests
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Mercury Agent - Cardiology Predictor Tests.
 
 Comprehensive test suite for cardiology components:
 - ECGRhythmAnalyzer: CNN+LSTM for 12-lead ECG analysis

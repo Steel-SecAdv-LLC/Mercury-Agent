@@ -1,9 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests for ADRepository dataset loaders.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tests for ADRepository dataset loaders."""
 
 from __future__ import annotations
 

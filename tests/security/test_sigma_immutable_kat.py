@@ -1,17 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-KAT-style regression for the trained σ_Immutable EthicalGate.
-
-These tests assert that the trained gate produces deterministic,
-correct outputs on hand-curated known-good and known-bad scalar
-vectors.  Any re-training that shifts the decision boundary must
-update the KAT vectors here — the test is the contract.
-
-The labelling source is documented in
-``scripts/train_sigma_immutable.py``.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""KAT-style regression for the trained σ_Immutable EthicalGate."""
 
 from __future__ import annotations
 
@@ -131,7 +119,6 @@ KAT_ALL_LOW[:SIGMA_ETHICAL_BAND_END] = np.array(
 KAT_ALL_LOW[SIGMA_ETHICAL_BAND_END:SIGMA_USED_BAND_END] = _rng.uniform(
     0.0, 2.0, _NONETHICAL_DIMS
 ).astype(np.float32)
-
 
 # ---------------------------------------------------------------------------
 # Tests
