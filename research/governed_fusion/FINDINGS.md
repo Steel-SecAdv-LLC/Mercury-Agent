@@ -325,3 +325,34 @@ for a documented real event, a reconstruction mirroring its statistical
 properties is the credible next-best source, reported separately and labelled
 reconstruction (7 events / 3 domains), never conflated with live and never
 claimed as real.**
+
+## Close-out validation sweep (this pass) — per-axis verdict
+
+Every axis below either **landed** a reproduced improvement (freeze-and-add,
+revert-on-regress) or is a **committed conclusive negative** proving the current
+state is already optimal. No speculative levers, no micro-benchmark theatre. Each
+verdict cites the committed artifact that proves it (numbers re-read from
+`results/*.json` this pass).
+
+| axis | verdict | committed proof |
+|---|---|---|
+| baseline ensemble (0.40/0.30/0.30) | shipped; live AUROC **0.8231**; no re-weighting beats best-single (see fusion pooling) | `baseline_results.json` `real.overall.auroc` |
+| calibration | **Beta-MCA LANDED** — Brier −0.0939, ECE −0.2351, AUROC tie (0.7957); lever sweep + Venn-Abers are conclusive negatives | `calibration_results.json`; `calibration_levers_results.json` verdict `NEGATIVE`, `land_candidates: []` |
+| operating point | conformal a disclosed **recall/coverage trade**, −0.071 F1 vs Youden/F1 (0.3982 − 0.4697) | `conformal_results.json` `overall` |
+| fusion pooling | **KILL** — rel·clipped 0.8429 < best-single 0.8779 (gap −0.035); not shipped (I3) | `reliability_fusion_results.json` `gap_to_best_single`, `verdict` |
+| robustness / survivability | measured floor 0.9243 → 0.7073 @ `m=k/2` + cubic-moment escape; research-only, **zero runtime change** | `survivability_results.json` `overall` |
+| loaders / provenance | **read-only marine synthesis guard LANDED**; NSL-KDD schema single-sourced | `tests/research/test_governed_suite_provenance.py`; `tests/loaders/test_nsl_kdd_single_source.py` |
+| reproducibility | reconstructed **7/7 byte-identical** across `PYTHONHASHSEED=1/2/random`; live 22/23 exact (marine drifts on live OBIS, disclosed); zero residual nondeterminism | `manifest.json` + `build_manifest.py` |
+| latency / throughput | recorded per-dataset (`fit_ms`/`score_ms`), CPU-only numpy/scipy; **no latency lever pursued** (out of detection-quality scope — would be the micro-benchmark theatre the constraints forbid) | `benchmarks/mercury_benchmark_results.json` `per_dataset` |
+| claim audit | every quantitative/capability claim reconciled to committed JSON or softened; README ratio generator fixed + regression-tested | README/docs truth-up commits |
+
+`financial_loader`'s `pd.Timestamp.now()` is validated as **intentional real-time
+fetch-window** code (90-day lookback ending "today"), not a reproducibility bug:
+`financial` is unreachable (never in `suite.REACHABLE`) so it backs no committed
+number; left unchanged, as instructed.
+
+**Bottom line:** the provable improvements (Beta-MCA, the provenance guard, the
+NSL-KDD single-sourcing, the claim truth-up) are landed and tested; every other
+axis is a committed conclusive negative. No further reproducible improvement,
+finetune, or balance remains for this PR that does not regress a landed number or
+manufacture theatre.
