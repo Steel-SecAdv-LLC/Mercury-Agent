@@ -31,6 +31,14 @@ the ``loaders/`` package (only by the ``datasets/`` package); the real/reconstru
 split here is therefore made explicit in code (``RECONSTRUCTED_DOMAINS`` /
 ``RECONSTRUCTED_EVENTS``), not delegated to that flag.
 
+As defense-in-depth against a *silent* live->synthetic fallback (``marine`` on an
+empty OBIS response synthesises data tagged ``dataset_id="synthetic"``),
+``_load_event`` additionally refuses to label any event live whose loader returned
+that marker (``_looks_synthesized`` / ``ProvenanceError``).  This is a read-only
+check on an existing column -- it never changes a loader's return contract -- so a
+live-labelled event that silently fell back to synthesis is *excluded from the live
+headline*, never counted as live (announced as ``PROVENANCE_SKIP``).
+
 Determinism: ``MercuryAnomalyDetector`` is deterministic after ``fit()``; the
 reconstruction loaders derive their RNG seed from ``hashlib.sha256`` (process-
 stable), so the reconstructed group reproduces byte-identically across processes
@@ -78,6 +86,48 @@ _CACHE_DIR = os.environ.get("GF_CACHE_DIR", "/home/user/gf_cache")
 def is_reconstructed(domain: str, event_id: str) -> bool:
     """True iff an event is reconstructed-from-live (not a live payload)."""
     return domain in RECONSTRUCTED_DOMAINS or event_id in RECONSTRUCTED_EVENTS
+
+
+class ProvenanceError(RuntimeError):
+    """Raised when a LIVE-labelled event's loader returned synthesized data.
+
+    Provenance is labelled statically (``RECONSTRUCTED_DOMAINS`` /
+    ``RECONSTRUCTED_EVENTS``).  A live-labelled loader that *silently* falls back
+    to synthesis -- ``marine`` on an empty OBIS response -- would otherwise be
+    mislabelled live; this read-only guard makes the suite exclude it instead, so
+    silent-fallback data can never be counted in the live headline.
+    """
+
+
+def _looks_synthesized(raw: Any) -> bool:
+    """Return True iff a raw loader frame carries the synthesis marker.
+
+    The ``marine`` loader tags every row of its OBIS-empty fallback with
+    ``dataset_id == "synthetic"`` while the live OBIS path never does (it writes
+    real dataset IDs or an empty string).  Reading this existing column lets the
+    suite refuse to label silent-fallback data as live **without changing any
+    loader's return contract**.
+
+    Bounded residual (documented in ``FINDINGS.md``): a loader that synthesises
+    *without* the marker is not caught here.  Today the only live-labelled
+    silent-synthesizer is ``marine`` (tagged); ``pandemic/ebola_2014`` also
+    synthesises without a marker but is ``RECONSTRUCTED``-labelled, so it is never
+    live-labelled.
+
+    Args:
+        raw: The object returned by ``loader.fetch_historical`` (a DataFrame).
+
+    Returns:
+        True iff ``raw`` exposes a ``dataset_id`` column containing the value
+        ``"synthetic"``.
+    """
+    columns = getattr(raw, "columns", None)
+    if columns is None or "dataset_id" not in columns:
+        return False
+    try:
+        return bool((raw["dataset_id"].astype(str) == "synthetic").any())
+    except Exception:  # pragma: no cover - defensive: a guard must never crash the build
+        return False
 
 
 @dataclass(frozen=True)
@@ -148,6 +198,13 @@ def _load_event(domain: str, mod: str, cls: str, event_id: str) -> EventData | N
     loader_mod = importlib.import_module(f"omni_mercury_engine.loaders.{mod}")
     loader = getattr(loader_mod, cls)()
     raw = loader.fetch_historical(event_id)
+    if not is_reconstructed(domain, event_id) and _looks_synthesized(raw):
+        raise ProvenanceError(
+            f"{domain}/{event_id}: loader returned synthesized data "
+            "(dataset_id='synthetic') for a LIVE-labelled event; refusing to "
+            "mislabel a silent fallback as live (restore the live source / use "
+            "the committed cache, or add it to RECONSTRUCTED_* if reconstructed)."
+        )
     feats = np.asarray(loader.engineer_features(raw), dtype=np.float64)
     y = np.asarray(loader.get_ground_truth(event_id)).astype(int).reshape(-1)
     if feats.ndim == 1:
@@ -181,6 +238,12 @@ def _build_all(*, verbose: bool = False) -> list[EventData]:
             event_id = ev.get("event_id") if isinstance(ev, dict) else str(ev)
             try:
                 data = _load_event(domain, mod, cls, event_id)
+            except ProvenanceError as exc:
+                # Always announce a provenance violation (never silently drop):
+                # a live-labelled event whose loader synthesized is excluded from
+                # the live headline, not counted as live.
+                print(f"{domain} {event_id}: PROVENANCE_SKIP {exc}", flush=True)
+                continue
             except Exception as exc:
                 if verbose:
                     print(f"{domain} {event_id}: EVENT_ERR {str(exc)[:80]}", flush=True)

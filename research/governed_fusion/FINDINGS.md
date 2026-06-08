@@ -34,6 +34,22 @@ The live-only headline AUROC (**0.823**) is *lower* than the old mixed 0.839: th
 reconstructions were the easier data (reconstructed baseline AUROC 0.920). The
 provable number is the smaller one.
 
+**Provenance guard (this pass).** The static label is correct today, but `marine`
+is live-labelled while its loader *silently* synthesises on an empty OBIS response
+(tagging every row `dataset_id="synthetic"`; the live OBIS path never does). To
+stop a *future* OBIS outage inflating the 23-event live headline with synthesised
+marine data, `suite._load_event` now refuses to label any event live whose loader
+returned that marker (`_looks_synthesized` / `ProvenanceError`, announced as
+`PROVENANCE_SKIP`). It reads an existing column — **no loader return-contract
+change** — and is cache-safe (cache hits return before the fetch), so the committed
+cached/online headline is byte-unchanged; an offline fresh build now *excludes*
+marine rather than mislabelling it. `energy`/`tsunami`/`ebola_2014` are
+RECONSTRUCTED-labelled, so the guard never fires for them (synthesis is expected).
+Bounded residual: a loader that synthesises *without* the marker is not caught —
+today the only live-labelled silent-synthesizer is `marine`, and it is tagged
+(`pandemic/ebola_2014` also synthesises unmarked but is RECONSTRUCTED-labelled).
+Tests: `tests/research/test_governed_suite_provenance.py` (4, offline).
+
 ## Environment & suite
 
 - AMA/PQC native backend required (hard import gate); env:
