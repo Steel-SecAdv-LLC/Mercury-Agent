@@ -1,41 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
-
-------------------------------------------------------------------------
-
-Operator tool: probe the AMA Cryptography PQC surface at runtime.
-
-Mercury startup now gates unconditionally on real AMA/PQC, but operators
-still need a structured report of *what the process actually loaded*.
-This tool walks the live ``ama_cryptography``
-import surface, exercises each algorithm with a minimal round-trip,
-and reports the real/stub status of every primitive Mercury depends on:
-
-* Kyber-1024 (KEM)
-* ML-DSA-65 — both legacy ``dilithium_sign`` and FIPS 204 §5.2
-  context-aware ``dilithium_sign_ctx``
-* SLH-DSA — both legacy SPHINCS+ surface and FIPS 205 SHAKE-128s
-* native HMAC-SHA-256 / HMAC-SHA-256-2 (used by the AMA-routed JWT
-  HS256 signer)
-
-The "real vs error" determination does **not** trust the ``*_AVAILABLE``
-flags alone; it actually runs a minimal sign/verify or encap/decap on
-each algorithm.  Flag-believing alone would miss a broken native load
-that raises at first use.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 

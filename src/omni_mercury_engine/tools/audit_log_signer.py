@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-------------------------------------------------------------------------
-
-Operator tool: append-only, hash-chained audit log.
-
-Every gate decision is written as a JSONL line, with each entry's
-``prev_hmac`` field referencing the previous entry's HMAC.  An auditor
-can re-walk the chain forward from the genesis HMAC and detect any
-mid-chain tampering.
-
-Companion :mod:`audit_log_verifier` walks the chain and emits a
-verification certificate.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 

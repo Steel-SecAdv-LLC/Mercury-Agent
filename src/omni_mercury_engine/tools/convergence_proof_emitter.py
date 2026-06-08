@@ -1,42 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
-
-------------------------------------------------------------------------
-
-Operator tool: emit the Lyapunov convergence proof block as LaTeX
-directly into ``docs/MATH_SPEC.md``.
-
-Given the certificate parameters ``(A, P, λ)`` — system matrix,
-Lyapunov matrix, and contractual decay rate — the tool derives the
-corresponding proof statement and writes it inside a sentinelled
-section of ``docs/MATH_SPEC.md``::
-
-    <!-- CONVERGENCE-PROOF:BEGIN -->
-    ...generated LaTeX...
-    <!-- CONVERGENCE-PROOF:END -->
-
-Anything outside that pair of sentinels is left untouched.  The
-sentinels match the convention used by the existing benchmark block
-in ``README.md`` so the same drift-gate tooling (CI markdown lint,
-pre-commit hooks) covers both files.
-
-The single source-of-truth for the proof bound is this tool — any
-human edit between the sentinels is overwritten on the next run, by
-design, so the certificate cannot diverge from the documented proof.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 

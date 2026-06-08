@@ -1,30 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
-
-------------------------------------------------------------------------
-
-Operator tool: federated-round simulator.
-
-Drives the ``FederatedAggregator`` through a synthetic 3-node round,
-verifies MLE-style aggregation and the differential-privacy noise
-injection.  The federated-learning capability is structural in the
-repo; this gives operators a runtime probe so they can answer "did
-the aggregation actually run, and was DP noise injected?" with a JSON
-certificate rather than a code review.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 

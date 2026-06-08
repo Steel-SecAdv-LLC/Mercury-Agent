@@ -1,50 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
-
-------------------------------------------------------------------------
-
-Operator tool: validate the Lyapunov stability bound the Mercury 3R
-fusion training contract claims.
-
-The contract — repeated in ``LyapunovConstants``, ``configs/ablation_3r_lyapunov.yaml``,
-and ``ml/training.py`` — is:
-
-    V(S_t) ≤ ε * exp(-λ * t)   for all t ≥ 0
-
-with::
-
-    λ = LYAPUNOV.LAMBDA_CONVERGENCE   = 0.25
-    ε = LYAPUNOV.EPSILON_INITIAL      = 1.0
-
-This tool reproduces the bound numerically over a discrete time grid,
-and either (a) checks a user-supplied trajectory against it, or
-(b) generates a known-stable reference trajectory
-``V(t) = ε * exp(-λ' * t)`` with ``λ' >= λ`` and asserts the bound
-holds.  Operators use it to:
-
-* prove the Lyapunov decay claim is reproducible without spinning up
-  PyTorch training;
-* re-validate a saved training trajectory (``.npy`` of V-values) before
-  shipping a checkpoint.
-
-The window-of-stability check matches
-``LyapunovConstants.STABILITY_WINDOW = 10`` — a trajectory that
-satisfies the bound for ``STABILITY_WINDOW`` consecutive samples after
-the last violation is considered re-stabilised.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 

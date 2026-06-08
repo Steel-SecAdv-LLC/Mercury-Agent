@@ -1,8 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-Streaming anomaly detection with async data ingestion.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Streaming anomaly detection with async data ingestion."""
 
 from __future__ import annotations
 

@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Psychological Operations (PSYOP) Analysis Module
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Psychological Operations (PSYOP) Analysis Module.
 
 Provides AI-powered analysis capabilities for psychological operations,
 information warfare detection, and influence campaign analysis.
@@ -39,6 +21,8 @@ Key Capabilities:
 applications. Operational deployment requires proper legal authorization,
 oversight, and adherence to applicable laws and regulations.
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -99,8 +83,7 @@ class NarrativeType(Enum):
 
 @dataclass
 class TargetAudienceProfile:
-    """
-    Profile of a target audience for PSYOP analysis.
+    """Profile of a target audience for PSYOP analysis.
 
     Attributes:
         audience_id: Unique identifier for the audience segment.
@@ -124,8 +107,7 @@ class TargetAudienceProfile:
 
 @dataclass
 class NarrativeAnalysis:
-    """
-    Analysis of a narrative or message.
+    """Analysis of a narrative or message.
 
     Attributes:
         narrative_id: Unique identifier.
@@ -154,8 +136,7 @@ class NarrativeAnalysis:
 
 @dataclass
 class InfluenceCampaignDetection:
-    """
-    Detection results for influence campaign analysis.
+    """Detection results for influence campaign analysis.
 
     Attributes:
         campaign_id: Unique identifier.
@@ -183,8 +164,7 @@ class InfluenceCampaignDetection:
 
 @dataclass
 class InformationEnvironmentState:
-    """
-    State of the information environment.
+    """State of the information environment.
 
     Attributes:
         environment_id: Unique identifier.
@@ -206,8 +186,7 @@ class InformationEnvironmentState:
 
 
 class PSYOPAnalyzer:
-    """
-    Psychological Operations Analysis Engine.
+    """Psychological Operations Analysis Engine.
 
     Provides comprehensive PSYOP analysis capabilities including:
     - Target audience analysis
@@ -303,8 +282,7 @@ class PSYOPAnalyzer:
         self.logger.info("PSYOP Analyzer initialized")
 
     def analyze_narrative(self, narrative_data: dict[str, Any]) -> NarrativeAnalysis:
-        """
-        Analyze a narrative or message for PSYOP indicators.
+        """Analyze a narrative or message for PSYOP indicators.
 
         Args:
             narrative_data: Dictionary containing narrative information:
@@ -537,8 +515,7 @@ class PSYOPAnalyzer:
         return indicators
 
     def analyze_target_audience(self, audience_data: dict[str, Any]) -> TargetAudienceProfile:
-        """
-        Analyze a target audience for PSYOP susceptibility.
+        """Analyze a target audience for PSYOP susceptibility.
 
         Args:
             audience_data: Dictionary containing audience information:
@@ -674,8 +651,7 @@ class PSYOPAnalyzer:
     def detect_influence_campaign(
         self, campaign_data: dict[str, Any]
     ) -> InfluenceCampaignDetection:
-        """
-        Detect and analyze a potential influence campaign.
+        """Detect and analyze a potential influence campaign.
 
         Args:
             campaign_data: Dictionary containing:
@@ -895,8 +871,7 @@ class PSYOPAnalyzer:
     def assess_information_environment(
         self, environment_data: dict[str, Any]
     ) -> InformationEnvironmentState:
-        """
-        Assess the current state of an information environment.
+        """Assess the current state of an information environment.
 
         Args:
             environment_data: Dictionary containing:
@@ -975,8 +950,7 @@ class PSYOPAnalyzer:
     def extract_features(
         self, data: np.ndarray[Any, Any] | dict[str, Any]
     ) -> np.ndarray[tuple[int, ...], np.dtype[np.floating[Any]]]:
-        """
-        Extract PSYOP-relevant features for fusion with other detectors.
+        """Extract PSYOP-relevant features for fusion with other detectors.
 
         Args:
             data: Input data (numeric array or PSYOP data dict)
@@ -1036,8 +1010,7 @@ class PSYOPAnalyzer:
             return batch_features
 
     def predict(self, data: np.ndarray[Any, Any] | dict[str, Any]) -> dict[str, Any]:
-        """
-        Predict PSYOP activity from input data.
+        """Predict PSYOP activity from input data.
 
         Args:
             data: Input data for prediction

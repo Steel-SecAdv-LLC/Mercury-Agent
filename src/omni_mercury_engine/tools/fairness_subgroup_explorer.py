@@ -1,34 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-------------------------------------------------------------------------
-
-Operator tool: intersectional fairness subgroup explorer.
-
-Extends the existing :mod:`bias_audit_standalone` (which audits a
-single sensitive feature) to the full cartesian product of sensitive
-features.  Auto-discovers intersectional subgroups and ranks them by
-Demographic Parity Difference (DPD) and Equal Opportunity Difference
-(EOD).
-
-Inputs are three ``.npy`` files:
-
-* ``--features``: shape (N, K) with K sensitive-feature columns.
-  Columns are treated as categorical — non-integer values are
-  bucketed to their string form.
-* ``--scores``: shape (N,) model scores or binary predictions.
-* ``--labels``: shape (N,) ground-truth labels (0/1).
-
-Output: every intersectional subgroup with its size, positive rate
-(DP), TPR (EO), DPD, and EOD relative to the global rate.  Fails when
-any subgroup with at least ``--min-size`` samples exceeds the
-``--dpd-max`` or ``--eod-max`` thresholds.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 

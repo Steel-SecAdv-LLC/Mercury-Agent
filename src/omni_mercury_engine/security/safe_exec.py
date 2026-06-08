@@ -1,46 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
-
-------------------------------------------------------------------------
-
-safe_exec -- single subprocess gate for Mercury Agent.
-
-This module owns the only ``subprocess.run`` call in ``src/`` that
-bandit can flag.  The argv list is validated before the call:
-
-* the argv must be a non-empty sequence of strings (no string -- no
-  shell);
-* ``shell=False`` is enforced;
-* the executable path must be absolute (``sys.executable`` and the
-  output of ``shutil.which()`` both satisfy this) and must exist on
-  disk before the call -- so a typo or a deleted binary fails loudly
-  here instead of inside the child;
-* the child env is whatever the caller passes.  ``env=None`` inherits
-  the parent's full environment, exactly like ``subprocess.run`` does;
-  callers that need scrubbing build the dict explicitly (see
-  ``tools/migrate_pkl.py:_relaunch_hardened`` for the hardened
-  template).  This module does not invent an implicit allowlist
-  because the right scrub varies per caller.
-
-Every place in Mercury Agent that needs to run another process
-imports ``safe_exec`` from here.  The current callers are
-``tools/migrate_pkl.py`` (re-launches itself in a hardened subprocess
-before unpickling) and ``loaders/base.py`` (reads ``git rev-parse
-HEAD`` for provenance).
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 

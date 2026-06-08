@@ -1,40 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
-
-------------------------------------------------------------------------
-
-Operator tool: synthetic-fallback auditor.
-
-**Live-first data policy.**  Mercury Agent's data pipeline is
-live-first; synthetic data is only ever a transient reenactment of
-the most-recently-collected live corpus.  This auditor scans a
-benchmark results JSON for any dataset using >50 % synthetic data
-and flags it so an operator can confirm:
-
-* the live source was genuinely unreachable when the reenactment
-  occurred,
-* the reenactment has a :mod:`synthetic_provenance_tag` recording
-  which live snapshot it reproduced, and
-* the :mod:`live_dataset_protection_gate` passed against the live
-  reference before the run was released.
-
-The README already says synthetic fallback triggers a warning at
-runtime; this tool enforces the post-hoc fail-closed CI gate so
-stealthy synthetic-fallback contamination cannot ship undetected.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 

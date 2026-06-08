@@ -1,28 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-------------------------------------------------------------------------
-
-Operator tool: verify the OAE R/H/O branches preserve dimensionality
-through fusion at the tensor level.
-
-The scalar :mod:`oae_weight_certifier` proves the (w_R, w_H, w_O)
-weights sum to 1.0 and match the documented golden-ratio derivation.
-This tool drives random tensors of the contracted shape through the
-fusion arithmetic and asserts:
-
-* every per-branch projection produces a tensor of the documented
-  output rank (no silent broadcast collapsing a (B, D) tensor to (B,));
-* the fused output's L2-norm is bounded by the convex-combination
-  identity ||w_R * R + w_H * H + w_O * O|| <= max(||R||, ||H||, ||O||);
-* fusion is invariant under the same input on all three branches —
-  R==H==O => fused==R (numerical equality to machine precision).
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 

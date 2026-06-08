@@ -1,34 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
-
-------------------------------------------------------------------------
-
-Operator tool: workflow-version drift gate.
-
-Verifies that the ``ama-cryptography`` git ref pinned in
-``pyproject.toml`` matches the ``AMA_REF`` env-var pinned in every
-workflow that builds the AMA native library:
-
-* ``.github/workflows/ci.yml``
-* ``.github/workflows/pqc-production-check.yml``
-* any other workflow that defines ``AMA_REF:``
-
-We just hit this manually (AMA v3.2.0 vs v2.0).  A pre-commit / CI
-gate turns the manual check into a structural one.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 

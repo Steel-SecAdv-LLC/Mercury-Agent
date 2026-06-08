@@ -1,27 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-------------------------------------------------------------------------
-
-Operator tool: handwritten PII regex/heuristic gate.
-
-Scans the supplied text (file or stdin) and reports matches for:
-
-* email addresses,
-* US Social Security Numbers (XXX-XX-XXXX with valid area-prefix),
-* US phone numbers (E.164, dash/dot/space-separated, parens area code),
-* ICD-10 diagnostic codes (e.g. ``A00.0``, ``Z99.89``),
-* high-precision latitude/longitude pairs (>= 5 decimal places).
-
-Fails on any leak.  The probe is intended to be wired into every
-loader's smoke-test path so a silent regression in upstream data
-sanitation surfaces immediately.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 

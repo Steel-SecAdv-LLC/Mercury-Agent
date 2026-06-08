@@ -1,29 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-------------------------------------------------------------------------
-
-Operator tool: TLS posture probe.
-
-For an operator-supplied URL, enumerate:
-
-* negotiated cipher suite + TLS version,
-* full peer certificate chain (subject, issuer, validity, SAN),
-* OCSP-staple presence (when the server returns one),
-* HSTS / ALPN advertised values,
-* hybrid post-quantum availability — we probe for the
-  ``X25519MLKEM768`` group via a separate ClientHello when the OpenSSL
-  build supports it.
-
-The probe reuses :class:`SafeHTTPClient` so the in-engine SSRF gate
-applies (no private-network or IMDS leak) and the URL allow-list is
-consistent with the rest of Mercury.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 

@@ -1,25 +1,5 @@
-"""
-Mercury Agent - Secure Audit Logging System
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Production-grade secure audit logging providing:
-- Cryptographically signed audit logs
-- Tamper-evident log chains (hash-linked)
-- Secure log rotation with integrity verification
-- PII masking and sanitization
-- Compliance-ready audit trail (SOC2, HIPAA, GDPR)
-- Constant-time comparisons for sensitive operations
-- Rate limiting for audit log access
-- Encrypted log storage option
-
-This addresses the security audit finding: "No Audit Log Integrity"
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Secure Audit Logging System."""
 
 from __future__ import annotations
 
@@ -38,7 +18,6 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-
 
 logger = logging.getLogger(__name__)
 
@@ -122,8 +101,7 @@ class AuditEvent:
 
 
 class PIIMasker:
-    """
-    Masks Personally Identifiable Information in audit logs.
+    """Masks Personally Identifiable Information in audit logs.
 
     Supports common PII patterns and custom patterns.
     """
@@ -179,8 +157,7 @@ class PIIMasker:
         enabled: bool = True,
         custom_patterns: dict[str, tuple[str, str]] | None = None,
     ):
-        """
-        Initialize PII masker.
+        """Initialize PII masker.
 
         Args:
             enabled: Enable PII masking
@@ -249,15 +226,13 @@ class PIIMasker:
 
 
 class SecureHashChain:
-    """
-    Cryptographically secure hash chain for audit log integrity.
+    """Cryptographically secure hash chain for audit log integrity.
 
     Each event is linked to the previous via SHA-256 hash, making tampering detectable.
     """
 
     def __init__(self, hmac_key: bytes | None = None):
-        """
-        Initialize hash chain.
+        """Initialize hash chain.
 
         Args:
             hmac_key: HMAC key for signed hashes (optional)
@@ -277,8 +252,7 @@ class SecureHashChain:
         return hmac.new(self.hmac_key, data, hashlib.sha3_256).hexdigest()
 
     def compute_event_hash(self, event_data: dict[str, Any]) -> tuple[str, str, int]:
-        """
-        Compute hash for event and link to chain.
+        """Compute hash for event and link to chain.
 
         Args:
             event_data: Event data to hash
@@ -309,8 +283,7 @@ class SecureHashChain:
             return event_hash, previous, seq
 
     def verify_chain(self, events: list[AuditEvent]) -> tuple[bool, list[int]]:
-        """
-        Verify integrity of event chain.
+        """Verify integrity of event chain.
 
         Uses constant-time comparison to prevent timing attacks
         that could reveal information about the hash chain.
@@ -347,8 +320,7 @@ class SecureHashChain:
 
 
 class SecureAuditLogger:
-    """
-    Production-grade secure audit logging system.
+    """Production-grade secure audit logging system.
 
     Features:
     - Cryptographically signed log entries
@@ -369,8 +341,7 @@ class SecureAuditLogger:
         rotate_size_mb: float = 100.0,
         max_rotated_files: int = 10,
     ):
-        """
-        Initialize secure audit logger.
+        """Initialize secure audit logger.
 
         Args:
             log_dir: Directory for audit logs
@@ -435,8 +406,7 @@ class SecureAuditLogger:
         session_id: str | None = None,
         client_ip: str | None = None,
     ) -> str:
-        """
-        Log an audit event.
+        """Log an audit event.
 
         Args:
             category: Event category
@@ -614,8 +584,7 @@ class SecureAuditLogger:
         self._write_events(events_to_write)
 
     def _write_events(self, events: list[AuditEvent]) -> None:
-        """
-        Write events to log file with robust error handling.
+        """Write events to log file with robust error handling.
 
         SECURITY: Audit log write failures are critical - they indicate
         potential data loss in the audit trail. This method will raise
@@ -687,8 +656,7 @@ class SecureAuditLogger:
         self._event_hooks.append(hook)
 
     def verify_log_integrity(self, path: Path | None = None) -> tuple[bool, str]:
-        """
-        Verify integrity of log file.
+        """Verify integrity of log file.
 
         Args:
             path: Path to log file (current if None)
@@ -742,8 +710,7 @@ class SecureAuditLogger:
         category: AuditEventCategory | None = None,
         severity: AuditEventSeverity | None = None,
     ) -> list[dict[str, Any]]:
-        """
-        Get recent events from buffer and disk.
+        """Get recent events from buffer and disk.
 
         Args:
             count: Maximum events to return

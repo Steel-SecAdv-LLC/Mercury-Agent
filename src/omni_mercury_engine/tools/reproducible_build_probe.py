@@ -1,20 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-------------------------------------------------------------------------
-
-Operator tool: reproducible-build probe.
-
-Drives a wheel build twice with ``SOURCE_DATE_EPOCH`` pinned and
-compares the digests.  Bit-reproducible builds are the supply-chain
-primitive every other gate (SBOM, SLSA, signed_release_bundle) tacitly
-assumes — this tool makes the assumption auditable.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 

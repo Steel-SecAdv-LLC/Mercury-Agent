@@ -1,46 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
-
-------------------------------------------------------------------------
-
-Operator tool: Mercury/AMA Disconnect response-latency tester.
-
-Engages the Phase-5 OODA Mercury/AMA Disconnect on ``AutonomousAgent``
-under load and measures the wall-clock latency between engagement and
-the next in-flight step standing down.  The contractual SLA quoted in
-the 7-Phase table is sub-second; this tool turns the claim into a
-measurable, reproducible operator artefact.
-
-Methodology
------------
-1. Construct an ``AutonomousAgent`` and start a worker thread that
-   repeatedly calls ``observe → orient → decide → act`` until the
-   Disconnect is engaged.
-2. After ``--warmup`` iterations, fire ``activate_disconnect()`` from
-   the main thread.  Capture ``t_activate`` (perf_counter_ns).
-3. The worker checks ``self._disconnect_engaged`` at every step
-   boundary; the first step that observes it records ``t_observed``
-   and stands down.
-4. ``disconnect_latency_ns = t_observed - t_activate`` is the
-   SLA-relevant measurement.
-
-The Disconnect is a ``bool`` read inside the worker's hot loop;
-Python's GIL guarantees the write is atomic, but propagation latency
-is what we're measuring — typically <1ms on a modern CPU.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 

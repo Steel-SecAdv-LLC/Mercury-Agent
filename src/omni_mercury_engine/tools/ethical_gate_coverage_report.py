@@ -1,31 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-------------------------------------------------------------------------
-
-Operator tool: prove the three ethical gates (Benevolence, σ_Immutable,
-GOSNN) are reachable from every documented public surface in
-``omni_mercury_engine.__all__``.
-
-The tool walks the AST of every module under ``omni_mercury_engine``
-and builds a name→module map of function/method definitions and
-``Call``/``Attribute`` references.  For each public surface, we walk
-the call graph (statically) and check whether *any* path reaches one of
-the gate entry-points
-(:class:`SigmaImmutableGate.enforce`,
-:class:`BenevolenceLoss.evaluate`, or ``gosnn.detect``).
-Surfaces with no reachable gate are reported and the cert fails.
-
-The traversal is conservative (static-AST, no type inference) — false
-positives are reduced by treating every imported name as a potential
-gate edge.  The result is an evidence floor: surfaces that don't fire
-a gate fail; surfaces that do are confirmed reachable.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 

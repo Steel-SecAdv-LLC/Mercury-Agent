@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Security Intelligence Fusion Module
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Security Intelligence Fusion Module.
 
 Comprehensive integration of multi-source intelligence disciplines for all-source
 threat anomaly detection. Integrates OSINT, COMINT, HUMINT, GEOINT, IMINT, SIGINT,
@@ -47,8 +29,9 @@ Intelligence Disciplines:
 
 ⚠️ SIMULATION-BASED: Research/development tool for threat analysis patterns.
 Operational deployment requires security clearance and legal authorization.
-
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -112,14 +95,14 @@ class IntelligenceFusionResult:
 
 
 class AllSourceFusionNetwork(nn.Module):
-    """
-    Neural network for all-source intelligence fusion.
+    """Neural network for all-source intelligence fusion.
 
     Implements multi-head attention across INT disciplines with golden ratio architecture
     optimization for optimal information synthesis.
     """
 
     def __init__(self, input_dim: int = 128, num_int_types: int = 13) -> None:
+        """Initialize the instance."""
         super().__init__()
 
         phi = 1.618
@@ -177,8 +160,7 @@ class AllSourceFusionNetwork(nn.Module):
         int_features: dict[str, torch.Tensor],
         temporal_sequence: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """
-        Forward pass through all-source fusion network.
+        """Forward pass through all-source fusion network.
 
         Args:
             int_features: Dictionary of features per INT discipline
@@ -226,8 +208,7 @@ class AllSourceFusionNetwork(nn.Module):
 
 
 class IntelligenceFusionEngine:
-    """
-    All-Source Intelligence Fusion Engine.
+    """All-Source Intelligence Fusion Engine.
 
     Synthesizes multi-INT inputs for comprehensive threat assessment with neurosymbolic reasoning
     and cryptanalysis integration.
@@ -239,8 +220,7 @@ class IntelligenceFusionEngine:
         enable_cryptanalysis: bool = True,
         golden_ratio_weights: bool = True,
     ):
-        """
-        Initialize intelligence fusion engine.
+        """Initialize intelligence fusion engine.
 
         Args:
             enable_neurosymbolic: Enable symbolic threat reasoning
@@ -344,8 +324,7 @@ class IntelligenceFusionEngine:
     def fuse_intelligence(
         self, intel_reports: dict[str, Any], temporal_context: list[dict[str, Any]] | None = None
     ) -> IntelligenceFusionResult:
-        """
-        Fuse multi-source intelligence for threat assessment.
+        """Fuse multi-source intelligence for threat assessment.
 
         Args:
             intel_reports: Dictionary of intelligence reports by discipline:
@@ -440,7 +419,7 @@ class IntelligenceFusionEngine:
         return result
 
     def _extract_int_features(self, intel_reports: dict[str, Any]) -> dict[str, torch.Tensor]:
-        """Extract features from intelligence reports (O(n) complexity)"""
+        """Extract features from intelligence reports (O(n) complexity)."""
         int_features = {}
         feature_dim = 128 // len(IntelligenceDiscipline)
 
@@ -685,8 +664,7 @@ class IntelligenceFusionEngine:
 
 
 def create_omni_intelligence_scalars() -> dict[str, float]:
-    """
-    Create doctorate-level intelligence scalars for truth deciphering.
+    """Create doctorate-level intelligence scalars for truth deciphering.
 
     Returns:
         Dictionary of omni-intelligence scalars with golden ratio optimization

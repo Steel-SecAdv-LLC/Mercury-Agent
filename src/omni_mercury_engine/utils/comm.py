@@ -1,25 +1,10 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Optional lightweight communication utilities for distributed computing.
 
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
+Extracted from Communication Engine for future scalability
 """
 
 from __future__ import annotations
-
-"""
-Optional lightweight communication utilities for distributed computing
-Extracted from Communication Engine for future scalability
-"""
 
 import asyncio
 import logging
@@ -29,7 +14,6 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 logger = logging.getLogger(__name__)
-
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -80,12 +64,13 @@ class Message:
 
 
 class AsyncMessageQueue:
-    """Asynchronous message queue for inter-process communication Useful for distributed anomaly
+    """Asynchronous message queue for inter-process communication Useful for distributed anomaly.
 
     detection processing.
     """
 
     def __init__(self, max_size: int = 1000) -> None:
+        """Initialize the instance."""
         self.queue: asyncio.Queue[Message] = asyncio.Queue(maxsize=max_size)
         self.handlers: dict[str, list[Callable[..., Any]]] = {}
         self.stats = {
@@ -95,8 +80,7 @@ class AsyncMessageQueue:
         }
 
     async def send(self, message: Message) -> bool:
-        """
-        Send message to queue.
+        """Send message to queue.
 
         Args:
             message: Message to send
@@ -114,8 +98,7 @@ class AsyncMessageQueue:
             return False
 
     async def receive(self, timeout: float | None = None) -> Message | None:
-        """
-        Receive message from queue.
+        """Receive message from queue.
 
         Args:
             timeout: Timeout in seconds
@@ -139,8 +122,7 @@ class AsyncMessageQueue:
             return None
 
     def register_handler(self, message_type: str, handler: Callable[..., Any]) -> None:
-        """
-        Register handler for specific message type.
+        """Register handler for specific message type.
 
         Args:
             message_type: Type of message to handle
@@ -151,7 +133,7 @@ class AsyncMessageQueue:
         self.handlers[message_type].append(handler)
 
     async def process_messages(self) -> None:
-        """Process messages using registered handlers Run this in a background task for automatic
+        """Process messages using registered handlers Run this in a background task for automatic.
 
         processing.
         """
@@ -181,17 +163,17 @@ class AsyncMessageQueue:
 
 
 class SimplePubSub:
-    """Simple publish-subscribe pattern for event-driven communication Useful for broadcasting
+    """Simple publish-subscribe pattern for event-driven communication Useful for broadcasting.
 
     anomaly detection results.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.subscribers: dict[str, list[Callable[..., Any]]] = {}
 
     def subscribe(self, topic: str, callback: Callable[..., Any]) -> None:
-        """
-        Subscribe to a topic.
+        """Subscribe to a topic.
 
         Args:
             topic: Topic name
@@ -202,8 +184,7 @@ class SimplePubSub:
         self.subscribers[topic].append(callback)
 
     def unsubscribe(self, topic: str, callback: Callable[..., Any]) -> None:
-        """
-        Unsubscribe from a topic.
+        """Unsubscribe from a topic.
 
         Args:
             topic: Topic name
@@ -213,8 +194,7 @@ class SimplePubSub:
             self.subscribers[topic].remove(callback)
 
     def publish(self, topic: str, message: Any) -> None:
-        """
-        Publish message to topic.
+        """Publish message to topic.
 
         Args:
             topic: Topic name
@@ -229,8 +209,7 @@ class SimplePubSub:
                     logger.debug(f"Publish callback error for topic '{topic}': {e}")
 
     async def publish_async(self, topic: str, message: Any) -> None:
-        """
-        Asynchronously publish message to topic.
+        """Asynchronously publish message to topic.
 
         Args:
             topic: Topic name

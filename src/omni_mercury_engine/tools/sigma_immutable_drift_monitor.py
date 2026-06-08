@@ -1,26 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-------------------------------------------------------------------------
-
-Operator tool: σ_Immutable drift monitor.
-
-Long-running probe that re-evaluates the σ band on a rolling window of
-:mod:`sigma_immutable_verifier`-style samples and alerts when the
-empirical band drifts beyond ``--band-tolerance`` over the configured
-``--window`` size.
-
-Designed to be invoked by a systemd ``--user`` timer (see
-``deploy/systemd/sigma_immutable_drift_monitor.timer`` shipped under
-``docs/TOOLS.md``).  Stateless across runs: the rolling window is
-loaded from / written to ``--state`` so successive timer fires
-accumulate evidence.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 

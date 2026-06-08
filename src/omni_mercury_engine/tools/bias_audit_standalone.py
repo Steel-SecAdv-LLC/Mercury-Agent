@@ -1,31 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
-
-------------------------------------------------------------------------
-
-Operator tool: standalone fairness audit (Fairlearn DPD / EOD / 80%-rule).
-
-Fairlearn is already a Mercury dependency but it has no operator entry
-point — the only way to audit a detector's fairness was to write a
-bespoke script.  This tool exposes the canonical demographic-parity,
-equalized-odds, and four-fifths-rule metrics behind a single CLI::
-
-    python -m omni_mercury_engine.tools.bias_audit_standalone \
-        --detector fusion --data X.npy --sensitive demo.npy
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 

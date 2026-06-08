@@ -1,48 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
-
-------------------------------------------------------------------------
-
-Operator tool: pre-deployment benevolence certifier.
-
-Loads the trained σ_Immutable checkpoint (the operational gate that
-fires at every Mercury boundary) and exercises it against a curated
-probe set of *known-good* (ethical-band) feature vectors generated
-deterministically from the same labelling rule that produced the
-signed corpus.
-
-For every probe the certifier records the σ_Immutable score and the
-pass/fail decision.  A successful run is the re-derivable evidence
-behind every "benevolence ≥ {threshold}" claim in the README and
-ARCHITECTURE.md — a failed run means the deployed checkpoint cannot
-reproduce the labelling guarantee on its own training distribution
-and the deployment must be blocked.
-
-Two probe sources are supported:
-
-* the default *synthetic ethical-band probes* generated from the
-  documented σ_Immutable corpus rule (positive samples from a fixed
-  ``--seed``);
-* an operator-supplied ``.npy`` file with a ``(N, 256)`` matrix of
-  feature vectors.
-
-The threshold defaults to the gate's configured value
-(``SIGMA_IMMUTABLE_DEFAULT 0.93`` — the structural gate); operators
-running a benevolence-immutable evaluation supply ``--threshold 0.99``.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 

@@ -1,27 +1,5 @@
-"""
-Mercury Agent - Unified Rate Limiting
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
-
-Unified rate limiting module consolidating:
-- Token bucket algorithm with burst support
-- Sliding window rate limiting
-- Memory management with TTL cleanup
-- Thread-safe operations
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Unified Rate Limiting."""
 
 from __future__ import annotations
 
@@ -84,6 +62,7 @@ class InMemoryBackend:
     """Thread-safe in-memory rate limit backend."""
 
     def __init__(self, max_entries: int = 10000, ttl_seconds: int = 300) -> None:
+        """Initialize the instance."""
         self._buckets: dict[str, tuple[float, int]] = {}
         self._lock = threading.RLock()
         self._max_entries = max_entries
@@ -134,8 +113,7 @@ class InMemoryBackend:
 
 
 class RateLimiter:
-    """
-    Unified rate limiter with token bucket and sliding window algorithms.
+    """Unified rate limiter with token bucket and sliding window algorithms.
 
     Features:
     - Token bucket algorithm with configurable burst
@@ -173,8 +151,7 @@ class RateLimiter:
         max_requests: int | None = None,
         window_seconds: int | None = None,
     ) -> None:
-        """
-        Initialize unified rate limiter.
+        """Initialize unified rate limiter.
 
         Args:
             requests_per_minute: Maximum requests per minute
@@ -216,8 +193,7 @@ class RateLimiter:
         )
 
     def check(self, identifier: str) -> RateLimitInfo:
-        """
-        Check if request is allowed and update rate limit state.
+        """Check if request is allowed and update rate limit state.
 
         Args:
             identifier: Unique identifier for the client (IP, user ID, API key)
@@ -302,8 +278,7 @@ class RateLimiter:
             )
 
     def is_allowed(self, identifier: str) -> bool:
-        """
-        Simple check if request is allowed (backward compatible).
+        """Simple check if request is allowed (backward compatible).
 
         Args:
             identifier: Unique identifier for the client
@@ -314,8 +289,7 @@ class RateLimiter:
         return self.check(identifier).allowed
 
     def reset(self, identifier: str) -> None:
-        """
-        Reset rate limit for identifier.
+        """Reset rate limit for identifier.
 
         Args:
             identifier: Unique identifier to reset
@@ -325,8 +299,7 @@ class RateLimiter:
             self._sliding_requests.pop(identifier, None)
 
     def get_status(self, identifier: str) -> RateLimitInfo:
-        """
-        Get current rate limit status without consuming a token.
+        """Get current rate limit status without consuming a token.
 
         Args:
             identifier: Unique identifier to check
@@ -376,8 +349,7 @@ def get_rate_limiter(
     requests_per_minute: int = RateLimiter.DEFAULT_REQUESTS_PER_MINUTE,
     burst_size: int | None = None,
 ) -> RateLimiter:
-    """
-    Get or create the default rate limiter singleton.
+    """Get or create the default rate limiter singleton.
 
     Args:
         requests_per_minute: Requests per minute (only used on first call)

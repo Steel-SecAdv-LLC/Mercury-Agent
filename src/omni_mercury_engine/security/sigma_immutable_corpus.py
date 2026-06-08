@@ -1,32 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published by the
-Free Software Foundation, either version 3 of the License, or (at your
-option) any later version.
-
-σ_Immutable signed corpus (Wave B item 2).
-
-Persists, signs, and verifies the labelled scalar-vector corpus that
-trains the σ_Immutable EthicalGate.  The corpus and its signatures live
-on disk next to the trained weights:
-
-* ``sigma_immutable_corpus.json``     — the labelled corpus + provenance.
-* ``sigma_immutable_corpus.sig.json`` — Ed25519 + ML-DSA-65 signatures
-  produced via :class:`MercuryCrypto`.
-
-On engine startup, :func:`verify_corpus_signatures` checks every present
-signature.  A failed verification is propagated up to
-:class:`SigmaImmutableGate.enforce`, which then turns every boundary
-call into an ``EthicalConstraintViolationError(check="sigma_immutable")``
-— signature failure is *not* a logger.warning.
-
-The :func:`generate_corpus` and :func:`sign_and_persist_corpus`
-helpers are exposed so ``scripts/train_sigma_immutable.py`` can
-regenerate the corpus + signatures end-to-end deterministically from a
-fixed seed.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""option) any later version."""
 
 from __future__ import annotations
 
@@ -40,7 +13,6 @@ from typing import Any
 import numpy as np
 
 logger = logging.getLogger(__name__)
-
 
 _PACKAGE_ROOT = Path(__file__).resolve().parent.parent
 CORPUS_PATH: Path = _PACKAGE_ROOT / "security" / "sigma_immutable_corpus.json"

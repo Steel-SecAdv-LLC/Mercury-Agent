@@ -1,45 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-------------------------------------------------------------------------
-
-Operator tool: emit / verify a synthetic-data provenance tag.
-
-**Live-first data policy.**  Mercury Agent treats live data as the
-source of truth.  Synthetic data is *only* an emergency reenactment of
-the most-recently-collected live corpus, never a primary input.  This
-tool records the provenance of any reenactment so that:
-
-* :mod:`synthetic_fallback_auditor` becomes a *structural* check
-  (the tag is present or absent) rather than a heuristic;
-* :mod:`live_dataset_protection_gate` can identify which run is a
-  reenactment and refuse to ship it unless the reenactment is
-  statistically faithful to the live reference;
-* operators can answer "which live snapshot did this reenactment
-  reproduce?" with a signed sidecar instead of a code-review.
-
-When a loader is forced to synthesise data (because the live upstream
-is genuinely unreachable, or because the operator explicitly requested
-a reenactment for offline development), it must embed this provenance
-tag.  Synthetic data without a tag is not allowed downstream.
-
-Tag format (JSON sidecar next to the data file)::
-
-    {
-      "schema": "mercury.synthetic_provenance/v1",
-      "synthesised_at": "2025-...",
-      "seed": 12345,
-      "rows": 1024,
-      "method": "gaussian_mixture",
-      "upstream_attempted": "https://example.com/real.csv",
-      "fallback_reason": "DNS resolution failed"
-    }
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 

@@ -1,27 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-------------------------------------------------------------------------
-
-Operator tool: pin every loader's output schema (column dtypes, label
-set, row count range) and verify it on every load.
-
-Two modes:
-
-* ``--emit``: introspect each loader's ``schema()`` (or, when absent,
-  one ``probe()`` call) and write the pinned schema to disk;
-* ``--verify PATH``: re-introspect and diff against the pinned schema,
-  failing on any drift.
-
-The verify path is what tools like ``DatasetLoader.load(verify_schema=...)``
-are expected to call at runtime — silent schema drift is the gap this
-gate closes.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 

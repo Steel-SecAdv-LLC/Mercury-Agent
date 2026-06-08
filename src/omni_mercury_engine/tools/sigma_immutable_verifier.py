@@ -1,34 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
-
-------------------------------------------------------------------------
-
-Operator tool: verify the σ_Immutable training corpus signatures.
-
-Wraps :func:`omni_mercury_engine.security.sigma_immutable_corpus.verify_corpus_signatures`
-in the standard operator-tool envelope.  Installable as
-``mercury-agent verify-corpus`` (see ``cli.py``) and runnable directly
-via ``python -m omni_mercury_engine.tools.sigma_immutable_verifier``.
-
-Exit codes (in addition to the package-wide set in :mod:`._base`):
-
-* ``EXIT_OK`` — every mandatory signature verified, SHA3-256 matches.
-* ``EXIT_FAIL`` — corpus / manifest tampered with, Ed25519 invalid,
-  or ML-DSA-65 missing/omitted/invalid.  This is a hard install-time gate.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 

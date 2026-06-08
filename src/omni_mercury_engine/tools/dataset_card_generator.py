@@ -1,26 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-------------------------------------------------------------------------
-
-Operator tool: Google-style dataset card generator.
-
-Composes a Markdown dataset card from sibling tool evidence:
-
-* upstream licence + SPDX expression from
-  :mod:`dataset_license_auditor`,
-* output schema from :mod:`loader_schema_pinner`,
-* PII status from :mod:`pii_scrubber_probe`,
-* checksum digest from :mod:`dataset_checksum_manifest`.
-
-The card itself becomes the auditor's single source of truth for the
-dataset; the per-tool certs are the signed evidence behind it.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 

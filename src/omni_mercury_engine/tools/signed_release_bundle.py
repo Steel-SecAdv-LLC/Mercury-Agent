@@ -1,27 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-------------------------------------------------------------------------
-
-Operator tool: assemble a signed release bundle (tarball) of the
-existing per-tool evidence artefacts.
-
-The bundle pins:
-
-* ``release_manifest.json`` — the :mod:`release_manifest_builder` cert,
-* ``sbom.json`` — the :mod:`sbom_emitter` CycloneDX output,
-* ``slsa.json`` — the :mod:`slsa_provenance_emitter` attestation,
-* ``corpus.sig.json`` — the σ_Immutable corpus signature manifest,
-* ``kat_cert.json`` — the :mod:`kat_runner_standalone` certificate.
-
-The bundle is sealed with **both** Ed25519 and ML-DSA-65 — mirroring
-the σ_Immutable corpus signature scheme.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 

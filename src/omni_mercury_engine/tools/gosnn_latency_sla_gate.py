@@ -1,25 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-------------------------------------------------------------------------
-
-Operator tool: GOSNN latency-SLA gate.
-
-Asserts the README's two performance claims on every PR:
-
-* <100 ms median GOSNN detection latency,
-* >50% cache hit rate over a representative sweep.
-
-Drives ``GOSNNDetector.detect()`` (when importable) over a synthetic
-sweep with deterministic seed; falls back to a structural check
-(``module-level constants exist``) when torch is unavailable, so the
-gate runs identically in CPU-only CI.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 

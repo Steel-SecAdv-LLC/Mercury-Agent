@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Space Exploration Analyzer - Hubble-Inspired Cosmic Anomaly Detection
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Space Exploration Analyzer - Hubble-Inspired Cosmic Anomaly Detection.
 
 Inspired by Hubble Space Telescope anomaly detection in cosmic data streams
 and NASA telemetry monitoring for orbital threats.
@@ -32,8 +14,9 @@ Research sources:
 - NASA Technical Reports Server (NTRS): https://ntrs.nasa.gov/
 - Hubble Space Telescope mission data
 - Space debris monitoring systems (ESA, NASA, NORAD)
-
 """
+
+from __future__ import annotations
 
 import logging
 from typing import Any
@@ -42,8 +25,7 @@ import numpy as np
 
 
 class SpaceExplorationAnalyzer:
-    """
-    Hubble-inspired analyzer for cosmic anomalies and orbital threats.
+    """Hubble-inspired analyzer for cosmic anomalies and orbital threats.
 
     Features:
     - Cosmic ray anomaly detection (energetic particle events)
@@ -53,8 +35,7 @@ class SpaceExplorationAnalyzer:
     """
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
-        """
-        Initialize space exploration analyzer.
+        """Initialize space exploration analyzer.
 
         Args:
             config: Configuration dictionary with optional keys:
@@ -72,8 +53,7 @@ class SpaceExplorationAnalyzer:
         self.orbital_parameters = self._initialize_orbital_parameters()
 
     def _initialize_spectral_database(self) -> dict[str, list[float]]:
-        """
-        Initialize reference database of known spectral lines.
+        """Initialize reference database of known spectral lines.
 
         Returns:
             Dictionary mapping element/molecule to wavelength list (nm)
@@ -92,8 +72,7 @@ class SpaceExplorationAnalyzer:
         }
 
     def _initialize_orbital_parameters(self) -> dict[str, Any]:
-        """
-        Initialize standard orbital parameters for common orbits.
+        """Initialize standard orbital parameters for common orbits.
 
         Returns:
             Dictionary with orbital parameter ranges
@@ -119,8 +98,7 @@ class SpaceExplorationAnalyzer:
     def detect(
         self, data: np.ndarray[Any, Any], analysis_type: str, context: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        """
-        Detect anomalies in space exploration data.
+        """Detect anomalies in space exploration data.
 
         Args:
             data: Telemetry, spectral, or positional data (numpy array)
@@ -173,8 +151,7 @@ class SpaceExplorationAnalyzer:
     def analyze_cosmic_rays(
         self, data: np.ndarray[Any, Any], context: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        """
-        Detect cosmic ray anomalies in sensor data.
+        """Detect cosmic ray anomalies in sensor data.
 
         Cosmic rays are high-energy particles from space that can
         interfere with telescopes and satellites.
@@ -237,8 +214,7 @@ class SpaceExplorationAnalyzer:
         intensities: np.ndarray[Any, Any],
         context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """
-        Match spectral patterns against known absorption/emission lines.
+        """Match spectral patterns against known absorption/emission lines.
 
         Spectroscopy is a key tool for identifying chemical composition
         and physical conditions of cosmic objects.
@@ -325,8 +301,7 @@ class SpaceExplorationAnalyzer:
         velocity_data: np.ndarray[Any, Any],
         context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """
-        Predict orbital debris collision risks.
+        """Predict orbital debris collision risks.
 
         Space debris poses significant threat to satellites and
         space stations. Early warning enables avoidance maneuvers.
@@ -401,8 +376,7 @@ class SpaceExplorationAnalyzer:
     def analyze_satellite_position(
         self, data: np.ndarray[Any, Any], context: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        """
-        Analyze satellite position deviations from expected orbit.
+        """Analyze satellite position deviations from expected orbit.
 
         Monitors satellite health by detecting deviations from
         predicted Keplerian orbital elements.

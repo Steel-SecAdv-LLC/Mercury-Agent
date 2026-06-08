@@ -1,26 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-------------------------------------------------------------------------
-
-Operator tool: enforce that every PR that mutates the public surface
-adds a CHANGELOG entry in the active unreleased section.
-
-Compares the staged diff against ``CHANGELOG.md``:
-
-* if any file under ``src/omni_mercury_engine/__init__.py`` or
-  ``src/omni_mercury_engine/__init__.pyi`` was modified AND the
-  ``## [Unreleased]`` section did not gain new bullets, the gate fails;
-* a PR that only modifies non-public code is allowed to skip the
-  CHANGELOG.
-
-Pre-commit + CI friendly; no git network calls beyond ``git diff``.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 

@@ -1,49 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
-
-------------------------------------------------------------------------
-
-Shared infrastructure for ``omni_mercury_engine.tools.*`` operator
-utilities.
-
-This module is intentionally kept dependency-free (stdlib + ``cryptography``
-for the optional Ed25519 detached signature only). It defines the
-contracts every operator tool in the package follows:
-
-* a single, machine-readable JSON document on stdout (always), with a
-  small set of common envelope fields (``schema``, ``tool``,
-  ``mercury_version``, ``generated_at``, ``status``);
-* a **handwritten envelope validator** that every tool must round-trip
-  its certificate through before emit — drift fails the tool closed
-  with ``schema_validation_failed``;
-* stable, documented exit codes (:data:`EXIT_OK`,
-  :data:`EXIT_FAIL`, :data:`EXIT_USAGE`, :data:`EXIT_DEPENDENCY`);
-* optional Ed25519 detached signature over the exact bytes written to
-  ``--output`` (not a re-serialised copy) so an external auditor can
-  re-verify the artefact independently of the issuing host;
-* **atomic writes** for the certificate and the side-car signature so a
-  crashed run never leaves a half-written file on disk;
-* a single ``run_tool(...)`` driver that converts an in-process
-  ``Certificate`` into the canonical CLI output and returns the right
-  exit code.
-
-Tools must never print free-form text to stdout — stdout is a JSON
-channel for downstream automation. Human-readable progress goes to
-stderr.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tool ran, evidence collected, no policy violation detected."""
 
 from __future__ import annotations
 
@@ -68,8 +24,6 @@ from typing import Any
 # These are part of the operator contract — pre-commit hooks, Helm
 # tests, and CI gates pin on these numbers.  Do not renumber.
 EXIT_OK: int = 0
-"""Tool ran, evidence collected, no policy violation detected."""
-
 EXIT_FAIL: int = 1
 """Tool ran but the audited condition failed (signature invalid,
 config out of schema, gate did not fire, drift detected, ...).
@@ -84,7 +38,6 @@ EXIT_DEPENDENCY: int = 3
 installed, torch not installed, GPU absent, ...).  Distinct from
 :data:`EXIT_FAIL` so an operator can tell ``"system not built right"``
 apart from ``"system built right but the artefact is bad"``."""
-
 
 # ---------------------------------------------------------------------------
 # Mercury version pin
@@ -165,7 +118,6 @@ class Certificate:
 # every ``set``/``frozenset`` into a sorted list (string-keyed by
 # default) and normalises non-finite floats to a stable token.
 
-
 _NON_FINITE = {float("inf"): "inf", float("-inf"): "-inf"}
 
 
@@ -206,7 +158,6 @@ def to_json_bytes(payload: Mapping[str, Any]) -> bytes:
 # before writing to disk.  Drift fails the run closed.  The schema
 # string format is ``mercury.tools.<name>/v<version>`` so a future v2
 # can drop fields without silently downgrading v1 consumers.
-
 
 _SCHEMA_RE = re.compile(r"^mercury\.tools\.[a-z][a-z0-9_]*/v\d+$")
 _TOOL_RE = re.compile(r"^[a-z][a-z0-9_]*$")

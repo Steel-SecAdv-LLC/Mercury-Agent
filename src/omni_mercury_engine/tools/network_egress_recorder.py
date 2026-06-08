@@ -1,25 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-------------------------------------------------------------------------
-
-Operator tool: per-run network egress recorder.
-
-Loads a JSONL trace produced by wrapping :class:`SafeHTTPClient`
-(``MERCURY_EGRESS_TRACE=/tmp/egress.jsonl``) and emits a certificate
-summarising every URL fetched, response size, status code, and
-duration.  Would have made the 11-unreachable-dataset incident
-self-evident.
-
-Also supports a ``--record`` mode that proxies a command's
-``SafeHTTPClient`` calls through an in-process recorder — useful for
-CI smoke tests where setting the env-var beforehand is awkward.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 

@@ -1,24 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-------------------------------------------------------------------------
-
-Operator tool: hardware RNG audit.
-
-Probes ``/dev/hwrng``, RDRAND (via ``ctypes`` to the C runtime when
-available), and the kernel ``random`` device.  Emits an entropy
-estimate and asserts the hardware RNG was the actual seed source for
-the corpus signing keys.
-
-The tool is fail-closed in production when no hardware entropy source
-is available — the kernel's blocking pool is acceptable in dev but not
-in a signed-release pipeline.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 

@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Disaster Precursor Detector - Schumann Resonance + Multi-Source Correlation
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Disaster Precursor Detector - Schumann Resonance + Multi-Source Correlation.
 
 Advanced disaster early warning using Schumann resonance anomalies:
 - Earthquake precursor detection (electromagnetic signatures)
@@ -41,8 +23,9 @@ Research sources:
 - Ionospheric precursor research
 - NOAA Space Weather Prediction Center
 - USGS earthquake monitoring
-
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -78,13 +61,13 @@ class DisasterPrecursorResult:
 
 
 class EarthquakePrecursorAnalyzer(nn.Module):
-    """
-    Earthquake precursor detection using electromagnetic signatures.
+    """Earthquake precursor detection using electromagnetic signatures.
 
     Analyzes Schumann+seismic correlations for earthquake prediction.
     """
 
     def __init__(self, input_dim: int = 128) -> None:
+        """Initialize the instance."""
         super().__init__()
 
         self.em_feature_extractor = nn.Sequential(
@@ -110,8 +93,7 @@ class EarthquakePrecursorAnalyzer(nn.Module):
         )
 
     def forward(self, em_features: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """
-        Predict earthquake from EM precursors.
+        """Predict earthquake from EM precursors.
 
         Args:
             em_features: Electromagnetic precursor features
@@ -129,13 +111,13 @@ class EarthquakePrecursorAnalyzer(nn.Module):
 
 
 class GeomageticCorrelator:
-    """
-    Correlate Schumann anomalies with geomagnetic indices.
+    """Correlate Schumann anomalies with geomagnetic indices.
 
     Uses Kp, Dst, and other indices for disaster correlation.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
         self.kp_thresholds = {
@@ -150,8 +132,7 @@ class GeomageticCorrelator:
     def correlate_geomagnetic(
         self, schumann_anomaly: dict[str, Any], geomagnetic_data: dict[str, float] | None = None
     ) -> dict[str, Any]:
-        """
-        Correlate Schumann anomaly with geomagnetic activity.
+        """Correlate Schumann anomaly with geomagnetic activity.
 
         Args:
             schumann_anomaly: Schumann resonance anomaly data
@@ -219,20 +200,19 @@ class GeomageticCorrelator:
 
 
 class IonosphericDisturbanceDetector:
-    """
-    Detect ionospheric disturbances from Schumann data.
+    """Detect ionospheric disturbances from Schumann data.
 
     Ionospheric changes can precede earthquakes and tsunamis.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
     def detect_ionospheric_disturbance(
         self, schumann_data: dict[str, Any], tec_data: np.ndarray[Any, Any] | None = None
     ) -> dict[str, Any]:
-        """
-        Detect ionospheric disturbances.
+        """Detect ionospheric disturbances.
 
         Args:
             schumann_data: Schumann resonance analysis
@@ -273,20 +253,19 @@ class IonosphericDisturbanceDetector:
 
 
 class SeismicCorrelator:
-    """
-    Correlate electromagnetic anomalies with seismic activity.
+    """Correlate electromagnetic anomalies with seismic activity.
 
     Cross-references Schumann anomalies with seismic patterns.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
     def correlate_seismic(
         self, schumann_anomaly: dict[str, Any], seismic_data: np.ndarray[Any, Any] | None = None
     ) -> dict[str, Any]:
-        """
-        Correlate Schumann anomaly with seismic activity.
+        """Correlate Schumann anomaly with seismic activity.
 
         Args:
             schumann_anomaly: Schumann anomaly data
@@ -320,8 +299,7 @@ class SeismicCorrelator:
 
 
 class DisasterPrecursorDetector:
-    """
-    Comprehensive disaster precursor detection system.
+    """Comprehensive disaster precursor detection system.
 
     Integrates Schumann resonance, geomagnetic, ionospheric, and seismic data for multi-modal
     disaster early warning.
@@ -333,6 +311,7 @@ class DisasterPrecursorDetector:
         enable_tsunami: bool = True,
         enable_geomagnetic: bool = True,
     ):
+        """Initialize the instance."""
         self.enable_earthquake = enable_earthquake
         self.enable_tsunami = enable_tsunami
         self.enable_geomagnetic = enable_geomagnetic
@@ -349,8 +328,7 @@ class DisasterPrecursorDetector:
         self.logger = logging.getLogger(__name__)
 
     def detect_disaster_precursor(self, precursor_data: dict[str, Any]) -> DisasterPrecursorResult:
-        """
-        Comprehensive disaster precursor detection.
+        """Comprehensive disaster precursor detection.
 
         Args:
             precursor_data: Multi-source precursor data including:

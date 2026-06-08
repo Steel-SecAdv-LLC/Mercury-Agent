@@ -1,22 +1,5 @@
-"""
-Mercury Agent - Distributed Processing Module
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Scalability enhancements for large-scale anomaly detection including:
-- Distributed processing with worker pools
-- Chunked data processing for memory efficiency
-- Parallel detector execution
-- Async processing pipelines
-- Load balancing strategies
-- Fault tolerance and recovery
-- Progress tracking and monitoring
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Distributed Processing Module."""
 
 from __future__ import annotations
 
@@ -37,7 +20,6 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
 
     from numpy.typing import NDArray
-
 
 logger = logging.getLogger(__name__)
 
@@ -110,8 +92,7 @@ class ProcessingStats:
 
 
 class ChunkGenerator:
-    """
-    Generator for creating data chunks for distributed processing.
+    """Generator for creating data chunks for distributed processing.
 
     Supports memory-efficient iteration over large datasets.
     """
@@ -122,8 +103,7 @@ class ChunkGenerator:
         chunk_size: int = 1000,
         overlap: int = 0,
     ):
-        """
-        Initialize chunk generator.
+        """Initialize chunk generator.
 
         Args:
             data: Input data array
@@ -184,6 +164,7 @@ class ThreadWorkerPool(WorkerPool):
     """Thread-based worker pool for I/O-bound tasks."""
 
     def __init__(self, num_workers: int = 4):
+        """Initialize the instance."""
         self.num_workers = num_workers
         self._executor = ThreadPoolExecutor(max_workers=num_workers)
 
@@ -205,6 +186,7 @@ class ProcessWorkerPool(WorkerPool):
     """Process-based worker pool for CPU-bound tasks."""
 
     def __init__(self, num_workers: int = 4):
+        """Initialize the instance."""
         self.num_workers = num_workers
         self._executor = ProcessPoolExecutor(max_workers=num_workers)
 
@@ -222,8 +204,7 @@ class ProcessWorkerPool(WorkerPool):
 
 
 class DistributedProcessor:
-    """
-    Distributed processor for large-scale anomaly detection.
+    """Distributed processor for large-scale anomaly detection.
 
     Handles chunking, parallel processing, and result aggregation.
     """
@@ -233,8 +214,7 @@ class DistributedProcessor:
         detector: Any,
         config: ProcessingConfig | None = None,
     ):
-        """
-        Initialize distributed processor.
+        """Initialize distributed processor.
 
         Args:
             detector: Anomaly detector with detect() method
@@ -311,8 +291,7 @@ class DistributedProcessor:
         self,
         data: NDArray[np.float64],
     ) -> tuple[NDArray[np.float64], NDArray[np.bool_], ProcessingStats]:
-        """
-        Process data using distributed strategy.
+        """Process data using distributed strategy.
 
         Args:
             data: Input data array
@@ -441,8 +420,7 @@ class DistributedProcessor:
 
 
 class AsyncProcessor:
-    """
-    Async processor for non-blocking anomaly detection.
+    """Async processor for non-blocking anomaly detection.
 
     Suitable for integration with async web frameworks.
     """
@@ -452,8 +430,7 @@ class AsyncProcessor:
         detector: Any,
         config: ProcessingConfig | None = None,
     ):
-        """
-        Initialize async processor.
+        """Initialize async processor.
 
         Args:
             detector: Anomaly detector
@@ -467,8 +444,7 @@ class AsyncProcessor:
         self,
         data: NDArray[np.float64],
     ) -> tuple[NDArray[np.float64], NDArray[np.bool_], ProcessingStats]:
-        """
-        Process data asynchronously.
+        """Process data asynchronously.
 
         Args:
             data: Input data array
@@ -559,8 +535,7 @@ class AsyncProcessor:
 
 
 class StreamProcessor:
-    """
-    Stream processor for real-time anomaly detection.
+    """Stream processor for real-time anomaly detection.
 
     Handles continuous data streams with backpressure management.
     """
@@ -571,8 +546,7 @@ class StreamProcessor:
         config: ProcessingConfig | None = None,
         queue_size: int = 1000,
     ):
-        """
-        Initialize stream processor.
+        """Initialize stream processor.
 
         Args:
             detector: Anomaly detector
@@ -624,8 +598,7 @@ class StreamProcessor:
         data: NDArray[np.float64],
         metadata: dict[str, Any] | None = None,
     ) -> bool:
-        """
-        Submit data to processing queue.
+        """Submit data to processing queue.
 
         Args:
             data: Input data
@@ -645,8 +618,7 @@ class StreamProcessor:
         self,
         timeout: float | None = None,
     ) -> tuple[NDArray[np.float64], NDArray[np.bool_], dict[str, Any]] | None:
-        """
-        Get processing result from output queue.
+        """Get processing result from output queue.
 
         Args:
             timeout: Timeout in seconds
@@ -702,8 +674,7 @@ def create_processor(
     strategy: str = "threaded",
     **kwargs: Any,
 ) -> DistributedProcessor | AsyncProcessor | StreamProcessor:
-    """
-    Factory function to create appropriate processor.
+    """Factory function to create appropriate processor.
 
     Args:
         detector: Anomaly detector

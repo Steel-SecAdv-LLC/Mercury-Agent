@@ -1,25 +1,10 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Utilities subpackage.
 
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
+Enhanced with Black Hole Engine compression and gravitational lensing utilities
 """
 
 from __future__ import annotations
-
-"""
-Utilities subpackage
-Enhanced with Black Hole Engine compression and gravitational lensing utilities
-"""
 
 import zlib
 from typing import Any, Union
@@ -89,8 +74,7 @@ def normalize_data(
     data: np.ndarray[Any, Any] | torch.Tensor,
     method: str = "standard",
 ) -> np.ndarray[Any, Any] | torch.Tensor:
-    """
-    Normalize data using specified method.
+    """Normalize data using specified method.
 
     Args:
         data: Input data (numpy array or torch tensor if torch is available)
@@ -131,8 +115,7 @@ def normalize_data(
 
 
 def compute_complexity(func_code: str) -> int:
-    """
-    Compute cyclomatic complexity of a function.
+    """Compute cyclomatic complexity of a function.
 
     Args:
         func_code: Function source code
@@ -267,8 +250,7 @@ def compute_time_dilation(
 
 
 def convert_numpy_for_json(obj: Any) -> Any:
-    """
-    Recursively convert numpy types to JSON-serializable Python types.
+    """Recursively convert numpy types to JSON-serializable Python types.
 
     This utility handles the common issue of numpy types not being directly
     serializable to JSON. It recursively processes dictionaries, lists, and

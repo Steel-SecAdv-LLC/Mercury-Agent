@@ -1,27 +1,11 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Anti-Terrorism Pattern Recognition
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Anti-Terrorism Pattern Recognition.
 
 Detects radicalization patterns using QBM and OSINT anomalies.
 Integrates with existing threat knowledge base from intelligence_fusion.py.
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
@@ -40,14 +24,14 @@ class TerrorismThreatResult:
 
 
 class TerrorismPatternDetector:
-    """
-    Terrorism Pattern Detector for CI.
+    """Terrorism Pattern Detector for CI.
 
     Detects radicalization patterns via OSINT, COMINT, HUMINT fusion. Uses QBM probabilistic
     modeling for threat energies.
     """
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
         self.config = config or {}
 
@@ -66,8 +50,7 @@ class TerrorismPatternDetector:
         osint_data: dict[str, Any] | None = None,
         comint_data: dict[str, Any] | None = None,
     ) -> TerrorismThreatResult:
-        """
-        Detect radicalization patterns in intelligence data.
+        """Detect radicalization patterns in intelligence data.
 
         Args:
             osint_data: Open-source intelligence

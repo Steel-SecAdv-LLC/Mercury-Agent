@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Centralized Mathematical Constants Module
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Centralized Mathematical Constants Module.
 
 Provides scientific-precision mathematical constants with validation,
 documentation, and configurable precision levels.
@@ -35,6 +17,8 @@ References:
 - Wolfram MathWorld
 """
 
+from __future__ import annotations
+
 import logging
 import math
 from dataclasses import dataclass
@@ -44,7 +28,6 @@ from typing import Any
 import numpy as np
 
 logger = logging.getLogger(__name__)
-
 
 # Try to import high-precision libraries
 try:
@@ -61,7 +44,6 @@ try:
 except ImportError:
     sympy = None
     SYMPY_AVAILABLE = False
-
 
 # Mapping of our constants to sympy equivalents for validation
 SYMPY_CONSTANT_MAP: dict[str, str] = {
@@ -88,8 +70,7 @@ class Precision(Enum):
 
 @dataclass(frozen=True)
 class MathConstant:
-    """
-    A mathematical constant with metadata.
+    """A mathematical constant with metadata.
 
     Attributes:
         value: The numerical value (float64 precision)
@@ -110,8 +91,7 @@ class MathConstant:
     precision_digits: int = 15
 
     def to_precision(self, precision: Precision) -> float | Any:
-        """
-        Get the constant in specified precision.
+        """Get the constant in specified precision.
 
         Args:
             precision: Target precision level
@@ -129,8 +109,7 @@ class MathConstant:
         return self.value
 
     def validate(self, tolerance: float = 1e-10, use_sympy: bool = True) -> bool:
-        """
-        Validate the constant against known values.
+        """Validate the constant against known values.
 
         When sympy is available and use_sympy=True, validates against
         sympy's high-precision symbolic constants for enhanced accuracy.
@@ -159,8 +138,7 @@ class MathConstant:
 
 
 class MathematicalConstants:
-    """
-    Centralized repository of mathematical constants.
+    """Centralized repository of mathematical constants.
 
     All constants are verified against authoritative sources and
     include full documentation for traceability.
@@ -362,8 +340,7 @@ class MathematicalConstants:
 
     @classmethod
     def get_all(cls) -> dict[str, MathConstant]:
-        """
-        Get all defined constants as a dictionary.
+        """Get all defined constants as a dictionary.
 
         Returns:
             Dict mapping constant names to MathConstant objects
@@ -372,8 +349,7 @@ class MathematicalConstants:
 
     @classmethod
     def validate_all(cls) -> dict[str, bool]:
-        """
-        Validate all constants.
+        """Validate all constants.
 
         Returns:
             Dict mapping constant names to validation results
@@ -382,8 +358,7 @@ class MathematicalConstants:
 
     @classmethod
     def get_by_symbol(cls, symbol: str) -> MathConstant | None:
-        """
-        Look up a constant by its mathematical symbol.
+        """Look up a constant by its mathematical symbol.
 
         Args:
             symbol: Mathematical symbol (e.g., "φ", "π")
@@ -404,7 +379,6 @@ EULER_MASCHERONI_CONSTANT = MathematicalConstants.EULER_MASCHERONI.value
 FEIGENBAUM_DELTA_CONSTANT = MathematicalConstants.FEIGENBAUM_DELTA.value
 OMEGA_CONSTANT = MathematicalConstants.OMEGA.value
 
-
 # =============================================================================
 # Omni-Codes: Bio-Inspired Helical Parameters from AMA Cryptography
 # =============================================================================
@@ -416,8 +390,7 @@ OMEGA_CONSTANT = MathematicalConstants.OMEGA.value
 
 @dataclass(frozen=True)
 class OmniCode:
-    """
-    An Omni-Code with helical parameters for ethical AI alignment.
+    """An Omni-Code with helical parameters for ethical AI alignment.
 
     Attributes:
         code: Full code string with symbolic encoding
@@ -437,8 +410,7 @@ class OmniCode:
 
     @property
     def stability(self) -> float:
-        """
-        Calculate stability score from helical parameters.
+        """Calculate stability score from helical parameters.
 
         Stability = |r| * p, representing the balance between
         structural integrity (r) and adaptive evolution (p).
@@ -446,8 +418,7 @@ class OmniCode:
         return abs(self.r) * self.p
 
     def compute_autonomy_boost(self, threshold: float = 15.0) -> float:
-        """
-        Compute autonomy boost based on stability.
+        """Compute autonomy boost based on stability.
 
         If stability exceeds threshold, returns a small boost (0.05).
         This ties Omni-Code stability to agent autonomy levels.
@@ -462,8 +433,7 @@ class OmniCode:
 
 
 class OmniCodes:
-    """
-    Seven foundational Omni-Codes governing Mercury Agent.
+    """Seven foundational Omni-Codes governing Mercury Agent.
 
     These codes are integrated from AMA Cryptography and provide:
     - Helical data encoding (mirrors DNA double-helix stability)
@@ -549,8 +519,7 @@ class OmniCodes:
 
     @classmethod
     def get_autonomy_boost(cls, threshold: float = 15.0) -> float:
-        """
-        Calculate total autonomy boost from all Omni-Codes.
+        """Calculate total autonomy boost from all Omni-Codes.
 
         Args:
             threshold: Stability threshold for each code
@@ -562,8 +531,7 @@ class OmniCodes:
 
     @classmethod
     def validate_stability(cls, min_total: float = 50.0) -> bool:
-        """
-        Validate that total stability meets minimum threshold.
+        """Validate that total stability meets minimum threshold.
 
         Args:
             min_total: Minimum required total stability
@@ -579,8 +547,7 @@ def compute_ethical_autonomy(
     ethical_threshold: float = 0.99,
     use_omni_codes: bool = True,
 ) -> float:
-    """
-    Compute dynamic autonomy level bounded by ethical constraints.
+    """Compute dynamic autonomy level bounded by ethical constraints.
 
     Autonomy is scaled based on ethical threshold and optionally
     boosted by Omni-Code stability calculations.
@@ -602,8 +569,7 @@ def compute_ethical_autonomy(
 
 
 def get_constant(name: str, precision: Precision = Precision.FLOAT64) -> float | Any:
-    """
-    Get a mathematical constant by name with specified precision.
+    """Get a mathematical constant by name with specified precision.
 
     Args:
         name: Constant name (case-insensitive, e.g., "golden_ratio", "pi")
@@ -626,8 +592,7 @@ def get_constant(name: str, precision: Precision = Precision.FLOAT64) -> float |
 
 
 def validate_constant(value: float, name: str, tolerance: float = 1e-10) -> bool:
-    """
-    Validate a value against a known mathematical constant.
+    """Validate a value against a known mathematical constant.
 
     Args:
         value: Value to validate
@@ -645,8 +610,7 @@ def validate_constant(value: float, name: str, tolerance: float = 1e-10) -> bool
 
 
 def _get_sympy_constant_name(constant_name: str) -> str | None:
-    """
-    Get the sympy constant name for a given constant.
+    """Get the sympy constant name for a given constant.
 
     Args:
         constant_name: Our constant name (e.g., "Golden Ratio")
@@ -659,8 +623,7 @@ def _get_sympy_constant_name(constant_name: str) -> str | None:
 
 
 def _evaluate_sympy_constant(sympy_expr: str) -> float | None:
-    """
-    Evaluate a sympy constant expression to float.
+    """Evaluate a sympy constant expression to float.
 
     Args:
         sympy_expr: Sympy expression string (e.g., "pi", "sqrt(2)")
@@ -689,8 +652,7 @@ def _evaluate_sympy_constant(sympy_expr: str) -> float | None:
 
 
 def validate_all_constants_with_sympy(tolerance: float = 1e-10) -> dict[str, bool]:
-    """
-    Validate all constants against sympy's high-precision values.
+    """Validate all constants against sympy's high-precision values.
 
     This function provides comprehensive validation of all mathematical
     constants in the module against sympy's symbolic computation engine.

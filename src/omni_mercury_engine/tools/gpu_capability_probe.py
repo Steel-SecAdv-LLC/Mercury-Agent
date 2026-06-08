@@ -1,22 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-------------------------------------------------------------------------
-
-Operator tool: GPU capability probe.
-
-Enumerates CUDA / ROCm / MPS / CPU backends, driver versions, and FP16
-/ BF16 / INT8 support.  Sibling of :mod:`pqc_capability_probe`.
-
-Used by :mod:`release_manifest_builder` to record the runtime device
-matrix; the manifest pins what was tested, this tool pins what's
-currently available, and the gate fails when they diverge.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 

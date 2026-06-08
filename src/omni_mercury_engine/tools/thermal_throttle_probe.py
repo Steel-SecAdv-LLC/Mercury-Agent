@@ -1,27 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-------------------------------------------------------------------------
-
-Operator tool: thermal-throttle probe.
-
-Samples thermal zones during a benchmark window and flags any
-throttled period so the latency numbers from
-:mod:`run_hardware_benchmark` stay comparable across runs.
-
-Strategy:
-
-1. Try :mod:`psutil.sensors_temperatures` first — the cross-platform
-   path.
-2. Fall back to the handwritten ``/sys/class/hwmon`` walker so the
-   tool runs on Mercury's container image without ``psutil``
-   installed.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 

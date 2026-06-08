@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-AI Scaling and Compute Optimization Module
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""AI Scaling and Compute Optimization Module.
 
 Inspired by Bain & Company Technology Report 2025 insights on AI scaling,
 compute power demands, and agentic AI transformation.
@@ -29,8 +11,9 @@ Key insights:
 
 Research source: Bain & Company Technology Report 2025
 (https://www.bain.com/insights/topics/technology-report/)
-
 """
+
+from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
@@ -48,22 +31,21 @@ class ComputeResource:
 
 
 class BainAIScaling:
-    """
-    AI scaling and compute optimization inspired by Bain 2025 report.
+    """AI scaling and compute optimization inspired by Bain 2025 report.
 
     Implements efficient resource allocation and power management for AI workloads based on industry
     trends.
     """
 
     def __init__(self, max_power_watts: float = 1000.0) -> None:
+        """Initialize the instance."""
         self.max_power_watts = max_power_watts
         self.current_allocation: dict[str, ComputeResource] = {}
 
     def optimize_compute_allocation(
         self, workloads: list[dict[str, Any]], available_resources: ComputeResource
     ) -> dict[str, ComputeResource]:
-        """
-        Optimize compute resource allocation across workloads.
+        """Optimize compute resource allocation across workloads.
 
         Args:
             workloads: List of workload specifications
@@ -97,8 +79,7 @@ class BainAIScaling:
     def estimate_power_consumption(
         self, model_size: int, batch_size: int, sequence_length: int
     ) -> float:
-        """
-        Estimate power consumption for AI inference/training.
+        """Estimate power consumption for AI inference/training.
 
         Based on typical power profiles from hyperscaler deployments.
 
@@ -121,8 +102,7 @@ class BainAIScaling:
     def calculate_efficiency_score(
         self, accuracy: float, power_watts: float, latency_ms: float
     ) -> float:
-        """
-        Calculate efficiency score balancing accuracy, power, and latency.
+        """Calculate efficiency score balancing accuracy, power, and latency.
 
         Inspired by Bain report emphasis on AI leaders achieving 10-25% EBITDA improvement.
 
@@ -143,8 +123,7 @@ class BainAIScaling:
     def plan_infrastructure_scaling(
         self, current_investment_millions: float, growth_rate: float = 0.25, years: int = 5
     ) -> dict[str, Any]:
-        """
-        Plan AI infrastructure scaling based on Bain findings.
+        """Plan AI infrastructure scaling based on Bain findings.
 
         Bain 2025: Hyperscalers investing $140-298B in AI infrastructure.
         Models exponential growth in compute demand.
@@ -191,8 +170,7 @@ class BainAIScaling:
     def estimate_agentic_ai_impact(
         self, current_workforce_size: int, process_automation_target: float = 0.30
     ) -> dict[str, Any]:
-        """
-        Estimate impact of agentic AI on operations.
+        """Estimate impact of agentic AI on operations.
 
         Bain 2025: "At full potential, agents will run complete processes and workflows."
         Models transformation from human-driven to agent-driven processes.
@@ -239,8 +217,7 @@ class BainAIScaling:
     def optimize_power_management(
         self, workload_schedule: list[dict[str, Any]], power_budget_watts: float
     ) -> dict[str, Any]:
-        """
-        Optimize power management for AI workloads.
+        """Optimize power management for AI workloads.
 
         Critical for sustainable AI scaling given massive infrastructure investments.
 

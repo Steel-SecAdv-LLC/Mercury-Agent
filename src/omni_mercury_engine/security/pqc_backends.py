@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Mercury Agent - Post-Quantum Cryptography Backends
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Mercury Agent - Post-Quantum Cryptography Backends.
 
 AMA Cryptography v3.2.0 is the sole PQC implementation.  The git ref is
 pinned in ``pyproject.toml [project.optional-dependencies].pqc`` and in
@@ -61,6 +43,8 @@ References:
     - Dilithium: https://pq-crystals.org/dilithium/
     - Kyber: https://pq-crystals.org/kyber/
 """
+
+from __future__ import annotations
 
 import os
 import threading
@@ -113,14 +97,12 @@ SLHDSA_SHA2_256F_PUBLIC_KEY_BYTES: int = int(_AMA_SLHDSA_SHA2_256F_PK_BYTES)
 SLHDSA_SHA2_256F_SECRET_KEY_BYTES: int = int(_AMA_SLHDSA_SHA2_256F_SK_BYTES)
 SLHDSA_SHA2_256F_SIGNATURE_BYTES: int = int(_AMA_SLHDSA_SHA2_256F_SIG_BYTES)
 
-
 # Backward compatibility alias
 AVA_GUARDIAN_AVAILABLE = AMA_CRYPTOGRAPHY_AVAILABLE
 
 
 class PQCBackend(Enum):
-    """
-    Available PQC backend implementations.
+    """Available PQC backend implementations.
 
     Only ``AMA_CRYPTOGRAPHY`` is supported.  ``AVA_GUARDIAN`` remains as a backward-compatibility
     alias that resolves to the same enum member.
@@ -211,8 +193,7 @@ class SlhDsaKeyPair:
 
 
 def generate_dilithium_keypair() -> DilithiumKeyPair:
-    """
-    Generate ML-DSA-65 (Dilithium) key pair via AMA Cryptography.
+    """Generate ML-DSA-65 (Dilithium) key pair via AMA Cryptography.
 
     Returns:
         DilithiumKeyPair with public and secret keys
@@ -374,8 +355,7 @@ def _slhdsa_param_sizes(param_set: str) -> tuple[int, int, int]:
 
 
 def generate_slhdsa_keypair(param_set: str = "SHAKE-128s") -> SlhDsaKeyPair:
-    """
-    Generate a FIPS 205 SLH-DSA keypair via AMA Cryptography.
+    """Generate a FIPS 205 SLH-DSA keypair via AMA Cryptography.
 
     The default parameter set is SHAKE-128s (NIST Level 1) since that is the set Mercury's NIST FIPS
     KAT pins exercise. Pass ``"SHA2-256f"`` for the NIST Level 5 SHA2-family target.
@@ -414,8 +394,7 @@ def generate_slhdsa_keypair_from_seed(
     pk_seed: bytes,
     param_set: str = "SHAKE-128s",
 ) -> SlhDsaKeyPair:
-    """
-    Derive a FIPS 205 §10.1 SLH-DSA keypair from caller-supplied seeds.
+    """Derive a FIPS 205 §10.1 SLH-DSA keypair from caller-supplied seeds.
 
     All three seed inputs must be exactly ``n`` bytes (16 for SHAKE-128s, 32 for SHA2-256f). The
     defensive copy on the way out follows the same INVARIANT-6 pattern as the random-keygen path;
@@ -506,8 +485,7 @@ def slhdsa_sign_internal(
     addrnd: bytes,
     param_set: str = "SHAKE-128s",
 ) -> bytes:
-    """
-    FIPS 205 internal-interface SLH-DSA sign with caller-supplied ``addrnd``.
+    """FIPS 205 internal-interface SLH-DSA sign with caller-supplied ``addrnd``.
 
     Used by the NIST ACVP hedged sigGen KAT replay path: the test harness
     pre-applies the FIPS 205 §10.2 ctx wrapper to the message and replays
@@ -560,8 +538,7 @@ def slhdsa_verify(
 
 
 def get_pqc_capabilities() -> dict[str, Any]:
-    """
-    Get current PQC capabilities from AMA Cryptography.
+    """Get current PQC capabilities from AMA Cryptography.
 
     Returns:
         Dictionary with backend status and available algorithms
@@ -596,8 +573,7 @@ class CryptoOperation:
 
 
 class CryptoAuditTrail:
-    """
-    Cryptographic audit trail for PQC operations.
+    """Cryptographic audit trail for PQC operations.
 
     Provides tamper-evident logging of all cryptographic operations for security compliance and
     forensic analysis.
@@ -670,8 +646,7 @@ def get_crypto_audit_trail() -> CryptoAuditTrail:
 
 
 def validate_pqc_environment() -> dict[str, Any]:
-    """
-    Validate the PQC environment for production readiness.
+    """Validate the PQC environment for production readiness.
 
     Returns:
         Dictionary with validation results and recommendations.

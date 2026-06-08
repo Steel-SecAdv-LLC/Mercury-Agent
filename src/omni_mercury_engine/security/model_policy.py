@@ -1,41 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
-
-------------------------------------------------------------------------
-
-HuggingFace model / dataset policy gate.
-
-Centralises every ``from_pretrained`` and ``datasets.load_dataset``
-call in Mercury Agent through a single helper that enforces:
-
-* **Identifier shape** -- model IDs must match the ``namespace/name``
-  pattern that HuggingFace Hub itself uses, or be an absolute local
-  path.  Bare names like ``"bert"`` (which would resolve to a
-  community-namespace model with no provenance) are rejected.
-* **Revision pinning** -- every remote load must specify a non-empty
-  ``revision``.  Without this, supply-chain attacks against the
-  default branch ``main`` can swap weights from under us (CWE-494).
-* **trust_remote_code stays off** -- ``trust_remote_code=True``
-  executes arbitrary code from the repo and is only permitted when
-  the model ID is in the explicit allowlist passed to the helper.
-
-Every B615 ``from_pretrained`` call in ``src/`` now goes through
-:class:`SafeHFLoader`; the single bandit-suppression for B615 lives
-on the underlying ``from_pretrained`` call inside this module.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 
@@ -47,7 +11,6 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
 logger = logging.getLogger(__name__)
-
 
 # A HuggingFace Hub model id has the shape ``namespace/name`` where
 # both components match this character set.  See:
@@ -93,8 +56,7 @@ def _is_local_path(model_id: str) -> bool:
 
 
 class HFModelPolicy:
-    """
-    Static policy gate for HuggingFace model / dataset loads.
+    """Static policy gate for HuggingFace model / dataset loads.
 
     Used internally by :class:`SafeHFLoader`.  Exposed as a public
     class so callers can run ``HFModelPolicy.validate(...)`` at
@@ -206,8 +168,7 @@ class HFModelPolicy:
 
 
 class SafeHFLoader:
-    """
-    The single from_pretrained / load_dataset entry point.
+    """The single from_pretrained / load_dataset entry point.
 
     Each method:
 
@@ -231,8 +192,7 @@ class SafeHFLoader:
         trust_remote_code: bool = False,
         **kwargs: Any,
     ) -> Any:
-        """
-        Load a transformers model class via its ``from_pretrained``.
+        """Load a transformers model class via its ``from_pretrained``.
 
         Args:
             cls_: The transformers class (e.g. ``AutoModelForCausalLM``,
@@ -315,8 +275,7 @@ class SafeHFLoader:
         revision: str | None,
         **kwargs: Any,
     ) -> Any:
-        """
-        Load a ``datasets`` dataset under the same gates.
+        """Load a ``datasets`` dataset under the same gates.
 
         The ``allowlist`` is required for dataset loads: there is
         no equivalent of "trusted huggingface-internal datasets",

@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Internal Random Number Generator Utility for Test Determinism
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Internal Random Number Generator Utility for Test Determinism.
 
 Provides centralized RNG management with seed control for reproducible testing.
 
@@ -27,6 +9,8 @@ Thread-Safety Features:
 - RNG registry pattern for named generators
 - Hierarchical state management with RNGContext
 """
+
+from __future__ import annotations
 
 import hashlib
 import json
@@ -52,8 +36,7 @@ except ImportError:
 
 
 class DeterministicRNG:
-    """
-    Centralized random number generator for test determinism.
+    """Centralized random number generator for test determinism.
 
     Features:
     - Single source of truth for random state
@@ -63,8 +46,7 @@ class DeterministicRNG:
     """
 
     def __init__(self, seed: int | None = None) -> None:
-        """
-        Initialize the RNG with optional seed.
+        """Initialize the RNG with optional seed.
 
         Args:
             seed: Random seed for reproducibility. If None, uses random initialization.
@@ -77,8 +59,7 @@ class DeterministicRNG:
             self.set_seed(seed)
 
     def set_seed(self, seed: int) -> None:
-        """
-        Set the random seed for all RNG backends.
+        """Set the random seed for all RNG backends.
 
         Args:
             seed: Random seed value
@@ -99,8 +80,7 @@ class DeterministicRNG:
         self._initialized = True
 
     def get_numpy_rng(self) -> np.random.Generator:
-        """
-        Get the NumPy random generator.
+        """Get the NumPy random generator.
 
         Returns:
             NumPy Generator instance
@@ -115,8 +95,7 @@ class DeterministicRNG:
         return self._numpy_rng
 
     def randn(self, *shape: int, dtype: type = np.float64) -> np.ndarray[Any, Any]:
-        """
-        Generate standard normal random numbers.
+        """Generate standard normal random numbers.
 
         Args:
             *shape: Shape of output array
@@ -135,8 +114,7 @@ class DeterministicRNG:
         size: int | tuple[int, ...] | None = None,
         dtype: type = np.float64,
     ) -> np.ndarray[Any, Any]:
-        """
-        Draw random numbers from the Gaussian (normal) distribution.
+        """Draw random numbers from the Gaussian (normal) distribution.
 
         Args:
             loc: Mean of the distribution
@@ -157,8 +135,7 @@ class DeterministicRNG:
         size: int | tuple[int, ...] | None = None,
         dtype: type = np.float64,
     ) -> np.ndarray[Any, Any]:
-        """
-        Generate random numbers from uniform distribution.
+        """Generate random numbers from uniform distribution.
 
         Args:
             low: Lower bound (inclusive)
@@ -173,8 +150,7 @@ class DeterministicRNG:
         return rng.uniform(low=low, high=high, size=size).astype(dtype)
 
     def random(self, size: int | tuple[int, ...] | None = None) -> np.ndarray[Any, Any]:
-        """
-        Generate random floats in the half-open interval [0.0, 1.0).
+        """Generate random floats in the half-open interval [0.0, 1.0).
 
         Args:
             size: Output shape
@@ -187,8 +163,7 @@ class DeterministicRNG:
         return np.asarray(result)
 
     def rand(self, *shape: int, dtype: type = np.float64) -> np.ndarray[Any, Any]:
-        """
-        Generate uniform random numbers in [0, 1).
+        """Generate uniform random numbers in [0, 1).
 
         Args:
             *shape: Shape of output array
@@ -203,8 +178,7 @@ class DeterministicRNG:
     def randint(
         self, low: int, high: int | None = None, size: int | tuple[int, ...] | None = None
     ) -> int | np.ndarray[Any, Any]:
-        """
-        Generate random integers.
+        """Generate random integers.
 
         Args:
             low: Lower bound (inclusive) or if high is None, upper bound (exclusive)
@@ -224,8 +198,7 @@ class DeterministicRNG:
         replace: bool = True,
         p: np.ndarray[Any, Any] | None = None,
     ) -> np.ndarray[Any, Any]:
-        """
-        Generate random samples from array.
+        """Generate random samples from array.
 
         Args:
             a: Array to sample from, or int for range(a)
@@ -240,8 +213,7 @@ class DeterministicRNG:
         return np.asarray(rng.choice(a, size=size, replace=replace, p=p))
 
     def shuffle(self, array: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Shuffle array in-place.
+        """Shuffle array in-place.
 
         Args:
             array: Array to shuffle
@@ -254,8 +226,7 @@ class DeterministicRNG:
         return array
 
     def permutation(self, x: int | np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Generate random permutation.
+        """Generate random permutation.
 
         Args:
             x: Array to permute, or int for range(x)
@@ -268,8 +239,7 @@ class DeterministicRNG:
 
     @contextmanager
     def temporary_seed(self, seed: int) -> Generator[Any, None, None]:
-        """
-        Context manager for temporary seed override.
+        """Context manager for temporary seed override.
 
         Example:
             with rng.temporary_seed(123):
@@ -299,8 +269,7 @@ class DeterministicRNG:
                 self._numpy_rng = np.random.default_rng(self._seed)
 
     def get_seed(self) -> int | None:
-        """
-        Get the current seed value.
+        """Get the current seed value.
 
         Returns:
             Current seed or None if not set
@@ -309,8 +278,7 @@ class DeterministicRNG:
 
     @staticmethod
     def make_deterministic(seed: int = 42) -> None:
-        """
-        Make all random operations deterministic across the entire environment.
+        """Make all random operations deterministic across the entire environment.
 
         Args:
             seed: Seed value for determinism
@@ -357,8 +325,7 @@ class RNGState:
 
 
 class RNGRegistry:
-    """
-    Registry pattern for named RNG generators.
+    """Registry pattern for named RNG generators.
 
     Provides centralized management of multiple RNG instances with
     thread-safe access and hierarchical seed derivation.
@@ -373,14 +340,14 @@ class RNGRegistry:
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self._registry: dict[str, DeterministicRNG] = {}
         self._lock = threading.RLock()
 
     def register(
         self, name: str, seed: int | None = None, parent: str | None = None
     ) -> DeterministicRNG:
-        """
-        Register a new named RNG.
+        """Register a new named RNG.
 
         Args:
             name: Unique name for the RNG
@@ -427,8 +394,7 @@ class RNGRegistry:
 
 
 class RNGContext:
-    """
-    Hierarchical RNG context manager for scoped state isolation.
+    """Hierarchical RNG context manager for scoped state isolation.
 
     Provides nested RNG scopes where child contexts derive seeds from
     parents, ensuring reproducibility while maintaining isolation.
@@ -447,6 +413,7 @@ class RNGContext:
     _context_stack = threading.local()
 
     def __init__(self, seed: int | None = None, parent: RNGContext | None = None) -> None:
+        """Initialize the instance."""
         self._seed = seed
         self._parent = parent
         self._rng: DeterministicRNG | None = None
@@ -460,6 +427,7 @@ class RNGContext:
 
     def __enter__(self) -> RNGContext:
         # Determine seed
+        """Enter the context manager."""
         if self._seed is not None:
             seed = self._seed
         elif self._parent is not None:
@@ -484,6 +452,7 @@ class RNGContext:
         exc_tb: object | None,
     ) -> None:
         # Pop from context stack
+        """Exit the context manager."""
         if hasattr(self._context_stack, "stack") and self._context_stack.stack:
             self._context_stack.stack.pop()
         self._rng = None
@@ -498,8 +467,7 @@ class RNGContext:
 
 
 class ThreadSafeRNGManager:
-    """
-    Thread-safe global RNG manager using thread-local storage.
+    """Thread-safe global RNG manager using thread-local storage.
 
     Replaces the global mutable state pattern with dependency injection
     and thread-local instances for safe concurrent access.
@@ -512,6 +480,7 @@ class ThreadSafeRNGManager:
     """
 
     def __init__(self, default_seed: int = 42) -> None:
+        """Initialize the instance."""
         self._default_seed = default_seed
         self._lock = threading.RLock()
         self._thread_local = threading.local()
@@ -519,8 +488,7 @@ class ThreadSafeRNGManager:
         self._global_rng: DeterministicRNG | None = None
 
     def get_rng(self, thread_local: bool = True) -> DeterministicRNG:
-        """
-        Get an RNG instance.
+        """Get an RNG instance.
 
         Args:
             thread_local: If True, returns a thread-local instance.
@@ -607,8 +575,7 @@ _global_lock = threading.RLock()
 
 
 def get_global_rng() -> DeterministicRNG:
-    """
-    Get the global RNG instance (thread-safe).
+    """Get the global RNG instance (thread-safe).
 
     For new code, prefer using ThreadSafeRNGManager or RNGContext
     for better thread isolation.
@@ -624,8 +591,7 @@ def get_global_rng() -> DeterministicRNG:
 
 
 def set_global_seed(seed: int) -> None:
-    """
-    Set the global random seed (thread-safe).
+    """Set the global random seed (thread-safe).
 
     Args:
         seed: Random seed value
@@ -646,8 +612,7 @@ def reset_global_rng() -> None:
 
 
 def get_thread_local_rng() -> DeterministicRNG:
-    """
-    Get a thread-local RNG instance.
+    """Get a thread-local RNG instance.
 
     This is the preferred method for multi-threaded applications.
 
@@ -658,8 +623,7 @@ def get_thread_local_rng() -> DeterministicRNG:
 
 
 def get_rng_registry() -> RNGRegistry:
-    """
-    Get the RNG registry for named generators.
+    """Get the RNG registry for named generators.
 
     Returns:
         Global RNGRegistry instance

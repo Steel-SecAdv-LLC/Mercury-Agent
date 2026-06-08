@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-TEMPEST Detection Module - Electromagnetic Emanation Security
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""TEMPEST Detection Module - Electromagnetic Emanation Security.
 
 Electromagnetic eavesdropping countermeasures and TEMPEST monitoring:
 - EM emanation detection and analysis
@@ -34,8 +16,9 @@ Research sources:
 - Van Eck phreaking research
 - Side-channel attack literature
 - RF spectrum analysis methodologies
-
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -93,13 +76,13 @@ class TEMPESTAnalysisResult:
 
 
 class RFSpectrumAnalyzer:
-    """
-    RF spectrum analysis for EM emanation detection.
+    """RF spectrum analysis for EM emanation detection.
 
     Analyzes radio frequency spectrum for compromising emanations.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
         self.tempest_frequency_bands = {
@@ -111,8 +94,7 @@ class RFSpectrumAnalyzer:
         }
 
     def analyze_spectrum(self, spectrum_data: dict[str, Any]) -> dict[str, Any]:
-        """
-        Analyze RF spectrum for emanations.
+        """Analyze RF spectrum for emanations.
 
         Args:
             spectrum_data: RF spectrum measurements
@@ -185,13 +167,13 @@ class RFSpectrumAnalyzer:
 
 
 class VideoEmanationDetector(nn.Module):
-    """
-    Neural network for video display emanation detection.
+    """Neural network for video display emanation detection.
 
     Detects Van Eck phreaking vulnerabilities in video displays.
     """
 
     def __init__(self, input_dim: int = 128) -> None:
+        """Initialize the instance."""
         super().__init__()
 
         self.emanation_encoder = nn.Sequential(
@@ -219,8 +201,7 @@ class VideoEmanationDetector(nn.Module):
         )
 
     def forward(self, emanation_features: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        """
-        Forward pass for video emanation analysis.
+        """Forward pass for video emanation analysis.
 
         Args:
             emanation_features: Video emanation characteristics
@@ -237,18 +218,17 @@ class VideoEmanationDetector(nn.Module):
 
 
 class SideChannelVulnerabilityAssessor:
-    """
-    Side-channel vulnerability assessment.
+    """Side-channel vulnerability assessment.
 
     Evaluates equipment for side-channel attack susceptibility.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
     def assess_vulnerabilities(self, equipment_data: dict[str, Any]) -> dict[str, Any]:
-        """
-        Assess equipment for side-channel vulnerabilities.
+        """Assess equipment for side-channel vulnerabilities.
 
         Args:
             equipment_data: Equipment characteristics and measurements
@@ -311,13 +291,13 @@ class EMSECCountermeasureGenerator:
     """Generate EMSEC countermeasures and mitigation strategies."""
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
     def generate_countermeasures(
         self, analysis_result: dict[str, Any], vulnerabilities: list[str]
     ) -> list[str]:
-        """
-        Generate TEMPEST countermeasures.
+        """Generate TEMPEST countermeasures.
 
         Args:
             analysis_result: TEMPEST analysis results
@@ -368,7 +348,7 @@ class EMSECCountermeasureGenerator:
 
 
 class TEMPESTDetector:
-    """Comprehensive TEMPEST detection system integrating RF spectrum analysis, video emanation
+    """Comprehensive TEMPEST detection system integrating RF spectrum analysis, video emanation.
 
     detection, vulnerability assessment, and countermeasure generation.
     """
@@ -379,6 +359,7 @@ class TEMPESTDetector:
         enable_video_detection: bool = True,
         enable_vulnerability_assessment: bool = True,
     ):
+        """Initialize the instance."""
         self.enable_rf_analysis = enable_rf_analysis
         self.enable_video_detection = enable_video_detection
         self.enable_vulnerability_assessment = enable_vulnerability_assessment
@@ -393,8 +374,7 @@ class TEMPESTDetector:
         self.logger = logging.getLogger(__name__)
 
     def detect_tempest_threats(self, tempest_data: dict[str, Any]) -> TEMPESTAnalysisResult:
-        """
-        Comprehensive TEMPEST threat detection.
+        """Comprehensive TEMPEST threat detection.
 
         Args:
             tempest_data: TEMPEST monitoring data including:

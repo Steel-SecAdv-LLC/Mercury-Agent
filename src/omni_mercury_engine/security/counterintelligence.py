@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Overwatch Nexus and Response Core Module
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Overwatch Nexus and Response Core Module.
 
 Implements proactive counterintelligence with Medical Interdiction and Intervention.
 Integrates with existing intelligence fusion engine for all-source threat analysis.
@@ -32,6 +14,8 @@ References:
 - Ethical governance: omni_mercury_engine/core/ethical_config.py
 - Quantum resilience: omni_mercury_engine/core/fusion.py (OmniMercuryEngine)
 """
+
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
@@ -70,8 +54,7 @@ class OverwatchNexusResult:
 
 
 class OverwatchNexus(LoggerMixin):
-    """
-    Overwatch Nexus and Response Engine for Ethical Counterintelligence.
+    """Overwatch Nexus and Response Engine for Ethical Counterintelligence.
 
     Features:
     - Proactive CI threat detection (foreign penetration, insider risks, anomalies)
@@ -93,8 +76,7 @@ class OverwatchNexus(LoggerMixin):
     """
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
-        """
-        Initialize Overwatch Nexus and Response engine.
+        """Initialize Overwatch Nexus and Response engine.
 
         Args:
             config: Configuration dict with CI parameters
@@ -122,8 +104,7 @@ class OverwatchNexus(LoggerMixin):
     def proactive_ci(
         self, data_stream: Any, intel_reports: dict[str, Any] | None = None
     ) -> OverwatchNexusResult:
-        """
-        Proactive counterintelligence threat detection.
+        """Proactive counterintelligence threat detection.
 
         Leverages existing intelligence fusion for all-source analysis,
         enhanced with CI-specific scalars and medical interdiction.
@@ -190,8 +171,7 @@ class OverwatchNexus(LoggerMixin):
         return result
 
     def _generate_synthetic_intel(self, data_stream: Any) -> dict[str, Any]:
-        """
-        Generate synthetic intelligence reports for simulation.
+        """Generate synthetic intelligence reports for simulation.
 
         Uses existing IntelligenceDiscipline framework.
         """
@@ -214,8 +194,7 @@ class OverwatchNexus(LoggerMixin):
         return intel_reports
 
     def _compute_purity_invariant(self, fusion_result: IntelligenceFusionResult) -> float:
-        """
-        Compute Purity Invariant (σ_Immutable) for ethical compliance.
+        """Compute Purity Invariant (σ_Immutable) for ethical compliance.
 
         Based on fusion.py:433 implementation. Ensures positive-definite
         ethical alignment. If σ_Immutable <= 0, triggers rollback.
@@ -238,8 +217,7 @@ class OverwatchNexus(LoggerMixin):
     def _apply_ethical_rollback(
         self, fusion_result: IntelligenceFusionResult
     ) -> OverwatchNexusResult:
-        """
-        Apply ethical rollback when Purity Invariant violated.
+        """Apply ethical rollback when Purity Invariant violated.
 
         Prevents discriminatory or harmful CI operations.
         """
@@ -260,8 +238,7 @@ class OverwatchNexus(LoggerMixin):
         )
 
     def _detect_bifurcation(self, data_stream: Any) -> float:
-        """
-        Detect threat trajectory bifurcations using chaos Λ.
+        """Detect threat trajectory bifurcations using chaos Λ.
 
         Identifies when behavior patterns diverge from normal→threat.
         E.g., insider loyalty → compromise → exfiltration transitions.
@@ -278,8 +255,7 @@ class OverwatchNexus(LoggerMixin):
         return float(chaos_score)
 
     def _detect_bio_threats(self, data_stream: Any, intel_reports: dict[str, Any]) -> list[str]:
-        """
-        Detect biological threat indicators (Medical Interdiction).
+        """Detect biological threat indicators (Medical Interdiction).
 
         Uses QBM-inspired probabilistic modeling for pathogen energies.
         Fuses OSINT (disease outbreak signals) with MASINT (bio-signatures).
@@ -304,8 +280,7 @@ class OverwatchNexus(LoggerMixin):
         return indicators
 
     def _classify_ci_threat(self, fusion_result: IntelligenceFusionResult) -> str:
-        """
-        Classify CI threat type based on intelligence indicators.
+        """Classify CI threat type based on intelligence indicators.
 
         Types: foreign_penetration, insider_threat, espionage, cyber_intrusion,
                bio_weapon, pandemic, humanitarian_crisis
@@ -322,8 +297,7 @@ class OverwatchNexus(LoggerMixin):
             return "general_anomaly"
 
     def _identify_survivor_priorities(self, fusion_result: IntelligenceFusionResult) -> list[str]:
-        """
-        Identify survivor-first priorities for humanitarian CI.
+        """Identify survivor-first priorities for humanitarian CI.
 
         Prioritizes vulnerable populations: civilians, healthcare workers,
         essential workers, disaster victims.
@@ -343,8 +317,7 @@ class OverwatchNexus(LoggerMixin):
     def _assess_humanitarian_impact(
         self, fusion_result: IntelligenceFusionResult, bio_threat_indicators: list[str]
     ) -> dict[str, Any]:
-        """
-        Assess humanitarian impact of detected threats.
+        """Assess humanitarian impact of detected threats.
 
         Simulated estimates for research purposes.
         """
@@ -374,8 +347,7 @@ class OverwatchNexus(LoggerMixin):
         }
 
     def extract_features(self, data: Any) -> torch.Tensor:
-        """
-        Extract CI-specific features for ML fusion integration.
+        """Extract CI-specific features for ML fusion integration.
 
         Enables Overwatch Nexus and Response module to integrate with existing hybrid fusion
         architecture (core/fusion.py).
@@ -388,8 +360,7 @@ class OverwatchNexus(LoggerMixin):
         return features
 
     def predict(self, data: Any) -> dict[str, Any]:
-        """
-        Predict anomalies using Overwatch Nexus and Response CI framework.
+        """Predict anomalies using Overwatch Nexus and Response CI framework.
 
         Compatible with existing detector interface.
         """

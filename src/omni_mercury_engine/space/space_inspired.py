@@ -1,25 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-from typing import Any
-
-"""
-Space-Inspired Resilience Module
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Space-Inspired Resilience Module.
 
 Inspired by space technology principles: reusability (Falcon 9), redundancy
 (Voyager 1 operating 48+ years), extreme environment resilience, debris avoidance,
@@ -35,11 +15,13 @@ Key influences:
 
 Research source: Wikipedia - Space technology
 (https://en.wikipedia.org/wiki/Space_technology)
-
 """
+
+from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 
 import numpy as np
 
@@ -63,8 +45,7 @@ class RedundancyConfig:
 
 
 class SpaceInspiredResilience:
-    """
-    Resilience mechanisms inspired by space technology.
+    """Resilience mechanisms inspired by space technology.
 
     Implements reusability, redundancy, extreme environment resilience, and trajectory optimization
     for anomaly detection systems.
@@ -76,8 +57,7 @@ class SpaceInspiredResilience:
         degradation_threshold: float = 0.7,
         min_operational_components: int = 1,
     ):
-        """
-        Initialize space-inspired resilience system.
+        """Initialize space-inspired resilience system.
 
         Args:
             redundancy_factor: Number of redundant detection paths
@@ -93,8 +73,7 @@ class SpaceInspiredResilience:
     def graceful_degradation(
         self, component_failures: list[str], available_components: list[str]
     ) -> tuple[SystemState, dict[str, float]]:
-        """
-        Handle component failures with graceful degradation.
+        """Handle component failures with graceful degradation.
 
         Inspired by spacecraft systems that continue operating with
         component failures through redundancy (Voyager 1 example).
@@ -130,8 +109,7 @@ class SpaceInspiredResilience:
     def debris_filtering(
         self, data: np.ndarray[Any, Any], noise_threshold: float = 0.1
     ) -> np.ndarray[Any, Any]:
-        """
-        Filter noisy data analogous to space debris avoidance.
+        """Filter noisy data analogous to space debris avoidance.
 
         Inspired by space debris tracking and avoidance systems
         that identify and filter out hazardous objects.
@@ -160,8 +138,7 @@ class SpaceInspiredResilience:
         goal_state: np.ndarray[Any, Any],
         constraints: dict[str, float] | None = None,
     ) -> list[np.ndarray[Any, Any]]:
-        """
-        Optimize detection pathway analogous to spacecraft trajectory.
+        """Optimize detection pathway analogous to spacecraft trajectory.
 
         Inspired by Voyager 1's efficient journey to interstellar space
         using gravity assists and optimal pathfinding.
@@ -198,8 +175,7 @@ class SpaceInspiredResilience:
     def reusability_tracking(
         self, component_id: str, usage_count: int, max_reuses: int = 100
     ) -> tuple[bool, float]:
-        """
-        Track component reusability inspired by Falcon 9.
+        """Track component reusability inspired by Falcon 9.
 
         SpaceX Falcon 9 demonstrates cost-effective reusability,
         with boosters designed for multiple launches.
@@ -222,8 +198,7 @@ class SpaceInspiredResilience:
     def extreme_environment_adaptation(
         self, environmental_stress: float, adaptation_rate: float = 0.1
     ) -> float:
-        """
-        Adapt to extreme environmental conditions.
+        """Adapt to extreme environmental conditions.
 
         Inspired by spacecraft operating in harsh space environments
         (radiation, temperature extremes, vacuum).

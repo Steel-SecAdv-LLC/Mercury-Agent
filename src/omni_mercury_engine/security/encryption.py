@@ -1,25 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-from typing import Any
-
-"""
-Secure data handling utilities with quantum-resistant encryption support.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Secure data handling utilities with quantum-resistant encryption support.
 
 Quantum-resistant algorithms implemented using NIST post-quantum candidates:
 - Kyber (lattice-based encryption)
@@ -32,16 +12,18 @@ https://csrc.nist.gov/projects/post-quantum-cryptography
 MIT-compatible implementation using standard cryptographic primitives.
 """
 
+from __future__ import annotations
+
 import base64
 import hashlib
 import secrets
+from typing import Any
 
 import numpy as np
 
 
 class QuantumResistantEncryption:
-    """
-    Quantum-resistant encryption using lattice-based cryptography principles.
+    """Quantum-resistant encryption using lattice-based cryptography principles.
 
     Implements simplified Kyber-inspired KEM using Learning With Errors (LWE). This is a
     deterministic demo implementation for testing; noise set to zero for stability. Production PQC
@@ -49,8 +31,7 @@ class QuantumResistantEncryption:
     """
 
     def __init__(self, security_level: int = 256) -> None:
-        """
-        Initialize quantum-resistant encryption.
+        """Initialize quantum-resistant encryption.
 
         Args:
             security_level: Security parameter (128, 192, or 256 bits)
@@ -63,8 +44,7 @@ class QuantumResistantEncryption:
     def _generate_lattice_key(
         self,
     ) -> tuple[tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]], np.ndarray[Any, Any]]:
-        """
-        Generate lattice-based key pair (public, private) using LWE.
+        """Generate lattice-based key pair (public, private) using LWE.
 
         Note: Noise term e set to zero for deterministic testing.
         Production implementation should use proper noise distribution.
@@ -89,8 +69,7 @@ class QuantumResistantEncryption:
         data: bytes,
         public_key: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]] | None = None,
     ) -> bytes:
-        """
-        Hybrid encryption: quantum-resistant KEM + symmetric stream cipher.
+        """Hybrid encryption: quantum-resistant KEM + symmetric stream cipher.
 
         Uses deterministic LWE-KEM with noise terms (e1, e2) set to zero for
         test stability.
@@ -138,8 +117,7 @@ class QuantumResistantEncryption:
         return bytes(header + encrypted)
 
     def decrypt_hybrid(self, encrypted_data: bytes, private_key: np.ndarray[Any, Any]) -> bytes:
-        """
-        Decrypt using quantum-resistant KEM decapsulation.
+        """Decrypt using quantum-resistant KEM decapsulation.
 
         Recovers message m from (u, v) using private key s.
         m_int = v - u @ s (mod q) since noise terms are zero.
@@ -179,8 +157,7 @@ class QuantumResistantEncryption:
         return decrypted
 
     def sign_data(self, data: bytes) -> bytes:
-        """
-        Sign data using SHA3-256 HMAC.
+        """Sign data using SHA3-256 HMAC.
 
         For production PQC signatures use AMA Cryptography (pqc_backends.dilithium_sign).
 
@@ -193,8 +170,7 @@ class QuantumResistantEncryption:
         return hashlib.sha3_256(data + self.seed).digest()
 
     def verify_signature(self, data: bytes, signature: bytes) -> bool:
-        """
-        Verify SHA3-256 HMAC signature.
+        """Verify SHA3-256 HMAC signature.
 
         For production PQC verification use AMA Cryptography (pqc_backends.dilithium_verify).
 
@@ -217,8 +193,7 @@ class SecureDataHandler:
     private_key: np.ndarray[Any, Any] | None
 
     def __init__(self, enable_quantum_resistant: bool = True) -> None:
-        """
-        Initialize secure data handler.
+        """Initialize secure data handler.
 
         Args:
             enable_quantum_resistant: Enable quantum-resistant encryption
@@ -249,8 +224,7 @@ class SecureDataHandler:
         return base64.b64decode(encoded.encode())
 
     def encrypt_quantum_resistant(self, data: str | bytes) -> bytes:
-        """
-        Encrypt data with quantum-resistant encryption.
+        """Encrypt data with quantum-resistant encryption.
 
         Args:
             data: Data to encrypt
@@ -267,8 +241,7 @@ class SecureDataHandler:
         return self.qr_encryption.encrypt_hybrid(data, self.public_key)
 
     def decrypt_quantum_resistant(self, encrypted_data: bytes) -> bytes:
-        """
-        Decrypt quantum-resistant encrypted data.
+        """Decrypt quantum-resistant encrypted data.
 
         Args:
             encrypted_data: Encrypted data

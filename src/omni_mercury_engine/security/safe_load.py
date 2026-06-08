@@ -1,49 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
-
-------------------------------------------------------------------------
-
-Pickle-free training-data loader.
-
-Mercury Agent does not deserialize Python pickles. Pickle is a
-stack-based VM whose opcodes can resolve any importable callable; even
-"safe" whitelists are a brittle defense over a structurally hostile
-format. We accept training data only as numpy ``.npz`` archives, which
-are pure binary tensor containers with no execution semantics.
-
-This module provides:
-
-* :func:`safe_load_training_data` -- the only sanctioned entry point
-  for loading on-disk training tensors. Enforces magic bytes, on-disk
-  size ceiling, zip central-directory inspection (per-entry and total
-  uncompressed-size limits, entry-count cap, suspicious-name guard,
-  compression-ratio guard against zip bombs), and
-  ``allow_pickle=False``.
-* :func:`sign_npz` / :func:`verify_npz_signature` -- optional HMAC-SHA-256
-  provenance via a sidecar ``.npz.sig`` file. Implemented with the
-  Python standard library (``hmac`` and ``hashlib``) so the loader has
-  no third-party crypto dependency at import time and can be used in
-  minimal-install environments.
-
-The pickle-based code path that previously lived inline in
-``omni_mercury_engine.engine.OmniMercuryEngine.train_fusion_model`` has
-been deleted. Legacy ``.pkl`` payloads must be converted once via
-``python -m omni_mercury_engine.tools.migrate_pkl`` (an isolated
-subprocess that never touches the engine).
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 
@@ -70,7 +26,6 @@ __all__ = [
     "verify_npz_signature",
 ]
 
-
 # .npz files are zip archives; the zip "local file header" magic is PK\x03\x04.
 NPZ_MAGIC: bytes = b"PK\x03\x04"
 
@@ -93,8 +48,7 @@ SIG_SUFFIX: str = ".sig"
 
 
 class UnsafePayloadError(ValueError):
-    """
-    Raised when a payload is rejected by the safe loader.
+    """Raised when a payload is rejected by the safe loader.
 
     The exception message describes the precise reason (size, magic, pickle content, signature
     mismatch). It never echoes payload bytes.
@@ -139,8 +93,7 @@ def _validate_zip_central_directory(
     max_uncompressed_bytes: int,
     max_entries: int,
 ) -> None:
-    r"""
-    Inspect the zip central directory before letting numpy decompress.
+    r"""Inspect the zip central directory before letting numpy decompress.
 
     .npz is a zip container. Without this guard, a small file on disk
     can expand to tens of GiB of numpy arrays in memory (decompression
@@ -224,8 +177,7 @@ def safe_load_training_data(
     max_entries: int = DEFAULT_MAX_ENTRIES,
     verify_key: bytes | None = None,
 ) -> dict[str, np.ndarray[Any, Any]]:
-    """
-    Load a training payload from a numpy ``.npz`` archive.
+    """Load a training payload from a numpy ``.npz`` archive.
 
     This is the only sanctioned loader. Pickle is **not** supported and
     will not be supported. ``allow_pickle=False`` is enforced
@@ -325,8 +277,7 @@ def _sig_path(path: str | os.PathLike[str]) -> Path:
 
 
 def sign_npz(path: str | os.PathLike[str], key: bytes) -> Path:
-    """
-    Compute HMAC-SHA-256 over the file contents and write a sidecar.
+    """Compute HMAC-SHA-256 over the file contents and write a sidecar.
 
     The sidecar path is ``<path>.sig`` and contains a single hex digest
     (64 characters, no trailing whitespace). This format is intentionally
@@ -363,8 +314,7 @@ def sign_npz(path: str | os.PathLike[str], key: bytes) -> Path:
 
 
 def verify_npz_signature(path: str | os.PathLike[str], key: bytes) -> None:
-    """
-    Verify a sidecar HMAC-SHA-256 signature, raising on mismatch.
+    """Verify a sidecar HMAC-SHA-256 signature, raising on mismatch.
 
     Parameters
     ----------

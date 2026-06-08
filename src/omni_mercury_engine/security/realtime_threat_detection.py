@@ -1,21 +1,4 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Real-Time Threat Detection using Mercury-native anomaly detection.
 
 Implements real-time threat detection using Mercury's own ensemble anomaly
@@ -26,6 +9,8 @@ Detection ensemble:
   - Local density estimator (scipy.spatial.cKDTree)
   - Robust covariance (Mahalanobis distance)
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -63,6 +48,7 @@ class _RandomProjectionDetector:
     def __init__(
         self, contamination: float = 0.1, n_projections: int = 100, random_state: int = 42
     ) -> None:
+        """Initialize the instance."""
         self.contamination = contamination
         self.n_projections = n_projections
         self._rng = np.random.default_rng(random_state)
@@ -97,6 +83,7 @@ class _LocalDensityDetector:
     """KDTree-based local density anomaly detector (LOF-style, no sklearn)."""
 
     def __init__(self, contamination: float = 0.1, n_neighbors: int = 20) -> None:
+        """Initialize the instance."""
         self.contamination = contamination
         self.n_neighbors = n_neighbors
         self._tree: cKDTree | None = None
@@ -126,6 +113,7 @@ class _RobustCovarianceDetector:
     """Mahalanobis-distance detector with robust covariance (no sklearn)."""
 
     def __init__(self, contamination: float = 0.1, random_state: int = 42) -> None:
+        """Initialize the instance."""
         self.contamination = contamination
         self._mean: np.ndarray[Any, Any] | None = None
         self._cov_inv: np.ndarray[Any, Any] | None = None
@@ -168,8 +156,7 @@ class _RobustCovarianceDetector:
 
 
 class RealTimeThreatDetector(LoggerMixin):
-    """
-    Real-time threat detection using Mercury-native ensemble anomaly detection.
+    """Real-time threat detection using Mercury-native ensemble anomaly detection.
 
     Combines multiple Mercury-native detection algorithms:
     - Random-projection isolation detector
@@ -187,8 +174,7 @@ class RealTimeThreatDetector(LoggerMixin):
         enable_lof: bool = True,
         enable_elliptic: bool = True,
     ):
-        """
-        Initialize real-time threat detector.
+        """Initialize real-time threat detector.
 
         Args:
             contamination: Expected proportion of outliers (0.0 to 0.5)
@@ -226,8 +212,7 @@ class RealTimeThreatDetector(LoggerMixin):
         self._ref_p99: float = 0.0
 
     def fit(self, X: np.ndarray[Any, Any]) -> RealTimeThreatDetector:
-        """
-        Fit detectors on normal (non-threatening) data.
+        """Fit detectors on normal (non-threatening) data.
 
         Args:
             X: Training data (n_samples, n_features)
@@ -259,8 +244,7 @@ class RealTimeThreatDetector(LoggerMixin):
         return self
 
     def detect_threat(self, X: np.ndarray[Any, Any]) -> dict[str, Any]:
-        """
-        Detect threats in real-time data.
+        """Detect threats in real-time data.
 
         Args:
             X: Input data (n_samples, n_features)
@@ -335,8 +319,7 @@ class RealTimeThreatDetector(LoggerMixin):
     def record_threat(
         self, threat_data: np.ndarray[Any, Any], threat_type: str, severity: float
     ) -> ThreatSignature:
-        """
-        Record detected threat for future analysis.
+        """Record detected threat for future analysis.
 
         Args:
             threat_data: Threat feature vector
@@ -384,16 +367,14 @@ class RealTimeThreatDetector(LoggerMixin):
 
 
 class AdaptiveThreatDetector(RealTimeThreatDetector):
-    """
-    Adaptive threat detector that updates based on new threats.
+    """Adaptive threat detector that updates based on new threats.
 
     Implements online learning for continuous adaptation to evolving threats. All detection is
     Mercury-native (numpy/scipy only).
     """
 
     def __init__(self, *args: Any, update_frequency: int = 100, **kwargs: Any) -> None:
-        """
-        Initialize adaptive threat detector.
+        """Initialize adaptive threat detector.
 
         Args:
             update_frequency: Number of samples between model updates
@@ -408,8 +389,7 @@ class AdaptiveThreatDetector(RealTimeThreatDetector):
     def detect_and_adapt(
         self, X: np.ndarray[Any, Any], is_normal: bool | None = None
     ) -> dict[str, Any]:
-        """
-        Detect threats and adapt model based on feedback.
+        """Detect threats and adapt model based on feedback.
 
         Args:
             X: Input data

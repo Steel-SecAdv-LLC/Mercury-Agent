@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Quantum Risk Cybersecurity Module
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Quantum Risk Cybersecurity Module.
 
 Inspired by Bain & Company Technology Report 2025 quantum cybersecurity insights:
 - 95% of tech leaders believe quantum computing will pose security risks within 10 years
@@ -29,8 +11,9 @@ Research sources:
 - Bain & Company Technology Report 2025 (https://www.bain.com/insights/topics/technology-report/)
 - Wikipedia - Quantum computing (https://en.wikipedia.org/wiki/Quantum_computing)
 - Wikipedia - Post-quantum cryptography (https://en.wikipedia.org/wiki/Post-quantum_cryptography)
-
 """
+
+from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
@@ -74,8 +57,7 @@ class QuantumThreat:
 
 
 class QuantumRiskCyber:
-    """
-    Quantum cybersecurity risk management system.
+    """Quantum cybersecurity risk management system.
 
     Implements quantum threat detection, post-quantum cryptography readiness, and risk assessment
     inspired by Bain 2025 report findings.
@@ -84,8 +66,7 @@ class QuantumRiskCyber:
     def __init__(
         self, threat_timeline_years: float = 10.0, preparedness_threshold: float = 0.5
     ) -> None:
-        """
-        Initialize quantum risk cybersecurity system.
+        """Initialize quantum risk cybersecurity system.
 
         Args:
             threat_timeline_years: Timeline for quantum threat realization
@@ -101,8 +82,7 @@ class QuantumRiskCyber:
     def assess_quantum_vulnerability(
         self, system_components: list[str], encryption_methods: list[str]
     ) -> dict[str, float]:
-        """
-        Assess vulnerability to quantum attacks.
+        """Assess vulnerability to quantum attacks.
 
         Inspired by Bain finding: 95% see risks, 10% have plans.
 
@@ -131,8 +111,7 @@ class QuantumRiskCyber:
     def assess_quantum_threat_level(
         self, current_year: int, cryptosystem: CryptoSystem
     ) -> dict[str, Any]:
-        """
-        Assess quantum threat level for a specific cryptosystem.
+        """Assess quantum threat level for a specific cryptosystem.
 
         Args:
             current_year: Current year for assessment
@@ -180,8 +159,7 @@ class QuantumRiskCyber:
         }
 
     def evaluate_post_quantum_readiness(self, current_crypto: dict[str, float]) -> dict[str, Any]:
-        """
-        Evaluate readiness for post-quantum cryptography.
+        """Evaluate readiness for post-quantum cryptography.
 
         Args:
             current_crypto: Dict mapping crypto system names to usage percentages
@@ -216,8 +194,7 @@ class QuantumRiskCyber:
         }
 
     def scan_quantum_vulnerabilities(self, crypto_systems: list[dict[str, Any]]) -> dict[str, Any]:
-        """
-        Scan cryptographic systems for quantum vulnerabilities.
+        """Scan cryptographic systems for quantum vulnerabilities.
 
         Args:
             crypto_systems: List of dicts with 'name' and 'usage' keys
@@ -256,8 +233,7 @@ class QuantumRiskCyber:
         return scan_result
 
     def model_risk_timeline(self, current_year: int) -> dict[str, Any]:
-        """
-        Model quantum risk timeline based on Bain report (95% see threats within 10 years).
+        """Model quantum risk timeline based on Bain report (95% see threats within 10 years).
 
         Args:
             current_year: Current year for timeline modeling
@@ -282,8 +258,7 @@ class QuantumRiskCyber:
         }
 
     def detect_preparedness_gap(self, awareness: float, preparedness: float) -> dict[str, Any]:
-        """
-        Detect preparedness gap (Bain finding: 95% aware, only 10% have plans).
+        """Detect preparedness gap (Bain finding: 95% aware, only 10% have plans).
 
         Args:
             awareness: Organization's quantum threat awareness level (0-1)
@@ -309,8 +284,7 @@ class QuantumRiskCyber:
         }
 
     def prioritize_crypto_upgrades(self, systems: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """
-        Prioritize cryptographic systems for upgrade.
+        """Prioritize cryptographic systems for upgrade.
 
         Args:
             systems: List of dicts with 'name', 'usage', and 'quantum_resistant' keys
@@ -351,8 +325,7 @@ class QuantumRiskCyber:
     def post_quantum_readiness_check(
         self, current_crypto: list[str], pqc_alternatives: list[str] | None = None
     ) -> tuple[float, list[str]]:
-        """
-        Check readiness for post-quantum cryptography transition.
+        """Check readiness for post-quantum cryptography transition.
 
         Post-quantum cryptography (PQC) includes:
         - Lattice-based (NTRU, LWE)
@@ -404,8 +377,7 @@ class QuantumRiskCyber:
     def threat_timeline_modeling(
         self, threat_type: str, current_year: int = 2025
     ) -> dict[str, Any]:
-        """
-        Model quantum threat timeline.
+        """Model quantum threat timeline.
 
         Based on Bain report: 95% of leaders believe quantum threats
         will materialize within 10 years.
@@ -435,8 +407,7 @@ class QuantumRiskCyber:
     def quantum_threat_detection(
         self, data_patterns: np.ndarray[Any, Any], anomaly_threshold: float = 0.7
     ) -> tuple[bool, float, str]:
-        """
-        Detect potential quantum-based attacks or anomalies.
+        """Detect potential quantum-based attacks or anomalies.
 
         Args:
             data_patterns: Input data patterns to analyze
@@ -468,8 +439,7 @@ class QuantumRiskCyber:
         return threat_detected, anomaly_score, description
 
     def preparedness_gap_analysis(self) -> dict[str, Any]:
-        """
-        Analyze the preparedness gap.
+        """Analyze the preparedness gap.
 
         Inspired by Bain finding: Critical gap between 95% awareness
         and 10% having plans.
@@ -525,8 +495,7 @@ class QuantumRiskCyber:
 
 
 class PostQuantumMigrationPlanner:
-    """
-    Post-quantum cryptography migration planning system.
+    """Post-quantum cryptography migration planning system.
 
     Models quantum computing threats to current encryption and plans
     migration to NIST Post-Quantum Cryptography standards.
@@ -588,8 +557,7 @@ class PostQuantumMigrationPlanner:
     def assess_algorithm_vulnerability(
         self, algorithm: str, key_size: int, usage_context: str = "general"
     ) -> dict[str, Any]:
-        """
-        Assess vulnerability of current cryptographic algorithm.
+        """Assess vulnerability of current cryptographic algorithm.
 
         Args:
             algorithm: Current algorithm (e.g., 'RSA', 'ECC', 'AES')
@@ -693,8 +661,7 @@ class PostQuantumMigrationPlanner:
     def create_migration_plan(
         self, current_systems: list[dict[str, Any]], timeline_months: int = 24
     ) -> dict[str, Any]:
-        """
-        Create comprehensive migration plan to post-quantum cryptography.
+        """Create comprehensive migration plan to post-quantum cryptography.
 
         Args:
             current_systems: List of dicts with 'algorithm', 'key_size', 'usage', 'criticality'
@@ -813,8 +780,7 @@ class PostQuantumMigrationPlanner:
     def monitor_migration_progress(
         self, plan: dict[str, Any], completed_milestones: list[str]
     ) -> dict[str, Any]:
-        """
-        Monitor progress of PQC migration plan.
+        """Monitor progress of PQC migration plan.
 
         Args:
             plan: Migration plan from create_migration_plan()
@@ -854,8 +820,7 @@ class PostQuantumMigrationPlanner:
         }
 
     def explain_pqc_algorithms(self) -> dict[str, Any]:
-        """
-        Provide detailed explanation of NIST PQC algorithms.
+        """Provide detailed explanation of NIST PQC algorithms.
 
         Returns:
             Educational content about post-quantum cryptography
