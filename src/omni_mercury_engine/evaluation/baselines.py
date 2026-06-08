@@ -1,28 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-Published Baseline Results for Anomaly Detection
-
-This module contains published benchmark results from academic papers.
-Use these to compare your model's performance against established baselines.
-
-IMPORTANT: These are results reported in original papers on standard benchmarks.
-           Your model should be evaluated on the SAME datasets with SAME metrics.
-
-Datasets and their standard benchmarks:
-- SMD: Server Machine Dataset (OmniAnomaly benchmark)
-- SMAP/MSL: NASA spacecraft telemetry
-- NAB: Numenta Anomaly Benchmark
-- NSL-KDD: Network intrusion detection
-
-Methods included:
-- OmniAnomaly (KDD 2019)
-- MSCRED (AAAI 2019)
-- DAGMM (ICLR 2018)
-- LSTM-VAE (ICML 2015)
-- TranAD (VLDB 2022)
-- Anomaly Transformer (ICLR 2022)
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Published Baseline Results for Anomaly Detection."""
 
 from __future__ import annotations
 
@@ -194,6 +171,7 @@ class BaselineComparison:
     improvement_over_avg: float
 
     def __str__(self) -> str:
+        """Return the string representation."""
         return (
             f"Baseline Comparison on {self.dataset}:\n"
             f"  Your F1: {self.your_f1:.4f}\n"
@@ -209,8 +187,7 @@ def compare_to_baselines(
     your_recall: float,
     your_f1: float,
 ) -> BaselineComparison:
-    """
-    Compare your model's results to published baselines.
+    """Compare your model's results to published baselines.
 
     Args:
         dataset: Dataset name (SMD, SMAP, MSL, NSL-KDD, NAB)
@@ -266,8 +243,7 @@ def compare_to_baselines(
 
 
 def print_baseline_table(dataset: str, your_results: dict[str, float] | None = None) -> str:
-    """
-    Print a formatted table comparing your results to baselines.
+    """Print a formatted table comparing your results to baselines.
 
     Args:
         dataset: Dataset name

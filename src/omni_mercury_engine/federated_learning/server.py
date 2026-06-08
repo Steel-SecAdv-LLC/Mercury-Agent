@@ -1,5 +1,5 @@
-"""
-Federated Learning Server for Mercury Agent.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Federated Learning Server for Mercury Agent.
 
 Implements federated aggregation algorithms including FedAvg, FedProx,
 and secure aggregation with differential privacy.
@@ -48,7 +48,6 @@ from omni_mercury_engine.security.sigma_immutable_gate import (
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-
 
 logger = logging.getLogger(__name__)
 
@@ -131,8 +130,7 @@ class Aggregator(ABC):
 
 
 class FedAvgAggregator(Aggregator):
-    """
-    Federated Averaging (FedAvg) aggregator.
+    """Federated Averaging (FedAvg) aggregator.
 
     Computes weighted average of client updates based on sample counts.
     """
@@ -164,8 +162,7 @@ class FedAvgAggregator(Aggregator):
 
 
 class FedAdamAggregator(Aggregator):
-    """
-    FedAdam aggregator with adaptive learning rates.
+    """FedAdam aggregator with adaptive learning rates.
 
     Applies Adam optimizer on the server side for aggregation.
     """
@@ -178,8 +175,7 @@ class FedAdamAggregator(Aggregator):
         epsilon: float = 1e-8,
         tau: float = 1e-3,
     ) -> None:
-        """
-        Initialize FedAdam aggregator.
+        """Initialize FedAdam aggregator.
 
         Args:
             learning_rate: Server learning rate
@@ -236,8 +232,7 @@ class FedAdamAggregator(Aggregator):
 
 
 class ScaffoldAggregator(Aggregator):
-    """
-    SCAFFOLD aggregator with variance reduction.
+    """SCAFFOLD aggregator with variance reduction.
 
     Uses control variates to reduce client drift.
     """
@@ -291,8 +286,7 @@ class ScaffoldAggregator(Aggregator):
 
 
 class SecureAggregatorWrapper(Aggregator):
-    """
-    Secure aggregation with differential privacy.
+    """Secure aggregation with differential privacy.
 
     Wraps FedAvg with DP noise for privacy-preserving aggregation.
     """
@@ -341,8 +335,7 @@ class SecureAggregatorWrapper(Aggregator):
 
 
 class FederatedServer:
-    """
-    Federated Learning Server.
+    """Federated Learning Server.
 
     Orchestrates federated training by managing clients, coordinating
     rounds, and aggregating updates.
@@ -375,8 +368,7 @@ class FederatedServer:
         eval_fn: Callable[[np.ndarray[Any, Any]], dict[str, float]] | None = None,
         seed: int | None = None,
     ) -> None:
-        """
-        Initialize federated server.
+        """Initialize federated server.
 
         Args:
             initial_weights: Initial model weights
@@ -473,8 +465,7 @@ class FederatedServer:
         early_stopping: bool = False,
         patience: int = 10,
     ) -> TrainingResult:
-        """
-        Run federated training.
+        """Run federated training.
 
         Args:
             n_rounds: Number of rounds (defaults to config)
@@ -741,8 +732,7 @@ class FederatedServer:
 
 
 class FederatedAnomalyDetector:
-    """
-    Federated Anomaly Detection system.
+    """Federated Anomaly Detection system.
 
     High-level interface for training anomaly detection models
     in a federated setting with privacy guarantees.
@@ -778,8 +768,7 @@ class FederatedAnomalyDetector:
         aggregation: str = "fedavg",
         seed: int | None = None,
     ) -> None:
-        """
-        Initialize federated anomaly detector.
+        """Initialize federated anomaly detector.
 
         Args:
             model_dim: Dimension of model (feature dimension)
@@ -835,8 +824,7 @@ class FederatedAnomalyDetector:
         X: np.ndarray[Any, Any],
         y: np.ndarray[Any, Any] | None = None,
     ) -> None:
-        """
-        Add a client with local data.
+        """Add a client with local data.
 
         Args:
             client_id: Unique client identifier
@@ -878,8 +866,7 @@ class FederatedAnomalyDetector:
         self._clients.append(client)
 
     def fit(self) -> TrainingResult:
-        """
-        Train the federated anomaly detector.
+        """Train the federated anomaly detector.
 
         Returns:
             TrainingResult with training metrics
@@ -945,8 +932,7 @@ class FederatedAnomalyDetector:
         return {"weight_norm": float(np.linalg.norm(weights))}
 
     def predict(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Predict anomaly labels.
+        """Predict anomaly labels.
 
         Args:
             X: Data to score
@@ -958,8 +944,7 @@ class FederatedAnomalyDetector:
         return (scores > self._threshold).astype(int)
 
     def decision_function(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Compute anomaly scores.
+        """Compute anomaly scores.
 
         Args:
             X: Data to score

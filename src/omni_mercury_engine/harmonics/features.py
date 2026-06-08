@@ -1,5 +1,5 @@
-"""
-Harmonic Feature Extraction for Mercury Agent.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Harmonic Feature Extraction for Mercury Agent.
 
 Provides rotation-invariant feature extraction from spherical harmonic coefficients.
 
@@ -63,8 +63,7 @@ class RotationInvariantDescriptor:
 
 
 class HarmonicFeatureExtractor:
-    """
-    Extract rotation-invariant features from spherical harmonic coefficients.
+    """Extract rotation-invariant features from spherical harmonic coefficients.
 
     Provides multiple descriptor types for 3D shape analysis.
     """
@@ -84,8 +83,7 @@ class HarmonicFeatureExtractor:
         self,
         coefficients: HarmonicCoefficients,
     ) -> RotationInvariantDescriptor:
-        """
-        Extract all rotation-invariant features.
+        """Extract all rotation-invariant features.
 
         Args:
             coefficients: Spherical harmonic coefficients
@@ -114,8 +112,7 @@ class HarmonicFeatureExtractor:
         self,
         coefficients: HarmonicCoefficients,
     ) -> PowerSpectrum:
-        """
-        Compute the power spectrum (rotation-invariant).
+        """Compute the power spectrum (rotation-invariant).
 
         P_l = sum_m |c_lm|^2
 
@@ -152,8 +149,7 @@ class HarmonicFeatureExtractor:
         coefficients: HarmonicCoefficients,
         max_l: int | None = None,
     ) -> Bispectrum:
-        """
-        Compute the bispectrum (rotation-invariant third-order statistics).
+        """Compute the bispectrum (rotation-invariant third-order statistics).
 
         B_{l1,l2,l3} = sum_{m1,m2,m3} c_{l1,m1} * c_{l2,m2} * c_{l3,m3}^* * G(...)
 
@@ -280,8 +276,7 @@ class HarmonicFeatureExtractor:
         coefficients: HarmonicCoefficients,
         scales: list[int] | None = None,
     ) -> list[RotationInvariantDescriptor]:
-        """
-        Extract features at multiple scales.
+        """Extract features at multiple scales.
 
         Args:
             coefficients: SH coefficients
@@ -342,8 +337,7 @@ class HarmonicSimilarity:
         desc1: RotationInvariantDescriptor,
         desc2: RotationInvariantDescriptor,
     ) -> float:
-        """
-        Compute similarity between two descriptors.
+        """Compute similarity between two descriptors.
 
         Returns value in [0, 1] where 1 is identical.
         """

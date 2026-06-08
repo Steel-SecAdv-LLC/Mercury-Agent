@@ -1,5 +1,5 @@
-"""
-Advanced Spherical Harmonics Module for Mercury Agent.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Advanced Spherical Harmonics Module for Mercury Agent.
 
 Provides high-order spherical harmonic analysis (l_max > 20) for detailed
 3D surface analysis and pattern recognition in anomaly detection.

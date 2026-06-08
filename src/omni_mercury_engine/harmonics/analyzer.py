@@ -1,5 +1,5 @@
-"""
-Advanced Harmonic Analyzer for Mercury Agent.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Advanced Harmonic Analyzer for Mercury Agent.
 
 High-level interface for 3D surface analysis and anomaly detection using spherical harmonic
 decomposition.
@@ -50,8 +50,7 @@ class HarmonicSignature:
 
 
 class HarmonicDatabase:
-    """
-    Database of reference harmonic signatures.
+    """Database of reference harmonic signatures.
 
     Stores and retrieves harmonic signatures for comparison.
     """
@@ -68,8 +67,7 @@ class HarmonicDatabase:
         coefficients: HarmonicCoefficients,
         metadata: dict[str, Any] | None = None,
     ) -> None:
-        """
-        Add a signature to the database.
+        """Add a signature to the database.
 
         Args:
             name: Unique identifier
@@ -89,8 +87,7 @@ class HarmonicDatabase:
         coefficients: HarmonicCoefficients,
         k: int = 5,
     ) -> list[tuple[str, float]]:
-        """
-        Find k nearest signatures.
+        """Find k nearest signatures.
 
         Args:
             coefficients: Query coefficients
@@ -130,8 +127,7 @@ class HarmonicDatabase:
 
 
 class AdvancedHarmonicAnalyzer:
-    """
-    High-level interface for spherical harmonic analysis.
+    """High-level interface for spherical harmonic analysis.
 
     Provides methods for decomposition, feature extraction, and anomaly detection.
 
@@ -164,8 +160,7 @@ class AdvancedHarmonicAnalyzer:
         backend: str = "numpy",
         precision: str = "float64",
     ) -> None:
-        """
-        Initialize the harmonic analyzer.
+        """Initialize the harmonic analyzer.
 
         Args:
             l_max: Maximum spherical harmonic degree
@@ -197,8 +192,7 @@ class AdvancedHarmonicAnalyzer:
         point_cloud: np.ndarray[Any, Any],
         sampling: str = "healpix",
     ) -> HarmonicCoefficients:
-        """
-        Decompose 3D point cloud into spherical harmonics.
+        """Decompose 3D point cloud into spherical harmonics.
 
         Args:
             point_cloud: 3D point cloud (N, 3) or (N, 4) with values
@@ -215,8 +209,7 @@ class AdvancedHarmonicAnalyzer:
         n_theta: int = 64,
         n_phi: int = 128,
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """
-        Reconstruct surface from coefficients.
+        """Reconstruct surface from coefficients.
 
         Args:
             coefficients: Spherical harmonic coefficients
@@ -233,8 +226,7 @@ class AdvancedHarmonicAnalyzer:
         coefficients: HarmonicCoefficients,
         descriptors: list[str] | None = None,
     ) -> np.ndarray[Any, Any]:
-        """
-        Extract rotation-invariant features.
+        """Extract rotation-invariant features.
 
         Args:
             coefficients: Spherical harmonic coefficients
@@ -272,8 +264,7 @@ class AdvancedHarmonicAnalyzer:
         point_clouds: list[np.ndarray[Any, Any]],
         labels: list[str] | None = None,
     ) -> AdvancedHarmonicAnalyzer:
-        """
-        Fit analyzer on reference data.
+        """Fit analyzer on reference data.
 
         Args:
             point_clouds: List of reference point clouds
@@ -312,8 +303,7 @@ class AdvancedHarmonicAnalyzer:
         point_cloud: np.ndarray[Any, Any],
         threshold: float = 0.5,
     ) -> HarmonicAnomalyResult:
-        """
-        Detect anomalies in a 3D surface.
+        """Detect anomalies in a 3D surface.
 
         Args:
             point_cloud: 3D point cloud to analyze
@@ -367,8 +357,7 @@ class AdvancedHarmonicAnalyzer:
         point_clouds: list[np.ndarray[Any, Any]],
         threshold: float = 0.5,
     ) -> list[HarmonicAnomalyResult]:
-        """
-        Detect anomalies in batch.
+        """Detect anomalies in batch.
 
         Args:
             point_clouds: List of point clouds
@@ -384,8 +373,7 @@ class AdvancedHarmonicAnalyzer:
         coefficients1: HarmonicCoefficients,
         coefficients2: HarmonicCoefficients,
     ) -> float:
-        """
-        Compare two harmonic representations.
+        """Compare two harmonic representations.
 
         Args:
             coefficients1: First coefficients
@@ -404,8 +392,7 @@ class AdvancedHarmonicAnalyzer:
         coefficients: HarmonicCoefficients,
         n_modes: int = 10,
     ) -> list[tuple[int, int, complex]]:
-        """
-        Get the dominant harmonic modes.
+        """Get the dominant harmonic modes.
 
         Args:
             coefficients: Spherical harmonic coefficients
@@ -429,8 +416,7 @@ class AdvancedHarmonicAnalyzer:
         l_min: int = 0,
         l_max: int | None = None,
     ) -> HarmonicCoefficients:
-        """
-        Filter coefficients to specific degree range.
+        """Filter coefficients to specific degree range.
 
         Args:
             coefficients: Input coefficients

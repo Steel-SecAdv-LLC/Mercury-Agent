@@ -1,5 +1,5 @@
-"""
-GDPR Article 22 Compliance for Mercury Agent.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""GDPR Article 22 Compliance for Mercury Agent.
 
 Implements explanation generation and documentation for automated
 decision-making systems to comply with GDPR Article 22 requirements.
@@ -31,7 +31,6 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     import numpy as np
-
 
 logger = logging.getLogger(__name__)
 
@@ -87,8 +86,7 @@ class DecisionInfo:
 
 @dataclass
 class ExplanationReport:
-    """
-    GDPR-compliant explanation report.
+    """GDPR-compliant explanation report.
 
     Contains all information required for Article 22 compliance, including meaningful information
     about the logic involved, significance, and envisaged consequences.
@@ -220,8 +218,7 @@ class ComplianceAuditRecord:
 
 
 class GDPRExplainer:
-    """
-    GDPR Article 22 compliant explainer.
+    """GDPR Article 22 compliant explainer.
 
     Generates explanations that satisfy the requirements of GDPR
     Article 22 for automated decision-making:
@@ -273,8 +270,7 @@ Reference ID: {decision_id}
         shap_method: str = "auto",
         counterfactual_method: str = "wachter",
     ) -> None:
-        """
-        Initialize GDPR explainer.
+        """Initialize GDPR explainer.
 
         Args:
             model: Model or prediction function
@@ -333,8 +329,7 @@ Reference ID: {decision_id}
         consent_given: bool = False,
         include_counterfactuals: bool = True,
     ) -> ExplanationReport:
-        """
-        Generate GDPR-compliant explanation for a decision.
+        """Generate GDPR-compliant explanation for a decision.
 
         Args:
             instance: Input features for the decision
@@ -615,8 +610,7 @@ Reference ID: {decision_id}
         subject_id: str,
         reason: str = "",
     ) -> bool:
-        """
-        Request human review of a decision.
+        """Request human review of a decision.
 
         Args:
             decision_id: ID of the decision
@@ -642,8 +636,7 @@ Reference ID: {decision_id}
         subject_id: str,
         objection_text: str,
     ) -> bool:
-        """
-        Record data subject's objection to a decision.
+        """Record data subject's objection to a decision.
 
         Args:
             decision_id: ID of the decision
@@ -667,8 +660,7 @@ Reference ID: {decision_id}
         self,
         subject_id: str | None = None,
     ) -> list[ComplianceAuditRecord]:
-        """
-        Get audit records, optionally filtered by subject.
+        """Get audit records, optionally filtered by subject.
 
         Args:
             subject_id: Optional subject ID to filter by
@@ -682,8 +674,7 @@ Reference ID: {decision_id}
         return [r for r in self._audit_records if r.subject_id == subject_id]
 
     def generate_compliance_report(self) -> dict[str, Any]:
-        """
-        Generate compliance summary report.
+        """Generate compliance summary report.
 
         Returns:
             Dictionary with compliance statistics

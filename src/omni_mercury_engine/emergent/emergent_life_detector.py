@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Emergent Life Detector - SETI-like Anomaly Detection for Non-Human Intelligence
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Emergent Life Detector - SETI-like Anomaly Detection for Non-Human Intelligence.
 
 Novel constructions for detecting emergent and non-human life through:
 - SETI-like anomaly detection in cosmic signals (ResonanceEngine for non-natural patterns)
@@ -32,8 +14,9 @@ Research sources:
 - NASA biosignature detection frameworks
 - ESA exobiology research
 - Breakthrough Listen technosignature search
-
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -62,14 +45,14 @@ class LifeDetectionResult:
 
 
 class SETICosmicSignalAnalyzer:
-    """
-    SETI-like cosmic signal anomaly detection using resonance analysis.
+    """SETI-like cosmic signal anomaly detection using resonance analysis.
 
     Detects non-natural patterns in cosmic signals that may indicate technological signatures of
     non-human intelligence.
     """
 
     def __init__(self, threshold_std: float = 4.0) -> None:
+        """Initialize the instance."""
         self.resonance = ResonanceEngine(sampling_rate=1.0)
         self.space_analyzer = SpaceExplorationAnalyzer()
         self.threshold_std = threshold_std
@@ -87,8 +70,7 @@ class SETICosmicSignalAnalyzer:
         context: dict[str, Any] | None = None,
         threshold_std: float | None = None,
     ) -> dict[str, Any]:
-        """
-        Detect SETI-like anomalies in cosmic signals.
+        """Detect SETI-like anomalies in cosmic signals.
 
         Args:
             signal_data: Time-series signal data from telescope/receiver
@@ -256,14 +238,14 @@ class SETICosmicSignalAnalyzer:
 
 
 class BioSignalPatternRecognizer:
-    """
-    Bio-signal pattern recognition for detecting life indicators.
+    """Bio-signal pattern recognition for detecting life indicators.
 
     Analyzes environmental/space data for biosignature patterns (e.g., atmospheric gas ratios,
     periodic biological rhythms).
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
         self.biosignatures = {
@@ -275,8 +257,7 @@ class BioSignalPatternRecognizer:
     def detect_biosignatures(
         self, environmental_data: np.ndarray[Any, Any], data_type: str = "atmospheric"
     ) -> dict[str, Any]:
-        """
-        Detect biosignature patterns in environmental/space data.
+        """Detect biosignature patterns in environmental/space data.
 
         Args:
             environmental_data: Time-series environmental measurements
@@ -367,22 +348,21 @@ class BioSignalPatternRecognizer:
 
 
 class MultiverseContactProtocolExplorer:
-    """
-    Multiverse-based exploration of contact protocols.
+    """Multiverse-based exploration of contact protocols.
 
     Uses multiverse optimization to explore potential communication strategies for establishing
     contact with non-human intelligence.
     """
 
     def __init__(self, num_universes: int = 30) -> None:
+        """Initialize the instance."""
         self.multiverse = MultiverseOmniEngine(
             num_universes=num_universes, state_dim=128, convergence_threshold=0.9
         )
         self.logger = logging.getLogger(__name__)
 
     def explore_contact_protocols(self, signal_characteristics: dict[str, Any]) -> dict[str, Any]:
-        """
-        Explore potential contact/communication protocols using multiverse.
+        """Explore potential contact/communication protocols using multiverse.
 
         Args:
             signal_characteristics: Characteristics of detected signal
@@ -445,7 +425,7 @@ class MultiverseContactProtocolExplorer:
 
 
 class EmergentLifeDetector:
-    """Unified emergent life detector integrating SETI, biosignatures, and contact protocol
+    """Unified emergent life detector integrating SETI, biosignatures, and contact protocol.
 
     exploration.
     """
@@ -456,6 +436,7 @@ class EmergentLifeDetector:
         enable_biosignatures: bool = True,
         enable_contact_protocols: bool = True,
     ):
+        """Initialize the instance."""
         self.enable_seti = enable_seti
         self.enable_biosignatures = enable_biosignatures
         self.enable_contact_protocols = enable_contact_protocols
@@ -471,8 +452,7 @@ class EmergentLifeDetector:
     def detect_emergent_life(
         self, data: np.ndarray[Any, Any], analysis_type: str, context: dict[str, Any] | None = None
     ) -> LifeDetectionResult:
-        """
-        Comprehensive emergent life detection.
+        """Comprehensive emergent life detection.
 
         Args:
             data: Signal or environmental data

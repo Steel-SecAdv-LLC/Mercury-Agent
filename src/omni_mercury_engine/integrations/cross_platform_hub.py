@@ -1,21 +1,5 @@
-"""
-Mercury Agent - Cross-Platform Anomaly Detection Hub
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Multi-Cross Platform Anomaly Detection Hub providing:
-- Unified adapter pattern for external platforms
-- Protocol-agnostic data ingestion (REST, gRPC, WebSocket, MQTT)
-- Standard output formats (JSON, Prometheus, OpenTelemetry, CSV)
-- Platform connectors for: Netdata, Elastic, Splunk, Azure, Datadog
-- Multi-platform orchestration and routing
-- Real-time data transformation pipelines
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Cross-Platform Anomaly Detection Hub."""
 
 from __future__ import annotations
 
@@ -33,7 +17,6 @@ import numpy as np
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
-
 
 logger = logging.getLogger(__name__)
 
@@ -361,6 +344,7 @@ class PlatformAdapter(ABC):
     """Abstract base class for platform adapters."""
 
     def __init__(self, config: PlatformConfig):
+        """Initialize the instance."""
         self.config = config
         self._connected = False
         self._last_error: str | None = None
@@ -382,8 +366,7 @@ class PlatformAdapter(ABC):
 
     @abstractmethod
     async def send_batch(self, events: list[AnomalyEvent]) -> int:
-        """
-        Send batch of events.
+        """Send batch of events.
 
         Returns count of successful sends.
         """
@@ -412,6 +395,7 @@ class HTTPPlatformAdapter(PlatformAdapter):
     """Generic HTTP-based platform adapter."""
 
     def __init__(self, config: PlatformConfig):
+        """Initialize the instance."""
         super().__init__(config)
         self._session: Any = None
 
@@ -546,6 +530,7 @@ class PrometheusAdapter(PlatformAdapter):
     """Prometheus push gateway adapter."""
 
     def __init__(self, config: PlatformConfig):
+        """Initialize the instance."""
         super().__init__(config)
         self._metrics_buffer: list[str] = []
 
@@ -649,6 +634,7 @@ class OpenTelemetryAdapter(PlatformAdapter):
     """OpenTelemetry collector adapter."""
 
     def __init__(self, config: PlatformConfig):
+        """Initialize the instance."""
         super().__init__(config)
         self._exporter: Any = None
 
@@ -725,8 +711,7 @@ class OpenTelemetryAdapter(PlatformAdapter):
 
 
 class CrossPlatformHub:
-    """
-    Central hub for cross-platform anomaly detection integration.
+    """Central hub for cross-platform anomaly detection integration.
 
     Features:
     - Multi-platform event routing
@@ -742,8 +727,7 @@ class CrossPlatformHub:
         enable_correlation: bool = True,
         buffer_size: int = 1000,
     ):
-        """
-        Initialize the cross-platform hub.
+        """Initialize the cross-platform hub.
 
         Args:
             default_format: Default output format
@@ -767,8 +751,7 @@ class CrossPlatformHub:
         config: PlatformConfig,
         adapter_class: type[PlatformAdapter] | None = None,
     ) -> None:
-        """
-        Register a platform adapter.
+        """Register a platform adapter.
 
         Args:
             name: Unique platform name
@@ -792,8 +775,7 @@ class CrossPlatformHub:
         source_pattern: str,
         platform_names: list[str],
     ) -> None:
-        """
-        Add routing rule for events.
+        """Add routing rule for events.
 
         Args:
             source_pattern: Source pattern to match (supports wildcards)
@@ -833,8 +815,7 @@ class CrossPlatformHub:
         event: AnomalyEvent,
         platforms: list[str] | None = None,
     ) -> dict[str, bool]:
-        """
-        Publish anomaly event to platforms.
+        """Publish anomaly event to platforms.
 
         Args:
             event: Anomaly event to publish
@@ -878,8 +859,7 @@ class CrossPlatformHub:
         events: list[AnomalyEvent],
         platforms: list[str] | None = None,
     ) -> dict[str, int]:
-        """
-        Publish batch of events.
+        """Publish batch of events.
 
         Args:
             events: List of anomaly events
@@ -910,8 +890,7 @@ class CrossPlatformHub:
         source: str = "mercury-agent",
         platforms: list[str] | None = None,
     ) -> dict[str, bool | int]:
-        """
-        Publish detector result, converting to standard events.
+        """Publish detector result, converting to standard events.
 
         Args:
             result: Detection result from Mercury detectors
@@ -946,8 +925,7 @@ class CrossPlatformHub:
         platform_name: str,
         query: dict[str, Any],
     ) -> list[dict[str, Any]]:
-        """
-        Fetch data from a specific platform.
+        """Fetch data from a specific platform.
 
         Args:
             platform_name: Platform to fetch from
@@ -971,8 +949,7 @@ class CrossPlatformHub:
         time_window_seconds: float = 60.0,
         min_correlation: float = 0.8,
     ) -> list[list[AnomalyEvent]]:
-        """
-        Find correlated anomaly events within time window.
+        """Find correlated anomaly events within time window.
 
         Args:
             time_window_seconds: Time window for correlation
@@ -1032,8 +1009,7 @@ class CrossPlatformHub:
 
 
 def create_default_hub() -> CrossPlatformHub:
-    """
-    Create a hub with common platform configurations.
+    """Create a hub with common platform configurations.
 
     Returns:
         Configured CrossPlatformHub instance

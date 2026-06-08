@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Ethical Constraint Engine - AI Fairness and Bias Detection Framework
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Ethical Constraint Engine - AI Fairness and Bias Detection Framework.
 
 This module provides practical ethical AI verification:
 - Weighted balance scoring for ethical dimension evaluation
@@ -42,6 +24,8 @@ Practical Use:
 
 The code is production-ready for ethical AI auditing.
 """
+
+from __future__ import annotations
 
 import logging
 import math
@@ -162,8 +146,7 @@ class TwelveFoldResult:
 
 
 class MaatBalanceEngine:
-    """
-    Ma'at Balance Engine - Egyptian Archetypal Ethical Verification.
+    """Ma'at Balance Engine - Egyptian Archetypal Ethical Verification.
 
     Implements the ancient Egyptian concept of Ma'at (truth, justice, cosmic order)
     for AI ethical balance verification. Uses the metaphor of weighing the heart
@@ -182,8 +165,7 @@ class MaatBalanceEngine:
     MIN_ETHICAL_SCORE = 0.7
 
     def __init__(self, strict_mode: bool = True) -> None:
-        """
-        Initialize Ma'at Balance Engine.
+        """Initialize Ma'at Balance Engine.
 
         Args:
             strict_mode: If True, apply stricter balance requirements
@@ -208,8 +190,7 @@ class MaatBalanceEngine:
         ethical_scores: dict[str, float],
         context: dict[str, Any] | None = None,
     ) -> BalanceResult:
-        """
-        Weigh the heart (ethical burden) against the feather of Ma'at.
+        """Weigh the heart (ethical burden) against the feather of Ma'at.
 
         In Egyptian mythology, the heart of the deceased was weighed against
         the feather of Ma'at. A heart lighter than or equal to the feather
@@ -250,8 +231,7 @@ class MaatBalanceEngine:
         )
 
     def verify_cosmic_order(self, system_state: dict[str, float]) -> dict[str, Any]:
-        """
-        Verify alignment with cosmic order (Ma'at as universal principle).
+        """Verify alignment with cosmic order (Ma'at as universal principle).
 
         Args:
             system_state: Current system state metrics
@@ -367,8 +347,7 @@ class MaatBalanceEngine:
 
 
 class AthenaWisdomEngine:
-    """
-    Athena Wisdom Engine - Greek Strategic Intelligence.
+    """Athena Wisdom Engine - Greek Strategic Intelligence.
 
     Implements wisdom quotient computation inspired by Athena,
     the Greek goddess of wisdom, strategic warfare, and crafts.
@@ -384,6 +363,7 @@ class AthenaWisdomEngine:
     PHI = 1.618033988749895
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
         self.wisdom_weights = {
@@ -400,8 +380,7 @@ class AthenaWisdomEngine:
         ethical_scores: dict[str, float],
         knowledge_indicators: dict[str, float],
     ) -> WisdomQuotient:
-        """
-        Compute comprehensive wisdom quotient.
+        """Compute comprehensive wisdom quotient.
 
         Args:
             performance_metrics: System performance metrics
@@ -449,8 +428,7 @@ class AthenaWisdomEngine:
         decision_context: dict[str, Any],
         options: list[dict[str, Any]],
     ) -> dict[str, Any]:
-        """
-        Evaluate strategic decision options using Athena's wisdom.
+        """Evaluate strategic decision options using Athena's wisdom.
 
         Args:
             decision_context: Context for the decision
@@ -542,8 +520,7 @@ class AthenaWisdomEngine:
 
 
 class ImmutableGeometryProcessor:
-    """
-    Immutable Geometry Processor - Mathematical Pattern Analysis.
+    """Immutable Geometry Processor - Mathematical Pattern Analysis.
 
     Analyzes data for geometric patterns:
     - Golden ratio (φ = 1.618...) alignment
@@ -557,6 +534,7 @@ class ImmutableGeometryProcessor:
     SQRT_5 = 2.2360679774997896
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
         self.fibonacci_sequence = self._generate_fibonacci(20)
 
@@ -570,8 +548,7 @@ class ImmutableGeometryProcessor:
     def analyze_geometry(
         self, data: np.ndarray[Any, Any], context: dict[str, Any] | None = None
     ) -> GeometryAnalysis:
-        """
-        Perform comprehensive geometry analysis.
+        """Perform comprehensive geometry analysis.
 
         Args:
             data: Input data array
@@ -599,8 +576,7 @@ class ImmutableGeometryProcessor:
         )
 
     def compute_divine_proportion(self, a: float, b: float) -> float:
-        """
-        Compute how close the ratio a/b is to the golden ratio.
+        """Compute how close the ratio a/b is to the golden ratio.
 
         Args:
             a: First value (larger)
@@ -650,8 +626,7 @@ class ImmutableGeometryProcessor:
         return float(np.clip(score * 5, 0.0, 1.0))
 
     def _compute_vesica_piscis_score(self, data: np.ndarray[Any, Any]) -> float:
-        """
-        Compute vesica piscis score.
+        """Compute vesica piscis score.
 
         The vesica piscis is formed by two overlapping circles where the center of each lies on the
         circumference of the other. The ratio of height to width is √3.
@@ -674,8 +649,7 @@ class ImmutableGeometryProcessor:
         return float(np.mean(ratios)) if ratios else 0.5
 
     def _compute_platonic_harmony(self, data: np.ndarray[Any, Any]) -> float:
-        """
-        Compute Platonic solid harmony score.
+        """Compute Platonic solid harmony score.
 
         Based on the five Platonic solids and their vertex/face/edge ratios.
         """
@@ -730,8 +704,7 @@ class ImmutableGeometryProcessor:
 
 
 class TwelveFoldVerificationSystem:
-    """
-    Twelve-Fold Verification System - Multi-Dimensional Validation.
+    """Twelve-Fold Verification System - Multi-Dimensional Validation.
 
     Validates across 12 dimensions inspired by various wisdom traditions:
     1. Wisdom - Knowledge applied with understanding
@@ -753,8 +726,7 @@ class TwelveFoldVerificationSystem:
     OVERALL_THRESHOLD = 0.75
 
     def __init__(self, strict_mode: bool = False) -> None:
-        """
-        Initialize Twelve-Fold Verification System.
+        """Initialize Twelve-Fold Verification System.
 
         Args:
             strict_mode: If True, require all dimensions to pass
@@ -782,8 +754,7 @@ class TwelveFoldVerificationSystem:
         dimension_scores: dict[str, float],
         context: dict[str, Any] | None = None,
     ) -> TwelveFoldResult:
-        """
-        Perform twelve-fold verification.
+        """Perform twelve-fold verification.
 
         Args:
             dimension_scores: Scores for each dimension (0-1)
@@ -879,8 +850,7 @@ class TwelveFoldVerificationSystem:
 
 
 class ImmutableWisdomEngine:
-    """
-    Immutable Wisdom Engine - Unified Ethical AI Framework.
+    """Immutable Wisdom Engine - Unified Ethical AI Framework.
 
     Integrates all wisdom components:
     - Ma'at Balance Engine for Egyptian ethical verification
@@ -892,8 +862,7 @@ class ImmutableWisdomEngine:
     """
 
     def __init__(self, strict_mode: bool = False) -> None:
-        """
-        Initialize Immutable Wisdom Engine.
+        """Initialize Immutable Wisdom Engine.
 
         Args:
             strict_mode: If True, apply stricter verification requirements
@@ -914,8 +883,7 @@ class ImmutableWisdomEngine:
         knowledge_indicators: dict[str, float],
         context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """
-        Perform comprehensive geometric wisdom analysis.
+        """Perform comprehensive geometric wisdom analysis.
 
         Args:
             data: Input data for geometry analysis
@@ -982,8 +950,7 @@ class ImmutableWisdomEngine:
         data: np.ndarray[Any, Any],
         context: dict[str, Any] | None = None,
     ) -> ArchetypalAnalysis:
-        """
-        Perform archetypal pattern analysis.
+        """Perform archetypal pattern analysis.
 
         Args:
             data: Input data for analysis
@@ -1022,8 +989,7 @@ class ImmutableWisdomEngine:
     def geometric_analysis(
         self, data: np.ndarray[Any, Any], context: dict[str, Any] | None = None
     ) -> GeometryAnalysis:
-        """
-        Perform geometry analysis.
+        """Perform geometry analysis.
 
         Args:
             data: Input data for analysis
@@ -1041,8 +1007,7 @@ class ImmutableWisdomEngine:
         verification_result: TwelveFoldResult | None = None,
         geometry_result: GeometryAnalysis | None = None,
     ) -> dict[str, float]:
-        """
-        Get omni-scalars from all wisdom components.
+        """Get omni-scalars from all wisdom components.
 
         Returns:
             Dictionary of omni-scalar values

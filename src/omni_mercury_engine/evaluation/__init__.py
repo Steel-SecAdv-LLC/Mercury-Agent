@@ -1,25 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-Evaluation Module for Anomaly Detection
-
-Provides standard evaluation metrics and baseline comparisons used in
-academic anomaly detection research.
-
-Metrics implemented:
-- AUC-ROC: Area Under ROC Curve
-- AUC-PR: Area Under Precision-Recall Curve
-- F1-Score: With optimal threshold search
-- Precision@K: Precision at top-K predictions
-- Point-Adjusted F1: Time-series segment-aware evaluation
-- Range-Based F1: Overlap-based evaluation (Tatbul et al., NeurIPS 2018)
-
-These metrics match those used in benchmark papers:
-- OmniAnomaly (KDD 2019)
-- MSCRED (AAAI 2019)
-- DAGMM (ICLR 2018)
-- TranAD (VLDB 2022)
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Evaluation Module for Anomaly Detection."""
 
 from __future__ import annotations
 

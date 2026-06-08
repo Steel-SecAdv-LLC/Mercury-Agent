@@ -1,21 +1,4 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
+# Copyright (C) 2025 Steel Security Advisors LLC
 """World Bank economic sectors anomaly detection.
 
 Monitors 21 ISIC Rev 4 economic sectors for anomalies with focus
@@ -24,22 +7,22 @@ on sustainable development and regenerative economic patterns.
 Reference: UN Statistics Division - ISIC Rev 4
 """
 
+from __future__ import annotations
+
 from typing import Any
 
 import numpy as np
 
 
 class WorldBankSectorsMonitor:
-    """
-    World Bank economic sectors anomaly detector.
+    """World Bank economic sectors anomaly detector.
 
     Monitors 21 ISIC Rev 4 economic sectors for anomalies with focus on sustainable development and
     regenerative economic patterns.
     """
 
     def __init__(self, regenerative_config: dict[str, Any] | None = None) -> None:
-        """
-        Initialize World Bank Sectors Monitor.
+        """Initialize World Bank Sectors Monitor.
 
         Args:
             regenerative_config: Regenerative architecture configuration
@@ -89,8 +72,7 @@ class WorldBankSectorsMonitor:
     def detect(
         self, data: dict[str, Any], sector_code: str, region: str = "global"
     ) -> dict[str, Any]:
-        """
-        Detect economic anomalies in a specific ISIC sector.
+        """Detect economic anomalies in a specific ISIC sector.
 
         Args:
             data: Economic indicators (GDP contribution, employment, growth rate, etc.)
@@ -144,8 +126,7 @@ class WorldBankSectorsMonitor:
         }
 
     def analyze_sector_interdependencies(self, affected_sectors: list[Any]) -> dict[str, Any]:
-        """
-        Analyze economic impact cascades across sector dependencies.
+        """Analyze economic impact cascades across sector dependencies.
 
         Args:
             affected_sectors: List of ISIC sector codes with economic shocks
@@ -176,8 +157,7 @@ class WorldBankSectorsMonitor:
         }
 
     def assess_regional_sustainability(self, regional_data: dict[str, float]) -> dict[str, Any]:
-        """
-        Assess overall economic sustainability for a region.
+        """Assess overall economic sustainability for a region.
 
         Args:
             regional_data: Sector-wise sustainability scores for a region

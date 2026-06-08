@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Energy Optimization Module
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Energy Optimization Module.
 
 Inspired by energy development principles: efficiency-first optimization,
 renewable/sustainable approaches, risk management, economic considerations,
@@ -33,8 +15,9 @@ Key influences:
 
 Research source: Wikipedia - Energy development
 (https://en.wikipedia.org/wiki/Energy_development)
-
 """
+
+from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
@@ -64,8 +47,7 @@ class EnergyProfile:
 
 
 class EnergyOptimization:
-    """
-    Energy optimization for anomaly detection operations.
+    """Energy optimization for anomaly detection operations.
 
     Implements efficiency-first strategies, renewable approaches, and resource allocation
     optimization inspired by energy development.
@@ -77,8 +59,7 @@ class EnergyOptimization:
         efficiency_target: float = 0.8,
         carbon_limit: float = 100.0,
     ):
-        """
-        Initialize energy optimization system.
+        """Initialize energy optimization system.
 
         Args:
             max_power_budget: Maximum power budget in watts
@@ -93,8 +74,7 @@ class EnergyOptimization:
     def efficiency_first_optimization(
         self, operations: list[dict[str, Any]], available_power: float
     ) -> list[dict[str, Any]]:
-        """
-        Optimize operations with efficiency-first approach.
+        """Optimize operations with efficiency-first approach.
 
         Inspired by energy efficiency being the most cost-effective
         approach in energy development.
@@ -129,8 +109,7 @@ class EnergyOptimization:
     def renewable_resource_allocation(
         self, total_resources: float, renewable_fraction: float = 0.19
     ) -> dict[str, float]:
-        """
-        Allocate resources with renewable/sustainable emphasis.
+        """Allocate resources with renewable/sustainable emphasis.
 
         Inspired by global energy mix: 19% renewables, transitioning
         from 86% fossil fuels to more sustainable sources.
@@ -156,8 +135,7 @@ class EnergyOptimization:
         duration_seconds: float,
         energy_source: EnergySource = EnergySource.MEDIUM_POWER,
     ) -> float:
-        """
-        Track carbon footprint of detection operations.
+        """Track carbon footprint of detection operations.
 
         Inspired by energy development's focus on environmental impact
         reduction and climate change mitigation.
@@ -196,8 +174,7 @@ class EnergyOptimization:
     def transition_strategy(
         self, legacy_power: float, modern_power: float, transition_rate: float = 0.1
     ) -> tuple[float, float]:
-        """
-        Manage transition from legacy to modern efficient methods.
+        """Manage transition from legacy to modern efficient methods.
 
         Inspired by energy transitions (fossil → renewables) and
         phase-out strategies (e.g., Germany nuclear phase-out).
@@ -219,8 +196,7 @@ class EnergyOptimization:
         return legacy_consumption, modern_consumption
 
     def roi_analysis(self, accuracy_gain: float, power_cost: float, time_cost: float) -> float:
-        """
-        Calculate ROI balancing accuracy vs computational cost.
+        """Calculate ROI balancing accuracy vs computational cost.
 
         Inspired by energy development's economic considerations:
         high capital costs vs operational costs, subsidy efficiency,
@@ -242,8 +218,7 @@ class EnergyOptimization:
         return roi
 
     def get_efficiency_report(self) -> dict[str, Any]:
-        """
-        Generate comprehensive efficiency report.
+        """Generate comprehensive efficiency report.
 
         Returns:
             Report with total energy, carbon, and efficiency metrics

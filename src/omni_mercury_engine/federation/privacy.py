@@ -1,5 +1,5 @@
-"""
-Differential privacy for federated sufficient statistics.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Differential privacy for federated sufficient statistics.
 
 Implements the Gaussian mechanism for (epsilon, delta)-differential privacy.
 
@@ -58,6 +58,7 @@ class DifferentialPrivacy:
         rng: np.random.Generator | None = None,
         seed: int | None = None,
     ) -> None:
+        """Initialize the instance."""
         if epsilon <= 0:
             raise ValueError(f"epsilon must be positive, got {epsilon}")
         if delta <= 0 or delta >= 1:

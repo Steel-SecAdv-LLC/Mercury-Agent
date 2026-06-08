@@ -1,5 +1,5 @@
-"""
-Explainability Module for Mercury Agent.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Explainability Module for Mercury Agent.
 
 Provides comprehensive explanation capabilities for anomaly detection models,
 including SHAP values, counterfactual explanations, and GDPR Article 22

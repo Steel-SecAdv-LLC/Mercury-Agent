@@ -1,29 +1,13 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Crisis Monitoring for Humanitarian CI
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Crisis Monitoring for Humanitarian CI.
 
 Integrates GEOINT (Geospatial Intelligence) for natural disaster,
 humanitarian crisis, and essential worker protection monitoring.
 
 Survivor-first prioritization using ethical scalars.
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
@@ -46,8 +30,7 @@ class CrisisAlert:
 
 
 class CrisisMonitor:
-    """
-    Humanitarian Crisis Monitor (Survivor-First CI)
+    """Humanitarian Crisis Monitor (Survivor-First CI).
 
     Features:
     - GEOINT fusion for disaster detection
@@ -57,6 +40,7 @@ class CrisisMonitor:
     """
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
         self.config = config or {}
 
@@ -77,8 +61,7 @@ class CrisisMonitor:
         geoint_data: dict[str, Any] | None = None,
         osint_data: dict[str, Any] | None = None,
     ) -> CrisisAlert:
-        """
-        Monitor for humanitarian crises using multi-INT fusion.
+        """Monitor for humanitarian crises using multi-INT fusion.
 
         Args:
             geoint_data: Geospatial intelligence data

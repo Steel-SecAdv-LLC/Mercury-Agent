@@ -1,26 +1,11 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
+# Copyright (C) 2025 Steel Security Advisors LLC
 """CISA National Critical Functions (NCF) anomaly detection.
 
 Monitors 55 CISA National Critical Functions for anomalies and models
 interdependencies for cascading failure analysis.
 """
+
+from __future__ import annotations
 
 from typing import Any
 
@@ -28,8 +13,7 @@ import numpy as np
 
 
 class NCFMonitor:
-    """
-    National Critical Functions anomaly detector.
+    """National Critical Functions anomaly detector.
 
     Monitors 55 CISA National Critical Functions for anomalies and
     models interdependencies for cascading failure analysis.
@@ -38,8 +22,7 @@ class NCFMonitor:
     """
 
     def __init__(self, ethical_config: dict[str, float] | None = None) -> None:
-        """
-        Initialize NCF Monitor.
+        """Initialize NCF Monitor.
 
         Args:
             ethical_config: Ethical scalar configuration
@@ -140,8 +123,7 @@ class NCFMonitor:
     def detect(
         self, data: np.ndarray[Any, Any], ncf_id: str, context: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        """
-        Detect anomalies for specific NCF.
+        """Detect anomalies for specific NCF.
 
         Args:
             data: Time-series or sensor data for the NCF
@@ -176,8 +158,7 @@ class NCFMonitor:
         }
 
     def analyze_cascading_failures(self, initial_failures: list[str]) -> dict[str, Any]:
-        """
-        Model cascading impacts across dependent NCFs.
+        """Model cascading impacts across dependent NCFs.
 
         Args:
             initial_failures: List of NCF IDs that initially failed

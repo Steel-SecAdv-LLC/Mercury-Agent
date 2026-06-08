@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Climate Resilience Module - Anomaly detection for environmental data
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Climate Resilience Module - Anomaly detection for environmental data.
 
 Supports SDG 13 (Climate Action) by detecting anomalies in:
 - Temperature patterns (heatwaves, cold snaps)
@@ -32,8 +14,9 @@ Research sources:
 - IPCC Assessment Reports
 - NOAA Climate.gov
 - NASA Earth Observatory
-
 """
+
+from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
@@ -57,6 +40,7 @@ class ClimateResilienceDetector:
     """Detect climate anomalies for disaster prediction and resilience."""
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.temp_baseline = {"mean": 15.0, "std": 10.0}
         self.precip_baseline = {"mean": 100.0, "std": 50.0}
 
@@ -66,8 +50,7 @@ class ClimateResilienceDetector:
         detection_type: str = "temperature",
         historical_context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """
-        Detect climate anomalies.
+        """Detect climate anomalies.
 
         Args:
             data: Environmental sensor data

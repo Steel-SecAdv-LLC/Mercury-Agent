@@ -1,22 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-Standard Evaluation Metrics for Anomaly Detection
-
-Implements industry-standard metrics used in academic research:
-- AUC-ROC: Area Under the Receiver Operating Characteristic Curve
-- AUC-PR: Area Under the Precision-Recall Curve
-- F1-Score: Harmonic mean of precision and recall
-- Precision@K: Precision at top-K anomaly predictions
-- Best-F1: F1-score at optimal threshold
-- Point-Adjusted F1: F1 with anomaly segment adjustment (for time-series)
-
-These metrics are used in papers like:
-- OmniAnomaly (KDD 2019)
-- MSCRED (AAAI 2019)
-- DAGMM (ICLR 2018)
-- TranAD (VLDB 2022)
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Standard Evaluation Metrics for Anomaly Detection."""
 
 from __future__ import annotations
 
@@ -75,6 +58,7 @@ class AnomalyMetrics:
         }
 
     def __str__(self) -> str:
+        """Return the string representation."""
         return (
             f"AnomalyMetrics(\n"
             f"  AUC-ROC: {self.auc_roc:.4f}\n"
@@ -88,8 +72,7 @@ class AnomalyMetrics:
 
 
 def compute_auc_roc(y_true: np.ndarray[Any, Any], y_score: np.ndarray[Any, Any]) -> float:
-    """
-    Compute Area Under the ROC Curve.
+    """Compute Area Under the ROC Curve.
 
     Args:
         y_true: Binary ground truth labels (0 = normal, 1 = anomaly)
@@ -141,8 +124,7 @@ def _auc_roc_numpy(y_true: np.ndarray[Any, Any], y_score: np.ndarray[Any, Any]) 
 
 
 def compute_auc_pr(y_true: np.ndarray[Any, Any], y_score: np.ndarray[Any, Any]) -> float:
-    """
-    Compute Area Under the Precision-Recall Curve.
+    """Compute Area Under the Precision-Recall Curve.
 
     More informative than AUC-ROC for imbalanced datasets (common in anomaly detection).
 
@@ -183,8 +165,7 @@ def _auc_pr_numpy(y_true: np.ndarray[Any, Any], y_score: np.ndarray[Any, Any]) -
 def compute_best_f1(
     y_true: np.ndarray[Any, Any], y_score: np.ndarray[Any, Any], n_thresholds: int = 100
 ) -> tuple[float, float]:
-    """
-    Find the threshold that maximizes F1-score.
+    """Find the threshold that maximizes F1-score.
 
     Args:
         y_true: Binary ground truth labels
@@ -226,8 +207,7 @@ def compute_f1(y_true: np.ndarray[Any, Any], y_pred: np.ndarray[Any, Any]) -> fl
 def compute_precision_at_k(
     y_true: np.ndarray[Any, Any], y_score: np.ndarray[Any, Any], k: int
 ) -> float:
-    """
-    Compute Precision@K.
+    """Compute Precision@K.
 
     Measures precision among the top-K predicted anomalies.
     Useful when you can only investigate a limited number of alerts.
@@ -255,8 +235,7 @@ def compute_precision_at_k(
 def compute_point_adjusted_f1(
     y_true: np.ndarray[Any, Any], y_pred: np.ndarray[Any, Any], adjust_predicts: bool = True
 ) -> float:
-    """
-    Compute Point-Adjusted F1 for time-series anomaly detection.
+    """Compute Point-Adjusted F1 for time-series anomaly detection.
 
     In time-series, if any point in an anomaly segment is detected,
     the entire segment is considered detected.
@@ -320,8 +299,7 @@ def compute_range_based_f1(
     cardinality: str = "reciprocal",
     bias: str = "flat",
 ) -> float:
-    """
-    Compute Range-Based F1 Score.
+    """Compute Range-Based F1 Score.
 
     More sophisticated time-series evaluation that considers:
     - Overlap between predicted and true anomaly ranges
@@ -408,8 +386,7 @@ def evaluate_anomaly_detection(
     threshold: float | None = None,
     is_timeseries: bool = False,
 ) -> AnomalyMetrics:
-    """
-    Comprehensive evaluation of anomaly detection results.
+    """Comprehensive evaluation of anomaly detection results.
 
     Args:
         y_true: Binary ground truth labels (0 = normal, 1 = anomaly)
@@ -473,8 +450,7 @@ def evaluate_anomaly_detection(
 
 
 def print_metrics_report(metrics: AnomalyMetrics, dataset_name: str = "Unknown") -> str:
-    """
-    Generate a formatted metrics report.
+    """Generate a formatted metrics report.
 
     Args:
         metrics: Evaluation metrics

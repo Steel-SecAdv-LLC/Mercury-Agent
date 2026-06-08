@@ -1,21 +1,4 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Essential Critical Infrastructure Workers monitoring.
 
 Monitors workforce continuity for 8 essential worker categories
@@ -24,20 +7,20 @@ with emphasis on survivor-first ethical principles.
 Reference: CISA Essential Workers Advisory List
 """
 
+from __future__ import annotations
+
 from typing import Any
 
 
 class EssentialWorkersMonitor:
-    """
-    Essential critical infrastructure workers anomaly detector.
+    """Essential critical infrastructure workers anomaly detector.
 
     Monitors workforce continuity for 8 essential worker categories with emphasis on survivor-first
     ethical principles.
     """
 
     def __init__(self, ethical_config: dict[str, float] | None = None) -> None:
-        """
-        Initialize Essential Workers Monitor.
+        """Initialize Essential Workers Monitor.
 
         Args:
             ethical_config: Ethical scalar configuration
@@ -108,8 +91,7 @@ class EssentialWorkersMonitor:
         }
 
     def detect(self, data: dict[str, Any], category: str) -> dict[str, Any]:
-        """
-        Detect workforce anomalies for a worker category.
+        """Detect workforce anomalies for a worker category.
 
         Args:
             data: Worker availability, absenteeism, skills data
@@ -152,8 +134,7 @@ class EssentialWorkersMonitor:
         }
 
     def model_crisis_scenario(self, scenario_type: str) -> dict[str, Any]:
-        """
-        Model workforce impacts under crisis scenarios.
+        """Model workforce impacts under crisis scenarios.
 
         Args:
             scenario_type: 'pandemic', 'natural_disaster', 'cyber_attack', 'civil_unrest'

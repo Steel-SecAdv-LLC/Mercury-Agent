@@ -1,26 +1,11 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Cross-border threat intelligence correlation.
 
 Correlates anomaly patterns across international boundaries (EU-US)
 for comprehensive threat intelligence.
 """
+
+from __future__ import annotations
 
 from typing import Any
 
@@ -28,8 +13,7 @@ import numpy as np
 
 
 class CrossBorderIntelligence:
-    """
-    Cross-border threat intelligence correlation.
+    """Cross-border threat intelligence correlation.
 
     Correlates anomaly patterns across international boundaries (EU-US) for comprehensive threat
     intelligence.
@@ -45,8 +29,7 @@ class CrossBorderIntelligence:
     def correlate_threats(
         self, eu_data: np.ndarray[Any, Any], us_data: np.ndarray[Any, Any], threat_type: str
     ) -> dict[str, Any]:
-        """
-        Correlate threat patterns across EU and US data.
+        """Correlate threat patterns across EU and US data.
 
         Args:
             eu_data: Anomaly data from EU critical entities

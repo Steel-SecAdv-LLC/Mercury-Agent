@@ -1,20 +1,5 @@
-"""
-Mercury Agent
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Cache service stub for testing and development.
-
-Example:
-    >>> cache = CacheStub()
-    >>> await cache.set("user:123", {"name": "Alice"}, ttl=300)
-    >>> data = await cache.get("user:123")
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 
@@ -47,8 +32,7 @@ DOMAIN_TTL: dict[str, int] = {
 
 
 def get_domain_ttl(domain: str) -> int:
-    """
-    Return cache TTL in seconds for a given data domain.
+    """Return cache TTL in seconds for a given data domain.
 
     Args:
         domain: Data domain name (e.g., "environmental", "security").
@@ -61,8 +45,7 @@ def get_domain_ttl(domain: str) -> int:
 
 @dataclass
 class CacheEntry:
-    """
-    Cache entry with metadata.
+    """Cache entry with metadata.
 
     Attributes:
         key: Cache key.
@@ -122,8 +105,7 @@ class CacheStub:
         failure_rate: float = 0.0,
         max_size: int = 10000,
     ):
-        """
-        Initialize cache stub.
+        """Initialize cache stub.
 
         Args:
             seed: Random seed for reproducibility.
@@ -176,8 +158,7 @@ class CacheStub:
                     del self._cache[key]
 
     async def get(self, key: str) -> Any | None:
-        """
-        Get value from cache.
+        """Get value from cache.
 
         Args:
             key: Cache key.
@@ -210,8 +191,7 @@ class CacheStub:
         nx: bool = False,
         xx: bool = False,
     ) -> bool:
-        """
-        Set value in cache.
+        """Set value in cache.
 
         Args:
             key: Cache key.
@@ -250,8 +230,7 @@ class CacheStub:
         return True
 
     async def delete(self, key: str) -> bool:
-        """
-        Delete key from cache.
+        """Delete key from cache.
 
         Args:
             key: Cache key.
@@ -269,8 +248,7 @@ class CacheStub:
         return False
 
     async def exists(self, key: str) -> bool:
-        """
-        Check if key exists in cache.
+        """Check if key exists in cache.
 
         Args:
             key: Cache key.
@@ -290,8 +268,7 @@ class CacheStub:
         return True
 
     async def mget(self, keys: list[str]) -> dict[str, Any | None]:
-        """
-        Get multiple values.
+        """Get multiple values.
 
         Args:
             keys: List of cache keys.
@@ -315,8 +292,7 @@ class CacheStub:
         return results
 
     async def mset(self, mapping: dict[str, Any], ttl: int | None = None) -> bool:
-        """
-        Set multiple values.
+        """Set multiple values.
 
         Args:
             mapping: Dictionary of key-value pairs.
@@ -343,8 +319,7 @@ class CacheStub:
         return True
 
     async def incr(self, key: str, amount: int = 1) -> int:
-        """
-        Increment integer value.
+        """Increment integer value.
 
         Args:
             key: Cache key.
@@ -369,8 +344,7 @@ class CacheStub:
         return new_value
 
     async def expire(self, key: str, ttl: int) -> bool:
-        """
-        Set expiration time on key.
+        """Set expiration time on key.
 
         Args:
             key: Cache key.
@@ -391,8 +365,7 @@ class CacheStub:
         return True
 
     async def ttl(self, key: str) -> int | None:
-        """
-        Get remaining TTL for key.
+        """Get remaining TTL for key.
 
         Args:
             key: Cache key.
@@ -433,8 +406,7 @@ class CacheStub:
         return [k for k in self._cache if fnmatch.fnmatch(k, pattern)]
 
     async def flush(self) -> int:
-        """
-        Clear all entries from cache.
+        """Clear all entries from cache.
 
         Returns:
             Number of entries cleared.
@@ -451,8 +423,7 @@ class CacheStub:
         await self.flush()
 
     async def mdelete(self, keys: list[str]) -> int:
-        """
-        Delete multiple keys from cache.
+        """Delete multiple keys from cache.
 
         Args:
             keys: List of cache keys to delete.
@@ -472,8 +443,7 @@ class CacheStub:
         return deleted
 
     async def decr(self, key: str, amount: int = 1) -> int:
-        """
-        Decrement integer value.
+        """Decrement integer value.
 
         Args:
             key: Cache key.
@@ -485,8 +455,7 @@ class CacheStub:
         return await self.incr(key, -amount)
 
     async def persist(self, key: str) -> bool:
-        """
-        Remove expiration from key.
+        """Remove expiration from key.
 
         Args:
             key: Cache key.
@@ -506,8 +475,7 @@ class CacheStub:
         return True
 
     async def get_stats(self) -> dict[str, Any]:
-        """
-        Get cache statistics.
+        """Get cache statistics.
 
         Returns:
             Dictionary with cache statistics.
@@ -528,8 +496,7 @@ class CacheStub:
         }
 
     async def size(self) -> int:
-        """
-        Get number of entries in cache.
+        """Get number of entries in cache.
 
         Returns:
             Number of entries.
@@ -558,8 +525,7 @@ class CacheStub:
         }
 
     async def health_check(self) -> dict[str, Any]:
-        """
-        Check cache health.
+        """Check cache health.
 
         Returns:
             Health status.
@@ -622,8 +588,7 @@ class RedisCache:
         fallback_to_stub: bool = True,
         serializer: str = "json",
     ):
-        """
-        Initialize Redis cache.
+        """Initialize Redis cache.
 
         Args:
             host: Redis host (default: REDIS_HOST env or localhost).
@@ -672,8 +637,7 @@ class RedisCache:
 
     @classmethod
     def from_env(cls) -> RedisCache:
-        """
-        Create Redis cache from environment variables.
+        """Create Redis cache from environment variables.
 
         Environment variables:
             REDIS_HOST: Redis host (default: localhost)
@@ -746,8 +710,7 @@ class RedisCache:
         return json.loads(data)
 
     async def get(self, key: str) -> Any | None:
-        """
-        Get value from cache.
+        """Get value from cache.
 
         Args:
             key: Cache key.
@@ -797,8 +760,7 @@ class RedisCache:
         nx: bool = False,
         xx: bool = False,
     ) -> bool:
-        """
-        Set value in cache.
+        """Set value in cache.
 
         Args:
             key: Cache key.
@@ -866,8 +828,7 @@ class RedisCache:
             return False
 
     async def delete(self, key: str) -> bool:
-        """
-        Delete key from cache.
+        """Delete key from cache.
 
         Args:
             key: Cache key.
@@ -895,8 +856,7 @@ class RedisCache:
             return False
 
     async def exists(self, key: str) -> bool:
-        """
-        Check if key exists in cache.
+        """Check if key exists in cache.
 
         Args:
             key: Cache key.
@@ -924,8 +884,7 @@ class RedisCache:
             return False
 
     async def mget(self, keys: list[str]) -> dict[str, Any | None]:
-        """
-        Get multiple values.
+        """Get multiple values.
 
         Args:
             keys: List of cache keys.
@@ -965,8 +924,7 @@ class RedisCache:
         return {keys[i]: self._deserialize(v) for i, v in enumerate(values)}
 
     async def mset(self, mapping: dict[str, Any], ttl: int | None = None) -> bool:
-        """
-        Set multiple values.
+        """Set multiple values.
 
         Args:
             mapping: Dictionary of key-value pairs.
@@ -1019,8 +977,7 @@ class RedisCache:
             return False
 
     async def incr(self, key: str, amount: int = 1) -> int:
-        """
-        Increment integer value.
+        """Increment integer value.
 
         Args:
             key: Cache key.
@@ -1048,8 +1005,7 @@ class RedisCache:
             return 0
 
     async def decr(self, key: str, amount: int = 1) -> int:
-        """
-        Decrement integer value.
+        """Decrement integer value.
 
         Args:
             key: Cache key.
@@ -1061,8 +1017,7 @@ class RedisCache:
         return await self.incr(key, -amount)
 
     async def expire(self, key: str, ttl: int) -> bool:
-        """
-        Set expiration time on key.
+        """Set expiration time on key.
 
         Args:
             key: Cache key.
@@ -1090,8 +1045,7 @@ class RedisCache:
             return False
 
     async def ttl(self, key: str) -> int | None:
-        """
-        Get remaining TTL for key.
+        """Get remaining TTL for key.
 
         Args:
             key: Cache key.
@@ -1119,8 +1073,7 @@ class RedisCache:
             return None
 
     async def keys(self, pattern: str = "*") -> list[str]:
-        """
-        Get keys matching pattern.
+        """Get keys matching pattern.
 
         Args:
             pattern: Glob-style pattern.
@@ -1151,8 +1104,7 @@ class RedisCache:
             return []
 
     async def flush(self) -> int:
-        """
-        Clear all entries with our prefix.
+        """Clear all entries with our prefix.
 
         Returns:
             Number of entries cleared.
@@ -1183,8 +1135,7 @@ class RedisCache:
         await self.flush()
 
     async def health_check(self) -> dict[str, Any]:
-        """
-        Check cache health.
+        """Check cache health.
 
         Returns:
             Health status.

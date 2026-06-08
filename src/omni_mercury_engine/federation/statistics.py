@@ -1,5 +1,5 @@
-"""
-Fitted statistics container -- the ONLY data that leaves a federated node.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Fitted statistics container -- the ONLY data that leaves a federated node.
 
 These fields map 1:1 to MercuryAnomalyDetector's internal state after fit(). The detector stores 13
 attributes; this container carries all 13 plus metadata.
@@ -18,8 +18,7 @@ import numpy as np
 
 @dataclass
 class FittedStatistics:
-    """
-    Container for a fitted MercuryAnomalyDetector's complete state.
+    """Container for a fitted MercuryAnomalyDetector's complete state.
 
     These statistics are the ONLY information that leaves a federated node.
     Combined with differential privacy, they provide formal privacy guarantees.

@@ -1,5 +1,5 @@
-"""
-SHAP (SHapley Additive exPlanations) for Mercury Agent.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""SHAP (SHapley Additive exPlanations) for Mercury Agent.
 
 Implements Shapley value-based explanations for machine learning models,
 providing both exact and approximate computation methods.
@@ -24,7 +24,6 @@ import numpy as np
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-
 
 logger = logging.getLogger(__name__)
 
@@ -120,8 +119,7 @@ class ShapExplainer(ABC):
         feature_names: list[str] | None = None,
         seed: int | None = None,
     ) -> None:
-        """
-        Initialize SHAP explainer.
+        """Initialize SHAP explainer.
 
         Args:
             model: Model or prediction function
@@ -159,8 +157,7 @@ class ShapExplainer(ABC):
 
 
 class ExactShapExplainer(ShapExplainer):
-    """
-    Exact Shapley value computation.
+    """Exact Shapley value computation.
 
     Computes exact Shapley values by evaluating all 2^n feature subsets. Only practical for small
     numbers of features (n < 15).
@@ -173,8 +170,7 @@ class ExactShapExplainer(ShapExplainer):
         feature_names: list[str] | None = None,
         seed: int | None = None,
     ) -> None:
-        """
-        Initialize exact SHAP explainer.
+        """Initialize exact SHAP explainer.
 
         Args:
             model: Model or prediction function
@@ -277,8 +273,7 @@ class ExactShapExplainer(ShapExplainer):
 
 
 class KernelShapExplainer(ShapExplainer):
-    """
-    Kernel SHAP explainer.
+    """Kernel SHAP explainer.
 
     Model-agnostic approximation using weighted linear regression on a sample of feature coalitions.
     """
@@ -292,8 +287,7 @@ class KernelShapExplainer(ShapExplainer):
         regularization: float = 0.01,
         seed: int | None = None,
     ) -> None:
-        """
-        Initialize Kernel SHAP explainer.
+        """Initialize Kernel SHAP explainer.
 
         Args:
             model: Model or prediction function
@@ -422,8 +416,7 @@ class KernelShapExplainer(ShapExplainer):
 
 
 class SamplingShapExplainer(ShapExplainer):
-    """
-    Sampling-based SHAP explainer.
+    """Sampling-based SHAP explainer.
 
     Estimates Shapley values using permutation sampling, suitable for high-dimensional data.
     """
@@ -436,8 +429,7 @@ class SamplingShapExplainer(ShapExplainer):
         n_permutations: int = 100,
         seed: int | None = None,
     ) -> None:
-        """
-        Initialize Sampling SHAP explainer.
+        """Initialize Sampling SHAP explainer.
 
         Args:
             model: Model or prediction function
@@ -513,8 +505,7 @@ class SamplingShapExplainer(ShapExplainer):
 
 
 class TreeShapExplainer(ShapExplainer):
-    """
-    Tree SHAP explainer for tree-based models.
+    """Tree SHAP explainer for tree-based models.
 
     Provides exact and efficient computation of SHAP values for tree ensemble models.
     """
@@ -525,8 +516,7 @@ class TreeShapExplainer(ShapExplainer):
         feature_names: list[str] | None = None,
         seed: int | None = None,
     ) -> None:
-        """
-        Initialize Tree SHAP explainer.
+        """Initialize Tree SHAP explainer.
 
         Args:
             model: Tree-based model (must have tree structure accessible)
@@ -644,8 +634,7 @@ class TreeShapExplainer(ShapExplainer):
 
 
 class LinearShapExplainer(ShapExplainer):
-    """
-    SHAP explainer for linear models.
+    """SHAP explainer for linear models.
 
     Computes exact SHAP values analytically for linear models.
     """
@@ -657,8 +646,7 @@ class LinearShapExplainer(ShapExplainer):
         feature_names: list[str] | None = None,
         seed: int | None = None,
     ) -> None:
-        """
-        Initialize Linear SHAP explainer.
+        """Initialize Linear SHAP explainer.
 
         Args:
             model: Linear model (must have coef_ attribute)
@@ -733,8 +721,7 @@ def create_shap_explainer(
     feature_names: list[str] | None = None,
     explainer_type: str = "auto",
 ) -> ShapExplainer:
-    """
-    Factory function to create appropriate SHAP explainer.
+    """Factory function to create appropriate SHAP explainer.
 
     Args:
         model: Model to explain

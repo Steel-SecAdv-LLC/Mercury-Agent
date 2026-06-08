@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-AgriFood Security Module - Crop yield and food supply anomaly detection
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""AgriFood Security Module - Crop yield and food supply anomaly detection.
 
 Supports SDG 2 (Zero Hunger) by monitoring:
 - Crop yield anomalies
@@ -32,8 +14,9 @@ Research sources:
 - FAO (Food and Agriculture Organization)
 - CGIAR crop research
 - USDA Agricultural Research Service
-
 """
+
+from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
@@ -56,6 +39,7 @@ class AgriFoodSecurityDetector:
     """Detect agricultural and food security anomalies."""
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.yield_baseline = {"mean": 5.0, "std": 1.0}
         self.price_baseline = {"mean": 100.0, "std": 15.0}
 
@@ -65,8 +49,7 @@ class AgriFoodSecurityDetector:
         detection_type: str = "yield",
         crop_type: str | None = None,
     ) -> dict[str, Any]:
-        """
-        Detect agricultural anomalies.
+        """Detect agricultural anomalies.
 
         Args:
             data: Agricultural metrics (yield, prices, soil data)

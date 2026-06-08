@@ -1,5 +1,5 @@
-"""
-Mercury-native federated anomaly detection.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Mercury-native federated anomaly detection.
 
 Enables privacy-preserving, decentralized training by exchanging sufficient statistics between nodes
 instead of raw data.

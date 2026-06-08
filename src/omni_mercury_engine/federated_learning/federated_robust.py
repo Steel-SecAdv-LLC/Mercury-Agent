@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Federated Learning for Distributed Robustness
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Federated Learning for Distributed Robustness.
 
 Implements federated learning framework for distributed anomaly detection
 with privacy-preserving aggregation and Byzantine fault tolerance.
@@ -29,6 +11,8 @@ References:
 
 MIT-compatible implementation.
 """
+
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -62,8 +46,7 @@ class GlobalModel:
 
 
 class FederatedAnomalyDetection:
-    """
-    Federated learning framework for distributed anomaly detection.
+    """Federated learning framework for distributed anomaly detection.
 
     Features:
     - Privacy-preserving aggregation
@@ -81,8 +64,7 @@ class FederatedAnomalyDetection:
         epsilon: float = 1.0,
         rng: DeterministicRNG | None = None,
     ):
-        """
-        Initialize federated anomaly detection.
+        """Initialize federated anomaly detection.
 
         Args:
             model_dim: Dimension of model parameters
@@ -112,8 +94,7 @@ class FederatedAnomalyDetection:
     def register_client(
         self, client_id: str, initial_weights: np.ndarray[Any, Any] | None = None
     ) -> None:
-        """
-        Register new client in federated system.
+        """Register new client in federated system.
 
         Args:
             client_id: Unique client identifier
@@ -133,8 +114,7 @@ class FederatedAnomalyDetection:
         learning_rate: float = 0.01,
         local_epochs: int = 1,
     ) -> ClientModel:
-        """
-        Perform local client update.
+        """Perform local client update.
 
         Args:
             client_id: Client identifier
@@ -168,8 +148,7 @@ class FederatedAnomalyDetection:
     def _compute_gradient(
         self, weights: np.ndarray[Any, Any], data: np.ndarray[Any, Any]
     ) -> np.ndarray[Any, Any]:
-        """
-        Compute gradient for anomaly detection objective.
+        """Compute gradient for anomaly detection objective.
 
         Args:
             weights: Current model weights
@@ -192,8 +171,7 @@ class FederatedAnomalyDetection:
         return gradient
 
     def _compute_loss(self, weights: np.ndarray[Any, Any], data: np.ndarray[Any, Any]) -> float:
-        """
-        Compute loss for anomaly detection objective.
+        """Compute loss for anomaly detection objective.
 
         Args:
             weights: Model weights
@@ -214,8 +192,7 @@ class FederatedAnomalyDetection:
         return float(mse)
 
     def aggregate(self, selected_clients: list[str] | None = None) -> GlobalModel:
-        """
-        Aggregate client models into global model.
+        """Aggregate client models into global model.
 
         Args:
             selected_clients: Optional list of client IDs to aggregate
@@ -275,8 +252,7 @@ class FederatedAnomalyDetection:
     def _fedavg_aggregation(
         self, client_data: list[tuple[np.ndarray[Any, Any], int]]
     ) -> np.ndarray[Any, Any]:
-        """
-        FedAvg: Weighted average by number of samples.
+        """FedAvg: Weighted average by number of samples.
 
         Args:
             client_data: List of (weights, num_samples) tuples
@@ -300,8 +276,7 @@ class FederatedAnomalyDetection:
     def _median_aggregation(
         self, client_data: list[tuple[np.ndarray[Any, Any], int]]
     ) -> np.ndarray[Any, Any]:
-        """
-        Median aggregation for Byzantine tolerance.
+        """Median aggregation for Byzantine tolerance.
 
         Args:
             client_data: List of (weights, num_samples) tuples
@@ -321,8 +296,7 @@ class FederatedAnomalyDetection:
     def _fedprox_aggregation(
         self, client_data: list[tuple[np.ndarray[Any, Any], int]]
     ) -> np.ndarray[Any, Any]:
-        """
-        FedProx: Proximal term for handling heterogeneous data.
+        """FedProx: Proximal term for handling heterogeneous data.
 
         Args:
             client_data: List of (weights, num_samples) tuples
@@ -343,8 +317,7 @@ class FederatedAnomalyDetection:
     def _apply_byzantine_filter(
         self, aggregated: np.ndarray[Any, Any], client_data: list[tuple[np.ndarray[Any, Any], int]]
     ) -> np.ndarray[Any, Any]:
-        """
-        Apply Byzantine fault tolerance filter.
+        """Apply Byzantine fault tolerance filter.
 
         Args:
             aggregated: Preliminary aggregated weights
@@ -378,8 +351,7 @@ class FederatedAnomalyDetection:
     def _add_differential_privacy_noise(
         self, weights: np.ndarray[Any, Any]
     ) -> np.ndarray[Any, Any]:
-        """
-        Add Gaussian noise for differential privacy.
+        """Add Gaussian noise for differential privacy.
 
         Args:
             weights: Model weights

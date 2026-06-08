@@ -1,5 +1,5 @@
-"""
-Differential Privacy Mechanisms for Federated Learning.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Differential Privacy Mechanisms for Federated Learning.
 
 Implements various differential privacy techniques including Gaussian
 and Laplace mechanisms, gradient clipping, and privacy accounting.
@@ -63,8 +63,7 @@ class PrivacyBudget:
         )
 
     def spend(self, epsilon: float, delta: float = 0.0) -> bool:
-        """
-        Spend privacy budget.
+        """Spend privacy budget.
 
         Returns False if insufficient.
         """
@@ -77,8 +76,7 @@ class PrivacyBudget:
 
 @dataclass
 class PrivacyAccountant:
-    """
-    Privacy accountant for tracking cumulative privacy loss.
+    """Privacy accountant for tracking cumulative privacy loss.
 
     Supports multiple composition theorems including basic, advanced, and Renyi differential privacy
     (RDP) composition.
@@ -101,8 +99,7 @@ class PrivacyAccountant:
         self._rdp_eps = np.zeros(len(self._rdp_orders))
 
     def add_query(self, sensitivity: float, noise_scale: float) -> tuple[float, float]:
-        """
-        Record a query and return its privacy cost.
+        """Record a query and return its privacy cost.
 
         Args:
             sensitivity: L2 sensitivity of the query
@@ -257,8 +254,7 @@ class DifferentialPrivacyMechanism(ABC):
 
 
 class GaussianMechanism(DifferentialPrivacyMechanism):
-    """
-    Gaussian mechanism for (epsilon, delta)-differential privacy.
+    """Gaussian mechanism for (epsilon, delta)-differential privacy.
 
     Adds Gaussian noise calibrated to the L2 sensitivity.
     """
@@ -299,8 +295,7 @@ class GaussianMechanism(DifferentialPrivacyMechanism):
 
 
 class LaplaceMechanism(DifferentialPrivacyMechanism):
-    """
-    Laplace mechanism for epsilon-differential privacy.
+    """Laplace mechanism for epsilon-differential privacy.
 
     Adds Laplace noise calibrated to the L1 sensitivity.
     """
@@ -334,8 +329,7 @@ class LaplaceMechanism(DifferentialPrivacyMechanism):
 
 
 class GradientClipper:
-    """
-    Gradient clipping for differential privacy in deep learning.
+    """Gradient clipping for differential privacy in deep learning.
 
     Clips per-sample gradients to bound sensitivity before aggregation.
     """
@@ -345,8 +339,7 @@ class GradientClipper:
         max_norm: float = 1.0,
         norm_type: str = "l2",
     ) -> None:
-        """
-        Initialize gradient clipper.
+        """Initialize gradient clipper.
 
         Args:
             max_norm: Maximum gradient norm
@@ -356,8 +349,7 @@ class GradientClipper:
         self._norm_type = norm_type
 
     def clip(self, gradients: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Clip gradients to bounded norm.
+        """Clip gradients to bounded norm.
 
         Args:
             gradients: Gradient array (n_samples, n_params) or (n_params,)
@@ -392,8 +384,7 @@ class GradientClipper:
 
 
 class SecureAggregator:
-    """
-    Secure aggregation for federated learning.
+    """Secure aggregation for federated learning.
 
     Implements secure sum with differential privacy, ensuring the server only learns the aggregate,
     not individual updates.
@@ -407,8 +398,7 @@ class SecureAggregator:
         min_clients: int = 3,
         seed: int | None = None,
     ) -> None:
-        """
-        Initialize secure aggregator.
+        """Initialize secure aggregator.
 
         Args:
             mechanism: "gaussian" or "laplace"
@@ -440,8 +430,7 @@ class SecureAggregator:
         weights: list[float] | None = None,
         sensitivity: float = 1.0,
     ) -> np.ndarray[Any, Any]:
-        """
-        Securely aggregate client updates with DP noise.
+        """Securely aggregate client updates with DP noise.
 
         Args:
             updates: List of client updates (gradient or model delta)
@@ -482,8 +471,7 @@ class SecureAggregator:
 
 
 class LocalDifferentialPrivacy:
-    """
-    Local Differential Privacy for client-side privatization.
+    """Local Differential Privacy for client-side privatization.
 
     Each client adds noise locally before sending to the server, providing stronger privacy
     guarantees than central DP.
@@ -519,8 +507,7 @@ class LocalDifferentialPrivacy:
         value: np.ndarray[Any, Any],
         sensitivity: float = 1.0,
     ) -> np.ndarray[Any, Any]:
-        """
-        Apply local differential privacy to a value.
+        """Apply local differential privacy to a value.
 
         Args:
             value: Value to privatize
@@ -536,8 +523,7 @@ class LocalDifferentialPrivacy:
         gradients: np.ndarray[Any, Any],
         max_norm: float = 1.0,
     ) -> np.ndarray[Any, Any]:
-        """
-        Privatize gradients with clipping and noise.
+        """Privatize gradients with clipping and noise.
 
         Args:
             gradients: Gradient array
@@ -583,8 +569,7 @@ class PrivacyReport:
 
 
 class PrivacyEngine:
-    """
-    High-level privacy engine for federated learning.
+    """High-level privacy engine for federated learning.
 
     Manages privacy budget, gradient clipping, and noise injection.
 
@@ -616,8 +601,7 @@ class PrivacyEngine:
         composition: str = "rdp",
         seed: int | None = None,
     ) -> None:
-        """
-        Initialize privacy engine.
+        """Initialize privacy engine.
 
         Args:
             epsilon: Total privacy budget (epsilon)
@@ -657,8 +641,7 @@ class PrivacyEngine:
         gradients: np.ndarray[Any, Any],
         batch_size: int | None = None,
     ) -> np.ndarray[Any, Any]:
-        """
-        Privatize gradients with clipping and noise.
+        """Privatize gradients with clipping and noise.
 
         Args:
             gradients: Per-sample or aggregated gradients
@@ -694,8 +677,7 @@ class PrivacyEngine:
         update: np.ndarray[Any, Any],
         sensitivity: float | None = None,
     ) -> np.ndarray[Any, Any]:
-        """
-        Privatize a model update (weights delta).
+        """Privatize a model update (weights delta).
 
         Args:
             update: Model update vector

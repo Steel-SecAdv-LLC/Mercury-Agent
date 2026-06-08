@@ -1,5 +1,5 @@
-"""
-Federated Learning Client for Mercury Agent.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Federated Learning Client for Mercury Agent.
 
 Implements local training and update computation for federated learning
 with support for differential privacy and secure communication.
@@ -34,7 +34,6 @@ from omni_mercury_engine.federated_learning.privacy import (
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-
 
 logger = logging.getLogger(__name__)
 
@@ -219,8 +218,7 @@ class SGDTrainer(LocalTrainer):
         ) = None,
         seed: int | None = None,
     ) -> None:
-        """
-        Initialize SGD trainer.
+        """Initialize SGD trainer.
 
         Args:
             loss_fn: Loss function(weights, X, y) -> loss
@@ -307,8 +305,7 @@ class SGDTrainer(LocalTrainer):
 
 
 class FedProxTrainer(LocalTrainer):
-    """
-    FedProx trainer with proximal regularization.
+    """FedProx trainer with proximal regularization.
 
     Adds proximal term to handle heterogeneous data.
     """
@@ -413,8 +410,7 @@ class FedProxTrainer(LocalTrainer):
 
 
 class FederatedClient:
-    """
-    Federated Learning Client.
+    """Federated Learning Client.
 
     Handles local training, privacy enforcement, and communication
     with the federated server.
@@ -446,8 +442,7 @@ class FederatedClient:
         trainer: LocalTrainer | None = None,
         privacy_seed: int | None = None,
     ) -> None:
-        """
-        Initialize federated client.
+        """Initialize federated client.
 
         Args:
             client_id: Unique client identifier
@@ -502,8 +497,7 @@ class FederatedClient:
         global_weights: np.ndarray[Any, Any],
         round_num: int,
     ) -> LocalUpdate:
-        """
-        Execute one round of local training.
+        """Execute one round of local training.
 
         Args:
             global_weights: Current global model weights
@@ -587,8 +581,7 @@ class FederatedClient:
         new_data: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any] | None],
         append: bool = True,
     ) -> None:
-        """
-        Update local training data.
+        """Update local training data.
 
         Args:
             new_data: New data (X, y)
@@ -630,8 +623,7 @@ class FederatedClient:
 
 
 class ClientManager:
-    """
-    Manager for multiple federated clients.
+    """Manager for multiple federated clients.
 
     Handles client registration, selection, and coordination.
     """
@@ -643,8 +635,7 @@ class ClientManager:
         selection_strategy: str = "random",
         seed: int | None = None,
     ) -> None:
-        """
-        Initialize client manager.
+        """Initialize client manager.
 
         Args:
             min_clients: Minimum clients required per round
@@ -694,8 +685,7 @@ class ClientManager:
         ]
 
     def select_clients(self, n_clients: int | None = None) -> list[FederatedClient]:
-        """
-        Select clients for the current round.
+        """Select clients for the current round.
 
         Args:
             n_clients: Number of clients to select (defaults to fraction)

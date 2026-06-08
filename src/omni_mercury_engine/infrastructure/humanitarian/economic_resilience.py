@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Economic Resilience Module - Market and financial anomaly detection
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Economic Resilience Module - Market and financial anomaly detection.
 
 Supports SDG 8 (Decent Work and Economic Growth) by monitoring:
 - Market volatility and crashes
@@ -32,8 +14,9 @@ Research sources:
 - IMF economic indicators
 - World Bank development metrics
 - Federal Reserve economic data
-
 """
+
+from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
@@ -56,6 +39,7 @@ class EconomicResilienceDetector:
     """Detect economic anomalies and systemic risks."""
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.market_baseline = {"mean": 100.0, "std": 15.0}
         self.unemployment_baseline = {"mean": 5.0, "std": 2.0}
 
@@ -65,8 +49,7 @@ class EconomicResilienceDetector:
         detection_type: str = "market",
         economic_context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """
-        Detect economic anomalies.
+        """Detect economic anomalies.
 
         Args:
             data: Economic indicators (prices, employment, etc.)

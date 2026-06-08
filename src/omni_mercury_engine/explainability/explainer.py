@@ -1,5 +1,5 @@
-"""
-Unified Explainability Interface for Mercury Agent.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Unified Explainability Interface for Mercury Agent.
 
 High-level interface for generating explanations for anomaly detection
 models using SHAP, counterfactuals, and GDPR-compliant reports.
@@ -54,14 +54,12 @@ from omni_mercury_engine.explainability.shap import (
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-
 logger = logging.getLogger(__name__)
 
 
 @dataclass
 class AnomalyExplanation:
-    """
-    Comprehensive explanation for an anomaly detection result.
+    """Comprehensive explanation for an anomaly detection result.
 
     Combines multiple explanation methods into a unified result.
     """
@@ -183,8 +181,7 @@ class GlobalAnomalyExplanation:
 
 
 class MercuryExplainer:
-    """
-    Unified explainability interface for Mercury Agent.
+    """Unified explainability interface for Mercury Agent.
 
     Provides comprehensive explanations for anomaly detection models
     using multiple explanation methods.
@@ -231,8 +228,7 @@ class MercuryExplainer:
         contact_info: str = "support@organization.com",
         seed: int | None = None,
     ) -> None:
-        """
-        Initialize Mercury Explainer.
+        """Initialize Mercury Explainer.
 
         Args:
             model: Anomaly detection model or scoring function
@@ -312,8 +308,7 @@ class MercuryExplainer:
         subject_id: str | None = None,
         n_counterfactuals: int = 3,
     ) -> AnomalyExplanation:
-        """
-        Generate comprehensive explanation for an instance.
+        """Generate comprehensive explanation for an instance.
 
         Args:
             instance: Instance to explain
@@ -394,8 +389,7 @@ class MercuryExplainer:
         include_shap: bool = True,
         include_counterfactuals: bool = False,
     ) -> list[AnomalyExplanation]:
-        """
-        Generate explanations for multiple instances.
+        """Generate explanations for multiple instances.
 
         Args:
             instances: Batch of instances
@@ -427,8 +421,7 @@ class MercuryExplainer:
         X: np.ndarray[Any, Any],
         y: np.ndarray[Any, Any] | None = None,
     ) -> GlobalAnomalyExplanation:
-        """
-        Generate global explanation for the model.
+        """Generate global explanation for the model.
 
         Args:
             X: Dataset to analyze
@@ -459,8 +452,7 @@ class MercuryExplainer:
         X: np.ndarray[Any, Any],
         n_samples: int | None = None,
     ) -> dict[str, float]:
-        """
-        Compute global feature importance.
+        """Compute global feature importance.
 
         Args:
             X: Dataset for importance computation
@@ -483,8 +475,7 @@ class MercuryExplainer:
         anomaly_score: float | None = None,
         explanation_level: ExplanationLevel = ExplanationLevel.STANDARD,
     ) -> ExplanationReport:
-        """
-        Generate GDPR-compliant explanation report.
+        """Generate GDPR-compliant explanation report.
 
         Args:
             instance: Instance to explain
