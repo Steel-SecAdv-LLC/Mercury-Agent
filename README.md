@@ -647,7 +647,7 @@ The three engines work together to create emergent detection capabilities:
 | **Harmonic Analysis** | Resonance + Recursion | Multi-scale frequency decomposition |
 | **Quantum-Inspired Paths** | Recursion + Refactoring | Simulated annealing for optimization |
 | **Ava Equation** | All 3R | Unified anomaly scoring: `A = R·H·O` |
-| **Asymptotic Horizons** | Resonance + Refactoring | Convergence guarantees via Lyapunov stability |
+| **Asymptotic Horizons** | Resonance + Refactoring | Convergence monitored via a Lyapunov-style decay schedule |
 
 ### The Omni-Ava Equation (OAE)
 
@@ -663,9 +663,9 @@ Where:
 - `O(θ)` = Optimization/Refactoring score (adaptive theta)
 - `η_Ethical` = Ethical compliance threshold (default 0.96, medical fallback 0.93)
 - `Φ` = Golden ratio constant (1.618033988749895)
-- Golden-ratio fusion weights: `w_R = φ/(φ+1+1/φ) ≈ 0.447`, `w_H = 1/(φ+1+1/φ) ≈ 0.276`, `w_O = (1/φ)/(φ+1+1/φ) ≈ 0.276` (sum to 1.0)
+- Golden-ratio fusion weights (canonical Φ:1:1): `w_R = φ/(φ+2) ≈ 0.447`, `w_H = 1/(φ+2) ≈ 0.276`, `w_O = 1/(φ+2) ≈ 0.276` (sum to 1.0)
 
-**Lyapunov Stability**: Convergence guaranteed via `V̇ ≤ -λV` where convergence rate `λ=0.25` (elevated from 0.18 for 25% faster convergence).
+**Lyapunov Stability (decay-schedule monitor)**: convergence is *monitored* against the target condition `V̇ ≤ -λV` with rate `λ=0.25` (elevated from 0.18 for 25% faster convergence) — the empirical trajectory is measured against this schedule, not guaranteed a priori.
 
 ### 3R Anomaly Transformer (PyTorch)
 
@@ -797,7 +797,7 @@ The signature innovation providing transparent, auditable AI decision-making:
 
 - **Fairlearn Integration**: Demographic parity, equalized odds, 80% rule enforcement
 - **180+ Ethical Scalars**: Omnibenevolent constraints across all operations
-- **Lyapunov Stability**: Mathematical guarantees on system convergence
+- **Lyapunov Stability**: decay-schedule monitor of system convergence (measured, not guaranteed)
 - **Civilization-First Philosophy**: Humanitarian impact prioritized in all design decisions
 
 ### Hybrid Fusion Architecture

@@ -961,7 +961,8 @@ class OmniFusionModel(nn.Module):
         Train fusion model with advanced optimizers for accelerated convergence.
 
         Integrates SyntheticGradient, DifferenceTargetPropagation, and AuxiliaryMaxVariance
-        optimizers for 2-3x training speedup with Lyapunov stability guarantees.
+        optimizers for 2-3x training speedup with a Lyapunov-style decay-schedule
+        stability monitor (measured, not a guarantee).
 
         Now includes:
         - Focal loss option for severe class imbalance (use_focal_loss=True)

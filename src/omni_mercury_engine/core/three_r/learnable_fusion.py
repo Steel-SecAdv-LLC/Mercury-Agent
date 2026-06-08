@@ -87,8 +87,12 @@ class Learnable3RResult:
     learned_weights: dict[str, float]
     learned_phi: float
     attention_weights: dict[str, Any] = field(default_factory=dict)
+    # Decay-schedule reference envelope epsilon*e^(-lambda*t): a design target,
+    # NOT a measured/guaranteed bound on the fusion-score trajectory.
     lyapunov_bound: float = 0.0
-    is_stable: bool = True
+    # Honest default: stability is NOT asserted until the score trajectory is
+    # actually measured to contract (see Learnable3REngine._recent_contraction).
+    is_stable: bool = False
     loss: float = 0.0
 
 
@@ -506,6 +510,8 @@ if TORCH_AVAILABLE:
 
             self.time_step += 1
             epsilon = 1.0
+            # Decay-schedule reference envelope (target), NOT a measured/
+            # guaranteed bound on the fusion-score trajectory.
             lyapunov_bound = epsilon * math.exp(-LAMBDA * self.time_step)
 
             result = {
@@ -571,8 +577,25 @@ class Learnable3REngine:
             self.optimizer = None  # type: ignore[assignment, unused-ignore]
 
         self.training_history: list[float] = []
+        # Rolling fusion-score history for the honest stability monitor
+        # (measures real contraction; not a Lyapunov guarantee).
+        self._score_history: list[float] = []
 
         logger.info(f"Learnable3REngine initialized (device={device})")
+
+    def _recent_contraction(self, window: int = 10) -> bool:
+        """Honest stability monitor: True only if the recent fusion-score
+        trajectory actually contracts (variance over the latest window is below
+        the variance over the first window).  This is a *measured* property of
+        the observed scores, NOT a Lyapunov guarantee; with insufficient
+        history it returns ``False`` rather than asserting stability.
+        """
+        h = self._score_history
+        if len(h) < 2 * window:
+            return False  # insufficient history to assert contraction
+        initial = float(np.var(h[:window]))
+        recent = float(np.var(h[-window:]))
+        return bool(initial > 0.0 and recent < initial)
 
     def compute(
         self,
@@ -601,8 +624,10 @@ class Learnable3REngine:
         with torch.no_grad():
             result = self.model(x, ctx)
 
+        fusion_score = float(result["fusion_score"].mean().item())
+        self._score_history.append(fusion_score)
         return Learnable3RResult(
-            fusion_score=float(result["fusion_score"].mean().item()),
+            fusion_score=fusion_score,
             recursion_score=float(result["recursion_score"].mean().item()),
             resonance_score=float(result["resonance_score"].mean().item()),
             optimization_score=float(result["optimization_score"].mean().item()),
@@ -611,7 +636,8 @@ class Learnable3REngine:
             learned_phi=result["phi"],
             attention_weights=result.get("resonance_meta", {}).get("attention_weights"),
             lyapunov_bound=result["lyapunov_bound"],
-            is_stable=True,
+            # Measured contraction of the observed score trajectory, not a guarantee.
+            is_stable=self._recent_contraction(),
         )
 
     def train_step(
@@ -972,7 +998,7 @@ class Learnable3REngine:
             learned_weights={"w_R": w_R, "w_H": w_H, "w_O": w_O},
             learned_phi=PHI,
             lyapunov_bound=1.0,
-            is_stable=True,
+            is_stable=False,  # numpy fallback does not measure trajectory contraction
         )
 
     def get_weights(self) -> dict[str, float]:

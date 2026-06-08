@@ -398,13 +398,17 @@ ANOMALY = AnomalyDetectionConstants()
 class FusionConstants:
     """Fusion and weighting constants."""
 
-    # OAE default weights (golden ratio proportions)
+    # OAE default weights — canonical PHI:1:1 derivation (the single source of
+    # truth; matches core/three_r/fusion.py:OmniAvaEquation, ml/three_r_attention.py,
+    # and tools/oae_weight_certifier.py).  Recursion carries the φ-weighted share;
+    # Harmonic and Optimization receive equal unit shares.
     # w_R: Recursion, w_H: Harmonic, w_O: Optimization
-    # Origin: core/three_r/fusion.py, three_r_mechanism.py
-    # phi_sum = φ + 1 + 1/φ ≈ 3.2361
-    OAE_WEIGHT_R: float = 0.500000  # φ / phi_sum
-    OAE_WEIGHT_H: float = 0.309017  # 1 / phi_sum
-    OAE_WEIGHT_O: float = 0.190983  # (1/φ) / phi_sum
+    # phi_sum = φ + 2 ≈ 3.6180  (NOT φ + 1 + 1/φ — an earlier draft used the
+    # latter and silently drifted to (0.5, 0.309, 0.191); oae_weight_certifier
+    # is the gate against a recurrence.)
+    OAE_WEIGHT_R: float = 0.447214  # φ / (φ + 2)
+    OAE_WEIGHT_H: float = 0.276393  # 1 / (φ + 2)
+    OAE_WEIGHT_O: float = 0.276393  # 1 / (φ + 2)
     # Backward compatibility
     AAFE_WEIGHT_R: float = OAE_WEIGHT_R
     AAFE_WEIGHT_H: float = OAE_WEIGHT_H
