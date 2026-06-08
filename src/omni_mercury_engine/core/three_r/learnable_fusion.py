@@ -584,11 +584,13 @@ class Learnable3REngine:
         logger.info(f"Learnable3REngine initialized (device={device})")
 
     def _recent_contraction(self, window: int = 10) -> bool:
-        """Honest stability monitor: True only if the recent fusion-score
-        trajectory actually contracts (variance over the latest window is below
-        the variance over the first window).  This is a *measured* property of
-        the observed scores, NOT a Lyapunov guarantee; with insufficient
-        history it returns ``False`` rather than asserting stability.
+        """Honest stability monitor (measured contraction, not a guarantee).
+
+        Returns True only if the recent fusion-score trajectory actually
+        contracts (variance over the latest window is below the variance over
+        the first window).  This is a *measured* property of the observed
+        scores, NOT a Lyapunov guarantee; with insufficient history it returns
+        ``False`` rather than asserting stability.
         """
         h = self._score_history
         if len(h) < 2 * window:

@@ -88,6 +88,10 @@ class OmniAvaEquation:
             domain: Domain name for sigmoid benevolence profile selection.
             ethical_exponent: Exponent for ethical scaling. Defaults to Φ (1.618).
                 Set to None to use golden ratio. Override for empirical optimization.
+            decouple_ethical_scaling: Opt-in (default False). When True, remove the
+                soft η^Φ multiplier from the fused-score path (R6) so a proper-scored
+                monotone calibrator can own the probability; the two fail-closed hard
+                ethics gates remain the enforcement.
         """
         if sigma_immutable is not None:
             ethical_compliance_threshold = sigma_immutable
