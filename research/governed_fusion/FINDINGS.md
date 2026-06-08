@@ -168,6 +168,51 @@ and `detect_with_fusion` threads them straight into the result. The mutable
 cannot cross-contaminate certificates
 (`tests/test_governed_certificate_threading.py`).
 
+## Stage 2 — the calibration thesis (headline): MCA lands, Venn-Abers dropped
+
+`measure_calibration.py` (`results/calibration_results.json`). The measured
+bottleneck of #276/#278 is calibration, not breadth (high AUROC, broken operating
+point). Per event: seeded 50/50 cal/eval split; fit on calibration, four metrics
+on the held-out eval (AUROC / Brier / ECE / Net-Benefit), per-domain + overall
+(26 events; the 3 earthquake events with no calibration positive drop, as in
+Item 4).
+
+### Report card — overall (26 events)
+
+| method | AUROC | Brier | ECE | Net-Benefit |
+|---|---:|---:|---:|---:|
+| identity (scaled scores) | 0.8203 | 0.1771 | 0.2637 | 0.0567 |
+| isotonic | 0.7841 | 0.0881 | 0.0427 | 0.1025 |
+| **Beta-MCA** | **0.8203** | **0.0860** | **0.0352** | **0.1092** |
+| Beta-MCA (accept-gated) | 0.8203 | 0.0860 | 0.0352 | 0.1092 |
+| Beta-MCA + Venn-Abers | 0.8199 | 0.0856 | 0.0575 | 0.1094 |
+
+**R1 — Beta-MCA lands (opt-in, default-off, exact-reducing).** The strictly
+monotone beta map (Kull 2017, `a, b ≥ 0`) fit by the composite proper objective
+(Brier + λ_ECE·ECE_kernel) **ties AUROC exactly** (0.8203 = 0.8203 — I3-free) and
+improves **Brier −0.0911** and **ECE −0.2285** vs identity. Head-to-head it
+**beats isotonic** on both Brier (0.0860 < 0.0881) and ECE (0.0352 < 0.0427)
+*and* preserves AUROC, where isotonic **drops AUROC −0.0363** (non-strict ties).
+Wired behind `calibration_map="mca"` in `MercuryAnomalyDetector` (default off →
+byte-exact; additive `calibrated_probabilities` key when on). Tests:
+`tests/test_beta_calibration.py` (AUROC exact-tie, Brier↓/ECE↓, default-off
+byte-exact, accept-gate no-regress).
+
+**R4 — exact-reducing accept-gate + four-metric report card.** `fit_accept_gated_mca`
+accepts the map only if held-out-style Brier improves AND ECE ties-or-beats, else
+identity; accepted in **26/26** events with **zero per-domain regressions**, so
+the shipped calibration path can never regress AUROC/Brier/ECE — the literal
+acceptance criterion, from committed code.
+
+**R3 — Venn-Abers validity layer: conclusive negative, NOT shipped.** Layered on
+the MCA point probability, the inductive Venn-Abers predictor's marginal
+contribution is **Brier −0.0004 (≈0), ECE +0.0223 (worse), AUROC −0.0005** (mean
+interval width 0.0725). It adds nothing to point calibration over a good MCA, so
+per I3 it is **not** wired into the runtime; `VennAbersCalibrator` is retained as
+a tested prototype (`tests/test_venn_abers.py`) + a distribution-free uncertainty
+band. Layering is explicit: MCA = point calibration; Venn-Abers = (unshipped,
+measured-null) validity diagnostic.
+
 ## Invariants
 
 I1 both hard gates (`BenevolenceScorer`, `σ_Immutable`) byte-untouched, ethics

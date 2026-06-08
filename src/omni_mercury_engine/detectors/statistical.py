@@ -181,6 +181,15 @@ class MercuryAnomalyDetector(BaseDetector):
         )
         self._conformal_coverage: float = float(self.config.get("conformal_coverage", 0.90))
 
+        # Beta-MCA monotone calibration (Stage 2, R1). Optional and DEFAULT-OFF
+        # (Invariant I2): default "identity" -> detect() output is byte-identical.
+        # When "mca" AND labels are supplied to fit_with_calibration_subset, an
+        # accept-gated monotone beta map is fit; detect() then ADDS a
+        # "calibrated_probabilities" key (rank-preserving -> AUROC exact tie),
+        # leaving "scores" / "is_anomaly" untouched (exact-reducing).
+        self._calibration_map: str = str(self.config.get("calibration_map", "identity"))
+        self._mca_calibrator: Any = None
+
         # Oracle detector (set during fit if data is temporal)
         self._oracle_detector: Any = None
         self._oracle_metadata: dict[str, Any] = {"active": False}
@@ -1599,6 +1608,15 @@ class MercuryAnomalyDetector(BaseDetector):
         detection = self.detect(X_cal)
         scores = np.asarray(detection["scores"], dtype=np.float64)
 
+        # Beta-MCA monotone calibration (Stage 2, R1), opt-in DEFAULT-OFF. Fit the
+        # accept-gated map on the calibration scores; it can never regress
+        # Brier/ECE (else it falls back to identity). detect() exposes it as an
+        # additive "calibrated_probabilities" key without touching scores/verdict.
+        if self._calibration_map == "mca":
+            from omni_mercury_engine.core.calibration import fit_accept_gated_mca
+
+            self._mca_calibrator, _ = fit_accept_gated_mca(scores, cal_labels)
+
         # Conformal split operating point (Item 4, opt-in DEFAULT-OFF).
         if self._conformal_operating_point_enabled:
             tau = self._conformal_operating_threshold(scores, cal_labels)
@@ -2175,6 +2193,10 @@ class MercuryAnomalyDetector(BaseDetector):
             certificate = self._info_geometry_certificate_payload(data, info_geo)
             if certificate is not None:
                 result["info_geometry_certificate"] = certificate
+        # Beta-MCA calibrated probabilities (Stage 2, R1) — additive, opt-in.
+        # Rank-preserving (AUROC exact tie); scores/is_anomaly untouched.
+        if self._calibration_map == "mca" and self._mca_calibrator is not None:
+            result["calibrated_probabilities"] = self._mca_calibrator.calibrate(combined_scores)
         return result
 
     def _info_geometry_certificate_payload(

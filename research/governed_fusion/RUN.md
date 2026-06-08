@@ -48,10 +48,9 @@ python research/governed_fusion/measure_baseline.py            # -> results/base
 python research/governed_fusion/measure_conformal.py           # -> results/conformal_results.json
 python research/governed_fusion/measure_reliability_fusion.py  # -> results/reliability_fusion_results.json
 python research/governed_fusion/measure_survivability.py       # -> results/survivability_results.json
+python research/governed_fusion/measure_calibration.py         # -> results/calibration_results.json
 python research/governed_fusion/build_manifest.py              # -> manifest.json
 ```
-
-(Stage 2 adds `measure_calibration.py` → `results/calibration_results.json`.)
 
 ## 3. What each artifact backs
 
@@ -61,6 +60,7 @@ python research/governed_fusion/build_manifest.py              # -> manifest.jso
 | `results/conformal_results.json` | Item 4 — adaptive / **youden_f1 (displaced)** / conformal |
 | `results/reliability_fusion_results.json` | Item 3 — KILL CONFIRMED |
 | `results/survivability_results.json` | Item 2 — floor curve + cubic-moment escape |
+| `results/calibration_results.json` | Stage 2 — Beta-MCA vs isotonic vs identity + Venn-Abers |
 | `manifest.json` | per-event `n_rows`, `n_pos`, SHA-256 of `(X,y)` (full + capped) |
 
 ## 4. Notes on the suite
