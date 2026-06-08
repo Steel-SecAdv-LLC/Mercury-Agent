@@ -8,11 +8,17 @@ Answers:
  Q-GATE does eta^Phi ever change a verdict? (rank top-k flip / abs-0.5 flip / AUC delta)
 """
 from __future__ import annotations
-import warnings, json, importlib
+
+import importlib
+import json
+import warnings
+
 import numpy as np
+
 warnings.filterwarnings("ignore")
-from sklearn.metrics import roc_auc_score
+# Mercury builds its own ML (mercury_ml); scikit-learn is never imported.
 from omni_mercury_engine.core.equation_profiles import score_runtime_equation_profile
+from omni_mercury_engine.ml.mercury_ml import roc_auc_score
 
 stat = importlib.import_module("omni_mercury_engine.detectors.statistical")
 MercuryAnomalyDetector = stat.MercuryAnomalyDetector

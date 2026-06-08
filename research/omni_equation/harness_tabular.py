@@ -13,16 +13,24 @@ No reimplementation: real detector, real datasets, real equation_profiles.
 Protocol: standard transductive AD (fit unlabeled on X, score X, AUROC vs y).
 """
 from __future__ import annotations
-import os, time, warnings, json
-import numpy as np
-warnings.filterwarnings("ignore")
-from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import roc_auc_score
 
-from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
+import json
+import time
+import warnings
+
+import numpy as np
+
+warnings.filterwarnings("ignore")
+# Mercury builds its own ML (mercury_ml); scikit-learn is never imported in the
+# Mercury codebase — it is only a conceptual benchmark baseline, not a dependency.
 from omni_mercury_engine.core.equation_profiles import score_runtime_equation_profile
 from omni_mercury_engine.datasets import load_dataset
+from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
+from omni_mercury_engine.ml.mercury_ml import (
+    LogisticRegression,
+    StandardScaler,
+    roc_auc_score,
+)
 
 DATASETS = ["thyroid", "campaign", "fraud", "backdoor", "smd", "epilepsy", "dsads", "donors"]
 MAX_SAMPLES = 4000
