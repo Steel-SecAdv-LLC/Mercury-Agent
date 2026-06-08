@@ -379,9 +379,7 @@ class BetaCalibration:
         u = (s - self._s_min) / rng
         return np.clip(u, self.eps, 1.0 - self.eps)
 
-    def _link(
-        self, u: np.ndarray[Any, Any], a: float, b: float, c: float
-    ) -> np.ndarray[Any, Any]:
+    def _link(self, u: np.ndarray[Any, Any], a: float, b: float, c: float) -> np.ndarray[Any, Any]:
         z = c + a * np.log(u) - b * np.log1p(-u)
         p: np.ndarray[Any, Any] = 1.0 / (1.0 + np.exp(-np.clip(z, -50.0, 50.0)))
         return p
