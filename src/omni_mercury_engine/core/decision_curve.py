@@ -19,12 +19,15 @@ threshold *is* a cost ratio: the cost-driven **Bayes threshold** is
 where ``c`` is the harm of a false positive and ``b`` the benefit of a true
 positive (equivalently, ``t*/(1 - t*) = c / b``).
 
-**Single operating-point pathway (reconciliation with Item 4).**  There is ONE
-shipped operating point: the MCA-calibrated probability thresholded at the
-cost-driven Bayes ``t*``.  The conformal / Venn-Abers layer is a distribution-free
-*coverage guarantee* (a recall floor) layered on top -- **not** a second,
-competing threshold.  ``reconciled_operating_point`` returns this single decision
-together with the conformal recall-floor diagnostic, so the two never disagree.
+**Single operating-point pathway (reconciliation with Item 4).**  The substrate
+exposes ONE principled operating point: the MCA-calibrated probability thresholded
+at the cost-driven Bayes ``t*``.  The conformal / Venn-Abers layer is a
+distribution-free *coverage floor* (a recall-floor diagnostic) layered on top --
+**not** a second, competing threshold.  ``reconciled_operating_point`` returns this
+single decision together with the conformal recall-floor diagnostic, so the two
+never disagree.  This module is **read-only analysis (default-off): it changes no
+runtime verdict** -- the detector's verdict stays ``score > threshold`` and
+``calibration_map="mca"`` only adds the additive ``calibrated_probabilities`` key.
 """
 
 from __future__ import annotations
@@ -113,7 +116,7 @@ class OperatingPoint:
     """The single reconciled operating point + the conformal coverage diagnostic."""
 
     bayes_threshold: float
-    decision: np.ndarray[Any, Any]  # p >= t* (the shipped verdict)
+    decision: np.ndarray[Any, Any]  # p >= t* (the read-only operating-point decision)
     net_benefit_at_t_star: float
     conformal_recall_floor: float | None  # coverage guarantee diagnostic, not a 2nd threshold
 
