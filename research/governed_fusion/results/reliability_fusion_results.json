@@ -1,14 +1,14 @@
 {
-  "n_events": 26,
+  "n_events": 20,
   "overall": {
-    "baseline_linear": 0.826280824892391,
-    "reliability_linear": 0.8655542942981747,
-    "reliability_clipped": 0.8685538159020939,
-    "reliability_trimmed": 0.8382898002448341,
-    "best_single": 0.8943189873754191
+    "baseline_linear": 0.804442067419553,
+    "reliability_linear": 0.8401862897980678,
+    "reliability_clipped": 0.8429319266517069,
+    "reliability_trimmed": 0.810699372133502,
+    "best_single": 0.8778835323912855
   },
   "best_reliability_variant": "reliability_clipped",
-  "gap_to_best_single": -0.025765171473325243,
+  "gap_to_best_single": -0.03495160573957856,
   "verdict": "KILL CONFIRMED: cannot reach best-single (see per-domain regressions)",
   "per_domain_regressions": {
     "fema": -0.047,
@@ -46,51 +46,6 @@
         0.315,
         0.0,
         0.685
-      ]
-    },
-    {
-      "domain": "tsunami",
-      "event": "tohoku_2011",
-      "baseline_linear": 0.9037677304964538,
-      "reliability_linear": 0.947695035460993,
-      "reliability_clipped": 0.9480939716312057,
-      "reliability_trimmed": 0.9116430260047281,
-      "best_single": 0.9505171394799055,
-      "best_single_name": "info_geometry",
-      "rel_weights": [
-        0.363,
-        0.162,
-        0.475
-      ]
-    },
-    {
-      "domain": "tsunami",
-      "event": "chile_2010",
-      "baseline_linear": 0.8740699404761906,
-      "reliability_linear": 0.8970734126984127,
-      "reliability_clipped": 0.8950396825396825,
-      "reliability_trimmed": 0.8205605158730159,
-      "best_single": 0.8967509920634921,
-      "best_single_name": "info_geometry",
-      "rel_weights": [
-        0.358,
-        0.145,
-        0.497
-      ]
-    },
-    {
-      "domain": "tsunami",
-      "event": "tonga_2022",
-      "baseline_linear": 0.8660639302433046,
-      "reliability_linear": 0.886850300363651,
-      "reliability_clipped": 0.8848170694955098,
-      "reliability_trimmed": 0.8378598838727824,
-      "best_single": 0.8797581017820907,
-      "best_single_name": "info_geometry",
-      "rel_weights": [
-        0.392,
-        0.199,
-        0.41
       ]
     },
     {
@@ -141,16 +96,16 @@
     {
       "domain": "marine",
       "event": "marine_heatwave_2023",
-      "baseline_linear": 0.6677115987460815,
-      "reliability_linear": 0.6927899686520376,
-      "reliability_clipped": 0.7398119122257053,
-      "reliability_trimmed": 0.6959247648902821,
-      "best_single": 0.7210031347962382,
+      "baseline_linear": 0.6520376175548589,
+      "reliability_linear": 0.6865203761755486,
+      "reliability_clipped": 0.7084639498432601,
+      "reliability_trimmed": 0.6489028213166144,
+      "best_single": 0.7178683385579937,
       "best_single_name": "resonance",
       "rel_weights": [
-        0.603,
-        0.242,
-        0.155
+        0.61,
+        0.184,
+        0.205
       ]
     },
     {
@@ -211,51 +166,6 @@
         0.359,
         0.314,
         0.327
-      ]
-    },
-    {
-      "domain": "energy",
-      "event": "quebec_1989",
-      "baseline_linear": 0.9239385256577234,
-      "reliability_linear": 0.9838499609273249,
-      "reliability_clipped": 0.9843709299296692,
-      "reliability_trimmed": 0.9843709299296692,
-      "best_single": 0.9843709299296692,
-      "best_single_name": "info_geometry",
-      "rel_weights": [
-        0.349,
-        0.0,
-        0.651
-      ]
-    },
-    {
-      "domain": "energy",
-      "event": "halloween_2003",
-      "baseline_linear": 0.8987993138936534,
-      "reliability_linear": 0.9906613302839717,
-      "reliability_clipped": 0.9918048408614446,
-      "reliability_trimmed": 0.9918048408614446,
-      "best_single": 0.9918048408614446,
-      "best_single_name": "info_geometry",
-      "rel_weights": [
-        0.402,
-        0.0,
-        0.598
-      ]
-    },
-    {
-      "domain": "energy",
-      "event": "bastille_day_2000",
-      "baseline_linear": 0.9121466768525591,
-      "reliability_linear": 0.9882862235803411,
-      "reliability_clipped": 0.9882862235803411,
-      "reliability_trimmed": 0.9882862235803411,
-      "best_single": 0.9882862235803411,
-      "best_single_name": "info_geometry",
-      "rel_weights": [
-        0.359,
-        0.0,
-        0.641
       ]
     },
     {

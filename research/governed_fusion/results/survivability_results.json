@@ -36,42 +36,6 @@
         "escape": 0.0
       }
     },
-    "energy": {
-      "event": "quebec_1989",
-      "k": 8,
-      "clean_auroc": 1.0,
-      "floor_curve": [
-        {
-          "m": 0,
-          "worst_case_auroc": 1.0,
-          "worst_attack": "none"
-        },
-        {
-          "m": 2,
-          "worst_case_auroc": 0.9974193548387097,
-          "worst_attack": "condmean",
-          "gradient_masking_flag": false
-        },
-        {
-          "m": 4,
-          "worst_case_auroc": 0.9987096774193549,
-          "worst_attack": "condmean",
-          "gradient_masking_flag": false
-        },
-        {
-          "m": 6,
-          "worst_case_auroc": 0.5419354838709678,
-          "worst_attack": "condmean",
-          "gradient_masking_flag": false
-        }
-      ],
-      "worst_case_half_channel_auroc": 0.9987096774193549,
-      "cubic_moment": {
-        "floor_auc": 1.0,
-        "cubic_auc": 1.0,
-        "escape": 0.0
-      }
-    },
     "fema": {
       "event": "hurricane_2024",
       "k": 7,
@@ -147,27 +111,27 @@
     "marine": {
       "event": "marine_heatwave_2023",
       "k": 3,
-      "clean_auroc": 0.9966583124477861,
+      "clean_auroc": 0.9991645781119466,
       "floor_curve": [
         {
           "m": 0,
-          "worst_case_auroc": 0.9966583124477861,
+          "worst_case_auroc": 0.9991645781119466,
           "worst_attack": "none"
         },
         {
           "m": 1,
-          "worst_case_auroc": 0.9690893901420218,
+          "worst_case_auroc": 0.9766081871345029,
           "worst_attack": "transfer",
           "gradient_masking_flag": true
         },
         {
           "m": 2,
-          "worst_case_auroc": 0.9281537176274018,
+          "worst_case_auroc": 0.9465329991645781,
           "worst_attack": "condmean",
           "gradient_masking_flag": true
         }
       ],
-      "worst_case_half_channel_auroc": 0.9690893901420218,
+      "worst_case_half_channel_auroc": 0.9766081871345029,
       "cubic_moment": {
         "floor_auc": 1.0,
         "cubic_auc": 1.0,
@@ -281,49 +245,13 @@
         "cubic_auc": 0.9954751131221719,
         "escape": 0.028794734677087597
       }
-    },
-    "tsunami": {
-      "event": "tonga_2022",
-      "k": 6,
-      "clean_auroc": 0.977605360606595,
-      "floor_curve": [
-        {
-          "m": 0,
-          "worst_case_auroc": 0.977605360606595,
-          "worst_attack": "none"
-        },
-        {
-          "m": 1,
-          "worst_case_auroc": 0.977605360606595,
-          "worst_attack": "bpda",
-          "gradient_masking_flag": false
-        },
-        {
-          "m": 3,
-          "worst_case_auroc": 0.9735496385117264,
-          "worst_attack": "condmean",
-          "gradient_masking_flag": false
-        },
-        {
-          "m": 4,
-          "worst_case_auroc": 0.9158878504672897,
-          "worst_attack": "transfer",
-          "gradient_masking_flag": false
-        }
-      ],
-      "worst_case_half_channel_auroc": 0.9735496385117264,
-      "cubic_moment": {
-        "floor_auc": 0.9848351260800564,
-        "cubic_auc": 0.9980603068241933,
-        "escape": 0.013225180744136922
-      }
     }
   },
   "eps": 0.6,
   "row_cap": 160,
   "overall": {
-    "mean_clean_auroc": 0.9383273751665188,
-    "mean_worst_case_half_channel_auroc": 0.7683898668985418,
+    "mean_clean_auroc": 0.9242638973651763,
+    "mean_worst_case_half_channel_auroc": 0.7072526118783252,
     "gaussian_control_escape": -0.0032222222222223484
   }
 }

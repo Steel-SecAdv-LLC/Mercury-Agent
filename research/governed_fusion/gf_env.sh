@@ -26,8 +26,16 @@ export PYTHONPATH="${GF_REPO_ROOT}:${GF_REPO_ROOT}/src:${AMA_HOME}${PYTHONPATH:+
 export AMA_CRYPTO_LIB_PATH="${AMA_HOME}/build/lib/libama_cryptography.so"
 export LD_LIBRARY_PATH="${AMA_HOME}/build/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
 
-# Real-data discipline: no synthetic fallback is permitted anywhere reachable.
+# Real-data discipline.  NB: the loaders/ package does NOT honour this flag (only
+# the datasets/ package does), so suite.py makes the live/reconstructed split
+# explicit in code instead of relying on it.  Kept for the datasets/ paths.
 export MERCURY_ALLOW_SYNTHETIC=0
+
+# The reconstructed-from-live loaders (tsunami BPR, energy Kp, ebola curve) seed
+# their RNG from hash(...); Python salts str hashing per process unless this is
+# pinned.  Pin it so the reconstructed group reproduces byte-identically across
+# processes (the 23-event live headline suite is hash-independent regardless).
+export PYTHONHASHSEED=0
 
 # Heavy per-event (X,y) + score .npz cache (regenerated from the live loaders
 # when absent; NOT committed — fingerprinted instead by manifest.json).

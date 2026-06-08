@@ -423,8 +423,11 @@ class BetaCalibration:
                 loss -= self.lambda_nb * _net_benefit_integral(p, y, thresholds, prior)
             return loss
 
-        # Warm start from the maximum-likelihood beta fit (logistic on the lifted
-        # features) so the optimiser starts near a sensible monotone map.
+        # Start from the identity map (a=b=1, c=0 makes p == u) and let L-BFGS-B
+        # optimise the composite objective from there.  A maximum-likelihood beta
+        # warm start was probed and *worsened* held-out Brier/ECE (see
+        # research/governed_fusion/measure_calibration_levers.py), so the identity
+        # start stands.
         x0 = np.array([1.0, 1.0, 0.0], dtype=np.float64)
         try:
             res = optimize.minimize(

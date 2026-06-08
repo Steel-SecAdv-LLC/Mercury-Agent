@@ -1,12 +1,12 @@
 {
-  "suite": "governed-fusion reachable real suite",
-  "n_events": 29,
-  "n_domains": 9,
-  "excluded": [
-    "pandemic/ebola_2014 (synthetic fallback despite MERCURY_ALLOW_SYNTHETIC=0)"
-  ],
+  "suite": "governed-fusion reachable suite",
+  "n_real_events": 23,
+  "n_real_domains": 7,
+  "n_reconstructed_events": 7,
+  "n_reconstructed_domains": 3,
+  "reconstructed_note": "tsunami/energy synthesise the series by design and ebola_2014 has no live WHO feed; these reconstruct documented real events and are reported separately, never folded into the live headline mean",
   "cap": 6000,
-  "events": [
+  "real": [
     {
       "domain": "earthquake",
       "event_id": "haiti_2010",
@@ -80,51 +80,6 @@
         "n_rows": 466,
         "n_pos": 2,
         "sha256_xy": "55c2c15635f37602a5bf14767cc29574e15fb8ad006bcfc4b9c88dbc675da0cc"
-      }
-    },
-    {
-      "domain": "energy",
-      "event_id": "bastille_day_2000",
-      "n_rows": 736,
-      "n_features": 8,
-      "n_pos": 22,
-      "sha256_xy": "25569b90b4ffd00f89e050d618ea442d53e60c75245f9d1fb7f61fd3ac853b8c",
-      "capped": {
-        "cap": 6000,
-        "seed": 42,
-        "n_rows": 736,
-        "n_pos": 22,
-        "sha256_xy": "25569b90b4ffd00f89e050d618ea442d53e60c75245f9d1fb7f61fd3ac853b8c"
-      }
-    },
-    {
-      "domain": "energy",
-      "event_id": "halloween_2003",
-      "n_rows": 976,
-      "n_features": 8,
-      "n_pos": 22,
-      "sha256_xy": "135a2f97f17f8aade48e73174eab865e652c261e91f1de4cddadb51a39dc01e0",
-      "capped": {
-        "cap": 6000,
-        "seed": 42,
-        "n_rows": 976,
-        "n_pos": 22,
-        "sha256_xy": "135a2f97f17f8aade48e73174eab865e652c261e91f1de4cddadb51a39dc01e0"
-      }
-    },
-    {
-      "domain": "energy",
-      "event_id": "quebec_1989",
-      "n_rows": 720,
-      "n_features": 8,
-      "n_pos": 22,
-      "sha256_xy": "f151867d86e81de048c54d7111121bd5d5a7748c6481d382ab95a0462b7e8857",
-      "capped": {
-        "cap": 6000,
-        "seed": 42,
-        "n_rows": 720,
-        "n_pos": 22,
-        "sha256_xy": "f151867d86e81de048c54d7111121bd5d5a7748c6481d382ab95a0462b7e8857"
       }
     },
     {
@@ -253,13 +208,13 @@
       "n_rows": 78,
       "n_features": 3,
       "n_pos": 21,
-      "sha256_xy": "09c5c2091dad2cba1c1667b80ae039c43b5ce63c1df5949113ca285cbae4d926",
+      "sha256_xy": "3c126e6de978c6561dec6acb496e3a9b31068cc2bf6907d60d5149a9ed6e7d5b",
       "capped": {
         "cap": 6000,
         "seed": 42,
         "n_rows": 78,
         "n_pos": 21,
-        "sha256_xy": "09c5c2091dad2cba1c1667b80ae039c43b5ce63c1df5949113ca285cbae4d926"
+        "sha256_xy": "3c126e6de978c6561dec6acb496e3a9b31068cc2bf6907d60d5149a9ed6e7d5b"
       }
     },
     {
@@ -395,6 +350,68 @@
         "n_rows": 349,
         "n_pos": 37,
         "sha256_xy": "a43c07dfa0032a88b1c0443b2d74981114964a86b9e78531aa96d3288c9db96f"
+      }
+    }
+  ],
+  "reconstructed": [
+    {
+      "domain": "energy",
+      "event_id": "bastille_day_2000",
+      "n_rows": 736,
+      "n_features": 8,
+      "n_pos": 22,
+      "sha256_xy": "915294c5ccfcf61aac77e2ecba0e126988fa3fccc1ab85fd63ebd54a34baa8ec",
+      "capped": {
+        "cap": 6000,
+        "seed": 42,
+        "n_rows": 736,
+        "n_pos": 22,
+        "sha256_xy": "915294c5ccfcf61aac77e2ecba0e126988fa3fccc1ab85fd63ebd54a34baa8ec"
+      }
+    },
+    {
+      "domain": "energy",
+      "event_id": "halloween_2003",
+      "n_rows": 976,
+      "n_features": 8,
+      "n_pos": 22,
+      "sha256_xy": "fcb55bcc63442b1f440e1dcffa27f5de7fd9a5cb9e3d26c3d4464e5b3c3b2fce",
+      "capped": {
+        "cap": 6000,
+        "seed": 42,
+        "n_rows": 976,
+        "n_pos": 22,
+        "sha256_xy": "fcb55bcc63442b1f440e1dcffa27f5de7fd9a5cb9e3d26c3d4464e5b3c3b2fce"
+      }
+    },
+    {
+      "domain": "energy",
+      "event_id": "quebec_1989",
+      "n_rows": 720,
+      "n_features": 8,
+      "n_pos": 22,
+      "sha256_xy": "e3c19e423901e6f82cc690e138a106623b32fc22e0753e7ee531f7cb446d99a5",
+      "capped": {
+        "cap": 6000,
+        "seed": 42,
+        "n_rows": 720,
+        "n_pos": 22,
+        "sha256_xy": "e3c19e423901e6f82cc690e138a106623b32fc22e0753e7ee531f7cb446d99a5"
+      }
+    },
+    {
+      "domain": "pandemic",
+      "event_id": "ebola_2014",
+      "n_rows": 306,
+      "n_features": 12,
+      "n_pos": 17,
+      "sha256_xy": "491f33900a82f4a3a304c0eb21f5abe9c26eadf5b0fcf439ef7178ef4fb3f216",
+      "capped": {
+        "cap": 6000,
+        "seed": 42,
+        "n_rows": 306,
+        "n_pos": 17,
+        "sha256_xy": "491f33900a82f4a3a304c0eb21f5abe9c26eadf5b0fcf439ef7178ef4fb3f216"
       }
     },
     {
