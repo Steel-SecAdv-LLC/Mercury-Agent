@@ -1,28 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-Industrial Control System (ICS) Dataset Loaders
-
-Loaders for real-world ICS/SCADA anomaly detection benchmarks:
-- SWaT (Secure Water Treatment): Singapore water treatment testbed
-- WADI (Water Distribution): Water distribution system
-- BATADAL: Water network attack detection
-
-These datasets are critical for validating anomaly detection in:
-- Critical infrastructure protection
-- Industrial cybersecurity
-- Process control systems
-
-Ethical Note:
-    These datasets are used for DEFENSIVE security research only.
-    Mercury-Agent is designed to PROTECT infrastructure, never attack it.
-
-References:
-    - Goh et al., "A Dataset to Support Research in the Design of Secure
-      Water Treatment Systems", CRITIS 2016
-    - Ahmed et al., "WADI: A Water Distribution Testbed for Research
-      in the Design of Secure Cyber Physical Systems", ICS-CSR 2017
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Industrial Control System (ICS) Dataset Loaders."""
 
 from __future__ import annotations
 
@@ -44,8 +21,7 @@ __all__ = [
 
 
 class SWaTLoader(DatasetLoader):
-    """
-    Secure Water Treatment (SWaT) Dataset Loader.
+    """Secure Water Treatment (SWaT) Dataset Loader.
 
     SWaT is a water treatment testbed at Singapore University of Technology
     and Design (SUTD). The dataset contains normal operation and 36 attack
@@ -172,6 +148,7 @@ class SWaTLoader(DatasetLoader):
     }
 
     def __init__(self, config: DatasetConfig) -> None:
+        """Initialize the instance."""
         super().__init__(config)
         self.attack_labels_map: dict[int, str] = {}
 
@@ -207,8 +184,7 @@ class SWaTLoader(DatasetLoader):
     def load(
         self, split: DatasetSplit = DatasetSplit.ALL
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """
-        Load SWaT dataset.
+        """Load SWaT dataset.
 
         Args:
             split: Dataset split to load
@@ -300,8 +276,7 @@ class SWaTLoader(DatasetLoader):
 
 
 class WADILoader(DatasetLoader):
-    """
-    Water Distribution (WADI) Dataset Loader.
+    """Water Distribution (WADI) Dataset Loader.
 
     WADI is a water distribution testbed at SUTD. Larger and more complex
     than SWaT, it simulates a complete water distribution network.
@@ -334,6 +309,7 @@ class WADILoader(DatasetLoader):
     STAGES = ["Stage_1", "Stage_2"]  # WADI pipeline stages
 
     def __init__(self, config: DatasetConfig) -> None:
+        """Initialize the instance."""
         super().__init__(config)
 
     def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
@@ -438,8 +414,7 @@ class WADILoader(DatasetLoader):
 
 
 class BATADALLoader(DatasetLoader):
-    """
-    BATADAL (Battle of Attack Detection Algorithms) Dataset Loader.
+    """BATADAL (Battle of Attack Detection Algorithms) Dataset Loader.
 
     Dataset from the water network attack detection competition.
     Contains both training (with labels) and test data.
@@ -460,6 +435,7 @@ class BATADALLoader(DatasetLoader):
     NUM_FEATURES = 43
 
     def __init__(self, config: DatasetConfig) -> None:
+        """Initialize the instance."""
         super().__init__(config)
 
     def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:

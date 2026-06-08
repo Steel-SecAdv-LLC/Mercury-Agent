@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Hurricane/Cyclone/Typhoon Detector - Tropical Cyclone Monitoring System
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Hurricane/Cyclone/Typhoon Detector - Tropical Cyclone Monitoring System.
 
 Comprehensive tropical cyclone detection for humanitarian early warning:
 - Sea surface temperature (SST) monitoring
@@ -45,6 +27,8 @@ hurricane centers (NHC, JTWC). Always defer to official hurricane warnings.
 
 Performance: Enhanced tracking via resonance frequency amplification + recursive analysis
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -122,20 +106,19 @@ class HurricanePredictionResult:
 
 
 class SeaSurfaceTemperatureAnalyzer:
-    """
-    Sea surface temperature analysis for cyclone development potential.
+    """Sea surface temperature analysis for cyclone development potential.
 
     SST >= 26.5°C is generally required for tropical cyclone formation.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
         self.formation_threshold_c = 26.5
         self.intensification_threshold_c = 28.0
 
     def analyze_sst(self, sst_data: dict[str, Any]) -> dict[str, Any]:
-        """
-        Analyze sea surface temperature for cyclone potential.
+        """Analyze sea surface temperature for cyclone potential.
 
         Args:
             sst_data: SST measurements and climatology
@@ -184,13 +167,13 @@ class SeaSurfaceTemperatureAnalyzer:
 
 
 class WindPatternAnalyzer(nn.Module):
-    """
-    Wind pattern analyzer for cyclone structure detection.
+    """Wind pattern analyzer for cyclone structure detection.
 
     Uses CNN + LSTM to identify organized convection and eye formation.
     """
 
     def __init__(self, input_channels: int = 3, hidden_dim: int = 128) -> None:
+        """Initialize the instance."""
         super().__init__()
 
         self.conv_encoder = nn.Sequential(
@@ -226,8 +209,7 @@ class WindPatternAnalyzer(nn.Module):
         )
 
     def forward(self, wind_field: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        """
-        Analyze wind field patterns.
+        """Analyze wind field patterns.
 
         Args:
             wind_field: Wind field data (batch, time, channels, height, width)
@@ -255,18 +237,17 @@ class WindPatternAnalyzer(nn.Module):
 
 
 class PressureTracker:
-    """
-    Central pressure tracking for cyclone intensity monitoring.
+    """Central pressure tracking for cyclone intensity monitoring.
 
     Lower central pressure indicates stronger cyclone.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
     def analyze_pressure(self, pressure_data: dict[str, Any]) -> dict[str, Any]:
-        """
-        Analyze central pressure for intensity assessment.
+        """Analyze central pressure for intensity assessment.
 
         Args:
             pressure_data: Central pressure measurements
@@ -298,8 +279,7 @@ class PressureTracker:
         }
 
     def _pressure_wind_relationship(self, pressure: float) -> float:
-        """
-        Estimate max wind from central pressure using Dvorak relationship.
+        """Estimate max wind from central pressure using Dvorak relationship.
 
         V_max = 6.7 * (1013 - P)^0.644
         """
@@ -311,20 +291,19 @@ class PressureTracker:
 
 
 class ResonanceFrequencyAmplifier:
-    """
-    FFT-based resonance frequency amplifier for storm signal detection.
+    """FFT-based resonance frequency amplifier for storm signal detection.
 
     Implements the Resonance Engine component of 3R for amplifying weak cyclone signatures in
     atmospheric data.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
         self.cyclone_frequencies = [0.05, 0.1, 0.2, 0.5]
 
     def amplify_signals(self, signal: np.ndarray[Any, Any]) -> dict[str, Any]:
-        """
-        Amplify cyclone-characteristic frequency signals.
+        """Amplify cyclone-characteristic frequency signals.
 
         Args:
             signal: Input signal array
@@ -377,8 +356,7 @@ class ResonanceFrequencyAmplifier:
 
 
 class HurricaneDetector:
-    """
-    Comprehensive hurricane/cyclone/typhoon detection system.
+    """Comprehensive hurricane/cyclone/typhoon detection system.
 
     Integrates SST analysis, wind pattern detection, pressure tracking,
     and 3R mechanism for multi-parameter tropical cyclone prediction.
@@ -399,6 +377,7 @@ class HurricaneDetector:
         enable_refactoring: bool = True,
         rng: DeterministicRNG | None = None,
     ):
+        """Initialize the instance."""
         self.enable_sst = enable_sst
         self.enable_wind = enable_wind
         self.enable_pressure = enable_pressure
@@ -419,8 +398,7 @@ class HurricaneDetector:
         self.logger = logging.getLogger(__name__)
 
     def predict_hurricane(self, cyclone_data: dict[str, Any]) -> HurricanePredictionResult:
-        """
-        Comprehensive tropical cyclone prediction.
+        """Comprehensive tropical cyclone prediction.
 
         Args:
             cyclone_data: Multi-parameter cyclone monitoring data including:

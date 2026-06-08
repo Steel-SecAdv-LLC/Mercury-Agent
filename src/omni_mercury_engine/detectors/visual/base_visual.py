@@ -1,27 +1,11 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Base classes for visual anomaly detection.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Base classes for visual anomaly detection.
 
 Provides unified interface for all visual anomaly detection algorithms,
 ensuring consistent API across PatchCore, PaDiM, STFPM, and other methods.
 """
+
+from __future__ import annotations
 
 from abc import abstractmethod
 from dataclasses import asdict, dataclass, field
@@ -51,8 +35,7 @@ class BackboneType(Enum):
 
 @dataclass
 class VisualDetectorConfig:
-    """
-    Configuration for visual anomaly detectors.
+    """Configuration for visual anomaly detectors.
 
     Attributes:
         backbone: Pre-trained backbone architecture for feature extraction
@@ -76,8 +59,7 @@ class VisualDetectorConfig:
 
 
 class BaseVisualDetector(BaseDetector, nn.Module):
-    """
-    Abstract base class for visual anomaly detectors.
+    """Abstract base class for visual anomaly detectors.
 
     .. note:: **Honest abstract contract (ROADMAP deferred item #4).**
         ``fit`` / ``detect`` / ``extract_features`` are genuine
@@ -103,8 +85,7 @@ class BaseVisualDetector(BaseDetector, nn.Module):
     """
 
     def __init__(self, config: VisualDetectorConfig | dict[str, Any] | None = None) -> None:
-        """
-        Initialize visual detector.
+        """Initialize visual detector.
 
         Args:
             config: Detector configuration (VisualDetectorConfig or dict)
@@ -151,8 +132,7 @@ class BaseVisualDetector(BaseDetector, nn.Module):
 
     @config.setter
     def config(self, value: VisualDetectorConfig | dict[str, Any]) -> None:
-        """
-        Set the detector configuration.
+        """Set the detector configuration.
 
         Args:
             value: VisualDetectorConfig instance or dict.
@@ -177,8 +157,7 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         return self._feature_dim
 
     def _init_backbone(self) -> None:
-        """
-        Initialize the backbone network.
+        """Initialize the backbone network.
 
         Override in subclasses if needed.
         """
@@ -202,8 +181,7 @@ class BaseVisualDetector(BaseDetector, nn.Module):
                 self._feature_dim = features.shape[1]
 
     def preprocess(self, images: torch.Tensor | np.ndarray[Any, Any]) -> torch.Tensor:
-        """
-        Preprocess images for feature extraction.
+        """Preprocess images for feature extraction.
 
         Args:
             images: Input images [B, C, H, W] or [B, H, W, C], values in [0, 255] or [0, 1]
@@ -242,8 +220,7 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         anomaly_map: torch.Tensor,
         original_size: tuple[int, int] | None = None,
     ) -> torch.Tensor:
-        """
-        Postprocess anomaly map to original image size.
+        """Postprocess anomaly map to original image size.
 
         Args:
             anomaly_map: Raw anomaly map from detector
@@ -277,8 +254,7 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         anomaly_map: torch.Tensor,
         original_size: tuple[int, int] | None = None,
     ) -> torch.Tensor:
-        """
-        Alias for postprocess_anomaly_map for API compatibility.
+        """Alias for postprocess_anomaly_map for API compatibility.
 
         Args:
             anomaly_map: Raw anomaly map from detector
@@ -300,8 +276,7 @@ class BaseVisualDetector(BaseDetector, nn.Module):
 
     @abstractmethod
     def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> BaseVisualDetector:
-        """
-        Fit detector to normal (non-anomalous) images.
+        """Fit detector to normal (non-anomalous) images.
 
         Args:
             data: Normal images [N, C, H, W] or [N, H, W, C]
@@ -315,8 +290,7 @@ class BaseVisualDetector(BaseDetector, nn.Module):
 
     @abstractmethod
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
-        """
-        Detect anomalies in images.
+        """Detect anomalies in images.
 
         Args:
             data: Test images [N, C, H, W] or [N, H, W, C]
@@ -334,8 +308,7 @@ class BaseVisualDetector(BaseDetector, nn.Module):
 
     @abstractmethod
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
-        """
-        Extract features for ML fusion pipeline.
+        """Extract features for ML fusion pipeline.
 
         Args:
             data: Input images [N, C, H, W]
@@ -348,8 +321,7 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         ...
 
     def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
-        """
-        Forward pass for integration with PyTorch pipelines.
+        """Forward pass for integration with PyTorch pipelines.
 
         Args:
             x: Input images [B, C, H, W]
@@ -380,8 +352,7 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         )
 
     def load(self, path: str) -> BaseVisualDetector:
-        """
-        Load detector state from file.
+        """Load detector state from file.
 
         Args:
             path: Path to saved detector state file

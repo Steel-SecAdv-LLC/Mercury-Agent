@@ -1,21 +1,4 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Canonical repo-wide label-provenance leak detector (WS-A).
 
 PR #262 removed 13 *circular* manufactured-label datasets from the supervised
@@ -51,6 +34,8 @@ The pytest gate (``tests/datasets/test_label_provenance_gate.py``) and the CI
 step run :func:`audit_label_provenance` so no future PR can reintroduce a
 circular dataset into the supervised headline.
 """
+
+from __future__ import annotations
 
 import ast
 import importlib
@@ -249,6 +234,7 @@ class ProvenanceFinding:
     detail: str
 
     def __str__(self) -> str:
+        """Return the string representation."""
         return f"[{self.kind}] {self.loader}: {self.detail}"
 
 
@@ -464,7 +450,6 @@ __all__ = [
     "discover_loaders",
     "scan_circular_label_construction",
 ]
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

@@ -1,5 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-only
-# Copyright (C) Steel Security Advisors LLC
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Probe 14: Zeta harmonic probe for detecting phase coherence anomalies."""
 
 from __future__ import annotations
@@ -23,6 +22,7 @@ class ZetaHarmonicProbe(BaseEquationProbe):
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         super().__init__(min_samples=8)
         self._mu_z: float = 0.0
         self._sigma_z: float = 0.0

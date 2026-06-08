@@ -1,5 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-only
-# Copyright (C) Steel Security Advisors LLC
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Probe 4: Rolling-variance probe for detecting volatility anomalies."""
 
 from __future__ import annotations
@@ -22,6 +21,7 @@ class VarianceAdaptedProbe(BaseEquationProbe):
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         super().__init__(min_samples=20)
         self._train_var: float = 0.0
         self._var_of_var: float = 0.0

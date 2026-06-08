@@ -1,35 +1,5 @@
-"""
-Mercury Agent
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Cross-Domain Frequency Correlation Module
-==========================================
-
-Detects overlapping significant frequency bands across concurrent
-SpectralDomainFrequency instances running on different data domains (e.g.,
-seismic + solar, environmental + infrastructure).
-
-**CRITICAL**: This module provides CORRELATION, not causation, not
-prediction.  Every output description includes "requires human assessment."
-Never "earthquake predicted."
-
-Usage:
-    >>> from omni_mercury_engine.detectors.cross_domain_frequency import (
-    ...     CrossDomainFrequencyCorrelator,
-    ... )
-    >>> correlator = CrossDomainFrequencyCorrelator()
-    >>> result = correlator.correlate({
-    ...     "environmental": env_influence_vector,
-    ...     "space": space_influence_vector,
-    ... })
-    >>> print(result.alert_level)
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 
@@ -44,8 +14,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class BandOverlap:
-    """
-    A single overlapping frequency band between two domains.
+    """A single overlapping frequency band between two domains.
 
     Attributes:
         domain_a: First domain name.
@@ -72,8 +41,7 @@ class BandOverlap:
 
 @dataclass
 class CrossDomainCorrelation:
-    """
-    Result of cross-domain frequency correlation analysis.
+    """Result of cross-domain frequency correlation analysis.
 
     Attributes:
         correlation_score: Overall cross-domain correlation [0, 1].
@@ -164,8 +132,7 @@ def _compute_overlap(
 
 
 class CrossDomainFrequencyCorrelator:
-    """
-    Detect overlapping significant frequency bands across domains.
+    """Detect overlapping significant frequency bands across domains.
 
     This module takes a dict of ``{domain: FrequencyInfluenceVector}``
     from concurrent SpectralDomainFrequency instances and identifies
@@ -182,8 +149,7 @@ class CrossDomainFrequencyCorrelator:
         significance_threshold: float = 0.3,
         alert_thresholds: dict[str, float] | None = None,
     ) -> None:
-        """
-        Initialise the correlator.
+        """Initialise the correlator.
 
         Args:
             significance_threshold: Minimum anomaly score in both bands
@@ -203,8 +169,7 @@ class CrossDomainFrequencyCorrelator:
         self,
         domain_vectors: dict[str, Any],
     ) -> CrossDomainCorrelation:
-        """
-        Analyse cross-domain frequency correlations.
+        """Analyse cross-domain frequency correlations.
 
         Args:
             domain_vectors: Mapping of domain name to

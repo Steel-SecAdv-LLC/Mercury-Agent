@@ -1,14 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-Disaster and Emergency Management Dataset Loaders
-
-This module provides loaders for disaster and emergency datasets:
-- OpenFEMA: US disaster declarations, assistance programs, hazard mitigation
-- Provides free REST API access with no authentication required
-
-All data sources are publicly accessible government datasets.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Disaster and Emergency Management Dataset Loaders."""
 
 from __future__ import annotations
 
@@ -37,8 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 class FEMADisasterLoader(DatasetLoader):
-    """
-    OpenFEMA Disaster Declarations Data Loader.
+    """OpenFEMA Disaster Declarations Data Loader.
 
     Downloads REAL disaster declaration data from FEMA's OpenFEMA API:
     - Disaster declarations (hurricanes, floods, fires, etc.)
@@ -105,8 +95,7 @@ class FEMADisasterLoader(DatasetLoader):
     API_URL = TrustedEndpoints.FEMA_DISASTER_DECLARATIONS
 
     def __init__(self, config: DatasetConfig) -> None:
-        """
-        Initialize FEMA disaster loader.
+        """Initialize FEMA disaster loader.
 
         Args:
             config: Dataset configuration. Preprocessing options:
@@ -279,8 +268,7 @@ class FEMADisasterLoader(DatasetLoader):
     def _process_fema_data(
         self, records: list[dict[str, Any]]
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """
-        Process OpenFEMA disaster declaration records.
+        """Process OpenFEMA disaster declaration records.
 
         Args:
             records: List of disaster declaration records
@@ -645,8 +633,7 @@ class FEMADisasterLoader(DatasetLoader):
 
 
 class FEMAHazardMitigationLoader(DatasetLoader):
-    """
-    OpenFEMA Hazard Mitigation Grant Program Data Loader.
+    """OpenFEMA Hazard Mitigation Grant Program Data Loader.
 
     Downloads REAL hazard mitigation project data from FEMA:
     - Flood mitigation projects

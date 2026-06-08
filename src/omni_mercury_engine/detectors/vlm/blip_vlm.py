@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-BLIP Vision-Language Model Detector for Zero-Shot Anomaly Detection.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""BLIP Vision-Language Model Detector for Zero-Shot Anomaly Detection.
 
 Implements BLIPVLMDetector using Salesforce BLIP model for image captioning
 and anomaly detection with 128D feature normalization for fusion pipeline.
@@ -36,6 +18,8 @@ Reference:
     Vision-Language Understanding and Generation"
     https://arxiv.org/abs/2201.12086
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
@@ -96,15 +80,13 @@ except ImportError:
     Image = None  # type: ignore[assignment, unused-ignore]
     logger.debug("PIL not available - image processing will be limited")
 
-
 # Feature dimension for fusion pipeline normalization
 FEATURE_DIM = 128
 
 
 @dataclass
 class BLIPConfig(VLMConfig):
-    """
-    Configuration for BLIP VLM detector.
+    """Configuration for BLIP VLM detector.
 
     Attributes:
         model_name: HuggingFace model identifier for BLIP
@@ -169,16 +151,14 @@ class BLIPConfig(VLMConfig):
 
 
 class FeatureProjection(nn.Module):
-    """
-    Projects BLIP features to 128D for fusion pipeline.
+    """Projects BLIP features to 128D for fusion pipeline.
 
     This module normalizes variable-dimension BLIP embeddings to a fixed 128D output for consistent
     integration with DetectorRegistry.
     """
 
     def __init__(self, input_dim: int = 768, output_dim: int = FEATURE_DIM) -> None:
-        """
-        Initialize feature projection.
+        """Initialize feature projection.
 
         Args:
             input_dim: Input feature dimension from BLIP (typically 768)
@@ -194,8 +174,7 @@ class FeatureProjection(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Project features to output dimension.
+        """Project features to output dimension.
 
         Args:
             x: Input features [batch, input_dim]
@@ -246,8 +225,7 @@ class BLIPVLMDetector(BaseVLMDetector):
     )
 
     def __init__(self, config: BLIPConfig | dict[str, Any] | None = None) -> None:
-        """
-        Initialize BLIP VLM detector.
+        """Initialize BLIP VLM detector.
 
         Args:
             config: Detector configuration or dict
@@ -333,8 +311,7 @@ class BLIPVLMDetector(BaseVLMDetector):
         anomaly_description: str,
         context: dict[str, Any] | None = None,
     ) -> str:
-        """
-        Create prompt for BLIP anomaly detection.
+        """Create prompt for BLIP anomaly detection.
 
         Args:
             anomaly_description: Description of anomaly to detect
@@ -355,8 +332,7 @@ class BLIPVLMDetector(BaseVLMDetector):
         return base_prompt
 
     def _parse_response(self, response: str) -> tuple[bool, float, str]:
-        """
-        Parse BLIP caption response to extract anomaly decision.
+        """Parse BLIP caption response to extract anomaly decision.
 
         Args:
             response: Generated caption from BLIP
@@ -395,8 +371,7 @@ class BLIPVLMDetector(BaseVLMDetector):
         return is_anomaly, confidence, explanation
 
     def _preprocess_image(self, data: np.ndarray[Any, Any] | torch.Tensor) -> list[Any]:
-        """
-        Preprocess image data for BLIP.
+        """Preprocess image data for BLIP.
 
         Args:
             data: Image tensor [C, H, W] or [N, C, H, W] or numpy array
@@ -438,8 +413,7 @@ class BLIPVLMDetector(BaseVLMDetector):
         return images
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
-        """
-        Detect anomalies using BLIP image captioning.
+        """Detect anomalies using BLIP image captioning.
 
         Args:
             data: Images [N, C, H, W] or single image [C, H, W]
@@ -506,8 +480,7 @@ class BLIPVLMDetector(BaseVLMDetector):
         }
 
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
-        """
-        Extract 128D normalized features for fusion pipeline.
+        """Extract 128D normalized features for fusion pipeline.
 
         Args:
             data: Images [N, C, H, W] or single image [C, H, W]
@@ -567,8 +540,7 @@ class BLIPVLMDetector(BaseVLMDetector):
         return features
 
     def get_interpretability_score(self, caption: str) -> float:
-        """
-        Compute interpretability score for a caption.
+        """Compute interpretability score for a caption.
 
         Higher scores indicate more informative captions.
 
@@ -603,8 +575,7 @@ def create_blip_detector(
     device: str | None = None,
     **kwargs: Any,
 ) -> BLIPVLMDetector:
-    """
-    Factory function to create BLIP VLM detector.
+    """Factory function to create BLIP VLM detector.
 
     Args:
         anomaly_description: Description of anomaly to detect

@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Multi-Modal Fusion Optimizer for VLM + Visual Detector Ensemble.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Multi-Modal Fusion Optimizer for VLM + Visual Detector Ensemble.
 
 Provides intelligent fusion of features from:
 - Vision-Language Models (semantic understanding, zero-shot detection)
@@ -35,6 +17,8 @@ Key innovations:
 - Domain-specific calibration
 - Complementary fusion (VLM for semantics, Visual for localization)
 """
+
+from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
@@ -101,8 +85,7 @@ class BaseFusionModule(ABC):
         inputs: list[ModalityInput],
         threshold: float = 0.5,
     ) -> FusionResult:
-        """
-        Fuse inputs from multiple modalities.
+        """Fuse inputs from multiple modalities.
 
         Args:
             inputs: List of modality inputs
@@ -115,8 +98,7 @@ class BaseFusionModule(ABC):
 
 
 class FeatureConcatFusion(BaseFusionModule):
-    """
-    Feature concatenation fusion with optional projection.
+    """Feature concatenation fusion with optional projection.
 
     Simply concatenates features from all modalities and optionally projects to a lower dimension.
     """
@@ -126,8 +108,7 @@ class FeatureConcatFusion(BaseFusionModule):
         output_dim: int | None = None,
         normalize: bool = True,
     ):
-        """
-        Initialize feature concatenation fusion.
+        """Initialize feature concatenation fusion.
 
         Args:
             output_dim: Output dimension (None = no projection)
@@ -195,8 +176,7 @@ class FeatureConcatFusion(BaseFusionModule):
 
 
 class AttentionFusion(BaseFusionModule, nn.Module):
-    """
-    Attention-based fusion that learns cross-modal interactions.
+    """Attention-based fusion that learns cross-modal interactions.
 
     Uses multi-head attention to weight features from different modalities based on their relevance.
     """
@@ -207,8 +187,7 @@ class AttentionFusion(BaseFusionModule, nn.Module):
         num_heads: int = 4,
         dropout: float = 0.1,
     ):
-        """
-        Initialize attention fusion.
+        """Initialize attention fusion.
 
         Args:
             feature_dim: Expected feature dimension
@@ -311,8 +290,7 @@ class AttentionFusion(BaseFusionModule, nn.Module):
 
 
 class ScoreWeightedFusion(BaseFusionModule):
-    """
-    Score-level fusion with learned or fixed weights.
+    """Score-level fusion with learned or fixed weights.
 
     Combines anomaly scores from multiple detectors using weighted averaging.
     """
@@ -323,8 +301,7 @@ class ScoreWeightedFusion(BaseFusionModule):
         normalize_weights: bool = True,
         uncertainty_weighting: bool = True,
     ):
-        """
-        Initialize score weighted fusion.
+        """Initialize score weighted fusion.
 
         Args:
             weights: Fixed weights per detector (None = equal)
@@ -398,8 +375,7 @@ class ScoreWeightedFusion(BaseFusionModule):
 
 
 class DecisionConfidenceFusion(BaseFusionModule):
-    """
-    Decision-level fusion with confidence weighting.
+    """Decision-level fusion with confidence weighting.
 
     Makes final decision based on detector predictions weighted by their confidence.
     """
@@ -409,8 +385,7 @@ class DecisionConfidenceFusion(BaseFusionModule):
         require_consensus: bool = False,
         consensus_threshold: float = 0.5,
     ):
-        """
-        Initialize decision confidence fusion.
+        """Initialize decision confidence fusion.
 
         Args:
             require_consensus: Require majority agreement
@@ -488,8 +463,7 @@ class DecisionConfidenceFusion(BaseFusionModule):
 
 
 class AdaptiveFusion(BaseFusionModule):
-    """
-    Adaptive fusion that selects strategy based on input characteristics.
+    """Adaptive fusion that selects strategy based on input characteristics.
 
     Analyzes inputs to determine optimal fusion approach:
     - High VLM confidence + Low Visual confidence → Trust VLM
@@ -505,8 +479,7 @@ class AdaptiveFusion(BaseFusionModule):
         agreement_boost: float = 1.2,
         disagreement_penalty: float = 0.8,
     ):
-        """
-        Initialize adaptive fusion.
+        """Initialize adaptive fusion.
 
         Args:
             vlm_semantic_weight: Weight for VLM on semantic anomalies
@@ -678,8 +651,7 @@ class AdaptiveFusion(BaseFusionModule):
 
 
 class MultiModalFusionOptimizer:
-    """
-    High-level optimizer for multi-modal anomaly detection fusion.
+    """High-level optimizer for multi-modal anomaly detection fusion.
 
     Manages multiple fusion strategies and selects optimal approach based on validation performance
     or input characteristics.
@@ -690,8 +662,7 @@ class MultiModalFusionOptimizer:
         default_strategy: FusionStrategy = FusionStrategy.ADAPTIVE,
         threshold: float = 0.5,
     ):
-        """
-        Initialize fusion optimizer.
+        """Initialize fusion optimizer.
 
         Args:
             default_strategy: Default fusion strategy to use
@@ -722,8 +693,7 @@ class MultiModalFusionOptimizer:
         inputs: list[ModalityInput],
         strategy: FusionStrategy | None = None,
     ) -> FusionResult:
-        """
-        Fuse multi-modal inputs.
+        """Fuse multi-modal inputs.
 
         Args:
             inputs: List of modality inputs
@@ -747,8 +717,7 @@ class MultiModalFusionOptimizer:
     def fuse_all_strategies(
         self, inputs: list[ModalityInput]
     ) -> dict[FusionStrategy, FusionResult]:
-        """
-        Apply all fusion strategies and return results.
+        """Apply all fusion strategies and return results.
 
         Useful for comparison and strategy selection.
 
@@ -772,8 +741,7 @@ class MultiModalFusionOptimizer:
         strategy: FusionStrategy,
         score: float,
     ) -> None:
-        """
-        Update performance tracking for a strategy.
+        """Update performance tracking for a strategy.
 
         Args:
             strategy: Fusion strategy
@@ -789,8 +757,7 @@ class MultiModalFusionOptimizer:
             ]
 
     def get_best_strategy(self) -> FusionStrategy:
-        """
-        Get best performing strategy based on history.
+        """Get best performing strategy based on history.
 
         Returns:
             Best fusion strategy
@@ -812,8 +779,7 @@ class MultiModalFusionOptimizer:
         strategy: FusionStrategy,
         weights: dict[str, float],
     ) -> None:
-        """
-        Set detector weights for a fusion strategy.
+        """Set detector weights for a fusion strategy.
 
         Args:
             strategy: Fusion strategy
@@ -843,8 +809,7 @@ def create_fusion_optimizer(
     threshold: float = 0.5,
     **kwargs: Any,
 ) -> MultiModalFusionOptimizer:
-    """
-    Create a fusion optimizer with specified configuration.
+    """Create a fusion optimizer with specified configuration.
 
     Args:
         strategy: Default fusion strategy name

@@ -1,5 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-only
-# Copyright (C) Steel Security Advisors LLC
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Probe 13: Fractal self-similarity probe for detecting scale-invariance loss."""
 
 from __future__ import annotations
@@ -16,14 +15,14 @@ from omni_mercury_engine.detectors.math_arrest.base_probe import (
 
 
 class FractalSelfSimilarityProbe(BaseEquationProbe):
-    """
-    Detect scale-invariance loss via cross-scale correlation at phi ratio.
+    """Detect scale-invariance loss via cross-scale correlation at phi ratio.
 
     Compares windowed correlations between the original signal and a version resampled at the golden
     ratio scale.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         super().__init__(min_samples=20)
         self._window: int = 5
         self._mu_sim: float = 0.0

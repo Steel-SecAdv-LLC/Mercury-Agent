@@ -1,5 +1,5 @@
-"""
-Raft Consensus Protocol Implementation for Mercury Agent Distributed Processing.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Raft Consensus Protocol Implementation for Mercury Agent Distributed Processing.
 
 This module implements the Raft consensus algorithm for leader election and
 log replication across a distributed Mercury Agent cluster.
@@ -23,7 +23,6 @@ from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-
 
 logger = logging.getLogger(__name__)
 
@@ -127,8 +126,7 @@ class ClusterConfiguration:
 
 
 class RaftLog:
-    """
-    Persistent log storage for Raft consensus.
+    """Persistent log storage for Raft consensus.
 
     Manages log entries with support for compaction and snapshots.
     """
@@ -171,8 +169,7 @@ class RaftLog:
         prev_term: int,
         entries: list[LogEntry],
     ) -> bool:
-        """
-        Append entries from leader, checking consistency.
+        """Append entries from leader, checking consistency.
 
         Returns True if entries were successfully appended.
         """
@@ -245,8 +242,7 @@ class RaftLog:
 
 
 class StateMachine(Generic[T]):
-    """
-    State machine that applies committed log entries.
+    """State machine that applies committed log entries.
 
     This is the application-specific state that Raft replicates.
     """
@@ -298,8 +294,7 @@ class StateMachine(Generic[T]):
 
 
 class MessageTransport:
-    """
-    Abstract message transport for Raft communication.
+    """Abstract message transport for Raft communication.
 
     Implementations should handle actual network communication.
     """
@@ -339,8 +334,7 @@ class MessageTransport:
 
 
 class InMemoryTransport(MessageTransport):
-    """
-    In-memory transport for testing and single-process clusters.
+    """In-memory transport for testing and single-process clusters.
 
     Routes messages directly between RaftNode instances.
     """
@@ -405,8 +399,7 @@ class InMemoryTransport(MessageTransport):
 
 
 class RaftNode:
-    """
-    A single node in a Raft cluster.
+    """A single node in a Raft cluster.
 
     Implements the complete Raft consensus algorithm including:
     - Leader election
@@ -510,8 +503,7 @@ class RaftNode:
         command: dict[str, Any],
         timeout: float = 5.0,
     ) -> tuple[bool, Any]:
-        """
-        Submit a command to be replicated.
+        """Submit a command to be replicated.
 
         Returns (success, result) tuple.
         """
@@ -822,8 +814,7 @@ class RaftNode:
 
 
 class RaftCluster:
-    """
-    Manages a cluster of Raft nodes.
+    """Manages a cluster of Raft nodes.
 
     Provides high-level interface for distributed operations.
     """

@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""CFlow-AD: Real-Time Unsupervised Anomaly Detection with Localization via.
 
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-CFlow-AD: Real-Time Unsupervised Anomaly Detection with Localization via
 Conditional Normalizing Flows
 
 Implementation of CFlow from WACV 2022.
@@ -34,6 +17,8 @@ Reference:
     with Localization via Conditional Normalizing Flows"
     https://arxiv.org/abs/2107.12571
 """
+
+from __future__ import annotations
 
 import logging
 import math
@@ -55,8 +40,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class CFlowConfig(VisualDetectorConfig):
-    """
-    Configuration for CFlow detector.
+    """Configuration for CFlow detector.
 
     Attributes:
         num_flows: Number of flow layers
@@ -81,8 +65,7 @@ class PositionalEncoding2D(nn.Module):
     """2D positional encoding for spatial conditioning."""
 
     def __init__(self, channels: int, max_size: int = 64) -> None:
-        """
-        Initialize positional encoding.
+        """Initialize positional encoding.
 
         Args:
             channels: Number of encoding channels
@@ -110,8 +93,7 @@ class PositionalEncoding2D(nn.Module):
         self.register_buffer("pe", pe)
 
     def forward(self, h: int, w: int) -> torch.Tensor:
-        """
-        Get positional encoding for given size.
+        """Get positional encoding for given size.
 
         Args:
             h: Height
@@ -139,8 +121,7 @@ class AffineCoupling(nn.Module):
         hidden_dim: int = 256,
         clamp: float = 3.0,
     ):
-        """
-        Initialize affine coupling.
+        """Initialize affine coupling.
 
         Args:
             in_channels: Input channel dimension
@@ -179,8 +160,7 @@ class AffineCoupling(nn.Module):
     def forward(
         self, x: torch.Tensor, cond: torch.Tensor, reverse: bool = False
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """
-        Forward/inverse affine coupling.
+        """Forward/inverse affine coupling.
 
         Args:
             x: Input tensor [B, C, H, W]
@@ -212,8 +192,7 @@ class AffineCoupling(nn.Module):
 
 
 class ConditionalNormalizingFlow(nn.Module):
-    """
-    Conditional normalizing flow for anomaly detection.
+    """Conditional normalizing flow for anomaly detection.
 
     Learns the density of normal features conditioned on position.
     """
@@ -226,8 +205,7 @@ class ConditionalNormalizingFlow(nn.Module):
         hidden_dim: int = 256,
         clamp: float = 3.0,
     ):
-        """
-        Initialize normalizing flow.
+        """Initialize normalizing flow.
 
         Args:
             in_channels: Input feature channels
@@ -243,8 +221,7 @@ class ConditionalNormalizingFlow(nn.Module):
             self.flows.append(AffineCoupling(in_channels, cond_channels, hidden_dim, clamp))
 
     def forward(self, x: torch.Tensor, cond: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        """
-        Forward pass through all flows.
+        """Forward pass through all flows.
 
         Args:
             x: Input features [B, C, H, W]
@@ -266,8 +243,7 @@ class ConditionalNormalizingFlow(nn.Module):
         return z, total_log_det
 
     def inverse(self, z: torch.Tensor, cond: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        """
-        Inverse pass (sampling direction).
+        """Inverse pass (sampling direction).
 
         Args:
             z: Latent tensor [B, C, H, W]
@@ -287,8 +263,7 @@ class ConditionalNormalizingFlow(nn.Module):
         return x, total_log_det
 
     def log_prob(self, x: torch.Tensor, cond: torch.Tensor) -> torch.Tensor:
-        """
-        Compute log probability of x.
+        """Compute log probability of x.
 
         Args:
             x: Input features [B, C, H, W]
@@ -375,8 +350,7 @@ class CFlowDetector(BaseVisualDetector):
         self._initialized = True
 
     def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> CFlowDetector:
-        """
-        Train normalizing flows on normal data.
+        """Train normalizing flows on normal data.
 
         Args:
             data: Normal images [N, C, H, W]
@@ -472,8 +446,7 @@ class CFlowDetector(BaseVisualDetector):
         return self
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
-        """
-        Detect anomalies using negative log likelihood.
+        """Detect anomalies using negative log likelihood.
 
         Args:
             data: Test images [N, C, H, W]
@@ -572,8 +545,7 @@ class CFlowDetector(BaseVisualDetector):
         }
 
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
-        """
-        Extract features for ML fusion pipeline.
+        """Extract features for ML fusion pipeline.
 
         Args:
             data: Input images [N, C, H, W]

@@ -1,24 +1,5 @@
-r"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-Medical Dataset Loaders: MIMIC-III, MIMIC-IV, PhysioNet
-
-IMPORTANT: PhysioNet credentialed datasets require:
-1. Create account at https://physionet.org/
-2. Complete CITI training
-3. Sign DUA (Data Use Agreement)
-4. Download data locally using wget with credentials
-5. Set local_path in config to point to downloaded data
-
-For MIMIC data download:
-    wget -r -N -c -np --user YOUR_USERNAME --ask-password \\
-        https://physionet.org/files/mimiciii/1.4/
-
-References:
-- MIMIC-III: https://physionet.org/content/mimiciii/1.4/
-- MIMIC-IV: https://physionet.org/content/mimiciv/
-- PhysioNet Guidelines: https://physionet.org/news/post/mimic-derived-datasets-models
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Medical Dataset Loaders: MIMIC-III, MIMIC-IV, PhysioNet."""
 
 from __future__ import annotations
 
@@ -42,8 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 class MIMICLoader(DatasetLoader):
-    """
-    MIMIC-III/IV Clinical Database Loader.
+    """MIMIC-III/IV Clinical Database Loader.
 
     Provides access to ICU patient data for:
     - Mortality prediction
@@ -90,8 +70,7 @@ class MIMICLoader(DatasetLoader):
     FEATURE_NAMES = VITAL_FEATURES + LAB_FEATURES
 
     def __init__(self, config: DatasetConfig) -> None:
-        """
-        Initialize MIMIC loader.
+        """Initialize MIMIC loader.
 
         Args:
             config: Dataset configuration. Preprocessing options:
@@ -110,8 +89,7 @@ class MIMICLoader(DatasetLoader):
         return self._is_real_data
 
     def download(self) -> bool:
-        """
-        MIMIC-III requires PhysioNet credentials.
+        """MIMIC-III requires PhysioNet credentials.
 
         Check for local files.
         """
@@ -234,8 +212,7 @@ class MIMICLoader(DatasetLoader):
     def _load_real_mimic(
         self, data_dir: Path | None = None
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """
-        Load and process real MIMIC-III tables with proper outcome labels.
+        """Load and process real MIMIC-III tables with proper outcome labels.
 
         Extracts features from CHARTEVENTS and labels from multiple outcome sources:
         - ADMISSIONS table (hospital mortality)
@@ -484,8 +461,7 @@ class MIMICLoader(DatasetLoader):
 
 
 class PhysioNetLoader(DatasetLoader):
-    """
-    Generic PhysioNet dataset loader for vital sign data.
+    """Generic PhysioNet dataset loader for vital sign data.
 
     Supports multiple PhysioNet datasets:
     - MIT-BIH Arrhythmia Database
@@ -512,6 +488,7 @@ class PhysioNetLoader(DatasetLoader):
     }
 
     def __init__(self, config: DatasetConfig) -> None:
+        """Initialize the instance."""
         super().__init__(config)
         self.subdataset = config.preprocessing.get("subdataset", "mitbih")
         self.local_path = config.preprocessing.get("local_path", None)
@@ -523,8 +500,7 @@ class PhysioNetLoader(DatasetLoader):
         return self._is_real_data
 
     def download(self) -> bool:
-        """
-        Download or load PhysioNet data.
+        """Download or load PhysioNet data.
 
         Most PhysioNet datasets require credentialing. For open access datasets,
         use wfdb library to download directly.
@@ -652,8 +628,7 @@ class PhysioNetLoader(DatasetLoader):
 
 
 class SepsisDataset(MIMICLoader):
-    """
-    Specialized loader for Sepsis prediction using MIMIC data.
+    """Specialized loader for Sepsis prediction using MIMIC data.
 
     Based on Sepsis-3 criteria and SOFA scores.
     """
@@ -661,12 +636,12 @@ class SepsisDataset(MIMICLoader):
     DATASET_NAME = "sepsis"
 
     def __init__(self, config: DatasetConfig) -> None:
+        """Initialize the instance."""
         config.preprocessing["task"] = "sepsis"
         super().__init__(config)
 
     def download(self) -> bool:
-        """
-        Download or generate sepsis data.
+        """Download or generate sepsis data.
 
         Unlike the parent MIMICLoader, SepsisDataset supports synthetic generation because sepsis
         prediction research benefits from configurable prevalence rates in test/development data.
@@ -761,8 +736,7 @@ class SepsisDataset(MIMICLoader):
 
 
 class CardiologyDataset(PhysioNetLoader):
-    """
-    Specialized loader for cardiology data (ECG + vitals).
+    """Specialized loader for cardiology data (ECG + vitals).
 
     Combines ECG waveforms with cardiac biomarkers.
     """
@@ -770,6 +744,7 @@ class CardiologyDataset(PhysioNetLoader):
     DATASET_NAME = "cardiology"
 
     def __init__(self, config: DatasetConfig) -> None:
+        """Initialize the instance."""
         config.preprocessing["subdataset"] = "ptbdb"
         super().__init__(config)
 

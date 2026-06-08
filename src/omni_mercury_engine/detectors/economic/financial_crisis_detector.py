@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Economic & Financial Crisis Detector - Market Anomaly Detection
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Economic & Financial Crisis Detector - Market Anomaly Detection.
 
 Comprehensive financial crisis detection for economic resilience:
 - Market crash prediction (stock market volatility)
@@ -43,8 +25,9 @@ Research sources:
 - Academic research on financial crises
 
 Performance: 35% improved crisis prediction via multi-modal financial + network fusion
-
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -110,11 +93,11 @@ class MarketCrashDetector:
     """Stock market crash detection via volatility and momentum."""
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
     def detect_market_crash(self, market_data: dict[str, Any]) -> dict[str, Any]:
-        """
-        Detect market crash from price and volatility data.
+        """Detect market crash from price and volatility data.
 
         Args:
             market_data: Stock indices, volatility, volume
@@ -155,11 +138,11 @@ class BankingStressDetector:
     """Banking sector stress detection via credit metrics."""
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
     def detect_banking_stress(self, banking_data: dict[str, Any]) -> dict[str, Any]:
-        """
-        Detect banking sector stress.
+        """Detect banking sector stress.
 
         Args:
             banking_data: Credit spreads, default rates, liquidity ratios
@@ -202,6 +185,7 @@ class FraudDetector(nn.Module):
     """Algorithmic trading fraud and market manipulation detection."""
 
     def __init__(self, input_dim: int = 64) -> None:
+        """Initialize the instance."""
         super().__init__()
 
         phi = 1.618
@@ -233,11 +217,11 @@ class SystemicRiskAnalyzer:
     """Systemic risk assessment via network contagion modeling."""
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
     def assess_systemic_risk(self, network_data: dict[str, Any]) -> dict[str, Any]:
-        """
-        Assess systemic risk in financial network.
+        """Assess systemic risk in financial network.
 
         Args:
             network_data: Interconnection matrix, exposures
@@ -265,8 +249,7 @@ class SystemicRiskAnalyzer:
 
 
 class FinancialCrisisDetector:
-    """
-    Comprehensive financial crisis detection system.
+    """Comprehensive financial crisis detection system.
 
     Integrates market, banking, fraud, and systemic risk analysis.
     """
@@ -278,6 +261,7 @@ class FinancialCrisisDetector:
         enable_fraud_detection: bool = True,
         enable_systemic_analysis: bool = True,
     ):
+        """Initialize the instance."""
         self.enable_market = enable_market_detection
         self.enable_banking = enable_banking_detection
         self.enable_fraud = enable_fraud_detection
@@ -293,8 +277,7 @@ class FinancialCrisisDetector:
     def predict_financial_crisis(
         self, financial_data: dict[str, Any]
     ) -> FinancialCrisisPredictionResult:
-        """
-        Comprehensive financial crisis prediction.
+        """Comprehensive financial crisis prediction.
 
         Args:
             financial_data: Multi-source financial data including:

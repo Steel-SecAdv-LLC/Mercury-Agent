@@ -1,5 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-only
-# Copyright (C) Steel Security Advisors LLC
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Probe 15: Wave propagation probe for detecting wave equation violations."""
 
 from __future__ import annotations
@@ -29,6 +28,7 @@ class WavePropagationProbe(BaseEquationProbe):
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         super().__init__(min_samples=10)
         self._laplacian_std: float = 0.0
         self._fit_quality: float = 0.0

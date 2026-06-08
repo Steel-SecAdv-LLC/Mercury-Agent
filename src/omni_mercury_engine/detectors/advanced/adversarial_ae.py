@@ -1,21 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-Adversarial Autoencoder for Industrial Control System Anomaly Detection
-
-Addresses the industrial control gap (F1 0.30-0.45 → target 0.80+) by:
-1. Adversarial regularization for distribution matching
-2. Sensor correlation modeling via covariance-aware encoding
-3. Multi-scale reconstruction for capturing process dynamics
-4. Temporal consistency constraints
-
-Architecture inspired by:
-- Makhzani et al. (2015) - Adversarial Autoencoders
-- Li et al. (2021) - MAD-GAN for multivariate anomaly detection
-- AE+GWO (2025) - Grey Wolf optimized autoencoders
-
-Performance Target: BATADAL F1 > 0.80, SWaT F1 > 0.90
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Adversarial Autoencoder for Industrial Control System Anomaly Detection."""
 
 from __future__ import annotations
 
@@ -29,7 +13,6 @@ from torch import nn
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
-
 
 __all__ = [
     "AdversarialAEConfig",
@@ -82,6 +65,7 @@ class Encoder(nn.Module):
         latent_dim: int,
         dropout: float = 0.1,
     ) -> None:
+        """Initialize the instance."""
         super().__init__()
         self.input_dim = input_dim
         self.latent_dim = latent_dim
@@ -167,6 +151,7 @@ class Decoder(nn.Module):
         output_dim: int,
         dropout: float = 0.1,
     ) -> None:
+        """Initialize the instance."""
         super().__init__()
 
         # Build decoder (reverse of encoder)
@@ -214,6 +199,7 @@ class Discriminator(nn.Module):
         hidden_dims: list[int],
         dropout: float = 0.1,
     ) -> None:
+        """Initialize the instance."""
         super().__init__()
 
         layers = []
@@ -238,8 +224,7 @@ class Discriminator(nn.Module):
 
 
 class AdversarialAutoencoder(nn.Module):
-    """
-    Adversarial Autoencoder for Industrial Control Systems.
+    """Adversarial Autoencoder for Industrial Control Systems.
 
     Combines:
     1. Encoder with sensor correlation attention
@@ -248,6 +233,7 @@ class AdversarialAutoencoder(nn.Module):
     """
 
     def __init__(self, config: AdversarialAEConfig) -> None:
+        """Initialize the instance."""
         super().__init__()
         self.config = config
 
@@ -392,8 +378,7 @@ class AdversarialAutoencoder(nn.Module):
 
 
 class AdversarialAutoencoderDetector:
-    """
-    Adversarial Autoencoder Detector for Industrial Control Systems.
+    """Adversarial Autoencoder Detector for Industrial Control Systems.
 
     Provides sklearn-compatible interface with fit/predict methods.
 
@@ -416,6 +401,7 @@ class AdversarialAutoencoderDetector:
         seed: int | None = None,
         **kwargs: Any,
     ) -> None:
+        """Initialize the instance."""
         self.config = AdversarialAEConfig(
             input_dim=input_dim,
             hidden_dims=hidden_dims or [128, 64, 32],
@@ -439,8 +425,7 @@ class AdversarialAutoencoderDetector:
         y: NDArray[np.float64] | None = None,
         validation_split: float = 0.1,
     ) -> AdversarialAutoencoderDetector:
-        """
-        Fit the detector on training data.
+        """Fit the detector on training data.
 
         Args:
             X: Training data [n_samples, n_features] or [n_samples, seq, n_features]
@@ -546,8 +531,7 @@ class AdversarialAutoencoderDetector:
         return self
 
     def predict(self, X: NDArray[np.float64]) -> NDArray[np.float64]:
-        """
-        Predict anomaly scores.
+        """Predict anomaly scores.
 
         Args:
             X: Test data

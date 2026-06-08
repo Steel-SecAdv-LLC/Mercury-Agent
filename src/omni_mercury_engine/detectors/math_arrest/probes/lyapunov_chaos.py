@@ -1,5 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-only
-# Copyright (C) Steel Security Advisors LLC
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Probe 11: Lyapunov chaos probe for detecting chaos onset."""
 
 from __future__ import annotations
@@ -15,14 +14,14 @@ from omni_mercury_engine.detectors.math_arrest.base_probe import (
 
 
 class LyapunovChaosProbe(BaseEquationProbe):
-    """
-    Detect chaos onset via nearest-neighbor trajectory divergence.
+    """Detect chaos onset via nearest-neighbor trajectory divergence.
 
     For each sample, finds the nearest neighbor (with an exclusion zone), then measures how quickly
     their trajectories diverge over a horizon k.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         super().__init__(min_samples=20)
         self._mu_lyap: float = 0.0
         self._sigma_lyap: float = 0.0
@@ -33,8 +32,7 @@ class LyapunovChaosProbe(BaseEquationProbe):
     def _compute_divergence(
         x: npt.NDArray[np.float64], k: int, exclusion: int = 3
     ) -> npt.NDArray[np.float64]:
-        """
-        Compute nearest-neighbor divergence rates.
+        """Compute nearest-neighbor divergence rates.
 
         Args:
             x: 1-D signal.

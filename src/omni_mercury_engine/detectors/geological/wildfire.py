@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Wildfire Detector - Ignition, Spread & Risk Assessment
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Wildfire Detector - Ignition, Spread & Risk Assessment.
 
 Advanced wildfire detection and prediction for humanitarian early warning:
 - Ignition detection (satellite thermal + ground sensors)
@@ -39,8 +21,9 @@ Research sources:
 - FIRMS (Fire Information for Resource Management System)
 
 Performance: 20-30% faster detection via multi-scale thermal fusion
-
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -91,6 +74,7 @@ class FireIgnitionDetector(nn.Module):
     """Real-time fire ignition detection from satellite thermal data."""
 
     def __init__(self, input_channels: int = 3) -> None:
+        """Initialize the instance."""
         super().__init__()
 
         self.thermal_cnn = nn.Sequential(
@@ -128,20 +112,19 @@ class FireIgnitionDetector(nn.Module):
 
 
 class FireSpreadModel:
-    """
-    Fire spread rate and direction prediction.
+    """Fire spread rate and direction prediction.
 
     Incorporates weather (wind), terrain, and fuel load.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
     def predict_spread(
         self, fire_data: dict[str, Any], weather_data: dict[str, Any]
     ) -> dict[str, Any]:
-        """
-        Predict fire spread dynamics.
+        """Predict fire spread dynamics.
 
         Args:
             fire_data: Current fire parameters
@@ -196,8 +179,7 @@ class NDVIProcessor:
         fuel_threshold: float = 0.4,
         drought_threshold: float = 0.2,
     ):
-        """
-        Initialize NDVI processor.
+        """Initialize NDVI processor.
 
         Args:
             fuel_threshold: NDVI threshold for high fuel load (default: 0.4)
@@ -212,8 +194,7 @@ class NDVIProcessor:
         nir_band: np.ndarray[Any, Any],
         red_band: np.ndarray[Any, Any],
     ) -> np.ndarray[Any, Any]:
-        """
-        Compute NDVI from satellite bands.
+        """Compute NDVI from satellite bands.
 
         Args:
             nir_band: Near-infrared band data
@@ -233,8 +214,7 @@ class NDVIProcessor:
         self,
         ndvi: np.ndarray[Any, Any],
     ) -> dict[str, Any]:
-        """
-        Estimate fuel load from NDVI.
+        """Estimate fuel load from NDVI.
 
         Args:
             ndvi: NDVI array
@@ -270,8 +250,7 @@ class NDVIProcessor:
         ndvi_current: np.ndarray[Any, Any],
         ndvi_previous: np.ndarray[Any, Any],
     ) -> dict[str, float]:
-        """
-        Compute NDVI change for fire damage assessment.
+        """Compute NDVI change for fire damage assessment.
 
         Args:
             ndvi_current: Current NDVI
@@ -294,8 +273,7 @@ class NDVIProcessor:
 
 
 class ResonanceFrequencyAnalyzer:
-    """
-    3R Resonance mechanism for smoke pattern frequency analysis.
+    """3R Resonance mechanism for smoke pattern frequency analysis.
 
     Analyzes temporal patterns in thermal and smoke data to detect
     fire behavior resonances (e.g., diurnal fire activity cycles,
@@ -309,8 +287,7 @@ class ResonanceFrequencyAnalyzer:
         sample_rate_hz: float = 1.0,
         phi: float = 1.618033988749895,
     ):
-        """
-        Initialize resonance analyzer.
+        """Initialize resonance analyzer.
 
         Args:
             sample_rate_hz: Sampling rate in Hz
@@ -332,8 +309,7 @@ class ResonanceFrequencyAnalyzer:
         self,
         thermal_time_series: np.ndarray[Any, Any],
     ) -> dict[str, Any]:
-        """
-        Analyze thermal time series for fire behavior patterns.
+        """Analyze thermal time series for fire behavior patterns.
 
         Args:
             thermal_time_series: Temperature/thermal readings over time
@@ -409,8 +385,7 @@ class ResonanceFrequencyAnalyzer:
         self,
         smoke_density_series: np.ndarray[Any, Any],
     ) -> dict[str, Any]:
-        """
-        Analyze smoke density patterns for fire spread prediction.
+        """Analyze smoke density patterns for fire spread prediction.
 
         Args:
             smoke_density_series: Smoke density readings over time
@@ -451,8 +426,7 @@ class ResonanceFrequencyAnalyzer:
 
 
 class WildfireCNN(nn.Module):
-    """
-    Enhanced CNN for wildfire detection from thermal/NDVI satellite inputs.
+    """Enhanced CNN for wildfire detection from thermal/NDVI satellite inputs.
 
     Architecture:
     - Multi-channel input (thermal, NIR, Red, NDVI)
@@ -466,8 +440,7 @@ class WildfireCNN(nn.Module):
         input_channels: int = 4,
         num_severity_classes: int = 5,
     ):
-        """
-        Initialize wildfire CNN.
+        """Initialize wildfire CNN.
 
         Args:
             input_channels: Number of input channels (default: 4 for thermal, NIR, Red, NDVI)
@@ -534,8 +507,7 @@ class WildfireCNN(nn.Module):
         self,
         x: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """
-        Forward pass.
+        """Forward pass.
 
         Args:
             x: Input tensor [batch, channels, height, width]
@@ -556,8 +528,7 @@ class WildfireCNN(nn.Module):
 
 
 class WildfireDetector:
-    """
-    Comprehensive wildfire detection and prediction system.
+    """Comprehensive wildfire detection and prediction system.
 
     Enhanced with:
     - NDVI processing for fuel load estimation
@@ -574,6 +545,7 @@ class WildfireDetector:
         enable_resonance: bool = True,
         enable_enhanced_cnn: bool = True,
     ):
+        """Initialize the instance."""
         self.enable_ignition = enable_ignition_detection
         self.enable_spread = enable_spread_modeling
         self.enable_ndvi = enable_ndvi_processing
@@ -591,8 +563,7 @@ class WildfireDetector:
         self.logger = logging.getLogger(__name__)
 
     def predict_wildfire(self, wildfire_data: dict[str, Any]) -> WildfirePredictionResult:
-        """
-        Comprehensive wildfire prediction.
+        """Comprehensive wildfire prediction.
 
         Args:
             wildfire_data: Thermal imagery, weather, vegetation data

@@ -1,26 +1,10 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Base classes for benchmark dataset loaders.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Base classes for benchmark dataset loaders.
 
 Provides abstract base classes for image and video anomaly detection datasets.
 """
+
+from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -43,8 +27,7 @@ def get_default_transforms(
     image_size: tuple[int, int] = (224, 224),
     normalize: bool = True,
 ) -> Any:
-    """
-    Get default image transforms for benchmark datasets.
+    """Get default image transforms for benchmark datasets.
 
     Args:
         image_size: Target image size (height, width)
@@ -76,8 +59,7 @@ def get_default_transforms(
 
 @dataclass
 class BaseDatasetConfig:
-    """
-    Base configuration for benchmark datasets.
+    """Base configuration for benchmark datasets.
 
     Attributes:
         root: Root directory for dataset
@@ -93,15 +75,13 @@ class BaseDatasetConfig:
 
 
 class BaseImageDataset(ABC):
-    """
-    Abstract base class for image anomaly detection datasets.
+    """Abstract base class for image anomaly detection datasets.
 
     Provides unified interface for datasets like MVTec AD.
     """
 
     def __init__(self, config: BaseDatasetConfig | dict[str, Any] | None = None) -> None:
-        """
-        Initialize dataset.
+        """Initialize dataset.
 
         Args:
             config: Dataset configuration
@@ -130,8 +110,7 @@ class BaseImageDataset(ABC):
         return len(self._samples)
 
     def __getitem__(self, idx: int) -> dict[str, Any]:
-        """
-        Get a sample.
+        """Get a sample.
 
         Args:
             idx: Sample index
@@ -182,15 +161,13 @@ class BaseImageDataset(ABC):
 
 
 class BaseVideoDataset(ABC):
-    """
-    Abstract base class for video anomaly detection datasets.
+    """Abstract base class for video anomaly detection datasets.
 
     Provides unified interface for datasets like UCF-Crime, Shanghai Tech.
     """
 
     def __init__(self, config: BaseDatasetConfig | dict[str, Any] | None = None) -> None:
-        """
-        Initialize dataset.
+        """Initialize dataset.
 
         Args:
             config: Dataset configuration
@@ -219,8 +196,7 @@ class BaseVideoDataset(ABC):
         return len(self._videos)
 
     def __getitem__(self, idx: int) -> dict[str, Any]:
-        """
-        Get a video sample.
+        """Get a video sample.
 
         Args:
             idx: Video index
@@ -253,8 +229,7 @@ class BaseVideoDataset(ABC):
         video_path: Path,
         max_frames: int | None = None,
     ) -> list[Any]:
-        """
-        Load frames from video file.
+        """Load frames from video file.
 
         Args:
             video_path: Path to video file

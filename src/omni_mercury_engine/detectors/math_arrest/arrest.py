@@ -1,7 +1,5 @@
-# SPDX-License-Identifier: GPL-3.0-only
-# Copyright (C) Steel Security Advisors LLC
-"""
-AnomalyMathArrest: 21-probe mathematically-independent equation ensemble.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""AnomalyMathArrest: 21-probe mathematically-independent equation ensemble.
 
 Replaces IsolationForest with transparent, auditable anomaly detection. Every detection traces to a
 specific mathematical violation in one or more of the 21 probe equations.
@@ -159,8 +157,7 @@ PROBE_PRESETS: dict[str, list[str]] = {
 
 
 class AnomalyMathArrest:
-    """
-    21-probe Anomaly Math Arrest.
+    """21-probe Anomaly Math Arrest.
 
     A mathematically-independent equation ensemble that replaces
     IsolationForest with transparent, auditable anomaly detection.
@@ -183,6 +180,7 @@ class AnomalyMathArrest:
         threshold: float = 0.5,
         probes: str | list[str] | list[BaseEquationProbe] | None = None,
     ) -> None:
+        """Initialize the instance."""
         self._domain = domain
         self.threshold = threshold
         self._probes: list[BaseEquationProbe] = self._resolve_probes(probes)
@@ -249,8 +247,7 @@ class AnomalyMathArrest:
         return result
 
     def fit(self, data: npt.NDArray[np.float64]) -> AnomalyMathArrest:
-        """
-        Fit all probes to training data.
+        """Fit all probes to training data.
 
         Automatically calls :meth:`calibrate_decorrelator` at the end
         if ``n_samples >= MIN_SAMPLES_FOR_DECORRELATION``.
@@ -301,8 +298,7 @@ class AnomalyMathArrest:
         return self
 
     def detect(self, data: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        """
-        Compute per-sample anomaly scores in ``[0, 1]``.
+        """Compute per-sample anomaly scores in ``[0, 1]``.
 
         Probes that failed to fit are silently skipped. If all probes
         fail, returns a zero array (detection fails open).
@@ -348,8 +344,7 @@ class AnomalyMathArrest:
         )
 
     def predict(self, data: npt.NDArray[np.float64]) -> npt.NDArray[np.int32]:
-        """
-        Binary classification: 0=normal, 1=anomaly.
+        """Binary classification: 0=normal, 1=anomaly.
 
         Args:
             data: Evaluation data.
@@ -366,8 +361,7 @@ class AnomalyMathArrest:
         labels: npt.NDArray[np.int32],
         metric: str = "f1",
     ) -> float:
-        """
-        Grid search threshold on validation data.
+        """Grid search threshold on validation data.
 
         Args:
             data: Validation data.
@@ -411,8 +405,7 @@ class AnomalyMathArrest:
         self,
         data: npt.NDArray[np.float64],
     ) -> dict[str, float]:
-        """
-        Run all fitted probes on data and compute weight multipliers.
+        """Run all fitted probes on data and compute weight multipliers.
 
         Args:
             data: Calibration data.
@@ -463,8 +456,7 @@ class AnomalyMathArrest:
         return diagnostics
 
     def get_correlation_report(self) -> dict[str, Any]:
-        """
-        Return correlation audit results.
+        """Return correlation audit results.
 
         Returns:
             Dict with ``redundant_pairs``, ``weight_multipliers``, and
@@ -477,8 +469,7 @@ class AnomalyMathArrest:
         }
 
     def get_geometry_report(self, data: npt.NDArray[np.float64]) -> list[dict[str, Any]]:
-        """
-        Return per-probe anomaly geometry labels and scores.
+        """Return per-probe anomaly geometry labels and scores.
 
         Each entry describes one probe's contribution to the
         ensemble signal, including the anomaly geometry label,
@@ -522,8 +513,7 @@ class AnomalyMathArrest:
         data: npt.NDArray[np.float64],
         window_size: int = 10,
     ) -> npt.NDArray[np.float64]:
-        """
-        Compute windowed anomaly scores using a rolling mean.
+        """Compute windowed anomaly scores using a rolling mean.
 
         Smooths per-sample anomaly scores with a centered moving
         average of width *window_size*, making transient spikes

@@ -1,5 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-only
-# Copyright (C) Steel Security Advisors LLC
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Probe 9: R3 Recursion Resonance probe for detecting nonlinear saturation."""
 
 from __future__ import annotations
@@ -26,6 +25,7 @@ class R3RecursionResonanceProbe(BaseEquationProbe):
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         super().__init__(min_samples=8)
         self._mean: float = 0.0
         self._std: float = 0.0

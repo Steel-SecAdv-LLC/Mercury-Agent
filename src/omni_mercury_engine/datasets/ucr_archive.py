@@ -1,17 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-UCR Time Series Archive and Additional Benchmark Loaders
-
-Loaders for academic time-series benchmarks:
-- UCR Time Series Archive: 128+ univariate datasets
-- MBA (Machine Bearing Anomaly): Industrial bearing data
-- MSDS (Multi-Source Data Stream): Multi-domain streaming data
-
-References:
-    - Dau et al., "The UCR Time Series Archive", IEEE/CAA JAS 2019
-    - CWRU Bearing Dataset, Case Western Reserve University
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""UCR Time Series Archive and Additional Benchmark Loaders."""
 
 from __future__ import annotations
 
@@ -38,8 +26,7 @@ __all__ = [
 
 
 class UCRLoader(DatasetLoader):
-    """
-    UCR Time Series Archive Loader.
+    """UCR Time Series Archive Loader.
 
     The UCR Time Series Archive is the largest collection of benchmark
     time-series datasets for classification. While primarily for classification,
@@ -78,6 +65,7 @@ class UCRLoader(DatasetLoader):
     ]
 
     def __init__(self, config: DatasetConfig) -> None:
+        """Initialize the instance."""
         super().__init__(config)
         self.dataset_name = config.preprocessing.get("dataset_name", "ECG5000")
 
@@ -219,8 +207,7 @@ class UCRLoader(DatasetLoader):
     def convert_to_anomaly_labels(
         self, labels: np.ndarray[Any, Any], anomaly_class: int | None = None
     ) -> np.ndarray[Any, Any]:
-        """
-        Convert classification labels to binary anomaly labels.
+        """Convert classification labels to binary anomaly labels.
 
         Args:
             labels: Original class labels
@@ -260,8 +247,7 @@ class UCRLoader(DatasetLoader):
 
 
 class MBALoader(DatasetLoader):
-    """
-    Machine Bearing Anomaly (MBA) Dataset Loader.
+    """Machine Bearing Anomaly (MBA) Dataset Loader.
 
     Based on the CWRU Bearing Dataset - the most widely used benchmark
     for mechanical fault detection.
@@ -289,6 +275,7 @@ class MBALoader(DatasetLoader):
     FAULT_TYPES = ["Normal", "Inner_Race", "Outer_Race", "Ball"]
 
     def __init__(self, config: DatasetConfig) -> None:
+        """Initialize the instance."""
         super().__init__(config)
         self.fault_type = config.preprocessing.get("fault_type", "all")
         self.load_rpm = config.preprocessing.get("load_rpm", 1797)
@@ -445,8 +432,7 @@ class CWRUBearingLoader(MBALoader):
 
 
 class MSDSLoader(DatasetLoader):
-    """
-    Multi-Source Data Stream (MSDS) Dataset Loader.
+    """Multi-Source Data Stream (MSDS) Dataset Loader.
 
     Synthetic benchmark for multi-domain anomaly detection,
     combining multiple data sources with correlated anomalies.
@@ -466,6 +452,7 @@ class MSDSLoader(DatasetLoader):
     REQUIRES_CREDENTIALS = False
 
     def __init__(self, config: DatasetConfig) -> None:
+        """Initialize the instance."""
         super().__init__(config)
         self.n_sources = config.preprocessing.get("n_sources", 3)
         self.n_samples = config.preprocessing.get("n_samples", 10000)

@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Advanced Physics Integration Module for Mercury Agent.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Advanced Physics Integration Module for Mercury Agent.
 
 This module provides unified integration of the advanced physics-inspired
 anomaly detection systems with the core Mercury Agent architecture:
@@ -37,6 +19,8 @@ With the existing Mercury Agent systems:
 - 3R mechanism for recursive enhancement
 - Fusion network for multi-detector combination
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -72,9 +56,7 @@ from omni_mercury_engine.utils.constants import MathematicalConstants
 if TYPE_CHECKING:
     from omni_mercury_engine.core.three_r.types import AnomalyFusionResult
 
-
 logger = logging.getLogger(__name__)
-
 
 # =============================================================================
 # Constants
@@ -107,8 +89,7 @@ class PhysicsDetectorType(Enum):
 
 @dataclass
 class AdvancedPhysicsConfig:
-    """
-    Configuration for advanced physics integration.
+    """Configuration for advanced physics integration.
 
     Attributes:
         enabled_detectors: Which physics detectors to enable
@@ -143,8 +124,7 @@ class AdvancedPhysicsConfig:
 
 @dataclass
 class IntegratedPhysicsResult:
-    """
-    Complete result from integrated physics detection.
+    """Complete result from integrated physics detection.
 
     Attributes:
         anomaly_score: Combined anomaly score [0, 1]
@@ -183,8 +163,7 @@ class IntegratedPhysicsResult:
 
 
 class PhysicsGOSNNScalars:
-    """
-    GOSNN scalar network for physics-based anomaly detection.
+    """GOSNN scalar network for physics-based anomaly detection.
 
     Provides ethical governance scalars specific to the advanced physics detection modules.
     """
@@ -207,8 +186,7 @@ class PhysicsGOSNNScalars:
 
     @classmethod
     def get_all_scalars(cls) -> dict[str, float]:
-        """
-        Get all GOSNN scalars.
+        """Get all GOSNN scalars.
 
         Returns:
             Dictionary of scalar names to values
@@ -224,8 +202,7 @@ class PhysicsGOSNNScalars:
         cls,
         detection_context: dict[str, Any],
     ) -> float:
-        """
-        Compute ethical scaling factor based on detection context.
+        """Compute ethical scaling factor based on detection context.
 
         Args:
             detection_context: Context information about the detection
@@ -293,8 +270,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
     """
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
-        """
-        Initialize integrated physics detector.
+        """Initialize integrated physics detector.
 
         Args:
             config: Configuration dictionary. See AdvancedPhysicsConfig.
@@ -327,8 +303,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
         self.device = torch.device(self.config.get("device", "cpu"))
 
     def _parse_config(self, config: dict[str, Any]) -> AdvancedPhysicsConfig:
-        """
-        Parse configuration dictionary.
+        """Parse configuration dictionary.
 
         Args:
             config: Raw configuration dictionary
@@ -442,8 +417,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
         data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any] | list[UserInteraction],
         data_type: str = "time_series",
     ) -> AdvancedPhysicsIntegratedDetector:
-        """
-        Fit all component detectors on training data.
+        """Fit all component detectors on training data.
 
         Args:
             data: Training data. Format depends on data_type:
@@ -514,8 +488,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
         data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any] | list[UserInteraction],
         data_type: str = "time_series",
     ) -> dict[str, Any]:
-        """
-        Detect anomalies using all enabled detectors.
+        """Detect anomalies using all enabled detectors.
 
         Args:
             data: Input data for detection
@@ -680,8 +653,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
         data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],
         data_type: str = "time_series",
     ) -> torch.Tensor:
-        """
-        Extract features from all enabled detectors.
+        """Extract features from all enabled detectors.
 
         Args:
             data: Input data
@@ -700,8 +672,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
         spectral_result: dict[str, Any] | None,
         dynamics_result: dict[str, Any] | None,
     ) -> tuple[float, float, AnomalyFusionResult | None]:
-        """
-        Apply 3R mechanism enhancement.
+        """Apply 3R mechanism enhancement.
 
         Args:
             component_scores: Scores from component detectors
@@ -759,8 +730,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
         fusion_result: AnomalyFusionResult | None,
         frequency_influence: FrequencyInfluenceVector | None = None,
     ) -> float:
-        """
-        Compute combined anomaly score.
+        """Compute combined anomaly score.
 
         Args:
             component_scores: Individual detector scores
@@ -823,8 +793,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
         uiux_result: dict[str, Any] | None,
         oracle_result: dict[str, Any] | None = None,
     ) -> torch.Tensor:
-        """
-        Extract and combine features from all detectors.
+        """Extract and combine features from all detectors.
 
         Args:
             data: Original input data
@@ -911,8 +880,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
         dynamics_result: dict[str, Any] | None,
         uiux_result: dict[str, Any] | None,
     ) -> list[str]:
-        """
-        Generate combined recommendations from all detectors.
+        """Generate combined recommendations from all detectors.
 
         Args:
             spectral_result: Spectral detection result
@@ -958,8 +926,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
         return recommendations
 
     def get_detector_status(self) -> dict[str, bool]:
-        """
-        Get status of all component detectors.
+        """Get status of all component detectors.
 
         Returns:
             Dictionary mapping detector names to fitted status
@@ -978,8 +945,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
         }
 
     def get_gosnn_scalars(self) -> dict[str, float]:
-        """
-        Get all GOSNN scalars.
+        """Get all GOSNN scalars.
 
         Returns:
             Dictionary of scalar names to values
@@ -993,8 +959,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
 
 
 def create_spectral_detector(config: dict[str, Any] | None = None) -> SpectralVibrationDetector:
-    """
-    Factory function to create spectral vibration detector.
+    """Factory function to create spectral vibration detector.
 
     Args:
         config: Optional configuration dictionary
@@ -1006,8 +971,7 @@ def create_spectral_detector(config: dict[str, Any] | None = None) -> SpectralVi
 
 
 def create_dynamics_detector(config: dict[str, Any] | None = None) -> AccelerationDynamicsDetector:
-    """
-    Factory function to create acceleration dynamics detector.
+    """Factory function to create acceleration dynamics detector.
 
     Args:
         config: Optional configuration dictionary
@@ -1019,8 +983,7 @@ def create_dynamics_detector(config: dict[str, Any] | None = None) -> Accelerati
 
 
 def create_uiux_detector(config: dict[str, Any] | None = None) -> UIUXAnomalyDetector:
-    """
-    Factory function to create UI/UX anomaly detector.
+    """Factory function to create UI/UX anomaly detector.
 
     Args:
         config: Optional configuration dictionary
@@ -1034,8 +997,7 @@ def create_uiux_detector(config: dict[str, Any] | None = None) -> UIUXAnomalyDet
 def create_integrated_detector(
     config: dict[str, Any] | None = None,
 ) -> AdvancedPhysicsIntegratedDetector:
-    """
-    Factory function to create integrated physics detector.
+    """Factory function to create integrated physics detector.
 
     Args:
         config: Optional configuration dictionary

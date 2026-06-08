@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-COPOD: Copula-Based Outlier Detection
-
-Implements empirical copula-based outlier detection (Li et al., ICDM 2020):
-1. Empirical copula for modeling multivariate dependencies
-2. Tail probability estimation for extreme value detection
-3. Parameter-free with linear time complexity O(n*d)
-
-Key Advantages:
-- No hyperparameters to tune
-- Linear time complexity (fast)
-- Interpretable per-feature scores
-- Handles multivariate dependencies naturally
-
-Reference:
-- Li, Z., Zhao, Y., Botta, N., et al. (2020). COPOD: Copula-Based Outlier Detection.
-  IEEE International Conference on Data Mining (ICDM).
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""COPOD: Copula-Based Outlier Detection."""
 
 from __future__ import annotations
 
@@ -29,7 +11,6 @@ from scipy import stats
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
-
 
 __all__ = [
     "COPODConfig",
@@ -57,8 +38,7 @@ class COPODConfig:
 
 
 class COPODDetector:
-    """
-    COPOD: Copula-Based Outlier Detection.
+    """COPOD: Copula-Based Outlier Detection.
 
     A parameter-free, fast outlier detection method based on
     empirical copula theory.
@@ -79,6 +59,7 @@ class COPODDetector:
         contamination: float = 0.05,
         **kwargs: Any,
     ) -> None:
+        """Initialize the instance."""
         self.config = COPODConfig(
             contamination=contamination,
             **kwargs,
@@ -98,8 +79,7 @@ class COPODDetector:
     def _compute_ecdf(
         self, X: NDArray[np.float64]
     ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
-        """
-        Compute empirical CDF for each feature.
+        """Compute empirical CDF for each feature.
 
         Returns left-tail and right-tail ECDF values.
         """
@@ -128,8 +108,7 @@ class COPODDetector:
         right_ecdf: NDArray[np.float64],
         skewness: NDArray[np.float64],
     ) -> NDArray[np.float64]:
-        """
-        Compute tail probability scores using skewness-weighted combination.
+        """Compute tail probability scores using skewness-weighted combination.
 
         For positively skewed features, focus on right tail. For negatively skewed features, focus
         on left tail.
@@ -162,8 +141,7 @@ class COPODDetector:
         X: NDArray[np.float64],
         y: NDArray[np.float64] | None = None,
     ) -> COPODDetector:
-        """
-        Fit the COPOD detector.
+        """Fit the COPOD detector.
 
         Args:
             X: Training data [n_samples, n_features]
@@ -218,8 +196,7 @@ class COPODDetector:
     def _compute_test_ecdf(
         self, X_test: NDArray[np.float64]
     ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
-        """
-        Compute ECDF values for test data based on training data.
+        """Compute ECDF values for test data based on training data.
 
         For each test point, find its rank in the sorted training data.
         """
@@ -245,8 +222,7 @@ class COPODDetector:
         return left_ecdf, right_ecdf
 
     def predict(self, X: NDArray[np.float64]) -> NDArray[np.float64]:
-        """
-        Predict anomaly scores.
+        """Predict anomaly scores.
 
         Args:
             X: Test data [n_samples, n_features]
@@ -280,8 +256,7 @@ class COPODDetector:
         X: NDArray[np.float64],
         threshold: float | None = None,
     ) -> dict[str, Any]:
-        """
-        Perform anomaly detection.
+        """Perform anomaly detection.
 
         Args:
             X: Test data
@@ -304,8 +279,7 @@ class COPODDetector:
         }
 
     def get_feature_importance(self, X: NDArray[np.float64]) -> NDArray[np.float64]:
-        """
-        Get per-feature anomaly contribution.
+        """Get per-feature anomaly contribution.
 
         Useful for interpretability - shows which features
         contribute most to the anomaly score.

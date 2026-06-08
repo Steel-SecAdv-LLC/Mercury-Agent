@@ -1,5 +1,5 @@
-"""
-Distributed Processing Module for Mercury Agent.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Distributed Processing Module for Mercury Agent.
 
 Provides multi-node deployment with Raft consensus for fault-tolerant,
 horizontally scalable anomaly detection.

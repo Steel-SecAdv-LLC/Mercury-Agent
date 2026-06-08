@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Reverse Distillation for Anomaly Detection
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Reverse Distillation for Anomaly Detection.
 
 Implementation of Reverse Distillation from CVPR 2022.
 Solves the student mimicry problem in knowledge distillation.
@@ -33,6 +15,8 @@ Reference:
     One-Class Embedding"
     https://arxiv.org/abs/2201.10703
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -54,8 +38,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ReverseDistillationConfig(VisualDetectorConfig):
-    """
-    Configuration for Reverse Distillation detector.
+    """Configuration for Reverse Distillation detector.
 
     Attributes:
         bottleneck_dim: Dimension of the one-class embedding bottleneck
@@ -75,15 +58,13 @@ class ReverseDistillationConfig(VisualDetectorConfig):
 
 
 class OCEBottleneck(nn.Module):
-    """
-    One-Class Embedding Bottleneck.
+    """One-Class Embedding Bottleneck.
 
     Compresses features into a compact representation that captures only normal patterns.
     """
 
     def __init__(self, in_channels: int, bottleneck_dim: int = 256) -> None:
-        """
-        Initialize bottleneck.
+        """Initialize bottleneck.
 
         Args:
             in_channels: Input channel dimension
@@ -106,8 +87,7 @@ class OCEBottleneck(nn.Module):
 
 
 class MultiScaleDecoder(nn.Module):
-    """
-    Multi-scale feature decoder for reconstruction.
+    """Multi-scale feature decoder for reconstruction.
 
     Reconstructs features at multiple scales to match teacher.
     """
@@ -118,8 +98,7 @@ class MultiScaleDecoder(nn.Module):
         output_channels: list[int],
         spatial_sizes: list[tuple[int, int]],
     ):
-        """
-        Initialize decoder.
+        """Initialize decoder.
 
         Args:
             bottleneck_dim: Input bottleneck dimension
@@ -141,8 +120,7 @@ class MultiScaleDecoder(nn.Module):
         self.spatial_sizes = spatial_sizes
 
     def forward(self, bottleneck: torch.Tensor) -> list[torch.Tensor]:
-        """
-        Decode bottleneck to multi-scale features.
+        """Decode bottleneck to multi-scale features.
 
         Args:
             bottleneck: Bottleneck features [B, C, H, W]
@@ -206,8 +184,7 @@ class ReverseDistillationDetector(BaseVisualDetector):
         self._layer_sizes: dict[str, tuple[int, int]] = {}
 
     def _initialize_components(self, sample_input: torch.Tensor) -> None:
-        """
-        Initialize bottleneck and decoder based on feature dimensions.
+        """Initialize bottleneck and decoder based on feature dimensions.
 
         Args:
             sample_input: Sample input for dimension inference
@@ -244,8 +221,7 @@ class ReverseDistillationDetector(BaseVisualDetector):
         )
 
     def _aggregate_student_features(self, features: dict[str, torch.Tensor]) -> torch.Tensor:
-        """
-        Aggregate multi-scale student features for bottleneck.
+        """Aggregate multi-scale student features for bottleneck.
 
         Args:
             features: Dict of layer features
@@ -270,8 +246,7 @@ class ReverseDistillationDetector(BaseVisualDetector):
         return torch.cat(resized, dim=1)
 
     def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> ReverseDistillationDetector:
-        """
-        Train student encoder, bottleneck, and decoder.
+        """Train student encoder, bottleneck, and decoder.
 
         Args:
             data: Normal images [N, C, H, W]
@@ -378,8 +353,7 @@ class ReverseDistillationDetector(BaseVisualDetector):
         return self
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
-        """
-        Detect anomalies using reconstruction error.
+        """Detect anomalies using reconstruction error.
 
         Args:
             data: Test images [N, C, H, W]
@@ -455,8 +429,7 @@ class ReverseDistillationDetector(BaseVisualDetector):
         decoded_features: list[torch.Tensor],
         original_size: tuple[int, int],
     ) -> torch.Tensor:
-        """
-        Compute anomaly map from reconstruction error.
+        """Compute anomaly map from reconstruction error.
 
         Args:
             teacher_features: Teacher layer features
@@ -503,8 +476,7 @@ class ReverseDistillationDetector(BaseVisualDetector):
         return torch.from_numpy(anomaly_map_np).to(self.device)
 
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
-        """
-        Extract features for ML fusion pipeline.
+        """Extract features for ML fusion pipeline.
 
         Args:
             data: Input images [N, C, H, W]

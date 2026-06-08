@@ -1,13 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-Environmental Dataset Loaders: USGS Earthquake, NOAA Weather, Wildfire Data
-
-References:
-- USGS Earthquake Catalog: https://earthquake.usgs.gov/earthquakes/search/
-- NOAA Climate Data: https://www.ncdc.noaa.gov/cdo-web/
-- NASA FIRMS (Fire): https://firms.modaps.eosdis.nasa.gov/
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Environmental Dataset Loaders: USGS Earthquake, NOAA Weather, Wildfire Data."""
 
 from __future__ import annotations
 
@@ -35,8 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 class USGSEarthquakeLoader(DatasetLoader):
-    """
-    USGS Earthquake Catalog Data Loader.
+    """USGS Earthquake Catalog Data Loader.
 
     Downloads REAL earthquake data from USGS API including:
     - Global earthquake records with magnitude, depth, location
@@ -77,6 +68,7 @@ class USGSEarthquakeLoader(DatasetLoader):
     ]
 
     def __init__(self, config: DatasetConfig) -> None:
+        """Initialize the instance."""
         super().__init__(config)
         self.min_magnitude = config.preprocessing.get("min_magnitude", 2.5)
         self.days_back = config.preprocessing.get("days_back", 30)
@@ -88,8 +80,7 @@ class USGSEarthquakeLoader(DatasetLoader):
         return self._is_real_data
 
     def download(self) -> bool:
-        """
-        Download real earthquake data from USGS API.
+        """Download real earthquake data from USGS API.
 
         Returns:
             True if download successful, False otherwise.
@@ -171,8 +162,7 @@ class USGSEarthquakeLoader(DatasetLoader):
     def _process_usgs_geojson(
         self, features_list: list[dict[str, Any]]
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """
-        Process USGS GeoJSON earthquake data.
+        """Process USGS GeoJSON earthquake data.
 
         Args:
             features_list: List of GeoJSON feature objects
@@ -323,8 +313,7 @@ class USGSEarthquakeLoader(DatasetLoader):
 
 
 class NOAAWeatherLoader(DatasetLoader):
-    """
-    Weather/Climate Data Loader using Open-Meteo API.
+    """Weather/Climate Data Loader using Open-Meteo API.
 
     Downloads REAL weather data including:
     - Temperature, humidity, pressure
@@ -410,6 +399,7 @@ class NOAAWeatherLoader(DatasetLoader):
     _OVERALL_DEADLINE_S = 90.0
 
     def __init__(self, config: DatasetConfig) -> None:
+        """Initialize the instance."""
         super().__init__(config)
         self.days_back = config.preprocessing.get("days_back", 90)
         self._is_real_data = False
@@ -420,8 +410,7 @@ class NOAAWeatherLoader(DatasetLoader):
         return self._is_real_data
 
     def download(self) -> bool:
-        """
-        Download real weather data from Open-Meteo API.
+        """Download real weather data from Open-Meteo API.
 
         Returns:
             True if download successful, False otherwise.
@@ -608,8 +597,7 @@ class NOAAWeatherLoader(DatasetLoader):
             return False
 
     def _create_synthetic_weather(self) -> bool:
-        """
-        Create synthetic weather observation data.
+        """Create synthetic weather observation data.
 
         Generates data matching FEATURE_NAMES:
         temperature, humidity, pressure, wind_speed, wind_direction,
@@ -682,8 +670,7 @@ class NOAAWeatherLoader(DatasetLoader):
 
 
 class WildfireDataLoader(DatasetLoader):
-    """
-    NASA FIRMS Active Fire Data Loader.
+    """NASA FIRMS Active Fire Data Loader.
 
     Downloads REAL wildfire detection data from NASA FIRMS including:
     - MODIS and VIIRS satellite fire detections
@@ -723,6 +710,7 @@ class WildfireDataLoader(DatasetLoader):
     ]
 
     def __init__(self, config: DatasetConfig) -> None:
+        """Initialize the instance."""
         super().__init__(config)
         self.source = config.preprocessing.get("source", "modis_7d")
         self._is_real_data = False
@@ -733,8 +721,7 @@ class WildfireDataLoader(DatasetLoader):
         return self._is_real_data
 
     def download(self) -> bool:
-        """
-        Download real fire data from NASA FIRMS.
+        """Download real fire data from NASA FIRMS.
 
         Returns:
             True if download successful, False otherwise.
@@ -846,8 +833,7 @@ class WildfireDataLoader(DatasetLoader):
     def _process_firms_data(
         self, df: pd.DataFrame
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """
-        Process NASA FIRMS CSV data.
+        """Process NASA FIRMS CSV data.
 
         Args:
             df: Raw FIRMS dataframe
@@ -1012,8 +998,7 @@ class WildfireDataLoader(DatasetLoader):
 
 
 class USGSGeochemistryLoader(DatasetLoader):
-    """
-    USGS Geochemistry Data Loader for Environmental Contamination Detection.
+    """USGS Geochemistry Data Loader for Environmental Contamination Detection.
 
     Downloads REAL soil/sediment geochemistry data from USGS MRData including:
     - Heavy metal concentrations (As, Pb, Hg, Cu, Zn)
@@ -1062,8 +1047,7 @@ class USGSGeochemistryLoader(DatasetLoader):
     ]
 
     def __init__(self, config: DatasetConfig) -> None:
-        """
-        Initialize USGS Geochemistry loader.
+        """Initialize USGS Geochemistry loader.
 
         Args:
             config: Dataset configuration. Preprocessing options:
@@ -1091,8 +1075,7 @@ class USGSGeochemistryLoader(DatasetLoader):
         return self._is_real_data
 
     def download(self) -> bool:
-        """
-        Download geochemistry data from USGS MRData or generate synthetic.
+        """Download geochemistry data from USGS MRData or generate synthetic.
 
         Returns:
             True if download successful, False otherwise.

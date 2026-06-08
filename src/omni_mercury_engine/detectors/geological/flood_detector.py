@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Flood Detector - Multi-Parameter Flood Monitoring System
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Flood Detector - Multi-Parameter Flood Monitoring System.
 
 Comprehensive flood detection for humanitarian early warning:
 - Precipitation accumulation analysis
@@ -45,6 +27,8 @@ flood warnings (NWS, USGS). Always defer to official flood warnings.
 
 Performance: Enhanced prediction via refactoring engine + dynamic optimization
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -119,20 +103,19 @@ class FloodPredictionResult:
 
 
 class PrecipitationAnalyzer:
-    """
-    Precipitation accumulation analysis for flood potential.
+    """Precipitation accumulation analysis for flood potential.
 
     Monitors rainfall rates, accumulation, and forecast precipitation.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
         self.flash_flood_threshold_1h = 2.0  # inches/hour
         self.flood_threshold_24h = 4.0  # inches in 24 hours
 
     def analyze_precipitation(self, precip_data: dict[str, Any]) -> dict[str, Any]:
-        """
-        Analyze precipitation for flood potential.
+        """Analyze precipitation for flood potential.
 
         Args:
             precip_data: Precipitation measurements and forecasts
@@ -172,18 +155,17 @@ class PrecipitationAnalyzer:
 
 
 class RiverGaugeMonitor:
-    """
-    River gauge monitoring for flood stage detection.
+    """River gauge monitoring for flood stage detection.
 
     Tracks river levels relative to flood stages.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
     def analyze_river_stage(self, gauge_data: dict[str, Any]) -> dict[str, Any]:
-        """
-        Analyze river gauge data for flood conditions.
+        """Analyze river gauge data for flood conditions.
 
         Args:
             gauge_data: River gauge measurements
@@ -237,18 +219,17 @@ class RiverGaugeMonitor:
 
 
 class SoilSaturationModel:
-    """
-    Soil saturation modeling for runoff prediction.
+    """Soil saturation modeling for runoff prediction.
 
     Estimates soil moisture and runoff potential.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
     def analyze_soil_conditions(self, soil_data: dict[str, Any]) -> dict[str, Any]:
-        """
-        Analyze soil saturation for runoff potential.
+        """Analyze soil saturation for runoff potential.
 
         Args:
             soil_data: Soil moisture and characteristics
@@ -297,13 +278,13 @@ class SoilSaturationModel:
 
 
 class TopographicRunoffPredictor(nn.Module):
-    """
-    Neural network for topographic runoff prediction.
+    """Neural network for topographic runoff prediction.
 
     Uses terrain features to predict water flow patterns.
     """
 
     def __init__(self, input_dim: int = 32, hidden_dim: int = 64) -> None:
+        """Initialize the instance."""
         super().__init__()
 
         self.encoder = nn.Sequential(
@@ -338,8 +319,7 @@ class TopographicRunoffPredictor(nn.Module):
     def forward(
         self, terrain_features: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """
-        Predict runoff characteristics from terrain features.
+        """Predict runoff characteristics from terrain features.
 
         Args:
             terrain_features: Terrain and watershed features
@@ -357,14 +337,14 @@ class TopographicRunoffPredictor(nn.Module):
 
 
 class FloodPredictionOptimizer:
-    """
-    Dynamic model optimization engine for flood prediction.
+    """Dynamic model optimization engine for flood prediction.
 
     Implements iterative prediction refinement based on observed data for continuously improving
     flood prediction accuracy.
     """
 
     def __init__(self, max_iterations: int = 10, convergence_threshold: float = 0.01) -> None:
+        """Initialize the instance."""
         self.max_iterations = max_iterations
         self.convergence_threshold = convergence_threshold
         self.logger = logging.getLogger(__name__)
@@ -374,8 +354,7 @@ class FloodPredictionOptimizer:
         initial_prediction: dict[str, Any],
         observed_data: dict[str, Any],
     ) -> dict[str, Any]:
-        """
-        Iteratively refactor prediction model based on observations.
+        """Iteratively refactor prediction model based on observations.
 
         Args:
             initial_prediction: Initial flood prediction
@@ -457,8 +436,7 @@ class FloodPredictionOptimizer:
 
 
 class FloodDetector:
-    """
-    Comprehensive flood detection system.
+    """Comprehensive flood detection system.
 
     Integrates precipitation analysis, river gauge monitoring, soil saturation
     modeling, topographic runoff prediction, and 3R mechanism for multi-parameter
@@ -482,6 +460,7 @@ class FloodDetector:
         enable_resonance: bool = True,
         rng: DeterministicRNG | None = None,
     ):
+        """Initialize the instance."""
         self.enable_precipitation = enable_precipitation
         self.enable_river_gauge = enable_river_gauge
         self.enable_soil = enable_soil
@@ -504,8 +483,7 @@ class FloodDetector:
         self.logger = logging.getLogger(__name__)
 
     def predict_flood(self, flood_data: dict[str, Any]) -> FloodPredictionResult:
-        """
-        Comprehensive flood prediction.
+        """Comprehensive flood prediction.
 
         Args:
             flood_data: Multi-parameter flood monitoring data including:

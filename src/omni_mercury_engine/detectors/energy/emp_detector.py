@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Electromagnetic Pulse (EMP) & Energy Surge Detector
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Electromagnetic Pulse (EMP) & Energy Surge Detector.
 
 Comprehensive electromagnetic anomaly detection for critical infrastructure:
 - EMP detection (nuclear, non-nuclear)
@@ -42,8 +24,9 @@ Research sources:
 - IEEE Standards for EMP Protection
 
 Performance: 40% improved attack detection via multi-sensor fusion
-
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -104,18 +87,17 @@ class EMPPredictionResult:
 
 
 class E1PulseDetector:
-    """
-    E1 component detection (prompt gamma ray pulse).
+    """E1 component detection (prompt gamma ray pulse).
 
     Characteristics: Very fast (nanoseconds), high frequency
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
     def detect_e1_pulse(self, sensor_data: dict[str, Any]) -> dict[str, Any]:
-        """
-        Detect E1 pulse component.
+        """Detect E1 pulse component.
 
         Args:
             sensor_data: EM field measurements, high-frequency sensors
@@ -148,18 +130,17 @@ class E1PulseDetector:
 
 
 class E3PulseDetector:
-    """
-    E3 component detection (magnetohydrodynamic EMP).
+    """E3 component detection (magnetohydrodynamic EMP).
 
     Characteristics: Slow (seconds to minutes), low frequency, GIC induction
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
     def detect_e3_pulse(self, magnetometer_data: dict[str, Any]) -> dict[str, Any]:
-        """
-        Detect E3 pulse (GIC).
+        """Detect E3 pulse (GIC).
 
         Args:
             magnetometer_data: Geomagnetic field measurements
@@ -194,13 +175,13 @@ class E3PulseDetector:
 
 
 class IntentionalEMIDetector(nn.Module):
-    """
-    Intentional electromagnetic interference (IEMI) detection.
+    """Intentional electromagnetic interference (IEMI) detection.
 
     Distinguishes attacks from natural/accidental sources.
     """
 
     def __init__(self, input_dim: int = 64) -> None:
+        """Initialize the instance."""
         super().__init__()
 
         phi = 1.618
@@ -221,8 +202,7 @@ class IntentionalEMIDetector(nn.Module):
         )
 
     def forward(self, em_signature: torch.Tensor) -> torch.Tensor:
-        """
-        Classify intentional vs.
+        """Classify intentional vs.
 
         natural EM events.
                 Note: This model uses BatchNorm which requires batch_size > 1 during
@@ -244,8 +224,7 @@ class IntentionalEMIDetector(nn.Module):
 
 
 class EMPDetector:
-    """
-    Comprehensive EMP and electromagnetic surge detection system.
+    """Comprehensive EMP and electromagnetic surge detection system.
 
     Integrates E1/E2/E3 pulse detection with intentional attack classification.
     """
@@ -256,6 +235,7 @@ class EMPDetector:
         enable_e3_detection: bool = True,
         enable_attack_classification: bool = True,
     ):
+        """Initialize the instance."""
         self.enable_e1 = enable_e1_detection
         self.enable_e3 = enable_e3_detection
         self.enable_attack = enable_attack_classification
@@ -267,8 +247,7 @@ class EMPDetector:
         self.logger = logging.getLogger(__name__)
 
     def predict_emp(self, emp_data: dict[str, Any]) -> EMPPredictionResult:
-        """
-        Comprehensive EMP prediction.
+        """Comprehensive EMP prediction.
 
         Args:
             emp_data: Multi-sensor EM measurements including:

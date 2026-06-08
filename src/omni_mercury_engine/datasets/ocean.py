@@ -1,21 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Ocean Dataset Loaders - REAL Marine and Oceanographic Data
-
-This module provides loaders for real-world ocean and marine datasets
-for anomaly detection in oceanographic monitoring:
-- NOAA Buoy: Real-time buoy observations (wave height, temperature, wind)
-- Argo Floats: Deep ocean temperature/salinity profiles
-- Sea Surface Temperature: SST anomalies for climate monitoring
-
-All data sources are free and require no authentication.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 
@@ -42,8 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 class NOAABuoyLoader(DatasetLoader):
-    """
-    NOAA National Data Buoy Center (NDBC) Real-Time Data Loader.
+    """NOAA National Data Buoy Center (NDBC) Real-Time Data Loader.
 
     Downloads REAL oceanographic data from NOAA buoys including:
     - Wave height (WVHT)
@@ -114,8 +97,7 @@ class NOAABuoyLoader(DatasetLoader):
     ]
 
     def __init__(self, config: DatasetConfig) -> None:
-        """
-        Initialize NOAA Buoy loader.
+        """Initialize NOAA Buoy loader.
 
         Args:
             config: Dataset configuration. Preprocessing options:
@@ -135,8 +117,7 @@ class NOAABuoyLoader(DatasetLoader):
         return self._is_real_data
 
     def download(self) -> bool:
-        """
-        Download real-time buoy data from NOAA NDBC.
+        """Download real-time buoy data from NOAA NDBC.
 
         Returns:
             True if download successful, False otherwise.
@@ -231,8 +212,7 @@ class NOAABuoyLoader(DatasetLoader):
     def _process_buoy_data(
         self, df: pd.DataFrame
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """
-        Process buoy data for anomaly detection with comprehensive missing value handling.
+        """Process buoy data for anomaly detection with comprehensive missing value handling.
 
         Implements a multi-strategy approach for oceanographic data quality:
         1. Sensor-specific missing value codes identification
@@ -504,8 +484,7 @@ class NOAABuoyLoader(DatasetLoader):
         raise FileNotFoundError("NOAA buoy data not found. Run download() first.")
 
     def load_data(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """
-        Load NOAA buoy dataset.
+        """Load NOAA buoy dataset.
 
         Returns:
             Tuple of (features, labels) numpy arrays

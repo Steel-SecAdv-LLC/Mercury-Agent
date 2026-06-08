@@ -1,50 +1,7 @@
-"""Drone anomaly detection with RADD and DronLomaly approaches.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Default ensemble weights matching ``MercuryAnomalyDetector``'s.
 
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under
-the terms of the GNU General Public License as published by the Free Software
-Foundation, either version 3 of the License, or (at your option) any later
-version.
-
-Ported from Omni-AXA-Engine's ``drone_anomaly_detector.py``.  Three known
-defects from the original implementation are corrected in this port:
-
-1.  :class:`DroneState` now carries the ``altitude_rate``,
-    ``horizontal_velocity``, ``vertical_velocity`` and ``distance_to_home``
-    fields referenced by the invariant rules.  In the original implementation
-    those rules silently no-op'd because the fields did not exist on the state
-    object; rules now actually evaluate and fire correctly.
-2.  The ensemble previously branded as "K-Means / DBSCAN / OPTICS / LOF /
-    OCSVM" was implemented as hand-coded z-scores over a single feature
-    matrix.  The port replaces that with Mercury Agent's first-class
-    in-house anomaly ensemble,
-    :class:`~omni_mercury_engine.detectors.statistical.MercuryAnomalyDetector`,
-    which combines three deterministic ``numpy``/``scipy`` scorers:
-    **Resonance** (40 %; FFT-based harmonic spectral anomaly),
-    **Kinematic** (30 %; physics-based jerk / curvature dynamics) and
-    **InfoGeometry** (30 %; Fisher Information Matrix OOD detection).
-    The drone detector therefore carries **no scikit-learn runtime
-    dependency** - sklearn lives in the ``benchmark-comparison`` extra
-    only, where it is used to score Mercury against external baselines
-    rather than to power Mercury itself.
-3.  The original docstring carried an unvalidated "93.84% average recall"
-    paper-citation claim.  No reproduction dataset existed in either tree, so
-    the claim is removed here.  Any future quantitative claim must be backed
-    by a reproducible benchmark in ``benchmarks/``.
-
-Live telemetry adapters for PX4 ULog flight logs (via :mod:`pyulog`) or
-MAVLink endpoints (via :mod:`pymavlink`) are *not* shipped in this PR -
-adopters who want them should populate :class:`DroneState` instances
-from their ingest layer of choice (an example using
-:mod:`pyulog.ULog` is provided in
-``docs/drone/SETUP.md``).  The detector itself is transport-agnostic.
-
-References
-----------
-* RADD: rule-based anomaly detection for drones.
-* DronLomaly: drone log anomaly detection with Bi-LSTM.
-* PX4 ULog format: https://docs.px4.io/main/en/dev_log/ulog_file_format.html
+published Resonance / Kinematic / InfoGeometry ratio.
 """
 
 from __future__ import annotations
@@ -217,8 +174,6 @@ _DEFAULT_ENSEMBLE_WEIGHTS: Final[dict[str, float]] = {
     "kinematic": 0.30,
     "info_geometry": 0.30,
 }
-"""Default ensemble weights matching ``MercuryAnomalyDetector``'s
-published Resonance / Kinematic / InfoGeometry ratio."""
 
 
 class DroneAnomalyDetector:

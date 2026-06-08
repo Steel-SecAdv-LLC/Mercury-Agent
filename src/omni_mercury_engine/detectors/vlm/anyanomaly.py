@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-AnyAnomaly: Zero-Shot Customizable Video Anomaly Detection with LVLM
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""AnyAnomaly: Zero-Shot Customizable Video Anomaly Detection with LVLM.
 
 Implementation inspired by AnyAnomaly (WACV 2026).
 Enables user-defined anomaly detection via natural language.
@@ -33,6 +15,8 @@ Reference:
     with LVLM"
     https://arxiv.org/abs/2503.04504
 """
+
+from __future__ import annotations
 
 import logging
 import re
@@ -56,8 +40,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class AnyAnomalyConfig(VLMConfig):
-    """
-    Configuration for AnyAnomaly detector.
+    """Configuration for AnyAnomaly detector.
 
     Attributes:
         segment_overlap: Overlap between video segments
@@ -117,8 +100,7 @@ class AnyAnomalyDetector(BaseVLMDetector):
     """
 
     def __init__(self, config: AnyAnomalyConfig | dict[str, Any] | None = None) -> None:
-        """
-        Initialize AnyAnomaly detector.
+        """Initialize AnyAnomaly detector.
 
         Args:
             config: Detector configuration or dict
@@ -168,8 +150,7 @@ class AnyAnomalyDetector(BaseVLMDetector):
         return self._reference_frames
 
     def set_anomaly_definition(self, definition: str) -> None:
-        """
-        Set the anomaly definition for detection.
+        """Set the anomaly definition for detection.
 
         Args:
             definition: Natural language description of anomaly
@@ -178,8 +159,7 @@ class AnyAnomalyDetector(BaseVLMDetector):
         self.vlm_config.anomaly_description = definition
 
     def set_reference_normal(self, frames: list[Any]) -> None:
-        """
-        Set reference normal frames for comparison.
+        """Set reference normal frames for comparison.
 
         Args:
             frames: List of normal reference frames
@@ -210,8 +190,7 @@ class AnyAnomalyDetector(BaseVLMDetector):
         anomaly_description: str,
         context: dict[str, Any] | None = None,
     ) -> str:
-        """
-        Create VQA prompt for anomaly detection.
+        """Create VQA prompt for anomaly detection.
 
         Args:
             anomaly_description: Description of anomaly to detect
@@ -260,8 +239,7 @@ EXPLANATION: [Your detailed explanation]
         return prompt
 
     def _parse_response(self, response: str) -> tuple[bool, float, str]:
-        """
-        Parse LVLM response to extract detection result.
+        """Parse LVLM response to extract detection result.
 
         Args:
             response: Model response text
@@ -317,8 +295,7 @@ EXPLANATION: [Your detailed explanation]
         self,
         frames: np.ndarray[Any, Any],
     ) -> list[tuple[int, int, np.ndarray[Any, Any]]]:
-        """
-        Segment video into overlapping segments.
+        """Segment video into overlapping segments.
 
         Args:
             frames: Video frames [T, C, H, W]
@@ -343,8 +320,7 @@ EXPLANATION: [Your detailed explanation]
         return segments
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
-        """
-        Detect anomalies using VLM-based VQA.
+        """Detect anomalies using VLM-based VQA.
 
         Args:
             data: Images [N, C, H, W] or video frames [T, C, H, W]
@@ -448,8 +424,7 @@ EXPLANATION: [Your detailed explanation]
         segment: np.ndarray[Any, Any],
         max_frames: int = 4,
     ) -> list[np.ndarray[Any, Any]]:
-        """
-        Sample key frames from segment for LVLM input.
+        """Sample key frames from segment for LVLM input.
 
         Args:
             segment: Video segment [T, C, H, W]
@@ -494,8 +469,7 @@ EXPLANATION: [Your detailed explanation]
         scores: np.ndarray[Any, Any],
         segment_results: list[dict[str, Any]],
     ) -> torch.Tensor:
-        """
-        Generate feature representation for fusion.
+        """Generate feature representation for fusion.
 
         Args:
             scores: Frame-level scores
@@ -535,8 +509,7 @@ EXPLANATION: [Your detailed explanation]
         return torch.from_numpy(features).float().unsqueeze(0)
 
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
-        """
-        Extract features for ML fusion pipeline.
+        """Extract features for ML fusion pipeline.
 
         Args:
             data: Input video/images

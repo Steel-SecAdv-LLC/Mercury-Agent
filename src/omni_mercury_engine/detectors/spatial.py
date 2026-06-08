@@ -1,26 +1,10 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Spatial anomaly detector for geographic data
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Spatial anomaly detector for geographic data.
 
 Optimized with Numba JIT compilation for performance-critical paths.
 """
+
+from __future__ import annotations
 
 from typing import Any
 
@@ -46,8 +30,7 @@ try:
     def _compute_distances_jit(
         data: np.ndarray[Any, Any], center: np.ndarray[Any, Any]
     ) -> np.ndarray[Any, Any]:
-        """
-        JIT-compiled Euclidean distance computation.
+        """JIT-compiled Euclidean distance computation.
 
         Optimized for large datasets to achieve <1s/sample inference.
         """
@@ -79,14 +62,14 @@ except ImportError:
 
 
 class _NativeLOF:
-    """
-    Local Outlier Factor via scipy KDTree (no sklearn dependency).
+    """Local Outlier Factor via scipy KDTree (no sklearn dependency).
 
     Implements LOF as defined by Breunig et al. (2000).  Only the ``fit`` / ``decision_function``
     surface used by SpatialAnomalyDetector is provided.
     """
 
     def __init__(self, n_neighbors: int = 20) -> None:
+        """Initialize the instance."""
         self.k = n_neighbors
         self._tree: KDTree | None = None
         self._lrd: np.ndarray[Any, Any] | None = None  # local reachability densities of training
@@ -147,8 +130,7 @@ class _NativeLOF:
 
 
 class SpatialAnomalyDetector(BaseDetector):
-    """
-    Spatial anomaly detection for geographic data using:
+    """Spatial anomaly detection for geographic data using:.
 
     - Distance-based outliers
     - Density-based outliers (LOF via scipy KDTree)
@@ -156,6 +138,7 @@ class SpatialAnomalyDetector(BaseDetector):
     """
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
+        """Initialize the instance."""
         super().__init__(config)
         self.n_neighbors = self.config.get("n_neighbors", 20)
         self.contamination = self.config.get("contamination", 0.1)
@@ -185,8 +168,7 @@ class SpatialAnomalyDetector(BaseDetector):
         return self
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
-        """
-        Detect spatial anomalies with optional auto-calibration.
+        """Detect spatial anomalies with optional auto-calibration.
 
         Uses distance-based outliers and Local Outlier Factor (LOF)
         to compute anomaly scores for geographic/spatial data.
@@ -284,8 +266,7 @@ class SpatialAnomalyDetector(BaseDetector):
         return torch.tensor(features, dtype=torch.float32)
 
     def _safe_normalize(self, scores: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Safely normalize scores to [0, 1] range.
+        """Safely normalize scores to [0, 1] range.
 
         Handles edge cases:
         - Constant arrays (max == min): returns 0.5 for all
@@ -318,8 +299,7 @@ class SpatialAnomalyDetector(BaseDetector):
         return np.clip(normalized, 0.0, 1.0)
 
     def _compute_distance_scores(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Compute distance-based anomaly scores.
+        """Compute distance-based anomaly scores.
 
         Uses Numba JIT compilation when available for ~10x speedup on large datasets, targeting
         <1s/sample inference requirement.

@@ -1,21 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-Multi-Scale Transformer for Time-Series Anomaly Detection
-
-Addresses the time-series gap (F1 0.15-0.25 → target 0.70+) by:
-1. Multi-scale temporal pattern extraction (local + global)
-2. Cross-scale attention for pattern fusion
-3. Reconstruction + forecasting dual-objective
-4. Adaptive threshold calibration with point-adjustment
-
-Architecture inspired by:
-- MAAT (Mamba Adaptive Anomaly Transformer, 2025)
-- TranAD (VLDB 2022)
-- Anomaly Transformer (ICLR 2022)
-
-Performance Target: SMD F1 > 0.70, SMAP/MSL F1 > 0.85
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Multi-Scale Transformer for Time-Series Anomaly Detection."""
 
 from __future__ import annotations
 
@@ -30,7 +14,6 @@ from torch import nn
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
-
 
 __all__ = [
     "MultiScaleTransformerConfig",
@@ -78,6 +61,7 @@ class PositionalEncoding(nn.Module):
     """Sinusoidal positional encoding with learnable scale."""
 
     def __init__(self, d_model: int, max_len: int = 5000, dropout: float = 0.1) -> None:
+        """Initialize the instance."""
         super().__init__()
         self.dropout = nn.Dropout(p=dropout)
         self.scale = nn.Parameter(torch.ones(1))
@@ -108,6 +92,7 @@ class TemporalConvBlock(nn.Module):
         kernel_size: int,
         dilation: int = 1,
     ) -> None:
+        """Initialize the instance."""
         super().__init__()
         padding = (kernel_size - 1) * dilation // 2
 
@@ -145,6 +130,7 @@ class MultiScaleEncoder(nn.Module):
         d_ff: int = 512,
         dropout: float = 0.1,
     ) -> None:
+        """Initialize the instance."""
         super().__init__()
         self.window_sizes = window_sizes
         self.d_model = d_model
@@ -182,8 +168,7 @@ class MultiScaleEncoder(nn.Module):
         self.scale_fusion = nn.Linear(d_model * len(window_sizes), d_model)
 
     def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, list[torch.Tensor]]:
-        """
-        Multi-scale encoding.
+        """Multi-scale encoding.
 
         Args:
             x: Input [batch, seq, input_dim]
@@ -217,6 +202,7 @@ class CrossScaleAttention(nn.Module):
     """Cross-scale attention for learning inter-scale dependencies."""
 
     def __init__(self, d_model: int, n_heads: int = 8, dropout: float = 0.1) -> None:
+        """Initialize the instance."""
         super().__init__()
         self.cross_attn = nn.MultiheadAttention(
             embed_dim=d_model,
@@ -247,14 +233,14 @@ class CrossScaleAttention(nn.Module):
 
 
 class AssociationDiscrepancy(nn.Module):
-    """
-    Association Discrepancy module from Anomaly Transformer.
+    """Association Discrepancy module from Anomaly Transformer.
 
     Measures the discrepancy between prior-association and series-association to identify anomalies
     that break normal temporal patterns.
     """
 
     def __init__(self, d_model: int, n_heads: int = 8) -> None:
+        """Initialize the instance."""
         super().__init__()
         self.d_model = d_model
         self.n_heads = n_heads
@@ -268,8 +254,7 @@ class AssociationDiscrepancy(nn.Module):
         self.k_proj = nn.Linear(d_model, d_model)
 
     def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        """
-        Compute association discrepancy.
+        """Compute association discrepancy.
 
         Args:
             x: Input [batch, seq, d_model]
@@ -329,8 +314,7 @@ class AssociationDiscrepancy(nn.Module):
 
 
 class MultiScaleTransformerModel(nn.Module):
-    """
-    Multi-Scale Transformer for Time-Series Anomaly Detection.
+    """Multi-Scale Transformer for Time-Series Anomaly Detection.
 
     Combines:
     1. Multi-scale temporal encoding
@@ -340,6 +324,7 @@ class MultiScaleTransformerModel(nn.Module):
     """
 
     def __init__(self, config: MultiScaleTransformerConfig) -> None:
+        """Initialize the instance."""
         super().__init__()
         self.config = config
 
@@ -381,8 +366,7 @@ class MultiScaleTransformerModel(nn.Module):
         )
 
     def forward(self, x: torch.Tensor, return_all: bool = False) -> dict[str, torch.Tensor]:
-        """
-        Forward pass.
+        """Forward pass.
 
         Args:
             x: Input [batch, seq, input_dim]
@@ -448,8 +432,7 @@ class MultiScaleTransformerModel(nn.Module):
 
 
 class MultiScaleTransformerDetector:
-    """
-    Multi-Scale Transformer Detector for Time-Series Anomaly Detection.
+    """Multi-Scale Transformer Detector for Time-Series Anomaly Detection.
 
     Provides sklearn-compatible interface with fit/predict methods.
 
@@ -474,6 +457,7 @@ class MultiScaleTransformerDetector:
         seed: int | None = None,
         **kwargs: Any,
     ) -> None:
+        """Initialize the instance."""
         self.config = MultiScaleTransformerConfig(
             input_dim=input_dim,
             window_sizes=window_sizes or [10, 25, 50],
@@ -506,8 +490,7 @@ class MultiScaleTransformerDetector:
         y: NDArray[np.float64] | None = None,
         validation_split: float = 0.1,
     ) -> MultiScaleTransformerDetector:
-        """
-        Fit the detector on training data.
+        """Fit the detector on training data.
 
         Args:
             X: Training data [n_samples, n_features] or [n_samples, seq_len, n_features]
@@ -608,8 +591,7 @@ class MultiScaleTransformerDetector:
         return self
 
     def predict(self, X: NDArray[np.float64]) -> NDArray[np.float64]:
-        """
-        Predict anomaly scores.
+        """Predict anomaly scores.
 
         Args:
             X: Test data
@@ -642,8 +624,7 @@ class MultiScaleTransformerDetector:
         X: NDArray[np.float64],
         threshold: float | None = None,
     ) -> dict[str, Any]:
-        """
-        Perform anomaly detection.
+        """Perform anomaly detection.
 
         Args:
             X: Test data
@@ -699,8 +680,7 @@ def _point_adjust(
     scores: NDArray[np.float64],
     threshold: float,
 ) -> NDArray[np.int64]:
-    """
-    Point-adjustment for time-series evaluation.
+    """Point-adjustment for time-series evaluation.
 
     If any point in an anomaly segment is detected, mark the entire segment. This is standard
     practice for time-series anomaly detection evaluation.

@@ -1,14 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-Space & Astronomical Dataset Loaders: SETI, NASA Exoplanets, Solar Dynamics
-
-References:
-- SETI@home: https://setiathome.berkeley.edu/
-- NASA Exoplanet Archive: https://exoplanetarchive.ipac.caltech.edu/
-- Solar Dynamics Observatory: https://sdo.gsfc.nasa.gov/
-- Breakthrough Listen: https://breakthroughinitiatives.org/initiative/1
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Space & Astronomical Dataset Loaders: SETI, NASA Exoplanets, Solar Dynamics."""
 
 from __future__ import annotations
 
@@ -33,7 +24,6 @@ from .exceptions import ALLOW_SYNTHETIC, DataSourceUnavailableError, check_synth
 
 logger = logging.getLogger(__name__)
 
-
 # Module-level identifier regex. Used by _build_tap_query to assert
 # every TAP column key/value matches a strict SQL-identifier shape
 # before being concatenated into the ADQL string.
@@ -43,8 +33,7 @@ _TAP_IDENTIFIER_RE = _re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 def _build_tap_query(columns: dict[str, str], limit: int) -> str:
-    """
-    Build a NASA TAP/ADQL ``select`` over a fixed column tuple.
+    """Build a NASA TAP/ADQL ``select`` over a fixed column tuple.
 
     The B608 false-positive that previously sat on this line came from
     bandit seeing an f-string containing the SELECT literal. This
@@ -86,8 +75,7 @@ def _build_tap_query(columns: dict[str, str], limit: int) -> str:
 
 
 class SETILoader(DatasetLoader):
-    """
-    SETI Signal Dataset Loader.
+    """SETI Signal Dataset Loader.
 
     Provides access to radio telescope signal data for:
     - Technosignature detection
@@ -124,6 +112,7 @@ class SETILoader(DatasetLoader):
     ]
 
     def __init__(self, config: DatasetConfig) -> None:
+        """Initialize the instance."""
         super().__init__(config)
         self.signal_length = config.preprocessing.get("signal_length", 512)
         self.frequency_bins = config.preprocessing.get("frequency_bins", 256)
@@ -169,8 +158,7 @@ class SETILoader(DatasetLoader):
         signal_type: int,
         rng: np.random.Generator | None = None,
     ) -> np.ndarray[Any, Any]:
-        """
-        Generate a synthetic SETI signal spectrogram.
+        """Generate a synthetic SETI signal spectrogram.
 
         Args:
             signal_type: SETI signal class index.
@@ -250,8 +238,7 @@ class SETILoader(DatasetLoader):
 
 
 class NASAExoplanetLoader(DatasetLoader):
-    """
-    NASA Exoplanet Archive Data Loader.
+    """NASA Exoplanet Archive Data Loader.
 
     Downloads REAL exoplanet data from NASA Exoplanet Archive including:
     - Confirmed exoplanet parameters (radius, mass, orbital period)
@@ -301,6 +288,7 @@ class NASAExoplanetLoader(DatasetLoader):
     }
 
     def __init__(self, config: DatasetConfig) -> None:
+        """Initialize the instance."""
         super().__init__(config)
         self._is_real_data = False
 
@@ -310,8 +298,7 @@ class NASAExoplanetLoader(DatasetLoader):
         return self._is_real_data
 
     def download(self) -> bool:
-        """
-        Download real exoplanet data from NASA Archive.
+        """Download real exoplanet data from NASA Archive.
 
         Returns:
             True if download successful, False otherwise.
@@ -392,8 +379,7 @@ class NASAExoplanetLoader(DatasetLoader):
     def _process_tap_data(
         self, records: list[Any]
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """
-        Process TAP query results.
+        """Process TAP query results.
 
         Args:
             records: List of records from TAP query
@@ -521,8 +507,7 @@ class NASAExoplanetLoader(DatasetLoader):
 
 
 class SolarDynamicsLoader(DatasetLoader):
-    """
-    NOAA Space Weather Prediction Center Data Loader.
+    """NOAA Space Weather Prediction Center Data Loader.
 
     Downloads REAL solar activity data from NOAA SWPC including:
     - GOES X-ray flux (solar flares)
@@ -557,6 +542,7 @@ class SolarDynamicsLoader(DatasetLoader):
     ]
 
     def __init__(self, config: DatasetConfig) -> None:
+        """Initialize the instance."""
         super().__init__(config)
         self._is_real_data = False
 
@@ -566,8 +552,7 @@ class SolarDynamicsLoader(DatasetLoader):
         return self._is_real_data
 
     def download(self) -> bool:
-        """
-        Download real solar data from NOAA SWPC.
+        """Download real solar data from NOAA SWPC.
 
         Returns:
             True if download successful, False otherwise.
@@ -630,8 +615,7 @@ class SolarDynamicsLoader(DatasetLoader):
     def _process_swpc_data(
         self, data: list[dict[str, Any]]
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """
-        Process NOAA SWPC X-ray flux data.
+        """Process NOAA SWPC X-ray flux data.
 
         Args:
             data: List of X-ray flux records

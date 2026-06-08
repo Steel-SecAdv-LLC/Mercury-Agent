@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Spectral Vibration Analysis Module for Mercury Agent.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Spectral Vibration Analysis Module for Mercury Agent.
 
 Advanced frequency-domain anomaly detection inspired by:
 - Machine Learning Interatomic Potentials (MLIPs) for vibrational spectrum analysis
@@ -36,6 +18,8 @@ Research foundations:
 - Discrete Fourier Transform for frequency-domain analysis
 - Graph Laplacian spectral methods for relational data
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -59,7 +43,6 @@ from omni_mercury_engine.core.exceptions import DetectorException
 from omni_mercury_engine.utils.constants import MathematicalConstants
 
 logger = logging.getLogger(__name__)
-
 
 # =============================================================================
 # Constants and Enumerations
@@ -119,8 +102,7 @@ class VibrationSignatureType(Enum):
 
 @dataclass
 class SpectralVibrationConfig:
-    """
-    Configuration for spectral vibration analysis.
+    """Configuration for spectral vibration analysis.
 
     Attributes:
         analysis_mode: Primary analysis mode
@@ -157,8 +139,7 @@ class SpectralVibrationConfig:
 
 @dataclass
 class SpectralFeatures:
-    """
-    Extracted spectral features from analysis.
+    """Extracted spectral features from analysis.
 
     Attributes:
         power_spectrum: Power spectral density
@@ -193,8 +174,7 @@ class SpectralFeatures:
 
 @dataclass
 class VibrationDiagnostic:
-    """
-    Diagnostic result for vibration analysis.
+    """Diagnostic result for vibration analysis.
 
     Attributes:
         signature_type: Detected vibration signature type
@@ -221,8 +201,7 @@ class VibrationDiagnostic:
 
 
 class SpectralGraphLayer(nn.Module):
-    """
-    Graph Neural Network layer for spectral analysis.
+    """Graph Neural Network layer for spectral analysis.
 
     Implements message passing on a frequency-domain graph where nodes
     represent frequency bins and edges represent harmonic/coupling relationships.
@@ -239,8 +218,7 @@ class SpectralGraphLayer(nn.Module):
         out_features: int,
         num_edge_types: int = 4,
     ) -> None:
-        """
-        Initialize spectral graph layer.
+        """Initialize spectral graph layer.
 
         Args:
             in_features: Input feature dimension
@@ -277,8 +255,7 @@ class SpectralGraphLayer(nn.Module):
         edge_index: torch.Tensor,
         edge_type: torch.Tensor,
     ) -> torch.Tensor:
-        """
-        Forward pass through spectral graph layer.
+        """Forward pass through spectral graph layer.
 
         Args:
             node_features: Node features [num_nodes, in_features]
@@ -324,8 +301,7 @@ class SpectralGraphLayer(nn.Module):
 
 
 class SpectralGNN(nn.Module):
-    """
-    Complete Graph Neural Network for spectral analysis.
+    """Complete Graph Neural Network for spectral analysis.
 
     Processes frequency-domain data as a graph where:
     - Nodes represent frequency bins with their magnitudes
@@ -341,8 +317,7 @@ class SpectralGNN(nn.Module):
         num_layers: int = 3,
         num_edge_types: int = 4,
     ) -> None:
-        """
-        Initialize spectral GNN.
+        """Initialize spectral GNN.
 
         Args:
             input_dim: Input feature dimension per node
@@ -383,8 +358,7 @@ class SpectralGNN(nn.Module):
         edge_index: torch.Tensor,
         edge_type: torch.Tensor,
     ) -> torch.Tensor:
-        """
-        Forward pass through spectral GNN.
+        """Forward pass through spectral GNN.
 
         Args:
             node_features: Node features [num_nodes, input_dim]
@@ -409,8 +383,7 @@ class SpectralGNN(nn.Module):
 
 
 class SpectralCNN(nn.Module):
-    """
-    Convolutional Neural Network for spectral pattern recognition.
+    """Convolutional Neural Network for spectral pattern recognition.
 
     Processes 2D spectrograms or 1D spectra to extract discriminative features for anomaly
     detection. Inspired by spectrogram-based methods in speech recognition and seismology.
@@ -423,8 +396,7 @@ class SpectralCNN(nn.Module):
         output_dim: int = 32,
         kernel_sizes: tuple[int, ...] = (3, 5, 7),
     ) -> None:
-        """
-        Initialize spectral CNN.
+        """Initialize spectral CNN.
 
         Args:
             input_channels: Number of input channels (1 for magnitude, 2 for complex)
@@ -473,8 +445,7 @@ class SpectralCNN(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Forward pass through spectral CNN.
+        """Forward pass through spectral CNN.
 
         Args:
             x: Input spectrum [batch, channels, length] or [channels, length]
@@ -508,8 +479,7 @@ class SpectralCNN(nn.Module):
 
 
 class PhononInteractionNetwork(nn.Module):
-    """
-    Neural network modeling phonon-like interactions between frequency modes.
+    """Neural network modeling phonon-like interactions between frequency modes.
 
     Inspired by phonon physics where:
     - Phonons are quantized vibrational modes
@@ -526,8 +496,7 @@ class PhononInteractionNetwork(nn.Module):
         hidden_dim: int = 32,
         interaction_order: int = 3,
     ) -> None:
-        """
-        Initialize phonon interaction network.
+        """Initialize phonon interaction network.
 
         Args:
             num_modes: Number of frequency modes to model
@@ -573,8 +542,7 @@ class PhononInteractionNetwork(nn.Module):
         mode_amplitudes: torch.Tensor,
         mode_indices: torch.Tensor | None = None,
     ) -> dict[str, torch.Tensor]:
-        """
-        Compute phonon interactions.
+        """Compute phonon interactions.
 
         Args:
             mode_amplitudes: Amplitude of each mode [num_modes]
@@ -640,8 +608,7 @@ class PhononInteractionNetwork(nn.Module):
 
 
 class MLIPVibrationEncoder(nn.Module):
-    """
-    Machine Learning Interatomic Potential inspired vibrational encoder.
+    """Machine Learning Interatomic Potential inspired vibrational encoder.
 
     Inspired by MLIPs that predict atomic forces and energies:
     - Encodes local "atomic" (frequency bin) environments
@@ -659,8 +626,7 @@ class MLIPVibrationEncoder(nn.Module):
         output_dim: int = 32,
         num_radial_basis: int = 16,
     ) -> None:
-        """
-        Initialize MLIP-style vibration encoder.
+        """Initialize MLIP-style vibration encoder.
 
         Args:
             num_freq_bins: Number of frequency bins in spectrum
@@ -704,8 +670,7 @@ class MLIPVibrationEncoder(nn.Module):
         )
 
     def _compute_radial_basis(self, distances: torch.Tensor) -> torch.Tensor:
-        """
-        Compute radial basis function expansion.
+        """Compute radial basis function expansion.
 
         Args:
             distances: Distances [num_pairs]
@@ -719,8 +684,7 @@ class MLIPVibrationEncoder(nn.Module):
         )
 
     def forward(self, spectrum: torch.Tensor, k_neighbors: int = 8) -> torch.Tensor:
-        """
-        Encode spectrum using MLIP-style local descriptors.
+        """Encode spectrum using MLIP-style local descriptors.
 
         Args:
             spectrum: Power spectrum [num_freq_bins] or [batch, num_freq_bins]
@@ -834,8 +798,7 @@ class SpectralVibrationDetector(BaseDetector):
     """
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
-        """
-        Initialize spectral vibration detector.
+        """Initialize spectral vibration detector.
 
         Args:
             config: Configuration dictionary. Supports keys from SpectralVibrationConfig.
@@ -922,8 +885,7 @@ class SpectralVibrationDetector(BaseDetector):
         data: np.ndarray[Any, Any] | torch.Tensor,
         signature_type: VibrationSignatureType = VibrationSignatureType.NORMAL,
     ) -> SpectralVibrationDetector:
-        """
-        Fit detector on reference/training data.
+        """Fit detector on reference/training data.
 
         Args:
             data: Time-domain signal array [num_samples] or [batch, num_samples]
@@ -979,8 +941,7 @@ class SpectralVibrationDetector(BaseDetector):
         return self
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
-        """
-        Detect anomalies in spectral vibration data.
+        """Detect anomalies in spectral vibration data.
 
         Args:
             data: Time-domain signal array [num_samples] or [batch, num_samples]
@@ -1056,8 +1017,7 @@ class SpectralVibrationDetector(BaseDetector):
         }
 
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
-        """
-        Extract features for ML fusion.
+        """Extract features for ML fusion.
 
         Args:
             data: Time-domain signal array
@@ -1122,8 +1082,7 @@ class SpectralVibrationDetector(BaseDetector):
         return torch.tensor(np.array(all_features), dtype=torch.float32)
 
     def _compute_power_spectrum(self, signal: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Compute power spectral density.
+        """Compute power spectral density.
 
         Args:
             signal: Time-domain signal
@@ -1157,8 +1116,7 @@ class SpectralVibrationDetector(BaseDetector):
         return spectrum
 
     def _extract_spectral_features(self, signal: np.ndarray[Any, Any]) -> SpectralFeatures:
-        """
-        Extract comprehensive spectral features.
+        """Extract comprehensive spectral features.
 
         Args:
             signal: Time-domain signal
@@ -1240,8 +1198,7 @@ class SpectralVibrationDetector(BaseDetector):
         self,
         dominant_frequencies: list[tuple[float, float]],
     ) -> np.ndarray[Any, Any]:
-        """
-        Compute ratios between harmonic components.
+        """Compute ratios between harmonic components.
 
         Args:
             dominant_frequencies: List of (frequency, amplitude) tuples
@@ -1268,8 +1225,7 @@ class SpectralVibrationDetector(BaseDetector):
         return np.array(ratios[: self._spectral_config.num_harmonics - 1])
 
     def _compute_phonon_coupling(self, spectrum: np.ndarray[Any, Any]) -> float:
-        """
-        Compute phonon-like coupling strength.
+        """Compute phonon-like coupling strength.
 
         Args:
             spectrum: Power spectrum
@@ -1297,8 +1253,7 @@ class SpectralVibrationDetector(BaseDetector):
     def _compute_graph_laplacian_spectrum(
         self, spectrum: np.ndarray[Any, Any], k: int = 10
     ) -> np.ndarray[Any, Any]:
-        """
-        Compute eigenvalues of frequency graph Laplacian.
+        """Compute eigenvalues of frequency graph Laplacian.
 
         The graph connects frequency bins with weights based on their
         coupling strength and harmonic relationships.
@@ -1366,8 +1321,7 @@ class SpectralVibrationDetector(BaseDetector):
         return eigenvalues
 
     def _compute_cnn_features(self, spectrum: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Extract CNN features from spectrum.
+        """Extract CNN features from spectrum.
 
         Args:
             spectrum: Power spectrum
@@ -1469,8 +1423,7 @@ class SpectralVibrationDetector(BaseDetector):
         spectrum: np.ndarray[Any, Any],
         max_peaks: int = 5,
     ) -> tuple[float, ...]:
-        """
-        Adaptive spectral peak detection for domains without known fundamentals.
+        """Adaptive spectral peak detection for domains without known fundamentals.
 
         Uses scipy's find_peaks for dominant frequency identification.
         This is a simplified alternative to MUSIC/ESPRIT algorithms
@@ -1516,8 +1469,7 @@ class SpectralVibrationDetector(BaseDetector):
             return ()
 
     def _build_spectral_graph(self, num_nodes: int) -> tuple[torch.Tensor, torch.Tensor]:
-        """
-        Build graph structure for spectral analysis.
+        """Build graph structure for spectral analysis.
 
         Args:
             num_nodes: Number of frequency bins
@@ -1568,8 +1520,7 @@ class SpectralVibrationDetector(BaseDetector):
         return edge_index, edge_type
 
     def _features_to_array(self, features: SpectralFeatures) -> np.ndarray[Any, Any]:
-        """
-        Convert SpectralFeatures to flat array.
+        """Convert SpectralFeatures to flat array.
 
         Args:
             features: SpectralFeatures dataclass
@@ -1598,8 +1549,7 @@ class SpectralVibrationDetector(BaseDetector):
         signal: np.ndarray[Any, Any],
         features: SpectralFeatures,
     ) -> tuple[float, VibrationDiagnostic]:
-        """
-        Compute anomaly score and diagnostic.
+        """Compute anomaly score and diagnostic.
 
         Args:
             signal: Time-domain signal
@@ -1660,8 +1610,7 @@ class SpectralVibrationDetector(BaseDetector):
         self,
         features: SpectralFeatures,
     ) -> tuple[VibrationSignatureType, float]:
-        """
-        Classify vibration signature type.
+        """Classify vibration signature type.
 
         Args:
             features: Extracted spectral features
@@ -1734,8 +1683,7 @@ class SpectralVibrationDetector(BaseDetector):
         confidence: float,
         severity_score: float,
     ) -> VibrationDiagnostic:
-        """
-        Create vibration diagnostic report.
+        """Create vibration diagnostic report.
 
         Args:
             features: Spectral features
@@ -1801,8 +1749,7 @@ def compute_short_time_fourier_transform(
     hop_size: int = 64,
     window_type: str = "hann",
 ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-    """
-    Compute Short-Time Fourier Transform (STFT).
+    """Compute Short-Time Fourier Transform (STFT).
 
     Args:
         signal: Input time-domain signal
@@ -1841,8 +1788,7 @@ def compute_wavelet_decomposition(
     signal: np.ndarray[Any, Any],
     levels: int = 5,
 ) -> list[np.ndarray[Any, Any]]:
-    """
-    Compute Haar wavelet decomposition.
+    """Compute Haar wavelet decomposition.
 
     Args:
         signal: Input signal
@@ -1880,8 +1826,7 @@ def detect_peaks_with_harmonics(
     num_harmonics: int = 5,
     min_prominence: float = 0.1,
 ) -> list[dict[str, Any]]:
-    """
-    Detect peaks and their harmonic structure.
+    """Detect peaks and their harmonic structure.
 
     Args:
         spectrum: Power spectrum

@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Tornado Detector - Multi-Modal Severe Weather Monitoring
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Tornado Detector - Multi-Modal Severe Weather Monitoring.
 
 Comprehensive tornado detection for humanitarian early warning:
 - Doppler radar pattern analysis (mesocyclone detection)
@@ -45,6 +27,8 @@ weather services (NWS, SPC). Always defer to official tornado warnings.
 
 Performance: Enhanced detection via FFT resonance + recursive feature extraction
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -116,13 +100,13 @@ class TornadoPredictionResult:
 
 
 class DopplerRadarAnalyzer(nn.Module):
-    """
-    Doppler radar velocity pattern analyzer for mesocyclone detection.
+    """Doppler radar velocity pattern analyzer for mesocyclone detection.
 
     Uses LSTM + attention to identify rotation signatures in radar data.
     """
 
     def __init__(self, input_dim: int = 64, hidden_dim: int = 128) -> None:
+        """Initialize the instance."""
         super().__init__()
 
         self.lstm = nn.LSTM(
@@ -160,8 +144,7 @@ class DopplerRadarAnalyzer(nn.Module):
     def forward(
         self, radar_sequence: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """
-        Analyze Doppler radar data for mesocyclone signatures.
+        """Analyze Doppler radar data for mesocyclone signatures.
 
         Args:
             radar_sequence: Time series of radar velocity data (batch, seq_len, features)
@@ -183,13 +166,13 @@ class DopplerRadarAnalyzer(nn.Module):
 
 
 class AtmosphericInstabilityAnalyzer:
-    """
-    Atmospheric instability analysis for tornado potential.
+    """Atmospheric instability analysis for tornado potential.
 
     Monitors CAPE, helicity, wind shear, and other severe weather parameters.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
         self.cape_threshold = 1500.0  # J/kg for significant instability
@@ -197,8 +180,7 @@ class AtmosphericInstabilityAnalyzer:
         self.shear_threshold = 40.0  # knots for significant shear
 
     def analyze_instability(self, atmospheric_data: dict[str, Any]) -> dict[str, Any]:
-        """
-        Analyze atmospheric instability parameters.
+        """Analyze atmospheric instability parameters.
 
         Args:
             atmospheric_data: Atmospheric sounding and surface data
@@ -243,8 +225,7 @@ class AtmosphericInstabilityAnalyzer:
         }
 
     def _compute_stp(self, cape: float, helicity: float, shear: float, lcl: float) -> float:
-        """
-        Compute Significant Tornado Parameter (STP).
+        """Compute Significant Tornado Parameter (STP).
 
         STP = (CAPE/1500) * (SRH/150) * (Shear/40) * ((2000-LCL)/1000)
         """
@@ -259,19 +240,18 @@ class AtmosphericInstabilityAnalyzer:
 
 
 class PressureGradientMonitor:
-    """
-    Atmospheric pressure gradient monitoring for tornado precursors.
+    """Atmospheric pressure gradient monitoring for tornado precursors.
 
     Detects rapid pressure drops associated with mesocyclone development.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
         self.rapid_drop_threshold = 4.0  # mb in 15 minutes
 
     def analyze_pressure(self, pressure_data: dict[str, Any]) -> dict[str, Any]:
-        """
-        Analyze pressure gradients for tornado signatures.
+        """Analyze pressure gradients for tornado signatures.
 
         Args:
             pressure_data: Time series of pressure measurements
@@ -313,20 +293,19 @@ class PressureGradientMonitor:
 
 
 class ResonancePatternAnalyzer:
-    """
-    FFT-based resonance pattern analyzer for tornado signatures.
+    """FFT-based resonance pattern analyzer for tornado signatures.
 
     Implements the Resonance Engine component of 3R for detecting characteristic frequency patterns
     in atmospheric data.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
         self.tornado_frequencies = [0.1, 0.5, 1.0, 2.0]  # Hz characteristic frequencies
 
     def analyze_resonance(self, signal: np.ndarray[Any, Any]) -> dict[str, Any]:
-        """
-        Analyze signal for tornado-characteristic resonance patterns.
+        """Analyze signal for tornado-characteristic resonance patterns.
 
         Args:
             signal: Input signal array (radar, pressure, etc.)
@@ -377,22 +356,21 @@ class ResonancePatternAnalyzer:
 
 
 class RecursiveFeatureExtractor:
-    """
-    Recursive feature extraction for multi-scale tornado pattern detection.
+    """Recursive feature extraction for multi-scale tornado pattern detection.
 
     Implements the Recursion Engine component of 3R for hierarchical pattern analysis at
     progressively finer scales.
     """
 
     def __init__(self, max_depth: int = 4, decay_factor: float = 0.8) -> None:
+        """Initialize the instance."""
         self.max_depth = max_depth
         self.decay_factor = decay_factor
 
     def extract_recursive_features(
         self, data: np.ndarray[Any, Any], depth: int = 0
     ) -> tuple[np.ndarray[Any, Any], int]:
-        """
-        Recursively extract features at multiple scales.
+        """Recursively extract features at multiple scales.
 
         Args:
             data: Input data array
@@ -433,8 +411,7 @@ class RecursiveFeatureExtractor:
 
 
 class TornadoDetector:
-    """
-    Comprehensive tornado detection system.
+    """Comprehensive tornado detection system.
 
     Integrates Doppler radar analysis, atmospheric instability monitoring,
     pressure gradient detection, and 3R mechanism (Resonance-Recursion-Refactoring)
@@ -456,6 +433,7 @@ class TornadoDetector:
         enable_refactoring: bool = True,
         rng: DeterministicRNG | None = None,
     ):
+        """Initialize the instance."""
         self.enable_radar = enable_radar
         self.enable_atmospheric = enable_atmospheric
         self.enable_pressure = enable_pressure
@@ -492,8 +470,7 @@ class TornadoDetector:
         ]
 
     def predict_tornado(self, weather_data: dict[str, Any]) -> TornadoPredictionResult:
-        """
-        Comprehensive tornado prediction.
+        """Comprehensive tornado prediction.
 
         Args:
             weather_data: Multi-parameter weather monitoring data including:

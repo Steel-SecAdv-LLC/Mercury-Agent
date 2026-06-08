@@ -1,25 +1,5 @@
-"""
-DEPRECATED: This module uses sklearn (LOF, DBSCAN, MinCovDet, NearestNeighbors) for anomaly
-
-detection. Mercury's production detector is MercuryAnomalyDetector in detectors/statistical.py. This
-module is retained for reference only and will be removed in a future release.
-
-Do not import this module in production or benchmark code paths.
-
-Original: Enhanced Statistical Anomaly Detection Module.
-Copyright (C) 2025 Steel Security Advisors LLC
-License: GPL-3.0-or-later
-
-Enhanced statistical methods for robust anomaly detection including:
-- Median Absolute Deviation (MAD) - robust to outliers
-- Local Outlier Factor (LOF) - density-based detection
-- DBSCAN Clustering - cluster-based anomaly identification
-- Minimum Covariance Determinant (MCD) - robust covariance
-- Grubbs' Test - statistical outlier test
-- CUSUM (Cumulative Sum) - sequential change detection
-- GESD (Generalized ESD) - multiple outlier detection
-- Dynamic Threshold Adaptation - adaptive thresholding
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""DEPRECATED: This module uses sklearn (LOF, DBSCAN, MinCovDet, NearestNeighbors) for anomaly."""
 
 from __future__ import annotations
 
@@ -85,8 +65,7 @@ class AnomalyResult:
 
 
 class MADDetector:
-    """
-    Median Absolute Deviation (MAD) based anomaly detector.
+    """Median Absolute Deviation (MAD) based anomaly detector.
 
     MAD is more robust to outliers than standard deviation:
     MAD = median(|X_i - median(X)|)
@@ -104,8 +83,7 @@ class MADDetector:
         *,
         threshold: float | None = None,
     ):
-        """
-        Initialize MAD detector.
+        """Initialize MAD detector.
 
         Args:
             threshold_multiplier: Number of MADs for threshold (default: 3.5)
@@ -187,8 +165,7 @@ class MADDetector:
 
 
 class LOFDetector:
-    """
-    Local Outlier Factor (LOF) detector.
+    """Local Outlier Factor (LOF) detector.
 
     LOF measures local density deviation compared to neighbors.
     Points with significantly lower density are anomalies.
@@ -206,8 +183,7 @@ class LOFDetector:
         metric: str = "minkowski",
         p: int = 2,
     ):
-        """
-        Initialize LOF detector.
+        """Initialize LOF detector.
 
         Args:
             n_neighbors: Number of neighbors for LOF calculation
@@ -309,8 +285,7 @@ class LOFDetector:
 
 
 class DBSCANDetector:
-    """
-    DBSCAN-based anomaly detector.
+    """DBSCAN-based anomaly detector.
 
     Points not belonging to any cluster are labeled as anomalies.
 
@@ -327,8 +302,7 @@ class DBSCANDetector:
         metric: str = "euclidean",
         auto_eps: bool = True,
     ):
-        """
-        Initialize DBSCAN detector.
+        """Initialize DBSCAN detector.
 
         Args:
             eps: Maximum distance between points in a cluster
@@ -434,8 +408,7 @@ class DBSCANDetector:
 
 
 class MCDDetector:
-    """
-    Minimum Covariance Determinant (MCD) based detector.
+    """Minimum Covariance Determinant (MCD) based detector.
 
     Uses robust covariance estimation for Mahalanobis distance.
 
@@ -451,8 +424,7 @@ class MCDDetector:
         contamination: float = 0.1,
         random_state: int = 42,
     ):
-        """
-        Initialize MCD detector.
+        """Initialize MCD detector.
 
         Args:
             support_fraction: Proportion of data for robust estimation
@@ -467,8 +439,7 @@ class MCDDetector:
         self._fitted = False
 
     def fit(self, X: NDArray[np.float64]) -> MCDDetector:
-        """
-        Fit the MCD detector using Mercury-native robust covariance estimation.
+        """Fit the MCD detector using Mercury-native robust covariance estimation.
 
         Uses an iterative concentration step approach (FastMCD algorithm): repeatedly select the
         subset with smallest covariance determinant.
@@ -580,8 +551,7 @@ class MCDDetector:
 
 
 class GrubbsTest:
-    """
-    Grubbs' Test for detecting outliers.
+    """Grubbs' Test for detecting outliers.
 
     Statistical test for identifying single outliers in univariate data.
     Assumes normally distributed data.
@@ -597,8 +567,7 @@ class GrubbsTest:
         alpha: float = 0.05,
         max_outliers: int | None = None,
     ):
-        """
-        Initialize Grubbs' test.
+        """Initialize Grubbs' test.
 
         Args:
             alpha: Significance level
@@ -608,8 +577,7 @@ class GrubbsTest:
         self.max_outliers = max_outliers
 
     def detect(self, X: NDArray[np.float64]) -> AnomalyResult:
-        """
-        Detect outliers using Grubbs' test.
+        """Detect outliers using Grubbs' test.
 
         For multivariate data, applies test to each feature independently.
         """
@@ -677,8 +645,7 @@ class GrubbsTest:
 
 
 class CUSUMDetector:
-    """
-    Cumulative Sum (CUSUM) control chart for sequential anomaly detection.
+    """Cumulative Sum (CUSUM) control chart for sequential anomaly detection.
 
     Detects shifts in the mean of a process over time.
 
@@ -696,8 +663,7 @@ class CUSUMDetector:
         slack_k: float = 0.5,
         two_sided: bool = True,
     ):
-        """
-        Initialize CUSUM detector.
+        """Initialize CUSUM detector.
 
         Args:
             target_mean: Target process mean (estimated if None)
@@ -790,8 +756,7 @@ class CUSUMDetector:
 
 
 class GESDTest:
-    """
-    Generalized Extreme Studentized Deviate (GESD) test.
+    """Generalized Extreme Studentized Deviate (GESD) test.
 
     Detects up to k outliers in univariate data.
     More powerful than repeated Grubbs' test.
@@ -807,8 +772,7 @@ class GESDTest:
         max_outliers: int = 10,
         alpha: float = 0.05,
     ):
-        """
-        Initialize GESD test.
+        """Initialize GESD test.
 
         Args:
             max_outliers: Maximum number of outliers to detect
@@ -905,8 +869,7 @@ class GESDTest:
 
 
 class DynamicThresholdAdapter:
-    """
-    Dynamic threshold adaptation for streaming anomaly detection.
+    """Dynamic threshold adaptation for streaming anomaly detection.
 
     Automatically adjusts threshold based on:
     - Exponential moving average of scores
@@ -923,8 +886,7 @@ class DynamicThresholdAdapter:
         target_anomaly_rate: float = 0.05,
         ema_alpha: float = 0.1,
     ):
-        """
-        Initialize dynamic threshold adapter.
+        """Initialize dynamic threshold adapter.
 
         Args:
             initial_threshold: Starting threshold value
@@ -948,8 +910,7 @@ class DynamicThresholdAdapter:
         )
 
     def update(self, score: float, is_true_positive: bool | None = None) -> float:
-        """
-        Update threshold based on new score.
+        """Update threshold based on new score.
 
         Args:
             score: New anomaly score
@@ -1018,8 +979,7 @@ class DynamicThresholdAdapter:
 
 
 class EnhancedStatisticalDetector(BaseDetector):
-    """
-    Unified enhanced statistical anomaly detector.
+    """Unified enhanced statistical anomaly detector.
 
     Combines multiple statistical methods with configurable ensemble.
     Supports:
@@ -1036,8 +996,7 @@ class EnhancedStatisticalDetector(BaseDetector):
         ensemble_strategy: str = "weighted_average",
         use_dynamic_threshold: bool = True,
     ):
-        """
-        Initialize enhanced statistical detector.
+        """Initialize enhanced statistical detector.
 
         Args:
             config: Configuration dictionary

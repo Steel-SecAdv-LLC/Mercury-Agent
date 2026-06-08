@@ -1,21 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-Contrastive Learning Detector for Anomaly Detection
-
-Implements SimCLR-style contrastive learning adapted for anomaly detection:
-1. Time-series augmentation strategies
-2. NT-Xent (Normalized Temperature-Scaled Cross Entropy) loss
-3. Hard negative mining for anomaly-specific learning
-4. Representation-based anomaly scoring
-
-Key Insight: Normal samples form tight clusters in representation space;
-anomalies are distant from these clusters.
-
-Reference:
-- Chen et al. (2020) - A Simple Framework for Contrastive Learning
-- Shenkar & Wolf (2022) - Anomaly Detection for Tabular Data with IC
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Contrastive Learning Detector for Anomaly Detection."""
 
 from __future__ import annotations
 
@@ -29,7 +13,6 @@ from torch import nn
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
-
 
 __all__ = [
     "ContrastiveConfig",
@@ -72,8 +55,7 @@ class ContrastiveConfig:
 
 
 class TimeSeriesAugmenter:
-    """
-    Augmentation strategies for time-series data.
+    """Augmentation strategies for time-series data.
 
     Generates diverse views of the same sample while preserving essential characteristics for
     contrastive learning.
@@ -168,8 +150,7 @@ class TimeSeriesAugmenter:
 
 
 class ContrastiveEncoder(nn.Module):
-    """
-    Encoder network for contrastive learning.
+    """Encoder network for contrastive learning.
 
     Architecture: MLP with residual connections.
     """
@@ -181,6 +162,7 @@ class ContrastiveEncoder(nn.Module):
         n_layers: int = 3,
         dropout: float = 0.1,
     ) -> None:
+        """Initialize the instance."""
         super().__init__()
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
@@ -215,8 +197,7 @@ class ContrastiveEncoder(nn.Module):
 
 
 class ProjectionHead(nn.Module):
-    """
-    Projection head for contrastive learning.
+    """Projection head for contrastive learning.
 
     Maps representations to a lower-dimensional space where contrastive loss is computed.
     """
@@ -226,6 +207,7 @@ class ProjectionHead(nn.Module):
         hidden_dim: int,
         projection_dim: int = 128,
     ) -> None:
+        """Initialize the instance."""
         super().__init__()
         self.net = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim),
@@ -239,13 +221,13 @@ class ProjectionHead(nn.Module):
 
 
 class ContrastiveModel(nn.Module):
-    """
-    Full contrastive learning model.
+    """Full contrastive learning model.
 
     Combines encoder and projection head with NT-Xent loss.
     """
 
     def __init__(self, config: ContrastiveConfig) -> None:
+        """Initialize the instance."""
         super().__init__()
         self.config = config
 
@@ -268,8 +250,7 @@ class ContrastiveModel(nn.Module):
         )
 
     def forward(self, x: torch.Tensor, return_projection: bool = True) -> dict[str, torch.Tensor]:
-        """
-        Forward pass.
+        """Forward pass.
 
         Args:
             x: Input [batch, input_dim]
@@ -291,8 +272,7 @@ class ContrastiveModel(nn.Module):
         return result
 
     def compute_loss(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
-        """
-        Compute contrastive loss with augmented views.
+        """Compute contrastive loss with augmented views.
 
         Uses NT-Xent (Normalized Temperature-Scaled Cross Entropy) loss.
         """
@@ -343,8 +323,7 @@ class ContrastiveModel(nn.Module):
 
 
 class ContrastiveLearningDetector:
-    """
-    Contrastive Learning Detector for Anomaly Detection.
+    """Contrastive Learning Detector for Anomaly Detection.
 
     Uses learned representations to detect anomalies based on
     distance to normal cluster centroids.
@@ -369,6 +348,7 @@ class ContrastiveLearningDetector:
         seed: int | None = None,
         **kwargs: Any,
     ) -> None:
+        """Initialize the instance."""
         self.config = ContrastiveConfig(
             input_dim=input_dim,
             hidden_dim=hidden_dim,
@@ -397,8 +377,7 @@ class ContrastiveLearningDetector:
         y: NDArray[np.float64] | None = None,
         validation_split: float = 0.1,
     ) -> ContrastiveLearningDetector:
-        """
-        Fit the detector using contrastive learning.
+        """Fit the detector using contrastive learning.
 
         Args:
             X: Training data [n_samples, n_features]
@@ -530,8 +509,7 @@ class ContrastiveLearningDetector:
         return scores
 
     def predict(self, X: NDArray[np.float64]) -> NDArray[np.float64]:
-        """
-        Predict anomaly scores.
+        """Predict anomaly scores.
 
         Args:
             X: Test data
@@ -567,8 +545,7 @@ class ContrastiveLearningDetector:
         X: NDArray[np.float64],
         threshold: float | None = None,
     ) -> dict[str, Any]:
-        """
-        Perform anomaly detection.
+        """Perform anomaly detection.
 
         Args:
             X: Test data

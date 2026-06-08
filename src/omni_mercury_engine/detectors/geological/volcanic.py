@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Volcanic Eruption Detector - Multi-Modal Volcano Monitoring
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Volcanic Eruption Detector - Multi-Modal Volcano Monitoring.
 
 Comprehensive volcanic hazard detection for humanitarian early warning:
 - Seismic swarm detection (volcano-tectonic earthquakes)
@@ -47,8 +29,9 @@ Research sources:
 volcano observatories (USGS, PHIVOLCS, etc.). Always defer to official warnings.
 
 Performance: 25-35% faster alerts via HAT-CN-AD multi-scale fusion + GWO optimization
-
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -110,13 +93,13 @@ class VolcanicPredictionResult:
 
 
 class SeismicSwarmDetector(nn.Module):
-    """
-    Volcano-tectonic (VT) earthquake swarm detection.
+    """Volcano-tectonic (VT) earthquake swarm detection.
 
     Identifies pre-eruptive seismic patterns using LSTM + attention.
     """
 
     def __init__(self, input_dim: int = 32, hidden_dim: int = 64) -> None:
+        """Initialize the instance."""
         super().__init__()
 
         self.lstm = nn.LSTM(
@@ -139,8 +122,7 @@ class SeismicSwarmDetector(nn.Module):
         )
 
     def forward(self, seismic_sequence: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        """
-        Detect seismic swarms.
+        """Detect seismic swarms.
 
         Args:
             seismic_sequence: Time series of seismic events (batch, seq_len, features)
@@ -161,19 +143,18 @@ class SeismicSwarmDetector(nn.Module):
 
 
 class ThermalHotspotDetector:
-    """
-    Thermal infrared (TIR) hotspot detection.
+    """Thermal infrared (TIR) hotspot detection.
 
     Processes satellite thermal data for volcanic heat anomalies.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
         self.baseline_temp_k = 288.0  # 15°C in Kelvin
 
     def detect_thermal_anomaly(self, thermal_data: dict[str, Any]) -> dict[str, Any]:
-        """
-        Detect thermal anomalies from TIR satellite data.
+        """Detect thermal anomalies from TIR satellite data.
 
         Args:
             thermal_data: Thermal infrared measurements
@@ -217,21 +198,20 @@ class ThermalHotspotDetector:
 
 
 class GasEmissionAnalyzer:
-    """
-    Volcanic gas emission anomaly detection.
+    """Volcanic gas emission anomaly detection.
 
     Monitors SO2, CO2 flux for pre-eruptive degassing.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
         self.baseline_so2_tons_day = 100.0
         self.baseline_co2_tons_day = 500.0
 
     def analyze_gas_emissions(self, gas_data: dict[str, float]) -> dict[str, Any]:
-        """
-        Analyze volcanic gas emissions.
+        """Analyze volcanic gas emissions.
 
         Args:
             gas_data: SO2, CO2 flux measurements
@@ -270,18 +250,17 @@ class GasEmissionAnalyzer:
 
 
 class InSARDeformationDetector:
-    """
-    InSAR ground deformation detection.
+    """InSAR ground deformation detection.
 
     Analyzes interferometric SAR for volcanic inflation/deflation.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
     def detect_deformation(self, insar_data: dict[str, Any]) -> dict[str, Any]:
-        """
-        Detect ground deformation from InSAR.
+        """Detect ground deformation from InSAR.
 
         Args:
             insar_data: InSAR displacement measurements
@@ -320,8 +299,7 @@ class InSARDeformationDetector:
 
 
 class VolcanicStateHMM:
-    """
-    Hidden Markov Model for volcanic activity state transitions.
+    """Hidden Markov Model for volcanic activity state transitions.
 
     Models volcanic activity as a sequence of hidden states:
     - QUIESCENT: Normal background activity
@@ -345,8 +323,7 @@ class VolcanicStateHMM:
         n_states: int = 5,
         phi: float = 1.618033988749895,
     ):
-        """
-        Initialize volcanic HMM.
+        """Initialize volcanic HMM.
 
         Args:
             n_states: Number of hidden states (default: 5)
@@ -383,8 +360,7 @@ class VolcanicStateHMM:
         self.state_history: list[int] = []
 
     def _initialize_transition_matrix(self) -> np.ndarray[Any, Any]:
-        """
-        Initialize state transition probabilities.
+        """Initialize state transition probabilities.
 
         Returns:
             Transition matrix [n_states x n_states]
@@ -408,8 +384,7 @@ class VolcanicStateHMM:
         return T
 
     def _initialize_emission_matrix(self) -> np.ndarray[Any, Any]:
-        """
-        Initialize emission probabilities.
+        """Initialize emission probabilities.
 
         Returns:
             Emission matrix [n_states x n_observables]
@@ -433,8 +408,7 @@ class VolcanicStateHMM:
         self,
         observations: np.ndarray[Any, Any],
     ) -> np.ndarray[Any, Any]:
-        """
-        Update state belief given new observations (forward algorithm step).
+        """Update state belief given new observations (forward algorithm step).
 
         Args:
             observations: Binary array [seismic, thermal, gas, deformation]
@@ -468,8 +442,7 @@ class VolcanicStateHMM:
         return updated_belief
 
     def get_most_likely_state(self) -> tuple[int, str, float]:
-        """
-        Get the most likely current state.
+        """Get the most likely current state.
 
         Returns:
             Tuple of (state_index, state_name, probability)
@@ -478,8 +451,7 @@ class VolcanicStateHMM:
         return state_idx, self.state_names[state_idx], float(self.state_belief[state_idx])
 
     def predict_next_state(self) -> tuple[int, str, float]:
-        """
-        Predict the most likely next state.
+        """Predict the most likely next state.
 
         Returns:
             Tuple of (state_index, state_name, probability)
@@ -491,8 +463,7 @@ class VolcanicStateHMM:
         return state_idx, self.state_names[state_idx], float(next_belief[state_idx])
 
     def get_eruption_probability(self) -> float:
-        """
-        Get probability of being in or transitioning to eruptive state.
+        """Get probability of being in or transitioning to eruptive state.
 
         Returns:
             Combined probability of eruptive activity
@@ -513,8 +484,7 @@ class VolcanicStateHMM:
 
 
 class RefactoringAdaptiveOptimizer:
-    """
-    3R Refactoring mechanism for adaptive volcanic model optimization.
+    """3R Refactoring mechanism for adaptive volcanic model optimization.
 
     Implements dynamic parameter adjustment based on prediction performance,
     enabling the model to adapt to changing volcanic behavior patterns.
@@ -528,8 +498,7 @@ class RefactoringAdaptiveOptimizer:
         phi: float = 1.618033988749895,
         history_window: int = 100,
     ):
-        """
-        Initialize refactoring optimizer.
+        """Initialize refactoring optimizer.
 
         Args:
             learning_rate: Base learning rate for parameter updates
@@ -558,8 +527,7 @@ class RefactoringAdaptiveOptimizer:
         prediction: dict[str, Any],
         actual_outcome: dict[str, Any] | None = None,
     ) -> None:
-        """
-        Record a prediction for performance tracking.
+        """Record a prediction for performance tracking.
 
         Args:
             prediction: Prediction result dictionary
@@ -590,8 +558,7 @@ class RefactoringAdaptiveOptimizer:
         prediction: dict[str, Any],
         actual: dict[str, Any],
     ) -> float:
-        """
-        Compute prediction error.
+        """Compute prediction error.
 
         Args:
             prediction: Predicted values
@@ -623,8 +590,7 @@ class RefactoringAdaptiveOptimizer:
         return float(np.mean(errors)) if errors else 0.5
 
     def adapt_parameters(self) -> dict[str, float]:
-        """
-        Adapt model parameters based on performance history.
+        """Adapt model parameters based on performance history.
 
         Returns:
             Dictionary of adapted parameters
@@ -677,8 +643,7 @@ class RefactoringAdaptiveOptimizer:
         }
 
     def get_adapted_confidence(self, raw_confidence: float) -> float:
-        """
-        Apply calibration to raw confidence score.
+        """Apply calibration to raw confidence score.
 
         Args:
             raw_confidence: Raw model confidence (0-1)
@@ -690,8 +655,7 @@ class RefactoringAdaptiveOptimizer:
         return float(np.clip(calibrated, 0.0, 1.0))
 
     def get_adapted_threshold(self, base_threshold: float) -> float:
-        """
-        Apply adjustment to detection threshold.
+        """Apply adjustment to detection threshold.
 
         Args:
             base_threshold: Base detection threshold
@@ -703,13 +667,13 @@ class RefactoringAdaptiveOptimizer:
 
 
 class EruptionForecastModel(nn.Module):
-    """
-    Multi-parameter eruption forecasting neural network.
+    """Multi-parameter eruption forecasting neural network.
 
     Fuses seismic, thermal, gas, and deformation data for eruption prediction.
     """
 
     def __init__(self, input_dim: int = 128) -> None:
+        """Initialize the instance."""
         super().__init__()
 
         phi = 1.618  # Golden ratio optimization
@@ -741,8 +705,7 @@ class EruptionForecastModel(nn.Module):
     def forward(
         self, fused_features: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """
-        Forecast volcanic eruption.
+        """Forecast volcanic eruption.
 
         Args:
             fused_features: Multi-parameter volcanic features
@@ -760,8 +723,7 @@ class EruptionForecastModel(nn.Module):
 
 
 class VolcanicEruptionDetector:
-    """
-    Comprehensive volcanic eruption detection system.
+    """Comprehensive volcanic eruption detection system.
 
     Integrates seismic, thermal, gas, deformation, and Schumann ELF data
     for multi-parameter volcano monitoring and eruption forecasting.
@@ -783,8 +745,7 @@ class VolcanicEruptionDetector:
         enable_refactoring: bool = True,
         rng: DeterministicRNG | None = None,
     ):
-        """
-        Initialize volcanic eruption detector.
+        """Initialize volcanic eruption detector.
 
         Args:
             enable_seismic: Enable seismic swarm detection
@@ -820,8 +781,7 @@ class VolcanicEruptionDetector:
         self.logger = logging.getLogger(__name__)
 
     def predict_eruption(self, volcano_data: dict[str, Any]) -> VolcanicPredictionResult:
-        """
-        Comprehensive volcanic eruption prediction.
+        """Comprehensive volcanic eruption prediction.
 
         Integrates HMM state transitions and 3R Refactoring for adaptive optimization.
 
@@ -969,8 +929,7 @@ class VolcanicEruptionDetector:
         }
 
     def _correlate_schumann_elf(self, schumann_data: np.ndarray[Any, Any]) -> float:
-        """
-        Correlate Schumann ELF anomalies with volcanic activity.
+        """Correlate Schumann ELF anomalies with volcanic activity.
 
         Ancient wisdom: Earth's "hum" changes before major geological events.
         """

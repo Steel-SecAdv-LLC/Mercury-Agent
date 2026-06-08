@@ -1,5 +1,5 @@
-"""
-Distributed Processing Cluster for Mercury Agent.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Distributed Processing Cluster for Mercury Agent.
 
 Provides multi-node anomaly detection with automatic workload distribution, fault tolerance, and
 horizontal scaling capabilities.
@@ -24,7 +24,6 @@ from omni_mercury_engine.distributed.raft_consensus import (
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-
 
 logger = logging.getLogger(__name__)
 
@@ -131,8 +130,7 @@ class ClusterHealth:
 
 
 class WorkStealingScheduler:
-    """
-    Work-stealing scheduler for load balancing.
+    """Work-stealing scheduler for load balancing.
 
     Implements a distributed scheduling algorithm where idle workers can "steal" tasks from busy
     workers' queues.
@@ -224,8 +222,7 @@ class WorkStealingScheduler:
 
 
 class DataPartitioner:
-    """
-    Partitions data across cluster nodes.
+    """Partitions data across cluster nodes.
 
     Supports multiple partitioning strategies for different workloads.
     """
@@ -244,8 +241,7 @@ class DataPartitioner:
         data: np.ndarray[Any, Any],
         node_ids: list[str],
     ) -> dict[str, tuple[int, int]]:
-        """
-        Partition data across nodes.
+        """Partition data across nodes.
 
         Returns a dictionary mapping node_id to (start_idx, end_idx).
         """
@@ -301,8 +297,7 @@ class DataPartitioner:
 
 
 class ResultAggregator:
-    """
-    Aggregates results from distributed tasks.
+    """Aggregates results from distributed tasks.
 
     Supports multiple aggregation strategies including weighted fusion.
     """
@@ -376,8 +371,7 @@ class ResultAggregator:
 
 
 class DistributedAnomalyDetector:
-    """
-    Distributed anomaly detection across a Mercury Agent cluster.
+    """Distributed anomaly detection across a Mercury Agent cluster.
 
     Provides horizontal scaling for large-scale anomaly detection workloads.
     """
@@ -461,8 +455,7 @@ class DistributedAnomalyDetector:
         parameters: dict[str, Any] | None = None,
         timeout: float = 30.0,
     ) -> dict[str, Any]:
-        """
-        Run distributed anomaly detection.
+        """Run distributed anomaly detection.
 
         Args:
             data: Input data array
@@ -591,8 +584,7 @@ class DistributedAnomalyDetector:
 
 
 class DistributedMercuryCluster:
-    """
-    High-level interface for distributed Mercury Agent operations.
+    """High-level interface for distributed Mercury Agent operations.
 
     Provides simple API for distributed anomaly detection with automatic load balancing, fault
     tolerance, and result aggregation.
@@ -605,8 +597,7 @@ class DistributedMercuryCluster:
         partition_strategy: str = "hash",
         aggregation: str = "weighted_fusion",
     ) -> None:
-        """
-        Initialize the distributed cluster.
+        """Initialize the distributed cluster.
 
         Args:
             nodes: List of node identifiers
@@ -645,8 +636,7 @@ class DistributedMercuryCluster:
         aggregation: str = "weighted_fusion",
         **kwargs: Any,
     ) -> dict[str, Any]:
-        """
-        Run distributed anomaly detection.
+        """Run distributed anomaly detection.
 
         Args:
             data: Input data array

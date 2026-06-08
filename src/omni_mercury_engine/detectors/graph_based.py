@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Graph-Based Anomaly Detection using NetworkX
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Graph-Based Anomaly Detection using NetworkX.
 
 Detects anomalies in graph-structured data using:
 - Community detection (Louvain algorithm)
@@ -25,8 +7,9 @@ Detects anomalies in graph-structured data using:
 - Cascade failure analysis
 
 ⚠️ SIMULATION-BASED: Uses simulated graph data. Real-world validation required.
-
 """
+
+from __future__ import annotations
 
 from typing import Any
 
@@ -38,8 +21,7 @@ from omni_mercury_engine.core.base import BaseDetector
 
 
 class GraphAnomalyDetector(BaseDetector):
-    """
-    Detect anomalies in graph-structured data.
+    """Detect anomalies in graph-structured data.
 
     Note: This detector uses z-score thresholds (default 3.0) rather than
     normalized [0, 1] score thresholds used by other detectors. The threshold
@@ -49,6 +31,7 @@ class GraphAnomalyDetector(BaseDetector):
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         # Extract z-score threshold before calling super().__init__()
         # GraphAnomalyDetector uses z-score thresholds (>1) not normalized [0,1] thresholds
+        """Initialize the instance."""
         config = config.copy() if config else {}
         z_threshold = config.pop("threshold", 3.0)
         super().__init__(config)

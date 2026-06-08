@@ -1,8 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-Base classes for real-world dataset loading and management.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Base classes for real-world dataset loading and management."""
 
 from __future__ import annotations
 
@@ -37,13 +34,11 @@ try:
 except ImportError:
     TORCH_AVAILABLE = False
 
-
 logger = logging.getLogger(__name__)
 
 
 def safe_urlretrieve(url: str, filename: str | Path) -> None:
-    """
-    Safely download a file from a URL with scheme and domain validation.
+    """Safely download a file from a URL with scheme and domain validation.
 
     Delegates to :func:`http_get_with_retry`, which is HTTPS-only by
     default and validates the host against ``TrustedEndpoints``.
@@ -292,8 +287,7 @@ class DatasetMetadata:
 
 
 class DatasetLoader(ABC):
-    """
-    Abstract base class for dataset loaders.
+    """Abstract base class for dataset loaders.
 
     All real-world dataset loaders inherit from this class.
     Provides standardized interface for:
@@ -319,8 +313,7 @@ class DatasetLoader(ABC):
     LABEL_SOURCE: str = "ground_truth"
 
     def __init__(self, config: DatasetConfig) -> None:
-        """
-        Initialize dataset loader.
+        """Initialize dataset loader.
 
         Args:
             config: Dataset configuration
@@ -340,8 +333,7 @@ class DatasetLoader(ABC):
 
     @abstractmethod
     def download(self) -> bool:
-        """
-        Download dataset from source.
+        """Download dataset from source.
 
         Returns:
             True if successful, False otherwise
@@ -350,8 +342,7 @@ class DatasetLoader(ABC):
 
     @abstractmethod
     def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """
-        Load raw data from files.
+        """Load raw data from files.
 
         Returns:
             Tuple of (features, labels)
@@ -360,8 +351,7 @@ class DatasetLoader(ABC):
 
     @abstractmethod
     def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Apply dataset-specific preprocessing.
+        """Apply dataset-specific preprocessing.
 
         Args:
             data: Raw feature data
@@ -374,8 +364,7 @@ class DatasetLoader(ABC):
     def load(
         self, split: DatasetSplit = DatasetSplit.ALL
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """
-        Load dataset with specified split.
+        """Load dataset with specified split.
 
         Args:
             split: Which split to return
@@ -526,8 +515,7 @@ class DatasetLoader(ABC):
         return self.data_path.exists() and any(self.data_path.iterdir())
 
     def get_metadata(self) -> DatasetMetadata | dict[str, Any]:
-        """
-        Get dataset metadata.
+        """Get dataset metadata.
 
         Returns:
             DatasetMetadata object or dict with metadata.
@@ -582,8 +570,7 @@ class DatasetLoader(ABC):
             yield features[i], labels[i]
 
     def to_pytorch_dataset(self, split: DatasetSplit = DatasetSplit.TRAIN) -> Any:
-        """
-        Convert to PyTorch Dataset.
+        """Convert to PyTorch Dataset.
 
         Args:
             split: Which split to convert
@@ -598,13 +585,16 @@ class DatasetLoader(ABC):
 
         class TorchDataset(Dataset):  # type: ignore[type-arg, unused-ignore]
             def __init__(self, X: np.ndarray[Any, Any], y: np.ndarray[Any, Any]) -> None:
+                """Initialize the instance."""
                 self.X = torch.FloatTensor(X)
                 self.y = torch.LongTensor(y)
 
             def __len__(self) -> int:
+                """Return the length."""
                 return len(self.X)
 
             def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
+                """Implement the Python data model method."""
                 return self.X[idx], self.y[idx]
 
         return TorchDataset(features, labels)
@@ -616,8 +606,7 @@ class DatasetLoader(ABC):
         shuffle: bool = True,
         num_workers: int = 0,
     ) -> Any:
-        """
-        Get PyTorch DataLoader.
+        """Get PyTorch DataLoader.
 
         Args:
             split: Which split to use

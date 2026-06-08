@@ -1,3 +1,4 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Drone single-domain anomaly detector subpackage.
 
 Hosts the RADD + sklearn-ensemble + DronLomaly drone anomaly detector,
@@ -8,13 +9,6 @@ Cross-domain fusion detectors that consume drone faults *together with*
 another single-domain stream live in
 :mod:`omni_mercury_engine.anomaly`, not here.
 """
-
-# Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-#
-# This program is free software: you can redistribute it and/or modify it
-# under the terms of the GNU General Public License as published by the
-# Free Software Foundation, either version 3 of the License, or (at your
-# option) any later version.
 
 from __future__ import annotations
 

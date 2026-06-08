@@ -1,5 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-only
-# Copyright (C) Steel Security Advisors LLC
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Probe 10: SVD Projection probe for detecting dimensional collapse."""
 
 from __future__ import annotations
@@ -15,14 +14,14 @@ from omni_mercury_engine.detectors.math_arrest.base_probe import (
 
 
 class SVDProjectionProbe(BaseEquationProbe):
-    """
-    Detect dimensional collapse via rank-1 SVD Hankel reconstruction.
+    """Detect dimensional collapse via rank-1 SVD Hankel reconstruction.
 
     Builds a Hankel matrix from the time series, computes the SVD, reconstructs using only the first
     singular component, and measures the reconstruction residual per row.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         super().__init__(min_samples=20)
         self._d: int = 3
         self._residual_std: float = 0.0

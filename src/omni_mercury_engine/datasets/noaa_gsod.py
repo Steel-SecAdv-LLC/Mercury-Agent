@@ -1,16 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-NOAA GSOD — Global Summary of the Day Loader
-
-Daily weather summaries from 9000+ stations worldwide. Free access.
-
-Source: https://www.ncei.noaa.gov/data/global-summary-of-the-day/access/{YEAR}/
-License: Public Domain (US Government)
-
-Anomaly labeling:
-  Readings exceeding 3σ from the station's historical mean are flagged as anomalies.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""NOAA GSOD — Global Summary of the Day Loader."""
 
 from __future__ import annotations
 
@@ -45,8 +34,7 @@ DEFAULT_STATIONS = [
 
 
 class NOAAGSODLoader(DatasetLoader):
-    """
-    NOAA Global Summary of the Day (GSOD) weather data loader.
+    """NOAA Global Summary of the Day (GSOD) weather data loader.
 
     Downloads daily weather summary CSVs from NCEI for selected stations.
     Each record contains temperature, dew point, pressure, wind speed,
@@ -89,6 +77,7 @@ class NOAAGSODLoader(DatasetLoader):
     ]
 
     def __init__(self, config: DatasetConfig) -> None:
+        """Initialize the instance."""
         super().__init__(config)
         self.year = config.preprocessing.get("year", 2023)
         self.stations = config.preprocessing.get("stations", DEFAULT_STATIONS)
@@ -98,8 +87,7 @@ class NOAAGSODLoader(DatasetLoader):
     _YEAR_FALLBACK_RANGE = 2
 
     def download(self) -> bool:
-        """
-        Download GSOD CSVs for configured stations and year.
+        """Download GSOD CSVs for configured stations and year.
 
         Falls back to ``self.year - 1`` and ``self.year - 2`` if the
         requested year has no published station files yet.

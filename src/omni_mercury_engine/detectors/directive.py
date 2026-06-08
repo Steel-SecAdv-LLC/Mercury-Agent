@@ -1,30 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""DEPRECATED: This module uses sklearn (PCA) for anomaly detection. Mercury's production detector is.
 
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-import warnings
-
-warnings.warn(
-    f"{__name__} is deprecated. Use MercuryAnomalyDetector.",
-    DeprecationWarning,
-    stacklevel=2,
-)
-"""
-DEPRECATED: This module uses sklearn (PCA) for anomaly detection. Mercury's production detector is
 MercuryAnomalyDetector in detectors/statistical.py. This module is retained for reference only.
 
 Original: Sigma Directive detector implementing PCP, GSIS, RMD, and EOA protocols.
@@ -42,6 +18,15 @@ Memory Management:
     cleared via clear_memory() or reset_state() methods.
 """
 
+from __future__ import annotations
+
+import warnings
+
+warnings.warn(
+    f"{__name__} is deprecated. Use MercuryAnomalyDetector.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 import hashlib
 import logging
 import threading
@@ -64,7 +49,6 @@ from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
 
 logger = logging.getLogger(__name__)
-
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -119,8 +103,7 @@ class DirectiveWeights:
 
 @dataclass
 class _ThreadLocalState:
-    """
-    Thread-local state for SigmaDirectiveDetector.
+    """Thread-local state for SigmaDirectiveDetector.
 
     Ensures thread safety by isolating mutable state per thread. Each thread gets its own memory
     buffer, preventing race conditions during concurrent detect() calls.
@@ -173,8 +156,7 @@ class SigmaDirectiveDetector(BaseDetector):
     """
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
-        """
-        Initialize SigmaDirectiveDetector with configuration.
+        """Initialize SigmaDirectiveDetector with configuration.
 
         Args:
             config: Configuration dictionary with optional keys:
@@ -218,8 +200,7 @@ class SigmaDirectiveDetector(BaseDetector):
             raise ValueError(f"memory_depth must be >= 1, got {self.memory_depth}")
 
     def _get_thread_state(self) -> _ThreadLocalState:
-        """
-        Get or create thread-local state.
+        """Get or create thread-local state.
 
         Returns:
             Thread-local state instance with isolated memory buffer.
@@ -232,8 +213,7 @@ class SigmaDirectiveDetector(BaseDetector):
         return state
 
     def clear_memory(self) -> None:
-        """
-        Clear the memory buffer for the current thread.
+        """Clear the memory buffer for the current thread.
 
         Call this method between independent detection sessions to prevent memory from one session
         affecting another. This is automatically handled per-thread, but explicit clearing may be
@@ -243,8 +223,7 @@ class SigmaDirectiveDetector(BaseDetector):
         state.memory_buffer.clear()
 
     def reset_state(self) -> None:
-        """
-        Reset all mutable state including memory buffer.
+        """Reset all mutable state including memory buffer.
 
         This provides a full reset equivalent to creating a new detector instance while preserving
         fitted parameters (baseline_pattern).
@@ -465,8 +444,7 @@ class SigmaDirectiveDetector(BaseDetector):
         return torch.tensor(features, dtype=torch.float32)
 
     def _pattern_convergence_protocol(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        PCP: Detect pattern convergence anomalies.
+        """PCP: Detect pattern convergence anomalies.
 
         Returns continuous scores without hard clipping to preserve ranking information for
         downstream fusion models.
@@ -488,7 +466,7 @@ class SigmaDirectiveDetector(BaseDetector):
         return scores
 
     def _gravitational_stability_check(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """GSIS: Check gravitational stability (data distribution stability)"""
+        """GSIS: Check gravitational stability (data distribution stability)."""
         if len(data) < 2:
             return np.zeros(len(data))
 
@@ -504,8 +482,7 @@ class SigmaDirectiveDetector(BaseDetector):
         return scores * self.stability_factor
 
     def _recursive_memory_dynamics(self, data: NDArray[np.float64]) -> NDArray[np.float64]:
-        """
-        RMD: Detect anomalies using recursive memory dynamics.
+        """RMD: Detect anomalies using recursive memory dynamics.
 
         Tracks a sliding window of recent samples and detects anomalies based
         on deviation from the memory mean. This captures temporal patterns
@@ -556,7 +533,7 @@ class SigmaDirectiveDetector(BaseDetector):
         return magnitude_norm
 
     def _quantum_pattern_containment(self, data: np.ndarray[Any, Any]) -> dict[str, float]:
-        """Quantum Pattern Containment Protocol (QPCP)"""
+        """Quantum Pattern Containment Protocol (QPCP)."""
         if data.ndim == 1:
             data = data.reshape(-1, 1)
 
@@ -576,7 +553,7 @@ class SigmaDirectiveDetector(BaseDetector):
         return pattern_scores
 
     def _nano_scale_detection(self, data: np.ndarray[Any, Any]) -> dict[str, float]:
-        """Nano-Scale Detection & Response System (NDRS) Enhanced N term with dimensional
+        """Nano-Scale Detection & Response System (NDRS) Enhanced N term with dimensional.
 
         downsampling for micro-anomaly detection.
         """
@@ -709,7 +686,7 @@ class SigmaDirectiveDetector(BaseDetector):
         return float(min(micro_score, 1.0))
 
     def _dimensional_downsampling_detection(self, data: np.ndarray[Any, Any]) -> float:
-        """N Term Enhancement: Dimensional downsampling for micro-anomaly detection Downsample to
+        """N Term Enhancement: Dimensional downsampling for micro-anomaly detection Downsample to.
 
         low dimensions to detect subtle micro-patterns.
         """

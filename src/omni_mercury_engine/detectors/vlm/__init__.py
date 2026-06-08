@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Vision-Language Model (VLM) Anomaly Detection Module
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Vision-Language Model (VLM) Anomaly Detection Module.
 
 Zero-shot and customizable anomaly detection using Large Vision-Language Models.
 Enables training-free detection with natural language anomaly descriptions.
@@ -51,6 +33,8 @@ Example:
         results = detector.detect(video_frames)
         print(f"Anomaly detected at frames: {results['anomaly_frames']}")
 """
+
+from __future__ import annotations
 
 from omni_mercury_engine.detectors.vlm.advanced_context_providers import (
     AppearanceContextProvider,
