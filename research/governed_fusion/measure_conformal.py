@@ -63,9 +63,10 @@ def youden_f1_threshold(s_cal: np.ndarray[Any, Any], y_cal: np.ndarray[Any, Any]
     """Best-of(Youden's J, F1) supervised threshold on the calibration split.
 
     Byte-for-byte mirror of the Youden/F1 branch of
-    ``MercuryAnomalyDetector.fit_with_calibration_subset`` (statistical.py
-    L1621-1648) — the operating point the ``conformal_operating_point`` flag
-    displaces.  Uses ``ThresholdCalibrationPipeline`` (mercury_ml, no sklearn).
+    ``MercuryAnomalyDetector.fit_with_calibration_subset`` (its
+    ``CalibrationStrategy.YOUDEN_J``/``F1_OPTIMAL`` best-of loop) — the operating
+    point the ``conformal_operating_point`` flag displaces.  Uses
+    ``ThresholdCalibrationPipeline`` (mercury_ml, no sklearn).
     """
     from omni_mercury_engine.core.calibration_pipeline import (
         CalibrationStrategy,
