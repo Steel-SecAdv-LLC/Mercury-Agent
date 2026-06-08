@@ -25,7 +25,8 @@ def test_worst_case_controlled_budget_and_masking_flag_logic() -> None:
     loc = normal.mean(axis=0)
 
     def score_fn(batch: np.ndarray) -> np.ndarray:
-        return np.linalg.norm(batch - loc, axis=1)
+        out: np.ndarray = np.linalg.norm(batch - loc, axis=1)
+        return out
 
     controlled = most_informative_channels(x, y, x.shape[1] // 2)
     report = worst_case_over_attacks(
@@ -49,7 +50,8 @@ def test_masking_flag_independent_of_global_worst() -> None:
 
     def masked_score(batch: np.ndarray) -> np.ndarray:
         # Coarsely quantized -> local finite differences see zero gradient.
-        return np.round(np.linalg.norm(batch - loc, axis=1) * 2.0) / 2.0
+        out: np.ndarray = np.round(np.linalg.norm(batch - loc, axis=1) * 2.0) / 2.0
+        return out
 
     controlled = most_informative_channels(x, y, x.shape[1] // 2)
     report = worst_case_over_attacks(
@@ -65,7 +67,8 @@ def test_floor_curve_starts_clean_and_reports_each_budget() -> None:
     loc = normal.mean(axis=0)
 
     def score_fn(batch: np.ndarray) -> np.ndarray:
-        return np.linalg.norm(batch - loc, axis=1)
+        out: np.ndarray = np.linalg.norm(batch - loc, axis=1)
+        return out
 
     curve = floor_curve(score_fn, x, y, normal_reference=normal, eps=0.5, seed=0)
     assert curve[0]["m"] == 0

@@ -57,7 +57,7 @@ def test_certificate_radius_sound_against_real_component_score() -> None:
         if r <= 1e-9:
             continue
         for _ in range(16):
-            d = rng.normal(size=probe.shape[1])
+            d = rng.normal(size=int(probe.shape[1]))
             d /= np.linalg.norm(d)
             pert = probe[i] + d * (0.99 * r)
             score = float(det._compute_info_geometry_score(pert.reshape(1, -1))[0])

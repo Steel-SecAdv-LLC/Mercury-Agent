@@ -353,7 +353,8 @@ def gaussian_floor_score(
         cov = np.atleast_2d(cov)
     prec = np.linalg.pinv(cov, hermitian=True)
     z = arr - mu
-    return np.sqrt(np.maximum(np.einsum("ij,jk,ik->i", z, prec, z), 0.0))
+    dist: np.ndarray[Any, Any] = np.sqrt(np.maximum(np.einsum("ij,jk,ik->i", z, prec, z), 0.0))
+    return dist
 
 
 def cubic_moment_score(
@@ -377,7 +378,8 @@ def cubic_moment_score(
     cov_phi = np.cov(phi_n.T) + reg * np.eye(phi_n.shape[1])
     prec = np.linalg.pinv(cov_phi, hermitian=True)
     d = phi_x - m_phi
-    return np.sqrt(np.maximum(np.einsum("ij,jk,ik->i", d, prec, d), 0.0))
+    dist: np.ndarray[Any, Any] = np.sqrt(np.maximum(np.einsum("ij,jk,ik->i", d, prec, d), 0.0))
+    return dist
 
 
 def cubic_moment_escape(

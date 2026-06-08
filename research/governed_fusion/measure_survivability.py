@@ -15,7 +15,7 @@ zero runtime change.
 
 Run::
 
-    source /home/user/gf_env.sh
+    source research/governed_fusion/gf_env.sh
     python research/governed_fusion/measure_survivability.py
 """
 
@@ -31,7 +31,7 @@ from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 from research.adversarial.governed_attacks import cubic_moment_escape, floor_curve
 from research.governed_fusion.suite import build_suite, stratified_subsample
 
-_OUT_DIR = os.environ.get("GF_CACHE_DIR", "/home/user/gf_cache")
+_OUT_DIR = os.environ.get("GF_RESULTS_DIR", os.environ.get("GF_CACHE_DIR", "/home/user/gf_cache"))
 ROW_CAP = 160  # keep the finite-difference battery tractable
 EPS = 0.6  # L2 per-row perturbation budget (standardized feature units)
 
@@ -131,6 +131,7 @@ def main() -> None:
         ),
         "gaussian_control_escape": ctrl["escape"],
     }
+    os.makedirs(_OUT_DIR, exist_ok=True)
     out_path = os.path.join(_OUT_DIR, "survivability_results.json")
     with open(out_path, "w") as fh:
         json.dump(out, fh, indent=2, default=float)

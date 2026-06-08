@@ -64,4 +64,5 @@ def test_opt_in_uses_conformal_operating_point() -> None:
     # calibration scores (ties the runtime path to the measurement protocol).
     s_cal = np.asarray(on.detect(X[cal])["scores"], dtype=np.float64)
     clf = BinaryConformalClassifier(coverage=0.90, seed=42).fit(s_cal, y[cal])
+    assert on._supervised_threshold is not None
     assert_allclose(on._supervised_threshold, clf.anomaly_score_threshold())

@@ -26,34 +26,57 @@ real reachable suite. Nothing here is borrowed from FINDOYOU or any paper.
 
 | events | AUROC | AUPRC | F1 | P | R |
 |---:|---:|---:|---:|---:|---:|
-| 29 | 0.840 | 0.426 | 0.288 | 0.317 | 0.519 |
+| 29 | 0.839 | 0.426 | 0.292 | 0.319 | 0.552 |
 
-Reproduces the PR's reported baseline (0.844 / 0.434 / 0.302 / 0.317 / 0.542)
-within stratified-cap noise (precision matches exactly). Pooled row-weighted
-AUROC is 0.585 — confirming the macro mean is the right, non-swamped statistic.
+Reproduced in this branch from committed code
+(`results/baseline_results.json`); matches the prior measured baseline
+(0.840 / 0.426 / 0.288 / 0.317 / 0.519) within stratified-cap + live-loader
+refetch noise (AUPRC matches exactly). Pooled row-weighted AUROC is 0.585 —
+confirming the macro mean is the right, non-swamped statistic. Per-event rows,
+per-domain means and SHA-256 data fingerprints are in `results/` and
+`manifest.json` (see `RUN.md`).
 
-## Item 4 — conformal operating point: **LANDED** (opt-in, default-off)
+## Item 4 — conformal operating point: wired (opt-in, default-off); **F1-win claim is a conclusive negative against the baseline it displaces**
 
-`measure_conformal.py`. Per event: seeded stratified 50/50 calibration/eval
-split; the detector is fit unsupervised, so calibration labels form a valid
-split-conformal set. Threshold = class-1 LAC quantile (`1 - q_1`) from
-`BinaryConformalClassifier`. Both thresholds act on identical eval scores, so
-AUROC/AUPRC are rank-invariant — the lever is purely the operating point.
+`measure_conformal.py` (`results/conformal_results.json`). Per event: seeded
+stratified 50/50 calibration/eval split; the detector is fit unsupervised, so
+calibration labels form a valid split-conformal set. The flag's threshold =
+class-1 LAC quantile (`1 - q_1`) from `BinaryConformalClassifier`. All operating
+points act on identical eval scores, so AUROC/AUPRC are rank-invariant — the
+lever is purely the operating point.
 
-| metric | baseline (eval) | conformal (eval) | Δ |
-|---|---:|---:|---:|
-| AUROC | 0.820 | 0.820 | +0.000 (rank-invariant) |
-| AUPRC | 0.448 | 0.448 | +0.000 (rank-invariant) |
-| F1 | 0.311 | 0.416 | **+0.105** |
-| precision | 0.344 | 0.318 | −0.026 |
-| recall | 0.450 | 0.837 | +0.387 |
+**The flag displaces the supervised Youden/F1 threshold, not the adaptive
+baseline.** With `conformal_operating_point=False` (default),
+`fit_with_calibration_subset` calibrates the best-of(Youden's J, F1) threshold
+on the calibration split (mirrored byte-for-byte in `measure_conformal.py`). The
+earlier "+0.105 F1" figure compared conformal against the detector's *adaptive*
+operating point (`es.threshold`) — **not** the threshold the flag actually
+replaces. Measured against the correct (displaced) baseline:
+
+| metric | adaptive | **youden_f1 (displaced)** | conformal | Δ(conf − youden_f1) |
+|---|---:|---:|---:|---:|
+| AUROC | 0.820 | 0.820 | 0.820 | +0.000 (rank-invariant) |
+| AUPRC | 0.449 | 0.449 | 0.449 | +0.000 (rank-invariant) |
+| F1 | 0.317 | **0.474** | 0.415 | **−0.059** |
+| precision | 0.347 | 0.412 | 0.318 | −0.094 |
+| recall | 0.485 | 0.679 | 0.834 | +0.155 |
 
 26 of 29 events used; **3 dropped** (earthquake `noto_2024`, `tohoku_2011`,
-`nepal_2015` — no positive in a calibration split), reported never hidden. The
-F1 win at controlled operating point is the measured win; the tradeoff is a
-small precision dip for a large recall gain. Wired opt-in via
-`conformal_operating_point` (default off → byte-exact Youden/F1 path); see
-`tests/test_conformal_operating_point.py`.
+`nepal_2015` — no positive in a calibration split), reported never hidden.
+
+**Conclusion (honest, committed):** against the operating point it displaces,
+the conformal threshold **loses F1 (−0.059)** — it is *not* an F1 win. It is a
+**recall/coverage-favouring** operating point: it trades precision (−0.094) for
+a large recall gain (+0.155) and a distribution-free class-1 coverage guarantee,
+which is valuable in the missed-detection-catastrophic regime (R2) but is not a
+strict improvement on F1. Per-domain it regresses F1 vs Youden/F1 in 7/9 domains
+(e.g. network_security −0.215, tornado −0.136, fema −0.105), disclosed not
+hidden. (For reference only, conformal vs the *adaptive* baseline is +0.098 F1 —
+the old framing.) Wired opt-in via `conformal_operating_point` (default off →
+byte-exact Youden/F1 path); see `tests/test_conformal_operating_point.py`. The
+calibration thesis (Stage 2) targets this exact gap: a proper-scored, monotone
+calibrated probability with an exact-reducing accept-gate, so the shipped path
+can never regress.
 
 ## Item 2 — adversarial survivability on the REAL fused score — research only
 
@@ -68,7 +91,7 @@ to a controlled subset of `m` channels (`most_informative_channels`).
 | domain | event | k | clean | floor curve (m: worst-case AUROC) |
 |---|---|--:|--:|---|
 | earthquake | turkey_syria_2023 | 8 | 0.987 | 2:0.484 4:0.327 6:0.201 |
-| energy | quebec_1989 | 8 | 1.000 | 2:1.000 4:0.999 6:0.541 |
+| energy | quebec_1989 | 8 | 1.000 | 2:0.997 4:0.999 6:0.542 |
 | fema | hurricane_2024 | 7 | 0.924 | 1:0.802 3:0.829 5:0.594 |
 | hurricane | milton_2024 | 8 | 0.887 | 2:0.887 4:0.850 6:0.854 |
 | marine | marine_heatwave | 3 | 0.997 | 1:0.969 2:0.928 |
@@ -109,10 +132,11 @@ Per event: 50/50 cal/eval split, weights from calibration only, AUROC on eval.
 
 | | baseline 0.40/0.30/0.30 | rel·linear | rel·clipped | rel·trimmed | best-single |
 |---|---:|---:|---:|---:|---:|
-| OVERALL (26 ev) | 0.827 | 0.865 | **0.869** | 0.838 | **0.894** |
+| OVERALL (26 ev) | 0.826 | 0.866 | **0.869** | 0.838 | **0.894** |
 
-The bounded-influence pool **improves over baseline** (0.827 → 0.869) but still
-**does not reach best-single** (0.894); gap **−0.026**, with per-domain collapse
+Reproduced in `results/reliability_fusion_results.json`. The bounded-influence
+pool **improves over baseline** (0.826 → 0.869) but still **does not reach
+best-single** (0.894); gap **−0.026**, with per-domain collapse
 (hurricane −0.125, fema −0.047, network_security −0.019). On the reachable suite
 the components are too redundant (the omni-equation harness measured mean
 |corr| 0.66) for any pooling to beat picking the single best stream.

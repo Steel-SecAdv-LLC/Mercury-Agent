@@ -16,7 +16,7 @@ the held-out eval split.  Per-event macro mean, per-domain and overall.
 
 Run::
 
-    source /home/user/gf_env.sh
+    source research/governed_fusion/gf_env.sh
     python research/governed_fusion/measure_reliability_fusion.py
 """
 
@@ -138,10 +138,11 @@ def main() -> None:
         "trim_t": TRIM_T,
         "per_event": rows,
     }
-    out_path = os.path.join(
-        os.environ.get("GF_CACHE_DIR", "/home/user/gf_cache"),
-        "reliability_fusion_results.json",
+    out_dir = os.environ.get(
+        "GF_RESULTS_DIR", os.environ.get("GF_CACHE_DIR", "/home/user/gf_cache")
     )
+    os.makedirs(out_dir, exist_ok=True)
+    out_path = os.path.join(out_dir, "reliability_fusion_results.json")
     with open(out_path, "w") as fh:
         json.dump(out, fh, indent=2, default=float)
     print(f"\nwrote {out_path}")

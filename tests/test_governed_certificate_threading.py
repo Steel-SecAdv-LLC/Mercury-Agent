@@ -10,15 +10,20 @@ result, so there is no shared mutable certificate state to cross-contaminate.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import numpy as np
 import pytest
 
 from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
+if TYPE_CHECKING:
+    from omni_mercury_engine.engine import OmniMercuryEngine
+
 pytestmark = pytest.mark.timeout(120)
 
 
-def _engine_with_single_stat_detector() -> object:
+def _engine_with_single_stat_detector() -> "OmniMercuryEngine":
     """A fusion engine whose only detector is a fitted, cert-enabled stat det.
 
     Restricting the detector set keeps the test fast and deterministic while
