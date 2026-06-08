@@ -656,6 +656,7 @@ module = [
     "omni_mercury_engine.core.engine_config",
     "omni_mercury_engine.core.score_calibration",
     "omni_mercury_engine.core.governed_fusion",
+    "omni_mercury_engine.core.robust_pooling",
 ]
 warn_return_any = false
 

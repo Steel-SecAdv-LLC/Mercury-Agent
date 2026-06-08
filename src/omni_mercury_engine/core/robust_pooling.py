@@ -54,6 +54,7 @@ def _weighted_median(
 
 
 def normalize_weights(weights: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    """Clip negatives and renormalize to sum 1 (uniform if all non-positive)."""
     w = np.clip(np.asarray(weights, dtype=np.float64), 0.0, None)
     s = w.sum()
     if s <= 0:
