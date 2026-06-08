@@ -126,3 +126,59 @@ class TestSummaryNestedMetadata:
 
         assert summary["commit"] is None
         assert summary["timestamp"] is None
+
+
+class TestTotalDatasetResolution:
+    """``_summary`` must surface the *attempted* dataset count, not collapse it.
+
+    ``benchmarks/mercury_benchmark.py`` writes the attempted count under
+    ``summary["total_datasets"]`` (next to ``successful`` / ``failed``).  If
+    that key is not in the resolution chain the ratio silently degrades to
+    ``successful / successful`` — the exact ``65 / 65`` bug this pins against
+    (the committed results carry ``total_datasets=75``, ``successful=65``).
+    """
+
+    def test_reads_total_datasets_key(self, update_readme_benchmarks: object) -> None:
+        """The canonical ``total_datasets`` key resolves to the attempted total."""
+        data = {
+            "summary": {
+                "mean_auc": 0.8466,
+                "mean_oracle_f1": 0.6428,
+                "successful": 65,
+                "failed": 10,
+                "total_datasets": 75,
+            },
+        }
+
+        summary = update_readme_benchmarks._summary(data)  # type: ignore[attr-defined]
+
+        assert summary["successful"] == 65
+        assert summary["total"] == 75, "must not collapse to successful/successful (65/65)"
+
+    def test_explicit_total_wins_over_total_datasets(
+        self, update_readme_benchmarks: object
+    ) -> None:
+        """An explicit ``total`` (older/external fixtures) still takes precedence."""
+        data = {
+            "summary": {
+                "mean_auc": 0.8,
+                "mean_oracle_f1": 0.5,
+                "successful": 7,
+                "total": 7,
+                "total_datasets": 999,
+            },
+        }
+
+        summary = update_readme_benchmarks._summary(data)  # type: ignore[attr-defined]
+
+        assert summary["total"] == 7
+
+    def test_falls_back_to_successful_when_no_total(self, update_readme_benchmarks: object) -> None:
+        """With no total/total_datasets/n_datasets, fall back to ``successful``."""
+        data = {
+            "summary": {"mean_auc": 0.5, "mean_oracle_f1": 0.4, "successful": 3},
+        }
+
+        summary = update_readme_benchmarks._summary(data)  # type: ignore[attr-defined]
+
+        assert summary["total"] == 3

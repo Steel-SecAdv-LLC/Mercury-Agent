@@ -97,7 +97,17 @@ def _summary(data: dict[str, Any]) -> dict[str, Any]:
         "median_auc": summary.get("median_auc"),
         "mean_oracle_f1": summary.get("mean_oracle_f1"),
         "successful": summary.get("successful"),
-        "total": summary.get("total") or summary.get("n_datasets") or summary.get("successful"),
+        # ``benchmarks/mercury_benchmark.py`` writes the attempted-dataset count
+        # under ``summary["total_datasets"]`` (alongside ``successful`` /
+        # ``failed``).  Older/external fixtures used ``total`` or ``n_datasets``.
+        # ``total_datasets`` must be in this chain or the ratio silently collapses
+        # to ``successful / successful`` (e.g. ``65 / 65`` instead of ``65 / 75``).
+        "total": (
+            summary.get("total")
+            or summary.get("total_datasets")
+            or summary.get("n_datasets")
+            or summary.get("successful")
+        ),
         "timestamp": (
             metadata.get("timestamp") or data.get("timestamp") or data.get("run_timestamp")
         ),
