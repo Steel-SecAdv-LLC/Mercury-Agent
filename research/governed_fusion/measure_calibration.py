@@ -40,6 +40,7 @@ from omni_mercury_engine.core.calibration import (
     fit_accept_gated_mca,
 )
 from omni_mercury_engine.core.conformal_prediction import VennAbersCalibrator
+from omni_mercury_engine.core.decision_curve import bayes_threshold, decision_curve
 from omni_mercury_engine.ml.mercury_ml import brier_score_loss, roc_auc_score
 from research.governed_fusion.measure_baseline import load_scores
 from research.governed_fusion.measure_conformal import _split
@@ -60,21 +61,18 @@ def _minmax(s_cal: np.ndarray[Any, Any], s: np.ndarray[Any, Any]) -> np.ndarray[
 
 
 def _net_benefit_integral(y: np.ndarray[Any, Any], p: np.ndarray[Any, Any]) -> float:
-    """Hard (reporting) net-benefit integral over the low-t-weighted prior."""
-    n = len(y)
-    if n == 0:
+    """Low-t-weighted net-benefit integral, via the canonical decision_curve (R2)."""
+    if len(y) == 0:
         return float("nan")
-    out = 0.0
-    for t, w in zip(_THRESHOLDS, _PRIOR):
-        treat = p >= t
-        tp = float(np.sum(treat & (y == 1))) / n
-        fp = float(np.sum(treat & (y == 0))) / n
-        out += w * (tp - fp * (t / (1.0 - t)))
-    return float(out)
+    return decision_curve(y, p, _THRESHOLDS).prior_weighted_net_benefit(_PRIOR)
 
 
 def _metrics(y: np.ndarray[Any, Any], p: np.ndarray[Any, Any]) -> dict[str, float]:
-    auroc = float(roc_auc_score(y, p)) if np.unique(y).size > 1 and np.unique(p).size > 1 else float("nan")
+    auroc = (
+        float(roc_auc_score(y, p))
+        if np.unique(y).size > 1 and np.unique(p).size > 1
+        else float("nan")
+    )
     return {
         "auroc": auroc,
         "brier": float(brier_score_loss(y, p)),
@@ -175,10 +173,23 @@ def main() -> None:
             regressions[dom] = {"dBrier": round(db, 4), "dAUROC": round(da, 4)}
     print(f"\nbeta_gated per-domain regressions vs identity: {regressions or 'none'}")
 
+    # R2: the SINGLE operating-point pathway (reconciled with Item 4).
+    t_star = bayes_threshold(cost_fp=1.0, benefit_tp=10.0)  # b=10c: a miss ~10x costlier
+    print(
+        f"\nR2 single operating point: MCA-calibrated prob >= cost-driven Bayes "
+        f"t*={t_star:.3f} (b=10c, missed-detection-catastrophic). The conformal / "
+        f"Venn-Abers layer is a coverage floor, NOT a second competing threshold."
+    )
+
     out = {
         "n_events": len(rows),
         "gate_accepts": gate_accepts,
         "ece_tol": ECE_TOL,
+        "operating_point": {
+            "pathway": "MCA-calibrated probability >= cost-driven Bayes t*",
+            "bayes_t_star_b10c": t_star,
+            "coverage_layer": "conformal/Venn-Abers recall floor (not a second threshold)",
+        },
         "overall": overall,
         "deltas_vs_identity": {
             m: {k: overall[m][k] - overall["identity"][k] for k in keys}
@@ -187,9 +198,7 @@ def main() -> None:
         "venn_abers_marginal_over_mca": {
             k: overall["beta_va"][k] - overall["beta_mca"][k] for k in keys
         },
-        "venn_abers_mean_interval_width": float(
-            np.nanmean([r["va_interval_width"] for r in rows])
-        ),
+        "venn_abers_mean_interval_width": float(np.nanmean([r["va_interval_width"] for r in rows])),
         "beta_gated_domain_regressions": regressions,
         "per_event": rows,
         "per_domain": {

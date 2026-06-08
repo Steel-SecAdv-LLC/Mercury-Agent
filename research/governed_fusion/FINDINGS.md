@@ -213,6 +213,45 @@ a tested prototype (`tests/test_venn_abers.py`) + a distribution-free uncertaint
 band. Layering is explicit: MCA = point calibration; Venn-Abers = (unshipped,
 measured-null) validity diagnostic.
 
+## Stage 3 — decision-curve thresholding (R2) + gated η^Φ decoupling (R6)
+
+### R2 — decision curve + ONE operating-point pathway
+
+`core/decision_curve.py` implements net benefit `NB(t) = TP/n − FP/n·t/(1−t)`,
+the treat-all/treat-none envelopes, the low-t-weighted per-domain prior
+`π(t) ~ 1/t` (missed-detection-catastrophic regime), and the cost-driven Bayes
+threshold `t* = c/(c+b)`. The Net-Benefit column of the Stage 2 report card is
+computed **through this module** (`results/calibration_results.json`), so the
+committed NB figures reproduce from `decision_curve.py`.
+
+**Reconciliation with Item 4 — a single pathway.** There is exactly ONE shipped
+operating point: the MCA-calibrated probability thresholded at the cost-driven
+Bayes `t*` (for `b = 10c`, `t* = 0.091`). The conformal / Venn-Abers layer is a
+distribution-free **coverage guarantee** (a recall floor) layered on top — **not**
+a second, competing threshold. `reconciled_operating_point` returns this single
+decision together with the conformal recall-floor diagnostic, so the two never
+disagree. The module is read-only analysis (default-off); it changes no runtime
+verdict. Tests: `tests/test_decision_curve.py`.
+
+### R6 — decouple η^Φ from the probability (opt-in, default-off)
+
+`OmniAvaEquation(decouple_ethical_scaling=True)` removes the **soft** η^Φ
+multiplier from the fused-score path so a proper-scored monotone calibrator (MCA)
+can own the probability. **Default-off ⇒ byte-identical fused score** (equality
+test, `tests/test_eta_decoupling.py`). The two fail-closed **hard** gates
+(`BenevolenceScorer` floor 0.70, `σ_Immutable`) are byte-untouched and remain the
+enforcement (I1); only the soft in-score multiplier is removed when on.
+
+**Suite measurement (honest scoping).** The reachable suite's detector score path
+(`MercuryAnomalyDetector.detect`) has **no** soft η^Φ multiplier — its
+`combined_scores` is the weighted component sum (clipped). So in the reachable
+suite, "MCA owns the probability" is exactly the Stage 2 `calibration_map="mca"`
+result, measured **no-regression**: AUROC exact tie (0.8203 = 0.8203), Brier
+−0.0911, ECE −0.2285. The `OmniAvaEquation` η^Φ decoupling is the
+byte-identical-default-off structural analogue for the three-R fusion subsystem (a
+separate consumer not exercised by the 29-event suite); this is recorded, not
+claimed as a separate suite gain.
+
 ## Invariants
 
 I1 both hard gates (`BenevolenceScorer`, `σ_Immutable`) byte-untouched, ethics

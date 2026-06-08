@@ -67,6 +67,7 @@ class OmniAvaEquation:
         lambda_lyapunov: float | None = None,
         domain: str = "default",
         ethical_exponent: float | None = None,
+        decouple_ethical_scaling: bool = False,
     ):
         """
         Initialize Omni-Ava Equation.
@@ -127,6 +128,14 @@ class OmniAvaEquation:
         self.ethical_exponent = (
             ethical_exponent if ethical_exponent is not None else self.golden_ratio
         )
+
+        # R6 (opt-in, DEFAULT-OFF): decouple the soft eta^Phi multiplier from the
+        # score path so a proper-scored monotone calibrator (MCA) can own the
+        # probability. Ethics enforcement is UNCHANGED -- the two fail-closed hard
+        # gates (BenevolenceScorer floor 0.70, sigma_Immutable) remain dominant;
+        # only the soft in-score multiplier is removed when this is True. Default
+        # False -> fused score byte-identical.
+        self.decouple_ethical_scaling = bool(decouple_ethical_scaling)
 
         # Backward-compatible aliases
         self.sigma_immutable = self.ethical_compliance_threshold
@@ -236,8 +245,11 @@ class OmniAvaEquation:
             + self.weights["w_O"] * optimization_score
         )
 
-        # Use configurable exponent (default Φ) instead of hardcoded golden_ratio
-        ethical_scaling = eta**self.ethical_exponent
+        # Use configurable exponent (default Φ) instead of hardcoded golden_ratio.
+        # R6: when decoupled (opt-in), the soft eta^Phi multiplier is removed from
+        # the score path (scaling = 1.0) so MCA can own the probability; eta is
+        # still reported for the hard gates, which remain the enforcement (I1).
+        ethical_scaling = 1.0 if self.decouple_ethical_scaling else eta**self.ethical_exponent
         fusion_score = weighted_sum * ethical_scaling
 
         self.time_step += 1
