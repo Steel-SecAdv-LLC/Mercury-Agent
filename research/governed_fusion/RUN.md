@@ -1,10 +1,12 @@
 # Reproducing the Governed Fusion Substrate measurements (PR #278)
 
 Every figure in `FINDINGS.md` (and the PR body) is reproduced **in this branch
-from committed code** on the **real reachable suite** (29 events / 9 domains, no
-synthetic). This file is the exact recipe; the per-event results JSON in
-`results/` and the data manifest `manifest.json` let a reviewer match every
-figure **without live API access**.
+from committed code** on the **real reachable suite**: a **live headline suite of
+23 real events / 7 domains** plus a separately-reported **reconstructed-from-live
+group of 7 events / 3 domains** (tsunami, energy, `ebola_2014`), always labelled
+reconstruction and never folded into the headline mean. This file is the exact
+recipe; the per-event results JSON in `results/` and the data manifest
+`manifest.json` let a reviewer match every figure **without live API access**.
 
 ## 0. Build the AMA/PQC native backend (hard import gate)
 
@@ -49,6 +51,7 @@ python research/governed_fusion/measure_conformal.py           # -> results/conf
 python research/governed_fusion/measure_reliability_fusion.py  # -> results/reliability_fusion_results.json
 python research/governed_fusion/measure_survivability.py       # -> results/survivability_results.json
 python research/governed_fusion/measure_calibration.py         # -> results/calibration_results.json
+python research/governed_fusion/measure_calibration_levers.py  # -> results/calibration_levers_results.json
 python research/governed_fusion/build_manifest.py              # -> manifest.json
 ```
 
@@ -61,14 +64,21 @@ python research/governed_fusion/build_manifest.py              # -> manifest.jso
 | `results/reliability_fusion_results.json` | Item 3 — KILL CONFIRMED |
 | `results/survivability_results.json` | Item 2 — floor curve + cubic-moment escape |
 | `results/calibration_results.json` | Stage 2 — Beta-MCA vs isotonic vs identity + Venn-Abers |
+| `results/calibration_levers_results.json` | Stage 2 lever probe — conclusive negative (λ sweep, warm-start) |
 | `manifest.json` | per-event `n_rows`, `n_pos`, SHA-256 of `(X,y)` (full + capped) |
 
 ## 4. Notes on the suite
 
-- `pandemic/ebola_2014` falls back to synthetic despite the flag and is
-  **excluded** (stated, never averaged in) → 29 real events.
+- `pandemic/ebola_2014` has no live WHO GHO feed (it 404s), so the loader
+  reconstructs the documented 2014 epidemic curve. It is reported in the
+  **reconstructed-from-live group** (tsunami / energy / `ebola_2014`, 7 events /
+  3 domains) and **never folded into the 23-event live headline mean** — it is
+  labelled, not excluded. `MERCURY_ALLOW_SYNTHETIC=0` does not gate the
+  `loaders/` path (only `datasets/`), so the live/reconstructed split is made
+  explicit in code (`suite.py: RECONSTRUCTED_DOMAINS / RECONSTRUCTED_EVENTS`).
 - Unreachable domains (wildfire, flood, volcanic, landslide, financial, sepsis)
-  are never synthesised and never enter the suite.
+  never enter the suite; their loaders fetch live or raise
+  `DataSourceUnavailableError` — none synthesise.
 - `network_security/cicids_2017` is unavailable (all download sources 404 /
   refuse redirects); the domain uses `nsl_kdd` + `batadal`. The seeded stratified
   cap (`cap=6000`, `seed=42`) applies only to `nsl_kdd`, `mpox_2022`, `batadal`,
