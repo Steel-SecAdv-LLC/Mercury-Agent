@@ -5,36 +5,30 @@ Applies to Mercury Agent **v1.7.x**. Last updated: 2026-05-20.
 ## Overview
 
 Mercury's anomaly detection is validated on real-world datasets — no
-synthetic data, no tuning. Results are measured, not estimated. Two
-distinct cuts of the validation set are referenced across the
-documentation, and they report **different** measured baselines:
+synthetic data, no tuning. Results are measured, not estimated.
 
-- **Canonical reproducibility set: 64 / 75 — public headline.**
-  47 ADBench tabular + 28 domain loaders attempted; 11 external
-  sources unavailable / rate-limited and 1 known-broken loader
-  (FEMA Disaster) excluded. Measured **Mean AUC 0.8285 / Median
-  0.9091 / Mean Oracle F1 0.6370** after the Oracle pipeline fix
-  and dataset expansion. This is the headline figure in the README
-  and `CHANGELOG.md`.
-- **`mercury_benchmark.py` direct CI gate: 51 / 55 — legacy
-  baseline.** The earlier subset that the CI benchmark workflow
-  runs against the `MercuryAnomalyDetector` ensemble in isolation
-  (47 ADBench + 4 domain-specific loaders). Measured **Mean AUC
-  0.8030 / Median 0.8852 / Mean Oracle F1 0.5886**. The README
-  explicitly notes "Mean AUC increased from 0.8030 (51 datasets) to
-  0.8285 (64/75 datasets)".
+The committed `benchmarks/mercury_benchmark_results.json` run is the
+single source of truth:
 
-The numbers below are from the **51/55 legacy baseline** captured in
-`benchmarks/mercury_benchmark_results.json`; for the current public
-headline metrics consult the README "Empirical Benchmark Results"
-section.
+- **Committed benchmark run: 65 successful / 75 attempted.**
+  47 ADBench tabular + 28 domain loaders attempted; 10 external
+  sources unavailable / rate-limited. Measured **Mean AUC 0.8466 /
+  Median 0.9100 / Mean Oracle F1 0.6428** (2026-05-19, commit
+  79e8335), surfaced in the README *Latest Benchmark Results* block
+  and regenerated on every push to `main`.
+- **CI regression-gate floor (historical): Mean AUC 0.803 / Mean
+  Oracle F1 0.589.** The benchmark workflow fails if ROC-AUC drops
+  below 0.68 or Mean Oracle F1 below 0.50 — 15% margins below this
+  historical measured baseline (see `.github/workflows/benchmark.yml`).
+- **Externally-comparable subset: ADBench Mean AUC 0.8180** — the
+  numbers comparable to published detectors (the self-labeled
+  environmental loaders are threshold-derived; see the README
+  "Label provenance and comparability" split).
 
-**51/55 baseline performance** (from `benchmarks/mercury_benchmark_results.json`):
-- Mean AUC: 0.8030
-- Median AUC: 0.8852
-- Mean Oracle F1: 0.5886
-- Datasets: 51/55 successful (legacy CI gate)
-- Public headline (64/75): Mean AUC 0.8285 / Mean Oracle F1 0.6370
+For the authoritative live figures always consult the README
+*Latest Benchmark Results* block and `mercury_benchmark_results.json`.
+The per-domain tables further down this page are an older illustrative
+snapshot, not the committed run.
 
 ## Running Validation Locally
 

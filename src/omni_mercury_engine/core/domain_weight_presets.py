@@ -7,8 +7,11 @@ This program is free software: you can redistribute it and/or modify it under th
 General Public License as published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
 
-These presets encode measured component performance across 11 domains from
-mercury_benchmark_results.json (64 datasets, 2026-02-23).
+These presets encode measured component performance across 11 domains, derived
+once from a ``mercury_benchmark_results.json`` snapshot. They are a fixed
+starting point and are deliberately NOT re-pinned to the live, CI-refreshed
+benchmark run (the current committed run lives in
+``benchmarks/mercury_benchmark_results.json``).
 
 Each preset is the STARTING POINT for adaptive weighting. The unsupervised adaptive system still
 runs and can override these if per-dataset evidence is strong enough.

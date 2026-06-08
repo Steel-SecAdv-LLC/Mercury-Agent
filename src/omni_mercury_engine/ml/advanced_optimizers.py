@@ -25,7 +25,7 @@ Implements advanced training optimizers for efficient anomaly detection:
 - Auxiliary Maximum-Variance for multi-task learning
 
 Key Features:
-- Layer-wise parallelism enabling 2-3x training speedup
+- Layer-wise parallelism via decoupled (lock-free) gradient updates
 - Biologically plausible updates without weight transport
 - Multi-task optimization preventing gradient collapse
 
@@ -135,7 +135,8 @@ class SyntheticGradientPredictor:
     Synthetic Gradient Predictor for decoupled neural network training.
 
     Predicts gradients without backpropagation, enabling layer-wise parallelism.
-    Achieves 2-3x training speedup for real-time anomaly detection.
+    Decouples layer updates from full backpropagation (the speedup is workload-
+    and hardware-dependent; no Mercury-side benchmark is committed for it).
 
     Reference: Jaderberg et al. (DeepMind 2017)
     "Decoupled Neural Interfaces using Synthetic Gradients"

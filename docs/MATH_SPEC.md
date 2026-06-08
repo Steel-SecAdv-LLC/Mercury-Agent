@@ -18,11 +18,12 @@ Equation (OAE)**, which combines three orthogonal detection signals --
 Recursion, Resonance, and Optimization -- through golden-ratio-weighted
 convex combination, modulated by a sigmoid ethical gate.
 
-The framework guarantees:
+The framework combines four mathematical properties — **proven** where derived
+in the sections below, and **measured at runtime** for the data-dependent ones:
 
-1. **Lyapunov stability** of fusion score trajectories ($\dot{V} \leq -\lambda V$, $\lambda = 0.25$).
-2. **Banach contraction** bounds on recursive decomposition ($\alpha < 1 \Rightarrow$ geometric convergence).
-3. **Conformal coverage** guarantees on prediction intervals (finite-sample valid).
+1. **Lyapunov-style contraction** of fusion score trajectories ($\dot{V} \leq -\lambda V$, $\lambda = 0.25$) — a decay-schedule *design target* the engine monitors and reports (`is_stable`), not a guarantee asserted a priori (see §2.2.3, §4.2 discrete-time note).
+2. **Banach contraction** bounds on recursive decomposition ($\alpha < 1 \Rightarrow$ geometric convergence) — proven (§4.2).
+3. **Conformal coverage** of prediction intervals (finite-sample valid *under exchangeability*; on real, non-exchangeable anomaly data the coverage is **empirical/measured, not assumed** — see `docs/LIVE_DATA_VALIDATION.md`).
 4. **Ethical gating** via continuous sigmoid benevolence function (domain-adaptive).
 
 All scores are normalized to $[0, 1]$. All weights sum to $1.0$. All division

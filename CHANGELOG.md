@@ -6,16 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 > **Reproducibility note (applies to all 1.x release entries below):**
-> Headline benchmark numbers in this changelog are computed over the
-> **64 reproducible datasets** (of 75 attempted). 11 datasets currently
+> Headline benchmark numbers vary by release cut; the current committed
+> run is **65 reproducible datasets** (of 75 attempted), surfaced in the
+> README "Latest Benchmark Results" block. 10 datasets currently
 > fail to load due to unavailable external sources (SMAP, MSL,
-> CICIDS-2017, MIT-BIH, UCR, SWaT, WADI, USGS Geochemistry, NOAA
-> StormEvents, NOAA ERDDAP, FEMA HazardMitigation). As of v1.7.0
+> CICIDS-2017, MIT-BIH, UCR, SWaT, WADI, USGS Geochemistry,
+> NOAA ERDDAP, FEMA HazardMitigation). As of v1.7.0
 > the previously-flagged "FEMA Disaster — inverted scores" loader
 > is no longer in the broken set; the label-polarity correction is
 > documented under `[Unreleased]` below and locked by
 > `tests/datasets/test_disaster.py::TestFEMAInvertedScoresCorrection`.
-> The 11 unreachable loaders now have a two-lane reachability harness
+> The 11 watch-listed loaders now have a two-lane reachability harness
 > (`tests/datasets/test_unreachable_loaders_{offline,network}.py`,
 > plus the nightly `.github/workflows/dataset-reachability.yml`
 > workflow) so an upstream provider outage surfaces as a failed
