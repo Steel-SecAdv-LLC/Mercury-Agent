@@ -1,49 +1,5 @@
-"""OSHA compliance anomaly detection for industry-specific safety monitoring.
-
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under
-the terms of the GNU General Public License as published by the Free Software
-Foundation, either version 3 of the License, or (at your option) any later
-version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT
-ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
-details.
-
-This module ports ``osha_compliance_anomaly.py`` from Omni-AXA-Engine and
-upgrades the heat-index calculation to the National Weather Service Rothfusz
-regression with the standard low-humidity and low-temperature adjustments.
-
-The simplified ``T + 0.5*RH`` heuristic used in the original implementation
-diverged from the NWS Rothfusz regression in opposite directions depending on
-operating point.  At high humidity it materially **over-reported** apparent
-temperature (T=95 F, RH=70% returned ~130 F under the heuristic vs. ~122 F
-under Rothfusz, an 8 F over-report).  At low humidity (RH < 40%) it
-**under-reported** because it did not apply the low-humidity adjustment.
-Both directions cause OSHA-relevant misclassification; the Rothfusz regression
-replaces the heuristic so the detector neither cries wolf nor sleeps through
-real heat stress.
-
-OSHA standard citations may optionally be validated against the live eCFR API
-(https://www.ecfr.gov).  Validation is opt-in via the ``ecfr_client`` argument
-so that the detector remains usable in air-gapped deployments.
-
-OSHA Focus Areas
-----------------
-* Construction: falls, electrical hazards, struck-by, caught-in/between
-* Agriculture: machinery, chemicals, heat stress, confined spaces
-* Healthcare: violence, infections, ergonomics, hazardous drugs
-* Manufacturing: ergonomics, noise, machine guarding, chemical exposure
-
-References
-----------
-* OSHA Standards: https://www.osha.gov/laws-regs
-* NWS Rothfusz regression:
-  https://www.wpc.ncep.noaa.gov/html/heatindex_equation.shtml
-* eCFR API: https://www.ecfr.gov/developers/documentation/api/v1
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""OSHA compliance anomaly detection for industry-specific safety monitoring."""
 
 from __future__ import annotations
 
@@ -386,7 +342,6 @@ def _ecfr_structure_contains_part(structure: Any, part_number: str) -> bool:
 # Detector
 # ---------------------------------------------------------------------------
 
-
 _DEFAULT_HAZARD_THRESHOLDS: Final[Mapping[HazardCategory, float]] = {
     HazardCategory.FALL: 0.70,
     HazardCategory.ELECTRICAL: 0.75,
@@ -401,7 +356,6 @@ _DEFAULT_HAZARD_THRESHOLDS: Final[Mapping[HazardCategory, float]] = {
     HazardCategory.MACHINERY: 0.70,
     HazardCategory.CONFINED_SPACE: 0.85,
 }
-
 
 _DEFAULT_OSHA_STANDARDS: Final[Mapping[HazardCategory, OSHAStandard]] = {
     HazardCategory.FALL: OSHAStandard(
@@ -465,7 +419,6 @@ _DEFAULT_OSHA_STANDARDS: Final[Mapping[HazardCategory, OSHAStandard]] = {
         description="Entry procedures for confined spaces",
     ),
 }
-
 
 _DEFAULT_TRAINING_PROGRAMS: Final[Mapping[str, OSHATrainingRecommendation]] = {
     "OSHA_10": OSHATrainingRecommendation(

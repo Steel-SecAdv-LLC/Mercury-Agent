@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Code Analysis Engine - AST-based symbolic reasoning for code refactoring.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Code Analysis Engine - AST-based symbolic reasoning for code refactoring.
 
 This module provides AST (Abstract Syntax Tree) analysis capabilities for:
 - Code complexity analysis
@@ -37,6 +19,8 @@ Note:
 
         from omni_mercury_engine.core.code_analysis import CodeAnalysisEngine
 """
+
+from __future__ import annotations
 
 import ast
 import logging
@@ -99,8 +83,7 @@ class TrainingMetrics:
 
 
 class NeurosymbolicEngine:
-    """
-    Neurosymbolic integration for code refactoring.
+    """Neurosymbolic integration for code refactoring.
 
     Combines:
     - Symbolic reasoning: AST-based analysis (always available)
@@ -115,6 +98,7 @@ class NeurosymbolicEngine:
         config: NeurosymbolicConfig | None = None,
         rng: DeterministicRNG | None = None,
     ):
+        """Initialize the instance."""
         self.config = config or NeurosymbolicConfig()
         self.training_metrics = TrainingMetrics()
         self.current_phase = TrainingPhase.FOUNDATION
@@ -128,8 +112,7 @@ class NeurosymbolicEngine:
                 logging.warning("Neural components enabled but require training data")
 
     def symbolic_analysis(self, code_ast: ast.AST) -> dict[str, Any]:
-        """
-        Perform symbolic reasoning on code AST.
+        """Perform symbolic reasoning on code AST.
 
         Always available - deterministic rule-based analysis.
 
@@ -174,8 +157,7 @@ class NeurosymbolicEngine:
         }
 
     def neural_analysis(self, code_features: NDArray[Any]) -> dict[str, Any]:
-        """
-        Perform neural pattern recognition with statistical fallback.
+        """Perform neural pattern recognition with statistical fallback.
 
         When neural model is not available, provides statistical analysis
         of code features as a meaningful fallback rather than returning
@@ -216,8 +198,7 @@ class NeurosymbolicEngine:
         }
 
     def hybrid_analysis(self, code_ast: ast.AST) -> dict[str, Any]:
-        """
-        Combine symbolic and neural analysis.
+        """Combine symbolic and neural analysis.
 
         Uses symbolic reasoning always, adds neural insights when available.
 
@@ -255,8 +236,7 @@ class NeurosymbolicEngine:
         batch_size: int = 32,
         validation_split: float = 0.2,
     ) -> TrainingMetrics:
-        """
-        Train neural model on code patterns.
+        """Train neural model on code patterns.
 
         Implements a neural network training loop for learning code refactoring
         patterns from AST features. Uses a simple feedforward architecture
@@ -458,8 +438,7 @@ class NeurosymbolicEngine:
     def _prepare_training_data(
         self, training_data: list[tuple[ast.AST, dict[str, Any]]]
     ) -> tuple[NDArray[Any], NDArray[Any]]:
-        """
-        Extract features and labels from training data.
+        """Extract features and labels from training data.
 
         Args:
             training_data: List of (AST, ground_truth) pairs.
@@ -520,8 +499,7 @@ class NeurosymbolicEngine:
         return features, labels
 
     def predict(self, code_ast: ast.AST) -> dict[str, Any]:
-        """
-        Predict refactoring needs for given code.
+        """Predict refactoring needs for given code.
 
         Uses trained neural model if available, falls back to symbolic analysis.
 
@@ -624,8 +602,7 @@ class NeurosymbolicEngine:
         return recommendations
 
     def check_bias(self, predictions: list[dict[str, Any]]) -> dict[str, Any]:
-        """
-        Check for bias in model predictions.
+        """Check for bias in model predictions.
 
         Ensures ethical AI principles - no unfair bias in refactoring suggestions.
 
@@ -656,8 +633,7 @@ class NeurosymbolicEngine:
         }
 
     def get_readiness_level(self) -> ReadinessLevel:
-        """
-        Assess deployment readiness of neurosymbolic model.
+        """Assess deployment readiness of neurosymbolic model.
 
         Returns:
             Current readiness level
@@ -677,8 +653,7 @@ class NeurosymbolicEngine:
     def backprop_tune_patterns(
         self, code_features: NDArray[Any], ground_truth: NDArray[Any], iterations: int = 100
     ) -> dict[str, Any]:
-        """
-        Fine-tune pattern recognition using backpropagation with quantum noise.
+        """Fine-tune pattern recognition using backpropagation with quantum noise.
 
         Implements SGD with 4D tensors for advanced pattern learning.
 

@@ -1,22 +1,5 @@
-"""
-Mercury Agent - Consolidated Domain Metrics Module
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Consolidates all domain-specific metrics:
-- Standard ML metrics (AUC, F1, precision, recall)
-- Event-based metrics (temporal anomalies)
-- Spatial metrics (autocorrelation, clustering)
-- Fairness metrics (demographic parity, equalized odds)
-- Quantum metrics (entropy, coherence)
-- Calibration metrics (Brier, ECE, MCE)
-- Benevolence metrics (harm reduction, equity)
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Consolidated Domain Metrics Module."""
 
 from __future__ import annotations
 
@@ -135,8 +118,7 @@ class ComprehensiveMetrics:
 
 
 class MetricsCalculator:
-    """
-    Unified metrics calculator for all domains.
+    """Unified metrics calculator for all domains.
 
     Computes comprehensive metrics suite including standard ML metrics, domain-specific metrics, and
     ethical/benevolence metrics.
@@ -148,8 +130,7 @@ class MetricsCalculator:
         sigma_immutable: float = SIGMA_IMMUTABLE_DEFAULT,
         n_calibration_bins: int = 10,
     ):
-        """
-        Initialize metrics calculator.
+        """Initialize metrics calculator.
 
         Args:
             benevolence_threshold: Minimum required benevolence
@@ -169,8 +150,7 @@ class MetricsCalculator:
         timestamps: np.ndarray[Any, Any] | None = None,
         spatial_weights: np.ndarray[Any, Any] | None = None,
     ) -> ComprehensiveMetrics:
-        """
-        Compute comprehensive metrics suite.
+        """Compute comprehensive metrics suite.
 
         Args:
             y_true: Ground truth labels
@@ -541,8 +521,7 @@ class MetricsCalculator:
             logger.warning(f"Benevolence metrics computation failed: {e}")
 
     def _compute_overall_score(self, metrics: ComprehensiveMetrics) -> float:
-        """
-        Compute weighted overall score.
+        """Compute weighted overall score.
 
         Combines detection performance with ethical compliance.
         """
@@ -661,8 +640,7 @@ def compute_benchmark_metrics(
     domain: str = "general",
     **kwargs: Any,
 ) -> ComprehensiveMetrics:
-    """
-    Convenience function to compute metrics for benchmarking.
+    """Convenience function to compute metrics for benchmarking.
 
     Args:
         y_true: Ground truth labels

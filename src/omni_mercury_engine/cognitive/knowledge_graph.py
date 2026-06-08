@@ -1,15 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-"""
-
-from __future__ import annotations
-
-"""
-Knowledge Graph Engine - Production Implementation
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Knowledge Graph Engine - Production Implementation.
 
 Provides graph-based knowledge storage for neuro-symbolic reasoning:
 - Typed nodes with learned embeddings
@@ -25,6 +15,8 @@ Research Sources:
 - Kipf & Welling (2017): Semi-Supervised Classification with GCNs
 - Page et al. (1999): The PageRank Citation Ranking
 """
+
+from __future__ import annotations
 
 import logging
 import threading
@@ -253,8 +245,7 @@ class OntologyProperty:
 
 
 class Ontology:
-    """
-    Ontology management for anomaly detection knowledge graph.
+    """Ontology management for anomaly detection knowledge graph.
 
     Provides:
     - Class hierarchies with inheritance
@@ -264,6 +255,7 @@ class Ontology:
     """
 
     def __init__(self, base_uri: str = "mercury://ontology/") -> None:
+        """Initialize the instance."""
         self.base_uri = base_uri
         self.classes: dict[str, OntologyClass] = {}
         self.properties: dict[str, OntologyProperty] = {}
@@ -582,8 +574,7 @@ class Ontology:
 
 
 class RandomWalkEmbedding:
-    """
-    Learn node embeddings via random walks (DeepWalk/Node2Vec inspired).
+    """Learn node embeddings via random walks (DeepWalk/Node2Vec inspired).
 
     Uses truncated random walks to sample node context, then learns embeddings via skip-gram with
     negative sampling.
@@ -601,6 +592,7 @@ class RandomWalkEmbedding:
         negative_samples: int = 5,
         seed: int | None = None,
     ):
+        """Initialize the instance."""
         self.embedding_dim = embedding_dim
         self.walk_length = walk_length
         self.num_walks = num_walks
@@ -620,8 +612,7 @@ class RandomWalkEmbedding:
         adjacency: dict[str, list[tuple[str, float]]],
         node_ids: list[str],
     ) -> dict[str, np.ndarray[Any, Any]]:
-        """
-        Learn embeddings from graph structure.
+        """Learn embeddings from graph structure.
 
         Args:
             adjacency: Node -> [(neighbor, weight), ...]
@@ -770,8 +761,7 @@ class RandomWalkEmbedding:
 
 
 class GNNMessagePassing:
-    """
-    Graph Neural Network message passing for representation learning.
+    """Graph Neural Network message passing for representation learning.
 
     Implements simplified GCN-style aggregation:
     h_v = σ(W * AGGREGATE({h_u : u ∈ N(v)}))
@@ -785,6 +775,7 @@ class GNNMessagePassing:
         activation: str = "relu",
         seed: int | None = None,
     ):
+        """Initialize the instance."""
         self.hidden_dim = hidden_dim
         self.num_layers = num_layers
         self.aggregation = aggregation
@@ -799,8 +790,7 @@ class GNNMessagePassing:
         adjacency: sparse.spmatrix,
         normalize: bool = True,
     ) -> np.ndarray[Any, Any]:
-        """
-        Forward pass through GNN layers.
+        """Forward pass through GNN layers.
 
         Args:
             node_features: Initial node features (n_nodes, feature_dim)
@@ -892,8 +882,7 @@ class GNNMessagePassing:
 
 
 class LinkPredictor:
-    """
-    Predict missing or future links using learned node embeddings.
+    """Predict missing or future links using learned node embeddings.
 
     Link prediction is a fundamental task in knowledge graphs that enables:
     - Knowledge graph completion (inferring missing facts)
@@ -949,8 +938,7 @@ class LinkPredictor:
     """
 
     def __init__(self, method: str = "dot") -> None:
-        """
-        Initialize LinkPredictor with specified scoring method.
+        """Initialize LinkPredictor with specified scoring method.
 
         Args:
             method: Scoring method - one of:
@@ -971,8 +959,7 @@ class LinkPredictor:
         source_embedding: np.ndarray[Any, Any],
         target_embedding: np.ndarray[Any, Any],
     ) -> float:
-        """
-        Score a potential link.
+        """Score a potential link.
 
         Args:
             source_embedding: Source node embedding
@@ -1007,8 +994,7 @@ class LinkPredictor:
         candidate_pairs: list[tuple[str, str]],
         threshold: float = 0.5,
     ) -> list[tuple[str, str, float]]:
-        """
-        Predict links for candidate pairs.
+        """Predict links for candidate pairs.
 
         Args:
             embeddings: Node embeddings
@@ -1033,8 +1019,7 @@ class LinkPredictor:
 
 
 class KnowledgeGraph:
-    """
-    Production Knowledge Graph for neuro-symbolic reasoning.
+    """Production Knowledge Graph for neuro-symbolic reasoning.
 
     Features:
     1. Random Walk Embeddings (DeepWalk/Node2Vec)
@@ -1070,8 +1055,7 @@ class KnowledgeGraph:
         ontology: Ontology | None = None,
         seed: int | None = None,
     ):
-        """
-        Initialize Knowledge Graph.
+        """Initialize Knowledge Graph.
 
         Args:
             enable_embeddings: Enable vector embeddings for nodes
@@ -1259,8 +1243,7 @@ class KnowledgeGraph:
             ]
 
     def compute_embeddings(self, method: str = "random_walk") -> dict[str, np.ndarray[Any, Any]]:
-        """
-        Compute node embeddings.
+        """Compute node embeddings.
 
         Args:
             method: "random_walk" or "gnn"
@@ -1333,8 +1316,7 @@ class KnowledgeGraph:
         max_iterations: int = 100,
         tolerance: float = 1e-6,
     ) -> dict[str, float]:
-        """
-        Compute PageRank for all nodes.
+        """Compute PageRank for all nodes.
 
         Args:
             damping: Damping factor (probability of following a link)
@@ -1403,8 +1385,7 @@ class KnowledgeGraph:
         self,
         n_clusters: int = 5,
     ) -> dict[str, int]:
-        """
-        Cluster nodes using spectral clustering.
+        """Cluster nodes using spectral clustering.
 
         Args:
             n_clusters: Number of clusters
@@ -1470,8 +1451,7 @@ class KnowledgeGraph:
         top_k: int = 10,
         threshold: float = 0.5,
     ) -> list[tuple[str, str, float]]:
-        """
-        Predict missing links in the knowledge graph using embedding-based similarity.
+        """Predict missing links in the knowledge graph using embedding-based similarity.
 
         This method performs knowledge graph completion by identifying potential
         relationships that are not yet present in the graph. It leverages the
@@ -1673,8 +1653,7 @@ class KnowledgeGraph:
         min_activation: float = 0.01,
         use_pagerank: bool = True,
     ) -> dict[str, float]:
-        """
-        Spreading activation for associative retrieval.
+        """Spreading activation for associative retrieval.
 
         Enhanced with PageRank weighting for importance-aware activation.
         """
@@ -1845,8 +1824,7 @@ class KnowledgeGraph:
         obj: str,
         confidence: float = 1.0,
     ) -> tuple[str, str, str, float]:
-        """
-        Add an RDF-style triple with ontology validation.
+        """Add an RDF-style triple with ontology validation.
 
         Args:
             subject: Subject entity
@@ -1896,8 +1874,7 @@ class KnowledgeGraph:
         obj: str | None = None,
         min_confidence: float = 0.0,
     ) -> list[tuple[str, str, str, float]]:
-        """
-        Query triples with pattern matching.
+        """Query triples with pattern matching.
 
         Args:
             subject: Subject filter (None for wildcard)
@@ -1930,8 +1907,7 @@ class KnowledgeGraph:
         predicate: str,
         max_depth: int = 5,
     ) -> list[tuple[str, str, str, float]]:
-        """
-        Compute transitive closure for a property.
+        """Compute transitive closure for a property.
 
         Args:
             predicate: Property name
@@ -1982,8 +1958,7 @@ class KnowledgeGraph:
         predicate: str,
         obj: str,
     ) -> dict[str, Any]:
-        """
-        Explain how a triple was derived.
+        """Explain how a triple was derived.
 
         Args:
             subject: Subject entity
@@ -2050,8 +2025,7 @@ class KnowledgeGraph:
         entity: str,
         max_depth: int = 2,
     ) -> dict[str, Any]:
-        """
-        Get full context for an entity including ontology information.
+        """Get full context for an entity including ontology information.
 
         Args:
             entity: Entity identifier

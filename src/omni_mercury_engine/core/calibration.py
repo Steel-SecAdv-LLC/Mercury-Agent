@@ -1,20 +1,5 @@
-"""
-Mercury Agent - Probability Calibration Module
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Implements calibration methods to align confidence scores with true error rates:
-- Platt Scaling (logistic regression on scores)
-- Isotonic Regression (non-parametric monotonic calibration)
-- Temperature Scaling (single-parameter neural network calibration)
-- Reliability diagrams for visualization
-- Target: Brier score < 0.05 for well-calibrated predictions
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Probability Calibration Module."""
 
 from __future__ import annotations
 
@@ -59,8 +44,7 @@ class CalibrationResult:
 def compute_ece(
     y_true: np.ndarray[Any, Any], y_prob: np.ndarray[Any, Any], n_bins: int = 10
 ) -> float:
-    """
-    Compute Expected Calibration Error (ECE).
+    """Compute Expected Calibration Error (ECE).
 
     ECE measures the average gap between predicted confidence and accuracy
     across probability bins, weighted by bin size.
@@ -93,8 +77,7 @@ def compute_ece(
 def compute_mce(
     y_true: np.ndarray[Any, Any], y_prob: np.ndarray[Any, Any], n_bins: int = 10
 ) -> float:
-    """
-    Compute Maximum Calibration Error (MCE).
+    """Compute Maximum Calibration Error (MCE).
 
     MCE is the maximum gap between predicted confidence and accuracy
     across all probability bins.
@@ -124,8 +107,7 @@ def compute_mce(
 
 
 class PlattScaling:
-    """
-    Platt Scaling calibration using logistic regression.
+    """Platt Scaling calibration using logistic regression.
 
     Fits a logistic regression model to map raw scores/probabilities
     to calibrated probabilities. Works well when the uncalibrated
@@ -135,8 +117,7 @@ class PlattScaling:
     """
 
     def __init__(self, solver: str = "lbfgs", max_iter: int = 1000):
-        """
-        Initialize Platt scaling.
+        """Initialize Platt scaling.
 
         Args:
             solver: Solver for logistic regression
@@ -157,8 +138,7 @@ class PlattScaling:
         self._fitted = False
 
     def fit(self, y_prob: np.ndarray[Any, Any], y_true: np.ndarray[Any, Any]) -> PlattScaling:
-        """
-        Fit Platt scaling calibrator.
+        """Fit Platt scaling calibrator.
 
         Args:
             y_prob: Uncalibrated probability predictions (n_samples,)
@@ -186,8 +166,7 @@ class PlattScaling:
         return self
 
     def calibrate(self, y_prob: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Apply Platt scaling calibration.
+        """Apply Platt scaling calibration.
 
         Args:
             y_prob: Uncalibrated probabilities
@@ -203,8 +182,7 @@ class PlattScaling:
 
 
 class IsotonicCalibration:
-    """
-    Isotonic regression calibration (non-parametric).
+    """Isotonic regression calibration (non-parametric).
 
     Fits a stepwise non-decreasing function to map raw scores
     to calibrated probabilities. More flexible than Platt scaling
@@ -214,8 +192,7 @@ class IsotonicCalibration:
     """
 
     def __init__(self, out_of_bounds: str = "clip"):
-        """
-        Initialize isotonic calibration.
+        """Initialize isotonic calibration.
 
         Args:
             out_of_bounds: How to handle out-of-bounds values ("clip", "nan")
@@ -237,8 +214,7 @@ class IsotonicCalibration:
     def fit(
         self, y_prob: np.ndarray[Any, Any], y_true: np.ndarray[Any, Any]
     ) -> IsotonicCalibration:
-        """
-        Fit isotonic regression calibrator.
+        """Fit isotonic regression calibrator.
 
         Args:
             y_prob: Uncalibrated probability predictions
@@ -259,8 +235,7 @@ class IsotonicCalibration:
         return self
 
     def calibrate(self, y_prob: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Apply isotonic calibration.
+        """Apply isotonic calibration.
 
         Args:
             y_prob: Uncalibrated probabilities
@@ -275,8 +250,7 @@ class IsotonicCalibration:
 
 
 class TemperatureScaling:
-    """
-    Temperature Scaling calibration (single-parameter).
+    """Temperature Scaling calibration (single-parameter).
 
     Divides logits by a learned temperature parameter T before
     applying softmax. Simple but effective for neural networks.
@@ -286,8 +260,7 @@ class TemperatureScaling:
     """
 
     def __init__(self, max_iter: int = 100, lr: float = 0.01):
-        """
-        Initialize temperature scaling.
+        """Initialize temperature scaling.
 
         Args:
             max_iter: Maximum optimization iterations
@@ -308,8 +281,7 @@ class TemperatureScaling:
         return np.asarray(1 / (1 + np.exp(-z)))  # type: ignore[no-any-return, unused-ignore]
 
     def fit(self, y_prob: np.ndarray[Any, Any], y_true: np.ndarray[Any, Any]) -> TemperatureScaling:
-        """
-        Fit temperature parameter by minimizing NLL.
+        """Fit temperature parameter by minimizing NLL.
 
         Args:
             y_prob: Uncalibrated probability predictions
@@ -350,8 +322,7 @@ class TemperatureScaling:
         return self
 
     def calibrate(self, y_prob: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Apply temperature scaling.
+        """Apply temperature scaling.
 
         Args:
             y_prob: Uncalibrated probabilities
@@ -367,16 +338,14 @@ class TemperatureScaling:
 
 
 class CalibrationEnsemble:
-    """
-    Ensemble of calibration methods with automatic selection.
+    """Ensemble of calibration methods with automatic selection.
 
     Combines multiple calibration approaches and selects the best based on validation performance
     (Brier score).
     """
 
     def __init__(self, seed: int | None = None) -> None:
-        """
-        Initialize calibration ensemble.
+        """Initialize calibration ensemble.
 
         Args:
             seed: Optional seed for the per-instance ``Generator`` driving
@@ -398,8 +367,7 @@ class CalibrationEnsemble:
         y_true: np.ndarray[Any, Any],
         validation_split: float = 0.3,
     ) -> CalibrationEnsemble:
-        """
-        Fit all calibrators and select best.
+        """Fit all calibrators and select best.
 
         Args:
             y_prob: Uncalibrated probabilities
@@ -452,8 +420,7 @@ class CalibrationEnsemble:
         return self
 
     def calibrate(self, y_prob: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Apply best calibration method.
+        """Apply best calibration method.
 
         Args:
             y_prob: Uncalibrated probabilities
@@ -474,8 +441,7 @@ def evaluate_calibration(
     method: str = "Unknown",
     n_bins: int = 10,
 ) -> CalibrationResult:
-    """
-    Evaluate calibration improvement.
+    """Evaluate calibration improvement.
 
     Args:
         y_true: Binary ground truth labels
@@ -550,8 +516,7 @@ def calibrate_detector(
     y_cal: np.ndarray[Any, Any],
     method: str = "auto",
 ) -> tuple[Any, CalibrationResult | None]:
-    """
-    Calibrate a detector's probability outputs.
+    """Calibrate a detector's probability outputs.
 
     Implements a robust fallback cascade to obtain probability scores from
     any detector type, then applies calibration to improve probability estimates.
@@ -613,8 +578,7 @@ def _extract_calibration_scores(
     detector: Any,
     X: np.ndarray[Any, Any],
 ) -> tuple[np.ndarray[Any, Any] | None, str]:
-    """
-    Extract probability-like scores from any detector for calibration.
+    """Extract probability-like scores from any detector for calibration.
 
     Uses a multi-strategy fallback cascade:
     1. predict_proba - Standard probability output (preferred)
@@ -683,8 +647,7 @@ def _synthesize_probabilities_from_predictions(
     predictions: np.ndarray[Any, Any],
     X: np.ndarray[Any, Any],
 ) -> np.ndarray[Any, Any]:
-    """
-    Synthesize continuous probabilities from binary predictions.
+    """Synthesize continuous probabilities from binary predictions.
 
     Creates differentiated probability scores for samples within
     each class based on feature characteristics.
@@ -741,8 +704,7 @@ def _compute_feature_variation(X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
 
 
 def _compute_statistical_scores_for_calibration(X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-    """
-    Compute statistical anomaly scores when detector provides no scoring.
+    """Compute statistical anomaly scores when detector provides no scoring.
 
     Combines multiple statistical methods:
     - Mahalanobis-like distance (using diagonal covariance)

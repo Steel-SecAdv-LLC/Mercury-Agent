@@ -1,4 +1,5 @@
-"""Cognitive Orchestrator - Unified Integration Layer
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Cognitive Orchestrator - Unified Integration Layer.
 
 This is NOT theater. This module wires together all cognitive components
 into the Mercury-Agent detection pipeline:
@@ -21,12 +22,6 @@ Data Flow:
                               [Case Library Updates]
                               [Indicator Development]
 """
-
-# Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-#
-# This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-# General Public License as published by the Free Software Foundation, either version 3 of the
-# License, or (at your option) any later version.
 
 from __future__ import annotations
 
@@ -140,8 +135,7 @@ _DEFAULT_DOMAIN: str = "general"
 
 
 class CognitiveOrchestrator(LoggerMixin):
-    """
-    Unified Cognitive Layer for Mercury-Agent.
+    """Unified Cognitive Layer for Mercury-Agent.
 
     This orchestrator integrates all cognitive components into a coherent
     analysis pipeline that enhances anomaly detection with:
@@ -179,8 +173,7 @@ class CognitiveOrchestrator(LoggerMixin):
         enable_indicators: bool = True,
         strict_ethics: bool = True,
     ):
-        """
-        Initialize Cognitive Orchestrator.
+        """Initialize Cognitive Orchestrator.
 
         Args:
             enable_plasticity: Enable dynamic knowledge adaptation
@@ -306,8 +299,7 @@ class CognitiveOrchestrator(LoggerMixin):
         raw_data: np.ndarray[Any, Any] | None = None,
         context: dict[str, Any] | None = None,
     ) -> CognitiveAnalysisResult:
-        """
-        Perform comprehensive cognitive analysis on detection results.
+        """Perform comprehensive cognitive analysis on detection results.
 
         This is the MAIN INTEGRATION POINT. It takes output from the
         anomaly engine and enhances it with cognitive capabilities.
@@ -621,8 +613,7 @@ class CognitiveOrchestrator(LoggerMixin):
         was_correct: bool,
         actual_outcome: str | None = None,
     ) -> None:
-        """
-        Learn from feedback on a previous analysis.
+        """Learn from feedback on a previous analysis.
 
         This closes the loop - updating CBR, plasticity, and indicators
         based on real-world outcomes.
@@ -650,8 +641,7 @@ class CognitiveOrchestrator(LoggerMixin):
         self,
         domain: str | None = None,
     ) -> list[str]:
-        """
-        Develop new indicators from accumulated anomaly history.
+        """Develop new indicators from accumulated anomaly history.
 
         Args:
             domain: Optional domain filter
@@ -682,8 +672,7 @@ class CognitiveOrchestrator(LoggerMixin):
         outcome_score: float,
         domain: str,
     ) -> str | None:
-        """
-        Add a resolved case to the case base for future learning.
+        """Add a resolved case to the case base for future learning.
 
         Args:
             problem: Problem description/features
@@ -717,8 +706,7 @@ class CognitiveOrchestrator(LoggerMixin):
         center_concept: str,
         radius: int = 2,
     ) -> dict[str, Any]:
-        """
-        Extract knowledge subgraph around a concept.
+        """Extract knowledge subgraph around a concept.
 
         Useful for explaining what the system knows about a topic.
 

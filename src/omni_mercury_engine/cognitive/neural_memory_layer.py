@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Neural Memory Layer - Memory Embeddings and Pattern Detection
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Neural Memory Layer - Memory Embeddings and Pattern Detection.
 
 Implements the neural layer of the neuro-symbolic architecture:
 - Memory entry vectorization and embedding
@@ -35,6 +17,8 @@ Integration:
     This module integrates with AgentMemory from mercury_a_agent.py
     and feeds into the SymbolicReasoningLayer for hybrid inference.
 """
+
+from __future__ import annotations
 
 import logging
 import time
@@ -118,16 +102,14 @@ class AnomalyPrediction:
 
 
 class MemoryVectorizer:
-    """
-    Vectorize memory entries into dense embeddings.
+    """Vectorize memory entries into dense embeddings.
 
     Uses lightweight feature extraction to convert memory content into fixed-dimensional vectors
     suitable for clustering and similarity.
     """
 
     def __init__(self, embedding_dim: int = 64, seed: int | None = 42) -> None:
-        """
-        Initialize memory vectorizer.
+        """Initialize memory vectorizer.
 
         Args:
             embedding_dim: Dimension of output embeddings (default 64)
@@ -154,8 +136,7 @@ class MemoryVectorizer:
         self._projection_seed: int | None = seed
 
     def fit(self, memory_contents: list[dict[str, Any]]) -> None:
-        """
-        Fit vectorizer on memory contents to build vocabulary.
+        """Fit vectorizer on memory contents to build vocabulary.
 
         Args:
             memory_contents: List of memory content dictionaries
@@ -176,8 +157,7 @@ class MemoryVectorizer:
             self._idf_weights[token] = np.log((n_docs + 1) / (freq + 1)) + 1
 
     def transform(self, content: dict[str, Any]) -> np.ndarray[Any, Any]:
-        """
-        Transform memory content into embedding vector.
+        """Transform memory content into embedding vector.
 
         Args:
             content: Memory content dictionary
@@ -248,8 +228,7 @@ class MemoryVectorizer:
 
 
 class KMeansClusterer:
-    """
-    K-means clustering for memory embeddings.
+    """K-means clustering for memory embeddings.
 
     Lightweight implementation suitable for real-time clustering of memory entries without external
     dependencies.
@@ -262,8 +241,7 @@ class KMeansClusterer:
         tol: float = 1e-4,
         random_state: int = 42,
     ):
-        """
-        Initialize K-means clusterer.
+        """Initialize K-means clusterer.
 
         Args:
             n_clusters: Number of clusters
@@ -280,8 +258,7 @@ class KMeansClusterer:
         self.inertia_: float = 0.0
 
     def fit(self, X: np.ndarray[Any, Any]) -> KMeansClusterer:
-        """
-        Fit K-means on embeddings.
+        """Fit K-means on embeddings.
 
         Args:
             X: Embedding matrix of shape (n_samples, n_features)
@@ -324,8 +301,7 @@ class KMeansClusterer:
         return self
 
     def predict(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Predict cluster labels for new embeddings.
+        """Predict cluster labels for new embeddings.
 
         Args:
             X: Embedding matrix of shape (n_samples, n_features)
@@ -347,8 +323,7 @@ class KMeansClusterer:
 
 
 class PatternDetector:
-    """
-    Detect patterns from clustered memory embeddings.
+    """Detect patterns from clustered memory embeddings.
 
     Identifies anomalies, trends, cycles, and escalations from temporal sequences of memory entries.
     """
@@ -359,8 +334,7 @@ class PatternDetector:
         trend_window: int = 10,
         min_pattern_support: int = 3,
     ):
-        """
-        Initialize pattern detector.
+        """Initialize pattern detector.
 
         Args:
             anomaly_threshold: Standard deviations for anomaly detection
@@ -377,8 +351,7 @@ class PatternDetector:
         embeddings: list[MemoryEmbedding],
         clusterer: KMeansClusterer,
     ) -> list[DetectedPattern]:
-        """
-        Detect patterns from memory embeddings.
+        """Detect patterns from memory embeddings.
 
         Args:
             embeddings: List of memory embeddings
@@ -557,8 +530,7 @@ class PatternDetector:
 
 
 class AnomalyPredictor:
-    """
-    Predict future anomalies from detected patterns.
+    """Predict future anomalies from detected patterns.
 
     Uses pattern history and Bayesian-inspired confidence to forecast potential anomalies.
     """
@@ -568,8 +540,7 @@ class AnomalyPredictor:
         prediction_horizon: float = 3600.0,
         min_confidence: float = 0.5,
     ):
-        """
-        Initialize anomaly predictor.
+        """Initialize anomaly predictor.
 
         Args:
             prediction_horizon: Time horizon for predictions (seconds)
@@ -584,8 +555,7 @@ class AnomalyPredictor:
         patterns: list[DetectedPattern],
         current_time: float | None = None,
     ) -> list[AnomalyPrediction]:
-        """
-        Predict future anomalies from patterns.
+        """Predict future anomalies from patterns.
 
         Args:
             patterns: List of detected patterns
@@ -701,8 +671,7 @@ class AnomalyPredictor:
 
 
 class NeuralMemoryLayer:
-    """
-    Neural Memory Layer - Main interface for memory-based pattern detection.
+    """Neural Memory Layer - Main interface for memory-based pattern detection.
 
     Integrates vectorization, clustering, pattern detection, and prediction
     into a unified interface for the neuro-symbolic architecture.
@@ -717,8 +686,7 @@ class NeuralMemoryLayer:
         anomaly_threshold: float = 2.0,
         prediction_horizon: float = 3600.0,
     ):
-        """
-        Initialize Neural Memory Layer.
+        """Initialize Neural Memory Layer.
 
         Args:
             embedding_dim: Dimension of memory embeddings
@@ -746,8 +714,7 @@ class NeuralMemoryLayer:
         memories: list[dict[str, Any]],
         memory_type: MemoryType = MemoryType.EPISODIC,
     ) -> list[MemoryEmbedding]:
-        """
-        Ingest memory entries and create embeddings.
+        """Ingest memory entries and create embeddings.
 
         Args:
             memories: List of memory content dictionaries
@@ -785,8 +752,7 @@ class NeuralMemoryLayer:
         return new_embeddings
 
     def analyze(self) -> dict[str, Any]:
-        """
-        Analyze all ingested memories for patterns and predictions.
+        """Analyze all ingested memories for patterns and predictions.
 
         Returns:
             Analysis result with patterns, predictions, and statistics
@@ -834,8 +800,7 @@ class NeuralMemoryLayer:
         query_embedding: np.ndarray[Any, Any],
         top_k: int = 5,
     ) -> list[tuple[MemoryEmbedding, float]]:
-        """
-        Find memories most similar to a query embedding.
+        """Find memories most similar to a query embedding.
 
         Args:
             query_embedding: Query vector
@@ -862,8 +827,7 @@ class NeuralMemoryLayer:
         return similarities[:top_k]
 
     def get_anomaly_score(self, embedding: np.ndarray[Any, Any]) -> float:
-        """
-        Get anomaly score for a single embedding.
+        """Get anomaly score for a single embedding.
 
         Args:
             embedding: Input embedding vector
@@ -893,8 +857,7 @@ class NeuralMemoryLayer:
         return float(score)
 
     def get_neural_features(self) -> np.ndarray[Any, Any]:
-        """
-        Get aggregated neural features for symbolic layer input.
+        """Get aggregated neural features for symbolic layer input.
 
         Returns:
             Feature vector summarizing neural layer state

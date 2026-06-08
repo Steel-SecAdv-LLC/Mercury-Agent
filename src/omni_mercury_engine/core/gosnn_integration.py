@@ -1,23 +1,5 @@
-"""
-Mercury Agent - GOSNN Integration Layer
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Integration layer connecting:
-- Enhanced base domain detectors
-- Enhanced model domain components
-- GOSNN hub (Global Omni-Scalar Network)
-- Stacking/BMA fusion
-- Calibration and conformal prediction
-- Benevolence optimization
-
-Provides unified API for multi-domain anomaly detection with ethical constraints.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""GOSNN Integration Layer."""
 
 from __future__ import annotations
 
@@ -62,6 +44,7 @@ class ConformalMisconfigurationError(ValueError):
     """
 
     def __init__(self, original: BaseException) -> None:
+        """Initialize the instance."""
         self.original = original
         super().__init__(
             f"Conformal prediction was enabled (use_conformal=True) but the "
@@ -161,8 +144,7 @@ class PerformanceMetric:
 
 
 class GOSNNPerformanceMonitor:
-    """
-    Performance monitor for GOSNN operations.
+    """Performance monitor for GOSNN operations.
 
     Tracks latency, throughput, and identifies bottlenecks for optimization targeting <2% overhead.
     """
@@ -322,8 +304,7 @@ class DomainConfig:
 
 
 class GOSNNIntegration:
-    """
-    Integration layer for GOSNN-based multi-domain anomaly detection.
+    """Integration layer for GOSNN-based multi-domain anomaly detection.
 
     Coordinates:
     - Multiple domain detectors (Statistical, Temporal, Spatial, etc.)
@@ -343,8 +324,7 @@ class GOSNNIntegration:
         conformal_alpha: float = 0.1,
         seed: int = 42,
     ):
-        """
-        Initialize GOSNN integration.
+        """Initialize GOSNN integration.
 
         Args:
             sigma_immutable: Ethical threshold (0.93-0.96)
@@ -384,8 +364,7 @@ class GOSNNIntegration:
         ethical_score: float = 1.0,
         **config_kwargs: Any,
     ) -> GOSNNIntegration:
-        """
-        Add a detection domain to the integration.
+        """Add a detection domain to the integration.
 
         Args:
             name: Domain name (e.g., "statistical", "temporal")
@@ -410,8 +389,7 @@ class GOSNNIntegration:
         return self
 
     def add_base_domains(self) -> GOSNNIntegration:
-        """
-        Add standard base domain detectors.
+        """Add standard base domain detectors.
 
         Includes: Statistical, Temporal, Spatial, Dimensional, Graph-based
         """
@@ -470,8 +448,7 @@ class GOSNNIntegration:
         return self
 
     def add_model_domains(self) -> GOSNNIntegration:
-        """
-        Add model domain components.
+        """Add model domain components.
 
         Includes: Quantum, Biometric, Affective, Consciousness
         """
@@ -520,8 +497,7 @@ class GOSNNIntegration:
         y: np.ndarray[Any, Any] | None = None,
         validation_split: float = 0.2,
     ) -> GOSNNIntegration:
-        """
-        Fit all domains and integration components.
+        """Fit all domains and integration components.
 
         Args:
             X: Training data
@@ -603,8 +579,7 @@ class GOSNNIntegration:
         return_details: bool = False,
         use_cache: bool = True,
     ) -> IntegrationResult:
-        """
-        Perform integrated multi-domain anomaly detection.
+        """Perform integrated multi-domain anomaly detection.
 
         Args:
             X: Input data
@@ -936,8 +911,7 @@ def create_integrated_detector(
     fusion_method: str = "ethical",
     **kwargs: Any,
 ) -> GOSNNIntegration:
-    """
-    Factory function to create integrated detector.
+    """Factory function to create integrated detector.
 
     Args:
         domains: List of domains to include (None = all)

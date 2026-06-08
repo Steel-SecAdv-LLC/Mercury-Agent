@@ -1,33 +1,5 @@
-"""Mercury Agent - Fibring Fusion Composer.
-
-Copyright (C) 2026 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Fibring Fusion: hierarchical composition of three primitives that already
-exist in Mercury but were never named as a single mode:
-
-    1. Phi-weighted base   — golden-ratio split between neural / symbolic.
-    2. Correlation-aware decorrelation — when neural and symbolic agree
-       too consistently across a recent window, the redundant component's
-       weight is reduced (echoing the math_arrest CorrelationAwareDecorrelator).
-    3. Domain-affinity reordering — per-domain bias that favours the
-       modality which is empirically stronger for that domain (medical
-       favours symbolic; geomagnetic / earthquake favour neural).
-
-The composition is stateful (running window) but pure: identical histories
-and inputs yield identical weights. No randomness.
-
-This module is taxonomy-faithful: in the NSAI literature (Garcez & Lamb 2020,
-Sarker et al. 2021) "fibring" is the architectural pattern in which one
-reasoning system is fibred over another rather than placed sequentially or
-independently in parallel. Mercury's PHI / decorrelator / affinity stack
-already implements that pattern; this module gives it its name and a single
-entry point.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Fibring Fusion Composer."""
 
 from __future__ import annotations
 
@@ -113,6 +85,7 @@ class FibringComposer:
         redundancy_threshold: float = REDUNDANCY_THRESHOLD,
         min_samples_for_decorrelation: int = MIN_SAMPLES_FOR_DECORRELATION,
     ) -> None:
+        """Initialize the instance."""
         if window_size < 2:
             raise ValueError(f"window_size must be >= 2, got {window_size}")
         if not 0.0 < redundancy_threshold <= 1.0:

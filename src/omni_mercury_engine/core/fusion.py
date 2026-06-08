@@ -1,18 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU."""
 
 from __future__ import annotations
 
@@ -46,7 +33,6 @@ from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 # - Late fusion: Each detector produces anomaly score → weighted average with learned weights
 # - Hybrid: Concatenate raw features + detector scores → attention network
 
-
 if TYPE_CHECKING:
     import numpy as np
 
@@ -54,8 +40,7 @@ if TYPE_CHECKING:
 def _validate_tensor_devices(
     tensors: dict[str, torch.Tensor], context: str = "tensors"
 ) -> tuple[torch.device, torch.dtype]:
-    """
-    Validate all tensors share the same device and dtype.
+    """Validate all tensors share the same device and dtype.
 
     Args:
         tensors: Dictionary of named tensors to validate.
@@ -97,8 +82,7 @@ def _validate_tensor_devices(
 if TYPE_CHECKING or TORCH_AVAILABLE:
 
     class AttentionFusion(nn.Module):
-        """
-        Multi-head attention mechanism for detector fusion.
+        """Multi-head attention mechanism for detector fusion.
 
         Learns which detectors are most relevant for each input sample,
         providing interpretability via attention weights.
@@ -123,6 +107,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             enable_hierarchical: bool = False,
             num_detector_groups: int = 3,
         ):
+            """Initialize the instance."""
             super().__init__()
             if embed_dim is None and num_detectors is not None:
                 embed_dim = num_detectors
@@ -179,8 +164,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             return_attention: bool = False,
             context_embeddings: torch.Tensor | None = None,
         ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
-            """
-            Apply multi-head attention over detector embeddings.
+            """Apply multi-head attention over detector embeddings.
 
             Enhanced with optional cross-attention and hierarchical attention.
 
@@ -229,8 +213,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             detector_embeddings: torch.Tensor,
             return_attention: bool = False,
         ) -> tuple[torch.Tensor, torch.Tensor]:
-            """
-            Apply hierarchical coarse-to-fine attention.
+            """Apply hierarchical coarse-to-fine attention.
 
             First applies coarse attention to capture global patterns, then fine attention for
             detailed pattern matching.
@@ -258,8 +241,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             return fused, combined_weights
 
     class SparseTopKAttention(nn.Module):
-        """
-        Sparse top-k attention for O(n) -> O(k) complexity.
+        """Sparse top-k attention for O(n) -> O(k) complexity.
 
         Instead of computing full attention over all positions, only attends
         to the top-k most relevant positions, dramatically reducing compute
@@ -276,8 +258,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             dropout: float = 0.1,
             top_k_ratio: float = 0.3,
         ):
-            """
-            Initialize sparse top-k attention.
+            """Initialize sparse top-k attention.
 
             Args:
                 embed_dim: Embedding dimension
@@ -301,8 +282,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             x: torch.Tensor,
             return_attention: bool = False,
         ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
-            """
-            Apply sparse top-k attention.
+            """Apply sparse top-k attention.
 
             Args:
                 x: Input tensor [batch_size, seq_len, embed_dim]
@@ -347,8 +327,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             return out  # type: ignore[no-any-return, unused-ignore]
 
     class UncertaintyWeightedFusion(nn.Module):
-        """
-        Uncertainty-weighted fusion layer.
+        """Uncertainty-weighted fusion layer.
 
         Implements uncertainty-weighted detector fusion:
         weight_i = softmax(logit_i - lambda * uncertainty_i)
@@ -369,8 +348,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             enable_entropy_weighting: bool = True,
             temperature: float = 1.0,
         ):
-            """
-            Initialize uncertainty-weighted fusion.
+            """Initialize uncertainty-weighted fusion.
 
             Args:
                 num_detectors: Number of detectors to fuse
@@ -388,8 +366,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             self.base_logits = nn.Parameter(torch.zeros(num_detectors))
 
         def compute_entropy(self, scores: torch.Tensor) -> torch.Tensor:
-            """
-            Compute entropy-based uncertainty from detector scores.
+            """Compute entropy-based uncertainty from detector scores.
 
             Args:
                 scores: Detector scores [batch_size, num_detectors]
@@ -411,8 +388,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             detector_uncertainties: torch.Tensor | None = None,
             return_weights: bool = False,
         ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
-            """
-            Apply uncertainty-weighted fusion.
+            """Apply uncertainty-weighted fusion.
 
             Args:
                 detector_scores: Scores from each detector [batch_size, num_detectors]
@@ -448,8 +424,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             return fused
 
     class ResonanceWeightedFusion(nn.Module):
-        """
-        Resonance-weighted fusion integrating with 3R mechanism.
+        """Resonance-weighted fusion integrating with 3R mechanism.
 
         Implements resonance-based weight modulation:
         weight = base_logit * (1 + resonance_score)
@@ -464,8 +439,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             num_detectors: int,
             resonance_lambda: float = 0.15,
         ):
-            """
-            Initialize resonance-weighted fusion.
+            """Initialize resonance-weighted fusion.
 
             Args:
                 num_detectors: Number of detectors
@@ -479,8 +453,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             self.base_weights = nn.Parameter(torch.ones(num_detectors) / num_detectors)
 
         def compute_resonance(self, divergences: torch.Tensor) -> torch.Tensor:
-            """
-            Compute resonance scores from divergences.
+            """Compute resonance scores from divergences.
 
             Args:
                 divergences: Divergence values [batch_size, num_detectors]
@@ -496,8 +469,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             divergences: torch.Tensor | None = None,
             return_weights: bool = False,
         ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
-            """
-            Apply resonance-weighted fusion.
+            """Apply resonance-weighted fusion.
 
             Args:
                 detector_scores: Scores from each detector [batch_size, num_detectors]
@@ -539,8 +511,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             return fused
 
     class HybridFusionLayer(nn.Module):
-        """
-        Hybrid fusion combining early and late fusion strategies with uncertainty weighting.
+        """Hybrid fusion combining early and late fusion strategies with uncertainty weighting.
 
         Architecture:
         1. Early fusion: Concatenate normalized detector features → MLP
@@ -568,6 +539,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             # Resonance integration parameters
             resonance_lambda: float = 0.15,
         ):
+            """Initialize the instance."""
             super().__init__()
             self.feature_dims = feature_dims
             self.hidden_dim = hidden_dim
@@ -630,8 +602,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             detector_features: dict[str, torch.Tensor],
             detector_scores: dict[str, torch.Tensor],
         ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
-            """
-            Hybrid fusion of detector outputs.
+            """Hybrid fusion of detector outputs.
 
             Args:
                 detector_features: Dict mapping detector name to feature tensor
@@ -710,8 +681,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
         def extract_features(
             self, detector_features: dict[str, torch.Tensor]
         ) -> dict[str, torch.Tensor]:
-            """
-            Extract and normalize features from all detectors.
+            """Extract and normalize features from all detectors.
 
             Explicitly named method for feature extraction phase.
             """
@@ -728,8 +698,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             return extracted
 
         def early_fusion_forward(self, detector_features: dict[str, torch.Tensor]) -> torch.Tensor:
-            """
-            Early fusion: concatenate normalized features → MLP.
+            """Early fusion: concatenate normalized features → MLP.
 
             Explicitly named method for early fusion phase.
             """
@@ -748,8 +717,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             return result
 
         def late_fusion_forward(self, detector_scores: dict[str, torch.Tensor]) -> torch.Tensor:
-            """
-            Late fusion: weighted average of detector scores.
+            """Late fusion: weighted average of detector scores.
 
             Explicitly named method for late fusion phase.
             """
@@ -771,8 +739,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             detector_features: dict[str, torch.Tensor],
             detector_scores: dict[str, torch.Tensor],
         ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
-            """
-            Hybrid detection: combine early + late fusion with attention.
+            """Hybrid detection: combine early + late fusion with attention.
 
             Explicitly named method for complete hybrid fusion pipeline.
             """
@@ -804,13 +771,13 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             return attended_features, attention_dict
 
     class EarlyFusionEncoder(nn.Module):
-        """
-        Explicitly named early fusion encoder.
+        """Explicitly named early fusion encoder.
 
         Concatenates and encodes features from multiple detectors.
         """
 
         def __init__(self, input_dim: int, hidden_dim: int = 128, dropout: float = 0.1) -> None:
+            """Initialize the instance."""
             super().__init__()
             self.encoder = nn.Sequential(
                 nn.Linear(input_dim, hidden_dim * 2),
@@ -831,12 +798,14 @@ else:
         """Stub: AttentionFusion requires PyTorch."""
 
         def __init__(self, *args: Any, **kwargs: Any) -> None:
+            """Initialize the instance."""
             raise ImportError("AttentionFusion requires PyTorch. Install with: pip install torch")
 
     class SparseTopKAttention:
         """Stub: SparseTopKAttention requires PyTorch."""
 
         def __init__(self, *args: Any, **kwargs: Any) -> None:
+            """Initialize the instance."""
             raise ImportError(
                 "SparseTopKAttention requires PyTorch. Install with: pip install torch"
             )
@@ -845,6 +814,7 @@ else:
         """Stub: UncertaintyWeightedFusion requires PyTorch."""
 
         def __init__(self, *args: Any, **kwargs: Any) -> None:
+            """Initialize the instance."""
             raise ImportError(
                 "UncertaintyWeightedFusion requires PyTorch. Install with: pip install torch"
             )
@@ -853,6 +823,7 @@ else:
         """Stub: ResonanceWeightedFusion requires PyTorch."""
 
         def __init__(self, *args: Any, **kwargs: Any) -> None:
+            """Initialize the instance."""
             raise ImportError(
                 "ResonanceWeightedFusion requires PyTorch. Install with: pip install torch"
             )
@@ -861,20 +832,21 @@ else:
         """Stub: HybridFusionLayer requires PyTorch."""
 
         def __init__(self, *args: Any, **kwargs: Any) -> None:
+            """Initialize the instance."""
             raise ImportError("HybridFusionLayer requires PyTorch. Install with: pip install torch")
 
     class EarlyFusionEncoder:
         """Stub: EarlyFusionEncoder requires PyTorch."""
 
         def __init__(self, *args: Any, **kwargs: Any) -> None:
+            """Initialize the instance."""
             raise ImportError(
                 "EarlyFusionEncoder requires PyTorch. Install with: pip install torch"
             )
 
 
 class DoubleHelixEvolutionEngine:
-    """
-    Double-Helix Evolution Engine for state evolution and anomaly detection.
+    """Double-Helix Evolution Engine for state evolution and anomaly detection.
 
     Implements the vectorized state-update model with DNA-inspired structure:
     ℵ(𝔄_{t+1}) = Helix_1(𝔄_t) ⊗ Helix_2(𝔄_t)
@@ -900,8 +872,7 @@ class DoubleHelixEvolutionEngine:
         state_dim: int = 50,
         rng: DeterministicRNG | None = None,
     ):
-        """
-        Initialize OmniMercuryEngine.
+        """Initialize OmniMercuryEngine.
 
         Args:
             config: Configuration dictionary with term weights and flags
@@ -1044,8 +1015,7 @@ class DoubleHelixEvolutionEngine:
         self._noise_filter = AdaptiveNoiseFilter(config)
 
     def _initialize_ethical_matrix(self) -> None:
-        """
-        Initialize positive-definite ethical matrix for Purity Invariant.
+        """Initialize positive-definite ethical matrix for Purity Invariant.
 
         σ_Immutable(𝔄_t) = det(ethical_matrix) > 0
 
@@ -1086,8 +1056,7 @@ class DoubleHelixEvolutionEngine:
         self._ethical_eigvals, self._ethical_eigvecs = self.np.linalg.eigh(self.ethical_matrix)
 
     def _compute_purity_invariant(self, state: np.ndarray[Any, Any]) -> float:
-        """
-        Compute Purity Invariant σ_Immutable.
+        """Compute Purity Invariant σ_Immutable.
 
         σ_Immutable(𝔄_t) = det(ethical_matrix) > 0
 
@@ -1111,8 +1080,7 @@ class DoubleHelixEvolutionEngine:
         return float(immutable_scalar)
 
     def _apply_purity_correction(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Apply purity correction to banish negative divergences.
+        """Apply purity correction to banish negative divergences.
 
         If σ_Immutable <= 0, projects state onto positive-definite subspace.
 
@@ -1142,8 +1110,7 @@ class DoubleHelixEvolutionEngine:
         return state
 
     def helix_1_discovery(self, state: np.ndarray[Any, Any], t: int = 0) -> np.ndarray[Any, Any]:
-        """
-        Helix_1 Discovery Strand: Quantum/chaos/exploration terms.
+        """Helix_1 Discovery Strand: Quantum/chaos/exploration terms.
 
         Forward strand with exploration/discovery focus. Includes all quantum, chaos, and
         computational terms.
@@ -1201,8 +1168,7 @@ class DoubleHelixEvolutionEngine:
         return strand
 
     def helix_2_ethical(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Helix_2 Ethical Verification Strand: Purity/benevolence terms.
+        """Helix_2 Ethical Verification Strand: Purity/benevolence terms.
 
         Backward/verification strand with ethical focus. Includes ethical refinement, Light/Love,
         immutable purity, and boundedness.
@@ -1224,8 +1190,7 @@ class DoubleHelixEvolutionEngine:
     def _intertwine_helixes(
         self, helix1: np.ndarray[Any, Any], helix2: np.ndarray[Any, Any]
     ) -> np.ndarray[Any, Any]:
-        """
-        Intertwine helix strands via tensor-like product for DNA-like replication.
+        """Intertwine helix strands via tensor-like product for DNA-like replication.
 
         Implements cross-term multiplication (base-pairing analogy):
         - Element-wise products for local coupling
@@ -1251,8 +1216,7 @@ class DoubleHelixEvolutionEngine:
         return intertwined
 
     def step(self, state: np.ndarray[Any, Any], t: int = 0) -> np.ndarray[Any, Any]:
-        """
-        Single iterative step of Mercury Agent equation with Double-Helix evolution.
+        """Single iterative step of Mercury Agent equation with Double-Helix evolution.
 
         Args:
             state: Current state vector 𝔄_t
@@ -1405,8 +1369,7 @@ class DoubleHelixEvolutionEngine:
         return energy_gradient * 0.05
 
     def _term_V(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        𝐕: Vibration harmonics with adaptive filtering.
+        """𝐕: Vibration harmonics with adaptive filtering.
 
         When enable_adaptive_filtering is True, uses advanced filtering methods:
         - Wavelet denoising for non-stationary signals (seismic, medical vitals)
@@ -1552,8 +1515,7 @@ class DoubleHelixEvolutionEngine:
         return self.np.clip(state, -bound, bound)  # type: ignore[no-any-return, unused-ignore]
 
     def _term_Omega(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Ω: Asymptotic horizons for long-term forecasting.
+        """Ω: Asymptotic horizons for long-term forecasting.
 
         Computes lim_{k→∞} ∑ (1/k) * Φ^k(𝔄_t) truncated to k=100. Uses fractal Φ iteratively for
         long-horizon prescience.
@@ -1569,8 +1531,7 @@ class DoubleHelixEvolutionEngine:
         return accumulator * 0.01
 
     def _term_Al(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        𝐀𝐥: Alien resistance using octonions for non-associative exotic threats.
+        """𝐀𝐥: Alien resistance using octonions for non-associative exotic threats.
 
         Implements ξ * (𝔄_t ⊗ 𝕆) using octonion product for 8D rotations.
         Fights exotic non-associative math like non-Euclidean anomalies.
@@ -1617,8 +1578,7 @@ class DoubleHelixEvolutionEngine:
         max_steps: int = 100,
         tolerance: float = 1e-4,
     ) -> tuple[np.ndarray[Any, Any], list[float]]:
-        """
-        Iteratively converge to stable state with Lyapunov stability checking.
+        """Iteratively converge to stable state with Lyapunov stability checking.
 
         Args:
             initial_state: Starting state (random if None)
@@ -1656,8 +1616,7 @@ class DoubleHelixEvolutionEngine:
         return state, history
 
     def detect_anomaly(self, data: np.ndarray[Any, Any], threshold: float = 2.0) -> dict[str, Any]:
-        """
-        Use converged state to detect anomalies in input data.
+        """Use converged state to detect anomalies in input data.
 
         Args:
             data: Input data array

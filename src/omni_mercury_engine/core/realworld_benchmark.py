@@ -1,24 +1,5 @@
-"""
-Mercury Agent - Real-World Benchmark Runner
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Runs benchmarks on real-world datasets:
-- SMD (Server Machine Dataset) - time-series anomaly detection
-- NSL-KDD - network intrusion detection
-- BATADAL - water infrastructure cyber-physical attacks
-
-Provides:
-- Quantified before/after metrics
-- Statistical significance testing
-- Reproducible evaluation with fixed seeds
-- Domain-specific metrics (time-to-detection, event F1, etc.)
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Real-World Benchmark Runner."""
 
 from __future__ import annotations
 
@@ -161,21 +142,20 @@ class BenchmarkResult:
 
 
 class SyntheticDataGenerator:
-    """
-    Generate synthetic benchmark data mimicking real-world datasets.
+    """Generate synthetic benchmark data mimicking real-world datasets.
 
     Used when real data files are not available.
     """
 
     def __init__(self, seed: int = GLOBAL_SEED):
+        """Initialize the instance."""
         self.seed = seed
         self.rng = np.random.default_rng(seed)
 
     def generate_smd_like(
         self, n_samples: int = 5000, n_features: int = 38
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """
-        Generate data mimicking SMD (Server Machine Dataset).
+        """Generate data mimicking SMD (Server Machine Dataset).
 
         SMD characteristics:
         - Multi-dimensional time-series
@@ -216,8 +196,7 @@ class SyntheticDataGenerator:
     def generate_nslkdd_like(
         self, n_samples: int = 5000, n_features: int = 41
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """
-        Generate data mimicking NSL-KDD.
+        """Generate data mimicking NSL-KDD.
 
         NSL-KDD characteristics:
         - Network traffic features
@@ -248,8 +227,7 @@ class SyntheticDataGenerator:
     def generate_batadal_like(
         self, n_samples: int = 5000, n_features: int = 43
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """
-        Generate data mimicking BATADAL.
+        """Generate data mimicking BATADAL.
 
         BATADAL characteristics:
         - Water infrastructure sensors
@@ -295,8 +273,7 @@ class SyntheticDataGenerator:
 
 
 class RealWorldBenchmarkRunner:
-    """
-    Benchmark runner for real-world datasets.
+    """Benchmark runner for real-world datasets.
 
     Supports:
     - SMD (Server Machine Dataset)
@@ -314,8 +291,7 @@ class RealWorldBenchmarkRunner:
         use_synthetic: bool = False,
         min_real_samples: int = 100,
     ):
-        """
-        Initialize the benchmark runner.
+        """Initialize the benchmark runner.
 
         Args:
             n_folds: Number of cross-validation folds
@@ -358,8 +334,7 @@ class RealWorldBenchmarkRunner:
     def load_dataset(
         self, name: str
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], DatasetInfo]:
-        """
-        Load a benchmark dataset.
+        """Load a benchmark dataset.
 
         Args:
             name: Dataset name (SMD, NSL-KDD, BATADAL)
@@ -496,8 +471,7 @@ class RealWorldBenchmarkRunner:
         dataset_name: str,
         detector_name: str = "Unknown",
     ) -> BenchmarkResult:
-        """
-        Run benchmark on a dataset.
+        """Run benchmark on a dataset.
 
         Args:
             detector: Detector with fit/predict/predict_proba methods
@@ -741,8 +715,7 @@ class RealWorldBenchmarkRunner:
         result_b: BenchmarkResult,
         metric: str = "f1",
     ) -> dict[str, Any]:
-        """
-        Statistical comparison between two detectors.
+        """Statistical comparison between two detectors.
 
         Args:
             result_a: First result
@@ -794,8 +767,7 @@ def run_all_benchmarks(
     n_folds: int = 10,
     seed: int = GLOBAL_SEED,
 ) -> dict[str, BenchmarkResult]:
-    """
-    Run benchmarks on all available datasets.
+    """Run benchmarks on all available datasets.
 
     Args:
         detector: Detector to evaluate

@@ -1,42 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
-
-Canonical Type Definitions for Mercury Agent
-
-This module provides canonical enum definitions used throughout the Mercury Agent
-codebase. These enums consolidate duplicate definitions from various modules to
-ensure consistency and reduce code duplication.
-
-Usage:
-    from omni_mercury_engine.core.types import (
-        CircuitState,
-        ThreatLevel,
-        EthicalPrinciple,
-        FusionStrategy,
-        ConfidenceLevel,
-        DetectorStatus,
-        AnomalyType,
-        PrivacyLevel,
-    )
-
-Note:
-    When adding new shared enums, place them in this module rather than defining
-    them locally in feature modules. This promotes code reuse and ensures
-    consistent semantics across the codebase.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 
@@ -53,15 +16,13 @@ __all__ = [
     "ThreatLevel",
 ]
 
-
 # =============================================================================
 # Circuit Breaker Pattern
 # =============================================================================
 
 
 class CircuitState(Enum):
-    """
-    States for the circuit breaker pattern.
+    """States for the circuit breaker pattern.
 
     The circuit breaker pattern prevents cascading failures by tracking the
     health of external dependencies and temporarily blocking requests when
@@ -90,8 +51,7 @@ class CircuitState(Enum):
 
 
 class ThreatLevel(Enum):
-    """
-    Security threat severity levels.
+    """Security threat severity levels.
 
     Unified threat classification combining variants from security modules,
     intelligence fusion systems, and detector components. Provides a
@@ -162,8 +122,7 @@ class ThreatLevel(Enum):
 
 
 class EthicalPrinciple(Enum):
-    """
-    Core ethical principles for AI alignment and governance.
+    """Core ethical principles for AI alignment and governance.
 
     Comprehensive set of ethical principles combining:
     - The 8 core Mercury principles (Compassion, Evidence, Justice, Altruism,
@@ -262,8 +221,7 @@ class EthicalPrinciple(Enum):
 
 
 class FusionStrategy(Enum):
-    """
-    Strategies for multi-modal data fusion.
+    """Strategies for multi-modal data fusion.
 
     Fusion strategies define how information from multiple sources, modalities,
     or models are combined to produce unified outputs. Strategies are organized
@@ -365,8 +323,7 @@ class FusionStrategy(Enum):
 
 
 class ConfidenceLevel(Enum):
-    """
-    Confidence/certainty levels for predictions and assessments.
+    """Confidence/certainty levels for predictions and assessments.
 
     Standardized confidence classification for transparency in AI outputs.
     Each level maps to an approximate probability range.
@@ -403,8 +360,7 @@ class ConfidenceLevel(Enum):
 
     @classmethod
     def from_probability(cls, probability: float) -> ConfidenceLevel:
-        """
-        Classify a probability value into a confidence level.
+        """Classify a probability value into a confidence level.
 
         Args:
             probability: Float between 0.0 and 1.0
@@ -454,8 +410,7 @@ class ConfidenceLevel(Enum):
 
 
 class DetectorStatus(Enum):
-    """
-    Operational status for anomaly detectors and processing components.
+    """Operational status for anomaly detectors and processing components.
 
     Tracks the lifecycle state of detector components from initialization
     through operation to completion or error states.
@@ -549,8 +504,7 @@ class DetectorStatus(Enum):
 
 
 class AnomalyType(Enum):
-    """
-    Types of anomalies detected by the system.
+    """Types of anomalies detected by the system.
 
     Categorizes anomalies by their characteristics and detection methodology.
     Used to guide response strategies and provide context for alerts.
@@ -621,8 +575,7 @@ class AnomalyType(Enum):
 
 
 class PrivacyLevel(Enum):
-    """
-    Privacy protection levels for data processing and federated learning.
+    """Privacy protection levels for data processing and federated learning.
 
     Defines the level of privacy guarantees applied to data during processing,
     aggregation, and model training operations.
@@ -672,8 +625,7 @@ class PrivacyLevel(Enum):
 
     @classmethod
     def for_compliance(cls, regulation: str) -> PrivacyLevel:
-        """
-        Suggest minimum privacy level for regulatory compliance.
+        """Suggest minimum privacy level for regulatory compliance.
 
         Args:
             regulation: Regulation identifier (e.g., "GDPR", "HIPAA", "CCPA")

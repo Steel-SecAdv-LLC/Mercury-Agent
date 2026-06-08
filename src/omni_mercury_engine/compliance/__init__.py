@@ -1,3 +1,4 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Compliance subpackage for Mercury Agent.
 
 Consumer-facing surface for governance and policy frameworks.
@@ -10,13 +11,6 @@ itself implements primitives.  Implementation primitives (crypto,
 PQC, threat detection, audit logging) live in
 :mod:`omni_mercury_engine.security`.
 """
-
-# Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-#
-# This program is free software: you can redistribute it and/or modify it
-# under the terms of the GNU General Public License as published by the
-# Free Software Foundation, either version 3 of the License, or (at your
-# option) any later version.
 
 from __future__ import annotations
 

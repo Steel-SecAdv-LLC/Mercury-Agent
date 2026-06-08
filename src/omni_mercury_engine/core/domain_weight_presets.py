@@ -1,18 +1,5 @@
-"""
-Domain-adaptive weight presets derived from benchmark data.
-
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-These presets encode measured component performance across 11 domains from
-mercury_benchmark_results.json (64 datasets, 2026-02-23).
-
-Each preset is the STARTING POINT for adaptive weighting. The unsupervised adaptive system still
-runs and can override these if per-dataset evidence is strong enough.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Domain-adaptive weight presets derived from benchmark data."""
 
 from __future__ import annotations
 

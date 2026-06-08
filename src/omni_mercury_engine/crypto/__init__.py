@@ -1,37 +1,5 @@
-"""
-Mercury Agent - Cryptographic Operations Module
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-P3: PyO3-based high-performance cryptographic operations.
-
-This module provides a Python interface to Rust cryptographic primitives,
-offering significant performance improvements over pure Python implementations.
-
-Features:
-- AEAD encryption (AES-GCM, ChaCha20-Poly1305)
-- Cryptographic hashing (BLAKE3, SHA-256, SHA-3)
-- Key derivation (Argon2id)
-- Secure random generation
-- Constant-time operations
-
-Usage:
-    from omni_mercury_engine.crypto import encrypt, decrypt, hash_data
-
-    # Encrypt data
-    ciphertext = encrypt(plaintext, key, nonce)
-
-    # Decrypt data
-    plaintext = decrypt(ciphertext, key, nonce)
-
-    # Hash data
-    digest = hash_data(data, algorithm='blake3')
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Cryptographic Operations Module."""
 
 from __future__ import annotations
 
@@ -40,7 +8,6 @@ import secrets
 from typing import TYPE_CHECKING, Any, Literal
 
 logger = logging.getLogger(__name__)
-
 
 # Try to import Rust bindings, fall back to pure Python
 _RUST_AVAILABLE = False
@@ -76,7 +43,6 @@ try:
 except ImportError:
     _HASHLIB_AVAILABLE = False
 
-
 # =============================================================================
 # Version and Feature Detection
 # =============================================================================
@@ -107,8 +73,7 @@ HashAlgorithm = Literal["blake3", "sha256", "sha3-256"]
 
 
 def hash_data(data: bytes, algorithm: HashAlgorithm = "blake3") -> bytes:
-    """
-    Compute cryptographic hash of data.
+    """Compute cryptographic hash of data.
 
     Args:
         data: Bytes to hash
@@ -172,8 +137,7 @@ def encrypt(
     aad: bytes | None = None,
     algorithm: EncryptionAlgorithm = "aes-gcm",
 ) -> tuple[bytes, bytes]:
-    """
-    Encrypt data using AEAD cipher.
+    """Encrypt data using AEAD cipher.
 
     Args:
         plaintext: Data to encrypt
@@ -222,8 +186,7 @@ def decrypt(
     aad: bytes | None = None,
     algorithm: EncryptionAlgorithm = "aes-gcm",
 ) -> bytes:
-    """
-    Decrypt data using AEAD cipher.
+    """Decrypt data using AEAD cipher.
 
     Args:
         ciphertext: Encrypted data with auth tag
@@ -282,8 +245,7 @@ def derive_key(
     time_cost: int = 3,
     parallelism: int = 4,
 ) -> bytes:
-    """
-    Derive a key from a password using Argon2id.
+    """Derive a key from a password using Argon2id.
 
     Args:
         password: Password bytes
@@ -332,8 +294,7 @@ def derive_key_pair(
     salt: bytes,
     info: bytes,
 ) -> tuple[bytes, bytes]:
-    """
-    Derive an encryption and authentication key pair from a master secret.
+    """Derive an encryption and authentication key pair from a master secret.
 
     Uses HKDF-SHA256 for key expansion.
 
@@ -376,8 +337,7 @@ def derive_key_pair(
 
 
 def secure_random(length: int) -> bytes:
-    """
-    Generate cryptographically secure random bytes.
+    """Generate cryptographically secure random bytes.
 
     Args:
         length: Number of bytes to generate
@@ -407,8 +367,7 @@ def generate_nonce() -> bytes:
 
 
 def constant_time_compare(a: bytes, b: bytes) -> bool:
-    """
-    Compare two byte strings in constant time.
+    """Compare two byte strings in constant time.
 
     Args:
         a: First byte string
@@ -427,8 +386,7 @@ def constant_time_compare(a: bytes, b: bytes) -> bool:
 
 
 def secure_zero(data: bytearray) -> None:
-    """
-    Securely zero out a byte buffer.
+    """Securely zero out a byte buffer.
 
     Note: In Python, this is best-effort due to immutable strings and GC.
     Use bytearray for mutable buffers that can be zeroed.

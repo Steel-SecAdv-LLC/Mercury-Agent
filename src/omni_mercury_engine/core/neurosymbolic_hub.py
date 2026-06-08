@@ -1,24 +1,5 @@
-"""
-Mercury Agent - Enhanced Neuro-Symbolic Hub
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Enhanced neuro-symbolic fusion integrating:
-- LTN (Logic Tensor Networks) with NetworkX graph reasoning
-- Stacking/BMA fusion for ensemble calibration
-- Real-time rule inference with explanation generation
-- GOSNN bidirectional synaptic integration
-- Calibration and conformal prediction
-- Benevolence ≥0.99 enforcement
-
-This module serves as the keystone for cross-domain gains, providing
-unified neuro-symbolic capabilities to all detector domains.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Enhanced Neuro-Symbolic Hub."""
 
 from __future__ import annotations
 
@@ -81,9 +62,7 @@ except ImportError:
     SlidingWindowConfig = None  # type: ignore[misc, assignment]
     SlidingWindowNormalizer = None  # type: ignore[misc, assignment]
 
-
 logger = logging.getLogger(__name__)
-
 
 # Constants - now referencing centralized constants
 PHI = MATH.GOLDEN_RATIO
@@ -193,8 +172,7 @@ class SymbolicRule:
     explanation_template: str = ""
 
     def evaluate(self, facts: set[str], context: dict[str, Any]) -> tuple[bool, float]:
-        """
-        Evaluate if rule fires given facts and context.
+        """Evaluate if rule fires given facts and context.
 
         Returns:
             Tuple of (fires, confidence_adjusted)
@@ -261,8 +239,7 @@ class SymbolicRule:
 
 
 class KnowledgeGraph:
-    """
-    NetworkX-based knowledge graph for symbolic reasoning.
+    """NetworkX-based knowledge graph for symbolic reasoning.
 
     Supports:
     - Fact and rule representation
@@ -272,6 +249,7 @@ class KnowledgeGraph:
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         if not NETWORKX_AVAILABLE or nx is None:
             self.graph = None
             logger.warning("NetworkX not available, knowledge graph disabled")
@@ -306,8 +284,7 @@ class KnowledgeGraph:
             self.graph.add_edge(rule.rule_id, rule.conclusion, relation="conclusion")
 
     def forward_chain(self, context: dict[str, Any]) -> tuple[set[str], list[str]]:
-        """
-        Perform forward chaining inference.
+        """Perform forward chaining inference.
 
         Args:
             context: Context dictionary with facts and values
@@ -338,8 +315,7 @@ class KnowledgeGraph:
         return derived, rules_fired
 
     def backward_chain(self, goal: str, context: dict[str, Any]) -> tuple[bool, list[str]]:
-        """
-        Perform backward chaining to find proof for goal.
+        """Perform backward chaining to find proof for goal.
 
         Args:
             goal: Goal to prove
@@ -364,8 +340,7 @@ class KnowledgeGraph:
         return False, []
 
     def get_anomaly_indicators(self, context: dict[str, Any]) -> tuple[float, list[str]]:
-        """
-        Compute symbolic anomaly score based on rule firings.
+        """Compute symbolic anomaly score based on rule firings.
 
         Args:
             context: Context dictionary
@@ -411,13 +386,13 @@ class KnowledgeGraph:
 
 
 class NeuralEncoder:
-    """
-    Neural encoder for neuro-symbolic fusion.
+    """Neural encoder for neuro-symbolic fusion.
 
     Supports PyTorch and NumPy fallback.
     """
 
     def __init__(self, input_dim: int = 64, hidden_dim: int = 128):
+        """Initialize the instance."""
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
         self._fitted = False
@@ -443,8 +418,7 @@ class NeuralEncoder:
             self.bias = 0.0
 
     def encode(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Encode input to anomaly scores.
+        """Encode input to anomaly scores.
 
         Args:
             X: Input array (n_samples, n_features)
@@ -583,8 +557,7 @@ class NeuralEncoder:
 
 
 class NeuroSymbolicHub:
-    """
-    Enhanced Neuro-Symbolic Hub for unified anomaly detection.
+    """Enhanced Neuro-Symbolic Hub for unified anomaly detection.
 
     Integrates:
     - Neural encoding (LTN-style)
@@ -611,8 +584,7 @@ class NeuroSymbolicHub:
         enable_adaptive_thresholding: bool = True,
         enable_gosnn_3r: bool = True,
     ):
-        """
-        Initialize Neuro-Symbolic Hub.
+        """Initialize Neuro-Symbolic Hub.
 
         Args:
             input_dim: Input feature dimension
@@ -847,8 +819,7 @@ class NeuroSymbolicHub:
             self.knowledge_graph.add_rule(rule)
 
     def _initialize_domain_rules(self, domain: str) -> None:
-        """
-        Initialize domain-specific symbolic rules.
+        """Initialize domain-specific symbolic rules.
 
         Args:
             domain: Domain name ('medical', 'financial', 'infrastructure')
@@ -959,8 +930,7 @@ class NeuroSymbolicHub:
         y: np.ndarray[Any, Any] | None = None,
         validation_split: float = 0.2,
     ) -> NeuroSymbolicHub:
-        """
-        Fit the neuro-symbolic hub.
+        """Fit the neuro-symbolic hub.
 
         Args:
             X: Training features
@@ -1064,8 +1034,7 @@ class NeuroSymbolicHub:
         context: dict[str, Any] | None = None,
         return_explanations: bool = True,
     ) -> list[ExplainableOutput]:
-        """
-        Predict anomalies with explanations.
+        """Predict anomalies with explanations.
 
         Args:
             X: Input features (n_samples, n_features)
@@ -1475,8 +1444,7 @@ class NeuroSymbolicHub:
         return vector
 
     def _compute_benevolence(self, context: dict[str, Any], anomaly_score: float) -> float:
-        """
-        Compute benevolence score for ethical compliance.
+        """Compute benevolence score for ethical compliance.
 
         Benevolence measures the positive intent and harm-avoidance
         of the detection. Higher anomaly scores with low false positive
@@ -1502,8 +1470,7 @@ class NeuroSymbolicHub:
         return float(np.clip(benevolence, 0.0, 1.0))
 
     def get_gosnn_scalars(self) -> dict[str, float]:
-        """
-        Get scalars for GOSNN integration.
+        """Get scalars for GOSNN integration.
 
         Returns:
             Dictionary of scalars for GOSNN registration
@@ -1520,8 +1487,7 @@ class NeuroSymbolicHub:
         }
 
     def integrate_with_gosnn(self, gosnn: Any) -> None:
-        """
-        Register scalars with GOSNN hub.
+        """Register scalars with GOSNN hub.
 
         Args:
             gosnn: GlobalOmniScalarNetwork instance
@@ -1559,8 +1525,7 @@ def create_neurosymbolic_hub(
     fusion_mode: str = "fibring",
     **kwargs: Any,
 ) -> NeuroSymbolicHub:
-    """
-    Factory function to create neuro-symbolic hub.
+    """Factory function to create neuro-symbolic hub.
 
     Args:
         input_dim: Input feature dimension

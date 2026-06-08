@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Neuro-Symbolic Fusion Engine - Hybrid Anomaly Scoring
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Neuro-Symbolic Fusion Engine - Hybrid Anomaly Scoring.
 
 Integrates the Neural Memory Layer and Symbolic Logic Layer into a unified
 neuro-symbolic architecture for hybrid anomaly detection and scoring.
@@ -60,6 +42,8 @@ Integration:
     combining neural pattern detection with symbolic reasoning for
     explainable anomaly detection.
 """
+
+from __future__ import annotations
 
 import logging
 import time
@@ -199,15 +183,13 @@ class FusionResult:
 
 
 class AttentionMechanism:
-    """
-    Attention mechanism for neural-symbolic fusion.
+    """Attention mechanism for neural-symbolic fusion.
 
     Learns to weight neural vs symbolic contributions based on context.
     """
 
     def __init__(self, hidden_dim: int = 32, seed: int | None = 42) -> None:
-        """
-        Initialize attention mechanism.
+        """Initialize attention mechanism.
 
         Args:
             hidden_dim: Hidden dimension for attention computation
@@ -228,8 +210,7 @@ class AttentionMechanism:
         neural_features: np.ndarray[Any, Any],
         symbolic_features: np.ndarray[Any, Any],
     ) -> tuple[float, float]:
-        """
-        Compute attention weights for neural and symbolic components.
+        """Compute attention weights for neural and symbolic components.
 
         Args:
             neural_features: Features from neural layer
@@ -266,8 +247,7 @@ class AttentionMechanism:
 
 
 class GatedFusion:
-    """
-    Gated fusion mechanism for combining neural and symbolic outputs.
+    """Gated fusion mechanism for combining neural and symbolic outputs.
 
     Uses learned gates to control information flow between components.
     """
@@ -283,8 +263,7 @@ class GatedFusion:
         neural_confidence: float,
         symbolic_confidence: float,
     ) -> tuple[float, float]:
-        """
-        Fuse neural and symbolic scores using gating.
+        """Fuse neural and symbolic scores using gating.
 
         Args:
             neural_score: Score from neural layer
@@ -305,8 +284,7 @@ class GatedFusion:
 
 
 class NeurosymbolicFusionEngine:
-    """
-    Neuro-Symbolic Fusion Engine - Main interface for hybrid anomaly detection.
+    """Neuro-Symbolic Fusion Engine - Main interface for hybrid anomaly detection.
 
     Combines neural pattern detection with symbolic reasoning to produce
     explainable anomaly scores with full audit trails.
@@ -322,8 +300,7 @@ class NeurosymbolicFusionEngine:
         neural_weight: float = 0.6,
         symbolic_weight: float = 0.4,
     ):
-        """
-        Initialize Neuro-Symbolic Fusion Engine.
+        """Initialize Neuro-Symbolic Fusion Engine.
 
         Args:
             embedding_dim: Dimension for memory embeddings
@@ -404,8 +381,7 @@ class NeurosymbolicFusionEngine:
         data: list[dict[str, Any]],
         memory_type: MemoryType = MemoryType.EPISODIC,
     ) -> int:
-        """
-        Ingest data into the neural memory layer.
+        """Ingest data into the neural memory layer.
 
         Args:
             data: List of data entries to ingest
@@ -421,8 +397,7 @@ class NeurosymbolicFusionEngine:
         self,
         context: dict[str, Any] | None = None,
     ) -> FusionResult:
-        """
-        Perform full neuro-symbolic analysis.
+        """Perform full neuro-symbolic analysis.
 
         Args:
             context: Additional context for analysis
@@ -528,8 +503,7 @@ class NeurosymbolicFusionEngine:
         data: dict[str, Any],
         memory_type: MemoryType = MemoryType.EPISODIC,
     ) -> HybridAnomalyScore:
-        """
-        Score a single data point for anomalies.
+        """Score a single data point for anomalies.
 
         Args:
             data: Data point to score
@@ -877,8 +851,7 @@ class NeurosymbolicFusionEngine:
         context: dict[str, Any],
         benevolence_score: float,
     ) -> tuple[bool, ExplainableDecision]:
-        """
-        Evaluate whether an action should be allowed.
+        """Evaluate whether an action should be allowed.
 
         Args:
             action: Action to evaluate

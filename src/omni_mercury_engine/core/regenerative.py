@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Regenerative Architecture Module
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Regenerative Architecture Module.
 
 Inspired by regenerative design principles from permaculture (Holmgren & Mollison,
 1974-1978), regenerative organic agriculture (Robert Rodale), and built environment
@@ -36,8 +18,9 @@ Research sources:
 - Wikipedia - Regenerative design (https://en.wikipedia.org/wiki/Regenerative_design)
 - Wikipedia - Permaculture (https://en.wikipedia.org/wiki/Permaculture)
 Verified: October 2025
-
 """
+
+from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
@@ -76,16 +59,14 @@ class FeedbackLoop:
 
 
 class RegenerativeArchitecture:
-    """
-    Implements regenerative design principles for net-positive AI systems.
+    """Implements regenerative design principles for net-positive AI systems.
 
     Goes beyond "sustainable" (doing less harm) to "regenerative" (actively improving the system and
     its environment).
     """
 
     def __init__(self, enable_closed_loops: bool = True) -> None:
-        """
-        Initialize regenerative architecture.
+        """Initialize regenerative architecture.
 
         Args:
             enable_closed_loops: Whether to enable feedback loops
@@ -101,8 +82,7 @@ class RegenerativeArchitecture:
     def apply_permaculture_principle(
         self, principle: PermaculturePrinciple, context: dict[str, Any]
     ) -> dict[str, Any]:
-        """
-        Apply a specific permaculture principle to current context.
+        """Apply a specific permaculture principle to current context.
 
         Args:
             principle: Which permaculture principle to apply
@@ -186,8 +166,7 @@ class RegenerativeArchitecture:
         delay: float = 0.0,
         is_positive: bool = False,
     ) -> FeedbackLoop:
-        """
-        Create a closed-loop feedback mechanism (regenerative design principle).
+        """Create a closed-loop feedback mechanism (regenerative design principle).
 
         Args:
             loop_id: Unique identifier for this feedback loop
@@ -212,8 +191,7 @@ class RegenerativeArchitecture:
         return loop
 
     def apply_feedback_loops(self, metrics: dict[str, float]) -> dict[str, float]:
-        """
-        Apply all registered feedback loops to current metrics.
+        """Apply all registered feedback loops to current metrics.
 
         Args:
             metrics: Current system metrics
@@ -241,8 +219,7 @@ class RegenerativeArchitecture:
         return updated_metrics
 
     def calculate_net_positive_score(self, context: dict[str, Any]) -> float:
-        """
-        Calculate net-positive score (regenerative > sustainable > neutral > harmful).
+        """Calculate net-positive score (regenerative > sustainable > neutral > harmful).
 
         Living Building Challenge principle: "Make the world better with every act of design"
 

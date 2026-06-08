@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Enhanced Anomaly Detection - Memory Graph and External Data Integration
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Enhanced Anomaly Detection - Memory Graph and External Data Integration.
 
 Implements Phase 4 of the neuro-symbolic evolution:
 - Internal memory-driven knowledge graph for pattern analysis
@@ -35,6 +17,8 @@ Integration:
     This module enhances the NeurosymbolicFusionEngine with advanced
     anomaly detection capabilities including external data sources.
 """
+
+from __future__ import annotations
 
 import logging
 import time
@@ -64,8 +48,7 @@ logger = logging.getLogger(__name__)
 
 
 class ExternalSourceCategory(Enum):
-    """
-    High-level categories of external data sources.
+    """High-level categories of external data sources.
 
     Note: This enum represents abstract source categories for the cognitive
     anomaly detection module. For specific API data source types, see
@@ -134,8 +117,7 @@ class ValueExtraction:
 
 
 class MemoryKnowledgeGraph:
-    """
-    Knowledge graph built from accumulated memories.
+    """Knowledge graph built from accumulated memories.
 
     Uses memory entries as nodes and relationships as edges to enable pattern discovery and
     predictive analysis.
@@ -159,8 +141,7 @@ class MemoryKnowledgeGraph:
         content: dict[str, Any],
         importance: float = 0.5,
     ) -> str:
-        """
-        Add a memory as a node in the graph.
+        """Add a memory as a node in the graph.
 
         Args:
             memory_id: Unique memory identifier
@@ -200,8 +181,7 @@ class MemoryKnowledgeGraph:
         weight: float = 1.0,
         metadata: dict[str, Any] | None = None,
     ) -> str:
-        """
-        Add a relationship between memory nodes.
+        """Add a relationship between memory nodes.
 
         Args:
             source_id: Source node ID
@@ -237,8 +217,7 @@ class MemoryKnowledgeGraph:
         max_depth: int = 2,
         min_weight: float = 0.5,
     ) -> list[tuple[str, float]]:
-        """
-        Find memories related to a given node.
+        """Find memories related to a given node.
 
         Args:
             node_id: Starting node ID
@@ -320,16 +299,14 @@ class MemoryKnowledgeGraph:
 
 
 class BayesianPredictor:
-    """
-    Bayesian predictor for anomaly forecasting.
+    """Bayesian predictor for anomaly forecasting.
 
     Uses Beta-Bernoulli conjugate prior for probability estimation based on success/failure
     histories.
     """
 
     def __init__(self, prior_alpha: float = 1.0, prior_beta: float = 1.0) -> None:
-        """
-        Initialize Bayesian predictor.
+        """Initialize Bayesian predictor.
 
         Args:
             prior_alpha: Prior alpha parameter (pseudo-successes)
@@ -340,8 +317,7 @@ class BayesianPredictor:
         self.contexts: dict[str, dict[str, float]] = {}
 
     def update(self, context: str, success: bool) -> None:
-        """
-        Update beliefs based on observation.
+        """Update beliefs based on observation.
 
         Args:
             context: Context identifier
@@ -359,8 +335,7 @@ class BayesianPredictor:
             self.contexts[context]["beta"] += 1
 
     def predict(self, context: str) -> tuple[float, tuple[float, float]]:
-        """
-        Predict probability for a context.
+        """Predict probability for a context.
 
         Args:
             context: Context identifier
@@ -398,15 +373,13 @@ class BayesianPredictor:
 
 
 class HiddenMarkovPredictor:
-    """
-    Hidden Markov Model for sequence-based anomaly prediction.
+    """Hidden Markov Model for sequence-based anomaly prediction.
 
     Lightweight implementation for detecting state transitions that may indicate anomalies.
     """
 
     def __init__(self, n_states: int = 3, seed: int | None = 42) -> None:
-        """
-        Initialize HMM predictor.
+        """Initialize HMM predictor.
 
         Args:
             n_states: Number of hidden states
@@ -427,8 +400,7 @@ class HiddenMarkovPredictor:
         self.observation_history: list[str] = []
 
     def observe(self, observation: str) -> int:
-        """
-        Process an observation and update state.
+        """Process an observation and update state.
 
         Args:
             observation: Observed symbol
@@ -459,8 +431,7 @@ class HiddenMarkovPredictor:
         return current_state
 
     def predict_next_state(self) -> tuple[int, float]:
-        """
-        Predict the next most likely state.
+        """Predict the next most likely state.
 
         Returns:
             Tuple of (predicted_state, probability)
@@ -476,8 +447,7 @@ class HiddenMarkovPredictor:
         return predicted_state, probability
 
     def detect_anomaly(self, threshold: float = 0.1) -> bool:
-        """
-        Detect if current state transition is anomalous.
+        """Detect if current state transition is anomalous.
 
         Args:
             threshold: Probability threshold for anomaly
@@ -510,14 +480,14 @@ class ExternalDataSource(ABC):
 
 
 class SimulatedGeologicalSource(ExternalDataSource):
-    """
-    Simulated geological data source (USGS-style) for development/testing.
+    """Simulated geological data source (USGS-style) for development/testing.
 
     Generates synthetic earthquake data for testing anomaly detection pipelines. In production,
     implement a real USGS API client that extends ExternalDataSource.
     """
 
     def __init__(self, seed: int | None = None) -> None:
+        """Initialize the instance."""
         self.source_name = "simulated_usgs"
         self._rng: np.random.Generator = np.random.default_rng(seed)
 
@@ -544,14 +514,14 @@ class SimulatedGeologicalSource(ExternalDataSource):
 
 
 class SimulatedEnvironmentalSource(ExternalDataSource):
-    """
-    Simulated environmental data source (NOAA-style) for development/testing.
+    """Simulated environmental data source (NOAA-style) for development/testing.
 
     Generates synthetic weather and environmental data for testing anomaly detection. In production,
     implement a real NOAA API client that extends ExternalDataSource.
     """
 
     def __init__(self, seed: int | None = None) -> None:
+        """Initialize the instance."""
         self.source_name = "simulated_noaa"
         self._rng: np.random.Generator = np.random.default_rng(seed)
 
@@ -600,8 +570,7 @@ class USGSEarthquakeSource(ExternalDataSource):
         days_back: int = 7,
         timeout_seconds: float = 30.0,
     ) -> None:
-        """
-        Initialize USGS earthquake data source.
+        """Initialize USGS earthquake data source.
 
         Args:
             min_magnitude: Minimum earthquake magnitude to fetch (default 2.5)
@@ -617,8 +586,7 @@ class USGSEarthquakeSource(ExternalDataSource):
         self._client = httpx.Client(timeout=timeout_seconds)
 
     def fetch(self) -> list[ExternalDataPoint]:
-        """
-        Fetch real earthquake data from USGS API.
+        """Fetch real earthquake data from USGS API.
 
         Returns:
             List of ExternalDataPoint objects with earthquake data.
@@ -718,8 +686,7 @@ class NOAAWeatherSource(ExternalDataSource):
         zone: str | None = None,
         timeout_seconds: float = 30.0,
     ) -> None:
-        """
-        Initialize NOAA weather data source.
+        """Initialize NOAA weather data source.
 
         Args:
             state: Two-letter state code to filter alerts (e.g., "CA", "TX")
@@ -739,8 +706,7 @@ class NOAAWeatherSource(ExternalDataSource):
         )
 
     def fetch(self) -> list[ExternalDataPoint]:
-        """
-        Fetch real weather alerts from NOAA API.
+        """Fetch real weather alerts from NOAA API.
 
         Returns:
             List of ExternalDataPoint objects with weather alert data.
@@ -814,8 +780,7 @@ class NOAAWeatherSource(ExternalDataSource):
 
 
 class ExternalDataIntegrator:
-    """
-    Integrates external data sources for real-time anomaly detection.
+    """Integrates external data sources for real-time anomaly detection.
 
     Manages multiple data sources and aligns external patterns with internal memory patterns.
     """
@@ -827,8 +792,7 @@ class ExternalDataIntegrator:
         self.max_buffer_size = 1000
 
     def register_source(self, name: str, source: ExternalDataSource) -> None:
-        """
-        Register an external data source.
+        """Register an external data source.
 
         Args:
             name: Source name
@@ -838,8 +802,7 @@ class ExternalDataIntegrator:
         logger.info(f"Registered external source: {name}")
 
     def fetch_all(self) -> list[ExternalDataPoint]:
-        """
-        Fetch data from all registered sources.
+        """Fetch data from all registered sources.
 
         Returns:
             List of data points from all sources
@@ -864,8 +827,7 @@ class ExternalDataIntegrator:
         self,
         internal_patterns: list[dict[str, Any]],
     ) -> list[dict[str, Any]]:
-        """
-        Align external data with internal patterns.
+        """Align external data with internal patterns.
 
         Args:
             internal_patterns: Patterns from internal analysis
@@ -921,15 +883,13 @@ class ExternalDataIntegrator:
 
 
 class ValueExtractor:
-    """
-    Extract value/opportunities from detected anomalies.
+    """Extract value/opportunities from detected anomalies.
 
     Identifies benevolent intervention opportunities while filtering through ethical constraints.
     """
 
     def __init__(self, benevolence_threshold: float = 0.99) -> None:
-        """
-        Initialize value extractor.
+        """Initialize value extractor.
 
         Args:
             benevolence_threshold: Minimum benevolence score for actions
@@ -942,8 +902,7 @@ class ValueExtractor:
         anomaly: dict[str, Any],
         ethical_score: float,
     ) -> ValueExtraction | None:
-        """
-        Extract value from an anomaly if ethically appropriate.
+        """Extract value from an anomaly if ethically appropriate.
 
         Args:
             anomaly: Anomaly data
@@ -1030,8 +989,7 @@ class ValueExtractor:
 
 
 class EnhancedAnomalyDetector:
-    """
-    Enhanced Anomaly Detector with memory graph and external integration.
+    """Enhanced Anomaly Detector with memory graph and external integration.
 
     Main interface for Phase 4 capabilities combining internal memory-driven patterns with external
     data sources.
@@ -1047,8 +1005,7 @@ class EnhancedAnomalyDetector:
         hmm_states: int = 3,
         use_simulated_sources: bool = True,
     ):
-        """
-        Initialize enhanced anomaly detector.
+        """Initialize enhanced anomaly detector.
 
         Args:
             benevolence_threshold: Minimum benevolence score
@@ -1074,8 +1031,7 @@ class EnhancedAnomalyDetector:
         logger.info(f"EnhancedAnomalyDetector initialized in {mode} mode")
 
     def _register_simulated_sources(self) -> None:
-        """
-        Register simulated data sources for development/testing.
+        """Register simulated data sources for development/testing.
 
         These sources generate synthetic data for testing purposes. In production, use
         register_external_source() to add real data feeds.
@@ -1088,8 +1044,7 @@ class EnhancedAnomalyDetector:
         )
 
     def register_external_source(self, name: str, source: ExternalDataSource) -> None:
-        """
-        Register a real external data source for production use.
+        """Register a real external data source for production use.
 
         Args:
             name: Unique name for the data source
@@ -1105,8 +1060,7 @@ class EnhancedAnomalyDetector:
         importance: float = 0.5,
         related_to: list[str] | None = None,
     ) -> str:
-        """
-        Add a memory to the knowledge graph.
+        """Add a memory to the knowledge graph.
 
         Args:
             memory_id: Memory identifier
@@ -1138,8 +1092,7 @@ class EnhancedAnomalyDetector:
         return node_id
 
     def update_predictor(self, context: str, success: bool) -> None:
-        """
-        Update Bayesian predictor with observation.
+        """Update Bayesian predictor with observation.
 
         Args:
             context: Context identifier
@@ -1148,8 +1101,7 @@ class EnhancedAnomalyDetector:
         self.bayesian_predictor.update(context, success)
 
     def observe_sequence(self, observation: str) -> int:
-        """
-        Process sequential observation through HMM.
+        """Process sequential observation through HMM.
 
         Args:
             observation: Observation symbol
@@ -1164,8 +1116,7 @@ class EnhancedAnomalyDetector:
         context: str,
         include_external: bool = True,
     ) -> PredictiveResult:
-        """
-        Generate prediction for a context.
+        """Generate prediction for a context.
 
         Args:
             context: Context identifier
@@ -1223,8 +1174,7 @@ class EnhancedAnomalyDetector:
         anomaly: dict[str, Any],
         ethical_score: float,
     ) -> ValueExtraction | None:
-        """
-        Extract value from anomaly if ethically appropriate.
+        """Extract value from anomaly if ethically appropriate.
 
         Args:
             anomaly: Anomaly data
@@ -1236,8 +1186,7 @@ class EnhancedAnomalyDetector:
         return self.value_extractor.extract(anomaly, ethical_score)
 
     def analyze_memory_patterns(self, memory_id: str) -> dict[str, Any]:
-        """
-        Analyze patterns related to a memory.
+        """Analyze patterns related to a memory.
 
         Args:
             memory_id: Memory identifier

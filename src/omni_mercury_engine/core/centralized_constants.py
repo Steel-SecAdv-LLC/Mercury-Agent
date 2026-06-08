@@ -1,22 +1,5 @@
-"""
-Mercury Agent - Centralized Constants and Magic Numbers
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Consolidates magic numbers, thresholds, and configuration constants
-from across the codebase into a single, documented source of truth.
-
-This module addresses P2 magic number extraction issues by:
-1. Documenting the origin and purpose of each constant
-2. Providing domain-specific configuration groups
-3. Enabling environment variable overrides
-4. Providing type-safe access via dataclasses
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Centralized Constants and Magic Numbers."""
 
 from __future__ import annotations
 
@@ -57,7 +40,6 @@ class MathConstants:
 
 MATH = MathConstants()
 
-
 # ==============================================================================
 # LYAPUNOV STABILITY CONSTANTS
 # ==============================================================================
@@ -89,7 +71,6 @@ class LyapunovConstants:
 
 
 LYAPUNOV = LyapunovConstants()
-
 
 # ==============================================================================
 # ETHICAL GOVERNANCE CONSTANTS
@@ -147,7 +128,6 @@ class EthicalConstants:
 
 
 ETHICAL = EthicalConstants()
-
 
 # ==============================================================================
 # SIGMOID BENEVOLENCE GATE (Phase 3 — replaces hard threshold)
@@ -253,8 +233,7 @@ def sigmoid_benevolence_gate(
 
 @dataclass(frozen=True)
 class DomainHarmonicConstants:
-    """
-    Domain-specific fundamental frequencies for harmonic analysis.
+    """Domain-specific fundamental frequencies for harmonic analysis.
 
     Replaces the universal Schumann resonance (7.83 Hz) with
     domain-appropriate frequencies. For domains with unknown
@@ -279,8 +258,7 @@ DOMAIN_HARMONICS = DomainHarmonicConstants()
 
 
 def get_domain_fundamentals(domain: str) -> tuple[float, ...] | None:
-    """
-    Get fundamental frequencies for a domain.
+    """Get fundamental frequencies for a domain.
 
     Args:
         domain: Domain name.
@@ -309,8 +287,7 @@ def get_domain_fundamentals(domain: str) -> tuple[float, ...] | None:
 
 @dataclass(frozen=True)
 class RecursionConvergenceConstants:
-    """
-    Convergence bounds for recursive computations.
+    """Convergence bounds for recursive computations.
 
     Implements Banach contraction mapping constraints:
         d(R(x), R(y)) ≤ α · d(x, y) with α < 1
@@ -342,7 +319,6 @@ class RecursionConvergenceConstants:
 
 
 RECURSION = RecursionConvergenceConstants()
-
 
 # ==============================================================================
 # ANOMALY DETECTION CONSTANTS
@@ -388,7 +364,6 @@ class AnomalyDetectionConstants:
 
 ANOMALY = AnomalyDetectionConstants()
 
-
 # ==============================================================================
 # FUSION WEIGHTS CONSTANTS
 # ==============================================================================
@@ -428,7 +403,6 @@ class FusionConstants:
 
 FUSION = FusionConstants()
 
-
 # ==============================================================================
 # CONFIDENCE BANDS
 # ==============================================================================
@@ -453,7 +427,6 @@ class ConfidenceConstants:
 
 
 CONFIDENCE = ConfidenceConstants()
-
 
 # ==============================================================================
 # DOMAIN-SPECIFIC CONSTANTS
@@ -549,7 +522,6 @@ class InfrastructureConstants:
 
 INFRASTRUCTURE = InfrastructureConstants()
 
-
 # ==============================================================================
 # NEURAL NETWORK CONSTANTS
 # ==============================================================================
@@ -587,7 +559,6 @@ class NeuralNetConstants:
 
 NEURAL = NeuralNetConstants()
 
-
 # ==============================================================================
 # CALIBRATION CONSTANTS
 # ==============================================================================
@@ -618,7 +589,6 @@ class CalibrationConstants:
 
 
 CALIBRATION = CalibrationConstants()
-
 
 # ==============================================================================
 # API AND VALIDATION CONSTANTS
@@ -652,7 +622,6 @@ class APIConstants:
 
 API = APIConstants()
 
-
 # ==============================================================================
 # SLIDING WINDOW CONSTANTS
 # ==============================================================================
@@ -679,15 +648,13 @@ class SlidingWindowConstants:
 
 SLIDING_WINDOW = SlidingWindowConstants()
 
-
 # ==============================================================================
 # UTILITY CLASSES
 # ==============================================================================
 
 
 class ConstantRegistry:
-    """
-    Registry for accessing and overriding constants.
+    """Registry for accessing and overriding constants.
 
     Allows environment variable overrides for all constants.
     """
@@ -696,8 +663,7 @@ class ConstantRegistry:
 
     @classmethod
     def get(cls, group: str, name: str, default: Any = None) -> Any:
-        """
-        Get a constant value with environment override support.
+        """Get a constant value with environment override support.
 
         Environment variable format: MERCURY_{GROUP}_{NAME}
 
@@ -724,8 +690,7 @@ class ConstantRegistry:
 
     @classmethod
     def set(cls, group: str, name: str, value: Any) -> None:
-        """
-        Set a programmatic override for a constant.
+        """Set a programmatic override for a constant.
 
         Args:
             group: Constant group
@@ -747,8 +712,7 @@ class ConstantRegistry:
 
 
 def get_domain_constants(domain: str) -> dict[str, Any]:
-    """
-    Get all constants for a specific domain.
+    """Get all constants for a specific domain.
 
     Args:
         domain: Domain name (medical, financial, infrastructure)

@@ -1,3 +1,4 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
 """NIST Cybersecurity Framework (CSF) 2.0 integrator for Mercury Agent.
 
 Implements all six CSF 2.0 core functions (GOVERN, IDENTIFY, PROTECT,
@@ -53,13 +54,6 @@ Subcategories as of the 2024-02-26 final publication. Counts are
 verified at runtime against the live fetch (see
 :meth:`NISTCSFIntegrator.verify_coverage`).
 """
-
-# Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-#
-# This program is free software: you can redistribute it and/or modify it
-# under the terms of the GNU General Public License as published by the
-# Free Software Foundation, either version 3 of the License, or (at your
-# option) any later version.
 
 from __future__ import annotations
 
@@ -866,7 +860,6 @@ _BUILTIN_CATEGORIES: Final[dict[NISTFunction, list[NISTCategory]]] = {
         ),
     ],
 }
-
 
 # --------------------------------------------------------------------- integrator
 

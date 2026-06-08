@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Ethical Bounding and Benevolence Scoring
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Ethical Bounding and Benevolence Scoring.
 
 Implements Phase 6 of the neuro-symbolic evolution:
 - Hardcoded utility function for scoring actions on good/evil metrics
@@ -38,6 +20,8 @@ Integration:
     requirements before execution.
 """
 
+from __future__ import annotations
+
 import logging
 import time
 from dataclasses import dataclass, field
@@ -51,7 +35,6 @@ logger = logging.getLogger(__name__)
 # below this value, regardless of domain or operational mode.
 # ---------------------------------------------------------------------------
 MINIMUM_BENEVOLENCE_FLOOR: float = 0.70
-
 
 # ---------------------------------------------------------------------------
 # σ_Immutable Wave B Vector 2-6 closure: canonical domain sanitiser.
@@ -130,8 +113,7 @@ def sanitize_domain(raw_domain: Any) -> str:
 
 
 class EthicalConstraintViolationError(RuntimeError):
-    """
-    Raised when a hard ethical constraint is violated and execution must halt.
+    """Raised when a hard ethical constraint is violated and execution must halt.
 
     Unlike the advisory :meth:`BenevolenceScorer.score_action` path (which
     returns ``is_permissible=False`` and leaves enforcement to the caller),
@@ -168,6 +150,7 @@ class EthicalConstraintViolationError(RuntimeError):
         check: str = "benevolence",
         details: dict[str, Any] | None = None,
     ) -> None:
+        """Initialize the instance."""
         self.action = action
         self.score = score
         self.threshold = threshold
@@ -280,8 +263,7 @@ class AlignmentAudit:
 
 
 class HarmReducer:
-    """
-    Evaluates and minimizes potential harm from actions.
+    """Evaluates and minimizes potential harm from actions.
 
     Uses weighted scoring across harm categories to ensure actions minimize negative impacts.
     """
@@ -306,8 +288,7 @@ class HarmReducer:
         action: str,
         context: dict[str, Any],
     ) -> tuple[float, dict[str, float]]:
-        """
-        Evaluate potential harm from an action.
+        """Evaluate potential harm from an action.
 
         Args:
             action: Action to evaluate
@@ -362,8 +343,7 @@ class HarmReducer:
 
 
 class BenefitMaximizer:
-    """
-    Evaluates and maximizes potential benefits from actions.
+    """Evaluates and maximizes potential benefits from actions.
 
     Uses weighted scoring across benefit categories to ensure actions maximize positive impacts.
     """
@@ -388,8 +368,7 @@ class BenefitMaximizer:
         action: str,
         context: dict[str, Any],
     ) -> tuple[float, dict[str, float]]:
-        """
-        Evaluate potential benefit from an action.
+        """Evaluate potential benefit from an action.
 
         Args:
             action: Action to evaluate
@@ -446,8 +425,7 @@ class BenefitMaximizer:
 
 
 class EquityCalculator:
-    """
-    Calculates equity metrics using Gini-like coefficients.
+    """Calculates equity metrics using Gini-like coefficients.
 
     Ensures actions promote fairness and reduce inequality.
     """
@@ -457,8 +435,7 @@ class EquityCalculator:
         pass
 
     def calculate_gini(self, values: list[float]) -> float:
-        """
-        Calculate Gini coefficient for a distribution.
+        """Calculate Gini coefficient for a distribution.
 
         Args:
             values: List of values representing distribution
@@ -490,8 +467,7 @@ class EquityCalculator:
         action: str,
         context: dict[str, Any],
     ) -> float:
-        """
-        Evaluate equity impact of an action.
+        """Evaluate equity impact of an action.
 
         Args:
             action: Action to evaluate
@@ -525,8 +501,7 @@ class EquityCalculator:
 
 
 class EmpathyModule:
-    """
-    Empathy module for human-centric decision making.
+    """Empathy module for human-centric decision making.
 
     Considers impact on affected parties and vulnerable populations.
     """
@@ -540,8 +515,7 @@ class EmpathyModule:
         action: str,
         context: dict[str, Any],
     ) -> EmpathyAssessment:
-        """
-        Assess human-centric impact of an action.
+        """Assess human-centric impact of an action.
 
         Args:
             action: Action to assess
@@ -652,8 +626,7 @@ class EmpathyModule:
 
 
 class ValuePreserver:
-    """
-    Value preservation module for maintaining positive outcomes.
+    """Value preservation module for maintaining positive outcomes.
 
     Ensures actions default to positive outcomes and preserve important values.
     """
@@ -678,8 +651,7 @@ class ValuePreserver:
         action: str,
         context: dict[str, Any],
     ) -> ValuePreservation:
-        """
-        Analyze value preservation for an action.
+        """Analyze value preservation for an action.
 
         Args:
             action: Action to analyze
@@ -764,8 +736,7 @@ class ValuePreserver:
 
 
 class BenevolenceScorer:
-    """
-    Main benevolence scoring engine.
+    """Main benevolence scoring engine.
 
     Combines harm reduction, benefit maximization, equity, empathy, and value preservation into a
     unified score.
@@ -774,8 +745,7 @@ class BenevolenceScorer:
     BENEVOLENCE_THRESHOLD = 0.99
 
     def __init__(self, benevolence_threshold: float = 0.99) -> None:
-        """
-        Initialize benevolence scorer.
+        """Initialize benevolence scorer.
 
         Args:
             benevolence_threshold: Minimum score for action approval.  Must be
@@ -836,8 +806,7 @@ class BenevolenceScorer:
         action: str,
         context: dict[str, Any],
     ) -> EthicalScore:
-        """
-        Score an action for benevolence.
+        """Score an action for benevolence.
 
         Args:
             action: Action to score
@@ -895,8 +864,7 @@ class BenevolenceScorer:
         action: str,
         context: dict[str, Any],
     ) -> EthicalScore:
-        """
-        Score an action and raise on violation — the *mandatory* gate.
+        """Score an action and raise on violation — the *mandatory* gate.
 
         Unlike :meth:`score_action`, which returns the result regardless of
         permissibility, ``enforce`` raises
@@ -993,8 +961,7 @@ class BenevolenceScorer:
         principle_scores: dict[str, float],
         long_term_score: float,
     ) -> float:
-        """
-        Calculate overall benevolence score.
+        """Calculate overall benevolence score.
 
         Formula weights:
         - Harm reduction: 30% (inverted)
@@ -1066,8 +1033,7 @@ class BenevolenceScorer:
         action: str,
         context: dict[str, Any],
     ) -> AlignmentAudit:
-        """
-        Perform full alignment audit on an action.
+        """Perform full alignment audit on an action.
 
         Args:
             action: Action to audit
@@ -1119,8 +1085,7 @@ class BenevolenceScorer:
         action: str,
         context: dict[str, Any],
     ) -> tuple[bool, float, str]:
-        """
-        Quick check if action is permissible.
+        """Quick check if action is permissible.
 
         Args:
             action: Action to check

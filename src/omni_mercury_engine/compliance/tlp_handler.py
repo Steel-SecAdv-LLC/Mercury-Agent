@@ -1,3 +1,4 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Traffic Light Protocol (TLP) classification for Mercury Agent.
 
 This module implements automated Traffic Light Protocol (TLP) tagging for
@@ -165,7 +166,6 @@ _SHARING_GUIDELINES: Final[dict[TLPColor, str]] = {
     ),
 }
 
-
 _ETHICAL_CONSIDERATIONS_BASE: Final[tuple[str, ...]] = (
     "Verify recipient authorization before sharing classified information",
     "Document all information sharing activities for audit trails",
@@ -175,7 +175,6 @@ _ETHICAL_CONSIDERATIONS_BASE: Final[tuple[str, ...]] = (
     "Maintain confidentiality of sources and methods",
     "Balance transparency with security requirements",
 )
-
 
 _CRITICAL_DOMAINS: Final[frozenset[str]] = frozenset(
     {"cyber", "security", "infrastructure", "critical_infrastructure"}

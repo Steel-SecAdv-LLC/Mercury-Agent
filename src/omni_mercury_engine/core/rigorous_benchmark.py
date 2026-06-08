@@ -1,15 +1,5 @@
-"""
-DEPRECATED: This module uses sklearn for anomaly detection baselines.
-
-Mercury's production benchmark is benchmarks/mercury_benchmark.py. Mercury's production detector is
-MercuryAnomalyDetector in detectors/statistical.py. This module is retained for reference only and
-will be removed in a future release.
-
-Do not import this module in production or benchmark code paths.
-
-Original: Rigorous Benchmark Harness. Copyright (C) 2025 Steel Security Advisors LLC License:
-GPL-3.0-or-later
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""DEPRECATED: This module uses sklearn for anomaly detection baselines."""
 
 from __future__ import annotations
 
@@ -187,8 +177,7 @@ def stratified_split(
     test_size: float = 0.2,
     seed: int = GLOBAL_SEED,
 ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-    """
-    Perform stratified train/test split.
+    """Perform stratified train/test split.
 
     Args:
         X: Feature matrix
@@ -215,8 +204,7 @@ def compute_event_metrics(
     y_pred: np.ndarray[Any, Any],
     tolerance: int = 0,
 ) -> tuple[float, float, float]:
-    """
-    Compute event-based metrics for time-series anomaly detection.
+    """Compute event-based metrics for time-series anomaly detection.
 
     An event is a contiguous sequence of anomalous points.
     Event-based recall: fraction of true events that are detected.
@@ -293,8 +281,7 @@ def point_adjusted_f1(
     y_true: np.ndarray[Any, Any],
     y_pred: np.ndarray[Any, Any],
 ) -> float:
-    """
-    Compute point-adjusted F1 score (PA-F1).
+    """Compute point-adjusted F1 score (PA-F1).
 
     If any point in a true anomaly segment is detected, the entire
     segment is considered detected. This is standard for time-series
@@ -344,8 +331,7 @@ def point_adjusted_f1(
 
 
 class RigorousBenchmarkHarness:
-    """
-    Rigorous benchmark harness for anomaly detection evaluation.
+    """Rigorous benchmark harness for anomaly detection evaluation.
 
     Features:
     - Fixed random seeds (42) for reproducibility
@@ -363,8 +349,7 @@ class RigorousBenchmarkHarness:
         seed: int = GLOBAL_SEED,
         compute_event_metrics: bool = True,
     ):
-        """
-        Initialize benchmark harness.
+        """Initialize benchmark harness.
 
         Args:
             n_folds: Number of cross-validation folds (default 10)
@@ -386,8 +371,7 @@ class RigorousBenchmarkHarness:
         detector_name: str = "Unknown",
         dataset_name: str = "Unknown",
     ) -> BenchmarkResult:
-        """
-        Run comprehensive benchmark on a detector.
+        """Run comprehensive benchmark on a detector.
 
         Args:
             detector: Anomaly detector implementing fit/predict/predict_proba
@@ -520,8 +504,7 @@ class RigorousBenchmarkHarness:
         result_b: BenchmarkResult,
         metric: str = "f1",
     ) -> dict[str, Any]:
-        """
-        Statistical comparison between two detectors.
+        """Statistical comparison between two detectors.
 
         Args:
             result_a: First detector's results
@@ -596,8 +579,7 @@ def run_baseline_benchmarks(
     n_folds: int = 10,
     seed: int = GLOBAL_SEED,
 ) -> dict[str, BenchmarkResult]:
-    """
-    Run Mercury-native benchmarks.
+    """Run Mercury-native benchmarks.
 
     Benchmarks Mercury's own MercuryAnomalyDetector.  Third-party detectors
     (sklearn OneClassSVM, LOF, EllipticEnvelope) are **not** part of
@@ -623,6 +605,7 @@ def run_baseline_benchmarks(
     # Mercury MercuryAnomalyDetector
     class MercuryWrapper:
         def __init__(self) -> None:
+            """Initialize the instance."""
             self.detector = MercuryAnomalyDetector()
 
         def fit(self, X: np.ndarray[Any, Any], y: np.ndarray[Any, Any] | None = None) -> None:

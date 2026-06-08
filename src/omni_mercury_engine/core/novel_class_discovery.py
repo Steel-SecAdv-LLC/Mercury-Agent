@@ -1,30 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-import warnings
-
-warnings.warn(
-    f"{__name__} is deprecated. Use MercuryAnomalyDetector.",
-    DeprecationWarning,
-    stacklevel=2,
-)
-"""
-DEPRECATED: This module uses sklearn (KMeans) for anomaly detection.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""DEPRECATED: This module uses sklearn (KMeans) for anomaly detection.
 
 Mercury's production detector is MercuryAnomalyDetector in
 detectors/statistical.py. This module is retained for reference
@@ -41,6 +16,15 @@ without prior labels, specifically designed for industrial scenarios with low-se
 and non-prominence anomalies.
 """
 
+from __future__ import annotations
+
+import warnings
+
+warnings.warn(
+    f"{__name__} is deprecated. Use MercuryAnomalyDetector.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 from typing import Any
 
 import numpy as np
@@ -50,8 +34,7 @@ class MultiElementBinarization:
     """Multi-Element Binarization (MEBin) for anomaly region processing."""
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
-        """
-        Initialize MEBin processor.
+        """Initialize MEBin processor.
 
         Args:
             config: Configuration including:
@@ -65,8 +48,7 @@ class MultiElementBinarization:
     def rotate_to_horizontal(
         self, anomaly_region: np.ndarray[Any, Any], angle: float
     ) -> np.ndarray[Any, Any]:
-        """
-        Rotate anomaly region to horizontal orientation.
+        """Rotate anomaly region to horizontal orientation.
 
         Args:
             anomaly_region: Anomaly region array
@@ -82,8 +64,7 @@ class MultiElementBinarization:
         return rotated
 
     def binarize(self, anomaly_mask: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Apply binarization to anomaly mask.
+        """Apply binarization to anomaly mask.
 
         Args:
             anomaly_mask: Continuous anomaly mask
@@ -99,8 +80,7 @@ class MultiElementBinarization:
     def process_multi_element(
         self, anomaly_regions: list[np.ndarray[Any, Any]]
     ) -> list[np.ndarray[Any, Any]]:
-        """
-        Process multiple anomaly elements with MEBin.
+        """Process multiple anomaly elements with MEBin.
 
         Args:
             anomaly_regions: List of anomaly region arrays
@@ -122,8 +102,7 @@ class NovelClassDiscovery:
     """Novel anomaly class discovery system."""
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
-        """
-        Initialize novel class discovery system.
+        """Initialize novel class discovery system.
 
         Args:
             config: Configuration including:
@@ -147,8 +126,7 @@ class NovelClassDiscovery:
     def extract_anomaly_features(
         self, images: np.ndarray[Any, Any], masks: np.ndarray[Any, Any]
     ) -> np.ndarray[Any, Any]:
-        """
-        Extract features from anomaly regions.
+        """Extract features from anomaly regions.
 
         Args:
             images: Input images
@@ -186,8 +164,7 @@ class NovelClassDiscovery:
     def discover_novel_classes(
         self, images: np.ndarray[Any, Any], masks: np.ndarray[Any, Any]
     ) -> dict[str, Any]:
-        """
-        Discover novel anomaly classes using unsupervised clustering.
+        """Discover novel anomaly classes using unsupervised clustering.
 
         Args:
             images: Input images containing anomalies
@@ -221,8 +198,7 @@ class NovelClassDiscovery:
     def classify_new_anomaly(
         self, image: np.ndarray[Any, Any], mask: np.ndarray[Any, Any]
     ) -> dict[str, Any]:
-        """
-        Classify a new anomaly into discovered classes.
+        """Classify a new anomaly into discovered classes.
 
         Args:
             image: Input image
@@ -251,8 +227,7 @@ class NovelClassDiscovery:
         return results
 
     def get_class_statistics(self, class_assignments: np.ndarray[Any, Any]) -> dict[str, Any]:
-        """
-        Compute statistics for discovered classes.
+        """Compute statistics for discovered classes.
 
         Args:
             class_assignments: Array of class assignments

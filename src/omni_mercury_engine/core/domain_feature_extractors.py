@@ -1,22 +1,5 @@
-"""
-Mercury Agent - Domain-Specific Feature Extractors
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Advanced feature extraction for domain-specific anomaly detection:
-- Medical: Vital sign temporal patterns, SOFA score weighting
-- Financial: Benford's Law, transaction velocity, seasonality
-- Infrastructure: SCADA correlation matrices, process variable analysis
-
-This module implements the strategic improvements for raising domain competence
-from current levels (Medical: 0.72, Financial: 0.76, Infrastructure: 0.79)
-to target levels (0.85-0.90).
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Domain-Specific Feature Extractors."""
 
 from __future__ import annotations
 
@@ -79,8 +62,7 @@ class BaseDomainExtractor(ABC):
     """Abstract base class for domain-specific feature extractors."""
 
     def __init__(self, config: DomainFeatureConfig):
-        """
-        Initialize the domain extractor.
+        """Initialize the domain extractor.
 
         Args:
             config: Domain feature configuration
@@ -92,8 +74,7 @@ class BaseDomainExtractor(ABC):
 
     @abstractmethod
     def extract(self, data: NDArray[np.float64]) -> DomainFeatureResult:
-        """
-        Extract domain-specific features.
+        """Extract domain-specific features.
 
         Args:
             data: Input data array
@@ -111,8 +92,7 @@ class BaseDomainExtractor(ABC):
     def _compute_statistical_features(
         self, data: NDArray[np.float64]
     ) -> tuple[NDArray[np.float64], list[str]]:
-        """
-        Compute standard statistical features.
+        """Compute standard statistical features.
 
         Args:
             data: Input data array
@@ -184,8 +164,7 @@ class BaseDomainExtractor(ABC):
     def _compute_temporal_features(
         self, data: NDArray[np.float64], window_size: int | None = None
     ) -> tuple[NDArray[np.float64], list[str]]:
-        """
-        Compute temporal/time-series features.
+        """Compute temporal/time-series features.
 
         Args:
             data: Input time-series data
@@ -288,8 +267,7 @@ class BaseDomainExtractor(ABC):
 
 
 class MedicalFeatureExtractor(BaseDomainExtractor):
-    """
-    Medical domain feature extractor.
+    """Medical domain feature extractor.
 
     Implements vital sign temporal patterns, SOFA score weighting,
     and clinical anomaly indicators for medical anomaly detection.
@@ -319,8 +297,7 @@ class MedicalFeatureExtractor(BaseDomainExtractor):
     }
 
     def __init__(self, config: DomainFeatureConfig | None = None):
-        """
-        Initialize medical feature extractor.
+        """Initialize medical feature extractor.
 
         Args:
             config: Domain feature configuration
@@ -339,8 +316,7 @@ class MedicalFeatureExtractor(BaseDomainExtractor):
         self.alert_fatigue_window = config.medical_params.get("alert_fatigue_window", 300)
 
     def extract(self, data: NDArray[np.float64]) -> DomainFeatureResult:
-        """
-        Extract medical domain features.
+        """Extract medical domain features.
 
         Args:
             data: Input vital sign data. Expected shape:
@@ -419,8 +395,7 @@ class MedicalFeatureExtractor(BaseDomainExtractor):
     def _extract_medical_features(
         self, data: NDArray[np.float64]
     ) -> tuple[NDArray[np.float64], list[str]]:
-        """
-        Extract medical-specific features.
+        """Extract medical-specific features.
 
         Args:
             data: Multi-variate vital sign data (rows=time, cols=vitals)
@@ -595,8 +570,7 @@ class MedicalFeatureExtractor(BaseDomainExtractor):
 
 
 class FinancialFeatureExtractor(BaseDomainExtractor):
-    """
-    Financial domain feature extractor.
+    """Financial domain feature extractor.
 
     Implements Benford's Law analysis, transaction velocity features,
     and time-series seasonality for financial anomaly detection.
@@ -610,8 +584,7 @@ class FinancialFeatureExtractor(BaseDomainExtractor):
     )
 
     def __init__(self, config: DomainFeatureConfig | None = None):
-        """
-        Initialize financial feature extractor.
+        """Initialize financial feature extractor.
 
         Args:
             config: Domain feature configuration
@@ -633,8 +606,7 @@ class FinancialFeatureExtractor(BaseDomainExtractor):
         )
 
     def extract(self, data: NDArray[np.float64]) -> DomainFeatureResult:
-        """
-        Extract financial domain features.
+        """Extract financial domain features.
 
         Args:
             data: Input transaction data. Expected formats:
@@ -709,8 +681,7 @@ class FinancialFeatureExtractor(BaseDomainExtractor):
         amounts: NDArray[np.float64],
         has_timestamps: bool,
     ) -> tuple[NDArray[np.float64], list[str]]:
-        """
-        Extract financial-specific features.
+        """Extract financial-specific features.
 
         Args:
             data: Full data array
@@ -755,8 +726,7 @@ class FinancialFeatureExtractor(BaseDomainExtractor):
     def _compute_benford_features(
         self, amounts: NDArray[np.float64]
     ) -> tuple[list[float], list[str]]:
-        """
-        Compute Benford's Law conformity features.
+        """Compute Benford's Law conformity features.
 
         Benford's Law predicts the frequency of first digits in naturally
         occurring datasets. Deviations indicate potential fraud/manipulation.
@@ -828,8 +798,7 @@ class FinancialFeatureExtractor(BaseDomainExtractor):
     def _compute_velocity_features(
         self, amounts: NDArray[np.float64]
     ) -> tuple[list[float], list[str]]:
-        """
-        Compute transaction velocity features.
+        """Compute transaction velocity features.
 
         Args:
             amounts: Transaction amounts
@@ -884,8 +853,7 @@ class FinancialFeatureExtractor(BaseDomainExtractor):
     def _compute_round_number_features(
         self, amounts: NDArray[np.float64]
     ) -> tuple[list[float], list[str]]:
-        """
-        Compute round number detection features.
+        """Compute round number detection features.
 
         Round numbers are often associated with fraudulent transactions
         or manual data entry.
@@ -931,8 +899,7 @@ class FinancialFeatureExtractor(BaseDomainExtractor):
     def _compute_distribution_features(
         self, amounts: NDArray[np.float64]
     ) -> tuple[list[float], list[str]]:
-        """
-        Compute amount distribution anomaly features.
+        """Compute amount distribution anomaly features.
 
         Args:
             amounts: Transaction amounts
@@ -998,8 +965,7 @@ class FinancialFeatureExtractor(BaseDomainExtractor):
     def _compute_seasonality_features(
         self, amounts: NDArray[np.float64], timestamps: NDArray[np.float64]
     ) -> tuple[list[float], list[str]]:
-        """
-        Compute time-series seasonality features.
+        """Compute time-series seasonality features.
 
         Args:
             amounts: Transaction amounts
@@ -1048,8 +1014,7 @@ class FinancialFeatureExtractor(BaseDomainExtractor):
 
 
 class InfrastructureFeatureExtractor(BaseDomainExtractor):
-    """
-    Infrastructure domain feature extractor.
+    """Infrastructure domain feature extractor.
 
     Implements SCADA-specific feature engineering, process variable
     correlation matrices, and industrial control system patterns.
@@ -1070,8 +1035,7 @@ class InfrastructureFeatureExtractor(BaseDomainExtractor):
     ]
 
     def __init__(self, config: DomainFeatureConfig | None = None):
-        """
-        Initialize infrastructure feature extractor.
+        """Initialize infrastructure feature extractor.
 
         Args:
             config: Domain feature configuration
@@ -1090,8 +1054,7 @@ class InfrastructureFeatureExtractor(BaseDomainExtractor):
         self.alarm_thresholds = config.infrastructure_params.get("alarm_thresholds", {})
 
     def extract(self, data: NDArray[np.float64]) -> DomainFeatureResult:
-        """
-        Extract infrastructure domain features.
+        """Extract infrastructure domain features.
 
         Args:
             data: Input process variable data.
@@ -1162,8 +1125,7 @@ class InfrastructureFeatureExtractor(BaseDomainExtractor):
     def _extract_infrastructure_features(
         self, data: NDArray[np.float64]
     ) -> tuple[NDArray[np.float64], list[str]]:
-        """
-        Extract infrastructure-specific features.
+        """Extract infrastructure-specific features.
 
         Args:
             data: Multi-variate process variable data
@@ -1211,8 +1173,7 @@ class InfrastructureFeatureExtractor(BaseDomainExtractor):
     def _compute_correlation_matrix_features(
         self, data: NDArray[np.float64]
     ) -> tuple[list[float], list[str]]:
-        """
-        Compute features from process variable correlation matrix.
+        """Compute features from process variable correlation matrix.
 
         Unexpected correlation changes can indicate attacks or failures.
 
@@ -1275,8 +1236,7 @@ class InfrastructureFeatureExtractor(BaseDomainExtractor):
     def _compute_lagged_correlation_features(
         self, data: NDArray[np.float64]
     ) -> tuple[list[float], list[str]]:
-        """
-        Compute lagged cross-correlation features.
+        """Compute lagged cross-correlation features.
 
         Physical processes have expected time delays between variables.
 
@@ -1325,8 +1285,7 @@ class InfrastructureFeatureExtractor(BaseDomainExtractor):
     def _compute_setpoint_deviation_features(
         self, data: NDArray[np.float64]
     ) -> tuple[list[float], list[str]]:
-        """
-        Compute setpoint deviation features.
+        """Compute setpoint deviation features.
 
         Uses running mean as proxy for setpoint when actual setpoints unknown.
 
@@ -1376,8 +1335,7 @@ class InfrastructureFeatureExtractor(BaseDomainExtractor):
         return features, names
 
     def _compute_alarm_features(self, data: NDArray[np.float64]) -> tuple[list[float], list[str]]:
-        """
-        Compute alarm rate features based on threshold crossings.
+        """Compute alarm rate features based on threshold crossings.
 
         Args:
             data: Process variable data
@@ -1429,8 +1387,7 @@ class InfrastructureFeatureExtractor(BaseDomainExtractor):
     def _compute_control_stability_features(
         self, data: NDArray[np.float64]
     ) -> tuple[list[float], list[str]]:
-        """
-        Compute control loop stability features.
+        """Compute control loop stability features.
 
         Detects oscillations, hunting, and instability in control loops.
 
@@ -1489,8 +1446,7 @@ class InfrastructureFeatureExtractor(BaseDomainExtractor):
     def _compute_attack_indicator_features(
         self, data: NDArray[np.float64]
     ) -> tuple[list[float], list[str]]:
-        """
-        Compute cyber attack indicator features.
+        """Compute cyber attack indicator features.
 
         Detects patterns associated with common ICS/SCADA attacks.
 
@@ -1585,8 +1541,7 @@ class DomainFeatureExtractorFactory:
     def create(
         cls, domain: Domain | str, config: DomainFeatureConfig | None = None
     ) -> BaseDomainExtractor:
-        """
-        Create a domain-specific feature extractor.
+        """Create a domain-specific feature extractor.
 
         Args:
             domain: Target domain

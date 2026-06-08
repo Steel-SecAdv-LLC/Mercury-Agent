@@ -1,20 +1,5 @@
-"""
-Mercury Agent - Enhanced Model Domain Components
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Enhancements to model domain components:
-- Quantum: Optimized von Neumann entropy, decoherence resilience
-- Biometric: Fairness metrics (Fairlearn-style), bias detection
-- Consciousness: Lyapunov stability analysis for state coherence
-- Affective: Entropy-based emotional state analysis
-- All domains: Benevolence-aware scoring, GOSNN integration
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Enhanced Model Domain Components."""
 
 from __future__ import annotations
 
@@ -76,8 +61,7 @@ class StabilityMetrics:
 
 
 class EnhancedQuantumModel:
-    """
-    Enhanced quantum-inspired anomaly detection with rigorous calculations.
+    """Enhanced quantum-inspired anomaly detection with rigorous calculations.
 
     Improvements:
     - Proper von Neumann entropy calculation
@@ -93,8 +77,7 @@ class EnhancedQuantumModel:
         use_error_correction: bool = True,
         seed: int = 42,
     ):
-        """
-        Initialize enhanced quantum model.
+        """Initialize enhanced quantum model.
 
         Args:
             num_qubits: Number of simulated qubits
@@ -114,8 +97,7 @@ class EnhancedQuantumModel:
         self._identity = np.eye(2, dtype=complex)
 
     def _create_density_matrix(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Create density matrix from classical data using amplitude encoding.
+        """Create density matrix from classical data using amplitude encoding.
 
         Args:
             data: Classical data vector
@@ -149,8 +131,7 @@ class EnhancedQuantumModel:
         return rho
 
     def _apply_decoherence(self, rho: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Apply decoherence channel (amplitude damping + dephasing).
+        """Apply decoherence channel (amplitude damping + dephasing).
 
         Args:
             rho: Density matrix
@@ -174,8 +155,7 @@ class EnhancedQuantumModel:
         return np.asarray(rho_decohered)  # type: ignore[no-any-return, unused-ignore]
 
     def compute_von_neumann_entropy(self, rho: np.ndarray[Any, Any]) -> float:
-        """
-        Compute von Neumann entropy: S(ρ) = -Tr(ρ log ρ).
+        """Compute von Neumann entropy: S(ρ) = -Tr(ρ log ρ).
 
         Measures the quantum "mixedness" of a state.
         S = 0 for pure states, S > 0 for mixed states.
@@ -198,8 +178,7 @@ class EnhancedQuantumModel:
         return float(np.real(entropy))
 
     def compute_purity(self, rho: np.ndarray[Any, Any]) -> float:
-        """
-        Compute purity: γ = Tr(ρ²).
+        """Compute purity: γ = Tr(ρ²).
 
         γ = 1 for pure states, γ < 1 for mixed states.
 
@@ -212,8 +191,7 @@ class EnhancedQuantumModel:
         return float(np.real(np.trace(rho @ rho)))
 
     def compute_coherence(self, rho: np.ndarray[Any, Any]) -> float:
-        """
-        Compute l1-norm coherence measure.
+        """Compute l1-norm coherence measure.
 
         Sums absolute values of off-diagonal elements.
 
@@ -228,8 +206,7 @@ class EnhancedQuantumModel:
         return float(np.sum(np.abs(off_diagonal)))
 
     def compute_entanglement(self, rho: np.ndarray[Any, Any], subsystem_dim: int = 2) -> float:
-        """
-        Compute entanglement entropy via partial trace.
+        """Compute entanglement entropy via partial trace.
 
         For bipartite system, traces out one subsystem and computes entropy.
 
@@ -263,8 +240,7 @@ class EnhancedQuantumModel:
         x1: np.ndarray[Any, Any],
         x2: np.ndarray[Any, Any],
     ) -> float:
-        """
-        Compute quantum kernel similarity: k(x,y) = |⟨ψ(x)|ψ(y)⟩|².
+        """Compute quantum kernel similarity: k(x,y) = |⟨ψ(x)|ψ(y)⟩|².
 
         Args:
             x1: First data vector
@@ -283,8 +259,7 @@ class EnhancedQuantumModel:
         return float(fidelity**2)
 
     def extract_features(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Extract quantum-inspired features with enhanced metrics.
+        """Extract quantum-inspired features with enhanced metrics.
 
         Args:
             data: Input data (batch_size, features)
@@ -328,8 +303,7 @@ class EnhancedQuantumModel:
         return np.array(features_list, dtype=np.float32)
 
     def compute_metrics(self, data: np.ndarray[Any, Any]) -> QuantumMetrics:
-        """
-        Compute comprehensive quantum metrics for a sample.
+        """Compute comprehensive quantum metrics for a sample.
 
         Args:
             data: Single data vector
@@ -348,8 +322,7 @@ class EnhancedQuantumModel:
 
 
 class EnhancedBiometricModel:
-    """
-    Enhanced biometric model with fairness-aware scoring.
+    """Enhanced biometric model with fairness-aware scoring.
 
     Includes:
     - Demographic parity analysis
@@ -364,8 +337,7 @@ class EnhancedBiometricModel:
         fairness_threshold: float = 0.8,
         protected_attribute_idx: int | None = None,
     ):
-        """
-        Initialize enhanced biometric model.
+        """Initialize enhanced biometric model.
 
         Args:
             enforce_fairness: Whether to enforce fairness constraints
@@ -382,8 +354,7 @@ class EnhancedBiometricModel:
         labels: np.ndarray[Any, Any],
         protected_attrs: np.ndarray[Any, Any],
     ) -> FairnessMetrics:
-        """
-        Compute comprehensive fairness metrics.
+        """Compute comprehensive fairness metrics.
 
         Args:
             predictions: Binary predictions
@@ -455,8 +426,7 @@ class EnhancedBiometricModel:
         predictions: np.ndarray[Any, Any],
         protected_attrs: np.ndarray[Any, Any],
     ) -> float:
-        """
-        Compute individual fairness score.
+        """Compute individual fairness score.
 
         Similar individuals should receive similar predictions regardless of protected attribute.
         """
@@ -486,8 +456,7 @@ class EnhancedBiometricModel:
         protected_attrs: np.ndarray[Any, Any],
         method: str = "threshold_adjustment",
     ) -> np.ndarray[Any, Any]:
-        """
-        Apply fairness constraint to scores.
+        """Apply fairness constraint to scores.
 
         Args:
             scores: Raw anomaly scores
@@ -539,8 +508,7 @@ class EnhancedBiometricModel:
 
 
 class LyapunovStabilityAnalyzer:
-    """
-    Lyapunov stability analysis for consciousness and state-based models.
+    """Lyapunov stability analysis for consciousness and state-based models.
 
     Computes:
     - Largest Lyapunov Exponent (LLE)
@@ -554,8 +522,7 @@ class LyapunovStabilityAnalyzer:
         tau: int = 1,
         min_neighbors: int = 5,
     ):
-        """
-        Initialize stability analyzer.
+        """Initialize stability analyzer.
 
         Args:
             embedding_dim: Embedding dimension for phase space
@@ -567,8 +534,7 @@ class LyapunovStabilityAnalyzer:
         self.min_neighbors = min_neighbors
 
     def embed_time_series(self, x: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Create time-delay embedding of time series.
+        """Create time-delay embedding of time series.
 
         Args:
             x: 1D time series
@@ -591,8 +557,7 @@ class LyapunovStabilityAnalyzer:
         data: np.ndarray[Any, Any],
         dt: float = 1.0,
     ) -> float:
-        """
-        Compute Largest Lyapunov Exponent using Wolf's algorithm.
+        """Compute Largest Lyapunov Exponent using Wolf's algorithm.
 
         LLE > 0: Chaotic (unstable)
         LLE ≈ 0: Quasi-periodic
@@ -654,8 +619,7 @@ class LyapunovStabilityAnalyzer:
         data: np.ndarray[Any, Any],
         dt: float = 1.0,
     ) -> StabilityMetrics:
-        """
-        Perform comprehensive stability analysis.
+        """Perform comprehensive stability analysis.
 
         Args:
             data: Input time series or state data
@@ -697,8 +661,7 @@ class LyapunovStabilityAnalyzer:
 
 
 class EnhancedAffectiveModel:
-    """
-    Enhanced affective computing model with entropy-based analysis.
+    """Enhanced affective computing model with entropy-based analysis.
 
     Features:
     - Emotional entropy measurement
@@ -713,8 +676,7 @@ class EnhancedAffectiveModel:
         temporal_window: int = 10,
         seed: int = 42,
     ):
-        """
-        Initialize enhanced affective model.
+        """Initialize enhanced affective model.
 
         Args:
             n_emotions: Number of emotion categories
@@ -732,8 +694,7 @@ class EnhancedAffectiveModel:
         self,
         emotion_probs: np.ndarray[Any, Any],
     ) -> float:
-        """
-        Compute emotional entropy (uncertainty in emotion state).
+        """Compute emotional entropy (uncertainty in emotion state).
 
         High entropy = mixed emotions / uncertainty
         Low entropy = clear single emotion
@@ -759,8 +720,7 @@ class EnhancedAffectiveModel:
         self,
         features: np.ndarray[Any, Any],
     ) -> dict[str, float]:
-        """
-        Analyze valence-arousal state from features.
+        """Analyze valence-arousal state from features.
 
         Valence: positive vs negative emotion
         Arousal: activation level
@@ -796,8 +756,7 @@ class EnhancedAffectiveModel:
         temporal_emotions: np.ndarray[Any, Any],
         threshold: float = 0.7,
     ) -> dict[str, Any]:
-        """
-        Detect distress patterns in temporal emotion sequence.
+        """Detect distress patterns in temporal emotion sequence.
 
         Args:
             temporal_emotions: Sequence of emotion states (time, n_emotions)
@@ -839,8 +798,7 @@ class EnhancedAffectiveModel:
         }
 
     def extract_features(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Extract comprehensive affective features.
+        """Extract comprehensive affective features.
 
         Args:
             data: Input data
@@ -888,8 +846,7 @@ def create_enhanced_model(
     config: dict[str, Any] | None = None,
     **kwargs: Any,
 ) -> EnhancedQuantumModel | EnhancedBiometricModel | EnhancedAffectiveModel:
-    """
-    Factory function to create enhanced model instances.
+    """Factory function to create enhanced model instances.
 
     Args:
         model_type: Type of model ("quantum", "biometric", "affective")

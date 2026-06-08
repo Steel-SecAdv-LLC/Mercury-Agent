@@ -1,21 +1,4 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Information Geometry for Out-of-Distribution Detection -- Phase 4C.
 
 Based on: IGEOOD - An Information Geometry Approach to Out-of-Distribution Detection
@@ -27,6 +10,8 @@ Phase 4C adds Fisher Information Metric Adaptive Thresholds:
   - FisherRaoAdaptiveThreshold: adaptive anomaly thresholds from the FIM
   - StatisticalManifold: manifold bookkeeping, geodesic distance, exponential map
 """
+
+from __future__ import annotations
 
 from typing import Any
 
@@ -69,8 +54,7 @@ def _safe_cholesky(
     matrix: np.ndarray[Any, Any],
     tikhonov_lambda: float = _DEFAULT_TIKHONOV,
 ) -> np.ndarray[Any, Any]:
-    """
-    Cholesky decomposition with automatic Tikhonov fallback.
+    """Cholesky decomposition with automatic Tikhonov fallback.
 
     Returns the lower-triangular factor *L* such that ``L @ L.T == matrix`` (up to regularization).
     """
@@ -103,6 +87,7 @@ class FisherInformationMatrix:
     """
 
     def __init__(self, tikhonov_lambda: float = _DEFAULT_TIKHONOV) -> None:
+        """Initialize the instance."""
         self.tikhonov_lambda: float = tikhonov_lambda
         self.fim: np.ndarray[Any, Any] | None = None
         self.dim: int | None = None
@@ -154,8 +139,7 @@ class FisherInformationMatrix:
         samples: np.ndarray[Any, Any],
         log_likelihood_grad_fn: Any | None = None,
     ) -> np.ndarray[Any, Any]:
-        """
-        Estimate the FIM from samples via the empirical score function.
+        """Estimate the FIM from samples via the empirical score function.
 
         When *log_likelihood_grad_fn* is ``None`` a Gaussian model is
         assumed and the score is computed as ``sigma^{-1} (x - mu)``.
@@ -233,6 +217,7 @@ class NaturalGradient:
     """
 
     def __init__(self, damping: float = _DEFAULT_TIKHONOV) -> None:
+        """Initialize the instance."""
         self.damping: float = damping
 
     def compute(
@@ -240,8 +225,7 @@ class NaturalGradient:
         fim: np.ndarray[Any, Any],
         euclidean_gradient: np.ndarray[Any, Any],
     ) -> np.ndarray[Any, Any]:
-        """
-        Compute the natural gradient.
+        """Compute the natural gradient.
 
         Args:
             fim: Fisher Information Matrix (d x d).
@@ -288,8 +272,7 @@ class NaturalGradient:
 
 
 class StatisticalManifold:
-    """
-    A point on the manifold of probability distributions.
+    """A point on the manifold of probability distributions.
 
     Stores the reference parameters (mean, covariance) together with the Fisher metric at that
     point, and provides geodesic-distance and exponential-map utilities.
@@ -301,6 +284,7 @@ class StatisticalManifold:
         covariance: np.ndarray[Any, Any],
         tikhonov_lambda: float = _DEFAULT_TIKHONOV,
     ) -> None:
+        """Initialize the instance."""
         self.mean: np.ndarray[Any, Any] = np.asarray(mean, dtype=np.float64)
         if self.mean.ndim == 0:
             self.mean = self.mean.reshape(1)
@@ -430,6 +414,7 @@ class FisherRaoAdaptiveThreshold:
         drift_tolerance: float = 0.1,
         tikhonov_lambda: float = _DEFAULT_TIKHONOV,
     ) -> None:
+        """Initialize the instance."""
         self.confidence_k: float = confidence_k
         self.drift_tolerance: float = drift_tolerance
         self.tikhonov_lambda: float = tikhonov_lambda
@@ -452,8 +437,7 @@ class FisherRaoAdaptiveThreshold:
         reference_data: np.ndarray[Any, Any],
         calibration_data: np.ndarray[Any, Any] | None = None,
     ) -> float:
-        """
-        Calibrate the adaptive threshold from data.
+        """Calibrate the adaptive threshold from data.
 
         Args:
             reference_data: In-distribution samples used to define the
@@ -513,8 +497,7 @@ class FisherRaoAdaptiveThreshold:
         return list(self._history)
 
     def score(self, sample: np.ndarray[Any, Any]) -> float:
-        """
-        Geodesic distance of a single sample to the reference.
+        """Geodesic distance of a single sample to the reference.
 
         Args:
             sample: Observation vector (d,).
@@ -536,8 +519,7 @@ class FisherRaoAdaptiveThreshold:
         self,
         new_data: np.ndarray[Any, Any],
     ) -> bool:
-        """
-        Detect distribution drift by comparing FIM norms.
+        """Detect distribution drift by comparing FIM norms.
 
         Computes the FIM on *new_data* and checks whether its Frobenius
         norm deviates from the reference FIM norm by more than
@@ -570,8 +552,7 @@ class FisherRaoAdaptiveThreshold:
         self,
         new_data: np.ndarray[Any, Any],
     ) -> bool:
-        """
-        Check for drift and recalibrate when detected.
+        """Check for drift and recalibrate when detected.
 
         Args:
             new_data: Recent observation window.
@@ -591,8 +572,7 @@ class FisherRaoAdaptiveThreshold:
 
 
 class InformationGeometryDetector:
-    """
-    Information geometry-based OOD detector.
+    """Information geometry-based OOD detector.
 
     Phase 4C enhancement: when ``adaptive_threshold`` is enabled (the
     default), the detector delegates threshold management to
@@ -601,8 +581,7 @@ class InformationGeometryDetector:
     """
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
-        """
-        Initialize information geometry detector.
+        """Initialize information geometry detector.
 
         Args:
             config: Configuration including:
@@ -642,8 +621,7 @@ class InformationGeometryDetector:
     # -- Fitting -------------------------------------------------------------
 
     def fit_reference_distribution(self, in_distribution_data: np.ndarray[Any, Any]) -> None:
-        """
-        Fit reference distribution from in-distribution training data.
+        """Fit reference distribution from in-distribution training data.
 
         Args:
             in_distribution_data: Training data from in-distribution (ID).
@@ -667,8 +645,7 @@ class InformationGeometryDetector:
         mean: np.ndarray[Any, Any],
         cov: np.ndarray[Any, Any],
     ) -> np.ndarray[Any, Any]:
-        """
-        Compute Fisher Information Matrix.
+        """Compute Fisher Information Matrix.
 
         For Gaussian distributions, the Fisher matrix has a closed form.
 
@@ -690,8 +667,7 @@ class InformationGeometryDetector:
         distribution_1: dict[str, np.ndarray[Any, Any]],
         distribution_2: dict[str, np.ndarray[Any, Any]],
     ) -> float:
-        """
-        Compute Fisher-Rao geodesic distance between two distributions.
+        """Compute Fisher-Rao geodesic distance between two distributions.
 
         The Fisher-Rao distance is the natural distance on statistical
         manifolds.
@@ -719,8 +695,7 @@ class InformationGeometryDetector:
         test_data: np.ndarray[Any, Any],
         threshold: float | None = None,
     ) -> dict[str, Any]:
-        """
-        Detect out-of-distribution samples using information geometry.
+        """Detect out-of-distribution samples using information geometry.
 
         Args:
             test_data: Test samples to evaluate.

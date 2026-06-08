@@ -1,20 +1,5 @@
-"""
-Mercury Agent - Multi-Objective Benevolence Optimization
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Implements benevolence as an explicit optimization target in multi-objective loss:
-- Pareto optimization (scipy.optimize)
-- Scalarized multi-objective loss with benevolence constraint
-- NSGA-II style evolutionary optimization
-- Gradient-based benevolence-aware training
-- Integration with ethical gating (benevolence >= 0.99 threshold)
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Multi-Objective Benevolence Optimization."""
 
 from __future__ import annotations
 
@@ -101,8 +86,7 @@ class ParetoFront:
 
 
 class BenevolenceLoss:
-    """
-    Computes benevolence loss for optimization.
+    """Computes benevolence loss for optimization.
 
     Benevolence measures the degree to which actions promote well-being and minimize harm. Higher is
     better (target >= 0.99).
@@ -114,8 +98,7 @@ class BenevolenceLoss:
         equity_weight: float = 0.3,
         transparency_weight: float = 0.3,
     ):
-        """
-        Initialize benevolence loss.
+        """Initialize benevolence loss.
 
         Args:
             harm_weight: Weight for harm reduction component
@@ -133,8 +116,7 @@ class BenevolenceLoss:
         sensitive_attrs: np.ndarray[Any, Any] | None = None,
         explanation_provided: bool = True,
     ) -> float:
-        """
-        Compute benevolence score.
+        """Compute benevolence score.
 
         Args:
             predictions: Model predictions (binary or probability)
@@ -181,8 +163,7 @@ class BenevolenceLoss:
         labels: np.ndarray[Any, Any],
         sensitive_attrs: np.ndarray[Any, Any],
     ) -> float:
-        """
-        Compute equity score based on group fairness.
+        """Compute equity score based on group fairness.
 
         Uses demographic parity ratio (80% rule).
         """
@@ -215,8 +196,7 @@ class BenevolenceLoss:
 
 
 class MultiObjectiveLoss:
-    """
-    Multi-objective loss combining detection, benevolence, and fairness.
+    """Multi-objective loss combining detection, benevolence, and fairness.
 
     Supports both scalarized (weighted sum) and Pareto optimization.
     """
@@ -229,8 +209,7 @@ class MultiObjectiveLoss:
         benevolence_threshold: float = BENEVOLENCE_THRESHOLD,
         penalty_factor: float = 10.0,
     ):
-        """
-        Initialize multi-objective loss.
+        """Initialize multi-objective loss.
 
         Args:
             detection_weight: Weight for detection performance
@@ -253,8 +232,7 @@ class MultiObjectiveLoss:
         labels: np.ndarray[Any, Any],
         sensitive_attrs: np.ndarray[Any, Any] | None = None,
     ) -> ObjectiveResult:
-        """
-        Compute multi-objective loss.
+        """Compute multi-objective loss.
 
         Args:
             predictions: Model predictions
@@ -346,8 +324,7 @@ class MultiObjectiveLoss:
 
 
 class ParetoOptimizer:
-    """
-    Pareto optimization for multi-objective benevolence optimization.
+    """Pareto optimization for multi-objective benevolence optimization.
 
     Finds the Pareto front of non-dominated solutions trading off detection performance,
     benevolence, and fairness.
@@ -363,8 +340,7 @@ class ParetoOptimizer:
         crossover_rate: float = 0.9,
         seed: int = 42,
     ):
-        """
-        Initialize Pareto optimizer.
+        """Initialize Pareto optimizer.
 
         Args:
             objective_fn: Function that takes parameters and returns objective vector
@@ -392,8 +368,7 @@ class ParetoOptimizer:
         bounds: list[tuple[float, float]],
         benevolence_constraint: float = BENEVOLENCE_THRESHOLD,
     ) -> ParetoFront:
-        """
-        Find Pareto-optimal solutions.
+        """Find Pareto-optimal solutions.
 
         Args:
             bounds: Parameter bounds [(min, max), ...]
@@ -632,8 +607,7 @@ def optimize_benevolent_detector(
     n_generations: int = 50,
     seed: int = 42,
 ) -> tuple[np.ndarray[Any, Any], ParetoFront]:
-    """
-    Optimize detector parameters for benevolence.
+    """Optimize detector parameters for benevolence.
 
     Args:
         model_fn: Function that takes parameters and returns fitted model

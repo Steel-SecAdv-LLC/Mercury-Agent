@@ -1,10 +1,5 @@
-"""
-Mercury Agent - 3R Mechanism Type Definitions
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Type definitions, enums, and dataclasses for the 3R Mechanism.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""3R Mechanism Type Definitions."""
 
 from __future__ import annotations
 
@@ -112,8 +107,7 @@ class AnomalyFusionResult:
 
 @dataclass
 class RefactoringConfig:
-    """
-    Configuration for automatic refactoring operations.
+    """Configuration for automatic refactoring operations.
 
     Mathematical constants are sourced from the centralized MathematicalConstants module for
     precision and consistency.

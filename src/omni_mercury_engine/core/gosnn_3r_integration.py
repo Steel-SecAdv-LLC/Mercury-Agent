@@ -1,26 +1,5 @@
-"""
-Mercury Agent - GOSNN ↔ 3R Bidirectional Feedback Integration
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Implements bidirectional synaptic integration between:
-- Global Omni-Scalar Network (GOSNN): ~209 registered omni-scalars (127
-  operational drive the σ_Immutable gate; 82 diagnostic measurement
-  scalars are filtered out per the GOSNN layout contract), ethical gating
-- Three-R Mechanism: Recursion-Resonance-Refactoring
-
-Key Features:
-1. 3R Refactoring engine dynamically adjusts GOSNN ethical thresholds
-2. GOSNN scalar categories weight 3R fusion coefficients (w_R, w_H, w_O)
-3. Gradient flow from 3R loss back to detector heads
-4. Sliding window normalization for time-series inputs
-5. Cross-domain transfer learning support
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""GOSNN ↔ 3R Bidirectional Feedback Integration."""
 
 from __future__ import annotations
 
@@ -98,16 +77,14 @@ class SlidingWindowConfig:
 
 
 class SlidingWindowNormalizer:
-    """
-    Sliding window normalization for time-series inputs.
+    """Sliding window normalization for time-series inputs.
 
     Maintains running statistics and normalizes incoming data based on recent history, adapting to
     non-stationary distributions.
     """
 
     def __init__(self, config: SlidingWindowConfig | None = None):
-        """
-        Initialize sliding window normalizer.
+        """Initialize sliding window normalizer.
 
         Args:
             config: Normalization configuration
@@ -137,8 +114,7 @@ class SlidingWindowNormalizer:
         )
 
     def update(self, data: NDArray[np.float64]) -> None:
-        """
-        Update running statistics with new data.
+        """Update running statistics with new data.
 
         Args:
             data: New data sample(s)
@@ -193,8 +169,7 @@ class SlidingWindowNormalizer:
             self._ema_var = decay * self._ema_var + (1 - decay) * current_var
 
     def normalize(self, data: NDArray[np.float64]) -> NDArray[np.float64]:
-        """
-        Normalize data using current window statistics.
+        """Normalize data using current window statistics.
 
         Args:
             data: Data to normalize
@@ -232,8 +207,7 @@ class SlidingWindowNormalizer:
             )
 
     def normalize_with_ema(self, data: NDArray[np.float64]) -> NDArray[np.float64]:
-        """
-        Normalize using exponential moving average statistics.
+        """Normalize using exponential moving average statistics.
 
         Args:
             data: Data to normalize
@@ -277,8 +251,7 @@ class SlidingWindowNormalizer:
 
 
 class GOSNN3RIntegration:
-    """
-    Bidirectional integration between GOSNN and 3R mechanism.
+    """Bidirectional integration between GOSNN and 3R mechanism.
 
     Provides:
     1. GOSNN → 3R: Scalar categories weight fusion coefficients
@@ -307,8 +280,7 @@ class GOSNN3RIntegration:
         domain: str | None = None,
         enable_sliding_window: bool = True,
     ):
-        """
-        Initialize GOSNN-3R integration.
+        """Initialize GOSNN-3R integration.
 
         Args:
             gosnn: GOSNN instance (creates default if None)
@@ -437,8 +409,7 @@ class GOSNN3RIntegration:
         optimization_score: float,
         raw_data: NDArray[np.float64] | None = None,
     ) -> AnomalyFusionResult:
-        """
-        Process scores through the integrated GOSNN-3R pipeline.
+        """Process scores through the integrated GOSNN-3R pipeline.
 
         Args:
             recursion_score: R(x) from hierarchical feature extraction
@@ -495,8 +466,7 @@ class GOSNN3RIntegration:
         resonance_score: float,
         optimization_score: float,
     ) -> None:
-        """
-        Update weights using gradient-like feedback from loss.
+        """Update weights using gradient-like feedback from loss.
 
         Implements approximate gradient descent on the fusion weights
         based on the detection loss (e.g., 1 - F1).
@@ -549,8 +519,7 @@ class GOSNN3RIntegration:
         detector_name: str,
         performance_metrics: dict[str, float],
     ) -> None:
-        """
-        Register detector performance as GOSNN scalars.
+        """Register detector performance as GOSNN scalars.
 
         This enables cross-detector influence through the scalar network.
 
@@ -614,8 +583,7 @@ class GOSNN3RIntegration:
             }
 
     def verify_stability(self) -> tuple[bool, dict[str, Any]]:
-        """
-        Verify overall system stability.
+        """Verify overall system stability.
 
         Returns:
             Tuple of (is_stable, stability_report)
@@ -670,8 +638,7 @@ class GOSNN3RIntegration:
         confidence: float,
         domain: str | None = None,
     ) -> dict[str, Any]:
-        """
-        Adjust fusion weights based on current scores and confidence.
+        """Adjust fusion weights based on current scores and confidence.
 
         This method provides bidirectional feedback:
         1. Uses GOSNN scalars to inform weight adjustments
@@ -758,8 +725,7 @@ class GOSNN3RIntegration:
 
 
 class CrossDomainTransferManager:
-    """
-    Manages cross-domain transfer learning between GOSNN-3R integrations.
+    """Manages cross-domain transfer learning between GOSNN-3R integrations.
 
     Pre-trains on high-data domains (Security, Space) then fine-tunes on low-data domains (Medical,
     Humanitarian).
@@ -788,8 +754,7 @@ class CrossDomainTransferManager:
         target_domain: str,
         transfer_ratio: float = 0.3,
     ) -> bool:
-        """
-        Transfer learned weights from source to target domain.
+        """Transfer learned weights from source to target domain.
 
         Args:
             source_domain: Domain to transfer from
@@ -844,8 +809,7 @@ class CrossDomainTransferManager:
         return True
 
     def auto_transfer(self, low_data_domains: list[str] | None = None) -> dict[str, bool]:
-        """
-        Automatically transfer from high-data to low-data domains.
+        """Automatically transfer from high-data to low-data domains.
 
         Args:
             low_data_domains: Override list of low-data domains
@@ -877,8 +841,7 @@ def create_integrated_pipeline(
     domain: str | None = None,
     enable_sliding_window: bool = True,
 ) -> GOSNN3RIntegration:
-    """
-    Create an integrated GOSNN-3R pipeline.
+    """Create an integrated GOSNN-3R pipeline.
 
     Args:
         domain: Target domain

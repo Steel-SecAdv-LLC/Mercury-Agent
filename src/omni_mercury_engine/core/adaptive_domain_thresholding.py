@@ -1,23 +1,5 @@
-"""
-Mercury Agent - Adaptive Per-Domain Thresholding System
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Advanced thresholding system with per-domain optimization:
-- Domain-specific threshold calibration
-- Platt scaling for probability calibration
-- Isotonic regression calibration
-- Dynamic threshold adjustment based on domain characteristics
-- Domain ensemble weighting optimizer
-
-This module implements the strategic recommendations for adaptive thresholding
-to improve domain competence across Medical, Financial, and Infrastructure.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Adaptive Per-Domain Thresholding System."""
 
 from __future__ import annotations
 
@@ -146,8 +128,7 @@ DOMAIN_DEFAULTS: dict[DomainType, dict[str, Any]] = {
 
 
 class PlattScalingCalibrator:
-    """
-    Platt scaling for probability calibration.
+    """Platt scaling for probability calibration.
 
     Fits a sigmoid function to map raw scores to calibrated probabilities:
     P(y=1|s) = 1 / (1 + exp(A*s + B))
@@ -156,8 +137,7 @@ class PlattScalingCalibrator:
     """
 
     def __init__(self, max_iter: int = 100, tol: float = 1e-6):
-        """
-        Initialize Platt scaling calibrator.
+        """Initialize Platt scaling calibrator.
 
         Args:
             max_iter: Maximum iterations for optimization
@@ -170,8 +150,7 @@ class PlattScalingCalibrator:
         self._fitted = False
 
     def fit(self, scores: NDArray[np.float64], labels: NDArray[np.int32]) -> PlattScalingCalibrator:
-        """
-        Fit Platt scaling parameters.
+        """Fit Platt scaling parameters.
 
         Uses cross-entropy loss optimization to find optimal A, B parameters.
 
@@ -235,8 +214,7 @@ class PlattScalingCalibrator:
         return self
 
     def calibrate(self, scores: NDArray[np.float64]) -> NDArray[np.float64]:
-        """
-        Calibrate scores to probabilities.
+        """Calibrate scores to probabilities.
 
         Args:
             scores: Raw anomaly scores
@@ -257,16 +235,14 @@ class PlattScalingCalibrator:
 
 
 class IsotonicCalibrator:
-    """
-    Isotonic regression for probability calibration.
+    """Isotonic regression for probability calibration.
 
     Fits a non-decreasing function to map scores to probabilities. More flexible than Platt scaling
     but requires more data.
     """
 
     def __init__(self, out_of_bounds: str = "clip"):
-        """
-        Initialize isotonic calibrator.
+        """Initialize isotonic calibrator.
 
         Args:
             out_of_bounds: How to handle out-of-bounds values ('clip' or 'nan')
@@ -277,8 +253,7 @@ class IsotonicCalibrator:
         self._score_bins: NDArray[np.float64] | None = None
 
     def fit(self, scores: NDArray[np.float64], labels: NDArray[np.int32]) -> IsotonicCalibrator:
-        """
-        Fit isotonic regression calibration.
+        """Fit isotonic regression calibration.
 
         Uses Pool Adjacent Violators Algorithm (PAVA).
 
@@ -339,8 +314,7 @@ class IsotonicCalibrator:
         return self
 
     def calibrate(self, scores: NDArray[np.float64]) -> NDArray[np.float64]:
-        """
-        Calibrate scores to probabilities.
+        """Calibrate scores to probabilities.
 
         Args:
             scores: Raw anomaly scores
@@ -361,15 +335,13 @@ class IsotonicCalibrator:
 
 
 class CalibrationEnsemble:
-    """
-    Ensemble of calibration methods for robust probability estimation.
+    """Ensemble of calibration methods for robust probability estimation.
 
     Combines Platt scaling and isotonic regression with weighted averaging.
     """
 
     def __init__(self, platt_weight: float = 0.5):
-        """
-        Initialize calibration ensemble.
+        """Initialize calibration ensemble.
 
         Args:
             platt_weight: Weight for Platt scaling (isotonic gets 1-weight)
@@ -381,8 +353,7 @@ class CalibrationEnsemble:
         self.best_method: str = "ensemble"
 
     def fit(self, scores: NDArray[np.float64], labels: NDArray[np.int32]) -> CalibrationEnsemble:
-        """
-        Fit both calibrators.
+        """Fit both calibrators.
 
         Args:
             scores: Raw anomaly scores
@@ -486,8 +457,7 @@ class CalibrationEnsemble:
         return float(np.mean((probs - labels) ** 2))
 
     def calibrate(self, scores: NDArray[np.float64]) -> NDArray[np.float64]:
-        """
-        Calibrate scores using the best method.
+        """Calibrate scores using the best method.
 
         Args:
             scores: Raw anomaly scores
@@ -512,8 +482,7 @@ class CalibrationEnsemble:
 
 
 class AdaptiveDomainThresholdManager:
-    """
-    Adaptive per-domain thresholding manager.
+    """Adaptive per-domain thresholding manager.
 
     Provides domain-specific threshold calibration with:
     - Automatic method selection based on domain
@@ -523,8 +492,7 @@ class AdaptiveDomainThresholdManager:
     """
 
     def __init__(self, domain: DomainType | str):
-        """
-        Initialize adaptive threshold manager.
+        """Initialize adaptive threshold manager.
 
         Args:
             domain: Target domain
@@ -564,8 +532,7 @@ class AdaptiveDomainThresholdManager:
         scores: NDArray[np.float64],
         labels: NDArray[np.int32] | None = None,
     ) -> AdaptiveDomainThresholdManager:
-        """
-        Fit the threshold manager on training data.
+        """Fit the threshold manager on training data.
 
         Args:
             scores: Anomaly scores
@@ -612,8 +579,7 @@ class AdaptiveDomainThresholdManager:
         scores: NDArray[np.float64],
         labels: NDArray[np.int32] | None,
     ) -> float:
-        """
-        Adjust threshold based on precision/recall priority.
+        """Adjust threshold based on precision/recall priority.
 
         Args:
             threshold: Base threshold
@@ -671,8 +637,7 @@ class AdaptiveDomainThresholdManager:
         scores: NDArray[np.float64],
         labels: NDArray[np.int32] | None = None,
     ) -> DomainCalibrationResult:
-        """
-        Calibrate scores and compute optimal threshold.
+        """Calibrate scores and compute optimal threshold.
 
         Args:
             scores: Raw anomaly scores
@@ -739,8 +704,7 @@ class AdaptiveDomainThresholdManager:
         )
 
     def _adaptive_adjustment(self, threshold: float, current_scores: NDArray[np.float64]) -> float:
-        """
-        Adaptively adjust threshold based on score distribution drift.
+        """Adaptively adjust threshold based on score distribution drift.
 
         Args:
             threshold: Current threshold
@@ -975,8 +939,7 @@ class AdaptiveDomainThresholdManager:
         score: float | None = None,
         confidence: float | None = None,
     ) -> float | dict[str, Any]:
-        """
-        Get current calibrated threshold, optionally with adaptive adjustment.
+        """Get current calibrated threshold, optionally with adaptive adjustment.
 
         When called with no arguments, returns just the threshold (backward compatible).
         When called with score and/or confidence, returns a dict with adaptive info.
@@ -1037,8 +1000,7 @@ class AdaptiveDomainThresholdManager:
         true_labels: NDArray[np.int32],
         predictions: NDArray[np.bool_],
     ) -> dict[str, float]:
-        """
-        Update performance history for adaptive adjustment.
+        """Update performance history for adaptive adjustment.
 
         Args:
             true_labels: Ground truth labels
@@ -1101,8 +1063,7 @@ class AdaptiveDomainThresholdManager:
 
 
 class DomainEnsembleWeightOptimizer:
-    """
-    Domain-specific ensemble weighting optimizer.
+    """Domain-specific ensemble weighting optimizer.
 
     Learns optimal weights for combining multiple detectors per domain, extending the
     OAEWeightOptimizer with domain awareness.
@@ -1114,8 +1075,7 @@ class DomainEnsembleWeightOptimizer:
         n_detectors: int = 3,
         golden_ratio_init: bool = True,
     ):
-        """
-        Initialize domain ensemble weight optimizer.
+        """Initialize domain ensemble weight optimizer.
 
         Args:
             domain: Target domain
@@ -1155,8 +1115,7 @@ class DomainEnsembleWeightOptimizer:
         labels: NDArray[np.int32],
         max_iterations: int = 100,
     ) -> dict[str, Any]:
-        """
-        Optimize detector weights for the domain.
+        """Optimize detector weights for the domain.
 
         Args:
             detector_scores: Shape (n_samples, n_detectors) - scores from each detector
@@ -1276,8 +1235,7 @@ class DomainEnsembleWeightOptimizer:
         return (1 + beta**2) * precision * recall / (beta**2 * precision + recall)
 
     def combine_scores(self, detector_scores: NDArray[np.float64]) -> NDArray[np.float64]:
-        """
-        Combine detector scores using optimized weights.
+        """Combine detector scores using optimized weights.
 
         Args:
             detector_scores: Shape (n_samples, n_detectors)
@@ -1293,8 +1251,7 @@ class DomainEnsembleWeightOptimizer:
 def create_domain_threshold_manager(
     domain: DomainType | str,
 ) -> AdaptiveDomainThresholdManager:
-    """
-    Create an adaptive threshold manager for the specified domain.
+    """Create an adaptive threshold manager for the specified domain.
 
     Args:
         domain: Target domain

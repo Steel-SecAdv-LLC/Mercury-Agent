@@ -1,15 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-"""
-
-from __future__ import annotations
-
-"""
-Indicator Development System
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Indicator Development System.
 
 Transforms patterns into actionable indicators for threat anticipation:
 - Indicator generation from anomaly patterns
@@ -22,6 +12,8 @@ Research Sources:
 - CISA All-Source Intelligence
 - Warning intelligence tradecraft
 """
+
+from __future__ import annotations
 
 import logging
 import time
@@ -162,8 +154,7 @@ class IntelligenceRequirement:
 
 
 class IndicatorDevelopmentSystem:
-    """
-    Indicator Development and Warning System.
+    """Indicator Development and Warning System.
 
     Transforms anomaly detection patterns into actionable indicators:
 
@@ -185,8 +176,7 @@ class IndicatorDevelopmentSystem:
         warning_cooldown_seconds: float = 300,
         enable_auto_deprecation: bool = True,
     ):
-        """
-        Initialize Indicator Development System.
+        """Initialize Indicator Development System.
 
         Args:
             min_pattern_occurrences: Min occurrences to become indicator
@@ -226,8 +216,7 @@ class IndicatorDevelopmentSystem:
         threshold: float | None = None,
         source_patterns: list[str] | None = None,
     ) -> Indicator:
-        """
-        Develop a new indicator from a pattern.
+        """Develop a new indicator from a pattern.
 
         Args:
             pattern: The pattern to detect
@@ -268,8 +257,7 @@ class IndicatorDevelopmentSystem:
         domain: str,
         min_support: float = 0.3,
     ) -> list[Indicator]:
-        """
-        Automatically develop indicators from anomaly patterns.
+        """Automatically develop indicators from anomaly patterns.
 
         Uses frequent pattern mining to identify recurring anomaly signatures.
 
@@ -319,8 +307,7 @@ class IndicatorDevelopmentSystem:
         observation: dict[str, Any],
         domain: str | None = None,
     ) -> list[Warning]:
-        """
-        Evaluate an observation against active indicators.
+        """Evaluate an observation against active indicators.
 
         Args:
             observation: Current observation to evaluate
@@ -371,8 +358,7 @@ class IndicatorDevelopmentSystem:
         is_true_positive: bool,
         feedback: dict[str, Any] | None = None,
     ) -> None:
-        """
-        Validate an indicator based on outcome.
+        """Validate an indicator based on outcome.
 
         Args:
             indicator_id: Indicator to validate
@@ -406,8 +392,7 @@ class IndicatorDevelopmentSystem:
         domain: str,
         associated_indicators: list[str] | None = None,
     ) -> IntelligenceRequirement:
-        """
-        Create a Priority Intelligence Requirement.
+        """Create a Priority Intelligence Requirement.
 
         Args:
             question: The intelligence question
@@ -441,8 +426,7 @@ class IndicatorDevelopmentSystem:
         self,
         domain: str | None = None,
     ) -> list[dict[str, Any]]:
-        """
-        Get prioritized collection guidance.
+        """Get prioritized collection guidance.
 
         Args:
             domain: Optional domain filter

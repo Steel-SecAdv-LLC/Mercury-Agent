@@ -1,25 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Backward compatibility shim for neurosymbolic engine module.
-
-Note:
-    This module has been split into two locations:
-
-    For anomaly detection with LTN and symbolic reasoning:
-        from omni_mercury_engine.models.neurosymbolic import NeurosymbolicEngine
-
-    For AST-based code analysis:
-        from omni_mercury_engine.core.code_analysis import CodeAnalysisEngine
-
-    To suppress this deprecation warning, set the environment variable:
-        MERCURY_AGENT_SUPPRESS_DEPRECATION_WARNINGS=1
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 
@@ -47,8 +27,7 @@ __all__ = [
 
 
 class NeurosymbolicEngineDeprecationWarning(DeprecationWarning):
-    """
-    Custom deprecation warning for neurosymbolic_engine module.
+    """Custom deprecation warning for neurosymbolic_engine module.
 
     This warning is issued when importing from the deprecated
     omni_mercury_engine.core.neurosymbolic_engine module.

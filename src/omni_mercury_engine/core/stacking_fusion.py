@@ -1,5 +1,5 @@
-"""
-DEPRECATED: This module uses sklearn for anomaly detection.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""DEPRECATED: This module uses sklearn for anomaly detection.
 
 Mercury's production detector is MercuryAnomalyDetector in detectors/statistical.py. This module is
 retained for reference only and will be removed in a future release.
@@ -73,8 +73,7 @@ class BayesianWeights:
 
 
 class StackingFusion:
-    """
-    Stacking (Stacked Generalization) for detector fusion.
+    """Stacking (Stacked Generalization) for detector fusion.
 
     Uses cross-validated predictions from base detectors as features
     for a meta-learner. More principled than simple voting/averaging.
@@ -90,8 +89,7 @@ class StackingFusion:
         passthrough: bool = False,
         seed: int = 42,
     ):
-        """
-        Initialize stacking fusion.
+        """Initialize stacking fusion.
 
         Args:
             meta_learner: Meta-learner model (default: LogisticRegression)
@@ -125,8 +123,7 @@ class StackingFusion:
     def add_detector(
         self, name: str, detector: Any, ethical_score: float | None = None
     ) -> StackingFusion:
-        """
-        Add a base detector to the ensemble.
+        """Add a base detector to the ensemble.
 
         Args:
             name: Unique name for detector
@@ -143,8 +140,7 @@ class StackingFusion:
         return self
 
     def fit(self, X: np.ndarray[Any, Any], y: np.ndarray[Any, Any]) -> StackingFusion:
-        """
-        Fit stacking ensemble.
+        """Fit stacking ensemble.
 
         Args:
             X: Training features
@@ -240,8 +236,7 @@ class StackingFusion:
         return self
 
     def predict(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Predict using stacking ensemble.
+        """Predict using stacking ensemble.
 
         Args:
             X: Test features
@@ -256,8 +251,7 @@ class StackingFusion:
         return np.asarray(self.meta_learner.predict(meta_X))  # type: ignore[no-any-return, unused-ignore]
 
     def predict_proba(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Predict probabilities using stacking ensemble.
+        """Predict probabilities using stacking ensemble.
 
         Args:
             X: Test features
@@ -300,8 +294,7 @@ class StackingFusion:
         return meta_X
 
     def get_detector_importance(self) -> dict[str, float]:
-        """
-        Get importance of each detector from meta-learner.
+        """Get importance of each detector from meta-learner.
 
         Returns:
             Dictionary mapping detector name to importance weight
@@ -325,8 +318,7 @@ class StackingFusion:
 
 
 class BayesianModelAveraging:
-    """
-    Bayesian Model Averaging (BMA) for detector fusion.
+    """Bayesian Model Averaging (BMA) for detector fusion.
 
     Weights detectors by their posterior model probability,
     accounting for model uncertainty. More robust than
@@ -341,8 +333,7 @@ class BayesianModelAveraging:
         use_bic: bool = True,
         min_weight: float = 0.01,
     ):
-        """
-        Initialize BMA fusion.
+        """Initialize BMA fusion.
 
         Args:
             prior_type: Prior over models ("uniform", "complexity_penalized")
@@ -360,8 +351,7 @@ class BayesianModelAveraging:
     def add_detector(
         self, name: str, detector: Any, ethical_score: float | None = None
     ) -> BayesianModelAveraging:
-        """
-        Add a detector to the ensemble.
+        """Add a detector to the ensemble.
 
         Args:
             name: Unique name for detector
@@ -377,8 +367,7 @@ class BayesianModelAveraging:
         return self
 
     def fit(self, X: np.ndarray[Any, Any], y: np.ndarray[Any, Any]) -> BayesianModelAveraging:
-        """
-        Fit BMA ensemble and compute posterior weights.
+        """Fit BMA ensemble and compute posterior weights.
 
         Args:
             X: Training features
@@ -495,8 +484,7 @@ class BayesianModelAveraging:
         return (proba > 0.5).astype(int)
 
     def predict_proba(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Predict probabilities using BMA weighted average.
+        """Predict probabilities using BMA weighted average.
 
         Args:
             X: Test features
@@ -524,8 +512,7 @@ class BayesianModelAveraging:
         return weighted_sum
 
     def get_weights_with_uncertainty(self) -> dict[str, tuple[float, float]]:
-        """
-        Get weights with uncertainty estimates.
+        """Get weights with uncertainty estimates.
 
         Returns:
             Dictionary mapping detector name to (weight, std_dev)
@@ -540,8 +527,7 @@ class BayesianModelAveraging:
 
 
 class EthicallyConstrainedFusion:
-    """
-    Fusion with ethical constraints integrated from GOSNN.
+    """Fusion with ethical constraints integrated from GOSNN.
 
     Learns optimal detector weights while ensuring ethical compliance through sigma_Immutable
     threshold gating and benevolence weighting.
@@ -553,8 +539,7 @@ class EthicallyConstrainedFusion:
         benevolence_weight: float = 0.1,
         use_golden_ratio: bool = True,
     ):
-        """
-        Initialize ethically constrained fusion.
+        """Initialize ethically constrained fusion.
 
         Args:
             sigma_immutable: Ethical threshold (0.93-0.96)
@@ -576,8 +561,7 @@ class EthicallyConstrainedFusion:
         detector: Any,
         ethical_score: float = 1.0,
     ) -> EthicallyConstrainedFusion:
-        """
-        Add detector with ethical score.
+        """Add detector with ethical score.
 
         Args:
             name: Detector name
@@ -589,8 +573,7 @@ class EthicallyConstrainedFusion:
         return self
 
     def fit(self, X: np.ndarray[Any, Any], y: np.ndarray[Any, Any]) -> EthicallyConstrainedFusion:
-        """
-        Fit fusion with ethical constraints.
+        """Fit fusion with ethical constraints.
 
         Args:
             X: Training features
@@ -735,8 +718,7 @@ def create_fusion_ensemble(
     ethical_scores: dict[str, float] | None = None,
     **kwargs: Any,
 ) -> StackingFusion | BayesianModelAveraging | EthicallyConstrainedFusion:
-    """
-    Factory function to create fusion ensemble.
+    """Factory function to create fusion ensemble.
 
     Args:
         detectors: Dictionary of detector name to detector

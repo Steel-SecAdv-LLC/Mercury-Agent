@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Dependency Injection Framework for Mercury Agent
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Dependency Injection Framework for Mercury Agent.
 
 Provides:
 - Service container with lifecycle management
@@ -26,6 +8,8 @@ Provides:
 - Lazy initialization for optional components
 - Circular dependency detection
 """
+
+from __future__ import annotations
 
 import logging
 import threading
@@ -75,8 +59,7 @@ class ServiceNotFoundError(Exception):
 
 
 class ServiceContainer:
-    """
-    Dependency injection container with lifecycle management.
+    """Dependency injection container with lifecycle management.
 
     Features:
     - Singleton, transient, and scoped lifetimes
@@ -87,6 +70,7 @@ class ServiceContainer:
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self._services: dict[type, ServiceDescriptor] = {}
         self._lock = threading.RLock()
         self._resolution_stack: set[type] = set()
@@ -99,8 +83,7 @@ class ServiceContainer:
         factory: Callable[..., T] | None = None,
         instance: T | None = None,
     ) -> ServiceContainer:
-        """
-        Register a singleton service.
+        """Register a singleton service.
 
         Args:
             service_type: The type/interface to register
@@ -154,8 +137,7 @@ class ServiceContainer:
         return self
 
     def resolve(self, service_type: type[T], scope_id: str | None = None) -> T:
-        """
-        Resolve a service instance.
+        """Resolve a service instance.
 
         Args:
             service_type: The type to resolve
@@ -247,6 +229,7 @@ class ServiceScope:
     """Scoped service resolution context."""
 
     def __init__(self, container: ServiceContainer, scope_id: str) -> None:
+        """Initialize the instance."""
         self._container = container
         self._scope_id = scope_id
 
@@ -255,6 +238,7 @@ class ServiceScope:
         return self._container.resolve(service_type, self._scope_id)
 
     def __enter__(self) -> ServiceScope:
+        """Enter the context manager."""
         return self
 
     def __exit__(
@@ -263,6 +247,7 @@ class ServiceScope:
         exc_val: BaseException | None,
         exc_tb: object | None,
     ) -> None:
+        """Exit the context manager."""
         self._container.dispose_scope(self._scope_id)
 
 
@@ -336,8 +321,7 @@ class ConfigurableProtocol(Protocol):
 
 
 class ComponentFactory:
-    """
-    Factory for creating components with proper lifecycle management.
+    """Factory for creating components with proper lifecycle management.
 
     Implements the Factory pattern with:
     - Lazy initialization
@@ -346,6 +330,7 @@ class ComponentFactory:
     """
 
     def __init__(self, container: ServiceContainer) -> None:
+        """Initialize the instance."""
         self._container = container
         self._registered_plugins: dict[str, type] = {}
 
@@ -355,8 +340,7 @@ class ComponentFactory:
         plugin_type: type,
         version: str = "1.0.0",
     ) -> None:
-        """
-        Register a plugin type.
+        """Register a plugin type.
 
         Args:
             name: Plugin identifier
@@ -371,8 +355,7 @@ class ComponentFactory:
         detector_type: str,
         config: dict[str, Any] | None = None,
     ) -> DetectorProtocol:
-        """
-        Create a detector instance.
+        """Create a detector instance.
 
         Args:
             detector_type: Type of detector to create
@@ -414,8 +397,7 @@ class ComponentFactory:
         model_type: str,
         config: dict[str, Any] | None = None,
     ) -> ModelProtocol:
-        """
-        Create a model instance.
+        """Create a model instance.
 
         Args:
             model_type: Type of model to create

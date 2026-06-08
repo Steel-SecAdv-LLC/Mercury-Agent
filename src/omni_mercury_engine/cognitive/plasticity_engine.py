@@ -1,15 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-"""
-
-from __future__ import annotations
-
-"""
-Plasticity Engine - Production Implementation
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Plasticity Engine - Production Implementation.
 
 Neural plasticity mechanisms for dynamic knowledge adaptation:
 - STDP: Spike-Timing Dependent Plasticity
@@ -25,6 +15,8 @@ Research Sources:
 - Frey & Morris (1997): Synaptic tagging and capture
 - Redish (2004): Eligibility traces in RL
 """
+
+from __future__ import annotations
 
 import logging
 import threading
@@ -79,8 +71,7 @@ class STDPParameters:
     w_min: float = 0.0  # Minimum weight
 
     def compute_delta_w(self, delta_t: float, w_current: float) -> float:
-        """
-        Compute weight change based on spike timing.
+        """Compute weight change based on spike timing.
 
         Args:
             delta_t: t_post - t_pre (positive = pre before post = LTP)
@@ -118,8 +109,7 @@ class BCMParameters:
         activity_history: list[float],
         current_theta: float,
     ) -> float:
-        """
-        Update modification threshold based on activity history.
+        """Update modification threshold based on activity history.
 
         BCM: theta = E[y^p] (sliding threshold based on recent activity)
         """
@@ -140,8 +130,7 @@ class BCMParameters:
         post_activity: float,
         theta: float,
     ) -> float:
-        """
-        Compute BCM weight change.
+        """Compute BCM weight change.
 
         phi(y, theta) = y(y - theta)
         Delta_w = eta * phi(post, theta) * pre
@@ -248,8 +237,7 @@ class PlasticConnection:
         return params.compute_delta_w(delta_t, self.weight)
 
     def apply_hebbian_update(self, strength: float, learning_rate: float) -> float:
-        """
-        Apply Hebbian weight update with soft bounds.
+        """Apply Hebbian weight update with soft bounds.
 
         Returns the weight change.
         """
@@ -276,21 +264,20 @@ class PlasticConnection:
 
 
 class CompetitiveLearning:
-    """
-    Competitive learning with lateral inhibition.
+    """Competitive learning with lateral inhibition.
 
     Implements winner-take-all dynamics for pattern separation.
     """
 
     def __init__(self, n_units: int = 100, inhibition_strength: float = 0.1) -> None:
+        """Initialize the instance."""
         self.n_units = n_units
         self.inhibition_strength = inhibition_strength
         self.activities = np.zeros(n_units)
         self.winner_history: list[int] = []
 
     def compete(self, inputs: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Apply competitive dynamics.
+        """Apply competitive dynamics.
 
         Args:
             inputs: Input activations for each unit
@@ -327,8 +314,7 @@ class CompetitiveLearning:
 
 
 class PlasticityEngine:
-    """
-    Production Neural Plasticity Engine.
+    """Production Neural Plasticity Engine.
 
     Implements biologically-inspired learning rules:
 
@@ -376,8 +362,7 @@ class PlasticityEngine:
         plasticity_rule: PlasticityRule = PlasticityRule.STDP,
         enable_competition: bool = True,
     ):
-        """
-        Initialize Plasticity Engine.
+        """Initialize Plasticity Engine.
 
         Args:
             learning_rate: Base learning rate for adaptation
@@ -449,8 +434,7 @@ class PlasticityEngine:
         context: dict[str, Any] | None = None,
         use_stdp: bool = True,
     ) -> AdaptationEvent:
-        """
-        Adapt knowledge by strengthening/creating a connection.
+        """Adapt knowledge by strengthening/creating a connection.
 
         Applies the configured plasticity rule (STDP, BCM, or Hebbian).
 
@@ -613,8 +597,7 @@ class PlasticityEngine:
         success: bool,
         magnitude: float = 1.0,
     ) -> None:
-        """
-        Provide outcome feedback for a pattern (reinforcement learning).
+        """Provide outcome feedback for a pattern (reinforcement learning).
 
         Uses eligibility traces to assign credit to recent adaptations.
 
@@ -669,8 +652,7 @@ class PlasticityEngine:
         depth: int = 1,
         min_strength: float = 0.1,
     ) -> dict[str, float]:
-        """
-        Query associated patterns with their connection strengths.
+        """Query associated patterns with their connection strengths.
 
         Uses spreading activation with eligibility trace weighting.
 
@@ -715,8 +697,7 @@ class PlasticityEngine:
         existing_patterns: dict[str, np.ndarray[Any, Any]],
         similarity_threshold: float = 0.7,
     ) -> list[tuple[str, float]]:
-        """
-        Generalize from known patterns to novel pattern.
+        """Generalize from known patterns to novel pattern.
 
         Uses competitive learning if enabled.
 
@@ -786,8 +767,7 @@ class PlasticityEngine:
             return connections_made
 
     def consolidate_tagged(self) -> int:
-        """
-        Consolidate tagged synapses (synaptic tagging and capture).
+        """Consolidate tagged synapses (synaptic tagging and capture).
 
         Implements late-phase LTP for tagged synapses.
 
@@ -817,8 +797,7 @@ class PlasticityEngine:
             return consolidated
 
     def apply_decay(self) -> int:
-        """
-        Apply time-based decay to all connections.
+        """Apply time-based decay to all connections.
 
         Returns:
             Number of connections that were pruned

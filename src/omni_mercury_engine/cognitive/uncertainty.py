@@ -1,15 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-"""
-
-from __future__ import annotations
-
-"""
-Uncertainty Quantification Module - Production Implementation
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Uncertainty Quantification Module - Production Implementation.
 
 Provides rigorous uncertainty estimation for neuro-symbolic AI:
 - Monte Carlo Dropout: Epistemic uncertainty via stochastic forward passes
@@ -25,6 +15,8 @@ Research Sources:
 - Guo et al. (2017): On Calibration of Modern Neural Networks
 - Gibbs & Candes (2021): Adaptive Conformal Inference
 """
+
+from __future__ import annotations
 
 import logging
 from collections import deque
@@ -134,16 +126,14 @@ class CalibrationResult:
 
 
 class MCDropoutWrapper:
-    """
-    Monte Carlo Dropout wrapper for PyTorch models.
+    """Monte Carlo Dropout wrapper for PyTorch models.
 
     Enables dropout at inference time for epistemic uncertainty estimation. Based on Gal &
     Ghahramani (2016).
     """
 
     def __init__(self, model: Any, dropout_rate: float = 0.1, seed: int | None = None) -> None:
-        """
-        Args:
+        """Args:.
 
             model: PyTorch model with dropout layers
             dropout_rate: Dropout probability (if not already in model)
@@ -197,8 +187,7 @@ class MCDropoutWrapper:
         x: Any,
         n_samples: int = 30,
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """
-        Generate predictions with MC Dropout uncertainty.
+        """Generate predictions with MC Dropout uncertainty.
 
         Args:
             x: Input tensor
@@ -242,14 +231,14 @@ class MCDropoutWrapper:
 
 
 class TemperatureScaler:
-    """
-    Temperature scaling for neural network calibration.
+    """Temperature scaling for neural network calibration.
 
     Learns a single temperature parameter to scale logits, optimized via NLL on a validation set.
     Based on Guo et al. (2017).
     """
 
     def __init__(self, init_temperature: float = 1.5) -> None:
+        """Initialize the instance."""
         self.temperature = init_temperature
         self._fitted = False
 
@@ -259,8 +248,7 @@ class TemperatureScaler:
         labels: np.ndarray[Any, Any],
         max_iter: int = 100,
     ) -> float:
-        """
-        Fit temperature using LBFGS optimization.
+        """Fit temperature using LBFGS optimization.
 
         Args:
             logits: Pre-softmax outputs (n_samples, n_classes)
@@ -317,8 +305,7 @@ class TemperatureScaler:
 
 
 class AdaptiveConformalInference:
-    """
-    Adaptive Conformal Inference for online uncertainty quantification.
+    """Adaptive Conformal Inference for online uncertainty quantification.
 
     Provides distribution-free prediction intervals with finite-sample coverage guarantees that
     adapt to distribution shift. Based on Gibbs & Candes (2021).
@@ -330,9 +317,9 @@ class AdaptiveConformalInference:
         gamma: float = 0.01,
         window_size: int = 500,
     ):
-        """
-        Args:
+        """Initialize the adaptive conformal inference estimator.
 
+        Args:
             target_coverage: Target coverage level (1 - alpha)
             gamma: Learning rate for alpha adjustment
             window_size: Size of calibration window
@@ -350,8 +337,7 @@ class AdaptiveConformalInference:
         self.alpha_history: list[float] = [self.alpha]
 
     def update(self, score: float, covered: bool) -> None:
-        """
-        Update adaptive alpha based on coverage.
+        """Update adaptive alpha based on coverage.
 
         Args:
             score: Nonconformity score for new point
@@ -393,8 +379,7 @@ class AdaptiveConformalInference:
         score_function: Callable[[float], float] | None = None,
         residual_std: float | None = None,
     ) -> tuple[float, float]:
-        """
-        Compute prediction interval.
+        """Compute prediction interval.
 
         Args:
             point_prediction: Point estimate
@@ -427,14 +412,14 @@ class AdaptiveConformalInference:
 
 
 class HeteroscedasticEstimator:
-    """
-    Estimates input-dependent (heteroscedastic) aleatoric uncertainty.
+    """Estimates input-dependent (heteroscedastic) aleatoric uncertainty.
 
     Uses local variance estimation or learns a variance prediction head. Based on Kendall & Gal
     (2017).
     """
 
     def __init__(self, window_size: int = 50, min_samples: int = 10) -> None:
+        """Initialize the instance."""
         self.window_size = window_size
         self.min_samples = min_samples
         self._residuals: deque[float] = deque(maxlen=1000)
@@ -450,8 +435,7 @@ class HeteroscedasticEstimator:
             self._features.append(features.flatten()[:10])  # Store first 10 features
 
     def estimate_variance(self, features: np.ndarray[Any, Any] | None = None) -> float:
-        """
-        Estimate aleatoric variance, optionally conditioned on features.
+        """Estimate aleatoric variance, optionally conditioned on features.
 
         Args:
             features: Input features for heteroscedastic estimation
@@ -488,8 +472,7 @@ class HeteroscedasticEstimator:
 
 
 class UncertaintyQuantifier:
-    """
-    Production Uncertainty Quantification Engine.
+    """Production Uncertainty Quantification Engine.
 
     Implements rigorous uncertainty estimation following state-of-the-art methods:
 
@@ -536,8 +519,7 @@ class UncertaintyQuantifier:
         bayesian_calibrator: Any | None = None,
         seed: int | None = None,
     ):
-        """
-        Initialize Uncertainty Quantifier.
+        """Initialize Uncertainty Quantifier.
 
         Args:
             n_monte_carlo: Number of MC samples for epistemic estimation
@@ -594,8 +576,7 @@ class UncertaintyQuantifier:
         model: Any = None,
         return_samples: bool = False,
     ) -> UncertaintyEstimate:
-        """
-        Estimate uncertainty for a prediction using MC Dropout.
+        """Estimate uncertainty for a prediction using MC Dropout.
 
         Args:
             predictions: Initial model predictions
@@ -766,8 +747,7 @@ class UncertaintyQuantifier:
         input_data: np.ndarray[Any, Any],
         n_samples: int | None = None,
     ) -> float:
-        """
-        Estimate epistemic uncertainty via MC sampling.
+        """Estimate epistemic uncertainty via MC sampling.
 
         Args:
             prediction_function: Stochastic prediction function
@@ -786,8 +766,7 @@ class UncertaintyQuantifier:
         data: np.ndarray[Any, Any],
         features: np.ndarray[Any, Any] | None = None,
     ) -> float:
-        """
-        Estimate aleatoric uncertainty (heteroscedastic if features provided).
+        """Estimate aleatoric uncertainty (heteroscedastic if features provided).
 
         Args:
             data: Observed data
@@ -807,8 +786,7 @@ class UncertaintyQuantifier:
         outcomes: np.ndarray[Any, Any],
         logits: np.ndarray[Any, Any] | None = None,
     ) -> CalibrationResult:
-        """
-        Assess calibration and optionally fit temperature scaling.
+        """Assess calibration and optionally fit temperature scaling.
 
         Args:
             predictions: Model predictions
@@ -915,8 +893,7 @@ class UncertaintyQuantifier:
         epistemic_threshold: float = 0.3,
         aleatoric_threshold: float = 0.5,
     ) -> dict[str, Any]:
-        """
-        Make uncertainty-aware decisions with epistemic/aleatoric decomposition.
+        """Make uncertainty-aware decisions with epistemic/aleatoric decomposition.
 
         Args:
             uncertainty: Uncertainty estimate
@@ -1003,8 +980,7 @@ class UncertaintyQuantifier:
         self,
         predictions_ensemble: np.ndarray[Any, Any],
     ) -> dict[str, float]:
-        """
-        Decompose total uncertainty into epistemic and aleatoric.
+        """Decompose total uncertainty into epistemic and aleatoric.
 
         Uses law of total variance:
         - Epistemic = Var[E[Y|X, theta]]  (variance of means)
@@ -1063,8 +1039,7 @@ class UncertaintyQuantifier:
         test_score: float,
         alpha: float = 0.1,
     ) -> dict[str, Any]:
-        """
-        Standard conformal prediction interval.
+        """Standard conformal prediction interval.
 
         Args:
             calibration_scores: Nonconformity scores from calibration set
@@ -1105,8 +1080,7 @@ class UncertaintyQuantifier:
         fused_scores: np.ndarray[Any, Any],
         residual_std: float | None = None,
     ) -> dict[str, Any]:
-        """
-        Wrap fused detection scores with conformal prediction intervals.
+        """Wrap fused detection scores with conformal prediction intervals.
 
         Uses the Adaptive Conformal Inference (ACI) component to provide
         distribution-free intervals on post-fusion anomaly scores. This bridges
@@ -1157,8 +1131,7 @@ class UncertaintyQuantifier:
         true_value: float | bool,
         features: np.ndarray[Any, Any] | None = None,
     ) -> None:
-        """
-        Update calibration and heteroscedastic estimates with observed outcome.
+        """Update calibration and heteroscedastic estimates with observed outcome.
 
         Args:
             prediction: Model prediction
@@ -1189,8 +1162,7 @@ class UncertaintyQuantifier:
         domain: str,
         goal: str = "detect",
     ) -> float:
-        """
-        Blend raw UQ confidence with Bayesian domain-specific calibration.
+        """Blend raw UQ confidence with Bayesian domain-specific calibration.
 
         When a BayesianConfidenceCalibrator is attached, this interpolates
         between the raw confidence from MC Dropout / temperature scaling
@@ -1224,8 +1196,7 @@ class UncertaintyQuantifier:
         success: bool,
         timestamp: float = 0.0,
     ) -> None:
-        """
-        Update the Bayesian calibrator with an observed outcome.
+        """Update the Bayesian calibrator with an observed outcome.
 
         Args:
             domain: Detection domain
@@ -1307,8 +1278,7 @@ class UncertaintyQuantifier:
         return float(np.clip(confidence, 0.01, 0.99))
 
     def _compute_ece(self) -> float:
-        """
-        Compute current Expected Calibration Error using vectorized operations.
+        """Compute current Expected Calibration Error using vectorized operations.
 
         Vectorized implementation for O(n) performance instead of O(n²) with loops. Uses numpy
         histogram and binned statistics for efficient binning.
