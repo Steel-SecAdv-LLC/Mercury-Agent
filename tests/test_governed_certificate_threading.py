@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.timeout(120)
 
 
-def _engine_with_single_stat_detector() -> "OmniMercuryEngine":
+def _engine_with_single_stat_detector() -> OmniMercuryEngine:
     """A fusion engine whose only detector is a fitted, cert-enabled stat det.
 
     Restricting the detector set keeps the test fast and deterministic while
