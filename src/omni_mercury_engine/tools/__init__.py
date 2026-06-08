@@ -1,11 +1,24 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Canonical registry of operator tools.
+"""Canonical registry of one-shot operator tools.
 
-Iterate to discover tools, index to obtain the ``main`` callable.  The
-``mercury-agent tool list`` CLI and the parametrised exit-code contract
-test in :mod:`tests.tools.test_tool_contract` both key off this
-registry.
+Modules in this package are intentionally not imported by
+``omni_mercury_engine.__init__`` and never exercised by the runtime
+detection / training / inference paths. They exist only so operators
+can perform offline maintenance tasks (such as migrating legacy
+``.pkl`` training payloads) without the engine ever loading the
+dangerous code paths involved.
+
+This module exposes a stable :data:`TOOL_REGISTRY` mapping ``name`` →
+``module.main`` for every tool wired through ``_base.run_cli``.  The
+``mercury-agent tool <name>`` CLI subcommand and the parametrised
+exit-code contract test in ``tests/tools/test_tool_contract.py`` both
+key off this registry, so a tool added without a registry entry is a
+hard test failure.
+
+The registry is intentionally lazy: iterate to discover tools, index to
+obtain a tool's ``main`` callable, and avoid importing optional
+operator dependencies until a specific tool is invoked.
 """
 
 from __future__ import annotations

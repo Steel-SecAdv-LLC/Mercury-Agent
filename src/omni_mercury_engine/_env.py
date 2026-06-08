@@ -1,6 +1,58 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Canonical environment-mode env var name."""
+"""Runtime environment-mode primitive.
+
+Mercury historically had no single source of truth for "am I running in
+production?".  Individual modules invented ad-hoc env vars
+(``AMA_REQUIRE_REAL_PQC``, ``_GOSNN_TESTING_BYPASS``) for their own
+fail-closed gates, which works for narrowly-scoped contracts (PQC, GOSNN)
+but does not scale to "every
+optional collaborator that has a development-friendly stub should
+hard-fail in production".
+
+This module introduces a single canonical environment-mode flag,
+``MERCURY_ENV``, and a tiny helper API consumed by any module that
+wants to refuse to silently degrade in production.  The PQC import
+gate (``_pqc_gate._enforce_pqc_production_gate``) stays orthogonal
+because PQC has its own hard-required-build contract independent of
+the development/production distinction; ``MERCURY_ENV`` is the broader
+"don't let optional integrations silently drop to stub mode" switch.
+
+Contract
+========
+
+``MERCURY_ENV`` accepts one of:
+
+- ``"development"`` (default when the variable is unset or empty) —
+  optional integrations may log warnings and continue with reduced
+  functionality.
+- ``"production"`` — any optional integration that would otherwise
+  degrade silently MUST raise
+  :class:`MercuryProductionConfigError` instead.
+
+Any other value raises :class:`MercuryProductionConfigError` at the
+first call to :func:`get_mercury_env`, so a typo in deployment
+configuration is loud, not a silent fall-through to development mode.
+
+Public API
+==========
+
+- :data:`MERCURY_ENV_VAR` — the env var name, exported as a constant
+  so call sites and tests don't repeat the string literal.
+- :func:`get_mercury_env` — returns the validated mode string.
+- :func:`is_production` — convenience boolean.
+- :func:`require_real_component` — call site helper that raises
+  :class:`MercuryProductionConfigError` in production with a uniform
+  message format and a remediation hint.
+- :class:`MercuryProductionConfigError` — raised when a production
+  process attempts to use a stub/mock collaborator.
+
+The module is **import-safe**: it has no third-party dependencies, no
+side effects at import time, and never reads the environment at
+import time — every read goes through :func:`get_mercury_env`, which
+re-reads the env on every call so tests can use
+``monkeypatch.setenv`` without process restarts.
+"""
 
 from __future__ import annotations
 

@@ -1,6 +1,32 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Tool ran, evidence collected, no policy violation detected."""
+"""Shared infrastructure for ``omni_mercury_engine.tools.*`` operator utilities.
+
+This module is intentionally kept dependency-free (stdlib + ``cryptography``
+for the optional Ed25519 detached signature only). It defines the
+contracts every operator tool in the package follows:
+
+* a single, machine-readable JSON document on stdout (always), with a
+  small set of common envelope fields (``schema``, ``tool``,
+  ``mercury_version``, ``generated_at``, ``status``);
+* a **handwritten envelope validator** that every tool must round-trip
+  its certificate through before emit — drift fails the tool closed
+  with ``schema_validation_failed``;
+* stable, documented exit codes (:data:`EXIT_OK`,
+  :data:`EXIT_FAIL`, :data:`EXIT_USAGE`, :data:`EXIT_DEPENDENCY`);
+* optional Ed25519 detached signature over the exact bytes written to
+  ``--output`` (not a re-serialised copy) so an external auditor can
+  re-verify the artefact independently of the issuing host;
+* **atomic writes** for the certificate and the side-car signature so a
+  crashed run never leaves a half-written file on disk;
+* a single ``run_tool(...)`` driver that converts an in-process
+  ``Certificate`` into the canonical CLI output and returns the right
+  exit code.
+
+Tools must never print free-form text to stdout — stdout is a JSON
+channel for downstream automation. Human-readable progress goes to
+stderr.
+"""
 
 from __future__ import annotations
 

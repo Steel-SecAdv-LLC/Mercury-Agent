@@ -201,15 +201,10 @@ def description_after_separator(text: str) -> str | None:
     for index, line in enumerate(lines):
         if not SEPARATOR_RE.match(line):
             continue
-        prior_real_lines = [
-            prior.strip()
-            for prior in lines[:index]
-            if prior.strip()
-            and not SEPARATOR_RE.match(prior)
-            and not _is_boilerplate_line(prior.strip())
-            and not contains_forbidden_docstring_phrase(prior)
-        ]
-        if prior_real_lines:
+        previous = next((prior.strip() for prior in reversed(lines[:index]) if prior.strip()), "")
+        if previous and not (
+            _is_boilerplate_line(previous) or contains_forbidden_docstring_phrase(previous)
+        ):
             continue
         description = trim_blank_edges(lines[index + 1 :])
         if not description:
@@ -221,6 +216,43 @@ def description_after_separator(text: str) -> str | None:
     return None
 
 
+def _blocks(lines: list[str]) -> list[list[str]]:
+    """Split docstring lines into blank-line-delimited blocks."""
+    result: list[list[str]] = []
+    current: list[str] = []
+    for line in lines:
+        if line.strip():
+            current.append(line)
+            continue
+        if current:
+            result.append(current)
+            current = []
+    if current:
+        result.append(current)
+    return result
+
+
+def _is_gpl_block(block: list[str]) -> bool:
+    """Return whether a paragraph is GPL boilerplate that should be dropped whole."""
+    text = " ".join(line.strip() for line in block).lower()
+    return any(
+        marker in text
+        for marker in (
+            "this program is free software",
+            "terms of the gnu general public license",
+            "gnu general public license",
+            "free software foundation",
+            "without any warranty",
+            "implied warranty",
+            "merchantability",
+            "fitness for a particular purpose",
+            "you should have received a copy",
+            "www.gnu.org/licenses",
+            "at your option) any later version",
+        )
+    )
+
+
 def derive_docstring_from_license(text: str) -> str | None:
     """Extract non-license documentation from a legacy boilerplate string."""
     separated = description_after_separator(text)
@@ -228,43 +260,42 @@ def derive_docstring_from_license(text: str) -> str | None:
         return separated
 
     lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
-    for index, raw_line in enumerate(lines):
-        line = raw_line.strip()
-        if not line:
+    kept_blocks: list[list[str]] = []
+    for block in _blocks(lines):
+        if _is_gpl_block(block):
             continue
-        if line.startswith("Mercury Agent - "):
-            candidate = line.removeprefix("Mercury Agent - ").strip()
-            if not _is_boilerplate_line(candidate) and not contains_forbidden_docstring_phrase(
-                candidate
-            ):
-                tail = [
-                    tail_line
-                    for tail_line in lines[index + 1 :]
-                    if not _is_boilerplate_line(tail_line.strip())
-                    and not contains_forbidden_docstring_phrase(tail_line)
-                ]
-                remainder = trim_blank_edges([candidate, *tail])
-                docstring = "\n".join(line.rstrip() for line in remainder)
-                if not contains_forbidden_docstring_phrase(docstring):
-                    return docstring
+        kept_lines: list[str] = []
+        for raw_line in block:
+            line = raw_line.strip()
+            if not line:
+                continue
+            if line.startswith("Mercury Agent - "):
+                kept_line = line.removeprefix("Mercury Agent - ").strip()
+            else:
+                kept_line = raw_line.rstrip()
+            if _is_boilerplate_line(line) or contains_forbidden_docstring_phrase(line):
+                continue
+            kept_lines.append(kept_line)
+        if kept_lines:
+            kept_blocks.append(kept_lines)
+    if not kept_blocks:
+        return None
+    docstring = "\n\n".join("\n".join(line.rstrip() for line in block) for block in kept_blocks)
+    if contains_forbidden_docstring_phrase(docstring):
+        return None
+    return docstring
+
+
+def real_docstring_from_spans(path: Path, spans: list[StringSpan]) -> str:
+    """Return the real module documentation from a file's top-level string nodes."""
+    for span in spans:
+        if is_license_text(span.text) or contains_forbidden_docstring_phrase(span.text):
+            docstring = derive_docstring_from_license(span.text)
+            if docstring:
+                return docstring
             continue
-        if _is_boilerplate_line(line):
-            continue
-        if contains_forbidden_docstring_phrase(line):
-            continue
-        remainder = trim_blank_edges(
-            [
-                tail_line
-                for tail_line in lines[index:]
-                if not _is_boilerplate_line(tail_line.strip())
-                and not contains_forbidden_docstring_phrase(tail_line)
-            ]
-        )
-        docstring = "\n".join(line.rstrip() for line in remainder)
-        if not contains_forbidden_docstring_phrase(docstring):
-            return docstring
-    return None
-    return None
+        return span.text
+    return default_summary(path)
 
 
 def default_summary(path: Path) -> str:
@@ -285,12 +316,13 @@ def default_summary(path: Path) -> str:
 def choose_summary_span(path: Path, spans: list[StringSpan]) -> tuple[str, StringSpan | None]:
     """Choose the module documentation to preserve."""
     for span in spans:
-        if not is_license_text(span.text) and not contains_forbidden_docstring_phrase(span.text):
+        if is_license_text(span.text) or contains_forbidden_docstring_phrase(span.text):
+            docstring = derive_docstring_from_license(span.text)
+            if docstring:
+                return docstring, span
+            continue
+        else:
             return span.text, span
-    for span in spans:
-        docstring = derive_docstring_from_license(span.text)
-        if docstring:
-            return docstring, span
     return default_summary(path), None
 
 
@@ -430,6 +462,17 @@ def validation_errors(path: Path, source: str) -> list[str]:
         rel = path.relative_to(ROOT) if path.is_relative_to(ROOT) else path
         errors.append(f"{rel}: module docstring contains GPL boilerplate phrase")
     return errors
+
+
+def module_docstring(path: Path, source: str) -> str:
+    """Return the normalized real module documentation for a source string."""
+    spans = collect_top_level_strings(path, source)
+    return normalize_docstring_text(real_docstring_from_spans(path, spans), default_summary(path))
+
+
+def squashed(text: str) -> str:
+    """Collapse whitespace for docstring-retention length comparisons."""
+    return " ".join(text.split())
 
 
 def diff_for(path: Path, original: str, normalized: str) -> str:
