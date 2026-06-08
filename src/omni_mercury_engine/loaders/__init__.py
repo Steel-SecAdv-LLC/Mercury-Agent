@@ -1,5 +1,12 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Domain-specific data loaders for Mercury anomaly detection."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Domain-specific data loaders for Mercury anomaly detection.
+
+Each loader connects to real-world APIs and data sources, fetches historical events with ground
+truth labels, and provides data in a format ready for MercuryAnomalyDetector.
+
+All loaders implement the BaseDomainLoader interface.
+"""
 
 from __future__ import annotations
 

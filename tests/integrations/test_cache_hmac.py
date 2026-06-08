@@ -1,5 +1,23 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Tests for cache serialisation behaviour."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for cache serialisation behaviour.
+
+The pickle serialiser was removed from the runtime; only JSON is
+supported. These tests cover:
+
+- Refusal of legacy ``serializer="pickle"`` constructor argument
+- Refusal of any non-JSON serializer (case-sensitive, exact match)
+- Operator-actionable error messages that point at the migration tool
+- JSON serialisation round-trip across the full json type spectrum
+  (None, bool, int, float, str, list, dict, nested, unicode)
+- Non-JSON-serialisable values surface as loud TypeError -- never
+  silently dropped or coerced
+- Domain TTL policies (lookup, defaults, completeness)
+- Cache factory across all supported backends
+- Key prefixing, including empty / custom / colon-suffix variants
+- ``from_env`` constructor across all REDIS_* env vars, including
+  the SSL flag parsing variants
+"""
 
 from __future__ import annotations
 

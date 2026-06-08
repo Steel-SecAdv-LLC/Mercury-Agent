@@ -1,8 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Integration tests for SpaceExplorationAnalyzer with simulated NASA telemetry.
-
-Tests end-to-end functionality with Hubble-inspired scenarios.
-"""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Integration tests for SpaceExplorationAnalyzer with simulated NASA telemetry. Tests end-to-end functionality with Hubble-inspired scenarios."""
 
 from __future__ import annotations
 

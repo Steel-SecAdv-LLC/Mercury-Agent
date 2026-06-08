@@ -1,5 +1,26 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Cross-Domain Frequency Correlation Module ==========================================.
+
+Detects overlapping significant frequency bands across concurrent
+SpectralDomainFrequency instances running on different data domains (e.g.,
+seismic + solar, environmental + infrastructure).
+
+**CRITICAL**: This module provides CORRELATION, not causation, not
+prediction.  Every output description includes "requires human assessment."
+Never "earthquake predicted."
+
+Usage:
+    >>> from omni_mercury_engine.detectors.cross_domain_frequency import (
+    ...     CrossDomainFrequencyCorrelator,
+    ... )
+    >>> correlator = CrossDomainFrequencyCorrelator()
+    >>> result = correlator.correlate({
+    ...     "environmental": env_influence_vector,
+    ...     "space": space_influence_vector,
+    ... })
+    >>> print(result.alert_level)
+"""
 
 from __future__ import annotations
 

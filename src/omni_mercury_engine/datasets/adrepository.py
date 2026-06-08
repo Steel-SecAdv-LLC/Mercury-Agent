@@ -1,5 +1,20 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""ADRepository Dataset Loaders - REAL Anomaly Detection Datasets.
+
+This module provides loaders for the ADRepository collection of real-world
+anomaly detection datasets. These are REAL datasets with REAL anomalies,
+used in academic benchmarks.
+
+Repository: https://github.com/GuansongPang/ADRepository-Anomaly-detection-datasets
+Paper: Pang et al., "Deep Learning for Anomaly Detection: A Review",
+       ACM Computing Surveys, 2021.
+
+Datasets include:
+- Tabular: fraud, backdoor, campaign, thyroid, donors, census, celeba
+- Time Series: SMD, SWAT, DSADS, Epilepsy
+- Graph: Multiple graph-level anomaly detection datasets
+"""
 
 from __future__ import annotations
 

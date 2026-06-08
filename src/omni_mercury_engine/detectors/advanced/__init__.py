@@ -1,5 +1,24 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Advanced Anomaly Detection Module.
+
+State-of-the-art detectors addressing identified performance gaps:
+- Time-Series: Multi-scale transformer with point-adjustment evaluation
+- Industrial Control: Adversarial autoencoder with covariance modeling
+- Contrastive Learning: SimCLR-style representation learning
+- Copula-Based: Multivariate dependency modeling (COPOD)
+- GWO-Enhanced: Grey Wolf Optimizer for ensemble fusion
+
+Target Improvements:
+- Time-series (SMD): F1 0.15-0.25 → 0.70+
+- Industrial (BATADAL): F1 0.30-0.45 → 0.80+
+
+Quick Start:
+    >>> from omni_mercury_engine.detectors.advanced import create_detector
+    >>> detector = create_detector("timeseries", input_dim=38)
+    >>> detector.fit(X_train)
+    >>> scores = detector.predict(X_test)
+"""
 
 from __future__ import annotations
 

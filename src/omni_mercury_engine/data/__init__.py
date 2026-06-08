@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Data Module — deprecation shim for ``omni_mercury_engine.datasets``.
 
 Historical legacy: prior versions exposed every symbol from

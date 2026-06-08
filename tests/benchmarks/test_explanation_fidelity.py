@@ -1,5 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Tests for the explanation-fidelity harness (``benchmarks.explanation_fidelity``):."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for the explanation-fidelity harness (``benchmarks.explanation_fidelity``): the synthetic-data generator and that the dependency-free ``IntegratedGradientsExplainer`` + ``FaithfulnessEvaluator`` (revived from the dormant ``explainability.py``) run and produce a well-formed, finite faithfulness score. The full recovery/faithfulness verdict is the benchmark's job; this keeps the harness honest and importable without ``shap``/``lime``."""
 
 from __future__ import annotations
 

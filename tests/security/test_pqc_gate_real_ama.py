@@ -1,5 +1,32 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""End-to-end tests of the import-time PQC production gate against the."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""End-to-end tests of the import-time PQC production gate against the **real** AMA Cryptography native C library — no mock, no stub, no ``importorskip``, no ``skipif``.  These tests REQUIRE the real ``ama_cryptography`` package with its native ``libama_cryptography.so`` loadable via ``LD_LIBRARY_PATH``; they fail loudly if the dependency isn't available, which is the correct behaviour for a contract that should not silently degrade.
+
+The CI workflows that collect this file
+(``.github/workflows/pqc-production-check.yml::verify-real-pqc`` and
+``.github/workflows/ci.yml::ml-tests``) both build AMA Cryptography
+v3.1.0 from source before invoking pytest, so the tests below exercise
+the real native cryptographic primitives every run.
+
+What this file proves on every CI run
+--------------------------------------
+1. The Mercury PQC gate (``omni_mercury_engine._pqc_gate``) and the
+   helper (``omni_mercury_engine.security.pqc_guards``) both accept a
+   real, fully-built AMA install — no false-positive partial-install
+   rejections.
+2. Each of the three AMA primitives is actually exercised end-to-end
+   against the native lib:
+
+   - ML-DSA-65 (Dilithium): key-pair generation → sign → verify
+     round-trip + signature-rejection on a tampered message.
+   - Kyber-1024: key-pair generation → encapsulate → decapsulate
+     round-trip + shared-secret equality.
+   - SPHINCS+ (SLH-DSA): key-pair generation → sign → verify
+     round-trip + signature-rejection on a tampered message.
+
+3. Mercury's mandatory ``security/pqc_backends.py`` import is backed by the
+   real ``ama_cryptography.pqc_backends`` submodule.
+"""
 
 from __future__ import annotations
 

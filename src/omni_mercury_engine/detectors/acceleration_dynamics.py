@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Physics Acceleration Dynamics Module for Mercury Agent.
 
 Advanced anomaly detection using physics-based motion analysis:

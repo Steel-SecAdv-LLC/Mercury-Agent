@@ -1,5 +1,17 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: enforce that every PR that mutates the public surface adds a CHANGELOG entry in the active unreleased section.
+
+Compares the staged diff against ``CHANGELOG.md``:
+
+* if any file under ``src/omni_mercury_engine/__init__.py`` or
+  ``src/omni_mercury_engine/__init__.pyi`` was modified AND the
+  ``## [Unreleased]`` section did not gain new bullets, the gate fails;
+* a PR that only modifies non-public code is allowed to skip the
+  CHANGELOG.
+
+Pre-commit + CI friendly; no git network calls beyond ``git diff``.
+"""
 
 from __future__ import annotations
 

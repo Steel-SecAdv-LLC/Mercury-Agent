@@ -1,5 +1,16 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Distributed Processing Module."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Distributed Processing Module.
+
+Scalability enhancements for large-scale anomaly detection including:
+- Distributed processing with worker pools
+- Chunked data processing for memory efficiency
+- Parallel detector execution
+- Async processing pipelines
+- Load balancing strategies
+- Fault tolerance and recovery
+- Progress tracking and monitoring
+"""
 
 from __future__ import annotations
 

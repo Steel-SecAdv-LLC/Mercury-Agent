@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Multi-Hypothesis Optimization Engine - Parallel Solution Space Exploration.
 
 Original implementation for Mercury Agent neural-symbolic AI archetype.

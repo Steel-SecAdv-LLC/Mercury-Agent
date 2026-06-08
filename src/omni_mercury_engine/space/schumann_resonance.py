@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Schumann Resonance Detector Module.
 
 Earth-ionosphere waveguide electromagnetic field anomaly detection for environmental

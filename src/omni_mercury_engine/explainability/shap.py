@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """SHAP (SHapley Additive exPlanations) for Mercury Agent.
 
 Implements Shapley value-based explanations for machine learning models,

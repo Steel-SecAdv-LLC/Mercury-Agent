@@ -1,5 +1,42 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Dormant-module revival: do the orphaned "cognitive" modules carry *real*."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+r"""Dormant-module revival: do the orphaned "cognitive" modules carry *real* anomaly-detection signal on genuinely-labelled data?
+
+This is the anti-theater gate for salvaging the dormant cognitive subsystem.
+The audit (docs/NEUROSYMBOLIC.md / the dormancy report) found ~13 K LOC of
+cognitive modules that are exported in the public API but never run in any live
+path. A module's *interface* is not evidence it carries signal -- only a paired
+measurement on real held-out labels is. This harness asks, per candidate
+detector, the only honest question: **does it produce an anomaly score that
+beats chance on real ADBench labels, and does it add anything beyond the
+detector the live ensemble already has?**
+
+Candidates (the only orphaned modules that expose a per-sample score over
+tabular features X):
+
+* ``predictive_coding``  -- ``PredictiveCodingDetector`` (prediction-error /
+  free-energy surprise). Unsupervised: fit on train, score test.
+* ``kmeans_distance``    -- ``neural_memory_layer.KMeansClusterer`` distance to
+  the nearest learned centroid. Unsupervised: fit on train, score test.
+* ``case_based_knn``     -- ``CaseBasedReasoner`` retrieval (supervised: the case
+  base carries train labels), scored as 1 - P(normal | k nearest cases).
+
+Reference: ``lof_reference`` -- the live ensemble's own distance/density detector
+(``detectors.spatial``), so a candidate's salvage is judged on whether it *adds*
+to what already ships, not merely on beating chance.
+
+Ablation integrity (non-negotiable): metrics are real held-out ROC-AUC only. If
+ADBench cannot be downloaded the run reports that and exits non-zero -- it never
+fabricates a pass. A candidate is recommended for revival only if it clears a
+pre-registered bar on real labels.
+
+Usage::
+
+    python -m benchmarks.dormant_module_revival
+    python -m benchmarks.dormant_module_revival \\
+        --datasets cardio thyroid breastw WBC Pima --seeds 0 1 2 \\
+        --out artifacts/dormant_module_revival.json
+"""
 
 from __future__ import annotations
 

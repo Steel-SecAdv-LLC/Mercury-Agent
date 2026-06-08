@@ -144,26 +144,49 @@ jobs:
         # F841 (unused variable) is handled by ruff which respects underscore convention
         run: flake8 src/ tests/ scripts/ tools/ --max-line-length=100 --extend-ignore=E203,W503,E402,E501,F841
 
-      - name: Run canonical header check
+      - name: Run canonical header/content check
         run: python scripts/normalize_headers.py --check
 
-      - name: Prove canonical header rejects malformed file
+      - name: Prove canonical header/content gate rejects malformed file
         shell: bash
         run: |
           tmp_file="$(mktemp /tmp/mercury-bad-header.XXXXXX.py)"
-          printf '"""Malformed header fixture."""\n' > "${tmp_file}"
+          printf '# Copyright (C) 2025 Steel Security Advisors LLC\n"""any later version."""\n' > "${tmp_file}"
           if python scripts/normalize_headers.py --check "${tmp_file}"; then
-            echo "ERROR: canonical-header gate accepted malformed fixture"
+            echo "ERROR: canonical header/content gate accepted malformed fixture"
             exit 1
           fi
 
-      - name: Verify IsolationForest removed from detection path
+      - name: Verify Mercury math-arrest pathway
         run: |
-          if grep -rn "from sklearn.ensemble import IsolationForest" \
-              src/omni_mercury_engine/detectors/math_arrest/; then
-            echo "ERROR: IsolationForest still present in math_arrest"
-            exit 1
-          fi
+          python - <<'PY'
+          import ast
+          from pathlib import Path
+
+          root = Path("src/omni_mercury_engine/detectors/math_arrest")
+          offenders = []
+          for path in root.rglob("*.py"):
+              tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+              for node in ast.walk(tree):
+                  if isinstance(node, ast.ImportFrom) and (node.module or "").startswith("sklearn"):
+                      offenders.append(str(path))
+                  elif isinstance(node, ast.Import):
+                      if any(alias.name.startswith("sklearn") for alias in node.names):
+                          offenders.append(str(path))
+
+          arrest_tree = ast.parse((root / "arrest.py").read_text(encoding="utf-8"))
+          probe_count = 0
+          for node in ast.walk(arrest_tree):
+              if isinstance(node, ast.Assign):
+                  if any(isinstance(target, ast.Name) and target.id == "_PROBE_REGISTRY" for target in node.targets):
+                      if isinstance(node.value, ast.Dict):
+                          probe_count = len(node.value.keys)
+
+          if offenders:
+              raise SystemExit("ERROR: non-Mercury detector import in math_arrest: " + ", ".join(sorted(set(offenders))))
+          if probe_count < 20:
+              raise SystemExit(f"ERROR: Mercury math-arrest probe registry unexpectedly small: {probe_count}")
+          PY
 
       - name: Neural-submodule coverage gate (WS-E/F, dep-free)
         # docs/NEURAL_SUBMODULE_COVERAGE.md is generated from the registry in
@@ -178,14 +201,6 @@ jobs:
         # surface and we do not allow it to drift silently.
         run: |
           pydocstyle src/omni_mercury_engine/ --convention=google
-
-      - name: Canonical file-header gate
-        # Every *.py file must start with the project copyright comment.
-        # scripts/normalize_headers.py --check exits non-zero if any file
-        # diverges from the canonical form, preventing re-propagation of
-        # the old per-file GPL boilerplate.
-        run: |
-          python scripts/normalize_headers.py --check
 
   # ===========================================================================
   # Stage 1.5: Workflow and Suppression Hygiene

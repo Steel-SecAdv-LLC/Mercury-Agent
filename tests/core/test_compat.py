@@ -1,5 +1,12 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Tests for the centralized _compat module."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for the centralized _compat module.
+
+Verifies that:
+- All HAS_* flags are boolean
+- Convenience groupings are correct logical combinations
+- The module is importable without side effects
+"""
 
 from __future__ import annotations
 

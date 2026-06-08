@@ -1,5 +1,28 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Fibring Fusion Composer."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Fibring Fusion Composer.
+
+Fibring Fusion: hierarchical composition of three primitives that already
+exist in Mercury but were never named as a single mode:
+
+    1. Phi-weighted base   — golden-ratio split between neural / symbolic.
+    2. Correlation-aware decorrelation — when neural and symbolic agree
+       too consistently across a recent window, the redundant component's
+       weight is reduced (echoing the math_arrest CorrelationAwareDecorrelator).
+    3. Domain-affinity reordering — per-domain bias that favours the
+       modality which is empirically stronger for that domain (medical
+       favours symbolic; geomagnetic / earthquake favour neural).
+
+The composition is stateful (running window) but pure: identical histories
+and inputs yield identical weights. No randomness.
+
+This module is taxonomy-faithful: in the NSAI literature (Garcez & Lamb 2020,
+Sarker et al. 2021) "fibring" is the architectural pattern in which one
+reasoning system is fibred over another rather than placed sequentially or
+independently in parallel. Mercury's PHI / decorrelator / affinity stack
+already implements that pattern; this module gives it its name and a single
+entry point.
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Chain of Hindsight (CoH) Learning Module for Mercury Agent.
 
 Implements learning from historical sequences with feedback, inspired by:

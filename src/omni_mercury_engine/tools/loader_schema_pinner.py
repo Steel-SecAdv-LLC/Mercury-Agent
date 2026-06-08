@@ -1,5 +1,18 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: pin every loader's output schema (column dtypes, label set, row count range) and verify it on every load.
+
+Two modes:
+
+* ``--emit``: introspect each loader's ``schema()`` (or, when absent,
+  one ``probe()`` call) and write the pinned schema to disk;
+* ``--verify PATH``: re-introspect and diff against the pinned schema,
+  failing on any drift.
+
+The verify path is what tools like ``DatasetLoader.load(verify_schema=...)``
+are expected to call at runtime — silent schema drift is the gap this
+gate closes.
+"""
 
 from __future__ import annotations
 

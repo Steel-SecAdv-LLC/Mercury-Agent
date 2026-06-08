@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Emerging technology monitoring and anomaly detection.
 
 Monitors 9+ emerging technology categories for novel patterns and

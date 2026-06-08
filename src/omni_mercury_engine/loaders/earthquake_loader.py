@@ -1,5 +1,11 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Domain loader for earthquake data from the USGS Earthquake Hazards Program API."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Domain loader for earthquake data from the USGS Earthquake Hazards Program API.
+
+Connects to the USGS real-time GeoJSON feed and FDSN event web-service to provide seismic data for
+Mercury anomaly detection.  Ground truth events cover major earthquakes where mainshock + large
+aftershocks are labeled as anomalies against a background of smaller seismicity.
+"""
 
 from __future__ import annotations
 

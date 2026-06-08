@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Physics-Inspired Anomaly Detection Demo - Mercury Agent v1.7.0.
 
 Demonstrates the advanced physics-inspired anomaly detection modules:

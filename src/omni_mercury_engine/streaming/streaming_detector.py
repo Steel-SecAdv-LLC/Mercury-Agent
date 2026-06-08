@@ -1,5 +1,13 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Streaming anomaly detector with async data ingestion."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Streaming anomaly detector with async data ingestion.
+
+Provides a StreamingDetector wrapper that accepts data points one at a time, maintains a rolling
+window, and produces anomaly scores using MercuryAnomalyDetector. Supports async ingestion via
+asyncio + aiohttp for real-time API data feeds.
+
+Latency target: < 1 second from data receipt to anomaly score.
+"""
 
 from __future__ import annotations
 

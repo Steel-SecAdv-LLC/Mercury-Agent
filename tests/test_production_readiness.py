@@ -1,5 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Comprehensive tests for production-readiness improvements:."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Comprehensive tests for production-readiness improvements: - EthicalConstraintViolationError + enforce() + MINIMUM_BENEVOLENCE_FLOOR - CognitiveOrchestrator ethical gate integration - RefactoringTransformer guard-clause extraction and constant hoisting - Learnable3REngine.fit() with best-epoch checkpointing - GOSNN AttentionProvider interface - BenchmarkDiagnostics print-to-logger conversion."""
 
 from __future__ import annotations
 

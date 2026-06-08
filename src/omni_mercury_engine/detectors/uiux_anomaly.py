@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """UI/UX Anomaly Detection Module for Mercury Agent.
 
 Comprehensive internal implementation for detecting anomalies in user

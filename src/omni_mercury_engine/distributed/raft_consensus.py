@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Raft Consensus Protocol Implementation for Mercury Agent Distributed Processing.
 
 This module implements the Raft consensus algorithm for leader election and

@@ -1,5 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Tests for the explainability dependency contract (brief: "SHAP/LIME explainer."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for the explainability dependency contract (brief: "SHAP/LIME explainer revival").  The validated default path — IntegratedGradients + faithfulness evaluator (PR #265, benchmarks/explanation_fidelity.py) — must work with **no** third-party explainer installed, and SHAP/LIME must be clean opt-ins behind the new `[explainability]` extra that degrade gracefully when absent."""
 
 from __future__ import annotations
 

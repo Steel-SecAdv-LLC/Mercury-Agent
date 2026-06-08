@@ -1,5 +1,30 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Regression suite for the synthetic-data policy gate."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Regression suite for the synthetic-data policy gate.
+
+The validation-pipeline loaders historically exposed a ``use_synthetic``
+boolean argument that, when set to ``True``, returned synthetic data
+unconditionally -- bypassing the deployment-level
+``MERCURY_ALLOW_SYNTHETIC`` policy enforced by
+:func:`omni_mercury_engine.datasets.exceptions.check_synthetic_allowed`.
+
+The fix in v1.7.0 routes every synthetic-data branch through the policy
+gate so that a caller cannot opt out of policy:
+
+* When ``MERCURY_ALLOW_SYNTHETIC=1`` is set, ``use_synthetic=True`` is
+  honoured (the legacy contract for tests and explicit fallback chains).
+* When ``MERCURY_ALLOW_SYNTHETIC`` is unset or ``0``, every loader that
+  would otherwise return synthetic data raises
+  :class:`~omni_mercury_engine.datasets.exceptions.DataSourceUnavailableError`
+  -- including the caller-flag path.
+
+This file locks the closure with a parametrised regression that exercises
+every concrete loader on the bypass surface.  Without these tests, a
+future refactor could silently reintroduce the bypass and Mercury Agent
+would deliver synthetic data to a deployment that has explicitly
+forbidden it -- a particularly dangerous regression for the humanitarian
+crisis-response and missing-persons workloads Mercury Agent serves.
+"""
 
 from __future__ import annotations
 

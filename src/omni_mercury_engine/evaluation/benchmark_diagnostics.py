@@ -1,5 +1,28 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Benchmark Diagnostics Module."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Benchmark Diagnostics Module.
+
+Comprehensive diagnostic tools for benchmarking anomaly detection:
+- Score distribution analysis
+- Threshold calibration recommendations
+- F1=0 problem diagnosis
+- Metric discrepancy detection (ROC-AUC vs F1)
+
+Usage:
+    from omni_mercury_engine.evaluation.benchmark_diagnostics import (
+        BenchmarkDiagnostics,
+        run_diagnostic_benchmark,
+    )
+
+    # In your benchmark, add after detection:
+    diagnostics = BenchmarkDiagnostics.diagnose(
+        scores=result["scores"],
+        labels=y_true,
+        threshold=detector.threshold,
+        detector_name="statistical",
+    )
+    print(diagnostics.report())
+"""
 
 from __future__ import annotations
 

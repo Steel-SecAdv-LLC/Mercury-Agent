@@ -1,5 +1,15 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Enhanced Base Domain Detectors."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Enhanced Base Domain Detectors.
+
+Enhancements to base domain detectors:
+- Adaptive thresholds using Otsu's method and Bayesian optimization
+- Event-based metrics for temporal anomalies
+- Spatial autocorrelation (Moran's I) for graph/spatial domains
+- PR-AUC for imbalanced detection scenarios
+- Integration with calibration/conformal modules
+- Parallel processing for efficiency
+"""
 
 from __future__ import annotations
 

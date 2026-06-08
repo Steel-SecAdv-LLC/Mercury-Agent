@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Reflexion Framework for Mercury Agent.
 
 Implements self-reflection architecture for learning from experience

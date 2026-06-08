@@ -1,5 +1,14 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Time-Series Anomaly Detection Benchmark Loaders."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Time-Series Anomaly Detection Benchmark Loaders.
+
+These loaders fetch REAL benchmark datasets used in academic research:
+- NAB (Numenta Anomaly Benchmark): Standard time-series anomaly benchmark
+- SMD (Server Machine Dataset): Real server metrics from large internet company
+- SMAP/MSL: NASA spacecraft telemetry from Mars missions
+
+All datasets download from official sources or mirrors.
+"""
 
 from __future__ import annotations
 

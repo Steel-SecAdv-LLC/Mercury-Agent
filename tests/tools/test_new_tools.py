@@ -1,5 +1,13 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for the Part 2 new operator tools.
+
+Each test invokes the tool through its registry entry-point with a
+deterministic seed (where applicable), asserts the certificate schema
+is the documented ``mercury.tools.<name>/v1``, and pins the
+deterministic-output contract for tools whose body is not coupled to
+host state.
+"""
 
 from __future__ import annotations
 

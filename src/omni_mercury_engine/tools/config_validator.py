@@ -1,5 +1,21 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: schema-validate every YAML/JSON config under ``configs/``.
+
+The repo's runtime config layer (``omni_mercury_engine.core.config``)
+hands operators flexible YAML, but a typo in a *required* field
+(missing ``lambda_lyapunov``, mis-spelled ``benevolence_threshold``,
+etc.) is only caught when the runtime tries to read it.  This tool
+walks ``configs/`` and validates every config against a documented
+contract — a hand-written, dependency-free schema embedded below.
+
+The schema is intentionally hand-rolled rather than pulled from
+JSON-Schema, jsonschema, or pydantic so it has zero install-time
+overhead and lives in-tree, perfectly auditable.
+
+A non-zero exit code on schema failure makes this safe to wire into
+pre-commit or CI: a config typo can't land on ``main``.
+"""
 
 from __future__ import annotations
 

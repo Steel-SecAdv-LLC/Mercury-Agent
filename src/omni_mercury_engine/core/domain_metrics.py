@@ -1,5 +1,16 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Consolidated Domain Metrics Module."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Consolidated Domain Metrics Module.
+
+Consolidates all domain-specific metrics:
+- Standard ML metrics (AUC, F1, precision, recall)
+- Event-based metrics (temporal anomalies)
+- Spatial metrics (autocorrelation, clustering)
+- Fairness metrics (demographic parity, equalized odds)
+- Quantum metrics (entropy, coherence)
+- Calibration metrics (Brier, ECE, MCE)
+- Benevolence metrics (harm reduction, equity)
+"""
 
 from __future__ import annotations
 

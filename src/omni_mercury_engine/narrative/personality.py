@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Personality Engine - Omni-Scalar Shaped Communication.
 
 Shapes Mercury's communication style using the Global Omni-Scalar Network.

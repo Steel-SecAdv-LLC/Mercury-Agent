@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Cortical-Laminated Neural Network Architecture.
 
 Implements a biologically-inspired neural network based on the 6-layer

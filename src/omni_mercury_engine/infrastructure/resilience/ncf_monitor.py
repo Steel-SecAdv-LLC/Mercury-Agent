@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """CISA National Critical Functions (NCF) anomaly detection.
 
 Monitors 55 CISA National Critical Functions for anomalies and models

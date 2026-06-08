@@ -1,5 +1,18 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Real-World Benchmark Runner."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Real-World Benchmark Runner.
+
+Runs benchmarks on real-world datasets:
+- SMD (Server Machine Dataset) - time-series anomaly detection
+- NSL-KDD - network intrusion detection
+- BATADAL - water infrastructure cyber-physical attacks
+
+Provides:
+- Quantified before/after metrics
+- Statistical significance testing
+- Reproducible evaluation with fixed seeds
+- Domain-specific metrics (time-to-detection, event F1, etc.)
+"""
 
 from __future__ import annotations
 

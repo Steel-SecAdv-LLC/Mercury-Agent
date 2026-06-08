@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Probe 17: Energy minimization probe for detecting energy well escapes."""
 
 from __future__ import annotations

@@ -1,5 +1,52 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: **live dataset protection gate**.
+
+Live datasets are the source of truth for Mercury Agent.  Synthetic
+data is **never** a primary input — it is permitted only as an
+*emergency reenactment* of the most-recently-collected live corpus
+when the upstream live source is genuinely unreachable.  This gate
+exists to defend the primacy of the live corpus:
+
+* The **live** sample is the reference distribution.
+* A reenactment (synthetic) is only acceptable if it is
+  statistically indistinguishable from live within operator-set
+  tolerance.
+* When the reenactment drifts — KS statistic, symmetric-KL,
+  per-class AUROC — the gate fails-closed and the release is
+  blocked.  The operator is required to restore live ingestion or
+  refresh the reenactment seed against the most-recent live data.
+
+What the gate does NOT do:
+
+* It does **not** validate synthetic data on its own merits.
+* It does **not** treat synthetic as an acceptable substitute for
+  live data — only as a faithful reenactment of live.
+* It does **not** lower any quality bar; it adds a fidelity check
+  on top of the existing live-data pipeline.
+
+The mechanism, with live as the reference:
+
+1. Load *live* detector predictions (``--live-scores``, ``.npy``
+   shape ``(N, K)``) and a *reenactment* (``--reenactment-scores``,
+   same shape, same column meaning).
+2. For each column compute, relative to the live reference:
+   * the Kolmogorov–Smirnov two-sample statistic (handwritten —
+     no scipy dependency),
+   * the symmetric KL divergence between empirical 16-bin
+     histograms,
+   * the per-column mean / std / quantile shift,
+   * the AUROC delta against the operator-supplied labels.
+3. Fail-closed when any column exceeds ``--ks-max`` /
+   ``--kl-max`` / ``--auroc-drop-max``.
+
+Usage in the release pipeline: this tool is invoked *after* the live
+loader path has run, with the live corpus as the reference and the
+reenactment corpus tagged by :mod:`synthetic_provenance_tag` as the
+candidate.  When live ingestion is operational, the tool can be
+skipped — there is no reenactment to validate.  When live ingestion
+has degraded and a reenactment is in use, this gate is required.
+"""
 
 from __future__ import annotations
 

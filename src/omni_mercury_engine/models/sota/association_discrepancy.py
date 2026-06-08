@@ -1,5 +1,29 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Association Discrepancy Module - Anomaly Transformer (ICLR 2022)."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Association Discrepancy Module - Anomaly Transformer (ICLR 2022).
+
+Implements the core innovation from "Anomaly Transformer: Time Series Anomaly
+Detection with Association Discrepancy" by Xu et al.
+
+Key Innovations:
+1. Prior-Association: Gaussian kernel on temporal proximity (expected normal)
+2. Series-Association: Learned attention patterns from data
+3. Association Discrepancy: KL divergence between Prior and Series distributions
+4. Minimax Strategy: Amplifies distinguishability between normal and anomalous
+
+The Association Discrepancy criterion provides a more distinguishable anomaly
+signal compared to traditional reconstruction-based methods.
+
+Ethical Integration:
+    - All computations respect omni_harm_prevention scalar (1.50)
+    - Bias detection integrated via Fairlearn hooks
+    - Survivor-first: Optimized for high recall on critical anomalies
+
+Reference:
+    Xu, J., Wu, H., Wang, J., & Long, M. (2022). Anomaly Transformer: Time Series
+    Anomaly Detection with Association Discrepancy. ICLR 2022.
+    https://arxiv.org/abs/2201.07284
+"""
 
 from __future__ import annotations
 

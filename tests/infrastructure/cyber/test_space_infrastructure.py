@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Tests for Space Infrastructure Monitor (EU Critical Entities unique sector)."""
 
 from __future__ import annotations

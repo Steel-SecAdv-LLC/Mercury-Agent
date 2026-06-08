@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Mercury Agent — Loader resilience / failover tests.
 
 Covers the corrective sweep that hardens the external-API loaders

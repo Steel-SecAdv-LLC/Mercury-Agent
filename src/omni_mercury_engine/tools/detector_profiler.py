@@ -1,5 +1,13 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: per-detector latency + memory + cache-hit-rate profile.
+
+The README quotes ``<100ms`` GOSNN detection and ``>50%`` cache-hit
+rate, but the only evidence is an inline benchmark in ``ci.yml`` that
+nobody can re-run locally without re-creating the workflow context.
+This tool reproduces those numbers off-CI and emits a signed JSON
+certificate.
+"""
 
 from __future__ import annotations
 

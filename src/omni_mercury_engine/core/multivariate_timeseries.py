@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Multivariate Time-Series Anomaly Detection with LTG Method.
 
 Based on: A novel anomaly detection method for multivariate time series based on LTG

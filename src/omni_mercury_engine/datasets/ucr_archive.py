@@ -1,5 +1,16 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""UCR Time Series Archive and Additional Benchmark Loaders."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""UCR Time Series Archive and Additional Benchmark Loaders.
+
+Loaders for academic time-series benchmarks:
+- UCR Time Series Archive: 128+ univariate datasets
+- MBA (Machine Bearing Anomaly): Industrial bearing data
+- MSDS (Multi-Source Data Stream): Multi-domain streaming data
+
+References:
+    - Dau et al., "The UCR Time Series Archive", IEEE/CAA JAS 2019
+    - CWRU Bearing Dataset, Case Western Reserve University
+"""
 
 from __future__ import annotations
 

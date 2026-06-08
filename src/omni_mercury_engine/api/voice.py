@@ -1,5 +1,18 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+r"""Voice Interface API - Mercury Agent Conversational Endpoints.
+
+Provides REST API endpoints for Mercury's voice/conversational interface:
+- Natural language queries
+- Detection result narration
+- Status inquiries
+- Proactive alerts (via WebSocket)
+
+Usage:
+    curl -X POST "http://localhost:8000/api/v1/voice/speak" \
+        -H "Content-Type: application/json" \
+        -d '{"message": "What is my system status?"}'
+"""
 
 from __future__ import annotations
 

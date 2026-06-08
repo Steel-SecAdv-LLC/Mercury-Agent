@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Advanced Harmonic Analyzer for Mercury Agent.
 
 High-level interface for 3D surface analysis and anomaly detection using spherical harmonic

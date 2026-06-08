@@ -1,5 +1,14 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: hardware-benchmark harness.
+
+Reports CPU/GPU/memory capabilities of the host and a deterministic
+numerical micro-benchmark (matrix multiply + FFT) so an operator can
+file a one-page hardware certificate alongside any Mercury benchmark
+result.  This makes the headline ``<100ms GOSNN`` and ``>50% cache
+hit`` claims reproducibility-anchored: same hardware certificate +
+same git tag = same numbers.
+"""
 
 from __future__ import annotations
 

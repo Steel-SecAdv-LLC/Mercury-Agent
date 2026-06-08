@@ -1,5 +1,23 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Medical Dataset Loaders: MIMIC-III, MIMIC-IV, PhysioNet."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+r"""Medical Dataset Loaders: MIMIC-III, MIMIC-IV, PhysioNet.
+
+IMPORTANT: PhysioNet credentialed datasets require:
+1. Create account at https://physionet.org/
+2. Complete CITI training
+3. Sign DUA (Data Use Agreement)
+4. Download data locally using wget with credentials
+5. Set local_path in config to point to downloaded data
+
+For MIMIC data download:
+    wget -r -N -c -np --user YOUR_USERNAME --ask-password \\
+        https://physionet.org/files/mimiciii/1.4/
+
+References:
+- MIMIC-III: https://physionet.org/content/mimiciii/1.4/
+- MIMIC-IV: https://physionet.org/content/mimiciv/
+- PhysioNet Guidelines: https://physionet.org/news/post/mimic-derived-datasets-models
+"""
 
 from __future__ import annotations
 

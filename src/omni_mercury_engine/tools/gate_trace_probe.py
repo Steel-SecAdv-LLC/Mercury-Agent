@@ -1,5 +1,24 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: gate-trace probe.
+
+Exercises every public detect/analyze/predict surface in Mercury and
+emits a JSON trace of which gates (Benevolence, σ_Immutable, GOSNN)
+fired and in what order.  Today the gate contract lives only in
+docstrings and the ``EthicalConstraintViolationError(check=...)``
+identifier; an operator has no runtime artefact proving the gates
+actually ran on a real call.
+
+The probe wraps ``SigmaImmutableGate.evaluate`` and
+``BenevolenceScorer.score_action`` with thread-safe instrumentation,
+calls a small set of representative entry-points end-to-end on
+synthetic but well-formed input, and emits per-call records::
+
+    {"surface": "engine.detect_with_fusion", "gates": ["benevolence", "sigma_immutable"], ...}
+
+A surface that does *not* invoke the contractual gates is a hard
+finding — the JSON trace makes the gap concrete and reviewable.
+"""
 
 from __future__ import annotations
 

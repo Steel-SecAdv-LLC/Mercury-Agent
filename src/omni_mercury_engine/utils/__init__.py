@@ -1,8 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Utilities subpackage.
-
-Enhanced with Black Hole Engine compression and gravitational lensing utilities
-"""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Utilities subpackage Enhanced with Black Hole Engine compression and gravitational lensing utilities."""
 
 from __future__ import annotations
 

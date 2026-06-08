@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Abstract base class and shared constants for all equation probes."""
 
 from __future__ import annotations

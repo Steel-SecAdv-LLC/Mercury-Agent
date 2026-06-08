@@ -1,5 +1,70 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""SafeHTTPClient -- the single egress point for outbound HTTP in Mercury Agent.
+
+This module replaces every ad-hoc ``urllib.request.urlopen`` call in
+``src/`` with a centrally enforced gate built on the ``requests``
+library.  Centralising egress lets the static-analysis surface for
+``B310 urllib_urlopen`` collapse to zero: ``requests`` is not on the
+bandit dangerous-call list, and every user-configurable URL is
+validated before the network call happens.
+
+Gates enforced on every call:
+
+1. **Scheme allowlist** -- only ``https://`` is accepted by default.
+   ``http://`` is rejected unless the caller passes
+   ``allow_http=True`` (reserved for documented research mirrors
+   that publish over plain HTTP; never accepted for arbitrary user
+   input).
+
+2. **TRUSTED_DOMAINS allowlist** -- the host must be in
+   :attr:`TrustedEndpoints.TRUSTED_DOMAINS` for class-constant
+   dataset URLs.  User-configured endpoints (Ollama base_url, SearXNG
+   instance, custom inference backends) skip the allowlist but still
+   pass the loopback / private-network gate (see #3).
+
+3. **Private-network / IMDS block for user-configured URLs** --
+   when ``user_configured=True``, the resolved host is checked
+   against RFC1918, link-local (169.254/16, including the AWS /
+   GCP / Azure IMDS at 169.254.169.254), loopback, and IPv6 ULA
+   ranges.  This blocks SSRF pivots to the metadata service or
+   internal infrastructure.
+
+4. **Loopback-only enforcement for on-box adapters** -- callers
+   that are talking to a local daemon (Ollama at 127.0.0.1:11434,
+   Redis sidecar) pass ``loopback_only=True``; any non-loopback
+   host raises immediately.
+
+The result is that the only ``urlopen`` call in ``src/`` lives in
+this module's tests (and even that uses ``requests``); the original
+B310 finding has nowhere left to fire.
+
+Usage
+-----
+
+For trusted-allowlist GET (the dataset / API loader case)::
+
+    from omni_mercury_engine.security.safe_http import SafeHTTPClient
+
+    body: bytes = SafeHTTPClient.get_bytes(
+        "https://earthquake.usgs.gov/fdsnws/event/1/query",
+        params={"format": "geojson", "limit": "100"},
+        timeout=30,
+    )
+
+For a user-configured base URL (the Ollama / SearXNG case)::
+
+    text: str = SafeHTTPClient.post_json(
+        f"{ollama_base_url}/api/generate",
+        json_body={"model": "llama3", "prompt": "hi"},
+        timeout=30,
+        user_configured=True,
+        loopback_only=True,
+    )
+
+The helpers always raise on a 4xx/5xx response (``raise_for_status``)
+and always emit a ``User-Agent`` header.
+"""
 
 from __future__ import annotations
 

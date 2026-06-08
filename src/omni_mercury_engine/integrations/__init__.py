@@ -1,5 +1,13 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Integration components for external services and routing.
+
+This package provides:
+- HTTP client with circuit breaker and retry logic
+- External service stubs for testing and development
+- Request routing and fallback handling
+- AMA Cryptography post-quantum cryptography adapter
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Basic integration tests for omnidisciplinary modules."""
 
 from __future__ import annotations

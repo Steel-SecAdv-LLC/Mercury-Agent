@@ -1,12 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Tests for new modules added in Caduceus ⚚'s branch:.
-
-- drift.py: Data/model drift detection
-- fairness.py: Fairlearn-compatible bias detection
-- optimization.py: Efficiency optimizations
-- llm_adapter.py: LLM integration for zero-shot anomaly detection
-- engine_config.py: Pydantic-based configuration
-"""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for new modules added in Caduceus ⚚'s branch: - drift.py: Data/model drift detection - fairness.py: Fairlearn-compatible bias detection - optimization.py: Efficiency optimizations - llm_adapter.py: LLM integration for zero-shot anomaly detection - engine_config.py: Pydantic-based configuration."""
 
 from __future__ import annotations
 

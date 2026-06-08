@@ -1,5 +1,20 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Pins the σ_Immutable discrimination finding and the deterministic."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Pins the σ_Immutable discrimination finding and the deterministic critical-ethical floor that cures it.
+
+Two layers:
+
+* :class:`TestCriticalEthicalFloor` -- the deterministic floor in
+  isolation (no torch required): a collapsed ethical anchor is a
+  categorical refusal, the healthy default passes, and the narrative
+  tuning scalars are correctly excluded.
+* :class:`TestDiscriminationProbe` -- the full probe through the real
+  trained gate (torch required): asserts the gate DISCRIMINATES and that
+  there are no fail-open false-assurance leaks.  This is the regression
+  guard for the headline finding of #242: if a future change deletes the
+  floor (or otherwise re-opens a leak), the probe's verdict / leak set
+  moves and this test fails.
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """CISA Chemical & Nuclear Critical Infrastructure Anomaly Detection.
 
 Safety-critical monitoring for chemical manufacturing and nuclear facilities.

@@ -1,5 +1,25 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: handwritten secret scanner with allow-list baseline.
+
+Walks the tree from --root and flags every file whose bytes match any
+of:
+
+* a curated regex set for common secret formats (AWS access keys,
+  Google API keys, GitHub PATs/Apps, JWT, PEM private keys, Slack
+  tokens, generic ``password = "..."`` assignments);
+* a Shannon-entropy threshold over base64/base64url-shaped runs longer
+  than the configured floor.
+
+A finding can be allow-listed by adding its
+``{path, line, secret_hash}`` triple to ``.secrets.baseline`` (default
+``.secrets.baseline`` at the repo root) — re-runs of the scanner read
+the baseline, drop matching findings, and only fail on *new* secrets.
+
+The scanner is pre-commit-friendly (no network, no external tools) and
+deliberately handwritten so Mercury does not pull in
+``gitleaks``/``detect-secrets`` as runtime dependencies.
+"""
 
 from __future__ import annotations
 

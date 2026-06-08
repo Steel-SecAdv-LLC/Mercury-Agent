@@ -1,5 +1,14 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: release-time manifest builder.
+
+Emits a single JSON manifest pinning every contractual constant of a
+Mercury release tag — versions, dependency refs, container digest, the
+fusion-weight tuple, λ, σ thresholds, and the benevolence threshold.
+Today this information is spread across CHANGELOG, release notes,
+workflow files and runtime constants; one manifest collapses the
+release attestation into a reviewable artefact.
+"""
 
 from __future__ import annotations
 

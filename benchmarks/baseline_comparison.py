@@ -1,8 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Baseline Comparison Benchmarks.
-
-Compares RefactoringEngine performance: baseline (main) vs improved (PR #3)
-"""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Baseline Comparison Benchmarks Compares RefactoringEngine performance: baseline (main) vs improved (PR #3)."""
 
 import sys
 from pathlib import Path

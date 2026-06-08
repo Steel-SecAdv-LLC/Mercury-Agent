@@ -1,5 +1,18 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Cross-Domain Transfer Learning Framework."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Cross-Domain Transfer Learning Framework.
+
+Production-grade cross-domain transfer learning for anomaly detection:
+- Domain adaptation with Maximum Mean Discrepancy (MMD)
+- Feature alignment via Correlation Alignment (CORAL)
+- Domain-adversarial neural networks (DANN)
+- Optimal transport for distribution alignment
+- NSL-KDD → CICIDS benchmark evaluation
+- Multi-source domain adaptation
+
+This demonstrates Mercury's architectural advantages over pure supervised
+methods through effective knowledge transfer across security domains.
+"""
 
 from __future__ import annotations
 

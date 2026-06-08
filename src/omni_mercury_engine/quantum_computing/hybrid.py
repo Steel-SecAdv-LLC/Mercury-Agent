@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Hybrid Quantum-Classical Optimization for Mercury Agent.
 
 Implements VQE, QAOA, and quantum kernel methods for anomaly detection.

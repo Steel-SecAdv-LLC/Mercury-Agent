@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Grey Wolf Optimizer for Feature Selection.
 
 Bio-inspired optimization algorithm that mimics grey wolf hunting behavior

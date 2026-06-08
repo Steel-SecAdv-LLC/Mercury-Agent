@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Mercury-native federated anomaly detection.
 
 Enables privacy-preserving, decentralized training by exchanging sufficient statistics between nodes

@@ -1,5 +1,13 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Neuro-Symbolic Hub and GOSNN Enhancement Tests."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Neuro-Symbolic Hub and GOSNN Enhancement Tests.
+
+Comprehensive tests for:
+- Neuro-Symbolic Hub
+- GOSNN Optimizer
+- Real-World Benchmarks
+- Integration with previous sessions
+"""
 
 from typing import Any
 

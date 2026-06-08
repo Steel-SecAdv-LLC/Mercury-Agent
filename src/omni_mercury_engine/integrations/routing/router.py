@@ -1,5 +1,26 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Request routing with pattern matching and middleware support.
+
+Example:
+    Basic routing::
+
+        from omni_mercury_engine.integrations.routing import RequestRouter, Route
+
+        router = RequestRouter()
+
+        @router.route("/api/users/{user_id}")
+        async def get_user(request, user_id):
+            return {"user_id": user_id}
+
+        @router.route("/api/anomalies", methods=["POST"])
+        async def create_anomaly(request):
+            return {"status": "created"}
+
+        # Match and dispatch
+        match = router.match("/api/users/123", method="GET")
+        result = await match.handler(request, **match.params)
+"""
 
 from __future__ import annotations
 

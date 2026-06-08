@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Flood Detector - Multi-Parameter Flood Monitoring System.
 
 Comprehensive flood detection for humanitarian early warning:

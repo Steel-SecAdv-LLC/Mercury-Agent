@@ -1,5 +1,28 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""σ_Immutable hard ethical gate (Wave B item 1).
+
+This module exposes :class:`SigmaImmutableGate`, a process-wide singleton
+that lifts ``EthicalGate`` from informational metadata to a *second hard
+ethical gate* that runs alongside :class:`BenevolenceScorer.enforce` at
+every decision boundary documented in
+:mod:`omni_mercury_engine.ethical`.
+
+Two failure modes raise :class:`EthicalConstraintViolationError`:
+
+* ``check="sigma_immutable"`` — the trained σ_Immutable network produced a
+  score below its domain-calibrated threshold (or the signed corpus that
+  trained the gate failed signature verification at startup).
+* ``check="gosnn_unavailable"`` — the network could not be evaluated at
+  all (PyTorch missing, weights file absent, signed corpus tampered or
+  unreadable).  No engine-level "fallback" is allowed; an unevaluable
+  gate is an unsafe gate, and the boundary fails closed.
+
+The singleton verifies the Ed25519 + ML-DSA-65 signatures over
+``sigma_immutable_corpus.json`` on first construction (Wave B item 2).
+A failed verification is recorded once and turns every subsequent
+:meth:`enforce` call into a hard violation.
+"""
 
 from __future__ import annotations
 

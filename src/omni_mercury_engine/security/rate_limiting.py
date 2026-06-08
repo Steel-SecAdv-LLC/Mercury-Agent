@@ -1,5 +1,13 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Unified Rate Limiting."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Unified Rate Limiting.
+
+Unified rate limiting module consolidating:
+- Token bucket algorithm with burst support
+- Sliding window rate limiting
+- Memory management with TTL cleanup
+- Thread-safe operations
+"""
 
 from __future__ import annotations
 

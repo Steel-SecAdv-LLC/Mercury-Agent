@@ -1,5 +1,9 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""3R Mechanism Fusion."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""3R Mechanism Fusion.
+
+Omni-Ava Equation (OAE) implementation for unified precision scoring.
+"""
 
 from __future__ import annotations
 

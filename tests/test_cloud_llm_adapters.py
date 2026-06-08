@@ -1,5 +1,20 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for Omnidirectional cloud LLM adapters (xAI Grok, DeepSeek, Cursor, Cohere, Gemini).
+
+Coverage:
+    * each adapter constructs to an unavailable state when no API key
+      is supplied (no silent fallback to a fake "API error" string);
+    * each adapter calls SafeHTTPClient with ``user_configured=True``
+      so the SSRF gate fires on every cloud call;
+    * the SafeHTTPClient gate's ``UnsafeURLError`` propagates rather
+      than being swallowed into a generic error string;
+    * ``FallbackLLMChain._create_cloud_adapter`` routes each new
+      ``LLMProvider`` to the matching adapter class.
+
+These tests deliberately do NOT make real network requests; the
+HTTP layer is mocked at the ``SafeHTTPClient`` boundary.
+"""
 
 from __future__ import annotations
 

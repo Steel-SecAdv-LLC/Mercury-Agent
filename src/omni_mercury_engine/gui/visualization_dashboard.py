@@ -1,5 +1,17 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Enhanced Visualization Dashboard."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Enhanced Visualization Dashboard.
+
+Enhanced visualization dashboard providing:
+- Interactive Plotly-based visualizations
+- Real-time anomaly monitoring
+- Time series analysis with annotations
+- Feature importance visualization
+- Detector performance comparison
+- Correlation heatmaps
+- 3D anomaly visualization
+- Exportable reports
+"""
 
 from __future__ import annotations
 

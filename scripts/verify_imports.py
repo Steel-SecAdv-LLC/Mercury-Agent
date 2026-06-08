@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Verification script to test imports and scalar counts."""
 
 from omni_mercury_engine.core import ethical_config

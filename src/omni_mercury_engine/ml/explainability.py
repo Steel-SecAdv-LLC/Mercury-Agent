@@ -1,5 +1,18 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""SHAP Explainability Integration."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""SHAP Explainability Integration.
+
+Production-grade explainability for anomaly detection providing:
+- SHAP (SHapley Additive exPlanations) integration
+- Feature importance analysis
+- Local and global explanations
+- Attention weight visualization
+- Counterfactual explanations
+- Neuro-symbolic rule extraction
+- Anomaly explanation narratives
+
+This addresses the critical gap: "No SHAP integration" identified in audit.
+"""
 
 from __future__ import annotations
 

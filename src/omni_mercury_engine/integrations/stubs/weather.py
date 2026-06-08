@@ -1,5 +1,12 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Weather service stub for testing and development.
+
+Example:
+    >>> service = WeatherServiceStub()
+    >>> data = await service.get_current("New York")
+    >>> print(f"Temperature: {data.temperature}C")
+"""
 
 from __future__ import annotations
 

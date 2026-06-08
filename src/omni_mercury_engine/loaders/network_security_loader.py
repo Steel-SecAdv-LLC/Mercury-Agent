@@ -1,5 +1,21 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Domain loader for network security data (CICIDS, NSL-KDD, UNSW-NB15).
+
+Bridges the domain loader interface (BaseDomainLoader) to the existing
+dataset infrastructure in omni_mercury_engine.datasets.security so that
+the dedicated network security detector module can consume these benchmark
+datasets directly.
+
+Supported datasets / ground-truth events:
+- nsl_kdd: NSL-KDD network intrusion detection dataset
+- cicids_2017: CICIDS 2017 network intrusion dataset
+- batadal: BATADAL water network attack detection dataset
+
+Feature engineering covers standard network flow observables (duration,
+protocol type, byte counts, connection counts, error rates) and maps
+every record to a binary anomaly label (0 = normal, 1 = attack).
+"""
 
 from __future__ import annotations
 

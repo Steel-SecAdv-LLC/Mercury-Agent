@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Quantum Circuit Building for Mercury Agent.
 
 Provides quantum circuit construction for anomaly detection, including

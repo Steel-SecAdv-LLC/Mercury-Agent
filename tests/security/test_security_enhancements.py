@@ -1,8 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Test suite for security enhancements: quantum-resistant encryption,.
-
-real-time threat detection, and hive firewall.
-"""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Test suite for security enhancements: quantum-resistant encryption, real-time threat detection, and hive firewall."""
 
 from __future__ import annotations
 

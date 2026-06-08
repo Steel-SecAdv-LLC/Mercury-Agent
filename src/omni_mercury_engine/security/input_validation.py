@@ -1,5 +1,17 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Production-grade input validation and sanitization.
+
+Implements OWASP input validation guidelines:
+- SQL injection prevention
+- XSS prevention
+- Command injection prevention
+- Path traversal prevention
+- Data type validation
+
+Reference: OWASP Input Validation Cheat Sheet
+https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html
+"""
 
 from __future__ import annotations
 

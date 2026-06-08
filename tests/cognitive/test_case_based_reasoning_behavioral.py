@@ -1,5 +1,12 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Behavioural tests for ``cognitive/case_based_reasoning.py``.
+
+Previously only ``add``/``retrieve`` were weakly asserted (existence checks).
+These pin real state transitions and the CBR cycle: retrieval ranking +
+retrieval-count bookkeeping, the REUSE vs. REVISE branch in ``solve``,
+proportional ``adapt`` + adaptation history, and ``learn_from_outcome``.
+"""
 
 from __future__ import annotations
 

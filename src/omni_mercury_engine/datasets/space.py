@@ -1,5 +1,13 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Space & Astronomical Dataset Loaders: SETI, NASA Exoplanets, Solar Dynamics."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Space & Astronomical Dataset Loaders: SETI, NASA Exoplanets, Solar Dynamics.
+
+References:
+- SETI@home: https://setiathome.berkeley.edu/
+- NASA Exoplanet Archive: https://exoplanetarchive.ipac.caltech.edu/
+- Solar Dynamics Observatory: https://sdo.gsfc.nasa.gov/
+- Breakthrough Listen: https://breakthroughinitiatives.org/initiative/1
+"""
 
 from __future__ import annotations
 

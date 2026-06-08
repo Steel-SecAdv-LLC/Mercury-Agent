@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Oracle-validated verifier for a Collatz MATHEMATICAL_MYSTERIES scalar.
 
 The Collatz conjecture ("iterating n -> n/2 if even, 3n+1 if odd, every n >= 1 reaches 1") is

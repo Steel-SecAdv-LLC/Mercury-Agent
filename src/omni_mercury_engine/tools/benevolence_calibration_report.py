@@ -1,5 +1,22 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: benevolence calibration report.
+
+The existing :mod:`benevolence_certifier` answers "is the floor met"
+(binary ≥ 0.99).  This tool computes a 10-bin reliability diagram and
+Expected Calibration Error (ECE) over the operator-supplied probe set
+so the auditor sees *how* well-calibrated the benevolence score is,
+not just whether it clears the line.
+
+Inputs:
+
+* ``--scores``: ``.npy`` of shape (N,) with benevolence scores in [0, 1];
+* ``--labels``: ``.npy`` of shape (N,) with ground-truth ethical
+  outcomes (1 = ethical, 0 = not).
+
+Outputs the per-bin counts/accuracy and the ECE.  Fails when ECE
+exceeds ``--ece-max`` (default 0.05 — operator-supplied threshold).
+"""
 
 from __future__ import annotations
 

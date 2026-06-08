@@ -1,8 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Optional lightweight communication utilities for distributed computing.
-
-Extracted from Communication Engine for future scalability
-"""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Optional lightweight communication utilities for distributed computing Extracted from Communication Engine for future scalability."""
 
 from __future__ import annotations
 

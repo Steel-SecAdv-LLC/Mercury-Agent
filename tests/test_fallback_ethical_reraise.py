@@ -1,5 +1,18 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Regression test for FallbackChain ethical-error propagation."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Regression test for FallbackChain ethical-error propagation.
+
+The Wave B dual-gate contract requires that
+``EthicalConstraintViolationError`` raised by *any* handler in a
+``FallbackChain`` is re-raised unconditionally — regardless of the
+``fail_fast`` flag and regardless of whether later handlers might
+succeed.  A prior version of ``FallbackChain.execute()`` had a
+generic ``except Exception`` that swallowed the ethical refusal and
+tried the next handler, effectively masking the hard gate.
+
+This test exercises both ``fail_fast=True`` and ``fail_fast=False``
+paths to ensure the ethical gate is never bypassed.
+"""
 
 from __future__ import annotations
 

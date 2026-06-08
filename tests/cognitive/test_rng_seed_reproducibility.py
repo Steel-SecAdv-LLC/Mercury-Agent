@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Regression tests for the cognitive/ + models/ RNG cure.
 
 Asserts the three contracts that make the per-instance ``Generator`` plumbing

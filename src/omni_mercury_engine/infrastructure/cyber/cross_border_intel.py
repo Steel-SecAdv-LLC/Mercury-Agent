@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Cross-border threat intelligence correlation.
 
 Correlates anomaly patterns across international boundaries (EU-US)

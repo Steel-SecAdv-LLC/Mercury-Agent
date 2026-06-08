@@ -1,6 +1,25 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""A/B Benchmark: Sigma Immutable Threshold Comparison.
+
+Compares detection performance between sigma_immutable=0.93 (medical fallback)
+and sigma_immutable=0.96 (default) across 300 epochs of training.
+
+Metrics tracked:
+- F1 Score
+- False Positive Rate
+- False Negative Rate
+- Precision
+- Recall
+- Convergence Rate
+- Lyapunov Stability
+
+Expected Results:
+- sigma=0.96 should achieve F1 >= 0.92
+- sigma=0.96 should reduce FP by 5-15% vs sigma=0.93
+- Both should maintain Lyapunov stability (lambda >= 0.25)
+"""
 
 import argparse
 import json

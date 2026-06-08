@@ -1,5 +1,20 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Rule-vs-citation pin harness."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Rule-vs-citation pin harness.
+
+version.
+
+Task 6 (PR 2 refinement): every FDA / ADA / NWS / ASA threshold that is
+cited in a docstring must equal the module-level constant the citation
+points to.  This is a lint, not a semantics check: it catches regressions
+where someone flips ``<`` to ``<=`` or rounds ``70.0`` to ``70`` while the
+docstring still cites the original number.  Failures surface the citation
+URL alongside the failing assertion so a reviewer can verify against the
+source document.
+
+Each row is rendered as a single line in the test session output so the
+live pin-table is visible during ``pytest -v``.
+"""
 
 from __future__ import annotations
 

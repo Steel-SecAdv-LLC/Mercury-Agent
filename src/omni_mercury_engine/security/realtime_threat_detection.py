@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Real-Time Threat Detection using Mercury-native anomaly detection.
 
 Implements real-time threat detection using Mercury's own ensemble anomaly

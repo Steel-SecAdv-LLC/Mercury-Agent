@@ -1,5 +1,18 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""MIT-BIH Arrhythmia Database Loader."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""MIT-BIH Arrhythmia Database Loader.
+
+48 half-hour ECG recordings from PhysioNet with cardiologist-annotated beat labels.
+Open access — no PhysioNet credentials required for the MIT-BIH database.
+
+Source: https://physionet.org/content/mitdb/1.0.0/
+
+Anomaly labeling:
+  Non-normal beats (any annotation != 'N') are labeled as anomalies.
+  This is the standard approach in ECG anomaly detection literature.
+
+Requires: wfdb library (pip install wfdb)
+"""
 
 from __future__ import annotations
 

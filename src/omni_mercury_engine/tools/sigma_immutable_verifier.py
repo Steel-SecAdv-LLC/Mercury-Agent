@@ -1,5 +1,18 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: verify the σ_Immutable training corpus signatures.
+
+Wraps :func:`omni_mercury_engine.security.sigma_immutable_corpus.verify_corpus_signatures`
+in the standard operator-tool envelope.  Installable as
+``mercury-agent verify-corpus`` (see ``cli.py``) and runnable directly
+via ``python -m omni_mercury_engine.tools.sigma_immutable_verifier``.
+
+Exit codes (in addition to the package-wide set in :mod:`._base`):
+
+* ``EXIT_OK`` — every mandatory signature verified, SHA3-256 matches.
+* ``EXIT_FAIL`` — corpus / manifest tampered with, Ed25519 invalid,
+  or ML-DSA-65 missing/omitted/invalid.  This is a hard install-time gate.
+"""
 
 from __future__ import annotations
 

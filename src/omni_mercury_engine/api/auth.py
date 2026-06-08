@@ -1,5 +1,26 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Authentication and authorization middleware for the API.
+
+Example:
+    Using API key authentication::
+
+        from omni_mercury_engine.api.auth import require_api_key, APIKeyAuth
+
+        @app.get("/protected")
+        @require_api_key
+        async def protected_endpoint(api_key: str = Depends(APIKeyAuth())):
+            return {"message": "authenticated"}
+
+    Using JWT authentication::
+
+        from omni_mercury_engine.api.auth import JWTAuth, require_role
+
+        @app.get("/admin")
+        @require_role("admin")
+        async def admin_endpoint(user: User = Depends(JWTAuth())):
+            return {"user": user.username}
+"""
 
 from __future__ import annotations
 

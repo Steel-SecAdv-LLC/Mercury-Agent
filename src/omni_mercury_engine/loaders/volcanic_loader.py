@@ -1,5 +1,17 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Domain loader for volcanic activity data from the USGS Volcano Hazards Program."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Domain loader for volcanic activity data from the USGS Volcano Hazards Program.
+
+Connects to the USGS Volcano Hazards Program API to provide volcanic alert
+data for Mercury anomaly detection.  Ground truth events cover major
+eruptions where WARNING/RED alert levels are labeled as anomalies against
+a background of NORMAL/GREEN activity.
+
+Data sources:
+- Real-time alerts: https://volcanoes.usgs.gov/vsc/api/volcanoApi/alerts
+- Volcano list: https://volcanoes.usgs.gov/vsc/api/volcanoApi/volcanoList
+- Smithsonian GVP (supplemental): eruption records
+"""
 
 from __future__ import annotations
 

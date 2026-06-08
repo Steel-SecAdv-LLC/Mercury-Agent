@@ -1,5 +1,10 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Integration Tests for All Calibrated Detectors."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Integration Tests for All Calibrated Detectors.
+
+Tests that all detectors properly support auto-calibration and that the
+calibration system solves the F1=0 problem across all detector types.
+"""
 
 from typing import Any
 

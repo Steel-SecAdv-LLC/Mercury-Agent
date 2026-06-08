@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """AMA Cryptography Integration Adapter for Mercury Agent.
 
 Integrates post-quantum cryptography (Kyber/Dilithium) from AMA Cryptography

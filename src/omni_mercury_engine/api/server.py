@@ -1,5 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""FastAPI server for real-time anomaly detection.
+# SPDX-License-Identifier: GPL-3.0-or-later
+r"""FastAPI server for real-time anomaly detection.
 
 This module provides a REST API for multi-domain anomaly detection using
 the Mercury Agent framework. It implements best practices from Azure AI Anomaly
@@ -16,7 +17,9 @@ Example:
 
     Make a detection request::
 
-        curl -X POST "http://localhost:8000/api/v1/detect/univariate"             -H "Content-Type: application/json"             -d '{"data": [1.0, 2.0, 1.5, 10.0, 1.8], "sensitivity": 0.5}'
+        curl -X POST "http://localhost:8000/api/v1/detect/univariate" \\
+            -H "Content-Type: application/json" \\
+            -d '{"data": [1.0, 2.0, 1.5, 10.0, 1.8], "sensitivity": 0.5}'
 """
 
 from __future__ import annotations

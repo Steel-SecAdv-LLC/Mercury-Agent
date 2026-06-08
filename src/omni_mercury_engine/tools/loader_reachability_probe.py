@@ -1,5 +1,24 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: locally reproducible equivalent of the nightly ``dataset-reachability.yml`` workflow.
+
+The nightly workflow probes the 11 unreachable Mercury dataset loaders
+(SMAP, MSL, CICIDS-2017, MIT-BIH, UCR, SWaT, WADI, USGS Geochemistry,
+NOAA StormEvents, NOAA ERDDAP, FEMA HazardMitigation) and surfaces
+upstream outages.  Before this tool, operators had to push a branch,
+wait for CI, and inspect the workflow logs to investigate a probe
+failure.  Now the same matrix runs locally::
+
+    python -m omni_mercury_engine.tools.loader_reachability_probe
+
+The harness is *exactly* the 11-loader matrix the test suite uses —
+imported from ``tests/datasets/test_unreachable_loaders_network.py``
+when that module is reachable, falling back to an in-module mirror so
+operators running from a wheel install (no ``tests/`` packaged) still
+get a complete probe.  Drift between the two lists is asserted at
+import time so a future loader added to the test matrix can't silently
+drop off the operator tool.
+"""
 
 from __future__ import annotations
 

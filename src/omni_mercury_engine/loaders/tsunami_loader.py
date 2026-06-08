@@ -1,5 +1,16 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Domain loader for tsunami data from NOAA NDBC DART buoys.
+
+Fetches real-time and historical bottom pressure recorder (BPR)
+data from the Deep-ocean Assessment and Reporting of Tsunamis
+(DART) network operated by NOAA's National Data Buoy Center.
+
+Features engineered from raw BPR readings include tidal deviation,
+rate of sea-level change, and rolling variability measures.  Ground
+truth labels are derived from documented tsunami arrival windows
+at specific DART stations.
+"""
 
 from __future__ import annotations
 

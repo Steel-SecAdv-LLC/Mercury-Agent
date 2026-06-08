@@ -1,8 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Regenerate the ``<!-- BENCHMARK:START -->`` … ``<!-- BENCHMARK:END -->``.
-
-block in ``README.md`` from the current and previous
-``benchmarks/mercury_benchmark_results.json``.
+# SPDX-License-Identifier: GPL-3.0-or-later
+r"""Regenerate the ``<!-- BENCHMARK:START -->`` … ``<!-- BENCHMARK:END -->`` block in ``README.md`` from the current and previous ``benchmarks/mercury_benchmark_results.json``.
 
 This script is invoked by ``.github/workflows/benchmark.yml`` after every
 benchmark run on ``main`` so the live-data results are auto-committed and
@@ -14,7 +12,10 @@ of the result file.  If there is no previous snapshot (first run) the diff
 columns render as ``—``.
 
 Usage:
-    python scripts/update_readme_benchmarks.py         --results benchmarks/mercury_benchmark_results.json         --readme README.md         [--commit-sha <sha>]
+    python scripts/update_readme_benchmarks.py \\
+        --results benchmarks/mercury_benchmark_results.json \\
+        --readme README.md \\
+        [--commit-sha <sha>]
 
 Exit codes:
     0  README updated (or already up-to-date).

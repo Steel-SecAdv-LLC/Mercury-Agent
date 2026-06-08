@@ -1,5 +1,14 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Comprehensive tests for security/encryption.py module."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Comprehensive tests for security/encryption.py module.
+
+Covers:
+- QuantumResistantEncryption key generation
+- Hybrid encryption and decryption round-trip
+- Signature creation and verification
+- SecureDataHandler sanitization, encoding/decoding
+- Quantum-resistant encryption enable/disable
+"""
 
 from __future__ import annotations
 

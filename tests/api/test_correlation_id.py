@@ -1,5 +1,9 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Correlation ID Middleware Tests."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Correlation ID Middleware Tests.
+
+Tests for the request correlation ID tracking middleware.
+"""
 
 from __future__ import annotations
 

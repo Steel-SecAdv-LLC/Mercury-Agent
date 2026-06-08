@@ -1,6 +1,54 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Train the σ_Immutable EthicalGate neural network."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Train the σ_Immutable EthicalGate neural network.
+
+Labelling source
+----------------
+The GOSNN scalar system registers ~209 omni-scalars across 8 categories
+(ETHICAL, COSMIC, QUANTUM_CONSCIOUSNESS, HUMANITARIAN, SECURITY,
+SOFTWARE_ENGINEERING, MEDICAL, ADVANCED_REASONING) of which 127 are
+operational and participate in the σ_Immutable input vector — the rest
+are diagnostic measurement scalars that ``_is_metric_only_scalar``
+filters out.  A scalar vector is **ethical** (label 1) when the 27
+ETHICAL-category scalars are all at-or-above their domain-calibrated
+thresholds, and **unethical** (label 0) when one or more critical
+ethical scalars is below threshold.
+
+This is a defensible labelling source because:
+  - The thresholds come from ``centralized_constants.py`` and have been
+    domain-calibrated (medical=0.93, infrastructure=0.995, default=0.96).
+  - The BenevolenceScorer's ``MINIMUM_BENEVOLENCE_FLOOR`` (0.70) sets the
+    absolute baseline.
+  - The training data spans the full scalar space — the network learns
+    non-obvious correlations among the 127 operational dimensions that a
+    single threshold check misses.
+
+Outputs
+-------
+  - ``src/omni_mercury_engine/security/sigma_immutable_weights.pt``
+    Serialised ``state_dict`` of the trained ``nn.Sequential``.
+  - ``src/omni_mercury_engine/security/sigma_immutable_corpus.json``
+    Audit-grade labelled corpus (Wave B item 2).  Float values are
+    persisted via ``float.hex`` so the file round-trips bit-exact.
+  - ``src/omni_mercury_engine/security/sigma_immutable_corpus.sig.json``
+    Ed25519 + ML-DSA-65 signatures (when AMA PQC is built) over the
+    corpus, produced via :class:`MercuryCrypto`.  Verified at engine
+    startup by :func:`verify_corpus_signatures`.
+  - stdout: training metrics (loss, accuracy per epoch).
+
+Usage::
+
+    python scripts/train_sigma_immutable.py [--epochs 200] [--seed 42]
+
+Determinism
+-----------
+With a fixed ``--seed`` the script writes a byte-identical
+``sigma_immutable_corpus.json`` on every invocation.  The signature
+file is *not* byte-identical between runs (Ed25519 + ML-DSA both use
+fresh keypairs each time), but the signatures themselves verify
+against the same corpus bytes.
+"""
 
 from __future__ import annotations
 

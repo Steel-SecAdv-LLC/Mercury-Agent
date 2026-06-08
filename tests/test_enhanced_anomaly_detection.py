@@ -1,5 +1,14 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Comprehensive Tests for Enhanced Anomaly Detection Modules."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Comprehensive Tests for Enhanced Anomaly Detection Modules.
+
+Tests for:
+- Enhanced Statistical Methods (MAD, LOF, DBSCAN, MCD, CUSUM, GESD)
+- Cross-Platform Hub
+- Ensemble Coordinator
+- Distributed Processor
+- Visualization Dashboard
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """MVTec AD Dataset Loader.
 
 MVTec Anomaly Detection Dataset for industrial defect detection.

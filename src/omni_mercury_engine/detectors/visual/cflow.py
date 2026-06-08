@@ -1,7 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""CFlow-AD: Real-Time Unsupervised Anomaly Detection with Localization via.
-
-Conditional Normalizing Flows
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""CFlow-AD: Real-Time Unsupervised Anomaly Detection with Localization via Conditional Normalizing Flows.
 
 Implementation of CFlow from WACV 2022.
 Uses normalizing flows for precise anomaly localization.

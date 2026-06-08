@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Isotope Predictor - Nuclear Forensics & Isotope Ratio Analysis.
 
 Advanced isotope anomaly detection for humanitarian applications:

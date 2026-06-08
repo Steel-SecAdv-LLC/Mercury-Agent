@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Spherical Harmonic Transform Implementation.
 
 Provides numerically stable spherical harmonic transforms for high l_max values.

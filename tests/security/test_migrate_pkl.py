@@ -1,5 +1,13 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for the one-shot legacy ``.pkl`` migration CLI.
+
+We invoke the tool via ``subprocess`` rather than importing it, because
+the production behaviour is to re-launch in a hardened subprocess
+(scrubbed env: ``PYTHONNOUSERSITE=1``, ``PYTHONDONTWRITEBYTECODE=1``,
+no ``PYTHONSTARTUP``, no ``PYTHONPATH``). Importing in-process would
+skip exactly the hardening we want to verify.
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Electromagnetic Pulse (EMP) & Energy Surge Detector.
 
 Comprehensive electromagnetic anomaly detection for critical infrastructure:

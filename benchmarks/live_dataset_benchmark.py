@@ -1,6 +1,34 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Comprehensive Live Dataset Benchmark Suite."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Comprehensive Live Dataset Benchmark Suite.
+
+Runs benchmarks across all integrated live data sources to demonstrate
+the breadth of Mercury Agent's anomaly detection capabilities.
+
+Datasets Covered:
+- Security: NSL-KDD, CICIDS-2017 (network intrusion)
+- Industrial: BATADAL, SWaT, WADI (cyber-physical systems)
+- Time-Series: SMD, NAB, SMAP/MSL (server/IoT anomalies)
+- Climate: Simons CMAP, World Ocean Database, Copernicus Sea Level
+- Disaster: FEMA Disaster Declarations, Hazard Mitigation
+- Environmental: USGS Earthquake, USGS Geochemistry, NOAA Weather
+- Medical: PhysioNet (requires credentials for MIMIC)
+- Space: NASA Exoplanet, Solar Dynamics Observatory
+
+Usage:
+    # Run all benchmarks
+    python benchmarks/live_dataset_benchmark.py
+
+    # Run specific category
+    python benchmarks/live_dataset_benchmark.py --category security
+
+    # Run with specific detector
+    python benchmarks/live_dataset_benchmark.py --detector adaptive
+
+    # Export results
+    python benchmarks/live_dataset_benchmark.py --output results.json
+"""
 
 from __future__ import annotations
 

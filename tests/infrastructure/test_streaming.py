@@ -1,5 +1,13 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Streaming Infrastructure Tests."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Streaming Infrastructure Tests.
+
+Tests for the SaaS streaming infrastructure including:
+- In-memory stream producer/consumer
+- Circuit breaker pattern
+- Streaming anomaly pipeline
+- Message serialization
+"""
 
 from __future__ import annotations
 

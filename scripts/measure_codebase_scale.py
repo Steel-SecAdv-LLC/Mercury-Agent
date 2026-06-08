@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Measure — and *enforce* — the Mercury Agent codebase-scale numbers.
 
 This script is the single source of truth for the structural counts that

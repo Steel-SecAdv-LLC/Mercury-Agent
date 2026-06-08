@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Tests for :mod:`tools.lyapunov_validator`.
 
 These tests exercise the validator on both *certified-positive* and

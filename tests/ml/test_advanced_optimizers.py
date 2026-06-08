@@ -1,5 +1,15 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for advanced optimizers integration with OmniFusionModel.
+
+Covers:
+- SyntheticGradientPredictor for decoupled layer training
+- DifferenceTargetPropagation for biologically plausible learning
+- AuxiliaryMaxVariance for multi-task optimization
+- train_with_advanced_optimizers() integration
+- Lyapunov stability tracking
+- Convergence rate estimation
+"""
 
 from __future__ import annotations
 

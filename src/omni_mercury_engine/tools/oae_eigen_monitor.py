@@ -1,5 +1,18 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: runtime monitor for the OAE fusion-matrix eigenvalues.
+
+:mod:`lyapunov_validator` proves the (P, A, λ) closure once at design
+time.  This tool samples the realised fusion matrix during runtime and
+alerts when the Lyapunov negative-definiteness margin (min eigenvalue
+of ``-(A^T P + P A)``) shrinks below ``--margin-floor``.
+
+Inputs:
+
+* ``--A``: ``.npy`` of the realised system matrix (square).
+* ``--P``: optional ``.npy`` of the realised Lyapunov matrix (default
+  identity of the same shape).
+"""
 
 from __future__ import annotations
 

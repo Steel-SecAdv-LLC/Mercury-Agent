@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Benchmark: the advantage of oracle-grounded mystery scalars over a credulous baseline.
 
 The thesis of the verifier family is that grounding a scalar in an independent oracle lets the

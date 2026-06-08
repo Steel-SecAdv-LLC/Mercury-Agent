@@ -1,5 +1,17 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Tests for F1 precision improvement features (Phases 2-9)."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for F1 precision improvement features (Phases 2-9).
+
+Tests cover:
+  - Noise color estimation (_estimate_noise_color)
+  - Residual frequency filter (_residual_frequency_filter)
+  - Adaptive alpha computation (_compute_adaptive_alpha)
+  - Domain weight presets (get_domain_preset)
+  - Inversion guard (Spearman-based component zeroing)
+  - Ensemble flip (median-based score inversion)
+  - Oracle influence multiplier
+  - Multi-strategy threshold selection
+"""
 
 from __future__ import annotations
 

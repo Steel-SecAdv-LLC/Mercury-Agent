@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """PyOD Integration and Comparison.
 
 Compare Mercury Agent with PyOD's 40+ anomaly detection algorithms.

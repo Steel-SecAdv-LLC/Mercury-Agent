@@ -1,5 +1,13 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""NOAA Storm Events Database Loader."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""NOAA Storm Events Database Loader.
+
+Bulk CSV files from NCEI, 60+ years of US severe weather events. Ground truth labels are inherent:
+event type, damage amounts, injuries, fatalities.
+
+Source:
+https://www.ncei.noaa.gov/pub/data/swdi/stormevents/csvfiles/
+"""
 
 from __future__ import annotations
 

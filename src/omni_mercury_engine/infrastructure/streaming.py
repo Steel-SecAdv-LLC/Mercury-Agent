@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """SaaS Streaming Infrastructure for Mercury Agent.
 
 Provides high-throughput, production-grade streaming capabilities:

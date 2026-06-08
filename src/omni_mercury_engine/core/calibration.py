@@ -1,5 +1,14 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Probability Calibration Module."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Probability Calibration Module.
+
+Implements calibration methods to align confidence scores with true error rates:
+- Platt Scaling (logistic regression on scores)
+- Isotonic Regression (non-parametric monotonic calibration)
+- Temperature Scaling (single-parameter neural network calibration)
+- Reliability diagrams for visualization
+- Target: Brier score < 0.05 for well-calibrated predictions
+"""
 
 from __future__ import annotations
 

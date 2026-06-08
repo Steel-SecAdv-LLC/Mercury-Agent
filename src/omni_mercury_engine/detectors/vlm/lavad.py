@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """LAVAD: Harnessing Large Language Models for Training-free Video Anomaly Detection.
 
 Implementation inspired by LAVAD (CVPR 2024).

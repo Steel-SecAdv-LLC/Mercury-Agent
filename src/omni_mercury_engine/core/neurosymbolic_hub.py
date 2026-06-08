@@ -1,5 +1,18 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Enhanced Neuro-Symbolic Hub."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Enhanced Neuro-Symbolic Hub.
+
+Enhanced neuro-symbolic fusion integrating:
+- LTN (Logic Tensor Networks) with NetworkX graph reasoning
+- Stacking/BMA fusion for ensemble calibration
+- Real-time rule inference with explanation generation
+- GOSNN bidirectional synaptic integration
+- Calibration and conformal prediction
+- Benevolence ≥0.99 enforcement
+
+This module serves as the keystone for cross-domain gains, providing
+unified neuro-symbolic capabilities to all detector domains.
+"""
 
 from __future__ import annotations
 

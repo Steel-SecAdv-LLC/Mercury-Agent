@@ -1,5 +1,23 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Earth Science & Hazards Data Sources.
+
+Production-grade integrations for:
+- USGS Earthquake Hazards
+- USGS Volcano Hazards
+- NOAA NWPS (National Water Prediction Service)
+- NOAA CO-OPS (Center for Operational Oceanographic Products and Services)
+- NWS Weather Alerts (National Weather Service)
+- EPA AirNow
+
+API Documentation:
+- USGS Earthquake: https://earthquake.usgs.gov/fdsnws/event/1/
+- USGS Volcano: https://volcanoes.usgs.gov/vhp/api/volcanoApi/
+- NOAA NWPS: https://api.water.noaa.gov/nwps/v1/
+- NOAA CO-OPS: https://api.tidesandcurrents.noaa.gov/api/prod/datagetter
+- NWS: https://api.weather.gov/alerts
+- EPA AirNow: https://www.airnowapi.org/aq/
+"""
 
 from __future__ import annotations
 

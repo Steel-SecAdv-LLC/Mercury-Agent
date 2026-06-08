@@ -1,5 +1,36 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Native TCP MessageTransport for Raft.
+
+Pure-stdlib implementation:
+- ``asyncio.start_server`` listens on a per-node TCP port.
+- Length-prefixed binary frames: 4 bytes big-endian length, then
+  ``payload``.  Each ``payload`` is JSON-encoded UTF-8 bytes.
+- Per-message authentication via Mercury's own AMA Cryptography
+  signing surface (``Ed25519Provider`` from
+  :mod:`omni_mercury_engine.security.crypto_api`) — every wire message
+  carries a signature over its envelope.  No third-party RPC framework,
+  no protobuf, no msgpack, no zeromq.
+
+The wire format is Mercury's own, owned end-to-end:
+
+    4 bytes BE length  |  payload (JSON bytes)
+    ---------------------------------------------
+    payload = {
+        "type":        "request_vote" | "append_entries" |
+                       "request_vote_response" | "append_entries_response",
+        "request_id":  uuid4 hex,
+        "from":        sender_node_id,
+        "to":          recipient_node_id,
+        "body":        <message-specific JSON object>,
+        "signature":   hex-encoded Ed25519 signature over
+                       JSON-serialised {type, request_id, from, to, body}
+    }
+
+Rationale: the spec required *no* gRPC, *no* protobuf, *no* third-party
+RPC framework.  JSON over length-prefixed TCP keeps the wire format
+inspectable and the codepath auditable.
+"""
 
 from __future__ import annotations
 

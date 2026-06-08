@@ -1,5 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Custom exceptions for dataset loading. Zero silent failures — every loader either returns real data."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Custom exceptions for dataset loading. Zero silent failures — every loader either returns real data or raises."""
 
 from __future__ import annotations
 

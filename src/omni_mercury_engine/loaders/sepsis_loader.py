@@ -1,5 +1,20 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Domain loader for sepsis / critical care data from PhysioNet."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Domain loader for sepsis / critical care data from PhysioNet.
+
+Connects to the PhysioNet / Computing in Cardiology Challenge 2019 dataset for early prediction of
+sepsis from clinical data.  The challenge dataset is openly available (no credentials required) and
+ships per-patient files in PSV (pipe-separated values) format with a ``SepsisLabel`` column
+indicating sepsis onset.
+
+Training sets A and B are exposed as separate ground truth events.  Feature engineering produces
+vital-sign dynamics and laboratory time-series features suitable for the Mercury KinematicScore
+anomaly detector.
+
+Note: MIMIC-III requires credentialed access.  This loader exclusively uses the OPEN PhysioNet
+Challenge 2019 dataset to avoid credential requirements. If PhysioNet is unreachable,
+``DataSourceUnavailableError`` is raised.
+"""
 
 from __future__ import annotations
 

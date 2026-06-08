@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Model modules for Mercury Agent anomaly detection.
 
 Uses lazy imports to avoid circular dependency issues during package initialization.

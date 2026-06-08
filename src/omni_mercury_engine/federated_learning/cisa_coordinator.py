@@ -1,5 +1,17 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""CISA Federated Coordinator for Mercury Agent.
+
+Coordinates federated learning across CISA critical infrastructure sectors,
+enabling privacy-preserving cross-sector threat intelligence and anomaly detection.
+
+Inspired by Flower/PySyft frameworks for distributed ML across CISA sectors.
+
+References:
+- Flower Framework (https://flower.dev/)
+- PySyft (https://github.com/OpenMined/PySyft)
+- McMahan et al. "Communication-Efficient Learning" (2017)
+"""
 
 from __future__ import annotations
 

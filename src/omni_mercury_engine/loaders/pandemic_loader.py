@@ -1,5 +1,14 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Domain loader for pandemic/outbreak data from WHO and Our World in Data."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Domain loader for pandemic/outbreak data from WHO and Our World in Data.
+
+Connects to the Our World in Data COVID-19 dataset and the WHO Global Health Observatory (GHO) OData
+API to provide epidemiological time-series data for Mercury anomaly detection.  Supports six
+pathogen classes: virus, bacteria, fungus, parasite, prion, and biosurveillance.
+
+Ground truth events cover major pandemic waves where rapid acceleration of case counts is labeled as
+anomalous against a background of normal transmission dynamics.
+"""
 
 from __future__ import annotations
 

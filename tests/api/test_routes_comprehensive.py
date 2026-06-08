@@ -1,5 +1,16 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Comprehensive tests for api/routes/ endpoint modules."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Comprehensive tests for api/routes/ endpoint modules.
+
+Covers:
+- models.py: Model registration, listing, versioning, file upload
+- detection.py: Neurosymbolic, fusion, 3R detection endpoints
+- batch.py: Batch job submission, status, results, cancellation
+- export.py: Detection/audit export, metrics, streaming
+
+NOTE: FastAPI uses the parameter name `request` for the Pydantic body models
+in these routes, which means the JSON body must be nested under a `request` key.
+"""
 
 from __future__ import annotations
 

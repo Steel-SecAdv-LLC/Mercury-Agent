@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Intelligence Source Sub-Modules.
 
 Specialized processors for each of the 13 intelligence collection disciplines.

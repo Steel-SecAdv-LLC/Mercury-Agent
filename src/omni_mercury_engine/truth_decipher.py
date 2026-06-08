@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Truth Deciphering Framework for Mercury Agent.
 
 Orchestrates anomaly discovery, identification, ethical evaluation, and resolution

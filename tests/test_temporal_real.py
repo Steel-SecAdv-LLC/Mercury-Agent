@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Real Substantive Tests for Temporal Anomaly Detector.
 
 These tests verify actual algorithm behavior with mathematical assertions.

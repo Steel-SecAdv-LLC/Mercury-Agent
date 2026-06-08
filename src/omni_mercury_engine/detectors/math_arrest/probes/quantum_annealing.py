@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Probe 18: Quantum annealing probe for detecting thermodynamic outliers."""
 
 from __future__ import annotations

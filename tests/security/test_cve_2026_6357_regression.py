@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Regression guard for CVE-2026-6357 (pip arbitrary code execution).
 
 CVE-2026-6357 lets a malicious wheel hijack the install process on pip

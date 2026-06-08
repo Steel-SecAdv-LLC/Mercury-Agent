@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Regression suite for FusionMode.FIBRING as the named default top-level mode.
 
 Covers:

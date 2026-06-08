@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Tests for Anomaly Detection Metrics module.
 
 Tests AUROC, AUPRC, F1-max, pixel-level metrics, and PRO score.

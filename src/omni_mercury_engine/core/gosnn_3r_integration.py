@@ -1,5 +1,20 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""GOSNN ↔ 3R Bidirectional Feedback Integration."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""GOSNN ↔ 3R Bidirectional Feedback Integration.
+
+Implements bidirectional synaptic integration between:
+- Global Omni-Scalar Network (GOSNN): ~209 registered omni-scalars (127
+  operational drive the σ_Immutable gate; 82 diagnostic measurement
+  scalars are filtered out per the GOSNN layout contract), ethical gating
+- Three-R Mechanism: Recursion-Resonance-Refactoring
+
+Key Features:
+1. 3R Refactoring engine dynamically adjusts GOSNN ethical thresholds
+2. GOSNN scalar categories weight 3R fusion coefficients (w_R, w_H, w_O)
+3. Gradient flow from 3R loss back to detector heads
+4. Sliding window normalization for time-series inputs
+5. Cross-domain transfer learning support
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Distributed Processing Cluster for Mercury Agent.
 
 Provides multi-node anomaly detection with automatic workload distribution, fault tolerance, and

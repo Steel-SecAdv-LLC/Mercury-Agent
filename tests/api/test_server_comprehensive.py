@@ -1,5 +1,18 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Comprehensive tests for api/server.py module."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Comprehensive tests for api/server.py module.
+
+Covers:
+- Health check endpoint
+- Univariate anomaly detection endpoint
+- Multivariate anomaly detection endpoint
+- CORS origin validation
+- PII masking filter
+- Severity classification
+- Rate limiting middleware
+- Correlation ID middleware
+- Request/response models
+"""
 
 from __future__ import annotations
 

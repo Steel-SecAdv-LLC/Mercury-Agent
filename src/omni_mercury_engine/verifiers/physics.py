@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Oracle-validated verifier for a PHYSICS_THEORIES scalar.
 
 A physical law's *dimensional consistency* is decidable: both sides must reduce to the same SI

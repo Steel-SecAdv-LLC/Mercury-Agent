@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Differential Privacy Mechanisms for Federated Learning.
 
 Implements various differential privacy techniques including Gaussian

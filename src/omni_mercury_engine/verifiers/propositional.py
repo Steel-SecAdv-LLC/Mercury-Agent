@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Propositional consistency oracle shared by the paradox verifiers.
 
 Propositional logic is decidable, so the consistency of a finite theory is a question an oracle

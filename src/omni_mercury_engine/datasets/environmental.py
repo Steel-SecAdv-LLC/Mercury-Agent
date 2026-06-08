@@ -1,5 +1,12 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Environmental Dataset Loaders: USGS Earthquake, NOAA Weather, Wildfire Data."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Environmental Dataset Loaders: USGS Earthquake, NOAA Weather, Wildfire Data.
+
+References:
+- USGS Earthquake Catalog: https://earthquake.usgs.gov/earthquakes/search/
+- NOAA Climate Data: https://www.ncdc.noaa.gov/cdo-web/
+- NASA FIRMS (Fire): https://firms.modaps.eosdis.nasa.gov/
+"""
 
 from __future__ import annotations
 

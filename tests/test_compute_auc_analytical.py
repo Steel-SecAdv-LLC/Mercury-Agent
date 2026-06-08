@@ -1,5 +1,10 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Analytical verification of compute_auc against 4 known-answer cases."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Analytical verification of compute_auc against 4 known-answer cases.
+
+These tests verify the correctness of the trapezoidal AUC-ROC implementation
+in benchmarks/domain_benchmark_base.py against analytically derivable answers.
+"""
 
 from __future__ import annotations
 

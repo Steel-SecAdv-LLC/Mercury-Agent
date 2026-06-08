@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Psychological Operations (PSYOP) Analysis Module.
 
 Provides AI-powered analysis capabilities for psychological operations,

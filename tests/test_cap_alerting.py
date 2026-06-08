@@ -1,5 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for the CAP (Common Alerting Protocol) 1.2 alert generator: - CAPAlertGenerator instantiation - generate_alert produces valid XML - from_detection produces valid XML from numpy score arrays - validate_cap_xml accepts/rejects XML correctly - CAP enum values match the CAP 1.2 specification - DOMAIN_CATEGORY_MAP covers all 15 Mercury domains."""
 
 from __future__ import annotations
 

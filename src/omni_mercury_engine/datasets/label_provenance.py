@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Canonical repo-wide label-provenance leak detector (WS-A).
 
 PR #262 removed 13 *circular* manufactured-label datasets from the supervised

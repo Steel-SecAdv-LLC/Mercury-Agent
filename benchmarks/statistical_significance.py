@@ -1,5 +1,41 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Statistical confirmation of the sub-threshold neuro-symbolic sweep results."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+r"""Statistical confirmation of the sub-threshold neuro-symbolic sweep results.
+
+PR #265 ran same-cell sweeps and reported *point* deltas plus a "seed
+agreement" heuristic against a pre-registered +0.002 bar:
+
+  * salience rule graph: consensus_salience +0.0022 vs consensus +0.0009
+    (seed-agree 0.81) -> KEEP consensus,
+  * crisp t-norm semantics: godel +0.0039 (best of three) vs product +0.0025
+    -> KEEP product.
+
+Both calls were made on point estimates.  This module adds the *formal
+inference* those calls deserve, computed directly from the committed sweep
+artifacts (no re-run required):
+
+  * paired difference per cell (A_auc - B_auc), same dataset/seed/fraction,
+  * paired t-test (two-sided p-value),
+  * Wilcoxon signed-rank test (scipy, optional),
+  * exact sign test (binomial),
+  * bootstrap 95% confidence interval (seeded, reproducible),
+  * one-sample tests of each series' delta-over-neural vs 0.
+
+A claim is only "confirmed" when the paired mean both clears the
+pre-registered bar AND the 95% CI excludes 0 AND the paired t-test is
+significant at alpha=0.05.  Anything else is reported as within the noise
+floor — which is the honest reading of #265's KEEP decisions.
+
+Dependencies: numpy only (scipy used opportunistically for Wilcoxon).
+
+Usage::
+
+    python -m benchmarks.statistical_significance
+    python -m benchmarks.statistical_significance \\
+        --rulegraph artifacts/symbolic_rulegraph_sweep.json \\
+        --semantics artifacts/symbolic_semantics_sweep.json \\
+        --out artifacts/statistical_significance.json --seed 0 --boot 10000
+"""
 
 from __future__ import annotations
 

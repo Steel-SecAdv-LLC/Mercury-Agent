@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Main neural fusion model integrating all engines.
 
 This is the core ML component that orchestrates feature extraction,

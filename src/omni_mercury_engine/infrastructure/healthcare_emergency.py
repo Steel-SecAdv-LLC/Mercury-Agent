@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """CISA Healthcare & Emergency Services Critical Infrastructure Anomaly Detection.
 
 Patient monitoring, outbreak detection, and emergency response optimization.

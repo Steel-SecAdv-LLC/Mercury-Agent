@@ -1,5 +1,15 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Tests for FocalLoss training + post-hoc temperature calibration (Issue #3)."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for FocalLoss training + post-hoc temperature calibration (Issue #3).
+
+Verifies the two-part contract:
+  * temperature scaling is monotonic, so ROC-AUC/ranking is preserved exactly
+    (calibrated scores rank identically to raw scores), and
+  * calibration improves ECE (reliability) on data where focal-loss training
+    flattens probabilities — checked on a real imbalanced dataset.
+
+Both must hold: improving calibration must not cost discrimination.
+"""
 
 from __future__ import annotations
 

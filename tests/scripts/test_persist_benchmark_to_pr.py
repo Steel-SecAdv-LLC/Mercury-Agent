@@ -1,5 +1,17 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Regression tests for ``scripts/persist_benchmark_to_pr.py``."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Regression tests for ``scripts/persist_benchmark_to_pr.py``.
+
+The persister talks to the GitHub Git Database API to commit
+benchmark artefacts on a feature branch and open / update a PR
+into ``main``.  Because the script is exercised only by a CI
+workflow against the real API, regressions in the call sequence
+or in the new-PR-vs-existing-PR branching can land unnoticed
+until ``ci/benchmark-results`` starts producing wrong commits.
+
+These tests stub out ``_api`` with a recording double and drive
+the public functions and ``main()`` with synthetic responses.
+"""
 
 from __future__ import annotations
 

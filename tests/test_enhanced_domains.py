@@ -1,5 +1,13 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Tests for Enhanced Domain Components."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for Enhanced Domain Components.
+
+Comprehensive tests for:
+- Enhanced base domain detectors (adaptive thresholds, event metrics, spatial)
+- Enhanced model domain components (quantum, biometric, affective)
+- Domain metrics module
+- GOSNN integration layer
+"""
 
 from typing import Any
 

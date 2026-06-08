@@ -1,5 +1,14 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Tests for STEM Alert & Anomaly Detection Data Sources."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for STEM Alert & Anomaly Detection Data Sources.
+
+This test suite covers:
+- Base classes and interfaces
+- Space Weather sources (NASA DONKI, NeoWs, NOAA SWPC, EONET, Solar System)
+- Geomagnetic sources (USGS Geomagnetism, INTERMAGNET, SuperMAG, HeartMath, BGS ELF)
+- Earth Science sources (USGS Earthquake/Volcano, NOAA NWPS/CO-OPS, NWS, EPA)
+- Consciousness Research sources (GCP, GCPDot)
+"""
 
 from __future__ import annotations
 

@@ -1,5 +1,17 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Comprehensive tests for api/auth.py module."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Comprehensive tests for api/auth.py module.
+
+Covers all error paths, security hardening, and authentication flows:
+- API key creation, retrieval, revocation, expiration
+- PBKDF2 hashing with 260k iterations
+- Production salt enforcement
+- JWT max token age enforcement
+- User permissions and roles
+- Rate limiter integration
+- Decorator-based permission/role enforcement
+- AuthConfig validation
+"""
 
 from __future__ import annotations
 

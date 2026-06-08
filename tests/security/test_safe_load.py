@@ -1,5 +1,18 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for ``omni_mercury_engine.security.safe_load``.
+
+These tests pin two contracts:
+
+1. **Pickle is gone.** ``train_fusion_model`` must not contain any
+   pickle import or ``.pkl`` branch. A guardian test asserts the
+   source text directly so a future refactor cannot quietly bring it
+   back.
+2. **The .npz loader is strict.** Any deviation from a clean numpy
+   archive -- wrong magic, oversized file, pickled objects inside
+   the archive, missing or mismatched HMAC -- raises
+   :class:`UnsafePayloadError`.
+"""
 
 from __future__ import annotations
 

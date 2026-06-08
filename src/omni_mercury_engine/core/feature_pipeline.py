@@ -1,5 +1,14 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Feature Extraction Pipeline."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Feature Extraction Pipeline.
+
+This module provides enhanced feature extraction capabilities including:
+- Feature standardization with multiple scaling strategies
+- Feature selection using mutual information and SHAP
+- Feature imputation for failed detectors
+- Feature versioning with schema validation
+- Feature caching with Redis backend support
+"""
 
 import hashlib
 import logging

@@ -1,5 +1,14 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: GPU capability probe.
+
+Enumerates CUDA / ROCm / MPS / CPU backends, driver versions, and FP16
+/ BF16 / INT8 support.  Sibling of :mod:`pqc_capability_probe`.
+
+Used by :mod:`release_manifest_builder` to record the runtime device
+matrix; the manifest pins what was tested, this tool pins what's
+currently available, and the gate fails when they diverge.
+"""
 
 from __future__ import annotations
 

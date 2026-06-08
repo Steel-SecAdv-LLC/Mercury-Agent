@@ -1,5 +1,17 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Mercury Agent Training Visualization Suite.
+
+This module generates advanced, publication-quality visualizations for
+Mercury Agent training results, including:
+
+1. Confidence Evolution - Shows how Bayesian confidence climbs from 0.76 baseline
+2. Memory Growth Curves - Tracks episodic, semantic, short-term, long-term memory
+3. Calibration Reliability Diagrams - Shows calibration accuracy
+4. Per-Domain Competence Heatmaps - Visualizes domain-specific learning
+5. Familiarity vs Confidence Analysis - Shows learning dynamics
+6. Composite Intelligence Report - Publication-ready summary figure
+"""
 
 import json
 import sys

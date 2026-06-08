@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Neural Memory Layer - Memory Embeddings and Pattern Detection.
 
 Implements the neural layer of the neuro-symbolic architecture:

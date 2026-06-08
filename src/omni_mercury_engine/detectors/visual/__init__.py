@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Visual Anomaly Detection Module.
 
 State-of-the-art visual anomaly detection algorithms for industrial,

@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Abstract base classes for detectors, models, and encoders with enforced interface contracts.
 
 This module defines the core abstractions for the Mercury Agent anomaly detection system.

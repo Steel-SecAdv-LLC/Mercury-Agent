@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Space Exploration Analyzer - Hubble-Inspired Cosmic Anomaly Detection.
 
 Inspired by Hubble Space Telescope anomaly detection in cosmic data streams

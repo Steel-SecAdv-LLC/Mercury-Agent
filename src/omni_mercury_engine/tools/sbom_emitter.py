@@ -1,5 +1,17 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: emit a CycloneDX 1.5 SBOM for the installed environment.
+
+Walks ``importlib.metadata`` for every installed distribution and
+emits a CycloneDX 1.5 JSON document with name, version, PURL, and (when
+available) license + SHA-256 hashes from the wheel record.  Output is
+deterministic (sorted components) so the SBOM diff between two builds
+is reviewable.
+
+We deliberately *do not* shell out to ``cyclonedx-bom`` or any other
+external CLI — the SBOM is constructed in-process from the Python
+runtime's own metadata view, keeping it dependency-free.
+"""
 
 from __future__ import annotations
 

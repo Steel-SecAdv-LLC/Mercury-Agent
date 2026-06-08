@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Tests for the pre-registered event-coincidence null-test (WS-D harvest).
 
 Validates the harvested GCP machinery as a general tool: it has the correct

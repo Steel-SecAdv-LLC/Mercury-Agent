@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """AutoML Module for Mercury Agent.
 
 Provides automatic hyperparameter tuning and model selection using

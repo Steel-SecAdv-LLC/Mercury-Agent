@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Mercury Agent — Endpoint Verification Script.
 
 Performs an audit of every URL in TrustedEndpoints:

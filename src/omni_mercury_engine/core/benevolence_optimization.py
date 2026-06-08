@@ -1,5 +1,14 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Multi-Objective Benevolence Optimization."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Multi-Objective Benevolence Optimization.
+
+Implements benevolence as an explicit optimization target in multi-objective loss:
+- Pareto optimization (scipy.optimize)
+- Scalarized multi-objective loss with benevolence constraint
+- NSGA-II style evolutionary optimization
+- Gradient-based benevolence-aware training
+- Integration with ethical gating (benevolence >= 0.99 threshold)
+"""
 
 from __future__ import annotations
 

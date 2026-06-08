@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Spectral Domain Frequency — Full-Power Neuro-Symbolic Implementation.
 
 A production-grade spectral-domain anomaly detection system covering

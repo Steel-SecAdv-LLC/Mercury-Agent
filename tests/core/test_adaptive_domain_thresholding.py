@@ -1,5 +1,14 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Adaptive Domain Thresholding Tests."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Adaptive Domain Thresholding Tests.
+
+Comprehensive unit tests for adaptive per-domain thresholding:
+- Platt scaling calibration
+- Isotonic regression calibration
+- Calibration ensemble
+- Domain-specific threshold management
+- Domain ensemble weight optimization
+"""
 
 from __future__ import annotations
 

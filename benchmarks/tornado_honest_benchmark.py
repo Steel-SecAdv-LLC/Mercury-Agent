@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Tornado domain honest benchmark."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tornado domain honest benchmark.
+
+Fetches real tornado data from NOAA SPC, runs MercuryAnomalyDetector,
+and reports metrics for severe tornado detection.
+
+Data source: NOAA Storm Prediction Center (no API key required).
+"""
 
 from __future__ import annotations
 

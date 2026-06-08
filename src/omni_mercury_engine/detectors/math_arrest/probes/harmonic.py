@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Probe 2: Damped harmonic oscillator for detecting periodicity violations."""
 
 from __future__ import annotations

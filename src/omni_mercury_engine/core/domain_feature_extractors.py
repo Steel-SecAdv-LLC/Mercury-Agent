@@ -1,5 +1,16 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Domain-Specific Feature Extractors."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Domain-Specific Feature Extractors.
+
+Advanced feature extraction for domain-specific anomaly detection:
+- Medical: Vital sign temporal patterns, SOFA score weighting
+- Financial: Benford's Law, transaction velocity, seasonality
+- Infrastructure: SCADA correlation matrices, process variable analysis
+
+This module implements the strategic improvements for raising domain competence
+from current levels (Medical: 0.72, Financial: 0.76, Infrastructure: 0.79)
+to target levels (0.85-0.90).
+"""
 
 from __future__ import annotations
 

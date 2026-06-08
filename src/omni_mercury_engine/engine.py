@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Main OmniMercuryEngine orchestrating all detectors and models.
 
 This module provides the core anomaly detection engine that integrates

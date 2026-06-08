@@ -1,5 +1,55 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+r"""One-shot legacy ``.pkl`` -> ``.npz`` migration tool.
+
+Pickle has been removed from the Mercury Agent runtime. This tool is
+the only place in the codebase that may execute ``pickle.load``, and
+it does so in a clearly-bounded operator workflow that:
+
+* refuses to import the engine -- the engine never sees pickle bytes;
+* re-launches itself in a hardened subprocess before unpickling. The
+  hardening is environment-based, not flag-based, because ``-S -E -I``
+  strip the project's own editable install and break legitimate
+  operator workflows. Concretely the child runs with:
+
+    - ``PYTHONNOUSERSITE=1`` (no user-site ``sitecustomize``)
+    - ``PYTHONDONTWRITEBYTECODE=1`` (no stray ``.pyc`` files)
+    - no ``PYTHONSTARTUP``, no ``PYTHONPATH``, no ``LD_PRELOAD`` (any env
+      var not in :data:`_FORWARDED_ENV` is dropped)
+
+  The subprocess boundary, not flag combinations, is the load-bearing
+  isolation -- a malicious pickle that achieves code execution in the
+  child still cannot reach the parent (operator) process state;
+* uses :class:`_RestrictedUnpickler` rather than the bare
+  ``pickle.load``. ``find_class`` whitelists only the globals required
+  to reconstruct numpy arrays plus a small set of basic Python
+  builtins; anything else (``os.system``, ``subprocess.Popen``, any
+  ``builtins.eval`` / ``builtins.exec`` / ``builtins.__import__`` /
+  ``posix.*`` / ``nt.*`` reference, ``codecs.encode`` reduce-chain
+  tricks) raises ``pickle.UnpicklingError`` *before* the global is
+  resolved. This downgrades the threat from "arbitrary code
+  execution on attempt 1" to "smuggle a malicious construction
+  through ``numpy.core.multiarray._reconstruct``" -- defence in
+  depth with the subprocess boundary, not a replacement for it;
+* writes the converted archive via ``numpy.savez``. ``numpy.savez``
+  itself does not expose an ``allow_pickle`` parameter on the write
+  path, so we enforce the "no pickle in the output" contract by
+  rejecting any object-dtype array **before** the write happens (see
+  ``_do_migration``). The resulting ``.npz`` is then loadable through
+  :func:`omni_mercury_engine.security.safe_load.safe_load_training_data`
+  with ``allow_pickle=False`` enforced on read;
+* optionally signs the output with HMAC-SHA-256 via
+  :func:`omni_mercury_engine.security.safe_load.sign_npz`.
+
+Usage::
+
+    python -m omni_mercury_engine.tools.migrate_pkl \\
+        --input legacy.pkl --output legacy.npz
+
+    python -m omni_mercury_engine.tools.migrate_pkl \\
+        --input legacy.pkl --output legacy.npz \\
+        --sign-key-hex 0123...  # 64 hex chars = 32 bytes
+"""
 
 from __future__ import annotations
 

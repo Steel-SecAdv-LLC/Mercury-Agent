@@ -1,5 +1,14 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Adaptive Fusion Architecture."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Adaptive Fusion Architecture.
+
+This module provides enhanced fusion capabilities including:
+- Adaptive attention head count based on input complexity
+- Temperature-scaled attention with learnable parameters
+- Uncertainty quantification with confidence intervals
+- Sparse attention patterns for efficiency
+- Attention visualization tools
+"""
 
 from __future__ import annotations
 

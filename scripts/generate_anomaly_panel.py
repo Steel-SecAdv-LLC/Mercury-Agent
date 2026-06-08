@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Generate multi-panel anomaly detection visualization."""
 
 from __future__ import annotations

@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """CISA Communications & IT Critical Infrastructure Anomaly Detection.
 
 Network traffic and cybersecurity monitoring for communications and IT sectors.

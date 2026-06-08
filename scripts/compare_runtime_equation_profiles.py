@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Compare runtime equation profiles against ``baseline_original_v1``.
 
 The harness measures anomaly quality, neuro-symbolic agreement, calibration,

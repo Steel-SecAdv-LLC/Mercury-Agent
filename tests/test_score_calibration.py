@@ -1,5 +1,13 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Tests for Score Calibration System."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for Score Calibration System.
+
+Tests the complete calibration pipeline that solves the F1=0 problem:
+- AutoThresholdOptimizer with multiple methods
+- ScoreDiagnostics analysis
+- ScoreCalibrationManager integration
+- Benchmark diagnostics
+"""
 
 from typing import Any
 

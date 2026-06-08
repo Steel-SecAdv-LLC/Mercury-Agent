@@ -1,5 +1,23 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""GWO-Enhanced Ensemble Detector."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""GWO-Enhanced Ensemble Detector.
+
+Uses Grey Wolf Optimizer to learn optimal fusion weights for combining
+multiple anomaly detectors. This addresses the heterogeneous performance
+across datasets by adapting the ensemble composition.
+
+Key Features:
+1. Automatic weight optimization via Grey Wolf Optimizer
+2. Cross-validation based fitness evaluation
+3. Diversity-aware detector selection
+4. Dynamic weight adaptation during inference
+
+Inspired by:
+- AE+GWO (2025) achieving 0.99+ F1 on industrial datasets
+- Ensemble methods from SUOD and PyOD
+
+Target: Improve ensemble F1 by 10-15% over simple averaging
+"""
 
 from __future__ import annotations
 

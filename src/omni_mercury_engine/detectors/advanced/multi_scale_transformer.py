@@ -1,5 +1,20 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Multi-Scale Transformer for Time-Series Anomaly Detection."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Multi-Scale Transformer for Time-Series Anomaly Detection.
+
+Addresses the time-series gap (F1 0.15-0.25 → target 0.70+) by:
+1. Multi-scale temporal pattern extraction (local + global)
+2. Cross-scale attention for pattern fusion
+3. Reconstruction + forecasting dual-objective
+4. Adaptive threshold calibration with point-adjustment
+
+Architecture inspired by:
+- MAAT (Mamba Adaptive Anomaly Transformer, 2025)
+- TranAD (VLDB 2022)
+- Anomaly Transformer (ICLR 2022)
+
+Performance Target: SMD F1 > 0.70, SMAP/MSL F1 > 0.85
+"""
 
 from __future__ import annotations
 

@@ -1,5 +1,16 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: hardware RNG audit.
+
+Probes ``/dev/hwrng``, RDRAND (via ``ctypes`` to the C runtime when
+available), and the kernel ``random`` device.  Emits an entropy
+estimate and asserts the hardware RNG was the actual seed source for
+the corpus signing keys.
+
+The tool is fail-closed in production when no hardware entropy source
+is available — the kernel's blocking pool is acceptable in dev but not
+in a signed-release pipeline.
+"""
 
 from __future__ import annotations
 

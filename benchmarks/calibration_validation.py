@@ -1,5 +1,16 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Calibration Validation Harness."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Calibration Validation Harness.
+
+Resolves math debt items MD-011, MD-003, MD-005 by running calibration,
+cross-validation, and conformal coverage measurement against all
+datasets used in the mercury benchmark.
+
+Usage:
+    python benchmarks/calibration_validation.py
+    python benchmarks/calibration_validation.py --skip-conformal
+    python benchmarks/calibration_validation.py --datasets lympho,smtp
+"""
 
 from __future__ import annotations
 

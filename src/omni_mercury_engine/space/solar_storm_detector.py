@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Solar & Geomagnetic Storm Detector - Space Weather Monitoring.
 
 Comprehensive space weather detection for critical infrastructure protection:

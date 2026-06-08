@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Pre-configured circuit breakers for external API integrations.
 
 This module provides circuit breaker instances optimized for different

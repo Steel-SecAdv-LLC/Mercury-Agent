@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Financial crisis domain honest benchmark."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Financial crisis domain honest benchmark.
+
+Fetches real financial market data from FRED,
+runs MercuryAnomalyDetector, and reports metrics.
+
+Data source: Federal Reserve Economic Data (free API key required).
+"""
 
 from __future__ import annotations
 

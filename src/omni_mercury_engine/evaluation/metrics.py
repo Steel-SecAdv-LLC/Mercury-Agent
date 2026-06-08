@@ -1,5 +1,21 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Standard Evaluation Metrics for Anomaly Detection."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Standard Evaluation Metrics for Anomaly Detection.
+
+Implements industry-standard metrics used in academic research:
+- AUC-ROC: Area Under the Receiver Operating Characteristic Curve
+- AUC-PR: Area Under the Precision-Recall Curve
+- F1-Score: Harmonic mean of precision and recall
+- Precision@K: Precision at top-K anomaly predictions
+- Best-F1: F1-score at optimal threshold
+- Point-Adjusted F1: F1 with anomaly segment adjustment (for time-series)
+
+These metrics are used in papers like:
+- OmniAnomaly (KDD 2019)
+- MSCRED (AAAI 2019)
+- DAGMM (ICLR 2018)
+- TranAD (VLDB 2022)
+"""
 
 from __future__ import annotations
 

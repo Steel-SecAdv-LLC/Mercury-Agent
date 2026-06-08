@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Probe 6: Catalan-optimized AR(1) probe for detecting autocorrelation breaks."""
 
 from __future__ import annotations

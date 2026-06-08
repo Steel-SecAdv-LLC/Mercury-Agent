@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Landslide & Avalanche Detector - Slope Instability Analysis.
 
 Comprehensive slope failure detection for humanitarian early warning:

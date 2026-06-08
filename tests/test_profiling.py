@@ -1,5 +1,16 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Tests for :mod:`omni_mercury_engine.utils.profiling`."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for :mod:`omni_mercury_engine.utils.profiling`.
+
+These tests exercise the six public profiling entry points end-to-end
+(``profile_func``, ``profile_memory``, ``profile_time``,
+``profile_time_async``, ``profile_complete``, :class:`PerformanceBenchmark`
+and :func:`benchmark_function`) plus the module-level enable/disable
+plumbing and logger configuration.  No synthetic data is fabricated --
+all tests drive the real profiling stack (cProfile, tracemalloc,
+``time.perf_counter``) on small in-process workloads and assert against
+real measured outputs.
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Voice Recognition Module for Mercury Agent Biometric System.
 
 Implements speaker verification using MFCC features and embedding-based

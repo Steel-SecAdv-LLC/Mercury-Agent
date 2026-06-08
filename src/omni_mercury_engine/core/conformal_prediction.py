@@ -1,5 +1,14 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Conformal Prediction for Uncertainty Quantification."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Conformal Prediction for Uncertainty Quantification.
+
+Implements conformal prediction for rigorous uncertainty quantification:
+- Split Conformal Prediction (inductive)
+- Cross-Conformal Prediction (aggregated)
+- Adaptive Conformal Inference (distribution-free)
+- Guaranteed coverage at user-specified confidence levels
+- Integration with anomaly detection pipelines
+"""
 
 from __future__ import annotations
 

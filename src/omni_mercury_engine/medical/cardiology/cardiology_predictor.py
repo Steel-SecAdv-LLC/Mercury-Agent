@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Cardiology Predictor - Cardiovascular Disease Detection & Risk Assessment.
 
 Advanced cardiac anomaly detection for humanitarian healthcare:

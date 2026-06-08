@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Core tests for the Anomaly Math Arrest (probes 1-8 + integration)."""
 
 from __future__ import annotations

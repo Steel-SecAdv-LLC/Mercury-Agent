@@ -1,5 +1,25 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""HuggingFace model / dataset policy gate.
+
+Centralises every ``from_pretrained`` and ``datasets.load_dataset``
+call in Mercury Agent through a single helper that enforces:
+
+* **Identifier shape** -- model IDs must match the ``namespace/name``
+  pattern that HuggingFace Hub itself uses, or be an absolute local
+  path.  Bare names like ``"bert"`` (which would resolve to a
+  community-namespace model with no provenance) are rejected.
+* **Revision pinning** -- every remote load must specify a non-empty
+  ``revision``.  Without this, supply-chain attacks against the
+  default branch ``main`` can swap weights from under us (CWE-494).
+* **trust_remote_code stays off** -- ``trust_remote_code=True``
+  executes arbitrary code from the repo and is only permitted when
+  the model ID is in the explicit allowlist passed to the helper.
+
+Every B615 ``from_pretrained`` call in ``src/`` now goes through
+:class:`SafeHFLoader`; the single bandit-suppression for B615 lives
+on the underlying ``from_pretrained`` call inside this module.
+"""
 
 from __future__ import annotations
 

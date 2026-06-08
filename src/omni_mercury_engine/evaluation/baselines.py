@@ -1,5 +1,27 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Published Baseline Results for Anomaly Detection."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Published Baseline Results for Anomaly Detection.
+
+This module contains published benchmark results from academic papers.
+Use these to compare your model's performance against established baselines.
+
+IMPORTANT: These are results reported in original papers on standard benchmarks.
+           Your model should be evaluated on the SAME datasets with SAME metrics.
+
+Datasets and their standard benchmarks:
+- SMD: Server Machine Dataset (OmniAnomaly benchmark)
+- SMAP/MSL: NASA spacecraft telemetry
+- NAB: Numenta Anomaly Benchmark
+- NSL-KDD: Network intrusion detection
+
+Methods included:
+- OmniAnomaly (KDD 2019)
+- MSCRED (AAAI 2019)
+- DAGMM (ICLR 2018)
+- LSTM-VAE (ICML 2015)
+- TranAD (VLDB 2022)
+- Anomaly Transformer (ICLR 2022)
+"""
 
 from __future__ import annotations
 

@@ -1,5 +1,10 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Tests for ensemble replacement: Resonance + Kinematic + InfoGeometry."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for ensemble replacement: Resonance + Kinematic + InfoGeometry.
+
+Validates that the new MercuryAnomalyDetector ensemble (replacing
+IsolationForest) produces correct, bounded, and discriminative scores.
+"""
 
 from __future__ import annotations
 

@@ -1,7 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""AI Ethics Framework for Mercury Agent.
-
-Implements 8 core ethical principles for autonomous AI operations.
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""AI Ethics Framework for Mercury Agent Implements 8 core ethical principles for autonomous AI operations.
 
 This module acts as a "conscience layer" for the engine, enabling autonomous
 decisions while enforcing ethical guardrails. All actions are evaluated against

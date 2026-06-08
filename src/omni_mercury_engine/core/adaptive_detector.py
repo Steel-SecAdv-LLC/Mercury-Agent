@@ -1,5 +1,10 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Adaptive Detector Module for Mercury-Agent."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Adaptive Detector Module for Mercury-Agent.
+
+Addresses specific weaknesses identified in benchmark analysis. All detection is Mercury-native
+(numpy/scipy only) — zero sklearn dependency.
+"""
 
 import logging
 from dataclasses import dataclass, field

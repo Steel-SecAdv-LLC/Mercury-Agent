@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Pathogen Detection using QBM-Based Energy Modeling.
 
 Implements Quantum Boltzmann Machine-inspired probabilistic modeling

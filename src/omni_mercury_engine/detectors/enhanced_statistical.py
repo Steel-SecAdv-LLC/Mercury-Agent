@@ -1,5 +1,24 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""DEPRECATED: This module uses sklearn (LOF, DBSCAN, MinCovDet, NearestNeighbors) for anomaly."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""DEPRECATED: This module uses sklearn (LOF, DBSCAN, MinCovDet, NearestNeighbors) for anomaly.
+
+detection. Mercury's production detector is MercuryAnomalyDetector in detectors/statistical.py. This
+module is retained for reference only and will be removed in a future release.
+
+Do not import this module in production or benchmark code paths.
+
+Original: Enhanced Statistical Anomaly Detection Module.
+
+Enhanced statistical methods for robust anomaly detection including:
+- Median Absolute Deviation (MAD) - robust to outliers
+- Local Outlier Factor (LOF) - density-based detection
+- DBSCAN Clustering - cluster-based anomaly identification
+- Minimum Covariance Determinant (MCD) - robust covariance
+- Grubbs' Test - statistical outlier test
+- CUSUM (Cumulative Sum) - sequential change detection
+- GESD (Generalized ESD) - multiple outlier detection
+- Dynamic Threshold Adaptation - adaptive thresholding
+"""
 
 from __future__ import annotations
 

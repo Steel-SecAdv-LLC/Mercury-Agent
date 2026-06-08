@@ -1,5 +1,13 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for the operator tools.
+
+Every tool in ``omni_mercury_engine.tools`` has at least one test
+exercising its ``main()`` entry point with a temporary ``--output``
+file and asserting the certificate has the expected schema and
+``status``. This is the operator-visible contract: a stable schema
+identifier and a deterministic exit code mapping.
+"""
 
 from __future__ import annotations
 

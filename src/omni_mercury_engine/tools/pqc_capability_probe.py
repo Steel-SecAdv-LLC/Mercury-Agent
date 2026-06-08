@@ -1,5 +1,25 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: probe the AMA Cryptography PQC surface at runtime.
+
+Mercury startup now gates unconditionally on real AMA/PQC, but operators
+still need a structured report of *what the process actually loaded*.
+This tool walks the live ``ama_cryptography``
+import surface, exercises each algorithm with a minimal round-trip,
+and reports the real/stub status of every primitive Mercury depends on:
+
+* Kyber-1024 (KEM)
+* ML-DSA-65 — both legacy ``dilithium_sign`` and FIPS 204 §5.2
+  context-aware ``dilithium_sign_ctx``
+* SLH-DSA — both legacy SPHINCS+ surface and FIPS 205 SHAKE-128s
+* native HMAC-SHA-256 / HMAC-SHA-256-2 (used by the AMA-routed JWT
+  HS256 signer)
+
+The "real vs error" determination does **not** trust the ``*_AVAILABLE``
+flags alone; it actually runs a minimal sign/verify or encap/decap on
+each algorithm.  Flag-believing alone would miss a broken native load
+that raises at first use.
+"""
 
 from __future__ import annotations
 

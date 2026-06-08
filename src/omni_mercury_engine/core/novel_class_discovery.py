@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """DEPRECATED: This module uses sklearn (KMeans) for anomaly detection.
 
 Mercury's production detector is MercuryAnomalyDetector in

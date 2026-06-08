@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Canonical registry of operator tools.
 
 Iterate to discover tools, index to obtain the ``main`` callable.  The

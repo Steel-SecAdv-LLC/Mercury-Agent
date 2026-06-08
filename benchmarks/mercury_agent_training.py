@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Mercury Agent Training and Evaluation Suite.
 
 This module provides training scenarios for the Mercury Agent's learning

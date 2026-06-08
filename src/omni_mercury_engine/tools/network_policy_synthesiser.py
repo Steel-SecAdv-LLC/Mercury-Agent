@@ -1,5 +1,14 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: synthesise a Kubernetes ``NetworkPolicy`` from the egress allow-list discovered by :mod:`network_egress_recorder` plus :mod:`loader_reachability_probe`.
+
+The companion :mod:`helm_values_linter` checks for *presence* of a
+NetworkPolicy; this tool produces the *concrete rules* — namespace
+selectors, host CIDRs, port lists, protocol pins.
+
+Output: a single YAML manifest, written atomically.  Always reviewable
+by an operator (read-only string template, no jinja).
+"""
 
 from __future__ import annotations
 

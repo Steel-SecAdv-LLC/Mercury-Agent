@@ -1,5 +1,20 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Adversarial Autoencoder for Industrial Control System Anomaly Detection."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Adversarial Autoencoder for Industrial Control System Anomaly Detection.
+
+Addresses the industrial control gap (F1 0.30-0.45 → target 0.80+) by:
+1. Adversarial regularization for distribution matching
+2. Sensor correlation modeling via covariance-aware encoding
+3. Multi-scale reconstruction for capturing process dynamics
+4. Temporal consistency constraints
+
+Architecture inspired by:
+- Makhzani et al. (2015) - Adversarial Autoencoders
+- Li et al. (2021) - MAD-GAN for multivariate anomaly detection
+- AE+GWO (2025) - Grey Wolf optimized autoencoders
+
+Performance Target: BATADAL F1 > 0.80, SWaT F1 > 0.90
+"""
 
 from __future__ import annotations
 

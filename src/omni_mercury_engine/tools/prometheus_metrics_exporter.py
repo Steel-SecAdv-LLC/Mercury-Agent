@@ -1,5 +1,14 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: handwritten Prometheus ``/metrics`` exposition.
+
+Emits the Prometheus text-format snapshot for the current
+benevolence histogram, σ band, OAE weights, gate-fire counts,
+Mercury/AMA Disconnect engagements, PQC capability bitmap, and cache
+hit rate.  No
+``prometheus_client`` dependency — the exposition format is small
+enough to write directly.
+"""
 
 from __future__ import annotations
 

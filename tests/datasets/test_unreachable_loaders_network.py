@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Reachability harness for the 11 currently-unreachable Mercury dataset loaders.
 
 This module addresses the strengthening-plan §5 P1 item: every loader

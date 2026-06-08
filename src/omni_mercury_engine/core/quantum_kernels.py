@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Quantum Kernel Machines for Anomaly Detection.
 
 Based on: Quantum anomaly detection in the latent space of proton collision events at the LHC

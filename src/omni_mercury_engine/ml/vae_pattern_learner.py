@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Variational Autoencoder (VAE) for Unsupervised Pattern Learning.
 
 Learns latent representations of normal patterns for anomaly detection

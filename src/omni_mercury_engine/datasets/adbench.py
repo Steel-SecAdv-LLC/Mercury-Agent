@@ -1,5 +1,20 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""ADBench — Tabular Anomaly Detection Benchmark Datasets."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""ADBench — Tabular Anomaly Detection Benchmark Datasets.
+
+Loads real-world anomaly detection datasets from the ADBench repository
+(Minqi et al., NeurIPS 2022 Datasets and Benchmarks Track).
+
+Each dataset is a single NPZ file on GitHub containing:
+  - X: feature matrix (n_samples, n_features)
+  - y: binary labels (0=normal, 1=anomaly)
+
+Source: https://github.com/Minqi824/ADBench
+
+Citation:
+    Han S, Hu X, Huang H, Jiang M, Zhao Y.
+    ADBench: Anomaly Detection Benchmark. NeurIPS 2022.
+"""
 
 from __future__ import annotations
 

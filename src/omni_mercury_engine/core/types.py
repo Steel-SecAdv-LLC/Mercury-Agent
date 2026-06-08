@@ -1,5 +1,28 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Canonical Type Definitions for Mercury Agent.
+
+This module provides canonical enum definitions used throughout the Mercury Agent
+codebase. These enums consolidate duplicate definitions from various modules to
+ensure consistency and reduce code duplication.
+
+Usage:
+    from omni_mercury_engine.core.types import (
+        CircuitState,
+        ThreatLevel,
+        EthicalPrinciple,
+        FusionStrategy,
+        ConfidenceLevel,
+        DetectorStatus,
+        AnomalyType,
+        PrivacyLevel,
+    )
+
+Note:
+    When adding new shared enums, place them in this module rather than defining
+    them locally in feature modules. This promotes code reuse and ensures
+    consistent semantics across the codebase.
+"""
 
 from __future__ import annotations
 

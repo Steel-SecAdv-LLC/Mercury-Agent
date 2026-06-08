@@ -1,5 +1,12 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Security Dataset Loaders: NSL-KDD, CICIDS, Threat Intelligence."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Security Dataset Loaders: NSL-KDD, CICIDS, Threat Intelligence.
+
+References:
+- NSL-KDD: https://www.unb.ca/cic/datasets/nsl.html
+- CICIDS 2017/2018: https://www.unb.ca/cic/datasets/ids-2017.html
+- MITRE ATT&CK: https://attack.mitre.org/
+"""
 
 from __future__ import annotations
 

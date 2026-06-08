@@ -1,5 +1,14 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Integration tests for cross-repo enum compatibility."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Integration tests for cross-repo enum compatibility.
+
+Verifies that Mercury Agent's posture enums and their scalar mappings agree
+with the real ``ama_cryptography.adaptive_posture`` definitions. These tests
+exercise the *production* symbols exported from
+``omni_mercury_engine.integrations.mercury_amacrypto`` so they fail loudly if
+module-level maps drift out of sync with the upstream ``ama_cryptography``
+package.
+"""
 
 from __future__ import annotations
 

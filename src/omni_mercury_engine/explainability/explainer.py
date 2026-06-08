@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Unified Explainability Interface for Mercury Agent.
 
 High-level interface for generating explanations for anomaly detection

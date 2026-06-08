@@ -1,5 +1,16 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Centralized Constants and Magic Numbers."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Centralized Constants and Magic Numbers.
+
+Consolidates magic numbers, thresholds, and configuration constants
+from across the codebase into a single, documented source of truth.
+
+This module addresses P2 magic number extraction issues by:
+1. Documenting the origin and purpose of each constant
+2. Providing domain-specific configuration groups
+3. Enabling environment variable overrides
+4. Providing type-safe access via dataclasses
+"""
 
 from __future__ import annotations
 

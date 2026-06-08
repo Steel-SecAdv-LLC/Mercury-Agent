@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Harmonic Feature Extraction for Mercury Agent.
 
 Provides rotation-invariant feature extraction from spherical harmonic coefficients.

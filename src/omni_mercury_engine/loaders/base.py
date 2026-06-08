@@ -1,5 +1,13 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Base class for all domain-specific data loaders."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Base class for all domain-specific data loaders.
+
+Every domain loader MUST implement:
+- fetch_realtime() -> pd.DataFrame  (live data pull)
+- fetch_historical(event_id: str) -> pd.DataFrame  (specific event)
+- list_events() -> list[dict]  (available ground-truth events)
+- get_ground_truth(event_id: str) -> np.ndarray[Any, Any]  (binary labels)
+"""
 
 from __future__ import annotations
 

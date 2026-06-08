@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Quantum Anomaly Detection for Mercury Agent.
 
 High-level interface for quantum-enhanced anomaly detection.

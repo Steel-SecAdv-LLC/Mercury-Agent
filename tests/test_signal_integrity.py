@@ -1,5 +1,10 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Unit tests for signal integrity fixes."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Unit tests for signal integrity fixes.
+
+Tests for Issue #3 (Discrete Score Destruction) and Issue #5 (Contamination Mismatch).
+Validates that statistical detector produces continuous scores instead of discrete values.
+"""
 
 from typing import Any
 

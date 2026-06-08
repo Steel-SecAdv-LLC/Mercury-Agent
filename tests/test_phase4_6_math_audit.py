@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Tests for Phase 4 (Advanced Math Structures) and Phase 6 (System Coherence).
 
 Covers:

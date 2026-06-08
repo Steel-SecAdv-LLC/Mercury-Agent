@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Tests for Cognitive Architecture Integration.
 
 Verifies that all cognitive components integrate properly:

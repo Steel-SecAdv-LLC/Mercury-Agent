@@ -1,5 +1,27 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Industrial Control System (ICS) Dataset Loaders."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Industrial Control System (ICS) Dataset Loaders.
+
+Loaders for real-world ICS/SCADA anomaly detection benchmarks:
+- SWaT (Secure Water Treatment): Singapore water treatment testbed
+- WADI (Water Distribution): Water distribution system
+- BATADAL: Water network attack detection
+
+These datasets are critical for validating anomaly detection in:
+- Critical infrastructure protection
+- Industrial cybersecurity
+- Process control systems
+
+Ethical Note:
+    These datasets are used for DEFENSIVE security research only.
+    Mercury-Agent is designed to PROTECT infrastructure, never attack it.
+
+References:
+    - Goh et al., "A Dataset to Support Research in the Design of Secure
+      Water Treatment Systems", CRITIS 2016
+    - Ahmed et al., "WADI: A Water Distribution Testbed for Research
+      in the Design of Secure Cyber Physical Systems", ICS-CSR 2017
+"""
 
 from __future__ import annotations
 

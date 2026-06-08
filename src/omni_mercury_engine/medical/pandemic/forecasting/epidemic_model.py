@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Epidemic Forecasting using SEIR Model with Chaos Detection.
 
 Implements Susceptible-Exposed-Infected-Recovered (SEIR) compartmental

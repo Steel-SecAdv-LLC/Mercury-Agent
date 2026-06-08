@@ -1,5 +1,26 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Geomagnetic & Electromagnetic Monitoring Data Sources.
+
+Production-grade integrations for:
+- USGS Geomagnetism Web Service
+- INTERMAGNET (International Real-time Magnetic Observatory Network)
+- SuperMAG (Ground Magnetometer Network)
+- HeartMath Global Coherence Monitoring System
+- British Geological Survey ELF Station (Schumann Resonances)
+
+API Documentation:
+- USGS: https://geomag.usgs.gov/ws/
+- INTERMAGNET: https://imag-data.bgs.ac.uk/GIN_V1/
+- SuperMAG: https://supermag.jhuapl.edu/
+- HeartMath: https://www.heartmath.org/gci/gcms/live-data/
+- BGS: https://geomag.bgs.ac.uk/research/IARs.html
+
+Notes:
+- USGS and INTERMAGNET provide magnetometer data (H, D, Z, F components)
+- Schumann resonance processing requires FFT (7.83, 14, 20, 26, 33, 38 Hz)
+- HeartMath data has hourly power calculations
+"""
 
 from __future__ import annotations
 

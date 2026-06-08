@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Bayesian Confidence Calibrator for Mercury Agent.
 
 Implements a learned confidence model that replaces the fixed 0.76 heuristic

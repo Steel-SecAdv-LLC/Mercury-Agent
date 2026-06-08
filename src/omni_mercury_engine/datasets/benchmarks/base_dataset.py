@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Base classes for benchmark dataset loaders.
 
 Provides abstract base classes for image and video anomaly detection datasets.

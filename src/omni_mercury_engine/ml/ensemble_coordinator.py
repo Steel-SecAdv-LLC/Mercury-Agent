@@ -1,5 +1,16 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Advanced Ensemble Coordinator."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Advanced Ensemble Coordinator.
+
+Advanced ensemble coordination for hybrid anomaly detection including:
+- Adaptive weight learning based on performance feedback
+- Cascading detection (efficient -> accurate pipeline)
+- Meta-learning for detector selection
+- Stacking and blending ensembles
+- Dynamic detector activation based on data characteristics
+- Uncertainty-aware ensemble fusion
+- Cross-validation based weight optimization
+"""
 
 from __future__ import annotations
 

@@ -1,5 +1,15 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Threshold Calibration Tests."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Threshold Calibration Tests.
+
+Tests for the IQR-based adaptive threshold calibration logic that addresses
+the covtype F1=0 issue on extremely imbalanced datasets.
+
+This module tests:
+1. Fixed threshold behavior (default)
+2. Contamination-based percentile threshold
+3. Adaptive IQR-based threshold for extreme class imbalance
+"""
 
 from __future__ import annotations
 

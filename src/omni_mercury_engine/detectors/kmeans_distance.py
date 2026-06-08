@@ -1,5 +1,23 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""K-means-distance fusion detector reviving the dormant cognitive clusterer.
+
+Distance to the nearest learned cluster centroid is a classic unsupervised
+anomaly signal: a point far from *every* centroid is poorly explained by the
+learned structure and is therefore anomalous. The clustering machinery is the
+``KMeansClusterer`` from :mod:`omni_mercury_engine.cognitive.neural_memory_layer`,
+where it was orphaned (the module is never used in any live path).
+
+``benchmarks/dormant_module_revival.py`` measures this signal on genuinely
+labelled ADBench data and finds it real (mean held-out ROC-AUC ~0.8-0.98 across
+breastw/thyroid/WBC/cardio), in contrast to the other tabular-scoring orphans
+(predictive-coding free-energy, case-based retrieval) which score at chance.
+That measurement -- not the module's interface -- is what justifies promoting
+the clusterer to a first-class detector here. Whether it *adds* to the live
+fusion ensemble (which already carries a distance/density detector) is settled
+separately by a fusion-marginal ablation; this class only makes the proven
+signal available as a standard detector.
+"""
 
 from __future__ import annotations
 

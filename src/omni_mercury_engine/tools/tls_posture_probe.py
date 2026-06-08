@@ -1,5 +1,21 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: TLS posture probe.
+
+For an operator-supplied URL, enumerate:
+
+* negotiated cipher suite + TLS version,
+* full peer certificate chain (subject, issuer, validity, SAN),
+* OCSP-staple presence (when the server returns one),
+* HSTS / ALPN advertised values,
+* hybrid post-quantum availability — we probe for the
+  ``X25519MLKEM768`` group via a separate ClientHello when the OpenSSL
+  build supports it.
+
+The probe reuses :class:`SafeHTTPClient` so the in-engine SSRF gate
+applies (no private-network or IMDS leak) and the URL allow-list is
+consistent with the rest of Mercury.
+"""
 
 from __future__ import annotations
 

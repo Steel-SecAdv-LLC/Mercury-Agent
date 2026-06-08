@@ -1,5 +1,13 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: drive a full ML-KEM-1024 encap/decap + ML-DSA-65 sign/verify cycle through the AMA native PQC backend and emit a latency certificate.
+
+Pair-claims the result with :mod:`pqc_capability_probe` so a silent
+stub fallback mid-run is detected: if ``pqc_capability_probe`` reports
+the native backend as available but the handshake takes orders of
+magnitude longer (or shorter) than the real implementation, the gate
+fails closed.
+"""
 
 from __future__ import annotations
 

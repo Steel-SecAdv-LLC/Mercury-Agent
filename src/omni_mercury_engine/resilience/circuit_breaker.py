@@ -1,5 +1,13 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Circuit Breaker Pattern - Backwards Compatibility Module.
+
+This module re-exports CircuitBreaker from utils.resilience for backwards compatibility.
+New code should import directly from omni_mercury_engine.utils.resilience.
+
+Deprecated:
+    Import from omni_mercury_engine.utils.resilience instead.
+"""
 
 from __future__ import annotations
 

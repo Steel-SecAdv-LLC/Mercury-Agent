@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Tornado Detector - Multi-Modal Severe Weather Monitoring.
 
 Comprehensive tornado detection for humanitarian early warning:

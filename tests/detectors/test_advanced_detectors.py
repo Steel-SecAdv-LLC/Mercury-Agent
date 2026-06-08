@@ -1,5 +1,15 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Tests for Advanced Anomaly Detection Modules."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for Advanced Anomaly Detection Modules.
+
+Tests cover:
+- MultiScaleTransformerDetector (time-series)
+- ContrastiveLearningDetector (representation learning)
+- AdversarialAutoencoderDetector (industrial control)
+- COPODDetector (copula-based)
+- GWOEnsembleDetector (optimized ensemble)
+- PointAdjustmentEvaluator (evaluation protocol)
+"""
 
 from __future__ import annotations
 

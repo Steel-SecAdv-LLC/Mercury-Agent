@@ -1,5 +1,30 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Consciousness Research / Anomaly Correlation Data Sources.
+
+Production-grade integrations for:
+- Global Consciousness Project (GCP/EGG Network)
+- GCPDot Analysis
+
+API Documentation:
+- GCP Real-time: https://noosphere.princeton.edu/realtime/
+- GCP Historical: https://noosphere.princeton.edu/extract.cgi
+- GCPDot: https://gcpdot.com/
+
+Data Structure:
+- Trial sums: binomial[200, 0.5], expected mean=100, variance=50
+- XOR'd for bias correction
+- Synchronized UTC timestamps
+- Network: ~65 hardware RNGs globally distributed
+
+Analysis Metrics:
+- Network variance
+- Inter-egg correlation
+- Cumulative deviation
+- Stouffer Z-score
+
+Note: 20-minute delay on real-time feed.
+"""
 
 from __future__ import annotations
 

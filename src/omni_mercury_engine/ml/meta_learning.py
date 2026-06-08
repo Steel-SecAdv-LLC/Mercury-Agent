@@ -1,5 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Provide meta learning."""
 
 from __future__ import annotations
 

@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Empirical Benchmark Suite for Mercury-Agent.
 
 This module provides honest, data-driven benchmarks comparing Mercury-Agent's

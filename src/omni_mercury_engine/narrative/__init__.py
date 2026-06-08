@@ -1,5 +1,35 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Narrative Module - Truth-Dense Communication Synthesis.
+
+This module transforms Mercury Agent from a detection engine into an "alive"
+system that communicates with genuine transparency and truth density.
+
+Components:
+    - NarrativeEngine: Translates detection results to human language
+    - ProactiveMonitor: Background vigilance with initiative thresholds
+    - MemorySurface: Historical context awareness in communication
+    - PersonalityEngine: Omni-scalar shaped communication style
+    - MercuryConversationInterface: Unified "alive" interface
+
+Philosophy:
+    "An Agent that does not engage or communicate to retain users like almost
+    all LLMs, but provides transparency and truth in every response."
+
+Example:
+    from omni_mercury_engine.narrative import create_mercury_interface
+
+    # Create conversational interface
+    mercury = create_mercury_interface(domain="medical")
+    ctx = mercury.create_session()
+
+    # Process detection with full transparency
+    response = mercury.process_detection(detection_result, ctx)
+    print(response.message)
+    # "Detected significant anomaly (score: 0.87). Based on 3 similar
+    #  historical cases, this pattern escalated 67% of the time.
+    #  Confidence: 82%. Recommendation: Clinical review within 4 hours."
+"""
 
 from omni_mercury_engine.narrative.engine import (
     ConfidenceLevel,

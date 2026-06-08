@@ -1,5 +1,15 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""GOSNN Hub Optimizer."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""GOSNN Hub Optimizer.
+
+Optimizations for the Global Omni-Scalar Network (GOSNN):
+- SHAP-based scalar importance analysis
+- Tightened ethical gating (σ_Immutable ≥0.93 as hard constraint)
+- Scalar pruning for low-impact components
+- Multi-head attention optimization (32-head triadic φ-weighting)
+- Bidirectional synaptic integration with <2% overhead
+- Real-time monitoring and profiling
+"""
 
 from __future__ import annotations
 

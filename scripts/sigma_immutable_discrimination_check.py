@@ -1,6 +1,64 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""σ_Immutable discrimination probe.
+
+The σ_Immutable gate is a *fail-closed* safety gate on
+``OmniMercuryEngine.detect_with_fusion``.  It was trained
+(``scripts/train_sigma_immutable.py``) on synthetic data whose
+labelling rule is ``label=1 ⇔ all 27 ETHICAL-band dims ≥ 0.93``; on the
+engine path it is scored against the vector produced by the *real*
+``GlobalOmniScalarNetwork._collect_all_scalars()`` assembly.
+
+This script answers one question and lets the numbers carry the verdict:
+
+    Does the gate actually separate good from bad inputs, or is it
+    near-constant-PASS — i.e. false assurance?
+
+It does **not** retrain, reweight, or touch the gate layout.  It only
+observes.  It feeds hand-justified benign and adversarial scalar states
+through the exact production assembly --
+
+    full_scalars = gosnn._collect_all_scalars()              # engine.py:2433
+    scalar_vector = np.array(list(full_scalars.values()))     # engine.py:2434
+    evaluation   = sigma_immutable_gate.enforce(...)          # engine.py:2435
+
+-- using the live ``get_sigma_immutable_gate()`` singleton (the same
+object ``OmniMercuryEngine`` wires at engine.py:737) and a live
+``GlobalOmniScalarNetwork`` whose ETHICAL band is set to each scenario.
+``get_enhanced_scalars`` does not mutate ``scalar_groups`` and
+``register_scalars`` runs only *after* ``enforce`` (engine.py:2458), so
+this assembly is what the gate sees in production.
+
+The adversarial states are NOT resampled from the synthetic training
+distribution.  They are perturbations of the *production default* vector
+-- the fixed operating point the engine actually feeds -- which is the
+realistic threat surface.
+
+Pass/fail criterion (stated before the run, see ``CRITERION`` below):
+
+    The gate DISCRIMINATES iff its output moves between the two classes
+    by a measurable margin.  It is NEAR-CONSTANT-PASS (a FAIL result,
+    reported as the headline finding of #242) iff it passes (almost)
+    every adversarial input, OR its decision/score is effectively
+    constant across both classes.
+
+Independently of that binary verdict, the probe reports the
+*false-assurance set* -- adversarial cases the gate PASSES -- because a
+gate that discriminates in aggregate can still leak specific,
+safety-relevant single-dimension violations.
+
+Exit codes::
+
+    0  gate discriminates
+    2  gate is near-constant-PASS  (headline FAIL finding)
+    3  gate could not be evaluated (untrained / torch absent) -- the
+       probe itself could not run, distinct from a gate verdict.
+
+Usage::
+
+    python scripts/sigma_immutable_discrimination_check.py [--json PATH]
+"""
 
 from __future__ import annotations
 

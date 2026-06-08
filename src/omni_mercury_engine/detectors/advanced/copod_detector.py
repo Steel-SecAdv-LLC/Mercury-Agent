@@ -1,5 +1,22 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""COPOD: Copula-Based Outlier Detection."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""COPOD: Copula-Based Outlier Detection.
+
+Implements empirical copula-based outlier detection (Li et al., ICDM 2020):
+1. Empirical copula for modeling multivariate dependencies
+2. Tail probability estimation for extreme value detection
+3. Parameter-free with linear time complexity O(n*d)
+
+Key Advantages:
+- No hyperparameters to tune
+- Linear time complexity (fast)
+- Interpretable per-feature scores
+- Handles multivariate dependencies naturally
+
+Reference:
+- Li, Z., Zhao, Y., Botta, N., et al. (2020). COPOD: Copula-Based Outlier Detection.
+  IEEE International Conference on Data Mining (ICDM).
+"""
 
 from __future__ import annotations
 

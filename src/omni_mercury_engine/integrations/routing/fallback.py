@@ -1,5 +1,29 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Fallback handler chain for graceful degradation.
+
+Example:
+    Basic fallback chain::
+
+        from omni_mercury_engine.integrations.routing import FallbackChain, FallbackHandler
+
+        chain = FallbackChain()
+
+        @chain.handler(priority=0)
+        async def primary_handler(request):
+            return await external_service.call()
+
+        @chain.handler(priority=1)
+        async def cached_fallback(request):
+            return cache.get(request.key)
+
+        @chain.handler(priority=2)
+        async def default_fallback(request):
+            return {"status": "degraded", "data": default_response}
+
+        # Execute with automatic fallback
+        result = await chain.execute(request)
+"""
 
 from __future__ import annotations
 

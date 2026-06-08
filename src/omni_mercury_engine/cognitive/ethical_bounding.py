@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Ethical Bounding and Benevolence Scoring.
 
 Implements Phase 6 of the neuro-symbolic evolution:

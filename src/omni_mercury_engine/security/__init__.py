@@ -1,5 +1,14 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""This package hosts *implementation primitives* (crypto backends, PQC."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Security primitives for Mercury Agent.
+
+This package hosts *implementation primitives* (crypto backends, PQC
+key material, audit logging, safe I/O guards, rate limiting, threat
+detection). Governance and policy frameworks (NIST CSF, OSHA / eCFR,
+TLP) live in :mod:`omni_mercury_engine.compliance`; downstream code
+should import those names from ``compliance`` rather than from
+``security``.
+"""
 
 from __future__ import annotations
 

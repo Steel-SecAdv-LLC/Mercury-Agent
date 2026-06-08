@@ -1,5 +1,22 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""External Information Retrieval - Web Search and Database Queries.
+
+Extends Mercury's knowledge capabilities with external information sources:
+- Web Search (DuckDuckGo, Google, custom search APIs)
+- Database Queries (SQLite, PostgreSQL, custom connectors)
+- API Integration (REST, GraphQL endpoints)
+- Document Retrieval (local files, archives)
+
+Offline Capability:
+    When online: Fetches real-time external information
+    When offline: Returns cached results or gracefully degrades
+
+Security:
+    - All queries are sanitized to prevent injection
+    - Rate limiting prevents abuse
+    - Results are validated before use
+"""
 
 from __future__ import annotations
 

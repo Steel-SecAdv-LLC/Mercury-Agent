@@ -1,5 +1,15 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+r"""Operator tool: standalone fairness audit (Fairlearn DPD / EOD / 80%-rule).
+
+Fairlearn is already a Mercury dependency but it has no operator entry
+point — the only way to audit a detector's fairness was to write a
+bespoke script.  This tool exposes the canonical demographic-parity,
+equalized-odds, and four-fifths-rule metrics behind a single CLI::
+
+    python -m omni_mercury_engine.tools.bias_audit_standalone \
+        --detector fusion --data X.npy --sensitive demo.npy
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Quantum-inspired anomaly detection model with real quantum algorithms."""
 
 from __future__ import annotations

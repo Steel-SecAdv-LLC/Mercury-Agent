@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Advanced Context Providers for VLM-based Anomaly Detection.
 
 Extends the base context provider system with:

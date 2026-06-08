@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Attention mechanisms for detector fusion and cross-modal integration."""
 
 from __future__ import annotations

@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """ABMS Medical Disciplines Integration Module.
 
 Comprehensive integration of American Board of Medical Specialties (ABMS) disciplines

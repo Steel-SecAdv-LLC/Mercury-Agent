@@ -1,5 +1,75 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+r"""Capacity sweep for the fusion network's ``hidden_dim`` — the evidence behind the default checkpoint's width.
+
+Why this exists
+---------------
+``hidden_dim`` should be chosen on held-out performance. A single training run
+cannot justify a width: anomaly-detection AUC has real seed-to-seed variance,
+so a one-shot "128 beats 32 by 0.014" can be pure noise. This harness measures
+each candidate width across multiple seeds and multiple genuinely-labelled
+datasets, then reports paired-difference statistics so the decision rests on
+signal, not a sample of one.
+
+Protocol (per ``dim`` x ``seed`` x ``dataset``)
+    1. Stratified train/test split (seeded).
+    2. ``engine.fit_fusion`` on the train split — fits detectors on train only,
+       trains the head with FocalLoss, fits temperature calibration.
+    3. ``engine.score_fusion`` on the held-out test split — this is the true
+       serve path (restricted to trained feature groups + temperature-applied),
+       so the measured AUC/ECE is what production would see.
+    4. ROC-AUC (ranking) and ECE (calibration) recorded.
+
+Aggregation reports unpooled mean+std for every dim and, more importantly, the
+paired-difference statistics ``(other - default_dim)`` per (dataset, seed): mean
+delta, sample std, SEM, paired t, sign counts. The paired analysis isolates the
+seed-noise component that the unpooled mean+std confound with dataset variance.
+
+Bump criterion (when to change the shipped default width)
+---------------------------------------------------------
+A larger width replaces the shipped default if and only if **all three** hold:
+
+    1. paired mean AUC delta (other - default) >= +0.02
+    2. paired t-statistic (mean / SEM) >= +2.0
+    3. mean ECE not worse on the candidate
+
+This threshold is calibrated to the empirical seed-noise floor measured in the
+v3 sweep (one-SEM was ~0.013 on n=24 paired runs). Anything below it is
+indistinguishable from re-running the same width twice; anything at or above it
+is real signal that justifies the change. The criterion is a checklist, not a
+cost calculation — Mercury Agent is not constrained on parameter count;
+the width that is best on the evidence is the width that ships.
+
+Independent axis: time-series
+-----------------------------
+The classical-tabular ADBench axis (``--source real``) is one half of the
+evidence. The other half is time-series anomaly detection on the UCR Archive
+(``--source ucr``), reframed one-vs-rest. A width change must clear the bump
+criterion on **both** axes before being adopted, so a choice that happens to
+suit tabular but not signal data does not silently propagate to the medical /
+energy deployments Mercury Agent ships for.
+
+Usage:
+    # Headline ADBench sweep (needs network on first run):
+    python -m scripts.sweep_fusion_capacity --source real \\
+        --dims 16,32,48,64,96 \\
+        --seeds 0,1,2,3,4,5,6,7 \\
+        --datasets cardio,mammography,pendigits,annthyroid,satellite,Pima,WBC,Ionosphere,\\
+                   thyroid,vowels,letter,musk,optdigits,shuttle,glass,vertebral \\
+        --epochs 120 --cap-per-dataset 5000 \\
+        --output benchmarks/fusion_capacity/sweep_real_v4.json
+
+    # Independent time-series cross-check:
+    python -m scripts.sweep_fusion_capacity --source ucr \\
+        --dims 16,32,48,64,96 \\
+        --seeds 0,1,2,3,4,5,6,7 \\
+        --datasets ECG5000,ECGFiveDays,Wafer,FordA,FordB,Earthquakes,Strawberry,Coffee \\
+        --epochs 120 --cap-per-dataset 5000 \\
+        --output benchmarks/fusion_capacity/sweep_ucr_v1.json
+
+    # Offline smoke:
+    python -m scripts.sweep_fusion_capacity --source synthetic --seeds 0,1
+"""
 
 from __future__ import annotations
 

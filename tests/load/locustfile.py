@@ -1,5 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Mercury Agent Load Testing Infrastructure.
+# SPDX-License-Identifier: GPL-3.0-or-later
+r"""Mercury Agent Load Testing Infrastructure.
 
 Comprehensive load testing suite using Locust for the Mercury Agent API.
 Tests API performance under various load conditions and validates SLOs.
@@ -9,10 +10,12 @@ Usage:
     locust -f tests/load/locustfile.py --host http://localhost:8000
 
     # Headless mode with specific users and duration
-    locust -f tests/load/locustfile.py --host http://localhost:8000         --headless -u 100 -r 10 --run-time 5m
+    locust -f tests/load/locustfile.py --host http://localhost:8000 \
+        --headless -u 100 -r 10 --run-time 5m
 
     # Generate HTML report
-    locust -f tests/load/locustfile.py --host http://localhost:8000         --headless -u 50 -r 5 --run-time 2m --html=report.html
+    locust -f tests/load/locustfile.py --host http://localhost:8000 \
+        --headless -u 50 -r 5 --run-time 2m --html=report.html
 
 Environment Variables:
     MERCURY_API_HOST: API host (default: http://localhost:8000)

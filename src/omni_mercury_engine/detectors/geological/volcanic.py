@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Volcanic Eruption Detector - Multi-Modal Volcano Monitoring.
 
 Comprehensive volcanic hazard detection for humanitarian early warning:

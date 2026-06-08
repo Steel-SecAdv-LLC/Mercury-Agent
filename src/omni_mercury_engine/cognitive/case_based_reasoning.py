@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Case-Based Reasoning Engine.
 
 Implements case-based reasoning for learning from historical anomalies:

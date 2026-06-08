@@ -1,5 +1,13 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Common Alerting Protocol (CAP) 1.2 XML message generator."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Common Alerting Protocol (CAP) 1.2 XML message generator.
+
+Generates valid CAP 1.2 XML payloads from Mercury anomaly detections. CAP is the international
+standard for emergency alerts used by FEMA IPAWS, WMO, and emergency management agencies worldwide.
+
+Reference:
+http://docs.oasis-open.org/emergency/cap/v1.2/CAP-v1.2.html
+"""
 
 from __future__ import annotations
 

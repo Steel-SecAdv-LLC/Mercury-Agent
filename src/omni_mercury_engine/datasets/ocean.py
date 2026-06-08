@@ -1,5 +1,15 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Ocean Dataset Loaders - REAL Marine and Oceanographic Data.
+
+This module provides loaders for real-world ocean and marine datasets
+for anomaly detection in oceanographic monitoring:
+- NOAA Buoy: Real-time buoy observations (wave height, temperature, wind)
+- Argo Floats: Deep ocean temperature/salinity profiles
+- Sea Surface Temperature: SST anomalies for climate monitoring
+
+All data sources are free and require no authentication.
+"""
 
 from __future__ import annotations
 

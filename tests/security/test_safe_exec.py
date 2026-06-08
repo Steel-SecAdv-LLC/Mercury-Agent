@@ -1,5 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Gate tests for :mod:`omni_mercury_engine.security.safe_exec`."""
 
 from __future__ import annotations
 

@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Hurricane/Cyclone/Typhoon Detector - Tropical Cyclone Monitoring System.
 
 Comprehensive tropical cyclone detection for humanitarian early warning:

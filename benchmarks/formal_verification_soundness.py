@@ -1,5 +1,30 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Formal-verification soundness: does the dormant interval-bound propagator."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+r"""Formal-verification soundness: does the dormant interval-bound propagator produce *sound* output certificates for a network over an input region?
+
+`formal_verification.py` was orphaned and un-revivable by anomaly-AUC -- it emits
+satisfiability proofs / certified bounds, not anomaly scores. The right metric for
+a verifier is **soundness**: when it certifies that a network's output stays
+within an interval over a whole input box, that certificate must *always* contain
+the true output range (a sound verifier never certifies a false bound). The
+secondary metric is **tightness**: a sound-but-vacuous verifier (certifying
+(-inf, inf)) is useless, so we also measure how close the certified interval is to
+the true sampled range.
+
+This is the third non-AUC measurement framework (after causal recovery and
+explanation fidelity). It is self-contained: random small ReLU networks and random
+input boxes provide ground truth (the true output range is found by dense
+sampling), against which `IntervalBoundPropagator`'s certificate is checked.
+
+Pre-registered bar: the propagator is *validated* if it is **100% sound** across
+all random cases (its interval always contains the densely-sampled true range)
+and the mean tightness ratio is finite (non-vacuous certificates).
+
+Usage::
+
+    python -m benchmarks.formal_verification_soundness --n-cases 200 \\
+        --out artifacts/formal_verification_soundness.json
+"""
 
 from __future__ import annotations
 

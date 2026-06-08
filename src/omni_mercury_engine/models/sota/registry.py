@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Mercury Agent SOTA Model Registry.
 
 Provides a unified interface for accessing state-of-the-art anomaly detection

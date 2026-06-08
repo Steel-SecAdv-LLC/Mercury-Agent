@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """EU AI Act risk **tier gate / tag** -- by design never a scalar.
 
 The EU AI Act (Regulation (EU) 2024/1689) classifies an AI system into a risk *tier* from

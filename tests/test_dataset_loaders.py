@@ -1,5 +1,9 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Tests for Dataset Loaders."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for Dataset Loaders.
+
+Comprehensive tests for industrial and UCR archive dataset loaders.
+"""
 
 from __future__ import annotations
 

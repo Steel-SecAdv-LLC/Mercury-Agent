@@ -1,5 +1,12 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Financial market data service stub for testing and development.
+
+Example:
+    >>> service = FinancialServiceStub()
+    >>> price = await service.get_price("AAPL")
+    >>> print(f"AAPL: ${price.price}")
+"""
 
 from __future__ import annotations
 

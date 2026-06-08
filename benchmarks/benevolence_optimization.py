@@ -1,5 +1,28 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Benevolence Optimization Module - Ethical Gating Variations.
+
+This module implements 6 mathematical variations for the ethical gating threshold
+(sigma_Immutable) as part of the weighted fusion Equation optimization.
+
+Mathematical Variations:
+1. Quadratic: (threshold - sigma)^2 for convex Lyapunov stability
+2. Linear: max(0, threshold - sigma) for quick veto clamping
+3. Sigmoid: 1 / (1 + exp(k*(sigma - threshold))) for smooth probabilistic transition
+4. Exponential: exp(-k*(sigma - threshold)) for sharp critical vetoes
+5. Piecewise (Hybrid): Linear for small deviations, quadratic for large
+6. Gaussian RBF: exp(-((sigma - threshold)^2)/(2*var)) for localized penalties
+
+The Civilization-First philosophy ensures:
+- Benevolence >= 0.99 (verified through ethical immutability)
+- sigma_Immutable ensures ethical bounds cannot be overridden
+- Harm reduction, equity (Gini coefficient), and empathy modeling are explicit
+
+References:
+- Lyapunov stability: Khalil, H.K. (2002) Nonlinear Systems
+- Golden ratio applications: Livio (2002) The Golden Ratio
+- Ethical AI: Floridi et al. (2018) AI4People
+"""
 
 from __future__ import annotations
 

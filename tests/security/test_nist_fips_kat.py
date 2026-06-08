@@ -1,5 +1,26 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Phase 2 Deliverable 7 — NIST FIPS KAT vectors for ML-DSA-65,."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Phase 2 Deliverable 7 — NIST FIPS KAT vectors for ML-DSA-65, ML-KEM (Kyber-1024), and SLH-DSA (SPHINCS+).
+
+Test vectors are curated from the NIST ACVP-Server canonical test data:
+https://github.com/usnistgov/ACVP-Server/tree/master/gen-val/json-files
+
+The curated subset lives in ``tests/security/data/nist_kat/nist_acvp_curated.json``
+with 3 vectors per algorithm-operation pair.
+
+These tests go beyond round-trip-only: they perform **bit-for-bit
+reproducibility checks** against NIST reference outputs.
+
+- ML-DSA-65 sigGen: verify that the NIST-provided signature is accepted by
+  AMA's ``dilithium_verify``, confirming interop with the reference impl.
+- ML-KEM-1024 decapsulation: verify that AMA's ``kyber_decapsulate`` with
+  the NIST-provided (dk, c) produces the expected shared secret ``k``.
+- SLH-DSA sigGen: verify that NIST-provided signatures are accepted by
+  AMA's ``sphincs_verify``.
+
+AMA's PQC backend is mandatory; missing AMA/PQC fails module import rather than
+skipping.
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Disaster Precursor Detector - Schumann Resonance + Multi-Source Correlation.
 
 Advanced disaster early warning using Schumann resonance anomalies:

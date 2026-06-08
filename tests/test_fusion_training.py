@@ -1,5 +1,10 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Integration tests for fusion model training."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Integration tests for fusion model training.
+
+Tests for Issue #1 (Untrained Fusion Neural Network) and Issue #6 (Feature Dimension Mismatch).
+Validates that OmniFusionModel can be trained and produces meaningful scores.
+"""
 
 from typing import Any
 

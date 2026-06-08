@@ -1,6 +1,15 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Unified benchmark runner for all domain-specific anomaly detectors."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Unified benchmark runner for all domain-specific anomaly detectors.
+
+Orchestrates all domain benchmarks, produces a unified report, and
+exits non-zero if any domain fails to meet its AUC threshold.
+
+Usage:
+    python benchmarks/run_all_benchmarks.py [--domains earthquake,tsunami,...]
+    python benchmarks/run_all_benchmarks.py --all
+"""
 
 from __future__ import annotations
 

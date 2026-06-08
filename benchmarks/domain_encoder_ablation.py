@@ -1,5 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Differentiable domain-encoder ablation (WS-B / Target 2).
+# SPDX-License-Identifier: GPL-3.0-or-later
+r"""Differentiable domain-encoder ablation (WS-B / Target 2).
 
 Faithful, paired comparison on real ADBench labels of the **actual wired
 feature** -- the opt-in differentiable domain encoder in the production fusion
@@ -31,7 +32,10 @@ seeds; otherwise the default stays off (quarantined).
 
 Usage::
 
-    python benchmarks/domain_encoder_ablation.py         --datasets cardio Pima thyroid --seeds 0 1 2         --fractions 0.25 1.0 --epochs 25         --out artifacts/domain_encoder_ablation.json
+    python benchmarks/domain_encoder_ablation.py \\
+        --datasets cardio Pima thyroid --seeds 0 1 2 \\
+        --fractions 0.25 1.0 --epochs 25 \\
+        --out artifacts/domain_encoder_ablation.json
 """
 
 from __future__ import annotations

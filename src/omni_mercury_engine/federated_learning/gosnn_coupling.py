@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Bidirectional GOSNN weight coupling for federated learning.
 
 Replaces the prior one-way (server → client) integration flagged by the

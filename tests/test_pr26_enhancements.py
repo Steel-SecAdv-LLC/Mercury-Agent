@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Tests for PR #26 enhancements: DB term, N term, RNG utility, LWE encryption."""
 
 from __future__ import annotations

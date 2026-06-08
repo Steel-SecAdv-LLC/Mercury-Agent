@@ -1,5 +1,16 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: HSM / TPM / YubiHSM attestation probe.
+
+Reads ``MERCURY_HSM=pkcs11|tpm2|yubihsm`` and attempts to fetch and
+verify the device attestation chain.  Fails closed in production
+(:func:`omni_mercury_engine.tools._base.require_real_component`); warns
+in development/CI when the backend is unreachable.
+
+The probe is intentionally read-only — it never generates or imports
+keys.  All it does is enumerate the on-device certificate chain and
+report a SHA-256 over the chain so an auditor can pin the result.
+"""
 
 from __future__ import annotations
 

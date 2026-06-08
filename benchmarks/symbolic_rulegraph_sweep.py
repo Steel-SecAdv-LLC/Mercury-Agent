@@ -1,5 +1,27 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Rule-graph sweep: does richer symbolic structure beat the minimal 2-rule."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+r"""Rule-graph sweep: does richer symbolic structure beat the minimal 2-rule consensus constraint?
+
+This is the measured-revival gate for the *threshold-rule* idea of the dormant
+``cognitive/symbolic_logic_layer.py``, reborn as a differentiable axiom. The
+``consensus`` graph has two rules over a single AND-like learned ``Consensus``
+predicate. The ``consensus_salience`` graph adds a disjunctive recall rule over
+a soft-existential ``Salient`` predicate (per-detector learnable soft thresholds
+-- the differentiable analog of a ``ThresholdRule``): "if any single detector
+saliently fires, fusion is anomalous".
+
+Both graphs are compared **within the same cell** (same dataset / seed / split /
+initialisation) under the adaptive schedule, so the only difference is the rule
+graph. Pre-registered decision: adopt ``consensus_salience`` as the default only
+if it beats ``consensus`` by > +0.002 mean low-data ΔAUC with a majority of seeds
+agreeing. The bar is not moved to manufacture a change.
+
+Usage::
+
+    python -m benchmarks.symbolic_rulegraph_sweep \\
+        --datasets cardio thyroid WBC --seeds 0 1 2 \\
+        --fractions 0.1 0.25 0.5 --out artifacts/symbolic_rulegraph_sweep.json
+"""
 
 from __future__ import annotations
 

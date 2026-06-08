@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Real-World Dataset Loaders for Mercury Agent.
 
 All loaders fetch REAL DATA from official sources. Synthetic fallbacks are

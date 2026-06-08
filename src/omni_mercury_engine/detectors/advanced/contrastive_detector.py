@@ -1,5 +1,20 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Contrastive Learning Detector for Anomaly Detection."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Contrastive Learning Detector for Anomaly Detection.
+
+Implements SimCLR-style contrastive learning adapted for anomaly detection:
+1. Time-series augmentation strategies
+2. NT-Xent (Normalized Temperature-Scaled Cross Entropy) loss
+3. Hard negative mining for anomaly-specific learning
+4. Representation-based anomaly scoring
+
+Key Insight: Normal samples form tight clusters in representation space;
+anomalies are distant from these clusters.
+
+Reference:
+- Chen et al. (2020) - A Simple Framework for Contrastive Learning
+- Shenkar & Wolf (2022) - Anomaly Detection for Tabular Data with IC
+"""
 
 from __future__ import annotations
 

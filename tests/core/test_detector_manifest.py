@@ -1,5 +1,13 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Tests for the data-driven detector manifest and auto-discovery refactor."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for the data-driven detector manifest and auto-discovery refactor.
+
+Verifies that:
+- DETECTOR_MANIFEST is a well-formed list with no duplicates
+- auto_discover_detectors uses the manifest correctly
+- DetectorManifestEntry dataclass validates fields
+- The manifest covers all expected detector categories
+"""
 
 from __future__ import annotations
 

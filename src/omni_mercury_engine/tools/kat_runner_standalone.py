@@ -1,5 +1,23 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: re-run NIST FIPS 203/204/205 and RFC 8032 known-answer tests outside pytest, and emit a signed JSON certificate suitable for an external auditor.
+
+The Mercury KAT *test suite* lives under ``tests/security/`` and is
+exercised by pytest in CI; that suite is the regression contract for
+correctness.  This tool re-uses the same curated vectors
+(``tests/security/data/nist_kat/nist_acvp_curated.json``) and the
+RFC 8032 §7.1 Ed25519 vectors built-in below, but executes them
+through a stripped-down driver so an auditor receives:
+
+* a single canonical JSON file with one record per vector;
+* algorithm/operation/tcId, expected/produced hashes, pass/fail;
+* optional Ed25519 detached signature over the canonical bytes so
+  the artefact is tamper-evident at rest.
+
+This is *evidence emission*, not test discovery.  Mercury imports only
+with real AMA/PQC, so PQC vectors must execute rather than degrade to
+skips.
+"""
 
 from __future__ import annotations
 

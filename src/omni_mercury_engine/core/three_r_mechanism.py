@@ -1,8 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Recursion-Resonance-Refactoring (3R) Mechanism.
-
-Adaptive enhancement system using self-referential processing,
-frequency-domain amplification, and dynamic optimization.
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Recursion-Resonance-Refactoring (3R) Mechanism Adaptive enhancement system using self-referential processing, frequency-domain amplification, and dynamic optimization.
 
 This module has been refactored into the three_r subpackage for maintainability:
 - three_r/types.py: Enums, dataclasses, constants

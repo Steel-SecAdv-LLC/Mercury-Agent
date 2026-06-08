@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Chaos-Evolutionary Optimization for Adaptive Hyperparameter Tuning.
 
 Based on: Chaos Game Optimization - A novel metaheuristic algorithm inspired by chaotic dynamics

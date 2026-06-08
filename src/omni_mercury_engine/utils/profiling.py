@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Performance profiling utilities for Mercury Agent.
 
 Provides four decorators, one context manager, and one benchmarking helper

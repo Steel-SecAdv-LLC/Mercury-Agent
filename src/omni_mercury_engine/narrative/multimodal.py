@@ -1,5 +1,18 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Multi-Modal Support - Image and Audio Analysis Narration.
+
+Extends Mercury's narrative capabilities to describe and explain:
+- Visual anomaly detection (images, video frames)
+- Audio anomaly detection (spectrograms, waveforms)
+- Biometric analysis results
+- Industrial visual inspection
+
+Architecture:
+    Detection Result → Multi-Modal Analyzer → Narrative Engine → Human Description
+
+This enables Mercury to explain what it "sees" and "hears" in human terms.
+"""
 
 from __future__ import annotations
 

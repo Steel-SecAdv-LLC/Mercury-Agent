@@ -1,5 +1,13 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Comprehensive benchmarking across all real-world datasets with:."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Real-World Benchmark Suite for Mercury Agent.
+
+Comprehensive benchmarking across all real-world datasets with:
+- Per-sample precision, recall, F1
+- Cross-domain evaluation
+- Statistical significance testing
+- Baseline comparisons
+"""
 
 from __future__ import annotations
 

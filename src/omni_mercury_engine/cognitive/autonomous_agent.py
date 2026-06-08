@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Autonomous Agent - OODA Loop, User Synchronization, and Self-Maintenance.
 
 Implements Phase 5 of the neuro-symbolic evolution:

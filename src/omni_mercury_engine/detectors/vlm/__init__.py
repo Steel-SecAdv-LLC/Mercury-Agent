@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Vision-Language Model (VLM) Anomaly Detection Module.
 
 Zero-shot and customizable anomaly detection using Large Vision-Language Models.

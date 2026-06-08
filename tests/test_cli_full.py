@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Comprehensive CLI tests covering all commands with correct flag signatures."""
 
 from __future__ import annotations

@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Neuro-Symbolic Fusion Engine - Hybrid Anomaly Scoring.
 
 Integrates the Neural Memory Layer and Symbolic Logic Layer into a unified

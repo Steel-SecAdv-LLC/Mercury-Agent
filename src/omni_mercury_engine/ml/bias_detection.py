@@ -1,5 +1,19 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""ML Bias Detection and Fairness Evaluation Module.
+
+Provides production-ready bias detection using Fairlearn metrics:
+- Demographic parity assessment
+- Equalized odds evaluation
+- Disparate impact analysis
+- Group fairness metrics
+
+This module implements honest, validated fairness metrics without
+exaggerated claims. All metrics are standard implementations from
+the fairness ML literature.
+
+Reference: Fairlearn documentation (https://fairlearn.org/)
+"""
 
 from __future__ import annotations
 

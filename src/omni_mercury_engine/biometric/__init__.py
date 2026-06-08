@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Biometric Recognition Module for Mercury Agent.
 
 Provides multi-modal biometric authentication including iris, fingerprint,

@@ -1,5 +1,10 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Tests for Calibration Validation Harness."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for Calibration Validation Harness.
+
+Tests for benchmarks/calibration_validation.py covering all three
+math debt validations (MD-011, MD-003, MD-005) on synthetic data.
+"""
 
 from __future__ import annotations
 

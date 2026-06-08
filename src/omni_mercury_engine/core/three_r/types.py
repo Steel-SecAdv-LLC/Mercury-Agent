@@ -1,5 +1,9 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""3R Mechanism Type Definitions."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""3R Mechanism Type Definitions.
+
+Type definitions, enums, and dataclasses for the 3R Mechanism.
+"""
 
 from __future__ import annotations
 

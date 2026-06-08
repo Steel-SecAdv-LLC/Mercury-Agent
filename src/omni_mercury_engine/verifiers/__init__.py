@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Oracle-validated verifiers that ground GOSNN scalars in independently checkable truth.
 
 Every verifier follows the same shape -- a certificate adjudicated by an oracle independent of

@@ -1,5 +1,19 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Secure Audit Logging System."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Secure Audit Logging System.
+
+Production-grade secure audit logging providing:
+- Cryptographically signed audit logs
+- Tamper-evident log chains (hash-linked)
+- Secure log rotation with integrity verification
+- PII masking and sanitization
+- Compliance-ready audit trail (SOC2, HIPAA, GDPR)
+- Constant-time comparisons for sensitive operations
+- Rate limiting for audit log access
+- Encrypted log storage option
+
+This addresses the security audit finding: "No Audit Log Integrity"
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Economic & Financial Crisis Detector - Market Anomaly Detection.
 
 Comprehensive financial crisis detection for economic resilience:

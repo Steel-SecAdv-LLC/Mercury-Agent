@@ -1,5 +1,12 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Domain loader for flood data from NOAA AHPS and USGS Water Services."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Domain loader for flood data from NOAA AHPS and USGS Water Services.
+
+Connects to the USGS National Water Information System (NWIS) Instantaneous Values web service to
+retrieve streamflow gauge height and discharge time series.  Ground truth events cover major US
+flood disasters where gauge readings exceeded documented NWS flood stages, plus supplemental FEMA
+disaster declaration data for broader context.
+"""
 
 from __future__ import annotations
 

@@ -1,5 +1,12 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Domain loader for landslide data from NASA Global Landslide Catalog (COOLR)."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Domain loader for landslide data from NASA Global Landslide Catalog (COOLR).
+
+Connects to the NASA Cooperative Open Online Landslide Repository (COOLR) ArcGIS REST endpoint to
+provide global landslide event data for Mercury anomaly detection.  Ground truth events cover major
+catastrophic landslides where fatal or large-scale events are labeled as anomalies against a
+background of smaller, non-fatal slope failures.
+"""
 
 from __future__ import annotations
 

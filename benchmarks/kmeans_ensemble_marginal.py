@@ -1,5 +1,27 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""K-means-distance detector: does the revived dormant clusterer ADD to the."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+r"""K-means-distance detector: does the revived dormant clusterer ADD to the fusion ensemble?
+
+``benchmarks/dormant_module_revival.py`` established that the dormant
+``KMeansClusterer`` (revived as ``detectors.kmeans_distance.KMeansDistanceDetector``)
+carries real *standalone* anomaly signal on ADBench (mean AUC ~0.86). Standalone
+signal is necessary but not sufficient: the live ensemble already ships a
+distance/density detector (``spatial``), so the detector earns a place in the
+*default* set only if it improves the **fused** ROC-AUC. This is the marginal
+ablation: each (dataset, seed) trains the fusion model from the same split and
+initialisation with and without the k-means detector, differing only in that
+one feature group.
+
+Pre-registered gate (same conservative noise floor as the neuro-symbolic
+ablation): add to the default ensemble iff mean ΔAUC > +0.002 with a majority of
+seeds agreeing. The bar is not moved to manufacture a pass.
+
+Usage::
+
+    python -m benchmarks.kmeans_ensemble_marginal \\
+        --datasets cardio thyroid breastw WBC Pima --seeds 0 1 2 \\
+        --out artifacts/kmeans_ensemble_marginal.json
+"""
 
 from __future__ import annotations
 

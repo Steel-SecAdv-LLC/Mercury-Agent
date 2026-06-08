@@ -1,5 +1,14 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for JWT authentication edge cases and fail-closed production behavior.
+
+Covers:
+- Missing JWT_SECRET_KEY environment variable
+- Expired JWT tokens
+- Malformed JWT tokens
+- Invalid signatures
+- Missing required claims
+"""
 
 from __future__ import annotations
 

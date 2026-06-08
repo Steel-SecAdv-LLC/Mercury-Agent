@@ -1,5 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for the domain benchmark base infrastructure: - compute_auc (trapezoidal AUC-ROC without sklearn) - compute_f1_precision_recall (F1 / precision / recall without sklearn) - run_domain_benchmark (end-to-end with a mock loader)."""
 
 from __future__ import annotations
 

@@ -1,5 +1,14 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: federated-round simulator.
+
+Drives the ``FederatedAggregator`` through a synthetic 3-node round,
+verifies MLE-style aggregation and the differential-privacy noise
+injection.  The federated-learning capability is structural in the
+repo; this gives operators a runtime probe so they can answer "did
+the aggregation actually run, and was DP noise injected?" with a JSON
+certificate rather than a code review.
+"""
 
 from __future__ import annotations
 

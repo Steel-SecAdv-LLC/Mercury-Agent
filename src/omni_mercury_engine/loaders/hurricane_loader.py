@@ -1,5 +1,12 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Domain loader for hurricane/cyclone data from NOAA IBTrACS (International Best Track Archive for."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Domain loader for hurricane/cyclone data from NOAA IBTrACS (International Best Track Archive for Climate Stewardship).
+
+Connects to the IBTrACS v04r01 CSV archive to provide tropical cyclone track data for Mercury
+anomaly detection.  Ground truth events cover major hurricanes where rapid intensification periods
+(wind speed increase >= 30 kt in 24 h) are labeled as anomalies against a background of normal track
+evolution.
+"""
 
 from __future__ import annotations
 

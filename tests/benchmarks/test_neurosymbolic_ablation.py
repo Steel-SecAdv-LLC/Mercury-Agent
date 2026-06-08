@@ -1,5 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Network-free unit tests for the neuro-symbolic ablation harness math."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Network-free unit tests for the neuro-symbolic ablation harness math (``benchmarks.neurosymbolic_ablation``): the false-positive-rate-at-recall metric and the transparent verdict logic. The full paired run requires real ADBench downloads and is exercised separately/manually."""
 
 from __future__ import annotations
 

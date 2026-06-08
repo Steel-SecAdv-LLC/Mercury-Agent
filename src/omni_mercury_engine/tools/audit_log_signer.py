@@ -1,5 +1,15 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: append-only, hash-chained audit log.
+
+Every gate decision is written as a JSONL line, with each entry's
+``prev_hmac`` field referencing the previous entry's HMAC.  An auditor
+can re-walk the chain forward from the genesis HMAC and detect any
+mid-chain tampering.
+
+Companion :mod:`audit_log_verifier` walks the chain and emits a
+verification certificate.
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Feature encoders for different detector types.
 
 Each encoder transforms domain-specific features into fixed-size embeddings

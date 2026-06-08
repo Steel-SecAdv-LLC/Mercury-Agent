@@ -1,5 +1,19 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: runtime-image composition auditor.
+
+Audits what's *actually* inside the Mercury runtime image (or any
+filesystem rooted at ``--root``) — non-root user, no dev tools, no
+apt cache, correct entrypoint, correct LD_LIBRARY_PATH for AMA.
+Trivy scans CVEs; this tool scans composition.
+
+Two modes:
+
+* ``--mode dockerfile`` (default when only ``Dockerfile`` is present)
+  — static-scan the repo's Dockerfile for the same posture invariants.
+* ``--mode rootfs --root /var/lib/docker/...``  — walk an extracted
+  rootfs and check live artefacts.
+"""
 
 from __future__ import annotations
 

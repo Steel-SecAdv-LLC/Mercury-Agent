@@ -1,5 +1,19 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Few-Shot Learning Framework."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Few-Shot Learning Framework.
+
+Production-grade few-shot learning for anomaly detection providing:
+- Prototypical Networks for metric-based classification
+- Matching Networks with attention mechanisms
+- Model-Agnostic Meta-Learning (MAML) for rapid adaptation
+- Siamese Networks for similarity learning
+- N-way K-shot episode generation
+- Support for 10/50/100 label experiments
+- Cross-domain few-shot transfer
+
+This addresses the critical gap where Mercury's neuro-symbolic architecture
+can demonstrate advantages over pure supervised methods in low-data regimes.
+"""
 
 from __future__ import annotations
 

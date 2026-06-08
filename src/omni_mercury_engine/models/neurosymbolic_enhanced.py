@@ -1,5 +1,30 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Enhanced Neurosymbolic Engine - State-of-the-Art Neuro-Symbolic AI."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Enhanced Neurosymbolic Engine - State-of-the-Art Neuro-Symbolic AI.
+
+This module implements cutting-edge neuro-symbolic capabilities based on:
+- Logic Tensor Networks (LTNtorch) - Differentiable fuzzy logic
+- PyReason - Temporal first-order logic with graph reasoning
+- Knowledge Graph Integration - ConceptNet, ATOMIC commonsense
+- Meta-Cognition - Self-monitoring and reasoning adjustment
+- Causal Reasoning - Causal inference and counterfactuals
+- Probabilistic Logic - Credal networks and uncertainty
+
+Research References:
+- LTNtorch: https://arxiv.org/abs/2409.16045 (JMLR 2024)
+- PyReason: https://arxiv.org/abs/2302.13482 (AAAI 2023)
+- Neuro-Symbolic AI Survey: https://arxiv.org/abs/2501.05435 (2025)
+- AlphaProof/AlphaGeometry: Mathematical reasoning (Google 2024)
+
+Architecture:
+    1. EnhancedLogicTensorNetwork - Improved LTN with multiple fuzzy semantics
+    2. TemporalGraphReasoner - PyReason-style temporal reasoning over graphs
+    3. KnowledgeGraphBridge - ConceptNet/ATOMIC integration
+    4. MetaCognitionLayer - Self-monitoring and reasoning adjustment
+    5. CausalReasoningModule - Causal inference and intervention
+    6. ProbabilisticLogicLayer - Credal networks for uncertainty
+    7. EnhancedNeurosymbolicEngine - Unified interface
+"""
 
 from __future__ import annotations
 

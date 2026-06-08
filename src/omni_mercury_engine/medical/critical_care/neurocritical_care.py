@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Neurocritical Care Module - Advanced Neurological Emergency Detection.
 
 Specialized neurocritical care for humanitarian healthcare:

@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Global Omni-Scalar Network (GOSNN) - Intelligence Fusion Hub.
 
 Implements a comprehensive scalar monitoring and fusion system.  Two

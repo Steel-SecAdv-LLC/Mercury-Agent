@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Cognitive Orchestrator - Unified Integration Layer.
 
 This is NOT theater. This module wires together all cognitive components

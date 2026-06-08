@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Three-state honesty contract for descriptive (metric-only) governance scalars.
 
 Governance, medical, and AI-assurance frameworks *describe* a system; they do not drive

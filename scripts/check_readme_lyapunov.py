@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Verify documentation Lyapunov-λ claims match the canonical constants.
 
 This script is the **import-based** λ drift gate: instead of regex-parsing

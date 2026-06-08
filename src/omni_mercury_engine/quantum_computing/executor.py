@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Quantum Circuit Execution for Mercury Agent.
 
 Provides unified execution interface for quantum circuits on simulators and real quantum hardware

@@ -1,5 +1,14 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Regression tests for ``scripts/update_readme_benchmarks.py``."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Regression tests for ``scripts/update_readme_benchmarks.py``.
+
+The README updater historically read ``data["commit"]`` and
+``data["timestamp"]``, but ``benchmarks/mercury_benchmark.py`` writes
+those provenance fields under ``data["metadata"]`` (``git_commit`` and
+``timestamp``).  These tests pin the contract that the script reads
+the canonical nested location first while still tolerating older
+flat-layout result files.
+"""
 
 from __future__ import annotations
 

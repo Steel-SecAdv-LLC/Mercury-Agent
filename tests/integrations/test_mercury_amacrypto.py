@@ -1,5 +1,15 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for AMA Cryptography integration adapter with post-quantum cryptography.
+
+Covers:
+- MercuryGuardianAdapter initialization and availability
+- EWMA/MAD timing anomaly detection
+- Crypto anomaly types and recording
+- GOSNN synapse integration
+- Attack simulation and detection
+- Fail-closed behaviour when PQC key material is absent
+"""
 
 from __future__ import annotations
 

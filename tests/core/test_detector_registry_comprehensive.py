@@ -1,5 +1,16 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Comprehensive tests for core/detector_registry.py module."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Comprehensive tests for core/detector_registry.py module.
+
+Covers:
+- DetectorRegistry registration, unregistration, lookup
+- Category indexing and tag-based filtering
+- Feature extraction (single and parallel)
+- Import path validation (security hardening)
+- Auto-discovery with manifest
+- Statistics and health check
+- Feature aggregation
+"""
 
 from __future__ import annotations
 

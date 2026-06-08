@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Differentiable domain-encoder DESIGN-SPACE sweep (WS-B follow-on).
 
 PR #262 ran one differentiable-encoder design and recorded a sub-threshold

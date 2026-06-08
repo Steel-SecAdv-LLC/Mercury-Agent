@@ -1,5 +1,12 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Domain Feature Extractors Tests."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Domain Feature Extractors Tests.
+
+Comprehensive unit tests for domain-specific feature extraction modules:
+- Medical domain: Vital sign patterns, SOFA scoring, HRV metrics
+- Financial domain: Benford's Law, transaction velocity, seasonality
+- Infrastructure domain: SCADA correlation, setpoint deviation, attack indicators
+"""
 
 from __future__ import annotations
 

@@ -1,5 +1,17 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Tests for Advanced ML Capabilities."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for Advanced ML Capabilities.
+
+Comprehensive tests for:
+- Concept drift evaluation
+- Few-shot learning
+- Cross-domain transfer
+- SHAP explainability
+- Active learning
+- Online learning
+
+These tests validate Mercury's architectural advantages over pure supervised methods.
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """TEMPEST Detection Module - Electromagnetic Emanation Security.
 
 Electromagnetic eavesdropping countermeasures and TEMPEST monitoring:

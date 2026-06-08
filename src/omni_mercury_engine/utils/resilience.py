@@ -1,5 +1,44 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""This module provides patterns for building resilient applications:."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Resilience and error recovery utilities for Mercury Agent.
+
+This module provides patterns for building resilient applications:
+- Circuit breaker pattern for failing fast
+- Retry with exponential backoff
+- Graceful shutdown handling
+- Health check utilities
+- Bulkhead isolation
+
+Example:
+    Using circuit breaker::
+
+        from omni_mercury_engine.utils.resilience import CircuitBreaker
+
+        breaker = CircuitBreaker(failure_threshold=5, reset_timeout=60)
+
+        @breaker
+        def call_external_service() -> None:
+            return service.call()
+
+    Using retry decorator::
+
+        from omni_mercury_engine.utils.resilience import retry
+
+        @retry(max_attempts=3, backoff_factor=2.0)
+        def unreliable_operation() -> None:
+            return do_something()
+
+    Graceful shutdown::
+
+        from omni_mercury_engine.utils.resilience import GracefulShutdown
+
+        shutdown = GracefulShutdown()
+        shutdown.register_handler(cleanup_resources)
+
+        # In your main loop
+        while not shutdown.should_stop:
+            process_work()
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Ensemble Learning for Enhanced Detector Fusion.
 
 This module provides ensemble methods for combining multiple detector outputs:

@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Base classes for Vision-Language Model anomaly detection.
 
 Provides unified interface for zero-shot VLM-based anomaly detection

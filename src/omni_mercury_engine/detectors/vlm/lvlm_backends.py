@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """LVLM Backend implementations for anomaly detection.
 
 Provides unified interface for various Large Vision-Language Models:

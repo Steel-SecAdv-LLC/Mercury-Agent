@@ -1,5 +1,14 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: empirical adversarial-perturbation probe.
+
+Lyapunov gives a theoretical Lipschitz bound on score variation under
+input perturbation; this tool gives the empirical companion.  For
+every example in the input batch we apply N small Gaussian
+perturbations and measure the maximum |Δscore| / ||Δx||₂.  The result
+is a per-example "empirical Lipschitz" that should stay close to the
+theoretical bound; a large outlier signals adversarial brittleness.
+"""
 
 from __future__ import annotations
 

@@ -1,5 +1,16 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Neuro-Symbolic Benchmark Suite - 200 Epoch Training with Visualization.
+
+This module runs comprehensive benchmarks for the neuro-symbolic evolution,
+generating publication-quality visualizations for:
+- Confidence evolution over epochs
+- Domain competence heatmaps
+- Anomaly detection precision/recall
+- Ethical benevolence scores
+- Memory growth curves
+- Neural-symbolic fusion metrics
+"""
 
 import json
 import sys

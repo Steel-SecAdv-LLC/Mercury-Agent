@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Tests for omni_mercury_engine.utils.rng module.
 
 Tests the DeterministicRNG, RNGRegistry, RNGContext, and ThreadSafeRNGManager.

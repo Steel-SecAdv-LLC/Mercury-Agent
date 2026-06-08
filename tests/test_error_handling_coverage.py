@@ -1,5 +1,11 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Error Handling Coverage Tests."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Error Handling Coverage Tests.
+
+Tests for error handling and logging in production-critical modules.
+These tests ensure that exception handlers log appropriately rather than
+silently suppressing errors.
+"""
 
 from __future__ import annotations
 

@@ -1,5 +1,19 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""System-Level Mathematical Coherence Verification."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""System-Level Mathematical Coherence Verification.
+
+Implements Phase 6 of the mathematical audit specification:
+- Signal flow graph: data structure describing how signals propagate through
+  the detection pipeline (ingestion -> feature extraction -> detection ->
+  fusion -> ethical gating -> output).
+- Normalization handoff verification: validates that score ranges are
+  compatible at every boundary between pipeline stages.
+- Lyapunov runtime enforcement: runtime guard that ensures
+  V_dot <= -lambda * V at every fusion step, halting the pipeline
+  if stability is violated.
+
+Reference: Khalil (2002) "Nonlinear Systems", Chapter 4 (Lyapunov Stability).
+"""
 
 from __future__ import annotations
 

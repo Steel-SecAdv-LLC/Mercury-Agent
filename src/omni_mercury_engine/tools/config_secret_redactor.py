@@ -1,5 +1,13 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: pre-commit hook that refuses to commit ``configs/*.yaml`` (or any operator-supplied path) whose values match the :mod:`secret_scan_baseline` heuristics.
+
+This is the *config-tree* sibling of :mod:`secret_scan_baseline` —
+where that scanner walks the source tree, this one focuses on the
+declarative configuration that Mercury reads at runtime.  Common
+failure: an operator pastes a real bearer token into
+``configs/prod.yaml`` "for a quick test" and forgets to redact.
+"""
 
 from __future__ import annotations
 

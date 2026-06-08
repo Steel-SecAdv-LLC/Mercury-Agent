@@ -1,5 +1,20 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Online Learning Pipeline."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Online Learning Pipeline.
+
+Production-grade online learning pipeline providing:
+- Incremental model updates with streaming data
+- Automatic concept drift detection and adaptation
+- Mini-batch gradient updates
+- Exponential moving average for model stability
+- Buffer management for replay
+- Automatic retraining triggers
+- Performance monitoring and alerting
+
+This addresses the critical gaps:
+- "No Online Learning" identified in audit
+- "Drift Adaptation" partially implemented but not integrated
+"""
 
 from __future__ import annotations
 

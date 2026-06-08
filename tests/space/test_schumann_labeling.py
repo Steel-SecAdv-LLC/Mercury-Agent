@@ -1,5 +1,11 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Offline, deterministic tests for the Schumann weak-supervision labeller (WS-C)."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Offline, deterministic tests for the Schumann weak-supervision labeller (WS-C).
+
+These inject fixed NOAA-shaped catalogs (no network), so the labeling logic --
+Kp>=5 storm windows, M/X-class flare windows, documented lag, provenance, and
+label-noise disclosure -- is verified reproducibly.
+"""
 
 from __future__ import annotations
 

@@ -1,5 +1,18 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Concept Drift Evaluation Framework."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Concept Drift Evaluation Framework.
+
+Comprehensive concept drift evaluation framework providing:
+- Temporal split strategies (expanding window, sliding window, fixed)
+- Performance degradation measurement over time
+- Statistical drift detection with multiple methods
+- Automatic retraining trigger mechanisms
+- Cross-validation with temporal ordering preservation
+- Degradation curve analysis and forecasting
+
+This addresses the critical gap: Mercury can demonstrate architectural
+advantages over pure supervised methods through drift-aware evaluation.
+"""
 
 from __future__ import annotations
 

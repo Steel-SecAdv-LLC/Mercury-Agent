@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Nano-Safeguards for Micro-Anomaly Detection.
 
 Implements the N term from the Lyapunov stability framework for detecting

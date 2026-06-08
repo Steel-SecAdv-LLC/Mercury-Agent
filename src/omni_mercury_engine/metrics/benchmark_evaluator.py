@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Benchmark evaluation framework.
 
 Provides standardized evaluation across benchmark datasets.

@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Global Consciousness Project (GCP) ingestion + pre-registered statistics (WS-D).
 
 The GCP archive is ~20 years of synchronised hardware-RNG trials (~65 nodes,

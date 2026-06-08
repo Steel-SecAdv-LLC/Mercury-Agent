@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """BLIP Vision-Language Model Detector for Zero-Shot Anomaly Detection.
 
 Implements BLIPVLMDetector using Salesforce BLIP model for image captioning

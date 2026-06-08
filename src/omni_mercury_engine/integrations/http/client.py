@@ -1,5 +1,25 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""HTTP client with integrated circuit breaker, retry logic, and connection pooling.
+
+Example:
+    Basic usage::
+
+        from omni_mercury_engine.integrations.http import HTTPClient
+
+        client = HTTPClient(base_url="https://api.example.com")
+        response = await client.get("/users/123")
+        data = response.json()
+
+    With circuit breaker configuration::
+
+        client = HTTPClient(
+            base_url="https://api.example.com",
+            circuit_breaker_threshold=5,
+            circuit_breaker_timeout=60,
+            retry_attempts=3,
+        )
+"""
 
 from __future__ import annotations
 

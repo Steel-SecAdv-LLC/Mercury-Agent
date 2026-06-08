@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Space-Inspired Resilience Module.
 
 Inspired by space technology principles: reusability (Falcon 9), redundancy

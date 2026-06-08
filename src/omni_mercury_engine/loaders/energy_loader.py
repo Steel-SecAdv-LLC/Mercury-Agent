@@ -1,5 +1,14 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Domain loader for EMP/energy grid data from NOAA Space Weather and EIA."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Domain loader for EMP/energy grid data from NOAA Space Weather and EIA.
+
+Connects to the NOAA Space Weather Prediction Center (SWPC) for real-time and historical
+geomagnetic/solar data, and optionally to the U.S. Energy Information Administration (EIA) API v2
+for electricity grid data.
+
+Ground truth events cover major geomagnetic storms and grid disruptions where severe Kp indices (>=
+7) or grid supply/demand anomalies serve as anomaly labels for Mercury detection benchmarks.
+"""
 
 from __future__ import annotations
 

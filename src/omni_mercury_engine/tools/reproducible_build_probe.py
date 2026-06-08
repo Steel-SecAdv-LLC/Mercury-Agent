@@ -1,5 +1,12 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: reproducible-build probe.
+
+Drives a wheel build twice with ``SOURCE_DATE_EPOCH`` pinned and
+compares the digests.  Bit-reproducible builds are the supply-chain
+primitive every other gate (SBOM, SLSA, signed_release_bundle) tacitly
+assumes — this tool makes the assumption auditable.
+"""
 
 from __future__ import annotations
 

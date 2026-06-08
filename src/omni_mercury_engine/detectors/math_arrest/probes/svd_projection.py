@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Probe 10: SVD Projection probe for detecting dimensional collapse."""
 
 from __future__ import annotations

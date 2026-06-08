@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Tests for NarrativeEngine - Truth-Dense Communication Synthesis."""
 
 from typing import Any

@@ -1,5 +1,22 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Point-Adjustment Evaluation Protocol for Time-Series Anomaly Detection."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Point-Adjustment Evaluation Protocol for Time-Series Anomaly Detection.
+
+Implements the standard point-adjustment protocol used in time-series
+anomaly detection benchmarks (SMD, SMAP, MSL, SWaT, WADI).
+
+Key Concept: If any point within an anomaly segment is detected,
+the entire segment is considered correctly detected. This reflects
+the practical reality that detecting an anomaly anywhere in its
+duration is sufficient for alerting.
+
+This protocol is critical for fair comparison with SOTA methods
+that report F1 scores of 0.85+ on these datasets.
+
+Reference:
+- Xu et al. (2018) - Unsupervised Anomaly Detection via VAE
+- Su et al. (2019) - OmniAnomaly
+"""
 
 from __future__ import annotations
 

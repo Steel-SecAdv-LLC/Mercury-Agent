@@ -1,5 +1,29 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""MAAT: Mamba Adaptive Anomaly Transformer (arXiv 2025)."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""MAAT: Mamba Adaptive Anomaly Transformer (arXiv 2025).
+
+Implements the MAAT architecture with key innovations:
+1. Sparse Attention: Efficient O(n log n) attention for long sequences
+2. Mamba-SSM: Selective State Space Model for long-range dependencies
+3. Gated Feature Fusion: Adaptive blending of attention and SSM pathways
+
+MAAT improves upon Anomaly Transformer by:
+- Better handling of noisy, non-stationary environments
+- Improved long-range dependency capture via state space models
+- Reduced computational complexity through sparse attention
+
+Note: Full Mamba-SSM requires the mamba-ssm package. This implementation
+provides a compatible approximation when the package is unavailable.
+
+Ethical Integration:
+    - Ma'at (Egyptian goddess of truth/balance) inspired naming
+    - Balanced detection without bias amplification
+    - Transparent dual-pathway architecture for interpretability
+
+Reference:
+    Benaissa et al., "MAAT: Mamba Adaptive Anomaly Transformer", arXiv 2025.
+    https://arxiv.org/abs/2502.07858
+"""
 
 from __future__ import annotations
 

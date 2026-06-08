@@ -1,5 +1,36 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""This module provides a comprehensive logging system with:."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Structured logging module for Mercury Agent.
+
+This module provides a comprehensive logging system with:
+- Structured JSON logging for production environments
+- Colored console output for development
+- Correlation ID tracking for distributed tracing
+- Performance metrics logging
+- PII redaction capabilities
+
+Example:
+    Basic usage::
+
+        from omni_mercury_engine.utils.logging import get_logger, configure_logging
+
+        # Configure logging for the application
+        configure_logging(level="INFO", json_format=True)
+
+        # Get a logger for your module
+        logger = get_logger(__name__)
+
+        # Log with structured context
+        logger.info("Processing request", request_id="abc123", user_id="user456")
+
+    With correlation IDs::
+
+        from omni_mercury_engine.utils.logging import correlation_context
+
+        with correlation_context() as corr_id:
+            logger.info("Starting operation", correlation_id=corr_id)
+            # All logs within this context will have the same correlation_id
+"""
 
 from __future__ import annotations
 

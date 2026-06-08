@@ -1,8 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Mercury Equation Optimization Experiments.
-
-Runs 10,000+ iterations to find optimal parameters for Mercury optimizers.
-"""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Mercury Equation Optimization Experiments Runs 10,000+ iterations to find optimal parameters for Mercury optimizers."""
 
 import sys
 from pathlib import Path

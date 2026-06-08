@@ -1,5 +1,62 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Endocrinology detector with CGM Bi-LSTM and FDA-accurate rule set."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Endocrinology detector with CGM Bi-LSTM and FDA-accurate rule set.
+
+version.
+
+Ported from Omni-AXA-Engine's ``endocrinology_detector.py``.  The neural
+architecture is a Bi-LSTM with additive attention of approximately the
+same parameter count as the upstream (~155K), and the FDA-aligned
+clinical rules are preserved verbatim with their citations intact.
+Two deviations from the upstream are recorded explicitly in
+``CHANGELOG.md`` under
+*"omni_mercury_engine.medical.endocrinology_detector - Deviations
+from the original"* and must not be silently re-collapsed:
+
+* :class:`CGMAnalyzer` widens the trend-prediction head from
+  ``hidden_dim * 2 -> 32 -> 1`` to ``hidden_dim * 2 -> 64 -> 1`` to
+  match the glycemic classifier's hidden width.  Parameter count
+  stays approximately ~155K but the resulting weights are **not
+  interchangeable** with upstream checkpoints.
+* :class:`GLP1TherapyMonitor` and :class:`InhaledInsulinMonitor`
+  retain Mercury-specific reinforcing rules (e.g. duration-based
+  efficacy review, GI-side-effect tracking, MRD spirometry cadence)
+  that the upstream did not ship.  These are additive only - no
+  upstream rule has been weakened or removed.
+
+The three FDA-aligned clinical rules below are preserved exactly as
+upstream:
+
+* **Afrezza inhaled-insulin contraindication**: ``FEV1 < 70%`` triggers a
+  contraindication alert and recommends switching to subcutaneous insulin.
+  Source: FDA Afrezza label, Section 4 (Contraindications).
+* **GLP-1 discontinuation on pancreatitis**: any side-effect entry containing
+  "pancreatitis" disables continued therapy.  Source: ADA pharmacological
+  guidance and the FDA black-box warning on GLP-1 agonists.
+* **Dose-stacking guard**: rapid-acting insulin doses must be spaced at least
+  two hours apart unless glucose is verified.  Source: ADA Standards of Care.
+
+Live data integration
+---------------------
+Mercury Agent ships integration-ready, not pre-integrated.  The detector
+**requires** a :class:`~omni_mercury_engine.medical.data_sources.CGMDataSource`
+adapter; instantiating the class with ``enable_cgm=True`` but no data source
+raises :class:`~omni_mercury_engine.medical.data_sources.ConfigurationError`.
+
+Two ways to provide a data source:
+
+* Pass a configured adapter explicitly, e.g.
+  ``EndocrinologyDetector(data_source=DexcomV3DataSource())``.  The reference
+  adapter reads ``DEXCOM_CLIENT_ID`` / ``DEXCOM_CLIENT_SECRET`` /
+  ``DEXCOM_REFRESH_TOKEN`` / ``DEXCOM_REDIRECT_URI`` from the environment.
+* Implement :class:`CGMDataSource` for any other vendor (Abbott LibreView,
+  Medtronic CareLink, etc.) and pass that instance.  The contract is the
+  same; ``docs/medical/SETUP.md`` documents the extension point.
+
+Operational notes
+-----------------
+required before any output is used to influence patient care.
+"""
 
 from __future__ import annotations
 

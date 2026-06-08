@@ -1,5 +1,33 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: validate the Lyapunov stability bound the Mercury 3R fusion training contract claims.
+
+The contract — repeated in ``LyapunovConstants``, ``configs/ablation_3r_lyapunov.yaml``,
+and ``ml/training.py`` — is:
+
+    V(S_t) ≤ ε * exp(-λ * t)   for all t ≥ 0
+
+with::
+
+    λ = LYAPUNOV.LAMBDA_CONVERGENCE   = 0.25
+    ε = LYAPUNOV.EPSILON_INITIAL      = 1.0
+
+This tool reproduces the bound numerically over a discrete time grid,
+and either (a) checks a user-supplied trajectory against it, or
+(b) generates a known-stable reference trajectory
+``V(t) = ε * exp(-λ' * t)`` with ``λ' >= λ`` and asserts the bound
+holds.  Operators use it to:
+
+* prove the Lyapunov decay claim is reproducible without spinning up
+  PyTorch training;
+* re-validate a saved training trajectory (``.npy`` of V-values) before
+  shipping a checkpoint.
+
+The window-of-stability check matches
+``LyapunovConstants.STABILITY_WINDOW = 10`` — a trajectory that
+satisfies the bound for ``STABILITY_WINDOW`` consecutive samples after
+the last violation is considered re-stabilised.
+"""
 
 from __future__ import annotations
 

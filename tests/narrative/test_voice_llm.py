@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Tests for MercuryVoice LLM initialization behaviour.
 
 Covers the post-1.7.0 contract documented in

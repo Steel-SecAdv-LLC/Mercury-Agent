@@ -1,5 +1,16 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Domain loader for cross-domain FEMA disaster data from OpenFEMA API.
+
+Connects to the OpenFEMA Disaster Declarations Summaries endpoint to
+provide federal disaster declaration data for Mercury anomaly detection.
+Ground truth events cover major disasters where declarations requiring
+full federal response (Major Disaster with both IA and PA programs) are
+labeled as anomalies against a background of emergency-only declarations.
+
+Use case: cross-domain validation -- correlate FEMA disaster declarations
+with Mercury's domain-specific detectors (earthquake, tsunami, etc.).
+"""
 
 from __future__ import annotations
 

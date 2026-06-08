@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Mercury Agent - Learnable 3R Fusion Module.
 
 State-of-the-art differentiable 3R (Recursion-Resonance-Refactoring) fusion

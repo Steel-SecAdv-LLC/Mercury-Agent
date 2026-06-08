@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Temporal anomaly detector for time series analysis."""
 
 from __future__ import annotations

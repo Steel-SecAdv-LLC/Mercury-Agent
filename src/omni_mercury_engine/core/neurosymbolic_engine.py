@@ -1,5 +1,19 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Backward compatibility shim for neurosymbolic engine module.
+
+Note:
+    This module has been split into two locations:
+
+    For anomaly detection with LTN and symbolic reasoning:
+        from omni_mercury_engine.models.neurosymbolic import NeurosymbolicEngine
+
+    For AST-based code analysis:
+        from omni_mercury_engine.core.code_analysis import CodeAnalysisEngine
+
+    To suppress this deprecation warning, set the environment variable:
+        MERCURY_AGENT_SUPPRESS_DEPRECATION_WARNINGS=1
+"""
 
 from __future__ import annotations
 

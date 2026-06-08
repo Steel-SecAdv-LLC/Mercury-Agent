@@ -1,5 +1,16 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Tests for Advanced Cognitive Modules (arxiv 2508.11957v1 - AI Agents Survey)."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for Advanced Cognitive Modules (arxiv 2508.11957v1 - AI Agents Survey).
+
+Verifies that all new cognitive components work correctly:
+- ChainOfThoughtEngine: Step-by-step reasoning
+- ReflexionEngine: Self-reflection and learning without fine-tuning
+- ChainOfHindsightEngine: Learning from historical sequences
+- HierarchicalPlanner: Multi-level decision making
+- MultiAgentDetectionSystem: Distributed coordination
+- FormalVerificationEngine: Safety verification
+- PredictiveCodingDetector: Neuroscience-inspired prediction
+"""
 
 from __future__ import annotations
 

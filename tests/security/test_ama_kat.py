@@ -1,5 +1,27 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Phase 2 ITEM 5 — AMA Cryptography Known-Answer Tests (KAT) and."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Phase 2 ITEM 5 — AMA Cryptography Known-Answer Tests (KAT) and deterministic-seed round-trip tests.
+
+Per the May-2026 audit cure, correctness of AMA Cryptography is
+demonstrated by *in-repo artifacts* — not by external-audit framing.
+This file pins three contracts:
+
+1. **Ed25519 RFC 8032 vectors.**  The Ed25519 surface used by
+   ``crypto_api.Ed25519Provider`` and the native TCP transport must
+   reproduce RFC 8032 §7.1 test vectors bit-for-bit.  These vectors
+   run unconditionally because they only depend on stdlib
+   ``cryptography`` which is a hard install requirement.
+2. **ML-DSA-65 / Kyber-1024 / SPHINCS+ round-trip.**  AMA's PQC backend
+   is mandatory; missing AMA/PQC fails module import rather than skipping.
+   The keygen + sign/verify and keygen + encapsulate/decapsulate round-trips
+   produce mutually consistent outputs.
+3. **Deterministic-seed reproducibility.**  ML-DSA signing of the
+   same message with the same secret key is required by FIPS 204 to
+   be deterministic; we pin that contract end-to-end.
+
+The CI ``pqc-production-check.yml`` workflow runs this file on every
+PR so a regression in the PQC surface is a build-time failure.
+"""
 
 from __future__ import annotations
 

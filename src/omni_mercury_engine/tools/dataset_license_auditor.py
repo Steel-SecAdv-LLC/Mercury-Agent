@@ -1,5 +1,19 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: emit upstream licence + redistribution terms + SPDX expression for every dataset loader registered under ``omni_mercury_engine.loaders``.
+
+Each loader module is expected to expose a module-level
+``DATASET_LICENSE`` dict::
+
+    DATASET_LICENSE = {
+        "spdx": "CC-BY-4.0",
+        "upstream_url": "https://example.com/dataset",
+        "redistribution": "permitted with attribution",
+    }
+
+Loaders without that block are reported and the tool fails — silent
+license unknown is precisely the gap this audit closes.
+"""
 
 from __future__ import annotations
 

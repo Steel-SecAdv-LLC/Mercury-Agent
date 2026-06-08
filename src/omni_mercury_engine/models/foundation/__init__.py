@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Foundation Model Adapters for Time-Series Anomaly Detection.
 
 Integrates state-of-the-art foundation models for time-series:

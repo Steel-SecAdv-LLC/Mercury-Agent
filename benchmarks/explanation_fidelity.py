@@ -1,5 +1,33 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Explanation-fidelity validation: are the dormant explainers faithful, and do."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Explanation-fidelity validation: are the dormant explainers faithful, and do they recover the features a model actually uses?
+
+`explainability.py` was orphaned and, judged by anomaly-AUC, un-revivable -- it
+emits feature attributions, not anomaly scores. The right metric for an explainer
+is **faithfulness**: do its top-ranked features actually drive the model's
+prediction (comprehensiveness), and do the model's true informative features get
+ranked highly (recovery)?
+
+This is the second non-AUC measurement framework (after causal recovery). It is
+self-contained and dependency-free -- it exercises the two components of
+`explainability.py` that need no optional ``shap``/``lime`` libraries:
+
+* ``IntegratedGradientsExplainer`` -- path-integral attributions via finite
+  differences over any callable predict-fn.
+* ``FaithfulnessEvaluator`` -- comprehensiveness / sufficiency / monotonicity.
+
+A synthetic classification problem is built with a **known** informative feature
+set; a real (small MLP) model is trained on it; then for each test instance the
+explainer is run and scored on (a) recovery of the informative features vs
+chance, and (b) faithfulness vs a random-importance baseline.
+
+Pre-registered bar: the explainer is *validated* if mean recovery@k clearly beats
+chance AND its comprehensiveness clearly beats the random-attribution baseline.
+
+Usage::
+
+    python -m benchmarks.explanation_fidelity --out artifacts/explanation_fidelity.json
+"""
 
 from __future__ import annotations
 

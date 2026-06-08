@@ -1,5 +1,16 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Topological Data Analysis for Anomaly Detection."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Topological Data Analysis for Anomaly Detection.
+
+Implements persistent homology for topological feature extraction:
+- Vietoris-Rips filtration on point cloud data
+- 0D and 1D persistent homology via union-find
+- Persistence diagrams, entropy, and landscape features
+- Wasserstein and bottleneck distances for diagram comparison
+- TopologicalAnomalyDetector for TDA-based anomaly detection
+
+Reference: Edelsbrunner & Harer (2010) "Computational Topology"
+"""
 
 from __future__ import annotations
 

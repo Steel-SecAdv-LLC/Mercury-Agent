@@ -1,5 +1,13 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Domain-adaptive weight presets derived from benchmark data."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Domain-adaptive weight presets derived from benchmark data.
+
+These presets encode measured component performance across 11 domains from
+mercury_benchmark_results.json (64 datasets, 2026-02-23).
+
+Each preset is the STARTING POINT for adaptive weighting. The unsupervised adaptive system still
+runs and can override these if per-dataset evidence is strong enough.
+"""
 
 from __future__ import annotations
 

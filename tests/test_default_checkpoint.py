@@ -1,5 +1,10 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Tests for the shipped default fusion checkpoint (Issue #2)."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for the shipped default fusion checkpoint (Issue #2).
+
+A versioned checkpoint is packaged so a fresh install runs detection with a
+trained, calibrated network and no training step.
+"""
 
 from __future__ import annotations
 

@@ -1,5 +1,20 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: OTLP span emitter for the Mercury gate stack.
+
+Emits a representative trace covering Benevolence, σ_Immutable, GOSNN,
+and the OAE fusion stage.  When ``OTEL_EXPORTER_OTLP_ENDPOINT`` is set
+the spans go through the OTLP exporter; otherwise they are emitted to
+stdout in OpenTelemetry's stdout-exporter JSON format so the cert is
+auditable even in air-gapped environments.
+
+We deliberately accept the OpenTelemetry SDK as an external dependency
+— it is CNCF-graduated and the alternative (handwriting OTLP spans)
+diverges from the upstream wire format faster than we want to track.
+When the SDK is unavailable the tool falls back to a stdout-only
+synthetic span (no OTLP frames written) and the cert is downgraded to
+``warn``.
+"""
 
 from __future__ import annotations
 

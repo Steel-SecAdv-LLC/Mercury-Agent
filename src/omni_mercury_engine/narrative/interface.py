@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Conversation Interface - Unified "Alive" Interface for Mercury Agent.
 
 Integrates all narrative components into a cohesive conversation experience:

@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Component-Level Validation Tests (Task 8).
 
 Synthetic dataset tests for each ensemble component plus regression tests

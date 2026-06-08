@@ -1,5 +1,27 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Medical data source adapters for Mercury Agent.
+
+version.
+
+This module defines the abstract data-source contracts that the medical
+detectors consume and ships two reference implementations:
+
+* :class:`DexcomV3DataSource` - Dexcom developer API v3 CGM stream
+  (OAuth 2.0 refresh-token flow against ``api.dexcom.com``).
+* :class:`FHIRObservationVitalsSource` - HL7 FHIR R4 ``Observation`` search
+  with ``category=vital-signs``; works against any FHIR server that exposes
+  the standard vital-sign LOINC codes.
+
+Both adapters are **disabled by default**: their constructors raise
+:class:`ConfigurationError` when the required credentials/endpoints are not
+supplied (explicitly or via the documented environment variables).  No
+synthetic fallback exists in any production code path.
+
+in their own environments; Mercury Agent ships integration-ready, not
+pre-integrated.  See ``docs/medical/SETUP.md`` for the full setup guide
+and the contract for writing custom adapters against other vendors.
+"""
 
 from __future__ import annotations
 

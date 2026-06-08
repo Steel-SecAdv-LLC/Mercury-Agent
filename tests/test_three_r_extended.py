@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Extended tests for three_r_mechanism to reach >95% coverage."""
 
 from __future__ import annotations

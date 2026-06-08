@@ -1,5 +1,10 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Unit tests for Issue #7: Score Continuity Fix."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Unit tests for Issue #7: Score Continuity Fix.
+
+Tests that temporal and directive detectors use soft normalization
+instead of hard clipping, preserving ranking information for extreme anomalies.
+"""
 
 from typing import Any
 

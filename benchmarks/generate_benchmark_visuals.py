@@ -1,6 +1,20 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Benchmark Visualization Generator (Data-Driven)."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Benchmark Visualization Generator (Data-Driven).
+
+Generates publication-quality benchmark visualizations from actual
+mercury_benchmark_results.json and calibration_validation_results.json.
+No synthetic data — every number displayed is measured.
+
+Output (dark theme):
+    docs/images/neuro_symbolic_benchmark_report.png   (9-panel)
+    docs/images/anomaly_detection_panel.png           (6-panel)
+    docs/images/mercury_performance_dashboard.png     (9-panel)
+    docs/images/benchmark_summary_live_data.png       (full bar chart)
+    docs/images/calibration_improvement.png           (6-panel calibration + conformal)
+    docs/images/adaptive_weight_distribution.png      (6-panel weight analysis)
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Agentic AI Autonomy Module.
 
 Inspired by Bain 2025 report on agentic AI transformation:

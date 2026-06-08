@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Mercury A. Autonomous Agent Framework.
 
 Implements an autonomous agent with planning, execution, reflection layers,

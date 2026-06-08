@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Validate all domain loaders against real API data."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Validate all domain loaders against real API data.
+
+Runs MercuryAnomalyDetector.fit() -> detect() -> AUC for each domain.
+Tests ALL events per domain and reports the mean AUC (matching the
+behaviour of run_all_benchmarks.py).  No synthetic fallbacks.
+"""
 
 from __future__ import annotations
 

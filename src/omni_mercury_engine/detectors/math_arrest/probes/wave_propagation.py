@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Probe 15: Wave propagation probe for detecting wave equation violations."""
 
 from __future__ import annotations

@@ -1,5 +1,12 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Deterministic tests for GCP ingestion + pre-registered statistics (WS-D)."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Deterministic tests for GCP ingestion + pre-registered statistics (WS-D).
+
+No network: the trusted-allowlist gate rejects the GCP host before any socket,
+so ``fetch_egg_stream`` returns ``reachable=False`` reproducibly. The
+statistics are checked against their closed-form null behaviour. No psi claim is
+made or tested -- only that the plumbing and the null statistics are correct.
+"""
 
 from __future__ import annotations
 

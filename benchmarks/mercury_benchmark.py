@@ -1,5 +1,18 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Mercury Benchmark Suite."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Mercury Benchmark Suite.
+
+Standalone benchmark that measures MercuryAnomalyDetector performance
+on real datasets.  Every number produced by this script is measured, not
+estimated.  If a loader fails the error is recorded and the script moves
+on -- no synthetic fallback, no silent skip.
+
+Usage:
+    python benchmarks/mercury_benchmark.py
+
+Output:
+    benchmarks/mercury_benchmark_results.json
+"""
 
 from __future__ import annotations
 

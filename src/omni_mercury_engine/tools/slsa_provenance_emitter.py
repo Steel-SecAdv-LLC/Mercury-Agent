@@ -1,5 +1,17 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: emit a SLSA v1.0 in-toto provenance attestation.
+
+The CycloneDX SBOM (see :mod:`sbom_emitter`) answers "what's in this
+artefact"; the SLSA provenance answers "who built it, how, and from
+what source".  The attestation is in-toto v1.0 statement format with
+the SLSA v1.0 provenance predicate.
+
+The tool runs offline: it walks the supplied artefact paths to compute
+their SHA-256 subjects, reads ``$GITHUB_*`` env-vars (or git fallback)
+for the builder identity, and emits a canonicalised JSON ready for
+detached signing via ``--sign-key-hex`` or out-of-band cosign.
+"""
 
 from __future__ import annotations
 

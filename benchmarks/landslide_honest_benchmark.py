@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Landslide domain honest benchmark."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Landslide domain honest benchmark.
+
+Fetches real landslide catalog data from NASA COOLR,
+runs MercuryAnomalyDetector, and reports metrics.
+
+Data source: NASA Global Landslide Catalog (no API key required).
+"""
 
 from __future__ import annotations
 

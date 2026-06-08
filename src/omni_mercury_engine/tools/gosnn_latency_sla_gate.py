@@ -1,5 +1,17 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: GOSNN latency-SLA gate.
+
+Asserts the README's two performance claims on every PR:
+
+* <100 ms median GOSNN detection latency,
+* >50% cache hit rate over a representative sweep.
+
+Drives ``GOSNNDetector.detect()`` (when importable) over a synthetic
+sweep with deterministic seed; falls back to a structural check
+(``module-level constants exist``) when torch is unavailable, so the
+gate runs identically in CPU-only CI.
+"""
 
 from __future__ import annotations
 

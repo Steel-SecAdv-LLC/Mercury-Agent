@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Neuroscience Module - Cognitive pattern and neural anomaly detection.
 
 Supports cognitive enhancement and mental health monitoring by detecting:

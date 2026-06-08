@@ -1,5 +1,13 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Tests for Adaptive Anomaly Detector module."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for Adaptive Anomaly Detector module.
+
+Validates:
+- AdaptiveThresholdCalibrator (fixes covtype F1=0 issue)
+- CovarianceAwareDetector (improves batadal AUC)
+- TemporalPatternDetector (enhances smd detection)
+- AdaptiveAnomalyDetector (unified interface)
+"""
 
 from typing import Any
 

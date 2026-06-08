@@ -1,5 +1,11 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Domain loader for tornado data from the NOAA Storm Prediction Center (SPC)."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Domain loader for tornado data from the NOAA Storm Prediction Center (SPC).
+
+Connects to the SPC tornado archive CSV and daily storm reports feed to provide severe weather data
+for Mercury anomaly detection.  Ground truth events cover major tornado outbreaks where EF3+
+tornadoes are labeled as anomalies against a background of weaker (EF0-EF2) events.
+"""
 
 from __future__ import annotations
 

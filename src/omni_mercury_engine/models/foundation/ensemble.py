@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Foundation Model Ensemble.
 
 Combines predictions from multiple foundation models for

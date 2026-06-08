@@ -1,5 +1,55 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Anesthesiology predictor with TIVA Bi-LSTM, PID infusion, and vital monitoring."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Anesthesiology predictor with TIVA Bi-LSTM, PID infusion, and vital monitoring.
+
+version.
+
+Ported from Omni-AXA-Engine's ``anesthesiology_predictor.py``.  The PID
+infusion controller signs and gains (kp=0.5, ki=0.1, kd=0.2, target
+BIS=50, safe BIS window 40-60) and the upstream clinical vital ranges
+(MAP 65-110 mmHg, HR 50-100 bpm, SpO2 >= 92%, EtCO2 30-45 mmHg) are
+preserved verbatim from the verified implementation; the citations
+(ASA standards, AARC capnography guidance) are preserved alongside
+them.
+
+The neural architecture is a TIVA Bi-LSTM in the same family as the
+upstream (~164K parameters), but two deliberate deviations are
+documented in ``CHANGELOG.md`` under
+*"omni_mercury_engine.medical.anesthesiology_predictor - Deviations
+from the original"* and must not be silently re-collapsed:
+
+* :class:`HemodynamicMonitor` keeps an explicit
+  ``intervention_needed = overall_risk > 0.6 or spo2 < spo2_threshold``
+  guard so that any sub-92 % SpO2 reading triggers intervention even
+  when the weighted per-vital risks happen to average out below 0.6.
+* :class:`SmartInfusionController` exposes its working set via
+  ``_last_*`` attributes for test introspection.  Behaviour is
+  identical to the upstream; the surface is additive.
+
+Both deviations strengthen the safety floor relative to upstream; no
+clinical rule has been weakened or removed.
+
+Live data integration
+---------------------
+Mercury Agent ships integration-ready, not pre-integrated.  The predictor
+**requires** a
+:class:`~omni_mercury_engine.medical.data_sources.VitalsDataSource` adapter
+whenever ``enable_hemodynamics`` is true; instantiating the class without
+one raises :class:`~omni_mercury_engine.medical.data_sources.ConfigurationError`.
+
+Reference adapter: :class:`FHIRObservationVitalsSource` consumes any
+spec-compliant FHIR R4 server (Epic, Cerner, SMART Health IT sandbox, on-prem
+HL7 v2 gateway with FHIR translation).  Vendor SDK adapters (Philips
+IntelliVue, GE CARESCAPE, Mindray BeneVision) can be written as
+:class:`VitalsDataSource` subclasses; the contract is documented in
+``docs/medical/SETUP.md``.
+
+Operational notes
+-----------------
+anesthesiologist is required before any output is used to influence patient
+care.  The :class:`SmartInfusionController` is a PID toy implementation; it
+must not be wired into actual infusion pumps without clinical-trial validation.
+"""
 
 from __future__ import annotations
 

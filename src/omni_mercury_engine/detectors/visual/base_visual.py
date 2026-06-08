@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Base classes for visual anomaly detection.
 
 Provides unified interface for all visual anomaly detection algorithms,

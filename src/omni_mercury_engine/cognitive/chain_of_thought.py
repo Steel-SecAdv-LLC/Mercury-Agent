@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Chain-of-Thought Reasoning Engine for Mercury Agent.
 
 Implements step-by-step reasoning capabilities inspired by:

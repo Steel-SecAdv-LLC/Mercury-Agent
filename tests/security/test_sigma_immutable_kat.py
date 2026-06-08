@@ -1,5 +1,15 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""KAT-style regression for the trained σ_Immutable EthicalGate."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""KAT-style regression for the trained σ_Immutable EthicalGate.
+
+These tests assert that the trained gate produces deterministic,
+correct outputs on hand-curated known-good and known-bad scalar
+vectors.  Any re-training that shifts the decision boundary must
+update the KAT vectors here — the test is the contract.
+
+The labelling source is documented in
+``scripts/train_sigma_immutable.py``.
+"""
 
 from __future__ import annotations
 

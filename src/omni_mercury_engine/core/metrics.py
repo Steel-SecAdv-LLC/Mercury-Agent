@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Prometheus metrics for Mercury-Agent anomaly detection system.
 
 This module provides centralized metric definitions that match the

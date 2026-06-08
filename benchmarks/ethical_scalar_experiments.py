@@ -1,7 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Ethical Scalar Weight Experiments.
-
-Tests 100+ configurations of ethical scalar weights to optimize engine performance.
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Ethical Scalar Weight Experiments Tests 100+ configurations of ethical scalar weights to optimize engine performance.
 
 This script systematically varies key ethical scalar weights and measures their impact
 on engine performance metrics including execution time, memory usage, and ethical alignment.

@@ -1,5 +1,15 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""API Input Validation Module."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""API Input Validation Module.
+
+Comprehensive input validation for API endpoints:
+- Data size limits and bounds checking
+- Input sanitization for injection prevention
+- Type coercion and normalization
+- Domain-specific validation rules
+
+This module addresses P2 API input validation gaps.
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Probe 9: R3 Recursion Resonance probe for detecting nonlinear saturation."""
 
 from __future__ import annotations

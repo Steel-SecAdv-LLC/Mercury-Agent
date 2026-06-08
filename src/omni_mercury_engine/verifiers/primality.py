@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Primality oracle shared by the number-theory verifiers.
 
 Deterministic Miller-Rabin with a fixed witness set, exact for every ``n < 3.317 * 10**24``

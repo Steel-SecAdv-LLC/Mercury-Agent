@@ -1,5 +1,11 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Domain loader for wildfire data from NASA FIRMS (Fire Information for Resource Management System)."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Domain loader for wildfire data from NASA FIRMS (Fire Information for Resource Management System).
+
+Connects to the NASA FIRMS active-fire API to provide thermal hotspot data for Mercury anomaly
+detection.  Ground truth events cover major wildfires where high fire-radiative-power detections
+during the event window are labeled as anomalies against a background of normal thermal activity.
+"""
 
 from __future__ import annotations
 

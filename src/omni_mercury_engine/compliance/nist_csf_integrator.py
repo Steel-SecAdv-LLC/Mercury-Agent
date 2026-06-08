@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """NIST Cybersecurity Framework (CSF) 2.0 integrator for Mercury Agent.
 
 Implements all six CSF 2.0 core functions (GOVERN, IDENTIFY, PROTECT,

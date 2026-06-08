@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Unified Detector Registry - Bridge connecting detectors across domains for fusion.
 
 This module provides a central registry for all anomaly detectors and models,

@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Mercury Agent - Batch Processing API Endpoints.
 
 Production-grade batch processing for high-throughput anomaly detection workloads.

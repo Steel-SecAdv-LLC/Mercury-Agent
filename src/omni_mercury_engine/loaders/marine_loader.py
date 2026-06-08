@@ -1,5 +1,17 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Domain loader for marine biodiversity data from OBIS (Ocean Biodiversity Information System).
+
+Connects to the OBIS API v3 to retrieve species occurrence records for
+marine biodiversity monitoring and anomaly detection.  Ground truth events
+cover documented coral bleaching episodes and marine heatwave impacts
+where significant biodiversity loss was observed.
+
+Features engineered from raw occurrence data include spatial species
+counts, biodiversity indices, temporal change rates, depth profiles,
+and proxies for environmental stress derived from shifts in species
+occurrence patterns.
+"""
 
 from __future__ import annotations
 

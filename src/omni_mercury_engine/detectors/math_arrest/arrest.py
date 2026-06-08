@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """AnomalyMathArrest: 21-probe mathematically-independent equation ensemble.
 
 Replaces IsolationForest with transparent, auditable anomaly detection. Every detection traces to a

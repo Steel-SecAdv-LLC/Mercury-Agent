@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """End-to-end proof that a GOSNN scalar can be grounded in an independent oracle.
 
 These tests are the deliverable for "take one scalar and drive it end to end through a real

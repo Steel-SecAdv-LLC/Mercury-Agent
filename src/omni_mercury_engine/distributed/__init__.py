@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Distributed Processing Module for Mercury Agent.
 
 Provides multi-node deployment with Raft consensus for fault-tolerant,

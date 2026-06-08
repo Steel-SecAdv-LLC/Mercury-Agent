@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Sepsis Detector - Early Sepsis Detection & Septic Shock Prevention.
 
 Advanced sepsis detection for humanitarian healthcare:

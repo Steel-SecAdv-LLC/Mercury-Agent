@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """AI Scaling and Compute Optimization Module.
 
 Inspired by Bain & Company Technology Report 2025 insights on AI scaling,

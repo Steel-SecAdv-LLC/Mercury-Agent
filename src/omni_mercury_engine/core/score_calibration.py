@@ -1,5 +1,19 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Score Calibration System."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Score Calibration System.
+
+Comprehensive score calibration system to solve the F1=0 problem:
+- Root cause: Good ROC-AUC (0.88) but zero F1 because scores < threshold
+- Solution: Auto-calibrate thresholds based on score distribution
+
+This module provides:
+1. ScoreCalibrationManager - Unified calibration orchestrator
+2. AutoThresholdOptimizer - Multiple threshold selection strategies
+3. ScoreDiagnostics - Debug tools for score distribution analysis
+4. CalibrationPipeline - End-to-end calibration workflow
+5. ThresholdConfidenceInterval - Bootstrap-based confidence intervals for thresholds
+6. LabelSmoothingCalibrator - Label smoothing for improved calibration
+"""
 
 from __future__ import annotations
 

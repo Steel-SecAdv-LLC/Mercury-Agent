@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Pre-registered event-coincidence null-test (WS-D harvest).
 
 WS-D (parapsychology/GCP) built real, reusable scientific-integrity machinery:

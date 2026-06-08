@@ -1,5 +1,19 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Ollama LLM Adapter for Local Inference.
+
+Provides offline-first LLM capability using Ollama for:
+- Air-gapped deployments
+- Privacy-sensitive environments
+- Low-latency local inference
+- Model flexibility (Llama, Mistral, Phi, etc.)
+
+Architecture:
+    Ollama (Primary) → Cloud (Optional) → Template (Fallback)
+
+This ensures Mercury Agent maintains conversational capability
+even when completely disconnected from external services.
+"""
 
 from __future__ import annotations
 

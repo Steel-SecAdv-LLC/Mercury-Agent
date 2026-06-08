@@ -1,5 +1,30 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Threshold Auto-Calibration Pipeline (Phase 5)."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+r"""Threshold Auto-Calibration Pipeline (Phase 5).
+
+Phase 5: Threshold Auto-Calibration Pipeline
+=============================================
+
+Provides a complete pipeline for calibrating, tracking, and validating
+every threshold in the Mercury Agent system. Key capabilities:
+
+1. **Provenance tracking** -- every threshold records which dataset it
+   was calibrated on (fingerprinted via SHA-256 of summary statistics).
+   Thresholds lacking provenance are flagged ``UNCALIBRATED``.
+
+2. **Auto-calibration methods**:
+   - Youden's J statistic: :math:`J = \\text{TPR} - \\text{FPR}`
+   - F1-optimal threshold
+   - Cost-sensitive threshold (with user-supplied cost matrix)
+
+3. **Dataset fingerprinting & drift detection**:
+   - SHA-256 fingerprint of :math:`(\\mu, \\sigma, n, q_{0.25}, q_{0.50}, q_{0.75})`
+   - KL divergence: :math:`D_{KL}(P \\| Q) = \\sum P(x) \\log \\frac{P(x)}{Q(x)}`
+   - KS statistic: :math:`D = \\sup_x |F_n(x) - F_m(x)|`
+
+4. **System-wide recalibration** via ``calibrate_all_thresholds()``
+   which sweeps anomaly, ethical, and confidence-band thresholds.
+"""
 
 from __future__ import annotations
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Mercury Agent — Neural-submodule coverage: living, self-verifying CI artifact.
 
 `docs/NEURAL_SUBMODULE_COVERAGE.md` used to be a hand-maintained table. Hand

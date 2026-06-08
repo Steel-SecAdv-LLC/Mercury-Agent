@@ -1,5 +1,14 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""NOAA GSOD — Global Summary of the Day Loader."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""NOAA GSOD — Global Summary of the Day Loader.
+
+Daily weather summaries from 9000+ stations worldwide. Free access.
+
+Source: https://www.ncei.noaa.gov/data/global-summary-of-the-day/access/{YEAR}/
+
+Anomaly labeling:
+  Readings exceeding 3σ from the station's historical mean are flagged as anomalies.
+"""
 
 from __future__ import annotations
 

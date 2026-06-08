@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Post-Quantum Cryptography Production Guards.
 
 Ensures PQC environment is properly configured for production use.

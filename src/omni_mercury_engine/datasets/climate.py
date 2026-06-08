@@ -1,5 +1,14 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Climate and Oceanographic Dataset Loaders - Advanced Marine Data Integration."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Climate and Oceanographic Dataset Loaders - Advanced Marine Data Integration.
+
+This module provides loaders for advanced climate and oceanographic datasets:
+- Simons CMAP: Ocean biogeochemistry, satellite observations, model outputs
+- World Ocean Database (WOD): Temperature/salinity profiles from NCEI
+- Copernicus Sea Level: Global satellite altimetry data
+
+All data sources follow FAIR principles and are freely accessible.
+"""
 
 from __future__ import annotations
 

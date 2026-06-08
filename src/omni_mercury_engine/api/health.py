@@ -1,5 +1,19 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Enhanced health check endpoints for Kubernetes and monitoring.
+
+Implements standard health check patterns:
+- Liveness probe: Is the application alive?
+- Readiness probe: Is the application ready to accept traffic?
+- Startup probe: Has the application started successfully?
+
+Example:
+    Add health routes to FastAPI app::
+
+        from omni_mercury_engine.api.health import health_router
+
+        app.include_router(health_router, prefix="/health")
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Federated aggregator -- combines FittedStatistics from multiple nodes.
 
 Aggregation rules (mathematically motivated):

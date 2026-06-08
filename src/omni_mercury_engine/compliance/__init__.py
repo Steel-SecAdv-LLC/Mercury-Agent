@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Compliance subpackage for Mercury Agent.
 
 Consumer-facing surface for governance and policy frameworks.

@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Tests for Vision-Language Model (VLM) anomaly detectors.
 
 Tests AnyAnomaly and LAVAD zero-shot/training-free detectors.

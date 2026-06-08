@@ -1,5 +1,13 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Domain loader for financial crisis data from FRED and market data."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Domain loader for financial crisis data from FRED and market data.
+
+Connects to the Federal Reserve Economic Data (FRED) API maintained by the Federal Reserve Bank of
+St. Louis to retrieve key financial stress indicators: VIX volatility index, Treasury yield curve
+spread, high-yield credit spreads, the federal funds rate, and the TED spread.  Ground truth events
+cover major financial crises from the 1997 Asian Financial Crisis through the 2023 SVB regional bank
+crisis.
+"""
 
 from __future__ import annotations
 

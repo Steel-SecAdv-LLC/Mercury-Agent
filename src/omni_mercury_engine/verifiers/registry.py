@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Unified mystery registry: one orchestration layer over every oracle-validated verifier.
 
 This is the registry that ties the verifier family together.  For each submitted claim it

@@ -1,5 +1,13 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Serve-path explainability wiring tests (WS5)."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Serve-path explainability wiring tests (WS5).
+
+``OmniMercuryEngine.detect_with_fusion(explain=True)`` must attach a real
+Integrated-Gradients attribution of the *same* calibrated fusion probability the
+result reports (via ``score_fusion``), plus its faithfulness scores. These tests
+pin: (a) the explanation is absent by default (cost-gated), (b) it is present and
+well-formed when requested, explaining the served decision.
+"""
 
 from __future__ import annotations
 

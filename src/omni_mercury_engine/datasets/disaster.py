@@ -1,5 +1,13 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Disaster and Emergency Management Dataset Loaders."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Disaster and Emergency Management Dataset Loaders.
+
+This module provides loaders for disaster and emergency datasets:
+- OpenFEMA: US disaster declarations, assistance programs, hazard mitigation
+- Provides free REST API access with no authentication required
+
+All data sources are publicly accessible government datasets.
+"""
 
 from __future__ import annotations
 

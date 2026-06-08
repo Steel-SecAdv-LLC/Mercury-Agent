@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Cross-domain anomaly fusion subpackage for Mercury Agent.
 
 This package hosts multi-modal anomaly detectors that combine ML, rule,

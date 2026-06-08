@@ -1,5 +1,18 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Active Learning Framework."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Active Learning Framework.
+
+Production-grade active learning for anomaly detection providing:
+- Uncertainty sampling (entropy, margin, least confident)
+- Query-by-committee with diversity
+- Expected model change
+- Information density weighting
+- Batch mode active learning
+- Human-in-the-loop integration
+- Budget-aware sample selection
+
+This addresses the critical gap: "No Active Learning" identified in audit.
+"""
 
 from __future__ import annotations
 

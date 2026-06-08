@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Oracle-validated verifier for a MATHEMATICAL_MYSTERIES scalar (Goldbach's conjecture).
 
 This module exists to answer one question: can a GOSNN scalar carry a truth value that is

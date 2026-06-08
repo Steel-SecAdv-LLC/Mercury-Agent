@@ -1,5 +1,14 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: time-source probe.
+
+Confirms NTP / chrony / PTP discipline and emits the kernel clock
+offset.  Every Mercury certificate has a ``generated_at`` timestamp —
+this tool gives the auditor evidence those timestamps are trustworthy.
+
+On hosts with a PHC (PTP hardware clock) device under
+``/sys/class/ptp/``, the tool reports the PHC offset as well.
+"""
 
 from __future__ import annotations
 

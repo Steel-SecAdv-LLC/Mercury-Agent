@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Knowledge Graph Engine - Production Implementation.
 
 Provides graph-based knowledge storage for neuro-symbolic reasoning:

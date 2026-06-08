@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Statistical validation of benchmark results using t-tests and confidence intervals."""
 
 from typing import Any

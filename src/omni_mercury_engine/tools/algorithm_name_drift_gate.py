@@ -1,5 +1,28 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: algorithm-name drift gate.
+
+Generalises the manual review that caught the Kyber-768 → Kyber-1024
+slip in README/SECURITY/ARCHITECTURE earlier this cycle.  The tool
+walks the documentation surface for algorithm-name claims and
+cross-checks each one against the actual exports of
+``omni_mercury_engine.security.pqc_backends``.
+
+Detected drift falls into three buckets:
+
+* **deprecated**: the docs reference an algorithm that no longer
+  appears in ``pqc_backends`` (e.g. mentions of ``Kyber-768`` after
+  the migration to ``Kyber-1024``);
+* **undeclared**: ``pqc_backends`` exports a primitive that no doc
+  file references — usually fine for internal helpers but worth a
+  warning for top-level primitives;
+* **mismatched-parameter**: a parameter set is referenced (e.g.
+  ``ML-DSA-44``) that is not actually wired in.
+
+The gate emits a JSON certificate listing every drift and exits
+non-zero when *deprecated* or *mismatched* entries are present.  Wire
+it into pre-commit / CI so the drift is caught before review.
+"""
 
 from __future__ import annotations
 

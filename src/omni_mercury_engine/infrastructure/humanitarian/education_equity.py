@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Education Equity Module - Learning bias and access anomaly detection.
 
 Supports SDG 4 (Quality Education) by monitoring:

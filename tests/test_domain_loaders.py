@@ -1,5 +1,11 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Comprehensive tests for all domain loaders.
+
+Tests cover instantiation, interface compliance, list_events() validation,
+feature engineering with mock data, mocked HTTP responses, sklearn-free
+verification, and BaseDomainLoader helper methods.
+"""
 
 from __future__ import annotations
 

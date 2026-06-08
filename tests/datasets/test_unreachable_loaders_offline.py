@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Offline reachability harness for the 11 unreachable Mercury dataset loaders.
 
 This is the default-CI counterpart to

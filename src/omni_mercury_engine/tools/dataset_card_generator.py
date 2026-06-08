@@ -1,5 +1,18 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: Google-style dataset card generator.
+
+Composes a Markdown dataset card from sibling tool evidence:
+
+* upstream licence + SPDX expression from
+  :mod:`dataset_license_auditor`,
+* output schema from :mod:`loader_schema_pinner`,
+* PII status from :mod:`pii_scrubber_probe`,
+* checksum digest from :mod:`dataset_checksum_manifest`.
+
+The card itself becomes the auditor's single source of truth for the
+dataset; the per-tool certs are the signed evidence behind it.
+"""
 
 from __future__ import annotations
 

@@ -1,5 +1,23 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Hard ethical enforcement boundary regression suite.
+
+Phase 2 of the May 2026 audit cure flips ethics from "advisory" to
+"functional".  Every API surface listed as a *decision boundary* in
+``src/omni_mercury_engine/ethical/__init__.py`` MUST raise
+``EthicalConstraintViolationError`` (re-exported as ``EthicalViolation``)
+on a simulated benevolence-violation (``check="benevolence"``), and MUST
+NOT raise for legitimate inputs.  GOSNN's σ_Immutable score is
+informational metadata — it is not the enforcement gate today because
+the underlying neural network is untrained.
+
+This file is the regression that makes the contract durable: any future
+change that turns one of these boundaries back into a logger.warning,
+config-flag-disabled check, or "fall back to ethical_gate_passed=True"
+path will fail this suite.  The suite is wired into the
+``Neuro-Symbolic Tests`` job in ``.github/workflows/ci.yml`` so the
+regression cannot merge silently.
+"""
 
 from __future__ import annotations
 

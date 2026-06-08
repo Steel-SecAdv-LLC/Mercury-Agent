@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Statistical anomaly detector using Mercury's original mathematical frameworks.
 
 Ensemble composition (replaces prior z-score + IQR + IsolationForest):

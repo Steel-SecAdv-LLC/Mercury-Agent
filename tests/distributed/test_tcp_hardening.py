@@ -1,5 +1,12 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Phase 2 TCP transport hardening tests (Deliverable 9)."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Phase 2 TCP transport hardening tests (Deliverable 9).
+
+- Mutual-TLS integration test (self-signed CA).
+- Replay-defense test.
+- Fuzzer-style malformed-frame test.
+- Subprocess-based 3-node cluster test.
+"""
 
 from __future__ import annotations
 

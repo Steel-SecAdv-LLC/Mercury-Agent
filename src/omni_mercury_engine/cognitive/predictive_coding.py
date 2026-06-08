@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Predictive Coding Module for Mercury Agent.
 
 Implements neuroscience-inspired predictive coding for anomaly detection,

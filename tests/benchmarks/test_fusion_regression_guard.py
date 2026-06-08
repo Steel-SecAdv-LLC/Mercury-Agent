@@ -1,5 +1,12 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Unit tests for the fusion regression guard's *gate logic* (WS5/WS6)."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Unit tests for the fusion regression guard's *gate logic* (WS5/WS6).
+
+These exercise floor computation and the pass/fail decision with synthetic
+metrics — fast, no training. The real train+eval measurement (``evaluate``) is
+run by the ``fusion-regression`` CI workflow and pinned in
+``benchmarks/fusion_capacity/fusion_gate_baseline.json``.
+"""
 
 from __future__ import annotations
 

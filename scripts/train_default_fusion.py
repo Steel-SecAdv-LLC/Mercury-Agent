@@ -1,5 +1,52 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Train and persist the shipped default fusion checkpoint.
+
+The checkpoint produced here gives ``mercury-agent detect -d fusion`` (and any
+engine consumer that calls
+:meth:`OmniMercuryEngine.load_default_fusion_checkpoint`) a *trained*, calibrated
+fusion network out of the box instead of the random-init network that would
+otherwise ship.
+
+The network is trained through the real :meth:`OmniMercuryEngine.fit_fusion`
+path, which extracts the **exact feature set ``detect_with_fusion`` uses at
+inference** (base-detector features plus every domain-model feature that
+survives the input). The engine records those trained feature groups in the
+checkpoint and restricts inference to them, so the shipped weights transfer to
+the headline fusion path rather than merely loading. Training also applies
+FocalLoss and post-hoc temperature calibration, so the shipped probabilities are
+calibrated, not just well-ranked.
+
+Two data sources (``--source``):
+
+* ``synthetic`` (default) — a reproducible, network-free mixture of normal
+  Gaussian clusters and injected anomalies. This is what ships as the
+  **committed, deterministic** default checkpoint: same seed → same weights,
+  hash-pinnable, works offline, and auditable for supply-chain purposes.
+* ``real`` — an **opt-in** pooled prior over genuinely-labelled ADBench
+  datasets (``engine.fit_fusion_pooled``). It needs network access on first
+  run and is **not committed** (its weights depend on downloaded data and so
+  are not bit-reproducible across machines). Operators who want real-data
+  weights out of the box run this script with
+  ``--source real``; everyone else gets the deterministic synthetic default
+  and can still fine-tune via ``mercury-agent train`` on their own corpus.
+
+Either way the checkpoint is calibrated (temperature scaling) and records its
+provenance (source, datasets, seed) so a shipped artifact is self-describing.
+
+Reproducibility: the synthetic path is fully seeded. ``hidden_dim`` defaults to
+64 — raised from 32 after production-axis analysis showed the live benchmark
+suite operates at up to 1555 features and 620K samples per dataset, making
+the 32-dim bottleneck a 48:1 compression on real inputs. dim=64 provides 2×
+encoder capacity at 3.2× param cost (0.71 MB fp32) and is the evidence-backed
+transitional default. See ``benchmarks/fusion_capacity/README.md`` for the
+full cost/stability/OOD analysis.
+
+Usage:
+    python -m scripts.train_default_fusion                      # synthetic default
+    python -m scripts.train_default_fusion --source real        # opt-in ADBench prior
+    python -m scripts.train_default_fusion --epochs 150 --output /tmp/f.pt
+"""
 
 from __future__ import annotations
 

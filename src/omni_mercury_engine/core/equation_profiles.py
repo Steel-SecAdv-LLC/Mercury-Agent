@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Runtime equation profiles for Mercury fusion scores.
 
 Profiles preserve ``baseline_original_v1`` as the frozen reference while

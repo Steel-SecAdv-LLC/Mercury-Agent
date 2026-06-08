@@ -1,5 +1,14 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Reproducibility tests for the raw fusion training path (Issue: expose."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Reproducibility tests for the raw fusion training path (Issue: expose train -> fit_fusion(X, y) on raw input with no manual glue).
+
+These verify that:
+  * ``fit_fusion`` trained on raw features reaches the headline detection
+    quality (ROC-AUC >= 0.90) on a deterministic, network-free fixture, and
+  * the offline ``build_feature_npz`` builder yields an archive that
+    ``train_fusion_model`` consumes, producing the same detector feature set
+    that ``fit_fusion`` extracts internally.
+"""
 
 from __future__ import annotations
 

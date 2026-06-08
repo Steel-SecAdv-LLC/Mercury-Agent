@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Sepsis domain honest benchmark."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Sepsis domain honest benchmark.
+
+Uses PhysioNet Challenge 2019 open dataset for sepsis prediction,
+runs MercuryAnomalyDetector, and reports metrics.
+
+Data source: PhysioNet/CinC Challenge 2019 (open access).
+"""
 
 from __future__ import annotations
 

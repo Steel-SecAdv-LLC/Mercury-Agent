@@ -1,5 +1,18 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: workflow-version drift gate.
+
+Verifies that the ``ama-cryptography`` git ref pinned in
+``pyproject.toml`` matches the ``AMA_REF`` env-var pinned in every
+workflow that builds the AMA native library:
+
+* ``.github/workflows/ci.yml``
+* ``.github/workflows/pqc-production-check.yml``
+* any other workflow that defines ``AMA_REF:``
+
+We just hit this manually (AMA v3.2.0 vs v2.0).  A pre-commit / CI
+gate turns the manual check into a structural one.
+"""
 
 from __future__ import annotations
 

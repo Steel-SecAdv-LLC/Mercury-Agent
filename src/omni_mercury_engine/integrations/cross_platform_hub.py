@@ -1,5 +1,15 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Cross-Platform Anomaly Detection Hub."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Cross-Platform Anomaly Detection Hub.
+
+Multi-Cross Platform Anomaly Detection Hub providing:
+- Unified adapter pattern for external platforms
+- Protocol-agnostic data ingestion (REST, gRPC, WebSocket, MQTT)
+- Standard output formats (JSON, Prometheus, OpenTelemetry, CSV)
+- Platform connectors for: Netdata, Elastic, Splunk, Azure, Datadog
+- Multi-platform orchestration and routing
+- Real-time data transformation pipelines
+"""
 
 from __future__ import annotations
 

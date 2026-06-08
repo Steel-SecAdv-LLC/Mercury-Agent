@@ -1,5 +1,37 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Lightweight Neural Network Primitives - Pure NumPy Implementation.
+
+This module provides dependency-light neural network operations using only NumPy.
+Designed for edge deployments and environments where PyTorch is not available.
+
+Based on fundamental concepts from:
+- CS231n: Convolutional Neural Networks for Visual Recognition (Stanford)
+- Neural network fundamentals: linear transforms + nonlinearities
+
+Features:
+- Multi-layer perceptron with configurable architecture
+- Common activation functions (ReLU, Sigmoid, Tanh, Leaky ReLU)
+- Batch normalization (inference mode)
+- Xavier/He weight initialization
+- Forward-only inference (training requires PyTorch/full ML stack)
+
+Usage:
+    from omni_mercury_engine.ml.lightweight_primitives import (
+        LightweightMLP, relu, sigmoid, softmax
+    )
+
+    # Create a 3-layer network
+    mlp = LightweightMLP(
+        input_dim=64,
+        hidden_dims=[128, 64],
+        output_dim=1,
+        activation='relu'
+    )
+
+    # Inference
+    scores = mlp.forward(features)
+"""
 
 from __future__ import annotations
 

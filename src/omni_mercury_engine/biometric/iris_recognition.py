@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Iris Recognition Module for Mercury Agent Biometric System.
 
 Implements the Daugman IrisCode algorithm for iris recognition with

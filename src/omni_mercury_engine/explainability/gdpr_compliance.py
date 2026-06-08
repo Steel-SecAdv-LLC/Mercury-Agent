@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """GDPR Article 22 Compliance for Mercury Agent.
 
 Implements explanation generation and documentation for automated

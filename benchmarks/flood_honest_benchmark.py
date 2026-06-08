@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Flood domain honest benchmark."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Flood domain honest benchmark.
+
+Fetches real river gauge data from USGS Water Services,
+runs MercuryAnomalyDetector, and reports metrics.
+
+Data source: USGS Water Services + OpenFEMA (no API key required).
+"""
 
 from __future__ import annotations
 

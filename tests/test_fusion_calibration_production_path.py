@@ -1,5 +1,15 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Regression tests for production-path fusion calibration application."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Regression tests for production-path fusion calibration application.
+
+These lock the contract that ``detect_with_fusion`` (the production decision
+boundary) and ``detect_with_fusion_calibrated`` (with threshold calibration)
+return temperature-scaled probabilities — not raw sigmoid — when a calibrator
+is present, identical to ``score_fusion``'s contract.
+
+Without these the trained ``_fusion_calibrator`` only affects the benchmark
+path; user-facing ``mercury-agent detect`` keeps returning uncalibrated values.
+"""
 
 from __future__ import annotations
 

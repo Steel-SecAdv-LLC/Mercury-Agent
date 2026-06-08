@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Memory-Efficient Feature Caching.
 
 This module provides memory-efficient caching strategies for feature vectors

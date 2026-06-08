@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Dimensional-analysis oracle shared by the physics verifiers.
 
 A physical dimension is an exact vector of rational exponents over the seven SI base

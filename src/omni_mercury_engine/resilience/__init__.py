@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Resilience module for Mercury Agent.
 
 Provides self-healing, circuit breaker, retry logic, and health monitoring.

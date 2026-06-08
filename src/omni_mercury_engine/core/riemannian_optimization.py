@@ -1,5 +1,18 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Phase 4D: Riemannian Optimization."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Phase 4D: Riemannian Optimization.
+
+Riemannian optimization for manifold-constrained parameters.
+
+Provides geometric optimization on:
+- The probability simplex (for OAE weight optimization)
+- The manifold of Symmetric Positive Definite matrices (for covariance parameters)
+
+Key algorithms:
+- Riemannian Gradient Descent with Armijo line search
+- Riemannian Adam with parallel transport of momentum
+- High-level ConstrainedParameterOptimizer for Mercury Agent integration
+"""
 
 from __future__ import annotations
 

@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Consolidated Benchmark Visualization Generator."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Consolidated Benchmark Visualization Generator.
+
+Generates consolidated publication-quality benchmark visualizations:
+1. anomaly_detection_panel.png - Keep (comprehensive anomaly detection analysis)
+2. benchmark_summary_live_data.png - Keep (live data benchmark summary)
+3. neuro_symbolic_benchmark_report.png - Keep (comprehensive report)
+4. mercury_performance_dashboard.png - NEW (combines performance_comparison, ethical_gating, test_coverage)
+"""
 
 import json
 from pathlib import Path

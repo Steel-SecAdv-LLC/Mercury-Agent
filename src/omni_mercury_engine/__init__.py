@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Mercury Agent: Neuro-Symbolic AI Framework.
 
 Mercury Agent is a comprehensive neuro-symbolic AI platform.  It hybridises a

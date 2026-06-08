@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Bio-Threat Detection Module (Medical Interdiction).
 
 Detects biological threats using QBM-based pathogen energy modeling

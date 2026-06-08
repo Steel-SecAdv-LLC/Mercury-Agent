@@ -1,5 +1,31 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Cryptographic Operations Module."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Cryptographic Operations Module.
+
+P3: PyO3-based high-performance cryptographic operations.
+
+This module provides a Python interface to Rust cryptographic primitives,
+offering significant performance improvements over pure Python implementations.
+
+Features:
+- AEAD encryption (AES-GCM, ChaCha20-Poly1305)
+- Cryptographic hashing (BLAKE3, SHA-256, SHA-3)
+- Key derivation (Argon2id)
+- Secure random generation
+- Constant-time operations
+
+Usage:
+    from omni_mercury_engine.crypto import encrypt, decrypt, hash_data
+
+    # Encrypt data
+    ciphertext = encrypt(plaintext, key, nonce)
+
+    # Decrypt data
+    plaintext = decrypt(ciphertext, key, nonce)
+
+    # Hash data
+    digest = hash_data(data, algorithm='blake3')
+"""
 
 from __future__ import annotations
 

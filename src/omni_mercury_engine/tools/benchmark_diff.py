@@ -1,5 +1,27 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: human-readable diff between two benchmark JSON files.
+
+Mercury's README auto-regenerates an AUC/F1 block from the canonical
+benchmark output, but there is no general per-dataset / per-detector
+diff between two arbitrary runs.  This tool fills that gap so an
+operator can::
+
+    python -m omni_mercury_engine.tools.benchmark_diff prev.json current.json
+
+and immediately see which detectors regressed on which datasets, with
+both the absolute and relative delta.
+
+The expected JSON shape is loose by design so both
+``benchmarks/baseline_results.json`` and any ad-hoc per-run dump can be
+diffed.  We accept any of::
+
+    {"detector_name": {"dataset_name": {"auc": 0.97, "f1": 0.83, ...}}}
+    {"detector_name": {"dataset_name": 0.97}}
+    {"results": [{"detector": ..., "dataset": ..., "auc": ..., "f1": ...}, ...]}
+
+— and normalise to the first shape internally.
+"""
 
 from __future__ import annotations
 

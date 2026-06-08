@@ -1,5 +1,17 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Adaptive Per-Domain Thresholding System."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Adaptive Per-Domain Thresholding System.
+
+Advanced thresholding system with per-domain optimization:
+- Domain-specific threshold calibration
+- Platt scaling for probability calibration
+- Isotonic regression calibration
+- Dynamic threshold adjustment based on domain characteristics
+- Domain ensemble weighting optimizer
+
+This module implements the strategic recommendations for adaptive thresholding
+to improve domain competence across Medical, Financial, and Infrastructure.
+"""
 
 from __future__ import annotations
 

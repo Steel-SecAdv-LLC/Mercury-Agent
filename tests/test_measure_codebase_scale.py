@@ -1,5 +1,12 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Tests for ``scripts/measure_codebase_scale.py`` — the single source of truth."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for ``scripts/measure_codebase_scale.py`` — the single source of truth for the README "Codebase Scale" block and the CI drift gate.
+
+These tests pin the two bugs the script was rewritten to cure:
+  * ``__pycache__`` (and other non-package directories) must NOT be counted
+    as subpackages, and
+  * the README scale block must never silently drift from disk.
+"""
 
 from __future__ import annotations
 

@@ -1,5 +1,14 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Enhanced Model Domain Components."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Enhanced Model Domain Components.
+
+Enhancements to model domain components:
+- Quantum: Optimized von Neumann entropy, decoherence resilience
+- Biometric: Fairness metrics (Fairlearn-style), bias detection
+- Consciousness: Lyapunov stability analysis for state coherence
+- Affective: Entropy-based emotional state analysis
+- All domains: Benevolence-aware scoring, GOSNN integration
+"""
 
 from __future__ import annotations
 

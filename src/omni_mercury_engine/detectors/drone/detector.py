@@ -1,8 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Default ensemble weights matching ``MercuryAnomalyDetector``'s.
-
-published Resonance / Kinematic / InfoGeometry ratio.
-"""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Default ensemble weights matching ``MercuryAnomalyDetector``'s published Resonance / Kinematic / InfoGeometry ratio."""
 
 from __future__ import annotations
 

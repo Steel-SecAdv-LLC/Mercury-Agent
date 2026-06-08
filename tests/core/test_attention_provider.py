@@ -1,5 +1,13 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Regression suite for the concrete ``MultiHeadAttentionProvider`` (ROADMAP #7).
+
+The provider is wired to a real ``torch.nn.MultiheadAttention`` surface and
+replaces the removed deterministic-random placeholder.  These tests pin its
+contract (per-head shape, softmax-normalised rows, fail-closed before any
+forward, determinism) and that it drives the GOSNN optimizer's attention
+metric instead of being skipped.
+"""
 
 from __future__ import annotations
 

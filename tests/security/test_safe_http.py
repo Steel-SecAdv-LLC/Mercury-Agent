@@ -1,5 +1,11 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Gate tests for :mod:`omni_mercury_engine.security.safe_http`.
+
+Each test pins one rejection path so a regression that lets the
+underlying urllib pattern back into the codebase (or weakens the
+SafeHTTPClient gates) trips a unit test before it ships.
+"""
 
 from __future__ import annotations
 

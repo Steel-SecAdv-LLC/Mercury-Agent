@@ -1,5 +1,15 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Calibration Validation Visualizations."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Calibration Validation Visualizations.
+
+Generates three visualizations from calibration_validation_results.json:
+1. Calibration Improvement Bar Chart (MD-011)
+2. Conformal Coverage Plot (MD-005)
+3. Adaptive Weight Distribution (MD-003)
+
+Usage:
+    python scripts/generate_calibration_visuals.py
+"""
 
 from __future__ import annotations
 

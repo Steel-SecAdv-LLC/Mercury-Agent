@@ -1,5 +1,25 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Space Weather & Solar Physics Data Sources.
+
+Production-grade integrations for:
+- NASA DONKI (Space Weather Database Of Notifications, Knowledge, Information)
+- NASA NeoWs (Near Earth Object Web Service)
+- NOAA SWPC (Space Weather Prediction Center)
+- NASA EONET (Earth Observatory Natural Event Tracker)
+- Solar System OpenData (Le Système Solaire)
+
+API Documentation:
+- DONKI: https://api.nasa.gov/DONKI/
+- NeoWs: https://api.nasa.gov/neo/rest/v1/
+- SWPC: https://services.swpc.noaa.gov/
+- EONET: https://eonet.gsfc.nasa.gov/api/v3/
+- Solar System: https://api.le-systeme-solaire.net/rest/
+
+Rate Limits:
+- NASA APIs: 1000 requests/hour with API key, 30/hour with DEMO_KEY
+- NOAA/SWPC: No stated limits, use respectful polling (≥60s intervals)
+"""
 
 from __future__ import annotations
 

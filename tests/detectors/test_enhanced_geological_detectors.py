@@ -1,5 +1,12 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for enhanced geological detectors with 3R synaptic integration.
+
+Covers:
+- LandslideDetector with SVM/RF classifiers and 3R Recursion synapse
+- WildfireDetector with CNN/NDVI processing and 3R Resonance synapse
+- VolcanicEruptionDetector with HMM state transitions and 3R Refactoring synapse
+"""
 
 from __future__ import annotations
 

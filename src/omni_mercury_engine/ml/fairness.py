@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Fairness and Bias Mitigation Module.
 
 Provides Fairlearn-compatible bias detection and mitigation for anomaly detection:

@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Mercury Agent - Cardiology Predictor Tests.
 
 Comprehensive test suite for cardiology components:

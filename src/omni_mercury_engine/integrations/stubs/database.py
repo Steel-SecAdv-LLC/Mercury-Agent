@@ -1,5 +1,12 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Database service stub for testing and development.
+
+Example:
+    >>> db = DatabaseStub()
+    >>> result = await db.query("SELECT * FROM anomalies WHERE score > 0.8")
+    >>> print(f"Found {len(result.rows)} anomalies")
+"""
 
 from __future__ import annotations
 

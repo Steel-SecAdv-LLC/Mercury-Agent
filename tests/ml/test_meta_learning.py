@@ -1,5 +1,14 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Tests for Meta-Learning Module (arxiv 2508.11957v1 - AI Agents Survey)."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for Meta-Learning Module (arxiv 2508.11957v1 - AI Agents Survey).
+
+Verifies meta-learning components for few-shot anomaly detection:
+- MetaLearningAdapter: Unified interface for meta-learning algorithms
+- PrototypicalNetworks: Prototype-based classification
+- MAML: Model-Agnostic Meta-Learning
+- Reptile: Simplified meta-learning
+- AnomalyMetaLearner: Mercury Agent integration
+"""
 
 from __future__ import annotations
 

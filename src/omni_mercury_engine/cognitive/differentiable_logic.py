@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Mercury Agent - Differentiable Logic Programming.
 
 State-of-the-art differentiable logic programming for neuro-symbolic AI.

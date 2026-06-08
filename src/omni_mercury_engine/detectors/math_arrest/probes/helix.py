@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Probe 8: Helix multiplicative probe for detecting multiplicative shocks."""
 
 from __future__ import annotations

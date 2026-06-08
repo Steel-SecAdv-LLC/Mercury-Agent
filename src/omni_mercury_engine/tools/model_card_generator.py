@@ -1,5 +1,13 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: Google-style model card generator.
+
+Given a fitted detector (provided via importable module:class form),
+emits a model card in JSON + Markdown covering training data,
+performance metrics, fairness audit, limitations, and intended use.
+Mercury's ethical-AI governance claim makes model cards the de facto
+evidence format.
+"""
 
 from __future__ import annotations
 

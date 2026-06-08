@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Hyperparameter Search Space Definition.
 
 Provides flexible definition of hyperparameter search spaces for AutoML.

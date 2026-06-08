@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Tests for omni_mercury_engine.medical.abms_disciplines module.
 
 Tests ABMS medical specialty-based anomaly detection.

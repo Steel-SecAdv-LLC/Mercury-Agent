@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Comprehensive test suite for Enhanced Mercury Agent Equation Engine.
 
 Tests convergence, all 22 terms, threat detection, and ethical integration.

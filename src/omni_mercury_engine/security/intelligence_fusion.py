@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Security Intelligence Fusion Module.
 
 Comprehensive integration of multi-source intelligence disciplines for all-source

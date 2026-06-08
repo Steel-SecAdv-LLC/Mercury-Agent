@@ -1,5 +1,16 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Comprehensive tests for loaders/base.py module."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Comprehensive tests for loaders/base.py module.
+
+Covers:
+- SSRF URL validation enforced by ``SafeHTTPClient`` (the gate that
+  backs :meth:`BaseDomainLoader._fetch_url`; the legacy per-class
+  ``_validate_url`` helper was removed when egress was centralised)
+- Cache read/write operations
+- Data provenance and hashing
+- Feature engineering defaults
+- URL fetch retry logic
+"""
 
 from __future__ import annotations
 

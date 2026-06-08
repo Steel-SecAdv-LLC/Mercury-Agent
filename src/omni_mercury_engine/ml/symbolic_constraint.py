@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Differentiable symbolic-constraint layer for neuro-symbolic co-training.
 
 This module turns a small, declarative *rule graph* relating the base

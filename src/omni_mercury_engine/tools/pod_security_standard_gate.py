@@ -1,5 +1,21 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: verify Helm chart values satisfy the Kubernetes Pod Security Standards "restricted" profile.
+
+Reads the rendered manifests (or, when ``--values`` is supplied, the
+Helm chart's ``values.yaml`` projection) and asserts:
+
+* ``runAsNonRoot: true``,
+* ``runAsUser`` >= 10000 when explicitly set,
+* ``readOnlyRootFilesystem: true`` on every container,
+* ``allowPrivilegeEscalation: false``,
+* ``capabilities.drop`` contains ``ALL``,
+* ``seccompProfile.type`` ∈ {``RuntimeDefault``, ``Localhost``}.
+
+The check is intentionally a tight subset of the upstream PSS
+restricted profile — every assertion is a gate the chart should
+already pass.
+"""
 
 from __future__ import annotations
 

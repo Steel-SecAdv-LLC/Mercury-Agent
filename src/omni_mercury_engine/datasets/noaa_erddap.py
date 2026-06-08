@@ -1,5 +1,19 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""NOAA ERDDAP — Oceanographic and Climate Dataset Loader."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""NOAA ERDDAP — Oceanographic and Climate Dataset Loader.
+
+Replaces broken Copernicus SLA, SimonsCMAP, and WorldOcean loaders with
+NOAA's free, auth-free ERDDAP REST API.
+
+Data sources:
+  - Sea Level Anomaly: coastwatch.pfeg.noaa.gov/erddap/griddap/nesdisSSH1day.csv
+  - Sea Surface Temp (Chlorophyll): coastwatch.pfeg.noaa.gov/erddap/griddap/nesdisVHNSQchlaDaily.csv
+  - NDBC Buoy Real-Time: www.ndbc.noaa.gov/data/realtime2/{STATION}.txt
+
+Anomaly detection methodology:
+  Statistical deviation from historical mean — readings exceeding 3σ from
+  the station/grid-cell historical mean are flagged as anomalies.
+"""
 
 from __future__ import annotations
 

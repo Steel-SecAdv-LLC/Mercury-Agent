@@ -1,5 +1,24 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: certify that the OAE fusion weights (w_R, w_H, w_O) remain on the golden-ratio derivation Mercury claims everywhere.
+
+Reproduces the derivation from
+``omni_mercury_engine.ml.three_r_attention.ThreeRAttentionLayer``::
+
+    PHI     = MATH.GOLDEN_RATIO  # 1.618033988749895
+    phi_sum = PHI + 1.0 + (1.0 / PHI)         # ≈ 3.618...
+    w_R = PHI / phi_sum                       # ≈ 0.4472...
+    w_H = 1.0 / phi_sum                       # ≈ 0.2763...
+    w_O = (1.0 / PHI) / phi_sum               # ≈ 0.2763...
+
+and compares the freshly computed values against the registered buffers
+on a newly constructed layer.  Any drift in either ``MATH.GOLDEN_RATIO``
+or the layer's derivation logic surfaces as a hard failure.
+
+Also asserts ``w_R + w_H + w_O == 1.0`` to machine precision — this is
+the structural sum-to-one invariant the README and ARCHITECTURE.md
+both quote.
+"""
 
 from __future__ import annotations
 

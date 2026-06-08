@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Comprehensive Equation Optimization Experiments.
 
 Optimizes all engine equations exhaustively:

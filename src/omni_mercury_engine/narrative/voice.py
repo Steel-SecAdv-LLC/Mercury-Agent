@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Mercury Voice - True Conversational Interface.
 
 This is Mercury's "voice" - the ability to understand queries, retrieve

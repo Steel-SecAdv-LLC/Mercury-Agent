@@ -1,5 +1,17 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""GOSNN Integration Layer."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""GOSNN Integration Layer.
+
+Integration layer connecting:
+- Enhanced base domain detectors
+- Enhanced model domain components
+- GOSNN hub (Global Omni-Scalar Network)
+- Stacking/BMA fusion
+- Calibration and conformal prediction
+- Benevolence optimization
+
+Provides unified API for multi-domain anomaly detection with ethical constraints.
+"""
 
 from __future__ import annotations
 

@@ -1,5 +1,22 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""End-to-end audit of the 21-probe Anomaly Math Arrest ensemble.
+
+Phase 2 of the May 2026 audit cure asserts the ensemble is the
+*dominant* anomaly-detection path and that no IsolationForest fallback
+remains.  This file is the regression that pins both contracts:
+
+1. ``AnomalyMathArrest`` is the live detection surface (importable,
+   fits, detects, predicts) across representative domain hints —
+   security-adjacent (earthquake), medical (pandemic), ocean (marine),
+   and climate-equivalent (default).
+2. The ensemble runs *every* probe whose ``fit_quality`` was good
+   enough to register; no probe-call site silently degrades to a
+   single-method fallback.
+3. ``grep IsolationForest src/`` returns only documentation strings
+   that explain what the ensemble replaced — not a live import or
+   call site (i.e., the retirement is by deletion, not flag-gating).
+"""
 
 from __future__ import annotations
 

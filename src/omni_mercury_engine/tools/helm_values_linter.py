@@ -1,5 +1,18 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: Helm values security-posture linter.
+
+Validates ``helm/mercury-agent/values.yaml`` against the documented
+container-deployment contract:
+
+* resource requests/limits set;
+* security context: ``runAsNonRoot: true``, ``readOnlyRootFilesystem: true``,
+  ``allowPrivilegeEscalation: false``, drop ALL capabilities;
+* network policies present;
+* image pinned by digest (not floating tag).
+
+Trivy scans CVEs; this gate audits chart composition.
+"""
 
 from __future__ import annotations
 

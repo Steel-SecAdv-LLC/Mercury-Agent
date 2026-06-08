@@ -1,5 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Tests for the revived k-means-distance detector."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for the revived k-means-distance detector (``omni_mercury_engine.detectors.kmeans_distance``), which promotes the previously-dormant ``cognitive.neural_memory_layer.KMeansClusterer`` to a first-class fusion detector. These verify the base-detector contract and that the distance signal actually separates anomalies on a clearly-separable fixture (``benchmarks/dormant_module_revival.py`` measures it on real ADBench labels)."""
 
 from __future__ import annotations
 

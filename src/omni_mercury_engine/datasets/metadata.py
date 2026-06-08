@@ -1,5 +1,10 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Standardized dataset metadata for all loaders."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Standardized dataset metadata for all loaders.
+
+Every dataset object returned by a loader must carry metadata including data_source, source_url,
+sha256, record_count, anomaly_ratio, etc.
+"""
 
 from __future__ import annotations
 

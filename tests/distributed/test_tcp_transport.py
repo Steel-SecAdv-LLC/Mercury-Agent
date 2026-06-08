@@ -1,5 +1,18 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Phase 2 ITEM 4 regression: native pure-stdlib TCP MessageTransport for."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Phase 2 ITEM 4 regression: native pure-stdlib TCP MessageTransport for Raft.
+
+Pins three contracts:
+
+1. Length-prefixed binary frame round-trips a signed envelope between
+   two transports — every message carries an Ed25519 signature
+   produced by Mercury's own AMA Cryptography surface, every inbound
+   message is verified, and unsigned/forged envelopes are rejected.
+2. RequestVote and AppendEntries RPCs work over the real TCP loopback
+   path — not the in-memory shortcut.
+3. End-to-end: three Raft nodes on three TCP ports elect a leader,
+   replicate a command, then re-elect after the leader is killed.
+"""
 
 from __future__ import annotations
 

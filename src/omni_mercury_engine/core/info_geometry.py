@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Information Geometry for Out-of-Distribution Detection -- Phase 4C.
 
 Based on: IGEOOD - An Information Geometry Approach to Out-of-Distribution Detection

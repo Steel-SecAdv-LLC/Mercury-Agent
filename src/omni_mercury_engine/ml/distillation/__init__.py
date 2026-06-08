@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Knowledge Distillation for Anomaly Detection.
 
 Advanced distillation methods for efficient anomaly detection:

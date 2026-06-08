@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Execute a Mercury Agent ablation experiment with a Lyapunov pre-gate.
+# SPDX-License-Identifier: GPL-3.0-or-later
+r"""Execute a Mercury Agent ablation experiment with a Lyapunov pre-gate.
 
 This script is the canonical entry-point for running configurations under
 ``configs/`` that declare (a) an ablation experiment to execute and (b)
@@ -35,10 +36,16 @@ Examples
 ::
 
     # Single-purpose Lyapunov config (canonical 2x2 surrogate).
-    python scripts/run_ablation.py         --config configs/lyapunov_canonical.yaml         --out artifacts/lyapunov_check.json         --skip-run
+    python scripts/run_ablation.py \\
+        --config configs/lyapunov_canonical.yaml \\
+        --out artifacts/lyapunov_check.json \\
+        --skip-run
 
     # Multi-variant ablation config with a nested `lyapunov:` block.
-    python scripts/run_ablation.py         --config configs/ablation_3r_lyapunov.yaml         --out artifacts/ablation_result.json         --timeout 1800
+    python scripts/run_ablation.py \\
+        --config configs/ablation_3r_lyapunov.yaml \\
+        --out artifacts/ablation_result.json \\
+        --timeout 1800
 """
 
 from __future__ import annotations

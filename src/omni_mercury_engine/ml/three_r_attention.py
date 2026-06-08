@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """3R Attention Block for Anomaly Detection.
 
 Implements the complete 3R (Recursion-Resonance-Refactoring) mechanism as a

@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """TimeGPT Adapter for Mercury-Agent.
 
 Integrates Nixtla's TimeGPT foundation model for zero-shot

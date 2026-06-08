@@ -1,5 +1,24 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Raw fusion training-path benchmark."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Raw fusion training-path benchmark.
+
+Demonstrates the headline claim for the "expose the real training path"
+work: ``OmniMercuryEngine.fit_fusion(X, y)`` trained directly on *raw*
+genuinely-labelled features reproduces ~0.90 median ROC-AUC, with no manual
+feature-dict assembly.
+
+For each ADBench dataset (real ground-truth labels, NeurIPS 2022) this:
+  1. loads raw (X, y),
+  2. splits train/test deterministically,
+  3. trains via the raw path ``engine.fit_fusion(X_train, y_train)``,
+  4. scores the held-out test set with ``engine.score_fusion`` and reports AUC.
+
+Requires network access to download the ADBench NPZ files (cached after the
+first run). Run with::
+
+    python -m benchmarks.fusion_raw_benchmark
+    python -m benchmarks.fusion_raw_benchmark --datasets thyroid WBC cardio
+"""
 
 from __future__ import annotations
 

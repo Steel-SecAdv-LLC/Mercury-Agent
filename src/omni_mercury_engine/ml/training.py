@@ -1,8 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Training utilities for fusion model using PyTorch Lightning.
-
-Enhanced with Ava Equation state evolution optimizers
-"""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Training utilities for fusion model using PyTorch Lightning Enhanced with Ava Equation state evolution optimizers."""
 
 from __future__ import annotations
 

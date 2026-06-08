@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Ethical Constraint Engine - AI Fairness and Bias Detection Framework.
 
 This module provides practical ethical AI verification:

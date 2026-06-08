@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Regression and property tests for ``security.native_jwt``.
 
 These tests lock the contract that ``api/auth.py`` (and any future

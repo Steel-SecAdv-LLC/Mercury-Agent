@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Mercury Agent - Model Management API Endpoints.
 
 Production-grade model registry and lifecycle management for anomaly detection models.

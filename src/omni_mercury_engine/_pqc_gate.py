@@ -1,5 +1,45 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Import-time PQC gate."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Import-time PQC gate.
+
+AMA is mandatory for Mercury.  ``omni_mercury_engine`` package import refuses
+to proceed unless the AMA Cryptography native C backend is fully loadable;
+there is no development-mode or CI-mode escape hatch.  The
+``AMA_REQUIRE_REAL_PQC`` / legacy ``AVA_REQUIRE_REAL_PQC`` env vars are retained
+only for diagnostics and compatibility with older workflow comments — they no
+longer disable the gate.
+
+Algorithm coverage matches
+``security.pqc_guards.check_pqc_production_readiness``: the gate
+fails closed unless **all three** AMA algorithms are loadable —
+ML-DSA-65 (``DILITHIUM_AVAILABLE``), Kyber-1024
+(``KYBER_AVAILABLE``), and SPHINCS+ (``SPHINCS_AVAILABLE``).  Any
+partial build is rejected because Mercury exposes all three
+surfaces and a Dilithium-only install would let the process start
+in a cryptographically incomplete state.
+
+The flags are read from ``ama_cryptography.pqc_backends`` — the
+canonical location matching what ``security/pqc_backends.py`` reads
+(``from ama_cryptography.pqc_backends import DILITHIUM_AVAILABLE,
+KYBER_AVAILABLE, SPHINCS_AVAILABLE``).  The top-level
+``ama_cryptography`` package and per-algorithm submodules
+(``ama_cryptography.dilithium``, etc.) are NOT reliable sources
+for these flags on a real install — earlier iterations of this
+gate read from those locations and produced false-positive
+partial-install rejections.
+
+The two raise paths (this gate and
+``check_pqc_production_readiness``) are independent
+implementations of the same contract — neither delegates to the
+other.  They share the ``_PQC_BUILD_RECOVERY_HINT`` constant so
+operators see identical remediation steps regardless of which
+path raises.
+
+Lives in its own module rather than inline in ``__init__.py`` so the gate
+function has a stable, importable location for unit tests; ``__init__.py``
+imports and calls it once at package-load time, then deletes the local
+re-binding to keep the public package surface clean.
+"""
 
 from __future__ import annotations
 

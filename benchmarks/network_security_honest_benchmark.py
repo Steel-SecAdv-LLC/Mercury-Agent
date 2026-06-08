@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Network security domain honest benchmark."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Network security domain honest benchmark.
+
+Uses NSL-KDD, CICIDS2017, and BATADAL datasets,
+runs MercuryAnomalyDetector, and reports metrics.
+
+Data source: CICIDS2017, NSL-KDD (public research datasets).
+"""
 
 from __future__ import annotations
 

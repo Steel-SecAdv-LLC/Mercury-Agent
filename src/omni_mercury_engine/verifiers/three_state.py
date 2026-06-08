@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """The unified three-state honesty contract -- one invariant across both repos.
 
 ``GROUNDED`` / ``UNAVAILABLE`` / ``UNDECIDABLE`` is the single vocabulary that

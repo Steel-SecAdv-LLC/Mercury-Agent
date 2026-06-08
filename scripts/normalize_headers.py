@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Normalize Python file headers and module docstrings."""
 
 from __future__ import annotations
@@ -22,25 +23,50 @@ TARGET_DIRS = (
     "examples",
     "assets",
 )
-CANONICAL_HEADER = "# Copyright (C) 2025 Steel Security Advisors LLC"
+COPYRIGHT_HEADER = "# Copyright (C) 2025 Steel Security Advisors LLC"
+SPDX_HEADER = "# SPDX-License-Identifier: GPL-3.0-or-later"
+CANONICAL_HEADERS = (COPYRIGHT_HEADER, SPDX_HEADER)
 CODING_RE = re.compile(r"^#.*coding[:=]\s*[-\w.]+")
+SEPARATOR_RE = re.compile(r"^\s*[-=]{6,}\s*$")
 LICENSE_MARKERS = (
     "This program is free software",
+    "redistribute it",
     "GNU General Public License",
     "WITHOUT ANY WARRANTY",
+    "MERCHANTABILITY",
+    "FITNESS FOR A PARTICULAR PURPOSE",
+    "implied warranty",
+    "Free Software Foundation",
+    "any later version",
     "You should have received a copy",
     "SPDX-License-Identifier",
     "Copyright (C) 2025 Steel Security Advisors LLC",
     "Copyright (C) Steel Security Advisors LLC",
 )
+FORBIDDEN_DOCSTRING_PHRASES = (
+    "any later version",
+    "WITHOUT ANY WARRANTY",
+    "MERCHANTABILITY",
+    "FITNESS FOR A PARTICULAR PURPOSE",
+    "redistribute it",
+    "Free Software Foundation",
+    "GNU General Public License",
+    "implied warranty",
+)
 SKIP_LINE_FRAGMENTS = (
     "Copyright",
     "License",
     "GPL",
-    "Mercury Agent",
     "https://www.gnu.org",
     "https://gnu.org",
     "https://github.com/Steel-SecAdv-LLC",
+    "Free Software Foundation",
+    "any later version",
+    "WITHOUT ANY WARRANTY",
+    "MERCHANTABILITY",
+    "FITNESS FOR A PARTICULAR PURPOSE",
+    "implied warranty",
+    "redistribute it",
 )
 SUMMARY_ENDINGS = (".", "!", "?")
 
@@ -115,36 +141,129 @@ def collect_top_level_strings(path: Path, text: str) -> list[StringSpan]:
             and isinstance(node.value.value, str)
             and node.end_lineno is not None
         ):
-            spans.append(StringSpan(node.value.value, node.lineno, node.end_lineno))
+            segment = ast.get_source_segment(text, node)
+            raw_text = string_literal_body(segment) if segment is not None else node.value.value
+            spans.append(StringSpan(raw_text, node.lineno, node.end_lineno))
     return spans
+
+
+def string_literal_body(segment: str) -> str:
+    """Return the raw body of a triple-quoted string source segment."""
+    stripped = segment.strip()
+    quote_positions = [
+        (index, quote) for quote in ('"""', "'''") if (index := stripped.find(quote)) >= 0
+    ]
+    if not quote_positions:
+        return ast.literal_eval(stripped)
+    start, quote = min(quote_positions, key=lambda item: item[0])
+    end = stripped.rfind(quote)
+    if end <= start:
+        return ast.literal_eval(stripped)
+    return stripped[start + len(quote) : end]
 
 
 def is_license_text(text: str) -> bool:
     """Return whether a string expression is a duplicated license notice."""
-    return any(marker in text for marker in LICENSE_MARKERS)
+    lowered = text.lower()
+    return any(marker.lower() in lowered for marker in LICENSE_MARKERS)
+
+
+def contains_forbidden_docstring_phrase(text: str) -> bool:
+    """Return whether module documentation still contains GPL boilerplate."""
+    lowered = text.lower()
+    return any(phrase.lower() in lowered for phrase in FORBIDDEN_DOCSTRING_PHRASES)
 
 
 def _is_boilerplate_line(line: str) -> bool:
     """Return True if the line is part of license/copyright boilerplate."""
-    return any(frag in line for frag in SKIP_LINE_FRAGMENTS) or line.startswith(
+    stripped = line.strip()
+    if stripped in {"Mercury Agent", "see"} or stripped.startswith("Mercury Agent Copyright"):
+        return True
+    lowered = line.lower()
+    return any(frag.lower() in lowered for frag in SKIP_LINE_FRAGMENTS) or line.startswith(
         ("This program", "You should", "See ", "see ")
     )
 
 
-def derive_summary_from_license(text: str) -> str | None:
-    """Extract a non-license summary from a legacy boilerplate string."""
-    for raw_line in text.splitlines():
+def trim_blank_edges(lines: list[str]) -> list[str]:
+    """Trim only leading and trailing blank lines."""
+    trimmed = list(lines)
+    while trimmed and not trimmed[0].strip():
+        trimmed.pop(0)
+    while trimmed and not trimmed[-1].strip():
+        trimmed.pop()
+    return trimmed
+
+
+def description_after_separator(text: str) -> str | None:
+    """Return the genuine module documentation after a legacy separator."""
+    lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    for index, line in enumerate(lines):
+        if not SEPARATOR_RE.match(line):
+            continue
+        prior_real_lines = [
+            prior.strip()
+            for prior in lines[:index]
+            if prior.strip()
+            and not SEPARATOR_RE.match(prior)
+            and not _is_boilerplate_line(prior.strip())
+            and not contains_forbidden_docstring_phrase(prior)
+        ]
+        if prior_real_lines:
+            continue
+        description = trim_blank_edges(lines[index + 1 :])
+        if not description:
+            return None
+        candidate = "\n".join(line.rstrip() for line in description)
+        if contains_forbidden_docstring_phrase(candidate):
+            return None
+        return candidate
+    return None
+
+
+def derive_docstring_from_license(text: str) -> str | None:
+    """Extract non-license documentation from a legacy boilerplate string."""
+    separated = description_after_separator(text)
+    if separated:
+        return separated
+
+    lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    for index, raw_line in enumerate(lines):
         line = raw_line.strip()
         if not line:
             continue
         if line.startswith("Mercury Agent - "):
             candidate = line.removeprefix("Mercury Agent - ").strip()
-            if not _is_boilerplate_line(candidate):
-                return candidate
+            if not _is_boilerplate_line(candidate) and not contains_forbidden_docstring_phrase(
+                candidate
+            ):
+                tail = [
+                    tail_line
+                    for tail_line in lines[index + 1 :]
+                    if not _is_boilerplate_line(tail_line.strip())
+                    and not contains_forbidden_docstring_phrase(tail_line)
+                ]
+                remainder = trim_blank_edges([candidate, *tail])
+                docstring = "\n".join(line.rstrip() for line in remainder)
+                if not contains_forbidden_docstring_phrase(docstring):
+                    return docstring
             continue
         if _is_boilerplate_line(line):
             continue
-        return line
+        if contains_forbidden_docstring_phrase(line):
+            continue
+        remainder = trim_blank_edges(
+            [
+                tail_line
+                for tail_line in lines[index:]
+                if not _is_boilerplate_line(tail_line.strip())
+                and not contains_forbidden_docstring_phrase(tail_line)
+            ]
+        )
+        docstring = "\n".join(line.rstrip() for line in remainder)
+        if not contains_forbidden_docstring_phrase(docstring):
+            return docstring
+    return None
     return None
 
 
@@ -164,14 +283,14 @@ def default_summary(path: Path) -> str:
 
 
 def choose_summary_span(path: Path, spans: list[StringSpan]) -> tuple[str, StringSpan | None]:
-    """Choose the docstring text to preserve as the module summary."""
+    """Choose the module documentation to preserve."""
     for span in spans:
-        if not is_license_text(span.text):
+        if not is_license_text(span.text) and not contains_forbidden_docstring_phrase(span.text):
             return span.text, span
     for span in spans:
-        summary = derive_summary_from_license(span.text)
-        if summary:
-            return summary, None
+        docstring = derive_docstring_from_license(span.text)
+        if docstring:
+            return docstring, span
     return default_summary(path), None
 
 
@@ -188,30 +307,29 @@ def punctuate(summary: str) -> str:
 def normalize_docstring_text(text: str, fallback: str) -> str:
     """Normalize a module docstring body while preserving detail text."""
     lines = [line.rstrip() for line in text.replace("\r\n", "\n").replace("\r", "\n").split("\n")]
-    while lines and not lines[0].strip():
-        lines.pop(0)
-    while lines and not lines[-1].strip():
-        lines.pop()
+    lines = trim_blank_edges(lines)
     if not lines:
         return punctuate(fallback)
-
-    summary = punctuate(lines[0])
-    details = lines[1:]
-    while details and not details[0].strip():
-        details.pop(0)
-    while details and not details[-1].strip():
-        details.pop()
-    if not details:
-        return summary
-    return "\n".join([summary, "", *details])
+    first_blank = next((index for index, line in enumerate(lines) if not line.strip()), len(lines))
+    summary_lines = lines[:first_blank]
+    details = trim_blank_edges(lines[first_blank + 1 :]) if first_blank < len(lines) else []
+    summary = " ".join(line.strip() for line in summary_lines if line.strip())
+    if not summary:
+        summary = fallback
+    summary = punctuate(summary)
+    docstring = summary if not details else "\n".join([summary, "", *details])
+    if contains_forbidden_docstring_phrase(docstring):
+        return punctuate(fallback)
+    return docstring
 
 
 def render_docstring(text: str) -> list[str]:
     """Render a normalized docstring as source lines."""
     delimiter = '"""' if '"""' not in text else "'''"
+    prefix = "r" if "\\" in text else ""
     if "\n" not in text:
-        return [f"{delimiter}{text}{delimiter}\n"]
-    return [f"{delimiter}{text}\n", f"{delimiter}\n"]
+        return [f"{prefix}{delimiter}{text}{delimiter}\n"]
+    return [f"{prefix}{delimiter}{text}\n", f"{delimiter}\n"]
 
 
 def header_comment_lines(lines: list[str], start: int) -> set[int]:
@@ -230,7 +348,7 @@ def header_comment_lines(lines: list[str], start: int) -> set[int]:
             index += 1
             inspected += 1
             continue
-        if stripped.startswith("# SPDX-License-Identifier:") or stripped == CANONICAL_HEADER:
+        if stripped.startswith("# SPDX-License-Identifier:") or stripped in CANONICAL_HEADERS:
             delete.add(index + 1)
             index += 1
             inspected += 1
@@ -276,11 +394,42 @@ def normalized_source(path: Path, original: str) -> str:
 
     prefix = [line if line.endswith("\n") else f"{line}\n" for line in lines[:preserved_count]]
     body = remove_deleted_lines(lines, delete, preserved_count)
-    normalized = [*prefix, f"{CANONICAL_HEADER}\n", *render_docstring(docstring)]
+    normalized = [
+        *prefix,
+        *(f"{header}\n" for header in CANONICAL_HEADERS),
+        *render_docstring(docstring),
+    ]
     if body:
         normalized.append("\n")
         normalized.extend(body)
     return "".join(normalized)
+
+
+def validation_errors(path: Path, source: str) -> list[str]:
+    """Return semantic header/docstring validation errors."""
+    lines = source.splitlines()
+    start = prologue_end([f"{line}\n" for line in lines])
+    expected = list(CANONICAL_HEADERS)
+    actual = lines[start : start + len(expected)]
+    errors: list[str] = []
+    if actual != expected:
+        rel = path.relative_to(ROOT) if path.is_relative_to(ROOT) else path
+        errors.append(f"{rel}: missing canonical copyright/SPDX header pair")
+
+    try:
+        module = ast.parse(source, filename=str(path))
+    except SyntaxError as exc:
+        errors.append(f"{path}: cannot parse normalized source: {exc}")
+        return errors
+
+    docstring = ast.get_docstring(module, clean=False)
+    if not docstring:
+        rel = path.relative_to(ROOT) if path.is_relative_to(ROOT) else path
+        errors.append(f"{rel}: missing module docstring")
+    elif contains_forbidden_docstring_phrase(docstring):
+        rel = path.relative_to(ROOT) if path.is_relative_to(ROOT) else path
+        errors.append(f"{rel}: module docstring contains GPL boilerplate phrase")
+    return errors
 
 
 def diff_for(path: Path, original: str, normalized: str) -> str:
@@ -301,9 +450,11 @@ def main() -> int:
     args = parse_args()
     paths = tuple(args.paths)
     changed: list[Path] = []
+    errors: list[str] = []
     for path in iter_python_files(paths):
         original = path.read_text(encoding="utf-8")
         normalized = normalized_source(path, original)
+        errors.extend(validation_errors(path, normalized if args.apply else original))
         if normalized == original:
             continue
         changed.append(path)
@@ -312,6 +463,9 @@ def main() -> int:
         else:
             print(diff_for(path, original, normalized))
 
+    if errors:
+        print("\n".join(errors), file=sys.stderr)
+        return 1
     if args.check and changed:
         print(f"{len(changed)} Python file(s) need normalized headers.", file=sys.stderr)
         return 1

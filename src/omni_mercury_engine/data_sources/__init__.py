@@ -1,5 +1,21 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""STEM Alert & Anomaly Detection API Integration.
+
+Production-grade data ingestion modules for multi-domain anomaly detection:
+- Space Weather & Solar Physics (NASA DONKI, NeoWs, NOAA SWPC, EONET)
+- Geomagnetic & Electromagnetic Monitoring (USGS, INTERMAGNET, HeartMath)
+- Earth Science & Hazards (USGS Earthquake/Volcano, NOAA, NWS, EPA)
+- Consciousness Research (Global Consciousness Project)
+
+Usage:
+    from omni_mercury_engine.data_sources import DataSourceManager, DataSourceType
+    from omni_mercury_engine.data_sources.space_weather import NASADONKISource
+
+    manager = DataSourceManager()
+    manager.register_source(NASADONKISource(api_key="your_key"))
+    data = await manager.fetch_all()
+"""
 
 from omni_mercury_engine.data_sources.base import (
     AlertLevel,

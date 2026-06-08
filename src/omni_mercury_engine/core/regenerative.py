@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Regenerative Architecture Module.
 
 Inspired by regenerative design principles from permaculture (Holmgren & Mollison,

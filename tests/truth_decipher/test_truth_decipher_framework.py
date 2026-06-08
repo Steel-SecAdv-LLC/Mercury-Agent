@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Integration tests for Truth Deciphering Framework.
 
 Tests all 5 phases (Discovery, Cognitive Analysis, Identification, Ethics, Resolution)

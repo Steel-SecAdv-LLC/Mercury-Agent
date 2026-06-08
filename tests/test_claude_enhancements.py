@@ -1,5 +1,17 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Property-Based Tests for Caduceus ⚚ Enhancements."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Property-Based Tests for Caduceus ⚚ Enhancements.
+
+Property-based tests using Hypothesis for:
+- Rigorous benchmark harness
+- Calibration modules (Platt, Isotonic, Temperature)
+- Conformal prediction
+- Stacking/Bayesian fusion
+- Multi-objective benevolence optimization
+
+These tests verify mathematical invariants and edge cases that
+unit tests might miss.
+"""
 
 from typing import Any
 

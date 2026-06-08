@@ -1,5 +1,36 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: SHA-256 dataset checksum manifest.
+
+Mercury currently flags synthetic-fallback datasets via the
+``MERCURY_ALLOW_SYNTHETIC`` env-var and a runtime warning, but the
+on-disk integrity of *downloaded* datasets is not anchored — a
+silently-corrupted CSV or HDF5 file would pass the loader's structural
+checks and contaminate downstream benchmark results.
+
+This tool walks a dataset cache directory, computes the SHA-256 of
+every file (chunked to stay constant-memory), and emits a manifest::
+
+    {
+      "schema": "mercury.dataset_checksum_manifest/v1",
+      "root": "/path/to/cache",
+      "entries": [
+        {"path": "relative/file.csv", "size": 123456, "sha256": "abc...def"},
+        ...
+      ]
+    }
+
+Two modes:
+
+* **emit** (default) — produce the manifest;
+* **verify** — re-walk the same root and compare against a saved
+  manifest, listing additions/removals/checksum mismatches.
+
+The verify mode is what operators wire into the loader hot-path:
+``DatasetLoader.load(verify_manifest=...)`` can call this tool's
+``verify_manifest()`` function (importable separately) and fail-closed
+on any discrepancy.
+"""
 
 from __future__ import annotations
 

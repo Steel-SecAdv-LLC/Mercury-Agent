@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Differential privacy for federated sufficient statistics.
 
 Implements the Gaussian mechanism for (epsilon, delta)-differential privacy.

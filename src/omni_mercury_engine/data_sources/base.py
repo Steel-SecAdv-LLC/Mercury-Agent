@@ -1,5 +1,21 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Base classes and types for STEM Alert & Anomaly Detection data sources.
+
+This module provides:
+- DataSourceType: Enum for categorizing data sources
+- DataPoint: Standardized data container for all sources
+- DataSourceBase: Abstract base class for all data source implementations
+- DataSourceManager: Unified manager for multiple data sources
+- Resilience patterns: Caching, rate limiting, circuit breaker integration
+
+Design Principles:
+1. All data sources return standardized DataPoint objects
+2. Built-in resilience with exponential backoff and circuit breakers
+3. Configurable caching to respect API rate limits
+4. Async-first design with synchronous wrapper support
+5. Comprehensive error handling with graceful degradation
+"""
 
 from __future__ import annotations
 

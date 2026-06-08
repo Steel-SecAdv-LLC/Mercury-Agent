@@ -1,5 +1,12 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""(at your option) any later version."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: dump the current ~209 omni-scalar values as JSON (127 operational + 82 diagnostic measurement scalars).
+
+The README's GOSNN section makes structural claims about the σ band
+of omni-scalars but an operator can't inspect them today.  This tool
+constructs a ``GlobalOmniScalarNetwork``, captures the current scalar
+state, and emits it as JSON for review.
+"""
 
 from __future__ import annotations
 

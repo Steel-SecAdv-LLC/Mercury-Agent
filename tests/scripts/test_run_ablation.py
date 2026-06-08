@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Tests for :mod:`scripts.run_ablation`.
 
 These tests exercise the orchestrator end-to-end as a library call

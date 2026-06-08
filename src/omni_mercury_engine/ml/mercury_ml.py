@@ -1,5 +1,15 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""Mercury-native implementations of standard ML utilities (metrics, preprocessing, model selection,."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Mercury Agent — native ML primitives (numpy/scipy only).
+
+Mercury Agent is an original product with its own production-built systems. This module provides
+Mercury-native implementations of standard ML utilities (metrics, preprocessing, model selection,
+classical models) using only numpy and scipy — no external ML library dependencies.
+
+These are general-purpose ML building blocks (metrics, scalers, CV splitters, classical models) used
+internally by Mercury's detection pipeline.  They are standard algorithms documented in their
+respective docstrings.
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """AMA-routed HMAC locks for native_jwt.
 
 These tests pin that Mercury's :mod:`native_jwt` signing primitive

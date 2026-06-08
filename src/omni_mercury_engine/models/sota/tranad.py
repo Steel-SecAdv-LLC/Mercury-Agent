@@ -1,5 +1,25 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
-"""TranAD: Deep Transformer Networks for Anomaly Detection (VLDB 2022)."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""TranAD: Deep Transformer Networks for Anomaly Detection (VLDB 2022).
+
+Implements the TranAD architecture with key innovations:
+1. Focus Score-Based Self-Conditioning: Multi-feature attention extraction
+2. Adversarial Training: GAN-inspired stability for reconstruction
+3. MAML (Model-Agnostic Meta-Learning): Few-shot anomaly detection
+
+Performance: Achieves up to 17% F1 improvement, 99% training time reduction
+vs baselines on SMD, SMAP, MSL, SWaT, WADI datasets.
+
+Ethical Integration:
+    - Bias detection hooks for fairness monitoring
+    - Survivor-first recall optimization
+    - Transparent attention weights for interpretability
+
+Reference:
+    Tuli, S., Casale, G., & Jennings, N. R. (2022). TranAD: Deep Transformer
+    Networks for Anomaly Detection in Multivariate Time Series Data. VLDB 2022.
+    https://arxiv.org/abs/2201.07284
+"""
 
 from __future__ import annotations
 

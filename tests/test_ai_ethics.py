@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Tests for AI Ethics Framework (src/core/ai_ethics.py)."""
 
 from __future__ import annotations

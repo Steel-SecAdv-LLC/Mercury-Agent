@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """The confound guard must be wired into BOTH ablation verdicts (WS-B).
 
 Regression for PR #262's spurious +0.48: a KEEP built on a collapsed

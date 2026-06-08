@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Marine Biodiversity & Ecosystem Detector.
 
 Comprehensive marine ecosystem monitoring for conservation and early warning:
