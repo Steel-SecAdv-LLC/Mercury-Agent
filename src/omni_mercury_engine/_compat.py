@@ -1,15 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-"""
-
-from __future__ import annotations
-
-"""
-Centralized optional-dependency availability checks.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Centralized optional-dependency availability checks.
 
 Import flags from this module instead of scattering ``try/except ImportError``
 blocks throughout the codebase.  Every flag uses ``importlib.util.find_spec``
@@ -23,6 +13,8 @@ Usage::
     if HAS_TORCH:
         import torch
 """
+
+from __future__ import annotations
 
 from importlib.util import find_spec
 
