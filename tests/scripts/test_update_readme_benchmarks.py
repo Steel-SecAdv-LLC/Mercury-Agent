@@ -17,6 +17,7 @@ from __future__ import annotations
 import importlib.util
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -138,7 +139,7 @@ class TestTotalDatasetResolution:
     (the committed results carry ``total_datasets=75``, ``successful=65``).
     """
 
-    def test_reads_total_datasets_key(self, update_readme_benchmarks: object) -> None:
+    def test_reads_total_datasets_key(self, update_readme_benchmarks: Any) -> None:
         """The canonical ``total_datasets`` key resolves to the attempted total."""
         data = {
             "summary": {
@@ -150,14 +151,12 @@ class TestTotalDatasetResolution:
             },
         }
 
-        summary = update_readme_benchmarks._summary(data)  # type: ignore[attr-defined]
+        summary = update_readme_benchmarks._summary(data)
 
         assert summary["successful"] == 65
         assert summary["total"] == 75, "must not collapse to successful/successful (65/65)"
 
-    def test_explicit_total_wins_over_total_datasets(
-        self, update_readme_benchmarks: object
-    ) -> None:
+    def test_explicit_total_wins_over_total_datasets(self, update_readme_benchmarks: Any) -> None:
         """An explicit ``total`` (older/external fixtures) still takes precedence."""
         data = {
             "summary": {
@@ -169,16 +168,16 @@ class TestTotalDatasetResolution:
             },
         }
 
-        summary = update_readme_benchmarks._summary(data)  # type: ignore[attr-defined]
+        summary = update_readme_benchmarks._summary(data)
 
         assert summary["total"] == 7
 
-    def test_falls_back_to_successful_when_no_total(self, update_readme_benchmarks: object) -> None:
+    def test_falls_back_to_successful_when_no_total(self, update_readme_benchmarks: Any) -> None:
         """With no total/total_datasets/n_datasets, fall back to ``successful``."""
         data = {
             "summary": {"mean_auc": 0.5, "mean_oracle_f1": 0.4, "successful": 3},
         }
 
-        summary = update_readme_benchmarks._summary(data)  # type: ignore[attr-defined]
+        summary = update_readme_benchmarks._summary(data)
 
         assert summary["total"] == 3
