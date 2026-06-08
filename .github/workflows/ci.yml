@@ -144,6 +144,19 @@ jobs:
         # F841 (unused variable) is handled by ruff which respects underscore convention
         run: flake8 src/ tests/ scripts/ tools/ --max-line-length=100 --extend-ignore=E203,W503,E402,E501,F841
 
+      - name: Run canonical header check
+        run: python scripts/normalize_headers.py --check
+
+      - name: Prove canonical header rejects malformed file
+        shell: bash
+        run: |
+          tmp_file="$(mktemp /tmp/mercury-bad-header.XXXXXX.py)"
+          printf '"""Malformed header fixture."""\n' > "${tmp_file}"
+          if python scripts/normalize_headers.py --check "${tmp_file}"; then
+            echo "ERROR: canonical-header gate accepted malformed fixture"
+            exit 1
+          fi
+
       - name: Verify IsolationForest removed from detection path
         run: |
           if grep -rn "from sklearn.ensemble import IsolationForest" \
@@ -162,15 +175,17 @@ jobs:
 
       - name: Run pydocstyle (docstring checks)
         # Blocking — the docstring contract is part of the source-of-truth API
-        # surface and we do not allow it to drift silently.  ``[tool.pydocstyle]``
-        # in ``pyproject.toml`` configures the Google convention plus the
-        # project's whitelisted exclusions; we re-pass the exclusions on the
-        # command line so behaviour is identical regardless of whether the
-        # tool is run under tomli-aware (3.11+) or non-aware shells.
+        # surface and we do not allow it to drift silently.
         run: |
-          pydocstyle src/omni_mercury_engine/ \
-            --convention=google \
-            --add-ignore=D100,D104,D105,D107,D212,D415
+          pydocstyle src/omni_mercury_engine/ --convention=google
+
+      - name: Canonical file-header gate
+        # Every *.py file must start with the project copyright comment.
+        # scripts/normalize_headers.py --check exits non-zero if any file
+        # diverges from the canonical form, preventing re-propagation of
+        # the old per-file GPL boilerplate.
+        run: |
+          python scripts/normalize_headers.py --check
 
   # ===========================================================================
   # Stage 1.5: Workflow and Suppression Hygiene

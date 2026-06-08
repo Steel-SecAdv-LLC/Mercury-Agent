@@ -203,6 +203,15 @@ Option 3: Install Visual Studio Build Tools
 
 ## Code Style Guidelines
 
+### File Header Policy
+
+Every Python file under `src/`, `tests/`, `scripts/`, `tools/`, `research/`, `benchmarks/`, and `examples/` must use the single canonical file header below, followed immediately by a real module docstring whose first line is the module summary. Do not paste the full GPL boilerplate into individual source files; the root `LICENSE` file is the authoritative GPL text. Run `python scripts/normalize_headers.py --apply` before submitting header-touching changes, and CI enforces the same policy with `python scripts/normalize_headers.py --check`.
+
+```python
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""One-line module summary."""
+```
+
 ### General Principles
 
 1. **Security First:** Never compromise security for convenience or performance
