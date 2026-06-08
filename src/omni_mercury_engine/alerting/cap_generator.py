@@ -1,14 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-Common Alerting Protocol (CAP) 1.2 XML message generator.
-
-Generates valid CAP 1.2 XML payloads from Mercury anomaly detections. CAP is the international
-standard for emergency alerts used by FEMA IPAWS, WMO, and emergency management agencies worldwide.
-
-Reference:
-http://docs.oasis-open.org/emergency/cap/v1.2/CAP-v1.2.html
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Common Alerting Protocol (CAP) 1.2 XML message generator."""
 
 from __future__ import annotations
 
@@ -145,8 +136,7 @@ DOMAIN_EVENT_MAP: dict[str, str] = {
 
 
 def _score_to_severity(score: float) -> CAPSeverity:
-    """
-    Map Mercury anomaly score [0, 1] to CAP severity.
+    """Map Mercury anomaly score [0, 1] to CAP severity.
 
     Args:
         score: Anomaly score in [0, 1].
@@ -166,8 +156,7 @@ def _score_to_severity(score: float) -> CAPSeverity:
 
 
 def _score_to_certainty(score: float) -> CAPCertainty:
-    """
-    Map Mercury anomaly score [0, 1] to CAP certainty.
+    """Map Mercury anomaly score [0, 1] to CAP certainty.
 
     Args:
         score: Anomaly score in [0, 1].
@@ -185,8 +174,7 @@ def _score_to_certainty(score: float) -> CAPCertainty:
 
 
 def _score_to_urgency(score: float) -> CAPUrgency:
-    """
-    Map Mercury anomaly score [0, 1] to CAP urgency.
+    """Map Mercury anomaly score [0, 1] to CAP urgency.
 
     Args:
         score: Anomaly score in [0, 1].
@@ -231,8 +219,7 @@ class CAPAlertGenerator:
         status: CAPStatus = CAPStatus.SYSTEM,
         scope: CAPScope = CAPScope.PUBLIC,
     ) -> None:
-        """
-        Initialize the CAP alert generator.
+        """Initialize the CAP alert generator.
 
         Args:
             sender: Sender identifier (email or URI).
@@ -260,8 +247,7 @@ class CAPAlertGenerator:
         msg_type: CAPMsgType = CAPMsgType.ALERT,
         parameters: dict[str, str] | None = None,
     ) -> str:
-        """
-        Generate a CAP 1.2 XML alert message.
+        """Generate a CAP 1.2 XML alert message.
 
         Args:
             domain: Mercury domain (e.g., "earthquake", "tsunami").
@@ -349,8 +335,7 @@ class CAPAlertGenerator:
         coordinates: tuple[float, float] | None = None,
         geocode: dict[str, str] | None = None,
     ) -> str:
-        """
-        Generate CAP alert directly from Mercury detection results.
+        """Generate CAP alert directly from Mercury detection results.
 
         Args:
             domain: Mercury domain name.
@@ -408,8 +393,7 @@ class CAPAlertGenerator:
 
     @staticmethod
     def validate_cap_xml(xml_string: str) -> bool:
-        """
-        Validate that a string is well-formed CAP XML.
+        """Validate that a string is well-formed CAP XML.
 
         Performs structural validation (not schema validation).
 

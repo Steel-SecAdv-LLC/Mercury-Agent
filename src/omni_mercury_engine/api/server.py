@@ -1,21 +1,4 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
+# Copyright (C) 2025 Steel Security Advisors LLC
 """FastAPI server for real-time anomaly detection.
 
 This module provides a REST API for multi-domain anomaly detection using
@@ -33,10 +16,10 @@ Example:
 
     Make a detection request::
 
-        curl -X POST "http://localhost:8000/api/v1/detect/univariate" \\
-            -H "Content-Type: application/json" \\
-            -d '{"data": [1.0, 2.0, 1.5, 10.0, 1.8], "sensitivity": 0.5}'
+        curl -X POST "http://localhost:8000/api/v1/detect/univariate"             -H "Content-Type: application/json"             -d '{"data": [1.0, 2.0, 1.5, 10.0, 1.8], "sensitivity": 0.5}'
 """
+
+from __future__ import annotations
 
 import contextvars
 import logging
@@ -58,7 +41,6 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 # Type alias for ASGI middleware call_next parameter
 RequestResponseEndpoint = Callable[[Request], Awaitable[Response]]
-
 
 # Context variable for request correlation ID - accessible throughout request lifecycle
 correlation_id_ctx: contextvars.ContextVar[str] = contextvars.ContextVar(
@@ -274,8 +256,7 @@ app = FastAPI(
 # Rate Limiting Middleware
 # =============================================================================
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    """
-    Token bucket rate limiting middleware.
+    """Token bucket rate limiting middleware.
 
     Uses the unified rate limiting module for consistent behavior across the API.
     Configurable via environment variables:
@@ -290,6 +271,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         requests_per_minute: int | None = None,
         burst_size: int | None = None,
     ):
+        """Initialize the instance."""
         super().__init__(app)
         from omni_mercury_engine.security.rate_limiting import RateLimiter
 
@@ -429,7 +411,6 @@ class CorrelationIDMiddleware(BaseHTTPMiddleware):
 # Register correlation ID middleware (runs before rate limiting)
 app.add_middleware(CorrelationIDMiddleware)
 
-
 # =============================================================================
 # CORS Middleware Configuration (Security Hardening)
 # =============================================================================
@@ -519,8 +500,7 @@ class SeverityLevel(StrEnum):
 
 # Request Models with comprehensive validation and documentation
 class UnivariateRequest(BaseModel):
-    """
-    Request model for univariate anomaly detection.
+    """Request model for univariate anomaly detection.
 
     This model accepts a single time series and optional parameters
     for configuring the detection sensitivity.
@@ -581,8 +561,7 @@ class UnivariateRequest(BaseModel):
 
 
 class MultivariateRequest(BaseModel):
-    """
-    Request model for multivariate anomaly detection.
+    """Request model for multivariate anomaly detection.
 
     This model accepts multi-dimensional time series data where each row
     represents a time point and each column represents a feature/variable.
@@ -659,8 +638,7 @@ class MultivariateRequest(BaseModel):
 
 # Response Models
 class HealthResponse(BaseModel):
-    """
-    Health check response model.
+    """Health check response model.
 
     Attributes:
         status: Service status ('healthy', 'degraded', 'unhealthy').
@@ -698,8 +676,7 @@ class AnomalyPoint(BaseModel):
 
 
 class UnivariateResponse(BaseModel):
-    """
-    Response model for univariate anomaly detection.
+    """Response model for univariate anomaly detection.
 
     Attributes:
         anomalies: Boolean list indicating anomaly status per data point.
@@ -742,8 +719,7 @@ class UnivariateResponse(BaseModel):
 
 
 class MultivariateResponse(BaseModel):
-    """
-    Response model for multivariate anomaly detection.
+    """Response model for multivariate anomaly detection.
 
     Attributes:
         anomalies: Boolean list indicating anomaly status per time point.
@@ -792,8 +768,7 @@ class MultivariateResponse(BaseModel):
 
 
 class ErrorResponse(BaseModel):
-    """
-    Standard error response model.
+    """Standard error response model.
 
     Attributes:
         error: Error type/code.
@@ -822,8 +797,7 @@ class ErrorResponse(BaseModel):
 
 
 def _classify_severity(score: float, threshold: float) -> SeverityLevel:
-    """
-    Classify anomaly severity based on score.
+    """Classify anomaly severity based on score.
 
     Args:
         score: The anomaly score.
@@ -862,8 +836,7 @@ def _classify_severity(score: float, threshold: float) -> SeverityLevel:
     },
 )
 async def health_check() -> HealthResponse:
-    """
-    Check the health status of the API service.
+    """Check the health status of the API service.
 
     This endpoint can be used for load balancer health checks
     and monitoring service availability.
@@ -934,8 +907,7 @@ The threshold is calculated as: `threshold = 2.0 + (1.0 - sensitivity) * 3.0`
     },
 )
 async def detect_univariate(request: UnivariateRequest) -> UnivariateResponse:
-    """
-    Detect anomalies in univariate time-series data.
+    """Detect anomalies in univariate time-series data.
 
     This endpoint performs statistical anomaly detection on single-variable
     time series data using the z-score method with configurable sensitivity.
@@ -1097,8 +1069,7 @@ not be detectable in individual features.
     },
 )
 async def detect_multivariate(request: MultivariateRequest) -> MultivariateResponse:
-    """
-    Detect anomalies in multivariate time-series data.
+    """Detect anomalies in multivariate time-series data.
 
     This endpoint performs statistical anomaly detection on multi-dimensional
     time series data, considering relationships between different features.
@@ -1224,8 +1195,7 @@ async def detect_multivariate(request: MultivariateRequest) -> MultivariateRespo
 
 # Custom OpenAPI schema
 def custom_openapi() -> dict[str, Any]:
-    """
-    Generate custom OpenAPI schema with additional documentation.
+    """Generate custom OpenAPI schema with additional documentation.
 
     Returns:
         Dict containing the complete OpenAPI specification.
@@ -1268,7 +1238,6 @@ def custom_openapi() -> dict[str, Any]:
 
 
 app.openapi = custom_openapi  # type: ignore[method-assign, unused-ignore]
-
 
 # =============================================================================
 # Include Modular API Routes
@@ -1330,8 +1299,7 @@ def run_server(
     reload: bool = False,
     log_level: str = "info",
 ) -> None:
-    """
-    Run the Mercury Agent API server.
+    """Run the Mercury Agent API server.
 
     Args:
         host: Host address to bind to. Defaults to MERCURY_HOST env var or 127.0.0.1.

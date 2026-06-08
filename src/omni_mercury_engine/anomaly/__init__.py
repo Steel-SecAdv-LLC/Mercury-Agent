@@ -1,3 +1,4 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Cross-domain anomaly fusion subpackage for Mercury Agent.
 
 This package hosts multi-modal anomaly detectors that combine ML, rule,
@@ -14,13 +15,6 @@ Use ``anomaly/`` only for cross-domain fusion that consumes two or more
 release; the package is retained as the documented home for future
 work so the architectural intent is not lost.
 """
-
-# Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-#
-# This program is free software: you can redistribute it and/or modify it
-# under the terms of the GNU General Public License as published by the
-# Free Software Foundation, either version 3 of the License, or (at your
-# option) any later version.
 
 from __future__ import annotations
 

@@ -1,25 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-from typing import Any
-
-"""
-Agentic AI Autonomy Module
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Agentic AI Autonomy Module.
 
 Inspired by Bain 2025 report on agentic AI transformation:
 "At full potential, agents will run complete processes and workflows."
@@ -28,12 +8,14 @@ Implements autonomous agent framework for anomaly detection
 that can operate with minimal human oversight.
 
 Research source: Bain & Company Technology Report 2025
-
 """
+
+from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any
 
 import numpy as np
 
@@ -103,8 +85,7 @@ class PolicyMetrics:
 
 
 class AgenticAutonomy:
-    """
-    Autonomous agent framework for anomaly detection.
+    """Autonomous agent framework for anomaly detection.
 
     Agents can operate complete processes and workflows with
     minimal human oversight, inspired by Bain's agentic AI vision.
@@ -124,8 +105,7 @@ class AgenticAutonomy:
         learning_config: LearningConfig | None = None,
         seed: int | None = None,
     ) -> None:
-        """
-        Initialize agentic autonomy system.
+        """Initialize agentic autonomy system.
 
         Args:
             autonomy_level: Level of autonomy (0-1), higher = more autonomous
@@ -159,8 +139,7 @@ class AgenticAutonomy:
     def autonomous_detect(
         self, data: np.ndarray[Any, Any], context: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        """
-        Autonomously detect anomalies with minimal human oversight.
+        """Autonomously detect anomalies with minimal human oversight.
 
         Args:
             data: Input data to analyze
@@ -264,8 +243,7 @@ class AgenticAutonomy:
         )
 
     def _learn_from_action(self, action: AgentAction) -> None:
-        """
-        Learn from action outcomes using Q-learning with experience replay.
+        """Learn from action outcomes using Q-learning with experience replay.
 
         Implements temporal difference learning:
         Q(s, a) <- Q(s, a) + α * (r + γ * max_a' Q(s', a') - Q(s, a))
@@ -327,8 +305,7 @@ class AgenticAutonomy:
             self._experience_replay()
 
     def _compute_action_reward(self, action: AgentAction) -> float:
-        """
-        Compute reward signal for an action.
+        """Compute reward signal for an action.
 
         Reward structure:
         - High confidence correct actions: +1.0
@@ -382,8 +359,7 @@ class AgenticAutonomy:
         return float(np.clip(base_reward, -1.0, 1.0))
 
     def _extract_state_features(self, action: AgentAction) -> tuple[float, ...]:
-        """
-        Extract state features from action context for Q-learning.
+        """Extract state features from action context for Q-learning.
 
         Args:
             action: The action with context
@@ -401,8 +377,7 @@ class AgenticAutonomy:
         return tuple(float(f) for f in features)
 
     def _discretize_state(self, state_features: tuple[float, ...]) -> int:
-        """
-        Discretize continuous state features into bucket index.
+        """Discretize continuous state features into bucket index.
 
         Uses binning to create discrete state space for Q-table.
 
@@ -427,8 +402,7 @@ class AgenticAutonomy:
         return bucket
 
     def _experience_replay(self) -> None:
-        """
-        Perform experience replay for stable learning.
+        """Perform experience replay for stable learning.
 
         Samples random batch from experience buffer and performs Q-learning updates.
         """
@@ -476,8 +450,7 @@ class AgenticAutonomy:
         self.policy_metrics.convergence_history.append(avg_td_error)
 
     def get_q_value(self, state_features: tuple[float, ...], action_type: str) -> float:
-        """
-        Get Q-value for a state-action pair.
+        """Get Q-value for a state-action pair.
 
         Args:
             state_features: State features tuple
@@ -492,8 +465,7 @@ class AgenticAutonomy:
     def select_action_with_policy(
         self, state_features: tuple[float, ...], available_actions: list[str] | None = None
     ) -> str:
-        """
-        Select action using epsilon-greedy policy.
+        """Select action using epsilon-greedy policy.
 
         Args:
             state_features: Current state features
@@ -531,8 +503,7 @@ class AgenticAutonomy:
     def execute_workflow(
         self, workflow_definition: dict[str, Any], input_data: np.ndarray[Any, Any]
     ) -> dict[str, Any]:
-        """
-        Execute complete workflow autonomously.
+        """Execute complete workflow autonomously.
 
         Bain 2025: "At full potential, agents will run complete processes and workflows."
         Implements end-to-end workflow execution with minimal human oversight.
@@ -744,8 +715,7 @@ class AgenticAutonomy:
             return {"action": action_type, "status": "unknown"}
 
     def _learn_from_workflow(self, workflow_results: dict[str, Any]) -> None:
-        """
-        Learn from workflow execution outcomes using policy gradient-style updates.
+        """Learn from workflow execution outcomes using policy gradient-style updates.
 
         Implements workflow-level reinforcement learning:
         - Track workflow success/failure patterns
@@ -846,8 +816,7 @@ class AgenticAutonomy:
             self._experience_replay()
 
     def _compute_workflow_reward(self, workflow_results: dict[str, Any]) -> float:
-        """
-        Compute reward for entire workflow execution.
+        """Compute reward for entire workflow execution.
 
         Reward structure:
         - Successful completion: +1.0
@@ -892,8 +861,7 @@ class AgenticAutonomy:
     def _extract_step_features(
         self, step: dict[str, Any], workflow_results: dict[str, Any]
     ) -> tuple[float, ...]:
-        """
-        Extract features from a workflow step for learning.
+        """Extract features from a workflow step for learning.
 
         Args:
             step: Step execution data
@@ -930,8 +898,7 @@ class AgenticAutonomy:
         return tuple(features)
 
     def get_autonomy_metrics(self) -> dict[str, Any]:
-        """
-        Get metrics on autonomous operation including learning statistics.
+        """Get metrics on autonomous operation including learning statistics.
 
         Returns:
             Metrics showing autonomy level, decision count, intervention rate,

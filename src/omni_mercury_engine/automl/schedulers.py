@@ -1,5 +1,5 @@
-"""
-Trial Schedulers for AutoML.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Trial Schedulers for AutoML.
 
 Implements Hyperband and ASHA for efficient hyperparameter optimization.
 
@@ -65,8 +65,7 @@ class TrialScheduler(ABC):
 
 
 class MedianStoppingScheduler(TrialScheduler):
-    """
-    Median stopping rule scheduler.
+    """Median stopping rule scheduler.
 
     Stops trials performing below the median of completed trials.
     """
@@ -128,8 +127,7 @@ class MedianStoppingScheduler(TrialScheduler):
 
 
 class HyperbandScheduler(TrialScheduler):
-    """
-    Hyperband scheduler for efficient hyperparameter optimization.
+    """Hyperband scheduler for efficient hyperparameter optimization.
 
     Implements successive halving with different budget allocations.
     """
@@ -140,8 +138,7 @@ class HyperbandScheduler(TrialScheduler):
         reduction_factor: float = 3,
         min_budget: float = 1,
     ) -> None:
-        """
-        Initialize Hyperband scheduler.
+        """Initialize Hyperband scheduler.
 
         Args:
             max_budget: Maximum budget (e.g., epochs, iterations)
@@ -178,8 +175,7 @@ class HyperbandScheduler(TrialScheduler):
             self._brackets.append(bracket)
 
     def get_initial_configs(self, n_configs: int) -> list[tuple[int, float]]:
-        """
-        Get initial configurations with budgets.
+        """Get initial configurations with budgets.
 
         Returns list of (bracket_idx, budget) tuples.
         """
@@ -305,8 +301,7 @@ class HyperbandBracket:
         return next_budget
 
     def mark_complete(self, trial_id: str) -> None:
-        """
-        Mark trial as complete.
+        """Mark trial as complete.
 
         Adds trial to completed set so it won't be re-scheduled.
         """
@@ -314,8 +309,7 @@ class HyperbandBracket:
 
 
 class ASHAScheduler(TrialScheduler):
-    """
-    Asynchronous Successive Halving Algorithm (ASHA).
+    """Asynchronous Successive Halving Algorithm (ASHA).
 
     Provides asynchronous early stopping with successive halving.
     """
@@ -327,8 +321,7 @@ class ASHAScheduler(TrialScheduler):
         min_budget: float = 1,
         grace_period: int = 1,
     ) -> None:
-        """
-        Initialize ASHA scheduler.
+        """Initialize ASHA scheduler.
 
         Args:
             max_budget: Maximum budget
@@ -420,8 +413,7 @@ class ASHAScheduler(TrialScheduler):
         return None
 
     def on_trial_complete(self, trial_id: str) -> None:
-        """
-        Handle trial completion.
+        """Handle trial completion.
 
         Cleans up per-trial tracking state.
         """

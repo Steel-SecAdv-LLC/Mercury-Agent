@@ -1,5 +1,5 @@
-"""
-Mercury Agent - Data Export API Endpoints
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Mercury Agent - Data Export API Endpoints.
 
 Production-grade data export for historical anomaly detections, audit logs,
 and analytics data. Supports multiple formats and streaming for large datasets.
@@ -127,14 +127,14 @@ class ExportJob:
 
 
 class DataStore:
-    """
-    In-memory data store for demonstration.
+    """In-memory data store for demonstration.
 
     Production deployment should use a proper time-series database (InfluxDB, TimescaleDB) or data
     warehouse (BigQuery, Snowflake).
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self._detections: list[DetectionRecord] = []
         self._audit_logs: list[AuditLogRecord] = []
         self._export_jobs: dict[str, ExportJob] = {}

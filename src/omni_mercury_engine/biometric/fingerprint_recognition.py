@@ -1,5 +1,5 @@
-"""
-Fingerprint Recognition Module for Mercury Agent Biometric System.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Fingerprint Recognition Module for Mercury Agent Biometric System.
 
 Implements minutiae-based fingerprint matching with ridge flow analysis
 and liveness detection via sweat pore analysis.
@@ -111,8 +111,7 @@ class FingerprintLivenessResult:
 
 
 class OrientationFieldEstimator:
-    """
-    Estimate local ridge orientation field.
+    """Estimate local ridge orientation field.
 
     Uses gradient-based method with block averaging.
     """
@@ -122,8 +121,7 @@ class OrientationFieldEstimator:
         self._block_size = block_size
 
     def estimate(self, image: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Estimate orientation field from fingerprint image.
+        """Estimate orientation field from fingerprint image.
 
         Args:
             image: Grayscale fingerprint image
@@ -184,8 +182,7 @@ class OrientationFieldEstimator:
 
 
 class RidgeFrequencyEstimator:
-    """
-    Estimate local ridge frequency.
+    """Estimate local ridge frequency.
 
     Uses projection-based method along ridge direction.
     """
@@ -204,8 +201,7 @@ class RidgeFrequencyEstimator:
         image: np.ndarray[Any, Any],
         orientation: np.ndarray[Any, Any],
     ) -> np.ndarray[Any, Any]:
-        """
-        Estimate ridge frequency from image and orientation.
+        """Estimate ridge frequency from image and orientation.
 
         Args:
             image: Grayscale fingerprint image
@@ -295,8 +291,7 @@ class RidgeFrequencyEstimator:
 
 
 class GaborEnhancer:
-    """
-    Enhance fingerprint using Gabor filters.
+    """Enhance fingerprint using Gabor filters.
 
     Applies contextual Gabor filters based on local orientation and frequency.
     """
@@ -313,8 +308,7 @@ class GaborEnhancer:
         frequency: np.ndarray[Any, Any],
         quality_mask: np.ndarray[Any, Any] | None = None,
     ) -> np.ndarray[Any, Any]:
-        """
-        Enhance fingerprint image using Gabor filters.
+        """Enhance fingerprint image using Gabor filters.
 
         Args:
             image: Input fingerprint image
@@ -422,8 +416,7 @@ class GaborEnhancer:
 
 
 class MinutiaeExtractor:
-    """
-    Extract minutiae from enhanced fingerprint image.
+    """Extract minutiae from enhanced fingerprint image.
 
     Uses crossing number method on thinned ridges.
     """
@@ -443,8 +436,7 @@ class MinutiaeExtractor:
         orientation: np.ndarray[Any, Any],
         quality_map: np.ndarray[Any, Any] | None = None,
     ) -> list[Minutia]:
-        """
-        Extract minutiae from enhanced fingerprint.
+        """Extract minutiae from enhanced fingerprint.
 
         Args:
             enhanced_image: Enhanced fingerprint image
@@ -637,8 +629,7 @@ class MinutiaeExtractor:
 
 
 class FingerprintMatcher:
-    """
-    Match fingerprints using minutiae comparison.
+    """Match fingerprints using minutiae comparison.
 
     Implements Bozorth3-like algorithm with spatial and angular tolerances.
     """
@@ -661,8 +652,7 @@ class FingerprintMatcher:
         probe: FingerprintFeatures,
         gallery: FingerprintFeatures,
     ) -> FingerprintMatchResult:
-        """
-        Match probe fingerprint against gallery.
+        """Match probe fingerprint against gallery.
 
         Args:
             probe: Probe fingerprint features
@@ -769,8 +759,7 @@ class FingerprintMatcher:
 
 
 class FingerprintLivenessDetector:
-    """
-    Detect fingerprint presentation attacks.
+    """Detect fingerprint presentation attacks.
 
     Analyzes sweat pores, perspiration patterns, and skin elasticity.
     """
@@ -791,8 +780,7 @@ class FingerprintLivenessDetector:
         images: list[np.ndarray[Any, Any]],
         features: FingerprintFeatures | None = None,
     ) -> FingerprintLivenessResult:
-        """
-        Detect liveness from fingerprint images.
+        """Detect liveness from fingerprint images.
 
         Args:
             images: Sequence of fingerprint images
@@ -919,8 +907,7 @@ class FingerprintLivenessDetector:
 
 
 class FingerprintRecognizer:
-    """
-    Complete fingerprint recognition system.
+    """Complete fingerprint recognition system.
 
     Integrates enhancement, minutiae extraction, matching, and liveness detection.
     """
@@ -940,8 +927,7 @@ class FingerprintRecognizer:
         self._liveness_required = liveness_required
 
     def extract_features(self, image: np.ndarray[Any, Any]) -> FingerprintFeatures:
-        """
-        Extract fingerprint features from image.
+        """Extract fingerprint features from image.
 
         Args:
             image: Fingerprint image
@@ -982,8 +968,7 @@ class FingerprintRecognizer:
         enrolled_features: FingerprintFeatures,
         liveness_images: list[np.ndarray[Any, Any]] | None = None,
     ) -> tuple[FingerprintMatchResult, FingerprintLivenessResult | None]:
-        """
-        Verify a fingerprint against enrolled features.
+        """Verify a fingerprint against enrolled features.
 
         Args:
             probe_image: Probe fingerprint image

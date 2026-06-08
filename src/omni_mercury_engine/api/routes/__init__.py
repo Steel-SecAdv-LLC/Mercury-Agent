@@ -1,5 +1,5 @@
-"""
-Mercury Agent API Routes Package.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Mercury Agent API Routes Package.
 
 Provides modular API route organization:
 - detection: Anomaly detection endpoints

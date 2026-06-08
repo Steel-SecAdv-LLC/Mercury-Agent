@@ -1,34 +1,5 @@
-"""
-Mercury Agent
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Authentication and authorization middleware for the API.
-
-Example:
-    Using API key authentication::
-
-        from omni_mercury_engine.api.auth import require_api_key, APIKeyAuth
-
-        @app.get("/protected")
-        @require_api_key
-        async def protected_endpoint(api_key: str = Depends(APIKeyAuth())):
-            return {"message": "authenticated"}
-
-    Using JWT authentication::
-
-        from omni_mercury_engine.api.auth import JWTAuth, require_role
-
-        @app.get("/admin")
-        @require_role("admin")
-        async def admin_endpoint(user: User = Depends(JWTAuth())):
-            return {"user": user.username}
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 
@@ -85,8 +56,7 @@ class Permission(Enum):
 
 @dataclass
 class User:
-    """
-    Authenticated user information.
+    """Authenticated user information.
 
     Attributes:
         id: Unique user identifier.
@@ -116,8 +86,7 @@ class User:
 
 @dataclass
 class APIKey:
-    """
-    API key information.
+    """API key information.
 
     Attributes:
         key_id: Unique key identifier.
@@ -155,6 +124,7 @@ class AuthenticationError(Exception):
     """Authentication failed."""
 
     def __init__(self, message: str, code: str = "auth_failed") -> None:
+        """Initialize the instance."""
         super().__init__(message)
         self.code = code
 
@@ -163,6 +133,7 @@ class AuthorizationError(Exception):
     """Authorization failed."""
 
     def __init__(self, message: str, required: str | None = None) -> None:
+        """Initialize the instance."""
         super().__init__(message)
         self.required = required
 
@@ -172,8 +143,7 @@ class AuthProvider(ABC):
 
     @abstractmethod
     async def authenticate(self, credentials: Any) -> User:
-        """
-        Authenticate credentials and return user.
+        """Authenticate credentials and return user.
 
         Args:
             credentials: Authentication credentials.
@@ -188,8 +158,7 @@ class AuthProvider(ABC):
 
     @abstractmethod
     async def validate_token(self, token: str) -> User | None:
-        """
-        Validate a token and return user if valid.
+        """Validate a token and return user if valid.
 
         Args:
             token: Token to validate.
@@ -201,13 +170,13 @@ class AuthProvider(ABC):
 
 
 class APIKeyStore:
-    """
-    In-memory API key store.
+    """In-memory API key store.
 
     In production, this should be backed by a database.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self._keys: dict[str, APIKey] = {}
         self._key_lookup: dict[str, str] = {}  # hash -> key_id
 
@@ -220,8 +189,7 @@ class APIKeyStore:
 
     @staticmethod
     def hash_key(key: str) -> str:
-        """
-        Hash an API key for storage using PBKDF2-HMAC-SHA256.
+        """Hash an API key for storage using PBKDF2-HMAC-SHA256.
 
         Uses PBKDF2 (Password-Based Key Derivation Function 2) which is a
         computationally expensive hash function suitable for credential storage.
@@ -257,8 +225,7 @@ class APIKeyStore:
         expires_in_days: int | None = None,
         rate_limit: int = 100,
     ) -> tuple[str, APIKey]:
-        """
-        Create a new API key.
+        """Create a new API key.
 
         Args:
             name: Key name.
@@ -317,8 +284,7 @@ class APIKeyStore:
 
 
 class AuthKeyManager:
-    """
-    AMA Key Management integration for Mercury's auth layer.
+    """AMA Key Management integration for Mercury's auth layer.
 
     Provides HD key derivation, key rotation, and lifecycle management
     for API keys, JWT signing keys, and audit trail signing keys via
@@ -340,8 +306,7 @@ class AuthKeyManager:
         master_seed: bytes | None = None,
         rotation_period_days: int = 90,
     ) -> None:
-        """
-        Initialize the auth key manager.
+        """Initialize the auth key manager.
 
         Args:
             master_seed: HD derivation master seed (generated if None)
@@ -379,8 +344,7 @@ class AuthKeyManager:
             )
 
     def derive_key(self, purpose: str, index: int | None = None) -> bytes:
-        """
-        Derive a key for the given purpose using HD derivation.
+        """Derive a key for the given purpose using HD derivation.
 
         Args:
             purpose: One of ``api_key``, ``jwt_sign``, ``audit_sign``
@@ -410,8 +374,7 @@ class AuthKeyManager:
         return result
 
     def rotate_key(self, purpose: str) -> tuple[str, str]:
-        """
-        Rotate the key for the given purpose.
+        """Rotate the key for the given purpose.
 
         Derives a new key via HD derivation, registers it with the
         rotation manager, and initiates the rotation. The old key
@@ -517,6 +480,7 @@ class APIKeyAuth:
         header_name: str = "X-API-Key",
         auto_error: bool = True,
     ):
+        """Initialize the instance."""
         self.header_name = header_name
         self.auto_error = auto_error
         self.api_key_header = APIKeyHeader(
@@ -529,8 +493,7 @@ class APIKeyAuth:
         request: Request,
         api_key: str | None = None,
     ) -> User | None:
-        """
-        Authenticate request with API key.
+        """Authenticate request with API key.
 
         Args:
             request: FastAPI request.
@@ -624,8 +587,7 @@ class JWTAuth:
         auto_error: bool = True,
         allow_dev_fallback: bool = True,
     ):
-        """
-        Initialize JWT authentication.
+        """Initialize JWT authentication.
 
         Args:
             secret_key: JWT signing key (overrides environment variable)
@@ -696,8 +658,7 @@ class JWTAuth:
         request: Request,
         credentials: HTTPAuthorizationCredentials | None = None,
     ) -> User | None:
-        """
-        Authenticate request with JWT token.
+        """Authenticate request with JWT token.
 
         Args:
             request: FastAPI request.
@@ -738,8 +699,7 @@ class JWTAuth:
         return user
 
     async def _validate_jwt(self, token: str) -> User | None:
-        """
-        Validate JWT token using Mercury's native HS256 JWT module.
+        """Validate JWT token using Mercury's native HS256 JWT module.
 
         The library is part of Mercury's own ``security`` package
         (``omni_mercury_engine.security.native_jwt``), so no
@@ -845,8 +805,7 @@ class JWTAuth:
         algorithm: str = "HS256",
         expires_in_hours: int = 24,
     ) -> str:
-        """
-        Create a new JWT token.
+        """Create a new JWT token.
 
         Args:
             user_id: Unique user identifier
@@ -881,8 +840,7 @@ class JWTAuth:
 
 
 class RequestRateLimiter:
-    """
-    Request-aware rate limiter wrapper.
+    """Request-aware rate limiter wrapper.
 
     Wraps the unified RateLimiter with FastAPI Request support. Uses the consolidated rate limiting
     module for actual implementation.
@@ -893,6 +851,7 @@ class RequestRateLimiter:
         requests_per_minute: int = 100,
         burst_size: int = 20,
     ):
+        """Initialize the instance."""
         from omni_mercury_engine.security.rate_limiting import RateLimiter as UnifiedRateLimiter
 
         self._limiter = UnifiedRateLimiter(
@@ -915,8 +874,7 @@ class RequestRateLimiter:
         request: Request,
         user: User | None = None,
     ) -> tuple[bool, dict[str, Any]]:
-        """
-        Check if request is allowed under rate limit.
+        """Check if request is allowed under rate limit.
 
         Args:
             request: FastAPI request.
@@ -948,8 +906,7 @@ def get_rate_limiter() -> RequestRateLimiter:
 
 
 def require_permission(permission: Permission) -> Callable[..., Any]:
-    """
-    Decorator to require specific permission.
+    """Decorator to require specific permission.
 
     Args:
         permission: Required permission.
@@ -977,8 +934,7 @@ def require_permission(permission: Permission) -> Callable[..., Any]:
 
 
 def require_role(role: str) -> Callable[..., Any]:
-    """
-    Decorator to require specific role.
+    """Decorator to require specific role.
 
     Args:
         role: Required role.
@@ -1009,8 +965,7 @@ async def rate_limit_middleware(
     request: Request,
     call_next: Callable[..., Any],
 ) -> Any:
-    """
-    Rate limiting middleware.
+    """Rate limiting middleware.
 
     Args:
         request: FastAPI request.

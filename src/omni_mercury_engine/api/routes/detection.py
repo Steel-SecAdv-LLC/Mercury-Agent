@@ -1,5 +1,5 @@
-"""
-Mercury Agent - Detection API Routes
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Mercury Agent - Detection API Routes.
 
 Extracted detection endpoints for modular organization.
 Provides univariate, multivariate, and advanced detection methods.

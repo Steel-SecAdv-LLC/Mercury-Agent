@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Bayesian Confidence Calibrator for Mercury Agent
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Bayesian Confidence Calibrator for Mercury Agent.
 
 Implements a learned confidence model that replaces the fixed 0.76 heuristic
 with a continuously improving Bayesian estimator. Uses Beta-Bernoulli
@@ -34,6 +16,8 @@ References:
 - Beta-Bernoulli conjugate prior (standard Bayesian statistics)
 - Calibration in machine learning (Guo et al., 2017)
 """
+
+from __future__ import annotations
 
 import json
 import logging
@@ -115,8 +99,7 @@ class CalibrationConfig:
 
 
 class BayesianConfidenceCalibrator:
-    """
-    Bayesian confidence calibrator using Beta-Bernoulli model.
+    """Bayesian confidence calibrator using Beta-Bernoulli model.
 
     Replaces the fixed 0.76 heuristic with a learned, continuously improving
     confidence model. Maintains per-context (domain, goal_type) statistics
@@ -131,8 +114,7 @@ class BayesianConfidenceCalibrator:
     """
 
     def __init__(self, config: CalibrationConfig | None = None) -> None:
-        """
-        Initialize the Bayesian confidence calibrator.
+        """Initialize the Bayesian confidence calibrator.
 
         Args:
             config: Calibration configuration (uses defaults if None)
@@ -146,8 +128,7 @@ class BayesianConfidenceCalibrator:
         self._prior_beta = (1 - self.config.prior_mean) * self.config.prior_kappa
 
     def get_context_key(self, domain: str, goal_type: str) -> str:
-        """
-        Generate a context key from domain and goal type.
+        """Generate a context key from domain and goal type.
 
         Args:
             domain: Domain type (e.g., "medical", "security")
@@ -159,8 +140,7 @@ class BayesianConfidenceCalibrator:
         return f"{domain}:{goal_type}"
 
     def classify_goal_type(self, goal: str) -> str:
-        """
-        Classify a goal string into a goal type.
+        """Classify a goal string into a goal type.
 
         Mirrors the logic in MercuryPlanner._decompose_goal for consistency.
 
@@ -187,8 +167,7 @@ class BayesianConfidenceCalibrator:
         goal: str,
         memory_evidence_count: int = 0,
     ) -> float:
-        """
-        Get calibrated confidence for a context.
+        """Get calibrated confidence for a context.
 
         Uses familiarity-weighted interpolation:
         - confidence = prior + familiarity * (posterior_mean - prior)
@@ -245,8 +224,7 @@ class BayesianConfidenceCalibrator:
         success: bool,
         timestamp: float = 0.0,
     ) -> None:
-        """
-        Update the calibrator with an observation.
+        """Update the calibrator with an observation.
 
         Args:
             domain: Domain type
@@ -280,8 +258,7 @@ class BayesianConfidenceCalibrator:
         )
 
     def get_stats(self, domain: str, goal: str) -> ContextStats | None:
-        """
-        Get statistics for a context.
+        """Get statistics for a context.
 
         Args:
             domain: Domain type
@@ -295,8 +272,7 @@ class BayesianConfidenceCalibrator:
         return self.contexts.get(context_key)
 
     def get_all_stats(self) -> dict[str, dict[str, Any]]:
-        """
-        Get statistics for all contexts.
+        """Get statistics for all contexts.
 
         Returns:
             Dictionary mapping context keys to their stats
@@ -304,8 +280,7 @@ class BayesianConfidenceCalibrator:
         return {key: stats.to_dict() for key, stats in self.contexts.items()}
 
     def get_summary(self) -> dict[str, Any]:
-        """
-        Get a summary of the calibrator state.
+        """Get a summary of the calibrator state.
 
         Returns:
             Summary dictionary with aggregate statistics
@@ -342,8 +317,7 @@ class BayesianConfidenceCalibrator:
         }
 
     def save(self, path: Path | str) -> None:
-        """
-        Save calibrator state to a JSON file.
+        """Save calibrator state to a JSON file.
 
         Args:
             path: Path to save to
@@ -366,8 +340,7 @@ class BayesianConfidenceCalibrator:
         self.logger.info(f"Saved calibrator state to {path}")
 
     def load(self, path: Path | str) -> None:
-        """
-        Load calibrator state from a JSON file.
+        """Load calibrator state from a JSON file.
 
         Args:
             path: Path to load from

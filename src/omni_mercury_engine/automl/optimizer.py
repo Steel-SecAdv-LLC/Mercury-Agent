@@ -1,5 +1,5 @@
-"""
-Bayesian Optimization for AutoML.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Bayesian Optimization for AutoML.
 
 Implements Tree-structured Parzen Estimator (TPE) for efficient
 hyperparameter optimization with support for early stopping.
@@ -40,7 +40,6 @@ from omni_mercury_engine.automl.search_space import (
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-
 
 logger = logging.getLogger(__name__)
 
@@ -131,8 +130,7 @@ class RandomSampler(Sampler):
 
 
 class TPESampler(Sampler):
-    """
-    Tree-structured Parzen Estimator (TPE) sampler.
+    """Tree-structured Parzen Estimator (TPE) sampler.
 
     Models P(x|y) using two distributions: one for good configurations and one for bad
     configurations, then samples from the ratio.
@@ -145,8 +143,7 @@ class TPESampler(Sampler):
         n_ei_candidates: int = 24,
         seed: int | None = None,
     ) -> None:
-        """
-        Initialize TPE sampler.
+        """Initialize TPE sampler.
 
         Args:
             gamma: Fraction of trials to consider as "good"
@@ -280,8 +277,7 @@ class TPESampler(Sampler):
 
 
 class GaussianProcessSampler(Sampler):
-    """
-    Gaussian Process-based Bayesian optimization sampler.
+    """Gaussian Process-based Bayesian optimization sampler.
 
     Uses Expected Improvement (EI) acquisition function.
     """
@@ -449,8 +445,7 @@ class GaussianProcessSampler(Sampler):
 
 
 class BayesianOptimizer:
-    """
-    Bayesian Optimization for hyperparameter tuning.
+    """Bayesian Optimization for hyperparameter tuning.
 
     Combines a sampler (TPE or GP) with optional early stopping via trial schedulers (Hyperband,
     ASHA).
@@ -467,8 +462,7 @@ class BayesianOptimizer:
         n_jobs: int = 1,
         seed: int | None = None,
     ) -> None:
-        """
-        Initialize Bayesian optimizer.
+        """Initialize Bayesian optimizer.
 
         Args:
             search_space: Search space definition
@@ -599,8 +593,7 @@ class BayesianOptimizer:
 
 
 class MercuryAutoML:
-    """
-    High-level AutoML interface for Mercury Agent.
+    """High-level AutoML interface for Mercury Agent.
 
     Provides automated hyperparameter optimization, model selection,
     and feature engineering for anomaly detection models.
@@ -644,8 +637,7 @@ class MercuryAutoML:
         scheduler: str | None = "asha",
         seed: int | None = None,
     ) -> None:
-        """
-        Initialize MercuryAutoML.
+        """Initialize MercuryAutoML.
 
         Args:
             task: Task type (anomaly_detection, classification, regression)
@@ -692,8 +684,7 @@ class MercuryAutoML:
         *args: Any,
         **kwargs: Any,
     ) -> MercuryAutoML:
-        """
-        Add a hyperparameter to the search space.
+        """Add a hyperparameter to the search space.
 
         Args:
             name: Parameter name
@@ -724,8 +715,7 @@ class MercuryAutoML:
         self,
         factory: Callable[[dict[str, Any]], Any],
     ) -> MercuryAutoML:
-        """
-        Set a custom model factory function.
+        """Set a custom model factory function.
 
         Args:
             factory: Function that takes config dict and returns a model
@@ -746,8 +736,7 @@ class MercuryAutoML:
             Callable[[Any, np.ndarray[Any, Any], np.ndarray[Any, Any] | None], float] | None
         ) = None,
     ) -> OptimizationResult:
-        """
-        Run hyperparameter optimization.
+        """Run hyperparameter optimization.
 
         Args:
             X_train: Training features
@@ -980,8 +969,7 @@ class MercuryAutoML:
         return self._result
 
     def get_feature_importance(self) -> dict[str, float]:
-        """
-        Get hyperparameter importance based on trial history.
+        """Get hyperparameter importance based on trial history.
 
         Uses functional ANOVA to estimate parameter importance.
         """
