@@ -1,21 +1,5 @@
-"""
-Mercury Agent - API Input Validation Module
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Comprehensive input validation for API endpoints:
-- Data size limits and bounds checking
-- Input sanitization for injection prevention
-- Type coercion and normalization
-- Domain-specific validation rules
-
-This module addresses P2 API input validation gaps.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""API Input Validation Module."""
 
 from __future__ import annotations
 
@@ -135,8 +119,7 @@ class InputSanitizer:
 
     @classmethod
     def sanitize_string(cls, value: str, max_length: int = 256) -> str:
-        """
-        Sanitize a string value.
+        """Sanitize a string value.
 
         Args:
             value: String to sanitize
@@ -165,8 +148,7 @@ class InputSanitizer:
 
     @classmethod
     def sanitize_dict(cls, data: dict[str, Any], max_depth: int = 3) -> dict[str, Any]:
-        """
-        Recursively sanitize a dictionary.
+        """Recursively sanitize a dictionary.
 
         Args:
             data: Dictionary to sanitize
@@ -197,8 +179,7 @@ class InputSanitizer:
 
     @classmethod
     def sanitize_list(cls, data: list[Any], max_depth: int = 3) -> list[Any]:
-        """
-        Recursively sanitize a list.
+        """Recursively sanitize a list.
 
         Args:
             data: List to sanitize
@@ -228,8 +209,7 @@ class DataArrayValidator:
     """Validates numerical data arrays."""
 
     def __init__(self, config: ValidationConfig | None = None):
-        """
-        Initialize data array validator.
+        """Initialize data array validator.
 
         Args:
             config: Validation configuration
@@ -237,8 +217,7 @@ class DataArrayValidator:
         self.config = config or ValidationConfig()
 
     def validate_univariate(self, data: list[float] | NDArray[np.float64]) -> ValidationResult:
-        """
-        Validate univariate time series data.
+        """Validate univariate time series data.
 
         Args:
             data: 1D numerical data
@@ -373,8 +352,7 @@ class DataArrayValidator:
     def validate_multivariate(
         self, data: list[list[float]] | NDArray[np.float64]
     ) -> ValidationResult:
-        """
-        Validate multivariate time series data.
+        """Validate multivariate time series data.
 
         Args:
             data: 2D numerical data (samples x features)
@@ -518,8 +496,7 @@ class ParameterValidator:
     """Validates API parameters."""
 
     def __init__(self, config: ValidationConfig | None = None):
-        """
-        Initialize parameter validator.
+        """Initialize parameter validator.
 
         Args:
             config: Validation configuration
@@ -681,8 +658,7 @@ class APIRequestValidator:
     """Unified API request validator."""
 
     def __init__(self, config: ValidationConfig | None = None):
-        """
-        Initialize API request validator.
+        """Initialize API request validator.
 
         Args:
             config: Validation configuration
@@ -697,8 +673,7 @@ class APIRequestValidator:
         sensitivity: float | None = None,
         **kwargs: Any,
     ) -> ValidationResult:
-        """
-        Validate univariate detection request.
+        """Validate univariate detection request.
 
         Args:
             data: Time series data
@@ -738,8 +713,7 @@ class APIRequestValidator:
         sensitivity: float | None = None,
         **kwargs: Any,
     ) -> ValidationResult:
-        """
-        Validate multivariate detection request.
+        """Validate multivariate detection request.
 
         Args:
             data: Multi-dimensional time series data

@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Oracle-validated verifier for a PARADOX_DEFENSE scalar.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Oracle-validated verifier for a PARADOX_DEFENSE scalar.
 
 A "paradox defense" is formalised as two propositional theories: the *naive* framing that
 produces the contradiction, and the *defense* -- a reformulation that resolves it.  The DPLL
@@ -29,6 +11,8 @@ oracle settles both questions exactly:
 A defense that is itself inconsistent, or a "paradox" that was never contradictory, is refuted.
 This is decidable logic, independent of any model.
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass

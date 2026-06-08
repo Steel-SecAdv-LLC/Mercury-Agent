@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Oracle-validated verifier for a Collatz MATHEMATICAL_MYSTERIES scalar.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Oracle-validated verifier for a Collatz MATHEMATICAL_MYSTERIES scalar.
 
 The Collatz conjecture ("iterating n -> n/2 if even, 3n+1 if odd, every n >= 1 reaches 1") is
 open.  An *instance* is verified by following the map -- a deterministic dynamical process, not
@@ -31,6 +13,8 @@ Honesty about limits: reaching 1 is confirmable, but non-termination is only sem
 a trajectory that exceeds the step budget yields an explicit ``inconclusive`` verdict, never a
 fabricated pass or a false refutation.
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass

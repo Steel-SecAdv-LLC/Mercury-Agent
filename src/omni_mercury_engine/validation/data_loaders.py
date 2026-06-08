@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Real-World Dataset Loaders (DEPRECATED)
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Real-World Dataset Loaders (DEPRECATED).
 
 .. deprecated:: 1.5.0
     Use :mod:`omni_mercury_engine.datasets` module directly.
@@ -34,6 +16,8 @@ from ``datasets/`` for backward compatibility.  Unique loaders
 (NOAASpaceWeatherLoader, NOAAHurricaneLoader, NOAAOceanLoader)
 remain here until ported to ``datasets/``.
 """
+
+from __future__ import annotations
 
 import hashlib
 import warnings
@@ -89,8 +73,7 @@ class DatasetLoader(ABC):
     def load(
         self, **kwargs: Any
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], DatasetMetadata]:
-        """
-        Load dataset and return features, labels, and metadata.
+        """Load dataset and return features, labels, and metadata.
 
         Returns:
             Tuple of (features, labels, metadata)
@@ -106,8 +89,7 @@ class DatasetLoader(ABC):
     ) -> tuple[
         np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]
     ]:
-        """
-        Get train/test split of the dataset.
+        """Get train/test split of the dataset.
 
         Returns:
             Tuple of (X_train, X_test, y_train, y_test)
@@ -116,8 +98,7 @@ class DatasetLoader(ABC):
 
 
 class NSLKDDLoader(DatasetLoader):
-    """
-    NSL-KDD Network Intrusion Detection Dataset Loader.
+    """NSL-KDD Network Intrusion Detection Dataset Loader.
 
     The NSL-KDD dataset is an improved version of KDD Cup 1999 dataset,
     addressing issues like redundant records and class imbalance.
@@ -207,6 +188,7 @@ class NSLKDDLoader(DatasetLoader):
     }
 
     def __init__(self, cache_dir: str | Path | None = None) -> None:
+        """Initialize the instance."""
         self.cache_dir = (
             Path(cache_dir) if cache_dir else Path.home() / ".omni_mercury" / "datasets"
         )
@@ -222,8 +204,7 @@ class NSLKDDLoader(DatasetLoader):
         min_real_samples: int = 100,
         **kwargs: Any,
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], DatasetMetadata]:
-        """
-        Load NSL-KDD dataset.
+        """Load NSL-KDD dataset.
 
         Args:
             use_synthetic: Use synthetic data (for testing without download)
@@ -354,8 +335,7 @@ class NSLKDDLoader(DatasetLoader):
 
 
 class USGSEarthquakeLoader(DatasetLoader):
-    """
-    USGS Earthquake Data Loader.
+    """USGS Earthquake Data Loader.
 
     Loads earthquake event data from the USGS Earthquake Hazards Program API.
     Data is publicly available and updated in real-time.
@@ -391,6 +371,7 @@ class USGSEarthquakeLoader(DatasetLoader):
     ]
 
     def __init__(self, cache_dir: str | Path | None = None) -> None:
+        """Initialize the instance."""
         self.cache_dir = (
             Path(cache_dir) if cache_dir else Path.home() / ".omni_mercury" / "datasets"
         )
@@ -409,8 +390,7 @@ class USGSEarthquakeLoader(DatasetLoader):
         min_real_samples: int = 100,
         **kwargs: Any,
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], DatasetMetadata]:
-        """
-        Load USGS earthquake data.
+        """Load USGS earthquake data.
 
         Args:
             use_synthetic: Use synthetic data (for testing without API calls)
@@ -628,8 +608,7 @@ class USGSEarthquakeLoader(DatasetLoader):
 
 
 class MIMICLoader(DatasetLoader):
-    """
-    MIMIC-III Medical ICU Data Loader (IRB Placeholder Simulation).
+    """MIMIC-III Medical ICU Data Loader (IRB Placeholder Simulation).
 
     MIMIC-III is a large, freely-available database of de-identified health data
     from ICU patients. Access requires credentialing through PhysioNet.
@@ -675,6 +654,7 @@ class MIMICLoader(DatasetLoader):
     ]
 
     def __init__(self, cache_dir: str | Path | None = None) -> None:
+        """Initialize the instance."""
         self.cache_dir = (
             Path(cache_dir) if cache_dir else Path.home() / ".omni_mercury" / "datasets"
         )
@@ -690,8 +670,7 @@ class MIMICLoader(DatasetLoader):
         use_synthetic: bool = False,
         **kwargs: Any,
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], DatasetMetadata]:
-        """
-        Load MIMIC-III-like synthetic data.
+        """Load MIMIC-III-like synthetic data.
 
         Args:
             n_samples: Number of samples to generate
@@ -906,8 +885,7 @@ class MIMICLoader(DatasetLoader):
         )
 
     def check_irb_status(self) -> dict[str, Any]:
-        """
-        Check IRB/credentialing status for real MIMIC-III access.
+        """Check IRB/credentialing status for real MIMIC-III access.
 
         Returns:
             Dictionary with IRB status information
@@ -928,8 +906,7 @@ class MIMICLoader(DatasetLoader):
 
 
 class NOAASpaceWeatherLoader(DatasetLoader):
-    """
-    NOAA Space Weather Prediction Center Data Loader.
+    """NOAA Space Weather Prediction Center Data Loader.
 
     Loads solar activity and geomagnetic storm data from NOAA SWPC.
     Data is publicly available and updated in real-time.
@@ -965,6 +942,7 @@ class NOAASpaceWeatherLoader(DatasetLoader):
     ]
 
     def __init__(self, cache_dir: str | Path | None = None) -> None:
+        """Initialize the instance."""
         self.cache_dir = (
             Path(cache_dir) if cache_dir else Path.home() / ".omni_mercury" / "datasets"
         )
@@ -981,8 +959,7 @@ class NOAASpaceWeatherLoader(DatasetLoader):
         min_real_samples: int = 100,
         **kwargs: Any,
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], DatasetMetadata]:
-        """
-        Load NOAA Space Weather data.
+        """Load NOAA Space Weather data.
 
         Args:
             use_synthetic: Use synthetic data (for testing without API calls)
@@ -1204,8 +1181,7 @@ class NOAASpaceWeatherLoader(DatasetLoader):
 
 
 class NOAAHurricaneLoader(DatasetLoader):
-    """
-    NOAA National Hurricane Center Data Loader.
+    """NOAA National Hurricane Center Data Loader.
 
     Loads tropical cyclone track and intensity data from NHC.
     Data is publicly available and updated during hurricane season.
@@ -1245,6 +1221,7 @@ class NOAAHurricaneLoader(DatasetLoader):
     ]
 
     def __init__(self, cache_dir: str | Path | None = None) -> None:
+        """Initialize the instance."""
         self.cache_dir = (
             Path(cache_dir) if cache_dir else Path.home() / ".omni_mercury" / "datasets"
         )
@@ -1261,8 +1238,7 @@ class NOAAHurricaneLoader(DatasetLoader):
         min_real_samples: int = 100,
         **kwargs: Any,
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], DatasetMetadata]:
-        """
-        Load NOAA Hurricane data.
+        """Load NOAA Hurricane data.
 
         Args:
             use_synthetic: Use synthetic data (for testing without API calls)
@@ -1496,8 +1472,7 @@ class NOAAHurricaneLoader(DatasetLoader):
 
 
 class NOAAOceanLoader(DatasetLoader):
-    """
-    NOAA National Ocean Service Data Loader.
+    """NOAA National Ocean Service Data Loader.
 
     Loads ocean temperature, salinity, and marine ecosystem data.
     Data is publicly available from NOAA oceanographic services.
@@ -1537,6 +1512,7 @@ class NOAAOceanLoader(DatasetLoader):
     ]
 
     def __init__(self, cache_dir: str | Path | None = None) -> None:
+        """Initialize the instance."""
         self.cache_dir = (
             Path(cache_dir) if cache_dir else Path.home() / ".omni_mercury" / "datasets"
         )
@@ -1553,8 +1529,7 @@ class NOAAOceanLoader(DatasetLoader):
         min_real_samples: int = 100,
         **kwargs: Any,
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], DatasetMetadata]:
-        """
-        Load NOAA Ocean data.
+        """Load NOAA Ocean data.
 
         Args:
             use_synthetic: Use synthetic data (for testing without API calls)
@@ -1829,8 +1804,7 @@ _LOADER_REGISTRY: dict[str, type[DatasetLoader]] = {
 
 
 def get_loader(name: str, **kwargs: Any) -> DatasetLoader:
-    """
-    Resolve a dataset name to a concrete :class:`DatasetLoader`.
+    """Resolve a dataset name to a concrete :class:`DatasetLoader`.
 
     The validation-pipeline previously shipped a factory of this name
     but it was lost during a refactor; the operator tooling and the
