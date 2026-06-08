@@ -1,31 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-Enhanced Neurosymbolic Engine - State-of-the-Art Neuro-Symbolic AI
-
-This module implements cutting-edge neuro-symbolic capabilities based on:
-- Logic Tensor Networks (LTNtorch) - Differentiable fuzzy logic
-- PyReason - Temporal first-order logic with graph reasoning
-- Knowledge Graph Integration - ConceptNet, ATOMIC commonsense
-- Meta-Cognition - Self-monitoring and reasoning adjustment
-- Causal Reasoning - Causal inference and counterfactuals
-- Probabilistic Logic - Credal networks and uncertainty
-
-Research References:
-- LTNtorch: https://arxiv.org/abs/2409.16045 (JMLR 2024)
-- PyReason: https://arxiv.org/abs/2302.13482 (AAAI 2023)
-- Neuro-Symbolic AI Survey: https://arxiv.org/abs/2501.05435 (2025)
-- AlphaProof/AlphaGeometry: Mathematical reasoning (Google 2024)
-
-Architecture:
-    1. EnhancedLogicTensorNetwork - Improved LTN with multiple fuzzy semantics
-    2. TemporalGraphReasoner - PyReason-style temporal reasoning over graphs
-    3. KnowledgeGraphBridge - ConceptNet/ATOMIC integration
-    4. MetaCognitionLayer - Self-monitoring and reasoning adjustment
-    5. CausalReasoningModule - Causal inference and intervention
-    6. ProbabilisticLogicLayer - Credal networks for uncertainty
-    7. EnhancedNeurosymbolicEngine - Unified interface
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Enhanced Neurosymbolic Engine - State-of-the-Art Neuro-Symbolic AI."""
 
 from __future__ import annotations
 
@@ -50,7 +24,6 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-
 # ==============================================================================
 # FUZZY LOGIC SEMANTICS (Based on LTNtorch)
 # ==============================================================================
@@ -65,8 +38,7 @@ class FuzzySemantics(Enum):
 
 
 class FuzzyOperators:
-    """
-    Differentiable fuzzy logic operators.
+    """Differentiable fuzzy logic operators.
 
     Based on LTNtorch implementation for gradient-based learning.
     Reference: https://github.com/tommasocarraro/LTNtorch
@@ -74,47 +46,47 @@ class FuzzyOperators:
 
     @staticmethod
     def and_product(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-        """Product t-norm: x ∧ y = x * y"""
+        """Product t-norm: x ∧ y = x * y."""
         return x * y
 
     @staticmethod
     def and_godel(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-        """Gödel t-norm: x ∧ y = min(x, y)"""
+        """Gödel t-norm: x ∧ y = min(x, y)."""
         return torch.min(x, y)
 
     @staticmethod
     def and_lukasiewicz(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-        """Łukasiewicz t-norm: x ∧ y = max(0, x + y - 1)"""
+        """Łukasiewicz t-norm: x ∧ y = max(0, x + y - 1)."""
         return torch.clamp(x + y - 1, min=0)
 
     @staticmethod
     def or_product(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-        """Product t-conorm: x ∨ y = x + y - x*y"""
+        """Product t-conorm: x ∨ y = x + y - x*y."""
         return x + y - x * y
 
     @staticmethod
     def or_godel(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-        """Gödel t-conorm: x ∨ y = max(x, y)"""
+        """Gödel t-conorm: x ∨ y = max(x, y)."""
         return torch.max(x, y)
 
     @staticmethod
     def or_lukasiewicz(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-        """Łukasiewicz t-conorm: x ∨ y = min(1, x + y)"""
+        """Łukasiewicz t-conorm: x ∨ y = min(1, x + y)."""
         return torch.clamp(x + y, max=1)
 
     @staticmethod
     def not_standard(x: torch.Tensor) -> torch.Tensor:
-        """Standard negation: ¬x = 1 - x"""
+        """Standard negation: ¬x = 1 - x."""
         return 1 - x
 
     @staticmethod
     def implies_product(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-        """Reichenbach implication: x → y = 1 - x + x*y"""
+        """Reichenbach implication: x → y = 1 - x + x*y."""
         return 1 - x + x * y
 
     @staticmethod
     def implies_godel(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-        """Gödel implication: x → y = 1 if x <= y, else y"""
+        """Gödel implication: x → y = 1 if x <= y, else y."""
         return torch.where(x <= y, torch.ones_like(x), y)
 
     @staticmethod
@@ -150,8 +122,7 @@ class FuzzyOperators:
 
 
 class EnhancedLogicTensorNetwork(nn.Module if TORCH_AVAILABLE else object):  # type: ignore[misc]
-    """
-    Enhanced Logic Tensor Network with multiple fuzzy semantics.
+    """Enhanced Logic Tensor Network with multiple fuzzy semantics.
 
     Improvements over basic LTN:
     - Multiple fuzzy semantics (Product, Gödel, Łukasiewicz)
@@ -167,6 +138,7 @@ class EnhancedLogicTensorNetwork(nn.Module if TORCH_AVAILABLE else object):  # t
         num_predicates: int = 16,
         semantics: FuzzySemantics = FuzzySemantics.PRODUCT,
     ):
+        """Initialize the instance."""
         if not TORCH_AVAILABLE:
             return
 
@@ -225,8 +197,7 @@ class EnhancedLogicTensorNetwork(nn.Module if TORCH_AVAILABLE else object):  # t
         self.forall_op = FuzzyOperators.forall_pmean  # Smoother gradients
 
     def ground_predicates(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Ground all predicates for input features.
+        """Ground all predicates for input features.
 
         Args:
             x: Input features [batch, input_dim]
@@ -248,8 +219,7 @@ class EnhancedLogicTensorNetwork(nn.Module if TORCH_AVAILABLE else object):  # t
         predicate_values: torch.Tensor,
         formula: str,
     ) -> torch.Tensor:
-        """
-        Evaluate a logical formula given predicate groundings.
+        """Evaluate a logical formula given predicate groundings.
 
         Args:
             predicate_values: [batch, num_predicates]
@@ -303,8 +273,7 @@ class EnhancedLogicTensorNetwork(nn.Module if TORCH_AVAILABLE else object):  # t
             raise ValueError(f"Cannot parse expression: {expr}")
 
     def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
-        """
-        Forward pass with predicate grounding and formula evaluation.
+        """Forward pass with predicate grounding and formula evaluation.
 
         Args:
             x: Input features [batch, input_dim]
@@ -356,8 +325,7 @@ class GraphEdge:
 
 @dataclass
 class TemporalRule:
-    """
-    Temporal logic rule with time constraints.
+    """Temporal logic rule with time constraints.
 
     Format: IF premise THEN conclusion [WITHIN time_window]
     """
@@ -371,8 +339,7 @@ class TemporalRule:
 
 
 class TemporalGraphReasoner:
-    """
-    PyReason-inspired temporal graph reasoner.
+    """PyReason-inspired temporal graph reasoner.
 
     Supports:
     - Open-world reasoning (unknown ≠ false)
@@ -388,6 +355,7 @@ class TemporalGraphReasoner:
         max_timesteps: int = 100,
         open_world: bool = True,
     ):
+        """Initialize the instance."""
         self.max_timesteps = max_timesteps
         self.open_world = open_world
 
@@ -459,8 +427,7 @@ class TemporalGraphReasoner:
         current_time: int = 0,
         max_iterations: int = 10,
     ) -> dict[str, Any]:
-        """
-        Perform temporal reasoning to answer a query.
+        """Perform temporal reasoning to answer a query.
 
         Args:
             query: Query to answer (e.g., "anomaly(X)")
@@ -586,8 +553,7 @@ class CommonsenseRelation:
 
 
 class KnowledgeGraphBridge:
-    """
-    Bridge to external knowledge graphs for commonsense reasoning.
+    """Bridge to external knowledge graphs for commonsense reasoning.
 
     Supports:
     - ConceptNet 5.5 - Multilingual commonsense knowledge
@@ -641,6 +607,7 @@ class KnowledgeGraphBridge:
     ]
 
     def __init__(self, cache_dir: str = "./kg_cache") -> None:
+        """Initialize the instance."""
         self.cache_dir = cache_dir
         self.knowledge_base: list[CommonsenseRelation] = []
         self._concept_index: dict[str, list[int]] = {}
@@ -720,8 +687,7 @@ class KnowledgeGraphBridge:
         relation: str,
         obj: str,
     ) -> float:
-        """
-        Infer confidence in a relation.
+        """Infer confidence in a relation.
 
         Uses graph traversal to find supporting paths.
         """
@@ -747,8 +713,7 @@ class KnowledgeGraphBridge:
         self,
         context: dict[str, Any],
     ) -> dict[str, float]:
-        """
-        Enhance reasoning context with commonsense inferences.
+        """Enhance reasoning context with commonsense inferences.
 
         Args:
             context: Current reasoning context with detected concepts
@@ -787,8 +752,7 @@ class ReasoningState:
 
 
 class MetaCognitionLayer:
-    """
-    Meta-cognition layer for self-monitoring reasoning.
+    """Meta-cognition layer for self-monitoring reasoning.
 
     Provides:
     - Confidence calibration
@@ -806,6 +770,7 @@ class MetaCognitionLayer:
         uncertainty_threshold: float = 0.3,
         max_reasoning_depth: int = 10,
     ):
+        """Initialize the instance."""
         self.confidence_threshold = confidence_threshold
         self.uncertainty_threshold = uncertainty_threshold
         self.max_reasoning_depth = max_reasoning_depth
@@ -912,8 +877,7 @@ class CausalEdge:
 
 
 class CausalReasoningModule:
-    """
-    Causal reasoning for anomaly detection.
+    """Causal reasoning for anomaly detection.
 
     Provides:
     - Causal graph construction
@@ -925,6 +889,7 @@ class CausalReasoningModule:
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.causal_graph: dict[str, list[CausalEdge]] = {}
         self.variable_values: dict[str, float] = {}
 
@@ -948,8 +913,7 @@ class CausalReasoningModule:
         variable: str,
         value: float,
     ) -> dict[str, float]:
-        """
-        Perform do-calculus intervention: do(X = value)
+        """Perform do-calculus intervention: do(X = value).
 
         Returns predicted values for all downstream variables.
         """
@@ -979,8 +943,7 @@ class CausalReasoningModule:
         observation: dict[str, float],
         intervention: dict[str, float],
     ) -> dict[str, float]:
-        """
-        Answer counterfactual query: "What if X had been different?".
+        """Answer counterfactual query: "What if X had been different?".
 
         Args:
             observation: What was actually observed
@@ -1048,8 +1011,7 @@ class CausalReasoningModule:
 
 
 class ProbabilisticLogicLayer:
-    """
-    Probabilistic logic for handling uncertainty.
+    """Probabilistic logic for handling uncertainty.
 
     Implements:
     - Credal sets for imprecise probabilities
@@ -1060,6 +1022,7 @@ class ProbabilisticLogicLayer:
     """
 
     def __init__(self, default_uncertainty: float = 0.1) -> None:
+        """Initialize the instance."""
         self.default_uncertainty = default_uncertainty
         self.probability_bounds: dict[str, tuple[float, float]] = {}
 
@@ -1131,8 +1094,7 @@ class ProbabilisticLogicLayer:
 
 
 class EnhancedNeurosymbolicEngine:
-    """
-    Unified Enhanced Neurosymbolic Engine.
+    """Unified Enhanced Neurosymbolic Engine.
 
     Integrates all advanced neuro-symbolic capabilities:
     - Enhanced Logic Tensor Networks with fuzzy semantics
@@ -1156,6 +1118,7 @@ class EnhancedNeurosymbolicEngine:
         use_causal: bool = True,
         seed: int | None = None,
     ) -> None:
+        """Initialize the instance."""
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
         self._rng: np.random.Generator = np.random.default_rng(seed)
@@ -1266,8 +1229,7 @@ class EnhancedNeurosymbolicEngine:
         context: dict[str, Any] | None = None,
         timestamp: int = 0,
     ) -> dict[str, Any]:
-        """
-        Make predictions using full neuro-symbolic stack.
+        """Make predictions using full neuro-symbolic stack.
 
         Args:
             features: Input feature array

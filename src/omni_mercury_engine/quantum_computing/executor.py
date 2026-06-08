@@ -1,5 +1,5 @@
-"""
-Quantum Circuit Execution for Mercury Agent.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Quantum Circuit Execution for Mercury Agent.
 
 Provides unified execution interface for quantum circuits on simulators and real quantum hardware
 through Qiskit.
@@ -81,8 +81,7 @@ class ExecutionResult:
         return {k: v / total for k, v in self.counts.items()}
 
     def get_expectation(self, observable: str = "z") -> float:
-        """
-        Compute expectation value from counts.
+        """Compute expectation value from counts.
 
         Args:
             observable: Observable to measure ("z" for Z-basis parity)
@@ -107,8 +106,7 @@ class ExecutionResult:
 
 
 class QuantumJob:
-    """
-    Manages a quantum job submitted for execution.
+    """Manages a quantum job submitted for execution.
 
     Tracks job status and provides methods to retrieve results.
     """
@@ -151,8 +149,7 @@ class QuantumJob:
         self._qiskit_job = job
 
     async def wait(self, timeout: float = 3600.0) -> bool:
-        """
-        Wait for job completion.
+        """Wait for job completion.
 
         Args:
             timeout: Maximum wait time in seconds
@@ -186,8 +183,7 @@ class QuantumJob:
 
 
 class SimulatorBackend:
-    """
-    Local quantum simulator backend.
+    """Local quantum simulator backend.
 
     Uses NumPy-based statevector simulation for fast local execution.
     """
@@ -202,8 +198,7 @@ class SimulatorBackend:
         circuits: list[Any],
         shots: int | None = None,
     ) -> list[ExecutionResult]:
-        """
-        Run circuits on the simulator.
+        """Run circuits on the simulator.
 
         Args:
             circuits: List of quantum circuits
@@ -258,8 +253,7 @@ class SimulatorBackend:
 
 
 class IBMQuantumBackend:
-    """
-    IBM Quantum hardware backend.
+    """IBM Quantum hardware backend.
 
     Connects to IBM Quantum services for execution on real quantum hardware.
     """
@@ -296,8 +290,7 @@ class IBMQuantumBackend:
         circuits: list[Any],
         shots: int | None = None,
     ) -> QuantumJob:
-        """
-        Submit circuits to IBM Quantum.
+        """Submit circuits to IBM Quantum.
 
         Args:
             circuits: List of quantum circuits
@@ -340,8 +333,7 @@ class IBMQuantumBackend:
         return job
 
     async def get_results(self, job: QuantumJob) -> list[ExecutionResult]:
-        """
-        Retrieve results from a completed job.
+        """Retrieve results from a completed job.
 
         Args:
             job: QuantumJob to get results from
@@ -377,8 +369,7 @@ class IBMQuantumBackend:
 
 
 class QuantumExecutor:
-    """
-    Unified quantum execution interface.
+    """Unified quantum execution interface.
 
     Manages execution across simulators and real quantum hardware.
 
@@ -400,8 +391,7 @@ class QuantumExecutor:
         api_token: str | None = None,
         **kwargs: Any,
     ) -> None:
-        """
-        Initialize the executor.
+        """Initialize the executor.
 
         Args:
             backend: Backend name ("aer_simulator", "ibmq_qasm_simulator", or hardware name)
@@ -434,8 +424,7 @@ class QuantumExecutor:
         circuits: Any | list[Any],
         shots: int | None = None,
     ) -> ExecutionResult | list[ExecutionResult]:
-        """
-        Execute quantum circuit(s).
+        """Execute quantum circuit(s).
 
         Args:
             circuits: Single circuit or list of circuits
@@ -467,8 +456,7 @@ class QuantumExecutor:
         wait: bool = True,
         timeout: float = 3600.0,
     ) -> QuantumJob | ExecutionResult | list[ExecutionResult]:
-        """
-        Execute quantum circuit(s) asynchronously.
+        """Execute quantum circuit(s) asynchronously.
 
         Args:
             circuits: Single circuit or list of circuits
@@ -513,8 +501,7 @@ class QuantumExecutor:
 
 
 class BatchExecutor:
-    """
-    Execute multiple circuits in batches for efficiency.
+    """Execute multiple circuits in batches for efficiency.
 
     Optimizes execution by grouping circuits and managing job queues.
     """
@@ -535,8 +522,7 @@ class BatchExecutor:
         circuits: list[Any],
         shots: int | None = None,
     ) -> list[ExecutionResult | QuantumJob]:
-        """
-        Run a batch of circuits.
+        """Run a batch of circuits.
 
         Args:
             circuits: List of circuits to execute

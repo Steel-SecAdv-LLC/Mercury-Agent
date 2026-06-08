@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Efficiency Optimizations Module
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Efficiency Optimizations Module.
 
 Provides performance optimizations for Mercury Agent:
 - Joblib parallelization for benchmark loops
@@ -28,6 +10,8 @@ Provides performance optimizations for Mercury Agent:
 
 Runtime target: ~50min benchmarks → ~25min with optimizations.
 """
+
+from __future__ import annotations
 
 import gc
 import logging
@@ -87,8 +71,7 @@ class OptimizationConfig:
 
 
 class MemoryEfficientCache:
-    """
-    LRU cache with memory limits.
+    """LRU cache with memory limits.
 
     Unlike functools.lru_cache, this implementation:
     - Tracks total memory usage
@@ -101,8 +84,7 @@ class MemoryEfficientCache:
         max_size_mb: float = 128.0,
         max_entries: int = 128,
     ):
-        """
-        Initialize memory-efficient cache.
+        """Initialize memory-efficient cache.
 
         Args:
             max_size_mb: Maximum cache size in megabytes
@@ -177,8 +159,7 @@ def memory_efficient_lru_cache(
     max_size_mb: float = 128.0,
     max_entries: int = 128,
 ) -> Any:
-    """
-    Decorator for memory-efficient LRU caching.
+    """Decorator for memory-efficient LRU caching.
 
     Args:
         max_size_mb: Maximum cache size in MB
@@ -214,8 +195,7 @@ def memory_efficient_lru_cache(
 
 
 class MemoryManager:
-    """
-    Memory manager for preventing OOM errors.
+    """Memory manager for preventing OOM errors.
 
     Monitors memory usage and triggers garbage collection when approaching limits.
     """
@@ -225,8 +205,7 @@ class MemoryManager:
         threshold_mb: float = 2048.0,
         gc_threshold: float = 0.8,
     ):
-        """
-        Initialize memory manager.
+        """Initialize memory manager.
 
         Args:
             threshold_mb: Memory threshold in MB
@@ -265,8 +244,7 @@ class MemoryManager:
         return usage
 
     def check_and_cleanup(self) -> bool:
-        """
-        Check memory and cleanup if needed.
+        """Check memory and cleanup if needed.
 
         Returns:
             True if cleanup was performed
@@ -300,8 +278,7 @@ def compile_model(
     mode: str = "reduce-overhead",
     fullgraph: bool = False,
 ) -> Any:
-    """
-    Apply torch.compile() optimization to a model.
+    """Apply torch.compile() optimization to a model.
 
     Provides ~2x speedup for fusion networks on compatible hardware.
 
@@ -467,8 +444,7 @@ class ParallelExecutor:
 
 
 class DDPScaler:
-    """
-    Distributed Data Parallel scaler for multi-GPU training.
+    """Distributed Data Parallel scaler for multi-GPU training.
 
     Provides easy setup for DDP training across multiple GPUs.
     """
@@ -479,8 +455,7 @@ class DDPScaler:
         world_size: int | None = None,
         local_rank: int | None = None,
     ):
-        """
-        Initialize DDP scaler.
+        """Initialize DDP scaler.
 
         Args:
             backend: DDP backend (nccl, gloo)
@@ -493,8 +468,7 @@ class DDPScaler:
         self.is_initialized = False
 
     def setup(self) -> bool:
-        """
-        Setup DDP environment.
+        """Setup DDP environment.
 
         Returns:
             True if setup successful
@@ -521,8 +495,7 @@ class DDPScaler:
             return False
 
     def wrap_model(self, model: Any) -> Any:
-        """
-        Wrap model with DDP.
+        """Wrap model with DDP.
 
         Args:
             model: PyTorch model
@@ -569,8 +542,7 @@ def estimate_batch_size(
     min_batch: int = 1,
     max_batch: int = 4096,
 ) -> int:
-    """
-    Estimate optimal batch size based on available memory.
+    """Estimate optimal batch size based on available memory.
 
     Computes how many samples can fit in memory given per-sample size,
     reserving headroom for model parameters and intermediate activations.
@@ -615,8 +587,7 @@ def apply_all_optimizations(
     model: Any | None = None,
     config: OptimizationConfig | None = None,
 ) -> dict[str, Any]:
-    """
-    Apply all available optimizations.
+    """Apply all available optimizations.
 
     Args:
         model: Optional model to optimize
@@ -674,8 +645,7 @@ def parallel_map(
     n_jobs: int = -1,
     **kwargs: Any,
 ) -> list[Any]:
-    """
-    Convenience function for parallel mapping.
+    """Convenience function for parallel mapping.
 
     Args:
         func: Function to apply
@@ -695,8 +665,7 @@ def get_optimal_batch_size(
     input_shape: tuple[int, ...],
     max_memory_fraction: float = 0.8,
 ) -> int:
-    """
-    Estimate optimal batch size based on available memory.
+    """Estimate optimal batch size based on available memory.
 
     Args:
         model: PyTorch model

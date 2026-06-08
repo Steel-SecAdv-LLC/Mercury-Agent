@@ -1,26 +1,10 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Benchmark evaluation framework.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Benchmark evaluation framework.
 
 Provides standardized evaluation across benchmark datasets.
 """
+
+from __future__ import annotations
 
 import json
 import logging
@@ -39,8 +23,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class EvaluationResult:
-    """
-    Container for evaluation results.
+    """Container for evaluation results.
 
     Attributes:
         detector_name: Name of the detector evaluated
@@ -114,8 +97,7 @@ class BenchmarkEvaluator:
         output_dir: str | Path = "./evaluation_results",
         save_predictions: bool = False,
     ):
-        """
-        Initialize evaluator.
+        """Initialize evaluator.
 
         Args:
             output_dir: Directory for saving results
@@ -132,8 +114,7 @@ class BenchmarkEvaluator:
         detector_name: str | None = None,
         dataset_name: str | None = None,
     ) -> EvaluationResult:
-        """
-        Evaluate detector on dataset.
+        """Evaluate detector on dataset.
 
         Args:
             detector: Anomaly detector with detect() method
@@ -241,8 +222,7 @@ class BenchmarkEvaluator:
         results: list[EvaluationResult],
         metric: str = "auroc",
     ) -> str:
-        """
-        Compare multiple evaluation results.
+        """Compare multiple evaluation results.
 
         Args:
             results: List of evaluation results
@@ -293,8 +273,7 @@ class BenchmarkEvaluator:
         results: list[EvaluationResult],
         output_path: str | Path,
     ) -> None:
-        """
-        Generate comprehensive evaluation report.
+        """Generate comprehensive evaluation report.
 
         Args:
             results: List of evaluation results

@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Mercury Voice - True Conversational Interface
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Mercury Voice - True Conversational Interface.
 
 This is Mercury's "voice" - the ability to understand queries, retrieve
 information, reason about responses, and communicate with truth density.
@@ -34,6 +16,8 @@ Philosophy:
     Every response is backed by evidence or explicitly uncertain.
     Transparency over persuasion.
 """
+
+from __future__ import annotations
 
 import logging
 import time
@@ -129,8 +113,7 @@ class VoiceResponse:
 
 
 class MercuryVoice:
-    """
-    Mercury's Voice - True Conversational Interface.
+    """Mercury's Voice - True Conversational Interface.
 
     This is the unified interface for all conversational interaction with Mercury.
     It understands queries, retrieves information, generates responses, and
@@ -173,8 +156,7 @@ class MercuryVoice:
         llm_api_key: str | None = None,
         llm_base_url: str | None = None,
     ) -> None:
-        """
-        Initialize Mercury Voice.
+        """Initialize Mercury Voice.
 
         Args:
             enable_llm: Whether to use LLM for response generation.
@@ -466,8 +448,7 @@ class MercuryVoice:
         user_input: str,
         domain: str | None = None,
     ) -> VoiceResponse:
-        """
-        Process user input and generate response.
+        """Process user input and generate response.
 
         This is the main entry point for conversational interaction.
 
@@ -528,8 +509,7 @@ class MercuryVoice:
         detection_result: dict[str, Any],
         domain: str | None = None,
     ) -> VoiceResponse:
-        """
-        Process a detection result and generate voice response.
+        """Process a detection result and generate voice response.
 
         Args:
             detection_result: Detection output to communicate
@@ -595,8 +575,7 @@ class MercuryVoice:
         alert_type: str = "anomaly",
         domain: str | None = None,
     ) -> VoiceResponse:
-        """
-        Generate alert communication.
+        """Generate alert communication.
 
         Args:
             alert_content: Content of the alert
@@ -667,8 +646,7 @@ class MercuryVoice:
         )
 
     def greet(self, domain: str | None = None) -> VoiceResponse:
-        """
-        Generate session greeting.
+        """Generate session greeting.
 
         Args:
             domain: Optional domain context
@@ -1008,8 +986,7 @@ def create_mercury_voice(
     llm_api_key: str | None = None,
     llm_base_url: str | None = None,
 ) -> MercuryVoice:
-    """
-    Create a Mercury Voice instance.
+    """Create a Mercury Voice instance.
 
     Args:
         enable_llm: Whether to enable LLM for response generation.

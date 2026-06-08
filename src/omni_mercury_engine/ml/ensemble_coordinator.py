@@ -1,22 +1,5 @@
-"""
-Mercury Agent - Advanced Ensemble Coordinator
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Advanced ensemble coordination for hybrid anomaly detection including:
-- Adaptive weight learning based on performance feedback
-- Cascading detection (efficient -> accurate pipeline)
-- Meta-learning for detector selection
-- Stacking and blending ensembles
-- Dynamic detector activation based on data characteristics
-- Uncertainty-aware ensemble fusion
-- Cross-validation based weight optimization
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Advanced Ensemble Coordinator."""
 
 from __future__ import annotations
 
@@ -34,7 +17,6 @@ from scipy import stats
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
-
 
 logger = logging.getLogger(__name__)
 
@@ -165,8 +147,7 @@ class WeightOptimizer(ABC):
 
 
 class BayesianWeightOptimizer(WeightOptimizer):
-    """
-    Bayesian weight optimization using Thompson Sampling.
+    """Bayesian weight optimization using Thompson Sampling.
 
     Maintains Beta distributions for each detector's success rate and samples weights
     proportionally.
@@ -179,8 +160,7 @@ class BayesianWeightOptimizer(WeightOptimizer):
         exploration_bonus: float = 0.1,
         seed: int | None = None,
     ):
-        """
-        Initialize Bayesian optimizer.
+        """Initialize Bayesian optimizer.
 
         Args:
             prior_alpha: Prior alpha for Beta distribution
@@ -245,8 +225,7 @@ class BayesianWeightOptimizer(WeightOptimizer):
 
 
 class GradientWeightOptimizer(WeightOptimizer):
-    """
-    Gradient-based weight optimization using online learning.
+    """Gradient-based weight optimization using online learning.
 
     Uses exponential gradient updates for soft-max weights.
     """
@@ -257,8 +236,7 @@ class GradientWeightOptimizer(WeightOptimizer):
         momentum: float = 0.9,
         regularization: float = 0.01,
     ):
-        """
-        Initialize gradient optimizer.
+        """Initialize gradient optimizer.
 
         Args:
             learning_rate: Learning rate for updates
@@ -328,8 +306,7 @@ class GradientWeightOptimizer(WeightOptimizer):
 
 
 class MetaLearner:
-    """
-    Meta-learner for detector selection and combination.
+    """Meta-learner for detector selection and combination.
 
     Uses data characteristics to predict optimal detector configuration.
     """
@@ -339,8 +316,7 @@ class MetaLearner:
         n_features: int = 10,
         hidden_dim: int = 32,
     ):
-        """
-        Initialize meta-learner.
+        """Initialize meta-learner.
 
         Args:
             n_features: Number of meta-features
@@ -448,8 +424,7 @@ class MetaLearner:
 
 
 class CascadingPipeline:
-    """
-    Cascading detection pipeline for efficiency.
+    """Cascading detection pipeline for efficiency.
 
     Runs cheap/fast detectors first, only using expensive detectors when initial detectors are
     uncertain.
@@ -460,8 +435,7 @@ class CascadingPipeline:
         uncertainty_threshold: float = 0.3,
         max_stages: int = 3,
     ):
-        """
-        Initialize cascading pipeline.
+        """Initialize cascading pipeline.
 
         Args:
             uncertainty_threshold: Score range considered uncertain
@@ -480,8 +454,7 @@ class CascadingPipeline:
         self,
         data: NDArray[np.float64],
     ) -> tuple[NDArray[np.float64], list[str]]:
-        """
-        Run cascading detection.
+        """Run cascading detection.
 
         Returns:
             Tuple of (scores, list of detectors used)
@@ -547,8 +520,7 @@ class CascadingPipeline:
 
 
 class EnsembleCoordinator:
-    """
-    Advanced ensemble coordinator for hybrid anomaly detection.
+    """Advanced ensemble coordinator for hybrid anomaly detection.
 
     Features:
     - Multi-strategy ensemble fusion
@@ -567,8 +539,7 @@ class EnsembleCoordinator:
         enable_cascading: bool = True,
         feedback_window: int = 1000,
     ):
-        """
-        Initialize ensemble coordinator.
+        """Initialize ensemble coordinator.
 
         Args:
             strategy: Ensemble combination strategy
@@ -609,8 +580,7 @@ class EnsembleCoordinator:
         cost_tier: int = 1,  # 1=cheap, 3=expensive
         domain_affinity: dict[str, float] | None = None,
     ) -> None:
-        """
-        Register a detector with the ensemble.
+        """Register a detector with the ensemble.
 
         Args:
             name: Unique detector name
@@ -687,8 +657,7 @@ class EnsembleCoordinator:
         data: NDArray[np.float64],
         domain: str | None = None,
     ) -> EnsembleResult:
-        """
-        Run ensemble detection.
+        """Run ensemble detection.
 
         Args:
             data: Input data array
@@ -994,8 +963,7 @@ class EnsembleCoordinator:
         predictions: NDArray[np.bool_],
         labels: NDArray[np.int64],
     ) -> None:
-        """
-        Provide feedback for online learning.
+        """Provide feedback for online learning.
 
         Args:
             predictions: Predicted anomaly flags
@@ -1077,8 +1045,7 @@ def create_ensemble_coordinator(
     strategy: str = "dynamic",
     **kwargs: Any,
 ) -> EnsembleCoordinator:
-    """
-    Factory function to create ensemble coordinator.
+    """Factory function to create ensemble coordinator.
 
     Args:
         strategy: Ensemble strategy name

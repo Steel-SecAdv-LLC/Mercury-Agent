@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Pathogen Detection using QBM-Based Energy Modeling
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Pathogen Detection using QBM-Based Energy Modeling.
 
 Implements Quantum Boltzmann Machine-inspired probabilistic modeling
 for biological threat energies. Integrates with MASINT (Measurement
@@ -32,6 +14,8 @@ References:
 - QBM implementation: fusion.py:776 (_term_QBM)
 - MASINT integration: intelligence_fusion.py:IntelligenceDiscipline.MASINT
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
@@ -56,8 +40,7 @@ class BioThreatResult:
 
 
 class PathogenDetector:
-    """
-    QBM-Based Pathogen Detector (Medical Interdiction)
+    """QBM-Based Pathogen Detector (Medical Interdiction).
 
     Detects biological threats through probabilistic energy modeling.
     Simulates pathogen behaviors as spin configurations in Ising model.
@@ -70,8 +53,7 @@ class PathogenDetector:
     """
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
-        """
-        Initialize pathogen detector.
+        """Initialize pathogen detector.
 
         Args:
             config: Configuration dict with QBM parameters
@@ -98,8 +80,7 @@ class PathogenDetector:
         self.logger.info(f"PathogenDetector initialized (dim={self.state_dim})")
 
     def _initialize_coupling_matrix(self) -> np.ndarray[Any, Any]:
-        """
-        Initialize QBM coupling matrix J_ij.
+        """Initialize QBM coupling matrix J_ij.
 
         Symmetric matrix representing pathogen state interactions.
         Positive couplings = cooperative (dangerous), negative = inhibitory.
@@ -116,8 +97,7 @@ class PathogenDetector:
     def detect_pathogen(
         self, bio_data: np.ndarray[Any, Any], masint_data: dict[str, Any] | None = None
     ) -> BioThreatResult:
-        """
-        Detect bio-threats in data using QBM energy model.
+        """Detect bio-threats in data using QBM energy model.
 
         Args:
             bio_data: Biological measurement data (e.g., sensor readings)
@@ -171,8 +151,7 @@ class PathogenDetector:
         return result
 
     def _extract_pathogen_state(self, bio_data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Extract pathogen state vector from bio data.
+        """Extract pathogen state vector from bio data.
 
         Maps continuous measurements to binary spin states σ_i ∈ {-1, +1}.
         """
@@ -189,8 +168,7 @@ class PathogenDetector:
         return state.astype(np.int8)
 
     def _compute_qbm_energy(self, state: np.ndarray[Any, Any]) -> float:
-        """
-        Compute QBM energy E(pathogen) = -∑ J_ij * σ_i * σ_j.
+        """Compute QBM energy E(pathogen) = -∑ J_ij * σ_i * σ_j.
 
         Lower energy = more stable (dangerous) pathogen configuration.
 
@@ -203,8 +181,7 @@ class PathogenDetector:
         return float(energy)
 
     def _compute_boltzmann_probability(self, energy: float) -> float:
-        """
-        Compute Boltzmann probability P = e^(-E/T) / Z.
+        """Compute Boltzmann probability P = e^(-E/T) / Z.
 
         Normalization constant Z approximated (full partition function expensive).
         """
@@ -215,8 +192,7 @@ class PathogenDetector:
         return float(probability)
 
     def _classify_pathogen(self, state: np.ndarray[Any, Any], energy: float) -> str:
-        """
-        Classify pathogen type based on state and energy.
+        """Classify pathogen type based on state and energy.
 
         Simulated classification for research purposes.
         """
@@ -236,8 +212,7 @@ class PathogenDetector:
             return "none_detected"
 
     def _identify_bio_signatures(self, state: np.ndarray[Any, Any]) -> list[str]:
-        """
-        Identify biological signatures from pathogen state.
+        """Identify biological signatures from pathogen state.
 
         Signatures: genetic markers, protein patterns, behavioral anomalies.
         """
@@ -256,8 +231,7 @@ class PathogenDetector:
         return signatures
 
     def _process_masint(self, masint_data: dict[str, Any]) -> list[str]:
-        """
-        Process MASINT intelligence for bio-threat correlation.
+        """Process MASINT intelligence for bio-threat correlation.
 
         MASINT: Measurement and Signature Intelligence (technical signatures).
         """
@@ -277,8 +251,7 @@ class PathogenDetector:
     def _recommend_interdiction(
         self, pathogen_type: str, energy: float, masint_indicators: list[str]
     ) -> list[str]:
-        """
-        Recommend medical interdiction actions.
+        """Recommend medical interdiction actions.
 
         Actions: quarantine, decontamination, vaccine deployment, antidote distribution.
         """
@@ -320,8 +293,7 @@ class PathogenDetector:
         )
 
     def extract_features(self, bio_data: np.ndarray[Any, Any]) -> torch.Tensor:
-        """
-        Extract features for ML fusion integration.
+        """Extract features for ML fusion integration.
 
         Compatible with hybrid fusion architecture.
         """

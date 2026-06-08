@@ -1,24 +1,5 @@
-"""
-Mercury Agent - Active Learning Framework
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Production-grade active learning for anomaly detection providing:
-- Uncertainty sampling (entropy, margin, least confident)
-- Query-by-committee with diversity
-- Expected model change
-- Information density weighting
-- Batch mode active learning
-- Human-in-the-loop integration
-- Budget-aware sample selection
-
-This addresses the critical gap: "No Active Learning" identified in audit.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Active Learning Framework."""
 
 from __future__ import annotations
 
@@ -87,6 +68,7 @@ class QueryBatch:
     strategy: SamplingStrategy
 
     def __len__(self) -> int:
+        """Return the length."""
         return len(self.indices)
 
 
@@ -119,8 +101,7 @@ class BaseSampler(ABC):
 
 
 class UncertaintySampler(BaseSampler):
-    """
-    Uncertainty-based sampling strategies.
+    """Uncertainty-based sampling strategies.
 
     Selects samples where the model is most uncertain:
     - Entropy: Maximum prediction entropy
@@ -132,8 +113,7 @@ class UncertaintySampler(BaseSampler):
         self,
         strategy: SamplingStrategy = SamplingStrategy.UNCERTAINTY_ENTROPY,
     ):
-        """
-        Initialize uncertainty sampler.
+        """Initialize uncertainty sampler.
 
         Args:
             strategy: Uncertainty measure to use
@@ -198,8 +178,7 @@ class UncertaintySampler(BaseSampler):
         n_samples: int,
         X_labeled: NDArray[np.float64] | None = None,
     ) -> QueryBatch:
-        """
-        Select most uncertain samples.
+        """Select most uncertain samples.
 
         Args:
             model: Trained model with predict_proba
@@ -250,8 +229,7 @@ class UncertaintySampler(BaseSampler):
 
 
 class DiversitySampler(BaseSampler):
-    """
-    Diversity-based sampling.
+    """Diversity-based sampling.
 
     Selects samples that are maximally diverse from each other and from already labeled samples.
     """
@@ -260,8 +238,7 @@ class DiversitySampler(BaseSampler):
         self,
         distance_metric: str = "euclidean",
     ):
-        """
-        Initialize diversity sampler.
+        """Initialize diversity sampler.
 
         Args:
             distance_metric: Distance metric for diversity
@@ -293,8 +270,7 @@ class DiversitySampler(BaseSampler):
         n_samples: int,
         X_labeled: NDArray[np.float64] | None = None,
     ) -> QueryBatch:
-        """
-        Select diverse samples using greedy k-center.
+        """Select diverse samples using greedy k-center.
 
         Args:
             model: Trained model (unused)
@@ -362,8 +338,7 @@ class DiversitySampler(BaseSampler):
 
 
 class HybridSampler(BaseSampler):
-    """
-    Hybrid sampling combining uncertainty and diversity.
+    """Hybrid sampling combining uncertainty and diversity.
 
     Uses uncertainty for initial filtering, then diversity for final selection.
     """
@@ -375,8 +350,7 @@ class HybridSampler(BaseSampler):
         uncertainty_strategy: SamplingStrategy = SamplingStrategy.UNCERTAINTY_ENTROPY,
         prefilter_ratio: float = 3.0,
     ):
-        """
-        Initialize hybrid sampler.
+        """Initialize hybrid sampler.
 
         Args:
             uncertainty_weight: Weight for uncertainty in combined score
@@ -398,8 +372,7 @@ class HybridSampler(BaseSampler):
         n_samples: int,
         X_labeled: NDArray[np.float64] | None = None,
     ) -> QueryBatch:
-        """
-        Select samples using hybrid uncertainty + diversity.
+        """Select samples using hybrid uncertainty + diversity.
 
         Args:
             model: Trained model
@@ -460,8 +433,7 @@ class HybridSampler(BaseSampler):
 
 
 class QueryByCommitteeSampler(BaseSampler):
-    """
-    Query by Committee (QBC) sampling.
+    """Query by Committee (QBC) sampling.
 
     Uses an ensemble of models and selects samples with highest disagreement among committee
     members.
@@ -473,8 +445,7 @@ class QueryByCommitteeSampler(BaseSampler):
         disagreement_measure: str = "vote_entropy",
         random_state: int | None = None,
     ):
-        """
-        Initialize QBC sampler.
+        """Initialize QBC sampler.
 
         Args:
             n_committee: Number of committee members
@@ -569,8 +540,7 @@ class QueryByCommitteeSampler(BaseSampler):
         X_labeled: NDArray[np.float64] | None = None,
         y_labeled: NDArray[np.int64] | None = None,
     ) -> QueryBatch:
-        """
-        Select samples with highest committee disagreement.
+        """Select samples with highest committee disagreement.
 
         Args:
             model: Base model for committee
@@ -617,8 +587,7 @@ class QueryByCommitteeSampler(BaseSampler):
 
 
 class ActiveLearner:
-    """
-    Active learning manager for iterative model improvement.
+    """Active learning manager for iterative model improvement.
 
     Coordinates sample selection, oracle querying, and model retraining.
     """
@@ -633,8 +602,7 @@ class ActiveLearner:
         retrain_interval: int = 1,
         random_state: int | None = None,
     ):
-        """
-        Initialize active learner.
+        """Initialize active learner.
 
         Args:
             model: Base model to improve
@@ -775,8 +743,7 @@ class ActiveLearner:
         y: NDArray[np.int64] | None = None,
         initial_indices: list[int] | None = None,
     ) -> QueryBatch:
-        """
-        Initialize with random or specified samples.
+        """Initialize with random or specified samples.
 
         When ``y`` is provided and contains at least two distinct
         classes, sampling is **stratified** so every class is
@@ -867,8 +834,7 @@ class ActiveLearner:
         X_pool: NDArray[np.float64],
         exclude_indices: list[int] | None = None,
     ) -> QueryBatch:
-        """
-        Select next batch of samples to label.
+        """Select next batch of samples to label.
 
         Args:
             X_pool: Pool of unlabeled samples
@@ -966,8 +932,7 @@ class ActiveLearner:
         labels: list[LabeledSample],
         X_pool: NDArray[np.float64],
     ) -> None:
-        """
-        Update with new labels from oracle.
+        """Update with new labels from oracle.
 
         Args:
             labels: List of labeled samples
@@ -990,8 +955,7 @@ class ActiveLearner:
         X_test: NDArray[np.float64],
         y_test: NDArray[np.int64],
     ) -> float:
-        """
-        Evaluate current model on test set.
+        """Evaluate current model on test set.
 
         Args:
             X_test: Test features
@@ -1037,8 +1001,7 @@ class ActiveLearner:
         y_test: NDArray[np.int64] | None = None,
         max_iterations: int | None = None,
     ) -> Iterator[tuple[QueryBatch, ActiveLearningState]]:
-        """
-        Run active learning loop.
+        """Run active learning loop.
 
         Args:
             X_pool: Pool of samples
@@ -1080,8 +1043,7 @@ def create_active_learner(
     strategy: str = "hybrid",
     **kwargs: Any,
 ) -> ActiveLearner:
-    """
-    Factory function to create active learner.
+    """Factory function to create active learner.
 
     Args:
         model: Base model

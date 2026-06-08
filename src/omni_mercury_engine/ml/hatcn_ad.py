@@ -1,25 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-from typing import Any
-
-"""
-Hierarchical Attention Temporal Convolutional Network for Anomaly Detection (HATCN-AD)
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Hierarchical Attention Temporal Convolutional Network for Anomaly Detection (HATCN-AD).
 
 Multi-scale temporal pattern learning with hierarchical attention
 for improved time-series anomaly detection (20-40% forecasting gains).
@@ -27,9 +7,11 @@ for improved time-series anomaly detection (20-40% forecasting gains).
 ⚠️ SIMULATION-BASED: Trained on simulated time-series. Real-world validation required.
 
 Reference: Inspired by TCN and attention mechanisms for time-series
-
 """
 
+from __future__ import annotations
+
+from typing import Any
 
 import torch
 from torch import nn
@@ -41,6 +23,7 @@ class TemporalBlock(nn.Module):
     def __init__(
         self, in_channels: int, out_channels: int, kernel_size: int, dilation: int
     ) -> None:
+        """Initialize the instance."""
         super().__init__()
 
         padding = (kernel_size - 1) * dilation
@@ -83,6 +66,7 @@ class HierarchicalAttention(nn.Module):
     """Multi-scale hierarchical attention."""
 
     def __init__(self, hidden_dim: int, num_scales: int = 3) -> None:
+        """Initialize the instance."""
         super().__init__()
 
         self.num_scales = num_scales
@@ -98,8 +82,7 @@ class HierarchicalAttention(nn.Module):
         self.scale_weights = nn.Parameter(torch.ones(num_scales) / num_scales)
 
     def forward(self, scale_features: list[Any]) -> tuple[torch.Tensor, list[Any]]:
-        """
-        Apply hierarchical attention across scales.
+        """Apply hierarchical attention across scales.
 
         Args:
             scale_features: List of features from different temporal scales
@@ -129,6 +112,7 @@ class HATCN_AD(nn.Module):
     def __init__(
         self, input_dim: int, hidden_dim: int = 64, num_scales: int = 3, kernel_size: int = 3
     ):
+        """Initialize the instance."""
         super().__init__()
 
         self.input_proj = nn.Linear(input_dim, hidden_dim)
@@ -151,8 +135,7 @@ class HATCN_AD(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
-        """
-        Forward pass for anomaly detection.
+        """Forward pass for anomaly detection.
 
         Args:
             x: Input time series [batch, seq_len, input_dim]

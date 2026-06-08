@@ -1,5 +1,5 @@
-"""
-Quantum Computing Module for Mercury Agent.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Quantum Computing Module for Mercury Agent.
 
 Provides production-ready quantum computing integration with Qiskit,
 including quantum circuit building, execution, and hybrid optimization.

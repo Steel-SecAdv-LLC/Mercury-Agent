@@ -1,30 +1,13 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Variational Autoencoder (VAE) for Unsupervised Pattern Learning
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Variational Autoencoder (VAE) for Unsupervised Pattern Learning.
 
 Learns latent representations of normal patterns for anomaly detection
 through reconstruction error and KL divergence.
 
 ⚠️ SIMULATION-BASED: Trained on simulated data. Real-world validation required.
-
 """
+
+from __future__ import annotations
 
 from typing import Any
 
@@ -39,6 +22,7 @@ class VAE(nn.Module):
     def __init__(
         self, input_dim: int, latent_dim: int = 32, hidden_dims: list[int] | None = None
     ) -> None:
+        """Initialize the instance."""
         super().__init__()
 
         if hidden_dims is None:
@@ -108,8 +92,7 @@ class VAE(nn.Module):
         logvar: torch.Tensor,
         beta: float = 1.0,
     ) -> dict[str, torch.Tensor]:
-        """
-        Compute VAE loss (reconstruction + KL divergence).
+        """Compute VAE loss (reconstruction + KL divergence).
 
         Args:
             x: Input data
@@ -144,6 +127,7 @@ class VAEPatternLearner:
     """Wrapper for VAE-based unsupervised pattern learning."""
 
     def __init__(self, input_dim: int, latent_dim: int = 32) -> None:
+        """Initialize the instance."""
         self.vae = VAE(input_dim, latent_dim)
         self.optimizer = torch.optim.Adam(self.vae.parameters(), lr=1e-3)
         self.threshold = None

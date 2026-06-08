@@ -1,24 +1,7 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Health monitoring for components and agents."""
 
 from __future__ import annotations
-
-"""
-Health monitoring for components and agents
-"""
 
 from dataclasses import dataclass
 from datetime import datetime
@@ -36,6 +19,7 @@ class HealthMetrics:
     timestamp: datetime | None = None
 
     def __post_init__(self) -> None:
+        """Finalize dataclass initialization."""
         if self.timestamp is None:
             self.timestamp = datetime.now()
 
@@ -44,6 +28,7 @@ class HealthMonitor:
     """Monitor health of components and agents."""
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.metrics: dict[str, list[HealthMetrics]] = {}
 
     def record_metrics(self, component_name: str, metrics: HealthMetrics) -> None:

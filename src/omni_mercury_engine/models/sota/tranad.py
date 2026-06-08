@@ -1,26 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-TranAD: Deep Transformer Networks for Anomaly Detection (VLDB 2022)
-
-Implements the TranAD architecture with key innovations:
-1. Focus Score-Based Self-Conditioning: Multi-feature attention extraction
-2. Adversarial Training: GAN-inspired stability for reconstruction
-3. MAML (Model-Agnostic Meta-Learning): Few-shot anomaly detection
-
-Performance: Achieves up to 17% F1 improvement, 99% training time reduction
-vs baselines on SMD, SMAP, MSL, SWaT, WADI datasets.
-
-Ethical Integration:
-    - Bias detection hooks for fairness monitoring
-    - Survivor-first recall optimization
-    - Transparent attention weights for interpretability
-
-Reference:
-    Tuli, S., Casale, G., & Jennings, N. R. (2022). TranAD: Deep Transformer
-    Networks for Anomaly Detection in Multivariate Time Series Data. VLDB 2022.
-    https://arxiv.org/abs/2201.07284
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""TranAD: Deep Transformer Networks for Anomaly Detection (VLDB 2022)."""
 
 from __future__ import annotations
 
@@ -47,8 +26,7 @@ __all__ = [
 
 @dataclass
 class TranADConfig:
-    """
-    Configuration for TranAD model.
+    """Configuration for TranAD model.
 
     Attributes:
         input_dim: Number of input features
@@ -90,8 +68,7 @@ class TranADConfig:
 
 
 class FocusScoreConditioning(nn.Module):
-    """
-    Focus Score-Based Self-Conditioning Module.
+    """Focus Score-Based Self-Conditioning Module.
 
     Computes attention-weighted feature importance scores that condition
     the model to focus on the most relevant features for anomaly detection.
@@ -108,6 +85,7 @@ class FocusScoreConditioning(nn.Module):
     """
 
     def __init__(self, input_dim: int, d_model: int = 256, temperature: float = 1.0) -> None:
+        """Initialize the instance."""
         super().__init__()
         self.input_dim = input_dim
         self.d_model = d_model
@@ -141,8 +119,7 @@ class FocusScoreConditioning(nn.Module):
     def forward(
         self, x: torch.Tensor, return_scores: bool = False
     ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
-        """
-        Compute focus-conditioned features.
+        """Compute focus-conditioned features.
 
         Args:
             x: Input tensor [batch, seq_len, input_dim]
@@ -167,8 +144,7 @@ class FocusScoreConditioning(nn.Module):
         return torch.Tensor(conditioned)
 
     def get_feature_importance(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Get feature importance scores for interpretability.
+        """Get feature importance scores for interpretability.
 
         Args:
             x: Input tensor [batch, seq_len, input_dim]
@@ -183,8 +159,7 @@ class FocusScoreConditioning(nn.Module):
 
 
 class TransformerEncoder(nn.Module):
-    """
-    Transformer Encoder for TranAD.
+    """Transformer Encoder for TranAD.
 
     Standard transformer encoder with positional encoding.
     """
@@ -198,6 +173,7 @@ class TransformerEncoder(nn.Module):
         dropout: float = 0.1,
         max_len: int = 500,
     ):
+        """Initialize the instance."""
         super().__init__()
         self.d_model = d_model
 
@@ -221,8 +197,7 @@ class TransformerEncoder(nn.Module):
         self.norm = nn.LayerNorm(d_model)
 
     def forward(self, src: torch.Tensor, src_mask: torch.Tensor | None = None) -> torch.Tensor:
-        """
-        Encode input sequence.
+        """Encode input sequence.
 
         Args:
             src: Source tensor [batch, seq_len, d_model]
@@ -237,8 +212,7 @@ class TransformerEncoder(nn.Module):
 
 
 class TransformerDecoder(nn.Module):
-    """
-    Transformer Decoder for TranAD reconstruction.
+    """Transformer Decoder for TranAD reconstruction.
 
     Single-layer decoder for efficient reconstruction.
     """
@@ -252,6 +226,7 @@ class TransformerDecoder(nn.Module):
         dropout: float = 0.1,
         max_len: int = 500,
     ):
+        """Initialize the instance."""
         super().__init__()
         self.d_model = d_model
 
@@ -279,8 +254,7 @@ class TransformerDecoder(nn.Module):
         tgt_mask: torch.Tensor | None = None,
         memory_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        """
-        Decode from encoder memory.
+        """Decode from encoder memory.
 
         Args:
             tgt: Target tensor [batch, seq_len, d_model]
@@ -297,8 +271,7 @@ class TransformerDecoder(nn.Module):
 
 
 class TranADModel(nn.Module):
-    """
-    TranAD: Deep Transformer Networks for Anomaly Detection.
+    """TranAD: Deep Transformer Networks for Anomaly Detection.
 
     Architecture:
     1. Input Embedding + Focus Score Conditioning
@@ -314,6 +287,7 @@ class TranADModel(nn.Module):
     """
 
     def __init__(self, config: TranADConfig | None = None) -> None:
+        """Initialize the instance."""
         super().__init__()
         self.config = config or TranADConfig()
 
@@ -378,8 +352,7 @@ class TranADModel(nn.Module):
         )
 
     def forward(self, x: torch.Tensor, return_all: bool = False) -> dict[str, torch.Tensor]:
-        """
-        Forward pass through TranAD.
+        """Forward pass through TranAD.
 
         Args:
             x: Input tensor [batch, window_size, input_dim]
@@ -439,8 +412,7 @@ class TranADModel(nn.Module):
         return result
 
     def detect(self, x: torch.Tensor, threshold: float | None = None) -> dict[str, Any]:
-        """
-        Perform anomaly detection.
+        """Perform anomaly detection.
 
         Args:
             x: Input tensor [batch, window_size, input_dim]
@@ -475,14 +447,14 @@ class TranADModel(nn.Module):
 
 
 class Discriminator(nn.Module):
-    """
-    Discriminator for TranAD adversarial training.
+    """Discriminator for TranAD adversarial training.
 
     Distinguishes between real and reconstructed sequences to improve reconstruction quality through
     adversarial learning.
     """
 
     def __init__(self, input_dim: int, hidden_dim: int = 256) -> None:
+        """Initialize the instance."""
         super().__init__()
 
         self.net = nn.Sequential(
@@ -496,8 +468,7 @@ class Discriminator(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Discriminate real vs reconstructed.
+        """Discriminate real vs reconstructed.
 
         Args:
             x: Input tensor [batch, seq_len, input_dim]
@@ -509,8 +480,7 @@ class Discriminator(nn.Module):
 
 
 class AdversarialTrainer:
-    """
-    Adversarial Training for TranAD.
+    """Adversarial Training for TranAD.
 
     Implements GAN-style training to improve reconstruction quality:
     - Generator (TranAD): Minimizes reconstruction error + fools discriminator
@@ -530,6 +500,7 @@ class AdversarialTrainer:
         lr_d: float = 1e-4,
         adversarial_weight: float = 1.0,
     ):
+        """Initialize the instance."""
         self.model = model
         self.adversarial_weight = adversarial_weight
 
@@ -553,8 +524,7 @@ class AdversarialTrainer:
             self.optimizer_d = Adam(model.discriminator.parameters(), lr=lr_d)
 
     def train_step(self, x: torch.Tensor, train_discriminator: bool = True) -> dict[str, float]:
-        """
-        Single training step with adversarial learning.
+        """Single training step with adversarial learning.
 
         Args:
             x: Input batch [batch, seq_len, input_dim]
@@ -620,8 +590,7 @@ class AdversarialTrainer:
 
 
 class MAMLOptimizer:
-    """
-    Model-Agnostic Meta-Learning (MAML) for TranAD.
+    """Model-Agnostic Meta-Learning (MAML) for TranAD.
 
     Enables few-shot anomaly detection by learning to adapt quickly
     to new anomaly types with minimal labeled data.
@@ -643,6 +612,7 @@ class MAMLOptimizer:
         outer_lr: float = 1e-4,
         n_inner_steps: int = 5,
     ):
+        """Initialize the instance."""
         self.model = model
         self.inner_lr = inner_lr
         self.outer_lr = outer_lr
@@ -651,8 +621,7 @@ class MAMLOptimizer:
         self.meta_optimizer = Adam(model.parameters(), lr=outer_lr)
 
     def clone_model(self) -> TranADModel:
-        """
-        Create an efficient copy of the model for inner loop.
+        """Create an efficient copy of the model for inner loop.
 
         P3: Optimized for MAML meta-learning using state_dict approach
         instead of slow pickle-based deepcopy (~10-50x speedup).
@@ -677,8 +646,7 @@ class MAMLOptimizer:
         support_y: torch.Tensor | None = None,
         create_graph: bool = False,
     ) -> TranADModel:
-        """
-        Inner loop adaptation on support set.
+        """Inner loop adaptation on support set.
 
         Args:
             model: Model to adapt
@@ -724,8 +692,7 @@ class MAMLOptimizer:
         self,
         tasks: list[tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor | None]],
     ) -> dict[str, float]:
-        """
-        MAML meta-training step over multiple tasks.
+        """MAML meta-training step over multiple tasks.
 
         Args:
             tasks: List of (support_x, support_y, query_x, query_y) tuples
@@ -769,8 +736,7 @@ class MAMLOptimizer:
         support_x: torch.Tensor,
         support_y: torch.Tensor | None = None,
     ) -> TranADModel:
-        """
-        Adapt model to new task (few-shot learning).
+        """Adapt model to new task (few-shot learning).
 
         Args:
             support_x: Few-shot support examples
@@ -787,6 +753,7 @@ class PositionalEncoding(nn.Module):
     """Sinusoidal positional encoding."""
 
     def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 5000) -> None:
+        """Initialize the instance."""
         super().__init__()
         self.dropout = nn.Dropout(p=dropout)
 
@@ -808,8 +775,7 @@ class PositionalEncoding(nn.Module):
 
 
 class TranADLoss(nn.Module):
-    """
-    Combined loss function for TranAD training.
+    """Combined loss function for TranAD training.
 
     Total Loss = L1 + L2 + λ * L_adv
 
@@ -824,6 +790,7 @@ class TranADLoss(nn.Module):
         adversarial_weight: float = 1.0,
         focus_weight: float = 0.1,
     ):
+        """Initialize the instance."""
         super().__init__()
         self.adversarial_weight = adversarial_weight
         self.focus_weight = focus_weight
@@ -834,8 +801,7 @@ class TranADLoss(nn.Module):
         result: dict[str, torch.Tensor],
         discriminator: Discriminator | None = None,
     ) -> dict[str, torch.Tensor]:
-        """
-        Compute TranAD loss.
+        """Compute TranAD loss.
 
         Args:
             x: Input tensor

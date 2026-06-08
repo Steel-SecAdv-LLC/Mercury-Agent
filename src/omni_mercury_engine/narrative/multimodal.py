@@ -1,32 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
-
-Multi-Modal Support - Image and Audio Analysis Narration
-
-Extends Mercury's narrative capabilities to describe and explain:
-- Visual anomaly detection (images, video frames)
-- Audio anomaly detection (spectrograms, waveforms)
-- Biometric analysis results
-- Industrial visual inspection
-
-Architecture:
-    Detection Result → Multi-Modal Analyzer → Narrative Engine → Human Description
-
-This enables Mercury to explain what it "sees" and "hears" in human terms.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 
@@ -167,8 +140,7 @@ class MultiModalNarration:
 
 
 class MultiModalNarrator:
-    """
-    Narrator for multi-modal detection results.
+    """Narrator for multi-modal detection results.
 
     Translates visual and audio anomaly detections into human-readable
     descriptions, enabling Mercury to explain what it "sees" and "hears".
@@ -247,8 +219,7 @@ class MultiModalNarrator:
         detection: MultiModalDetection,
         domain: str | None = None,
     ) -> MultiModalNarration:
-        """
-        Generate narration for multi-modal detection.
+        """Generate narration for multi-modal detection.
 
         Args:
             detection: Multi-modal detection result
@@ -518,8 +489,7 @@ class MultiModalNarrator:
 
 
 def create_multimodal_narrator() -> MultiModalNarrator:
-    """
-    Factory function to create multi-modal narrator.
+    """Factory function to create multi-modal narrator.
 
     Returns:
         Configured MultiModalNarrator
@@ -531,8 +501,7 @@ def narrate_image_detection(
     detection_result: dict[str, Any],
     domain: str | None = None,
 ) -> dict[str, Any]:
-    """
-    Convenience function to narrate image detection result.
+    """Convenience function to narrate image detection result.
 
     Args:
         detection_result: Detection result dictionary
@@ -587,8 +556,7 @@ def narrate_audio_detection(
     detection_result: dict[str, Any],
     domain: str | None = None,
 ) -> dict[str, Any]:
-    """
-    Convenience function to narrate audio detection result.
+    """Convenience function to narrate audio detection result.
 
     Args:
         detection_result: Detection result dictionary

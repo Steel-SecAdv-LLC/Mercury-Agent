@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Ensemble Learning for Enhanced Detector Fusion
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Ensemble Learning for Enhanced Detector Fusion.
 
 This module provides ensemble methods for combining multiple detector outputs:
 - Stacking with Meta-Learner: Train second-level model on detector outputs
@@ -33,6 +15,8 @@ References:
 - Freund & Schapire (1997): AdaBoost
 - Breiman (1996): Bagging Predictors
 """
+
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
@@ -55,8 +39,7 @@ class EnsembleMethod(Enum):
 
 @dataclass
 class EnsembleConfig:
-    """
-    Configuration for ensemble learning.
+    """Configuration for ensemble learning.
 
     Attributes:
         method: Ensemble method to use
@@ -81,8 +64,7 @@ class EnsembleConfig:
 
 
 class MetaLearner(nn.Module):
-    """
-    Neural network meta-learner for stacking ensemble.
+    """Neural network meta-learner for stacking ensemble.
 
     Takes outputs from multiple base detectors and learns optimal combination.
     """
@@ -95,6 +77,7 @@ class MetaLearner(nn.Module):
         num_layers: int = 2,
         dropout: float = 0.1,
     ):
+        """Initialize the instance."""
         super().__init__()
 
         layers: list[nn.Module] = []
@@ -127,6 +110,7 @@ class DetectorWeightLearner(nn.Module):
         input_dim: int,
         hidden_dim: int = 32,
     ):
+        """Initialize the instance."""
         super().__init__()
 
         self.weight_network = nn.Sequential(
@@ -143,8 +127,7 @@ class DetectorWeightLearner(nn.Module):
 
 
 class EnsembleOmniFusionModel(nn.Module):
-    """
-    Ensemble wrapper for OmniFusionModel with stacking and boosting.
+    """Ensemble wrapper for OmniFusionModel with stacking and boosting.
 
     Wraps the base OmniFusionModel and adds ensemble learning capabilities
     for improved anomaly detection accuracy (30-40% improvement expected).
@@ -167,6 +150,7 @@ class EnsembleOmniFusionModel(nn.Module):
         config: EnsembleConfig | None = None,
         detector_names: list[str] | None = None,
     ):
+        """Initialize the instance."""
         super().__init__()
 
         self.base_model = base_model
@@ -206,8 +190,7 @@ class EnsembleOmniFusionModel(nn.Module):
         return_attention: bool = False,
         use_ensemble: bool = True,
     ) -> dict[str, torch.Tensor]:
-        """
-        Forward pass with ensemble learning.
+        """Forward pass with ensemble learning.
 
         Args:
             detector_features: Dict of raw features from each detector
@@ -342,8 +325,7 @@ class EnsembleOmniFusionModel(nn.Module):
         targets: torch.Tensor,
         detector_idx: int,
     ) -> None:
-        """
-        Update boosting weights based on prediction errors.
+        """Update boosting weights based on prediction errors.
 
         Args:
             predictions: Model predictions
@@ -368,8 +350,7 @@ class EnsembleOmniFusionModel(nn.Module):
                     self.detector_weights.data = self.detector_weights.data / total
 
     def get_ensemble_stats(self) -> dict[str, Any]:
-        """
-        Get ensemble statistics.
+        """Get ensemble statistics.
 
         Returns:
             Dictionary with ensemble statistics
@@ -384,8 +365,7 @@ class EnsembleOmniFusionModel(nn.Module):
 
 
 class VotingEnsemble:
-    """
-    Simple voting ensemble for detector outputs.
+    """Simple voting ensemble for detector outputs.
 
     Combines multiple detector predictions using majority voting or soft voting (probability
     averaging).
@@ -396,8 +376,7 @@ class VotingEnsemble:
         voting_type: str = "soft",
         weights: list[float] | None = None,
     ):
-        """
-        Initialize voting ensemble.
+        """Initialize voting ensemble.
 
         Args:
             voting_type: "hard" for majority voting, "soft" for probability averaging
@@ -411,8 +390,7 @@ class VotingEnsemble:
         detector_outputs: dict[str, np.ndarray[Any, Any]],
         threshold: float = 0.5,
     ) -> dict[str, np.ndarray[Any, Any]]:
-        """
-        Combine detector outputs using voting.
+        """Combine detector outputs using voting.
 
         Args:
             detector_outputs: Dict mapping detector names to prediction arrays
@@ -459,8 +437,7 @@ def create_ensemble_model(
     detector_names: list[str] | None = None,
     **kwargs: Any,
 ) -> EnsembleOmniFusionModel:
-    """
-    Factory function to create ensemble model.
+    """Factory function to create ensemble model.
 
     Args:
         base_model: Base OmniFusionModel to wrap

@@ -1,18 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU."""
 
 from __future__ import annotations
 
@@ -61,9 +48,7 @@ except ImportError:
     nn = None  # type: ignore[assignment, unused-ignore]
     F = None  # type: ignore[assignment, unused-ignore]
 
-
 logger = logging.getLogger(__name__)
-
 
 # =============================================================================
 # Constants
@@ -105,8 +90,7 @@ class AdaptationStrategy(Enum):
 
 @dataclass
 class Task:
-    """
-    A meta-learning task (episode).
+    """A meta-learning task (episode).
 
     Represents a specific anomaly detection scenario.
 
@@ -145,8 +129,7 @@ class Task:
 
 @dataclass
 class AdaptationResult:
-    """
-    Result of task adaptation.
+    """Result of task adaptation.
 
     Attributes:
         task_id: Task that was adapted to
@@ -171,8 +154,7 @@ class AdaptationResult:
 
 @dataclass
 class MetaTrainingResult:
-    """
-    Result of meta-training.
+    """Result of meta-training.
 
     Attributes:
         epoch: Training epoch
@@ -193,8 +175,7 @@ class MetaTrainingResult:
 
 @dataclass
 class Prototype:
-    """
-    A class prototype for prototypical networks.
+    """A class prototype for prototypical networks.
 
     Attributes:
         class_id: Class identifier
@@ -229,8 +210,7 @@ class FeatureEncoder(ABC):
 
 
 class MLPEncoder(FeatureEncoder):
-    """
-    Simple MLP-based feature encoder.
+    """Simple MLP-based feature encoder.
 
     Works without PyTorch for basic scenarios.
     """
@@ -242,8 +222,7 @@ class MLPEncoder(FeatureEncoder):
         embedding_dim: int = 64,
         seed: int | None = 42,
     ):
-        """
-        Initialize MLP encoder.
+        """Initialize MLP encoder.
 
         Args:
             input_dim: Input feature dimension
@@ -344,8 +323,7 @@ if TORCH_AVAILABLE:
 
 
 class PrototypicalNetworks:
-    """
-    Prototypical Networks for few-shot learning.
+    """Prototypical Networks for few-shot learning.
 
     Creates class prototypes from support examples and classifies
     query examples by distance to prototypes.
@@ -369,8 +347,7 @@ class PrototypicalNetworks:
         input_dim: int | None = None,
         embedding_dim: int | None = None,
     ):
-        """
-        Initialize Prototypical Networks.
+        """Initialize Prototypical Networks.
 
         Args:
             encoder: Feature encoder (optional if input_dim/embedding_dim provided)
@@ -404,8 +381,7 @@ class PrototypicalNetworks:
         self,
         support_set: list[tuple[np.ndarray[Any, Any], int]] | dict[str, np.ndarray[Any, Any]],
     ) -> dict[int, Prototype] | dict[str, np.ndarray[Any, Any]]:
-        """
-        Compute class prototypes from support set.
+        """Compute class prototypes from support set.
 
         Args:
             support_set: List of (features, label) pairs OR dict of {class_name: features_array}
@@ -473,8 +449,7 @@ class PrototypicalNetworks:
         return prototypes
 
     def fit(self, support_set: dict[str, np.ndarray[Any, Any]]) -> None:
-        """
-        Fit prototypes from support set (dict-based API).
+        """Fit prototypes from support set (dict-based API).
 
         Args:
             support_set: Dict of {class_name: features_array}
@@ -484,8 +459,7 @@ class PrototypicalNetworks:
         self.compute_prototypes(support_set)
 
     def classify(self, query: np.ndarray[Any, Any]) -> dict[str, Any]:
-        """
-        Classify a single query sample (dict-based API).
+        """Classify a single query sample (dict-based API).
 
         Args:
             query: Query feature vector
@@ -529,8 +503,7 @@ class PrototypicalNetworks:
         }
 
     def batch_classify(self, queries: np.ndarray[Any, Any]) -> list[dict[str, Any]]:
-        """
-        Classify multiple query samples.
+        """Classify multiple query samples.
 
         Args:
             queries: Array of query feature vectors (n_samples, n_features)
@@ -544,8 +517,7 @@ class PrototypicalNetworks:
         self,
         query_features: np.ndarray[Any, Any],
     ) -> tuple[int, np.ndarray[Any, Any]]:
-        """
-        Predict class for query features.
+        """Predict class for query features.
 
         Args:
             query_features: Query feature vector
@@ -588,8 +560,7 @@ class PrototypicalNetworks:
         return predicted_class, prob_array
 
     def adapt(self, task: Task) -> AdaptationResult:
-        """
-        Adapt to a task by computing prototypes.
+        """Adapt to a task by computing prototypes.
 
         Args:
             task: Task to adapt to
@@ -635,8 +606,7 @@ class PrototypicalNetworks:
 
 
 class MAML:
-    """
-    Model-Agnostic Meta-Learning implementation.
+    """Model-Agnostic Meta-Learning implementation.
 
     MAML learns an initialization that can quickly adapt to new tasks
     through a few gradient steps.
@@ -664,8 +634,7 @@ class MAML:
         first_order: bool = False,
         seed: int | None = 42,
     ):
-        """
-        Initialize MAML.
+        """Initialize MAML.
 
         Args:
             input_dim: Input feature dimension
@@ -797,8 +766,7 @@ class MAML:
         task: Task,
         params: dict[str, np.ndarray[Any, Any]],
     ) -> dict[str, np.ndarray[Any, Any]]:
-        """
-        Perform inner loop adaptation.
+        """Perform inner loop adaptation.
 
         Args:
             task: Task to adapt to
@@ -824,8 +792,7 @@ class MAML:
         support_x_or_task: np.ndarray[Any, Any] | Task,
         support_y: np.ndarray[Any, Any] | None = None,
     ) -> AdaptationResult | None:
-        """
-        Adapt to support set or task.
+        """Adapt to support set or task.
 
         Supports both array-based API (for tests) and Task-based API.
 
@@ -883,8 +850,7 @@ class MAML:
         self,
         task_batch: list[Task],
     ) -> float:
-        """
-        Perform one meta-training step.
+        """Perform one meta-training step.
 
         Args:
             task_batch: Batch of tasks
@@ -930,8 +896,7 @@ class MAML:
         support_y: np.ndarray[Any, Any],
         num_steps: int | None = None,
     ) -> dict[str, np.ndarray[Any, Any]]:
-        """
-        Perform inner loop adaptation with array inputs (test API).
+        """Perform inner loop adaptation with array inputs (test API).
 
         Args:
             support_x: Support set features
@@ -953,8 +918,7 @@ class MAML:
         return adapted_params
 
     def meta_step(self, tasks: list[dict[str, Any]]) -> float:
-        """
-        Perform meta-training step with dict-based tasks (test API).
+        """Perform meta-training step with dict-based tasks (test API).
 
         Args:
             tasks: List of task dicts with support_x, support_y, query_x, query_y
@@ -1003,8 +967,7 @@ class MAML:
         support_x: np.ndarray[Any, Any],
         support_y: np.ndarray[Any, Any],
     ) -> None:
-        """
-        Adapt to support set using arrays (test API).
+        """Adapt to support set using arrays (test API).
 
         Args:
             support_x: Support set features
@@ -1013,8 +976,7 @@ class MAML:
         self._adapted_params = self.inner_loop_adapt(support_x, support_y)
 
     def predict(self, query_x: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Predict class labels for query samples (test API).
+        """Predict class labels for query samples (test API).
 
         Args:
             query_x: Query features (n_samples, n_features)
@@ -1042,8 +1004,7 @@ class MAML:
 
 
 class Reptile:
-    """
-    Reptile meta-learning algorithm.
+    """Reptile meta-learning algorithm.
 
     Simplified version of MAML that doesn't require second-order
     gradients. Updates by interpolating towards task-adapted parameters.
@@ -1064,8 +1025,7 @@ class Reptile:
         inner_steps: int = DEFAULT_INNER_STEPS,
         epsilon: float = 0.1,
     ):
-        """
-        Initialize Reptile.
+        """Initialize Reptile.
 
         Args:
             input_dim: Input feature dimension
@@ -1110,8 +1070,7 @@ class Reptile:
         task_y: np.ndarray[Any, Any],
         num_steps: int | None = None,
     ) -> dict[str, np.ndarray[Any, Any]]:
-        """
-        Train on a single task (test API).
+        """Train on a single task (test API).
 
         Args:
             task_x: Task features
@@ -1137,8 +1096,7 @@ class Reptile:
         task_x: np.ndarray[Any, Any],
         task_y: np.ndarray[Any, Any],
     ) -> float:
-        """
-        Perform meta-update on a single task (test API).
+        """Perform meta-update on a single task (test API).
 
         Args:
             task_x: Task features
@@ -1170,8 +1128,7 @@ class Reptile:
         query_x: np.ndarray[Any, Any],
         query_y: np.ndarray[Any, Any],
     ) -> float:
-        """
-        Evaluate few-shot performance (test API).
+        """Evaluate few-shot performance (test API).
 
         Args:
             support_x: Support set features
@@ -1229,8 +1186,7 @@ class Reptile:
 
 
 class MetaLearningAdapter:
-    """
-    Main Meta-Learning Adapter for Mercury Agent.
+    """Main Meta-Learning Adapter for Mercury Agent.
 
     Provides unified interface to different meta-learning algorithms
     for fast adaptation to new anomaly types.
@@ -1252,8 +1208,7 @@ class MetaLearningAdapter:
         k_shot: int = DEFAULT_K_SHOT,
         seed: int | None = None,
     ):
-        """
-        Initialize Meta-Learning Adapter.
+        """Initialize Meta-Learning Adapter.
 
         Args:
             input_dim: Input feature dimension
@@ -1333,8 +1288,7 @@ class MetaLearningAdapter:
         task_name: str | None = None,
         domain: str = "general",
     ) -> Task:
-        """
-        Create a meta-learning task.
+        """Create a meta-learning task.
 
         Args:
             support_data: Support set examples
@@ -1376,8 +1330,7 @@ class MetaLearningAdapter:
         self,
         task_or_support: Task | dict[str, np.ndarray[Any, Any]],
     ) -> AdaptationResult | None:
-        """
-        Adapt to a specific task or support set.
+        """Adapt to a specific task or support set.
 
         Args:
             task_or_support: Task object OR dict of {class_name: features_array}
@@ -1410,8 +1363,7 @@ class MetaLearningAdapter:
         features: np.ndarray[Any, Any],
         task: Task | None = None,
     ) -> list[str] | tuple[int, np.ndarray[Any, Any]]:
-        """
-        Make prediction for features.
+        """Make prediction for features.
 
         Args:
             features: Input features (single sample or batch)
@@ -1447,8 +1399,7 @@ class MetaLearningAdapter:
         support_examples: list[tuple[np.ndarray[Any, Any], bool]],
         query_features: np.ndarray[Any, Any],
     ) -> tuple[bool, float]:
-        """
-        Few-shot anomaly detection.
+        """Few-shot anomaly detection.
 
         Args:
             support_examples: Support examples (features, is_anomaly)
@@ -1482,8 +1433,7 @@ class MetaLearningAdapter:
         tasks: list[dict[str, Any]],
         epochs: int = 10,
     ) -> dict[str, Any]:
-        """
-        Meta-train on a set of tasks (test API).
+        """Meta-train on a set of tasks (test API).
 
         Args:
             tasks: List of task dicts with "support" and "query" keys (each is a dict)
@@ -1572,8 +1522,7 @@ class MetaLearningAdapter:
         }
 
     def get_embeddings(self, samples: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Get embeddings for samples (test API).
+        """Get embeddings for samples (test API).
 
         Args:
             samples: Input samples (n_samples, n_features)
@@ -1600,8 +1549,7 @@ class MetaLearningAdapter:
         return samples[:, : self.hidden_dim]
 
     def adapt_dict(self, support_set: dict[str, np.ndarray[Any, Any]]) -> None:
-        """
-        Adapt to support set using dict API (test API).
+        """Adapt to support set using dict API (test API).
 
         Args:
             support_set: Dict of {class_name: features_array}
@@ -1630,8 +1578,7 @@ class MetaLearningAdapter:
         self,
         query_samples: np.ndarray[Any, Any],
     ) -> list[str]:
-        """
-        Predict class names for query samples (test API).
+        """Predict class names for query samples (test API).
 
         Args:
             query_samples: Query features (n_samples, n_features)
@@ -1659,8 +1606,7 @@ class MetaLearningAdapter:
         n_query: int = 5,
         q_queries: int | None = None,
     ) -> list[dict[str, Any]]:
-        """
-        Generate meta-learning episodes (test API).
+        """Generate meta-learning episodes (test API).
 
         Args:
             data: Full dataset features (array) OR dict of {class_name: features_array}
@@ -1758,8 +1704,7 @@ class MetaLearningAdapter:
         k_shot: int | None = None,
         n_episodes: int = 10,
     ) -> float:
-        """
-        Evaluate n-way k-shot performance (test API).
+        """Evaluate n-way k-shot performance (test API).
 
         Args:
             data_or_episodes: Dataset dict {class_name: features_array} OR list of episode dicts
@@ -1841,8 +1786,7 @@ class MetaLearningAdapter:
 
 
 class AnomalyMetaLearner:
-    """
-    Meta-learner specialized for anomaly detection.
+    """Meta-learner specialized for anomaly detection.
 
     Provides domain-specific adaptation for Mercury Agent's anomaly detection tasks.
     """
@@ -1855,8 +1799,7 @@ class AnomalyMetaLearner:
         anomaly_threshold: float = 0.5,
         calibrate_confidence: bool = True,
     ):
-        """
-        Initialize anomaly meta-learner.
+        """Initialize anomaly meta-learner.
 
         Args:
             adapter: Base meta-learning adapter
@@ -1894,8 +1837,7 @@ class AnomalyMetaLearner:
         examples: np.ndarray[Any, Any] | dict[str, np.ndarray[Any, Any]] | None = None,
         is_anomaly: bool = True,
     ) -> dict[str, Any]:
-        """
-        Learn a new anomaly type (test API).
+        """Learn a new anomaly type (test API).
 
         Args:
             type_name_or_data: Name of the anomaly type OR dict of {class_name: features}
@@ -2007,8 +1949,7 @@ class AnomalyMetaLearner:
         examples: np.ndarray[Any, Any] | dict[str, np.ndarray[Any, Any]],
         labels: np.ndarray[Any, Any] | None = None,
     ) -> None:
-        """
-        Fit the meta-learner on examples (test API).
+        """Fit the meta-learner on examples (test API).
 
         Args:
             examples: Training examples (n_samples, n_features) OR dict of {class_name: features}
@@ -2058,8 +1999,7 @@ class AnomalyMetaLearner:
         )
 
     def detect(self, sample: np.ndarray[Any, Any]) -> dict[str, Any]:
-        """
-        Detect if a single sample is anomalous (test API).
+        """Detect if a single sample is anomalous (test API).
 
         Args:
             sample: Single sample features
@@ -2101,8 +2041,7 @@ class AnomalyMetaLearner:
         }
 
     def batch_detect(self, batch: np.ndarray[Any, Any]) -> list[dict[str, Any]]:
-        """
-        Detect anomalies in a batch of samples (test API).
+        """Detect anomalies in a batch of samples (test API).
 
         Args:
             batch: Batch of samples (n_samples, n_features)
@@ -2116,8 +2055,7 @@ class AnomalyMetaLearner:
         self,
         examples: list[tuple[np.ndarray[Any, Any], bool]] | dict[str, np.ndarray[Any, Any]],
     ) -> dict[str, Any]:
-        """
-        Adapt online with new examples (test API).
+        """Adapt online with new examples (test API).
 
         Args:
             examples: List of (features, is_anomaly) tuples OR dict of {class_name: features}
@@ -2171,8 +2109,7 @@ class AnomalyMetaLearner:
         }
 
     def get_feature_importance(self) -> np.ndarray[Any, Any]:
-        """
-        Get feature importance scores (test API).
+        """Get feature importance scores (test API).
 
         Returns:
             Array of feature importance scores
@@ -2196,8 +2133,7 @@ class AnomalyMetaLearner:
         anomaly_examples: list[np.ndarray[Any, Any]],
         anomaly_type: str = "unknown",
     ) -> AdaptationResult | None:
-        """
-        Adapt to a new type of anomaly.
+        """Adapt to a new type of anomaly.
 
         Args:
             normal_examples: Examples of normal behavior
@@ -2232,8 +2168,7 @@ class AnomalyMetaLearner:
         reference_normal: list[np.ndarray[Any, Any]],
         reference_anomaly: list[np.ndarray[Any, Any]] | None = None,
     ) -> dict[str, Any]:
-        """
-        Detect anomaly with few-shot adaptation.
+        """Detect anomaly with few-shot adaptation.
 
         Args:
             features: Features to classify
@@ -2275,8 +2210,7 @@ class AnomalyMetaLearner:
         return self._adaptation_cache
 
     def get_statistics(self) -> dict[str, Any]:
-        """
-        Get meta-learner statistics (test API).
+        """Get meta-learner statistics (test API).
 
         Returns:
             Statistics dict with anomaly_types_learned count
@@ -2298,8 +2232,7 @@ def create_meta_learner(
     algorithm: str = "prototypical",
     **kwargs: Any,
 ) -> AnomalyMetaLearner:
-    """
-    Factory function to create a meta-learner (test API).
+    """Factory function to create a meta-learner (test API).
 
     Args:
         feature_dim: Feature dimension

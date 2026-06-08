@@ -1,14 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-Domain loader for hurricane/cyclone data from NOAA IBTrACS (International Best Track Archive for
-Climate Stewardship).
-
-Connects to the IBTrACS v04r01 CSV archive to provide tropical cyclone track data for Mercury
-anomaly detection.  Ground truth events cover major hurricanes where rapid intensification periods
-(wind speed increase >= 30 kt in 24 h) are labeled as anomalies against a background of normal track
-evolution.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Domain loader for hurricane/cyclone data from NOAA IBTrACS (International Best Track Archive for."""
 
 from __future__ import annotations
 
@@ -202,8 +193,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
 
 
 class HurricaneLoader(BaseDomainLoader):
-    """
-    Loader for hurricane/cyclone data from NOAA IBTrACS.
+    """Loader for hurricane/cyclone data from NOAA IBTrACS.
 
     Uses the International Best Track Archive for Climate Stewardship
     (IBTrACS) v04r01 CSV data to provide tropical cyclone track
@@ -244,8 +234,7 @@ class HurricaneLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     def fetch_realtime(self) -> pd.DataFrame:
-        """
-        Fetch recent tropical cyclone track data from IBTrACS.
+        """Fetch recent tropical cyclone track data from IBTrACS.
 
         Retrieves the "last 3 years" subset which includes all
         storms from the most recent three seasons.
@@ -275,8 +264,7 @@ class HurricaneLoader(BaseDomainLoader):
         return df
 
     def fetch_historical(self, event_id: str) -> pd.DataFrame:
-        """
-        Fetch track data for a specific historical hurricane event.
+        """Fetch track data for a specific historical hurricane event.
 
         For events with a known Storm ID (SID), the data is filtered
         from the appropriate basin CSV.  For recent events without a
@@ -326,8 +314,7 @@ class HurricaneLoader(BaseDomainLoader):
         return df
 
     def list_events(self) -> list[dict[str, Any]]:
-        """
-        Return the catalog of ground truth hurricane events.
+        """Return the catalog of ground truth hurricane events.
 
         Returns:
             List of dicts each containing *event_id*, *name*, *date*,
@@ -346,8 +333,7 @@ class HurricaneLoader(BaseDomainLoader):
         return events
 
     def get_ground_truth(self, event_id: str) -> np.ndarray[Any, Any]:
-        """
-        Generate binary anomaly labels for a historical hurricane event.
+        """Generate binary anomaly labels for a historical hurricane event.
 
         Labeling strategy: a track observation is labeled *anomalous*
         (``1``) if it falls within a rapid intensification period,
@@ -495,8 +481,7 @@ class HurricaneLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     def _download_ibtracs_csv(self, url: str) -> pd.DataFrame:
-        """
-        Download and parse an IBTrACS CSV file.
+        """Download and parse an IBTrACS CSV file.
 
         IBTrACS CSVs have a header row (row 0) followed by a units
         row (row 1) that must be skipped.  Many fields use whitespace
@@ -522,8 +507,7 @@ class HurricaneLoader(BaseDomainLoader):
         return self._standardize_ibtracs(df)
 
     def _fetch_storm_track(self, event: dict[str, Any]) -> pd.DataFrame:
-        """
-        Fetch the track for a single storm from IBTrACS.
+        """Fetch the track for a single storm from IBTrACS.
 
         Selects the appropriate data source (historical basin CSV or
         last-3-years subset) and filters by storm identifier or name.
@@ -576,8 +560,7 @@ class HurricaneLoader(BaseDomainLoader):
 
     @staticmethod
     def _standardize_ibtracs(df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Standardize IBTrACS column names and data types.
+        """Standardize IBTrACS column names and data types.
 
         Maps the raw IBTrACS column names to a consistent schema and
         resolves wind/pressure values by preferring USA agency data
@@ -645,8 +628,7 @@ class HurricaneLoader(BaseDomainLoader):
 
     @staticmethod
     def _compute_delta(values: np.ndarray[Any, Any], steps: int) -> np.ndarray[Any, Any]:
-        """
-        Compute the change in a variable over a fixed number of steps.
+        """Compute the change in a variable over a fixed number of steps.
 
         Args:
             values: 1-D array of observations (chronologically ordered).
@@ -667,8 +649,7 @@ class HurricaneLoader(BaseDomainLoader):
         lon: np.ndarray[Any, Any],
         window: int = 5,
     ) -> np.ndarray[Any, Any]:
-        """
-        Compute deviation of track position from a running mean.
+        """Compute deviation of track position from a running mean.
 
         The deviation is the Euclidean distance (in degrees) between
         the actual position and the centroid of a trailing window of
@@ -700,8 +681,7 @@ class HurricaneLoader(BaseDomainLoader):
         lat: np.ndarray[Any, Any],
         lon: np.ndarray[Any, Any],
     ) -> np.ndarray[Any, Any]:
-        """
-        Compute storm translation speed between consecutive track points.
+        """Compute storm translation speed between consecutive track points.
 
         Uses a simplified great-circle distance approximation suitable
         for the typical scales of tropical cyclone tracks.  Speed is
@@ -742,8 +722,7 @@ class HurricaneLoader(BaseDomainLoader):
     def _label_rapid_intensification(
         wind_kt: np.ndarray[Any, Any],
     ) -> np.ndarray[Any, Any]:
-        """
-        Label track observations during rapid intensification periods.
+        """Label track observations during rapid intensification periods.
 
         A rapid intensification (RI) event is defined as a wind speed
         increase of >= 30 kt over any 24-hour period (4 six-hourly

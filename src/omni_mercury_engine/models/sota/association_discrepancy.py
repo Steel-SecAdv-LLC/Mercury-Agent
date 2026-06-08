@@ -1,30 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-Association Discrepancy Module - Anomaly Transformer (ICLR 2022)
-
-Implements the core innovation from "Anomaly Transformer: Time Series Anomaly
-Detection with Association Discrepancy" by Xu et al.
-
-Key Innovations:
-1. Prior-Association: Gaussian kernel on temporal proximity (expected normal)
-2. Series-Association: Learned attention patterns from data
-3. Association Discrepancy: KL divergence between Prior and Series distributions
-4. Minimax Strategy: Amplifies distinguishability between normal and anomalous
-
-The Association Discrepancy criterion provides a more distinguishable anomaly
-signal compared to traditional reconstruction-based methods.
-
-Ethical Integration:
-    - All computations respect omni_harm_prevention scalar (1.50)
-    - Bias detection integrated via Fairlearn hooks
-    - Survivor-first: Optimized for high recall on critical anomalies
-
-Reference:
-    Xu, J., Wu, H., Wang, J., & Long, M. (2022). Anomaly Transformer: Time Series
-    Anomaly Detection with Association Discrepancy. ICLR 2022.
-    https://arxiv.org/abs/2201.07284
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Association Discrepancy Module - Anomaly Transformer (ICLR 2022)."""
 
 from __future__ import annotations
 
@@ -47,8 +22,7 @@ __all__ = [
 
 @dataclass
 class AssociationConfig:
-    """
-    Configuration for Association Discrepancy module.
+    """Configuration for Association Discrepancy module.
 
     Attributes:
         d_model: Model dimension (embedding size)
@@ -72,8 +46,7 @@ class AssociationConfig:
 
 
 class PriorAssociation(nn.Module):
-    """
-    Prior-Association Distribution based on temporal proximity.
+    """Prior-Association Distribution based on temporal proximity.
 
     Implements a Gaussian kernel that captures expected normal associations:
     Prior(i, j) ∝ exp(-|i - j|² / (2σ²))
@@ -87,6 +60,7 @@ class PriorAssociation(nn.Module):
     """
 
     def __init__(self, sigma: float = 1.0, window_size: int = 100) -> None:
+        """Initialize the instance."""
         super().__init__()
         self.sigma = sigma
         self.window_size = window_size
@@ -102,8 +76,7 @@ class PriorAssociation(nn.Module):
         return distances
 
     def forward(self, seq_len: int, device: torch.device | None = None) -> torch.Tensor:
-        """
-        Compute Prior-Association distribution.
+        """Compute Prior-Association distribution.
 
         Args:
             seq_len: Sequence length
@@ -133,8 +106,7 @@ class PriorAssociation(nn.Module):
 
 
 class SeriesAssociation(nn.Module):
-    """
-    Series-Association via learned multi-head self-attention.
+    """Series-Association via learned multi-head self-attention.
 
     Captures the actual association patterns learned from the data.
     For normal points, Series-Association should be similar to Prior-Association.
@@ -147,6 +119,7 @@ class SeriesAssociation(nn.Module):
     """
 
     def __init__(self, d_model: int = 512, n_heads: int = 8, dropout: float = 0.1) -> None:
+        """Initialize the instance."""
         super().__init__()
         self.d_model = d_model
         self.n_heads = n_heads
@@ -164,8 +137,7 @@ class SeriesAssociation(nn.Module):
     def forward(
         self, x: torch.Tensor, mask: torch.Tensor | None = None, return_attention: bool = True
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """
-        Compute Series-Association attention.
+        """Compute Series-Association attention.
 
         Args:
             x: Input tensor [batch, seq_len, d_model]
@@ -210,8 +182,7 @@ class SeriesAssociation(nn.Module):
 
 
 class AssociationDiscrepancyModule(nn.Module):
-    """
-    Association Discrepancy computation module.
+    """Association Discrepancy computation module.
 
     Computes the discrepancy between Prior-Association (expected normal) and
     Series-Association (learned from data). This discrepancy is the key signal
@@ -228,6 +199,7 @@ class AssociationDiscrepancyModule(nn.Module):
     """
 
     def __init__(self, config: AssociationConfig | None = None) -> None:
+        """Initialize the instance."""
         super().__init__()
         self.config = config or AssociationConfig()
 
@@ -243,8 +215,7 @@ class AssociationDiscrepancyModule(nn.Module):
         self.register_buffer("sigma_buffer", torch.tensor(self.config.sigma))
 
     def forward(self, x: torch.Tensor, return_components: bool = False) -> dict[str, torch.Tensor]:
-        """
-        Compute Association Discrepancy.
+        """Compute Association Discrepancy.
 
         Args:
             x: Input tensor [batch, seq_len, d_model]
@@ -288,8 +259,7 @@ class AssociationDiscrepancyModule(nn.Module):
     def _compute_discrepancy(
         self, series: torch.Tensor, prior: torch.Tensor, eps: float = 1e-8
     ) -> torch.Tensor:
-        """
-        Compute symmetric KL divergence between Series and Prior.
+        """Compute symmetric KL divergence between Series and Prior.
 
         Discrepancy(i) = sum_j [ KL(S_i || P_i) + KL(P_i || S_i) ]
 
@@ -321,8 +291,7 @@ class AssociationDiscrepancyModule(nn.Module):
     def get_anomaly_score(
         self, x: torch.Tensor, reconstruction: torch.Tensor | None = None
     ) -> torch.Tensor:
-        """
-        Compute final anomaly score combining discrepancy and reconstruction.
+        """Compute final anomaly score combining discrepancy and reconstruction.
 
         Score = softmax(-discrepancy) * |x - reconstruction|
 
@@ -355,8 +324,7 @@ class AssociationDiscrepancyModule(nn.Module):
 
 
 class AnomalyTransformerEncoder(nn.Module):
-    """
-    Full Anomaly Transformer Encoder with Association Discrepancy.
+    """Full Anomaly Transformer Encoder with Association Discrepancy.
 
     Architecture:
     1. Input Embedding + Positional Encoding
@@ -388,6 +356,7 @@ class AnomalyTransformerEncoder(nn.Module):
         window_size: int = 100,
         sigma: float = 1.0,
     ):
+        """Initialize the instance."""
         super().__init__()
         self.input_dim = input_dim
         self.d_model = d_model
@@ -420,8 +389,7 @@ class AnomalyTransformerEncoder(nn.Module):
         self.norm = nn.LayerNorm(d_model)
 
     def forward(self, x: torch.Tensor, return_all: bool = False) -> dict[str, torch.Tensor]:
-        """
-        Forward pass through Anomaly Transformer.
+        """Forward pass through Anomaly Transformer.
 
         Args:
             x: Input tensor [batch, seq_len, input_dim]
@@ -474,8 +442,7 @@ class AnomalyTransformerEncoder(nn.Module):
         return result
 
     def detect(self, x: torch.Tensor, threshold: float | None = None) -> dict[str, Any]:
-        """
-        Perform anomaly detection on input sequence.
+        """Perform anomaly detection on input sequence.
 
         Args:
             x: Input tensor [batch, seq_len, input_dim]
@@ -507,13 +474,13 @@ class AnomalyTransformerEncoder(nn.Module):
 
 
 class AnomalyTransformerEncoderLayer(nn.Module):
-    """
-    Single encoder layer with Association Discrepancy attention.
+    """Single encoder layer with Association Discrepancy attention.
 
     Architecture: AssocDiscrepancy → Add&Norm → FFN → Add&Norm
     """
 
     def __init__(self, config: AssociationConfig) -> None:
+        """Initialize the instance."""
         super().__init__()
 
         self.assoc_discrepancy = AssociationDiscrepancyModule(config)
@@ -531,8 +498,7 @@ class AnomalyTransformerEncoderLayer(nn.Module):
         self.dropout = nn.Dropout(config.dropout)
 
     def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """
-        Forward pass through encoder layer.
+        """Forward pass through encoder layer.
 
         Returns:
             output: Transformed features
@@ -559,6 +525,7 @@ class PositionalEncoding(nn.Module):
     """Sinusoidal positional encoding for sequence position information."""
 
     def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 5000) -> None:
+        """Initialize the instance."""
         super().__init__()
         self.dropout = nn.Dropout(p=dropout)
 
@@ -579,8 +546,7 @@ class PositionalEncoding(nn.Module):
 
 
 class AssociationDiscrepancyLoss(nn.Module):
-    """
-    Loss function for Anomaly Transformer with minimax strategy.
+    """Loss function for Anomaly Transformer with minimax strategy.
 
     Total Loss = L_reconstruction - λ * L_association
 
@@ -594,6 +560,7 @@ class AssociationDiscrepancyLoss(nn.Module):
     """
 
     def __init__(self, lambda_: float = 3.0, reconstruction_weight: float = 1.0) -> None:
+        """Initialize the instance."""
         super().__init__()
         self.lambda_ = lambda_
         self.reconstruction_weight = reconstruction_weight
@@ -605,8 +572,7 @@ class AssociationDiscrepancyLoss(nn.Module):
         discrepancy: torch.Tensor,
         phase: str = "minimize",
     ) -> dict[str, torch.Tensor]:
-        """
-        Compute Anomaly Transformer loss.
+        """Compute Anomaly Transformer loss.
 
         Args:
             x: Input tensor
@@ -645,8 +611,7 @@ def apply_ethical_constraints(
     harm_prevention_scalar: float = 1.50,
     min_recall_threshold: float = 0.95,
 ) -> torch.Tensor:
-    """
-    Apply ethical constraints to anomaly detection.
+    """Apply ethical constraints to anomaly detection.
 
     Ensures high recall for critical anomalies to protect survivors.
 

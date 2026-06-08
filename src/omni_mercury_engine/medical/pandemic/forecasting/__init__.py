@@ -1,29 +1,13 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Pandemic Forecasting Module (Medical Interdiction)
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Pandemic Forecasting Module (Medical Interdiction).
 
 Real-time epidemiological modeling with chaos detection for
 multi-stage progression analysis using SEIR models.
 
 Part of Medical Interdiction and Intervention framework.
 """
+
+from __future__ import annotations
 
 from omni_mercury_engine.medical.pandemic.forecasting.epidemic_model import (
     EpidemicForecaster,

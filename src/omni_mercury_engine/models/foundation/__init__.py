@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Foundation Model Adapters for Time-Series Anomaly Detection
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Foundation Model Adapters for Time-Series Anomaly Detection.
 
 Integrates state-of-the-art foundation models for time-series:
 - TimeGPT: Nixtla's 100B+ parameter pre-trained model
@@ -45,6 +27,8 @@ Example:
         ensemble = FoundationEnsemble(models=['timegpt', 'chronos'])
         results = ensemble.detect(time_series_data)
 """
+
+from __future__ import annotations
 
 from omni_mercury_engine.models.foundation.base_foundation import (
     BaseFoundationAdapter,

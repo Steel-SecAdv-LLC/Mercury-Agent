@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Conversation Interface - Unified "Alive" Interface for Mercury Agent
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Conversation Interface - Unified "Alive" Interface for Mercury Agent.
 
 Integrates all narrative components into a cohesive conversation experience:
     - NarrativeEngine: Translates detection to human language
@@ -32,6 +14,8 @@ Philosophy:
 This is the unified entry point for making Mercury "alive" - not performatively,
 but through genuine transparency, truth density, and principled communication.
 """
+
+from __future__ import annotations
 
 import logging
 import time
@@ -117,8 +101,7 @@ class MercuryResponse:
 
 
 class MercuryConversationInterface:
-    """
-    Unified Conversation Interface - Making Mercury "Alive".
+    """Unified Conversation Interface - Making Mercury "Alive".
 
     This is the primary interface for interacting with Mercury as an
     "alive" agent. It combines all narrative components to provide:
@@ -159,8 +142,7 @@ class MercuryConversationInterface:
         enable_memory: bool = True,
         default_domain: str | None = None,
     ) -> None:
-        """
-        Initialize Mercury Conversation Interface.
+        """Initialize Mercury Conversation Interface.
 
         Args:
             enable_proactive: Enable proactive monitoring/alerts
@@ -208,8 +190,7 @@ class MercuryConversationInterface:
         domain: str | None = None,
         user_preferences: dict[str, Any] | None = None,
     ) -> ConversationContext:
-        """
-        Create a new conversation session.
+        """Create a new conversation session.
 
         Args:
             domain: Domain context for this session
@@ -231,8 +212,7 @@ class MercuryConversationInterface:
         return context
 
     def get_greeting(self, context: ConversationContext | None = None) -> str:
-        """
-        Get appropriate greeting for session start.
+        """Get appropriate greeting for session start.
 
         Args:
             context: Conversation context
@@ -249,8 +229,7 @@ class MercuryConversationInterface:
         context: ConversationContext | None = None,
         raw_data: Any = None,
     ) -> MercuryResponse:
-        """
-        Process a detection result and generate alive response.
+        """Process a detection result and generate alive response.
 
         This is the primary method for converting raw detections into
         truth-dense, transparent communication.
@@ -434,8 +413,7 @@ class MercuryConversationInterface:
         return follow_ups[:3]
 
     def on_proactive_alert(self, callback: Callable[[InitiativeEvent], None]) -> None:
-        """
-        Register callback for proactive alerts.
+        """Register callback for proactive alerts.
 
         Args:
             callback: Function to call when Mercury takes initiative
@@ -449,8 +427,7 @@ class MercuryConversationInterface:
         level: VigilanceLevel,
         domain: str | None = None,
     ) -> None:
-        """
-        Set vigilance level for proactive monitoring.
+        """Set vigilance level for proactive monitoring.
 
         Args:
             level: Vigilance level
@@ -476,8 +453,7 @@ class MercuryConversationInterface:
         question: str,
         context: ConversationContext | None = None,
     ) -> str:
-        """
-        Handle a natural language question.
+        """Handle a natural language question.
 
         This is a simplified interface for questions. For full detection
         processing, use process_detection().
@@ -550,8 +526,7 @@ def create_mercury_interface(
     enable_memory: bool = True,
     default_domain: str | None = None,
 ) -> MercuryConversationInterface:
-    """
-    Create a Mercury Conversation Interface instance.
+    """Create a Mercury Conversation Interface instance.
 
     Args:
         enable_proactive: Enable proactive monitoring

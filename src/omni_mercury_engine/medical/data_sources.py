@@ -1,31 +1,5 @@
-"""Medical data source adapters for Mercury Agent.
-
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under
-the terms of the GNU General Public License as published by the Free Software
-Foundation, either version 3 of the License, or (at your option) any later
-version.
-
-This module defines the abstract data-source contracts that the medical
-detectors consume and ships two reference implementations:
-
-* :class:`DexcomV3DataSource` - Dexcom developer API v3 CGM stream
-  (OAuth 2.0 refresh-token flow against ``api.dexcom.com``).
-* :class:`FHIRObservationVitalsSource` - HL7 FHIR R4 ``Observation`` search
-  with ``category=vital-signs``; works against any FHIR server that exposes
-  the standard vital-sign LOINC codes.
-
-Both adapters are **disabled by default**: their constructors raise
-:class:`ConfigurationError` when the required credentials/endpoints are not
-supplied (explicitly or via the documented environment variables).  No
-synthetic fallback exists in any production code path.
-
-End users (licensed clinicians and their integrators) supply credentials
-in their own environments; Mercury Agent ships integration-ready, not
-pre-integrated.  See ``docs/medical/SETUP.md`` for the full setup guide
-and the contract for writing custom adapters against other vendors.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""version."""
 
 from __future__ import annotations
 

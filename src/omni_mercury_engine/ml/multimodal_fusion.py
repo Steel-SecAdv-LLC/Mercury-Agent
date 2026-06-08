@@ -1,18 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU."""
 
 from __future__ import annotations
 
@@ -26,7 +13,6 @@ using cross-attention mechanisms for improved anomaly detection.
 
 """
 
-
 import torch
 from torch import nn
 
@@ -35,13 +21,13 @@ class CrossModalAttention(nn.Module):
     """Cross-attention between different modalities."""
 
     def __init__(self, dim: int, num_heads: int = 4) -> None:
+        """Initialize the instance."""
         super().__init__()
         self.attention = nn.MultiheadAttention(dim, num_heads, batch_first=True)
         self.norm = nn.LayerNorm(dim)
 
     def forward(self, query: torch.Tensor, key_value: torch.Tensor) -> torch.Tensor:
-        """
-        Apply cross-attention from query modality to key-value modality.
+        """Apply cross-attention from query modality to key-value modality.
 
         Args:
             query: Query modality features [batch, seq_len, dim]
@@ -60,6 +46,7 @@ class MultimodalFusionNetwork(nn.Module):
     def __init__(
         self, modality_dims: dict[str, int], fusion_dim: int = 128, num_heads: int = 4
     ) -> None:
+        """Initialize the instance."""
         super().__init__()
 
         self.modality_dims = modality_dims
@@ -88,8 +75,7 @@ class MultimodalFusionNetwork(nn.Module):
         )
 
     def forward(self, modality_features: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
-        """
-        Fuse multiple modalities with cross-attention.
+        """Fuse multiple modalities with cross-attention.
 
         Args:
             modality_features: Dict mapping modality names to feature tensors

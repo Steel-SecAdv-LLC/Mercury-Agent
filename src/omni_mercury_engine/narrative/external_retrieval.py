@@ -1,36 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
-
-External Information Retrieval - Web Search and Database Queries
-
-Extends Mercury's knowledge capabilities with external information sources:
-- Web Search (DuckDuckGo, Google, custom search APIs)
-- Database Queries (SQLite, PostgreSQL, custom connectors)
-- API Integration (REST, GraphQL endpoints)
-- Document Retrieval (local files, archives)
-
-Offline Capability:
-    When online: Fetches real-time external information
-    When offline: Returns cached results or gracefully degrades
-
-Security:
-    - All queries are sanitized to prevent injection
-    - Rate limiting prevents abuse
-    - Results are validated before use
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""(at your option) any later version."""
 
 from __future__ import annotations
 
@@ -139,8 +108,7 @@ class ResultCache:
         cache_path: Path | None = None,
         ttl_seconds: int = 3600,
     ) -> None:
-        """
-        Initialize result cache.
+        """Initialize result cache.
 
         Args:
             cache_path: Path to cache file (None = in-memory only)
@@ -265,8 +233,7 @@ class BaseExternalRetriever(ABC):
 
 
 class WebSearchRetriever(BaseExternalRetriever):
-    """
-    Web search retriever using DuckDuckGo or SearXNG.
+    """Web search retriever using DuckDuckGo or SearXNG.
 
     Provides privacy-respecting web search without tracking.
     """
@@ -277,8 +244,7 @@ class WebSearchRetriever(BaseExternalRetriever):
         provider: WebSearchProvider | None = None,
         searxng_url: str | None = None,
     ) -> None:
-        """
-        Initialize web search retriever.
+        """Initialize web search retriever.
 
         Args:
             config: External search configuration
@@ -294,8 +260,7 @@ class WebSearchRetriever(BaseExternalRetriever):
         self._is_available: bool | None = None
 
     def search(self, query: str, max_results: int = 5) -> list[ExternalResult]:
-        """
-        Search the web for query.
+        """Search the web for query.
 
         Args:
             query: Search query
@@ -478,8 +443,7 @@ class WebSearchRetriever(BaseExternalRetriever):
 
 
 class DatabaseRetriever(BaseExternalRetriever):
-    """
-    Database retriever for querying local databases.
+    """Database retriever for querying local databases.
 
     Supports SQLite with parameterized queries to prevent SQL injection.
     """
@@ -524,8 +488,7 @@ class DatabaseRetriever(BaseExternalRetriever):
         config: ExternalSearchConfig | None = None,
         db_path: Path | None = None,
     ) -> None:
-        """
-        Initialize database retriever.
+        """Initialize database retriever.
 
         Args:
             config: External search configuration
@@ -555,8 +518,7 @@ class DatabaseRetriever(BaseExternalRetriever):
             return None
 
     def _sanitize_query(self, query: str) -> str | None:
-        """
-        Sanitize SQL query to prevent injection.
+        """Sanitize SQL query to prevent injection.
 
         Only allows SELECT queries with whitelisted keywords.
 
@@ -598,8 +560,7 @@ class DatabaseRetriever(BaseExternalRetriever):
         return query
 
     def search(self, query: str, max_results: int = 5) -> list[ExternalResult]:
-        """
-        Search database with natural language query.
+        """Search database with natural language query.
 
         Converts natural language to SQL where possible.
 
@@ -719,8 +680,7 @@ class DatabaseRetriever(BaseExternalRetriever):
         sql: str,
         params: tuple[Any, ...] | None = None,
     ) -> list[dict[str, Any]]:
-        """
-        Execute parameterized SQL query.
+        """Execute parameterized SQL query.
 
         Args:
             sql: SQL query with ? placeholders
@@ -761,8 +721,7 @@ class DatabaseRetriever(BaseExternalRetriever):
 
 
 class ExternalInformationRetriever:
-    """
-    Unified External Information Retrieval for Mercury Agent.
+    """Unified External Information Retrieval for Mercury Agent.
 
     Combines multiple external sources:
     - Web search (DuckDuckGo, SearXNG)
@@ -786,8 +745,7 @@ class ExternalInformationRetriever:
         config: ExternalSearchConfig | None = None,
         cache_path: Path | None = None,
     ) -> None:
-        """
-        Initialize external information retriever.
+        """Initialize external information retriever.
 
         Args:
             config: Configuration for external search
@@ -822,8 +780,7 @@ class ExternalInformationRetriever:
         use_cache: bool = True,
         max_results: int = 10,
     ) -> list[ExternalResult]:
-        """
-        Search external sources for information.
+        """Search external sources for information.
 
         Args:
             query: Search query
@@ -944,8 +901,7 @@ def create_external_retriever(
     cache_path: Path | None = None,
     offline: bool = False,
 ) -> ExternalInformationRetriever:
-    """
-    Factory function to create external retriever.
+    """Factory function to create external retriever.
 
     Args:
         enable_web: Enable web search

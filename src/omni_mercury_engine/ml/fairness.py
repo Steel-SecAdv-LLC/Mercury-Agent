@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Fairness and Bias Mitigation Module
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Fairness and Bias Mitigation Module.
 
 Provides Fairlearn-compatible bias detection and mitigation for anomaly detection:
 - Demographic parity in anomaly scoring
@@ -27,6 +9,8 @@ Provides Fairlearn-compatible bias detection and mitigation for anomaly detectio
 
 Aligned with ethical governance requirements (benevolence >= 0.99).
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -100,16 +84,14 @@ class BiasAuditConfig:
 
 
 class FairnessAuditor:
-    """
-    Fairness auditor for anomaly detection models.
+    """Fairness auditor for anomaly detection models.
 
     Computes fairness metrics across protected groups and identifies potential bias in anomaly
     scoring.
     """
 
     def __init__(self, config: BiasAuditConfig | None = None):
-        """
-        Initialize fairness auditor.
+        """Initialize fairness auditor.
 
         Args:
             config: Bias audit configuration
@@ -121,8 +103,7 @@ class FairnessAuditor:
         predictions: np.ndarray[Any, Any],
         sensitive_features: np.ndarray[Any, Any],
     ) -> dict[str, Any]:
-        """
-        Compute demographic parity difference.
+        """Compute demographic parity difference.
 
         Demographic parity is achieved when the probability of a positive
         prediction is the same across all groups.
@@ -161,8 +142,7 @@ class FairnessAuditor:
         labels: np.ndarray[Any, Any],
         sensitive_features: np.ndarray[Any, Any],
     ) -> dict[str, Any]:
-        """
-        Compute equalized odds difference.
+        """Compute equalized odds difference.
 
         Equalized odds is achieved when TPR and FPR are equal across groups.
 
@@ -218,8 +198,7 @@ class FairnessAuditor:
         sensitive_features: np.ndarray[Any, Any],
         reference_group: str | None = None,
     ) -> dict[str, Any]:
-        """
-        Compute disparate impact ratio.
+        """Compute disparate impact ratio.
 
         Disparate impact occurs when the selection rate for one group
         is less than 80% of another group (4/5ths rule).
@@ -275,8 +254,7 @@ class FairnessAuditor:
         sensitive_features: np.ndarray[Any, Any],
         n_bins: int = 10,
     ) -> dict[str, Any]:
-        """
-        Compute calibration across groups.
+        """Compute calibration across groups.
 
         Checks if predicted probabilities match actual outcomes
         consistently across groups.
@@ -336,8 +314,7 @@ class FairnessAuditor:
         sensitive_features: np.ndarray[Any, Any] | None = None,
         feature_names: list[str] | None = None,
     ) -> FairnessReport:
-        """
-        Perform comprehensive fairness audit.
+        """Perform comprehensive fairness audit.
 
         Args:
             predictions: Model predictions
@@ -445,8 +422,7 @@ class FairnessAuditor:
 
 
 class BiasmitigationProcessor:
-    """
-    Post-processing bias mitigation.
+    """Post-processing bias mitigation.
 
     Applies threshold optimization and other post-hoc corrections to reduce bias in predictions.
     """
@@ -456,8 +432,7 @@ class BiasmitigationProcessor:
         strategy: MitigationStrategy = MitigationStrategy.THRESHOLD_OPTIMIZATION,
         fairness_constraint: FairnessMetric = FairnessMetric.DEMOGRAPHIC_PARITY,
     ):
-        """
-        Initialize bias mitigation processor.
+        """Initialize bias mitigation processor.
 
         Args:
             strategy: Mitigation strategy to use
@@ -473,8 +448,7 @@ class BiasmitigationProcessor:
         labels: np.ndarray[Any, Any],
         sensitive_features: np.ndarray[Any, Any],
     ) -> BiasmitigationProcessor:
-        """
-        Fit the mitigation processor.
+        """Fit the mitigation processor.
 
         Args:
             predictions: Predicted probabilities
@@ -530,8 +504,7 @@ class BiasmitigationProcessor:
         predictions: np.ndarray[Any, Any],
         sensitive_features: np.ndarray[Any, Any],
     ) -> np.ndarray[Any, Any]:
-        """
-        Apply mitigation to predictions.
+        """Apply mitigation to predictions.
 
         Args:
             predictions: Predicted probabilities
@@ -566,8 +539,7 @@ def compute_fairness_score(
     sensitive_features: np.ndarray[Any, Any],
     metric: FairnessMetric = FairnessMetric.DEMOGRAPHIC_PARITY,
 ) -> float:
-    """
-    Quick fairness score computation.
+    """Quick fairness score computation.
 
     Args:
         predictions: Model predictions

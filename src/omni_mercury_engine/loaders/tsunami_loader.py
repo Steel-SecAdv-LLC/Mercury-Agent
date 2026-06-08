@@ -1,29 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-
-Domain loader for tsunami data from NOAA NDBC DART buoys.
-
-Fetches real-time and historical bottom pressure recorder (BPR)
-data from the Deep-ocean Assessment and Reporting of Tsunamis
-(DART) network operated by NOAA's National Data Buoy Center.
-
-Features engineered from raw BPR readings include tidal deviation,
-rate of sea-level change, and rolling variability measures.  Ground
-truth labels are derived from documented tsunami arrival windows
-at specific DART stations.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU."""
 
 from __future__ import annotations
 
@@ -119,8 +95,7 @@ _SMA_DETREND_WINDOW: int = 60
 
 
 class TsunamiLoader(BaseDomainLoader):
-    """
-    Domain loader for NOAA NDBC DART tsunami buoy data.
+    """Domain loader for NOAA NDBC DART tsunami buoy data.
 
     Connects to the NDBC real-time data service and retrieves bottom
     pressure recorder (BPR) readings from the DART network.  For
@@ -153,8 +128,7 @@ class TsunamiLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     def fetch_realtime(self) -> pd.DataFrame:
-        """
-        Fetch the most recent real-time DART data for all key stations.
+        """Fetch the most recent real-time DART data for all key stations.
 
         Iterates over :pydata:`DART_STATIONS`, downloads the current
         ``.dart`` file from NDBC and concatenates the results into a
@@ -195,8 +169,7 @@ class TsunamiLoader(BaseDomainLoader):
         return combined
 
     def fetch_historical(self, event_id: str) -> pd.DataFrame:
-        """
-        Fetch data for a specific historical tsunami event.
+        """Fetch data for a specific historical tsunami event.
 
         Because NDBC real-time files rotate frequently, historical event
         data is synthesised from characteristic BPR patterns observed
@@ -234,8 +207,7 @@ class TsunamiLoader(BaseDomainLoader):
         return df
 
     def list_events(self) -> list[dict[str, Any]]:
-        """
-        Return the catalog of ground-truth tsunami events.
+        """Return the catalog of ground-truth tsunami events.
 
         Returns:
             List of dicts, each containing at least ``event_id``,
@@ -252,8 +224,7 @@ class TsunamiLoader(BaseDomainLoader):
         ]
 
     def get_ground_truth(self, event_id: str) -> np.ndarray[Any, Any]:
-        """
-        Return binary anomaly labels for a historical event.
+        """Return binary anomaly labels for a historical event.
 
         Time steps falling within the documented tsunami arrival window
         are labeled ``1`` (anomaly); all other time steps are ``0``
@@ -297,8 +268,7 @@ class TsunamiLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray[Any, Any]:
-        """
-        Transform raw DART data into a feature matrix.
+        """Transform raw DART data into a feature matrix.
 
         Engineered features (per time step):
 
@@ -371,8 +341,7 @@ class TsunamiLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     def _fetch_station(self, station_id: str) -> pd.DataFrame:
-        """
-        Download and parse DART data for a single station.
+        """Download and parse DART data for a single station.
 
         Args:
             station_id: NDBC station identifier (e.g. ``"21418"``).
@@ -406,8 +375,7 @@ class TsunamiLoader(BaseDomainLoader):
 
     @staticmethod
     def _parse_dart_columns(df: pd.DataFrame, station_id: str) -> pd.DataFrame:
-        """
-        Assign column names and build a timestamp from date fields.
+        """Assign column names and build a timestamp from date fields.
 
         Args:
             df: Raw dataframe read from NDBC DART file.
@@ -480,8 +448,7 @@ class TsunamiLoader(BaseDomainLoader):
 
     @staticmethod
     def _synthesize_event(event: dict[str, Any]) -> pd.DataFrame:
-        """
-        Generate synthetic BPR data mimicking a tsunami event.
+        """Generate synthetic BPR data mimicking a tsunami event.
 
         The synthetic time series contains a calm tidal background with
         superimposed tsunami-like oscillations during the event window.
@@ -578,8 +545,7 @@ class TsunamiLoader(BaseDomainLoader):
 
 
 def _rolling_mean(arr: np.ndarray[Any, Any], window: int) -> np.ndarray[Any, Any]:
-    """
-    Compute a rolling mean over *arr* with the given *window* size.
+    """Compute a rolling mean over *arr* with the given *window* size.
 
     Edge values are filled with the nearest valid mean to avoid NaNs.
 
@@ -606,8 +572,7 @@ def _rolling_mean(arr: np.ndarray[Any, Any], window: int) -> np.ndarray[Any, Any
 
 
 def _rolling_std(arr: np.ndarray[Any, Any], window: int) -> np.ndarray[Any, Any]:
-    """
-    Compute a rolling standard deviation over *arr*.
+    """Compute a rolling standard deviation over *arr*.
 
     Uses the two-pass algorithm (mean then variance) for numerical
     stability.  Edge samples use a shrunk window.
@@ -633,8 +598,7 @@ def _rolling_std(arr: np.ndarray[Any, Any], window: int) -> np.ndarray[Any, Any]
 
 
 def _fill_non_finite(arr: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-    """
-    Replace non-finite values with forward-fill then backward-fill.
+    """Replace non-finite values with forward-fill then backward-fill.
 
     If the entire array is non-finite, fills with ``0.0``.
 

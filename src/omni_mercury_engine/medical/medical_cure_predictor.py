@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Medical Cure Predictor - Early Disease Detection and Treatment Optimization
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Medical Cure Predictor - Early Disease Detection and Treatment Optimization.
 
 Novel medical constructions for humanitarian healthcare:
 - Temporal vital signs anomaly detection (PyTorch LSTM/GNN)
@@ -32,8 +14,9 @@ Research sources:
 - CDC disease surveillance methodologies
 - WHO treatment guidelines
 - arXiv research on deep learning in medical imaging
-
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -66,8 +49,7 @@ class MedicalPredictionResult:
 
 
 class TemporalVitalSignsLSTM(nn.Module):
-    """
-    PyTorch LSTM for temporal vital signs anomaly detection.
+    """PyTorch LSTM for temporal vital signs anomaly detection.
 
     Detects disease progression patterns and early warning signs through time-series analysis of
     patient vitals.
@@ -76,6 +58,7 @@ class TemporalVitalSignsLSTM(nn.Module):
     def __init__(
         self, input_dim: int = 5, hidden_dim: int = 64, num_layers: int = 2, dropout: float = 0.2
     ):
+        """Initialize the instance."""
         super().__init__()
 
         self.hidden_dim = hidden_dim
@@ -100,8 +83,7 @@ class TemporalVitalSignsLSTM(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        """
-        Forward pass through LSTM.
+        """Forward pass through LSTM.
 
         Args:
             x: Input tensor of shape (batch, sequence_length, input_dim)
@@ -121,13 +103,13 @@ class TemporalVitalSignsLSTM(nn.Module):
 
 
 class TemporalVitalSignsDetector:
-    """
-    Temporal vital signs anomaly detector using LSTM.
+    """Temporal vital signs anomaly detector using LSTM.
 
     Extends HealthcareEmergencyDetector with temporal pattern analysis for early disease detection.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.healthcare_detector = HealthcareEmergencyDetector()
         self.lstm_model = TemporalVitalSignsLSTM(input_dim=5, hidden_dim=64, num_layers=2)
         self.logger = logging.getLogger(__name__)
@@ -137,8 +119,7 @@ class TemporalVitalSignsDetector:
         vital_signs_sequence: np.ndarray[Any, Any],
         patient_history: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """
-        Detect anomalies in temporal vital signs sequence.
+        """Detect anomalies in temporal vital signs sequence.
 
         Args:
             vital_signs_sequence: Time-series vital signs (seq_len, 5)
@@ -256,13 +237,13 @@ class TemporalVitalSignsDetector:
 
 
 class MedicalImagingAnomalyDetector:
-    """
-    Medical imaging anomaly detection using DeepFace-like approach.
+    """Medical imaging anomaly detection using DeepFace-like approach.
 
     Detects anomalies in CT/MRI/X-ray images for early disease detection.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.model = nn.Sequential(
             nn.Conv2d(1, 32, kernel_size=3, padding=1),
             nn.ReLU(),
@@ -282,8 +263,7 @@ class MedicalImagingAnomalyDetector:
     def detect_imaging_anomaly(
         self, medical_image: np.ndarray[Any, Any], imaging_type: str = "xray"
     ) -> dict[str, Any]:
-        """
-        Detect anomalies in medical imaging.
+        """Detect anomalies in medical imaging.
 
         Args:
             medical_image: Medical image array (H, W) or (H, W, C)
@@ -371,13 +351,13 @@ class MedicalImagingAnomalyDetector:
 
 
 class TreatmentPathwayOptimizer:
-    """
-    Treatment pathway optimization using multiverse exploration.
+    """Treatment pathway optimization using multiverse exploration.
 
     Explores optimal treatment strategies using multiverse optimization.
     """
 
     def __init__(self, num_universes: int = 25) -> None:
+        """Initialize the instance."""
         self.multiverse = MultiverseOmniEngine(
             num_universes=num_universes, state_dim=96, convergence_threshold=0.9
         )
@@ -386,8 +366,7 @@ class TreatmentPathwayOptimizer:
     def optimize_treatment(
         self, patient_state: dict[str, Any], disease_type: str
     ) -> dict[str, Any]:
-        """
-        Optimize treatment pathway using multiverse exploration.
+        """Optimize treatment pathway using multiverse exploration.
 
         Args:
             patient_state: Current patient state
@@ -456,7 +435,7 @@ class TreatmentPathwayOptimizer:
 
 
 class MedicalCurePredictor(LoggerMixin):
-    """Unified medical cure predictor integrating temporal analysis, imaging detection, and
+    """Unified medical cure predictor integrating temporal analysis, imaging detection, and.
 
     treatment optimization.
     """
@@ -467,6 +446,7 @@ class MedicalCurePredictor(LoggerMixin):
         enable_imaging: bool = True,
         enable_treatment_opt: bool = True,
     ):
+        """Initialize the instance."""
         self.enable_temporal = enable_temporal
         self.enable_imaging = enable_imaging
         self.enable_treatment_opt = enable_treatment_opt
@@ -476,8 +456,7 @@ class MedicalCurePredictor(LoggerMixin):
         self.treatment_optimizer = TreatmentPathwayOptimizer() if enable_treatment_opt else None
 
     def predict_and_cure(self, patient_data: dict[str, Any]) -> MedicalPredictionResult:
-        """
-        Comprehensive medical prediction and cure optimization.
+        """Comprehensive medical prediction and cure optimization.
 
         Args:
             patient_data: Patient data including:

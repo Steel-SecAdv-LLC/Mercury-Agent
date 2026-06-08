@@ -1,13 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-Domain loader for landslide data from NASA Global Landslide Catalog (COOLR).
-
-Connects to the NASA Cooperative Open Online Landslide Repository (COOLR) ArcGIS REST endpoint to
-provide global landslide event data for Mercury anomaly detection.  Ground truth events cover major
-catastrophic landslides where fatal or large-scale events are labeled as anomalies against a
-background of smaller, non-fatal slope failures.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Domain loader for landslide data from NASA Global Landslide Catalog (COOLR)."""
 
 from __future__ import annotations
 
@@ -123,8 +115,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
 
 
 class LandslideLoader(BaseDomainLoader):
-    """
-    Loader for landslide data from NASA COOLR (Global Landslide Catalog).
+    """Loader for landslide data from NASA COOLR (Global Landslide Catalog).
 
     Uses the NASA Cooperative Open Online Landslide Repository ArcGIS REST
     API to fetch global landslide event records.
@@ -162,8 +153,7 @@ class LandslideLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     def fetch_realtime(self) -> pd.DataFrame:
-        """
-        Fetch the most recent landslide events from NASA COOLR.
+        """Fetch the most recent landslide events from NASA COOLR.
 
         Queries the ArcGIS REST endpoint for up to 2000 of the most recent
         landslide reports in the global catalog.
@@ -201,8 +191,7 @@ class LandslideLoader(BaseDomainLoader):
         return df
 
     def fetch_historical(self, event_id: str) -> pd.DataFrame:
-        """
-        Fetch landslide catalog data surrounding a known historical event.
+        """Fetch landslide catalog data surrounding a known historical event.
 
         Constructs a spatial and temporal query around the event epicenter
         to retrieve all landslide reports in the area during the event
@@ -283,8 +272,7 @@ class LandslideLoader(BaseDomainLoader):
         return df
 
     def list_events(self) -> list[dict[str, Any]]:
-        """
-        Return the catalog of ground truth landslide events.
+        """Return the catalog of ground truth landslide events.
 
         Returns:
             List of dicts each containing *event_id*, *name*, *date*,
@@ -303,8 +291,7 @@ class LandslideLoader(BaseDomainLoader):
         return events
 
     def get_ground_truth(self, event_id: str) -> np.ndarray[Any, Any]:
-        """
-        Generate binary anomaly labels for a historical landslide event.
+        """Generate binary anomaly labels for a historical landslide event.
 
         Labeling strategy: a landslide event is labeled *anomalous* (``1``)
         if it resulted in fatalities (``fatality_count > 0``) or if the
@@ -352,8 +339,7 @@ class LandslideLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray[Any, Any]:
-        """
-        Transform raw landslide catalog data into a feature matrix.
+        """Transform raw landslide catalog data into a feature matrix.
 
         Engineered features (per event row):
 
@@ -451,8 +437,7 @@ class LandslideLoader(BaseDomainLoader):
     def _arcgis_to_dataframe(
         response: dict[str, Any],
     ) -> pd.DataFrame:
-        """
-        Convert an ArcGIS REST API JSON response to a flat DataFrame.
+        """Convert an ArcGIS REST API JSON response to a flat DataFrame.
 
         The ArcGIS endpoint returns a ``features`` array where each feature
         has an ``attributes`` dict containing the record fields.
@@ -510,8 +495,7 @@ class LandslideLoader(BaseDomainLoader):
         start_date: str,
         end_date: str,
     ) -> str:
-        """
-        Build an ArcGIS-compatible SQL where clause for spatial/temporal filtering.
+        """Build an ArcGIS-compatible SQL where clause for spatial/temporal filtering.
 
         Uses a bounding box approximation for spatial filtering since the
         ArcGIS REST API supports SQL where clauses on attribute fields.
@@ -551,8 +535,7 @@ class LandslideLoader(BaseDomainLoader):
         column: str,
         encoding_map: dict[str, int],
     ) -> np.ndarray[Any, Any]:
-        """
-        Encode a categorical column to numeric values using a fixed map.
+        """Encode a categorical column to numeric values using a fixed map.
 
         Mercury-native encoding: direct dictionary lookup, no sklearn.
 
@@ -574,8 +557,7 @@ class LandslideLoader(BaseDomainLoader):
 
     @staticmethod
     def _encode_country(df: pd.DataFrame) -> np.ndarray[Any, Any]:
-        """
-        Encode country/admin division to a stable numeric code.
+        """Encode country/admin division to a stable numeric code.
 
         Uses a deterministic hash to produce consistent numeric IDs for
         each unique country name.  Mercury-native (no sklearn).
@@ -596,8 +578,7 @@ class LandslideLoader(BaseDomainLoader):
 
     @staticmethod
     def _extract_month(df: pd.DataFrame) -> np.ndarray[Any, Any]:
-        """
-        Extract month from event_date column.
+        """Extract month from event_date column.
 
         Handles both epoch-millisecond timestamps (as used by ArcGIS) and
         ISO date strings.
@@ -620,8 +601,7 @@ class LandslideLoader(BaseDomainLoader):
 
     @staticmethod
     def _extract_day_of_year(df: pd.DataFrame) -> np.ndarray[Any, Any]:
-        """
-        Extract day of year from event_date column.
+        """Extract day of year from event_date column.
 
         Handles both epoch-millisecond timestamps and ISO date strings.
 
@@ -648,8 +628,7 @@ class LandslideLoader(BaseDomainLoader):
 
 
 def _parse_date(value: Any) -> datetime | None:
-    """
-    Parse a date value from ArcGIS into a datetime object.
+    """Parse a date value from ArcGIS into a datetime object.
 
     Handles:
     - Epoch millisecond timestamps (int or numeric string).

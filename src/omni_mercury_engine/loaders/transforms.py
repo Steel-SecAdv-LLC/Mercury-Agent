@@ -1,17 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-Standardized transformation from raw loader output to MercuryAnomalyDetector input.
-
-EVERY domain loader's engineer_features() method must return a pd.DataFrame where:
-- Each row is one sample/observation
-- All columns are numeric (float64)
-- No NaN values (imputed or dropped)
-- No infinite values
-- Column names are documented in the loader's FEATURE_COLUMNS class attribute
-
-The transform pipeline then converts this to the numpy array the detector expects.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Standardized transformation from raw loader output to MercuryAnomalyDetector input."""
 
 from __future__ import annotations
 
@@ -25,8 +13,7 @@ def prepare_for_detector(
     df: pd.DataFrame,
     expected_columns: list[str],
 ) -> np.ndarray[Any, Any]:
-    """
-    Convert loader DataFrame to detector-ready numpy array.
+    """Convert loader DataFrame to detector-ready numpy array.
 
     Args:
         df: Output of loader.engineer_features() wrapped as DataFrame,

@@ -1,21 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-Domain loader for sepsis / critical care data from PhysioNet.
-
-Connects to the PhysioNet / Computing in Cardiology Challenge 2019 dataset for early prediction of
-sepsis from clinical data.  The challenge dataset is openly available (no credentials required) and
-ships per-patient files in PSV (pipe-separated values) format with a ``SepsisLabel`` column
-indicating sepsis onset.
-
-Training sets A and B are exposed as separate ground truth events.  Feature engineering produces
-vital-sign dynamics and laboratory time-series features suitable for the Mercury KinematicScore
-anomaly detector.
-
-Note: MIMIC-III requires credentialed access.  This loader exclusively uses the OPEN PhysioNet
-Challenge 2019 dataset to avoid credential requirements. If PhysioNet is unreachable,
-``DataSourceUnavailableError`` is raised.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Domain loader for sepsis / critical care data from PhysioNet."""
 
 from __future__ import annotations
 
@@ -216,8 +200,7 @@ class SepsisLoader(BaseDomainLoader):
         max_patients: int = _MAX_PATIENTS_DEFAULT,
         **kwargs: Any,
     ) -> None:
-        """
-        Initialize the sepsis loader.
+        """Initialize the sepsis loader.
 
         Args:
             *args: Positional arguments forwarded to
@@ -236,8 +219,7 @@ class SepsisLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     def fetch_realtime(self) -> pd.DataFrame:
-        """
-        Fetch the most recent available sepsis data.
+        """Fetch the most recent available sepsis data.
 
         The PhysioNet Challenge 2019 dataset is static (not a live feed),
         so this method returns a sample from Training Set A as a proxy for
@@ -274,8 +256,7 @@ class SepsisLoader(BaseDomainLoader):
         return df
 
     def fetch_historical(self, event_id: str) -> pd.DataFrame:
-        """
-        Fetch data for a specific PhysioNet Challenge 2019 training set.
+        """Fetch data for a specific PhysioNet Challenge 2019 training set.
 
         Args:
             event_id: One of ``"physionet_challenge_2019_A"`` or
@@ -322,8 +303,7 @@ class SepsisLoader(BaseDomainLoader):
         return df
 
     def list_events(self) -> list[dict[str, Any]]:
-        """
-        Return the catalog of ground truth sepsis events.
+        """Return the catalog of ground truth sepsis events.
 
         Returns:
             List of dicts each containing *event_id*, *name*, *date*,
@@ -342,8 +322,7 @@ class SepsisLoader(BaseDomainLoader):
         return events
 
     def get_ground_truth(self, event_id: str) -> np.ndarray[Any, Any]:
-        """
-        Return binary sepsis onset labels for a training set.
+        """Return binary sepsis onset labels for a training set.
 
         Labels come directly from the ``SepsisLabel`` column in the
         PhysioNet Challenge 2019 PSV files.  Each hourly observation
@@ -495,8 +474,7 @@ class SepsisLoader(BaseDomainLoader):
         set_label: str,
         max_patients: int = 0,
     ) -> pd.DataFrame:
-        """
-        Download and parse a PhysioNet Challenge 2019 training set ZIP.
+        """Download and parse a PhysioNet Challenge 2019 training set ZIP.
 
         The training data is distributed as a ZIP archive containing
         per-patient PSV (pipe-separated values) files named
@@ -593,8 +571,7 @@ class SepsisLoader(BaseDomainLoader):
 
     @staticmethod
     def _extract_patient_id(filename: str) -> str:
-        """
-        Extract patient identifier from a PSV filename.
+        """Extract patient identifier from a PSV filename.
 
         PhysioNet Challenge 2019 files are named ``p{NNNNNN}.psv`` where
         ``NNNNNN`` is a zero-padded numeric patient ID.
@@ -617,8 +594,7 @@ class SepsisLoader(BaseDomainLoader):
         df: pd.DataFrame,
         columns: list[str],
     ) -> np.ndarray[Any, Any]:
-        """
-        Compute first-order derivatives (hourly rate of change).
+        """Compute first-order derivatives (hourly rate of change).
 
         Within each patient, the derivative is ``value[t] - value[t-1]``.
         The first observation per patient gets a derivative of zero.
@@ -659,8 +635,7 @@ class SepsisLoader(BaseDomainLoader):
         columns: list[str],
         window: int = 6,
     ) -> np.ndarray[Any, Any]:
-        """
-        Compute rolling standard deviation within each patient.
+        """Compute rolling standard deviation within each patient.
 
         Args:
             df: DataFrame with a ``patient_id`` column and the specified

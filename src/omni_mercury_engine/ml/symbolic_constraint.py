@@ -1,21 +1,4 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
+# Copyright (C) 2025 Steel Security Advisors LLC
 """Differentiable symbolic-constraint layer for neuro-symbolic co-training.
 
 This module turns a small, declarative *rule graph* relating the base
@@ -54,6 +37,8 @@ anomaly scores, so the layer also learns which detectors to trust.  Each
 rule carries a learnable confidence weight (softmax-normalised), exactly
 as a Real-Logic LTN weights its axioms.
 """
+
+from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
@@ -150,6 +135,7 @@ class RuleGraph:
     predicates: frozenset[str] = field(default_factory=frozenset)
 
     def __post_init__(self) -> None:
+        """Finalize dataclass initialization."""
         if not self.rules:
             raise ValueError("RuleGraph requires at least one rule")
         referenced = {r.antecedent for r in self.rules} | {r.consequent for r in self.rules}
@@ -157,6 +143,7 @@ class RuleGraph:
         object.__setattr__(self, "predicates", frozenset(self.predicates) | referenced)
 
     def __len__(self) -> int:
+        """Return the length."""
         return len(self.rules)
 
 
@@ -304,6 +291,7 @@ class ScarcityWeightSchedule:
         # Non-finite parameters (e.g. NaN/inf from config) would make
         # ``weight_for`` return NaN and silently disable the constraint via
         # NaN comparisons, so reject them up front alongside the sign checks.
+        """Finalize dataclass initialization."""
         if not math.isfinite(self.lam_max) or self.lam_max < 0.0:
             raise ValueError(f"lam_max must be a finite value >= 0, got {self.lam_max}")
         if not math.isfinite(self.n0) or self.n0 <= 0.0:
@@ -422,6 +410,7 @@ class SymbolicConstraintModule(nn.Module):
         consensus_sharpness: float = 1.0,
         semantics: str = "product",
     ) -> None:
+        """Initialize the instance."""
         super().__init__()
         if num_detectors < 0:
             raise ValueError(f"num_detectors must be >= 0, got {num_detectors}")

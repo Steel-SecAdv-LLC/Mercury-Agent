@@ -1,18 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU."""
 
 from __future__ import annotations
 
@@ -43,16 +30,14 @@ __all__ = [
 
 
 class InferenceEngine:
-    """
-    General-purpose inference engine for PyTorch models.
+    """General-purpose inference engine for PyTorch models.
 
     Provides efficient inference with automatic device handling, numpy/tensor conversion, and
     no_grad context management.
     """
 
     def __init__(self, model: nn.Module, device: str = "cpu") -> None:
-        """
-        Initialize inference engine.
+        """Initialize inference engine.
 
         Args:
             model: PyTorch model for inference
@@ -63,8 +48,7 @@ class InferenceEngine:
         self.model.eval()
 
     def predict(self, x: torch.Tensor | np.ndarray[Any, Any]) -> torch.Tensor:
-        """
-        Run inference on input data.
+        """Run inference on input data.
 
         Args:
             x: Input tensor or numpy array
@@ -83,8 +67,7 @@ class InferenceEngine:
         return output
 
     def predict_proba(self, x: torch.Tensor | np.ndarray[Any, Any]) -> torch.Tensor:
-        """
-        Run inference and apply softmax for probabilities.
+        """Run inference and apply softmax for probabilities.
 
         Args:
             x: Input tensor or numpy array
@@ -97,16 +80,14 @@ class InferenceEngine:
 
 
 class BatchInference:
-    """
-    Batch inference processor for large datasets.
+    """Batch inference processor for large datasets.
 
     Handles memory-efficient processing of large inputs by splitting into batches and optionally
     streaming results.
     """
 
     def __init__(self, model: nn.Module, batch_size: int = 32, device: str = "cpu") -> None:
-        """
-        Initialize batch inference.
+        """Initialize batch inference.
 
         Args:
             model: PyTorch model for inference
@@ -118,8 +99,7 @@ class BatchInference:
         self.device = torch.device(device)
 
     def predict(self, x: torch.Tensor | np.ndarray[Any, Any]) -> torch.Tensor:
-        """
-        Run batched inference on input data.
+        """Run batched inference on input data.
 
         Args:
             x: Input tensor or numpy array
@@ -139,8 +119,7 @@ class BatchInference:
         return torch.cat(outputs, dim=0)
 
     def predict_stream(self, data_stream: Iterator[torch.Tensor]) -> Iterator[torch.Tensor]:
-        """
-        Stream inference results for iterable input.
+        """Stream inference results for iterable input.
 
         Args:
             data_stream: Iterator of input tensors
@@ -153,8 +132,7 @@ class BatchInference:
 
 
 class ModelEnsemble:
-    """
-    Ensemble of models with aggregation strategies.
+    """Ensemble of models with aggregation strategies.
 
     Combines predictions from multiple models using mean, voting, or other aggregation methods.
     Supports uncertainty estimation from ensemble disagreement.
@@ -166,8 +144,7 @@ class ModelEnsemble:
         aggregation: str = "mean",
         device: str = "cpu",
     ):
-        """
-        Initialize model ensemble.
+        """Initialize model ensemble.
 
         Args:
             models: List of PyTorch models
@@ -182,8 +159,7 @@ class ModelEnsemble:
             model.eval()
 
     def predict(self, x: torch.Tensor | np.ndarray[Any, Any]) -> torch.Tensor:
-        """
-        Run ensemble inference with aggregation.
+        """Run ensemble inference with aggregation.
 
         Args:
             x: Input tensor or numpy array
@@ -214,8 +190,7 @@ class ModelEnsemble:
     def predict_with_uncertainty(
         self, x: torch.Tensor | np.ndarray[Any, Any]
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """
-        Run ensemble inference with uncertainty estimation.
+        """Run ensemble inference with uncertainty estimation.
 
         Args:
             x: Input tensor or numpy array
@@ -239,8 +214,7 @@ class ModelEnsemble:
 
 
 class FusionInference:
-    """
-    Production inference wrapper for fusion model.
+    """Production inference wrapper for fusion model.
 
     Provides:
     - Batch processing
@@ -255,6 +229,7 @@ class FusionInference:
         checkpoint_path: str | None = None,
         device: str = "cpu",
     ):
+        """Initialize the instance."""
         self.device = torch.device(device)
 
         if model is not None:
@@ -282,8 +257,7 @@ class FusionInference:
         return_attention: bool = False,
         batch_size: int = 32,
     ) -> dict[str, Any]:
-        """
-        Run inference on detector features.
+        """Run inference on detector features.
 
         Args:
             detector_features: Dict of features from each detector
@@ -329,8 +303,7 @@ class FusionInference:
         detector_features_list: Sequence[Mapping[str, np.ndarray[Any, Any] | torch.Tensor]],
         batch_size: int = 32,
     ) -> list[dict[str, Any]]:
-        """
-        Batch inference for multiple samples.
+        """Batch inference for multiple samples.
 
         Args:
             detector_features_list: List of feature dicts
@@ -384,8 +357,7 @@ class FusionInference:
         self,
         detector_features: Mapping[str, np.ndarray[Any, Any] | torch.Tensor],
     ) -> dict[str, Any]:
-        """
-        Get explanation for a prediction via attention weights.
+        """Get explanation for a prediction via attention weights.
 
         Args:
             detector_features: Features from each detector

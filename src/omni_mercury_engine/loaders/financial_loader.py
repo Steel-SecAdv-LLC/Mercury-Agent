@@ -1,14 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-Domain loader for financial crisis data from FRED and market data.
-
-Connects to the Federal Reserve Economic Data (FRED) API maintained by the Federal Reserve Bank of
-St. Louis to retrieve key financial stress indicators: VIX volatility index, Treasury yield curve
-spread, high-yield credit spreads, the federal funds rate, and the TED spread.  Ground truth events
-cover major financial crises from the 1997 Asian Financial Crisis through the 2023 SVB regional bank
-crisis.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Domain loader for financial crisis data from FRED and market data."""
 
 from __future__ import annotations
 
@@ -101,8 +92,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
 
 
 class FinancialLoader(BaseDomainLoader):
-    """
-    Loader for financial crisis data from the FRED API.
+    """Loader for financial crisis data from the FRED API.
 
     Retrieves multiple FRED time-series that serve as financial stress
     indicators and aligns them into a single DataFrame indexed by date.
@@ -147,8 +137,7 @@ class FinancialLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     def fetch_realtime(self) -> pd.DataFrame:
-        """
-        Fetch the most recent financial stress data from FRED.
+        """Fetch the most recent financial stress data from FRED.
 
         Pulls the latest 90 days of observations for each FRED series
         and merges them on date.
@@ -184,8 +173,7 @@ class FinancialLoader(BaseDomainLoader):
         return df
 
     def fetch_historical(self, event_id: str) -> pd.DataFrame:
-        """
-        Fetch financial data surrounding a known crisis event.
+        """Fetch financial data surrounding a known crisis event.
 
         Args:
             event_id: Key into the ground truth catalog (e.g.
@@ -228,8 +216,7 @@ class FinancialLoader(BaseDomainLoader):
         return df
 
     def list_events(self) -> list[dict[str, Any]]:
-        """
-        Return the catalog of ground truth financial crisis events.
+        """Return the catalog of ground truth financial crisis events.
 
         Returns:
             List of dicts each containing *event_id*, *name*, *date*,
@@ -248,8 +235,7 @@ class FinancialLoader(BaseDomainLoader):
         return events
 
     def get_ground_truth(self, event_id: str) -> np.ndarray[Any, Any]:
-        """
-        Generate binary anomaly labels for a historical financial crisis.
+        """Generate binary anomaly labels for a historical financial crisis.
 
         Labeling strategy: a trading day is labeled *anomalous* (``1``) if:
 
@@ -302,8 +288,7 @@ class FinancialLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray[Any, Any]:
-        """
-        Transform raw financial data into a feature matrix.
+        """Transform raw financial data into a feature matrix.
 
         Engineered features (per trading day):
 
@@ -400,8 +385,7 @@ class FinancialLoader(BaseDomainLoader):
         start_date: str,
         end_date: str,
     ) -> pd.DataFrame:
-        """
-        Fetch a single FRED series as a DataFrame.
+        """Fetch a single FRED series as a DataFrame.
 
         Args:
             series_id: FRED series identifier (e.g. ``"VIXCLS"``).
@@ -463,8 +447,7 @@ class FinancialLoader(BaseDomainLoader):
         start_date: str,
         end_date: str,
     ) -> pd.DataFrame:
-        """
-        Fetch all FRED series and merge them on date.
+        """Fetch all FRED series and merge them on date.
 
         Args:
             start_date: Start date in ``YYYY-MM-DD`` format.
@@ -521,8 +504,7 @@ class FinancialLoader(BaseDomainLoader):
 
     @staticmethod
     def _compute_rate_of_change(values: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Compute first-difference rate of change.
+        """Compute first-difference rate of change.
 
         Args:
             values: 1-D array of numeric values.
@@ -540,8 +522,7 @@ class FinancialLoader(BaseDomainLoader):
         values: np.ndarray[Any, Any],
         window: int = 252,
     ) -> np.ndarray[Any, Any]:
-        """
-        Compute rolling z-score relative to a trailing lookback window.
+        """Compute rolling z-score relative to a trailing lookback window.
 
         Args:
             values: 1-D array of numeric values.
@@ -574,8 +555,7 @@ class FinancialLoader(BaseDomainLoader):
         series_b: np.ndarray[Any, Any],
         window: int = 20,
     ) -> np.ndarray[Any, Any]:
-        """
-        Compute rolling Pearson correlation between two series.
+        """Compute rolling Pearson correlation between two series.
 
         Args:
             series_a: First 1-D array.

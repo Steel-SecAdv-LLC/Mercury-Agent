@@ -1,24 +1,5 @@
-"""
-Mercury Agent - Cross-Domain Transfer Learning Framework
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Production-grade cross-domain transfer learning for anomaly detection:
-- Domain adaptation with Maximum Mean Discrepancy (MMD)
-- Feature alignment via Correlation Alignment (CORAL)
-- Domain-adversarial neural networks (DANN)
-- Optimal transport for distribution alignment
-- NSL-KDD → CICIDS benchmark evaluation
-- Multi-source domain adaptation
-
-This demonstrates Mercury's architectural advantages over pure supervised
-methods through effective knowledge transfer across security domains.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Cross-Domain Transfer Learning Framework."""
 
 from __future__ import annotations
 
@@ -88,6 +69,7 @@ class DomainData:
     n_features: int = 0
 
     def __post_init__(self) -> None:
+        """Finalize dataclass initialization."""
         self.n_samples = self.X.shape[0]
         self.n_features = self.X.shape[1]
 
@@ -141,8 +123,7 @@ class TransferResult:
 
 
 class FeatureAligner:
-    """
-    Aligns feature spaces between source and target domains.
+    """Aligns feature spaces between source and target domains.
 
     Supports multiple alignment methods and automatic feature mapping.
     """
@@ -153,8 +134,7 @@ class FeatureAligner:
         target_features: list[str],
         alignment_method: str = "intersection",
     ):
-        """
-        Initialize feature aligner.
+        """Initialize feature aligner.
 
         Args:
             source_features: Feature names in source domain
@@ -266,8 +246,7 @@ class BaseDomainAdapter(ABC):
 
 
 class MMDAdapter(BaseDomainAdapter):
-    """
-    Maximum Mean Discrepancy (MMD) based domain adaptation.
+    """Maximum Mean Discrepancy (MMD) based domain adaptation.
 
     Minimizes the distribution discrepancy between domains in a reproducing kernel Hilbert space
     (RKHS).
@@ -279,8 +258,7 @@ class MMDAdapter(BaseDomainAdapter):
         gamma: float | None = None,
         n_components: int = 64,
     ):
-        """
-        Initialize MMD adapter.
+        """Initialize MMD adapter.
 
         Args:
             kernel: Kernel type ('rbf', 'linear', 'poly')
@@ -331,8 +309,7 @@ class MMDAdapter(BaseDomainAdapter):
         source_X: NDArray[np.float64],
         target_X: NDArray[np.float64],
     ) -> float:
-        """
-        Compute MMD between source and target distributions.
+        """Compute MMD between source and target distributions.
 
         MMD^2 = ||mean(phi(X_s)) - mean(phi(X_t))||^2
               = E[k(x_s, x_s')] + E[k(x_t, x_t')] - 2*E[k(x_s, x_t)]
@@ -360,8 +337,7 @@ class MMDAdapter(BaseDomainAdapter):
         target_X: NDArray[np.float64],
         target_y: NDArray[np.int64] | None = None,
     ) -> None:
-        """
-        Fit MMD adapter using domain-invariant projection.
+        """Fit MMD adapter using domain-invariant projection.
 
         Args:
             source_X: Source features
@@ -439,8 +415,7 @@ class MMDAdapter(BaseDomainAdapter):
 
 
 class CORALAdapter(BaseDomainAdapter):
-    """
-    Correlation Alignment (CORAL) domain adaptation.
+    """Correlation Alignment (CORAL) domain adaptation.
 
     Aligns second-order statistics (covariance) between domains.
 
@@ -449,8 +424,7 @@ class CORALAdapter(BaseDomainAdapter):
     """
 
     def __init__(self, regularization: float = 1e-5):
-        """
-        Initialize CORAL adapter.
+        """Initialize CORAL adapter.
 
         Args:
             regularization: Regularization for covariance inversion
@@ -508,8 +482,7 @@ class CORALAdapter(BaseDomainAdapter):
         target_X: NDArray[np.float64],
         target_y: NDArray[np.int64] | None = None,
     ) -> None:
-        """
-        Fit CORAL adapter by aligning covariances.
+        """Fit CORAL adapter by aligning covariances.
 
         X_target_aligned = (X_target - mean_t) @ C_t^(-1/2) @ C_s^(1/2) + mean_s
         """
@@ -597,8 +570,7 @@ class CORALAdapter(BaseDomainAdapter):
 
 
 class SubspaceAlignmentAdapter(BaseDomainAdapter):
-    """
-    Subspace Alignment for domain adaptation.
+    """Subspace Alignment for domain adaptation.
 
     Projects domains to their principal subspaces and aligns them.
 
@@ -607,8 +579,7 @@ class SubspaceAlignmentAdapter(BaseDomainAdapter):
     """
 
     def __init__(self, n_components: int = 32):
-        """
-        Initialize subspace alignment adapter.
+        """Initialize subspace alignment adapter.
 
         Args:
             n_components: Number of principal components
@@ -713,8 +684,7 @@ class SubspaceAlignmentAdapter(BaseDomainAdapter):
 
 
 class DANNAdapter(BaseDomainAdapter):
-    """
-    Domain-Adversarial Neural Network (DANN) adapter.
+    """Domain-Adversarial Neural Network (DANN) adapter.
 
     Uses adversarial training with a gradient reversal layer to learn
     domain-invariant representations that confuse a domain classifier
@@ -732,8 +702,7 @@ class DANNAdapter(BaseDomainAdapter):
         lambda_domain: float = 1.0,
         random_state: int | None = None,
     ):
-        """
-        Initialize DANN adapter.
+        """Initialize DANN adapter.
 
         Args:
             hidden_dim: Hidden layer dimension for feature extractor
@@ -910,8 +879,7 @@ class DANNAdapter(BaseDomainAdapter):
 
 
 class JDAAdapter(BaseDomainAdapter):
-    """
-    Joint Distribution Adaptation (JDA) adapter.
+    """Joint Distribution Adaptation (JDA) adapter.
 
     Adapts both marginal and conditional distributions between domains
     by iteratively minimizing MMD with pseudo-labels.
@@ -927,8 +895,7 @@ class JDAAdapter(BaseDomainAdapter):
         kernel: str = "rbf",
         gamma: float | None = None,
     ):
-        """
-        Initialize JDA adapter.
+        """Initialize JDA adapter.
 
         Args:
             n_components: Dimension of subspace
@@ -1104,8 +1071,7 @@ class JDAAdapter(BaseDomainAdapter):
 
 
 class TCAAdapter(BaseDomainAdapter):
-    """
-    Transfer Component Analysis (TCA) adapter.
+    """Transfer Component Analysis (TCA) adapter.
 
     Learns transfer components in a RKHS that minimize domain discrepancy
     while preserving important data properties.
@@ -1121,8 +1087,7 @@ class TCAAdapter(BaseDomainAdapter):
         gamma: float | None = None,
         mu: float = 0.1,
     ):
-        """
-        Initialize TCA adapter.
+        """Initialize TCA adapter.
 
         Args:
             n_components: Number of transfer components
@@ -1251,8 +1216,7 @@ class TCAAdapter(BaseDomainAdapter):
 
 
 class OptimalTransportAdapter(BaseDomainAdapter):
-    """
-    Optimal Transport (OT) based domain adaptation.
+    """Optimal Transport (OT) based domain adaptation.
 
     Uses the Sinkhorn algorithm to compute transport plan between
     source and target distributions for domain alignment.
@@ -1267,8 +1231,7 @@ class OptimalTransportAdapter(BaseDomainAdapter):
         n_iterations: int = 100,
         cost_metric: str = "euclidean",
     ):
-        """
-        Initialize Optimal Transport adapter.
+        """Initialize Optimal Transport adapter.
 
         Args:
             reg: Entropic regularization parameter
@@ -1292,8 +1255,7 @@ class OptimalTransportAdapter(BaseDomainAdapter):
         b: NDArray[np.float64],
         C: NDArray[np.float64],
     ) -> NDArray[np.float64]:
-        """
-        Sinkhorn-Knopp algorithm for entropic regularized OT.
+        """Sinkhorn-Knopp algorithm for entropic regularized OT.
 
         Args:
             a: Source distribution (n_s,)
@@ -1375,8 +1337,7 @@ class OptimalTransportAdapter(BaseDomainAdapter):
         source_y: NDArray[np.int64],
         transport_plan: NDArray[np.float64],
     ) -> NDArray[np.int64]:
-        """
-        Propagate labels from source to target via transport plan.
+        """Propagate labels from source to target via transport plan.
 
         For each target sample, compute weighted vote from source labels
         based on transport plan coupling.
@@ -1410,8 +1371,7 @@ class OptimalTransportAdapter(BaseDomainAdapter):
         return target_labels
 
     def transform(self, X: NDArray[np.float64], domain: str = "target") -> NDArray[np.float64]:
-        """
-        Transform using OT barycentric projection.
+        """Transform using OT barycentric projection.
 
         For new samples, computes barycentric projection via nearest neighbors in the transport
         space.
@@ -1421,8 +1381,7 @@ class OptimalTransportAdapter(BaseDomainAdapter):
         return (X - self.source_mean) / self.source_std
 
     def predict(self, X: NDArray[np.float64]) -> NDArray[np.int64]:
-        """
-        Predict using OT-based label propagation.
+        """Predict using OT-based label propagation.
 
         For samples in the fitted target set, returns propagated labels. For new samples, uses
         nearest neighbor in transported source space.
@@ -1474,8 +1433,7 @@ class OptimalTransportAdapter(BaseDomainAdapter):
 
 
 class CrossDomainTransferLearner:
-    """
-    Unified cross-domain transfer learning for security anomaly detection.
+    """Unified cross-domain transfer learning for security anomaly detection.
 
     Supports training on one dataset (e.g., NSL-KDD) and testing on another (e.g., CICIDS) with
     domain adaptation.
@@ -1488,8 +1446,7 @@ class CrossDomainTransferLearner:
         normalize: bool = True,
         verbose: bool = True,
     ):
-        """
-        Initialize cross-domain transfer learner.
+        """Initialize cross-domain transfer learner.
 
         Args:
             method: Domain adaptation method
@@ -1539,8 +1496,7 @@ class CrossDomainTransferLearner:
         target_data: DomainData,
         target_labels_for_eval: NDArray[np.int64] | None = None,
     ) -> None:
-        """
-        Fit the cross-domain transfer model.
+        """Fit the cross-domain transfer model.
 
         Args:
             source_data: Labeled source domain data
@@ -1634,8 +1590,7 @@ class CrossDomainTransferLearner:
         source_data: DomainData,
         target_data: DomainData,
     ) -> TransferResult:
-        """
-        Evaluate cross-domain transfer performance.
+        """Evaluate cross-domain transfer performance.
 
         Args:
             source_data: Source domain data
@@ -1747,8 +1702,7 @@ def run_nsl_kdd_to_cicids_benchmark(
     cicids_features: list[str] | None = None,
     methods: list[DomainAdaptationMethod] | None = None,
 ) -> dict[str, TransferResult]:
-    """
-    Run NSL-KDD → CICIDS cross-domain transfer benchmark.
+    """Run NSL-KDD → CICIDS cross-domain transfer benchmark.
 
     This is the key benchmark demonstrating Mercury's architectural
     advantages over pure supervised methods.
@@ -1808,8 +1762,7 @@ def create_cross_domain_learner(
     method: str = "coral",
     **kwargs: Any,
 ) -> CrossDomainTransferLearner:
-    """
-    Factory function to create cross-domain transfer learner.
+    """Factory function to create cross-domain transfer learner.
 
     Args:
         method: Method name ('coral', 'mmd', 'subspace', 'dann')

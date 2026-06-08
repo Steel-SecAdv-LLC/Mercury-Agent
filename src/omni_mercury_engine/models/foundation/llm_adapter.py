@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-LLM Adapter for Zero-Shot Anomaly Detection
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""LLM Adapter for Zero-Shot Anomaly Detection.
 
 Provides integration with Large Language Models for:
 - Zero-shot anomaly detection via prompting
@@ -27,6 +9,8 @@ Provides integration with Large Language Models for:
 
 Inspired by AnomalyGPT and similar LLM-based anomaly detection approaches.
 """
+
+from __future__ import annotations
 
 import json
 import logging
@@ -140,8 +124,7 @@ class BaseLLMAdapter(ABC):
     """Abstract base class for LLM adapters."""
 
     def __init__(self, config: LLMConfig):
-        """
-        Initialize LLM adapter.
+        """Initialize LLM adapter.
 
         Args:
             config: LLM configuration
@@ -151,8 +134,7 @@ class BaseLLMAdapter(ABC):
 
     @abstractmethod
     def generate(self, prompt: str, system_prompt: str | None = None) -> str:
-        """
-        Generate text from the LLM.
+        """Generate text from the LLM.
 
         Args:
             prompt: User prompt
@@ -173,8 +155,7 @@ class BaseLLMAdapter(ABC):
         data: Any,
         context: dict[str, Any] | None = None,
     ) -> LLMAnomalyResult:
-        """
-        Detect anomaly using LLM.
+        """Detect anomaly using LLM.
 
         Args:
             data: Input data (text, structured data, etc.)
@@ -277,8 +258,7 @@ Context:
 
 
 class MockLLMAdapter(BaseLLMAdapter):
-    """
-    Mock LLM adapter — hard-fails at construction.
+    """Mock LLM adapter — hard-fails at construction.
 
     Phase 2 audit cure: silent mock degradation is not permitted in
     production.  Instantiating this class raises ``NotImplementedError``
@@ -286,6 +266,7 @@ class MockLLMAdapter(BaseLLMAdapter):
     """
 
     def __init__(self, config: LLMConfig | None = None):
+        """Initialize the instance."""
         raise NotImplementedError(
             "MockLLMAdapter cannot be used in production. "
             "Configure a real LLM provider (e.g. LLMProvider.HUGGINGFACE)."
@@ -304,8 +285,7 @@ class HuggingFaceLLMAdapter(BaseLLMAdapter):
     """HuggingFace Transformers LLM adapter for local models."""
 
     def __init__(self, config: LLMConfig):
-        """
-        Initialize HuggingFace adapter.
+        """Initialize HuggingFace adapter.
 
         Args:
             config: LLM configuration
@@ -326,8 +306,7 @@ class HuggingFaceLLMAdapter(BaseLLMAdapter):
             self._is_available = False
 
     def _load_model(self) -> None:
-        """
-        Lazy load the model.
+        """Lazy load the model.
 
         Security Note: For supply chain security (CWE-494), we require revision
         pinning when loading models from HuggingFace Hub. Set config.revision to
@@ -456,8 +435,7 @@ class HuggingFaceLLMAdapter(BaseLLMAdapter):
 
 
 class ZeroShotAnomalyDetector:
-    """
-    Zero-shot anomaly detector using LLM prompting.
+    """Zero-shot anomaly detector using LLM prompting.
 
     Provides anomaly detection without training by leveraging LLM's world knowledge and reasoning
     capabilities.
@@ -468,8 +446,7 @@ class ZeroShotAnomalyDetector:
         config: LLMConfig | None = None,
         adapter: BaseLLMAdapter | None = None,
     ):
-        """
-        Initialize zero-shot detector.
+        """Initialize zero-shot detector.
 
         Args:
             config: LLM configuration
@@ -483,8 +460,7 @@ class ZeroShotAnomalyDetector:
             self.adapter = self._create_adapter()
 
     def _create_adapter(self) -> BaseLLMAdapter:
-        """
-        Create appropriate adapter based on config.
+        """Create appropriate adapter based on config.
 
         Phase 2 audit cure: an unsupported / unimplemented provider must
         not silently fall back to ``MockLLMAdapter`` — that path masked
@@ -527,8 +503,7 @@ class ZeroShotAnomalyDetector:
         data: Any,
         context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """
-        Detect anomalies using zero-shot LLM prompting.
+        """Detect anomalies using zero-shot LLM prompting.
 
         Args:
             data: Input data (text, numerical, structured)
@@ -545,8 +520,7 @@ class ZeroShotAnomalyDetector:
         data_batch: list[Any],
         contexts: list[dict[str, Any] | None] | None = None,
     ) -> list[dict[str, Any]]:
-        """
-        Detect anomalies in batch.
+        """Detect anomalies in batch.
 
         Args:
             data_batch: List of data samples
@@ -568,8 +542,7 @@ class ZeroShotAnomalyDetector:
         data: Any,
         detection_result: dict[str, Any],
     ) -> str:
-        """
-        Generate natural language explanation for detected anomaly.
+        """Generate natural language explanation for detected anomaly.
 
         Args:
             data: Original input data
@@ -599,8 +572,7 @@ Be concise but thorough."""
 
 
 class TextLogAnomalyDetector:
-    """
-    Specialized detector for text and log anomalies.
+    """Specialized detector for text and log anomalies.
 
     Uses LLM understanding of log patterns, error messages, and text semantics for anomaly
     detection.
@@ -612,8 +584,7 @@ class TextLogAnomalyDetector:
         log_format: str | None = None,
         known_patterns: list[str] | None = None,
     ):
-        """
-        Initialize text/log anomaly detector.
+        """Initialize text/log anomaly detector.
 
         Args:
             config: LLM configuration
@@ -630,8 +601,7 @@ class TextLogAnomalyDetector:
         log_entry: str,
         surrounding_entries: list[str] | None = None,
     ) -> dict[str, Any]:
-        """
-        Detect anomalies in log entries.
+        """Detect anomalies in log entries.
 
         Args:
             log_entry: Log entry to analyze
@@ -656,8 +626,7 @@ class TextLogAnomalyDetector:
         text: str,
         expected_domain: str | None = None,
     ) -> dict[str, Any]:
-        """
-        Detect anomalies in text content.
+        """Detect anomalies in text content.
 
         Args:
             text: Text to analyze
@@ -731,8 +700,7 @@ def create_llm_detector(
     model_name: str | None = None,
     **kwargs: Any,
 ) -> ZeroShotAnomalyDetector:
-    """
-    Factory function to create LLM-based anomaly detector.
+    """Factory function to create LLM-based anomaly detector.
 
     Args:
         provider: Implemented LLM provider name (ollama, huggingface,

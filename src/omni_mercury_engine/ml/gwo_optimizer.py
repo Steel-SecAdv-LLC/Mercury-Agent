@@ -1,26 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-import logging
-from typing import TYPE_CHECKING, Any
-
-"""
-Grey Wolf Optimizer for Feature Selection
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Grey Wolf Optimizer for Feature Selection.
 
 Bio-inspired optimization algorithm that mimics grey wolf hunting behavior
 for optimal feature subset selection in anomaly detection.
@@ -28,9 +7,12 @@ for optimal feature subset selection in anomaly detection.
 ⚠️ SIMULATION-BASED: Optimization on simulated data. Real-world validation required.
 
 Reference: Mirjalili et al. (2014) - Grey Wolf Optimizer
-
 """
 
+from __future__ import annotations
+
+import logging
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -52,6 +34,7 @@ class GreyWolfOptimizer:
         dim: int | None = None,
         rng: DeterministicRNG | None = None,
     ):
+        """Initialize the instance."""
         self.n_wolves = n_wolves
         self.max_iter = max_iter
         self.dim = dim
@@ -71,8 +54,7 @@ class GreyWolfOptimizer:
         lb: np.ndarray[Any, Any],
         ub: np.ndarray[Any, Any],
     ) -> tuple[np.ndarray[Any, Any], float]:
-        """
-        Optimize using GWO algorithm.
+        """Optimize using GWO algorithm.
 
         Args:
             objective_func: Function to minimize (e.g., 1 - accuracy)
@@ -151,8 +133,7 @@ class GreyWolfOptimizer:
     def select_features(
         self, X: np.ndarray[Any, Any], y: np.ndarray[Any, Any], clf: Any, n_features: int
     ) -> np.ndarray[Any, Any]:
-        """
-        Select optimal feature subset using GWO.
+        """Select optimal feature subset using GWO.
 
         Args:
             X: Feature matrix

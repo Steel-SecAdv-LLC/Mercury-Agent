@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Chronos Adapter for Mercury-Agent
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Chronos Adapter for Mercury-Agent.
 
 Integrates Amazon's Chronos foundation model for local
 time-series forecasting and anomaly detection.
@@ -28,6 +10,8 @@ time series forecasting that can be run locally.
 Reference:
     Amazon Chronos: https://github.com/amazon-science/chronos-forecasting
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
@@ -47,8 +31,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ChronosConfig(FoundationModelConfig):
-    """
-    Configuration for Chronos adapter.
+    """Configuration for Chronos adapter.
 
     Attributes:
         model_size: Model size variant ('tiny', 'mini', 'small', 'base', 'large')
@@ -106,8 +89,7 @@ class ChronosAdapter(BaseFoundationModel):
     ALLOWED_MODELS: frozenset[str] = frozenset(MODEL_SIZES.values())
 
     def __init__(self, config: ChronosConfig | dict[str, Any] | None = None) -> None:
-        """
-        Initialize Chronos adapter.
+        """Initialize Chronos adapter.
 
         Args:
             config: Adapter configuration
@@ -135,8 +117,7 @@ class ChronosAdapter(BaseFoundationModel):
 
     @config.setter
     def config(self, value: dict[str, Any] | ChronosConfig) -> None:
-        """
-        Store the underlying config object (required for base class compatibility).
+        """Store the underlying config object (required for base class compatibility).
 
         The base class sets self.config to a dict during __init__. We intercept this and store it,
         but always return the typed config.
@@ -175,8 +156,7 @@ class ChronosAdapter(BaseFoundationModel):
         series: np.ndarray[Any, Any] | torch.Tensor,
         horizon: int | None = None,
     ) -> dict[str, np.ndarray[Any, Any]]:
-        """
-        Generate probabilistic forecasts using Chronos.
+        """Generate probabilistic forecasts using Chronos.
 
         Args:
             series: Input time series [T] or [B, T]
@@ -228,8 +208,7 @@ class ChronosAdapter(BaseFoundationModel):
         self,
         series: np.ndarray[Any, Any] | torch.Tensor,
     ) -> dict[str, Any]:
-        """
-        Detect anomalies using prediction intervals.
+        """Detect anomalies using prediction intervals.
 
         Anomalies are points that fall outside the prediction
         intervals from one-step-ahead forecasting.
@@ -313,8 +292,7 @@ class ChronosAdapter(BaseFoundationModel):
         series: np.ndarray[Any, Any],
         horizon: int,
     ) -> dict[str, np.ndarray[Any, Any]]:
-        """
-        Mock forecast using simple methods.
+        """Mock forecast using simple methods.
 
         Args:
             series: Input series [B, T]
@@ -350,8 +328,7 @@ class ChronosAdapter(BaseFoundationModel):
         self,
         series: np.ndarray[Any, Any] | torch.Tensor,
     ) -> dict[str, Any]:
-        """
-        Detect anomalies in time series data.
+        """Detect anomalies in time series data.
 
         This is the primary detection interface that wraps detect_anomalies
         for a consistent API across all foundation model adapters.
@@ -368,8 +345,7 @@ class ChronosAdapter(BaseFoundationModel):
         return result
 
     def get_model_info(self) -> dict[str, Any]:
-        """
-        Get information about the loaded model.
+        """Get information about the loaded model.
 
         Returns:
             Dict with model information

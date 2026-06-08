@@ -1,26 +1,10 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Core anomaly detection metrics.
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Core anomaly detection metrics.
 
 Implements standard metrics used in anomaly detection literature.
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
@@ -48,8 +32,7 @@ def compute_auroc(
     y_true: np.ndarray[Any, Any],
     y_score: np.ndarray[Any, Any],
 ) -> float:
-    """
-    Compute Area Under ROC Curve.
+    """Compute Area Under ROC Curve.
 
     Args:
         y_true: Binary labels [N]
@@ -104,8 +87,7 @@ def compute_auprc(
     y_true: np.ndarray[Any, Any],
     y_score: np.ndarray[Any, Any],
 ) -> float:
-    """
-    Compute Area Under Precision-Recall Curve.
+    """Compute Area Under Precision-Recall Curve.
 
     Args:
         y_true: Binary labels [N]
@@ -151,8 +133,7 @@ def compute_f1_max(
     y_score: np.ndarray[Any, Any],
     n_thresholds: int = 100,
 ) -> tuple[float, float]:
-    """
-    Compute maximum F1 score across thresholds.
+    """Compute maximum F1 score across thresholds.
 
     Args:
         y_true: Binary labels [N]
@@ -194,8 +175,7 @@ def compute_optimal_threshold(
     y_score: np.ndarray[Any, Any],
     metric: str = "f1",
 ) -> float:
-    """
-    Compute optimal threshold for given metric.
+    """Compute optimal threshold for given metric.
 
     Args:
         y_true: Binary labels
@@ -245,8 +225,7 @@ def compute_pixel_auroc(
     y_true: np.ndarray[Any, Any],
     y_score: np.ndarray[Any, Any],
 ) -> float:
-    """
-    Compute pixel-level AUROC for anomaly localization.
+    """Compute pixel-level AUROC for anomaly localization.
 
     Args:
         y_true: Ground truth masks [N, H, W] or [H, W]
@@ -267,8 +246,7 @@ def compute_pro(
     integration_limit: float = 0.3,
     num_thresholds: int = 100,
 ) -> float:
-    """
-    Compute Per-Region Overlap (PRO) metric.
+    """Compute Per-Region Overlap (PRO) metric.
 
     PRO measures localization quality by computing overlap between
     predicted and ground truth regions for each connected component.
@@ -393,8 +371,7 @@ class AnomalyMetrics:
         masks_true: np.ndarray[Any, Any] | None = None,
         masks_score: np.ndarray[Any, Any] | None = None,
     ) -> dict[str, float]:
-        """
-        Compute all standard metrics.
+        """Compute all standard metrics.
 
         Args:
             y_true: Ground truth labels [N]
@@ -442,8 +419,7 @@ class AnomalyMetrics:
         y_score: np.ndarray[Any, Any],
         categories: list[str],
     ) -> dict[str, dict[str, Any]]:
-        """
-        Compute metrics per category.
+        """Compute metrics per category.
 
         Args:
             y_true: Ground truth labels [N]

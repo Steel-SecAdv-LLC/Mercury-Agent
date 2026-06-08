@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Advanced Optimizers for Mercury Agent
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Advanced Optimizers for Mercury Agent.
 
 Implements advanced training optimizers for efficient anomaly detection:
 - Synthetic Gradient Predictor for decoupled neural network training
@@ -34,6 +16,8 @@ References:
     - Lee et al. (2015): Difference Target Propagation
     - Multi-task learning variance maximization
 """
+
+from __future__ import annotations
 
 import hashlib
 import logging
@@ -60,8 +44,7 @@ except ImportError:
 # Gradient Cache for 2x Speedup
 # =============================================================================
 class GradientCache:
-    """
-    LRU cache for synthetic gradient predictions.
+    """LRU cache for synthetic gradient predictions.
 
     Enables 2x speedup by caching gradient computations for similar activation patterns.
     """
@@ -131,8 +114,7 @@ def get_gradient_cache() -> GradientCache:
 
 
 class SyntheticGradientPredictor:
-    """
-    Synthetic Gradient Predictor for decoupled neural network training.
+    """Synthetic Gradient Predictor for decoupled neural network training.
 
     Predicts gradients without backpropagation, enabling layer-wise parallelism.
     Achieves 2-3x training speedup for real-time anomaly detection.
@@ -158,8 +140,7 @@ class SyntheticGradientPredictor:
         output_dim: int | None = None,
         seed: int | None = None,
     ) -> None:
-        """
-        Initialize synthetic gradient predictor.
+        """Initialize synthetic gradient predictor.
 
         Args:
             input_dim: Dimension of layer activations
@@ -207,8 +188,7 @@ class SyntheticGradientPredictor:
     def forward(
         self, activations: np.ndarray[Any, Any], use_cache: bool = True
     ) -> np.ndarray[Any, Any]:
-        """
-        Predict synthetic gradient for given activations.
+        """Predict synthetic gradient for given activations.
 
         Args:
             activations: Layer activations (batch_size, input_dim)
@@ -248,8 +228,7 @@ class SyntheticGradientPredictor:
     def update(
         self, predicted_grad: np.ndarray[Any, Any], true_grad: np.ndarray[Any, Any]
     ) -> float:
-        """
-        Update predictor with true gradient.
+        """Update predictor with true gradient.
 
         Args:
             predicted_grad: Predicted gradient
@@ -283,8 +262,7 @@ class SyntheticGradientPredictor:
 
 
 class SyntheticGradientModule:
-    """
-    Module wrapper for synthetic gradient training with bootstrap and blending.
+    """Module wrapper for synthetic gradient training with bootstrap and blending.
 
     Implements DNI-style decoupled training with gradual introduction
     of synthetic gradients for stable convergence.
@@ -304,8 +282,7 @@ class SyntheticGradientModule:
         bootstrap_steps: int = 10,
         alpha_start: float = 0.3,
     ):
-        """
-        Initialize synthetic gradient module.
+        """Initialize synthetic gradient module.
 
         Args:
             layer: Neural network layer to wrap
@@ -337,8 +314,7 @@ class SyntheticGradientModule:
         self.true_grad: np.ndarray[Any, Any] | None = None
 
     def forward(self, x: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Forward pass with synthetic gradient prediction.
+        """Forward pass with synthetic gradient prediction.
 
         Args:
             x: Input array
@@ -365,8 +341,7 @@ class SyntheticGradientModule:
 
 
 class DifferenceTargetPropagation:
-    """
-    Difference Target Propagation (DTP) for biologically plausible learning.
+    """Difference Target Propagation (DTP) for biologically plausible learning.
 
     Avoids weight transport problem by using inverse mappings for target
     propagation. Suitable for neuromorphic hardware and edge devices.
@@ -389,8 +364,7 @@ class DifferenceTargetPropagation:
         inverse_layer: nn.Module | None = None,
         learning_rate: float = 0.01,
     ):
-        """
-        Initialize DTP module.
+        """Initialize DTP module.
 
         Args:
             forward_layer: Forward mapping f(x)
@@ -419,8 +393,7 @@ class DifferenceTargetPropagation:
         self.optimizer_inverse = optim.SGD(self.inverse_layer.parameters(), lr=learning_rate)
 
     def forward(self, x: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Forward pass.
+        """Forward pass.
 
         Args:
             x: Input array
@@ -435,8 +408,7 @@ class DifferenceTargetPropagation:
     def backward_pass(
         self, h_current: np.ndarray[Any, Any], target: np.ndarray[Any, Any]
     ) -> np.ndarray[Any, Any]:
-        """
-        Compute target for previous layer via inverse mapping.
+        """Compute target for previous layer via inverse mapping.
 
         Args:
             h_current: Current layer activation
@@ -469,8 +441,7 @@ class DifferenceTargetPropagation:
 
 
 class AuxiliaryMaxVariance:
-    """
-    Auxiliary Maximum-Variance (AMAV) for multi-task learning.
+    """Auxiliary Maximum-Variance (AMAV) for multi-task learning.
 
     Maximizes variance across task gradients for robust multi-objective
     optimization. Prevents gradient collapse in multi-engine fusion.
@@ -487,8 +458,7 @@ class AuxiliaryMaxVariance:
     task_weights: nn.Parameter | np.ndarray[Any, Any]
 
     def __init__(self, num_tasks: int, alpha: float = 0.5) -> None:
-        """
-        Initialize AMAV optimizer.
+        """Initialize AMAV optimizer.
 
         Args:
             num_tasks: Number of auxiliary tasks
@@ -503,8 +473,7 @@ class AuxiliaryMaxVariance:
             self.task_weights = np.ones(num_tasks) / num_tasks
 
     def compute_loss(self, task_losses: list[float]) -> float:
-        """
-        Compute weighted loss with variance maximization.
+        """Compute weighted loss with variance maximization.
 
         Args:
             task_losses: List of losses for each task
@@ -531,8 +500,7 @@ class AuxiliaryMaxVariance:
 def estimate_convergence_rate(
     losses: npt.NDArray[np.float64], window_size: int = 10
 ) -> dict[str, float]:
-    """
-    Estimate convergence rate from training losses.
+    """Estimate convergence rate from training losses.
 
     Fits exponential decay: loss(t) ≈ C * exp(-λt)
 

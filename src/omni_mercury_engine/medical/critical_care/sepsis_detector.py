@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Sepsis Detector - Early Sepsis Detection & Septic Shock Prevention
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Sepsis Detector - Early Sepsis Detection & Septic Shock Prevention.
 
 Advanced sepsis detection for humanitarian healthcare:
 - SOFA score calculation (Sequential Organ Failure Assessment)
@@ -35,8 +17,9 @@ Research sources:
 - Surviving Sepsis Campaign guidelines
 - SOFA/qSOFA validation studies
 - MIMIC-III sepsis cohort research
-
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -83,18 +66,17 @@ class SepsisPredictionResult:
 
 
 class SOFACalculator:
-    """
-    Sequential Organ Failure Assessment (SOFA) score calculator.
+    """Sequential Organ Failure Assessment (SOFA) score calculator.
 
     Quantifies organ dysfunction across 6 systems.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
     def calculate_sofa(self, patient_data: dict[str, Any]) -> dict[str, Any]:
-        """
-        Calculate SOFA score from patient data.
+        """Calculate SOFA score from patient data.
 
         Args:
             patient_data: Clinical parameters for SOFA calculation
@@ -194,8 +176,7 @@ class SOFACalculator:
             return 4
 
     def _calculate_cardiovascular(self, data: dict[str, Any]) -> int:
-        """
-        Cardiovascular score based on MAP and vasopressors.
+        """Cardiovascular score based on MAP and vasopressors.
 
         SOFA cardiovascular scoring:
         0: MAP >= 70, no vasopressors
@@ -260,18 +241,17 @@ class SOFACalculator:
 
 
 class QuickSOFACalculator:
-    """
-    Quick SOFA (qSOFA) calculator for rapid sepsis screening.
+    """Quick SOFA (qSOFA) calculator for rapid sepsis screening.
 
     3-point bedside tool for early identification.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
     def calculate_qsofa(self, vital_signs: dict[str, Any]) -> dict[str, Any]:
-        """
-        Calculate qSOFA score.
+        """Calculate qSOFA score.
 
         Args:
             vital_signs: Respiratory rate, mental status, blood pressure
@@ -313,13 +293,13 @@ class QuickSOFACalculator:
 
 
 class SepsisProgressionPredictor(nn.Module):
-    """
-    Neural network for sepsis progression prediction.
+    """Neural network for sepsis progression prediction.
 
     Predicts evolution from SIRS to septic shock using temporal patterns.
     """
 
     def __init__(self, input_dim: int = 32, hidden_dim: int = 64) -> None:
+        """Initialize the instance."""
         super().__init__()
 
         self.temporal_encoder = nn.LSTM(
@@ -360,8 +340,7 @@ class SepsisProgressionPredictor(nn.Module):
     def forward(
         self, temporal_sequence: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """
-        Forward pass for sepsis progression prediction.
+        """Forward pass for sepsis progression prediction.
 
         Args:
             temporal_sequence: Temporal clinical features
@@ -381,12 +360,13 @@ class SepsisProgressionPredictor(nn.Module):
 
 
 class SepsisDetector:
-    """Comprehensive sepsis detection system integrating SOFA, qSOFA, and temporal progression
+    """Comprehensive sepsis detection system integrating SOFA, qSOFA, and temporal progression.
 
     prediction.
     """
 
     def __init__(self, enable_ml_prediction: bool = True) -> None:
+        """Initialize the instance."""
         self.enable_ml_prediction = enable_ml_prediction
 
         self.sofa_calculator = SOFACalculator()
@@ -396,8 +376,7 @@ class SepsisDetector:
         self.logger = logging.getLogger(__name__)
 
     def detect_sepsis(self, patient_data: dict[str, Any]) -> SepsisPredictionResult:
-        """
-        Comprehensive sepsis detection and risk assessment.
+        """Comprehensive sepsis detection and risk assessment.
 
         Args:
             patient_data: Patient data including:

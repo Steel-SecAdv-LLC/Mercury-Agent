@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Personality Engine - Omni-Scalar Shaped Communication
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Personality Engine - Omni-Scalar Shaped Communication.
 
 Shapes Mercury's communication style using the Global Omni-Scalar Network.
 This creates consistent, principled communication - not performative personality.
@@ -34,6 +16,8 @@ Key Scalar Influences:
 Communication is shaped by scalars, not scripted personalities.
 The result is consistent, principled voice - genuine, not performed.
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -107,8 +91,7 @@ class CommunicationModifiers:
 
 
 class PersonalityEngine:
-    """
-    Shapes Communication Using Omni-Scalars.
+    """Shapes Communication Using Omni-Scalars.
 
     This engine derives communication personality from the Global Omni-Scalar
     Network, ensuring consistent, principled voice across all interactions.
@@ -149,8 +132,7 @@ class PersonalityEngine:
     HIGH_VIGILANCE_THRESHOLD = 1.15
 
     def __init__(self, domain_overrides: dict[str, dict[str, float]] | None = None) -> None:
-        """
-        Initialize Personality Engine.
+        """Initialize Personality Engine.
 
         Args:
             domain_overrides: Per-domain scalar overrides
@@ -202,8 +184,7 @@ class PersonalityEngine:
         return self._default_scalars.get(name, 1.0)
 
     def get_profile(self, domain: str | None = None) -> PersonalityProfile:
-        """
-        Get current personality profile derived from scalars.
+        """Get current personality profile derived from scalars.
 
         Args:
             domain: Optional domain for context-specific profile
@@ -351,8 +332,7 @@ class PersonalityEngine:
         profile: PersonalityProfile | None = None,
         domain: str | None = None,
     ) -> CommunicationModifiers:
-        """
-        Get context-specific communication modifiers.
+        """Get context-specific communication modifiers.
 
         Args:
             severity: Detection severity (0-1)
@@ -426,8 +406,7 @@ class PersonalityEngine:
         profile: PersonalityProfile,
         modifiers: CommunicationModifiers,
     ) -> str:
-        """
-        Shape raw text according to personality and modifiers.
+        """Shape raw text according to personality and modifiers.
 
         Args:
             raw_text: Original text to shape
@@ -474,8 +453,7 @@ class PersonalityEngine:
         return " ".join(parts)
 
     def get_greeting(self, domain: str | None = None) -> str:
-        """
-        Get appropriate greeting based on personality.
+        """Get appropriate greeting based on personality.
 
         This is NOT "How can I help you today?" engagement bait.
         It's context-appropriate acknowledgment.
@@ -508,8 +486,7 @@ class PersonalityEngine:
         aleatoric: float = 0.0,
         domain: str | None = None,
     ) -> str:
-        """
-        Generate personality-appropriate uncertainty statement.
+        """Generate personality-appropriate uncertainty statement.
 
         Args:
             confidence: Overall confidence

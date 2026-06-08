@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Model Compression for Inference Speed
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Model Compression for Inference Speed.
 
 This module provides model compression techniques to accelerate inference
 while maintaining detection accuracy.
@@ -38,6 +20,8 @@ Expected performance gains:
 - Knowledge distillation: 3-10x smaller models
 - Layer fusion: 10-30% additional speedup
 """
+
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
@@ -62,8 +46,7 @@ class CompressionMethod(Enum):
 
 @dataclass
 class CompressionConfig:
-    """
-    Configuration for model compression.
+    """Configuration for model compression.
 
     Attributes:
         method: Compression method to apply
@@ -95,6 +78,7 @@ class QuantizedLinear(nn.Module):
         bias: bool = True,
         bits: int = 8,
     ):
+        """Initialize the instance."""
         super().__init__()
         self.in_features = in_features
         self.out_features = out_features
@@ -114,8 +98,7 @@ class QuantizedLinear(nn.Module):
         self._is_quantized = False
 
     def quantize_weights(self, weight: torch.Tensor) -> None:
-        """
-        Quantize weights to INT8.
+        """Quantize weights to INT8.
 
         Args:
             weight: Float weights to quantize
@@ -137,8 +120,7 @@ class QuantizedLinear(nn.Module):
         self._is_quantized = True
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Forward pass with quantized weights.
+        """Forward pass with quantized weights.
 
         Args:
             x: Input tensor
@@ -165,6 +147,7 @@ class PrunedLinear(nn.Module):
         out_features: int,
         bias: bool = True,
     ):
+        """Initialize the instance."""
         super().__init__()
         self.in_features = in_features
         self.out_features = out_features
@@ -180,8 +163,7 @@ class PrunedLinear(nn.Module):
         nn.init.kaiming_uniform_(self.weight)
 
     def prune(self, ratio: float) -> int:
-        """
-        Prune weights by magnitude.
+        """Prune weights by magnitude.
 
         Args:
             ratio: Fraction of weights to prune
@@ -199,8 +181,7 @@ class PrunedLinear(nn.Module):
             return pruned_count
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Forward pass with pruned weights.
+        """Forward pass with pruned weights.
 
         Args:
             x: Input tensor
@@ -213,8 +194,7 @@ class PrunedLinear(nn.Module):
 
 
 class StudentModel(nn.Module):
-    """
-    Smaller student model for knowledge distillation.
+    """Smaller student model for knowledge distillation.
 
     A compact model that learns from a larger teacher model, achieving similar accuracy with fewer
     parameters.
@@ -227,6 +207,7 @@ class StudentModel(nn.Module):
         output_dim: int = 1,
         num_layers: int = 2,
     ):
+        """Initialize the instance."""
         super().__init__()
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
@@ -246,8 +227,7 @@ class StudentModel(nn.Module):
         self.network = nn.Sequential(*layers)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Forward pass.
+        """Forward pass.
 
         Args:
             x: Input tensor
@@ -260,8 +240,7 @@ class StudentModel(nn.Module):
 
 
 class KnowledgeDistiller:
-    """
-    Knowledge distillation trainer.
+    """Knowledge distillation trainer.
 
     Trains a smaller student model to mimic a larger teacher model, using soft targets from the
     teacher to transfer knowledge.
@@ -274,8 +253,7 @@ class KnowledgeDistiller:
         temperature: float = 3.0,
         alpha: float = 0.5,
     ):
-        """
-        Initialize knowledge distiller.
+        """Initialize knowledge distiller.
 
         Args:
             teacher: Teacher model (larger, pre-trained)
@@ -298,8 +276,7 @@ class KnowledgeDistiller:
         teacher_logits: torch.Tensor,
         targets: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        """
-        Compute distillation loss.
+        """Compute distillation loss.
 
         Args:
             student_logits: Student model outputs
@@ -336,8 +313,7 @@ class KnowledgeDistiller:
         targets: torch.Tensor | None = None,
         optimizer: torch.optim.Optimizer | None = None,
     ) -> float:
-        """
-        Single training step.
+        """Single training step.
 
         Args:
             inputs: Input batch
@@ -365,8 +341,7 @@ class KnowledgeDistiller:
 
 
 class ModelCompressor:
-    """
-    Unified model compression interface.
+    """Unified model compression interface.
 
     Provides a single entry point for applying various compression
     techniques to PyTorch models.
@@ -379,8 +354,7 @@ class ModelCompressor:
     """
 
     def __init__(self, config: CompressionConfig | None = None) -> None:
-        """
-        Initialize model compressor.
+        """Initialize model compressor.
 
         Args:
             config: Compression configuration
@@ -393,8 +367,7 @@ class ModelCompressor:
         model: nn.Module,
         calibration_data: torch.Tensor | None = None,
     ) -> nn.Module:
-        """
-        Compress model using configured method.
+        """Compress model using configured method.
 
         Args:
             model: Model to compress
@@ -427,8 +400,7 @@ class ModelCompressor:
         model: nn.Module,
         calibration_data: torch.Tensor | None = None,
     ) -> nn.Module:
-        """
-        Apply quantization to model.
+        """Apply quantization to model.
 
         Args:
             model: Model to quantize
@@ -473,8 +445,7 @@ class ModelCompressor:
         return model_copy
 
     def _apply_pruning(self, model: nn.Module) -> nn.Module:
-        """
-        Apply pruning to model.
+        """Apply pruning to model.
 
         Args:
             model: Model to prune
@@ -513,8 +484,7 @@ class ModelCompressor:
         return model_copy
 
     def _apply_layer_fusion(self, model: nn.Module) -> nn.Module:
-        """
-        Apply layer fusion to model.
+        """Apply layer fusion to model.
 
         Fuses consecutive Linear-ReLU pairs for faster inference.
 
@@ -542,8 +512,7 @@ class ModelCompressor:
         return model_copy
 
     def _deep_copy_model(self, model: nn.Module) -> nn.Module:
-        """
-        Create an efficient copy of a PyTorch model.
+        """Create an efficient copy of a PyTorch model.
 
         P3: Optimized for performance using state_dict instead of deepcopy.
         This is significantly faster for large models (~10-100x speedup).
@@ -586,8 +555,7 @@ class ModelCompressor:
         name: str,
         new_module: nn.Module,
     ) -> None:
-        """
-        Replace a module in the model.
+        """Replace a module in the model.
 
         Args:
             model: Parent model
@@ -603,8 +571,7 @@ class ModelCompressor:
         setattr(parent, parts[-1], new_module)
 
     def get_compression_stats(self) -> dict[str, Any]:
-        """
-        Get compression statistics.
+        """Get compression statistics.
 
         Returns:
             Dictionary with compression statistics
@@ -612,8 +579,7 @@ class ModelCompressor:
         return self._compression_stats.copy()
 
     def estimate_speedup(self) -> float:
-        """
-        Estimate inference speedup from compression.
+        """Estimate inference speedup from compression.
 
         Returns:
             Estimated speedup factor
@@ -642,8 +608,7 @@ def create_compressed_model(
     method: str = "quantization",
     **kwargs: Any,
 ) -> nn.Module:
-    """
-    Factory function to create compressed model.
+    """Factory function to create compressed model.
 
     Args:
         model: Model to compress
@@ -660,8 +625,7 @@ def create_compressed_model(
 
 
 def estimate_model_size(model: nn.Module) -> dict[str, Any]:
-    """
-    Estimate model size in memory.
+    """Estimate model size in memory.
 
     Args:
         model: Model to analyze
@@ -693,8 +657,7 @@ def benchmark_inference(
     num_iterations: int = 100,
     warmup: int = 10,
 ) -> dict[str, float]:
-    """
-    Benchmark model inference speed.
+    """Benchmark model inference speed.
 
     Args:
         model: Model to benchmark

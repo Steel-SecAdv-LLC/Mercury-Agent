@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Memory Surface - Conversational Memory Integration
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Memory Surface - Conversational Memory Integration.
 
 Surfaces memory context in communications, enabling responses that reference
 past experiences, learned patterns, and historical predictions.
@@ -35,6 +17,8 @@ Integration Points:
 
 Not artificial nostalgia - genuine pattern-informed context.
 """
+
+from __future__ import annotations
 
 import logging
 import time
@@ -146,8 +130,7 @@ class MemoryContext:
 
 
 class MemorySurface:
-    """
-    Surfaces Memory Context in Communications.
+    """Surfaces Memory Context in Communications.
 
     Bridges the neural memory layer and agent memory to provide contextual
     awareness in narrative generation. Enables Mercury to reference past
@@ -181,8 +164,7 @@ class MemorySurface:
         similarity_threshold: float = 0.4,
         lookback_days: int = 90,
     ) -> None:
-        """
-        Initialize Memory Surface.
+        """Initialize Memory Surface.
 
         Args:
             max_similar_events: Maximum similar events to retrieve
@@ -221,8 +203,7 @@ class MemorySurface:
         detection_result: dict[str, Any],
         domain: str | None = None,
     ) -> MemoryContext:
-        """
-        Retrieve relevant memory context for a detection.
+        """Retrieve relevant memory context for a detection.
 
         Args:
             detection_result: Detection output to find context for

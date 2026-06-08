@@ -1,10 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-LSTM-Autoencoder for Time-Series Anomaly Detection
-
-A working anomaly detector that actually trains and detects.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""LSTM-Autoencoder for Time-Series Anomaly Detection."""
 
 from __future__ import annotations
 
@@ -23,8 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 class LSTMAutoencoder(nn.Module):
-    """
-    LSTM-based Autoencoder for time-series anomaly detection.
+    """LSTM-based Autoencoder for time-series anomaly detection.
 
     Architecture:
         Encoder: LSTM layers that compress the input sequence
@@ -43,6 +37,7 @@ class LSTMAutoencoder(nn.Module):
         dropout: float = 0.1,
         seq_len: int = 100,
     ):
+        """Initialize the instance."""
         super().__init__()
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
@@ -104,8 +99,7 @@ class LSTMAutoencoder(nn.Module):
 
 
 class AnomalyDetector(LoggerMixin):
-    """
-    Complete anomaly detection pipeline using LSTM-Autoencoder.
+    """Complete anomaly detection pipeline using LSTM-Autoencoder.
 
     Usage:
         detector = AnomalyDetector(input_dim=38)
@@ -123,6 +117,7 @@ class AnomalyDetector(LoggerMixin):
         device: str = "auto",
         seed: int | None = None,
     ):
+        """Initialize the instance."""
         self.input_dim = input_dim
         self.seq_len = seq_len
         self._rng: np.random.Generator = np.random.default_rng(seed)
@@ -159,8 +154,7 @@ class AnomalyDetector(LoggerMixin):
         early_stopping: int = 10,
         verbose: bool = True,
     ) -> dict[str, Any]:
-        """
-        Train the autoencoder on normal data.
+        """Train the autoencoder on normal data.
 
         Args:
             train_data: Training data (n_samples, n_features) - should be mostly normal
@@ -266,8 +260,7 @@ class AnomalyDetector(LoggerMixin):
         return history
 
     def predict(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Compute anomaly scores for data.
+        """Compute anomaly scores for data.
 
         Args:
             data: Input data (n_samples, n_features)
@@ -297,8 +290,7 @@ class AnomalyDetector(LoggerMixin):
     def detect(
         self, data: np.ndarray[Any, Any], threshold: float | None = None
     ) -> np.ndarray[Any, Any]:
-        """
-        Detect anomalies in data.
+        """Detect anomalies in data.
 
         Args:
             data: Input data (n_samples, n_features)
@@ -352,8 +344,7 @@ def evaluate_detector(
     y_scores: np.ndarray[Any, Any],
     y_pred: np.ndarray[Any, Any] | None = None,
 ) -> dict[str, Any]:
-    """
-    Evaluate anomaly detection performance.
+    """Evaluate anomaly detection performance.
 
     Args:
         y_true: Ground truth labels (1 = anomaly)

@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Isotope Predictor - Nuclear Forensics & Isotope Ratio Analysis
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Isotope Predictor - Nuclear Forensics & Isotope Ratio Analysis.
 
 Advanced isotope anomaly detection for humanitarian applications:
 - Isotope ratio anomaly detection
@@ -33,8 +15,9 @@ Research sources:
 - IAEA nuclear forensics guidelines
 - Isotope ratio mass spectrometry (IRMS) principles
 - Environmental radiological monitoring standards
-
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -89,13 +72,13 @@ class IsotopePredictionResult:
 
 
 class IsotopeRatioAnalyzer(nn.Module):
-    """
-    Neural network for isotope ratio analysis.
+    """Neural network for isotope ratio analysis.
 
     Detects anomalous isotope signatures and enrichment patterns.
     """
 
     def __init__(self, input_dim: int = 64) -> None:
+        """Initialize the instance."""
         super().__init__()
 
         self.ratio_encoder = nn.Sequential(
@@ -125,8 +108,7 @@ class IsotopeRatioAnalyzer(nn.Module):
     def forward(
         self, isotope_ratios: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """
-        Forward pass for isotope analysis.
+        """Forward pass for isotope analysis.
 
         Args:
             isotope_ratios: Isotope ratio measurements
@@ -144,13 +126,13 @@ class IsotopeRatioAnalyzer(nn.Module):
 
 
 class NuclearForensicsAnalyzer:
-    """
-    Nuclear forensics analysis for isotope attribution.
+    """Nuclear forensics analysis for isotope attribution.
 
     Determines origin and production methods of nuclear materials.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
         self.uranium_isotope_ratios = {
@@ -162,8 +144,7 @@ class NuclearForensicsAnalyzer:
         }
 
     def analyze_uranium_signature(self, ratios: dict[str, float]) -> dict[str, Any]:
-        """
-        Analyze uranium isotope signature for forensics.
+        """Analyze uranium isotope signature for forensics.
 
         Args:
             ratios: Measured isotope ratios
@@ -271,18 +252,17 @@ class NuclearForensicsAnalyzer:
 
 
 class RadiologicalThreatAssessor:
-    """
-    Radiological threat assessment.
+    """Radiological threat assessment.
 
     Evaluates radiological hazards and security threats.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
     def assess_threat(self, isotope_data: dict[str, Any], enrichment: float) -> dict[str, Any]:
-        """
-        Assess radiological threat level.
+        """Assess radiological threat level.
 
         Args:
             isotope_data: Isotope analysis data
@@ -349,8 +329,7 @@ class RadiologicalThreatAssessor:
 
 
 class IsotopePredictor:
-    """
-    Comprehensive isotope prediction and nuclear forensics system.
+    """Comprehensive isotope prediction and nuclear forensics system.
 
     Integrates ratio analysis, forensics, and threat assessment.
     """
@@ -361,6 +340,7 @@ class IsotopePredictor:
         enable_forensics: bool = True,
         enable_threat_assessment: bool = True,
     ):
+        """Initialize the instance."""
         self.enable_ml = enable_ml
         self.enable_forensics = enable_forensics
         self.enable_threat_assessment = enable_threat_assessment
@@ -372,8 +352,7 @@ class IsotopePredictor:
         self.logger = logging.getLogger(__name__)
 
     def predict_isotope_anomaly(self, isotope_data: dict[str, Any]) -> IsotopePredictionResult:
-        """
-        Comprehensive isotope anomaly prediction.
+        """Comprehensive isotope anomaly prediction.
 
         Args:
             isotope_data: Isotope measurements including:

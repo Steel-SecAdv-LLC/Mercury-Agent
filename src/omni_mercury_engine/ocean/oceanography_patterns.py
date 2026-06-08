@@ -1,25 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-from typing import Any
-
-"""
-Oceanography-Inspired Pattern Recognition Module
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Oceanography-Inspired Pattern Recognition Module.
 
 Inspired by oceanographic principles: acoustic sensing (sonar/echo sounders),
 wave pattern analysis (currents, tides, geophysical fluid dynamics), depth-based
@@ -36,11 +16,13 @@ Key influences:
 
 Research source: Wikipedia - Oceanography
 (https://en.wikipedia.org/wiki/Oceanography)
-
 """
+
+from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 
 import numpy as np
 
@@ -64,8 +46,7 @@ class WavePattern:
 
 
 class OceanographyPatterns:
-    """
-    Pattern recognition system inspired by oceanographic methods.
+    """Pattern recognition system inspired by oceanographic methods.
 
     Implements acoustic sensing, wave analysis, depth-based stratification, and multi-sensor fusion
     for anomaly detection.
@@ -77,8 +58,7 @@ class OceanographyPatterns:
         acoustic_sensitivity: float = 0.7,
         wave_detection_threshold: float = 0.5,
     ):
-        """
-        Initialize oceanography-inspired pattern recognition.
+        """Initialize oceanography-inspired pattern recognition.
 
         Args:
             depth_levels: Number of depth levels for hierarchical analysis
@@ -93,8 +73,7 @@ class OceanographyPatterns:
     def acoustic_sensing(
         self, data: np.ndarray[Any, Any], pulse_frequency: float = 1.0
     ) -> dict[str, np.ndarray[Any, Any]]:
-        """
-        Acoustic sensing analogous to sonar/echo sounder.
+        """Acoustic sensing analogous to sonar/echo sounder.
 
         Inspired by 1914 first acoustic sea depth measurement and
         echo sounders used in oceanography for depth profiling.
@@ -123,8 +102,7 @@ class OceanographyPatterns:
         }
 
     def wave_pattern_analysis(self, time_series: np.ndarray[Any, Any]) -> list[WavePattern]:
-        """
-        Analyze wave patterns in time-series data.
+        """Analyze wave patterns in time-series data.
 
         Inspired by oceanographic analysis of ocean currents, waves,
         tides, and geophysical fluid dynamics.
@@ -163,8 +141,7 @@ class OceanographyPatterns:
     def depth_based_stratification(
         self, data: np.ndarray[Any, Any]
     ) -> dict[str, np.ndarray[Any, Any]]:
-        """
-        Hierarchical analysis inspired by ocean depth stratification.
+        """Hierarchical analysis inspired by ocean depth stratification.
 
         Inspired by deep sea soundings, pressure/depth relationships,
         and vertical profiling in oceanography.
@@ -197,8 +174,7 @@ class OceanographyPatterns:
     def multi_sensor_fusion(
         self, sensor_data: dict[str, np.ndarray[Any, Any]], weights: dict[str, float] | None = None
     ) -> np.ndarray[Any, Any]:
-        """
-        Multi-sensor fusion inspired by interdisciplinary oceanography.
+        """Multi-sensor fusion inspired by interdisciplinary oceanography.
 
         Oceanographers combine astronomy, biology, chemistry, geography,
         geology, hydrology, meteorology, and physics for comprehensive
@@ -233,8 +209,7 @@ class OceanographyPatterns:
     def systematic_sampling(
         self, data: np.ndarray[Any, Any], num_samples: int = 492
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """
-        Systematic sampling inspired by HMS Challenger expedition.
+        """Systematic sampling inspired by HMS Challenger expedition.
 
         HMS Challenger (1872-1876): 492 deep sea soundings, 133 bottom dredges,
         151 open water trawls across 70,000 nautical miles for comprehensive
@@ -260,8 +235,7 @@ class OceanographyPatterns:
     def tidal_pattern_detection(
         self, time_series: np.ndarray[Any, Any], expected_period: float | None = None
     ) -> dict[str, float]:
-        """
-        Detect periodic patterns analogous to tides.
+        """Detect periodic patterns analogous to tides.
 
         Inspired by tidal observations recorded by Aristotle and Strabo
         (384-322 BC) and modern tidal prediction systems.
@@ -299,8 +273,7 @@ class OceanographyPatterns:
     def climate_drift_detection(
         self, historical_data: np.ndarray[Any, Any], recent_data: np.ndarray[Any, Any]
     ) -> dict[str, float]:
-        """
-        Detect gradual drift analogous to climate change monitoring.
+        """Detect gradual drift analogous to climate change monitoring.
 
         Inspired by modern oceanographic research: ocean acidification,
         ocean heat content, sea level rise, coral bleaching monitoring.

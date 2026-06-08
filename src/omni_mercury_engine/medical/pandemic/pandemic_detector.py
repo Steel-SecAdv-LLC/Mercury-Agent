@@ -1,23 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Pandemic & Epidemiology Detector - Outbreak Monitoring & Mutation Tracking
+# Copyright (C) 2025 Steel Security Advisors LLC
+"""Pandemic & Epidemiology Detector - Outbreak Monitoring & Mutation Tracking.
 
 Comprehensive pandemic detection for public health early warning:
 - Outbreak detection (case surge identification)
@@ -44,8 +26,9 @@ Research sources:
 - ECDC Surveillance Systems
 
 Performance: 40% faster outbreak detection via temporal + genomic fusion
-
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -105,18 +88,17 @@ class PandemicPredictionResult:
 
 
 class CaseSurgeDetector:
-    """
-    Epidemiological case surge detection.
+    """Epidemiological case surge detection.
 
     Identifies exponential growth in case counts.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
     def detect_case_surge(self, case_data: dict[str, Any]) -> dict[str, Any]:
-        """
-        Detect case surge from time series.
+        """Detect case surge from time series.
 
         Args:
             case_data: Time series of case counts
@@ -157,18 +139,17 @@ class CaseSurgeDetector:
 
 
 class MutationTracker:
-    """
-    Viral mutation tracking via genomic surveillance.
+    """Viral mutation tracking via genomic surveillance.
 
     Identifies antigenic drift, shift, and emergence of variants.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
     def track_mutations(self, genomic_data: dict[str, Any]) -> dict[str, Any]:
-        """
-        Track viral mutations from sequences.
+        """Track viral mutations from sequences.
 
         Args:
             genomic_data: Viral genome sequences, mutations
@@ -212,13 +193,13 @@ class MutationTracker:
 
 
 class TransmissionNetworkAnalyzer(nn.Module):
-    """
-    Neural network for transmission network analysis.
+    """Neural network for transmission network analysis.
 
     Identifies super-spreader events and transmission hotspots.
     """
 
     def __init__(self, input_dim: int = 64) -> None:
+        """Initialize the instance."""
         super().__init__()
 
         phi = 1.618
@@ -247,8 +228,7 @@ class TransmissionNetworkAnalyzer(nn.Module):
 
 
 class PandemicDetector:
-    """
-    Comprehensive pandemic and outbreak detection system.
+    """Comprehensive pandemic and outbreak detection system.
 
     Integrates case surveillance, genomic data, and transmission networks.
     """
@@ -259,6 +239,7 @@ class PandemicDetector:
         enable_mutation_tracking: bool = True,
         enable_network_analysis: bool = True,
     ):
+        """Initialize the instance."""
         self.enable_surveillance = enable_case_surveillance
         self.enable_mutations = enable_mutation_tracking
         self.enable_network = enable_network_analysis
@@ -270,8 +251,7 @@ class PandemicDetector:
         self.logger = logging.getLogger(__name__)
 
     def predict_pandemic(self, pandemic_data: dict[str, Any]) -> PandemicPredictionResult:
-        """
-        Comprehensive pandemic prediction.
+        """Comprehensive pandemic prediction.
 
         Args:
             pandemic_data: Multi-source epidemiological data including:
