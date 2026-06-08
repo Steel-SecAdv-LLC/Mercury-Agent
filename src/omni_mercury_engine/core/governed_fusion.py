@@ -1,7 +1,23 @@
-"""Governed fusion primitives lifted from FINDOYOU mercury_equation.
+"""Info-geometry component certificate primitives (NumPy-only).
 
-Attribution: formulas and API shape are adapted from FINDOYOU
-``mercury_equation/{certify,dependence}.py``. This module is NumPy-only.
+Scope (read this before using the certificate): these primitives certify the
+**information-geometry component's** Mahalanobis price level-set — the radius in
+input space within which that one component's price ``p(x)`` cannot cross its
+own operating threshold ``p_tau``.  They do **not** certify the fused/gated
+verdict.  A certificate on the actual fused decision would have to bound the
+Lipschitz constant through the neural fusion, the calibration map, and both
+hard ethics gates; that is a separate, larger task and is deliberately out of
+scope here.
+
+Soundness of the radius: with ``p(x) = sqrt((x-mu)^T Theta (x-mu))`` the
+gradient is ``grad p = Theta (x-mu) / p`` and ``||grad p|| <= sigma_max(A)``
+where ``A = Theta^{1/2}`` and ``sigma_max(A) = sqrt(lambda_max(Theta))``.  Hence
+``p`` is ``sigma_max(A)``-Lipschitz and cannot move from ``p`` to ``p_tau``
+within an L2 ball of radius ``|p - p_tau| / sigma_max(A)``.
+
+Attribution: the Mahalanobis-radius construction is adapted as a *blueprint*
+from FINDOYOU certified-radius work; the operating point, threshold inversion,
+and the numbers Mercury reports are Mercury's own.
 """
 
 from __future__ import annotations
@@ -24,8 +40,15 @@ def precision_sqrt(precision: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
 
 
 @dataclass(frozen=True)
-class JointCertificate:
-    """Mahalanobis certified-radius and witness calculator."""
+class InfoGeometryCertificate:
+    """Mahalanobis certified-radius/witness for the info-geometry component.
+
+    Certifies the info-geometry component's price level-set only: ``p_tau`` is
+    that component's own operating threshold mapped into price space, and
+    ``certified_radius`` is the sound L2 radius within which the component's
+    price cannot cross ``p_tau`` (see module docstring).  It says nothing about
+    the fused or gated verdict.
+    """
 
     loc: np.ndarray[Any, Any]
     precision: np.ndarray[Any, Any]
@@ -75,19 +98,28 @@ class JointCertificate:
 
 
 def mahalanobis_score_to_price_threshold(threshold: float, n_features: int) -> float:
-    """Invert ``score=1-exp(-p^2/(2d))`` to the Mahalanobis price threshold."""
+    """Inverse of the info-geometry component's score map ``g``.
+
+    The component maps Mahalanobis price ``p`` to a score via
+    ``g(p) = 1 - exp(-p^2 / (2 * n_features))`` (see
+    ``MercuryAnomalyDetector._compute_info_geometry_score``).  This returns
+    ``g^{-1}(threshold)`` — the price at which the component's score equals
+    ``threshold``.  Passing the **component's own** operating threshold yields a
+    ``p_tau`` on the component's real decision boundary; passing an unrelated
+    (e.g. ensemble) threshold does not, which was the original defect.
+    """
     t = float(np.clip(threshold, 0.0, 1.0 - 1e-12))
     return float(np.sqrt(max(-2.0 * max(n_features, 1) * np.log1p(-t), 0.0)))
 
 
 def pgd_flip_distance(
-    certificate: JointCertificate,
+    certificate: InfoGeometryCertificate,
     point: np.ndarray[Any, Any],
     *,
     steps: int = 120,
     step_size: float = 0.05,
 ) -> float:
-    """Small deterministic PGD probe distance to the Mahalanobis boundary."""
+    """Deterministic PGD probe distance to the component's price boundary."""
     x0 = np.asarray(point, dtype=np.float64).reshape(1, -1)
     x = x0.copy()
     start_side = certificate.price(x0)[0] >= certificate.p_tau

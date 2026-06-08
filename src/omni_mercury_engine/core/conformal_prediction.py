@@ -1096,6 +1096,24 @@ class BinaryConformalClassifier:
         self._fitted = True
         return self
 
+    def anomaly_score_threshold(self) -> float:
+        """Single anomaly operating point implied by the class-1 LAC quantile.
+
+        A point is admitted to the anomaly label iff its nonconformity
+        ``1 - p_anomaly <= q_1``, i.e. ``p_anomaly >= 1 - q_1``.  This returns
+        ``1 - q_1`` so a caller that needs one threshold (rather than a full
+        prediction set) can flag ``score >= threshold`` with the conformal
+        class-1 coverage guarantee.  Returns ``inf`` when class 1 was never
+        calibrated (no positive in the calibration split), so nothing is
+        flagged rather than everything.
+        """
+        if not self._fitted:
+            raise RuntimeError("Must call fit() before anomaly_score_threshold()")
+        q1 = self._thresholds.get(1)
+        if q1 is None or q1 >= 1.0:
+            return float("inf")
+        return float(1.0 - q1)
+
     def predict(self, probabilities: np.ndarray[Any, Any]) -> BinaryPredictionSet:
         """Build conformal label sets for new calibrated probabilities.
 

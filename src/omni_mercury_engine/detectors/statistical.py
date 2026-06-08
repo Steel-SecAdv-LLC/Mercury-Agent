@@ -58,7 +58,7 @@ from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.config import COMPONENT_COMPATIBILITY, DataCharacteristics
 from omni_mercury_engine.core.exceptions import DetectorException
 from omni_mercury_engine.core.governed_fusion import (
-    JointCertificate,
+    InfoGeometryCertificate,
     mahalanobis_score_to_price_threshold,
 )
 
@@ -158,9 +158,28 @@ class MercuryAnomalyDetector(BaseDetector):
         # Adaptive component weights (set during fit)
         self._adaptive_weights: np.ndarray[Any, Any] = np.array([0.40, 0.30, 0.30])
         self._weight_source: str = "default"
-        self._fusion_certificates_enabled: bool = bool(
-            self.config.get("fusion_certificates_enabled", True)
+        # Post-hoc info-geometry component certificate. Optional and DEFAULT-OFF
+        # (Invariant I2): when off the detector behaves exactly as before this
+        # feature existed — no ``info_geometry_certificate`` key is emitted and
+        # nothing about scores/threshold/verdict changes. The legacy
+        # ``fusion_certificates_enabled`` spelling is still honoured as a
+        # deprecated alias so existing opt-in callers keep working.
+        self._info_geometry_certificate_enabled: bool = bool(
+            self.config.get(
+                "info_geometry_certificate_enabled",
+                self.config.get("fusion_certificates_enabled", False),
+            )
         )
+
+        # Conformal split-calibrated operating point (Item 4). Optional and
+        # DEFAULT-OFF (Invariant I2): when off, supervised threshold calibration
+        # is byte-for-byte the existing Youden/F1 pipeline. When on AND labels
+        # are supplied, the decision threshold is the class-1 LAC conformal
+        # quantile from a strict calibration split (no peeking at eval).
+        self._conformal_operating_point_enabled: bool = bool(
+            self.config.get("conformal_operating_point", False)
+        )
+        self._conformal_coverage: float = float(self.config.get("conformal_coverage", 0.90))
 
         # Oracle detector (set during fit if data is temporal)
         self._oracle_detector: Any = None
@@ -485,6 +504,18 @@ class MercuryAnomalyDetector(BaseDetector):
             self._calibration_method = "mondrian_conformal"
             self._supervised_threshold = mcp.get_anomaly_threshold(None)
             return self
+
+        # --- Conformal split operating point (Item 4, opt-in DEFAULT-OFF) ---
+        # When enabled, the decision threshold is the class-1 LAC conformal
+        # quantile of the calibration labels (a distribution-free operating
+        # point), instead of the Youden/F1 search. The detector was fit
+        # unsupervised, so these labels are a valid calibration split.
+        if self._conformal_operating_point_enabled:
+            tau = self._conformal_operating_threshold(scores, labels)
+            if tau is not None:
+                self._supervised_threshold = tau
+                self._calibration_method = "conformal_lac"
+                return self
 
         # --- Adaptive strategy selection ---
         # Youden's J maximises TPR - FPR (good for balanced data), while
@@ -1568,6 +1599,19 @@ class MercuryAnomalyDetector(BaseDetector):
         detection = self.detect(X_cal)
         scores = np.asarray(detection["scores"], dtype=np.float64)
 
+        # Conformal split operating point (Item 4, opt-in DEFAULT-OFF).
+        if self._conformal_operating_point_enabled:
+            tau = self._conformal_operating_threshold(scores, cal_labels)
+            if tau is not None:
+                self._supervised_threshold = tau
+                self._calibration_method = "conformal_lac"
+                logger.info(
+                    "fit_with_calibration_subset: conformal LAC threshold=%.6f (n_cal=%d)",
+                    tau,
+                    len(cal_indices),
+                )
+                return self
+
         # Calibrate threshold
         from omni_mercury_engine.core.calibration_pipeline import (
             CalibrationStrategy,
@@ -1609,6 +1653,34 @@ class MercuryAnomalyDetector(BaseDetector):
             len(cal_indices),
         )
         return self
+
+    def _conformal_operating_threshold(
+        self,
+        scores: np.ndarray[Any, Any],
+        labels: np.ndarray[Any, Any],
+    ) -> float | None:
+        """Class-1 LAC conformal operating point on a labelled calibration set.
+
+        Returns the score threshold ``1 - q_1`` such that ``score >= threshold``
+        flags an anomaly with the conformal class-1 coverage guarantee, or
+        ``None`` when calibration is impossible (only one class present, or the
+        class-1 quantile is degenerate). Returning ``None`` lets the caller fall
+        back to the existing Youden/F1 path rather than mis-calibrate.
+        """
+        from omni_mercury_engine.core.conformal_prediction import (
+            BinaryConformalClassifier,
+        )
+
+        s = np.asarray(scores, dtype=np.float64).reshape(-1)
+        y = np.asarray(labels, dtype=int).reshape(-1)
+        if s.size != y.size or np.unique(y).size < 2:
+            return None
+        clf = BinaryConformalClassifier(coverage=self._conformal_coverage, seed=42)
+        clf.fit(s, y)
+        tau = clf.anomaly_score_threshold()
+        if not np.isfinite(tau):
+            return None
+        return float(tau)
 
     # =====================================================================
     # Automated hyperparameter tuning (Task 5)
@@ -2099,23 +2171,27 @@ class MercuryAnomalyDetector(BaseDetector):
             "calibration_diagnostics": calibration_diagnostics,
             "oracle_metadata": oracle_meta,
         }
-        if self._fusion_certificates_enabled:
-            certificate = self._mahalanobis_certificate_payload(
-                data,
-                effective_threshold=float(effective_threshold),
-                is_anomaly=np.asarray(is_anomaly, dtype=bool),
-            )
+        if self._info_geometry_certificate_enabled:
+            certificate = self._info_geometry_certificate_payload(data, info_geo)
             if certificate is not None:
-                result["fusion_certificate"] = certificate
+                result["info_geometry_certificate"] = certificate
         return result
 
-    def _mahalanobis_certificate_payload(
+    def _info_geometry_certificate_payload(
         self,
         data: np.ndarray[Any, Any],
-        *,
-        effective_threshold: float,
-        is_anomaly: np.ndarray[Any, Any],
+        info_geo_scores: np.ndarray[Any, Any],
     ) -> dict[str, Any] | None:
+        """Post-hoc certificate for the **info-geometry component** boundary.
+
+        ``p_tau`` is derived from the info-geometry component's *own* operating
+        threshold (the adaptive cut on that component's score distribution),
+        inverted through the component's real score map ``g`` — not from the
+        ensemble operating point. The certified radius is therefore the sound
+        L2 radius within which this component's price cannot cross its own
+        boundary. It certifies that component's price level-set only, never the
+        fused or gated verdict.
+        """
         if self._ig_mean is None or self._ig_cov_inv is None:
             return None
         x = np.asarray(data, dtype=np.float64)
@@ -2123,14 +2199,22 @@ class MercuryAnomalyDetector(BaseDetector):
             x = x.reshape(-1, 1)
         if x.shape[1] != len(self._ig_mean):
             return None
-        p_tau = mahalanobis_score_to_price_threshold(effective_threshold, x.shape[1])
-        cert = JointCertificate(self._ig_mean, self._ig_cov_inv, p_tau)
+        # The component's own operating point, in the component's score space.
+        component_threshold, _ = self._adaptive_operating_point(
+            np.asarray(info_geo_scores, dtype=np.float64).reshape(-1)
+        )
+        p_tau = mahalanobis_score_to_price_threshold(component_threshold, x.shape[1])
+        cert = InfoGeometryCertificate(self._ig_mean, self._ig_cov_inv, p_tau)
         payload = cert.certify(x)
+        info_geo = np.asarray(info_geo_scores, dtype=np.float64).reshape(-1)
         return {
             "model": "information_geometry_mahalanobis",
-            "threshold_score": float(effective_threshold),
+            "certifies": (
+                "info_geometry component price level-set; " "NOT the fused/gated verdict"
+            ),
+            "component_threshold_score": float(component_threshold),
             "threshold_price": float(p_tau),
-            "verdict": np.asarray(is_anomaly, dtype=bool),
+            "component_verdict": info_geo > component_threshold,
             "price": payload["price"],
             "certified_l2_radius": payload["certified_l2_radius"],
             "witness": payload["witness"],
