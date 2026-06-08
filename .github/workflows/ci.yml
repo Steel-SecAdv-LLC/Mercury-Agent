@@ -181,6 +181,10 @@ jobs:
                   if any(isinstance(target, ast.Name) and target.id == "_PROBE_REGISTRY" for target in node.targets):
                       if isinstance(node.value, ast.Dict):
                           probe_count = len(node.value.keys)
+              elif isinstance(node, ast.AnnAssign):
+                  if isinstance(node.target, ast.Name) and node.target.id == "_PROBE_REGISTRY":
+                      if isinstance(node.value, ast.Dict):
+                          probe_count = len(node.value.keys)
 
           if offenders:
               raise SystemExit("ERROR: non-Mercury detector import in math_arrest: " + ", ".join(sorted(set(offenders))))
