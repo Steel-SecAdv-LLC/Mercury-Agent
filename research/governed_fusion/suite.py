@@ -32,11 +32,13 @@ split here is therefore made explicit in code (``RECONSTRUCTED_DOMAINS`` /
 ``RECONSTRUCTED_EVENTS``), not delegated to that flag.
 
 Determinism: ``MercuryAnomalyDetector`` is deterministic after ``fit()``; the
-reconstruction loaders seed their RNG from ``hash(...)``, so ``gf_env.sh`` pins
-``PYTHONHASHSEED=0`` for byte-stable cross-process reproduction.  Built ``(X, y)``
-arrays are cached under ``$GF_CACHE_DIR`` (default ``/home/user/gf_cache``) so
-iteration does not re-hit the network; deleting the cache regenerates from the
-live loaders.
+reconstruction loaders derive their RNG seed from ``hashlib.sha256`` (process-
+stable), so the reconstructed group reproduces byte-identically across processes
+without relying on ``PYTHONHASHSEED`` (``gf_env.sh`` still pins
+``PYTHONHASHSEED=0`` as defense-in-depth and for the ``datasets/`` path).  Built
+``(X, y)`` arrays are cached under ``$GF_CACHE_DIR`` (default
+``/home/user/gf_cache``) so iteration does not re-hit the network; deleting the
+cache regenerates from the live loaders.
 """
 
 from __future__ import annotations

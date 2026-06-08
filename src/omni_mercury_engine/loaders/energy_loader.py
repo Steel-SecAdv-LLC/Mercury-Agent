@@ -13,6 +13,7 @@ Ground truth events cover major geomagnetic storms and grid disruptions where se
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 from typing import Any
@@ -662,8 +663,12 @@ class EnergyLoader(BaseDomainLoader):
         # Build Kp profile: extended quiet + major storm + recovery
         kp_values = self._build_storm_profile(n_steps, peak_kp, storm_day=storm_day)
 
-        # Derive correlated solar wind speed: empirical Kp-speed relation
-        rng = np.random.default_rng(seed=hash(event["date"]) & 0xFFFFFFFF)
+        # Derive correlated solar wind speed: empirical Kp-speed relation.
+        # Process-stable seed: Python's built-in hash() is salted per process,
+        # so derive the seed from hashlib.sha256 instead -- identical every run
+        # without relying on PYTHONHASHSEED.  Mirrors tsunami_loader.
+        seed_bytes = hashlib.sha256(event["date"].encode()).digest()
+        rng = np.random.default_rng(int.from_bytes(seed_bytes[:4], "little") % (2**31))
         base_speed = 350.0 + kp_values * 50.0
         sw_speed = base_speed + rng.normal(0, 20, size=n_steps)
         sw_speed = np.clip(sw_speed, 250.0, 1200.0)

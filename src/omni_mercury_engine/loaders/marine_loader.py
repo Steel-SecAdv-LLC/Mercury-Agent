@@ -29,6 +29,7 @@ occurrence patterns.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from typing import Any
 
@@ -676,7 +677,11 @@ class MarineLoader(BaseDomainLoader):
             DataFrame with synthetic occurrence records including both
             baseline and event periods.
         """
-        rng = np.random.default_rng(abs(hash(event["name"])) % (2**31))
+        # Process-stable seed: Python's built-in hash() is salted per process,
+        # so derive the fallback-reconstruction seed from hashlib.sha256 instead
+        # -- identical every run without relying on PYTHONHASHSEED.
+        seed_bytes = hashlib.sha256(event["name"].encode()).digest()
+        rng = np.random.default_rng(int.from_bytes(seed_bytes[:4], "little") % (2**31))
 
         region = event["region"]
         lat_min = region["lat_min"]

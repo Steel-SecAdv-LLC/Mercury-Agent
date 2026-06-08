@@ -31,10 +31,11 @@ export LD_LIBRARY_PATH="${AMA_HOME}/build/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PA
 # explicit in code instead of relying on it.  Kept for the datasets/ paths.
 export MERCURY_ALLOW_SYNTHETIC=0
 
-# The reconstructed-from-live loaders (tsunami BPR, energy Kp, ebola curve) seed
-# their RNG from hash(...); Python salts str hashing per process unless this is
-# pinned.  Pin it so the reconstructed group reproduces byte-identically across
-# processes (the 23-event live headline suite is hash-independent regardless).
+# The reconstructed-from-live loaders (tsunami BPR, energy Kp, ebola curve) now
+# derive their RNG seed from hashlib.sha256 (process-stable), so the reconstructed
+# group reproduces byte-identically across processes without this pin.  It is kept
+# as defense-in-depth and because the datasets/ package consults it; the 23-event
+# live headline suite is hash-independent regardless.
 export PYTHONHASHSEED=0
 
 # Heavy per-event (X,y) + score .npz cache (regenerated from the live loaders

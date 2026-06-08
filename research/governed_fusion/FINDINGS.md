@@ -31,7 +31,7 @@ and in `manifest.json`, into two never-conflated classes:
   **always labelled reconstruction, never claimed as live**.
 
 The live-only headline AUROC (**0.823**) is *lower* than the old mixed 0.839: the
-reconstructions were the easier data (reconstructed baseline AUROC 0.916). The
+reconstructions were the easier data (reconstructed baseline AUROC 0.920). The
 provable number is the smaller one.
 
 ## Environment & suite
@@ -40,9 +40,12 @@ provable number is the smaller one.
   `PYTHONPATH=.:src:/tmp/ama-cryptography`,
   `AMA_CRYPTO_LIB_PATH=…/build/lib/libama_cryptography.so`,
   `LD_LIBRARY_PATH=…/build/lib`, `MERCURY_ALLOW_SYNTHETIC=0`,
-  **`PYTHONHASHSEED=0`** (the reconstruction loaders seed their RNG from
-  `hash(...)`, which Python salts per process; pinned so the reconstructed group
-  reproduces byte-identically — the 23-event live suite is hash-independent).
+  **`PYTHONHASHSEED=0`** (the reconstruction loaders now derive their RNG seed
+  from `hashlib.sha256` — process-stable — so the reconstructed group reproduces
+  byte-identically *without* relying on this pin; energy/marine were previously
+  salted `hash()` and were fixed this pass. The pin is retained as
+  defense-in-depth and for the `datasets/` path; the 23-event live suite is
+  hash-independent regardless).
 - Metrics via `ml/mercury_ml` (no scikit-learn). Aggregation is the per-event
   **macro mean** (equal weight per event), matching `research/omni_equation`.
 - Large events use a **seeded stratified row cap** (default 6000;
@@ -52,13 +55,24 @@ provable number is the smaller one.
   `(X,y)` fingerprint exactly; `marine/marine_heatwave_2023` shifts because OBIS
   returns live occurrence records that move between fetches — genuine live-data
   refetch on real data, disclosed in `manifest.json`.
+- **Reproducibility hardening (this pass):** `energy_loader` and `marine_loader`
+  seeded their reconstruction RNG from Python's per-process-salted `hash(str)`;
+  both now derive the seed from `hashlib.sha256` (matching `tsunami_loader`), so
+  the reconstructed group reproduces byte-identically across processes — verified
+  identical across `PYTHONHASHSEED=1/2/random`. Energy's three `(X,y)`
+  fingerprints moved (`quebec_1989` `e3c19e42→b01043f2`, `halloween_2003`
+  `fcb55bcc→7dd9a201`, `bastille_day_2000` `915294c5→c63029f2`; labels and
+  `n_pos` unchanged) and the reconstructed baseline AUROC re-reproduced
+  0.916→0.920. The `tsunami`×3 + `ebola_2014` fingerprints and the **entire
+  23-event live headline are byte-unchanged** (proving the change is isolated to
+  energy's feature noise).
 
 ## Baseline (default fixed ensemble) — `measure_baseline.py`
 
 | group | events / domains | AUROC | AUPRC | F1 | P | R |
 |---|---|---:|---:|---:|---:|---:|
 | **live headline** | 23 / 7 | **0.823** | **0.410** | **0.277** | **0.273** | **0.572** |
-| reconstructed (labelled) | 7 / 3 | 0.916 | 0.542 | 0.367 | 0.483 | 0.432 |
+| reconstructed (labelled) | 7 / 3 | 0.920 | 0.552 | 0.368 | 0.476 | 0.549 |
 
 Reproduced from committed code (`results/baseline_results.json`). Pooled
 row-weighted AUROC on the live suite is 0.560 — confirming the macro mean is the
