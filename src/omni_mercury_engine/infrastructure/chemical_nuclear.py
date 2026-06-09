@@ -1,25 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-from typing import Any
-
-"""
-CISA Chemical & Nuclear Critical Infrastructure Anomaly Detection
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""CISA Chemical & Nuclear Critical Infrastructure Anomaly Detection.
 
 Safety-critical monitoring for chemical manufacturing and nuclear facilities.
 
@@ -27,10 +8,12 @@ Research sources:
 - CISA Chemical Sector framework
 - CISA Nuclear Sector framework
 - Nuclear Regulatory Commission (NRC) standards
-
 """
 
+from __future__ import annotations
+
 from enum import Enum
+from typing import Any
 
 import numpy as np
 
@@ -43,8 +26,7 @@ class CISASector(Enum):
 
 
 class ChemicalNuclearDetector:
-    """
-    Anomaly detection for CISA Chemical and Nuclear critical infrastructure.
+    """Anomaly detection for CISA Chemical and Nuclear critical infrastructure.
 
     Implements safety-critical monitoring patterns for:
     - Chemical process parameters (pressure, temperature, composition)
@@ -55,6 +37,7 @@ class ChemicalNuclearDetector:
     """
 
     def __init__(self, sector: CISASector) -> None:
+        """Initialize the instance."""
         self.sector = sector
         self.safety_thresholds = self._init_safety_thresholds()
         self.interdependency_map = {
@@ -68,8 +51,7 @@ class ChemicalNuclearDetector:
         parameter_names: list[str] | None = None,
         timestamps: np.ndarray[Any, Any] | None = None,
     ) -> dict[str, Any]:
-        """
-        Detect anomalies in chemical/nuclear process parameters.
+        """Detect anomalies in chemical/nuclear process parameters.
 
         Args:
             sensor_data: Time-series sensor readings (N x M) for M sensors
@@ -92,8 +74,7 @@ class ChemicalNuclearDetector:
         parameter_names: list[str],
         timestamps: np.ndarray[Any, Any] | None = None,
     ) -> dict[str, Any]:
-        """
-        Detect anomalies in chemical/nuclear process parameters.
+        """Detect anomalies in chemical/nuclear process parameters.
 
         Args:
             sensor_data: Time-series sensor readings (N x M) for M sensors

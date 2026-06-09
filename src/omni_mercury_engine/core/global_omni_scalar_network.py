@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Global Omni-Scalar Network (GOSNN) - Intelligence Fusion Hub
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Global Omni-Scalar Network (GOSNN) - Intelligence Fusion Hub.
 
 Implements a comprehensive scalar monitoring and fusion system.  Two
 counts matter and they are kept distinct everywhere in this module:
@@ -61,6 +44,8 @@ References:
     - Multi-head attention: Vaswani et al. (2017) "Attention Is All You Need"
     - Golden ratio applications: Livio (2002) "The Golden Ratio"
 """
+
+from __future__ import annotations
 
 import logging
 import os
@@ -154,8 +139,7 @@ class EnhancementResult:
 
 
 class EthicalGate:
-    """
-    Trained neural network gate for ethical compliance verification.
+    """Trained neural network gate for ethical compliance verification.
 
     Architecture: ``Linear(256, 64) → ReLU → Linear(64, 1) → Sigmoid``.
 
@@ -173,6 +157,7 @@ class EthicalGate:
     _WEIGHTS_RELPATH = "security/sigma_immutable_weights.pt"
 
     def __init__(self, input_dim: int = 256, threshold: float = 0.93) -> None:
+        """Initialize the instance."""
         self.threshold = threshold
         self.input_dim = input_dim
         self.logger = logging.getLogger(__name__)
@@ -210,8 +195,7 @@ class EthicalGate:
             self.logger.warning("σ_Immutable: failed to load weights: %s", exc)
 
     def evaluate(self, scalar_vector: np.ndarray[Any, Any]) -> tuple[bool, float]:
-        """
-        Evaluate ethical compliance of scalar vector.
+        """Evaluate ethical compliance of scalar vector.
 
         Args:
             scalar_vector: Input scalar values
@@ -259,8 +243,7 @@ class EthicalGate:
 
 
 class TriadicPhiWeighting:
-    """
-    Triadic phi-weighting layer for harmonic synergy in attention fusion.
+    """Triadic phi-weighting layer for harmonic synergy in attention fusion.
 
     Applies golden ratio (phi = 1.618) weighting to query-key-value attention
     scores for coherent frequency patterns in Resonance (H(omega) harmonics).
@@ -275,8 +258,7 @@ class TriadicPhiWeighting:
     """
 
     def __init__(self, num_heads: int = 32) -> None:
-        """
-        Initialize triadic phi-weighting.
+        """Initialize triadic phi-weighting.
 
         Args:
             num_heads: Number of attention heads (should be divisible by 3 for
@@ -311,8 +293,7 @@ class TriadicPhiWeighting:
         return weights
 
     def apply(self, attention_scores: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Apply triadic phi-weighting to attention scores.
+        """Apply triadic phi-weighting to attention scores.
 
         Args:
             attention_scores: Raw attention scores [num_heads, seq_len, seq_len]
@@ -334,8 +315,7 @@ class TriadicPhiWeighting:
         return np.asarray(weighted)  # type: ignore[no-any-return, unused-ignore]
 
     def compute_harmonic_synergy(self, attention_output: np.ndarray[Any, Any]) -> float:
-        """
-        Compute harmonic synergy score from attention output.
+        """Compute harmonic synergy score from attention output.
 
         The synergy score measures how well the triadic weighting produces
         coherent frequency patterns (H(omega) in the weighted fusion Equation).
@@ -369,8 +349,7 @@ class TriadicPhiWeighting:
 
 
 class MultiHeadAttentionFusion:
-    """
-    Multi-head attention mechanism for 37D quantum fusion.
+    """Multi-head attention mechanism for 37D quantum fusion.
 
     Implements configurable attention (default 32-head at d_model=512, head_dim=16)
     with triadic phi-weighting for harmonic synergy in scalar dimension fusion.
@@ -387,8 +366,7 @@ class MultiHeadAttentionFusion:
         max_dimensions: int = 37,
         enable_triadic_phi: bool = True,
     ):
-        """
-        Initialize multi-head attention fusion.
+        """Initialize multi-head attention fusion.
 
         Args:
             d_model: Model dimension (default 512)
@@ -420,8 +398,7 @@ class MultiHeadAttentionFusion:
     def fuse(
         self, dimensional_states: list[np.ndarray[Any, Any]], return_synergy: bool = False
     ) -> np.ndarray[Any, Any] | tuple[np.ndarray[Any, Any], float]:
-        """
-        Fuse multiple dimensional states using multi-head attention with triadic phi-weighting.
+        """Fuse multiple dimensional states using multi-head attention with triadic phi-weighting.
 
         Args:
             dimensional_states: List of state vectors to fuse
@@ -480,8 +457,7 @@ class MultiHeadAttentionFusion:
 
 
 def get_sigma_immutable_threshold(domain: str | None = None) -> float:
-    """
-    Get the sigma_Immutable threshold for ethical gating (Civilization-First principle).
+    """Get the sigma_Immutable threshold for ethical gating (Civilization-First principle).
 
     The threshold can be configured via environment variable SIGMA_IMMUTABLE_THRESHOLD.
     Default is 0.96 for stricter ethical gating (~10-15% false positive reduction).
@@ -519,8 +495,7 @@ def get_sigma_immutable_threshold(domain: str | None = None) -> float:
 
 
 class GlobalOmniScalarNetwork:
-    """
-    Global Omni-Scalar Network (GOSNN) - Central Intelligence Fusion Hub.
+    """Global Omni-Scalar Network (GOSNN) - Central Intelligence Fusion Hub.
 
     Registers ~209 omni-scalars across 8 major categories; 127 of them
     are *operational* and feed the σ_Immutable gate / fusion path.  The
@@ -673,8 +648,7 @@ class GlobalOmniScalarNetwork:
         num_attention_heads: int = 32,
         enable_triadic_phi: bool = True,
     ):
-        """
-        Initialize the Global Omni-Scalar Network.
+        """Initialize the Global Omni-Scalar Network.
 
         Args:
             device: Computation device ('cpu' or 'cuda')
@@ -725,8 +699,7 @@ class GlobalOmniScalarNetwork:
         )
 
     def _initialize_default_scalars(self) -> None:
-        """
-        Initialize default ethical and system scalars with omni- prefix.
+        """Initialize default ethical and system scalars with omni- prefix.
 
         All scalars use the omni- prefix for unified naming convention. Legacy aliases (without
         omni- prefix) are maintained for backward compatibility and will be deprecated in v2.0.
@@ -1037,8 +1010,7 @@ class GlobalOmniScalarNetwork:
         self._initialize_legacy_aliases()
 
     def _initialize_legacy_aliases(self) -> None:
-        """
-        Initialize backward-compatible legacy aliases (deprecated in v2.0).
+        """Initialize backward-compatible legacy aliases (deprecated in v2.0).
 
         Maps old scalar names to new omni-prefixed names for seamless migration.
         """
@@ -1088,8 +1060,7 @@ class GlobalOmniScalarNetwork:
         }
 
     def resolve_scalar_name(self, name: str) -> str:
-        """
-        Resolve a scalar name, supporting legacy aliases.
+        """Resolve a scalar name, supporting legacy aliases.
 
         Args:
             name: Scalar name (may be legacy or omni-prefixed)
@@ -1106,8 +1077,7 @@ class GlobalOmniScalarNetwork:
         return name
 
     def get_scalar(self, name: str, default: float = 0.0) -> float:
-        """
-        Get a scalar value by name, supporting legacy aliases.
+        """Get a scalar value by name, supporting legacy aliases.
 
         Args:
             name: Scalar name (may be legacy or omni-prefixed)
@@ -1129,8 +1099,7 @@ class GlobalOmniScalarNetwork:
         group: ScalarGroup = ScalarGroup.ETHICAL,
         metadata: dict[str, Any] | None = None,
     ) -> None:
-        """
-        Register scalars from a component.
+        """Register scalars from a component.
 
         Args:
             component_name: Name of the registering component
@@ -1163,8 +1132,7 @@ class GlobalOmniScalarNetwork:
         base_scalars: dict[str, float],
         context: dict[str, Any] | None = None,
     ) -> EnhancementResult:
-        """
-        Get enhanced scalars with GOSNN fusion, ethical gating, and harmonic synergy.
+        """Get enhanced scalars with GOSNN fusion, ethical gating, and harmonic synergy.
 
         This method performs bidirectional synaptic integration:
         1. Collects all registered scalars from components
@@ -1228,8 +1196,7 @@ class GlobalOmniScalarNetwork:
     def fuse_37d_scalars(
         self, dimensional_states: list[np.ndarray[Any, Any]]
     ) -> np.ndarray[Any, Any]:
-        """
-        Perform 37-dimensional quantum fusion.
+        """Perform 37-dimensional quantum fusion.
 
         Args:
             dimensional_states: List of dimensional state vectors
@@ -1240,8 +1207,7 @@ class GlobalOmniScalarNetwork:
         return self.attention_fusion.fuse(dimensional_states)  # type: ignore[return-value, unused-ignore]
 
     def compute_global_intelligence_score(self) -> float:
-        """
-        Compute global intelligence score from all registered scalars.
+        """Compute global intelligence score from all registered scalars.
 
         Returns:
             Global intelligence score (0-1)
@@ -1274,8 +1240,7 @@ class GlobalOmniScalarNetwork:
         return float(np.clip(intelligence_score, 0.0, 1.0))
 
     def compute_triadic_harmony(self) -> float:
-        """
-        Compute triadic harmony using golden ratio (φ = 1.618).
+        """Compute triadic harmony using golden ratio (φ = 1.618).
 
         Triadic harmony represents the balance between boosts, penalties,
         and neutral scalars, weighted by the golden ratio.
@@ -1307,8 +1272,7 @@ class GlobalOmniScalarNetwork:
         return float(np.clip(harmony, 0.0, 1.0))
 
     def perform_bias_audit(self) -> dict[str, Any]:
-        """
-        Perform bias audit on current scalar distribution.
+        """Perform bias audit on current scalar distribution.
 
         Ensures 60/40 boost/penalty ratio for balanced operation.
 
@@ -1585,8 +1549,7 @@ class GlobalOmniScalarNetwork:
         domain_weights: dict[str, float] | None = None,
         aggregation_method: str = "geometric_mean",
     ) -> dict[str, Any]:
-        """
-        Compute hierarchical aggregation of omni-scalars (Phase 3).
+        """Compute hierarchical aggregation of omni-scalars (Phase 3).
 
         Implements 3-level hierarchical aggregation:
 
@@ -1739,8 +1702,7 @@ def get_global_scalar_network(
     num_attention_heads: int = 32,
     enable_triadic_phi: bool = True,
 ) -> GlobalOmniScalarNetwork:
-    """
-    Get the global GOSNN singleton instance.
+    """Get the global GOSNN singleton instance.
 
     The GOSNN provides bidirectional synaptic integration with the 3R mechanism
     and other components. It uses 32-head attention with triadic phi-weighting

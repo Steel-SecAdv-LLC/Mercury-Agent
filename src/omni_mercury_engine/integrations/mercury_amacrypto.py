@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-AMA Cryptography Integration Adapter for Mercury Agent
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""AMA Cryptography Integration Adapter for Mercury Agent.
 
 Integrates post-quantum cryptography (Kyber/Dilithium) from AMA Cryptography
 with GOSNN ethical gating and security detectors.
@@ -43,6 +26,8 @@ References:
 - NIST FIPS 204: ML-DSA (CRYSTALS-Dilithium)
 - AMA Cryptography Post-Quantum Cryptography Backends
 """
+
+from __future__ import annotations
 
 import logging
 import time
@@ -105,7 +90,6 @@ if not DILITHIUM_AVAILABLE:
 if not KYBER_AVAILABLE:
     raise ImportError("AMA Cryptography Kyber-1024 backend is mandatory for Mercury.")
 
-
 # Backward compatibility alias
 AVA_GUARDIAN_AVAILABLE = AMA_CRYPTOGRAPHY_AVAILABLE
 
@@ -154,8 +138,7 @@ class _TimingAnomaly:
 
 
 class EWMATimingMonitor:
-    """
-    Exponentially Weighted Moving Average timing monitor.
+    """Exponentially Weighted Moving Average timing monitor.
 
     Detects timing anomalies in cryptographic operations with <2% overhead.
     Uses EWMA for mean tracking and MAD for robust variance estimation.
@@ -164,6 +147,7 @@ class EWMATimingMonitor:
     """
 
     def __init__(self, alpha: float = 0.1, mad_threshold: float = 3.0) -> None:
+        """Initialize the instance."""
         self.alpha = alpha
         self.mad_threshold = mad_threshold
         self.stats: dict[str, TimingStats] = {}
@@ -229,8 +213,7 @@ class EWMATimingMonitor:
         return 0.5
 
     def get_security_report(self) -> dict[str, Any]:
-        """
-        Generate a security report compatible with AMA PostureEvaluator.
+        """Generate a security report compatible with AMA PostureEvaluator.
 
         Translates EWMA/MAD timing data into the ``monitor_report`` format that
         ``PostureEvaluator.evaluate()`` consumes.
@@ -269,8 +252,7 @@ class EWMATimingMonitor:
 
 
 class MercuryGuardianAdapter:
-    """
-    Adapter integrating AMA Cryptography PQC with Mercury Agent.
+    """Adapter integrating AMA Cryptography PQC with Mercury Agent.
 
     Provides post-quantum cryptographic operations with:
     - EWMA/MAD timing anomaly detection
@@ -295,6 +277,7 @@ class MercuryGuardianAdapter:
         mad_threshold: float = 3.0,
         gosnn_synapse_enabled: bool = True,
     ):
+        """Initialize the instance."""
         self.timing_monitor = (
             EWMATimingMonitor(alpha=timing_alpha, mad_threshold=mad_threshold)
             if enable_timing_monitor
@@ -323,8 +306,7 @@ class MercuryGuardianAdapter:
 
     @staticmethod
     def _sanitize_scalars(scalars: dict[str, Any]) -> dict[str, float]:
-        """
-        Coerce a scalar dict to finite ``float`` values for GOSNN.
+        """Coerce a scalar dict to finite ``float`` values for GOSNN.
 
         GOSNN's state machine assumes finite numeric inputs.  A NaN/Inf or
         non-numeric value would propagate through ``register_scalars`` and
@@ -421,8 +403,7 @@ class MercuryGuardianAdapter:
             logger.warning(f"GOSNN synapse failed: {e}")
 
     def _evaluate_posture_from_gosnn(self) -> None:
-        """
-        Feed GOSNN security scalar state into AMA PostureEvaluator.
+        """Feed GOSNN security scalar state into AMA PostureEvaluator.
 
         Reads GOSNN security scalars and constructs a monitor report that the PostureEvaluator can
         consume.  The evaluation result is then registered back into GOSNN as ScalarGroup.SECURITY,
@@ -484,8 +465,7 @@ class MercuryGuardianAdapter:
         security_scalars: dict[str, float],
         ethical_scalars: dict[str, float],
     ) -> dict[str, Any]:
-        """
-        Build a monitor report from GOSNN scalars for PostureEvaluator.
+        """Build a monitor report from GOSNN scalars for PostureEvaluator.
 
         Translates the full system context (GOSNN security + ethical scalars)
         plus local timing monitor data into the report format consumed by
@@ -575,8 +555,7 @@ class MercuryGuardianAdapter:
                 logger.debug(f"Could not register algorithm switch to GOSNN: {e}")
 
     def evaluate_posture(self) -> PostureEvaluation:
-        """
-        Manually trigger a posture evaluation cycle.
+        """Manually trigger a posture evaluation cycle.
 
         Reads GOSNN state and returns the posture evaluation.  The result is also registered into
         GOSNN as ScalarGroup.SECURITY.

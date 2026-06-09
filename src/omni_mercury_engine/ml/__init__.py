@@ -1,29 +1,14 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Machine Learning module for Mercury Agent
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Machine Learning module for Mercury Agent.
 
 Provides attention mechanisms, feature encoders, fusion networks, training, and inference.
 
 Note: This module requires PyTorch. Imports are lazy to allow core package
 to function without torch installed. Access ML components only when torch is available.
 """
+
+from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
@@ -195,8 +180,7 @@ def _require_torch() -> None:
 
 # Lazy imports for drift detection (requires scipy)
 def create_drift_detector(*args: Any, **kwargs: Any) -> Any:
-    """
-    Create a drift detector.
+    """Create a drift detector.
 
     Lazy import to avoid scipy dependency at module load.
     """
@@ -207,8 +191,7 @@ def create_drift_detector(*args: Any, **kwargs: Any) -> Any:
 
 # Lazy imports for fairness auditing (requires numpy only)
 def compute_fairness_score(*args: Any, **kwargs: Any) -> Any:
-    """
-    Compute fairness score.
+    """Compute fairness score.
 
     Lazy import to avoid loading full module.
     """
@@ -229,8 +212,7 @@ class FairnessAuditor:
 
 # Lazy imports for optimization utilities
 def apply_all_optimizations(*args: Any, **kwargs: Any) -> Any:
-    """
-    Apply all optimizations.
+    """Apply all optimizations.
 
     Lazy import to avoid psutil/joblib dependency.
     """
@@ -265,8 +247,7 @@ class ParallelExecutor:
 
 
 def create_concept_drift_evaluator(*args: Any, **kwargs: Any) -> Any:
-    """
-    Create concept drift evaluator.
+    """Create concept drift evaluator.
 
     Lazy import.
     """
@@ -278,8 +259,7 @@ def create_concept_drift_evaluator(*args: Any, **kwargs: Any) -> Any:
 
 
 def create_few_shot_learner(*args: Any, **kwargs: Any) -> Any:
-    """
-    Create few-shot learner.
+    """Create few-shot learner.
 
     Lazy import.
     """
@@ -289,8 +269,7 @@ def create_few_shot_learner(*args: Any, **kwargs: Any) -> Any:
 
 
 def create_cross_domain_learner(*args: Any, **kwargs: Any) -> Any:
-    """
-    Create cross-domain transfer learner.
+    """Create cross-domain transfer learner.
 
     Lazy import.
     """
@@ -302,8 +281,7 @@ def create_cross_domain_learner(*args: Any, **kwargs: Any) -> Any:
 
 
 def create_explainer(*args: Any, **kwargs: Any) -> Any:
-    """
-    Create SHAP explainer.
+    """Create SHAP explainer.
 
     Lazy import.
     """
@@ -313,8 +291,7 @@ def create_explainer(*args: Any, **kwargs: Any) -> Any:
 
 
 def create_active_learner(*args: Any, **kwargs: Any) -> Any:
-    """
-    Create active learner.
+    """Create active learner.
 
     Lazy import.
     """
@@ -324,8 +301,7 @@ def create_active_learner(*args: Any, **kwargs: Any) -> Any:
 
 
 def create_online_pipeline(*args: Any, **kwargs: Any) -> Any:
-    """
-    Create online learning pipeline.
+    """Create online learning pipeline.
 
     Lazy import.
     """
@@ -406,8 +382,7 @@ class OnlineLearningPipeline:
 
 
 def create_meta_learner(*args: Any, **kwargs: Any) -> Any:
-    """
-    Create meta-learner for few-shot adaptation.
+    """Create meta-learner for few-shot adaptation.
 
     Lazy import.
     """

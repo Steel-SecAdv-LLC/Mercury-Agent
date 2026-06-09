@@ -1,20 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
-
-Ollama LLM Adapter for Local Inference
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Ollama LLM Adapter for Local Inference.
 
 Provides offline-first LLM capability using Ollama for:
 - Air-gapped deployments
@@ -180,8 +166,7 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
 
 
 class OllamaLLMAdapter(BaseLLMAdapter):
-    """
-    Ollama LLM adapter for local model inference.
+    """Ollama LLM adapter for local model inference.
 
     Provides offline-first LLM capability with support for multiple open-source models (Llama,
     Mistral, Phi, etc.)
@@ -192,8 +177,7 @@ class OllamaLLMAdapter(BaseLLMAdapter):
         config: LLMConfig | None = None,
         ollama_config: OllamaConfig | None = None,
     ):
-        """
-        Initialize Ollama adapter.
+        """Initialize Ollama adapter.
 
         Args:
             config: Base LLM configuration
@@ -304,8 +288,7 @@ class OllamaLLMAdapter(BaseLLMAdapter):
             return False
 
     def generate(self, prompt: str, system_prompt: str | None = None) -> str:
-        """
-        Generate text using Ollama.
+        """Generate text using Ollama.
 
         Args:
             prompt: User prompt
@@ -360,8 +343,7 @@ class OllamaLLMAdapter(BaseLLMAdapter):
         messages: list[dict[str, str]],
         system_prompt: str | None = None,
     ) -> str:
-        """
-        Generate using chat API for multi-turn conversations.
+        """Generate using chat API for multi-turn conversations.
 
         Args:
             messages: List of {"role": "user/assistant", "content": "..."}
@@ -447,8 +429,7 @@ class OllamaLLMAdapter(BaseLLMAdapter):
 
 
 class TemplateLLMAdapter(BaseLLMAdapter):
-    """
-    Template-based fallback adapter for offline operation.
+    """Template-based fallback adapter for offline operation.
 
     Provides intelligent template responses when no LLM is available. Uses pattern matching and
     rule-based responses to maintain basic conversational capability.
@@ -474,8 +455,7 @@ class TemplateLLMAdapter(BaseLLMAdapter):
         }
 
     def generate(self, prompt: str, system_prompt: str | None = None) -> str:
-        """
-        Generate template-based response.
+        """Generate template-based response.
 
         Args:
             prompt: User prompt
@@ -581,16 +561,14 @@ class TemplateLLMAdapter(BaseLLMAdapter):
 
 
 class OpenAICloudAdapter(BaseLLMAdapter):
-    """
-    OpenAI cloud adapter for GPT models.
+    """OpenAI cloud adapter for GPT models.
 
     Provides integration with OpenAI's API for high-capability language model inference when local
     models are unavailable.
     """
 
     def __init__(self, config: LLMConfig):
-        """
-        Initialize OpenAI adapter.
+        """Initialize OpenAI adapter.
 
         Args:
             config: LLM configuration with API key
@@ -609,8 +587,7 @@ class OpenAICloudAdapter(BaseLLMAdapter):
             self._is_available = False
 
     def generate(self, prompt: str, system_prompt: str | None = None) -> str:
-        """
-        Generate text using OpenAI API.
+        """Generate text using OpenAI API.
 
         Args:
             prompt: User prompt
@@ -669,16 +646,14 @@ class OpenAICloudAdapter(BaseLLMAdapter):
 
 
 class AnthropicCloudAdapter(BaseLLMAdapter):
-    """
-    Anthropic cloud adapter for Claude models.
+    """Anthropic cloud adapter for Claude models.
 
     Provides integration with Anthropic's API for Claude model inference when local models are
     unavailable.
     """
 
     def __init__(self, config: LLMConfig):
-        """
-        Initialize Anthropic adapter.
+        """Initialize Anthropic adapter.
 
         Args:
             config: LLM configuration with API key
@@ -697,8 +672,7 @@ class AnthropicCloudAdapter(BaseLLMAdapter):
             self._is_available = False
 
     def generate(self, prompt: str, system_prompt: str | None = None) -> str:
-        """
-        Generate text using Anthropic API.
+        """Generate text using Anthropic API.
 
         Args:
             prompt: User prompt
@@ -758,15 +732,13 @@ class AnthropicCloudAdapter(BaseLLMAdapter):
 
 
 class HuggingFaceCloudAdapter(BaseLLMAdapter):
-    """
-    HuggingFace Inference API adapter.
+    """HuggingFace Inference API adapter.
 
     Provides integration with HuggingFace's hosted inference API for various open-source models.
     """
 
     def __init__(self, config: LLMConfig):
-        """
-        Initialize HuggingFace adapter.
+        """Initialize HuggingFace adapter.
 
         Args:
             config: LLM configuration with API key
@@ -785,8 +757,7 @@ class HuggingFaceCloudAdapter(BaseLLMAdapter):
             self._is_available = False
 
     def generate(self, prompt: str, system_prompt: str | None = None) -> str:
-        """
-        Generate text using HuggingFace Inference API.
+        """Generate text using HuggingFace Inference API.
 
         Args:
             prompt: User prompt
@@ -1001,6 +972,7 @@ class CohereCloudAdapter(BaseLLMAdapter):
     _DEFAULT_MODEL = "command-r-plus"
 
     def __init__(self, config: LLMConfig):
+        """Initialize the instance."""
         super().__init__(config)
         self.api_key = config.api_key or os.environ.get(self._PROVIDER_ENV_VAR)
         self.base_url = config.base_url or self._DEFAULT_BASE_URL
@@ -1084,6 +1056,7 @@ class GeminiCloudAdapter(BaseLLMAdapter):
     _DEFAULT_MODEL = "gemini-2.5-flash"
 
     def __init__(self, config: LLMConfig):
+        """Initialize the instance."""
         super().__init__(config)
         self.api_key = config.api_key or os.environ.get(self._PROVIDER_ENV_VAR)
         self.base_url = config.base_url or self._DEFAULT_BASE_URL
@@ -1155,8 +1128,7 @@ class GeminiCloudAdapter(BaseLLMAdapter):
 
 
 class FallbackLLMChain:
-    """
-    Graceful fallback chain for LLM operations.
+    """Graceful fallback chain for LLM operations.
 
     Chain: Ollama (local) → Cloud (optional) → Template (always available)
 
@@ -1170,8 +1142,7 @@ class FallbackLLMChain:
         enable_cloud: bool = False,
         cloud_config: LLMConfig | None = None,
     ):
-        """
-        Initialize fallback chain.
+        """Initialize fallback chain.
 
         Args:
             ollama_config: Ollama configuration
@@ -1219,8 +1190,7 @@ class FallbackLLMChain:
         logger.info("LLM chain using template fallback")
 
     def _create_cloud_adapter(self) -> BaseLLMAdapter | None:
-        """
-        Create cloud adapter based on configuration.
+        """Create cloud adapter based on configuration.
 
         Supports OpenAI, Anthropic, and HuggingFace cloud providers. Each provider requires
         appropriate API keys set via environment variables or configuration.
@@ -1261,8 +1231,7 @@ class FallbackLLMChain:
             return None
 
     def generate(self, prompt: str, system_prompt: str | None = None) -> str:
-        """
-        Generate text using the best available adapter.
+        """Generate text using the best available adapter.
 
         Args:
             prompt: User prompt
@@ -1305,8 +1274,7 @@ class FallbackLLMChain:
         }
 
     def refresh(self) -> str:
-        """
-        Refresh the chain and return to best available adapter.
+        """Refresh the chain and return to best available adapter.
 
         Returns:
             Name of the newly active adapter
@@ -1317,8 +1285,7 @@ class FallbackLLMChain:
 
 @dataclass
 class ModelConfiguration:
-    """
-    Configuration for model selection and swapping.
+    """Configuration for model selection and swapping.
 
     Allows easy switching between models based on:
     - Task requirements
@@ -1360,8 +1327,7 @@ class ModelConfiguration:
         task_complexity: str = "medium",
         speed_priority: bool = False,
     ) -> str:
-        """
-        Get best model for task complexity and speed requirements.
+        """Get best model for task complexity and speed requirements.
 
         Args:
             task_complexity: low, medium, high
@@ -1395,8 +1361,7 @@ def create_ollama_adapter(
     port: int = 11434,
     **kwargs: Any,
 ) -> OllamaLLMAdapter:
-    """
-    Factory function to create Ollama adapter.
+    """Factory function to create Ollama adapter.
 
     Args:
         model: Model name (default: llama3.2:3b)
@@ -1422,8 +1387,7 @@ def create_fallback_chain(
     cloud_provider: str | None = None,
     **kwargs: Any,
 ) -> FallbackLLMChain:
-    """
-    Factory function to create LLM fallback chain.
+    """Factory function to create LLM fallback chain.
 
     Args:
         ollama_model: Preferred Ollama model

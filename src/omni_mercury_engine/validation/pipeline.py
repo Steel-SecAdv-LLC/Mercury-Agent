@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Validation Pipeline
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Validation Pipeline.
 
 Provides comprehensive validation utilities:
 - Data quality checks
@@ -28,6 +11,8 @@ Provides comprehensive validation utilities:
 
 Implements the validation framework described in VALIDATION_FRAMEWORK.md.
 """
+
+from __future__ import annotations
 
 import logging
 import time
@@ -97,8 +82,7 @@ class ValidationResult:
 
 
 class DataQualityChecker:
-    """
-    Data quality validation checks.
+    """Data quality validation checks.
 
     Implements comprehensive data quality checks:
     - Missing value detection
@@ -115,6 +99,7 @@ class DataQualityChecker:
         correlation_threshold: float = 0.95,
         imbalance_threshold: float = 0.1,
     ):
+        """Initialize the instance."""
         self.missing_threshold = missing_threshold
         self.outlier_threshold = outlier_threshold
         self.correlation_threshold = correlation_threshold
@@ -292,8 +277,7 @@ class DataQualityChecker:
 
 
 class ABTester:
-    """
-    A/B Testing framework for model comparison.
+    """A/B Testing framework for model comparison.
 
     Implements statistical testing for comparing model performance:
     - Paired t-test for cross-validation scores
@@ -302,6 +286,7 @@ class ABTester:
     """
 
     def __init__(self, confidence_level: float = 0.95, n_bootstrap: int = 1000) -> None:
+        """Initialize the instance."""
         self.confidence_level = confidence_level
         self.n_bootstrap = n_bootstrap
         self.alpha = 1.0 - confidence_level
@@ -314,8 +299,7 @@ class ABTester:
         model_b_name: str = "Model B",
         metric_name: str = "F1 Score",
     ) -> ABTestResult:
-        """
-        Compare two models using statistical testing.
+        """Compare two models using statistical testing.
 
         Args:
             model_a_scores: Array of scores from model A (e.g., cross-val scores)
@@ -395,8 +379,7 @@ class ABTester:
 
 
 class ValidationPipeline:
-    """
-    Comprehensive validation pipeline for anomaly detection models.
+    """Comprehensive validation pipeline for anomaly detection models.
 
     Provides:
     - Data quality validation
@@ -412,6 +395,7 @@ class ValidationPipeline:
         quality_checker: DataQualityChecker | None = None,
         ab_tester: ABTester | None = None,
     ):
+        """Initialize the instance."""
         self.n_folds = n_folds
         self.random_state = random_state
         self.quality_checker = quality_checker or DataQualityChecker()
@@ -427,8 +411,7 @@ class ValidationPipeline:
         model_name: str = "unknown",
         run_quality_checks: bool = True,
     ) -> ValidationResult:
-        """
-        Run full validation pipeline on a model.
+        """Run full validation pipeline on a model.
 
         Args:
             model: Model with fit/predict methods

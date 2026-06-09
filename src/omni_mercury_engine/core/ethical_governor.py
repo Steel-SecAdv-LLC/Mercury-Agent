@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Ethical Autonomy Governor with Bias Audits and ΣDirective Overrides
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Ethical Autonomy Governor with Bias Audits and ΣDirective Overrides.
 
 Implements comprehensive ethical oversight with:
 - Bias detection and mitigation (Fairlearn-compatible)
@@ -32,6 +15,8 @@ References:
 
 MIT-compatible implementation.
 """
+
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -71,8 +56,7 @@ class BiasMetrics:
 
 
 class SigmaDirective:
-    """
-    Σ Directive: Supreme ethical overrides for critical situations.
+    """Σ Directive: Supreme ethical overrides for critical situations.
 
     Implements hierarchical directives:
     - Σ1: Justice - Ensure fairness and prevent discrimination
@@ -91,8 +75,7 @@ class SigmaDirective:
         ethical_scalars: EthicalScalars,
         thresholds: ThresholdConfig | None = None,
     ) -> None:
-        """
-        Initialize Sigma Directive system.
+        """Initialize Sigma Directive system.
 
         Args:
             ethical_scalars: Ethical scalar configuration
@@ -109,8 +92,7 @@ class SigmaDirective:
         }
 
     def apply_directive(self, action: str, context: dict[str, Any]) -> tuple[bool, str]:
-        """
-        Apply Sigma Directive to validate action.
+        """Apply Sigma Directive to validate action.
 
         Args:
             action: Proposed action
@@ -190,8 +172,7 @@ class SigmaDirective:
 
 
 class EthicalAutonomyGovernor:
-    """
-    Comprehensive ethical governance system.
+    """Comprehensive ethical governance system.
 
     Features:
     - ~150 ethical scalars from EthicalScalars
@@ -209,8 +190,7 @@ class EthicalAutonomyGovernor:
         rng: DeterministicRNG | None = None,
         thresholds: ThresholdConfig | None = None,
     ):
-        """
-        Initialize Ethical Autonomy Governor.
+        """Initialize Ethical Autonomy Governor.
 
         Bias audits and Sigma Directive overrides are always active —
         there is no off-switch.  The ``enable_bias_audits`` and
@@ -240,8 +220,7 @@ class EthicalAutonomyGovernor:
     def evaluate_decision(
         self, action: str, context: dict[str, Any], data: np.ndarray[Any, Any] | None = None
     ) -> EthicalDecision:
-        """
-        Evaluate decision through ethical framework.
+        """Evaluate decision through ethical framework.
 
         Args:
             action: Proposed action
@@ -302,8 +281,7 @@ class EthicalAutonomyGovernor:
         return decision
 
     def _compute_ethical_score(self, action: str, context: dict[str, Any]) -> float:
-        """
-        Compute ethical score from agent ethical scalars and per-decision behaviour signals.
+        """Compute ethical score from agent ethical scalars and per-decision behaviour signals.
 
         The base score reflects the agent's intrinsic ethical alignment
         (drawn from ~150 ``EthicalScalars``).  When the caller supplies
@@ -375,8 +353,7 @@ class EthicalAutonomyGovernor:
         return float(base_score * behaviour_modifier * context_modifier)
 
     def _audit_bias(self, data: np.ndarray[Any, Any], context: dict[str, Any]) -> BiasMetrics:
-        """
-        Audit for bias using Fairlearn-compatible metrics.
+        """Audit for bias using Fairlearn-compatible metrics.
 
         Args:
             data: Data to audit
@@ -416,8 +393,7 @@ class EthicalAutonomyGovernor:
         )
 
     def _statistical_validation(self, ethical_score: float, context: dict[str, Any]) -> float:
-        """
-        Perform statistical validation (p<0.05).
+        """Perform statistical validation (p<0.05).
 
         Args:
             ethical_score: Ethical score to validate
@@ -435,8 +411,7 @@ class EthicalAutonomyGovernor:
         return float(p_value)
 
     def _should_rollback(self, decision: EthicalDecision) -> bool:
-        """
-        Determine if decision should be rolled back.
+        """Determine if decision should be rolled back.
 
         Args:
             decision: Decision to evaluate

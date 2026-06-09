@@ -1,17 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-"""
-
-from __future__ import annotations
-
-from typing import Any
-
-"""
-Regression tests for the cognitive/ + models/ RNG cure.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Regression tests for the cognitive/ + models/ RNG cure.
 
 Asserts the three contracts that make the per-instance ``Generator`` plumbing
 worthwhile:
@@ -25,6 +14,10 @@ worthwhile:
    actual defect the cure addresses — without it, an unrelated caller can
    silently de-randomize one of these modules.
 """
+
+from __future__ import annotations
+
+from typing import Any
 
 import numpy as np
 import pytest

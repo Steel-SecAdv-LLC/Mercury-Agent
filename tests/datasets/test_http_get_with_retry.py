@@ -1,9 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests for ``omni_mercury_engine.datasets.base.http_get_with_retry`` and
-``safe_urlretrieve``.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for ``omni_mercury_engine.datasets.base.http_get_with_retry`` and ``safe_urlretrieve``.
 
 These two helpers are the bulk-loader entry points (BATADAL, NAB, SMD,
 SMAP/MSL, UCR, ADRepository) into the central :class:`SafeHTTPClient`

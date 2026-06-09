@@ -1,5 +1,6 @@
-"""
-Spherical Harmonic Transform Implementation.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Spherical Harmonic Transform Implementation.
 
 Provides numerically stable spherical harmonic transforms for high l_max values.
 
@@ -62,8 +63,7 @@ class HarmonicCoefficients:
 
 
 class AssociatedLegendre:
-    """
-    Compute associated Legendre polynomials with numerical stability.
+    """Compute associated Legendre polynomials with numerical stability.
 
     Uses recurrence relations with proper normalization for high degrees.
     """
@@ -82,8 +82,7 @@ class AssociatedLegendre:
         self._plm_cache: dict[tuple[int, int], np.ndarray[Any, Any]] = {}
 
     def compute(self, degree: int, m: int, cos_theta: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Compute P_l^m(cos(theta)) with proper normalization.
+        """Compute P_l^m(cos(theta)) with proper normalization.
 
         Args:
             degree: Degree
@@ -163,8 +162,7 @@ class AssociatedLegendre:
 
 
 class SHBasis:
-    """
-    Spherical harmonic basis functions.
+    """Spherical harmonic basis functions.
 
     Computes Y_l^m(theta, phi) for given angles.
     """
@@ -186,8 +184,7 @@ class SHBasis:
         theta: np.ndarray[Any, Any],
         phi: np.ndarray[Any, Any],
     ) -> np.ndarray[Any, Any]:
-        """
-        Compute spherical harmonic Y_l^m(theta, phi).
+        """Compute spherical harmonic Y_l^m(theta, phi).
 
         Args:
             degree: Degree
@@ -216,8 +213,7 @@ class SHBasis:
         theta: np.ndarray[Any, Any],
         phi: np.ndarray[Any, Any],
     ) -> np.ndarray[Any, Any]:
-        """
-        Compute all spherical harmonics up to l_max.
+        """Compute all spherical harmonics up to l_max.
 
         Args:
             theta: Colatitude angles
@@ -239,8 +235,7 @@ class SHBasis:
 
 
 class SphericalHarmonicTransform:
-    """
-    Fast spherical harmonic transform.
+    """Fast spherical harmonic transform.
 
     Implements forward and inverse SH transforms with support for high l_max values using
     numerically stable algorithms.
@@ -252,8 +247,7 @@ class SphericalHarmonicTransform:
         backend: str = "numpy",
         precision: str = "float64",
     ) -> None:
-        """
-        Initialize the SH transform.
+        """Initialize the SH transform.
 
         Args:
             l_max: Maximum spherical harmonic degree
@@ -288,8 +282,7 @@ class SphericalHarmonicTransform:
         phi: np.ndarray[Any, Any],
         weights: np.ndarray[Any, Any] | None = None,
     ) -> HarmonicCoefficients:
-        """
-        Forward spherical harmonic transform (analysis).
+        """Forward spherical harmonic transform (analysis).
 
         Args:
             f: Function values at sample points
@@ -323,8 +316,7 @@ class SphericalHarmonicTransform:
         theta: np.ndarray[Any, Any],
         phi: np.ndarray[Any, Any],
     ) -> np.ndarray[Any, Any]:
-        """
-        Inverse spherical harmonic transform (synthesis).
+        """Inverse spherical harmonic transform (synthesis).
 
         Args:
             coefficients: Spherical harmonic coefficients
@@ -361,8 +353,7 @@ class SphericalHarmonicTransform:
         point_cloud: np.ndarray[Any, Any],
         sampling: str = "healpix",
     ) -> HarmonicCoefficients:
-        """
-        Decompose a 3D point cloud into spherical harmonics.
+        """Decompose a 3D point cloud into spherical harmonics.
 
         Args:
             point_cloud: 3D point cloud (N, 3) or (N, 4) with values
@@ -391,8 +382,7 @@ class SphericalHarmonicTransform:
         n_theta: int = 64,
         n_phi: int = 128,
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """
-        Reconstruct surface from spherical harmonic coefficients.
+        """Reconstruct surface from spherical harmonic coefficients.
 
         Args:
             coefficients: Spherical harmonic coefficients
@@ -416,8 +406,7 @@ class SphericalHarmonicTransform:
 
 
 class FastSHTransform:
-    """
-    Optimized spherical harmonic transform using FFT.
+    """Optimized spherical harmonic transform using FFT.
 
     Provides faster computation for large datasets.
     """
@@ -459,8 +448,7 @@ class FastSHTransform:
                 self._plm_table[(degree, m)] = plm
 
     def forward(self, f: np.ndarray[Any, Any]) -> HarmonicCoefficients:
-        """
-        Fast forward SH transform using FFT.
+        """Fast forward SH transform using FFT.
 
         Args:
             f: Function values on grid (n_theta, n_phi)
@@ -496,8 +484,7 @@ class FastSHTransform:
         )
 
     def inverse(self, coefficients: HarmonicCoefficients) -> np.ndarray[Any, Any]:
-        """
-        Fast inverse SH transform using FFT.
+        """Fast inverse SH transform using FFT.
 
         Args:
             coefficients: Spherical harmonic coefficients

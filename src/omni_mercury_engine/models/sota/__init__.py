@@ -1,7 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-State-of-the-Art Anomaly Detection Models
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""State-of-the-Art Anomaly Detection Models.
 
 This module integrates cutting-edge architectures from academic research:
 - Association Discrepancy (Anomaly Transformer, ICLR 2022)

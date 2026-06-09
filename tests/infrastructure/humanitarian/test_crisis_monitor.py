@@ -1,10 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests for infrastructure/humanitarian/crisis_monitoring/crisis_monitor.py module.
-Comprehensive test coverage for crisis monitoring functionality.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for infrastructure/humanitarian/crisis_monitoring/crisis_monitor.py module. Comprehensive test coverage for crisis monitoring functionality."""
 
 from __future__ import annotations
 

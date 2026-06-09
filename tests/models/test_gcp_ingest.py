@@ -1,8 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Deterministic tests for GCP ingestion + pre-registered statistics (WS-D).
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Deterministic tests for GCP ingestion + pre-registered statistics (WS-D).
 
 No network: the trusted-allowlist gate rejects the GCP host before any socket,
 so ``fetch_egg_stream`` returns ``reachable=False`` reproducibly. The

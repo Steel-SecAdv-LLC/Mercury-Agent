@@ -1,9 +1,6 @@
-"""
-Mercury Agent - Copyright (C) 2025 Steel Security Advisors LLC
-Licensed under GNU GPL v3
-
-Rule-graph sweep: does richer symbolic structure beat the minimal 2-rule
-consensus constraint?
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+r"""Rule-graph sweep: does richer symbolic structure beat the minimal 2-rule consensus constraint?
 
 This is the measured-revival gate for the *threshold-rule* idea of the dormant
 ``cognitive/symbolic_logic_layer.py``, reborn as a differentiable axiom. The

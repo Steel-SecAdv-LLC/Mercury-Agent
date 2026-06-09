@@ -1,36 +1,22 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Feature encoders for different detector types
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Feature encoders for different detector types.
 
 Each encoder transforms domain-specific features into fixed-size embeddings
 for neural fusion.
 """
+
+from __future__ import annotations
 
 import torch
 from torch import nn
 
 
 class StatisticalEncoder(nn.Module):
-    """Encodes statistical features (z-scores, IQR, distributions)"""
+    """Encodes statistical features (z-scores, IQR, distributions)."""
 
     def __init__(self, input_dim: int, hidden_dim: int = 64, output_dim: int = 128) -> None:
+        """Initialize the instance."""
         super().__init__()
         self.encoder = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
@@ -41,8 +27,7 @@ class StatisticalEncoder(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Args:
+        """Args:.
 
             x: [batch_size, input_dim] - Statistical features
 
@@ -53,7 +38,7 @@ class StatisticalEncoder(nn.Module):
 
 
 class TemporalEncoder(nn.Module):
-    """LSTM-based encoder for time series features (handles both sequential and pre-extracted)"""
+    """LSTM-based encoder for time series features (handles both sequential and pre-extracted)."""
 
     def __init__(
         self,
@@ -62,6 +47,7 @@ class TemporalEncoder(nn.Module):
         output_dim: int = 128,
         num_layers: int = 2,
     ):
+        """Initialize the instance."""
         super().__init__()
         self.input_dim = input_dim
         self.lstm = nn.LSTM(
@@ -78,8 +64,7 @@ class TemporalEncoder(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Args:
+        """Args:.
 
             x: [batch_size, seq_len, input_dim] - Time series data OR
                [batch_size, input_dim] - Pre-extracted embeddings
@@ -100,7 +85,7 @@ class TemporalEncoder(nn.Module):
 
 
 class BiometricEncoder(nn.Module):
-    """Encoder for biometric features (handles both images and pre-extracted embeddings)"""
+    """Encoder for biometric features (handles both images and pre-extracted embeddings)."""
 
     def __init__(
         self,
@@ -109,6 +94,7 @@ class BiometricEncoder(nn.Module):
         output_dim: int = 128,
         embedding_dim: int = 128,
     ):
+        """Initialize the instance."""
         super().__init__()
         self.conv_layers = nn.Sequential(
             nn.Conv2d(input_channels, 32, kernel_size=3, stride=2, padding=1),
@@ -134,8 +120,7 @@ class BiometricEncoder(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Args:
+        """Args:.
 
             x: [batch_size, channels, height, width] - Face images OR
                [batch_size, embedding_dim] - Pre-extracted embeddings
@@ -158,6 +143,7 @@ class QuantumEncoder(nn.Module):
     """Encodes quantum state vectors and observables."""
 
     def __init__(self, state_dim: int, output_dim: int = 128) -> None:
+        """Initialize the instance."""
         super().__init__()
         self.state_dim = state_dim
         self.complex_encoder = nn.Sequential(
@@ -173,8 +159,7 @@ class QuantumEncoder(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Args:
+        """Args:.
 
             x: [batch_size, state_dim, 2] - Complex quantum states (real, imag) OR
                [batch_size, state_dim] - Pre-extracted quantum embeddings
@@ -193,9 +178,10 @@ class QuantumEncoder(nn.Module):
 
 
 class AstrophysicalEncoder(nn.Module):
-    """Encodes astrophysical features (gravitational fields, event horizons)"""
+    """Encodes astrophysical features (gravitational fields, event horizons)."""
 
     def __init__(self, input_dim: int, output_dim: int = 128) -> None:
+        """Initialize the instance."""
         super().__init__()
         self.encoder = nn.Sequential(
             nn.Linear(input_dim, 64),
@@ -208,8 +194,7 @@ class AstrophysicalEncoder(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Args:
+        """Args:.
 
             x: [batch_size, input_dim] - Astrophysical features
 
@@ -220,7 +205,7 @@ class AstrophysicalEncoder(nn.Module):
 
 
 class AffectiveEncoder(nn.Module):
-    """BiLSTM encoder for emotional sequences (handles both sequential and pre-extracted)"""
+    """BiLSTM encoder for emotional sequences (handles both sequential and pre-extracted)."""
 
     def __init__(
         self,
@@ -229,6 +214,7 @@ class AffectiveEncoder(nn.Module):
         output_dim: int = 128,
         num_layers: int = 2,
     ):
+        """Initialize the instance."""
         super().__init__()
         self.input_dim = input_dim
         self.bilstm = nn.LSTM(
@@ -246,8 +232,7 @@ class AffectiveEncoder(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Args:
+        """Args:.
 
             x: [batch_size, seq_len, input_dim] - Emotional feature sequences OR
                [batch_size, input_dim] - Pre-extracted embeddings

@@ -1,10 +1,7 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Endocrinology detector with CGM Bi-LSTM and FDA-accurate rule set.
 
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under
-the terms of the GNU General Public License as published by the Free Software
-Foundation, either version 3 of the License, or (at your option) any later
 version.
 
 Ported from Omni-AXA-Engine's ``endocrinology_detector.py``.  The neural
@@ -58,7 +55,6 @@ Two ways to provide a data source:
 
 Operational notes
 -----------------
-Decision support only.  Clinical validation by a licensed endocrinologist is
 required before any output is used to influence patient care.
 """
 

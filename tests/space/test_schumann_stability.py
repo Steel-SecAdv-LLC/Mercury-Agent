@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """WS-C: Schumann training-stability regression + root-cause diagnosis tests.
 
 PR #262 recorded the Schumann sub-net as "seed-unstable" (per-seed AUC

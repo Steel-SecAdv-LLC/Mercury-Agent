@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Offline regression tests for ADBench dataset selection.
 
 Guards two bugs where every ADBench dataset name silently collapsed to the

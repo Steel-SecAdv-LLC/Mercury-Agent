@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """WS-B stability re-run: settle the design sweep's INVESTIGATE flag.
 
 `benchmarks/domain_encoder_sweep.py` (3 seeds) returned **INVESTIGATE** — a

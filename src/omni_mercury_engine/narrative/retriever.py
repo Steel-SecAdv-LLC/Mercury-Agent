@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Knowledge Retriever - Unified Information Search for Mercury Agent
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Knowledge Retriever - Unified Information Search for Mercury Agent.
 
 Provides unified search across all Mercury's knowledge sources:
 - Knowledge Graph (semantic search, traversal, similarity)
@@ -28,6 +11,8 @@ Provides unified search across all Mercury's knowledge sources:
 This enables Mercury to "know" things and reference them in conversation,
 supporting truth-dense responses with evidence backing.
 """
+
+from __future__ import annotations
 
 import logging
 import time
@@ -125,8 +110,7 @@ class SearchResponse:
 
 
 class KnowledgeRetriever:
-    """
-    Unified Knowledge Search for Mercury Agent.
+    """Unified Knowledge Search for Mercury Agent.
 
     Provides a single interface for searching across all knowledge sources,
     enabling Mercury to find and reference information in conversation.
@@ -169,8 +153,7 @@ class KnowledgeRetriever:
         max_results: int = 10,
         default_min_relevance: float = 0.3,
     ) -> None:
-        """
-        Initialize Knowledge Retriever.
+        """Initialize Knowledge Retriever.
 
         Args:
             max_results: Default maximum results per search
@@ -226,8 +209,7 @@ class KnowledgeRetriever:
         min_relevance: float | None = None,
         sources: list[RetrievalSource] | None = None,
     ) -> SearchResponse:
-        """
-        Search across all connected knowledge sources.
+        """Search across all connected knowledge sources.
 
         Args:
             query: Natural language query

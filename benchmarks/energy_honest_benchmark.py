@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Energy/EMP domain honest benchmark.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Energy/EMP domain honest benchmark.
 
 Fetches real space weather data from NOAA SWPC,
 runs MercuryAnomalyDetector, and reports metrics.

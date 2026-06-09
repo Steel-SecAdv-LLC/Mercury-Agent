@@ -1,20 +1,6 @@
-"""
-Mercury Agent - Topological Data Analysis for Anomaly Detection
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Topological Data Analysis for Anomaly Detection.
 
 Implements persistent homology for topological feature extraction:
 - Vietoris-Rips filtration on point cloud data
@@ -45,15 +31,13 @@ __all__ = [
     "wasserstein_distance_pd",
 ]
 
-
 # ---------------------------------------------------------------------------
 # Union-Find (Disjoint Set) data structure for connected-component tracking
 # ---------------------------------------------------------------------------
 
 
 class _UnionFind:
-    """
-    Weighted union-find with path compression.
+    """Weighted union-find with path compression.
 
     Tracks connected components during filtration.  Each element starts in
     its own component; ``union`` merges two components and ``find`` returns
@@ -66,13 +50,13 @@ class _UnionFind:
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.parent: dict[int, int] = {}
         self.rank: dict[int, int] = {}
         self.birth: dict[int, float] = {}
 
     def make_set(self, x: int, birth_time: float = 0.0) -> None:
-        """
-        Create a new singleton set for element *x*.
+        """Create a new singleton set for element *x*.
 
         Args:
             x: Element identifier.
@@ -84,8 +68,7 @@ class _UnionFind:
             self.birth[x] = birth_time
 
     def find(self, x: int) -> int:
-        """
-        Return the root representative of the set containing *x*.
+        """Return the root representative of the set containing *x*.
 
         Applies full path compression so subsequent queries are O(1)
         amortised.
@@ -107,8 +90,7 @@ class _UnionFind:
         return root
 
     def union(self, x: int, y: int) -> tuple[int, int] | None:
-        """
-        Merge the sets containing *x* and *y*.
+        """Merge the sets containing *x* and *y*.
 
         Uses union-by-rank.  The component with the *earlier* birth time
         (smaller filtration value) survives; the other component dies.
@@ -150,8 +132,7 @@ class _UnionFind:
 
 @dataclass
 class PersistenceDiagram:
-    """
-    Container for persistence diagram data.
+    """Container for persistence diagram data.
 
     A persistence diagram stores (birth, death) pairs for topological
     features detected during a filtration.  Dimension-0 pairs correspond to
@@ -190,8 +171,7 @@ class PersistenceDiagram:
         return result
 
     def betti_at(self, epsilon: float, dim: int = 0) -> int:
-        """
-        Compute the Betti number at filtration value *epsilon*.
+        """Compute the Betti number at filtration value *epsilon*.
 
         The Betti number counts how many features are *alive* at a given
         scale: born at or before *epsilon* and dying strictly after it.
@@ -242,6 +222,7 @@ class VietorisRipsFiltration:
         max_dimension: int = 1,
         metric: str = "euclidean",
     ) -> None:
+        """Initialize the instance."""
         self.max_edge_length = max_edge_length
         self.max_dimension = min(max_dimension, 1)  # cap at H1
         self.metric = metric
@@ -250,8 +231,7 @@ class VietorisRipsFiltration:
     # -- public API ----------------------------------------------------------
 
     def build(self, point_cloud: np.ndarray[Any, Any]) -> PersistenceDiagram:
-        """
-        Compute the persistence diagram for *point_cloud*.
+        """Compute the persistence diagram for *point_cloud*.
 
         Args:
             point_cloud: Array of shape ``(n_points, n_features)``.
@@ -320,8 +300,7 @@ class VietorisRipsFiltration:
     # -- internal helpers ----------------------------------------------------
 
     def _sorted_edges(self, n_points: int, filt_max: float) -> list[tuple[float, int, int]]:
-        """
-        Return edges ``(weight, i, j)`` sorted by ascending weight.
+        """Return edges ``(weight, i, j)`` sorted by ascending weight.
 
         Args:
             n_points: Number of vertices.
@@ -347,8 +326,7 @@ class VietorisRipsFiltration:
         edges: list[tuple[float, int, int]],
         filt_max: float,
     ) -> np.ndarray[Any, Any]:
-        """
-        Compute 0-dimensional persistent homology (connected components).
+        """Compute 0-dimensional persistent homology (connected components).
 
         Every vertex is born at filtration value 0.  When an edge merges two
         components the younger component dies.  The last surviving component
@@ -389,8 +367,7 @@ class VietorisRipsFiltration:
         edges: list[tuple[float, int, int]],
         filt_max: float,
     ) -> np.ndarray[Any, Any]:
-        """
-        Compute 1-dimensional persistent homology (cycles / loops).
+        """Compute 1-dimensional persistent homology (cycles / loops).
 
         Uses an incremental edge-triangle approach: for each edge ``(u, v)``
         that does *not* merge two components (i.e. both endpoints already
@@ -467,8 +444,7 @@ def bottleneck_distance(
     dgm_b: PersistenceDiagram,
     dim: int = 0,
 ) -> float:
-    """
-    Approximate bottleneck distance between two persistence diagrams.
+    """Approximate bottleneck distance between two persistence diagrams.
 
     The bottleneck distance is the infimum over all bijections between
     diagram points (including diagonal projections) of the maximum L-inf
@@ -587,8 +563,7 @@ def wasserstein_distance_pd(
 
 
 def _diagram_points(dgm: PersistenceDiagram, dim: int) -> np.ndarray[Any, Any]:
-    """
-    Extract finite (birth, death) points from a diagram.
+    """Extract finite (birth, death) points from a diagram.
 
     Infinite death values are clamped to ``dgm.filtration_max``.
 
@@ -611,8 +586,7 @@ def _diagram_points(dgm: PersistenceDiagram, dim: int) -> np.ndarray[Any, Any]:
 def _augment_with_diagonal(
     pts: np.ndarray[Any, Any], other_pts: np.ndarray[Any, Any]
 ) -> np.ndarray[Any, Any]:
-    """
-    Augment *pts* with diagonal projections of *other_pts*.
+    """Augment *pts* with diagonal projections of *other_pts*.
 
     For each point ``(b, d)`` in *other_pts* the closest point on the
     diagonal is ``((b+d)/2, (b+d)/2)``.
@@ -679,6 +653,7 @@ class TopologicalAnomalyDetector:
         anomaly_threshold: float | None = None,
         seed: int = 42,
     ) -> None:
+        """Initialize the instance."""
         self.max_edge_length = max_edge_length
         self.metric = metric
         self.n_reference_samples = n_reference_samples
@@ -698,8 +673,7 @@ class TopologicalAnomalyDetector:
     # -- public API ----------------------------------------------------------
 
     def fit(self, reference_data: np.ndarray[Any, Any]) -> TopologicalAnomalyDetector:
-        """
-        Build the reference topological profile.
+        """Build the reference topological profile.
 
         Args:
             reference_data: Array of shape ``(n_samples, n_features)``
@@ -745,8 +719,7 @@ class TopologicalAnomalyDetector:
         return self
 
     def score(self, test_data: np.ndarray[Any, Any]) -> dict[str, Any]:
-        """
-        Score a test window / batch against the reference profile.
+        """Score a test window / batch against the reference profile.
 
         Args:
             test_data: Array of shape ``(n_samples, n_features)``.
@@ -809,8 +782,7 @@ class TopologicalAnomalyDetector:
         }
 
     def predict(self, test_data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Return binary anomaly predictions for each row treated as a batch.
+        """Return binary anomaly predictions for each row treated as a batch.
 
         Convenience wrapper compatible with the Mercury Agent detector
         pattern.  Each call scores the full ``test_data`` array as a
@@ -833,8 +805,7 @@ class TopologicalAnomalyDetector:
 
     @staticmethod
     def _extract_features(diagram: PersistenceDiagram) -> dict[str, float]:
-        """
-        Derive topological features from a persistence diagram.
+        """Derive topological features from a persistence diagram.
 
         Args:
             diagram: Source persistence diagram.
@@ -876,8 +847,7 @@ class TopologicalAnomalyDetector:
     # -- scoring helpers -----------------------------------------------------
 
     def _aggregate_score(self, test_features: dict[str, float]) -> float:
-        """
-        Combine feature deviations into a single anomaly score in [0, 1].
+        """Combine feature deviations into a single anomaly score in [0, 1].
 
         Uses z-score deviations from the reference features, weighted by
         inverse variance when available, then passed through a sigmoid for
@@ -918,8 +888,7 @@ class TopologicalAnomalyDetector:
     def _calibrate_threshold(
         self, reference_data: np.ndarray[Any, Any], rng: np.random.RandomState
     ) -> None:
-        """
-        Auto-calibrate the anomaly threshold from reference data.
+        """Auto-calibrate the anomaly threshold from reference data.
 
         Splits the reference into overlapping windows, scores each, and
         sets the threshold at the 95th percentile of reference scores.

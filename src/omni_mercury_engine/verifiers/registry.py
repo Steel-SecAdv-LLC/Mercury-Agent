@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Unified mystery registry: one orchestration layer over every oracle-validated verifier.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Unified mystery registry: one orchestration layer over every oracle-validated verifier.
 
 This is the registry that ties the verifier family together.  For each submitted claim it
 (1) routes to the right independent oracle, (2) records a full provenance entry in an internal
@@ -28,6 +11,8 @@ canonical problem, so the operational σ_Immutable input vector cannot be inflat
 Honesty is preserved end to end: a claim the oracle cannot decide (Collatz budget exceeded, no
 Lean toolchain) is recorded as ``inconclusive`` / ``unavailable`` and registers no scalar.
 """
+
+from __future__ import annotations
 
 import logging
 import time
@@ -108,6 +93,7 @@ class MysteryRegistry:
     """Routes claims to oracles, records provenance, and grounds bounded GOSNN scalars."""
 
     def __init__(self, gosnn: GlobalOmniScalarNetwork) -> None:
+        """Initialize the instance."""
         self.gosnn = gosnn
         self.ledger: list[LedgerEntry] = []
 

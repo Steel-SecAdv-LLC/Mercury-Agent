@@ -1,22 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Regression and property tests for ``security.native_jwt``.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Regression and property tests for ``security.native_jwt``.
 
 These tests lock the contract that ``api/auth.py`` (and any future
 caller) relies on:
@@ -38,6 +22,8 @@ edge-case construction rather than Hypothesis to keep this file
 self-contained and avoid pulling Hypothesis into the security
 test-tier import surface.
 """
+
+from __future__ import annotations
 
 import base64
 import json
@@ -62,7 +48,6 @@ SECRET = "test-secret-key-which-is-clearly-not-for-production-use"
 NON_DICT_PAYLOAD = cast("dict[str, object]", "not a dict")
 NON_SECRET_KEY = cast("str | bytes", 12345)
 NON_TOKEN = cast("str | bytes", 12345)
-
 
 # --------------------------------------------------------------------------- #
 # Round-trip

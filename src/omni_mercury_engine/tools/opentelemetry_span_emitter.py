@@ -1,14 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-------------------------------------------------------------------------
-
-Operator tool: OTLP span emitter for the Mercury gate stack.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: OTLP span emitter for the Mercury gate stack.
 
 Emits a representative trace covering Benevolence, σ_Immutable, GOSNN,
 and the OAE fusion stage.  When ``OTEL_EXPORTER_OTLP_ENDPOINT`` is set

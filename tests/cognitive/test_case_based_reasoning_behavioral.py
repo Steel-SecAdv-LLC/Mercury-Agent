@@ -1,13 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Behavioural tests for ``cognitive/case_based_reasoning.py``.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Behavioural tests for ``cognitive/case_based_reasoning.py``.
 
 Previously only ``add``/``retrieve`` were weakly asserted (existence checks).
 These pin real state transitions and the CBR cycle: retrieval ranking +

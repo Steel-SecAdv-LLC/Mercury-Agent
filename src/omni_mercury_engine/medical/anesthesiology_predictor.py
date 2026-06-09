@@ -1,10 +1,7 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Anesthesiology predictor with TIVA Bi-LSTM, PID infusion, and vital monitoring.
 
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under
-the terms of the GNU General Public License as published by the Free Software
-Foundation, either version 3 of the License, or (at your option) any later
 version.
 
 Ported from Omni-AXA-Engine's ``anesthesiology_predictor.py``.  The PID
@@ -49,7 +46,6 @@ IntelliVue, GE CARESCAPE, Mindray BeneVision) can be written as
 
 Operational notes
 -----------------
-This module performs decision support only.  Clinical validation by a licensed
 anesthesiologist is required before any output is used to influence patient
 care.  The :class:`SmartInfusionController` is a PID toy implementation; it
 must not be wired into actual infusion pumps without clinical-trial validation.

@@ -1,5 +1,6 @@
-"""
-Iris Recognition Module for Mercury Agent Biometric System.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Iris Recognition Module for Mercury Agent Biometric System.
 
 Implements the Daugman IrisCode algorithm for iris recognition with
 liveness detection based on pupil dynamics and specular reflection analysis.
@@ -58,8 +59,7 @@ class LivenessResult:
 
 
 class GaborFilter:
-    """
-    2D Gabor filter bank for iris texture analysis.
+    """2D Gabor filter bank for iris texture analysis.
 
     Gabor filters are bandpass filters that capture texture information at specific orientations and
     frequencies.
@@ -140,8 +140,7 @@ class GaborFilter:
 
 
 class IrisSegmenter:
-    """
-    Iris segmentation using integro-differential operator.
+    """Iris segmentation using integro-differential operator.
 
     Localizes the pupil and iris boundaries in an eye image.
     """
@@ -161,8 +160,7 @@ class IrisSegmenter:
         self,
         image: np.ndarray[Any, Any],
     ) -> tuple[tuple[float, float], float, tuple[float, float], float]:
-        """
-        Segment iris from eye image.
+        """Segment iris from eye image.
 
         Returns:
             Tuple of (pupil_center, pupil_radius, iris_center, iris_radius)
@@ -196,8 +194,7 @@ class IrisSegmenter:
         dark_circle: bool = True,
         center_hint: tuple[float, float] | None = None,
     ) -> tuple[tuple[float, float], float]:
-        """
-        Find a circle using the integro-differential operator.
+        """Find a circle using the integro-differential operator.
 
         The operator finds the maximum of the circular integral gradient.
         """
@@ -276,8 +273,7 @@ class IrisSegmenter:
 
 
 class IrisNormalizer:
-    """
-    Rubber sheet normalization (Daugman's method).
+    """Rubber sheet normalization (Daugman's method).
 
     Maps the iris region to a fixed-size rectangular representation.
     """
@@ -299,8 +295,7 @@ class IrisNormalizer:
         iris_center: tuple[float, float],
         iris_radius: float,
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """
-        Normalize iris region to rectangular coordinates.
+        """Normalize iris region to rectangular coordinates.
 
         Returns:
             Tuple of (normalized_iris, mask)
@@ -335,8 +330,7 @@ class IrisNormalizer:
 
 
 class IrisEncoder:
-    """
-    Encode normalized iris to binary IrisCode.
+    """Encode normalized iris to binary IrisCode.
 
     Uses Gabor wavelets to extract phase information.
     """
@@ -359,8 +353,7 @@ class IrisEncoder:
         normalized_iris: np.ndarray[Any, Any],
         mask: np.ndarray[Any, Any],
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """
-        Encode normalized iris to binary code.
+        """Encode normalized iris to binary code.
 
         Returns:
             Tuple of (iris_code, code_mask)
@@ -386,8 +379,7 @@ class IrisEncoder:
 
 
 class IrisMatcher:
-    """
-    Match iris codes using Hamming distance.
+    """Match iris codes using Hamming distance.
 
     Includes rotation compensation for different eye orientations.
     """
@@ -408,8 +400,7 @@ class IrisMatcher:
         code2: np.ndarray[Any, Any],
         mask2: np.ndarray[Any, Any],
     ) -> IrisMatchResult:
-        """
-        Match two iris codes.
+        """Match two iris codes.
 
         Returns match result with Hamming distance and confidence.
         """
@@ -448,8 +439,7 @@ class IrisMatcher:
 
 
 class IrisLivenessDetector:
-    """
-    Detect presentation attacks on iris recognition systems.
+    """Detect presentation attacks on iris recognition systems.
 
     Analyzes pupil dynamics, specular reflections, and texture authenticity.
     """
@@ -470,8 +460,7 @@ class IrisLivenessDetector:
         images: list[np.ndarray[Any, Any]],
         pupil_radii: list[float] | None = None,
     ) -> LivenessResult:
-        """
-        Detect liveness from a sequence of iris images.
+        """Detect liveness from a sequence of iris images.
 
         Args:
             images: Sequence of eye images (for pupil dynamics)
@@ -603,8 +592,7 @@ class IrisLivenessDetector:
 
 
 class IrisRecognizer:
-    """
-    Complete iris recognition system.
+    """Complete iris recognition system.
 
     Integrates segmentation, normalization, encoding, matching, and liveness detection.
     """
@@ -623,8 +611,7 @@ class IrisRecognizer:
         self._liveness_required = liveness_required
 
     def extract_features(self, image: np.ndarray[Any, Any]) -> IrisFeatures:
-        """
-        Extract iris features from an eye image.
+        """Extract iris features from an eye image.
 
         Args:
             image: Eye image (grayscale or RGB)
@@ -659,8 +646,7 @@ class IrisRecognizer:
         enrolled_features: IrisFeatures,
         liveness_images: list[np.ndarray[Any, Any]] | None = None,
     ) -> tuple[IrisMatchResult, LivenessResult | None]:
-        """
-        Verify an iris against enrolled features.
+        """Verify an iris against enrolled features.
 
         Args:
             probe_image: Probe iris image

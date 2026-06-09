@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Multi-Agent Coordination Protocol for Mercury Agent.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Multi-Agent Coordination Protocol for Mercury Agent.
 
 Implements coordination between multiple detection agents inspired by:
 - "Multi-Agent Reinforcement Learning: A Survey" (Hernandez-Leal et al., 2019)
@@ -39,6 +22,8 @@ Key Concepts:
 - Coordination Protocol: Rules for agent interaction
 """
 
+from __future__ import annotations
+
 import logging
 import time
 from abc import ABC, abstractmethod
@@ -50,7 +35,6 @@ from typing import Any
 import numpy as np
 
 logger = logging.getLogger(__name__)
-
 
 # =============================================================================
 # Constants
@@ -159,8 +143,7 @@ class Message:
 
 @dataclass
 class AgentCapability:
-    """
-    Description of agent capabilities.
+    """Description of agent capabilities.
 
     Attributes:
         capability_id: Unique identifier
@@ -183,8 +166,7 @@ class AgentCapability:
 
 @dataclass
 class DetectionResult:
-    """
-    Result from an agent's detection.
+    """Result from an agent's detection.
 
     Attributes:
         agent_id: Detecting agent ID
@@ -209,8 +191,7 @@ class DetectionResult:
 
 @dataclass
 class ConsensusResult:
-    """
-    Result of consensus process.
+    """Result of consensus process.
 
     Attributes:
         consensus_id: Unique identifier
@@ -235,8 +216,7 @@ class ConsensusResult:
 
 @dataclass
 class Coalition:
-    """
-    A coalition of cooperating agents.
+    """A coalition of cooperating agents.
 
     Attributes:
         coalition_id: Unique identifier
@@ -289,8 +269,7 @@ class DetectionAgent(ABC):
         role: AgentRole | None = None,
         capabilities: list[AgentCapability] | list[str] | None = None,
     ):
-        """
-        Initialize detection agent.
+        """Initialize detection agent.
 
         Args:
             agent_id: Unique agent identifier
@@ -323,8 +302,7 @@ class DetectionAgent(ABC):
         data: np.ndarray[Any, Any],
         context: dict[str, Any] | None = None,
     ) -> DetectionResult:
-        """
-        Perform anomaly detection.
+        """Perform anomaly detection.
 
         Args:
             data: Input data
@@ -357,8 +335,7 @@ class DetectionAgent(ABC):
         coordinator: AgentCoordinator,
         priority: int = 5,
     ) -> Message:
-        """
-        Send a message to another agent.
+        """Send a message to another agent.
 
         Args:
             receiver_id: Receiving agent ID
@@ -465,8 +442,7 @@ class SimpleDetectionAgent(DetectionAgent):
 
 
 class ConsensusProtocol:
-    """
-    Protocol for reaching consensus among agents.
+    """Protocol for reaching consensus among agents.
 
     Supports multiple consensus methods from simple voting to Byzantine fault-tolerant consensus.
     """
@@ -477,8 +453,7 @@ class ConsensusProtocol:
         threshold: float = DEFAULT_CONSENSUS_THRESHOLD,
         min_participants: int = 3,
     ):
-        """
-        Initialize consensus protocol.
+        """Initialize consensus protocol.
 
         Args:
             method: Consensus method to use (ConsensusMethod or string)
@@ -508,8 +483,7 @@ class ConsensusProtocol:
         self,
         results: list[DetectionResult] | list[dict[str, Any]],
     ) -> ConsensusResult | dict[str, Any]:
-        """
-        Reach consensus on detection results.
+        """Reach consensus on detection results.
 
         Args:
             results: Results from multiple agents (DetectionResult objects or vote dicts)
@@ -558,8 +532,7 @@ class ConsensusProtocol:
         consensus_id: str,
         votes: list[dict[str, Any]],
     ) -> dict[str, Any]:
-        """
-        Reach consensus from vote dicts (test API).
+        """Reach consensus from vote dicts (test API).
 
         Args:
             consensus_id: Consensus ID
@@ -722,8 +695,7 @@ class ConsensusProtocol:
         consensus_id: str,
         results: list[DetectionResult],
     ) -> ConsensusResult:
-        """
-        Byzantine fault-tolerant consensus.
+        """Byzantine fault-tolerant consensus.
 
         Tolerates up to f faulty agents with n >= 3f + 1 total.
         """
@@ -813,8 +785,7 @@ class ConsensusProtocol:
 
 
 class AgentCoordinator:
-    """
-    Coordinator for multi-agent system.
+    """Coordinator for multi-agent system.
 
     Manages agent registration, message routing, coalition formation, and consensus building.
     """
@@ -825,8 +796,7 @@ class AgentCoordinator:
         consensus_method: ConsensusMethod = ConsensusMethod.CONFIDENCE_WEIGHTED,
         max_agents: int = MAX_AGENTS,
     ):
-        """
-        Initialize agent coordinator.
+        """Initialize agent coordinator.
 
         Args:
             strategy: Coordination strategy
@@ -864,8 +834,7 @@ class AgentCoordinator:
         )
 
     def register_agent(self, agent: DetectionAgent) -> bool:
-        """
-        Register an agent with the coordinator.
+        """Register an agent with the coordinator.
 
         Args:
             agent: Agent to register
@@ -887,8 +856,7 @@ class AgentCoordinator:
         return True
 
     def unregister_agent(self, agent_id: str) -> bool:
-        """
-        Unregister an agent.
+        """Unregister an agent.
 
         Args:
             agent_id: Agent ID to unregister
@@ -909,8 +877,7 @@ class AgentCoordinator:
         return True
 
     def route_message(self, message: Message) -> None:
-        """
-        Route a message to its recipient.
+        """Route a message to its recipient.
 
         Args:
             message: Message to route
@@ -934,8 +901,7 @@ class AgentCoordinator:
         required_roles: list[AgentRole] | None = None,
         max_size: int = MAX_COALITION_SIZE,
     ) -> Coalition | None:
-        """
-        Form a coalition for a task.
+        """Form a coalition for a task.
 
         Args:
             task: Task description
@@ -1013,8 +979,7 @@ class AgentCoordinator:
         return coalition
 
     def dissolve_coalition(self, coalition_id: str) -> None:
-        """
-        Dissolve a coalition.
+        """Dissolve a coalition.
 
         Args:
             coalition_id: Coalition to dissolve
@@ -1040,8 +1005,7 @@ class AgentCoordinator:
         context: dict[str, Any] | None = None,
         agent_ids: list[str] | None = None,
     ) -> ConsensusResult:
-        """
-        Coordinate detection across multiple agents.
+        """Coordinate detection across multiple agents.
 
         Args:
             data: Input data for detection
@@ -1093,8 +1057,7 @@ class AgentCoordinator:
         return consensus
 
     def get_agent_by_role(self, role: AgentRole) -> list[DetectionAgent]:
-        """
-        Get agents by role.
+        """Get agents by role.
 
         Args:
             role: Agent role to filter by
@@ -1128,8 +1091,7 @@ class AgentCoordinator:
 
 
 class MultiAgentDetectionSystem:
-    """
-    Complete multi-agent anomaly detection system.
+    """Complete multi-agent anomaly detection system.
 
     Provides high-level interface for multi-agent detection with automatic agent management and
     coordination.
@@ -1142,8 +1104,7 @@ class MultiAgentDetectionSystem:
         consensus_method: ConsensusMethod = ConsensusMethod.CONFIDENCE_WEIGHTED,
         seed: int | None = None,
     ):
-        """
-        Initialize multi-agent detection system.
+        """Initialize multi-agent detection system.
 
         Args:
             num_agents: Number of detection agents
@@ -1192,8 +1153,7 @@ class MultiAgentDetectionSystem:
         context: dict[str, Any] | None = None,
         use_coalition: bool = False,
     ) -> dict[str, Any]:
-        """
-        Perform multi-agent detection.
+        """Perform multi-agent detection.
 
         Args:
             data: Input data
@@ -1240,8 +1200,7 @@ class MultiAgentDetectionSystem:
         }
 
     def register_agent(self, agent: DetectionAgent) -> bool:
-        """
-        Register a detection agent (simplified API).
+        """Register a detection agent (simplified API).
 
         Args:
             agent: Detection agent to register
@@ -1256,8 +1215,7 @@ class MultiAgentDetectionSystem:
         role: AgentRole = AgentRole.STATISTICAL,
         threshold: float = 0.5,
     ) -> str | None:
-        """
-        Add a new detection agent.
+        """Add a new detection agent.
 
         Args:
             role: Agent role
@@ -1274,8 +1232,7 @@ class MultiAgentDetectionSystem:
         return None
 
     def remove_agent(self, agent_id: str) -> bool:
-        """
-        Remove a detection agent.
+        """Remove a detection agent.
 
         Args:
             agent_id: Agent ID to remove

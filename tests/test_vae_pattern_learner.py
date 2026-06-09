@@ -1,9 +1,6 @@
-"""
-Tests for VAE Pattern Learner module.
-
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for VAE Pattern Learner module."""
 
 import pytest
 

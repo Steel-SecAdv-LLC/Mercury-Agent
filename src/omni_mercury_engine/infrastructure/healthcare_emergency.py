@@ -1,25 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-from typing import Any, TypedDict
-
-"""
-CISA Healthcare & Emergency Services Critical Infrastructure Anomaly Detection
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""CISA Healthcare & Emergency Services Critical Infrastructure Anomaly Detection.
 
 Patient monitoring, outbreak detection, and emergency response optimization.
 
@@ -28,11 +9,13 @@ Research sources:
 - CISA Emergency Services Sector framework
 - CDC surveillance guidelines
 - HIPAA security rules
-
 """
+
+from __future__ import annotations
 
 from datetime import datetime, timedelta
 from enum import Enum
+from typing import Any, TypedDict
 
 import numpy as np
 
@@ -73,8 +56,7 @@ class EmergencyType(Enum):
 
 
 class HealthcareEmergencyDetector:
-    """
-    Anomaly detection for CISA Healthcare and Emergency Services sectors.
+    """Anomaly detection for CISA Healthcare and Emergency Services sectors.
 
     Monitors:
     - Patient vital signs (early warning for deterioration)
@@ -85,6 +67,7 @@ class HealthcareEmergencyDetector:
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.vital_sign_ranges: dict[str, _VitalSignRange] = {
             "heart_rate_bpm": {"min": 60, "max": 100, "critical_min": 40, "critical_max": 130},
             "blood_pressure_systolic": {
@@ -115,8 +98,7 @@ class HealthcareEmergencyDetector:
         detection_type: str = "patient",
         patient_history: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """
-        Generic detection interface for healthcare/emergency services.
+        """Generic detection interface for healthcare/emergency services.
 
         Args:
             data: Sensor data as numpy array
@@ -148,8 +130,7 @@ class HealthcareEmergencyDetector:
         patient_history: dict[str, Any] | None = None,
         time_series: dict[str, np.ndarray[Any, Any]] | None = None,
     ) -> dict[str, Any]:
-        """
-        Detect patient deterioration from vital signs.
+        """Detect patient deterioration from vital signs.
 
         Args:
             vital_signs: Current vital sign readings
@@ -202,8 +183,7 @@ class HealthcareEmergencyDetector:
     def detect_emergency_call_anomaly(
         self, call_data: dict[str, int], time_window: timedelta = timedelta(hours=1)
     ) -> dict[str, Any]:
-        """
-        Detect anomalies in 911/emergency call patterns.
+        """Detect anomalies in 911/emergency call patterns.
 
         Args:
             call_data: Emergency call counts

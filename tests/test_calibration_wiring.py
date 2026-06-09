@@ -1,7 +1,6 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Integration tests for ThresholdCalibrationPipeline wiring into MercuryAnomalyDetector.
-
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
 
 Validates that fit_with_labels() resolves the calibration gap (high AUC, low F1)
 by setting a supervised threshold via Youden's J or F1-optimal strategies.

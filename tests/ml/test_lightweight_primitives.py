@@ -1,5 +1,6 @@
-"""
-Mercury Agent - Tests for Lightweight Neural Primitives
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Mercury Agent - Tests for Lightweight Neural Primitives.
 
 Tests for pure NumPy implementations of neural network operations.
 """

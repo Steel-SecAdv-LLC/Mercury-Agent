@@ -1,19 +1,6 @@
-"""
-Mercury Agent - Calibration Validation Harness
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Calibration Validation Harness.
 
 Resolves math debt items MD-011, MD-003, MD-005 by running calibration,
 cross-validation, and conformal coverage measurement against all
@@ -81,7 +68,6 @@ MAX_SAMPLES = 20_000
 MIN_SAMPLES_PER_CLASS = 10
 OUTPUT_PATH = Path(__file__).parent / "calibration_validation_results.json"
 CONFORMAL_COVERAGE_LEVELS = [0.90, 0.95, 0.99]
-
 
 # ---------------------------------------------------------------------------
 # Helpers

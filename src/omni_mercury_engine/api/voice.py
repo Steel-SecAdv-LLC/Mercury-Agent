@@ -1,20 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
-
-Voice Interface API - Mercury Agent Conversational Endpoints
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+r"""Voice Interface API - Mercury Agent Conversational Endpoints.
 
 Provides REST API endpoints for Mercury's voice/conversational interface:
 - Natural language queries
@@ -42,8 +28,7 @@ logger = logging.getLogger(__name__)
 
 # Request/Response Models
 class SpeakRequest(BaseModel):
-    """
-    Request model for voice speak endpoint.
+    """Request model for voice speak endpoint.
 
     Attributes:
         message: User's natural language message
@@ -81,8 +66,7 @@ class SpeakRequest(BaseModel):
 
 
 class VoiceResponseModel(BaseModel):
-    """
-    Response model for voice speak endpoint.
+    """Response model for voice speak endpoint.
 
     Attributes:
         message: Mercury's response message
@@ -131,8 +115,7 @@ class VoiceResponseModel(BaseModel):
 
 
 class DetectionNarrationRequest(BaseModel):
-    """
-    Request model for detection narration.
+    """Request model for detection narration.
 
     Attributes:
         detection_result: The detection result to narrate
@@ -163,8 +146,7 @@ class DetectionNarrationRequest(BaseModel):
 
 
 class NarrationResponse(BaseModel):
-    """
-    Response model for detection narration.
+    """Response model for detection narration.
 
     Attributes:
         summary: Brief summary of the detection
@@ -187,8 +169,7 @@ class NarrationResponse(BaseModel):
 
 
 class StatusResponse(BaseModel):
-    """
-    Response model for system status.
+    """Response model for system status.
 
     Attributes:
         status: Overall system status
@@ -221,7 +202,6 @@ class GreetingResponse(BaseModel):
 
 # Create router
 router = APIRouter(prefix="/api/v1/voice", tags=["Voice Interface"])
-
 
 # Global voice instance (lazy loaded) - guarded by lock for thread safety
 _mercury_voice: Any = None
@@ -353,8 +333,7 @@ Mercury automatically detects the intent of your message:
     },
 )
 async def speak(request: SpeakRequest) -> VoiceResponseModel:
-    """
-    Send a message to Mercury and receive a response.
+    """Send a message to Mercury and receive a response.
 
     Args:
         request: SpeakRequest with user message
@@ -420,8 +399,7 @@ Verbosity levels:
     """,
 )
 async def narrate_detection(request: DetectionNarrationRequest) -> NarrationResponse:
-    """
-    Generate narrative explanation of detection result.
+    """Generate narrative explanation of detection result.
 
     Args:
         request: Detection result and narration parameters
@@ -495,8 +473,7 @@ async def narrate_detection(request: DetectionNarrationRequest) -> NarrationResp
     description="Get the current status of Mercury's voice interface and related components.",
 )
 async def get_status() -> StatusResponse:
-    """
-    Get voice interface status.
+    """Get voice interface status.
 
     Returns:
         StatusResponse with component status and statistics
@@ -532,8 +509,7 @@ async def get_status() -> StatusResponse:
     description="Get an initial greeting from Mercury with available capabilities.",
 )
 async def greet(domain: str | None = None) -> GreetingResponse:
-    """
-    Get Mercury's greeting.
+    """Get Mercury's greeting.
 
     Args:
         domain: Optional domain context
@@ -566,8 +542,7 @@ async def greet(domain: str | None = None) -> GreetingResponse:
     description="Get the recent conversation history for the current session.",
 )
 async def get_history(limit: int = 10) -> dict[str, Any]:
-    """
-    Get recent conversation history.
+    """Get recent conversation history.
 
     Args:
         limit: Maximum number of turns to return
@@ -589,8 +564,7 @@ async def get_history(limit: int = 10) -> dict[str, Any]:
 
 # Function to add voice routes to main app
 def add_voice_routes(app: Any) -> None:
-    """
-    Add voice routes to FastAPI application.
+    """Add voice routes to FastAPI application.
 
     Args:
         app: FastAPI application instance

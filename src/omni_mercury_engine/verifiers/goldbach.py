@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Oracle-validated verifier for a MATHEMATICAL_MYSTERIES scalar (Goldbach's conjecture).
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Oracle-validated verifier for a MATHEMATICAL_MYSTERIES scalar (Goldbach's conjecture).
 
 This module exists to answer one question: can a GOSNN scalar carry a truth value that is
 established by an independent oracle rather than asserted by a model?
@@ -36,6 +19,8 @@ is itself cross-checked against naive trial division in the test-suite.
 The scalar registered into the GOSNN is *grounded*: its value is decided by the verdict
 (1.0 when the oracle confirms the partition, 0.0 when it refutes it), not chosen by hand.
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass

@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Interstellar Object Anomaly Detection Module
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Interstellar Object Anomaly Detection Module.
 
 Specialized detection system for interstellar objects (ISOs) including 'Oumuamua,
 2I/Borisov (Comet Borisov), and future ISO candidates. Analyzes orbital mechanics,
@@ -49,8 +32,9 @@ Research References:
 ⚠️ SIMULATION-BASED: For research/scientific analysis. Claims of artificial
 origins require extraordinary evidence and peer review. This module analyzes
 anomalies objectively without asserting conclusions about artificial origins.
-
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -119,14 +103,14 @@ class InterstellarObjectResult:
 
 
 class InterstellarObjectAnalyzer(_NNBase):  # type: ignore[misc, unused-ignore]
-    """
-    Neural network for interstellar object anomaly analysis.
+    """Neural network for interstellar object anomaly analysis.
 
     Uses attention mechanisms to correlate multi-wavelength observations, orbital parameters, and
     physical characteristics.
     """
 
     def __init__(self, input_dim: int = 96) -> None:
+        """Initialize the instance."""
         if not TORCH_AVAILABLE:
             raise ImportError(
                 "PyTorch is required for InterstellarObjectAnalyzer. "
@@ -190,8 +174,7 @@ class InterstellarObjectAnalyzer(_NNBase):  # type: ignore[misc, unused-ignore]
     def forward(
         self, orbital: torch.Tensor, spectro: torch.Tensor, physical: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """
-        Forward pass through ISO analyzer.
+        """Forward pass through ISO analyzer.
 
         Args:
             orbital: Orbital parameters [batch, features]
@@ -220,16 +203,14 @@ class InterstellarObjectAnalyzer(_NNBase):  # type: ignore[misc, unused-ignore]
 
 
 class InterstellarObjectDetector:
-    """
-    Interstellar Object Anomaly Detector.
+    """Interstellar Object Anomaly Detector.
 
     Analyzes interstellar objects for unusual characteristics that deviate from expectations for
     natural solar system bodies or known interstellar comets/asteroids.
     """
 
     def __init__(self, enable_artificial_origin_test: bool = False) -> None:
-        """
-        Initialize interstellar object detector.
+        """Initialize interstellar object detector.
 
         Args:
             enable_artificial_origin_test: Enable Galileo Project-style tests
@@ -306,8 +287,7 @@ class InterstellarObjectDetector:
     def detect_interstellar_anomaly(
         self, iso_data: dict[str, Any], comparison_objects: list[dict[str, Any]] | None = None
     ) -> InterstellarObjectResult:
-        """
-        Detect anomalies in interstellar object data.
+        """Detect anomalies in interstellar object data.
 
         Args:
             iso_data: Observational data including:
@@ -661,8 +641,7 @@ class InterstellarObjectDetector:
 
 
 def create_omni_interstellar_scalars() -> dict[str, float]:
-    """
-    Create doctorate-level interstellar object analysis scalars.
+    """Create doctorate-level interstellar object analysis scalars.
 
     Returns:
         Dictionary of interstellar scalars with golden ratio optimization

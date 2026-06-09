@@ -1,12 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published by the
-Free Software Foundation, either version 3 of the License, or (at your
-option) any later version.
-
-σ_Immutable signed corpus (Wave B item 2).
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""σ_Immutable signed corpus (Wave B item 2).
 
 Persists, signs, and verifies the labelled scalar-vector corpus that
 trains the σ_Immutable EthicalGate.  The corpus and its signatures live
@@ -40,7 +34,6 @@ from typing import Any
 import numpy as np
 
 logger = logging.getLogger(__name__)
-
 
 _PACKAGE_ROOT = Path(__file__).resolve().parent.parent
 CORPUS_PATH: Path = _PACKAGE_ROOT / "security" / "sigma_immutable_corpus.json"

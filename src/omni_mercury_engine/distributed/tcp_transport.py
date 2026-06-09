@@ -1,13 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Native TCP MessageTransport for Raft.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Native TCP MessageTransport for Raft.
 
 Pure-stdlib implementation:
 - ``asyncio.start_server`` listens on a per-node TCP port.
@@ -66,7 +59,6 @@ from omni_mercury_engine.security.crypto_api import Ed25519Provider, KeyPair
 
 logger = logging.getLogger(__name__)
 
-
 # ---------------------------------------------------------------------------
 # Wire-format constants
 # ---------------------------------------------------------------------------
@@ -90,8 +82,7 @@ def _frame(payload: bytes) -> bytes:
 
 
 async def _read_frame(reader: asyncio.StreamReader) -> bytes | None:
-    """
-    Read one length-prefixed frame.
+    """Read one length-prefixed frame.
 
     Returns ``None`` on clean EOF.
     """
@@ -183,8 +174,7 @@ def _deserialize_append_entries_response(body: dict[str, Any]) -> AppendEntriesR
 
 
 def _envelope_bytes(envelope: dict[str, Any]) -> bytes:
-    """
-    Canonical bytes for signing/verifying.
+    """Canonical bytes for signing/verifying.
 
     Excludes ``signature`` so the field can be set after canonicalisation without affecting the
     digest.
@@ -199,8 +189,7 @@ def _envelope_bytes(envelope: dict[str, Any]) -> bytes:
 
 
 class TCPMessageTransport(MessageTransport):
-    """
-    Native pure-stdlib TCP transport for Raft consensus.
+    """Native pure-stdlib TCP transport for Raft consensus.
 
     The transport is symmetric — every node both serves a TCP listener
     and connects out to its peers on demand.
@@ -237,6 +226,7 @@ class TCPMessageTransport(MessageTransport):
         server_ssl_context: ssl.SSLContext | None = None,
         client_ssl_context: ssl.SSLContext | None = None,
     ) -> None:
+        """Initialize the instance."""
         super().__init__()
         self._node_id = node_id
         self._bind_host = bind_host
@@ -497,7 +487,7 @@ class TCPMessageTransport(MessageTransport):
                 pass
 
     async def _handle_envelope(self, envelope: dict[str, Any]) -> dict[str, Any] | None:
-        """Dispatch an inbound RPC to the registered handler and sign the response envelope before
+        """Dispatch an inbound RPC to the registered handler and sign the response envelope before.
         returning it on the same connection.
         """
         msg_type = envelope.get("type")

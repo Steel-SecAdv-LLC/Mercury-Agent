@@ -1,9 +1,6 @@
-"""
-Mercury Agent - Copyright (C) 2025 Steel Security Advisors LLC
-Licensed under GNU GPL v3
-
-Formal-verification soundness: does the dormant interval-bound propagator
-produce *sound* output certificates for a network over an input region?
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+r"""Formal-verification soundness: does the dormant interval-bound propagator produce *sound* output certificates for a network over an input region?
 
 `formal_verification.py` was orphaned and un-revivable by anomaly-AUC -- it emits
 satisfiability proofs / certified bounds, not anomaly scores. The right metric for

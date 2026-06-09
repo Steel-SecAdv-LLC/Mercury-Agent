@@ -1,18 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Provide formal verification."""
 
 from __future__ import annotations
 
@@ -51,7 +39,6 @@ from typing import Any
 import numpy as np
 
 logger = logging.getLogger(__name__)
-
 
 # =============================================================================
 # Constants
@@ -113,8 +100,7 @@ class ConstraintType(Enum):
 
 @dataclass
 class FormalProperty:
-    """
-    A formal property to verify.
+    """A formal property to verify.
 
     Attributes:
         property_id: Unique identifier
@@ -139,8 +125,7 @@ class FormalProperty:
 
 @dataclass
 class Constraint:
-    """
-    A constraint for verification.
+    """A constraint for verification.
 
     Attributes:
         constraint_id: Unique identifier
@@ -161,8 +146,7 @@ class Constraint:
 
 @dataclass
 class VerificationReport:
-    """
-    Report from formal verification.
+    """Report from formal verification.
 
     Attributes:
         verification_id: Unique identifier
@@ -201,8 +185,7 @@ class VerificationReport:
 
 @dataclass
 class SafetyBound:
-    """
-    Safety bounds for a variable.
+    """Safety bounds for a variable.
 
     Attributes:
         variable: Variable name
@@ -235,8 +218,7 @@ class SafetyBound:
 
 @dataclass
 class InvariantCondition:
-    """
-    An invariant condition that must always hold.
+    """An invariant condition that must always hold.
 
     Attributes:
         invariant_id: Unique identifier
@@ -257,8 +239,7 @@ class InvariantCondition:
 
 
 class ConstraintSolver:
-    """
-    Solver for constraint satisfaction problems.
+    """Solver for constraint satisfaction problems.
 
     Uses interval propagation and backtracking search to verify constraints are satisfiable.
     """
@@ -269,8 +250,7 @@ class ConstraintSolver:
         max_iterations: int = MAX_ITERATIONS,
         seed: int | None = None,
     ):
-        """
-        Initialize constraint solver.
+        """Initialize constraint solver.
 
         Args:
             epsilon: Tolerance for floating-point comparison
@@ -289,8 +269,7 @@ class ConstraintSolver:
         constraints: list[Constraint],
         values: dict[str, Any],
     ) -> tuple[bool, list[str]]:
-        """
-        Check if values satisfy constraints.
+        """Check if values satisfy constraints.
 
         Args:
             constraints: List of constraints
@@ -357,8 +336,7 @@ class ConstraintSolver:
         self,
         constraints: list[dict[str, Any]],
     ) -> dict[str, Any]:
-        """
-        Solve constraint satisfaction problem (simplified API).
+        """Solve constraint satisfaction problem (simplified API).
 
         Args:
             constraints: List of constraint dicts with type, variable, min/max/value
@@ -433,8 +411,7 @@ class ConstraintSolver:
         search_bounds: dict[str, tuple[float, float]],
         num_samples: int = 100,
     ) -> dict[str, float] | None:
-        """
-        Find counterexample to constraints.
+        """Find counterexample to constraints.
 
         Args:
             constraints: Constraints to violate
@@ -465,8 +442,7 @@ class ConstraintSolver:
 
 
 class SafetyVerifier:
-    """
-    Verifier for safety properties.
+    """Verifier for safety properties.
 
     Ensures decisions don't violate safety constraints.
     """
@@ -476,8 +452,7 @@ class SafetyVerifier:
         bounds: list[SafetyBound] | None = None,
         invariants: list[InvariantCondition] | None = None,
     ):
-        """
-        Initialize safety verifier.
+        """Initialize safety verifier.
 
         Args:
             bounds: Safety bounds for variables
@@ -506,8 +481,7 @@ class SafetyVerifier:
         decision: dict[str, Any],
         context: dict[str, Any] | None = None,
     ) -> VerificationReport:
-        """
-        Verify a decision against safety properties.
+        """Verify a decision against safety properties.
 
         Args:
             decision: Decision to verify
@@ -609,8 +583,7 @@ class SafetyVerifier:
         safety_property: dict[str, Any],
         system_state: dict[str, Any],
     ) -> dict[str, Any]:
-        """
-        Verify a safety property against system state (simplified API).
+        """Verify a safety property against system state (simplified API).
 
         Args:
             safety_property: Property dict with name, condition, priority
@@ -713,8 +686,7 @@ class SafetyVerifier:
 
 
 class ReachabilityAnalyzer:
-    """
-    Analyzer for reachability properties.
+    """Analyzer for reachability properties.
 
     Determines if target states are reachable from current state.
     """
@@ -724,8 +696,7 @@ class ReachabilityAnalyzer:
         max_steps: int = 100,
         epsilon: float = DEFAULT_EPSILON,
     ):
-        """
-        Initialize reachability analyzer.
+        """Initialize reachability analyzer.
 
         Args:
             max_steps: Maximum steps for reachability
@@ -740,8 +711,7 @@ class ReachabilityAnalyzer:
         target_state: dict[str, float],
         transition_bounds: dict[str, tuple[float, float]] | None = None,
     ) -> tuple[bool, int]:
-        """
-        Check if target state is reachable.
+        """Check if target state is reachable.
 
         Args:
             current_state: Current state values
@@ -789,8 +759,7 @@ class ReachabilityAnalyzer:
         target_state: dict[str, float],
         transition_bounds: dict[str, tuple[float, float]] | None = None,
     ) -> list[dict[str, float]]:
-        """
-        Find path from current to target state.
+        """Find path from current to target state.
 
         Args:
             current_state: Starting state
@@ -829,8 +798,7 @@ class ReachabilityAnalyzer:
         target_state: str,
         state_machine: dict[str, dict[str, Any]],
     ) -> dict[str, Any]:
-        """
-        Check if target state is reachable in a state machine (simplified API).
+        """Check if target state is reachable in a state machine (simplified API).
 
         Args:
             start_state: Starting state name
@@ -904,8 +872,7 @@ class ReachabilityAnalyzer:
 
 
 class IntervalBoundPropagator:
-    """
-    Interval bound propagation for neural network verification.
+    """Interval bound propagation for neural network verification.
 
     Propagates input bounds through transformations to compute output bounds.
     """
@@ -922,8 +889,7 @@ class IntervalBoundPropagator:
         weights: np.ndarray[Any, Any],
         bias: np.ndarray[Any, Any],
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]] | dict[str, tuple[float, float]]:
-        """
-        Propagate bounds through linear layer.
+        """Propagate bounds through linear layer.
 
         Args:
             input_bounds: Tuple of (lower, upper) bounds or dict of variable bounds
@@ -974,8 +940,7 @@ class IntervalBoundPropagator:
         self,
         input_bounds: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]],
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """
-        Propagate bounds through ReLU.
+        """Propagate bounds through ReLU.
 
         Args:
             input_bounds: Tuple of (lower, upper) bounds
@@ -997,8 +962,7 @@ class IntervalBoundPropagator:
         network_params: list[tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]],
         output_bounds: tuple[float, float],
     ) -> bool:
-        """
-        Verify network outputs are within bounds.
+        """Verify network outputs are within bounds.
 
         Args:
             input_bounds: Input bounds
@@ -1034,8 +998,7 @@ class IntervalBoundPropagator:
 
 
 class FormalVerificationEngine:
-    """
-    Main formal verification engine for Mercury Agent.
+    """Main formal verification engine for Mercury Agent.
 
     Provides comprehensive verification capabilities including:
     1. Safety property verification
@@ -1050,8 +1013,7 @@ class FormalVerificationEngine:
         safety_verifier: SafetyVerifier | None = None,
         timeout_ms: float = MAX_VERIFICATION_TIME_MS,
     ):
-        """
-        Initialize formal verification engine.
+        """Initialize formal verification engine.
 
         Args:
             safety_verifier: Safety verifier instance
@@ -1080,8 +1042,7 @@ class FormalVerificationEngine:
         logger.info(f"FormalVerificationEngine initialized (timeout={timeout_ms}ms)")
 
     def register_property(self, property: FormalProperty) -> None:
-        """
-        Register a formal property.
+        """Register a formal property.
 
         Args:
             property: Property to register
@@ -1095,8 +1056,7 @@ class FormalVerificationEngine:
         bounds: dict[str, tuple[float, float]],
         description: str = "",
     ) -> FormalProperty:
-        """
-        Create a safety property.
+        """Create a safety property.
 
         Args:
             name: Property name
@@ -1131,8 +1091,7 @@ class FormalVerificationEngine:
         properties: list[str] | None = None,
         context: dict[str, Any] | None = None,
     ) -> list[VerificationReport]:
-        """
-        Verify decision against properties.
+        """Verify decision against properties.
 
         Args:
             decision: Decision to verify
@@ -1322,8 +1281,7 @@ class FormalVerificationEngine:
         property_dict: dict[str, Any],
         state: dict[str, Any],
     ) -> dict[str, Any]:
-        """
-        Verify a property against state (simplified API).
+        """Verify a property against state (simplified API).
 
         Args:
             property_dict: Property dict with name, condition
@@ -1369,8 +1327,7 @@ class FormalVerificationEngine:
 
 
 class AnomalyVerifier:
-    """
-    Formal verifier specialized for anomaly detection.
+    """Formal verifier specialized for anomaly detection.
 
     Provides domain-specific verification for Mercury Agent's anomaly detection decisions.
     """
@@ -1380,8 +1337,7 @@ class AnomalyVerifier:
         engine: FormalVerificationEngine | None = None,
         ethical_threshold: float = 0.99,
     ):
-        """
-        Initialize anomaly verifier.
+        """Initialize anomaly verifier.
 
         Args:
             engine: Formal verification engine
@@ -1426,8 +1382,7 @@ class AnomalyVerifier:
         ethical_score: float = 1.0,
         additional_properties: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """
-        Verify an anomaly detection decision.
+        """Verify an anomaly detection decision.
 
         Args:
             anomaly_score: Detection score
@@ -1465,8 +1420,7 @@ class AnomalyVerifier:
         detection_decision: dict[str, Any],
         safety_constraints: list[dict[str, Any]],
     ) -> dict[str, Any]:
-        """
-        Verify a detection decision against safety constraints (simplified API).
+        """Verify a detection decision against safety constraints (simplified API).
 
         Args:
             detection_decision: Decision dict with is_anomaly, score, severity, etc.
@@ -1566,8 +1520,7 @@ class AnomalyVerifier:
         anomaly_score: float,
         confidence: float,
     ) -> tuple[bool, str]:
-        """
-        Check if it's safe to report an anomaly.
+        """Check if it's safe to report an anomaly.
 
         Args:
             anomaly_score: Detection score

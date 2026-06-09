@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Symbolic Logic Layer - Logic Graphs and Explainable Decisions
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Symbolic Logic Layer - Logic Graphs and Explainable Decisions.
 
 Implements the symbolic layer of the neuro-symbolic architecture:
 - Logic graphs using NetworkX for rule representation
@@ -35,6 +18,8 @@ Integration:
     This module receives neural features from NeuralMemoryLayer
     and produces explainable decisions for the hybrid fusion layer.
 """
+
+from __future__ import annotations
 
 import logging
 import time
@@ -104,6 +89,7 @@ class SymbolicRule:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        """Finalize dataclass initialization."""
         if not self.explanation_template:
             self.explanation_template = f"Rule {self.rule_id}: {self.premise} => {self.conclusion}"
 
@@ -180,6 +166,7 @@ class FallbackGraph:
     """Fallback graph implementation when NetworkX is not available."""
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.nodes: dict[str, dict[str, Any]] = {}
         self.edges: list[tuple[str, str, dict[str, Any]]] = []
 
@@ -213,8 +200,7 @@ class FallbackGraph:
 
 
 class LogicGraph:
-    """
-    Logic Graph for symbolic reasoning.
+    """Logic Graph for symbolic reasoning.
 
     Uses NetworkX (or fallback) to represent rules as a directed graph where nodes are propositions
     and edges are implications.
@@ -234,8 +220,7 @@ class LogicGraph:
         self._rule_counter = 0
 
     def add_rule(self, rule: SymbolicRule) -> str:
-        """
-        Add a symbolic rule to the graph.
+        """Add a symbolic rule to the graph.
 
         Args:
             rule: The symbolic rule to add
@@ -272,8 +257,7 @@ class LogicGraph:
         return rule.rule_id
 
     def add_threshold_rule(self, rule: ThresholdRule) -> str:
-        """
-        Add a threshold rule.
+        """Add a threshold rule.
 
         Args:
             rule: The threshold rule to add
@@ -293,8 +277,7 @@ class LogicGraph:
         priority: int = 1,
         category: str = "general",
     ) -> str:
-        """
-        Create and add a new rule.
+        """Create and add a new rule.
 
         Args:
             premise: Rule premise
@@ -327,8 +310,7 @@ class LogicGraph:
         facts: set[str],
         max_iterations: int = 100,
     ) -> tuple[set[str], list[str]]:
-        """
-        Perform forward chaining inference.
+        """Perform forward chaining inference.
 
         Args:
             facts: Initial set of facts
@@ -361,8 +343,7 @@ class LogicGraph:
         facts: set[str],
         visited: set[str] | None = None,
     ) -> tuple[bool, list[str], list[str]]:
-        """
-        Perform backward chaining to prove a goal.
+        """Perform backward chaining to prove a goal.
 
         Args:
             goal: Goal to prove
@@ -404,8 +385,7 @@ class LogicGraph:
         self,
         values: dict[str, float],
     ) -> tuple[set[str], list[str]]:
-        """
-        Evaluate all threshold rules against values.
+        """Evaluate all threshold rules against values.
 
         Args:
             values: Dictionary of variable values
@@ -429,8 +409,7 @@ class LogicGraph:
         conclusion: str,
         rules_fired: list[str],
     ) -> list[str]:
-        """
-        Generate explanation chain for a conclusion.
+        """Generate explanation chain for a conclusion.
 
         Args:
             conclusion: The derived conclusion
@@ -474,8 +453,7 @@ class LogicGraph:
 
 
 class SymbolicReasoner:
-    """
-    Symbolic Reasoner for explainable decision making.
+    """Symbolic Reasoner for explainable decision making.
 
     Combines logic graph inference with threshold evaluation to produce explainable decisions with
     full audit trails.
@@ -486,8 +464,7 @@ class SymbolicReasoner:
         confidence_threshold: float = 0.7,
         require_explanation: bool = True,
     ):
-        """
-        Initialize symbolic reasoner.
+        """Initialize symbolic reasoner.
 
         Args:
             confidence_threshold: Minimum confidence for decisions
@@ -613,8 +590,7 @@ class SymbolicReasoner:
         values: dict[str, float],
         neural_score: float = 0.0,
     ) -> ExplainableDecision:
-        """
-        Perform symbolic reasoning and produce explainable decision.
+        """Perform symbolic reasoning and produce explainable decision.
 
         Args:
             facts: Known facts
@@ -814,8 +790,7 @@ class SymbolicReasoner:
         facts: set[str],
         values: dict[str, float],
     ) -> tuple[bool, list[str], str]:
-        """
-        Attempt to prove a goal using backward chaining.
+        """Attempt to prove a goal using backward chaining.
 
         Args:
             goal: Goal to prove
@@ -847,8 +822,7 @@ class SymbolicReasoner:
 
 
 class SymbolicLogicLayer:
-    """
-    Symbolic Logic Layer - Main interface for symbolic reasoning.
+    """Symbolic Logic Layer - Main interface for symbolic reasoning.
 
     Integrates logic graphs, threshold rules, and explainable decisions
     into a unified interface for the neuro-symbolic architecture.
@@ -862,8 +836,7 @@ class SymbolicLogicLayer:
         confidence_threshold: float = 0.7,
         benevolence_threshold: float = 0.99,
     ):
-        """
-        Initialize Symbolic Logic Layer.
+        """Initialize Symbolic Logic Layer.
 
         Args:
             confidence_threshold: Minimum confidence for decisions
@@ -968,8 +941,7 @@ class SymbolicLogicLayer:
         neural_features: dict[str, float],
         context_facts: set[str] | None = None,
     ) -> ExplainableDecision:
-        """
-        Process neural layer output and produce explainable decision.
+        """Process neural layer output and produce explainable decision.
 
         Args:
             neural_features: Features from neural layer
@@ -998,8 +970,7 @@ class SymbolicLogicLayer:
         context: dict[str, Any],
         benevolence_score: float,
     ) -> tuple[bool, ExplainableDecision]:
-        """
-        Evaluate whether an action should be allowed.
+        """Evaluate whether an action should be allowed.
 
         Args:
             action: Action to evaluate
@@ -1074,8 +1045,7 @@ class SymbolicLogicLayer:
         ]
 
     def get_symbolic_features(self) -> np.ndarray[Any, Any]:
-        """
-        Get aggregated symbolic features for fusion layer.
+        """Get aggregated symbolic features for fusion layer.
 
         Returns:
             Feature vector summarizing symbolic layer state

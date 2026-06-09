@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Ethical Risk Matrix with Dynamic Compliance and Anomaly Forecasting
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Ethical Risk Matrix with Dynamic Compliance and Anomaly Forecasting.
 
 Implements comprehensive risk assessment with:
 - Dynamic US-only law polling for compliance
@@ -34,6 +17,8 @@ References:
 
 MIT-compatible implementation.
 """
+
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -92,8 +77,7 @@ class ComplianceRule:
 
 
 class USLawPolling:
-    """
-    Dynamic US-only law compliance polling.
+    """Dynamic US-only law compliance polling.
 
     Implements real-time compliance checks for US federal regulations:
     - CFAA (Computer Fraud and Abuse Act)
@@ -154,8 +138,7 @@ class USLawPolling:
         return rules
 
     def check_compliance(self, context: dict[str, Any]) -> tuple[bool, list[str]]:
-        """
-        Check compliance with US federal laws.
+        """Check compliance with US federal laws.
 
         Args:
             context: Operational context
@@ -211,8 +194,7 @@ class GDPRComplianceResult:
 
 
 class GDPRCompliance:
-    """
-    GDPR compliance framework with comprehensive validation.
+    """GDPR compliance framework with comprehensive validation.
 
     Implements detailed checks for EU General Data Protection Regulation:
     - Article 5: Data processing principles (lawfulness, purpose limitation, minimization)
@@ -265,8 +247,7 @@ class GDPRCompliance:
         ]
 
     def _validate_legal_basis(self, context: dict[str, Any]) -> GDPRLegalBasis:
-        """
-        Validate the legal basis for data processing.
+        """Validate the legal basis for data processing.
 
         Args:
             context: Processing context with legal basis documentation
@@ -337,8 +318,7 @@ class GDPRCompliance:
         )
 
     def _check_data_subject_rights(self, context: dict[str, Any]) -> dict[str, bool]:
-        """
-        Verify data subject rights implementation.
+        """Verify data subject rights implementation.
 
         Args:
             context: Processing context
@@ -360,8 +340,7 @@ class GDPRCompliance:
         return rights_status
 
     def check_gdpr_compliance(self, context: dict[str, Any]) -> tuple[bool, list[str]]:
-        """
-        Check GDPR compliance with comprehensive validation.
+        """Check GDPR compliance with comprehensive validation.
 
         Args:
             context: Data processing context containing:
@@ -515,8 +494,7 @@ class GDPRCompliance:
         return len(violations) == 0, violations
 
     def assess_compliance(self, context: dict[str, Any]) -> GDPRComplianceResult:
-        """
-        Comprehensive GDPR compliance assessment with scoring and recommendations.
+        """Comprehensive GDPR compliance assessment with scoring and recommendations.
 
         Args:
             context: Full data processing context
@@ -659,8 +637,7 @@ class HIPAACompliance:
         ]
 
     def check_hipaa_compliance(self, context: dict[str, Any]) -> tuple[bool, list[str]]:
-        """
-        Check HIPAA compliance.
+        """Check HIPAA compliance.
 
         Args:
             context: Healthcare data context
@@ -690,15 +667,13 @@ class HIPAACompliance:
 
 
 class AnomalyOracle:
-    """
-    Anomaly oracle for risk forecasting via pattern-based simulations.
+    """Anomaly oracle for risk forecasting via pattern-based simulations.
 
     Uses historical patterns to predict future anomalies and risks.
     """
 
     def __init__(self, lookback_window: int = 100) -> None:
-        """
-        Initialize anomaly oracle.
+        """Initialize anomaly oracle.
 
         Args:
             lookback_window: Number of historical samples for forecasting
@@ -707,8 +682,7 @@ class AnomalyOracle:
         self.historical_anomalies: list[tuple[float, float]] = []
 
     def record_anomaly(self, anomaly_score: float, impact: float) -> None:
-        """
-        Record anomaly for future forecasting.
+        """Record anomaly for future forecasting.
 
         Args:
             anomaly_score: Anomaly detection score
@@ -720,8 +694,7 @@ class AnomalyOracle:
             self.historical_anomalies = self.historical_anomalies[-self.lookback_window :]
 
     def forecast_risk(self, current_anomaly_score: float) -> tuple[float, float]:
-        """
-        Forecast future risk based on current anomaly score.
+        """Forecast future risk based on current anomaly score.
 
         Args:
             current_anomaly_score: Current anomaly detection score
@@ -748,8 +721,7 @@ class AnomalyOracle:
 
 
 class EthicalRiskMatrix:
-    """
-    Comprehensive ethical risk matrix with compliance and forecasting.
+    """Comprehensive ethical risk matrix with compliance and forecasting.
 
     Features:
     - Dynamic US law polling
@@ -766,8 +738,7 @@ class EthicalRiskMatrix:
         enable_hipaa: bool = True,
         enable_forecasting: bool = True,
     ) -> None:
-        """
-        Initialize Ethical Risk Matrix.
+        """Initialize Ethical Risk Matrix.
 
         Args:
             enable_us_compliance: Enable US federal law compliance
@@ -788,8 +759,7 @@ class EthicalRiskMatrix:
         self.risk_history: list[RiskScore] = []
 
     def assess_risk(self, context: dict[str, Any], anomaly_score: float | None = None) -> RiskScore:
-        """
-        Comprehensive risk assessment.
+        """Comprehensive risk assessment.
 
         Args:
             context: Operational context
@@ -833,8 +803,7 @@ class EthicalRiskMatrix:
     def _compute_risk_components(
         self, context: dict[str, Any], anomaly_score: float | None
     ) -> tuple[float, float]:
-        """
-        Compute likelihood and impact components.
+        """Compute likelihood and impact components.
 
         Args:
             context: Operational context
@@ -865,8 +834,7 @@ class EthicalRiskMatrix:
         return likelihood, impact
 
     def _determine_risk_level(self, likelihood: float, impact: float) -> RiskLevel:
-        """
-        Determine risk level from likelihood × impact matrix.
+        """Determine risk level from likelihood × impact matrix.
 
         Args:
             likelihood: Risk likelihood (0-1)
@@ -907,8 +875,7 @@ class EthicalRiskMatrix:
         return all_violations
 
     def get_risk_matrix_table(self) -> dict[str, Any]:
-        """
-        Generate risk matrix table for visualization.
+        """Generate risk matrix table for visualization.
 
         Returns:
             Risk matrix with likelihood/impact grid

@@ -1,5 +1,6 @@
-"""
-Mercury Agent - Production Observability Infrastructure
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Mercury Agent - Production Observability Infrastructure.
 
 Comprehensive observability for production deployments including:
 - Structured audit logging with compliance support
@@ -180,6 +181,7 @@ class InMemoryAuditHandler(AuditLogHandler):
     """In-memory audit log handler for development/testing."""
 
     def __init__(self, max_events: int = 100000) -> None:
+        """Initialize the instance."""
         from collections import deque
 
         self._events: deque[AuditEvent] = deque(maxlen=max_events)
@@ -224,8 +226,7 @@ class InMemoryAuditHandler(AuditLogHandler):
 
 
 class FileAuditHandler(AuditLogHandler):
-    """
-    File-based audit log handler with rotation and proper resource management.
+    """File-based audit log handler with rotation and proper resource management.
 
     Supports context manager protocol for safe resource cleanup:
         with FileAuditHandler('/var/log/mercury') as handler:
@@ -238,6 +239,7 @@ class FileAuditHandler(AuditLogHandler):
         max_file_size_mb: int = 100,
         max_files: int = 10,
     ) -> None:
+        """Initialize the instance."""
         self._log_dir = log_dir
         self._max_file_size = max_file_size_mb * 1024 * 1024
         self._max_files = max_files
@@ -250,8 +252,7 @@ class FileAuditHandler(AuditLogHandler):
         self._rotate_if_needed()
 
     def close(self) -> None:
-        """
-        Close the current log file and release resources.
+        """Close the current log file and release resources.
 
         Thread-safe method that can be called multiple times without error.
         """
@@ -277,8 +278,7 @@ class FileAuditHandler(AuditLogHandler):
         self.close()
 
     def __del__(self) -> None:
-        """
-        Ensure file handle is closed during garbage collection.
+        """Ensure file handle is closed during garbage collection.
 
         Note: Exceptions in __del__ cannot be safely raised and logging may fail
         if the logging module has already been torn down during interpreter shutdown.
@@ -290,8 +290,7 @@ class FileAuditHandler(AuditLogHandler):
             pass
 
     def emit(self, event: AuditEvent) -> None:
-        """
-        Emit an audit event to file.
+        """Emit an audit event to file.
 
         Raises:
             RuntimeError: If handler has been closed.
@@ -420,8 +419,7 @@ class FileAuditHandler(AuditLogHandler):
 
 
 class AuditLogger:
-    """
-    Production audit logger with compliance support.
+    """Production audit logger with compliance support.
 
     Supports HIPAA, SOC2, and GDPR audit requirements.
     """
@@ -443,6 +441,7 @@ class AuditLogger:
         handlers: list[AuditLogHandler] | None = None,
         async_emit: bool = True,
     ) -> None:
+        """Initialize the instance."""
         if getattr(self, "_initialized", False):
             return
 
@@ -562,8 +561,7 @@ class AuditLogger:
 
 
 class DistributedTracer:
-    """
-    Distributed tracing with OpenTelemetry support.
+    """Distributed tracing with OpenTelemetry support.
 
     Provides end-to-end request tracing across services.
     """
@@ -585,6 +583,7 @@ class DistributedTracer:
         service_name: str = "mercury-agent",
         otlp_endpoint: str | None = None,
     ) -> None:
+        """Initialize the instance."""
         if getattr(self, "_initialized", False):
             return
 
@@ -696,8 +695,7 @@ class MetricPoint:
 
 
 class MetricsCollector:
-    """
-    Metrics collector with Prometheus export support.
+    """Metrics collector with Prometheus export support.
 
     Collects anomaly detection specific metrics.
     """
@@ -715,6 +713,7 @@ class MetricsCollector:
         return cls._instance
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         if getattr(self, "_initialized", False):
             return
 

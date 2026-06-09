@@ -1,9 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Phase 2 ITEM 4 regression: native pure-stdlib TCP MessageTransport for
-Raft.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Phase 2 ITEM 4 regression: native pure-stdlib TCP MessageTransport for Raft.
 
 Pins three contracts:
 
@@ -36,7 +33,6 @@ from omni_mercury_engine.distributed.raft_consensus import (
 from omni_mercury_engine.distributed.tcp_transport import TCPMessageTransport
 
 pytestmark = pytest.mark.asyncio
-
 
 # ---------------------------------------------------------------------------
 # Helpers

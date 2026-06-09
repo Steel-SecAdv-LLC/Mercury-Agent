@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""
-Mercury Agent v1.7.0 - Comprehensive Benchmark Visualization Generator
-Copyright (C) 2025 Steel Security Advisors LLC
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Mercury Agent v1.7.0 - Comprehensive Benchmark Visualization Generator.
 
 Generates consolidated publication-quality benchmark visualizations for v1.7.0:
 1. neuro_symbolic_benchmark_report.png - Main comprehensive report (6 panels)

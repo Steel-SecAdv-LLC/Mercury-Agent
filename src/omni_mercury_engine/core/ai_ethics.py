@@ -1,30 +1,14 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-AI Ethics Framework for Mercury Agent
-Implements 8 core ethical principles for autonomous AI operations.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""AI Ethics Framework for Mercury Agent Implements 8 core ethical principles for autonomous AI operations.
 
 This module acts as a "conscience layer" for the engine, enabling autonomous
 decisions while enforcing ethical guardrails. All actions are evaluated against
 8 principles: Compassion, Evidence, Justice, Altruism, Control, Character,
 Competence, and Commitment.
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
@@ -69,13 +53,13 @@ class BlockingGateResult:
     override_allowed: bool = False
 
     def __repr__(self) -> str:
+        """Return the developer representation."""
         status = "BLOCKED" if self.blocked else "ALLOWED"
         return f"BlockingGateResult({status}: {self.reason})"
 
 
 class PreExecutionBlockingGate:
-    """
-    Pre-execution blocking gate for safety-critical operations.
+    """Pre-execution blocking gate for safety-critical operations.
 
     This gate provides a hard stop before any action executes, checking against
     a configurable set of blocked patterns. Unlike soft ethical scoring, this
@@ -136,8 +120,7 @@ class PreExecutionBlockingGate:
         self,
         custom_patterns: dict[str, BlockedActionCategory] | None = None,
     ) -> None:
-        """
-        Initialize pre-execution blocking gate.
+        """Initialize pre-execution blocking gate.
 
         Blocking is always active — there is no off-switch.  The
         ``enable_blocking`` and ``allow_overrides`` parameters were
@@ -164,8 +147,7 @@ class PreExecutionBlockingGate:
         action_type: str,
         action_params: dict[str, Any] | None = None,
     ) -> BlockingGateResult:
-        """
-        Check if an action should be blocked before execution.
+        """Check if an action should be blocked before execution.
 
         This is the primary gate that must be called before any action executes.
         It provides a hard block for dangerous patterns.
@@ -227,8 +209,7 @@ class PreExecutionBlockingGate:
         logging.info(f"Added blocked pattern: {pattern} -> {category.value}")
 
     def remove_blocked_pattern(self, pattern: str) -> bool:
-        """
-        Remove a blocked pattern.
+        """Remove a blocked pattern.
 
         Returns True if removed.
         """
@@ -274,13 +255,13 @@ class EthicsResult:
     recommendations: list[str]
 
     def __repr__(self) -> str:
+        """Return the developer representation."""
         status = "✓ PASSED" if self.passed else "✗ FAILED"
         return f"EthicsResult({status}, score={self.overall_score:.2f})"
 
 
 class EthicalAutonomyGovernor:
-    """
-    Oversees AI operations and scores actions on ethical principles.
+    """Oversees AI operations and scores actions on ethical principles.
 
     This acts as a meta-controller ensuring autonomous operations
     don't compromise safety or ethical standards. It evaluates every
@@ -298,6 +279,7 @@ class EthicalAutonomyGovernor:
     """
 
     def __init__(self, config: EthicsConfig | None = None) -> None:
+        """Initialize the instance."""
         self.config = config or EthicsConfig()
         self.audit_log: list[dict[str, Any]] = []
 
@@ -312,8 +294,7 @@ class EthicalAutonomyGovernor:
         action_params: dict[str, Any],
         context: dict[str, Any] | None = None,
     ) -> EthicsResult:
-        """
-        Evaluate an action against all 8 ethical principles.
+        """Evaluate an action against all 8 ethical principles.
 
         This method first checks the pre-execution blocking gate, then
         proceeds with ethical scoring if not blocked.
@@ -449,8 +430,7 @@ class EthicalAutonomyGovernor:
     def _check_compassion(
         self, action_type: str, params: dict[str, Any], context: dict[str, Any]
     ) -> float:
-        """
-        Check COMPASSION: Does this minimize harm and prioritize user well-being?
+        """Check COMPASSION: Does this minimize harm and prioritize user well-being?
 
         Evaluates safety features like backups, confirmations, rollback mechanisms, and survivor-
         first principles for humanitarian applications.
@@ -502,8 +482,7 @@ class EthicalAutonomyGovernor:
     def _check_evidence(
         self, action_type: str, params: dict[str, Any], context: dict[str, Any]
     ) -> float:
-        """
-        Check EVIDENCE: Is this backed by verifiable data, benchmarks, and proofs?
+        """Check EVIDENCE: Is this backed by verifiable data, benchmarks, and proofs?
 
         Ensures all claims are supported by empirical measurements and citations.
         """
@@ -553,8 +532,7 @@ class EthicalAutonomyGovernor:
     def _check_justice(
         self, action_type: str, params: dict[str, Any], context: dict[str, Any]
     ) -> float:
-        """
-        Check JUSTICE: Is this fair and unbiased across all inputs?
+        """Check JUSTICE: Is this fair and unbiased across all inputs?
 
         Evaluates determinism, fairness, equity, and bias mitigation in logic.
         """
@@ -598,8 +576,7 @@ class EthicalAutonomyGovernor:
     def _check_altruism(
         self, action_type: str, params: dict[str, Any], context: dict[str, Any]
     ) -> float:
-        """
-        Check ALTRUISM: Does this have positive societal impact?
+        """Check ALTRUISM: Does this have positive societal impact?
 
         Evaluates contribution to open-source, community benefit, and humanitarian impact.
         """
@@ -645,8 +622,7 @@ class EthicalAutonomyGovernor:
     def _check_control(
         self, action_type: str, params: dict[str, Any], context: dict[str, Any]
     ) -> float:
-        """
-        Check CONTROL: Are there auditable controls and logging?
+        """Check CONTROL: Are there auditable controls and logging?
 
         Ensures operations can be traced, monitored, and reversed if needed.
         """
@@ -681,8 +657,7 @@ class EthicalAutonomyGovernor:
     def _check_character(
         self, action_type: str, params: dict[str, Any], context: dict[str, Any]
     ) -> float:
-        """
-        Check CHARACTER: Is this transparent with clear intent?
+        """Check CHARACTER: Is this transparent with clear intent?
 
         Evaluates documentation, explanations, and ethical rationale transparency.
         """
@@ -717,8 +692,7 @@ class EthicalAutonomyGovernor:
     def _check_competence(
         self, action_type: str, params: dict[str, Any], context: dict[str, Any]
     ) -> float:
-        """
-        Check COMPETENCE: Is this well-tested with high coverage?
+        """Check COMPETENCE: Is this well-tested with high coverage?
 
         Evaluates test coverage, rigorous validation, and quality assurance.
         """
@@ -744,8 +718,7 @@ class EthicalAutonomyGovernor:
     def _check_commitment(
         self, action_type: str, params: dict[str, Any], context: dict[str, Any]
     ) -> float:
-        """
-        Check COMMITMENT: Does this support continuous improvement?
+        """Check COMMITMENT: Does this support continuous improvement?
 
         Evaluates extensibility, evolution provisions, and long-term maintainability.
         """
@@ -817,8 +790,7 @@ def evaluate_refactoring_ethics(
     has_tests: bool = False,
     test_coverage: float = 0.0,
 ) -> EthicsResult:
-    """
-    Convenience function to evaluate refactoring operation ethics.
+    """Convenience function to evaluate refactoring operation ethics.
 
     Args:
         create_backup: Whether backup is created before refactoring

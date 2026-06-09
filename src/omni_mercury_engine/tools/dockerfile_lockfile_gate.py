@@ -1,16 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-------------------------------------------------------------------------
-
-Operator tool: enforce that every ``apt``/``apk``/``pip`` install in
-the Mercury Dockerfile is pinned to a version (and, where applicable,
-a SHA digest).
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: enforce that every ``apt``/``apk``/``pip`` install in the Mercury Dockerfile is pinned to a version (and, where applicable, a SHA digest).
 
 Catches drift at build time, before
 :mod:`image_surface_auditor` finds it in the built image.

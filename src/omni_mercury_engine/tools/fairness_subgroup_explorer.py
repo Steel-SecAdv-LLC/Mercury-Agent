@@ -1,14 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-------------------------------------------------------------------------
-
-Operator tool: intersectional fairness subgroup explorer.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: intersectional fairness subgroup explorer.
 
 Extends the existing :mod:`bias_audit_standalone` (which audits a
 single sensitive feature) to the full cartesian product of sensitive

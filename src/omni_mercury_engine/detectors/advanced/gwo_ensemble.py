@@ -1,7 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-GWO-Enhanced Ensemble Detector
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""GWO-Enhanced Ensemble Detector.
 
 Uses Grey Wolf Optimizer to learn optimal fusion weights for combining
 multiple anomaly detectors. This addresses the heterogeneous performance
@@ -37,7 +36,6 @@ import numpy as np
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
-
 
 __all__ = [
     "GWOEnsembleConfig",
@@ -80,8 +78,7 @@ class GWOEnsembleConfig:
 
 
 class GreyWolfOptimizer:
-    """
-    Grey Wolf Optimizer for weight optimization.
+    """Grey Wolf Optimizer for weight optimization.
 
     Implements the GWO algorithm with enhancements for anomaly detection ensemble optimization.
     """
@@ -93,6 +90,7 @@ class GreyWolfOptimizer:
         dim: int = 5,
         seed: int = 42,
     ) -> None:
+        """Initialize the instance."""
         self.n_wolves = n_wolves
         self.max_iterations = max_iterations
         self.dim = dim
@@ -116,8 +114,7 @@ class GreyWolfOptimizer:
         ub: NDArray[np.float64],
         verbose: bool = False,
     ) -> tuple[NDArray[np.float64], float]:
-        """
-        Run GWO optimization.
+        """Run GWO optimization.
 
         Args:
             objective_func: Function to minimize
@@ -207,8 +204,7 @@ class GreyWolfOptimizer:
 
 
 class GWOEnsembleDetector:
-    """
-    GWO-Enhanced Ensemble Detector for Anomaly Detection.
+    """GWO-Enhanced Ensemble Detector for Anomaly Detection.
 
     Automatically optimizes detector weights using Grey Wolf Optimizer
     to maximize detection performance on validation data.
@@ -235,6 +231,7 @@ class GWOEnsembleDetector:
         aggregation: str = "weighted_mean",
         **kwargs: Any,
     ) -> None:
+        """Initialize the instance."""
         self.config = GWOEnsembleConfig(
             n_wolves=n_wolves,
             max_iterations=max_iterations,
@@ -256,8 +253,7 @@ class GWOEnsembleDetector:
         return self
 
     def _compute_diversity(self, predictions_list: list[NDArray[np.float64]]) -> float:
-        """
-        Compute diversity among detector predictions.
+        """Compute diversity among detector predictions.
 
         Higher diversity = detectors make different errors = better ensemble.
         Uses pairwise disagreement rate.
@@ -285,8 +281,7 @@ class GWOEnsembleDetector:
         detector_scores: list[NDArray[np.float64]],
         labels: NDArray[np.float64],
     ) -> float:
-        """
-        Objective function for GWO optimization.
+        """Objective function for GWO optimization.
 
         Minimizes: 1 - F1 score + diversity_weight * (1 - diversity)
         """
@@ -329,8 +324,7 @@ class GWOEnsembleDetector:
         y: NDArray[np.float64] | None = None,
         y_val: NDArray[np.float64] | None = None,
     ) -> GWOEnsembleDetector:
-        """
-        Fit the ensemble detector.
+        """Fit the ensemble detector.
 
         Args:
             X: Training data
@@ -424,8 +418,7 @@ class GWOEnsembleDetector:
             raise ValueError(f"Unknown aggregation: {self.config.aggregation}")
 
     def predict(self, X: NDArray[np.float64]) -> NDArray[np.float64]:
-        """
-        Predict anomaly scores.
+        """Predict anomaly scores.
 
         Args:
             X: Test data

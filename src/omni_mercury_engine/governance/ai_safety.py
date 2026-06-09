@@ -1,21 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """AI-assurance governance scalars, each kept or dropped on a per-family **signal vet**.
 
 The three AI-assurance frameworks were treated as genuinely open and vetted against this
@@ -48,6 +32,8 @@ The verdicts (recorded in :data:`omni_mercury_engine.governance.contract.GOVERNA
 Both kept families are **metric-only**, so they never perturb the σ_Immutable gate, and each
 abstains UNAVAILABLE when its signal is absent this run rather than fabricating a value.
 """
+
+from __future__ import annotations
 
 from typing import TYPE_CHECKING
 

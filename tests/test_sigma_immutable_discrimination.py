@@ -1,9 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC.
-
-Pins the σ_Immutable discrimination finding and the deterministic
-critical-ethical floor that cures it.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Pins the σ_Immutable discrimination finding and the deterministic critical-ethical floor that cures it.
 
 Two layers:
 

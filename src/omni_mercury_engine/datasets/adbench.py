@@ -1,7 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-ADBench — Tabular Anomaly Detection Benchmark Datasets
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""ADBench — Tabular Anomaly Detection Benchmark Datasets.
 
 Loads real-world anomaly detection datasets from the ADBench repository
 (Minqi et al., NeurIPS 2022 Datasets and Benchmarks Track).
@@ -11,7 +10,6 @@ Each dataset is a single NPZ file on GitHub containing:
   - y: binary labels (0=normal, 1=anomaly)
 
 Source: https://github.com/Minqi824/ADBench
-License: MIT
 
 Citation:
     Han S, Hu X, Huang H, Jiang M, Zhao Y.
@@ -33,7 +31,6 @@ from .base import DatasetConfig, DatasetLoader, DatasetRegistry, http_get_with_r
 from .exceptions import DataSourceUnavailableError
 
 logger = logging.getLogger(__name__)
-
 
 # ADBench Classical dataset catalog: index -> name
 ADBENCH_CATALOG: dict[int, str] = {
@@ -93,8 +90,7 @@ _NAME_TO_INDEX: dict[str, tuple[int, str]] = {
 
 
 class ADBenchLoader(DatasetLoader):
-    """
-    ADBench tabular anomaly detection dataset loader.
+    """ADBench tabular anomaly detection dataset loader.
 
     Downloads real NPZ files from the ADBench GitHub repository. Each file
     contains feature matrix X and label vector y with ground-truth anomaly
@@ -123,6 +119,7 @@ class ADBenchLoader(DatasetLoader):
     BASE_URL = TrustedEndpoints.ADBENCH_BASE
 
     def __init__(self, config: DatasetConfig) -> None:
+        """Initialize the instance."""
         super().__init__(config)
         # Dataset selection precedence: an explicit ``preprocessing['dataset']``
         # wins (the benchmark harness sets it per-index); otherwise derive the
@@ -201,8 +198,7 @@ class ADBenchLoader(DatasetLoader):
         return f"{self.BASE_URL}{self.npz_filename}"
 
     def download(self) -> bool:
-        """
-        Download the selected ADBench dataset NPZ from GitHub.
+        """Download the selected ADBench dataset NPZ from GitHub.
 
         Returns:
             True on success.

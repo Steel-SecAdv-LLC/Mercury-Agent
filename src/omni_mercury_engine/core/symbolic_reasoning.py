@@ -1,21 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Symbolic Reasoning Engine for Explainable Anomaly Detection.
 
 Based on: PyReason - Temporal First-Order Logic Explainable AI
@@ -23,6 +7,8 @@ Based on: PyReason - Temporal First-Order Logic Explainable AI
 
 Provides symbolic reasoning layer for explainable anomaly detection outputs.
 """
+
+from __future__ import annotations
 
 import logging
 from typing import TYPE_CHECKING, Any
@@ -39,8 +25,7 @@ class SymbolicRule:
     def __init__(
         self, name: str, predicate: str, conditions: list[str], confidence: float = 1.0
     ) -> None:
-        """
-        Initialize symbolic rule.
+        """Initialize symbolic rule.
 
         Args:
             name: Rule identifier
@@ -54,8 +39,7 @@ class SymbolicRule:
         self.confidence = confidence
 
     def evaluate(self, context: dict[str, Any]) -> tuple[bool, float]:
-        """
-        Evaluate rule against context.
+        """Evaluate rule against context.
 
         Args:
             context: Dictionary of variables and their values
@@ -75,8 +59,7 @@ class SymbolicReasoningEngine:
     """Symbolic reasoning engine for explainable AI."""
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
-        """
-        Initialize symbolic reasoning engine.
+        """Initialize symbolic reasoning engine.
 
         Args:
             config: Configuration including:
@@ -121,8 +104,7 @@ class SymbolicReasoningEngine:
     def reason(
         self, neural_output: np.ndarray[Any, Any], context: dict[str, Any]
     ) -> dict[str, Any]:
-        """
-        Perform hybrid neuro-symbolic reasoning.
+        """Perform hybrid neuro-symbolic reasoning.
 
         Combines neural network outputs with symbolic rule-based reasoning
         for explainable anomaly detection.
@@ -172,8 +154,7 @@ class SymbolicReasoningEngine:
         return results
 
     def explain_decision(self, reasoning_results: dict[str, Any]) -> str:
-        """
-        Generate human-readable explanation of reasoning decision.
+        """Generate human-readable explanation of reasoning decision.
 
         Args:
             reasoning_results: Results from reason() method
@@ -196,8 +177,7 @@ class SymbolicReasoningEngine:
     def open_world_detection(
         self, observations: list[dict[str, Any]], confidence_threshold: float = 0.7
     ) -> dict[str, Any]:
-        """
-        Detect anomalies in open-world settings with novel object types.
+        """Detect anomalies in open-world settings with novel object types.
 
         Based on: Anomaly Detection in an Open World by a Neuro-symbolic Program
         (OpenReview: https://openreview.net/pdf?id=Bg3ZO3nXJuA)

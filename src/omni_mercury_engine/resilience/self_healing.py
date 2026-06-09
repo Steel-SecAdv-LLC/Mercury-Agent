@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Unified Self-Healing Engine for Autonomous Error Recovery and Adaptive Defense
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Unified Self-Healing Engine for Autonomous Error Recovery and Adaptive Defense.
 
 Combines two complementary approaches:
 1. Component Health Monitoring: Traditional engineering approach for system resilience
@@ -32,6 +15,8 @@ Three-Stage Defense analogous to prokaryotic adaptive immune system:
 Research source: Ishino (1987), Mojica (2007), Doudna/Charpentier (2012)
 """
 
+from __future__ import annotations
+
 import json
 import logging
 from dataclasses import dataclass, field
@@ -45,7 +30,6 @@ from omni_mercury_engine.resilience.circuit_breaker import CircuitBreaker
 
 # Centralized thresholds for consistent behavior
 _thresholds = ThresholdConfig()
-
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -64,8 +48,7 @@ class AnomalySignature:
 
 
 class AdaptiveDefenseSystem:
-    """
-    CRISPR-inspired adaptive defense system for anomaly pattern memory.
+    """CRISPR-inspired adaptive defense system for anomaly pattern memory.
 
     Maintains library of known anomaly signatures and uses them for
     faster future detection and neutralization.
@@ -90,8 +73,7 @@ class AdaptiveDefenseSystem:
         forgetting_factor: float = 0.99,
         adaptation_rate: float = 0.01,
     ):
-        """
-        Initialize adaptive defense system.
+        """Initialize adaptive defense system.
 
         Args:
             max_signatures: Maximum number of anomaly signatures to store
@@ -125,8 +107,7 @@ class AdaptiveDefenseSystem:
     def stage_1_acquisition(
         self, anomaly_data: npt.NDArray[np.floating[Any]], metadata: dict[str, Any] | None = None
     ) -> AnomalySignature:
-        """
-        Stage 1: Acquisition - Capture novel anomaly signature.
+        """Stage 1: Acquisition - Capture novel anomaly signature.
 
         Analogous to CRISPR spacer acquisition from invading phage DNA.
 
@@ -159,8 +140,7 @@ class AdaptiveDefenseSystem:
         return signature
 
     def stage_2_expression(self, signature: AnomalySignature) -> npt.NDArray[np.floating[Any]]:
-        """
-        Stage 2: Expression - Process signature into detection pattern.
+        """Stage 2: Expression - Process signature into detection pattern.
 
         Analogous to CRISPR crRNA transcription for guide RNA creation.
 
@@ -178,8 +158,7 @@ class AdaptiveDefenseSystem:
     def stage_3_interference(
         self, input_data: npt.NDArray[np.floating[Any]]
     ) -> tuple[bool, float, str | None]:
-        """
-        Stage 3: Interference - Detect and neutralize matching anomalies.
+        """Stage 3: Interference - Detect and neutralize matching anomalies.
 
         Analogous to Cas proteins using crRNA guides to cut target DNA.
 
@@ -233,8 +212,7 @@ class AdaptiveDefenseSystem:
         return features
 
     def _generate_signature_id(self, feature_vector: npt.NDArray[np.floating[Any]]) -> str:
-        """
-        Generate unique ID for signature based on feature vector.
+        """Generate unique ID for signature based on feature vector.
 
         Uses hashlib.sha3_256 for stable, reproducible hashing across Python sessions. Python's
         built-in hash() is randomized per-session (PEP 456) and would produce different IDs for the
@@ -308,8 +286,7 @@ class AdaptiveDefenseSystem:
         return self.load_library(filepath)
 
     def update_online_statistics(self, data: npt.NDArray[np.floating[Any]]) -> None:
-        """
-        Update running statistics with new data sample (Welford's algorithm).
+        """Update running statistics with new data sample (Welford's algorithm).
 
         Implements incremental mean and variance computation for online learning.
         Uses exponential forgetting to adapt to concept drift.
@@ -341,8 +318,7 @@ class AdaptiveDefenseSystem:
         self._update_sliding_window(features)
 
     def _update_sliding_window(self, features: npt.NDArray[np.floating[Any]]) -> None:
-        """
-        Update sliding window and detect concept drift.
+        """Update sliding window and detect concept drift.
 
         Args:
             features: Feature vector to add to window
@@ -407,8 +383,7 @@ class AdaptiveDefenseSystem:
         )
 
     def adapt_signature(self, signature_id: str, new_data: npt.NDArray[np.floating[Any]]) -> bool:
-        """
-        Incrementally adapt an existing signature with new data.
+        """Incrementally adapt an existing signature with new data.
 
         Args:
             signature_id: ID of signature to adapt
@@ -437,8 +412,7 @@ class AdaptiveDefenseSystem:
         return True
 
     def get_online_learning_stats(self) -> dict[str, Any]:
-        """
-        Get online learning statistics.
+        """Get online learning statistics.
 
         Returns:
             Dictionary with online learning statistics
@@ -478,8 +452,7 @@ class AdaptiveDefenseSystem:
 
 
 class SelfHealingEngine:
-    """
-    Unified self-healing system for autonomous error recovery.
+    """Unified self-healing system for autonomous error recovery.
 
     Combines:
     - Component health monitoring with circuit breakers
@@ -498,8 +471,7 @@ class SelfHealingEngine:
         max_signatures: int = 1000,
         similarity_threshold: float = 0.85,
     ):
-        """
-        Initialize self-healing engine.
+        """Initialize self-healing engine.
 
         Args:
             max_signatures: Maximum anomaly signatures for adaptive defense
@@ -567,8 +539,7 @@ class SelfHealingEngine:
     def learn_anomaly(
         self, anomaly_data: npt.NDArray[np.floating[Any]], metadata: dict[str, Any] | None = None
     ) -> AnomalySignature:
-        """
-        Learn a new anomaly pattern (CRISPR Stage 1: Acquisition).
+        """Learn a new anomaly pattern (CRISPR Stage 1: Acquisition).
 
         Args:
             anomaly_data: Raw anomaly data to learn
@@ -582,8 +553,7 @@ class SelfHealingEngine:
     def check_known_anomaly(
         self, input_data: npt.NDArray[np.floating[Any]]
     ) -> tuple[bool, float, str | None]:
-        """
-        Check if data matches a known anomaly pattern (CRISPR Stage 3: Interference).
+        """Check if data matches a known anomaly pattern (CRISPR Stage 3: Interference).
 
         Args:
             input_data: Data to check

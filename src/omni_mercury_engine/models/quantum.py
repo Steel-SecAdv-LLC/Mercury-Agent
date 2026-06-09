@@ -1,24 +1,8 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Quantum-inspired anomaly detection model with real quantum algorithms."""
 
 from __future__ import annotations
-
-"""
-Quantum-inspired anomaly detection model with real quantum algorithms.
-"""
 
 from dataclasses import dataclass, field
 from enum import Enum
@@ -40,8 +24,7 @@ class ErrorCorrectionCode(Enum):
 
 @dataclass
 class NoiseModel:
-    """
-    Noise model for quantum decoherence simulation.
+    """Noise model for quantum decoherence simulation.
 
     Models common quantum noise channels:
     - Depolarizing: Random Pauli errors
@@ -75,6 +58,7 @@ class QuantumAnomalyModel:
     """Quantum-inspired anomaly detection using quantum state representations."""
 
     def __init__(self, config: dict[str, Any] | None = None, **kwargs: Any) -> None:
+        """Initialize the instance."""
         self.config = config or {}
         self.num_qubits = self.config.get("num_qubits", 8)
         self.entanglement_strength = self.config.get("entanglement_strength", 0.3)
@@ -174,8 +158,7 @@ class QuantumAnomalyModel:
     def apply_decoherence_resilience(
         self, noise_level: float = 0.01, error_correction: bool = True
     ) -> None:
-        """
-        Apply decoherence resilience mechanisms inspired by quantum computing.
+        """Apply decoherence resilience mechanisms inspired by quantum computing.
 
         Quantum Decoherence: Main challenge in quantum systems - qubits lose
         quantum properties when not isolated from environment.
@@ -235,8 +218,7 @@ class QuantumAnomalyModel:
     def _apply_noise_channel(
         self, state: np.ndarray[Any, Any], noise_type: str = "depolarizing"
     ) -> np.ndarray[Any, Any]:
-        """
-        Apply quantum noise channel to state.
+        """Apply quantum noise channel to state.
 
         Args:
             state: Quantum state vector
@@ -282,8 +264,7 @@ class QuantumAnomalyModel:
         return state
 
     def _apply_pauli(self, state: np.ndarray[Any, Any], pauli: str) -> np.ndarray[Any, Any]:
-        """
-        Apply Pauli operator to state vector.
+        """Apply Pauli operator to state vector.
 
         Args:
             state: Quantum state vector
@@ -308,8 +289,7 @@ class QuantumAnomalyModel:
         return state
 
     def _compute_syndrome(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Compute error syndrome for error correction.
+        """Compute error syndrome for error correction.
 
         Syndrome measurement detects which errors occurred without
         collapsing the logical qubit state.
@@ -398,8 +378,7 @@ class QuantumAnomalyModel:
     def _correct_errors(
         self, state: np.ndarray[Any, Any], syndrome: np.ndarray[Any, Any]
     ) -> np.ndarray[Any, Any]:
-        """
-        Apply error correction based on syndrome.
+        """Apply error correction based on syndrome.
 
         Args:
             state: Quantum state with potential errors
@@ -449,8 +428,7 @@ class QuantumAnomalyModel:
         return state
 
     def get_decoherence_metrics(self) -> dict[str, Any]:
-        """
-        Get metrics on decoherence resilience performance.
+        """Get metrics on decoherence resilience performance.
 
         Returns:
             Dictionary with error rates, correction success, etc.
@@ -489,8 +467,7 @@ class QuantumAnomalyModel:
         }
 
     def predict_with_noise(self, data: np.ndarray[Any, Any] | dict[str, Any]) -> dict[str, Any]:
-        """
-        Predict anomalies with noise simulation and error correction.
+        """Predict anomalies with noise simulation and error correction.
 
         Uses the configured decoherence resilience mechanisms to
         simulate realistic quantum behavior.

@@ -1,8 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests for the data-driven detector manifest and auto-discovery refactor.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for the data-driven detector manifest and auto-discovery refactor.
 
 Verifies that:
 - DETECTOR_MANIFEST is a well-formed list with no duplicates

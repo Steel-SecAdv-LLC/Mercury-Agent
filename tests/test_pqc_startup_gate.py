@@ -1,9 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Smoke tests for the import-time PQC gate in
-``src/omni_mercury_engine/_pqc_gate.py::_enforce_pqc_production_gate``.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Smoke tests for the import-time PQC gate in ``src/omni_mercury_engine/_pqc_gate.py::_enforce_pqc_production_gate``.
 
 Scope
 -----

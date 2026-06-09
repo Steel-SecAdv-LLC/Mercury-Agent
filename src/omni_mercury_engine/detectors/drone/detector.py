@@ -1,11 +1,6 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Drone anomaly detection with RADD and DronLomaly approaches.
-
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under
-the terms of the GNU General Public License as published by the Free Software
-Foundation, either version 3 of the License, or (at your option) any later
-version.
 
 Ported from Omni-AXA-Engine's ``drone_anomaly_detector.py``.  Three known
 defects from the original implementation are corrected in this port:
@@ -217,8 +212,6 @@ _DEFAULT_ENSEMBLE_WEIGHTS: Final[dict[str, float]] = {
     "kinematic": 0.30,
     "info_geometry": 0.30,
 }
-"""Default ensemble weights matching ``MercuryAnomalyDetector``'s
-published Resonance / Kinematic / InfoGeometry ratio."""
 
 
 class DroneAnomalyDetector:

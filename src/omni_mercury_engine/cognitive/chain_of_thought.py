@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Chain-of-Thought Reasoning Engine for Mercury Agent.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Chain-of-Thought Reasoning Engine for Mercury Agent.
 
 Implements step-by-step reasoning capabilities inspired by:
 - "Chain-of-Thought Prompting Elicits Reasoning" (Wei et al., 2022)
@@ -40,6 +23,8 @@ This module provides the cognitive scaffold for Mercury Agent's
 decision-making, ensuring transparent and auditable reasoning.
 """
 
+from __future__ import annotations
+
 import hashlib
 import logging
 import time
@@ -51,7 +36,6 @@ from typing import Any
 import numpy as np
 
 logger = logging.getLogger(__name__)
-
 
 # =============================================================================
 # Constants
@@ -109,8 +93,7 @@ class ConfidenceLevel(Enum):
 
 @dataclass
 class Thought:
-    """
-    A single thought in a reasoning chain.
+    """A single thought in a reasoning chain.
 
     Represents one step in the chain-of-thought process.
 
@@ -156,8 +139,7 @@ class Thought:
 
 @dataclass
 class ThoughtChain:
-    """
-    A complete chain of thoughts.
+    """A complete chain of thoughts.
 
     Represents a reasoning path from problem to conclusion.
 
@@ -223,8 +205,7 @@ class ThoughtChain:
 
 @dataclass
 class SubProblem:
-    """
-    A decomposed sub-problem for least-to-most reasoning.
+    """A decomposed sub-problem for least-to-most reasoning.
 
     Attributes:
         subproblem_id: Unique identifier
@@ -245,8 +226,7 @@ class SubProblem:
 
 @dataclass
 class ConsistencyResult:
-    """
-    Result of self-consistency voting.
+    """Result of self-consistency voting.
 
     Attributes:
         answer: Most common answer
@@ -269,8 +249,7 @@ class ConsistencyResult:
 
 
 class ThoughtGenerator:
-    """
-    Generates individual thoughts for reasoning chains.
+    """Generates individual thoughts for reasoning chains.
 
     This class encapsulates the logic for generating different types of thoughts based on context
     and evidence.
@@ -282,8 +261,7 @@ class ThoughtGenerator:
         enable_verification: bool = True,
         seed: int | None = None,
     ):
-        """
-        Initialize thought generator.
+        """Initialize thought generator.
 
         Args:
             min_evidence_threshold: Minimum evidence strength for conclusions
@@ -347,8 +325,7 @@ class ThoughtGenerator:
         context: dict[str, Any],
         parent: Thought | None = None,
     ) -> Thought:
-        """
-        Generate a thought of the specified type.
+        """Generate a thought of the specified type.
 
         Args:
             thought_type: Type of thought to generate
@@ -469,8 +446,7 @@ class ThoughtGenerator:
         return min(0.99, base_confidence)
 
     def verify_thought(self, thought: Thought, verification_data: dict[str, Any]) -> float:
-        """
-        Verify a thought against data.
+        """Verify a thought against data.
 
         Args:
             thought: Thought to verify
@@ -508,8 +484,7 @@ class ThoughtGenerator:
 
 
 class ChainOfThoughtEngine:
-    """
-    Chain-of-Thought Reasoning Engine.
+    """Chain-of-Thought Reasoning Engine.
 
     Implements multiple CoT strategies for transparent, step-by-step
     reasoning in anomaly detection and decision making.
@@ -531,8 +506,7 @@ class ChainOfThoughtEngine:
         min_confidence: float = 0.5,
         seed: int | None = None,
     ):
-        """
-        Initialize Chain-of-Thought engine.
+        """Initialize Chain-of-Thought engine.
 
         Args:
             default_strategy: Default reasoning strategy
@@ -581,8 +555,7 @@ class ChainOfThoughtEngine:
         beam_width: int | None = None,
         max_depth: int | None = None,
     ) -> ThoughtChain:
-        """
-        Perform chain-of-thought reasoning on a problem.
+        """Perform chain-of-thought reasoning on a problem.
 
         Args:
             problem: The problem or question to reason about
@@ -644,8 +617,7 @@ class ChainOfThoughtEngine:
             self.max_depth = original_max_depth
 
     def _standard_cot(self, problem: str, context: dict[str, Any]) -> ThoughtChain:
-        """
-        Standard chain-of-thought reasoning.
+        """Standard chain-of-thought reasoning.
 
         Generates a linear chain of thoughts from problem to conclusion.
         """
@@ -726,8 +698,7 @@ class ChainOfThoughtEngine:
         )
 
     def _self_consistency_cot(self, problem: str, context: dict[str, Any]) -> ThoughtChain:
-        """
-        Self-consistency chain-of-thought.
+        """Self-consistency chain-of-thought.
 
         Generates multiple reasoning paths and uses majority voting.
         """
@@ -781,8 +752,7 @@ class ChainOfThoughtEngine:
         )
 
     def _least_to_most_cot(self, problem: str, context: dict[str, Any]) -> ThoughtChain:
-        """
-        Least-to-most chain-of-thought.
+        """Least-to-most chain-of-thought.
 
         Decomposes problem into sub-problems and solves incrementally.
         """
@@ -880,8 +850,7 @@ class ChainOfThoughtEngine:
         )
 
     def _tree_of_thoughts(self, problem: str, context: dict[str, Any]) -> ThoughtChain:
-        """
-        Tree of thoughts reasoning.
+        """Tree of thoughts reasoning.
 
         Explores multiple branches and selects the best path.
         """
@@ -948,8 +917,7 @@ class ChainOfThoughtEngine:
         )
 
     def _verification_cot(self, problem: str, context: dict[str, Any]) -> ThoughtChain:
-        """
-        Verification-focused chain-of-thought.
+        """Verification-focused chain-of-thought.
 
         Includes explicit verification steps after each inference.
         """
@@ -1299,8 +1267,7 @@ class ChainOfThoughtEngine:
 
 
 class AnomalyChainOfThought:
-    """
-    Specialized Chain-of-Thought for anomaly detection.
+    """Specialized Chain-of-Thought for anomaly detection.
 
     Provides domain-specific reasoning for Mercury Agent's anomaly detection pipeline.
     """
@@ -1311,8 +1278,7 @@ class AnomalyChainOfThought:
         anomaly_threshold: float = 0.5,
         domain_specific: bool = True,
     ):
-        """
-        Initialize anomaly-specific CoT.
+        """Initialize anomaly-specific CoT.
 
         Args:
             cot_engine: Base CoT engine (creates new if None)
@@ -1338,8 +1304,7 @@ class AnomalyChainOfThought:
         anomaly_score_or_features: float | np.ndarray[Any, Any] | None = None,
         domain: str = "general",
     ) -> dict[str, Any]:
-        """
-        Analyze potential anomaly with chain-of-thought reasoning.
+        """Analyze potential anomaly with chain-of-thought reasoning.
 
         Args:
             data: Input data and features (dict with detection info)
@@ -1469,8 +1434,7 @@ class AnomalyChainOfThought:
         return self.cot_engine.reason(problem, context, ReasoningStrategy.SELF_CONSISTENCY)
 
     def explain_decision(self, chain: ThoughtChain) -> str:
-        """
-        Generate human-readable explanation of anomaly decision.
+        """Generate human-readable explanation of anomaly decision.
 
         Args:
             chain: Completed thought chain
@@ -1481,8 +1445,7 @@ class AnomalyChainOfThought:
         return chain.get_reasoning_trace()
 
     def get_confidence_breakdown(self, chain: ThoughtChain) -> dict[str, float]:
-        """
-        Get confidence breakdown by thought type.
+        """Get confidence breakdown by thought type.
 
         Args:
             chain: Completed thought chain

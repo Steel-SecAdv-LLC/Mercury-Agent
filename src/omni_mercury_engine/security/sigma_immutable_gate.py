@@ -1,12 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published by the
-Free Software Foundation, either version 3 of the License, or (at your
-option) any later version.
-
-σ_Immutable hard ethical gate (Wave B item 1).
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""σ_Immutable hard ethical gate (Wave B item 1).
 
 This module exposes :class:`SigmaImmutableGate`, a process-wide singleton
 that lifts ``EthicalGate`` from informational metadata to a *second hard
@@ -47,7 +41,6 @@ from omni_mercury_engine.cognitive.ethical_bounding import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 _PACKAGE_ROOT = Path(__file__).resolve().parent.parent
 SIGMA_IMMUTABLE_INPUT_DIM: int = 256

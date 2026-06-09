@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Neurocritical Care Module - Advanced Neurological Emergency Detection
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Neurocritical Care Module - Advanced Neurological Emergency Detection.
 
 Specialized neurocritical care for humanitarian healthcare:
 - Stroke detection & classification (ischemic/hemorrhagic)
@@ -34,8 +17,9 @@ Research sources:
 - Brain Trauma Foundation ICP guidelines
 - International League Against Epilepsy seizure classifications
 - Glasgow Coma Scale standards
-
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -102,13 +86,13 @@ class NeurocriticalPredictionResult:
 
 
 class StrokeDetector(nn.Module):
-    """
-    Neural network for stroke detection and classification.
+    """Neural network for stroke detection and classification.
 
     Uses multimodal inputs: vital signs, neurological exam, imaging features.
     """
 
     def __init__(self, input_dim: int = 64) -> None:
+        """Initialize the instance."""
         super().__init__()
 
         self.feature_extractor = nn.Sequential(
@@ -134,8 +118,7 @@ class StrokeDetector(nn.Module):
         )
 
     def forward(self, features: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        """
-        Forward pass for stroke detection.
+        """Forward pass for stroke detection.
 
         Args:
             features: Patient features (vitals, exam, imaging)
@@ -151,13 +134,13 @@ class StrokeDetector(nn.Module):
 
 
 class SeizurePredictor(nn.Module):
-    """
-    LSTM-based seizure detection and prediction.
+    """LSTM-based seizure detection and prediction.
 
     Analyzes EEG-like patterns and clinical features for seizure risk.
     """
 
     def __init__(self, input_dim: int = 32, hidden_dim: int = 64) -> None:
+        """Initialize the instance."""
         super().__init__()
 
         self.lstm = nn.LSTM(
@@ -183,8 +166,7 @@ class SeizurePredictor(nn.Module):
         )
 
     def forward(self, sequence: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """
-        Forward pass for seizure prediction.
+        """Forward pass for seizure prediction.
 
         Args:
             sequence: Temporal neurological features
@@ -206,21 +188,20 @@ class SeizurePredictor(nn.Module):
 
 
 class ICPMonitor:
-    """
-    Intracranial Pressure (ICP) monitoring and prediction.
+    """Intracranial Pressure (ICP) monitoring and prediction.
 
     Monitors for elevated ICP and predicts herniation risk.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
         self.normal_icp_range = (5.0, 15.0)
         self.elevated_threshold = 20.0
         self.critical_threshold = 25.0
 
     def assess_icp(self, patient_data: dict[str, Any]) -> dict[str, Any]:
-        """
-        Assess ICP status and risk.
+        """Assess ICP status and risk.
 
         Args:
             patient_data: Patient vitals and neurological exam
@@ -301,18 +282,17 @@ class ICPMonitor:
 
 
 class NIHSSCalculator:
-    """
-    NIH Stroke Scale (NIHSS) calculator.
+    """NIH Stroke Scale (NIHSS) calculator.
 
     Standardized neurological deficit assessment for stroke severity.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
     def calculate_nihss(self, exam_findings: dict[str, Any]) -> dict[str, Any]:
-        """
-        Calculate NIHSS score from neurological exam.
+        """Calculate NIHSS score from neurological exam.
 
         Args:
             exam_findings: Neurological exam components
@@ -401,7 +381,7 @@ class NIHSSCalculator:
 
 
 class NeurocriticalCarePredictor:
-    """Comprehensive neurocritical care prediction system integrating stroke, seizure, ICP
+    """Comprehensive neurocritical care prediction system integrating stroke, seizure, ICP.
 
     monitoring, and TBI assessment.
     """
@@ -412,6 +392,7 @@ class NeurocriticalCarePredictor:
         enable_seizure: bool = True,
         enable_icp: bool = True,
     ):
+        """Initialize the instance."""
         self.enable_stroke = enable_stroke
         self.enable_seizure = enable_seizure
         self.enable_icp = enable_icp
@@ -426,8 +407,7 @@ class NeurocriticalCarePredictor:
     def predict_neurocritical_emergency(
         self, patient_data: dict[str, Any]
     ) -> NeurocriticalPredictionResult:
-        """
-        Comprehensive neurocritical care prediction.
+        """Comprehensive neurocritical care prediction.
 
         Args:
             patient_data: Patient data including:

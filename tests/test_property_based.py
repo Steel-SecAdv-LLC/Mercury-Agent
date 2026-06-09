@@ -1,8 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Hypothesis-based Property Testing for Mercury-Agent Components.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Hypothesis-based Property Testing for Mercury-Agent Components.
 
 Uses property-based testing to verify invariants and edge cases that
 unit tests might miss. This approach generates thousands of test cases

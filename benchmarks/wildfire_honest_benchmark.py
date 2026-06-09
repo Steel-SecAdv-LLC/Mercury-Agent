@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Wildfire domain honest benchmark.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Wildfire domain honest benchmark.
 
 Fetches real fire data from NASA FIRMS, runs MercuryAnomalyDetector,
 and reports metrics. Requires NASA_FIRMS_MAP_KEY environment variable.

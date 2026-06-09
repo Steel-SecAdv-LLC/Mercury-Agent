@@ -1,18 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Provide cognitive evolution engine."""
 
 from __future__ import annotations
 
@@ -185,15 +173,13 @@ class ExplorationResult:
 
 
 class SelfPlaySimulator:
-    """
-    Multi-agent self-play simulator for recursive improvement.
+    """Multi-agent self-play simulator for recursive improvement.
 
     Uses multiple agents with different roles to simulate scenarios and discover improvements.
     """
 
     def __init__(self, num_agents: int = 5) -> None:
-        """
-        Initialize self-play simulator.
+        """Initialize self-play simulator.
 
         Args:
             num_agents: Number of agents in simulation
@@ -236,8 +222,7 @@ class SelfPlaySimulator:
         scenario: dict[str, Any],
         rounds: int = 10,
     ) -> SimulationResult:
-        """
-        Run multi-agent simulation on a scenario.
+        """Run multi-agent simulation on a scenario.
 
         Args:
             scenario: Scenario to simulate
@@ -354,8 +339,7 @@ class SelfPlaySimulator:
 
 
 class RuleMutator:
-    """
-    Genetic rule mutation engine.
+    """Genetic rule mutation engine.
 
     Applies genetic operations to evolve rules based on fitness and confidence scores.
     """
@@ -365,8 +349,7 @@ class RuleMutator:
         mutation_rate: float = 0.1,
         crossover_rate: float = 0.7,
     ):
-        """
-        Initialize rule mutator.
+        """Initialize rule mutator.
 
         Args:
             mutation_rate: Probability of mutation
@@ -384,8 +367,7 @@ class RuleMutator:
         rule: Rule,
         mutation_type: MutationType | None = None,
     ) -> MutationResult:
-        """
-        Apply mutation to a rule.
+        """Apply mutation to a rule.
 
         Args:
             rule: Rule to mutate
@@ -417,8 +399,7 @@ class RuleMutator:
         parent1: Rule,
         parent2: Rule,
     ) -> MutationResult:
-        """
-        Perform crossover between two rules.
+        """Perform crossover between two rules.
 
         Args:
             parent1: First parent rule
@@ -517,8 +498,7 @@ class RuleMutator:
         generations: int = 10,
         population_size: int = 20,
     ) -> list[Rule]:
-        """
-        Evolve a population of rules over generations.
+        """Evolve a population of rules over generations.
 
         Args:
             rules: Initial rule population
@@ -573,16 +553,14 @@ class RuleMutator:
 
 
 class ChainOfThoughtReasoner:
-    """
-    Chain-of-thought reasoning engine.
+    """Chain-of-thought reasoning engine.
 
     Implements step-by-step reasoning for complex problems with full transparency and
     explainability.
     """
 
     def __init__(self, max_steps: int = 10) -> None:
-        """
-        Initialize chain-of-thought reasoner.
+        """Initialize chain-of-thought reasoner.
 
         Args:
             max_steps: Maximum reasoning steps
@@ -597,8 +575,7 @@ class ChainOfThoughtReasoner:
         query: str,
         context: dict[str, Any] | None = None,
     ) -> ThoughtChain:
-        """
-        Perform chain-of-thought reasoning on a query.
+        """Perform chain-of-thought reasoning on a query.
 
         Args:
             query: Query to reason about
@@ -743,8 +720,7 @@ class ChainOfThoughtReasoner:
 
 
 class CounterfactualSimulator:
-    """
-    Counterfactual simulation engine.
+    """Counterfactual simulation engine.
 
     Simulates "what if" scenarios to predict outcomes of alternative actions or conditions.
     """
@@ -760,8 +736,7 @@ class CounterfactualSimulator:
         scenario: dict[str, Any],
         intervention: str,
     ) -> Counterfactual:
-        """
-        Simulate counterfactual scenario.
+        """Simulate counterfactual scenario.
 
         Args:
             scenario: Original scenario
@@ -843,8 +818,7 @@ class CounterfactualSimulator:
         scenario: dict[str, Any],
         interventions: list[str],
     ) -> list[Counterfactual]:
-        """
-        Compare multiple counterfactual scenarios.
+        """Compare multiple counterfactual scenarios.
 
         Args:
             scenario: Original scenario
@@ -863,8 +837,7 @@ class CounterfactualSimulator:
 
 
 class TheoryOfMind:
-    """
-    Theory of Mind engine for user intent inference.
+    """Theory of Mind engine for user intent inference.
 
     Infers user intentions and mental states from observed behaviors and interactions.
     """
@@ -880,8 +853,7 @@ class TheoryOfMind:
         behaviors: list[str],
         context: dict[str, Any] | None = None,
     ) -> IntentInference:
-        """
-        Infer user intent from observed behaviors.
+        """Infer user intent from observed behaviors.
 
         Args:
             behaviors: List of observed behaviors
@@ -990,15 +962,13 @@ class TheoryOfMind:
 
 
 class CuriosityEngine:
-    """
-    Curiosity-driven exploration engine.
+    """Curiosity-driven exploration engine.
 
     Identifies novel patterns and generates questions for further investigation.
     """
 
     def __init__(self, novelty_threshold: float = 0.7) -> None:
-        """
-        Initialize curiosity engine.
+        """Initialize curiosity engine.
 
         Args:
             novelty_threshold: Threshold for novelty detection
@@ -1014,8 +984,7 @@ class CuriosityEngine:
         target: str,
         data: dict[str, Any] | None = None,
     ) -> ExplorationResult:
-        """
-        Explore a target for novel patterns.
+        """Explore a target for novel patterns.
 
         Args:
             target: Target to explore
@@ -1131,8 +1100,7 @@ class CuriosityEngine:
 
 
 class CognitiveEvolutionEngine:
-    """
-    Main cognitive evolution engine orchestrator.
+    """Main cognitive evolution engine orchestrator.
 
     Coordinates all advanced cognitive capabilities for recursive self-improvement while maintaining
     safety.
@@ -1143,8 +1111,7 @@ class CognitiveEvolutionEngine:
         safety_threshold: float = 0.99,
         max_improvement_cycles: int = 100,
     ):
-        """
-        Initialize cognitive evolution engine.
+        """Initialize cognitive evolution engine.
 
         Args:
             safety_threshold: Minimum safety score for improvements
@@ -1172,8 +1139,7 @@ class CognitiveEvolutionEngine:
         scenario: dict[str, Any],
         rules: list[Rule] | None = None,
     ) -> dict[str, Any]:
-        """
-        Run a single improvement cycle.
+        """Run a single improvement cycle.
 
         Args:
             scenario: Scenario to improve on
@@ -1250,8 +1216,7 @@ class CognitiveEvolutionEngine:
         behaviors: list[str],
         context: dict[str, Any] | None = None,
     ) -> IntentInference:
-        """
-        Infer user intent from behaviors.
+        """Infer user intent from behaviors.
 
         Args:
             behaviors: Observed user behaviors
@@ -1267,8 +1232,7 @@ class CognitiveEvolutionEngine:
         scenario: dict[str, Any],
         intervention: str,
     ) -> Counterfactual:
-        """
-        Simulate counterfactual scenario.
+        """Simulate counterfactual scenario.
 
         Args:
             scenario: Original scenario
@@ -1284,8 +1248,7 @@ class CognitiveEvolutionEngine:
         query: str,
         context: dict[str, Any] | None = None,
     ) -> ThoughtChain:
-        """
-        Perform chain-of-thought reasoning.
+        """Perform chain-of-thought reasoning.
 
         Args:
             query: Query to reason about
@@ -1301,8 +1264,7 @@ class CognitiveEvolutionEngine:
         target: str,
         data: dict[str, Any] | None = None,
     ) -> ExplorationResult:
-        """
-        Explore for novel patterns.
+        """Explore for novel patterns.
 
         Args:
             target: Target to explore

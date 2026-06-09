@@ -1,9 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests for Symbolic Logic Layer - Logic Graphs and Explainable Decisions
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for Symbolic Logic Layer - Logic Graphs and Explainable Decisions."""
 
 from __future__ import annotations
 

@@ -1,5 +1,5 @@
-# SPDX-License-Identifier: GPL-3.0-only
-# Copyright (C) Steel Security Advisors LLC
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Probe 5: Ethical-constrained boundary violation detector."""
 
 from __future__ import annotations
@@ -23,6 +23,7 @@ class EthicalConstrainedProbe(BaseEquationProbe):
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         super().__init__(min_samples=8)
         self._b_lo: float = 0.0
         self._b_hi: float = 0.0

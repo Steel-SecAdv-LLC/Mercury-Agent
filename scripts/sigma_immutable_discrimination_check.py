@@ -1,14 +1,7 @@
 #!/usr/bin/env python3
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published by the
-Free Software Foundation, either version 3 of the License, or (at your
-option) any later version.
-
-σ_Immutable discrimination probe.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""σ_Immutable discrimination probe.
 
 The σ_Immutable gate is a *fail-closed* safety gate on
 ``OmniMercuryEngine.detect_with_fusion``.  It was trained
@@ -118,7 +111,6 @@ CRITERION = Criterion()
 #: {benevolence_zeroed, benevolence_below_floor, contradictory_opaque,
 #: single_critical_zeroed}; see the PR body's findings table.
 KNOWN_FALSE_ASSURANCE: frozenset[str] = frozenset()
-
 
 # ---------------------------------------------------------------------------
 # Cases

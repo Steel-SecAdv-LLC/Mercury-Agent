@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Pre-configured circuit breakers for external API integrations.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Pre-configured circuit breakers for external API integrations.
 
 This module provides circuit breaker instances optimized for different
 types of external integrations:
@@ -28,6 +11,8 @@ types of external integrations:
 Each circuit breaker is configured with appropriate thresholds and
 exponential backoff settings for its use case.
 """
+
+from __future__ import annotations
 
 import logging
 from functools import wraps
@@ -44,6 +29,8 @@ class _CircuitBreakerWrapper:
 
     circuit_breaker: CircuitBreaker
 
+    """Implement the Python data model method."""
+
     def __call__(self, *args: Any, **kwargs: Any) -> Any: ...
 
 
@@ -51,8 +38,7 @@ logger = logging.getLogger(__name__)
 
 
 class DataLoaderCircuitBreaker(CircuitBreaker):
-    """
-    Circuit breaker optimized for data loader API calls.
+    """Circuit breaker optimized for data loader API calls.
 
     Configured with:
     - 3 failure threshold (APIs may have intermittent issues)
@@ -62,6 +48,7 @@ class DataLoaderCircuitBreaker(CircuitBreaker):
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         super().__init__(
             failure_threshold=3,
             recovery_timeout=30,
@@ -75,8 +62,7 @@ class DataLoaderCircuitBreaker(CircuitBreaker):
 
 
 class DetectorCircuitBreaker(CircuitBreaker):
-    """
-    Circuit breaker optimized for detector invocations.
+    """Circuit breaker optimized for detector invocations.
 
     Configured with:
     - 5 failure threshold (detectors should be more stable)
@@ -86,6 +72,7 @@ class DetectorCircuitBreaker(CircuitBreaker):
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         super().__init__(
             failure_threshold=5,
             recovery_timeout=60,
@@ -99,8 +86,7 @@ class DetectorCircuitBreaker(CircuitBreaker):
 
 
 class ExternalIntegrationCircuitBreaker(CircuitBreaker):
-    """
-    Circuit breaker optimized for external integration endpoints.
+    """Circuit breaker optimized for external integration endpoints.
 
     Configured with:
     - 3 failure threshold (external services may be unreliable)
@@ -110,6 +96,7 @@ class ExternalIntegrationCircuitBreaker(CircuitBreaker):
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         super().__init__(
             failure_threshold=3,
             recovery_timeout=45,
@@ -128,8 +115,7 @@ _integration_breakers: dict[str, ExternalIntegrationCircuitBreaker] = {}
 
 
 def get_data_loader_breaker(name: str) -> DataLoaderCircuitBreaker:
-    """
-    Get or create a circuit breaker for a data loader.
+    """Get or create a circuit breaker for a data loader.
 
     Args:
         name: Unique identifier for the data loader (e.g., "noaa_space_weather")
@@ -144,8 +130,7 @@ def get_data_loader_breaker(name: str) -> DataLoaderCircuitBreaker:
 
 
 def get_detector_breaker(name: str) -> DetectorCircuitBreaker:
-    """
-    Get or create a circuit breaker for a detector.
+    """Get or create a circuit breaker for a detector.
 
     Args:
         name: Unique identifier for the detector (e.g., "tsunami_detector")
@@ -160,8 +145,7 @@ def get_detector_breaker(name: str) -> DetectorCircuitBreaker:
 
 
 def get_integration_breaker(name: str) -> ExternalIntegrationCircuitBreaker:
-    """
-    Get or create a circuit breaker for an external integration.
+    """Get or create a circuit breaker for an external integration.
 
     Args:
         name: Unique identifier for the integration (e.g., "ama_cryptography")
@@ -179,8 +163,7 @@ def with_circuit_breaker(
     breaker_type: str = "data_loader",
     name: str | None = None,
 ) -> Callable[[Callable[..., Any]], _CircuitBreakerWrapper]:
-    """
-    Decorator to wrap a function with circuit breaker protection.
+    """Decorator to wrap a function with circuit breaker protection.
 
     Args:
         breaker_type: Type of circuit breaker ("data_loader", "detector", "integration")
@@ -220,8 +203,7 @@ def with_circuit_breaker(
 
 
 def get_all_breaker_stats() -> dict[str, dict[str, Any]]:
-    """
-    Get statistics for all circuit breakers.
+    """Get statistics for all circuit breakers.
 
     Returns:
         Dictionary mapping breaker names to their statistics
@@ -252,8 +234,7 @@ def reset_all_breakers() -> None:
 
 
 def get_open_breakers() -> list[str]:
-    """
-    Get list of circuit breakers that are currently open.
+    """Get list of circuit breakers that are currently open.
 
     Returns:
         List of breaker names that are in OPEN state

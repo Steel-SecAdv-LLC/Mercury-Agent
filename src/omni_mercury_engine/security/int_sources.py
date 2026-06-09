@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Intelligence Source Sub-Modules
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Intelligence Source Sub-Modules.
 
 Specialized processors for each of the 13 intelligence collection disciplines.
 Each sub-module provides domain-specific anomaly detection and pattern recognition
@@ -41,8 +24,9 @@ Intelligence Disciplines Covered:
 ⚠️ SIMULATION-BASED: Research/development tool. Operational deployment requires
 security clearance, legal authorization, and oversight by qualified intelligence
 professionals.
-
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -71,14 +55,14 @@ class OSINTAnalysisResult:
 
 
 class OSINTProcessor:
-    """
-    Open Source Intelligence (OSINT) Processor.
+    """Open Source Intelligence (OSINT) Processor.
 
     Analyzes publicly available information from media, social networks, academic publications, and
     open databases for threat indicators and anomalies.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
         self.source_reliability = {
             "mainstream_media": 0.85,
@@ -155,7 +139,7 @@ class OSINTProcessor:
         return anomalies[:10]
 
     def _analyze_sentiment(self, content: str) -> dict[str, float]:
-        """Analyze sentiment (simplified)"""
+        """Analyze sentiment (simplified)."""
         negative_words = ["threat", "danger", "attack", "crisis", "fear"]
         positive_words = ["peace", "cooperation", "success", "progress"]
 
@@ -171,7 +155,7 @@ class OSINTProcessor:
         }
 
     def _extract_entities(self, content: str) -> list[str]:
-        """Extract named entities (simplified)"""
+        """Extract named entities (simplified)."""
         words = content.split()
         capitalized = [w for w in words if w and w[0].isupper() and len(w) > 2]
         return capitalized[:20]
@@ -200,14 +184,14 @@ class COMINTAnalysisResult:
 
 
 class COMINTProcessor:
-    """
-    Communications Intelligence (COMINT) Processor.
+    """Communications Intelligence (COMINT) Processor.
 
     Analyzes intercepted communications (phone, email, radio) for patterns, anomalies, and threat
     indicators.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
     def analyze(self, comint_data: dict[str, Any]) -> COMINTAnalysisResult:
@@ -301,14 +285,14 @@ class HUMINTAnalysisResult:
 
 
 class HUMINTProcessor:
-    """
-    Human Intelligence (HUMINT) Processor.
+    """Human Intelligence (HUMINT) Processor.
 
     Analyzes human source reports, including clandestine sources, interviews, and field
     observations.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
         self.source_ratings = {
             "A": 1.0,  # Completely reliable
@@ -396,14 +380,14 @@ class GEOINTAnalysisResult:
 
 
 class GEOINTProcessor:
-    """
-    Geospatial Intelligence (GEOINT) Processor.
+    """Geospatial Intelligence (GEOINT) Processor.
 
     Analyzes geospatial data including terrain analysis, facility identification, and movement
     tracking.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
     def analyze(self, geoint_data: dict[str, Any]) -> GEOINTAnalysisResult:
@@ -488,14 +472,14 @@ class IMINTAnalysisResult:
 
 
 class IMINTProcessor:
-    """
-    Imagery Intelligence (IMINT) Processor.
+    """Imagery Intelligence (IMINT) Processor.
 
     Analyzes satellite and aerial imagery for facility identification, change detection, and
     activity monitoring.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
     def analyze(self, imint_data: dict[str, Any]) -> IMINTAnalysisResult:
@@ -571,13 +555,13 @@ class CYBINTAnalysisResult:
 
 
 class CYBINTProcessor:
-    """
-    Cyber Intelligence (CYBINT) Processor.
+    """Cyber Intelligence (CYBINT) Processor.
 
     Analyzes cyber threat indicators, malware, network anomalies, and attribution.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
     def analyze(self, cybint_data: dict[str, Any]) -> CYBINTAnalysisResult:
@@ -636,13 +620,13 @@ class FININTAnalysisResult:
 
 
 class FININTProcessor:
-    """
-    Financial Intelligence (FININT) Processor.
+    """Financial Intelligence (FININT) Processor.
 
     Analyzes financial transactions, money laundering indicators, and terrorism financing.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
         self.high_risk_jurisdictions = {"offshore", "sanctioned", "non_cooperative"}
 
@@ -743,13 +727,13 @@ class SIGINTAnalysisResult:
 
 
 class SIGINTProcessor:
-    """
-    Signals Intelligence (SIGINT) Processor.
+    """Signals Intelligence (SIGINT) Processor.
 
     Analyzes intercepted electronic signals (includes COMINT and ELINT).
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
     def analyze(self, sigint_data: dict[str, Any]) -> SIGINTAnalysisResult:
@@ -819,13 +803,13 @@ class ELINTAnalysisResult:
 
 
 class ELINTProcessor:
-    """
-    Electronic Intelligence (ELINT) Processor.
+    """Electronic Intelligence (ELINT) Processor.
 
     Analyzes non-communication electronic emissions (radar, sensors).
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
         self.radar_threat_levels = {
             "search": 0.3,
@@ -908,13 +892,13 @@ class MASINTAnalysisResult:
 
 
 class MASINTProcessor:
-    """
-    Measurement & Signature Intelligence (MASINT) Processor.
+    """Measurement & Signature Intelligence (MASINT) Processor.
 
     Analyzes technical signatures (acoustic, seismic, chemical, radiation, thermal).
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
     def analyze(self, masint_data: dict[str, Any]) -> MASINTAnalysisResult:
@@ -982,13 +966,13 @@ class CryptanalysisResult:
 
 
 class CryptanalysisProcessor:
-    """
-    Cryptanalysis Processor.
+    """Cryptanalysis Processor.
 
     Analyzes encrypted communications for patterns, vulnerabilities, and potential decryption.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
     def analyze(self, crypto_data: dict[str, Any]) -> CryptanalysisResult:
@@ -1065,13 +1049,13 @@ class MeteorologicalIntelResult:
 
 
 class MeteorologicalProcessor:
-    """
-    Meteorological Intelligence Processor.
+    """Meteorological Intelligence Processor.
 
     Analyzes weather and atmospheric conditions for operational planning.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
     def analyze(self, meteo_data: dict[str, Any]) -> MeteorologicalIntelResult:
@@ -1153,13 +1137,13 @@ class TrafficAnalysisResult:
 
 
 class TrafficAnalysisProcessor:
-    """
-    Traffic Analysis Processor.
+    """Traffic Analysis Processor.
 
     Analyzes communication patterns without accessing content (metadata analysis).
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
     def analyze(self, traffic_data: dict[str, Any]) -> TrafficAnalysisResult:
@@ -1236,13 +1220,13 @@ class TrafficAnalysisProcessor:
 
 
 class IntelligenceSourceRegistry:
-    """
-    Registry for all intelligence source processors.
+    """Registry for all intelligence source processors.
 
     Provides unified access to all 13 INT source sub-modules.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
         self.processors: dict[str, IntelligenceProcessor] = {
@@ -1282,8 +1266,7 @@ class IntelligenceSourceRegistry:
 
 
 def create_int_source_registry() -> IntelligenceSourceRegistry:
-    """
-    Create intelligence source registry with all processors.
+    """Create intelligence source registry with all processors.
 
     Returns:
         Configured IntelligenceSourceRegistry

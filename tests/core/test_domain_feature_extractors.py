@@ -1,16 +1,11 @@
-"""
-Mercury Agent - Domain Feature Extractors Tests
-Copyright (C) 2025 Steel Security Advisors LLC
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Domain Feature Extractors Tests.
 
 Comprehensive unit tests for domain-specific feature extraction modules:
 - Medical domain: Vital sign patterns, SOFA scoring, HRV metrics
 - Financial domain: Benford's Law, transaction velocity, seasonality
 - Infrastructure domain: SCADA correlation, setpoint deviation, attack indicators
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
 """
 
 from __future__ import annotations

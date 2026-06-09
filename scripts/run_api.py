@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""
-Mercury Agent API Server Launcher
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Mercury Agent API Server Launcher.
 
 Starts the FastAPI server for anomaly detection.
 
@@ -22,9 +23,6 @@ Environment Variables:
     MERCURY_CORS_ORIGINS: Comma-separated allowed origins
     OMNI_RATE_LIMIT_ENABLED: Enable rate limiting (default: true)
     JWT_SECRET_KEY: Secret key for JWT authentication
-
-Copyright (C) 2025 Steel Security Advisors LLC
-Licensed under GPL-3.0-or-later
 """
 
 from __future__ import annotations

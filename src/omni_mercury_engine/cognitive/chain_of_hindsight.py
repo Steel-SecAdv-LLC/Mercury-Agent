@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Chain of Hindsight (CoH) Learning Module for Mercury Agent.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Chain of Hindsight (CoH) Learning Module for Mercury Agent.
 
 Implements learning from historical sequences with feedback, inspired by:
 - "Chain of Hindsight Aligns Language Models with Feedback" (Liu et al., 2023)
@@ -42,6 +25,8 @@ This module enables Mercury Agent to learn from past detection
 sequences and feedback to improve future performance.
 """
 
+from __future__ import annotations
+
 import hashlib
 import logging
 import time
@@ -53,7 +38,6 @@ from typing import Any
 import numpy as np
 
 logger = logging.getLogger(__name__)
-
 
 # =============================================================================
 # Constants
@@ -103,8 +87,7 @@ class RelabelingStrategy(Enum):
 
 @dataclass
 class SequenceStep:
-    """
-    A single step in a historical sequence.
+    """A single step in a historical sequence.
 
     Represents one timestep with input, output, and feedback.
 
@@ -142,8 +125,7 @@ class SequenceStep:
 
 @dataclass
 class HistoricalSequence:
-    """
-    A complete historical sequence with feedback.
+    """A complete historical sequence with feedback.
 
     Represents a trajectory of steps from start to end.
 
@@ -194,8 +176,7 @@ class HistoricalSequence:
 
 @dataclass
 class HindsightRelabeling:
-    """
-    Result of hindsight relabeling.
+    """Result of hindsight relabeling.
 
     Contains alternative action and expected improvement.
 
@@ -218,8 +199,7 @@ class HindsightRelabeling:
 
 @dataclass
 class LearningSignal:
-    """
-    A learning signal derived from hindsight.
+    """A learning signal derived from hindsight.
 
     Used to update model behavior.
 
@@ -244,8 +224,7 @@ class LearningSignal:
 
 @dataclass
 class PolicyUpdate:
-    """
-    Recommended policy update from CoH learning.
+    """Recommended policy update from CoH learning.
 
     Attributes:
         update_id: Unique identifier
@@ -272,8 +251,7 @@ class PolicyUpdate:
 
 
 class CreditAssignment:
-    """
-    Temporal credit assignment for sequential decisions.
+    """Temporal credit assignment for sequential decisions.
 
     Assigns credit to individual steps based on final outcome.
     """
@@ -283,8 +261,7 @@ class CreditAssignment:
         discount_factor: float = 0.95,
         use_advantage: bool = True,
     ):
-        """
-        Initialize credit assignment.
+        """Initialize credit assignment.
 
         Args:
             discount_factor: Discount for future rewards (gamma)
@@ -298,8 +275,7 @@ class CreditAssignment:
         sequence: HistoricalSequence | list[dict[str, Any]],
         gamma: float | None = None,
     ) -> list[float]:
-        """
-        Assign credit to each step in sequence.
+        """Assign credit to each step in sequence.
 
         Args:
             sequence: Historical sequence or list of step dicts
@@ -365,8 +341,7 @@ class CreditAssignment:
     def get_key_steps(
         self, sequence: HistoricalSequence, top_k: int = 3
     ) -> list[tuple[int, float]]:
-        """
-        Get most important steps by credit.
+        """Get most important steps by credit.
 
         Args:
             sequence: Historical sequence
@@ -387,8 +362,7 @@ class CreditAssignment:
 
 
 class HindsightRelabeler:
-    """
-    Relabels historical sequences with hindsight knowledge.
+    """Relabels historical sequences with hindsight knowledge.
 
     Enables counterfactual learning by considering what should have been done given the outcome.
     """
@@ -399,8 +373,7 @@ class HindsightRelabeler:
         improvement_threshold: float = 0.1,
         seed: int | None = None,
     ):
-        """
-        Initialize relabeler.
+        """Initialize relabeler.
 
         Args:
             anomaly_threshold: Threshold for anomaly classification
@@ -428,8 +401,7 @@ class HindsightRelabeler:
         sequence: HistoricalSequence | list[dict[str, Any]],
         strategy_or_achieved_goal: RelabelingStrategy | str = RelabelingStrategy.OPTIMAL,
     ) -> list[HindsightRelabeling] | list[dict[str, Any]]:
-        """
-        Relabel sequence with hindsight.
+        """Relabel sequence with hindsight.
 
         Args:
             sequence: Sequence to relabel (HistoricalSequence or list of step dicts)
@@ -528,16 +500,14 @@ class HindsightRelabeler:
 
 
 class FeedbackProcessor:
-    """
-    Processes feedback to generate learning signals.
+    """Processes feedback to generate learning signals.
 
     Converts human feedback and outcome signals into structured learning signals for policy
     improvement.
     """
 
     def __init__(self, weight_by_quality: bool = True):
-        """
-        Initialize feedback processor.
+        """Initialize feedback processor.
 
         Args:
             weight_by_quality: Weight signals by feedback quality
@@ -559,8 +529,7 @@ class FeedbackProcessor:
         predictions: list[float],
         ground_truth: list[int | bool],
     ) -> dict[str, Any]:
-        """
-        Process predictions and ground truth to generate feedback.
+        """Process predictions and ground truth to generate feedback.
 
         Args:
             predictions: List of predicted scores
@@ -622,8 +591,7 @@ class FeedbackProcessor:
         }
 
     def process_sequence(self, sequence: HistoricalSequence) -> list[LearningSignal]:
-        """
-        Process sequence to generate learning signals.
+        """Process sequence to generate learning signals.
 
         Args:
             sequence: Sequence with feedback
@@ -693,8 +661,7 @@ class FeedbackProcessor:
         )
 
     def aggregate_signals(self, signals: list[LearningSignal]) -> dict[str, list[LearningSignal]]:
-        """
-        Aggregate signals by pattern.
+        """Aggregate signals by pattern.
 
         Args:
             signals: List of learning signals
@@ -724,8 +691,7 @@ class FeedbackProcessor:
 
 
 class ChainOfHindsightEngine:
-    """
-    Main Chain of Hindsight learning engine.
+    """Main Chain of Hindsight learning engine.
 
     Implements learning from historical sequences with feedback
     to improve decision-making over time.
@@ -745,8 +711,7 @@ class ChainOfHindsightEngine:
         feedback_weight: float = FEEDBACK_WEIGHT,
         enable_relabeling: bool = True,
     ):
-        """
-        Initialize CoH engine.
+        """Initialize CoH engine.
 
         Args:
             max_history_size: Maximum sequences to store
@@ -796,8 +761,7 @@ class ChainOfHindsightEngine:
         )
 
     def start_sequence(self, task_name: str) -> str:
-        """
-        Start a new sequence for incremental recording.
+        """Start a new sequence for incremental recording.
 
         Args:
             task_name: Name/description of the task
@@ -823,8 +787,7 @@ class ChainOfHindsightEngine:
         outcome: dict[str, Any],
         features: list[float] | None = None,
     ) -> None:
-        """
-        Record a step in an active sequence.
+        """Record a step in an active sequence.
 
         Args:
             sequence_id: ID from start_sequence
@@ -866,8 +829,7 @@ class ChainOfHindsightEngine:
         sequence_id: str,
         final_outcome: dict[str, Any],
     ) -> HistoricalSequence:
-        """
-        End an active sequence and finalize it.
+        """End an active sequence and finalize it.
 
         Args:
             sequence_id: ID from start_sequence
@@ -910,8 +872,7 @@ class ChainOfHindsightEngine:
         outcome: str,
         feedback_quality: FeedbackQuality = FeedbackQuality.NEUTRAL,
     ) -> HistoricalSequence:
-        """
-        Record a new historical sequence.
+        """Record a new historical sequence.
 
         Args:
             steps: Steps in the sequence
@@ -961,8 +922,7 @@ class ChainOfHindsightEngine:
         ground_truths: list[bool | None],
         outcome: str,
     ) -> HistoricalSequence:
-        """
-        Record an anomaly detection sequence.
+        """Record an anomaly detection sequence.
 
         Convenience method for anomaly detection use case.
 
@@ -1022,8 +982,7 @@ class ChainOfHindsightEngine:
         self,
         min_signals: int = 10,
     ) -> list[PolicyUpdate]:
-        """
-        Generate policy updates from accumulated signals.
+        """Generate policy updates from accumulated signals.
 
         Args:
             min_signals: Minimum signals required for learning
@@ -1059,8 +1018,7 @@ class ChainOfHindsightEngine:
         self,
         context: dict[str, Any],
     ) -> dict[str, Any] | None:
-        """
-        Get recommendation based on learned patterns.
+        """Get recommendation based on learned patterns.
 
         Args:
             context: Current decision context
@@ -1092,8 +1050,7 @@ class ChainOfHindsightEngine:
         context: dict[str, Any],
         top_k: int = 5,
     ) -> list[HistoricalSequence]:
-        """
-        Get similar historical sequences.
+        """Get similar historical sequences.
 
         Args:
             context: Current context
@@ -1114,8 +1071,7 @@ class ChainOfHindsightEngine:
         return [seq for seq, _ in scored[:top_k]]
 
     def get_learning_insights(self) -> dict[str, Any]:
-        """
-        Get insights from learning history.
+        """Get insights from learning history.
 
         Returns:
             Dictionary of learning insights
@@ -1152,8 +1108,7 @@ class ChainOfHindsightEngine:
         }
 
     def export_for_training(self) -> list[dict[str, Any]]:
-        """
-        Export sequences in training format.
+        """Export sequences in training format.
 
         Returns:
             List of sequences in CoH training format
@@ -1348,8 +1303,7 @@ class ChainOfHindsightEngine:
 
 
 class AnomalyChainOfHindsight:
-    """
-    Chain of Hindsight specialized for anomaly detection.
+    """Chain of Hindsight specialized for anomaly detection.
 
     Integrates CoH learning with Mercury Agent's anomaly detection pipeline for continuous
     improvement.
@@ -1360,8 +1314,7 @@ class AnomalyChainOfHindsight:
         coh_engine: ChainOfHindsightEngine | None = None,
         batch_size: int = 100,
     ):
-        """
-        Initialize anomaly CoH.
+        """Initialize anomaly CoH.
 
         Args:
             coh_engine: Base CoH engine
@@ -1378,8 +1331,7 @@ class AnomalyChainOfHindsight:
         detection: dict[str, Any],
         ground_truth: bool | None = None,
     ) -> None:
-        """
-        Add a detection to current batch.
+        """Add a detection to current batch.
 
         Args:
             detection: Detection result
@@ -1423,8 +1375,7 @@ class AnomalyChainOfHindsight:
         self._current_truths = []
 
     def get_threshold_adjustment(self) -> dict[str, Any]:
-        """
-        Get recommended threshold adjustment.
+        """Get recommended threshold adjustment.
 
         Returns:
             Threshold adjustment recommendation
@@ -1468,8 +1419,7 @@ class AnomalyChainOfHindsight:
             }
 
     def learn_from_history(self, history: list[dict[str, Any]]) -> dict[str, Any]:
-        """
-        Learn from a history of detection results.
+        """Learn from a history of detection results.
 
         Args:
             history: List of detection history entries with timestamp, detection, label
@@ -1538,8 +1488,7 @@ class AnomalyChainOfHindsight:
         }
 
     def force_learn(self) -> list[PolicyUpdate]:
-        """
-        Force learning from current history.
+        """Force learning from current history.
 
         Returns:
             Generated policy updates

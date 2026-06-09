@@ -1,16 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-------------------------------------------------------------------------
-
-Operator tool: pre-commit hook that refuses to commit
-``configs/*.yaml`` (or any operator-supplied path) whose values match
-the :mod:`secret_scan_baseline` heuristics.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: pre-commit hook that refuses to commit ``configs/*.yaml`` (or any operator-supplied path) whose values match the :mod:`secret_scan_baseline` heuristics.
 
 This is the *config-tree* sibling of :mod:`secret_scan_baseline` —
 where that scanner walks the source tree, this one focuses on the

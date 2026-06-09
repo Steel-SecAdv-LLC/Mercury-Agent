@@ -1,12 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Space Weather & Solar Physics Data Sources
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Space Weather & Solar Physics Data Sources.
 
 Production-grade integrations for:
 - NASA DONKI (Space Weather Database Of Notifications, Knowledge, Information)
@@ -47,7 +41,6 @@ from omni_mercury_engine.data_sources.base import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 # =============================================================================
 # NASA DONKI - Space Weather Database
@@ -428,8 +421,7 @@ class NASANeoWsSource(DataSourceBase):
         days_forward: int = 7,
         config: DataSourceConfig | None = None,
     ) -> None:
-        """
-        Initialize NASA NeoWs data source.
+        """Initialize NASA NeoWs data source.
 
         Args:
             api_key: NASA API key

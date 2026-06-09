@@ -1,25 +1,8 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Cybersecurity threat detection module Enhanced with Banish_Void_Undue threat validity assessment."""
 
 from __future__ import annotations
-
-"""
-Cybersecurity threat detection module
-Enhanced with Banish_Void_Undue threat validity assessment
-"""
 
 import hashlib
 import hmac
@@ -48,8 +31,7 @@ class BanishmentAction(Enum):
 
 
 class ThreatDetector:
-    """
-    Detect common security threats:
+    """Detect common security threats:.
 
     - SQL injection
     - XSS attacks
@@ -58,6 +40,7 @@ class ThreatDetector:
     """
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
+        """Initialize the instance."""
         self.config = config or {}
         self.sql_patterns = [
             r"(\bUNION\b.*\bSELECT\b)",
@@ -164,8 +147,7 @@ class ThreatDetector:
 
     @staticmethod
     def hash_password(password: str) -> str:
-        """
-        Hash password using bcrypt (preferred) or PBKDF2 fallback.
+        """Hash password using bcrypt (preferred) or PBKDF2 fallback.
 
         Returns:
             Hashed password string. Format depends on available library.
@@ -183,8 +165,7 @@ class ThreatDetector:
 
     @staticmethod
     def verify_password(password: str, hashed: str) -> bool:
-        """
-        Verify password against hash.
+        """Verify password against hash.
 
         Supports both bcrypt and PBKDF2 formats.
         """
@@ -209,8 +190,7 @@ class ThreatDetector:
         threats: list[dict[str, Any]],
         context: dict[str, Any],
     ) -> dict[str, Any]:
-        """
-        Assess validity of detected threats to reduce false positives Extracted from
+        """Assess validity of detected threats to reduce false positives Extracted from.
 
         Banish_Void_Undue Threat Engine.
 
@@ -256,8 +236,7 @@ class ThreatDetector:
 
     @staticmethod
     def evaluate_temporal_relevance(context: dict[str, Any]) -> float:
-        """
-        Evaluate temporal relevance of threat Recent threats are more relevant.
+        """Evaluate temporal relevance of threat Recent threats are more relevant.
 
         Args:
             context: Context with timestamp information
@@ -284,8 +263,7 @@ class ThreatDetector:
         threats: list[dict[str, Any]],
         context: dict[str, Any],
     ) -> float:
-        """
-        Evaluate ethical alignment of threat response Ensures survivor-first principles.
+        """Evaluate ethical alignment of threat response Ensures survivor-first principles.
 
         Args:
             threats: List of threats

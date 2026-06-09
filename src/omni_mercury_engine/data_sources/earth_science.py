@@ -1,12 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Earth Science & Hazards Data Sources
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Earth Science & Hazards Data Sources.
 
 Production-grade integrations for:
 - USGS Earthquake Hazards
@@ -44,7 +38,6 @@ from omni_mercury_engine.data_sources.base import (
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # USGS Earthquake Hazards
 # =============================================================================
@@ -76,8 +69,7 @@ class USGSEarthquakeSource(DataSourceBase):
         days_back: int = 7,
         config: DataSourceConfig | None = None,
     ) -> None:
-        """
-        Initialize USGS Earthquake data source.
+        """Initialize USGS Earthquake data source.
 
         Args:
             min_magnitude: Minimum earthquake magnitude to fetch
@@ -303,8 +295,7 @@ class USGSVolcanoSource(DataSourceBase):
         end_time: datetime | None = None,
         **kwargs: Any,
     ) -> list[DataPoint]:
-        """
-        Fetch volcano data from USGS.
+        """Fetch volcano data from USGS.
 
         Note: The actual USGS volcano API structure may vary.
         This implementation provides structured volcano data.
@@ -688,8 +679,7 @@ class NWSWeatherAlertsSource(DataSourceBase):
         event_types: list[str] | None = None,
         config: DataSourceConfig | None = None,
     ) -> None:
-        """
-        Initialize NWS Weather Alerts data source.
+        """Initialize NWS Weather Alerts data source.
 
         Args:
             state: Two-letter state code (e.g., "CA", "TX")
@@ -867,8 +857,7 @@ class EPAAirNowSource(DataSourceBase):
         zip_code: str | None = None,
         config: DataSourceConfig | None = None,
     ) -> None:
-        """
-        Initialize EPA AirNow data source.
+        """Initialize EPA AirNow data source.
 
         Args:
             api_key: AirNow API key

@@ -1,14 +1,6 @@
-"""
-Mercury Agent
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Request routing with pattern matching and middleware support.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Request routing with pattern matching and middleware support.
 
 Example:
     Basic routing::
@@ -61,8 +53,7 @@ class RouteMethod(Enum):
 
 @dataclass
 class Route:
-    """
-    Route definition.
+    """Route definition.
 
     Attributes:
         pattern: URL pattern with optional parameters (e.g., "/users/{id}").
@@ -104,8 +95,7 @@ class Route:
         self._param_names = param_names
 
     def match(self, path: str) -> dict[str, str] | None:
-        """
-        Match path against this route.
+        """Match path against this route.
 
         Args:
             path: URL path to match.
@@ -126,8 +116,7 @@ class Route:
 
 @dataclass
 class RouteMatch:
-    """
-    Result of route matching.
+    """Result of route matching.
 
     Attributes:
         route: Matched route.
@@ -146,6 +135,7 @@ class RouteNotFoundError(Exception):
     """Raised when no route matches."""
 
     def __init__(self, path: str, method: str) -> None:
+        """Initialize the instance."""
         super().__init__(f"No route found for {method} {path}")
         self.path = path
         self.method = method
@@ -155,6 +145,7 @@ class MethodNotAllowedError(Exception):
     """Raised when route exists but method not allowed."""
 
     def __init__(self, path: str, method: str, allowed: list[str]) -> None:
+        """Initialize the instance."""
         super().__init__(
             f"Method {method} not allowed for {path}. " f"Allowed: {', '.join(allowed)}"
         )
@@ -188,8 +179,7 @@ class RequestRouter:
         prefix: str = "",
         middleware: list[Callable[..., Any]] | None = None,
     ):
-        """
-        Initialize router.
+        """Initialize router.
 
         Args:
             prefix: URL prefix for all routes.
@@ -211,8 +201,7 @@ class RequestRouter:
         middleware: list[Callable[..., Any]] | None = None,
         **metadata: Any,
     ) -> Route:
-        """
-        Add a route.
+        """Add a route.
 
         Args:
             pattern: URL pattern (supports {param} syntax).
@@ -250,8 +239,7 @@ class RequestRouter:
         name: str | None = None,
         **kwargs: Any,
     ) -> Callable[..., Any]:
-        """
-        Decorator to register a route.
+        """Decorator to register a route.
 
         Args:
             pattern: URL pattern.
@@ -296,8 +284,7 @@ class RequestRouter:
         return self.route(pattern, methods=["DELETE"], **kwargs)
 
     def match(self, path: str, method: str = "GET") -> RouteMatch:
-        """
-        Match a path and method to a route.
+        """Match a path and method to a route.
 
         Args:
             path: URL path to match.
@@ -342,8 +329,7 @@ class RequestRouter:
         raise RouteNotFoundError(path, method)
 
     def get_route(self, name: str) -> Route | None:
-        """
-        Get route by name.
+        """Get route by name.
 
         Args:
             name: Route name.
@@ -354,8 +340,7 @@ class RequestRouter:
         return self._named_routes.get(name)
 
     def url_for(self, name: str, **params: Any) -> str:
-        """
-        Generate URL for named route.
+        """Generate URL for named route.
 
         Args:
             name: Route name.
@@ -382,8 +367,7 @@ class RequestRouter:
         router: RequestRouter,
         prefix: str = "",
     ) -> None:
-        """
-        Include routes from another router.
+        """Include routes from another router.
 
         Args:
             router: Router to include.
@@ -405,8 +389,7 @@ class RequestRouter:
         return list(self._routes)
 
     def get_metrics(self) -> dict[str, Any]:
-        """
-        Get routing metrics.
+        """Get routing metrics.
 
         Returns:
             Dictionary with request counts and route hits.
@@ -436,8 +419,7 @@ class RouterGroup:
         router: RequestRouter | None = None,
         middleware: list[Callable[..., Any]] | None = None,
     ):
-        """
-        Initialize router group.
+        """Initialize router group.
 
         Args:
             prefix: URL prefix for all routes in group.

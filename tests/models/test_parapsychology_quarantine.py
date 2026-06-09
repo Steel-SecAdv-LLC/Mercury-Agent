@@ -1,13 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Anti-theater tests for the parapsychology detector: the untrained
-ConsciousnessFieldAnalyzer must not present random-weight output as a coherence
-measurement. With no validated corpus and random weights, field coherence
-abstains to the neutral 0.5 prior (deterministically) until trained weights are
-explicitly loaded.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Anti-theater tests for the parapsychology detector: the untrained ConsciousnessFieldAnalyzer must not present random-weight output as a coherence measurement. With no validated corpus and random weights, field coherence abstains to the neutral 0.5 prior (deterministically) until trained weights are explicitly loaded."""
 
 from __future__ import annotations
 

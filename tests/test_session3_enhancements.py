@@ -1,8 +1,6 @@
-from typing import Any
-
-"""
-Mercury Agent - Neuro-Symbolic Hub and GOSNN Enhancement Tests
-Copyright (C) 2025 Steel Security Advisors LLC
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Neuro-Symbolic Hub and GOSNN Enhancement Tests.
 
 Comprehensive tests for:
 - Neuro-Symbolic Hub
@@ -10,6 +8,8 @@ Comprehensive tests for:
 - Real-World Benchmarks
 - Integration with previous sessions
 """
+
+from typing import Any
 
 import numpy as np
 import pytest

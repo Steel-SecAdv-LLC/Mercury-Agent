@@ -1,27 +1,12 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Base classes for Vision-Language Model anomaly detection.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Base classes for Vision-Language Model anomaly detection.
 
 Provides unified interface for zero-shot VLM-based anomaly detection
 using Large Vision-Language Models (LVLMs).
 """
+
+from __future__ import annotations
 
 from abc import abstractmethod
 from dataclasses import dataclass
@@ -57,8 +42,7 @@ class ContextType(Enum):
 
 @dataclass
 class VLMConfig:
-    """
-    Configuration for VLM-based anomaly detectors.
+    """Configuration for VLM-based anomaly detectors.
 
     Attributes:
         model_name: LVLM model identifier
@@ -94,8 +78,7 @@ class VLMConfig:
 
 
 class BaseVLMDetector(BaseDetector):
-    """
-    Abstract base class for VLM-based anomaly detectors.
+    """Abstract base class for VLM-based anomaly detectors.
 
     .. note:: **Experimental surface (ROADMAP deferred item #3).**
         Per the 2026-05 strategic decision Mercury ships *native* detectors
@@ -119,8 +102,7 @@ class BaseVLMDetector(BaseDetector):
     """
 
     def __init__(self, config: VLMConfig | dict[str, Any] | None = None) -> None:
-        """
-        Initialize VLM detector.
+        """Initialize VLM detector.
 
         Args:
             config: Detector configuration
@@ -166,8 +148,7 @@ class BaseVLMDetector(BaseDetector):
 
     @config.setter
     def config(self, value: VLMConfig | dict[str, Any]) -> None:
-        """
-        Set the detector configuration.
+        """Set the detector configuration.
 
         Args:
             value: VLMConfig instance or dict. If dict, it's stored separately
@@ -208,8 +189,7 @@ class BaseVLMDetector(BaseDetector):
         anomaly_description: str,
         context: dict[str, Any] | None = None,
     ) -> str:
-        """
-        Create the VQA prompt for anomaly detection.
+        """Create the VQA prompt for anomaly detection.
 
         Args:
             anomaly_description: Description of anomaly to detect
@@ -224,8 +204,7 @@ class BaseVLMDetector(BaseDetector):
 
     @abstractmethod
     def _parse_response(self, response: str) -> tuple[bool, float, str]:
-        """
-        Parse LVLM response to extract anomaly decision.
+        """Parse LVLM response to extract anomaly decision.
 
         Args:
             response: Model response text
@@ -252,8 +231,7 @@ class BaseVLMDetector(BaseDetector):
 
     @abstractmethod
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
-        """
-        Detect anomalies using VLM.
+        """Detect anomalies using VLM.
 
         Args:
             data: Images [N, C, H, W] or video frames [T, C, H, W]
@@ -271,8 +249,7 @@ class BaseVLMDetector(BaseDetector):
 
     @abstractmethod
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
-        """
-        Extract features for ML fusion pipeline.
+        """Extract features for ML fusion pipeline.
 
         Args:
             data: Input images/video
@@ -289,8 +266,7 @@ class BaseVLMDetector(BaseDetector):
         video: torch.Tensor,
         n_frames: int = 8,
     ) -> list[torch.Tensor]:
-        """
-        Sample frames uniformly from video for VLM processing.
+        """Sample frames uniformly from video for VLM processing.
 
         Args:
             video: Video tensor [T, H, W, C] or [T, C, H, W]
@@ -310,8 +286,7 @@ class BaseVLMDetector(BaseDetector):
         return [video[idx] for idx in indices]
 
     def set_anomaly_description(self, description: str) -> None:
-        """
-        Update the anomaly description for detection.
+        """Update the anomaly description for detection.
 
         Args:
             description: New anomaly description
@@ -319,8 +294,7 @@ class BaseVLMDetector(BaseDetector):
         self.vlm_config.anomaly_description = description
 
     def set_normal_description(self, description: str) -> None:
-        """
-        Update the normal behavior description.
+        """Update the normal behavior description.
 
         Args:
             description: Normal behavior description
@@ -339,8 +313,7 @@ class VQAResult:
         raw_response: str,
         frame_indices: list[int] | None = None,
     ):
-        """
-        Initialize VQA result.
+        """Initialize VQA result.
 
         Args:
             is_anomaly: Whether anomaly was detected

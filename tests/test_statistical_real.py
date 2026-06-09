@@ -1,25 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Real Substantive Tests for Statistical Anomaly Detector
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Real Substantive Tests for Statistical Anomaly Detector.
 
 These tests verify actual algorithm behavior with mathematical assertions,
 NOT just mock call counts. Each test exercises real production code paths.
@@ -31,6 +12,8 @@ Tests cover:
 4. Continuous score preservation for ML fusion
 5. Anomaly detection accuracy on synthetic datasets
 """
+
+from __future__ import annotations
 
 import numpy as np
 import pytest

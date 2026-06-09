@@ -1,7 +1,6 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Tests for F1 precision improvement features (Phases 2-9).
-
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC (GPL-3.0)
 
 Tests cover:
   - Noise color estimation (_estimate_noise_color)
@@ -23,7 +22,6 @@ import numpy as np
 
 # Ensure benchmarks/ is importable for threshold tests
 sys.path.insert(0, str(Path(__file__).parent.parent / "benchmarks"))
-
 
 # -----------------------------------------------------------------------
 # Phase 3: Domain weight presets

@@ -1,6 +1,6 @@
-"""
-Mercury Agent - Threshold Calibration Tests
-Copyright (C) 2025 Steel Security Advisors LLC
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Threshold Calibration Tests.
 
 Tests for the IQR-based adaptive threshold calibration logic that addresses
 the covtype F1=0 issue on extremely imbalanced datasets.

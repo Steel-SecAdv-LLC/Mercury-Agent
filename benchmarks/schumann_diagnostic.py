@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """WS-C root-cause diagnostic for the Schumann sub-net seed-instability.
 
 PR #262 quarantined the Schumann encoder partly because, even on clean separable

@@ -1,14 +1,6 @@
-"""
-Mercury Agent
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Lightweight Neural Network Primitives - Pure NumPy Implementation
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Lightweight Neural Network Primitives - Pure NumPy Implementation.
 
 This module provides dependency-light neural network operations using only NumPy.
 Designed for edge deployments and environments where PyTorch is not available.
@@ -53,7 +45,6 @@ import numpy as np
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -69,8 +60,7 @@ class Activation(Enum):
 
 
 def relu(x: NDArray[np.floating[Any]]) -> NDArray[np.floating[Any]]:
-    """
-    Relu activation: f(x) = max(0, x)
+    """Relu activation: f(x) = max(0, x).
 
     Advantages: Fast convergence, computationally simple
     Disadvantage: Can cause 'dying ReLU' with high learning rates
@@ -85,8 +75,7 @@ def relu(x: NDArray[np.floating[Any]]) -> NDArray[np.floating[Any]]:
 
 
 def leaky_relu(x: NDArray[np.floating[Any]], alpha: float = 0.01) -> NDArray[np.floating[Any]]:
-    """
-    Leaky ReLU: f(x) = x if x > 0, else alpha * x
+    """Leaky ReLU: f(x) = x if x > 0, else alpha * x.
 
     Addresses dying ReLU problem with small negative slope.
 
@@ -101,8 +90,7 @@ def leaky_relu(x: NDArray[np.floating[Any]], alpha: float = 0.01) -> NDArray[np.
 
 
 def sigmoid(x: NDArray[np.floating[Any]]) -> NDArray[np.floating[Any]]:
-    """
-    Sigmoid activation: f(x) = 1 / (1 + exp(-x))
+    """Sigmoid activation: f(x) = 1 / (1 + exp(-x)).
 
     Squashes values to [0, 1] range. Useful for binary classification.
     Note: Can suffer from vanishing gradients for extreme values.
@@ -128,8 +116,7 @@ def sigmoid(x: NDArray[np.floating[Any]]) -> NDArray[np.floating[Any]]:
 
 
 def tanh(x: NDArray[np.floating[Any]]) -> NDArray[np.floating[Any]]:
-    """
-    Tanh activation: f(x) = (exp(x) - exp(-x)) / (exp(x) + exp(-x))
+    """Tanh activation: f(x) = (exp(x) - exp(-x)) / (exp(x) + exp(-x)).
 
     Zero-centered, preferred over sigmoid for hidden layers.
 
@@ -143,8 +130,7 @@ def tanh(x: NDArray[np.floating[Any]]) -> NDArray[np.floating[Any]]:
 
 
 def softmax(x: NDArray[np.floating[Any]], axis: int = -1) -> NDArray[np.floating[Any]]:
-    """
-    Softmax: converts logits to probability distribution.
+    """Softmax: converts logits to probability distribution.
 
     f(x_i) = exp(x_i) / sum(exp(x_j))
 
@@ -162,8 +148,7 @@ def softmax(x: NDArray[np.floating[Any]], axis: int = -1) -> NDArray[np.floating
 
 
 def get_activation(name: str | Activation) -> Any:
-    """
-    Get activation function by name.
+    """Get activation function by name.
 
     Args:
         name: Activation name or enum
@@ -217,8 +202,7 @@ class MLPConfig:
 
 
 class LightweightMLP:
-    """
-    Lightweight Multi-Layer Perceptron using pure NumPy.
+    """Lightweight Multi-Layer Perceptron using pure NumPy.
 
     Implements forward-only inference for anomaly detection scoring.
     For training, use PyTorch-based models and export weights.
@@ -240,8 +224,7 @@ class LightweightMLP:
     """
 
     def __init__(self, config: MLPConfig | None = None, **kwargs: Any) -> None:
-        """
-        Initialize MLP.
+        """Initialize MLP.
 
         Args:
             config: MLPConfig object or None to use kwargs
@@ -311,8 +294,7 @@ class LightweightMLP:
             )
 
     def forward(self, x: NDArray[np.floating[Any]]) -> NDArray[np.floating[Any]]:
-        """
-        Forward pass through the network.
+        """Forward pass through the network.
 
         Args:
             x: Input features (batch_size, input_dim)
@@ -360,8 +342,7 @@ class LightweightMLP:
         return self.forward(x)
 
     def load_weights(self, weights_dict: dict[str, Any]) -> None:
-        """
-        Load weights from a dictionary (e.g., exported from PyTorch).
+        """Load weights from a dictionary (e.g., exported from PyTorch).
 
         Args:
             weights_dict: Dictionary with layer weights
@@ -390,8 +371,7 @@ class LightweightMLP:
         logger.info(f"Loaded weights for {len(self.layers)} layers")
 
     def export_weights(self) -> dict[str, Any]:
-        """
-        Export weights to dictionary format.
+        """Export weights to dictionary format.
 
         Returns:
             Dictionary with all layer parameters
@@ -426,8 +406,7 @@ class LightweightMLP:
 
 
 class LightweightAutoencoder:
-    """
-    Lightweight Autoencoder for unsupervised anomaly detection.
+    """Lightweight Autoencoder for unsupervised anomaly detection.
 
     Uses reconstruction error as anomaly score.
 
@@ -446,8 +425,7 @@ class LightweightAutoencoder:
         activation: str = "relu",
         seed: int = 42,
     ) -> None:
-        """
-        Initialize autoencoder.
+        """Initialize autoencoder.
 
         Args:
             input_dim: Input feature dimension
@@ -497,8 +475,7 @@ class LightweightAutoencoder:
         return self.decode(z)
 
     def anomaly_score(self, x: NDArray[np.floating[Any]]) -> NDArray[np.floating[Any]]:
-        """
-        Compute anomaly scores based on reconstruction error.
+        """Compute anomaly scores based on reconstruction error.
 
         Args:
             x: Input features
@@ -519,8 +496,7 @@ class LightweightAutoencoder:
 
 
 class IsolationScorer:
-    """
-    Lightweight isolation-based anomaly scorer.
+    """Lightweight isolation-based anomaly scorer.
 
     Uses random projections and isolation concepts without full Isolation Forest. Good for quick
     anomaly screening.
@@ -532,8 +508,7 @@ class IsolationScorer:
         contamination: float = 0.1,
         seed: int = 42,
     ) -> None:
-        """
-        Initialize isolation scorer.
+        """Initialize isolation scorer.
 
         Args:
             n_projections: Number of random projections
@@ -549,8 +524,7 @@ class IsolationScorer:
         self._fitted = False
 
     def fit(self, X: NDArray[np.floating[Any]]) -> IsolationScorer:
-        """
-        Fit the scorer to normal data.
+        """Fit the scorer to normal data.
 
         Args:
             X: Training data (assumed mostly normal)
@@ -579,8 +553,7 @@ class IsolationScorer:
         return self
 
     def score(self, X: NDArray[np.floating[Any]]) -> NDArray[np.floating[Any]]:
-        """
-        Compute anomaly scores.
+        """Compute anomaly scores.
 
         Args:
             X: Input features
@@ -614,8 +587,7 @@ def quick_anomaly_score(
     method: str = "isolation",
     **kwargs: Any,
 ) -> NDArray[np.floating[Any]]:
-    """
-    Quick anomaly scoring with minimal setup.
+    """Quick anomaly scoring with minimal setup.
 
     Args:
         X: Input features (n_samples, n_features)

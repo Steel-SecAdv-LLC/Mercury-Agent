@@ -1,8 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-KAT-style regression for the trained σ_Immutable EthicalGate.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""KAT-style regression for the trained σ_Immutable EthicalGate.
 
 These tests assert that the trained gate produces deterministic,
 correct outputs on hand-curated known-good and known-bad scalar
@@ -131,7 +129,6 @@ KAT_ALL_LOW[:SIGMA_ETHICAL_BAND_END] = np.array(
 KAT_ALL_LOW[SIGMA_ETHICAL_BAND_END:SIGMA_USED_BAND_END] = _rng.uniform(
     0.0, 2.0, _NONETHICAL_DIMS
 ).astype(np.float32)
-
 
 # ---------------------------------------------------------------------------
 # Tests

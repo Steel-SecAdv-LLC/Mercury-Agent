@@ -1,6 +1,6 @@
-"""
-Mercury Agent - Tests for Advanced ML Capabilities
-Copyright (C) 2025 Steel Security Advisors LLC
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for Advanced ML Capabilities.
 
 Comprehensive tests for:
 - Concept drift evaluation
@@ -22,7 +22,6 @@ import pytest
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
-
 
 # =============================================================================
 # Test Fixtures

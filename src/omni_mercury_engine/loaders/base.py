@@ -1,7 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-Base class for all domain-specific data loaders.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Base class for all domain-specific data loaders.
 
 Every domain loader MUST implement:
 - fetch_realtime() -> pd.DataFrame  (live data pull)
@@ -36,8 +35,7 @@ _DEFAULT_CACHE_DIR = Path(
 
 
 class BaseDomainLoader(ABC):
-    """
-    Base class for all domain data loaders.
+    """Base class for all domain data loaders.
 
     Provides common infrastructure for:
     - HTTP fetching with retry logic and exponential backoff
@@ -72,8 +70,7 @@ class BaseDomainLoader(ABC):
         retry_backoff: float = 2.0,
         timeout: int = 60,
     ) -> None:
-        """
-        Initialize the domain loader.
+        """Initialize the domain loader.
 
         Args:
             cache_dir: Directory for caching downloaded data.
@@ -109,8 +106,7 @@ class BaseDomainLoader(ABC):
 
     @abstractmethod
     def fetch_realtime(self) -> pd.DataFrame:
-        """
-        Fetch most recent data from live source.
+        """Fetch most recent data from live source.
 
         Returns:
             DataFrame with domain-specific features as columns.
@@ -122,8 +118,7 @@ class BaseDomainLoader(ABC):
 
     @abstractmethod
     def fetch_historical(self, event_id: str) -> pd.DataFrame:
-        """
-        Fetch data for a specific historical event.
+        """Fetch data for a specific historical event.
 
         Args:
             event_id: Identifier for the event (domain-specific format).
@@ -139,8 +134,7 @@ class BaseDomainLoader(ABC):
 
     @abstractmethod
     def list_events(self) -> list[dict[str, Any]]:
-        """
-        Return catalog of events with ground truth.
+        """Return catalog of events with ground truth.
 
         Returns:
             List of dicts, each with at least:
@@ -153,8 +147,7 @@ class BaseDomainLoader(ABC):
 
     @abstractmethod
     def get_ground_truth(self, event_id: str) -> np.ndarray[Any, Any]:
-        """
-        Return binary anomaly labels for an event.
+        """Return binary anomaly labels for an event.
 
         Args:
             event_id: Identifier for the event.
@@ -172,8 +165,7 @@ class BaseDomainLoader(ABC):
     # =========================================================================
 
     def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray[Any, Any]:
-        """
-        Transform raw data into feature matrix for Mercury detector.
+        """Transform raw data into feature matrix for Mercury detector.
 
         Default implementation returns all numeric columns as a numpy array.
         Override in subclass for domain-specific feature engineering.
@@ -206,8 +198,7 @@ class BaseDomainLoader(ABC):
         params: dict[str, str] | None = None,
         headers: dict[str, str] | None = None,
     ) -> bytes:
-        """
-        Fetch URL content via :class:`SafeHTTPClient` with retry logic.
+        """Fetch URL content via :class:`SafeHTTPClient` with retry logic.
 
         Egress contract enforced by ``SafeHTTPClient`` for this helper:
 
@@ -314,8 +305,7 @@ class BaseDomainLoader(ABC):
         url: str,
         params: dict[str, str] | None = None,
     ) -> Any:
-        """
-        Fetch and parse JSON from URL.
+        """Fetch and parse JSON from URL.
 
         Args:
             url: URL to fetch.
@@ -333,8 +323,7 @@ class BaseDomainLoader(ABC):
         params: dict[str, str] | None = None,
         **pandas_kwargs: Any,
     ) -> pd.DataFrame:
-        """
-        Fetch and parse CSV from URL.
+        """Fetch and parse CSV from URL.
 
         Args:
             url: URL to fetch.
@@ -354,8 +343,7 @@ class BaseDomainLoader(ABC):
     # =========================================================================
 
     def _get_cache_path(self, key: str) -> Path:
-        """
-        Get cache file path for a given key.
+        """Get cache file path for a given key.
 
         Args:
             key: Cache key (will be hashed for filename).
@@ -367,8 +355,7 @@ class BaseDomainLoader(ABC):
         return self.cache_dir / f"{hashed}.json"
 
     def _read_cache(self, key: str) -> Any | None:
-        """
-        Read data from cache if valid (not expired).
+        """Read data from cache if valid (not expired).
 
         Args:
             key: Cache key.
@@ -389,8 +376,7 @@ class BaseDomainLoader(ABC):
             return None
 
     def _write_cache(self, key: str, data: Any) -> None:
-        """
-        Write data to cache.
+        """Write data to cache.
 
         Args:
             key: Cache key.
@@ -409,8 +395,7 @@ class BaseDomainLoader(ABC):
 
     @staticmethod
     def compute_data_hash(data: np.ndarray[Any, Any]) -> str:
-        """
-        Compute SHA-256 hash of data array for provenance tracking.
+        """Compute SHA-256 hash of data array for provenance tracking.
 
         Args:
             data: Numpy array to hash.
@@ -421,8 +406,7 @@ class BaseDomainLoader(ABC):
         return hashlib.sha256(data.tobytes()).hexdigest()
 
     def get_provenance(self, event_id: str, data: np.ndarray[Any, Any]) -> dict[str, Any]:
-        """
-        Generate provenance metadata for benchmark results.
+        """Generate provenance metadata for benchmark results.
 
         Args:
             event_id: Event identifier.

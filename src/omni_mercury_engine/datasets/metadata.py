@@ -1,7 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-Standardized dataset metadata for all loaders.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Standardized dataset metadata for all loaders.
 
 Every dataset object returned by a loader must carry metadata including data_source, source_url,
 sha256, record_count, anomaly_ratio, etc.
@@ -15,7 +14,6 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     import numpy as np
     from numpy.typing import NDArray
-
 
 # Label-provenance vocabulary shared across loaders and benchmarks.
 #
@@ -47,8 +45,7 @@ def is_supervised_eval_safe(label_source: str) -> bool:
 
 @dataclass
 class LoaderDatasetMetadata:
-    """
-    Metadata that every loader must attach to its returned data.
+    """Metadata that every loader must attach to its returned data.
 
     Attributes:
         data_source: One of "live", "cached", "synthetic".
@@ -81,8 +78,7 @@ class LoaderDatasetMetadata:
 
 @dataclass
 class LoaderDataset:
-    """
-    Standardized dataset returned by every loader.
+    """Standardized dataset returned by every loader.
 
     Attributes:
         X: Feature matrix of shape (n_samples, n_features).

@@ -1,5 +1,6 @@
-"""
-Hybrid Quantum-Classical Optimization for Mercury Agent.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Hybrid Quantum-Classical Optimization for Mercury Agent.
 
 Implements VQE, QAOA, and quantum kernel methods for anomaly detection.
 
@@ -32,7 +33,6 @@ from omni_mercury_engine.quantum_computing.executor import (
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -49,8 +49,7 @@ class OptimizationResult:
 
 
 class ClassicalOptimizer:
-    """
-    Classical optimizer for variational parameter updates.
+    """Classical optimizer for variational parameter updates.
 
     Implements gradient-free and gradient-based optimization methods.
     """
@@ -62,8 +61,7 @@ class ClassicalOptimizer:
         tol: float = 1e-6,
         seed: int | None = None,
     ) -> None:
-        """
-        Initialize the optimizer.
+        """Initialize the optimizer.
 
         Args:
             method: Optimization method.
@@ -83,8 +81,7 @@ class ClassicalOptimizer:
         objective: Callable[[np.ndarray[Any, Any]], float],
         initial_params: np.ndarray[Any, Any],
     ) -> tuple[np.ndarray[Any, Any], float, list[float]]:
-        """
-        Minimize the objective function.
+        """Minimize the objective function.
 
         Args:
             objective: Function to minimize
@@ -203,8 +200,7 @@ class ClassicalOptimizer:
 
 
 class HybridOptimizer:
-    """
-    Hybrid quantum-classical optimizer.
+    """Hybrid quantum-classical optimizer.
 
     Combines variational quantum circuits with classical optimization.
     """
@@ -216,8 +212,7 @@ class HybridOptimizer:
         maxiter: int = 100,
         seed: int | None = None,
     ) -> None:
-        """
-        Initialize the hybrid optimizer.
+        """Initialize the hybrid optimizer.
 
         Args:
             executor: Optional quantum executor.
@@ -243,8 +238,7 @@ class HybridOptimizer:
         cost_function: Callable[[dict[str, int]], float],
         initial_params: np.ndarray[Any, Any] | None = None,
     ) -> OptimizationResult:
-        """
-        Optimize variational circuit parameters.
+        """Optimize variational circuit parameters.
 
         Args:
             variational_circuit: Variational circuit to optimize
@@ -281,8 +275,7 @@ class HybridOptimizer:
 
 
 class QuantumKernel:
-    """
-    Quantum kernel for kernel-based machine learning.
+    """Quantum kernel for kernel-based machine learning.
 
     Computes kernel matrix using quantum feature maps.
     """
@@ -304,8 +297,7 @@ class QuantumKernel:
         Y: np.ndarray[Any, Any] | None = None,
         shots: int = 1024,
     ) -> np.ndarray[Any, Any]:
-        """
-        Compute quantum kernel matrix.
+        """Compute quantum kernel matrix.
 
         Args:
             X: First data matrix (n_samples, n_features)
@@ -334,8 +326,7 @@ class QuantumKernel:
         y_train: np.ndarray[Any, Any],
         C: float = 1.0,
     ) -> Callable[[np.ndarray[Any, Any]], np.ndarray[Any, Any]]:
-        """
-        Fit quantum kernel SVM.
+        """Fit quantum kernel SVM.
 
         Args:
             X_train: Training features
@@ -372,8 +363,7 @@ class QuantumKernel:
 
 
 class VQEAnomalyDetector:
-    """
-    Variational Quantum Eigensolver for anomaly detection.
+    """Variational Quantum Eigensolver for anomaly detection.
 
     Uses VQE to find ground state of anomaly Hamiltonian.
     """
@@ -397,8 +387,7 @@ class VQEAnomalyDetector:
         X_train: np.ndarray[Any, Any],
         maxiter: int = 50,
     ) -> VQEAnomalyDetector:
-        """
-        Train VQE anomaly detector on normal data.
+        """Train VQE anomaly detector on normal data.
 
         Args:
             X_train: Training data (normal samples)
@@ -430,8 +419,7 @@ class VQEAnomalyDetector:
         return self
 
     def score(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Compute anomaly scores for samples.
+        """Compute anomaly scores for samples.
 
         Args:
             X: Data to score
@@ -504,8 +492,7 @@ class VQEAnomalyDetector:
 
 
 class QAOAAnomalyDetector:
-    """
-    Quantum Approximate Optimization Algorithm for anomaly detection.
+    """Quantum Approximate Optimization Algorithm for anomaly detection.
 
     Uses QAOA to solve combinatorial anomaly problems.
     """
@@ -517,8 +504,7 @@ class QAOAAnomalyDetector:
         executor: QuantumExecutor | None = None,
         seed: int | None = None,
     ) -> None:
-        """
-        Initialize the QAOA detector.
+        """Initialize the QAOA detector.
 
         Args:
             num_qubits: Number of qubits.
@@ -541,8 +527,7 @@ class QAOAAnomalyDetector:
         beta: list[float],
         cost_terms: list[tuple[int, int, float]],
     ) -> Any:
-        """
-        Build QAOA circuit.
+        """Build QAOA circuit.
 
         Args:
             gamma: Mixer angles
@@ -573,8 +558,7 @@ class QAOAAnomalyDetector:
         adjacency_matrix: np.ndarray[Any, Any],
         maxiter: int = 50,
     ) -> QAOAAnomalyDetector:
-        """
-        Train QAOA on graph-based anomaly problem.
+        """Train QAOA on graph-based anomaly problem.
 
         Args:
             adjacency_matrix: Graph adjacency matrix
@@ -612,8 +596,7 @@ class QAOAAnomalyDetector:
         return self
 
     def score(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Compute anomaly scores using QAOA.
+        """Compute anomaly scores using QAOA.
 
         Args:
             X: Data points to score

@@ -1,10 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Comprehensive tests for utils/comm.py module.
-Targets coverage improvement for async communication utilities.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Comprehensive tests for utils/comm.py module. Targets coverage improvement for async communication utilities."""
 
 from __future__ import annotations
 

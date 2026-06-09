@@ -1,24 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
-
-------------------------------------------------------------------------
-
-Operator tool: re-run NIST FIPS 203/204/205 and RFC 8032 known-answer
-tests outside pytest, and emit a signed JSON certificate suitable for
-an external auditor.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: re-run NIST FIPS 203/204/205 and RFC 8032 known-answer tests outside pytest, and emit a signed JSON certificate suitable for an external auditor.
 
 The Mercury KAT *test suite* lives under ``tests/security/`` and is
 exercised by pytest in CI; that suite is the regression contract for
@@ -53,7 +35,6 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 _CURATED_KAT_PATH = (
     _REPO_ROOT / "tests" / "security" / "data" / "nist_kat" / "nist_acvp_curated.json"
 )
-
 
 # ---------------------------------------------------------------------------
 # RFC 8032 Ed25519 test vectors (§7.1 — Test 1, Test 2, Test 3 / TEST SHA)

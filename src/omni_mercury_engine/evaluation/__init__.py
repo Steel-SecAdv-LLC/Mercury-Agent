@@ -1,7 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-Evaluation Module for Anomaly Detection
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Evaluation Module for Anomaly Detection.
 
 Provides standard evaluation metrics and baseline comparisons used in
 academic anomaly detection research.

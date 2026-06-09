@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Data and Model Drift Detection Module
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Data and Model Drift Detection Module.
 
 Provides comprehensive drift detection capabilities:
 - Statistical drift detection (Kolmogorov-Smirnov, Chi-squared, PSI)
@@ -27,6 +10,8 @@ Provides comprehensive drift detection capabilities:
 
 Inspired by Alibi-Detect and Evidently frameworks.
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -89,8 +74,7 @@ class DriftResult:
 
 
 class KolmogorovSmirnovDriftDetector:
-    """
-    Kolmogorov-Smirnov test based drift detector.
+    """Kolmogorov-Smirnov test based drift detector.
 
     The KS test compares the cumulative distribution functions of
     reference and current data distributions to detect drift.
@@ -104,8 +88,7 @@ class KolmogorovSmirnovDriftDetector:
         p_value_threshold: float = 0.05,
         correction: str = "bonferroni",
     ):
-        """
-        Initialize KS drift detector.
+        """Initialize KS drift detector.
 
         Args:
             p_value_threshold: Significance level for drift detection
@@ -116,8 +99,7 @@ class KolmogorovSmirnovDriftDetector:
         self.reference_data: np.ndarray[Any, Any] | None = None
 
     def fit(self, reference_data: np.ndarray[Any, Any]) -> KolmogorovSmirnovDriftDetector:
-        """
-        Fit the detector with reference (baseline) data.
+        """Fit the detector with reference (baseline) data.
 
         Args:
             reference_data: Reference data array [n_samples, n_features]
@@ -136,8 +118,7 @@ class KolmogorovSmirnovDriftDetector:
         current_data: np.ndarray[Any, Any],
         feature_names: list[str] | None = None,
     ) -> DriftResult:
-        """
-        Detect drift between reference and current data.
+        """Detect drift between reference and current data.
 
         Args:
             current_data: Current data to compare [n_samples, n_features]
@@ -229,8 +210,7 @@ class KolmogorovSmirnovDriftDetector:
 
 
 class PopulationStabilityIndexDetector:
-    """
-    Population Stability Index (PSI) based drift detector.
+    """Population Stability Index (PSI) based drift detector.
 
     PSI is commonly used in credit scoring to measure how much
     a variable has shifted over time. It compares the distribution
@@ -248,8 +228,7 @@ class PopulationStabilityIndexDetector:
         psi_threshold_low: float = 0.10,
         psi_threshold_high: float = 0.25,
     ):
-        """
-        Initialize PSI detector.
+        """Initialize PSI detector.
 
         Args:
             n_bins: Number of bins for discretization
@@ -263,8 +242,7 @@ class PopulationStabilityIndexDetector:
         self.bin_edges: list[np.ndarray[Any, Any]] = []
 
     def fit(self, reference_data: np.ndarray[Any, Any]) -> PopulationStabilityIndexDetector:
-        """
-        Fit the detector with reference data.
+        """Fit the detector with reference data.
 
         Args:
             reference_data: Reference data array [n_samples, n_features]
@@ -311,8 +289,7 @@ class PopulationStabilityIndexDetector:
         current_data: np.ndarray[Any, Any],
         feature_names: list[str] | None = None,
     ) -> DriftResult:
-        """
-        Detect drift using PSI.
+        """Detect drift using PSI.
 
         Args:
             current_data: Current data to compare [n_samples, n_features]
@@ -399,8 +376,7 @@ class PopulationStabilityIndexDetector:
 
 
 class ChiSquaredDriftDetector:
-    """
-    Chi-squared test based drift detector for categorical features.
+    """Chi-squared test based drift detector for categorical features.
 
     Uses the chi-squared test of independence to detect changes in the distribution of categorical
     variables.
@@ -410,8 +386,7 @@ class ChiSquaredDriftDetector:
         self,
         p_value_threshold: float = 0.05,
     ):
-        """
-        Initialize Chi-squared drift detector.
+        """Initialize Chi-squared drift detector.
 
         Args:
             p_value_threshold: Significance level for drift detection
@@ -421,8 +396,7 @@ class ChiSquaredDriftDetector:
         self.reference_counts: list[dict[Any, int]] = []
 
     def fit(self, reference_data: np.ndarray[Any, Any]) -> ChiSquaredDriftDetector:
-        """
-        Fit the detector with reference data.
+        """Fit the detector with reference data.
 
         Args:
             reference_data: Reference data array [n_samples, n_features]
@@ -450,8 +424,7 @@ class ChiSquaredDriftDetector:
         current_data: np.ndarray[Any, Any],
         feature_names: list[str] | None = None,
     ) -> DriftResult:
-        """
-        Detect drift using Chi-squared test.
+        """Detect drift using Chi-squared test.
 
         Args:
             current_data: Current data to compare [n_samples, n_features]
@@ -546,8 +519,7 @@ class ChiSquaredDriftDetector:
 
 
 class OnlineDriftDetector:
-    """
-    Online drift detection with adaptive windowing.
+    """Online drift detection with adaptive windowing.
 
     Implements ADWIN (Adaptive Windowing) inspired online drift detection that maintains a sliding
     window and detects when the distribution changes significantly.
@@ -559,8 +531,7 @@ class OnlineDriftDetector:
         min_window_size: int = 50,
         significance_level: float = 0.05,
     ):
-        """
-        Initialize online drift detector.
+        """Initialize online drift detector.
 
         Args:
             max_window_size: Maximum samples to keep in window
@@ -575,8 +546,7 @@ class OnlineDriftDetector:
         self.drift_count = 0
 
     def update(self, sample: np.ndarray[Any, Any]) -> DriftResult | None:
-        """
-        Update detector with new sample and check for drift.
+        """Update detector with new sample and check for drift.
 
         Args:
             sample: New sample to add to window
@@ -639,8 +609,7 @@ class OnlineDriftDetector:
 
 
 class EnsembleDriftDetector:
-    """
-    Ensemble drift detector combining multiple methods.
+    """Ensemble drift detector combining multiple methods.
 
     Combines KS, PSI, and Chi-squared tests for robust drift detection. Uses majority voting to
     determine final drift decision.
@@ -652,8 +621,7 @@ class EnsembleDriftDetector:
         psi_threshold: float = 0.10,
         voting: str = "majority",
     ):
-        """
-        Initialize ensemble drift detector.
+        """Initialize ensemble drift detector.
 
         Args:
             p_value_threshold: Significance level for statistical tests
@@ -666,8 +634,7 @@ class EnsembleDriftDetector:
         self.is_fitted = False
 
     def fit(self, reference_data: np.ndarray[Any, Any]) -> EnsembleDriftDetector:
-        """
-        Fit all detectors with reference data.
+        """Fit all detectors with reference data.
 
         Args:
             reference_data: Reference data array [n_samples, n_features]
@@ -686,8 +653,7 @@ class EnsembleDriftDetector:
         current_data: np.ndarray[Any, Any],
         feature_names: list[str] | None = None,
     ) -> DriftResult:
-        """
-        Detect drift using ensemble of methods.
+        """Detect drift using ensemble of methods.
 
         Args:
             current_data: Current data to compare
@@ -771,8 +737,7 @@ def create_drift_detector(
     detector_type: str = "ks",
     **kwargs: Any,
 ) -> DriftDetectorType:
-    """
-    Factory function to create drift detectors.
+    """Factory function to create drift detectors.
 
     Args:
         detector_type: Type of detector ('ks', 'psi', 'chi2', 'ensemble')

@@ -1,5 +1,5 @@
-# SPDX-License-Identifier: GPL-3.0-only
-# Copyright (C) Steel Security Advisors LLC
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Bidirectional GOSNN weight coupling for federated learning.
 
 Replaces the prior one-way (server → client) integration flagged by the
@@ -72,6 +72,7 @@ class GOSNNUpdate:
     digest: str = field(init=False)
 
     def __post_init__(self) -> None:
+        """Finalize dataclass initialization."""
         self.digest = _digest(self.weights)
 
 
@@ -85,6 +86,7 @@ class GOSNNGlobalState:
     digest: str = field(init=False)
 
     def __post_init__(self) -> None:
+        """Finalize dataclass initialization."""
         self.digest = _digest(self.weights)
 
 
@@ -102,6 +104,7 @@ class GOSNNCouplingServer:
     """
 
     def __init__(self, initial_weights: NDArray[np.float64]) -> None:
+        """Initialize the instance."""
         self._global_weights = np.ascontiguousarray(
             np.asarray(initial_weights, dtype=np.float64).copy()
         )
@@ -277,6 +280,7 @@ class GOSNNCouplingClient:
         client_id: str,
         local_weights: NDArray[np.float64],
     ) -> None:
+        """Initialize the instance."""
         self._client_id = client_id
         self._local_weights = np.ascontiguousarray(
             np.asarray(local_weights, dtype=np.float64).copy()

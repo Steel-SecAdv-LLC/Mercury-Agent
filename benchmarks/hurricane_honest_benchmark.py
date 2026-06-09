@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Hurricane domain honest benchmark.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Hurricane domain honest benchmark.
 
 Fetches real tropical cyclone data from IBTrACS, runs MercuryAnomalyDetector,
 and reports metrics for rapid intensification detection.

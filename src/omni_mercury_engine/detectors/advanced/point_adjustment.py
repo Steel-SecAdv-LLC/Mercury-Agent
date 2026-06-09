@@ -1,7 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-Point-Adjustment Evaluation Protocol for Time-Series Anomaly Detection
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Point-Adjustment Evaluation Protocol for Time-Series Anomaly Detection.
 
 Implements the standard point-adjustment protocol used in time-series
 anomaly detection benchmarks (SMD, SMAP, MSL, SWaT, WADI).
@@ -29,7 +28,6 @@ import numpy as np
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
-
 __all__ = [
     "PointAdjustmentEvaluator",
     "adjust_predictions",
@@ -52,8 +50,7 @@ class SegmentInfo:
 def find_anomaly_segments(
     labels: NDArray[np.int64],
 ) -> list[SegmentInfo]:
-    """
-    Find contiguous anomaly segments in labels.
+    """Find contiguous anomaly segments in labels.
 
     Args:
         labels: Binary labels [n_samples]
@@ -98,8 +95,7 @@ def adjust_predictions(
     predictions: NDArray[np.int64],
     labels: NDArray[np.int64],
 ) -> NDArray[np.int64]:
-    """
-    Apply point-adjustment to predictions.
+    """Apply point-adjustment to predictions.
 
     If any point in a ground-truth anomaly segment is predicted as anomaly,
     mark all points in that segment as correctly detected.
@@ -129,8 +125,7 @@ def compute_adjusted_metrics(
     labels: NDArray[np.int64],
     scores: NDArray[np.float64] | None = None,
 ) -> dict[str, float]:
-    """
-    Compute metrics with point-adjustment.
+    """Compute metrics with point-adjustment.
 
     Args:
         predictions: Binary predictions
@@ -204,8 +199,7 @@ def compute_adjusted_metrics(
 
 
 class PointAdjustmentEvaluator:
-    """
-    Evaluator with point-adjustment for time-series anomaly detection.
+    """Evaluator with point-adjustment for time-series anomaly detection.
 
     Provides comprehensive evaluation including:
     - Standard metrics (precision, recall, F1)
@@ -224,6 +218,7 @@ class PointAdjustmentEvaluator:
         search_best_threshold: bool = True,
         n_thresholds: int = 100,
     ) -> None:
+        """Initialize the instance."""
         self.search_best_threshold = search_best_threshold
         self.n_thresholds = n_thresholds
 
@@ -234,8 +229,7 @@ class PointAdjustmentEvaluator:
         scores: NDArray[np.float64] | None = None,
         threshold: float | None = None,
     ) -> dict[str, Any]:
-        """
-        Evaluate with point-adjustment.
+        """Evaluate with point-adjustment.
 
         Args:
             predictions: Binary predictions (or None if scores + threshold provided)
@@ -318,8 +312,7 @@ class PointAdjustmentEvaluator:
         scores: NDArray[np.float64],
         labels: NDArray[np.int64],
     ) -> list[dict[str, Any]]:
-        """
-        Evaluate at multiple thresholds for threshold sensitivity analysis.
+        """Evaluate at multiple thresholds for threshold sensitivity analysis.
 
         Returns:
             List of metric dictionaries at different thresholds
@@ -342,8 +335,7 @@ class PointAdjustmentEvaluator:
         scores: NDArray[np.float64] | None = None,
         threshold: float | None = None,
     ) -> str:
-        """
-        Generate a formatted evaluation report.
+        """Generate a formatted evaluation report.
 
         Returns:
             Formatted string report

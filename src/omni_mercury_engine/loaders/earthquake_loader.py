@@ -1,7 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-Domain loader for earthquake data from the USGS Earthquake Hazards Program API.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Domain loader for earthquake data from the USGS Earthquake Hazards Program API.
 
 Connects to the USGS real-time GeoJSON feed and FDSN event web-service to provide seismic data for
 Mercury anomaly detection.  Ground truth events cover major earthquakes where mainshock + large
@@ -79,8 +78,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
 
 
 class EarthquakeLoader(BaseDomainLoader):
-    """
-    Loader for earthquake data from the USGS Earthquake Hazards Program.
+    """Loader for earthquake data from the USGS Earthquake Hazards Program.
 
     Uses two USGS endpoints:
 
@@ -115,8 +113,7 @@ class EarthquakeLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     def fetch_realtime(self) -> pd.DataFrame:
-        """
-        Fetch the most recent hour of global earthquake data from USGS.
+        """Fetch the most recent hour of global earthquake data from USGS.
 
         Returns:
             DataFrame with columns: time, latitude, longitude, depth,
@@ -140,8 +137,7 @@ class EarthquakeLoader(BaseDomainLoader):
         return df
 
     def fetch_historical(self, event_id: str) -> pd.DataFrame:
-        """
-        Fetch seismic catalog data surrounding a known historical event.
+        """Fetch seismic catalog data surrounding a known historical event.
 
         Args:
             event_id: Key into the ground truth catalog (e.g.
@@ -189,8 +185,7 @@ class EarthquakeLoader(BaseDomainLoader):
         return df
 
     def list_events(self) -> list[dict[str, Any]]:
-        """
-        Return the catalog of ground truth earthquake events.
+        """Return the catalog of ground truth earthquake events.
 
         Returns:
             List of dicts each containing *event_id*, *name*, *date*,
@@ -209,8 +204,7 @@ class EarthquakeLoader(BaseDomainLoader):
         return events
 
     def get_ground_truth(self, event_id: str) -> np.ndarray[Any, Any]:
-        """
-        Generate binary anomaly labels for a historical earthquake event.
+        """Generate binary anomaly labels for a historical earthquake event.
 
         Labeling strategy: an earthquake is labeled *anomalous* (``1``) if
         its magnitude is at least ``mainshock_magnitude - 1.0``.  All
@@ -256,8 +250,7 @@ class EarthquakeLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray[Any, Any]:
-        """
-        Transform raw earthquake catalog into a feature matrix.
+        """Transform raw earthquake catalog into a feature matrix.
 
         Engineered features (per event row):
 
@@ -342,8 +335,7 @@ class EarthquakeLoader(BaseDomainLoader):
 
     @staticmethod
     def _geojson_to_dataframe(geojson: dict[str, Any]) -> pd.DataFrame:
-        """
-        Convert a USGS GeoJSON FeatureCollection to a flat DataFrame.
+        """Convert a USGS GeoJSON FeatureCollection to a flat DataFrame.
 
         Args:
             geojson: Parsed GeoJSON dict from the USGS API.
@@ -390,8 +382,7 @@ class EarthquakeLoader(BaseDomainLoader):
 
     @staticmethod
     def _compute_seismicity_rate(times_ms: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Compute the number of events in the preceding 1-hour window.
+        """Compute the number of events in the preceding 1-hour window.
 
         Args:
             times_ms: Array of event origin times in milliseconds since
@@ -456,8 +447,7 @@ class EarthquakeLoader(BaseDomainLoader):
         magnitudes: np.ndarray[Any, Any],
         window: int = 20,
     ) -> np.ndarray[Any, Any]:
-        """
-        Compute magnitude deviation from a trailing rolling mean.
+        """Compute magnitude deviation from a trailing rolling mean.
 
         Args:
             magnitudes: 1-D array of magnitudes.

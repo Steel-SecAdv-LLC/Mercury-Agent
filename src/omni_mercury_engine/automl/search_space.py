@@ -1,5 +1,6 @@
-"""
-Hyperparameter Search Space Definition.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Hyperparameter Search Space Definition.
 
 Provides flexible definition of hyperparameter search spaces for AutoML.
 """
@@ -300,8 +301,7 @@ class SearchSpace:
 
     @classmethod
     def from_dict(cls, spec: dict[str, tuple[Any, ...]]) -> SearchSpace:
-        """
-        Create search space from dictionary specification.
+        """Create search space from dictionary specification.
 
         Format: {"param_name": ("type", arg1, arg2, ...)}
         Types: "uniform", "log_uniform", "int_uniform", "categorical"

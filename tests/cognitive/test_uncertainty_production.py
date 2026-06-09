@@ -1,5 +1,6 @@
-"""
-Production Tests for UncertaintyQuantifier
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Production Tests for UncertaintyQuantifier.
 
 Tests the real implementations:
 - Monte Carlo Dropout (Gal & Ghahramani 2016)

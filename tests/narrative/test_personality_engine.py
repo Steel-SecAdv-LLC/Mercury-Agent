@@ -1,9 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests for PersonalityEngine - Omni-Scalar Shaped Communication.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for PersonalityEngine - Omni-Scalar Shaped Communication."""
 
 import pytest
 

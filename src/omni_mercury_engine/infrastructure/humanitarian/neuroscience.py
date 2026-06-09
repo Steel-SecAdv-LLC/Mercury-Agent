@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Neuroscience Module - Cognitive pattern and neural anomaly detection
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Neuroscience Module - Cognitive pattern and neural anomaly detection.
 
 Supports cognitive enhancement and mental health monitoring by detecting:
 - Neural activity pattern anomalies
@@ -33,8 +16,9 @@ Research sources:
 - NIH neuroscience research
 - Brain-computer interface studies
 - Cognitive neuroscience literature
-
 """
+
+from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
@@ -57,6 +41,7 @@ class NeuroscienceDetector:
     """Detect neural and cognitive pattern anomalies."""
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.neural_baseline = {"mean": 50.0, "std": 15.0}
         self.cognitive_threshold = 0.7
 
@@ -66,8 +51,7 @@ class NeuroscienceDetector:
         detection_type: str = "neural_activity",
         subject_context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """
-        Detect neuroscience anomalies.
+        """Detect neuroscience anomalies.
 
         Args:
             data: Neural/cognitive metrics (EEG, fMRI, cognitive scores)

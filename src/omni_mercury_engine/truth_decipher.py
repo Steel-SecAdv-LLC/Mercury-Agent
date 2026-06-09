@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Truth Deciphering Framework for Mercury Agent
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Truth Deciphering Framework for Mercury Agent.
 
 Orchestrates anomaly discovery, identification, ethical evaluation, and resolution
 across major infrastructures using integrated detection and self-healing components.
@@ -39,6 +22,8 @@ Integrates:
 - AgenticAutonomy: Autonomous decision-making and workflow execution
 - CRISPRInspiredSelfHealing: 3-stage adaptive anomaly neutralization
 """
+
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
@@ -107,8 +92,7 @@ class TruthDecipherResult:
 
 
 class TruthDecipherFramework(LoggerMixin):
-    """
-    Unified orchestrator for anomaly discovery, identification, ethical evaluation, and resolution.
+    """Unified orchestrator for anomaly discovery, identification, ethical evaluation, and resolution.
 
     Implements a 4-phase pipeline that ensures all anomaly handling follows ethical guidelines and
     leverages adaptive self-healing.
@@ -122,8 +106,7 @@ class TruthDecipherFramework(LoggerMixin):
         enable_cognitive: bool = True,
         autonomy_level: float = 0.8,
     ):
-        """
-        Initialize Truth Deciphering Framework.
+        """Initialize Truth Deciphering Framework.
 
         Args:
             config: Engine configuration (uses default if None)
@@ -167,8 +150,7 @@ class TruthDecipherFramework(LoggerMixin):
         data_stream: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],
         context: dict[str, Any] | None = None,
     ) -> TruthDecipherResult:
-        """
-        Main orchestrator: Run all 5 phases to discover, analyze, identify, ethically evaluate, and
+        """Main orchestrator: Run all 5 phases to discover, analyze, identify, ethically evaluate, and.
 
         resolve anomalies.
 
@@ -277,8 +259,7 @@ class TruthDecipherFramework(LoggerMixin):
         data_stream: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],
         context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """
-        Phase 1: Discovery - Detect anomalies using OmniMercuryEngine
+        """Phase 1: Discovery - Detect anomalies using OmniMercuryEngine.
 
         and discover novel classes.
 
@@ -317,8 +298,7 @@ class TruthDecipherFramework(LoggerMixin):
     def classify_and_identify(
         self, discovery_result: dict[str, Any], context: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        """
-        Phase 2: Identification - Classify anomalies by type and severity.
+        """Phase 2: Identification - Classify anomalies by type and severity.
 
         Args:
             discovery_result: Results from Phase 1
@@ -363,8 +343,7 @@ class TruthDecipherFramework(LoggerMixin):
     def determine_ethics(
         self, identification_result: dict[str, Any], context: dict[str, Any] | None = None
     ) -> EthicsResult:
-        """
-        Phase 3: Ethical Course Determination - Evaluate proposed actions
+        """Phase 3: Ethical Course Determination - Evaluate proposed actions.
 
         against 8 ethical principles.
 
@@ -406,8 +385,7 @@ class TruthDecipherFramework(LoggerMixin):
         original_data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],
         context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """
-        Phase 4: Resolution - Apply automated fixes using ThreeRMechanism,
+        """Phase 4: Resolution - Apply automated fixes using ThreeRMechanism,.
 
         AgenticAutonomy, and CRISPRInspiredSelfHealing.
 
@@ -454,8 +432,7 @@ class TruthDecipherFramework(LoggerMixin):
         return result
 
     def get_statistics(self) -> dict[str, Any]:
-        """
-        Get statistics about framework operations.
+        """Get statistics about framework operations.
 
         Returns:
             Statistics including ethical evaluations, autonomous actions, cognitive stats, etc.

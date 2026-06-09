@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Generate docs/images/ dashboard PNGs from measured benchmark data.
 
 Reads benchmarks/mercury_benchmark_results.json as the sole data source.

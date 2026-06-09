@@ -1,10 +1,8 @@
-"""
-Mercury Agent - Correlation ID Middleware Tests
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Correlation ID Middleware Tests.
 
 Tests for the request correlation ID tracking middleware.
-
-Copyright (C) 2025 Steel Security Advisors LLC
-Licensed under GPL-3.0-or-later
 """
 
 from __future__ import annotations

@@ -1,7 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-Domain loader for wildfire data from NASA FIRMS (Fire Information for Resource Management System).
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Domain loader for wildfire data from NASA FIRMS (Fire Information for Resource Management System).
 
 Connects to the NASA FIRMS active-fire API to provide thermal hotspot data for Mercury anomaly
 detection.  Ground truth events cover major wildfires where high fire-radiative-power detections
@@ -89,8 +88,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
 
 
 class WildfireLoader(BaseDomainLoader):
-    """
-    Loader for wildfire / active-fire data from NASA FIRMS.
+    """Loader for wildfire / active-fire data from NASA FIRMS.
 
     Uses the NASA FIRMS VIIRS NOAA-20 Near Real-Time (NRT) active-fire
     product via two endpoints:
@@ -125,8 +123,7 @@ class WildfireLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     def fetch_realtime(self) -> pd.DataFrame:
-        """
-        Fetch the most recent day of global active-fire detections.
+        """Fetch the most recent day of global active-fire detections.
 
         Queries the NASA FIRMS area endpoint for a global bounding box
         over the last 1 day of NRT data.
@@ -159,8 +156,7 @@ class WildfireLoader(BaseDomainLoader):
         return df
 
     def fetch_historical(self, event_id: str) -> pd.DataFrame:
-        """
-        Fetch fire-detection data for a known historical wildfire event.
+        """Fetch fire-detection data for a known historical wildfire event.
 
         Args:
             event_id: Key into the ground truth catalog (e.g.
@@ -210,8 +206,7 @@ class WildfireLoader(BaseDomainLoader):
         return df
 
     def list_events(self) -> list[dict[str, Any]]:
-        """
-        Return the catalog of ground truth wildfire events.
+        """Return the catalog of ground truth wildfire events.
 
         Returns:
             List of dicts each containing *event_id*, *name*, *date*,
@@ -230,8 +225,7 @@ class WildfireLoader(BaseDomainLoader):
         return events
 
     def get_ground_truth(self, event_id: str) -> np.ndarray[Any, Any]:
-        """
-        Generate binary anomaly labels for a historical wildfire event.
+        """Generate binary anomaly labels for a historical wildfire event.
 
         Labeling strategy: a fire detection is labeled *anomalous* (``1``)
         if its fire radiative power (FRP) is at or above the 90th
@@ -280,8 +274,7 @@ class WildfireLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray[Any, Any]:
-        """
-        Transform raw FIRMS data into a feature matrix.
+        """Transform raw FIRMS data into a feature matrix.
 
         Engineered features (per detection row):
 
@@ -372,8 +365,7 @@ class WildfireLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     def _build_area_url(self, area: str, days: int) -> str:
-        """
-        Build a FIRMS area-endpoint URL.
+        """Build a FIRMS area-endpoint URL.
 
         Args:
             area: Bounding box as ``"west,south,east,north"``.
@@ -386,8 +378,7 @@ class WildfireLoader(BaseDomainLoader):
         return f"{_AREA_URL}/{self._api_key}/{_SENSOR}/{area}/{days}"
 
     def _build_country_url(self, country_code: str, days: int) -> str:
-        """
-        Build a FIRMS country-endpoint URL.
+        """Build a FIRMS country-endpoint URL.
 
         Args:
             country_code: ISO 3166-1 alpha-3 country code (e.g. ``"AUS"``).
@@ -404,8 +395,7 @@ class WildfireLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     def _require_api_key(self) -> None:
-        """
-        Raise if no API key is configured.
+        """Raise if no API key is configured.
 
         Raises:
             EnvironmentError: When the API key is empty.
@@ -419,8 +409,7 @@ class WildfireLoader(BaseDomainLoader):
             )
 
     def _fetch_firms_csv(self, url: str) -> pd.DataFrame:
-        """
-        Fetch CSV data from a FIRMS endpoint and return a DataFrame.
+        """Fetch CSV data from a FIRMS endpoint and return a DataFrame.
 
         NASA FIRMS returns CSV directly as the response body.
 
@@ -442,8 +431,7 @@ class WildfireLoader(BaseDomainLoader):
 
     @staticmethod
     def _sort_chronologically(df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Sort a FIRMS DataFrame by acquisition date and time.
+        """Sort a FIRMS DataFrame by acquisition date and time.
 
         Args:
             df: DataFrame with ``acq_date`` and ``acq_time`` columns.
@@ -457,8 +445,7 @@ class WildfireLoader(BaseDomainLoader):
 
     @staticmethod
     def _parse_confidence(df: pd.DataFrame) -> np.ndarray[Any, Any]:
-        """
-        Parse the confidence column into numeric values.
+        """Parse the confidence column into numeric values.
 
         VIIRS confidence may be categorical (``"low"``, ``"nominal"``,
         ``"high"``) or numeric.  This method maps categorical values to
@@ -496,8 +483,7 @@ class WildfireLoader(BaseDomainLoader):
 
     @staticmethod
     def _compute_hours_since_start(df: pd.DataFrame) -> np.ndarray[Any, Any]:
-        """
-        Compute hours since the first detection in the DataFrame.
+        """Compute hours since the first detection in the DataFrame.
 
         Uses ``acq_date`` (YYYY-MM-DD) and ``acq_time`` (HHMM integer)
         to construct datetime values.
@@ -534,8 +520,7 @@ class WildfireLoader(BaseDomainLoader):
 
     @staticmethod
     def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-        """
-        Compute the Haversine distance between two points in kilometres.
+        """Compute the Haversine distance between two points in kilometres.
 
         Args:
             lat1: Latitude of point 1 (degrees).
@@ -564,8 +549,7 @@ class WildfireLoader(BaseDomainLoader):
         lon: np.ndarray[Any, Any],
         radius_km: float = 10.0,
     ) -> np.ndarray[Any, Any]:
-        """
-        Count the number of other fire detections within a given radius.
+        """Count the number of other fire detections within a given radius.
 
         For performance on large datasets, uses a rough latitude/longitude
         pre-filter before computing exact Haversine distances.
@@ -610,8 +594,7 @@ class WildfireLoader(BaseDomainLoader):
         lon: np.ndarray[Any, Any],
         hours: np.ndarray[Any, Any],
     ) -> np.ndarray[Any, Any]:
-        """
-        Estimate fire spread rate from sequential detections.
+        """Estimate fire spread rate from sequential detections.
 
         For each detection, computes the distance to the nearest
         subsequent detection divided by the elapsed time between them.

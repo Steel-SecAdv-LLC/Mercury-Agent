@@ -1,5 +1,6 @@
-"""
-Biometric Recognition Module for Mercury Agent.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Biometric Recognition Module for Mercury Agent.
 
 Provides multi-modal biometric authentication including iris, fingerprint,
 and voice recognition with comprehensive liveness detection.
@@ -116,8 +117,7 @@ class BiometricAnomalyResult:
 
 
 class BiometricAnomalyDetector:
-    """
-    Multi-modal biometric anomaly detection.
+    """Multi-modal biometric anomaly detection.
 
     Provides unified interface for biometric verification across
     iris, fingerprint, and voice modalities with liveness detection.
@@ -146,8 +146,7 @@ class BiometricAnomalyDetector:
         liveness_required: bool = True,
         anomaly_threshold: float = 0.5,
     ) -> None:
-        """
-        Initialize the biometric anomaly detector.
+        """Initialize the biometric anomaly detector.
 
         Args:
             modalities: List of modalities to use (default: all)
@@ -189,8 +188,7 @@ class BiometricAnomalyDetector:
         voice_sample: np.ndarray[Any, Any] | None = None,
         **kwargs: Any,
     ) -> BiometricEnrollment:
-        """
-        Enroll a new identity with biometric samples.
+        """Enroll a new identity with biometric samples.
 
         Args:
             identity: Unique identifier for the person
@@ -233,8 +231,7 @@ class BiometricAnomalyDetector:
         fingerprint_liveness_images: list[np.ndarray[Any, Any]] | None = None,
         voice_liveness_samples: list[np.ndarray[Any, Any]] | None = None,
     ) -> BiometricVerificationResult:
-        """
-        Verify a claimed identity against enrolled biometrics.
+        """Verify a claimed identity against enrolled biometrics.
 
         Args:
             claimed_identity: Identity to verify against
@@ -347,8 +344,7 @@ class BiometricAnomalyDetector:
         fingerprint_image: np.ndarray[Any, Any] | None = None,
         voice_sample: np.ndarray[Any, Any] | None = None,
     ) -> BiometricAnomalyResult:
-        """
-        Detect anomalies in biometric samples without identity verification.
+        """Detect anomalies in biometric samples without identity verification.
 
         Checks for presentation attacks, poor quality samples, and unusual patterns.
 

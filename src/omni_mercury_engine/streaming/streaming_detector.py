@@ -1,7 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-Streaming anomaly detector with async data ingestion.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Streaming anomaly detector with async data ingestion.
 
 Provides a StreamingDetector wrapper that accepts data points one at a time, maintains a rolling
 window, and produces anomaly scores using MercuryAnomalyDetector. Supports async ingestion via
@@ -64,8 +63,7 @@ class StreamingDetector:
         detector_config: dict[str, Any] | None = None,
         on_anomaly: Callable[[dict[str, Any]], None] | None = None,
     ) -> None:
-        """
-        Initialize the streaming detector.
+        """Initialize the streaming detector.
 
         Args:
             window_size: Number of recent observations to maintain.
@@ -125,8 +123,7 @@ class StreamingDetector:
             logger.warning("StreamingDetector refit failed: %s", exc)
 
     def ingest(self, point: np.ndarray[Any, Any] | list[float] | float) -> dict[str, Any] | None:
-        """
-        Ingest a single data point and optionally return detection results.
+        """Ingest a single data point and optionally return detection results.
 
         Args:
             point: A single observation. Can be a scalar, 1-D array
@@ -185,8 +182,7 @@ class StreamingDetector:
     def ingest_batch(
         self, batch: np.ndarray[Any, Any] | list[list[float]]
     ) -> dict[str, Any] | None:
-        """
-        Ingest a batch of data points.
+        """Ingest a batch of data points.
 
         Args:
             batch: Array of shape (n_samples, n_features).
@@ -234,8 +230,7 @@ class StreamingDetector:
     async def async_ingest(
         self, point: np.ndarray[Any, Any] | list[float] | float
     ) -> dict[str, Any] | None:
-        """
-        Async version of ingest for use with asyncio event loops.
+        """Async version of ingest for use with asyncio event loops.
 
         Args:
             point: A single observation.
@@ -249,8 +244,7 @@ class StreamingDetector:
     async def async_ingest_batch(
         self, batch: np.ndarray[Any, Any] | list[list[float]]
     ) -> dict[str, Any] | None:
-        """
-        Async version of ingest_batch.
+        """Async version of ingest_batch.
 
         Args:
             batch: Array of shape (n_samples, n_features).
@@ -274,8 +268,7 @@ class StreamingDetector:
         )
 
     def get_stats(self) -> dict[str, Any]:
-        """
-        Get current streaming statistics.
+        """Get current streaming statistics.
 
         Returns:
             Dict with performance and state metrics.

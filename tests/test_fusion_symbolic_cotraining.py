@@ -1,8 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Integration tests for neuro-symbolic co-training in ``fit_fusion``.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Integration tests for neuro-symbolic co-training in ``fit_fusion``.
 
 These verify the *contract* of the symbolic-constraint path, deterministically
 and without network access:

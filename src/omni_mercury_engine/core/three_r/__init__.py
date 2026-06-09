@@ -1,7 +1,6 @@
-"""
-Mercury Agent - 3R Mechanism Package
-
-Copyright (C) 2025 Steel Security Advisors LLC
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""3R Mechanism Package.
 
 The Three-R (Recursion-Resonance-Refactoring) Mechanism provides a unified
 framework for adaptive anomaly detection and code quality enhancement.

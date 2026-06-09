@@ -1,12 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Consciousness Research / Anomaly Correlation Data Sources
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Consciousness Research / Anomaly Correlation Data Sources.
 
 Production-grade integrations for:
 - Global Consciousness Project (GCP/EGG Network)
@@ -56,7 +50,6 @@ from omni_mercury_engine.data_sources.base import (
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Statistical Utilities for GCP Analysis
 # =============================================================================
@@ -84,8 +77,7 @@ def chi_square_deviation(
     expected_mean: float = 100.0,
     expected_variance: float = 50.0,
 ) -> tuple[float, float]:
-    """
-    Calculate chi-square statistic for deviation from expected.
+    """Calculate chi-square statistic for deviation from expected.
 
     For GCP data, expected distribution is binomial[200, 0.5]
     with mean=100, variance=50.
@@ -123,8 +115,7 @@ def cumulative_deviation(
     trial_sums: list[int],
     expected_mean: float = 100.0,
 ) -> list[float]:
-    """
-    Calculate cumulative deviation from expected.
+    """Calculate cumulative deviation from expected.
 
     Used for creating cumulative deviation plots.
 
@@ -148,8 +139,7 @@ def cumulative_deviation(
 def inter_egg_correlation(
     egg_data: dict[str, list[int]],
 ) -> float:
-    """
-    Calculate mean correlation between EGG (RNG) outputs.
+    """Calculate mean correlation between EGG (RNG) outputs.
 
     Higher correlation suggests network-wide deviation from independence.
 
@@ -257,8 +247,7 @@ class GCPDataSource(DataSourceBase):
         config: DataSourceConfig | None = None,
         seed: int | None = None,
     ) -> None:
-        """
-        Initialize GCP data source.
+        """Initialize GCP data source.
 
         Args:
             analysis_types: Types of analysis to perform
@@ -343,8 +332,7 @@ class GCPDataSource(DataSourceBase):
         self,
         egg_data: dict[str, list[int]],
     ) -> dict[str, Any]:
-        """
-        Perform statistical analysis on EGG network data.
+        """Perform statistical analysis on EGG network data.
 
         Args:
             egg_data: Dictionary mapping EGG ID to trial sums
@@ -438,8 +426,7 @@ class GCPDataSource(DataSourceBase):
         end_time: datetime | None = None,
         **kwargs: Any,
     ) -> list[DataPoint]:
-        """
-        Fetch and analyze GCP network data.
+        """Fetch and analyze GCP network data.
 
         Note: This implementation uses simulated data for demonstration.
         In production, replace with actual API calls to noosphere.princeton.edu.
@@ -562,8 +549,7 @@ class GCPDotSource(DataSourceBase):
         config: DataSourceConfig | None = None,
         seed: int | None = None,
     ) -> None:
-        """
-        Initialize GCPDot data source.
+        """Initialize GCPDot data source.
 
         Args:
             config: Optional base configuration.
@@ -620,8 +606,7 @@ class GCPDotSource(DataSourceBase):
         end_time: datetime | None = None,
         **kwargs: Any,
     ) -> list[DataPoint]:
-        """
-        Fetch GCPDot status.
+        """Fetch GCPDot status.
 
         Note: This provides a simplified representation.
         In production, fetch from gcpdot.com API if available.

@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Algorithm-Agnostic Cryptographic API for Mercury Agent
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Algorithm-Agnostic Cryptographic API for Mercury Agent.
 
 MercuryCrypto is a thin facade over AMA Cryptography's ``AmaCryptography``.
 It delegates all cryptographic operations to AMA while providing Mercury-
@@ -40,6 +23,8 @@ References:
     - NIST FIPS 204: Module-Lattice-Based Digital Signature Standard
     - NIST FIPS 203: Module-Lattice-Based Key-Encapsulation Mechanism
 """
+
+from __future__ import annotations
 
 import hashlib
 import json
@@ -210,6 +195,7 @@ class Ed25519Provider:
     """Ed25519 classical signature provider."""
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         if not ED25519_AVAILABLE:
             raise RuntimeError("cryptography library required for Ed25519")
         self._private_key: Ed25519PrivateKey | None = None
@@ -333,6 +319,7 @@ class HybridSignatureProvider:
     """Hybrid signature provider combining classical and post-quantum."""
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.classical_provider: Ed25519Provider | None = None
         self.pqc_provider = MLDSAProvider()
 
@@ -376,8 +363,7 @@ class HybridSignatureProvider:
         classical_public: bytes | None,
         pqc_public: bytes,
     ) -> tuple[bool, bool]:
-        """
-        Verify hybrid signature.
+        """Verify hybrid signature.
 
         Returns (classical_valid, pqc_valid).
         """
@@ -405,8 +391,7 @@ _SECURITY_LEVEL_TO_AMA: dict[SecurityLevel, Any] = {
 
 
 class MercuryCrypto:
-    """
-    Unified cryptographic interface for Mercury Agent.
+    """Unified cryptographic interface for Mercury Agent.
 
     Thin facade over AMA Cryptography's ``AmaCryptography``, providing:
     - Algorithm-agnostic signing, verification, and key encapsulation
@@ -427,6 +412,7 @@ class MercuryCrypto:
         security_level: SecurityLevel = SecurityLevel.POST_QUANTUM,
         backend: CryptoBackend = CryptoBackend.AUTO,
     ):
+        """Initialize the instance."""
         self.security_level = security_level
         self.backend = backend
 
@@ -537,8 +523,7 @@ class MercuryCrypto:
         nonce: bytes | None = None,
         aad: bytes = b"",
     ) -> dict[str, Any]:
-        """
-        Encrypt data using AES-256-GCM via AMA Cryptography.
+        """Encrypt data using AES-256-GCM via AMA Cryptography.
 
         Args:
             plaintext: Data to encrypt
@@ -561,8 +546,7 @@ class MercuryCrypto:
         tag: bytes = b"",
         aad: bytes = b"",
     ) -> bytes:
-        """
-        Decrypt data using AES-256-GCM via AMA Cryptography.
+        """Decrypt data using AES-256-GCM via AMA Cryptography.
 
         Args:
             ciphertext: Encrypted data
@@ -583,8 +567,7 @@ class MercuryCrypto:
         data: dict[str, Any],
         config: CryptoPackageConfig | None = None,
     ) -> CryptoPackageResult:
-        """
-        Create cryptographic package for anomaly detection results.
+        """Create cryptographic package for anomaly detection results.
 
         When ``config.use_six_layer`` is True, delegates to AMA's 6-layer
         ``create_crypto_package`` for defense-in-depth protection:

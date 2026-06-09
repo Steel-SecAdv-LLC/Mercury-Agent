@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-PyOD Integration and Comparison
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""PyOD Integration and Comparison.
 
 Compare Mercury Agent with PyOD's 40+ anomaly detection algorithms.
 
@@ -27,6 +10,8 @@ Research sources:
 
 Note: This compares approaches, doesn't copy PyOD code
 """
+
+from __future__ import annotations
 
 from enum import Enum
 from typing import Any
@@ -57,8 +42,7 @@ class CombinationMethod(Enum):
 
 
 class PyODComparison:
-    """
-    Compare Mercury Agent with PyOD algorithms.
+    """Compare Mercury Agent with PyOD algorithms.
 
     Enables:
     - Benchmarking Mercury-Agent's 22+ engines against PyOD's 40+ algorithms
@@ -68,6 +52,7 @@ class PyODComparison:
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.algorithm_characteristics = self._init_algorithm_profiles()
         self.benchmark_results: dict[str, Any] = {}
 
@@ -123,8 +108,7 @@ class PyODComparison:
     def recommend_algorithm(
         self, data_characteristics: dict[str, Any], constraints: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        """
-        Recommend best algorithm(s) based on data characteristics.
+        """Recommend best algorithm(s) based on data characteristics.
 
         Args:
             data_characteristics: Data properties dict
@@ -173,8 +157,7 @@ class PyODComparison:
         predictions: dict[str, np.ndarray[Any, Any]],
         method: CombinationMethod = CombinationMethod.AVERAGE,
     ) -> np.ndarray[Any, Any]:
-        """
-        Combine predictions from multiple detectors using PyOD-inspired methods.
+        """Combine predictions from multiple detectors using PyOD-inspired methods.
 
         Args:
             predictions: {detector_name: anomaly_scores} for multiple detectors
@@ -220,8 +203,7 @@ class PyODComparison:
         ground_truth: np.ndarray[Any, Any],
         pyod_algorithms: list[PyODAlgorithm],
     ) -> dict[str, Any]:
-        """
-        Benchmark Mercury Agent against PyOD algorithms.
+        """Benchmark Mercury Agent against PyOD algorithms.
 
         Args:
             omni_engine: Mercury Agent instance

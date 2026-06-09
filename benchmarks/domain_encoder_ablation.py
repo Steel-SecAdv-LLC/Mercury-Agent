@@ -1,4 +1,6 @@
-"""Differentiable domain-encoder ablation (WS-B / Target 2).
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+r"""Differentiable domain-encoder ablation (WS-B / Target 2).
 
 Faithful, paired comparison on real ADBench labels of the **actual wired
 feature** -- the opt-in differentiable domain encoder in the production fusion

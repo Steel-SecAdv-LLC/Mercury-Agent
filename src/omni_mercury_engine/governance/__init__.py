@@ -1,21 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Descriptive (metric-only) governance scalars under a three-state honesty contract.
 
 This package is the governance counterpart to :mod:`omni_mercury_engine.verifiers`.
@@ -34,6 +18,8 @@ Each family is kept or dropped by an explicit, codebase-evidenced **signal vet**
   IEEE 7000-series -- no runtime signal can exist for them in this engine.
 * Tag-only: the EU AI Act risk tier (a gate/tag, never a scalar).
 """
+
+from __future__ import annotations
 
 from omni_mercury_engine.governance import ai_safety, clinical, eu_ai_act, medical_device
 from omni_mercury_engine.governance.contract import (

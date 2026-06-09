@@ -1,7 +1,6 @@
-"""
-Mercury Agent - Adaptive Fusion Architecture
-
-Copyright (C) 2025 Steel Security Advisors LLC
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Adaptive Fusion Architecture.
 
 This module provides enhanced fusion capabilities including:
 - Adaptive attention head count based on input complexity
@@ -9,11 +8,6 @@ This module provides enhanced fusion capabilities including:
 - Uncertainty quantification with confidence intervals
 - Sparse attention patterns for efficiency
 - Attention visualization tools
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
 """
 
 from __future__ import annotations
@@ -93,8 +87,7 @@ class AttentionVisualization:
 if TYPE_CHECKING or TORCH_AVAILABLE:
 
     class TemperatureScaledAttention(nn.Module):
-        """
-        Attention mechanism with learnable temperature scaling.
+        """Attention mechanism with learnable temperature scaling.
 
         Temperature controls the sharpness of attention distribution:
         - Low temperature (< 1): Sharper, more focused attention
@@ -109,8 +102,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             initial_temperature: float = 1.0,
             learnable_temperature: bool = True,
         ):
-            """
-            Initialize temperature-scaled attention.
+            """Initialize temperature-scaled attention.
 
             Args:
                 embed_dim: Embedding dimension
@@ -157,8 +149,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             value: torch.Tensor,
             return_attention: bool = False,
         ) -> tuple[torch.Tensor, torch.Tensor | None]:
-            """
-            Apply temperature-scaled attention.
+            """Apply temperature-scaled attention.
 
             Args:
                 query: Query tensor [batch_size, seq_len, embed_dim]
@@ -212,8 +203,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             return float(self.temperature.item())
 
     class SparseAttention(nn.Module):
-        """
-        Sparse attention mechanism for efficiency with many detectors.
+        """Sparse attention mechanism for efficiency with many detectors.
 
         Implements top-k attention where only the k most relevant detectors contribute to each
         output.
@@ -227,8 +217,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             top_k: int | None = None,
             sparsity_ratio: float = 0.5,
         ):
-            """
-            Initialize sparse attention.
+            """Initialize sparse attention.
 
             Args:
                 embed_dim: Embedding dimension
@@ -264,8 +253,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             value: torch.Tensor,
             return_attention: bool = False,
         ) -> tuple[torch.Tensor, torch.Tensor | None]:
-            """
-            Apply sparse top-k attention.
+            """Apply sparse top-k attention.
 
             Args:
                 query: Query tensor [batch_size, seq_len, embed_dim]
@@ -327,8 +315,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             return self.sparsity_ratio
 
     class AdaptiveHeadAttention(nn.Module):
-        """
-        Attention with adaptive head count based on input complexity.
+        """Attention with adaptive head count based on input complexity.
 
         Dynamically adjusts the number of active attention heads based on the complexity of the
         input (e.g., number of active detectors).
@@ -341,8 +328,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             max_heads: int = 8,
             dropout: float = 0.1,
         ):
-            """
-            Initialize adaptive head attention.
+            """Initialize adaptive head attention.
 
             Args:
                 embed_dim: Embedding dimension
@@ -393,8 +379,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             value: torch.Tensor,
             return_attention: bool = False,
         ) -> tuple[torch.Tensor, torch.Tensor | None]:
-            """
-            Apply adaptive head attention.
+            """Apply adaptive head attention.
 
             Args:
                 query: Query tensor [batch_size, seq_len, embed_dim]
@@ -457,8 +442,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             return self._active_heads
 
     class UncertaintyQuantifier(nn.Module):
-        """
-        Uncertainty quantification module for fusion outputs.
+        """Uncertainty quantification module for fusion outputs.
 
         Estimates epistemic (model) and aleatoric (data) uncertainty using Monte Carlo dropout and
         ensemble disagreement.
@@ -470,8 +454,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             n_mc_samples: int = 10,
             dropout_rate: float = 0.1,
         ):
-            """
-            Initialize uncertainty quantifier.
+            """Initialize uncertainty quantifier.
 
             Args:
                 embed_dim: Embedding dimension
@@ -503,8 +486,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             x: torch.Tensor,
             confidence_level: float = 0.95,
         ) -> UncertaintyEstimate:
-            """
-            Estimate uncertainty for input tensor.
+            """Estimate uncertainty for input tensor.
 
             Args:
                 x: Input tensor [batch_size, embed_dim]
@@ -551,8 +533,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             )
 
     class AdaptiveFusionLayer(nn.Module):
-        """
-        Enhanced fusion layer combining all adaptive mechanisms.
+        """Enhanced fusion layer combining all adaptive mechanisms.
 
         Integrates:
         - Adaptive head count based on input complexity
@@ -574,8 +555,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             enable_uncertainty: bool = True,
             n_mc_samples: int = 10,
         ):
-            """
-            Initialize adaptive fusion layer.
+            """Initialize adaptive fusion layer.
 
             Args:
                 embed_dim: Embedding dimension
@@ -657,8 +637,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             return_attention: bool = False,
             return_uncertainty: bool = False,
         ) -> dict[str, Any]:
-            """
-            Apply adaptive fusion.
+            """Apply adaptive fusion.
 
             Args:
                 x: Input tensor [batch_size, seq_len, embed_dim]
@@ -724,8 +703,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             attention_weights: dict[str, torch.Tensor],
             detector_names: list[str],
         ) -> AttentionVisualization:
-            """
-            Create attention visualization data.
+            """Create attention visualization data.
 
             Args:
                 attention_weights: Dictionary of attention weights
@@ -767,6 +745,7 @@ else:
         """Stub: TemperatureScaledAttention requires PyTorch."""
 
         def __init__(self, *args: Any, **kwargs: Any) -> None:
+            """Initialize the instance."""
             raise ImportError(
                 "TemperatureScaledAttention requires PyTorch. Install with: pip install torch"
             )
@@ -775,12 +754,14 @@ else:
         """Stub: SparseAttention requires PyTorch."""
 
         def __init__(self, *args: Any, **kwargs: Any) -> None:
+            """Initialize the instance."""
             raise ImportError("SparseAttention requires PyTorch. Install with: pip install torch")
 
     class AdaptiveHeadAttention:
         """Stub: AdaptiveHeadAttention requires PyTorch."""
 
         def __init__(self, *args: Any, **kwargs: Any) -> None:
+            """Initialize the instance."""
             raise ImportError(
                 "AdaptiveHeadAttention requires PyTorch. Install with: pip install torch"
             )
@@ -789,6 +770,7 @@ else:
         """Stub: UncertaintyQuantifier requires PyTorch."""
 
         def __init__(self, *args: Any, **kwargs: Any) -> None:
+            """Initialize the instance."""
             raise ImportError(
                 "UncertaintyQuantifier requires PyTorch. Install with: pip install torch"
             )
@@ -797,6 +779,7 @@ else:
         """Stub: AdaptiveFusionLayer requires PyTorch."""
 
         def __init__(self, *args: Any, **kwargs: Any) -> None:
+            """Initialize the instance."""
             raise ImportError(
                 "AdaptiveFusionLayer requires PyTorch. Install with: pip install torch"
             )
@@ -807,8 +790,7 @@ def create_attention_heatmap(
     detector_names: list[str],
     save_path: str | None = None,
 ) -> dict[str, Any]:
-    """
-    Create attention heatmap data for visualization.
+    """Create attention heatmap data for visualization.
 
     Args:
         attention_weights: Attention weights tensor [batch, heads, seq, seq]
