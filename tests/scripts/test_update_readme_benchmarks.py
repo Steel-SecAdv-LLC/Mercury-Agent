@@ -194,9 +194,7 @@ class TestCommittedReadmeMatchesCommittedJSON:
     drift instead of shipping a wrong headline.
     """
 
-    def test_block_carries_canonical_committed_figures(
-        self, update_readme_benchmarks: Any
-    ) -> None:
+    def test_block_carries_canonical_committed_figures(self, update_readme_benchmarks: Any) -> None:
         """The committed README block must carry the committed JSON's figures."""
         results = json.loads(
             (_REPO_ROOT / "benchmarks" / "mercury_benchmark_results.json").read_text(
@@ -220,8 +218,7 @@ class TestCommittedReadmeMatchesCommittedJSON:
             )
 
         ratio = (
-            f"{fmt(summary['successful'], kind='int')} / "
-            f"{fmt(summary['total'], kind='int')}"
+            f"{fmt(summary['successful'], kind='int')} / " f"{fmt(summary['total'], kind='int')}"
         )
         assert ratio in block, (
             f"README benchmark block is stale: missing dataset ratio {ratio}. "
