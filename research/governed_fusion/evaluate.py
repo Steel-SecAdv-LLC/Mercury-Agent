@@ -28,18 +28,18 @@ Scorer = Callable[
 _KEYS = ("auroc", "auprc", "f1", "precision", "recall")
 
 
-def _mean(rows: list[dict[str, float]], key: str) -> float:
-    xs = [r[key] for r in rows if isinstance(r.get(key), float) and r[key] == r[key]]
+def _mean(rows: list[dict[str, Any]], key: str) -> float:
+    xs = [r[key] for r in rows if isinstance(r.get(key), float) and not np.isnan(r[key])]
     return float(np.mean(xs)) if xs else float("nan")
 
 
 def aggregate(events: list[EventScores], scorer: Scorer) -> dict[str, Any]:
     """Return per-event rows, per-domain means and the overall macro mean."""
     per_event: list[dict[str, Any]] = []
-    by_domain: dict[str, list[dict[str, float]]] = defaultdict(list)
+    by_domain: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for es in events:
         y, score, pred = scorer(es)
-        m = pooled_metrics(y, score, pred)
+        m: dict[str, Any] = dict(pooled_metrics(y, score, pred))
         m["domain"] = es.domain
         m["event"] = es.event_id
         per_event.append(m)
