@@ -54,6 +54,7 @@ class _Verdict:
     __slots__ = ("confidence", "disposition", "label", "reasons", "resolvable_by_input", "state")
 
     def __init__(self) -> None:
+        """Start neutral: abstain (UNAVAILABLE / DEFER) until a stage decides."""
         self.state: ThreeState = ThreeState.UNAVAILABLE
         self.disposition: Disposition = Disposition.DEFER
         self.label: int | None = None
