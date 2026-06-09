@@ -184,6 +184,13 @@ if TYPE_CHECKING:
 
     from omni_mercury_engine.cognitive.ethical_bounding import BenevolenceScorer
     from omni_mercury_engine.cognitive.orchestrator import CognitiveOrchestrator
+    from omni_mercury_engine.decision import (
+        AbstentionPolicy,
+        Authorization,
+        DecisionResponseLoop,
+        EthicalGate,
+    )
+    from omni_mercury_engine.decision.types import Decision, ResponseAction
 
     # Type hints for lazy-loaded models (improves IDE support without import cost)
     from omni_mercury_engine.medical.abms_disciplines import ABMSDisciplineDetector
@@ -3368,6 +3375,107 @@ class OmniMercuryEngine(LoggerMixin):
             "calibration_method": calibration_result.method.value,
             "detector_results": detection_result.get("detectors", {}),
         }
+
+    def decide_and_respond(
+        self,
+        data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],
+        *,
+        domain: str | None = None,
+        loop: DecisionResponseLoop | None = None,
+        abstention_policy: AbstentionPolicy | None = None,
+        authorization: Authorization | None = None,
+        explain: bool = False,
+        equation_profile: str | None = None,
+    ) -> dict[str, Any]:
+        """Close the identify→interpret→decide→deter→verify loop on one sample.
+
+        This is the engine surface for the Decision / Abstention / Response layer
+        (see :mod:`omni_mercury_engine.decision`). It runs calibrated fusion
+        detection (:meth:`detect_with_fusion`, which already enforces the dual
+        hard ethical gate), then converts the calibrated ``anomaly_prob`` — and
+        the conformal label set when :meth:`calibrate_fusion_conformal` has been
+        run — into a typed decision with a **first-class abstention**, and selects
+        a **proportionate, reversible-by-default** response.
+
+        The response boundary re-asserts the engine's benevolence + σ_Immutable
+        gate (:meth:`_enforce_ethics_at_boundary`) *before any actuation*, so a
+        response can never act on input the engine itself would refuse. An
+        abstention never actuates a deterrent; escalatory or irreversible actions
+        are deferred unless an explicit :class:`~omni_mercury_engine.decision.Authorization`
+        is supplied.
+
+        Args:
+            data: Input data for detection (array / tensor / domain dict).
+            domain: Optional domain hint (threshold tuning + provenance).
+            loop: Optional pre-built
+                :class:`~omni_mercury_engine.decision.DecisionResponseLoop`
+                (e.g. carrying a shared audit ledger across calls). When ``None``
+                a fresh loop is built bound to this engine's ethical gate.
+            abstention_policy: Optional policy override (ignored when ``loop`` is
+                supplied).
+            authorization: Optional human sign-off enabling escalatory /
+                irreversible responses.
+            explain: Forwarded to :meth:`detect_with_fusion`.
+            equation_profile: Forwarded to :meth:`detect_with_fusion`.
+
+        Returns:
+            The :meth:`detect_with_fusion` result dict, augmented with:
+
+            * ``decision`` — the typed decision metadata (verdict, three-state,
+              confidence, reason, provenance),
+            * ``response`` — the response outcome metadata (action, status,
+              whether the ethical gate passed),
+            * ``loop`` — the full JSON-serialisable loop certificate.
+        """
+        from omni_mercury_engine.decision import AbstentionPolicy as _AbstentionPolicy
+        from omni_mercury_engine.decision import DecisionResponseLoop as _Loop
+
+        detection = self.detect_with_fusion(
+            data,
+            domain=domain,
+            explain=explain,
+            equation_profile=equation_profile,
+        )
+        if loop is None:
+            loop = _Loop(
+                ethical_gate=self._bind_response_ethical_gate(data),
+                abstention_policy=abstention_policy or _AbstentionPolicy(),
+            )
+        loop_result = loop.step_from_engine_result(
+            detection,
+            domain=domain,
+            authorization=authorization,
+        )
+        return {
+            **detection,
+            "decision": loop_result.decision.as_metadata(),
+            "response": loop_result.response.as_metadata(),
+            "loop": loop_result.as_dict(),
+        }
+
+    def _bind_response_ethical_gate(
+        self,
+        data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],
+    ) -> EthicalGate:
+        """Bind the engine's dual hard gate as a fail-closed response veto.
+
+        The returned gate deliberately ignores the action/decision text (whose
+        content could be adversarial) and re-asserts the engine's own
+        benevolence + σ_Immutable boundary over the *engine's defensive purpose*
+        for this sample — exactly as :meth:`_enforce_ethics_at_boundary` does at
+        detection. A violation raises ``EthicalConstraintViolationError``, which
+        the actuator treats as a veto (the response is ``BLOCKED``).
+        """
+
+        def gate(
+            *,
+            action: ResponseAction,
+            decision: Decision,
+            domain: str | None,
+        ) -> None:
+            self._enforce_ethics_at_boundary(domain, data)
+
+        return gate
 
     def _enforce_ethics_at_boundary(
         self,

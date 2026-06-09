@@ -26,6 +26,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Decision / Abstention / Response layer — closed identify→interpret→decide→deter→verify loop (2026-06-09)
+
+Adds `omni_mercury_engine.decision`, the layer that turns the engine's calibrated
+detection into a closed loop with a **first-class "don't-know" gate** and a
+**proportionate, reversible-by-default, ethically-gated response**. Net-new
+capability (the *deter* and closed-*autonomy* pillars of the vision); every input
+it consumes already existed and is tested.
+
+* **`AbstentionPolicy`** — maps a calibrated `P(anomaly)` (and, when available, a
+  conformal label set carrying a distribution-free coverage guarantee) to a typed
+  `Decision{POSITIVE | NEGATIVE | ABSTAIN}`. The conformal path *honours* the
+  set-size semantics already in `core/conformal_prediction.py` (singleton →
+  grounded call, `{0,1}` → abstain, `{}` → abstain + novelty); a calibrated band
+  is the fallback. Every abstention maps to `ThreeState.UNAVAILABLE` (never
+  `UNDECIDABLE`), reusing the cross-repo three-state honesty contract, and records
+  *what would decide it*.
+* **`ResponsePlanner` / `ResponseActuator`** — a graded response ladder
+  (monitor → notify → soft-contain → escalate). Abstentions never actuate a
+  deterrent; escalatory/irreversible actions require explicit human
+  `Authorization`; every effectful action passes a fail-closed ethical gate
+  first. Default handlers are safe placeholders; deployers register real effectors.
+* **`DecisionResponseLoop` / `AuditLedger`** — orchestrates decide→deter→verify
+  and appends a JSON-serialisable certificate per pass, with an optional feedback
+  sink (the omnidirectional learning seam).
+* **`OmniMercuryEngine.decide_and_respond()`** — runs `detect_with_fusion`, binds
+  the engine's benevolence + σ_Immutable boundary as the response gate, and
+  returns the detection augmented with `decision` / `response` / `loop`. Additive
+  and non-breaking; off the default detect path.
+* **Forward-compatible** with the (unmerged) PR #278 calibration surface: prefers
+  `calibrated_probabilities` / `reconciled_operating_point` when present, depends
+  on neither.
+* Docs: `docs/DECISION_ABSTENTION_RESPONSE.md`, `docs/CAPABILITY_VS_VISION_MATRIX.md`;
+  example: `examples/decision_abstention_response_demo.py`; tests: `tests/decision/`.
+
 ### Equations — golden-ratio fibring runtime profile + correlation-aware decorrelation (2026-06-02)
 
 Improves the *math* of the runtime equation blend by harmonising it with
