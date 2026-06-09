@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Item 2: Mercury adversarial-survivability on the REAL fused anomaly score.
 
 For one representative event per reachable domain: fit the real

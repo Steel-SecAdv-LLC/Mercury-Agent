@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Stage 3 R2: decision-curve analysis + the single reconciled operating point."""
 
 from __future__ import annotations

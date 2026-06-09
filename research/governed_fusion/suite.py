@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Reachable real-domain measurement suite for the governed fusion substrate.
 
 This is the single shared measurement driver used by every governed-fusion
@@ -147,7 +149,7 @@ class EventData:
     @property
     def usable(self) -> bool:
         """At least one of each class and >= 8 rows (enough to fit + split)."""
-        return self.X.shape[0] >= 8 and 0 < self.n_pos < self.X.shape[0]
+        return bool(self.X.shape[0] >= 8 and 0 < self.n_pos < self.X.shape[0])
 
     @property
     def reconstructed(self) -> bool:
@@ -236,6 +238,10 @@ def _build_all(*, verbose: bool = False) -> list[EventData]:
             if taken >= max_ev:
                 break
             event_id = ev.get("event_id") if isinstance(ev, dict) else str(ev)
+            if not isinstance(event_id, str):
+                # Malformed listing entry without a string event_id: skip rather
+                # than fabricating an id (never silently mislabels an event).
+                continue
             try:
                 data = _load_event(domain, mod, cls, event_id)
             except ProvenanceError as exc:

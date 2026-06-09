@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """R7: the Lyapunov surface is a measured decay-schedule monitor, not a guarantee.
 
 These tests pin the honesty contract:

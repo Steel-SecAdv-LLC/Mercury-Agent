@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Guardrail: scikit-learn must never be imported in shipped code or harnesses.
 
 Mercury builds its own ML in ``omni_mercury_engine.ml.mercury_ml``; scikit-learn
@@ -12,7 +14,8 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-# Repo root = three levels up from this file (tests/ -> repo).
+# Repo root = two levels up from this file: tests/<this file> -> tests -> repo,
+# i.e. ``parents[1]`` (parents[0] is ``tests/``).
 _REPO = Path(__file__).resolve().parents[1]
 _SCANNED_DIRS = ("src/omni_mercury_engine", "research")
 

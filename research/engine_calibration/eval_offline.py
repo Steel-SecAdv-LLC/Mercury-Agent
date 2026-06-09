@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Offline evaluation on cached real events.
 
 Runs the REAL MercuryAnomalyDetector (fit+detect) on cached (X,y) events and
@@ -11,6 +13,7 @@ Usage:
   eval_offline.py            -> current engine operating point
   eval_offline.py --sweep    -> also compare candidate unsupervised thresholds
 """
+
 from __future__ import annotations
 import warnings, glob, os, sys, importlib
 warnings.filterwarnings("ignore")

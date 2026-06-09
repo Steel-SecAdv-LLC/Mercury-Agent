@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Pooled detection metrics for the governed-fusion suite (mercury_ml only)."""
 
 from __future__ import annotations

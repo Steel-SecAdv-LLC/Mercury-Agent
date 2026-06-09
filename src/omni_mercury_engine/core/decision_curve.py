@@ -1,7 +1,8 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Decision-curve analysis (Vickers & Elkin 2006) + single operating-point pathway.
 
-Mercury Agent - Decision Curve Analysis (Stage 3, R2).
-Copyright (C) 2025 Steel Security Advisors LLC.
+Decision Curve Analysis (Stage 3, R2).
 
 Decision-curve analysis (Vickers & Elkin 2006) on calibrated probabilities, plus
 the single, explicit operating-point pathway for the governed fusion substrate.

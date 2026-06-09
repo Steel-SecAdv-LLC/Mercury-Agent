@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Per-stream measurement on REAL multi-domain Mercury data.
 
 Real loaders -> real MercuryAnomalyDetector -> real equation_profiles.
@@ -7,6 +9,7 @@ Answers:
  Q-ACC3 does the real outer equation S=w_N*N+w_E*OAE beat raw ensemble N? (lift_eq_vs_N)
  Q-GATE does eta^Phi ever change a verdict? (rank top-k flip / abs-0.5 flip / AUC delta)
 """
+
 from __future__ import annotations
 
 import importlib

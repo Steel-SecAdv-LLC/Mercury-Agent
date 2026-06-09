@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """R5: one canonical OAE weight derivation (Φ:1:1, phi_sum = Φ + 2).
 
 Pins the single canonical derivation across spec + code and proves the default

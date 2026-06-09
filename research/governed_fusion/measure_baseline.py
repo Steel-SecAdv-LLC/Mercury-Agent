@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Baseline reachable-suite measurement: default fixed-ensemble detector.
 
 Fits the default ``MercuryAnomalyDetector`` per event (cached) and reports the

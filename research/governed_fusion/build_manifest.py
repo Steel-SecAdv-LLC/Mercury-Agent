@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Data manifest for the governed-fusion reachable suite.
 
 Fingerprints every event's cached ``(X, y)`` so the suite is auditable without

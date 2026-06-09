@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Provenance guard for the governed-fusion live suite.
 
 The suite labels provenance statically (``RECONSTRUCTED_DOMAINS`` /

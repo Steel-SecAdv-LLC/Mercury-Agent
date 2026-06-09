@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Bake-off of unsupervised threshold methods on cached real events.
 
 For each cached event: run the REAL detector -> scores s, labels y.  Then apply
@@ -6,6 +8,7 @@ Aggregates mean F1 per method (overall + per-domain) and the ORACLE ceiling.
 Goal: pick the unsupervised rule that best converts good ranking -> good F1
 across the full reachable suite (contamination 0.3%..72%).
 """
+
 from __future__ import annotations
 import warnings, glob, os, importlib
 warnings.filterwarnings("ignore")

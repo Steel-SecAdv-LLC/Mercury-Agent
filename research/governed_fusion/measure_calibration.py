@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Stage 2 (R1/R3/R4): calibration report card on the reachable suite.
 
 The measured bottleneck of #276/#278 is the operating point / probability

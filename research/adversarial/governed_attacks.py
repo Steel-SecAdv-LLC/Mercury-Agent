@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Adversarial-survivability probes for the governed fusion substrate.
 
 Test/research-only: every function consumes a score function and never changes

@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Stage 2 calibration lever probe (held-out Brier/ECE vs the shipped default).
 
 Can the composite objective, the accept-gate tolerance, or the beta warm-start

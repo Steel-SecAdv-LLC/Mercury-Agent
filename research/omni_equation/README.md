@@ -36,8 +36,11 @@ export MERCURY_ALLOW_SYNTHETIC=0     # real data only; unreachable domains skip
 python research/omni_equation/harness_multidomain.py
 ```
 
-Deps beyond the engine: `numpy scipy scikit-learn` (already in the engine's
-runtime stack). Data is fetched live from allowlisted USGS/NOAA endpoints.
+Deps beyond the engine: `numpy scipy` (already in the engine's runtime stack).
+Metrics come from Mercury's own `omni_mercury_engine.ml.mercury_ml`, **not**
+scikit-learn — `src/` and `research/` are guarded against any `sklearn` import
+(`tests/test_no_sklearn_in_src.py`). Data is fetched live from allowlisted
+USGS/NOAA endpoints.
 
 ## Headline
 Ensemble AUC **0.836** vs best-single **0.909** (fusion *dilutes*); streams

@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Real-signal measurement harness for the Mercury omni-equation decision.
 
 Runs the REAL Mercury detector (MercuryAnomalyDetector -> resonance / kinematic /
@@ -12,6 +14,7 @@ then answers the questions that gate the omni-equation build:
 No reimplementation: real detector, real datasets, real equation_profiles.
 Protocol: standard transductive AD (fit unlabeled on X, score X, AUROC vs y).
 """
+
 from __future__ import annotations
 
 import json

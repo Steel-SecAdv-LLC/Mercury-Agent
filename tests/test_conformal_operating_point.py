@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Item 4: conformal operating point is opt-in and exact-reducing when off."""
 
 from __future__ import annotations

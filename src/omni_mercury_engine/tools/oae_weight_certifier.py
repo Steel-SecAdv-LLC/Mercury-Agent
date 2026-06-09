@@ -15,6 +15,12 @@ and compares the freshly computed values against the registered buffers
 on a newly constructed layer.  Any drift in either ``MATH.GOLDEN_RATIO``
 or the layer's derivation logic surfaces as a hard failure.
 
+The canonical spelling is ``phi_sum = PHI + 2`` with the weights in
+golden-ratio proportion ``w_R:w_H:w_O = PHI:1:1`` — resonance carries the
+``PHI`` share while harmony and optimization each take ``1/(PHI + 2)``.
+This certifier pins that single derivation so the documented weights and
+the layer's registered buffers can never silently diverge again.
+
 Also asserts ``w_R + w_H + w_O == 1.0`` to machine precision — this is
 the structural sum-to-one invariant the README and ARCHITECTURE.md
 both quote.

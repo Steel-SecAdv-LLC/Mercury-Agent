@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Canonical before/after measurement using cached scores + the REAL detector.
 
 Scores are rank-preserving under the calibration change, so the cached per-event
@@ -9,6 +11,7 @@ without re-running detect() on the 148k-row NSL-KDD event.
   BEFORE = fixed 0.5 cut   AFTER = MercuryAnomalyDetector._adaptive_operating_point
 AUROC/AUPRC are rank metrics (unchanged by the cut). Writes results.json.
 """
+
 from __future__ import annotations
 import warnings, pickle, os, json, importlib
 warnings.filterwarnings("ignore")

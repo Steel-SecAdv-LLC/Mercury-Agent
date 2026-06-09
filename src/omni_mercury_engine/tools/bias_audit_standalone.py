@@ -99,8 +99,12 @@ def _collect(args: argparse.Namespace) -> Certificate:
             selection_rate,
         )
     except ImportError as exc:
+        # The failing import may be fairlearn itself *or* one of its transitive
+        # dependencies; surface the real module name (``exc``) instead of always
+        # blaming fairlearn so a missing transitive dep is not misdiagnosed.
         raise DependencyMissing(
-            f"fairlearn missing: {exc}; install with `pip install fairlearn`"
+            f"fairlearn (or one of its dependencies) is unavailable: {exc}; "
+            f"install with `pip install fairlearn`"
         ) from exc
 
     X = np.load(args.data, allow_pickle=False)

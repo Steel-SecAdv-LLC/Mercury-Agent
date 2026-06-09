@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Info-geometry component certificate primitives (NumPy-only).
 
 Scope (read this before using the certificate): these primitives certify the
@@ -123,7 +125,6 @@ def pgd_flip_distance(
     x0 = np.asarray(point, dtype=np.float64).reshape(1, -1)
     x = x0.copy()
     start_side = certificate.price(x0)[0] >= certificate.p_tau
-    best = float("inf")
     for _ in range(steps):
         grad = certificate.witness(x)[0]
         direction = -grad if start_side else grad
@@ -132,6 +133,10 @@ def pgd_flip_distance(
             break
         x = x + step_size * direction.reshape(1, -1) / norm
         if (certificate.price(x)[0] >= certificate.p_tau) != start_side:
-            best = min(best, float(np.linalg.norm(x - x0)))
-            break
-    return best
+            # Boundary crossed: this displacement is the probe's flip distance.
+            return float(np.linalg.norm(x - x0))
+    # No flip within the step budget. Return the distance actually walked --
+    # a finite *lower bound* on the true flip distance -- rather than ``inf``,
+    # which would silently satisfy ``>=`` comparisons and mask the fact that
+    # the probe never crossed the price boundary.
+    return float(np.linalg.norm(x - x0))

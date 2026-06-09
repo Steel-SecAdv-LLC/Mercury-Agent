@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Per-event-mean aggregation for the governed-fusion suite.
 
 A *scorer* maps one event's cached scores to ``(y, score, pred)``.  We compute

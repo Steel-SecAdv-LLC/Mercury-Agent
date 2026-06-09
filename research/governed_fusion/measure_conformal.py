@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Item 4: conformal split operating point — reproducible before/after.
 
 Per event: a seeded, class-stratified 50/50 calibration/eval split (no peeking).

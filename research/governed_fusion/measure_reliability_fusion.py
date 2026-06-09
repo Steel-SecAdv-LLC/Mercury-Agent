@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Item 3: bounded-influence reliability-weighted fusion — LAND or conclusive kill.
 
 The Phase-2 kill (fused 0.850 < best-single info_geometry 0.860) used a naive

@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Fast unsupervised-threshold method comparison on cached detector scores.
 
 Reads /home/user/eqlab/scores.pkl (scores+labels per event, produced once) so
@@ -5,6 +7,7 @@ candidate operating-point rules can be compared instantly. Reports per-domain
 mean F1, the overall mean, and — crucially — how many domains REGRESS below the
 fixed-0.5 baseline (the keep/revert gate).
 """
+
 from __future__ import annotations
 import pickle, numpy as np
 from omni_mercury_engine.ml.mercury_ml import f1_score, precision_score, recall_score

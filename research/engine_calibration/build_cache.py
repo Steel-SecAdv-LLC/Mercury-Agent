@@ -1,9 +1,12 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Fetch real (features, ground_truth) per event ONCE and cache to disk.
 
 Mirrors the honest-benchmark path: real loaders -> engineer_features ->
 get_ground_truth. Lets us iterate the detector offline (the live USGS/NOAA
 fetch is the slow/flaky part; the detector itself is fast).
 """
+
 from __future__ import annotations
 import warnings, json, importlib, os, time
 warnings.filterwarnings("ignore")

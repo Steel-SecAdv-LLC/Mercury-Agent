@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Bounded-influence reliability-weighted log-odds pooling (NumPy-only).
 
 Mercury's own implementation of robust opinion pooling for combining the three

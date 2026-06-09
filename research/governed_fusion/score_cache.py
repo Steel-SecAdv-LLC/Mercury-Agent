@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Per-event default-detector score cache.
 
 Fitting ``MercuryAnomalyDetector`` (5-fold unsupervised adaptive weighting +

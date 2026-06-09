@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Stage 2 R3: Venn-Abers validity layer — correctness of the wrapper.
 
 The suite measurement (research/governed_fusion/measure_calibration.py) shows

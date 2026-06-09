@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """The NSL-KDD column schema has one source of truth across packages.
 
 ``loaders/network_security_loader`` bridges to ``datasets/security`` and used to

@@ -1,3 +1,7 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Test governed adversarial smoke."""
+
 from __future__ import annotations
 
 import numpy as np

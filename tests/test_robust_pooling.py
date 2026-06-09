@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Item 3: bounded-influence reliability pooling primitives (research prototype)."""
 
 from __future__ import annotations

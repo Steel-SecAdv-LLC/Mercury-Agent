@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Stage 3 R6: opt-in, default-off decoupling of the soft eta^Phi multiplier.
 
 Default-off MUST be byte-identical (the eta^Phi multiplier stays in the score

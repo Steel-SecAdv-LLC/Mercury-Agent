@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Canonical before/after measurement on cached real events (single pass).
 
 Scores are deterministic, so before/after differ ONLY in the operating point:
@@ -6,6 +8,7 @@ Scores are deterministic, so before/after differ ONLY in the operating point:
 AUROC/AUPRC are rank metrics from the (identical) scores -> reported once.
 Writes research/engine_calibration/results.json.
 """
+
 from __future__ import annotations
 import warnings, glob, os, json, importlib
 warnings.filterwarnings("ignore")
