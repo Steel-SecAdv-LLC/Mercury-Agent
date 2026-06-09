@@ -1602,6 +1602,28 @@ pip install -e ".[dev]"
 </details>
 
 <details>
+<summary><strong>Implementation Languages — what "multi-language" means here</strong></summary>
+
+Mercury is **multi-language in the *implementation* sense** — the term refers to
+the programming languages the system is built in, **not** to multilingual natural
+language:
+
+| Language | Where | Role |
+|----------|-------|------|
+| **Python** (3.11–3.13) | `src/omni_mercury_engine/` | Core engine, detectors, fusion, API, ML pipeline — the primary language. |
+| **Rust** | `rust_crypto/` (PyO3) | *Optional, opt-in* classical-crypto acceleration (AES-256-GCM, ChaCha20-Poly1305, BLAKE3, Argon2id). Absent → explicit, tested Python fallback. |
+| **C / C++** | AMA Cryptography native PQC backend (`.github/actions/build-ama-cryptography`, cmake + `g++`) | Compiled native post-quantum backend; **fails closed** when unavailable rather than silently weakening. |
+
+**Natural language is a separate axis — and not a current multi-language claim.**
+Mercury's narrative / voice interface operates in **English**. Some knowledge
+sources it consumes (ConceptNet, Qwen) are themselves multilingual, but Mercury
+does **not** today offer localized multi-natural-language I/O. Multilingual
+natural-language support is a **future epic** (tracked in
+[`docs/ROADMAP.md`](docs/ROADMAP.md)), explicitly **not** a shipped capability.
+
+</details>
+
+<details>
 <summary><strong>Docker</strong></summary>
 
 ```bash

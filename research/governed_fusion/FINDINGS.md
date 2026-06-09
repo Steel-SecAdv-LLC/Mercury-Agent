@@ -355,4 +355,66 @@ number; left unchanged, as instructed.
 NSL-KDD single-sourcing, the claim truth-up) are landed and tested; every other
 axis is a committed conclusive negative. No further reproducible improvement,
 finetune, or balance remains for this PR that does not regress a landed number or
-manufacture theatre.
+manufacture theatre. The one axis whose honest verdict is **open, not solved** —
+fusion dilutes (pooling < best-single on the reachable suite) — is documented
+immediately below with a kill-criteria'd experiment scoped to the **next** PR,
+rather than papered over or shipped as a regression.
+
+## Open problem — fusion dilutes (unsolved on the reachable suite)
+
+Recorded so the next PR inherits a *measured* problem statement, not a vibe: on
+the data we can actually reach, combining detectors is **worse** than picking the
+single best one, and nothing in this PR changed that.
+
+**The finding (committed numbers).** On the live suite (20 events, 50/50 cal/eval
+split, weights from calibration only) **every** pooling scheme measured
+underperforms the single best detector stream:
+
+| pool | live AUROC | vs best-single |
+|---|---:|---:|
+| baseline `0.40/0.30/0.30` | 0.804 | −0.074 |
+| reliability·linear | 0.840 | −0.038 |
+| reliability·clipped | 0.843 | −0.035 |
+| reliability·trimmed | 0.811 | −0.067 |
+| **best single stream** | **0.878** | — |
+
+(`results/reliability_fusion_results.json`: `overall.best_single = 0.8779`,
+`gap_to_best_single = −0.0350`.) The 75-dataset third-party benchmark echoes it:
+the weighted ensemble's **mean** AUC **0.8466** sits just under the best single
+component, `info_geometry` **0.8504** (`benchmarks/mercury_benchmark_results.json`
+→ `component_summary`).
+
+**Why (measured, not assumed).** The components are too redundant on this suite.
+Where the best stream already separates the anomaly, a log-odds pool of three
+correlated streams regresses toward their average, and the bounded-influence
+clip/trim caps the one informative stream instead of amplifying it. The damage is
+concentrated, not diffuse: hurricane −0.125, fema −0.047, network_security −0.019.
+
+**Not shipped (I3).** `core/robust_pooling.py` stays a tested, **default-off**
+prototype; the runtime `detect()` path is byte-unchanged and keeps the baseline
+ensemble. **We will not ship any fusion change that regresses best-single.**
+
+**Measured, kill-criteria'd experiment for the NEXT PR.** The hypothesis is
+*redundancy*, so the experiment measures it first and only then tries to beat
+best-single on an *enlarged* pool:
+
+1. **Diagnose redundancy.** Per event, compute the pairwise Spearman rank
+   correlation of the three component score vectors; report mean `|ρ̄|`.
+   *Pre-registered prediction:* `|ρ̄| ≳ 0.6` accounts for the dilution.
+2. **Add one decorrelated stream** — candidate: a temporal/sequence detector over
+   the same windows (a genuinely different inductive bias from the three static
+   streams) — and re-measure `|ρ̄|` against the existing three.
+3. **Learned stacking on the enlarged pool:** per-event 50/50 cal/eval, a logistic
+   stacker fit on calibration scores only, AUROC on eval (the existing harness).
+4. **Decision rule (paired, pre-registered):**
+   - **SHIP** only if stacked AUROC beats best-single by a paired-bootstrap mean
+     `Δ ≥ +0.01` with the 95 % CI lower bound `> 0` across the live suite, **and**
+     no per-domain regression worse than `−0.01`.
+   - **KILL** (abandon "fusion beats best-single" on this suite, record the
+     negative with committed numbers exactly as Item 3 did) if, after adding the
+     decorrelated stream, either `|ρ̄|` stays `≥ 0.5` **or** the stacked gap's CI
+     upper bound is `< +0.01`.
+
+Either outcome is a committed result, not a promise. Until that experiment runs,
+the substrate ships the **best-single-preserving** path — baseline ensemble at
+runtime, every re-weighting lever default-off — and this problem stays **open**.
