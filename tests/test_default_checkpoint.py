@@ -1,11 +1,9 @@
-"""
-Tests for the shipped default fusion checkpoint (Issue #2).
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for the shipped default fusion checkpoint (Issue #2).
 
 A versioned checkpoint is packaged so a fresh install runs detection with a
 trained, calibrated network and no training step.
-
-Mercury Agent - Copyright (C) 2025 Steel Security Advisors LLC
-Licensed under GNU GPL v3
 """
 
 from __future__ import annotations

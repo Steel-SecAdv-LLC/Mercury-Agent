@@ -1,5 +1,6 @@
-"""
-Mercury Agent - Batch Processing API Endpoints
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Mercury Agent - Batch Processing API Endpoints.
 
 Production-grade batch processing for high-throughput anomaly detection workloads.
 Supports async job submission, status tracking, and result retrieval.
@@ -80,13 +81,13 @@ class BatchJob:
 
 
 class BatchJobStore:
-    """
-    In-memory batch job store with TTL-based cleanup.
+    """In-memory batch job store with TTL-based cleanup.
 
     Production deployment should use Redis or a database backend.
     """
 
     def __init__(self, ttl_hours: int = 24, max_jobs: int = 10000) -> None:
+        """Initialize the instance."""
         self._jobs: dict[str, BatchJob] = {}
         self._ttl = timedelta(hours=ttl_hours)
         self._max_jobs = max_jobs
@@ -486,8 +487,7 @@ async def _process_chunk(
 
 
 async def _send_callback(url: str, job_id: str, status: JobStatus) -> None:
-    """
-    Send webhook callback for job completion.
+    """Send webhook callback for job completion.
 
     The URL has already been validated by BatchDetectRequest.validate_callback_url
     to ensure it uses HTTPS and does not target private/internal addresses.

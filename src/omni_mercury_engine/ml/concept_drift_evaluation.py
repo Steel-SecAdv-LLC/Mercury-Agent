@@ -1,12 +1,6 @@
-"""
-Mercury Agent - Concept Drift Evaluation Framework
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Concept Drift Evaluation Framework.
 
 Comprehensive concept drift evaluation framework providing:
 - Temporal split strategies (expanding window, sliding window, fixed)
@@ -196,8 +190,7 @@ class ModelProtocol(Protocol):
 
 
 class TemporalSplitter:
-    """
-    Generates temporal train/test splits preserving time ordering.
+    """Generates temporal train/test splits preserving time ordering.
 
     Unlike random cross-validation, temporal splitting ensures:
     1. Training data always precedes test data
@@ -214,8 +207,7 @@ class TemporalSplitter:
         min_train_size: int = 100,
         window_size: int | None = None,
     ):
-        """
-        Initialize temporal splitter.
+        """Initialize temporal splitter.
 
         Args:
             n_splits: Number of train/test splits to generate
@@ -238,8 +230,7 @@ class TemporalSplitter:
         y: NDArray[np.int64] | None = None,
         timestamps: NDArray[np.float64] | None = None,
     ) -> list[TemporalSplit]:
-        """
-        Generate temporal splits.
+        """Generate temporal splits.
 
         Args:
             X: Feature matrix [n_samples, n_features]
@@ -438,8 +429,7 @@ class TemporalSplitter:
 
 
 class DegradationAnalyzer:
-    """
-    Analyzes performance degradation patterns over time.
+    """Analyzes performance degradation patterns over time.
 
     Uses statistical methods to identify:
     - Trend type (linear, exponential, sudden shift, etc.)
@@ -455,8 +445,7 @@ class DegradationAnalyzer:
         degradation_threshold: float = 0.05,
         forecast_horizon: int = 3,
     ):
-        """
-        Initialize degradation analyzer.
+        """Initialize degradation analyzer.
 
         Args:
             min_samples: Minimum samples for analysis
@@ -470,8 +459,7 @@ class DegradationAnalyzer:
         self.forecast_horizon = forecast_horizon
 
     def analyze(self, performances: list[float]) -> DegradationAnalysis:
-        """
-        Analyze performance degradation over time.
+        """Analyze performance degradation over time.
 
         Args:
             performances: List of performance metrics over time (e.g., F1 scores)
@@ -802,8 +790,7 @@ class DegradationAnalyzer:
 
 
 class ConceptDriftEvaluator:
-    """
-    Comprehensive concept drift evaluation framework.
+    """Comprehensive concept drift evaluation framework.
 
     Integrates:
     - Temporal splitting strategies
@@ -835,8 +822,7 @@ class ConceptDriftEvaluator:
         retrain_on_drift: bool = False,
         verbose: bool = True,
     ):
-        """
-        Initialize concept drift evaluator.
+        """Initialize concept drift evaluator.
 
         Args:
             n_splits: Number of temporal splits
@@ -883,8 +869,7 @@ class ConceptDriftEvaluator:
         feature_names: list[str] | None = None,
         clone_model: bool = True,
     ) -> ConceptDriftEvaluationResult:
-        """
-        Evaluate model under concept drift conditions.
+        """Evaluate model under concept drift conditions.
 
         Args:
             model: Model implementing fit/predict/predict_proba
@@ -1112,8 +1097,7 @@ def create_concept_drift_evaluator(
     n_splits: int = 5,
     **kwargs: Any,
 ) -> ConceptDriftEvaluator:
-    """
-    Factory function to create concept drift evaluator.
+    """Factory function to create concept drift evaluator.
 
     Args:
         strategy: Splitting strategy name

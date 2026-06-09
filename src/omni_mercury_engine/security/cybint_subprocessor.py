@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-CYBINT Sub-Processor - Advanced Cyber Intelligence Analysis
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""CYBINT Sub-Processor - Advanced Cyber Intelligence Analysis.
 
 Detailed cyber threat taxonomy and attribution for security INT fusion:
 - APT (Advanced Persistent Threat) pattern recognition
@@ -36,8 +19,9 @@ Research sources:
 - Mandiant APT taxonomy
 - Cyber Threat Intelligence frameworks
 - NIST Cybersecurity Framework
-
 """
+
+from __future__ import annotations
 
 import logging
 from collections import defaultdict
@@ -51,7 +35,7 @@ from torch import nn
 
 
 class APTGroup(Enum):
-    """Known APT groups (subset for simulation)"""
+    """Known APT groups (subset for simulation)."""
 
     APT1 = "apt1_comment_crew"
     APT28 = "apt28_fancy_bear"
@@ -81,7 +65,7 @@ class MalwareFamily(Enum):
 
 
 class CyberKillChainStage(Enum):
-    """Cyber Kill Chain stages (Lockheed Martin model)"""
+    """Cyber Kill Chain stages (Lockheed Martin model)."""
 
     RECONNAISSANCE = "reconnaissance"
     WEAPONIZATION = "weaponization"
@@ -129,13 +113,13 @@ class CYBINTAnalysisResult:
 
 
 class APTPatternRecognizer(nn.Module):
-    """
-    Neural network for APT group attribution.
+    """Neural network for APT group attribution.
 
     Analyzes attack patterns, TTPs, and infrastructure for attribution.
     """
 
     def __init__(self, input_dim: int = 256) -> None:
+        """Initialize the instance."""
         super().__init__()
 
         self.pattern_encoder = nn.Sequential(
@@ -156,8 +140,7 @@ class APTPatternRecognizer(nn.Module):
         self.confidence_head = nn.Sequential(nn.Linear(256, 1), nn.Sigmoid())
 
     def forward(self, threat_features: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        """
-        Forward pass for APT attribution.
+        """Forward pass for APT attribution.
 
         Args:
             threat_features: Encoded threat indicators
@@ -173,13 +156,13 @@ class APTPatternRecognizer(nn.Module):
 
 
 class MalwareTaxonomyClassifier(nn.Module):
-    """
-    Malware family classification network.
+    """Malware family classification network.
 
     Identifies malware families from behavioral and static analysis features.
     """
 
     def __init__(self, input_dim: int = 128) -> None:
+        """Initialize the instance."""
         super().__init__()
 
         self.feature_extractor = nn.Sequential(
@@ -197,8 +180,7 @@ class MalwareTaxonomyClassifier(nn.Module):
         )
 
     def forward(self, malware_features: torch.Tensor) -> torch.Tensor:
-        """
-        Classify malware family.
+        """Classify malware family.
 
         Args:
             malware_features: Malware behavioral/static features
@@ -213,13 +195,13 @@ class MalwareTaxonomyClassifier(nn.Module):
 
 
 class C2InfrastructureDetector:
-    """
-    Command & Control infrastructure detection.
+    """Command & Control infrastructure detection.
 
     Identifies C2 channels, protocols, and infrastructure patterns.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
         self.c2_signatures = {
@@ -231,8 +213,7 @@ class C2InfrastructureDetector:
         }
 
     def detect_c2(self, network_data: dict[str, Any]) -> dict[str, Any]:
-        """
-        Detect C2 infrastructure indicators.
+        """Detect C2 infrastructure indicators.
 
         Args:
             network_data: Network traffic analysis data
@@ -336,18 +317,17 @@ class C2InfrastructureDetector:
 
 
 class ZeroDayIndicatorAnalyzer:
-    """
-    Zero-day exploitation indicator analysis.
+    """Zero-day exploitation indicator analysis.
 
     Identifies potential zero-day vulnerabilities based on anomalous patterns.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
     def analyze_zero_day_likelihood(self, exploit_data: dict[str, Any]) -> dict[str, Any]:
-        """
-        Analyze likelihood of zero-day exploitation.
+        """Analyze likelihood of zero-day exploitation.
 
         Args:
             exploit_data: Exploitation attempt characteristics
@@ -407,8 +387,7 @@ class ZeroDayIndicatorAnalyzer:
 
 
 class CYBINTSubProcessor:
-    """
-    Comprehensive CYBINT sub-processor for detailed cyber threat analysis.
+    """Comprehensive CYBINT sub-processor for detailed cyber threat analysis.
 
     Integrates APT attribution, malware classification, C2 detection, and zero-day analysis.
     """
@@ -420,6 +399,7 @@ class CYBINTSubProcessor:
         enable_c2_detection: bool = True,
         enable_zero_day_analysis: bool = True,
     ):
+        """Initialize the instance."""
         self.enable_apt_attribution = enable_apt_attribution
         self.enable_malware_classification = enable_malware_classification
         self.enable_c2_detection = enable_c2_detection
@@ -435,8 +415,7 @@ class CYBINTSubProcessor:
         self.logger = logging.getLogger(__name__)
 
     def process_cybint(self, threat_data: dict[str, Any]) -> CYBINTAnalysisResult:
-        """
-        Comprehensive CYBINT analysis.
+        """Comprehensive CYBINT analysis.
 
         Args:
             threat_data: Cyber threat indicators including:

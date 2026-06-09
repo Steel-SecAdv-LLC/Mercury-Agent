@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Dimensional analyzer using PCA and neural projection.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Dimensional analyzer using PCA and neural projection.
 
 Enhanced with DB term (dimensional code-breaking via Fourier analysis)
 for detecting subtle anomalies in high-dimensional data representations.
@@ -26,6 +9,8 @@ This module provides multi-modal dimensionality analysis for anomaly detection,
 combining linear (PCA) and non-linear (autoencoder) projection methods with
 spectral analysis in Fourier space.
 """
+
+from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -56,14 +41,14 @@ if TYPE_CHECKING:
 
 
 class _NativePCA:
-    """
-    Minimal PCA via truncated SVD (no sklearn dependency).
+    """Minimal PCA via truncated SVD (no sklearn dependency).
 
     Supports fit / transform / inverse_transform with the same API surface that DimensionalAnalyzer
     requires.
     """
 
     def __init__(self, n_components: int) -> None:
+        """Initialize the instance."""
         self.n_components = n_components
         self.components_: np.ndarray[Any, Any] | None = None
         self.mean_: np.ndarray[Any, Any] | None = None
@@ -116,8 +101,7 @@ class DimensionalWeights:
 if TYPE_CHECKING or TORCH_AVAILABLE:
 
     class NeuralProjection(nn.Module):
-        """
-        Neural network autoencoder for dimensionality reduction.
+        """Neural network autoencoder for dimensionality reduction.
 
         A symmetric encoder-decoder architecture that learns compressed
         representations of input data. Reconstruction error serves as
@@ -133,8 +117,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
         """
 
         def __init__(self, input_dim: int, latent_dim: int) -> None:
-            """
-            Initialize autoencoder architecture.
+            """Initialize autoencoder architecture.
 
             Args:
                 input_dim: Input feature dimension.
@@ -156,8 +139,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             )
 
         def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-            """
-            Forward pass through encoder and decoder.
+            """Forward pass through encoder and decoder.
 
             Args:
                 x: Input tensor of shape (batch_size, input_dim).
@@ -175,6 +157,7 @@ else:
         """Stub: NeuralProjection requires PyTorch."""
 
         def __init__(self, *args: Any, **kwargs: Any) -> None:
+            """Initialize the instance."""
             raise ImportError("NeuralProjection requires PyTorch. Install with: pip install torch")
 
 
@@ -213,8 +196,7 @@ class DimensionalAnalyzer(BaseDetector):
     MIN_SAMPLES_FOR_PCA = 2
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
-        """
-        Initialize DimensionalAnalyzer with configuration.
+        """Initialize DimensionalAnalyzer with configuration.
 
         Args:
             config: Configuration dictionary with optional keys:
@@ -456,8 +438,7 @@ class DimensionalAnalyzer(BaseDetector):
         }
 
     def _safe_normalize(self, scores: NDArray[np.float64]) -> NDArray[np.float64]:
-        """
-        Safely normalize scores to [0, 1] range.
+        """Safely normalize scores to [0, 1] range.
 
         Handles edge cases including constant arrays and NaN/Inf values.
 
@@ -515,8 +496,7 @@ class DimensionalAnalyzer(BaseDetector):
         return torch.tensor(features, dtype=torch.float32)
 
     def _compute_spectral_signature(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Compute baseline spectral signature using Fourier transform
+        """Compute baseline spectral signature using Fourier transform.
 
         DB term: Dimensional Code-Breaking via frequency analysis
         """
@@ -534,7 +514,7 @@ class DimensionalAnalyzer(BaseDetector):
         return mean_signature
 
     def _dimensional_code_breaking(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """DB Term: Dimensional Code-Breaking Detection Detects anomalies via spectral divergence in
+        """DB Term: Dimensional Code-Breaking Detection Detects anomalies via spectral divergence in.
 
         Fourier space.
         """

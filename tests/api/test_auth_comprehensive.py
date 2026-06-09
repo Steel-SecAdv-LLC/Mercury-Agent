@@ -1,8 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Comprehensive tests for api/auth.py module.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Comprehensive tests for api/auth.py module.
 
 Covers all error paths, security hardening, and authentication flows:
 - API key creation, retrieval, revocation, expiration

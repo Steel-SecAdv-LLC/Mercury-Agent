@@ -1,12 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-ADRepository Dataset Loaders - REAL Anomaly Detection Datasets
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""ADRepository Dataset Loaders - REAL Anomaly Detection Datasets.
 
 This module provides loaders for the ADRepository collection of real-world
 anomaly detection datasets. These are REAL datasets with REAL anomalies,
@@ -58,7 +52,6 @@ class ODDSDatasetInfo(TypedDict, total=False):
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry, safe_urlretrieve
 
 logger = logging.getLogger(__name__)
-
 
 # =============================================================================
 # ADRepository Dataset Metadata
@@ -170,8 +163,7 @@ ADREPOSITORY_DATASETS: dict[str, DatasetMetadata] = {
 
 
 class ADRepositoryLoader(DatasetLoader):
-    """
-    Loader for ADRepository real-world anomaly detection datasets.
+    """Loader for ADRepository real-world anomaly detection datasets.
 
     This loader fetches REAL datasets from the ADRepository collection,
     which are standard benchmarks used in academic anomaly detection research.
@@ -235,8 +227,7 @@ class ADRepositoryLoader(DatasetLoader):
     }
 
     def __init__(self, config: DatasetConfig, dataset_name: str = "thyroid") -> None:
-        """
-        Initialize ADRepository loader.
+        """Initialize ADRepository loader.
 
         Args:
             config: Dataset configuration
@@ -267,8 +258,7 @@ class ADRepositoryLoader(DatasetLoader):
         return self._is_real_data
 
     def download(self) -> bool:
-        """
-        Download dataset from ADRepository or original source.
+        """Download dataset from ADRepository or original source.
 
         Returns:
             True if download successful, False otherwise.
@@ -413,8 +403,7 @@ class ADRepositoryLoader(DatasetLoader):
             raise
 
     def _create_synthetic_fallback(self) -> bool:
-        """
-        Create synthetic approximation when real data unavailable.
+        """Create synthetic approximation when real data unavailable.
 
         This is a FALLBACK only. Real data should be preferred.
         """
@@ -452,8 +441,7 @@ class ADRepositoryLoader(DatasetLoader):
         return True
 
     def load_data(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """
-        Load dataset features and labels.
+        """Load dataset features and labels.
 
         This is the main entry point for loading ADRepository datasets.
         Use this instead of the base class load() for simpler access.
@@ -642,8 +630,7 @@ def load_dataset(
     data_dir: str = "./data/adrepository",
     max_samples: int | None = None,
 ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], dict[str, Any]]:
-    """
-    Convenience function to load an ADRepository dataset.
+    """Convenience function to load an ADRepository dataset.
 
     Args:
         name: Dataset name (e.g., 'fraud', 'thyroid', 'smd')

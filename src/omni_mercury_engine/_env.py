@@ -1,7 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-Runtime environment-mode primitive.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Runtime environment-mode primitive.
 
 Mercury historically had no single source of truth for "am I running in
 production?".  Individual modules invented ad-hoc env vars
@@ -69,10 +68,7 @@ __all__ = [
     "require_real_component",
 ]
 
-
 MERCURY_ENV_VAR = "MERCURY_ENV"
-"""Canonical environment-mode env var name."""
-
 MERCURY_ENV_DEVELOPMENT = "development"
 """Default development mode — optional integrations may degrade with a warning."""
 

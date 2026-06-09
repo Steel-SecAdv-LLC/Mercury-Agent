@@ -1,5 +1,6 @@
-"""
-Mercury Agent Load Testing Infrastructure
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+r"""Mercury Agent Load Testing Infrastructure.
 
 Comprehensive load testing suite using Locust for the Mercury Agent API.
 Tests API performance under various load conditions and validates SLOs.

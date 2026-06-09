@@ -1,30 +1,13 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Command-line interface for Mercury Agent."""
 
 from __future__ import annotations
 
-import os
-from typing import Any
-
-"""
-Command-line interface for Mercury Agent
-"""
-
 import json
+import os
 from pathlib import Path
+from typing import Any
 
 import click
 import numpy as np
@@ -451,8 +434,7 @@ def physics() -> None:
 def physics_spectral(
     input: str, output: str, threshold: float, mode: str, sample_rate: float
 ) -> None:
-    """
-    Spectral vibration analysis using GNN and CNN.
+    """Spectral vibration analysis using GNN and CNN.
 
     Analyzes signals for frequency-domain anomalies using advanced
     physics-inspired techniques including phonon interaction modeling,
@@ -535,8 +517,7 @@ def physics_dynamics(
     jerk_sensitivity: float,
     chaos_threshold: float,
 ) -> None:
-    """
-    Acceleration dynamics analysis with phase space reconstruction.
+    """Acceleration dynamics analysis with phase space reconstruction.
 
     Analyzes motion data for kinematic anomalies using velocity, acceleration,
     and jerk analysis. Includes Lyapunov exponent estimation for chaos detection
@@ -613,8 +594,7 @@ def physics_dynamics(
 def physics_uiux(
     input: str, output: str, threshold: float, rage_threshold: float, bot_threshold: float
 ) -> None:
-    """
-    UI/UX behavioral anomaly detection.
+    """UI/UX behavioral anomaly detection.
 
     Analyzes user interaction patterns for anomalies including rage clicks,
     dead clicks, erratic scrolling, navigation loops, and bot-like behavior.
@@ -759,8 +739,7 @@ def physics_integrated(
     threshold: float,
     fusion_weights: str,
 ) -> None:
-    """
-    Integrated physics-inspired anomaly detection using all modules.
+    """Integrated physics-inspired anomaly detection using all modules.
 
     Combines spectral vibration, acceleration dynamics, and UI/UX analysis
     with golden-ratio weighted fusion aligned with GOSNN ethical governance.
@@ -1004,8 +983,7 @@ def physics_list() -> None:
     help="Logging level",
 )
 def serve(host: str, port: int, workers: int, reload: bool, log_level: str) -> None:
-    """
-    Start the Mercury Agent API server.
+    """Start the Mercury Agent API server.
 
     The API provides REST endpoints for anomaly detection, batch processing,
     model management, and data export.
@@ -1061,8 +1039,7 @@ def serve(host: str, port: int, workers: int, reload: bool, log_level: str) -> N
 @click.option("--model", "-m", default="llama3.2:3b", help="Ollama model to use")
 @click.option("--offline", is_flag=True, help="Force offline mode (template responses)")
 def voice(domain: str, model: str, offline: bool) -> None:
-    """
-    Start interactive voice conversation with Mercury.
+    """Start interactive voice conversation with Mercury.
 
     Examples:
         mercury voice

@@ -1,14 +1,6 @@
-"""
-Mercury Agent
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-HTTP client with integrated circuit breaker, retry logic, and connection pooling.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""HTTP client with integrated circuit breaker, retry logic, and connection pooling.
 
 Example:
     Basic usage::
@@ -61,8 +53,7 @@ class HTTPMethod(Enum):
 
 @dataclass
 class HTTPClientConfig:
-    """
-    Configuration for HTTP client.
+    """Configuration for HTTP client.
 
     Attributes:
         base_url: Base URL for all requests.
@@ -91,8 +82,7 @@ class HTTPClientConfig:
 
 @dataclass
 class HTTPResponse:
-    """
-    HTTP response wrapper.
+    """HTTP response wrapper.
 
     Attributes:
         status_code: HTTP status code.
@@ -109,8 +99,7 @@ class HTTPResponse:
     url: str
 
     def json(self) -> Any:
-        """
-        Parse response as JSON.
+        """Parse response as JSON.
 
         Returns:
             Parsed JSON data.
@@ -121,8 +110,7 @@ class HTTPResponse:
         return json.loads(self.content.decode("utf-8"))
 
     def text(self) -> str:
-        """
-        Get response as text.
+        """Get response as text.
 
         Returns:
             Response content as string.
@@ -144,6 +132,7 @@ class HTTPError(Exception):
         status_code: int | None = None,
         response: HTTPResponse | None = None,
     ):
+        """Initialize the instance."""
         super().__init__(message)
         self.status_code = status_code
         self.response = response
@@ -153,13 +142,13 @@ class CircuitOpenError(HTTPError):
     """Raised when circuit breaker is open."""
 
     def __init__(self, service_name: str) -> None:
+        """Initialize the instance."""
         super().__init__(f"Circuit breaker open for service: {service_name}")
         self.service_name = service_name
 
 
 class HTTPCircuitBreaker:
-    """
-    Circuit breaker for HTTP requests.
+    """Circuit breaker for HTTP requests.
 
     Tracks failures per endpoint and opens circuit when threshold exceeded.
     """
@@ -171,6 +160,7 @@ class HTTPCircuitBreaker:
         reset_timeout: float = 60.0,
         name: str = "http",
     ):
+        """Initialize the instance."""
         self.failure_threshold = failure_threshold
         self.success_threshold = success_threshold
         self.reset_timeout = reset_timeout
@@ -266,8 +256,7 @@ class HTTPClient:
         headers: dict[str, str] | None = None,
         **kwargs: Any,
     ):
-        """
-        Initialize HTTP client.
+        """Initialize HTTP client.
 
         Args:
             base_url: Base URL for all requests.
@@ -340,8 +329,7 @@ class HTTPClient:
         json_data: Any = None,
         params: dict[str, Any] | None = None,
     ) -> HTTPResponse:
-        """
-        Execute HTTP request with aiohttp or fallback to stub.
+        """Execute HTTP request with aiohttp or fallback to stub.
 
         Uses aiohttp for production requests when available. Falls back to
         stub implementation for testing or when aiohttp is not installed.
@@ -389,8 +377,7 @@ class HTTPClient:
         params: dict[str, Any] | None = None,
         start_time: float = 0.0,
     ) -> HTTPResponse:
-        """
-        Execute request using aiohttp.
+        """Execute request using aiohttp.
 
         Production-ready implementation with proper SSL handling, connection pooling, and timeout
         management.
@@ -458,8 +445,7 @@ class HTTPClient:
         params: dict[str, Any] | None = None,
         start_time: float = 0.0,
     ) -> HTTPResponse:
-        """
-        Execute stub request for testing when aiohttp is not available.
+        """Execute stub request for testing when aiohttp is not available.
 
         Provides deterministic responses for testing without network access.
         """
@@ -507,8 +493,7 @@ class HTTPClient:
         timeout: float | None = None,
         raise_for_status: bool = True,
     ) -> HTTPResponse:
-        """
-        Make HTTP request with resilience patterns.
+        """Make HTTP request with resilience patterns.
 
         Args:
             method: HTTP method.
@@ -667,8 +652,7 @@ class HTTPClient:
         return await self.request(HTTPMethod.DELETE, endpoint, **kwargs)
 
     def get_metrics(self) -> dict[str, Any]:
-        """
-        Get client metrics.
+        """Get client metrics.
 
         Returns:
             Dictionary with request counts, errors, and latency.

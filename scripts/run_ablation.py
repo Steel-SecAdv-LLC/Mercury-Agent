@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Execute a Mercury Agent ablation experiment with a Lyapunov pre-gate.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+r"""Execute a Mercury Agent ablation experiment with a Lyapunov pre-gate.
 
 This script is the canonical entry-point for running configurations under
 ``configs/`` that declare (a) an ablation experiment to execute and (b)

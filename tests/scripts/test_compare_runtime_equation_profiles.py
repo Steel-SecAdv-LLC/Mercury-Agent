@@ -1,3 +1,7 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Test compare runtime equation profiles."""
+
 from __future__ import annotations
 
 import json

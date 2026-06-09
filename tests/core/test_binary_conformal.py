@@ -1,9 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests for the class-conditional binary conformal classifier
-(``omni_mercury_engine.core.conformal_prediction.BinaryConformalClassifier``).
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for the class-conditional binary conformal classifier (``omni_mercury_engine.core.conformal_prediction.BinaryConformalClassifier``).
 
 The headline test verifies the *distribution-free coverage guarantee*: on
 exchangeable synthetic data the empirical fraction of prediction sets that

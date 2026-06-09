@@ -1,10 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests for integrations/stubs/database.py module.
-Comprehensive test coverage for database stub functionality.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for integrations/stubs/database.py module. Comprehensive test coverage for database stub functionality."""
 
 from __future__ import annotations
 

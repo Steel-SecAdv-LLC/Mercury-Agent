@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Spectral Domain Frequency — Full-Power Neuro-Symbolic Implementation.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Spectral Domain Frequency — Full-Power Neuro-Symbolic Implementation.
 
 A production-grade spectral-domain anomaly detection system covering
 amplitude, phase, entropy, and harmonic structure analysis. Runs
@@ -53,6 +36,8 @@ Supported domains (7):
     humanitarian (5 bands)
 """
 
+from __future__ import annotations
+
 import logging
 from dataclasses import dataclass
 from enum import Enum
@@ -71,7 +56,6 @@ from omni_mercury_engine.core.exceptions import DetectorException
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Constants
 # =============================================================================
@@ -80,15 +64,13 @@ PHI = MATH.GOLDEN_RATIO  # 1.618033988749895
 EPSILON = MATH.EPSILON  # 1e-8
 DEFAULT_ALPHA = 0.05
 
-
 # =============================================================================
 # Enums
 # =============================================================================
 
 
 class FrequencyWeighting(Enum):
-    """
-    Weighting scheme for frequency bands.
+    """Weighting scheme for frequency bands.
 
     Per OSHA OTM §III.5 — includes physics-based A/C weighting in addition to domain-adaptive
     schemes.
@@ -172,7 +154,6 @@ DOMAIN_FREQUENCY_BANDS: dict[str, list[tuple[float, float, str, float]]] = {
     ],
 }
 
-
 DOMAIN_ANOMALY_SPECTRAL_HINTS: dict[str, dict[str, Any]] = {
     "environmental": {
         "expect_broadband_spike": True,
@@ -205,8 +186,7 @@ DOMAIN_ANOMALY_SPECTRAL_HINTS: dict[str, dict[str, Any]] = {
 def get_domain_frequency_bands(
     domain: str,
 ) -> list[tuple[float, float, str, float]]:
-    """
-    Return the frequency-band definition for *domain*.
+    """Return the frequency-band definition for *domain*.
 
     Falls back to ``environmental`` bands when *domain* is unknown.
     """
@@ -220,8 +200,7 @@ def get_domain_frequency_bands(
 
 @dataclass(frozen=True)
 class FrequencyBandResult:
-    """
-    Per-band structured detection result.
+    """Per-band structured detection result.
 
     Attributes:
         band_label: Human-readable band name.
@@ -248,8 +227,7 @@ class FrequencyBandResult:
 
 @dataclass(frozen=True)
 class FrequencyInfluenceVector:
-    """
-    Output of the Oracle for a single observation.
+    """Output of the Oracle for a single observation.
 
     Attributes:
         influence_multiplier: Score modulation factor (> 1 amplify, < 1 suppress).
@@ -282,8 +260,7 @@ class FrequencyInfluenceVector:
 
 @dataclass
 class SpectralDomainFrequencyConfig:
-    """
-    Configuration for SpectralDomainFrequency.
+    """Configuration for SpectralDomainFrequency.
 
     Attributes:
         domain: Application domain for band selection.
@@ -318,8 +295,7 @@ class SpectralDomainFrequencyConfig:
 def create_spectral_frequency(
     config: dict[str, Any] | None = None,
 ) -> SpectralDomainFrequency:
-    """
-    Factory function for SpectralDomainFrequency.
+    """Factory function for SpectralDomainFrequency.
 
     Args:
         config: Optional configuration dictionary.
@@ -364,6 +340,7 @@ class SpectralDomainFrequency(BaseDetector):
     """
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
+        """Initialize the instance."""
         super().__init__(config)
 
         cfg = config or {}
@@ -408,8 +385,7 @@ class SpectralDomainFrequency(BaseDetector):
         self,
         raw_bands: list[tuple[float, float, str, float]],
     ) -> list[tuple[float, float, str, float]]:
-        """
-        Filter bands exceeding Nyquist frequency and renormalise weights.
+        """Filter bands exceeding Nyquist frequency and renormalise weights.
 
         Bands whose lower bound exceeds ``sample_rate / 2`` are excluded.
         Remaining weights are renormalised to sum to 1.
@@ -445,8 +421,7 @@ class SpectralDomainFrequency(BaseDetector):
         self,
         signal: np.ndarray[Any, Any],
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """
-        Compute windowed DFT with Hann window and 50 % overlap.
+        """Compute windowed DFT with Hann window and 50 % overlap.
 
         Returns a ``[n_windows, n_freq_bins]`` power matrix and the
         corresponding frequency axis.  Each window's energy is
@@ -503,8 +478,7 @@ class SpectralDomainFrequency(BaseDetector):
         signal: np.ndarray[Any, Any],
         freq_matrix: np.ndarray[Any, Any],
     ) -> bool:
-        """
-        Validate Parseval's theorem using the already-computed freq_matrix.
+        """Validate Parseval's theorem using the already-computed freq_matrix.
 
         Does **not** recompute the FFT.  Compares time-domain energy
         against the mean per-window frequency-domain energy.
@@ -545,8 +519,7 @@ class SpectralDomainFrequency(BaseDetector):
         freq_matrix: np.ndarray[Any, Any],
         freqs: np.ndarray[Any, Any],
     ) -> dict[str, np.ndarray[Any, Any]]:
-        """
-        Extract per-band power time series from the frequency matrix.
+        """Extract per-band power time series from the frequency matrix.
 
         Returns a dict mapping ``band_label`` to a 1-D array of
         per-window band power.  Preserves temporal structure for
@@ -576,8 +549,7 @@ class SpectralDomainFrequency(BaseDetector):
         self,
         freq_matrix: np.ndarray[Any, Any],
     ) -> float:
-        """
-        Shannon entropy of the mean power spectrum.
+        """Shannon entropy of the mean power spectrum.
 
         Args:
             freq_matrix: ``[n_windows, n_freq_bins]`` power matrix.
@@ -596,8 +568,7 @@ class SpectralDomainFrequency(BaseDetector):
         freq_matrix: np.ndarray[Any, Any],
         freqs: np.ndarray[Any, Any],
     ) -> float:
-        """
-        Centre of mass of the mean power spectrum in Hz.
+        """Centre of mass of the mean power spectrum in Hz.
 
         Args:
             freq_matrix: ``[n_windows, n_freq_bins]`` power matrix.
@@ -618,8 +589,7 @@ class SpectralDomainFrequency(BaseDetector):
         self,
         freq_matrix: np.ndarray[Any, Any],
     ) -> float:
-        """
-        Compute spectral flux: rate of spectral change across frames.
+        """Compute spectral flux: rate of spectral change across frames.
 
         Spectral flux measures the L2 norm of the frame-to-frame difference
         in the power spectrum, normalised by the number of frames.  High
@@ -648,8 +618,7 @@ class SpectralDomainFrequency(BaseDetector):
         self,
         signal: np.ndarray[Any, Any],
     ) -> float:
-        """
-        Compute mean inter-band phase coherence.
+        """Compute mean inter-band phase coherence.
 
         Phase coherence degrades before amplitude changes, making it a
         *leading indicator* of anomalous behaviour.  Uses Welch's method
@@ -790,8 +759,7 @@ class SpectralDomainFrequency(BaseDetector):
         self,
         band_power_series: np.ndarray[Any, Any],
     ) -> list[int]:
-        """
-        CUSUM-based recursive binary segmentation for change-point detection.
+        """CUSUM-based recursive binary segmentation for change-point detection.
 
         Args:
             band_power_series: 1-D array of per-window band power.
@@ -814,8 +782,7 @@ class SpectralDomainFrequency(BaseDetector):
         depth: int = 0,
         max_depth: int = 5,
     ) -> None:
-        """
-        Recursive binary segmentation helper.
+        """Recursive binary segmentation helper.
 
         Computes CUSUM statistic over the segment ``[start, end)`` and
         splits at the point of maximum absolute CUSUM.  Recurses on
@@ -974,8 +941,7 @@ class SpectralDomainFrequency(BaseDetector):
         series: np.ndarray[Any, Any],
         change_point: int,
     ) -> float:
-        """
-        Compute Selective Inference p-value with truncated normal conditioning.
+        """Compute Selective Inference p-value with truncated normal conditioning.
 
         Conditions the test statistic on the selection event: the binary
         segmentation selected this change point because its CUSUM was
@@ -1043,8 +1009,7 @@ class SpectralDomainFrequency(BaseDetector):
         return float(np.clip(p_value, 0.0, 1.0))
 
     def _estimate_noise_sigma(self, series: np.ndarray[Any, Any]) -> float:
-        """
-        MAD estimator on first differences (robust to outliers/CPs).
+        """MAD estimator on first differences (robust to outliers/CPs).
 
         Uses MAD-to-sigma conversion factor ``1.4826 / √2``.
 
@@ -1128,8 +1093,7 @@ class SpectralDomainFrequency(BaseDetector):
     def _compute_adaptive_alpha(
         self, n_samples: int, n_bands: int, noise_color_confidence: float
     ) -> float:
-        """
-        Adjust significance level based on test power.
+        """Adjust significance level based on test power.
 
         Shorter windows -> less power -> relax alpha.
         More bands -> multiple testing correction -> tighten alpha.
@@ -1170,8 +1134,7 @@ class SpectralDomainFrequency(BaseDetector):
         band_def: tuple[float, float, str, float],
         alpha: float,
     ) -> FrequencyBandResult:
-        """
-        Per-band anomaly scoring combining z-score and SI change-point evidence.
+        """Per-band anomaly scoring combining z-score and SI change-point evidence.
 
         Score composition: 60% z-score anomaly + 40% CP evidence.
 
@@ -1353,8 +1316,7 @@ class SpectralDomainFrequency(BaseDetector):
         self,
         data: np.ndarray[Any, Any] | Any,
     ) -> SpectralDomainFrequency:
-        """
-        Fit the Oracle on reference/training signals.
+        """Fit the Oracle on reference/training signals.
 
         Computes per-band reference means/stds, reference spectral
         entropy mean/std, and reference full-spectrum mean/std.
@@ -1445,8 +1407,7 @@ class SpectralDomainFrequency(BaseDetector):
         self,
         data: np.ndarray[Any, Any] | Any,
     ) -> dict[str, Any]:
-        """
-        Detect frequency-domain anomalies.
+        """Detect frequency-domain anomalies.
 
         Full 4-stage pipeline:
           1. Windowed DFT → frequency matrix
@@ -1499,8 +1460,7 @@ class SpectralDomainFrequency(BaseDetector):
         self,
         data: np.ndarray[Any, Any] | Any,
     ) -> torch.Tensor:
-        """
-        Extract per-band spectral features as torch.Tensor.
+        """Extract per-band spectral features as torch.Tensor.
 
         Returns ``[batch, n_bands + 7]`` features:
           - Per-band anomaly scores (from band_scores dict)
@@ -1572,8 +1532,7 @@ class SpectralDomainFrequency(BaseDetector):
     # ------------------------------------------------------------------
 
     def _detect_single(self, signal: np.ndarray[Any, Any]) -> dict[str, Any]:
-        """
-        Run the full 4-stage pipeline on a single 1-D signal.
+        """Run the full 4-stage pipeline on a single 1-D signal.
 
         1. Windowed DFT
         2. Parseval validation (no recompute)

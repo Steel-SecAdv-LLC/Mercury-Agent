@@ -1,14 +1,12 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-EPA Air Quality System (AQS) — Daily PM2.5 Loader
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""EPA Air Quality System (AQS) — Daily PM2.5 Loader.
 
 Downloads daily PM2.5 monitoring data from EPA's pre-generated files. Anomaly flags are computed
 against EPA AQI thresholds.
 
 Source:
 https://aqs.epa.gov/aqsweb/airdata/download_files.html
-License: Public Domain (US Government)
 """
 
 from __future__ import annotations
@@ -30,8 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 class EPAAirQualityLoader(DatasetLoader):
-    """
-    EPA Air Quality System daily PM2.5 loader.
+    """EPA Air Quality System daily PM2.5 loader.
 
     Downloads daily PM2.5 summary data from EPA's pre-generated annual
     ZIP files. Each ZIP contains a CSV with site-level daily measurements.
@@ -57,6 +54,7 @@ class EPAAirQualityLoader(DatasetLoader):
     AQI_UNHEALTHY_SENSITIVE = 35.4
 
     def __init__(self, config: DatasetConfig) -> None:
+        """Initialize the instance."""
         super().__init__(config)
         self.year = config.preprocessing.get("year", 2023)
 
@@ -66,8 +64,7 @@ class EPAAirQualityLoader(DatasetLoader):
     _YEAR_FALLBACK_RANGE = 3
 
     def download(self) -> bool:
-        """
-        Download EPA daily PM2.5 ZIP for the configured year.
+        """Download EPA daily PM2.5 ZIP for the configured year.
 
         If the requested year is not yet published (HTTP 404), automatically
         fall back to the most recent prior year that is available, up to

@@ -1,8 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Comprehensive tests for security/encryption.py module.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Comprehensive tests for security/encryption.py module.
 
 Covers:
 - QuantumResistantEncryption key generation

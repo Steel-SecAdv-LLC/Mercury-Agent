@@ -1,21 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-------------------------------------------------------------------------
-
-Deterministic, first-party synthetic-data generators for the
-``real-data`` validation suites.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Deterministic, first-party synthetic-data generators for the ``real-data`` validation suites.
 
 Each generator returns a dictionary whose keys match the field names
 that the detectors-under-test consume.  The shapes/statistics encode

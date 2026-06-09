@@ -1,10 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Comprehensive tests for ml/training.py module.
-Targets coverage improvement for training utilities, optimizers, and loss functions.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Comprehensive tests for ml/training.py module. Targets coverage improvement for training utilities, optimizers, and loss functions."""
 
 from __future__ import annotations
 

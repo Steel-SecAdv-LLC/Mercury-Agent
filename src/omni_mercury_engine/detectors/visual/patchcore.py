@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-PatchCore: Towards Total Recall in Industrial Anomaly Detection
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""PatchCore: Towards Total Recall in Industrial Anomaly Detection.
 
 Implementation of PatchCore algorithm from CVPR 2022.
 Achieves SOTA on MVTec AD with 99.1% image-level AUROC.
@@ -32,6 +15,8 @@ Reference:
     Roth et al. "Towards Total Recall in Industrial Anomaly Detection"
     https://arxiv.org/abs/2106.08265
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -52,8 +37,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class PatchCoreConfig(VisualDetectorConfig):
-    """
-    Configuration for PatchCore detector.
+    """Configuration for PatchCore detector.
 
     Attributes:
         coreset_sampling_ratio: Fraction of patches to keep in memory bank
@@ -92,8 +76,7 @@ class PatchCoreDetector(BaseVisualDetector):
     """
 
     def __init__(self, config: PatchCoreConfig | dict[str, Any] | None = None) -> None:
-        """
-        Initialize PatchCore detector.
+        """Initialize PatchCore detector.
 
         Args:
             config: Detector configuration
@@ -126,8 +109,7 @@ class PatchCoreDetector(BaseVisualDetector):
     def _aggregate_features(
         self, features: dict[str, torch.Tensor]
     ) -> tuple[torch.Tensor, tuple[int, int]]:
-        """
-        Aggregate multi-scale features into patch embeddings.
+        """Aggregate multi-scale features into patch embeddings.
 
         Uses average pooling to resize features to the same spatial
         resolution, then concatenates channel-wise.
@@ -166,8 +148,7 @@ class PatchCoreDetector(BaseVisualDetector):
     def _apply_local_neighborhood_aggregation(
         self, patches: torch.Tensor, patch_shape: tuple[int, int], kernel_size: int = 3
     ) -> torch.Tensor:
-        """
-        Apply local neighborhood aggregation for locally-aware features.
+        """Apply local neighborhood aggregation for locally-aware features.
 
         Averages features with their spatial neighbors for context.
 
@@ -245,8 +226,7 @@ class PatchCoreDetector(BaseVisualDetector):
         return torch.from_numpy(selected).to(embeddings.device)
 
     def _build_nn_index(self, embeddings: torch.Tensor) -> None:
-        """
-        Build nearest neighbor index for fast querying.
+        """Build nearest neighbor index for fast querying.
 
         Uses FAISS if available, otherwise falls back to Mercury NearestNeighbors.
 
@@ -285,8 +265,7 @@ class PatchCoreDetector(BaseVisualDetector):
     def _query_nn(
         self, query: torch.Tensor, k: int
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """
-        Query k-nearest neighbors.
+        """Query k-nearest neighbors.
 
         Args:
             query: Query embeddings [N, D]
@@ -311,8 +290,7 @@ class PatchCoreDetector(BaseVisualDetector):
         return distances, indices
 
     def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> PatchCoreDetector:
-        """
-        Fit detector by building memory bank from normal images.
+        """Fit detector by building memory bank from normal images.
 
         Args:
             data: Normal (non-anomalous) images [N, C, H, W]
@@ -366,8 +344,7 @@ class PatchCoreDetector(BaseVisualDetector):
         return self
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
-        """
-        Detect anomalies in images.
+        """Detect anomalies in images.
 
         Args:
             data: Test images [N, C, H, W]
@@ -433,8 +410,7 @@ class PatchCoreDetector(BaseVisualDetector):
         patch_shape: tuple[int, int],
         original_size: tuple[int, int],
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """
-        Compute anomaly scores using nearest neighbor distances.
+        """Compute anomaly scores using nearest neighbor distances.
 
         Args:
             patches: Patch embeddings [B, num_patches, D]
@@ -481,8 +457,7 @@ class PatchCoreDetector(BaseVisualDetector):
         return image_scores, score_maps_smooth
 
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
-        """
-        Extract features for ML fusion pipeline.
+        """Extract features for ML fusion pipeline.
 
         Args:
             data: Input images [N, C, H, W]

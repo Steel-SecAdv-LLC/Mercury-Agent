@@ -1,5 +1,6 @@
-"""
-Federated Learning Module for Mercury Agent.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Federated Learning Module for Mercury Agent.
 
 Provides privacy-preserving distributed machine learning with support for
 differential privacy, secure aggregation, and heterogeneous client data.

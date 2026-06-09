@@ -1,10 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests for security/input_validation.py module.
-Comprehensive test coverage for input validation and sanitization.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for security/input_validation.py module. Comprehensive test coverage for input validation and sanitization."""
 
 from __future__ import annotations
 

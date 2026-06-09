@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Narrative Engine - Truth-Dense Communication Synthesis
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Narrative Engine - Truth-Dense Communication Synthesis.
 
 Transforms detection results into human-readable communication while maintaining
 maximum truth density. This is NOT about engagement - it's about transparency.
@@ -41,6 +24,8 @@ Integration Points:
 
 Not performative "aliveness" - genuine transparency through structure.
 """
+
+from __future__ import annotations
 
 import logging
 import time
@@ -149,8 +134,7 @@ class NarrativeResult:
 
 
 class NarrativeEngine:
-    """
-    Truth-Dense Communication Synthesis Engine.
+    """Truth-Dense Communication Synthesis Engine.
 
     Transforms raw detection results into transparent, human-readable
     communication. Optimizes for truth density, not engagement.
@@ -188,8 +172,7 @@ class NarrativeEngine:
         use_llm_enhancement: bool = False,
         max_reasoning_steps: int = 10,
     ) -> None:
-        """
-        Initialize Narrative Engine.
+        """Initialize Narrative Engine.
 
         Args:
             default_style: Default communication style
@@ -231,8 +214,7 @@ class NarrativeEngine:
         context: dict[str, Any] | None = None,
         style_override: NarrativeStyle | None = None,
     ) -> NarrativeResult:
-        """
-        Synthesize narrative from detection results.
+        """Synthesize narrative from detection results.
 
         This is the primary method for transforming raw detection output
         into truth-dense, transparent communication.

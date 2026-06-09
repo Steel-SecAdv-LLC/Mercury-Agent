@@ -1,5 +1,6 @@
-"""
-Mercury Agent - Detection API Routes
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Mercury Agent - Detection API Routes.
 
 Extracted detection endpoints for modular organization.
 Provides univariate, multivariate, and advanced detection methods.

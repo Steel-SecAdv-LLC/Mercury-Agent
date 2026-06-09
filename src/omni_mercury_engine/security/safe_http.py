@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
-
-------------------------------------------------------------------------
-
-SafeHTTPClient -- the single egress point for outbound HTTP in
-Mercury Agent.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""SafeHTTPClient -- the single egress point for outbound HTTP in Mercury Agent.
 
 This module replaces every ad-hoc ``urllib.request.urlopen`` call in
 ``src/`` with a centrally enforced gate built on the ``requests``
@@ -99,7 +82,6 @@ from omni_mercury_engine.security.input_validation import TrustedEndpoints
 
 logger = logging.getLogger(__name__)
 
-
 _DEFAULT_USER_AGENT = (
     "Mozilla/5.0 (compatible; Mercury-Agent/1.0; "
     "+https://github.com/Steel-SecAdv-LLC/Mercury-Agent)"
@@ -117,8 +99,7 @@ class UnsafeURLError(ValueError):
 
 
 def _parse_and_check_scheme(url: str, *, allow_http: bool) -> tuple[str, str]:
-    """
-    Return (scheme, host) after enforcing the scheme allowlist.
+    """Return (scheme, host) after enforcing the scheme allowlist.
 
     Raises:
         UnsafeURLError: scheme is not in the configured allowlist
@@ -138,8 +119,7 @@ def _parse_and_check_scheme(url: str, *, allow_http: bool) -> tuple[str, str]:
 
 
 def _resolve_ips(host: str) -> list[ipaddress.IPv4Address | ipaddress.IPv6Address]:
-    """
-    Resolve a host to its IPs for the private-network gate.
+    """Resolve a host to its IPs for the private-network gate.
 
     IP literals are returned as-is so the gate cannot be bypassed
     by passing ``127.0.0.1`` directly.  Hostnames are resolved via
@@ -207,7 +187,6 @@ def _is_private_or_imds(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bo
 # either way it is not public Internet and a user-configured URL pointed
 # at it is an SSRF pivot we refuse.
 _SHARED_CGNAT_V4 = ipaddress.IPv4Network("100.64.0.0/10")
-
 
 # IPv4 and IPv6 ranges that we refuse even when the caller opted into
 # ``allow_private=True`` for an on-VPC deployment.  The link-local
@@ -289,6 +268,7 @@ class _PinnedDNSHTTPAdapter:
 
         class _Adapter(requests.adapters.HTTPAdapter):
             def __init__(self, _hostname: str, _ip: str) -> None:
+                """Initialize the instance."""
                 self._hostname = _hostname
                 self._ip = _ip
                 super().__init__()
@@ -344,8 +324,7 @@ class _PinnedDNSHTTPAdapter:
 
 
 class SafeHTTPClient:
-    """
-    Centralised outbound HTTP gate.
+    """Centralised outbound HTTP gate.
 
     All Mercury Agent egress goes through this class.  See the
     module docstring for the gates that fire on every call.

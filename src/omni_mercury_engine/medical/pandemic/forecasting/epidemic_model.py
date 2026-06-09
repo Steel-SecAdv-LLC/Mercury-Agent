@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Epidemic Forecasting using SEIR Model with Chaos Detection
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Epidemic Forecasting using SEIR Model with Chaos Detection.
 
 Implements Susceptible-Exposed-Infected-Recovered (SEIR) compartmental
 model with chaos Λ detection for bifurcation analysis.
@@ -35,6 +18,8 @@ References:
 - Chaos detection: ethical_config.py (omni_chaos_lambda_bifurcation)
 - Epidemiological literature: Kermack-McKendrick (1927), Anderson-May (1991)
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
@@ -62,8 +47,7 @@ class PandemicForecast:
 
 
 class EpidemicForecaster:
-    """
-    SEIR-Based Pandemic Forecaster (Medical Interdiction)
+    """SEIR-Based Pandemic Forecaster (Medical Interdiction).
 
     Forecasts disease spread dynamics with chaos detection for
     early warning of outbreak→pandemic transitions.
@@ -77,8 +61,7 @@ class EpidemicForecaster:
     """
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
-        """
-        Initialize epidemic forecaster.
+        """Initialize epidemic forecaster.
 
         Args:
             config: Configuration dict with SEIR parameters
@@ -105,8 +88,7 @@ class EpidemicForecaster:
         initial_exposed: int = 50,
         initial_recovered: int = 0,
     ) -> PandemicForecast:
-        """
-        Forecast pandemic progression using SEIR model.
+        """Forecast pandemic progression using SEIR model.
 
         Args:
             initial_infected: Initial infected population
@@ -179,8 +161,7 @@ class EpidemicForecaster:
         return result
 
     def _seir_derivatives(self, y: list[float], t: float) -> list[float]:
-        """
-        Compute SEIR model derivatives.
+        """Compute SEIR model derivatives.
 
         Args:
             y: [S, E, I, R] state vector
@@ -200,8 +181,7 @@ class EpidemicForecaster:
         return [dS_dt, dE_dt, dI_dt, dR_dt]
 
     def _estimate_r0(self) -> float:
-        """
-        Estimate basic reproduction number R0 = β/(σ+γ).
+        """Estimate basic reproduction number R0 = β/(σ+γ).
 
         R0 > 1: Epidemic growth
         R0 = 1: Endemic equilibrium
@@ -216,8 +196,7 @@ class EpidemicForecaster:
         return float(r0)
 
     def _detect_chaos(self, infected_trajectory: np.ndarray[Any, Any]) -> float:
-        """
-        Detect chaos/bifurcations in infected trajectory.
+        """Detect chaos/bifurcations in infected trajectory.
 
         Uses variance and derivative analysis to identify transitions:
         - Contained outbreak (stable, low chaos)
@@ -248,8 +227,7 @@ class EpidemicForecaster:
         return float(chaos_score)
 
     def _assess_pandemic_impact(self, peak_infections: int, r0: float) -> dict[str, Any]:
-        """
-        Assess humanitarian impact of pandemic.
+        """Assess humanitarian impact of pandemic.
 
         Simulated estimates for research purposes.
         """
@@ -288,8 +266,7 @@ class EpidemicForecaster:
     def _recommend_interventions(
         self, r0: float, peak_infections: int, peak_day: int, bifurcation_detected: bool
     ) -> list[str]:
-        """
-        Recommend pandemic intervention strategies (Medical Interdiction).
+        """Recommend pandemic intervention strategies (Medical Interdiction).
 
         Interventions: vaccination, quarantine, social distancing, treatment,
                        healthcare surge capacity, public health messaging.
@@ -332,8 +309,7 @@ class EpidemicForecaster:
     def simulate_intervention_effect(
         self, intervention_type: str, effectiveness: float = 0.5
     ) -> dict[str, float]:
-        """
-        Simulate effect of intervention on pandemic trajectory.
+        """Simulate effect of intervention on pandemic trajectory.
 
         Args:
             intervention_type: 'vaccination', 'quarantine', 'social_distancing', 'treatment'

@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Theorem-tier verifier: an external formal proof checker (Lean 4) as the oracle.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Theorem-tier verifier: an external formal proof checker (Lean 4) as the oracle.
 
 Where the number-theory verifiers confirm *instances*, this confirms a *theorem* -- but only
 when a proof object exists.  The proof script is the certificate; the Lean kernel is the oracle.
@@ -29,6 +12,8 @@ This verifier never fakes a verdict.  If the Lean toolchain is absent it reports
 ``available=False`` and registers no scalar; it returns ``valid=True`` only when Lean's kernel
 accepts the proof.
 """
+
+from __future__ import annotations
 
 import logging
 import shutil

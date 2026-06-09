@@ -1,25 +1,8 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Attention mechanisms for detector fusion and cross-modal integration."""
 
 from __future__ import annotations
-
-"""
-Attention mechanisms for detector fusion and cross-modal integration
-"""
-
 
 import torch
 import torch.nn.functional as F
@@ -30,6 +13,7 @@ class MultiHeadDetectorAttention(nn.Module):
     """Multi-head attention over different detector outputs."""
 
     def __init__(self, embed_dim: int, num_heads: int = 4, dropout: float = 0.1) -> None:
+        """Initialize the instance."""
         super().__init__()
         self.attention = nn.MultiheadAttention(
             embed_dim=embed_dim,
@@ -42,8 +26,7 @@ class MultiHeadDetectorAttention(nn.Module):
     def forward(
         self, query: torch.Tensor, key: torch.Tensor, value: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """
-        Args:
+        """Args:.
 
             query, key, value: [batch_size, seq_len, embed_dim]
 
@@ -60,6 +43,7 @@ class TemporalAttention(nn.Module):
     """Attention mechanism for time series anomalies."""
 
     def __init__(self, hidden_dim: int, num_heads: int = 4) -> None:
+        """Initialize the instance."""
         super().__init__()
         self.hidden_dim = hidden_dim
         self.num_heads = num_heads
@@ -70,8 +54,7 @@ class TemporalAttention(nn.Module):
         self.out_proj = nn.Linear(hidden_dim, hidden_dim)
 
     def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        """
-        Args:
+        """Args:.
 
             x: [batch_size, seq_len, hidden_dim]
 
@@ -106,12 +89,12 @@ class SpatialAttention(nn.Module):
     """Spatial attention for geographic anomalies."""
 
     def __init__(self, channels: int) -> None:
+        """Initialize the instance."""
         super().__init__()
         self.conv = nn.Conv2d(channels, 1, kernel_size=1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Args:
+        """Args:.
 
             x: [batch_size, channels, height, width]
 
@@ -126,6 +109,7 @@ class CrossModalAttention(nn.Module):
     """Cross-modal attention between different modalities."""
 
     def __init__(self, dim1: int, dim2: int, hidden_dim: int) -> None:
+        """Initialize the instance."""
         super().__init__()
         self.proj1 = nn.Linear(dim1, hidden_dim)
         self.proj2 = nn.Linear(dim2, hidden_dim)
@@ -136,8 +120,7 @@ class CrossModalAttention(nn.Module):
         )
 
     def forward(self, x1: torch.Tensor, x2: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        """
-        Args:
+        """Args:.
 
             x1: [batch_size, seq_len1, dim1]
             x2: [batch_size, seq_len2, dim2]

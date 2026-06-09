@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Aggregate dispatcher for ``python -m tools <subcommand>``.
 
 Lists curated operator tools and dispatches to their ``main()``

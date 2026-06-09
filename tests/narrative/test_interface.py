@@ -1,9 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests for MercuryConversationInterface - Unified "Alive" Interface.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for MercuryConversationInterface - Unified "Alive" Interface."""
 
 from collections.abc import Iterator
 from typing import Any

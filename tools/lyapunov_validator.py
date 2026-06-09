@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Deterministic Lyapunov validator for Mercury Agent stability claims.
 
 This module provides an *executable* validator for the Lyapunov decay

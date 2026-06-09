@@ -112,7 +112,7 @@ repos:
     rev: 6.3.0
     hooks:
       - id: pydocstyle
-        args: ['--convention=google', '--add-ignore=D100,D104,D105,D107,D212,D415']
+        args: ['--convention=google']
         files: ^src/
 
   # ==========================================================================
@@ -132,6 +132,12 @@ repos:
         language: system
         pass_filenames: false
         files: ^(pyproject\.toml|\.github/workflows/.*\.ya?ml)$
+      - id: mercury-canonical-python-headers
+        name: mercury — canonical Python headers
+        entry: python scripts/normalize_headers.py --check
+        language: system
+        pass_filenames: false
+        files: ^(src|tests|scripts|tools|research|benchmarks|examples)/.*\.py$
       - id: mercury-convergence-proof
         name: mercury — convergence-proof emitter (--check)
         entry: python -m omni_mercury_engine.tools.convergence_proof_emitter --check

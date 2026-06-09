@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Tests for :mod:`omni_mercury_engine.compliance.nist_csf_integrator`.
 
 The compliance integrator is exercised end-to-end against both the
@@ -16,10 +18,6 @@ live integrator path is exercised twice:
   ``.github/workflows/network-tests.yml`` job sets that variable so
   drift in the published NIST CSRC schema is caught within seven days
   even though the per-PR default lane skips them.
-
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-Released under GPL-3.0+.
 """
 
 from __future__ import annotations

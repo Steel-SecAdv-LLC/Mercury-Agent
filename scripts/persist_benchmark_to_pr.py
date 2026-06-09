@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""
-Persist benchmark results to ``main`` via a PR using the Git Database API.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+r"""Persist benchmark results to ``main`` via a PR using the Git Database API.
 
 Replaces the previous ``git commit && git push origin HEAD:main`` flow
 which was rejected by ``main``'s branch protection ruleset

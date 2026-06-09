@@ -1,13 +1,11 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-MIT-BIH Arrhythmia Database Loader
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""MIT-BIH Arrhythmia Database Loader.
 
 48 half-hour ECG recordings from PhysioNet with cardiologist-annotated beat labels.
 Open access — no PhysioNet credentials required for the MIT-BIH database.
 
 Source: https://physionet.org/content/mitdb/1.0.0/
-License: Open Data Commons Attribution License v1.0
 
 Anomaly labeling:
   Non-normal beats (any annotation != 'N') are labeled as anomalies.
@@ -112,8 +110,7 @@ def _wfdb_request_timeout(timeout: float) -> Iterator[None]:
 
 
 class MITBIHLoader(DatasetLoader):
-    """
-    MIT-BIH Arrhythmia Database loader.
+    """MIT-BIH Arrhythmia Database loader.
 
     Downloads 48 half-hour ECG recordings from PhysioNet. Each recording
     has cardiologist-annotated beat labels. Non-normal beats are labeled
@@ -139,6 +136,7 @@ class MITBIHLoader(DatasetLoader):
     REQUIRES_CREDENTIALS = False
 
     def __init__(self, config: DatasetConfig) -> None:
+        """Initialize the instance."""
         super().__init__(config)
         self.records = config.preprocessing.get("records", MITBIH_RECORDS)
         self.segment_length = config.preprocessing.get("segment_length", 360)
@@ -146,8 +144,7 @@ class MITBIHLoader(DatasetLoader):
         self.max_record_failures = int(config.preprocessing.get("max_record_failures", 3))
 
     def download(self) -> bool:
-        """
-        Download MIT-BIH records via wfdb.
+        """Download MIT-BIH records via wfdb.
 
         Raises:
             DataSourceUnavailableError: If wfdb is not installed or download fails.

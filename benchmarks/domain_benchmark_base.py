@@ -1,8 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Base benchmark harness for domain-specific anomaly detection.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Base benchmark harness for domain-specific anomaly detection.
 
 Every domain benchmark MUST:
 - Load real data only (no synthetic generation)

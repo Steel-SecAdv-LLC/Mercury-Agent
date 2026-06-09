@@ -1,14 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-------------------------------------------------------------------------
-
-Operator tool: thermal-throttle probe.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: thermal-throttle probe.
 
 Samples thermal zones during a benchmark window and flags any
 throttled period so the latency numbers from

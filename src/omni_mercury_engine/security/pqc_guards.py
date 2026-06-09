@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Post-Quantum Cryptography Production Guards
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Post-Quantum Cryptography Production Guards.
 
 Ensures PQC environment is properly configured for production use.
 AMA Cryptography v2.0 is the sole PQC backend — there are no fallbacks.
@@ -28,6 +11,8 @@ These guards verify that the *native C library* inside AMA is built so
 that real PQC algorithms (ML-DSA-65, Kyber-1024, SPHINCS+) are available
 at runtime.
 """
+
+from __future__ import annotations
 
 import logging
 
@@ -65,8 +50,7 @@ PQCSimulationWarning = PQCProductionWarning
 
 
 def check_pqc_production_readiness() -> dict[str, bool | str]:
-    """
-    Check if PQC algorithms are available via AMA Cryptography's native C library.
+    """Check if PQC algorithms are available via AMA Cryptography's native C library.
 
     AMA Cryptography is always installed (enforced by pqc_backends.py).
     This checks whether the native C backend is built, which provides
@@ -110,8 +94,7 @@ def check_pqc_production_readiness() -> dict[str, bool | str]:
 
 
 def assert_no_simulation_in_production() -> None:
-    """
-    BLOCKS application startup if native PQC algorithms are unavailable in production.
+    """BLOCKS application startup if native PQC algorithms are unavailable in production.
 
     Mercury Agent refuses to run without real PQC cryptography in production
     environments.

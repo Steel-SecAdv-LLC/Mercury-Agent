@@ -203,6 +203,16 @@ Option 3: Install Visual Studio Build Tools
 
 ## Code Style Guidelines
 
+### File Header Policy
+
+Every Python file under `src/`, `tests/`, `scripts/`, `tools/`, `research/`, `benchmarks/`, `examples/`, and `assets/` must use the single canonical file header below, followed immediately by a real module docstring whose first line is the module summary. The copyright line states ownership; `SPDX-License-Identifier: GPL-3.0-or-later` is the ISO/IEC 5962:2021 machine-readable license tag and keeps the compact header REUSE-compliant. Do not paste the full GPL boilerplate into individual source files; the root `LICENSE` file is the authoritative GPL text. Run `python scripts/normalize_headers.py --apply` before submitting header-touching changes, and CI enforces the same policy with `python scripts/normalize_headers.py --check`.
+
+```python
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""One-line module summary."""
+```
+
 ### General Principles
 
 1. **Security First:** Never compromise security for convenience or performance

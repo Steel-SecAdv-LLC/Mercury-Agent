@@ -1,12 +1,6 @@
-"""
-Mercury Agent - Benchmark Diagnostics Module
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Benchmark Diagnostics Module.
 
 Comprehensive diagnostic tools for benchmarking anomaly detection:
 - Score distribution analysis
@@ -41,7 +35,6 @@ import numpy as np
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -71,8 +64,7 @@ class MetricDiscrepancy:
         score_max: float,
         score_min: float,
     ) -> MetricDiscrepancy:
-        """
-        Analyze metric discrepancy and identify root cause.
+        """Analyze metric discrepancy and identify root cause.
 
         The classic F1=0 problem occurs when:
         - ROC-AUC is good (0.8+) -> model has discrimination power
@@ -301,8 +293,7 @@ class DiagnosticResult:
 
 
 class BenchmarkDiagnostics:
-    """
-    Main diagnostic tool for benchmarking.
+    """Main diagnostic tool for benchmarking.
 
     Usage:
         from omni_mercury_engine.evaluation.benchmark_diagnostics import BenchmarkDiagnostics
@@ -335,8 +326,7 @@ class BenchmarkDiagnostics:
         detector_name: str = "Unknown",
         dataset_name: str = "Unknown",
     ) -> DiagnosticResult:
-        """
-        Run comprehensive diagnostics on detection results.
+        """Run comprehensive diagnostics on detection results.
 
         Args:
             scores: Anomaly scores from detector
@@ -585,8 +575,7 @@ def run_diagnostic_benchmark(
     dataset_name: str = "Unknown",
     print_report: bool = True,
 ) -> DiagnosticResult:
-    """
-    Run a complete diagnostic benchmark on a detector.
+    """Run a complete diagnostic benchmark on a detector.
 
     This is a convenience function that:
     1. Fits the detector

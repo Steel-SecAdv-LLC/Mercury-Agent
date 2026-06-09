@@ -1,5 +1,5 @@
-# SPDX-License-Identifier: GPL-3.0-only
-# Copyright (C) Steel Security Advisors LLC
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Probe 7: Exponential decay (EWMA) probe for detecting signal degradation."""
 
 from __future__ import annotations
@@ -18,8 +18,7 @@ from omni_mercury_engine.detectors.math_arrest.base_probe import (
 
 
 def _ewma(x: npt.NDArray[np.float64], lam: float) -> npt.NDArray[np.float64]:
-    """
-    Compute exponentially weighted moving average.
+    """Compute exponentially weighted moving average.
 
     Args:
         x: Input signal.
@@ -37,14 +36,14 @@ def _ewma(x: npt.NDArray[np.float64], lam: float) -> npt.NDArray[np.float64]:
 
 
 class ExponentialDecayProbe(BaseEquationProbe):
-    """
-    Detect signal degradation using optimal-lambda EWMA residuals.
+    """Detect signal degradation using optimal-lambda EWMA residuals.
 
     The optimal smoothing parameter lambda is found by minimizing training MSE via
     ``scipy.optimize.minimize_scalar``.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         super().__init__(min_samples=10)
         self._lambda: float = 0.1
         self._residual_std: float = 0.0

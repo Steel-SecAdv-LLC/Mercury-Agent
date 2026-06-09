@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-ABMS Medical Disciplines Integration Module
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""ABMS Medical Disciplines Integration Module.
 
 Comprehensive integration of American Board of Medical Specialties (ABMS) disciplines
 for multi-specialty anomaly detection in healthcare. This module enables specialized
@@ -40,8 +23,9 @@ Data Sources & Research:
 
 ⚠️ SIMULATION-BASED: For research/development. Clinical validation required.
 Medical professionals must review all findings before patient care decisions.
-
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -113,13 +97,13 @@ class MedicalAnomalyResult:
 if TYPE_CHECKING or TORCH_AVAILABLE:
 
     class MultiSpecialtyNeuralNet(nn.Module):
-        """
-        Neural network for multi-specialty medical anomaly detection.
+        """Neural network for multi-specialty medical anomaly detection.
 
         Architecture optimized with golden ratio (φ ≈ 1.618) for layer dimensions.
         """
 
         def __init__(self, input_dim: int = 64, num_specialties: int = 24) -> None:
+            """Initialize the instance."""
             super().__init__()
 
             phi = 1.618
@@ -160,8 +144,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             )
 
         def forward(self, x: torch.Tensor, specialty: str | None = None) -> dict[str, torch.Tensor]:
-            """
-            Forward pass with optional specialty-specific prediction.
+            """Forward pass with optional specialty-specific prediction.
 
             Args:
                 x: Input features [batch, input_dim]
@@ -192,14 +175,14 @@ else:
         """Stub: MultiSpecialtyNeuralNet requires PyTorch."""
 
         def __init__(self, *args: Any, **kwargs: Any) -> None:
+            """Initialize the instance."""
             raise ImportError(
                 "MultiSpecialtyNeuralNet requires PyTorch. Install with: pip install torch"
             )
 
 
 class ABMSDisciplineDetector:
-    """
-    ABMS Medical Disciplines Anomaly Detector.
+    """ABMS Medical Disciplines Anomaly Detector.
 
     Integrates 24 ABMS boards with 150+ subspecialties for comprehensive medical anomaly detection
     across all major medical specialties.
@@ -208,8 +191,7 @@ class ABMSDisciplineDetector:
     def __init__(
         self, enable_neurosymbolic: bool = True, golden_ratio_threshold: bool = True
     ) -> None:
-        """
-        Initialize ABMS detector.
+        """Initialize ABMS detector.
 
         Args:
             enable_neurosymbolic: Enable symbolic medical reasoning
@@ -241,8 +223,7 @@ class ABMSDisciplineDetector:
         self.logger.info(f"ABMS Disciplines Detector initialized with {len(ABMSBoard)} boards")
 
     def _initialize_subspecialties(self) -> dict[str, list[str]]:
-        """
-        Initialize comprehensive subspecialty mappings per ABMS board.
+        """Initialize comprehensive subspecialty mappings per ABMS board.
 
         Based on ABMS Guide 2025 and current subspecialty certifications.
         Total: 24 boards, 150+ subspecialties.
@@ -493,8 +474,7 @@ class ABMSDisciplineDetector:
     def detect_medical_anomaly(
         self, patient_data: dict[str, Any], specialty_focus: str | None = None
     ) -> MedicalAnomalyResult:
-        """
-        Detect medical anomalies across ABMS disciplines.
+        """Detect medical anomalies across ABMS disciplines.
 
         Args:
             patient_data: Patient clinical data including:
@@ -563,7 +543,7 @@ class ABMSDisciplineDetector:
         return result
 
     def _extract_clinical_features(self, patient_data: dict[str, Any]) -> np.ndarray[Any, Any]:
-        """Extract numerical features from patient clinical data (O(n) complexity)"""
+        """Extract numerical features from patient clinical data (O(n) complexity)."""
         features = []
 
         vitals = patient_data.get("vitals", {})
@@ -775,8 +755,7 @@ class ABMSDisciplineDetector:
         specialty: str,
         include_reasoning: bool = False,
     ) -> MedicalAnomalyResult:
-        """
-        Detect anomalies for a specific specialty.
+        """Detect anomalies for a specific specialty.
 
         Args:
             data: Input data as numpy array or tensor (shape: [features])
@@ -855,8 +834,7 @@ class ABMSDisciplineDetector:
     def detect_all(
         self, data: np.ndarray[Any, Any] | torch.Tensor
     ) -> dict[str, MedicalAnomalyResult]:
-        """
-        Detect anomalies across all ABMS specialties.
+        """Detect anomalies across all ABMS specialties.
 
         Args:
             data: Input data as numpy array or tensor
@@ -871,8 +849,7 @@ class ABMSDisciplineDetector:
 
 
 def create_omni_medical_scalars() -> dict[str, float]:
-    """
-    Create doctorate-level medical scalars for truth deciphering.
+    """Create doctorate-level medical scalars for truth deciphering.
 
     Returns:
         Dictionary of omni-medical scalars with golden ratio optimization

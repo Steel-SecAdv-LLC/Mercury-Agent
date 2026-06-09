@@ -1,7 +1,6 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Analytical verification of compute_auc against 4 known-answer cases.
-
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
 
 These tests verify the correctness of the trapezoidal AUC-ROC implementation
 in benchmarks/domain_benchmark_base.py against analytically derivable answers.

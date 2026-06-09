@@ -1,5 +1,6 @@
-"""
-Mercury Agent - Model Management API Endpoints
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Mercury Agent - Model Management API Endpoints.
 
 Production-grade model registry and lifecycle management for anomaly detection models.
 Supports model versioning, deployment, A/B testing, and performance monitoring.
@@ -124,14 +125,14 @@ class Model:
 
 
 class ModelRegistry:
-    """
-    Model registry with versioning and lifecycle management.
+    """Model registry with versioning and lifecycle management.
 
     Thread-safe model management with file-based storage. Production deployment should use object
     storage (S3, GCS) with database metadata.
     """
 
     def __init__(self, storage_path: str | None = None) -> None:
+        """Initialize the instance."""
         self._models: dict[str, Model] = {}
         self._lock = threading.RLock()
         # Use a secure, user-specific directory instead of world-writable /tmp.

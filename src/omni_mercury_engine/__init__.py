@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Mercury Agent: Neuro-Symbolic AI Framework
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Mercury Agent: Neuro-Symbolic AI Framework.
 
 Mercury Agent is a comprehensive neuro-symbolic AI platform.  It hybridises a
 deep-learning core (163 ``torch.nn.Module`` subclasses spanning visual,
@@ -46,6 +29,8 @@ Anomaly detection is one of the capabilities this AI exposes — not the
 limit of what it is.
 """
 
+from __future__ import annotations
+
 import os
 from typing import TYPE_CHECKING
 
@@ -72,7 +57,6 @@ if TYPE_CHECKING:
         AnomalyMathArrest as AnomalyMathArrest,
     )
     from omni_mercury_engine.engine import OmniMercuryEngine as OmniMercuryEngine
-
 
 # ---------------------------------------------------------------------------
 # PQC gate.

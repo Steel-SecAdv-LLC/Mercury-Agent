@@ -1,8 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-CAP (Common Alerting Protocol) alerting integration.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""CAP (Common Alerting Protocol) alerting integration."""
 
 from __future__ import annotations
 

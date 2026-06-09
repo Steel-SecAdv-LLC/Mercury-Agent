@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Cortical-Laminated Neural Network Architecture
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Cortical-Laminated Neural Network Architecture.
 
 Implements a biologically-inspired neural network based on the 6-layer
 organization of the mammalian neocortex. This architecture provides:
@@ -44,6 +27,8 @@ Reference:
     - Mountcastle, V.B. (1997). The columnar organization of the neocortex
     - Douglas, R.J. & Martin, K.A. (2004). Neuronal circuits of the neocortex
 """
+
+from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
@@ -82,8 +67,7 @@ class CorticalLayer(Enum):
 
 @dataclass
 class CorticalConfig:
-    """
-    Configuration for cortical network.
+    """Configuration for cortical network.
 
     Attributes:
         input_dim: Input feature dimension
@@ -109,8 +93,7 @@ class CorticalConfig:
 
 
 class SparseCoding(nn.Module):
-    """
-    Sparse coding module implementing k-winner-take-all activation.
+    """Sparse coding module implementing k-winner-take-all activation.
 
     Biologically, cortical neurons exhibit sparse activation patterns where
     only ~10% of neurons are active at any time. This improves:
@@ -122,8 +105,7 @@ class SparseCoding(nn.Module):
     """
 
     def __init__(self, sparsity: float = 0.1, temperature: float = 1.0) -> None:
-        """
-        Initialize sparse coding.
+        """Initialize sparse coding.
 
         Args:
             sparsity: Target fraction of active neurons (0.0-1.0)
@@ -134,8 +116,7 @@ class SparseCoding(nn.Module):
         self.temperature = temperature
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Apply sparse activation with soft top-k selection.
+        """Apply sparse activation with soft top-k selection.
 
         Args:
             x: Input tensor [batch_size, features]
@@ -160,8 +141,7 @@ class SparseCoding(nn.Module):
 
 
 class LateralInhibition(nn.Module):
-    """
-    Lateral inhibition module implementing competitive dynamics.
+    """Lateral inhibition module implementing competitive dynamics.
 
     Models the inhibitory interneuron connections in cortical columns that
     create winner-take-all dynamics. Strong activations suppress neighboring
@@ -179,8 +159,7 @@ class LateralInhibition(nn.Module):
         sigma_exc: float = 1.0,
         sigma_inh: float = 3.0,
     ) -> None:
-        """
-        Initialize lateral inhibition.
+        """Initialize lateral inhibition.
 
         Args:
             features: Number of features/neurons
@@ -205,8 +184,7 @@ class LateralInhibition(nn.Module):
         self.register_buffer("kernel", kernel)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Apply lateral inhibition.
+        """Apply lateral inhibition.
 
         Args:
             x: Input tensor [batch_size, features]
@@ -242,8 +220,7 @@ class HebbianLearningRule(nn.Module):
         learning_rate: float = 0.01,
         weight_decay: float = 0.001,
     ) -> None:
-        """
-        Initialize Hebbian learning.
+        """Initialize Hebbian learning.
 
         Args:
             input_dim: Input dimension
@@ -259,8 +236,7 @@ class HebbianLearningRule(nn.Module):
         self.weight = nn.Parameter(torch.randn(output_dim, input_dim) * 0.01, requires_grad=False)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Compute Hebbian transformation.
+        """Compute Hebbian transformation.
 
         Args:
             x: Input tensor [batch_size, input_dim]
@@ -271,8 +247,7 @@ class HebbianLearningRule(nn.Module):
         return F.linear(x, self.weight)
 
     def hebbian_update(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-        """
-        Compute Hebbian weight update (Oja's rule).
+        """Compute Hebbian weight update (Oja's rule).
 
         Args:
             x: Pre-synaptic activations [batch_size, input_dim]
@@ -302,8 +277,7 @@ class HebbianLearningRule(nn.Module):
 
     @torch.no_grad()
     def apply_hebbian_update(self, x: torch.Tensor, y: torch.Tensor) -> None:
-        """
-        Apply Hebbian weight update in-place.
+        """Apply Hebbian weight update in-place.
 
         Args:
             x: Pre-synaptic activations
@@ -314,8 +288,7 @@ class HebbianLearningRule(nn.Module):
 
 
 class ThalamocorticalGate(nn.Module):
-    """
-    Thalamocortical gating mechanism for attention.
+    """Thalamocortical gating mechanism for attention.
 
     Models the thalamus as a relay station that gates information flow to cortex.
     The thalamus receives:
@@ -332,8 +305,7 @@ class ThalamocorticalGate(nn.Module):
         hidden_dim: int,
         feedback_dim: int | None = None,
     ) -> None:
-        """
-        Initialize thalamocortical gate.
+        """Initialize thalamocortical gate.
 
         Args:
             input_dim: Dimension of feedforward input (sensory)
@@ -365,8 +337,7 @@ class ThalamocorticalGate(nn.Module):
         sensory_input: torch.Tensor,
         cortical_feedback: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        """
-        Gate sensory input based on cortical feedback.
+        """Gate sensory input based on cortical feedback.
 
         Args:
             sensory_input: Feedforward sensory input [batch_size, input_dim]
@@ -401,8 +372,7 @@ class ThalamocorticalGate(nn.Module):
 
 
 class CorticalColumn(nn.Module):
-    """
-    Single cortical column implementing all 6 layers.
+    """Single cortical column implementing all 6 layers.
 
     A cortical column is the fundamental processing unit of the neocortex,
     consisting of ~100 neurons organized in 6 layers. Each column processes
@@ -416,8 +386,7 @@ class CorticalColumn(nn.Module):
     """
 
     def __init__(self, config: CorticalConfig) -> None:
-        """
-        Initialize cortical column.
+        """Initialize cortical column.
 
         Args:
             config: Configuration for the column
@@ -531,8 +500,7 @@ class CorticalColumn(nn.Module):
         feedback: torch.Tensor | None = None,
         return_layer_activations: bool = False,
     ) -> torch.Tensor | tuple[torch.Tensor, dict[str, torch.Tensor]]:
-        """
-        Forward pass through cortical column.
+        """Forward pass through cortical column.
 
         Args:
             x: Input tensor [batch_size, input_dim]
@@ -583,8 +551,7 @@ class CorticalColumn(nn.Module):
 
 
 class CorticalLaminatedNetwork(nn.Module):
-    """
-    Multi-column cortical network with thalamocortical input gating.
+    """Multi-column cortical network with thalamocortical input gating.
 
     Implements a hierarchical network of cortical columns with:
     - Thalamocortical gating for attention
@@ -613,8 +580,7 @@ class CorticalLaminatedNetwork(nn.Module):
         use_thalamic_gate: bool = True,
         use_hebbian: bool = True,
     ) -> None:
-        """
-        Initialize cortical network.
+        """Initialize cortical network.
 
         Args:
             config: Configuration for cortical columns
@@ -672,8 +638,7 @@ class CorticalLaminatedNetwork(nn.Module):
         x: torch.Tensor,
         return_all_activations: bool = False,
     ) -> torch.Tensor | dict[str, Any]:
-        """
-        Forward pass through cortical network.
+        """Forward pass through cortical network.
 
         Args:
             x: Input tensor [batch_size, input_dim]
@@ -731,8 +696,7 @@ class CorticalLaminatedNetwork(nn.Module):
 
 
 class GolgiAnalyzer:
-    """
-    Golgi stain-inspired analysis of network morphology.
+    """Golgi stain-inspired analysis of network morphology.
 
     The Golgi stain reveals complete neuron morphology including:
     - Dendritic arbor structure
@@ -746,8 +710,7 @@ class GolgiAnalyzer:
     """
 
     def __init__(self, model: nn.Module) -> None:
-        """
-        Initialize Golgi analyzer.
+        """Initialize Golgi analyzer.
 
         Args:
             model: PyTorch model to analyze
@@ -755,8 +718,7 @@ class GolgiAnalyzer:
         self.model = model
 
     def analyze_connectivity(self) -> dict[str, Any]:
-        """
-        Analyze network connectivity patterns.
+        """Analyze network connectivity patterns.
 
         Returns:
             Dict containing connectivity metrics:
@@ -792,8 +754,7 @@ class GolgiAnalyzer:
         }
 
     def visualize_dendrite_tree(self, layer_name: str) -> np.ndarray[Any, Any]:
-        """
-        Create dendritic tree visualization for a layer.
+        """Create dendritic tree visualization for a layer.
 
         Args:
             layer_name: Name of layer to visualize
@@ -809,8 +770,7 @@ class GolgiAnalyzer:
 
 
 class NisslAnalyzer:
-    """
-    Nissl stain-inspired analysis of activation patterns.
+    """Nissl stain-inspired analysis of activation patterns.
 
     The Nissl stain shows:
     - Cell body locations and density
@@ -824,8 +784,7 @@ class NisslAnalyzer:
     """
 
     def __init__(self, model: nn.Module) -> None:
-        """
-        Initialize Nissl analyzer.
+        """Initialize Nissl analyzer.
 
         Args:
             model: PyTorch model to analyze
@@ -857,8 +816,7 @@ class NisslAnalyzer:
         self._hooks = []
 
     def analyze_activations(self) -> dict[str, Any]:
-        """
-        Analyze captured activation patterns.
+        """Analyze captured activation patterns.
 
         Returns:
             Dict containing activation metrics:
@@ -896,8 +854,7 @@ class NisslAnalyzer:
 
 
 class WeigertAnalyzer:
-    """
-    Weigert stain-inspired analysis of connection strengths.
+    """Weigert stain-inspired analysis of connection strengths.
 
     The Weigert stain reveals myelinated fibers (fast connections):
     - Axon pathways
@@ -911,8 +868,7 @@ class WeigertAnalyzer:
     """
 
     def __init__(self, model: nn.Module) -> None:
-        """
-        Initialize Weigert analyzer.
+        """Initialize Weigert analyzer.
 
         Args:
             model: PyTorch model to analyze
@@ -920,8 +876,7 @@ class WeigertAnalyzer:
         self.model = model
 
     def analyze_connections(self, threshold: float = 0.1) -> dict[str, Any]:
-        """
-        Analyze connection strength patterns.
+        """Analyze connection strength patterns.
 
         Args:
             threshold: Threshold for "strong" connections (relative to max)
@@ -985,8 +940,7 @@ class WeigertAnalyzer:
 
 
 class CorticalLoss(nn.Module):
-    """
-    Biologically-plausible loss combining multiple cortical constraints.
+    """Biologically-plausible loss combining multiple cortical constraints.
 
     Combines:
     1. Task loss (classification/regression)
@@ -1002,8 +956,7 @@ class CorticalLoss(nn.Module):
         hebbian_weight: float = 0.01,
         target_sparsity: float = 0.1,
     ) -> None:
-        """
-        Initialize cortical loss.
+        """Initialize cortical loss.
 
         Args:
             task_weight: Weight for main task loss
@@ -1024,8 +977,7 @@ class CorticalLoss(nn.Module):
         activations: dict[str, torch.Tensor] | None = None,
         task_type: str = "classification",
     ) -> dict[str, torch.Tensor]:
-        """
-        Compute cortical loss.
+        """Compute cortical loss.
 
         Args:
             predictions: Model predictions
@@ -1097,8 +1049,7 @@ class CorticalLoss(nn.Module):
 
 
 class SpikeTimingDependentPlasticity(nn.Module):
-    """
-    STDP-inspired learning signal for temporal sequences.
+    """STDP-inspired learning signal for temporal sequences.
 
     Spike-timing dependent plasticity strengthens connections when pre-synaptic activity precedes
     post-synaptic activity (causal), and weakens connections otherwise (anti-causal).
@@ -1113,8 +1064,7 @@ class SpikeTimingDependentPlasticity(nn.Module):
         a_plus: float = 0.01,
         a_minus: float = 0.01,
     ) -> None:
-        """
-        Initialize STDP.
+        """Initialize STDP.
 
         Args:
             tau_plus: Time constant for potentiation (ms)
@@ -1129,8 +1079,7 @@ class SpikeTimingDependentPlasticity(nn.Module):
         self.a_minus = a_minus
 
     def forward(self, pre_times: torch.Tensor, post_times: torch.Tensor) -> torch.Tensor:
-        """
-        Compute STDP weight update.
+        """Compute STDP weight update.
 
         Args:
             pre_times: Pre-synaptic spike times [batch, neurons_pre]

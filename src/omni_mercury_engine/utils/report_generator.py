@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Report Generator - Plain English Auto-Reporting
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Report Generator - Plain English Auto-Reporting.
 
 Automated report generation for non-technical users:
 - Plain English summaries
@@ -25,8 +8,10 @@ Automated report generation for non-technical users:
 - Email notifications
 - Executive dashboards
 - CSV/Excel exports
-
 """
+
+from __future__ import annotations
+
 import json
 import logging
 import os
@@ -120,6 +105,7 @@ class ReportGenerator:
     """General-purpose report generator with multiple format support."""
 
     def __init__(self, template: str | None = None) -> None:
+        """Initialize the instance."""
         self._template = template
         self._sections: list[ReportSection] = []
         self._charts: dict[str, dict[str, Any]] = {}
@@ -372,20 +358,19 @@ class ReportConfig:
 
 
 class PlainEnglishReportGenerator:
-    """
-    Generate plain English reports from analysis results.
+    """Generate plain English reports from analysis results.
 
     Converts technical output to human-readable summaries.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
     def generate_medical_report(
         self, results: dict[str, Any], config: ReportConfig | None = None
     ) -> str:
-        """
-        Generate plain English medical report.
+        """Generate plain English medical report.
 
         Args:
             results: Medical analysis results
@@ -577,18 +562,17 @@ class PlainEnglishReportGenerator:
 
 
 class PDFReportGenerator:
-    """
-    PDF report generation (requires reportlab).
+    """PDF report generation (requires reportlab).
 
     Creates professional PDF reports from analysis results.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
     def generate_pdf(self, text_report: str, output_path: str) -> bool:
-        """
-        Generate PDF from text report.
+        """Generate PDF from text report.
 
         Args:
             text_report: Plain text report
@@ -632,21 +616,20 @@ class PDFReportGenerator:
 
 
 class EmailReportSender:
-    """
-    Email report sender (requires smtplib).
+    """Email report sender (requires smtplib).
 
     Sends analysis reports via email.
     """
 
     def __init__(self, smtp_config: dict[str, str] | None = None) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
         self.smtp_config = smtp_config or {}
 
     def send_email_report(
         self, report: str, recipient: str, subject: str = "Mercury Agent Analysis Report"
     ) -> bool:
-        """
-        Send report via email.
+        """Send report via email.
 
         Args:
             report: Report text
@@ -691,21 +674,20 @@ class EmailReportSender:
 
 
 class ReportManager:
-    """
-    Unified report management system.
+    """Unified report management system.
 
     Coordinates text, PDF, and email report generation.
     """
 
     def __init__(self, smtp_config: dict[str, str] | None = None) -> None:
+        """Initialize the instance."""
         self.text_generator = PlainEnglishReportGenerator()
         self.pdf_generator = PDFReportGenerator()
         self.email_sender = EmailReportSender(smtp_config)
         self.logger = logging.getLogger(__name__)
 
     def generate_report(self, results: dict[str, Any], config: ReportConfig) -> str:
-        """
-        Generate report in specified format.
+        """Generate report in specified format.
 
         Args:
             results: Analysis results
@@ -740,8 +722,7 @@ class ReportManager:
     def send_email_report(
         self, results: dict[str, Any], recipient: str, config: ReportConfig
     ) -> bool:
-        """
-        Generate and email report.
+        """Generate and email report.
 
         Args:
             results: Analysis results

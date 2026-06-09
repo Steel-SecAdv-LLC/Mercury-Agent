@@ -1,12 +1,6 @@
-"""
-Mercury Agent - Conformal Prediction for Uncertainty Quantification
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Conformal Prediction for Uncertainty Quantification.
 
 Implements conformal prediction for rigorous uncertainty quantification:
 - Split Conformal Prediction (inductive)
@@ -61,8 +55,7 @@ class CoverageResult:
 
 
 class SplitConformalPredictor:
-    """
-    Split (Inductive) Conformal Prediction.
+    """Split (Inductive) Conformal Prediction.
 
     Uses a held-out calibration set to compute nonconformity scores
     and determine prediction set thresholds. Computationally efficient
@@ -76,8 +69,7 @@ class SplitConformalPredictor:
         coverage: float = 0.95,
         seed: int = 42,
     ):
-        """
-        Initialize split conformal predictor.
+        """Initialize split conformal predictor.
 
         Args:
             coverage: Target coverage level (e.g., 0.95 for 95% CI)
@@ -93,8 +85,7 @@ class SplitConformalPredictor:
         self,
         nonconformity_scores: np.ndarray[Any, Any],
     ) -> SplitConformalPredictor:
-        """
-        Fit the conformal predictor on calibration scores.
+        """Fit the conformal predictor on calibration scores.
 
         Args:
             nonconformity_scores: Nonconformity scores from calibration set
@@ -126,8 +117,7 @@ class SplitConformalPredictor:
         new_scores: np.ndarray[Any, Any],
         point_predictions: np.ndarray[Any, Any] | None = None,
     ) -> ConformalPredictionSet:
-        """
-        Generate prediction sets for new examples.
+        """Generate prediction sets for new examples.
 
         Args:
             new_scores: Nonconformity scores for new examples
@@ -159,8 +149,7 @@ class SplitConformalPredictor:
         )
 
     def get_anomaly_threshold(self) -> float:
-        """
-        Get the conformal anomaly threshold.
+        """Get the conformal anomaly threshold.
 
         Examples with nonconformity score above this threshold
         are considered anomalies at the specified coverage level.
@@ -174,8 +163,7 @@ class SplitConformalPredictor:
 
 
 class CrossConformalPredictor:
-    """
-    Cross-Conformal Prediction (K-fold aggregated).
+    """Cross-Conformal Prediction (K-fold aggregated).
 
     Aggregates conformal predictions from K folds for better
     efficiency (uses all data for calibration). Slightly more
@@ -190,8 +178,7 @@ class CrossConformalPredictor:
         n_folds: int = 5,
         seed: int = 42,
     ):
-        """
-        Initialize cross-conformal predictor.
+        """Initialize cross-conformal predictor.
 
         Args:
             coverage: Target coverage level
@@ -209,8 +196,7 @@ class CrossConformalPredictor:
         X: np.ndarray[Any, Any],
         scoring_fn: ScoringFunction,
     ) -> CrossConformalPredictor:
-        """
-        Fit using cross-validation aggregation.
+        """Fit using cross-validation aggregation.
 
         Args:
             X: Full dataset
@@ -264,8 +250,7 @@ class CrossConformalPredictor:
 
 
 class AdaptiveConformalInference:
-    """
-    Adaptive Conformal Inference for streaming/online settings.
+    """Adaptive Conformal Inference for streaming/online settings.
 
     Adjusts the quantile threshold adaptively to maintain coverage
     over time, handling distribution shift. Uses exponential moving
@@ -280,8 +265,7 @@ class AdaptiveConformalInference:
         learning_rate: float = 0.1,
         initial_threshold: float = 0.5,
     ):
-        """
-        Initialize adaptive conformal predictor.
+        """Initialize adaptive conformal predictor.
 
         Args:
             target_coverage: Target coverage level
@@ -304,8 +288,7 @@ class AdaptiveConformalInference:
         score: float,
         true_label: int | None = None,
     ) -> tuple[float, bool]:
-        """
-        Update threshold based on new observation.
+        """Update threshold based on new observation.
 
         Args:
             score: Nonconformity score of new example
@@ -356,8 +339,7 @@ class AdaptiveConformalInference:
 
 
 class ConformalAnomalyDetector:
-    """
-    Wrapper for anomaly detectors with conformal prediction.
+    """Wrapper for anomaly detectors with conformal prediction.
 
     Provides distribution-free uncertainty quantification for any anomaly detector, with guaranteed
     coverage at specified level.
@@ -371,8 +353,7 @@ class ConformalAnomalyDetector:
         method: str = "split",
         seed: int = 42,
     ):
-        """
-        Initialize conformal anomaly detector.
+        """Initialize conformal anomaly detector.
 
         Args:
             base_detector: Base anomaly detector (must have fit/predict_proba)
@@ -405,8 +386,7 @@ class ConformalAnomalyDetector:
     def fit(
         self, X: np.ndarray[Any, Any], y: np.ndarray[Any, Any] | None = None
     ) -> ConformalAnomalyDetector:
-        """
-        Fit detector and calibrate conformal predictor.
+        """Fit detector and calibrate conformal predictor.
 
         Args:
             X: Training data
@@ -456,8 +436,7 @@ class ConformalAnomalyDetector:
         return self
 
     def _get_anomaly_scores(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Get anomaly scores from base detector with robust fallback cascade.
+        """Get anomaly scores from base detector with robust fallback cascade.
 
         Implements a multi-strategy fallback mechanism to obtain continuous
         anomaly scores from any detector, regardless of its API.
@@ -541,8 +520,7 @@ class ConformalAnomalyDetector:
         return self._compute_ensemble_anomaly_scores(X)
 
     def _compute_ensemble_anomaly_scores(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Compute anomaly scores using ensemble of statistical methods.
+        """Compute anomaly scores using ensemble of statistical methods.
 
         Uses multiple lightweight statistical approaches to estimate
         anomaly likelihood when detector doesn't provide scores directly.
@@ -602,8 +580,7 @@ class ConformalAnomalyDetector:
         return np.asarray(np.clip(ensemble_scores, 0.0, 1.0))  # type: ignore[no-any-return, unused-ignore]
 
     def predict(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Predict anomalies with conformal guarantee.
+        """Predict anomalies with conformal guarantee.
 
         Args:
             X: Test data
@@ -626,8 +603,7 @@ class ConformalAnomalyDetector:
         self,
         X: np.ndarray[Any, Any],
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """
-        Predict with uncertainty quantification.
+        """Predict with uncertainty quantification.
 
         Args:
             X: Test data
@@ -661,8 +637,7 @@ class ConformalAnomalyDetector:
         X_test: np.ndarray[Any, Any],
         y_test: np.ndarray[Any, Any],
     ) -> CoverageResult:
-        """
-        Evaluate prediction accuracy on test set.
+        """Evaluate prediction accuracy on test set.
 
         NOTE: Despite the name, this method measures overall classification
         accuracy (predictions == y_test), NOT the conformal coverage guarantee.
@@ -716,8 +691,7 @@ class ConformalAnomalyDetector:
 
 
 class MondrianConformalPredictor:
-    """
-    Mondrian Conformal Prediction for label-conditional coverage.
+    """Mondrian Conformal Prediction for label-conditional coverage.
 
     Provides per-group (e.g., per-domain, per-class) coverage guarantees
     instead of just marginal coverage. This ensures that coverage is
@@ -733,8 +707,7 @@ class MondrianConformalPredictor:
         coverage: float = 0.95,
         seed: int = 42,
     ):
-        """
-        Initialize Mondrian conformal predictor.
+        """Initialize Mondrian conformal predictor.
 
         Args:
             coverage: Target coverage level per group.
@@ -750,8 +723,7 @@ class MondrianConformalPredictor:
         nonconformity_scores: np.ndarray[Any, Any],
         groups: np.ndarray[Any, Any],
     ) -> MondrianConformalPredictor:
-        """
-        Fit per-group conformal predictors.
+        """Fit per-group conformal predictors.
 
         Args:
             nonconformity_scores: Nonconformity scores from calibration set.
@@ -789,8 +761,7 @@ class MondrianConformalPredictor:
         return self
 
     def get_anomaly_threshold(self, group: int | str | None = None) -> float:
-        """
-        Get anomaly threshold for a specific group.
+        """Get anomaly threshold for a specific group.
 
         Args:
             group: Group identifier. If None, returns global threshold.
@@ -811,8 +782,7 @@ class MondrianConformalPredictor:
         scores: np.ndarray[Any, Any],
         groups: np.ndarray[Any, Any],
     ) -> np.ndarray[Any, Any]:
-        """
-        Predict anomalies with per-group coverage guarantees.
+        """Predict anomalies with per-group coverage guarantees.
 
         Args:
             scores: Nonconformity scores for test examples.
@@ -836,8 +806,7 @@ class MondrianConformalPredictor:
         group_ids: np.ndarray[Any, Any],
         alpha: float = 0.1,
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """
-        Predict anomalies with per-group confidence intervals.
+        """Predict anomalies with per-group confidence intervals.
 
         Returns predictions along with lower and upper confidence bounds
         on the anomaly scores, providing ``(1 - alpha)`` confidence
@@ -884,8 +853,7 @@ class MondrianConformalPredictor:
         labels: np.ndarray[Any, Any],
         groups: np.ndarray[Any, Any],
     ) -> dict[str, float | dict[int | str, float]]:
-        """
-        Evaluate per-group empirical coverage.
+        """Evaluate per-group empirical coverage.
 
         Args:
             scores: Nonconformity scores.
@@ -916,8 +884,7 @@ class MondrianConformalPredictor:
 
 
 class ConformalCalibrationBridge:
-    """
-    Bridge between conformal prediction and the calibration pipeline.
+    """Bridge between conformal prediction and the calibration pipeline.
 
     Integrates conformal uncertainty quantification into the threshold calibration process,
     providing distribution-free coverage guarantees on top of calibrated thresholds.
@@ -928,8 +895,7 @@ class ConformalCalibrationBridge:
         base_coverage: float = 0.95,
         adaptive_lr: float = 0.05,
     ):
-        """
-        Initialize calibration bridge.
+        """Initialize calibration bridge.
 
         Args:
             base_coverage: Target coverage level.
@@ -948,8 +914,7 @@ class ConformalCalibrationBridge:
         calibration_scores: np.ndarray[Any, Any],
         groups: np.ndarray[Any, Any] | None = None,
     ) -> dict[str, float]:
-        """
-        Calibrate all conformal predictors.
+        """Calibrate all conformal predictors.
 
         Args:
             calibration_scores: Nonconformity scores from calibration data.
@@ -978,8 +943,7 @@ class ConformalCalibrationBridge:
         return result
 
     def update_adaptive(self, score: float, true_label: int | None = None) -> tuple[float, bool]:
-        """
-        Update adaptive conformal threshold with new observation.
+        """Update adaptive conformal threshold with new observation.
 
         Args:
             score: New nonconformity score.
@@ -1047,6 +1011,7 @@ class BinaryConformalClassifier:
     """
 
     def __init__(self, coverage: float = 0.9, seed: int = 42) -> None:
+        """Initialize the instance."""
         if not 0.0 < coverage < 1.0:
             raise ValueError(f"coverage must be in (0, 1), got {coverage}")
         self.coverage = coverage
@@ -1162,8 +1127,7 @@ def add_conformal_to_detector(
     coverage: float = 0.95,
     method: str = "split",
 ) -> tuple[SplitConformalPredictor | CrossConformalPredictor, float]:
-    """
-    Add conformal prediction to an existing fitted detector.
+    """Add conformal prediction to an existing fitted detector.
 
     Implements a robust fallback cascade to extract anomaly scores from any
     detector type, enabling conformal prediction regardless of detector API.
@@ -1280,8 +1244,7 @@ def _extract_detector_scores(detector: Any, X: np.ndarray[Any, Any]) -> np.ndarr
 
 
 def _compute_statistical_anomaly_scores(X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-    """
-    Compute anomaly scores using ensemble of statistical methods.
+    """Compute anomaly scores using ensemble of statistical methods.
 
     Fallback when detector doesn't provide any scoring method.
 

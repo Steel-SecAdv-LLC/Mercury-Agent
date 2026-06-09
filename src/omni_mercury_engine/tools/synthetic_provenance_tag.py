@@ -1,14 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-------------------------------------------------------------------------
-
-Operator tool: emit / verify a synthetic-data provenance tag.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: emit / verify a synthetic-data provenance tag.
 
 **Live-first data policy.**  Mercury Agent treats live data as the
 source of truth.  Synthetic data is *only* an emergency reenactment of

@@ -1,19 +1,8 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for Anomaly Detection Metrics module.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+Tests AUROC, AUPRC, F1-max, pixel-level metrics, and PRO score.
 """
 
 from __future__ import annotations
@@ -27,12 +16,6 @@ import pytest
 # pixel-level metric helpers that depend on torchvision.  Skip the
 # whole module cleanly when the optional ``ml`` extra is absent.
 pytest.importorskip("torch")
-
-"""
-Tests for Anomaly Detection Metrics module.
-
-Tests AUROC, AUPRC, F1-max, pixel-level metrics, and PRO score.
-"""
 
 import numpy as np
 

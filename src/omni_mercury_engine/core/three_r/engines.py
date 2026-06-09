@@ -1,7 +1,6 @@
-"""
-Mercury Agent - 3R Mechanism Engines
-
-Copyright (C) 2025 Steel Security Advisors LLC
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""3R Mechanism Engines.
 
 Core engines for the 3R (Recursion-Resonance-Refactoring) Mechanism.
 """
@@ -20,8 +19,7 @@ if TYPE_CHECKING:
 
 
 class RecursionEngine:
-    """
-    Implements recursive self-referential processing for hierarchical feature extraction and multi-
+    """Implements recursive self-referential processing for hierarchical feature extraction and multi-.
 
     level optimization.
 
@@ -30,8 +28,7 @@ class RecursionEngine:
     """
 
     def __init__(self, max_depth: int = 5) -> None:
-        """
-        Initialize RecursionEngine.
+        """Initialize RecursionEngine.
 
         Args:
             max_depth: Maximum recursion depth to prevent infinite loops
@@ -46,8 +43,7 @@ class RecursionEngine:
         depth: int = 0,
         threshold: float = 0.01,
     ) -> NDArray[Any]:
-        """
-        Apply recursive transformation until convergence.
+        """Apply recursive transformation until convergence.
 
         Args:
             data: Input data array
@@ -72,8 +68,7 @@ class RecursionEngine:
     def hierarchical_feature_extraction(
         self, data: NDArray[Any], num_levels: int = 3
     ) -> list[NDArray[Any]]:
-        """
-        Extract features at multiple hierarchical levels.
+        """Extract features at multiple hierarchical levels.
 
         Args:
             data: Input data array
@@ -95,8 +90,7 @@ class RecursionEngine:
         return features
 
     def compute_recursion_score(self, data: NDArray[Any]) -> float:
-        """
-        Compute the R(x) recursion component score.
+        """Compute the R(x) recursion component score.
 
         Args:
             data: Input data for recursion analysis
@@ -153,8 +147,7 @@ class RecursionEngine:
 
 
 class ResonanceEngine:
-    """
-    Implements frequency-domain signal amplification using Fourier analysis for pattern enhancement
+    """Implements frequency-domain signal amplification using Fourier analysis for pattern enhancement.
 
     and anomaly detection.
 
@@ -163,8 +156,7 @@ class ResonanceEngine:
     """
 
     def __init__(self, sampling_rate: float = 1.0) -> None:
-        """
-        Initialize ResonanceEngine.
+        """Initialize ResonanceEngine.
 
         Args:
             sampling_rate: Sampling rate for frequency analysis
@@ -174,8 +166,7 @@ class ResonanceEngine:
     def compute_resonance_spectrum(
         self, signal_data: NDArray[Any]
     ) -> tuple[NDArray[Any], NDArray[Any]]:
-        """
-        Compute frequency spectrum using FFT.
+        """Compute frequency spectrum using FFT.
 
         Args:
             signal_data: Input signal data
@@ -199,8 +190,7 @@ class ResonanceEngine:
         target_frequencies: list[float] | None = None,
         amplification_factor: float = 2.0,
     ) -> NDArray[Any]:
-        """
-        Amplify specific resonant frequencies in the signal.
+        """Amplify specific resonant frequencies in the signal.
 
         Args:
             signal_data: Input signal
@@ -230,8 +220,7 @@ class ResonanceEngine:
         return np.real(np.array(fft.ifft(fft_result)))
 
     def compute_resonance_score(self, signal_data: NDArray[Any]) -> float:
-        """
-        Compute the H(omega) resonance component score.
+        """Compute the H(omega) resonance component score.
 
         Args:
             signal_data: Input signal for resonance analysis
@@ -274,8 +263,7 @@ class ResonanceEngine:
     def detect_resonance_anomalies(
         self, signal_data: NDArray[Any], threshold_std: float = 3.0
     ) -> dict[str, Any]:
-        """
-        Detect anomalous frequency components.
+        """Detect anomalous frequency components.
 
         Args:
             signal_data: Input signal

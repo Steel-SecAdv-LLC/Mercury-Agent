@@ -1,5 +1,6 @@
-"""
-Raw fusion training-path benchmark.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Raw fusion training-path benchmark.
 
 Demonstrates the headline claim for the "expose the real training path"
 work: ``OmniMercuryEngine.fit_fusion(X, y)`` trained directly on *raw*
@@ -17,9 +18,6 @@ first run). Run with::
 
     python -m benchmarks.fusion_raw_benchmark
     python -m benchmarks.fusion_raw_benchmark --datasets thyroid WBC cardio
-
-Mercury Agent - Copyright (C) 2025 Steel Security Advisors LLC
-Licensed under GNU GPL v3
 """
 
 from __future__ import annotations

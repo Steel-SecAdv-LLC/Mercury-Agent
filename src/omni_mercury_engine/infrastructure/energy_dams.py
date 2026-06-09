@@ -1,25 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-from typing import Any
-
-"""
-CISA Energy & Dams Critical Infrastructure Anomaly Detection
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""CISA Energy & Dams Critical Infrastructure Anomaly Detection.
 
 Power grid stability and dam structural monitoring.
 
@@ -27,10 +8,12 @@ Research sources:
 - CISA Energy Sector framework
 - CISA Dams Sector framework
 - NERC (North American Electric Reliability Corporation) standards
-
 """
 
+from __future__ import annotations
+
 from enum import Enum
+from typing import Any
 
 import numpy as np
 
@@ -53,8 +36,7 @@ class DamType(Enum):
 
 
 class EnergyDamsDetector:
-    """
-    Anomaly detection for CISA Energy and Dams critical infrastructure.
+    """Anomaly detection for CISA Energy and Dams critical infrastructure.
 
     Monitors:
     - Power grid stability (frequency, voltage, load)
@@ -65,6 +47,7 @@ class EnergyDamsDetector:
     """
 
     def __init__(self, subsector: EnergySubsector | None = None) -> None:
+        """Initialize the instance."""
         self.subsector = subsector or EnergySubsector.ELECTRICITY
         self.grid_parameters = {
             "frequency_hz": {"nominal": 60.0, "tolerance": 0.05},
@@ -83,8 +66,7 @@ class EnergyDamsDetector:
         detection_type: str = "grid",
         timestamps: np.ndarray[Any, Any] | None = None,
     ) -> dict[str, Any]:
-        """
-        Generic detection interface for energy/dams infrastructure.
+        """Generic detection interface for energy/dams infrastructure.
 
         Args:
             data: Sensor data as numpy array
@@ -112,8 +94,7 @@ class EnergyDamsDetector:
         grid_data: dict[str, np.ndarray[Any, Any]],
         timestamps: np.ndarray[Any, Any] | None = None,
     ) -> dict[str, Any]:
-        """
-        Detect power grid anomalies.
+        """Detect power grid anomalies.
 
         Args:
             grid_data: Grid measurements dict
@@ -141,8 +122,7 @@ class EnergyDamsDetector:
     def detect_dam_anomaly(
         self, dam_data: dict[str, float], dam_type: DamType = DamType.MULTIPURPOSE
     ) -> dict[str, Any]:
-        """
-        Detect dam structural and operational anomalies.
+        """Detect dam structural and operational anomalies.
 
         Args:
             dam_data: Dam measurements dict

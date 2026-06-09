@@ -1,8 +1,6 @@
-from typing import Any
-
-"""
-Mercury Agent - Tests for Enhanced Domain Components
-Copyright (C) 2025 Steel Security Advisors LLC
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for Enhanced Domain Components.
 
 Comprehensive tests for:
 - Enhanced base domain detectors (adaptive thresholds, event metrics, spatial)
@@ -10,6 +8,8 @@ Comprehensive tests for:
 - Domain metrics module
 - GOSNN integration layer
 """
+
+from typing import Any
 
 import numpy as np
 import pytest

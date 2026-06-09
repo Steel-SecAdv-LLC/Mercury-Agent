@@ -1,5 +1,5 @@
-# SPDX-License-Identifier: GPL-3.0-only
-# Copyright (C) Steel Security Advisors LLC
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Probe 19: Boltzmann coupling probe for detecting coupling structure breaks."""
 
 from __future__ import annotations
@@ -24,6 +24,7 @@ class BoltzmannCouplingProbe(BaseEquationProbe):
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         super().__init__(min_samples=20)
         self._max_lag: int = 1
         self._j_coeffs: npt.NDArray[np.float64] = np.array([], dtype=np.float64)

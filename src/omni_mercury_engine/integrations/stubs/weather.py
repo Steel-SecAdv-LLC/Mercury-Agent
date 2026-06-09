@@ -1,14 +1,6 @@
-"""
-Mercury Agent
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Weather service stub for testing and development.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Weather service stub for testing and development.
 
 Example:
     >>> service = WeatherServiceStub()
@@ -49,8 +41,7 @@ class WeatherCondition(Enum):
 
 @dataclass
 class WeatherData:
-    """
-    Weather data structure.
+    """Weather data structure.
 
     Attributes:
         location: Location name or coordinates.
@@ -148,8 +139,7 @@ class WeatherServiceStub:
         latency_ms: tuple[int, int] = (50, 200),
         failure_rate: float = 0.0,
     ):
-        """
-        Initialize weather stub.
+        """Initialize weather stub.
 
         Args:
             seed: Random seed for reproducibility.
@@ -224,8 +214,7 @@ class WeatherServiceStub:
         )
 
     async def get_current(self, location: str) -> WeatherData:
-        """
-        Get current weather for location.
+        """Get current weather for location.
 
         Args:
             location: Location name or coordinates.
@@ -249,8 +238,7 @@ class WeatherServiceStub:
         location: str,
         days: int = 7,
     ) -> list[WeatherForecast]:
-        """
-        Get weather forecast.
+        """Get weather forecast.
 
         Args:
             location: Location name.
@@ -285,8 +273,7 @@ class WeatherServiceStub:
         return forecasts
 
     async def get_alerts(self, location: str) -> list[dict[str, Any]]:
-        """
-        Get weather alerts for location.
+        """Get weather alerts for location.
 
         Args:
             location: Location name.
@@ -398,8 +385,7 @@ class WeatherService:
         timeout: int = 30,
         cache_ttl: int = 300,  # 5 minutes
     ):
-        """
-        Initialize weather service.
+        """Initialize weather service.
 
         The ``fallback_to_stub`` parameter was removed in the May 2026
         Phase 2 audit cure — silent fallback to stub data is not
@@ -450,8 +436,7 @@ class WeatherService:
         return self.OWM_CONDITION_MAP.get(code, WeatherCondition.CLOUDY)
 
     async def _fetch_openweathermap(self, location: str) -> WeatherData:
-        """
-        Fetch weather from OpenWeatherMap API.
+        """Fetch weather from OpenWeatherMap API.
 
         API Documentation: https://openweathermap.org/api
         """
@@ -571,8 +556,7 @@ class WeatherService:
         return await loop.run_in_executor(None, fetch)
 
     async def _fetch_noaa(self, lat: float, lon: float) -> WeatherData:
-        """
-        Fetch weather from NOAA National Weather Service API.
+        """Fetch weather from NOAA National Weather Service API.
 
         API Documentation: https://www.weather.gov/documentation/services-web-api
         Only works for US locations.
@@ -653,8 +637,7 @@ class WeatherService:
         )
 
     async def get_current(self, location: str) -> WeatherData:
-        """
-        Get current weather for location.
+        """Get current weather for location.
 
         Args:
             location: Location name (city, address).
@@ -686,8 +669,7 @@ class WeatherService:
         return data
 
     async def get_current_by_coords(self, lat: float, lon: float) -> WeatherData:
-        """
-        Get current weather by coordinates.
+        """Get current weather by coordinates.
 
         Args:
             lat: Latitude.
@@ -721,8 +703,7 @@ class WeatherService:
         location: str,
         days: int = 7,
     ) -> list[WeatherForecast]:
-        """
-        Get weather forecast.
+        """Get weather forecast.
 
         Args:
             location: Location name.
@@ -816,8 +797,7 @@ class WeatherService:
         return forecasts
 
     async def get_alerts(self, location: str) -> list[dict[str, Any]]:
-        """
-        Get weather alerts for location.
+        """Get weather alerts for location.
 
         Args:
             location: Location name.

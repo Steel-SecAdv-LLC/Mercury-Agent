@@ -1,28 +1,10 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Harmonic analysis encoder using spherical harmonics and Fourier analysis. Provides frequency-domain feature extraction for anomaly detection."""
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
-
-"""
-Harmonic analysis encoder using spherical harmonics and Fourier analysis.
-Provides frequency-domain feature extraction for anomaly detection.
-"""
-
 
 import numpy as np
 
@@ -85,20 +67,20 @@ _sph_harm = _make_sph_harm()
 
 
 class SphericalHarmonicDecomposer:
-    """Spherical harmonic decomposition for 3D surface analysis Provides rotation-invariant feature
+    """Spherical harmonic decomposition for 3D surface analysis Provides rotation-invariant feature.
 
     extraction for facial biometrics.
     """
 
     def __init__(self, l_max: int = 10) -> None:
+        """Initialize the instance."""
         self.l_max = l_max
         self.num_coefficients = (l_max + 1) ** 2
 
     def decompose_surface(
         self, points: np.ndarray[Any, Any], values: np.ndarray[Any, Any]
     ) -> np.ndarray[Any, Any]:
-        """
-        Decompose 3D surface into spherical harmonic coefficients.
+        """Decompose 3D surface into spherical harmonic coefficients.
 
         Args:
             points: Array of shape (N, 3) containing (x, y, z) coordinates
@@ -126,8 +108,7 @@ class SphericalHarmonicDecomposer:
         theta: np.ndarray[Any, Any],
         phi: np.ndarray[Any, Any],
     ) -> np.ndarray[Any, Any]:
-        """
-        Reconstruct surface from spherical harmonic coefficients.
+        """Reconstruct surface from spherical harmonic coefficients.
 
         Args:
             coefficients: Spherical harmonic coefficients
@@ -151,8 +132,7 @@ class SphericalHarmonicDecomposer:
     def compute_rotation_invariant_features(
         self, coefficients: np.ndarray[Any, Any]
     ) -> np.ndarray[Any, Any]:
-        """
-        Compute rotation-invariant features from spherical harmonic coefficients Uses power spectrum
+        """Compute rotation-invariant features from spherical harmonic coefficients Uses power spectrum.
 
         which is rotation-invariant.
 
@@ -177,8 +157,7 @@ class SphericalHarmonicDecomposer:
     def _cartesian_to_spherical(
         self, points: np.ndarray[Any, Any]
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """
-        Convert Cartesian coordinates to spherical (theta, phi)
+        """Convert Cartesian coordinates to spherical (theta, phi).
 
         Args:
             points: Array of shape (N, 3) with (x, y, z)
@@ -200,11 +179,11 @@ class FourierHarmonicAnalyzer:
     """Fourier harmonic analysis for frequency-domain pattern extraction."""
 
     def __init__(self, num_harmonics: int = 8) -> None:
+        """Initialize the instance."""
         self.num_harmonics = num_harmonics
 
     def extract_harmonics(self, signal: np.ndarray[Any, Any]) -> dict[str, np.ndarray[Any, Any]]:
-        """
-        Extract harmonic components from signal using FFT.
+        """Extract harmonic components from signal using FFT.
 
         Args:
             signal: Input signal (1D array)
@@ -234,8 +213,7 @@ class FourierHarmonicAnalyzer:
     def apply_bandpass_filter(
         self, signal: np.ndarray[Any, Any], low_freq: float, high_freq: float
     ) -> np.ndarray[Any, Any]:
-        """
-        Apply bandpass filter to signal.
+        """Apply bandpass filter to signal.
 
         Args:
             signal: Input signal
@@ -257,20 +235,19 @@ class FourierHarmonicAnalyzer:
 
 
 class QuantumHarmonicOscillator:
-    """
-    Quantum harmonic oscillator model for state evolution.
+    """Quantum harmonic oscillator model for state evolution.
 
     Based on quantum mechanics principles for coherent state evolution.
     """
 
     def __init__(self, mass: float = 1.0, omega: float = 1.0, hbar: float = 1.0) -> None:
+        """Initialize the instance."""
         self.mass = mass
         self.omega = omega
         self.hbar = hbar
 
     def energy_level(self, n: int) -> float:
-        """
-        Compute energy of quantum harmonic oscillator at level n.
+        """Compute energy of quantum harmonic oscillator at level n.
 
         Args:
             n: Quantum number (non-negative integer)
@@ -281,8 +258,7 @@ class QuantumHarmonicOscillator:
         return self.hbar * self.omega * (n + 0.5)
 
     def wavefunction(self, x: np.ndarray[Any, Any], n: int) -> np.ndarray[Any, Any]:
-        """
-        Compute wavefunction for quantum harmonic oscillator.
+        """Compute wavefunction for quantum harmonic oscillator.
 
         Args:
             x: Position array
@@ -307,8 +283,7 @@ class QuantumHarmonicOscillator:
     def evolve_state(
         self, psi_0: np.ndarray[Any, Any], t: float, n_max: int = 10
     ) -> np.ndarray[Any, Any]:
-        """
-        Evolve quantum state in time.
+        """Evolve quantum state in time.
 
         Args:
             psi_0: Initial state
@@ -344,6 +319,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             num_fourier_harmonics: int = 8,
             output_dim: int = 64,
         ):
+            """Initialize the instance."""
             super().__init__()
 
             self.spherical_decomposer = SphericalHarmonicDecomposer(l_max=l_max)
@@ -359,8 +335,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             values: torch.Tensor | None = None,
             signal: torch.Tensor | None = None,
         ) -> torch.Tensor:
-            """
-            Extract harmonic features from 3D surface or 1D signal.
+            """Extract harmonic features from 3D surface or 1D signal.
 
             Args:
                 points: 3D surface points (N, 3)
@@ -415,4 +390,5 @@ else:
         """Stub: HarmonicEncoder requires PyTorch."""
 
         def __init__(self, *args: Any, **kwargs: Any) -> None:
+            """Initialize the instance."""
             raise ImportError("HarmonicEncoder requires PyTorch. Install with: pip install torch")

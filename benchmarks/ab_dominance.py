@@ -1,14 +1,7 @@
 #!/usr/bin/env python3
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-A/B Benchmark: Baseline vs weighted fusion Equation
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""A/B Benchmark: Baseline vs weighted fusion Equation.
 
 Compares detection performance between baseline anomaly detection
 and the weighted fusion equation: A = (w_R*R(x) + w_H*H(omega) + w_O*O(theta)) * sigma_Immutable^phi
@@ -25,7 +18,6 @@ Expected Results:
 - weighted fusion should reduce FP by 5-15%
 - weighted fusion should converge 25-28% faster (lambda=0.25 vs 0.18)
 - Both should maintain Lyapunov stability
-
 """
 
 import argparse
@@ -57,7 +49,6 @@ import importlib.util
 HAS_TORCH = importlib.util.find_spec("torch") is not None
 if not HAS_TORCH:
     logger.warning("PyTorch not available - using simulation mode")
-
 
 # Constants
 PHI = 1.618033988749895

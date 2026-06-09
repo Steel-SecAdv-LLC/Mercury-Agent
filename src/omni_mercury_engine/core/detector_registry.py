@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Unified Detector Registry - Bridge connecting detectors across domains for fusion.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Unified Detector Registry - Bridge connecting detectors across domains for fusion.
 
 This module provides a central registry for all anomaly detectors and models,
 enabling:
@@ -72,6 +55,8 @@ Example:
     >>> features = registry.extract_all_features(data)
     >>> print(f"Collected features from {len(features)} detectors")
 """
+
+from __future__ import annotations
 
 import logging
 import time
@@ -183,8 +168,7 @@ class FeatureExtractionResult:
 
 @dataclass(frozen=True)
 class DetectorManifestEntry:
-    """
-    Declarative entry describing a discoverable detector.
+    """Declarative entry describing a discoverable detector.
 
     Each entry maps a detector name to the module/class that provides it, along with registration
     metadata.  The manifest is iterated by ``auto_discover_detectors`` so new detectors can be added
@@ -587,8 +571,7 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
 
 
 class DetectorRegistry:
-    """
-    Central registry for all anomaly detectors and models.
+    """Central registry for all anomaly detectors and models.
 
     Provides unified interface for:
     - Detector registration and discovery
@@ -608,8 +591,7 @@ class DetectorRegistry:
         timeout_seconds: float = 30.0,
         auto_discover: bool = False,
     ):
-        """
-        Initialize DetectorRegistry.
+        """Initialize DetectorRegistry.
 
         Args:
             max_workers: Maximum parallel workers for feature extraction
@@ -637,8 +619,7 @@ class DetectorRegistry:
         description: str = "",
         tags: list[str] | None = None,
     ) -> None:
-        """
-        Register a detector with the registry.
+        """Register a detector with the registry.
 
         Args:
             name: Unique detector name
@@ -667,8 +648,7 @@ class DetectorRegistry:
         logger.debug(f"Registered detector: {name} (category={category.value})")
 
     def unregister(self, name: str) -> bool:
-        """
-        Unregister a detector.
+        """Unregister a detector.
 
         Args:
             name: Detector name to remove
@@ -718,8 +698,7 @@ class DetectorRegistry:
         name: str,
         data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],
     ) -> FeatureExtractionResult:
-        """
-        Extract features from a single detector with circuit breaker protection.
+        """Extract features from a single detector with circuit breaker protection.
 
         Uses circuit breaker pattern to prevent cascade failures when a detector
         repeatedly fails. If the circuit is open, returns a failed result immediately
@@ -881,8 +860,7 @@ class DetectorRegistry:
         rolling_window_size: int = 5,
         temporal_lags: list[int] | None = None,
     ) -> dict[str, torch.Tensor]:
-        """
-        Aggregate features from multiple detectors for fusion.
+        """Aggregate features from multiple detectors for fusion.
 
         Enhanced with feature engineering capabilities for improved anomaly detection:
         - Interaction features: Cross-detector correlation features
@@ -953,8 +931,7 @@ class DetectorRegistry:
     def _apply_golden_ratio_scaling(
         self, features: dict[str, torch.Tensor]
     ) -> dict[str, torch.Tensor]:
-        """
-        Apply golden ratio (phi) scaling to feature dimensions.
+        """Apply golden ratio (phi) scaling to feature dimensions.
 
         The golden ratio (1.618...) has been shown to optimize information distribution in neural
         networks and signal processing.
@@ -979,8 +956,7 @@ class DetectorRegistry:
         window_size: int,
         device: str,
     ) -> dict[str, torch.Tensor]:
-        """
-        Add rolling window statistics to features.
+        """Add rolling window statistics to features.
 
         Computes mean, std, min, max over sliding windows for each feature.
         """
@@ -1047,8 +1023,7 @@ class DetectorRegistry:
         features: dict[str, torch.Tensor],
         device: str,
     ) -> dict[str, torch.Tensor]:
-        """
-        Add interaction features between detector outputs.
+        """Add interaction features between detector outputs.
 
         Creates cross-correlation and product features for enhanced detection.
         """
@@ -1095,8 +1070,7 @@ class DetectorRegistry:
         return enhanced
 
     def auto_discover_detectors(self) -> int:
-        """
-        Auto-discover and register available detectors.
+        """Auto-discover and register available detectors.
 
         Iterates over DETECTOR_MANIFEST entries, dynamically importing each
         detector class and registering it. Missing optional dependencies are
@@ -1142,8 +1116,7 @@ class DetectorRegistry:
         device: str = "cpu",
         enable_gosnn_synapse: bool = True,
     ) -> dict[str, Any]:
-        """
-        Aggregate features from enhanced geological detectors with 128D normalization.
+        """Aggregate features from enhanced geological detectors with 128D normalization.
 
         This method specifically handles the enhanced Landslide, Wildfire, and Volcanic
         detectors with their 3R mechanism synapses (Recursion, Resonance, Refactoring).
@@ -1280,8 +1253,7 @@ class DetectorRegistry:
         return {name: info.feature_dim for name, info in self._detectors.items()}
 
     def health_check(self) -> dict[str, Any]:
-        """
-        Perform health check on all detectors.
+        """Perform health check on all detectors.
 
         Returns:
             Dictionary with health status per detector

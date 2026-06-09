@@ -1,10 +1,7 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Rule-vs-citation pin harness.
 
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under
-the terms of the GNU General Public License as published by the Free Software
-Foundation, either version 3 of the License, or (at your option) any later
 version.
 
 Task 6 (PR 2 refinement): every FDA / ADA / NWS / ASA threshold that is
@@ -80,7 +77,6 @@ _OPERATORS: Final[dict[str, Callable[[Any, Any], bool]]] = {
     "contains": lambda lhs, rhs: rhs in lhs,
 }
 
-
 CLINICAL_RULE_PINS: Final[tuple[_ClinicalRulePin, ...]] = (
     _ClinicalRulePin(
         "endocrinology_detector",
@@ -155,7 +151,6 @@ CLINICAL_RULE_PINS: Final[tuple[_ClinicalRulePin, ...]] = (
         103.0,
     ),
 )
-
 
 _MODULES: Final[dict[str, Any]] = {
     "endocrinology_detector": endocrinology_detector,

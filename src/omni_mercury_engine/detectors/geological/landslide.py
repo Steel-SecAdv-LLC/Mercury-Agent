@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Landslide & Avalanche Detector - Slope Instability Analysis
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Landslide & Avalanche Detector - Slope Instability Analysis.
 
 Comprehensive slope failure detection for humanitarian early warning:
 - Slope stability monitoring (rainfall-triggered, seismic-triggered)
@@ -41,8 +24,9 @@ Research sources:
 - Swiss Federal Institute for Snow and Avalanche Research (SLF)
 
 Performance: 30% faster alerts via multi-modal sensor fusion
-
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -105,18 +89,17 @@ class LandslidePredictionResult:
 
 
 class RainfallTriggerModel:
-    """
-    Rainfall-induced landslide trigger analysis.
+    """Rainfall-induced landslide trigger analysis.
 
     Uses intensity-duration thresholds and antecedent rainfall.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
     def assess_rainfall_trigger(self, rainfall_data: dict[str, Any]) -> dict[str, Any]:
-        """
-        Assess rainfall-induced landslide risk.
+        """Assess rainfall-induced landslide risk.
 
         Args:
             rainfall_data: Rainfall intensity, duration, antecedent precipitation
@@ -157,18 +140,17 @@ class RainfallTriggerModel:
 
 
 class SeismicTriggerModel:
-    """
-    Earthquake-induced landslide trigger analysis.
+    """Earthquake-induced landslide trigger analysis.
 
     Uses peak ground acceleration (PGA) and slope characteristics.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
     def assess_seismic_trigger(self, seismic_data: dict[str, Any]) -> dict[str, Any]:
-        """
-        Assess earthquake-induced landslide risk.
+        """Assess earthquake-induced landslide risk.
 
         Args:
             seismic_data: PGA, magnitude, epicentral distance
@@ -199,13 +181,13 @@ class SeismicTriggerModel:
 
 
 class SlopeStabilityModel(nn.Module):
-    """
-    Neural network for slope stability assessment.
+    """Neural network for slope stability assessment.
 
     Integrates topography, soil properties, and hydrological conditions.
     """
 
     def __init__(self, input_dim: int = 64) -> None:
+        """Initialize the instance."""
         super().__init__()
 
         phi = 1.618
@@ -228,8 +210,7 @@ class SlopeStabilityModel(nn.Module):
         self.type_classifier = nn.Sequential(nn.Linear(64, 32), nn.ReLU(), nn.Linear(32, 6))
 
     def forward(self, slope_features: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        """
-        Predict slope failure probability and type.
+        """Predict slope failure probability and type.
 
         Args:
             slope_features: Integrated slope characteristics
@@ -246,8 +227,7 @@ class SlopeStabilityModel(nn.Module):
 
 
 class RecursionMultiScaleAnalyzer:
-    """
-    3R Recursion mechanism for multi-scale landslide analysis.
+    """3R Recursion mechanism for multi-scale landslide analysis.
 
     Implements hierarchical feature extraction at multiple temporal scales
     to capture both rapid onset (debris flows) and slow-moving (earth flows)
@@ -261,8 +241,7 @@ class RecursionMultiScaleAnalyzer:
         scales: list[int] | None = None,
         phi: float = 1.618033988749895,
     ):
-        """
-        Initialize multi-scale analyzer.
+        """Initialize multi-scale analyzer.
 
         Args:
             scales: Temporal scales for analysis (default: [1, 4, 16, 64] hours)
@@ -281,8 +260,7 @@ class RecursionMultiScaleAnalyzer:
         time_series: np.ndarray[Any, Any],
         sample_rate_hz: float = 1.0,
     ) -> dict[str, np.ndarray[Any, Any]]:
-        """
-        Extract features at multiple temporal scales.
+        """Extract features at multiple temporal scales.
 
         Args:
             time_series: Input time series data (e.g., displacement, rainfall)
@@ -322,8 +300,7 @@ class RecursionMultiScaleAnalyzer:
         data: np.ndarray[Any, Any],
         scale: int,
     ) -> np.ndarray[Any, Any]:
-        """
-        Compute features for a specific scale.
+        """Compute features for a specific scale.
 
         Args:
             data: Downsampled time series
@@ -353,8 +330,7 @@ class RecursionMultiScaleAnalyzer:
 
 
 class TemporalLagFeatureExtractor:
-    """
-    Extract temporal lag features for landslide prediction.
+    """Extract temporal lag features for landslide prediction.
 
     Captures delayed effects of rainfall and seismic events on slope stability.
     """
@@ -363,8 +339,7 @@ class TemporalLagFeatureExtractor:
         self,
         lag_hours: list[int] | None = None,
     ):
-        """
-        Initialize temporal lag extractor.
+        """Initialize temporal lag extractor.
 
         Args:
             lag_hours: Lag periods in hours (default: [1, 6, 12, 24, 48, 72])
@@ -377,8 +352,7 @@ class TemporalLagFeatureExtractor:
         time_series: np.ndarray[Any, Any],
         sample_rate_hz: float = 1.0,
     ) -> np.ndarray[Any, Any]:
-        """
-        Extract lag features from time series.
+        """Extract lag features from time series.
 
         Args:
             time_series: Input time series
@@ -415,8 +389,7 @@ class TemporalLagFeatureExtractor:
 
 
 class SVMRFEnsembleClassifier:
-    """
-    Ensemble classifier combining SVM and Random Forest for landslide detection.
+    """Ensemble classifier combining SVM and Random Forest for landslide detection.
 
     Provides robust classification by combining:
     - SVM: Good for high-dimensional feature spaces
@@ -429,8 +402,7 @@ class SVMRFEnsembleClassifier:
         rf_n_estimators: int = 100,
         ensemble_weights: tuple[float, float] = (0.4, 0.6),
     ):
-        """
-        Initialize ensemble classifier.
+        """Initialize ensemble classifier.
 
         Args:
             svm_kernel: SVM kernel type ('rbf', 'linear', 'poly')
@@ -460,8 +432,7 @@ class SVMRFEnsembleClassifier:
         X: np.ndarray[Any, Any],
         y: np.ndarray[Any, Any],
     ) -> SVMRFEnsembleClassifier:
-        """
-        Fit both classifiers on training data.
+        """Fit both classifiers on training data.
 
         Args:
             X: Training features
@@ -481,8 +452,7 @@ class SVMRFEnsembleClassifier:
         self,
         X: np.ndarray[Any, Any],
     ) -> np.ndarray[Any, Any]:
-        """
-        Predict class probabilities using ensemble.
+        """Predict class probabilities using ensemble.
 
         Args:
             X: Input features
@@ -505,8 +475,7 @@ class SVMRFEnsembleClassifier:
         return ensemble_proba
 
     def get_feature_importance(self) -> np.ndarray[Any, Any]:
-        """
-        Get feature importance from Random Forest.
+        """Get feature importance from Random Forest.
 
         Returns:
             Feature importance array
@@ -517,8 +486,7 @@ class SVMRFEnsembleClassifier:
 
 
 class LandslideDetector:
-    """
-    Comprehensive landslide and avalanche detection system.
+    """Comprehensive landslide and avalanche detection system.
 
     Integrates rainfall, seismic, snowmelt triggers with slope stability analysis.
 
@@ -537,6 +505,7 @@ class LandslideDetector:
         enable_ml_ensemble: bool = True,
         enable_recursion: bool = True,
     ):
+        """Initialize the instance."""
         self.enable_rainfall = enable_rainfall_trigger
         self.enable_seismic = enable_seismic_trigger
         self.enable_stability = enable_stability_model
@@ -555,8 +524,7 @@ class LandslideDetector:
         self.logger = logging.getLogger(__name__)
 
     def predict_landslide(self, landslide_data: dict[str, Any]) -> LandslidePredictionResult:
-        """
-        Comprehensive landslide prediction.
+        """Comprehensive landslide prediction.
 
         Args:
             landslide_data: Multi-parameter slope monitoring data including:

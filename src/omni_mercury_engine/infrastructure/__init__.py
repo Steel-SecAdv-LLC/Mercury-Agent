@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Critical Infrastructure Anomaly Detection with Multi-Framework Integration
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Critical Infrastructure Anomaly Detection with Multi-Framework Integration.
 
 Monitors CISA critical infrastructure sectors, EU Critical Entities,
 World Bank economic sectors, and emerging technologies for anomalies.
@@ -25,6 +8,8 @@ World Bank economic sectors, and emerging technologies for anomalies.
 Includes filtering/selection system to run subsets of modules (1-29+) for
 flexible STEM applications.
 """
+
+from __future__ import annotations
 
 from typing import Any, TypedDict
 
@@ -161,8 +146,7 @@ class InfrastructureCoordinator:
         }
 
     def get_module(self, module_name: str, **kwargs: Any) -> Any:
-        """
-        Instantiate a specific module by name.
+        """Instantiate a specific module by name.
 
         Args:
             module_name: Name of module from registry
@@ -180,8 +164,7 @@ class InfrastructureCoordinator:
         return module_class(**kwargs)
 
     def get_modules_by_category(self, category: str) -> list[str]:
-        """
-        Get all module names in a category.
+        """Get all module names in a category.
 
         Args:
             category: 'cisa_sector', 'resilience', 'cyber', 'humanitarian', 'economic', 'scientific'
@@ -192,8 +175,7 @@ class InfrastructureCoordinator:
         return [name for name, info in self.modules.items() if info["category"] == category]
 
     def get_modules_by_priority(self, priority: str) -> list[str]:
-        """
-        Get all module names with a priority level.
+        """Get all module names with a priority level.
 
         Args:
             priority: 'high', 'medium', 'low'
@@ -209,8 +191,7 @@ class InfrastructureCoordinator:
         priorities: list[str] | None = None,
         module_names: list[str] | None = None,
     ) -> list[str]:
-        """
-        Filter modules based on multiple criteria.
+        """Filter modules based on multiple criteria.
 
         Args:
             categories: Filter by categories (e.g., ['cyber', 'resilience'])
@@ -246,8 +227,7 @@ class InfrastructureCoordinator:
         module_names: list[str] | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
-        """
-        Instantiate all modules matching filters.
+        """Instantiate all modules matching filters.
 
         Args:
             categories: Filter by categories
@@ -272,8 +252,7 @@ class InfrastructureCoordinator:
         return instances
 
     def list_all_modules(self) -> dict[str, dict[str, str]]:
-        """
-        List all available modules with metadata.
+        """List all available modules with metadata.
 
         Returns:
             Dictionary of module metadata

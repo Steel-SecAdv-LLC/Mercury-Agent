@@ -1,8 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Regression tests for ``scripts/update_readme_benchmarks.py``.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Regression tests for ``scripts/update_readme_benchmarks.py``.
 
 The README updater historically read ``data["commit"]`` and
 ``data["timestamp"]``, but ``benchmarks/mercury_benchmark.py`` writes

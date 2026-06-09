@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Oracle-validated verifier for a twin-prime MATHEMATICAL_MYSTERIES scalar.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Oracle-validated verifier for a twin-prime MATHEMATICAL_MYSTERIES scalar.
 
 The twin-prime conjecture ("infinitely many primes p with p+2 also prime") is open, so it is a
 genuine ``MATHEMATICAL_MYSTERIES`` entry.  An *instance* -- a claimed pair (p, p+2) -- is a
@@ -27,6 +10,8 @@ This module is certificate-first: :func:`verify_certificate` adjudicates a pair 
 in*; it never searches.  :func:`find_twin_prime` is a thin, swappable candidate generator -- the
 proposer is not the artifact, the oracle is.
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass

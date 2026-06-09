@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Solar & Geomagnetic Storm Detector - Space Weather Monitoring
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Solar & Geomagnetic Storm Detector - Space Weather Monitoring.
 
 Comprehensive space weather detection for critical infrastructure protection:
 - Solar flare detection (X-ray classification)
@@ -42,8 +25,9 @@ Research sources:
 - ESA Space Weather Service
 
 Performance: 35% improved prediction via multi-modal solar + magnetosphere fusion
-
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -113,11 +97,11 @@ class SolarFlareDetector:
     """Real-time solar flare detection from X-ray flux."""
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
     def detect_solar_flare(self, xray_data: dict[str, Any]) -> dict[str, Any]:
-        """
-        Detect solar flares from X-ray flux.
+        """Detect solar flares from X-ray flux.
 
         Args:
             xray_data: X-ray flux measurements (short, long wavelength)
@@ -169,11 +153,11 @@ class CMETracker:
     """Coronal Mass Ejection tracking and arrival prediction."""
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
     def track_cme(self, cme_data: dict[str, Any]) -> dict[str, Any]:
-        """
-        Track CME and predict Earth arrival.
+        """Track CME and predict Earth arrival.
 
         Args:
             cme_data: CME speed, direction, angular width
@@ -211,13 +195,13 @@ class CMETracker:
 
 
 class GeomagneticStormPredictor(nn.Module):
-    """
-    Neural network for geomagnetic storm prediction.
+    """Neural network for geomagnetic storm prediction.
 
     Integrates solar wind, IMF, magnetometer data.
     """
 
     def __init__(self, input_dim: int = 32) -> None:
+        """Initialize the instance."""
         super().__init__()
 
         phi = 1.618
@@ -240,8 +224,7 @@ class GeomagneticStormPredictor(nn.Module):
         self.kp_predictor = nn.Sequential(nn.Linear(64, 16), nn.ReLU(), nn.Linear(16, 1))
 
     def forward(self, magnetosphere_features: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        """
-        Predict geomagnetic storm probability and Kp index.
+        """Predict geomagnetic storm probability and Kp index.
 
         Args:
             magnetosphere_features: Solar wind + IMF + magnetometer data
@@ -259,8 +242,7 @@ class GeomagneticStormPredictor(nn.Module):
 
 
 class SolarStormDetector:
-    """
-    Comprehensive solar and geomagnetic storm detection system.
+    """Comprehensive solar and geomagnetic storm detection system.
 
     Integrates solar flares, CMEs, geomagnetic indices for infrastructure protection.
     """
@@ -271,6 +253,7 @@ class SolarStormDetector:
         enable_cme_tracking: bool = True,
         enable_geomag_prediction: bool = True,
     ):
+        """Initialize the instance."""
         self.enable_flare = enable_flare_detection
         self.enable_cme = enable_cme_tracking
         self.enable_geomag = enable_geomag_prediction
@@ -282,8 +265,7 @@ class SolarStormDetector:
         self.logger = logging.getLogger(__name__)
 
     def predict_solar_storm(self, storm_data: dict[str, Any]) -> SolarStormPredictionResult:
-        """
-        Comprehensive solar storm prediction.
+        """Comprehensive solar storm prediction.
 
         Args:
             storm_data: Multi-parameter space weather data including:

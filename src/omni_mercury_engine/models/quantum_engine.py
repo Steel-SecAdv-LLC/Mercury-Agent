@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Quantum Computing Engine for Mercury Agent
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Quantum Computing Engine for Mercury Agent.
 
 Provides quantum computing algorithms and simulations for anomaly detection:
 - Grover's quantum search algorithm (O(√N) speedup)
@@ -37,6 +20,8 @@ References:
     - Bennett, C.H. & Brassard, G. (1984): Quantum cryptography (BB84)
     - Nielsen & Chuang: Quantum Computation and Quantum Information
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
@@ -64,8 +49,7 @@ class QuantumState:
             self.amplitudes = self.amplitudes / norm
 
     def measure(self, rng: np.random.Generator | None = None) -> int:
-        """
-        Measure the quantum state (collapse to classical state).
+        """Measure the quantum state (collapse to classical state).
 
         Args:
             rng: Optional caller-supplied ``Generator``. ``None`` (default)
@@ -144,8 +128,7 @@ class QuantumCircuit:
     """Quantum circuit simulator with state vector representation."""
 
     def __init__(self, num_qubits: int) -> None:
-        """
-        Initialize quantum circuit.
+        """Initialize quantum circuit.
 
         Args:
             num_qubits: Number of qubits in the circuit
@@ -161,8 +144,7 @@ class QuantumCircuit:
         self.gates: list[tuple[np.ndarray[Any, Any], list[int]]] = []
 
     def apply_gate(self, gate: np.ndarray[Any, Any], target_qubits: list[int]) -> None:
-        """
-        Apply a gate to target qubits.
+        """Apply a gate to target qubits.
 
         Args:
             gate: Gate matrix
@@ -261,8 +243,7 @@ class AnnealingResult:
 
 
 class QuantumEngine:
-    """
-    Quantum computing engine with practical applications.
+    """Quantum computing engine with practical applications.
 
     Implements Grover search, quantum key distribution, entanglement,
     and quantum annealing for anomaly detection optimization.
@@ -274,8 +255,7 @@ class QuantumEngine:
     """
 
     def __init__(self, seed: int | None = None) -> None:
-        """
-        Initialize quantum engine.
+        """Initialize quantum engine.
 
         Args:
             seed: Optional seed for the per-instance ``Generator`` driving
@@ -298,8 +278,7 @@ class QuantumEngine:
         logger.info("QuantumEngine initialized")
 
     def grover_search(self, database_size: int, target_item: int) -> GroverSearchResult:
-        """
-        Grover's algorithm for quantum search.
+        """Grover's algorithm for quantum search.
 
         Achieves O(√N) speedup over classical search.
 
@@ -393,8 +372,7 @@ class QuantumEngine:
             circuit.apply_gate(QuantumGate.hadamard(), [qubit])
 
     def generate_entangled_pair(self) -> tuple[QuantumState, QuantumState]:
-        """
-        Generate entangled qubit pair (Bell state).
+        """Generate entangled qubit pair (Bell state).
 
         Used for quantum key distribution and quantum teleportation.
 
@@ -430,8 +408,7 @@ class QuantumEngine:
             return default_state, default_state
 
     def quantum_key_distribution(self, key_length: int = 256) -> QKDResult:
-        """
-        BB84 Quantum Key Distribution protocol.
+        """BB84 Quantum Key Distribution protocol.
 
         Generates secure cryptographic keys using quantum mechanics.
 
@@ -504,8 +481,7 @@ class QuantumEngine:
             )
 
     def quantum_random_number(self, num_bits: int = 256) -> str:
-        """
-        Generate truly random numbers using quantum superposition.
+        """Generate truly random numbers using quantum superposition.
 
         Args:
             num_bits: Number of random bits to generate
@@ -535,8 +511,7 @@ class QuantumEngine:
         num_vars: int,
         num_iterations: int = 1000,
     ) -> AnnealingResult:
-        """
-        Simulate quantum annealing for optimization.
+        """Simulate quantum annealing for optimization.
 
         Used for finding global minima of complex functions.
 
@@ -602,8 +577,7 @@ class QuantumEngine:
     def calculate_quantum_fidelity(
         self, state1: np.ndarray[Any, Any], state2: np.ndarray[Any, Any]
     ) -> float:
-        """
-        Calculate quantum fidelity between two states.
+        """Calculate quantum fidelity between two states.
 
         Measures how "close" two quantum states are.
 
@@ -636,8 +610,7 @@ class QuantumEngine:
     def quantum_phase_estimation(
         self, unitary: np.ndarray[Any, Any], eigenvector: np.ndarray[Any, Any], precision: int = 8
     ) -> dict[str, Any]:
-        """
-        Quantum phase estimation algorithm.
+        """Quantum phase estimation algorithm.
 
         Estimates eigenvalues of unitary operators.
 
@@ -670,8 +643,7 @@ class QuantumEngine:
             return {"error": str(e)}
 
     def extract_quantum_features(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Extract quantum-inspired features for anomaly detection.
+        """Extract quantum-inspired features for anomaly detection.
 
         Args:
             data: Input data array

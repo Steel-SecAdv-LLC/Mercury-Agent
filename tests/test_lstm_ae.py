@@ -1,11 +1,8 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for LSTM Autoencoder anomaly detection module."""
+
 from typing import Any
-
-"""
-Tests for LSTM Autoencoder anomaly detection module.
-
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-"""
 
 import pytest
 

@@ -1,7 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-Climate and Oceanographic Dataset Loaders - Advanced Marine Data Integration
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Climate and Oceanographic Dataset Loaders - Advanced Marine Data Integration.
 
 This module provides loaders for advanced climate and oceanographic datasets:
 - Simons CMAP: Ocean biogeochemistry, satellite observations, model outputs
@@ -35,8 +34,7 @@ logger = logging.getLogger(__name__)
 
 
 class SimonsCMAPLoader(DatasetLoader):
-    """
-    Simons Collaborative Marine Atlas Project (CMAP) Data Loader.
+    """Simons Collaborative Marine Atlas Project (CMAP) Data Loader.
 
     Downloads REAL ocean biogeochemistry data from Simons CMAP including:
     - Satellite observations (chlorophyll, SST, altimetry)
@@ -99,8 +97,7 @@ class SimonsCMAPLoader(DatasetLoader):
     ]
 
     def __init__(self, config: DatasetConfig) -> None:
-        """
-        Initialize Simons CMAP loader.
+        """Initialize Simons CMAP loader.
 
         Args:
             config: Dataset configuration. Preprocessing options:
@@ -130,8 +127,7 @@ class SimonsCMAPLoader(DatasetLoader):
         return self._is_real_data
 
     def download(self) -> bool:
-        """
-        Download ocean data from Simons CMAP or generate synthetic.
+        """Download ocean data from Simons CMAP or generate synthetic.
 
         Returns:
             True if download successful, False otherwise.
@@ -162,8 +158,7 @@ class SimonsCMAPLoader(DatasetLoader):
         )
 
     def _build_cmap_query(self) -> str:
-        """
-        Build a safe SQL query for the pycmap API with validated numeric bounds.
+        """Build a safe SQL query for the pycmap API with validated numeric bounds.
 
         This method constructs a SQL query for the Simons CMAP API using only
         validated numeric values. All bounds are validated to be within acceptable
@@ -271,8 +266,7 @@ class SimonsCMAPLoader(DatasetLoader):
     def _process_cmap_data(
         self, df: pd.DataFrame
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """
-        Process CMAP query results.
+        """Process CMAP query results.
 
         Args:
             df: DataFrame from CMAP query
@@ -404,8 +398,7 @@ class SimonsCMAPLoader(DatasetLoader):
 
 
 class WorldOceanDatabaseLoader(DatasetLoader):
-    """
-    NCEI World Ocean Database (WOD) Loader.
+    """NCEI World Ocean Database (WOD) Loader.
 
     Downloads REAL oceanographic profiles from the World Ocean Database:
     - Temperature/salinity profiles from ships, Argo floats, XBTs
@@ -452,8 +445,7 @@ class WorldOceanDatabaseLoader(DatasetLoader):
     ]
 
     def __init__(self, config: DatasetConfig) -> None:
-        """
-        Initialize WOD loader.
+        """Initialize WOD loader.
 
         Args:
             config: Dataset configuration. Preprocessing options:
@@ -481,8 +473,7 @@ class WorldOceanDatabaseLoader(DatasetLoader):
         return self._is_real_data
 
     def download(self) -> bool:
-        """
-        Download WOD data from NCEI.
+        """Download WOD data from NCEI.
 
         Note: Full WOD data requires bulk download or WODselect tool.
         This loader uses pre-sorted geographic data when available.
@@ -621,8 +612,7 @@ class WorldOceanDatabaseLoader(DatasetLoader):
 
 
 class CopernicusSeaLevelLoader(DatasetLoader):
-    """
-    Copernicus Climate Data Store Sea Level Loader.
+    """Copernicus Climate Data Store Sea Level Loader.
 
     Downloads REAL satellite altimetry data from Copernicus CDS:
     - Global gridded sea level anomalies (SLA)
@@ -659,8 +649,7 @@ class CopernicusSeaLevelLoader(DatasetLoader):
     ]
 
     def __init__(self, config: DatasetConfig) -> None:
-        """
-        Initialize Copernicus sea level loader.
+        """Initialize Copernicus sea level loader.
 
         Args:
             config: Dataset configuration. Preprocessing options:
@@ -692,8 +681,7 @@ class CopernicusSeaLevelLoader(DatasetLoader):
         return self._is_real_data
 
     def download(self) -> bool:
-        """
-        Download sea level data from Copernicus CDS.
+        """Download sea level data from Copernicus CDS.
 
         Requires CDS API credentials. Register at:
         https://cds.climate.copernicus.eu/user/register
@@ -902,8 +890,7 @@ class CopernicusSeaLevelLoader(DatasetLoader):
 
 
 class CopernicusERA5Loader(DatasetLoader):
-    """
-    Copernicus Climate Data Store ERA5 Reanalysis Loader.
+    """Copernicus Climate Data Store ERA5 Reanalysis Loader.
 
     Downloads REAL atmospheric reanalysis data from ERA5:
     - Hourly data from 1940-present at 0.25° resolution
@@ -966,8 +953,7 @@ class CopernicusERA5Loader(DatasetLoader):
     ]
 
     def __init__(self, config: DatasetConfig) -> None:
-        """
-        Initialize ERA5 loader.
+        """Initialize ERA5 loader.
 
         Args:
             config: Dataset configuration. Preprocessing options:
@@ -1003,8 +989,7 @@ class CopernicusERA5Loader(DatasetLoader):
         return self._is_real_data
 
     def download(self) -> bool:
-        """
-        Download ERA5 reanalysis data from Copernicus CDS.
+        """Download ERA5 reanalysis data from Copernicus CDS.
 
         Returns:
             True if download successful, False otherwise.

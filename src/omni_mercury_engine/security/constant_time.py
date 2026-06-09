@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Constant-Time Security Operations
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Constant-Time Security Operations.
 
 This module provides constant-time implementations for security-critical operations
 to prevent timing attacks and side-channel analysis.
@@ -42,6 +25,8 @@ References:
 - Brumley & Boneh (2003): Remote Timing Attacks are Practical
 """
 
+from __future__ import annotations
+
 import hmac
 import secrets
 from typing import Any
@@ -51,8 +36,7 @@ import numpy.typing as npt
 
 
 def constant_time_compare(a: bytes | str, b: bytes | str) -> bool:
-    """
-    Compare two values in constant time to prevent timing attacks.
+    """Compare two values in constant time to prevent timing attacks.
 
     Uses hmac.compare_digest which is designed to prevent timing attacks
     by ensuring comparison takes the same time regardless of where
@@ -74,8 +58,7 @@ def constant_time_compare(a: bytes | str, b: bytes | str) -> bool:
 
 
 def constant_time_select(condition: bool, true_val: Any, false_val: Any) -> Any:
-    """
-    Select between two values in constant time.
+    """Select between two values in constant time.
 
     Avoids branching on secret-dependent conditions by computing both
     paths and selecting the result using bitwise operations.
@@ -98,8 +81,7 @@ def constant_time_select(condition: bool, true_val: Any, false_val: Any) -> Any:
 
 
 def constant_time_bytes_eq(a: bytes, b: bytes) -> bool:
-    """
-    Compare two byte strings in constant time.
+    """Compare two byte strings in constant time.
 
     Args:
         a: First byte string
@@ -124,8 +106,7 @@ def secure_score_comparison(
     threshold: float,
     noise_scale: float = 1e-10,
 ) -> bool:
-    """
-    Compare anomaly score to threshold in a timing-safe manner.
+    """Compare anomaly score to threshold in a timing-safe manner.
 
     Adds minimal noise to prevent timing attacks based on floating-point
     comparison timing variations.
@@ -150,8 +131,7 @@ def constant_time_array_compare(
     arr2: npt.NDArray[np.floating[Any]],
     tolerance: float = 1e-8,
 ) -> bool:
-    """
-    Compare two arrays in constant time.
+    """Compare two arrays in constant time.
 
     Computes element-wise comparison for all elements regardless of
     early mismatches to prevent timing attacks.
@@ -179,8 +159,7 @@ def secure_signature_verify(
     expected: bytes,
     key: bytes | None = None,
 ) -> bool:
-    """
-    Verify a signature in constant time.
+    """Verify a signature in constant time.
 
     If key is provided, computes HMAC of expected value before comparison.
 
@@ -203,8 +182,7 @@ def constant_time_lookup(
     index: int,
     default: Any = None,
 ) -> Any:
-    """
-    Look up a value in a table in constant time.
+    """Look up a value in a table in constant time.
 
     Iterates through entire table regardless of index to prevent
     timing attacks based on table position.
@@ -246,8 +224,7 @@ class SecureAnomalyChecker:
         threshold: float = 0.5,
         enable_constant_time: bool = True,
     ):
-        """
-        Initialize secure anomaly checker.
+        """Initialize secure anomaly checker.
 
         Args:
             threshold: Detection threshold
@@ -258,8 +235,7 @@ class SecureAnomalyChecker:
         self._check_count = 0
 
     def check(self, score: float) -> bool:
-        """
-        Check if score indicates an anomaly.
+        """Check if score indicates an anomaly.
 
         Args:
             score: Anomaly score to check
@@ -278,8 +254,7 @@ class SecureAnomalyChecker:
         data_signature: bytes,
         known_signature: bytes,
     ) -> bool:
-        """
-        Check if data signature matches known anomaly signature.
+        """Check if data signature matches known anomaly signature.
 
         Args:
             data_signature: Signature of data to check
@@ -298,8 +273,7 @@ class SecureAnomalyChecker:
         known_pattern: npt.NDArray[np.floating[Any]],
         tolerance: float = 0.1,
     ) -> bool:
-        """
-        Check if features match a known anomaly pattern.
+        """Check if features match a known anomaly pattern.
 
         Args:
             features: Feature array to check
@@ -314,8 +288,7 @@ class SecureAnomalyChecker:
         return bool(np.allclose(features, known_pattern, atol=tolerance))
 
     def get_stats(self) -> dict[str, Any]:
-        """
-        Get checker statistics.
+        """Get checker statistics.
 
         Returns:
             Dictionary with checker statistics
@@ -328,8 +301,7 @@ class SecureAnomalyChecker:
 
 
 def secure_hash(data: bytes | str, salt: bytes | None = None) -> bytes:
-    """
-    Compute a secure hash of data.
+    """Compute a secure hash of data.
 
     Args:
         data: Data to hash
@@ -348,8 +320,7 @@ def secure_hash(data: bytes | str, salt: bytes | None = None) -> bytes:
 
 
 def generate_secure_token(length: int = 32) -> bytes:
-    """
-    Generate a cryptographically secure random token.
+    """Generate a cryptographically secure random token.
 
     Args:
         length: Length of token in bytes

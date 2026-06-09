@@ -1,12 +1,6 @@
-"""
-Mercury Agent - GOSNN Hub Optimizer
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""GOSNN Hub Optimizer.
 
 Optimizations for the Global Omni-Scalar Network (GOSNN):
 - SHAP-based scalar importance analysis
@@ -77,13 +71,13 @@ class OptimizationResult:
 
 
 class ScalarImportanceAnalyzer:
-    """
-    SHAP-inspired importance analysis for GOSNN scalars.
+    """SHAP-inspired importance analysis for GOSNN scalars.
 
     Computes importance scores for each scalar by measuring their contribution to the final output.
     """
 
     def __init__(self, seed: int = 42):
+        """Initialize the instance."""
         self.seed = seed
         self.rng = np.random.default_rng(seed)
         self._history: list[dict[str, float]] = []
@@ -101,8 +95,7 @@ class ScalarImportanceAnalyzer:
         output_value: float,
         n_permutations: int = 100,
     ) -> dict[str, ScalarImportance]:
-        """
-        Compute SHAP-inspired importance for each scalar.
+        """Compute SHAP-inspired importance for each scalar.
 
         Uses permutation importance: shuffle scalar values and
         measure impact on output.
@@ -210,8 +203,7 @@ class ScalarImportanceAnalyzer:
 
 
 class EthicalGateOptimizer:
-    """
-    Optimized ethical gating with hard σ_Immutable constraint.
+    """Optimized ethical gating with hard σ_Immutable constraint.
 
     Enforces:
     - σ_Immutable ≥ 0.93 as hard minimum (blocks if violated)
@@ -225,6 +217,7 @@ class EthicalGateOptimizer:
         sigma_immutable_target: float = SIGMA_IMMUTABLE_TARGET,
         benevolence_min: float = BENEVOLENCE_MIN,
     ):
+        """Initialize the instance."""
         self.sigma_immutable_hard = sigma_immutable_hard
         self.sigma_immutable_target = sigma_immutable_target
         self.benevolence_min = benevolence_min
@@ -238,8 +231,7 @@ class EthicalGateOptimizer:
         scalars: dict[str, float],
         context: dict[str, Any] | None = None,
     ) -> tuple[bool, float, list[str]]:
-        """
-        Evaluate ethical compliance.
+        """Evaluate ethical compliance.
 
         Args:
             scalars: Scalar values to evaluate
@@ -326,8 +318,7 @@ class EthicalGateOptimizer:
 
 
 class AttentionProvider(ABC):
-    """
-    Interface for supplying real attention tensors to the optimizer.
+    """Interface for supplying real attention tensors to the optimizer.
 
     Concrete implementations should wrap the GOSNN model (or any attention- producing module) and
     return the most recent attention scores when ``get_attention`` is called.  Plugging in a
@@ -336,8 +327,7 @@ class AttentionProvider(ABC):
 
     @abstractmethod
     def get_attention(self) -> np.ndarray[Any, Any]:
-        """
-        Return attention scores with shape ``(num_heads, seq_len, seq_len)``.
+        """Return attention scores with shape ``(num_heads, seq_len, seq_len)``.
 
         Raises:
             RuntimeError: If attention data is unavailable (e.g. model not
@@ -366,6 +356,7 @@ class MultiHeadAttentionProvider(AttentionProvider):
     """
 
     def __init__(self, d_model: int = 64, num_heads: int = 32, seed: int | None = None) -> None:
+        """Initialize the instance."""
         import torch
         from torch import nn
 
@@ -438,8 +429,7 @@ class MultiHeadAttentionProvider(AttentionProvider):
 
 
 class AttentionOptimizer:
-    """
-    Optimizer for 32-head triadic φ-weighting attention.
+    """Optimizer for 32-head triadic φ-weighting attention.
 
     Reduces computational overhead while maintaining φ-harmonic synergy.
     """
@@ -450,6 +440,7 @@ class AttentionOptimizer:
         d_model: int = 512,
         target_overhead_percent: float = 2.0,
     ):
+        """Initialize the instance."""
         self.num_heads = num_heads
         self.d_model = d_model
         self.head_dim = d_model // num_heads
@@ -489,8 +480,7 @@ class AttentionOptimizer:
         attention_scores: np.ndarray[Any, Any],
         use_cache: bool = True,
     ) -> tuple[np.ndarray[Any, Any], float]:
-        """
-        Apply optimized triadic φ-weighting.
+        """Apply optimized triadic φ-weighting.
 
         Args:
             attention_scores: Raw attention scores
@@ -546,8 +536,7 @@ class AttentionOptimizer:
 
 
 class GOSNNOptimizer:
-    """
-    Main optimizer for GOSNN hub.
+    """Main optimizer for GOSNN hub.
 
     Coordinates:
     - Scalar importance analysis
@@ -563,6 +552,7 @@ class GOSNNOptimizer:
         seed: int = 42,
         attention_provider: AttentionProvider | None = None,
     ):
+        """Initialize the instance."""
         self.sigma_immutable = sigma_immutable
         self.target_overhead = target_overhead_percent
         self.seed = seed
@@ -587,8 +577,7 @@ class GOSNNOptimizer:
         X: np.ndarray[Any, Any] | None = None,
         context: dict[str, Any] | None = None,
     ) -> OptimizationResult:
-        """
-        Optimize GOSNN hub.
+        """Optimize GOSNN hub.
 
         Args:
             gosnn: GlobalOmniScalarNetwork instance
@@ -749,8 +738,7 @@ def optimize_gosnn(
     sigma_immutable: float = SIGMA_IMMUTABLE_TARGET,
     **kwargs: Any,
 ) -> OptimizationResult:
-    """
-    Convenience function to optimize GOSNN.
+    """Convenience function to optimize GOSNN.
 
     Args:
         gosnn: GlobalOmniScalarNetwork instance

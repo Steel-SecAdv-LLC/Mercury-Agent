@@ -1,10 +1,6 @@
-"""
-Mercury Agent - Copyright (C) 2025 Steel Security Advisors LLC
-Licensed under GNU GPL v3
-
-Symbolic-constraint semantics sweep: does a *crisp* implication residuum
-(Gödel / Łukasiewicz) generalise better than the smooth product/Reichenbach
-default in the label-scarcity co-training constraint?
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+r"""Symbolic-constraint semantics sweep: does a *crisp* implication residuum (Gödel / Łukasiewicz) generalise better than the smooth product/Reichenbach default in the label-scarcity co-training constraint?
 
 The crisp operators were dormant in ``FuzzyOperators`` (only the product residuum
 was wired). ``SymbolicConstraintModule(semantics=...)`` exposes them; this is the

@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Cardiology Predictor - Cardiovascular Disease Detection & Risk Assessment
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Cardiology Predictor - Cardiovascular Disease Detection & Risk Assessment.
 
 Advanced cardiac anomaly detection for humanitarian healthcare:
 - ECG rhythm analysis (PyTorch 1D CNN + LSTM)
@@ -34,8 +17,9 @@ Research sources:
 - AHA/ACC cardiovascular guidelines
 - PTB-XL ECG database architectures
 - Framingham Heart Study risk algorithms
-
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -89,8 +73,7 @@ class CardiologyPredictionResult:
 
 
 class ECGRhythmAnalyzer(nn.Module):
-    """
-    1D CNN + LSTM for ECG rhythm analysis.
+    """1D CNN + LSTM for ECG rhythm analysis.
 
     Detects arrhythmias and cardiac anomalies from raw ECG signals. Architecture inspired by PTB-XL
     and MIT-BIH research.
@@ -99,6 +82,7 @@ class ECGRhythmAnalyzer(nn.Module):
     def __init__(
         self, input_length: int = 1000, num_leads: int = 12, num_classes: int = 13
     ) -> None:
+        """Initialize the instance."""
         super().__init__()
 
         self.conv_layers = nn.Sequential(
@@ -135,8 +119,7 @@ class ECGRhythmAnalyzer(nn.Module):
         )
 
     def forward(self, ecg_signal: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        """
-        Forward pass for ECG analysis.
+        """Forward pass for ECG analysis.
 
         Args:
             ecg_signal: ECG tensor (batch, leads, time_steps)
@@ -160,13 +143,13 @@ class ECGRhythmAnalyzer(nn.Module):
 
 
 class CardiacBiomarkerAnalyzer:
-    """
-    Cardiac biomarker anomaly detection.
+    """Cardiac biomarker anomaly detection.
 
     Analyzes troponin, BNP, CK-MB, and other cardiac markers.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
         self.normal_ranges = {
@@ -186,8 +169,7 @@ class CardiacBiomarkerAnalyzer:
         }
 
     def analyze_biomarkers(self, biomarkers: dict[str, float]) -> dict[str, Any]:
-        """
-        Analyze cardiac biomarkers for anomalies.
+        """Analyze cardiac biomarkers for anomalies.
 
         Args:
             biomarkers: Dictionary of biomarker values
@@ -260,11 +242,11 @@ class FraminghamRiskCalculator:
     """Framingham Risk Score calculator for 10-year CVD risk."""
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
     def calculate_risk(self, patient_data: dict[str, Any]) -> dict[str, Any]:
-        """
-        Calculate Framingham 10-year CVD risk.
+        """Calculate Framingham 10-year CVD risk.
 
         Args:
             patient_data: Patient demographics and risk factors
@@ -512,12 +494,13 @@ class FraminghamRiskCalculator:
 
 
 class CardiologyPredictor:
-    """Comprehensive cardiology prediction system integrating ECG analysis, biomarker detection, and
+    """Comprehensive cardiology prediction system integrating ECG analysis, biomarker detection, and.
 
     risk stratification.
     """
 
     def __init__(self, enable_ecg: bool = True, enable_biomarkers: bool = True) -> None:
+        """Initialize the instance."""
         self.enable_ecg = enable_ecg
         self.enable_biomarkers = enable_biomarkers
 
@@ -528,8 +511,7 @@ class CardiologyPredictor:
         self.logger = logging.getLogger(__name__)
 
     def predict_cardiac_risk(self, patient_data: dict[str, Any]) -> CardiologyPredictionResult:
-        """
-        Comprehensive cardiac risk prediction.
+        """Comprehensive cardiac risk prediction.
 
         Args:
             patient_data: Patient data including:

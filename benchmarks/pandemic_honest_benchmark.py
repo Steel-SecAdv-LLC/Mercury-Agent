@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Pandemic domain honest benchmark.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Pandemic domain honest benchmark.
 
 Fetches real epidemiological data from Our World in Data,
 runs MercuryAnomalyDetector, and reports metrics.

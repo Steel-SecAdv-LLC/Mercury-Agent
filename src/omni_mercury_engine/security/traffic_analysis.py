@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Traffic Analysis Module - Network Flow & Communication Pattern Analysis
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Traffic Analysis Module - Network Flow & Communication Pattern Analysis.
 
 Advanced network traffic intelligence for SIGINT/COMINT fusion:
 - Network flow graph analysis
@@ -35,8 +18,9 @@ Research sources:
 - TLS fingerprinting research (JA3/JA4)
 - Covert channel detection literature
 - Graph theory for network analysis
-
 """
+
+from __future__ import annotations
 
 import logging
 from collections import defaultdict
@@ -82,18 +66,17 @@ class TrafficAnalysisResult:
 
 
 class NetworkFlowAnalyzer:
-    """
-    Network flow statistical analysis.
+    """Network flow statistical analysis.
 
     Analyzes NetFlow/IPFIX data for anomalous patterns.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
     def analyze_flows(self, flow_data: list[dict[str, Any]]) -> dict[str, Any]:
-        """
-        Analyze network flows for anomalies.
+        """Analyze network flows for anomalies.
 
         Args:
             flow_data: List of network flow records
@@ -206,13 +189,13 @@ class NetworkFlowAnalyzer:
 
 
 class CommunicationGraphAnalyzer(nn.Module):
-    """
-    Graph neural network for communication pattern analysis.
+    """Graph neural network for communication pattern analysis.
 
     Models network communications as a graph and detects anomalous patterns.
     """
 
     def __init__(self, node_feature_dim: int = 64, hidden_dim: int = 128) -> None:
+        """Initialize the instance."""
         super().__init__()
 
         self.node_encoder = nn.Sequential(
@@ -230,8 +213,7 @@ class CommunicationGraphAnalyzer(nn.Module):
         )
 
     def forward(self, node_features: torch.Tensor, adjacency_matrix: torch.Tensor) -> torch.Tensor:
-        """
-        Forward pass for graph-based anomaly detection.
+        """Forward pass for graph-based anomaly detection.
 
         Args:
             node_features: Node feature matrix (N, feature_dim)
@@ -251,18 +233,17 @@ class CommunicationGraphAnalyzer(nn.Module):
 
 
 class EncryptedTrafficFingerprinter:
-    """
-    Encrypted traffic fingerprinting (JA3/JA4-style analysis).
+    """Encrypted traffic fingerprinting (JA3/JA4-style analysis).
 
     Identifies encrypted traffic patterns without decryption.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
     def fingerprint_tls(self, tls_handshake: dict[str, Any]) -> dict[str, Any]:
-        """
-        Generate TLS fingerprint from handshake.
+        """Generate TLS fingerprint from handshake.
 
         Args:
             tls_handshake: TLS handshake parameters
@@ -323,18 +304,17 @@ class EncryptedTrafficFingerprinter:
 
 
 class CovertChannelDetector:
-    """
-    Covert channel detection in network traffic.
+    """Covert channel detection in network traffic.
 
     Identifies hidden communication channels in seemingly benign protocols.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
     def detect_covert_channels(self, traffic_sample: dict[str, Any]) -> dict[str, Any]:
-        """
-        Detect covert channels in traffic.
+        """Detect covert channels in traffic.
 
         Args:
             traffic_sample: Network traffic sample
@@ -473,7 +453,7 @@ class CovertChannelDetector:
 
 
 class TrafficAnalysisEngine:
-    """Comprehensive traffic analysis engine integrating flow analysis, graph-based detection,
+    """Comprehensive traffic analysis engine integrating flow analysis, graph-based detection,.
 
     encrypted traffic fingerprinting, and covert channel detection.
     """
@@ -485,6 +465,7 @@ class TrafficAnalysisEngine:
         enable_tls_fingerprinting: bool = True,
         enable_covert_detection: bool = True,
     ):
+        """Initialize the instance."""
         self.enable_flow_analysis = enable_flow_analysis
         self.enable_graph_analysis = enable_graph_analysis
         self.enable_tls_fingerprinting = enable_tls_fingerprinting
@@ -500,8 +481,7 @@ class TrafficAnalysisEngine:
         self.logger = logging.getLogger(__name__)
 
     def analyze_traffic(self, traffic_data: dict[str, Any]) -> TrafficAnalysisResult:
-        """
-        Comprehensive traffic analysis.
+        """Comprehensive traffic analysis.
 
         Args:
             traffic_data: Network traffic data including:

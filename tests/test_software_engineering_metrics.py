@@ -1,5 +1,6 @@
-"""
-Tests for the extended SOFTWARE_ENGINEERING scalar group.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for the extended SOFTWARE_ENGINEERING scalar group.
 
 Guards the nine diagnostic measurement families and one operational
 family registered in GOSNN's SOFTWARE_ENGINEERING group:

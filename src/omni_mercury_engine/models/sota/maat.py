@@ -1,7 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-MAAT: Mamba Adaptive Anomaly Transformer (arXiv 2025)
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""MAAT: Mamba Adaptive Anomaly Transformer (arXiv 2025).
 
 Implements the MAAT architecture with key innovations:
 1. Sparse Attention: Efficient O(n log n) attention for long sequences
@@ -48,8 +47,7 @@ __all__ = [
 
 @dataclass
 class MAATConfig:
-    """
-    Configuration for MAAT model.
+    """Configuration for MAAT model.
 
     Attributes:
         input_dim: Number of input features
@@ -91,8 +89,7 @@ class MAATConfig:
 
 
 class SparseAttention(nn.Module):
-    """
-    Sparse Attention Module for efficient long-sequence processing.
+    """Sparse Attention Module for efficient long-sequence processing.
 
     Implements selective attention that focuses on the most relevant timesteps,
     reducing computational complexity from O(n²) to O(n log n).
@@ -119,6 +116,7 @@ class SparseAttention(nn.Module):
         n_global_tokens: int = 4,
         dropout: float = 0.1,
     ):
+        """Initialize the instance."""
         super().__init__()
         self.d_model = d_model
         self.n_heads = n_heads
@@ -142,8 +140,7 @@ class SparseAttention(nn.Module):
     def forward(
         self, x: torch.Tensor, return_attention: bool = False
     ) -> tuple[torch.Tensor, torch.Tensor | None]:
-        """
-        Apply sparse attention.
+        """Apply sparse attention.
 
         Args:
             x: Input tensor [batch, seq_len, d_model]
@@ -187,8 +184,7 @@ class SparseAttention(nn.Module):
         return output, None
 
     def _create_sparse_mask(self, seq_len: int, device: torch.device) -> torch.Tensor:
-        """
-        Create sparse attention mask combining local and global patterns.
+        """Create sparse attention mask combining local and global patterns.
 
         Returns:
             Boolean mask [seq_len, seq_len + n_global_tokens]
@@ -217,8 +213,7 @@ class SparseAttention(nn.Module):
 
 
 class SelectiveSSM(nn.Module):
-    """
-    Selective State Space Model (S6) approximation.
+    """Selective State Space Model (S6) approximation.
 
     Implements the core SSM computation:
     h_t = A h_{t-1} + B x_t
@@ -244,6 +239,7 @@ class SelectiveSSM(nn.Module):
         expand: int = 2,
         dropout: float = 0.1,
     ):
+        """Initialize the instance."""
         super().__init__()
         self.d_model = d_model
         self.d_state = d_state
@@ -277,8 +273,7 @@ class SelectiveSSM(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Apply Selective SSM.
+        """Apply Selective SSM.
 
         Args:
             x: Input tensor [batch, seq_len, d_model]
@@ -331,8 +326,7 @@ class SelectiveSSM(nn.Module):
         B: torch.Tensor,
         C: torch.Tensor,
     ) -> torch.Tensor:
-        """
-        Sequential SSM scan (simplified).
+        """Sequential SSM scan (simplified).
 
         For efficiency, this uses a parallel-friendly approximation. True sequential scan would
         require custom CUDA kernels.
@@ -366,8 +360,7 @@ class SelectiveSSM(nn.Module):
 
 
 class MambaSSM(nn.Module):
-    """
-    Mamba-SSM Block for MAAT.
+    """Mamba-SSM Block for MAAT.
 
     Wraps SelectiveSSM with layer normalization and residual connection.
     Attempts to use native mamba-ssm package if available.
@@ -387,6 +380,7 @@ class MambaSSM(nn.Module):
         expand: int = 2,
         dropout: float = 0.1,
     ):
+        """Initialize the instance."""
         super().__init__()
         self.d_model = d_model
         self._use_native_mamba = False
@@ -416,8 +410,7 @@ class MambaSSM(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Apply Mamba-SSM block.
+        """Apply Mamba-SSM block.
 
         Args:
             x: Input tensor [batch, seq_len, d_model]
@@ -433,8 +426,7 @@ class MambaSSM(nn.Module):
 
 
 class GatedFeatureFusion(nn.Module):
-    """
-    Gated Feature Fusion for combining attention and SSM pathways.
+    """Gated Feature Fusion for combining attention and SSM pathways.
 
     Adaptively blends features from sparse attention and Mamba-SSM
     based on input characteristics.
@@ -448,6 +440,7 @@ class GatedFeatureFusion(nn.Module):
     """
 
     def __init__(self, d_model: int = 256, gate_bias: float = 0.0) -> None:
+        """Initialize the instance."""
         super().__init__()
         self.d_model = d_model
 
@@ -470,8 +463,7 @@ class GatedFeatureFusion(nn.Module):
     def forward(
         self, x_attn: torch.Tensor, x_ssm: torch.Tensor, return_gate: bool = False
     ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
-        """
-        Fuse attention and SSM features.
+        """Fuse attention and SSM features.
 
         Args:
             x_attn: Attention pathway output [batch, seq, d_model]
@@ -500,8 +492,7 @@ class GatedFeatureFusion(nn.Module):
 
 
 class MAATEncoderLayer(nn.Module):
-    """
-    Single MAAT Encoder Layer.
+    """Single MAAT Encoder Layer.
 
     Architecture:
     1. Sparse Attention pathway
@@ -515,6 +506,7 @@ class MAATEncoderLayer(nn.Module):
     """
 
     def __init__(self, config: MAATConfig) -> None:
+        """Initialize the instance."""
         super().__init__()
         self.config = config
 
@@ -565,8 +557,7 @@ class MAATEncoderLayer(nn.Module):
     def forward(
         self, x: torch.Tensor, return_gates: bool = False
     ) -> tuple[torch.Tensor, torch.Tensor | None]:
-        """
-        Forward through MAAT layer.
+        """Forward through MAAT layer.
 
         Args:
             x: Input tensor [batch, seq, d_model]
@@ -607,8 +598,7 @@ class MAATEncoderLayer(nn.Module):
 
 
 class MAATModel(nn.Module):
-    """
-    MAAT: Mamba Adaptive Anomaly Transformer.
+    """MAAT: Mamba Adaptive Anomaly Transformer.
 
     Full model combining:
     1. Input embedding with positional encoding
@@ -625,6 +615,7 @@ class MAATModel(nn.Module):
     """
 
     def __init__(self, config: MAATConfig | None = None) -> None:
+        """Initialize the instance."""
         super().__init__()
         self.config = config or MAATConfig()
 
@@ -664,8 +655,7 @@ class MAATModel(nn.Module):
         self.prior_assoc = PriorAssociation(sigma=1.0, window_size=self.config.window_size)
 
     def forward(self, x: torch.Tensor, return_all: bool = False) -> dict[str, torch.Tensor]:
-        """
-        Forward pass through MAAT.
+        """Forward pass through MAAT.
 
         Args:
             x: Input tensor [batch, seq_len, input_dim]
@@ -726,8 +716,7 @@ class MAATModel(nn.Module):
         return result
 
     def detect(self, x: torch.Tensor, threshold: float | None = None) -> dict[str, Any]:
-        """
-        Perform anomaly detection.
+        """Perform anomaly detection.
 
         Args:
             x: Input tensor [batch, seq_len, input_dim]
@@ -755,8 +744,7 @@ class MAATModel(nn.Module):
         }
 
     def get_pathway_importance(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
-        """
-        Analyze importance of attention vs SSM pathways.
+        """Analyze importance of attention vs SSM pathways.
 
         Returns gate statistics showing which pathway dominates.
         """
@@ -785,6 +773,7 @@ class PositionalEncoding(nn.Module):
     """Sinusoidal positional encoding."""
 
     def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 5000) -> None:
+        """Initialize the instance."""
         super().__init__()
         self.dropout = nn.Dropout(p=dropout)
 
@@ -804,8 +793,7 @@ class PositionalEncoding(nn.Module):
 
 
 class MAATLoss(nn.Module):
-    """
-    Loss function for MAAT training.
+    """Loss function for MAAT training.
 
     Combines:
     1. Reconstruction loss (MSE)
@@ -822,6 +810,7 @@ class MAATLoss(nn.Module):
         discrepancy_weight: float = 1.0,
         balance_weight: float = 0.1,
     ):
+        """Initialize the instance."""
         super().__init__()
         self.discrepancy_weight = discrepancy_weight
         self.balance_weight = balance_weight
@@ -829,8 +818,7 @@ class MAATLoss(nn.Module):
     def forward(
         self, x: torch.Tensor, result: dict[str, torch.Tensor], phase: str = "minimize"
     ) -> dict[str, torch.Tensor]:
-        """
-        Compute MAAT loss.
+        """Compute MAAT loss.
 
         Args:
             x: Input tensor

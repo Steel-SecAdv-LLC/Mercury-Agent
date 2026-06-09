@@ -1,9 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Phase 2 ITEM 5 — AMA Cryptography Known-Answer Tests (KAT) and
-deterministic-seed round-trip tests.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Phase 2 ITEM 5 — AMA Cryptography Known-Answer Tests (KAT) and deterministic-seed round-trip tests.
 
 Per the May-2026 audit cure, correctness of AMA Cryptography is
 demonstrated by *in-repo artifacts* — not by external-audit framing.
@@ -46,7 +43,6 @@ from omni_mercury_engine.security.pqc_backends import (
 # ---------------------------------------------------------------------------
 # Cure 1: Ed25519 RFC 8032 §7.1 vectors.
 # ---------------------------------------------------------------------------
-
 
 # Vector #1 from RFC 8032 §7.1 (TEST 1).
 # secret key (32 bytes) | public key (32 bytes) | message | signature

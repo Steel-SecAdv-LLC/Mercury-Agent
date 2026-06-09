@@ -1035,7 +1035,6 @@ lines_after_imports = -1
 convention = "google"
 match = "(?!test_).*\\.py"
 match_dir = "^(?!tests|build|dist|venv|\\.venv).*"
-add-ignore = ["D100", "D104", "D105", "D107"]
 
 # =============================================================================
 # Vulture (Dead Code Detection)

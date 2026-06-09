@@ -1,22 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
-
-------------------------------------------------------------------------
-
-One-shot operator tools that run outside the engine.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Canonical registry of one-shot operator tools.
 
 Modules in this package are intentionally not imported by
 ``omni_mercury_engine.__init__`` and never exercised by the runtime
@@ -31,6 +15,10 @@ This module exposes a stable :data:`TOOL_REGISTRY` mapping ``name`` →
 exit-code contract test in ``tests/tools/test_tool_contract.py`` both
 key off this registry, so a tool added without a registry entry is a
 hard test failure.
+
+The registry is intentionally lazy: iterate to discover tools, index to
+obtain a tool's ``main`` callable, and avoid importing optional
+operator dependencies until a specific tool is invoked.
 """
 
 from __future__ import annotations
@@ -146,18 +134,23 @@ class _Registry:
     """
 
     def __init__(self, names: tuple[str, ...]) -> None:
+        """Initialize the instance."""
         self._names = tuple(sorted(names))
 
     def __iter__(self) -> Iterator[str]:
+        """Return an iterator."""
         return iter(self._names)
 
     def __contains__(self, name: object) -> bool:
+        """Implement the Python data model method."""
         return isinstance(name, str) and name in self._names
 
     def __len__(self) -> int:
+        """Return the length."""
         return len(self._names)
 
     def __getitem__(self, name: str) -> Callable[[list[str] | None], int]:
+        """Implement the Python data model method."""
         if name not in self._names:
             raise KeyError(name)
         return _resolve(name)
@@ -168,13 +161,4 @@ class _Registry:
 
 
 TOOL_REGISTRY: Final[_Registry] = _Registry(_TOOL_NAMES)
-"""Canonical registry of operator tools.
-
-Iterate to discover tools, index to obtain the ``main`` callable.  The
-``mercury-agent tool list`` CLI and the parametrised exit-code contract
-test in :mod:`tests.tools.test_tool_contract` both key off this
-registry.
-"""
-
-
 __all__ = ["TOOL_REGISTRY"]

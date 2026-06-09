@@ -1,12 +1,12 @@
-from typing import Any
-
-"""
-Integration Tests for All Calibrated Detectors
-Copyright (C) 2025 Steel Security Advisors LLC
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Integration Tests for All Calibrated Detectors.
 
 Tests that all detectors properly support auto-calibration and that the
 calibration system solves the F1=0 problem across all detector types.
 """
+
+from typing import Any
 
 import numpy as np
 import pytest

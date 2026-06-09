@@ -1,5 +1,6 @@
-"""
-Mercury Agent - Explainability Module with SHAP/LIME Integration
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Mercury Agent - Explainability Module with SHAP/LIME Integration.
 
 Production-grade explainability for anomaly detection models.
 Provides feature importance, counterfactual explanations, and faithfulness metrics.
@@ -153,8 +154,7 @@ class BaseExplainer(ABC):
 
 
 class SHAPExplainer(BaseExplainer):
-    """
-    SHAP-based explainer for anomaly detection models.
+    """SHAP-based explainer for anomaly detection models.
 
     Uses Kernel SHAP for model-agnostic explanations with game-theoretic feature attribution.
     """
@@ -166,8 +166,7 @@ class SHAPExplainer(BaseExplainer):
         link: str = "identity",
         seed: int | None = None,
     ):
-        """
-        Initialize SHAP explainer.
+        """Initialize SHAP explainer.
 
         Args:
             background_data: Background dataset for SHAP values
@@ -319,8 +318,7 @@ class SHAPExplainer(BaseExplainer):
 
 
 class LIMEExplainer(BaseExplainer):
-    """
-    LIME-based explainer for anomaly detection models.
+    """LIME-based explainer for anomaly detection models.
 
     Provides local interpretable explanations using surrogate linear models.
     """
@@ -333,8 +331,7 @@ class LIMEExplainer(BaseExplainer):
         kernel_width: float | None = None,
         seed: int | None = None,
     ):
-        """
-        Initialize LIME explainer.
+        """Initialize LIME explainer.
 
         Args:
             training_data: Training data for discretization
@@ -492,8 +489,7 @@ class LIMEExplainer(BaseExplainer):
 
 
 class IntegratedGradientsExplainer(BaseExplainer):
-    """
-    Integrated Gradients explainer for differentiable models.
+    """Integrated Gradients explainer for differentiable models.
 
     Provides theoretically grounded attributions using path integrals from baseline to input.
     """
@@ -503,8 +499,7 @@ class IntegratedGradientsExplainer(BaseExplainer):
         baseline: np.ndarray[Any, Any] | None = None,
         n_steps: int = 50,
     ):
-        """
-        Initialize Integrated Gradients explainer.
+        """Initialize Integrated Gradients explainer.
 
         Args:
             baseline: Baseline input (defaults to zeros)
@@ -666,8 +661,7 @@ class IntegratedGradientsExplainer(BaseExplainer):
 
 
 class CounterfactualExplainer:
-    """
-    Generate counterfactual explanations.
+    """Generate counterfactual explanations.
 
     Finds minimal changes to input that flip the prediction, answering "what would need to change?"
     """
@@ -679,8 +673,7 @@ class CounterfactualExplainer:
         step_size: float = 0.1,
         feature_constraints: dict[int, tuple[float, float]] | None = None,
     ):
-        """
-        Initialize counterfactual explainer.
+        """Initialize counterfactual explainer.
 
         Args:
             threshold: Decision threshold for classification
@@ -700,8 +693,7 @@ class CounterfactualExplainer:
         target_class: int = 0,
         feature_names: list[str] | None = None,
     ) -> dict[str, Any]:
-        """
-        Generate a counterfactual explanation.
+        """Generate a counterfactual explanation.
 
         Args:
             model: Prediction function
@@ -792,8 +784,7 @@ class CounterfactualExplainer:
 
 
 class FaithfulnessEvaluator:
-    """
-    Evaluate explanation faithfulness using various metrics.
+    """Evaluate explanation faithfulness using various metrics.
 
     Metrics:
     - Comprehensiveness: Does removing important features change prediction?
@@ -805,8 +796,7 @@ class FaithfulnessEvaluator:
         self,
         n_steps: int = 10,
     ):
-        """
-        Initialize faithfulness evaluator.
+        """Initialize faithfulness evaluator.
 
         Args:
             n_steps: Number of removal/addition steps
@@ -819,8 +809,7 @@ class FaithfulnessEvaluator:
         instance: np.ndarray[Any, Any],
         explanation: Explanation,
     ) -> dict[str, float]:
-        """
-        Evaluate explanation faithfulness.
+        """Evaluate explanation faithfulness.
 
         Args:
             model: Prediction function
@@ -922,8 +911,7 @@ class FaithfulnessEvaluator:
 
 
 class ExplainabilityEngine:
-    """
-    Unified explainability engine combining multiple explanation methods.
+    """Unified explainability engine combining multiple explanation methods.
 
     Provides a single interface for generating and evaluating explanations using SHAP, LIME,
     Integrated Gradients, and counterfactuals.
@@ -935,8 +923,7 @@ class ExplainabilityEngine:
         feature_names: list[str] | None = None,
         default_method: ExplanationType = ExplanationType.SHAP,
     ):
-        """
-        Initialize explainability engine.
+        """Initialize explainability engine.
 
         Args:
             training_data: Background/training data for explainers
@@ -965,8 +952,7 @@ class ExplainabilityEngine:
         include_counterfactual: bool = False,
         include_faithfulness: bool = True,
     ) -> Explanation:
-        """
-        Generate explanation using specified method.
+        """Generate explanation using specified method.
 
         Args:
             model: Prediction function
@@ -1006,8 +992,7 @@ class ExplainabilityEngine:
         model: Callable[[np.ndarray[Any, Any]], np.ndarray[Any, Any]],
         instance: np.ndarray[Any, Any],
     ) -> dict[str, Explanation]:
-        """
-        Compare explanations from all methods.
+        """Compare explanations from all methods.
 
         Args:
             model: Prediction function

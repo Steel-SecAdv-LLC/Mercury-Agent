@@ -1,9 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Phase 2 Deliverable 7 — NIST FIPS KAT vectors for ML-DSA-65,
-ML-KEM (Kyber-1024), and SLH-DSA (SPHINCS+).
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Phase 2 Deliverable 7 — NIST FIPS KAT vectors for ML-DSA-65, ML-KEM (Kyber-1024), and SLH-DSA (SPHINCS+).
 
 Test vectors are curated from the NIST ACVP-Server canonical test data:
 https://github.com/usnistgov/ACVP-Server/tree/master/gen-val/json-files

@@ -1,9 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests for Enhanced Anomaly Detection - Memory Graph and External Integration
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for Enhanced Anomaly Detection - Memory Graph and External Integration."""
 
 from __future__ import annotations
 

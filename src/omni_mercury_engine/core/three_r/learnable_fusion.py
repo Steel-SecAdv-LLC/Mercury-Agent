@@ -1,5 +1,6 @@
-"""
-Mercury Agent - Learnable 3R Fusion Module
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Mercury Agent - Learnable 3R Fusion Module.
 
 State-of-the-art differentiable 3R (Recursion-Resonance-Refactoring) fusion
 with learnable weights, dynamic gating, and spectral attention.
@@ -49,7 +50,6 @@ except ImportError:
     nn = None  # type: ignore[assignment, unused-ignore]
     F = None  # type: ignore[assignment, unused-ignore]
 
-
 from omni_mercury_engine.core.three_r.types import (
     CONVERGENCE_RATE_PARAMETER,
     GOLDEN_RATIO_CONSTANT,
@@ -95,8 +95,7 @@ class Learnable3RResult:
 if TORCH_AVAILABLE:
 
     class DynamicEthicalGate(nn.Module):
-        """
-        Learned ethical gating function.
+        """Learned ethical gating function.
 
         Replaces static η threshold with a learned gate that considers input context for adaptive
         ethical gating.
@@ -109,6 +108,7 @@ if TORCH_AVAILABLE:
             min_gate: float = 0.93,
             max_gate: float = 0.99,
         ):
+            """Initialize the instance."""
             super().__init__()
             self.min_gate = min_gate
             self.max_gate = max_gate
@@ -135,8 +135,7 @@ if TORCH_AVAILABLE:
             scores: torch.Tensor,
             context: torch.Tensor | None = None,
         ) -> torch.Tensor:
-            """
-            Compute dynamic ethical gate.
+            """Compute dynamic ethical gate.
 
             Args:
                 scores: [batch, 3] tensor of (R, H, O) scores
@@ -157,8 +156,7 @@ if TORCH_AVAILABLE:
             return scaled_gate  # type: ignore[no-any-return, unused-ignore]
 
     class MultiScaleRecursion(nn.Module):
-        """
-        Multi-scale recursion with adaptive depth.
+        """Multi-scale recursion with adaptive depth.
 
         Learns optimal recursion depth based on input complexity.
         """
@@ -169,6 +167,7 @@ if TORCH_AVAILABLE:
             hidden_dim: int = 64,
             max_depth: int = 10,
         ):
+            """Initialize the instance."""
             super().__init__()
             self.max_depth = max_depth
 
@@ -193,8 +192,7 @@ if TORCH_AVAILABLE:
             x: torch.Tensor,
             return_trajectory: bool = False,
         ) -> tuple[torch.Tensor, dict[str, Any]]:
-            """
-            Apply multi-scale recursion.
+            """Apply multi-scale recursion.
 
             Args:
                 x: Input tensor [batch, seq_len]
@@ -232,8 +230,7 @@ if TORCH_AVAILABLE:
             return score, meta
 
     class SpectralAttention(nn.Module):
-        """
-        Spectral attention with wavelet decomposition.
+        """Spectral attention with wavelet decomposition.
 
         Combines FFT analysis with multi-scale wavelet attention for comprehensive frequency domain
         understanding.
@@ -245,6 +242,7 @@ if TORCH_AVAILABLE:
             hidden_dim: int = 64,
             n_heads: int = 4,
         ):
+            """Initialize the instance."""
             super().__init__()
             self.n_scales = n_scales
 
@@ -275,8 +273,7 @@ if TORCH_AVAILABLE:
             self,
             x: torch.Tensor,
         ) -> tuple[torch.Tensor, dict[str, Any]]:
-            """
-            Apply spectral attention.
+            """Apply spectral attention.
 
             Args:
                 x: Input tensor [batch, seq_len]
@@ -335,8 +332,7 @@ if TORCH_AVAILABLE:
             return score, meta
 
     class OptimizationScorer(nn.Module):
-        """
-        Learned optimization/refactoring scorer.
+        """Learned optimization/refactoring scorer.
 
         Evaluates optimization potential based on signal characteristics.
         """
@@ -346,6 +342,7 @@ if TORCH_AVAILABLE:
             input_dim: int = 64,
             hidden_dim: int = 64,
         ):
+            """Initialize the instance."""
             super().__init__()
 
             self.encoder = nn.Sequential(
@@ -371,8 +368,7 @@ if TORCH_AVAILABLE:
             self,
             x: torch.Tensor,
         ) -> tuple[torch.Tensor, dict[str, Any]]:
-            """
-            Compute optimization score.
+            """Compute optimization score.
 
             Args:
                 x: Input tensor [batch, seq_len]
@@ -404,8 +400,7 @@ if TORCH_AVAILABLE:
             return score, meta
 
     class Learnable3RFusion(nn.Module):
-        """
-        Complete learnable 3R fusion module.
+        """Complete learnable 3R fusion module.
 
         Combines multi-scale recursion, spectral attention, and optimization scoring with learnable
         weights and dynamic gating.
@@ -415,6 +410,7 @@ if TORCH_AVAILABLE:
             self,
             config: Learnable3RConfig | None = None,
         ):
+            """Initialize the instance."""
             super().__init__()
 
             config = config or Learnable3RConfig()
@@ -468,8 +464,7 @@ if TORCH_AVAILABLE:
             context: torch.Tensor | None = None,
             return_components: bool = True,
         ) -> dict[str, Any]:
-            """
-            Compute learnable 3R fusion.
+            """Compute learnable 3R fusion.
 
             Args:
                 x: Input tensor [batch, seq_len]
@@ -545,8 +540,7 @@ if TORCH_AVAILABLE:
 
 
 class Learnable3REngine:
-    """
-    High-level engine for learnable 3R fusion.
+    """High-level engine for learnable 3R fusion.
 
     Provides training, inference, and model management.
     """
@@ -556,6 +550,7 @@ class Learnable3REngine:
         config: Learnable3RConfig | None = None,
         device: str = "cpu",
     ):
+        """Initialize the instance."""
         self.config = config or Learnable3RConfig()
         self.device = device
 
@@ -579,8 +574,7 @@ class Learnable3REngine:
         data: np.ndarray[Any, Any] | list[float],
         context: np.ndarray[Any, Any] | None = None,
     ) -> Learnable3RResult:
-        """
-        Compute learnable 3R fusion score.
+        """Compute learnable 3R fusion score.
 
         Args:
             data: Input data array
@@ -619,8 +613,7 @@ class Learnable3REngine:
         data: np.ndarray[Any, Any],
         target: float,
     ) -> float:
-        """
-        Single training step.
+        """Single training step.
 
         Args:
             data: Input data
@@ -664,8 +657,7 @@ class Learnable3REngine:
         min_delta: float = 1e-4,
         seed: int | None = None,
     ) -> dict[str, object]:
-        """
-        Multi-epoch training with validation split, early stopping, and best-epoch checkpointing.
+        """Multi-epoch training with validation split, early stopping, and best-epoch checkpointing.
 
         Splits ``X``/``y`` into training and validation sets, trains for up to
         ``epochs`` epochs using mini-batches, monitors validation loss, and
@@ -1026,8 +1018,7 @@ class Learnable3REngine:
         logger.info(f"Model saved to {path}")
 
     def load_model(self, path: str) -> None:
-        """
-        Load model checkpoint.
+        """Load model checkpoint.
 
         Loading is hard-pinned to ``weights_only=True``. The
         ``allow_unsafe`` escape hatch was removed; legacy checkpoints

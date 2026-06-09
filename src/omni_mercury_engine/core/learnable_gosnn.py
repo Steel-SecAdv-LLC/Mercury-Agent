@@ -1,5 +1,6 @@
-"""
-Mercury Agent - Learnable Global Omni-Scalar Network
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Mercury Agent - Learnable Global Omni-Scalar Network.
 
 Advanced GOSNN with learnable scalars, sparse attention, and
 cross-domain correlation tracking for adaptive anomaly detection.
@@ -46,7 +47,6 @@ except ImportError:
     nn = None  # type: ignore[assignment, unused-ignore]
     F = None  # type: ignore[assignment, unused-ignore]
     Adam = None  # type: ignore[assignment, misc, unused-ignore]
-
 
 # Constants from centralized source of truth
 PHI: float = MATH.GOLDEN_RATIO
@@ -108,6 +108,7 @@ if TORCH_AVAILABLE:
             embedding_dim: int = 64,
             n_categories: int = 8,
         ):
+            """Initialize the instance."""
             super().__init__()
             self.n_scalars = n_scalars
             self.embedding_dim = embedding_dim
@@ -168,8 +169,7 @@ if TORCH_AVAILABLE:
             return float(F.cosine_similarity(emb1.unsqueeze(0), emb2.unsqueeze(0)))
 
     class SparseAttention(nn.Module):
-        """
-        Sparse attention for efficient scalar fusion.
+        """Sparse attention for efficient scalar fusion.
 
         Uses local + strided attention pattern for O(n sqrt(n)) complexity.
         """
@@ -182,6 +182,7 @@ if TORCH_AVAILABLE:
             stride: int = 16,
             dropout: float = 0.1,
         ):
+            """Initialize the instance."""
             super().__init__()
             self.d_model = d_model
             self.n_heads = n_heads
@@ -202,8 +203,7 @@ if TORCH_AVAILABLE:
             x: torch.Tensor,
             mask: torch.Tensor | None = None,
         ) -> tuple[torch.Tensor, torch.Tensor]:
-            """
-            Apply sparse attention.
+            """Apply sparse attention.
 
             Args:
                 x: Input tensor [batch, seq_len, d_model]
@@ -261,8 +261,7 @@ if TORCH_AVAILABLE:
             return mask.unsqueeze(0).unsqueeze(0)
 
     class LinformerAttention(nn.Module):
-        """
-        Linformer-style linear attention for O(n) complexity.
+        """Linformer-style linear attention for O(n) complexity.
 
         Projects key and value to lower dimension before attention.
         """
@@ -274,6 +273,7 @@ if TORCH_AVAILABLE:
             k_dim: int = 32,
             dropout: float = 0.1,
         ):
+            """Initialize the instance."""
             super().__init__()
             self.d_model = d_model
             self.n_heads = n_heads
@@ -330,6 +330,7 @@ if TORCH_AVAILABLE:
             n_scalars: int = 180,
             embedding_dim: int = 64,
         ):
+            """Initialize the instance."""
             super().__init__()
             self.n_scalars = n_scalars
 
@@ -382,8 +383,7 @@ if TORCH_AVAILABLE:
 
 
 class LearnableGOSNN:
-    """
-    Learnable Global Omni-Scalar Network.
+    """Learnable Global Omni-Scalar Network.
 
     Extends base GOSNN with:
     - Learnable scalar embeddings
@@ -401,6 +401,7 @@ class LearnableGOSNN:
         attention_type: str = "sparse",
         device: str = "cpu",
     ):
+        """Initialize the instance."""
         self.n_scalars = n_scalars
         self.embedding_dim = embedding_dim
         self.device = device

@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-PaDiM: Patch Distribution Modeling Framework for Anomaly Detection
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""PaDiM: Patch Distribution Modeling Framework for Anomaly Detection.
 
 Implementation of PaDiM algorithm from ICPR 2020.
 Fastest inference among SOTA methods with competitive accuracy.
@@ -33,6 +16,8 @@ Reference:
     for Anomaly Detection and Localization"
     https://arxiv.org/abs/2011.08785
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -53,8 +38,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class PaDiMConfig(VisualDetectorConfig):
-    """
-    Configuration for PaDiM detector.
+    """Configuration for PaDiM detector.
 
     Attributes:
         d_reduced: Reduced feature dimension (random projection)
@@ -83,8 +67,7 @@ class PaDiMDetector(BaseVisualDetector):
     """
 
     def __init__(self, config: PaDiMConfig | dict[str, Any] | None = None) -> None:
-        """
-        Initialize PaDiM detector.
+        """Initialize PaDiM detector.
 
         Args:
             config: Detector configuration
@@ -116,8 +99,7 @@ class PaDiMDetector(BaseVisualDetector):
         return self.cov_inv
 
     def _get_random_projection(self, input_dim: int, output_dim: int) -> torch.Tensor:
-        """
-        Generate random projection matrix for dimensionality reduction.
+        """Generate random projection matrix for dimensionality reduction.
 
         Uses random Gaussian projection following Johnson-Lindenstrauss lemma.
 
@@ -137,8 +119,7 @@ class PaDiMDetector(BaseVisualDetector):
     def _aggregate_features(
         self, features: dict[str, torch.Tensor]
     ) -> tuple[torch.Tensor, tuple[int, int]]:
-        """
-        Aggregate multi-layer features.
+        """Aggregate multi-layer features.
 
         Args:
             features: Dict of layer features {layer_name: [B, C, H, W]}
@@ -172,8 +153,7 @@ class PaDiMDetector(BaseVisualDetector):
         return patches, (h, w)
 
     def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> PaDiMDetector:
-        """
-        Fit detector by computing Gaussian parameters for each position.
+        """Fit detector by computing Gaussian parameters for each position.
 
         Args:
             data: Normal (non-anomalous) images [N, C, H, W]
@@ -254,8 +234,7 @@ class PaDiMDetector(BaseVisualDetector):
         return self
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
-        """
-        Detect anomalies using Mahalanobis distance.
+        """Detect anomalies using Mahalanobis distance.
 
         Args:
             data: Test images [N, C, H, W]
@@ -334,8 +313,7 @@ class PaDiMDetector(BaseVisualDetector):
         }
 
     def _compute_mahalanobis(self, patches: torch.Tensor) -> torch.Tensor:
-        """
-        Compute Mahalanobis distance for each patch position.
+        """Compute Mahalanobis distance for each patch position.
 
         Mahalanobis distance: sqrt((x - mu)^T @ Sigma^-1 @ (x - mu))
 
@@ -368,8 +346,7 @@ class PaDiMDetector(BaseVisualDetector):
         return distances
 
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
-        """
-        Extract features for ML fusion pipeline.
+        """Extract features for ML fusion pipeline.
 
         Args:
             data: Input images [N, C, H, W]

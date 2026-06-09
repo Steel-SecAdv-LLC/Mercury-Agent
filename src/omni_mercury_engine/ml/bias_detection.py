@@ -1,12 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-ML Bias Detection and Fairness Evaluation Module.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""ML Bias Detection and Fairness Evaluation Module.
 
 Provides production-ready bias detection using Fairlearn metrics:
 - Demographic parity assessment
@@ -75,8 +69,7 @@ class BiasReport:
 
 
 class BiasDetector:
-    """
-    ML Bias Detection using Fairlearn metrics.
+    """ML Bias Detection using Fairlearn metrics.
 
     Evaluates model predictions for fairness across sensitive attributes.
     Uses standard fairness metrics from the ML fairness literature.
@@ -108,8 +101,7 @@ class BiasDetector:
         equalized_odds_threshold: float | None = None,
         disparate_impact_threshold: float | None = None,
     ):
-        """
-        Initialize bias detector.
+        """Initialize bias detector.
 
         Args:
             use_fairlearn: Use Fairlearn library if available
@@ -163,8 +155,7 @@ class BiasDetector:
         model_name: str = "model",
         metrics: list[FairnessMetric] | None = None,
     ) -> BiasReport:
-        """
-        Evaluate model for bias across sensitive features.
+        """Evaluate model for bias across sensitive features.
 
         Args:
             y_true: True labels
@@ -530,8 +521,7 @@ class BiasDetector:
         y_pred: np.ndarray[Any, Any],
         sensitive_features: np.ndarray[Any, Any],
     ) -> bool:
-        """
-        Quick fairness check - returns True if model is fair.
+        """Quick fairness check - returns True if model is fair.
 
         Args:
             y_true: True labels

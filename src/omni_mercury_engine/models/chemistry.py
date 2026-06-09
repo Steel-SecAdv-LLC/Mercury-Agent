@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Chemistry Discipline Module
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Chemistry Discipline Module.
 
 Comprehensive chemical anomaly detection across periodic table elements, isotopes,
 reaction kinetics, and molecular structures. Enables early detection of:
@@ -52,8 +35,9 @@ Research Sources:
 
 ⚠️ SIMULATION-BASED: For research/development. Experimental validation required
 for novel chemical predictions. Consult chemists before laboratory implementation.
-
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -100,14 +84,14 @@ class ChemicalAnomalyResult:
 
 
 class PeriodicTableEncoder(nn.Module):
-    """
-    Neural network encoder for periodic table relationships.
+    """Neural network encoder for periodic table relationships.
 
     Uses graph neural network concepts to encode element relationships based on periodic table
     structure with golden ratio optimization.
     """
 
     def __init__(self, num_elements: int = 118, embedding_dim: int = 64) -> None:
+        """Initialize the instance."""
         super().__init__()
 
         phi = 1.618
@@ -137,8 +121,7 @@ class PeriodicTableEncoder(nn.Module):
         )
 
     def forward(self, element_indices: torch.Tensor) -> torch.Tensor:
-        """
-        Forward pass encoding element relationships.
+        """Forward pass encoding element relationships.
 
         Args:
             element_indices: Atomic numbers [batch, num_elements]
@@ -158,8 +141,7 @@ class PeriodicTableEncoder(nn.Module):
 
 
 class ChemistryAnomalyDetector:
-    """
-    Chemistry Discipline Anomaly Detector.
+    """Chemistry Discipline Anomaly Detector.
 
     Comprehensive chemical anomaly detection across elements, isotopes, reactions, and molecular
     structures using periodic table relationships and nuclear chemistry principles.
@@ -171,8 +153,7 @@ class ChemistryAnomalyDetector:
         enable_alchemical_correlation: bool = True,
         golden_ratio_bonds: bool = True,
     ):
-        """
-        Initialize chemistry anomaly detector.
+        """Initialize chemistry anomaly detector.
 
         Args:
             enable_isotope_analysis: Enable isotope decay analysis
@@ -238,7 +219,7 @@ class ChemistryAnomalyDetector:
         return elements
 
     def _estimate_electronegativity(self, Z: int) -> float:
-        """Estimate electronegativity (Pauling scale approximation)"""
+        """Estimate electronegativity (Pauling scale approximation)."""
         noble_gases = [2, 10, 18, 36, 54, 86, 118]
         if Z in noble_gases:
             return 0.0
@@ -253,7 +234,7 @@ class ChemistryAnomalyDetector:
             return 2.0
 
     def _estimate_atomic_radius(self, Z: int, period: int) -> float:
-        """Estimate atomic radius (pm)"""
+        """Estimate atomic radius (pm)."""
         base_radius = 200.0
         period_decrease = (period - 1) * 30.0
         group_increase = (Z % 18) * 5.0
@@ -275,8 +256,7 @@ class ChemistryAnomalyDetector:
         }
 
     def _initialize_alchemical_kb(self) -> dict[str, Any]:
-        """
-        Initialize alchemical knowledge base.
+        """Initialize alchemical knowledge base.
 
         Historical alchemy discovered many chemical principles before modern science. This knowledge
         base establishes symbolic connections.
@@ -315,8 +295,7 @@ class ChemistryAnomalyDetector:
     def detect_chemical_anomaly(
         self, chemical_data: dict[str, Any], temporal_history: list[dict[str, Any]] | None = None
     ) -> ChemicalAnomalyResult:
-        """
-        Detect chemical anomalies across elements, isotopes, and reactions.
+        """Detect chemical anomalies across elements, isotopes, and reactions.
 
         Args:
             chemical_data: Chemical measurement data including:
@@ -624,7 +603,7 @@ class ChemistryAnomalyDetector:
         return correlation
 
     def _symbol_to_atomic_number(self, symbol: str) -> int:
-        """Convert element symbol to atomic number (simplified mapping)"""
+        """Convert element symbol to atomic number (simplified mapping)."""
         symbol_map = {
             "H": 1,
             "He": 2,
@@ -697,8 +676,7 @@ class ChemistryAnomalyDetector:
 
 
 def create_omni_chemistry_scalars() -> dict[str, float]:
-    """
-    Create doctorate-level chemistry scalars for truth deciphering.
+    """Create doctorate-level chemistry scalars for truth deciphering.
 
     Returns:
         Dictionary of omni-chemistry scalars with golden ratio optimization

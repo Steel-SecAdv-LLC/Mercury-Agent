@@ -1,5 +1,5 @@
-# SPDX-License-Identifier: GPL-3.0-only
-# Copyright (C) Steel Security Advisors LLC
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """LRU-bounded benevolence-decision cache.
 
 Wraps :class:`omni_mercury_engine.cognitive.ethical_bounding.BenevolenceScorer`
@@ -50,7 +50,6 @@ from omni_mercury_engine.core import centralized_constants
 
 logger = logging.getLogger(__name__)
 
-
 DEFAULT_CACHE_CAPACITY: int = 1024
 
 
@@ -85,6 +84,7 @@ class CachedBenevolenceScorer:
         scorer: BenevolenceScorer | None = None,
         capacity: int = DEFAULT_CACHE_CAPACITY,
     ) -> None:
+        """Initialize the instance."""
         if capacity < 1:
             raise ValueError(f"capacity must be >= 1, got {capacity}")
 

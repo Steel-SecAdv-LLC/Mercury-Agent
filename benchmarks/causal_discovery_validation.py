@@ -1,9 +1,6 @@
-"""
-Mercury Agent - Copyright (C) 2025 Steel Security Advisors LLC
-Licensed under GNU GPL v3
-
-Causal-discovery validation: does the dormant ``causal_discovery`` engine
-recover known causal structure?
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+r"""Causal-discovery validation: does the dormant ``causal_discovery`` engine recover known causal structure?
 
 `causal_discovery.py` was orphaned and, judged by the anomaly-AUC lens, looked
 un-revivable -- it emits a causal *graph*, not a per-sample anomaly score. That

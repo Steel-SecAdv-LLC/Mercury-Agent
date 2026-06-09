@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Advanced Context Providers for VLM-based Anomaly Detection.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Advanced Context Providers for VLM-based Anomaly Detection.
 
 Extends the base context provider system with:
 - Semantic context: Scene-level understanding and object relationships
@@ -27,6 +10,8 @@ Extends the base context provider system with:
 These providers enhance VLM prompts with rich contextual information
 to improve anomaly detection precision.
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
@@ -84,8 +69,7 @@ class AppearanceFeatures:
 
 
 class SemanticContextProvider(BaseContextProvider):
-    """
-    Semantic context provider for scene-level understanding.
+    """Semantic context provider for scene-level understanding.
 
     Extracts high-level semantic features without requiring
     deep learning models - uses classical CV techniques for
@@ -104,8 +88,7 @@ class SemanticContextProvider(BaseContextProvider):
         edge_kernel_size: int = 3,
         random_state: int | None = None,
     ):
-        """
-        Initialize semantic context provider.
+        """Initialize semantic context provider.
 
         Args:
             complexity_threshold: Threshold for complex vs simple scenes
@@ -129,8 +112,7 @@ class SemanticContextProvider(BaseContextProvider):
         frames: np.ndarray[Any, Any] | torch.Tensor,
         **kwargs: Any,
     ) -> ContextInfo:
-        """
-        Extract semantic context from input frames.
+        """Extract semantic context from input frames.
 
         Args:
             frames: Input frames [T, C, H, W] or [C, H, W]
@@ -434,8 +416,7 @@ class SemanticContextProvider(BaseContextProvider):
 
 
 class FrequencyContextProvider(BaseContextProvider):
-    """
-    Frequency-domain context provider for periodic pattern detection.
+    """Frequency-domain context provider for periodic pattern detection.
 
     Analyzes spectral characteristics to detect:
     - Periodic patterns (stripes, grids, textures)
@@ -455,8 +436,7 @@ class FrequencyContextProvider(BaseContextProvider):
         periodicity_threshold: float = 0.3,
         flicker_threshold: float = 0.2,
     ):
-        """
-        Initialize frequency context provider.
+        """Initialize frequency context provider.
 
         Args:
             frequency_bins: Number of frequency bins for analysis
@@ -472,8 +452,7 @@ class FrequencyContextProvider(BaseContextProvider):
         frames: np.ndarray[Any, Any] | torch.Tensor,
         **kwargs: Any,
     ) -> ContextInfo:
-        """
-        Extract frequency-domain context.
+        """Extract frequency-domain context.
 
         Args:
             frames: Input frames [T, C, H, W] or [C, H, W]
@@ -700,8 +679,7 @@ class FrequencyContextProvider(BaseContextProvider):
 
 
 class AppearanceContextProvider(BaseContextProvider):
-    """
-    Appearance context provider for color and texture analysis.
+    """Appearance context provider for color and texture analysis.
 
     Extracts visual appearance features:
     - Color distribution and dominant colors
@@ -719,8 +697,7 @@ class AppearanceContextProvider(BaseContextProvider):
         color_bins: int = 16,
         num_dominant_colors: int = 5,
     ):
-        """
-        Initialize appearance context provider.
+        """Initialize appearance context provider.
 
         Args:
             color_bins: Number of bins per color channel
@@ -734,8 +711,7 @@ class AppearanceContextProvider(BaseContextProvider):
         frames: np.ndarray[Any, Any] | torch.Tensor,
         **kwargs: Any,
     ) -> ContextInfo:
-        """
-        Extract appearance context.
+        """Extract appearance context.
 
         Args:
             frames: Input frames [T, C, H, W] or [C, H, W]
@@ -1026,8 +1002,7 @@ class AppearanceContextProvider(BaseContextProvider):
 
 
 class EnhancedCombinedContextProvider:
-    """
-    Enhanced combined context provider with all context types.
+    """Enhanced combined context provider with all context types.
 
     Integrates:
     - Position context (spatial awareness)
@@ -1046,8 +1021,7 @@ class EnhancedCombinedContextProvider:
         enable_appearance: bool = True,
         random_state: int | None = None,
     ):
-        """
-        Initialize enhanced combined provider.
+        """Initialize enhanced combined provider.
 
         Args:
             enable_position: Enable position context
@@ -1081,8 +1055,7 @@ class EnhancedCombinedContextProvider:
         frames: np.ndarray[Any, Any] | torch.Tensor,
         context_types: list[str] | None = None,
     ) -> dict[str, ContextInfo]:
-        """
-        Extract specified context types.
+        """Extract specified context types.
 
         Args:
             frames: Input frames
@@ -1109,8 +1082,7 @@ class EnhancedCombinedContextProvider:
         contexts: dict[str, ContextInfo],
         priority_order: list[str] | None = None,
     ) -> str:
-        """
-        Format all contexts as prompt addition.
+        """Format all contexts as prompt addition.
 
         Args:
             contexts: Dict of context info
@@ -1131,8 +1103,7 @@ class EnhancedCombinedContextProvider:
         return "\n".join(parts)
 
     def get_context_summary(self, contexts: dict[str, ContextInfo]) -> dict[str, Any]:
-        """
-        Get a structured summary of all contexts.
+        """Get a structured summary of all contexts.
 
         Args:
             contexts: Dict of context info

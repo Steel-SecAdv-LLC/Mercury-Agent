@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Network-gated end-to-end tests for the real-data fusion training path.
 
 Guards that the opt-in real (ADBench) path actually produces a discriminating,

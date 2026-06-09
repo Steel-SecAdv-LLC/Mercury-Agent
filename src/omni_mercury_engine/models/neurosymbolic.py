@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Unified Neurosymbolic Engine - Fusion of neural networks and symbolic reasoning
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Unified Neurosymbolic Engine - Fusion of neural networks and symbolic reasoning.
 
 .. warning:: **Legacy / reference surface — not the canonical co-trained path.**
     The **canonical, trained** neuro-symbolic component is
@@ -72,6 +55,8 @@ Example:
         print(f"Derived: {symbolic['result']}, Explanation: {symbolic['explanation']}")
 """
 
+from __future__ import annotations
+
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
@@ -102,8 +87,7 @@ class ReasoningMode(Enum):
 
 @dataclass
 class SymbolicRule:
-    """
-    Represents a symbolic logical rule with explainability support.
+    """Represents a symbolic logical rule with explainability support.
 
     Attributes:
         premise: Logical condition(s) that must be satisfied
@@ -122,6 +106,7 @@ class SymbolicRule:
     explanation_template: str = ""
 
     def __post_init__(self) -> None:
+        """Finalize dataclass initialization."""
         if not self.name:
             self.name = f"rule_{hash((self.premise, self.conclusion)) % 10000:04d}"
         if not self.explanation_template:
@@ -138,8 +123,7 @@ class SymbolicRule:
 
 @dataclass
 class ReasoningResult:
-    """
-    Result from symbolic or hybrid reasoning.
+    """Result from symbolic or hybrid reasoning.
 
     Attributes:
         result: Whether the query was derived
@@ -231,8 +215,7 @@ class LogicTensorNetwork:
 
 
 class SymbolicReasoningLayer:
-    """
-    Symbolic reasoning layer for explainable AI.
+    """Symbolic reasoning layer for explainable AI.
 
     Provides PyReason-inspired temporal first-order logic reasoning
     for generating human-readable explanations of decisions.
@@ -247,8 +230,7 @@ class SymbolicReasoningLayer:
         temporal_logic: bool = True,
         graph_based: bool = True,
     ):
-        """
-        Initialize symbolic reasoning layer.
+        """Initialize symbolic reasoning layer.
 
         Args:
             explainability_threshold: Min confidence for explanations
@@ -269,8 +251,7 @@ class SymbolicReasoningLayer:
         neural_score: float,
         context: dict[str, Any],
     ) -> ReasoningResult:
-        """
-        Perform hybrid neuro-symbolic reasoning.
+        """Perform hybrid neuro-symbolic reasoning.
 
         Combines neural network output with symbolic rule evaluation
         for explainable anomaly detection.
@@ -369,8 +350,7 @@ class SymbolicReasoningLayer:
 
 
 class NeurosymbolicEngine:
-    """
-    Unified Neurosymbolic reasoning engine combining LTN with symbolic logic.
+    """Unified Neurosymbolic reasoning engine combining LTN with symbolic logic.
 
     Provides:
     - Neural inference via Logic Tensor Networks
@@ -388,8 +368,7 @@ class NeurosymbolicEngine:
         reasoning_mode: ReasoningMode = ReasoningMode.HYBRID,
         explainability_threshold: float = 0.7,
     ):
-        """
-        Initialize Neurosymbolic Engine.
+        """Initialize Neurosymbolic Engine.
 
         Args:
             input_dim: Input feature dimension for LTN
@@ -506,8 +485,7 @@ class NeurosymbolicEngine:
         logging.info(f"Added fact: {fact}")
 
     def neural_inference(self, features: np.ndarray[Any, Any]) -> float:
-        """
-        Deterministic statistical anomaly-confidence for the legacy path.
+        """Deterministic statistical anomaly-confidence for the legacy path.
 
         .. note:: **Distinct from the trained consensus path (2026-06-02).**
             This is a deterministic, reproducible statistic of *raw features* —
@@ -542,8 +520,7 @@ class NeurosymbolicEngine:
         return float(1.0 / (1.0 + np.exp(-(dispersion - 1.0))))
 
     def symbolic_inference(self, query: str) -> dict[str, Any]:
-        """
-        Perform symbolic inference using knowledge base.
+        """Perform symbolic inference using knowledge base.
 
         Args:
             query: Query in logical form
@@ -592,8 +569,7 @@ class NeurosymbolicEngine:
             return {"result": False, "error": str(e)}
 
     def _evaluate_premise(self, premise: str) -> bool:
-        """
-        Evaluate if a premise is satisfied by current facts.
+        """Evaluate if a premise is satisfied by current facts.
 
         Args:
             premise: Logical premise string
@@ -654,8 +630,7 @@ class NeurosymbolicEngine:
         context: dict[str, Any] | None = None,
         mode: ReasoningMode | None = None,
     ) -> dict[str, Any]:
-        """
-        Predict anomalies using neurosymbolic reasoning.
+        """Predict anomalies using neurosymbolic reasoning.
 
         Args:
             data: Input data array
@@ -728,8 +703,7 @@ class NeurosymbolicEngine:
         data: np.ndarray[Any, Any],
         context: dict[str, Any],
     ) -> ReasoningResult:
-        """
-        Perform hybrid neuro-symbolic inference on a single sample.
+        """Perform hybrid neuro-symbolic inference on a single sample.
 
         Args:
             data: Input feature vector
@@ -742,8 +716,7 @@ class NeurosymbolicEngine:
         return self.symbolic_layer.reason(neural_score, context)
 
     def explain(self, reasoning_result: ReasoningResult) -> str:
-        """
-        Generate human-readable explanation of reasoning result.
+        """Generate human-readable explanation of reasoning result.
 
         Args:
             reasoning_result: Result from hybrid_inference
@@ -754,8 +727,7 @@ class NeurosymbolicEngine:
         return self.symbolic_layer.explain_decision(reasoning_result)
 
     def add_rule(self, rule: SymbolicRule) -> None:
-        """
-        Add a custom rule to both knowledge base and symbolic layer.
+        """Add a custom rule to both knowledge base and symbolic layer.
 
         Args:
             rule: SymbolicRule to add
@@ -764,8 +736,7 @@ class NeurosymbolicEngine:
         self.symbolic_layer.add_rule(rule)
 
     def get_statistics(self) -> dict[str, Any]:
-        """
-        Get engine statistics.
+        """Get engine statistics.
 
         Returns:
             Dictionary with engine statistics

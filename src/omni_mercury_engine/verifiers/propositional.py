@@ -1,28 +1,13 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Propositional consistency oracle shared by the paradox verifiers.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Propositional consistency oracle shared by the paradox verifiers.
 
 Propositional logic is decidable, so the consistency of a finite theory is a question an oracle
 can settle outright.  The solver here is DPLL with unit propagation and pure-literal elimination
 -- a real decision procedure that prunes the search, not an exponential truth-table sweep.
 """
+
+from __future__ import annotations
 
 from dataclasses import dataclass
 
@@ -35,9 +20,11 @@ class Literal:
     positive: bool = True
 
     def __invert__(self) -> Literal:
+        """Implement the Python data model method."""
         return Literal(self.name, not self.positive)
 
     def __str__(self) -> str:
+        """Return the string representation."""
         return self.name if self.positive else f"~{self.name}"
 
 

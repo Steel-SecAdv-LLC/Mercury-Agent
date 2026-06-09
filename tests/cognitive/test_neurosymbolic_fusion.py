@@ -1,9 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests for Neuro-Symbolic Fusion Engine - Hybrid Anomaly Scoring
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for Neuro-Symbolic Fusion Engine - Hybrid Anomaly Scoring."""
 
 from __future__ import annotations
 

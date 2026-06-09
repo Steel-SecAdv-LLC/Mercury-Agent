@@ -1,14 +1,12 @@
-from typing import Any
-
-"""
-Unit tests for signal integrity fixes.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Unit tests for signal integrity fixes.
 
 Tests for Issue #3 (Discrete Score Destruction) and Issue #5 (Contamination Mismatch).
 Validates that statistical detector produces continuous scores instead of discrete values.
-
-Mercury Agent - Copyright (C) 2025 Steel Security Advisors LLC
-Licensed under GNU GPL v3
 """
+
+from typing import Any
 
 import numpy as np
 import pytest

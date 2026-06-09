@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Main OmniMercuryEngine orchestrating all detectors and models.
 
 This module provides the core anomaly detection engine that integrates
@@ -70,19 +72,6 @@ See Also:
     - :class:`omni_mercury_engine.core.config.EngineConfig`
     - :class:`omni_mercury_engine.ml.fusion_network.OmniFusionModel`
 """
-
-# Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-#
-# This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-# General Public License as published by the Free Software Foundation, either version 3 of the
-# License, or (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-# even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-# General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along with this program. If not,
-# see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
@@ -446,8 +435,7 @@ class FeatureCache:
     """
 
     def __init__(self, max_size: int = 128) -> None:
-        """
-        Initialize the feature cache.
+        """Initialize the feature cache.
 
         Args:
             max_size: Maximum number of entries to cache. Default 128.
@@ -460,8 +448,7 @@ class FeatureCache:
         self.misses = 0
 
     def _make_key(self, data: np.ndarray[Any, Any] | torch.Tensor, prefix: str = "") -> str:
-        """
-        Generate a cache key from data.
+        """Generate a cache key from data.
 
         Args:
             data: Input data to hash.
@@ -483,8 +470,7 @@ class FeatureCache:
         key: str,
         compute_fn: Callable[[], Any],
     ) -> Any:
-        """
-        Get cached value or compute and cache it.
+        """Get cached value or compute and cache it.
 
         Args:
             key: Cache key.
@@ -526,8 +512,7 @@ class FeatureCache:
             self.misses = 0
 
     def stats(self) -> dict[str, Any]:
-        """
-        Get cache statistics.
+        """Get cache statistics.
 
         Returns:
             Dictionary with cache statistics.
@@ -562,8 +547,7 @@ class MemoryMonitor:
     """
 
     def __init__(self, threshold_mb: float = 2048.0) -> None:
-        """
-        Initialize memory monitor.
+        """Initialize memory monitor.
 
         Args:
             threshold_mb: Memory threshold in MB for triggering GC.
@@ -574,8 +558,7 @@ class MemoryMonitor:
         self._allocations: dict[str, float] = {}
 
     def get_current_memory_mb(self) -> float:
-        """
-        Get current memory usage in megabytes.
+        """Get current memory usage in megabytes.
 
         Returns:
             Current memory usage in MB.
@@ -590,8 +573,7 @@ class MemoryMonitor:
             return 0.0
 
     def check_and_collect(self) -> bool:
-        """
-        Check memory and trigger GC if needed.
+        """Check memory and trigger GC if needed.
 
         Returns:
             True if GC was triggered, False otherwise.
@@ -610,8 +592,7 @@ class MemoryMonitor:
 
     @contextmanager
     def track_allocation(self, name: str) -> Iterator[None]:
-        """
-        Context manager to track memory allocation.
+        """Context manager to track memory allocation.
 
         Args:
             name: Name for this allocation tracking.
@@ -628,8 +609,7 @@ class MemoryMonitor:
             self.check_and_collect()
 
     def stats(self) -> dict[str, Any]:
-        """
-        Get memory statistics.
+        """Get memory statistics.
 
         Returns:
             Dictionary with memory statistics.
@@ -817,8 +797,7 @@ class OmniMercuryEngine(LoggerMixin):
         logger.info(f"OmniMercuryEngine initialized (mode={mode}, device={self.device})")
 
     def _init_detectors(self) -> None:
-        """
-        Initialize all base anomaly detectors.
+        """Initialize all base anomaly detectors.
 
         Creates instances of the 5 base detectors:
             - statistical: Statistical anomaly detection
@@ -836,8 +815,7 @@ class OmniMercuryEngine(LoggerMixin):
         }
 
     def _init_models(self) -> None:
-        """
-        Initialize all specialized domain models.
+        """Initialize all specialized domain models.
 
         Creates instances of the 13 specialized models covering various domains from quantum physics
         to medical diagnostics.
@@ -868,8 +846,7 @@ class OmniMercuryEngine(LoggerMixin):
         self.security = get_threat_detector()()
 
     def _init_fusion(self) -> None:
-        """
-        Initialize ML fusion components.
+        """Initialize ML fusion components.
 
         Sets up the neural network fusion model and inference engine
         when operating in fusion mode.
@@ -951,8 +928,7 @@ class OmniMercuryEngine(LoggerMixin):
         self.self_healing = get_self_healing()()
 
     def _init_runtime_pipeline(self) -> None:
-        """
-        Initialize runtime pipeline integration modules.
+        """Initialize runtime pipeline integration modules.
 
         Sets up drift detection, fairness auditing, optimization, and LLM
         enhancement components for the detection pipeline. These modules
@@ -1715,8 +1691,7 @@ class OmniMercuryEngine(LoggerMixin):
         X: np.ndarray[Any, Any],
         contamination: float | None = None,
     ) -> np.ndarray[Any, Any]:
-        """
-        Generate pseudo-labels using detector consensus for semi-supervised learning.
+        """Generate pseudo-labels using detector consensus for semi-supervised learning.
 
         Uses adaptive contamination estimation and ensemble voting from detector
         scores to identify likely anomalies for training.
@@ -2663,8 +2638,7 @@ class OmniMercuryEngine(LoggerMixin):
         self,
         features: np.ndarray[Any, Any],
     ) -> DriftResult | None:
-        """
-        Check for data drift against baseline.
+        """Check for data drift against baseline.
 
         Args:
             features: Current feature data to check for drift.
@@ -2697,8 +2671,7 @@ class OmniMercuryEngine(LoggerMixin):
         predictions: np.ndarray[Any, Any],
         sensitive_data: dict[str, np.ndarray[Any, Any]] | None = None,
     ) -> FairnessReport | None:
-        """
-        Audit detection results for fairness.
+        """Audit detection results for fairness.
 
         Args:
             predictions: Model predictions to audit.
@@ -2731,8 +2704,7 @@ class OmniMercuryEngine(LoggerMixin):
         data: np.ndarray[Any, Any] | dict[str, Any],
         detection_result: dict[str, Any],
     ) -> dict[str, Any] | None:
-        """
-        Enhance detection results with LLM explanations.
+        """Enhance detection results with LLM explanations.
 
         Args:
             data: Original input data.
@@ -2777,8 +2749,7 @@ class OmniMercuryEngine(LoggerMixin):
             return None
 
     def _get_executor(self) -> ThreadPoolExecutor:
-        """
-        Get or create thread pool executor.
+        """Get or create thread pool executor.
 
         Returns:
             ThreadPoolExecutor for parallel processing.
@@ -2935,8 +2906,7 @@ class OmniMercuryEngine(LoggerMixin):
         data: np.ndarray[Any, Any],
         target_memory_mb: float = 512.0,
     ) -> int:
-        """
-        Calculate optimal batch size based on data and memory.
+        """Calculate optimal batch size based on data and memory.
 
         Args:
             data: Input data array.
@@ -3090,8 +3060,7 @@ class OmniMercuryEngine(LoggerMixin):
         contamination: float = 0.05,
         method: str = "auto",
     ) -> OmniMercuryEngine:
-        """
-        Enable automatic threshold calibration for all detectors.
+        """Enable automatic threshold calibration for all detectors.
 
         This solves the F1=0 problem where good ROC-AUC is achieved but
         a fixed 0.5 threshold produces no positive predictions.
@@ -3133,8 +3102,7 @@ class OmniMercuryEngine(LoggerMixin):
         labels: np.ndarray[Any, Any] | None = None,
         method: str = "auto",
     ) -> dict[str, Any]:
-        """
-        Calibrate threshold from a batch of scores.
+        """Calibrate threshold from a batch of scores.
 
         Use this method when you have precomputed scores and want to
         find the optimal threshold without re-running detection.
@@ -3186,8 +3154,7 @@ class OmniMercuryEngine(LoggerMixin):
         labels: np.ndarray[Any, Any] | None = None,
         print_output: bool = True,
     ) -> dict[str, Any]:
-        """
-        Run detection with full diagnostics for debugging F1=0 issues.
+        """Run detection with full diagnostics for debugging F1=0 issues.
 
         This method is specifically designed to help diagnose calibration
         problems. It runs detection and provides comprehensive diagnostics
@@ -3290,8 +3257,7 @@ class OmniMercuryEngine(LoggerMixin):
         calibration_method: str = "auto",
         contamination: float | None = None,
     ) -> dict[str, Any]:
-        """
-        Detect anomalies with automatic threshold calibration.
+        """Detect anomalies with automatic threshold calibration.
 
         This is the recommended method when you want optimal F1 performance.
         It runs detection, calibrates the threshold based on the score
@@ -3374,8 +3340,7 @@ class OmniMercuryEngine(LoggerMixin):
         domain: str | None,
         data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],
     ) -> None:
-        """
-        Dual hard ethical gate at the engine decision boundary.
+        """Dual hard ethical gate at the engine decision boundary.
 
         Both gates fail closed:
 
@@ -3458,8 +3423,7 @@ class OmniMercuryEngine(LoggerMixin):
     def _extract_detector_features(
         self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any]
     ) -> tuple[Any, ...]:
-        """
-        Extract features from all detectors.
+        """Extract features from all detectors.
 
         This method extracts feature vectors from all base detectors
         and normalizes their anomaly scores. Features are cached for
@@ -3535,8 +3499,7 @@ class OmniMercuryEngine(LoggerMixin):
     def _extract_model_features(
         self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any]
     ) -> tuple[Any, ...]:
-        """
-        Extract features from all specialized models.
+        """Extract features from all specialized models.
 
         This method extracts feature vectors from all 13 specialized
         domain models and normalizes their anomaly scores.
@@ -3584,8 +3547,7 @@ class OmniMercuryEngine(LoggerMixin):
     def _extract_features_parallel(
         self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any]
     ) -> tuple[Any, ...]:
-        """
-        Extract features from all sources in parallel.
+        """Extract features from all sources in parallel.
 
         This method uses thread pool execution to extract features
         from detectors and models concurrently.
@@ -3620,8 +3582,7 @@ class OmniMercuryEngine(LoggerMixin):
         explain: bool = False,
         equation_profile: str | None = None,
     ) -> dict[str, Any]:
-        """
-        Detect anomalies using ML fusion with GOSNN synaptic integration.
+        """Detect anomalies using ML fusion with GOSNN synaptic integration.
 
         This method combines outputs from all detectors and models using a
         neural network fusion approach with attention-based weighting. It
@@ -4582,8 +4543,7 @@ class OmniMercuryEngine(LoggerMixin):
         }
 
     def save_model(self, path: str) -> None:
-        """
-        Save the fusion model to a versioned checkpoint.
+        """Save the fusion model to a versioned checkpoint.
 
         The checkpoint bundles, in one dict:
 
@@ -4654,8 +4614,7 @@ class OmniMercuryEngine(LoggerMixin):
         torch.save(checkpoint, path)
 
     def load_model(self, path: str) -> None:
-        """
-        Load the fusion model from a checkpoint.
+        """Load the fusion model from a checkpoint.
 
         Handles the structured checkpoint written by :meth:`save_model` and a
         legacy bare ``state_dict``. For structured checkpoints the model is
@@ -4821,8 +4780,7 @@ class OmniMercuryEngine(LoggerMixin):
         return self.memory_monitor.stats()
 
     def clear_cache(self) -> None:
-        """
-        Clear the feature cache.
+        """Clear the feature cache.
 
         This can be useful to free memory after processing
         large datasets.

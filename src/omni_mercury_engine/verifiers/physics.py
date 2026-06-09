@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Oracle-validated verifier for a PHYSICS_THEORIES scalar.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Oracle-validated verifier for a PHYSICS_THEORIES scalar.
 
 A physical law's *dimensional consistency* is decidable: both sides must reduce to the same SI
 dimension.  Optionally a *numerical* relation is checked against a reference value within a
@@ -27,6 +10,8 @@ floating-point comparison -- so the grounded scalar reflects a real check, not a
 This is not a claim to have *derived* physics; it confirms that a stated relation is
 dimensionally and (where given) numerically self-consistent, and refutes one that is not.
 """
+
+from __future__ import annotations
 
 import logging
 import math

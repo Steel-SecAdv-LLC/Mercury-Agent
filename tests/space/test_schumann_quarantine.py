@@ -1,13 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Anti-theater tests for the Schumann resonance detector: the untrained CNN-LSTM
-must not drive anomaly_type/confidence/risk_score. With random weights the
-detector falls back to the deterministic FFT-physics assessment, so identical
-input yields identical output across freshly constructed detectors (it did NOT
-before the quarantine -- random weights made every instance disagree).
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Anti-theater tests for the Schumann resonance detector: the untrained CNN-LSTM must not drive anomaly_type/confidence/risk_score. With random weights the detector falls back to the deterministic FFT-physics assessment, so identical input yields identical output across freshly constructed detectors (it did NOT before the quarantine -- random weights made every instance disagree)."""
 
 from __future__ import annotations
 

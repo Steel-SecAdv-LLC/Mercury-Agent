@@ -1,14 +1,12 @@
-from typing import Any
-
-"""
-Unit tests for Issue #7: Score Continuity Fix.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Unit tests for Issue #7: Score Continuity Fix.
 
 Tests that temporal and directive detectors use soft normalization
 instead of hard clipping, preserving ranking information for extreme anomalies.
-
-Mercury Agent - Copyright (C) 2025 Steel Security Advisors LLC
-Licensed under GNU GPL v3
 """
+
+from typing import Any
 
 import numpy as np
 import pytest

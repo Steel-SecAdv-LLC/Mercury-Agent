@@ -1,8 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Serve-path explainability wiring tests (WS5).
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Serve-path explainability wiring tests (WS5).
 
 ``OmniMercuryEngine.detect_with_fusion(explain=True)`` must attach a real
 Integrated-Gradients attribution of the *same* calibrated fusion probability the

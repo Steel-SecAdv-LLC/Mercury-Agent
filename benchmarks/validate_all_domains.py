@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Validate all domain loaders against real API data.
 
 Runs MercuryAnomalyDetector.fit() -> detect() -> AUC for each domain.
 Tests ALL events per domain and reports the mean AUC (matching the
 behaviour of run_all_benchmarks.py).  No synthetic fallbacks.
-
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
 """
 
 from __future__ import annotations
@@ -27,7 +26,6 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger(__name__)
-
 
 # Prior AUC values from the v2 validation audit (commit 2ed4bb9)
 PRIOR_AUC: dict[str, float] = {

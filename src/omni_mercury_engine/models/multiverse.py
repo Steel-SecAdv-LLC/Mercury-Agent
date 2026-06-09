@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Multi-Hypothesis Optimization Engine - Parallel Solution Space Exploration
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Multi-Hypothesis Optimization Engine - Parallel Solution Space Exploration.
 
 Original implementation for Mercury Agent neural-symbolic AI archetype.
 
@@ -26,6 +9,8 @@ optimization and multi-dimensional state space exploration to find optimal strat
 The approach is inspired by population-based optimization methods like genetic
 algorithms and particle swarm optimization.
 """
+
+from __future__ import annotations
 
 import hashlib
 import logging
@@ -70,8 +55,7 @@ class Universe:
 
 
 class MultiverseOmniEngine:
-    """
-    Multi-Hypothesis Optimization Engine - Parallel Solution Exploration.
+    """Multi-Hypothesis Optimization Engine - Parallel Solution Exploration.
 
     Explores multiple solution pathways simultaneously to maximize
     the probability of successful outcomes through ensemble optimization.
@@ -86,8 +70,7 @@ class MultiverseOmniEngine:
         entanglement_strength: float = 0.3,
         rng: DeterministicRNG | None = None,
     ):
-        """
-        Initialize Multi-Universe Omni Engine.
+        """Initialize Multi-Universe Omni Engine.
 
         Args:
             num_universes: Number of parallel universes to simulate
@@ -136,8 +119,7 @@ class MultiverseOmniEngine:
     def evaluate_universe(
         self, universe: Universe, fitness_function: Callable[[np.ndarray[Any, Any]], float]
     ) -> float:
-        """
-        Evaluate fitness of a universe.
+        """Evaluate fitness of a universe.
 
         Args:
             universe: Universe to evaluate
@@ -155,8 +137,7 @@ class MultiverseOmniEngine:
         return fitness
 
     def combine_hypotheses(self, universes_to_superpose: list[str]) -> Universe:
-        """
-        Combine multiple solution hypotheses into a weighted average.
+        """Combine multiple solution hypotheses into a weighted average.
 
         Args:
             universes_to_superpose: List of universe IDs to combine
@@ -203,8 +184,7 @@ class MultiverseOmniEngine:
     def converge_multiverse(
         self, fitness_function: Callable[[np.ndarray[Any, Any]], float]
     ) -> Universe:
-        """
-        Converge the multiverse to the best solution.
+        """Converge the multiverse to the best solution.
 
         Args:
             fitness_function: Function to evaluate fitness
@@ -365,8 +345,7 @@ class MultiverseOmniEngine:
         }
 
     def _apply_hierarchical_scaling(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Apply hierarchical base-20 scaling for multi-dimensional exploration.
+        """Apply hierarchical base-20 scaling for multi-dimensional exploration.
 
         Uses base-20 (vigesimal) scaling to create hierarchical representations
         of state vectors, allowing different components to operate at different
@@ -387,8 +366,7 @@ class MultiverseOmniEngine:
         return scaled_state
 
     def _decompose_to_unit_fractions(self, value: float) -> list[float]:
-        """
-        Decompose value into unit fractions (1/n form).
+        """Decompose value into unit fractions (1/n form).
 
         Uses greedy algorithm to represent a value as a sum of unit fractions,
         which can be useful for certain numerical representations and

@@ -1,12 +1,6 @@
-"""
-Mercury Agent - Few-Shot Learning Framework
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Few-Shot Learning Framework.
 
 Production-grade few-shot learning for anomaly detection providing:
 - Prototypical Networks for metric-based classification
@@ -127,8 +121,7 @@ class FewShotResult:
 
 
 class EpisodeGenerator:
-    """
-    Generates few-shot learning episodes from data.
+    """Generates few-shot learning episodes from data.
 
     Supports various sampling strategies and ensures proper train/test separation within episodes.
     """
@@ -142,8 +135,7 @@ class EpisodeGenerator:
         strategy: EpisodeSamplingStrategy = EpisodeSamplingStrategy.STRATIFIED,
         seed: int = 42,
     ):
-        """
-        Initialize episode generator.
+        """Initialize episode generator.
 
         Args:
             n_way: Number of classes per episode
@@ -180,8 +172,7 @@ class EpisodeGenerator:
         n_support: int,
         n_query: int,
     ) -> NDArray[np.int64]:
-        """
-        Select samples using hard negative mining strategy.
+        """Select samples using hard negative mining strategy.
 
         Hard negatives are samples that are close to prototypes of OTHER classes,
         making them more challenging examples that improve model robustness.
@@ -262,8 +253,7 @@ class EpisodeGenerator:
         y: NDArray[np.int64],
         class_subset: list[int] | None = None,
     ) -> Iterator[Episode]:
-        """
-        Generate few-shot episodes.
+        """Generate few-shot episodes.
 
         Args:
             X: Feature matrix [n_samples, n_features]
@@ -364,8 +354,7 @@ class EpisodeGenerator:
         k_values: list[int] | None = None,
         n_trials: int = 10,
     ) -> Iterator[tuple[int, int, Episode]]:
-        """
-        Generate episodes for K-shot experiments (10, 50, 100 labels).
+        """Generate episodes for K-shot experiments (10, 50, 100 labels).
 
         Args:
             X: Feature matrix
@@ -444,8 +433,7 @@ class BaseFewShotLearner(ABC):
 
 
 class PrototypicalNetworkNumpy(BaseFewShotLearner):
-    """
-    NumPy implementation of Prototypical Networks.
+    """NumPy implementation of Prototypical Networks.
 
     Creates class prototypes as mean embeddings and classifies
     by nearest prototype in embedding space.
@@ -461,8 +449,7 @@ class PrototypicalNetworkNumpy(BaseFewShotLearner):
         temperature: float = 1.0,
         random_state: int | None = None,
     ):
-        """
-        Initialize Prototypical Network.
+        """Initialize Prototypical Network.
 
         Args:
             embedding_dim: Dimension of embedding space
@@ -555,8 +542,7 @@ class PrototypicalNetworkNumpy(BaseFewShotLearner):
 
 
 class MatchingNetworkNumpy(BaseFewShotLearner):
-    """
-    NumPy implementation of Matching Networks.
+    """NumPy implementation of Matching Networks.
 
     Uses attention over support set embeddings for classification.
 
@@ -570,8 +556,7 @@ class MatchingNetworkNumpy(BaseFewShotLearner):
         use_cosine_attention: bool = True,
         random_state: int | None = None,
     ):
-        """
-        Initialize Matching Network.
+        """Initialize Matching Network.
 
         Args:
             embedding_dim: Dimension of embedding space
@@ -665,8 +650,7 @@ class MatchingNetworkNumpy(BaseFewShotLearner):
 
 
 class SiameseNetworkNumpy(BaseFewShotLearner):
-    """
-    NumPy implementation of Siamese Networks.
+    """NumPy implementation of Siamese Networks.
 
     Learns similarity function between pairs of examples.
 
@@ -680,8 +664,7 @@ class SiameseNetworkNumpy(BaseFewShotLearner):
         similarity_threshold: float = 0.5,
         random_state: int | None = None,
     ):
-        """
-        Initialize Siamese Network.
+        """Initialize Siamese Network.
 
         Args:
             embedding_dim: Dimension of embedding space
@@ -780,8 +763,7 @@ class SiameseNetworkNumpy(BaseFewShotLearner):
 
 
 class MAMLNumpy(BaseFewShotLearner):
-    """
-    NumPy implementation of Model-Agnostic Meta-Learning (MAML).
+    """NumPy implementation of Model-Agnostic Meta-Learning (MAML).
 
     MAML learns an initialization for a neural network that can be
     rapidly adapted to new tasks with just a few gradient steps.
@@ -800,8 +782,7 @@ class MAMLNumpy(BaseFewShotLearner):
         inner_steps: int = 5,
         random_state: int | None = None,
     ):
-        """
-        Initialize MAML.
+        """Initialize MAML.
 
         Args:
             embedding_dim: Dimension of output embedding
@@ -850,8 +831,7 @@ class MAMLNumpy(BaseFewShotLearner):
         W2: NDArray[np.float64],
         b2: NDArray[np.float64],
     ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
-        """
-        Forward pass through network.
+        """Forward pass through network.
 
         Returns:
             Tuple of (hidden activations, output logits)
@@ -981,8 +961,7 @@ class MAMLNumpy(BaseFewShotLearner):
 
 
 class RelationNetworkNumpy(BaseFewShotLearner):
-    """
-    NumPy implementation of Relation Networks.
+    """NumPy implementation of Relation Networks.
 
     Uses a learned relation module to compare query samples to class
     prototypes, outputting relation scores that represent similarity.
@@ -997,8 +976,7 @@ class RelationNetworkNumpy(BaseFewShotLearner):
         relation_dim: int = 32,
         random_state: int | None = None,
     ):
-        """
-        Initialize Relation Network.
+        """Initialize Relation Network.
 
         Args:
             embedding_dim: Dimension of embedding space
@@ -1084,8 +1062,7 @@ class RelationNetworkNumpy(BaseFewShotLearner):
         query_embed: NDArray[np.float64],
         proto_embed: NDArray[np.float64],
     ) -> NDArray[np.float64]:
-        """
-        Compute relation scores between queries and prototypes.
+        """Compute relation scores between queries and prototypes.
 
         Args:
             query_embed: Query embeddings [n_query, embedding_dim]
@@ -1163,8 +1140,7 @@ class RelationNetworkNumpy(BaseFewShotLearner):
 if TORCH_AVAILABLE:
 
     class PrototypicalNetworkTorch(nn.Module, BaseFewShotLearner):
-        """
-        PyTorch implementation of Prototypical Networks.
+        """PyTorch implementation of Prototypical Networks.
 
         More expressive than NumPy version with learnable encoder.
         """
@@ -1176,6 +1152,7 @@ if TORCH_AVAILABLE:
             embedding_dim: int = 64,
             dropout: float = 0.1,
         ):
+            """Initialize the instance."""
             super().__init__()
             self.input_dim = input_dim
             self.embedding_dim = embedding_dim
@@ -1255,8 +1232,7 @@ if TORCH_AVAILABLE:
 
 
 class FewShotLearner:
-    """
-    Unified interface for few-shot learning experiments.
+    """Unified interface for few-shot learning experiments.
 
     Supports multiple methods and evaluation protocols including the critical 10/50/100 label
     experiments.
@@ -1273,8 +1249,7 @@ class FewShotLearner:
         use_pytorch: bool = True,
         seed: int = 42,
     ):
-        """
-        Initialize few-shot learner.
+        """Initialize few-shot learner.
 
         Args:
             method: Few-shot learning method
@@ -1346,8 +1321,7 @@ class FewShotLearner:
         X: NDArray[np.float64],
         y: NDArray[np.int64],
     ) -> FewShotResult:
-        """
-        Evaluate few-shot learning performance.
+        """Evaluate few-shot learning performance.
 
         Args:
             X: Feature matrix
@@ -1433,8 +1407,7 @@ class FewShotLearner:
         k_values: list[int] | None = None,
         n_trials: int = 10,
     ) -> dict[int, FewShotResult]:
-        """
-        Run experiments with different numbers of labels (10, 50, 100).
+        """Run experiments with different numbers of labels (10, 50, 100).
 
         This addresses the user requirement for k-shot experiments
         that demonstrate Mercury's architectural advantages.
@@ -1544,8 +1517,7 @@ def create_few_shot_learner(
     n_way: int = 2,
     **kwargs: Any,
 ) -> FewShotLearner:
-    """
-    Factory function to create few-shot learner.
+    """Factory function to create few-shot learner.
 
     Args:
         method: Method name ('prototypical', 'matching', 'siamese')

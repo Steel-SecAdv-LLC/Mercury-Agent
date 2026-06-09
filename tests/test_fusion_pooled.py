@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Offline tests for pooled fusion training and the shared training tail.
 
 ``fit_fusion`` and the new ``fit_fusion_pooled`` both funnel through
@@ -21,7 +23,6 @@ import numpy as np
 import pytest
 
 pytestmark = pytest.mark.xdist_group("fusion_pooled")
-
 
 pytest.importorskip("torch")
 

@@ -1,12 +1,6 @@
-"""
-Mercury Agent - Online Learning Pipeline
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Online Learning Pipeline.
 
 Production-grade online learning pipeline providing:
 - Incremental model updates with streaming data
@@ -125,8 +119,7 @@ class RetrainingEvent:
 
 
 class SampleBuffer:
-    """
-    Thread-safe buffer for streaming samples.
+    """Thread-safe buffer for streaming samples.
 
     Supports FIFO, reservoir sampling, and stratified sampling.
     """
@@ -138,8 +131,7 @@ class SampleBuffer:
         reservoir_size: int | None = None,
         random_state: int | None = None,
     ):
-        """
-        Initialize sample buffer.
+        """Initialize sample buffer.
 
         Args:
             max_size: Maximum buffer size
@@ -184,8 +176,7 @@ class SampleBuffer:
         batch_size: int,
         remove: bool = False,
     ) -> list[StreamingSample]:
-        """
-        Get a batch of samples.
+        """Get a batch of samples.
 
         Args:
             batch_size: Number of samples
@@ -242,6 +233,7 @@ class SampleBuffer:
             self._reservoir.clear()
 
     def __len__(self) -> int:
+        """Return the length."""
         with self._lock:
             if self.strategy == "reservoir":
                 return len(self._reservoir)
@@ -272,8 +264,7 @@ class OnlineLearner(ABC):
 
 
 class SGDOnlineLearner(OnlineLearner):
-    """
-    Stochastic Gradient Descent based online learner.
+    """Stochastic Gradient Descent based online learner.
 
     Uses Mercury-native SGDClassifier for online anomaly detection.
     """
@@ -286,8 +277,7 @@ class SGDOnlineLearner(OnlineLearner):
         alpha: float = 0.0001,
         warm_start: bool = True,
     ):
-        """
-        Initialize SGD online learner.
+        """Initialize SGD online learner.
 
         Args:
             learning_rate: Learning rate for SGD
@@ -341,8 +331,7 @@ class SGDOnlineLearner(OnlineLearner):
 
 
 class PassiveAggressiveOnlineLearner(OnlineLearner):
-    """
-    Passive-Aggressive online learner.
+    """Passive-Aggressive online learner.
 
     Good for scenarios with concept drift as it aggressively corrects mistakes.
     """
@@ -352,8 +341,7 @@ class PassiveAggressiveOnlineLearner(OnlineLearner):
         C: float = 1.0,
         fit_intercept: bool = True,
     ):
-        """
-        Initialize Passive-Aggressive learner.
+        """Initialize Passive-Aggressive learner.
 
         Args:
             C: Regularization parameter
@@ -408,8 +396,7 @@ class PassiveAggressiveOnlineLearner(OnlineLearner):
 
 
 class OnlineLearningPipeline:
-    """
-    Complete online learning pipeline with drift detection and adaptation.
+    """Complete online learning pipeline with drift detection and adaptation.
 
     Handles streaming data, automatic drift detection, and model retraining.
     """
@@ -427,8 +414,7 @@ class OnlineLearningPipeline:
         ema_decay: float = 0.99,
         random_state: int | None = None,
     ):
-        """
-        Initialize online learning pipeline.
+        """Initialize online learning pipeline.
 
         Args:
             model: Online learner or any model with partial_fit
@@ -488,8 +474,7 @@ class OnlineLearningPipeline:
         self._start_time = time.time()
 
     def process(self, sample: StreamingSample) -> dict[str, Any]:
-        """
-        Process a single streaming sample.
+        """Process a single streaming sample.
 
         Args:
             sample: Incoming sample
@@ -727,8 +712,7 @@ class OnlineLearningPipeline:
         self,
         data_iterator: Iterator[StreamingSample],
     ) -> Iterator[dict[str, Any]]:
-        """
-        Process streaming data.
+        """Process streaming data.
 
         Args:
             data_iterator: Iterator yielding StreamingSample objects
@@ -776,8 +760,7 @@ def create_online_pipeline(
     model_type: str = "sgd",
     **kwargs: Any,
 ) -> OnlineLearningPipeline:
-    """
-    Factory function to create online learning pipeline.
+    """Factory function to create online learning pipeline.
 
     Args:
         model_type: Type of online model ('sgd', 'passive_aggressive')

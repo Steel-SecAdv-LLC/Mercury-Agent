@@ -1,21 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Statistical anomaly detector using Mercury's original mathematical frameworks.
 
 Ensemble composition (replaces prior z-score + IQR + IsolationForest):
@@ -31,6 +15,8 @@ References:
   - Kinematics: AccelerationDynamicsDetector (detectors/acceleration_dynamics.py)
   - InfoGeometry: IGEOOD / FisherInformationMatrix (core/info_geometry.py)
 """
+
+from __future__ import annotations
 
 import logging
 from typing import Any
@@ -69,8 +55,7 @@ _TIKHONOV_LAMBDA: float = 1e-6
 
 
 class MercuryAnomalyDetector(BaseDetector):
-    """
-    Mercury's original anomaly detection ensemble.
+    """Mercury's original anomaly detection ensemble.
 
     Ensemble:
       - ResonanceScore  (40%): Harmonic spectral anomaly via FFT
@@ -92,6 +77,7 @@ class MercuryAnomalyDetector(BaseDetector):
         auto_validate: bool = False,
         auto_tune: bool = False,
     ) -> None:
+        """Initialize the instance."""
         super().__init__(config)
         self.z_threshold: float = self.config.get("z_threshold", 3.0)
         self.iqr_multiplier: float = self.config.get("iqr_multiplier", 1.5)
@@ -162,8 +148,7 @@ class MercuryAnomalyDetector(BaseDetector):
         data: np.ndarray[Any, Any] | torch.Tensor,
         calibration_labels: np.ndarray[Any, Any] | None = None,
     ) -> MercuryAnomalyDetector:
-        """
-        Fit detector on training data.
+        """Fit detector on training data.
 
         Computes statistical baselines for all three ensemble components:
           1. Distributional statistics (mean, std, quartiles)
@@ -532,8 +517,7 @@ class MercuryAnomalyDetector(BaseDetector):
         return self
 
     def get_oracle_statistics(self) -> dict[str, Any] | None:
-        """
-        Export Oracle reference statistics for federation.
+        """Export Oracle reference statistics for federation.
 
         Returns a serializable dict containing the Oracle domain,
         fitted reference stats, and configuration so that a receiving
@@ -604,8 +588,7 @@ class MercuryAnomalyDetector(BaseDetector):
         data_type: str | None = None,
         oracle_ref_stats: dict[str, Any] | None = None,
     ) -> MercuryAnomalyDetector:
-        """
-        Reconstruct a fitted detector from pre-computed statistics.
+        """Reconstruct a fitted detector from pre-computed statistics.
 
         This enables federated learning: nodes export statistics,
         the aggregator combines them, and this method creates a
@@ -805,8 +788,7 @@ class MercuryAnomalyDetector(BaseDetector):
         self._kin_jerk_std = np.std(jerk, axis=0) + 1e-8
 
     def _precompute_resonance_profiles(self, data: np.ndarray[Any, Any]) -> None:
-        """
-        Precompute per-feature spectral profiles at fit time.
+        """Precompute per-feature spectral profiles at fit time.
 
         For each feature column, computes the FFT harmonic ratio (h_train)
         and spectral noise ratio so that ``_compute_resonance_score`` only
@@ -882,8 +864,7 @@ class MercuryAnomalyDetector(BaseDetector):
         X: np.ndarray[Any, Any],
         labels: np.ndarray[Any, Any],
     ) -> np.ndarray[Any, Any]:
-        """
-        Compute per-component ensemble weights proportional to AUC separation.
+        """Compute per-component ensemble weights proportional to AUC separation.
 
         Components with inverted signal (AUC < 0.5) receive zero weight.
         Minimum weight floor of 0.05 prevents complete exclusion of any
@@ -939,8 +920,7 @@ class MercuryAnomalyDetector(BaseDetector):
     # =====================================================================
 
     def _detect_data_characteristics(self, X: np.ndarray[Any, Any]) -> DataCharacteristics:
-        """
-        Automatically detect whether data is temporal, tabular, or image-like.
+        """Automatically detect whether data is temporal, tabular, or image-like.
 
         Detection heuristics (applied in order):
 
@@ -1051,8 +1031,7 @@ class MercuryAnomalyDetector(BaseDetector):
         X: np.ndarray[Any, Any],
         detected_type: DataCharacteristics,
     ) -> str:
-        """
-        Infer the most appropriate Oracle domain from data characteristics.
+        """Infer the most appropriate Oracle domain from data characteristics.
 
         Heuristics (applied in order):
         1. **Sample rate estimation**: If inter-sample intervals suggest
@@ -1276,8 +1255,7 @@ class MercuryAnomalyDetector(BaseDetector):
             return self._data_type_default_weights()
 
     def _data_type_default_weights(self) -> np.ndarray[Any, Any]:
-        """
-        Return default component weights adjusted for detected data type.
+        """Return default component weights adjusted for detected data type.
 
         Uses :data:`COMPONENT_COMPATIBILITY` to compute data-type-aware
         default weights.  When data type is ``TABULAR``, kinematic weight
@@ -1314,8 +1292,7 @@ class MercuryAnomalyDetector(BaseDetector):
         self,
         X: np.ndarray[Any, Any],
     ) -> dict[str, float]:
-        """
-        Measure pairwise correlation between ensemble components.
+        """Measure pairwise correlation between ensemble components.
 
         High correlation (>0.9) between two components indicates redundancy.
         When detected, the lower-AUC component's weight is reduced by 50%
@@ -1400,8 +1377,7 @@ class MercuryAnomalyDetector(BaseDetector):
         self,
         X: np.ndarray[Any, Any] | None = None,
     ) -> dict[str, Any]:
-        """
-        Validate ensemble behaviour and detect inversion.
+        """Validate ensemble behaviour and detect inversion.
 
         If *X* is ``None``, generates synthetic anomalies from the training
         distribution (uniform samples over feature ranges) and compares
@@ -1512,8 +1488,7 @@ class MercuryAnomalyDetector(BaseDetector):
         calibration_indices: np.ndarray[Any, Any],
         calibration_labels: np.ndarray[Any, Any],
     ) -> MercuryAnomalyDetector:
-        """
-        Fit on full data and calibrate threshold using a labeled subset.
+        """Fit on full data and calibrate threshold using a labeled subset.
 
         Convenience method that:
           1. Fits the detector on the full dataset *X* via ``fit()``.
@@ -1607,8 +1582,7 @@ class MercuryAnomalyDetector(BaseDetector):
         labels: np.ndarray[Any, Any] | None = None,
         n_trials: int = 50,
     ) -> MercuryAnomalyDetector:
-        """
-        Optimize hyperparameters using Optuna (optional dependency).
+        """Optimize hyperparameters using Optuna (optional dependency).
 
         When labels are provided, maximizes AUC. When unsupervised,
         maximizes ensemble diversity (minimizes mean pairwise component
@@ -1741,8 +1715,7 @@ class MercuryAnomalyDetector(BaseDetector):
         data: np.ndarray[Any, Any],
         reg_lambda: float,
     ) -> None:
-        """
-        Re-fit info geometry with a specific Tikhonov lambda value.
+        """Re-fit info geometry with a specific Tikhonov lambda value.
 
         Args:
             data: Training data (n_samples, n_features).
@@ -1779,8 +1752,7 @@ class MercuryAnomalyDetector(BaseDetector):
         data: np.ndarray[Any, Any],
         alpha: float = 0.1,
     ) -> dict[str, Any]:
-        """
-        Detect anomalies and provide confidence intervals on scores.
+        """Detect anomalies and provide confidence intervals on scores.
 
         Extends ``detect()`` with uncertainty bands computed via conformal
         prediction on the training score distribution.
@@ -1835,8 +1807,7 @@ class MercuryAnomalyDetector(BaseDetector):
     # =====================================================================
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
-        """
-        Detect anomalies using the Mercury original ensemble.
+        """Detect anomalies using the Mercury original ensemble.
 
         Computes continuous anomaly scores from three independent methods
         and combines them via weighted average.  Scores are in [0, 1].
@@ -2350,8 +2321,7 @@ class MercuryAnomalyDetector(BaseDetector):
     def _residual_frequency_filter(
         scores: np.ndarray[Any, Any], cutoff_quantile: float = 0.75
     ) -> np.ndarray[Any, Any]:
-        """
-        Apply frequency-domain filtering to the score residual.
+        """Apply frequency-domain filtering to the score residual.
 
         Computes the score residual (deviation from moving average),
         applies a bandpass filter to isolate anomaly-relevant frequencies,
@@ -2393,8 +2363,7 @@ class MercuryAnomalyDetector(BaseDetector):
         return np.clip(blended, 0.0, 1.0)
 
     def _compute_iqr_scores(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Compute continuous IQR-based anomaly scores.
+        """Compute continuous IQR-based anomaly scores.
 
         Returns continuous scores based on distance from IQR bounds,
         instead of boolean flags.
@@ -2426,8 +2395,7 @@ class MercuryAnomalyDetector(BaseDetector):
     def extract_features(
         self, data: np.ndarray[Any, Any] | torch.Tensor
     ) -> np.ndarray[Any, Any] | torch.Tensor:
-        """
-        Extract statistical features for ML fusion.
+        """Extract statistical features for ML fusion.
 
         Args:
             data: Input data array or tensor.
@@ -2467,8 +2435,7 @@ class MercuryAnomalyDetector(BaseDetector):
         return features
 
     def _compute_z_scores(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Compute z-scores.
+        """Compute z-scores.
 
         Args:
             data: Input data array.
@@ -2481,8 +2448,7 @@ class MercuryAnomalyDetector(BaseDetector):
         return (data - self.mean) / self.std
 
     def _detect_iqr_anomalies(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Detect anomalies using IQR method (boolean flags).
+        """Detect anomalies using IQR method (boolean flags).
 
         Args:
             data: Input data array.
@@ -2510,8 +2476,7 @@ def calibrate_scores(
     scores: np.ndarray[Any, Any],
     anomaly_ratio: float,
 ) -> np.ndarray[Any, Any]:
-    """
-    Correct score inversion for majority-anomaly datasets.
+    """Correct score inversion for majority-anomaly datasets.
 
     When anomalies form the majority class (ratio > 50%), unsupervised
     detectors treat the anomaly cluster as "normal" and assign it low

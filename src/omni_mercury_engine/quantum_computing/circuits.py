@@ -1,5 +1,6 @@
-"""
-Quantum Circuit Building for Mercury Agent.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Quantum Circuit Building for Mercury Agent.
 
 Provides quantum circuit construction for anomaly detection, including
 data encoding, variational circuits, and error mitigation.
@@ -21,9 +22,7 @@ import numpy as np
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-
 logger = logging.getLogger(__name__)
-
 
 QISKIT_AVAILABLE = False
 try:
@@ -75,15 +74,13 @@ class CircuitMetadata:
 
 
 class SimulatedQuantumCircuit:
-    """
-    Simulated quantum circuit for when Qiskit is not available.
+    """Simulated quantum circuit for when Qiskit is not available.
 
     Provides a compatible interface for circuit construction and simulation.
     """
 
     def __init__(self, num_qubits: int, num_clbits: int = 0, seed: int | None = None) -> None:
-        """
-        Initialize simulated circuit.
+        """Initialize simulated circuit.
 
         Args:
             num_qubits: Number of qubits.
@@ -169,8 +166,7 @@ class SimulatedQuantumCircuit:
         return len(self._parameters)
 
     def simulate(self, shots: int = 1024) -> dict[str, int]:
-        """
-        Simulate the circuit and return measurement counts.
+        """Simulate the circuit and return measurement counts.
 
         Uses statevector simulation with NumPy.
         """
@@ -293,8 +289,7 @@ class SimulatedQuantumCircuit:
 
 
 class QuantumCircuitBuilder:
-    """
-    Build quantum circuits for anomaly detection.
+    """Build quantum circuits for anomaly detection.
 
     Provides factory methods for creating various types of quantum circuits including encoding
     circuits, variational circuits, and feature maps.
@@ -309,8 +304,7 @@ class QuantumCircuitBuilder:
         num_qubits: int,
         num_clbits: int = 0,
     ) -> Any:
-        """
-        Create a new quantum circuit.
+        """Create a new quantum circuit.
 
         Args:
             num_qubits: Number of qubits
@@ -347,8 +341,7 @@ class QuantumCircuitBuilder:
 
 
 class AnomalyEncodingCircuit:
-    """
-    Encode classical data into quantum states for anomaly detection.
+    """Encode classical data into quantum states for anomaly detection.
 
     Supports multiple encoding strategies optimized for different data types.
     """
@@ -366,8 +359,7 @@ class AnomalyEncodingCircuit:
         self._builder = QuantumCircuitBuilder()
 
     def encode(self, data: np.ndarray[Any, Any]) -> Any:
-        """
-        Encode classical data into a quantum circuit.
+        """Encode classical data into a quantum circuit.
 
         Args:
             data: Classical data to encode (normalized to [0, 2*pi] for angles)
@@ -389,8 +381,7 @@ class AnomalyEncodingCircuit:
             return self._angle_encoding(data)
 
     def _amplitude_encoding(self, data: np.ndarray[Any, Any]) -> Any:
-        """
-        Amplitude encoding - encodes data in state amplitudes.
+        """Amplitude encoding - encodes data in state amplitudes.
 
         Requires len(data) <= 2^n and normalized data.
         """
@@ -434,8 +425,7 @@ class AnomalyEncodingCircuit:
         return angles
 
     def _angle_encoding(self, data: np.ndarray[Any, Any]) -> Any:
-        """
-        Angle encoding - encodes each feature as a rotation angle.
+        """Angle encoding - encodes each feature as a rotation angle.
 
         One qubit per feature, uses RY and RZ rotations.
         """
@@ -457,8 +447,7 @@ class AnomalyEncodingCircuit:
         return circuit
 
     def _basis_encoding(self, data: np.ndarray[Any, Any]) -> Any:
-        """
-        Basis encoding - encodes binary data in computational basis.
+        """Basis encoding - encodes binary data in computational basis.
 
         Each qubit represents one bit of data.
         """
@@ -473,8 +462,7 @@ class AnomalyEncodingCircuit:
         return circuit
 
     def _iqp_encoding(self, data: np.ndarray[Any, Any]) -> Any:
-        """
-        IQP (Instantaneous Quantum Polynomial) encoding.
+        """IQP (Instantaneous Quantum Polynomial) encoding.
 
         Creates entanglement structure with diagonal gates.
         """
@@ -497,8 +485,7 @@ class AnomalyEncodingCircuit:
         return circuit
 
     def _zz_feature_map_encoding(self, data: np.ndarray[Any, Any]) -> Any:
-        """
-        ZZ Feature Map encoding for quantum kernels.
+        """ZZ Feature Map encoding for quantum kernels.
 
         Creates entanglement via ZZ interactions between features.
         """
@@ -524,8 +511,7 @@ class AnomalyEncodingCircuit:
 
 
 class VariationalCircuit:
-    """
-    Variational quantum circuit for trainable quantum models.
+    """Variational quantum circuit for trainable quantum models.
 
     Implements various ansatz architectures for VQE and QAOA.
     """
@@ -538,8 +524,7 @@ class VariationalCircuit:
         entanglement: str = "linear",
         seed: int | None = None,
     ) -> None:
-        """
-        Initialize the variational circuit.
+        """Initialize the variational circuit.
 
         Args:
             num_qubits: Number of qubits.
@@ -572,8 +557,7 @@ class VariationalCircuit:
             return 2 * self._num_qubits * (self._reps + 1)
 
     def build(self, parameters: np.ndarray[Any, Any] | None = None) -> Any:
-        """
-        Build the variational circuit with given parameters.
+        """Build the variational circuit with given parameters.
 
         Args:
             parameters: Parameter values (random if None)
@@ -671,8 +655,7 @@ class VariationalCircuit:
 
 
 class QuantumFeatureMap:
-    """
-    Quantum feature map for kernel-based learning.
+    """Quantum feature map for kernel-based learning.
 
     Maps classical data to quantum Hilbert space for kernel computation.
     """
@@ -694,8 +677,7 @@ class QuantumFeatureMap:
         )
 
     def map(self, data: np.ndarray[Any, Any]) -> Any:
-        """
-        Map classical data to quantum feature space.
+        """Map classical data to quantum feature space.
 
         Args:
             data: Classical feature vector
@@ -711,8 +693,7 @@ class QuantumFeatureMap:
         x2: np.ndarray[Any, Any],
         shots: int = 1024,
     ) -> float:
-        """
-        Compute quantum kernel between two data points.
+        """Compute quantum kernel between two data points.
 
         Uses fidelity estimation: K(x1, x2) = |<phi(x1)|phi(x2)>|^2
 
@@ -800,8 +781,7 @@ class QuantumFeatureMap:
 
 
 class ErrorMitigationCircuit:
-    """
-    Error mitigation techniques for NISQ devices.
+    """Error mitigation techniques for NISQ devices.
 
     Implements Zero-Noise Extrapolation (ZNE) and other mitigation strategies.
     """
@@ -821,8 +801,7 @@ class ErrorMitigationCircuit:
         executor: Callable[[Any], dict[str, int]],
         observable: str = "expectation",
     ) -> float:
-        """
-        Execute circuit with error mitigation.
+        """Execute circuit with error mitigation.
 
         Args:
             circuit: Quantum circuit to execute
@@ -843,8 +822,7 @@ class ErrorMitigationCircuit:
         circuit: Any,
         executor: Callable[[Any], dict[str, int]],
     ) -> float:
-        """
-        Zero-Noise Extrapolation.
+        """Zero-Noise Extrapolation.
 
         Runs circuit at multiple noise levels and extrapolates to zero noise.
         """

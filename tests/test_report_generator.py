@@ -1,5 +1,6 @@
-"""
-Tests for omni_mercury_engine.utils.report_generator module.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for omni_mercury_engine.utils.report_generator module.
 
 Tests report generation functionality.
 """

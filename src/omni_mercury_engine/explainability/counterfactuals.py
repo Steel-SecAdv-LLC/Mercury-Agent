@@ -1,5 +1,6 @@
-"""
-Counterfactual Explanations for Mercury Agent.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Counterfactual Explanations for Mercury Agent.
 
 Implements counterfactual explanation methods that answer "what would need
 to change for the model to give a different prediction?"
@@ -23,7 +24,6 @@ from scipy.optimize import minimize
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-
 
 logger = logging.getLogger(__name__)
 
@@ -134,8 +134,7 @@ class CounterfactualGenerator(ABC):
         feature_constraints: list[FeatureConstraint] | None = None,
         seed: int | None = None,
     ) -> None:
-        """
-        Initialize counterfactual generator.
+        """Initialize counterfactual generator.
 
         Args:
             model: Model or prediction function
@@ -208,8 +207,7 @@ class CounterfactualGenerator(ABC):
 
 
 class WachterCounterfactual(CounterfactualGenerator):
-    """
-    Wachter et al.
+    """Wachter et al.
 
     counterfactual generation.     Uses gradient-based optimization to find counterfactuals that
     minimize distance while achieving the desired prediction.
@@ -225,8 +223,7 @@ class WachterCounterfactual(CounterfactualGenerator):
         tolerance: float = 1e-6,
         seed: int | None = None,
     ) -> None:
-        """
-        Initialize Wachter counterfactual generator.
+        """Initialize Wachter counterfactual generator.
 
         Args:
             model: Model or prediction function
@@ -375,8 +372,7 @@ class WachterCounterfactual(CounterfactualGenerator):
 
 
 class DiCECounterfactual(CounterfactualGenerator):
-    """
-    DiCE: Diverse Counterfactual Explanations.
+    """DiCE: Diverse Counterfactual Explanations.
 
     Generates a diverse set of counterfactuals using a diversity-promoting loss function.
     """
@@ -391,8 +387,7 @@ class DiCECounterfactual(CounterfactualGenerator):
         max_iterations: int = 500,
         seed: int | None = None,
     ) -> None:
-        """
-        Initialize DiCE counterfactual generator.
+        """Initialize DiCE counterfactual generator.
 
         Args:
             model: Model or prediction function
@@ -539,8 +534,7 @@ class DiCECounterfactual(CounterfactualGenerator):
 
 
 class GrowingSpheresCounterfactual(CounterfactualGenerator):
-    """
-    Growing Spheres counterfactual generation.
+    """Growing Spheres counterfactual generation.
 
     Finds counterfactuals by growing hyperspheres around the instance until the decision boundary is
     crossed.
@@ -556,8 +550,7 @@ class GrowingSpheresCounterfactual(CounterfactualGenerator):
         max_iterations: int = 100,
         seed: int | None = None,
     ) -> None:
-        """
-        Initialize Growing Spheres generator.
+        """Initialize Growing Spheres generator.
 
         Args:
             model: Model or prediction function
@@ -708,8 +701,7 @@ class GrowingSpheresCounterfactual(CounterfactualGenerator):
 
 
 class PrototypeCounterfactual(CounterfactualGenerator):
-    """
-    Prototype-based counterfactual generation.
+    """Prototype-based counterfactual generation.
 
     Finds counterfactuals by moving towards prototypes of the target class.
     """
@@ -724,8 +716,7 @@ class PrototypeCounterfactual(CounterfactualGenerator):
         n_prototypes: int = 5,
         seed: int | None = None,
     ) -> None:
-        """
-        Initialize Prototype counterfactual generator.
+        """Initialize Prototype counterfactual generator.
 
         Args:
             model: Model or prediction function
@@ -887,8 +878,7 @@ def create_counterfactual_generator(
     feature_constraints: list[FeatureConstraint] | None = None,
     **kwargs: Any,
 ) -> CounterfactualGenerator:
-    """
-    Factory function to create counterfactual generator.
+    """Factory function to create counterfactual generator.
 
     Args:
         model: Model to explain

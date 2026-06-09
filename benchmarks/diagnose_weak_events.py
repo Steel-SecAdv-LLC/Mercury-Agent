@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Per-event AUC diagnostics for Mercury domain loaders.
 
 For each domain with >1 event, prints per-event AUC, N, anomaly ratio,
 and NaN count.  For events with AUC < 0.65, prints per-feature Cohen's d
 to identify weak feature separation between label=0 and label=1 groups.
-
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
 """
 
 from __future__ import annotations
