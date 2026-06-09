@@ -76,7 +76,7 @@ have no extra dependencies beyond core.
 
 The core anomaly detection path (`MercuryAnomalyDetector`) requires only:
 
-- `numpy >= 1.24.0`
+- `numpy >= 2.4.0` (required for Python 3.12/3.13 wheels and the strict-mypy type contract)
 - `scipy >= 1.10.0`
 
 scikit-learn is **not** required for core detection. It is an optional dependency

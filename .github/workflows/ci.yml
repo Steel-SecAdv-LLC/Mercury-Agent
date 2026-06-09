@@ -558,6 +558,37 @@ jobs:
             --pretty \
             --no-warn-unused-configs
 
+      - name: Pin numpy to the declared floor (regression guard)
+        # The steps above type-check against whatever numpy ``pip`` resolves
+        # (currently 2.4.6).  pyproject declares ``numpy>=2.4.0`` as the
+        # supported minimum, so the strict mypy contract must also hold at
+        # that floor -- numpy's ``ndarray`` typing changed across minor
+        # releases (2.3.5 still emits ``disallow_any_generics``/``assignment``
+        # errors that 2.4.0 fixes).  Pinning the exact floor and re-running the
+        # gate below stops the declared minimum from silently drifting away
+        # from what actually type-checks.
+        run: pip install "numpy==2.4.0"
+
+      - name: Run MyPy at the numpy floor (src + tests)
+        run: |
+          mypy src/omni_mercury_engine/ \
+            --show-error-codes \
+            --pretty
+          mypy tests/ \
+            --allow-untyped-defs \
+            --allow-untyped-calls \
+            --allow-subclassing-any \
+            --disable-error-code untyped-decorator \
+            --show-error-codes \
+            --pretty \
+            --no-warn-unused-configs
+          mypy tests/datasets/ tests/ethical/ tests/safeguards/ tests/tools/ \
+            tests/loaders/ tests/narrative/ \
+            --disallow-subclassing-any \
+            --show-error-codes \
+            --pretty \
+            --no-warn-unused-configs
+
   # ===========================================================================
   # Stage 3: Security Scanning
   # ===========================================================================

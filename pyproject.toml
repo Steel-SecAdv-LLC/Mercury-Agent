@@ -47,7 +47,17 @@ dependencies = [
     # Lightweight core -- enough for CLI, statistical detectors, and rule-based
     # detection without pulling in ~2 GB of PyTorch.  For the full ML stack,
     # install mercury-agent[ml] or mercury-agent[all].
-    "numpy>=1.24.0",
+    # Floor is 2.4.0, not the historical 1.24.0: (1) numpy 1.24 ships no wheels
+    # for Python 3.12 (first added in 1.26) or 3.13 (first added in 2.1), yet
+    # this project is requires-python>=3.11 and CI builds/tests 3.11/3.12/3.13,
+    # so the old floor was not installable across its own matrix; and (2) the
+    # codebase's strict mypy gate relies on
+    # numpy's PEP-696 ``ndarray`` type-parameter defaults plus the indexing
+    # shape-typing that only land cleanly in 2.4.0 -- 2.3.5 still produces 5
+    # ``disallow_any_generics``/``assignment`` errors.  The CI "Run MyPy at the
+    # numpy floor" step (Type Checking job) pins this exact version so the
+    # declared minimum can never silently drift from what actually type-checks.
+    "numpy>=2.4.0",
     "scipy>=1.10.0",
     "pandas>=2.0.0",
     "click>=8.1.0",

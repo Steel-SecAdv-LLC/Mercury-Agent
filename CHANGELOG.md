@@ -27,6 +27,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Dependencies — corrected numpy floor to match the real support contract (2026-06-09)
+
+The declared core dependency was `numpy>=1.24.0`, which was inaccurate on two
+independent axes and is now corrected to `numpy>=2.4.0`:
+
+* **Python-matrix reality.** The project is `requires-python>=3.11` and CI
+  builds/tests on Python 3.11/3.12/3.13, but numpy `1.24` publishes no wheels
+  for Python 3.12 (first added in `1.26`) or 3.13 (first added in `2.1`) — so
+  the old `1.24.0` floor was not installable across the very matrix the
+  project claims to support.
+* **Strict-mypy type contract.** The codebase annotates ~300 sites with bare
+  `np.ndarray`, which is only valid under `disallow_any_generics` once numpy's
+  `ndarray` carries PEP-696 type-parameter defaults. Combined with the
+  fancy-index shape typing in `core/conformal_prediction.py`, the strict gate
+  emits 232 errors on numpy 2.2.6 and 5 on 2.3.5; **2.4.0 is the first release
+  that type-checks cleanly** across all three mypy lanes. Bumping the floor
+  (rather than rewriting ~300 annotations to `np.ndarray[Any, Any]`, which
+  would erase type precision and break the 145 `isinstance`/constructor sites
+  that must stay unsubscripted) keeps the contract honest without weakening it.
+
+A new **"Run MyPy at the numpy floor"** step in the *Type Checking* CI job
+pins `numpy==2.4.0` and re-runs all three mypy lanes, so the declared minimum
+can never again silently drift from what actually type-checks. Updated in
+`pyproject.toml`, `docs/INSTALLATION.md`, and `.github/workflows/ci.yml`.
+
 ### Equations — golden-ratio fibring runtime profile + correlation-aware decorrelation (2026-06-02)
 
 Improves the *math* of the runtime equation blend by harmonising it with
