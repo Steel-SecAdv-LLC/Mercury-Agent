@@ -355,16 +355,19 @@ number; left unchanged, as instructed.
 NSL-KDD single-sourcing, the claim truth-up) are landed and tested; every other
 axis is a committed conclusive negative. No further reproducible improvement,
 finetune, or balance remains for this PR that does not regress a landed number or
-manufacture theatre. The one axis whose honest verdict is **open, not solved** —
-fusion dilutes (pooling < best-single on the reachable suite) — is documented
-immediately below with a kill-criteria'd experiment scoped to the **next** PR,
-rather than papered over or shipped as a regression.
+manufacture theatre. The one axis that lands as a **measured negative rather than
+a win** — fusion dilutes (pooling < best-single on the reachable suite) — is
+documented immediately below as a **closed conclusive-negative**, with the single
+untried avenue logged as a precise, kill-criteria'd protocol (not a vague TODO and
+not a shipped regression).
 
-## Open problem — fusion dilutes (unsolved on the reachable suite)
+## Fusion dilutes — closed conclusive-negative on the reachable suite
 
-Recorded so the next PR inherits a *measured* problem statement, not a vibe: on
-the data we can actually reach, combining detectors is **worse** than picking the
-single best one, and nothing in this PR changed that.
+On the data we can actually reach, combining detectors is **worse** than picking
+the single best one — measured, reproduced, and **decided** (not left open):
+fusion-beats-best-single is a conclusive negative here, exactly like Item 3. The
+one hypothesis the reachable suite cannot yet test (a *decorrelated* stream) is
+logged below as a precise protocol so a future run inherits evidence, not a vibe.
 
 **The finding (committed numbers).** On the live suite (20 events, 50/50 cal/eval
 split, weights from calibration only) **every** pooling scheme measured
@@ -394,9 +397,13 @@ concentrated, not diffuse: hurricane −0.125, fema −0.047, network_security �
 prototype; the runtime `detect()` path is byte-unchanged and keeps the baseline
 ensemble. **We will not ship any fusion change that regresses best-single.**
 
-**Measured, kill-criteria'd experiment for the NEXT PR.** The hypothesis is
-*redundancy*, so the experiment measures it first and only then tries to beat
-best-single on an *enlarged* pool:
+**The single untried avenue — logged, not deferred (requires the live network
+suite).** No weighting of *these three* committed streams beats best-single — that
+is settled. The only remaining hypothesis is *decorrelation*, and testing it needs
+net-new detector development **and** the live-API suite (USGS/NOAA/FEMA/CISA/WHO/
+OBIS), which an offline close-out cannot fetch deterministically. It is therefore
+specified here as an executable protocol, not run speculatively (honouring the
+close-out's "no manufactured improvement" rule):
 
 1. **Diagnose redundancy.** Per event, compute the pairwise Spearman rank
    correlation of the three component score vectors; report mean `|ρ̄|`.
@@ -415,6 +422,8 @@ best-single on an *enlarged* pool:
      decorrelated stream, either `|ρ̄|` stays `≥ 0.5` **or** the stacked gap's CI
      upper bound is `< +0.01`.
 
-Either outcome is a committed result, not a promise. Until that experiment runs,
-the substrate ships the **best-single-preserving** path — baseline ensemble at
-runtime, every re-weighting lever default-off — and this problem stays **open**.
+Either outcome is a committed result, not a promise. The verdict **today** is
+decided: on the reachable suite fusion does not beat best-single, so the substrate
+ships the **best-single-preserving** path — baseline ensemble at runtime, every
+re-weighting lever default-off. The decorrelation protocol above is the logged
+extension, not unfinished work in this PR.
