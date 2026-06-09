@@ -179,10 +179,9 @@ class DecisionAbstentionResponder:
             v.reasons.append(
                 f"conformal singleton {{{label}}} at {cov_str} coverage " "(calibrated decision)"
             )
-            if self.policy.require_calibrated_for_act:
-                # Already calibrated here, so this is a no-op; kept for symmetry
-                # with the uncalibrated path's gate.
-                pass
+            # ``require_calibrated_for_act`` is already satisfied here -- a
+            # conformal singleton *is* the coverage certificate -- so no extra
+            # gate is needed on this path (it gates the uncalibrated path only).
             return
 
         if size == 2:

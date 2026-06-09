@@ -99,3 +99,38 @@ class TestDefensiveParsing:
         d = ev.to_dict()
         assert d["anomaly_prob"] == 0.5
         assert d["calibrated"] is False
+
+
+class _BadItem:
+    """A scalar-like whose ``.item()`` raises -- exercises the coercion guard."""
+
+    def item(self) -> float:
+        raise ValueError("cannot materialise")
+
+
+class TestScalarCoercionEdges:
+    def test_item_that_raises_is_treated_as_absent(self) -> None:
+        # ``.item()`` raising must collapse to the 0.0 fallback, never propagate.
+        ev = Evidence.from_detection({"anomaly_prob": _BadItem(), "severity": _BadItem()})
+        assert ev.anomaly_prob == 0.0
+        assert ev.severity == 0.0
+
+    def test_unfloatable_value_is_treated_as_absent(self) -> None:
+        ev = Evidence.from_detection({"anomaly_prob": "not-a-number"})
+        assert ev.anomaly_prob == 0.0
+
+    def test_conformal_set_size_without_prediction_set(self) -> None:
+        ev = Evidence.from_detection(
+            {"anomaly_prob": 0.7, "conformal": {"set_size": 1, "coverage": 0.9}}
+        )
+        assert ev.conformal_set_size == 1
+        assert ev.conformal_labels is None
+        assert ev.calibrated is True
+
+    def test_conformal_prediction_set_without_set_size(self) -> None:
+        # set_size is derived from the label set when not given explicitly.
+        ev = Evidence.from_detection(
+            {"anomaly_prob": 0.7, "conformal": {"prediction_set": [0, 1], "coverage": 0.9}}
+        )
+        assert ev.conformal_set_size == 2
+        assert ev.conformal_labels == (0, 1)

@@ -284,6 +284,20 @@ class TestRecordContract:
         assert "GROUNDED" in text
         assert "Response:" in text
 
+    @pytest.mark.parametrize(
+        ("result", "marker"),
+        [
+            (_result(anomaly_prob=0.55, conformal=_conformal([0, 1])), "UNAVAILABLE"),
+            (_result(anomaly_prob=0.4, conformal=_conformal([])), "UNDECIDABLE"),
+        ],
+    )
+    def test_explain_covers_each_abstention_state(
+        self, responder: DecisionAbstentionResponder, result: dict[str, Any], marker: str
+    ) -> None:
+        text = responder.decide(result).explain()
+        assert marker in text
+        assert "Response:" in text
+
     def test_signals_carry_provenance(self, responder: DecisionAbstentionResponder) -> None:
         rec = responder.decide(_result(anomaly_prob=0.92, conformal=_conformal([1])))
         assert rec.signals["coverage"] == pytest.approx(0.9)
