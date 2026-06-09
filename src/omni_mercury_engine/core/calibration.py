@@ -344,6 +344,7 @@ class BetaCalibration:
         ece_bandwidth: float = 0.1,
         eps: float = 1e-6,
     ) -> None:
+        """Store the composite-objective weights and numerical epsilon."""
         self.lambda_ece = float(lambda_ece)
         self.lambda_nb = float(lambda_nb)
         self.ece_bandwidth = float(ece_bandwidth)

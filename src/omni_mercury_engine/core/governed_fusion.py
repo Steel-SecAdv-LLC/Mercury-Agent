@@ -58,6 +58,7 @@ class InfoGeometryCertificate:
     _smax: float = 0.0
 
     def __post_init__(self) -> None:
+        """Normalise ``loc``/``precision`` and cache the precision spectral radius."""
         loc = np.asarray(self.loc, dtype=np.float64).reshape(-1)
         precision = np.asarray(self.precision, dtype=np.float64)
         object.__setattr__(self, "loc", loc)

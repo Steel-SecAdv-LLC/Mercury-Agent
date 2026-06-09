@@ -244,8 +244,7 @@ class _LegacyOmniAvaEquation:
         self.weights = {k: v / total for k, v in self.weights.items()}
 
     def verify_lyapunov_stability(self, window_size: int = 10) -> tuple[bool, float]:
-        """
-        Monitor recent score-trajectory contraction (NOT a guarantee).
+        """Monitor recent score-trajectory contraction (NOT a guarantee).
 
         Estimates the empirical decay rate from the variance ratio of recent vs.
         initial fusion scores and reports whether the observed trajectory is

@@ -84,6 +84,17 @@ ml = [
     "pytorch-lightning>=2.0.0",
     "timm>=1.0.26",
     "opencv-python-headless>=4.8.0",
+    # Type-checking toolchain, PINNED (mirrored in [dev] and in the CI
+    # "Type Checking" / "Code Quality" jobs).  The type-check lane installs
+    # this extra for torch's ``py.typed`` stubs, so freezing mypy +
+    # types-requests *here* keeps the ``# type: ignore[...]`` set
+    # byte-identical locally and in CI.  Concretely, mypy 1.19 and mypy 2.1
+    # disagree about the ``requests.Session.request`` monkeypatch in
+    # ``datasets/mitbih.py`` (lines 105/109): an unpinned/older mypy reports
+    # the two ``# type: ignore`` comments as ``unused-ignore`` while the
+    # pinned 2.1.0 needs them.  Bump all three sites together.
+    "mypy==2.1.0",
+    "types-requests==2.33.0.20260518",
 ]
 
 # Visual anomaly detection (PatchCore, PaDiM, STFPM, etc.)
@@ -237,7 +248,8 @@ dev = [
     "pytest-xdist>=3.8.0",
     "hypothesis>=6.0.0",
     "black>=26.3.1,<27.0.0",  # CVE-2026-32274
-    "mypy>=1.20.2",
+    "mypy==2.1.0",  # PINNED: identical type-ignore set locally and in CI (see [ml])
+    "types-requests==2.33.0.20260518",  # PINNED with mypy (see [ml])
     "ruff>=0.15.12",
     "pre-commit>=3.5.0",
 ]

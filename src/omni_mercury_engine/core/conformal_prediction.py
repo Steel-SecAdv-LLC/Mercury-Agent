@@ -1177,6 +1177,7 @@ class VennAbersCalibrator:
     """
 
     def __init__(self, max_cal: int = 2000, seed: int = 42) -> None:
+        """Store the calibration-set cap and the subsampling RNG seed."""
         self.max_cal = int(max_cal)
         self.seed = int(seed)
         self._x: np.ndarray[Any, Any] | None = None
