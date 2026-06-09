@@ -340,6 +340,7 @@ verdict cites the committed artifact that proves it (numbers re-read from
 | calibration | **Beta-MCA LANDED** — Brier −0.0939, ECE −0.2351, AUROC tie (0.7957); lever sweep + Venn-Abers are conclusive negatives | `calibration_results.json`; `calibration_levers_results.json` verdict `NEGATIVE`, `land_candidates: []` |
 | operating point | conformal a disclosed **recall/coverage trade**, −0.071 F1 vs Youden/F1 (0.3982 − 0.4697) | `conformal_results.json` `overall` |
 | fusion pooling | **KILL** — rel·clipped 0.8429 < best-single 0.8779 (gap −0.035); not shipped (I3) | `reliability_fusion_results.json` `gap_to_best_single`, `verdict` |
+| decorrelated-stream fusion (Item D) | **SHIP rejected** — net-new temporal stream genuinely decorrelates (`\|ρ̄\|` 0.462→0.389) yet stack-4 0.8705 < best-single 0.8760 (paired Δ −0.0055); not promoted, runtime byte-unchanged | `decorrelation_results.json` `live_headline.step4_decision` |
 | robustness / survivability | measured floor 0.9243 → 0.7073 @ `m=k/2` + cubic-moment escape; research-only, **zero runtime change** | `survivability_results.json` `overall` |
 | loaders / provenance | **read-only marine synthesis guard LANDED**; NSL-KDD schema single-sourced | `tests/research/test_governed_suite_provenance.py`; `tests/loaders/test_nsl_kdd_single_source.py` |
 | reproducibility | reconstructed **7/7 byte-identical** across `PYTHONHASHSEED=1/2/random`; live 22/23 exact (marine drifts on live OBIS, disclosed); zero residual nondeterminism | `manifest.json` + `build_manifest.py` |
@@ -359,15 +360,17 @@ manufacture theatre. The one axis that lands as a **measured negative rather tha
 a win** — fusion dilutes (pooling < best-single on the reachable suite) — is
 documented immediately below as a **closed conclusive-negative**, with the single
 untried avenue logged as a precise, kill-criteria'd protocol (not a vague TODO and
-not a shipped regression).
+not a shipped regression). **This pass executed that protocol end-to-end** — see
+Item D below: the lever is now a measured negative, not a logged promise.
 
 ## Fusion dilutes — closed conclusive-negative on the reachable suite
 
 On the data we can actually reach, combining detectors is **worse** than picking
 the single best one — measured, reproduced, and **decided** (not left open):
 fusion-beats-best-single is a conclusive negative here, exactly like Item 3. The
-one hypothesis the reachable suite cannot yet test (a *decorrelated* stream) is
-logged below as a precise protocol so a future run inherits evidence, not a vibe.
+one remaining hypothesis (a *decorrelated* stream) was **executed this pass** and
+also fails to beat best-single — the committed numbers and verdict are in **Item D
+— decorrelation** below.
 
 **The finding (committed numbers).** On the live suite (20 events, 50/50 cal/eval
 split, weights from calibration only) **every** pooling scheme measured
@@ -397,33 +400,80 @@ concentrated, not diffuse: hurricane −0.125, fema −0.047, network_security �
 prototype; the runtime `detect()` path is byte-unchanged and keeps the baseline
 ensemble. **We will not ship any fusion change that regresses best-single.**
 
-**The single untried avenue — logged, not deferred (requires the live network
-suite).** No weighting of *these three* committed streams beats best-single — that
-is settled. The only remaining hypothesis is *decorrelation*, and testing it needs
-net-new detector development **and** the live-API suite (USGS/NOAA/FEMA/CISA/WHO/
-OBIS), which an offline close-out cannot fetch deterministically. It is therefore
-specified here as an executable protocol, not run speculatively (honouring the
-close-out's "no manufactured improvement" rule):
+**The single untried avenue — EXECUTED (Item D — decorrelation).** No weighting of *these three*
+committed streams beats best-single — that is settled. The only remaining
+hypothesis was *decorrelation*: that the dilution is a redundancy artifact and a
+genuinely decorrelated net-new stream would let a learned stacker beat
+best-single. Testing it needed net-new detector development **and** the live-API
+suite (USGS/NOAA/FEMA/CISA/WHO/OBIS). It is no longer a logged protocol — it was
+run end-to-end (`measure_decorrelation.py`,
+`results/decorrelation_results.json`). The pre-registered procedure:
 
-1. **Diagnose redundancy.** Per event, compute the pairwise Spearman rank
-   correlation of the three component score vectors; report mean `|ρ̄|`.
+1. **Diagnose redundancy.** Per event, the pairwise Spearman rank correlation of
+   the three component score vectors; mean `|ρ̄|`.
    *Pre-registered prediction:* `|ρ̄| ≳ 0.6` accounts for the dilution.
-2. **Add one decorrelated stream** — candidate: a temporal/sequence detector over
-   the same windows (a genuinely different inductive bias from the three static
-   streams) — and re-measure `|ρ̄|` against the existing three.
+2. **Add one decorrelated stream** — a *temporal/sequence* detector over the same
+   windows (a learned multi-lag AR-innovation residual, a different inductive bias
+   from the three) — and re-measure `|ρ̄|`. A *k*-NN local-density stream is
+   reported alongside as a pre-declared sensitivity check.
 3. **Learned stacking on the enlarged pool:** per-event 50/50 cal/eval, a logistic
    stacker fit on calibration scores only, AUROC on eval (the existing harness).
 4. **Decision rule (paired, pre-registered):**
    - **SHIP** only if stacked AUROC beats best-single by a paired-bootstrap mean
      `Δ ≥ +0.01` with the 95 % CI lower bound `> 0` across the live suite, **and**
      no per-domain regression worse than `−0.01`.
-   - **KILL** (abandon "fusion beats best-single" on this suite, record the
-     negative with committed numbers exactly as Item 3 did) if, after adding the
-     decorrelated stream, either `|ρ̄|` stays `≥ 0.5` **or** the stacked gap's CI
-     upper bound is `< +0.01`.
+   - **KILL** if, after adding the decorrelated stream, either `|ρ̄|` stays `≥ 0.5`
+     **or** the stacked gap's CI upper bound is `< +0.01`.
 
-Either outcome is a committed result, not a promise. The verdict **today** is
-decided: on the reachable suite fusion does not beat best-single, so the substrate
-ships the **best-single-preserving** path — baseline ensemble at runtime, every
-re-weighting lever default-off. The decorrelation protocol above is the logged
-extension, not unfinished work in this PR.
+**Result (committed numbers — live headline, 20 stackable events of the 23-event
+suite; reconstructed group reported separately, never folded into the headline).**
+
+| Step | Measurement | Live headline | Reconstructed |
+|---|---|---|---|
+| 1 | mean `\|ρ̄\|` of the 3 streams | **0.462** | 0.442 |
+| 2 | temporal stream `\|ρ\|` vs the 3 | **0.316** | 0.458 |
+| 2 | *k*-NN stream `\|ρ\|` vs the 3 | 0.538 | 0.584 |
+| 2 | mean `\|ρ̄\|` of the 4 streams (incl. temporal) | **0.389** | 0.450 |
+| 3 | best-single | **0.8760** | 0.9532 |
+| 3 | stack-3 (the committed streams) | 0.8606 | 0.9606 |
+| 3 | stack-4 (+temporal) | 0.8705 | 0.9559 |
+| 3 | stack-4 (+*k*-NN, sensitivity) | 0.8594 | 0.9865 |
+| 4 | paired `Δ` (stack-4 +temporal − best-single) | **−0.0055** | +0.0027 |
+| 4 | 95 % CI of `Δ` | **[−0.050, +0.034]** | [−0.007, +0.010] |
+| 4 | per-domain regression `< −0.01` | hurricane **−0.125** | none |
+
+(Combined power sensitivity, all 27 reachable + reconstructed events pooled into a
+single paired bootstrap: `Δ = −0.0034`, 95 % CI `[−0.037, +0.026]`.)
+
+**Verdict — fusion is NOT promoted; the lever is closed as a measured
+non-improvement.**
+- **SHIP is decisively rejected on every grouping.** No mean `Δ` reaches the
+  `+0.01` bar (it is *negative* on the live headline and on the 27-event pool),
+  every 95 % CI lower bound is strongly negative, and the live suite still carries
+  a hard hurricane regression (−0.125). There is no positive effect to chase.
+- **The redundancy premise is refuted by the data.** Measured `|ρ̄| = 0.462` (live)
+  / `0.442` (reconstructed) — *moderate*, not the `≳ 0.6` predicted. Dilution is
+  not a high-redundancy artifact.
+- **Decorrelation was achieved and was insufficient.** The temporal stream is
+  genuinely decorrelated (`|ρ| = 0.316`, driving the 4-stream `|ρ̄|` to `0.389`,
+  well below the `0.5` kill line) and individually informative, yet stacking the
+  enlarged pool *still* does not beat best-single. Decorrelation was
+  necessary-by-hypothesis but not sufficient: where one stream already separates
+  the anomaly, learned stacking over a small calibration split regresses toward the
+  weaker members rather than amplifying the best one.
+- **Literal protocol bookkeeping (no over-claiming).** The *reconstructed* group is
+  a clean KILL (CI upper bound `< +0.01`). The *live headline* lands formally
+  **INCONCLUSIVE** under the exact rule — `|ρ̄| = 0.389 < 0.5` *and* CI upper bound
+  `+0.034 ≥ +0.01` — i.e. 20 events lack the power to *exclude* a sub-`+0.034`
+  effect. That residual is a power limit, not evidence of a win: the point estimate
+  is negative and SHIP is unreachable. Pooling all 27 events does not close it (one
+  hurricane outlier dominates the variance), so the honest statement is *power-
+  limited on the exclusion side, decisive on the decision side*.
+
+**Engineering outcome (no deferment, no regression).** The decorrelation lever is
+now executed, not logged. Both new detectors are tested, **default-off**,
+research-only; the runtime `detect()` path is byte-unchanged and keeps the
+baseline ensemble. The substrate ships the **best-single-preserving** path exactly
+as before — now with the last open hypothesis measured and closed rather than
+promised. Net delivery: a decisive negative result plus two reusable, validated
+detectors, with the baseline untouched.

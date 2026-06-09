@@ -52,6 +52,37 @@ pins `numpy==2.4.0` and re-runs all three mypy lanes, so the declared minimum
 can never again silently drift from what actually type-checks. Updated in
 `pyproject.toml`, `docs/INSTALLATION.md`, and `.github/workflows/ci.yml`.
 
+### Research — executed the decorrelated-stream fusion protocol (Item D); SHIP rejected, runtime byte-unchanged (2026-06-09)
+
+The last logged-but-untried fusion lever in `research/governed_fusion/FINDINGS.md`
+— *decorrelation* (the hypothesis that fusion only dilutes because the three
+committed streams are redundant, and a genuinely orthogonal net-new stream would
+let a learned stacker beat best-single) — was run end-to-end under its
+pre-registered, kill-criteria'd protocol rather than left as a promise. **No
+runtime path changed; everything here is research-only and default-off.**
+
+* **New `research/governed_fusion/measure_decorrelation.py`** executes all four
+  protocol steps off the existing deterministic score cache: (1) redundancy
+  diagnosis via mean pairwise Spearman `|ρ̄|`; (2) two net-new detectors — a
+  learned multi-lag **autoregressive innovation** stream (the decorrelated
+  candidate) and a **k-NN local-density** stream (pre-declared sensitivity check);
+  (3) per-event 50/50 logistic stacking fit on calibration scores only; (4) a
+  10,000-resample paired bootstrap against best-single with a deterministic seed.
+* **Result (live headline, 20 stackable events): SHIP rejected.** Measured
+  `|ρ̄| = 0.462` (moderate, **refuting** the pre-registered `≳ 0.6` prediction).
+  The temporal stream is genuinely decorrelated (`|ρ| = 0.316`, driving the
+  4-stream `|ρ̄|` down to `0.389`), yet stack-4 AUROC `0.8705` still **trails**
+  best-single `0.8760` — paired `Δ = −0.0055`, 95% CI `[−0.050, +0.034]`, with a
+  hurricane per-domain regression of `−0.125`. The reconstructed group is a clean
+  KILL (`Δ = +0.0027`, CI upper `< +0.01`); the 27-event pooled power check stays
+  negative (`Δ = −0.0034`). Decorrelation was necessary-by-hypothesis but
+  **insufficient**: the lever is closed as a measured non-improvement.
+* **No regression.** Both detectors stay in `research/`, tested and unused by
+  runtime; the default `detect()` path and baseline ensemble are byte-unchanged.
+  Committed artifact `research/governed_fusion/results/decorrelation_results.json`;
+  offline guards in `tests/research/test_decorrelation_protocol.py` (7 tests, no
+  network). FINDINGS.md and RUN.md record the verdict with exact numbers.
+
 ### Equations — golden-ratio fibring runtime profile + correlation-aware decorrelation (2026-06-02)
 
 Improves the *math* of the runtime equation blend by harmonising it with

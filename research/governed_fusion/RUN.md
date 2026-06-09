@@ -52,6 +52,7 @@ python research/governed_fusion/measure_reliability_fusion.py  # -> results/reli
 python research/governed_fusion/measure_survivability.py       # -> results/survivability_results.json
 python research/governed_fusion/measure_calibration.py         # -> results/calibration_results.json
 python research/governed_fusion/measure_calibration_levers.py  # -> results/calibration_levers_results.json
+python research/governed_fusion/measure_decorrelation.py       # -> results/decorrelation_results.json
 python research/governed_fusion/build_manifest.py              # -> manifest.json
 ```
 
@@ -65,6 +66,7 @@ python research/governed_fusion/build_manifest.py              # -> manifest.jso
 | `results/survivability_results.json` | Item 2 — floor curve + cubic-moment escape |
 | `results/calibration_results.json` | Stage 2 — Beta-MCA vs isotonic vs identity + Venn-Abers |
 | `results/calibration_levers_results.json` | Stage 2 lever probe — conclusive negative (λ sweep, warm-start) |
+| `results/decorrelation_results.json` | Item D — decorrelated-stream fusion (SHIP rejected; redundancy diagnosis + temporal/kNN streams + paired bootstrap) |
 | `manifest.json` | per-event `n_rows`, `n_pos`, SHA-256 of `(X,y)` (full + capped) |
 
 ## 4. Notes on the suite
