@@ -316,8 +316,25 @@ Hybrid Fusion Network
 Ensemble Averaging
    final = 0.7 × mlp_output + 0.3 × weighted_vote
    ↓
-Output: {anomaly_score, metadata, component_scores}
+Calibration + certificate (temperature scaling, conformal coverage set,
+   ethical-gate verdict, neuro-symbolic agreement, drift)
+   ↓
+Decision / Abstention / Response (opt-in: enable_decision_layer())
+   ThreeState gate → {GROUNDED | UNAVAILABLE | UNDECIDABLE}
+   → Disposition {act | clear | defer | hold}
+   → bounded, non-destructive ResponsePlan
+   ↓
+Output: {anomaly_score, conformal, decision, metadata, component_scores}
 ```
+
+The **decision / abstention / response** stage is the closed
+`identify → interpret → decide → deter` loop (`omni_mercury_engine.decision`).
+It is a pure, deterministic function of the certificate above: it reuses the
+engine-wide `ThreeState` honesty contract to make abstention first-class (a
+calibrated "don't-know" gate split into a *resolvable* deferral and a
+*fail-closed* hold), then attaches a bounded response that recommends and
+escalates but never autonomously executes a destructive action. It is an exact
+no-op until `enable_decision_layer()` is called.
 
 ## Runtime Configuration
 

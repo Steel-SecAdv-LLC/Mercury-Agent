@@ -26,6 +26,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Decision / Abstention / Response layer — closes identify→interpret→decide→deter with a calibration-grounded "don't-know" gate (2026-06-09)
+
+Converts the calibrated detection certificate into a **closed autonomous loop**
+with an explicit, principled abstention gate — the first time the engine‑wide
+three‑state contract is wired into the *detection* path rather than only the
+verifier/governance paths.
+
+* **New `omni_mercury_engine.decision` package (pure Python, deterministic).**
+  `DecisionAbstentionResponder.decide(result)` maps a `detect_with_fusion`
+  result onto the existing `ThreeState` invariant
+  (`verifiers/three_state.py`) and an operational `Disposition`:
+  * the conformal certificate is **authoritative** — singleton `{1}`/`{0}` →
+    `GROUNDED` (`ACT`/`CLEAR`) with the coverage level as the honest
+    confidence; `{0,1}` → `UNAVAILABLE` (a *resolvable* don't‑know, `DEFER`);
+    `{}` → `UNDECIDABLE` (an atypical point no class explains; fail‑closed
+    `HOLD`);
+  * with no certificate, a probability inside the threshold's indecision band
+    is `UNAVAILABLE`, and a decision outside it is grounded but flagged
+    `calibrated=False` (no coverage guarantee);
+  * **demotion overlays** weaken a grounded verdict to `DEFER` on
+    neuro‑symbolic disagreement (`symbolic_consistency.satisfaction` below a
+    floor) or severe distribution drift — overlays only ever move *toward*
+    abstention;
+  * an explicit ethical‑gate refusal (`gosnn_metadata.ethical_gate_passed is
+    False`) forces a fail‑closed `HOLD`, over any score.
+* **Bounded, non‑destructive response layer (`decision/response.py`).** Every
+  `ResponsePlan` is advisory/notifying — `MONITOR` / `ALERT` /
+  `RECOMMEND_MITIGATION` / `ESCALATE_TO_HUMAN` / `REQUEST_INPUT` / `HOLD` —
+  with severity‑banded urgency, human‑in‑the‑loop above a bar, and a
+  fail‑closed hold that always requires a human. A test invariant asserts the
+  catalogue contains no destructive verbs (Civilization‑First made concrete).
+* **Auditable `DecisionRecord`.** A frozen, JSON‑safe record carrying the
+  grounded label or honest abstention, the calibrated confidence, the bounded
+  response, ordered `reasons`/`caveats`, and the full evidence + active policy
+  as `signals` provenance; `explain()` renders a one‑paragraph operator
+  account. The operational sibling of the governance layer's `GovernanceScalar`.
+* **Closed into existing channels (`decision/bridge.py`).** `to_agent_action`
+  adapts a record to the autonomy loop's existing `AgentAction` vocabulary;
+  `to_cap_alert` emits a standards‑based CAP 1.2 alert (via the existing
+  `alerting/cap_generator.py`) for any notifying decision — no new silo.
+* **Opt‑in engine wiring.** `OmniMercuryEngine.enable_decision_layer()` attaches
+  a `result["decision"]` section to every `detect_with_fusion` result; an exact
+  no‑op until enabled (mirrors `enable_drift_detection` / conformal). Most
+  informative after `calibrate_fusion_conformal()`, which turns a thresholded
+  guess into a coverage‑guaranteed decision.
+* **Tests:** 65 pure‑Python tier tests (`tests/decision/`) + 3 torch‑gated
+  engine wiring tests (`tests/test_decision_layer_wiring.py`); the gate,
+  fail‑closed invariants, determinism, and the non‑destructive response
+  contract are all pinned. Runnable demo:
+  `examples/decision_abstention_response_demo.py`. A code‑grounded
+  capability‑vs‑vision audit ships at `docs/capability_vs_vision_matrix.md`.
+
 ### Equations — golden-ratio fibring runtime profile + correlation-aware decorrelation (2026-06-02)
 
 Improves the *math* of the runtime equation blend by harmonising it with

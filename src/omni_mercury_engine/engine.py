@@ -173,6 +173,7 @@ if TYPE_CHECKING:
 
     from omni_mercury_engine.cognitive.ethical_bounding import BenevolenceScorer
     from omni_mercury_engine.cognitive.orchestrator import CognitiveOrchestrator
+    from omni_mercury_engine.decision import DecisionAbstentionResponder
 
     # Type hints for lazy-loaded models (improves IDE support without import cost)
     from omni_mercury_engine.medical.abms_disciplines import ABMSDisciplineDetector
@@ -945,6 +946,12 @@ class OmniMercuryEngine(LoggerMixin):
         self.fairness_auditor: FairnessAuditor | None = None
         self.llm_detector: ZeroShotAnomalyDetector | None = None
         self.cognitive_orchestrator: CognitiveOrchestrator | None = None
+        # Decision / abstention / response layer: closes the loop from the
+        # calibrated detection certificate to a bounded, non-destructive
+        # response with an explicit "don't-know" gate.  None until enabled via
+        # enable_decision_layer(); detect_with_fusion() is an exact no-op until
+        # then.
+        self.decision_layer: DecisionAbstentionResponder | None = None
         self._baseline_features: np.ndarray[Any, Any] | None = None
 
         self.optimization_config = OptimizationConfig(
@@ -2521,6 +2528,53 @@ class OmniMercuryEngine(LoggerMixin):
         )
         logger.info("Cognitive analysis enabled")
 
+    def enable_decision_layer(
+        self,
+        *,
+        policy: Any | None = None,
+        response_policy: Any | None = None,
+    ) -> None:
+        """Enable the decision / abstention / response layer.
+
+        Closes the loop ``identify -> interpret -> decide -> deter`` on top of
+        the calibrated fusion certificate.  Once enabled, every
+        :meth:`detect_with_fusion` result carries a ``"decision"`` key: a
+        :class:`~omni_mercury_engine.decision.record.DecisionRecord` (as a
+        dict) holding either a grounded label or an explicit abstention -- a
+        principled "don't-know" gate split into a *resolvable* deferral
+        (``UNAVAILABLE``) and a *fail-closed* hold (``UNDECIDABLE``) -- plus a
+        bounded, non-destructive response (notify / recommend reversible
+        countermeasures / escalate to a human / hold).
+
+        The layer reads the signals the pipeline already produces (calibrated
+        probability, conformal coverage set, ethical-gate verdict,
+        neuro-symbolic agreement, drift), so it is most informative when
+        :meth:`calibrate_fusion_conformal` has been called -- a conformal
+        certificate turns a thresholded guess into a coverage-guaranteed
+        decision.  It never authorises a destructive autonomous action.
+
+        Args:
+            policy: Optional :class:`~omni_mercury_engine.decision.policy.\
+DecisionPolicy` (abstention thresholds).  Defaults to the conservative,
+                fail-closed policy.
+            response_policy: Optional
+                :class:`~omni_mercury_engine.decision.response.ResponsePolicy`
+                (disposition -> bounded response mapping).
+
+        Example:
+            >>> engine = OmniMercuryEngine()
+            >>> engine.enable_decision_layer()
+            >>> result = engine.detect_with_fusion(x, domain="security")
+            >>> result["decision"]["state"]  # grounded / unavailable / undecidable
+        """
+        from omni_mercury_engine.decision import DecisionAbstentionResponder
+
+        self.decision_layer = DecisionAbstentionResponder(
+            policy=policy,
+            response_policy=response_policy,
+        )
+        logger.info("Decision / abstention / response layer enabled")
+
     def enable_llm_enhancement(
         self,
         provider: str,
@@ -3994,6 +4048,14 @@ class OmniMercuryEngine(LoggerMixin):
         # stack is expensive (finite-diff forward passes per feature/step).
         if explain and isinstance(data, (np.ndarray, torch.Tensor)):
             result["explanation"] = self._explain_fusion_decision(data)
+
+        # Decision / abstention / response layer: close the loop from the
+        # calibrated certificate just assembled (probability + conformal set +
+        # ethical verdict + symbolic agreement + drift) to a bounded,
+        # non-destructive response with an explicit "don't-know" gate. A no-op
+        # (no key added) until enable_decision_layer() is called.
+        if self.decision_layer is not None:
+            result["decision"] = self.decision_layer.decide(result, domain=domain).to_dict()
 
         return result
 
