@@ -442,6 +442,21 @@ class TestAMAMasterSeed:
 
             assert _load_master_seed_from_env() is None
 
+    def test_whitespace_only_seed_raises(self) -> None:
+        """Whitespace-only is malformed, not unset — never a silent fallback.
+
+        A whitespace-only value means an operator intended to set a seed
+        (empty mounted secret, templating failure); treating it as unset
+        would silently downgrade production to per-process keys. A trailing
+        newline on a *valid* seed is harmless (``bytes.fromhex`` ignores
+        ASCII whitespace), so only the garbage case fails.
+        """
+        with patch.dict(os.environ, {"AMA_MASTER_SEED": " \n\t "}, clear=False):
+            from omni_mercury_engine.api.auth import _load_master_seed_from_env
+
+            with pytest.raises(ValueError, match="32 bytes"):
+                _load_master_seed_from_env()
+
     def test_production_jwt_key_deterministic_across_processes(self) -> None:
         """With the env seed set, two fresh singletons yield the same JWT key.
 

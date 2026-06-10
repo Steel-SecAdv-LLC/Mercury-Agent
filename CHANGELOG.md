@@ -56,8 +56,11 @@ control was never wired, replacing each with an enforced mechanism.
   With it set, HD-derived keys — including the production JWT signing
   key — are identical across workers, replicas, and restarts. Seedless
   production derivation still works but now logs an explicit warning
-  naming the per-process-key hazard. Locked by
-  `tests/security/test_jwt_auth.py::TestAMAMasterSeed` (7 tests).
+  naming the per-process-key hazard. A whitespace-only value is
+  malformed (raises), never a silent unset: `bytes.fromhex` ignores
+  ASCII whitespace, so a trailing newline on a valid seed is harmless
+  while a garbage value still fails loudly. Locked by
+  `tests/security/test_jwt_auth.py::TestAMAMasterSeed` (8 tests).
 * **`MERCURY_CACHE_SECRET` wired — Redis cache entry signing.** The
   Helm-provisioned secret, previously read by no code path, is now
   consumed by `integrations/stubs/cache.py::RedisCache`: entries are
@@ -66,8 +69,10 @@ control was never wired, replacing each with an enforced mechanism.
   `CacheIntegrityError` (loud, never a silent miss). Plain-JSON
   behaviour is byte-identical when the secret is unset. `_sign()` guards
   its signing-active contract with an explicit `CacheIntegrityError`
-  instead of an `assert` (survives `python -O`). Locked by
-  `tests/integrations/test_cache_hmac.py::TestRedisCacheHMAC` (8 tests).
+  instead of an `assert` (survives `python -O`); envelope detection
+  requires the exact three-key shape `_serialize` writes, so user data
+  that merely contains the marker key cannot be misclassified. Locked by
+  `tests/integrations/test_cache_hmac.py::TestRedisCacheHMAC` (10 tests).
 * **`.env.example` reconciled to the real env surface.** Dead toggles
   removed (`OMNI_ML_ENABLED`, `OMNI_QUANTUM_ENABLED`,
   `OMNI_EXPERIMENTAL_FEATURES`, `OMNI_CACHE_DIR`); `AMA_MASTER_SEED`,

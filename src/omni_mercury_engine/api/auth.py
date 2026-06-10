@@ -509,14 +509,19 @@ def _load_master_seed_from_env() -> bytes | None:
     back to an ephemeral per-process seed). A set-but-malformed value raises
     ``ValueError`` instead of silently degrading to an ephemeral seed —
     a typo here would otherwise invalidate every token fleet-wide without
-    any visible error.
+    any visible error. A whitespace-only value counts as malformed, not
+    empty: ``bytes.fromhex`` ignores ASCII whitespace (so a trailing
+    newline on a valid seed is harmless), leaving zero decoded bytes to
+    fail the length check loudly rather than masking an operator's
+    intent to configure a seed.
 
     Returns:
         Decoded seed bytes (>= 32 bytes; 64 recommended), or None.
 
     Raises:
         ValueError: The value is not valid hex or decodes to fewer than
-            32 bytes.
+            32 bytes (including whitespace-only values, which decode to
+            zero bytes).
     """
     raw = os.getenv("AMA_MASTER_SEED")
     if not raw:
