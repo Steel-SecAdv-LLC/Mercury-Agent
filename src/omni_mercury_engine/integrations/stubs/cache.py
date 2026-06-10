@@ -737,8 +737,19 @@ class RedisCache:
         return f"{self.prefix}{key}"
 
     def _sign(self, payload: str) -> str:
-        """Return the hex HMAC-SHA256 of ``payload`` under the cache secret."""
-        assert self._hmac_key is not None  # callers gate on signing being active
+        """Return the hex HMAC-SHA256 of ``payload`` under the cache secret.
+
+        Raises:
+            CacheIntegrityError: Signing is inactive (no secret
+                configured). Explicit check rather than ``assert`` so the
+                contract survives ``python -O``.
+        """
+        if self._hmac_key is None:
+            raise CacheIntegrityError(
+                "_sign() called while cache entry signing is disabled "
+                "(MERCURY_CACHE_SECRET / hmac_secret unset) — refusing to "
+                "produce an unkeyed signature."
+            )
         return hmac.new(self._hmac_key, payload.encode("utf-8"), hashlib.sha256).hexdigest()
 
     def _serialize(self, value: Any) -> str:

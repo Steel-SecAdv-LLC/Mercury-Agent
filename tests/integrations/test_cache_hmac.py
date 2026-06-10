@@ -564,5 +564,10 @@ class TestRedisCacheHMAC:
             cache = RedisCache()
         assert cache._hmac_key == b"env-secret"
 
+    def test_sign_refuses_when_signing_disabled(self) -> None:
+        cache = self._cache(None)
+        with pytest.raises(CacheIntegrityError, match="signing is disabled"):
+            cache._sign("payload")
+
         stored = cache._serialize([1, 2, 3])
         assert cache._deserialize(stored) == [1, 2, 3]
