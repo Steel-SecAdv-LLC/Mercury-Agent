@@ -26,6 +26,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from omni_mercury_engine.datasets.security import NSLKDDLoader as _NSLKDDDataset
 from omni_mercury_engine.loaders.base import BaseDomainLoader
 
 logger = logging.getLogger(__name__)
@@ -71,56 +72,14 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
 }
 
 # ---------------------------------------------------------------------------
-# NSL-KDD column definitions (shared with datasets.security.NSLKDDLoader)
+# NSL-KDD column schema -- single source of truth is
+# ``datasets.security.NSLKDDLoader.COLUMN_NAMES`` (this loader bridges to that
+# dataset infrastructure).  Derived here so the two can never drift; the
+# previously-duplicated 43-column literal and the unused ``_NSLKDD_CATEGORICAL``
+# copy of ``NSLKDDLoader.CATEGORICAL_COLS`` are removed.
 # ---------------------------------------------------------------------------
 
-_NSLKDD_COLUMNS: list[str] = [
-    "duration",
-    "protocol_type",
-    "service",
-    "flag",
-    "src_bytes",
-    "dst_bytes",
-    "land",
-    "wrong_fragment",
-    "urgent",
-    "hot",
-    "num_failed_logins",
-    "logged_in",
-    "num_compromised",
-    "root_shell",
-    "su_attempted",
-    "num_root",
-    "num_file_creations",
-    "num_shells",
-    "num_access_files",
-    "num_outbound_cmds",
-    "is_host_login",
-    "is_guest_login",
-    "count",
-    "srv_count",
-    "serror_rate",
-    "srv_serror_rate",
-    "rerror_rate",
-    "srv_rerror_rate",
-    "same_srv_rate",
-    "diff_srv_rate",
-    "srv_diff_host_rate",
-    "dst_host_count",
-    "dst_host_srv_count",
-    "dst_host_same_srv_rate",
-    "dst_host_diff_srv_rate",
-    "dst_host_same_src_port_rate",
-    "dst_host_srv_diff_host_rate",
-    "dst_host_serror_rate",
-    "dst_host_srv_serror_rate",
-    "dst_host_rerror_rate",
-    "dst_host_srv_rerror_rate",
-    "label",
-    "difficulty",
-]
-
-_NSLKDD_CATEGORICAL: list[str] = ["protocol_type", "service", "flag"]
+_NSLKDD_COLUMNS: list[str] = _NSLKDDDataset.COLUMN_NAMES
 
 # ---------------------------------------------------------------------------
 # UNSW-NB15 column definitions

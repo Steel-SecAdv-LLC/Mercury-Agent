@@ -36,14 +36,14 @@ for the post-quantum cryptographic substrate.
   available for callers that want the same check at a finer
   boundary. See [`SECURITY.md`](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/SECURITY.md) for the full
   contract.
-- **Two distinct benchmark cuts.** The README headline is the
-  **64/75 reproducibility set** (Mean AUC 0.8285, Mean Oracle F1
-  0.6370). CI's regression-gate floor is the **51/55**
-  `mercury_benchmark.py` direct path (Mean AUC 0.8030, Mean Oracle
-  F1 0.5886, the legacy baseline the 64/75 run improves on). See
-  [`BENCHMARKS.md`](BENCHMARKS.md) for the full reconciliation and
-  the README "Empirical Benchmark Results" section for the public
-  headline.
+- **Committed benchmark run.** The README headline is the committed
+  `mercury_benchmark_results.json` run — **65 successful / 75
+  attempted**, Mean AUC **0.8466**, Median **0.9100**, Mean Oracle
+  F1 **0.6428** (2026-05-19) — surfaced in the README "Latest
+  Benchmark Results" block. CI's regression-gate floor is the
+  historical **0.803 AUC / 0.589 F1** baseline (the gate trips 15%
+  below it). Externally-comparable subset: ADBench Mean AUC 0.8180.
+  See [`BENCHMARKS.md`](BENCHMARKS.md).
 - **Pickle removed from the training-data path; not a blanket ban.**
   PR #166 deleted the `pickle` code path from the training-data
   loader; benchmark and dataset artefacts use npz / json /

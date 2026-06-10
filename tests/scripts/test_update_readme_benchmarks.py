@@ -13,8 +13,10 @@ flat-layout result files.
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -124,3 +126,101 @@ class TestSummaryNestedMetadata:
 
         assert summary["commit"] is None
         assert summary["timestamp"] is None
+
+
+class TestTotalDatasetResolution:
+    """``_summary`` must surface the *attempted* dataset count, not collapse it.
+
+    ``benchmarks/mercury_benchmark.py`` writes the attempted count under
+    ``summary["total_datasets"]`` (next to ``successful`` / ``failed``).  If
+    that key is not in the resolution chain the ratio silently degrades to
+    ``successful / successful`` — the exact ``65 / 65`` bug this pins against
+    (the committed results carry ``total_datasets=75``, ``successful=65``).
+    """
+
+    def test_reads_total_datasets_key(self, update_readme_benchmarks: Any) -> None:
+        """The canonical ``total_datasets`` key resolves to the attempted total."""
+        data = {
+            "summary": {
+                "mean_auc": 0.8466,
+                "mean_oracle_f1": 0.6428,
+                "successful": 65,
+                "failed": 10,
+                "total_datasets": 75,
+            },
+        }
+
+        summary = update_readme_benchmarks._summary(data)
+
+        assert summary["successful"] == 65
+        assert summary["total"] == 75, "must not collapse to successful/successful (65/65)"
+
+    def test_explicit_total_wins_over_total_datasets(self, update_readme_benchmarks: Any) -> None:
+        """An explicit ``total`` (older/external fixtures) still takes precedence."""
+        data = {
+            "summary": {
+                "mean_auc": 0.8,
+                "mean_oracle_f1": 0.5,
+                "successful": 7,
+                "total": 7,
+                "total_datasets": 999,
+            },
+        }
+
+        summary = update_readme_benchmarks._summary(data)
+
+        assert summary["total"] == 7
+
+    def test_falls_back_to_successful_when_no_total(self, update_readme_benchmarks: Any) -> None:
+        """With no total/total_datasets/n_datasets, fall back to ``successful``."""
+        data = {
+            "summary": {"mean_auc": 0.5, "mean_oracle_f1": 0.4, "successful": 3},
+        }
+
+        summary = update_readme_benchmarks._summary(data)
+
+        assert summary["total"] == 3
+
+
+class TestCommittedReadmeMatchesCommittedJSON:
+    """Drift gate: the committed README block must match the committed results JSON.
+
+    ``benchmark.yml`` regenerates the ``<!-- BENCHMARK:START -->`` block on every
+    push to ``main`` via ``render_block``, but nothing else stops a hand-edit (or
+    a stale commit) from leaving the README headline out of sync with
+    ``benchmarks/mercury_benchmark_results.json``.  This renders the canonical
+    figures through the *same* generator helpers (``_summary`` / ``_fmt``) and
+    asserts they appear in the committed block, so CI fails on benchmark-number
+    drift instead of shipping a wrong headline.
+    """
+
+    def test_block_carries_canonical_committed_figures(self, update_readme_benchmarks: Any) -> None:
+        """The committed README block must carry the committed JSON's figures."""
+        results = json.loads(
+            (_REPO_ROOT / "benchmarks" / "mercury_benchmark_results.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        summary = update_readme_benchmarks._summary(results)
+
+        readme = (_REPO_ROOT / "README.md").read_text(encoding="utf-8")
+        start = readme.index(update_readme_benchmarks.START_MARKER)
+        end = readme.index(update_readme_benchmarks.END_MARKER)
+        block = readme[start:end]
+
+        fmt = update_readme_benchmarks._fmt
+        for key in ("mean_auc", "median_auc", "mean_oracle_f1"):
+            rendered = fmt(summary[key], kind="float")
+            assert rendered in block, (
+                f"README benchmark block is stale: missing {key}={rendered} from "
+                "benchmarks/mercury_benchmark_results.json. Regenerate via "
+                "`python scripts/update_readme_benchmarks.py`."
+            )
+
+        ratio = (
+            f"{fmt(summary['successful'], kind='int')} / " f"{fmt(summary['total'], kind='int')}"
+        )
+        assert ratio in block, (
+            f"README benchmark block is stale: missing dataset ratio {ratio}. "
+            "Regenerate via `python scripts/update_readme_benchmarks.py`."
+        )

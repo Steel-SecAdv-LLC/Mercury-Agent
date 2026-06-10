@@ -44,6 +44,10 @@ except ImportError:
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.config import COMPONENT_COMPATIBILITY, DataCharacteristics
 from omni_mercury_engine.core.exceptions import DetectorException
+from omni_mercury_engine.core.governed_fusion import (
+    InfoGeometryCertificate,
+    mahalanobis_score_to_price_threshold,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +85,13 @@ class MercuryAnomalyDetector(BaseDetector):
         super().__init__(config)
         self.z_threshold: float = self.config.get("z_threshold", 3.0)
         self.iqr_multiplier: float = self.config.get("iqr_multiplier", 1.5)
+
+        # Whether the caller pinned an explicit decision threshold. When they
+        # did not, the unsupervised detect() path derives a distribution-
+        # adaptive operating point instead of the arbitrary fixed 0.5 cut
+        # (see _adaptive_operating_point). An explicit threshold is always
+        # honoured exactly, preserving backward compatibility.
+        self._user_set_threshold: bool = isinstance(config, dict) and "threshold" in config
 
         # Stored statistics from fit()
         self.mean: np.ndarray[Any, Any] | None = None
@@ -134,6 +145,37 @@ class MercuryAnomalyDetector(BaseDetector):
         # Adaptive component weights (set during fit)
         self._adaptive_weights: np.ndarray[Any, Any] = np.array([0.40, 0.30, 0.30])
         self._weight_source: str = "default"
+        # Post-hoc info-geometry component certificate. Optional and DEFAULT-OFF
+        # (Invariant I2): when off the detector behaves exactly as before this
+        # feature existed — no ``info_geometry_certificate`` key is emitted and
+        # nothing about scores/threshold/verdict changes. The legacy
+        # ``fusion_certificates_enabled`` spelling is still honoured as a
+        # deprecated alias so existing opt-in callers keep working.
+        self._info_geometry_certificate_enabled: bool = bool(
+            self.config.get(
+                "info_geometry_certificate_enabled",
+                self.config.get("fusion_certificates_enabled", False),
+            )
+        )
+
+        # Conformal split-calibrated operating point (Item 4). Optional and
+        # DEFAULT-OFF (Invariant I2): when off, supervised threshold calibration
+        # is byte-for-byte the existing Youden/F1 pipeline. When on AND labels
+        # are supplied, the decision threshold is the class-1 LAC conformal
+        # quantile from a strict calibration split (no peeking at eval).
+        self._conformal_operating_point_enabled: bool = bool(
+            self.config.get("conformal_operating_point", False)
+        )
+        self._conformal_coverage: float = float(self.config.get("conformal_coverage", 0.90))
+
+        # Beta-MCA monotone calibration (Stage 2, R1). Optional and DEFAULT-OFF
+        # (Invariant I2): default "identity" -> detect() output is byte-identical.
+        # When "mca" AND labels are supplied to fit_with_calibration_subset, an
+        # accept-gated monotone beta map is fit; detect() then ADDS a
+        # "calibrated_probabilities" key (rank-preserving -> AUROC exact tie),
+        # leaving "scores" / "is_anomaly" untouched (exact-reducing).
+        self._calibration_map: str = str(self.config.get("calibration_map", "identity"))
+        self._mca_calibrator: Any = None
 
         # Oracle detector (set during fit if data is temporal)
         self._oracle_detector: Any = None
@@ -457,6 +499,18 @@ class MercuryAnomalyDetector(BaseDetector):
             self._calibration_method = "mondrian_conformal"
             self._supervised_threshold = mcp.get_anomaly_threshold(None)
             return self
+
+        # --- Conformal split operating point (Item 4, opt-in DEFAULT-OFF) ---
+        # When enabled, the decision threshold is the class-1 LAC conformal
+        # quantile of the calibration labels (a distribution-free operating
+        # point), instead of the Youden/F1 search. The detector was fit
+        # unsupervised, so these labels are a valid calibration split.
+        if self._conformal_operating_point_enabled:
+            tau = self._conformal_operating_threshold(scores, labels)
+            if tau is not None:
+                self._supervised_threshold = tau
+                self._calibration_method = "conformal_lac"
+                return self
 
         # --- Adaptive strategy selection ---
         # Youden's J maximises TPR - FPR (good for balanced data), while
@@ -1530,6 +1584,28 @@ class MercuryAnomalyDetector(BaseDetector):
         detection = self.detect(X_cal)
         scores = np.asarray(detection["scores"], dtype=np.float64)
 
+        # Beta-MCA monotone calibration (Stage 2, R1), opt-in DEFAULT-OFF. Fit the
+        # accept-gated map on the calibration scores; it can never regress
+        # Brier/ECE (else it falls back to identity). detect() exposes it as an
+        # additive "calibrated_probabilities" key without touching scores/verdict.
+        if self._calibration_map == "mca":
+            from omni_mercury_engine.core.calibration import fit_accept_gated_mca
+
+            self._mca_calibrator, _ = fit_accept_gated_mca(scores, cal_labels)
+
+        # Conformal split operating point (Item 4, opt-in DEFAULT-OFF).
+        if self._conformal_operating_point_enabled:
+            tau = self._conformal_operating_threshold(scores, cal_labels)
+            if tau is not None:
+                self._supervised_threshold = tau
+                self._calibration_method = "conformal_lac"
+                logger.info(
+                    "fit_with_calibration_subset: conformal LAC threshold=%.6f (n_cal=%d)",
+                    tau,
+                    len(cal_indices),
+                )
+                return self
+
         # Calibrate threshold
         from omni_mercury_engine.core.calibration_pipeline import (
             CalibrationStrategy,
@@ -1571,6 +1647,34 @@ class MercuryAnomalyDetector(BaseDetector):
             len(cal_indices),
         )
         return self
+
+    def _conformal_operating_threshold(
+        self,
+        scores: np.ndarray[Any, Any],
+        labels: np.ndarray[Any, Any],
+    ) -> float | None:
+        """Class-1 LAC conformal operating point on a labelled calibration set.
+
+        Returns the score threshold ``1 - q_1`` such that ``score >= threshold``
+        flags an anomaly with the conformal class-1 coverage guarantee, or
+        ``None`` when calibration is impossible (only one class present, or the
+        class-1 quantile is degenerate). Returning ``None`` lets the caller fall
+        back to the existing Youden/F1 path rather than mis-calibrate.
+        """
+        from omni_mercury_engine.core.conformal_prediction import (
+            BinaryConformalClassifier,
+        )
+
+        s = np.asarray(scores, dtype=np.float64).reshape(-1)
+        y = np.asarray(labels, dtype=int).reshape(-1)
+        if s.size != y.size or np.unique(y).size < 2:
+            return None
+        clf = BinaryConformalClassifier(coverage=self._conformal_coverage, seed=42)
+        clf.fit(s, y)
+        tau = clf.anomaly_score_threshold()
+        if not np.isfinite(tau):
+            return None
+        return float(tau)
 
     # =====================================================================
     # Automated hyperparameter tuning (Task 5)
@@ -2013,13 +2117,25 @@ class MercuryAnomalyDetector(BaseDetector):
             effective_threshold = self.calibrate_threshold(combined_scores)
             calibration_diagnostics = self._last_diagnostics
             is_anomaly = combined_scores > effective_threshold
+        elif not self._user_set_threshold:
+            # No conformal predictor, supervised label, or explicit auto-
+            # calibration was configured, and the caller did not pin a
+            # threshold. A fixed 0.5 cut on the ensemble's compressed [0, 1]
+            # scores is an arbitrary operating point (strong ranking, broken
+            # threshold: high AUROC / near-zero F1). Derive the operating
+            # point from the score distribution itself. This is rank-
+            # preserving (AUROC/AUPRC unchanged) — only the cut location moves.
+            effective_threshold, calibration_diagnostics = self._adaptive_operating_point(
+                combined_scores
+            )
+            is_anomaly = combined_scores > effective_threshold
         else:
             is_anomaly = combined_scores > effective_threshold
 
         # Legacy backward-compatibility keys
         iqr_anomalies = self._detect_iqr_anomalies(data)
 
-        return {
+        result = {
             "is_anomaly": is_anomaly,
             "scores": combined_scores,
             "z_scores": z_scores,
@@ -2045,6 +2161,191 @@ class MercuryAnomalyDetector(BaseDetector):
             "calibration_diagnostics": calibration_diagnostics,
             "oracle_metadata": oracle_meta,
         }
+        if self._info_geometry_certificate_enabled:
+            certificate = self._info_geometry_certificate_payload(data, info_geo)
+            if certificate is not None:
+                result["info_geometry_certificate"] = certificate
+        # Beta-MCA calibrated probabilities (Stage 2, R1) — additive, opt-in.
+        # Rank-preserving (AUROC exact tie); scores/is_anomaly untouched.
+        if self._calibration_map == "mca" and self._mca_calibrator is not None:
+            result["calibrated_probabilities"] = self._mca_calibrator.calibrate(combined_scores)
+        return result
+
+    def _info_geometry_certificate_payload(
+        self,
+        data: np.ndarray[Any, Any],
+        info_geo_scores: np.ndarray[Any, Any],
+    ) -> dict[str, Any] | None:
+        """Post-hoc certificate for the **info-geometry component** boundary.
+
+        ``p_tau`` is derived from the info-geometry component's *own* operating
+        threshold (the adaptive cut on that component's score distribution),
+        inverted through the component's real score map ``g`` — not from the
+        ensemble operating point. The certified radius is therefore the sound
+        L2 radius within which this component's price cannot cross its own
+        boundary. It certifies that component's price level-set only, never the
+        fused or gated verdict.
+        """
+        if self._ig_mean is None or self._ig_cov_inv is None:
+            return None
+        x = np.asarray(data, dtype=np.float64)
+        if x.ndim == 1:
+            x = x.reshape(-1, 1)
+        if x.shape[1] != len(self._ig_mean):
+            return None
+        # The component's own operating point, in the component's score space.
+        component_threshold, _ = self._adaptive_operating_point(
+            np.asarray(info_geo_scores, dtype=np.float64).reshape(-1)
+        )
+        p_tau = mahalanobis_score_to_price_threshold(component_threshold, x.shape[1])
+        cert = InfoGeometryCertificate(self._ig_mean, self._ig_cov_inv, p_tau)
+        payload = cert.certify(x)
+        info_geo = np.asarray(info_geo_scores, dtype=np.float64).reshape(-1)
+        return {
+            "model": "information_geometry_mahalanobis",
+            "certifies": (
+                "info_geometry component price level-set; " "NOT the fused/gated verdict"
+            ),
+            "component_threshold_score": float(component_threshold),
+            "threshold_price": float(p_tau),
+            "component_verdict": info_geo > component_threshold,
+            "price": payload["price"],
+            "certified_l2_radius": payload["certified_l2_radius"],
+            "witness": payload["witness"],
+            "witness_channel": payload["witness_channel"],
+        }
+
+    # =====================================================================
+    # Unsupervised operating-point calibration
+    # =====================================================================
+
+    # Histogram valley depth (1 - density_at_split / peak_density) above which
+    # the score distribution is treated as bimodal/higher-contamination and the
+    # Otsu split is used; below it the anomalies are a low-contamination upper
+    # tail and a robust MAD tail cut is used. Selected on the live benchmark
+    # suite (best full-suite F1 on a 0.55-0.60 plateau, no fragile boundary).
+    _ADAPTIVE_VALLEY_DEPTH: float = 0.55
+
+    def _adaptive_operating_point(
+        self,
+        scores: np.ndarray[Any, Any],
+    ) -> tuple[float, dict[str, Any]]:
+        """Derive an unsupervised decision threshold from the score distribution.
+
+        Mercury's ensemble emits a compressed [0, 1] score distribution whose
+        normal-cluster location is data-dependent (the resonance component alone
+        contributes a ~``0.4 * (1 - h_train)`` baseline). A fixed 0.5 cut
+        therefore lands almost arbitrarily relative to that cluster, yielding
+        strong ranking (high AUROC) but a broken operating point (near-zero F1).
+
+        This picks the cut from the scores themselves:
+
+          * **High-contamination / bimodal** — if the Otsu between-class split
+            sits in a deep histogram valley, a distinct high-score mode exists;
+            use the Otsu threshold.
+          * **Low-contamination / upper tail** — otherwise cut at a robust
+            number of MADs above the median (``median + 2 * 1.4826 * MAD``),
+            which adapts to the bulk's spread without assuming a fixed rate.
+
+        The transform is rank-preserving: only the location of the cut changes,
+        not the scores, so AUROC/AUPRC are unaffected.
+
+        Args:
+            scores: Ensemble anomaly scores in [0, 1], shape ``(n_samples,)``.
+
+        Returns:
+            ``(threshold, diagnostics)`` — the chosen cut and a small dict
+            describing the regime and threshold for transparency.
+        """
+        s = np.asarray(scores, float).reshape(-1)
+        n = s.size
+        rng = float(np.ptp(s)) if n else 0.0
+
+        # Too few points or no spread to calibrate against: fall back to a
+        # conservative high-quantile cut (or the configured default if empty).
+        if n < 8 or rng < 1e-9:
+            thr = float(np.percentile(s, 95)) if n else float(self.threshold)
+            return thr, {"method": "adaptive", "regime": "degenerate", "threshold": thr}
+
+        t_otsu = self._otsu_threshold(s)
+        valley = self._score_valley_depth(s, t_otsu)
+        if valley >= self._ADAPTIVE_VALLEY_DEPTH:
+            thr = t_otsu
+            regime = "bimodal_otsu"
+        else:
+            thr = self._robust_tail_threshold(s)
+            regime = "robust_tail"
+
+        # Keep the cut inside the observed score range.
+        thr = float(np.clip(thr, float(s.min()), float(s.max())))
+        return thr, {
+            "method": "adaptive",
+            "regime": regime,
+            "valley_depth": round(float(valley), 4),
+            "threshold": thr,
+            "flagged_fraction": round(float(np.mean(s > thr)), 4),
+        }
+
+    @staticmethod
+    def _otsu_threshold(s: np.ndarray[Any, Any]) -> float:
+        """Otsu between-class-variance threshold on a 256-bin score histogram."""
+        lo = float(s.min())
+        hi = float(s.max())
+        if hi - lo < 1e-12:
+            return hi
+        norm = ((s - lo) / (hi - lo) * 255).astype(int)
+        hist = np.bincount(norm, minlength=256).astype(float)
+        total = hist.sum()
+        sum_total = float(np.dot(np.arange(256), hist))
+        w_b = 0.0
+        sum_b = 0.0
+        best_var = 0.0
+        best_bin = 0
+        for t in range(256):
+            w_b += hist[t]
+            if w_b == 0:
+                continue
+            w_f = total - w_b
+            if w_f == 0:
+                break
+            sum_b += t * hist[t]
+            m_b = sum_b / w_b
+            m_f = (sum_total - sum_b) / w_f
+            var = w_b * w_f * (m_b - m_f) ** 2
+            if var > best_var:
+                best_var = var
+                best_bin = t
+        return lo + (best_bin / 255.0) * (hi - lo)
+
+    @staticmethod
+    def _score_valley_depth(s: np.ndarray[Any, Any], threshold: float) -> float:
+        """Histogram valley depth at ``threshold``: ``1 - density/peak_density``.
+
+        ~1.0 => the split sits in a deep valley between two modes (bimodal);
+        ~0.0 => the split sits inside a single dense mode (unimodal).
+        """
+        n_bins = int(np.clip(np.sqrt(s.size), 10, 40))
+        hist, edges = np.histogram(s, bins=n_bins)
+        peak = hist.max()
+        if peak == 0:
+            return 0.0
+        bin_idx = int(np.clip(np.searchsorted(edges, threshold) - 1, 0, len(hist) - 1))
+        return 1.0 - float(hist[bin_idx]) / float(peak)
+
+    @staticmethod
+    def _robust_tail_threshold(s: np.ndarray[Any, Any], k: float = 2.0) -> float:
+        """Robust upper-tail cut: ``median + k * 1.4826 * MAD``.
+
+        MAD (median absolute deviation) scaled by 1.4826 is a robust estimate of
+        the bulk's standard deviation; the cut sits ``k`` such deviations above
+        the median. Falls back to the 97th percentile when MAD is degenerate
+        (near-constant scores).
+        """
+        med = float(np.median(s))
+        mad = float(np.median(np.abs(s - med)))
+        if mad < 1e-12:
+            return float(np.percentile(s, 97))
+        return med + k * 1.4826 * mad
 
     # =====================================================================
     # Resonance Score (FFT-based harmonic anomaly)

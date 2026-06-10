@@ -825,11 +825,12 @@ class TestGoldenRatioWeightCorrectness:
     def test_aafe_weights_are_golden_ratio_proportions(self) -> None:
         from omni_mercury_engine.core.centralized_constants import FUSION
 
+        # Canonical PHI:1:1 derivation: phi_sum = φ + 2 (NOT φ + 1 + 1/φ).
         phi = 1.618033988749895
-        phi_sum = phi + 1.0 + 1.0 / phi
+        phi_sum = phi + 2.0
         expected_r = phi / phi_sum
         expected_h = 1.0 / phi_sum
-        expected_o = (1.0 / phi) / phi_sum
+        expected_o = 1.0 / phi_sum
 
         assert (
             abs(FUSION.OAE_WEIGHT_R - expected_r) < 0.001
@@ -848,8 +849,8 @@ class TestGoldenRatioWeightCorrectness:
         assert abs(total - 1.0) < 1e-6, f"Weights must sum to 1.0, got {total}"
 
     def test_aafe_weight_ordering(self) -> None:
-        """w_R > w_H > w_O (golden ratio ordering)."""
+        """w_R > w_H == w_O (canonical PHI:1:1: Recursion leads; H and O equal)."""
         from omni_mercury_engine.core.centralized_constants import FUSION
 
         assert FUSION.OAE_WEIGHT_R > FUSION.OAE_WEIGHT_H, "w_R should be largest"
-        assert FUSION.OAE_WEIGHT_H > FUSION.OAE_WEIGHT_O, "w_H should be larger than w_O"
+        assert FUSION.OAE_WEIGHT_H == FUSION.OAE_WEIGHT_O, "w_H and w_O are equal unit shares"

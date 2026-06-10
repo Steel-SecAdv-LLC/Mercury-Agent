@@ -6,16 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 > **Reproducibility note (applies to all 1.x release entries below):**
-> Headline benchmark numbers in this changelog are computed over the
-> **64 reproducible datasets** (of 75 attempted). 11 datasets currently
+> Headline benchmark numbers vary by release cut; the current committed
+> run is **65 reproducible datasets** (of 75 attempted), surfaced in the
+> README "Latest Benchmark Results" block. 10 datasets currently
 > fail to load due to unavailable external sources (SMAP, MSL,
-> CICIDS-2017, MIT-BIH, UCR, SWaT, WADI, USGS Geochemistry, NOAA
-> StormEvents, NOAA ERDDAP, FEMA HazardMitigation). As of v1.7.0
+> CICIDS-2017, MIT-BIH, UCR, SWaT, WADI, USGS Geochemistry,
+> NOAA ERDDAP, FEMA HazardMitigation). As of v1.7.0
 > the previously-flagged "FEMA Disaster — inverted scores" loader
 > is no longer in the broken set; the label-polarity correction is
 > documented under `[Unreleased]` below and locked by
 > `tests/datasets/test_disaster.py::TestFEMAInvertedScoresCorrection`.
-> The 11 unreachable loaders now have a two-lane reachability harness
+> The 11 watch-listed loaders now have a two-lane reachability harness
 > (`tests/datasets/test_unreachable_loaders_{offline,network}.py`,
 > plus the nightly `.github/workflows/dataset-reachability.yml`
 > workflow) so an upstream provider outage surfaces as a failed
@@ -25,6 +26,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > tracked fixes.
 
 ## [Unreleased]
+
+### Dependencies — corrected numpy floor to match the real support contract (2026-06-09)
+
+The declared core dependency was `numpy>=1.24.0`, which was inaccurate on two
+independent axes and is now corrected to `numpy>=2.4.0`:
+
+* **Python-matrix reality.** The project is `requires-python>=3.11` and CI
+  builds/tests on Python 3.11/3.12/3.13, but numpy `1.24` publishes no wheels
+  for Python 3.12 (first added in `1.26`) or 3.13 (first added in `2.1`) — so
+  the old `1.24.0` floor was not installable across the very matrix the
+  project claims to support.
+* **Strict-mypy type contract.** The codebase annotates ~300 sites with bare
+  `np.ndarray`, which is only valid under `disallow_any_generics` once numpy's
+  `ndarray` carries PEP-696 type-parameter defaults. Combined with the
+  fancy-index shape typing in `core/conformal_prediction.py`, the strict gate
+  emits 232 errors on numpy 2.2.6 and 5 on 2.3.5; **2.4.0 is the first release
+  that type-checks cleanly** across all three mypy lanes. Bumping the floor
+  (rather than rewriting ~300 annotations to `np.ndarray[Any, Any]`, which
+  would erase type precision and break the 145 `isinstance`/constructor sites
+  that must stay unsubscripted) keeps the contract honest without weakening it.
+
+A new **"Run MyPy at the numpy floor"** step in the *Type Checking* CI job
+pins `numpy==2.4.0` and re-runs all three mypy lanes, so the declared minimum
+can never again silently drift from what actually type-checks. Updated in
+`pyproject.toml`, `docs/INSTALLATION.md`, and `.github/workflows/ci.yml`.
+
+### Research — executed the decorrelated-stream fusion protocol (Item D); SHIP rejected, runtime byte-unchanged (2026-06-09)
+
+The last logged-but-untried fusion lever in `research/governed_fusion/FINDINGS.md`
+— *decorrelation* (the hypothesis that fusion only dilutes because the three
+committed streams are redundant, and a genuinely orthogonal net-new stream would
+let a learned stacker beat best-single) — was run end-to-end under its
+pre-registered, kill-criteria'd protocol rather than left as a promise. **No
+runtime path changed; everything here is research-only and default-off.**
+
+* **New `research/governed_fusion/measure_decorrelation.py`** executes all four
+  protocol steps off the existing deterministic score cache: (1) redundancy
+  diagnosis via mean pairwise Spearman `|ρ̄|`; (2) two net-new detectors — a
+  learned multi-lag **autoregressive innovation** stream (the decorrelated
+  candidate) and a **k-NN local-density** stream (pre-declared sensitivity check);
+  (3) per-event 50/50 logistic stacking fit on calibration scores only; (4) a
+  10,000-resample paired bootstrap against best-single with a deterministic seed.
+* **Result (live headline, 20 stackable events): SHIP rejected.** Measured
+  `|ρ̄| = 0.462` (moderate, **refuting** the pre-registered `≳ 0.6` prediction).
+  The temporal stream is genuinely decorrelated (`|ρ| = 0.316`, driving the
+  4-stream `|ρ̄|` down to `0.389`), yet stack-4 AUROC `0.8705` still **trails**
+  best-single `0.8760` — paired `Δ = −0.0055`, 95% CI `[−0.050, +0.034]`, with a
+  hurricane per-domain regression of `−0.125`. The reconstructed group is a clean
+  KILL (`Δ = +0.0027`, CI upper `< +0.01`); the 27-event pooled power check stays
+  negative (`Δ = −0.0034`). Decorrelation was necessary-by-hypothesis but
+  **insufficient**: the lever is closed as a measured non-improvement.
+* **No regression.** Both detectors stay in `research/`, tested and unused by
+  runtime; the default `detect()` path and baseline ensemble are byte-unchanged.
+  Committed artifact `research/governed_fusion/results/decorrelation_results.json`;
+  offline guards in `tests/research/test_decorrelation_protocol.py` (7 tests, no
+  network). FINDINGS.md and RUN.md record the verdict with exact numbers.
 
 ### Equations — golden-ratio fibring runtime profile + correlation-aware decorrelation (2026-06-02)
 

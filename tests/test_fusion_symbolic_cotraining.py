@@ -164,8 +164,10 @@ class TestCoTrainingContract:
         channels = list(engine._symbolic_score_channels or [])
         assert len(channels) == module.num_detectors
 
-        def empty_detector_features(data: Any) -> tuple[dict[str, Any], dict[str, Any]]:
-            return {}, {}
+        def empty_detector_features(
+            data: Any,
+        ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+            return {}, {}, {}
 
         def expanded_model_features(data: Any) -> tuple[dict[str, Any], dict[str, Any]]:
             n = len(data)

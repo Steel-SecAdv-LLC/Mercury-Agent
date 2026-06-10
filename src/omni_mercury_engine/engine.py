@@ -1899,7 +1899,7 @@ class OmniMercuryEngine(LoggerMixin):
             Float32 tensor ``(n_samples, n_detectors)`` of scores in ``[0, 1]``.
         """
         n_samples = len(X)
-        _, det_scores = self._extract_detector_features(X)
+        _, det_scores, _ = self._extract_detector_features(X)
         _, mod_scores = self._extract_model_features(X)
 
         all_scores = {**det_scores, **mod_scores}
@@ -3433,9 +3433,14 @@ class OmniMercuryEngine(LoggerMixin):
             data: Input data for feature extraction.
 
         Returns:
-            Tuple of (detector_features, detector_scores) where:
+            Tuple of (detector_features, detector_scores, detector_certificates):
                 - detector_features: Dict mapping detector names to features
                 - detector_scores: Dict mapping detector names to scores
+                - detector_certificates: Dict mapping detector names to their
+                  post-hoc ``info_geometry_certificate`` payload (read-only;
+                  threaded through the return value rather than stashed on the
+                  engine so interleaved ``detect()`` calls cannot cross-
+                  contaminate certificates).
 
         Note:
             Uses parallel processing when available for improved performance.
@@ -3455,6 +3460,7 @@ class OmniMercuryEngine(LoggerMixin):
         """
         detector_features = {}
         detector_scores = {}
+        detector_certificates: dict[str, Any] = {}
 
         for name, detector in self.detectors.items():
             try:
@@ -3490,11 +3496,13 @@ class OmniMercuryEngine(LoggerMixin):
                 detector_features[name] = features
                 scores = result.get("scores", result.get("is_anomaly", 0))
                 detector_scores[name] = self._normalize_scores(scores, features.shape[0])
+                if "info_geometry_certificate" in result:
+                    detector_certificates[name] = result["info_geometry_certificate"]
             except (ValueError, TypeError, RuntimeError, KeyError, AttributeError, IndexError) as e:
                 logger.debug(f"Detector {name} feature extraction failed: {e}")
                 continue
 
-        return detector_features, detector_scores
+        return detector_features, detector_scores, detector_certificates
 
     def _extract_model_features(
         self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any]
@@ -3566,7 +3574,7 @@ class OmniMercuryEngine(LoggerMixin):
         model_future = executor.submit(self._extract_model_features, data)
 
         # Collect results
-        det_features, det_scores = detector_future.result()
+        det_features, det_scores, _ = detector_future.result()
         mod_features, mod_scores = model_future.result()
 
         return (
@@ -3666,7 +3674,7 @@ class OmniMercuryEngine(LoggerMixin):
         if self.mode != "fusion":
             return self.detect(data)
 
-        det_features, det_scores = self._extract_detector_features(data)
+        det_features, det_scores, det_certificates = self._extract_detector_features(data)
         mod_features, mod_scores = self._extract_model_features(data)
 
         all_features = {**det_features, **mod_features}
@@ -3917,6 +3925,8 @@ class OmniMercuryEngine(LoggerMixin):
         # Add GOSNN metadata if integration was enabled
         if gosnn_metadata:
             result["gosnn_metadata"] = gosnn_metadata
+        if det_certificates:
+            result["info_geometry_certificate"] = det_certificates
 
         # Surface the runtime equation-profile blend metadata when a profile
         # was applied (absent on the default, profile-less serve path).
@@ -4109,7 +4119,7 @@ class OmniMercuryEngine(LoggerMixin):
         # For batch data, we need the full probability array
         # The fusion_inference returns probs for all samples
         if self.mode == "fusion":
-            det_features, det_scores = self._extract_detector_features(data)
+            det_features, det_scores, _ = self._extract_detector_features(data)
             mod_features, mod_scores = self._extract_model_features(data)
             all_features = {**det_features, **mod_features}
 

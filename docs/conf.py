@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Sphinx configuration for the Mercury Agent documentation set.
 
 This config renders the project's markdown documentation (the ``.md``

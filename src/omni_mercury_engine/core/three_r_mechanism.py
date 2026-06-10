@@ -90,7 +90,9 @@ class _LegacyOmniAvaEquation:
 
     This equation provides:
     1. Mathematical superiority over baselines (NSL-KDD F1=0.797 -> target 0.92+)
-    2. Lyapunov stability guarantee: V(S_t) <= epsilon * e^(-0.25t)
+    2. A Lyapunov-style decay *schedule* (reference envelope)
+       V(S_t) <= epsilon * e^(-0.25t) — a design target the system *monitors*,
+       NOT a proven guarantee (see verify_lyapunov_stability).
     3. Ethical gating via η_Ethical^Φ scaling
     4. Harmonic synergy through golden ratio (Φ) weighting
 
@@ -195,9 +197,11 @@ class _LegacyOmniAvaEquation:
         # Final fusion score
         fusion_score = weighted_sum * ethical_scaling
 
-        # Compute Lyapunov bound: V(S_t) <= epsilon * e^(-lambda*t)
+        # Decay-schedule reference envelope (target) epsilon * e^(-lambda*t),
+        # NOT a measured/guaranteed bound; verify_lyapunov_stability() measures
+        # whether the recent scores actually contract.
         self.time_step += 1
-        epsilon = 1.0  # Initial bound
+        epsilon = 1.0  # Initial envelope value
         lyapunov_bound = epsilon * np.exp(-self.convergence_rate_param * self.time_step)
 
         # Track convergence
@@ -240,9 +244,13 @@ class _LegacyOmniAvaEquation:
         self.weights = {k: v / total for k, v in self.weights.items()}
 
     def verify_lyapunov_stability(self, window_size: int = 10) -> tuple[bool, float]:
-        """Verify Lyapunov stability condition.
+        """Monitor recent score-trajectory contraction (NOT a guarantee).
 
-        Checks that the system converges at rate O(e^{-lambda*t}).
+        Estimates the empirical decay rate from the variance ratio of recent vs.
+        initial fusion scores and reports whether the observed trajectory is
+        actually contracting at rate O(e^{-lambda*t}).  This is a *measured*
+        property of the scores, not a proof.  With insufficient history it
+        returns ``is_stable=False`` rather than assuming stability.
 
         Args:
             window_size: Number of recent samples to analyze
@@ -251,13 +259,13 @@ class _LegacyOmniAvaEquation:
             Tuple of (is_stable, estimated_decay_rate)
         """
         if len(self.convergence_history) < window_size:
-            return True, self.lambda_lyapunov  # Assume stable with insufficient data
+            return False, self.lambda_lyapunov  # insufficient data to assert contraction
 
         recent = np.array(self.convergence_history[-window_size:])
 
         # Compute variance decay
         if len(recent) < 2:
-            return True, self.lambda_lyapunov
+            return False, self.lambda_lyapunov
 
         # Estimate decay rate from variance
         variance = np.var(recent)
@@ -276,9 +284,9 @@ class _LegacyOmniAvaEquation:
             estimated_lambda = self.lambda_lyapunov
 
         # Stable if estimated decay rate is positive and close to target
-        is_stable = estimated_lambda > 0 and estimated_lambda >= self.lambda_lyapunov * 0.5
+        is_stable = bool(estimated_lambda > 0 and estimated_lambda >= self.lambda_lyapunov * 0.5)
 
-        return is_stable, estimated_lambda
+        return is_stable, float(estimated_lambda)
 
     def get_dominance_proof(self) -> dict[str, Any]:
         """Generate mathematical proof of fusion equation dominance over baselines.
@@ -2595,7 +2603,8 @@ class ThreeRMechanism:
 
     This provides:
     - Mathematical superiority over baselines (NSL-KDD F1=0.797 -> target 0.92+)
-    - Lyapunov stability guarantee: V(S_t) <= epsilon * e^(-0.25t)
+    - A Lyapunov-style decay schedule (reference envelope) V(S_t) <= epsilon *
+      e^(-0.25t) — a monitored design target, NOT a proven guarantee.
     - Ethical gating via sigma_Immutable^phi scaling
     - Harmonic synergy through golden ratio (phi=1.618) weighting
     """

@@ -2,37 +2,29 @@
 
 Applies to Mercury Agent **v1.7.x**. Last updated: 2026-05-20.
 
-> **v1.7 update.** The README now shows a third cut — the
-> 2026-05-14 **65/65** run (Mean AUC 0.8464, Mean Oracle F1 0.6441),
-> regenerated on every push to `main` by
-> `.github/workflows/benchmark.yml`. The 64/75 and 51/55 cuts below
-> remain the documented public-headline and CI-floor baselines so
-> the historical trajectory stays auditable. The FEMA Disaster
-> label-polarity fix (v1.7.0) and the 11-loader reachability harness
-> are reflected in the 65/65 run — see `docs/ROADMAP.md` cross-cutting
-> entries "FEMA Disaster loader label polarity" and "Dataset
-> reachability harness (unreachable-11)".
+> **v1.7 update.** The current public headline is the committed
+> `benchmarks/mercury_benchmark_results.json` run — **65 successful /
+> 75 attempted**, Mean ROC-AUC **0.8466**, Median **0.9100**, Mean
+> Oracle F1 **0.6428** (2026-05-19, commit 79e8335) — surfaced in the
+> README "Latest Benchmark Results" block and regenerated on every
+> push to `main` by `.github/workflows/benchmark.yml`. The FEMA
+> Disaster label-polarity fix (v1.7.0) and the 11-loader reachability
+> harness are reflected in that run (disaster AUC 0.9999; 10 loaders
+> failed, NOAA StormEvents recovered) — see `docs/ROADMAP.md`
+> cross-cutting entries "FEMA Disaster loader label polarity" and
+> "Dataset reachability harness (unreachable-11)".
 
-> **Reproducibility note — two distinct cuts of the validation set.**
-> The README headline benchmark figure is the **64 / 75
-> reproducibility set** (47 ADBench + 28 domain loaders, 11
-> external sources unavailable, 1 known-broken loader), measured at
-> **Mean ROC-AUC 0.8285 / Mean Oracle F1 0.6370 / Median ROC-AUC
-> 0.9091** after the Oracle pipeline fix and dataset expansion
-> (README §"Empirical Benchmark Results").
->
-> The aggregate table below in this document is a **separate
-> earlier run** of `benchmarks/mercury_benchmark.py` over the
-> 55-attempt / 51-success subset that gates CI on the
-> `MercuryAnomalyDetector` ensemble in isolation, and reports
-> **Mean ROC-AUC 0.8030 / Mean Oracle F1 0.5886** — the legacy
-> baseline that the README explicitly compares against
-> ("improved from 0.8030 on 51 datasets to 0.8285 on 64/75").
->
-> The two figures are **not** the same measured baseline; the 64/75
-> view is the current public headline and the 51/55 view is the CI
-> regression-gate floor. See `docs/ROADMAP.md` for the loader fixes
-> that close the remaining 11-dataset gap.
+> **Reproducibility note.** The aggregate / per-dataset tables further
+> down *this* document are a **legacy 51-success / 55-attempt run** of
+> `benchmarks/mercury_benchmark.py` over the ensemble in isolation
+> (**Mean ROC-AUC 0.8030 / Mean Oracle F1 0.5886**). That is the
+> historical **CI regression-gate floor** (the gate trips 15% below
+> it: ROC-AUC 0.68 / F1 0.50), preserved here for the auditable
+> trajectory — it is **not** the current committed run. For the
+> authoritative current figures see the committed
+> `mercury_benchmark_results.json` and the README "Latest Benchmark
+> Results" block (65/75, Mean ROC-AUC 0.8466). The externally-
+> comparable subset is ADBench Mean AUC 0.8180.
 
 ## What This Measures
 
@@ -66,7 +58,10 @@ python benchmarks/mercury_benchmark.py
 ```
 
 Results are saved to `benchmarks/mercury_benchmark_results.json`.
-Every number in this document comes from that file.
+The legacy aggregate / per-dataset tables below come from an earlier run of this
+command (the CI regression-gate baseline); the current committed run is
+summarized in the v1.7 update note above and the README "Latest Benchmark
+Results" block.
 
 ## Aggregate Results
 
@@ -269,7 +264,7 @@ with score <= threshold) is the practically meaningful guarantee for anomaly det
 
 **Status: PARTIALLY RESOLVED.** The conformal predictor implementation is correct. The prior
 "low coverage" diagnosis was based on the wrong metric (prediction accuracy vs.
-score-based coverage). CrossConformal achieves 77.5-80% guarantee rates across targets.
+score-based coverage). CrossConformal achieves 77.5-80% empirical coverage across targets.
 Does not meet the >90% dataset-level threshold for full resolution. The implementation
 is correct; coverage gaps are inherent to split/cross conformal on small, heavily
 imbalanced datasets.
