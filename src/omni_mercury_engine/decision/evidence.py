@@ -50,6 +50,34 @@ def _as_float(value: Any) -> float | None:
     return out
 
 
+def _as_int(value: Any) -> int | None:
+    """Best-effort integer coercion; ``None`` when not an integer-valued scalar."""
+    out = _as_float(value)
+    if out is None:
+        return None
+    as_int = int(out)
+    # Reject non-integral values (e.g. 1.5) -- a fractional set size or label is
+    # malformed, not a number we should silently truncate.
+    return as_int if as_int == out else None
+
+
+def _as_int_tuple(values: Any) -> tuple[int, ...] | None:
+    """Coerce a sequence to a tuple of ints; ``None`` if it is not a clean one.
+
+    A single non-integer element invalidates the whole set, so a malformed label
+    set is reported as absent rather than partially coerced.
+    """
+    if not isinstance(values, (list, tuple)):
+        return None
+    coerced: list[int] = []
+    for item in values:
+        as_int = _as_int(item)
+        if as_int is None:
+            return None
+        coerced.append(as_int)
+    return tuple(coerced)
+
+
 @dataclass(frozen=True)
 class Evidence:
     """A typed, normalised snapshot of one detection result.
@@ -127,14 +155,17 @@ class Evidence:
         coverage: float | None = None
         conformal = result.get("conformal")
         if isinstance(conformal, Mapping):
-            raw_size = conformal.get("set_size")
-            if raw_size is not None:
-                conformal_set_size = int(raw_size)
-            labels = conformal.get("prediction_set")
-            if isinstance(labels, (list, tuple)):
-                conformal_labels = tuple(int(x) for x in labels)
-                if conformal_set_size is None:
-                    conformal_set_size = len(conformal_labels)
+            # The label set is the source of truth: a certificate counts as
+            # *present* only when it carries a clean prediction set (the empty
+            # set is valid -- it is the atypical-point case).  ``set_size`` is
+            # derived from it rather than trusted independently.  A bare or
+            # malformed ``set_size`` is therefore treated as "no certificate",
+            # so a partial result can never masquerade as a calibrated singleton
+            # and push the gate into guessing a label the certificate never made.
+            labels = _as_int_tuple(conformal.get("prediction_set"))
+            if labels is not None:
+                conformal_labels = labels
+                conformal_set_size = len(labels)
             coverage = _as_float(conformal.get("coverage"))
 
         ethical_passed: bool | None = None
@@ -142,8 +173,13 @@ class Evidence:
         ethical_threshold: float | None = None
         gosnn = result.get("gosnn_metadata")
         if isinstance(gosnn, Mapping):
+            # A hard safety gate: accept only a genuine boolean.  Anything else
+            # -- a truthy string like "False", a number, a malformed value -- is
+            # treated as *absent* (the gate "did not run for this decision")
+            # rather than coerced via ``bool()``, which would fail *open* by
+            # turning "False" into True on a refused boundary.
             raw_passed = gosnn.get("ethical_gate_passed")
-            ethical_passed = None if raw_passed is None else bool(raw_passed)
+            ethical_passed = raw_passed if isinstance(raw_passed, bool) else None
             ethical_score = _as_float(gosnn.get("sigma_immutable_score"))
             ethical_threshold = _as_float(gosnn.get("sigma_immutable_threshold"))
 

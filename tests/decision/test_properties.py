@@ -46,7 +46,7 @@ _R = DecisionAbstentionResponder()
 _unit = st.floats(min_value=0.0, max_value=1.0, allow_nan=False, allow_infinity=False)
 _thresholds = st.floats(min_value=0.05, max_value=0.95, allow_nan=False, allow_infinity=False)
 _label_sets = st.sampled_from([[], [0], [1], [0, 1]])
-_drift_sev = st.sampled_from(["LOW", "MODERATE", "HIGH", "SEVERE", "CRITICAL", None])
+_drift_sev = st.sampled_from(["NONE", "LOW", "MEDIUM", "HIGH", "CRITICAL", None])
 
 
 @st.composite

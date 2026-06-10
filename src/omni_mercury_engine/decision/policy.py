@@ -14,11 +14,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from typing import Any
 
-#: Drift severities (matching the engine's ``DriftSeverity.name`` values) that
-#: are strong enough to demote a grounded verdict to a deferral.
-_DEFAULT_DRIFT_DEFER_SEVERITIES: frozenset[str] = frozenset(
-    {"MODERATE", "HIGH", "SEVERE", "CRITICAL"}
-)
+#: Drift severities strong enough to demote a grounded verdict to a deferral.
+#: These are the upper-case ``DriftSeverity.name`` values the engine actually
+#: emits via ``detect_with_fusion`` -> ``drift_detection["severity"]`` (the enum
+#: is ``NONE / LOW / MEDIUM / HIGH / CRITICAL`` in ``ml/drift.py``), so the set
+#: must name ``MEDIUM`` (not ``MODERATE``) and must not list a non-existent
+#: ``SEVERE`` -- demote on medium drift and above.
+_DEFAULT_DRIFT_DEFER_SEVERITIES: frozenset[str] = frozenset({"MEDIUM", "HIGH", "CRITICAL"})
 
 
 @dataclass(frozen=True)

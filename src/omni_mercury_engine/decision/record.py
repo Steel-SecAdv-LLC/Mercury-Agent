@@ -14,6 +14,7 @@ serves an API payload, an audit log, and a one-line operator explanation.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
 
 from omni_mercury_engine.verifiers.three_state import ThreeState
@@ -65,8 +66,19 @@ class DecisionRecord:
     response: ResponsePlan
     reasons: tuple[str, ...] = ()
     caveats: tuple[str, ...] = ()
-    signals: dict[str, Any] = field(default_factory=dict)
+    signals: Mapping[str, Any] = field(default_factory=dict)
     domain: str | None = None
+
+    def __post_init__(self) -> None:
+        """Freeze the provenance mapping so a recorded decision stays immutable.
+
+        The dataclass is ``frozen``, but a plain ``dict`` ``signals`` field would
+        still let a caller mutate ``record.signals`` after the record is in the
+        ledger and silently rewrite the audit trail.  Replace it with a shallow
+        read-only view (over a private copy) so the recorded provenance cannot be
+        altered in place.
+        """
+        object.__setattr__(self, "signals", MappingProxyType(dict(self.signals)))
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> DecisionRecord:

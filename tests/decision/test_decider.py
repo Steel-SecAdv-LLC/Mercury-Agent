@@ -203,6 +203,36 @@ class TestDemotionOverlays:
         )
         assert rec.state is ThreeState.GROUNDED
 
+    def test_medium_drift_demotes(self, responder: DecisionAbstentionResponder) -> None:
+        # MEDIUM is a real DriftSeverity.name the engine emits; it must demote.
+        # (The default set previously read MODERATE/SEVERE and never matched, so
+        # medium drift silently failed to defer.)
+        rec = responder.decide(
+            _result(
+                anomaly_prob=0.92,
+                is_anomaly=True,
+                conformal=_conformal([1]),
+                drift_detection={"is_drift": True, "severity": "MEDIUM"},
+            )
+        )
+        assert rec.state is ThreeState.UNAVAILABLE
+        assert rec.response.action is ResponseAction.REQUEST_INPUT
+
+    def test_unknown_drift_severity_name_does_not_demote(
+        self, responder: DecisionAbstentionResponder
+    ) -> None:
+        # A name that is not a real DriftSeverity (e.g. the former typo MODERATE)
+        # is unknown and must never trigger a demotion.
+        rec = responder.decide(
+            _result(
+                anomaly_prob=0.92,
+                is_anomaly=True,
+                conformal=_conformal([1]),
+                drift_detection={"is_drift": True, "severity": "MODERATE"},
+            )
+        )
+        assert rec.state is ThreeState.GROUNDED
+
     def test_overlays_demote_grounded_normal_too(
         self, responder: DecisionAbstentionResponder
     ) -> None:
@@ -241,6 +271,15 @@ class TestUncalibratedFallback:
             policy=DecisionPolicy(require_calibrated_for_act=True)
         )
         rec = responder.decide(_result(anomaly_prob=0.95, is_anomaly=True, threshold_used=0.5))
+        assert rec.state is ThreeState.UNAVAILABLE
+        assert rec.disposition is Disposition.DEFER
+
+    def test_probability_exactly_on_band_boundary_defers(self) -> None:
+        # Inclusive band: |p - threshold| == margin abstains (fail-closed).  The
+        # subtraction 0.1 - 0.0 is exact in float, so the boundary is hit exactly
+        # -- a strict ``<`` band would (wrongly) ground this as an anomaly.
+        responder = DecisionAbstentionResponder(policy=DecisionPolicy(indecision_margin=0.1))
+        rec = responder.decide(_result(anomaly_prob=0.1, is_anomaly=True, threshold_used=0.0))
         assert rec.state is ThreeState.UNAVAILABLE
         assert rec.disposition is Disposition.DEFER
 

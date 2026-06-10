@@ -219,7 +219,10 @@ class DecisionAbstentionResponder:
         margin = self.policy.indecision_margin
         distance = ev.anomaly_prob - ev.threshold
 
-        if abs(distance) < margin:
+        # Inclusive band (``threshold +/- margin``): a probability sitting exactly
+        # on the boundary is an uncalibrated don't-know, so it abstains too --
+        # the fail-closed reading of the band the docstring describes.
+        if abs(distance) <= margin:
             v.state = ThreeState.UNAVAILABLE
             v.disposition = Disposition.DEFER
             v.label = None

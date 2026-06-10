@@ -119,18 +119,49 @@ class TestScalarCoercionEdges:
         ev = Evidence.from_detection({"anomaly_prob": "not-a-number"})
         assert ev.anomaly_prob == 0.0
 
-    def test_conformal_set_size_without_prediction_set(self) -> None:
+    def test_conformal_set_size_without_prediction_set_is_no_certificate(self) -> None:
+        # A bare set_size with no usable label set must NOT masquerade as a
+        # calibrated certificate -- otherwise the gate would treat it as a
+        # singleton and guess a label the certificate never made.
         ev = Evidence.from_detection(
             {"anomaly_prob": 0.7, "conformal": {"set_size": 1, "coverage": 0.9}}
         )
-        assert ev.conformal_set_size == 1
+        assert ev.conformal_set_size is None
         assert ev.conformal_labels is None
-        assert ev.calibrated is True
+        assert ev.calibrated is False
 
     def test_conformal_prediction_set_without_set_size(self) -> None:
-        # set_size is derived from the label set when not given explicitly.
+        # set_size is derived from the label set (the source of truth).
         ev = Evidence.from_detection(
             {"anomaly_prob": 0.7, "conformal": {"prediction_set": [0, 1], "coverage": 0.9}}
         )
         assert ev.conformal_set_size == 2
         assert ev.conformal_labels == (0, 1)
+
+    def test_non_integer_label_set_is_treated_as_no_certificate(self) -> None:
+        # A non-numeric or non-integral label invalidates the whole set, so a
+        # malformed certificate is reported as absent rather than half-coerced.
+        for bad_labels in (["x"], [1.5], [0, "x"], "not-a-list"):
+            ev = Evidence.from_detection(
+                {"anomaly_prob": 0.7, "conformal": {"prediction_set": bad_labels, "coverage": 0.9}}
+            )
+            assert ev.conformal_set_size is None, bad_labels
+            assert ev.conformal_labels is None
+            assert ev.calibrated is False
+
+    def test_string_int_labels_coerce(self) -> None:
+        # Clean string-ints are still coerced (defensive, not brittle).
+        ev = Evidence.from_detection(
+            {"anomaly_prob": 0.7, "conformal": {"prediction_set": ["1"], "coverage": 0.9}}
+        )
+        assert ev.conformal_labels == (1,)
+        assert ev.conformal_set_size == 1
+
+    def test_non_bool_ethical_verdict_is_treated_as_absent(self) -> None:
+        # A hard safety gate must not fail open: a stray "False" string (or any
+        # non-bool) is treated as absent, never coerced to True via bool().
+        for bad in ("False", "true", 1, 0):
+            ev = Evidence.from_detection(
+                {"anomaly_prob": 0.5, "gosnn_metadata": {"ethical_gate_passed": bad}}
+            )
+            assert ev.ethical_gate_passed is None, bad
