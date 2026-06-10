@@ -324,7 +324,7 @@ Decision / Abstention / Response (opt-in: enable_decision_layer())
    → Disposition {act | clear | defer | hold}
    → bounded, non-destructive ResponsePlan
    ↓
-Output: {anomaly_score, conformal, decision, metadata, component_scores}
+Output: {anomaly_prob, is_anomaly, severity, conformal, decision, gosnn_metadata}
 ```
 
 The **decision / abstention / response** stage is the closed
