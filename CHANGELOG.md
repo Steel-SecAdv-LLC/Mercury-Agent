@@ -37,13 +37,18 @@ control was never wired, replacing each with an enforced mechanism.
   `ignore-unfixed: false` with the new repo-root `.trivyignore` — an
   enumerated, expiring (90-day `exp:`), per-CVE acceptance ledger. A new
   unfixed CRITICAL/HIGH finding, or an expired entry, now **fails the
-  gate** instead of passing invisibly. Ledger enumerated from a trivy
-  0.71.0 scan of the `python:3.13-slim-bookworm` base (2026-06-10): 9
-  no-upstream-fix OS CVEs (4 Critical, 5 High), of which seven (ncurses
+  gate** instead of passing invisibly. Ledger as measured by the
+  blocking gates' own built-image scan (trivy 0.70.0 via
+  `trivy-action@v0.36.0`, 2026-06-10): 13 no-upstream-fix OS CVEs
+  (5 Critical, 8 High) — nine first enumerated from the
+  `python:3.13-slim-bookworm` base, of which seven (ncurses
   CVE-2025-69720 + six perl-base CVEs) had been present but undisclosed
-  under the old blanket waiver. Resolved entries removed from
-  `SECURITY.md`: the fixed pip family (pip ≥ 26.1 floor) and five
-  formerly-listed findings no longer present at gated severities.
+  under the old blanket waiver, plus four surfaced only by the enforced
+  built-image gate (three libexpat1 CVEs + mesa CVE-2026-40393 via the
+  OpenCV `libgl1-mesa-glx` runtime dependency). Resolved entries
+  removed from `SECURITY.md`: the fixed pip family (pip ≥ 26.1 floor)
+  and five formerly-listed findings no longer present at gated
+  severities.
 * **`AMA_MASTER_SEED` — deterministic fleet-wide HD key derivation.**
   `api/auth.py::get_auth_key_manager()` now sources the AMA HD master
   seed from the `AMA_MASTER_SEED` env var (hex, ≥ 32 decoded bytes;
@@ -59,8 +64,10 @@ control was never wired, replacing each with an enforced mechanism.
   wrapped in an HMAC-SHA256-signed envelope on `set` and verified on
   `get`; unsigned, tampered, or foreign-keyed entries raise the new
   `CacheIntegrityError` (loud, never a silent miss). Plain-JSON
-  behaviour is byte-identical when the secret is unset. Locked by
-  `tests/integrations/test_cache_hmac.py::TestRedisCacheHMAC` (7 tests).
+  behaviour is byte-identical when the secret is unset. `_sign()` guards
+  its signing-active contract with an explicit `CacheIntegrityError`
+  instead of an `assert` (survives `python -O`). Locked by
+  `tests/integrations/test_cache_hmac.py::TestRedisCacheHMAC` (8 tests).
 * **`.env.example` reconciled to the real env surface.** Dead toggles
   removed (`OMNI_ML_ENABLED`, `OMNI_QUANTUM_ENABLED`,
   `OMNI_EXPERIMENTAL_FEATURES`, `OMNI_CACHE_DIR`); `AMA_MASTER_SEED`,

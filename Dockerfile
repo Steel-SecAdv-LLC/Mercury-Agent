@@ -78,15 +78,16 @@ LABEL security.scan-date="2026-01-09"
 
 # Critical security patches - updates system packages.
 # ``apt-get upgrade`` here is the canonical fix path for every OS-level
-# CVE that ships with a Debian bookworm patch -- under the CI Trivy
-# policy (``--severity CRITICAL,HIGH --ignore-unfixed``) the upgraded
-# image reports zero findings, which is why Mercury no longer ships a
-# ``.trivyignore`` waiver list.  The residual ``affected`` /
-# ``will_not_fix`` Debian CVEs (e.g. util-linux CVE-2025-14104,
-# zlib CVE-2023-45853) are scoped out by ``ignore-unfixed`` and are
-# additionally mitigated below by: running as a non-root user, stripping
-# SUID/SGID bits from every binary, and not invoking the vulnerable
-# code paths (no passwd / setpwnam usage, no minizip usage).
+# CVE that ships with a Debian bookworm patch -- the blocking CI Trivy
+# gates (``severity: CRITICAL,HIGH``, ``ignore-unfixed: false``,
+# ``exit-code: 1``) fail on any fixable CRITICAL/HIGH finding, so this
+# upgrade is what keeps them green.  The residual ``affected`` /
+# ``will_not_fix`` Debian CVEs (no upstream fix available) are accepted
+# only via the enumerated, 90-day-expiring ledger in the repo-root
+# ``.trivyignore`` (rationale per entry; contract in SECURITY.md) and
+# are additionally mitigated below by: running as a non-root user,
+# stripping SUID/SGID bits from every binary, and not invoking the
+# vulnerable code paths.
 RUN apt-get update && \
     # adduser: the upgraded apt in python:3.13-slim-bookworm depends on it,
     # but the slim base omits it.  Install before upgrade to unblock the

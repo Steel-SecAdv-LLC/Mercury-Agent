@@ -749,7 +749,7 @@ Action: ESCALATE / BANISH / MAINTAIN / VOID
 
 ### Docker Container
 
-The shipped `Dockerfile` is a two-stage build on `python:3.13-slim-bookworm`: a `builder` stage compiles dependencies (including the AMA Cryptography native PQC library), and the default `runtime` stage copies the built virtualenv, strips SUID/SGID bits, and runs as the non-root `mercuryagent` user (UID 1000). The default entrypoint serves the FastAPI inference API. Trivy scans the built image in CI with `severity: CRITICAL,HIGH`, `ignore-unfixed: true`, and `exit-code: 1` (`.github/workflows/ci.yml`). See the README "Docker Quick Start" section for usage modes.
+The shipped `Dockerfile` is a two-stage build on `python:3.13-slim-bookworm`: a `builder` stage compiles dependencies (including the AMA Cryptography native PQC library), and the default `runtime` stage copies the built virtualenv, strips SUID/SGID bits, and runs as the non-root `mercuryagent` user (UID 1000). The default entrypoint serves the FastAPI inference API. Trivy scans the built image in CI with `severity: CRITICAL,HIGH`, `ignore-unfixed: false`, and `exit-code: 1`, applying the enumerated, expiring accepted-risk ledger in [`.trivyignore`](.trivyignore) (`.github/workflows/ci.yml`; ledger contract in [SECURITY.md](SECURITY.md)). See the README "Docker Quick Start" section for usage modes.
 
 ### API Endpoint (FastAPI)
 
