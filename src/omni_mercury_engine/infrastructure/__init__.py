@@ -51,7 +51,7 @@ from .streaming import (
 class InfrastructureCoordinator:
     """Coordinator for infrastructure monitoring modules with flexible selection.
 
-    Enables filtering/selection to run 1, 2, 5, or 29+ modules simultaneously
+    Enables filtering/selection of any subset of the 12 registered modules
     based on priorities, categories, or explicit names. Handles all infrastructure
     frameworks (CISA NCFs, EU Critical Entities, World Bank sectors, etc.)
     individually or as a coordinated whole.

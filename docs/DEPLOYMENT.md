@@ -1,5 +1,7 @@
 # Mercury-Agent Deployment Guide
 
+Applies to Mercury Agent **v1.7.x**. Last updated: 2026-06-10.
+
 This guide covers deploying Mercury-Agent from a local Docker environment through
 production Kubernetes/Helm. It documents every required configuration value, the
 expected startup sequence, and the most common operational concerns.
@@ -145,13 +147,18 @@ The application will refuse to start in production mode if they are missing.
 
 ### Additional production-only requirements
 
-When `MERCURY_AGENT_ENV=production` the following are also required and the
-application will raise an error on startup if they are absent:
+When `MERCURY_AGENT_ENV=production` the following is also required; the
+application raises `ValueError` on the first API-key hash if it is absent
+(`api/auth.py::APIKeyStore.hash_key`):
 
 | Variable | Description | Generate with |
 |----------|-------------|---------------|
-| `MERCURY_CACHE_SECRET` | HMAC key for signed cache entries | `openssl rand -hex 32` |
-| `API_KEY_HASH_SALT` | Salt for API key hashing | `openssl rand -hex 32` |
+| `API_KEY_HASH_SALT` | Salt for API key hashing (PBKDF2-HMAC-SHA256, 260,000 iterations) | `openssl rand -hex 32` |
+
+The Helm chart additionally provisions a `MERCURY_CACHE_SECRET` pod secret
+(`secrets.mercuryCacheSecret`). The application code does not currently read
+this variable — the cache layer is JSON-only with no HMAC signing path wired
+to it — so treat it as reserved; provisioning it is harmless.
 
 ### v1.7 production-mode primitives
 
@@ -162,8 +169,8 @@ Set **both** in production:
 | Variable | Default | Effect |
 |----------|---------|--------|
 | `MERCURY_ENV` | `development` | When `production`, every collaborator with a mock/stub fallback (currently `narrative.voice.MercuryVoice`, more to come) hard-fails with `MercuryProductionConfigError` rather than silently degrading. Unknown values (e.g. `prod`) also raise — typos must be loud. Locked by `tests/test_env.py`. |
-| `AMA_REQUIRE_REAL_PQC` | unset | When `true`, the import-time PQC production gate (`omni_mercury_engine._pqc_gate._enforce_pqc_production_gate`) fails closed if AMA Cryptography is not loadable. `import omni_mercury_engine` raises `RuntimeError` before any other package state is materialised. |
-| `AMA_REQUIRE_CONSTANT_TIME` | unset | Recommended alongside `AMA_REQUIRE_REAL_PQC`. Asserts the AMA Cryptography native library exposes its constant-time path. |
+| `AMA_REQUIRE_REAL_PQC` | unset | **No-op compatibility diagnostic.** The import-time PQC gate (`omni_mercury_engine._pqc_gate._enforce_pqc_production_gate`) is unconditional: `import omni_mercury_engine` raises `RuntimeError` whenever AMA Cryptography's native library is not loadable, regardless of this variable (pinned by `tests/test_pqc_startup_gate.py`). Setting it `true` keeps legacy workflows readable. |
+| `AMA_REQUIRE_CONSTANT_TIME` | unset | Recommended in production. Asserts the AMA Cryptography native library exposes its constant-time path. |
 
 `MERCURY_ENV` is consumed via the shared
 `omni_mercury_engine._env.{get_mercury_env, is_production,
@@ -203,11 +210,14 @@ See [`MIGRATION-1.6-to-1.7.md`](MIGRATION-1.6-to-1.7.md) §3.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `OMNI_ML_ENABLED` | `true` | Enable ML detector pipeline |
-| `OMNI_QUANTUM_ENABLED` | `false` | Enable PQC/quantum modules |
-| `OMNI_CACHE_DIR` | `/app/cache` | On-disk cache path |
-| `TORCH_HOME` | `/app/models` | PyTorch model cache |
+| `MERCURY_CACHE_DIR` | `~/.mercury/cache` | On-disk loader cache path (`loaders/base.py`) |
+| `TORCH_HOME` | `/app/models` | PyTorch model cache (consumed by torch) |
 | `OMP_NUM_THREADS` | `4` | OpenMP threads for NumPy/SciPy |
+
+ML availability is determined by the installed extras (`pip install
+mercury-agent[ml]`), not by an environment toggle, and the PQC backend is
+mandatory at import — there is no `OMNI_ML_ENABLED` or
+`OMNI_QUANTUM_ENABLED` switch in the application.
 
 ### Database (optional persistence)
 
@@ -263,12 +273,15 @@ AlertManager rules are in `monitoring/alertmanager/`. Configure receivers
 
 ### Key metrics to watch
 
+Recording/alerting rules live in `monitoring/prometheus/prometheus-rules.yaml`; the gate-level snapshot metrics come from `python -m omni_mercury_engine.tools.prometheus_metrics_exporter`.
+
 | Metric | Alert threshold | Notes |
 |--------|----------------|-------|
-| `mercury_anomaly_detections_total` | — | Detection throughput |
-| `mercury_api_request_latency_seconds` | p99 > 2s | API latency |
-| `mercury_ethics_violations_total` | > 0 / 5 min | Ethical constraint breaches |
-| `mercury_mock_fallback_active` | > 0 | Mock adapters in use (degraded) |
+| `omni_detection_requests_total` | — | Detection throughput (rules file) |
+| `http_request_duration_seconds` | p99 > 2 s | API latency histogram (rules file) |
+| `http_requests_total{status=~"5.."}` ratio | sustained > 0 | API error rate (rules file) |
+| `mercury_gate_fires_total` | unexpected drop to 0 | Ethical-gate activity (exporter tool) |
+| `mercury_benevolence_floor` / `mercury_sigma_band_*` | drift from configured values | Gate configuration drift (exporter tool) |
 | `process_resident_memory_bytes` | > 4 GiB | Memory leak indicator |
 
 ---
@@ -365,17 +378,17 @@ docker run -d --name mercury-agent \
 **Symptom:** Container exits immediately with error.
 
 1. Check required env vars are set: `MERCURY_AGENT_ENV`, `JWT_SECRET_KEY`
-2. In production mode, verify `MERCURY_CACHE_SECRET` and `API_KEY_HASH_SALT` are set
-3. Check for import errors: `docker run --rm mercury-agent:latest python -c "import omni_mercury_engine"`
+2. In production mode, verify `API_KEY_HASH_SALT` is set (enforced at first API-key hash)
+3. Check for import errors: `docker run --rm mercury-agent:latest python -c "import omni_mercury_engine"` — a missing AMA Cryptography native build raises `RuntimeError` here
 
-### Mock adapters active in production
+### LLM narration unavailable
 
-**Symptom:** `MockLLMAdapter is active` warning in logs.
+**Symptom:** `MercuryProductionConfigError` at `MercuryVoice(enable_llm=True)` in production, or a development-mode warning that the voice path fell back to template narration.
 
-- This means no supported LLM provider is configured
-- Set a valid `LLMProvider` in application config or via environment variable
-- Check `OMNI_ML_ENABLED=true` is set
+- As of v1.7.0 there is no silent `MockLLMAdapter` fallback: `enable_llm=True` requires an explicit `llm_provider=` naming an implemented provider (`huggingface`, `ollama`, `openai`, `anthropic`, `xai`, `gemini`, `cohere`, `deepseek`, `cursor`, or `template`)
+- HuggingFace providers additionally require `llm_model_name=`; remote HuggingFace IDs require `llm_revision=<40-char SHA>`
 - Verify optional model dependencies are installed: `pip install -e ".[llm]"`
+- Contract reference: [`MIGRATION-1.6-to-1.7.md`](MIGRATION-1.6-to-1.7.md) §4; locked by `tests/narrative/test_voice_llm.py`
 
 ### High memory usage
 
@@ -407,8 +420,8 @@ docker run -d --name mercury-agent \
 > Enforcement".
 
 - Review the specific test(s) that failed in the CI log
-- `T3` failures: `PreExecutionBlockingGate` pattern list may be incomplete
-- `T4` failures: `EthicalAutonomyGovernor` scoring thresholds may need calibration
+- `T3` failures: the `PreExecutionBlockingGate` pattern list does not cover the flagged payload — extend the pattern list
+- `T4` failures: recalibrate the `EthicalAutonomyGovernor` scoring thresholds against the failing fixtures
 - `T5` failures: `ethical_compliance_threshold` immutability guard is broken — do not deploy
 - `check="sigma_immutable"` failures: this code is raised by
   `SigmaImmutableGate.enforce()` for **two** distinct cases — distinguish
@@ -432,7 +445,7 @@ docker run -d --name mercury-agent \
 
 ### Coverage below target
 
-The repository targets 85% test coverage (`pyproject.toml [tool.coverage.report] fail_under = 85`); CI currently enforces a measured floor of 35% on the full suite (`COVERAGE_THRESHOLD_FULL=35`) and 15% on the core subset (`COVERAGE_THRESHOLD_CORE=15`), per `.github/workflows/ci.yml`.
+The repository targets 85% test coverage (`pyproject.toml [tool.coverage.report] fail_under = 85`); CI enforces a measured floor of 50% on the full suite (`COVERAGE_THRESHOLD_FULL=50`) and 25% on the curated core lane (`COVERAGE_THRESHOLD_CORE=25`), per `.github/workflows/ci.yml`.
 To run coverage locally:
 
 ```bash

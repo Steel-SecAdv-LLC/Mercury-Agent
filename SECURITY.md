@@ -202,7 +202,7 @@ security:
 ### Updates
 
 - **Regular Updates**: Keep Mercury Agent and dependencies updated
-- **Security Advisories**: Subscribe to our security mailing list
+- **Security Advisories**: Watch the GitHub repository and its Security Advisories page
 - **Vulnerability Monitoring**: Use tools like Dependabot or Snyk
 
 ## Ethical Security Considerations
@@ -234,9 +234,9 @@ Mercury Agent includes security intelligence capabilities. Users must:
 
 ### Accepted Vulnerabilities (with Mitigations)
 
-Accepted-risk records are maintained in [`.trivyignore`](.trivyignore), which is the source of truth for CVE rationale, mitigation notes, and review/expiry metadata.
+The table below is the accepted-risk ledger: CVE, severity, affected component, status, and mitigation rationale. Enforcement is mechanical, not file-based: the deployment-image Trivy gate runs with `severity: CRITICAL,HIGH`, `ignore-unfixed: true`, and `exit-code: 1` (`.github/workflows/ci.yml` Docker job and `.github/workflows/security.yml`), so base-image CVEs with no upstream fix (the Debian `will_not_fix` class below) do not fail the gate while every fixable CRITICAL/HIGH finding blocks the merge. The only path-level skips are the eight `skip-files` entries in those workflows — vendored torch/tensorflow headers and the scipy/skimage dataset-registry files that Trivy's secret scanner misclassifies — documented in the CHANGELOG security entries.
 
-Current accepted-risk posture documented there:
+Current accepted-risk posture:
 
 - **Total accepted:** 10 CVEs
 - **Critical:** 2
@@ -265,7 +265,7 @@ All vulnerabilities undergo the following assessment:
 1. **Severity Analysis**: CVSS score and attack vector evaluation
 2. **Applicability Check**: Does the vulnerability affect Mercury Agent's use case?
 3. **Mitigation Review**: What controls are in place to reduce risk?
-4. **Documentation**: Full justification recorded in `.trivyignore`
+4. **Documentation**: Full justification recorded in the accepted-risk table above and the CHANGELOG security entries
 5. **Quarterly Review**: Re-evaluate accepted risks every 90 days
 
 ### Container Security Hardening
@@ -280,7 +280,7 @@ Mercury Agent's Docker container implements defense-in-depth:
 
 ### Unresolved Vulnerabilities
 
-Accepted risks are reviewed quarterly. As of the 2026-05-19 review, documented acceptances are 10 CVEs (2 Critical, 3 High, 4 Medium, 1 Low), including fixed pip CVEs retained for audit continuity. See [`.trivyignore`](.trivyignore) for complete details.
+Accepted risks are reviewed quarterly. As of the 2026-05-19 review, documented acceptances are 10 CVEs (2 Critical, 3 High, 4 Medium, 1 Low), including fixed pip CVEs retained for audit continuity. The accepted-risk table above is the complete record.
 
 ### Two-Tier Dependency-CVE Coverage
 
@@ -288,8 +288,8 @@ Mercury Agent runs **two complementary CVE gates** on every PR:
 
 | Tier | Tool | Scope | Source of truth |
 |------|------|-------|-----------------|
-| Python-package | `safety check` (v3.7.0) + `pip-audit` (v2.10.0) | Editable install (`pip install -e ".[api]"`) | `.safety-policy-v2.yml` + `[CHANGELOG.md](CHANGELOG.md)` (per-CVE rationale tracked under the dated security entries) |
-| Deployment-image | Trivy | Built Docker image (full runtime + OS) | [`.trivyignore`](.trivyignore) |
+| Python-package | `safety check` + `pip-audit` | Editable install (`pip install -e ".[api]"`) | `.safety-policy-v2.yml` + [CHANGELOG.md](CHANGELOG.md) (per-CVE rationale tracked under the dated security entries) |
+| Deployment-image | Trivy | Built Docker image (full runtime + OS) | The accepted-risk table in this document + the `ignore-unfixed`/`skip-files` gate configuration in `.github/workflows/{ci,security}.yml` |
 
 Both gates must be GREEN for any PR to merge. The Python-package gate
 runs with **zero risk acceptance**: the policy files are no-op shims
@@ -297,18 +297,20 @@ and no `--ignore` / `--ignore-vuln` flags are wired into either CI
 workflow. Findings are remediated by upgrade, isolation, or native
 re-implementation — see the CHANGELOG entries dated 2026-05-20
 ("Permanent supply-chain remediations") for the current
-remediation ledger. The deployment-image gate honours the per-CVE
-acceptances enumerated in `.trivyignore` (10 CVEs, all reviewed
-quarterly).
+remediation ledger. The deployment-image gate blocks every fixable
+CRITICAL/HIGH finding; unfixable base-image CVEs pass via
+`ignore-unfixed: true` and are recorded in the accepted-risk table
+above (10 CVEs, all reviewed quarterly).
 
-## Security Audits
+## Security Assessment Posture
 
-Mercury Agent undergoes regular security assessments:
+Mercury Agent's security analysis is automated and self-assessed:
 
-- **Automated Scanning**: Daily CI/CD security scans
-- **Dependency Audits**: Weekly dependency vulnerability checks
-- **Code Reviews**: Continuous security-focused code review
-- **Penetration Testing**: Periodic external security assessments
+- **Automated Scanning**: Security scans run on every pull request and push (bandit, safety, pip-audit, semgrep, Trivy) plus a weekly scheduled run (`.github/workflows/security.yml`, Sundays 00:00 UTC)
+- **Dependency Audits**: Dependabot weekly update checks plus the two-tier CVE gates described below
+- **Code Reviews**: All changes require human review before merge
+
+Mercury Agent has **not** been externally audited or penetration-tested. Production deployments requiring assurance beyond self-assessment must commission an independent security review (see "Important Security Considerations" above and the README status line: Research-grade | Community-tested | Not externally audited).
 
 ## Compliance
 
@@ -372,5 +374,5 @@ We thank the security researchers who have helped improve Mercury Agent's securi
 
 ---
 
-*Last Updated: 2026-05-22*
+*Last Updated: 2026-06-10*
 *Version: 1.7.0*

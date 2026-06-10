@@ -215,9 +215,9 @@ decorrelation-fires-on-redundant-signal, and distinct-from-baseline cases.
 ### Equations — universal equation optimizer + opt-in runtime equation profiles (2026-06-02)
 
 Marshals the previously-unintegrated **universal equation optimizer** work
-(developed on `copilot/copilotimprove-universal-generalized-composite-met`, never
-opened as a PR) into a single branch, adapted to the current engine surface and
-re-verified end-to-end. The optimizer is reproducible and *safety-gated by
+(developed on an earlier working branch and never opened as a PR) into a
+single branch, adapted to the current engine surface and re-verified
+end-to-end. The optimizer is reproducible and *safety-gated by
 construction* — it does not weaken any existing gate, and when no candidate beats
 the proven baseline under the hard constraints, the frozen baseline wins.
 
@@ -721,7 +721,10 @@ because the supply-chain posture it tracked is now covered by:
   Two-Tier Dependency-CVE Coverage table that previously linked here);
 * `.safety-policy.yml` (machine-readable v3 acceptance policy for the
   Safety CLI scanner — currently zero acceptances, OS-level only);
-* `.trivyignore` (per-CVE acceptances for the deployment-image gate);
+* the accepted-risk table in `SECURITY.md` plus the Trivy
+  `ignore-unfixed` / `skip-files` gate configuration in
+  `.github/workflows/{ci,security}.yml` (per-CVE acceptances for the
+  deployment-image gate);
 * dated security entries in this CHANGELOG (the per-PR rationale for
   remediations and risk acceptances).
 
@@ -2446,7 +2449,7 @@ and regression tests:
   when installing a malicious wheel package. Both Dockerfile builder and
   runtime stages now pin `pip>=26.1` (was `>=26.0`), eliminating
   CVE-2026-6357, CVE-2025-8869, and CVE-2026-1703 in a single version bump.
-  The `.trivyignore` audit trail updated with CVE-2026-6357 entry.
+  The accepted-risk ledger in `SECURITY.md` records the CVE-2026-6357 entry.
 - **Trivy CI scan hardened with `limit-severities-for-sarif: true`.**
   The `aquasecurity/trivy-action` SARIF format mode was dropping the severity
   filter, causing MEDIUM-severity pip CVEs to trigger the CRITICAL/HIGH
