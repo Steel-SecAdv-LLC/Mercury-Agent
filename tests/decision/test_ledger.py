@@ -5,11 +5,15 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+import threading
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
 from omni_mercury_engine.decision import DecisionAbstentionResponder, DecisionLedger
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def _conformal(labels: list[int], coverage: float = 0.9) -> dict[str, Any]:
@@ -122,3 +126,113 @@ class TestSerialisationAndSummary:
         assert s["abstention_rate"] == 0.0
         assert s["calibrated_rate"] == 0.0
         assert s["by_state"] == {}
+
+
+def _fresh_summary(entries: list[Any]) -> dict[str, Any]:
+    """An independent, from-scratch recount -- the oracle for the incremental one."""
+    by_state: dict[str, int] = {}
+    by_disp: dict[str, int] = {}
+    by_action: dict[str, int] = {}
+    abstained = calibrated = 0
+    for r in entries:
+        by_state[r.state.value] = by_state.get(r.state.value, 0) + 1
+        by_disp[r.disposition.value] = by_disp.get(r.disposition.value, 0) + 1
+        by_action[r.response.action.value] = by_action.get(r.response.action.value, 0) + 1
+        abstained += r.abstained
+        calibrated += r.calibrated
+    total = len(entries)
+    return {
+        "total": total,
+        "by_state": by_state,
+        "by_disposition": by_disp,
+        "by_response_action": by_action,
+        "abstention_rate": (abstained / total) if total else 0.0,
+        "calibrated_rate": (calibrated / total) if total else 0.0,
+    }
+
+
+class TestIncrementalSummary:
+    """The O(1) incremental summary equals a from-scratch recount, always."""
+
+    def test_incremental_matches_recount_under_eviction(self, mixed_records: list[Any]) -> None:
+        ledger = DecisionLedger(maxlen=3)
+        for rec in mixed_records * 4:
+            ledger.record(rec)
+            assert ledger.summary() == _fresh_summary(list(ledger.entries))
+
+    def test_eviction_drops_a_zeroed_category(self) -> None:
+        # maxlen=1: a grounded record then a deferring one fully evicts 'grounded',
+        # so it must disappear from the summary (not linger as a zero count).
+        ledger = DecisionLedger(maxlen=1)
+        ledger.record(_rec(anomaly_prob=0.95, is_anomaly=True, conformal=_conformal([1])))
+        assert ledger.summary()["by_state"] == {"grounded": 1}
+        ledger.record(_rec(anomaly_prob=0.55, conformal=_conformal([0, 1])))
+        s = ledger.summary()
+        assert s["by_state"] == {"unavailable": 1}  # 'grounded' is gone, not 0
+        assert "grounded" not in s["by_state"]
+        assert s["calibrated_rate"] == 1.0
+
+    def test_clear_resets_aggregates(self, mixed_records: list[Any]) -> None:
+        ledger = DecisionLedger()
+        ledger.extend(mixed_records)
+        ledger.clear()
+        assert ledger.summary() == _fresh_summary([])
+
+
+class TestPersistence:
+    """The trail round-trips through JSON text and disk (a reloadable audit log)."""
+
+    def test_to_json_from_json_round_trip(self, mixed_records: list[Any]) -> None:
+        ledger = DecisionLedger()
+        ledger.extend(mixed_records)
+        restored = DecisionLedger.from_json(ledger.to_json())
+        assert restored.to_list() == ledger.to_list()
+        assert restored.summary() == ledger.summary()
+
+    def test_save_load_round_trip(self, mixed_records: list[Any], tmp_path: Path) -> None:
+        ledger = DecisionLedger()
+        ledger.extend(mixed_records)
+        path = tmp_path / "trail.json"
+        ledger.save(path)
+        assert path.exists()
+        restored = DecisionLedger.load(path)
+        assert restored.to_list() == ledger.to_list()
+
+    def test_from_records_preserves_order_and_counts(self, mixed_records: list[Any]) -> None:
+        ledger = DecisionLedger.from_records(mixed_records)
+        assert list(ledger) == mixed_records
+        assert ledger.summary() == _fresh_summary(mixed_records)
+
+    def test_from_list_rebuilds_via_record_round_trip(self, mixed_records: list[Any]) -> None:
+        src = DecisionLedger.from_records(mixed_records)
+        rebuilt = DecisionLedger.from_list(src.to_list())
+        assert rebuilt.to_list() == src.to_list()
+
+    def test_load_respects_maxlen(self, mixed_records: list[Any], tmp_path: Path) -> None:
+        DecisionLedger.from_records(mixed_records).save(tmp_path / "t.json")
+        bounded = DecisionLedger.load(tmp_path / "t.json", maxlen=2)
+        assert len(bounded) == 2  # only the most recent two survive the ring buffer
+
+
+class TestThreadSafety:
+    """Concurrent recording loses no count -- the aggregates stay consistent."""
+
+    def test_concurrent_record_is_lossless(self) -> None:
+        ledger = DecisionLedger()
+        rec = _rec(anomaly_prob=0.95, is_anomaly=True, conformal=_conformal([1]))
+        per_thread, n_threads = 1000, 8
+
+        def worker() -> None:
+            for _ in range(per_thread):
+                ledger.record(rec)
+
+        threads = [threading.Thread(target=worker) for _ in range(n_threads)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        expected = per_thread * n_threads
+        assert len(ledger) == expected
+        assert ledger.summary()["total"] == expected
+        assert ledger.summary()["by_state"]["grounded"] == expected

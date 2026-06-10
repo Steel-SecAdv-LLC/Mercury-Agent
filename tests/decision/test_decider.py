@@ -302,3 +302,38 @@ class TestRecordContract:
         rec = responder.decide(_result(anomaly_prob=0.92, conformal=_conformal([1])))
         assert rec.signals["coverage"] == pytest.approx(0.9)
         assert "policy" in rec.signals  # the active thresholds travel with the record
+
+
+class TestRecordRoundTrip:
+    """``DecisionRecord.from_dict`` is the exact inverse of ``to_dict``."""
+
+    @pytest.mark.parametrize(
+        "result",
+        [
+            _result(anomaly_prob=0.95, is_anomaly=True, severity=0.9, conformal=_conformal([1])),
+            _result(anomaly_prob=0.02, conformal=_conformal([0])),
+            _result(anomaly_prob=0.55, conformal=_conformal([0, 1])),
+            _result(anomaly_prob=0.40, conformal=_conformal([])),
+            _result(anomaly_prob=0.52, is_anomaly=True),  # uncalibrated band -> defer
+            _result(anomaly_prob=0.95, is_anomaly=True),  # uncalibrated grounded w/ caveats
+        ],
+    )
+    def test_from_dict_is_inverse_of_to_dict(
+        self, responder: DecisionAbstentionResponder, result: dict[str, Any]
+    ) -> None:
+        rec = responder.decide(result, domain="security")
+        restored = type(rec).from_dict(rec.to_dict())
+        # The reconstructed record serialises identically (a true round-trip)...
+        assert restored.to_dict() == rec.to_dict()
+        # ...with the enums and nested plan rebuilt as live objects, not strings.
+        assert restored.state is rec.state
+        assert restored.disposition is rec.disposition
+        assert restored.response.action is rec.response.action
+        assert restored.reasons == rec.reasons
+
+    def test_from_dict_survives_a_json_text_round_trip(
+        self, responder: DecisionAbstentionResponder
+    ) -> None:
+        rec = responder.decide(_result(anomaly_prob=0.92, conformal=_conformal([1])))
+        restored = type(rec).from_dict(json.loads(json.dumps(rec.to_dict())))
+        assert restored.to_dict() == rec.to_dict()

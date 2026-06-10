@@ -84,6 +84,19 @@ class ResponsePlan:
     countermeasures: tuple[str, ...] = ()
     rationale: str = ""
 
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> ResponsePlan:
+        """Reconstruct a plan from its :meth:`to_dict` form (the exact inverse)."""
+        return cls(
+            action=ResponseAction(data["action"]),
+            urgency=data["urgency"],
+            requires_human=bool(data["requires_human"]),
+            notify=bool(data["notify"]),
+            fail_closed=bool(data["fail_closed"]),
+            countermeasures=tuple(data.get("countermeasures", ())),
+            rationale=data.get("rationale", ""),
+        )
+
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-safe view of the plan."""
         return {

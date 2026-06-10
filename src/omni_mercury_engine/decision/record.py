@@ -19,6 +19,8 @@ from typing import TYPE_CHECKING, Any
 from omni_mercury_engine.verifiers.three_state import ThreeState
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from omni_mercury_engine.decision.response import ResponsePlan
     from omni_mercury_engine.decision.states import Disposition
 
@@ -65,6 +67,43 @@ class DecisionRecord:
     caveats: tuple[str, ...] = ()
     signals: dict[str, Any] = field(default_factory=dict)
     domain: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> DecisionRecord:
+        """Reconstruct a record from its :meth:`to_dict` form (the exact inverse).
+
+        Rebuilds the enums and the nested :class:`ResponsePlan` from their wire
+        values so a serialised audit trail can be reloaded into live records --
+        the deserialisation half of the persistable ledger.  ``from_dict`` is a
+        round-trip inverse of :meth:`to_dict`: ``from_dict(r.to_dict()).to_dict()
+        == r.to_dict()`` for any record ``r``.
+
+        Args:
+            data: A mapping in :meth:`to_dict` shape.
+
+        Returns:
+            The reconstructed :class:`DecisionRecord`.
+        """
+        from omni_mercury_engine.decision.response import ResponsePlan
+        from omni_mercury_engine.decision.states import Disposition
+
+        return cls(
+            state=ThreeState(data["state"]),
+            disposition=Disposition(data["disposition"]),
+            decision_label=data["decision_label"],
+            abstained=bool(data["abstained"]),
+            anomaly_prob=float(data["anomaly_prob"]),
+            threshold=float(data["threshold"]),
+            decision_confidence=data["decision_confidence"],
+            coverage=data["coverage"],
+            calibrated=bool(data["calibrated"]),
+            severity=float(data["severity"]),
+            response=ResponsePlan.from_dict(data["response"]),
+            reasons=tuple(data.get("reasons", ())),
+            caveats=tuple(data.get("caveats", ())),
+            signals=dict(data.get("signals", {})),
+            domain=data.get("domain"),
+        )
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-safe view of the full decision record."""
