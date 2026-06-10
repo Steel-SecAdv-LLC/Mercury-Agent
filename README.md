@@ -1482,7 +1482,7 @@ GitHub Actions enforce the following gates on every pull request and push to `ma
 | `ci.yml` | Performance Benchmark | PR-only | TTLCache / synthetic-gradient regression gate |
 | `ci.yml` | Ethics Audit | yes | `benchmarks/run_ethics_audit.py` (EthicalAutonomyGovernor, σ_Immutable, OAE) |
 | `ci.yml` | ML Tests | nightly/PR-to-main | Full suite under `tests/`, ≥ 50 % coverage, real AMA Cryptography build |
-| `ci.yml` | Docker Build + Trivy | yes | Multi-stage runtime image, CRITICAL/HIGH = 0 (ignore-unfixed) |
+| `ci.yml` | Docker Build + Trivy | yes | Multi-stage runtime image, CRITICAL/HIGH = 0 beyond the enumerated, expiring `.trivyignore` ledger (`ignore-unfixed: false`) |
 | `ci.yml` | Docs Build | yes | Sphinx build of the narrative docs |
 | `iso-hardening.yml` | Docs λ Drift Gate | yes | `scripts/check_readme_lyapunov.py` -- canonical λ = 0.25 across docs |
 | `iso-hardening.yml` | Examples Parity | yes | `examples/*.py` must run end-to-end and emit known markers |
