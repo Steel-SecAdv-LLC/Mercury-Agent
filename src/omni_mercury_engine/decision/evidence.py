@@ -166,7 +166,10 @@ class Evidence:
             if labels is not None:
                 conformal_labels = labels
                 conformal_set_size = len(labels)
-            coverage = _as_float(conformal.get("coverage"))
+                # Coverage is provenance *of the certificate*; only record it when
+                # the certificate is actually present, so a malformed section can
+                # never yield the contradictory `calibrated=False, coverage=0.9`.
+                coverage = _as_float(conformal.get("coverage"))
 
         ethical_passed: bool | None = None
         ethical_score: float | None = None

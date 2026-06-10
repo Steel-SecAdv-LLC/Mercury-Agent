@@ -129,6 +129,8 @@ class TestScalarCoercionEdges:
         assert ev.conformal_set_size is None
         assert ev.conformal_labels is None
         assert ev.calibrated is False
+        # No certificate -> no coverage provenance (no contradictory pairing).
+        assert ev.coverage is None
 
     def test_conformal_prediction_set_without_set_size(self) -> None:
         # set_size is derived from the label set (the source of truth).
@@ -148,6 +150,7 @@ class TestScalarCoercionEdges:
             assert ev.conformal_set_size is None, bad_labels
             assert ev.conformal_labels is None
             assert ev.calibrated is False
+            assert ev.coverage is None  # coverage is not recorded without a certificate
 
     def test_string_int_labels_coerce(self) -> None:
         # Clean string-ints are still coerced (defensive, not brittle).

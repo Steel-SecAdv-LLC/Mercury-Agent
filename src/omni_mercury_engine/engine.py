@@ -2559,8 +2559,9 @@ class OmniMercuryEngine(LoggerMixin):
         decision.  It never authorises a destructive autonomous action.
 
         Args:
-            policy: Optional :class:`~omni_mercury_engine.decision.policy.\
-DecisionPolicy` (abstention thresholds).  Defaults to the conservative,
+            policy: Optional
+                :class:`~omni_mercury_engine.decision.policy.DecisionPolicy`
+                (abstention thresholds).  Defaults to the conservative,
                 fail-closed policy.
             response_policy: Optional
                 :class:`~omni_mercury_engine.decision.response.ResponsePolicy`
