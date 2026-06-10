@@ -153,7 +153,7 @@ SlhDsaKeyPair` declarations).
 - **Rate Limiting**: Built-in rate limiting to prevent abuse (100 req/min, burst of 20)
 - **Input Validation**: Comprehensive input sanitization and validation
 - **CORS Configuration**: Environment-aware cross-origin resource sharing
-  - Production: Requires explicit `MERCURY_CORS_ORIGINS` configuration
+  - Production: cross-origin access requires explicit `MERCURY_CORS_ORIGINS` configuration; unset means same-origin only (fail-closed)
   - Development: Allows localhost origins by default
 - **PII Masking**: Automatic redaction of sensitive data in logs
   - Email addresses, phone numbers, SSNs, credit cards

@@ -35,6 +35,8 @@ from enum import Enum
 from functools import wraps
 from typing import TYPE_CHECKING, Any
 
+from omni_mercury_engine._env import is_production as _env_is_production
+
 try:
     from ama_cryptography.key_management import (
         HDKeyDerivation,
@@ -222,8 +224,7 @@ class APIKeyStore:
             Optionally adjust API_KEY_HASH_ITERATIONS (default: 260000).
         """
         if APIKeyStore._HASH_SALT_IS_DEFAULT:
-            is_prod = os.getenv("MERCURY_AGENT_ENV", "").lower() == "production"
-            if is_prod:
+            if _is_production_env():
                 raise ValueError(
                     "API_KEY_HASH_SALT environment variable is required in production. "
                     "Generate with: openssl rand -hex 32"
@@ -483,6 +484,24 @@ def get_api_key_store() -> APIKeyStore:
     return _api_key_store
 
 
+def _is_production_env() -> bool:
+    """Decide production mode for the auth layer.
+
+    Mirrors ``api/server.py``'s precedence exactly: the canonical
+    ``MERCURY_ENV`` flag (``omni_mercury_engine._env``) wins whenever it
+    is set — including raising :class:`MercuryProductionConfigError` on
+    unknown values, so typos stay loud. Only when ``MERCURY_ENV`` is
+    unset do the legacy aliases this module has honoured since v1.x
+    (``MERCURY_AGENT_ENV``, ``ENV``, ``ENVIRONMENT``) apply.
+    """
+    if os.getenv("MERCURY_ENV", "").strip():
+        return _env_is_production()
+    return any(
+        os.getenv(var, "").strip().lower() == "production"
+        for var in ("MERCURY_AGENT_ENV", "ENV", "ENVIRONMENT")
+    )
+
+
 def _load_master_seed_from_env() -> bytes | None:
     """Load the AMA HD master seed from ``AMA_MASTER_SEED`` (hex-encoded).
 
@@ -665,9 +684,12 @@ class JWTAuth:
 
         Security Note:
             Key resolution order: explicit ``secret_key`` argument, then the
-            ``JWT_SECRET_KEY`` environment variable. In production
-            (``MERCURY_AGENT_ENV``/``ENV``/``ENVIRONMENT`` == ``production``)
-            with neither set, the signing key is derived via AMA HD Key
+            ``JWT_SECRET_KEY`` environment variable. Production mode is
+            decided by :func:`_is_production_env`: the canonical
+            ``MERCURY_ENV`` flag wins when set (unknown values raise);
+            the legacy ``MERCURY_AGENT_ENV`` / ``ENV`` / ``ENVIRONMENT``
+            aliases apply only when ``MERCURY_ENV`` is unset. In
+            production with no key set, the signing key is derived via AMA HD Key
             Management (``get_auth_key_manager()``, purpose ``jwt_sign``);
             a failed derivation raises ``ValueError``. The HD master seed
             is sourced from ``AMA_MASTER_SEED`` (hex, ``openssl rand -hex
@@ -681,12 +703,9 @@ class JWTAuth:
         self.using_fallback = False
 
         if self.secret_key is None:
-            # Check if we're in a production environment
-            is_production = os.getenv("MERCURY_AGENT_ENV", "").lower() == "production"
-            is_production = is_production or os.getenv("ENV", "").lower() == "production"
-            is_production = is_production or os.getenv("ENVIRONMENT", "").lower() == "production"
-
-            if is_production:
+            # Canonical MERCURY_ENV first, legacy aliases second — the
+            # same precedence api/server.py applies (see _is_production_env).
+            if _is_production_env():
                 # In production, derive JWT signing key from AMA Key Management
                 try:
                     km = get_auth_key_manager()

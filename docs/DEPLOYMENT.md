@@ -143,11 +143,15 @@ and topology spread constraints automatically.
 | `JWT_SECRET_KEY` | Shared JWT signing key for API auth | `openssl rand -hex 32` |
 
 `JWT_SECRET_KEY` resolution matches `api/auth.py::JWTAuth`: an explicit
-`secret_key` argument wins, then the environment variable. In production
-(`MERCURY_AGENT_ENV=production`) with neither set, the signing key is
-**derived via AMA HD Key Management** (`get_auth_key_manager()`, purpose
-`jwt_sign`) and startup only fails if that derivation fails; in
-development the insecure dev fallback key is used with a warning.
+`secret_key` argument wins, then the environment variable. Production
+mode is decided by `api/auth.py::_is_production_env`, aligned with
+`api/server.py`: the canonical `MERCURY_ENV` wins whenever set (unknown
+values raise), and the legacy `MERCURY_AGENT_ENV` / `ENV` /
+`ENVIRONMENT` aliases apply only when it is unset. In production with
+no key set, the signing key is **derived via AMA HD Key Management**
+(`get_auth_key_manager()`, purpose `jwt_sign`) and startup only fails
+if that derivation fails; in development the insecure dev fallback key
+is used with a warning.
 
 For multi-worker / multi-replica deployments, set **either**
 `JWT_SECRET_KEY` **or** `AMA_MASTER_SEED` (hex, `openssl rand -hex 64`).
@@ -161,9 +165,10 @@ warning naming the hazard. Locked by
 
 ### Additional production-only requirements
 
-When `MERCURY_AGENT_ENV=production` the following is also required; the
-application raises `ValueError` on the first API-key hash if it is absent
-(`api/auth.py::APIKeyStore.hash_key`):
+In production mode (canonical `MERCURY_ENV=production`, or the legacy
+`MERCURY_AGENT_ENV` alias when `MERCURY_ENV` is unset) the following is
+also required; the application raises `ValueError` on the first API-key
+hash if it is absent (`api/auth.py::APIKeyStore.hash_key`):
 
 | Variable | Description | Generate with |
 |----------|-------------|---------------|

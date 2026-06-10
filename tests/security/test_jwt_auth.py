@@ -478,3 +478,69 @@ class TestAMAMasterSeed:
             assert auth.secret_key is not None
             assert "EPHEMERAL" in caplog.text
             assert "AMA_MASTER_SEED" in caplog.text
+
+
+class TestProductionFlagAlignment:
+    """The auth layer's production check honours the canonical MERCURY_ENV.
+
+    ``_is_production_env`` mirrors ``api/server.py``: ``MERCURY_ENV`` wins
+    whenever set (unknown values raise loudly); the legacy
+    ``MERCURY_AGENT_ENV`` / ``ENV`` / ``ENVIRONMENT`` aliases apply only
+    when it is unset. Pre-fix, ``MERCURY_ENV=production`` alone left
+    ``JWTAuth`` on the dev fallback key — the hazard this class pins shut.
+    """
+
+    @staticmethod
+    def _reset_singleton() -> None:
+        import omni_mercury_engine.api.auth as auth_module
+
+        auth_module._auth_key_manager = None
+
+    def test_canonical_mercury_env_production_engages_hd_derivation(self) -> None:
+        """MERCURY_ENV=production alone must NOT fall back to the dev key."""
+        with patch.dict(os.environ, {"MERCURY_ENV": "production"}, clear=True):
+            from omni_mercury_engine.api.auth import JWTAuth
+
+            try:
+                self._reset_singleton()
+                auth = JWTAuth()
+            finally:
+                self._reset_singleton()
+
+            assert auth.using_fallback is False
+            assert auth.secret_key != JWTAuth._DEV_FALLBACK_KEY
+            assert auth.secret_key is not None and len(auth.secret_key) > 0
+
+    def test_canonical_flag_wins_over_legacy_alias(self) -> None:
+        """MERCURY_ENV=development overrides a legacy production alias."""
+        env = {"MERCURY_ENV": "development", "MERCURY_AGENT_ENV": "production"}
+        with patch.dict(os.environ, env, clear=True):
+            from omni_mercury_engine.api.auth import JWTAuth
+
+            JWTAuth._warned_about_fallback = True  # silence repeat warning
+            auth = JWTAuth(allow_dev_fallback=True)
+
+            assert auth.using_fallback is True
+
+    def test_unknown_canonical_value_raises_loudly(self) -> None:
+        """A typo'd MERCURY_ENV fails JWTAuth construction, not silently."""
+        from omni_mercury_engine._env import MercuryProductionConfigError
+
+        with patch.dict(os.environ, {"MERCURY_ENV": "prod"}, clear=True):
+            from omni_mercury_engine.api.auth import JWTAuth
+
+            with pytest.raises(MercuryProductionConfigError):
+                JWTAuth()
+
+    def test_api_key_salt_enforced_under_canonical_flag(self) -> None:
+        """APIKeyStore.hash_key enforces the salt under MERCURY_ENV=production."""
+        from omni_mercury_engine.api.auth import APIKeyStore
+
+        if not APIKeyStore._HASH_SALT_IS_DEFAULT:
+            pytest.skip("API_KEY_HASH_SALT configured in this environment")
+
+        with (
+            patch.dict(os.environ, {"MERCURY_ENV": "production"}, clear=True),
+            pytest.raises(ValueError, match="API_KEY_HASH_SALT"),
+        ):
+            APIKeyStore.hash_key("any-key")

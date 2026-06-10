@@ -1192,7 +1192,7 @@ docker run -it \
 | `OMNI_RATE_LIMIT_REQUESTS_PER_MINUTE` | Sustained rate-limit budget | `100` |
 | `OMNI_RATE_LIMIT_BURST` | Token-bucket burst size | `20` |
 | `MERCURY_ENV` | Environment mode (`development` / `production`; unknown values raise) | `development` |
-| `MERCURY_CORS_ORIGINS` | Explicit CORS origin allow-list (required in production) | unset |
+| `MERCURY_CORS_ORIGINS` | Explicit CORS origin allow-list; in production, unset means same-origin only (CORS middleware disabled) | unset |
 
 ### Volume Mounts
 
