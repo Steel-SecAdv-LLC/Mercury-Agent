@@ -138,12 +138,23 @@ and topology spread constraints automatically.
 
 ## Required Environment Variables
 
-These must be set before starting the application in **any** environment.
-The application will refuse to start in production mode if they are missing.
-
 | Variable | Description | Generate with |
 |----------|-------------|---------------|
-| `JWT_SECRET_KEY` | JWT signing key for API auth | `openssl rand -hex 32` |
+| `JWT_SECRET_KEY` | Shared JWT signing key for API auth | `openssl rand -hex 32` |
+
+`JWT_SECRET_KEY` resolution matches `api/auth.py::JWTAuth`: an explicit
+`secret_key` argument wins, then the environment variable. In production
+(`MERCURY_AGENT_ENV=production`) with neither set, the signing key is
+**derived via AMA HD Key Management** (`get_auth_key_manager()`, purpose
+`jwt_sign`) and startup only fails if that derivation fails; in
+development the insecure dev fallback key is used with a warning.
+
+Set `JWT_SECRET_KEY` explicitly for any deployment with more than one
+process or pod: the HD master seed is generated per process today
+(`AuthKeyManager()` is constructed without a seed), so HD-derived keys
+differ across uvicorn workers, Helm replicas, and restarts — tokens
+issued by one process will not verify on another. The env var is the
+mechanism that gives the fleet a single shared signing key.
 
 ### Additional production-only requirements
 
@@ -377,7 +388,7 @@ docker run -d --name mercury-agent \
 
 **Symptom:** Container exits immediately with error.
 
-1. Check required env vars are set: `MERCURY_AGENT_ENV`, `JWT_SECRET_KEY`
+1. Check `MERCURY_AGENT_ENV` is set as intended. `JWT_SECRET_KEY` is required only when AMA HD key derivation is unavailable or failing — in production `JWTAuth` derives the signing key from AMA HD Key Management when the env var is unset, and the startup error message includes the `HD derivation error:` cause when that path fails. Still set it explicitly for multi-worker / multi-replica deployments (see "Required Environment Variables" above).
 2. In production mode, verify `API_KEY_HASH_SALT` is set (enforced at first API-key hash)
 3. Check for import errors: `docker run --rm mercury-agent:latest python -c "import omni_mercury_engine"` — a missing AMA Cryptography native build raises `RuntimeError` here
 

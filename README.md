@@ -1185,7 +1185,7 @@ docker run -it \
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `JWT_SECRET_KEY` | Secret key for JWT authentication (required in production; see `api/auth.py`) | None |
+| `JWT_SECRET_KEY` | Shared JWT signing key. Unset in production, `JWTAuth` derives a per-process key via AMA HD Key Management (`api/auth.py`); set explicitly for multi-worker/replica deployments | None |
 | `OMNI_RATE_LIMIT_ENABLED` | Enable API rate limiting (`api/server.py`) | `true` |
 | `OMNI_RATE_LIMIT_REQUESTS_PER_MINUTE` | Sustained rate-limit budget | `100` |
 | `OMNI_RATE_LIMIT_BURST` | Token-bucket burst size | `20` |
@@ -1625,7 +1625,7 @@ pip install -e ".[dev]"
 ```
 
 **Environment Variables** (read by `api/server.py` / `api/auth.py` / `_env.py`):
-- `JWT_SECRET_KEY` - JWT signing key (required in production)
+- `JWT_SECRET_KEY` - Shared JWT signing key (unset in production, `JWTAuth` derives a per-process key via AMA HD Key Management; set explicitly when tokens must verify across workers/replicas)
 - `OMNI_RATE_LIMIT_ENABLED` - Enable rate limiting (default `true`)
 - `OMNI_RATE_LIMIT_REQUESTS_PER_MINUTE` / `OMNI_RATE_LIMIT_BURST` - Rate-limit budget (defaults 100 / 20)
 - `OMNI_MAX_DATA_POINTS` / `OMNI_MAX_FEATURES` / `OMNI_MAX_STRING_LENGTH` / `OMNI_MAX_NAN_RATIO` / `OMNI_MAX_INF_RATIO` / `OMNI_STRICT_VALIDATION` - Input-validation limits

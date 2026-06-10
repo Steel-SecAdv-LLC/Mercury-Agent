@@ -617,13 +617,16 @@ class JWTAuth:
             allow_dev_fallback: Allow insecure fallback key for development
 
         Security Note:
-            In production, always set JWT_SECRET_KEY environment variable.
-            Generate a secure key with: `openssl rand -hex 32`
-
-        Migration Note (v1.0 -> v2.0):
-            JWT_SECRET_KEY is now required in production. If migrating from
-            an older version, ensure you set this environment variable before
-            deploying. See CHANGELOG.md for migration instructions.
+            Key resolution order: explicit ``secret_key`` argument, then the
+            ``JWT_SECRET_KEY`` environment variable. In production
+            (``MERCURY_AGENT_ENV``/``ENV``/``ENVIRONMENT`` == ``production``)
+            with neither set, the signing key is derived via AMA HD Key
+            Management (``get_auth_key_manager()``, purpose ``jwt_sign``);
+            a failed derivation raises ``ValueError``. The HD master seed is
+            generated per process today, so derived keys differ across
+            workers, replicas, and restarts — set ``JWT_SECRET_KEY``
+            (``openssl rand -hex 32``) whenever tokens must verify across
+            more than one process or survive a restart.
         """
         self.secret_key = secret_key or os.getenv("JWT_SECRET_KEY")
         self.using_fallback = False
