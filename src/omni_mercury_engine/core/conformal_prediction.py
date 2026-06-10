@@ -1061,6 +1061,24 @@ class BinaryConformalClassifier:
         self._fitted = True
         return self
 
+    def anomaly_score_threshold(self) -> float:
+        """Single anomaly operating point implied by the class-1 LAC quantile.
+
+        A point is admitted to the anomaly label iff its nonconformity
+        ``1 - p_anomaly <= q_1``, i.e. ``p_anomaly >= 1 - q_1``.  This returns
+        ``1 - q_1`` so a caller that needs one threshold (rather than a full
+        prediction set) can flag ``score >= threshold`` with the conformal
+        class-1 coverage guarantee.  Returns ``inf`` when class 1 was never
+        calibrated (no positive in the calibration split), so nothing is
+        flagged rather than everything.
+        """
+        if not self._fitted:
+            raise RuntimeError("Must call fit() before anomaly_score_threshold()")
+        q1 = self._thresholds.get(1)
+        if q1 is None or q1 >= 1.0:
+            return float("inf")
+        return float(1.0 - q1)
+
     def predict(self, probabilities: np.ndarray[Any, Any]) -> BinaryPredictionSet:
         """Build conformal label sets for new calibrated probabilities.
 
@@ -1119,6 +1137,101 @@ class BinaryConformalClassifier:
             "empty_rate": float(np.mean(pred.set_size == 0)),
             "thresholds": dict(self._thresholds),
         }
+
+
+def _pava_nondecreasing(y: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    """Pool-Adjacent-Violators isotonic regression (non-decreasing, unit weights)."""
+    bv: list[float] = []
+    bw: list[float] = []
+    for yi in np.asarray(y, dtype=float):
+        bv.append(float(yi))
+        bw.append(1.0)
+        while len(bv) > 1 and bv[-2] > bv[-1]:
+            w = bw[-2] + bw[-1]
+            bv[-2] = (bv[-2] * bw[-2] + bv[-1] * bw[-1]) / w
+            bw[-2] = w
+            bv.pop()
+            bw.pop()
+    out = np.empty(len(y), dtype=float)
+    idx = 0
+    for v, w in zip(bv, bw):
+        c = round(w)
+        out[idx : idx + c] = v
+        idx += c
+    return out
+
+
+class VennAbersCalibrator:
+    """Inductive Venn-Abers predictor (Vovk, Petej & Fedorova 2015).
+
+    A **distribution-free validity layer** layered explicitly on top of a point
+    calibrator (the Beta-MCA map): MCA produces the point probability; Venn-Abers
+    produces a multiprobability ``[p0, p1]`` whose merged prediction
+    ``p = p1 / (1 - p0 + p1)`` is automatically *valid* (calibrated in the Venn
+    sense, no distributional assumptions), and whose width ``p1 - p0`` is a
+    distribution-free uncertainty band.
+
+    For each test score the two isotonic regressions of the calibration set with
+    the test point hypothetically labelled 0 and 1 give ``p0`` and ``p1``;
+    precomputed once per insertion rank, queried by ``searchsorted`` (O(log n)).
+    """
+
+    def __init__(self, max_cal: int = 2000, seed: int = 42) -> None:
+        """Store the calibration-set cap and the subsampling RNG seed."""
+        self.max_cal = int(max_cal)
+        self.seed = int(seed)
+        self._x: np.ndarray[Any, Any] | None = None
+        self._p0_corner: np.ndarray[Any, Any] | None = None
+        self._p1_corner: np.ndarray[Any, Any] | None = None
+        self._fitted = False
+
+    def fit(
+        self, probabilities: np.ndarray[Any, Any], labels: np.ndarray[Any, Any]
+    ) -> VennAbersCalibrator:
+        """Precompute the per-rank Venn-Abers corners from the calibration split."""
+        x = np.asarray(probabilities, dtype=float).ravel()
+        y = np.asarray(labels).astype(float).ravel()
+        if x.shape != y.shape or x.size < 2 or np.unique(y).size < 2:
+            self._fitted = False
+            return self
+        if x.size > self.max_cal:  # subsample for tractable O(n^2) precompute
+            rng = np.random.RandomState(self.seed)
+            keep = rng.choice(x.size, size=self.max_cal, replace=False)
+            x, y = x[keep], y[keep]
+        order = np.argsort(x, kind="mergesort")
+        xs, ys = x[order], y[order]
+        n = len(xs)
+        p0 = np.empty(n + 1)
+        p1 = np.empty(n + 1)
+        for k in range(n + 1):  # test point inserted at rank k
+            f1 = _pava_nondecreasing(np.insert(ys, k, 1.0))
+            f0 = _pava_nondecreasing(np.insert(ys, k, 0.0))
+            p1[k] = f1[k]
+            p0[k] = f0[k]
+        self._x, self._p0_corner, self._p1_corner = xs, p0, p1
+        self._fitted = True
+        return self
+
+    def predict_interval(
+        self, probabilities: np.ndarray[Any, Any]
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+        """Return the Venn-Abers multiprobability ``(p0, p1)`` per test point."""
+        p = np.asarray(probabilities, dtype=float).ravel()
+        if not self._fitted or self._x is None:
+            return p, p
+        k = np.searchsorted(self._x, p, side="right")
+        assert self._p0_corner is not None and self._p1_corner is not None
+        return self._p0_corner[k], self._p1_corner[k]
+
+    def predict_proba(self, probabilities: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Merged Venn-Abers probability ``p1 / (1 - p0 + p1)`` (identity if unfitted)."""
+        p = np.asarray(probabilities, dtype=float).ravel()
+        if not self._fitted:
+            return p
+        p0, p1 = self.predict_interval(p)
+        denom = np.clip(1.0 - p0 + p1, 1e-12, None)
+        merged: np.ndarray[Any, Any] = p1 / denom
+        return merged
 
 
 def add_conformal_to_detector(

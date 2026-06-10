@@ -18,11 +18,12 @@ Equation (OAE)**, which combines three orthogonal detection signals --
 Recursion, Resonance, and Optimization -- through golden-ratio-weighted
 convex combination, modulated by a sigmoid ethical gate.
 
-The framework guarantees:
+The framework combines four mathematical properties — **proven** where derived
+in the sections below, and **measured at runtime** for the data-dependent ones:
 
-1. **Lyapunov stability** of fusion score trajectories ($\dot{V} \leq -\lambda V$, $\lambda = 0.25$).
-2. **Banach contraction** bounds on recursive decomposition ($\alpha < 1 \Rightarrow$ geometric convergence).
-3. **Conformal coverage** guarantees on prediction intervals (finite-sample valid).
+1. **Lyapunov-style contraction** of fusion score trajectories ($\dot{V} \leq -\lambda V$, $\lambda = 0.25$) — a decay-schedule *design target* the engine monitors and reports (`is_stable`), not a guarantee asserted a priori (see §2.2.3, §4.2 discrete-time note).
+2. **Banach contraction** bounds on recursive decomposition ($\alpha < 1 \Rightarrow$ geometric convergence) — proven (§4.2).
+3. **Conformal coverage** of prediction intervals (finite-sample valid *under exchangeability*; on real, non-exchangeable anomaly data the coverage is **empirical/measured, not assumed** — see `docs/LIVE_DATA_VALIDATION.md`).
 4. **Ethical gating** via continuous sigmoid benevolence function (domain-adaptive).
 
 All scores are normalized to $[0, 1]$. All weights sum to $1.0$. All division
@@ -65,33 +66,35 @@ $$
 
 #### 2.1.1 Weight Derivation (Golden Ratio Proportions)
 
-The default weights are derived from the golden ratio $\Phi = 1.618033988749895\ldots$:
+The default weights fix the $(R, H, O)$ proportion at $\Phi : 1 : 1$ — Recursion
+carries the golden-ratio-weighted share; Harmonic and Optimization receive equal
+unit shares — derived from $\Phi = 1.618033988749895\ldots$:
 
 $$
-\phi_{\text{sum}} = \Phi + 1 + \frac{1}{\Phi} \approx 2.8944
+\phi_{\text{sum}} = \Phi + 2 \approx 3.6180
 $$
 
 $$
-w_R = \frac{\Phi}{\phi_{\text{sum}}} \approx 0.5590, \qquad
-w_H = \frac{1}{\phi_{\text{sum}}} \approx 0.3455, \qquad
-w_O = \frac{1/\Phi}{\phi_{\text{sum}}} \approx 0.2135
+w_R = \frac{\Phi}{\phi_{\text{sum}}} \approx 0.4472, \qquad
+w_H = \frac{1}{\phi_{\text{sum}}} \approx 0.2764, \qquad
+w_O = \frac{1}{\phi_{\text{sum}}} \approx 0.2764
 $$
 
 **Normalization proof:** The weights sum to unity by algebraic identity:
 
 $$
-w_R + w_H + w_O = \frac{\Phi + 1 + 1/\Phi}{\phi_{\text{sum}}} = \frac{\phi_{\text{sum}}}{\phi_{\text{sum}}} = 1.0 \quad \square
+w_R + w_H + w_O = \frac{\Phi + 1 + 1}{\phi_{\text{sum}}} = \frac{\Phi + 2}{\phi_{\text{sum}}} = 1.0 \quad \square
 $$
 
-> **Note:** The codebase documentation in `centralized_constants.py` records
-> approximate values $w_R \approx 0.447$, $w_H \approx 0.276$, $w_O \approx 0.276$.
-> The exact computed values from the code at `fusion.py` lines 106--111 are:
-> $\phi_{\text{sum}} = \Phi + 1.0 + 1.0/\Phi$, and weights are $\Phi/\phi_{\text{sum}}$,
-> $1.0/\phi_{\text{sum}}$, $(1.0/\Phi)/\phi_{\text{sum}}$ respectively.
-> Numerically: $w_R \approx 0.5590$, $w_H \approx 0.3455$, $w_O \approx 0.2135$.
-> The values 0.447/0.276/0.276 in `centralized_constants.py` line 394--396 are
-> rounded approximations that do not match the exact computation. The actual
-> runtime values from `fusion.py` are authoritative.
+> **Single canonical derivation.** $\phi_{\text{sum}} = \Phi + 2$ (the $\Phi:1:1$
+> proportion) is used everywhere in the code — `core/three_r/fusion.py`
+> (`OmniAvaEquation`, `OAEWeightOptimizer`, `DomainAdaptiveOAEWeights`),
+> `ml/three_r_attention.py`, and `core/centralized_constants.py`
+> (`FUSION.OAE_WEIGHT_*`) — and the `oae_weight_certifier` operator tool gates
+> against drift. The denominator is $\Phi + 2$, **not** $\Phi + 1 + 1/\Phi$: an
+> earlier draft used the latter (and miscomputed it as $\approx 2.894$ rather
+> than the correct $3.236$), silently producing $(0.5, 0.309, 0.191)$; that
+> drift has been removed.
 
 **Implementation:** `core/three_r/fusion.py`, lines 104--111.
 
@@ -283,8 +286,12 @@ $$
 \dot{V} \leq -\lambda V, \qquad \lambda = 0.25
 $$
 
-This guarantees that any Lyapunov function $V$ satisfying this condition
-decreases at least exponentially with rate $\lambda$.
+Any Lyapunov function $V$ satisfying this condition decreases at least
+exponentially with rate $\lambda$. This is the **decay schedule** Mercury treats
+as a design target: the engine *monitors* whether the empirical fusion-score
+trajectory actually meets it (Section 2.2.3, `verify_lyapunov_stability`) and
+reports `is_stable=False` when contraction has not been measured — it is not a
+guarantee asserted a priori.
 
 #### 2.2.3 Convergence Rate Estimation
 
@@ -1064,7 +1071,7 @@ in $(0, 1]$. No overflow risk.
 | $\varepsilon$ | Numerical stability epsilon ($10^{-8}$) | Section 1 |
 | $\eta(b)$ | Sigmoid benevolence gate function | Section 2.1.3 |
 | $\Phi$ | Golden ratio ($1.618\ldots$) | Section 2.1.1 |
-| $\phi_{\text{sum}}$ | Sum $\Phi + 1 + 1/\Phi$ ($\approx 2.894$) | Section 2.1.1 |
+| $\phi_{\text{sum}}$ | Sum $\Phi + 2$ ($\approx 3.618$) | Section 2.1.1 |
 | $H(\omega)$ | Resonance/harmonic score or power spectrum | Section 2.1, 2.4 |
 | $k$ | Sigmoid steepness parameter | Section 2.1.3 |
 | $\lambda$ | Lyapunov convergence rate (0.25) | Section 2.2 |

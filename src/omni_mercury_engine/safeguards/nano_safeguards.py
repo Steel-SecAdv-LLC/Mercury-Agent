@@ -21,7 +21,7 @@ Where k is the target dimension for downsampling (typically 1-3).
 
 References:
 - PROTECTION_OVERVIEW.md: Nano-Safeguards (N Term) specification
-- Lyapunov stability framework for convergence guarantees
+- Lyapunov-style decay-schedule convergence monitor (measured, not a guarantee)
 """
 
 from __future__ import annotations

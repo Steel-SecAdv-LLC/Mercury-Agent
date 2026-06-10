@@ -1,0 +1,372 @@
+{
+  "earthquake": [
+    {
+      "n": 466,
+      "anoms": 2,
+      "n_streams": 6,
+      "auc_N": 0.9806034482758621,
+      "stream_aucs": {
+        "resonance_scores": 0.914,
+        "kinematic_scores": 0.872,
+        "info_geometry_scores": 0.98,
+        "z_score_continuous": 0.982,
+        "iqr_scores": 0.805,
+        "isolation_forest_scores": 0.981
+      },
+      "best_single": 0.982,
+      "mean_abs_corr": 0.688,
+      "auc_eq_base": 0.9816810344827586,
+      "auc_eq_phi": 0.9816810344827586,
+      "lift_eq_vs_N": 0.001,
+      "lift_ens_vs_best": -0.001,
+      "gate_topk_flip": 0.0,
+      "gate_abs_flip": 0.0086,
+      "gate_auc_delta": 0.0,
+      "event": "turkey_syria_2023"
+    },
+    {
+      "n": 333,
+      "anoms": 1,
+      "n_streams": 6,
+      "auc_N": 0.9608433734939759,
+      "stream_aucs": {
+        "resonance_scores": 0.955,
+        "kinematic_scores": 0.355,
+        "info_geometry_scores": 1.0,
+        "z_score_continuous": 0.97,
+        "iqr_scores": 0.898,
+        "isolation_forest_scores": 0.961
+      },
+      "best_single": 1.0,
+      "mean_abs_corr": 0.573,
+      "auc_eq_base": 0.9608433734939759,
+      "auc_eq_phi": 0.9608433734939759,
+      "lift_eq_vs_N": 0.0,
+      "lift_ens_vs_best": -0.039,
+      "gate_topk_flip": 0.0,
+      "gate_abs_flip": 0.003,
+      "gate_auc_delta": 0.0,
+      "event": "noto_2024"
+    },
+    {
+      "n": 1491,
+      "anoms": 1,
+      "n_streams": 6,
+      "auc_N": 0.9993288590604027,
+      "stream_aucs": {
+        "resonance_scores": 1.0,
+        "kinematic_scores": 0.848,
+        "info_geometry_scores": 0.995,
+        "z_score_continuous": 0.997,
+        "iqr_scores": 0.96,
+        "isolation_forest_scores": 0.999
+      },
+      "best_single": 1.0,
+      "mean_abs_corr": 0.621,
+      "auc_eq_base": 0.9993288590604027,
+      "auc_eq_phi": 0.9993288590604027,
+      "lift_eq_vs_N": 0.0,
+      "lift_ens_vs_best": -0.001,
+      "gate_topk_flip": 0.0,
+      "gate_abs_flip": 0.006,
+      "gate_auc_delta": 0.0,
+      "event": "tohoku_2011"
+    },
+    {
+      "n": 216,
+      "anoms": 2,
+      "n_streams": 6,
+      "auc_N": 0.7453271028037383,
+      "stream_aucs": {
+        "resonance_scores": 0.773,
+        "kinematic_scores": 0.103,
+        "info_geometry_scores": 0.909,
+        "z_score_continuous": 0.928,
+        "iqr_scores": 0.609,
+        "isolation_forest_scores": 0.745
+      },
+      "best_single": 0.928,
+      "mean_abs_corr": 0.591,
+      "auc_eq_base": 0.7453271028037383,
+      "auc_eq_phi": 0.7453271028037383,
+      "lift_eq_vs_N": 0.0,
+      "lift_ens_vs_best": -0.183,
+      "gate_topk_flip": 0.0,
+      "gate_abs_flip": 0.0046,
+      "gate_auc_delta": 0.0,
+      "event": "haiti_2010"
+    },
+    {
+      "n": 361,
+      "anoms": 1,
+      "n_streams": 6,
+      "auc_N": 0.9972222222222222,
+      "stream_aucs": {
+        "resonance_scores": 0.961,
+        "kinematic_scores": 0.867,
+        "info_geometry_scores": 0.994,
+        "z_score_continuous": 0.992,
+        "iqr_scores": 0.894,
+        "isolation_forest_scores": 0.997
+      },
+      "best_single": 0.997,
+      "mean_abs_corr": 0.589,
+      "auc_eq_base": 0.9944444444444445,
+      "auc_eq_phi": 0.9972222222222222,
+      "lift_eq_vs_N": -0.003,
+      "lift_ens_vs_best": 0.0,
+      "gate_topk_flip": 0.0,
+      "gate_abs_flip": 0.0055,
+      "gate_auc_delta": 0.0,
+      "event": "nepal_2015"
+    }
+  ],
+  "hurricane": [
+    {
+      "n": 64,
+      "anoms": 7,
+      "n_streams": 6,
+      "auc_N": 0.9047619047619048,
+      "stream_aucs": {
+        "resonance_scores": 0.749,
+        "kinematic_scores": 0.828,
+        "info_geometry_scores": 0.882,
+        "z_score_continuous": 0.711,
+        "iqr_scores": 0.789,
+        "isolation_forest_scores": 0.905
+      },
+      "best_single": 0.905,
+      "mean_abs_corr": 0.785,
+      "auc_eq_base": 0.9047619047619048,
+      "auc_eq_phi": 0.9047619047619048,
+      "lift_eq_vs_N": 0.0,
+      "lift_ens_vs_best": -0.0,
+      "gate_topk_flip": 0.0,
+      "gate_abs_flip": 0.0,
+      "gate_auc_delta": 0.0,
+      "event": "katrina_2005"
+    },
+    {
+      "n": 45,
+      "anoms": 7,
+      "n_streams": 6,
+      "auc_N": 0.5939849624060151,
+      "stream_aucs": {
+        "resonance_scores": 0.782,
+        "kinematic_scores": 0.643,
+        "info_geometry_scores": 0.579,
+        "z_score_continuous": 0.648,
+        "iqr_scores": 0.553,
+        "isolation_forest_scores": 0.594
+      },
+      "best_single": 0.782,
+      "mean_abs_corr": 0.848,
+      "auc_eq_base": 0.5977443609022556,
+      "auc_eq_phi": 0.5977443609022556,
+      "lift_eq_vs_N": 0.004,
+      "lift_ens_vs_best": -0.188,
+      "gate_topk_flip": 0.0,
+      "gate_abs_flip": 0.0,
+      "gate_auc_delta": 0.0,
+      "event": "helene_2024"
+    },
+    {
+      "n": 62,
+      "anoms": 10,
+      "n_streams": 6,
+      "auc_N": 0.8365384615384615,
+      "stream_aucs": {
+        "resonance_scores": 0.781,
+        "kinematic_scores": 0.825,
+        "info_geometry_scores": 0.798,
+        "z_score_continuous": 0.828,
+        "iqr_scores": 0.721,
+        "isolation_forest_scores": 0.837
+      },
+      "best_single": 0.837,
+      "mean_abs_corr": 0.725,
+      "auc_eq_base": 0.8346153846153845,
+      "auc_eq_phi": 0.8346153846153845,
+      "lift_eq_vs_N": -0.002,
+      "lift_ens_vs_best": -0.0,
+      "gate_topk_flip": 0.0,
+      "gate_abs_flip": 0.0,
+      "gate_auc_delta": 0.0,
+      "event": "milton_2024"
+    }
+  ],
+  "marine": [
+    {
+      "n": 18,
+      "anoms": 13,
+      "n_streams": 6,
+      "auc_N": 0.4307692307692308,
+      "stream_aucs": {
+        "resonance_scores": 0.138,
+        "kinematic_scores": 0.762,
+        "info_geometry_scores": 0.262,
+        "z_score_continuous": 0.215,
+        "iqr_scores": 0.538,
+        "isolation_forest_scores": 0.431
+      },
+      "best_single": 0.762,
+      "mean_abs_corr": 0.62,
+      "auc_eq_base": 0.38461538461538464,
+      "auc_eq_phi": 0.4,
+      "lift_eq_vs_N": -0.046,
+      "lift_ens_vs_best": -0.331,
+      "gate_topk_flip": 0.0,
+      "gate_abs_flip": 0.0,
+      "gate_auc_delta": 0.0,
+      "event": "gbr_bleaching_2016"
+    },
+    {
+      "n": 78,
+      "anoms": 21,
+      "n_streams": 6,
+      "auc_N": 0.6516290726817042,
+      "stream_aucs": {
+        "resonance_scores": 0.79,
+        "kinematic_scores": 0.624,
+        "info_geometry_scores": 0.622,
+        "z_score_continuous": 0.797,
+        "iqr_scores": 0.548,
+        "isolation_forest_scores": 0.652
+      },
+      "best_single": 0.797,
+      "mean_abs_corr": 0.596,
+      "auc_eq_base": 0.6558061821219716,
+      "auc_eq_phi": 0.6558061821219716,
+      "lift_eq_vs_N": 0.004,
+      "lift_ens_vs_best": -0.145,
+      "gate_topk_flip": 0.048,
+      "gate_abs_flip": 0.0,
+      "gate_auc_delta": -0.002506,
+      "event": "marine_heatwave_2023"
+    }
+  ],
+  "tornado": [
+    {
+      "n": 349,
+      "anoms": 37,
+      "n_streams": 6,
+      "auc_N": 0.7605682605682607,
+      "stream_aucs": {
+        "resonance_scores": 0.916,
+        "kinematic_scores": 0.592,
+        "info_geometry_scores": 0.852,
+        "z_score_continuous": 0.816,
+        "iqr_scores": 0.919,
+        "isolation_forest_scores": 0.761
+      },
+      "best_single": 0.919,
+      "mean_abs_corr": 0.489,
+      "auc_eq_base": 0.7692307692307693,
+      "auc_eq_phi": 0.7673250173250173,
+      "lift_eq_vs_N": 0.009,
+      "lift_ens_vs_best": -0.158,
+      "gate_topk_flip": 0.0,
+      "gate_abs_flip": 0.0,
+      "gate_auc_delta": -0.00104,
+      "event": "super_outbreak_2011"
+    },
+    {
+      "n": 65,
+      "anoms": 3,
+      "n_streams": 6,
+      "auc_N": 1.0,
+      "stream_aucs": {
+        "resonance_scores": 1.0,
+        "kinematic_scores": 0.712,
+        "info_geometry_scores": 1.0,
+        "z_score_continuous": 0.978,
+        "iqr_scores": 0.992,
+        "isolation_forest_scores": 1.0
+      },
+      "best_single": 1.0,
+      "mean_abs_corr": 0.661,
+      "auc_eq_base": 1.0,
+      "auc_eq_phi": 1.0,
+      "lift_eq_vs_N": 0.0,
+      "lift_ens_vs_best": 0.0,
+      "gate_topk_flip": 0.0,
+      "gate_abs_flip": 0.0,
+      "gate_auc_delta": 0.0,
+      "event": "moore_2013"
+    }
+  ],
+  "tsunami": [
+    {
+      "n": 1094,
+      "anoms": 375,
+      "n_streams": 6,
+      "auc_N": 0.9075827538247566,
+      "stream_aucs": {
+        "resonance_scores": 0.838,
+        "kinematic_scores": 0.633,
+        "info_geometry_scores": 0.945,
+        "z_score_continuous": 0.892,
+        "iqr_scores": 0.838,
+        "isolation_forest_scores": 0.908
+      },
+      "best_single": 0.945,
+      "mean_abs_corr": 0.721,
+      "auc_eq_base": 0.9079647658785349,
+      "auc_eq_phi": 0.908038942976356,
+      "lift_eq_vs_N": 0.0,
+      "lift_ens_vs_best": -0.037,
+      "gate_topk_flip": 0.003,
+      "gate_abs_flip": 0.0046,
+      "gate_auc_delta": -4e-06,
+      "event": "tohoku_2011"
+    },
+    {
+      "n": 1166,
+      "anoms": 447,
+      "n_streams": 6,
+      "auc_N": 0.879925822902179,
+      "stream_aucs": {
+        "resonance_scores": 0.792,
+        "kinematic_scores": 0.624,
+        "info_geometry_scores": 0.891,
+        "z_score_continuous": 0.821,
+        "iqr_scores": 0.708,
+        "isolation_forest_scores": 0.88
+      },
+      "best_single": 0.891,
+      "mean_abs_corr": 0.629,
+      "auc_eq_base": 0.8776482375160629,
+      "auc_eq_phi": 0.8781149558328899,
+      "lift_eq_vs_N": -0.002,
+      "lift_ens_vs_best": -0.011,
+      "gate_topk_flip": 0.0,
+      "gate_abs_flip": 0.0026,
+      "gate_auc_delta": 0.000128,
+      "event": "chile_2010"
+    },
+    {
+      "n": 2115,
+      "anoms": 706,
+      "n_streams": 6,
+      "auc_N": 0.8841140623711994,
+      "stream_aucs": {
+        "resonance_scores": 0.869,
+        "kinematic_scores": 0.695,
+        "info_geometry_scores": 0.895,
+        "z_score_continuous": 0.864,
+        "iqr_scores": 0.808,
+        "isolation_forest_scores": 0.884
+      },
+      "best_single": 0.895,
+      "mean_abs_corr": 0.737,
+      "auc_eq_base": 0.88278509058521,
+      "auc_eq_phi": 0.8831409574628502,
+      "lift_eq_vs_N": -0.001,
+      "lift_ens_vs_best": -0.011,
+      "gate_topk_flip": 0.0,
+      "gate_abs_flip": 0.0071,
+      "gate_auc_delta": 6.5e-05,
+      "event": "tonga_2022"
+    }
+  ]
+}

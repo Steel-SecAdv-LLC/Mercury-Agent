@@ -37,7 +37,11 @@ class OmniAvaEquation:
 
     This equation provides:
     1. Mathematical superiority over baselines
-    2. Lyapunov stability guarantee: V(S_t) <= epsilon * e^(-0.25t)
+    2. A Lyapunov-style decay *schedule* (reference envelope)
+       epsilon * e^(-0.25t) — a design target the system *monitors*, NOT a
+       proven guarantee on the fusion-score trajectory V(S_t).
+       ``verify_lyapunov_stability`` measures whether recent scores actually
+       contract.
     3. Ethical gating via η_Ethical^Φ scaling
     4. Harmonic synergy through golden ratio (Φ) weighting
 
@@ -60,6 +64,7 @@ class OmniAvaEquation:
         lambda_lyapunov: float | None = None,
         domain: str = "default",
         ethical_exponent: float | None = None,
+        decouple_ethical_scaling: bool = False,
     ):
         """Initialize Omni-Ava Equation.
 
@@ -79,6 +84,10 @@ class OmniAvaEquation:
             domain: Domain name for sigmoid benevolence profile selection.
             ethical_exponent: Exponent for ethical scaling. Defaults to Φ (1.618).
                 Set to None to use golden ratio. Override for empirical optimization.
+            decouple_ethical_scaling: Opt-in (default False). When True, remove the
+                soft η^Φ multiplier from the fused-score path (R6) so a proper-scored
+                monotone calibrator can own the probability; the two fail-closed hard
+                ethics gates remain the enforcement.
         """
         if sigma_immutable is not None:
             ethical_compliance_threshold = sigma_immutable
@@ -119,6 +128,14 @@ class OmniAvaEquation:
         self.ethical_exponent = (
             ethical_exponent if ethical_exponent is not None else self.golden_ratio
         )
+
+        # R6 (opt-in, DEFAULT-OFF): decouple the soft eta^Phi multiplier from the
+        # score path so a proper-scored monotone calibrator (MCA) can own the
+        # probability. Ethics enforcement is UNCHANGED -- the two fail-closed hard
+        # gates (BenevolenceScorer floor 0.70, sigma_Immutable) remain dominant;
+        # only the soft in-score multiplier is removed when this is True. Default
+        # False -> fused score byte-identical.
+        self.decouple_ethical_scaling = bool(decouple_ethical_scaling)
 
         # Backward-compatible aliases
         self.sigma_immutable = self.ethical_compliance_threshold
@@ -227,12 +244,18 @@ class OmniAvaEquation:
             + self.weights["w_O"] * optimization_score
         )
 
-        # Use configurable exponent (default Φ) instead of hardcoded golden_ratio
-        ethical_scaling = eta**self.ethical_exponent
+        # Use configurable exponent (default Φ) instead of hardcoded golden_ratio.
+        # R6: when decoupled (opt-in), the soft eta^Phi multiplier is removed from
+        # the score path (scaling = 1.0) so MCA can own the probability; eta is
+        # still reported for the hard gates, which remain the enforcement (I1).
+        ethical_scaling = 1.0 if self.decouple_ethical_scaling else eta**self.ethical_exponent
         fusion_score = weighted_sum * ethical_scaling
 
         self.time_step += 1
         epsilon = 1.0
+        # Decay-schedule reference envelope (target), NOT a measured/guaranteed
+        # bound on the fusion-score trajectory.  verify_lyapunov_stability()
+        # measures whether the recent scores actually contract.
         lyapunov_bound = epsilon * np.exp(-self.convergence_rate_param * self.time_step)
 
         self.convergence_history.append(fusion_score)
@@ -272,21 +295,29 @@ class OmniAvaEquation:
         self.weights = {k: v / total for k, v in self.weights.items()}
 
     def verify_lyapunov_stability(self, window_size: int = 10) -> tuple[bool, float]:
-        """Verify Lyapunov stability condition.
+        """Monitor recent score-trajectory contraction (NOT a guarantee).
+
+        Estimates the empirical decay rate from the variance ratio of recent vs.
+        initial fusion scores and reports whether the observed trajectory is
+        actually contracting.  This is a *measured* property of the scores, not
+        a proof that the decay schedule ``epsilon * e^(-lambda t)`` holds.  With
+        insufficient history it returns ``is_stable=False`` rather than asserting
+        stability that has not been measured.
 
         Args:
             window_size: Number of recent samples to analyze
 
         Returns:
-            Tuple of (is_stable, estimated_decay_rate)
+            Tuple of (is_stable, estimated_decay_rate), where ``is_stable`` is
+            ``True`` only when a positive contraction rate was actually measured.
         """
         if len(self.convergence_history) < window_size:
-            return True, self.lambda_lyapunov
+            return False, self.lambda_lyapunov
 
         recent = np.array(self.convergence_history[-window_size:])
 
         if len(recent) < 2:
-            return True, self.lambda_lyapunov
+            return False, self.lambda_lyapunov
 
         variance = np.var(recent)
         initial_variance = np.var(
@@ -302,7 +333,7 @@ class OmniAvaEquation:
         else:
             estimated_lambda = self.lambda_lyapunov
 
-        is_stable = estimated_lambda > 0
+        is_stable = bool(estimated_lambda > 0)
         return is_stable, float(estimated_lambda)
 
 
@@ -354,8 +385,8 @@ class OAEWeightOptimizer:
         """
         if initial_weights is None:
             phi = GOLDEN_RATIO_CONSTANT
-            phi_sum = phi + 1.0 + 1.0 / phi
-            initial_weights = np.array([phi / phi_sum, 1.0 / phi_sum, (1.0 / phi) / phi_sum])
+            phi_sum = phi + 2.0  # canonical PHI:1:1 (matches OmniAvaEquation default)
+            initial_weights = np.array([phi / phi_sum, 1.0 / phi_sum, 1.0 / phi_sum])
 
         scores_arr = np.array(scores)
         targets_arr = np.array(targets)
@@ -415,11 +446,11 @@ class DomainAdaptiveOAEWeights:
     def __init__(self) -> None:
         """Initialize with empty domain profiles."""
         phi = GOLDEN_RATIO_CONSTANT
-        phi_sum = phi + 1.0 + 1.0 / phi
+        phi_sum = phi + 2.0  # canonical PHI:1:1 (matches OmniAvaEquation default)
         self._default_weights = {
             "w_R": phi / phi_sum,
             "w_H": 1.0 / phi_sum,
-            "w_O": (1.0 / phi) / phi_sum,
+            "w_O": 1.0 / phi_sum,
         }
         self._domain_profiles: dict[str, dict[str, float]] = {}
         self._domain_scores: dict[str, list[tuple[float, float, float, float]]] = {}

@@ -123,7 +123,13 @@ jobs:
       - name: Install quality tools
         run: |
           python -m pip install --upgrade "pip>=26.1"
-          pip install "black>=26.3.1,<27.0.0" flake8 mypy ruff pydocstyle
+          # mypy + pydocstyle are PINNED (mirrored in pyproject [ml]/[dev] and
+          # the Type Checking job) so the type-ignore set and the docstring
+          # ruleset are identical locally and in CI.  An unpinned mypy flips
+          # datasets/mitbih.py:105/109 between "needed" and "unused-ignore"
+          # (1.19 vs 2.1); an unpinned pydocstyle could change the enforced
+          # google-convention docstring codes out from under a green commit.
+          pip install "black==26.3.1" flake8 mypy==2.1.0 ruff pydocstyle==6.3.0
 
       - name: Run Black (formatting)
         run: black --check --diff src/ tests/
@@ -457,7 +463,12 @@ jobs:
           # ``@pytest.fixture`` / ``@pytest.mark.parametrize`` as
           # ``[untyped-decorator]`` even though the stubs are correct.
           pip install -e ".[ml]"
-          pip install mypy types-requests \
+          # mypy + types-requests are PINNED (mirrored in pyproject [ml]/[dev]
+          # and the Code Quality job) so the ``# type: ignore[...]`` set is
+          # byte-identical locally and in CI.  Without the pin a newer
+          # mypy/types-requests marks datasets/mitbih.py:105/109 as
+          # ``unused-ignore`` in one place while the other still needs them.
+          pip install mypy==2.1.0 types-requests==2.33.0.20260518 \
             "pytest>=9.0.3" pytest-asyncio pytest-mock
 
       - name: Build + install AMA Cryptography (native PQC backend)
@@ -540,6 +551,37 @@ jobs:
         # * tests/loaders/       -- ISO hardening (already clean) (#238)
         # * tests/narrative/     -- ISO hardening (already clean) (#238)
         run: |
+          mypy tests/datasets/ tests/ethical/ tests/safeguards/ tests/tools/ \
+            tests/loaders/ tests/narrative/ \
+            --disallow-subclassing-any \
+            --show-error-codes \
+            --pretty \
+            --no-warn-unused-configs
+
+      - name: Pin numpy to the declared floor (regression guard)
+        # The steps above type-check against whatever numpy ``pip`` resolves
+        # (currently 2.4.6).  pyproject declares ``numpy>=2.4.0`` as the
+        # supported minimum, so the strict mypy contract must also hold at
+        # that floor -- numpy's ``ndarray`` typing changed across minor
+        # releases (2.3.5 still emits ``disallow_any_generics``/``assignment``
+        # errors that 2.4.0 fixes).  Pinning the exact floor and re-running the
+        # gate below stops the declared minimum from silently drifting away
+        # from what actually type-checks.
+        run: pip install "numpy==2.4.0"
+
+      - name: Run MyPy at the numpy floor (src + tests)
+        run: |
+          mypy src/omni_mercury_engine/ \
+            --show-error-codes \
+            --pretty
+          mypy tests/ \
+            --allow-untyped-defs \
+            --allow-untyped-calls \
+            --allow-subclassing-any \
+            --disable-error-code untyped-decorator \
+            --show-error-codes \
+            --pretty \
+            --no-warn-unused-configs
           mypy tests/datasets/ tests/ethical/ tests/safeguards/ tests/tools/ \
             tests/loaders/ tests/narrative/ \
             --disallow-subclassing-any \

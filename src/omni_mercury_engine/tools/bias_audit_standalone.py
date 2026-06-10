@@ -88,6 +88,9 @@ def _score_with_detector(
 
 
 def _collect(args: argparse.Namespace) -> Certificate:
+    # Mercury builds its own ML (mercury_ml); scikit-learn is never imported.
+    from omni_mercury_engine.ml.mercury_ml import accuracy_score
+
     try:
         from fairlearn.metrics import (
             MetricFrame,
@@ -95,10 +98,13 @@ def _collect(args: argparse.Namespace) -> Certificate:
             equalized_odds_difference,
             selection_rate,
         )
-        from sklearn.metrics import accuracy_score
     except ImportError as exc:
+        # The failing import may be fairlearn itself *or* one of its transitive
+        # dependencies; surface the real module name (``exc``) instead of always
+        # blaming fairlearn so a missing transitive dep is not misdiagnosed.
         raise DependencyMissing(
-            f"fairlearn or scikit-learn missing: {exc}; install with `pip install fairlearn`"
+            f"fairlearn (or one of its dependencies) is unavailable: {exc}; "
+            f"install with `pip install fairlearn`"
         ) from exc
 
     X = np.load(args.data, allow_pickle=False)
