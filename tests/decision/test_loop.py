@@ -54,6 +54,19 @@ class TestStep:
         rec = loop.step(_result(anomaly_prob=0.9, conformal=_conformal([1])))
         assert seen == [rec]
 
+    def test_raising_feedback_sink_is_contained(self, caplog: pytest.LogCaptureFixture) -> None:
+        # The contract says a sink must not raise; if one does, the loop logs and
+        # continues -- the record is already recorded and the pipeline survives.
+        def boom(_: DecisionRecord) -> None:
+            raise RuntimeError("sink failure")
+
+        loop = DecisionLoop(feedback=boom)
+        with caplog.at_level("ERROR"):
+            rec = loop.step(_result(anomaly_prob=0.9, conformal=_conformal([1])))
+        assert isinstance(rec, DecisionRecord)
+        assert loop.ledger.entries[0] is rec  # recorded despite the sink failure
+        assert "feedback sink raised" in caplog.text
+
     def test_custom_ledger_and_responder_are_used(self) -> None:
         ledger = DecisionLedger(maxlen=10)
         responder = DecisionAbstentionResponder(

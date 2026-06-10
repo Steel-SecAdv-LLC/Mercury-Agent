@@ -17,6 +17,7 @@ loop is the small stateful shell that adds the "verify" step around it.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
@@ -28,9 +29,13 @@ if TYPE_CHECKING:
 
     from omni_mercury_engine.decision.record import DecisionRecord
 
+logger = logging.getLogger(__name__)
+
 #: A sink invoked with every completed decision -- the feedback seam back to
-#: calibration / learning / a human queue.  It must not raise; the loop's job is
-#: done once the ledger holds the record.
+#: calibration / learning / a human queue.  It *should* not raise; the loop's
+#: job is done once the ledger holds the record, and :meth:`DecisionLoop.step`
+#: defensively contains (logs, does not re-raise) any exception a sink leaks so
+#: a misbehaving feedback hook cannot take down the detection pipeline.
 FeedbackSink = Callable[["DecisionRecord"], None]
 
 
@@ -75,7 +80,13 @@ class DecisionLoop:
         record = self.responder.decide(detection_result, domain=domain)
         self.ledger.record(record)
         if self.feedback is not None:
-            self.feedback(record)
+            # The record is already durably in the ledger; a feedback sink that
+            # misbehaves (the contract says it must not raise) must not unwind
+            # the loop or the surrounding detection pipeline.  Contain and log.
+            try:
+                self.feedback(record)
+            except Exception:
+                logger.exception("decision feedback sink raised; the record was still recorded")
         return record
 
     def run(

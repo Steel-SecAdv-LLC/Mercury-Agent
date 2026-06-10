@@ -70,13 +70,17 @@ class DecisionRecord:
     domain: str | None = None
 
     def __post_init__(self) -> None:
-        """Freeze the provenance mapping so a recorded decision stays immutable.
+        """Wrap the provenance mapping in a *shallow* read-only view.
 
         The dataclass is ``frozen``, but a plain ``dict`` ``signals`` field would
-        still let a caller mutate ``record.signals`` after the record is in the
-        ledger and silently rewrite the audit trail.  Replace it with a shallow
-        read-only view (over a private copy) so the recorded provenance cannot be
-        altered in place.
+        still let a caller add, remove or rebind top-level keys on
+        ``record.signals`` after the record is in the ledger.  Wrapping it in a
+        :class:`~types.MappingProxyType` over a private copy blocks that.  The
+        freeze is deliberately **shallow**: the values stay the plain JSON-safe
+        scalars / lists / dicts the record was built with -- so :meth:`to_dict`
+        remains JSON-serialisable -- which means a deeply-nested value is not
+        itself frozen.  The guarantee is therefore "the top-level provenance keys
+        cannot be added, dropped or rebound", not a deep freeze.
         """
         object.__setattr__(self, "signals", MappingProxyType(dict(self.signals)))
 
