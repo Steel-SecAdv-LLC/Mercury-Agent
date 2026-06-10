@@ -10,7 +10,11 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from omni_mercury_engine.decision import DecisionAbstentionResponder, DecisionLedger
+from omni_mercury_engine.decision import (
+    DecisionAbstentionResponder,
+    DecisionLedger,
+    DecisionRecord,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -25,7 +29,7 @@ def _conformal(labels: list[int], coverage: float = 0.9) -> dict[str, Any]:
     }
 
 
-def _rec(**over: Any):
+def _rec(**over: Any) -> DecisionRecord:
     base: dict[str, Any] = {"anomaly_prob": 0.5, "is_anomaly": False, "threshold_used": 0.5}
     base.update(over)
     return DecisionAbstentionResponder().decide(base, domain="security")

@@ -10,13 +10,14 @@ import pytest
 
 from omni_mercury_engine.decision import (
     DecisionAbstentionResponder,
+    DecisionRecord,
     Disposition,
     to_agent_action,
     to_cap_alert,
 )
 
 
-def _decide(**over: Any):
+def _decide(**over: Any) -> DecisionRecord:
     base: dict[str, Any] = {"anomaly_prob": 0.5, "is_anomaly": False, "threshold_used": 0.5}
     base.update(over)
     return DecisionAbstentionResponder().decide(base, domain=over.pop("domain", "security"))
