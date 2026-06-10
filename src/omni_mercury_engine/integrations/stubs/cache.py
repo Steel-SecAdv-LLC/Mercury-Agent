@@ -780,11 +780,14 @@ class RedisCache:
         if data is None:
             return None
         parsed = json.loads(data)
+        # Exact-shape match against what _serialize writes, so user data
+        # that merely contains the marker key cannot be misclassified.
         is_envelope = (
             isinstance(parsed, dict)
-            and parsed.get(_CACHE_ENVELOPE_MARKER) == 1
-            and isinstance(parsed.get("sig"), str)
-            and isinstance(parsed.get("payload"), str)
+            and set(parsed) == {_CACHE_ENVELOPE_MARKER, "sig", "payload"}
+            and parsed[_CACHE_ENVELOPE_MARKER] == 1
+            and isinstance(parsed["sig"], str)
+            and isinstance(parsed["payload"], str)
         )
         if self._hmac_key is None:
             if is_envelope:

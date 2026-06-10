@@ -569,5 +569,20 @@ class TestRedisCacheHMAC:
         with pytest.raises(CacheIntegrityError, match="signing is disabled"):
             cache._sign("payload")
 
+    def test_marker_collision_passes_through_when_unsigned(self) -> None:
+        """User data containing the marker key is not an envelope (extra keys)."""
+        cache = self._cache(None)
+        data = {"__mercury_signed__": 1, "sig": "x", "payload": "y", "extra": 2}
+
+        assert cache._deserialize(json.dumps(data)) == data
+
+    def test_marker_collision_rejected_as_unsigned_when_signing_active(self) -> None:
+        """With signing active, marker-colliding user data fails as unsigned."""
+        cache = self._cache("shared-secret")
+        data = {"__mercury_signed__": 1, "sig": "x", "payload": "y", "extra": 2}
+
+        with pytest.raises(CacheIntegrityError, match="Unsigned cache entry"):
+            cache._deserialize(json.dumps(data))
+
         stored = cache._serialize([1, 2, 3])
         assert cache._deserialize(stored) == [1, 2, 3]
