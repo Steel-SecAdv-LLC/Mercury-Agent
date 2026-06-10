@@ -337,3 +337,49 @@ class TestRecordRoundTrip:
         rec = responder.decide(_result(anomaly_prob=0.92, conformal=_conformal([1])))
         restored = type(rec).from_dict(json.loads(json.dumps(rec.to_dict())))
         assert restored.to_dict() == rec.to_dict()
+
+
+class TestUnknownSignalsAreNoOps:
+    """The gate reads only the signals it understands; new result keys are inert.
+
+    The post-#278 governed-fusion substrate adds ``result["info_geometry_
+    certificate"]`` (per-detector component price level-sets).  By its own
+    contract it certifies a *component's* boundary, "NOT the fused/gated
+    verdict", and in the single-sample serve path the gate runs in its adaptive
+    threshold collapses onto the point (price == threshold), so it carries no
+    information that could soundly refine the fused decision.  The gate must
+    therefore treat it -- and any other unmodelled key -- as an exact no-op.
+    """
+
+    def test_info_geometry_certificate_does_not_change_the_decision(
+        self, responder: DecisionAbstentionResponder
+    ) -> None:
+        base = _result(anomaly_prob=0.92, is_anomaly=True, severity=0.7, conformal=_conformal([1]))
+        certificate = {
+            "statistical": {
+                "model": "information_geometry_mahalanobis",
+                "certifies": "info_geometry component price level-set; NOT the fused/gated verdict",
+                "price": [3.4],
+                "threshold_price": 3.0,
+                "component_verdict": [True],
+                "certified_l2_radius": [0.0],
+            }
+        }
+        with_cert = responder.decide({**base, "info_geometry_certificate": certificate})
+        assert with_cert.to_dict() == responder.decide(base).to_dict()
+
+    @pytest.mark.parametrize(
+        "result",
+        [
+            _result(anomaly_prob=0.92, conformal=_conformal([1])),  # grounded
+            _result(anomaly_prob=0.55, conformal=_conformal([0, 1])),  # unavailable
+            _result(anomaly_prob=0.40, conformal=_conformal([])),  # undecidable
+        ],
+    )
+    def test_arbitrary_unknown_keys_are_ignored(
+        self, responder: DecisionAbstentionResponder, result: dict[str, Any]
+    ) -> None:
+        noisy = responder.decide(
+            {**result, "info_geometry_certificate": {"d": {"price": [9.9]}}, "future_key": [1, 2]}
+        )
+        assert noisy.to_dict() == responder.decide(result).to_dict()
