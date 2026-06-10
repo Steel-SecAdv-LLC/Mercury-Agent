@@ -23,12 +23,13 @@ from omni_mercury_engine.decision.states import Disposition, ResponseAction
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-#: Severity -> urgency banding.  Ordered high-to-low; first match wins.
+#: Severity -> urgency banding.  Ordered high-to-low; first match wins, with an
+#: implicit ``routine`` floor (returned by :meth:`ResponsePolicy.urgency_for`
+#: when a severity falls below the lowest band).
 _URGENCY_BANDS: tuple[tuple[float, str], ...] = (
     (0.90, "critical"),
     (0.70, "urgent"),
     (0.40, "elevated"),
-    (0.0, "routine"),
 )
 
 #: Urgency levels at or above which a grounded anomaly puts a human in the loop.
