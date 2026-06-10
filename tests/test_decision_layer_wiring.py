@@ -99,3 +99,37 @@ class TestDecisionLayerWiring:
         assert result["conformal"]["set_size"] == decision["signals"]["conformal_set_size"]
         if decision["state"] == "grounded":
             assert decision["coverage"] == pytest.approx(0.9)
+
+    def test_optional_ledger_records_decisions(self) -> None:
+        from omni_mercury_engine.decision import DecisionLedger
+
+        torch.manual_seed(0)
+        np.random.seed(0)
+        X, y = _separable_fixture()
+        X_tr, y_tr, _, _, X_te, _ = _three_way(X, y)
+        engine = _engine()
+        engine.fit_fusion(X_tr, y_tr, epochs=8, batch_size=32)
+
+        ledger = DecisionLedger()
+        engine.enable_decision_layer(ledger=ledger)
+        for i in range(3):
+            engine.detect_with_fusion(X_te[i : i + 1])
+
+        # The 'verify' step recorded each detection's decision.
+        assert len(ledger) == 3
+        summary = ledger.summary()
+        assert summary["total"] == 3
+        assert sum(summary["by_state"].values()) == 3
+
+    def test_no_ledger_keeps_serve_path_stateless(self) -> None:
+        torch.manual_seed(0)
+        np.random.seed(0)
+        X, y = _separable_fixture()
+        X_tr, y_tr, _, _, X_te, _ = _three_way(X, y)
+        engine = _engine()
+        engine.fit_fusion(X_tr, y_tr, epochs=8, batch_size=32)
+
+        engine.enable_decision_layer()  # no ledger
+        assert engine.decision_ledger is None
+        result = engine.detect_with_fusion(X_te[:1])
+        assert "decision" in result  # decision still attached, just not recorded

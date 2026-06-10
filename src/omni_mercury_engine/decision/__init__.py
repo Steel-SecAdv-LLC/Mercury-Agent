@@ -39,6 +39,8 @@ from __future__ import annotations
 from omni_mercury_engine.decision.bridge import to_agent_action, to_cap_alert
 from omni_mercury_engine.decision.decider import DecisionAbstentionResponder
 from omni_mercury_engine.decision.evidence import Evidence
+from omni_mercury_engine.decision.ledger import DecisionLedger
+from omni_mercury_engine.decision.loop import DecisionLoop, FeedbackSink
 from omni_mercury_engine.decision.policy import DecisionPolicy
 from omni_mercury_engine.decision.record import DecisionRecord
 from omni_mercury_engine.decision.response import ResponsePlan, ResponsePolicy
@@ -47,10 +49,13 @@ from omni_mercury_engine.verifiers.three_state import ThreeState
 
 __all__ = [
     "DecisionAbstentionResponder",
+    "DecisionLedger",
+    "DecisionLoop",
     "DecisionPolicy",
     "DecisionRecord",
     "Disposition",
     "Evidence",
+    "FeedbackSink",
     "ResponseAction",
     "ResponsePlan",
     "ResponsePolicy",

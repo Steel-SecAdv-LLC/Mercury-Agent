@@ -173,7 +173,7 @@ if TYPE_CHECKING:
 
     from omni_mercury_engine.cognitive.ethical_bounding import BenevolenceScorer
     from omni_mercury_engine.cognitive.orchestrator import CognitiveOrchestrator
-    from omni_mercury_engine.decision import DecisionAbstentionResponder
+    from omni_mercury_engine.decision import DecisionAbstentionResponder, DecisionLedger
 
     # Type hints for lazy-loaded models (improves IDE support without import cost)
     from omni_mercury_engine.medical.abms_disciplines import ABMSDisciplineDetector
@@ -952,6 +952,10 @@ class OmniMercuryEngine(LoggerMixin):
         # enable_decision_layer(); detect_with_fusion() is an exact no-op until
         # then.
         self.decision_layer: DecisionAbstentionResponder | None = None
+        # Optional append-only audit ledger for the "verify" step of the loop.
+        # When set via enable_decision_layer(ledger=...), every detection's
+        # decision is recorded; None keeps the serve path stateless.
+        self.decision_ledger: DecisionLedger | None = None
         self._baseline_features: np.ndarray[Any, Any] | None = None
 
         self.optimization_config = OptimizationConfig(
@@ -2533,11 +2537,12 @@ class OmniMercuryEngine(LoggerMixin):
         *,
         policy: Any | None = None,
         response_policy: Any | None = None,
+        ledger: DecisionLedger | None = None,
     ) -> None:
         """Enable the decision / abstention / response layer.
 
-        Closes the loop ``identify -> interpret -> decide -> deter`` on top of
-        the calibrated fusion certificate.  Once enabled, every
+        Closes the loop ``identify -> interpret -> decide -> deter -> verify``
+        on top of the calibrated fusion certificate.  Once enabled, every
         :meth:`detect_with_fusion` result carries a ``"decision"`` key: a
         :class:`~omni_mercury_engine.decision.record.DecisionRecord` (as a
         dict) holding either a grounded label or an explicit abstention -- a
@@ -2560,6 +2565,12 @@ DecisionPolicy` (abstention thresholds).  Defaults to the conservative,
             response_policy: Optional
                 :class:`~omni_mercury_engine.decision.response.ResponsePolicy`
                 (disposition -> bounded response mapping).
+            ledger: Optional
+                :class:`~omni_mercury_engine.decision.ledger.DecisionLedger`.
+                When supplied, every detection's decision is appended to it (the
+                "verify" step -- an append-only, JSON-serialisable audit trail
+                queryable via ``ledger.summary()``).  ``None`` keeps the serve
+                path stateless (no recording).
 
         Example:
             >>> engine = OmniMercuryEngine()
@@ -2573,6 +2584,7 @@ DecisionPolicy` (abstention thresholds).  Defaults to the conservative,
             policy=policy,
             response_policy=response_policy,
         )
+        self.decision_ledger = ledger
         logger.info("Decision / abstention / response layer enabled")
 
     def enable_llm_enhancement(
@@ -4053,9 +4065,14 @@ DecisionPolicy` (abstention thresholds).  Defaults to the conservative,
         # calibrated certificate just assembled (probability + conformal set +
         # ethical verdict + symbolic agreement + drift) to a bounded,
         # non-destructive response with an explicit "don't-know" gate. A no-op
-        # (no key added) until enable_decision_layer() is called.
+        # (no key added) until enable_decision_layer() is called. When an audit
+        # ledger was supplied, the decision is also recorded -- the "verify"
+        # step that turns the stream of decisions into a queryable trail.
         if self.decision_layer is not None:
-            result["decision"] = self.decision_layer.decide(result, domain=domain).to_dict()
+            decision_record = self.decision_layer.decide(result, domain=domain)
+            if self.decision_ledger is not None:
+                self.decision_ledger.record(decision_record)
+            result["decision"] = decision_record.to_dict()
 
         return result
 

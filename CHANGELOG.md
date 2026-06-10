@@ -66,15 +66,26 @@ verifier/governance paths.
   adapts a record to the autonomy loop's existing `AgentAction` vocabulary;
   `to_cap_alert` emits a standards‑based CAP 1.2 alert (via the existing
   `alerting/cap_generator.py`) for any notifying decision — no new silo.
+* **"Verify" step — audit ledger + closed loop (`decision/ledger.py`,
+  `decision/loop.py`).** `DecisionLedger` is an append‑only, JSON‑serialisable,
+  **bounded** (ring‑buffer) trail of every decision with a `summary()`
+  (per‑state / per‑disposition / per‑response counts + abstention and
+  calibrated rates). `DecisionLoop` runs decide → deter → **verify** over a
+  stream, recording each pass and fanning it out to an optional `FeedbackSink`
+  (the seam for outcomes to flow back to calibration / learning / a human
+  queue) — keeping the responder's `decide()` a pure function.
 * **Opt‑in engine wiring.** `OmniMercuryEngine.enable_decision_layer()` attaches
   a `result["decision"]` section to every `detect_with_fusion` result; an exact
-  no‑op until enabled (mirrors `enable_drift_detection` / conformal). Most
-  informative after `calibrate_fusion_conformal()`, which turns a thresholded
-  guess into a coverage‑guaranteed decision.
-* **Tests:** 65 pure‑Python tier tests (`tests/decision/`) + 3 torch‑gated
-  engine wiring tests (`tests/test_decision_layer_wiring.py`); the gate,
-  fail‑closed invariants, determinism, and the non‑destructive response
-  contract are all pinned. Runnable demo:
+  no‑op until enabled (mirrors `enable_drift_detection` / conformal). Pass
+  `enable_decision_layer(ledger=DecisionLedger())` to record the audit trail
+  (the serve path stays stateless otherwise). Most informative after
+  `calibrate_fusion_conformal()`, which turns a thresholded guess into a
+  coverage‑guaranteed decision.
+* **Tests:** 98 pure‑Python tier tests (`tests/decision/`) + 5 torch‑gated
+  engine wiring tests (`tests/test_decision_layer_wiring.py`) at **100%
+  statement+branch coverage** of the package; the gate, fail‑closed invariants,
+  determinism, the non‑destructive response contract, and the ledger/verify
+  loop are all pinned. Runnable demo:
   `examples/decision_abstention_response_demo.py`. A code‑grounded
   capability‑vs‑vision audit ships at `docs/capability_vs_vision_matrix.md`.
 
