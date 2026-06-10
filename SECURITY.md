@@ -230,33 +230,38 @@ Mercury Agent includes security intelligence capabilities. Users must:
 
 ## Current Vulnerability Status
 
-*Last Review: 2026-05-19*
+*Last Review: 2026-06-10*
 
 ### Accepted Vulnerabilities (with Mitigations)
 
-The table below is the accepted-risk ledger: CVE, severity, affected component, status, and mitigation rationale. Enforcement is mechanical, not file-based: the deployment-image Trivy gate runs with `severity: CRITICAL,HIGH`, `ignore-unfixed: true`, and `exit-code: 1` (`.github/workflows/ci.yml` Docker job and `.github/workflows/security.yml`), so base-image CVEs with no upstream fix (the Debian `will_not_fix` class below) do not fail the gate while every fixable CRITICAL/HIGH finding blocks the merge. The only path-level skips are the eight `skip-files` entries in those workflows — vendored torch/tensorflow headers and the scipy/skimage dataset-registry files that Trivy's secret scanner misclassifies — documented in the CHANGELOG security entries.
+The machine-enforced accepted-risk ledger is [`.trivyignore`](.trivyignore). The blocking deployment-image Trivy gates (`.github/workflows/ci.yml` Docker job and `.github/workflows/security.yml`, both `severity: CRITICAL,HIGH` / `exit-code: 1`) run with `ignore-unfixed: false` plus that file, so:
 
-Current accepted-risk posture:
+- every acceptance is **enumerated** (one CVE per line), **expiring** (`exp:` dates at the 90-day review cadence — an expired entry fails the gate until re-reviewed), and reviewable in one place;
+- a **new** unfixed CRITICAL/HIGH finding not in the ledger **blocks the merge** — the previous blanket `ignore-unfixed: true` posture, which waived the entire unfixed-OS-CVE class invisibly, is retired;
+- fixable CVEs never enter the ledger: the Dockerfile's runtime-stage `apt-get upgrade -y` and the repo-wide `pip >= 26.1` floor are the fix path, and a fixable CRITICAL/HIGH finding fails the gate.
 
-- **Total accepted:** 10 CVEs
-- **Critical:** 2
-- **High:** 3
-- **Medium:** 4
-- **Low:** 1
-- Includes fixed pip CVEs retained for audit continuity
+The only path-level skips are the eight `skip-files` entries in those workflows — vendored torch/tensorflow headers and the scipy/skimage dataset-registry files that Trivy's secret scanner misclassifies — documented in the CHANGELOG security entries.
+
+Current accepted-risk posture (enumerated from a trivy 0.71.0 scan of the
+`python:3.13-slim-bookworm` base, 2026-06-10; entries expire 2026-09-08):
+
+- **Total accepted:** 9 CVEs — **Critical:** 4, **High:** 5
+- All are Debian-bookworm OS packages with **no upstream fix available**; none is called by Mercury code; the container runs as non-root UID 1000 with SUID/SGID bits stripped
+- The strategic remediation — a slimmer base image that drops these packages entirely — is tracked as follow-up work requiring a Docker-equipped environment
 
 | CVE | Severity | Component | Status | Mitigation |
 |-----|----------|-----------|--------|------------|
-| CVE-2025-7458 | Critical | SQLite | Accepted | No SQLite DB usage, non-root execution, input validation |
-| CVE-2023-45853 | Critical | zlib/minizip | Accepted | No minizip usage, Debian will_not_fix context |
-| CVE-2025-68973 | High | gpgv | Accepted | Not used by app paths, no runtime package installs |
-| CVE-2025-13601 | High | libglib2.0-0 | Accepted | No direct glib URI handling, non-root execution |
-| CVE-2025-6020 | High | linux-pam | Accepted | JWT auth path, non-root execution, SUID/SGID stripped |
-| CVE-2025-14104 | Medium | util-linux | Accepted | Non-root execution, SUID/SGID bits stripped |
-| CVE-2025-8869 | Medium | pip | Accepted (fixed; retained for audit continuity) | pip >=26.1, HTTPS-only, no runtime pip install |
-| CVE-2025-7709 | Medium | SQLite | Accepted | No FTS5 usage, non-root execution |
-| CVE-2026-6357 | Medium | pip | Accepted (fixed; retained for audit continuity) | pip >=26.1, no runtime pip install |
-| CVE-2026-1703 | Low | pip | Accepted (fixed; retained for audit continuity) | pip >=26.1, trusted package sources only |
+| CVE-2023-45853 | Critical | zlib/minizip | No upstream fix (will_not_fix) | No minizip usage in any Mercury code path |
+| CVE-2025-7458 | Critical | SQLite (libsqlite3-0) | No upstream fix | No SQLite-backed feature ships by default; non-root execution |
+| CVE-2026-8376 | Critical | perl-base | No upstream fix | Container executes no Perl; pulled in by Debian essential tooling |
+| CVE-2026-42496 | Critical | perl-base | No upstream fix (fix_deferred) | Container executes no Perl |
+| CVE-2025-69720 | High | ncurses (libncursesw6 et al.) | No upstream fix | Terminal handling only; never exposed to untrusted input |
+| CVE-2026-42497 | High | perl-base | No upstream fix (fix_deferred) | Container executes no Perl |
+| CVE-2026-48959 | High | perl-base | No upstream fix | Container executes no Perl |
+| CVE-2026-48962 | High | perl-base | No upstream fix | Container executes no Perl |
+| CVE-2026-9538 | High | perl-base | No upstream fix (fix_deferred) | Container executes no Perl |
+
+**Resolved and removed from the ledger (2026-06-10 review):** the pip CVE family (CVE-2025-8869, CVE-2026-1703, CVE-2026-6357) is fixed repo-wide by the `pip >= 26.1` floor and gated by `tests/security/test_cve_2026_6357_regression.py`; the formerly-listed gpgv (CVE-2025-68973), libglib2.0-0 (CVE-2025-13601), linux-pam (CVE-2025-6020), util-linux (CVE-2025-14104), and SQLite FTS5 (CVE-2025-7709) findings no longer appear at the gated severities in the current base image. The seven newly listed entries (ncurses + six perl-base) were present but invisible under the old blanket waiver — disclosed here for the first time.
 
 ### Vulnerability Assessment Process
 
@@ -265,8 +270,8 @@ All vulnerabilities undergo the following assessment:
 1. **Severity Analysis**: CVSS score and attack vector evaluation
 2. **Applicability Check**: Does the vulnerability affect Mercury Agent's use case?
 3. **Mitigation Review**: What controls are in place to reduce risk?
-4. **Documentation**: Full justification recorded in the accepted-risk table above and the CHANGELOG security entries
-5. **Quarterly Review**: Re-evaluate accepted risks every 90 days
+4. **Documentation**: Justification recorded in [`.trivyignore`](.trivyignore) (machine-enforced) and the table above
+5. **Quarterly Review**: Enforced mechanically — every ledger entry carries a 90-day `exp:` date and the gate fails on expiry until re-reviewed
 
 ### Container Security Hardening
 
@@ -280,7 +285,7 @@ Mercury Agent's Docker container implements defense-in-depth:
 
 ### Unresolved Vulnerabilities
 
-Accepted risks are reviewed quarterly. As of the 2026-05-19 review, documented acceptances are 10 CVEs (2 Critical, 3 High, 4 Medium, 1 Low), including fixed pip CVEs retained for audit continuity. The accepted-risk table above is the complete record.
+Accepted risks are re-reviewed at most every 90 days, enforced by the `exp:` dates in [`.trivyignore`](.trivyignore). As of the 2026-06-10 review, documented acceptances are 9 CVEs (4 Critical, 5 High), all no-upstream-fix Debian base-image packages unused by Mercury code. The ledger file and the table above are the complete record.
 
 ### Two-Tier Dependency-CVE Coverage
 
@@ -289,7 +294,7 @@ Mercury Agent runs **two complementary CVE gates** on every PR:
 | Tier | Tool | Scope | Source of truth |
 |------|------|-------|-----------------|
 | Python-package | `safety check` + `pip-audit` | Editable install (`pip install -e ".[api]"`) | `.safety-policy-v2.yml` + [CHANGELOG.md](CHANGELOG.md) (per-CVE rationale tracked under the dated security entries) |
-| Deployment-image | Trivy | Built Docker image (full runtime + OS) | The accepted-risk table in this document + the `ignore-unfixed`/`skip-files` gate configuration in `.github/workflows/{ci,security}.yml` |
+| Deployment-image | Trivy | Built Docker image (full runtime + OS) | [`.trivyignore`](.trivyignore) (enumerated, expiring acceptances) + the gate configuration in `.github/workflows/{ci,security}.yml` |
 
 Both gates must be GREEN for any PR to merge. The Python-package gate
 runs with **zero risk acceptance**: the policy files are no-op shims
@@ -298,9 +303,9 @@ workflow. Findings are remediated by upgrade, isolation, or native
 re-implementation — see the CHANGELOG entries dated 2026-05-20
 ("Permanent supply-chain remediations") for the current
 remediation ledger. The deployment-image gate blocks every fixable
-CRITICAL/HIGH finding; unfixable base-image CVEs pass via
-`ignore-unfixed: true` and are recorded in the accepted-risk table
-above (10 CVEs, all reviewed quarterly).
+CRITICAL/HIGH finding and every unfixed finding not enumerated in
+[`.trivyignore`](.trivyignore) (9 CVEs, each with a 90-day expiry that
+fails the gate until re-reviewed).
 
 ## Security Assessment Posture
 

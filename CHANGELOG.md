@@ -27,6 +27,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security — owner-governed risk posture: enumerated CVE ledger, shared HD master seed, signed cache entries (2026-06-10)
+
+Closes three standing gaps where risk was silently accepted or a promised
+control was never wired, replacing each with an enforced mechanism.
+
+* **Deployment-image CVE gate: blanket waiver retired.** The blocking
+  Trivy gates (`ci.yml` Docker job, `security.yml` table scan) now run
+  `ignore-unfixed: false` with the new repo-root `.trivyignore` — an
+  enumerated, expiring (90-day `exp:`), per-CVE acceptance ledger. A new
+  unfixed CRITICAL/HIGH finding, or an expired entry, now **fails the
+  gate** instead of passing invisibly. Ledger enumerated from a trivy
+  0.71.0 scan of the `python:3.13-slim-bookworm` base (2026-06-10): 9
+  no-upstream-fix OS CVEs (4 Critical, 5 High), of which seven (ncurses
+  CVE-2025-69720 + six perl-base CVEs) had been present but undisclosed
+  under the old blanket waiver. Resolved entries removed from
+  `SECURITY.md`: the fixed pip family (pip ≥ 26.1 floor) and five
+  formerly-listed findings no longer present at gated severities.
+* **`AMA_MASTER_SEED` — deterministic fleet-wide HD key derivation.**
+  `api/auth.py::get_auth_key_manager()` now sources the AMA HD master
+  seed from the `AMA_MASTER_SEED` env var (hex, ≥ 32 decoded bytes;
+  malformed values raise instead of degrading to an ephemeral seed).
+  With it set, HD-derived keys — including the production JWT signing
+  key — are identical across workers, replicas, and restarts. Seedless
+  production derivation still works but now logs an explicit warning
+  naming the per-process-key hazard. Locked by
+  `tests/security/test_jwt_auth.py::TestAMAMasterSeed` (7 tests).
+* **`MERCURY_CACHE_SECRET` wired — Redis cache entry signing.** The
+  Helm-provisioned secret, previously read by no code path, is now
+  consumed by `integrations/stubs/cache.py::RedisCache`: entries are
+  wrapped in an HMAC-SHA256-signed envelope on `set` and verified on
+  `get`; unsigned, tampered, or foreign-keyed entries raise the new
+  `CacheIntegrityError` (loud, never a silent miss). Plain-JSON
+  behaviour is byte-identical when the secret is unset. Locked by
+  `tests/integrations/test_cache_hmac.py::TestRedisCacheHMAC` (7 tests).
+* **`.env.example` reconciled to the real env surface.** Dead toggles
+  removed (`OMNI_ML_ENABLED`, `OMNI_QUANTUM_ENABLED`,
+  `OMNI_EXPERIMENTAL_FEATURES`, `OMNI_CACHE_DIR`); `AMA_MASTER_SEED`,
+  `MERCURY_ENV`, `API_KEY_HASH_SALT`, `MERCURY_CACHE_SECRET`, and
+  `MERCURY_CORS_ORIGINS` documented; the stale "conditional PQC gate"
+  comment and a nonexistent `validate_env` command corrected.
+
 ### Decision / Abstention / Response layer — closes identify→interpret→decide→deter with a calibration-grounded "don't-know" gate (2026-06-09)
 
 Converts the calibrated detection certificate into a **closed autonomous loop**

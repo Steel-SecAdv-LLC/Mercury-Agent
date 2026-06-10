@@ -30,6 +30,7 @@ import pytest
 
 from omni_mercury_engine.integrations.stubs.cache import (
     DOMAIN_TTL,
+    CacheIntegrityError,
     CacheStub,
     RedisCache,
     create_cache,
@@ -491,3 +492,77 @@ class TestCacheStub:
         await cache.set("k", "first")
         await cache.set("k", "second", nx=True)
         assert await cache.get("k") == "first"
+
+
+# =============================================================================
+# HMAC entry signing (MERCURY_CACHE_SECRET)
+# =============================================================================
+
+
+class TestRedisCacheHMAC:
+    """RedisCache HMAC-SHA256 entry signing via ``MERCURY_CACHE_SECRET``.
+
+    Signing wraps every stored JSON payload in a signed envelope on
+    ``set`` and verifies it on ``get``; any unsigned, tampered, or
+    foreign-keyed entry raises :class:`CacheIntegrityError` instead of
+    being served. With no secret configured the legacy plain-JSON
+    behaviour is byte-identical.
+    """
+
+    def _cache(self, secret: str | None) -> RedisCache:
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("MERCURY_CACHE_SECRET", None)
+            return RedisCache(hmac_secret=secret)
+
+    def test_signed_round_trip(self) -> None:
+        cache = self._cache("shared-secret")
+        stored = cache._serialize({"a": 1, "nested": [1, 2, {"b": None}]})
+
+        envelope = json.loads(stored)
+        assert envelope["__mercury_signed__"] == 1
+        assert isinstance(envelope["sig"], str) and len(envelope["sig"]) == 64
+
+        assert cache._deserialize(stored) == {"a": 1, "nested": [1, 2, {"b": None}]}
+
+    def test_tampered_payload_raises(self) -> None:
+        cache = self._cache("shared-secret")
+        stored = cache._serialize({"balance": 10})
+
+        envelope = json.loads(stored)
+        envelope["payload"] = json.dumps({"balance": 10_000})
+        with pytest.raises(CacheIntegrityError, match="verification failed"):
+            cache._deserialize(json.dumps(envelope))
+
+    def test_unsigned_entry_rejected_when_signing_active(self) -> None:
+        cache = self._cache("shared-secret")
+        with pytest.raises(CacheIntegrityError, match="Unsigned cache entry"):
+            cache._deserialize(json.dumps({"a": 1}))
+
+    def test_signed_entry_rejected_without_secret(self) -> None:
+        writer = self._cache("shared-secret")
+        stored = writer._serialize({"a": 1})
+
+        reader = self._cache(None)
+        with pytest.raises(CacheIntegrityError, match="no MERCURY_CACHE_SECRET"):
+            reader._deserialize(stored)
+
+    def test_secret_mismatch_raises(self) -> None:
+        writer = self._cache("secret-A")
+        reader = self._cache("secret-B")
+        with pytest.raises(CacheIntegrityError, match="verification failed"):
+            reader._deserialize(writer._serialize({"a": 1}))
+
+    def test_plain_json_unchanged_without_secret(self) -> None:
+        cache = self._cache(None)
+        stored = cache._serialize({"a": 1})
+
+        assert json.loads(stored) == {"a": 1}  # no envelope
+        assert cache._deserialize(stored) == {"a": 1}
+
+    def test_secret_sourced_from_env(self) -> None:
+        with patch.dict(os.environ, {"MERCURY_CACHE_SECRET": "env-secret"}, clear=False):
+            cache = RedisCache()
+        assert cache._hmac_key == b"env-secret"
+
+        stored = cache._serialize([1, 2, 3])
+        assert cache._deserialize(stored) == [1, 2, 3]

@@ -330,7 +330,10 @@ class AuthKeyManager:
         """Initialize the auth key manager.
 
         Args:
-            master_seed: HD derivation master seed (generated if None)
+            master_seed: HD derivation master seed. When None, a random
+                per-process seed is generated — derived keys then differ
+                across processes and restarts (``seed_is_ephemeral`` is
+                set so callers can surface that hazard).
             rotation_period_days: Default key rotation period in days
         """
         if not _AMA_KEY_MGMT_AVAILABLE:
@@ -339,6 +342,7 @@ class AuthKeyManager:
                 "Install with: pip install 'ama-cryptography @ "
                 "git+https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git'"
             )
+        self.seed_is_ephemeral = master_seed is None
         self._hd = HDKeyDerivation(seed=master_seed)
         self._rotation = KeyRotationManager(
             rotation_period=timedelta(days=rotation_period_days),
@@ -479,11 +483,54 @@ def get_api_key_store() -> APIKeyStore:
     return _api_key_store
 
 
+def _load_master_seed_from_env() -> bytes | None:
+    """Load the AMA HD master seed from ``AMA_MASTER_SEED`` (hex-encoded).
+
+    Returns ``None`` when the variable is unset or empty (callers then fall
+    back to an ephemeral per-process seed). A set-but-malformed value raises
+    ``ValueError`` instead of silently degrading to an ephemeral seed —
+    a typo here would otherwise invalidate every token fleet-wide without
+    any visible error.
+
+    Returns:
+        Decoded seed bytes (>= 32 bytes; 64 recommended), or None.
+
+    Raises:
+        ValueError: The value is not valid hex or decodes to fewer than
+            32 bytes.
+    """
+    raw = os.getenv("AMA_MASTER_SEED")
+    if not raw:
+        return None
+    try:
+        seed = bytes.fromhex(raw)
+    except ValueError as exc:
+        raise ValueError(
+            "AMA_MASTER_SEED must be a hex string (generate with: "
+            "`openssl rand -hex 64`). Refusing to fall back to an ephemeral "
+            "per-process seed on a malformed value — that would silently "
+            "break token verification across workers and restarts."
+        ) from exc
+    if len(seed) < 32:
+        raise ValueError(
+            "AMA_MASTER_SEED must decode to at least 32 bytes "
+            f"(64 recommended); got {len(seed)} bytes."
+        )
+    return seed
+
+
 def get_auth_key_manager() -> AuthKeyManager:
-    """Get or create the global AMA auth key manager instance."""
+    """Get or create the global AMA auth key manager instance.
+
+    The HD master seed is sourced from the ``AMA_MASTER_SEED`` environment
+    variable (hex; see :func:`_load_master_seed_from_env`). When it is set,
+    every process derives identical key material, so HD-derived JWT signing
+    keys verify across workers, replicas, and restarts. When unset, the
+    seed is generated per process and derived keys are ephemeral.
+    """
     global _auth_key_manager
     if _auth_key_manager is None:
-        _auth_key_manager = AuthKeyManager()
+        _auth_key_manager = AuthKeyManager(master_seed=_load_master_seed_from_env())
     return _auth_key_manager
 
 
@@ -622,11 +669,13 @@ class JWTAuth:
             (``MERCURY_AGENT_ENV``/``ENV``/``ENVIRONMENT`` == ``production``)
             with neither set, the signing key is derived via AMA HD Key
             Management (``get_auth_key_manager()``, purpose ``jwt_sign``);
-            a failed derivation raises ``ValueError``. The HD master seed is
-            generated per process today, so derived keys differ across
-            workers, replicas, and restarts — set ``JWT_SECRET_KEY``
-            (``openssl rand -hex 32``) whenever tokens must verify across
-            more than one process or survive a restart.
+            a failed derivation raises ``ValueError``. The HD master seed
+            is sourced from ``AMA_MASTER_SEED`` (hex, ``openssl rand -hex
+            64``) — set it and derivation is deterministic fleet-wide.
+            Without it the seed is generated per process, derived keys
+            differ across workers/replicas/restarts, and a warning is
+            logged; in that case set ``AMA_MASTER_SEED`` or
+            ``JWT_SECRET_KEY`` (``openssl rand -hex 32``).
         """
         self.secret_key = secret_key or os.getenv("JWT_SECRET_KEY")
         self.using_fallback = False
@@ -646,6 +695,14 @@ class JWTAuth:
                     logger.info(
                         "JWT signing key derived from AMA HD Key Management (purpose=jwt_sign)"
                     )
+                    if km.seed_is_ephemeral:
+                        logger.warning(
+                            "JWT signing key was derived from an EPHEMERAL per-process "
+                            "HD master seed: tokens will not verify across workers, "
+                            "replicas, or restarts. Set AMA_MASTER_SEED "
+                            "(`openssl rand -hex 64`) for deterministic fleet-wide "
+                            "derivation, or set JWT_SECRET_KEY directly."
+                        )
                 except Exception as e:
                     raise ValueError(
                         "JWT_SECRET_KEY environment variable is required in production "

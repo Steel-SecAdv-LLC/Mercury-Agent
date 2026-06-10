@@ -149,12 +149,15 @@ and topology spread constraints automatically.
 `jwt_sign`) and startup only fails if that derivation fails; in
 development the insecure dev fallback key is used with a warning.
 
-Set `JWT_SECRET_KEY` explicitly for any deployment with more than one
-process or pod: the HD master seed is generated per process today
-(`AuthKeyManager()` is constructed without a seed), so HD-derived keys
-differ across uvicorn workers, Helm replicas, and restarts — tokens
-issued by one process will not verify on another. The env var is the
-mechanism that gives the fleet a single shared signing key.
+For multi-worker / multi-replica deployments, set **either**
+`JWT_SECRET_KEY` **or** `AMA_MASTER_SEED` (hex, `openssl rand -hex 64`).
+The HD master seed is sourced from `AMA_MASTER_SEED` — with it, every
+process derives identical `jwt_sign` material and HD-derived tokens
+verify fleet-wide. Without either variable, production derives a
+**per-process** key (each worker/replica/restart gets a different one;
+tokens issued by one process will not verify on another) and logs a
+warning naming the hazard. Locked by
+`tests/security/test_jwt_auth.py::TestAMAMasterSeed`.
 
 ### Additional production-only requirements
 
@@ -167,9 +170,13 @@ application raises `ValueError` on the first API-key hash if it is absent
 | `API_KEY_HASH_SALT` | Salt for API key hashing (PBKDF2-HMAC-SHA256, 260,000 iterations) | `openssl rand -hex 32` |
 
 The Helm chart additionally provisions a `MERCURY_CACHE_SECRET` pod secret
-(`secrets.mercuryCacheSecret`). The application code does not currently read
-this variable — the cache layer is JSON-only with no HMAC signing path wired
-to it — so treat it as reserved; provisioning it is harmless.
+(`secrets.mercuryCacheSecret`), consumed by
+`integrations/stubs/cache.py::RedisCache`: when set, every Redis cache entry
+is HMAC-SHA256-signed on write and verified on read, and a tampered,
+unsigned, or foreign-keyed entry raises `CacheIntegrityError` instead of
+being served. The same secret must be configured on every process sharing
+the Redis instance. Unset, the cache stores plain JSON (no signing). Locked
+by `tests/integrations/test_cache_hmac.py::TestRedisCacheHMAC`.
 
 ### v1.7 production-mode primitives
 
@@ -180,6 +187,7 @@ Set **both** in production:
 | Variable | Default | Effect |
 |----------|---------|--------|
 | `MERCURY_ENV` | `development` | When `production`, every collaborator with a mock/stub fallback (currently `narrative.voice.MercuryVoice`, more to come) hard-fails with `MercuryProductionConfigError` rather than silently degrading. Unknown values (e.g. `prod`) also raise — typos must be loud. Locked by `tests/test_env.py`. |
+| `AMA_MASTER_SEED` | unset | Hex-encoded AMA HD Key Management master seed (`openssl rand -hex 64`; ≥ 32 decoded bytes enforced, malformed values raise). When set, HD-derived keys (JWT signing, API key, audit signing) are deterministic fleet-wide. Locked by `tests/security/test_jwt_auth.py::TestAMAMasterSeed`. |
 | `AMA_REQUIRE_REAL_PQC` | unset | **No-op compatibility diagnostic.** The import-time PQC gate (`omni_mercury_engine._pqc_gate._enforce_pqc_production_gate`) is unconditional: `import omni_mercury_engine` raises `RuntimeError` whenever AMA Cryptography's native library is not loadable, regardless of this variable (pinned by `tests/test_pqc_startup_gate.py`). Setting it `true` keeps legacy workflows readable. |
 | `AMA_REQUIRE_CONSTANT_TIME` | unset | Recommended in production. Asserts the AMA Cryptography native library exposes its constant-time path. |
 

@@ -374,3 +374,107 @@ class TestAPIKeyAuth:
 # Run with: pytest tests/security/test_jwt_auth.py -v
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+class TestAMAMasterSeed:
+    """Tests for shared HD master-seed sourcing via ``AMA_MASTER_SEED``.
+
+    The seed makes AMA HD key derivation deterministic fleet-wide: every
+    process with the same seed derives the same ``jwt_sign`` material, so
+    HD-derived JWT keys verify across workers, replicas, and restarts.
+    Without it the seed is per-process and the production path must warn.
+    """
+
+    _SEED_HEX = "ab" * 64  # 64 bytes, valid hex
+
+    @staticmethod
+    def _reset_singleton() -> None:
+        import omni_mercury_engine.api.auth as auth_module
+
+        auth_module._auth_key_manager = None
+
+    def test_env_seed_makes_derivation_deterministic(self) -> None:
+        """Two managers built from the same env seed derive identical material."""
+        with patch.dict(os.environ, {"AMA_MASTER_SEED": self._SEED_HEX}, clear=False):
+            from omni_mercury_engine.api.auth import (
+                AuthKeyManager,
+                _load_master_seed_from_env,
+            )
+
+            km1 = AuthKeyManager(master_seed=_load_master_seed_from_env())
+            km2 = AuthKeyManager(master_seed=_load_master_seed_from_env())
+
+            assert km1.seed_is_ephemeral is False
+            assert km1.get_active_key_material("jwt_sign") == km2.get_active_key_material(
+                "jwt_sign"
+            )
+
+    def test_ephemeral_managers_diverge(self) -> None:
+        """Seedless managers derive different material (the documented hazard)."""
+        from omni_mercury_engine.api.auth import AuthKeyManager
+
+        km1 = AuthKeyManager()
+        km2 = AuthKeyManager()
+
+        assert km1.seed_is_ephemeral is True
+        assert km1.get_active_key_material("jwt_sign") != km2.get_active_key_material("jwt_sign")
+
+    def test_invalid_hex_seed_raises(self) -> None:
+        """A malformed seed fails loudly instead of degrading to ephemeral."""
+        with patch.dict(os.environ, {"AMA_MASTER_SEED": "not-hex!"}, clear=False):
+            from omni_mercury_engine.api.auth import _load_master_seed_from_env
+
+            with pytest.raises(ValueError, match="hex"):
+                _load_master_seed_from_env()
+
+    def test_short_seed_raises(self) -> None:
+        """A seed below 32 decoded bytes is rejected."""
+        with patch.dict(os.environ, {"AMA_MASTER_SEED": "ab" * 16}, clear=False):
+            from omni_mercury_engine.api.auth import _load_master_seed_from_env
+
+            with pytest.raises(ValueError, match="32 bytes"):
+                _load_master_seed_from_env()
+
+    def test_unset_seed_returns_none(self) -> None:
+        """Unset/empty AMA_MASTER_SEED yields None (ephemeral fallback)."""
+        with patch.dict(os.environ, {}, clear=True):
+            from omni_mercury_engine.api.auth import _load_master_seed_from_env
+
+            assert _load_master_seed_from_env() is None
+
+    def test_production_jwt_key_deterministic_across_processes(self) -> None:
+        """With the env seed set, two fresh singletons yield the same JWT key.
+
+        Resetting the module-level ``_auth_key_manager`` between
+        constructions simulates two separate worker processes.
+        """
+        env = {"MERCURY_AGENT_ENV": "production", "AMA_MASTER_SEED": self._SEED_HEX}
+        with patch.dict(os.environ, env, clear=True):
+            from omni_mercury_engine.api.auth import JWTAuth
+
+            try:
+                self._reset_singleton()
+                key_a = JWTAuth().secret_key
+                self._reset_singleton()
+                key_b = JWTAuth().secret_key
+            finally:
+                self._reset_singleton()
+
+            assert key_a == key_b
+            assert key_a is not None and len(key_a) > 0
+
+    def test_production_seedless_derivation_warns(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Seedless production HD derivation logs the per-process-key hazard."""
+        with patch.dict(os.environ, {"MERCURY_AGENT_ENV": "production"}, clear=True):
+            from omni_mercury_engine.api.auth import JWTAuth
+
+            try:
+                self._reset_singleton()
+                with caplog.at_level("WARNING", logger="omni_mercury_engine.api.auth"):
+                    auth = JWTAuth()
+            finally:
+                self._reset_singleton()
+
+            assert auth.secret_key is not None
+            assert "EPHEMERAL" in caplog.text
+            assert "AMA_MASTER_SEED" in caplog.text
