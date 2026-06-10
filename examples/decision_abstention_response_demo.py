@@ -26,6 +26,8 @@ from typing import Any
 
 from omni_mercury_engine.decision import (
     DecisionAbstentionResponder,
+    DecisionLedger,
+    DecisionLoop,
     to_agent_action,
     to_cap_alert,
 )
@@ -166,6 +168,24 @@ def main() -> None:
     # A grounded-normal decision is passive: no alert is emitted.
     clear = responder.decide(SCENARIOS[1][1], domain="security")
     print(f"Grounded-normal alert emitted: {to_cap_alert(clear) is not None} (monitor only)")
+
+    # The "verify" step: run the stream through a closed loop with an audit
+    # ledger, then show the O(1) summary and a JSON persistence round-trip.
+    print("\n" + "=" * 78)
+    print("Closing the verify loop (audit ledger)")
+    print("=" * 78)
+    loop = DecisionLoop(responder, ledger=DecisionLedger(maxlen=1000))
+    loop.run((result for _, result in SCENARIOS), domain="security")
+    summary = loop.summary()
+    print(f"\nRecorded {summary['total']} decisions")
+    print(f"   by honesty state : {summary['by_state']}")
+    print(f"   by disposition   : {summary['by_disposition']}")
+    print(f"   abstention rate  : {summary['abstention_rate']:.0%}")
+    print(f"   calibrated rate  : {summary['calibrated_rate']:.0%}")
+
+    # The trail round-trips through JSON (a reloadable audit artifact).
+    reloaded = DecisionLedger.from_json(loop.ledger.to_json())
+    print(f"JSON persistence round-trip preserves the summary: {reloaded.summary() == summary}")
 
 
 if __name__ == "__main__":

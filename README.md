@@ -827,8 +827,11 @@ a `decision` section.
   action (a test invariant enforces this).
 - **Auditable & verifiable** — a deterministic, JSON-safe `DecisionRecord` with
   the calibrated confidence, reasons, caveats and full evidence provenance, plus
-  a one-paragraph `explain()`. Closes into the existing CAP 1.2 alerting and
-  autonomy (`AgentAction`) channels.
+  a one-paragraph `explain()` (and a `from_dict` inverse for reload). An
+  append-only `DecisionLedger` (bounded ring buffer, **O(1)** incremental
+  `summary()`, thread-safe, JSON-`save`/`load`) and a `DecisionLoop` add the
+  *verify* step over a stream of decisions. Closes into the existing CAP 1.2
+  alerting and autonomy (`AgentAction`) channels.
 
 See `examples/decision_abstention_response_demo.py` and
 `docs/capability_vs_vision_matrix.md`.
