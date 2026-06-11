@@ -668,6 +668,21 @@ class TestReflectionRobustness:
         assert result["iterations"] >= 1
         assert "decision" in result
 
+    @pytest.mark.parametrize("payload", [5.0, 0, object(), None])
+    def test_unsized_payloads_do_not_abort_loop(self, payload: Any) -> None:
+        # A scalar (or any object without __len__) survives the
+        # hasattr-guarded array conversion as-is; the enrichment loop must
+        # size it defensively rather than raising TypeError on len().
+        from omni_mercury_engine.cognitive.reflexion import ReflexionEngine
+
+        engine = ReflexionEngine(seed=0)
+        result = engine.execute_with_reflection(
+            {"type": "generic_task", "data": payload},
+            max_iterations=3,
+        )
+        assert result["iterations"] >= 1
+        assert "decision" in result
+
 
 class TestOrchestratorStatistics:
     def test_statistics_aggregate_all_tiers(self) -> None:

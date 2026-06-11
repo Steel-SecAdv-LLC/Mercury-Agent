@@ -907,7 +907,13 @@ class ReflexionEngine:
             for suggestion in evaluation.suggestions:
                 lowered = suggestion.lower()
                 if "evidence" in lowered or "data" in lowered:
-                    if len(data) > 0:
+                    # ``data`` may be unsized (a scalar payload survives the
+                    # hasattr-guarded array conversion above), so size it the
+                    # same defensive way the decision context does.
+                    data_size = (
+                        len(data) if hasattr(data, "__len__") else int(np.asarray(data).size)
+                    )
+                    if data_size > 0:
                         try:
                             arr = np.asarray(data, dtype=float)
                             reflection_enrichment["evidence"] = [
@@ -925,7 +931,7 @@ class ReflexionEngine:
                             # the reflection loop.
                             reflection_enrichment["evidence"] = [
                                 f"payload_type={type(data).__name__}",
-                                f"n={len(data)}",
+                                f"n={data_size}",
                             ]
                 if "review" in lowered or "similar" in lowered:
                     reflection_enrichment["reasoning"] = decision.reasoning
