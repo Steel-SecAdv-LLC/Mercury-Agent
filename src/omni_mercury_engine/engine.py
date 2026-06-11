@@ -4787,7 +4787,9 @@ class OmniMercuryEngine(LoggerMixin):
     def _fitted_state_from_checkpoint(cls, state: Any) -> Any:
         """Invert :meth:`_fitted_state_to_checkpoint`."""
         if isinstance(state, dict) and "__ndarray__" in state:
-            return state["__ndarray__"].numpy().astype(np.dtype(state["dtype"]))
+            # .cpu() before .numpy(): load_model maps the checkpoint to the
+            # engine device, so these tensors are CUDA tensors on GPU engines.
+            return state["__ndarray__"].detach().cpu().numpy().astype(np.dtype(state["dtype"]))
         if isinstance(state, dict):
             return {key: cls._fitted_state_from_checkpoint(value) for key, value in state.items()}
         if isinstance(state, (list, tuple)):

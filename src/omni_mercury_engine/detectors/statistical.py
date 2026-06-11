@@ -2788,13 +2788,13 @@ class MercuryAnomalyDetector(BaseDetector):
         Mirrors the attribute set :meth:`from_statistics` (the federated
         reconstruction path) already restores, plus the stored training
         sample that the ensemble-health introspection reads (ROADMAP row
-        16). A detector with an *active* Oracle refuses to export — the
-        nested frequency-domain detector's state is not captured here, and
-        silently dropping it would change reloaded scores.
+        16). An active Oracle is exported through the same reference
+        statistics the federation path uses (``oracle_ref_stats`` from
+        :meth:`get_oracle_statistics`); :meth:`set_fitted_state` re-arms it
+        via :meth:`_restore_oracle_from_ref_stats` without re-fitting.
 
         Returns:
-            JSON/tensor-safe mapping, or ``None`` when unfitted or when an
-            active Oracle makes the export lossy.
+            JSON/tensor-safe mapping, or ``None`` when unfitted.
         """
         if not self._is_fitted:
             return None

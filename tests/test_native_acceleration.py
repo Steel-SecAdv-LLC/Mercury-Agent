@@ -290,6 +290,7 @@ class TestSpatialNumbaLaneParity:
         np.testing.assert_allclose(produced, expected, rtol=0, atol=1e-12)
 
 
+@pytest.mark.skipif(_NUMBA_MISSING, reason="performance extra not installed")
 class TestGSISNumbaLaneParity:
     """The GSIS numba kernel is bit-identical to the numpy broadcast lane."""
 
