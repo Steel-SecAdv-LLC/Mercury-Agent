@@ -607,33 +607,61 @@ class MultiAgentOrchestrator:
                 participant_count=participant_count,
             )
 
-        for i in range(n):
-            results = [
-                DetectionResult(
-                    agent_id=name,
-                    anomaly_score=float(scores[i]),
-                    is_anomaly=bool(scores[i] > self.agents[name].decision_threshold),
-                    confidence=self.agents[name].confidence_for(float(scores[i])),
-                )
-                for name, scores in per_agent_scores.items()
-            ]
-            consensus = self.protocol.reach_consensus(results)
-            if isinstance(consensus, dict):  # vote-dict path; unreachable here
-                raise OrchestrationError("consensus protocol returned a non-result payload")
+        agent_names = list(per_agent_scores)
+        score_matrix = np.vstack([per_agent_scores[name] for name in agent_names])
+        thresholds = np.array([[self.agents[name].decision_threshold] for name in agent_names])
+        scales = np.array([[self.agents[name].confidence_scale] for name in agent_names])
+        votes = score_matrix > thresholds
+        confidences = np.clip(np.abs(score_matrix - thresholds) / scales, 0.0, 1.0)
 
-            total_confidence = sum(r.confidence for r in results)
-            if total_confidence > 0:
-                weighted = sum(r.anomaly_score * r.confidence for r in results)
-                consensus_scores[i] = weighted / total_confidence
-            else:
-                consensus_scores[i] = 0.5
-
-            abstained[i] = consensus.abstained
-            agreement[i] = consensus.agreement_ratio
-            dissent_counts[i] = len(consensus.dissenting_agents)
-            decisions[i] = (not consensus.abstained) and (
-                consensus_scores[i] > self.operating_threshold
+        if self.protocol.method is ConsensusMethod.CONFIDENCE_WEIGHTED:
+            # Vectorized form of ConsensusProtocol._confidence_weighted —
+            # the protocol remains the semantic authority: a deterministic
+            # subsample of every batch is re-derived through the real
+            # protocol and any divergence fails the batch closed.
+            total_confidence = confidences.sum(axis=0)
+            safe_total = np.where(total_confidence > 0, total_confidence, 1.0)
+            weighted = (confidences * score_matrix).sum(axis=0)
+            consensus_scores = np.where(total_confidence > 0, weighted / safe_total, 0.5)
+            protocol_decisions = consensus_scores > 0.5
+            agree_weight = (confidences * (votes == protocol_decisions[None, :])).sum(axis=0)
+            agreement = np.where(total_confidence > 0, agree_weight / safe_total, 0.0)
+            dissent_counts = (votes != protocol_decisions[None, :]).sum(axis=0)
+            abstained[:] = False
+            decisions = consensus_scores > self.operating_threshold
+            self._spot_check_consensus(
+                agent_names, score_matrix, votes, confidences,
+                consensus_scores, agreement, dissent_counts,
             )
+        else:
+            for i in range(n):
+                results = [
+                    DetectionResult(
+                        agent_id=name,
+                        anomaly_score=float(score_matrix[j, i]),
+                        is_anomaly=bool(votes[j, i]),
+                        confidence=float(confidences[j, i]),
+                    )
+                    for j, name in enumerate(agent_names)
+                ]
+                consensus = self.protocol.reach_consensus(results)
+                if isinstance(consensus, dict):  # vote-dict path; unreachable here
+                    raise OrchestrationError(
+                        "consensus protocol returned a non-result payload"
+                    )
+
+                total = float(confidences[:, i].sum())
+                consensus_scores[i] = (
+                    float((confidences[:, i] * score_matrix[:, i]).sum()) / total
+                    if total > 0
+                    else 0.5
+                )
+                abstained[i] = consensus.abstained
+                agreement[i] = consensus.agreement_ratio
+                dissent_counts[i] = len(consensus.dissenting_agents)
+                decisions[i] = (not consensus.abstained) and (
+                    consensus_scores[i] > self.operating_threshold
+                )
 
         return CoordinationBatch(
             consensus_scores=consensus_scores,
@@ -644,6 +672,56 @@ class MultiAgentOrchestrator:
             dissent_counts=dissent_counts,
             participant_count=participant_count,
         )
+
+    def _spot_check_consensus(
+        self,
+        agent_names: list[str],
+        score_matrix: np.ndarray[Any, Any],
+        votes: np.ndarray[Any, Any],
+        confidences: np.ndarray[Any, Any],
+        consensus_scores: np.ndarray[Any, Any],
+        agreement: np.ndarray[Any, Any],
+        dissent_counts: np.ndarray[Any, Any],
+        n_checks: int = 8,
+    ) -> None:
+        """Verify the vectorized consensus against the real protocol.
+
+        A deterministic, evenly-spaced subsample of the batch is re-derived
+        sample-by-sample through ``ConsensusProtocol.reach_consensus``; any
+        divergence beyond float tolerance raises (fail-closed) — the fast
+        path is a compiled form of the protocol, never a replacement for it.
+        """
+        n = score_matrix.shape[1]
+        if n == 0:
+            return
+        check_indices = np.unique(np.linspace(0, n - 1, num=min(n_checks, n)).astype(int))
+        for i in check_indices:
+            results = [
+                DetectionResult(
+                    agent_id=name,
+                    anomaly_score=float(score_matrix[j, i]),
+                    is_anomaly=bool(votes[j, i]),
+                    confidence=float(confidences[j, i]),
+                )
+                for j, name in enumerate(agent_names)
+            ]
+            reference = self.protocol.reach_consensus(results)
+            if isinstance(reference, dict):
+                raise OrchestrationError("consensus protocol returned a non-result payload")
+            # The protocol reports confidence = avg if decision else 1 - avg.
+            reference_score = (
+                reference.confidence if reference.final_decision else 1.0 - reference.confidence
+            )
+            if (
+                abs(reference_score - float(consensus_scores[i])) > 1e-9
+                or abs(reference.agreement_ratio - float(agreement[i])) > 1e-9
+                or len(reference.dissenting_agents) != int(dissent_counts[i])
+            ):
+                raise OrchestrationError(
+                    f"consensus fast path diverged from ConsensusProtocol at sample {i}: "
+                    f"score {consensus_scores[i]:.12f} vs {reference_score:.12f}, "
+                    f"agreement {agreement[i]:.12f} vs {reference.agreement_ratio:.12f}"
+                )
 
     # ------------------------------------------------------------------
     # Decision boundary (ethical gates)

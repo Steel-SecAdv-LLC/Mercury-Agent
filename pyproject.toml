@@ -107,6 +107,17 @@ ml = [
     "types-requests==2.33.0.20260518",
 ]
 
+# Native acceleration lane — activates the numba @jit fast paths that are
+# otherwise dormant fallbacks (e.g. detectors/spatial.py distance scoring,
+# which JIT-compiles only when numba is importable). Before this extra
+# existed, numba was referenced by the code and the mypy overrides but was
+# not declarable as a dependency anywhere, so the native lane could never
+# be engaged by install. JIT-vs-numpy parity is pinned by
+# tests/test_native_acceleration.py (skipped when numba is absent).
+performance = [
+    "numba>=0.59",
+]
+
 # Visual anomaly detection (PatchCore, PaDiM, STFPM, etc.)
 visual = [
     "mercury-agent[ml]",

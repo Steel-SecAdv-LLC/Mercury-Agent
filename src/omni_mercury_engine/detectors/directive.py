@@ -34,6 +34,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+from numpy.lib.stride_tricks import sliding_window_view
 
 try:
     import torch
@@ -465,18 +466,29 @@ class SigmaDirectiveDetector(BaseDetector):
         return scores
 
     def _gravitational_stability_check(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """GSIS: Check gravitational stability (data distribution stability)."""
-        if len(data) < 2:
-            return np.zeros(len(data))
+        """GSIS: Check gravitational stability (data distribution stability).
 
-        scores = np.zeros(len(data))
+        Vectorized (2026-06-11): the per-row Python loop (one full distance
+        pass plus one percentile call per sample) is replaced by chunked
+        broadcasting — pairwise norms and the per-row 20th percentile are
+        computed a block of rows at a time, bounding peak memory while
+        removing ~2n small numpy calls. The norm uses the same ufunc
+        reduction as the former ``np.linalg.norm(data - data[i], axis=1)``,
+        so scores are bit-identical (pinned by
+        ``tests/test_native_acceleration.py``).
+        """
+        n = len(data)
+        if n < 2:
+            return np.zeros(n)
 
-        for i in range(len(data)):
-            distances = np.linalg.norm(data - data[i], axis=1)
-            local_density = np.sum(distances < np.percentile(distances, 20))
-
-            stability = local_density / len(data)
-            scores[i] = 1.0 - stability
+        scores = np.zeros(n)
+        chunk = max(1, min(128, n))
+        for start in range(0, n, chunk):
+            block = data[start : start + chunk]
+            distances = np.linalg.norm(block[:, None, :] - data[None, :, :], axis=2)
+            thresholds = np.percentile(distances, 20, axis=1)
+            local_density = np.sum(distances < thresholds[:, None], axis=1)
+            scores[start : start + chunk] = 1.0 - local_density / n
 
         return scores * self.stability_factor
 
@@ -660,24 +672,25 @@ class SigmaDirectiveDetector(BaseDetector):
         return float(anomaly_rate)
 
     def _detect_micro_anomalies(self, data: np.ndarray[Any, Any]) -> float:
-        """N Term Enhancement: Detect micro-anomalies at sub-feature level."""
+        """N Term Enhancement: Detect micro-anomalies at sub-feature level.
+
+        Vectorized (2026-06-11): the former element-by-element loop issued
+        one tiny ``np.var`` call per sliding window (~24k calls on a
+        1.1k x 21 batch); a strided window view computes all window
+        variances in one reduction. Equivalence-pinned by
+        ``tests/test_native_acceleration.py``.
+        """
         if data.size < 4:
             return 0.0
 
         data_flat = data.flatten()
-
-        local_variances = []
         window_size = min(4, len(data_flat) // 2)
 
-        for i in range(len(data_flat) - window_size + 1):
-            window = data_flat[i : i + window_size]
-            variance = np.var(window)
-            local_variances.append(variance)
-
-        if not local_variances:
+        windows = sliding_window_view(data_flat, window_size)
+        if windows.shape[0] == 0:
             return 0.0
 
-        variance_array = np.array(local_variances)
+        variance_array = np.var(windows, axis=1)
         variance_changes = np.abs(np.diff(variance_array))
 
         micro_score = np.mean(variance_changes) / (np.std(variance_array) + 1e-10)

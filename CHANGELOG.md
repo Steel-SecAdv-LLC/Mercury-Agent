@@ -27,6 +27,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Performance — native acceleration pass on the live detection hot path, equivalence-pinned (2026-06-11)
+
+A profile of the orchestrated detection path on a real-scale batch
+(1,132 × 21) showed 91% of time inside two live detectors' per-sample
+Python loops, not in the new orchestration layer. Every fast path below is
+a *compiled form* of its reference semantics — outputs are pinned
+bit-for-bit (or to 1e-12) by `tests/test_native_acceleration.py`, and the
+full orchestration-validation grid reproduces its pre-optimization verdicts
+(consensus 0.829 vs members 0.823; reflexion +0.078; planning 129/129;
+fidelity 600/600).
+
+* **`DimensionalAnalyzer._dimensional_code_breaking`:** one batched FFT
+  over all rows replaces two FFT calls per sample. Disclosed in the same
+  pass: the loop's spectral-divergence component is **identically zero**
+  for every sample (a single row's per-column FFT has length 1, so the
+  half-spectrum slice is empty and the divergence evaluates to
+  `0/(0+1e-10)`), meaning 50% of the DB-score weight has always been a
+  constant. Preserved as an explicit, documented zero — giving the term
+  real semantics would change this live detector's shipped scores and
+  therefore requires its own measured ablation gate first.
+* **`SigmaDirectiveDetector._detect_micro_anomalies`:** a strided
+  sliding-window view computes all window variances in one reduction
+  (formerly ~24k one-window `np.var` calls per batch).
+  **`_gravitational_stability_check`:** chunked pairwise broadcasting
+  replaces the per-row loop (one full distance pass + one percentile call
+  per sample); the O(n²·d) semantics are inherent and preserved.
+* **Orchestrator consensus fast path:** the per-sample
+  `ConsensusProtocol` derivation is vectorized for the default
+  CONFIDENCE_WEIGHTED method; the protocol remains the semantic
+  authority — a deterministic subsample of every batch is re-derived
+  through the real protocol and any divergence fails the batch closed
+  (`MultiAgentOrchestrator._spot_check_consensus`). Non-default methods
+  keep the per-sample path.
+* **Measured effect:** orchestrated `coordinate()` on the profiled
+  workload 855 ms → 324 ms (**2.6×**); the wins land in the live
+  detectors, so `detect_with_fusion` feature extraction and every other
+  consumer of `dimensional`/`directive` benefit equally. Remaining cost is
+  intrinsic O(n²) stability math and scipy KDTree — already native.
+* **`[performance]` extra (new):** `numba` was referenced by the code and
+  the mypy overrides but declared in no dependency group, so the designed
+  `@jit` lanes (e.g. `detectors/spatial.py` distance scoring) could never
+  be engaged by install — dormant in every environment including CI. Now
+  installable via `pip install mercury-agent[performance]`; JIT-vs-numpy
+  parity is pinned by `tests/test_native_acceleration.py` (skipped when
+  numba is absent).
+* **Reproducibility:** `benchmarks/orchestration_validation.py` now pins
+  the global numpy/torch seeds per (dataset, seed) run — some live
+  detectors carry stochastic components that follow the global seed
+  (e.g. `DimensionalAnalyzer`'s autoencoder lane, instance-to-instance
+  spread ≈0.56 on identical fits), so the grid was honest but not
+  bit-reproducible run-to-run before this.
+* **Environment/tooling:** the session-provisioning gap that made
+  `pytest-asyncio`/`pytest-xdist`/`pytest-timeout` unavailable locally
+  (one async test erroring with "async def functions are not natively
+  supported", and the `asyncio_mode` config warning on every run) is
+  closed by installing the already-declared dev extras — no code change;
+  the failure predated this branch.
+
 ### Multi-agent orchestration (pillar B) — the dormant planning/coordination/reflexion/chain-of-thought tier revived as a measured planner/critic/executor loop over the live ensemble (2026-06-11)
 
 Closes the capability-matrix "Multi-agent" gap ("no planner/critic/executor

@@ -126,6 +126,18 @@ def run_dataset_seed(name: str, seed: int) -> dict[str, Any] | None:
     )
     from omni_mercury_engine.ml.mercury_ml import roc_auc_score
 
+    # Pin the global RNGs per run: some live detectors carry stochastic
+    # components that follow the *global* seed (e.g. DimensionalAnalyzer's
+    # autoencoder lane), so without this the grid is honest but not
+    # bit-reproducible run-to-run.
+    np.random.seed(seed)
+    try:
+        import torch
+
+        torch.manual_seed(seed)
+    except ImportError:
+        pass
+
     X, y = _load_dataset(name)
     rng = np.random.RandomState(seed)
     te = _stratified(y, 0.3, rng)

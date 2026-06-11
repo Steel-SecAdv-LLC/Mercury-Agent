@@ -517,41 +517,86 @@ class DimensionalAnalyzer(BaseDetector):
         """DB Term: Dimensional Code-Breaking Detection Detects anomalies via spectral divergence in.
 
         Fourier space.
+
+        Vectorized (2026-06-11): one batched FFT over all rows replaces the
+        former per-row loop (two FFT calls per sample). Outputs are
+        equivalence-pinned to the loop semantics by
+        ``tests/test_native_acceleration.py``.
+
+        Note on the spectral-divergence component: the original loop computed
+        it per *single row*, where each column's FFT has length 1, so the
+        half-spectrum slice ``[:0]`` is empty and the divergence evaluates to
+        ``0.0 / (0.0 + 1e-10) == 0.0`` for every sample. The term is
+        therefore identically zero and is preserved as an explicit zero here
+        — giving it real semantics would change this live detector's shipped
+        scores and so requires its own measured ablation gate first.
         """
         if data.ndim == 1:
             data = data.reshape(-1, 1)
-
-        scores = np.zeros(data.shape[0])
 
         assert (
             self.baseline_spectral_signature is not None
         ), "Baseline spectral signature must be computed"
 
-        for idx in range(data.shape[0]):
-            sample = data[idx : idx + 1, :]
-            sample_signature = self._compute_spectral_signature(sample)
+        spectral_divergence = 0.0
+        phase_coherence = self._phase_coherence_rows(data)
+        harmonic_distortion = self._harmonic_distortion_rows(data)
 
-            min_len = min(len(self.baseline_spectral_signature), len(sample_signature))
-            baseline_truncated = self.baseline_spectral_signature[:min_len]
-            sample_truncated = sample_signature[:min_len]
+        db_scores = (
+            spectral_divergence * 0.5
+            + (1.0 - phase_coherence) * 0.3
+            + harmonic_distortion * 0.2
+        )
 
-            spectral_divergence = np.linalg.norm(baseline_truncated - sample_truncated) / (
-                np.linalg.norm(baseline_truncated) + 1e-10
-            )
+        return np.minimum(db_scores, 1.0)
 
-            phase_coherence = self._compute_phase_coherence(data[idx, :])
+    @staticmethod
+    def _phase_coherence_rows(data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Row-wise phase coherence (vectorized form of the per-row DB term)."""
+        n, d = data.shape
+        if d < 4:
+            return np.ones(n)
 
-            harmonic_distortion = self._compute_harmonic_distortion(data[idx, :])
+        fft_result = fft(data, axis=1)
+        phases = np.angle(fft_result)
+        phase_diffs = np.abs(np.diff(phases, axis=1))
+        coherence = 1.0 - phase_diffs.mean(axis=1) / np.pi
+        return np.clip(coherence, 0.0, 1.0)
 
-            db_score = (
-                spectral_divergence * 0.5
-                + (1.0 - phase_coherence) * 0.3
-                + harmonic_distortion * 0.2
-            )
+    @staticmethod
+    def _harmonic_distortion_rows(data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Row-wise total harmonic distortion (vectorized DB term).
 
-            scores[idx] = min(db_score, 1.0)
+        Mirrors the scalar logic exactly: per row, the fundamental is the
+        argmax of the first half-spectrum (index 0 promoted to 1), harmonics
+        ``n = 2 .. min(8, d // (2 * fundamental)) - 1`` are accumulated in
+        ascending order, and rows with no harmonics or zero fundamental
+        power score 0.0.
+        """
+        n, d = data.shape
+        if d < 8:
+            return np.zeros(n)
 
-        return scores
+        power = np.abs(fft(data, axis=1)) ** 2
+        rows = np.arange(n)
+
+        fundamental_idx = np.argmax(power[:, : d // 2], axis=1)
+        fundamental_idx = np.where(fundamental_idx == 0, 1, fundamental_idx)
+        fundamental_power = power[rows, fundamental_idx]
+
+        max_harmonic = np.minimum(8, d // (2 * fundamental_idx))
+        total_harmonic_power = np.zeros(n)
+        has_harmonics = np.zeros(n, dtype=bool)
+        for harmonic_n in range(2, 8):
+            harmonic_idx = harmonic_n * fundamental_idx
+            mask = (harmonic_n < max_harmonic) & (harmonic_idx < d)
+            gathered = power[rows, np.minimum(harmonic_idx, d - 1)]
+            total_harmonic_power += np.where(mask, gathered, 0.0)
+            has_harmonics |= mask
+
+        thd = np.sqrt(total_harmonic_power / (fundamental_power + 1e-10))
+        thd = np.where(has_harmonics & (fundamental_power != 0), thd, 0.0)
+        return np.minimum(thd, 1.0)
 
     def _compute_phase_coherence(self, signal: np.ndarray[Any, Any]) -> float:
         """Compute phase coherence for DB term."""

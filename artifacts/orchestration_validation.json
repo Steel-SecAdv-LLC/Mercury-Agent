@@ -1,19 +1,19 @@
 {
   "results": [
     {
-      "adaptive_balanced_acc": 0.7816377171215881,
+      "adaptive_balanced_acc": 0.7789495450785774,
       "best_member_auc": 0.9471153846153846,
-      "consensus_auc": 0.866082506203474,
+      "consensus_auc": 0.859607630272953,
       "dataset": "cardio",
       "fidelity_ok": 40,
       "fidelity_total": 40,
-      "fixed_balanced_acc": 0.706575682382134,
+      "fixed_balanced_acc": 0.7153639371381306,
       "goal_value_final": 2.4558484510640555,
       "goal_value_first": 0.7071067811865476,
       "goal_values_non_decreasing": true,
-      "mean_member_auc": 0.8312887717121589,
+      "mean_member_auc": 0.830862282878412,
       "member_aucs": {
-        "dimensional": 0.8212624069478908,
+        "dimensional": 0.8191299627791564,
         "directive": 0.9471153846153846,
         "spatial": 0.6285669975186103,
         "statistical": 0.9036522952853598,
@@ -34,9 +34,9 @@
       "seed": 0
     },
     {
-      "adaptive_balanced_acc": 0.7596153846153846,
+      "adaptive_balanced_acc": 0.7467948717948718,
       "best_member_auc": 0.9461460918114144,
-      "consensus_auc": 0.627016129032258,
+      "consensus_auc": 0.6240307071960298,
       "dataset": "cardio",
       "fidelity_ok": 40,
       "fidelity_total": 40,
@@ -44,9 +44,9 @@
       "goal_value_final": 2.4558484510640555,
       "goal_value_first": 0.7071067811865476,
       "goal_values_non_decreasing": true,
-      "mean_member_auc": 0.7747906327543423,
+      "mean_member_auc": 0.7715648263027296,
       "member_aucs": {
-        "dimensional": 0.7427496898263029,
+        "dimensional": 0.7266206575682382,
         "directive": 0.9461460918114144,
         "spatial": 0.5151985111662531,
         "statistical": 0.8880660669975187,
@@ -67,19 +67,19 @@
       "seed": 1
     },
     {
-      "adaptive_balanced_acc": 0.6969602977667494,
+      "adaptive_balanced_acc": 0.7003722084367245,
       "best_member_auc": 0.9523495657568237,
-      "consensus_auc": 0.7496122828784119,
+      "consensus_auc": 0.7529854218362283,
       "dataset": "cardio",
       "fidelity_ok": 40,
       "fidelity_total": 40,
-      "fixed_balanced_acc": 0.6187965260545906,
+      "fixed_balanced_acc": 0.6289288668320927,
       "goal_value_final": 2.4558484510640555,
       "goal_value_first": 0.7071067811865476,
       "goal_values_non_decreasing": true,
-      "mean_member_auc": 0.814741004962779,
+      "mean_member_auc": 0.8164004342431761,
       "member_aucs": {
-        "dimensional": 0.7794277295285359,
+        "dimensional": 0.7877248759305212,
         "directive": 0.9523495657568237,
         "spatial": 0.5911910669975187,
         "statistical": 0.9164857320099256,
@@ -93,26 +93,26 @@
       "reflexion_acted": true,
       "reflexion_recommendations": [
         "decrease",
-        "decrease",
+        "increase",
         "increase",
         "maintain"
       ],
       "seed": 2
     },
     {
-      "adaptive_balanced_acc": 0.8113981429198821,
+      "adaptive_balanced_acc": 0.814424054206663,
       "best_member_auc": 0.9673617407071623,
-      "consensus_auc": 0.9465430979483563,
+      "consensus_auc": 0.9482891776636111,
       "dataset": "thyroid",
       "fidelity_ok": 40,
       "fidelity_total": 40,
-      "fixed_balanced_acc": 0.6694980864546082,
+      "fixed_balanced_acc": 0.6417203086768303,
       "goal_value_final": 2.4558484510640555,
       "goal_value_first": 0.7071067811865476,
       "goal_values_non_decreasing": true,
-      "mean_member_auc": 0.895980658809308,
+      "mean_member_auc": 0.899351935797992,
       "member_aucs": {
-        "dimensional": 0.8274403142943487,
+        "dimensional": 0.844296699237769,
         "directive": 0.9412041234344044,
         "spatial": 0.8354991437493704,
         "statistical": 0.9083979718612538,
@@ -128,24 +128,24 @@
         "decrease",
         "decrease",
         "maintain",
-        "increase"
+        "maintain"
       ],
       "seed": 0
     },
     {
-      "adaptive_balanced_acc": 0.8683800740322479,
+      "adaptive_balanced_acc": 0.8629496831670744,
       "best_member_auc": 0.9458379503710419,
-      "consensus_auc": 0.8612538195493771,
+      "consensus_auc": 0.8708572579832778,
       "dataset": "thyroid",
       "fidelity_ok": 40,
       "fidelity_total": 40,
-      "fixed_balanced_acc": 0.7632696530522617,
+      "fixed_balanced_acc": 0.7412739193173975,
       "goal_value_final": 2.4558484510640555,
       "goal_value_first": 0.7071067811865476,
       "goal_values_non_decreasing": true,
-      "mean_member_auc": 0.849884154326584,
+      "mean_member_auc": 0.8741680937510493,
       "member_aucs": {
-        "dimensional": 0.6311742386085087,
+        "dimensional": 0.7525939357308351,
         "directive": 0.9458379503710419,
         "spatial": 0.8440952285013934,
         "statistical": 0.9028239481548638,
@@ -166,19 +166,19 @@
       "seed": 1
     },
     {
-      "adaptive_balanced_acc": 0.8517247004203524,
+      "adaptive_balanced_acc": 0.8179038835560574,
       "best_member_auc": 0.9589671266915147,
-      "consensus_auc": 0.8945636479634667,
+      "consensus_auc": 0.901077868439609,
       "dataset": "thyroid",
       "fidelity_ok": 40,
       "fidelity_total": 40,
-      "fixed_balanced_acc": 0.7518868812347074,
+      "fixed_balanced_acc": 0.8013175230566535,
       "goal_value_final": 2.4558484510640555,
       "goal_value_first": 0.7071067811865476,
       "goal_values_non_decreasing": true,
-      "mean_member_auc": 0.8743359860313623,
+      "mean_member_auc": 0.8892045263758772,
       "member_aucs": {
-        "dimensional": 0.7437963802424363,
+        "dimensional": 0.8181390819650112,
         "directive": 0.9589671266915147,
         "spatial": 0.8347604177159933,
         "statistical": 0.8998018871092308,
@@ -192,26 +192,26 @@
       "reflexion_acted": true,
       "reflexion_recommendations": [
         "decrease",
-        "maintain",
+        "increase",
         "maintain",
         "increase"
       ],
       "seed": 2
     },
     {
-      "adaptive_balanced_acc": 0.8042681719152308,
-      "best_member_auc": 0.9548872180451128,
+      "adaptive_balanced_acc": 0.81352743117449,
+      "best_member_auc": 0.9577464788732395,
       "consensus_auc": 0.9086095520491368,
       "dataset": "breastw",
       "fidelity_ok": 40,
       "fidelity_total": 40,
-      "fixed_balanced_acc": 0.603733412556942,
+      "fixed_balanced_acc": 0.6222519310754605,
       "goal_value_final": 2.4558484510640555,
       "goal_value_first": 0.7071067811865476,
       "goal_values_non_decreasing": true,
-      "mean_member_auc": 0.865805358466589,
+      "mean_member_auc": 0.8663772106322142,
       "member_aucs": {
-        "dimensional": 0.9548872180451128,
+        "dimensional": 0.9577464788732395,
         "directive": 0.9428147834374667,
         "spatial": 0.6310494546224716,
         "statistical": 0.9459917399131632,
@@ -227,24 +227,24 @@
         "decrease",
         "maintain",
         "increase",
-        "maintain"
+        "decrease"
       ],
       "seed": 0
     },
     {
-      "adaptive_balanced_acc": 0.8771043771043772,
+      "adaptive_balanced_acc": 0.8796296296296297,
       "best_member_auc": 0.9764905220798474,
-      "consensus_auc": 0.9396378269617706,
+      "consensus_auc": 0.9412263051996188,
       "dataset": "breastw",
       "fidelity_ok": 40,
       "fidelity_total": 40,
-      "fixed_balanced_acc": 0.6844919786096257,
+      "fixed_balanced_acc": 0.6839473163002575,
       "goal_value_final": 2.4558484510640555,
       "goal_value_first": 0.7071067811865476,
       "goal_values_non_decreasing": true,
-      "mean_member_auc": 0.8800593031875463,
+      "mean_member_auc": 0.8804828973843059,
       "member_aucs": {
-        "dimensional": 0.9627237106851636,
+        "dimensional": 0.964841681668961,
         "directive": 0.9617706237424547,
         "spatial": 0.665784178756751,
         "statistical": 0.9764905220798474,
@@ -258,26 +258,26 @@
       "reflexion_acted": true,
       "reflexion_recommendations": [
         "decrease",
+        "increase",
         "maintain",
-        "maintain",
-        "increase"
+        "maintain"
       ],
       "seed": 1
     },
     {
-      "adaptive_balanced_acc": 0.8140720934838582,
+      "adaptive_balanced_acc": 0.8289265201029906,
       "best_member_auc": 0.9660065657100498,
-      "consensus_auc": 0.954675420946733,
+      "consensus_auc": 0.9541459282007838,
       "dataset": "breastw",
       "fidelity_ok": 40,
       "fidelity_total": 40,
-      "fixed_balanced_acc": 0.6601307189542484,
+      "fixed_balanced_acc": 0.6273024361259655,
       "goal_value_final": 2.4558484510640555,
       "goal_value_first": 0.7071067811865476,
       "goal_values_non_decreasing": true,
-      "mean_member_auc": 0.8785449539341311,
+      "mean_member_auc": 0.8781001800275335,
       "member_aucs": {
-        "dimensional": 0.9506512760775178,
+        "dimensional": 0.9484274065445304,
         "directive": 0.9256592184687069,
         "spatial": 0.6889759610293339,
         "statistical": 0.9660065657100498,
@@ -292,7 +292,7 @@
       "reflexion_recommendations": [
         "decrease",
         "maintain",
-        "increase",
+        "maintain",
         "maintain"
       ],
       "seed": 2
@@ -300,7 +300,7 @@
     {
       "adaptive_balanced_acc": 0.953125,
       "best_member_auc": 1.0,
-      "consensus_auc": 0.9735449735449736,
+      "consensus_auc": 0.9841269841269841,
       "dataset": "WBC",
       "fidelity_ok": 40,
       "fidelity_total": 40,
@@ -308,9 +308,9 @@
       "goal_value_final": 2.291281059198145,
       "goal_value_first": 0.7071067811865476,
       "goal_values_non_decreasing": true,
-      "mean_member_auc": 0.9671957671957673,
+      "mean_member_auc": 0.9661375661375662,
       "member_aucs": {
-        "dimensional": 0.9312169312169313,
+        "dimensional": 0.9259259259259259,
         "directive": 0.9947089947089948,
         "spatial": 0.9735449735449736,
         "statistical": 1.0,
@@ -332,7 +332,7 @@
     {
       "adaptive_balanced_acc": 0.984375,
       "best_member_auc": 1.0,
-      "consensus_auc": 0.9894179894179894,
+      "consensus_auc": 0.9947089947089948,
       "dataset": "WBC",
       "fidelity_ok": 40,
       "fidelity_total": 40,
@@ -372,9 +372,9 @@
       "goal_value_final": 2.291281059198145,
       "goal_value_first": 0.7071067811865476,
       "goal_values_non_decreasing": true,
-      "mean_member_auc": 0.9428571428571428,
+      "mean_member_auc": 0.9354497354497354,
       "member_aucs": {
-        "dimensional": 0.9682539682539683,
+        "dimensional": 0.9312169312169313,
         "directive": 1.0,
         "spatial": 0.9894179894179894,
         "statistical": 1.0,
@@ -394,9 +394,9 @@
       "seed": 2
     },
     {
-      "adaptive_balanced_acc": 0.571194879089616,
+      "adaptive_balanced_acc": 0.5799786628733997,
       "best_member_auc": 0.6675833333333333,
-      "consensus_auc": 0.5743333333333334,
+      "consensus_auc": 0.5693333333333332,
       "dataset": "Pima",
       "fidelity_ok": 40,
       "fidelity_total": 40,
@@ -404,9 +404,9 @@
       "goal_value_final": 2.4558484510640555,
       "goal_value_first": 0.7071067811865476,
       "goal_values_non_decreasing": true,
-      "mean_member_auc": 0.6172666666666667,
+      "mean_member_auc": 0.6086666666666667,
       "member_aucs": {
-        "dimensional": 0.6206666666666667,
+        "dimensional": 0.5776666666666668,
         "directive": 0.6675833333333333,
         "spatial": 0.5943333333333334,
         "statistical": 0.6375000000000001,
@@ -427,19 +427,19 @@
       "seed": 0
     },
     {
-      "adaptive_balanced_acc": 0.463466097676624,
+      "adaptive_balanced_acc": 0.4570412517780939,
       "best_member_auc": 0.6066666666666667,
-      "consensus_auc": 0.5646666666666667,
+      "consensus_auc": 0.5671666666666667,
       "dataset": "Pima",
       "fidelity_ok": 40,
       "fidelity_total": 40,
-      "fixed_balanced_acc": 0.49642010431484124,
+      "fixed_balanced_acc": 0.5130867709815078,
       "goal_value_final": 2.4558484510640555,
       "goal_value_first": 0.7071067811865476,
       "goal_values_non_decreasing": true,
-      "mean_member_auc": 0.5783333333333334,
+      "mean_member_auc": 0.5837999999999999,
       "member_aucs": {
-        "dimensional": 0.56,
+        "dimensional": 0.5873333333333334,
         "directive": 0.6066666666666667,
         "spatial": 0.5983333333333334,
         "statistical": 0.5766666666666667,
@@ -454,15 +454,15 @@
       "reflexion_recommendations": [
         "decrease",
         "increase",
-        "decrease",
-        "maintain"
+        "increase",
+        "decrease"
       ],
       "seed": 1
     },
     {
-      "adaptive_balanced_acc": 0.5142010431484115,
+      "adaptive_balanced_acc": 0.5468587008060692,
       "best_member_auc": 0.6554166666666668,
-      "consensus_auc": 0.56925,
+      "consensus_auc": 0.5660000000000001,
       "dataset": "Pima",
       "fidelity_ok": 40,
       "fidelity_total": 40,
@@ -470,9 +470,9 @@
       "goal_value_final": 2.4558484510640555,
       "goal_value_first": 0.7071067811865476,
       "goal_values_non_decreasing": true,
-      "mean_member_auc": 0.6032833333333334,
+      "mean_member_auc": 0.6063666666666668,
       "member_aucs": {
-        "dimensional": 0.6176666666666667,
+        "dimensional": 0.6330833333333333,
         "directive": 0.6554166666666668,
         "spatial": 0.5680833333333334,
         "statistical": 0.609,
@@ -485,7 +485,7 @@
       "plan_episodes_total": 9,
       "reflexion_acted": true,
       "reflexion_recommendations": [
-        "decrease",
+        "maintain",
         "decrease",
         "maintain",
         "maintain"
@@ -495,9 +495,9 @@
   ],
   "verdict": {
     "coordination": {
-      "mean_best_member_auc": 0.9029885888303346,
-      "mean_consensus_auc": 0.8272416823942623,
-      "mean_member_auc": 0.8209366404835723,
+      "mean_best_member_auc": 0.9031792062188765,
+      "mean_consensus_auc": 0.8287722544730145,
+      "mean_member_auc": 0.8231077041330975,
       "passed": true
     },
     "passed": true,
@@ -508,8 +508,8 @@
     },
     "reflexion": {
       "acted_runs": 15,
-      "delta_all": 0.07864596192951503,
-      "delta_when_acted": 0.07864596192951503,
+      "delta_all": 0.07817552842418055,
+      "delta_when_acted": 0.07817552842418055,
       "paired_runs": 15,
       "passed": true
     },
