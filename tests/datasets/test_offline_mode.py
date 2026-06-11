@@ -43,9 +43,7 @@ def _prime_cardio_cache(data_dir: Path) -> Path:
 
 class TestOfflineFlag:
     @pytest.mark.parametrize("value", ["1", "true", "YES", " on "])
-    def test_truthy_values_activate(
-        self, monkeypatch: pytest.MonkeyPatch, value: str
-    ) -> None:
+    def test_truthy_values_activate(self, monkeypatch: pytest.MonkeyPatch, value: str) -> None:
         monkeypatch.setenv(MERCURY_OFFLINE_VAR, value)
         assert offline_mode_active() is True
 
@@ -62,16 +60,12 @@ class TestOfflineFlag:
 
 
 class TestNetworkChokepoint:
-    def test_offline_refuses_before_any_socket(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_offline_refuses_before_any_socket(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv(MERCURY_OFFLINE_VAR, "1")
         with pytest.raises(OfflineModeError, match="MERCURY_OFFLINE"):
             http_get_with_retry("https://raw.githubusercontent.com/anything")
 
-    def test_error_carries_url_and_remediation(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_error_carries_url_and_remediation(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv(MERCURY_OFFLINE_VAR, "1")
         with pytest.raises(OfflineModeError) as excinfo:
             http_get_with_retry("https://raw.githubusercontent.com/some.npz")
@@ -125,9 +119,7 @@ class TestEnvAwareDirectories:
         assert config.data_dir == str(tmp_path / "d")
         assert config.cache_dir == str(tmp_path / "c")
 
-    def test_defaults_unchanged_without_env(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_defaults_unchanged_without_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("MERCURY_DATA_DIR", raising=False)
         monkeypatch.delenv("MERCURY_CACHE_DIR", raising=False)
         config = DatasetConfig(name="adbench")

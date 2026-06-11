@@ -107,13 +107,13 @@ class TestDimensionalDBVectorization:
 class TestDirectiveVectorization:
     @pytest.mark.parametrize("seed", SEEDS)
     @pytest.mark.parametrize("shape", [(30, 7), (5, 3), (200, 21)])
-    def test_micro_anomalies_match_original_loop(
-        self, seed: int, shape: tuple[int, int]
-    ) -> None:
+    def test_micro_anomalies_match_original_loop(self, seed: int, shape: tuple[int, int]) -> None:
         from omni_mercury_engine.detectors.directive import SigmaDirectiveDetector
 
-        data = _rows(seed, n=shape[0], d=shape[1]) if shape[0] > 6 else (
-            np.random.default_rng(seed).normal(0, 1, shape)
+        data = (
+            _rows(seed, n=shape[0], d=shape[1])
+            if shape[0] > 6
+            else (np.random.default_rng(seed).normal(0, 1, shape))
         )
         detector = SigmaDirectiveDetector()
         produced = detector._detect_micro_anomalies(data)
@@ -194,8 +194,7 @@ class TestConsensusFastPathParity:
                     agent_id=name,
                     anomaly_score=float(batch.per_agent_scores[name][i]),
                     is_anomaly=bool(
-                        batch.per_agent_scores[name][i]
-                        > orch.agents[name].decision_threshold
+                        batch.per_agent_scores[name][i] > orch.agents[name].decision_threshold
                     ),
                     confidence=orch.agents[name].confidence_for(
                         float(batch.per_agent_scores[name][i])
@@ -206,9 +205,7 @@ class TestConsensusFastPathParity:
             reference = orch.protocol.reach_consensus(results)
             assert not isinstance(reference, dict)
             reference_score = (
-                reference.confidence
-                if reference.final_decision
-                else 1.0 - reference.confidence
+                reference.confidence if reference.final_decision else 1.0 - reference.confidence
             )
             assert math.isclose(
                 float(batch.consensus_scores[i]), reference_score, abs_tol=1e-12

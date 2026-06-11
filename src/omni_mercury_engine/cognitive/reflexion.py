@@ -1702,9 +1702,7 @@ class AnomalyReflexion:
             (OutcomeType.TRUE_NEGATIVE, False),
             (OutcomeType.FALSE_POSITIVE, False),
         ):
-            experiences = self.engine.experience_memory.retrieve_by_outcome(
-                outcome_type, top_k=500
-            )
+            experiences = self.engine.experience_memory.retrieve_by_outcome(outcome_type, top_k=500)
             if outcome_type == OutcomeType.FALSE_POSITIVE:
                 fp_count = len(experiences)
             elif outcome_type == OutcomeType.FALSE_NEGATIVE:
@@ -1761,9 +1759,7 @@ class AnomalyReflexion:
             midpoints = (unique_scores[:-1] + unique_scores[1:]) / 2.0
         else:
             midpoints = np.empty(0, dtype=float)
-        candidates = np.concatenate(
-            ([unique_scores[0] - 1e-9], midpoints, [unique_scores[-1]])
-        )
+        candidates = np.concatenate(([unique_scores[0] - 1e-9], midpoints, [unique_scores[-1]]))
         current_acc = balanced_accuracy(self.anomaly_threshold)
         best_threshold = self.anomaly_threshold
         best_acc = current_acc

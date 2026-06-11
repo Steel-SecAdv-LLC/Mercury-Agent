@@ -235,12 +235,8 @@ class DatasetConfig:
     # location instead of the CWD-relative defaults; behavior with the
     # variables unset is byte-identical to before. Read at construction
     # time (default_factory), never at import time.
-    data_dir: str = field(
-        default_factory=lambda: os.environ.get("MERCURY_DATA_DIR", "./data")
-    )
-    cache_dir: str = field(
-        default_factory=lambda: os.environ.get("MERCURY_CACHE_DIR", "./cache")
-    )
+    data_dir: str = field(default_factory=lambda: os.environ.get("MERCURY_DATA_DIR", "./data"))
+    cache_dir: str = field(default_factory=lambda: os.environ.get("MERCURY_CACHE_DIR", "./cache"))
     download: bool = True
     preprocessing: dict[str, Any] = field(default_factory=dict)
     split_ratios: tuple[float, float, float] = (0.7, 0.15, 0.15)

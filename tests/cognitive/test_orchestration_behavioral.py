@@ -260,9 +260,7 @@ class TestChainOfThoughtThresholdFidelityFix:
     could state a determination contradicting the returned verdict."""
 
     @pytest.mark.parametrize("threshold", [0.3, 0.5, 0.8])
-    def test_trace_determination_matches_decision_across_boundary(
-        self, threshold: float
-    ) -> None:
+    def test_trace_determination_matches_decision_across_boundary(self, threshold: float) -> None:
         from omni_mercury_engine.cognitive.chain_of_thought import AnomalyChainOfThought
 
         cot = AnomalyChainOfThought(anomaly_threshold=threshold)
@@ -355,9 +353,7 @@ class TestDetectorAgent:
         from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
         X = np.random.default_rng(0).normal(size=(300, 6))
-        agent = DetectorAgent(
-            "statistical", MercuryAnomalyDetector(), contamination=0.1, seed=0
-        )
+        agent = DetectorAgent("statistical", MercuryAnomalyDetector(), contamination=0.1, seed=0)
         agent.fit(X)
         scores = agent.score_batch(X)
         assert abs(agent.decision_threshold - float(np.quantile(scores, 0.9))) < 1e-9
@@ -598,9 +594,7 @@ class TestConsensusMethodContract:
         from omni_mercury_engine.cognitive.multi_agent_coordination import ConsensusMethod
 
         assert MultiAgentOrchestrator(consensus_method="confidence_weighted", seed=0)
-        assert MultiAgentOrchestrator(
-            consensus_method=ConsensusMethod.CONFIDENCE_WEIGHTED, seed=0
-        )
+        assert MultiAgentOrchestrator(consensus_method=ConsensusMethod.CONFIDENCE_WEIGHTED, seed=0)
 
 
 class TestHonestStageRewards:

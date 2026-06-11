@@ -230,15 +230,18 @@ class DetectorAgent(DetectionAgent):
             # Preserve within-batch ordering while mapping onto the protocol's
             # [0, 1] score contract.
             spread = smax - smin
-            scores = (
-                np.full_like(scores, 0.5) if spread < 1e-12 else (scores - smin) / spread
-            )
+            scores = np.full_like(scores, 0.5) if spread < 1e-12 else (scores - smin) / spread
         return scores
 
     def confidence_for(self, score: float) -> float:
-        """Calibration-derived confidence: distance from the agent's own
-        threshold in units of its training-score spread, clipped to [0, 1]."""
-        return float(np.clip(abs(score - self.decision_threshold) / self.confidence_scale, 0.0, 1.0))
+        """Calibration-derived confidence for a score.
+
+        Distance from the agent's own threshold in units of its
+        training-score spread, clipped to [0, 1].
+        """
+        return float(
+            np.clip(abs(score - self.decision_threshold) / self.confidence_scale, 0.0, 1.0)
+        )
 
     def detect(
         self,
@@ -648,8 +651,13 @@ class MultiAgentOrchestrator:
         abstained[:] = False
         decisions = consensus_scores > self.operating_threshold
         self._spot_check_consensus(
-            agent_names, score_matrix, votes, confidences,
-            consensus_scores, agreement, dissent_counts,
+            agent_names,
+            score_matrix,
+            votes,
+            confidences,
+            consensus_scores,
+            agreement,
+            dissent_counts,
         )
 
         return CoordinationBatch(
@@ -960,16 +968,12 @@ class MultiAgentOrchestrator:
         episode = self.detect(X, domain=domain)
         if y_true is not None:
             y = np.asarray(y_true).astype(bool).ravel()
-            episode.reflection = self.reflect(
-                episode.coordination, y, apply=apply_reflection
-            )
+            episode.reflection = self.reflect(episode.coordination, y, apply=apply_reflection)
             episode.metrics = self.compute_metrics(episode.coordination, y)
         return episode
 
     @staticmethod
-    def compute_metrics(
-        batch: CoordinationBatch, y: np.ndarray[Any, Any]
-    ) -> dict[str, float]:
+    def compute_metrics(batch: CoordinationBatch, y: np.ndarray[Any, Any]) -> dict[str, float]:
         """Honest confusion metrics over the non-abstained decisions."""
         decided = ~batch.abstained
         if not np.any(decided):
@@ -1042,9 +1046,8 @@ class MultiAgentOrchestrator:
             domain=domain,
         )
         stated_conclusion = str(analysis["conclusion"]).upper()
-        stated_anomaly = (
-            "ANOMALY DETECTED" in stated_conclusion
-            or stated_conclusion.startswith("ANOMALY")
+        stated_anomaly = "ANOMALY DETECTED" in stated_conclusion or stated_conclusion.startswith(
+            "ANOMALY"
         )
         if stated_anomaly != issued:
             raise OrchestrationError(

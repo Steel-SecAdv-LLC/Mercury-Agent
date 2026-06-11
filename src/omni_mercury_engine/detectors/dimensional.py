@@ -222,9 +222,7 @@ class DimensionalAnalyzer(BaseDetector):
         # (bar +0.002), seed agreement 0.93, and the term alone moved from
         # chance (0.460) to 0.811 AUC. Set False for the legacy
         # identically-zero term (pre-2026-06-11 shipped scores).
-        self.db_spectral_divergence: bool = bool(
-            self.config.get("db_spectral_divergence", True)
-        )
+        self.db_spectral_divergence: bool = bool(self.config.get("db_spectral_divergence", True))
         self.autoencoder_epochs: int = self.config.get("autoencoder_epochs", 100)
         self.autoencoder_lr: float = self.config.get("autoencoder_lr", 0.001)
 
@@ -338,9 +336,7 @@ class DimensionalAnalyzer(BaseDetector):
         if self.use_db_term:
             self.baseline_spectral_signature = self._compute_spectral_signature(data_np)
             row_spectra = self._row_power_spectrum(data_np)
-            self.baseline_row_spectrum = (
-                row_spectra.mean(axis=0) if row_spectra.size else None
-            )
+            self.baseline_row_spectrum = row_spectra.mean(axis=0) if row_spectra.size else None
 
         self._is_fitted = True
         return self
@@ -571,9 +567,7 @@ class DimensionalAnalyzer(BaseDetector):
             min_len = min(self.baseline_row_spectrum.shape[0], sample_spectra.shape[1])
             baseline = self.baseline_row_spectrum[:min_len]
             diff = sample_spectra[:, :min_len] - baseline[None, :]
-            spectral_divergence = np.linalg.norm(diff, axis=1) / (
-                np.linalg.norm(baseline) + 1e-10
-            )
+            spectral_divergence = np.linalg.norm(diff, axis=1) / (np.linalg.norm(baseline) + 1e-10)
         else:
             spectral_divergence = 0.0  # legacy dead term (see docstring)
 
@@ -581,9 +575,7 @@ class DimensionalAnalyzer(BaseDetector):
         harmonic_distortion = self._harmonic_distortion_rows(data)
 
         db_scores = (
-            spectral_divergence * 0.5
-            + (1.0 - phase_coherence) * 0.3
-            + harmonic_distortion * 0.2
+            spectral_divergence * 0.5 + (1.0 - phase_coherence) * 0.3 + harmonic_distortion * 0.2
         )
 
         return np.minimum(db_scores, 1.0)
