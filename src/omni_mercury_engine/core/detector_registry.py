@@ -214,6 +214,15 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "Geographic and spatial relationship anomalies",
     ),
     DetectorManifestEntry(
+        "geo_movement",
+        "omni_mercury_engine.detectors.geo_movement",
+        "GeoMovementAnomalyDetector",
+        DetectorCategory.BASE,
+        "Trajectory movement plausibility: velocity, jump, and silence channels",
+        feature_dim=8,
+        tags=["geospatial", "trajectory"],
+    ),
+    DetectorManifestEntry(
         "dimensional",
         "omni_mercury_engine.detectors.dimensional",
         "DimensionalAnalyzer",

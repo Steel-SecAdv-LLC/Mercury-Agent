@@ -27,6 +27,83 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Geospatial kernel + movement-plausibility detector — one lat/lon geometry, a boreal undercount fixed, FINDΩYOU groundwork (2026-06-11)
+
+Consolidates all latitude/longitude geometry behind a single numpy-only
+kernel, fixes a measured correctness defect in the wildfire loader, and
+adds the engine's first trajectory-level geographic detector.  The
+detector core is a corrective rebuild of an externally audited geospatial
+module (2026-06-10 audit); all four audited defects are reproduced as
+regression tests against the corrected implementations.
+
+* **New `omni_mercury_engine.utils.geo` — canonical geospatial kernel
+  (numpy only).** `haversine_km`, `haversine_km_to_point`, and
+  `pairwise_haversine_km` use the numerically robust `atan2` haversine
+  form and the IUGG mean Earth radius (6371.0088 km).
+  `neighbor_counts_within_km` (with an optional temporal co-occurrence
+  window) and `dbscan_geo` (kilometre-denominated DBSCAN, Ester et al.
+  1996) prune candidate pairs with an *exact* latitude band — on the
+  sphere the central angle is at least |Δlat|, so the band can never drop
+  a true neighbor — and never materialize the full n² distance matrix.
+  `dbscan_geo` closes a real gap: the native `ml.mercury_ml.DBSCAN`
+  delegates to `scipy.cdist`, which has no haversine metric, and no single
+  euclidean-degrees eps is meaningful across latitudes (50 km spans 0.45°
+  of longitude at the equator but 0.90° at 60°N).
+
+* **Wildfire loader correctness fix (boreal undercount).**
+  `WildfireLoader._compute_spatial_clustering` pre-filtered candidates
+  with a flat `radius_km / 111 * 1.5` degree box before exact distance
+  checks.  Above ~48° latitude one degree of longitude spans too few km
+  for that buffer: at 62°N (boreal fire country, prime VIIRS territory)
+  two detections 9.49 km apart — inside the 10 km radius — were dropped
+  entirely, and a 400-point synthetic boreal swarm lost 9,886 true
+  neighbor pairs (~20%).  The `cluster_count` feature is now exact at
+  every latitude; `tests/loaders/test_geo_rewire.py` pins mid-latitude
+  parity with a verbatim port of the legacy loop and demonstrates the
+  boreal fix against brute-force ground truth.
+
+* **Loader geometry rewired to the kernel — faster, behavior pinned.**
+  Tornado temporal clustering (same-hour + 100 km co-occurrence): 18×
+  faster at n=3,000 (4.7 s → 0.26 s).  Wildfire spatial clustering: 3.6×
+  at n=3,000 and 9× at n=20,000 (12.7 s → 1.4 s).  Wildfire spread rate:
+  2× (lookahead window vectorized; first-minimum tie semantics
+  preserved).  Tornado centroid distance (`geo_anomaly` feature)
+  vectorized.  Three private haversine copies collapse into the kernel.
+  Standardizing the Earth radius (6371.0 → 6371.0088, +1.4e-6 relative)
+  shifts a 10 km cutoff by ~1.4 cm; measured effect on dense synthetic
+  swarms: 2–4 flipped neighbor counts per ~1.7M true pairs, versus VIIRS
+  positional resolution of 375 m.  Deliberately untouched: the hurricane
+  loader's translation speed (angular degrees by documented design) and
+  the landslide loader's ArcGIS bounding box (correct cos-compensated
+  server-side prefilter).
+
+* **New `GeoMovementAnomalyDetector`
+  (`detectors/geo_movement.py`) — movement plausibility for
+  (lat, lon, time) trajectories.**  BaseDetector-compliant
+  (`fit`/`detect`/`extract_features`, auto-calibration supported,
+  registered in the detectors lazy-import table and `DETECTOR_MANIFEST`
+  as `geo_movement`, BASE category, feature_dim 8), plus a casework
+  `assess(history, current, now)` API for datetime-stamped sightings —
+  groundwork for the FINDΩYOU missing-persons mission.  Three channels in
+  [0, 1] (velocity vs. a 130 km/h feasibility ceiling, step-length z-score
+  vs. *fitted* history, silence vs. expected reporting cadence) fuse by
+  noisy-OR, so one saturated channel alone exceeds any threshold below
+  1.0.  The audited module it rebuilds could not fire on a 450 km/h
+  teleport: weighted-sum fusion (0.4/0.3/0.3 vs. a 0.72 threshold) capped
+  any single channel at 0.4, and the jump statistic measured spread from
+  the candidate point, suppressing its own signal.  Both failure modes
+  are locked as tests (`test_impossible_jump_fires`,
+  `test_single_saturated_channel_fires_alone`,
+  `test_jump_scored_against_history_not_candidate`).
+
+* **Tests: 36 new** across `tests/utils/test_geo.py` (ground-truth
+  distances, brute-force neighbor parity, permutation invariance, DBSCAN
+  transitivity/planted-cluster recovery), `tests/detectors/
+  test_geo_movement.py` (audit regressions + interface contract), and
+  `tests/loaders/test_geo_rewire.py` (parity with verbatim legacy
+  implementations).  Affected existing suites pass unchanged (domain
+  loaders, detector manifest, spatial detector).
+
 ### Decision / Abstention / Response layer — closes identify→interpret→decide→deter with a calibration-grounded "don't-know" gate (2026-06-09)
 
 Converts the calibrated detection certificate into a **closed autonomous loop**

@@ -70,6 +70,10 @@ _LAZY_IMPORTS: dict[str, tuple[str, ...]] = {
     ),
     "omni_mercury_engine.detectors.dimensional": ("DimensionalAnalyzer",),
     "omni_mercury_engine.detectors.directive": ("SigmaDirectiveDetector",),
+    "omni_mercury_engine.detectors.geo_movement": (
+        "GeoMovementAnomalyDetector",
+        "MovementAssessment",
+    ),
     "omni_mercury_engine.detectors.spatial": ("SpatialAnomalyDetector",),
     "omni_mercury_engine.detectors.spectral_vibration": (
         "SpectralAnalysisMode",
@@ -137,10 +141,12 @@ __all__ = [
     "FrequencyInfluenceVector",
     "FrequencyWeighting",
     "GWOEnsembleDetector",
+    "GeoMovementAnomalyDetector",
     "InteractionType",
     "LAVADDetector",
     "MercuryAnomalyDetector",
     "MotionState",
+    "MovementAssessment",
     "MultiScaleTransformerDetector",
     "PaDiMDetector",
     "PatchCoreDetector",
