@@ -4873,16 +4873,11 @@ class OmniMercuryEngine(LoggerMixin):
             if model_state is not None:
                 model_fitted_state[model_name] = self._fitted_state_to_checkpoint(model_state)
 
-        conformal_state = None
-        if self._fusion_conformal is not None and self._fusion_conformal._fitted:
-            conformal_state = {
-                "coverage": float(self._fusion_conformal.coverage),
-                "seed": int(self._fusion_conformal.seed),
-                "thresholds": {
-                    int(label): float(value)
-                    for label, value in self._fusion_conformal._thresholds.items()
-                },
-            }
+        # export_state() emits the exact mapping this key has always carried
+        # (int-keyed thresholds), so the on-disk format is unchanged.
+        conformal_state = (
+            self._fusion_conformal.export_state() if self._fusion_conformal is not None else None
+        )
         checkpoint = {
             "format_version": FUSION_CHECKPOINT_FORMAT_VERSION,
             "mercury_version": __version__,
@@ -4939,6 +4934,11 @@ class OmniMercuryEngine(LoggerMixin):
         temperature calibrator is restored when present so calibrated
         probabilities are available immediately.
 
+        Calibration state is *replaced*, not merged: a structured checkpoint
+        without a temperature or ``conformal_state`` entry clears any
+        engine-local calibrator/conformal surface, since one fitted against
+        a previous fusion stack would silently misapply to the loaded one.
+
         Args:
             path: File path to load the checkpoint from.
 
@@ -4980,6 +4980,10 @@ class OmniMercuryEngine(LoggerMixin):
                 calibrator.temperature = float(temperature)
                 calibrator._fitted = True
                 self._fusion_calibrator = calibrator
+            else:
+                # A calibrator fitted to a previous fusion stack misapplies to
+                # the loaded one: drop it so loaded state == saved state.
+                self._fusion_calibrator = None
 
             groups = checkpoint.get("feature_groups")
             self._fusion_feature_groups = list(groups) if groups is not None else None
@@ -5049,6 +5053,12 @@ class OmniMercuryEngine(LoggerMixin):
                     )
                     continue
                 restorer(self._fitted_state_from_checkpoint(det_state))
+                # The checkpoint's state replaces any earlier inference-batch
+                # auto-fit, so the leak record no longer describes this
+                # detector — drop it so the audit trail (and the warning for
+                # any future auto-fit) stays truthful. Legacy loads restore
+                # nothing, so a surviving contamination keeps its record.
+                self._inference_auto_fit_detectors.discard(det_name)
 
             # Torch-module domain models: their randomly-initialized feature
             # extractors are part of the serve-time transform, so reload
@@ -5082,18 +5092,14 @@ class OmniMercuryEngine(LoggerMixin):
                     continue
                 restorer(self._fitted_state_from_checkpoint(model_state))
 
+            # Restore the conformal serving surface, or drop a stale one fitted
+            # against a previous fusion stack, so loaded state == saved state.
             conformal_state = checkpoint.get("conformal_state")
-            if conformal_state is not None:
-                conformal = BinaryConformalClassifier(
-                    coverage=float(conformal_state["coverage"]),
-                    seed=int(conformal_state["seed"]),
-                )
-                conformal._thresholds = {
-                    int(label): float(value)
-                    for label, value in conformal_state["thresholds"].items()
-                }
-                conformal._fitted = True
-                self._fusion_conformal = conformal
+            self._fusion_conformal = (
+                BinaryConformalClassifier.from_state(conformal_state)
+                if conformal_state is not None
+                else None
+            )
         else:
             # Legacy bare state_dict (no metadata): load directly.
             self.fusion_model.load_state_dict(checkpoint)

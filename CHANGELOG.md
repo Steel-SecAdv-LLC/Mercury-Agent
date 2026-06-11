@@ -27,6 +27,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Reproducibility & API consolidation — deterministic construction of the fusion feature path's random components; conformal serialization moved behind a first-class API (2026-06-11)
+
+Consolidation follow-up to the checkpoint round-trip closure (ROADMAP row 16,
+PR #286): salvages the source-level pieces of the superseded competing
+implementation (PR #288) that remain advantageous on top of the shipped
+fitted-state persistence design. No checkpoint format change; the shipped
+`default_fusion.pt` is byte-unchanged and loads identically.
+
+* **Deterministic construction (measured):** three fusion feature groups were
+  still instance-dependent for *checkpoint-free* engines — two engines
+  constructed under different ambient RNG states extracted different features
+  (measured max|Δ| at the pre-fix commit: `dimensional` ≈ 3.01, `multiverse`
+  ≈ 0.98, `temporal` ≈ 0.27). Root causes fixed at the source, each under a
+  forked fixed-seed RNG that leaves the caller's global stream untouched:
+  the temporal detector's untrained LSTM projector is now an architecture
+  constant; the dimensional autoencoder's `fit()` init is deterministic, so
+  fit is a pure function of its data (full-batch, shuffle-free loop); the
+  default multiverse population is fixed-seed with index-only universe IDs
+  (an explicitly injected `rng` still overrides). Measured after: **all 13
+  feature groups bit-identical across instances** (max|Δ| = 0.0), pinned by
+  `tests/test_deterministic_construction.py`. Checkpoints continue to
+  persist fitted state, so every existing artifact reproduces exactly.
+* **Conformal serialization API:** `BinaryConformalClassifier` gains
+  `export_state()` / `from_state()` (checkpoint-safe primitives, layout
+  identical to the `conformal_state` key fusion checkpoints already carry);
+  `engine.save_model`/`load_model` now use them instead of poking private
+  attributes. `from_state` coerces string-keyed thresholds, so a JSON
+  round-trip of the mapping loads equally.
+* **Stale-state drop on load:** `load_model` now *replaces* engine-local
+  calibration state with the checkpoint's, including replaced-by-`None` — a
+  temperature calibrator or conformal surface fitted against a previous
+  fusion stack is dropped rather than silently misapplied to the loaded one
+  (regression-pinned in `tests/test_fusion_checkpoint_roundtrip.py`).
+* **Auto-fit audit record kept truthful across load** (defect surfaced by
+  PR #288's review): restoring a detector's fitted state from a checkpoint
+  now drops that detector from `_inference_auto_fit_detectors` — the
+  first-batch leak it recorded no longer describes the engine, and a stale
+  entry would also suppress the audit warning for any future post-load
+  auto-fit. Legacy loads restore nothing, so a surviving contamination
+  keeps its record (regression-pinned).
+* **Tooling:** `scripts/train_default_fusion.py` self-check now asserts
+  detectors-restored-as-fitted on load and save→load probability equivalence
+  (verified here: max |dP| = 1.35e-07 on a scratch artifact); the fusion
+  regression guard's "train rather than load" rationale updated to reflect
+  the row-16 closure (gate re-run against the existing committed baseline:
+  **PASS**, no re-pin needed).
+
 ### Performance & correctness — optimization/efficiency pass over the serving and checkpoint paths, with four pre-existing defect families fixed to completion (2026-06-11)
 
 Profile-first discipline: every change below is driven by a fresh measurement
