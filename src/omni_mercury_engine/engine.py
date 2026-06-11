@@ -171,6 +171,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
     from pathlib import Path
 
+    from omni_mercury_engine.agentic.orchestration import MultiAgentOrchestrator
     from omni_mercury_engine.cognitive.ethical_bounding import BenevolenceScorer
     from omni_mercury_engine.cognitive.orchestrator import CognitiveOrchestrator
     from omni_mercury_engine.decision import DecisionAbstentionResponder, DecisionLedger
@@ -949,7 +950,7 @@ class OmniMercuryEngine(LoggerMixin):
         # Multi-agent orchestration (vision pillar B): planner/critic/executor
         # loop over this engine's own detectors. None until enabled via
         # enable_multi_agent_orchestration().
-        self.multi_agent_orchestrator: Any | None = None
+        self.multi_agent_orchestrator: MultiAgentOrchestrator | None = None
         # Decision / abstention / response layer: closes the loop from the
         # calibrated detection certificate to a bounded, non-destructive
         # response with an explicit "don't-know" gate.  None until enabled via
@@ -2544,7 +2545,7 @@ class OmniMercuryEngine(LoggerMixin):
         contamination: float = 0.1,
         operating_threshold: float = 0.5,
         seed: int | None = None,
-    ) -> Any:
+    ) -> MultiAgentOrchestrator:
         """Enable planner/critic/executor multi-agent orchestration (pillar B).
 
         Wires a :class:`~omni_mercury_engine.agentic.orchestration.MultiAgentOrchestrator`

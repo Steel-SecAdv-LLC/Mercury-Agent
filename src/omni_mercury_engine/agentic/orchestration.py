@@ -7,11 +7,13 @@ reflexion / chain-of-thought tier (DORMANCY_LEDGER rows 10-11) into a single
 live, measurable execution path:
 
 * ``hierarchical_planning.HierarchicalPlanner`` **plans and drives** the
-  detection episode: the pipeline stages (fit -> score -> consensus -> decide
-  -> reflect) are registered as real Options whose initiation/termination
-  predicates read the *actual* pipeline state, ``select_action`` chooses the
-  next stage, and ``update_on_feedback`` receives real stage outcomes as TD
-  rewards.
+  detection episode: the planner-executed stages of ``detect()`` are
+  score -> consensus -> decide, registered as real Options whose
+  initiation/termination predicates read the *actual* pipeline state
+  (``fit()`` is the precondition stage that arms them, and reflection runs
+  in ``run_episode()`` after detection when labels arrive);
+  ``select_action`` chooses each next stage and ``update_on_feedback``
+  receives real stage outcomes as TD rewards.
 * ``multi_agent_coordination.AgentCoordinator`` + ``ConsensusProtocol``
   **coordinate** per-sample consensus across agents that wrap the engine's
   real detectors (``engine.detectors``) — not toy scorers.
@@ -389,6 +391,26 @@ class MultiAgentOrchestrator:
         if not detector_map:
             raise OrchestrationError("no detectors available to orchestrate")
 
+        resolved_method = (
+            consensus_method
+            if isinstance(consensus_method, ConsensusMethod)
+            else ConsensusMethod(consensus_method)
+        )
+        if resolved_method is not ConsensusMethod.CONFIDENCE_WEIGHTED:
+            # Fail fast rather than expose an incoherent contract: the
+            # orchestrator's continuous consensus score, reflexion-adapted
+            # operating threshold, and trace fidelity are all defined in
+            # CONFIDENCE_WEIGHTED semantics. Other protocol methods emit
+            # discrete verdicts with no continuous score to threshold or
+            # adapt; honoring them here would silently decouple the issued
+            # decisions from the selected protocol. Per-method semantics
+            # are a future measured extension, not a silent fallback.
+            raise OrchestrationError(
+                f"MultiAgentOrchestrator implements CONFIDENCE_WEIGHTED consensus "
+                f"semantics only (got {resolved_method.value!r}); other methods "
+                "remain available directly on ConsensusProtocol"
+            )
+
         self.min_participants = int(min_participants)
         self.operating_threshold = float(operating_threshold)
         self._seed = seed
@@ -396,11 +418,7 @@ class MultiAgentOrchestrator:
         # --- Executor tier: coordinator over real-detector agents ---------
         self.coordinator = AgentCoordinator(
             strategy=CoordinationStrategy.CENTRALIZED,
-            consensus_method=(
-                consensus_method
-                if isinstance(consensus_method, ConsensusMethod)
-                else ConsensusMethod(consensus_method)
-            ),
+            consensus_method=resolved_method,
         )
         self.agents: dict[str, DetectorAgent] = {}
         for index, (name, detector) in enumerate(detector_map.items()):
@@ -614,54 +632,25 @@ class MultiAgentOrchestrator:
         votes = score_matrix > thresholds
         confidences = np.clip(np.abs(score_matrix - thresholds) / scales, 0.0, 1.0)
 
-        if self.protocol.method is ConsensusMethod.CONFIDENCE_WEIGHTED:
-            # Vectorized form of ConsensusProtocol._confidence_weighted —
-            # the protocol remains the semantic authority: a deterministic
-            # subsample of every batch is re-derived through the real
-            # protocol and any divergence fails the batch closed.
-            total_confidence = confidences.sum(axis=0)
-            safe_total = np.where(total_confidence > 0, total_confidence, 1.0)
-            weighted = (confidences * score_matrix).sum(axis=0)
-            consensus_scores = np.where(total_confidence > 0, weighted / safe_total, 0.5)
-            protocol_decisions = consensus_scores > 0.5
-            agree_weight = (confidences * (votes == protocol_decisions[None, :])).sum(axis=0)
-            agreement = np.where(total_confidence > 0, agree_weight / safe_total, 0.0)
-            dissent_counts = (votes != protocol_decisions[None, :]).sum(axis=0)
-            abstained[:] = False
-            decisions = consensus_scores > self.operating_threshold
-            self._spot_check_consensus(
-                agent_names, score_matrix, votes, confidences,
-                consensus_scores, agreement, dissent_counts,
-            )
-        else:
-            for i in range(n):
-                results = [
-                    DetectionResult(
-                        agent_id=name,
-                        anomaly_score=float(score_matrix[j, i]),
-                        is_anomaly=bool(votes[j, i]),
-                        confidence=float(confidences[j, i]),
-                    )
-                    for j, name in enumerate(agent_names)
-                ]
-                consensus = self.protocol.reach_consensus(results)
-                if isinstance(consensus, dict):  # vote-dict path; unreachable here
-                    raise OrchestrationError(
-                        "consensus protocol returned a non-result payload"
-                    )
-
-                total = float(confidences[:, i].sum())
-                consensus_scores[i] = (
-                    float((confidences[:, i] * score_matrix[:, i]).sum()) / total
-                    if total > 0
-                    else 0.5
-                )
-                abstained[i] = consensus.abstained
-                agreement[i] = consensus.agreement_ratio
-                dissent_counts[i] = len(consensus.dissenting_agents)
-                decisions[i] = (not consensus.abstained) and (
-                    consensus_scores[i] > self.operating_threshold
-                )
+        # Vectorized form of ConsensusProtocol._confidence_weighted — the
+        # protocol remains the semantic authority: a deterministic subsample
+        # of every batch is re-derived through the real protocol and any
+        # divergence fails the batch closed. (The constructor guarantees the
+        # CONFIDENCE_WEIGHTED method, so this is the only consensus path.)
+        total_confidence = confidences.sum(axis=0)
+        safe_total = np.where(total_confidence > 0, total_confidence, 1.0)
+        weighted = (confidences * score_matrix).sum(axis=0)
+        consensus_scores = np.where(total_confidence > 0, weighted / safe_total, 0.5)
+        protocol_decisions = consensus_scores > 0.5
+        agree_weight = (confidences * (votes == protocol_decisions[None, :])).sum(axis=0)
+        agreement = np.where(total_confidence > 0, agree_weight / safe_total, 0.0)
+        dissent_counts = (votes != protocol_decisions[None, :]).sum(axis=0)
+        abstained[:] = False
+        decisions = consensus_scores > self.operating_threshold
+        self._spot_check_consensus(
+            agent_names, score_matrix, votes, confidences,
+            consensus_scores, agreement, dissent_counts,
+        )
 
         return CoordinationBatch(
             consensus_scores=consensus_scores,
@@ -836,7 +825,11 @@ class MultiAgentOrchestrator:
                     raise OrchestrationError("plan reached decision stage without consensus")
                 benevolence_score = self._enforce_ethics(batch, domain)
                 state["decisions_issued"] = True
-                reward = 1.0
+                # The TD reward reflects what was actually delivered: only
+                # quorum-backed (non-abstained) decisions count. An
+                # all-abstention batch completes the plan honestly but earns
+                # no value — abstaining is correct, not rewarding.
+                reward = float(1.0 - np.mean(batch.abstained))
             elif action == _STAGE_FIT:
                 # Agents are fitted before detect(); the initiation predicate
                 # (agents_fitted=False) makes this unreachable here, and

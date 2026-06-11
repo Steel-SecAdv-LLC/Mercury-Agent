@@ -908,15 +908,25 @@ class ReflexionEngine:
                 lowered = suggestion.lower()
                 if "evidence" in lowered or "data" in lowered:
                     if len(data) > 0:
-                        arr = np.asarray(data, dtype=float)
-                        reflection_enrichment["evidence"] = [
-                            f"mean={float(np.mean(arr)):.4f}",
-                            f"std={float(np.std(arr)):.4f}",
-                            f"max_abs={float(np.max(np.abs(arr))):.4f}",
-                            f"n={arr.size}",
-                        ]
-                        lo, hi = float(np.min(arr)), float(np.max(arr))
-                        reflection_enrichment["confidence_interval"] = (lo, hi)
+                        try:
+                            arr = np.asarray(data, dtype=float)
+                            reflection_enrichment["evidence"] = [
+                                f"mean={float(np.mean(arr)):.4f}",
+                                f"std={float(np.std(arr)):.4f}",
+                                f"max_abs={float(np.max(np.abs(arr))):.4f}",
+                                f"n={arr.size}",
+                            ]
+                            lo, hi = float(np.min(arr)), float(np.max(arr))
+                            reflection_enrichment["confidence_interval"] = (lo, hi)
+                        except (TypeError, ValueError):
+                            # Non-numeric payloads (generic tasks) cannot be
+                            # summarized statistically; record honest minimal
+                            # evidence about the payload instead of aborting
+                            # the reflection loop.
+                            reflection_enrichment["evidence"] = [
+                                f"payload_type={type(data).__name__}",
+                                f"n={len(data)}",
+                            ]
                 if "review" in lowered or "similar" in lowered:
                     reflection_enrichment["reasoning"] = decision.reasoning
 
@@ -1738,13 +1748,22 @@ class AnomalyReflexion:
             return (tpr + tnr) / 2.0
 
         # Candidate thresholds: midpoints between adjacent observed scores
-        # (every distinct decision boundary the data supports) plus the
-        # current threshold as the do-nothing baseline.
+        # (every interior decision boundary the data supports) plus the two
+        # extreme regimes — a sentinel just below the minimum score
+        # (everything predicted anomalous) and one at the maximum (nothing
+        # predicted, since the decision rule is strictly greater-than). The
+        # current threshold is evaluated separately as the do-nothing
+        # baseline. Without the sentinels the optimum is unreachable when
+        # the best operating point is one of the all-or-nothing regimes
+        # (e.g. fully inverted score distributions).
         unique_scores = np.unique(score_arr)
         if unique_scores.size >= 2:
-            candidates = (unique_scores[:-1] + unique_scores[1:]) / 2.0
+            midpoints = (unique_scores[:-1] + unique_scores[1:]) / 2.0
         else:
-            candidates = unique_scores
+            midpoints = np.empty(0, dtype=float)
+        candidates = np.concatenate(
+            ([unique_scores[0] - 1e-9], midpoints, [unique_scores[-1]])
+        )
         current_acc = balanced_accuracy(self.anomaly_threshold)
         best_threshold = self.anomaly_threshold
         best_acc = current_acc

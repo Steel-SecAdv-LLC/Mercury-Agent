@@ -18,6 +18,13 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
+
+# Mirror scripts/run_api.py: runnable from a fresh checkout without an
+# editable install.
+_SRC = Path(__file__).resolve().parent.parent / "src"
+if str(_SRC) not in sys.path:
+    sys.path.insert(0, str(_SRC))
 
 
 def main() -> int:

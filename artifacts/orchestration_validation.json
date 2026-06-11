@@ -1,4 +1,6 @@
 {
+  "complete": true,
+  "failed_cells": [],
   "results": [
     {
       "adaptive_balanced_acc": 0.782258064516129,

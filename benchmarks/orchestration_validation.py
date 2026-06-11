@@ -349,11 +349,13 @@ def main() -> int:
     print("-" * 88)
 
     results: list[dict[str, Any]] = []
+    failed_cells: list[str] = []
     for name in args.datasets:
         for seed in args.seeds:
             try:
                 row = run_dataset_seed(name, seed)
             except Exception as exc:
+                failed_cells.append(f"{name}/seed{seed}")
                 print(f"  {name} seed={seed}: FAILED ({type(exc).__name__}: {exc})")
                 continue
             if row is None:
@@ -386,8 +388,19 @@ def main() -> int:
 
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps({"results": results, "verdict": verdict}, indent=2, sort_keys=True))
+    report = {
+        "results": results,
+        "verdict": verdict,
+        "complete": not failed_cells,
+        "failed_cells": failed_cells,
+    }
+    out.write_text(json.dumps(report, indent=2, sort_keys=True))
     print(f"report -> {out}")
+    if failed_cells:
+        # Fail-closed on a partial grid: bars measured on a subset must not
+        # read as a clean pass, however the subset scored.
+        print(f"INTEGRITY FAILURE: {len(failed_cells)} grid cell(s) unmeasured: {failed_cells}")
+        return 1
     return 0 if verdict["passed"] else 1
 
 

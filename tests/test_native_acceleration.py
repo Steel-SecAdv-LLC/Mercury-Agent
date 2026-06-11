@@ -21,6 +21,7 @@ behavioral change. This module pins that contract:
 
 from __future__ import annotations
 
+import importlib.util
 import math
 from typing import Any
 
@@ -93,7 +94,7 @@ class TestDimensionalDBVectorization:
                 + (1.0 - analyzer._compute_phase_coherence(data[idx, :])) * 0.3
                 + analyzer._compute_harmonic_distortion(data[idx, :]) * 0.2
             )
-            expected[idx] = min(db, 1.0)
+            expected[idx] = min(float(db), 1.0)
 
         np.testing.assert_allclose(produced, expected, rtol=0, atol=1e-12)
 
@@ -254,9 +255,13 @@ class TestConsensusFastPathParity:
 # Spatial detector numba lane ([performance] extra)
 # =============================================================================
 
-numba = pytest.importorskip("numba", reason="performance extra not installed")
+# Class-scoped skip (NOT module-level importorskip): the dimensional /
+# directive / orchestrator parity tests above must run in every
+# environment; only this class needs the [performance] extra.
+_NUMBA_MISSING = importlib.util.find_spec("numba") is None
 
 
+@pytest.mark.skipif(_NUMBA_MISSING, reason="performance extra not installed")
 class TestSpatialNumbaLaneParity:
     def test_jit_lane_is_active(self) -> None:
         from omni_mercury_engine.detectors import spatial

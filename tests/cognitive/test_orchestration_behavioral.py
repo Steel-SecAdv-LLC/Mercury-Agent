@@ -535,15 +535,28 @@ class TestEthicalGating:
     """The dual hard gates bind the orchestrator's decision boundary."""
 
     def test_benevolence_violation_blocks_decisions(self) -> None:
+        from omni_mercury_engine.cognitive.ethical_bounding import EthicalScore
+
         orch, X_test, _ = _fitted_orchestrator(0)
 
-        class _Veto:
-            benevolence_score = 0.0
-            is_permissible = False
+        def _veto(action: str, context: dict[str, Any]) -> EthicalScore:
+            return EthicalScore(
+                score_id="veto",
+                action=action,
+                benevolence_score=0.0,
+                harm_score=1.0,
+                benefit_score=0.0,
+                equity_score=0.0,
+                long_term_score=0.0,
+                is_permissible=False,
+                principle_scores={},
+                harm_breakdown={},
+                benefit_breakdown={},
+                explanation="forced veto for gate-enforcement test",
+                recommendations=[],
+            )
 
-        orch._benevolence_scorer.score_action = (  # type: ignore[method-assign]
-            lambda action, context=None: _Veto()
-        )
+        orch._benevolence_scorer.score_action = _veto  # type: ignore[method-assign]
         with pytest.raises(EthicalConstraintViolationError):
             orch.detect(X_test)
 
@@ -566,6 +579,100 @@ class TestEngineWiring:
         assert set(orchestrator.agents) == set(engine.detectors)
         for name, agent in orchestrator.agents.items():
             assert agent.detector is engine.detectors[name]
+
+
+class TestConsensusMethodContract:
+    """The orchestrator's continuous-score/threshold/trace contract is
+    CONFIDENCE_WEIGHTED-specific; other protocol methods must fail fast at
+    construction instead of silently decoupling decisions from the
+    selected protocol (review finding, 2026-06-11)."""
+
+    @pytest.mark.parametrize(
+        "method", ["majority_vote", "weighted_vote", "unanimous", "byzantine_tolerant"]
+    )
+    def test_non_confidence_weighted_methods_fail_fast(self, method: str) -> None:
+        with pytest.raises(OrchestrationError, match="CONFIDENCE_WEIGHTED"):
+            MultiAgentOrchestrator(consensus_method=method, seed=0)
+
+    def test_confidence_weighted_accepted_by_name_and_enum(self) -> None:
+        from omni_mercury_engine.cognitive.multi_agent_coordination import ConsensusMethod
+
+        assert MultiAgentOrchestrator(consensus_method="confidence_weighted", seed=0)
+        assert MultiAgentOrchestrator(
+            consensus_method=ConsensusMethod.CONFIDENCE_WEIGHTED, seed=0
+        )
+
+
+class TestHonestStageRewards:
+    """TD rewards must reflect delivered value: an all-abstention batch
+    completes the plan honestly but earns no decide-stage reward."""
+
+    def test_abstained_batch_earns_zero_decide_reward(self) -> None:
+        orch, X_test, _ = _fitted_orchestrator(0)
+        # Break all but two agents: below quorum, the whole batch abstains.
+        for name in list(orch.agents)[:-2]:
+            orch.agents[name].score_batch = (  # type: ignore[method-assign]
+                lambda X: (_ for _ in ()).throw(RuntimeError("scoring down"))
+            )
+        episode = orch.detect(X_test)
+        assert episode.coordination.abstained.all()
+        assert episode.plan.executed_actions[-1] == "issue_decisions"
+        assert episode.plan.stage_rewards[-1] == 0.0
+        assert episode.plan.goal_status == "completed"  # honest completion
+
+    def test_quorum_backed_batch_earns_full_decide_reward(self) -> None:
+        orch, X_test, _ = _fitted_orchestrator(0)
+        episode = orch.detect(X_test)
+        assert not episode.coordination.abstained.any()
+        assert episode.plan.stage_rewards[-1] == 1.0
+
+
+class TestThresholdSweepExtremes:
+    """The evidence-grounded sweep must reach the all-or-nothing regimes
+    (review finding): with fully inverted recorded scores no interior
+    midpoint beats an extreme boundary."""
+
+    def test_inverted_scores_reach_extreme_regime(self) -> None:
+        from omni_mercury_engine.cognitive.reflexion import AnomalyReflexion
+
+        reflexion = AnomalyReflexion(anomaly_threshold=0.5)
+        rng = np.random.default_rng(0)
+        # Inverted world: anomalies score LOW, normals score HIGH. At the
+        # 0.5 threshold every prediction is wrong (balanced accuracy 0);
+        # every interior midpoint is no better than 0.5; only the extreme
+        # regimes (predict-all / predict-none) reach balanced accuracy 0.5.
+        anomaly_scores = rng.uniform(0.10, 0.30, size=12)
+        normal_scores = rng.uniform(0.70, 0.90, size=12)
+        for score in anomaly_scores:
+            reflexion.record_detection(prediction=float(score), ground_truth=True, features={})
+        for score in normal_scores:
+            reflexion.record_detection(prediction=float(score), ground_truth=False, features={})
+
+        recommendation = reflexion.get_threshold_recommendation()
+        assert recommendation["recommendation"] != "maintain"
+        suggested = float(recommendation["suggested_threshold"])
+        lowest = float(min(anomaly_scores.min(), normal_scores.min()))
+        highest = float(max(anomaly_scores.max(), normal_scores.max()))
+        assert suggested < lowest or suggested >= highest, (
+            f"sweep failed to reach an extreme regime "
+            f"(suggested {suggested}, observed range [{lowest}, {highest}])"
+        )
+
+
+class TestReflectionRobustness:
+    """Reflection enrichment must not abort on non-numeric task payloads
+    (review finding): it records honest payload evidence instead."""
+
+    def test_non_numeric_data_does_not_abort_loop(self) -> None:
+        from omni_mercury_engine.cognitive.reflexion import ReflexionEngine
+
+        engine = ReflexionEngine(seed=0)
+        result = engine.execute_with_reflection(
+            {"type": "evaluate_reasoning", "data": ["thought-a", "thought-b", "thought-c"]},
+            max_iterations=3,
+        )
+        assert result["iterations"] >= 1
+        assert "decision" in result
 
 
 class TestOrchestratorStatistics:

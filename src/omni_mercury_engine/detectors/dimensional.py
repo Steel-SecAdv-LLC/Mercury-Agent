@@ -534,9 +534,7 @@ class DimensionalAnalyzer(BaseDetector):
         return mean_signature
 
     def _dimensional_code_breaking(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """DB Term: Dimensional Code-Breaking Detection Detects anomalies via spectral divergence in.
-
-        Fourier space.
+        """DB term: dimensional code-breaking — detect anomalies via spectral divergence in Fourier space.
 
         Vectorized (2026-06-11): one batched FFT over all rows replaces the
         former per-row loop (two FFT calls per sample). Outputs are
