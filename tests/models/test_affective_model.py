@@ -17,11 +17,23 @@ class TestAffectiveAnomalyModelInitialization:
     """Tests for AffectiveAnomalyModel initialization."""
 
     def test_default_initialization(self) -> None:
-        """Test initialization with default parameters."""
+        """Default construction holds no shared RNG stream.
+
+        The feature/prediction paths are pure functions of the input
+        (content-seeded per call), so the default instance must not capture
+        the process-global RNG — that statefulness made the same batch
+        produce different features on every call and broke fusion checkpoint
+        round-trips (ROADMAP v1.7.x item #16).
+        """
         model = AffectiveAnomalyModel()
 
         assert model.config == {}
-        assert model._rng is not None
+        assert model._rng is None
+
+        data = np.arange(20, dtype=np.float32).reshape(2, 10)
+        first = AffectiveAnomalyModel().extract_features(data)
+        second = AffectiveAnomalyModel().extract_features(data)
+        np.testing.assert_array_equal(first, second)
 
     def test_initialization_with_config(self) -> None:
         """Test initialization with custom config."""

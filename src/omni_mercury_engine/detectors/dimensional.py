@@ -39,6 +39,12 @@ from omni_mercury_engine.core.exceptions import DetectorException
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
+# Fixed initialization seed for the autoencoder built inside fit(). The value
+# is arbitrary but immutable: it makes fit() deterministic given its data so
+# fusion checkpoints round-trip across processes. Do not change without
+# regenerating shipped checkpoints.
+_AUTOENCODER_INIT_SEED: int = 4_280_316
+
 
 class _NativePCA:
     """Minimal PCA via truncated SVD (no sklearn dependency).
@@ -303,10 +309,20 @@ class DimensionalAnalyzer(BaseDetector):
         self.pca = _NativePCA(n_components=n_comp)
         self.pca.fit(data_np)
 
-        self.autoencoder = NeuralProjection(
-            input_dim=self.input_dim,
-            latent_dim=n_comp,
-        )
+        # Initialize the autoencoder under a forked, fixed-seed RNG so fit()
+        # is a deterministic function of the training data alone: same data ->
+        # bit-identical weights after the (full-batch, shuffle-free) training
+        # loop below, on every instance and in every process. This is what
+        # lets a fusion checkpoint's embedded training reference reproduce
+        # the dimensional feature group exactly on load (ROADMAP v1.7.x
+        # deferred item #16). Changing _AUTOENCODER_INIT_SEED invalidates
+        # existing fusion checkpoints.
+        with torch.random.fork_rng(devices=[]):
+            torch.manual_seed(_AUTOENCODER_INIT_SEED)
+            self.autoencoder = NeuralProjection(
+                input_dim=self.input_dim,
+                latent_dim=n_comp,
+            )
 
         data_tensor = torch.tensor(data_np, dtype=torch.float32)
         optimizer = torch.optim.Adam(self.autoencoder.parameters(), lr=self.autoencoder_lr)

@@ -19,36 +19,58 @@ class NeuralCognitiveModel:
         self.memory_capacity = self.config.get("memory_capacity", 100)
         self.memory_buffer = deque[Any](maxlen=self.memory_capacity)
 
-    def _hippocampal_memory(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Process data through hippocampal memory system."""
+    def _hippocampal_memory(
+        self, data: np.ndarray[Any, Any], *, update_memory: bool = True
+    ) -> np.ndarray[Any, Any]:
+        """Process data through hippocampal memory system.
+
+        Args:
+            data: Input batch ``(n, d)`` (1-D input is reshaped).
+            update_memory: When True (the ``predict`` memory semantics), the
+                batch is committed to ``self.memory_buffer`` so later calls
+                see it. When False (the fusion ``extract_features`` contract),
+                the computation runs against a snapshot plus the preceding
+                rows of *this* batch only and commits nothing — a pure
+                function of ``(buffer state, data)``. For a fresh instance the
+                two paths produce identical features on the first batch, but
+                only the pure path keeps train-time and serve-time fusion
+                features in lockstep (ROADMAP v1.7.x deferred item #16).
+        """
         if data.ndim == 1:
             data = data.reshape(1, -1)
 
         batch_size = data.shape[0]
         memory_features = np.zeros((batch_size, 16), dtype=np.float32)
 
+        # Bounded working view of the buffer: identical accrual semantics to
+        # appending row-by-row, without mutating shared state until (and
+        # unless) the batch is committed at the end.
+        working: deque[Any] = deque(self.memory_buffer, maxlen=self.memory_capacity)
+
         for i in range(batch_size):
             pattern = data[i]
-            self.memory_buffer.append(pattern)
+            working.append(pattern)
 
-            if len(self.memory_buffer) > 0:
-                buffer_array = np.array(list(self.memory_buffer))
-                similarities = np.dot(buffer_array, pattern) / (
-                    np.linalg.norm(buffer_array, axis=1) * np.linalg.norm(pattern) + 1e-8
-                )
-                memory_features[i, :8] = np.histogram(similarities, bins=8)[0].astype(
-                    np.float32
-                ) / len(self.memory_buffer)
-                memory_features[i, 8:] = [
-                    np.mean(similarities),
-                    np.std(similarities),
-                    np.max(similarities),
-                    np.min(similarities),
-                    np.median(similarities),
-                    len(self.memory_buffer) / self.memory_capacity,
-                    np.sum(similarities > 0.7),
-                    np.sum(similarities < 0.3),
-                ]
+            buffer_array = np.array(list(working))
+            similarities = np.dot(buffer_array, pattern) / (
+                np.linalg.norm(buffer_array, axis=1) * np.linalg.norm(pattern) + 1e-8
+            )
+            memory_features[i, :8] = np.histogram(similarities, bins=8)[0].astype(np.float32) / len(
+                working
+            )
+            memory_features[i, 8:] = [
+                np.mean(similarities),
+                np.std(similarities),
+                np.max(similarities),
+                np.min(similarities),
+                np.median(similarities),
+                len(working) / self.memory_capacity,
+                np.sum(similarities > 0.7),
+                np.sum(similarities < 0.3),
+            ]
+
+        if update_memory:
+            self.memory_buffer = working
 
         return memory_features
 
@@ -124,7 +146,11 @@ class NeuralCognitiveModel:
         if data.ndim == 1:
             data = data.reshape(1, -1)
 
-        memory_features = self._hippocampal_memory(data)
+        # Pure path (update_memory=False): fusion features must be a function
+        # of the input alone so train-time and serve-time features agree and
+        # repeated scoring of the same batch is stable. Memory accrual stays
+        # available through predict(), which opts in to committing the batch.
+        memory_features = self._hippocampal_memory(data, update_memory=False)
         executive_features = self._prefrontal_executive(data)
         emotional_features = self._amygdala_processing(data)
 

@@ -314,6 +314,18 @@ def main() -> int:
     assert fresh._fusion_trained, "fresh engine should report trained after load"
     assert fresh._fusion_calibrator is not None, "calibrator should be restored on load"
     assert fresh._fusion_provenance == provenance, "provenance should round-trip via the checkpoint"
+    if args.source == "synthetic":
+        # Round-trip fidelity (format v2): the embedded training reference must
+        # leave the fresh engine's detectors fitted before any inference, and
+        # its per-sample probabilities must match the training engine's
+        # (ROADMAP v1.7.x item #16; locked in CI by
+        # tests/test_fusion_checkpoint_roundtrip.py).
+        assert all(
+            det.is_fitted() for det in fresh.detectors.values()
+        ), "detectors should be refit from the checkpoint's training reference on load"
+        max_dp = float(np.max(np.abs(engine.score_fusion(x) - fresh.score_fusion(x))))
+        assert max_dp < 1e-3, f"save->load probability drift {max_dp} exceeds 1e-3"
+        print(f"Verified: save->load probability equivalence (max |dP| = {max_dp:.2e}).")
     print(
         "Verified: fresh engine loads the checkpoint, reports trained, restores "
         f"calibrator + provenance (source={fresh._fusion_provenance['source']})."

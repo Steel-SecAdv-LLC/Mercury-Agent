@@ -422,7 +422,10 @@ class SigmaDirectiveDetector(BaseDetector):
 
         pcp_scores = self._pattern_convergence_protocol(data)
         gsis_scores = self._gravitational_stability_check(data)
-        rmd_scores = self._recursive_memory_dynamics(data)
+        # Pure path (update_memory=False): fusion features must be a function
+        # of the input alone so train-time and serve-time features agree.
+        # Memory accrual stays available through detect().
+        rmd_scores = self._recursive_memory_dynamics(data, update_memory=False)
         eoa_scores = self._ethical_oversight_amplifier(data)
 
         features = np.column_stack(
@@ -480,7 +483,9 @@ class SigmaDirectiveDetector(BaseDetector):
 
         return scores * self.stability_factor
 
-    def _recursive_memory_dynamics(self, data: NDArray[np.float64]) -> NDArray[np.float64]:
+    def _recursive_memory_dynamics(
+        self, data: NDArray[np.float64], *, update_memory: bool = True
+    ) -> NDArray[np.float64]:
         """RMD: Detect anomalies using recursive memory dynamics.
 
         Tracks a sliding window of recent samples and detects anomalies based
@@ -493,6 +498,16 @@ class SigmaDirectiveDetector(BaseDetector):
 
         Args:
             data: Input data array of shape (n_samples, n_features).
+            update_memory: When True (the ``detect`` memory semantics), the
+                batch is committed to the thread-local buffer so later calls
+                see it. When False (the fusion ``extract_features`` contract),
+                scoring runs against a snapshot plus the preceding rows of
+                *this* batch only and commits nothing — a pure function of
+                ``(buffer state, batch)``. Without this, the first
+                ``memory_depth - 1`` rows scored against whatever batch
+                history the instance happened to see, which broke fusion
+                checkpoint round-trip reproducibility (ROADMAP v1.7.x
+                deferred item #16).
 
         Returns:
             Continuous anomaly scores in [0, 1) range, where higher values
@@ -506,18 +521,25 @@ class SigmaDirectiveDetector(BaseDetector):
 
         # Get thread-local memory buffer (fixes thread safety issue)
         state = self._get_thread_state()
-        memory_buffer = state.memory_buffer
+
+        # Bounded working view: identical accrual semantics to appending
+        # row-by-row, without mutating shared state unless the batch is
+        # committed at the end.
+        working: deque[NDArray[np.float64]] = deque(state.memory_buffer, maxlen=self.memory_depth)
 
         for i, sample in enumerate(data):
             # deque with maxlen automatically handles bounded size
-            memory_buffer.append(sample.astype(np.float64))
+            working.append(sample.astype(np.float64))
 
-            if len(memory_buffer) > 1:
-                memory_array = np.array(memory_buffer)
+            if len(working) > 1:
+                memory_array = np.array(working)
                 memory_mean = np.mean(memory_array, axis=0)
                 deviation = np.linalg.norm(sample - memory_mean)
                 # Soft normalization: deviation / (1 + deviation) for [0, 1) range
                 scores[i] = deviation / (1.0 + deviation)
+
+        if update_memory:
+            state.memory_buffer = working
 
         return scores
 

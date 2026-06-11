@@ -1061,6 +1061,50 @@ class BinaryConformalClassifier:
         self._fitted = True
         return self
 
+    def export_state(self) -> dict[str, Any]:
+        """Serialize the fitted serving surface to checkpoint-safe primitives.
+
+        The returned mapping contains only ``str``/``int``/``float`` values
+        (safe under ``torch.load(weights_only=True)``) and captures everything
+        the post-fit read surface consumes: ``predict``,
+        ``anomaly_score_threshold`` and ``coverage_report`` all operate on the
+        per-class thresholds and target coverage alone.
+
+        Returns:
+            Mapping with ``coverage``, ``seed`` and the per-class
+            ``thresholds`` (string-keyed class labels).
+
+        Raises:
+            RuntimeError: If called before :meth:`fit`.
+        """
+        if not self._fitted:
+            raise RuntimeError("Must call fit() before export_state()")
+        return {
+            "coverage": float(self.coverage),
+            "seed": int(self.seed),
+            "thresholds": {str(label): float(q) for label, q in self._thresholds.items()},
+        }
+
+    @classmethod
+    def from_state(cls, state: dict[str, Any]) -> BinaryConformalClassifier:
+        """Rebuild a fitted classifier from :meth:`export_state` output.
+
+        Restores the full post-fit read surface (``predict``,
+        ``anomaly_score_threshold``, ``coverage_report``). The per-class
+        :class:`SplitConformalPredictor` fit objects are not retained — they
+        are consumed entirely at fit time to produce the thresholds.
+
+        Args:
+            state: Mapping produced by :meth:`export_state`.
+
+        Returns:
+            A classifier equivalent to the one that was exported.
+        """
+        clf = cls(coverage=float(state["coverage"]), seed=int(state["seed"]))
+        clf._thresholds = {int(label): float(q) for label, q in dict(state["thresholds"]).items()}
+        clf._fitted = True
+        return clf
+
     def anomaly_score_threshold(self) -> float:
         """Single anomaly operating point implied by the class-1 LAC quantile.
 

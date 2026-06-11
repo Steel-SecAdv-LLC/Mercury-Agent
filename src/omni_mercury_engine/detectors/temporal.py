@@ -19,6 +19,12 @@ except ImportError:
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
 
+# Fixed initialization seed for the untrained LSTM feature projector. The
+# value is arbitrary but immutable: every TemporalAnomalyDetector instance
+# must project with identical weights so fusion checkpoints round-trip
+# across processes. Do not change without regenerating shipped checkpoints.
+_LSTM_INIT_SEED: int = 1_726_021
+
 
 class TemporalAnomalyDetector(BaseDetector):
     """Time series anomaly detection using:.
@@ -46,14 +52,24 @@ class TemporalAnomalyDetector(BaseDetector):
         # paths, and callers that DO try the LSTM path receive a clear
         # ImportError from :meth:`_lstm` rather than a confusing
         # NameError leaking the implementation detail.
+        # The LSTM is an *untrained, fixed* feature projector: its weights are
+        # never fit, so they must be a constant of the architecture rather
+        # than a draw from the process-global RNG. Constructing it under a
+        # forked, fixed-seed RNG makes every instance bit-identical (and
+        # leaves the caller's global RNG stream untouched), which is what lets
+        # a fusion checkpoint trained in one process reproduce its temporal
+        # feature group exactly in another (ROADMAP v1.7.x deferred item #16).
+        # Changing _LSTM_INIT_SEED invalidates existing fusion checkpoints.
         self.lstm: Any | None = None
         if TORCH_AVAILABLE:
-            self.lstm = nn.LSTM(
-                input_size=1,
-                hidden_size=32,
-                num_layers=2,
-                batch_first=True,
-            )
+            with torch.random.fork_rng(devices=[]):
+                torch.manual_seed(_LSTM_INIT_SEED)
+                self.lstm = nn.LSTM(
+                    input_size=1,
+                    hidden_size=32,
+                    num_layers=2,
+                    batch_first=True,
+                )
 
         self.baseline_mean: float | None = None
         self.baseline_std: float | None = None

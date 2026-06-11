@@ -27,6 +27,69 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — fusion checkpoint round-trip fidelity: serve path is now an exact function of the checkpoint (2026-06-11)
+
+Closes ROADMAP v1.7.x deferred item #16. `save_model` → `load_model`
+previously preserved AUC but drifted per-sample calibrated probabilities
+by up to ≈0.76, and the shipped `default_fusion.pt` underperformed
+in-distribution (AUC ≈ 0.70) because base-detector state was not
+persisted — a loaded engine auto-fit its detectors on (and leaked) the
+first inference batch. Measured after the fix: `max|Δ_prob|` = **0.0**
+between the training engine and a fresh engine loading the regenerated
+checkpoint, and the loaded engine scores held-out AUC 1.0000 on the
+training distribution.
+
+* **Checkpoint format v2** (`FUSION_CHECKPOINT_FORMAT_VERSION = 2`;
+  v1 checkpoints still load with the documented degraded path):
+  * `detector_refit_reference` — the exact array `fit_fusion` fit the
+    base detectors on (bounded by `DETECTOR_REFIT_REFERENCE_MAX_BYTES`,
+    64 MiB). `load_model` refits the detectors on it — every
+    base-detector fit is a deterministic function of its data — so
+    serve-path features match training time and the auto-fit leak is
+    gone. The pooled path (`fit_fusion_pooled`) intentionally embeds no
+    reference: its detectors are deployment-local by design.
+  * `conformal_state` — the fitted `BinaryConformalClassifier` serving
+    surface, via new `export_state()` / `from_state()` methods.
+  * `load_model` now *replaces* engine-local fitted state with the
+    checkpoint's, including replaced-by-`None` (stale calibrator /
+    conformal classifier / detector reference are dropped), and restores
+    the temperature as the numpy scalar type `fit()` produces — a python
+    `float` weak-promoted float32 logits and wobbled tail probabilities
+    by ~1e-7.
+* **Feature-path purity (root causes).** Five extractors made
+  checkpoints unreproducible and are fixed at the source; the fusion
+  feature path is now a pure function of (architecture constants,
+  fitted state, input):
+  * `detectors/temporal.py` — the untrained LSTM projector is built
+    under a forked fixed-seed RNG (instance-independent weights).
+  * `detectors/dimensional.py` — the autoencoder built inside `fit()`
+    initializes under a forked fixed-seed RNG, making `fit()`
+    deterministic given its data (full-batch, shuffle-free loop).
+  * `models/affective.py` — the placeholder projection now derives a
+    content-seeded generator per call (pure in the input) instead of
+    consuming the shared process-global RNG stream, which had returned
+    *different features for the same batch on every call*; the
+    placeholder status is now stated in the module docstring.
+  * `models/multiverse.py` — default initial universe states come from
+    a dedicated fixed-seed generator (an explicitly injected `rng`
+    still overrides); universe IDs no longer hash `time.time()`.
+  * `models/neural.py` / `detectors/directive.py` — hippocampal-memory
+    and recursive-memory-dynamics feature extraction no longer commit
+    the batch to their memory buffers (`update_memory=False` on the
+    fusion path); memory accrual remains the documented behaviour of
+    `predict()` / `detect()`.
+* **Regenerated `default_fusion.pt`** (format v2, embedded reference,
+  same seeded synthetic corpus) via `scripts/train_default_fusion.py`,
+  whose self-check now asserts detectors-are-fitted-on-load and
+  save→load probability equivalence.
+* **Locks:** `tests/test_fusion_checkpoint_roundtrip.py` (8 tests —
+  probability equivalence `< 1e-3`, conformal/temperature round-trip and
+  stale-state resets, v1 back-compat, reference size guard, rescore
+  bit-stability, feature instance-independence) and the updated
+  `tests/models/test_affective_model.py` purity pin. The fusion
+  regression gate (`benchmarks/fusion_regression_guard.py --check`)
+  passes against its existing committed baseline.
+
 ### Security — owner-governed risk posture: enumerated CVE ledger, shared HD master seed, signed cache entries (2026-06-10)
 
 Closes three standing gaps where risk was silently accepted or a promised

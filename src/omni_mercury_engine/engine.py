@@ -136,7 +136,20 @@ _GOSNN_TESTING_BYPASS: bool = False
 # network + calibrated probabilities without any training step. Produced by
 # ``scripts/train_default_fusion.py``; located via ``default_fusion_checkpoint_path()``.
 # ---------------------------------------------------------------------------
-FUSION_CHECKPOINT_FORMAT_VERSION: int = 1
+# Format v2 (round-trip fidelity, ROADMAP v1.7.x deferred item #16): adds
+# ``detector_refit_reference`` (the exact array the base detectors were fit
+# on, so load_model() deterministically reproduces their fitted state instead
+# of leaking the first serve batch into an auto-fit) and ``conformal_state``
+# (the fitted BinaryConformalClassifier serving surface). v1 checkpoints
+# still load; they simply lack both keys and keep the documented
+# auto-fit-on-first-batch degraded path.
+FUSION_CHECKPOINT_FORMAT_VERSION: int = 2
+
+# Upper bound on the training reference embedded in a checkpoint. Above this
+# the reference is skipped (with a log line) so checkpoints stay bounded;
+# the engine then behaves exactly as before v2 (auto-fit on first batch,
+# warned). 64 MiB holds e.g. ~1M float32 samples x 16 features.
+DETECTOR_REFIT_REFERENCE_MAX_BYTES: int = 64 * 1024 * 1024
 
 try:  # avoid a hard import cycle with the package __init__
     from importlib.metadata import version as _pkg_version
@@ -899,6 +912,14 @@ class OmniMercuryEngine(LoggerMixin):
             # labelled split. Turns the scalar probability into label prediction
             # sets with a distribution-free coverage guarantee. None until fit.
             self._fusion_conformal: BinaryConformalClassifier | None = None
+            # The exact array the base detectors were fit on by fit_fusion()
+            # (bounded by DETECTOR_REFIT_REFERENCE_MAX_BYTES). Persisted in the
+            # checkpoint so load_model() reproduces the fitted detector state
+            # deterministically — every base-detector fit is a deterministic
+            # function of its data — instead of auto-fitting (and leaking) the
+            # first serve batch. None until fit_fusion() runs or a v2
+            # checkpoint is loaded.
+            self._detector_fit_reference: np.ndarray[Any, Any] | None = None
             # Optional training provenance (source, datasets, seed, ...) recorded
             # by training scripts and persisted in/restored from the checkpoint
             # so a shipped artifact is self-describing for audit. None unless set.
@@ -1091,6 +1112,23 @@ class OmniMercuryEngine(LoggerMixin):
 
         n_samples = len(X)
         logger.info(f"Starting fusion training on {n_samples} samples...")
+
+        # Capture the exact array the base detectors are about to be fit on so
+        # save_model() can embed it and load_model() can deterministically
+        # reproduce the fitted detector state (every base-detector fit is a
+        # deterministic function of its data). Skipped above the size bound,
+        # in which case checkpoints keep the pre-v2 auto-fit degraded path.
+        x_ref = np.ascontiguousarray(X)
+        if x_ref.nbytes <= DETECTOR_REFIT_REFERENCE_MAX_BYTES:
+            self._detector_fit_reference = x_ref.copy()
+        else:
+            self._detector_fit_reference = None
+            logger.info(
+                "Training data (%.1f MiB) exceeds DETECTOR_REFIT_REFERENCE_MAX_BYTES; "
+                "the checkpoint will not embed a detector refit reference and a "
+                "loaded engine will auto-fit detectors on its first batch (warned).",
+                x_ref.nbytes / (1024 * 1024),
+            )
 
         # Fit base detectors and extract the fusion feature set (detectors +
         # domain models, matching inference). Shared with build_feature_npz()
@@ -4645,6 +4683,16 @@ class OmniMercuryEngine(LoggerMixin):
           keys;
         * the fitted temperature calibrator (if any) so loading restores
           trustworthy probabilities, not just the raw network;
+        * the detector refit reference (format v2) — the exact array
+          :meth:`fit_fusion` fit the base detectors on — so
+          :meth:`load_model` reproduces their fitted state deterministically
+          and serve-path features match training time. Omitted when training
+          data exceeded ``DETECTOR_REFIT_REFERENCE_MAX_BYTES`` or detectors
+          were fit outside :meth:`fit_fusion` (e.g. the pooled path, whose
+          detectors are deliberately deployment-local);
+        * the fitted conformal classifier state (format v2, if
+          :meth:`calibrate_fusion_conformal` ran) so loaded engines attach
+          the same distribution-free label sets;
         * provenance (``format_version`` / ``mercury_version``).
 
         A bare ``state_dict`` written by older code still loads via
@@ -4700,6 +4748,16 @@ class OmniMercuryEngine(LoggerMixin):
             ),
             "provenance": self._fusion_provenance,
             "fusion_trained": bool(self._fusion_trained),
+            "detector_refit_reference": (
+                torch.from_numpy(np.ascontiguousarray(self._detector_fit_reference))
+                if self._detector_fit_reference is not None
+                else None
+            ),
+            "conformal_state": (
+                self._fusion_conformal.export_state()
+                if self._fusion_conformal is not None
+                else None
+            ),
         }
         torch.save(checkpoint, path)
 
@@ -4714,6 +4772,20 @@ class OmniMercuryEngine(LoggerMixin):
         data-dependent ``_dynamic_projections.*`` keys), and the fitted
         temperature calibrator is restored when present so calibrated
         probabilities are available immediately.
+
+        Format v2 checkpoints additionally round-trip the serve path exactly
+        (locked by ``tests/test_fusion_checkpoint_roundtrip.py``): the base
+        detectors are refit on the embedded training reference — every
+        base-detector fit is a deterministic function of its data — so the
+        loaded engine's per-sample probabilities match the saving engine's,
+        and the fitted conformal classifier is restored so the same label
+        sets are attached. State this engine fitted on its own (calibrator,
+        conformal classifier, detector reference) is *replaced* by the
+        checkpoint's, including replaced-by-``None`` when the checkpoint
+        lacks it: after this call the engine scores as the saved engine did.
+        v1 checkpoints (no embedded reference) keep the documented degraded
+        path: detectors auto-fit on the first inference batch, with a
+        warning.
 
         Args:
             path: File path to load the checkpoint from.
@@ -4753,9 +4825,20 @@ class OmniMercuryEngine(LoggerMixin):
                 from omni_mercury_engine.core.calibration import TemperatureScaling
 
                 calibrator = TemperatureScaling()
-                calibrator.temperature = float(temperature)
+                # Restore as the same numpy scalar type fit() produces (its
+                # grid is np.logspace). A python float here would weak-promote
+                # float32 logits and keep the division in float32, while the
+                # fit-time numpy scalar promotes to float64 — a ~1e-7 wobble
+                # on tail probabilities that broke bit-equality of the
+                # save -> load round trip.
+                calibrator.temperature = np.float64(temperature)
                 calibrator._fitted = True
                 self._fusion_calibrator = calibrator
+            else:
+                # The checkpoint was saved uncalibrated: drop any calibrator
+                # left over from this engine's own training so the loaded
+                # state is exactly the saved state (round-trip contract).
+                self._fusion_calibrator = None
 
             groups = checkpoint.get("feature_groups")
             self._fusion_feature_groups = list(groups) if groups is not None else None
@@ -4809,6 +4892,57 @@ class OmniMercuryEngine(LoggerMixin):
             provenance = checkpoint.get("provenance")
             self._fusion_provenance = dict(provenance) if provenance is not None else None
             self._fusion_trained = bool(checkpoint.get("fusion_trained", True))
+
+            # Format v2: restore the fitted conformal classifier's serving
+            # surface, or drop a stale one so loaded state == saved state.
+            conformal_state = checkpoint.get("conformal_state")
+            self._fusion_conformal = (
+                BinaryConformalClassifier.from_state(conformal_state)
+                if conformal_state is not None
+                else None
+            )
+
+            # Format v2: deterministically reproduce the fitted base-detector
+            # state by refitting on the exact array fit_fusion() trained them
+            # on. This closes the auto-fit-on-first-batch leak and makes
+            # serve-path features match training time. A refit failure for an
+            # individual detector degrades to the pre-v2 behaviour for that
+            # detector (auto-fit at first batch, warned at that point).
+            refit_reference = checkpoint.get("detector_refit_reference")
+            if refit_reference is not None:
+                ref_np = np.ascontiguousarray(
+                    refit_reference.cpu().numpy()
+                    if isinstance(refit_reference, torch.Tensor)
+                    else np.asarray(refit_reference)
+                )
+                refitted: list[str] = []
+                for det_name, detector in self.detectors.items():
+                    try:
+                        detector.fit(ref_np)
+                        refitted.append(det_name)
+                    except Exception as refit_error:
+                        logger.warning(
+                            "Could not refit detector %r from the checkpoint's "
+                            "training reference: %s",
+                            det_name,
+                            refit_error,
+                        )
+                if refitted:
+                    self._detector_fit_reference = ref_np
+                    self._inference_auto_fit_detectors.clear()
+                    # Features cached against the previous detector state are
+                    # stale now that the detectors were refit.
+                    self.feature_cache.clear()
+                    logger.info(
+                        "Refit %d/%d base detectors on the checkpoint's training "
+                        "reference (n=%d) — serve-path features now match "
+                        "training time.",
+                        len(refitted),
+                        len(self.detectors),
+                        ref_np.shape[0],
+                    )
+            else:
+                self._detector_fit_reference = None
         else:
             # Legacy bare state_dict (no metadata): load directly.
             self.fusion_model.load_state_dict(checkpoint)
