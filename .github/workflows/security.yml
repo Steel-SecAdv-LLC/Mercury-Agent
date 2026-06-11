@@ -289,7 +289,11 @@ jobs:
         format: 'table'
         severity: 'CRITICAL,HIGH'
         vuln-type: 'os,library'
-        ignore-unfixed: true
+        # Enumerated, expiring acceptance ledger replaces the blanket
+        # unfixed-CVE waiver: new unfixed CRITICAL/HIGH findings and
+        # expired ledger entries fail this gate (see .trivyignore).
+        ignore-unfixed: false
+        trivyignores: '.trivyignore'
         skip-dirs: '/var/lib/apt/lists,/var/cache/apt'
         skip-files: '/opt/venv/lib/python3.12/site-packages/torch/include/ATen/Tensor.h,/opt/venv/lib/python3.12/site-packages/tensorflow/include/tensorflow/compiler/mlir/tensorflow/ir/tf_all_ops.h.inc,/opt/venv/lib/python3.13/site-packages/torch/include/ATen/Tensor.h,/opt/venv/lib/python3.13/site-packages/tensorflow/include/tensorflow/compiler/mlir/tensorflow/ir/tf_all_ops.h.inc,/opt/venv/lib/python3.12/site-packages/scipy/datasets/_fetchers.py,/opt/venv/lib/python3.13/site-packages/scipy/datasets/_fetchers.py,/opt/venv/lib/python3.12/site-packages/skimage/data/_fetchers.py,/opt/venv/lib/python3.13/site-packages/skimage/data/_fetchers.py'
         timeout: '15m'

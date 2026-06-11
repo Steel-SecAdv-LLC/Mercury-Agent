@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import asyncio
 import fnmatch
+import hashlib
+import hmac
 import json
 import logging
 import os
@@ -559,11 +561,33 @@ class CacheBackend(Enum):
     STUB = "stub"
 
 
+class CacheIntegrityError(ValueError):
+    """A cached entry failed HMAC verification or violated the signing contract.
+
+    Raised by :meth:`RedisCache._deserialize` when ``MERCURY_CACHE_SECRET``
+    signing is active and a stored entry is unsigned, carries an invalid
+    signature, or a signed entry is read by a process with no secret
+    configured. Surfaces loudly (same philosophy as the JSON contract):
+    tampered or mis-keyed cross-process cache data is a contract violation,
+    not a transient miss.
+    """
+
+
+#: Marker key identifying a signed cache envelope (see ``RedisCache._serialize``).
+_CACHE_ENVELOPE_MARKER = "__mercury_signed__"
+
+
 class RedisCache:
     """Production-ready Redis cache client.
 
     Supports both redis-py (sync) and aioredis/redis.asyncio (async).
     Falls back to in-memory stub when Redis is unavailable.
+
+    When ``MERCURY_CACHE_SECRET`` is set (or ``hmac_secret`` is passed),
+    every stored entry is wrapped in an HMAC-SHA256-signed envelope and
+    verified on read — a tampered or foreign-keyed entry raises
+    :class:`CacheIntegrityError` instead of being served. The secret must
+    be shared by every process that reads the same Redis instance.
 
     Example:
         >>> # Using Redis
@@ -594,6 +618,7 @@ class RedisCache:
         prefix: str = "mercury:",
         fallback_to_stub: bool = True,
         serializer: str = "json",
+        hmac_secret: str | None = None,
     ):
         """Initialize Redis cache.
 
@@ -607,6 +632,11 @@ class RedisCache:
             max_connections: Maximum pool connections.
             prefix: Key prefix for namespacing.
             fallback_to_stub: Fall back to in-memory stub on connection failure.
+            hmac_secret: Shared secret for HMAC-SHA256 entry signing
+                (default: ``MERCURY_CACHE_SECRET`` env). When set, entries
+                are signed on ``set`` and verified on ``get``;
+                verification failure raises :class:`CacheIntegrityError`.
+                When unset, entries are stored as plain JSON (no signing).
             serializer: Serialization format. Only "json" is supported;
                 callers that need to cache a non-JSON-serializable value
                 must convert it before set(). The legacy "pickle"
@@ -631,6 +661,8 @@ class RedisCache:
         self.prefix = prefix
         self.fallback_to_stub = fallback_to_stub
         self.serializer = serializer
+        _secret = hmac_secret if hmac_secret is not None else os.getenv("MERCURY_CACHE_SECRET")
+        self._hmac_key: bytes | None = _secret.encode("utf-8") if _secret else None
 
         self._client: Any = None
         self._stub = CacheStub()
@@ -653,6 +685,8 @@ class RedisCache:
             REDIS_DB: Redis database number (default: 0)
             REDIS_SSL: Use SSL (default: false)
             REDIS_PREFIX: Key prefix (default: mercury:)
+            MERCURY_CACHE_SECRET: Shared HMAC-SHA256 entry-signing secret
+                (read in ``__init__``; signing disabled when unset)
         """
         return cls(
             host=os.getenv("REDIS_HOST", "localhost"),
@@ -702,19 +736,80 @@ class RedisCache:
         """Add prefix to key."""
         return f"{self.prefix}{key}"
 
+    def _sign(self, payload: str) -> str:
+        """Return the hex HMAC-SHA256 of ``payload`` under the cache secret.
+
+        Raises:
+            CacheIntegrityError: Signing is inactive (no secret
+                configured). Explicit check rather than ``assert`` so the
+                contract survives ``python -O``.
+        """
+        if self._hmac_key is None:
+            raise CacheIntegrityError(
+                "_sign() called while cache entry signing is disabled "
+                "(MERCURY_CACHE_SECRET / hmac_secret unset) — refusing to "
+                "produce an unkeyed signature."
+            )
+        return hmac.new(self._hmac_key, payload.encode("utf-8"), hashlib.sha256).hexdigest()
+
     def _serialize(self, value: Any) -> str:
         """Serialize value for storage as JSON.
 
         The pickle serializer was removed; callers that need to cache
-        non-JSON-serialisable values must convert them first.
+        non-JSON-serialisable values must convert them first. When entry
+        signing is active (``MERCURY_CACHE_SECRET`` / ``hmac_secret``),
+        the JSON payload is wrapped in an HMAC-SHA256-signed envelope.
         """
-        return json.dumps(value)
+        payload = json.dumps(value)
+        if self._hmac_key is None:
+            return payload
+        return json.dumps(
+            {_CACHE_ENVELOPE_MARKER: 1, "sig": self._sign(payload), "payload": payload}
+        )
 
     def _deserialize(self, data: str | None) -> Any:
-        """Deserialize JSON value from storage."""
+        """Deserialize (and, when signing is active, verify) a stored value.
+
+        Raises:
+            CacheIntegrityError: Signing is active and the entry is
+                unsigned or fails HMAC verification, or signing is
+                inactive but a signed envelope is found (key
+                misconfiguration). Both are contract violations and
+                surface loudly rather than degrading to a miss.
+        """
         if data is None:
             return None
-        return json.loads(data)
+        parsed = json.loads(data)
+        # Exact-shape match against what _serialize writes, so user data
+        # that merely contains the marker key cannot be misclassified.
+        is_envelope = (
+            isinstance(parsed, dict)
+            and set(parsed) == {_CACHE_ENVELOPE_MARKER, "sig", "payload"}
+            and parsed[_CACHE_ENVELOPE_MARKER] == 1
+            and isinstance(parsed["sig"], str)
+            and isinstance(parsed["payload"], str)
+        )
+        if self._hmac_key is None:
+            if is_envelope:
+                raise CacheIntegrityError(
+                    "Signed cache entry found but no MERCURY_CACHE_SECRET is "
+                    "configured in this process. Configure the same secret as "
+                    "the writer, or flush the affected keys."
+                )
+            return parsed
+        if not is_envelope:
+            raise CacheIntegrityError(
+                "Unsigned cache entry found while MERCURY_CACHE_SECRET signing "
+                "is active. Flush legacy keys (written before signing was "
+                "enabled) or rebuild the affected entries."
+            )
+        if not hmac.compare_digest(self._sign(parsed["payload"]), parsed["sig"]):
+            raise CacheIntegrityError(
+                "Cache entry HMAC verification failed — possible tampering or a "
+                "MERCURY_CACHE_SECRET mismatch between writer and reader. "
+                "Rebuild the affected key or rotate the shared secret."
+            )
+        return json.loads(parsed["payload"])
 
     async def get(self, key: str) -> Any | None:
         """Get value from cache.
@@ -732,8 +827,11 @@ class RedisCache:
                 stub-fallback would silently hide cache poisoning or a
                 pickle-era payload that has not been migrated. The
                 error surfaces so the operator can rebuild the affected
-                key (or rotate ``MERCURY_CACHE_*`` if cross-process
+                key (or rotate ``MERCURY_CACHE_SECRET`` if cross-process
                 contamination is suspected).
+            CacheIntegrityError: ``MERCURY_CACHE_SECRET`` signing is
+                active and the entry is unsigned or fails HMAC
+                verification (see :meth:`_deserialize`).
         """
         self._call_count += 1
 

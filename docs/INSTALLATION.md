@@ -1,11 +1,12 @@
 # Installation
 
-Applies to Mercury Agent **v1.7.x**. Last updated: 2026-05-20.
+Applies to Mercury Agent **v1.7.x**. Last updated: 2026-06-10.
 
 ## Requirements
 
 - Python >= 3.11 (3.12 recommended; 3.13 supported)
-- pip >= 21.0
+- pip >= 26.1 (the CVE-2026-6357 floor enforced across every install
+  path in CI by `tests/security/test_cve_2026_6357_regression.py`)
 - GCC >= 12 and CMake >= 4.3.2 for the AMA Cryptography native PQC
   build (see "Post-Quantum Cryptography backend" below). Mercury does
   not import without real AMA/PQC.
@@ -58,14 +59,14 @@ pip install -e ".[all]"
 | Profile | Command | Includes |
 |---------|---------|----------|
 | **Core** | `pip install -e .` | numpy, scipy, pandas, MercuryAnomalyDetector |
-| **ML** | `pip install -e ".[ml]"` | Core + PyTorch, scikit-learn, torchvision |
+| **ML** | `pip install -e ".[ml]"` | Core + PyTorch, torchvision, pytorch-lightning, timm, OpenCV (headless) |
 | **Visual** | `pip install -e ".[visual]"` | ML + visual anomaly detectors |
 | **VLM** | `pip install -e ".[vlm]"` | transformers, accelerate |
-| **API** | `pip install -e ".[api]"` | FastAPI, uvicorn |
+| **API** | `pip install -e ".[api]"` | FastAPI, httpx, uvicorn, python-multipart |
 | **PQC** | `pip install -e ".[pqc]"` | AMA Cryptography (pinned to `v3.2.0`) |
 | **Compliance** | `pip install -e ".[compliance]"` | NIST CSF live-fetcher dependency (`openpyxl`) |
-| **All** | `pip install -e ".[all]"` | Everything above |
-| **Dev** | `pip install -e ".[dev]"` | All + pytest, black, ruff, mypy |
+| **All** | `pip install -e ".[all]"` | Every feature extra (ml, visual, vlm, foundation, medical, face, api, sota, llm, drift, fairness, streaming, optimization, benchmark, domains, gui, explainability). `[pqc]`, `[compliance]`, and `[dev]` install separately. |
+| **Dev** | `pip install -e ".[dev]"` | Tooling only: pytest (+ asyncio/cov/timeout/mock/xdist), hypothesis, black, mypy, ruff, pre-commit. Combine with `[all]` for the full stack. |
 
 The `[compliance]` extra installs `openpyxl`, used only by
 `NISTCSFReferenceFetcher` when parsing the live NIST CSRC reference
@@ -79,8 +80,9 @@ The core anomaly detection path (`MercuryAnomalyDetector`) requires only:
 - `numpy >= 2.4.0` (required for Python 3.12/3.13 wheels and the strict-mypy type contract)
 - `scipy >= 1.10.0`
 
-scikit-learn is **not** required for core detection. It is an optional dependency
-used for cross-domain transfer, calibration baselines, and benchmark comparisons.
+scikit-learn is **not** required for core detection and is not part of any
+profile above. It ships in the `[benchmark-comparison]` extra and is used for
+cross-domain transfer, calibration baselines, and benchmark comparisons.
 
 ## Post-Quantum Cryptography backend
 

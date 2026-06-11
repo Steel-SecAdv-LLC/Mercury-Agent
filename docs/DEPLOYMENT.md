@@ -1,5 +1,7 @@
 # Mercury-Agent Deployment Guide
 
+Applies to Mercury Agent **v1.7.x**. Last updated: 2026-06-10.
+
 This guide covers deploying Mercury-Agent from a local Docker environment through
 production Kubernetes/Helm. It documents every required configuration value, the
 expected startup sequence, and the most common operational concerns.
@@ -136,22 +138,50 @@ and topology spread constraints automatically.
 
 ## Required Environment Variables
 
-These must be set before starting the application in **any** environment.
-The application will refuse to start in production mode if they are missing.
-
 | Variable | Description | Generate with |
 |----------|-------------|---------------|
-| `JWT_SECRET_KEY` | JWT signing key for API auth | `openssl rand -hex 32` |
+| `JWT_SECRET_KEY` | Shared JWT signing key for API auth | `openssl rand -hex 32` |
+
+`JWT_SECRET_KEY` resolution matches `api/auth.py::JWTAuth`: an explicit
+`secret_key` argument wins, then the environment variable. Production
+mode is decided by `api/auth.py::_is_production_env`, aligned with
+`api/server.py`: the canonical `MERCURY_ENV` wins whenever set (unknown
+values raise), and the legacy `MERCURY_AGENT_ENV` / `ENV` /
+`ENVIRONMENT` aliases apply only when it is unset. In production with
+no key set, the signing key is **derived via AMA HD Key Management**
+(`get_auth_key_manager()`, purpose `jwt_sign`) and startup only fails
+if that derivation fails; in development the insecure dev fallback key
+is used with a warning.
+
+For multi-worker / multi-replica deployments, set **either**
+`JWT_SECRET_KEY` **or** `AMA_MASTER_SEED` (hex, `openssl rand -hex 64`).
+The HD master seed is sourced from `AMA_MASTER_SEED` — with it, every
+process derives identical `jwt_sign` material and HD-derived tokens
+verify fleet-wide. Without either variable, production derives a
+**per-process** key (each worker/replica/restart gets a different one;
+tokens issued by one process will not verify on another) and logs a
+warning naming the hazard. Locked by
+`tests/security/test_jwt_auth.py::TestAMAMasterSeed`.
 
 ### Additional production-only requirements
 
-When `MERCURY_AGENT_ENV=production` the following are also required and the
-application will raise an error on startup if they are absent:
+In production mode (canonical `MERCURY_ENV=production`, or the legacy
+`MERCURY_AGENT_ENV` alias when `MERCURY_ENV` is unset) the following is
+also required; the application raises `ValueError` on the first API-key
+hash if it is absent (`api/auth.py::APIKeyStore.hash_key`):
 
 | Variable | Description | Generate with |
 |----------|-------------|---------------|
-| `MERCURY_CACHE_SECRET` | HMAC key for signed cache entries | `openssl rand -hex 32` |
-| `API_KEY_HASH_SALT` | Salt for API key hashing | `openssl rand -hex 32` |
+| `API_KEY_HASH_SALT` | Salt for API key hashing (PBKDF2-HMAC-SHA256, 260,000 iterations) | `openssl rand -hex 32` |
+
+The Helm chart additionally provisions a `MERCURY_CACHE_SECRET` pod secret
+(`secrets.mercuryCacheSecret`), consumed by
+`integrations/stubs/cache.py::RedisCache`: when set, every Redis cache entry
+is HMAC-SHA256-signed on write and verified on read, and a tampered,
+unsigned, or foreign-keyed entry raises `CacheIntegrityError` instead of
+being served. The same secret must be configured on every process sharing
+the Redis instance. Unset, the cache stores plain JSON (no signing). Locked
+by `tests/integrations/test_cache_hmac.py::TestRedisCacheHMAC`.
 
 ### v1.7 production-mode primitives
 
@@ -162,8 +192,9 @@ Set **both** in production:
 | Variable | Default | Effect |
 |----------|---------|--------|
 | `MERCURY_ENV` | `development` | When `production`, every collaborator with a mock/stub fallback (currently `narrative.voice.MercuryVoice`, more to come) hard-fails with `MercuryProductionConfigError` rather than silently degrading. Unknown values (e.g. `prod`) also raise — typos must be loud. Locked by `tests/test_env.py`. |
-| `AMA_REQUIRE_REAL_PQC` | unset | When `true`, the import-time PQC production gate (`omni_mercury_engine._pqc_gate._enforce_pqc_production_gate`) fails closed if AMA Cryptography is not loadable. `import omni_mercury_engine` raises `RuntimeError` before any other package state is materialised. |
-| `AMA_REQUIRE_CONSTANT_TIME` | unset | Recommended alongside `AMA_REQUIRE_REAL_PQC`. Asserts the AMA Cryptography native library exposes its constant-time path. |
+| `AMA_MASTER_SEED` | unset | Hex-encoded AMA HD Key Management master seed (`openssl rand -hex 64`; ≥ 32 decoded bytes enforced, malformed values raise). When set, HD-derived keys (JWT signing, API key, audit signing) are deterministic fleet-wide. Locked by `tests/security/test_jwt_auth.py::TestAMAMasterSeed`. |
+| `AMA_REQUIRE_REAL_PQC` | unset | **No-op compatibility diagnostic.** The import-time PQC gate (`omni_mercury_engine._pqc_gate._enforce_pqc_production_gate`) is unconditional: `import omni_mercury_engine` raises `RuntimeError` whenever AMA Cryptography's native library is not loadable, regardless of this variable (pinned by `tests/test_pqc_startup_gate.py`). Setting it `true` keeps legacy workflows readable. |
+| `AMA_REQUIRE_CONSTANT_TIME` | unset | Recommended in production. Asserts the AMA Cryptography native library exposes its constant-time path. |
 
 `MERCURY_ENV` is consumed via the shared
 `omni_mercury_engine._env.{get_mercury_env, is_production,
@@ -203,11 +234,14 @@ See [`MIGRATION-1.6-to-1.7.md`](MIGRATION-1.6-to-1.7.md) §3.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `OMNI_ML_ENABLED` | `true` | Enable ML detector pipeline |
-| `OMNI_QUANTUM_ENABLED` | `false` | Enable PQC/quantum modules |
-| `OMNI_CACHE_DIR` | `/app/cache` | On-disk cache path |
-| `TORCH_HOME` | `/app/models` | PyTorch model cache |
+| `MERCURY_CACHE_DIR` | `~/.mercury/cache` | On-disk loader cache path (`loaders/base.py`) |
+| `TORCH_HOME` | `/app/models` | PyTorch model cache (consumed by torch) |
 | `OMP_NUM_THREADS` | `4` | OpenMP threads for NumPy/SciPy |
+
+ML availability is determined by the installed extras (`pip install
+mercury-agent[ml]`), not by an environment toggle, and the PQC backend is
+mandatory at import — there is no `OMNI_ML_ENABLED` or
+`OMNI_QUANTUM_ENABLED` switch in the application.
 
 ### Database (optional persistence)
 
@@ -263,12 +297,15 @@ AlertManager rules are in `monitoring/alertmanager/`. Configure receivers
 
 ### Key metrics to watch
 
+Recording/alerting rules live in `monitoring/prometheus/prometheus-rules.yaml`; the gate-level snapshot metrics come from `python -m omni_mercury_engine.tools.prometheus_metrics_exporter`.
+
 | Metric | Alert threshold | Notes |
 |--------|----------------|-------|
-| `mercury_anomaly_detections_total` | — | Detection throughput |
-| `mercury_api_request_latency_seconds` | p99 > 2s | API latency |
-| `mercury_ethics_violations_total` | > 0 / 5 min | Ethical constraint breaches |
-| `mercury_mock_fallback_active` | > 0 | Mock adapters in use (degraded) |
+| `omni_detection_requests_total` | — | Detection throughput (rules file) |
+| `http_request_duration_seconds` | p99 > 2 s | API latency histogram (rules file) |
+| `http_requests_total{status=~"5.."}` ratio | sustained > 0 | API error rate (rules file) |
+| `mercury_gate_fires_total` | unexpected drop to 0 | Ethical-gate activity (exporter tool) |
+| `mercury_benevolence_floor` / `mercury_sigma_band_*` | drift from configured values | Gate configuration drift (exporter tool) |
 | `process_resident_memory_bytes` | > 4 GiB | Memory leak indicator |
 
 ---
@@ -364,18 +401,18 @@ docker run -d --name mercury-agent \
 
 **Symptom:** Container exits immediately with error.
 
-1. Check required env vars are set: `MERCURY_AGENT_ENV`, `JWT_SECRET_KEY`
-2. In production mode, verify `MERCURY_CACHE_SECRET` and `API_KEY_HASH_SALT` are set
-3. Check for import errors: `docker run --rm mercury-agent:latest python -c "import omni_mercury_engine"`
+1. Check `MERCURY_AGENT_ENV` is set as intended. `JWT_SECRET_KEY` is required only when AMA HD key derivation is unavailable or failing — in production `JWTAuth` derives the signing key from AMA HD Key Management when the env var is unset, and the startup error message includes the `HD derivation error:` cause when that path fails. Still set it explicitly for multi-worker / multi-replica deployments (see "Required Environment Variables" above).
+2. In production mode, verify `API_KEY_HASH_SALT` is set (enforced at first API-key hash)
+3. Check for import errors: `docker run --rm mercury-agent:latest python -c "import omni_mercury_engine"` — a missing AMA Cryptography native build raises `RuntimeError` here
 
-### Mock adapters active in production
+### LLM narration unavailable
 
-**Symptom:** `MockLLMAdapter is active` warning in logs.
+**Symptom:** `MercuryProductionConfigError` at `MercuryVoice(enable_llm=True)` in production, or a development-mode warning that the voice path fell back to template narration.
 
-- This means no supported LLM provider is configured
-- Set a valid `LLMProvider` in application config or via environment variable
-- Check `OMNI_ML_ENABLED=true` is set
+- As of v1.7.0 there is no silent `MockLLMAdapter` fallback: `enable_llm=True` requires an explicit `llm_provider=` naming an implemented provider (`huggingface`, `ollama`, `openai`, `anthropic`, `xai`, `gemini`, `cohere`, `deepseek`, `cursor`, or `template`)
+- HuggingFace providers additionally require `llm_model_name=`; remote HuggingFace IDs require `llm_revision=<40-char SHA>`
 - Verify optional model dependencies are installed: `pip install -e ".[llm]"`
+- Contract reference: [`MIGRATION-1.6-to-1.7.md`](MIGRATION-1.6-to-1.7.md) §4; locked by `tests/narrative/test_voice_llm.py`
 
 ### High memory usage
 
@@ -407,8 +444,8 @@ docker run -d --name mercury-agent \
 > Enforcement".
 
 - Review the specific test(s) that failed in the CI log
-- `T3` failures: `PreExecutionBlockingGate` pattern list may be incomplete
-- `T4` failures: `EthicalAutonomyGovernor` scoring thresholds may need calibration
+- `T3` failures: the `PreExecutionBlockingGate` pattern list does not cover the flagged payload — extend the pattern list
+- `T4` failures: recalibrate the `EthicalAutonomyGovernor` scoring thresholds against the failing fixtures
 - `T5` failures: `ethical_compliance_threshold` immutability guard is broken — do not deploy
 - `check="sigma_immutable"` failures: this code is raised by
   `SigmaImmutableGate.enforce()` for **two** distinct cases — distinguish
@@ -432,7 +469,7 @@ docker run -d --name mercury-agent \
 
 ### Coverage below target
 
-The repository targets 85% test coverage (`pyproject.toml [tool.coverage.report] fail_under = 85`); CI currently enforces a measured floor of 35% on the full suite (`COVERAGE_THRESHOLD_FULL=35`) and 15% on the core subset (`COVERAGE_THRESHOLD_CORE=15`), per `.github/workflows/ci.yml`.
+The repository targets 85% test coverage (`pyproject.toml [tool.coverage.report] fail_under = 85`); CI enforces a measured floor of 50% on the full suite (`COVERAGE_THRESHOLD_FULL=50`) and 25% on the curated core lane (`COVERAGE_THRESHOLD_CORE=25`), per `.github/workflows/ci.yml`.
 To run coverage locally:
 
 ```bash

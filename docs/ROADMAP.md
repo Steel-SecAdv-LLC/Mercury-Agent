@@ -1,6 +1,6 @@
 # Mercury Agent - Strategic Engineering Roadmap
 
-Applies to Mercury Agent **v1.7.x**. Last updated: 2026-05-21.
+Applies to Mercury Agent **v1.7.x**. Last updated: 2026-06-10.
 
 ## v1.7.x Deferred Items (consolidated)
 
@@ -22,7 +22,7 @@ contract while the feature is built out.
 | 9 (closed) | Lyapunov-stability benchmark + λ reconciliation | **CLOSED (2026-06-02; premise was stale).** `scripts/run_ablation.py` **exists** (a real Lyapunov-pre-gated ablation runner with documented exit codes, referenced correctly by `configs/ablation_3r_lyapunov.yaml`). The `V̇ ≤ -λV` claim is certified by `tools/lyapunov_validator.py` against `configs/lyapunov_canonical.yaml`: `claimed_lambda=0.25, computed_lambda=0.5, ok=true` (2× margin). The README does **not** cite three conflicting λ values — `λ_convergence = 0.25` (Lyapunov convergence, canonical/certified) and `λ_decay = 0.18` (double-helix adaptation rate) are **distinct constants by design**, there is no `0.13`, and the `Docs λ Drift Gate` CI job (`scripts/check_readme_lyapunov.py`) enforces this — it passes ("all documented λ claims match canonical … scanned 2 files"). | `tools/lyapunov_validator.py` + `scripts/check_readme_lyapunov.py` (Docs λ Drift Gate in `iso-hardening.yml`). |
 | 10 (closed) | `tests/load/` wired into CI | **CLOSED (stale row — the gate already exists and runs green).** `iso-hardening.yml`'s "Load Tests (smoke)" job invokes both `tests/load/k6_load_test.js` (k6 smoke mode) and `locust -f tests/load/locustfile.py` (headless, non-zero exit on failed requests). | `.github/workflows/iso-hardening.yml` job "Load Tests (smoke)". |
 | 11 (closed) | Examples-parity CI | **CLOSED (stale row — the gate already exists and runs green).** `iso-hardening.yml`'s "Examples Parity" job runs the shippable demos (`examples/humanitarian_demo.py`, `examples/live_anomaly_demo.py`, `examples/physics_detectors_demo.py`) end-to-end and asserts on their output. | `.github/workflows/iso-hardening.yml` job "Examples Parity". |
-| 12 (closed) | `tests/loaders/` + `tests/narrative/` graduate to strict mypy lane | **CLOSED (stale row — already graduated).** `ci.yml`'s "Run MyPy strict on graduated test directories" step already lists `tests/loaders/` and `tests/narrative/` next to `tests/datasets/`/`tests/ethical/`/`tests/safeguards/`/`tests/tools/`; both pass under `--disallow-subclassing-any` (verified green this session). | `.github/workflows/ci.yml` job `type-checking` strict step. |
+| 12 (closed) | `tests/loaders/` + `tests/narrative/` graduate to strict mypy lane | **CLOSED (stale row — already graduated).** `ci.yml`'s "Run MyPy strict on graduated test directories" step already lists `tests/loaders/` and `tests/narrative/` next to `tests/datasets/`/`tests/ethical/`/`tests/safeguards/`/`tests/tools/`; both pass under `--disallow-subclassing-any` in CI. | `.github/workflows/ci.yml` job `type-checking` strict step. |
 | 13 (closed) | Core coverage floor bump 15 → 25 | **CLOSED in v1.7.x.** Core lane expanded to include `tests/detectors/`, `tests/ml/`, `tests/datasets/`, `tests/api/`, `tests/automl/`, plus 13 root-level `test_*.py` additions. Measured combined stmt+branch coverage on the expanded lane is ≥25 % with a several-point cushion. | `.github/workflows/ci.yml` env `COVERAGE_THRESHOLD_CORE: 25` + the per-job `--cov-fail-under` flag in the `core-tests` job. |
 | 14 (closed) | Serve-path explanations | **CLOSED (2026-06-02).** The validated `cognitive/explainability.py::{IntegratedGradientsExplainer, FaithfulnessEvaluator}` are wired into `OmniMercuryEngine.detect_with_fusion(explain=True)`, which attaches an IG attribution of the served `score_fusion` probability + faithfulness scores. Was deferred by PR #269 (explainer validated in-tree but not wired into the detect result). | `tests/benchmarks/test_explanation_fidelity.py::test_faithfulness_non_regression_comprehensiveness_and_recovery` (comprehensiveness > random + 0.01, recovery@k > 2× chance) + `tests/test_fusion_explainability.py`. |
 | 15 (closed) | Fusion AUC/F1 + conformal-coverage CI regression gate | **CLOSED (2026-06-02).** `benchmarks/fusion_regression_guard.py` (`--check`/`--update`) deterministically trains+evaluates the fusion path on a seeded synthetic corpus and fails on AUC/F1 below `baseline − margin` or empirical conformal coverage below `target − 0.05`; committed baseline `benchmarks/fusion_capacity/fusion_gate_baseline.json` + artifact `artifacts/fusion/<ts>/metrics.json`; run by `.github/workflows/fusion-regression.yml`. Was deferred by PR #269 (pipeline + sweep artifacts existed, no CI floor gate). | `tests/benchmarks/test_fusion_regression_guard.py` (gate logic) + the workflow's `--check` step. |
@@ -59,7 +59,7 @@ table in the same commit.
 >
 > | # | Capability | Designed | Stubbed | Functional | Notes |
 > |---|------------|:--------:|:-------:|:----------:|-------|
-> | 1 | Distributed Processing | ✓ | — | ✓ | Phase 2 audit cure (May 2026) ships a native pure-stdlib `TCPMessageTransport` (`omni_mercury_engine.distributed.tcp_transport`) — asyncio + length-prefixed binary frames + per-message Ed25519 signatures via Mercury's own AMA Cryptography surface. No third-party RPC framework. The five `NotImplementedError` sites in `raft_consensus.py` are gone; `RaftCluster(use_in_memory_transport=False)` constructs real network nodes. Integration test: `tests/distributed/test_tcp_transport.py::test_three_node_cluster_elects_and_re_elects` spins up 3 nodes on 3 TCP ports, elects a leader, kills it, and confirms re-election. |
+> | 1 | Distributed Processing | ✓ | — | ✓ | Phase 2 audit cure (May 2026) ships a native pure-stdlib `TCPMessageTransport` (`omni_mercury_engine.distributed.tcp_transport`) — asyncio + length-prefixed binary frames + per-message Ed25519 signatures via Mercury's own AMA Cryptography surface. No third-party RPC framework. The previously-unimplemented network path is closed: the `NotImplementedError` raises that remain in `raft_consensus.py` are the abstract `MessageTransport` contract methods, and both concrete transports (`InMemoryTransport`, `TCPMessageTransport`) implement them; `RaftCluster(use_in_memory_transport=False)` constructs real network nodes. Integration test: `tests/distributed/test_tcp_transport.py::test_three_node_cluster_elects_and_re_elects` spins up 3 nodes on 3 TCP ports, elects a leader, kills it, and confirms re-election. |
 > | 2 | Biometric Modalities | ✓ | — | ✓ | `iris_recognition.py` (721 LOC), `fingerprint_recognition.py` (1131 LOC), `voice_recognition.py` (884 LOC) all import-clean with no `NotImplementedError`. As of v1.7.0 `narrative/voice.py:_init_llm` no longer silently substitutes `MockLLMAdapter` — it requires `llm_provider=` to name an implemented provider (`huggingface`, `ollama`, `openai`, `anthropic`, `xai`, `gemini`, `cohere`, `deepseek`, `cursor`, or `template`). HuggingFace additionally requires an explicit `llm_model_name`; remote HuggingFace IDs also require `llm_revision=<40-char SHA>`. Missing/unavailable provider in `MERCURY_ENV=production` raises `MercuryProductionConfigError`; in development it logs a warning and the voice path falls through to deterministic template narration. Iris and fingerprint paths are functional pending dedicated test coverage. |
 > | 3 | Real Quantum Computing | ✓ | — | partial | `executor.py` defaults to `BackendType.SIMULATOR` and uses `AerSimulator`. Real-hardware path (IBM Quantum, IonQ) requires user credentials and is not exercised in CI. Treat as "simulated by default; real hardware untested in-tree." |
 > | 4 | Advanced Harmonics | ✓ | — | ✓ | `harmonics/analyzer.py`, `features.py`, `transform.py` are wired and exercised by the 21-probe ensemble and detector pipeline. |
@@ -71,8 +71,8 @@ table in the same commit.
 >
 > | Capability | Designed | Stubbed | Functional | Notes |
 > |------------|:--------:|:-------:|:----------:|-------|
-> | Safe training-data loader (no pickle) | ✓ | — | ✓ | `omni_mercury_engine.security.safe_load` (added in `[Unreleased]`); 25 tests cover .npz validation, HMAC signing, tamper detection. Pickle code path **deleted** from the engine. |
-> | Pickle migration tool | ✓ | — | ✓ | `python -m omni_mercury_engine.tools.migrate_pkl`; 9 tests cover hardened-subprocess relaunch, schema validation, refusal-by-default. |
+> | Safe training-data loader (no pickle) | ✓ | — | ✓ | `omni_mercury_engine.security.safe_load` (added in `[Unreleased]`); `tests/security/test_safe_load.py` (38 tests) covers .npz validation, HMAC signing, tamper detection. Pickle code path **deleted** from the engine. |
+> | Pickle migration tool | ✓ | — | ✓ | `python -m omni_mercury_engine.tools.migrate_pkl`; `tests/security/test_migrate_pkl.py` (13 tests) covers hardened-subprocess relaunch, schema validation, refusal-by-default. |
 > | VLM detectors | ✓ | experimental | ✓ | **Concrete offline detector added (2026-06-02).** `detectors/vlm/base_vlm.py`'s five contract methods are `@abstractmethod` (no `NotImplementedError` on the public path; direct instantiation raises `TypeError`), **and** `detectors/vlm/statistical_vlm.py::StatisticalVLMDetector` is a concrete, instantiable, fully-offline implementation (deterministic salience statistics; no `transformers`/download). The network-backed AnyAnomaly/LAVAD/BLIP adapters stay the production path (`transformers` + revision-pinned HF download — external dependency); the statistical detector is the offline/CI default + documented surrogate. Locked by `tests/test_vlm_detectors.py::{TestBaseVLMDetector, TestStatisticalVLMDetector}`. |
 > | Visual base detector | ✓ | — | ✓ | **Honest ABC (2026-06-02).** `detectors/visual/base_visual.py`'s three contract methods are `@abstractmethod` (no `NotImplementedError` on the public path; direct instantiation raises `TypeError`); the native SOTA detectors (PatchCore, PaDiM, STFPM, ReverseDistillation, CFlow) are the concrete implementations. Locked by `tests/test_visual_detectors.py::TestBaseVisualDetector`. |
 > | Ethics enforcement | ✓ | — | ✓ | Hard-enforced at the decision boundary (Phase 2 cure, May 2026; σ_Immutable promotion completed before v1.7.0 cut, Wave B Vector 2+4 closure shipped post-cut). `CognitiveOrchestrator.analyze`, `OmniMercuryEngine.detect_with_fusion`/`detect_with_fusion_calibrated`, and `NeuroSymbolicHub.predict` all raise `EthicalViolation` on benevolence-threshold violation via `BenevolenceScorer.enforce`; the `strict_ethics=False` flag is deprecated and ignored. The engine's boundary scorer is constructed eagerly at init so the first concurrent call cannot race the gate. σ_Immutable is trained (99.6% val_acc; weights at `src/omni_mercury_engine/security/sigma_immutable_weights.pt`) and is now a **second hard gate** at every boundary surface: `EthicalConstraintViolationError(check="sigma_immutable")` is raised on sub-threshold scalar vectors and `check="gosnn_unavailable"` is raised when GOSNN itself cannot run.  Every public boundary routes the caller-supplied `domain` through `omni_mercury_engine.cognitive.ethical_bounding.sanitize_domain` (canonical helper added in `[Unreleased]`) so a hostile / typo'd hint cannot inject harm or positive keywords into the scorer or audit surface, and `NeuroSymbolicHub.predict` pre-flights the σ_Immutable gate on empty batches (closing the silent no-op bypass identified in the v1.7 audit).  Decision-boundary contract documented in `src/omni_mercury_engine/ethical/__init__.py`. Regression suite: `tests/ethical/test_hard_enforcement.py` (covers both the BenevolenceScorer first-gate and the σ_Immutable / gosnn_unavailable second-gate at all three boundary surfaces plus the Wave B Vector 2+4 closures; wired into the `Neuro-Symbolic Tests` CI job — a benevolence- or σ_Immutable-threshold regression cannot merge silently).  **σ_Immutable Wave C is CLOSED (2026-06-02):** narrative voice (`narrative/voice.py::{speak, process_detection, alert}`) and federation (`federation/aggregator.py::{submit, aggregate}`, `federated_learning/server.py::_execute_round`) now carry the same benevolence + σ_Immutable dual hard gate, built from the single shared `build_sigma_immutable_vector` helper, with eager gate construction and `sanitize_domain` on every caller hint.  Regression: `tests/ethical/test_hard_enforcement.py::{TestNarrativeVoiceBoundary, TestFederatedAggregatorBoundary, TestFederatedServerRoundBoundary}`. |
@@ -103,7 +103,7 @@ This document outlines the strategic engineering roadmap for Mercury Agent, deta
 
 Mercury Agent is evolving toward a distributed, privacy-preserving, and explainable AI platform. This roadmap establishes the technical foundation for seven major capability expansions:
 
-1. **Distributed Processing** — Multi-node deployment for horizontal scalability — *Designed + Stubbed; in-memory only, network transport pending v1.7*
+1. **Distributed Processing** — Multi-node deployment for horizontal scalability — *Functional; native pure-stdlib `TCPMessageTransport` with per-message Ed25519 signatures (2026-06-02)*
 2. **Additional Biometric Modalities** — Iris, fingerprint, and voice authentication — *Iris/fingerprint Functional; narrative-voice LLM now opt-in via explicit `llm_provider=` (no Mock fallback in any mode)*
 3. **Real Quantum Computing** — Qiskit integration for production quantum workloads — *Simulator Functional; real hardware untested in-tree*
 4. **Advanced Harmonics** — Higher l_max spherical harmonic analysis for 3D data — *Functional*
@@ -115,17 +115,19 @@ Mercury Agent is evolving toward a distributed, privacy-preserving, and explaina
 
 ## 1. Distributed Processing
 
-> **Status: Designed + Stubbed (partial Functional).** Code exists in
-> `distributed/cluster.py` (688 LOC) and `distributed/raft_consensus.py`
-> (894 LOC) but five `NotImplementedError` calls remain in
-> `raft_consensus.py` at lines 315, 323, 331, 335, and 830 — only
-> `InMemoryTransport` is implemented; no network transport exists.
-> Multi-node Raft cannot communicate today. Scheduled fix in v1.7 is a
-> **native pure-stdlib TCP `MessageTransport`** (asyncio + length-prefixed
-> binary frames + AMA Cryptography per-message signatures) plus
-> integration tests. No third-party RPC framework — the wire format is
-> Mercury's own, owned end-to-end. The design below was written
-> pre-implementation; actual API may differ.
+> **Status: Functional (closed 2026-06-02).** The scheduled v1.7 fix
+> shipped: `distributed/tcp_transport.py` provides a **native
+> pure-stdlib TCP `MessageTransport`** (asyncio + length-prefixed
+> binary frames + AMA Cryptography per-message Ed25519 signatures) and
+> `RaftCluster(use_in_memory_transport=False)` constructs real network
+> nodes. The only `NotImplementedError` raises remaining in
+> `raft_consensus.py` are the abstract `MessageTransport` contract
+> methods, implemented by both concrete transports. Integration test:
+> `tests/distributed/test_tcp_transport.py::test_three_node_cluster_elects_and_re_elects`.
+> No third-party RPC framework — the wire format is Mercury's own,
+> owned end-to-end. The design below was written pre-implementation
+> and is retained as a design reference; the capability table above is
+> authoritative.
 
 ### Current State
 - Single-node deployment with threading for parallelism
@@ -771,16 +773,18 @@ class MercuryAutoML:
 
 ## 6. Federated Learning
 
-> **Status: Designed + Stubbed (partial Functional).**
+> **Status: Functional (closed 2026-06-02).**
 > `federated_learning/client.py`, `server.py`, and `privacy.py` are
-> implemented. Two gaps keep this row at "partial": GOSNN integration
-> is one-way (aggregator → GOSNN scalar update has no reverse path),
-> and `core/gosnn_integration.py::GOSNNIntegration.detect()` previously
-> swallowed conformal failures into `confidence_intervals=None`. The
-> silent-failure path is closed via `ConformalMisconfigurationError`
-> (see CHANGELOG); the bidirectional-feedback gap is tracked in the
-> v1.7.x Deferred Items rollup at the top of this document. The
-> design below was written pre-implementation; actual API may differ.
+> implemented, and both former gaps are closed: GOSNN coupling is now
+> bidirectional — `FederatedServer._execute_round` routes every round's
+> weights through `GOSNNCoupling{Server,Client}` with SHA3-256 + shape
+> + round integrity, failing the round closed on mismatch — and
+> `core/gosnn_integration.py::GOSNNIntegration.detect()` no longer
+> swallows conformal failures (`ConformalMisconfigurationError`; see
+> CHANGELOG). Regression:
+> `tests/federated/test_no_silent_failure.py`. The design below was
+> written pre-implementation and is retained as a design reference;
+> the capability table above is authoritative.
 
 ### Current State
 - Centralized training only

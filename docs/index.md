@@ -1,6 +1,6 @@
 # Mercury Agent Documentation
 
-Version `1.7.0` — Steel-SecAdv-LLC. Last updated: 2026-05-20.
+Version `1.7.0` — Steel-SecAdv-LLC. Last updated: 2026-06-10.
 
 Mercury Agent is the **neuro-symbolic AI** orchestration / cognition layer
 of the FIND**Ω**YOU stack — a hybrid of deep-learning detectors, an
@@ -19,9 +19,10 @@ for the post-quantum cryptographic substrate.
   [`ARCHITECTURE.md`](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/ARCHITECTURE.md) §"Dual-Gate Hard Ethical
   Enforcement" and [`MATH_SPEC.md`](MATH_SPEC.md) §2.1.5
   "σ_Immutable Hard Gate (Wave B, PR #179)".
-- **Sole PQC backend (with a soft import path for non-PQC dev).**
+- **Sole PQC backend, hard-gated at import.**
   AMA Cryptography (pinned to **v3.2.0** in
-  `.github/workflows/pqc-production-check.yml`) is the only
+  `.github/workflows/pqc-production-check.yml` and the `[pqc]` extra
+  of `pyproject.toml`) is the only
   supported post-quantum backend (PR #144). v3.2.0 also exposes the
   native HMAC-SHA-256 / HMAC-SHA-512 bindings consumed by Mercury's
   `native_jwt` HS256 / HS512 signing path (see CHANGELOG
