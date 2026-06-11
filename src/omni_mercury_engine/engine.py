@@ -1799,6 +1799,15 @@ class OmniMercuryEngine(LoggerMixin):
         Raises:
             RuntimeError: If no feature group could be extracted.
         """
+        # Purity contract: the fusion feature map is a function of (fitted
+        # state, X) only. Detectors with transient cross-call memory (the
+        # directive detector's recursive-memory buffer) are reset first;
+        # without this, the first ``memory_depth`` rows' features depended
+        # on whatever the previous extraction left behind, so repeated
+        # ``detect_with_fusion`` calls drifted and a reloaded checkpoint
+        # could not reproduce the saving engine's probabilities
+        # (ROADMAP row 16; defect found 2026-06-11).
+        self._reset_transient_detector_state()
         if fit_detectors:
             logger.info(f"Fitting {len(self.detectors)} base detectors...")
             for name, detector in self.detectors.items():
@@ -2261,6 +2270,8 @@ class OmniMercuryEngine(LoggerMixin):
         X_cal: np.ndarray[Any, Any],
         y_cal: np.ndarray[Any, Any],
         coverage: float = 0.9,
+        *,
+        per_sample: bool = False,
     ) -> dict[str, Any]:
         """Fit a conformal classifier on a held-out labelled calibration split.
 
@@ -2271,11 +2282,28 @@ class OmniMercuryEngine(LoggerMixin):
         trained, on data **disjoint** from both training and the eventual test
         set (exchangeability is what the guarantee rests on).
 
+        **Match the serving regime.** Exchangeability requires the calibration
+        scores and the serve-time scores to come from the *same* score
+        function — and several detector features are batch-relative by design
+        (recursive-memory deviation, batch-percentile stability, batch-max
+        magnitude, sliding windows, within-batch min-max normalization), so a
+        sample scored alone does not get the score it would get inside a
+        batch. If production serves sample-at-a-time (the
+        ``detect_with_fusion(x[i:i+1])`` / DecisionLoop pattern), calibrate
+        with ``per_sample=True`` so each calibration row is scored exactly as
+        serving will score it; batch consumers keep the default. (Before
+        2026-06-11 the cross-call streaming buffers made single-sample
+        serving *resemble* batch scoring by accident of call history — the
+        serve-path purity fix made the mismatch visible and deterministic,
+        and this parameter is the principled remedy.)
+
         Args:
             X_cal: Calibration features ``(n_cal, n_features)``, disjoint from
                 training data.
             y_cal: Calibration binary labels ``(n_cal,)`` (1 = anomaly).
             coverage: Target per-class coverage (e.g. 0.9 for 90%).
+            per_sample: Score calibration rows one at a time (the
+                single-sample serving regime) instead of as one batch.
 
         Returns:
             Diagnostics dict with the target ``coverage``, the learned per-class
@@ -2293,7 +2321,13 @@ class OmniMercuryEngine(LoggerMixin):
                 "before calibrate_fusion_conformal()."
             )
 
-        probs = self.score_fusion(X_cal)
+        X_arr = np.asarray(X_cal)
+        if per_sample:
+            probs = np.concatenate(
+                [np.asarray(self.score_fusion(X_arr[i : i + 1])).ravel() for i in range(len(X_arr))]
+            )
+        else:
+            probs = self.score_fusion(X_cal)
         y = np.asarray(y_cal).astype(int).ravel()
         self._fusion_conformal = BinaryConformalClassifier(coverage=coverage).fit(probs, y)
         report = self._fusion_conformal.coverage_report(probs, y)
@@ -3550,6 +3584,25 @@ class OmniMercuryEngine(LoggerMixin):
             },
         )
 
+    def _reset_transient_detector_state(self) -> None:
+        """Reset detectors'/models' transient cross-call state (purity contract).
+
+        Detection features must be a function of (fitted state, batch) only.
+        The directive detector's recursive-memory buffer and the neural
+        cognitive model's hippocampal buffer are streaming state that
+        otherwise couples one extraction to the previous one: the affected
+        rows' features changed with call history, so repeated
+        ``detect_with_fusion`` calls drifted and a reloaded checkpoint
+        could not reproduce the saving engine's probabilities
+        (ROADMAP row 16; defect found 2026-06-11). Components keep their
+        documented streaming semantics for direct callers — only the
+        engine's fusion boundary resets.
+        """
+        for component in (*self.detectors.values(), *self.models.values()):
+            reset_state = getattr(component, "reset_state", None)
+            if callable(reset_state):
+                reset_state()
+
     def _extract_detector_features(
         self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any]
     ) -> tuple[Any, ...]:
@@ -3616,6 +3669,15 @@ class OmniMercuryEngine(LoggerMixin):
                 )
 
                 def compute_features(det: Any = detector, d: Any = data) -> tuple[Any, ...]:
+                    # Purity: start from clean transient state so the
+                    # features depend only on (fitted state, d) — see
+                    # _reset_transient_detector_state. Runs inside the
+                    # compute so a worker thread resets its *own*
+                    # thread-local state; cache hits skip recomputation
+                    # and stay deterministic by construction.
+                    reset_state = getattr(det, "reset_state", None)
+                    if callable(reset_state):
+                        reset_state()
                     features = det.extract_features(d)
                     result = det.detect(d)
                     return features, result
@@ -3666,6 +3728,12 @@ class OmniMercuryEngine(LoggerMixin):
                 )
 
                 def compute_features(mdl: Any = model, d: Any = data) -> tuple[Any, ...]:
+                    # Purity: reset transient streaming state so features
+                    # depend only on (model state, d) — mirrors the
+                    # detector-side closure above.
+                    reset_state = getattr(mdl, "reset_state", None)
+                    if callable(reset_state):
+                        reset_state()
                     features = mdl.extract_features(d)
                     prediction = mdl.predict(d)
                     return features, prediction
@@ -4695,6 +4763,37 @@ class OmniMercuryEngine(LoggerMixin):
             "early_stopped": epochs_without_improvement >= early_stopping_patience,
         }
 
+    @classmethod
+    def _fitted_state_to_checkpoint(cls, state: Any) -> Any:
+        """Convert a fitted-state structure to checkpoint-safe leaves.
+
+        ``torch.load(weights_only=True)`` admits tensors and primitives but
+        not numpy arrays, so ndarray leaves (at any nesting depth) are
+        stored as tensors (the same convention as ``domain_encoder_scaler``)
+        tagged for exact dtype restoration.
+        """
+        if isinstance(state, np.ndarray):
+            return {
+                "__ndarray__": torch.from_numpy(np.ascontiguousarray(state)).clone(),
+                "dtype": str(state.dtype),
+            }
+        if isinstance(state, dict):
+            return {key: cls._fitted_state_to_checkpoint(value) for key, value in state.items()}
+        if isinstance(state, (list, tuple)):
+            return [cls._fitted_state_to_checkpoint(value) for value in state]
+        return state
+
+    @classmethod
+    def _fitted_state_from_checkpoint(cls, state: Any) -> Any:
+        """Invert :meth:`_fitted_state_to_checkpoint`."""
+        if isinstance(state, dict) and "__ndarray__" in state:
+            return state["__ndarray__"].numpy().astype(np.dtype(state["dtype"]))
+        if isinstance(state, dict):
+            return {key: cls._fitted_state_from_checkpoint(value) for key, value in state.items()}
+        if isinstance(state, (list, tuple)):
+            return [cls._fitted_state_from_checkpoint(value) for value in state]
+        return state
+
     def save_model(self, path: str) -> None:
         """Save the fusion model to a versioned checkpoint.
 
@@ -4708,6 +4807,14 @@ class OmniMercuryEngine(LoggerMixin):
           keys;
         * the fitted temperature calibrator (if any) so loading restores
           trustworthy probabilities, not just the raw network;
+        * the fitted base-detector state (``detector_fitted_state``) and the
+          torch-module domain models' weights (``model_state_dicts``) so a
+          reloaded engine extracts the *same fusion features* the saving
+          engine trained on, instead of auto-fitting detectors on the first
+          inference batch (ROADMAP row 16: per-sample probability drift up
+          to ≈0.76 and train-time leakage);
+        * the fitted conformal calibrator thresholds (``conformal_state``)
+          so distribution-free prediction sets survive the round-trip;
         * provenance (``format_version`` / ``mercury_version``).
 
         A bare ``state_dict`` written by older code still loads via
@@ -4726,6 +4833,54 @@ class OmniMercuryEngine(LoggerMixin):
             self._fusion_calibrator, "_fitted", False
         ):
             temperature = float(self._fusion_calibrator.temperature)
+
+        detector_fitted_state: dict[str, dict[str, Any]] = {}
+        for det_name, det in self.detectors.items():
+            exporter = getattr(det, "get_fitted_state", None)
+            if not callable(exporter):
+                continue
+            try:
+                det_state = exporter()
+            except Exception as e:
+                logger.warning("Could not export fitted state for detector %s: %s", det_name, e)
+                continue
+            if det_state is not None:
+                detector_fitted_state[det_name] = self._fitted_state_to_checkpoint(det_state)
+
+        model_state_dicts: dict[str, dict[str, Any]] = {
+            model_name: dict(model.state_dict())
+            for model_name, model in self.models.items()
+            if isinstance(model, torch.nn.Module)
+        }
+
+        # Non-module models whose feature transform depends on construction
+        # state (e.g. the multiverse population) export it the same way the
+        # base detectors do.
+        model_fitted_state: dict[str, Any] = {}
+        for model_name, model in self.models.items():
+            if isinstance(model, torch.nn.Module):
+                continue
+            exporter = getattr(model, "get_fitted_state", None)
+            if not callable(exporter):
+                continue
+            try:
+                model_state = exporter()
+            except Exception as e:
+                logger.warning("Could not export fitted state for model %s: %s", model_name, e)
+                continue
+            if model_state is not None:
+                model_fitted_state[model_name] = self._fitted_state_to_checkpoint(model_state)
+
+        conformal_state = None
+        if self._fusion_conformal is not None and self._fusion_conformal._fitted:
+            conformal_state = {
+                "coverage": float(self._fusion_conformal.coverage),
+                "seed": int(self._fusion_conformal.seed),
+                "thresholds": {
+                    int(label): float(value)
+                    for label, value in self._fusion_conformal._thresholds.items()
+                },
+            }
         checkpoint = {
             "format_version": FUSION_CHECKPOINT_FORMAT_VERSION,
             "mercury_version": __version__,
@@ -4763,6 +4918,10 @@ class OmniMercuryEngine(LoggerMixin):
             ),
             "provenance": self._fusion_provenance,
             "fusion_trained": bool(self._fusion_trained),
+            "detector_fitted_state": detector_fitted_state,
+            "model_state_dicts": model_state_dicts,
+            "model_fitted_state": model_fitted_state,
+            "conformal_state": conformal_state,
         }
         torch.save(checkpoint, path)
 
@@ -4872,6 +5031,67 @@ class OmniMercuryEngine(LoggerMixin):
             provenance = checkpoint.get("provenance")
             self._fusion_provenance = dict(provenance) if provenance is not None else None
             self._fusion_trained = bool(checkpoint.get("fusion_trained", True))
+
+            # Fitted base-detector state (ROADMAP row 16): restoring it means
+            # the loaded engine extracts training-time features instead of
+            # auto-fitting (and leaking) on the first inference batch.
+            # Checkpoints written before this key keep the legacy behavior.
+            detector_states = checkpoint.get("detector_fitted_state") or {}
+            for det_name, det_state in detector_states.items():
+                det = self.detectors.get(det_name)
+                restorer = getattr(det, "set_fitted_state", None)
+                if det is None or not callable(restorer):
+                    logger.warning(
+                        "Checkpoint carries fitted state for unknown detector %r; skipped",
+                        det_name,
+                    )
+                    continue
+                restorer(self._fitted_state_from_checkpoint(det_state))
+
+            # Torch-module domain models: their randomly-initialized feature
+            # extractors are part of the serve-time transform, so reload
+            # their exact weights. A shape mismatch means the checkpoint does
+            # not describe this engine's models — fail loud, never drift.
+            model_states = checkpoint.get("model_state_dicts") or {}
+            for model_name, model_state in model_states.items():
+                model = self.models.get(model_name)
+                if not isinstance(model, torch.nn.Module):
+                    logger.warning(
+                        "Checkpoint carries weights for unknown model %r; skipped", model_name
+                    )
+                    continue
+                incompatible = model.load_state_dict(model_state, strict=False)
+                if incompatible.missing_keys or incompatible.unexpected_keys:
+                    raise RuntimeError(
+                        f"Checkpoint model weights for {model_name!r} do not match this "
+                        f"engine (missing={incompatible.missing_keys}, "
+                        f"unexpected={incompatible.unexpected_keys})"
+                    )
+
+            model_fitted_states = checkpoint.get("model_fitted_state") or {}
+            for model_name, model_state in model_fitted_states.items():
+                model = self.models.get(model_name)
+                restorer = getattr(model, "set_fitted_state", None)
+                if model is None or not callable(restorer):
+                    logger.warning(
+                        "Checkpoint carries fitted state for unknown model %r; skipped",
+                        model_name,
+                    )
+                    continue
+                restorer(self._fitted_state_from_checkpoint(model_state))
+
+            conformal_state = checkpoint.get("conformal_state")
+            if conformal_state is not None:
+                conformal = BinaryConformalClassifier(
+                    coverage=float(conformal_state["coverage"]),
+                    seed=int(conformal_state["seed"]),
+                )
+                conformal._thresholds = {
+                    int(label): float(value)
+                    for label, value in conformal_state["thresholds"].items()
+                }
+                conformal._fitted = True
+                self._fusion_conformal = conformal
         else:
             # Legacy bare state_dict (no metadata): load directly.
             self.fusion_model.load_state_dict(checkpoint)

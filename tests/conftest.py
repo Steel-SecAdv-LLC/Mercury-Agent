@@ -45,6 +45,15 @@ import pytest
 from omni_mercury_engine._compat import HAS_TORCH
 from omni_mercury_engine.utils.rng import DeterministicRNG, set_global_seed
 
+if os.environ.get("PYTEST_XDIST_WORKER"):
+    # Mirror the torch per-worker thread cap below for numba's parallel
+    # kernels (the GSIS prange lane, 2026-06-11): without it each of the
+    # N xdist workers spawns a full physical-core thread pool, and the
+    # resulting oversubscription starved borderline-heavy tests past the
+    # 300 s timeout. Must be set before numba is first imported; thread
+    # count cannot change kernel results (no cross-thread reductions).
+    os.environ.setdefault("NUMBA_NUM_THREADS", "1")
+
 if HAS_TORCH:
     import torch
 

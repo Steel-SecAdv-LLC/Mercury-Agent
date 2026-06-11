@@ -74,6 +74,8 @@ from omni_mercury_engine.cognitive.reflexion import AnomalyReflexion
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
+    from omni_mercury_engine.agentic._incremental_serving import _ServingCache
+
 logger = logging.getLogger(__name__)
 
 _DEFAULT_DOMAIN = "general"
@@ -177,6 +179,10 @@ class DetectorAgent(DetectionAgent):
         self._reference: np.ndarray[Any, Any] | None = None
         self._rng = np.random.default_rng(seed)
         self._fitted = False
+        # Exact incremental single-sample serving (built lazily after fit;
+        # None means "tried and unsupported" so the full path is used).
+        self._serving_cache: _ServingCache | None = None
+        self._serving_cache_built = False
 
     @property
     def is_fitted(self) -> bool:
@@ -203,10 +209,22 @@ class DetectorAgent(DetectionAgent):
             self._reference = X[np.sort(keep)]
         else:
             self._reference = X
+        self._serving_cache = None
+        self._serving_cache_built = False
         return self
 
     def score_batch(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Score a batch with the real detector; per-sample scores in [0, 1].
+
+        Purity contract: identical batches yield identical scores. Detectors
+        that keep transient cross-call memory (the directive detector's
+        recursive-memory buffer) are reset before scoring — the agent's
+        contract is *batch-relative scoring against fitted state*, not a
+        stream continuation, and without the reset the first
+        ``memory_depth`` rows of every batch scored differently depending on
+        what the previous call happened to leave behind (defect found
+        2026-06-11; the detector keeps its documented streaming semantics
+        for direct callers).
 
         Raises:
             OrchestrationError: If the agent is unfitted or the detector
@@ -216,6 +234,9 @@ class DetectorAgent(DetectionAgent):
         if not self._fitted:
             raise OrchestrationError(f"agent {self.agent_id!r} used before fit()")
         X = np.asarray(X, dtype=np.float64)
+        reset_state = getattr(self.detector, "reset_state", None)
+        if callable(reset_state):
+            reset_state()
         result = self.detector.detect(X)
         scores = np.asarray(result["scores"], dtype=np.float64).ravel()
         if scores.shape[0] != X.shape[0]:
@@ -252,7 +273,12 @@ class DetectorAgent(DetectionAgent):
 
         The sample is scored against a reference batch (the calibration
         sample, or ``context["reference_batch"]``) because the underlying
-        detectors normalize scores within a batch.
+        detectors normalize scores within a batch. For the profile-dominant
+        detectors an exact incremental path serves the appended row without
+        re-scoring the full reference
+        (:mod:`omni_mercury_engine.agentic._incremental_serving`,
+        bit-identical, fail-closed to the full path); a caller-supplied
+        reference batch always uses the full path.
 
         Raises:
             ValueError: If given more than one sample — batch scoring must go
@@ -267,11 +293,15 @@ class DetectorAgent(DetectionAgent):
                 "DetectorAgent.detect() scores a single sample; use score_batch() for batches"
             )
         reference = self._reference
+        own_reference = True
         if context is not None and "reference_batch" in context:
             reference = np.asarray(context["reference_batch"], dtype=np.float64)
+            own_reference = False
         if reference is not None and len(reference) > 0:
-            batch = np.vstack([reference, row])
-            score = float(self.score_batch(batch)[-1])
+            score = self._serve_incremental(row) if own_reference else None
+            if score is None:
+                batch = np.vstack([reference, row])
+                score = float(self.score_batch(batch)[-1])
         else:
             score = float(self.score_batch(row)[0])
         return DetectionResult(
@@ -285,6 +315,22 @@ class DetectorAgent(DetectionAgent):
                 f"threshold {self.decision_threshold:.4f}"
             ),
         )
+
+    def _serve_incremental(self, row_2d: np.ndarray[Any, Any]) -> float | None:
+        """Exact incremental score for one row against the fit-time reference.
+
+        Returns ``None`` whenever the fast path cannot guarantee the
+        bit-identical full-path score (unsupported detector, stale cache,
+        non-finite input), in which case the caller runs the full path.
+        """
+        if not self._serving_cache_built:
+            from omni_mercury_engine.agentic._incremental_serving import build_serving_cache
+
+            self._serving_cache = build_serving_cache(self.detector, self._reference)
+            self._serving_cache_built = True
+        if self._serving_cache is None:
+            return None
+        return self._serving_cache.serve(row_2d[0])
 
 
 @dataclass
@@ -592,6 +638,16 @@ class MultiAgentOrchestrator:
         score is the confidence-weighted mean of agent scores — the same
         statistic the CONFIDENCE_WEIGHTED protocol thresholds for its
         decision.
+
+        Agents score concurrently on a thread pool: scoring is a pure
+        function of (fitted state, batch) — the purity contract on
+        :meth:`DetectorAgent.score_batch` — so results are bit-identical to
+        serial scoring (pinned by ``tests/test_native_acceleration.py``);
+        measured wall-clock 1.2x on the 4-core profiling box (72.8 -> 62.2 ms
+        on cardio-scale, 285 -> 228 ms at 2.2k rows), bounded by the
+        detectors' own internal parallelism. Per-agent failures are excluded
+        with a warning exactly as before; the quorum check decides whether
+        enough survive.
         """
         if not self._fitted:
             raise OrchestrationError("orchestrator used before fit()")
@@ -599,11 +655,23 @@ class MultiAgentOrchestrator:
         n = X.shape[0]
 
         per_agent_scores: dict[str, np.ndarray[Any, Any]] = {}
-        for name, agent in self.agents.items():
-            try:
-                per_agent_scores[name] = agent.score_batch(X)
-            except Exception as exc:
-                logger.warning("Agent %r failed to score batch; excluded: %s", name, exc)
+        agent_items = list(self.agents.items())
+        if len(agent_items) > 1:
+            from concurrent.futures import ThreadPoolExecutor
+
+            with ThreadPoolExecutor(max_workers=len(agent_items)) as pool:
+                futures = {name: pool.submit(agent.score_batch, X) for name, agent in agent_items}
+            for name, future in futures.items():
+                try:
+                    per_agent_scores[name] = future.result()
+                except Exception as exc:
+                    logger.warning("Agent %r failed to score batch; excluded: %s", name, exc)
+        else:
+            for name, agent in agent_items:
+                try:
+                    per_agent_scores[name] = agent.score_batch(X)
+                except Exception as exc:
+                    logger.warning("Agent %r failed to score batch; excluded: %s", name, exc)
 
         participant_count = len(per_agent_scores)
         consensus_scores = np.full(n, 0.5, dtype=np.float64)

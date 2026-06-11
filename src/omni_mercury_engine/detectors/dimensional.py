@@ -682,3 +682,67 @@ class DimensionalAnalyzer(BaseDetector):
         thd = float(np.sqrt(total_harmonic_power / (fundamental_power + 1e-10)))
 
         return float(min(thd, 1.0))
+
+    def get_fitted_state(self) -> dict[str, Any] | None:
+        """Export the fitted state for checkpoint round-tripping.
+
+        Covers the PCA basis, the trained autoencoder weights (whose random
+        initialization and fit-time training both follow ambient RNG state,
+        so a refit cannot reproduce them), and the fit-time spectral
+        baselines (ROADMAP row 16).
+
+        Returns:
+            JSON/tensor-safe mapping, or ``None`` when unfitted.
+        """
+        if not self._is_fitted or self.pca is None or self.input_dim is None:
+            return None
+        if self.pca.mean_ is None or self.pca.components_ is None:
+            return None
+        return {
+            "input_dim": int(self.input_dim),
+            "pca_n_components": int(self.pca.n_components),
+            "pca_mean": np.asarray(self.pca.mean_, dtype=np.float64),
+            "pca_components": np.asarray(self.pca.components_, dtype=np.float64),
+            "autoencoder_latent_dim": int(self.pca.n_components),
+            "autoencoder_state_dict": (
+                dict(self.autoencoder.state_dict()) if self.autoencoder is not None else None
+            ),
+            "baseline_spectral_signature": (
+                np.asarray(self.baseline_spectral_signature, dtype=np.float64)
+                if self.baseline_spectral_signature is not None
+                else None
+            ),
+            "baseline_row_spectrum": (
+                np.asarray(self.baseline_row_spectrum, dtype=np.float64)
+                if self.baseline_row_spectrum is not None
+                else None
+            ),
+        }
+
+    def set_fitted_state(self, state: dict[str, Any]) -> None:
+        """Restore a state produced by :meth:`get_fitted_state`."""
+        self.input_dim = int(state["input_dim"])
+        pca = _NativePCA(n_components=int(state["pca_n_components"]))
+        pca.mean_ = np.asarray(state["pca_mean"], dtype=np.float64)
+        pca.components_ = np.asarray(state["pca_components"], dtype=np.float64)
+        self.pca = pca
+        ae_state = state.get("autoencoder_state_dict")
+        if ae_state is not None:
+            autoencoder = NeuralProjection(
+                input_dim=self.input_dim,
+                latent_dim=int(state["autoencoder_latent_dim"]),
+            )
+            autoencoder.load_state_dict(ae_state)
+            autoencoder.eval()
+            self.autoencoder = autoencoder
+        else:
+            self.autoencoder = None
+        signature = state.get("baseline_spectral_signature")
+        self.baseline_spectral_signature = (
+            np.asarray(signature, dtype=np.float64) if signature is not None else None
+        )
+        row_spectrum = state.get("baseline_row_spectrum")
+        self.baseline_row_spectrum = (
+            np.asarray(row_spectrum, dtype=np.float64) if row_spectrum is not None else None
+        )
+        self._is_fitted = True

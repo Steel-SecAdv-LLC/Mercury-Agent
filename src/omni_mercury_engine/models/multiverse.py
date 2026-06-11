@@ -387,3 +387,49 @@ class MultiverseOmniEngine:
             remaining -= 1.0 / denominator
 
         return fractions
+
+    def get_fitted_state(self) -> dict[str, Any] | None:
+        """Export the universe population for checkpoint round-tripping.
+
+        The universes' state vectors are drawn from ambient RNG at
+        construction and define the feature transform
+        (:meth:`extract_features` scores data against them), so an engine
+        reloading a checkpoint must restore this exact population to
+        reproduce the saving engine's features (ROADMAP row 16).
+
+        Returns:
+            JSON/tensor-safe mapping of the population.
+        """
+        return {
+            "num_universes": int(self.num_universes),
+            "state_dim": int(self.state_dim),
+            "universes": [
+                {
+                    "universe_id": str(u.universe_id),
+                    "state_vector": np.asarray(u.state_vector, dtype=np.float64),
+                    "probability_amplitude": float(u.probability_amplitude),
+                    "fitness": float(u.fitness),
+                    "state": u.state.value,
+                    "timeline": int(u.timeline),
+                    "parent_universe": u.parent_universe,
+                }
+                for u in self.universes.values()
+            ],
+        }
+
+    def set_fitted_state(self, state: dict[str, Any]) -> None:
+        """Restore a population produced by :meth:`get_fitted_state`."""
+        self.num_universes = int(state["num_universes"])
+        self.state_dim = int(state["state_dim"])
+        self.universes = {}
+        for entry in state["universes"]:
+            universe = Universe(
+                universe_id=str(entry["universe_id"]),
+                state_vector=np.asarray(entry["state_vector"], dtype=np.float64),
+                probability_amplitude=float(entry["probability_amplitude"]),
+                fitness=float(entry["fitness"]),
+                state=UniverseState(str(entry["state"])),
+                timeline=int(entry["timeline"]),
+                parent_universe=entry["parent_universe"],
+            )
+            self.universes[universe.universe_id] = universe

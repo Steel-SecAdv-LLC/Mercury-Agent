@@ -27,6 +27,122 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Performance & correctness — optimization/efficiency pass over the serving and checkpoint paths, with four pre-existing defect families fixed to completion (2026-06-11)
+
+Profile-first discipline: every change below is driven by a fresh measurement
+in this session, every fast path is a compiled form of pinned reference
+semantics, and the candidates the profile did *not* confirm are recorded as
+such instead of "optimized".
+
+* **Serving purity (defect):** identical batches scored differently
+  call-to-call — the directive detector's recursive-memory buffer and the
+  neural cognitive model's hippocampal buffer leak streaming state across
+  calls, so the first ``memory_depth`` rows of every batch depended on what
+  the previous call left behind (measured: `coordinate()` on the same input
+  twice returned different consensus scores; repeated `detect_with_fusion`
+  drifted). Fixed at the *boundaries*, not in the components:
+  `DetectorAgent.score_batch` and the engine's fusion feature extraction
+  reset transient state per call (pure function of fitted state + batch);
+  detectors/models keep their documented streaming semantics for direct
+  callers. The orchestration-validation grid was re-run under the corrected
+  semantics — **all four pre-registered bars still pass** (consensus AUC
+  0.841 vs members 0.833; reflexion +0.054 paired balanced accuracy 15/15
+  acted; planning 129/129; trace fidelity 600/600) and the artifact is
+  regenerated.
+
+  Disclosed consequence: purity exposed that **batch-calibrated conformal
+  sets never matched the single-sample serving regime** — several detector
+  features are batch-relative by design (recursive-memory deviation,
+  batch-percentile stability, batch-max magnitude, sliding windows,
+  within-batch min-max), so a row scored alone does not get its in-batch
+  score; the empirical-coverage fixture's historical ~0.94 rode on the
+  streaming buffers accidentally making serve calls resemble batches, and
+  under purity it measured 0.77. The principled remedy ships:
+  `calibrate_fusion_conformal(..., per_sample=True)` scores calibration
+  rows in the exact serving regime (verified: per-row `score_fusion`
+  equals the served `detect_with_fusion` probability bit-for-bit),
+  restoring the guarantee by exchangeability-by-construction — measured
+  **0.9405 empirical coverage at the 0.90 target** (abstention 5.95%,
+  grounded accuracy 1.0, zero gate-vs-certificate contradictions). Batch
+  consumers' default path is byte-unchanged.
+* **Exact incremental single-sample serving (measured 7.5x).**
+  `DetectorAgent.detect()` re-scored the full 512-row reference batch
+  through every detector protocol per call (54 ms/sample across the five
+  agents; directive 28 ms of it). New
+  `agentic/_incremental_serving.py` serves the appended row *bit-identically*
+  for the three profile-dominant detectors by caching row-independent terms
+  and recomputing only what the row genuinely participates in: temporal
+  9.4 -> 0.09 ms (105x), spatial 11.4 -> 0.29 ms (39x), directive
+  27.7 -> 2.6 ms (11x; floor = the batch-global blend scalars, which include
+  the new row by definition); total serve 52.6 -> 7.0 ms. Never an
+  approximation: unsupported types/subclasses/configs, stale caches and
+  non-finite inputs fall back to the verbatim full path, and a runtime
+  guard refuses out-of-contract scores. Pinned bit-identical across seeds,
+  reference sizes (1..512), duplicate-heavy ties and non-default configs by
+  `tests/test_native_acceleration.py::TestIncrementalServingParity`.
+* **GSIS numba lane (measured 2.9x at 1.1k rows, 5.5x at 4k).** The
+  O(n^2 d) gravitational-stability term gets a parallel JIT kernel behind
+  the existing optional `[performance]` extra that replicates numpy's
+  pairwise-summation order *exactly* — bit-identical distances, percentiles,
+  counts and scores (pinned across seeds/shapes/tie-heavy data, plus an
+  explicit numba-vs-numpy cross-lane test). float64 rows up to 128 features
+  only; other dtypes/widths and numba-less installs keep the byte-identical
+  numpy path. The kernel is deliberately non-recursive: numpy's
+  recursive-halving regime (d > 128) stays on the numpy lane (self-recursion
+  inside a numba parallel region segfaulted under test).
+* **Parallel agent scoring (measured 1.2x).** `coordinate()` now scores the
+  five agents on a thread pool — admissible only because the purity fix
+  makes scoring thread-independent: results are pinned bit-identical to
+  serial (5-run repeat test), wall-clock 72.8 -> 62.2 ms on cardio-scale and
+  285 -> 228 ms at 2.2k rows on the 4-core profiling box; the modest factor
+  is honest (the detectors' internal numba/BLAS parallelism already uses the
+  cores). Per-agent failure exclusion and quorum semantics unchanged.
+* **Fusion checkpoint round-trip fidelity — ROADMAP row 16 CLOSED.**
+  Measured root causes: a loaded engine auto-fit its base detectors on the
+  first inference batch (the leak), torch-module domain models
+  re-randomized per process, the multiverse population re-randomized per
+  construction, and **two stub models emitted fresh RNG output per call**
+  (`AffectiveAnomalyModel` fed 64 columns of pure noise into the fusion
+  feature set at train and serve; `neural`'s buffer drifted) — same-engine
+  repeat drift was ±0.08 before any save/load was attempted. Remediation:
+  (1) `get_fitted_state()`/`set_fitted_state()` on all five base detectors
+  (statistical incl. Oracle re-arm via the existing federation-stats path;
+  dimensional incl. trained autoencoder weights; spatial rebuilds its
+  KDTree from persisted points; temporal incl. its construction-random LSTM
+  feature weights); (2) checkpoint now carries `model_state_dicts`
+  (torch-module domain models), `model_fitted_state` (multiverse
+  population) and `conformal_state` (calibrator thresholds); (3) the
+  affective stub is quarantined to deterministic *neutral* output (zero
+  features, 0.5 scores, one-time warning) per the repo's
+  parapsychology/schumann precedent — it fabricates nothing; (4)
+  `default_fusion.pt` regenerated with full state. **Measured: save->load
+  max |dProb| = 5.9e-08 (bar < 1e-3; was ~0.76 historical / 0.427
+  re-measured), same-engine repeat drift exactly 0.0, conformal sets
+  identical.** Pinned by `tests/test_fusion_checkpoint_roundtrip.py`;
+  legacy checkpoints still load with legacy behavior; fusion regression
+  gate re-run green.
+* **Spatial detector defects (found by the parity battery, fixed):**
+  (a) `_NativeLOF.decision_function` raised `AxisError` whenever k == 1
+  (single training sample, or `n_neighbors=1`) — scipy squeezes the
+  neighbor axis for k=1; restored explicitly. (b) `detect()` crashed
+  outright on NaN/Inf queries (`KDTree.query` refuses them) before its own
+  downstream NaN guards could run — sanitized at the boundary exactly like
+  the temporal detector; finite inputs are byte-unaffected. Regression
+  tests in `tests/detectors/test_spatial_detector.py`.
+* **Test-infra:** the suite's per-xdist-worker thread cap now covers
+  numba's parallel kernels too (`NUMBA_NUM_THREADS=1`, mirroring the
+  existing torch cap in `tests/conftest.py`) — without it each worker
+  spawned a full physical-core pool for the new GSIS prange lane and the
+  oversubscription starved borderline-heavy tests past the 300 s timeout.
+* **Candidates re-profiled and *not* optimized (honest negative results):**
+  (1) the inherited "fit_fusion 610 s / 20 epochs on cardio" figure does
+  not reproduce — measured 6.8 s (labels), 10.1 s (semi-supervised), 9.1 s
+  (domain encoder) for 20 epochs on this 4-core box, with feature
+  extraction ~1.2 s of it; nothing profile-justified to attack. (2) GPU
+  lane: `torch.cuda.is_available()` is False in this environment — no GPU
+  work was attempted and no GPU numbers exist; the lane awaits the
+  operator's GPU CI runners.
+
 ### DimensionalAnalyzer — dead spectral-divergence term given real, gate-cleared semantics (2026-06-11)
 
 The DB term's spectral-divergence component — disclosed as identically zero

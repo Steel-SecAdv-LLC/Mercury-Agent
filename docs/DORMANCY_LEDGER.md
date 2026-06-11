@@ -99,6 +99,15 @@ networks but **fall back** to deterministic physics / a neutral prior with a
 one-time warning (per `docs/NEUROSYMBOLIC.md` §4). They emit no fabricated
 signal and are correctly handled — no action.
 
+`models/affective.py` joined this set on 2026-06-11: the stub previously
+emitted **fresh RNG noise per call** as its features and anomaly scores
+(64 columns of fabricated, nondeterministic signal in the fusion feature
+set — the worst variant of interface ≠ signal). It now emits a
+deterministic neutral output (zero features, 0.5 scores) with a one-time
+warning until a real, measured affective extractor exists; the serve-path
+determinism and checkpoint-equivalence tests
+(`tests/test_fusion_checkpoint_roundtrip.py`) keep it honest.
+
 ## 4. Status & reproduce
 
 ```bash

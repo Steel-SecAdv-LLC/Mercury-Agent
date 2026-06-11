@@ -252,3 +252,36 @@ class TemporalAnomalyDetector(BaseDetector):
             scores = max_z / (self.change_threshold + max_z)
 
         return scores
+
+    def get_fitted_state(self) -> dict[str, Any] | None:
+        """Export the fitted state for checkpoint round-tripping.
+
+        Covers everything the detect/extract paths read: the fit-time
+        baselines and the LSTM feature-extractor weights — the LSTM is
+        initialized randomly at construction, so without persisting it a
+        reloaded engine would extract different fusion features than the
+        engine that trained the checkpoint (ROADMAP row 16).
+
+        Returns:
+            JSON/tensor-safe mapping, or ``None`` when unfitted.
+        """
+        if not self._is_fitted:
+            return None
+        return {
+            "baseline_mean": self.baseline_mean,
+            "baseline_std": self.baseline_std,
+            "lstm_state_dict": dict(self.lstm.state_dict()) if self.lstm is not None else None,
+        }
+
+    def set_fitted_state(self, state: dict[str, Any]) -> None:
+        """Restore a state produced by :meth:`get_fitted_state`."""
+        self.baseline_mean = (
+            float(state["baseline_mean"]) if state["baseline_mean"] is not None else None
+        )
+        self.baseline_std = (
+            float(state["baseline_std"]) if state["baseline_std"] is not None else None
+        )
+        lstm_state = state.get("lstm_state_dict")
+        if lstm_state is not None and self.lstm is not None:
+            self.lstm.load_state_dict(lstm_state)
+        self._is_fitted = True

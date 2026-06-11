@@ -288,3 +288,263 @@ class TestSpatialNumbaLaneParity:
         produced = _compute_distance_scores_jit(distances, radius)
         expected = np.maximum(distances - radius, 0) / (radius + 1e-6)
         np.testing.assert_allclose(produced, expected, rtol=0, atol=1e-12)
+
+
+class TestGSISNumbaLaneParity:
+    """The GSIS numba kernel is bit-identical to the numpy broadcast lane."""
+
+    def test_gsis_numba_lane_is_active(self) -> None:
+        from omni_mercury_engine.detectors import directive
+
+        assert directive.GSIS_NUMBA_AVAILABLE is True
+
+    @pytest.mark.parametrize("seed", SEEDS)
+    @pytest.mark.parametrize("shape", [(57, 3), (200, 7), (300, 21), (150, 130), (90, 1)])
+    def test_gsis_scores_identical_across_lanes(
+        self, seed: int, shape: tuple[int, int], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from omni_mercury_engine.detectors import directive
+
+        rng = np.random.default_rng(seed)
+        data = rng.normal(0, 1, shape)
+        if seed % 2 == 1:  # duplicate-heavy: ties at the percentile boundary
+            base = rng.normal(0, 1, (max(4, shape[0] // 10), shape[1]))
+            data = base[rng.integers(0, len(base), shape[0])]
+        detector = directive.SigmaDirectiveDetector()
+
+        produced_numba = detector._gravitational_stability_check(data)
+        monkeypatch.setattr(directive, "GSIS_NUMBA_AVAILABLE", False)
+        produced_numpy = detector._gravitational_stability_check(data)
+
+        np.testing.assert_array_equal(produced_numba, produced_numpy)
+
+    def test_non_float64_uses_numpy_semantics(self) -> None:
+        """float32 input keeps float32 arithmetic (the numpy lane)."""
+        from omni_mercury_engine.detectors import directive
+
+        data = np.random.default_rng(3).normal(0, 1, (60, 9)).astype(np.float32)
+        detector = directive.SigmaDirectiveDetector()
+        produced = detector._gravitational_stability_check(data)
+        expected = np.zeros(60)
+        for i in range(60):
+            distances = np.linalg.norm(data - data[i], axis=1)
+            local_density = np.sum(distances < np.percentile(distances, 20))
+            expected[i] = 1.0 - local_density / 60
+        np.testing.assert_array_equal(produced, expected * detector.stability_factor)
+
+
+# =============================================================================
+# DetectorAgent — purity contract + exact incremental single-sample serving
+# =============================================================================
+
+
+def _fitted_agent(name: str, seed: int, n_train: int = 90, d: int = 7) -> Any:
+    """Build one fitted DetectorAgent over a real detector instance."""
+    from omni_mercury_engine.agentic.orchestration import (
+        DetectorAgent,
+        default_detector_suite,
+    )
+
+    if n_train >= 12:
+        train = _rows(seed + 7, n=n_train, d=d)
+    else:  # _rows needs >= 6 rows of anomaly headroom; tiny fits use plain rows
+        train = np.random.default_rng(seed + 7).normal(0, 1, (n_train, d))
+    detector = default_detector_suite()[name]
+    agent = DetectorAgent(name, detector, seed=seed)
+    agent.fit(train)
+    return agent
+
+
+def _full_path_oracle(agent: Any, row: np.ndarray[Any, Any]) -> float:
+    """The documented single-sample contract, computed without the cache."""
+    batch = np.vstack([agent._reference, row.reshape(1, -1)])
+    return float(agent.score_batch(batch)[-1])
+
+
+class TestServingPurity:
+    """score_batch is a pure function of (fitted state, batch).
+
+    Before 2026-06-11 the directive detector's recursive-memory buffer
+    leaked across calls, so the first ``memory_depth`` rows of every batch
+    scored differently depending on the previous call — coordinate() on the
+    same input twice returned different consensus scores.
+    """
+
+    @pytest.mark.parametrize("seed", SEEDS)
+    def test_score_batch_identical_across_calls(self, seed: int) -> None:
+        agent = _fitted_agent("directive", seed)
+        batch = _rows(seed + 21, n=40, d=7)
+        first = agent.score_batch(batch)
+        # Perturb the buffer with an unrelated batch in between.
+        agent.score_batch(_rows(seed + 99, n=11, d=7))
+        second = agent.score_batch(batch)
+        np.testing.assert_array_equal(first, second)
+
+    @pytest.mark.parametrize("seed", SEEDS)
+    def test_coordinate_identical_across_calls(self, seed: int) -> None:
+        from omni_mercury_engine.agentic.orchestration import MultiAgentOrchestrator
+
+        orch = MultiAgentOrchestrator(seed=seed).fit(_rows(seed, n=120, d=7))
+        batch = _rows(seed + 5, n=48, d=7)
+        first = orch.coordinate(batch)
+        second = orch.coordinate(batch)
+        np.testing.assert_array_equal(first.consensus_scores, second.consensus_scores)
+        np.testing.assert_array_equal(first.decisions, second.decisions)
+
+    @pytest.mark.parametrize("seed", SEEDS)
+    def test_serve_then_batch_unaffected_by_history(self, seed: int) -> None:
+        """Single-sample serving must not perturb subsequent batch scoring."""
+        agent = _fitted_agent("directive", seed)
+        batch = _rows(seed + 3, n=30, d=7)
+        baseline = agent.score_batch(batch)
+        for i in range(4):
+            agent.detect(batch[i])
+        np.testing.assert_array_equal(agent.score_batch(batch), baseline)
+
+
+class TestParallelCoordinationParity:
+    """Thread-pooled agent scoring is bit-identical to serial scoring."""
+
+    @pytest.mark.parametrize("seed", SEEDS)
+    def test_coordinate_equals_serial_agent_scoring(self, seed: int) -> None:
+        from omni_mercury_engine.agentic.orchestration import MultiAgentOrchestrator
+
+        orch = MultiAgentOrchestrator(seed=seed).fit(_rows(seed, n=130, d=7))
+        batch = _rows(seed + 9, n=64, d=7)
+        coordinated = orch.coordinate(batch)
+        for name, agent in orch.agents.items():
+            np.testing.assert_array_equal(
+                coordinated.per_agent_scores[name],
+                agent.score_batch(batch),
+                err_msg=f"parallel scoring diverged from serial for agent {name!r}",
+            )
+
+    def test_failing_agent_excluded_not_fatal(self) -> None:
+        from omni_mercury_engine.agentic.orchestration import MultiAgentOrchestrator
+
+        orch = MultiAgentOrchestrator(seed=0).fit(_rows(0, n=90, d=7))
+
+        def _boom(_x: Any) -> Any:
+            raise RuntimeError("induced failure")
+
+        orch.agents["temporal"].score_batch = _boom  # type: ignore[method-assign, assignment]
+        batch = orch.coordinate(_rows(4, n=30, d=7))
+        assert "temporal" not in batch.per_agent_scores
+        assert batch.participant_count == len(orch.agents) - 1
+
+
+class TestIncrementalServingParity:
+    """The incremental serve is bit-identical to the full-batch path."""
+
+    AGENTS = ("directive", "spatial", "temporal")
+
+    @pytest.mark.parametrize("seed", SEEDS)
+    @pytest.mark.parametrize("name", AGENTS)
+    def test_serve_matches_full_path(self, name: str, seed: int) -> None:
+        agent = _fitted_agent(name, seed)
+        queries = _rows(seed + 31, n=25, d=7)
+        for row in queries:
+            served = agent.detect(row).anomaly_score
+            assert served == _full_path_oracle(
+                agent, row
+            ), f"{name} incremental serve diverged from the full path"
+        assert agent._serving_cache is not None, f"{name} fast path never engaged"
+
+    @pytest.mark.parametrize("seed", SEEDS)
+    @pytest.mark.parametrize("name", AGENTS)
+    @pytest.mark.parametrize("n_train", [1, 3, 5, 9, 60])
+    def test_serve_matches_full_path_tiny_references(
+        self, name: str, seed: int, n_train: int
+    ) -> None:
+        """Reference sizes around the RMD depth / trend window edges."""
+        agent = _fitted_agent(name, seed, n_train=n_train)
+        for row in _rows(seed + 13, n=8, d=7):
+            assert agent.detect(row).anomaly_score == _full_path_oracle(agent, row)
+
+    @pytest.mark.parametrize("seed", SEEDS)
+    @pytest.mark.parametrize("name", AGENTS)
+    def test_serve_matches_full_path_duplicate_heavy(self, name: str, seed: int) -> None:
+        """Tied distances exercise the GSIS percentile/count boundaries and
+        the spatial constant-range branch."""
+        rng = np.random.default_rng(seed)
+        base = rng.normal(0, 1, (6, 7))
+        train = base[rng.integers(0, 6, size=80)]  # heavy duplication
+        from omni_mercury_engine.agentic.orchestration import (
+            DetectorAgent,
+            default_detector_suite,
+        )
+
+        agent = DetectorAgent(name, default_detector_suite()[name], seed=seed)
+        agent.fit(train)
+        for row in [base[0], base[3], rng.normal(0, 1, 7)]:
+            assert agent.detect(row).anomaly_score == _full_path_oracle(agent, row)
+
+    @pytest.mark.parametrize("name", AGENTS)
+    def test_configured_directive_and_flags(self, name: str) -> None:
+        """Non-default detector configurations stay bit-identical."""
+        from omni_mercury_engine.agentic.orchestration import DetectorAgent
+        from omni_mercury_engine.detectors.directive import (
+            DirectiveWeights,
+            SigmaDirectiveDetector,
+        )
+        from omni_mercury_engine.detectors.spatial import SpatialAnomalyDetector
+        from omni_mercury_engine.detectors.temporal import TemporalAnomalyDetector
+
+        detector: Any
+        if name == "directive":
+            detector = SigmaDirectiveDetector(
+                {
+                    "memory_depth": 3,
+                    "stability_factor": 1.4,
+                    "use_harmonic_detection": False,
+                    "weights": DirectiveWeights(
+                        pcp_weight=0.4, gsis_weight=0.4, rmd_weight=0.1, eoa_weight=0.1
+                    ),
+                }
+            )
+        elif name == "spatial":
+            detector = SpatialAnomalyDetector({"n_neighbors": 3})
+        else:
+            detector = TemporalAnomalyDetector({"window_size": 4, "change_threshold": 1.0})
+        agent = DetectorAgent(name, detector, seed=0)
+        agent.fit(_rows(11, n=70, d=7))
+        for row in _rows(17, n=12, d=7):
+            assert agent.detect(row).anomaly_score == _full_path_oracle(agent, row)
+
+    def test_subclass_falls_back_to_full_path(self) -> None:
+        """Exact-type dispatch: a subclass must not engage the fast path."""
+        from omni_mercury_engine.agentic.orchestration import DetectorAgent
+        from omni_mercury_engine.detectors.directive import SigmaDirectiveDetector
+
+        class TweakedDirective(SigmaDirectiveDetector):
+            pass
+
+        agent = DetectorAgent("directive", TweakedDirective(), seed=0)
+        agent.fit(_rows(2, n=40, d=7))
+        score = agent.detect(np.random.default_rng(3).normal(0, 1, 7)).anomaly_score
+        assert agent._serving_cache is None
+        assert 0.0 <= score <= 1.0
+
+    def test_caller_reference_batch_uses_full_path(self) -> None:
+        """A context-supplied reference must bypass the fit-time cache."""
+        agent = _fitted_agent("directive", 0)
+        other_reference = _rows(123, n=30, d=7)
+        row = np.random.default_rng(5).normal(0, 1, 7)
+        served = agent.detect(row, context={"reference_batch": other_reference}).anomaly_score
+        expected = float(agent.score_batch(np.vstack([other_reference, row.reshape(1, -1)]))[-1])
+        assert served == expected
+
+    def test_refit_invalidates_cache(self) -> None:
+        agent = _fitted_agent("temporal", 0)
+        row = np.random.default_rng(5).normal(0, 1, 7)
+        first = agent.detect(row).anomaly_score
+        assert first == _full_path_oracle(agent, row)
+        agent.fit(_rows(40, n=80, d=7))
+        assert agent.detect(row).anomaly_score == _full_path_oracle(agent, row)
+
+    def test_non_finite_row_falls_back(self) -> None:
+        agent = _fitted_agent("spatial", 0)
+        row = np.random.default_rng(5).normal(0, 1, 7)
+        row[2] = np.nan
+        served = agent.detect(row).anomaly_score
+        assert served == _full_path_oracle(agent, row)
