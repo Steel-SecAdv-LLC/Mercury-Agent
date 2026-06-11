@@ -539,16 +539,18 @@ class DimensionalAnalyzer(BaseDetector):
 
         Note on the spectral-divergence component: the original loop computed
         it per *single row*, where each column's FFT has length 1, so the
-        half-spectrum slice ``[:0]`` is empty and the divergence evaluates to
+        half-spectrum slice ``[:0]`` is empty and the divergence evaluated to
         ``0.0 / (0.0 + 1e-10) == 0.0`` for every sample — identically zero.
-        By default that legacy zero is preserved (changing a live detector's
-        shipped scores requires a measured gate). With the opt-in
-        ``db_spectral_divergence`` config flag the term carries real,
-        coherent semantics: each row's feature-axis power spectrum is
-        compared against the fit-time mean training-row spectrum with the
-        original normalized-distance formula. The flag's effect on real
-        labels is measured by ``benchmarks/db_spectral_ablation.py``; the
-        default flips only if that pre-registered gate clears.
+        The term now carries real semantics **by default**
+        (``db_spectral_divergence=True``): each row's feature-axis power
+        spectrum is compared against the fit-time mean training-row spectrum
+        with the original normalized-distance formula. The default was
+        flipped only after the pre-registered ablation gate cleared on real
+        ADBench labels (``benchmarks/db_spectral_ablation.py``, artifact
+        ``artifacts/db_spectral_ablation.json``: mean paired detector dAUC
+        +0.071, seed agreement 0.93). Construct with
+        ``{"db_spectral_divergence": False}`` to opt out and reproduce the
+        pre-2026-06-11 shipped scores exactly (legacy zero term).
         """
         if data.ndim == 1:
             data = data.reshape(-1, 1)

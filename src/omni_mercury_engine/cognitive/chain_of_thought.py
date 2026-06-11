@@ -1370,13 +1370,15 @@ class AnomalyChainOfThought:
         # step (and the final stated determination) classifies against the
         # same boundary used for the returned ``is_anomaly`` verdict — the
         # trace can never claim "ANOMALY DETECTED" while the decision says
-        # otherwise, or vice versa.
+        # otherwise, or vice versa. The locked keys are written AFTER
+        # ``**data`` so a caller-supplied dict cannot override them and
+        # silently decouple the trace from the verdict.
         context = {
+            **data,
             "anomaly_score": anomaly_score,
             "anomaly_threshold": self.anomaly_threshold,
             "is_anomaly": anomaly_score > self.anomaly_threshold,
             "domain": domain,
-            **data,
         }
 
         # Use domain-specific reasoning if available

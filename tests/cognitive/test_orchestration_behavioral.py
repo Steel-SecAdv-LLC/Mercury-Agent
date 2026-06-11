@@ -281,6 +281,24 @@ class TestChainOfThoughtThresholdFidelityFix:
         chain = engine.reason("anomaly?", {"anomaly_score": 0.2})
         assert "NORMAL" in chain.conclusion
 
+    def test_caller_data_cannot_override_locked_fidelity_keys(self) -> None:
+        # The contractually locked context keys (score, threshold, verdict,
+        # domain) are written after **data, so a caller-supplied dict cannot
+        # silently decouple the trace from the verdict (review finding).
+        from omni_mercury_engine.cognitive.chain_of_thought import AnomalyChainOfThought
+
+        cot = AnomalyChainOfThought(anomaly_threshold=0.5)
+        hostile_data = {
+            "anomaly_threshold": 0.99,
+            "is_anomaly": False,
+            "anomaly_score": 0.01,
+            "domain": "spoofed",
+        }
+        analysis = cot.analyze_anomaly(dict(hostile_data), 0.9)
+        assert analysis["is_anomaly"] is True
+        assert analysis["anomaly_score"] == 0.9
+        assert "ANOMALY DETECTED" in str(analysis["conclusion"]).upper()
+
 
 class TestReflexionLoopFix:
     """``execute_with_reflection`` previously recomputed an identical
