@@ -162,8 +162,7 @@ def run_dataset_seed(name: str, seed: int) -> dict[str, Any] | None:
         nonlocal plan_episodes_ok, plan_episodes_total
         plan_episodes_total += 1
         completed = episode.plan.goal_status == "completed" and (
-            episode.plan.executed_actions
-            == ["score_agents", "form_consensus", "issue_decisions"]
+            episode.plan.executed_actions == ["score_agents", "form_consensus", "issue_decisions"]
         )
         plan_episodes_ok += int(completed)
         goal_values.append(float(episode.plan.goal_value))
@@ -181,7 +180,10 @@ def run_dataset_seed(name: str, seed: int) -> dict[str, Any] | None:
     # ---- Q4: trace fidelity on boundary-adjacent + extreme samples ------
     order = np.argsort(np.abs(batch.consensus_scores - episode.threshold))
     sample_indices = list(order[: N_FIDELITY_SAMPLES - 2])
-    sample_indices += [int(np.argmax(batch.consensus_scores)), int(np.argmin(batch.consensus_scores))]
+    sample_indices += [
+        int(np.argmax(batch.consensus_scores)),
+        int(np.argmin(batch.consensus_scores)),
+    ]
     fidelity_ok = 0
     numeric_ok = 0
     fidelity_total = 0
