@@ -64,7 +64,9 @@ class TestDimensionalDBVectorization:
         from omni_mercury_engine.detectors.dimensional import DimensionalAnalyzer
 
         data = _rows(seed, n=48, d=9)
-        analyzer = DimensionalAnalyzer()
+        # The oracle below is the legacy loop (zero spectral term); pin the
+        # explicit opt-out path, which preserves pre-2026-06-11 scores.
+        analyzer = DimensionalAnalyzer({"db_spectral_divergence": False})
         analyzer.fit(_rows(seed + 100, n=120, d=9))
 
         produced = analyzer._dimensional_code_breaking(data)

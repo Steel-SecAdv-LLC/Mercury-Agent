@@ -214,6 +214,17 @@ class DimensionalAnalyzer(BaseDetector):
         self.n_components: int = self.config.get("n_components", 10)
         self.reconstruction_threshold: float = self.config.get("reconstruction_threshold", 2.0)
         self.use_db_term: bool = self.config.get("use_db_term", True)
+        # Real semantics for the DB term's spectral-divergence component
+        # (operator-approved 2026-06-11). Default True: the pre-registered
+        # ablation gate (benchmarks/db_spectral_ablation.py,
+        # artifacts/db_spectral_ablation.json) cleared decisively — mean
+        # paired detector dAUC +0.071 over 5 ADBench datasets x 3 seeds
+        # (bar +0.002), seed agreement 0.93, and the term alone moved from
+        # chance (0.460) to 0.811 AUC. Set False for the legacy
+        # identically-zero term (pre-2026-06-11 shipped scores).
+        self.db_spectral_divergence: bool = bool(
+            self.config.get("db_spectral_divergence", True)
+        )
         self.autoencoder_epochs: int = self.config.get("autoencoder_epochs", 100)
         self.autoencoder_lr: float = self.config.get("autoencoder_lr", 0.001)
 
@@ -235,6 +246,11 @@ class DimensionalAnalyzer(BaseDetector):
 
         self.input_dim: int | None = None
         self.baseline_spectral_signature: NDArray[np.float64] | None = None
+        # Mean per-row power spectrum of the training data (length d // 2):
+        # the baseline the opt-in spectral-divergence semantics compare
+        # against. Always computed at fit when the DB term is enabled, so
+        # the flag can be evaluated without refitting.
+        self.baseline_row_spectrum: NDArray[np.float64] | None = None
 
     def fit(self, data: NDArray[np.float64] | torch.Tensor) -> DimensionalAnalyzer:
         """Fit dimensional analyzers to training data.
@@ -321,6 +337,10 @@ class DimensionalAnalyzer(BaseDetector):
 
         if self.use_db_term:
             self.baseline_spectral_signature = self._compute_spectral_signature(data_np)
+            row_spectra = self._row_power_spectrum(data_np)
+            self.baseline_row_spectrum = (
+                row_spectra.mean(axis=0) if row_spectra.size else None
+            )
 
         self._is_fitted = True
         return self
@@ -526,10 +546,15 @@ class DimensionalAnalyzer(BaseDetector):
         Note on the spectral-divergence component: the original loop computed
         it per *single row*, where each column's FFT has length 1, so the
         half-spectrum slice ``[:0]`` is empty and the divergence evaluates to
-        ``0.0 / (0.0 + 1e-10) == 0.0`` for every sample. The term is
-        therefore identically zero and is preserved as an explicit zero here
-        — giving it real semantics would change this live detector's shipped
-        scores and so requires its own measured ablation gate first.
+        ``0.0 / (0.0 + 1e-10) == 0.0`` for every sample — identically zero.
+        By default that legacy zero is preserved (changing a live detector's
+        shipped scores requires a measured gate). With the opt-in
+        ``db_spectral_divergence`` config flag the term carries real,
+        coherent semantics: each row's feature-axis power spectrum is
+        compared against the fit-time mean training-row spectrum with the
+        original normalized-distance formula. The flag's effect on real
+        labels is measured by ``benchmarks/db_spectral_ablation.py``; the
+        default flips only if that pre-registered gate clears.
         """
         if data.ndim == 1:
             data = data.reshape(-1, 1)
@@ -538,7 +563,22 @@ class DimensionalAnalyzer(BaseDetector):
             self.baseline_spectral_signature is not None
         ), "Baseline spectral signature must be computed"
 
-        spectral_divergence = 0.0
+        spectral_divergence: NDArray[np.float64] | float
+        if (
+            self.db_spectral_divergence
+            and self.baseline_row_spectrum is not None
+            and self.baseline_row_spectrum.size > 0
+        ):
+            sample_spectra = self._row_power_spectrum(data)
+            min_len = min(self.baseline_row_spectrum.shape[0], sample_spectra.shape[1])
+            baseline = self.baseline_row_spectrum[:min_len]
+            diff = sample_spectra[:, :min_len] - baseline[None, :]
+            spectral_divergence = np.linalg.norm(diff, axis=1) / (
+                np.linalg.norm(baseline) + 1e-10
+            )
+        else:
+            spectral_divergence = 0.0  # legacy dead term (see docstring)
+
         phase_coherence = self._phase_coherence_rows(data)
         harmonic_distortion = self._harmonic_distortion_rows(data)
 
@@ -549,6 +589,15 @@ class DimensionalAnalyzer(BaseDetector):
         )
 
         return np.minimum(db_scores, 1.0)
+
+    @staticmethod
+    def _row_power_spectrum(data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Per-row half power spectrum along the feature axis, shape (n, d // 2)."""
+        if data.ndim == 1:
+            data = data.reshape(1, -1)
+        d = data.shape[1]
+        power = np.abs(fft(data, axis=1)) ** 2
+        return np.asarray(power[:, : d // 2], dtype=np.float64)
 
     @staticmethod
     def _phase_coherence_rows(data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:

@@ -27,6 +27,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### DimensionalAnalyzer — dead spectral-divergence term given real, gate-cleared semantics (2026-06-11)
+
+The DB term's spectral-divergence component — disclosed as identically zero
+in the native-acceleration pass — now carries real semantics
+(operator-approved): each row's feature-axis power spectrum is compared
+against the fit-time mean training-row spectrum with the original
+normalized-distance formula.
+
+* **Pre-registered ablation gate, cleared decisively**
+  (`benchmarks/db_spectral_ablation.py`, artifact
+  `artifacts/db_spectral_ablation.json`; paired OFF/ON fits under identical
+  global seeds, real ADBench, 5 datasets × 3 seeds): mean paired detector
+  ΔAUC **+0.071** (bar +0.002), seed agreement **0.93** (14/15), the term
+  alone moving from chance (**0.460** — confirming it was dead weight) to
+  **0.811** AUC. Largest gains where spectral structure exists (thyroid
+  +0.12…+0.20, cardio +0.08…+0.14); the single negative is −0.0013, inside
+  the noise floor.
+* **Default flipped to enabled** per the cleared gate;
+  `{"db_spectral_divergence": False}` preserves the pre-2026-06-11 shipped
+  scores exactly (pinned byte-equal by the legacy-oracle parity test).
+* **Behavioral contract:** `tests/test_db_spectral_term.py` — the enabled
+  term detects precisely what it claims (every spectrum-diverging row
+  out-scores every conforming row on constructed spectral structure,
+  multi-seed), fit-time baseline, and dimension-mismatch truncation.
+* Orchestration-validation grid re-measured with the new default; all four
+  pillar-B bars still pass (artifact regenerated).
+
+### Operations — explicit online/offline (air-gapped) modes for the data layer (2026-06-11)
+
+Production deployments require both connectivity modes; detection itself
+was already fully local — the gap was the data layer.
+
+* **`MERCURY_OFFLINE=1`** refuses every dataset-layer network fetch at the
+  single HTTP chokepoint (`datasets/base.py::http_get_with_retry`) before
+  any socket is opened, raising the new `OfflineModeError` with a
+  remediation hint. Cached data keeps serving; uncached data fails closed —
+  never stale, never synthetic. Read at call time (the `MERCURY_ENV`
+  contract), so tests and operators toggle without restarts.
+* **`MERCURY_DATA_DIR` / `MERCURY_CACHE_DIR`** env overrides for the
+  dataset directories (defaults unchanged when unset), so air-gapped
+  deployments pin a stable cache location.
+* **`scripts/prefetch_datasets.py`** primes the cache while online
+  (`--adbench cardio thyroid …` or `--adbench-all` for the 47-dataset
+  catalog); exits non-zero on any failed fetch — a partial prime is
+  reported, never silently accepted.
+* **Docs:** `docs/OFFLINE_OPERATION.md` (mode matrix, env vars, priming
+  runbook). **Tests:** `tests/datasets/test_offline_mode.py` pins flag
+  parsing, refusal-before-socket, cached service under offline mode,
+  fail-closed uncached errors, and the env-aware directory defaults.
+
 ### Performance — native acceleration pass on the live detection hot path, equivalence-pinned (2026-06-11)
 
 A profile of the orchestrated detection path on a real-scale batch
