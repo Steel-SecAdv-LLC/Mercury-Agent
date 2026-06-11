@@ -86,8 +86,10 @@ order. None are deleted.
 | 7 | `neural_memory_layer.py` (remainder) | 941 | Text/dict memory + pattern detection (the `KMeansClusterer` within is revived in §1) | **No (beyond the clusterer) ✓ checked** — `get_anomaly_score()` is *the same* k-means-distance path already revived; the memory/embedding path is hash-projection over dicts, not tabular | LOW | The salvageable part (`KMeansClusterer`) is revived; the rest is a text-memory system. |
 | 8 | `predictive_coding.py` | 1296 | Predictive-coding / active-inference detector | **Measured — none** (0.536 AUC) | LOW | No revival path as a detector; retain as reference. |
 | 9 | `case_based_reasoning.py` | 625 | Case-based retrieval reasoner | **Measured — none** (0.572 AUC) | LOW | No revival path as a detector; retain as reference. **CBR cycle now behaviourally covered (2026-06-02):** `tests/cognitive/test_case_based_reasoning_behavioral.py` asserts retrieval ranking + counters, the REUSE-vs-REVISE branch in `solve` (incl. honest `no_matching_cases` on an empty base), proportional `adapt` + adaptation history, and `learn_from_outcome` state updates. |
-| 10 | `chain_of_thought.py` / `chain_of_hindsight.py` / `reflexion.py` | 1501/1548/1734 | LLM-style reasoning / self-reflection loops | **No** — generate text reasoning traces; no in-repo ground truth | LOW | Out of scope for anomaly detection; reference only. |
-| 11 | `hierarchical_planning.py` / `multi_agent_coordination.py` / `plasticity_engine.py` | 1489/1293/953 | Planning / agent coordination / synaptic plasticity | **No** — control/meta machinery, not detectors | LOW | Out of scope for anomaly detection; reference only. |
+| 10 | `chain_of_thought.py` / `reflexion.py` | 1501/1734 | Reasoning traces / self-reflection loops | **MEASURED ✓ (non-AUC, 2026-06-11)** — wired into the live multi-agent orchestration (`agentic/orchestration.py`) and measured on real ADBench labels by `benchmarks/orchestration_validation.py`: chain-of-thought **trace fidelity 600/600** (every sampled decision's stated determination matches the issued decision; every quoted score is the real consensus score), reflexion **paired Δ balanced-accuracy +0.079** over a fixed operating point (15/15 dataset×seed runs acted, never harmed a well-calibrated point) | **revived (orchestration tier)** | Reflexion's original `fn > 2·fp` adaptation rule was itself measured **harmful** (Δ −0.071; WBC 0.98 → 0.50) and replaced by an evidence-grounded balanced-accuracy sweep with minimum-evidence and hysteresis guards — the harness caught a real defect before it shipped. CoT conclusions previously classified against hardcoded 0.7/0.4 bands regardless of the issuing boundary (fixed: traces classify at the decision threshold); the self-consistency strategy returned the vote *token* as its conclusion, stripping the human-readable determination (fixed). |
+| 10b | `chain_of_hindsight.py` | 1548 | Hindsight relabeling / credit assignment | **No** — no in-repo harness yet | LOW | Retained as reference; candidate for the same orchestration-loop treatment (its `FeedbackProcessor` is the natural batch-level critic). |
+| 11 | `hierarchical_planning.py` / `multi_agent_coordination.py` | 1489/1293 | Planning / agent coordination | **MEASURED ✓ (non-AUC, 2026-06-11)** — same harness: the planner drives every live detection episode via real options bound to the pipeline stages — **executability 129/129 episodes** with TD value learning on real stage rewards (initial-state value strictly increasing); coordination forms per-sample consensus over the five real engine detectors — **mean consensus AUC 0.827 ≥ mean member AUC 0.821** (best member 0.903; no claim of beating the trained fusion model is made), below-quorum cases **abstain explicitly** | **revived (orchestration tier)** | Both modules carried blocking defects while dormant: the planner could not select options at all (its option library returned dict projections that the planner type-checked away — every plan shipped empty, every action fell back to `default_action`), option eviction never fired, and below-quorum consensus returned a silent benign verdict (fail-open) while duck-typed dict votes were silently dropped. All fixed and pinned by `tests/cognitive/test_orchestration_behavioral.py`. |
+| 11b | `plasticity_engine.py` | 953 | Synaptic plasticity | **No** — control/meta machinery, no harness yet | LOW | Retained as reference. |
 | — | `differentiable_logic.py` | 988 | Scalar t-norms + embedding LTN modules | **Superseded** — its t-norm taxonomy (Gödel/Łukasiewicz) is revived as real tensor operators in the live `SymbolicConstraintModule` semantics (see `docs/NEUROSYMBOLIC.md` §2.1) | n/a | Concept revived in the measured path; file retained as reference. |
 
 ## 3. Correctly-quarantined (not dormant theater)
@@ -109,6 +111,12 @@ python -m benchmarks.dormant_module_revival \
 python -m benchmarks.kmeans_ensemble_marginal \
     --datasets cardio thyroid breastw WBC Pima --seeds 0 1 2 \
     --out artifacts/kmeans_ensemble_marginal.json
+
+# Does the revived planning/coordination/reflexion/chain-of-thought tier
+# carry real signal on the engine's own task? (rows 10-11)
+python -m benchmarks.orchestration_validation \
+    --datasets cardio thyroid breastw WBC Pima --seeds 0 1 2 \
+    --out artifacts/orchestration_validation.json
 ```
 
 Revival is data-driven and incremental: a dormant module is promoted only when a
@@ -158,29 +166,47 @@ detection metric it was never meant to clear:
 All three non-AUC frameworks land the same verdict that the AUC lens missed:
 measured against the **right** metric, `causal_discovery`, `explainability`
 (IntegratedGradients + faithfulness), and `formal_verification` (interval bound
-propagation) are **genuinely working tools** — not theatre. The remaining
-orphans (planning / reasoning / coordination / multi-agent machinery) operate on
-symbolic or text inputs with no in-repo ground truth; they stay ranked and
-retained until a fitting harness exists.
+propagation) are **genuinely working tools** — not theatre.
+
+* **Orchestration tier — built ✓, VALIDATED (2026-06-11).** The ledger held the
+  planning / reasoning / coordination tier "retained until a fitting harness
+  exists" — and refused to invent a toy task for it. The fitting task arrived
+  as the engine's own: `agentic/orchestration.py` (`MultiAgentOrchestrator`)
+  wires `hierarchical_planning` (planner), `multi_agent_coordination`
+  (executor), `reflexion` (critic), and `chain_of_thought` (depictor) into one
+  planner/critic/executor loop over the **live detector ensemble**, and
+  `benchmarks/orchestration_validation.py` measures each module against its
+  own pre-registered bar on real ADBench labels (5 datasets × 3 seeds):
+  consensus preserves member signal (mean AUC **0.827 vs 0.821**, fail-closed
+  abstention below quorum), the planner drives **129/129** episodes to goal
+  completion with real TD value learning, reflexion's feedback loop improves
+  the operating point by **+0.079** paired balanced accuracy (and its original
+  adaptation rule, measured harmful at **−0.071**, was corrected to an
+  evidence-grounded sweep before shipping), and every one of **600** sampled
+  reasoning traces states exactly the decision the pipeline issued. The four
+  modules are live in `MultiAgentOrchestrator` and reachable from the engine
+  via `OmniMercuryEngine.enable_multi_agent_orchestration()`.
 
 Building these harnesses — not fabricating a metric win — is how the rest of the
 dormant subsystem earns its place. Until a module's harness exists and it clears
 the bar, the module stays ranked and retained, not revived and not deleted.
 
-## 6. Consolidation — the deliberate stopping point
+## 6. Consolidation — the honest boundary today
 
-The measurable revival frontier is now well covered: three modules revived on AUC
-(adaptive co-training, the salience rule, the k-means detector) and three on their
-own metrics (causal recovery, explanation fidelity, formal soundness). The
-**reasoning / planning / coordination tier** — `reflexion`, `chain_of_thought`,
-`chain_of_hindsight`, `hierarchical_planning`, `multi_agent_coordination`,
-`plasticity_engine`, `knowledge_graph`, `multi_hop_reasoner` (rows 6, 10, 11) — is
-explicitly marked **retained, no honest in-repo metric**. These operate on
-symbolic or text inputs with no ground truth in this repository; the only way to
-"measure" them would be to invent an arbitrary toy task, and a fabricated task is
-the theatre this ledger exists to prevent. They are kept as reference
-implementations, not deleted, and not asserted to work.
+The measurable revival frontier now covers: three modules revived on AUC
+(adaptive co-training, the salience rule, the k-means detector), three on their
+own metrics (causal recovery, explanation fidelity, formal soundness), and four
+on the orchestration harness (`hierarchical_planning`,
+`multi_agent_coordination`, `reflexion`, `chain_of_thought` — rows 10/11,
+2026-06-11). The remaining tier — `chain_of_hindsight`, `plasticity_engine`,
+`knowledge_graph`, `multi_hop_reasoner` (rows 6, 10b, 11b) — stays explicitly
+marked **retained, no honest in-repo metric yet**. The orchestration loop is
+the natural future harness for `chain_of_hindsight` (batch-level credit
+assignment over episode history); the others still lack a non-contrived task.
+They are kept as reference implementations, not deleted, and not asserted to
+work.
 
-This is a deliberate stopping point, not an omission: every module with an honest,
-non-contrived measurement has one; the rest wait — ranked and retained — for a
-real task to measure them against, should one arise.
+The stopping point remains principled, not an omission: every module with an
+honest, non-contrived measurement has one; the rest wait — ranked and retained
+— for a real task to measure them against, exactly as rows 10/11 did until the
+orchestration task arose.

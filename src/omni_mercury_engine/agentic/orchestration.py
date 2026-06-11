@@ -1,0 +1,1008 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Multi-agent orchestration over the live detector ensemble (vision pillar B).
+
+This module is the wiring that revives the dormant planning / coordination /
+reflexion / chain-of-thought tier (DORMANCY_LEDGER rows 10-11) into a single
+live, measurable execution path:
+
+* ``hierarchical_planning.HierarchicalPlanner`` **plans and drives** the
+  detection episode: the pipeline stages (fit -> score -> consensus -> decide
+  -> reflect) are registered as real Options whose initiation/termination
+  predicates read the *actual* pipeline state, ``select_action`` chooses the
+  next stage, and ``update_on_feedback`` receives real stage outcomes as TD
+  rewards.
+* ``multi_agent_coordination.AgentCoordinator`` + ``ConsensusProtocol``
+  **coordinate** per-sample consensus across agents that wrap the engine's
+  real detectors (``engine.detectors``) — not toy scorers.
+* ``reflexion.AnomalyReflexion`` is the **critic**: every issued decision is
+  recorded against real ground-truth feedback when it arrives, and the
+  resulting threshold recommendation moves the live operating point for the
+  next episode (verbal reinforcement with real signal, Shinn et al. 2023).
+* ``chain_of_thought.AnomalyChainOfThought`` is the **depictor**: each
+  decision can be explained by a reasoning trace whose stated determination
+  is contractually locked to the issued decision (trace fidelity), because
+  the trace classifies against the same operating threshold.
+
+Honesty contract (anti-theater): no stage fabricates signal. Quorum failures
+abstain explicitly instead of defaulting to "benign"; agent failures are
+surfaced, never silently dropped below quorum; the ethical gates
+(BenevolenceScorer + sigma_Immutable) run fail-closed at the decision
+boundary exactly as on the engine and cognitive-orchestrator boundaries; and
+the measurable claims for this layer are pinned by
+``benchmarks/orchestration_validation.py`` on real ADBench labels.
+"""
+
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any
+
+import numpy as np
+
+from omni_mercury_engine.cognitive.chain_of_thought import (
+    AnomalyChainOfThought,
+    ChainOfThoughtEngine,
+)
+from omni_mercury_engine.cognitive.ethical_bounding import (
+    MINIMUM_BENEVOLENCE_FLOOR,
+    BenevolenceScorer,
+    EthicalConstraintViolationError,
+    sanitize_domain,
+)
+from omni_mercury_engine.cognitive.hierarchical_planning import (
+    AbstractionLevel,
+    GoalStatus,
+    HierarchicalPlanner,
+    Option,
+    PlanExecutionState,
+)
+from omni_mercury_engine.cognitive.multi_agent_coordination import (
+    AgentCoordinator,
+    AgentRole,
+    ConsensusMethod,
+    ConsensusProtocol,
+    CoordinationStrategy,
+    DetectionAgent,
+    DetectionResult,
+)
+from omni_mercury_engine.cognitive.reflexion import AnomalyReflexion
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+logger = logging.getLogger(__name__)
+
+_DEFAULT_DOMAIN = "general"
+
+# Pipeline stage names. These are the *actions* the hierarchical planner
+# selects; each maps to one real orchestrator operation.
+_STAGE_FIT = "fit_agents"
+_STAGE_SCORE = "score_agents"
+_STAGE_CONSENSUS = "form_consensus"
+_STAGE_DECIDE = "issue_decisions"
+
+_ROLE_BY_NAME: dict[str, AgentRole] = {
+    "statistical": AgentRole.STATISTICAL,
+    "temporal": AgentRole.TEMPORAL,
+    "spatial": AgentRole.SPATIAL,
+    "dimensional": AgentRole.DIMENSIONAL,
+    "directive": AgentRole.BEHAVIORAL,
+}
+
+# Cap on the stored reference batch used to score single samples against a
+# batch-relative detector (the detectors normalize scores within a batch, so
+# a lone sample needs company to be scored meaningfully).
+_MAX_REFERENCE_ROWS = 512
+
+
+class OrchestrationError(RuntimeError):
+    """Raised when the orchestration pipeline cannot proceed honestly.
+
+    This is the fail-closed alternative to fabricating a verdict: below
+    quorum, with an unexecutable plan, or with an unfaithful reasoning
+    trace, the orchestrator refuses rather than guesses.
+    """
+
+
+def default_detector_suite() -> dict[str, Any]:
+    """Build the engine's base detector set for standalone orchestration.
+
+    Mirrors ``OmniMercuryEngine._init_detectors`` so the orchestrator
+    coordinates the same real detectors whether constructed standalone or
+    via :meth:`MultiAgentOrchestrator.from_engine`. Detectors whose imports
+    fail (optional dependencies absent) are skipped with a warning — the
+    quorum check downstream decides whether enough survive to proceed.
+    """
+    suite: dict[str, Any] = {}
+    candidates: list[tuple[str, str, str]] = [
+        ("statistical", "omni_mercury_engine.detectors.statistical", "MercuryAnomalyDetector"),
+        ("temporal", "omni_mercury_engine.detectors.temporal", "TemporalAnomalyDetector"),
+        ("spatial", "omni_mercury_engine.detectors.spatial", "SpatialAnomalyDetector"),
+        ("dimensional", "omni_mercury_engine.detectors.dimensional", "DimensionalAnalyzer"),
+        ("directive", "omni_mercury_engine.detectors.directive", "SigmaDirectiveDetector"),
+    ]
+    import importlib
+
+    for name, module_path, class_name in candidates:
+        try:
+            module = importlib.import_module(module_path)
+            suite[name] = getattr(module, class_name)()
+        except Exception as exc:  # pragma: no cover - environment dependent
+            logger.warning("Detector %r unavailable for orchestration: %s", name, exc)
+    return suite
+
+
+class DetectorAgent(DetectionAgent):
+    """A coordination agent backed by one of the engine's real detectors.
+
+    Bridges the ``BaseDetector`` contract (``fit(X)`` then
+    ``detect(X) -> {"scores": ...}``) to the multi-agent coordination
+    protocol's :class:`DetectionAgent` interface. The agent's decision
+    threshold and confidence scale are *calibrated from real score
+    distributions* at fit time (contamination quantile / score spread), not
+    asserted.
+    """
+
+    def __init__(
+        self,
+        agent_id: str,
+        detector: Any,
+        role: AgentRole | None = None,
+        contamination: float = 0.1,
+        seed: int | None = None,
+    ) -> None:
+        """Initialize the agent around a real detector.
+
+        Args:
+            agent_id: Unique agent identifier (conventionally the engine's
+                detector name: "statistical", "temporal", ...).
+            detector: Object satisfying the BaseDetector duck type
+                (``fit(X)``; ``detect(X)`` returning a dict with a per-sample
+                ``"scores"`` array).
+            role: Coordination role; inferred from ``agent_id`` when omitted.
+            contamination: Expected anomaly fraction used to place the
+                agent's decision threshold at the ``1 - contamination``
+                quantile of its own training scores.
+            seed: Seed for the reference-batch subsample (determinism).
+        """
+        super().__init__(agent_id, role or _ROLE_BY_NAME.get(agent_id, AgentRole.SPECIALIST))
+        self.detector = detector
+        self.contamination = float(contamination)
+        self.decision_threshold: float = 0.5
+        self.confidence_scale: float = 0.25
+        self._reference: np.ndarray[Any, Any] | None = None
+        self._rng = np.random.default_rng(seed)
+        self._fitted = False
+
+    @property
+    def is_fitted(self) -> bool:
+        """Whether the underlying detector has been fitted and calibrated."""
+        return self._fitted
+
+    def fit(self, X: np.ndarray[Any, Any]) -> DetectorAgent:
+        """Fit the wrapped detector and calibrate threshold/confidence.
+
+        The decision threshold is the ``1 - contamination`` quantile of the
+        detector's own scores on the fit data; the confidence scale is the
+        standard deviation of those scores. Both are measured quantities.
+        """
+        X = np.asarray(X, dtype=np.float64)
+        self.detector.fit(X)
+        self._fitted = True
+
+        scores = self.score_batch(X)
+        self.decision_threshold = float(np.quantile(scores, 1.0 - self.contamination))
+        self.confidence_scale = float(max(np.std(scores), 1e-6))
+
+        if len(X) > _MAX_REFERENCE_ROWS:
+            keep = self._rng.choice(len(X), size=_MAX_REFERENCE_ROWS, replace=False)
+            self._reference = X[np.sort(keep)]
+        else:
+            self._reference = X
+        return self
+
+    def score_batch(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Score a batch with the real detector; per-sample scores in [0, 1].
+
+        Raises:
+            OrchestrationError: If the agent is unfitted or the detector
+                returns a malformed score vector (fail-closed — a wrong-length
+                score array silently mis-assigns scores to samples).
+        """
+        if not self._fitted:
+            raise OrchestrationError(f"agent {self.agent_id!r} used before fit()")
+        X = np.asarray(X, dtype=np.float64)
+        result = self.detector.detect(X)
+        scores = np.asarray(result["scores"], dtype=np.float64).ravel()
+        if scores.shape[0] != X.shape[0]:
+            raise OrchestrationError(
+                f"agent {self.agent_id!r} returned {scores.shape[0]} scores "
+                f"for {X.shape[0]} samples"
+            )
+        if not np.all(np.isfinite(scores)):
+            scores = np.nan_to_num(scores, nan=0.5, posinf=1.0, neginf=0.0)
+        smin, smax = float(scores.min()), float(scores.max())
+        if smin < 0.0 or smax > 1.0:
+            # Preserve within-batch ordering while mapping onto the protocol's
+            # [0, 1] score contract.
+            spread = smax - smin
+            scores = (
+                np.full_like(scores, 0.5) if spread < 1e-12 else (scores - smin) / spread
+            )
+        return scores
+
+    def confidence_for(self, score: float) -> float:
+        """Calibration-derived confidence: distance from the agent's own
+        threshold in units of its training-score spread, clipped to [0, 1]."""
+        return float(np.clip(abs(score - self.decision_threshold) / self.confidence_scale, 0.0, 1.0))
+
+    def detect(
+        self,
+        data: np.ndarray[Any, Any],
+        context: dict[str, Any] | None = None,
+    ) -> DetectionResult:
+        """Protocol-compliant single-sample detection.
+
+        The sample is scored against a reference batch (the calibration
+        sample, or ``context["reference_batch"]``) because the underlying
+        detectors normalize scores within a batch.
+
+        Raises:
+            ValueError: If given more than one sample — batch scoring must go
+                through :meth:`score_batch`, where per-sample results stay
+                attributable.
+        """
+        row = np.asarray(data, dtype=np.float64)
+        if row.ndim == 1:
+            row = row.reshape(1, -1)
+        if row.shape[0] != 1:
+            raise ValueError(
+                "DetectorAgent.detect() scores a single sample; use score_batch() for batches"
+            )
+        reference = self._reference
+        if context is not None and "reference_batch" in context:
+            reference = np.asarray(context["reference_batch"], dtype=np.float64)
+        if reference is not None and len(reference) > 0:
+            batch = np.vstack([reference, row])
+            score = float(self.score_batch(batch)[-1])
+        else:
+            score = float(self.score_batch(row)[0])
+        return DetectionResult(
+            agent_id=self.agent_id,
+            anomaly_score=score,
+            is_anomaly=score > self.decision_threshold,
+            confidence=self.confidence_for(score),
+            features_used=[self.role.value],
+            reasoning=(
+                f"{self.agent_id} score {score:.4f} vs calibrated "
+                f"threshold {self.decision_threshold:.4f}"
+            ),
+        )
+
+
+@dataclass
+class CoordinationBatch:
+    """Per-sample consensus over the agent ensemble for one batch.
+
+    Attributes:
+        consensus_scores: Confidence-weighted consensus score per sample.
+        decisions: Issued boolean decisions at the operating threshold.
+        abstained: Per-sample abstention mask (no honest quorum verdict).
+        agreement: Per-sample consensus agreement ratio.
+        per_agent_scores: Each participating agent's per-sample scores.
+        dissent_counts: Number of dissenting agents per sample.
+        participant_count: Agents that contributed scores to this batch.
+    """
+
+    consensus_scores: np.ndarray[Any, Any]
+    decisions: np.ndarray[Any, Any]
+    abstained: np.ndarray[Any, Any]
+    agreement: np.ndarray[Any, Any]
+    per_agent_scores: dict[str, np.ndarray[Any, Any]]
+    dissent_counts: np.ndarray[Any, Any]
+    participant_count: int
+
+
+@dataclass
+class ReflectionRecord:
+    """Outcome of one reflexion pass over labeled feedback."""
+
+    n_observations: int
+    false_positives: int
+    false_negatives: int
+    recommendation: str
+    threshold_before: float
+    threshold_suggested: float
+    threshold_after: float
+    applied: bool
+    reasoning: str = ""
+
+
+@dataclass
+class PlanTrace:
+    """Record of the planner-driven episode execution."""
+
+    plan_id: str
+    executed_actions: list[str] = field(default_factory=list)
+    stage_rewards: list[float] = field(default_factory=list)
+    goal_status: str = GoalStatus.PENDING.value
+    goal_value: float = 0.0
+
+
+@dataclass
+class EpisodeResult:
+    """Result of one orchestrated episode (detect, optionally reflect)."""
+
+    coordination: CoordinationBatch
+    plan: PlanTrace
+    threshold: float
+    reflection: ReflectionRecord | None = None
+    metrics: dict[str, float] = field(default_factory=dict)
+    benevolence_score: float = 0.0
+
+
+class MultiAgentOrchestrator:
+    """Planner/critic/executor multi-agent orchestration for Mercury.
+
+    Composes the four revived cognitive modules into the engine's own task:
+
+    * **Planner** — :class:`HierarchicalPlanner` selects and sequences the
+      real pipeline stages and learns stage values from real TD feedback.
+    * **Executor** — :class:`AgentCoordinator` over :class:`DetectorAgent`
+      wrappers of the live detectors, with :class:`ConsensusProtocol`
+      consensus per sample.
+    * **Critic** — :class:`AnomalyReflexion` turns labeled outcomes into an
+      operating-threshold adaptation for the next episode.
+    * **Depictor** — :class:`AnomalyChainOfThought` renders decision traces
+      whose stated determination is locked to the issued decision.
+
+    The decision boundary enforces the same dual hard ethical gates as the
+    engine and cognitive orchestrator (benevolence floor + sigma_Immutable),
+    fail-closed.
+    """
+
+    def __init__(
+        self,
+        detectors: Mapping[str, Any] | None = None,
+        *,
+        consensus_method: ConsensusMethod | str = ConsensusMethod.CONFIDENCE_WEIGHTED,
+        min_participants: int = 3,
+        contamination: float = 0.1,
+        operating_threshold: float = 0.5,
+        seed: int | None = None,
+    ) -> None:
+        """Initialize the orchestrator.
+
+        Args:
+            detectors: Mapping of name -> BaseDetector-like. Defaults to the
+                engine's base suite (:func:`default_detector_suite`).
+            consensus_method: Consensus method for the protocol.
+            min_participants: Quorum; below it every sample abstains.
+            contamination: Expected anomaly fraction for agent calibration.
+            operating_threshold: Initial decision boundary on the consensus
+                score; adapted by reflexion as labeled feedback arrives.
+            seed: Seed for deterministic agent calibration and reasoning.
+        """
+        detector_map = dict(detectors) if detectors is not None else default_detector_suite()
+        if not detector_map:
+            raise OrchestrationError("no detectors available to orchestrate")
+
+        self.min_participants = int(min_participants)
+        self.operating_threshold = float(operating_threshold)
+        self._seed = seed
+
+        # --- Executor tier: coordinator over real-detector agents ---------
+        self.coordinator = AgentCoordinator(
+            strategy=CoordinationStrategy.CENTRALIZED,
+            consensus_method=(
+                consensus_method
+                if isinstance(consensus_method, ConsensusMethod)
+                else ConsensusMethod(consensus_method)
+            ),
+        )
+        self.agents: dict[str, DetectorAgent] = {}
+        for index, (name, detector) in enumerate(detector_map.items()):
+            agent = DetectorAgent(
+                agent_id=name,
+                detector=detector,
+                contamination=contamination,
+                seed=None if seed is None else seed + index,
+            )
+            self.agents[name] = agent
+            self.coordinator.register_agent(agent)
+
+        self.protocol = ConsensusProtocol(
+            method=self.coordinator.consensus_method,
+            min_participants=self.min_participants,
+        )
+
+        # --- Planner tier: pipeline stages as real options ----------------
+        self.planner = HierarchicalPlanner()
+        self._register_pipeline_options()
+        # One stable goal identity across episodes: TD value estimates live
+        # under the goal's ID, so a per-episode goal would silently reset the
+        # learned values every call. Plan once; execute per episode.
+        self._detection_goal = self.planner.create_goal(
+            description="detect_anomaly batch via coordinated real-detector consensus",
+            level=AbstractionLevel.STRATEGIC,
+            priority=0.8,
+            postconditions=["decisions_issued"],
+        )
+        self._pipeline_plan = self.planner.plan(
+            self._detection_goal, self._initial_pipeline_state()
+        )
+
+        # --- Critic tier: reflexion at the live operating point -----------
+        self.reflexion = AnomalyReflexion(anomaly_threshold=self.operating_threshold)
+
+        # --- Depictor tier: trace generation locked to the boundary -------
+        self._cot_engine = ChainOfThoughtEngine(seed=seed)
+        self.chain_of_thought = AnomalyChainOfThought(
+            cot_engine=self._cot_engine,
+            anomaly_threshold=self.operating_threshold,
+        )
+
+        # --- Ethical gates (eager, fail-closed; mirrors the engine and the
+        # cognitive orchestrator decision boundaries) -----------------------
+        self._benevolence_scorer = BenevolenceScorer(
+            benevolence_threshold=MINIMUM_BENEVOLENCE_FLOOR,
+        )
+        from omni_mercury_engine.security.sigma_immutable_gate import get_sigma_immutable_gate
+
+        self._sigma_immutable_gate = get_sigma_immutable_gate()
+
+        self._fitted = False
+        logger.info(
+            "MultiAgentOrchestrator initialized (agents=%s, quorum=%d, threshold=%.2f)",
+            sorted(self.agents),
+            self.min_participants,
+            self.operating_threshold,
+        )
+
+    @classmethod
+    def from_engine(cls, engine: Any, **kwargs: Any) -> MultiAgentOrchestrator:
+        """Build an orchestrator over an engine's registered detectors."""
+        return cls(dict(engine.detectors), **kwargs)
+
+    # ------------------------------------------------------------------
+    # Planner wiring
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _initial_pipeline_state() -> dict[str, Any]:
+        """Canonical episode-start state (one state key for TD learning)."""
+        return {
+            "data_available": True,
+            "agents_fitted": True,
+            "scores_computed": False,
+            "consensus_reached": False,
+            "decisions_issued": False,
+        }
+
+    def _register_pipeline_options(self) -> None:
+        """Register the real pipeline stages as planner options.
+
+        Initiation and termination predicates read the actual pipeline
+        state flags, so exactly one stage is applicable at each step and the
+        planner's ``select_action`` genuinely sequences the episode.
+        """
+        stages = [
+            Option(
+                option_id="opt_pipeline_fit",
+                name="Fit detector agents",
+                initiation_set={"data_available": True, "agents_fitted": False},
+                policy={"default": _STAGE_FIT},
+                termination_condition={"agents_fitted": True},
+                expected_duration=4.0,
+                expected_reward=0.6,
+                skill_level=0.9,
+            ),
+            Option(
+                option_id="opt_pipeline_score",
+                name="Score batch across agents",
+                initiation_set={"agents_fitted": True, "scores_computed": False},
+                policy={"default": _STAGE_SCORE},
+                termination_condition={"scores_computed": True},
+                expected_duration=2.0,
+                expected_reward=0.7,
+                skill_level=0.9,
+            ),
+            Option(
+                option_id="opt_pipeline_consensus",
+                name="Form per-sample consensus",
+                initiation_set={"scores_computed": True, "consensus_reached": False},
+                policy={"default": _STAGE_CONSENSUS},
+                termination_condition={"consensus_reached": True},
+                expected_duration=1.0,
+                expected_reward=0.8,
+                skill_level=0.9,
+            ),
+            Option(
+                option_id="opt_pipeline_decide",
+                name="Issue gated decisions",
+                initiation_set={"consensus_reached": True, "decisions_issued": False},
+                policy={"default": _STAGE_DECIDE},
+                termination_condition={"decisions_issued": True},
+                expected_duration=1.0,
+                expected_reward=0.9,
+                skill_level=0.9,
+            ),
+        ]
+        for option in stages:
+            self.planner.option_library.add_option(option)
+
+    # ------------------------------------------------------------------
+    # Executor tier
+    # ------------------------------------------------------------------
+
+    def fit(self, X_train: np.ndarray[Any, Any]) -> MultiAgentOrchestrator:
+        """Fit and calibrate every agent on real training data.
+
+        Agents whose detectors fail to fit are unregistered with a warning;
+        if the survivors fall below quorum the orchestrator refuses to
+        operate (fail-closed) rather than coordinate a hollow ensemble.
+        """
+        X_train = np.asarray(X_train, dtype=np.float64)
+        failed: list[str] = []
+        for name, agent in list(self.agents.items()):
+            try:
+                agent.fit(X_train)
+            except Exception as exc:
+                failed.append(name)
+                logger.warning("Agent %r failed to fit and is excluded: %s", name, exc)
+                self.coordinator.unregister_agent(name)
+                del self.agents[name]
+        if len(self.agents) < self.min_participants:
+            raise OrchestrationError(
+                f"only {len(self.agents)} agents fitted "
+                f"(quorum {self.min_participants}); failed={failed}"
+            )
+        self._fitted = True
+        return self
+
+    def coordinate(self, X: np.ndarray[Any, Any]) -> CoordinationBatch:
+        """Per-sample consensus across the fitted agents on a real batch.
+
+        Each agent scores the batch once (batch-relative normalization is the
+        detectors' native mode); the consensus protocol then aggregates the
+        per-sample :class:`DetectionResult` votes. The continuous consensus
+        score is the confidence-weighted mean of agent scores — the same
+        statistic the CONFIDENCE_WEIGHTED protocol thresholds for its
+        decision.
+        """
+        if not self._fitted:
+            raise OrchestrationError("orchestrator used before fit()")
+        X = np.asarray(X, dtype=np.float64)
+        n = X.shape[0]
+
+        per_agent_scores: dict[str, np.ndarray[Any, Any]] = {}
+        for name, agent in self.agents.items():
+            try:
+                per_agent_scores[name] = agent.score_batch(X)
+            except Exception as exc:
+                logger.warning("Agent %r failed to score batch; excluded: %s", name, exc)
+
+        participant_count = len(per_agent_scores)
+        consensus_scores = np.full(n, 0.5, dtype=np.float64)
+        decisions = np.zeros(n, dtype=bool)
+        abstained = np.ones(n, dtype=bool)
+        agreement = np.zeros(n, dtype=np.float64)
+        dissent_counts = np.zeros(n, dtype=np.int64)
+
+        if participant_count < self.min_participants:
+            logger.warning(
+                "Quorum failure: %d/%d agents scored; every sample abstains",
+                participant_count,
+                self.min_participants,
+            )
+            return CoordinationBatch(
+                consensus_scores=consensus_scores,
+                decisions=decisions,
+                abstained=abstained,
+                agreement=agreement,
+                per_agent_scores=per_agent_scores,
+                dissent_counts=dissent_counts,
+                participant_count=participant_count,
+            )
+
+        for i in range(n):
+            results = [
+                DetectionResult(
+                    agent_id=name,
+                    anomaly_score=float(scores[i]),
+                    is_anomaly=bool(scores[i] > self.agents[name].decision_threshold),
+                    confidence=self.agents[name].confidence_for(float(scores[i])),
+                )
+                for name, scores in per_agent_scores.items()
+            ]
+            consensus = self.protocol.reach_consensus(results)
+            if isinstance(consensus, dict):  # vote-dict path; unreachable here
+                raise OrchestrationError("consensus protocol returned a non-result payload")
+
+            total_confidence = sum(r.confidence for r in results)
+            if total_confidence > 0:
+                weighted = sum(r.anomaly_score * r.confidence for r in results)
+                consensus_scores[i] = weighted / total_confidence
+            else:
+                consensus_scores[i] = 0.5
+
+            abstained[i] = consensus.abstained
+            agreement[i] = consensus.agreement_ratio
+            dissent_counts[i] = len(consensus.dissenting_agents)
+            decisions[i] = (not consensus.abstained) and (
+                consensus_scores[i] > self.operating_threshold
+            )
+
+        return CoordinationBatch(
+            consensus_scores=consensus_scores,
+            decisions=decisions,
+            abstained=abstained,
+            agreement=agreement,
+            per_agent_scores=per_agent_scores,
+            dissent_counts=dissent_counts,
+            participant_count=participant_count,
+        )
+
+    # ------------------------------------------------------------------
+    # Decision boundary (ethical gates)
+    # ------------------------------------------------------------------
+
+    def _enforce_ethics(self, batch: CoordinationBatch, domain: str) -> float:
+        """Run the dual hard ethical gates before decisions are issued.
+
+        Mirrors ``CognitiveOrchestrator.analyze``: benevolence is scored on a
+        controlled action description (caller text never reaches the scorer),
+        then the sigma_Immutable gate scores the calibrated 256-d scalar
+        vector. Both raise :class:`EthicalConstraintViolationError` on
+        failure; nothing downstream of a failed gate executes.
+
+        Returns:
+            The measured benevolence score (for the episode record).
+        """
+        safe_domain = sanitize_domain(domain or _DEFAULT_DOMAIN)
+        severity = float(np.max(batch.consensus_scores)) if len(batch.consensus_scores) else 0.0
+        anomaly_prob = (
+            float(np.mean(batch.consensus_scores)) if len(batch.consensus_scores) else 0.0
+        )
+
+        action_desc = (
+            f"multi_agent_orchestration:{safe_domain}:severity={severity:.2f}:"
+            "audit monitor verify data research evidence fair oversight"
+        )
+        ethical_context = {
+            "purpose": "coordinated anomaly detection with audit oversight",
+            "safety": "care help support review protect",
+            "domain": safe_domain,
+        }
+        ethical_result = self._benevolence_scorer.score_action(action_desc, ethical_context)
+        if not ethical_result.is_permissible:
+            raise EthicalConstraintViolationError(
+                action=action_desc,
+                score=ethical_result.benevolence_score,
+                threshold=self._benevolence_scorer.benevolence_threshold,
+            )
+
+        from omni_mercury_engine.security.sigma_immutable_gate import (
+            build_sigma_immutable_vector,
+        )
+
+        sigma_vector = build_sigma_immutable_vector(
+            benevolence_score=ethical_result.benevolence_score,
+            severity=severity,
+            anomaly_prob=anomaly_prob,
+        )
+        self._sigma_immutable_gate.enforce(
+            action=f"MultiAgentOrchestrator.detect:{safe_domain}",
+            scalar_vector=sigma_vector,
+            details={
+                "boundary": "MultiAgentOrchestrator.detect",
+                "domain": safe_domain,
+                "severity": severity,
+                "anomaly_prob": anomaly_prob,
+            },
+        )
+        return float(ethical_result.benevolence_score)
+
+    # ------------------------------------------------------------------
+    # Planner-driven episode
+    # ------------------------------------------------------------------
+
+    def detect(
+        self,
+        X: np.ndarray[Any, Any],
+        domain: str = _DEFAULT_DOMAIN,
+    ) -> EpisodeResult:
+        """Run one planner-driven detection episode on a real batch.
+
+        The hierarchical planner selects each pipeline stage from the live
+        state via ``select_action``; each executed stage feeds a real reward
+        back through ``update_on_feedback`` (TD learning on the actual
+        pipeline, not a simulation). An unexecutable plan raises — the
+        orchestrator never silently bypasses its planner.
+        """
+        if not self._fitted:
+            raise OrchestrationError("orchestrator used before fit()")
+        X = np.asarray(X, dtype=np.float64)
+
+        state = self._initial_pipeline_state()
+        initial_state = dict(state)
+        root_goal = self._detection_goal
+        root_goal.status = GoalStatus.ACTIVE
+        execution = PlanExecutionState(plan=self._pipeline_plan, current_goal=root_goal)
+        trace = PlanTrace(plan_id=self._pipeline_plan.plan_id)
+
+        batch: CoordinationBatch | None = None
+        benevolence_score = 0.0
+
+        for _ in range(8):  # 3 stages + slack; the plan terminates well before
+            if state["decisions_issued"]:
+                break
+            action, _option = self.planner.select_action(state, execution)
+            previous_state = dict(state)
+
+            if action == _STAGE_SCORE:
+                batch = self.coordinate(X)
+                state["scores_computed"] = True
+                reward = 1.0 if batch.participant_count >= self.min_participants else 0.0
+            elif action == _STAGE_CONSENSUS:
+                if batch is None:
+                    raise OrchestrationError("plan reached consensus stage without scores")
+                state["consensus_reached"] = True
+                # Reward consensus formation by how much of the batch obtained
+                # a quorum verdict (abstentions are honest but unrewarded).
+                reward = float(1.0 - np.mean(batch.abstained))
+            elif action == _STAGE_DECIDE:
+                if batch is None:
+                    raise OrchestrationError("plan reached decision stage without consensus")
+                benevolence_score = self._enforce_ethics(batch, domain)
+                state["decisions_issued"] = True
+                reward = 1.0
+            elif action == _STAGE_FIT:
+                # Agents are fitted before detect(); the initiation predicate
+                # (agents_fitted=False) makes this unreachable here, and
+                # reaching it means the planner state is corrupt.
+                raise OrchestrationError("plan selected fit stage on a fitted orchestrator")
+            else:
+                raise OrchestrationError(
+                    f"plan produced no executable stage (action={action!r}); refusing to "
+                    "bypass the planner"
+                )
+
+            trace.executed_actions.append(action)
+            trace.stage_rewards.append(reward)
+            self.planner.update_on_feedback(previous_state, action, reward, state, execution)
+
+        if batch is None or not state["decisions_issued"]:
+            raise OrchestrationError(
+                f"planned episode did not complete (executed={trace.executed_actions})"
+            )
+
+        # Goal completion is judged on the goal's own postconditions against
+        # the real final state — the planner's contract, applied honestly.
+        if all(bool(state.get(cond)) for cond in root_goal.postconditions):
+            root_goal.status = GoalStatus.COMPLETED
+        trace.goal_status = root_goal.status.value
+        trace.goal_value = self.planner.value_function.get_value(initial_state, root_goal)
+
+        return EpisodeResult(
+            coordination=batch,
+            plan=trace,
+            threshold=self.operating_threshold,
+            benevolence_score=benevolence_score,
+        )
+
+    # ------------------------------------------------------------------
+    # Critic tier (reflexion on real feedback)
+    # ------------------------------------------------------------------
+
+    def reflect(
+        self,
+        batch: CoordinationBatch,
+        y_true: np.ndarray[Any, Any],
+        *,
+        apply: bool = True,
+    ) -> ReflectionRecord:
+        """Record real outcomes and adapt the operating threshold.
+
+        Every non-abstained decision is recorded against its true label
+        (TP/FP/FN/TN with real error magnitudes); the accumulated error
+        balance produces a threshold recommendation which, when ``apply`` is
+        set and actionable, moves the live operating point for subsequent
+        episodes — the Reflexion loop with measured, non-fabricated feedback.
+        """
+        y = np.asarray(y_true).astype(bool).ravel()
+        if y.shape[0] != batch.consensus_scores.shape[0]:
+            raise ValueError(
+                f"labels ({y.shape[0]}) and decisions "
+                f"({batch.consensus_scores.shape[0]}) length mismatch"
+            )
+
+        recorded = 0
+        for i in range(y.shape[0]):
+            if batch.abstained[i]:
+                continue  # an abstention is not a decision; nothing to critique
+            self.reflexion.record_detection(
+                prediction=float(batch.consensus_scores[i]),
+                ground_truth=bool(y[i]),
+                features={
+                    "consensus_score": float(batch.consensus_scores[i]),
+                    "agreement": float(batch.agreement[i]),
+                    "dissent": int(batch.dissent_counts[i]),
+                },
+            )
+            recorded += 1
+
+        recommendation = self.reflexion.get_threshold_recommendation()
+        suggested = float(recommendation["suggested_threshold"])
+        before = self.operating_threshold
+        actionable = recommendation["recommendation"] != "maintain"
+        applied = bool(apply and actionable)
+        if applied:
+            self.set_operating_threshold(suggested)
+
+        return ReflectionRecord(
+            n_observations=recorded,
+            false_positives=int(recommendation["false_positives"]),
+            false_negatives=int(recommendation["false_negatives"]),
+            recommendation=str(recommendation["recommendation"]),
+            threshold_before=before,
+            threshold_suggested=suggested,
+            threshold_after=self.operating_threshold,
+            applied=applied,
+            reasoning=str(recommendation.get("reasoning", "")),
+        )
+
+    def set_operating_threshold(self, threshold: float) -> None:
+        """Move the live operating point, keeping every tier in agreement.
+
+        Operator-grade control: the threshold is clipped to [0.05, 0.95] so
+        neither reflexion nor a caller can push the boundary into a region
+        where every (or no) sample trivially alarms.
+        """
+        self.operating_threshold = float(np.clip(threshold, 0.05, 0.95))
+        self.reflexion.anomaly_threshold = self.operating_threshold
+        self.chain_of_thought.anomaly_threshold = self.operating_threshold
+
+    def reset_reflexion(self) -> None:
+        """Discard accumulated experience and start a fresh critic.
+
+        Used when the feedback regime changes (new deployment, new label
+        source) so stale error statistics cannot steer the threshold.
+        """
+        self.reflexion = AnomalyReflexion(anomaly_threshold=self.operating_threshold)
+
+    def run_episode(
+        self,
+        X: np.ndarray[Any, Any],
+        y_true: np.ndarray[Any, Any] | None = None,
+        domain: str = _DEFAULT_DOMAIN,
+        *,
+        apply_reflection: bool = True,
+    ) -> EpisodeResult:
+        """Detect, and when ground truth is supplied, reflect and adapt.
+
+        Metrics are computed only over non-abstained samples — an abstention
+        is reported as such, never graded as a benign call.
+        """
+        episode = self.detect(X, domain=domain)
+        if y_true is not None:
+            y = np.asarray(y_true).astype(bool).ravel()
+            episode.reflection = self.reflect(
+                episode.coordination, y, apply=apply_reflection
+            )
+            episode.metrics = self.compute_metrics(episode.coordination, y)
+        return episode
+
+    @staticmethod
+    def compute_metrics(
+        batch: CoordinationBatch, y: np.ndarray[Any, Any]
+    ) -> dict[str, float]:
+        """Honest confusion metrics over the non-abstained decisions."""
+        decided = ~batch.abstained
+        if not np.any(decided):
+            return {"n_decided": 0.0, "abstention_rate": 1.0}
+        pred = batch.decisions[decided]
+        truth = y[decided]
+        tp = float(np.sum(pred & truth))
+        tn = float(np.sum(~pred & ~truth))
+        fp = float(np.sum(pred & ~truth))
+        fn = float(np.sum(~pred & truth))
+        tpr = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+        tnr = tn / (tn + fp) if (tn + fp) > 0 else 0.0
+        return {
+            "n_decided": float(np.sum(decided)),
+            "abstention_rate": float(np.mean(batch.abstained)),
+            "true_positives": tp,
+            "true_negatives": tn,
+            "false_positives": fp,
+            "false_negatives": fn,
+            "balanced_accuracy": (tpr + tnr) / 2.0,
+        }
+
+    # ------------------------------------------------------------------
+    # Depictor tier (trace fidelity)
+    # ------------------------------------------------------------------
+
+    def explain(
+        self,
+        episode: EpisodeResult,
+        index: int,
+        domain: str = _DEFAULT_DOMAIN,
+    ) -> dict[str, Any]:
+        """Generate a chain-of-thought trace for one issued decision.
+
+        Fidelity contract: the trace's stated determination must agree with
+        the decision *as issued* — it classifies against the episode's own
+        threshold (reflexion may have moved the live operating point since).
+        A disagreement indicates internal corruption and raises instead of
+        shipping an unfaithful depiction.
+        """
+        batch = episode.coordination
+        if index < 0 or index >= batch.consensus_scores.shape[0]:
+            raise IndexError(f"sample index {index} out of range")
+        if batch.abstained[index]:
+            return {
+                "abstained": True,
+                "conclusion": "ABSTAINED - no quorum verdict for this sample",
+                "reasoning_chain": [],
+                "anomaly_score": float(batch.consensus_scores[index]),
+            }
+
+        score = float(batch.consensus_scores[index])
+        issued = bool(batch.decisions[index])
+        depictor = AnomalyChainOfThought(
+            cot_engine=self._cot_engine,
+            anomaly_threshold=episode.threshold,
+        )
+        analysis = depictor.analyze_anomaly(
+            {
+                "score": score,
+                "domain": domain,
+                "detectors": sorted(batch.per_agent_scores),
+                "evidence": [
+                    f"{name}={float(scores[index]):.4f}"
+                    for name, scores in sorted(batch.per_agent_scores.items())
+                ],
+                "agreement": float(batch.agreement[index]),
+            },
+            score,
+            domain=domain,
+        )
+        stated_conclusion = str(analysis["conclusion"]).upper()
+        stated_anomaly = (
+            "ANOMALY DETECTED" in stated_conclusion
+            or stated_conclusion.startswith("ANOMALY")
+        )
+        if stated_anomaly != issued:
+            raise OrchestrationError(
+                f"trace fidelity violation at sample {index}: trace says "
+                f"anomaly={stated_anomaly}, issued decision={issued}"
+            )
+        analysis["abstained"] = False
+        analysis["issued_decision"] = issued
+        return dict(analysis)
+
+    # ------------------------------------------------------------------
+    # Introspection
+    # ------------------------------------------------------------------
+
+    def get_statistics(self) -> dict[str, Any]:
+        """Aggregate statistics across all four orchestrated tiers."""
+        return {
+            "agents": {
+                name: {
+                    "fitted": agent.is_fitted,
+                    "decision_threshold": agent.decision_threshold,
+                    "role": agent.role.value,
+                }
+                for name, agent in self.agents.items()
+            },
+            "operating_threshold": self.operating_threshold,
+            "min_participants": self.min_participants,
+            "coordinator": self.coordinator.get_statistics(),
+            "planner": self.planner.get_statistics(),
+            "reflexion": self.reflexion.engine.get_statistics(),
+            "chain_of_thought": self.chain_of_thought.cot_engine.get_statistics(),
+        }

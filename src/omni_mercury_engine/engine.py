@@ -946,6 +946,10 @@ class OmniMercuryEngine(LoggerMixin):
         self.fairness_auditor: FairnessAuditor | None = None
         self.llm_detector: ZeroShotAnomalyDetector | None = None
         self.cognitive_orchestrator: CognitiveOrchestrator | None = None
+        # Multi-agent orchestration (vision pillar B): planner/critic/executor
+        # loop over this engine's own detectors. None until enabled via
+        # enable_multi_agent_orchestration().
+        self.multi_agent_orchestrator: Any | None = None
         # Decision / abstention / response layer: closes the loop from the
         # calibrated detection certificate to a bounded, non-destructive
         # response with an explicit "don't-know" gate.  None until enabled via
@@ -2531,6 +2535,64 @@ class OmniMercuryEngine(LoggerMixin):
             enable_indicators=enable_indicators,
         )
         logger.info("Cognitive analysis enabled")
+
+    def enable_multi_agent_orchestration(
+        self,
+        *,
+        consensus_method: str = "confidence_weighted",
+        min_participants: int = 3,
+        contamination: float = 0.1,
+        operating_threshold: float = 0.5,
+        seed: int | None = None,
+    ) -> Any:
+        """Enable planner/critic/executor multi-agent orchestration (pillar B).
+
+        Wires a :class:`~omni_mercury_engine.agentic.orchestration.MultiAgentOrchestrator`
+        over this engine's own base detectors: the hierarchical planner
+        sequences the real pipeline stages, the consensus protocol fuses
+        per-sample votes from the live detectors, the reflexion critic adapts
+        the operating threshold from real labeled feedback, and every issued
+        decision can be depicted by a chain-of-thought trace whose stated
+        determination is contractually locked to the decision. The dual hard
+        ethical gates run fail-closed at the orchestrator's decision boundary,
+        exactly as on this engine's :meth:`detect_with_fusion` boundary.
+
+        The orchestrator's measurable claims are pinned by
+        ``benchmarks/orchestration_validation.py`` on real ADBench labels.
+
+        Args:
+            consensus_method: Consensus protocol method (default
+                ``"confidence_weighted"``).
+            min_participants: Quorum below which every sample abstains.
+            contamination: Expected anomaly fraction for per-agent threshold
+                calibration.
+            operating_threshold: Initial consensus decision boundary; adapted
+                by reflexion as labeled feedback arrives.
+            seed: Seed for deterministic agent calibration and reasoning.
+
+        Returns:
+            The enabled orchestrator (also stored as
+            ``self.multi_agent_orchestrator``). Call ``fit(X_train)`` on it
+            before detection.
+
+        Example:
+            >>> engine = OmniMercuryEngine()
+            >>> orchestrator = engine.enable_multi_agent_orchestration(seed=0)
+            >>> orchestrator.fit(X_train)
+            >>> episode = orchestrator.run_episode(X_test, y_test)
+        """
+        from omni_mercury_engine.agentic.orchestration import MultiAgentOrchestrator
+
+        self.multi_agent_orchestrator = MultiAgentOrchestrator.from_engine(
+            self,
+            consensus_method=consensus_method,
+            min_participants=min_participants,
+            contamination=contamination,
+            operating_threshold=operating_threshold,
+            seed=seed,
+        )
+        logger.info("Multi-agent orchestration enabled")
+        return self.multi_agent_orchestrator
 
     def enable_decision_layer(
         self,

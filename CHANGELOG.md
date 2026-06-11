@@ -27,6 +27,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Multi-agent orchestration (pillar B) — the dormant planning/coordination/reflexion/chain-of-thought tier revived as a measured planner/critic/executor loop over the live ensemble (2026-06-11)
+
+Closes the capability-matrix "Multi-agent" gap ("no planner/critic/executor
+multi-agent orchestration in Mercury yet") by wiring DORMANCY_LEDGER rows
+10–11 (~6,000 LOC retained as "reference only") into one live execution path,
+under the same ablation discipline as every other revival.
+
+* **New subsystem: `agentic/orchestration.py` (`MultiAgentOrchestrator`).**
+  `HierarchicalPlanner` plans and *drives* each detection episode — the real
+  pipeline stages (score → consensus → decide) are registered as options
+  whose initiation/termination predicates read the actual pipeline state,
+  with TD value learning from real stage rewards; `AgentCoordinator` +
+  `ConsensusProtocol` form per-sample consensus across `DetectorAgent`
+  wrappers of the engine's five real detectors; `AnomalyReflexion` is the
+  critic, turning real labeled outcomes into operating-threshold adaptation;
+  `AnomalyChainOfThought` renders per-decision reasoning traces whose stated
+  determination is contractually locked to the issued decision. Dual hard
+  ethical gates (benevolence floor + σ_Immutable) run fail-closed at the
+  orchestrator's decision boundary, exactly as on the engine boundary.
+  Engine wiring: `OmniMercuryEngine.enable_multi_agent_orchestration()`.
+* **Measured, not asserted:** `benchmarks/orchestration_validation.py`
+  (artifact `artifacts/orchestration_validation.json`), real ADBench labels,
+  5 datasets × 3 seeds, four pre-registered bars — all passed: consensus
+  preserves member signal (mean AUC **0.827** vs mean member **0.821**; best
+  member 0.903 reported as context — no claim of beating the trained fusion
+  model); reflexion improves the operating point by **+0.079** paired
+  balanced accuracy vs a fixed threshold on identical batches/agents
+  (15/15 runs acted); plan executability **129/129** episodes with
+  monotone initial-state value growth; trace fidelity **600/600** with
+  exact numeric quotes.
+* **Defects found and corrected (not deferred) in the dormant modules:**
+  (1) `hierarchical_planning` could not select options at all — the option
+  library returned dict projections that `plan()`/`select_action()`
+  type-checked away, so every plan shipped empty and every action fell back
+  to `default_action`; option eviction never fired (builtin prefix test
+  matched every ID) and `Option.get_action` never consulted its own
+  `"default"` policy. (2) `multi_agent_coordination` returned a silent
+  benign verdict below quorum (fail-open — now an explicit `abstained`
+  consensus flag), silently dropped duck-typed dict votes from consensus
+  (now coerced and counted), and reported `individual_results` from a
+  nonexistent attribute (always empty — now the real per-agent results).
+  (3) `chain_of_thought` traces classified against hardcoded 0.7/0.4 bands
+  regardless of the issuing pipeline's boundary, so a trace could state
+  "POTENTIAL ANOMALY" while the verdict said anomaly (now: traces classify
+  at the caller's `anomaly_threshold`); the self-consistency strategy
+  returned the normalized vote *token* ("anomaly") as the chain conclusion,
+  stripping the human-readable determination (now: winning path's full
+  conclusion, token kept in metadata). (4) `reflexion`'s
+  `execute_with_reflection` recomputed an identical decision every
+  iteration (reflection never fed back — now critiques are answered with
+  real evidence computed from the task data); its threshold-recommendation
+  rule (`fn > 2·fp` → jump ≥ 0.1) was **measured harmful on real labels**
+  (paired Δ −0.071; WBC balanced accuracy 0.98 → 0.50) and replaced with an
+  evidence-grounded balanced-accuracy sweep over recorded outcomes with
+  minimum-evidence and hysteresis guards (measured: +0.079, and
+  well-calibrated points are left untouched).
+* **Honesty semantics throughout:** below-quorum coordination abstains
+  explicitly (never "benign"); agent fit/score failures surface and the
+  orchestrator refuses below quorum; an unexecutable plan raises instead of
+  bypassing the planner; an unfaithful trace raises instead of shipping.
+* **Tests:** `tests/cognitive/test_orchestration_behavioral.py` — 45
+  multi-seed behavioral tests pinning every defect fix and every
+  orchestration contract (planner-driven sequencing, TD value growth,
+  quorum abstention, reflexion adaptation with paired improvement, trace
+  fidelity incl. post-adaptation issue-time fidelity, ethical-gate
+  enforcement, engine wiring). Full `tests/cognitive/` suite: 577 passed.
+* **Docs:** DORMANCY_LEDGER rows 10/11 updated to *revived (orchestration
+  tier)* with the measured numbers; `chain_of_hindsight` and
+  `plasticity_engine` split into rows 10b/11b (still retained — no honest
+  harness yet); capability matrix "Multi-agent" row moved to
+  **Shipped + measured** with the build-out item (B) closed.
+
 ### Security — owner-governed risk posture: enumerated CVE ledger, shared HD master seed, signed cache entries (2026-06-10)
 
 Closes three standing gaps where risk was silently accepted or a promised

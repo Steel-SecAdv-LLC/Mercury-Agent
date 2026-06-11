@@ -739,7 +739,11 @@ class ChainOfThoughtEngine:
             strategy=ReasoningStrategy.SELF_CONSISTENCY,
             thoughts=winning_path.thoughts,
             problem=problem,
-            conclusion=consistency_result.answer,
+            # The chain's conclusion is the winning path's full statement —
+            # votes are tallied on normalized forms (kept in metadata), but
+            # collapsing the conclusion itself to the vote token would strip
+            # the human-readable determination from the trace.
+            conclusion=winning_path.conclusion,
             overall_confidence=combined_confidence,
             reasoning_depth=winning_path.reasoning_depth,
             verification_score=consistency_result.agreement_ratio,
@@ -748,6 +752,7 @@ class ChainOfThoughtEngine:
                 "paths_considered": self.consistency_paths,
                 "vote_counts": consistency_result.all_answers,
                 "agreement_ratio": consistency_result.agreement_ratio,
+                "normalized_answer": consistency_result.answer,
             },
         )
 
@@ -1014,13 +1019,31 @@ class ChainOfThoughtEngine:
     # Helper Methods
     # =========================================================================
 
+    @staticmethod
+    def _decision_bands(context: dict[str, Any]) -> tuple[float, float]:
+        """Resolve the (anomaly, caution) score boundaries for a context.
+
+        When the caller supplies ``anomaly_threshold`` — the *actual*
+        decision boundary of the pipeline issuing the verdict — the
+        reasoning trace must classify against that boundary, so the trace's
+        stated determination can never contradict the issued decision. The
+        caution band sits strictly below the boundary. Without an explicit
+        threshold the legacy (0.7, 0.4) bands apply.
+        """
+        if "anomaly_threshold" in context:
+            threshold = float(context["anomaly_threshold"])
+            caution = max(0.0, threshold - 0.15)
+            return threshold, caution
+        return 0.7, 0.4
+
     def _analyze_context(self, context: dict[str, Any]) -> str:
         """Generate analysis finding from context."""
         if "anomaly_score" in context:
             score = context["anomaly_score"]
-            if score > 0.7:
+            anomaly_band, caution_band = self._decision_bands(context)
+            if score > anomaly_band:
                 return f"high anomaly indicators (score: {score:.2f})"
-            elif score > 0.4:
+            elif score > caution_band:
                 return f"moderate anomaly signals (score: {score:.2f})"
             else:
                 return f"normal patterns observed (score: {score:.2f})"
@@ -1055,9 +1078,10 @@ class ChainOfThoughtEngine:
         """Generate an inference conclusion."""
         if "anomaly_score" in context:
             score = context["anomaly_score"]
-            if score > 0.7:
+            anomaly_band, caution_band = self._decision_bands(context)
+            if score > anomaly_band:
                 return "significant deviation from expected patterns"
-            elif score > 0.4:
+            elif score > caution_band:
                 return "potential anomalous behavior detected"
             return "behavior within normal parameters"
 
@@ -1076,15 +1100,23 @@ class ChainOfThoughtEngine:
         return "Synthesizing available evidence"
 
     def _derive_conclusion(self, thoughts: list[Thought], context: dict[str, Any]) -> str:
-        """Derive final conclusion from thought chain."""
+        """Derive final conclusion from thought chain.
+
+        With an explicit ``anomaly_threshold`` in the context, the stated
+        determination is locked to the issuing pipeline's boundary:
+        "ANOMALY DETECTED" if and only if ``score > threshold``; scores in
+        the caution band strictly below the boundary read "POTENTIAL
+        ANOMALY" (still a non-anomaly verdict); everything else "NORMAL".
+        """
         # Calculate weighted evidence
         high_conf_thoughts = [t for t in thoughts if t.confidence > 0.7]
 
         if "anomaly_score" in context:
             score = context["anomaly_score"]
-            if score > 0.7:
+            anomaly_band, caution_band = self._decision_bands(context)
+            if score > anomaly_band:
                 return f"ANOMALY DETECTED with {len(high_conf_thoughts)} supporting evidence points (score: {score:.2f})"
-            elif score > 0.4:
+            elif score > caution_band:
                 return f"POTENTIAL ANOMALY requiring monitoring (score: {score:.2f})"
             return f"NORMAL - no significant anomalies detected (score: {score:.2f})"
 
@@ -1334,9 +1366,14 @@ class AnomalyChainOfThought:
         else:
             anomaly_score = data.get("score", data.get("anomaly_score", 0.5))
 
-        # Build context
+        # Build context. ``anomaly_threshold`` rides along so every reasoning
+        # step (and the final stated determination) classifies against the
+        # same boundary used for the returned ``is_anomaly`` verdict — the
+        # trace can never claim "ANOMALY DETECTED" while the decision says
+        # otherwise, or vice versa.
         context = {
             "anomaly_score": anomaly_score,
+            "anomaly_threshold": self.anomaly_threshold,
             "is_anomaly": anomaly_score > self.anomaly_threshold,
             "domain": domain,
             **data,

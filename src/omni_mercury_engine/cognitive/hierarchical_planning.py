@@ -181,9 +181,20 @@ class Option:
         return False
 
     def get_action(self, state: dict[str, Any]) -> str:
-        """Get action for current state."""
-        # Simple lookup policy
+        """Get action for current state.
+
+        Resolution order: exact (truncated) state key, then the option's
+        declared ``"default"`` action, then — if the policy maps a single
+        action — that action. Only a truly empty/ambiguous policy falls
+        back to the literal ``"default_action"`` sentinel.
+        """
         state_key = str(sorted(state.items()))[:50]
+        if state_key in self.policy:
+            return self.policy[state_key]
+        if "default" in self.policy:
+            return self.policy["default"]
+        if len(self.policy) == 1:
+            return next(iter(self.policy.values()))
         return self.policy.get(state_key, "default_action")
 
 
@@ -631,8 +642,11 @@ class OptionLibrary:
         self._option_usage: dict[str, int] = defaultdict(int)
         self._option_counter = 0
 
-        # Initialize built-in options
+        # Initialize built-in options and pin their identities so eviction
+        # and statistics can tell them apart from custom options. (Every
+        # option ID starts with "opt_", so a prefix test cannot.)
         self._initialize_builtin_options()
+        self._builtin_ids: frozenset[str] = frozenset(self._options)
 
     def _initialize_builtin_options(self) -> None:
         """Initialize built-in anomaly detection options."""
@@ -692,6 +706,32 @@ class OptionLibrary:
         for option in builtin_options:
             self._options[option.option_id] = option
 
+    def iter_applicable(
+        self,
+        state: dict[str, Any],
+        goal: Goal | None = None,
+    ) -> list[Option]:
+        """Get applicable options as :class:`Option` objects.
+
+        This is the planner-facing surface: ``HierarchicalPlanner.plan`` and
+        ``select_action`` need real ``Option`` objects (initiation /
+        termination predicates, policies), not the dict projection that
+        :meth:`get_applicable_options` returns for external callers.
+
+        Args:
+            state: Current state
+            goal: Optional goal context
+
+        Returns:
+            Applicable options, best (expected_reward * skill_level) first
+        """
+        applicable = [o for o in self._options.values() if o.can_initiate(state)]
+        applicable.sort(
+            key=lambda o: o.expected_reward * o.skill_level,
+            reverse=True,
+        )
+        return applicable
+
     def get_applicable_options(
         self,
         state: dict[str, Any],
@@ -706,16 +746,7 @@ class OptionLibrary:
         Returns:
             List of applicable options as dicts
         """
-        applicable = []
-        for option in self._options.values():
-            if option.can_initiate(state):
-                applicable.append(option)
-
-        # Sort by expected reward and skill level
-        applicable.sort(
-            key=lambda o: o.expected_reward * o.skill_level,
-            reverse=True,
-        )
+        applicable = self.iter_applicable(state, goal)
 
         # Return as dicts for API compatibility
         return [
@@ -793,15 +824,14 @@ class OptionLibrary:
             option.expected_reward = (1 - alpha) * option.expected_reward + alpha * reward
 
     def _evict_least_used(self) -> None:
-        """Evict least used option."""
+        """Evict the least-used non-builtin option."""
         if not self._options:
             return
 
-        # Find least used option (excluding built-ins)
         non_builtin = [
             (oid, self._option_usage.get(oid, 0))
             for oid in self._options
-            if not oid.startswith("opt_")
+            if oid not in self._builtin_ids
         ]
 
         if non_builtin:
@@ -812,7 +842,7 @@ class OptionLibrary:
         """Get library statistics."""
         return {
             "total_options": len(self._options),
-            "builtin_options": sum(1 for o in self._options if o.startswith("opt_")),
+            "builtin_options": sum(1 for o in self._options if o in self._builtin_ids),
             "total_usages": sum(self._option_usage.values()),
         }
 
@@ -951,11 +981,9 @@ class HierarchicalPlanner:
         # Select options for subgoals
         options_used: list[Option] = []
         for subgoal in all_subgoals:
-            applicable = self.option_library.get_applicable_options(current_state)
-            if applicable:
-                first_option = applicable[0]
-                if isinstance(first_option, Option):
-                    options_used.append(first_option)
+            applicable_options = self.option_library.iter_applicable(current_state)
+            if applicable_options:
+                options_used.append(applicable_options[0])
 
         # Estimate plan value
         estimated_reward = self._estimate_plan_reward(
@@ -1069,13 +1097,11 @@ class HierarchicalPlanner:
 
         # Select new option if needed
         if execution_state.current_option is None:
-            applicable = self.option_library.get_applicable_options(
+            applicable_options = self.option_library.iter_applicable(
                 state, execution_state.current_goal
             )
-            if applicable:
-                first_applicable = applicable[0]
-                if isinstance(first_applicable, Option):
-                    execution_state.current_option = first_applicable
+            if applicable_options:
+                execution_state.current_option = applicable_options[0]
 
         # Get action from option
         if execution_state.current_option:

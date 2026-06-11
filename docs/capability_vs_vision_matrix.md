@@ -5,7 +5,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # Capability‑vs‑Vision Matrix (code‑grounded)
 
-Applies to Mercury Agent **v1.7.x**. Last updated: 2026-06-10.
+Applies to Mercury Agent **v1.7.x**. Last updated: 2026-06-11.
 
 **Method:** every row below is anchored to a file (and, where useful, a
 symbol) in `src/omni_mercury_engine/`. Where a previously‑circulated claim
@@ -27,7 +27,7 @@ deter, detail).
 | **Neuro‑symbolic** | **Confirmed** | LTN `SymbolicConstraintModule` (`ml/symbolic_constraint.py:374`), `consensus_rule_graph()` (`ml/symbolic_constraint.py:151`), GOSNN (`core/global_omni_scalar_network.py`), ethical gates (`cognitive/ethical_bounding.py` `MINIMUM_BENEVOLENCE_FLOOR = 0.70`; `security/sigma_immutable_gate.py` decision threshold `0.93`), conformal UQ (`core/conformal_prediction.py`) | Genuine co‑training: the label‑scarcity‑adaptive λ schedule enters the loss (`ml/symbolic_constraint.py`), not a post‑hoc blend. |
 | **Multi‑model / multi‑type** | **Confirmed** | 57 `class *Detector` definitions under `detectors/` (CI‑gated count in the README Codebase Scale block) plus the 21‑probe Math‑Arrest equation family (`detectors/math_arrest/probes/`); fusion stack `detectors/fusion/multimodal_fusion.py` with `AttentionFusion` (`nn.MultiheadAttention`, 128‑D, 4 heads), score/decision/adaptive fusion | The "22+ engines" figure is conservative against the 57 measured detector classes. |
 | **Interpret with accuracy** | **Strong** | `explainability/` (5 SHAP variants, 4 counterfactual methods, GDPR Art. 22); temperature calibration + ECE (`engine.py::_fit_fusion_temperature`); conformal certificate attached in `detect_with_fusion`; serve‑path integrated‑gradients attributions via `detect_with_fusion(explain=True)` | The calibrated/honest‑confidence work (PR #278) and the serve‑path explanation wiring (2026‑06‑02) carry the *"with accuracy"* qualifier. |
-| **Multi‑agent** | **Partial** | Single‑agent loops exist: `AgenticAutonomy` (`agentic/agentic_autonomy.py:88`), `OODAAgent` (`cognitive/autonomous_agent.py:593`) | No planner/critic/executor **multi‑agent orchestration** in Mercury yet. A net‑new pillar. |
+| **Multi‑agent** | **Shipped + measured (2026‑06‑11)** | `MultiAgentOrchestrator` (`agentic/orchestration.py`): planner/critic/executor loop over the engine's five real detectors — `HierarchicalPlanner` sequences the pipeline stages as real options with TD value learning, `ConsensusProtocol` forms per‑sample consensus (explicit abstention below quorum), `AnomalyReflexion` adapts the operating threshold from real labeled feedback, `AnomalyChainOfThought` renders decision‑faithful traces; dual hard ethical gates at the decision boundary; engine wiring via `engine.py::enable_multi_agent_orchestration()` | Measured on real ADBench labels (`benchmarks/orchestration_validation.py`, 5 datasets × 3 seeds): consensus AUC 0.827 ≥ mean member 0.821 (best member 0.903 — **no claim of beating the trained fusion model**); reflexion +0.079 paired balanced accuracy; 129/129 planned episodes executed; 600/600 traces decision‑faithful. Single‑agent loops (`AgenticAutonomy`, `OODAAgent`) remain alongside. |
 | **Multi‑language** | **Corrected** | Python (618 source files + 406 test modules, CI‑gated counts) **+ Rust** (`rust_crypto/` → `lib.rs`, `hashing.rs`, `encryption.rs`, `kdf.rs`, `random.rs`, via PyO3); PQC consumed from the external `ama_cryptography` backend (`integrations/mercury_amacrypto.py`) | The historical "Python + **C**" claim was incorrect: Mercury's own native code is **Rust**, and the PQC C library is an *external* dependency (AMA Cryptography), not Mercury‑owned C. |
 | **Autonomous (identify→interpret→deter)** | **Closed (PR #283)** | `decision/` package wired at the `detect_with_fusion` seam (`engine.py::enable_decision_layer()`); the prior loops stopped at a log/alert/store stub in `agentic/agentic_autonomy.py` | Before #283, abstention was an implicit threshold and the three‑state contract was not wired into detection. Now: an explicit, calibration‑grounded "don't‑know" gate plus a bounded response layer. |
 | **Depict (visualize/explain)** | **Partial — first per‑event coupling shipped** | Infrastructure exists: `gui/visualization_dashboard.py` (Plotly), `narrative/` (`NarrativeEngine`, `ReasoningChainNarrative`, `MercuryResponse`), `explainability/`; per‑decision depiction via `DecisionRecord.explain()` with a `signals`/`reasons`/`caveats` provenance trail | A full depiction layer (per‑event visuals from the threaded certificates) remains an open pillar. |
@@ -74,10 +74,16 @@ gate‑vs‑certificate contradictions, ~94 % coverage at a 90 % target).
 In leverage order:
 
 - **(A) Decision/abstention + response layer — shipped (PR #283).**
-- (B) Multi‑agent orchestration inside Mercury (planner/critic/executor over
-  the existing engines) — open.
+- **(B) Multi‑agent orchestration inside Mercury — shipped + measured
+  (2026‑06‑11).** Planner/critic/executor over the existing detectors
+  (`agentic/orchestration.py`), validated per‑module on real ADBench labels
+  by `benchmarks/orchestration_validation.py`; revives DORMANCY_LEDGER
+  rows 10–11 under the same ablation discipline as the rest of the repo.
 - (C) Depiction layer (per‑event explanations/visuals from the certificates
-  threaded through `detect()` and `DecisionRecord`) — open.
+  threaded through `detect()` and `DecisionRecord`) — open. The
+  orchestrator's decision‑faithful chain‑of‑thought traces
+  (`MultiAgentOrchestrator.explain()`, fidelity 600/600) are a first
+  measured input to this pillar.
 - (D) Decorrelated‑stream fusion — **executed and closed by #278**: the
   pre‑registered protocol ran end‑to‑end (SHIP rejected, runtime
   byte‑unchanged; `research/governed_fusion/FINDINGS.md`). Improving raw

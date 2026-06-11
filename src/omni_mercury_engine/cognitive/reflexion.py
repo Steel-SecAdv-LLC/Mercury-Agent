@@ -828,6 +828,13 @@ class ReflexionEngine:
         best_score = 0.0
         iterations_used = 0
 
+        # Context enrichments accumulated from reflection between iterations.
+        # Each iteration's evaluation critiques the decision; the critique is
+        # answered by attaching *real* evidence computed from the task data
+        # (not fabricated assertions), so successive iterations genuinely
+        # differ and the heuristic score can improve.
+        reflection_enrichment: dict[str, Any] = {}
+
         for iteration in range(max_iterations):
             iterations_used = iteration + 1
 
@@ -863,7 +870,7 @@ class ReflexionEngine:
                 confidence = 0.7
                 anomaly_score = 0.0
 
-            # Create decision
+            # Create decision (carrying evidence gathered by earlier reflections)
             self._experience_counter += 1
             decision = Decision(
                 decision_id=f"exec_{self._experience_counter:06d}",
@@ -873,6 +880,7 @@ class ReflexionEngine:
                     "data_size": len(data) if hasattr(data, "__len__") else 0,
                     "anomaly_score": anomaly_score,
                     "iteration": iteration,
+                    **reflection_enrichment,
                 },
                 confidence=confidence,
                 reasoning=f"Iteration {iteration + 1}: classified as {decision_class}",
@@ -892,8 +900,25 @@ class ReflexionEngine:
             if current_score >= 0.9:
                 break
 
-            # Reflect and potentially refine
+            # Reflect: answer the evaluator's critique with real, computed
+            # evidence so the next iteration is a different (better-grounded)
+            # decision rather than a verbatim repeat.
             self._stats["total_reflections"] += 1
+            for suggestion in evaluation.suggestions:
+                lowered = suggestion.lower()
+                if "evidence" in lowered or "data" in lowered:
+                    if len(data) > 0:
+                        arr = np.asarray(data, dtype=float)
+                        reflection_enrichment["evidence"] = [
+                            f"mean={float(np.mean(arr)):.4f}",
+                            f"std={float(np.std(arr)):.4f}",
+                            f"max_abs={float(np.max(np.abs(arr))):.4f}",
+                            f"n={arr.size}",
+                        ]
+                        lo, hi = float(np.min(arr)), float(np.max(arr))
+                        reflection_enrichment["confidence_interval"] = (lo, hi)
+                if "review" in lowered or "similar" in lowered:
+                    reflection_enrichment["reasoning"] = decision.reasoning
 
         return {
             "decision": best_decision.action if best_decision else "unknown",
@@ -1016,6 +1041,7 @@ class ReflexionEngine:
 
         current_decision = decision
         best_score = 0.0
+        iterations_run = 0
 
         # Retrieve relevant experiences
         past_experiences = self.experience_memory.retrieve(
@@ -1025,6 +1051,7 @@ class ReflexionEngine:
         )
 
         for iteration in range(max_iterations):
+            iterations_run = iteration + 1
             # Evaluate current decision
             evaluation = self.heuristic_evaluator.evaluate(current_decision, past_experiences)
             assert isinstance(evaluation, HeuristicEvaluation)
@@ -1059,7 +1086,7 @@ class ReflexionEngine:
         return RefinementResult(
             original_decision=decision,
             refined_decision=current_decision,
-            iterations=iteration + 1,
+            iterations=iterations_run,
             improvement_score=improvement_score,
             refinement_trace=refinement_trace,
             convergence_achieved=final_eval.heuristic_score >= 0.95,
@@ -1623,23 +1650,63 @@ class AnomalyReflexion:
 
         return self.engine.record_experience(decision, outcome, auto_reflect=True)
 
+    # Adaptation guards: a threshold move needs real statistical evidence.
+    # Fewer recorded outcomes than MIN_OBSERVATIONS (or fewer than
+    # MIN_PER_CLASS of either class) cannot distinguish miscalibration from
+    # sampling noise, and a move that does not improve recorded balanced
+    # accuracy by at least HYSTERESIS_MARGIN is noise-chasing. (The previous
+    # "fn > 2*fp" ratio rule fired on a single error and, measured on real
+    # ADBench labels via benchmarks/orchestration_validation.py, destroyed
+    # well-calibrated operating points — e.g. WBC balanced accuracy
+    # 0.98 -> 0.50.)
+    MIN_OBSERVATIONS: int = 20
+    MIN_PER_CLASS: int = 3
+    HYSTERESIS_MARGIN: float = 0.01
+
     def get_threshold_recommendation(self) -> dict[str, Any]:
-        """Get threshold recommendation based on experience.
+        """Recommend an operating threshold from recorded real outcomes.
+
+        Decision-theoretic, evidence-grounded rule: reconstruct the
+        (score, actual label) pairs from every recorded experience, sweep
+        candidate thresholds over the observed scores, and recommend the
+        balanced-accuracy-maximizing threshold — but only when there is
+        enough evidence (minimum observations of both classes) and the best
+        candidate beats the current threshold's recorded balanced accuracy
+        by a hysteresis margin. Otherwise: maintain.
 
         Returns:
-            Recommended threshold adjustment
+            Dict with current/suggested thresholds, error counts,
+            recommendation ("maintain" / "increase" / "decrease"),
+            and reasoning.
         """
-        fp_experiences = self.engine.experience_memory.retrieve_by_outcome(
-            OutcomeType.FALSE_POSITIVE, top_k=50
-        )
-        fn_experiences = self.engine.experience_memory.retrieve_by_outcome(
-            OutcomeType.FALSE_NEGATIVE, top_k=50
-        )
+        scores: list[float] = []
+        labels: list[bool] = []
+        fp_count = 0
+        fn_count = 0
+        # Outcome type encodes the actual label: TP/FN were truly anomalous,
+        # TN/FP truly normal. UNCERTAIN outcomes carry no ground truth and
+        # contribute no evidence.
+        for outcome_type, actual in (
+            (OutcomeType.TRUE_POSITIVE, True),
+            (OutcomeType.FALSE_NEGATIVE, True),
+            (OutcomeType.TRUE_NEGATIVE, False),
+            (OutcomeType.FALSE_POSITIVE, False),
+        ):
+            experiences = self.engine.experience_memory.retrieve_by_outcome(
+                outcome_type, top_k=500
+            )
+            if outcome_type == OutcomeType.FALSE_POSITIVE:
+                fp_count = len(experiences)
+            elif outcome_type == OutcomeType.FALSE_NEGATIVE:
+                fn_count = len(experiences)
+            for exp in experiences:
+                score = exp.decision.context.get("anomaly_score")
+                if score is None:
+                    continue
+                scores.append(float(score))
+                labels.append(actual)
 
-        fp_count = len(fp_experiences)
-        fn_count = len(fn_experiences)
-
-        recommendation = {
+        recommendation: dict[str, Any] = {
             "current_threshold": self.anomaly_threshold,
             "false_positives": fp_count,
             "false_negatives": fn_count,
@@ -1647,24 +1714,61 @@ class AnomalyReflexion:
             "suggested_threshold": self.anomaly_threshold,
         }
 
-        if fn_count > fp_count * 2:
-            # Too many false negatives - lower threshold
-            avg_fn_score = np.mean(
-                [exp.decision.context.get("anomaly_score", 0.5) for exp in fn_experiences]
+        score_arr = np.asarray(scores, dtype=float)
+        label_arr = np.asarray(labels, dtype=bool)
+        n_anomalous = int(np.sum(label_arr))
+        n_normal = int(label_arr.size - n_anomalous)
+        if (
+            label_arr.size < self.MIN_OBSERVATIONS
+            or n_anomalous < self.MIN_PER_CLASS
+            or n_normal < self.MIN_PER_CLASS
+        ):
+            recommendation["reasoning"] = (
+                f"Insufficient evidence to adapt ({label_arr.size} outcomes, "
+                f"{n_anomalous} anomalous / {n_normal} normal)"
             )
-            recommendation["recommendation"] = "decrease"
-            recommendation["suggested_threshold"] = max(0.1, avg_fn_score - 0.1)
-            recommendation["reasoning"] = "High false negative rate suggests threshold too high"
+            return recommendation
 
-        elif fp_count > fn_count * 2:
-            # Too many false positives - raise threshold
-            avg_fp_score = np.mean(
-                [exp.decision.context.get("anomaly_score", 0.5) for exp in fp_experiences]
+        def balanced_accuracy(threshold: float) -> float:
+            predicted = score_arr > threshold
+            tpr_den = n_anomalous
+            tnr_den = n_normal
+            tpr = float(np.sum(predicted & label_arr)) / tpr_den
+            tnr = float(np.sum(~predicted & ~label_arr)) / tnr_den
+            return (tpr + tnr) / 2.0
+
+        # Candidate thresholds: midpoints between adjacent observed scores
+        # (every distinct decision boundary the data supports) plus the
+        # current threshold as the do-nothing baseline.
+        unique_scores = np.unique(score_arr)
+        if unique_scores.size >= 2:
+            candidates = (unique_scores[:-1] + unique_scores[1:]) / 2.0
+        else:
+            candidates = unique_scores
+        current_acc = balanced_accuracy(self.anomaly_threshold)
+        best_threshold = self.anomaly_threshold
+        best_acc = current_acc
+        for candidate in candidates:
+            acc = balanced_accuracy(float(candidate))
+            if acc > best_acc:
+                best_acc = acc
+                best_threshold = float(candidate)
+
+        if best_acc <= current_acc + self.HYSTERESIS_MARGIN:
+            recommendation["reasoning"] = (
+                f"Current threshold is within {self.HYSTERESIS_MARGIN:.2f} of the best "
+                f"recorded operating point (balanced accuracy {current_acc:.3f})"
             )
-            recommendation["recommendation"] = "increase"
-            recommendation["suggested_threshold"] = min(0.9, avg_fp_score + 0.1)
-            recommendation["reasoning"] = "High false positive rate suggests threshold too low"
+            return recommendation
 
+        recommendation["suggested_threshold"] = best_threshold
+        recommendation["recommendation"] = (
+            "decrease" if best_threshold < self.anomaly_threshold else "increase"
+        )
+        recommendation["reasoning"] = (
+            f"Recorded outcomes ({label_arr.size}) support moving the threshold to "
+            f"{best_threshold:.3f}: balanced accuracy {current_acc:.3f} -> {best_acc:.3f}"
+        )
         return recommendation
 
     def get_error_patterns(self) -> dict[str, list[str]]:
