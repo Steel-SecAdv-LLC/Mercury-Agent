@@ -23,6 +23,16 @@ from omni_mercury_engine.agentic.mercury_a_agent import (
     TaskPriority,
     create_mercury_agent,
 )
+from omni_mercury_engine.agentic.orchestration import (
+    CoordinationBatch,
+    DetectorAgent,
+    EpisodeResult,
+    MultiAgentOrchestrator,
+    OrchestrationError,
+    PlanTrace,
+    ReflectionRecord,
+    default_detector_suite,
+)
 
 __all__ = [
     "AgentAction",
@@ -33,13 +43,21 @@ __all__ = [
     "BayesianConfidenceCalibrator",
     "CalibrationConfig",
     "ContextStats",
+    "CoordinationBatch",
+    "DetectorAgent",
     "DomainType",
+    "EpisodeResult",
     "MercuryAgent",
     "MercuryPlanner",
     "MercuryReasoner",
+    "MultiAgentOrchestrator",
+    "OrchestrationError",
     "PlanResult",
+    "PlanTrace",
     "ReasoningStep",
+    "ReflectionRecord",
     "Task",
     "TaskPriority",
     "create_mercury_agent",
+    "default_detector_suite",
 ]

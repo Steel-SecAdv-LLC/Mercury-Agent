@@ -58,7 +58,14 @@ def _measure() -> dict[str, Any]:
     a, b = int(n * 0.5), int(n * 0.72)
     engine = OmniMercuryEngine(mode="fusion", device="cpu")
     engine.fit_fusion(X[:a], y[:a], epochs=25, batch_size=32, early_stopping_patience=15)
-    engine.calibrate_fusion_conformal(X[a:b], y[a:b], coverage=_TARGET)
+    # The loop below serves sample-at-a-time, so the calibration scores must
+    # come from the same regime (per_sample=True): several detector features
+    # are batch-relative by design, and a row scored alone does not get the
+    # score it gets inside a batch. Before the 2026-06-11 serve-path purity
+    # fix, cross-call streaming buffers made single-sample serving *resemble*
+    # batch scoring by accident of call history; regime-matched calibration
+    # is the principled form of the guarantee this test pins.
+    engine.calibrate_fusion_conformal(X[a:b], y[a:b], coverage=_TARGET, per_sample=True)
     responder = DecisionAbstentionResponder()
 
     x_te, y_te = X[b:], y[b:]

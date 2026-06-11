@@ -1,0 +1,525 @@
+{
+  "complete": true,
+  "failed_cells": [],
+  "results": [
+    {
+      "adaptive_balanced_acc": 0.782258064516129,
+      "best_member_auc": 0.9471541563275434,
+      "consensus_auc": 0.8875232630272953,
+      "dataset": "cardio",
+      "fidelity_ok": 40,
+      "fidelity_total": 40,
+      "fixed_balanced_acc": 0.7775020678246486,
+      "goal_value_final": 2.4558484510640555,
+      "goal_value_first": 0.7071067811865476,
+      "goal_values_non_decreasing": true,
+      "mean_member_auc": 0.847790012406948,
+      "member_aucs": {
+        "dimensional": 0.9037298387096774,
+        "directive": 0.9471541563275434,
+        "spatial": 0.6285669975186103,
+        "statistical": 0.9036522952853598,
+        "temporal": 0.8558467741935484
+      },
+      "n_test": 548,
+      "n_train": 1283,
+      "numeric_quote_ok": 40,
+      "plan_episodes_ok": 9,
+      "plan_episodes_total": 9,
+      "reflexion_acted": true,
+      "reflexion_recommendations": [
+        "decrease",
+        "maintain",
+        "maintain",
+        "decrease"
+      ],
+      "seed": 0
+    },
+    {
+      "adaptive_balanced_acc": 0.7744003308519437,
+      "best_member_auc": 0.9461460918114144,
+      "consensus_auc": 0.7061879652605458,
+      "dataset": "cardio",
+      "fidelity_ok": 40,
+      "fidelity_total": 40,
+      "fixed_balanced_acc": 0.6539495450785774,
+      "goal_value_final": 2.4558484510640555,
+      "goal_value_first": 0.7071067811865476,
+      "goal_values_non_decreasing": true,
+      "mean_member_auc": 0.8001395781637717,
+      "member_aucs": {
+        "dimensional": 0.8694944168734491,
+        "directive": 0.9461460918114144,
+        "spatial": 0.5151985111662531,
+        "statistical": 0.8880660669975187,
+        "temporal": 0.7817928039702233
+      },
+      "n_test": 548,
+      "n_train": 1283,
+      "numeric_quote_ok": 40,
+      "plan_episodes_ok": 9,
+      "plan_episodes_total": 9,
+      "reflexion_acted": true,
+      "reflexion_recommendations": [
+        "decrease",
+        "maintain",
+        "increase",
+        "maintain"
+      ],
+      "seed": 1
+    },
+    {
+      "adaptive_balanced_acc": 0.7467948717948718,
+      "best_member_auc": 0.9523495657568237,
+      "consensus_auc": 0.7858250620347395,
+      "dataset": "cardio",
+      "fidelity_ok": 40,
+      "fidelity_total": 40,
+      "fixed_balanced_acc": 0.6526054590570719,
+      "goal_value_final": 2.4558484510640555,
+      "goal_value_first": 0.7071067811865476,
+      "goal_values_non_decreasing": true,
+      "mean_member_auc": 0.8420595533498758,
+      "member_aucs": {
+        "dimensional": 0.9160204714640198,
+        "directive": 0.9523495657568237,
+        "spatial": 0.5911910669975187,
+        "statistical": 0.9164857320099256,
+        "temporal": 0.8342509305210917
+      },
+      "n_test": 548,
+      "n_train": 1283,
+      "numeric_quote_ok": 40,
+      "plan_episodes_ok": 9,
+      "plan_episodes_total": 9,
+      "reflexion_acted": true,
+      "reflexion_recommendations": [
+        "decrease",
+        "maintain",
+        "maintain",
+        "maintain"
+      ],
+      "seed": 2
+    },
+    {
+      "adaptive_balanced_acc": 0.8527482903569861,
+      "best_member_auc": 0.9673617407071623,
+      "consensus_auc": 0.9568852624156341,
+      "dataset": "thyroid",
+      "fidelity_ok": 40,
+      "fidelity_total": 40,
+      "fixed_balanced_acc": 0.7913771252901688,
+      "goal_value_final": 2.4558484510640555,
+      "goal_value_first": 0.7071067811865476,
+      "goal_values_non_decreasing": true,
+      "mean_member_auc": 0.9118498371444881,
+      "member_aucs": {
+        "dimensional": 0.9067190490581243,
+        "directive": 0.9412712803465296,
+        "spatial": 0.8354991437493704,
+        "statistical": 0.9083979718612538,
+        "temporal": 0.9673617407071623
+      },
+      "n_test": 1130,
+      "n_train": 2642,
+      "numeric_quote_ok": 40,
+      "plan_episodes_ok": 9,
+      "plan_episodes_total": 9,
+      "reflexion_acted": true,
+      "reflexion_recommendations": [
+        "decrease",
+        "decrease",
+        "maintain",
+        "maintain"
+      ],
+      "seed": 0
+    },
+    {
+      "adaptive_balanced_acc": 0.8557362444318967,
+      "best_member_auc": 0.9458379503710419,
+      "consensus_auc": 0.883214129814311,
+      "dataset": "thyroid",
+      "fidelity_ok": 40,
+      "fidelity_total": 40,
+      "fixed_balanced_acc": 0.8778314197879414,
+      "goal_value_final": 2.4558484510640555,
+      "goal_value_first": 0.7071067811865476,
+      "goal_values_non_decreasing": true,
+      "mean_member_auc": 0.900104093213794,
+      "member_aucs": {
+        "dimensional": 0.8822739330445585,
+        "directive": 0.9458379503710419,
+        "spatial": 0.8440952285013934,
+        "statistical": 0.9028239481548638,
+        "temporal": 0.9254894059971123
+      },
+      "n_test": 1130,
+      "n_train": 2642,
+      "numeric_quote_ok": 40,
+      "plan_episodes_ok": 9,
+      "plan_episodes_total": 9,
+      "reflexion_acted": true,
+      "reflexion_recommendations": [
+        "decrease",
+        "increase",
+        "maintain",
+        "maintain"
+      ],
+      "seed": 1
+    },
+    {
+      "adaptive_balanced_acc": 0.8251963736746345,
+      "best_member_auc": 0.9590342836036398,
+      "consensus_auc": 0.915516604546523,
+      "dataset": "thyroid",
+      "fidelity_ok": 40,
+      "fidelity_total": 40,
+      "fixed_balanced_acc": 0.7849868247694335,
+      "goal_value_final": 2.4558484510640555,
+      "goal_value_first": 0.7071067811865476,
+      "goal_values_non_decreasing": true,
+      "mean_member_auc": 0.9105537087404721,
+      "member_aucs": {
+        "dimensional": 0.9248178368758604,
+        "directive": 0.9590342836036398,
+        "spatial": 0.8347604177159933,
+        "statistical": 0.8998018871092308,
+        "temporal": 0.934354118397636
+      },
+      "n_test": 1130,
+      "n_train": 2642,
+      "numeric_quote_ok": 40,
+      "plan_episodes_ok": 9,
+      "plan_episodes_total": 9,
+      "reflexion_acted": true,
+      "reflexion_recommendations": [
+        "decrease",
+        "increase",
+        "maintain",
+        "maintain"
+      ],
+      "seed": 2
+    },
+    {
+      "adaptive_balanced_acc": 0.8201624083977025,
+      "best_member_auc": 0.9601821455046067,
+      "consensus_auc": 0.9122101027215926,
+      "dataset": "breastw",
+      "fidelity_ok": 40,
+      "fidelity_total": 40,
+      "fixed_balanced_acc": 0.6500297088532383,
+      "goal_value_final": 2.4558484510640555,
+      "goal_value_first": 0.7071067811865476,
+      "goal_values_non_decreasing": true,
+      "mean_member_auc": 0.8669067033781637,
+      "member_aucs": {
+        "dimensional": 0.9601821455046067,
+        "directive": 0.9430265805358465,
+        "spatial": 0.6310494546224716,
+        "statistical": 0.9459917399131632,
+        "temporal": 0.8542835963147305
+      },
+      "n_test": 204,
+      "n_train": 479,
+      "numeric_quote_ok": 40,
+      "plan_episodes_ok": 9,
+      "plan_episodes_total": 9,
+      "reflexion_acted": true,
+      "reflexion_recommendations": [
+        "decrease",
+        "maintain",
+        "maintain",
+        "increase"
+      ],
+      "seed": 0
+    },
+    {
+      "adaptive_balanced_acc": 0.9074074074074074,
+      "best_member_auc": 0.9764905220798474,
+      "consensus_auc": 0.9393201313142009,
+      "dataset": "breastw",
+      "fidelity_ok": 40,
+      "fidelity_total": 40,
+      "fixed_balanced_acc": 0.7268270944741534,
+      "goal_value_final": 2.4558484510640555,
+      "goal_value_first": 0.7071067811865476,
+      "goal_values_non_decreasing": true,
+      "mean_member_auc": 0.8819442973631262,
+      "member_aucs": {
+        "dimensional": 0.9716191888171132,
+        "directive": 0.9623001164884041,
+        "spatial": 0.665784178756751,
+        "statistical": 0.9764905220798474,
+        "temporal": 0.8335274806735149
+      },
+      "n_test": 204,
+      "n_train": 479,
+      "numeric_quote_ok": 40,
+      "plan_episodes_ok": 9,
+      "plan_episodes_total": 9,
+      "reflexion_acted": true,
+      "reflexion_recommendations": [
+        "decrease",
+        "increase",
+        "maintain",
+        "maintain"
+      ],
+      "seed": 1
+    },
+    {
+      "adaptive_balanced_acc": 0.8152109328579917,
+      "best_member_auc": 0.9665360584559992,
+      "consensus_auc": 0.9693953192841258,
+      "dataset": "breastw",
+      "fidelity_ok": 40,
+      "fidelity_total": 40,
+      "fixed_balanced_acc": 0.6735987324222618,
+      "goal_value_final": 2.4558484510640555,
+      "goal_value_first": 0.7071067811865476,
+      "goal_values_non_decreasing": true,
+      "mean_member_auc": 0.8814042147622578,
+      "member_aucs": {
+        "dimensional": 0.9665360584559992,
+        "directive": 0.9240707402308588,
+        "spatial": 0.6889759610293339,
+        "statistical": 0.9660065657100498,
+        "temporal": 0.861431748385047
+      },
+      "n_test": 204,
+      "n_train": 479,
+      "numeric_quote_ok": 40,
+      "plan_episodes_ok": 9,
+      "plan_episodes_total": 9,
+      "reflexion_acted": true,
+      "reflexion_recommendations": [
+        "decrease",
+        "maintain",
+        "maintain",
+        "decrease"
+      ],
+      "seed": 2
+    },
+    {
+      "adaptive_balanced_acc": 0.953125,
+      "best_member_auc": 1.0,
+      "consensus_auc": 0.9735449735449736,
+      "dataset": "WBC",
+      "fidelity_ok": 40,
+      "fidelity_total": 40,
+      "fixed_balanced_acc": 0.953125,
+      "goal_value_final": 2.291281059198145,
+      "goal_value_first": 0.7071067811865476,
+      "goal_values_non_decreasing": true,
+      "mean_member_auc": 0.9724867724867725,
+      "member_aucs": {
+        "dimensional": 0.9576719576719577,
+        "directive": 0.9947089947089948,
+        "spatial": 0.9735449735449736,
+        "statistical": 1.0,
+        "temporal": 0.9365079365079365
+      },
+      "n_test": 66,
+      "n_train": 157,
+      "numeric_quote_ok": 40,
+      "plan_episodes_ok": 7,
+      "plan_episodes_total": 7,
+      "reflexion_acted": true,
+      "reflexion_recommendations": [
+        "maintain",
+        "maintain",
+        "increase"
+      ],
+      "seed": 0
+    },
+    {
+      "adaptive_balanced_acc": 0.984375,
+      "best_member_auc": 1.0,
+      "consensus_auc": 0.9894179894179894,
+      "dataset": "WBC",
+      "fidelity_ok": 40,
+      "fidelity_total": 40,
+      "fixed_balanced_acc": 0.984375,
+      "goal_value_final": 2.291281059198145,
+      "goal_value_first": 0.7071067811865476,
+      "goal_values_non_decreasing": true,
+      "mean_member_auc": 0.9396825396825396,
+      "member_aucs": {
+        "dimensional": 0.9894179894179894,
+        "directive": 1.0,
+        "spatial": 0.9788359788359788,
+        "statistical": 1.0,
+        "temporal": 0.7301587301587301
+      },
+      "n_test": 66,
+      "n_train": 157,
+      "numeric_quote_ok": 40,
+      "plan_episodes_ok": 7,
+      "plan_episodes_total": 7,
+      "reflexion_acted": true,
+      "reflexion_recommendations": [
+        "maintain",
+        "maintain",
+        "increase"
+      ],
+      "seed": 1
+    },
+    {
+      "adaptive_balanced_acc": 0.984375,
+      "best_member_auc": 1.0,
+      "consensus_auc": 0.9894179894179894,
+      "dataset": "WBC",
+      "fidelity_ok": 40,
+      "fidelity_total": 40,
+      "fixed_balanced_acc": 0.984375,
+      "goal_value_final": 2.291281059198145,
+      "goal_value_first": 0.7071067811865476,
+      "goal_values_non_decreasing": true,
+      "mean_member_auc": 0.9428571428571428,
+      "member_aucs": {
+        "dimensional": 0.9682539682539683,
+        "directive": 1.0,
+        "spatial": 0.9894179894179894,
+        "statistical": 1.0,
+        "temporal": 0.7566137566137566
+      },
+      "n_test": 66,
+      "n_train": 157,
+      "numeric_quote_ok": 40,
+      "plan_episodes_ok": 7,
+      "plan_episodes_total": 7,
+      "reflexion_acted": true,
+      "reflexion_recommendations": [
+        "maintain",
+        "maintain",
+        "increase"
+      ],
+      "seed": 2
+    },
+    {
+      "adaptive_balanced_acc": 0.5802038880986249,
+      "best_member_auc": 0.6556666666666666,
+      "consensus_auc": 0.5828333333333334,
+      "dataset": "Pima",
+      "fidelity_ok": 40,
+      "fidelity_total": 40,
+      "fixed_balanced_acc": 0.5303105737316264,
+      "goal_value_final": 2.4558484510640555,
+      "goal_value_first": 0.7071067811865476,
+      "goal_values_non_decreasing": true,
+      "mean_member_auc": 0.6126000000000001,
+      "member_aucs": {
+        "dimensional": 0.6092500000000001,
+        "directive": 0.6556666666666666,
+        "spatial": 0.5943333333333334,
+        "statistical": 0.6375000000000001,
+        "temporal": 0.56625
+      },
+      "n_test": 230,
+      "n_train": 538,
+      "numeric_quote_ok": 40,
+      "plan_episodes_ok": 9,
+      "plan_episodes_total": 9,
+      "reflexion_acted": true,
+      "reflexion_recommendations": [
+        "decrease",
+        "maintain",
+        "decrease",
+        "maintain"
+      ],
+      "seed": 0
+    },
+    {
+      "adaptive_balanced_acc": 0.49767662399241347,
+      "best_member_auc": 0.5983333333333334,
+      "consensus_auc": 0.5522500000000001,
+      "dataset": "Pima",
+      "fidelity_ok": 40,
+      "fidelity_total": 40,
+      "fixed_balanced_acc": 0.5297534376481745,
+      "goal_value_final": 2.4558484510640555,
+      "goal_value_first": 0.7071067811865476,
+      "goal_values_non_decreasing": true,
+      "mean_member_auc": 0.58385,
+      "member_aucs": {
+        "dimensional": 0.5960000000000001,
+        "directive": 0.59825,
+        "spatial": 0.5983333333333334,
+        "statistical": 0.5766666666666667,
+        "temporal": 0.5499999999999999
+      },
+      "n_test": 230,
+      "n_train": 538,
+      "numeric_quote_ok": 40,
+      "plan_episodes_ok": 9,
+      "plan_episodes_total": 9,
+      "reflexion_acted": true,
+      "reflexion_recommendations": [
+        "decrease",
+        "maintain",
+        "increase",
+        "decrease"
+      ],
+      "seed": 1
+    },
+    {
+      "adaptive_balanced_acc": 0.5277145566619251,
+      "best_member_auc": 0.6451666666666667,
+      "consensus_auc": 0.5748333333333334,
+      "dataset": "Pima",
+      "fidelity_ok": 40,
+      "fidelity_total": 40,
+      "fixed_balanced_acc": 0.5308677098150782,
+      "goal_value_final": 2.4558484510640555,
+      "goal_value_first": 0.7071067811865476,
+      "goal_values_non_decreasing": true,
+      "mean_member_auc": 0.6051,
+      "member_aucs": {
+        "dimensional": 0.637,
+        "directive": 0.6451666666666667,
+        "spatial": 0.5680833333333334,
+        "statistical": 0.609,
+        "temporal": 0.56625
+      },
+      "n_test": 230,
+      "n_train": 538,
+      "numeric_quote_ok": 40,
+      "plan_episodes_ok": 9,
+      "plan_episodes_total": 9,
+      "reflexion_acted": true,
+      "reflexion_recommendations": [
+        "increase",
+        "decrease",
+        "maintain",
+        "maintain"
+      ],
+      "seed": 2
+    }
+  ],
+  "verdict": {
+    "coordination": {
+      "mean_best_member_auc": 0.9013506120856497,
+      "mean_consensus_auc": 0.8412250306311059,
+      "mean_member_auc": 0.8332885635699568,
+      "passed": true
+    },
+    "passed": true,
+    "planning": {
+      "executability": 1.0,
+      "passed": true,
+      "value_learning": true
+    },
+    "reflexion": {
+      "acted_runs": 15,
+      "delta_all": 0.053724686286010175,
+      "delta_when_acted": 0.053724686286010175,
+      "paired_runs": 15,
+      "passed": true
+    },
+    "trace_fidelity": {
+      "fidelity_rate": 1.0,
+      "numeric_quote_rate": 1.0,
+      "passed": true
+    },
+    "verdict": "VALIDATED -- the revived planning/coordination/reflexion/chain-of-thought tier runs the live ensemble with preserved signal, real adaptive feedback, fully-executed plans, and decision-faithful traces"
+  }
+}

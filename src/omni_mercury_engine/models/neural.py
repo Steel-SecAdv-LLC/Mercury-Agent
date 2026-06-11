@@ -19,6 +19,17 @@ class NeuralCognitiveModel:
         self.memory_capacity = self.config.get("memory_capacity", 100)
         self.memory_buffer = deque[Any](maxlen=self.memory_capacity)
 
+    def reset_state(self) -> None:
+        """Clear the transient hippocampal memory buffer.
+
+        The buffer is streaming state: without a reset, identical batches
+        score differently call-to-call (each call appends its rows), which
+        broke serve-path determinism at the engine's fusion feature
+        boundary (defect found 2026-06-11). The engine resets before every
+        extraction; direct callers keep the streaming semantics.
+        """
+        self.memory_buffer.clear()
+
     def _hippocampal_memory(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Process data through hippocampal memory system."""
         if data.ndim == 1:

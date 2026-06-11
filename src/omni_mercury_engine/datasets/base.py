@@ -122,12 +122,21 @@ def http_get_with_retry(
         Response body as bytes.
 
     Raises:
+        OfflineModeError: ``MERCURY_OFFLINE`` is set — this is the single
+            dataset-layer network chokepoint, so air-gapped mode refuses
+            here before any socket is opened (cached data never reaches
+            this function).
         ValueError / UnsafeURLError: URL scheme/domain not permitted under the
             security defaults (or current opt-in flags).
         requests.HTTPError: Final attempt returned a non-retried status.
         requests.RequestException / TimeoutError: All attempts exhausted on
             transient socket errors.
     """
+    from omni_mercury_engine.datasets.exceptions import OfflineModeError, offline_mode_active
+
+    if offline_mode_active():
+        raise OfflineModeError(url)
+
     import time
 
     import requests
@@ -221,8 +230,13 @@ class DatasetConfig:
 
     name: str
     version: str = "latest"
-    data_dir: str = "./data"
-    cache_dir: str = "./cache"
+    # Default directories honor MERCURY_DATA_DIR / MERCURY_CACHE_DIR so
+    # production (and air-gapped) deployments can pin a stable cache
+    # location instead of the CWD-relative defaults; behavior with the
+    # variables unset is byte-identical to before. Read at construction
+    # time (default_factory), never at import time.
+    data_dir: str = field(default_factory=lambda: os.environ.get("MERCURY_DATA_DIR", "./data"))
+    cache_dir: str = field(default_factory=lambda: os.environ.get("MERCURY_CACHE_DIR", "./cache"))
     download: bool = True
     preprocessing: dict[str, Any] = field(default_factory=dict)
     split_ratios: tuple[float, float, float] = (0.7, 0.15, 0.15)
