@@ -37,7 +37,100 @@ from omni_mercury_engine.models.foundation.llm_adapter import (
 )
 from omni_mercury_engine.security.safe_http import SafeHTTPClient, UnsafeURLError
 
+if TYPE_CHECKING:
+    from omni_mercury_engine.models.foundation.llm_usage import UsageLedger
+
 logger = logging.getLogger(__name__)
+
+
+def _as_count(value: Any) -> int | None:
+    """Coerce a provider-reported token count to a non-negative int.
+
+    Providers occasionally serialize counts as floats; anything that is not
+    a non-negative number is treated as unreported (``None``) rather than
+    guessed at.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    if value < 0:
+        return None
+    return int(value)
+
+
+def _usage_from_openai(data: dict[str, Any]) -> tuple[int | None, int | None, int | None]:
+    """Extract usage from an OpenAI-style Chat Completions response.
+
+    Wire format: ``{"usage": {"prompt_tokens", "completion_tokens",
+    "total_tokens"}}`` — shared by OpenAI, xAI, DeepSeek, and Cursor.
+    """
+    usage = data.get("usage")
+    if not isinstance(usage, dict):
+        return None, None, None
+    return (
+        _as_count(usage.get("prompt_tokens")),
+        _as_count(usage.get("completion_tokens")),
+        _as_count(usage.get("total_tokens")),
+    )
+
+
+def _usage_from_anthropic(data: dict[str, Any]) -> tuple[int | None, int | None, int | None]:
+    """Extract usage from an Anthropic Messages response.
+
+    Wire format: ``{"usage": {"input_tokens", "output_tokens"}}`` (no total).
+    """
+    usage = data.get("usage")
+    if not isinstance(usage, dict):
+        return None, None, None
+    return (
+        _as_count(usage.get("input_tokens")),
+        _as_count(usage.get("output_tokens")),
+        None,
+    )
+
+
+def _usage_from_gemini(data: dict[str, Any]) -> tuple[int | None, int | None, int | None]:
+    """Extract usage from a Gemini ``generateContent`` response.
+
+    Wire format: ``{"usageMetadata": {"promptTokenCount",
+    "candidatesTokenCount", "totalTokenCount"}}``.
+    """
+    usage = data.get("usageMetadata")
+    if not isinstance(usage, dict):
+        return None, None, None
+    return (
+        _as_count(usage.get("promptTokenCount")),
+        _as_count(usage.get("candidatesTokenCount")),
+        _as_count(usage.get("totalTokenCount")),
+    )
+
+
+def _usage_from_cohere(data: dict[str, Any]) -> tuple[int | None, int | None, int | None]:
+    """Extract usage from a Cohere Chat v2 response.
+
+    Wire format: ``{"usage": {"tokens": {"input_tokens", "output_tokens"}}}``
+    (no total; ``billed_units`` is a billing view, not the raw token count).
+    """
+    usage = data.get("usage")
+    tokens = usage.get("tokens") if isinstance(usage, dict) else None
+    if not isinstance(tokens, dict):
+        return None, None, None
+    return (
+        _as_count(tokens.get("input_tokens")),
+        _as_count(tokens.get("output_tokens")),
+        None,
+    )
+
+
+def _usage_from_ollama(data: dict[str, Any]) -> tuple[int | None, int | None, int | None]:
+    """Extract usage from an Ollama ``/api/generate`` or ``/api/chat`` response.
+
+    Wire format: top-level ``prompt_eval_count`` / ``eval_count`` (no total).
+    """
+    return (
+        _as_count(data.get("prompt_eval_count")),
+        _as_count(data.get("eval_count")),
+        None,
+    )
 
 
 class OllamaModel(StrEnum):
@@ -327,6 +420,7 @@ class OllamaLLMAdapter(BaseLLMAdapter):
                 user_configured=True,
                 loopback_only=True,
             )
+            self._record_usage(self.ollama_config.model, *_usage_from_ollama(result))
             return str(result.get("response", ""))
 
         except UnsafeURLError:
@@ -381,6 +475,7 @@ class OllamaLLMAdapter(BaseLLMAdapter):
                 user_configured=True,
                 loopback_only=True,
             )
+            self._record_usage(self.ollama_config.model, *_usage_from_ollama(result))
             return str(result.get("message", {}).get("content", ""))
 
         except UnsafeURLError:
@@ -621,6 +716,7 @@ class OpenAICloudAdapter(BaseLLMAdapter):
                 timeout=self.config.timeout,
                 user_configured=True,
             )
+            self._record_usage(self.model, *_usage_from_openai(data))
             return str(data["choices"][0]["message"]["content"])
 
         except UnsafeURLError:
@@ -704,6 +800,7 @@ class AnthropicCloudAdapter(BaseLLMAdapter):
                 timeout=self.config.timeout,
                 user_configured=True,
             )
+            self._record_usage(self.model, *_usage_from_anthropic(data))
             content = data.get("content", [])
             if content and len(content) > 0:
                 return str(content[0].get("text", ""))
@@ -792,6 +889,10 @@ class HuggingFaceCloudAdapter(BaseLLMAdapter):
                 timeout=self.config.timeout,
                 user_configured=True,
             )
+            # The Inference API text-generation route reports no token usage;
+            # record the call as unmetered so the spend stays visible in the
+            # ledger instead of silently absent.
+            self._record_usage(self.model, None, None, None)
             if isinstance(data, list) and len(data) > 0:
                 return str(data[0].get("generated_text", ""))
             return str(data)
@@ -900,6 +1001,7 @@ class _OpenAICompatibleCloudAdapter(BaseLLMAdapter):
                 timeout=self.config.timeout,
                 user_configured=True,
             )
+            self._record_usage(self.model, *_usage_from_openai(data))
             return str(data["choices"][0]["message"]["content"])
 
         except UnsafeURLError:
@@ -1007,6 +1109,7 @@ class CohereCloudAdapter(BaseLLMAdapter):
                 timeout=self.config.timeout,
                 user_configured=True,
             )
+            self._record_usage(self.model, *_usage_from_cohere(data))
             # Cohere v2 returns {"message": {"content": [{"type": "text", "text": "..."}]}}
             message = data.get("message", {})
             content_items = message.get("content", [])
@@ -1095,6 +1198,7 @@ class GeminiCloudAdapter(BaseLLMAdapter):
                 timeout=self.config.timeout,
                 user_configured=True,
             )
+            self._record_usage(self.model, *_usage_from_gemini(data))
             candidates = data.get("candidates", [])
             if candidates:
                 first = candidates[0]
@@ -1141,6 +1245,7 @@ class FallbackLLMChain:
         ollama_config: OllamaConfig | None = None,
         enable_cloud: bool = False,
         cloud_config: LLMConfig | None = None,
+        usage_ledger: UsageLedger | None = None,
     ):
         """Initialize fallback chain.
 
@@ -1148,15 +1253,21 @@ class FallbackLLMChain:
             ollama_config: Ollama configuration
             enable_cloud: Whether to enable cloud fallback
             cloud_config: Cloud provider configuration (if enabled)
+            usage_ledger: Optional shared usage ledger attached to every
+                adapter in the chain, so provider-reported token usage is
+                aggregated in one place regardless of which adapter served
+                a given call.
         """
         self.ollama_config = ollama_config or OllamaConfig()
         self.enable_cloud = enable_cloud
         self.cloud_config = cloud_config
+        self.usage_ledger = usage_ledger
 
         # Initialize adapters
         self._ollama: OllamaLLMAdapter | None = None
         self._cloud: BaseLLMAdapter | None = None
         self._template = TemplateLLMAdapter()
+        self._template.attach_usage_ledger(usage_ledger)
 
         # Track which adapter is active
         self._active_adapter: BaseLLMAdapter | None = None
@@ -1168,6 +1279,7 @@ class FallbackLLMChain:
         """Initialize the fallback chain."""
         # Try Ollama first
         self._ollama = OllamaLLMAdapter(ollama_config=self.ollama_config)
+        self._ollama.attach_usage_ledger(self.usage_ledger)
 
         if self._ollama.is_available():
             self._active_adapter = self._ollama
@@ -1178,6 +1290,8 @@ class FallbackLLMChain:
         # Try cloud if enabled
         if self.enable_cloud and self.cloud_config:
             self._cloud = self._create_cloud_adapter()
+            if self._cloud is not None:
+                self._cloud.attach_usage_ledger(self.usage_ledger)
             if self._cloud and self._cloud.is_available():
                 self._active_adapter = self._cloud
                 self._active_name = f"cloud:{self.cloud_config.provider.value}"
@@ -1188,6 +1302,11 @@ class FallbackLLMChain:
         self._active_adapter = self._template
         self._active_name = "template"
         logger.info("LLM chain using template fallback")
+
+    @property
+    def last_usage(self) -> Any:
+        """Provider-reported usage of the active adapter's last generation."""
+        return self._active_adapter.last_usage if self._active_adapter else None
 
     def _create_cloud_adapter(self) -> BaseLLMAdapter | None:
         """Create cloud adapter based on configuration.

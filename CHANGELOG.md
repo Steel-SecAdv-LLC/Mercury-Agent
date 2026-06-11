@@ -322,6 +322,48 @@ under the same ablation discipline as every other revival.
   `plasticity_engine` split into rows 10b/11b (still retained — no honest
   harness yet); capability matrix "Multi-agent" row moved to
   **Shipped + measured** with the build-out item (B) closed.
+### Added — multi-model substrate: provider-reported usage accounting + LLM model registry (2026-06-11)
+
+First slice of the multi-agent/multi-model build-out
+(`docs/capability_vs_vision_matrix.md` §4 item B): before orchestrating
+across Mercury's ten LLM providers, calls must be *costed* and models must
+be *selectable*. Both pieces are provider-truth-only — no client-side
+token estimates, no hard-coded market facts.
+
+* **Usage accounting**
+  (`omni_mercury_engine.models.foundation.llm_usage`): `LLMUsage` (one
+  immutable record per successful generation, counts exactly as the
+  provider's response reported them) and `UsageLedger` (thread-safe;
+  exact lifetime totals via running counters; bounded recent-history
+  ring that never bends the totals). Calls whose provider reports no
+  usage are recorded as **unmetered** (`reported=False`) so unmeasured
+  spend is visible rather than silently absent.
+* **Adapter wiring**: every shipped adapter's success path now parses
+  its provider's usage block into `last_usage` and an optionally
+  attached ledger (`BaseLLMAdapter.attach_usage_ledger`) — OpenAI +
+  xAI/DeepSeek/Cursor (`usage.{prompt,completion,total}_tokens`),
+  Anthropic (`usage.{input,output}_tokens`), Gemini (`usageMetadata`),
+  Cohere v2 (`usage.tokens`), Ollama (`prompt_eval_count`/`eval_count`),
+  HuggingFace Inference (no usage block → unmetered record). Failed
+  calls book nothing. `FallbackLLMChain(usage_ledger=...)` threads one
+  ledger through every adapter in the chain and exposes `last_usage`.
+* **LLM model registry** (`omni_mercury_engine.models.llm_registry`,
+  importable without torch): `PROVIDER_CATALOG` — code-grounded facts
+  about the ten shipped adapters (wire format, key env var, locality,
+  explicit-base_url requirement, usage-reporting), drift-gated in CI
+  against `IMPLEMENTED_LLM_PROVIDERS`; `LLMModelSpec` /
+  `LLMModelRegistry` — operator-declared model facts with mandatory
+  provenance (a spec carrying prices must carry `pricing_as_of`) and
+  deterministic capability/context/budget selection (`select` /
+  `select_one`; unpriced specs are excluded from budget queries rather
+  than assumed free; unknown capabilities raise rather than silently
+  matching nothing).
+* **Locks:** `tests/models/test_llm_usage_ledger.py` (validation,
+  aggregation, bounded-ring-vs-exact-totals, concurrent exactness),
+  `tests/test_llm_usage_capture.py` (per-wire-format parsing against
+  canned payloads, unmetered HF route, failed-call no-booking, chain
+  threading), `tests/models/test_llm_registry.py` (spec/selection
+  contracts + the provider-catalog drift gate).
 
 ### Security — owner-governed risk posture: enumerated CVE ledger, shared HD master seed, signed cache entries (2026-06-10)
 
