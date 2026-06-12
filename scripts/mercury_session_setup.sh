@@ -1,30 +1,29 @@
 #!/bin/bash
-# SessionStart hook for Claude Code on the web.
+# Mercury Agent — remote development environment bootstrap.
 #
 # Builds and installs AMA Cryptography (Mercury's PRIMARY post-quantum crypto
-# backend) plus the project's ML/dev dependencies, so every fresh remote
+# backend) plus the project's ML/dev dependencies, so a fresh disposable
 # container comes up with real native PQC and a runnable test/lint stack — no
-# manual install per session.
+# per-session manual install.
 #
 # AMA is not on PyPI and ships a native C library that must be compiled, so a
 # plain dependency list cannot install it; this mirrors the verified procedure
 # in .github/actions/build-ama-cryptography and src/omni_mercury_engine/_pqc_gate.py.
 #
-# Runs SYNCHRONOUSLY on purpose: AMA is Mercury's primary post-quantum crypto
-# control and the engine's PQC gate is fail-closed, so the protection must be in
-# place before the session can use Mercury — never racing the first commands.
-# The session waits for this to finish; the trade-off is a slower cold start.
+# Usage — run as the FIRST command in a fresh remote/ephemeral container:
+#
+#     bash scripts/mercury_session_setup.sh
+#
+# The engine's PQC gate is fail-closed, so run this to completion before using
+# Mercury in the session. Installs into the active Python environment: meant
+# for disposable containers and CI-like environments, not developer
+# workstations.
 set -euo pipefail
-
-# Web-only: on a local machine the developer manages their own environment.
-if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
-  exit 0
-fi
 
 AMA_REF="v3.2.0"                 # keep in lockstep with pyproject.toml [pqc] pin
 AMA_SRC="/tmp/ama-cryptography"
 AMA_LIB="${AMA_SRC}/build/lib"
-PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+PROJECT_DIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 
 ama_pqc_live() {
   LD_LIBRARY_PATH="${AMA_LIB}:${AMA_SRC}/build:${LD_LIBRARY_PATH:-}" python - <<'PY' 2>/dev/null
@@ -60,10 +59,13 @@ else
   ( cd "${AMA_SRC}" && AMA_NO_CYTHON=1 pip install --no-build-isolation --ignore-installed . )
 fi
 
-# Persist the native library path for the whole session so AMA's .so loads at
-# import time (matches the LD_LIBRARY_PATH the PQC gate documents).
-if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
-  echo "export LD_LIBRARY_PATH=\"${AMA_LIB}:${AMA_SRC}/build:\${LD_LIBRARY_PATH:-}\"" >> "${CLAUDE_ENV_FILE}"
+# Persist the native library path for the rest of the session so AMA's .so
+# loads at import time (matches the LD_LIBRARY_PATH the PQC gate documents).
+# Hosted agent harnesses export a session env file for cross-command
+# persistence; honor the generic override first, then the harness's own.
+ENV_FILE="${MERCURY_SETUP_ENV_FILE:-${CLAUDE_ENV_FILE:-}}"
+if [ -n "${ENV_FILE}" ]; then
+  echo "export LD_LIBRARY_PATH=\"${AMA_LIB}:${AMA_SRC}/build:\${LD_LIBRARY_PATH:-}\"" >> "${ENV_FILE}"
 fi
 export LD_LIBRARY_PATH="${AMA_LIB}:${AMA_SRC}/build:${LD_LIBRARY_PATH:-}"
 
@@ -75,4 +77,4 @@ echo "Installing Mercury [ml] extras + test/lint tooling..."
 python -m pip install --quiet --ignore-installed -e "${PROJECT_DIR}[ml]" \
   pytest "black>=26.3.1,<27.0.0" ruff flake8 mypy types-requests
 
-echo "Session ready: AMA primary PQC backend live; Mercury [ml] + tooling installed."
+echo "Mercury environment ready: AMA primary PQC backend live; [ml] + tooling installed."
