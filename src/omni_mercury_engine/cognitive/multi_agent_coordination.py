@@ -33,6 +33,7 @@ from queue import Empty, Queue
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 logger = logging.getLogger(__name__)
 
@@ -1039,7 +1040,7 @@ class AgentCoordinator:
 
     def coordinate_detection_detailed(
         self,
-        data: np.ndarray[Any, Any],
+        data: npt.ArrayLike,
         context: dict[str, Any] | None = None,
         agent_ids: list[str] | None = None,
     ) -> tuple[ConsensusResult, list[DetectionResult]]:
@@ -1053,6 +1054,11 @@ class AgentCoordinator:
         Returns:
             Tuple of (consensus result, individual per-agent results)
         """
+        # Honor the documented ``np.ndarray`` contract for any array-like input.
+        # Without this, agents whose scorers use ndarray-only methods (e.g. the
+        # dimensional agent's ``data.ndim``) raise on a plain ``list`` and are
+        # silently dropped, quietly shrinking the consensus quorum.
+        data = np.asarray(data)
         self._stats["detections_coordinated"] += 1
 
         # Select agents
@@ -1108,7 +1114,7 @@ class AgentCoordinator:
 
     def coordinate_detection(
         self,
-        data: np.ndarray[Any, Any],
+        data: npt.ArrayLike,
         context: dict[str, Any] | None = None,
         agent_ids: list[str] | None = None,
     ) -> ConsensusResult:
@@ -1218,7 +1224,7 @@ class MultiAgentDetectionSystem:
 
     def detect(
         self,
-        data: np.ndarray[Any, Any],
+        data: npt.ArrayLike,
         context: dict[str, Any] | None = None,
         use_coalition: bool = False,
     ) -> dict[str, Any]:
@@ -1232,6 +1238,7 @@ class MultiAgentDetectionSystem:
         Returns:
             Detection result with consensus information
         """
+        data = np.asarray(data)
         self._detection_counter += 1
 
         if use_coalition:
