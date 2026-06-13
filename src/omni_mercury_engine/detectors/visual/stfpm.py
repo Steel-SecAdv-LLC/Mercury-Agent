@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-STFPM: Student-Teacher Feature Pyramid Matching for Anomaly Detection
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""STFPM: Student-Teacher Feature Pyramid Matching for Anomaly Detection.
 
 Implementation of STFPM from arXiv 2021.
 Optimal for real-time applications due to low inference latency.
@@ -33,6 +16,8 @@ Reference:
     Anomaly Detection"
     https://arxiv.org/abs/2103.04257
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -53,8 +38,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class STFPMConfig(VisualDetectorConfig):
-    """
-    Configuration for STFPM detector.
+    """Configuration for STFPM detector.
 
     Attributes:
         learning_rate: Learning rate for student training
@@ -69,8 +53,7 @@ class STFPMConfig(VisualDetectorConfig):
 
 
 class StudentNetwork(nn.Module):
-    """
-    Lightweight student network that learns to mimic teacher.
+    """Lightweight student network that learns to mimic teacher.
 
     Uses same architecture as teacher but trained from scratch on normal data only.
     """
@@ -80,8 +63,7 @@ class StudentNetwork(nn.Module):
         backbone_name: str = "resnet18",
         layers: list[str] | None = None,
     ):
-        """
-        Initialize student network.
+        """Initialize student network.
 
         Args:
             backbone_name: Backbone architecture (must match teacher)
@@ -153,8 +135,7 @@ class STFPMDetector(BaseVisualDetector):
     """
 
     def __init__(self, config: STFPMConfig | dict[str, Any] | None = None) -> None:
-        """
-        Initialize STFPM detector.
+        """Initialize STFPM detector.
 
         Args:
             config: Detector configuration
@@ -182,8 +163,7 @@ class STFPMDetector(BaseVisualDetector):
         teacher_feat: torch.Tensor,
         student_feat: torch.Tensor,
     ) -> torch.Tensor:
-        """
-        Compute feature matching loss for a single layer.
+        """Compute feature matching loss for a single layer.
 
         Uses normalized L2 distance.
 
@@ -203,8 +183,7 @@ class STFPMDetector(BaseVisualDetector):
         return loss
 
     def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> STFPMDetector:
-        """
-        Train student network on normal data.
+        """Train student network on normal data.
 
         Args:
             data: Normal images [N, C, H, W]
@@ -290,8 +269,7 @@ class STFPMDetector(BaseVisualDetector):
         return self
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
-        """
-        Detect anomalies using teacher-student discrepancy.
+        """Detect anomalies using teacher-student discrepancy.
 
         Args:
             data: Test images [N, C, H, W]
@@ -364,8 +342,7 @@ class STFPMDetector(BaseVisualDetector):
         student_features: dict[str, torch.Tensor],
         original_size: tuple[int, int],
     ) -> torch.Tensor:
-        """
-        Compute anomaly maps from feature discrepancy.
+        """Compute anomaly maps from feature discrepancy.
 
         Args:
             teacher_features: Teacher layer features
@@ -413,8 +390,7 @@ class STFPMDetector(BaseVisualDetector):
         return torch.from_numpy(anomaly_map_np).to(self.device)
 
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
-        """
-        Extract features for ML fusion pipeline.
+        """Extract features for ML fusion pipeline.
 
         Args:
             data: Input images [N, C, H, W]

@@ -1,9 +1,6 @@
-"""
-Mercury Agent - Copyright (C) 2025 Steel Security Advisors LLC
-Licensed under GNU GPL v3
-
-Dormant-module revival: do the orphaned "cognitive" modules carry *real*
-anomaly-detection signal on genuinely-labelled data?
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+r"""Dormant-module revival: do the orphaned "cognitive" modules carry *real* anomaly-detection signal on genuinely-labelled data?
 
 This is the anti-theater gate for salvaging the dormant cognitive subsystem.
 The audit (docs/NEUROSYMBOLIC.md / the dormancy report) found ~13 K LOC of

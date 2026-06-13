@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Parapsychology (GCP) sub-net evaluation (WS-D) -- pre-registered, opt-in.
 
 Runs the protocol in ``docs/PARAPSYCH_PREREGISTRATION.md``:

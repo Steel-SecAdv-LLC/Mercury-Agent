@@ -1,7 +1,6 @@
-# SPDX-License-Identifier: GPL-3.0-only
-# Copyright (C) Steel Security Advisors LLC
-"""
-Domain-variant affinity mapping for all 21 Anomaly Math Arrest probes.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Domain-variant affinity mapping for all 21 Anomaly Math Arrest probes.
 
 Each domain ranks the 21 probes by relevance. Probes at the top of the list receive higher Phi-
 weighted contributions during fusion.
@@ -175,8 +174,7 @@ DOMAIN_AFFINITY_21: dict[str, list[str]] = {
 
 
 def get_affinity_order(domain: str, probe_names: list[str]) -> list[int]:
-    """
-    Return index ordering of *probe_names* by domain affinity rank.
+    """Return index ordering of *probe_names* by domain affinity rank.
 
     Probes not in the affinity map are appended at the end in their
     original order so that no probe is ever dropped.

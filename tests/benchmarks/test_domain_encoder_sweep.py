@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Offline tests for the WS-B design-space sweep verdict logic.
 
 The full sweep trains the fusion path on ADBench (network + minutes) and is run

@@ -1,13 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Tests for advanced optimizers integration with OmniFusionModel.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for advanced optimizers integration with OmniFusionModel.
 
 Covers:
 - SyntheticGradientPredictor for decoupled layer training
@@ -31,7 +24,6 @@ HAS_TORCH = importlib.util.find_spec("torch") is not None
 if HAS_TORCH:
     import torch
     from torch.utils.data import DataLoader, Dataset
-
 
 # =============================================================================
 # SyntheticGradientPredictor Tests

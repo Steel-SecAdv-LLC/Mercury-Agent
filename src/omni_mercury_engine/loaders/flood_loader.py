@@ -1,7 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-Domain loader for flood data from NOAA AHPS and USGS Water Services.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Domain loader for flood data from NOAA AHPS and USGS Water Services.
 
 Connects to the USGS National Water Information System (NWIS) Instantaneous Values web service to
 retrieve streamflow gauge height and discharge time series.  Ground truth events cover major US
@@ -87,8 +86,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
 
 
 class FloodLoader(BaseDomainLoader):
-    """
-    Loader for flood data from USGS Water Services and FEMA.
+    """Loader for flood data from USGS Water Services and FEMA.
 
     Uses the USGS NWIS Instantaneous Values service to retrieve gauge
     height and discharge time series at specific stream gauge sites.
@@ -116,8 +114,7 @@ class FloodLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     def fetch_realtime(self) -> pd.DataFrame:
-        """
-        Fetch the most recent 7 days of gauge data from USGS sites.
+        """Fetch the most recent 7 days of gauge data from USGS sites.
 
         Retrieves instantaneous values for gauge height and discharge
         from the default set of monitored sites (all sites in the event
@@ -163,8 +160,7 @@ class FloodLoader(BaseDomainLoader):
         return df
 
     def fetch_historical(self, event_id: str) -> pd.DataFrame:
-        """
-        Fetch gauge data for a specific historical flood event.
+        """Fetch gauge data for a specific historical flood event.
 
         Args:
             event_id: Key into the ground truth catalog (e.g.
@@ -234,8 +230,7 @@ class FloodLoader(BaseDomainLoader):
         return df
 
     def list_events(self) -> list[dict[str, Any]]:
-        """
-        Return the catalog of ground truth flood events.
+        """Return the catalog of ground truth flood events.
 
         Returns:
             List of dicts each containing *event_id*, *name*, *date*,
@@ -254,8 +249,7 @@ class FloodLoader(BaseDomainLoader):
         return events
 
     def get_ground_truth(self, event_id: str) -> np.ndarray[Any, Any]:
-        """
-        Generate binary anomaly labels for a historical flood event.
+        """Generate binary anomaly labels for a historical flood event.
 
         Labeling strategy: each time step where gauge height equals or
         exceeds the NWS-documented flood stage for that site is labeled
@@ -318,8 +312,7 @@ class FloodLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray[Any, Any]:
-        """
-        Transform raw flood gauge data into a feature matrix.
+        """Transform raw flood gauge data into a feature matrix.
 
         Engineered features (per time step):
 
@@ -405,8 +398,7 @@ class FloodLoader(BaseDomainLoader):
         start_date: str | None = None,
         end_date: str | None = None,
     ) -> pd.DataFrame:
-        """
-        Fetch gauge height and discharge from USGS for given sites.
+        """Fetch gauge height and discharge from USGS for given sites.
 
         Args:
             site_ids: List of USGS site ID strings.
@@ -438,8 +430,7 @@ class FloodLoader(BaseDomainLoader):
         return self._parse_usgs_response(response)
 
     def _parse_usgs_response(self, response: dict[str, Any]) -> pd.DataFrame:
-        """
-        Parse the nested USGS Water Services JSON response.
+        """Parse the nested USGS Water Services JSON response.
 
         The USGS instantaneous values API returns a deeply nested JSON
         structure::
@@ -532,8 +523,7 @@ class FloodLoader(BaseDomainLoader):
         start_date: str,
         end_date: str,
     ) -> pd.DataFrame:
-        """
-        Fetch FEMA flood disaster declarations for a date range.
+        """Fetch FEMA flood disaster declarations for a date range.
 
         Args:
             start_date: Start date in ISO format (``YYYY-MM-DD``).
@@ -596,8 +586,7 @@ class FloodLoader(BaseDomainLoader):
 
     @staticmethod
     def _empty_dataframe() -> pd.DataFrame:
-        """
-        Return an empty DataFrame with the standard flood schema.
+        """Return an empty DataFrame with the standard flood schema.
 
         Returns:
             Empty DataFrame with columns: datetime, site_id,
@@ -622,8 +611,7 @@ class FloodLoader(BaseDomainLoader):
         df: pd.DataFrame,
         gauge_height: np.ndarray[Any, Any],
     ) -> np.ndarray[Any, Any]:
-        """
-        Compute first derivative of gauge height in ft/hr.
+        """Compute first derivative of gauge height in ft/hr.
 
         Uses finite differences between consecutive timestamps. When
         ``datetime`` column is available, the actual time delta is used;

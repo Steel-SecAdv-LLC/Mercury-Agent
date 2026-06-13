@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Autonomous Agent - OODA Loop, User Synchronization, and Self-Maintenance
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Autonomous Agent - OODA Loop, User Synchronization, and Self-Maintenance.
 
 Implements Phase 5 of the neuro-symbolic evolution:
 - Closed-loop OODA agent (Observe, Orient, Decide, Act, Reflect)
@@ -35,6 +18,8 @@ Integration:
     integrate with the neuro-symbolic fusion engine for intelligent
     decision-making with human oversight.
 """
+
+from __future__ import annotations
 
 import logging
 import threading
@@ -173,15 +158,13 @@ class DiagnosticResult:
 
 
 class UserSyncInterface:
-    """
-    Bidirectional interface for user synchronization.
+    """Bidirectional interface for user synchronization.
 
     Enables real-time user input augmentation and approval workflows.
     """
 
     def __init__(self, approval_timeout: float = 300.0) -> None:
-        """
-        Initialize user sync interface.
+        """Initialize user sync interface.
 
         Args:
             approval_timeout: Timeout for approval requests in seconds
@@ -205,8 +188,7 @@ class UserSyncInterface:
         context: dict[str, Any],
         urgency: str = "normal",
     ) -> ApprovalRequest:
-        """
-        Request user approval for a decision.
+        """Request user approval for a decision.
 
         Args:
             decision: Decision requiring approval
@@ -243,8 +225,7 @@ class UserSyncInterface:
         approved: bool,
         response: str | None = None,
     ) -> bool:
-        """
-        Provide approval response.
+        """Provide approval response.
 
         Args:
             request_id: Request identifier
@@ -280,8 +261,7 @@ class UserSyncInterface:
             return request.status
 
     def add_user_input(self, input_data: dict[str, Any]) -> None:
-        """
-        Add user input to augment agent memory.
+        """Add user input to augment agent memory.
 
         Args:
             input_data: User input data
@@ -342,8 +322,7 @@ class UserSyncInterface:
 
 
 class SelfMaintenance:
-    """
-    Self-maintenance and diagnostic routines.
+    """Self-maintenance and diagnostic routines.
 
     Implements self-healing capabilities including memory pruning, rule repair, and confidence-
     triggered reflection.
@@ -355,8 +334,7 @@ class SelfMaintenance:
         memory_limit: int = 10000,
         redundancy_threshold: float = 0.95,
     ):
-        """
-        Initialize self-maintenance.
+        """Initialize self-maintenance.
 
         Args:
             confidence_threshold: Threshold below which reflection is triggered
@@ -375,8 +353,7 @@ class SelfMaintenance:
         self,
         components: dict[str, Any],
     ) -> list[DiagnosticResult]:
-        """
-        Run diagnostics on agent components.
+        """Run diagnostics on agent components.
 
         Args:
             components: Dictionary of component name to component object
@@ -445,8 +422,7 @@ class SelfMaintenance:
         memories: list[dict[str, Any]],
         importance_key: str = "importance",
     ) -> tuple[list[dict[str, Any]], int]:
-        """
-        Prune redundant and low-importance memories.
+        """Prune redundant and low-importance memories.
 
         Args:
             memories: List of memory entries
@@ -483,8 +459,7 @@ class SelfMaintenance:
         memories: list[dict[str, Any]],
         content_key: str = "content",
     ) -> list[tuple[int, int, float]]:
-        """
-        Detect redundant memory pairs.
+        """Detect redundant memory pairs.
 
         Args:
             memories: List of memory entries
@@ -537,8 +512,7 @@ class SelfMaintenance:
         self,
         rules: list[dict[str, Any]],
     ) -> tuple[list[dict[str, Any]], list[str]]:
-        """
-        Repair inconsistencies in rules.
+        """Repair inconsistencies in rules.
 
         Args:
             rules: List of rule definitions
@@ -617,8 +591,7 @@ class SelfMaintenance:
 
 
 class OODAAgent:
-    """
-    Autonomous agent implementing the OODA loop.
+    """Autonomous agent implementing the OODA loop.
 
     Observe -> Orient -> Decide -> Act -> Reflect
 
@@ -632,8 +605,7 @@ class OODAAgent:
         confidence_threshold: float = 0.90,
         approval_timeout: float = 300.0,
     ):
-        """
-        Initialize OODA agent.
+        """Initialize OODA agent.
 
         Args:
             risk_threshold: Maximum risk level for autonomous action
@@ -669,8 +641,7 @@ class OODAAgent:
         logger.info("OODAAgent initialized")
 
     def observe(self, data: dict[str, Any], source: str = "internal") -> Observation:
-        """
-        Observe phase: Ingest and process data.
+        """Observe phase: Ingest and process data.
 
         Args:
             data: Data to observe
@@ -710,8 +681,7 @@ class OODAAgent:
         observation: Observation,
         analyzer: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
     ) -> Orientation:
-        """
-        Orient phase: Analyze patterns and make predictions.
+        """Orient phase: Analyze patterns and make predictions.
 
         Args:
             observation: Observation to analyze
@@ -770,8 +740,7 @@ class OODAAgent:
         orientation: Orientation,
         ethical_scorer: Callable[[str, dict[str, Any]], float] | None = None,
     ) -> Decision:
-        """
-        Decide phase: Determine action with ethical scoring.
+        """Decide phase: Determine action with ethical scoring.
 
         Args:
             orientation: Orientation to base decision on
@@ -838,8 +807,7 @@ class OODAAgent:
         decision: Decision,
         executor: Callable[[str, dict[str, Any]], dict[str, Any]] | None = None,
     ) -> ActionResult | None:
-        """
-        Act phase: Execute decision if approved.
+        """Act phase: Execute decision if approved.
 
         Args:
             decision: Decision to execute
@@ -929,8 +897,7 @@ class OODAAgent:
         decision: Decision,
         result: ActionResult | None,
     ) -> Reflection:
-        """
-        Reflect phase: Learn from outcomes and update rules/memories.
+        """Reflect phase: Learn from outcomes and update rules/memories.
 
         Args:
             decision: Decision that was made
@@ -1001,8 +968,7 @@ class OODAAgent:
         ethical_scorer: Callable[[str, dict[str, Any]], float] | None = None,
         executor: Callable[[str, dict[str, Any]], dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
-        """
-        Run a complete OODA cycle.
+        """Run a complete OODA cycle.
 
         Args:
             data: Input data

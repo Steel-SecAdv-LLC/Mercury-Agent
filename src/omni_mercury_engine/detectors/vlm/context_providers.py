@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Context providers for VLM-based anomaly detection.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Context providers for VLM-based anomaly detection.
 
 Implements position and temporal context extraction for
 context-aware visual question answering.
@@ -26,6 +9,8 @@ Key innovations from AnyAnomaly (WACV 2026):
     - Position Context: Enhances object localization analysis
     - Temporal Context: Improves action understanding across frames
 """
+
+from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
@@ -57,8 +42,7 @@ class BaseContextProvider(ABC):
         frames: np.ndarray[Any, Any] | torch.Tensor,
         **kwargs: Any,
     ) -> ContextInfo:
-        """
-        Extract context from input frames.
+        """Extract context from input frames.
 
         Args:
             frames: Input frames [T, C, H, W] or [C, H, W]
@@ -71,8 +55,7 @@ class BaseContextProvider(ABC):
 
     @abstractmethod
     def format_context_prompt(self, context: ContextInfo) -> str:
-        """
-        Format context as text prompt addition.
+        """Format context as text prompt addition.
 
         Args:
             context: Extracted context
@@ -84,8 +67,7 @@ class BaseContextProvider(ABC):
 
 
 class PositionContextProvider(BaseContextProvider):
-    """
-    Position context provider for spatial awareness.
+    """Position context provider for spatial awareness.
 
     Extracts spatial information about objects and regions to enhance object-level analysis.
     """
@@ -95,8 +77,7 @@ class PositionContextProvider(BaseContextProvider):
         grid_size: tuple[int, int] = (3, 3),
         use_saliency: bool = True,
     ):
-        """
-        Initialize position context provider.
+        """Initialize position context provider.
 
         Args:
             grid_size: Spatial grid for region descriptions
@@ -138,8 +119,7 @@ class PositionContextProvider(BaseContextProvider):
         frames: np.ndarray[Any, Any] | torch.Tensor,
         **kwargs: Any,
     ) -> ContextInfo:
-        """
-        Extract spatial position context.
+        """Extract spatial position context.
 
         Args:
             frames: Input frames
@@ -176,8 +156,7 @@ class PositionContextProvider(BaseContextProvider):
         )
 
     def _compute_region_activity(self, frames: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Compute activity level for each grid region.
+        """Compute activity level for each grid region.
 
         Uses frame difference and gradient magnitude as activity proxy.
         """
@@ -252,8 +231,7 @@ class PositionContextProvider(BaseContextProvider):
 
 
 class TemporalContextProvider(BaseContextProvider):
-    """
-    Temporal context provider for action understanding.
+    """Temporal context provider for action understanding.
 
     Extracts temporal dynamics across video frames to improve action and motion-based anomaly
     detection.
@@ -264,8 +242,7 @@ class TemporalContextProvider(BaseContextProvider):
         window_size: int = 8,
         motion_threshold: float = 0.1,
     ):
-        """
-        Initialize temporal context provider.
+        """Initialize temporal context provider.
 
         Args:
             window_size: Number of frames to analyze together
@@ -279,8 +256,7 @@ class TemporalContextProvider(BaseContextProvider):
         frames: np.ndarray[Any, Any] | torch.Tensor,
         **kwargs: Any,
     ) -> ContextInfo:
-        """
-        Extract temporal context from video frames.
+        """Extract temporal context from video frames.
 
         Args:
             frames: Video frames [T, C, H, W]
@@ -430,8 +406,7 @@ class CombinedContextProvider:
         position_provider: PositionContextProvider | None = None,
         temporal_provider: TemporalContextProvider | None = None,
     ):
-        """
-        Initialize combined provider.
+        """Initialize combined provider.
 
         Args:
             position_provider: Optional position context provider
@@ -444,8 +419,7 @@ class CombinedContextProvider:
         self,
         frames: np.ndarray[Any, Any] | torch.Tensor,
     ) -> dict[str, ContextInfo]:
-        """
-        Extract all context types.
+        """Extract all context types.
 
         Args:
             frames: Input frames
@@ -464,8 +438,7 @@ class CombinedContextProvider:
         self,
         contexts: dict[str, ContextInfo],
     ) -> str:
-        """
-        Format all contexts as prompt addition.
+        """Format all contexts as prompt addition.
 
         Args:
             contexts: Dict of context info
@@ -489,8 +462,7 @@ class PositionalContextExtractor(PositionContextProvider):
     """Alias for PositionContextProvider for test compatibility."""
 
     def extract(self, image: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
-        """
-        Extract positional context from image.
+        """Extract positional context from image.
 
         Args:
             image: Input image [C, H, W]
@@ -511,8 +483,7 @@ class TemporalContextExtractor(TemporalContextProvider):
     """Alias for TemporalContextProvider for test compatibility."""
 
     def extract(self, frames: list[Any] | np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
-        """
-        Extract temporal context from frames.
+        """Extract temporal context from frames.
 
         Args:
             frames: List of frames or video tensor

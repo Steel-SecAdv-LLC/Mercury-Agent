@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""
-Mercury Agent - Comprehensive Live Dataset Benchmark Suite
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Comprehensive Live Dataset Benchmark Suite.
 
 Runs benchmarks across all integrated live data sources to demonstrate
 the breadth of Mercury Agent's anomaly detection capabilities.
@@ -27,9 +28,6 @@ Usage:
 
     # Export results
     python benchmarks/live_dataset_benchmark.py --output results.json
-
-Copyright (C) 2025 Steel Security Advisors LLC
-Licensed under GPL-3.0-or-later
 """
 
 from __future__ import annotations

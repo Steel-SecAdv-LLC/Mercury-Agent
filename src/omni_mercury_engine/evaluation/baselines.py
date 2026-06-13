@@ -1,7 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-Published Baseline Results for Anomaly Detection
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Published Baseline Results for Anomaly Detection.
 
 This module contains published benchmark results from academic papers.
 Use these to compare your model's performance against established baselines.
@@ -194,6 +193,7 @@ class BaselineComparison:
     improvement_over_avg: float
 
     def __str__(self) -> str:
+        """Return the string representation."""
         return (
             f"Baseline Comparison on {self.dataset}:\n"
             f"  Your F1: {self.your_f1:.4f}\n"
@@ -209,8 +209,7 @@ def compare_to_baselines(
     your_recall: float,
     your_f1: float,
 ) -> BaselineComparison:
-    """
-    Compare your model's results to published baselines.
+    """Compare your model's results to published baselines.
 
     Args:
         dataset: Dataset name (SMD, SMAP, MSL, NSL-KDD, NAB)
@@ -266,8 +265,7 @@ def compare_to_baselines(
 
 
 def print_baseline_table(dataset: str, your_results: dict[str, float] | None = None) -> str:
-    """
-    Print a formatted table comparing your results to baselines.
+    """Print a formatted table comparing your results to baselines.
 
     Args:
         dataset: Dataset name

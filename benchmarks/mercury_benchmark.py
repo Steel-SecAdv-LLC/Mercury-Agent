@@ -1,6 +1,6 @@
-"""
-Mercury Agent - Mercury Benchmark Suite
-Copyright (C) 2025 Steel Security Advisors LLC (GPL-3.0)
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Mercury Benchmark Suite.
 
 Standalone benchmark that measures MercuryAnomalyDetector performance
 on real datasets.  Every number produced by this script is measured, not
@@ -51,7 +51,6 @@ logger = logging.getLogger(__name__)
 MAX_SAMPLES = 10_000
 N_THRESHOLDS = 101
 OUTPUT_PATH = Path(__file__).parent / "mercury_benchmark_results.json"
-
 
 # ---------------------------------------------------------------------------
 # Dataset loading helpers
@@ -358,7 +357,6 @@ DOMAIN_DATASETS: list[tuple[str, str, str, str, dict[str, Any]]] = [
     ("SWaT", "industrial", "SWaTLoader", "industrial", {}),
     ("WADI", "industrial", "WADILoader", "industrial", {}),
 ]
-
 
 # ---------------------------------------------------------------------------
 # Main benchmark

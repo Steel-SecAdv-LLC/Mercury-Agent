@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Configuration classes for Mercury Agent
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Configuration classes for Mercury Agent.
 
 Supports:
 - YAML, TOML, JSON configuration files
@@ -28,6 +11,8 @@ Supports:
 - Dynamic configuration reloading
 - Feature flags framework
 """
+
+from __future__ import annotations
 
 import json
 import logging
@@ -72,8 +57,7 @@ class FusionMode(Enum):
 
 
 class DataCharacteristics(Enum):
-    """
-    Detected data characteristics for adaptive component weighting.
+    """Detected data characteristics for adaptive component weighting.
 
     Used by :class:`MercuryAnomalyDetector` to automatically adjust ensemble
     component weights based on whether data is temporally ordered, unordered
@@ -126,8 +110,7 @@ COMPONENT_COMPATIBILITY: dict[DataCharacteristics, dict[str, float]] = {
 
 
 class OracleActivation(Enum):
-    """
-    Oracle activation mode.
+    """Oracle activation mode.
 
     Controls whether the SpectralDomainFrequency detector is active. Can be set explicitly or left
     at AUTO for domain-aware activation.
@@ -259,8 +242,7 @@ class ThresholdConfig:
 
 
 class ThresholdDefaults:
-    """
-    Original threshold values preserved for reference.
+    """Original threshold values preserved for reference.
 
     WARNING: Changing these affects ethical governance, anomaly detection,
     and security decisions across the entire system.
@@ -371,8 +353,7 @@ class FeatureFlag:
 
 
 class ConfigurationManager:
-    """
-    Hierarchical configuration management system.
+    """Hierarchical configuration management system.
 
     Precedence (highest to lowest):
     1. Command-line arguments
@@ -390,6 +371,7 @@ class ConfigurationManager:
     ENV_PREFIX = "OMNI_"
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self._config: dict[str, Any] = {}
         self._config_files: list[Path] = []
         self._feature_flags: dict[str, FeatureFlag] = {}
@@ -397,8 +379,7 @@ class ConfigurationManager:
         self._loaded = False
 
     def load_from_file(self, path: str | Path) -> ConfigurationManager:
-        """
-        Load configuration from a file.
+        """Load configuration from a file.
 
         Supports YAML, TOML, and JSON formats.
 
@@ -474,8 +455,7 @@ class ConfigurationManager:
         self._config = deep_merge(self._config, data)
 
     def load_from_env(self) -> ConfigurationManager:
-        """
-        Load configuration from environment variables.
+        """Load configuration from environment variables.
 
         Environment variables follow the pattern:
         MERCURY_AGENT_<SECTION>__<KEY>=value
@@ -531,8 +511,7 @@ class ConfigurationManager:
         return value
 
     def get(self, key: str, default: T | None = None) -> T | None:
-        """
-        Get a configuration value.
+        """Get a configuration value.
 
         Supports dot notation for nested keys: "section.subsection.key"
 
@@ -555,8 +534,7 @@ class ConfigurationManager:
         return current  # type: ignore[no-any-return]
 
     def set(self, key: str, value: Any) -> None:
-        """
-        Set a configuration value.
+        """Set a configuration value.
 
         Args:
             key: Configuration key (supports dot notation)
@@ -604,8 +582,7 @@ class ConfigurationManager:
         logger.info(f"Registered feature flag: {flag.name}")
 
     def is_feature_enabled(self, name: str, user_id: str | None = None) -> bool:
-        """
-        Check if a feature flag is enabled.
+        """Check if a feature flag is enabled.
 
         Args:
             name: Feature flag name
@@ -670,8 +647,7 @@ _config_manager: ConfigurationManager | None = None
 
 
 def get_config_manager() -> ConfigurationManager:
-    """
-    Get the global configuration manager singleton.
+    """Get the global configuration manager singleton.
 
     Note:
         This function uses lazy initialization. For thread-safe initialization
@@ -691,8 +667,7 @@ def load_configuration(
     config_files: list[str | Path] | None = None,
     load_env: bool = True,
 ) -> ConfigurationManager:
-    """
-    Load configuration from files and environment.
+    """Load configuration from files and environment.
 
     Args:
         config_files: List of configuration file paths

@@ -1,8 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Comprehensive tests for api/routes/ endpoint modules.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Comprehensive tests for api/routes/ endpoint modules.
 
 Covers:
 - models.py: Model registration, listing, versioning, file upload
@@ -31,7 +29,6 @@ pytest.importorskip("fastapi")
 # This must happen before any import of omni_mercury_engine.api.server,
 # as the middleware reads the env var at module-load time.
 os.environ["OMNI_RATE_LIMIT_ENABLED"] = "false"
-
 
 import numpy as np
 import pytest

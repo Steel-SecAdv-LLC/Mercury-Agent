@@ -1,7 +1,6 @@
-"""
-Mercury Agent - Feature Extraction Pipeline
-
-Copyright (C) 2025 Steel Security Advisors LLC
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Feature Extraction Pipeline.
 
 This module provides enhanced feature extraction capabilities including:
 - Feature standardization with multiple scaling strategies
@@ -9,11 +8,6 @@ This module provides enhanced feature extraction capabilities including:
 - Feature imputation for failed detectors
 - Feature versioning with schema validation
 - Feature caching with Redis backend support
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
 """
 
 import hashlib
@@ -95,16 +89,14 @@ class FeatureExtractionResult:
 
 
 class FeatureStandardizer:
-    """
-    Feature standardization pipeline with multiple scaling strategies.
+    """Feature standardization pipeline with multiple scaling strategies.
 
     Supports StandardScaler, MinMaxScaler, RobustScaler, and MaxAbsScaler with automatic fitting and
     transformation.
     """
 
     def __init__(self, strategy: ScalingStrategy = ScalingStrategy.STANDARD):
-        """
-        Initialize the feature standardizer.
+        """Initialize the feature standardizer.
 
         Args:
             strategy: Scaling strategy to use (standard, minmax, robust, maxabs, none)
@@ -124,8 +116,7 @@ class FeatureStandardizer:
         logger.info(f"FeatureStandardizer initialized with strategy: {strategy.value}")
 
     def fit(self, X: np.ndarray[Any, Any]) -> "FeatureStandardizer":
-        """
-        Fit the standardizer on training data.
+        """Fit the standardizer on training data.
 
         Args:
             X: Training data of shape (n_samples, n_features)
@@ -159,8 +150,7 @@ class FeatureStandardizer:
         return self
 
     def transform(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Transform features using the fitted standardizer.
+        """Transform features using the fitted standardizer.
 
         Args:
             X: Data to transform of shape (n_samples, n_features)
@@ -200,8 +190,7 @@ class FeatureStandardizer:
         return self.fit(X).transform(X)
 
     def inverse_transform(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Inverse transform to original scale.
+        """Inverse transform to original scale.
 
         Args:
             X: Transformed data
@@ -238,8 +227,7 @@ class FeatureStandardizer:
 
 
 class FeatureSelector:
-    """
-    Feature selection using mutual information and importance scoring.
+    """Feature selection using mutual information and importance scoring.
 
     Supports mutual information-based selection and can integrate with SHAP for model-agnostic
     feature importance.
@@ -251,8 +239,7 @@ class FeatureSelector:
         selection_ratio: float = 0.5,
         method: str = "mutual_info",
     ):
-        """
-        Initialize the feature selector.
+        """Initialize the feature selector.
 
         Args:
             n_features_to_select: Number of features to select (overrides ratio)
@@ -273,8 +260,7 @@ class FeatureSelector:
     def fit(
         self, X: np.ndarray[Any, Any], y: np.ndarray[Any, Any] | None = None
     ) -> "FeatureSelector":
-        """
-        Fit the feature selector.
+        """Fit the feature selector.
 
         Args:
             X: Feature matrix of shape (n_samples, n_features)
@@ -340,8 +326,7 @@ class FeatureSelector:
         return np.asarray(1.0 / (mean_corr + 1e-8))  # type: ignore[no-any-return, unused-ignore]
 
     def transform(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Transform features by selecting the fitted subset.
+        """Transform features by selecting the fitted subset.
 
         Args:
             X: Feature matrix to transform
@@ -375,15 +360,13 @@ class FeatureSelector:
 
 
 class FeatureImputer:
-    """
-    Feature imputation for failed detectors using historical patterns.
+    """Feature imputation for failed detectors using historical patterns.
 
     Tracks historical feature statistics and imputes missing features when detectors fail.
     """
 
     def __init__(self, strategy: str = "mean", max_history: int = 1000):
-        """
-        Initialize the feature imputer.
+        """Initialize the feature imputer.
 
         Args:
             strategy: Imputation strategy ('mean', 'median', 'zero', 'last')
@@ -399,8 +382,7 @@ class FeatureImputer:
         logger.info(f"FeatureImputer initialized with strategy: {strategy}")
 
     def update_history(self, detector_name: str, features: np.ndarray[Any, Any]) -> None:
-        """
-        Update historical features for a detector.
+        """Update historical features for a detector.
 
         Args:
             detector_name: Name of the detector
@@ -427,8 +409,7 @@ class FeatureImputer:
         }
 
     def impute(self, detector_name: str, n_features: int) -> np.ndarray[Any, Any]:
-        """
-        Impute features for a failed detector.
+        """Impute features for a failed detector.
 
         Args:
             detector_name: Name of the failed detector
@@ -457,8 +438,7 @@ class FeatureImputer:
 
 
 class FeatureVersionManager:
-    """
-    Feature versioning with schema validation.
+    """Feature versioning with schema validation.
 
     Tracks feature schema versions and validates extracted features against expected schemas.
     """
@@ -471,8 +451,7 @@ class FeatureVersionManager:
         logger.info("FeatureVersionManager initialized")
 
     def register_schema(self, schema: FeatureSchema) -> None:
-        """
-        Register a feature schema.
+        """Register a feature schema.
 
         Args:
             schema: Feature schema to register
@@ -487,8 +466,7 @@ class FeatureVersionManager:
         logger.info(f"Registered schema: {key}")
 
     def get_schema(self, name: str, version: str | None = None) -> FeatureSchema | None:
-        """
-        Get a feature schema.
+        """Get a feature schema.
 
         Args:
             name: Schema name
@@ -510,8 +488,7 @@ class FeatureVersionManager:
     def validate_features(
         self, features: np.ndarray[Any, Any], schema_name: str, schema_version: str | None = None
     ) -> tuple[bool, list[str]]:
-        """
-        Validate features against a schema.
+        """Validate features against a schema.
 
         Args:
             features: Feature array to validate
@@ -558,8 +535,7 @@ class FeatureVersionManager:
         features: np.ndarray[Any, Any],
         feature_names: list[str] | None = None,
     ) -> FeatureSchema:
-        """
-        Create a schema from sample features.
+        """Create a schema from sample features.
 
         Args:
             name: Schema name
@@ -618,6 +594,7 @@ class InMemoryCache:
     """Simple in-memory cache implementation."""
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self._cache: dict[str, tuple[bytes, float | None]] = {}
 
     def get(self, key: str) -> bytes | None:
@@ -654,8 +631,7 @@ class RedisCache:
     """Redis cache backend implementation."""
 
     def __init__(self, host: str = "localhost", port: int = 6379, db: int = 0):
-        """
-        Initialize Redis cache.
+        """Initialize Redis cache.
 
         Args:
             host: Redis host
@@ -727,8 +703,7 @@ class RedisCache:
 
 
 class FeatureStore:
-    """
-    Feature store with caching support.
+    """Feature store with caching support.
 
     Provides caching for extracted features with configurable backends (in-memory or Redis) and TTL
     support.
@@ -741,8 +716,7 @@ class FeatureStore:
         redis_host: str = "localhost",
         redis_port: int = 6379,
     ):
-        """
-        Initialize the feature store.
+        """Initialize the feature store.
 
         Args:
             backend: Cache backend ('memory' or 'redis')
@@ -774,8 +748,7 @@ class FeatureStore:
         return hashlib.sha3_256(data.tobytes()).hexdigest()[:16]
 
     def get(self, detector_name: str, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any] | None:
-        """
-        Get cached features.
+        """Get cached features.
 
         Args:
             detector_name: Name of the detector
@@ -806,8 +779,7 @@ class FeatureStore:
         features: np.ndarray[Any, Any],
         ttl: int | None = None,
     ) -> bool:
-        """
-        Store features in cache.
+        """Store features in cache.
 
         Args:
             detector_name: Name of the detector
@@ -853,8 +825,7 @@ class FeatureStore:
 
 
 class FeaturePipeline:
-    """
-    Complete feature extraction pipeline combining all components.
+    """Complete feature extraction pipeline combining all components.
 
     Integrates standardization, selection, imputation, versioning, and caching into a unified
     pipeline.
@@ -869,8 +840,7 @@ class FeaturePipeline:
         cache_backend: str = "memory",
         cache_ttl: int = 3600,
     ):
-        """
-        Initialize the feature pipeline.
+        """Initialize the feature pipeline.
 
         Args:
             scaling_strategy: Feature scaling strategy
@@ -900,8 +870,7 @@ class FeaturePipeline:
     def fit(
         self, X: np.ndarray[Any, Any], y: np.ndarray[Any, Any] | None = None
     ) -> "FeaturePipeline":
-        """
-        Fit the pipeline on training data.
+        """Fit the pipeline on training data.
 
         Args:
             X: Training features
@@ -929,8 +898,7 @@ class FeaturePipeline:
         detector_name: str = "default",
         use_cache: bool = True,
     ) -> FeatureExtractionResult:
-        """
-        Transform features through the pipeline.
+        """Transform features through the pipeline.
 
         Args:
             X: Input features

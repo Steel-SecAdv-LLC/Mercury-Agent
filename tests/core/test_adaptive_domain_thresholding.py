@@ -1,6 +1,6 @@
-"""
-Mercury Agent - Adaptive Domain Thresholding Tests
-Copyright (C) 2025 Steel Security Advisors LLC
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Adaptive Domain Thresholding Tests.
 
 Comprehensive unit tests for adaptive per-domain thresholding:
 - Platt scaling calibration
@@ -8,11 +8,6 @@ Comprehensive unit tests for adaptive per-domain thresholding:
 - Calibration ensemble
 - Domain-specific threshold management
 - Domain ensemble weight optimization
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
 """
 
 from __future__ import annotations

@@ -1,7 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-Time-Series Anomaly Detection Benchmark Loaders
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Time-Series Anomaly Detection Benchmark Loaders.
 
 These loaders fetch REAL benchmark datasets used in academic research:
 - NAB (Numenta Anomaly Benchmark): Standard time-series anomaly benchmark
@@ -29,8 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 class NABLoader(DatasetLoader):
-    """
-    Numenta Anomaly Benchmark (NAB) Dataset Loader.
+    """Numenta Anomaly Benchmark (NAB) Dataset Loader.
 
     Downloads REAL time-series data from the official NAB repository.
     NAB is the standard benchmark for streaming anomaly detection.
@@ -106,6 +104,7 @@ class NABLoader(DatasetLoader):
     FEATURE_NAMES = ["value", "timestamp_hour", "timestamp_day", "timestamp_month"]
 
     def __init__(self, config: DatasetConfig) -> None:
+        """Initialize the instance."""
         super().__init__(config)
         self.categories = config.preprocessing.get(
             "categories", ["realAWSCloudwatch", "realKnownCause"]
@@ -275,8 +274,7 @@ class NABLoader(DatasetLoader):
 
 
 class SMDLoader(DatasetLoader):
-    """
-    Server Machine Dataset (SMD) Loader.
+    """Server Machine Dataset (SMD) Loader.
 
     Downloads REAL server monitoring metrics from a large internet company.
     28 server machines, each with 38 metrics, collected over 5 weeks.
@@ -308,6 +306,7 @@ class SMDLoader(DatasetLoader):
     )
 
     def __init__(self, config: DatasetConfig) -> None:
+        """Initialize the instance."""
         super().__init__(config)
         self.machines = config.preprocessing.get("machines", self.MACHINES[:5])
 
@@ -422,8 +421,7 @@ class SMDLoader(DatasetLoader):
 
 
 class SMAPMSLLoader(DatasetLoader):
-    """
-    NASA SMAP and MSL Spacecraft Telemetry Dataset Loader.
+    """NASA SMAP and MSL Spacecraft Telemetry Dataset Loader.
 
     Downloads REAL spacecraft telemetry data from NASA missions:
     - SMAP: Soil Moisture Active Passive satellite
@@ -457,12 +455,12 @@ class SMAPMSLLoader(DatasetLoader):
     ZENODO_INSTRUCTIONS_URL = "https://zenodo.org/record/5899270"
 
     def __init__(self, config: DatasetConfig) -> None:
+        """Initialize the instance."""
         super().__init__(config)
         self.dataset = config.preprocessing.get("dataset", "SMAP")  # SMAP or MSL
 
     def download(self) -> bool:
-        """
-        Download REAL SMAP/MSL data.
+        """Download REAL SMAP/MSL data.
 
         The original S3 URL (s3-us-west-2.amazonaws.com/telemanom/data.zip) returns 403.
         Labels are fetched from the GitHub repo. For the actual telemetry data, users must

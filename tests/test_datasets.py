@@ -1,8 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests for real-world dataset loaders and benchmarks.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for real-world dataset loaders and benchmarks.
 
 These tests use synthetic fallback data for fast, offline unit testing.
 Real-data tests are in test_loaders_live.py (marked @pytest.mark.network).

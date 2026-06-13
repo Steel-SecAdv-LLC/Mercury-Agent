@@ -1,25 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-from typing import Any
-
-"""
-CISA Communications & IT Critical Infrastructure Anomaly Detection
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""CISA Communications & IT Critical Infrastructure Anomaly Detection.
 
 Network traffic and cybersecurity monitoring for communications and IT sectors.
 
@@ -27,18 +8,19 @@ Research sources:
 - CISA Communications Sector framework
 - CISA Information Technology Sector framework
 - NIST Cybersecurity Framework
-
 """
+
+from __future__ import annotations
 
 from collections import deque
 from datetime import datetime
+from typing import Any
 
 import numpy as np
 
 
 class CommunicationsITDetector:
-    """
-    Anomaly detection for CISA Communications and Information Technology sectors.
+    """Anomaly detection for CISA Communications and Information Technology sectors.
 
     Monitors:
     - Network traffic patterns (DDoS, congestion, routing anomalies)
@@ -49,6 +31,7 @@ class CommunicationsITDetector:
     """
 
     def __init__(self, baseline_window: int = 3600) -> None:
+        """Initialize the instance."""
         self.baseline_window = baseline_window
         self.traffic_history = deque[Any](maxlen=baseline_window)
         self.baseline_stats: dict[str, Any] = {}
@@ -62,8 +45,7 @@ class CommunicationsITDetector:
     def detect(
         self, data: np.ndarray[Any, Any], timestamp: datetime | None = None
     ) -> dict[str, Any]:
-        """
-        Generic detection interface for communications/IT infrastructure.
+        """Generic detection interface for communications/IT infrastructure.
 
         Args:
             data: Network metrics as numpy array
@@ -82,8 +64,7 @@ class CommunicationsITDetector:
     def detect_network_anomaly(
         self, traffic_data: dict[str, float], timestamp: datetime | None = None
     ) -> dict[str, Any]:
-        """
-        Detect network traffic anomalies.
+        """Detect network traffic anomalies.
 
         Args:
             traffic_data: Network metrics dict

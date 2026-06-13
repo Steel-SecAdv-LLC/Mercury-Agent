@@ -1,0 +1,257 @@
+{
+  "per_domain": {
+    "earthquake": {
+      "event": "turkey_syria_2023",
+      "k": 8,
+      "clean_auroc": 0.9874213836477987,
+      "floor_curve": [
+        {
+          "m": 0,
+          "worst_case_auroc": 0.9874213836477987,
+          "worst_attack": "none"
+        },
+        {
+          "m": 2,
+          "worst_case_auroc": 0.48427672955974843,
+          "worst_attack": "condmean",
+          "gradient_masking_flag": true
+        },
+        {
+          "m": 4,
+          "worst_case_auroc": 0.32704402515723274,
+          "worst_attack": "condmean",
+          "gradient_masking_flag": false
+        },
+        {
+          "m": 6,
+          "worst_case_auroc": 0.20125786163522008,
+          "worst_attack": "condmean",
+          "gradient_masking_flag": false
+        }
+      ],
+      "worst_case_half_channel_auroc": 0.32704402515723274,
+      "cubic_moment": {
+        "floor_auc": 1.0,
+        "cubic_auc": 1.0,
+        "escape": 0.0
+      }
+    },
+    "fema": {
+      "event": "hurricane_2024",
+      "k": 7,
+      "clean_auroc": 0.923583984375,
+      "floor_curve": [
+        {
+          "m": 0,
+          "worst_case_auroc": 0.923583984375,
+          "worst_attack": "none"
+        },
+        {
+          "m": 1,
+          "worst_case_auroc": 0.802001953125,
+          "worst_attack": "condmean",
+          "gradient_masking_flag": false
+        },
+        {
+          "m": 3,
+          "worst_case_auroc": 0.828857421875,
+          "worst_attack": "condmean",
+          "gradient_masking_flag": false
+        },
+        {
+          "m": 5,
+          "worst_case_auroc": 0.59423828125,
+          "worst_attack": "condmean",
+          "gradient_masking_flag": false
+        }
+      ],
+      "worst_case_half_channel_auroc": 0.828857421875,
+      "cubic_moment": {
+        "floor_auc": 0.931884765625,
+        "cubic_auc": 0.92333984375,
+        "escape": -0.008544921875
+      }
+    },
+    "hurricane": {
+      "event": "milton_2024",
+      "k": 8,
+      "clean_auroc": 0.8865384615384616,
+      "floor_curve": [
+        {
+          "m": 0,
+          "worst_case_auroc": 0.8865384615384616,
+          "worst_attack": "none"
+        },
+        {
+          "m": 2,
+          "worst_case_auroc": 0.8865384615384616,
+          "worst_attack": "bpda",
+          "gradient_masking_flag": false
+        },
+        {
+          "m": 4,
+          "worst_case_auroc": 0.8500000000000001,
+          "worst_attack": "condmean",
+          "gradient_masking_flag": true
+        },
+        {
+          "m": 6,
+          "worst_case_auroc": 0.8538461538461538,
+          "worst_attack": "condmean",
+          "gradient_masking_flag": false
+        }
+      ],
+      "worst_case_half_channel_auroc": 0.8500000000000001,
+      "cubic_moment": {
+        "floor_auc": 0.8807692307692309,
+        "cubic_auc": 1.0,
+        "escape": 0.11923076923076914
+      }
+    },
+    "marine": {
+      "event": "marine_heatwave_2023",
+      "k": 3,
+      "clean_auroc": 0.9991645781119466,
+      "floor_curve": [
+        {
+          "m": 0,
+          "worst_case_auroc": 0.9991645781119466,
+          "worst_attack": "none"
+        },
+        {
+          "m": 1,
+          "worst_case_auroc": 0.9766081871345029,
+          "worst_attack": "transfer",
+          "gradient_masking_flag": true
+        },
+        {
+          "m": 2,
+          "worst_case_auroc": 0.9465329991645781,
+          "worst_attack": "condmean",
+          "gradient_masking_flag": true
+        }
+      ],
+      "worst_case_half_channel_auroc": 0.9766081871345029,
+      "cubic_moment": {
+        "floor_auc": 1.0,
+        "cubic_auc": 1.0,
+        "escape": 0.0
+      }
+    },
+    "network_security": {
+      "event": "nsl_kdd",
+      "k": 9,
+      "clean_auroc": 0.9134720700985761,
+      "floor_curve": [
+        {
+          "m": 0,
+          "worst_case_auroc": 0.9134720700985761,
+          "worst_attack": "none"
+        },
+        {
+          "m": 2,
+          "worst_case_auroc": 0.8773274917853232,
+          "worst_attack": "condmean",
+          "gradient_masking_flag": true
+        },
+        {
+          "m": 4,
+          "worst_case_auroc": 0.8172429979658895,
+          "worst_attack": "condmean",
+          "gradient_masking_flag": true
+        },
+        {
+          "m": 6,
+          "worst_case_auroc": 0.7585667344703488,
+          "worst_attack": "condmean",
+          "gradient_masking_flag": false
+        }
+      ],
+      "worst_case_half_channel_auroc": 0.8172429979658895,
+      "cubic_moment": {
+        "floor_auc": 0.9274761383195118,
+        "cubic_auc": 0.9745736191519323,
+        "escape": 0.04709748083242049
+      }
+    },
+    "pandemic": {
+      "event": "mpox_2022",
+      "k": 12,
+      "clean_auroc": 0.7954545454545454,
+      "floor_curve": [
+        {
+          "m": 0,
+          "worst_case_auroc": 0.7954545454545454,
+          "worst_attack": "none"
+        },
+        {
+          "m": 3,
+          "worst_case_auroc": 0.7932900432900434,
+          "worst_attack": "bpda",
+          "gradient_masking_flag": false
+        },
+        {
+          "m": 6,
+          "worst_case_auroc": 0.7943722943722944,
+          "worst_attack": "bpda",
+          "gradient_masking_flag": false
+        },
+        {
+          "m": 9,
+          "worst_case_auroc": 0.7911255411255412,
+          "worst_attack": "condmean",
+          "gradient_masking_flag": false
+        }
+      ],
+      "worst_case_half_channel_auroc": 0.7943722943722944,
+      "cubic_moment": {
+        "floor_auc": 0.8625541125541125,
+        "cubic_auc": 0.9794372294372294,
+        "escape": 0.11688311688311692
+      }
+    },
+    "tornado": {
+      "event": "super_outbreak_2011",
+      "k": 12,
+      "clean_auroc": 0.9642122583299053,
+      "floor_curve": [
+        {
+          "m": 0,
+          "worst_case_auroc": 0.9642122583299053,
+          "worst_attack": "none"
+        },
+        {
+          "m": 3,
+          "worst_case_auroc": 0.8576717400246813,
+          "worst_attack": "condmean",
+          "gradient_masking_flag": true
+        },
+        {
+          "m": 6,
+          "worst_case_auroc": 0.3566433566433566,
+          "worst_attack": "condmean",
+          "gradient_masking_flag": true
+        },
+        {
+          "m": 9,
+          "worst_case_auroc": 0.41999177293294937,
+          "worst_attack": "condmean",
+          "gradient_masking_flag": true
+        }
+      ],
+      "worst_case_half_channel_auroc": 0.3566433566433566,
+      "cubic_moment": {
+        "floor_auc": 0.9666803784450843,
+        "cubic_auc": 0.9954751131221719,
+        "escape": 0.028794734677087597
+      }
+    }
+  },
+  "eps": 0.6,
+  "row_cap": 160,
+  "overall": {
+    "mean_clean_auroc": 0.9242638973651763,
+    "mean_worst_case_half_channel_auroc": 0.7072526118783252,
+    "gaussian_control_escape": -0.0032222222222223484
+  }
+}

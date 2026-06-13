@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-SaaS Streaming Infrastructure for Mercury Agent
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""SaaS Streaming Infrastructure for Mercury Agent.
 
 Provides high-throughput, production-grade streaming capabilities:
 - Kafka integration for distributed event streaming
@@ -40,6 +23,8 @@ Example:
     async for message in consumer.consume("anomalies"):
         process_anomaly(message)
 """
+
+from __future__ import annotations
 
 import asyncio
 import json
@@ -167,8 +152,7 @@ class StreamMessage:
 # =============================================================================
 @dataclass
 class CircuitBreaker:
-    """
-    Circuit breaker for streaming connections.
+    """Circuit breaker for streaming connections.
 
     Prevents cascade failures by temporarily stopping requests to a failing downstream service.
     """
@@ -236,8 +220,7 @@ class StreamProducer(ABC):
         key: str | None = None,
         headers: dict[str, str] | None = None,
     ) -> bool:
-        """
-        Send a message to a topic.
+        """Send a message to a topic.
 
         Args:
             topic: Target topic/stream name
@@ -256,8 +239,7 @@ class StreamProducer(ABC):
         topic: str,
         messages: list[dict[str, Any]],
     ) -> int:
-        """
-        Send multiple messages in a batch.
+        """Send multiple messages in a batch.
 
         Args:
             topic: Target topic/stream name
@@ -289,8 +271,7 @@ class StreamConsumer(ABC):
 
     @abstractmethod
     async def subscribe(self, topics: list[str]) -> None:
-        """
-        Subscribe to one or more topics.
+        """Subscribe to one or more topics.
 
         Args:
             topics: List of topic names to subscribe to
@@ -302,8 +283,7 @@ class StreamConsumer(ABC):
         self,
         timeout_ms: int = 1000,
     ) -> AsyncIterator[StreamMessage]:
-        """
-        Consume messages from subscribed topics.
+        """Consume messages from subscribed topics.
 
         Args:
             timeout_ms: Timeout for polling in milliseconds
@@ -315,8 +295,7 @@ class StreamConsumer(ABC):
 
     @abstractmethod
     async def commit(self, message: StreamMessage) -> None:
-        """
-        Commit offset for a consumed message.
+        """Commit offset for a consumed message.
 
         Args:
             message: The message to commit
@@ -334,6 +313,7 @@ class InMemoryStreamProducer(StreamProducer):
     _lock: asyncio.Lock = asyncio.Lock()
 
     def __init__(self, config: StreamConfig | None = None):
+        """Initialize the instance."""
         self.config = config or StreamConfig()
         self._connected = False
 
@@ -401,6 +381,7 @@ class InMemoryStreamConsumer(StreamConsumer):
     """In-memory consumer for testing and development."""
 
     def __init__(self, config: StreamConfig | None = None, group_id: str = "default"):
+        """Initialize the instance."""
         self.config = config or StreamConfig()
         self.group_id = group_id
         self._subscribed_topics: list[str] = []
@@ -451,8 +432,7 @@ class InMemoryStreamConsumer(StreamConsumer):
 # Kafka Implementation
 # =============================================================================
 class KafkaStreamProducer(StreamProducer):
-    """
-    Kafka producer with production-grade features.
+    """Kafka producer with production-grade features.
 
     Features:
     - Automatic batching and compression
@@ -462,6 +442,7 @@ class KafkaStreamProducer(StreamProducer):
     """
 
     def __init__(self, config: StreamConfig | None = None):
+        """Initialize the instance."""
         self.config = config or StreamConfig()
         # Typed handle for the optional ``aiokafka`` dependency.  See the
         # ``TYPE_CHECKING`` block at the top of this module for the
@@ -585,8 +566,7 @@ class KafkaStreamProducer(StreamProducer):
 
 
 class KafkaStreamConsumer(StreamConsumer):
-    """
-    Kafka consumer with production-grade features.
+    """Kafka consumer with production-grade features.
 
     Features:
     - Consumer group rebalancing
@@ -601,6 +581,7 @@ class KafkaStreamConsumer(StreamConsumer):
         group_id: str = "mercury-agent",
         auto_commit: bool = False,
     ):
+        """Initialize the instance."""
         self.config = config or StreamConfig()
         self.group_id = group_id
         self.auto_commit = auto_commit
@@ -733,8 +714,7 @@ class KafkaStreamConsumer(StreamConsumer):
 # Redis Streams Implementation
 # =============================================================================
 class RedisStreamProducer(StreamProducer):
-    """
-    Redis Streams producer for low-latency streaming.
+    """Redis Streams producer for low-latency streaming.
 
     Features:
     - Sub-millisecond latency
@@ -744,6 +724,7 @@ class RedisStreamProducer(StreamProducer):
     """
 
     def __init__(self, config: StreamConfig | None = None):
+        """Initialize the instance."""
         self.config = config or StreamConfig()
         # Typed handle for the optional ``redis`` dependency
         # (extras_require[streaming]).  ``redis.asyncio.Redis`` is imported
@@ -877,8 +858,7 @@ class RedisStreamProducer(StreamProducer):
 
 
 class RedisStreamConsumer(StreamConsumer):
-    """
-    Redis Streams consumer with consumer groups.
+    """Redis Streams consumer with consumer groups.
 
     Features:
     - Consumer group support for distributed processing
@@ -893,6 +873,7 @@ class RedisStreamConsumer(StreamConsumer):
         group_id: str = "mercury-agent",
         consumer_name: str | None = None,
     ):
+        """Initialize the instance."""
         self.config = config or StreamConfig()
         self.group_id = group_id
         self.consumer_name = consumer_name or f"consumer-{os.getpid()}"
@@ -1040,8 +1021,7 @@ class StreamProducerFactory:
         config: StreamConfig | None = None,
         **kwargs: Any,
     ) -> StreamProducer:
-        """
-        Create a stream producer for the specified backend.
+        """Create a stream producer for the specified backend.
 
         Args:
             backend: "kafka", "redis", or "memory"
@@ -1079,8 +1059,7 @@ class StreamConsumerFactory:
         group_id: str = "mercury-agent",
         **kwargs: Any,
     ) -> StreamConsumer:
-        """
-        Create a stream consumer for the specified backend.
+        """Create a stream consumer for the specified backend.
 
         Args:
             backend: "kafka", "redis", or "memory"
@@ -1142,6 +1121,7 @@ class StreamingAnomalyPipeline:
         detector: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
         group_id: str = "mercury-pipeline",
     ):
+        """Initialize the instance."""
         self.input_topic = input_topic
         self.output_topic = output_topic
         self.detector = detector or self._default_detector
@@ -1229,8 +1209,7 @@ class StreamingAnomalyPipeline:
         }
 
     def _default_detector(self, data: dict[str, Any]) -> dict[str, Any]:
-        """
-        Statistical Z-score anomaly detector with adaptive thresholding.
+        """Statistical Z-score anomaly detector with adaptive thresholding.
 
         This default detector performs real-time statistical anomaly detection
         using exponential moving average (EMA) for mean and variance tracking.
@@ -1478,8 +1457,7 @@ class StreamingAnomalyPipeline:
         self._update_throughput_metrics(time.time())
 
     def get_stats(self) -> dict[str, Any]:
-        """
-        Get comprehensive pipeline statistics.
+        """Get comprehensive pipeline statistics.
 
         Returns:
             Dictionary containing:

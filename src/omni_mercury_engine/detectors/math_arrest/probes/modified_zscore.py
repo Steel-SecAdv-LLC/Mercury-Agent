@@ -1,5 +1,5 @@
-# SPDX-License-Identifier: GPL-3.0-only
-# Copyright (C) Steel Security Advisors LLC
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Probe 21: Modified Z-score probe for robust location anomaly detection."""
 
 from __future__ import annotations
@@ -24,6 +24,7 @@ class ModifiedZScoreProbe(BaseEquationProbe):
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         super().__init__(min_samples=8)
         self._median: float = 0.0
         self._mad: float = 0.0

@@ -1,5 +1,6 @@
-"""
-Mercury Agent - Cardiology Predictor Tests
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Mercury Agent - Cardiology Predictor Tests.
 
 Comprehensive test suite for cardiology components:
 - ECGRhythmAnalyzer: CNN+LSTM for 12-lead ECG analysis

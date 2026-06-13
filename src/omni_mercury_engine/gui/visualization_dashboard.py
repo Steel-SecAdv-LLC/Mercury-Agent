@@ -1,12 +1,6 @@
-"""
-Mercury Agent - Enhanced Visualization Dashboard
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Enhanced Visualization Dashboard.
 
 Enhanced visualization dashboard providing:
 - Interactive Plotly-based visualizations
@@ -32,7 +26,6 @@ import numpy as np
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
-
 
 logger = logging.getLogger(__name__)
 
@@ -109,8 +102,7 @@ class AnomalyDataPoint:
 
 
 class AnomalyVisualizer:
-    """
-    Core visualizer for anomaly detection results.
+    """Core visualizer for anomaly detection results.
 
     Provides multiple visualization types for comprehensive analysis.
     """
@@ -119,8 +111,7 @@ class AnomalyVisualizer:
         self,
         config: ChartConfig | None = None,
     ):
-        """
-        Initialize visualizer.
+        """Initialize visualizer.
 
         Args:
             config: Chart configuration
@@ -141,8 +132,7 @@ class AnomalyVisualizer:
         anomaly_mask: NDArray[np.bool_] | None = None,
         title: str = "Anomaly Scores Over Time",
     ) -> go.Figure:
-        """
-        Create time series plot of anomaly scores.
+        """Create time series plot of anomaly scores.
 
         Args:
             timestamps: Time points
@@ -221,8 +211,7 @@ class AnomalyVisualizer:
         top_k: int = 15,
         title: str = "Feature Importance",
     ) -> go.Figure:
-        """
-        Create horizontal bar chart of feature importance.
+        """Create horizontal bar chart of feature importance.
 
         Args:
             feature_names: Feature names
@@ -269,8 +258,7 @@ class AnomalyVisualizer:
         feature_names: list[str] | None = None,
         title: str = "Feature Correlation Matrix",
     ) -> go.Figure:
-        """
-        Create correlation heatmap.
+        """Create correlation heatmap.
 
         Args:
             data: Feature matrix
@@ -314,8 +302,7 @@ class AnomalyVisualizer:
         labels: NDArray[np.int64] | None = None,
         title: str = "Detector Performance Comparison",
     ) -> go.Figure:
-        """
-        Compare multiple detectors' performance.
+        """Compare multiple detectors' performance.
 
         Args:
             detector_scores: Dict of detector name to scores
@@ -453,8 +440,7 @@ class AnomalyVisualizer:
         anomaly_mask: NDArray[np.bool_] | None = None,
         title: str = "3D Anomaly Visualization",
     ) -> go.Figure:
-        """
-        Create 3D scatter plot of anomalies.
+        """Create 3D scatter plot of anomalies.
 
         Args:
             data: Feature matrix (uses first 3 features or PCA)
@@ -530,8 +516,7 @@ class AnomalyVisualizer:
         values: dict[str, list[float]],
         title: str = "Multi-Detector Radar Chart",
     ) -> go.Figure:
-        """
-        Create radar chart comparing detectors across metrics.
+        """Create radar chart comparing detectors across metrics.
 
         Args:
             categories: Metric categories
@@ -571,8 +556,7 @@ class AnomalyVisualizer:
         events: list[AnomalyDataPoint],
         title: str = "Anomaly Event Timeline",
     ) -> go.Figure:
-        """
-        Create timeline visualization of anomaly events.
+        """Create timeline visualization of anomaly events.
 
         Args:
             events: List of anomaly data points
@@ -637,8 +621,7 @@ class AnomalyVisualizer:
         threshold: float = 0.5,
         title: str = "Score Distribution",
     ) -> go.Figure:
-        """
-        Create distribution plot of anomaly scores.
+        """Create distribution plot of anomaly scores.
 
         Args:
             scores: Anomaly scores
@@ -715,8 +698,7 @@ class DashboardBuilder:
         self,
         config: DashboardConfig | None = None,
     ):
-        """
-        Initialize dashboard builder.
+        """Initialize dashboard builder.
 
         Args:
             config: Dashboard configuration
@@ -829,8 +811,7 @@ class DashboardBuilder:
         return self._figures
 
     def export_html(self, filepath: str) -> None:
-        """
-        Export dashboard as single HTML file.
+        """Export dashboard as single HTML file.
 
         Args:
             filepath: Output file path
@@ -881,8 +862,7 @@ class DashboardBuilder:
         logger.info(f"Dashboard exported to {filepath}")
 
     def export_json(self, filepath: str) -> None:
-        """
-        Export dashboard data as JSON.
+        """Export dashboard data as JSON.
 
         Args:
             filepath: Output file path
@@ -911,8 +891,7 @@ def create_quick_dashboard(
     labels: NDArray[np.int64] | None = None,
     title: str = "Mercury Agent Quick Dashboard",
 ) -> DashboardBuilder:
-    """
-    Create a quick dashboard with common visualizations.
+    """Create a quick dashboard with common visualizations.
 
     Args:
         scores: Anomaly scores

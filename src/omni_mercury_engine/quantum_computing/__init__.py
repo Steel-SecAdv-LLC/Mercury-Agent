@@ -1,5 +1,6 @@
-"""
-Quantum Computing Module for Mercury Agent.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Quantum Computing Module for Mercury Agent.
 
 Provides production-ready quantum computing integration with Qiskit,
 including quantum circuit building, execution, and hybrid optimization.

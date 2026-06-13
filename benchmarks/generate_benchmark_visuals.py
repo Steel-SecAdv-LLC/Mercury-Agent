@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""
-Mercury Agent - Benchmark Visualization Generator (Data-Driven)
-Copyright (C) 2025 Steel Security Advisors LLC
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Benchmark Visualization Generator (Data-Driven).
 
 Generates publication-quality benchmark visualizations from actual
 mercury_benchmark_results.json and calibration_validation_results.json.

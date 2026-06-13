@@ -1,5 +1,6 @@
-"""
-Voice Recognition Module for Mercury Agent Biometric System.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Voice Recognition Module for Mercury Agent Biometric System.
 
 Implements speaker verification using MFCC features and embedding-based
 matching with replay attack detection for liveness.
@@ -59,8 +60,7 @@ class VoiceLivenessResult:
 
 
 class AudioPreprocessor:
-    """
-    Preprocess audio for voice recognition.
+    """Preprocess audio for voice recognition.
 
     Includes pre-emphasis, framing, windowing, and normalization.
     """
@@ -79,8 +79,7 @@ class AudioPreprocessor:
         self._pre_emphasis = pre_emphasis
 
     def preprocess(self, signal: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Preprocess audio signal.
+        """Preprocess audio signal.
 
         Args:
             signal: Raw audio signal
@@ -102,8 +101,7 @@ class AudioPreprocessor:
         return emphasized
 
     def frame(self, signal: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Divide signal into overlapping frames.
+        """Divide signal into overlapping frames.
 
         Args:
             signal: Preprocessed signal
@@ -144,8 +142,7 @@ class AudioPreprocessor:
 
 
 class MFCCExtractor:
-    """
-    Extract Mel-Frequency Cepstral Coefficients.
+    """Extract Mel-Frequency Cepstral Coefficients.
 
     Implements the standard MFCC pipeline: FFT -> Mel filterbank -> DCT.
     """
@@ -219,8 +216,7 @@ class MFCCExtractor:
         return 700 * (10 ** (mel / 2595) - 1)
 
     def extract(self, frames: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Extract MFCC features from frames.
+        """Extract MFCC features from frames.
 
         Args:
             frames: 2D array of frames
@@ -253,8 +249,7 @@ class MFCCExtractor:
         features: np.ndarray[Any, Any],
         n: int = 2,
     ) -> np.ndarray[Any, Any]:
-        """
-        Compute delta (derivative) features.
+        """Compute delta (derivative) features.
 
         Args:
             features: Input features
@@ -282,8 +277,7 @@ class MFCCExtractor:
 
 
 class PitchExtractor:
-    """
-    Extract pitch (fundamental frequency) contour.
+    """Extract pitch (fundamental frequency) contour.
 
     Uses autocorrelation method for pitch detection.
     """
@@ -300,8 +294,7 @@ class PitchExtractor:
         self._max_lag = int(sample_rate / min_pitch)
 
     def extract(self, frames: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Extract pitch contour from frames.
+        """Extract pitch contour from frames.
 
         Args:
             frames: 2D array of frames
@@ -345,8 +338,7 @@ class EnergyExtractor:
         self._floor = floor
 
     def extract(self, frames: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Extract log energy from frames.
+        """Extract log energy from frames.
 
         Args:
             frames: 2D array of frames
@@ -362,8 +354,7 @@ class EnergyExtractor:
 
 
 class SpeakerEmbedding:
-    """
-    Generate speaker embeddings from acoustic features.
+    """Generate speaker embeddings from acoustic features.
 
     Uses a simple neural network-inspired approach with statistics pooling.
     """
@@ -394,8 +385,7 @@ class SpeakerEmbedding:
         self._weights3 = rng.standard_normal((128, embedding_dim)) * 0.1
 
     def generate(self, features: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Generate speaker embedding from features.
+        """Generate speaker embedding from features.
 
         Args:
             features: Frame-level features (n_frames, n_features)
@@ -437,8 +427,7 @@ class VoiceMatcher:
         probe: VoiceFeatures,
         enrolled: VoiceFeatures,
     ) -> VoiceMatchResult:
-        """
-        Match probe against enrolled voice features.
+        """Match probe against enrolled voice features.
 
         Args:
             probe: Probe voice features
@@ -492,8 +481,7 @@ class VoiceMatcher:
 
 
 class VoiceLivenessDetector:
-    """
-    Detect voice presentation attacks.
+    """Detect voice presentation attacks.
 
     Analyzes replay artifacts, synthetic speech markers, and channel characteristics.
     """
@@ -514,8 +502,7 @@ class VoiceLivenessDetector:
         audio_samples: list[np.ndarray[Any, Any]],
         sample_rate: int = 16000,
     ) -> VoiceLivenessResult:
-        """
-        Detect voice liveness from audio samples.
+        """Detect voice liveness from audio samples.
 
         Args:
             audio_samples: List of audio samples
@@ -667,8 +654,7 @@ class VoiceLivenessDetector:
 
 
 class VoiceActivityDetector:
-    """
-    Detect voice activity in audio signal.
+    """Detect voice activity in audio signal.
 
     Uses energy-based detection with adaptive thresholding.
     """
@@ -687,8 +673,7 @@ class VoiceActivityDetector:
         self._energy_threshold = energy_threshold
 
     def detect(self, audio: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Detect voice activity in audio.
+        """Detect voice activity in audio.
 
         Args:
             audio: Audio signal
@@ -730,8 +715,7 @@ class VoiceActivityDetector:
         audio: np.ndarray[Any, Any],
         min_duration_ms: float = 100.0,
     ) -> list[tuple[int, int]]:
-        """
-        Get speech segments from audio.
+        """Get speech segments from audio.
 
         Args:
             audio: Audio signal
@@ -768,8 +752,7 @@ class VoiceActivityDetector:
 
 
 class VoiceRecognizer:
-    """
-    Complete voice recognition system.
+    """Complete voice recognition system.
 
     Integrates feature extraction, embedding generation, matching, and liveness detection.
     """
@@ -793,8 +776,7 @@ class VoiceRecognizer:
         self._liveness_required = liveness_required
 
     def extract_features(self, audio: np.ndarray[Any, Any]) -> VoiceFeatures:
-        """
-        Extract voice features from audio.
+        """Extract voice features from audio.
 
         Args:
             audio: Audio signal
@@ -836,8 +818,7 @@ class VoiceRecognizer:
         enrolled_features: VoiceFeatures,
         liveness_samples: list[np.ndarray[Any, Any]] | None = None,
     ) -> tuple[VoiceMatchResult, VoiceLivenessResult | None]:
-        """
-        Verify a voice sample against enrolled features.
+        """Verify a voice sample against enrolled features.
 
         Args:
             probe_audio: Probe audio signal

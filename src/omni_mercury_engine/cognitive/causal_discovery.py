@@ -1,15 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-"""
-
-from __future__ import annotations
-
-"""
-Causal Discovery Engine - Production Implementation
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Causal Discovery Engine - Production Implementation.
 
 Discovers and models causal relationships in anomaly patterns:
 - PC Algorithm: Constraint-based structure learning with Fisher's Z test
@@ -26,6 +17,8 @@ Research Sources:
 - Bang & Robins (2005): Doubly Robust Estimation
 - Peters, Janzing, Schölkopf (2017): Elements of Causal Inference
 """
+
+from __future__ import annotations
 
 import logging
 import time
@@ -225,8 +218,7 @@ class CounterfactualResult:
 
 
 class PartialCorrelationTest:
-    """
-    Fisher's Z-transformed partial correlation test for conditional independence.
+    """Fisher's Z-transformed partial correlation test for conditional independence.
 
     More statistically rigorous than simple correlation:
     - Uses Fisher's Z transformation for proper p-values
@@ -241,8 +233,7 @@ class PartialCorrelationTest:
         z: np.ndarray[Any, Any] | None,
         n: int,
     ) -> tuple[float, float, float]:
-        """
-        Test conditional independence using partial correlation.
+        """Test conditional independence using partial correlation.
 
         Args:
             x: First variable
@@ -298,8 +289,7 @@ class PartialCorrelationTest:
 
 
 class GrangerCausalityTest:
-    """
-    Granger causality test using VAR models.
+    """Granger causality test using VAR models.
 
     Tests whether X Granger-causes Y by comparing:
     - Restricted: Y_t = f(Y_{t-1}, ..., Y_{t-p})
@@ -315,8 +305,7 @@ class GrangerCausalityTest:
         max_lag: int,
         significance_level: float = 0.05,
     ) -> tuple[bool, float, int, float]:
-        """
-        Test if X Granger-causes Y.
+        """Test if X Granger-causes Y.
 
         Args:
             x: Potential cause time series
@@ -392,8 +381,7 @@ class GrangerCausalityTest:
 
 
 class PropensityScoreEstimator:
-    """
-    Propensity score estimation for causal inference.
+    """Propensity score estimation for causal inference.
 
     Estimates P(T=1|X) using logistic regression, then:
     - Inverse Probability Weighting (IPW)
@@ -404,9 +392,9 @@ class PropensityScoreEstimator:
     propensity_scores: np.ndarray[Any, Any] | None
 
     def __init__(self, treatment: np.ndarray[Any, Any], covariates: np.ndarray[Any, Any]) -> None:
-        """
-        Args:
+        """Initialize the propensity score estimator.
 
+        Args:
             treatment: Binary treatment indicator (0/1)
             covariates: Covariate matrix (n x p)
         """
@@ -454,8 +442,7 @@ class PropensityScoreEstimator:
         return self.propensity_scores
 
     def ipw_ate(self, outcome: np.ndarray[Any, Any]) -> tuple[float, float, float]:
-        """
-        Inverse Probability Weighting ATE estimation.
+        """Inverse Probability Weighting ATE estimation.
 
         Returns:
             (ate, standard_error, p_value)
@@ -491,8 +478,7 @@ class PropensityScoreEstimator:
         self,
         outcome: np.ndarray[Any, Any],
     ) -> tuple[float, float, float]:
-        """
-        Augmented Inverse Probability Weighting (AIPW/Doubly Robust).
+        """Augmented Inverse Probability Weighting (AIPW/Doubly Robust).
 
         Consistent if either propensity or outcome model is correct.
 
@@ -553,8 +539,7 @@ class PropensityScoreEstimator:
         return float(ate), float(se), float(p_value)
 
     def overlap_diagnostic(self) -> float:
-        """
-        Compute propensity score overlap diagnostic.
+        """Compute propensity score overlap diagnostic.
 
         Returns score in [0, 1] where 1 = perfect overlap.
         """
@@ -584,8 +569,7 @@ class PropensityScoreEstimator:
 
 
 class CausalDiscoveryEngine:
-    """
-    Production Causal Discovery and Inference Engine.
+    """Production Causal Discovery and Inference Engine.
 
     Implements rigorous causal discovery and effect estimation:
 
@@ -627,8 +611,7 @@ class CausalDiscoveryEngine:
         n_bootstrap: int = 100,
         seed: int | None = None,
     ):
-        """
-        Initialize Causal Discovery Engine.
+        """Initialize Causal Discovery Engine.
 
         Args:
             significance_level: Alpha for independence tests
@@ -672,8 +655,7 @@ class CausalDiscoveryEngine:
         variable_names: list[str] | None = None,
         prior_knowledge: dict[str, list[str]] | None = None,
     ) -> CausalGraph:
-        """
-        Discover causal structure using the PC algorithm.
+        """Discover causal structure using the PC algorithm.
 
         Implements the full PC algorithm:
         1. Start with complete undirected graph
@@ -840,8 +822,7 @@ class CausalDiscoveryEngine:
         time_series: np.ndarray[Any, Any],
         variable_names: list[str] | None = None,
     ) -> CausalGraph:
-        """
-        Discover temporal causal relationships using Granger causality.
+        """Discover temporal causal relationships using Granger causality.
 
         Uses VAR model comparison with F-tests.
 
@@ -910,8 +891,7 @@ class CausalDiscoveryEngine:
         variable_names: list[str] | None = None,
         method: str = "doubly_robust",
     ) -> CausalEffect:
-        """
-        Estimate causal effect using doubly robust estimation.
+        """Estimate causal effect using doubly robust estimation.
 
         Args:
             data: Data matrix
@@ -995,8 +975,7 @@ class CausalDiscoveryEngine:
         target_var: str,
         variable_names: list[str],
     ) -> dict[str, Any]:
-        """
-        Compute the effect of an intervention do(X=x) on Y.
+        """Compute the effect of an intervention do(X=x) on Y.
 
         Uses backdoor adjustment based on the causal graph.
 
@@ -1062,8 +1041,7 @@ class CausalDiscoveryEngine:
         target_var: str,
         variable_names: list[str],
     ) -> CounterfactualResult:
-        """
-        Answer counterfactual queries using the three-step procedure.
+        """Answer counterfactual queries using the three-step procedure.
 
         Steps:
         1. Abduction: Infer exogenous noise from factual observation
@@ -1189,8 +1167,7 @@ class CausalDiscoveryEngine:
         directed: np.ndarray[Any, Any],
         n_vars: int,
     ) -> np.ndarray[Any, Any]:
-        """
-        Apply Meek's rules for edge orientation.
+        """Apply Meek's rules for edge orientation.
 
         Rules:
         R1: If a -> b - c and a is not adjacent to c, orient b -> c
@@ -1343,8 +1320,7 @@ class CausalDiscoveryEngine:
         z_indices: list[int],
         x_value: float,
     ) -> tuple[float, tuple[float, float]]:
-        """
-        Apply backdoor adjustment formula.
+        """Apply backdoor adjustment formula.
 
         E[Y|do(X=x)] = sum_z E[Y|X=x,Z=z] P(Z=z)
         """
@@ -1385,8 +1361,7 @@ class CausalDiscoveryEngine:
         outcome_idx: int,
         observed_effect: float,
     ) -> float:
-        """
-        Sensitivity analysis: how much confounding would nullify the effect?
+        """Sensitivity analysis: how much confounding would nullify the effect?
 
         Returns Γ (Rosenbaum bounds): effect robust to confounding up to Γ.
         """

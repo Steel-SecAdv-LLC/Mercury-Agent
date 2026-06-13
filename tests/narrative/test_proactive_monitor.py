@@ -1,9 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests for ProactiveMonitor - Background Vigilance with Initiative.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for ProactiveMonitor - Background Vigilance with Initiative."""
 
 import time
 from collections.abc import Iterator

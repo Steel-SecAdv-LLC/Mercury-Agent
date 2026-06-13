@@ -1,25 +1,8 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Extended Mercury Agent with 14-Engine Integration Production-ready anomaly detection with 3R mechanism."""
 
 from __future__ import annotations
-
-"""
-Extended Mercury Agent with 14-Engine Integration
-Production-ready anomaly detection with 3R mechanism
-"""
 
 import logging
 from dataclasses import dataclass
@@ -68,6 +51,7 @@ class EvolutionEngine:
         crossover_rate: float = 0.7,
         rng: DeterministicRNG | None = None,
     ):
+        """Initialize the instance."""
         self.state_dim = state_dim
         self.population_size = population_size
         self.mutation_rate = mutation_rate
@@ -151,6 +135,7 @@ class SecurityEngine:
     """Security engine."""
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.threat_patterns = self._load_threat_patterns()
         self.rate_limit_window = 60
         self.rate_limit_max = 60
@@ -210,6 +195,7 @@ class IntegrationEngine:
     """Integration engine."""
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.integrations: dict[str, dict[str, Any]] = {}
 
     def register_integration(
@@ -252,6 +238,7 @@ class OmniMercury:
     """Omni mercury."""
 
     def __init__(self, config: EngineConfig | None = None) -> None:
+        """Initialize the instance."""
         self.config = config or EngineConfig()
 
         if self.config.enable_3r_mechanism:

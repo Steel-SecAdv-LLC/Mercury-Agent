@@ -1,36 +1,25 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
-
-------------------------------------------------------------------------
-
-Operator tool: certify that the OAE fusion weights (w_R, w_H, w_O)
-remain on the golden-ratio derivation Mercury claims everywhere.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: certify that the OAE fusion weights (w_R, w_H, w_O) remain on the golden-ratio derivation Mercury claims everywhere.
 
 Reproduces the derivation from
 ``omni_mercury_engine.ml.three_r_attention.ThreeRAttentionLayer``::
 
     PHI     = MATH.GOLDEN_RATIO  # 1.618033988749895
-    phi_sum = PHI + 1.0 + (1.0 / PHI)         # ≈ 3.618...
-    w_R = PHI / phi_sum                       # ≈ 0.4472...
-    w_H = 1.0 / phi_sum                       # ≈ 0.2763...
-    w_O = (1.0 / PHI) / phi_sum               # ≈ 0.2763...
+    phi_sum = PHI + 2.0                        # ≈ 3.618...  (canonical PHI:1:1)
+    w_R = PHI / phi_sum                        # ≈ 0.4472...
+    w_H = 1.0 / phi_sum                        # ≈ 0.2764...
+    w_O = 1.0 / phi_sum                        # ≈ 0.2764...
 
 and compares the freshly computed values against the registered buffers
 on a newly constructed layer.  Any drift in either ``MATH.GOLDEN_RATIO``
 or the layer's derivation logic surfaces as a hard failure.
+
+The canonical spelling is ``phi_sum = PHI + 2`` with the weights in
+golden-ratio proportion ``w_R:w_H:w_O = PHI:1:1`` — resonance carries the
+``PHI`` share while harmony and optimization each take ``1/(PHI + 2)``.
+This certifier pins that single derivation so the documented weights and
+the layer's registered buffers can never silently diverge again.
 
 Also asserts ``w_R + w_H + w_O == 1.0`` to machine precision — this is
 the structural sum-to-one invariant the README and ARCHITECTURE.md

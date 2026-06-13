@@ -1,9 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Integration tests for the opt-in differentiable domain encoder in ``fit_fusion``
-(WS-B / Target 2). Verify the *contract*, deterministically and without network:
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Integration tests for the opt-in differentiable domain encoder in ``fit_fusion`` (WS-B / Target 2). Verify the *contract*, deterministically and without network:.
 
 * ``domain_encoder=False`` (and the default) is the unchanged neural path -- no
   domain-encoder state, no injected feature group, and the served scores match

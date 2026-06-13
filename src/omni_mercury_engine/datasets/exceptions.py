@@ -1,9 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-Custom exceptions for dataset loading. Zero silent failures — every loader either returns real data
-or raises.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Custom exceptions for dataset loading. Zero silent failures — every loader either returns real data or raises."""
 
 from __future__ import annotations
 
@@ -25,18 +22,55 @@ class _DynamicSyntheticFlag:
     __slots__ = ()
 
     def __bool__(self) -> bool:
+        """Implement the Python data model method."""
         return os.environ.get("MERCURY_ALLOW_SYNTHETIC", "0") == "1"
 
     def __repr__(self) -> str:
+        """Return the developer representation."""
         return f"ALLOW_SYNTHETIC={bool(self)}"
 
 
 ALLOW_SYNTHETIC = _DynamicSyntheticFlag()
 
+# Air-gapped / offline operation: when MERCURY_OFFLINE is truthy, every
+# dataset-layer network fetch is refused at the single HTTP chokepoint
+# (``base.http_get_with_retry``) before any socket is opened. Cached data
+# keeps working; anything uncached fails closed with a remediation hint.
+# Read dynamically (never at import time) so tests and operators can
+# toggle it without a process restart — the same contract as MERCURY_ENV.
+MERCURY_OFFLINE_VAR = "MERCURY_OFFLINE"
+
+
+def offline_mode_active() -> bool:
+    """Whether air-gapped mode is requested via ``MERCURY_OFFLINE``."""
+    return os.environ.get(MERCURY_OFFLINE_VAR, "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+class OfflineModeError(RuntimeError):
+    """Raised when a network fetch is attempted while MERCURY_OFFLINE is set.
+
+    Fail-closed by design: offline mode never silently degrades to stale or
+    synthetic data — it serves the local cache or refuses loudly.
+    """
+
+    def __init__(self, url: str) -> None:
+        """Initialize with the refused URL and a remediation hint."""
+        self.url = url
+        super().__init__(
+            f"MERCURY_OFFLINE is set; refusing network fetch of {url}. "
+            "Prime the local cache while online (e.g. "
+            "`python scripts/prefetch_datasets.py --adbench cardio thyroid ...`) "
+            "or unset MERCURY_OFFLINE to allow downloads."
+        )
+
 
 class DataSourceUnavailableError(RuntimeError):
-    """
-    Raised when a real data source cannot be reached and synthetic fallback is disabled.
+    """Raised when a real data source cannot be reached and synthetic fallback is disabled.
 
     This exception replaces all silent synthetic fallbacks. Every loader must
     either return real (or cached) data with verified metadata, or raise this
@@ -57,6 +91,7 @@ class DataSourceUnavailableError(RuntimeError):
         *,
         status_code: int | None = None,
     ) -> None:
+        """Initialize the instance."""
         self.loader_name = loader_name
         self.source_url = source_url
         self.reason = reason
@@ -75,8 +110,7 @@ class DataSourceUnavailableError(RuntimeError):
 
 
 def check_synthetic_allowed(loader_name: str, reason: str = "") -> bool:
-    """
-    Check whether synthetic fallback is permitted.
+    """Check whether synthetic fallback is permitted.
 
     Args:
         loader_name: Name of the requesting loader.
@@ -103,6 +137,9 @@ def check_synthetic_allowed(loader_name: str, reason: str = "") -> bool:
 
 __all__ = [
     "ALLOW_SYNTHETIC",
+    "MERCURY_OFFLINE_VAR",
     "DataSourceUnavailableError",
+    "OfflineModeError",
     "check_synthetic_allowed",
+    "offline_mode_active",
 ]

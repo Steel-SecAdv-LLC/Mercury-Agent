@@ -1,5 +1,6 @@
-"""
-Explainability Module for Mercury Agent.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Explainability Module for Mercury Agent.
 
 Provides comprehensive explanation capabilities for anomaly detection models,
 including SHAP values, counterfactual explanations, and GDPR Article 22

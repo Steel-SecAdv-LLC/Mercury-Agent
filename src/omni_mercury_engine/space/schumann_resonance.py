@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Schumann Resonance Detector Module
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Schumann Resonance Detector Module.
 
 Earth-ionosphere waveguide electromagnetic field anomaly detection for environmental
 and planetary monitoring. Detects anomalies in Schumann resonances (fundamental ~7.83 Hz
@@ -52,8 +35,9 @@ Research Sources:
 
 ⚠️ SIMULATION-BASED: For research/development. Correlations with seismic/climate
 events require extensive validation. Not a replacement for established monitoring systems.
-
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -102,13 +86,13 @@ class SchumannAnomalyResult:
 
 
 class SchumannHarmonicAnalyzer(_NNBase):  # type: ignore[misc, unused-ignore]
-    """
-    Neural network for Schumann harmonic pattern analysis.
+    """Neural network for Schumann harmonic pattern analysis.
 
     Uses 1D CNN + LSTM for temporal ELF spectrum analysis with golden ratio optimized filter banks.
     """
 
     def __init__(self, spectrum_size: int = 512) -> None:
+        """Initialize the instance."""
         if not TORCH_AVAILABLE:
             raise ImportError(
                 "PyTorch is required for SchumannHarmonicAnalyzer. "
@@ -162,8 +146,7 @@ class SchumannHarmonicAnalyzer(_NNBase):  # type: ignore[misc, unused-ignore]
     def forward(
         self, spectrum: torch.Tensor, temporal_sequence: torch.Tensor | None = None
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """
-        Forward pass through harmonic analyzer.
+        """Forward pass through harmonic analyzer.
 
         Args:
             spectrum: Power spectrum [batch, 1, freq_bins]
@@ -199,8 +182,7 @@ class SchumannHarmonicAnalyzer(_NNBase):  # type: ignore[misc, unused-ignore]
 
 
 class SchumannResonanceDetector:
-    """
-    Schumann Resonance Anomaly Detector.
+    """Schumann Resonance Anomaly Detector.
 
     Monitors Earth-ionosphere electromagnetic cavity resonances for anomalies that may correlate
     with seismic, climate, or space weather events.
@@ -212,8 +194,7 @@ class SchumannResonanceDetector:
         enable_ancient_correlation: bool = True,
         golden_ratio_thresholds: bool = True,
     ):
-        """
-        Initialize Schumann resonance detector.
+        """Initialize Schumann resonance detector.
 
         Args:
             sampling_rate: ELF data sampling rate (Hz)
@@ -259,8 +240,7 @@ class SchumannResonanceDetector:
 
     @property
     def fundamental_freq(self) -> float:
-        """
-        Return the fundamental Schumann resonance frequency (~7.83 Hz).
+        """Return the fundamental Schumann resonance frequency (~7.83 Hz).
 
         The fundamental frequency of the Earth-ionosphere cavity resonance.
         This is the first mode of the Schumann resonances.
@@ -271,8 +251,7 @@ class SchumannResonanceDetector:
         return self.schumann_frequencies[0]
 
     def _initialize_ancient_correlations(self) -> dict[str, Any]:
-        """
-        Initialize ancient knowledge correlations.
+        """Initialize ancient knowledge correlations.
 
         Ancient civilizations observed natural cycles that correlate with electromagnetic phenomena.
         This establishes symbolic connections for neurosymbolic reasoning.
@@ -307,8 +286,7 @@ class SchumannResonanceDetector:
         temporal_history: list[np.ndarray[Any, Any]] | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> SchumannAnomalyResult:
-        """
-        Detect anomalies in Schumann resonance patterns.
+        """Detect anomalies in Schumann resonance patterns.
 
         Args:
             elf_signal: ELF electromagnetic field measurements (time series)
@@ -476,7 +454,7 @@ class SchumannResonanceDetector:
     def _compute_power_spectrum(
         self, elf_signal: np.ndarray[Any, Any]
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """Compute power spectrum using FFT (O(n log n) complexity)"""
+        """Compute power spectrum using FFT (O(n log n) complexity)."""
         n = len(elf_signal)
 
         yf = fft(elf_signal)
@@ -715,8 +693,7 @@ class SchumannResonanceDetector:
 
 
 def create_omni_resonance_scalars() -> dict[str, float]:
-    """
-    Create doctorate-level Schumann resonance scalars.
+    """Create doctorate-level Schumann resonance scalars.
 
     Returns:
         Dictionary of omni-resonance scalars with golden ratio optimization

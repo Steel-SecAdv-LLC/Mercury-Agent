@@ -1,0 +1,80 @@
+{
+  "suite": "live headline (real) 23 events",
+  "default_config": "lambda_ece=1, lambda_nb=0, warm_start=identity",
+  "note_d_auroc": "paired (config - identity) per-event AUROC; ~0 confirms the monotone tie",
+  "configs": {
+    "default(l_ece=1,l_nb=0,identity)": {
+      "brier": 0.08928381778048189,
+      "ece": 0.03874094173992118,
+      "d_auroc_vs_identity": 0.0,
+      "n": 20
+    },
+    "l_ece=0.0": {
+      "brier": 0.08533007177636288,
+      "ece": 0.0468772179411889,
+      "d_auroc_vs_identity": 0.0,
+      "n": 20
+    },
+    "l_ece=0.5": {
+      "brier": 0.08916254034647829,
+      "ece": 0.047710496926300576,
+      "d_auroc_vs_identity": 0.0,
+      "n": 20
+    },
+    "l_ece=2.0": {
+      "brier": 0.09087799304068882,
+      "ece": 0.04410422051658392,
+      "d_auroc_vs_identity": 0.0,
+      "n": 20
+    },
+    "l_ece=4.0": {
+      "brier": 0.090022791289629,
+      "ece": 0.040803249835779196,
+      "d_auroc_vs_identity": 0.0,
+      "n": 20
+    },
+    "l_nb=0.5": {
+      "brier": 0.08787506916986541,
+      "ece": 0.043254568846642014,
+      "d_auroc_vs_identity": 0.0,
+      "n": 20
+    },
+    "l_nb=1.0": {
+      "brier": 0.08845093681826402,
+      "ece": 0.044089527421584604,
+      "d_auroc_vs_identity": 0.0,
+      "n": 20
+    },
+    "warm=mle": {
+      "brier": 0.1645119825910871,
+      "ece": 0.12971445132362017,
+      "d_auroc_vs_identity": -0.023499177551365984,
+      "n": 20
+    },
+    "warm=mle,l_ece=2.0": {
+      "brier": 0.1651970356990835,
+      "ece": 0.12853429361847382,
+      "d_auroc_vs_identity": -0.021402099350858617,
+      "n": 20
+    }
+  },
+  "accept_gate_tol_sweep": {
+    "ece_tol=0.001": {
+      "accept_rate": 1.0,
+      "holdout_brier": 0.08928381813346423,
+      "n": 20
+    },
+    "ece_tol=0.01": {
+      "accept_rate": 1.0,
+      "holdout_brier": 0.08928381813346423,
+      "n": 20
+    },
+    "ece_tol=0.05": {
+      "accept_rate": 1.0,
+      "holdout_brier": 0.08928381813346423,
+      "n": 20
+    }
+  },
+  "land_candidates": [],
+  "verdict": "NEGATIVE: no lever beats the shipped default on held-out Brier AND ECE"
+}

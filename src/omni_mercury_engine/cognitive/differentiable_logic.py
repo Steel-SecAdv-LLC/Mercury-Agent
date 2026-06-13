@@ -1,5 +1,6 @@
-"""
-Mercury Agent - Differentiable Logic Programming
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Mercury Agent - Differentiable Logic Programming.
 
 State-of-the-art differentiable logic programming for neuro-symbolic AI.
 Enables end-to-end gradient-based learning of symbolic rules.
@@ -78,6 +79,7 @@ class Predicate:
     embedding: np.ndarray[Any, Any] | None = None
 
     def __post_init__(self) -> None:
+        """Finalize dataclass initialization."""
         if self.embedding is None:
             # Use a per-call ``Generator`` instance so the random embedding
             # initialization does not consume — or be perturbed by — the
@@ -115,6 +117,7 @@ class DifferentiableRule:
     learnable: bool = True
 
     def __str__(self) -> str:
+        """Return the string representation."""
         body_str = f" {self.connective.value} ".join(
             f"{a.predicate.name}({', '.join(a.arguments)})" for a in self.body
         )
@@ -230,6 +233,7 @@ if TORCH_AVAILABLE:
             embedding_dim: int = 64,
             hidden_dim: int = 128,
         ):
+            """Initialize the instance."""
             super().__init__()
             self.embedding = nn.Embedding(vocab_size, embedding_dim)
             self.encoder = nn.Sequential(
@@ -254,6 +258,7 @@ if TORCH_AVAILABLE:
             hidden_dim: int = 128,
             n_rules: int = 100,
         ):
+            """Initialize the instance."""
             super().__init__()
             self.predicate_embedding_dim = predicate_embedding_dim
             self.hidden_dim = hidden_dim
@@ -285,8 +290,7 @@ if TORCH_AVAILABLE:
             head_embedding: torch.Tensor,
             rule_mask: torch.Tensor | None = None,
         ) -> tuple[torch.Tensor, torch.Tensor]:
-            """
-            Apply rules differentiably.
+            """Apply rules differentiably.
 
             Args:
                 body_embeddings: [batch, n_body_atoms, embed_dim]
@@ -330,6 +334,7 @@ if TORCH_AVAILABLE:
             n_layers: int = 3,
             max_proof_depth: int = 5,
         ):
+            """Initialize the instance."""
             super().__init__()
             self.predicate_dim = predicate_dim
             self.hidden_dim = hidden_dim
@@ -379,8 +384,7 @@ if TORCH_AVAILABLE:
             knowledge_base: torch.Tensor,
             max_steps: int | None = None,
         ) -> tuple[torch.Tensor, list[torch.Tensor]]:
-            """
-            Prove a goal using differentiable backward chaining.
+            """Prove a goal using differentiable backward chaining.
 
             Args:
                 goal: [batch, n_goals, predicate_dim] - Goals to prove
@@ -439,6 +443,7 @@ if TORCH_AVAILABLE:
             hidden_dim: int = 128,
             n_interventions: int = 10,
         ):
+            """Initialize the instance."""
             super().__init__()
             self.input_dim = input_dim
             self.n_interventions = n_interventions
@@ -478,8 +483,7 @@ if TORCH_AVAILABLE:
             intervention: torch.Tensor,
             context: torch.Tensor,
         ) -> torch.Tensor:
-            """
-            Predict outcome under intervention.
+            """Predict outcome under intervention.
 
             Args:
                 original_fact: Original fact embedding
@@ -496,8 +500,7 @@ if TORCH_AVAILABLE:
 
 
 class DifferentiableLogicEngine:
-    """
-    Main engine for differentiable logic programming.
+    """Main engine for differentiable logic programming.
 
     Combines neural network components with symbolic reasoning for end-to-end differentiable
     inference.
@@ -511,6 +514,7 @@ class DifferentiableLogicEngine:
         t_norm: str = "product",
         device: str = "cpu",
     ):
+        """Initialize the instance."""
         self.predicate_dim = predicate_dim
         self.hidden_dim = hidden_dim
         self.max_proof_depth = max_proof_depth
@@ -596,8 +600,7 @@ class DifferentiableLogicEngine:
         confidence: float = 0.9,
         learnable: bool = True,
     ) -> DifferentiableRule:
-        """
-        Add a differentiable rule.
+        """Add a differentiable rule.
 
         Args:
             head: (predicate_name, arguments) for rule head
@@ -672,8 +675,7 @@ class DifferentiableLogicEngine:
         max_depth: int | None = None,
         include_counterfactuals: bool = False,
     ) -> InferenceResult:
-        """
-        Perform differentiable inference on a query.
+        """Perform differentiable inference on a query.
 
         Args:
             query: (predicate_name, arguments) to prove
@@ -946,8 +948,7 @@ class DifferentiableLogicEngine:
         expected_probability: float,
         learning_rate: float = 0.01,
     ) -> dict[str, float]:
-        """
-        Active learning: adjust rule weights from user feedback.
+        """Active learning: adjust rule weights from user feedback.
 
         Args:
             query: Query that was evaluated

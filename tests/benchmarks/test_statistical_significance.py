@@ -1,9 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-Tests for ``benchmarks/statistical_significance.py`` — the paired-inference
-confirmation of PR #265's sub-threshold neuro-symbolic sweep results.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for ``benchmarks/statistical_significance.py`` — the paired-inference confirmation of PR #265's sub-threshold neuro-symbolic sweep results."""
 
 from __future__ import annotations
 

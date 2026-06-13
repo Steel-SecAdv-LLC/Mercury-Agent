@@ -1,7 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-Domain loader for volcanic activity data from the USGS Volcano Hazards Program.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Domain loader for volcanic activity data from the USGS Volcano Hazards Program.
 
 Connects to the USGS Volcano Hazards Program API to provide volcanic alert
 data for Mercury anomaly detection.  Ground truth events cover major
@@ -119,8 +118,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
 
 
 class VolcanicLoader(BaseDomainLoader):
-    """
-    Loader for volcanic activity data from the USGS Volcano Hazards Program.
+    """Loader for volcanic activity data from the USGS Volcano Hazards Program.
 
     Uses the USGS Volcano API endpoints:
 
@@ -166,8 +164,7 @@ class VolcanicLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     def fetch_realtime(self) -> pd.DataFrame:
-        """
-        Fetch current volcanic alert data from the USGS Volcano API.
+        """Fetch current volcanic alert data from the USGS Volcano API.
 
         Retrieves the latest alert levels and aviation color codes for
         all monitored volcanoes, then enriches with geographic metadata
@@ -207,8 +204,7 @@ class VolcanicLoader(BaseDomainLoader):
         return df
 
     def fetch_historical(self, event_id: str) -> pd.DataFrame:
-        """
-        Fetch volcanic activity data for a specific historical eruption.
+        """Fetch volcanic activity data for a specific historical eruption.
 
         Attempts to retrieve alert-level data from the USGS API for the
         specified event.  Because the USGS volcano API provides limited
@@ -307,8 +303,7 @@ class VolcanicLoader(BaseDomainLoader):
         return df_filtered
 
     def list_events(self) -> list[dict[str, Any]]:
-        """
-        Return the catalog of ground truth volcanic eruption events.
+        """Return the catalog of ground truth volcanic eruption events.
 
         Returns:
             List of dicts each containing *event_id*, *name*, *date*,
@@ -327,8 +322,7 @@ class VolcanicLoader(BaseDomainLoader):
         return events
 
     def get_ground_truth(self, event_id: str) -> np.ndarray[Any, Any]:
-        """
-        Generate binary anomaly labels for a historical volcanic event.
+        """Generate binary anomaly labels for a historical volcanic event.
 
         Labeling strategy (conservative):
 
@@ -382,8 +376,7 @@ class VolcanicLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray[Any, Any]:
-        """
-        Transform raw volcanic alert data into a feature matrix.
+        """Transform raw volcanic alert data into a feature matrix.
 
         Engineered features (per record):
 
@@ -487,8 +480,7 @@ class VolcanicLoader(BaseDomainLoader):
     def _alerts_to_dataframe(
         alerts_raw: Any,
     ) -> pd.DataFrame:
-        """
-        Convert raw USGS volcano alert API response to a flat DataFrame.
+        """Convert raw USGS volcano alert API response to a flat DataFrame.
 
         The USGS volcano alert API returns a list of alert objects.  This
         method normalizes the response into a tabular format.
@@ -570,8 +562,7 @@ class VolcanicLoader(BaseDomainLoader):
         return df
 
     def _enrich_with_geography(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Enrich alert DataFrame with geographic data from the volcano list.
+        """Enrich alert DataFrame with geographic data from the volcano list.
 
         Fetches the USGS volcano list and merges latitude, longitude, and
         elevation onto the alert records by matching volcano name.
@@ -655,8 +646,7 @@ class VolcanicLoader(BaseDomainLoader):
     def _volcano_list_to_geodf(
         volcanoes_raw: Any,
     ) -> pd.DataFrame:
-        """
-        Convert raw USGS volcano list response to a geographic DataFrame.
+        """Convert raw USGS volcano list response to a geographic DataFrame.
 
         Args:
             volcanoes_raw: Parsed JSON from the USGS volcano list endpoint.
@@ -724,8 +714,7 @@ class VolcanicLoader(BaseDomainLoader):
 
     @staticmethod
     def _compute_deltas(values: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Compute the change from the previous value in a 1-D array.
+        """Compute the change from the previous value in a 1-D array.
 
         Args:
             values: 1-D numeric array.
@@ -743,8 +732,7 @@ class VolcanicLoader(BaseDomainLoader):
         df: pd.DataFrame,
         alert_level_numeric: np.ndarray[Any, Any],
     ) -> np.ndarray[Any, Any]:
-        """
-        Compute days since the most recent alert level change.
+        """Compute days since the most recent alert level change.
 
         Uses the ``alert_date`` column if available; otherwise falls
         back to row-index-based approximation (treating each row as

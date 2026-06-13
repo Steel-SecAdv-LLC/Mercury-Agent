@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Advanced Biometric Processing Engine for Mercury Agent
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Advanced Biometric Processing Engine for Mercury Agent.
 
 Provides enhanced biometric capabilities including:
 - Neural-symbolic fusion for biometric matching
@@ -38,6 +21,8 @@ References:
 
 Designed for humanitarian missing persons applications.
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -152,14 +137,14 @@ class AgeProgressionResult:
 
 
 class BiometricFusion:
-    """
-    Transformer-based neural-symbolic fusion for biometric matching.
+    """Transformer-based neural-symbolic fusion for biometric matching.
 
     Uses 8-head self-attention to combine neural embeddings with symbolic constraint satisfaction
     scores.
     """
 
     def __init__(self, dim: int = 512, device: str = "cpu") -> None:
+        """Initialize the instance."""
         self.dim = dim
         self.device = device
 
@@ -172,8 +157,7 @@ class BiometricFusion:
     def forward(
         self, neural_emb: np.ndarray[Any, Any], symbolic_score: float = 1.0
     ) -> np.ndarray[Any, Any]:
-        """
-        Fuse neural embedding with symbolic constraint score.
+        """Fuse neural embedding with symbolic constraint score.
 
         Args:
             neural_emb: Neural embedding vector
@@ -209,8 +193,7 @@ class BiometricFusion:
 
 
 class AdvancedBiometricEngine:
-    """
-    Advanced biometric processing engine with neural-symbolic fusion.
+    """Advanced biometric processing engine with neural-symbolic fusion.
 
     Provides face detection, feature extraction, attribute analysis,
     and multi-zone similarity scoring for missing persons applications.
@@ -222,8 +205,7 @@ class AdvancedBiometricEngine:
     """
 
     def __init__(self, device: str = "cpu", seed: int | None = None) -> None:
-        """
-        Initialize advanced biometric engine.
+        """Initialize advanced biometric engine.
 
         Args:
             device: Torch device string ("cpu" / "cuda")
@@ -249,8 +231,7 @@ class AdvancedBiometricEngine:
         )
 
     def extract_features(self, image_path: str) -> np.ndarray[Any, Any] | None:
-        """
-        Extract facial features from image.
+        """Extract facial features from image.
 
         Uses DeepFace (FaceNet) as primary, face_recognition as fallback.
 
@@ -286,8 +267,7 @@ class AdvancedBiometricEngine:
     def extract_features_from_array(
         self, image_data: np.ndarray[Any, Any]
     ) -> np.ndarray[Any, Any] | None:
-        """
-        Extract features from numpy array image data.
+        """Extract features from numpy array image data.
 
         Args:
             image_data: Image as numpy array
@@ -313,8 +293,7 @@ class AdvancedBiometricEngine:
             return None
 
     def analyze_attributes(self, image_path: str) -> dict[str, Any]:
-        """
-        Analyze facial attributes (age, gender, emotion).
+        """Analyze facial attributes (age, gender, emotion).
 
         Args:
             image_path: Path to image file
@@ -350,8 +329,7 @@ class AdvancedBiometricEngine:
         symbolic_match: float = 0.8,
         age_proximity: float = 0.9,
     ) -> float:
-        """
-        Compute Multi-Zone Similarity Score (MZSS).
+        """Compute Multi-Zone Similarity Score (MZSS).
 
         MZSS = α*B + β*S + γ*A
         where B=biometric, S=symbolic, A=age proximity
@@ -372,8 +350,7 @@ class AdvancedBiometricEngine:
         return float(np.clip(mzss, 0.0, 1.0))
 
     def categorize_match(self, mzss: float) -> MatchCategory:
-        """
-        Categorize match based on MZSS score.
+        """Categorize match based on MZSS score.
 
         Args:
             mzss: Multi-Zone Similarity Score
@@ -388,8 +365,7 @@ class AdvancedBiometricEngine:
         return MatchCategory.UNDETERMINED
 
     def match_faces(self, image1_path: str, image2_path: str) -> BiometricResult:
-        """
-        Match two faces and compute similarity scores.
+        """Match two faces and compute similarity scores.
 
         Args:
             image1_path: Path to first image
@@ -435,8 +411,7 @@ class AdvancedBiometricEngine:
     def fuse_with_symbolic(
         self, image_path: str, symbolic_data: dict[str, Any]
     ) -> np.ndarray[Any, Any]:
-        """
-        Fuse biometric features with symbolic constraint data.
+        """Fuse biometric features with symbolic constraint data.
 
         Args:
             image_path: Path to image
@@ -478,8 +453,7 @@ class AdvancedBiometricEngine:
 
 
 class AgeProgressionEngine:
-    """
-    Age progression engine with quantum variant amplification.
+    """Age progression engine with quantum variant amplification.
 
     Uses polynomial filters and quantum uncertainty modeling to
     generate age-progressed facial images with 10-20% accuracy improvement.
@@ -492,8 +466,7 @@ class AgeProgressionEngine:
     """
 
     def __init__(self, device: str = "cpu", seed: int | None = None) -> None:
-        """
-        Initialize age-progression engine.
+        """Initialize age-progression engine.
 
         Args:
             device: Torch device string ("cpu" / "cuda")
@@ -522,8 +495,7 @@ class AgeProgressionEngine:
         )
 
     def detect_and_align_face(self, image_path: str) -> np.ndarray[Any, Any] | None:
-        """
-        Detect and align face from image.
+        """Detect and align face from image.
 
         Args:
             image_path: Path to image file
@@ -570,8 +542,7 @@ class AgeProgressionEngine:
             return None
 
     def extract_facenet_embedding(self, face: np.ndarray[Any, Any]) -> np.ndarray[Any, Any] | None:
-        """
-        Extract 512-dimensional FaceNet embedding.
+        """Extract 512-dimensional FaceNet embedding.
 
         Args:
             face: Aligned face image (160x160)
@@ -598,8 +569,7 @@ class AgeProgressionEngine:
     def apply_polynomial_age_filter(
         self, face: np.ndarray[Any, Any], age_delta: int
     ) -> np.ndarray[Any, Any]:
-        """
-        Apply polynomial filters for age progression.
+        """Apply polynomial filters for age progression.
 
         Achieves 10-20% accuracy improvement via quantum variant amplification.
 
@@ -648,8 +618,7 @@ class AgeProgressionEngine:
             return face
 
     def progress_age(self, image_path: str, target_age_delta: int) -> AgeProgressionResult:
-        """
-        Perform age progression on image.
+        """Perform age progression on image.
 
         Args:
             image_path: Path to input image
@@ -692,8 +661,7 @@ class AgeProgressionEngine:
         age_range: tuple[int, int] = (-10, 10),
         step: int = 5,
     ) -> list[AgeProgressionResult]:
-        """
-        Create timeline of age-progressed images.
+        """Create timeline of age-progressed images.
 
         Args:
             image_path: Source image path
@@ -735,8 +703,7 @@ class AgeProgressionEngine:
 
 
 class QuantumAgeVariant:
-    """
-    Quantum variant for age progression uncertainty modeling.
+    """Quantum variant for age progression uncertainty modeling.
 
     Implements State_t = State_{t-1} ⊗ Q_n where Q_n=1.2
     for probabilistic age estimation.
@@ -751,8 +718,7 @@ class QuantumAgeVariant:
     def compute_age_probability_distribution(
         base_age: int, quantum_factor: float = 1.2
     ) -> dict[int, float]:
-        """
-        Generate probability distribution for age range.
+        """Generate probability distribution for age range.
 
         Args:
             base_age: Estimated base age

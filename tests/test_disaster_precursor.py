@@ -1,9 +1,6 @@
-"""
-Tests for Disaster Precursor Detector.
-
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for Disaster Precursor Detector."""
 
 from typing import Any
 

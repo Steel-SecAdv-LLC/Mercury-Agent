@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Flood domain honest benchmark.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Flood domain honest benchmark.
 
 Fetches real river gauge data from USGS Water Services,
 runs MercuryAnomalyDetector, and reports metrics.

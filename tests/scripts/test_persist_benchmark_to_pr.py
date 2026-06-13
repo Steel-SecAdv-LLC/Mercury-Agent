@@ -1,8 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Regression tests for ``scripts/persist_benchmark_to_pr.py``.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Regression tests for ``scripts/persist_benchmark_to_pr.py``.
 
 The persister talks to the GitHub Git Database API to commit
 benchmark artefacts on a feature branch and open / update a PR

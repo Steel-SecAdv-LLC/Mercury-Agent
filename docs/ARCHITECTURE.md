@@ -1,6 +1,6 @@
 # Mercury Agent - System Activation Architecture
 
-Applies to Mercury Agent **v1.7.x**. Last updated: 2026-05-20.
+Applies to Mercury Agent **v1.7.x**. Last updated: 2026-06-10.
 
 Supplement to the top-level [`ARCHITECTURE.md`](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/ARCHITECTURE.md). Covers the loader
 registry, Oracle pipeline, cognitive wiring, backend configuration,
@@ -31,7 +31,7 @@ Activation.
 src/omni_mercury_engine/datasets/
 ├── adbench.py          # ADBenchLoader (47 tabular datasets)
 ├── adrepository.py     # ADRepositoryLoader
-├── base.py             # DatasetConfig, BaseLoader
+├── base.py             # DatasetConfig, DatasetLoader, DatasetRegistry
 ├── climate.py          # Climate datasets
 ├── disaster.py         # FEMADisasterLoader, FEMAHazardMitigationLoader
 ├── environmental.py    # USGSEarthquakeLoader, NOAAWeatherLoader,

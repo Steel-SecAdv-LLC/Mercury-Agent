@@ -1,14 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-------------------------------------------------------------------------
-
-Operator tool: Google-style dataset card generator.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: Google-style dataset card generator.
 
 Composes a Markdown dataset card from sibling tool evidence:
 

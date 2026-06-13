@@ -1,8 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Phase 2 ITEM 3 regression: GOSNN placeholder cures.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Phase 2 ITEM 3 regression: GOSNN placeholder cures.
 
 Pins three contracts called out by the 2026-03 in-tree audit:
 

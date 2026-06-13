@@ -1,12 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Production-grade input validation and sanitization.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Production-grade input validation and sanitization.
 
 Implements OWASP input validation guidelines:
 - SQL injection prevention
@@ -35,6 +29,7 @@ class ValidationError(Exception):
     """Input validation failed."""
 
     def __init__(self, message: str, field: str | None = None, value: Any = None) -> None:
+        """Initialize the instance."""
         super().__init__(message)
         self.field = field
         self.value = value
@@ -60,8 +55,7 @@ class ValidationResult:
 
 
 class InputValidator:
-    """
-    Production-grade input validator.
+    """Production-grade input validator.
 
     Provides defense-in-depth input validation:
     1. Type checking
@@ -139,8 +133,7 @@ class InputValidator:
     ]
 
     def __init__(self, level: SanitizationLevel = SanitizationLevel.MODERATE) -> None:
-        """
-        Initialize input validator.
+        """Initialize input validator.
 
         Args:
             level: Default sanitization level
@@ -158,8 +151,7 @@ class InputValidator:
         allow_empty: bool = False,
         strip_whitespace: bool = True,
     ) -> ValidationResult:
-        """
-        Validate and sanitize a string input.
+        """Validate and sanitize a string input.
 
         Args:
             value: Input value to validate
@@ -231,8 +223,7 @@ class InputValidator:
         value: Any,
         field_name: str = "email",
     ) -> ValidationResult:
-        """
-        Validate email address.
+        """Validate email address.
 
         Args:
             value: Email to validate
@@ -262,8 +253,7 @@ class InputValidator:
         max_value: int | None = None,
         field_name: str = "number",
     ) -> ValidationResult:
-        """
-        Validate integer input.
+        """Validate integer input.
 
         Args:
             value: Value to validate
@@ -315,8 +305,7 @@ class InputValidator:
         max_value: float | None = None,
         field_name: str = "number",
     ) -> ValidationResult:
-        """
-        Validate float input.
+        """Validate float input.
 
         Args:
             value: Value to validate
@@ -374,8 +363,7 @@ class InputValidator:
         allowed_schemes: list[str] | None = None,
         field_name: str = "url",
     ) -> ValidationResult:
-        """
-        Validate URL input.
+        """Validate URL input.
 
         Args:
             value: URL to validate
@@ -429,8 +417,7 @@ class InputValidator:
         allowed_prefix: str | None = None,
         field_name: str = "path",
     ) -> ValidationResult:
-        """
-        Validate file path input (prevent path traversal).
+        """Validate file path input (prevent path traversal).
 
         Args:
             value: Path to validate
@@ -539,8 +526,7 @@ def sanitize_input(
     value: str,
     level: SanitizationLevel = SanitizationLevel.MODERATE,
 ) -> str:
-    """
-    Quick sanitization of string input.
+    """Quick sanitization of string input.
 
     Args:
         value: String to sanitize
@@ -555,8 +541,7 @@ def sanitize_input(
 
 
 class TrustedEndpoints:
-    """
-    Hardcoded trusted API endpoints for external data sources with secure URL opening.
+    """Hardcoded trusted API endpoints for external data sources with secure URL opening.
 
     These are constant URLs that are NOT derived from user input.
     CodeQL's taint analysis recognizes class constants as untainted sources,
@@ -673,8 +658,7 @@ class TrustedEndpoints:
 
     @classmethod
     def validate_url(cls, url: str) -> bool:
-        """
-        Validate that a URL is safe to open (HTTPS + trusted domain).
+        """Validate that a URL is safe to open (HTTPS + trusted domain).
 
         Args:
             url: The URL to validate

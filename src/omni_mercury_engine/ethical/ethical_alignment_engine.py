@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Percipience Engine - Multi-Dimensional Ethical Verification System
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Percipience Engine - Multi-Dimensional Ethical Verification System.
 
 Provides comprehensive ethical alignment verification for AI systems:
 - IndivisibleEngine: Weighted scoring for ethical principle compliance
@@ -31,6 +14,8 @@ enforcement using mathematically grounded scoring systems.
 The ethical principles evaluated include: compassion, evidence, justice, altruism,
 control, character, competence, and commitment.
 """
+
+from __future__ import annotations
 
 import logging
 import math
@@ -151,8 +136,7 @@ class TwelveFoldResult:
 
 
 class IndivisibleEngine:
-    """
-    Indivisible Engine - Weighted Ethical Principle Verification.
+    """Indivisible Engine - Weighted Ethical Principle Verification.
 
     Implements ethical balance verification by computing weighted scores
     across multiple ethical principles and comparing against a baseline.
@@ -170,8 +154,7 @@ class IndivisibleEngine:
     MIN_ETHICAL_SCORE = 0.7
 
     def __init__(self, strict_mode: bool = True) -> None:
-        """
-        Initialize Ethical Balance Engine.
+        """Initialize Ethical Balance Engine.
 
         Args:
             strict_mode: If True, apply stricter balance requirements
@@ -196,8 +179,7 @@ class IndivisibleEngine:
         ethical_scores: dict[str, float],
         context: dict[str, Any] | None = None,
     ) -> BalanceResult:
-        """
-        Evaluate ethical balance by comparing computed ethical weight against baseline.
+        """Evaluate ethical balance by comparing computed ethical weight against baseline.
 
         Computes a weighted aggregate score across ethical principles and compares
         it against a baseline threshold to determine if the system is ethically
@@ -238,8 +220,7 @@ class IndivisibleEngine:
         )
 
     def verify_system_alignment(self, system_state: dict[str, float]) -> dict[str, Any]:
-        """
-        Verify overall system alignment with ethical principles.
+        """Verify overall system alignment with ethical principles.
 
         Args:
             system_state: Current system state metrics
@@ -354,8 +335,7 @@ class IndivisibleEngine:
 
 
 class StrategicEngine:
-    """
-    Strategic Engine - Decision Quality Assessment.
+    """Strategic Engine - Decision Quality Assessment.
 
     Implements wisdom quotient computation for evaluating
     decision-making quality and strategic intelligence.
@@ -371,6 +351,7 @@ class StrategicEngine:
     PHI = 1.618033988749895  # Golden ratio for proportional scaling
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
 
         self.wisdom_weights = {
@@ -387,8 +368,7 @@ class StrategicEngine:
         ethical_scores: dict[str, float],
         knowledge_indicators: dict[str, float],
     ) -> WisdomQuotient:
-        """
-        Compute comprehensive wisdom quotient.
+        """Compute comprehensive wisdom quotient.
 
         Args:
             performance_metrics: System performance metrics
@@ -436,8 +416,7 @@ class StrategicEngine:
         decision_context: dict[str, Any],
         options: list[dict[str, Any]],
     ) -> dict[str, Any]:
-        """
-        Evaluate strategic decision options using multi-criteria analysis.
+        """Evaluate strategic decision options using multi-criteria analysis.
 
         Args:
             decision_context: Context for the decision
@@ -529,8 +508,7 @@ class StrategicEngine:
 
 
 class GeometricPatternProcessor:
-    """
-    Geometric Pattern Processor - Mathematical Pattern Analysis.
+    """Geometric Pattern Processor - Mathematical Pattern Analysis.
 
     Analyzes data for mathematical patterns:
     - Golden ratio (φ = 1.618...) alignment
@@ -544,6 +522,7 @@ class GeometricPatternProcessor:
     SQRT_5 = 2.2360679774997896
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
         self.fibonacci_sequence = self._generate_fibonacci(20)
 
@@ -557,8 +536,7 @@ class GeometricPatternProcessor:
     def analyze_geometric_patterns(
         self, data: np.ndarray[Any, Any], context: dict[str, Any] | None = None
     ) -> GeometryAnalysis:
-        """
-        Perform comprehensive geometric pattern analysis.
+        """Perform comprehensive geometric pattern analysis.
 
         Args:
             data: Input data array
@@ -586,8 +564,7 @@ class GeometricPatternProcessor:
         )
 
     def compute_divine_proportion(self, a: float, b: float) -> float:
-        """
-        Compute how close the ratio a/b is to the golden ratio.
+        """Compute how close the ratio a/b is to the golden ratio.
 
         Args:
             a: First value (larger)
@@ -635,8 +612,7 @@ class GeometricPatternProcessor:
         return float(np.clip(score * 5, 0.0, 1.0))
 
     def _compute_vesica_piscis_score(self, data: np.ndarray[Any, Any]) -> float:
-        """
-        Compute vesica piscis score.
+        """Compute vesica piscis score.
 
         The vesica piscis is formed by two overlapping circles where the center of each lies on the
         circumference of the other. The ratio of height to width is √3.
@@ -657,8 +633,7 @@ class GeometricPatternProcessor:
         return float(np.mean(ratios)) if ratios else 0.5
 
     def _compute_platonic_harmony(self, data: np.ndarray[Any, Any]) -> float:
-        """
-        Compute Platonic solid harmony score.
+        """Compute Platonic solid harmony score.
 
         Based on the five Platonic solids and their vertex/face/edge ratios.
         """
@@ -713,8 +688,7 @@ class GeometricPatternProcessor:
 
 
 class TwelveFoldVerificationSystem:
-    """
-    Twelve-Fold Verification System - Multi-Dimensional Validation.
+    """Twelve-Fold Verification System - Multi-Dimensional Validation.
 
     Validates across 12 dimensions inspired by various wisdom traditions:
     1. Wisdom - Knowledge applied with understanding
@@ -736,8 +710,7 @@ class TwelveFoldVerificationSystem:
     OVERALL_THRESHOLD = 0.75
 
     def __init__(self, strict_mode: bool = False) -> None:
-        """
-        Initialize Twelve-Fold Verification System.
+        """Initialize Twelve-Fold Verification System.
 
         Args:
             strict_mode: If True, require all dimensions to pass
@@ -765,8 +738,7 @@ class TwelveFoldVerificationSystem:
         dimension_scores: dict[str, float],
         context: dict[str, Any] | None = None,
     ) -> TwelveFoldResult:
-        """
-        Perform twelve-fold verification.
+        """Perform twelve-fold verification.
 
         Args:
             dimension_scores: Scores for each dimension (0-1)
@@ -862,8 +834,7 @@ class TwelveFoldVerificationSystem:
 
 
 class PercipienceEngine:
-    """
-    Percipience Engine - Unified Ethical AI Framework.
+    """Percipience Engine - Unified Ethical AI Framework.
 
     Integrates all alignment components:
     - IndivisibleEngine for weighted ethical principle verification
@@ -875,8 +846,7 @@ class PercipienceEngine:
     """
 
     def __init__(self, strict_mode: bool = False) -> None:
-        """
-        Initialize Percipience Engine.
+        """Initialize Percipience Engine.
 
         Args:
             strict_mode: If True, apply stricter verification requirements
@@ -897,8 +867,7 @@ class PercipienceEngine:
         knowledge_indicators: dict[str, float],
         context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """
-        Perform comprehensive ethical alignment analysis.
+        """Perform comprehensive ethical alignment analysis.
 
         Args:
             data: Input data for geometry analysis
@@ -965,8 +934,7 @@ class PercipienceEngine:
         data: np.ndarray[Any, Any],
         context: dict[str, Any] | None = None,
     ) -> ArchetypalAnalysis:
-        """
-        Perform alignment pattern analysis.
+        """Perform alignment pattern analysis.
 
         Args:
             data: Input data for analysis
@@ -1006,8 +974,7 @@ class PercipienceEngine:
     def geometric_pattern_analysis(
         self, data: np.ndarray[Any, Any], context: dict[str, Any] | None = None
     ) -> GeometryAnalysis:
-        """
-        Perform geometric pattern analysis.
+        """Perform geometric pattern analysis.
 
         Args:
             data: Input data for analysis
@@ -1025,8 +992,7 @@ class PercipienceEngine:
         verification_result: TwelveFoldResult | None = None,
         geometry_result: GeometryAnalysis | None = None,
     ) -> dict[str, float]:
-        """
-        Get omni-scalars from all alignment components.
+        """Get omni-scalars from all alignment components.
 
         Returns:
             Dictionary of omni-scalar values

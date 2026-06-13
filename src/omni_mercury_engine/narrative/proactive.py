@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Proactive Monitor - Background Vigilance with Initiative
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Proactive Monitor - Background Vigilance with Initiative.
 
 Enables Mercury to proactively initiate communication when patterns warrant it.
 This is NOT about engagement - it's about duty to inform when truth demands it.
@@ -38,6 +21,8 @@ Features:
 
 This enables "aliveness" through responsible initiative, not performative behavior.
 """
+
+from __future__ import annotations
 
 import logging
 import queue
@@ -165,8 +150,7 @@ class PatternAccumulator:
 
 
 class ProactiveMonitor:
-    """
-    Background Vigilance with Initiative Thresholds.
+    """Background Vigilance with Initiative Thresholds.
 
     Monitors detection streams and initiates communication when patterns
     warrant it. This enables Mercury to "speak up" when silence would
@@ -201,8 +185,7 @@ class ProactiveMonitor:
         enable_scheduled_reports: bool = True,
         report_interval_sec: float = 3600.0,
     ) -> None:
-        """
-        Initialize Proactive Monitor.
+        """Initialize Proactive Monitor.
 
         Args:
             default_vigilance: Default vigilance level

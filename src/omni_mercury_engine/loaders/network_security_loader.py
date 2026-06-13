@@ -1,22 +1,6 @@
-"""
-Mercury Agent
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
-
-Domain loader for network security data (CICIDS, NSL-KDD, UNSW-NB15).
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Domain loader for network security data (CICIDS, NSL-KDD, UNSW-NB15).
 
 Bridges the domain loader interface (BaseDomainLoader) to the existing
 dataset infrastructure in omni_mercury_engine.datasets.security so that
@@ -42,6 +26,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from omni_mercury_engine.datasets.security import NSLKDDLoader as _NSLKDDDataset
 from omni_mercury_engine.loaders.base import BaseDomainLoader
 
 logger = logging.getLogger(__name__)
@@ -87,56 +72,14 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
 }
 
 # ---------------------------------------------------------------------------
-# NSL-KDD column definitions (shared with datasets.security.NSLKDDLoader)
+# NSL-KDD column schema -- single source of truth is
+# ``datasets.security.NSLKDDLoader.COLUMN_NAMES`` (this loader bridges to that
+# dataset infrastructure).  Derived here so the two can never drift; the
+# previously-duplicated 43-column literal and the unused ``_NSLKDD_CATEGORICAL``
+# copy of ``NSLKDDLoader.CATEGORICAL_COLS`` are removed.
 # ---------------------------------------------------------------------------
 
-_NSLKDD_COLUMNS: list[str] = [
-    "duration",
-    "protocol_type",
-    "service",
-    "flag",
-    "src_bytes",
-    "dst_bytes",
-    "land",
-    "wrong_fragment",
-    "urgent",
-    "hot",
-    "num_failed_logins",
-    "logged_in",
-    "num_compromised",
-    "root_shell",
-    "su_attempted",
-    "num_root",
-    "num_file_creations",
-    "num_shells",
-    "num_access_files",
-    "num_outbound_cmds",
-    "is_host_login",
-    "is_guest_login",
-    "count",
-    "srv_count",
-    "serror_rate",
-    "srv_serror_rate",
-    "rerror_rate",
-    "srv_rerror_rate",
-    "same_srv_rate",
-    "diff_srv_rate",
-    "srv_diff_host_rate",
-    "dst_host_count",
-    "dst_host_srv_count",
-    "dst_host_same_srv_rate",
-    "dst_host_diff_srv_rate",
-    "dst_host_same_src_port_rate",
-    "dst_host_srv_diff_host_rate",
-    "dst_host_serror_rate",
-    "dst_host_srv_serror_rate",
-    "dst_host_rerror_rate",
-    "dst_host_srv_rerror_rate",
-    "label",
-    "difficulty",
-]
-
-_NSLKDD_CATEGORICAL: list[str] = ["protocol_type", "service", "flag"]
+_NSLKDD_COLUMNS: list[str] = _NSLKDDDataset.COLUMN_NAMES
 
 # ---------------------------------------------------------------------------
 # UNSW-NB15 column definitions
@@ -191,8 +134,7 @@ _UNSWNB15_FEATURE_COLS: list[str] = [
 
 
 class NetworkSecurityLoader(BaseDomainLoader):
-    """
-    Domain loader for network security intrusion detection datasets.
+    """Domain loader for network security intrusion detection datasets.
 
     Wraps the existing dataset infrastructure in
     :mod:`omni_mercury_engine.datasets.security` and
@@ -260,8 +202,7 @@ class NetworkSecurityLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     def fetch_realtime(self) -> pd.DataFrame:
-        """
-        Fetch the most recent network security data.
+        """Fetch the most recent network security data.
 
         Because intrusion detection benchmark datasets are static, this
         method returns the NSL-KDD test set as a representative sample
@@ -337,8 +278,7 @@ class NetworkSecurityLoader(BaseDomainLoader):
         return df
 
     def list_events(self) -> list[dict[str, Any]]:
-        """
-        Return the catalog of available network security benchmark events.
+        """Return the catalog of available network security benchmark events.
 
         Returns:
             List of dicts, each containing ``event_id``, ``name``,
@@ -409,8 +349,7 @@ class NetworkSecurityLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray[Any, Any]:
-        """
-        Transform raw network data into a feature matrix.
+        """Transform raw network data into a feature matrix.
 
         Feature engineering depends on the source dataset:
 
@@ -491,8 +430,7 @@ class NetworkSecurityLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     def _load_labels_from_dataset(self, event_id: str) -> np.ndarray[Any, Any] | None:
-        """
-        Load binary labels from existing dataset loaders.
+        """Load binary labels from existing dataset loaders.
 
         Attempts to import and use the existing ``NSLKDDLoader``,
         ``CICIDSLoader``, or ``BATADALLoader`` from the datasets
@@ -548,8 +486,7 @@ class NetworkSecurityLoader(BaseDomainLoader):
         return None
 
     def _load_nslkdd_dataframe(self) -> pd.DataFrame:
-        """
-        Load NSL-KDD data as a DataFrame.
+        """Load NSL-KDD data as a DataFrame.
 
         Tries the existing ``NSLKDDLoader`` first, then falls back to
         direct HTTP download from the GitHub mirror.
@@ -598,8 +535,7 @@ class NetworkSecurityLoader(BaseDomainLoader):
         return self._download_nslkdd_direct()
 
     def _download_nslkdd_direct(self) -> pd.DataFrame:
-        """
-        Download NSL-KDD directly from GitHub mirror.
+        """Download NSL-KDD directly from GitHub mirror.
 
         Returns:
             DataFrame with NSL-KDD columns and a binary ``label`` column.
@@ -631,8 +567,7 @@ class NetworkSecurityLoader(BaseDomainLoader):
         return df
 
     def _load_cicids_dataframe(self) -> pd.DataFrame:
-        """
-        Load CICIDS 2017 data as a DataFrame.
+        """Load CICIDS 2017 data as a DataFrame.
 
         Tries the existing ``CICIDSLoader`` first, then falls back to a
         minimal feature matrix built from the loader's cache.
@@ -675,8 +610,7 @@ class NetworkSecurityLoader(BaseDomainLoader):
             ) from exc
 
     def _load_batadal_dataframe(self) -> pd.DataFrame:
-        """
-        Load BATADAL data as a DataFrame.
+        """Load BATADAL data as a DataFrame.
 
         Tries the existing ``BATADALLoader`` first, then falls back to
         direct CSV download from batadal.net.
@@ -716,8 +650,7 @@ class NetworkSecurityLoader(BaseDomainLoader):
         return self._download_batadal_direct()
 
     def _download_batadal_direct(self) -> pd.DataFrame:
-        """
-        Download BATADAL dataset directly from batadal.net.
+        """Download BATADAL dataset directly from batadal.net.
 
         Downloads both training (no attacks) and test (with attack
         labels) CSV files, concatenates them, and returns a unified

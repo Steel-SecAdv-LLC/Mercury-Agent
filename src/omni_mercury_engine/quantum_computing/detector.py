@@ -1,5 +1,6 @@
-"""
-Quantum Anomaly Detection for Mercury Agent.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Quantum Anomaly Detection for Mercury Agent.
 
 High-level interface for quantum-enhanced anomaly detection.
 """
@@ -57,8 +58,7 @@ class QuantumResourceEstimate:
 
 
 class QuantumAnomalyDetector:
-    """
-    Quantum-enhanced anomaly detection.
+    """Quantum-enhanced anomaly detection.
 
     Provides multiple quantum methods for anomaly detection with
     automatic fallback to classical methods when quantum hardware
@@ -94,8 +94,7 @@ class QuantumAnomalyDetector:
         optimization_level: int = 3,
         api_token: str | None = None,
     ) -> None:
-        """
-        Initialize the quantum anomaly detector.
+        """Initialize the quantum anomaly detector.
 
         Args:
             backend: Quantum backend name
@@ -130,8 +129,7 @@ class QuantumAnomalyDetector:
         num_qubits: int | None = None,
         **kwargs: Any,
     ) -> QuantumAnomalyDetector:
-        """
-        Train the quantum anomaly detector.
+        """Train the quantum anomaly detector.
 
         Args:
             X_train: Training data (for unsupervised: normal samples)
@@ -167,8 +165,7 @@ class QuantumAnomalyDetector:
         classical_fallback: bool = True,
         threshold: float | None = None,
     ) -> QuantumDetectionResult:
-        """
-        Detect anomalies in data.
+        """Detect anomalies in data.
 
         Args:
             data: Data to analyze
@@ -229,8 +226,7 @@ class QuantumAnomalyDetector:
         data_shape: tuple[int, ...],
         method: str = "vqe_anomaly",
     ) -> QuantumResourceEstimate:
-        """
-        Estimate quantum resources required for detection.
+        """Estimate quantum resources required for detection.
 
         Args:
             data_shape: Shape of input data
@@ -379,8 +375,7 @@ class QuantumAnomalyDetector:
         return self._trained_model.score(X)
 
     def _detect_amplitude_estimation(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Detect using amplitude estimation.
+        """Detect using amplitude estimation.
 
         Estimates the amplitude of anomalous states.
         """

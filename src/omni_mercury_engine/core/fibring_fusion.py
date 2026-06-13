@@ -1,11 +1,6 @@
-"""Mercury Agent - Fibring Fusion Composer.
-
-Copyright (C) 2026 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Fibring Fusion Composer.
 
 Fibring Fusion: hierarchical composition of three primitives that already
 exist in Mercury but were never named as a single mode:
@@ -113,6 +108,7 @@ class FibringComposer:
         redundancy_threshold: float = REDUNDANCY_THRESHOLD,
         min_samples_for_decorrelation: int = MIN_SAMPLES_FOR_DECORRELATION,
     ) -> None:
+        """Initialize the instance."""
         if window_size < 2:
             raise ValueError(f"window_size must be >= 2, got {window_size}")
         if not 0.0 < redundancy_threshold <= 1.0:

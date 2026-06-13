@@ -1,14 +1,7 @@
 #!/usr/bin/env python3
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-A/B Benchmark: Sigma Immutable Threshold Comparison
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""A/B Benchmark: Sigma Immutable Threshold Comparison.
 
 Compares detection performance between sigma_immutable=0.93 (medical fallback)
 and sigma_immutable=0.96 (default) across 300 epochs of training.
@@ -57,7 +50,6 @@ import importlib.util
 HAS_TORCH = importlib.util.find_spec("torch") is not None
 if not HAS_TORCH:
     logger.warning("PyTorch not available - using simulation mode")
-
 
 # Constants
 PHI = 1.618033988749895

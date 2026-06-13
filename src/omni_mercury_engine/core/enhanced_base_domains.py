@@ -1,12 +1,6 @@
-"""
-Mercury Agent - Enhanced Base Domain Detectors
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Enhanced Base Domain Detectors.
 
 Enhancements to base domain detectors:
 - Adaptive thresholds using Otsu's method and Bayesian optimization
@@ -70,8 +64,7 @@ class DomainMetrics:
 
 
 class AdaptiveThresholdOptimizer:
-    """
-    Adaptive threshold optimization using multiple methods.
+    """Adaptive threshold optimization using multiple methods.
 
     Methods:
     - Otsu's method (histogram-based)
@@ -86,8 +79,7 @@ class AdaptiveThresholdOptimizer:
         percentile: float = 95.0,
         n_bins: int = 256,
     ):
-        """
-        Initialize adaptive threshold optimizer.
+        """Initialize adaptive threshold optimizer.
 
         Args:
             method: Threshold method ("otsu", "percentile", "bayesian", "f1_max")
@@ -103,8 +95,7 @@ class AdaptiveThresholdOptimizer:
         scores: np.ndarray[Any, Any],
         labels: np.ndarray[Any, Any] | None = None,
     ) -> AdaptiveThresholdResult:
-        """
-        Compute adaptive threshold for anomaly scores.
+        """Compute adaptive threshold for anomaly scores.
 
         Args:
             scores: Anomaly scores (higher = more anomalous)
@@ -125,8 +116,7 @@ class AdaptiveThresholdOptimizer:
             return self._percentile_threshold(scores)
 
     def _otsu_threshold(self, scores: np.ndarray[Any, Any]) -> AdaptiveThresholdResult:
-        """
-        Compute threshold using Otsu's method.
+        """Compute threshold using Otsu's method.
 
         Otsu's method finds the threshold that minimizes within-class variance, effectively
         separating normal from anomalous samples.
@@ -197,8 +187,7 @@ class AdaptiveThresholdOptimizer:
         scores: np.ndarray[Any, Any],
         labels: np.ndarray[Any, Any] | None = None,
     ) -> AdaptiveThresholdResult:
-        """
-        Compute threshold using Bayesian estimation.
+        """Compute threshold using Bayesian estimation.
 
         Assumes scores come from a mixture of two distributions (normal/anomaly).
         """
@@ -295,16 +284,14 @@ class AdaptiveThresholdOptimizer:
 
 
 class EventBasedMetrics:
-    """
-    Event-based metrics for time-series anomaly detection.
+    """Event-based metrics for time-series anomaly detection.
 
     Evaluates detection at the event level rather than point level, more appropriate for real-world
     applications where contiguous anomalous segments matter.
     """
 
     def __init__(self, tolerance: int = 0, min_event_length: int = 1):
-        """
-        Initialize event-based metrics.
+        """Initialize event-based metrics.
 
         Args:
             tolerance: Points of tolerance for event matching
@@ -314,8 +301,7 @@ class EventBasedMetrics:
         self.min_event_length = min_event_length
 
     def extract_events(self, labels: np.ndarray[Any, Any]) -> list[tuple[int, int]]:
-        """
-        Extract contiguous events from binary labels.
+        """Extract contiguous events from binary labels.
 
         Args:
             labels: Binary array (0=normal, 1=anomaly)
@@ -346,8 +332,7 @@ class EventBasedMetrics:
         y_true: np.ndarray[Any, Any],
         y_pred: np.ndarray[Any, Any],
     ) -> float:
-        """
-        Compute average time-to-detection for anomaly events.
+        """Compute average time-to-detection for anomaly events.
 
         Measures how quickly after an anomaly starts it is detected.
 
@@ -383,8 +368,7 @@ class EventBasedMetrics:
         y_true: np.ndarray[Any, Any],
         y_pred: np.ndarray[Any, Any],
     ) -> dict[str, float]:
-        """
-        Compute comprehensive event-based metrics.
+        """Compute comprehensive event-based metrics.
 
         Args:
             y_true: Ground truth binary labels
@@ -440,15 +424,13 @@ class EventBasedMetrics:
 
 
 class SpatialAutocorrelation:
-    """
-    Spatial autocorrelation metrics for graph and spatial domains.
+    """Spatial autocorrelation metrics for graph and spatial domains.
 
     Implements Moran's I and Geary's C for measuring spatial clustering.
     """
 
     def __init__(self, normalize: bool = True):
-        """
-        Initialize spatial autocorrelation calculator.
+        """Initialize spatial autocorrelation calculator.
 
         Args:
             normalize: Whether to normalize the metric
@@ -460,8 +442,7 @@ class SpatialAutocorrelation:
         values: np.ndarray[Any, Any],
         weights: np.ndarray[Any, Any],
     ) -> tuple[float, float, float]:
-        """
-        Compute Moran's I statistic for spatial autocorrelation.
+        """Compute Moran's I statistic for spatial autocorrelation.
 
         Moran's I measures overall spatial autocorrelation:
         - I > 0: Positive autocorrelation (clustering)
@@ -517,8 +498,7 @@ class SpatialAutocorrelation:
         values: np.ndarray[Any, Any],
         weights: np.ndarray[Any, Any],
     ) -> float:
-        """
-        Compute Geary's C statistic.
+        """Compute Geary's C statistic.
 
         Geary's C focuses on local differences:
         - C < 1: Positive autocorrelation
@@ -550,16 +530,14 @@ class SpatialAutocorrelation:
 
 
 class ParallelDetectorExecutor:
-    """
-    Parallel execution of multiple detectors for efficiency.
+    """Parallel execution of multiple detectors for efficiency.
 
     Uses ThreadPoolExecutor to run detectors concurrently, reducing latency for multi-detector
     fusion.
     """
 
     def __init__(self, max_workers: int = 4, timeout: float = 30.0):
-        """
-        Initialize parallel executor.
+        """Initialize parallel executor.
 
         Args:
             max_workers: Maximum number of parallel workers
@@ -574,8 +552,7 @@ class ParallelDetectorExecutor:
         data: np.ndarray[Any, Any],
         method: str = "detect",
     ) -> dict[str, Any]:
-        """
-        Execute multiple detectors in parallel.
+        """Execute multiple detectors in parallel.
 
         Args:
             detectors: Dictionary of detector name to detector instance
@@ -607,8 +584,7 @@ class ParallelDetectorExecutor:
 
 
 class EnhancedBaseDetector:
-    """
-    Enhanced base detector with adaptive thresholds and domain metrics.
+    """Enhanced base detector with adaptive thresholds and domain metrics.
 
     Wraps existing detectors with:
     - Adaptive threshold optimization
@@ -626,8 +602,7 @@ class EnhancedBaseDetector:
         use_calibration: bool = True,
         benevolence_weight: float = 0.1,
     ):
-        """
-        Initialize enhanced detector.
+        """Initialize enhanced detector.
 
         Args:
             base_detector: Underlying detector instance
@@ -658,8 +633,7 @@ class EnhancedBaseDetector:
         X: np.ndarray[Any, Any],
         y: np.ndarray[Any, Any] | None = None,
     ) -> EnhancedBaseDetector:
-        """
-        Fit enhanced detector.
+        """Fit enhanced detector.
 
         Args:
             X: Training data
@@ -694,8 +668,7 @@ class EnhancedBaseDetector:
         X: np.ndarray[Any, Any],
         return_metrics: bool = False,
     ) -> dict[str, Any]:
-        """
-        Detect anomalies with enhanced features.
+        """Detect anomalies with enhanced features.
 
         Args:
             X: Input data
@@ -815,8 +788,7 @@ def create_enhanced_detector(
     config: dict[str, Any] | None = None,
     **enhancement_kwargs: Any,
 ) -> EnhancedBaseDetector:
-    """
-    Factory function to create enhanced detector.
+    """Factory function to create enhanced detector.
 
     Args:
         detector_class: Base detector class

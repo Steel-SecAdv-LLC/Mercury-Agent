@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Data Module — deprecation shim for ``omni_mercury_engine.datasets``.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Data Module — deprecation shim for ``omni_mercury_engine.datasets``.
 
 Historical legacy: prior versions exposed every symbol from
 ``datasets`` (via ``from … import *``).  That wildcard re-export
@@ -42,6 +25,8 @@ Deprecated:
     Import from ``omni_mercury_engine.datasets`` instead.  This shim
     will be removed in a future major release.
 """
+
+from __future__ import annotations
 
 import warnings
 from typing import Any

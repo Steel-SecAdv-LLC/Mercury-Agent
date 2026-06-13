@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-HCIS-Inspired Hive-Structured Firewall for Anomaly Blocking
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""HCIS-Inspired Hive-Structured Firewall for Anomaly Blocking.
 
 Implements a hierarchical, distributed firewall inspired by HCIS (Hierarchical
 Cognitive Immune System) principles with hive-like collaborative defense.
@@ -30,6 +13,8 @@ Architecture:
 Reference: Immune system-inspired computing architectures
 MIT-compatible implementation.
 """
+
+from __future__ import annotations
 
 import hashlib
 from collections import defaultdict
@@ -65,8 +50,7 @@ class ThreatBlocking:
 
 
 class HiveFirewall:
-    """
-    HCIS-inspired hive-structured firewall.
+    """HCIS-inspired hive-structured firewall.
 
     Implements distributed, collaborative anomaly blocking with:
     - O(1) lookup efficiency via hash-based blocking
@@ -82,8 +66,7 @@ class HiveFirewall:
         consensus_threshold: float = 0.6,
         trust_decay: float = 0.95,
     ):
-        """
-        Initialize hive firewall.
+        """Initialize hive firewall.
 
         Args:
             num_worker_nodes: Number of worker detection nodes
@@ -119,8 +102,7 @@ class HiveFirewall:
         return hashlib.sha3_256(data_bytes).hexdigest()[:16]
 
     def is_blocked(self, data: np.ndarray[Any, Any]) -> tuple[bool, ThreatBlocking | None]:
-        """
-        Check if data matches blocked threat signature (O(1) lookup).
+        """Check if data matches blocked threat signature (O(1) lookup).
 
         Args:
             data: Input data to check
@@ -140,8 +122,7 @@ class HiveFirewall:
         return False, None
 
     def detect_and_block(self, data: np.ndarray[Any, Any], anomaly_score: float) -> ThreatBlocking:
-        """
-        Hierarchical threat detection and blocking decision.
+        """Hierarchical threat detection and blocking decision.
 
         Process:
         1. Workers detect anomaly
@@ -182,8 +163,7 @@ class HiveFirewall:
         return threat_block
 
     def _worker_consensus(self, anomaly_score: float) -> dict[str, Any]:
-        """
-        Worker nodes vote on threat.
+        """Worker nodes vote on threat.
 
         Args:
             anomaly_score: Anomaly score
@@ -211,8 +191,7 @@ class HiveFirewall:
         }
 
     def _supervisor_consensus(self, worker_results: dict[str, Any]) -> dict[str, Any]:
-        """
-        Supervisor nodes aggregate worker decisions.
+        """Supervisor nodes aggregate worker decisions.
 
         Args:
             worker_results: Results from worker consensus
@@ -244,8 +223,7 @@ class HiveFirewall:
         }
 
     def _queen_decision(self, supervisor_results: dict[str, Any], anomaly_score: float) -> bool:
-        """
-        Queen node makes final blocking decision.
+        """Queen node makes final blocking decision.
 
         Args:
             supervisor_results: Results from supervisor consensus
@@ -268,8 +246,7 @@ class HiveFirewall:
         return block
 
     def allow_pattern(self, data: np.ndarray[Any, Any]) -> None:
-        """
-        Whitelist a pattern (add to allowed patterns).
+        """Whitelist a pattern (add to allowed patterns).
 
         Args:
             data: Data pattern to allow
@@ -281,8 +258,7 @@ class HiveFirewall:
             del self.blocked_threats[signature]
 
     def report_false_positive(self, data: np.ndarray[Any, Any]) -> None:
-        """
-        Report false positive and update trust scores.
+        """Report false positive and update trust scores.
 
         Args:
             data: Data that was incorrectly blocked
@@ -302,8 +278,7 @@ class HiveFirewall:
             supervisor.trust_score *= self.trust_decay
 
     def update_node_trust(self, node_id: str, success: bool) -> None:
-        """
-        Update trust score for specific node.
+        """Update trust score for specific node.
 
         Args:
             node_id: Node identifier

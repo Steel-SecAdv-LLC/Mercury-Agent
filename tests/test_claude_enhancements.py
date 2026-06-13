@@ -1,13 +1,6 @@
-from typing import Any
-
-"""
-Mercury Agent - Property-Based Tests for Caduceus ⚚ Enhancements
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Property-Based Tests for Caduceus ⚚ Enhancements.
 
 Property-based tests using Hypothesis for:
 - Rigorous benchmark harness
@@ -19,6 +12,8 @@ Property-based tests using Hypothesis for:
 These tests verify mathematical invariants and edge cases that
 unit tests might miss.
 """
+
+from typing import Any
 
 # Import modules to test
 import pytest

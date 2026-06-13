@@ -1,7 +1,6 @@
-"""
-Mercury Agent - 3R Mechanism Fusion
-
-Copyright (C) 2025 Steel Security Advisors LLC
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""3R Mechanism Fusion.
 
 Omni-Ava Equation (OAE) implementation for unified precision scoring.
 """
@@ -27,20 +26,22 @@ from omni_mercury_engine.core.three_r.types import (
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
-
 logger = logging.getLogger(__name__)
 
 
 class OmniAvaEquation:
-    """
-    Omni-Ava Equation (OAE) for unified precision scoring in 3R mechanism.
+    """Omni-Ava Equation (OAE) for unified precision scoring in 3R mechanism.
 
     Implements the mathematical framework:
     A = (w_R * R(x) + w_H * H(omega) + w_O * O(theta)) * η_Ethical^Φ
 
     This equation provides:
     1. Mathematical superiority over baselines
-    2. Lyapunov stability guarantee: V(S_t) <= epsilon * e^(-0.25t)
+    2. A Lyapunov-style decay *schedule* (reference envelope)
+       epsilon * e^(-0.25t) — a design target the system *monitors*, NOT a
+       proven guarantee on the fusion-score trajectory V(S_t).
+       ``verify_lyapunov_stability`` measures whether recent scores actually
+       contract.
     3. Ethical gating via η_Ethical^Φ scaling
     4. Harmonic synergy through golden ratio (Φ) weighting
 
@@ -63,9 +64,9 @@ class OmniAvaEquation:
         lambda_lyapunov: float | None = None,
         domain: str = "default",
         ethical_exponent: float | None = None,
+        decouple_ethical_scaling: bool = False,
     ):
-        """
-        Initialize Omni-Ava Equation.
+        """Initialize Omni-Ava Equation.
 
         The OAE computes:
             A = (w_R·R(x) + w_H·H(ω) + w_O·O(θ)) · η(b)^p
@@ -83,6 +84,10 @@ class OmniAvaEquation:
             domain: Domain name for sigmoid benevolence profile selection.
             ethical_exponent: Exponent for ethical scaling. Defaults to Φ (1.618).
                 Set to None to use golden ratio. Override for empirical optimization.
+            decouple_ethical_scaling: Opt-in (default False). When True, remove the
+                soft η^Φ multiplier from the fused-score path (R6) so a proper-scored
+                monotone calibrator can own the probability; the two fail-closed hard
+                ethics gates remain the enforcement.
         """
         if sigma_immutable is not None:
             ethical_compliance_threshold = sigma_immutable
@@ -123,6 +128,14 @@ class OmniAvaEquation:
         self.ethical_exponent = (
             ethical_exponent if ethical_exponent is not None else self.golden_ratio
         )
+
+        # R6 (opt-in, DEFAULT-OFF): decouple the soft eta^Phi multiplier from the
+        # score path so a proper-scored monotone calibrator (MCA) can own the
+        # probability. Ethics enforcement is UNCHANGED -- the two fail-closed hard
+        # gates (BenevolenceScorer floor 0.70, sigma_Immutable) remain dominant;
+        # only the soft in-score multiplier is removed when this is True. Default
+        # False -> fused score byte-identical.
+        self.decouple_ethical_scaling = bool(decouple_ethical_scaling)
 
         # Backward-compatible aliases
         self.sigma_immutable = self.ethical_compliance_threshold
@@ -170,8 +183,7 @@ class OmniAvaEquation:
         sigma_immutable_override: float | None = None,
         benevolence_score: float | None = None,
     ) -> AnomalyFusionResult:
-        """
-        Compute Omni-Ava Equation score.
+        """Compute Omni-Ava Equation score.
 
         A = (w_R·R(x) + w_H·H(ω) + w_O·O(θ)) · η^p
 
@@ -232,12 +244,18 @@ class OmniAvaEquation:
             + self.weights["w_O"] * optimization_score
         )
 
-        # Use configurable exponent (default Φ) instead of hardcoded golden_ratio
-        ethical_scaling = eta**self.ethical_exponent
+        # Use configurable exponent (default Φ) instead of hardcoded golden_ratio.
+        # R6: when decoupled (opt-in), the soft eta^Phi multiplier is removed from
+        # the score path (scaling = 1.0) so MCA can own the probability; eta is
+        # still reported for the hard gates, which remain the enforcement (I1).
+        ethical_scaling = 1.0 if self.decouple_ethical_scaling else eta**self.ethical_exponent
         fusion_score = weighted_sum * ethical_scaling
 
         self.time_step += 1
         epsilon = 1.0
+        # Decay-schedule reference envelope (target), NOT a measured/guaranteed
+        # bound on the fusion-score trajectory.  verify_lyapunov_stability()
+        # measures whether the recent scores actually contract.
         lyapunov_bound = epsilon * np.exp(-self.convergence_rate_param * self.time_step)
 
         self.convergence_history.append(fusion_score)
@@ -258,8 +276,7 @@ class OmniAvaEquation:
         attention_weights: NDArray[Any],
         learning_rate: float = 0.01,
     ) -> None:
-        """
-        Update weights via attention fusion.
+        """Update weights via attention fusion.
 
         Args:
             attention_weights: Attention scores [w_R, w_H, w_O]
@@ -278,22 +295,29 @@ class OmniAvaEquation:
         self.weights = {k: v / total for k, v in self.weights.items()}
 
     def verify_lyapunov_stability(self, window_size: int = 10) -> tuple[bool, float]:
-        """
-        Verify Lyapunov stability condition.
+        """Monitor recent score-trajectory contraction (NOT a guarantee).
+
+        Estimates the empirical decay rate from the variance ratio of recent vs.
+        initial fusion scores and reports whether the observed trajectory is
+        actually contracting.  This is a *measured* property of the scores, not
+        a proof that the decay schedule ``epsilon * e^(-lambda t)`` holds.  With
+        insufficient history it returns ``is_stable=False`` rather than asserting
+        stability that has not been measured.
 
         Args:
             window_size: Number of recent samples to analyze
 
         Returns:
-            Tuple of (is_stable, estimated_decay_rate)
+            Tuple of (is_stable, estimated_decay_rate), where ``is_stable`` is
+            ``True`` only when a positive contraction rate was actually measured.
         """
         if len(self.convergence_history) < window_size:
-            return True, self.lambda_lyapunov
+            return False, self.lambda_lyapunov
 
         recent = np.array(self.convergence_history[-window_size:])
 
         if len(recent) < 2:
-            return True, self.lambda_lyapunov
+            return False, self.lambda_lyapunov
 
         variance = np.var(recent)
         initial_variance = np.var(
@@ -309,13 +333,12 @@ class OmniAvaEquation:
         else:
             estimated_lambda = self.lambda_lyapunov
 
-        is_stable = estimated_lambda > 0
+        is_stable = bool(estimated_lambda > 0)
         return is_stable, float(estimated_lambda)
 
 
 class OAEWeightOptimizer:
-    """
-    Optimizer for OAE weights using gradient-based methods.
+    """Optimizer for OAE weights using gradient-based methods.
 
     Learns optimal weights (w_R, w_H, w_O) to maximize anomaly detection performance while
     maintaining ethical constraints.
@@ -327,8 +350,7 @@ class OAEWeightOptimizer:
         momentum: float = 0.9,
         weight_decay: float = 1e-4,
     ):
-        """
-        Initialize weight optimizer.
+        """Initialize weight optimizer.
 
         Args:
             learning_rate: Learning rate for weight updates
@@ -350,8 +372,7 @@ class OAEWeightOptimizer:
         initial_weights: NDArray[Any] | None = None,
         max_iterations: int = 100,
     ) -> NDArray[Any]:
-        """
-        Optimize OAE weights to minimize prediction error.
+        """Optimize OAE weights to minimize prediction error.
 
         Args:
             scores: List of (R, H, O) score tuples
@@ -364,8 +385,8 @@ class OAEWeightOptimizer:
         """
         if initial_weights is None:
             phi = GOLDEN_RATIO_CONSTANT
-            phi_sum = phi + 1.0 + 1.0 / phi
-            initial_weights = np.array([phi / phi_sum, 1.0 / phi_sum, (1.0 / phi) / phi_sum])
+            phi_sum = phi + 2.0  # canonical PHI:1:1 (matches OmniAvaEquation default)
+            initial_weights = np.array([phi / phi_sum, 1.0 / phi_sum, 1.0 / phi_sum])
 
         scores_arr = np.array(scores)
         targets_arr = np.array(targets)
@@ -392,8 +413,7 @@ class OAEWeightOptimizer:
         return self.optimized_weights
 
     def get_optimized_fusion(self) -> OmniAvaEquation | None:
-        """
-        Get OmniAvaEquation with optimized weights.
+        """Get OmniAvaEquation with optimized weights.
 
         Returns:
             Configured OmniAvaEquation or None if not optimized
@@ -411,8 +431,7 @@ class OAEWeightOptimizer:
 
 
 class DomainAdaptiveOAEWeights:
-    """
-    Domain-adaptive weight profiles for the OAE equation.
+    """Domain-adaptive weight profiles for the OAE equation.
 
     When cross-domain weight variance exceeds a threshold (default 10%),
     this class maintains per-domain weight profiles learned from empirical
@@ -427,11 +446,11 @@ class DomainAdaptiveOAEWeights:
     def __init__(self) -> None:
         """Initialize with empty domain profiles."""
         phi = GOLDEN_RATIO_CONSTANT
-        phi_sum = phi + 1.0 + 1.0 / phi
+        phi_sum = phi + 2.0  # canonical PHI:1:1 (matches OmniAvaEquation default)
         self._default_weights = {
             "w_R": phi / phi_sum,
             "w_H": 1.0 / phi_sum,
-            "w_O": (1.0 / phi) / phi_sum,
+            "w_O": 1.0 / phi_sum,
         }
         self._domain_profiles: dict[str, dict[str, float]] = {}
         self._domain_scores: dict[str, list[tuple[float, float, float, float]]] = {}
@@ -444,8 +463,7 @@ class DomainAdaptiveOAEWeights:
         o_score: float,
         target: float,
     ) -> None:
-        """
-        Record an observation for domain-specific weight learning.
+        """Record an observation for domain-specific weight learning.
 
         Args:
             domain: Domain identifier (e.g. "medical", "security").
@@ -460,8 +478,7 @@ class DomainAdaptiveOAEWeights:
         self._domain_scores[key].append((r_score, h_score, o_score, target))
 
     def fit_domain_profiles(self, min_samples: int = 30) -> dict[str, dict[str, float]]:
-        """
-        Fit per-domain weight profiles from recorded observations.
+        """Fit per-domain weight profiles from recorded observations.
 
         Only creates a domain-specific profile when enough data exists.
         Returns the mapping of domain -> weight dict.
@@ -508,8 +525,7 @@ class DomainAdaptiveOAEWeights:
         return dict(self._domain_profiles)
 
     def get_weights(self, domain: str) -> dict[str, float]:
-        """
-        Get weights for a specific domain.
+        """Get weights for a specific domain.
 
         Returns domain-specific profile if available, otherwise defaults.
 
@@ -555,8 +571,7 @@ class BanachRecursion:
         max_depth: int = RECURSION.MAX_DEPTH,
         convergence_tolerance: float = RECURSION.CONVERGENCE_TOLERANCE,
     ):
-        """
-        Initialize convergence-bounded recursion.
+        """Initialize convergence-bounded recursion.
 
         Args:
             alpha_raw: Raw contraction parameter (before sigmoid constraint).
@@ -596,8 +611,7 @@ class BanachRecursion:
             return float(z / (1.0 + z))
 
     def set_alpha(self, alpha_raw: float) -> float:
-        """
-        Set contraction factor from raw value via sigmoid constraint.
+        """Set contraction factor from raw value via sigmoid constraint.
 
         Args:
             alpha_raw: Unconstrained parameter.
@@ -609,8 +623,7 @@ class BanachRecursion:
         return self.alpha
 
     def compute_error_bound(self, x0_norm: float, depth: int | None = None) -> float:
-        """
-        Compute theoretical error bound after d iterations.
+        """Compute theoretical error bound after d iterations.
 
         Error bound: err ≤ α^d · ‖x₀ - R(x₀)‖ / (1 - α)
 

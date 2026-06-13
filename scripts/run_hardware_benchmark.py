@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Deterministic hardware micro-benchmark for the Lyapunov validator pipeline.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+r"""Deterministic hardware micro-benchmark for the Lyapunov validator pipeline.
 
 This harness is intentionally small and self-contained.  It exists so
 that performance numbers cited anywhere in the documentation can be

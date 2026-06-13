@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Guard: governance scalars never perturb the σ_Immutable operational vector.
 
 This is the durable safety rail for the whole governance upgrade. It registers *every*

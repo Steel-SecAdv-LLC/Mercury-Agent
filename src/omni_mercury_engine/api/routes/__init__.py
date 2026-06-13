@@ -1,5 +1,6 @@
-"""
-Mercury Agent API Routes Package.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Mercury Agent API Routes Package.
 
 Provides modular API route organization:
 - detection: Anomaly detection endpoints

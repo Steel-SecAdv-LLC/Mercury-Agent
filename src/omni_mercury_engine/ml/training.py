@@ -1,25 +1,8 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Training utilities for fusion model using PyTorch Lightning Enhanced with Ava Equation state evolution optimizers."""
 
 from __future__ import annotations
-
-"""
-Training utilities for fusion model using PyTorch Lightning
-Enhanced with Ava Equation state evolution optimizers
-"""
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -40,7 +23,6 @@ try:
 except ImportError:
     HAS_PYTORCH_LIGHTNING = False
     pl = None  # type: ignore[assignment, unused-ignore]
-
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -67,8 +49,7 @@ __all__ = [
 
 @dataclass
 class TrainingConfig:
-    """
-    Configuration for model training.
+    """Configuration for model training.
 
     Validates parameters and provides sensible defaults for training loops.
     """
@@ -84,6 +65,7 @@ class TrainingConfig:
     early_stopping_patience: int | None = None
 
     def __post_init__(self) -> None:
+        """Finalize dataclass initialization."""
         if self.learning_rate <= 0:
             raise ValueError("learning_rate must be positive")
         if self.batch_size <= 0:
@@ -93,16 +75,14 @@ class TrainingConfig:
 
 
 class EarlyStopping:
-    """
-    Early stopping callback to prevent overfitting.
+    """Early stopping callback to prevent overfitting.
 
     Monitors a metric and stops training when no improvement is seen for a specified number of
     epochs (patience).
     """
 
     def __init__(self, patience: int = 5, min_delta: float = 0.0, mode: str = "min") -> None:
-        """
-        Initialize early stopping.
+        """Initialize early stopping.
 
         Args:
             patience: Number of epochs to wait for improvement
@@ -117,8 +97,7 @@ class EarlyStopping:
         self.early_stop = False
 
     def __call__(self, metric: float) -> bool:
-        """
-        Check if training should stop.
+        """Check if training should stop.
 
         Args:
             metric: Current metric value to evaluate
@@ -142,8 +121,7 @@ class EarlyStopping:
 
 
 class LearningRateScheduler:
-    """
-    Wrapper for PyTorch learning rate schedulers.
+    """Wrapper for PyTorch learning rate schedulers.
 
     Provides a unified interface for different scheduler types including step decay and cosine
     annealing.
@@ -159,8 +137,7 @@ class LearningRateScheduler:
         eta_min: float = 0.0,
         **kwargs: Any,
     ):
-        """
-        Initialize learning rate scheduler.
+        """Initialize learning rate scheduler.
 
         Args:
             optimizer: PyTorch optimizer to schedule
@@ -190,8 +167,7 @@ class LearningRateScheduler:
             raise ValueError(f"Unknown scheduler mode: {mode}")
 
     def step(self, metric: float | None = None) -> None:
-        """
-        Advance the scheduler by one step.
+        """Advance the scheduler by one step.
 
         Args:
             metric: Metric value for plateau scheduler
@@ -208,8 +184,7 @@ class LearningRateScheduler:
 
 
 class Trainer:
-    """
-    General-purpose trainer for PyTorch models.
+    """General-purpose trainer for PyTorch models.
 
     Provides training loop, validation, checkpointing, and integration with early stopping and
     learning rate scheduling.
@@ -221,8 +196,7 @@ class Trainer:
         config: TrainingConfig,
         criterion: nn.Module | None = None,
     ):
-        """
-        Initialize trainer.
+        """Initialize trainer.
 
         Args:
             model: PyTorch model to train
@@ -267,8 +241,7 @@ class Trainer:
         self.epoch = 0
 
     def train_step(self, x: torch.Tensor, y: torch.Tensor) -> float:
-        """
-        Execute a single training step.
+        """Execute a single training step.
 
         Args:
             x: Input tensor
@@ -294,8 +267,7 @@ class Trainer:
         return float(loss.item())
 
     def validate_step(self, x: torch.Tensor, y: torch.Tensor) -> float:
-        """
-        Execute a single validation step.
+        """Execute a single validation step.
 
         Args:
             x: Input tensor
@@ -315,8 +287,7 @@ class Trainer:
         return float(loss.item())
 
     def save_checkpoint(self, path: str) -> None:
-        """
-        Save model checkpoint.
+        """Save model checkpoint.
 
         Args:
             path: Path to save checkpoint
@@ -334,8 +305,7 @@ class Trainer:
         torch.save(checkpoint, path)
 
     def load_checkpoint(self, path: str) -> None:
-        """
-        Load model checkpoint.
+        """Load model checkpoint.
 
         Args:
             path: Path to checkpoint file
@@ -378,6 +348,7 @@ class MercuryOptimizer(optim.Optimizer):
         beta: float = 0.9,
         quantum_noise: float = 0.0,
     ) -> None:
+        """Initialize the instance."""
         defaults = {"lr": lr, "alpha": alpha, "beta": beta, "quantum_noise": quantum_noise}
         super().__init__(params, defaults)
 
@@ -425,6 +396,7 @@ class MercuryMomentumOptimizer(optim.Optimizer):
     def __init__(
         self, params: Any, lr: float = 0.001, alpha: float = 0.1, momentum: float = 0.9
     ) -> None:
+        """Initialize the instance."""
         defaults = {"lr": lr, "alpha": alpha, "momentum": momentum}
         super().__init__(params, defaults)
 
@@ -465,6 +437,7 @@ class MercuryExponentialDecayOptimizer(optim.Optimizer):
     def __init__(
         self, params: Any, lr: float = 0.001, alpha: float = 0.1, decay_rate: float = 0.99
     ) -> None:
+        """Initialize the instance."""
         defaults = {"lr": lr, "alpha": alpha, "decay_rate": decay_rate}
         super().__init__(params, defaults)
 
@@ -507,6 +480,7 @@ class MercuryHarmonicOptimizer(optim.Optimizer):
     def __init__(
         self, params: Any, lr: float = 0.001, alpha: float = 0.1, omega: float = 0.1
     ) -> None:
+        """Initialize the instance."""
         defaults = {"lr": lr, "alpha": alpha, "omega": omega}
         super().__init__(params, defaults)
 
@@ -548,8 +522,7 @@ class MercuryHarmonicOptimizer(optim.Optimizer):
 
 
 class LyapunovAnomalyLoss(nn.Module):
-    """
-    Training loss with Lyapunov stability constraint for anomaly detection.
+    """Training loss with Lyapunov stability constraint for anomaly detection.
 
     Mathematical Foundation:
         Loss = L_recon + λ_kl·L_KL + λ_sup·L_supervised + μ·L_stability
@@ -607,6 +580,7 @@ class LyapunovAnomalyLoss(nn.Module):
         alpha: float = 0.25,
         reduction: str = "mean",
     ):
+        """Initialize the instance."""
         super().__init__()
         self.lambda_kl = lambda_kl
         self.lambda_supervised = lambda_supervised
@@ -622,8 +596,7 @@ class LyapunovAnomalyLoss(nn.Module):
         self.total_steps = 0
 
     def reset_state(self) -> None:
-        """
-        Reset previous scores state.
+        """Reset previous scores state.
 
         Call at start of each epoch.
         """
@@ -638,8 +611,7 @@ class LyapunovAnomalyLoss(nn.Module):
         mu: torch.Tensor | None = None,
         logvar: torch.Tensor | None = None,
     ) -> dict[str, torch.Tensor]:
-        """
-        Compute Lyapunov-constrained anomaly detection loss.
+        """Compute Lyapunov-constrained anomaly detection loss.
 
         Args:
             x: Original input tensor [batch_size, seq_len, dim] or [batch_size, dim]
@@ -764,12 +736,14 @@ class AnomalyDataset(
         labels: torch.Tensor,
         scores: dict[str, torch.Tensor] | None = None,
     ):
+        """Initialize the instance."""
         self.detector_features = detector_features
         self.labels = labels
         self.scores = scores
         self.num_samples: int = int(labels.shape[0])
 
     def __len__(self) -> int:
+        """Return the length."""
         return self.num_samples
 
     def __getitem__(
@@ -778,6 +752,7 @@ class AnomalyDataset(
         tuple[dict[str, torch.Tensor], torch.Tensor]
         | tuple[dict[str, torch.Tensor], dict[str, torch.Tensor], torch.Tensor]
     ):
+        """Implement the Python data model method."""
         features = {k: v[idx] for k, v in self.detector_features.items()}
         label = self.labels[idx]
 
@@ -803,8 +778,7 @@ _LightningBase = _get_lightning_base() if HAS_PYTORCH_LIGHTNING else nn.Module
 
 
 class FusionTrainer(_LightningBase):  # type: ignore[misc, valid-type]
-    """
-    PyTorch Lightning trainer for fusion model.
+    """PyTorch Lightning trainer for fusion model.
 
     Handles multi-task learning with:
     - Binary anomaly detection
@@ -821,6 +795,7 @@ class FusionTrainer(_LightningBase):  # type: ignore[misc, valid-type]
         classification_weight: float = 0.5,
         regression_weight: float = 0.3,
     ):
+        """Initialize the instance."""
         super().__init__()
         self.model = model or OmniFusionModel()
         self.learning_rate = learning_rate
@@ -960,8 +935,7 @@ class FusionTrainer(_LightningBase):  # type: ignore[misc, valid-type]
 
 
 class ThreeRAnomalyTrainer(_LightningBase):  # type: ignore[misc, valid-type]
-    """
-    PyTorch Lightning trainer for 3R Anomaly Transformer with Lyapunov stability.
+    """PyTorch Lightning trainer for 3R Anomaly Transformer with Lyapunov stability.
 
     Integrates ThreeRAnomalyTransformer with LyapunovAnomalyLoss for
     stability-constrained anomaly detection training.
@@ -1006,6 +980,7 @@ class ThreeRAnomalyTrainer(_LightningBase):  # type: ignore[misc, valid-type]
         ethical_threshold: float = 0.96,
         dropout: float = 0.1,
     ):
+        """Initialize the instance."""
         super().__init__()
 
         # Import here to avoid circular imports

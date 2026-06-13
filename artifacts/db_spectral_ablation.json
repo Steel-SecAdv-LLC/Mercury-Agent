@@ -1,0 +1,165 @@
+{
+  "results": [
+    {
+      "auc_off": 0.8220378411910672,
+      "auc_on": 0.9036910669975187,
+      "dataset": "cardio",
+      "db_term_auc_off": 0.46758684863523575,
+      "db_term_auc_on": 0.887562034739454,
+      "delta_auc": 0.08165322580645151,
+      "n_test": 548,
+      "seed": 0
+    },
+    {
+      "auc_off": 0.7199519230769231,
+      "auc_on": 0.8625930521091812,
+      "dataset": "cardio",
+      "db_term_auc_off": 0.421681141439206,
+      "db_term_auc_on": 0.8662569789081885,
+      "delta_auc": 0.14264112903225812,
+      "n_test": 548,
+      "seed": 1
+    },
+    {
+      "auc_off": 0.8024968982630273,
+      "auc_on": 0.9220300868486352,
+      "dataset": "cardio",
+      "db_term_auc_off": 0.45789392059553347,
+      "db_term_auc_on": 0.9274581265508686,
+      "delta_auc": 0.11953318858560791,
+      "n_test": 548,
+      "seed": 2
+    },
+    {
+      "auc_off": 0.7674020348544373,
+      "auc_on": 0.888553104328263,
+      "dataset": "thyroid",
+      "db_term_auc_off": 0.4361841442530472,
+      "db_term_auc_on": 0.8780094691246096,
+      "delta_auc": 0.1211510694738257,
+      "n_test": 1130,
+      "seed": 0
+    },
+    {
+      "auc_off": 0.6854370236056546,
+      "auc_on": 0.8751888788153521,
+      "dataset": "thyroid",
+      "db_term_auc_off": 0.4143581478123636,
+      "db_term_auc_on": 0.8683556630066149,
+      "delta_auc": 0.1897518552096975,
+      "n_test": 1130,
+      "seed": 1
+    },
+    {
+      "auc_off": 0.6797622645310768,
+      "auc_on": 0.8833484436385614,
+      "dataset": "thyroid",
+      "db_term_auc_off": 0.39948289177663615,
+      "db_term_auc_on": 0.8799905980323024,
+      "delta_auc": 0.20358617910748456,
+      "n_test": 1130,
+      "seed": 2
+    },
+    {
+      "auc_off": 0.9444032616753151,
+      "auc_on": 0.9529810441596951,
+      "dataset": "breastw",
+      "db_term_auc_off": 0.47792015249391084,
+      "db_term_auc_on": 0.7481732500264746,
+      "delta_auc": 0.008577782484380014,
+      "n_test": 204,
+      "seed": 0
+    },
+    {
+      "auc_off": 0.9168696388859472,
+      "auc_on": 0.9599703484062269,
+      "dataset": "breastw",
+      "db_term_auc_off": 0.5221857460552791,
+      "db_term_auc_on": 0.7892618871121465,
+      "delta_auc": 0.04310070952027967,
+      "n_test": 204,
+      "seed": 1
+    },
+    {
+      "auc_off": 0.958064174520809,
+      "auc_on": 0.9686540294397967,
+      "dataset": "breastw",
+      "db_term_auc_off": 0.5000529492745949,
+      "db_term_auc_on": 0.7589749020438421,
+      "delta_auc": 0.010589854918987673,
+      "n_test": 204,
+      "seed": 2
+    },
+    {
+      "auc_off": 0.9259259259259259,
+      "auc_on": 0.9629629629629629,
+      "dataset": "WBC",
+      "db_term_auc_off": 0.40740740740740744,
+      "db_term_auc_on": 0.9444444444444444,
+      "delta_auc": 0.03703703703703698,
+      "n_test": 66,
+      "seed": 0
+    },
+    {
+      "auc_off": 0.9841269841269841,
+      "auc_on": 0.9894179894179894,
+      "dataset": "WBC",
+      "db_term_auc_off": 0.4074074074074074,
+      "db_term_auc_on": 0.9920634920634921,
+      "delta_auc": 0.005291005291005346,
+      "n_test": 66,
+      "seed": 1
+    },
+    {
+      "auc_off": 0.9312169312169313,
+      "auc_on": 0.9682539682539683,
+      "dataset": "WBC",
+      "db_term_auc_off": 0.5714285714285714,
+      "db_term_auc_on": 0.9603174603174603,
+      "delta_auc": 0.03703703703703698,
+      "n_test": 66,
+      "seed": 2
+    },
+    {
+      "auc_off": 0.6491666666666667,
+      "auc_on": 0.6478333333333333,
+      "dataset": "Pima",
+      "db_term_auc_off": 0.48254166666666665,
+      "db_term_auc_on": 0.5579583333333333,
+      "delta_auc": -0.0013333333333334085,
+      "n_test": 230,
+      "seed": 0
+    },
+    {
+      "auc_off": 0.56125,
+      "auc_on": 0.5935000000000001,
+      "dataset": "Pima",
+      "db_term_auc_off": 0.4708333333333333,
+      "db_term_auc_on": 0.5388750000000001,
+      "delta_auc": 0.03225000000000011,
+      "n_test": 230,
+      "seed": 1
+    },
+    {
+      "auc_off": 0.5638333333333333,
+      "auc_on": 0.6019166666666667,
+      "dataset": "Pima",
+      "db_term_auc_off": 0.45762500000000006,
+      "db_term_auc_on": 0.5607083333333334,
+      "delta_auc": 0.03808333333333336,
+      "n_test": 230,
+      "seed": 2
+    }
+  ],
+  "verdict": {
+    "enable_default": true,
+    "mean_auc_off": 0.7941296601249398,
+    "mean_auc_on": 0.8653929983585434,
+    "mean_db_term_auc_off": 0.45963928857194625,
+    "mean_db_term_auc_on": 0.8105606648691044,
+    "mean_delta_auc": 0.07126333823360345,
+    "n_runs": 15,
+    "seed_agreement": 0.9333333333333333,
+    "verdict": "ENABLE_DEFAULT -- real spectral divergence improves the shipped detector beyond the noise floor with seed agreement; flip the default"
+  }
+}

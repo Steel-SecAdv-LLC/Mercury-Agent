@@ -87,6 +87,7 @@ behaviour already maps ``fail`` → exit 1, ``warn`` → exit 0).
 | ``synthetic_fallback_auditor`` | Scans benchmark results for datasets using > 50 % synthetic data and flags. |
 | ``live_dataset_protection_gate`` | **Defends the live dataset's primacy.**  Live is the reference distribution; any reenactment (emergency synthetic fallback) is judged against live via KS + symmetric-KL per column + AUROC delta.  Fail-closed when the reenactment drifts from live — synthetic is never accepted as a substitute, only as a transient reenactment of the most-recent live corpus. |
 | ``dataset_license_auditor`` | Walks every loader for ``DATASET_LICENSE`` declarations and emits SPDX + upstream URL + redistribution terms; pre-commit-friendly. |
+| ``dataset_card_generator`` | Composes a Google-style Markdown dataset card from sibling tool evidence (checksums, licenses, provenance tags). |
 | ``pii_scrubber_probe`` | Handwritten regex/heuristic gate (emails, SSNs, US phone, ICD-10, lat/lon ≥5 dp) over loader outputs.  Fails on leak. |
 | ``loader_schema_pinner`` | ``--emit`` writes a JSON schema (columns, dtypes, row count) per loader; ``--verify`` re-introspects and fails on schema drift. |
 | ``synthetic_provenance_tag`` | When a loader synthesises data, embeds a sidecar provenance JSON with SHA-256 + method + upstream-fallback reason.  Makes ``synthetic_fallback_auditor`` structural. |
@@ -126,6 +127,9 @@ behaviour already maps ``fail`` → exit 1, ``warn`` → exit 0).
 | ``disconnect_tester`` | Engages the Phase-5 OODA Mercury/AMA Disconnect under load and measures response latency against the documented SLA. |
 | ``gosnn_scalar_dump`` | Emits the current omni-scalar values of a GOSNN instance as JSON. |
 | ``federated_round_simulator`` | Drives the federated aggregator through a synthetic 3-node round and verifies aggregation + DP noise injection. |
+| ``opentelemetry_span_emitter`` | Emits a representative OTLP trace covering Benevolence, σ_Immutable, GOSNN, and the OAE fusion stage; exports to ``OTEL_EXPORTER_OTLP_ENDPOINT`` when set. |
+| ``prometheus_metrics_exporter`` | Handwritten Prometheus text-format ``/metrics`` snapshot: benevolence histogram, σ band, OAE weights, gate-fire counts. |
+| ``time_source_probe`` | Confirms NTP / chrony / PTP clock discipline and emits the kernel clock offset, anchoring every certificate's ``generated_at`` timestamp. |
 
 ### Release & supply chain
 
@@ -134,6 +138,14 @@ behaviour already maps ``fail`` → exit 1, ``warn`` → exit 0).
 | ``release_manifest_builder`` | Emits a JSON manifest of (version, python, numpy, AMA_REF, container digest, OAE weights, λ, σ thresholds, benevolence threshold) for the active tag. |
 | ``sbom_emitter`` | Emits a CycloneDX 1.5 SBOM after ``pip install -e .[all]``. |
 | ``api_contract_diff`` | Snapshots / diffs the public ``omni_mercury_engine.*`` re-export surface.  Catches accidental ABI-breaking removals. |
+| ``changelog_enforcer`` | Compares the staged diff against ``CHANGELOG.md`` and fails when a public-surface mutation lacks an entry in the active unreleased section. |
+
+Outside the certificate-envelope dispatcher, ``python -m
+omni_mercury_engine.tools.migrate_pkl`` is the standalone pickle-migration
+CLI (hardened-subprocess relaunch, schema validation, refusal-by-default;
+locked by ``tests/security/test_migrate_pkl.py``) — it serves the
+pickle-removal policy stated in `CONTRIBUTING.md` §"What NOT to
+Contribute".
 
 ### ML governance
 

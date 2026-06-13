@@ -1,22 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Native JSON Web Token (JWT) implementation — stdlib + AMA-routed.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Native JSON Web Token (JWT) implementation — stdlib + AMA-routed.
 
 This module is the supply-chain remediation that retires Mercury-Agent's
 dependency on ``pyjwt`` and removes the upstream-disputed
@@ -95,6 +79,8 @@ References
   rendered moot here by removal of the pyjwt dependency.
 """
 
+from __future__ import annotations
+
 import base64
 import hashlib
 import hmac
@@ -154,7 +140,6 @@ class MissingRequiredClaimError(InvalidTokenError):
 # Algorithm registry
 # --------------------------------------------------------------------------- #
 
-
 _HASH_BY_ALG: dict[str, Any] = {
     "HS256": hashlib.sha256,
     "HS384": hashlib.sha384,
@@ -169,7 +154,6 @@ SUPPORTED_ALGORITHMS: tuple[str, ...] = tuple(_HASH_BY_ALG.keys())
 # ``src/c/ama_hmac_sha256.c`` / ``ama_hmac_sha512.c``; no SHA-384
 # variant ships in the C library).
 _AMA_ROUTABLE_ALGS: frozenset[str] = frozenset({"HS256", "HS512"})
-
 
 # --------------------------------------------------------------------------- #
 # Base64URL helpers

@@ -1,9 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests for the health check module - Kubernetes health endpoints.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for the health check module - Kubernetes health endpoints."""
 
 from __future__ import annotations
 
@@ -22,7 +19,6 @@ try:
     HAS_HEALTH = True
 except ImportError:
     HAS_HEALTH = False
-
 
 # Only the file-level skip is module-wide; ``pytest.mark.asyncio``
 # is applied per-test via pytest-asyncio's auto mode (pyproject sets

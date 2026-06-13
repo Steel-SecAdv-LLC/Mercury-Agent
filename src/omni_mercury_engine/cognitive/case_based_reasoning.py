@@ -1,15 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-"""
-
-from __future__ import annotations
-
-"""
-Case-Based Reasoning Engine
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Case-Based Reasoning Engine.
 
 Implements case-based reasoning for learning from historical anomalies:
 - Case retrieval: Find similar past cases
@@ -22,6 +13,8 @@ Research Sources:
 - CBR Cycle: Retrieve, Reuse, Revise, Retain
 - Analogical reasoning for AI systems
 """
+
+from __future__ import annotations
 
 import logging
 import time
@@ -127,8 +120,7 @@ class AdaptationResult:
 
 
 class CaseBasedReasoner:
-    """
-    Case-Based Reasoning Engine.
+    """Case-Based Reasoning Engine.
 
     Implements the CBR cycle:
     1. RETRIEVE: Find similar past cases
@@ -149,8 +141,7 @@ class CaseBasedReasoner:
         enable_forgetting: bool = True,
         forgetting_threshold: float = 0.3,
     ):
-        """
-        Initialize Case-Based Reasoner.
+        """Initialize Case-Based Reasoner.
 
         Args:
             similarity_metric: Metric for case comparison
@@ -184,8 +175,7 @@ class CaseBasedReasoner:
         logger.info(f"CaseBasedReasoner initialized (metric={similarity_metric.value})")
 
     def add_case(self, case: Case) -> None:
-        """
-        Add a case to the case base (RETAIN).
+        """Add a case to the case base (RETAIN).
 
         Args:
             case: Case to add
@@ -214,8 +204,7 @@ class CaseBasedReasoner:
         k: int = 5,
         domain_filter: str | None = None,
     ) -> RetrievalResult:
-        """
-        Retrieve similar cases from the case base (RETRIEVE).
+        """Retrieve similar cases from the case base (RETRIEVE).
 
         Args:
             query: Query case or problem features
@@ -271,8 +260,7 @@ class CaseBasedReasoner:
         target_problem: dict[str, Any],
         adaptation_rules: list[Callable[..., Any]] | None = None,
     ) -> AdaptationResult:
-        """
-        Adapt a retrieved case's solution to a new problem (REVISE).
+        """Adapt a retrieved case's solution to a new problem (REVISE).
 
         Args:
             source_case: Case to adapt from
@@ -337,8 +325,7 @@ class CaseBasedReasoner:
         domain: str | None = None,
         k: int = 3,
     ) -> dict[str, Any]:
-        """
-        Complete CBR cycle: Retrieve, Reuse, Revise.
+        """Complete CBR cycle: Retrieve, Reuse, Revise.
 
         Args:
             problem: Problem features
@@ -394,8 +381,7 @@ class CaseBasedReasoner:
         outcome_score: float,
         feedback: dict[str, Any] | None = None,
     ) -> None:
-        """
-        Learn from the outcome of a case solution (RETAIN enhancement).
+        """Learn from the outcome of a case solution (RETAIN enhancement).
 
         Args:
             case_id: Case that was used

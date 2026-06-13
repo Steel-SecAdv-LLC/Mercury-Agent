@@ -1,21 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Differentiable domain encoders (WS-B / Target 2).
 
 The production :class:`~omni_mercury_engine.detectors.statistical.MercuryAnomalyDetector`
@@ -50,6 +34,8 @@ Every encoder maps ``(batch, n_features) -> (batch, output_dim)`` and is
 deterministic given its weights and a fixed seed.
 """
 
+from __future__ import annotations
+
 from typing import Any
 
 import torch
@@ -81,6 +67,7 @@ class SpectralEncoder(nn.Module):
         output_dim: int = 128,
         magnitude_transform: str = "log1p",
     ) -> None:
+        """Initialize the instance."""
         super().__init__()
         self.input_dim = int(input_dim)
         if magnitude_transform not in ("log1p", "sqrt", "none"):
@@ -128,6 +115,7 @@ class KinematicEncoder(nn.Module):
         output_dim: int = 128,
         kernel_widths: tuple[int, ...] = (2, 3, 4),
     ) -> None:
+        """Initialize the instance."""
         super().__init__()
         self.input_dim = int(input_dim)
         self.kernel_widths = tuple(kernel_widths)
@@ -175,6 +163,7 @@ class FisherEntropyEncoder(nn.Module):
     """
 
     def __init__(self, input_dim: int, hidden_dim: int = 64, output_dim: int = 128) -> None:
+        """Initialize the instance."""
         super().__init__()
         self.input_dim = int(input_dim)
         self.whiten = nn.Linear(input_dim, input_dim, bias=True)
@@ -215,6 +204,7 @@ class DomainEncoderStack(nn.Module):
         encoder_kwargs: dict[str, dict[str, Any]] | None = None,
         normalize: bool = False,
     ) -> None:
+        """Initialize the instance."""
         super().__init__()
         self.input_dim = int(input_dim)
         self.hidden_dim = int(hidden_dim)

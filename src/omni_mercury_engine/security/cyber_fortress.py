@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Cyber Fortress - Proactive Threat Elimination and Impenetrable Defense
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Cyber Fortress - Proactive Threat Elimination and Impenetrable Defense.
 
 Novel cybersecurity constructions integrating:
 - Resonance-based hash integrity checking (ResonanceEngine for drift detection)
@@ -33,8 +16,9 @@ Research sources:
 - Cisco Stealthwatch/IBM QRadar network anomaly patterns
 - Suricata/Snort IDS pattern libraries
 - arXiv research on AI in encrypted traffic analysis
-
 """
+
+from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass, field
@@ -79,14 +63,14 @@ class FortressResult:
 
 
 class ResonanceHashIntegrityChecker(LoggerMixin):
-    """
-    Novel hash integrity checking using resonance amplification.
+    """Novel hash integrity checking using resonance amplification.
 
     Uses ResonanceEngine to detect weak signals in hash chains that indicate drift, tampering, or
     emerging vulnerabilities.
     """
 
     def __init__(self, threshold_std: float = 10.0) -> None:
+        """Initialize the instance."""
         self.resonance = ResonanceEngine(sampling_rate=1.0)
         self.threshold_std = threshold_std
 
@@ -96,8 +80,7 @@ class ResonanceHashIntegrityChecker(LoggerMixin):
         reference_chain: list[str] | None = None,
         threshold_std: float | None = None,
     ) -> dict[str, Any]:
-        """
-        Check hash chain integrity using resonance analysis.
+        """Check hash chain integrity using resonance analysis.
 
         Args:
             hash_chain: List of hash values to analyze
@@ -202,14 +185,14 @@ class ResonanceHashIntegrityChecker(LoggerMixin):
 
 
 class MultiverseZeroDaySimulator(LoggerMixin):
-    """
-    Novel zero-day attack simulation using multiverse optimization.
+    """Novel zero-day attack simulation using multiverse optimization.
 
     Explores parallel attack pathways to identify potential zero-day vulnerabilities before they are
     discovered by attackers.
     """
 
     def __init__(self, num_universes: int = 20) -> None:
+        """Initialize the instance."""
         self.multiverse = MultiverseOmniEngine(
             num_universes=num_universes, state_dim=64, convergence_threshold=0.95
         )
@@ -217,8 +200,7 @@ class MultiverseZeroDaySimulator(LoggerMixin):
     def simulate_zero_day(
         self, system_state: np.ndarray[Any, Any], known_vulnerabilities: list[str] | None = None
     ) -> dict[str, Any]:
-        """
-        Simulate potential zero-day attacks using multiverse exploration.
+        """Simulate potential zero-day attacks using multiverse exploration.
 
         Args:
             system_state: Current system state vector
@@ -279,14 +261,14 @@ class MultiverseZeroDaySimulator(LoggerMixin):
 if TYPE_CHECKING or TORCH_AVAILABLE:
 
     class EncryptedTrafficAnomalyDetector(LoggerMixin):
-        """
-        Novel encrypted traffic behavioral anomaly detection.
+        """Novel encrypted traffic behavioral anomaly detection.
 
         Uses PyTorch GNN to detect anomalies in encrypted network traffic based on behavioral
         patterns without decryption.
         """
 
         def __init__(self) -> None:
+            """Initialize the instance."""
             self.model = nn.Sequential(
                 nn.Linear(20, 64),
                 nn.ReLU(),
@@ -300,8 +282,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
         def extract_behavioral_features(
             self, traffic_data: np.ndarray[Any, Any]
         ) -> np.ndarray[Any, Any]:
-            """
-            Extract behavioral features from encrypted traffic.
+            """Extract behavioral features from encrypted traffic.
 
             Features include: packet sizes, inter-arrival times, flow patterns,
             connection metadata (without payload inspection).
@@ -347,8 +328,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             return np.array(features[:20], dtype=np.float32)
 
         def detect_anomaly(self, traffic_data: np.ndarray[Any, Any]) -> dict[str, Any]:
-            """
-            Detect behavioral anomalies in encrypted traffic.
+            """Detect behavioral anomalies in encrypted traffic.
 
             Args:
                 traffic_data: Encrypted network traffic metadata
@@ -400,14 +380,14 @@ else:
         """Stub: EncryptedTrafficAnomalyDetector requires PyTorch."""
 
         def __init__(self, *args: Any, **kwargs: Any) -> None:
+            """Initialize the instance."""
             raise ImportError(
                 "EncryptedTrafficAnomalyDetector requires PyTorch. Install with: pip install torch"
             )
 
 
 class CyberFortress(LoggerMixin):
-    """
-    Unified Cyber Fortress for proactive threat elimination.
+    """Unified Cyber Fortress for proactive threat elimination.
 
     Integrates:
     - Resonance-based hash integrity
@@ -423,6 +403,7 @@ class CyberFortress(LoggerMixin):
         enable_traffic_detection: bool = True,
         enable_auto_refactor: bool = True,
     ):
+        """Initialize the instance."""
         self.enable_hash_integrity = enable_hash_integrity
         self.enable_zero_day_sim = enable_zero_day_sim
         self.enable_traffic_detection = enable_traffic_detection
@@ -442,8 +423,7 @@ class CyberFortress(LoggerMixin):
         self.basic_detector = ThreatDetector()
 
     def fortress_scan(self, system_data: dict[str, Any]) -> FortressResult:
-        """
-        Comprehensive fortress scan for proactive threat elimination.
+        """Comprehensive fortress scan for proactive threat elimination.
 
         Args:
             system_data: System data including:

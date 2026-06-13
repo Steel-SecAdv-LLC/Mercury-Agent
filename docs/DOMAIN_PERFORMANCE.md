@@ -4,16 +4,18 @@ Applies to Mercury Agent **v1.7.x**. Last updated: 2026-05-20.
 
 Per-domain precision/recall analysis from real benchmark data.
 
-> **v1.7 update.** Numbers in this document reflect the 51/55 legacy
-> CI floor at the time of the last `benchmarks/mercury_benchmark_results.json`
-> dump. The headline 64/75 cut (2026-03-04) and the latest 65/65 cut
-> (2026-05-14) live in the README "Latest Benchmark Results" and
-> "Empirical Benchmark Results" sections. Domain-level reconciliation
-> across the three cuts is in [`BENCHMARKS.md`](BENCHMARKS.md).
-> The FEMA Disaster row's pre-fix AUC near 0 is corrected in v1.7.0
-> (`FEMADisasterLoader._select_anomaly_polarity` now enforces the
-> minority-as-anomaly convention); the next benchmark refresh
-> re-runs it.
+> **v1.7 update.** The per-domain tables below are an older
+> illustrative snapshot. The committed
+> `benchmarks/mercury_benchmark_results.json` run (65 successful / 75
+> attempted, Mean AUC 0.8466, Median 0.9100, Mean Oracle F1 0.6428,
+> 2026-05-19) is surfaced in the README "Latest Benchmark Results"
+> block and is the authoritative source; its `domain_summary` is the
+> per-domain ground truth. The CI regression-gate floor is the
+> historical 0.803 AUC / 0.589 F1 baseline. The FEMA Disaster row's
+> former pre-fix AUC ≈ 0 is corrected in v1.7.0
+> (`FEMADisasterLoader._select_anomaly_polarity` enforces the
+> minority-as-anomaly convention); the committed run reflects the
+> corrected score (disaster AUC 0.9999).
 
 ## Data Source
 

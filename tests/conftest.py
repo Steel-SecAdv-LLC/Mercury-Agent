@@ -1,30 +1,13 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Pytest configuration and fixtures
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Pytest configuration and fixtures.
 
 Uses DeterministicRNG for reproducible tests.
 All test fixtures now use seeded random number generation
 to ensure consistent test results across runs.
 """
+
+from __future__ import annotations
 
 import logging
 import os
@@ -62,6 +45,15 @@ import pytest
 from omni_mercury_engine._compat import HAS_TORCH
 from omni_mercury_engine.utils.rng import DeterministicRNG, set_global_seed
 
+if os.environ.get("PYTEST_XDIST_WORKER"):
+    # Mirror the torch per-worker thread cap below for numba's parallel
+    # kernels (the GSIS prange lane, 2026-06-11): without it each of the
+    # N xdist workers spawns a full physical-core thread pool, and the
+    # resulting oversubscription starved borderline-heavy tests past the
+    # 300 s timeout. Must be set before numba is first imported; thread
+    # count cannot change kernel results (no cross-thread reductions).
+    os.environ.setdefault("NUMBA_NUM_THREADS", "1")
+
 if HAS_TORCH:
     import torch
 
@@ -71,7 +63,6 @@ if HAS_TORCH:
 
 # Default seed for reproducibility
 DEFAULT_TEST_SEED = 42
-
 
 # ---------------------------------------------------------------------------
 # Session-start ML-extra gate

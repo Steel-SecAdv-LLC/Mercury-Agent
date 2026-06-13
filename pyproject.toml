@@ -47,7 +47,17 @@ dependencies = [
     # Lightweight core -- enough for CLI, statistical detectors, and rule-based
     # detection without pulling in ~2 GB of PyTorch.  For the full ML stack,
     # install mercury-agent[ml] or mercury-agent[all].
-    "numpy>=1.24.0",
+    # Floor is 2.4.0, not the historical 1.24.0: (1) numpy 1.24 ships no wheels
+    # for Python 3.12 (first added in 1.26) or 3.13 (first added in 2.1), yet
+    # this project is requires-python>=3.11 and CI builds/tests 3.11/3.12/3.13,
+    # so the old floor was not installable across its own matrix; and (2) the
+    # codebase's strict mypy gate relies on
+    # numpy's PEP-696 ``ndarray`` type-parameter defaults plus the indexing
+    # shape-typing that only land cleanly in 2.4.0 -- 2.3.5 still produces 5
+    # ``disallow_any_generics``/``assignment`` errors.  The CI "Run MyPy at the
+    # numpy floor" step (Type Checking job) pins this exact version so the
+    # declared minimum can never silently drift from what actually type-checks.
+    "numpy>=2.4.0",
     "scipy>=1.10.0",
     "pandas>=2.0.0",
     "click>=8.1.0",
@@ -84,6 +94,28 @@ ml = [
     "pytorch-lightning>=2.0.0",
     "timm>=1.0.26",
     "opencv-python-headless>=4.8.0",
+    # Type-checking toolchain, PINNED (mirrored in [dev] and in the CI
+    # "Type Checking" / "Code Quality" jobs).  The type-check lane installs
+    # this extra for torch's ``py.typed`` stubs, so freezing mypy +
+    # types-requests *here* keeps the ``# type: ignore[...]`` set
+    # byte-identical locally and in CI.  Concretely, mypy 1.19 and mypy 2.1
+    # disagree about the ``requests.Session.request`` monkeypatch in
+    # ``datasets/mitbih.py`` (lines 105/109): an unpinned/older mypy reports
+    # the two ``# type: ignore`` comments as ``unused-ignore`` while the
+    # pinned 2.1.0 needs them.  Bump all three sites together.
+    "mypy==2.1.0",
+    "types-requests==2.33.0.20260518",
+]
+
+# Native acceleration lane — activates the numba @jit fast paths that are
+# otherwise dormant fallbacks (e.g. detectors/spatial.py distance scoring,
+# which JIT-compiles only when numba is importable). Before this extra
+# existed, numba was referenced by the code and the mypy overrides but was
+# not declarable as a dependency anywhere, so the native lane could never
+# be engaged by install. JIT-vs-numpy parity is pinned by
+# tests/test_native_acceleration.py (skipped when numba is absent).
+performance = [
+    "numba>=0.59",
 ]
 
 # Visual anomaly detection (PatchCore, PaDiM, STFPM, etc.)
@@ -236,8 +268,9 @@ dev = [
     "pytest-mock>=3.15.1",
     "pytest-xdist>=3.8.0",
     "hypothesis>=6.0.0",
-    "black>=26.3.1,<27.0.0",  # CVE-2026-32274
-    "mypy>=1.20.2",
+    "black==26.3.1",  # CVE-2026-32274; PINNED exact for byte-identical formatting local<->CI
+    "mypy==2.1.0",  # PINNED: identical type-ignore set locally and in CI (see [ml])
+    "types-requests==2.33.0.20260518",  # PINNED with mypy (see [ml])
     "ruff>=0.15.12",
     "pre-commit>=3.5.0",
 ]
@@ -655,6 +688,8 @@ module = [
     "omni_mercury_engine.core.gosnn_3r_integration",
     "omni_mercury_engine.core.engine_config",
     "omni_mercury_engine.core.score_calibration",
+    "omni_mercury_engine.core.governed_fusion",
+    "omni_mercury_engine.core.robust_pooling",
 ]
 warn_return_any = false
 
@@ -1035,7 +1070,6 @@ lines_after_imports = -1
 convention = "google"
 match = "(?!test_).*\\.py"
 match_dir = "^(?!tests|build|dist|venv|\\.venv).*"
-add-ignore = ["D100", "D104", "D105", "D107"]
 
 # =============================================================================
 # Vulture (Dead Code Detection)

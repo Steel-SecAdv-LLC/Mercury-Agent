@@ -1,7 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-NOAA ERDDAP — Oceanographic and Climate Dataset Loader
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""NOAA ERDDAP — Oceanographic and Climate Dataset Loader.
 
 Replaces broken Copernicus SLA, SimonsCMAP, and WorldOcean loaders with
 NOAA's free, auth-free ERDDAP REST API.
@@ -14,8 +13,6 @@ Data sources:
 Anomaly detection methodology:
   Statistical deviation from historical mean — readings exceeding 3σ from
   the station/grid-cell historical mean are flagged as anomalies.
-
-License: Public Domain (US Government)
 """
 
 from __future__ import annotations
@@ -37,8 +34,7 @@ logger = logging.getLogger(__name__)
 
 
 class NOAAERDDAPLoader(DatasetLoader):
-    """
-    NOAA ERDDAP oceanographic data loader.
+    """NOAA ERDDAP oceanographic data loader.
 
     Fetches gridded oceanographic data (sea level anomaly, chlorophyll-a)
     from NOAA's ERDDAP REST API. No authentication required.
@@ -64,6 +60,7 @@ class NOAAERDDAPLoader(DatasetLoader):
     CHL_URL = TrustedEndpoints.NOAA_ERDDAP_CHL
 
     def __init__(self, config: DatasetConfig) -> None:
+        """Initialize the instance."""
         super().__init__(config)
         self.dataset_type = config.preprocessing.get("dataset", "ssh")
         self.lat_range = config.preprocessing.get("lat_range", (20.0, 50.0))
@@ -98,8 +95,7 @@ class NOAAERDDAPLoader(DatasetLoader):
         return features, labels
 
     def download(self) -> bool:
-        """
-        Download ERDDAP data via REST CSV API.
+        """Download ERDDAP data via REST CSV API.
 
         For ``dataset_type == "ssh"`` the loader steps through
         ``_SSH_DATE_OFFSET_DAYS_FALLBACK`` (7, 14, 21, 30 days back) to

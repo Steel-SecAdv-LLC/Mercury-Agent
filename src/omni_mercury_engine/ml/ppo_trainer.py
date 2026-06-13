@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-PPO Trainer for Mercury Agent
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""PPO Trainer for Mercury Agent.
 
 Implements Proximal Policy Optimization (PPO) for autonomous agent
 self-evolution in anomaly detection systems.
@@ -32,6 +15,8 @@ References:
     - Schulman et al. (2017): Proximal Policy Optimization Algorithms
     - Stable Baselines3: https://stable-baselines3.readthedocs.io/
 """
+
+from __future__ import annotations
 
 import logging
 import time
@@ -93,6 +78,7 @@ class BaseCallback:
     """Base callback for training monitoring."""
 
     def __init__(self, verbose: int = 0) -> None:
+        """Initialize the instance."""
         self.verbose = verbose
         self.locals: dict[str, Any] = {}
         self.n_calls = 0
@@ -103,8 +89,7 @@ class BaseCallback:
 
 
 class ConvergenceMonitor(BaseCallback):
-    """
-    Monitors training convergence.
+    """Monitors training convergence.
 
     Tracks reward convergence and determines when training has converged. Implements early stopping
     based on reward plateau detection.
@@ -116,8 +101,7 @@ class ConvergenceMonitor(BaseCallback):
         patience: int = 10,
         verbose: int = 0,
     ):
-        """
-        Initialize Convergence Monitor.
+        """Initialize Convergence Monitor.
 
         Args:
             convergence_threshold: Threshold for convergence
@@ -174,8 +158,7 @@ class ConvergenceMonitor(BaseCallback):
 
 
 class CheckpointCallback(BaseCallback):
-    """
-    Saves model checkpoints during training.
+    """Saves model checkpoints during training.
 
     Saves best model and periodic checkpoints for recovery.
     """
@@ -187,8 +170,7 @@ class CheckpointCallback(BaseCallback):
         name_prefix: str = "ppo_model",
         verbose: int = 0,
     ):
-        """
-        Initialize Checkpoint Callback.
+        """Initialize Checkpoint Callback.
 
         Args:
             save_path: Path to save checkpoints
@@ -233,8 +215,7 @@ class CheckpointCallback(BaseCallback):
 
 
 class PPOTrainer:
-    """
-    PPO Trainer for autonomous agent self-evolution.
+    """PPO Trainer for autonomous agent self-evolution.
 
     Implements PPO training with convergence monitoring, checkpointing,
     and ethics-weighted reward computation for anomaly detection.
@@ -252,8 +233,7 @@ class PPOTrainer:
         checkpoint_dir: str = "./checkpoints",
         tensorboard_log: str | None = None,
     ):
-        """
-        Initialize PPO Trainer.
+        """Initialize PPO Trainer.
 
         Args:
             env: Training environment (Gymnasium-compatible)
@@ -317,8 +297,7 @@ class PPOTrainer:
         convergence_threshold: float = 0.999,
         save_checkpoints: bool = True,
     ) -> TrainingStats:
-        """
-        Pretrain model for specified timesteps.
+        """Pretrain model for specified timesteps.
 
         Args:
             total_timesteps: Total training timesteps
@@ -402,8 +381,7 @@ class PPOTrainer:
         num_episodes: int = 100,
         update_freq: int = 10,
     ) -> TrainingStats:
-        """
-        Online training with live traces.
+        """Online training with live traces.
 
         Args:
             num_episodes: Number of episodes
@@ -483,8 +461,7 @@ class PPOTrainer:
         num_episodes: int = 10,
         deterministic: bool = True,
     ) -> tuple[float, float]:
-        """
-        Evaluate trained model.
+        """Evaluate trained model.
 
         Args:
             num_episodes: Number of evaluation episodes
@@ -541,8 +518,7 @@ class PPOTrainer:
 
 
 class MultiEnvPPOTrainer(PPOTrainer):
-    """
-    PPO Trainer for multiple environments.
+    """PPO Trainer for multiple environments.
 
     Trains on multiple benchmark datasets simultaneously for robust anomaly detection across
     domains.
@@ -555,8 +531,7 @@ class MultiEnvPPOTrainer(PPOTrainer):
         checkpoint_dir: str = "./checkpoints",
         tensorboard_log: str | None = None,
     ):
-        """
-        Initialize Multi-Environment PPO Trainer.
+        """Initialize Multi-Environment PPO Trainer.
 
         Args:
             envs: List of training environments
@@ -585,8 +560,7 @@ class MultiEnvPPOTrainer(PPOTrainer):
         benchmark_names: list[str],
         timesteps_per_benchmark: int = 20000,
     ) -> dict[str, TrainingStats]:
-        """
-        Pretrain on multiple benchmarks.
+        """Pretrain on multiple benchmarks.
 
         Args:
             benchmark_names: List of benchmark names
@@ -627,8 +601,7 @@ def create_ppo_trainer(
     config: PPOConfig | None = None,
     **kwargs: Any,
 ) -> PPOTrainer:
-    """
-    Factory function to create PPO Trainer.
+    """Factory function to create PPO Trainer.
 
     Args:
         env: Training environment
@@ -646,8 +619,7 @@ def create_multi_env_trainer(
     config: PPOConfig | None = None,
     **kwargs: Any,
 ) -> MultiEnvPPOTrainer:
-    """
-    Factory function to create Multi-Environment PPO Trainer.
+    """Factory function to create Multi-Environment PPO Trainer.
 
     Args:
         envs: List of training environments

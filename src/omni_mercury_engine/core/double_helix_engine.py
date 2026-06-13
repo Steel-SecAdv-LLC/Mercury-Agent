@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Double-Helix Evolution Engine for Mercury Agent
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Double-Helix Evolution Engine for Mercury Agent.
 
 Implements a weighted gradient descent framework with 18+ variant terms for
 adaptive anomaly detection evolution. The double-helix structure represents
@@ -50,6 +33,8 @@ References:
     - Simulated Annealing: Kirkpatrick et al. (1983)
     - Fractal Geometry: Mandelbrot (1982)
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -134,8 +119,7 @@ class EvolutionConfig:
 
 
 class MercuryEquationEngine:
-    """
-    Double-Helix Evolution Engine implementing 18+ Ava Equation variants.
+    """Double-Helix Evolution Engine implementing 18+ Ava Equation variants.
 
     The engine evolves system states through complementary discovery and
     verification helices, ensuring both exploration of novel patterns
@@ -452,8 +436,7 @@ class MercuryEquationEngine:
         return np.asarray(-(state - target) * LAMBDA_DECAY * 0.1)
 
     def step(self, state: np.ndarray[Any, Any]) -> tuple[np.ndarray[Any, Any], dict[str, float]]:
-        """
-        Perform one evolution step.
+        """Perform one evolution step.
 
         Args:
             state: Current state vector
@@ -528,8 +511,7 @@ class MercuryEquationEngine:
         initial_state: np.ndarray[Any, Any],
         max_iter: int | None = None,
     ) -> tuple[np.ndarray[Any, Any], list[EvolutionState]]:
-        """
-        Evolve state until convergence.
+        """Evolve state until convergence.
 
         Args:
             initial_state: Initial state vector

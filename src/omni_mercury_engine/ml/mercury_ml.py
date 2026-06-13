@@ -1,7 +1,6 @@
-"""
-Mercury Agent — native ML primitives (numpy/scipy only).
-
-# SPDX-License-Identifier: GPL-3.0-only # Copyright (C) Steel Security Advisors LLC
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Mercury Agent — native ML primitives (numpy/scipy only).
 
 Mercury Agent is an original product with its own production-built systems. This module provides
 Mercury-native implementations of standard ML utilities (metrics, preprocessing, model selection,
@@ -125,8 +124,7 @@ def confusion_matrix(
     *,
     labels: NDArray[np.number[Any]] | None = None,
 ) -> NDArray[np.number[Any]]:
-    """
-    Compute confusion matrix.
+    """Compute confusion matrix.
 
     Parameters
     ----------
@@ -218,8 +216,7 @@ def _weighted_metric(
 
 
 def roc_auc_score(y_true: NDArray[np.number[Any]], y_score: NDArray[np.number[Any]]) -> float:
-    """
-    Compute Area Under the ROC Curve using the trapezoidal rule.
+    """Compute Area Under the ROC Curve using the trapezoidal rule.
 
     Equivalent to the Wilcoxon-Mann-Whitney statistic.
     """
@@ -351,8 +348,7 @@ def calibration_curve(
     n_bins: int = 10,
     strategy: str = "uniform",
 ) -> tuple[NDArray[np.number[Any]], NDArray[np.number[Any]]]:
-    """
-    Compute calibration curve (reliability diagram data).
+    """Compute calibration curve (reliability diagram data).
 
     Returns (fraction_of_positives, mean_predicted_value) per bin.
     """
@@ -394,6 +390,7 @@ class KFold:
         shuffle: bool = False,
         random_state: int | None = None,
     ) -> None:
+        """Initialize the instance."""
         self.n_splits = n_splits
         self.shuffle = shuffle
         self.random_state = random_state
@@ -435,6 +432,7 @@ class StratifiedKFold:
         shuffle: bool = False,
         random_state: int | None = None,
     ) -> None:
+        """Initialize the instance."""
         self.n_splits = n_splits
         self.shuffle = shuffle
         self.random_state = random_state
@@ -477,8 +475,7 @@ class StratifiedKFold:
 
 
 class StratifiedShuffleSplit:
-    """
-    Stratified shuffle-split cross-validator.
+    """Stratified shuffle-split cross-validator.
 
     Provides train/test indices that preserve class proportions.
     """
@@ -490,6 +487,7 @@ class StratifiedShuffleSplit:
         test_size: float = 0.1,
         random_state: int | None = None,
     ) -> None:
+        """Initialize the instance."""
         self.n_splits = n_splits
         self.test_size = test_size
         self.random_state = random_state
@@ -627,6 +625,7 @@ class StandardScaler:
     """Standardize features by removing the mean and scaling to unit variance."""
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.mean_: NDArray[np.number[Any]] | None = None
         self.scale_: NDArray[np.number[Any]] | None = None
 
@@ -657,6 +656,7 @@ class LabelEncoder:
     """Encode target labels with value between 0 and n_classes-1."""
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self.classes_: NDArray[np.number[Any]] | None = None
 
     def fit(self, y: NDArray[np.number[Any]]) -> LabelEncoder:
@@ -690,6 +690,7 @@ class PCA:
     """Principal Component Analysis via truncated SVD."""
 
     def __init__(self, n_components: int = 2) -> None:
+        """Initialize the instance."""
         self.n_components = n_components
         self.components_: NDArray[np.number[Any]] = np.empty((0, 0))
         self.mean_: NDArray[np.number[Any]] = np.empty(0)
@@ -751,6 +752,7 @@ class KMeans:
         tol: float = 1e-4,
         random_state: int | None = None,
     ) -> None:
+        """Initialize the instance."""
         self.n_clusters = n_clusters
         self.max_iter = max_iter
         self.tol = tol
@@ -814,6 +816,7 @@ class DBSCAN:
         min_samples: int = 5,
         metric: str = "euclidean",
     ) -> None:
+        """Initialize the instance."""
         self.eps = eps
         self.min_samples = min_samples
         self.metric = metric
@@ -868,6 +871,7 @@ class NearestNeighbors:
         metric: str = "euclidean",
         algorithm: str = "auto",
     ) -> None:
+        """Initialize the instance."""
         self.n_neighbors = n_neighbors
         self.metric = metric
         self.algorithm = algorithm
@@ -921,6 +925,7 @@ class LogisticRegression:
         C: float = 1.0,
         random_state: int | None = None,
     ) -> None:
+        """Initialize the instance."""
         self.solver = solver
         self.max_iter = max_iter
         self.C = C
@@ -1007,8 +1012,7 @@ class LogisticRegression:
 
 
 class SGDClassifier:
-    """
-    SGD classifier for online learning (sklearn-free reimplementation).
+    """SGD classifier for online learning (sklearn-free reimplementation).
 
     Based on standard stochastic gradient descent with hinge/log loss.
     """
@@ -1025,6 +1029,7 @@ class SGDClassifier:
         tol: float | None = None,
         random_state: int | None = None,
     ) -> None:
+        """Initialize the instance."""
         self.loss = loss
         self.penalty = penalty
         self.alpha = alpha
@@ -1100,8 +1105,7 @@ class SGDClassifier:
 
 
 class PassiveAggressiveClassifier:
-    """
-    Passive-Aggressive classifier (sklearn-free reimplementation).
+    """Passive-Aggressive classifier (sklearn-free reimplementation).
 
     Algorithm by Crammer, Dekel, Keshet, Shalev-Shwartz & Singer (2006).
 
@@ -1119,6 +1123,7 @@ class PassiveAggressiveClassifier:
         tol: float | None = None,
         random_state: int | None = None,
     ) -> None:
+        """Initialize the instance."""
         self.C = C
         self.fit_intercept = fit_intercept
         self.warm_start = warm_start
@@ -1179,8 +1184,7 @@ class PassiveAggressiveClassifier:
 
 
 class GradientBoostingClassifier:
-    """
-    Gradient Boosting using decision stumps (sklearn-free reimplementation).
+    """Gradient Boosting using decision stumps (sklearn-free reimplementation).
 
     Based on Friedman (2001). Simplified to binary classification with
     decision stumps as weak learners.
@@ -1198,6 +1202,7 @@ class GradientBoostingClassifier:
         learning_rate: float = 0.1,
         random_state: int | None = None,
     ) -> None:
+        """Initialize the instance."""
         self.n_estimators = n_estimators
         self.max_depth = max_depth
         self.learning_rate = learning_rate
@@ -1253,8 +1258,7 @@ class GradientBoostingClassifier:
 
 
 class RandomForestClassifier:
-    """
-    Random Forest classifier (sklearn-free reimplementation).
+    """Random Forest classifier (sklearn-free reimplementation).
 
     Ensemble of bootstrapped decision stumps. Based on Breiman (2001).
 
@@ -1269,6 +1273,7 @@ class RandomForestClassifier:
         max_depth: int | None = None,
         random_state: int | None = None,
     ) -> None:
+        """Initialize the instance."""
         self.n_estimators = n_estimators
         self.max_depth = max_depth or 10
         self.random_state = random_state
@@ -1321,8 +1326,7 @@ class RandomForestClassifier:
 
 
 class SVC:
-    """
-    SVC using kernel-based scoring (sklearn-free reimplementation).
+    """SVC using kernel-based scoring (sklearn-free reimplementation).
 
     Lightweight RBF-kernel similarity scorer. Based on the support vector classification framework
     of Vapnik (1995).
@@ -1335,6 +1339,7 @@ class SVC:
         random_state: int | None = None,
         C: float = 1.0,
     ) -> None:
+        """Initialize the instance."""
         self.kernel = kernel
         self.probability = probability
         self.random_state = random_state
@@ -1383,6 +1388,7 @@ class _DecisionStump:
     """Simple decision tree (stump or shallow) for gradient boosting / RF."""
 
     def __init__(self, max_depth: int = 3, rng: np.random.RandomState | None = None) -> None:
+        """Initialize the instance."""
         self.max_depth = max_depth
         self.rng = rng or np.random.RandomState()
         self.feature: int = 0
@@ -1455,8 +1461,7 @@ class _DecisionStump:
 
 
 class GaussianMixture:
-    """
-    Gaussian Mixture Model via EM (sklearn-free reimplementation).
+    """Gaussian Mixture Model via EM (sklearn-free reimplementation).
 
     Expectation-Maximization algorithm by Dempster, Laird & Rubin (1977).
 
@@ -1473,6 +1478,7 @@ class GaussianMixture:
         tol: float = 1e-3,
         random_state: int | None = None,
     ) -> None:
+        """Initialize the instance."""
         self.n_components = n_components
         self.max_iter = max_iter
         self.tol = tol
@@ -1544,8 +1550,7 @@ class GaussianMixture:
 def mutual_info_classif(
     X: NDArray[np.number[Any]], y: NDArray[np.number[Any]], *, random_state: int | None = None
 ) -> NDArray[np.number[Any]]:
-    """
-    Estimate mutual information between features and discrete target.
+    """Estimate mutual information between features and discrete target.
 
     Uses a histogram-based approximation.
     """
@@ -1591,7 +1596,6 @@ def mutual_info_classif(
 # Isotonic Regression
 # =====================================================================
 
-
 # =====================================================================
 # Synthetic Data Generators
 # =====================================================================
@@ -1607,8 +1611,7 @@ def make_classification(
     random_state: int | None = None,
     **kwargs: Any,
 ) -> tuple[NDArray[np.floating[Any]], NDArray[np.intp]]:
-    """
-    Generate a random n-class classification problem (Mercury-native).
+    """Generate a random n-class classification problem (Mercury-native).
 
     Parameters match sklearn's make_classification for compatibility.
     """
@@ -1642,8 +1645,7 @@ def make_blobs(
     random_state: int | None = None,
     **kwargs: Any,
 ) -> tuple[NDArray[np.floating[Any]], NDArray[np.intp]]:
-    """
-    Generate isotropic Gaussian blobs (Mercury-native).
+    """Generate isotropic Gaussian blobs (Mercury-native).
 
     Parameters match sklearn's make_blobs for compatibility.
     """
@@ -1669,8 +1671,7 @@ def make_blobs(
 
 
 class IsotonicRegression:
-    """
-    Isotonic regression via pool adjacent violators (sklearn-free reimplementation).
+    """Isotonic regression via pool adjacent violators (sklearn-free reimplementation).
 
     Algorithm by Barlow, Bartholomew, Bremner & Brunk (1972).
     """
@@ -1681,6 +1682,7 @@ class IsotonicRegression:
         y_max: float = 1.0,
         out_of_bounds: str = "clip",
     ) -> None:
+        """Initialize the instance."""
         self.y_min = y_min
         self.y_max = y_max
         self.out_of_bounds = out_of_bounds

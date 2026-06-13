@@ -1,29 +1,14 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Ethical Scalars Configuration
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Ethical Scalars Configuration.
 
 Original implementation for Mercury Agent neural-symbolic AI archetype.
 
 This module defines the ethical scalar framework that guides the engine's
 decision-making processes, ensuring alignment with compassionate and just AI principles.
 """
+
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
@@ -33,8 +18,7 @@ from omni_mercury_engine.utils.constants import OmniCodes
 
 @dataclass
 class EthicalScalars:
-    """
-    Comprehensive ethical scalar configuration incorporating ancient cultural wisdom (Thoth, Ma'at,
+    """Comprehensive ethical scalar configuration incorporating ancient cultural wisdom (Thoth, Ma'at,.
 
     Athena) and modern technological principles (CRISPR, quantum resilience, regenerative design).
     Doctorate-level omni- variations organized thematically. ~150+ key scalars (135 existing + 20
@@ -239,8 +223,7 @@ class EthicalScalars:
         return {k: v for k, v in self.__dict__.items() if isinstance(v, (int, float, complex))}
 
     def apply_to_score(self, base_score: float, context: str = "default") -> float:
-        """
-        Apply ethical scalars to modify a base score based on context.
+        """Apply ethical scalars to modify a base score based on context.
 
         Args:
             base_score: Original score before ethical adjustment
@@ -264,8 +247,7 @@ class EthicalScalars:
 
 @dataclass
 class EngineConfig:
-    """
-    Main engine configuration including ethical scalars.
+    """Main engine configuration including ethical scalars.
 
     Provides a unified configuration interface for the Mercury Agent, incorporating both technical
     and ethical parameters.
@@ -311,8 +293,7 @@ class EngineConfig:
         return configs.get(model_name, {})
 
     def apply_ethical_framework(self) -> dict[str, Any]:
-        """
-        Generate a complete ethical framework report.
+        """Generate a complete ethical framework report.
 
         Returns:
             Dictionary containing ethical scalars and their interpretations

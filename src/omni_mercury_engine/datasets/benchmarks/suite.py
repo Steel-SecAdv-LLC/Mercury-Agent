@@ -1,7 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-Real-World Benchmark Suite for Mercury Agent
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Real-World Benchmark Suite for Mercury Agent.
 
 Comprehensive benchmarking across all real-world datasets with:
 - Per-sample precision, recall, F1
@@ -45,8 +44,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class BenchmarkResult:
-    """
-    Results from a single benchmark run.
+    """Results from a single benchmark run.
 
     Attributes:
         dataset_name: Name of dataset tested
@@ -116,8 +114,7 @@ class BenchmarkComparison:
 
 
 class RealWorldBenchmarkSuite:
-    """
-    Comprehensive benchmark suite for real-world datasets.
+    """Comprehensive benchmark suite for real-world datasets.
 
     Supports:
     - Medical: MIMIC-III, PhysioNet (sepsis, cardiology)
@@ -201,8 +198,7 @@ class RealWorldBenchmarkSuite:
         threshold: float = 0.5,
         split: DatasetSplit = DatasetSplit.TEST,
     ) -> BenchmarkResult:
-        """
-        Run benchmark on a single dataset.
+        """Run benchmark on a single dataset.
 
         Args:
             dataset_name: Name of dataset to benchmark
@@ -323,8 +319,7 @@ class RealWorldBenchmarkSuite:
         baseline_detector: Callable[[np.ndarray[Any, Any]], np.ndarray[Any, Any]],
         baseline_name: str = "RandomBaseline",
     ) -> BenchmarkComparison:
-        """
-        Compare results against a baseline detector.
+        """Compare results against a baseline detector.
 
         Args:
             results: Results from main detector
@@ -488,8 +483,7 @@ class RealWorldBenchmarkSuite:
         results: list[BenchmarkResult] | None = None,
         comparison: BenchmarkComparison | None = None,
     ) -> str:
-        """
-        Print formatted benchmark summary.
+        """Print formatted benchmark summary.
 
         Args:
             results: List of results (default: use stored results)
@@ -607,8 +601,7 @@ def random_baseline(
     features: np.ndarray[Any, Any],
     rng: np.random.Generator | None = None,
 ) -> np.ndarray[Any, Any]:
-    """
-    Random baseline detector.
+    """Random baseline detector.
 
     Args:
         features: Feature matrix (only ``len(features)`` is used).

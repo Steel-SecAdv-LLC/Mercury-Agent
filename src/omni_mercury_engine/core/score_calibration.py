@@ -1,12 +1,6 @@
-"""
-Mercury Agent - Score Calibration System
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Score Calibration System.
 
 Comprehensive score calibration system to solve the F1=0 problem:
 - Root cause: Good ROC-AUC (0.88) but zero F1 because scores < threshold
@@ -33,12 +27,10 @@ import numpy as np
 
 # P2: Import from centralized constants
 
-
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from numpy.typing import NDArray
-
 
 logger = logging.getLogger(__name__)
 
@@ -60,8 +52,7 @@ class CalibrationMethod(Enum):
 
 @dataclass
 class CalibrationDiagnostics:
-    """
-    Diagnostic information about score distribution and calibration.
+    """Diagnostic information about score distribution and calibration.
 
     This class provides the diagnostic output requested by the user:
     - Score range, mean, std
@@ -234,8 +225,7 @@ class CalibrationResult:
 
 
 class ScoreDiagnostics:
-    """
-    Tools for analyzing and diagnosing score distributions.
+    """Tools for analyzing and diagnosing score distributions.
 
     Use this class to understand why F1=0 when ROC-AUC is good:
     - Are scores clustered below the threshold?
@@ -245,8 +235,7 @@ class ScoreDiagnostics:
 
     @staticmethod
     def _validate_scores(scores: NDArray[np.float64], min_samples: int = 1) -> NDArray[np.float64]:
-        """
-        Validate and clean score array.
+        """Validate and clean score array.
 
         Args:
             scores: Input scores array
@@ -283,8 +272,7 @@ class ScoreDiagnostics:
 
     @staticmethod
     def _validate_labels(labels: NDArray[np.int32] | None) -> NDArray[np.int32] | None:
-        """
-        Validate binary labels array.
+        """Validate binary labels array.
 
         Args:
             labels: Input labels array (optional)
@@ -318,8 +306,7 @@ class ScoreDiagnostics:
         labels: NDArray[np.int32] | None = None,
         method: str = "unknown",
     ) -> CalibrationDiagnostics:
-        """
-        Comprehensive analysis of score distribution.
+        """Comprehensive analysis of score distribution.
 
         Args:
             scores: Anomaly scores array (must be non-empty, finite values)
@@ -506,8 +493,7 @@ class ScoreDiagnostics:
         threshold: float = 0.5,
         detector_name: str = "Unknown",
     ) -> None:
-        """
-        Log quick diagnostic matching user's requested format.
+        """Log quick diagnostic matching user's requested format.
 
         This implements the exact diagnostic the user requested:
         ```
@@ -532,8 +518,7 @@ class ScoreDiagnostics:
 
 
 class AutoThresholdOptimizer:
-    """
-    Automatic threshold optimization using multiple strategies.
+    """Automatic threshold optimization using multiple strategies.
 
     This is the core solution to the F1=0 problem: instead of using
     a fixed 0.5 threshold, we compute an optimal threshold based on
@@ -556,8 +541,7 @@ class AutoThresholdOptimizer:
         min_contamination: float = 0.001,
         max_contamination: float = 0.5,
     ):
-        """
-        Initialize threshold optimizer.
+        """Initialize threshold optimizer.
 
         Args:
             default_contamination: Expected anomaly rate (default 5%)
@@ -606,8 +590,7 @@ class AutoThresholdOptimizer:
         labels: NDArray[np.int32] | None = None,
         fixed_threshold: float = 0.5,
     ) -> CalibrationResult:
-        """
-        Find optimal threshold for the given scores.
+        """Find optimal threshold for the given scores.
 
         Args:
             scores: Anomaly scores (higher = more anomalous)
@@ -682,8 +665,7 @@ class AutoThresholdOptimizer:
         scores: NDArray[np.float64],
         labels: NDArray[np.int32] | None = None,
     ) -> tuple[CalibrationMethod, float]:
-        """
-        Automatically select the best calibration method.
+        """Automatically select the best calibration method.
 
         Decision logic:
         1. If labels available -> OPTIMAL_F1
@@ -728,8 +710,7 @@ class AutoThresholdOptimizer:
         contamination: float,
         fixed_threshold: float,
     ) -> tuple[float, dict[str, Any]]:
-        """
-        Percentile-based threshold.
+        """Percentile-based threshold.
 
         Key insight: If contamination=0.05, we want the top 5% to be anomalies,
         so threshold = 95th percentile.
@@ -755,8 +736,7 @@ class AutoThresholdOptimizer:
         contamination: float,
         fixed_threshold: float,
     ) -> tuple[float, dict[str, Any]]:
-        """
-        Otsu's method for bimodal threshold selection.
+        """Otsu's method for bimodal threshold selection.
 
         Finds the threshold that maximizes between-class variance, assuming scores come from two
         distributions (normal vs anomaly).
@@ -819,8 +799,7 @@ class AutoThresholdOptimizer:
         contamination: float,
         fixed_threshold: float,
     ) -> tuple[float, dict[str, Any]]:
-        """
-        Median Absolute Deviation based threshold.
+        """Median Absolute Deviation based threshold.
 
         Robust to outliers, good for heavy-tailed distributions.
         Threshold = median + k * MAD where k controls sensitivity.
@@ -861,8 +840,7 @@ class AutoThresholdOptimizer:
         contamination: float,
         fixed_threshold: float,
     ) -> tuple[float, dict[str, Any]]:
-        """
-        Knee/elbow detection in sorted scores.
+        """Knee/elbow detection in sorted scores.
 
         Finds the point where scores transition from "normal" to "anomalous" by detecting the elbow
         in the sorted score curve.
@@ -919,8 +897,7 @@ class AutoThresholdOptimizer:
         contamination: float,
         fixed_threshold: float,
     ) -> tuple[float, dict[str, Any]]:
-        """
-        Adaptive IQR-based threshold.
+        """Adaptive IQR-based threshold.
 
         Uses the score distribution's IQR to estimate contamination and set threshold accordingly.
         """
@@ -969,8 +946,7 @@ class AutoThresholdOptimizer:
         contamination: float,
         fixed_threshold: float,
     ) -> tuple[float, dict[str, Any]]:
-        """
-        Gaussian Mixture Model based threshold.
+        """Gaussian Mixture Model based threshold.
 
         Fits a 2-component GMM and uses the intersection point as the threshold. Fallback to
         percentile if GMM fails.
@@ -1044,8 +1020,7 @@ class AutoThresholdOptimizer:
         scores: NDArray[np.float64],
         labels: NDArray[np.int32],
     ) -> CalibrationResult:
-        """
-        Find threshold that maximizes F1 score.
+        """Find threshold that maximizes F1 score.
 
         This is the gold standard when labels are available.
         """
@@ -1093,8 +1068,7 @@ class AutoThresholdOptimizer:
         scores: NDArray[np.float64],
         labels: NDArray[np.int32],
     ) -> CalibrationResult:
-        """
-        Find threshold that maximizes Youden's J statistic.
+        """Find threshold that maximizes Youden's J statistic.
 
         Youden's J = Sensitivity + Specificity - 1 = TPR - FPR
 
@@ -1161,8 +1135,7 @@ class AutoThresholdOptimizer:
 
 
 class ScoreCalibrationManager:
-    """
-    Unified calibration manager for anomaly detection scores.
+    """Unified calibration manager for anomaly detection scores.
 
     This is the main interface for solving the F1=0 problem.
     It combines:
@@ -1191,8 +1164,7 @@ class ScoreCalibrationManager:
         max_contamination: float = 0.5,
         enable_probability_calibration: bool = False,
     ):
-        """
-        Initialize calibration manager.
+        """Initialize calibration manager.
 
         Args:
             contamination: Expected fraction of anomalies (0.0-1.0)
@@ -1222,8 +1194,7 @@ class ScoreCalibrationManager:
         method: CalibrationMethod | None = None,
         contamination: float | None = None,
     ) -> CalibrationResult:
-        """
-        Calibrate scores and compute optimal threshold.
+        """Calibrate scores and compute optimal threshold.
 
         Args:
             scores: Raw anomaly scores
@@ -1257,8 +1228,7 @@ class ScoreCalibrationManager:
         labels: NDArray[np.int32] | None = None,
         method: CalibrationMethod | None = None,
     ) -> float:
-        """
-        Get calibrated threshold value.
+        """Get calibrated threshold value.
 
         Convenience method for detectors that just need the threshold.
 
@@ -1279,8 +1249,7 @@ class ScoreCalibrationManager:
         threshold: float | None = None,
         labels: NDArray[np.int32] | None = None,
     ) -> CalibrationDiagnostics:
-        """
-        Get detailed diagnostics for score distribution.
+        """Get detailed diagnostics for score distribution.
 
         Args:
             scores: Anomaly scores
@@ -1306,8 +1275,7 @@ class ScoreCalibrationManager:
         labels: NDArray[np.int32] | None = None,
         detector_name: str = "Unknown",
     ) -> None:
-        """
-        Log formatted diagnostics via ``logger.info``.
+        """Log formatted diagnostics via ``logger.info``.
 
         Args:
             scores: Anomaly scores
@@ -1419,8 +1387,7 @@ class ThresholdConfidenceIntervalCalculator:
         contamination: float = 0.05,
         labels: NDArray[np.int32] | None = None,
     ) -> ThresholdConfidenceInterval:
-        """
-        Compute bootstrap confidence interval for threshold.
+        """Compute bootstrap confidence interval for threshold.
 
         Args:
             scores: Anomaly scores array
@@ -1484,8 +1451,7 @@ class ThresholdConfidenceIntervalCalculator:
         contamination: float = 0.05,
         labels: NDArray[np.int32] | None = None,
     ) -> ThresholdConfidenceInterval:
-        """
-        Compute bias-corrected and accelerated (BCa) bootstrap CI.
+        """Compute bias-corrected and accelerated (BCa) bootstrap CI.
 
         BCa intervals are more accurate than percentile intervals,
         especially for skewed distributions or small samples.
@@ -1605,8 +1571,7 @@ class LabelSmoothingCalibrator:
         min_smoothing: float = 0.01,
         max_smoothing: float = 0.3,
     ):
-        """
-        Initialize label smoothing calibrator.
+        """Initialize label smoothing calibrator.
 
         Args:
             smoothing: Base smoothing factor (0-1). 0.1 recommended.
@@ -1627,8 +1592,7 @@ class LabelSmoothingCalibrator:
         labels: NDArray[np.int32],
         class_weights: NDArray[np.float64] | None = None,
     ) -> NDArray[np.float64]:
-        """
-        Apply label smoothing to binary labels.
+        """Apply label smoothing to binary labels.
 
         Args:
             labels: Binary labels array (0 or 1)
@@ -1663,8 +1627,7 @@ class LabelSmoothingCalibrator:
         labels: NDArray[np.int32],
         confidences: NDArray[np.float64],
     ) -> NDArray[np.float64]:
-        """
-        Apply confidence-weighted label smoothing.
+        """Apply confidence-weighted label smoothing.
 
         Higher confidence samples get less smoothing, lower confidence
         samples get more smoothing. This is useful when label quality varies.
@@ -1694,8 +1657,7 @@ class LabelSmoothingCalibrator:
         predictions: NDArray[np.float64],
         temperature: float = 1.0,
     ) -> NDArray[np.float64]:
-        """
-        Get calibration targets using temperature scaling and smoothing.
+        """Get calibration targets using temperature scaling and smoothing.
 
         Combines label smoothing with temperature scaling for optimal calibration.
 
@@ -1779,8 +1741,7 @@ def calibrate_scores(
     method: str | CalibrationMethod = "auto",
     labels: NDArray[np.int32] | None = None,
 ) -> tuple[float, NDArray[np.bool_], CalibrationDiagnostics]:
-    """
-    Convenience function to calibrate scores and get threshold.
+    """Convenience function to calibrate scores and get threshold.
 
     Args:
         scores: Anomaly scores array
@@ -1815,8 +1776,7 @@ def diagnose_scores(
     labels: NDArray[np.int32] | None = None,
     print_output: bool = True,
 ) -> CalibrationDiagnostics:
-    """
-    Diagnose score distribution and threshold issues.
+    """Diagnose score distribution and threshold issues.
 
     Args:
         scores: Anomaly scores array

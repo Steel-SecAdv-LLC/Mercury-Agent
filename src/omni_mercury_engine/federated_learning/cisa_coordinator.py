@@ -1,20 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
-
-CISA Federated Coordinator for Mercury Agent.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""CISA Federated Coordinator for Mercury Agent.
 
 Coordinates federated learning across CISA critical infrastructure sectors,
 enabling privacy-preserving cross-sector threat intelligence and anomaly detection.
@@ -106,8 +92,7 @@ class CrossSectorResult:
 
 
 class CISAFederatedCoordinator:
-    """
-    Coordinates federated learning across CISA critical infrastructure sectors.
+    """Coordinates federated learning across CISA critical infrastructure sectors.
 
     Enables:
     - Multi-sector anomaly pattern learning without data sharing
@@ -157,8 +142,7 @@ class CISAFederatedCoordinator:
         model_dim: int = 50,
         default_config: SectorConfig | None = None,
     ) -> None:
-        """
-        Initialize CISA Federated Coordinator.
+        """Initialize CISA Federated Coordinator.
 
         Args:
             sectors: List of sector names to coordinate
@@ -217,8 +201,7 @@ class CISAFederatedCoordinator:
         )
 
     def configure_sector(self, sector: str, config: SectorConfig) -> None:
-        """
-        Configure a specific sector with custom settings.
+        """Configure a specific sector with custom settings.
 
         Args:
             sector: Sector name
@@ -250,8 +233,7 @@ class CISAFederatedCoordinator:
         X: np.ndarray[Any, Any],
         y: np.ndarray[Any, Any] | None = None,
     ) -> None:
-        """
-        Add a client to a specific sector.
+        """Add a client to a specific sector.
 
         Args:
             sector: Sector name
@@ -279,8 +261,7 @@ class CISAFederatedCoordinator:
         rounds: int = 10,
         cross_sector_aggregation: bool = True,
     ) -> CrossSectorResult:
-        """
-        Coordinate federated training across multiple CISA sectors.
+        """Coordinate federated training across multiple CISA sectors.
 
         This implements a hierarchical aggregation approach:
         1. Each sector trains its federated model independently
@@ -362,8 +343,7 @@ class CISAFederatedCoordinator:
         self,
         sector_results: dict[str, TrainingResult],
     ) -> tuple[np.ndarray[Any, Any] | None, dict[str, float]]:
-        """
-        Aggregate models across sectors using weighted averaging.
+        """Aggregate models across sectors using weighted averaging.
 
         Only aggregates sectors that allow cross-sector sharing.
 
@@ -408,8 +388,7 @@ class CISAFederatedCoordinator:
         return aggregated, metrics
 
     def get_sector_model(self, sector: str) -> np.ndarray[Any, Any] | None:
-        """
-        Get the trained model weights for a specific sector.
+        """Get the trained model weights for a specific sector.
 
         Args:
             sector: Sector name
@@ -428,8 +407,7 @@ class CISAFederatedCoordinator:
         sector: str,
         X: np.ndarray[Any, Any],
     ) -> np.ndarray[Any, Any]:
-        """
-        Predict anomalies using a sector's trained model.
+        """Predict anomalies using a sector's trained model.
 
         Args:
             sector: Sector name
@@ -448,8 +426,7 @@ class CISAFederatedCoordinator:
         sector: str,
         X: np.ndarray[Any, Any],
     ) -> np.ndarray[Any, Any]:
-        """
-        Get anomaly scores using a sector's trained model.
+        """Get anomaly scores using a sector's trained model.
 
         Args:
             sector: Sector name

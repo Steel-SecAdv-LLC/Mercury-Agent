@@ -1,14 +1,6 @@
-"""
-Mercury Agent
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Authentication and authorization middleware for the API.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Authentication and authorization middleware for the API.
 
 Example:
     Using API key authentication::
@@ -42,6 +34,8 @@ from datetime import datetime, timedelta
 from enum import Enum
 from functools import wraps
 from typing import TYPE_CHECKING, Any
+
+from omni_mercury_engine._env import is_production as _env_is_production
 
 try:
     from ama_cryptography.key_management import (
@@ -85,8 +79,7 @@ class Permission(Enum):
 
 @dataclass
 class User:
-    """
-    Authenticated user information.
+    """Authenticated user information.
 
     Attributes:
         id: Unique user identifier.
@@ -116,8 +109,7 @@ class User:
 
 @dataclass
 class APIKey:
-    """
-    API key information.
+    """API key information.
 
     Attributes:
         key_id: Unique key identifier.
@@ -155,6 +147,7 @@ class AuthenticationError(Exception):
     """Authentication failed."""
 
     def __init__(self, message: str, code: str = "auth_failed") -> None:
+        """Initialize the instance."""
         super().__init__(message)
         self.code = code
 
@@ -163,6 +156,7 @@ class AuthorizationError(Exception):
     """Authorization failed."""
 
     def __init__(self, message: str, required: str | None = None) -> None:
+        """Initialize the instance."""
         super().__init__(message)
         self.required = required
 
@@ -172,8 +166,7 @@ class AuthProvider(ABC):
 
     @abstractmethod
     async def authenticate(self, credentials: Any) -> User:
-        """
-        Authenticate credentials and return user.
+        """Authenticate credentials and return user.
 
         Args:
             credentials: Authentication credentials.
@@ -188,8 +181,7 @@ class AuthProvider(ABC):
 
     @abstractmethod
     async def validate_token(self, token: str) -> User | None:
-        """
-        Validate a token and return user if valid.
+        """Validate a token and return user if valid.
 
         Args:
             token: Token to validate.
@@ -201,13 +193,13 @@ class AuthProvider(ABC):
 
 
 class APIKeyStore:
-    """
-    In-memory API key store.
+    """In-memory API key store.
 
     In production, this should be backed by a database.
     """
 
     def __init__(self) -> None:
+        """Initialize the instance."""
         self._keys: dict[str, APIKey] = {}
         self._key_lookup: dict[str, str] = {}  # hash -> key_id
 
@@ -220,8 +212,7 @@ class APIKeyStore:
 
     @staticmethod
     def hash_key(key: str) -> str:
-        """
-        Hash an API key for storage using PBKDF2-HMAC-SHA256.
+        """Hash an API key for storage using PBKDF2-HMAC-SHA256.
 
         Uses PBKDF2 (Password-Based Key Derivation Function 2) which is a
         computationally expensive hash function suitable for credential storage.
@@ -233,8 +224,7 @@ class APIKeyStore:
             Optionally adjust API_KEY_HASH_ITERATIONS (default: 260000).
         """
         if APIKeyStore._HASH_SALT_IS_DEFAULT:
-            is_prod = os.getenv("MERCURY_AGENT_ENV", "").lower() == "production"
-            if is_prod:
+            if _is_production_env():
                 raise ValueError(
                     "API_KEY_HASH_SALT environment variable is required in production. "
                     "Generate with: openssl rand -hex 32"
@@ -257,8 +247,7 @@ class APIKeyStore:
         expires_in_days: int | None = None,
         rate_limit: int = 100,
     ) -> tuple[str, APIKey]:
-        """
-        Create a new API key.
+        """Create a new API key.
 
         Args:
             name: Key name.
@@ -317,8 +306,7 @@ class APIKeyStore:
 
 
 class AuthKeyManager:
-    """
-    AMA Key Management integration for Mercury's auth layer.
+    """AMA Key Management integration for Mercury's auth layer.
 
     Provides HD key derivation, key rotation, and lifecycle management
     for API keys, JWT signing keys, and audit trail signing keys via
@@ -340,11 +328,13 @@ class AuthKeyManager:
         master_seed: bytes | None = None,
         rotation_period_days: int = 90,
     ) -> None:
-        """
-        Initialize the auth key manager.
+        """Initialize the auth key manager.
 
         Args:
-            master_seed: HD derivation master seed (generated if None)
+            master_seed: HD derivation master seed. When None, a random
+                per-process seed is generated — derived keys then differ
+                across processes and restarts (``seed_is_ephemeral`` is
+                set so callers can surface that hazard).
             rotation_period_days: Default key rotation period in days
         """
         if not _AMA_KEY_MGMT_AVAILABLE:
@@ -353,6 +343,7 @@ class AuthKeyManager:
                 "Install with: pip install 'ama-cryptography @ "
                 "git+https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git'"
             )
+        self.seed_is_ephemeral = master_seed is None
         self._hd = HDKeyDerivation(seed=master_seed)
         self._rotation = KeyRotationManager(
             rotation_period=timedelta(days=rotation_period_days),
@@ -379,8 +370,7 @@ class AuthKeyManager:
             )
 
     def derive_key(self, purpose: str, index: int | None = None) -> bytes:
-        """
-        Derive a key for the given purpose using HD derivation.
+        """Derive a key for the given purpose using HD derivation.
 
         Args:
             purpose: One of ``api_key``, ``jwt_sign``, ``audit_sign``
@@ -410,8 +400,7 @@ class AuthKeyManager:
         return result
 
     def rotate_key(self, purpose: str) -> tuple[str, str]:
-        """
-        Rotate the key for the given purpose.
+        """Rotate the key for the given purpose.
 
         Derives a new key via HD derivation, registers it with the
         rotation manager, and initiates the rotation. The old key
@@ -495,11 +484,77 @@ def get_api_key_store() -> APIKeyStore:
     return _api_key_store
 
 
+def _is_production_env() -> bool:
+    """Decide production mode for the auth layer.
+
+    Mirrors ``api/server.py``'s precedence exactly: the canonical
+    ``MERCURY_ENV`` flag (``omni_mercury_engine._env``) wins whenever it
+    is set — including raising :class:`MercuryProductionConfigError` on
+    unknown values, so typos stay loud. Only when ``MERCURY_ENV`` is
+    unset do the legacy aliases this module has honoured since v1.x
+    (``MERCURY_AGENT_ENV``, ``ENV``, ``ENVIRONMENT``) apply.
+    """
+    if os.getenv("MERCURY_ENV", "").strip():
+        return _env_is_production()
+    return any(
+        os.getenv(var, "").strip().lower() == "production"
+        for var in ("MERCURY_AGENT_ENV", "ENV", "ENVIRONMENT")
+    )
+
+
+def _load_master_seed_from_env() -> bytes | None:
+    """Load the AMA HD master seed from ``AMA_MASTER_SEED`` (hex-encoded).
+
+    Returns ``None`` when the variable is unset or empty (callers then fall
+    back to an ephemeral per-process seed). A set-but-malformed value raises
+    ``ValueError`` instead of silently degrading to an ephemeral seed —
+    a typo here would otherwise invalidate every token fleet-wide without
+    any visible error. A whitespace-only value counts as malformed, not
+    empty: ``bytes.fromhex`` ignores ASCII whitespace (so a trailing
+    newline on a valid seed is harmless), leaving zero decoded bytes to
+    fail the length check loudly rather than masking an operator's
+    intent to configure a seed.
+
+    Returns:
+        Decoded seed bytes (>= 32 bytes; 64 recommended), or None.
+
+    Raises:
+        ValueError: The value is not valid hex or decodes to fewer than
+            32 bytes (including whitespace-only values, which decode to
+            zero bytes).
+    """
+    raw = os.getenv("AMA_MASTER_SEED")
+    if not raw:
+        return None
+    try:
+        seed = bytes.fromhex(raw)
+    except ValueError as exc:
+        raise ValueError(
+            "AMA_MASTER_SEED must be a hex string (generate with: "
+            "`openssl rand -hex 64`). Refusing to fall back to an ephemeral "
+            "per-process seed on a malformed value — that would silently "
+            "break token verification across workers and restarts."
+        ) from exc
+    if len(seed) < 32:
+        raise ValueError(
+            "AMA_MASTER_SEED must decode to at least 32 bytes "
+            f"(64 recommended); got {len(seed)} bytes."
+        )
+    return seed
+
+
 def get_auth_key_manager() -> AuthKeyManager:
-    """Get or create the global AMA auth key manager instance."""
+    """Get or create the global AMA auth key manager instance.
+
+    The HD master seed is sourced from the ``AMA_MASTER_SEED`` environment
+    variable (hex; see :func:`_load_master_seed_from_env`). When it is set,
+    every process derives identical key material, so HD-derived JWT signing
+    keys verify across workers, replicas, and restarts. When unset, the
+    seed is generated per process and derived keys are ephemeral.
+    """
     global _auth_key_manager
     if _auth_key_manager is None:
-        _auth_key_manager = AuthKeyManager()
+        _auth_key_manager = AuthKeyManager(master_seed=_load_master_seed_from_env())
     return _auth_key_manager
 
 
@@ -517,6 +572,7 @@ class APIKeyAuth:
         header_name: str = "X-API-Key",
         auto_error: bool = True,
     ):
+        """Initialize the instance."""
         self.header_name = header_name
         self.auto_error = auto_error
         self.api_key_header = APIKeyHeader(
@@ -529,8 +585,7 @@ class APIKeyAuth:
         request: Request,
         api_key: str | None = None,
     ) -> User | None:
-        """
-        Authenticate request with API key.
+        """Authenticate request with API key.
 
         Args:
             request: FastAPI request.
@@ -624,8 +679,7 @@ class JWTAuth:
         auto_error: bool = True,
         allow_dev_fallback: bool = True,
     ):
-        """
-        Initialize JWT authentication.
+        """Initialize JWT authentication.
 
         Args:
             secret_key: JWT signing key (overrides environment variable)
@@ -634,24 +688,29 @@ class JWTAuth:
             allow_dev_fallback: Allow insecure fallback key for development
 
         Security Note:
-            In production, always set JWT_SECRET_KEY environment variable.
-            Generate a secure key with: `openssl rand -hex 32`
-
-        Migration Note (v1.0 -> v2.0):
-            JWT_SECRET_KEY is now required in production. If migrating from
-            an older version, ensure you set this environment variable before
-            deploying. See CHANGELOG.md for migration instructions.
+            Key resolution order: explicit ``secret_key`` argument, then the
+            ``JWT_SECRET_KEY`` environment variable. Production mode is
+            decided by :func:`_is_production_env`: the canonical
+            ``MERCURY_ENV`` flag wins when set (unknown values raise);
+            the legacy ``MERCURY_AGENT_ENV`` / ``ENV`` / ``ENVIRONMENT``
+            aliases apply only when ``MERCURY_ENV`` is unset. In
+            production with no key set, the signing key is derived via AMA HD Key
+            Management (``get_auth_key_manager()``, purpose ``jwt_sign``);
+            a failed derivation raises ``ValueError``. The HD master seed
+            is sourced from ``AMA_MASTER_SEED`` (hex, ``openssl rand -hex
+            64``) — set it and derivation is deterministic fleet-wide.
+            Without it the seed is generated per process, derived keys
+            differ across workers/replicas/restarts, and a warning is
+            logged; in that case set ``AMA_MASTER_SEED`` or
+            ``JWT_SECRET_KEY`` (``openssl rand -hex 32``).
         """
         self.secret_key = secret_key or os.getenv("JWT_SECRET_KEY")
         self.using_fallback = False
 
         if self.secret_key is None:
-            # Check if we're in a production environment
-            is_production = os.getenv("MERCURY_AGENT_ENV", "").lower() == "production"
-            is_production = is_production or os.getenv("ENV", "").lower() == "production"
-            is_production = is_production or os.getenv("ENVIRONMENT", "").lower() == "production"
-
-            if is_production:
+            # Canonical MERCURY_ENV first, legacy aliases second — the
+            # same precedence api/server.py applies (see _is_production_env).
+            if _is_production_env():
                 # In production, derive JWT signing key from AMA Key Management
                 try:
                     km = get_auth_key_manager()
@@ -660,6 +719,14 @@ class JWTAuth:
                     logger.info(
                         "JWT signing key derived from AMA HD Key Management (purpose=jwt_sign)"
                     )
+                    if km.seed_is_ephemeral:
+                        logger.warning(
+                            "JWT signing key was derived from an EPHEMERAL per-process "
+                            "HD master seed: tokens will not verify across workers, "
+                            "replicas, or restarts. Set AMA_MASTER_SEED "
+                            "(`openssl rand -hex 64`) for deterministic fleet-wide "
+                            "derivation, or set JWT_SECRET_KEY directly."
+                        )
                 except Exception as e:
                     raise ValueError(
                         "JWT_SECRET_KEY environment variable is required in production "
@@ -696,8 +763,7 @@ class JWTAuth:
         request: Request,
         credentials: HTTPAuthorizationCredentials | None = None,
     ) -> User | None:
-        """
-        Authenticate request with JWT token.
+        """Authenticate request with JWT token.
 
         Args:
             request: FastAPI request.
@@ -738,8 +804,7 @@ class JWTAuth:
         return user
 
     async def _validate_jwt(self, token: str) -> User | None:
-        """
-        Validate JWT token using Mercury's native HS256 JWT module.
+        """Validate JWT token using Mercury's native HS256 JWT module.
 
         The library is part of Mercury's own ``security`` package
         (``omni_mercury_engine.security.native_jwt``), so no
@@ -845,8 +910,7 @@ class JWTAuth:
         algorithm: str = "HS256",
         expires_in_hours: int = 24,
     ) -> str:
-        """
-        Create a new JWT token.
+        """Create a new JWT token.
 
         Args:
             user_id: Unique user identifier
@@ -881,8 +945,7 @@ class JWTAuth:
 
 
 class RequestRateLimiter:
-    """
-    Request-aware rate limiter wrapper.
+    """Request-aware rate limiter wrapper.
 
     Wraps the unified RateLimiter with FastAPI Request support. Uses the consolidated rate limiting
     module for actual implementation.
@@ -893,6 +956,7 @@ class RequestRateLimiter:
         requests_per_minute: int = 100,
         burst_size: int = 20,
     ):
+        """Initialize the instance."""
         from omni_mercury_engine.security.rate_limiting import RateLimiter as UnifiedRateLimiter
 
         self._limiter = UnifiedRateLimiter(
@@ -915,8 +979,7 @@ class RequestRateLimiter:
         request: Request,
         user: User | None = None,
     ) -> tuple[bool, dict[str, Any]]:
-        """
-        Check if request is allowed under rate limit.
+        """Check if request is allowed under rate limit.
 
         Args:
             request: FastAPI request.
@@ -948,8 +1011,7 @@ def get_rate_limiter() -> RequestRateLimiter:
 
 
 def require_permission(permission: Permission) -> Callable[..., Any]:
-    """
-    Decorator to require specific permission.
+    """Decorator to require specific permission.
 
     Args:
         permission: Required permission.
@@ -977,8 +1039,7 @@ def require_permission(permission: Permission) -> Callable[..., Any]:
 
 
 def require_role(role: str) -> Callable[..., Any]:
-    """
-    Decorator to require specific role.
+    """Decorator to require specific role.
 
     Args:
         role: Required role.
@@ -1009,8 +1070,7 @@ async def rate_limit_middleware(
     request: Request,
     call_next: Callable[..., Any],
 ) -> Any:
-    """
-    Rate limiting middleware.
+    """Rate limiting middleware.
 
     Args:
         request: FastAPI request.

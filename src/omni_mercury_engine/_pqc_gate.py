@@ -1,7 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-Import-time PQC gate.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Import-time PQC gate.
 
 AMA is mandatory for Mercury.  ``omni_mercury_engine`` package import refuses
 to proceed unless the AMA Cryptography native C backend is fully loadable;

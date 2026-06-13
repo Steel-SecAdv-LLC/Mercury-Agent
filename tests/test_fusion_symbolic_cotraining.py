@@ -1,8 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Integration tests for neuro-symbolic co-training in ``fit_fusion``.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Integration tests for neuro-symbolic co-training in ``fit_fusion``.
 
 These verify the *contract* of the symbolic-constraint path, deterministically
 and without network access:
@@ -166,8 +164,10 @@ class TestCoTrainingContract:
         channels = list(engine._symbolic_score_channels or [])
         assert len(channels) == module.num_detectors
 
-        def empty_detector_features(data: Any) -> tuple[dict[str, Any], dict[str, Any]]:
-            return {}, {}
+        def empty_detector_features(
+            data: Any,
+        ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+            return {}, {}, {}
 
         def expanded_model_features(data: Any) -> tuple[dict[str, Any], dict[str, Any]]:
             n = len(data)

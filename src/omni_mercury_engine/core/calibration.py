@@ -1,12 +1,6 @@
-"""
-Mercury Agent - Probability Calibration Module
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Probability Calibration Module.
 
 Implements calibration methods to align confidence scores with true error rates:
 - Platt Scaling (logistic regression on scores)
@@ -59,8 +53,7 @@ class CalibrationResult:
 def compute_ece(
     y_true: np.ndarray[Any, Any], y_prob: np.ndarray[Any, Any], n_bins: int = 10
 ) -> float:
-    """
-    Compute Expected Calibration Error (ECE).
+    """Compute Expected Calibration Error (ECE).
 
     ECE measures the average gap between predicted confidence and accuracy
     across probability bins, weighted by bin size.
@@ -93,8 +86,7 @@ def compute_ece(
 def compute_mce(
     y_true: np.ndarray[Any, Any], y_prob: np.ndarray[Any, Any], n_bins: int = 10
 ) -> float:
-    """
-    Compute Maximum Calibration Error (MCE).
+    """Compute Maximum Calibration Error (MCE).
 
     MCE is the maximum gap between predicted confidence and accuracy
     across all probability bins.
@@ -124,8 +116,7 @@ def compute_mce(
 
 
 class PlattScaling:
-    """
-    Platt Scaling calibration using logistic regression.
+    """Platt Scaling calibration using logistic regression.
 
     Fits a logistic regression model to map raw scores/probabilities
     to calibrated probabilities. Works well when the uncalibrated
@@ -135,8 +126,7 @@ class PlattScaling:
     """
 
     def __init__(self, solver: str = "lbfgs", max_iter: int = 1000):
-        """
-        Initialize Platt scaling.
+        """Initialize Platt scaling.
 
         Args:
             solver: Solver for logistic regression
@@ -157,8 +147,7 @@ class PlattScaling:
         self._fitted = False
 
     def fit(self, y_prob: np.ndarray[Any, Any], y_true: np.ndarray[Any, Any]) -> PlattScaling:
-        """
-        Fit Platt scaling calibrator.
+        """Fit Platt scaling calibrator.
 
         Args:
             y_prob: Uncalibrated probability predictions (n_samples,)
@@ -186,8 +175,7 @@ class PlattScaling:
         return self
 
     def calibrate(self, y_prob: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Apply Platt scaling calibration.
+        """Apply Platt scaling calibration.
 
         Args:
             y_prob: Uncalibrated probabilities
@@ -203,8 +191,7 @@ class PlattScaling:
 
 
 class IsotonicCalibration:
-    """
-    Isotonic regression calibration (non-parametric).
+    """Isotonic regression calibration (non-parametric).
 
     Fits a stepwise non-decreasing function to map raw scores
     to calibrated probabilities. More flexible than Platt scaling
@@ -214,8 +201,7 @@ class IsotonicCalibration:
     """
 
     def __init__(self, out_of_bounds: str = "clip"):
-        """
-        Initialize isotonic calibration.
+        """Initialize isotonic calibration.
 
         Args:
             out_of_bounds: How to handle out-of-bounds values ("clip", "nan")
@@ -237,8 +223,7 @@ class IsotonicCalibration:
     def fit(
         self, y_prob: np.ndarray[Any, Any], y_true: np.ndarray[Any, Any]
     ) -> IsotonicCalibration:
-        """
-        Fit isotonic regression calibrator.
+        """Fit isotonic regression calibrator.
 
         Args:
             y_prob: Uncalibrated probability predictions
@@ -259,8 +244,7 @@ class IsotonicCalibration:
         return self
 
     def calibrate(self, y_prob: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Apply isotonic calibration.
+        """Apply isotonic calibration.
 
         Args:
             y_prob: Uncalibrated probabilities
@@ -274,9 +258,232 @@ class IsotonicCalibration:
         return np.asarray(self.model.predict(y_prob))  # type: ignore[no-any-return, unused-ignore]
 
 
-class TemperatureScaling:
+def _ece_kernel_surrogate(
+    p: np.ndarray[Any, Any],
+    y: np.ndarray[Any, Any],
+    bandwidth: float = 0.1,
+    n_anchors: int = 15,
+) -> float:
+    """Differentiable (soft-binned) surrogate for ECE.
+
+    Nadaraya-Watson style: each calibrated probability is softly assigned to a
+    grid of anchors by a Gaussian kernel; per-anchor we compare the weighted
+    mean label (accuracy) to the weighted mean probability (confidence), and sum
+    the mass-weighted gaps.  Smooth in ``p`` (unlike hard-binned ECE), so it is
+    usable inside a gradient/quasi-Newton fit.
     """
-    Temperature Scaling calibration (single-parameter).
+    anchors = np.linspace(0.0, 1.0, n_anchors)
+    w = np.exp(-0.5 * ((p[:, None] - anchors[None, :]) / bandwidth) ** 2)  # (n, K)
+    mass = w.sum(axis=0)  # (K,)
+    valid = mass > 1e-12
+    if not np.any(valid):
+        return 0.0
+    conf = (w * p[:, None]).sum(axis=0)[valid] / mass[valid]
+    acc = (w * y[:, None]).sum(axis=0)[valid] / mass[valid]
+    bin_mass = mass[valid] / mass[valid].sum()
+    return float(np.sum(bin_mass * np.abs(acc - conf)))
+
+
+def _net_benefit_integral(
+    p: np.ndarray[Any, Any],
+    y: np.ndarray[Any, Any],
+    thresholds: np.ndarray[Any, Any],
+    prior: np.ndarray[Any, Any],
+    softness: float = 0.02,
+) -> float:
+    """Threshold-prior-weighted net benefit, softly thresholded (differentiable).
+
+    NB(t) = TP/n - FP/n * t/(1-t), with the treat decision ``p >= t`` relaxed to
+    a sigmoid ``sigma((p - t)/softness)`` so the integral is smooth in ``p``.
+    ``prior`` is pi(t) over ``thresholds`` (up-weight low t for the
+    missed-detection-catastrophic regime).
+    """
+    n = len(p)
+    if n == 0:
+        return 0.0
+    treat = 1.0 / (1.0 + np.exp(-(p[:, None] - thresholds[None, :]) / softness))  # (n, T)
+    tp = (treat * y[:, None]).sum(axis=0) / n
+    fp = (treat * (1.0 - y[:, None])).sum(axis=0) / n
+    odds = thresholds / np.clip(1.0 - thresholds, 1e-9, None)
+    nb = tp - fp * odds  # (T,)
+    pri = prior / np.clip(prior.sum(), 1e-12, None)
+    return float(np.sum(pri * nb))
+
+
+class BetaCalibration:
+    """Beta calibration (Kull et al. 2017) fit by a composite proper objective.
+
+    Maps a raw score ``s`` to a calibrated probability through the **strictly
+    monotone** link
+
+        p(s) = sigmoid(c + a * ln(s) - b * ln(1 - s)),    a, b >= 0
+
+    (``s`` is min-max scaled into ``(eps, 1 - eps)`` first; min-max scaling is
+    monotone, so it does not affect rank order).  Because ``a, b >= 0`` make
+    ``p(s)`` monotone non-decreasing in ``s``, the rank order of scores -- and
+    therefore **AUROC -- is preserved exactly** (an I3-free calibration map).
+
+    Parameters are fit on a held-out calibration split by minimising the
+    composite objective
+
+        L(a, b, c) = Brier + lambda_ece * ECE_kernel - lambda_nb * NB_integral
+
+    with monotonicity enforced as a box constraint (``a, b >= 0``).  There is no
+    AUROC term.  ``Brier`` is the strictly-proper anchor; ``ECE_kernel`` is the
+    differentiable surrogate above; ``NB_integral`` is the threshold-prior net
+    benefit (default ``lambda_nb=0`` -> a pure proper + calibration objective).
+
+    "MCA" (monotone calibration) is this map; it is wired behind the
+    ``calibration_map="mca"`` flag (default off -> identity, exact-reducing).
+    """
+
+    def __init__(
+        self,
+        lambda_ece: float = 1.0,
+        lambda_nb: float = 0.0,
+        ece_bandwidth: float = 0.1,
+        eps: float = 1e-6,
+    ) -> None:
+        """Store the composite-objective weights and numerical epsilon."""
+        self.lambda_ece = float(lambda_ece)
+        self.lambda_nb = float(lambda_nb)
+        self.ece_bandwidth = float(ece_bandwidth)
+        self.eps = float(eps)
+        self.a_: float = 1.0
+        self.b_: float = 1.0
+        self.c_: float = 0.0
+        self._s_min: float = 0.0
+        self._s_max: float = 1.0
+        self._fitted = False
+
+    def _scale(self, s: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        s = np.asarray(s, dtype=np.float64).reshape(-1)
+        rng = self._s_max - self._s_min
+        if rng <= 0:
+            rng = 1.0
+        u = (s - self._s_min) / rng
+        return np.clip(u, self.eps, 1.0 - self.eps)
+
+    def _link(self, u: np.ndarray[Any, Any], a: float, b: float, c: float) -> np.ndarray[Any, Any]:
+        z = c + a * np.log(u) - b * np.log1p(-u)
+        p: np.ndarray[Any, Any] = 1.0 / (1.0 + np.exp(-np.clip(z, -50.0, 50.0)))
+        return p
+
+    def fit(
+        self,
+        y_prob: np.ndarray[Any, Any],
+        y_true: np.ndarray[Any, Any],
+        threshold_prior: np.ndarray[Any, Any] | None = None,
+    ) -> BetaCalibration:
+        """Fit (a, b, c) by minimising the composite objective; a, b >= 0."""
+        from scipy import optimize
+
+        s = np.asarray(y_prob, dtype=np.float64).reshape(-1)
+        y = np.asarray(y_true, dtype=np.float64).reshape(-1)
+        if len(np.unique(y)) < 2 or s.size < 4:
+            logger.warning("BetaCalibration: degenerate calibration set, staying identity")
+            self._fitted = False
+            return self
+
+        self._s_min, self._s_max = float(np.min(s)), float(np.max(s))
+        u = self._scale(s)
+        ln_u, ln_1mu = np.log(u), np.log1p(-u)
+
+        thresholds = np.linspace(0.02, 0.98, 25)
+        if threshold_prior is None:
+            # Up-weight low thresholds (missed detection catastrophic).
+            prior = 1.0 / thresholds
+        else:
+            prior = np.asarray(threshold_prior, dtype=np.float64).reshape(-1)
+
+        def objective(theta: np.ndarray[Any, Any]) -> float:
+            a, b, c = float(theta[0]), float(theta[1]), float(theta[2])
+            z = c + a * ln_u - b * ln_1mu
+            p = 1.0 / (1.0 + np.exp(-np.clip(z, -50.0, 50.0)))
+            brier = float(np.mean((p - y) ** 2))
+            loss = brier
+            if self.lambda_ece > 0:
+                loss += self.lambda_ece * _ece_kernel_surrogate(p, y, self.ece_bandwidth)
+            if self.lambda_nb > 0:
+                loss -= self.lambda_nb * _net_benefit_integral(p, y, thresholds, prior)
+            return loss
+
+        # Start from the identity map (a=b=1, c=0 makes p == u) and let L-BFGS-B
+        # optimise the composite objective from there.  A maximum-likelihood beta
+        # warm start was probed and *worsened* held-out Brier/ECE (see
+        # research/governed_fusion/measure_calibration_levers.py), so the identity
+        # start stands.
+        x0 = np.array([1.0, 1.0, 0.0], dtype=np.float64)
+        try:
+            res = optimize.minimize(
+                objective,
+                x0,
+                method="L-BFGS-B",
+                bounds=[(0.0, None), (0.0, None), (None, None)],  # a, b >= 0 (monotone)
+                options={"maxiter": 200},
+            )
+            a, b, c = float(res.x[0]), float(res.x[1]), float(res.x[2])
+        except Exception as exc:  # pragma: no cover - optimiser guard
+            logger.warning("BetaCalibration: optimiser failed (%s); staying identity", exc)
+            self._fitted = False
+            return self
+
+        # Guard strict monotonicity (a + b > 0) so AUROC is preserved exactly.
+        if a + b <= 1e-9:
+            a = max(a, 1e-6)
+        self.a_, self.b_, self.c_ = a, b, c
+        self._fitted = True
+        logger.debug("BetaCalibration fitted: a=%.4f b=%.4f c=%.4f", a, b, c)
+        return self
+
+    def calibrate(self, y_prob: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Apply the fitted monotone beta map (identity passthrough if unfitted)."""
+        s = np.asarray(y_prob, dtype=np.float64).reshape(-1)
+        if not self._fitted:
+            return s
+        return self._link(self._scale(s), self.a_, self.b_, self.c_)
+
+
+class _IdentityCalibration:
+    """No-op calibrator (exact-reducing fallback for the accept-gate)."""
+
+    _fitted = False
+
+    def calibrate(self, y_prob: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        return np.asarray(y_prob, dtype=np.float64).reshape(-1)
+
+
+def fit_accept_gated_mca(
+    y_prob_cal: np.ndarray[Any, Any],
+    y_true_cal: np.ndarray[Any, Any],
+    ece_tol: float = 1e-3,
+) -> tuple[BetaCalibration | _IdentityCalibration, bool]:
+    """Fit Beta-MCA and accept it only if it does not regress on calibration data.
+
+    R4 accept-gate: the fitted monotone map is accepted **only if** it improves
+    Brier **and** ties-or-beats ECE on the calibration split; otherwise an
+    identity (no-op) calibrator is returned.  Guarantees the shipped calibration
+    path can never regress Brier/ECE relative to the uncalibrated scores.
+
+    Returns ``(calibrator, accepted)``.
+    """
+    from omni_mercury_engine.ml.mercury_ml import brier_score_loss
+
+    s = np.asarray(y_prob_cal, dtype=np.float64).reshape(-1)
+    y = np.asarray(y_true_cal, dtype=np.float64).reshape(-1)
+    beta = BetaCalibration().fit(s, y)
+    if not beta._fitted:
+        return _IdentityCalibration(), False
+    p = beta.calibrate(s)
+    accept = bool(
+        brier_score_loss(y, p) < brier_score_loss(y, s)
+        and compute_ece(y, p) <= compute_ece(y, s) + ece_tol
+    )
+    return (beta, True) if accept else (_IdentityCalibration(), False)
+
+
+class TemperatureScaling:
+    """Temperature Scaling calibration (single-parameter).
 
     Divides logits by a learned temperature parameter T before
     applying softmax. Simple but effective for neural networks.
@@ -286,8 +493,7 @@ class TemperatureScaling:
     """
 
     def __init__(self, max_iter: int = 100, lr: float = 0.01):
-        """
-        Initialize temperature scaling.
+        """Initialize temperature scaling.
 
         Args:
             max_iter: Maximum optimization iterations
@@ -308,8 +514,7 @@ class TemperatureScaling:
         return np.asarray(1 / (1 + np.exp(-z)))  # type: ignore[no-any-return, unused-ignore]
 
     def fit(self, y_prob: np.ndarray[Any, Any], y_true: np.ndarray[Any, Any]) -> TemperatureScaling:
-        """
-        Fit temperature parameter by minimizing NLL.
+        """Fit temperature parameter by minimizing NLL.
 
         Args:
             y_prob: Uncalibrated probability predictions
@@ -350,8 +555,7 @@ class TemperatureScaling:
         return self
 
     def calibrate(self, y_prob: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Apply temperature scaling.
+        """Apply temperature scaling.
 
         Args:
             y_prob: Uncalibrated probabilities
@@ -367,16 +571,14 @@ class TemperatureScaling:
 
 
 class CalibrationEnsemble:
-    """
-    Ensemble of calibration methods with automatic selection.
+    """Ensemble of calibration methods with automatic selection.
 
     Combines multiple calibration approaches and selects the best based on validation performance
     (Brier score).
     """
 
     def __init__(self, seed: int | None = None) -> None:
-        """
-        Initialize calibration ensemble.
+        """Initialize calibration ensemble.
 
         Args:
             seed: Optional seed for the per-instance ``Generator`` driving
@@ -398,8 +600,7 @@ class CalibrationEnsemble:
         y_true: np.ndarray[Any, Any],
         validation_split: float = 0.3,
     ) -> CalibrationEnsemble:
-        """
-        Fit all calibrators and select best.
+        """Fit all calibrators and select best.
 
         Args:
             y_prob: Uncalibrated probabilities
@@ -452,8 +653,7 @@ class CalibrationEnsemble:
         return self
 
     def calibrate(self, y_prob: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Apply best calibration method.
+        """Apply best calibration method.
 
         Args:
             y_prob: Uncalibrated probabilities
@@ -474,8 +674,7 @@ def evaluate_calibration(
     method: str = "Unknown",
     n_bins: int = 10,
 ) -> CalibrationResult:
-    """
-    Evaluate calibration improvement.
+    """Evaluate calibration improvement.
 
     Args:
         y_true: Binary ground truth labels
@@ -550,8 +749,7 @@ def calibrate_detector(
     y_cal: np.ndarray[Any, Any],
     method: str = "auto",
 ) -> tuple[Any, CalibrationResult | None]:
-    """
-    Calibrate a detector's probability outputs.
+    """Calibrate a detector's probability outputs.
 
     Implements a robust fallback cascade to obtain probability scores from
     any detector type, then applies calibration to improve probability estimates.
@@ -613,8 +811,7 @@ def _extract_calibration_scores(
     detector: Any,
     X: np.ndarray[Any, Any],
 ) -> tuple[np.ndarray[Any, Any] | None, str]:
-    """
-    Extract probability-like scores from any detector for calibration.
+    """Extract probability-like scores from any detector for calibration.
 
     Uses a multi-strategy fallback cascade:
     1. predict_proba - Standard probability output (preferred)
@@ -683,8 +880,7 @@ def _synthesize_probabilities_from_predictions(
     predictions: np.ndarray[Any, Any],
     X: np.ndarray[Any, Any],
 ) -> np.ndarray[Any, Any]:
-    """
-    Synthesize continuous probabilities from binary predictions.
+    """Synthesize continuous probabilities from binary predictions.
 
     Creates differentiated probability scores for samples within
     each class based on feature characteristics.
@@ -741,8 +937,7 @@ def _compute_feature_variation(X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
 
 
 def _compute_statistical_scores_for_calibration(X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-    """
-    Compute statistical anomaly scores when detector provides no scoring.
+    """Compute statistical anomaly scores when detector provides no scoring.
 
     Combines multiple statistical methods:
     - Mahalanobis-like distance (using diagonal covariance)

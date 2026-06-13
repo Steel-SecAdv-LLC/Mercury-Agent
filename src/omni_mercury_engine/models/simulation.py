@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Mathematical Simulation and Analysis Module
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Mathematical Simulation and Analysis Module.
 
 Simulates and analyzes paradoxes, conjectures, theorems, and Millennium Prize Problems
 using multiverse/quantum branching approaches and high-dimensional embeddings.
@@ -32,8 +15,9 @@ Research sources:
 - Clay Mathematics Institute - Millennium Prize Problems
 - Wikipedia - List of unsolved problems in mathematics
 - Stanford Encyclopedia of Philosophy - Paradoxes
-
 """
+
+from __future__ import annotations
 
 import logging
 from typing import Any
@@ -44,8 +28,7 @@ from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 
 
 class SimulationModule:
-    """
-    Mathematical simulation for paradoxes, conjectures, and theoretical problems.
+    """Mathematical simulation for paradoxes, conjectures, and theoretical problems.
 
     Features:
     - Paradox simulation: Zeno's, Epimenides (Liar), Russell's, etc.
@@ -61,8 +44,7 @@ class SimulationModule:
         rng: DeterministicRNG | None = None,
         **kwargs: Any,
     ) -> None:
-        """
-        Initialize mathematical simulation module.
+        """Initialize mathematical simulation module.
 
         Args:
             config: Configuration dictionary with optional keys:
@@ -79,8 +61,7 @@ class SimulationModule:
         self._rng = rng or get_global_rng()
 
     def simulate_paradox(self, paradox_type: str, iterations: int = 100) -> dict[str, Any]:
-        """
-        Simulate logical paradoxes with resolution attempts.
+        """Simulate logical paradoxes with resolution attempts.
 
         Paradoxes analyzed:
         - 'zeno': Zeno's paradoxes (dichotomy, Achilles and tortoise)
@@ -204,8 +185,7 @@ class SimulationModule:
         }
 
     def explore_conjecture(self, conjecture: str, search_space: int = 10000) -> dict[str, Any]:
-        """
-        Explore conjectures through probabilistic and numerical methods.
+        """Explore conjectures through probabilistic and numerical methods.
 
         Conjectures analyzed:
         - 'twin_prime': Twin Prime conjecture
@@ -382,8 +362,7 @@ class SimulationModule:
         }
 
     def analyze_millennium_problem(self, problem: str) -> dict[str, Any]:
-        """
-        Analyze Millennium Prize Problems with neural approximations.
+        """Analyze Millennium Prize Problems with neural approximations.
 
         Problems analyzed:
         - 'p_vs_np': P versus NP (computational complexity)
@@ -545,8 +524,7 @@ class SimulationModule:
         }
 
     def extract_features(self, data: np.ndarray[Any, Any] | dict[str, Any]) -> np.ndarray[Any, Any]:
-        """
-        Extract high-dimensional features from simulation data.
+        """Extract high-dimensional features from simulation data.
 
         Args:
             data: Input data (numerical array or dict)
@@ -594,8 +572,7 @@ class SimulationModule:
         return np.asarray(features.astype(np.float32))
 
     def predict(self, data: np.ndarray[Any, Any] | dict[str, Any]) -> dict[str, Any]:
-        """
-        Predict viability/solutions using multiverse branching.
+        """Predict viability/solutions using multiverse branching.
 
         Explores multiple solution pathways in parallel (many-worlds approach)
         and identifies most promising branches.

@@ -1,8 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests for Advanced Cognitive Modules (arxiv 2508.11957v1 - AI Agents Survey)
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for Advanced Cognitive Modules (arxiv 2508.11957v1 - AI Agents Survey).
 
 Verifies that all new cognitive components work correctly:
 - ChainOfThoughtEngine: Step-by-step reasoning

@@ -1,8 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests for Advanced Anomaly Detection Modules
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for Advanced Anomaly Detection Modules.
 
 Tests cover:
 - MultiScaleTransformerDetector (time-series)

@@ -1,8 +1,6 @@
-"""
-Mercury Agent - Copyright (C) 2025 Steel Security Advisors LLC
-Licensed under GNU GPL v3
-
-Neuro-symbolic ablation: does symbolic co-training beat neural-only?
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+r"""Neuro-symbolic ablation: does symbolic co-training beat neural-only?
 
 This is the anti-theater gate for the differentiable symbolic-constraint LTN
 (:class:`omni_mercury_engine.ml.symbolic_constraint.SymbolicConstraintModule`).

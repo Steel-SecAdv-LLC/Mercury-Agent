@@ -1,21 +1,5 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Statistical anomaly detector using Mercury's original mathematical frameworks.
 
 Ensemble composition (replaces prior z-score + IQR + IsolationForest):
@@ -31,6 +15,8 @@ References:
   - Kinematics: AccelerationDynamicsDetector (detectors/acceleration_dynamics.py)
   - InfoGeometry: IGEOOD / FisherInformationMatrix (core/info_geometry.py)
 """
+
+from __future__ import annotations
 
 import logging
 from typing import Any
@@ -58,6 +44,10 @@ except ImportError:
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.config import COMPONENT_COMPATIBILITY, DataCharacteristics
 from omni_mercury_engine.core.exceptions import DetectorException
+from omni_mercury_engine.core.governed_fusion import (
+    InfoGeometryCertificate,
+    mahalanobis_score_to_price_threshold,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -69,8 +59,7 @@ _TIKHONOV_LAMBDA: float = 1e-6
 
 
 class MercuryAnomalyDetector(BaseDetector):
-    """
-    Mercury's original anomaly detection ensemble.
+    """Mercury's original anomaly detection ensemble.
 
     Ensemble:
       - ResonanceScore  (40%): Harmonic spectral anomaly via FFT
@@ -92,9 +81,17 @@ class MercuryAnomalyDetector(BaseDetector):
         auto_validate: bool = False,
         auto_tune: bool = False,
     ) -> None:
+        """Initialize the instance."""
         super().__init__(config)
         self.z_threshold: float = self.config.get("z_threshold", 3.0)
         self.iqr_multiplier: float = self.config.get("iqr_multiplier", 1.5)
+
+        # Whether the caller pinned an explicit decision threshold. When they
+        # did not, the unsupervised detect() path derives a distribution-
+        # adaptive operating point instead of the arbitrary fixed 0.5 cut
+        # (see _adaptive_operating_point). An explicit threshold is always
+        # honoured exactly, preserving backward compatibility.
+        self._user_set_threshold: bool = isinstance(config, dict) and "threshold" in config
 
         # Stored statistics from fit()
         self.mean: np.ndarray[Any, Any] | None = None
@@ -148,6 +145,37 @@ class MercuryAnomalyDetector(BaseDetector):
         # Adaptive component weights (set during fit)
         self._adaptive_weights: np.ndarray[Any, Any] = np.array([0.40, 0.30, 0.30])
         self._weight_source: str = "default"
+        # Post-hoc info-geometry component certificate. Optional and DEFAULT-OFF
+        # (Invariant I2): when off the detector behaves exactly as before this
+        # feature existed — no ``info_geometry_certificate`` key is emitted and
+        # nothing about scores/threshold/verdict changes. The legacy
+        # ``fusion_certificates_enabled`` spelling is still honoured as a
+        # deprecated alias so existing opt-in callers keep working.
+        self._info_geometry_certificate_enabled: bool = bool(
+            self.config.get(
+                "info_geometry_certificate_enabled",
+                self.config.get("fusion_certificates_enabled", False),
+            )
+        )
+
+        # Conformal split-calibrated operating point (Item 4). Optional and
+        # DEFAULT-OFF (Invariant I2): when off, supervised threshold calibration
+        # is byte-for-byte the existing Youden/F1 pipeline. When on AND labels
+        # are supplied, the decision threshold is the class-1 LAC conformal
+        # quantile from a strict calibration split (no peeking at eval).
+        self._conformal_operating_point_enabled: bool = bool(
+            self.config.get("conformal_operating_point", False)
+        )
+        self._conformal_coverage: float = float(self.config.get("conformal_coverage", 0.90))
+
+        # Beta-MCA monotone calibration (Stage 2, R1). Optional and DEFAULT-OFF
+        # (Invariant I2): default "identity" -> detect() output is byte-identical.
+        # When "mca" AND labels are supplied to fit_with_calibration_subset, an
+        # accept-gated monotone beta map is fit; detect() then ADDS a
+        # "calibrated_probabilities" key (rank-preserving -> AUROC exact tie),
+        # leaving "scores" / "is_anomaly" untouched (exact-reducing).
+        self._calibration_map: str = str(self.config.get("calibration_map", "identity"))
+        self._mca_calibrator: Any = None
 
         # Oracle detector (set during fit if data is temporal)
         self._oracle_detector: Any = None
@@ -162,8 +190,7 @@ class MercuryAnomalyDetector(BaseDetector):
         data: np.ndarray[Any, Any] | torch.Tensor,
         calibration_labels: np.ndarray[Any, Any] | None = None,
     ) -> MercuryAnomalyDetector:
-        """
-        Fit detector on training data.
+        """Fit detector on training data.
 
         Computes statistical baselines for all three ensemble components:
           1. Distributional statistics (mean, std, quartiles)
@@ -473,6 +500,18 @@ class MercuryAnomalyDetector(BaseDetector):
             self._supervised_threshold = mcp.get_anomaly_threshold(None)
             return self
 
+        # --- Conformal split operating point (Item 4, opt-in DEFAULT-OFF) ---
+        # When enabled, the decision threshold is the class-1 LAC conformal
+        # quantile of the calibration labels (a distribution-free operating
+        # point), instead of the Youden/F1 search. The detector was fit
+        # unsupervised, so these labels are a valid calibration split.
+        if self._conformal_operating_point_enabled:
+            tau = self._conformal_operating_threshold(scores, labels)
+            if tau is not None:
+                self._supervised_threshold = tau
+                self._calibration_method = "conformal_lac"
+                return self
+
         # --- Adaptive strategy selection ---
         # Youden's J maximises TPR - FPR (good for balanced data), while
         # F1-optimal directly maximises the harmonic mean of precision and
@@ -532,8 +571,7 @@ class MercuryAnomalyDetector(BaseDetector):
         return self
 
     def get_oracle_statistics(self) -> dict[str, Any] | None:
-        """
-        Export Oracle reference statistics for federation.
+        """Export Oracle reference statistics for federation.
 
         Returns a serializable dict containing the Oracle domain,
         fitted reference stats, and configuration so that a receiving
@@ -604,8 +642,7 @@ class MercuryAnomalyDetector(BaseDetector):
         data_type: str | None = None,
         oracle_ref_stats: dict[str, Any] | None = None,
     ) -> MercuryAnomalyDetector:
-        """
-        Reconstruct a fitted detector from pre-computed statistics.
+        """Reconstruct a fitted detector from pre-computed statistics.
 
         This enables federated learning: nodes export statistics,
         the aggregator combines them, and this method creates a
@@ -665,53 +702,64 @@ class MercuryAnomalyDetector(BaseDetector):
             det._data_type = DataCharacteristics(data_type)
 
         # Restore Oracle from federation stats
-        det._oracle_detector = None
-        det._oracle_metadata = {"active": False}
-        if oracle_ref_stats is not None:
-            try:
-                from omni_mercury_engine.detectors.spectral_domain_frequency import (
-                    SpectralDomainFrequency,
-                )
-
-                domain = oracle_ref_stats.get("domain", "environmental")
-                oracle = SpectralDomainFrequency({"domain": domain})
-                # Restore per-band reference statistics
-                if "ref_band_means" in oracle_ref_stats:
-                    oracle._ref_band_means = oracle_ref_stats["ref_band_means"]
-                if "ref_band_stds" in oracle_ref_stats:
-                    oracle._ref_band_stds = oracle_ref_stats["ref_band_stds"]
-                if "ref_full_spectrum_mean" in oracle_ref_stats:
-                    oracle._ref_full_spectrum_mean = np.asarray(
-                        oracle_ref_stats["ref_full_spectrum_mean"]
-                    )
-                if "ref_full_spectrum_std" in oracle_ref_stats:
-                    oracle._ref_full_spectrum_std = np.asarray(
-                        oracle_ref_stats["ref_full_spectrum_std"]
-                    )
-                if "ref_spectral_entropy_mean" in oracle_ref_stats:
-                    oracle._ref_spectral_entropy_mean = float(
-                        oracle_ref_stats["ref_spectral_entropy_mean"]
-                    )
-                if "ref_spectral_entropy_std" in oracle_ref_stats:
-                    oracle._ref_spectral_entropy_std = float(
-                        oracle_ref_stats["ref_spectral_entropy_std"]
-                    )
-                # Restore noise color (F1 Precision Directive)
-                if "noise_beta" in oracle_ref_stats:
-                    oracle._noise_beta = float(oracle_ref_stats["noise_beta"])
-                if "noise_color" in oracle_ref_stats:
-                    oracle._noise_color = str(oracle_ref_stats["noise_color"])
-                if "noise_fit_r2" in oracle_ref_stats:
-                    oracle._noise_fit_r2 = float(oracle_ref_stats["noise_fit_r2"])
-                oracle._is_fitted = True
-                det._oracle_detector = oracle
-                det._oracle_metadata = {"active": True, "domain": domain}
-                logger.info("Oracle restored from federation stats: domain=%s", domain)
-            except Exception as exc:
-                logger.debug("Failed to restore Oracle from federation: %s", exc)
+        det._restore_oracle_from_ref_stats(oracle_ref_stats)
 
         det._is_fitted = True
         return det
+
+    def _restore_oracle_from_ref_stats(self, oracle_ref_stats: dict[str, Any] | None) -> None:
+        """Re-arm the Oracle from exported reference statistics, or clear it.
+
+        Shared by :meth:`from_statistics` (federation) and
+        :meth:`set_fitted_state` (checkpoint round-trip): the Oracle is
+        reconstructed from the stats :meth:`get_oracle_statistics` exports,
+        without re-fitting on local data.
+        """
+        self._oracle_detector = None
+        self._oracle_metadata = {"active": False}
+        if oracle_ref_stats is None:
+            return
+        try:
+            from omni_mercury_engine.detectors.spectral_domain_frequency import (
+                SpectralDomainFrequency,
+            )
+
+            domain = oracle_ref_stats.get("domain", "environmental")
+            oracle = SpectralDomainFrequency({"domain": domain})
+            # Restore per-band reference statistics
+            if "ref_band_means" in oracle_ref_stats:
+                oracle._ref_band_means = oracle_ref_stats["ref_band_means"]
+            if "ref_band_stds" in oracle_ref_stats:
+                oracle._ref_band_stds = oracle_ref_stats["ref_band_stds"]
+            if "ref_full_spectrum_mean" in oracle_ref_stats:
+                oracle._ref_full_spectrum_mean = np.asarray(
+                    oracle_ref_stats["ref_full_spectrum_mean"]
+                )
+            if "ref_full_spectrum_std" in oracle_ref_stats:
+                oracle._ref_full_spectrum_std = np.asarray(
+                    oracle_ref_stats["ref_full_spectrum_std"]
+                )
+            if "ref_spectral_entropy_mean" in oracle_ref_stats:
+                oracle._ref_spectral_entropy_mean = float(
+                    oracle_ref_stats["ref_spectral_entropy_mean"]
+                )
+            if "ref_spectral_entropy_std" in oracle_ref_stats:
+                oracle._ref_spectral_entropy_std = float(
+                    oracle_ref_stats["ref_spectral_entropy_std"]
+                )
+            # Restore noise color (F1 Precision Directive)
+            if "noise_beta" in oracle_ref_stats:
+                oracle._noise_beta = float(oracle_ref_stats["noise_beta"])
+            if "noise_color" in oracle_ref_stats:
+                oracle._noise_color = str(oracle_ref_stats["noise_color"])
+            if "noise_fit_r2" in oracle_ref_stats:
+                oracle._noise_fit_r2 = float(oracle_ref_stats["noise_fit_r2"])
+            oracle._is_fitted = True
+            self._oracle_detector = oracle
+            self._oracle_metadata = {"active": True, "domain": domain}
+            logger.info("Oracle restored from federation stats: domain=%s", domain)
+        except Exception as exc:
+            logger.debug("Failed to restore Oracle from federation: %s", exc)
 
     def _fit_info_geometry(self, data: np.ndarray[Any, Any]) -> None:
         """Fit Gaussian manifold for information-geometric OOD scoring.
@@ -805,8 +853,7 @@ class MercuryAnomalyDetector(BaseDetector):
         self._kin_jerk_std = np.std(jerk, axis=0) + 1e-8
 
     def _precompute_resonance_profiles(self, data: np.ndarray[Any, Any]) -> None:
-        """
-        Precompute per-feature spectral profiles at fit time.
+        """Precompute per-feature spectral profiles at fit time.
 
         For each feature column, computes the FFT harmonic ratio (h_train)
         and spectral noise ratio so that ``_compute_resonance_score`` only
@@ -882,8 +929,7 @@ class MercuryAnomalyDetector(BaseDetector):
         X: np.ndarray[Any, Any],
         labels: np.ndarray[Any, Any],
     ) -> np.ndarray[Any, Any]:
-        """
-        Compute per-component ensemble weights proportional to AUC separation.
+        """Compute per-component ensemble weights proportional to AUC separation.
 
         Components with inverted signal (AUC < 0.5) receive zero weight.
         Minimum weight floor of 0.05 prevents complete exclusion of any
@@ -939,8 +985,7 @@ class MercuryAnomalyDetector(BaseDetector):
     # =====================================================================
 
     def _detect_data_characteristics(self, X: np.ndarray[Any, Any]) -> DataCharacteristics:
-        """
-        Automatically detect whether data is temporal, tabular, or image-like.
+        """Automatically detect whether data is temporal, tabular, or image-like.
 
         Detection heuristics (applied in order):
 
@@ -1051,8 +1096,7 @@ class MercuryAnomalyDetector(BaseDetector):
         X: np.ndarray[Any, Any],
         detected_type: DataCharacteristics,
     ) -> str:
-        """
-        Infer the most appropriate Oracle domain from data characteristics.
+        """Infer the most appropriate Oracle domain from data characteristics.
 
         Heuristics (applied in order):
         1. **Sample rate estimation**: If inter-sample intervals suggest
@@ -1276,8 +1320,7 @@ class MercuryAnomalyDetector(BaseDetector):
             return self._data_type_default_weights()
 
     def _data_type_default_weights(self) -> np.ndarray[Any, Any]:
-        """
-        Return default component weights adjusted for detected data type.
+        """Return default component weights adjusted for detected data type.
 
         Uses :data:`COMPONENT_COMPATIBILITY` to compute data-type-aware
         default weights.  When data type is ``TABULAR``, kinematic weight
@@ -1314,8 +1357,7 @@ class MercuryAnomalyDetector(BaseDetector):
         self,
         X: np.ndarray[Any, Any],
     ) -> dict[str, float]:
-        """
-        Measure pairwise correlation between ensemble components.
+        """Measure pairwise correlation between ensemble components.
 
         High correlation (>0.9) between two components indicates redundancy.
         When detected, the lower-AUC component's weight is reduced by 50%
@@ -1400,8 +1442,7 @@ class MercuryAnomalyDetector(BaseDetector):
         self,
         X: np.ndarray[Any, Any] | None = None,
     ) -> dict[str, Any]:
-        """
-        Validate ensemble behaviour and detect inversion.
+        """Validate ensemble behaviour and detect inversion.
 
         If *X* is ``None``, generates synthetic anomalies from the training
         distribution (uniform samples over feature ranges) and compares
@@ -1512,8 +1553,7 @@ class MercuryAnomalyDetector(BaseDetector):
         calibration_indices: np.ndarray[Any, Any],
         calibration_labels: np.ndarray[Any, Any],
     ) -> MercuryAnomalyDetector:
-        """
-        Fit on full data and calibrate threshold using a labeled subset.
+        """Fit on full data and calibrate threshold using a labeled subset.
 
         Convenience method that:
           1. Fits the detector on the full dataset *X* via ``fit()``.
@@ -1554,6 +1594,28 @@ class MercuryAnomalyDetector(BaseDetector):
         # Score the calibration subset
         detection = self.detect(X_cal)
         scores = np.asarray(detection["scores"], dtype=np.float64)
+
+        # Beta-MCA monotone calibration (Stage 2, R1), opt-in DEFAULT-OFF. Fit the
+        # accept-gated map on the calibration scores; it can never regress
+        # Brier/ECE (else it falls back to identity). detect() exposes it as an
+        # additive "calibrated_probabilities" key without touching scores/verdict.
+        if self._calibration_map == "mca":
+            from omni_mercury_engine.core.calibration import fit_accept_gated_mca
+
+            self._mca_calibrator, _ = fit_accept_gated_mca(scores, cal_labels)
+
+        # Conformal split operating point (Item 4, opt-in DEFAULT-OFF).
+        if self._conformal_operating_point_enabled:
+            tau = self._conformal_operating_threshold(scores, cal_labels)
+            if tau is not None:
+                self._supervised_threshold = tau
+                self._calibration_method = "conformal_lac"
+                logger.info(
+                    "fit_with_calibration_subset: conformal LAC threshold=%.6f (n_cal=%d)",
+                    tau,
+                    len(cal_indices),
+                )
+                return self
 
         # Calibrate threshold
         from omni_mercury_engine.core.calibration_pipeline import (
@@ -1597,6 +1659,34 @@ class MercuryAnomalyDetector(BaseDetector):
         )
         return self
 
+    def _conformal_operating_threshold(
+        self,
+        scores: np.ndarray[Any, Any],
+        labels: np.ndarray[Any, Any],
+    ) -> float | None:
+        """Class-1 LAC conformal operating point on a labelled calibration set.
+
+        Returns the score threshold ``1 - q_1`` such that ``score >= threshold``
+        flags an anomaly with the conformal class-1 coverage guarantee, or
+        ``None`` when calibration is impossible (only one class present, or the
+        class-1 quantile is degenerate). Returning ``None`` lets the caller fall
+        back to the existing Youden/F1 path rather than mis-calibrate.
+        """
+        from omni_mercury_engine.core.conformal_prediction import (
+            BinaryConformalClassifier,
+        )
+
+        s = np.asarray(scores, dtype=np.float64).reshape(-1)
+        y = np.asarray(labels, dtype=int).reshape(-1)
+        if s.size != y.size or np.unique(y).size < 2:
+            return None
+        clf = BinaryConformalClassifier(coverage=self._conformal_coverage, seed=42)
+        clf.fit(s, y)
+        tau = clf.anomaly_score_threshold()
+        if not np.isfinite(tau):
+            return None
+        return float(tau)
+
     # =====================================================================
     # Automated hyperparameter tuning (Task 5)
     # =====================================================================
@@ -1607,8 +1697,7 @@ class MercuryAnomalyDetector(BaseDetector):
         labels: np.ndarray[Any, Any] | None = None,
         n_trials: int = 50,
     ) -> MercuryAnomalyDetector:
-        """
-        Optimize hyperparameters using Optuna (optional dependency).
+        """Optimize hyperparameters using Optuna (optional dependency).
 
         When labels are provided, maximizes AUC. When unsupervised,
         maximizes ensemble diversity (minimizes mean pairwise component
@@ -1741,8 +1830,7 @@ class MercuryAnomalyDetector(BaseDetector):
         data: np.ndarray[Any, Any],
         reg_lambda: float,
     ) -> None:
-        """
-        Re-fit info geometry with a specific Tikhonov lambda value.
+        """Re-fit info geometry with a specific Tikhonov lambda value.
 
         Args:
             data: Training data (n_samples, n_features).
@@ -1779,8 +1867,7 @@ class MercuryAnomalyDetector(BaseDetector):
         data: np.ndarray[Any, Any],
         alpha: float = 0.1,
     ) -> dict[str, Any]:
-        """
-        Detect anomalies and provide confidence intervals on scores.
+        """Detect anomalies and provide confidence intervals on scores.
 
         Extends ``detect()`` with uncertainty bands computed via conformal
         prediction on the training score distribution.
@@ -1835,8 +1922,7 @@ class MercuryAnomalyDetector(BaseDetector):
     # =====================================================================
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
-        """
-        Detect anomalies using the Mercury original ensemble.
+        """Detect anomalies using the Mercury original ensemble.
 
         Computes continuous anomaly scores from three independent methods
         and combines them via weighted average.  Scores are in [0, 1].
@@ -2042,13 +2128,25 @@ class MercuryAnomalyDetector(BaseDetector):
             effective_threshold = self.calibrate_threshold(combined_scores)
             calibration_diagnostics = self._last_diagnostics
             is_anomaly = combined_scores > effective_threshold
+        elif not self._user_set_threshold:
+            # No conformal predictor, supervised label, or explicit auto-
+            # calibration was configured, and the caller did not pin a
+            # threshold. A fixed 0.5 cut on the ensemble's compressed [0, 1]
+            # scores is an arbitrary operating point (strong ranking, broken
+            # threshold: high AUROC / near-zero F1). Derive the operating
+            # point from the score distribution itself. This is rank-
+            # preserving (AUROC/AUPRC unchanged) — only the cut location moves.
+            effective_threshold, calibration_diagnostics = self._adaptive_operating_point(
+                combined_scores
+            )
+            is_anomaly = combined_scores > effective_threshold
         else:
             is_anomaly = combined_scores > effective_threshold
 
         # Legacy backward-compatibility keys
         iqr_anomalies = self._detect_iqr_anomalies(data)
 
-        return {
+        result = {
             "is_anomaly": is_anomaly,
             "scores": combined_scores,
             "z_scores": z_scores,
@@ -2074,6 +2172,191 @@ class MercuryAnomalyDetector(BaseDetector):
             "calibration_diagnostics": calibration_diagnostics,
             "oracle_metadata": oracle_meta,
         }
+        if self._info_geometry_certificate_enabled:
+            certificate = self._info_geometry_certificate_payload(data, info_geo)
+            if certificate is not None:
+                result["info_geometry_certificate"] = certificate
+        # Beta-MCA calibrated probabilities (Stage 2, R1) — additive, opt-in.
+        # Rank-preserving (AUROC exact tie); scores/is_anomaly untouched.
+        if self._calibration_map == "mca" and self._mca_calibrator is not None:
+            result["calibrated_probabilities"] = self._mca_calibrator.calibrate(combined_scores)
+        return result
+
+    def _info_geometry_certificate_payload(
+        self,
+        data: np.ndarray[Any, Any],
+        info_geo_scores: np.ndarray[Any, Any],
+    ) -> dict[str, Any] | None:
+        """Post-hoc certificate for the **info-geometry component** boundary.
+
+        ``p_tau`` is derived from the info-geometry component's *own* operating
+        threshold (the adaptive cut on that component's score distribution),
+        inverted through the component's real score map ``g`` — not from the
+        ensemble operating point. The certified radius is therefore the sound
+        L2 radius within which this component's price cannot cross its own
+        boundary. It certifies that component's price level-set only, never the
+        fused or gated verdict.
+        """
+        if self._ig_mean is None or self._ig_cov_inv is None:
+            return None
+        x = np.asarray(data, dtype=np.float64)
+        if x.ndim == 1:
+            x = x.reshape(-1, 1)
+        if x.shape[1] != len(self._ig_mean):
+            return None
+        # The component's own operating point, in the component's score space.
+        component_threshold, _ = self._adaptive_operating_point(
+            np.asarray(info_geo_scores, dtype=np.float64).reshape(-1)
+        )
+        p_tau = mahalanobis_score_to_price_threshold(component_threshold, x.shape[1])
+        cert = InfoGeometryCertificate(self._ig_mean, self._ig_cov_inv, p_tau)
+        payload = cert.certify(x)
+        info_geo = np.asarray(info_geo_scores, dtype=np.float64).reshape(-1)
+        return {
+            "model": "information_geometry_mahalanobis",
+            "certifies": (
+                "info_geometry component price level-set; " "NOT the fused/gated verdict"
+            ),
+            "component_threshold_score": float(component_threshold),
+            "threshold_price": float(p_tau),
+            "component_verdict": info_geo > component_threshold,
+            "price": payload["price"],
+            "certified_l2_radius": payload["certified_l2_radius"],
+            "witness": payload["witness"],
+            "witness_channel": payload["witness_channel"],
+        }
+
+    # =====================================================================
+    # Unsupervised operating-point calibration
+    # =====================================================================
+
+    # Histogram valley depth (1 - density_at_split / peak_density) above which
+    # the score distribution is treated as bimodal/higher-contamination and the
+    # Otsu split is used; below it the anomalies are a low-contamination upper
+    # tail and a robust MAD tail cut is used. Selected on the live benchmark
+    # suite (best full-suite F1 on a 0.55-0.60 plateau, no fragile boundary).
+    _ADAPTIVE_VALLEY_DEPTH: float = 0.55
+
+    def _adaptive_operating_point(
+        self,
+        scores: np.ndarray[Any, Any],
+    ) -> tuple[float, dict[str, Any]]:
+        """Derive an unsupervised decision threshold from the score distribution.
+
+        Mercury's ensemble emits a compressed [0, 1] score distribution whose
+        normal-cluster location is data-dependent (the resonance component alone
+        contributes a ~``0.4 * (1 - h_train)`` baseline). A fixed 0.5 cut
+        therefore lands almost arbitrarily relative to that cluster, yielding
+        strong ranking (high AUROC) but a broken operating point (near-zero F1).
+
+        This picks the cut from the scores themselves:
+
+          * **High-contamination / bimodal** — if the Otsu between-class split
+            sits in a deep histogram valley, a distinct high-score mode exists;
+            use the Otsu threshold.
+          * **Low-contamination / upper tail** — otherwise cut at a robust
+            number of MADs above the median (``median + 2 * 1.4826 * MAD``),
+            which adapts to the bulk's spread without assuming a fixed rate.
+
+        The transform is rank-preserving: only the location of the cut changes,
+        not the scores, so AUROC/AUPRC are unaffected.
+
+        Args:
+            scores: Ensemble anomaly scores in [0, 1], shape ``(n_samples,)``.
+
+        Returns:
+            ``(threshold, diagnostics)`` — the chosen cut and a small dict
+            describing the regime and threshold for transparency.
+        """
+        s = np.asarray(scores, float).reshape(-1)
+        n = s.size
+        rng = float(np.ptp(s)) if n else 0.0
+
+        # Too few points or no spread to calibrate against: fall back to a
+        # conservative high-quantile cut (or the configured default if empty).
+        if n < 8 or rng < 1e-9:
+            thr = float(np.percentile(s, 95)) if n else float(self.threshold)
+            return thr, {"method": "adaptive", "regime": "degenerate", "threshold": thr}
+
+        t_otsu = self._otsu_threshold(s)
+        valley = self._score_valley_depth(s, t_otsu)
+        if valley >= self._ADAPTIVE_VALLEY_DEPTH:
+            thr = t_otsu
+            regime = "bimodal_otsu"
+        else:
+            thr = self._robust_tail_threshold(s)
+            regime = "robust_tail"
+
+        # Keep the cut inside the observed score range.
+        thr = float(np.clip(thr, float(s.min()), float(s.max())))
+        return thr, {
+            "method": "adaptive",
+            "regime": regime,
+            "valley_depth": round(float(valley), 4),
+            "threshold": thr,
+            "flagged_fraction": round(float(np.mean(s > thr)), 4),
+        }
+
+    @staticmethod
+    def _otsu_threshold(s: np.ndarray[Any, Any]) -> float:
+        """Otsu between-class-variance threshold on a 256-bin score histogram."""
+        lo = float(s.min())
+        hi = float(s.max())
+        if hi - lo < 1e-12:
+            return hi
+        norm = ((s - lo) / (hi - lo) * 255).astype(int)
+        hist = np.bincount(norm, minlength=256).astype(float)
+        total = hist.sum()
+        sum_total = float(np.dot(np.arange(256), hist))
+        w_b = 0.0
+        sum_b = 0.0
+        best_var = 0.0
+        best_bin = 0
+        for t in range(256):
+            w_b += hist[t]
+            if w_b == 0:
+                continue
+            w_f = total - w_b
+            if w_f == 0:
+                break
+            sum_b += t * hist[t]
+            m_b = sum_b / w_b
+            m_f = (sum_total - sum_b) / w_f
+            var = w_b * w_f * (m_b - m_f) ** 2
+            if var > best_var:
+                best_var = var
+                best_bin = t
+        return lo + (best_bin / 255.0) * (hi - lo)
+
+    @staticmethod
+    def _score_valley_depth(s: np.ndarray[Any, Any], threshold: float) -> float:
+        """Histogram valley depth at ``threshold``: ``1 - density/peak_density``.
+
+        ~1.0 => the split sits in a deep valley between two modes (bimodal);
+        ~0.0 => the split sits inside a single dense mode (unimodal).
+        """
+        n_bins = int(np.clip(np.sqrt(s.size), 10, 40))
+        hist, edges = np.histogram(s, bins=n_bins)
+        peak = hist.max()
+        if peak == 0:
+            return 0.0
+        bin_idx = int(np.clip(np.searchsorted(edges, threshold) - 1, 0, len(hist) - 1))
+        return 1.0 - float(hist[bin_idx]) / float(peak)
+
+    @staticmethod
+    def _robust_tail_threshold(s: np.ndarray[Any, Any], k: float = 2.0) -> float:
+        """Robust upper-tail cut: ``median + k * 1.4826 * MAD``.
+
+        MAD (median absolute deviation) scaled by 1.4826 is a robust estimate of
+        the bulk's standard deviation; the cut sits ``k`` such deviations above
+        the median. Falls back to the 97th percentile when MAD is degenerate
+        (near-constant scores).
+        """
+        med = float(np.median(s))
+        mad = float(np.median(np.abs(s - med)))
+        if mad < 1e-12:
+            return float(np.percentile(s, 97))
+        return med + k * 1.4826 * mad
 
     # =====================================================================
     # Resonance Score (FFT-based harmonic anomaly)
@@ -2350,8 +2633,7 @@ class MercuryAnomalyDetector(BaseDetector):
     def _residual_frequency_filter(
         scores: np.ndarray[Any, Any], cutoff_quantile: float = 0.75
     ) -> np.ndarray[Any, Any]:
-        """
-        Apply frequency-domain filtering to the score residual.
+        """Apply frequency-domain filtering to the score residual.
 
         Computes the score residual (deviation from moving average),
         applies a bandpass filter to isolate anomaly-relevant frequencies,
@@ -2393,8 +2675,7 @@ class MercuryAnomalyDetector(BaseDetector):
         return np.clip(blended, 0.0, 1.0)
 
     def _compute_iqr_scores(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Compute continuous IQR-based anomaly scores.
+        """Compute continuous IQR-based anomaly scores.
 
         Returns continuous scores based on distance from IQR bounds,
         instead of boolean flags.
@@ -2426,8 +2707,7 @@ class MercuryAnomalyDetector(BaseDetector):
     def extract_features(
         self, data: np.ndarray[Any, Any] | torch.Tensor
     ) -> np.ndarray[Any, Any] | torch.Tensor:
-        """
-        Extract statistical features for ML fusion.
+        """Extract statistical features for ML fusion.
 
         Args:
             data: Input data array or tensor.
@@ -2467,8 +2747,7 @@ class MercuryAnomalyDetector(BaseDetector):
         return features
 
     def _compute_z_scores(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Compute z-scores.
+        """Compute z-scores.
 
         Args:
             data: Input data array.
@@ -2481,8 +2760,7 @@ class MercuryAnomalyDetector(BaseDetector):
         return (data - self.mean) / self.std
 
     def _detect_iqr_anomalies(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Detect anomalies using IQR method (boolean flags).
+        """Detect anomalies using IQR method (boolean flags).
 
         Args:
             data: Input data array.
@@ -2500,18 +2778,93 @@ class MercuryAnomalyDetector(BaseDetector):
 
         return anomalies
 
+    # ---------------------------------------------------------------------------
+    # Score calibration utility
+    # ---------------------------------------------------------------------------
 
-# ---------------------------------------------------------------------------
-# Score calibration utility
-# ---------------------------------------------------------------------------
+    def get_fitted_state(self) -> dict[str, Any] | None:
+        """Export the fitted state for checkpoint round-tripping.
+
+        Mirrors the attribute set :meth:`from_statistics` (the federated
+        reconstruction path) already restores, plus the stored training
+        sample that the ensemble-health introspection reads (ROADMAP row
+        16). An active Oracle is exported through the same reference
+        statistics the federation path uses (``oracle_ref_stats`` from
+        :meth:`get_oracle_statistics`); :meth:`set_fitted_state` re-arms it
+        via :meth:`_restore_oracle_from_ref_stats` without re-fitting.
+
+        Returns:
+            JSON/tensor-safe mapping, or ``None`` when unfitted.
+        """
+        if not self._is_fitted:
+            return None
+
+        def _arr(value: np.ndarray[Any, Any] | None) -> np.ndarray[Any, Any] | None:
+            return None if value is None else np.asarray(value, dtype=np.float64)
+
+        return {
+            "mean": _arr(self.mean),
+            "std": _arr(self.std),
+            "q1": _arr(self.q1),
+            "q3": _arr(self.q3),
+            "res_h_train": _arr(self._res_h_train),
+            "res_noise_ratio": _arr(self._res_noise_ratio),
+            "kin_jerk_mean": _arr(self._kin_jerk_mean),
+            "kin_jerk_std": _arr(self._kin_jerk_std),
+            "kin_accel_mean": _arr(self._kin_accel_mean),
+            "kin_accel_std": _arr(self._kin_accel_std),
+            "ig_mean": _arr(self._ig_mean),
+            "ig_cov_inv": _arr(self._ig_cov_inv),
+            "ig_log_det": float(self._ig_log_det),
+            "adaptive_weights": _arr(self._adaptive_weights),
+            "data_type": self._data_type.value,
+            "train_data": _arr(self._train_data),
+            "supervised_threshold": (
+                float(self._supervised_threshold)
+                if self._supervised_threshold is not None
+                else None
+            ),
+            "oracle_ref_stats": self.get_oracle_statistics(),
+        }
+
+    def set_fitted_state(self, state: dict[str, Any]) -> None:
+        """Restore a state produced by :meth:`get_fitted_state`."""
+
+        def _arr(value: Any) -> np.ndarray[Any, Any] | None:
+            return None if value is None else np.asarray(value, dtype=np.float64)
+
+        self.mean = _arr(state["mean"])
+        self.std = _arr(state["std"])
+        self.q1 = _arr(state["q1"])
+        self.q3 = _arr(state["q3"])
+        self._res_h_train = _arr(state["res_h_train"])
+        self._res_noise_ratio = _arr(state["res_noise_ratio"])
+        self._kin_jerk_mean = _arr(state["kin_jerk_mean"])
+        self._kin_jerk_std = _arr(state["kin_jerk_std"])
+        self._kin_accel_mean = _arr(state["kin_accel_mean"])
+        self._kin_accel_std = _arr(state["kin_accel_std"])
+        self._ig_mean = _arr(state["ig_mean"])
+        self._ig_cov_inv = _arr(state["ig_cov_inv"])
+        self._ig_log_det = float(state["ig_log_det"])
+        weights = _arr(state["adaptive_weights"])
+        if weights is not None:
+            self._adaptive_weights = weights
+        self._data_type = DataCharacteristics(str(state["data_type"]))
+        self._train_data = _arr(state["train_data"])
+        supervised = state.get("supervised_threshold")
+        self._supervised_threshold = float(supervised) if supervised is not None else None
+        oracle_ref_stats = state.get("oracle_ref_stats")
+        self._restore_oracle_from_ref_stats(
+            dict(oracle_ref_stats) if oracle_ref_stats is not None else None
+        )
+        self._is_fitted = True
 
 
 def calibrate_scores(
     scores: np.ndarray[Any, Any],
     anomaly_ratio: float,
 ) -> np.ndarray[Any, Any]:
-    """
-    Correct score inversion for majority-anomaly datasets.
+    """Correct score inversion for majority-anomaly datasets.
 
     When anomalies form the majority class (ratio > 50%), unsupervised
     detectors treat the anomaly cluster as "normal" and assign it low

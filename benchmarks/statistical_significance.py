@@ -1,8 +1,6 @@
-"""
-Mercury Agent - Copyright (C) 2025 Steel Security Advisors LLC
-Licensed under GNU GPL v3
-
-Statistical confirmation of the sub-threshold neuro-symbolic sweep results.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+r"""Statistical confirmation of the sub-threshold neuro-symbolic sweep results.
 
 PR #265 ran same-cell sweeps and reported *point* deltas plus a "seed
 agreement" heuristic against a pre-registered +0.002 bar:

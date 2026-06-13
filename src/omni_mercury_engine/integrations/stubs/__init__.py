@@ -1,5 +1,6 @@
-"""
-External service stubs for testing and development.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""External service stubs for testing and development.
 
 These stubs provide mock implementations of external services, allowing development and testing
 without actual service dependencies.

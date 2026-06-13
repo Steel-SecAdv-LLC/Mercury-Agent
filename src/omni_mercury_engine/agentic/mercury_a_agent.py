@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Mercury A. Autonomous Agent Framework
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Mercury A. Autonomous Agent Framework.
 
 Implements an autonomous agent with planning, execution, reflection layers,
 and comprehensive memory systems. Designed for multi-agent orchestration
@@ -33,6 +16,8 @@ References:
     - ReAct: Yao et al. (2022) "ReAct: Synergizing Reasoning and Acting"
     - Memory systems: Tulving (1972) episodic/semantic distinction
 """
+
+from __future__ import annotations
 
 import logging
 import time
@@ -144,8 +129,7 @@ class PlanResult:
 
 
 class AgentMemory:
-    """
-    Comprehensive memory system for Mercury Agent.
+    """Comprehensive memory system for Mercury Agent.
 
     Implements four memory types:
     - Short-term: Recent observations and context (limited capacity)
@@ -159,6 +143,7 @@ class AgentMemory:
         short_term_capacity: int = 100,
         long_term_capacity: int = 10000,
     ):
+        """Initialize the instance."""
         self.short_term_capacity = short_term_capacity
         self.long_term_capacity = long_term_capacity
 
@@ -333,13 +318,13 @@ class AgentMemory:
 
 
 class MercuryReasoner:
-    """
-    Chain-of-thought reasoning engine with correlation graph building.
+    """Chain-of-thought reasoning engine with correlation graph building.
 
     Implements ReAct-style reasoning: Thought → Action → Observation loop.
     """
 
     def __init__(self, max_steps: int = 15) -> None:
+        """Initialize the instance."""
         self.max_steps = max_steps
         self.reasoning_chain: list[ReasoningStep] = []
         self.correlation_graph: dict[str, list[str]] = {}
@@ -351,8 +336,7 @@ class MercuryReasoner:
         context: dict[str, Any],
         tools: dict[str, Callable[..., Any]] | None = None,
     ) -> dict[str, Any]:
-        """
-        Perform chain-of-thought reasoning on a query.
+        """Perform chain-of-thought reasoning on a query.
 
         Args:
             query: The query to reason about
@@ -472,8 +456,7 @@ class MercuryReasoner:
 
 
 class MercuryPlanner:
-    """
-    Goal decomposition and task orchestration with domain-specific planning.
+    """Goal decomposition and task orchestration with domain-specific planning.
 
     Supports specialized planning for medical, security, energy, infrastructure, humanitarian,
     scientific, and financial domains.
@@ -483,6 +466,7 @@ class MercuryPlanner:
     """
 
     def __init__(self, calibrator: BayesianConfidenceCalibrator | None = None) -> None:
+        """Initialize the instance."""
         self.logger = logging.getLogger(__name__)
         self.domain_strategies = self._initialize_domain_strategies()
         self.calibrator = calibrator  # Bayesian confidence calibrator
@@ -546,8 +530,7 @@ class MercuryPlanner:
         domain: DomainType = DomainType.GENERAL,
         context: dict[str, Any] | None = None,
     ) -> PlanResult:
-        """
-        Create a plan to achieve a goal.
+        """Create a plan to achieve a goal.
 
         Args:
             goal: The goal to achieve
@@ -765,8 +748,7 @@ class MercuryPlanner:
 
 
 class MercuryAgent:
-    """
-    Mercury A.
+    """Mercury A.
 
     Autonomous Agent - Main Orchestrator.
         Combines planning, execution, reasoning, and learning capabilities
@@ -788,8 +770,7 @@ class MercuryAgent:
         ethical_threshold: float = 0.93,
         enable_calibration: bool = True,
     ):
-        """
-        Initialize Mercury Agent.
+        """Initialize Mercury Agent.
 
         Args:
             name: Agent name
@@ -845,8 +826,7 @@ class MercuryAgent:
         goal: str | None = None,
         context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """
-        Analyze data with autonomous planning and reasoning.
+        """Analyze data with autonomous planning and reasoning.
 
         Args:
             data: Data to analyze
@@ -893,8 +873,7 @@ class MercuryAgent:
         return result
 
     def explain_reasoning(self) -> dict[str, Any]:
-        """
-        Explain the agent's reasoning process.
+        """Explain the agent's reasoning process.
 
         Returns:
             Explanation of reasoning with trace
@@ -918,8 +897,7 @@ class MercuryAgent:
         }
 
     def get_state(self) -> dict[str, Any]:
-        """
-        Get current agent state.
+        """Get current agent state.
 
         Returns:
             Current state information
@@ -1133,8 +1111,7 @@ def create_mercury_agent(
     autonomy_level: float = 0.8,
     ethical_threshold: float = 0.93,
 ) -> MercuryAgent:
-    """
-    Factory function to create a Mercury Agent.
+    """Factory function to create a Mercury Agent.
 
     Args:
         name: Agent name

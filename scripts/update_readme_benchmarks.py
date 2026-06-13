@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""Regenerate the ``<!-- BENCHMARK:START -->`` … ``<!-- BENCHMARK:END -->``
-block in ``README.md`` from the current and previous
-``benchmarks/mercury_benchmark_results.json``.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+r"""Regenerate the ``<!-- BENCHMARK:START -->`` … ``<!-- BENCHMARK:END -->`` block in ``README.md`` from the current and previous ``benchmarks/mercury_benchmark_results.json``.
 
 This script is invoked by ``.github/workflows/benchmark.yml`` after every
 benchmark run on ``main`` so the live-data results are auto-committed and
@@ -38,6 +21,8 @@ Exit codes:
     0  README updated (or already up-to-date).
     2  Results file missing or malformed.
 """
+
+from __future__ import annotations
 
 import argparse
 import json
@@ -97,7 +82,17 @@ def _summary(data: dict[str, Any]) -> dict[str, Any]:
         "median_auc": summary.get("median_auc"),
         "mean_oracle_f1": summary.get("mean_oracle_f1"),
         "successful": summary.get("successful"),
-        "total": summary.get("total") or summary.get("n_datasets") or summary.get("successful"),
+        # ``benchmarks/mercury_benchmark.py`` writes the attempted-dataset count
+        # under ``summary["total_datasets"]`` (alongside ``successful`` /
+        # ``failed``).  Older/external fixtures used ``total`` or ``n_datasets``.
+        # ``total_datasets`` must be in this chain or the ratio silently collapses
+        # to ``successful / successful`` (e.g. ``65 / 65`` instead of ``65 / 75``).
+        "total": (
+            summary.get("total")
+            or summary.get("total_datasets")
+            or summary.get("n_datasets")
+            or summary.get("successful")
+        ),
         "timestamp": (
             metadata.get("timestamp") or data.get("timestamp") or data.get("run_timestamp")
         ),

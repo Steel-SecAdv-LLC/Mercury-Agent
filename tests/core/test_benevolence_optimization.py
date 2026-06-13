@@ -1,25 +1,6 @@
-from typing import Any
-
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
-"""
-
-"""
-Comprehensive tests for the benevolence optimization module.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Comprehensive tests for the benevolence optimization module.
 
 Tests include:
 - All 6 gating form variations
@@ -35,6 +16,7 @@ Coverage target: 95%+
 
 import os
 import sys
+from typing import Any
 
 import numpy as np
 import pytest
@@ -62,7 +44,6 @@ try:
     BENEVOLENCE_MODULE_AVAILABLE = True
 except ImportError:
     BENEVOLENCE_MODULE_AVAILABLE = False
-
 
 # Skip all tests if module not available
 pytestmark = pytest.mark.skipif(

@@ -1,26 +1,11 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Spatial anomaly detector for geographic data
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Spatial anomaly detector for geographic data.
 
 Optimized with Numba JIT compilation for performance-critical paths.
 """
+
+from __future__ import annotations
 
 from typing import Any
 
@@ -46,8 +31,7 @@ try:
     def _compute_distances_jit(
         data: np.ndarray[Any, Any], center: np.ndarray[Any, Any]
     ) -> np.ndarray[Any, Any]:
-        """
-        JIT-compiled Euclidean distance computation.
+        """JIT-compiled Euclidean distance computation.
 
         Optimized for large datasets to achieve <1s/sample inference.
         """
@@ -79,14 +63,14 @@ except ImportError:
 
 
 class _NativeLOF:
-    """
-    Local Outlier Factor via scipy KDTree (no sklearn dependency).
+    """Local Outlier Factor via scipy KDTree (no sklearn dependency).
 
     Implements LOF as defined by Breunig et al. (2000).  Only the ``fit`` / ``decision_function``
     surface used by SpatialAnomalyDetector is provided.
     """
 
     def __init__(self, n_neighbors: int = 20) -> None:
+        """Initialize the instance."""
         self.k = n_neighbors
         self._tree: KDTree | None = None
         self._lrd: np.ndarray[Any, Any] | None = None  # local reachability densities of training
@@ -131,6 +115,12 @@ class _NativeLOF:
         if k < 1:
             return np.zeros(len(X))
         dists, idx = self._tree.query(X, k=k)
+        if dists.ndim == 1:
+            # scipy squeezes the neighbor axis for k == 1 (single training
+            # sample, or n_neighbors=1); restore it so the axis-1 reductions
+            # below see the documented (n, k) shape instead of raising.
+            dists = dists[:, np.newaxis]
+            idx = idx[:, np.newaxis]
         # Same floor as fit; see _REACH_FLOOR docstring for why this must
         # match the fit-time floor exactly.
         reach = np.maximum(dists, self._REACH_FLOOR)
@@ -147,8 +137,7 @@ class _NativeLOF:
 
 
 class SpatialAnomalyDetector(BaseDetector):
-    """
-    Spatial anomaly detection for geographic data using:
+    """Spatial anomaly detection for geographic data using:.
 
     - Distance-based outliers
     - Density-based outliers (LOF via scipy KDTree)
@@ -156,6 +145,7 @@ class SpatialAnomalyDetector(BaseDetector):
     """
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
+        """Initialize the instance."""
         super().__init__(config)
         self.n_neighbors = self.config.get("n_neighbors", 20)
         self.contamination = self.config.get("contamination", 0.1)
@@ -185,8 +175,7 @@ class SpatialAnomalyDetector(BaseDetector):
         return self
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
-        """
-        Detect spatial anomalies with optional auto-calibration.
+        """Detect spatial anomalies with optional auto-calibration.
 
         Uses distance-based outliers and Local Outlier Factor (LOF)
         to compute anomaly scores for geographic/spatial data.
@@ -212,9 +201,16 @@ class SpatialAnomalyDetector(BaseDetector):
         if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
         assert isinstance(data, np.ndarray)
+        data_np: np.ndarray[Any, Any] = data
 
-        distance_scores = self._compute_distance_scores(data)
-        lof_scores = self.lof.decision_function(data)
+        # Sanitise non-finite inputs at the boundary (mirrors the temporal
+        # detector): scipy's KDTree refuses NaN/Inf queries outright, which
+        # crashed detection before the NaN guards below could ever run.
+        if data_np.dtype.kind == "f" and not np.all(np.isfinite(data_np)):
+            data_np = np.nan_to_num(data_np, nan=0.0, posinf=0.0, neginf=0.0)
+
+        distance_scores = self._compute_distance_scores(data_np)
+        lof_scores = self.lof.decision_function(data_np)
 
         # Safe normalization with NaN/constant array handling
         # Fix for P0: Division by near-zero in min/max normalization
@@ -284,8 +280,7 @@ class SpatialAnomalyDetector(BaseDetector):
         return torch.tensor(features, dtype=torch.float32)
 
     def _safe_normalize(self, scores: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Safely normalize scores to [0, 1] range.
+        """Safely normalize scores to [0, 1] range.
 
         Handles edge cases:
         - Constant arrays (max == min): returns 0.5 for all
@@ -318,8 +313,7 @@ class SpatialAnomalyDetector(BaseDetector):
         return np.clip(normalized, 0.0, 1.0)
 
     def _compute_distance_scores(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Compute distance-based anomaly scores.
+        """Compute distance-based anomaly scores.
 
         Uses Numba JIT compilation when available for ~10x speedup on large datasets, targeting
         <1s/sample inference requirement.
@@ -340,3 +334,35 @@ class SpatialAnomalyDetector(BaseDetector):
                 self.radius_threshold + 1e-6
             )
         return scores
+
+    def get_fitted_state(self) -> dict[str, Any] | None:
+        """Export the fitted state for checkpoint round-tripping.
+
+        The KDTree is represented by its training points (``tree.data``);
+        :meth:`set_fitted_state` rebuilds it, which is deterministic for the
+        same points, so reloaded LOF queries reproduce the saving engine's
+        scores exactly (ROADMAP row 16).
+
+        Returns:
+            JSON/tensor-safe mapping, or ``None`` when unfitted.
+        """
+        if not self._is_fitted or self.center is None or self.radius_threshold is None:
+            return None
+        if self.lof._tree is None or self.lof._lrd is None:
+            return None
+        return {
+            "center": np.asarray(self.center, dtype=np.float64),
+            "radius_threshold": float(self.radius_threshold),
+            "lof_k": int(self.lof.k),
+            "lof_points": np.asarray(self.lof._tree.data, dtype=np.float64),
+            "lof_lrd": np.asarray(self.lof._lrd, dtype=np.float64),
+        }
+
+    def set_fitted_state(self, state: dict[str, Any]) -> None:
+        """Restore a state produced by :meth:`get_fitted_state`."""
+        self.center = np.asarray(state["center"], dtype=np.float64)
+        self.radius_threshold = float(state["radius_threshold"])
+        self.lof = _NativeLOF(n_neighbors=int(state["lof_k"]))
+        self.lof._tree = KDTree(np.asarray(state["lof_points"], dtype=np.float64))
+        self.lof._lrd = np.asarray(state["lof_lrd"], dtype=np.float64)
+        self._is_fitted = True

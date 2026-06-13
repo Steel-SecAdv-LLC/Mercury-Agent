@@ -1,7 +1,6 @@
-"""
-Mercury Agent - 3R Mechanism Type Definitions
-
-Copyright (C) 2025 Steel Security Advisors LLC
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""3R Mechanism Type Definitions.
 
 Type definitions, enums, and dataclasses for the 3R Mechanism.
 """
@@ -112,8 +111,7 @@ class AnomalyFusionResult:
 
 @dataclass
 class RefactoringConfig:
-    """
-    Configuration for automatic refactoring operations.
+    """Configuration for automatic refactoring operations.
 
     Mathematical constants are sourced from the centralized MathematicalConstants module for
     precision and consistency.

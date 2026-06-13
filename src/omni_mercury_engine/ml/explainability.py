@@ -1,12 +1,6 @@
-"""
-Mercury Agent - SHAP Explainability Integration
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""SHAP Explainability Integration.
 
 Production-grade explainability for anomaly detection providing:
 - SHAP (SHapley Additive exPlanations) integration
@@ -224,8 +218,7 @@ class BaseExplainer(ABC):
 
 
 class SHAPExplainer(BaseExplainer):
-    """
-    SHAP-based explainability for anomaly detection.
+    """SHAP-based explainability for anomaly detection.
 
     Supports multiple SHAP explainer types based on model type:
     - KernelExplainer: Model-agnostic (slowest but most flexible)
@@ -242,8 +235,7 @@ class SHAPExplainer(BaseExplainer):
         top_k_features: int = 10,
         random_state: int | None = None,
     ):
-        """
-        Initialize SHAP explainer.
+        """Initialize SHAP explainer.
 
         Args:
             method: SHAP method to use
@@ -401,8 +393,7 @@ class SHAPExplainer(BaseExplainer):
         sample_indices: list[int] | None = None,
         feature_names: list[str] | None = None,
     ) -> list[LocalExplanation]:
-        """
-        Generate local explanations for specific samples.
+        """Generate local explanations for specific samples.
 
         Args:
             model: Trained model
@@ -517,8 +508,7 @@ class SHAPExplainer(BaseExplainer):
         X: NDArray[np.float64],
         feature_names: list[str] | None = None,
     ) -> GlobalExplanation:
-        """
-        Generate global explanation for model behavior.
+        """Generate global explanation for model behavior.
 
         Args:
             model: Trained model
@@ -615,8 +605,7 @@ class SHAPExplainer(BaseExplainer):
 
 
 class CounterfactualExplainer:
-    """
-    Generates counterfactual explanations.
+    """Generates counterfactual explanations.
 
     Finds minimal changes to input that would flip the prediction.
     """
@@ -628,8 +617,7 @@ class CounterfactualExplainer:
         step_size: float = 0.1,
         max_iterations: int = 100,
     ):
-        """
-        Initialize counterfactual explainer.
+        """Initialize counterfactual explainer.
 
         Args:
             threshold: Prediction threshold for anomaly
@@ -649,8 +637,7 @@ class CounterfactualExplainer:
         feature_names: list[str] | None = None,
         feature_ranges: dict[str, tuple[float, float]] | None = None,
     ) -> CounterfactualExplanation:
-        """
-        Generate counterfactual explanation for a sample.
+        """Generate counterfactual explanation for a sample.
 
         Args:
             model: Trained model
@@ -735,8 +722,7 @@ class CounterfactualExplainer:
 
 
 class AnomalyExplainer:
-    """
-    Unified anomaly detection explainer.
+    """Unified anomaly detection explainer.
 
     Combines multiple explainability methods for comprehensive anomaly explanations.
     """
@@ -747,8 +733,7 @@ class AnomalyExplainer:
         include_counterfactual: bool = True,
         top_k_features: int = 10,
     ):
-        """
-        Initialize anomaly explainer.
+        """Initialize anomaly explainer.
 
         Args:
             shap_method: SHAP method to use
@@ -769,8 +754,7 @@ class AnomalyExplainer:
         feature_names: list[str] | None = None,
         include_global: bool = True,
     ) -> dict[str, Any]:
-        """
-        Generate comprehensive explanations.
+        """Generate comprehensive explanations.
 
         Args:
             model: Trained model
@@ -820,8 +804,7 @@ class AnomalyExplainer:
         X: NDArray[np.float64],
         feature_names: list[str] | None = None,
     ) -> str:
-        """
-        Generate human-readable explanation report.
+        """Generate human-readable explanation report.
 
         Args:
             model: Trained model
@@ -884,8 +867,7 @@ def create_explainer(
     method: str = "shap",
     **kwargs: Any,
 ) -> BaseExplainer:
-    """
-    Factory function to create explainer.
+    """Factory function to create explainer.
 
     Args:
         method: Explainability method ('shap', 'permutation', 'attention')

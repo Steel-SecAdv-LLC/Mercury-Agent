@@ -1,6 +1,6 @@
-"""
-Mercury Agent - Security and Performance Audit Tests
-Copyright (C) 2025 Steel Security Advisors LLC
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Security and Performance Audit Tests.
 
 Tests for audit improvements including:
 - PII masking in logs

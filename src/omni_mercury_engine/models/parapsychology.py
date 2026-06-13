@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Parapsychology Discipline Module
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Parapsychology Discipline Module.
 
 Scientific investigation of psi phenomena and consciousness anomalies for detecting
 statistical deviations from expected probability distributions that may indicate:
@@ -55,8 +38,9 @@ Research Approach:
 science. This module provides statistical tools for objective anomaly detection in
 probability distributions. Extraordinary claims require extraordinary evidence.
 Use skeptical, rigorous methodology.
-
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -105,14 +89,14 @@ class ParapsychologyResult:
 
 
 class ConsciousnessFieldAnalyzer(nn.Module):
-    """
-    Neural network for consciousness field coherence analysis.
+    """Neural network for consciousness field coherence analysis.
 
     Inspired by Global Consciousness Project methodology with neural pattern recognition for
     detecting deviations from randomness.
     """
 
     def __init__(self, sequence_length: int = 100) -> None:
+        """Initialize the instance."""
         super().__init__()
 
         phi = 1.618
@@ -135,8 +119,7 @@ class ConsciousnessFieldAnalyzer(nn.Module):
         )
 
     def forward(self, sequence: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        """
-        Analyze consciousness field coherence.
+        """Analyze consciousness field coherence.
 
         Args:
             sequence: Random event sequence [batch, seq_len, 1]
@@ -154,8 +137,7 @@ class ConsciousnessFieldAnalyzer(nn.Module):
 
 
 class ParapsychologyDetector:
-    """
-    Parapsychology Anomaly Detector.
+    """Parapsychology Anomaly Detector.
 
     Statistical analysis tool for detecting deviations from chance in psi experiments and
     consciousness research using rigorous methodology.
@@ -167,8 +149,7 @@ class ParapsychologyDetector:
         enable_consciousness_field: bool = True,
         bayesian_analysis: bool = True,
     ):
-        """
-        Initialize parapsychology detector.
+        """Initialize parapsychology detector.
 
         Args:
             significance_threshold: p-value threshold (default p < 0.05)
@@ -237,8 +218,7 @@ class ParapsychologyDetector:
         control_data: dict[str, Any] | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> ParapsychologyResult:
-        """
-        Detect statistically significant psi anomalies.
+        """Detect statistically significant psi anomalies.
 
         Args:
             experimental_data: Experimental trial data including:
@@ -347,8 +327,7 @@ class ParapsychologyDetector:
     def _analyze_esp_trials(
         self, results: np.ndarray[Any, Any], targets: np.ndarray[Any, Any]
     ) -> tuple[float, float, float, float]:
-        """
-        Analyze ESP trial data (telepathy/clairvoyance/precognition).
+        """Analyze ESP trial data (telepathy/clairvoyance/precognition).
 
         Returns: (hit_rate, z_score, p_value, effect_size)
         """
@@ -372,8 +351,7 @@ class ParapsychologyDetector:
     def _analyze_reg_output(
         self, reg_output: np.ndarray[Any, Any]
     ) -> tuple[float, float, float, float]:
-        """
-        Analyze random event generator output for psychokinesis.
+        """Analyze random event generator output for psychokinesis.
 
         Returns: (variance_ratio, z_score, p_value, effect_size)
         """
@@ -397,8 +375,7 @@ class ParapsychologyDetector:
     def _analyze_presentiment(
         self, physiological_data: dict[str, np.ndarray[Any, Any]]
     ) -> tuple[float, float, float]:
-        """
-        Analyze presentiment (pre-stimulus physiological response).
+        """Analyze presentiment (pre-stimulus physiological response).
 
         Returns: (z_score, p_value, effect_size)
         """
@@ -644,8 +621,7 @@ class ParapsychologyDetector:
 
 
 def create_omni_psi_scalars() -> dict[str, float]:
-    """
-    Create doctorate-level parapsychology scalars.
+    """Create doctorate-level parapsychology scalars.
 
     Returns:
         Dictionary of omni-psi scalars with golden ratio optimization

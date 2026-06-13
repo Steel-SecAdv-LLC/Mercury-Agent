@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Nano-Safeguards for Micro-Anomaly Detection
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Nano-Safeguards for Micro-Anomaly Detection.
 
 Implements the N term from the Lyapunov stability framework for detecting
 micro-scale anomalies that may be missed by standard detection methods.
@@ -38,8 +21,10 @@ Where k is the target dimension for downsampling (typically 1-3).
 
 References:
 - PROTECTION_OVERVIEW.md: Nano-Safeguards (N Term) specification
-- Lyapunov stability framework for convergence guarantees
+- Lyapunov-style decay-schedule convergence monitor (measured, not a guarantee)
 """
+
+from __future__ import annotations
 
 import hashlib
 import logging
@@ -97,14 +82,14 @@ class NanoSafeguardResult:
 if TYPE_CHECKING or TORCH_AVAILABLE:
 
     class HierarchicalMicroScanner(nn.Module):
-        """
-        Hierarchical micro-pattern scanner using multi-scale convolutions.
+        """Hierarchical micro-pattern scanner using multi-scale convolutions.
 
         Implements the Recursion Engine component of 3R for multi-scale pattern detection at
         progressively finer granularities.
         """
 
         def __init__(self, input_dim: int = 64, num_scales: int = 4) -> None:
+            """Initialize the instance."""
             super().__init__()
             self.num_scales = num_scales
 
@@ -130,8 +115,7 @@ if TYPE_CHECKING or TORCH_AVAILABLE:
             )
 
         def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, list[torch.Tensor]]:
-            """
-            Multi-scale hierarchical scanning.
+            """Multi-scale hierarchical scanning.
 
             Args:
                 x: Input tensor (batch, features)
@@ -161,26 +145,26 @@ else:
         """Stub: HierarchicalMicroScanner requires PyTorch."""
 
         def __init__(self, *args: Any, **kwargs: Any) -> None:
+            """Initialize the instance."""
             raise ImportError(
                 "HierarchicalMicroScanner requires PyTorch. Install with: pip install torch"
             )
 
 
 class ResonanceAnalyzer:
-    """
-    FFT-based resonance analysis for frequency-domain micro-anomalies.
+    """FFT-based resonance analysis for frequency-domain micro-anomalies.
 
     Implements the Resonance Engine component of 3R for detecting harmonic anomalies and periodic
     micro-patterns.
     """
 
     def __init__(self, fundamental_freq: float = 7.83) -> None:
+        """Initialize the instance."""
         self.fundamental_freq = fundamental_freq
         self.harmonic_count = 8
 
     def analyze(self, signal: np.ndarray[Any, Any]) -> dict[str, float]:
-        """
-        Analyze signal for resonance anomalies.
+        """Analyze signal for resonance anomalies.
 
         Args:
             signal: Input signal array
@@ -233,8 +217,7 @@ class ResonanceAnalyzer:
 
 
 class NanoSafeguardDetector(BaseDetector):
-    """
-    Nano-Safeguard Detector for Micro-Anomaly Detection.
+    """Nano-Safeguard Detector for Micro-Anomaly Detection.
 
     Implements the N term from the Lyapunov stability framework,
     providing hierarchical micro-pattern scanning with threshold-based
@@ -250,6 +233,7 @@ class NanoSafeguardDetector(BaseDetector):
     """
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
+        """Initialize the instance."""
         super().__init__(config)
 
         self.convergence_threshold = self.config.get("convergence_threshold", 0.01)
@@ -269,8 +253,7 @@ class NanoSafeguardDetector(BaseDetector):
         self.max_memory = self.config.get("max_memory", 100)
 
     def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> NanoSafeguardDetector:
-        """
-        Fit nano-safeguard to normal data patterns.
+        """Fit nano-safeguard to normal data patterns.
 
         Args:
             data: Normal data for baseline establishment
@@ -294,8 +277,7 @@ class NanoSafeguardDetector(BaseDetector):
         return self
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
-        """
-        Detect micro-anomalies using nano-safeguard protocols.
+        """Detect micro-anomalies using nano-safeguard protocols.
 
         Args:
             data: Input data for micro-anomaly detection
@@ -326,8 +308,7 @@ class NanoSafeguardDetector(BaseDetector):
         }
 
     def detect_micro_anomalies(self, data: np.ndarray[Any, Any]) -> NanoSafeguardResult:
-        """
-        Comprehensive micro-anomaly detection.
+        """Comprehensive micro-anomaly detection.
 
         Args:
             data: Input data array
@@ -378,8 +359,7 @@ class NanoSafeguardDetector(BaseDetector):
         return result
 
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
-        """
-        Extract nano-safeguard features for ML fusion.
+        """Extract nano-safeguard features for ML fusion.
 
         Args:
             data: Input data
@@ -437,8 +417,7 @@ class NanoSafeguardDetector(BaseDetector):
         return float(convergence)
 
     def _dimensional_downsampling_detection(self, data: np.ndarray[Any, Any]) -> float:
-        """
-        Dimensional downsampling for micro-anomaly detection.
+        """Dimensional downsampling for micro-anomaly detection.
 
         Implements the N term enhancement from PROTECTION_OVERVIEW.md.
         """

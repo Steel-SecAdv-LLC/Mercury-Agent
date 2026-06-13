@@ -1,9 +1,6 @@
-"""
-Mercury Agent - Copyright (C) 2025 Steel Security Advisors LLC
-Licensed under GNU GPL v3
-
-Measured Rust-vs-Python crypto benchmark — replaces the unbenchmarked
-"BLAKE3 6.5x faster" README claim with a number you can reproduce.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+r"""Measured Rust-vs-Python crypto benchmark — replaces the unbenchmarked "BLAKE3 6.5x faster" README claim with a number you can reproduce.
 
 The Rust PyO3 module (`rust_crypto/`) is opt-in and not built by default, so
 `omni_mercury_engine.crypto` falls back to the `cryptography` package / `hashlib`.

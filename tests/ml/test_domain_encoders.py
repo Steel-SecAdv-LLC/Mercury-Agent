@@ -1,8 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Unit tests for the differentiable domain encoders (WS-B / Target 2).
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Unit tests for the differentiable domain encoders (WS-B / Target 2).
 
 Verify each encoder's contract deterministically and without network:
 correct output shape, finite outputs, gradient flow (it is genuinely

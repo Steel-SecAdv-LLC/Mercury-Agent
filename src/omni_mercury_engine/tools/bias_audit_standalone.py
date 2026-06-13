@@ -1,22 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
-
-------------------------------------------------------------------------
-
-Operator tool: standalone fairness audit (Fairlearn DPD / EOD / 80%-rule).
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+r"""Operator tool: standalone fairness audit (Fairlearn DPD / EOD / 80%-rule).
 
 Fairlearn is already a Mercury dependency but it has no operator entry
 point — the only way to audit a detector's fairness was to write a
@@ -104,6 +88,9 @@ def _score_with_detector(
 
 
 def _collect(args: argparse.Namespace) -> Certificate:
+    # Mercury builds its own ML (mercury_ml); scikit-learn is never imported.
+    from omni_mercury_engine.ml.mercury_ml import accuracy_score
+
     try:
         from fairlearn.metrics import (
             MetricFrame,
@@ -111,10 +98,13 @@ def _collect(args: argparse.Namespace) -> Certificate:
             equalized_odds_difference,
             selection_rate,
         )
-        from sklearn.metrics import accuracy_score
     except ImportError as exc:
+        # The failing import may be fairlearn itself *or* one of its transitive
+        # dependencies; surface the real module name (``exc``) instead of always
+        # blaming fairlearn so a missing transitive dep is not misdiagnosed.
         raise DependencyMissing(
-            f"fairlearn or scikit-learn missing: {exc}; install with `pip install fairlearn`"
+            f"fairlearn (or one of its dependencies) is unavailable: {exc}; "
+            f"install with `pip install fairlearn`"
         ) from exc
 
     X = np.load(args.data, allow_pickle=False)

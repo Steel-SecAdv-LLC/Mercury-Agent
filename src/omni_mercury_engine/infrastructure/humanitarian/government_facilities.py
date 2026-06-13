@@ -1,41 +1,25 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Government Facilities infrastructure monitoring.
 
 Covers 16th CISA sector (Government Facilities) with focus on
 democratic governance, transparency, and accountability.
 """
 
+from __future__ import annotations
+
 from typing import Any
 
 
 class GovernmentFacilitiesMonitor:
-    """
-    Government facilities and public administration anomaly detector.
+    """Government facilities and public administration anomaly detector.
 
     Covers 16th CISA sector (Government Facilities) with focus on democratic governance,
     transparency, and accountability.
     """
 
     def __init__(self, ethical_config: dict[str, float] | None = None) -> None:
-        """
-        Initialize Government Facilities Monitor.
+        """Initialize Government Facilities Monitor.
 
         Args:
             ethical_config: Ethical scalar configuration
@@ -92,8 +76,7 @@ class GovernmentFacilitiesMonitor:
         }
 
     def detect(self, data: dict[str, Any], facility_type: str) -> dict[str, Any]:
-        """
-        Detect anomalies in government facilities and processes.
+        """Detect anomalies in government facilities and processes.
 
         Args:
             data: Facility access logs, system availability, process metrics
@@ -144,8 +127,7 @@ class GovernmentFacilitiesMonitor:
         }
 
     def monitor_democratic_process(self, process_type: str, data: dict[str, Any]) -> dict[str, Any]:
-        """
-        Monitor specific democratic processes for integrity.
+        """Monitor specific democratic processes for integrity.
 
         Args:
             process_type: 'voting', 'legislative', 'judicial', 'regulatory'

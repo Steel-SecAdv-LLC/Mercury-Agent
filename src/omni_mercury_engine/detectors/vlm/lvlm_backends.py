@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-LVLM Backend implementations for anomaly detection.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""LVLM Backend implementations for anomaly detection.
 
 Provides unified interface for various Large Vision-Language Models:
 - Qwen2-VL
@@ -32,6 +15,8 @@ Security Note:
     revisions will load the latest version which may change unexpectedly.
     See: https://huggingface.co/docs/hub/security
 """
+
+from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
@@ -63,8 +48,7 @@ class LVLMBackend(ABC):
         temperature: float = 0.1,
         revision: str | None = None,
     ):
-        """
-        Initialize LVLM backend.
+        """Initialize LVLM backend.
 
         Args:
             model_name: HuggingFace model identifier
@@ -96,8 +80,7 @@ class LVLMBackend(ABC):
         images: list[Image.Image] | list[np.ndarray[Any, Any]],
         prompt: str,
     ) -> str:
-        """
-        Generate response for visual question.
+        """Generate response for visual question.
 
         Args:
             images: Input images (single image or sequence)
@@ -380,8 +363,7 @@ class LLaVABackend(LVLMBackend):
 
 
 class MockLVLMBackend(LVLMBackend):
-    """
-    Mock LVLM backend — hard-fails at construction.
+    """Mock LVLM backend — hard-fails at construction.
 
     Phase 2 audit cure: silent mock degradation is not permitted in
     production.  Instantiating this class raises ``NotImplementedError``
@@ -424,8 +406,7 @@ def get_lvlm_backend(
     device: str = "cuda",
     **kwargs: Any,
 ) -> LVLMBackend:
-    """
-    Factory function to get appropriate LVLM backend.
+    """Factory function to get appropriate LVLM backend.
 
     Args:
         model_type: Type of LVLM ('qwen2_vl', 'minicpm_v', 'llava', 'mock')

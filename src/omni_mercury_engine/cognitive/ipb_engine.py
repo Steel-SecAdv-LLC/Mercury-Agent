@@ -1,15 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-"""
-
-from __future__ import annotations
-
-"""
-Intelligence Preparation Engine (IPB)
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Intelligence Preparation Engine (IPB).
 
 Implements the Intelligence Preparation of the Battlefield process
 adapted for multi-domain anomaly detection:
@@ -24,6 +15,8 @@ Research Sources:
 - CISA All-Source Intelligence
 - DARPA ANSR: Situational awareness
 """
+
+from __future__ import annotations
 
 import logging
 import time
@@ -211,8 +204,7 @@ class BattlefieldAssessment:
 
 
 class IPBEngine:
-    """
-    Intelligence Preparation of the Battlefield Engine.
+    """Intelligence Preparation of the Battlefield Engine.
 
     Implements the military intelligence preparation process for
     multi-domain anomaly detection:
@@ -234,8 +226,7 @@ class IPBEngine:
         enable_running_estimates: bool = True,
         historical_window_days: int = 30,
     ):
-        """
-        Initialize IPB Engine.
+        """Initialize IPB Engine.
 
         Args:
             domains: Operational domains to analyze
@@ -345,8 +336,7 @@ class IPBEngine:
         constraints: list[str] | None = None,
         assumptions: list[str] | None = None,
     ) -> EnvironmentDefinition:
-        """
-        Phase 1: Define the operational environment.
+        """Phase 1: Define the operational environment.
 
         Args:
             domain: Domain to define
@@ -383,8 +373,7 @@ class IPBEngine:
         domain: EnvironmentDomain,
         observations: list[dict[str, Any]],
     ) -> list[EnvironmentEffect]:
-        """
-        Phase 2: Describe environmental effects on operations.
+        """Phase 2: Describe environmental effects on operations.
 
         Args:
             domain: Domain to analyze
@@ -429,8 +418,7 @@ class IPBEngine:
         domain: EnvironmentDomain,
         intelligence_reports: list[dict[str, Any]],
     ) -> list[ThreatCapability]:
-        """
-        Phase 3: Evaluate threat capabilities.
+        """Phase 3: Evaluate threat capabilities.
 
         Args:
             domain: Domain to analyze
@@ -478,8 +466,7 @@ class IPBEngine:
         domain: EnvironmentDomain,
         threats: list[ThreatCapability],
     ) -> list[ThreatCOA]:
-        """
-        Phase 4: Determine threat courses of action.
+        """Phase 4: Determine threat courses of action.
 
         Generates Most Likely, Most Dangerous, and Most Disruptive COAs.
 
@@ -515,8 +502,7 @@ class IPBEngine:
         intelligence_reports: list[dict[str, Any]],
         critical_assets: list[str] | None = None,
     ) -> BattlefieldAssessment:
-        """
-        Conduct complete IPB process.
+        """Conduct complete IPB process.
 
         Args:
             domain: Domain to analyze

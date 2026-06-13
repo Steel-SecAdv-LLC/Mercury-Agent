@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Matrix Profile Integration using STUMPY
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Matrix Profile Integration using STUMPY.
 
 Provides O(n log n) time complexity for pattern discovery and
 anomaly detection in time series data.
@@ -32,6 +15,8 @@ Reference:
     STUMPY: https://github.com/TDAmeritrade/stumpy
     Matrix Profile: https://www.cs.ucr.edu/~eamonn/MatrixProfile.html
 """
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
@@ -50,8 +35,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class MatrixProfileConfig(FoundationModelConfig):
-    """
-    Configuration for Matrix Profile detector.
+    """Configuration for Matrix Profile detector.
 
     Attributes:
         window_size: Subsequence window size (m)
@@ -91,8 +75,7 @@ class MatrixProfileDetector(BaseFoundationModel):
     """
 
     def __init__(self, config: MatrixProfileConfig | dict[str, Any] | None = None) -> None:
-        """
-        Initialize Matrix Profile detector.
+        """Initialize Matrix Profile detector.
 
         Args:
             config: Detector configuration
@@ -117,8 +100,7 @@ class MatrixProfileDetector(BaseFoundationModel):
 
     @config.setter
     def config(self, value: dict[str, Any] | MatrixProfileConfig) -> None:
-        """
-        Store the underlying config object (required for base class compatibility).
+        """Store the underlying config object (required for base class compatibility).
 
         The base class sets self.config to a dict during __init__. We intercept this and store it,
         but always return the typed config.
@@ -162,8 +144,7 @@ class MatrixProfileDetector(BaseFoundationModel):
         series: np.ndarray[Any, Any],
         window_size: int | None = None,
     ) -> dict[str, np.ndarray[Any, Any]]:
-        """
-        Compute the Matrix Profile for a time series.
+        """Compute the Matrix Profile for a time series.
 
         Args:
             series: Input time series [T]
@@ -213,8 +194,7 @@ class MatrixProfileDetector(BaseFoundationModel):
         top_k: int | None = None,
         exclusion_zone: int | None = None,
     ) -> list[dict[str, Any]]:
-        """
-        Find discords (anomalies) in a time series or Matrix Profile.
+        """Find discords (anomalies) in a time series or Matrix Profile.
 
         Discords are subsequences with the largest Matrix Profile values,
         meaning they have no close neighbors (unusual patterns).
@@ -283,8 +263,7 @@ class MatrixProfileDetector(BaseFoundationModel):
         matrix_profile: np.ndarray[Any, Any] | None = None,
         profile_index: np.ndarray[Any, Any] | None = None,
     ) -> list[dict[str, Any]]:
-        """
-        Find motifs (repeated patterns) in the time series.
+        """Find motifs (repeated patterns) in the time series.
 
         Motifs are pairs of subsequences with the smallest Matrix Profile
         values, meaning they are very similar to each other.
@@ -353,8 +332,7 @@ class MatrixProfileDetector(BaseFoundationModel):
         series: np.ndarray[Any, Any] | torch.Tensor,
         horizon: int | None = None,
     ) -> dict[str, np.ndarray[Any, Any]]:
-        """
-        Generate forecasts using motif-based prediction.
+        """Generate forecasts using motif-based prediction.
 
         Uses discovered motifs to predict future values based on
         similar historical patterns.
@@ -422,8 +400,7 @@ class MatrixProfileDetector(BaseFoundationModel):
         self,
         series: np.ndarray[Any, Any] | torch.Tensor,
     ) -> dict[str, Any]:
-        """
-        Detect anomalies using Matrix Profile discords.
+        """Detect anomalies using Matrix Profile discords.
 
         Args:
             series: Input time series
@@ -484,8 +461,7 @@ class MatrixProfileDetector(BaseFoundationModel):
         self,
         series: np.ndarray[Any, Any] | torch.Tensor,
     ) -> dict[str, Any]:
-        """
-        Detect anomalies in time series data.
+        """Detect anomalies in time series data.
 
         This is the primary detection interface that wraps detect_anomalies
         for a consistent API across all foundation model adapters.
@@ -503,8 +479,7 @@ class MatrixProfileDetector(BaseFoundationModel):
         series: np.ndarray[Any, Any],
         window_size: int,
     ) -> dict[str, np.ndarray[Any, Any]]:
-        """
-        Mock Matrix Profile computation.
+        """Mock Matrix Profile computation.
 
         Uses simple distance calculations as a fallback when STUMPY is not available. For large
         series, samples candidates to keep computation tractable.

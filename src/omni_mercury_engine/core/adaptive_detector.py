@@ -1,10 +1,9 @@
-"""
-Adaptive Detector Module for Mercury-Agent.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Adaptive Detector Module for Mercury-Agent.
 
 Addresses specific weaknesses identified in benchmark analysis. All detection is Mercury-native
 (numpy/scipy only) — zero sklearn dependency.
-
-Copyright (C) 2025 Steel Security Advisors LLC
 """
 
 import logging
@@ -45,8 +44,7 @@ class DetectionResult:
 
 
 class AdaptiveThresholdCalibrator:
-    """
-    Solves the covtype F1=0 problem.
+    """Solves the covtype F1=0 problem.
 
     Issue: Good AUC (0.8783) but zero F1 means the threshold is miscalibrated.
     The model correctly ranks anomalies higher than normal points (good AUC)
@@ -62,6 +60,7 @@ class AdaptiveThresholdCalibrator:
         min_contamination: float = 0.001,
         max_contamination: float = 0.3,
     ):
+        """Initialize the instance."""
         self.contamination = contamination
         self.min_contamination = min_contamination
         self.max_contamination = max_contamination
@@ -71,8 +70,7 @@ class AdaptiveThresholdCalibrator:
         scores: NDArray[np.float64],
         method: str = "percentile",
     ) -> tuple[float, NDArray[np.int32]]:
-        """
-        Calibrate threshold and return predictions.
+        """Calibrate threshold and return predictions.
 
         Args:
             scores: Anomaly scores (higher = more anomalous)
@@ -185,8 +183,7 @@ class AdaptiveThresholdCalibrator:
         self,
         scores: NDArray[np.float64],
     ) -> tuple[float, NDArray[np.int32]]:
-        """
-        Bimodal distribution calibration.
+        """Bimodal distribution calibration.
 
         Assumes scores come from a mixture of normal and anomalous distributions. Finds the valley
         between the two modes.
@@ -201,8 +198,7 @@ class AdaptiveThresholdCalibrator:
         return threshold, predictions
 
     def _estimate_contamination(self, scores: NDArray[np.float64]) -> float:
-        """
-        Estimate contamination ratio from score distribution.
+        """Estimate contamination ratio from score distribution.
 
         Uses the "knee" detection method to find where scores transition from normal to anomalous.
         """
@@ -230,8 +226,7 @@ class AdaptiveThresholdCalibrator:
 
 
 class CovarianceAwareDetector:
-    """
-    Solves the batadal problem.
+    """Solves the batadal problem.
 
     Issue: EllipticEnvelope (0.9353 AUC) dominates because batadal
     has strong covariance structure from correlated sensors.
@@ -246,6 +241,7 @@ class CovarianceAwareDetector:
         support_fraction: float = 0.9,
         random_state: int = 42,
     ):
+        """Initialize the instance."""
         self.contamination = contamination
         self.support_fraction = support_fraction
         self.random_state = random_state
@@ -305,8 +301,7 @@ class CovarianceAwareDetector:
 
 
 class TemporalPatternDetector:
-    """
-    Solves the smd problem.
+    """Solves the smd problem.
 
     Issue: Server Machine Dataset has temporal patterns that simple
     point-wise detectors miss.
@@ -322,6 +317,7 @@ class TemporalPatternDetector:
         include_diff: bool = True,
         include_rolling_stats: bool = True,
     ):
+        """Initialize the instance."""
         self.window_sizes = window_sizes or [5, 10, 20]
         self.lag_features = lag_features
         self.include_diff = include_diff
@@ -329,8 +325,7 @@ class TemporalPatternDetector:
         self._feature_names: list[str] = []
 
     def transform(self, X: NDArray[np.float64]) -> NDArray[np.float64]:
-        """
-        Transform input features to include temporal patterns.
+        """Transform input features to include temporal patterns.
 
         Args:
             X: Input features of shape (n_samples, n_features)
@@ -420,6 +415,7 @@ class _MercuryRandomProjectionDetector:
     def __init__(
         self, contamination: float = 0.1, n_estimators: int = 100, random_state: int = 42
     ) -> None:
+        """Initialize the instance."""
         self.contamination = contamination
         self.n_estimators = n_estimators
         self._rng = np.random.default_rng(random_state)
@@ -458,6 +454,7 @@ class _MercuryLocalDensityDetector:
     """KDTree-based local density anomaly detector (LOF-style, no sklearn)."""
 
     def __init__(self, contamination: float = 0.1, n_neighbors: int = 20) -> None:
+        """Initialize the instance."""
         self.contamination = contamination
         self.n_neighbors = n_neighbors
         self._tree: cKDTree | None = None
@@ -488,8 +485,7 @@ class _MercuryLocalDensityDetector:
 
 
 class AdaptiveAnomalyDetector:
-    """
-    Main adaptive detector that combines all improvements.
+    """Main adaptive detector that combines all improvements.
 
     Automatically profiles the dataset and applies appropriate detection strategies.  All detection
     is Mercury-native (no sklearn).
@@ -502,6 +498,7 @@ class AdaptiveAnomalyDetector:
         sigma_immutable: float = 0.96,
         auto_profile: bool = True,
     ):
+        """Initialize the instance."""
         self.contamination = contamination
         self.benevolence_threshold = benevolence_threshold
         self.sigma_immutable = sigma_immutable
@@ -527,8 +524,7 @@ class AdaptiveAnomalyDetector:
         X: NDArray[np.float64],
         feature_names: list[str] | None = None,
     ) -> DatasetProfile:
-        """
-        Automatically profile the dataset to determine optimal detection strategy.
+        """Automatically profile the dataset to determine optimal detection strategy.
 
         Args:
             X: Input features
@@ -599,8 +595,7 @@ class AdaptiveAnomalyDetector:
         X: NDArray[np.float64],
         profile: DatasetProfile | None = None,
     ) -> "AdaptiveAnomalyDetector":
-        """
-        Fit the detector to training data.
+        """Fit the detector to training data.
 
         Args:
             X: Training features
@@ -674,8 +669,7 @@ class AdaptiveAnomalyDetector:
         X: NDArray[np.float64],
         return_scores: bool = True,
     ) -> DetectionResult:
-        """
-        Detect anomalies using the appropriate strategy for the profile.
+        """Detect anomalies using the appropriate strategy for the profile.
 
         Args:
             X: Input features
@@ -726,8 +720,7 @@ class AdaptiveAnomalyDetector:
         )
 
     def _detect_covariance(self, X: NDArray[np.float64]) -> DetectionResult:
-        """
-        Detection strategy for covariance-structured data.
+        """Detection strategy for covariance-structured data.
 
         Uses Mercury-native CovarianceAwareDetector (Mahalanobis distance).
         """
@@ -816,8 +809,7 @@ class AdaptiveAnomalyDetector:
         )
 
     def _detect_generic(self, X: NDArray[np.float64]) -> DetectionResult:
-        """
-        Generic detection strategy using Mercury-native random projections.
+        """Generic detection strategy using Mercury-native random projections.
 
         Random projections are robust across diverse data types and don't assume specific
         distribution shapes.
@@ -842,8 +834,7 @@ class AdaptiveAnomalyDetector:
         )
 
     def _detect_network(self, X: NDArray[np.float64]) -> DetectionResult:
-        """
-        Detection strategy for network intrusion data (KDDCup99, NSL-KDD).
+        """Detection strategy for network intrusion data (KDDCup99, NSL-KDD).
 
         Uses pre-fitted Mercury random projection detector from fit().
         """
@@ -868,8 +859,7 @@ class AdaptiveAnomalyDetector:
         )
 
     def _detect_pattern_recognition(self, X: NDArray[np.float64]) -> DetectionResult:
-        """
-        Detection strategy for pattern recognition data (digits, MNIST).
+        """Detection strategy for pattern recognition data (digits, MNIST).
 
         Uses pre-fitted Mercury LOF-style + random projection from fit().
         """
@@ -900,8 +890,7 @@ class AdaptiveAnomalyDetector:
         )
 
     def _detect_medical(self, X: NDArray[np.float64]) -> DetectionResult:
-        """
-        Detection strategy for medical data (breast_cancer).
+        """Detection strategy for medical data (breast_cancer).
 
         Uses pre-fitted Mercury CovarianceAwareDetector from fit().
         """
@@ -930,8 +919,7 @@ class AdaptiveAnomalyDetector:
             return self._detect_covariance(X)
 
     def evaluate_ethics(self, result: DetectionResult) -> dict[str, Any]:
-        """
-        Evaluate detection result against ethical constraints.
+        """Evaluate detection result against ethical constraints.
 
         Ensures sigma_Immutable >= 0.93 (hard) and benevolence >= 0.99.
         """
@@ -969,8 +957,7 @@ class AdaptiveAnomalyDetector:
 
 
 class DatasetSpecificEnsemble:
-    """
-    Ensemble detector that uses dataset-specific strategies.
+    """Ensemble detector that uses dataset-specific strategies.
 
     Based on benchmark analysis:
     - covtype: High-dimensional with complex decision boundaries -> projections + Otsu
@@ -979,6 +966,7 @@ class DatasetSpecificEnsemble:
     """
 
     def __init__(self, contamination: float = 0.05):
+        """Initialize the instance."""
         self.contamination = contamination
         self._detectors: dict[str, AdaptiveAnomalyDetector] = {}
 
@@ -986,8 +974,7 @@ class DatasetSpecificEnsemble:
         self,
         dataset_name: str,
     ) -> AdaptiveAnomalyDetector:
-        """
-        Create optimized detector for a specific dataset.
+        """Create optimized detector for a specific dataset.
 
         Args:
             dataset_name: Name of the dataset (lowercase)
@@ -1035,8 +1022,7 @@ class DatasetSpecificEnsemble:
         X: NDArray[np.float64],
         dataset_name: str,
     ) -> DetectionResult:
-        """
-        Detect anomalies with dataset-specific optimization.
+        """Detect anomalies with dataset-specific optimization.
 
         Args:
             X: Input features

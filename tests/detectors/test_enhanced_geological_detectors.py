@@ -1,13 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Tests for enhanced geological detectors with 3R synaptic integration.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for enhanced geological detectors with 3R synaptic integration.
 
 Covers:
 - LandslideDetector with SVM/RF classifiers and 3R Recursion synapse
@@ -24,7 +17,6 @@ import pytest
 
 # Optional torch import
 HAS_TORCH = importlib.util.find_spec("torch") is not None
-
 
 # =============================================================================
 # Landslide Detector Tests

@@ -1,14 +1,12 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-NOAA Storm Events Database Loader
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""NOAA Storm Events Database Loader.
 
 Bulk CSV files from NCEI, 60+ years of US severe weather events. Ground truth labels are inherent:
 event type, damage amounts, injuries, fatalities.
 
 Source:
 https://www.ncei.noaa.gov/pub/data/swdi/stormevents/csvfiles/
-License: Public Domain (US Government)
 """
 
 from __future__ import annotations
@@ -31,8 +29,7 @@ logger = logging.getLogger(__name__)
 
 
 class NOAAStormEventsLoader(DatasetLoader):
-    """
-    NOAA Storm Events Database loader.
+    """NOAA Storm Events Database loader.
 
     Downloads bulk CSV files from NCEI containing severe weather events
     across the US. Each record includes event type, property/crop damage,
@@ -80,6 +77,7 @@ class NOAAStormEventsLoader(DatasetLoader):
     ]
 
     def __init__(self, config: DatasetConfig) -> None:
+        """Initialize the instance."""
         super().__init__(config)
         import datetime
 
@@ -120,8 +118,7 @@ class NOAAStormEventsLoader(DatasetLoader):
         return {year: name for year, (_, name) in latest.items()}
 
     def download(self) -> bool:
-        """
-        Download storm event detail CSVs from NCEI.
+        """Download storm event detail CSVs from NCEI.
 
         Raises:
             DataSourceUnavailableError: If NCEI is unreachable.

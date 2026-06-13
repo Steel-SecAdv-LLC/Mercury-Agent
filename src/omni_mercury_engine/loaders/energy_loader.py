@@ -1,7 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-Domain loader for EMP/energy grid data from NOAA Space Weather and EIA.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Domain loader for EMP/energy grid data from NOAA Space Weather and EIA.
 
 Connects to the NOAA Space Weather Prediction Center (SWPC) for real-time and historical
 geomagnetic/solar data, and optionally to the U.S. Energy Information Administration (EIA) API v2
@@ -13,6 +12,7 @@ Ground truth events cover major geomagnetic storms and grid disruptions where se
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 from typing import Any
@@ -115,8 +115,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
 
 
 class EnergyLoader(BaseDomainLoader):
-    """
-    Loader for EMP/energy grid data from NOAA SWPC and EIA.
+    """Loader for EMP/energy grid data from NOAA SWPC and EIA.
 
     Uses NOAA Space Weather Prediction Center endpoints for real-time
     geomagnetic and solar data:
@@ -152,8 +151,7 @@ class EnergyLoader(BaseDomainLoader):
     ]
 
     def __init__(self, **kwargs: Any) -> None:
-        """
-        Initialize the energy loader.
+        """Initialize the energy loader.
 
         Args:
             **kwargs: Passed through to :class:`BaseDomainLoader`.
@@ -170,8 +168,7 @@ class EnergyLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     def fetch_realtime(self) -> pd.DataFrame:
-        """
-        Fetch the most recent Kp index and solar wind data from SWPC.
+        """Fetch the most recent Kp index and solar wind data from SWPC.
 
         Combines the NOAA SWPC Kp index feed with the 7-day solar wind
         plasma feed into a unified time-series DataFrame.
@@ -204,8 +201,7 @@ class EnergyLoader(BaseDomainLoader):
         return df
 
     def fetch_historical(self, event_id: str) -> pd.DataFrame:
-        """
-        Fetch data for a specific historical energy/space-weather event.
+        """Fetch data for a specific historical energy/space-weather event.
 
         For historical geomagnetic events predating SWPC real-time feeds,
         this method generates synthetic Kp time-series data based on
@@ -263,8 +259,7 @@ class EnergyLoader(BaseDomainLoader):
         return df
 
     def list_events(self) -> list[dict[str, Any]]:
-        """
-        Return the catalog of ground truth energy/space-weather events.
+        """Return the catalog of ground truth energy/space-weather events.
 
         Returns:
             List of dicts each containing *event_id*, *name*, *date*,
@@ -283,8 +278,7 @@ class EnergyLoader(BaseDomainLoader):
         return events
 
     def get_ground_truth(self, event_id: str) -> np.ndarray[Any, Any]:
-        """
-        Generate binary anomaly labels for a historical event.
+        """Generate binary anomaly labels for a historical event.
 
         Labeling strategy:
 
@@ -338,8 +332,7 @@ class EnergyLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray[Any, Any]:
-        """
-        Transform raw energy/space-weather data into a feature matrix.
+        """Transform raw energy/space-weather data into a feature matrix.
 
         Engineered features (per time step):
 
@@ -432,8 +425,7 @@ class EnergyLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     def _fetch_kp_index(self) -> pd.DataFrame:
-        """
-        Fetch the NOAA SWPC Kp index JSON feed.
+        """Fetch the NOAA SWPC Kp index JSON feed.
 
         The SWPC Kp index endpoint returns an array of arrays where each
         inner array is ``[timestamp, Kp, a_running, station_count]``.
@@ -473,8 +465,7 @@ class EnergyLoader(BaseDomainLoader):
         return df
 
     def _fetch_solar_wind(self) -> pd.DataFrame:
-        """
-        Fetch the NOAA SWPC 7-day solar wind plasma data.
+        """Fetch the NOAA SWPC 7-day solar wind plasma data.
 
         The SWPC solar wind plasma endpoint returns an array of arrays
         where each inner array is
@@ -534,8 +525,7 @@ class EnergyLoader(BaseDomainLoader):
         return df
 
     def _fetch_xray_flares(self) -> pd.DataFrame:
-        """
-        Fetch the latest GOES X-ray flare events from SWPC.
+        """Fetch the latest GOES X-ray flare events from SWPC.
 
         Returns:
             DataFrame with columns: timestamp, xray_class (numeric).
@@ -565,8 +555,7 @@ class EnergyLoader(BaseDomainLoader):
         return df
 
     def _fetch_eia_grid_data(self, event: dict[str, Any]) -> pd.DataFrame:
-        """
-        Fetch EIA electricity grid data for a grid event.
+        """Fetch EIA electricity grid data for a grid event.
 
         Uses the EIA API v2 daily region data endpoint to retrieve
         electricity demand and generation data for the event time window.
@@ -631,8 +620,7 @@ class EnergyLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     def _generate_synthetic_kp_series(self, event: dict[str, Any]) -> pd.DataFrame:
-        """
-        Generate synthetic Kp time-series for a historical event.
+        """Generate synthetic Kp time-series for a historical event.
 
         Creates a plausible multi-week Kp profile with a background of
         quiet/unsettled conditions punctuated by the documented major
@@ -662,8 +650,12 @@ class EnergyLoader(BaseDomainLoader):
         # Build Kp profile: extended quiet + major storm + recovery
         kp_values = self._build_storm_profile(n_steps, peak_kp, storm_day=storm_day)
 
-        # Derive correlated solar wind speed: empirical Kp-speed relation
-        rng = np.random.default_rng(seed=hash(event["date"]) & 0xFFFFFFFF)
+        # Derive correlated solar wind speed: empirical Kp-speed relation.
+        # Process-stable seed: Python's built-in hash() is salted per process,
+        # so derive the seed from hashlib.sha256 instead -- identical every run
+        # without relying on PYTHONHASHSEED.  Mirrors tsunami_loader.
+        seed_bytes = hashlib.sha256(event["date"].encode()).digest()
+        rng = np.random.default_rng(int.from_bytes(seed_bytes[:4], "little") % (2**31))
         base_speed = 350.0 + kp_values * 50.0
         sw_speed = base_speed + rng.normal(0, 20, size=n_steps)
         sw_speed = np.clip(sw_speed, 250.0, 1200.0)
@@ -695,8 +687,7 @@ class EnergyLoader(BaseDomainLoader):
     def _build_storm_profile(
         n_steps: int, peak_kp: int, storm_day: int = 40
     ) -> np.ndarray[Any, Any]:
-        """
-        Build a synthetic Kp storm profile.
+        """Build a synthetic Kp storm profile.
 
         For extended time windows (>100 steps), the profile includes:
 
@@ -773,8 +764,7 @@ class EnergyLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     def _merge_kp_and_solar_wind(self, kp_df: pd.DataFrame, sw_df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Merge Kp index and solar wind DataFrames on nearest timestamp.
+        """Merge Kp index and solar wind DataFrames on nearest timestamp.
 
         Uses a merge_asof to align the higher-cadence solar wind data
         with the 3-hour Kp index timestamps.
@@ -822,8 +812,7 @@ class EnergyLoader(BaseDomainLoader):
 
     @staticmethod
     def _parse_flare_class(class_str: str) -> float:
-        """
-        Parse a solar flare classification string to a numeric value.
+        """Parse a solar flare classification string to a numeric value.
 
         Extracts the letter class (A, B, C, M, X) from strings like
         ``"M2.5"`` or ``"X1.0"`` and returns the corresponding numeric
@@ -842,8 +831,7 @@ class EnergyLoader(BaseDomainLoader):
 
     @staticmethod
     def _label_grid_anomalies(df: pd.DataFrame) -> np.ndarray[Any, Any]:
-        """
-        Generate anomaly labels for grid demand/supply events.
+        """Generate anomaly labels for grid demand/supply events.
 
         Labels time periods where grid demand exceeds grid supply
         (supply shortfall) as anomalies.
@@ -865,8 +853,7 @@ class EnergyLoader(BaseDomainLoader):
 
     @staticmethod
     def _safe_column(df: pd.DataFrame, column: str) -> np.ndarray[Any, Any]:
-        """
-        Extract a column as a float64 array, returning zeros if absent.
+        """Extract a column as a float64 array, returning zeros if absent.
 
         Args:
             df: Source DataFrame.
@@ -884,8 +871,7 @@ class EnergyLoader(BaseDomainLoader):
 
     @staticmethod
     def _compute_rolling_sum(values: np.ndarray[Any, Any], window: int = 8) -> np.ndarray[Any, Any]:
-        """
-        Compute the rolling sum over a trailing window.
+        """Compute the rolling sum over a trailing window.
 
         Args:
             values: 1-D input array.
@@ -903,8 +889,7 @@ class EnergyLoader(BaseDomainLoader):
 
     @staticmethod
     def _compute_rolling_max(values: np.ndarray[Any, Any], window: int = 8) -> np.ndarray[Any, Any]:
-        """
-        Compute the rolling maximum over a trailing window.
+        """Compute the rolling maximum over a trailing window.
 
         Args:
             values: 1-D input array.

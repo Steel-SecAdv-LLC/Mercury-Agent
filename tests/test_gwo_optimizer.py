@@ -1,9 +1,6 @@
-"""
-Tests for Grey Wolf Optimizer.
-
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for Grey Wolf Optimizer."""
 
 import numpy as np
 import pytest

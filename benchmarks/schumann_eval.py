@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Schumann sub-net evaluation (WS-C) -- pre-registered, opt-in, instrumented.
 
 Runs exactly the protocol in ``docs/SCHUMANN_PREREGISTRATION.md``:

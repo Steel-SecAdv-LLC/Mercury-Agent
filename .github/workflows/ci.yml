@@ -81,31 +81,31 @@ jobs:
       - name: Checkout code (attempt 1)
         id: checkout
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 1 (transient flake stabilisation)
         if: steps.checkout.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
+          echo "::warning::actions/checkout@v6 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
           sleep 15
 
       - name: Checkout code (attempt 2, runs only on attempt-1 failure)
         id: checkout2
         if: steps.checkout.outcome == 'failure'
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 2 (extended backoff)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempts 1 and 2 both failed. Sleeping 60s before final retry."
+          echo "::warning::actions/checkout@v6 attempts 1 and 2 both failed. Sleeping 60s before final retry."
           sleep 60
 
       - name: Checkout code (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -123,7 +123,13 @@ jobs:
       - name: Install quality tools
         run: |
           python -m pip install --upgrade "pip>=26.1"
-          pip install "black>=26.3.1,<27.0.0" flake8 mypy ruff pydocstyle
+          # mypy + pydocstyle are PINNED (mirrored in pyproject [ml]/[dev] and
+          # the Type Checking job) so the type-ignore set and the docstring
+          # ruleset are identical locally and in CI.  An unpinned mypy flips
+          # datasets/mitbih.py:105/109 between "needed" and "unused-ignore"
+          # (1.19 vs 2.1); an unpinned pydocstyle could change the enforced
+          # google-convention docstring codes out from under a green commit.
+          pip install "black==26.3.1" flake8 mypy==2.1.0 ruff pydocstyle==6.3.0
 
       - name: Run Black (formatting)
         run: black --check --diff src/ tests/
@@ -144,13 +150,123 @@ jobs:
         # F841 (unused variable) is handled by ruff which respects underscore convention
         run: flake8 src/ tests/ scripts/ tools/ --max-line-length=100 --extend-ignore=E203,W503,E402,E501,F841
 
-      - name: Verify IsolationForest removed from detection path
+      - name: Run canonical header/content check
+        run: python scripts/normalize_headers.py --check
+
+      - name: Verify changed-file docstring retention
+        shell: bash
         run: |
-          if grep -rn "from sklearn.ensemble import IsolationForest" \
-              src/omni_mercury_engine/detectors/math_arrest/; then
-            echo "ERROR: IsolationForest still present in math_arrest"
+          git fetch --depth=1 origin 623198811845f9a57b199446c83f2667f3089d58
+          python - <<'PY'
+          import difflib
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          import scripts.normalize_headers as headers
+
+          base_ref = "623198811845f9a57b199446c83f2667f3089d58"
+          targets = (
+              "src",
+              "tests",
+              "scripts",
+              "tools",
+              "research",
+              "benchmarks",
+              "examples",
+              "assets",
+          )
+          changed = subprocess.run(
+              ["git", "diff", "--name-only", "--diff-filter=ACMRT", base_ref, "--", *targets],
+              text=True,
+              capture_output=True,
+              check=True,
+          ).stdout.splitlines()
+
+          errors = []
+          for rel in changed:
+              if not rel.endswith(".py"):
+                  continue
+              path = Path(rel)
+              if not path.exists():
+                  continue
+              base = subprocess.run(
+                  ["git", "show", f"{base_ref}:{rel}"],
+                  text=True,
+                  capture_output=True,
+                  check=False,
+              )
+              if base.returncode != 0:
+                  continue
+              base_docstring = headers.module_docstring(path, base.stdout)
+              current_docstring = headers.module_docstring(path, path.read_text(encoding="utf-8"))
+              base_compact = headers.squashed(base_docstring)
+              current_compact = headers.squashed(current_docstring)
+              if len(current_compact) >= len(base_compact):
+                  continue
+              diff = "".join(
+                  difflib.unified_diff(
+                      [f"{line}\n" for line in base_docstring.splitlines()],
+                      [f"{line}\n" for line in current_docstring.splitlines()],
+                      fromfile=f"{rel} ({base_ref} license-stripped docstring)",
+                      tofile=f"{rel} (current docstring)",
+                  )
+              )
+              errors.append(
+                  f"{rel}: module docstring is shorter than the license-stripped "
+                  f"{base_ref} description ({len(current_compact)} < {len(base_compact)})\n{diff}"
+              )
+
+          if errors:
+              print("\n".join(errors), file=sys.stderr)
+              raise SystemExit(1)
+          print("Changed-file module docstrings retain license-stripped base length.")
+          PY
+
+      - name: Prove canonical header/content gate rejects malformed file
+        shell: bash
+        run: |
+          tmp_file="$(mktemp /tmp/mercury-bad-header.XXXXXX.py)"
+          printf '# Copyright (C) 2025 Steel Security Advisors LLC\n"""any later version."""\n' > "${tmp_file}"
+          if python scripts/normalize_headers.py --check "${tmp_file}"; then
+            echo "ERROR: canonical header/content gate accepted malformed fixture"
             exit 1
           fi
+
+      - name: Verify Mercury math-arrest pathway
+        run: |
+          python - <<'PY'
+          import ast
+          from pathlib import Path
+
+          root = Path("src/omni_mercury_engine/detectors/math_arrest")
+          offenders = []
+          for path in root.rglob("*.py"):
+              tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+              for node in ast.walk(tree):
+                  if isinstance(node, ast.ImportFrom) and (node.module or "").startswith("sklearn"):
+                      offenders.append(str(path))
+                  elif isinstance(node, ast.Import):
+                      if any(alias.name.startswith("sklearn") for alias in node.names):
+                          offenders.append(str(path))
+
+          arrest_tree = ast.parse((root / "arrest.py").read_text(encoding="utf-8"))
+          probe_count = 0
+          for node in ast.walk(arrest_tree):
+              if isinstance(node, ast.Assign):
+                  if any(isinstance(target, ast.Name) and target.id == "_PROBE_REGISTRY" for target in node.targets):
+                      if isinstance(node.value, ast.Dict):
+                          probe_count = len(node.value.keys)
+              elif isinstance(node, ast.AnnAssign):
+                  if isinstance(node.target, ast.Name) and node.target.id == "_PROBE_REGISTRY":
+                      if isinstance(node.value, ast.Dict):
+                          probe_count = len(node.value.keys)
+
+          if offenders:
+              raise SystemExit("ERROR: non-Mercury detector import in math_arrest: " + ", ".join(sorted(set(offenders))))
+          if probe_count < 20:
+              raise SystemExit(f"ERROR: Mercury math-arrest probe registry unexpectedly small: {probe_count}")
+          PY
 
       - name: Neural-submodule coverage gate (WS-E/F, dep-free)
         # docs/NEURAL_SUBMODULE_COVERAGE.md is generated from the registry in
@@ -162,15 +278,9 @@ jobs:
 
       - name: Run pydocstyle (docstring checks)
         # Blocking — the docstring contract is part of the source-of-truth API
-        # surface and we do not allow it to drift silently.  ``[tool.pydocstyle]``
-        # in ``pyproject.toml`` configures the Google convention plus the
-        # project's whitelisted exclusions; we re-pass the exclusions on the
-        # command line so behaviour is identical regardless of whether the
-        # tool is run under tomli-aware (3.11+) or non-aware shells.
+        # surface and we do not allow it to drift silently.
         run: |
-          pydocstyle src/omni_mercury_engine/ \
-            --convention=google \
-            --add-ignore=D100,D104,D105,D107,D212,D415
+          pydocstyle src/omni_mercury_engine/ --convention=google
 
   # ===========================================================================
   # Stage 1.5: Workflow and Suppression Hygiene
@@ -184,31 +294,31 @@ jobs:
       - name: Checkout code (attempt 1)
         id: checkout
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 1 (transient flake stabilisation)
         if: steps.checkout.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
+          echo "::warning::actions/checkout@v6 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
           sleep 15
 
       - name: Checkout code (attempt 2, runs only on attempt-1 failure)
         id: checkout2
         if: steps.checkout.outcome == 'failure'
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 2 (extended backoff)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempts 1 and 2 both failed. Sleeping 60s before final retry."
+          echo "::warning::actions/checkout@v6 attempts 1 and 2 both failed. Sleeping 60s before final retry."
           sleep 60
 
       - name: Checkout code (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -303,31 +413,31 @@ jobs:
       - name: Checkout code (attempt 1)
         id: checkout
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 1 (transient flake stabilisation)
         if: steps.checkout.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
+          echo "::warning::actions/checkout@v6 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
           sleep 15
 
       - name: Checkout code (attempt 2, runs only on attempt-1 failure)
         id: checkout2
         if: steps.checkout.outcome == 'failure'
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 2 (extended backoff)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempts 1 and 2 both failed. Sleeping 60s before final retry."
+          echo "::warning::actions/checkout@v6 attempts 1 and 2 both failed. Sleeping 60s before final retry."
           sleep 60
 
       - name: Checkout code (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -353,7 +463,12 @@ jobs:
           # ``@pytest.fixture`` / ``@pytest.mark.parametrize`` as
           # ``[untyped-decorator]`` even though the stubs are correct.
           pip install -e ".[ml]"
-          pip install mypy types-requests \
+          # mypy + types-requests are PINNED (mirrored in pyproject [ml]/[dev]
+          # and the Code Quality job) so the ``# type: ignore[...]`` set is
+          # byte-identical locally and in CI.  Without the pin a newer
+          # mypy/types-requests marks datasets/mitbih.py:105/109 as
+          # ``unused-ignore`` in one place while the other still needs them.
+          pip install mypy==2.1.0 types-requests==2.33.0.20260518 \
             "pytest>=9.0.3" pytest-asyncio pytest-mock
 
       - name: Build + install AMA Cryptography (native PQC backend)
@@ -443,6 +558,37 @@ jobs:
             --pretty \
             --no-warn-unused-configs
 
+      - name: Pin numpy to the declared floor (regression guard)
+        # The steps above type-check against whatever numpy ``pip`` resolves
+        # (currently 2.4.6).  pyproject declares ``numpy>=2.4.0`` as the
+        # supported minimum, so the strict mypy contract must also hold at
+        # that floor -- numpy's ``ndarray`` typing changed across minor
+        # releases (2.3.5 still emits ``disallow_any_generics``/``assignment``
+        # errors that 2.4.0 fixes).  Pinning the exact floor and re-running the
+        # gate below stops the declared minimum from silently drifting away
+        # from what actually type-checks.
+        run: pip install "numpy==2.4.0"
+
+      - name: Run MyPy at the numpy floor (src + tests)
+        run: |
+          mypy src/omni_mercury_engine/ \
+            --show-error-codes \
+            --pretty
+          mypy tests/ \
+            --allow-untyped-defs \
+            --allow-untyped-calls \
+            --allow-subclassing-any \
+            --disable-error-code untyped-decorator \
+            --show-error-codes \
+            --pretty \
+            --no-warn-unused-configs
+          mypy tests/datasets/ tests/ethical/ tests/safeguards/ tests/tools/ \
+            tests/loaders/ tests/narrative/ \
+            --disallow-subclassing-any \
+            --show-error-codes \
+            --pretty \
+            --no-warn-unused-configs
+
   # ===========================================================================
   # Stage 3: Security Scanning
   # ===========================================================================
@@ -456,31 +602,31 @@ jobs:
       - name: Checkout code (attempt 1)
         id: checkout
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 1 (transient flake stabilisation)
         if: steps.checkout.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
+          echo "::warning::actions/checkout@v6 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
           sleep 15
 
       - name: Checkout code (attempt 2, runs only on attempt-1 failure)
         id: checkout2
         if: steps.checkout.outcome == 'failure'
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 2 (extended backoff)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempts 1 and 2 both failed. Sleeping 60s before final retry."
+          echo "::warning::actions/checkout@v6 attempts 1 and 2 both failed. Sleeping 60s before final retry."
           sleep 60
 
       - name: Checkout code (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -685,31 +831,31 @@ jobs:
       - name: Checkout code (attempt 1)
         id: checkout
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 1 (transient flake stabilisation)
         if: steps.checkout.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
+          echo "::warning::actions/checkout@v6 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
           sleep 15
 
       - name: Checkout code (attempt 2, runs only on attempt-1 failure)
         id: checkout2
         if: steps.checkout.outcome == 'failure'
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 2 (extended backoff)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempts 1 and 2 both failed. Sleeping 60s before final retry."
+          echo "::warning::actions/checkout@v6 attempts 1 and 2 both failed. Sleeping 60s before final retry."
           sleep 60
 
       - name: Checkout code (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Free up disk space
         run: |
@@ -819,7 +965,7 @@ jobs:
             --cov-fail-under=${{ env.COVERAGE_THRESHOLD_CORE }}
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           files: ./coverage.xml
           flags: core-tests
@@ -851,31 +997,31 @@ jobs:
       - name: Checkout code (attempt 1)
         id: checkout
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 1 (transient flake stabilisation)
         if: steps.checkout.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
+          echo "::warning::actions/checkout@v6 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
           sleep 15
 
       - name: Checkout code (attempt 2, runs only on attempt-1 failure)
         id: checkout2
         if: steps.checkout.outcome == 'failure'
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 2 (extended backoff)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempts 1 and 2 both failed. Sleeping 60s before final retry."
+          echo "::warning::actions/checkout@v6 attempts 1 and 2 both failed. Sleeping 60s before final retry."
           sleep 60
 
       - name: Checkout code (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Free up disk space
         run: |
@@ -960,7 +1106,7 @@ jobs:
             --cov-report=term-missing
 
       - name: Upload neuro-symbolic coverage
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           files: ./coverage.xml
           flags: neuro-symbolic
@@ -987,31 +1133,31 @@ jobs:
       - name: Checkout code (attempt 1)
         id: checkout
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 1 (transient flake stabilisation)
         if: steps.checkout.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
+          echo "::warning::actions/checkout@v6 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
           sleep 15
 
       - name: Checkout code (attempt 2, runs only on attempt-1 failure)
         id: checkout2
         if: steps.checkout.outcome == 'failure'
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 2 (extended backoff)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempts 1 and 2 both failed. Sleeping 60s before final retry."
+          echo "::warning::actions/checkout@v6 attempts 1 and 2 both failed. Sleeping 60s before final retry."
           sleep 60
 
       - name: Checkout code (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Free up disk space
         run: |
@@ -1082,7 +1228,7 @@ jobs:
             --dist=loadgroup
 
       - name: Upload coverage
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           files: ./coverage.xml
           flags: ml-tests
@@ -1102,31 +1248,31 @@ jobs:
       - name: Checkout code (attempt 1)
         id: checkout
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 1 (transient flake stabilisation)
         if: steps.checkout.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
+          echo "::warning::actions/checkout@v6 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
           sleep 15
 
       - name: Checkout code (attempt 2, runs only on attempt-1 failure)
         id: checkout2
         if: steps.checkout.outcome == 'failure'
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 2 (extended backoff)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempts 1 and 2 both failed. Sleeping 60s before final retry."
+          echo "::warning::actions/checkout@v6 attempts 1 and 2 both failed. Sleeping 60s before final retry."
           sleep 60
 
       - name: Checkout code (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Free up disk space
         run: |
@@ -1184,31 +1330,31 @@ jobs:
       - name: Checkout code (attempt 1)
         id: checkout
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 1 (transient flake stabilisation)
         if: steps.checkout.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
+          echo "::warning::actions/checkout@v6 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
           sleep 15
 
       - name: Checkout code (attempt 2, runs only on attempt-1 failure)
         id: checkout2
         if: steps.checkout.outcome == 'failure'
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 2 (extended backoff)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempts 1 and 2 both failed. Sleeping 60s before final retry."
+          echo "::warning::actions/checkout@v6 attempts 1 and 2 both failed. Sleeping 60s before final retry."
           sleep 60
 
       - name: Checkout code (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Free up disk space
         run: |
@@ -1255,31 +1401,31 @@ jobs:
       - name: Checkout code (attempt 1)
         id: checkout
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 1 (transient flake stabilisation)
         if: steps.checkout.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
+          echo "::warning::actions/checkout@v6 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
           sleep 15
 
       - name: Checkout code (attempt 2, runs only on attempt-1 failure)
         id: checkout2
         if: steps.checkout.outcome == 'failure'
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 2 (extended backoff)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempts 1 and 2 both failed. Sleeping 60s before final retry."
+          echo "::warning::actions/checkout@v6 attempts 1 and 2 both failed. Sleeping 60s before final retry."
           sleep 60
 
       - name: Checkout code (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Free up disk space
         run: |
@@ -1390,31 +1536,31 @@ jobs:
       - name: Checkout code (attempt 1)
         id: checkout
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 1 (transient flake stabilisation)
         if: steps.checkout.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
+          echo "::warning::actions/checkout@v6 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
           sleep 15
 
       - name: Checkout code (attempt 2, runs only on attempt-1 failure)
         id: checkout2
         if: steps.checkout.outcome == 'failure'
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 2 (extended backoff)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempts 1 and 2 both failed. Sleeping 60s before final retry."
+          echo "::warning::actions/checkout@v6 attempts 1 and 2 both failed. Sleeping 60s before final retry."
           sleep 60
 
       - name: Checkout code (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Free up disk space
         run: |
@@ -1497,15 +1643,17 @@ jobs:
           TRIVY_TEMP_DIR: /mnt/trivy-tmp
           TRIVY_CACHE_DIR: /mnt/trivy-cache
         # Blocking gate.  Mirrors the standalone security.yml container scan
-        # policy: ``ignore-unfixed`` drops Debian-bookworm CVEs that have no
-        # available patch (status ``affected`` / ``will_not_fix``), and
-        # ``vuln-type: os,library`` scopes the scan to the OS and Python
-        # library surfaces this image actually ships.  Combined with the
-        # Dockerfile's runtime-stage ``apt-get upgrade`` (which pulls the
-        # latest bookworm security patches at build time) and the
-        # ``pip>=26.1`` floor (which clears the pip-specific CVEs that used
-        # to require a waiver), the scan reports zero CRITICAL/HIGH
-        # findings without a separate `.trivyignore` acceptance list.
+        # policy. ``ignore-unfixed: false`` + the repo-root ``.trivyignore``
+        # replace the previous blanket unfixed-CVE waiver with an
+        # enumerated, expiring, owner-reviewable acceptance ledger: a NEW
+        # unfixed CRITICAL/HIGH finding now fails this gate instead of
+        # passing silently, and an expired ledger entry fails it until
+        # re-reviewed.  ``vuln-type: os,library`` scopes the scan to the
+        # OS and Python library surfaces this image actually ships.
+        # Fixable CVEs never enter the ledger — the Dockerfile's
+        # runtime-stage ``apt-get upgrade`` (latest bookworm security
+        # patches at build time) and the ``pip>=26.1`` floor are the fix
+        # path for those.
         # Action pinned to the same tagged version as security.yml's
         # Trivy steps so both workflows run identical action code
         # (deterministic, supply-chain hardened).
@@ -1517,7 +1665,8 @@ jobs:
           severity: 'CRITICAL,HIGH'
           limit-severities-for-sarif: true
           vuln-type: 'os,library'
-          ignore-unfixed: true
+          ignore-unfixed: false
+          trivyignores: '.trivyignore'
           exit-code: '1'
           timeout: '10m'
           # Use the binary installed in the explicit step above; see
@@ -1553,31 +1702,31 @@ jobs:
       - name: Checkout code (attempt 1)
         id: checkout
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 1 (transient flake stabilisation)
         if: steps.checkout.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
+          echo "::warning::actions/checkout@v6 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
           sleep 15
 
       - name: Checkout code (attempt 2, runs only on attempt-1 failure)
         id: checkout2
         if: steps.checkout.outcome == 'failure'
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 2 (extended backoff)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempts 1 and 2 both failed. Sleeping 60s before final retry."
+          echo "::warning::actions/checkout@v6 attempts 1 and 2 both failed. Sleeping 60s before final retry."
           sleep 60
 
       - name: Checkout code (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Set up Python
         uses: actions/setup-python@v6

@@ -1,19 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-
-K-means-distance fusion detector reviving the dormant cognitive clusterer.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""K-means-distance fusion detector reviving the dormant cognitive clusterer.
 
 Distance to the nearest learned cluster centroid is a classic unsupervised
 anomaly signal: a point far from *every* centroid is poorly explained by the
@@ -54,6 +41,7 @@ class KMeansDistanceDetector:
     """
 
     def __init__(self, n_clusters: int = 8) -> None:
+        """Initialize the instance."""
         if n_clusters < 1:
             raise ValueError(f"n_clusters must be >= 1, got {n_clusters}")
         self.n_clusters = int(n_clusters)

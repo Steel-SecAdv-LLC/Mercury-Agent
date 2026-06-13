@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Earthquake domain honest benchmark.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Earthquake domain honest benchmark.
 
 Fetches real seismic data from USGS, runs MercuryAnomalyDetector,
 and reports AUC, F1, precision, recall for each ground-truth event.

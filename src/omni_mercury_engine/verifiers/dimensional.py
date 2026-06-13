@@ -1,29 +1,14 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Dimensional-analysis oracle shared by the physics verifiers.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Dimensional-analysis oracle shared by the physics verifiers.
 
 A physical dimension is an exact vector of rational exponents over the seven SI base
 quantities (mass, length, time, current, temperature, amount, luminous intensity).  Checking
 that two expressions share a dimension is therefore exact linear algebra over the rationals --
 a decidable, auditable oracle with no model and no floating-point error.
 """
+
+from __future__ import annotations
 
 from dataclasses import dataclass
 from fractions import Fraction
@@ -39,6 +24,7 @@ class Dimension:
     exponents: tuple[Fraction, ...]
 
     def __post_init__(self) -> None:
+        """Finalize dataclass initialization."""
         if len(self.exponents) != _NDIM:
             raise ValueError(f"expected {_NDIM} exponents, got {len(self.exponents)}")
 
@@ -50,16 +36,20 @@ class Dimension:
         return cls(tuple(exps))
 
     def __mul__(self, other: Dimension) -> Dimension:
+        """Implement the Python data model method."""
         return Dimension(tuple(a + b for a, b in zip(self.exponents, other.exponents)))
 
     def __truediv__(self, other: Dimension) -> Dimension:
+        """Implement the Python data model method."""
         return Dimension(tuple(a - b for a, b in zip(self.exponents, other.exponents)))
 
     def __pow__(self, power: Fraction | int) -> Dimension:
+        """Implement the Python data model method."""
         p = Fraction(power)
         return Dimension(tuple(a * p for a in self.exponents))
 
     def __str__(self) -> str:
+        """Return the string representation."""
         parts = [f"{name}^{exp}" for name, exp in zip(_BASE_NAMES, self.exponents) if exp != 0]
         return " ".join(parts) if parts else "dimensionless"
 

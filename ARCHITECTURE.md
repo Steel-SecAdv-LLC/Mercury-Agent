@@ -1,10 +1,10 @@
 # Mercury Agent Architecture
 
-Applies to Mercury Agent **v1.7.x**. Last updated: 2026-05-22.
+Applies to Mercury Agent **v1.7.x**. Last updated: 2026-06-10.
 
 ## Overview
 
-The Mercury Agent is a neuro-symbolic AI framework that integrates 22+ diverse scientific and computational paradigms — a deep-learning core (165 `torch.nn.Module` subclasses across visual, behavioural, physics-based, fusion and differentiable-logic theorem-proving subsystems, imported across 122 source files) coupled with an explicit symbolic layer (knowledge graphs, rule bases, formal verification, AST-based code analysis, case-based reasoning) — into a unified hybrid-fusion architecture. Multi-domain anomaly detection is one of the capabilities this AI exposes, not the limit of what it is. This document describes the system architecture, data flow, and key design decisions.
+The Mercury Agent is a neuro-symbolic AI framework that integrates 22+ diverse scientific and computational paradigms — a deep-learning core (170 `torch.nn.Module` subclasses across visual, behavioural, physics-based, fusion and differentiable-logic theorem-proving subsystems, imported across 129 source files; both counts CI-gated in the README [Codebase Scale block](README.md)) coupled with an explicit symbolic layer (knowledge graphs, rule bases, formal verification, AST-based code analysis, case-based reasoning) — into a unified hybrid-fusion architecture. Multi-domain anomaly detection is one of the capabilities this AI exposes, not the limit of what it is. This document describes the system architecture, data flow, and key design decisions.
 
 ## System Architecture Diagram
 
@@ -102,7 +102,7 @@ HybridFusionNetwork(
 - Multi-head attention for cross-feature relationships
 - Ensemble averaging
 
-### 2. Harmonic Encoder (NEW - Deep Integration)
+### 2. Harmonic Encoder
 
 **Components**:
 
@@ -165,9 +165,9 @@ Input Data (n_samples,) or (n_samples, n_features)
 - Fail-open design: uncalibrated decorrelator proceeds with unmodified weights
 - 83 tests covering all probes, fusion, and decorrelation
 
-### 4. Quantum-Enhanced Directive Detector (NEW - Deep Integration)
+### 4. Quantum-Enhanced Directive Detector
 
-**New Capabilities**:
+**Capabilities**:
 
 #### Quantum Pattern Containment Protocol (QPCP)
 ```
@@ -196,7 +196,7 @@ Nano score * 0.15 +
 Harmonic score * 0.1
 ```
 
-### 4. Black Hole Physics (NEW - Hybrid Integration)
+### 5. Black Hole Physics
 
 **Utilities** (in `utils.py`):
 - `compress_information()`: zlib level 9 compression
@@ -215,7 +215,7 @@ if self.use_black_hole_features:
     }
 ```
 
-### 5. Ava Optimizers (NEW - Light Integration)
+### 6. Ava Optimizers
 
 **Variants** (in `ml/training.py`):
 
@@ -230,7 +230,7 @@ config = {"fusion": {"optimizer": "ava_harmonic"}}
 trainer = FusionTrainer(...)  # Automatically uses Ava optimizer
 ```
 
-### 6. Banish Threat Logic (NEW - Light Integration)
+### 7. Banish Threat Logic
 
 **Threat Validity Assessment**:
 ```
@@ -250,7 +250,7 @@ result = detector.detect_all(payload, context={
 # Returns: banishment_action recommendation
 ```
 
-### 7. Communication Utilities (NEW - Optional)
+### 8. Communication Utilities
 
 **Components** (in `utils/comm.py`):
 
@@ -316,8 +316,25 @@ Hybrid Fusion Network
 Ensemble Averaging
    final = 0.7 × mlp_output + 0.3 × weighted_vote
    ↓
-Output: {anomaly_score, metadata, component_scores}
+Calibration + certificate (temperature scaling, conformal coverage set,
+   ethical-gate verdict, neuro-symbolic agreement, drift)
+   ↓
+Decision / Abstention / Response (opt-in: enable_decision_layer())
+   ThreeState gate → {GROUNDED | UNAVAILABLE | UNDECIDABLE}
+   → Disposition {act | clear | defer | hold}
+   → bounded, non-destructive ResponsePlan
+   ↓
+Output: {anomaly_prob, is_anomaly, severity, conformal, decision, gosnn_metadata}
 ```
+
+The **decision / abstention / response** stage is the closed
+`identify → interpret → decide → deter` loop (`omni_mercury_engine.decision`).
+It is a pure, deterministic function of the certificate above: it reuses the
+engine-wide `ThreeState` honesty contract to make abstention first-class (a
+calibrated "don't-know" gate split into a *resolvable* deferral and a
+*fail-closed* hold), then attaches a bounded response that recommends and
+escalates but never autonomously executes a destructive action. It is an exact
+no-op until `enable_decision_layer()` is called.
 
 ## Runtime Configuration
 
@@ -435,7 +452,7 @@ results = await queue.receive()
 
 ### Overview
 
-The Mercury Agent includes comprehensive infrastructure monitoring capabilities spanning **8 major frameworks** with **11 specialized modules** organized by thematic impact areas. The system implements the **InfrastructureCoordinator** for flexible module selection, allowing users to run 1, 2, 5, or all modules simultaneously based on their specific needs.
+The Mercury Agent includes comprehensive infrastructure monitoring capabilities spanning **8 major frameworks** with **12 specialized modules** organized by thematic impact areas. The **InfrastructureCoordinator** (`omni_mercury_engine.infrastructure.InfrastructureCoordinator`) is a registry and selector: it filters and instantiates monitoring modules by name, category, or priority, and the caller then drives each instantiated module's own detection API.
 
 ### Supported Frameworks
 
@@ -450,7 +467,7 @@ The Mercury Agent includes comprehensive infrastructure monitoring capabilities 
 
 ### Module Organization
 
-Modules are organized into **5 thematic subdirectories** under `infrastructure/`:
+Modules live under `infrastructure/` in **5 thematic subdirectories** plus four CISA-sector modules and two support modules at the package top level:
 
 ```
 infrastructure/
@@ -464,73 +481,75 @@ infrastructure/
 │   └── government_facilities.py     # Public administration (16th CISA sector)
 ├── economic/            # Economic development and sustainability
 │   └── world_bank_sectors.py        # 21 ISIC economic sectors
-└── scientific/          # Research and emerging technology
-    └── emerging_tech_monitor.py     # 9+ future technology categories
+├── scientific/          # Research and emerging technology
+│   └── emerging_tech_monitor.py     # 9+ future technology categories
+├── energy_dams.py       # CISA Energy/Dams sector detector
+├── healthcare_emergency.py          # CISA Healthcare sector detector
+├── communications_it.py             # CISA Communications/IT sector detector
+├── chemical_nuclear.py              # CISA Chemical/Nuclear sector detector
+├── observability.py     # Shared observability helpers
+└── streaming.py         # Streaming ingest helpers
 ```
+
+The `humanitarian/` subdirectory additionally ships domain monitors outside
+the coordinator registry (`agrifood_security.py`, `climate_resilience.py`,
+`economic_resilience.py`, `education_equity.py`, `neuroscience.py`, and the
+`crisis_monitoring/` package); the registry's twelfth module,
+`space_exploration_analyzer`, is implemented in
+`omni_mercury_engine.space.space_exploration_analyzer` and registered under
+the `scientific` category.
 
 ### Infrastructure Coordinator
 
-The **InfrastructureCoordinator** provides flexible module selection and execution:
+The **InfrastructureCoordinator** is a module registry with flexible selection. Its public surface is `list_all_modules()`, `get_module(name, **kwargs)`, `get_modules_by_category(category)`, `get_modules_by_priority(priority)`, `filter_modules(categories=..., priorities=..., module_names=...)`, and `instantiate_filtered_modules(...)`. Detection runs on the instantiated modules themselves — the coordinator selects and constructs; it does not score.
 
 ```python
 from omni_mercury_engine.infrastructure import InfrastructureCoordinator
 
-# Initialize coordinator (loads all 11 modules automatically)
+# Initialize coordinator (registers all 12 modules)
 coordinator = InfrastructureCoordinator()
 
 # List all available modules
 modules = coordinator.list_all_modules()
-print(f"Total modules: {len(modules)}")  # Output: 11
+print(f"Total modules: {len(modules)}")  # Output: 12
 
-# Flexible selection: Run single module
-result = coordinator.detect_with_modules(
-    data=sensor_data,
-    module_names=['ncf_monitor']
-)
+# Instantiate a single module by name and drive its own API
+ncf = coordinator.get_module("ncf_monitor")
 
-# Run 5 specific modules
-result = coordinator.detect_with_modules(
-    data=sensor_data,
+# Filter by category or priority (returns module names)
+cyber_modules = coordinator.filter_modules(categories=["cyber"])
+high_priority = coordinator.filter_modules(priorities=["high"])
+
+# Instantiate a filtered selection in one call
+selected = coordinator.instantiate_filtered_modules(
     module_names=[
-        'ncf_monitor',
-        'space_infrastructure',
-        'essential_workers',
-        'world_bank_sectors',
-        'emerging_tech_monitor'
+        "ncf_monitor",
+        "space_infrastructure",
+        "essential_workers",
+        "world_bank_sectors",
+        "emerging_tech_monitor",
     ]
 )
-
-# Filter by category
-cyber_modules = coordinator.filter_modules(categories=['cyber'])
-result = coordinator.detect_with_modules(
-    data=sensor_data,
-    module_names=cyber_modules
-)
-
-# Filter by priority
-high_priority = coordinator.filter_modules(priorities=['high'])
-
-# Run all modules (default behavior)
-result = coordinator.detect_all(data=sensor_data)
 ```
 
 ### Module Categories and Priorities
 
-Each module is tagged with category and priority for flexible selection:
+Each module is tagged with category and priority for flexible selection (registry source of truth: `InfrastructureCoordinator.__init__` in `omni_mercury_engine/infrastructure/__init__.py`):
 
 | Module | Category | Priority | Coverage |
 |--------|----------|----------|----------|
-| **ncf_monitor** | resilience | HIGH | 55 NCFs, cascading failures |
-| **space_infrastructure** | cyber | HIGH | Satellites, ground stations, EU-unique |
-| **cross_border_intel** | cyber | MEDIUM | EU-US threat correlation |
-| **essential_workers** | humanitarian | HIGH | 8 worker categories, crisis response |
-| **government_facilities** | humanitarian | MEDIUM | Public admin, democratic governance |
-| **world_bank_sectors** | economic | MEDIUM | 21 ISIC sectors, sustainability |
-| **emerging_tech_monitor** | scientific | MEDIUM | 9+ tech categories, future-proofing |
-| **energy_dams** | resilience | HIGH | CISA Energy/Dams sector |
-| **healthcare_emergency** | humanitarian | HIGH | CISA Healthcare sector |
-| **communications_it** | cyber | HIGH | CISA Communications/IT sector |
-| **chemical_nuclear** | resilience | HIGH | CISA Chemical/Nuclear sector |
+| **ncf_monitor** | resilience | high | 55 NCFs, cascading failures |
+| **space_infrastructure** | cyber | high | Satellites, ground stations, EU-unique |
+| **cross_border_intel** | cyber | medium | EU-US threat correlation |
+| **essential_workers** | humanitarian | high | 8 worker categories, crisis response |
+| **government_facilities** | humanitarian | medium | Public admin, democratic governance |
+| **world_bank_sectors** | economic | medium | 21 ISIC sectors, sustainability |
+| **emerging_tech_monitor** | scientific | medium | 9+ tech categories, future-proofing |
+| **space_exploration_analyzer** | scientific | high | Cosmic anomaly detection and threat analysis |
+| **energy_dams** | cisa_sector | high | CISA Energy/Dams sector |
+| **healthcare_emergency** | cisa_sector | high | CISA Healthcare sector |
+| **communications_it** | cisa_sector | high | CISA Communications/IT sector |
+| **chemical_nuclear** | cisa_sector | high | CISA Chemical/Nuclear sector |
 
 ### STEM Discipline Routing
 
@@ -551,37 +570,24 @@ fusion = HybridFusionNetwork(
 # - Computer Science → neural (0.8) + cybersecurity (0.7)
 ```
 
-### Example: Critical Infrastructure Monitoring Pipeline
+### Example: Selecting Modules for a Monitoring Pipeline
 
 ```python
 from omni_mercury_engine.infrastructure import InfrastructureCoordinator
-import numpy as np
 
-# Initialize coordinator
 coordinator = InfrastructureCoordinator()
 
-# Monitor essential workers during crisis
-worker_data = np.array([0.15, 0.22, 0.08])  # Absenteeism rates
-result = coordinator.detect_with_modules(
-    data=worker_data,
-    module_names=['essential_workers'],
-    detection_type='workforce_availability'
+# Build a high-priority monitoring set; each entry is an instantiated
+# module exposing its own detection API.
+monitors = coordinator.instantiate_filtered_modules(priorities=["high"])
+
+# Or restrict by theme: every CISA-sector detector.
+sector_detectors = coordinator.instantiate_filtered_modules(
+    categories=["cisa_sector"]
 )
-
-if result['essential_workers']['anomaly_score'] > 0.7:
-    print(f"ALERT: Labor shortage detected in {result['details']['affected_categories']}")
-    print(f"Recommended action: {result['details']['recommendations']}")
-
-# Monitor multiple sectors simultaneously
-multi_sector_data = {
-    'ncf': np.random.randn(10),           # NCF metrics
-    'space': np.array([0.95, 0.02, 100]), # Satellite health
-    'workers': np.array([0.15, 0.22]),    # Worker availability
-}
-
-all_results = coordinator.detect_all(data=multi_sector_data)
-print(f"Total anomalies detected: {sum(1 for r in all_results.values() if r['is_anomaly'])}")
 ```
+
+Each registered class (for example `NCFMonitor` or `EssentialWorkersMonitor`) defines its own domain-specific inputs and detection methods; consult the class docstrings under `omni_mercury_engine/infrastructure/` for the per-module contracts.
 
 ### Integration Opportunities
 
@@ -603,13 +609,7 @@ The infrastructure modules implement several specialized capabilities:
 
 ### Performance Characteristics
 
-**Module Loading**: All 11 modules load in <100ms at initialization
-**Detection Latency**:
-- Single module: ~10-50ms per detection
-- 5 modules: ~50-200ms aggregate
-- All 11 modules: ~200-500ms aggregate (parallelizable)
-
-**Memory Footprint**: ~50-100 MB total for all infrastructure modules (lightweight compared to ML engines)
+**Module instantiation**: registry construction plus `instantiate_filtered_modules()` over all 12 modules completes in well under 100 ms (measured sub-millisecond on a CI-class CPU, 2026-06-10). Per-module detection latency depends on the module's own inputs and is not asserted here; measure with `omni_mercury_engine.tools.detector_profiler` for the configuration in use.
 
 ### Integration with Core Engines
 
@@ -749,14 +749,7 @@ Action: ESCALATE / BANISH / MAINTAIN / VOID
 
 ### Docker Container
 
-```dockerfile
-FROM python:3.12-slim
-WORKDIR /app
-COPY pyproject.toml .
-COPY src/ ./src/
-RUN pip install --no-cache-dir .
-CMD ["python", "-m", "omni_mercury_engine.cli"]
-```
+The shipped `Dockerfile` is a two-stage build on `python:3.13-slim-bookworm`: a `builder` stage compiles dependencies (including the AMA Cryptography native PQC library), and the default `runtime` stage copies the built virtualenv, strips SUID/SGID bits, and runs as the non-root `mercuryagent` user (UID 1000). The default entrypoint serves the FastAPI inference API. Trivy scans the built image in CI with `severity: CRITICAL,HIGH`, `ignore-unfixed: false`, and `exit-code: 1`, applying the enumerated, expiring accepted-risk ledger in [`.trivyignore`](.trivyignore) (`.github/workflows/ci.yml`; ledger contract in [SECURITY.md](SECURITY.md)). See the README "Docker Quick Start" section for usage modes.
 
 ### API Endpoint (FastAPI)
 
@@ -843,7 +836,9 @@ conda install -c conda-forge qutip
 
 ## Testing Strategy
 
-### Unit Tests (227 test files)
+### Unit Tests
+
+The test-module count is measured and CI-gated in the README [Codebase Scale block](README.md) (406 `test_*.py` modules as of 2026-06-10).
 
 ```bash
 # Run specific test
@@ -863,11 +858,11 @@ pytest tests/test_full_pipeline.py -v
 pytest tests/test_harmonic_biometric.py -v
 ```
 
-### Target Coverage
+### Coverage Posture
 
-- **Minimum**: >85% (user requirement)
-- **Current**: TBD (run `pytest --cov`)
-- **Stretch**: >90%
+- **Merge gates (blocking)**: CORE ≥ 25 % on the curated core lane and FULL ≥ 50 % on the ML lane, enforced per-job via `--cov-fail-under` in `.github/workflows/ci.yml`.
+- **Aspirational target (non-blocking)**: `pyproject.toml [tool.coverage.report] fail_under = 85`.
+- Coverage is measured per release from the per-PR coverage artifacts, not pinned in prose. See CONTRIBUTING.md §"Test Coverage Requirements".
 
 ## Monitoring & Observability
 
@@ -922,7 +917,7 @@ where 𝔄_target is the desired equilibrium state (typically a vector of ones s
 
 #### Implementation
 
-Location: `omni_mercury_engine/core/fusion.py:914-920`
+Location: `omni_mercury_engine/core/fusion.py::DoubleHelixEvolutionEngine.converge`
 
 ```python
 V = self.np.sum((state - target_state) ** 2)
@@ -1098,7 +1093,7 @@ The Omni-Codes tie directly into the agent's autonomy system:
 from omni_mercury_engine.utils.constants import OmniCodes, compute_ethical_autonomy
 
 # Stability calculation: |r| * p for each code
-total_stability = OmniCodes.get_total_stability()  # ~115.8
+total_stability = OmniCodes.get_total_stability()  # ~106.1
 
 # Autonomy bounded by ethical constraints
 autonomy = compute_ethical_autonomy(
@@ -1111,21 +1106,23 @@ autonomy = compute_ethical_autonomy(
 is_stable = OmniCodes.validate_stability(min_total=50.0)  # True
 ```
 
-## Future Enhancements
+## Roadmap Capabilities
 
-1. **Distributed Processing**: Expand Communication utilities for multi-node deployment
-2. **Additional Biometric Modalities**: Iris, fingerprint, voice
-3. **Real Quantum Computing**: Integrate Qiskit for actual quantum circuits
-4. **Advanced Harmonics**: Higher l_max for more detailed 3D analysis
-5. **AutoML**: Automatic hyperparameter tuning for Ava optimizers
-6. **Federated Learning**: Privacy-preserving distributed training
+The authoritative per-capability status (Designed / Stubbed / Functional, with test citations) is the capability table in [`docs/ROADMAP.md`](docs/ROADMAP.md). Summary as of 2026-06-10:
+
+1. **Distributed Processing** — Functional: native pure-stdlib `TCPMessageTransport` (`distributed/tcp_transport.py`) with per-message Ed25519 signatures; `RaftCluster(use_in_memory_transport=False)` constructs real network nodes
+2. **Additional Biometric Modalities** — iris/fingerprint Functional; narrative-voice LLM requires an explicit `llm_provider=`
+3. **Real Quantum Computing** — simulator Functional (`AerSimulator` default); real hardware untested in-tree
+4. **Advanced Harmonics** — Functional; higher `l_max` analysis remains a tuning axis
+5. **AutoML** — Functional hyperparameter search wired into the training loop
+6. **Federated Learning** — Functional: privacy-preserving training with bidirectional GOSNN coupling
    - `federated_learning/` is the canonical package (server, client, privacy engine, CISA coordinator)
    - `federated/` is a backwards-compatibility shim that re-exports from `federated_learning/`; new code should import from `federated_learning` directly
-7. **Explainability**: SHAP values for model interpretability
+7. **Explainability** — Functional: SHAP variants, counterfactuals, and serve-path integrated-gradients attributions via `detect_with_fusion(explain=True)`
 
 ## Conclusion
 
-The Mercury Agent successfully integrates **22+ detection engines** with **11 infrastructure monitoring modules** across **8 major frameworks** into a production-grade neuro-symbolic AI platform. The hybrid fusion approach — neural networks coupled to an explicit symbolic reasoning layer with hard ethical bounding — balances complexity and performance, with runtime configuration toggles and flexible module selection allowing users to customize feature depth and infrastructure coverage based on their specific requirements.
+The Mercury Agent integrates **22+ detection engines** with **12 infrastructure monitoring modules** across **8 major frameworks** into a research-grade neuro-symbolic AI platform engineered to production conventions (CI-gated structural counts, hard ethical gates, fail-closed PQC; not externally audited — see the README status line). The hybrid fusion approach — neural networks coupled to an explicit symbolic reasoning layer with hard ethical bounding — balances complexity and performance, with runtime configuration toggles and flexible module selection allowing users to customize feature depth and infrastructure coverage based on their specific requirements.
 
 ### Core ML Achievements:
 - ✅ Hybrid fusion (feature + decision level) with multi-head attention
@@ -1137,12 +1134,12 @@ The Mercury Agent successfully integrates **22+ detection engines** with **11 in
 - ✅ Optional distributed computing support (AsyncMessageQueue, PubSub)
 - ✅ NIST SP 800-53 compliance (AC-2, AU-2, SC-13, SI-4)
 - ✅ Windows compatibility guidance (WSL, pre-built wheels, VS Build Tools)
-- ✅ Research-grade with **~5,100 tests collected** on a minimal install (verified by `pytest --collect-only -q` 2026-05-03); the surface grows to **6,000+ collected** once the `[ml]` / `[api]` extras are present.  CI enforces per-job hard coverage floors via `--cov-fail-under` flags in `.github/workflows/ci.yml`: `COVERAGE_THRESHOLD_CORE = 25` on the curated core lane and `COVERAGE_THRESHOLD_FULL = 50` on the full suite (each set roughly 10 points below the most recent measured baseline so CI noise + dataset-availability flakes do not produce false PR failures).  `.coveragerc` intentionally does not set `fail_under` (so partial-suite jobs like `neuro-symbolic-tests` do not silently inherit a floor designed for a different coverage shape); `pyproject.toml [tool.coverage.report] fail_under = 85` remains the strict aspirational target.
+- ✅ Research-grade with **8,789 tests collected** (verified by `pytest --collect-only -q` 2026-06-10 with the optional `torch` / `scikit-learn` / `hypothesis` / `fastapi` dependencies installed); a minimal install collects fewer because optional-import-gated modules skip.  CI enforces per-job hard coverage floors via `--cov-fail-under` flags in `.github/workflows/ci.yml`: `COVERAGE_THRESHOLD_CORE = 25` on the curated core lane and `COVERAGE_THRESHOLD_FULL = 50` on the full suite (each set roughly 10 points below the most recent measured baseline so CI noise + dataset-availability flakes do not produce false PR failures).  `.coveragerc` intentionally does not set `fail_under` (so partial-suite jobs like `neuro-symbolic-tests` do not silently inherit a floor designed for a different coverage shape); `pyproject.toml [tool.coverage.report] fail_under = 85` remains the strict aspirational target.
 
 ### Infrastructure Monitoring Achievements:
-- ✅ **11 specialized modules** organized by impact theme (resilience, cyber, humanitarian, economic, scientific)
+- ✅ **12 specialized modules** organized by impact theme (resilience, cyber, humanitarian, economic, scientific, CISA sectors)
 - ✅ **8 major frameworks** integrated: CISA NCFs, EU Critical Entities, Essential Workers, World Bank Sectors, STEM Disciplines, Risk Management, Public Policy, Emerging Technologies
-- ✅ **InfrastructureCoordinator** with flexible module selection (run 1, 2, 5, or all 11 modules)
+- ✅ **InfrastructureCoordinator** with flexible module selection (any subset of the 12 registered modules by name, category, or priority)
 - ✅ **55 National Critical Functions** with cascading failure analysis
 - ✅ **EU-unique Space sector** monitoring (satellites, ground stations, launch facilities)
 - ✅ **Cross-border threat correlation** (EU-US integration)
@@ -1159,25 +1156,28 @@ The Mercury Agent successfully integrates **22+ detection engines** with **11 in
 5. **Future-proofing**: Emerging technology monitoring across 9+ categories
 6. **Sustainable development**: World Bank sector tracking with net-positive impact scoring
 
-### System Scale (verified 2026-05-05):
-- **42 top-level subpackages** under `src/omni_mercury_engine/`
-  (agentic, alerting, api, automl, biometric, cognitive, comparison,
-  core, crypto, data, data_sources, datasets, detectors, distributed,
-  emergent, energy, ethical, evaluation, explainability,
-  federated_learning, federation, gui, harmonics, infrastructure,
-  integrations, loaders, medical, metrics, ml, models, narrative,
-  ocean, quantum_computing, resilience, safeguards, scaling,
-  security, space, streaming, tools, utils, validation)
-- **~295,647 LOC** in `src/omni_mercury_engine/` (512 source files; verified by `scripts/measure_codebase_scale.py`)
-- **~310 test modules** under `tests/`, ~5,100 tests collected on a
-  minimal install (~6,000+ once `[ml]` / `[api]` extras are present);
-  see the README "Testing and Quality Assurance" section for the exact
-  collection methodology.
+### System Scale (measured 2026-06-10 by `scripts/measure_codebase_scale.py`; CI-gated in the README [Codebase Scale block](README.md)):
+- **47 top-level subpackages** under `src/omni_mercury_engine/`
+  (agentic, alerting, anomaly, api, automl, biometric, cognitive,
+  comparison, compliance, core, crypto, data, data_sources, datasets,
+  decision, detectors, distributed, emergent, energy, ethical,
+  evaluation, explainability, federated_learning, federation,
+  governance, gui, harmonics, infrastructure, integrations, loaders,
+  medical, metrics, ml, models, narrative, ocean, quantum_computing,
+  resilience, safeguards, scaling, security, space, streaming, tools,
+  utils, validation, verifiers)
+- **~313,000 LOC** in `src/omni_mercury_engine/` (618 source files)
+- **406 test modules** under `tests/`; 8,789 tests collected with the
+  full optional-dependency surface (`pytest --collect-only -q`,
+  2026-06-10) — fewer on a minimal install because optional-import-gated
+  modules skip. See the README "Testing and Quality Assurance" section
+  for the collection methodology.
 - **Coverage:** measured per release — see the per-PR coverage report
   artefacts, not a stale pinned percentage. CI merge gates enforce
   CORE ≥ 25 % / FULL ≥ 50 %; the aspirational target is 85 %.
-- **Documentation:** 29 markdown files at the project surface
-  (top-level + `docs/` + ancillary READMEs)
+- **Documentation:** 41 markdown documents at the project surface
+  (7 top-level, 29 in `docs/` plus the drone/medical SETUP runbooks,
+  2 in `benchmarks/`, and the `rust_crypto/` README)
 - **Optimization experiments:** logged under `benchmarks/`
   (3R fusion, ethical scalars, fibring composer, seven-axis matrix)
 

@@ -1,24 +1,8 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Temporal anomaly detector for time series analysis."""
 
 from __future__ import annotations
-
-"""
-Temporal anomaly detector for time series analysis
-"""
 
 from typing import Any
 
@@ -37,8 +21,7 @@ from omni_mercury_engine.core.exceptions import DetectorException
 
 
 class TemporalAnomalyDetector(BaseDetector):
-    """
-    Time series anomaly detection using:
+    """Time series anomaly detection using:.
 
     - Trend analysis
     - Sudden changes
@@ -47,6 +30,7 @@ class TemporalAnomalyDetector(BaseDetector):
     """
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
+        """Initialize the instance."""
         super().__init__(config)
         self.window_size = self.config.get("window_size", 10)
         self.change_threshold = self.config.get("change_threshold", 2.0)
@@ -103,8 +87,7 @@ class TemporalAnomalyDetector(BaseDetector):
         return self
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
-        """
-        Detect temporal anomalies with optional auto-calibration.
+        """Detect temporal anomalies with optional auto-calibration.
 
         Auto-Calibration:
             When auto_calibrate=True (via enable_auto_calibration()), the
@@ -208,8 +191,7 @@ class TemporalAnomalyDetector(BaseDetector):
         return lstm_features
 
     def _detect_trend_anomalies(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Detect anomalies based on trend deviation.
+        """Detect anomalies based on trend deviation.
 
         Returns continuous scores without hard clipping to preserve ranking information for
         downstream fusion models.
@@ -243,8 +225,7 @@ class TemporalAnomalyDetector(BaseDetector):
         return scores
 
     def _detect_sudden_changes(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        Detect sudden changes in values.
+        """Detect sudden changes in values.
 
         Returns continuous scores without hard clipping.
 
@@ -271,3 +252,36 @@ class TemporalAnomalyDetector(BaseDetector):
             scores = max_z / (self.change_threshold + max_z)
 
         return scores
+
+    def get_fitted_state(self) -> dict[str, Any] | None:
+        """Export the fitted state for checkpoint round-tripping.
+
+        Covers everything the detect/extract paths read: the fit-time
+        baselines and the LSTM feature-extractor weights — the LSTM is
+        initialized randomly at construction, so without persisting it a
+        reloaded engine would extract different fusion features than the
+        engine that trained the checkpoint (ROADMAP row 16).
+
+        Returns:
+            JSON/tensor-safe mapping, or ``None`` when unfitted.
+        """
+        if not self._is_fitted:
+            return None
+        return {
+            "baseline_mean": self.baseline_mean,
+            "baseline_std": self.baseline_std,
+            "lstm_state_dict": dict(self.lstm.state_dict()) if self.lstm is not None else None,
+        }
+
+    def set_fitted_state(self, state: dict[str, Any]) -> None:
+        """Restore a state produced by :meth:`get_fitted_state`."""
+        self.baseline_mean = (
+            float(state["baseline_mean"]) if state["baseline_mean"] is not None else None
+        )
+        self.baseline_std = (
+            float(state["baseline_std"]) if state["baseline_std"] is not None else None
+        )
+        lstm_state = state.get("lstm_state_dict")
+        if lstm_state is not None and self.lstm is not None:
+            self.lstm.load_state_dict(lstm_state)
+        self._is_fitted = True

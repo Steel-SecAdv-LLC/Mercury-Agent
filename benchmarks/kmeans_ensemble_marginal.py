@@ -1,9 +1,6 @@
-"""
-Mercury Agent - Copyright (C) 2025 Steel Security Advisors LLC
-Licensed under GNU GPL v3
-
-K-means-distance detector: does the revived dormant clusterer ADD to the
-fusion ensemble?
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+r"""K-means-distance detector: does the revived dormant clusterer ADD to the fusion ensemble?
 
 ``benchmarks/dormant_module_revival.py`` established that the dormant
 ``KMeansClusterer`` (revived as ``detectors.kmeans_distance.KMeansDistanceDetector``)

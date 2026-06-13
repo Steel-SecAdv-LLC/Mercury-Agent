@@ -1,8 +1,6 @@
-from typing import Any
-
-"""
-Tests for Score Calibration System
-Copyright (C) 2025 Steel Security Advisors LLC
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for Score Calibration System.
 
 Tests the complete calibration pipeline that solves the F1=0 problem:
 - AutoThresholdOptimizer with multiple methods
@@ -10,6 +8,8 @@ Tests the complete calibration pipeline that solves the F1=0 problem:
 - ScoreCalibrationManager integration
 - Benchmark diagnostics
 """
+
+from typing import Any
 
 import numpy as np
 import pytest

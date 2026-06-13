@@ -1,9 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Tests for Neural Memory Layer - Memory Embeddings and Pattern Detection
-"""
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for Neural Memory Layer - Memory Embeddings and Pattern Detection."""
 
 from __future__ import annotations
 

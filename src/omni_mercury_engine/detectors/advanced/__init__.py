@@ -1,14 +1,6 @@
-"""
-Mercury Agent
-
-Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Advanced Anomaly Detection Module
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Advanced Anomaly Detection Module.
 
 State-of-the-art detectors addressing identified performance gaps:
 - Time-Series: Multi-scale transformer with point-adjustment evaluation
@@ -75,8 +67,7 @@ def create_detector(
     | COPODDetector
     | GWOEnsembleDetector
 ):
-    """
-    Factory function to create optimized detectors for specific use cases.
+    """Factory function to create optimized detectors for specific use cases.
 
     Args:
         detector_type: Type of detector to create
@@ -115,8 +106,7 @@ def create_detector(
 
 
 def list_detectors() -> dict[str, str]:
-    """
-    List available advanced detectors with descriptions.
+    """List available advanced detectors with descriptions.
 
     Returns:
         Dictionary mapping detector names to descriptions

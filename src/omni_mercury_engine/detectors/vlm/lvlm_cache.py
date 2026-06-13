@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-LVLM Backend Cache with Pre-warming and Resource Management.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""LVLM Backend Cache with Pre-warming and Resource Management.
 
 Provides:
 - Singleton model cache to avoid redundant loading
@@ -31,6 +14,8 @@ Performance characteristics:
 - Subsequent uses: Near-zero latency (cached reference)
 - Pre-warmed: Immediate availability
 """
+
+from __future__ import annotations
 
 import atexit
 import logging
@@ -47,7 +32,6 @@ from .lvlm_backends import LVLMBackend, get_lvlm_backend
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-
 
 logger = logging.getLogger(__name__)
 
@@ -103,8 +87,7 @@ class CacheStatistics:
 
 
 class LVLMBackendCache:
-    """
-    Thread-safe singleton cache for LVLM backends.
+    """Thread-safe singleton cache for LVLM backends.
 
     Features:
     - LRU eviction when memory limit exceeded
@@ -131,8 +114,7 @@ class LVLMBackendCache:
         warmup_timeout: float = 300.0,
         health_check_interval: float = 60.0,
     ):
-        """
-        Initialize the cache.
+        """Initialize the cache.
 
         Args:
             max_memory_gb: Maximum GPU memory to use (approximate)
@@ -212,8 +194,7 @@ class LVLMBackendCache:
         device: str = "cuda",
         **kwargs: Any,
     ) -> LVLMBackend:
-        """
-        Get a cached LVLM backend, loading if necessary.
+        """Get a cached LVLM backend, loading if necessary.
 
         Args:
             model_type: Type of LVLM backend
@@ -467,8 +448,7 @@ class LVLMBackendCache:
         warmup_input: Any | None = None,
         **kwargs: Any,
     ) -> Future[bool]:
-        """
-        Pre-warm a model in the background.
+        """Pre-warm a model in the background.
 
         Args:
             model_type: Type of LVLM backend
@@ -783,8 +763,7 @@ def get_cached_backend(
     device: str = "cuda",
     **kwargs: Any,
 ) -> LVLMBackend:
-    """
-    Get a cached LVLM backend (convenience function).
+    """Get a cached LVLM backend (convenience function).
 
     Args:
         model_type: Type of LVLM backend
@@ -806,8 +785,7 @@ def prewarm_backend(
     warmup_input: Any | None = "auto",
     **kwargs: Any,
 ) -> Future[bool]:
-    """
-    Pre-warm an LVLM backend (convenience function).
+    """Pre-warm an LVLM backend (convenience function).
 
     Args:
         model_type: Type of LVLM backend

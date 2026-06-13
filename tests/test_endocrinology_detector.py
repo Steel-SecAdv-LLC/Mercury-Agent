@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Tests for the endocrinology detector and its rule monitors."""
 
 from __future__ import annotations

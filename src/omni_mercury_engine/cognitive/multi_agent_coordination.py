@@ -1,23 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-"""
-
-from __future__ import annotations
-
-"""
-Multi-Agent Coordination Protocol for Mercury Agent.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Multi-Agent Coordination Protocol for Mercury Agent.
 
 Implements coordination between multiple detection agents inspired by:
 - "Multi-Agent Reinforcement Learning: A Survey" (Hernandez-Leal et al., 2019)
@@ -39,6 +22,8 @@ Key Concepts:
 - Coordination Protocol: Rules for agent interaction
 """
 
+from __future__ import annotations
+
 import logging
 import time
 from abc import ABC, abstractmethod
@@ -50,7 +35,6 @@ from typing import Any
 import numpy as np
 
 logger = logging.getLogger(__name__)
-
 
 # =============================================================================
 # Constants
@@ -159,8 +143,7 @@ class Message:
 
 @dataclass
 class AgentCapability:
-    """
-    Description of agent capabilities.
+    """Description of agent capabilities.
 
     Attributes:
         capability_id: Unique identifier
@@ -183,8 +166,7 @@ class AgentCapability:
 
 @dataclass
 class DetectionResult:
-    """
-    Result from an agent's detection.
+    """Result from an agent's detection.
 
     Attributes:
         agent_id: Detecting agent ID
@@ -209,8 +191,7 @@ class DetectionResult:
 
 @dataclass
 class ConsensusResult:
-    """
-    Result of consensus process.
+    """Result of consensus process.
 
     Attributes:
         consensus_id: Unique identifier
@@ -220,6 +201,10 @@ class ConsensusResult:
         participant_count: Number of participating agents
         method_used: Consensus method used
         dissenting_agents: IDs of dissenting agents
+        abstained: True when no consensus could honestly be formed (for
+            example, fewer participants than the protocol's minimum). An
+            abstained result's ``final_decision`` carries no signal and must
+            be treated as "don't know", never as a benign verdict.
         timestamp: Consensus timestamp
     """
 
@@ -230,13 +215,13 @@ class ConsensusResult:
     participant_count: int
     method_used: ConsensusMethod
     dissenting_agents: list[str] = field(default_factory=list)
+    abstained: bool = False
     timestamp: float = field(default_factory=time.time)
 
 
 @dataclass
 class Coalition:
-    """
-    A coalition of cooperating agents.
+    """A coalition of cooperating agents.
 
     Attributes:
         coalition_id: Unique identifier
@@ -289,8 +274,7 @@ class DetectionAgent(ABC):
         role: AgentRole | None = None,
         capabilities: list[AgentCapability] | list[str] | None = None,
     ):
-        """
-        Initialize detection agent.
+        """Initialize detection agent.
 
         Args:
             agent_id: Unique agent identifier
@@ -323,8 +307,7 @@ class DetectionAgent(ABC):
         data: np.ndarray[Any, Any],
         context: dict[str, Any] | None = None,
     ) -> DetectionResult:
-        """
-        Perform anomaly detection.
+        """Perform anomaly detection.
 
         Args:
             data: Input data
@@ -357,8 +340,7 @@ class DetectionAgent(ABC):
         coordinator: AgentCoordinator,
         priority: int = 5,
     ) -> Message:
-        """
-        Send a message to another agent.
+        """Send a message to another agent.
 
         Args:
             receiver_id: Receiving agent ID
@@ -465,8 +447,7 @@ class SimpleDetectionAgent(DetectionAgent):
 
 
 class ConsensusProtocol:
-    """
-    Protocol for reaching consensus among agents.
+    """Protocol for reaching consensus among agents.
 
     Supports multiple consensus methods from simple voting to Byzantine fault-tolerant consensus.
     """
@@ -477,8 +458,7 @@ class ConsensusProtocol:
         threshold: float = DEFAULT_CONSENSUS_THRESHOLD,
         min_participants: int = 3,
     ):
-        """
-        Initialize consensus protocol.
+        """Initialize consensus protocol.
 
         Args:
             method: Consensus method to use (ConsensusMethod or string)
@@ -508,8 +488,7 @@ class ConsensusProtocol:
         self,
         results: list[DetectionResult] | list[dict[str, Any]],
     ) -> ConsensusResult | dict[str, Any]:
-        """
-        Reach consensus on detection results.
+        """Reach consensus on detection results.
 
         Args:
             results: Results from multiple agents (DetectionResult objects or vote dicts)
@@ -531,6 +510,9 @@ class ConsensusProtocol:
         ]
 
         if len(detection_results) < self.min_participants:
+            # Fail-closed: below quorum there is no honest collective verdict.
+            # The result is explicitly marked abstained so callers cannot
+            # mistake "could not decide" for "decided benign".
             return ConsensusResult(
                 consensus_id=consensus_id,
                 final_decision=False,
@@ -538,6 +520,7 @@ class ConsensusProtocol:
                 agreement_ratio=0.0,
                 participant_count=len(detection_results),
                 method_used=self.method,
+                abstained=True,
             )
 
         if self.method == ConsensusMethod.MAJORITY_VOTE:
@@ -558,8 +541,7 @@ class ConsensusProtocol:
         consensus_id: str,
         votes: list[dict[str, Any]],
     ) -> dict[str, Any]:
-        """
-        Reach consensus from vote dicts (test API).
+        """Reach consensus from vote dicts (test API).
 
         Args:
             consensus_id: Consensus ID
@@ -722,8 +704,7 @@ class ConsensusProtocol:
         consensus_id: str,
         results: list[DetectionResult],
     ) -> ConsensusResult:
-        """
-        Byzantine fault-tolerant consensus.
+        """Byzantine fault-tolerant consensus.
 
         Tolerates up to f faulty agents with n >= 3f + 1 total.
         """
@@ -813,8 +794,7 @@ class ConsensusProtocol:
 
 
 class AgentCoordinator:
-    """
-    Coordinator for multi-agent system.
+    """Coordinator for multi-agent system.
 
     Manages agent registration, message routing, coalition formation, and consensus building.
     """
@@ -825,8 +805,7 @@ class AgentCoordinator:
         consensus_method: ConsensusMethod = ConsensusMethod.CONFIDENCE_WEIGHTED,
         max_agents: int = MAX_AGENTS,
     ):
-        """
-        Initialize agent coordinator.
+        """Initialize agent coordinator.
 
         Args:
             strategy: Coordination strategy
@@ -864,8 +843,7 @@ class AgentCoordinator:
         )
 
     def register_agent(self, agent: DetectionAgent) -> bool:
-        """
-        Register an agent with the coordinator.
+        """Register an agent with the coordinator.
 
         Args:
             agent: Agent to register
@@ -887,8 +865,7 @@ class AgentCoordinator:
         return True
 
     def unregister_agent(self, agent_id: str) -> bool:
-        """
-        Unregister an agent.
+        """Unregister an agent.
 
         Args:
             agent_id: Agent ID to unregister
@@ -909,8 +886,7 @@ class AgentCoordinator:
         return True
 
     def route_message(self, message: Message) -> None:
-        """
-        Route a message to its recipient.
+        """Route a message to its recipient.
 
         Args:
             message: Message to route
@@ -934,8 +910,7 @@ class AgentCoordinator:
         required_roles: list[AgentRole] | None = None,
         max_size: int = MAX_COALITION_SIZE,
     ) -> Coalition | None:
-        """
-        Form a coalition for a task.
+        """Form a coalition for a task.
 
         Args:
             task: Task description
@@ -1013,8 +988,7 @@ class AgentCoordinator:
         return coalition
 
     def dissolve_coalition(self, coalition_id: str) -> None:
-        """
-        Dissolve a coalition.
+        """Dissolve a coalition.
 
         Args:
             coalition_id: Coalition to dissolve
@@ -1034,14 +1008,42 @@ class AgentCoordinator:
 
         logger.info(f"Dissolved coalition {coalition_id}")
 
-    def coordinate_detection(
+    @staticmethod
+    def _coerce_result(agent_id: str, raw: Any) -> DetectionResult | None:
+        """Normalize an agent's detection output to a :class:`DetectionResult`.
+
+        Agents implemented outside this module commonly return plain dicts
+        (``{"score": ..., "is_anomaly": ...}``). Dropping those silently
+        would exclude their vote from consensus while still reporting a
+        confident collective verdict — a silent-data-loss failure. Coerce
+        instead; only genuinely unusable outputs return ``None``.
+        """
+        if isinstance(raw, DetectionResult):
+            return raw
+        if isinstance(raw, dict):
+            score_value = raw.get("anomaly_score", raw.get("score"))
+            if score_value is None:
+                return None
+            score = float(np.clip(float(score_value), 0.0, 1.0))
+            is_anomaly = bool(raw.get("is_anomaly", score > 0.5))
+            confidence = float(raw.get("confidence", abs(score - 0.5) * 2))
+            return DetectionResult(
+                agent_id=agent_id,
+                anomaly_score=score,
+                is_anomaly=is_anomaly,
+                confidence=float(np.clip(confidence, 0.0, 1.0)),
+                reasoning=str(raw.get("reasoning", "")),
+                metadata={k: v for k, v in raw.items() if k not in {"reasoning"}},
+            )
+        return None
+
+    def coordinate_detection_detailed(
         self,
         data: np.ndarray[Any, Any],
         context: dict[str, Any] | None = None,
         agent_ids: list[str] | None = None,
-    ) -> ConsensusResult:
-        """
-        Coordinate detection across multiple agents.
+    ) -> tuple[ConsensusResult, list[DetectionResult]]:
+        """Coordinate detection and return the per-agent results alongside.
 
         Args:
             data: Input data for detection
@@ -1049,7 +1051,7 @@ class AgentCoordinator:
             agent_ids: Specific agents to use (or all available)
 
         Returns:
-            Consensus result from coordinated detection
+            Tuple of (consensus result, individual per-agent results)
         """
         self._stats["detections_coordinated"] += 1
 
@@ -1065,36 +1067,66 @@ class AgentCoordinator:
 
         if not agents:
             logger.warning("No available agents for detection")
-            return ConsensusResult(
-                consensus_id="none",
-                final_decision=False,
-                confidence=0.0,
-                agreement_ratio=0.0,
-                participant_count=0,
-                method_used=self.consensus_method,
+            return (
+                ConsensusResult(
+                    consensus_id="none",
+                    final_decision=False,
+                    confidence=0.0,
+                    agreement_ratio=0.0,
+                    participant_count=0,
+                    method_used=self.consensus_method,
+                    abstained=True,
+                ),
+                [],
             )
 
-        # Collect results from all agents
+        # Collect results from all agents, coercing duck-typed dict returns
+        # so every responding agent's vote reaches the consensus.
         results: list[DetectionResult] = []
         for agent in agents:
             try:
-                result = agent.detect(data, context)
-                results.append(result)
+                raw = agent.detect(data, context)
             except Exception as e:
                 logger.error(f"Agent {agent.agent_id} detection error: {e}")
+                continue
+            coerced = self._coerce_result(agent.agent_id, raw)
+            if coerced is None:
+                logger.warning(
+                    f"Agent {agent.agent_id} returned an unusable detection "
+                    f"payload ({type(raw).__name__}); excluded from consensus"
+                )
+                continue
+            results.append(coerced)
 
         # Reach consensus
         consensus_result = self.consensus_protocol.reach_consensus(results)
         if not isinstance(consensus_result, ConsensusResult):
             raise TypeError("Expected ConsensusResult from reach_consensus")
-        consensus = consensus_result
         self._stats["consensus_reached"] += 1
 
+        return consensus_result, results
+
+    def coordinate_detection(
+        self,
+        data: np.ndarray[Any, Any],
+        context: dict[str, Any] | None = None,
+        agent_ids: list[str] | None = None,
+    ) -> ConsensusResult:
+        """Coordinate detection across multiple agents.
+
+        Args:
+            data: Input data for detection
+            context: Detection context
+            agent_ids: Specific agents to use (or all available)
+
+        Returns:
+            Consensus result from coordinated detection
+        """
+        consensus, _ = self.coordinate_detection_detailed(data, context, agent_ids)
         return consensus
 
     def get_agent_by_role(self, role: AgentRole) -> list[DetectionAgent]:
-        """
-        Get agents by role.
+        """Get agents by role.
 
         Args:
             role: Agent role to filter by
@@ -1128,8 +1160,7 @@ class AgentCoordinator:
 
 
 class MultiAgentDetectionSystem:
-    """
-    Complete multi-agent anomaly detection system.
+    """Complete multi-agent anomaly detection system.
 
     Provides high-level interface for multi-agent detection with automatic agent management and
     coordination.
@@ -1142,8 +1173,7 @@ class MultiAgentDetectionSystem:
         consensus_method: ConsensusMethod = ConsensusMethod.CONFIDENCE_WEIGHTED,
         seed: int | None = None,
     ):
-        """
-        Initialize multi-agent detection system.
+        """Initialize multi-agent detection system.
 
         Args:
             num_agents: Number of detection agents
@@ -1192,8 +1222,7 @@ class MultiAgentDetectionSystem:
         context: dict[str, Any] | None = None,
         use_coalition: bool = False,
     ) -> dict[str, Any]:
-        """
-        Perform multi-agent detection.
+        """Perform multi-agent detection.
 
         Args:
             data: Input data
@@ -1213,12 +1242,14 @@ class MultiAgentDetectionSystem:
             )
 
             if coalition:
-                result = self.coordinator.coordinate_detection(data, context, coalition.member_ids)
+                result, individual = self.coordinator.coordinate_detection_detailed(
+                    data, context, coalition.member_ids
+                )
                 self.coordinator.dissolve_coalition(coalition.coalition_id)
             else:
-                result = self.coordinator.coordinate_detection(data, context)
+                result, individual = self.coordinator.coordinate_detection_detailed(data, context)
         else:
-            result = self.coordinator.coordinate_detection(data, context)
+            result, individual = self.coordinator.coordinate_detection_detailed(data, context)
 
         return {
             "is_anomaly": result.final_decision,
@@ -1227,21 +1258,22 @@ class MultiAgentDetectionSystem:
             "participant_count": result.participant_count,
             "consensus_method": result.method_used.value,
             "dissenting_agents": result.dissenting_agents,
+            "abstained": result.abstained,
             "detection_id": f"detection_{self._detection_counter:06d}",
             "consensus_decision": result.final_decision,
-            "individual_results": (
-                [
-                    {"agent_id": agent_id, "decision": vote}
-                    for agent_id, vote in getattr(result, "votes", {}).items()
-                ]
-                if hasattr(result, "votes")
-                else []
-            ),
+            "individual_results": [
+                {
+                    "agent_id": r.agent_id,
+                    "decision": r.is_anomaly,
+                    "anomaly_score": r.anomaly_score,
+                    "confidence": r.confidence,
+                }
+                for r in individual
+            ],
         }
 
     def register_agent(self, agent: DetectionAgent) -> bool:
-        """
-        Register a detection agent (simplified API).
+        """Register a detection agent (simplified API).
 
         Args:
             agent: Detection agent to register
@@ -1256,8 +1288,7 @@ class MultiAgentDetectionSystem:
         role: AgentRole = AgentRole.STATISTICAL,
         threshold: float = 0.5,
     ) -> str | None:
-        """
-        Add a new detection agent.
+        """Add a new detection agent.
 
         Args:
             role: Agent role
@@ -1274,8 +1305,7 @@ class MultiAgentDetectionSystem:
         return None
 
     def remove_agent(self, agent_id: str) -> bool:
-        """
-        Remove a detection agent.
+        """Remove a detection agent.
 
         Args:
             agent_id: Agent ID to remove

@@ -1,22 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
-
-------------------------------------------------------------------------
-
-Operator tool: Google-style model card generator.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: Google-style model card generator.
 
 Given a fitted detector (provided via importable module:class form),
 emits a model card in JSON + Markdown covering training data,
@@ -136,10 +120,12 @@ def _compute_metrics(
         "std": float(raw.std()),
     }
     if y is not None:
-        from sklearn.metrics import (
+        # Mercury builds its own ML (mercury_ml); scikit-learn is never imported.
+        from omni_mercury_engine.ml.mercury_ml import (
             average_precision_score,
             f1_score,
-            precision_recall_fscore_support,
+            precision_score,
+            recall_score,
             roc_auc_score,
         )
 
@@ -151,10 +137,9 @@ def _compute_metrics(
         thresh = float(np.median(raw))
         y_pred = (raw >= thresh).astype(int)
         out["threshold_used"] = thresh
-        out["f1"] = float(f1_score(y, y_pred, zero_division=0))
-        p, r, f, _ = precision_recall_fscore_support(y, y_pred, average="binary", zero_division=0)
-        out["precision"] = float(p)
-        out["recall"] = float(r)
+        out["f1"] = float(f1_score(y, y_pred))
+        out["precision"] = float(precision_score(y, y_pred))
+        out["recall"] = float(recall_score(y, y_pred))
     return out
 
 

@@ -1,24 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
-
-------------------------------------------------------------------------
-
-Operator tool: drive a full ML-KEM-1024 encap/decap + ML-DSA-65
-sign/verify cycle through the AMA native PQC backend and emit a
-latency certificate.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Operator tool: drive a full ML-KEM-1024 encap/decap + ML-DSA-65 sign/verify cycle through the AMA native PQC backend and emit a latency certificate.
 
 Pair-claims the result with :mod:`pqc_capability_probe` so a silent
 stub fallback mid-run is detected: if ``pqc_capability_probe`` reports

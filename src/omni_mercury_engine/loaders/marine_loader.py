@@ -1,20 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see
-https://www.gnu.org/licenses/.
-
-Domain loader for marine biodiversity data from OBIS (Ocean Biodiversity
-Information System).
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Domain loader for marine biodiversity data from OBIS (Ocean Biodiversity Information System).
 
 Connects to the OBIS API v3 to retrieve species occurrence records for
 marine biodiversity monitoring and anomaly detection.  Ground truth events
@@ -29,6 +15,7 @@ occurrence patterns.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from typing import Any
 
@@ -143,8 +130,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
 
 
 class MarineLoader(BaseDomainLoader):
-    """
-    Domain loader for marine biodiversity data from OBIS.
+    """Domain loader for marine biodiversity data from OBIS.
 
     Connects to the OBIS (Ocean Biodiversity Information System) API v3
     to retrieve species occurrence records for marine biodiversity
@@ -193,8 +179,7 @@ class MarineLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     def fetch_realtime(self) -> pd.DataFrame:
-        """
-        Fetch recent marine occurrence records from OBIS.
+        """Fetch recent marine occurrence records from OBIS.
 
         Queries the OBIS API for the most recent occurrence records of
         reef indicator species.  Results are paginated and concatenated
@@ -244,8 +229,7 @@ class MarineLoader(BaseDomainLoader):
         return df
 
     def fetch_historical(self, event_id: str) -> pd.DataFrame:
-        """
-        Fetch occurrence data for a specific historical event.
+        """Fetch occurrence data for a specific historical event.
 
         Retrieves OBIS occurrence records within the spatial and temporal
         bounds defined by the event catalog entry.  Both the event period
@@ -344,8 +328,7 @@ class MarineLoader(BaseDomainLoader):
         return df
 
     def list_events(self) -> list[dict[str, Any]]:
-        """
-        Return the catalog of ground-truth marine biodiversity events.
+        """Return the catalog of ground-truth marine biodiversity events.
 
         Returns:
             List of dicts each containing ``event_id``, ``name``,
@@ -364,8 +347,7 @@ class MarineLoader(BaseDomainLoader):
         return events
 
     def get_ground_truth(self, event_id: str) -> np.ndarray[Any, Any]:
-        """
-        Generate binary anomaly labels for a historical marine event.
+        """Generate binary anomaly labels for a historical marine event.
 
         Labeling strategy: occurrence records are binned into spatial grid
         cells.  For each cell the species richness during the event period
@@ -439,8 +421,7 @@ class MarineLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray[Any, Any]:
-        """
-        Transform raw OBIS occurrence data into a feature matrix.
+        """Transform raw OBIS occurrence data into a feature matrix.
 
         Occurrence records are binned into spatial grid cells.  Features
         are designed as continuous, interaction-weighted loss magnitudes
@@ -562,8 +543,7 @@ class MarineLoader(BaseDomainLoader):
         startdate: str | None = None,
         enddate: str | None = None,
     ) -> list[dict[str, Any]]:
-        """
-        Fetch occurrence records from the OBIS API with pagination.
+        """Fetch occurrence records from the OBIS API with pagination.
 
         Args:
             scientificname: Taxonomic name to query (e.g. ``"Acropora"``).
@@ -619,8 +599,7 @@ class MarineLoader(BaseDomainLoader):
 
     @staticmethod
     def _normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Normalize OBIS result columns to a consistent schema.
+        """Normalize OBIS result columns to a consistent schema.
 
         Ensures the DataFrame contains the expected columns with correct
         dtypes.  Missing columns are filled with appropriate defaults.
@@ -654,8 +633,7 @@ class MarineLoader(BaseDomainLoader):
 
     @staticmethod
     def _synthesize_event(event: dict[str, Any]) -> pd.DataFrame:
-        """
-        Generate synthetic occurrence data for an event.
+        """Generate synthetic occurrence data for an event.
 
         Used as a fallback when the OBIS API returns no data for a
         historical event.  Creates a realistic distribution of occurrence
@@ -676,7 +654,11 @@ class MarineLoader(BaseDomainLoader):
             DataFrame with synthetic occurrence records including both
             baseline and event periods.
         """
-        rng = np.random.default_rng(abs(hash(event["name"])) % (2**31))
+        # Process-stable seed: Python's built-in hash() is salted per process,
+        # so derive the fallback-reconstruction seed from hashlib.sha256 instead
+        # -- identical every run without relying on PYTHONHASHSEED.
+        seed_bytes = hashlib.sha256(event["name"].encode()).digest()
+        rng = np.random.default_rng(int.from_bytes(seed_bytes[:4], "little") % (2**31))
 
         region = event["region"]
         lat_min = region["lat_min"]
@@ -818,8 +800,7 @@ def _make_wkt_polygon(
     lon_min: float,
     lon_max: float,
 ) -> str:
-    """
-    Build a WKT POLYGON string from bounding box coordinates.
+    """Build a WKT POLYGON string from bounding box coordinates.
 
     Args:
         lat_min: Southern latitude boundary.
@@ -845,8 +826,7 @@ def _assign_grid_cells(
     df: pd.DataFrame,
     resolution: float = _GRID_RESOLUTION,
 ) -> pd.DataFrame:
-    """
-    Assign each occurrence record to a spatial grid cell.
+    """Assign each occurrence record to a spatial grid cell.
 
     Grid cells are defined by flooring the latitude and longitude to
     the nearest multiple of *resolution*.  A ``grid_cell`` column is
@@ -880,8 +860,7 @@ def _assign_grid_cells(
 def _compute_richness_by_cell(
     df: pd.DataFrame,
 ) -> dict[str, float]:
-    """
-    Compute species richness per grid cell.
+    """Compute species richness per grid cell.
 
     Args:
         df: DataFrame with ``grid_cell`` and ``scientificName`` columns.
@@ -903,8 +882,7 @@ def _compute_richness_by_cell(
 
 
 def _compute_sst_anomaly_proxy(cell_data: pd.DataFrame) -> float:
-    """
-    Compute an SST anomaly proxy from species occurrence patterns.
+    """Compute an SST anomaly proxy from species occurrence patterns.
 
     The proxy is the ratio of warm-water indicator genera (those in the
     first half of :pydata:`_REEF_INDICATOR_SPECIES`, which tend to be

@@ -1,15 +1,9 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 """OSHA compliance anomaly detection for industry-specific safety monitoring.
 
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under
-the terms of the GNU General Public License as published by the Free Software
-Foundation, either version 3 of the License, or (at your option) any later
 version.
 
-This program is distributed in the hope that it will be useful, but WITHOUT
-ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
 details.
 
 This module ports ``osha_compliance_anomaly.py`` from Omni-AXA-Engine and
@@ -386,7 +380,6 @@ def _ecfr_structure_contains_part(structure: Any, part_number: str) -> bool:
 # Detector
 # ---------------------------------------------------------------------------
 
-
 _DEFAULT_HAZARD_THRESHOLDS: Final[Mapping[HazardCategory, float]] = {
     HazardCategory.FALL: 0.70,
     HazardCategory.ELECTRICAL: 0.75,
@@ -401,7 +394,6 @@ _DEFAULT_HAZARD_THRESHOLDS: Final[Mapping[HazardCategory, float]] = {
     HazardCategory.MACHINERY: 0.70,
     HazardCategory.CONFINED_SPACE: 0.85,
 }
-
 
 _DEFAULT_OSHA_STANDARDS: Final[Mapping[HazardCategory, OSHAStandard]] = {
     HazardCategory.FALL: OSHAStandard(
@@ -465,7 +457,6 @@ _DEFAULT_OSHA_STANDARDS: Final[Mapping[HazardCategory, OSHAStandard]] = {
         description="Entry procedures for confined spaces",
     ),
 }
-
 
 _DEFAULT_TRAINING_PROGRAMS: Final[Mapping[str, OSHATrainingRecommendation]] = {
     "OSHA_10": OSHATrainingRecommendation(

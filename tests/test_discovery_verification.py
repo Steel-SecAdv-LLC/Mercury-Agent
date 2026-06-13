@@ -1,9 +1,6 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
-
-Comprehensive Discovery and Innovation Verification Tests.
-Tests the key claims made in NOVELTY_PROOFS.md and DISCOVERIES.md.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Comprehensive Discovery and Innovation Verification Tests. Tests the key claims made in NOVELTY_PROOFS.md and DISCOVERIES.md.
 
 Note: Some tests require PyTorch and are marked with pytest.mark.skipif.
 

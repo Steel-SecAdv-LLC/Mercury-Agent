@@ -1,12 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Enhanced health check endpoints for Kubernetes and monitoring.
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Enhanced health check endpoints for Kubernetes and monitoring.
 
 Implements standard health check patterns:
 - Liveness probe: Is the application alive?
@@ -64,8 +58,7 @@ class ComponentStatus(StrEnum):
 
 @dataclass
 class HealthCheck:
-    """
-    Health check definition.
+    """Health check definition.
 
     Attributes:
         name: Check name.
@@ -94,8 +87,7 @@ class ComponentHealth(BaseModel):
 
 
 class LivenessResponse(BaseModel):
-    """
-    Liveness probe response.
+    """Liveness probe response.
 
     Simple response indicating if the application process is alive.
     """
@@ -105,8 +97,7 @@ class LivenessResponse(BaseModel):
 
 
 class ReadinessResponse(BaseModel):
-    """
-    Readiness probe response.
+    """Readiness probe response.
 
     Indicates if the application is ready to accept traffic.
     """
@@ -120,8 +111,7 @@ class ReadinessResponse(BaseModel):
 
 
 class DetailedHealthResponse(BaseModel):
-    """
-    Detailed health check response.
+    """Detailed health check response.
 
     Comprehensive health information for debugging and monitoring.
     """
@@ -169,8 +159,7 @@ class HealthChecker:
     """
 
     def __init__(self, version: str = "1.7.0") -> None:
-        """
-        Initialize health checker.
+        """Initialize health checker.
 
         Args:
             version: Application version string.
@@ -187,8 +176,7 @@ class HealthChecker:
         critical: bool = True,
         tags: list[str] | None = None,
     ) -> None:
-        """
-        Add a health check.
+        """Add a health check.
 
         Args:
             name: Check name.
@@ -207,8 +195,7 @@ class HealthChecker:
         self._checks.append(check)
 
     async def run_check(self, check: HealthCheck) -> ComponentHealth:
-        """
-        Run a single health check.
+        """Run a single health check.
 
         Args:
             check: Health check to run.
@@ -263,8 +250,7 @@ class HealthChecker:
         self,
         tags: list[str] | None = None,
     ) -> tuple[HealthStatus, list[ComponentHealth]]:
-        """
-        Run all health checks.
+        """Run all health checks.
 
         Args:
             tags: Filter checks by tags (optional).
@@ -305,8 +291,7 @@ class HealthChecker:
         return overall_status, list(results)
 
     def get_system_info(self) -> dict[str, Any]:
-        """
-        Get system information.
+        """Get system information.
 
         Returns:
             Dictionary with system details.
@@ -406,7 +391,6 @@ _health_checker.add_check("self", check_self, critical=True, tags=["core"])
 _health_checker.add_check("memory", check_memory, critical=False, tags=["system"])
 _health_checker.add_check("disk", check_disk, critical=False, tags=["system"])
 
-
 # FastAPI Router
 health_router = APIRouter(tags=["Health"])
 
@@ -422,8 +406,7 @@ health_router = APIRouter(tags=["Health"])
     },
 )
 async def liveness_probe() -> LivenessResponse:
-    """
-    Liveness probe endpoint.
+    """Liveness probe endpoint.
 
     This endpoint is called by Kubernetes to determine if the
     application should be restarted.
@@ -445,8 +428,7 @@ async def liveness_probe() -> LivenessResponse:
     },
 )
 async def readiness_probe(response: Response) -> ReadinessResponse:
-    """
-    Readiness probe endpoint.
+    """Readiness probe endpoint.
 
     This endpoint is called by Kubernetes to determine if the
     application should receive traffic.
@@ -480,8 +462,7 @@ async def readiness_probe(response: Response) -> ReadinessResponse:
     },
 )
 async def startup_probe() -> LivenessResponse:
-    """
-    Startup probe endpoint.
+    """Startup probe endpoint.
 
     This endpoint is called by Kubernetes during startup to
     give slow-starting applications time to initialize.
@@ -508,8 +489,7 @@ async def startup_probe() -> LivenessResponse:
     },
 )
 async def detailed_health(response: Response) -> DetailedHealthResponse:
-    """
-    Detailed health check endpoint.
+    """Detailed health check endpoint.
 
     Provides comprehensive health information including:
     - All component statuses
@@ -541,8 +521,7 @@ async def detailed_health(response: Response) -> DetailedHealthResponse:
     response_class=Response,
 )
 async def health_metrics() -> Response:
-    """
-    Export health metrics in Prometheus format.
+    """Export health metrics in Prometheus format.
 
     Returns:
         Plain text metrics in Prometheus exposition format.

@@ -1,15 +1,6 @@
-"""
-Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-"""
-
-from __future__ import annotations
-
-"""
-Multi-Hop Reasoner - Abductive/Deductive/Inductive Reasoning Chains
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Multi-Hop Reasoner - Abductive/Deductive/Inductive Reasoning Chains.
 
 Implements sophisticated reasoning capabilities:
 - Deductive reasoning: From general to specific (if P then Q)
@@ -22,6 +13,8 @@ Research Sources:
 - DARPA ANSR: Trustworthy reasoning chains
 - Logic Tensor Networks: Neural-symbolic reasoning
 """
+
+from __future__ import annotations
 
 import logging
 import time
@@ -142,8 +135,7 @@ class ReasoningChain:
 
 
 class MultiHopReasoner:
-    """
-    Multi-Hop Reasoning Engine.
+    """Multi-Hop Reasoning Engine.
 
     Implements three types of reasoning:
 
@@ -172,8 +164,7 @@ class MultiHopReasoner:
         min_confidence_threshold: float = 0.1,
         enable_explanation_generation: bool = True,
     ):
-        """
-        Initialize Multi-Hop Reasoner.
+        """Initialize Multi-Hop Reasoner.
 
         Args:
             max_chain_depth: Maximum reasoning steps per chain
@@ -272,8 +263,7 @@ class MultiHopReasoner:
         premises: list[Proposition],
         goal: str | None = None,
     ) -> ReasoningChain | None:
-        """
-        Perform deductive reasoning (forward chaining).
+        """Perform deductive reasoning (forward chaining).
 
         Args:
             premises: Initial premises
@@ -378,8 +368,7 @@ class MultiHopReasoner:
         instances: list[dict[str, Any]],
         feature_extractor: Callable[[dict[str, Any]], np.ndarray[Any, Any]] | None = None,
     ) -> ReasoningChain | None:
-        """
-        Perform inductive reasoning (pattern generalization).
+        """Perform inductive reasoning (pattern generalization).
 
         Args:
             instances: List of observed instances
@@ -450,8 +439,7 @@ class MultiHopReasoner:
         candidate_hypotheses: list[Proposition],
         prior_probabilities: dict[str, float] | None = None,
     ) -> ReasoningChain | None:
-        """
-        Perform abductive reasoning (inference to best explanation).
+        """Perform abductive reasoning (inference to best explanation).
 
         Uses Bayesian-like reasoning to select the hypothesis that
         best explains the observation.
@@ -525,8 +513,7 @@ class MultiHopReasoner:
         goal: str | None = None,
         allowed_types: list[ReasoningType] | None = None,
     ) -> ReasoningChain | None:
-        """
-        Perform multi-hop reasoning combining different reasoning types.
+        """Perform multi-hop reasoning combining different reasoning types.
 
         Chains multiple reasoning steps to reach conclusions not
         directly inferable from initial premises.
