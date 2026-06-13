@@ -27,6 +27,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Calibration — `StrictIsotonicCalibration` ported from PR #275 (X1 survivor) (2026-06-12)
+
+* **`StrictIsotonicCalibration`** (`core/calibration.py`): isotonic calibration
+  with a squeezed strictly-increasing tie-break, so the map preserves AUROC
+  exactly while keeping isotonic's ECE (PR #275 measured vanilla isotonic
+  losing AUROC on 5/6 ADBench datasets, e.g. thyroid 0.9788 -> 0.9535).
+  Exposed as `calibrate_detector(..., method="strict_isotonic")`; pinned by
+  `tests/test_calibration_brief.py`.
+* Five factually wrong "requires scikit-learn" `ImportError` messages reworded
+  to name the actual dependency (`omni_mercury_engine.ml.mercury_ml`, pure
+  numpy/scipy) — PR #275's V12c finding.
+* **Evidence suite** `benchmarks/calibration_brief/` (validation register
+  V1–V11, explorations X1/X2/X8 with captured results) restored from the
+  deleted PR #275 branch (`refs/pull/275/head`, commit `bc211a0`), with a
+  disposition note reconciling it to what `main` has since shipped.
+* Deliberately not ported: the brief's `BetaCalibration` (superseded by the
+  accept-gated Beta landed in #278), the X12a eta-multiply lint (the eta^Phi
+  term was settled as an opt-in decoupling, R6 default-off), and the
+  MATH_SPEC phi_sum patch (superseded by the `Φ + 2` canonical derivation).
+
 ### Session bootstrap — no hosting-vendor files in the tree; Mercury-named script hardened (2026-06-12)
 
 The repository carries no hosting-vendor configuration (the vendor-named
