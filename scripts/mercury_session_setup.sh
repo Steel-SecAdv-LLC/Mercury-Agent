@@ -84,11 +84,19 @@ fi
 export LD_LIBRARY_PATH="${AMA_LIB}:${AMA_SRC}/build:${LD_LIBRARY_PATH:-}"
 
 # Mercury + ML stack (torch, lightning, etc.) and the CI lint/test tools, so
-# tests and linters run out of the box. AMA was installed above, so its
-# cryptography>=48 is already present and this step won't try to uninstall the
-# Debian-pinned one.
-echo "Installing Mercury [ml] extras + test/lint tooling..."
-python -m pip install --quiet --ignore-installed -e "${PROJECT_DIR}[ml]" \
-  pytest "black>=26.3.1,<27.0.0" ruff flake8 mypy types-requests
+# tests and linters run out of the box. The [dev] extra is the single source
+# of truth for the test/lint toolchain: it carries the pytest plugin set the
+# suite's own configuration requires (pyproject sets ``asyncio_mode``, and the
+# CI invocation uses ``-n``/``--timeout``/``--cov`` from
+# pytest-xdist/-timeout/-cov) plus the black/mypy/types-requests pins that
+# keep formatting and the type-ignore set byte-identical with CI. A bare
+# ``pytest`` install provably cannot run the suite in CI configuration.
+# flake8 and pydocstyle are not in [dev]; install them alongside, pydocstyle
+# at the CI pin (mirrors the code-quality lane). AMA was installed above, so
+# its cryptography>=48 is already present and this step won't try to
+# uninstall the Debian-pinned one.
+echo "Installing Mercury [ml,dev] extras + test/lint tooling..."
+python -m pip install --quiet --ignore-installed -e "${PROJECT_DIR}[ml,dev]" \
+  flake8 "pydocstyle==6.3.0"
 
-echo "Mercury environment ready: AMA primary PQC backend live; [ml] + tooling installed."
+echo "Mercury environment ready: AMA primary PQC backend live; [ml,dev] + tooling installed."
