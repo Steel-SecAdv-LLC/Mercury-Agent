@@ -3872,6 +3872,16 @@ class OmniMercuryEngine(LoggerMixin):
         if self.mode != "fusion":
             return self.detect(data)
 
+        # Normalize a single 1-D sample to a (1, n_features) batch, matching
+        # score_fusion's contract. The detector extractors disagree on whether
+        # a 1-D array is one sample or n one-feature samples, so an
+        # un-normalized 1-D input surfaces as an opaque tensor-shape error
+        # inside the fusion forward pass instead of a scored sample.
+        if isinstance(data, np.ndarray) and data.ndim == 1:
+            data = data.reshape(1, -1)
+        elif isinstance(data, torch.Tensor) and data.dim() == 1:
+            data = data.unsqueeze(0)
+
         det_features, det_scores, det_certificates = self._extract_detector_features(data)
         mod_features, mod_scores = self._extract_model_features(data)
 
