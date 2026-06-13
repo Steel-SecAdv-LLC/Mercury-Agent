@@ -50,6 +50,12 @@ class TestLLMUsage:
         with pytest.raises(ValueError, match="prompt_tokens"):
             LLMUsage(provider="openai", model="m", prompt_tokens=bad)  # type: ignore[arg-type]
 
+    @pytest.mark.parametrize("field", ["prompt_tokens", "completion_tokens", "total_tokens"])
+    def test_bool_counts_rejected(self, field: str) -> None:
+        """``bool`` is an ``int`` subclass; a stray True/False is not 1/0 tokens."""
+        with pytest.raises(ValueError, match=field):
+            LLMUsage(provider="openai", model="m", **{field: True})
+
     def test_empty_provider_or_model_rejected(self) -> None:
         with pytest.raises(ValueError, match="provider"):
             LLMUsage(provider="", model="m")
@@ -90,6 +96,37 @@ class TestUsageLedger:
             "completion_tokens": 0,
             "total_tokens": 0,
         }
+
+    def test_global_totals_match_sum_of_per_model_breakdown(self) -> None:
+        """The O(1) running global must equal the per-key breakdown summed.
+
+        Guards the running-counter optimization against drift: ``totals()`` is
+        served from a single global aggregate, so it must agree field-for-field
+        with the independently maintained ``totals_by_model`` across many keys.
+        """
+        ledger = UsageLedger()
+        for i in range(50):
+            ledger.record(
+                LLMUsage(
+                    provider=f"p{i % 7}",
+                    model=f"m{i % 5}",
+                    prompt_tokens=i,
+                    completion_tokens=2 * i,
+                )
+            )
+        ledger.record(LLMUsage(provider="p0", model="unmetered", reported=False))
+
+        summed = {
+            "calls": 0,
+            "unreported_calls": 0,
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0,
+        }
+        for agg in ledger.totals_by_model().values():
+            for key in summed:
+                summed[key] += agg[key]
+        assert ledger.totals() == summed
 
     def test_recent_ring_is_bounded_but_totals_are_not(self) -> None:
         """Evicting old records from the ring must not change the totals."""

@@ -46,13 +46,18 @@ logger = logging.getLogger(__name__)
 def _as_count(value: Any) -> int | None:
     """Coerce a provider-reported token count to a non-negative int.
 
-    Providers occasionally serialize counts as floats; anything that is not
-    a non-negative number is treated as unreported (``None``) rather than
-    guessed at.
+    Providers occasionally serialize integer counts as floats (e.g. Cohere
+    reports its token counts as ``42.0``); such integer-valued floats are
+    accepted exactly. Anything that is not a non-negative, integer-valued
+    number — a bool, a non-numeric type, a negative, or a genuinely fractional
+    float — is treated as unreported (``None``) rather than guessed at or
+    silently truncated, so a count is only booked when it is provider-truthful.
     """
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
     if value < 0:
+        return None
+    if isinstance(value, float) and not value.is_integer():
         return None
     return int(value)
 
