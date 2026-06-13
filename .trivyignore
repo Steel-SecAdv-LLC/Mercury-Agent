@@ -1,0 +1,74 @@
+# Mercury Agent — deployment-image accepted-risk ledger (machine-enforced).
+#
+# This file is consumed by the BLOCKING Trivy gates in
+# .github/workflows/ci.yml and .github/workflows/security.yml, which run
+# with `ignore-unfixed: false`. Every entry below is therefore an explicit,
+# enumerated, expiring acceptance — when an entry expires (exp:) the gate
+# starts failing and forces a re-review; a NEW unfixed CRITICAL/HIGH
+# finding that is not listed here blocks the merge instead of passing
+# silently. This replaces the previous blanket `ignore-unfixed: true`
+# posture, which waived the entire unfixed-OS-CVE class invisibly.
+#
+# Rules for this file:
+#   * Entries require owner review; record component, reason, and source.
+#   * Only no-upstream-fix OS CVEs belong here. Anything with a fixed
+#     version available is remediated by the Dockerfile's runtime-stage
+#     `apt-get upgrade -y` (the canonical fix path) and must never be
+#     listed.
+#   * Expiry is 90 days (the documented quarterly review cadence).
+#
+# Enumeration source: the blocking gates' own scan of the BUILT image
+# (trivy 0.70.0 via aquasecurity/trivy-action@v0.36.0 — the version the
+# enforcing workflows actually run), 2026-06-10: 13 distinct unfixed
+# CRITICAL/HIGH CVEs. Nine were first enumerated from the
+# python:3.13-slim-bookworm base (local trivy 0.71.0 scan, same day);
+# four more (libexpat1, mesa GL) surface only in the gates' built-image
+# scan, which is the canonical source for this ledger. Common
+# mitigations: the container runs as non-root UID 1000 with SUID/SGID
+# bits stripped, and none of these components sits on an
+# untrusted-input path in the shipped API (per-entry rationale below).
+# The strategic fix — a slimmer image that drops these packages
+# entirely (perl, ncurses, sqlite, zlib/minizip, mesa GL) — is tracked
+# for a Docker-equipped follow-up; this file makes the interim posture
+# visible and reviewable.
+
+# zlib/minizip — MiniZip integer overflow; Debian will_not_fix; minizip
+# is not used by any Mercury code path.
+CVE-2023-45853 exp:2026-09-08
+
+# SQLite (libsqlite3-0) — no upstream fix in bookworm; Mercury ships no
+# SQLite-backed feature by default (DATABASE_URL persistence is optional).
+CVE-2025-7458 exp:2026-09-08
+
+# ncurses (libncursesw6 / libtinfo6 / ncurses-base / ncurses-bin) — no
+# bookworm fix; terminal handling only, never exposed to untrusted input
+# in the API container.
+CVE-2025-69720 exp:2026-09-08
+
+# perl-base — pulled in by Debian essential tooling (adduser); the API
+# container executes no Perl. No bookworm fix available (statuses:
+# affected / fix_deferred as of 2026-06-10).
+CVE-2026-8376 exp:2026-09-08
+CVE-2026-42496 exp:2026-09-08
+CVE-2026-42497 exp:2026-09-08
+CVE-2026-48959 exp:2026-09-08
+CVE-2026-48962 exp:2026-09-08
+CVE-2026-9538 exp:2026-09-08
+
+# libexpat1 — Python's stdlib XML backend (pyexpat); in the runtime
+# image at 2.5.0-1+deb12u2 (newest bookworm build, post `apt-get
+# upgrade`). No bookworm fix for these three (statuses: will_not_fix /
+# affected, per the gate scan 2026-06-10). Mercury's only XML parse
+# path is CAP alert validation (alerting/cap_generator.py), routed
+# through defusedxml (DTD/entity expansion forbidden) and not exposed
+# to untrusted input by any shipped API route.
+CVE-2025-59375 exp:2026-09-08
+CVE-2026-25210 exp:2026-09-08
+CVE-2026-45186 exp:2026-09-08
+
+# Mesa GL stack (libgl1-mesa-dri / libgl1-mesa-glx / libglapi-mesa /
+# libglx-mesa0) — installed by the Dockerfile runtime stage solely as
+# OpenCV's libGL import-time dependency; the headless API container
+# renders nothing and accepts no GL contexts. No bookworm fix
+# (will_not_fix; upstream fixed only in Mesa >= 25.3.6 / 26.0.1).
+CVE-2026-40393 exp:2026-09-08

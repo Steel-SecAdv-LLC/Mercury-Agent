@@ -14,16 +14,17 @@ floor or empirical conformal coverage drops below ``target − margin``.
 
 Why train rather than load the shipped checkpoint
 -------------------------------------------------
-Loading ``default_fusion.pt`` and scoring it is cheaper, but the checkpoint
-round-trip drifts per-sample probabilities (AUC survives at Δ≈0.002, but absolute
-probabilities — and therefore F1@0.5 / conformal sets — drift by up to ≈0.76),
-and the shipped checkpoint underperforms in-distribution because base-detector
-state is not persisted (see ROADMAP v1.7.x deferred item #16). Training in-process
-with a fixed seed and ``symbolic_weight=0.0`` gives a bit-stable measurement of
-the fusion stack's *achievable* performance, which is exactly what a regression
-gate must pin, and sidesteps the round-trip drift entirely. The synthetic path is
-fully offline (no network / ADBench), so the lane is deterministic and CI-safe;
-the strong real-data fusion numbers remain in
+Training in-process with a fixed seed and ``symbolic_weight=0.0`` gives a
+bit-stable measurement of the fusion stack's *achievable* performance — what a
+regression gate must pin — independent of any shipped artifact. (Historically
+this also sidestepped a checkpoint round-trip defect: per-sample probabilities
+drifted by up to ≈0.76 on load because base-detector state was not persisted.
+That defect is **closed** — checkpoints persist base-detector/model fitted
+state and the conformal serving surface (measured save→load max|ΔProb| ≈ 6e-8),
+locked by ``tests/test_fusion_checkpoint_roundtrip.py`` — but the in-process
+design remains correct: the gate measures the stack, not one artifact.) The synthetic
+path is fully offline (no network / ADBench), so the lane is deterministic and
+CI-safe; the strong real-data fusion numbers remain in
 ``benchmarks/fusion_capacity/sweep_real_v5.json`` (network-gated).
 
 Usage::

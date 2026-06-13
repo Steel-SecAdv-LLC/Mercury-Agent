@@ -320,3 +320,64 @@ class TestNativeLOFDuplicateClusterContract:
             f"far-isolated query disagrees on outlier-ness: "
             f"native={n_far:.3e}, sklearn={s_far:.3e}"
         )
+
+
+class TestLOFKEqualsOneRegression:
+    """k == 1 LOF queries must not crash (defect found 2026-06-11).
+
+    scipy's ``KDTree.query`` squeezes the neighbor axis when ``k == 1`` —
+    fitting on a single sample, or configuring ``n_neighbors=1``, made every
+    ``decision_function`` call raise ``AxisError`` at inference.
+    """
+
+    def test_single_training_sample_scores(self) -> None:
+        detector = SpatialAnomalyDetector()
+        detector.fit(np.array([[0.0, 0.0, 0.0]]))
+        result = detector.detect(np.array([[0.1, 0.0, 0.0], [9.0, 9.0, 9.0]]))
+        assert result["scores"].shape == (2,)
+        assert np.all(np.isfinite(result["scores"]))
+
+    def test_n_neighbors_one_scores(self) -> None:
+        rng = np.random.RandomState(3)
+        detector = SpatialAnomalyDetector({"n_neighbors": 1})
+        detector.fit(rng.randn(40, 3))
+        result = detector.detect(rng.randn(12, 3))
+        assert result["scores"].shape == (12,)
+        assert np.all(np.isfinite(result["scores"]))
+
+    def test_k_one_lof_far_query_is_anomalous(self) -> None:
+        """The restored axis must preserve LOF semantics, not just shape."""
+        rng = np.random.RandomState(5)
+        lof = _NativeLOF(n_neighbors=1).fit(rng.randn(30, 2))
+        near = float(lof.decision_function(rng.randn(1, 2))[0])
+        far = float(lof.decision_function(np.array([[80.0, 80.0]]))[0])
+        assert far < near
+
+
+class TestSpatialNonFiniteInputRegression:
+    """Non-finite queries must be sanitized, not crash (defect found 2026-06-11).
+
+    ``KDTree.query`` refuses NaN/Inf outright, which crashed ``detect()``
+    before its own downstream NaN guards could run — the temporal detector
+    already sanitizes at the same boundary.
+    """
+
+    def test_nan_query_scores(self) -> None:
+        rng = np.random.RandomState(11)
+        detector = SpatialAnomalyDetector()
+        detector.fit(rng.randn(60, 4))
+        queries = rng.randn(5, 4)
+        queries[2, 1] = np.nan
+        queries[4, 3] = np.inf
+        result = detector.detect(queries)
+        assert result["scores"].shape == (5,)
+        assert np.all(np.isfinite(result["scores"]))
+
+    def test_finite_rows_unchanged_by_sanitization(self) -> None:
+        """Sanitization is a no-op for finite inputs (bit-identical scores)."""
+        rng = np.random.RandomState(13)
+        detector = SpatialAnomalyDetector()
+        detector.fit(rng.randn(60, 4))
+        queries = rng.randn(8, 4)
+        baseline = detector.detect(queries)["scores"]
+        np.testing.assert_array_equal(detector.detect(queries)["scores"], baseline)

@@ -35,6 +35,8 @@ from enum import Enum
 from functools import wraps
 from typing import TYPE_CHECKING, Any
 
+from omni_mercury_engine._env import is_production as _env_is_production
+
 try:
     from ama_cryptography.key_management import (
         HDKeyDerivation,
@@ -222,8 +224,7 @@ class APIKeyStore:
             Optionally adjust API_KEY_HASH_ITERATIONS (default: 260000).
         """
         if APIKeyStore._HASH_SALT_IS_DEFAULT:
-            is_prod = os.getenv("MERCURY_AGENT_ENV", "").lower() == "production"
-            if is_prod:
+            if _is_production_env():
                 raise ValueError(
                     "API_KEY_HASH_SALT environment variable is required in production. "
                     "Generate with: openssl rand -hex 32"
@@ -330,7 +331,10 @@ class AuthKeyManager:
         """Initialize the auth key manager.
 
         Args:
-            master_seed: HD derivation master seed (generated if None)
+            master_seed: HD derivation master seed. When None, a random
+                per-process seed is generated — derived keys then differ
+                across processes and restarts (``seed_is_ephemeral`` is
+                set so callers can surface that hazard).
             rotation_period_days: Default key rotation period in days
         """
         if not _AMA_KEY_MGMT_AVAILABLE:
@@ -339,6 +343,7 @@ class AuthKeyManager:
                 "Install with: pip install 'ama-cryptography @ "
                 "git+https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git'"
             )
+        self.seed_is_ephemeral = master_seed is None
         self._hd = HDKeyDerivation(seed=master_seed)
         self._rotation = KeyRotationManager(
             rotation_period=timedelta(days=rotation_period_days),
@@ -479,11 +484,77 @@ def get_api_key_store() -> APIKeyStore:
     return _api_key_store
 
 
+def _is_production_env() -> bool:
+    """Decide production mode for the auth layer.
+
+    Mirrors ``api/server.py``'s precedence exactly: the canonical
+    ``MERCURY_ENV`` flag (``omni_mercury_engine._env``) wins whenever it
+    is set — including raising :class:`MercuryProductionConfigError` on
+    unknown values, so typos stay loud. Only when ``MERCURY_ENV`` is
+    unset do the legacy aliases this module has honoured since v1.x
+    (``MERCURY_AGENT_ENV``, ``ENV``, ``ENVIRONMENT``) apply.
+    """
+    if os.getenv("MERCURY_ENV", "").strip():
+        return _env_is_production()
+    return any(
+        os.getenv(var, "").strip().lower() == "production"
+        for var in ("MERCURY_AGENT_ENV", "ENV", "ENVIRONMENT")
+    )
+
+
+def _load_master_seed_from_env() -> bytes | None:
+    """Load the AMA HD master seed from ``AMA_MASTER_SEED`` (hex-encoded).
+
+    Returns ``None`` when the variable is unset or empty (callers then fall
+    back to an ephemeral per-process seed). A set-but-malformed value raises
+    ``ValueError`` instead of silently degrading to an ephemeral seed —
+    a typo here would otherwise invalidate every token fleet-wide without
+    any visible error. A whitespace-only value counts as malformed, not
+    empty: ``bytes.fromhex`` ignores ASCII whitespace (so a trailing
+    newline on a valid seed is harmless), leaving zero decoded bytes to
+    fail the length check loudly rather than masking an operator's
+    intent to configure a seed.
+
+    Returns:
+        Decoded seed bytes (>= 32 bytes; 64 recommended), or None.
+
+    Raises:
+        ValueError: The value is not valid hex or decodes to fewer than
+            32 bytes (including whitespace-only values, which decode to
+            zero bytes).
+    """
+    raw = os.getenv("AMA_MASTER_SEED")
+    if not raw:
+        return None
+    try:
+        seed = bytes.fromhex(raw)
+    except ValueError as exc:
+        raise ValueError(
+            "AMA_MASTER_SEED must be a hex string (generate with: "
+            "`openssl rand -hex 64`). Refusing to fall back to an ephemeral "
+            "per-process seed on a malformed value — that would silently "
+            "break token verification across workers and restarts."
+        ) from exc
+    if len(seed) < 32:
+        raise ValueError(
+            "AMA_MASTER_SEED must decode to at least 32 bytes "
+            f"(64 recommended); got {len(seed)} bytes."
+        )
+    return seed
+
+
 def get_auth_key_manager() -> AuthKeyManager:
-    """Get or create the global AMA auth key manager instance."""
+    """Get or create the global AMA auth key manager instance.
+
+    The HD master seed is sourced from the ``AMA_MASTER_SEED`` environment
+    variable (hex; see :func:`_load_master_seed_from_env`). When it is set,
+    every process derives identical key material, so HD-derived JWT signing
+    keys verify across workers, replicas, and restarts. When unset, the
+    seed is generated per process and derived keys are ephemeral.
+    """
     global _auth_key_manager
     if _auth_key_manager is None:
-        _auth_key_manager = AuthKeyManager()
+        _auth_key_manager = AuthKeyManager(master_seed=_load_master_seed_from_env())
     return _auth_key_manager
 
 
@@ -617,24 +688,29 @@ class JWTAuth:
             allow_dev_fallback: Allow insecure fallback key for development
 
         Security Note:
-            In production, always set JWT_SECRET_KEY environment variable.
-            Generate a secure key with: `openssl rand -hex 32`
-
-        Migration Note (v1.0 -> v2.0):
-            JWT_SECRET_KEY is now required in production. If migrating from
-            an older version, ensure you set this environment variable before
-            deploying. See CHANGELOG.md for migration instructions.
+            Key resolution order: explicit ``secret_key`` argument, then the
+            ``JWT_SECRET_KEY`` environment variable. Production mode is
+            decided by :func:`_is_production_env`: the canonical
+            ``MERCURY_ENV`` flag wins when set (unknown values raise);
+            the legacy ``MERCURY_AGENT_ENV`` / ``ENV`` / ``ENVIRONMENT``
+            aliases apply only when ``MERCURY_ENV`` is unset. In
+            production with no key set, the signing key is derived via AMA HD Key
+            Management (``get_auth_key_manager()``, purpose ``jwt_sign``);
+            a failed derivation raises ``ValueError``. The HD master seed
+            is sourced from ``AMA_MASTER_SEED`` (hex, ``openssl rand -hex
+            64``) — set it and derivation is deterministic fleet-wide.
+            Without it the seed is generated per process, derived keys
+            differ across workers/replicas/restarts, and a warning is
+            logged; in that case set ``AMA_MASTER_SEED`` or
+            ``JWT_SECRET_KEY`` (``openssl rand -hex 32``).
         """
         self.secret_key = secret_key or os.getenv("JWT_SECRET_KEY")
         self.using_fallback = False
 
         if self.secret_key is None:
-            # Check if we're in a production environment
-            is_production = os.getenv("MERCURY_AGENT_ENV", "").lower() == "production"
-            is_production = is_production or os.getenv("ENV", "").lower() == "production"
-            is_production = is_production or os.getenv("ENVIRONMENT", "").lower() == "production"
-
-            if is_production:
+            # Canonical MERCURY_ENV first, legacy aliases second — the
+            # same precedence api/server.py applies (see _is_production_env).
+            if _is_production_env():
                 # In production, derive JWT signing key from AMA Key Management
                 try:
                     km = get_auth_key_manager()
@@ -643,6 +719,14 @@ class JWTAuth:
                     logger.info(
                         "JWT signing key derived from AMA HD Key Management (purpose=jwt_sign)"
                     )
+                    if km.seed_is_ephemeral:
+                        logger.warning(
+                            "JWT signing key was derived from an EPHEMERAL per-process "
+                            "HD master seed: tokens will not verify across workers, "
+                            "replicas, or restarts. Set AMA_MASTER_SEED "
+                            "(`openssl rand -hex 64`) for deterministic fleet-wide "
+                            "derivation, or set JWT_SECRET_KEY directly."
+                        )
                 except Exception as e:
                     raise ValueError(
                         "JWT_SECRET_KEY environment variable is required in production "

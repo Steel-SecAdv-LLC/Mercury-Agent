@@ -5,8 +5,8 @@
 Monitors CISA critical infrastructure sectors, EU Critical Entities,
 World Bank economic sectors, and emerging technologies for anomalies.
 
-Includes filtering/selection system to run subsets of modules (1-29+) for
-flexible STEM applications.
+Includes a filtering/selection system to run any subset of the registered
+modules for flexible STEM applications.
 """
 
 from __future__ import annotations
@@ -51,8 +51,9 @@ from .streaming import (
 class InfrastructureCoordinator:
     """Coordinator for infrastructure monitoring modules with flexible selection.
 
-    Enables filtering/selection to run 1, 2, 5, or 29+ modules simultaneously
-    based on priorities, categories, or explicit names. Handles all infrastructure
+    Enables filtering/selection of any subset of the registered modules
+    (current count via ``len(coordinator.list_all_modules())``) based on
+    priorities, categories, or explicit names. Handles all infrastructure
     frameworks (CISA NCFs, EU Critical Entities, World Bank sectors, etc.)
     individually or as a coordinated whole.
 

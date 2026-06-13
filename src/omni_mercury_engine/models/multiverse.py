@@ -28,6 +28,13 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 # Omni-Code: Omni-Percipient Future (predictive foresight and anticipatory analysis)
+
+# Fixed seed for the default initial universe states. The value is arbitrary
+# but immutable: it makes every default-constructed engine's universes (and
+# therefore its extracted features) identical across processes. Changing it
+# changes what fresh engines extract; checkpoints are unaffected (they
+# persist the evolved population).
+_UNIVERSE_INIT_SEED: int = 9_148_267
 _VITALITY_HASH = OmniCodes.OMNI_PERCIPIENT.code
 
 
@@ -83,6 +90,10 @@ class MultiverseOmniEngine:
         self.state_dim = state_dim
         self.convergence_threshold = convergence_threshold
         self.entanglement_strength = entanglement_strength
+        # Track whether the caller injected an RNG: initial universe states
+        # must be instance-independent by default (see _initialize_multiverse)
+        # but an explicitly supplied generator keeps full control.
+        self._injected_rng = rng is not None
         self._rng = rng or get_global_rng()
 
         self.universes: dict[str, Universe] = {}
@@ -95,11 +106,29 @@ class MultiverseOmniEngine:
         logging.info(f"Number of parallel universes: {num_universes}")
 
     def _initialize_multiverse(self) -> None:
-        """Initialize the multiverse with random universes."""
-        for i in range(self.num_universes):
-            universe_id = hashlib.sha3_256(f"universe_{i}_{time.time()}".encode()).hexdigest()[:16]
+        """Initialize the multiverse with pseudo-random universes.
 
-            state_vector = self._rng.randn(self.state_dim) * 0.5
+        The initial universe states are an *architecture constant*, not a
+        per-process lottery: they are drawn from a dedicated fixed-seed
+        generator (and the IDs hash only the index), so every instance hosts
+        bit-identical initial universes. ``extract_features`` is a pure
+        function of those states and the input, so two checkpoint-free
+        engines now extract the same multiverse feature group across
+        processes; checkpoints additionally persist the evolved population
+        (:meth:`get_fitted_state`, ROADMAP row 16). An explicitly injected
+        ``rng`` still overrides this for callers that want variation.
+        """
+        init_rng: Any = (
+            self._rng if self._injected_rng else np.random.default_rng(_UNIVERSE_INIT_SEED)
+        )
+        for i in range(self.num_universes):
+            universe_id = hashlib.sha3_256(f"universe_{i}".encode()).hexdigest()[:16]
+
+            state_vector = (
+                init_rng.randn(self.state_dim) * 0.5
+                if self._injected_rng
+                else init_rng.standard_normal(self.state_dim) * 0.5
+            )
             probability_amplitude = 1.0 / self.num_universes
 
             universe = Universe(
@@ -387,3 +416,51 @@ class MultiverseOmniEngine:
             remaining -= 1.0 / denominator
 
         return fractions
+
+    def get_fitted_state(self) -> dict[str, Any] | None:
+        """Export the universe population for checkpoint round-tripping.
+
+        The universes' state vectors define the feature transform
+        (:meth:`extract_features` scores data against them). Default
+        construction is fixed-seed, but the population evolves over the
+        engine's lifetime (and callers may inject their own ``rng``), so an
+        engine reloading a checkpoint must still restore this exact
+        population to reproduce the saving engine's features (ROADMAP
+        row 16).
+
+        Returns:
+            JSON/tensor-safe mapping of the population.
+        """
+        return {
+            "num_universes": int(self.num_universes),
+            "state_dim": int(self.state_dim),
+            "universes": [
+                {
+                    "universe_id": str(u.universe_id),
+                    "state_vector": np.asarray(u.state_vector, dtype=np.float64),
+                    "probability_amplitude": float(u.probability_amplitude),
+                    "fitness": float(u.fitness),
+                    "state": u.state.value,
+                    "timeline": int(u.timeline),
+                    "parent_universe": u.parent_universe,
+                }
+                for u in self.universes.values()
+            ],
+        }
+
+    def set_fitted_state(self, state: dict[str, Any]) -> None:
+        """Restore a population produced by :meth:`get_fitted_state`."""
+        self.num_universes = int(state["num_universes"])
+        self.state_dim = int(state["state_dim"])
+        self.universes = {}
+        for entry in state["universes"]:
+            universe = Universe(
+                universe_id=str(entry["universe_id"]),
+                state_vector=np.asarray(entry["state_vector"], dtype=np.float64),
+                probability_amplitude=float(entry["probability_amplitude"]),
+                fitness=float(entry["fitness"]),
+                state=UniverseState(str(entry["state"])),
+                timeline=int(entry["timeline"]),
+                parent_universe=entry["parent_universe"],
+            )
+            self.universes[universe.universe_id] = universe

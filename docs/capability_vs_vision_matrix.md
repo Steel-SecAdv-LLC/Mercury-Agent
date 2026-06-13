@@ -5,11 +5,12 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # Capability‑vs‑Vision Matrix (code‑grounded)
 
-**Status:** verified against the source tree, not the repo index.
-**Method:** every row below is anchored to a file (and, where useful, a line)
-in `src/omni_mercury_engine/`. Where a previously‑circulated claim does not
-match the code, the row says so plainly — *verifiable‑only* means we plan
-against what exists, and we correct the record where it drifted.
+Applies to Mercury Agent **v1.7.x**. Last updated: 2026-06-11.
+
+**Method:** every row below is anchored to a file (and, where useful, a
+symbol) in `src/omni_mercury_engine/`. Where a previously‑circulated claim
+does not match the code, the row says so plainly — the project plans against
+what exists, and corrects the record where it drifted.
 
 The framing axis is **identify · interpret · depict · deter · detail** layered
 over the longer capability vision (multi‑domain, neuro‑symbolic, multi‑model,
@@ -20,78 +21,75 @@ deter, detail).
 
 ## 1. The matrix
 
-| Vision axis | Status today | Primary code evidence | Honest note |
+| Vision axis | Status | Primary code evidence | Honest note |
 |---|---|---|---|
-| **Multi‑domain** | **Confirmed** | `medical/`, `infrastructure/{cyber,economic,humanitarian,resilience,scientific}/`, `detectors/{geological,marine,energy,economic,space,drone}/`, `ocean/`, `emergent/`; real loaders in `datasets/adbench.py` (47 datasets) and `datasets/adrepository.py` (11, in `ADREPOSITORY_DATASETS`) | ~11 primary domains (+5 infrastructure sub‑domains). Real dataset **references exceed** the "65/75" index figure (ADBench alone is 47); the index *understated* this. |
-| **Neuro‑symbolic** | **Confirmed** | LTN `SymbolicConstraintModule` (`ml/symbolic_constraint.py:374`), `consensus_rule_graph()` (`ml/symbolic_constraint.py:151`), GOSNN (`core/global_omni_scalar_network.py`), ethical gates (`cognitive/ethical_bounding.py` benevolence floor `0.70`; `security/sigma_immutable_gate.py` threshold `0.93`), conformal UQ (`core/conformal_prediction.py`) | Genuine co‑training (label‑scarcity‑adaptive λ schedule, `ml/symbolic_constraint.py:244`). |
-| **Multi‑model / multi‑type** | **Confirmed (understated)** | 80+ detector classes under `detectors/`; fusion stack `detectors/fusion/multimodal_fusion.py` with `AttentionFusion` (`nn.MultiheadAttention(embed_dim=128, num_heads=4)`, line ~204), score/decision/adaptive fusion | The "22+ engines" figure is conservative; the Math‑Arrest family alone is ~22 probes. |
-| **Interpret with accuracy** | **Strong — the recent win** | `explainability/` (5 SHAP variants, 4 counterfactual methods, GDPR Art. 22); temperature calibration + ECE (`engine.py` `_fit_fusion_temperature`); conformal certificate attached at `engine.py:~4058` | The calibrated/honest‑confidence work (PR #278 line) strengthens **interpret** and the *"with accuracy"* qualifier. |
-| **Multi‑agent** | **Partial** | Single‑agent loops exist: `AgenticAutonomy` (`agentic/agentic_autonomy.py:88`), `OODAAgent` (`cognitive/autonomous_agent.py:593`) | No planner/critic/executor **multi‑agent orchestration** in Mercury yet. (A net‑new pillar.) |
-| **Multi‑language** | **Corrected** | Python (~1.1k `.py`) **+ Rust** (`rust_crypto/` → `lib.rs`, `hashing.rs`, `encryption.rs`, `kdf.rs`, `random.rs`, via PyO3); PQC consumed from the external `ama_cryptography` backend (`integrations/mercury_amacrypto.py`) | The "Python + **C**" claim is **incorrect**: the native code is **Rust**, and PQC is an *external* dependency, not Mercury‑owned C. |
-| **Autonomous (identify→interpret→deter)** | **Closed by this PR** | New `decision/` layer wired at the `detect_with_fusion` seam (`engine.py`, `enable_decision_layer()`); prior loops stopped at a log/alert/store stub (`agentic/agentic_autonomy.py:~707`) | Before: abstention was an *implicit* threshold and the three‑state contract was **not** wired into detection. Now: an explicit, calibration‑grounded "don't‑know" gate + bounded response. |
-| **Depict (visualize/explain)** | **Partial (understated) → first per‑event coupling** | Infra exists: `gui/visualization_dashboard.py` (Plotly), `narrative/` (`NarrativeEngine`, `ReasoningChainNarrative`, `MercuryResponse`), `explainability/` | This PR adds the first *per‑decision* depiction: `DecisionRecord.explain()` + a `signals`/`reasons`/`caveats` provenance trail. Full depiction remains a pillar. |
-| **Deter (response/countermeasure)** | **Introduced by this PR** | New `decision/response.py` (`ResponsePolicy`, bounded `ResponseAction`); closes the loop to existing channels via `decision/bridge.py` (CAP 1.2 alerts `alerting/cap_generator.py`; `AgentAction` `agentic/agentic_autonomy.py`) | Bounded, **non‑destructive, fail‑closed, human‑in‑the‑loop** by construction — recommend/escalate, never autonomously destroy. |
-| **Detail** | **Strengthened** | Certificates threaded through `detect_with_fusion` (`conformal`, `gosnn_metadata`, `symbolic_consistency`, `drift_detection`); audit trail in `decision/ledger.py` (`DecisionLedger`) + `decision/loop.py` (`DecisionLoop`) | The `DecisionRecord` turns these into an auditable, JSON‑safe record with the active policy attached; an append‑only, bounded, **O(1)‑summary**, thread‑safe, JSON‑persistable `DecisionLedger` makes a stream of decisions a queryable audit trail (the *verify* step). |
+| **Multi‑domain** | **Confirmed** | `medical/`, `infrastructure/{cyber,economic,humanitarian,resilience,scientific}/`, `detectors/{geological,marine,energy,economic,space,drone}/`, `ocean/`, `emergent/`; real loaders in `datasets/adbench.py` (47 datasets) and `datasets/adrepository.py` (11, in `ADREPOSITORY_DATASETS`) | ~11 primary domains (+5 infrastructure sub‑domains). Real dataset references exceed the 65/75 committed‑benchmark figure (ADBench alone is 47). |
+| **Neuro‑symbolic** | **Confirmed** | LTN `SymbolicConstraintModule` (`ml/symbolic_constraint.py:374`), `consensus_rule_graph()` (`ml/symbolic_constraint.py:151`), GOSNN (`core/global_omni_scalar_network.py`), ethical gates (`cognitive/ethical_bounding.py` `MINIMUM_BENEVOLENCE_FLOOR = 0.70`; `security/sigma_immutable_gate.py` decision threshold `0.93`), conformal UQ (`core/conformal_prediction.py`) | Genuine co‑training: the label‑scarcity‑adaptive λ schedule enters the loss (`ml/symbolic_constraint.py`), not a post‑hoc blend. |
+| **Multi‑model / multi‑type** | **Confirmed** | 57 `class *Detector` definitions under `detectors/` (CI‑gated count in the README Codebase Scale block) plus the 21‑probe Math‑Arrest equation family (`detectors/math_arrest/probes/`); fusion stack `detectors/fusion/multimodal_fusion.py` with `AttentionFusion` (`nn.MultiheadAttention`, 128‑D, 4 heads), score/decision/adaptive fusion | The "22+ engines" figure is conservative against the 57 measured detector classes. |
+| **Interpret with accuracy** | **Strong** | `explainability/` (5 SHAP variants, 4 counterfactual methods, GDPR Art. 22); temperature calibration + ECE (`engine.py::_fit_fusion_temperature`); conformal certificate attached in `detect_with_fusion`; serve‑path integrated‑gradients attributions via `detect_with_fusion(explain=True)` | The calibrated/honest‑confidence work (PR #278) and the serve‑path explanation wiring (2026‑06‑02) carry the *"with accuracy"* qualifier. |
+| **Multi‑agent** | **Shipped + measured (2026‑06‑11)** | `MultiAgentOrchestrator` (`agentic/orchestration.py`): planner/critic/executor loop over the engine's five real detectors — `HierarchicalPlanner` sequences the pipeline stages as real options with TD value learning, `ConsensusProtocol` forms per‑sample consensus (explicit abstention below quorum), `AnomalyReflexion` adapts the operating threshold from real labeled feedback, `AnomalyChainOfThought` renders decision‑faithful traces; dual hard ethical gates at the decision boundary; engine wiring via `engine.py::enable_multi_agent_orchestration()` | Measured on real ADBench labels (`benchmarks/orchestration_validation.py`, 5 datasets × 3 seeds): consensus AUC 0.827 ≥ mean member 0.821 (best member 0.903 — **no claim of beating the trained fusion model**); reflexion +0.079 paired balanced accuracy; 129/129 planned episodes executed; 600/600 traces decision‑faithful. Single‑agent loops (`AgenticAutonomy`, `OODAAgent`) remain alongside. |
+| **Multi‑language** | **Corrected** | Python (618 source files + 406 test modules, CI‑gated counts) **+ Rust** (`rust_crypto/` → `lib.rs`, `hashing.rs`, `encryption.rs`, `kdf.rs`, `random.rs`, via PyO3); PQC consumed from the external `ama_cryptography` backend (`integrations/mercury_amacrypto.py`) | The historical "Python + **C**" claim was incorrect: Mercury's own native code is **Rust**, and the PQC C library is an *external* dependency (AMA Cryptography), not Mercury‑owned C. |
+| **Autonomous (identify→interpret→deter)** | **Closed (PR #283)** | `decision/` package wired at the `detect_with_fusion` seam (`engine.py::enable_decision_layer()`); the prior loops stopped at a log/alert/store stub in `agentic/agentic_autonomy.py` | Before #283, abstention was an implicit threshold and the three‑state contract was not wired into detection. Now: an explicit, calibration‑grounded "don't‑know" gate plus a bounded response layer. |
+| **Depict (visualize/explain)** | **Partial — first per‑event coupling shipped** | Infrastructure exists: `gui/visualization_dashboard.py` (Plotly), `narrative/` (`NarrativeEngine`, `ReasoningChainNarrative`, `MercuryResponse`), `explainability/`; per‑decision depiction via `DecisionRecord.explain()` with a `signals`/`reasons`/`caveats` provenance trail | A full depiction layer (per‑event visuals from the threaded certificates) remains an open pillar. |
+| **Deter (response/countermeasure)** | **Introduced (PR #283)** | `decision/response.py` (`ResponsePolicy`, bounded `ResponseAction`); closes into existing channels via `decision/bridge.py` (CAP 1.2 alerts `alerting/cap_generator.py`; `AgentAction` `agentic/agentic_autonomy.py`) | Bounded, **non‑destructive, fail‑closed, human‑in‑the‑loop** by construction — recommend/escalate, never autonomously destroy. A test invariant enforces the no‑destructive‑verbs catalogue. |
+| **Detail** | **Strengthened** | Certificates threaded through `detect_with_fusion` (`conformal`, `gosnn_metadata`, `symbolic_consistency`, `drift_detection`); audit trail in `decision/ledger.py` (`DecisionLedger`) + `decision/loop.py` (`DecisionLoop`) | `DecisionRecord` turns the certificates into an auditable, JSON‑safe record with the active policy attached; the append‑only, bounded, **O(1)‑summary**, thread‑safe, JSON‑persistable `DecisionLedger` makes a stream of decisions a queryable audit trail (the *verify* step). |
 
 ---
 
-## 2. What PR #278 moved — and what it did not
+## 2. How the autonomy loop closed
 
-PR #278 (calibrated/honest confidence) **strengthens `interpret`** and the
-*"with accuracy"* qualifier, and lays a safety floor for autonomy. It did
-**not**, on its own, add multi‑agent orchestration, new languages, new
-modalities/models, depiction, deterrence, or a closed‑loop. Those are net‑new
-build‑outs, each PR‑scale.
+PR #278 (calibrated/honest confidence) strengthened **interpret** and laid the
+safety floor for autonomy. PR #283 (Decision/Abstention/Response) converted
+that groundwork into a closed **identify → interpret → decide → deter** loop
+with an explicit "don't‑know" gate, without touching detection accuracy.
 
-This PR (**Pillar A: Decision/Abstention + Response**) is now rebased on top of
-**merged #278** and converts that groundwork into autonomy: it turns the
-calibrated certificate into a closed **identify → interpret → decide → deter**
-loop with an explicit "don't‑know" gate. It strengthens **autonomous**,
-introduces **deter**, and adds the first per‑event **depict** coupling, without
-touching detection accuracy.
+**The `info_geometry_certificate` signal is deliberately a no‑op in the
+decision gate**, on measured evidence: that certificate's own contract
+certifies a *component's* boundary, not the fused/gated verdict, and its
+adaptive operating point is computed from the batch — in the single‑sample
+serve path it collapses to `price == threshold` (a point scored 4.1× over
+threshold in a batch of 9 reduces to exactly 1.0× at batch size 1), carrying
+no information that could soundly refine the fused decision. The gate
+consumes the *authoritative* calibrated signal (the conformal set); the
+empirical‑coverage test confirms the guarantee survives the projection (zero
+gate‑vs‑certificate contradictions, ~94 % coverage at a 90 % target).
 
-**Integrating #278's new runtime signal.** #278 added one new key to the
-`detect_with_fusion` result — `result["info_geometry_certificate"]` (per‑detector
-Mahalanobis price level‑sets). The gate evaluated it and **deliberately treats
-it as an exact no‑op**, on measured evidence: the certificate's own contract
-certifies a *component's* boundary, "NOT the fused/gated verdict", and its
-adaptive operating point is computed from the batch — so in the single‑sample
-serve path the gate runs in it collapses to `price == threshold` (a point scored
-4.1× over threshold in a batch of 9 reduces to exactly 1.0× at batch size 1),
-carrying no information that could soundly refine the fused decision. The gate
-already consumes the *authoritative* calibrated signal (the conformal set); the
-empirical‑coverage test proves that guarantee survives the projection (zero
-gate‑vs‑certificate contradictions, ~94% coverage at a 90% target).
+## 3. Corrections to previously-circulated claims
 
-## 3. Honest corrections to the index
-
-1. **Language stack is Python + Rust, not Python + C.** No C sources exist
-   (`rust_crypto/` is Rust via PyO3); PQC is the external `ama_cryptography`
-   backend, gated fail‑closed at import (`_pqc_gate.py`).
+1. **Language stack is Python + Rust, not Python + C.** No Mercury‑owned C
+   sources exist (`rust_crypto/` is Rust via PyO3); PQC is the external
+   `ama_cryptography` backend, gated fail‑closed at import (`_pqc_gate.py`).
 2. **Dataset/detector counts were understated.** Real dataset references and
-   detector classes both exceed the index figures.
+   detector classes both exceed earlier circulated figures; the CI‑gated
+   counts in the README Codebase Scale block are authoritative.
 3. **Depiction is "partial", not "minimal".** Visualization, narrative and
-   explainability infrastructure already exist; what was missing was a
-   *per‑decision* coupling — which this PR begins.
-4. **Autonomy loops existed but were not closed.** The gap was an explicit
-   abstention gate wired into detection and a bounded response layer — exactly
-   this PR's scope.
+   explainability infrastructure exist; the per‑decision coupling shipped
+   with `DecisionRecord.explain()`.
+4. **Autonomy loops existed but were not closed** until PR #283 wired an
+   explicit abstention gate into detection and added the bounded response
+   layer.
 
-## 4. Recommended sequence (after this PR)
+## 4. Build-out sequence toward the autonomous goal
 
-In honest leverage order toward the autonomous goal:
+In leverage order:
 
-- **(A) Decision/abstention + response layer — _this PR._**
-- (B) Multi‑agent orchestration inside Mercury (planner/critic/executor over
-  the existing engines).
+- **(A) Decision/abstention + response layer — shipped (PR #283).**
+- **(B) Multi‑agent orchestration inside Mercury — shipped + measured
+  (2026‑06‑11).** Planner/critic/executor over the existing detectors
+  (`agentic/orchestration.py`), validated per‑module on real ADBench labels
+  by `benchmarks/orchestration_validation.py`; revives DORMANCY_LEDGER
+  rows 10–11 under the same ablation discipline as the rest of the repo.
 - (C) Depiction layer (per‑event explanations/visuals from the certificates
-  now threaded through `detect()` and the new `DecisionRecord`).
+  threaded through `detect()` and `DecisionRecord`) — open. The
+  orchestrator's decision‑faithful chain‑of‑thought traces
+  (`MultiAgentOrchestrator.explain()`, fidelity 600/600) are a first
+  measured input to this pillar.
 - (D) Decorrelated‑stream fusion — **executed and closed by #278**: the
-  pre‑registered protocol ran end‑to‑end (SHIP rejected, runtime byte‑unchanged;
-  `research/governed_fusion/FINDINGS.md`). Pushing detection itself positive now
-  needs a different lever, not this one.
+  pre‑registered protocol ran end‑to‑end (SHIP rejected, runtime
+  byte‑unchanged; `research/governed_fusion/FINDINGS.md`). Improving raw
+  detection now requires a different lever.
 
 Everything above is aligned to the project's **Omnidirectional, STEM
 exploration/discovery + humanitarian‑impact, open‑source, verifiable‑only**
-principles: each row cites code, each claim is checkable, and the new layer is
-non‑destructive and fail‑closed by construction.
+principles: each row cites code, each claim is checkable, and the decision
+layer is non‑destructive and fail‑closed by construction.

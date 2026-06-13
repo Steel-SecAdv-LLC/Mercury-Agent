@@ -201,6 +201,10 @@ class ConsensusResult:
         participant_count: Number of participating agents
         method_used: Consensus method used
         dissenting_agents: IDs of dissenting agents
+        abstained: True when no consensus could honestly be formed (for
+            example, fewer participants than the protocol's minimum). An
+            abstained result's ``final_decision`` carries no signal and must
+            be treated as "don't know", never as a benign verdict.
         timestamp: Consensus timestamp
     """
 
@@ -211,6 +215,7 @@ class ConsensusResult:
     participant_count: int
     method_used: ConsensusMethod
     dissenting_agents: list[str] = field(default_factory=list)
+    abstained: bool = False
     timestamp: float = field(default_factory=time.time)
 
 
@@ -505,6 +510,9 @@ class ConsensusProtocol:
         ]
 
         if len(detection_results) < self.min_participants:
+            # Fail-closed: below quorum there is no honest collective verdict.
+            # The result is explicitly marked abstained so callers cannot
+            # mistake "could not decide" for "decided benign".
             return ConsensusResult(
                 consensus_id=consensus_id,
                 final_decision=False,
@@ -512,6 +520,7 @@ class ConsensusProtocol:
                 agreement_ratio=0.0,
                 participant_count=len(detection_results),
                 method_used=self.method,
+                abstained=True,
             )
 
         if self.method == ConsensusMethod.MAJORITY_VOTE:
@@ -999,6 +1008,104 @@ class AgentCoordinator:
 
         logger.info(f"Dissolved coalition {coalition_id}")
 
+    @staticmethod
+    def _coerce_result(agent_id: str, raw: Any) -> DetectionResult | None:
+        """Normalize an agent's detection output to a :class:`DetectionResult`.
+
+        Agents implemented outside this module commonly return plain dicts
+        (``{"score": ..., "is_anomaly": ...}``). Dropping those silently
+        would exclude their vote from consensus while still reporting a
+        confident collective verdict — a silent-data-loss failure. Coerce
+        instead; only genuinely unusable outputs return ``None``.
+        """
+        if isinstance(raw, DetectionResult):
+            return raw
+        if isinstance(raw, dict):
+            score_value = raw.get("anomaly_score", raw.get("score"))
+            if score_value is None:
+                return None
+            score = float(np.clip(float(score_value), 0.0, 1.0))
+            is_anomaly = bool(raw.get("is_anomaly", score > 0.5))
+            confidence = float(raw.get("confidence", abs(score - 0.5) * 2))
+            return DetectionResult(
+                agent_id=agent_id,
+                anomaly_score=score,
+                is_anomaly=is_anomaly,
+                confidence=float(np.clip(confidence, 0.0, 1.0)),
+                reasoning=str(raw.get("reasoning", "")),
+                metadata={k: v for k, v in raw.items() if k not in {"reasoning"}},
+            )
+        return None
+
+    def coordinate_detection_detailed(
+        self,
+        data: np.ndarray[Any, Any],
+        context: dict[str, Any] | None = None,
+        agent_ids: list[str] | None = None,
+    ) -> tuple[ConsensusResult, list[DetectionResult]]:
+        """Coordinate detection and return the per-agent results alongside.
+
+        Args:
+            data: Input data for detection
+            context: Detection context
+            agent_ids: Specific agents to use (or all available)
+
+        Returns:
+            Tuple of (consensus result, individual per-agent results)
+        """
+        self._stats["detections_coordinated"] += 1
+
+        # Select agents
+        if agent_ids:
+            agents = [self._agents[aid] for aid in agent_ids if aid in self._agents]
+        else:
+            agents = [
+                a
+                for a in self._agents.values()
+                if a.status in [AgentStatus.IDLE, AgentStatus.ACTIVE]
+            ]
+
+        if not agents:
+            logger.warning("No available agents for detection")
+            return (
+                ConsensusResult(
+                    consensus_id="none",
+                    final_decision=False,
+                    confidence=0.0,
+                    agreement_ratio=0.0,
+                    participant_count=0,
+                    method_used=self.consensus_method,
+                    abstained=True,
+                ),
+                [],
+            )
+
+        # Collect results from all agents, coercing duck-typed dict returns
+        # so every responding agent's vote reaches the consensus.
+        results: list[DetectionResult] = []
+        for agent in agents:
+            try:
+                raw = agent.detect(data, context)
+            except Exception as e:
+                logger.error(f"Agent {agent.agent_id} detection error: {e}")
+                continue
+            coerced = self._coerce_result(agent.agent_id, raw)
+            if coerced is None:
+                logger.warning(
+                    f"Agent {agent.agent_id} returned an unusable detection "
+                    f"payload ({type(raw).__name__}); excluded from consensus"
+                )
+                continue
+            results.append(coerced)
+
+        # Reach consensus
+        consensus_result = self.consensus_protocol.reach_consensus(results)
+        if not isinstance(consensus_result, ConsensusResult):
+            raise TypeError("Expected ConsensusResult from reach_consensus")
+        self._stats["consensus_reached"] += 1
+
+        return consensus_result, results
+
     def coordinate_detection(
         self,
         data: np.ndarray[Any, Any],
@@ -1015,45 +1122,7 @@ class AgentCoordinator:
         Returns:
             Consensus result from coordinated detection
         """
-        self._stats["detections_coordinated"] += 1
-
-        # Select agents
-        if agent_ids:
-            agents = [self._agents[aid] for aid in agent_ids if aid in self._agents]
-        else:
-            agents = [
-                a
-                for a in self._agents.values()
-                if a.status in [AgentStatus.IDLE, AgentStatus.ACTIVE]
-            ]
-
-        if not agents:
-            logger.warning("No available agents for detection")
-            return ConsensusResult(
-                consensus_id="none",
-                final_decision=False,
-                confidence=0.0,
-                agreement_ratio=0.0,
-                participant_count=0,
-                method_used=self.consensus_method,
-            )
-
-        # Collect results from all agents
-        results: list[DetectionResult] = []
-        for agent in agents:
-            try:
-                result = agent.detect(data, context)
-                results.append(result)
-            except Exception as e:
-                logger.error(f"Agent {agent.agent_id} detection error: {e}")
-
-        # Reach consensus
-        consensus_result = self.consensus_protocol.reach_consensus(results)
-        if not isinstance(consensus_result, ConsensusResult):
-            raise TypeError("Expected ConsensusResult from reach_consensus")
-        consensus = consensus_result
-        self._stats["consensus_reached"] += 1
-
+        consensus, _ = self.coordinate_detection_detailed(data, context, agent_ids)
         return consensus
 
     def get_agent_by_role(self, role: AgentRole) -> list[DetectionAgent]:
@@ -1173,12 +1242,14 @@ class MultiAgentDetectionSystem:
             )
 
             if coalition:
-                result = self.coordinator.coordinate_detection(data, context, coalition.member_ids)
+                result, individual = self.coordinator.coordinate_detection_detailed(
+                    data, context, coalition.member_ids
+                )
                 self.coordinator.dissolve_coalition(coalition.coalition_id)
             else:
-                result = self.coordinator.coordinate_detection(data, context)
+                result, individual = self.coordinator.coordinate_detection_detailed(data, context)
         else:
-            result = self.coordinator.coordinate_detection(data, context)
+            result, individual = self.coordinator.coordinate_detection_detailed(data, context)
 
         return {
             "is_anomaly": result.final_decision,
@@ -1187,16 +1258,18 @@ class MultiAgentDetectionSystem:
             "participant_count": result.participant_count,
             "consensus_method": result.method_used.value,
             "dissenting_agents": result.dissenting_agents,
+            "abstained": result.abstained,
             "detection_id": f"detection_{self._detection_counter:06d}",
             "consensus_decision": result.final_decision,
-            "individual_results": (
-                [
-                    {"agent_id": agent_id, "decision": vote}
-                    for agent_id, vote in getattr(result, "votes", {}).items()
-                ]
-                if hasattr(result, "votes")
-                else []
-            ),
+            "individual_results": [
+                {
+                    "agent_id": r.agent_id,
+                    "decision": r.is_anomaly,
+                    "anomaly_score": r.anomaly_score,
+                    "confidence": r.confidence,
+                }
+                for r in individual
+            ],
         }
 
     def register_agent(self, agent: DetectionAgent) -> bool:

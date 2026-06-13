@@ -81,31 +81,31 @@ jobs:
       - name: Checkout code (attempt 1)
         id: checkout
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 1 (transient flake stabilisation)
         if: steps.checkout.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
+          echo "::warning::actions/checkout@v6 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
           sleep 15
 
       - name: Checkout code (attempt 2, runs only on attempt-1 failure)
         id: checkout2
         if: steps.checkout.outcome == 'failure'
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 2 (extended backoff)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempts 1 and 2 both failed. Sleeping 60s before final retry."
+          echo "::warning::actions/checkout@v6 attempts 1 and 2 both failed. Sleeping 60s before final retry."
           sleep 60
 
       - name: Checkout code (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -294,31 +294,31 @@ jobs:
       - name: Checkout code (attempt 1)
         id: checkout
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 1 (transient flake stabilisation)
         if: steps.checkout.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
+          echo "::warning::actions/checkout@v6 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
           sleep 15
 
       - name: Checkout code (attempt 2, runs only on attempt-1 failure)
         id: checkout2
         if: steps.checkout.outcome == 'failure'
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 2 (extended backoff)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempts 1 and 2 both failed. Sleeping 60s before final retry."
+          echo "::warning::actions/checkout@v6 attempts 1 and 2 both failed. Sleeping 60s before final retry."
           sleep 60
 
       - name: Checkout code (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -413,31 +413,31 @@ jobs:
       - name: Checkout code (attempt 1)
         id: checkout
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 1 (transient flake stabilisation)
         if: steps.checkout.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
+          echo "::warning::actions/checkout@v6 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
           sleep 15
 
       - name: Checkout code (attempt 2, runs only on attempt-1 failure)
         id: checkout2
         if: steps.checkout.outcome == 'failure'
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 2 (extended backoff)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempts 1 and 2 both failed. Sleeping 60s before final retry."
+          echo "::warning::actions/checkout@v6 attempts 1 and 2 both failed. Sleeping 60s before final retry."
           sleep 60
 
       - name: Checkout code (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -602,31 +602,31 @@ jobs:
       - name: Checkout code (attempt 1)
         id: checkout
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 1 (transient flake stabilisation)
         if: steps.checkout.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
+          echo "::warning::actions/checkout@v6 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
           sleep 15
 
       - name: Checkout code (attempt 2, runs only on attempt-1 failure)
         id: checkout2
         if: steps.checkout.outcome == 'failure'
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 2 (extended backoff)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempts 1 and 2 both failed. Sleeping 60s before final retry."
+          echo "::warning::actions/checkout@v6 attempts 1 and 2 both failed. Sleeping 60s before final retry."
           sleep 60
 
       - name: Checkout code (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -831,31 +831,31 @@ jobs:
       - name: Checkout code (attempt 1)
         id: checkout
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 1 (transient flake stabilisation)
         if: steps.checkout.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
+          echo "::warning::actions/checkout@v6 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
           sleep 15
 
       - name: Checkout code (attempt 2, runs only on attempt-1 failure)
         id: checkout2
         if: steps.checkout.outcome == 'failure'
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 2 (extended backoff)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempts 1 and 2 both failed. Sleeping 60s before final retry."
+          echo "::warning::actions/checkout@v6 attempts 1 and 2 both failed. Sleeping 60s before final retry."
           sleep 60
 
       - name: Checkout code (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Free up disk space
         run: |
@@ -965,7 +965,7 @@ jobs:
             --cov-fail-under=${{ env.COVERAGE_THRESHOLD_CORE }}
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           files: ./coverage.xml
           flags: core-tests
@@ -997,31 +997,31 @@ jobs:
       - name: Checkout code (attempt 1)
         id: checkout
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 1 (transient flake stabilisation)
         if: steps.checkout.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
+          echo "::warning::actions/checkout@v6 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
           sleep 15
 
       - name: Checkout code (attempt 2, runs only on attempt-1 failure)
         id: checkout2
         if: steps.checkout.outcome == 'failure'
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 2 (extended backoff)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempts 1 and 2 both failed. Sleeping 60s before final retry."
+          echo "::warning::actions/checkout@v6 attempts 1 and 2 both failed. Sleeping 60s before final retry."
           sleep 60
 
       - name: Checkout code (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Free up disk space
         run: |
@@ -1106,7 +1106,7 @@ jobs:
             --cov-report=term-missing
 
       - name: Upload neuro-symbolic coverage
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           files: ./coverage.xml
           flags: neuro-symbolic
@@ -1133,31 +1133,31 @@ jobs:
       - name: Checkout code (attempt 1)
         id: checkout
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 1 (transient flake stabilisation)
         if: steps.checkout.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
+          echo "::warning::actions/checkout@v6 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
           sleep 15
 
       - name: Checkout code (attempt 2, runs only on attempt-1 failure)
         id: checkout2
         if: steps.checkout.outcome == 'failure'
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 2 (extended backoff)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempts 1 and 2 both failed. Sleeping 60s before final retry."
+          echo "::warning::actions/checkout@v6 attempts 1 and 2 both failed. Sleeping 60s before final retry."
           sleep 60
 
       - name: Checkout code (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Free up disk space
         run: |
@@ -1228,7 +1228,7 @@ jobs:
             --dist=loadgroup
 
       - name: Upload coverage
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           files: ./coverage.xml
           flags: ml-tests
@@ -1248,31 +1248,31 @@ jobs:
       - name: Checkout code (attempt 1)
         id: checkout
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 1 (transient flake stabilisation)
         if: steps.checkout.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
+          echo "::warning::actions/checkout@v6 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
           sleep 15
 
       - name: Checkout code (attempt 2, runs only on attempt-1 failure)
         id: checkout2
         if: steps.checkout.outcome == 'failure'
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 2 (extended backoff)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempts 1 and 2 both failed. Sleeping 60s before final retry."
+          echo "::warning::actions/checkout@v6 attempts 1 and 2 both failed. Sleeping 60s before final retry."
           sleep 60
 
       - name: Checkout code (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Free up disk space
         run: |
@@ -1330,31 +1330,31 @@ jobs:
       - name: Checkout code (attempt 1)
         id: checkout
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 1 (transient flake stabilisation)
         if: steps.checkout.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
+          echo "::warning::actions/checkout@v6 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
           sleep 15
 
       - name: Checkout code (attempt 2, runs only on attempt-1 failure)
         id: checkout2
         if: steps.checkout.outcome == 'failure'
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 2 (extended backoff)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempts 1 and 2 both failed. Sleeping 60s before final retry."
+          echo "::warning::actions/checkout@v6 attempts 1 and 2 both failed. Sleeping 60s before final retry."
           sleep 60
 
       - name: Checkout code (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Free up disk space
         run: |
@@ -1401,31 +1401,31 @@ jobs:
       - name: Checkout code (attempt 1)
         id: checkout
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 1 (transient flake stabilisation)
         if: steps.checkout.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
+          echo "::warning::actions/checkout@v6 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
           sleep 15
 
       - name: Checkout code (attempt 2, runs only on attempt-1 failure)
         id: checkout2
         if: steps.checkout.outcome == 'failure'
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 2 (extended backoff)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempts 1 and 2 both failed. Sleeping 60s before final retry."
+          echo "::warning::actions/checkout@v6 attempts 1 and 2 both failed. Sleeping 60s before final retry."
           sleep 60
 
       - name: Checkout code (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Free up disk space
         run: |
@@ -1536,31 +1536,31 @@ jobs:
       - name: Checkout code (attempt 1)
         id: checkout
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 1 (transient flake stabilisation)
         if: steps.checkout.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
+          echo "::warning::actions/checkout@v6 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
           sleep 15
 
       - name: Checkout code (attempt 2, runs only on attempt-1 failure)
         id: checkout2
         if: steps.checkout.outcome == 'failure'
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 2 (extended backoff)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempts 1 and 2 both failed. Sleeping 60s before final retry."
+          echo "::warning::actions/checkout@v6 attempts 1 and 2 both failed. Sleeping 60s before final retry."
           sleep 60
 
       - name: Checkout code (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Free up disk space
         run: |
@@ -1643,15 +1643,17 @@ jobs:
           TRIVY_TEMP_DIR: /mnt/trivy-tmp
           TRIVY_CACHE_DIR: /mnt/trivy-cache
         # Blocking gate.  Mirrors the standalone security.yml container scan
-        # policy: ``ignore-unfixed`` drops Debian-bookworm CVEs that have no
-        # available patch (status ``affected`` / ``will_not_fix``), and
-        # ``vuln-type: os,library`` scopes the scan to the OS and Python
-        # library surfaces this image actually ships.  Combined with the
-        # Dockerfile's runtime-stage ``apt-get upgrade`` (which pulls the
-        # latest bookworm security patches at build time) and the
-        # ``pip>=26.1`` floor (which clears the pip-specific CVEs that used
-        # to require a waiver), the scan reports zero CRITICAL/HIGH
-        # findings without a separate `.trivyignore` acceptance list.
+        # policy. ``ignore-unfixed: false`` + the repo-root ``.trivyignore``
+        # replace the previous blanket unfixed-CVE waiver with an
+        # enumerated, expiring, owner-reviewable acceptance ledger: a NEW
+        # unfixed CRITICAL/HIGH finding now fails this gate instead of
+        # passing silently, and an expired ledger entry fails it until
+        # re-reviewed.  ``vuln-type: os,library`` scopes the scan to the
+        # OS and Python library surfaces this image actually ships.
+        # Fixable CVEs never enter the ledger — the Dockerfile's
+        # runtime-stage ``apt-get upgrade`` (latest bookworm security
+        # patches at build time) and the ``pip>=26.1`` floor are the fix
+        # path for those.
         # Action pinned to the same tagged version as security.yml's
         # Trivy steps so both workflows run identical action code
         # (deterministic, supply-chain hardened).
@@ -1663,7 +1665,8 @@ jobs:
           severity: 'CRITICAL,HIGH'
           limit-severities-for-sarif: true
           vuln-type: 'os,library'
-          ignore-unfixed: true
+          ignore-unfixed: false
+          trivyignores: '.trivyignore'
           exit-code: '1'
           timeout: '10m'
           # Use the binary installed in the explicit step above; see
@@ -1699,31 +1702,31 @@ jobs:
       - name: Checkout code (attempt 1)
         id: checkout
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 1 (transient flake stabilisation)
         if: steps.checkout.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
+          echo "::warning::actions/checkout@v6 attempt 1 failed (likely transient token-injection flake on GitHub-hosted runner). Sleeping 15s before retry."
           sleep 15
 
       - name: Checkout code (attempt 2, runs only on attempt-1 failure)
         id: checkout2
         if: steps.checkout.outcome == 'failure'
         continue-on-error: true
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Pause before checkout retry 2 (extended backoff)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::actions/checkout@v6.0.2 attempts 1 and 2 both failed. Sleeping 60s before final retry."
+          echo "::warning::actions/checkout@v6 attempts 1 and 2 both failed. Sleeping 60s before final retry."
           sleep 60
 
       - name: Checkout code (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Set up Python
         uses: actions/setup-python@v6

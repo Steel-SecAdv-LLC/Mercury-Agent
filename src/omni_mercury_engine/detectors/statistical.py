@@ -702,53 +702,64 @@ class MercuryAnomalyDetector(BaseDetector):
             det._data_type = DataCharacteristics(data_type)
 
         # Restore Oracle from federation stats
-        det._oracle_detector = None
-        det._oracle_metadata = {"active": False}
-        if oracle_ref_stats is not None:
-            try:
-                from omni_mercury_engine.detectors.spectral_domain_frequency import (
-                    SpectralDomainFrequency,
-                )
-
-                domain = oracle_ref_stats.get("domain", "environmental")
-                oracle = SpectralDomainFrequency({"domain": domain})
-                # Restore per-band reference statistics
-                if "ref_band_means" in oracle_ref_stats:
-                    oracle._ref_band_means = oracle_ref_stats["ref_band_means"]
-                if "ref_band_stds" in oracle_ref_stats:
-                    oracle._ref_band_stds = oracle_ref_stats["ref_band_stds"]
-                if "ref_full_spectrum_mean" in oracle_ref_stats:
-                    oracle._ref_full_spectrum_mean = np.asarray(
-                        oracle_ref_stats["ref_full_spectrum_mean"]
-                    )
-                if "ref_full_spectrum_std" in oracle_ref_stats:
-                    oracle._ref_full_spectrum_std = np.asarray(
-                        oracle_ref_stats["ref_full_spectrum_std"]
-                    )
-                if "ref_spectral_entropy_mean" in oracle_ref_stats:
-                    oracle._ref_spectral_entropy_mean = float(
-                        oracle_ref_stats["ref_spectral_entropy_mean"]
-                    )
-                if "ref_spectral_entropy_std" in oracle_ref_stats:
-                    oracle._ref_spectral_entropy_std = float(
-                        oracle_ref_stats["ref_spectral_entropy_std"]
-                    )
-                # Restore noise color (F1 Precision Directive)
-                if "noise_beta" in oracle_ref_stats:
-                    oracle._noise_beta = float(oracle_ref_stats["noise_beta"])
-                if "noise_color" in oracle_ref_stats:
-                    oracle._noise_color = str(oracle_ref_stats["noise_color"])
-                if "noise_fit_r2" in oracle_ref_stats:
-                    oracle._noise_fit_r2 = float(oracle_ref_stats["noise_fit_r2"])
-                oracle._is_fitted = True
-                det._oracle_detector = oracle
-                det._oracle_metadata = {"active": True, "domain": domain}
-                logger.info("Oracle restored from federation stats: domain=%s", domain)
-            except Exception as exc:
-                logger.debug("Failed to restore Oracle from federation: %s", exc)
+        det._restore_oracle_from_ref_stats(oracle_ref_stats)
 
         det._is_fitted = True
         return det
+
+    def _restore_oracle_from_ref_stats(self, oracle_ref_stats: dict[str, Any] | None) -> None:
+        """Re-arm the Oracle from exported reference statistics, or clear it.
+
+        Shared by :meth:`from_statistics` (federation) and
+        :meth:`set_fitted_state` (checkpoint round-trip): the Oracle is
+        reconstructed from the stats :meth:`get_oracle_statistics` exports,
+        without re-fitting on local data.
+        """
+        self._oracle_detector = None
+        self._oracle_metadata = {"active": False}
+        if oracle_ref_stats is None:
+            return
+        try:
+            from omni_mercury_engine.detectors.spectral_domain_frequency import (
+                SpectralDomainFrequency,
+            )
+
+            domain = oracle_ref_stats.get("domain", "environmental")
+            oracle = SpectralDomainFrequency({"domain": domain})
+            # Restore per-band reference statistics
+            if "ref_band_means" in oracle_ref_stats:
+                oracle._ref_band_means = oracle_ref_stats["ref_band_means"]
+            if "ref_band_stds" in oracle_ref_stats:
+                oracle._ref_band_stds = oracle_ref_stats["ref_band_stds"]
+            if "ref_full_spectrum_mean" in oracle_ref_stats:
+                oracle._ref_full_spectrum_mean = np.asarray(
+                    oracle_ref_stats["ref_full_spectrum_mean"]
+                )
+            if "ref_full_spectrum_std" in oracle_ref_stats:
+                oracle._ref_full_spectrum_std = np.asarray(
+                    oracle_ref_stats["ref_full_spectrum_std"]
+                )
+            if "ref_spectral_entropy_mean" in oracle_ref_stats:
+                oracle._ref_spectral_entropy_mean = float(
+                    oracle_ref_stats["ref_spectral_entropy_mean"]
+                )
+            if "ref_spectral_entropy_std" in oracle_ref_stats:
+                oracle._ref_spectral_entropy_std = float(
+                    oracle_ref_stats["ref_spectral_entropy_std"]
+                )
+            # Restore noise color (F1 Precision Directive)
+            if "noise_beta" in oracle_ref_stats:
+                oracle._noise_beta = float(oracle_ref_stats["noise_beta"])
+            if "noise_color" in oracle_ref_stats:
+                oracle._noise_color = str(oracle_ref_stats["noise_color"])
+            if "noise_fit_r2" in oracle_ref_stats:
+                oracle._noise_fit_r2 = float(oracle_ref_stats["noise_fit_r2"])
+            oracle._is_fitted = True
+            self._oracle_detector = oracle
+            self._oracle_metadata = {"active": True, "domain": domain}
+            logger.info("Oracle restored from federation stats: domain=%s", domain)
+        except Exception as exc:
+            logger.debug("Failed to restore Oracle from federation: %s", exc)
 
     def _fit_info_geometry(self, data: np.ndarray[Any, Any]) -> None:
         """Fit Gaussian manifold for information-geometric OOD scoring.
@@ -2767,10 +2778,86 @@ class MercuryAnomalyDetector(BaseDetector):
 
         return anomalies
 
+    # ---------------------------------------------------------------------------
+    # Score calibration utility
+    # ---------------------------------------------------------------------------
 
-# ---------------------------------------------------------------------------
-# Score calibration utility
-# ---------------------------------------------------------------------------
+    def get_fitted_state(self) -> dict[str, Any] | None:
+        """Export the fitted state for checkpoint round-tripping.
+
+        Mirrors the attribute set :meth:`from_statistics` (the federated
+        reconstruction path) already restores, plus the stored training
+        sample that the ensemble-health introspection reads (ROADMAP row
+        16). An active Oracle is exported through the same reference
+        statistics the federation path uses (``oracle_ref_stats`` from
+        :meth:`get_oracle_statistics`); :meth:`set_fitted_state` re-arms it
+        via :meth:`_restore_oracle_from_ref_stats` without re-fitting.
+
+        Returns:
+            JSON/tensor-safe mapping, or ``None`` when unfitted.
+        """
+        if not self._is_fitted:
+            return None
+
+        def _arr(value: np.ndarray[Any, Any] | None) -> np.ndarray[Any, Any] | None:
+            return None if value is None else np.asarray(value, dtype=np.float64)
+
+        return {
+            "mean": _arr(self.mean),
+            "std": _arr(self.std),
+            "q1": _arr(self.q1),
+            "q3": _arr(self.q3),
+            "res_h_train": _arr(self._res_h_train),
+            "res_noise_ratio": _arr(self._res_noise_ratio),
+            "kin_jerk_mean": _arr(self._kin_jerk_mean),
+            "kin_jerk_std": _arr(self._kin_jerk_std),
+            "kin_accel_mean": _arr(self._kin_accel_mean),
+            "kin_accel_std": _arr(self._kin_accel_std),
+            "ig_mean": _arr(self._ig_mean),
+            "ig_cov_inv": _arr(self._ig_cov_inv),
+            "ig_log_det": float(self._ig_log_det),
+            "adaptive_weights": _arr(self._adaptive_weights),
+            "data_type": self._data_type.value,
+            "train_data": _arr(self._train_data),
+            "supervised_threshold": (
+                float(self._supervised_threshold)
+                if self._supervised_threshold is not None
+                else None
+            ),
+            "oracle_ref_stats": self.get_oracle_statistics(),
+        }
+
+    def set_fitted_state(self, state: dict[str, Any]) -> None:
+        """Restore a state produced by :meth:`get_fitted_state`."""
+
+        def _arr(value: Any) -> np.ndarray[Any, Any] | None:
+            return None if value is None else np.asarray(value, dtype=np.float64)
+
+        self.mean = _arr(state["mean"])
+        self.std = _arr(state["std"])
+        self.q1 = _arr(state["q1"])
+        self.q3 = _arr(state["q3"])
+        self._res_h_train = _arr(state["res_h_train"])
+        self._res_noise_ratio = _arr(state["res_noise_ratio"])
+        self._kin_jerk_mean = _arr(state["kin_jerk_mean"])
+        self._kin_jerk_std = _arr(state["kin_jerk_std"])
+        self._kin_accel_mean = _arr(state["kin_accel_mean"])
+        self._kin_accel_std = _arr(state["kin_accel_std"])
+        self._ig_mean = _arr(state["ig_mean"])
+        self._ig_cov_inv = _arr(state["ig_cov_inv"])
+        self._ig_log_det = float(state["ig_log_det"])
+        weights = _arr(state["adaptive_weights"])
+        if weights is not None:
+            self._adaptive_weights = weights
+        self._data_type = DataCharacteristics(str(state["data_type"]))
+        self._train_data = _arr(state["train_data"])
+        supervised = state.get("supervised_threshold")
+        self._supervised_threshold = float(supervised) if supervised is not None else None
+        oracle_ref_stats = state.get("oracle_ref_stats")
+        self._restore_oracle_from_ref_stats(
+            dict(oracle_ref_stats) if oracle_ref_stats is not None else None
+        )
+        self._is_fitted = True
 
 
 def calibrate_scores(

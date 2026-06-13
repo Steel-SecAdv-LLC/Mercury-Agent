@@ -104,6 +104,477 @@ regression tests against the corrected implementations.
   implementations).  Affected existing suites pass unchanged (domain
   loaders, detector manifest, spatial detector).
 
+### Calibration — `StrictIsotonicCalibration` ported from PR #275 (X1 survivor) (2026-06-12)
+
+* **`StrictIsotonicCalibration`** (`core/calibration.py`): isotonic calibration
+  with a squeezed strictly-increasing tie-break, so the map preserves AUROC
+  exactly while keeping isotonic's ECE (PR #275 measured vanilla isotonic
+  losing AUROC on 5/6 ADBench datasets, e.g. thyroid 0.9788 -> 0.9535).
+  Exposed as `calibrate_detector(..., method="strict_isotonic")`; pinned by
+  `tests/test_calibration_brief.py`.
+* Five factually wrong "requires scikit-learn" `ImportError` messages reworded
+  to name the actual dependency (`omni_mercury_engine.ml.mercury_ml`, pure
+  numpy/scipy) — PR #275's V12c finding.
+* **Evidence suite** `benchmarks/calibration_brief/` (validation register
+  V1–V11, explorations X1/X2/X8 with captured results) restored from the
+  deleted PR #275 branch (`refs/pull/275/head`, commit `bc211a0`), with a
+  disposition note reconciling it to what `main` has since shipped.
+* Deliberately not ported: the brief's `BetaCalibration` (superseded by the
+  accept-gated Beta landed in #278), the X12a eta-multiply lint (the eta^Phi
+  term was settled as an opt-in decoupling, R6 default-off), and the
+  MATH_SPEC phi_sum patch (superseded by the `Φ + 2` canonical derivation).
+
+### Session bootstrap — no hosting-vendor files in the tree; Mercury-named script hardened (2026-06-12)
+
+The repository carries no hosting-vendor configuration (the vendor-named
+directory stays removed). The environment bootstrap (AMA Cryptography native
+PQC build plus `[ml]`/tooling install) lives only at
+`scripts/mercury_session_setup.sh`, now hardened with a
+disposable-environment guard: it runs in hosted remote sessions (which mark
+themselves at runtime) or when forced via
+`MERCURY_SETUP_FORCE=1 bash scripts/mercury_session_setup.sh`, and refuses to
+modify any other environment. Automatic session start-up, where desired, is
+configured in the host environment itself, outside this repository, by
+pointing the host's session-start hook at this script.
+
+### Reproducibility & API consolidation — deterministic construction of the fusion feature path's random components; conformal serialization moved behind a first-class API (2026-06-11)
+
+Consolidation follow-up to the checkpoint round-trip closure (ROADMAP row 16,
+PR #286): salvages the source-level pieces of the superseded competing
+implementation (PR #288) that remain advantageous on top of the shipped
+fitted-state persistence design. No checkpoint format change; the shipped
+`default_fusion.pt` is byte-unchanged and loads identically.
+
+* **Deterministic construction (measured):** three fusion feature groups were
+  still instance-dependent for *checkpoint-free* engines — two engines
+  constructed under different ambient RNG states extracted different features
+  (measured max|Δ| at the pre-fix commit: `dimensional` ≈ 3.01, `multiverse`
+  ≈ 0.98, `temporal` ≈ 0.27). Root causes fixed at the source, each under a
+  forked fixed-seed RNG that leaves the caller's global stream untouched:
+  the temporal detector's untrained LSTM projector is now an architecture
+  constant; the dimensional autoencoder's `fit()` init is deterministic, so
+  fit is a pure function of its data (full-batch, shuffle-free loop); the
+  default multiverse population is fixed-seed with index-only universe IDs
+  (an explicitly injected `rng` still overrides). Measured after: **all 13
+  feature groups bit-identical across instances** (max|Δ| = 0.0), pinned by
+  `tests/test_deterministic_construction.py`. Checkpoints continue to
+  persist fitted state, so every existing artifact reproduces exactly.
+* **Conformal serialization API:** `BinaryConformalClassifier` gains
+  `export_state()` / `from_state()` (checkpoint-safe primitives, layout
+  identical to the `conformal_state` key fusion checkpoints already carry);
+  `engine.save_model`/`load_model` now use them instead of poking private
+  attributes. `from_state` coerces string-keyed thresholds, so a JSON
+  round-trip of the mapping loads equally.
+* **Stale-state drop on load:** `load_model` now *replaces* engine-local
+  calibration state with the checkpoint's, including replaced-by-`None` — a
+  temperature calibrator or conformal surface fitted against a previous
+  fusion stack is dropped rather than silently misapplied to the loaded one
+  (regression-pinned in `tests/test_fusion_checkpoint_roundtrip.py`).
+* **Auto-fit audit record kept truthful across load** (defect surfaced by
+  PR #288's review): restoring a detector's fitted state from a checkpoint
+  now drops that detector from `_inference_auto_fit_detectors` — the
+  first-batch leak it recorded no longer describes the engine, and a stale
+  entry would also suppress the audit warning for any future post-load
+  auto-fit. Legacy loads restore nothing, so a surviving contamination
+  keeps its record (regression-pinned).
+* **Tooling:** `scripts/train_default_fusion.py` self-check now asserts
+  detectors-restored-as-fitted on load and save→load probability equivalence
+  (verified here: max |dP| = 1.35e-07 on a scratch artifact); the fusion
+  regression guard's "train rather than load" rationale updated to reflect
+  the row-16 closure (gate re-run against the existing committed baseline:
+  **PASS**, no re-pin needed).
+
+### Performance & correctness — optimization/efficiency pass over the serving and checkpoint paths, with four pre-existing defect families fixed to completion (2026-06-11)
+
+Profile-first discipline: every change below is driven by a fresh measurement
+in this session, every fast path is a compiled form of pinned reference
+semantics, and the candidates the profile did *not* confirm are recorded as
+such instead of "optimized".
+
+* **Serving purity (defect):** identical batches scored differently
+  call-to-call — the directive detector's recursive-memory buffer and the
+  neural cognitive model's hippocampal buffer leak streaming state across
+  calls, so the first ``memory_depth`` rows of every batch depended on what
+  the previous call left behind (measured: `coordinate()` on the same input
+  twice returned different consensus scores; repeated `detect_with_fusion`
+  drifted). Fixed at the *boundaries*, not in the components:
+  `DetectorAgent.score_batch` and the engine's fusion feature extraction
+  reset transient state per call (pure function of fitted state + batch);
+  detectors/models keep their documented streaming semantics for direct
+  callers. The orchestration-validation grid was re-run under the corrected
+  semantics — **all four pre-registered bars still pass** (consensus AUC
+  0.841 vs members 0.833; reflexion +0.054 paired balanced accuracy 15/15
+  acted; planning 129/129; trace fidelity 600/600) and the artifact is
+  regenerated.
+
+  Disclosed consequence: purity exposed that **batch-calibrated conformal
+  sets never matched the single-sample serving regime** — several detector
+  features are batch-relative by design (recursive-memory deviation,
+  batch-percentile stability, batch-max magnitude, sliding windows,
+  within-batch min-max), so a row scored alone does not get its in-batch
+  score; the empirical-coverage fixture's historical ~0.94 rode on the
+  streaming buffers accidentally making serve calls resemble batches, and
+  under purity it measured 0.77. The principled remedy ships:
+  `calibrate_fusion_conformal(..., per_sample=True)` scores calibration
+  rows in the exact serving regime (verified: per-row `score_fusion`
+  equals the served `detect_with_fusion` probability bit-for-bit),
+  restoring the guarantee by exchangeability-by-construction — measured
+  **0.9405 empirical coverage at the 0.90 target** (abstention 5.95%,
+  grounded accuracy 1.0, zero gate-vs-certificate contradictions). Batch
+  consumers' default path is byte-unchanged.
+* **Exact incremental single-sample serving (measured 7.5x).**
+  `DetectorAgent.detect()` re-scored the full 512-row reference batch
+  through every detector protocol per call (54 ms/sample across the five
+  agents; directive 28 ms of it). New
+  `agentic/_incremental_serving.py` serves the appended row *bit-identically*
+  for the three profile-dominant detectors by caching row-independent terms
+  and recomputing only what the row genuinely participates in: temporal
+  9.4 -> 0.09 ms (105x), spatial 11.4 -> 0.29 ms (39x), directive
+  27.7 -> 2.6 ms (11x; floor = the batch-global blend scalars, which include
+  the new row by definition); total serve 52.6 -> 7.0 ms. Never an
+  approximation: unsupported types/subclasses/configs, stale caches and
+  non-finite inputs fall back to the verbatim full path, and a runtime
+  guard refuses out-of-contract scores. Pinned bit-identical across seeds,
+  reference sizes (1..512), duplicate-heavy ties and non-default configs by
+  `tests/test_native_acceleration.py::TestIncrementalServingParity`.
+* **GSIS numba lane (measured 2.9x at 1.1k rows, 5.5x at 4k).** The
+  O(n^2 d) gravitational-stability term gets a parallel JIT kernel behind
+  the existing optional `[performance]` extra that replicates numpy's
+  pairwise-summation order *exactly* — bit-identical distances, percentiles,
+  counts and scores (pinned across seeds/shapes/tie-heavy data, plus an
+  explicit numba-vs-numpy cross-lane test). float64 rows up to 128 features
+  only; other dtypes/widths and numba-less installs keep the byte-identical
+  numpy path. The kernel is deliberately non-recursive: numpy's
+  recursive-halving regime (d > 128) stays on the numpy lane (self-recursion
+  inside a numba parallel region segfaulted under test).
+* **Parallel agent scoring (measured 1.2x).** `coordinate()` now scores the
+  five agents on a thread pool — admissible only because the purity fix
+  makes scoring thread-independent: results are pinned bit-identical to
+  serial (5-run repeat test), wall-clock 72.8 -> 62.2 ms on cardio-scale and
+  285 -> 228 ms at 2.2k rows on the 4-core profiling box; the modest factor
+  is honest (the detectors' internal numba/BLAS parallelism already uses the
+  cores). Per-agent failure exclusion and quorum semantics unchanged.
+* **Fusion checkpoint round-trip fidelity — ROADMAP row 16 CLOSED.**
+  Measured root causes: a loaded engine auto-fit its base detectors on the
+  first inference batch (the leak), torch-module domain models
+  re-randomized per process, the multiverse population re-randomized per
+  construction, and **two stub models emitted fresh RNG output per call**
+  (`AffectiveAnomalyModel` fed 64 columns of pure noise into the fusion
+  feature set at train and serve; `neural`'s buffer drifted) — same-engine
+  repeat drift was ±0.08 before any save/load was attempted. Remediation:
+  (1) `get_fitted_state()`/`set_fitted_state()` on all five base detectors
+  (statistical incl. Oracle re-arm via the existing federation-stats path;
+  dimensional incl. trained autoencoder weights; spatial rebuilds its
+  KDTree from persisted points; temporal incl. its construction-random LSTM
+  feature weights); (2) checkpoint now carries `model_state_dicts`
+  (torch-module domain models), `model_fitted_state` (multiverse
+  population) and `conformal_state` (calibrator thresholds); (3) the
+  affective stub is quarantined to deterministic *neutral* output (zero
+  features, 0.5 scores, one-time warning) per the repo's
+  parapsychology/schumann precedent — it fabricates nothing; (4)
+  `default_fusion.pt` regenerated with full state. **Measured: save->load
+  max |dProb| = 5.9e-08 (bar < 1e-3; was ~0.76 historical / 0.427
+  re-measured), same-engine repeat drift exactly 0.0, conformal sets
+  identical.** Pinned by `tests/test_fusion_checkpoint_roundtrip.py`;
+  legacy checkpoints still load with legacy behavior; fusion regression
+  gate re-run green.
+* **Spatial detector defects (found by the parity battery, fixed):**
+  (a) `_NativeLOF.decision_function` raised `AxisError` whenever k == 1
+  (single training sample, or `n_neighbors=1`) — scipy squeezes the
+  neighbor axis for k=1; restored explicitly. (b) `detect()` crashed
+  outright on NaN/Inf queries (`KDTree.query` refuses them) before its own
+  downstream NaN guards could run — sanitized at the boundary exactly like
+  the temporal detector; finite inputs are byte-unaffected. Regression
+  tests in `tests/detectors/test_spatial_detector.py`.
+* **Test-infra:** the suite's per-xdist-worker thread cap now covers
+  numba's parallel kernels too (`NUMBA_NUM_THREADS=1`, mirroring the
+  existing torch cap in `tests/conftest.py`) — without it each worker
+  spawned a full physical-core pool for the new GSIS prange lane and the
+  oversubscription starved borderline-heavy tests past the 300 s timeout.
+* **Candidates re-profiled and *not* optimized (honest negative results):**
+  (1) the inherited "fit_fusion 610 s / 20 epochs on cardio" figure does
+  not reproduce — measured 6.8 s (labels), 10.1 s (semi-supervised), 9.1 s
+  (domain encoder) for 20 epochs on this 4-core box, with feature
+  extraction ~1.2 s of it; nothing profile-justified to attack. (2) GPU
+  lane: `torch.cuda.is_available()` is False in this environment — no GPU
+  work was attempted and no GPU numbers exist; the lane awaits the
+  operator's GPU CI runners.
+
+### DimensionalAnalyzer — dead spectral-divergence term given real, gate-cleared semantics (2026-06-11)
+
+The DB term's spectral-divergence component — disclosed as identically zero
+in the native-acceleration pass — now carries real semantics
+(operator-approved): each row's feature-axis power spectrum is compared
+against the fit-time mean training-row spectrum with the original
+normalized-distance formula.
+
+* **Pre-registered ablation gate, cleared decisively**
+  (`benchmarks/db_spectral_ablation.py`, artifact
+  `artifacts/db_spectral_ablation.json`; paired OFF/ON fits under identical
+  global seeds, real ADBench, 5 datasets × 3 seeds): mean paired detector
+  ΔAUC **+0.071** (bar +0.002), seed agreement **0.93** (14/15), the term
+  alone moving from chance (**0.460** — confirming it was dead weight) to
+  **0.811** AUC. Largest gains where spectral structure exists (thyroid
+  +0.12…+0.20, cardio +0.08…+0.14); the single negative is −0.0013, inside
+  the noise floor.
+* **Default flipped to enabled** per the cleared gate;
+  `{"db_spectral_divergence": False}` preserves the pre-2026-06-11 shipped
+  scores exactly (pinned byte-equal by the legacy-oracle parity test).
+* **Behavioral contract:** `tests/test_db_spectral_term.py` — the enabled
+  term detects precisely what it claims (every spectrum-diverging row
+  out-scores every conforming row on constructed spectral structure,
+  multi-seed), fit-time baseline, and dimension-mismatch truncation.
+* Orchestration-validation grid re-measured with the new default; all four
+  pillar-B bars still pass (artifact regenerated).
+
+### Operations — explicit online/offline (air-gapped) modes for the data layer (2026-06-11)
+
+Production deployments require both connectivity modes; detection itself
+was already fully local — the gap was the data layer.
+
+* **`MERCURY_OFFLINE=1`** refuses every dataset-layer network fetch at the
+  single HTTP chokepoint (`datasets/base.py::http_get_with_retry`) before
+  any socket is opened, raising the new `OfflineModeError` with a
+  remediation hint. Cached data keeps serving; uncached data fails closed —
+  never stale, never synthetic. Read at call time (the `MERCURY_ENV`
+  contract), so tests and operators toggle without restarts.
+* **`MERCURY_DATA_DIR` / `MERCURY_CACHE_DIR`** env overrides for the
+  dataset directories (defaults unchanged when unset), so air-gapped
+  deployments pin a stable cache location.
+* **`scripts/prefetch_datasets.py`** primes the cache while online
+  (`--adbench cardio thyroid …` or `--adbench-all` for the 47-dataset
+  catalog); exits non-zero on any failed fetch — a partial prime is
+  reported, never silently accepted.
+* **Docs:** `docs/OFFLINE_OPERATION.md` (mode matrix, env vars, priming
+  runbook). **Tests:** `tests/datasets/test_offline_mode.py` pins flag
+  parsing, refusal-before-socket, cached service under offline mode,
+  fail-closed uncached errors, and the env-aware directory defaults.
+
+### Performance — native acceleration pass on the live detection hot path, equivalence-pinned (2026-06-11)
+
+A profile of the orchestrated detection path on a real-scale batch
+(1,132 × 21) showed 91% of time inside two live detectors' per-sample
+Python loops, not in the new orchestration layer. Every fast path below is
+a *compiled form* of its reference semantics — outputs are pinned
+bit-for-bit (or to 1e-12) by `tests/test_native_acceleration.py`, and the
+full orchestration-validation grid reproduces its pre-optimization verdicts
+(consensus 0.829 vs members 0.823; reflexion +0.078; planning 129/129;
+fidelity 600/600).
+
+* **`DimensionalAnalyzer._dimensional_code_breaking`:** one batched FFT
+  over all rows replaces two FFT calls per sample. Disclosed in the same
+  pass: the loop's spectral-divergence component is **identically zero**
+  for every sample (a single row's per-column FFT has length 1, so the
+  half-spectrum slice is empty and the divergence evaluates to
+  `0/(0+1e-10)`), meaning 50% of the DB-score weight has always been a
+  constant. Preserved as an explicit, documented zero — giving the term
+  real semantics would change this live detector's shipped scores and
+  therefore requires its own measured ablation gate first.
+* **`SigmaDirectiveDetector._detect_micro_anomalies`:** a strided
+  sliding-window view computes all window variances in one reduction
+  (formerly ~24k one-window `np.var` calls per batch).
+  **`_gravitational_stability_check`:** chunked pairwise broadcasting
+  replaces the per-row loop (one full distance pass + one percentile call
+  per sample); the O(n²·d) semantics are inherent and preserved.
+* **Orchestrator consensus fast path:** the per-sample
+  `ConsensusProtocol` derivation is vectorized for the default
+  CONFIDENCE_WEIGHTED method; the protocol remains the semantic
+  authority — a deterministic subsample of every batch is re-derived
+  through the real protocol and any divergence fails the batch closed
+  (`MultiAgentOrchestrator._spot_check_consensus`). Non-default methods
+  keep the per-sample path.
+* **Measured effect:** orchestrated `coordinate()` on the profiled
+  workload 855 ms → 324 ms (**2.6×**); the wins land in the live
+  detectors, so `detect_with_fusion` feature extraction and every other
+  consumer of `dimensional`/`directive` benefit equally. Remaining cost is
+  intrinsic O(n²) stability math and scipy KDTree — already native.
+* **`[performance]` extra (new):** `numba` was referenced by the code and
+  the mypy overrides but declared in no dependency group, so the designed
+  `@jit` lanes (e.g. `detectors/spatial.py` distance scoring) could never
+  be engaged by install — dormant in every environment including CI. Now
+  installable via `pip install mercury-agent[performance]`; JIT-vs-numpy
+  parity is pinned by `tests/test_native_acceleration.py` (skipped when
+  numba is absent).
+* **Reproducibility:** `benchmarks/orchestration_validation.py` now pins
+  the global numpy/torch seeds per (dataset, seed) run — some live
+  detectors carry stochastic components that follow the global seed
+  (e.g. `DimensionalAnalyzer`'s autoencoder lane, instance-to-instance
+  spread ≈0.56 on identical fits), so the grid was honest but not
+  bit-reproducible run-to-run before this.
+* **Environment/tooling:** the session-provisioning gap that made
+  `pytest-asyncio`/`pytest-xdist`/`pytest-timeout` unavailable locally
+  (one async test erroring with "async def functions are not natively
+  supported", and the `asyncio_mode` config warning on every run) is
+  closed by installing the already-declared dev extras — no code change;
+  the failure predated this branch.
+
+### Multi-agent orchestration (pillar B) — the dormant planning/coordination/reflexion/chain-of-thought tier revived as a measured planner/critic/executor loop over the live ensemble (2026-06-11)
+
+Closes the capability-matrix "Multi-agent" gap ("no planner/critic/executor
+multi-agent orchestration in Mercury yet") by wiring DORMANCY_LEDGER rows
+10–11 (~6,000 LOC retained as "reference only") into one live execution path,
+under the same ablation discipline as every other revival.
+
+* **New subsystem: `agentic/orchestration.py` (`MultiAgentOrchestrator`).**
+  `HierarchicalPlanner` plans and *drives* each detection episode — the real
+  pipeline stages (score → consensus → decide) are registered as options
+  whose initiation/termination predicates read the actual pipeline state,
+  with TD value learning from real stage rewards; `AgentCoordinator` +
+  `ConsensusProtocol` form per-sample consensus across `DetectorAgent`
+  wrappers of the engine's five real detectors; `AnomalyReflexion` is the
+  critic, turning real labeled outcomes into operating-threshold adaptation;
+  `AnomalyChainOfThought` renders per-decision reasoning traces whose stated
+  determination is contractually locked to the issued decision. Dual hard
+  ethical gates (benevolence floor + σ_Immutable) run fail-closed at the
+  orchestrator's decision boundary, exactly as on the engine boundary.
+  Engine wiring: `OmniMercuryEngine.enable_multi_agent_orchestration()`.
+* **Measured, not asserted:** `benchmarks/orchestration_validation.py`
+  (artifact `artifacts/orchestration_validation.json`), real ADBench labels,
+  5 datasets × 3 seeds, four pre-registered bars — all passed: consensus
+  preserves member signal (mean AUC **0.827** vs mean member **0.821**; best
+  member 0.903 reported as context — no claim of beating the trained fusion
+  model); reflexion improves the operating point by **+0.079** paired
+  balanced accuracy vs a fixed threshold on identical batches/agents
+  (15/15 runs acted); plan executability **129/129** episodes with
+  monotone initial-state value growth; trace fidelity **600/600** with
+  exact numeric quotes.
+* **Defects found and corrected (not deferred) in the dormant modules:**
+  (1) `hierarchical_planning` could not select options at all — the option
+  library returned dict projections that `plan()`/`select_action()`
+  type-checked away, so every plan shipped empty and every action fell back
+  to `default_action`; option eviction never fired (builtin prefix test
+  matched every ID) and `Option.get_action` never consulted its own
+  `"default"` policy. (2) `multi_agent_coordination` returned a silent
+  benign verdict below quorum (fail-open — now an explicit `abstained`
+  consensus flag), silently dropped duck-typed dict votes from consensus
+  (now coerced and counted), and reported `individual_results` from a
+  nonexistent attribute (always empty — now the real per-agent results).
+  (3) `chain_of_thought` traces classified against hardcoded 0.7/0.4 bands
+  regardless of the issuing pipeline's boundary, so a trace could state
+  "POTENTIAL ANOMALY" while the verdict said anomaly (now: traces classify
+  at the caller's `anomaly_threshold`); the self-consistency strategy
+  returned the normalized vote *token* ("anomaly") as the chain conclusion,
+  stripping the human-readable determination (now: winning path's full
+  conclusion, token kept in metadata). (4) `reflexion`'s
+  `execute_with_reflection` recomputed an identical decision every
+  iteration (reflection never fed back — now critiques are answered with
+  real evidence computed from the task data); its threshold-recommendation
+  rule (`fn > 2·fp` → jump ≥ 0.1) was **measured harmful on real labels**
+  (paired Δ −0.071; WBC balanced accuracy 0.98 → 0.50) and replaced with an
+  evidence-grounded balanced-accuracy sweep over recorded outcomes with
+  minimum-evidence and hysteresis guards (measured: +0.079, and
+  well-calibrated points are left untouched).
+* **Honesty semantics throughout:** below-quorum coordination abstains
+  explicitly (never "benign"); agent fit/score failures surface and the
+  orchestrator refuses below quorum; an unexecutable plan raises instead of
+  bypassing the planner; an unfaithful trace raises instead of shipping.
+* **Tests:** `tests/cognitive/test_orchestration_behavioral.py` — 45
+  multi-seed behavioral tests pinning every defect fix and every
+  orchestration contract (planner-driven sequencing, TD value growth,
+  quorum abstention, reflexion adaptation with paired improvement, trace
+  fidelity incl. post-adaptation issue-time fidelity, ethical-gate
+  enforcement, engine wiring). Full `tests/cognitive/` suite: 577 passed.
+* **Docs:** DORMANCY_LEDGER rows 10/11 updated to *revived (orchestration
+  tier)* with the measured numbers; `chain_of_hindsight` and
+  `plasticity_engine` split into rows 10b/11b (still retained — no honest
+  harness yet); capability matrix "Multi-agent" row moved to
+  **Shipped + measured** with the build-out item (B) closed.
+### Added — multi-model substrate: provider-reported usage accounting + LLM model registry (2026-06-11)
+
+First slice of the multi-agent/multi-model build-out
+(`docs/capability_vs_vision_matrix.md` §4 item B): before orchestrating
+across Mercury's ten LLM providers, calls must be *costed* and models must
+be *selectable*. Both pieces are provider-truth-only — no client-side
+token estimates, no hard-coded market facts.
+
+* **Usage accounting**
+  (`omni_mercury_engine.models.foundation.llm_usage`): `LLMUsage` (one
+  immutable record per successful generation, counts exactly as the
+  provider's response reported them) and `UsageLedger` (thread-safe;
+  exact lifetime totals via running counters; bounded recent-history
+  ring that never bends the totals). Calls whose provider reports no
+  usage are recorded as **unmetered** (`reported=False`) so unmeasured
+  spend is visible rather than silently absent.
+* **Adapter wiring**: every shipped adapter's success path now parses
+  its provider's usage block into `last_usage` and an optionally
+  attached ledger (`BaseLLMAdapter.attach_usage_ledger`) — OpenAI +
+  xAI/DeepSeek/Cursor (`usage.{prompt,completion,total}_tokens`),
+  Anthropic (`usage.{input,output}_tokens`), Gemini (`usageMetadata`),
+  Cohere v2 (`usage.tokens`), Ollama (`prompt_eval_count`/`eval_count`),
+  HuggingFace Inference (no usage block → unmetered record). Failed
+  calls book nothing. `FallbackLLMChain(usage_ledger=...)` threads one
+  ledger through every adapter in the chain and exposes `last_usage`.
+* **LLM model registry** (`omni_mercury_engine.models.llm_registry`,
+  importable without torch): `PROVIDER_CATALOG` — code-grounded facts
+  about the ten shipped adapters (wire format, key env var, locality,
+  explicit-base_url requirement, usage-reporting), drift-gated in CI
+  against `IMPLEMENTED_LLM_PROVIDERS`; `LLMModelSpec` /
+  `LLMModelRegistry` — operator-declared model facts with mandatory
+  provenance (a spec carrying prices must carry `pricing_as_of`) and
+  deterministic capability/context/budget selection (`select` /
+  `select_one`; unpriced specs are excluded from budget queries rather
+  than assumed free; unknown capabilities raise rather than silently
+  matching nothing).
+* **Locks:** `tests/models/test_llm_usage_ledger.py` (validation,
+  aggregation, bounded-ring-vs-exact-totals, concurrent exactness),
+  `tests/test_llm_usage_capture.py` (per-wire-format parsing against
+  canned payloads, unmetered HF route, failed-call no-booking, chain
+  threading), `tests/models/test_llm_registry.py` (spec/selection
+  contracts + the provider-catalog drift gate).
+
+### Security — owner-governed risk posture: enumerated CVE ledger, shared HD master seed, signed cache entries (2026-06-10)
+
+Closes three standing gaps where risk was silently accepted or a promised
+control was never wired, replacing each with an enforced mechanism.
+
+* **Deployment-image CVE gate: blanket waiver retired.** The blocking
+  Trivy gates (`ci.yml` Docker job, `security.yml` table scan) now run
+  `ignore-unfixed: false` with the new repo-root `.trivyignore` — an
+  enumerated, expiring (90-day `exp:`), per-CVE acceptance ledger. A new
+  unfixed CRITICAL/HIGH finding, or an expired entry, now **fails the
+  gate** instead of passing invisibly. Ledger as measured by the
+  blocking gates' own built-image scan (trivy 0.70.0 via
+  `trivy-action@v0.36.0`, 2026-06-10): 13 no-upstream-fix OS CVEs
+  (5 Critical, 8 High) — nine first enumerated from the
+  `python:3.13-slim-bookworm` base, of which seven (ncurses
+  CVE-2025-69720 + six perl-base CVEs) had been present but undisclosed
+  under the old blanket waiver, plus four surfaced only by the enforced
+  built-image gate (three libexpat1 CVEs + mesa CVE-2026-40393 via the
+  OpenCV `libgl1-mesa-glx` runtime dependency). Resolved entries
+  removed from `SECURITY.md`: the fixed pip family (pip ≥ 26.1 floor)
+  and five formerly-listed findings no longer present at gated
+  severities.
+* **`AMA_MASTER_SEED` — deterministic fleet-wide HD key derivation.**
+  `api/auth.py::get_auth_key_manager()` now sources the AMA HD master
+  seed from the `AMA_MASTER_SEED` env var (hex, ≥ 32 decoded bytes;
+  malformed values raise instead of degrading to an ephemeral seed).
+  With it set, HD-derived keys — including the production JWT signing
+  key — are identical across workers, replicas, and restarts. Seedless
+  production derivation still works but now logs an explicit warning
+  naming the per-process-key hazard. A whitespace-only value is
+  malformed (raises), never a silent unset: `bytes.fromhex` ignores
+  ASCII whitespace, so a trailing newline on a valid seed is harmless
+  while a garbage value still fails loudly. Locked by
+  `tests/security/test_jwt_auth.py::TestAMAMasterSeed` (8 tests).
+* **`MERCURY_CACHE_SECRET` wired — Redis cache entry signing.** The
+  Helm-provisioned secret, previously read by no code path, is now
+  consumed by `integrations/stubs/cache.py::RedisCache`: entries are
+  wrapped in an HMAC-SHA256-signed envelope on `set` and verified on
+  `get`; unsigned, tampered, or foreign-keyed entries raise the new
+  `CacheIntegrityError` (loud, never a silent miss). Plain-JSON
+  behaviour is byte-identical when the secret is unset. `_sign()` guards
+  its signing-active contract with an explicit `CacheIntegrityError`
+  instead of an `assert` (survives `python -O`); envelope detection
+  requires the exact three-key shape `_serialize` writes, so user data
+  that merely contains the marker key cannot be misclassified. Locked by
+  `tests/integrations/test_cache_hmac.py::TestRedisCacheHMAC` (10 tests).
+* **`.env.example` reconciled to the real env surface.** Dead toggles
+  removed (`OMNI_ML_ENABLED`, `OMNI_QUANTUM_ENABLED`,
+  `OMNI_EXPERIMENTAL_FEATURES`, `OMNI_CACHE_DIR`); `AMA_MASTER_SEED`,
+  `MERCURY_ENV`, `API_KEY_HASH_SALT`, `MERCURY_CACHE_SECRET`, and
+  `MERCURY_CORS_ORIGINS` documented; the stale "conditional PQC gate"
+  comment and a nonexistent `validate_env` command corrected.
+
 ### Decision / Abstention / Response layer — closes identify→interpret→decide→deter with a calibration-grounded "don't-know" gate (2026-06-09)
 
 Converts the calibrated detection certificate into a **closed autonomous loop**
@@ -292,9 +763,9 @@ decorrelation-fires-on-redundant-signal, and distinct-from-baseline cases.
 ### Equations — universal equation optimizer + opt-in runtime equation profiles (2026-06-02)
 
 Marshals the previously-unintegrated **universal equation optimizer** work
-(developed on `copilot/copilotimprove-universal-generalized-composite-met`, never
-opened as a PR) into a single branch, adapted to the current engine surface and
-re-verified end-to-end. The optimizer is reproducible and *safety-gated by
+(developed on an earlier working branch and never opened as a PR) into a
+single branch, adapted to the current engine surface and re-verified
+end-to-end. The optimizer is reproducible and *safety-gated by
 construction* — it does not weaken any existing gate, and when no candidate beats
 the proven baseline under the hard constraints, the frozen baseline wins.
 
@@ -798,7 +1269,10 @@ because the supply-chain posture it tracked is now covered by:
   Two-Tier Dependency-CVE Coverage table that previously linked here);
 * `.safety-policy.yml` (machine-readable v3 acceptance policy for the
   Safety CLI scanner — currently zero acceptances, OS-level only);
-* `.trivyignore` (per-CVE acceptances for the deployment-image gate);
+* the accepted-risk table in `SECURITY.md` plus the Trivy
+  `ignore-unfixed` / `skip-files` gate configuration in
+  `.github/workflows/{ci,security}.yml` (per-CVE acceptances for the
+  deployment-image gate);
 * dated security entries in this CHANGELOG (the per-PR rationale for
   remediations and risk acceptances).
 
@@ -2523,7 +2997,7 @@ and regression tests:
   when installing a malicious wheel package. Both Dockerfile builder and
   runtime stages now pin `pip>=26.1` (was `>=26.0`), eliminating
   CVE-2026-6357, CVE-2025-8869, and CVE-2026-1703 in a single version bump.
-  The `.trivyignore` audit trail updated with CVE-2026-6357 entry.
+  The accepted-risk ledger in `SECURITY.md` records the CVE-2026-6357 entry.
 - **Trivy CI scan hardened with `limit-severities-for-sarif: true`.**
   The `aquasecurity/trivy-action` SARIF format mode was dropping the severity
   filter, causing MEDIUM-severity pip CVEs to trigger the CRITICAL/HIGH

@@ -19,6 +19,13 @@ except ImportError:
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
 
+# Fixed initialization seed for the untrained LSTM feature projector. The
+# value is arbitrary but immutable: every TemporalAnomalyDetector instance
+# must project with identical weights so checkpoint-free engines agree
+# across processes. Changing it changes what fresh instances extract;
+# checkpoints are unaffected (they persist the projector weights).
+_LSTM_INIT_SEED: int = 1_726_021
+
 
 class TemporalAnomalyDetector(BaseDetector):
     """Time series anomaly detection using:.
@@ -46,14 +53,24 @@ class TemporalAnomalyDetector(BaseDetector):
         # paths, and callers that DO try the LSTM path receive a clear
         # ImportError from :meth:`_lstm` rather than a confusing
         # NameError leaking the implementation detail.
+        # The LSTM is an *untrained, fixed* feature projector: its weights are
+        # never fit, so they must be a constant of the architecture rather
+        # than a draw from the process-global RNG. Constructing it under a
+        # forked, fixed-seed RNG makes every instance bit-identical (and
+        # leaves the caller's global RNG stream untouched). Checkpoints
+        # already persist the projector weights (get_fitted_state, ROADMAP
+        # row 16); this makes checkpoint-free instances agree across
+        # processes too.
         self.lstm: Any | None = None
         if TORCH_AVAILABLE:
-            self.lstm = nn.LSTM(
-                input_size=1,
-                hidden_size=32,
-                num_layers=2,
-                batch_first=True,
-            )
+            with torch.random.fork_rng(devices=[]):
+                torch.manual_seed(_LSTM_INIT_SEED)
+                self.lstm = nn.LSTM(
+                    input_size=1,
+                    hidden_size=32,
+                    num_layers=2,
+                    batch_first=True,
+                )
 
         self.baseline_mean: float | None = None
         self.baseline_std: float | None = None
@@ -252,3 +269,36 @@ class TemporalAnomalyDetector(BaseDetector):
             scores = max_z / (self.change_threshold + max_z)
 
         return scores
+
+    def get_fitted_state(self) -> dict[str, Any] | None:
+        """Export the fitted state for checkpoint round-tripping.
+
+        Covers everything the detect/extract paths read: the fit-time
+        baselines and the LSTM feature-extractor weights. The LSTM is now
+        constructed under a fixed seed, but checkpoints written before that
+        change carry per-process random weights, so persisting them keeps
+        every existing checkpoint exact (ROADMAP row 16).
+
+        Returns:
+            JSON/tensor-safe mapping, or ``None`` when unfitted.
+        """
+        if not self._is_fitted:
+            return None
+        return {
+            "baseline_mean": self.baseline_mean,
+            "baseline_std": self.baseline_std,
+            "lstm_state_dict": dict(self.lstm.state_dict()) if self.lstm is not None else None,
+        }
+
+    def set_fitted_state(self, state: dict[str, Any]) -> None:
+        """Restore a state produced by :meth:`get_fitted_state`."""
+        self.baseline_mean = (
+            float(state["baseline_mean"]) if state["baseline_mean"] is not None else None
+        )
+        self.baseline_std = (
+            float(state["baseline_std"]) if state["baseline_std"] is not None else None
+        )
+        lstm_state = state.get("lstm_state_dict")
+        if lstm_state is not None and self.lstm is not None:
+            self.lstm.load_state_dict(lstm_state)
+        self._is_fitted = True
