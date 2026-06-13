@@ -1,0 +1,13 @@
+=== X2 non-monotonicity guard ===
+
+--- Detector: tau ---
+  scramble fired=True  repaired AUROC=0.9009 (need >=0.8267); well-specified fires=False (expect False) -> PASS
+  real-data false-fire rate: 40.0% over 60 runs (need < 5%)
+   per-ds: 6:0%  23:30%  38:50%  31:70%  28:10%  30:80%
+  VERDICT[tau]: scramble-ok=True  real-silent=False  -> KILLED
+
+--- Detector: brier_gap ---
+  scramble fired=True  repaired AUROC=0.9009 (need >=0.8267); well-specified fires=False (expect False) -> PASS
+  real-data false-fire rate: 0.0% over 60 runs (need < 5%)
+   per-ds: 6:0%  23:0%  38:0%  31:0%  28:0%  30:0%
+  VERDICT[brier_gap]: scramble-ok=True  real-silent=True  -> SURVIVES

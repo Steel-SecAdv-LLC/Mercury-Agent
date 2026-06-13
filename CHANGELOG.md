@@ -27,6 +27,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Session bootstrap — no hosting-vendor files in the tree; Mercury-named script hardened (2026-06-12)
+
+The repository carries no hosting-vendor configuration (the vendor-named
+directory stays removed). The environment bootstrap (AMA Cryptography native
+PQC build plus `[ml]`/tooling install) lives only at
+`scripts/mercury_session_setup.sh`, now hardened with a
+disposable-environment guard: it runs in hosted remote sessions (which mark
+themselves at runtime) or when forced via
+`MERCURY_SETUP_FORCE=1 bash scripts/mercury_session_setup.sh`, and refuses to
+modify any other environment. Automatic session start-up, where desired, is
+configured in the host environment itself, outside this repository, by
+pointing the host's session-start hook at this script.
+
 ### Reproducibility & API consolidation — deterministic construction of the fusion feature path's random components; conformal serialization moved behind a first-class API (2026-06-11)
 
 Consolidation follow-up to the checkpoint round-trip closure (ROADMAP row 16,

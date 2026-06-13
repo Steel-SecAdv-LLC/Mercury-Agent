@@ -10,9 +10,15 @@
 # plain dependency list cannot install it; this mirrors the verified procedure
 # in .github/actions/build-ama-cryptography and src/omni_mercury_engine/_pqc_gate.py.
 #
-# Usage — run as the FIRST command in a fresh remote/ephemeral container:
+# Invocation — two supported paths:
 #
-#     bash scripts/mercury_session_setup.sh
+#   1. As a session-start hook configured in the HOST environment itself
+#      (kept outside this repository by design — the tree carries no
+#      hosting-vendor configuration): point the host's hook at this script.
+#   2. Manually, as the FIRST command in any fresh disposable container
+#      (CI-like environments):
+#
+#          MERCURY_SETUP_FORCE=1 bash scripts/mercury_session_setup.sh
 #
 # The engine's PQC gate is fail-closed, so run this to completion before using
 # Mercury in the session. Installs into the active Python environment: meant
@@ -20,10 +26,18 @@
 # workstations.
 set -euo pipefail
 
+# Safety: only modify disposable environments. Hosted remote sessions mark
+# themselves via CLAUDE_CODE_REMOTE; anything else (e.g. a developer
+# workstation where this fires as a hook) must opt in explicitly.
+if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ] && [ "${MERCURY_SETUP_FORCE:-}" != "1" ]; then
+  echo "mercury_session_setup: not a hosted remote session and MERCURY_SETUP_FORCE != 1 — leaving this environment untouched."
+  exit 0
+fi
+
 AMA_REF="v3.2.0"                 # keep in lockstep with pyproject.toml [pqc] pin
 AMA_SRC="/tmp/ama-cryptography"
 AMA_LIB="${AMA_SRC}/build/lib"
-PROJECT_DIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 
 ama_pqc_live() {
   LD_LIBRARY_PATH="${AMA_LIB}:${AMA_SRC}/build:${LD_LIBRARY_PATH:-}" python - <<'PY' 2>/dev/null
