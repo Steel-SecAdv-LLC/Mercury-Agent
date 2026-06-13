@@ -1,0 +1,54 @@
+# Mercury-Agent Rust Crypto Gate
+# Compiles the in-tree mercury_crypto PyO3 crate and runs its unit tests
+# (hashing / encryption / KDF / random). Path-filtered: the crate is an
+# optional accelerator (omni_mercury_engine.crypto falls back to pure
+# Python), but in-tree code must always compile — this gate exists because
+# the crate once carried a latent E0716 borrow error that no CI lane
+# caught (nothing else builds Rust).
+# Copyright (C) 2025 Steel Security Advisors LLC
+
+name: Rust Crypto Gate
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rust-crypto-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "rust_crypto/**"
+      - ".github/workflows/rust-crypto.yml"
+  push:
+    branches: [main]
+    paths:
+      - "rust_crypto/**"
+      - ".github/workflows/rust-crypto.yml"
+  workflow_dispatch:
+
+jobs:
+  rust-crypto-tests:
+    name: Rust Crypto Build + Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      # ubuntu-latest ships a maintained stable Rust toolchain; the crate
+      # pins its dependency graph via the committed Cargo.lock.
+      - name: Toolchain versions
+        run: |
+          rustc --version
+          cargo --version
+
+      - name: Build (release)
+        run: cargo build --release --locked
+        working-directory: rust_crypto
+
+      - name: Run crate unit tests
+        run: cargo test --release --locked
+        working-directory: rust_crypto
