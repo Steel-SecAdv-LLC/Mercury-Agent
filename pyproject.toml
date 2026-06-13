@@ -445,31 +445,24 @@ module = [
     "sklearn.*",
     "matplotlib.*",
     "plotly.*",
-    "mammoth.*",
     "hypothesis.*",
     # NOTE: ``pytest.*`` deliberately omitted -- pytest ships ``py.typed``
     # and is installed in the Type Checking CI job so mypy can resolve
     # ``@pytest.fixture`` / ``@pytest.mark.parametrize`` signatures and
     # keep the strict test-lane gate honest (no decorator-disable needed).
     "torchvision.*",
-    "torch_geometric.*",
     "cv2.*",
-    "qutip.*",
     "pytorch_lightning.*",
     "tensorboard.*",
     "psutil",
     "psutil.*",
-    "structlog.*",
     "timm.*",
     "transformers.*",
-    "accelerate.*",
     "stumpy.*",
     "nixtla.*",
     "chronos.*",
     "faiss.*",
-    "FrEIA.*",
     "streamlit.*",
-    "altair.*",
     "PIL.*",
     "tqdm.*",
     "networkx.*",
@@ -483,8 +476,6 @@ module = [
     "bcrypt.*",
     "click.*",
     "yaml.*",
-    "toml.*",
-    "dotenv.*",
     # Crypto module optional dependencies
     "mercury_crypto",
     "blake3",
@@ -511,8 +502,6 @@ module = [
     "einops",
     "einops.*",
     # API utilities
-    "python_multipart",
-    "python_multipart.*",
     "starlette.*",
     # Datasets and data science
     "datasets",
@@ -564,9 +553,6 @@ module = [
     # AMA Cryptography integration (PQC primary backend)
     "ama_cryptography",
     "ama_cryptography.*",
-    # Ava-Guardian integration (backward compat shim)
-    "ava_guardian",
-    "ava_guardian.*",
     # Async database drivers
     "asyncpg",
     "asyncpg.*",
