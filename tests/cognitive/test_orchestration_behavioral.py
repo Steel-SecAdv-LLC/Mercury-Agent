@@ -253,6 +253,38 @@ class TestConsensusAbstentionAndCoercionFix:
         for entry in result["individual_results"]:
             assert {"agent_id", "decision", "anomaly_score", "confidence"} <= set(entry)
 
+    def test_list_input_preserves_full_quorum(self) -> None:
+        """A plain ``list`` must not silently drop the dimensional agent.
+
+        Its scorer uses ndarray-only ``data.ndim``/``reshape``; before the
+        boundary coercion a ``list`` raised there and that agent was dropped,
+        quietly shrinking the quorum from 5 to 4 while still returning a verdict.
+        Array-like input must reach consensus identically to a real ndarray.
+        """
+        from omni_mercury_engine.cognitive.multi_agent_coordination import (
+            MultiAgentDetectionSystem,
+        )
+
+        data = [1.0, 1.1, 0.9, 1.05, 0.98, 1.02, 250.0]
+        as_list = MultiAgentDetectionSystem(num_agents=5, seed=0).detect(data)
+        as_array = MultiAgentDetectionSystem(num_agents=5, seed=0).detect(np.asarray(data))
+
+        assert as_list["participant_count"] == 5
+        assert len(as_list["individual_results"]) == 5
+        assert as_list["participant_count"] == as_array["participant_count"]
+        assert as_list["consensus_decision"] == as_array["consensus_decision"]
+
+    def test_coalition_path_accepts_list_input(self) -> None:
+        """``use_coalition=True`` reads ``data.shape``; a list must not crash it."""
+        from omni_mercury_engine.cognitive.multi_agent_coordination import (
+            MultiAgentDetectionSystem,
+        )
+
+        system = MultiAgentDetectionSystem(num_agents=5, seed=0)
+        result = system.detect([1.0, 1.1, 0.9, 1.05, 0.98, 1.02, 250.0], use_coalition=True)
+        assert "consensus_decision" in result
+        assert result["participant_count"] >= 1
+
 
 class TestChainOfThoughtThresholdFidelityFix:
     """Reasoning traces previously classified against hardcoded 0.7/0.4
