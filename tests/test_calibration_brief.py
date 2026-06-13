@@ -43,7 +43,7 @@ def _load_calibration() -> Any:
         ]:
             if name not in sys.modules:
                 m = types.ModuleType(name)
-                m.__path__ = []  # type: ignore[attr-defined]
+                m.__path__ = []
                 sys.modules[name] = m
 
         def _load(modname: str, relpath: str) -> Any:
