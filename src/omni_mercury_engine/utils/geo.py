@@ -64,7 +64,7 @@ def _central_angle_rad(
     a = np.sin(dlat / 2.0) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2.0) ** 2
     # Floating-point round-off can push ``a`` infinitesimally outside [0, 1].
     a = np.clip(a, 0.0, 1.0)
-    return 2.0 * np.arctan2(np.sqrt(a), np.sqrt(1.0 - a))
+    return np.asarray(2.0 * np.arctan2(np.sqrt(a), np.sqrt(1.0 - a)), dtype=np.float64)
 
 
 def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
