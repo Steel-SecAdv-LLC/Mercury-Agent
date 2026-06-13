@@ -31,6 +31,7 @@ from omni_mercury_engine.models.foundation.ollama_adapter import (
     OllamaLLMAdapter,
     OpenAICloudAdapter,
     XAIGrokAdapter,
+    _as_count,
 )
 
 _POST_JSON = "omni_mercury_engine.models.foundation.ollama_adapter.SafeHTTPClient.post_json"
@@ -183,6 +184,36 @@ class TestProviderUsageParsing:
             result = adapter.generate("hi")
         assert result.startswith("API error")
         assert adapter.last_usage is None
+
+
+class TestAsCount:
+    """Token-count coercion is provider-truthful: exact or unreported, never guessed."""
+
+    def test_int_passes_through(self) -> None:
+        assert _as_count(42) == 42
+        assert _as_count(0) == 0
+
+    def test_integer_valued_float_is_exact(self) -> None:
+        """Cohere-style ``42.0`` coerces to the exact integer."""
+        assert _as_count(42.0) == 42
+
+    def test_fractional_float_is_unreported_not_truncated(self) -> None:
+        """A genuinely fractional count must not be silently floored to an int."""
+        assert _as_count(3.7) is None
+        assert _as_count(0.5) is None
+
+    def test_bool_is_unreported(self) -> None:
+        """``bool`` is an ``int`` subclass; it is never a token count."""
+        assert _as_count(True) is None
+        assert _as_count(False) is None
+
+    def test_negative_is_unreported(self) -> None:
+        assert _as_count(-1) is None
+        assert _as_count(-2.0) is None
+
+    def test_non_numeric_is_unreported(self) -> None:
+        assert _as_count("7") is None
+        assert _as_count(None) is None
 
 
 class TestFallbackChainLedger:

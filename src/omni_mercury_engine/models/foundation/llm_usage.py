@@ -70,7 +70,11 @@ class LLMUsage:
             raise ValueError("model must be a non-empty string")
         for name in ("prompt_tokens", "completion_tokens", "total_tokens"):
             value = getattr(self, name)
-            if value is not None and (not isinstance(value, int) or value < 0):
+            # ``bool`` is a subclass of ``int``; reject it explicitly so a stray
+            # True/False can never be booked as 1/0 token(s).
+            if value is not None and (
+                isinstance(value, bool) or not isinstance(value, int) or value < 0
+            ):
                 raise ValueError(f"{name} must be a non-negative int or None, got {value!r}")
         if (
             self.total_tokens is None
@@ -123,10 +127,12 @@ class _Aggregate:
 class UsageLedger:
     """Thread-safe accumulator of :class:`LLMUsage` records.
 
-    Aggregate totals are exact over everything ever recorded (running
-    counters; recording and reading are O(1) / O(#keys)). The per-call
-    history kept for inspection is a bounded ring of the most recent
-    ``max_recent`` records — totals are **not** affected by the bound.
+    Aggregate totals are exact over everything ever recorded and kept as
+    running counters: :meth:`record` and :meth:`totals` are O(1); the per-key
+    breakdown :meth:`totals_by_model` is O(number of ``(provider, model)``
+    keys). The per-call history kept for inspection is a bounded ring of the
+    most recent ``max_recent`` records — totals are **not** affected by the
+    bound.
 
     Attributes:
         max_recent: Capacity of the recent-records ring.
@@ -136,6 +142,7 @@ class UsageLedger:
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
     _recent: deque[LLMUsage] = field(init=False, repr=False)
     _by_model: dict[tuple[str, str], _Aggregate] = field(default_factory=dict, repr=False)
+    _global: _Aggregate = field(default_factory=_Aggregate, repr=False)
     _recorded: int = field(default=0, repr=False)
 
     def __post_init__(self) -> None:
@@ -149,19 +156,17 @@ class UsageLedger:
         with self._lock:
             self._recent.append(usage)
             self._by_model.setdefault((usage.provider, usage.model), _Aggregate()).add(usage)
+            self._global.add(usage)
             self._recorded += 1
 
     def totals(self) -> dict[str, int]:
-        """Return exact lifetime totals across all providers and models."""
+        """Return exact lifetime totals across all providers and models.
+
+        O(1): served from a running global aggregate updated on each
+        :meth:`record`, independent of the number of ``(provider, model)`` keys.
+        """
         with self._lock:
-            out = _Aggregate()
-            for agg in self._by_model.values():
-                out.calls += agg.calls
-                out.unreported_calls += agg.unreported_calls
-                out.prompt_tokens += agg.prompt_tokens
-                out.completion_tokens += agg.completion_tokens
-                out.total_tokens += agg.total_tokens
-            return out.to_dict()
+            return self._global.to_dict()
 
     def totals_by_model(self) -> dict[tuple[str, str], dict[str, int]]:
         """Return exact lifetime totals keyed by ``(provider, model)``."""
