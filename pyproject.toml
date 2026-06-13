@@ -94,6 +94,19 @@ ml = [
     "pytorch-lightning>=2.0.0",
     "timm>=1.0.26",
     "opencv-python-headless>=4.8.0",
+    # CVE-2025-47273: path traversal / arbitrary file write in setuptools'
+    # ``PackageIndex`` (fixed in 78.1.1).  ``setuptools`` is a *runtime*
+    # dependency of both ``torch`` and ``tensorflow`` (``Required-by:
+    # tensorflow, torch``), and when ``pip install`` resolves the [ml]/[all]
+    # tree it otherwise lands setuptools 70.2.0 in the environment even though
+    # nothing requires ``<78`` (torch caps it at ``<82``).  That vulnerable
+    # 70.2.0 is what ships in the Docker image's ``/opt/venv`` and trips the
+    # blocking Trivy gate.  The build front-end is already on a patched
+    # setuptools (``[build-system] requires = setuptools>=82.0.1``); this floor
+    # carries the same fix into the *installed* environment.  Lower-bound only,
+    # matching the core security-floor style (cryptography/pillow/requests);
+    # torch's own ``<82`` cap bounds the top.
+    "setuptools>=78.1.1",
     # Type-checking toolchain, PINNED (mirrored in [dev] and in the CI
     # "Type Checking" / "Code Quality" jobs).  The type-check lane installs
     # this extra for torch's ``py.typed`` stubs, so freezing mypy +
