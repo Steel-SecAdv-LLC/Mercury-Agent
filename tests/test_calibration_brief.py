@@ -34,7 +34,15 @@ def _load_calibration() -> Any:
         from omni_mercury_engine.core import calibration as cal
 
         return cal
-    except Exception:
+    except RuntimeError as exc:
+        # Fall back to the standalone stub-loader ONLY for the mandatory-PQC
+        # import-time gate (no AMA backend in this environment, which raises
+        # ``RuntimeError("AMA/PQC is mandatory for Mercury, ...")`` from
+        # ``_pqc_gate``).  Any other failure — a real import bug in
+        # calibration.py or one of its dependencies — must surface rather than
+        # be silently masked into the stub path.
+        if "AMA/PQC is mandatory" not in str(exc):
+            raise
         root = REPO / "src" / "omni_mercury_engine"
         for name in [
             "omni_mercury_engine",

@@ -138,7 +138,10 @@ class PlattScaling:
         except ImportError as e:
             raise ImportError(
                 "This feature requires the bundled ML module "
-                "omni_mercury_engine.ml.mercury_ml (pure numpy/scipy; no scikit-learn)."
+                "omni_mercury_engine.ml.mercury_ml (pure numpy/scipy; no scikit-learn). "
+                "It ships with the package, so an ImportError here means its numpy/scipy "
+                "backing (Mercury core dependencies) is missing or broken — reinstall with "
+                "`pip install mercury-agent`."
             ) from e
 
         self.model = LogisticRegression(
@@ -213,7 +216,10 @@ class IsotonicCalibration:
         except ImportError as e:
             raise ImportError(
                 "This feature requires the bundled ML module "
-                "omni_mercury_engine.ml.mercury_ml (pure numpy/scipy; no scikit-learn)."
+                "omni_mercury_engine.ml.mercury_ml (pure numpy/scipy; no scikit-learn). "
+                "It ships with the package, so an ImportError here means its numpy/scipy "
+                "backing (Mercury core dependencies) is missing or broken — reinstall with "
+                "`pip install mercury-agent`."
             ) from e
 
         self.model = IsotonicRegression(
@@ -267,10 +273,10 @@ class StrictIsotonicCalibration:
     Vanilla isotonic maps distinct scores to equal values (flat regions), which
     creates ties that *reduce* AUROC — measured loss on 5/6 ADBench datasets,
     e.g. thyroid 0.9788 -> 0.9535 (``benchmarks/calibration_brief/REPORT.md``).
-    This variant squeezes the isotonic output into the open interval and adds an
-    ``eps * s`` perturbation, making the map strictly increasing in ``s`` and
-    therefore AUROC-preserving (exact), while leaving ECE essentially unchanged
-    (within ~10% of vanilla isotonic on the brief's register).
+    This variant squeezes the isotonic output into the open interval and adds a
+    centered ``eps * (s - 0.5)`` perturbation, making the map strictly increasing
+    in ``s`` and therefore AUROC-preserving (exact), while leaving ECE essentially
+    unchanged (within ~10% of vanilla isotonic on the brief's register).
 
     A naive ``clip(g + eps*s, 0, 1)`` re-saturates exactly the points isotonic
     flattened to {0, 1}; squeezing first avoids that.
@@ -284,7 +290,20 @@ class StrictIsotonicCalibration:
                 the open interval (0, 1).
             out_of_bounds: Forwarded to the underlying isotonic regression
                 ("clip" or "nan").
+
+        Raises:
+            ValueError: If ``eps`` is not in the open interval ``(0, 0.5)``.
+                The strictly-increasing / in-``(0, 1)`` contract depends on it:
+                ``eps <= 0`` loses the tie-break (map no longer strictly
+                increasing) and ``eps >= 0.5`` makes the squeeze coefficient
+                ``1 - 2*eps`` non-positive, inverting or collapsing the map.
         """
+        if not 0.0 < eps < 0.5:
+            raise ValueError(
+                f"eps must be in the open interval (0, 0.5); got {eps!r}. "
+                "It is both the tie-break slope and the squeeze margin that "
+                "keeps calibrated outputs strictly increasing and within (0, 1)."
+            )
         self.eps = eps
         self._iso = IsotonicCalibration(out_of_bounds=out_of_bounds)
         self._fitted = False
@@ -598,7 +617,10 @@ class TemperatureScaling:
         except ImportError as e:
             raise ImportError(
                 "This feature requires the bundled ML module "
-                "omni_mercury_engine.ml.mercury_ml (pure numpy/scipy; no scikit-learn)."
+                "omni_mercury_engine.ml.mercury_ml (pure numpy/scipy; no scikit-learn). "
+                "It ships with the package, so an ImportError here means its numpy/scipy "
+                "backing (Mercury core dependencies) is missing or broken — reinstall with "
+                "`pip install mercury-agent`."
             ) from e
 
         # Grid search for optimal temperature
@@ -698,7 +720,10 @@ class CalibrationEnsemble:
             except ImportError as e:
                 raise ImportError(
                     "This feature requires the bundled ML module "
-                    "omni_mercury_engine.ml.mercury_ml (pure numpy/scipy; no scikit-learn)."
+                    "omni_mercury_engine.ml.mercury_ml (pure numpy/scipy; no scikit-learn). "
+                    "It ships with the package, so an ImportError here means its numpy/scipy "
+                    "backing (Mercury core dependencies) is missing or broken — reinstall "
+                    "with `pip install mercury-agent`."
                 ) from e
 
             try:
@@ -757,7 +782,10 @@ def evaluate_calibration(
     except ImportError as e:
         raise ImportError(
             "This feature requires the bundled ML module "
-            "omni_mercury_engine.ml.mercury_ml (pure numpy/scipy; no scikit-learn)."
+            "omni_mercury_engine.ml.mercury_ml (pure numpy/scipy; no scikit-learn). "
+            "It ships with the package, so an ImportError here means its numpy/scipy "
+            "backing (Mercury core dependencies) is missing or broken — reinstall "
+            "with `pip install mercury-agent`."
         ) from e
 
     # Brier scores
