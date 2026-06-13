@@ -46,7 +46,10 @@ jobs:
         run: |
           python -m pip install --upgrade "pip>=26.1"
           pip install -e ".[ml]"
-          pip install pytest scikit-learn hypothesis
+          # pytest-asyncio registers the ``asyncio_mode`` ini option that the
+          # repo's pytest config sets; without it ``--strict-config`` aborts
+          # collection (pytest >= 9.1 escalates the unknown option to an error).
+          pip install pytest pytest-asyncio scikit-learn hypothesis
 
       # AMA Cryptography is the mandatory PQC backend; the package fails closed
       # at import without it, so it must be built before anything imports
