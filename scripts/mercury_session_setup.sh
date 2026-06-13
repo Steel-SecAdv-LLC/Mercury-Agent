@@ -26,11 +26,14 @@
 # workstations.
 set -euo pipefail
 
-# Safety: only modify disposable environments. Hosted remote sessions mark
-# themselves via CLAUDE_CODE_REMOTE; anything else (e.g. a developer
-# workstation where this fires as a hook) must opt in explicitly.
-if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ] && [ "${MERCURY_SETUP_FORCE:-}" != "1" ]; then
-  echo "mercury_session_setup: not a hosted remote session and MERCURY_SETUP_FORCE != 1 — leaving this environment untouched."
+# Safety: only modify disposable environments. The universal opt-in is the
+# Mercury marker MERCURY_SETUP_FORCE=1 (set it as the first command in any fresh
+# CI-like container); a host may additionally auto-mark its own disposable
+# remote sessions via a host-specific variable as an optional convenience
+# fallback (e.g. CLAUDE_CODE_REMOTE). Anything else — e.g. a developer
+# workstation where this fires as a hook — is left untouched.
+if [ "${MERCURY_SETUP_FORCE:-}" != "1" ] && [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
+  echo "mercury_session_setup: MERCURY_SETUP_FORCE != 1 and no hosted-remote marker set — leaving this environment untouched."
   exit 0
 fi
 
@@ -70,7 +73,7 @@ else
     -DAMA_BUILD_TESTS=OFF \
     -DAMA_BUILD_EXAMPLES=OFF
   cmake --build "${AMA_SRC}/build" -j "$(nproc)"
-  ( cd "${AMA_SRC}" && AMA_NO_CYTHON=1 pip install --no-build-isolation --ignore-installed . )
+  ( cd "${AMA_SRC}" && AMA_NO_CYTHON=1 python -m pip install --no-build-isolation --ignore-installed . )
 fi
 
 # Persist the native library path for the rest of the session so AMA's .so
