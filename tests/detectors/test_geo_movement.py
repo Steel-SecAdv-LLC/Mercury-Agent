@@ -89,6 +89,23 @@ class TestCaseworkAssess:
         assert res.channels["velocity"] < 0.3
         assert res.is_anomalous
 
+    def test_score_is_full_precision_and_consistent_with_flag(self) -> None:
+        """score is the exact noisy-OR of the channels, not rounded.
+
+        ``is_anomalous`` is decided on the unrounded score, so a rounded
+        reported score could disagree with the flag near the threshold. The
+        reported score must reproduce the noisy-OR exactly and stay on the
+        same side of the threshold as the flag.
+        """
+        det = GeoMovementAnomalyDetector()
+        res = det.assess(_steady_history(), (40.20, -104.80), T0 + timedelta(hours=20))
+        expected = 1.0
+        for channel_score in res.channels.values():
+            expected *= 1.0 - channel_score
+        expected = 1.0 - expected
+        assert res.score == expected  # exact float, no 4-dp rounding
+        assert res.is_anomalous == (res.score > det.threshold)
+
 
 class TestBaseDetectorContract:
     """fit/detect/extract_features interface compliance."""
@@ -110,6 +127,20 @@ class TestBaseDetectorContract:
         assert res["anomaly_score"] > 0.99
         assert res["metadata"]["worst_step_index"] == 20
         assert res["reason"] == "velocity"
+
+    def test_detect_anomaly_score_is_full_precision_worst_step(self) -> None:
+        """anomaly_score is the exact worst per-step score, not rounded.
+
+        ``is_anomaly`` is computed on the unrounded maximum, so the reported
+        anomaly_score must equal ``max(scores)`` exactly and agree with the
+        flag — rounding it for display belongs to presentation layers.
+        """
+        # A moderate jump step yields a non-4-dp noisy-OR score.
+        track = np.vstack([_steady_track(), [40.30, -104.70, 20 * 3600.0]])
+        det = GeoMovementAnomalyDetector().fit(_steady_track())
+        res = det.detect(track)
+        assert res["anomaly_score"] == max(res["scores"])  # exact, unrounded
+        assert res["is_anomaly"] == (res["anomaly_score"] > res["threshold"])
 
     def test_unfitted_detect_raises(self) -> None:
         with pytest.raises(DetectorException, match="fitted"):

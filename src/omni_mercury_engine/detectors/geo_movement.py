@@ -296,7 +296,10 @@ class GeoMovementAnomalyDetector(BaseDetector):
             reason = "normal"
 
         return {
-            "anomaly_score": round(anomaly_score, 4),
+            # Full precision: ``is_anomaly`` is decided on this exact value, so
+            # rounding here could report a score that contradicts the flag.
+            # Presentation/logging layers round for display.
+            "anomaly_score": anomaly_score,
             "is_anomaly": is_anomaly,
             "scores": scores.tolist(),
             "channels": worst_channels,
@@ -391,7 +394,9 @@ class GeoMovementAnomalyDetector(BaseDetector):
         score = self._noisy_or(channels)
         flagged = score > self.threshold
         reason = max(channels, key=lambda k: channels[k]) if flagged else "normal"
-        return MovementAssessment(round(score, 4), flagged, channels, reason)
+        # Full precision: ``flagged`` is decided on this exact score, so the
+        # reported score must not be rounded away from the threshold decision.
+        return MovementAssessment(score, flagged, channels, reason)
 
 
 __all__ = ["GeoMovementAnomalyDetector", "MovementAssessment"]

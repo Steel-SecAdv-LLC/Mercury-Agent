@@ -138,6 +138,27 @@ class TestNeighborCounts:
             neighbor_counts_within_km(
                 np.array([1.0]), np.array([1.0]), 10.0, times_s=np.array([0.0])
             )
+        with pytest.raises(ValueError, match="time_window_s must be non-negative"):
+            neighbor_counts_within_km(
+                np.array([0.0, 0.1]),
+                np.array([0.0, 0.1]),
+                10.0,
+                times_s=np.array([0.0, 1.0]),
+                time_window_s=-1.0,
+            )
+
+    def test_negative_time_window_does_not_produce_negative_counts(self) -> None:
+        """A negative window once excluded the self-match, driving counts to -1.
+
+        The self-subtraction assumes every point matches itself; a negative
+        window breaks that invariant, so the input is rejected rather than
+        returning a physically impossible negative neighbor count.
+        """
+        lats = np.array([35.0, 35.0, 35.0])
+        lons = np.array([-97.0, -97.0, -97.0])
+        times = np.array([0.0, 10.0, 20.0])
+        with pytest.raises(ValueError, match="non-negative"):
+            neighbor_counts_within_km(lats, lons, 50.0, times_s=times, time_window_s=-1.0)
 
 
 class TestDbscanGeo:
@@ -204,6 +225,20 @@ class TestDbscanGeo:
         lons = np.array([0.0, 60.0, 120.0])
         assert dbscan_geo(lats, lons, eps_km=10.0, min_samples=2).tolist() == [-1, -1, -1]
         assert dbscan_geo(np.array([]), np.array([]), eps_km=10.0).shape == (0,)
+
+    def test_dense_cluster_single_label_no_double_assignment(self) -> None:
+        """A dense blob enqueues every core point's full neighborhood repeatedly.
+
+        Guards the bounded-queue expansion: all coincident points must land in
+        one cluster with exactly one label each, regardless of how many times a
+        neighbor is reachable.
+        """
+        rng = np.random.default_rng(11)
+        lats = 35.0 + rng.normal(0.0, 1e-4, 200)
+        lons = -97.0 + rng.normal(0.0, 1e-4, 200)
+        labels = dbscan_geo(lats, lons, eps_km=50.0, min_samples=5)
+        assert labels.shape == (200,)
+        assert labels.tolist() == [0] * 200
 
     def test_validation(self) -> None:
         with pytest.raises(ValueError, match="eps_km"):

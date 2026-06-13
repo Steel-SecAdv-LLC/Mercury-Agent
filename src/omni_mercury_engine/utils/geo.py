@@ -223,7 +223,7 @@ def neighbor_counts_within_km(
         1-D float64 array of neighbor counts (self excluded).
 
     Raises:
-        ValueError: On malformed inputs, a negative radius, or
+        ValueError: On malformed inputs, a negative radius or time window, or
             ``times_s``/``time_window_s`` given without the other.
     """
     lats_arr, lons_arr = _validate_lat_lon(lats, lons)
@@ -231,6 +231,10 @@ def neighbor_counts_within_km(
         raise ValueError(f"radius_km must be non-negative, got {radius_km}")
     if (times_s is None) != (time_window_s is None):
         raise ValueError("times_s and time_window_s must be provided together")
+    if time_window_s is not None and time_window_s < 0.0:
+        # A negative window would exclude even the zero-delta self-match, so the
+        # ``- 1.0`` self-subtraction below would drive counts negative (e.g. -1).
+        raise ValueError(f"time_window_s must be non-negative, got {time_window_s}")
 
     n = lats_arr.shape[0]
     counts = np.zeros(n, dtype=np.float64)
@@ -350,7 +354,11 @@ def dbscan_geo(
                 continue
             sorted_labels[j] = cluster_id
             if neighbors[j].shape[0] >= min_samples:  # core point: expand
-                queue.extend(neighbors[j].tolist())
+                # Only points not yet attached to a cluster can still be claimed;
+                # ones already labelled (>= 0) would be skipped on dequeue anyway.
+                # Filtering here bounds the queue instead of letting it grow with
+                # duplicates in dense clusters, with identical resulting labels.
+                queue.extend(int(k) for k in neighbors[j] if sorted_labels[k] in (unvisited, -1))
         cluster_id += 1
 
     labels = np.empty(n, dtype=np.int64)
