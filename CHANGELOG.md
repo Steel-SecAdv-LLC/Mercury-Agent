@@ -27,6 +27,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Reasoning backend layer — Mercury-owned, offline-first, ethics-gated co-AI interface (`reasoning/`)
+
+* **`reasoning/` subpackage** (new): a pluggable reasoning layer Mercury *calls*
+  as a subordinate dependency — never a wrapper Mercury sits behind.
+  * `ReasoningBackend` (ABC): typed, provider-neutral surface — `explain()`,
+    `propose_hypotheses()`, `synthesize_report()` (`reasoning/schemas.py`).
+    Every operation passes Mercury's benevolence + σ_Immutable dual hard
+    ethical gate (`enforce_dual_ethical_gate`) before any output is surfaced;
+    the gate fails closed, so an integrated LLM cannot bypass Mercury's
+    governance.
+  * Implementations: `MockReasoningBackend` (deterministic, network-free, for
+    CI), `LocalReasoningBackend` (offline-first / air-gap-safe over the local
+    Ollama+template chain — free to run, no external call), and
+    `RemoteReasoningBackend` (operator-declared frontier model; no hard-coded
+    model name, credentials via env).
+  * `ReasoningRouter`: offline-first routing — the local backend is the floor
+    and default, the remote backend is reached only on explicit opt-in, and
+    hard-offline mode provably never selects or calls a network backend.
+  * Threads the PR #289 `UsageLedger` so token spend is accounted regardless of
+    which backend serves a call.
+  * Tests: `tests/reasoning/test_reasoning_backend.py` (15 passed) — gate
+    fail-closed, provenance stamping, hard-offline zero-network, ledger
+    threading.
+* **Vendor-neutral, offline-first defaults (identity):** `LLMConfig.model_name`
+  default changed from `"gpt-4o"` to `"template"` (the builtin offline path —
+  no external provider, no cost); the `llm_registry` docstring example now uses
+  a local open-weights model instead of a hosted one. Mercury presents as
+  itself by default, not as any external AI.
+
 ### Calibration — `StrictIsotonicCalibration` ported from PR #275 (X1 survivor) (2026-06-12)
 
 * **`StrictIsotonicCalibration`** (`core/calibration.py`): isotonic calibration
