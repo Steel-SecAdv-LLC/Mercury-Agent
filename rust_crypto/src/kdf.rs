@@ -67,10 +67,13 @@ pub fn derive_key_pair(
     let salt = Salt::new(HKDF_SHA256, salt);
     let prk = salt.extract(master_secret);
 
-    // Derive encryption key
+    // Derive encryption key.  The info-slice array must outlive the returned
+    // ``Okm``, which borrows it (ring's ``Prk::expand`` ties the Okm lifetime
+    // to ``info``), so it cannot be a temporary in the call expression.
     let mut enc_key = vec![0u8; 32];
     let enc_info = [info, b"-enc"].concat();
-    let okm = prk.expand(&[&enc_info], My32ByteKey)
+    let enc_info_parts: [&[u8]; 1] = [&enc_info];
+    let okm = prk.expand(&enc_info_parts, My32ByteKey)
         .map_err(|_| KdfError::HkdfError("HKDF expand failed".to_string()))?;
     okm.fill(&mut enc_key)
         .map_err(|_| KdfError::HkdfError("HKDF fill failed".to_string()))?;
@@ -78,7 +81,8 @@ pub fn derive_key_pair(
     // Derive authentication key
     let mut auth_key = vec![0u8; 32];
     let auth_info = [info, b"-auth"].concat();
-    let okm = prk.expand(&[&auth_info], My32ByteKey)
+    let auth_info_parts: [&[u8]; 1] = [&auth_info];
+    let okm = prk.expand(&auth_info_parts, My32ByteKey)
         .map_err(|_| KdfError::HkdfError("HKDF expand failed".to_string()))?;
     okm.fill(&mut auth_key)
         .map_err(|_| KdfError::HkdfError("HKDF fill failed".to_string()))?;

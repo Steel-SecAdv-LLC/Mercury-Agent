@@ -23,7 +23,7 @@ mod random;
 use hashing::{blake3_hash, sha256_hash, sha3_256_hash};
 use encryption::{aes_gcm_encrypt, aes_gcm_decrypt, chacha_encrypt, chacha_decrypt};
 use kdf::{argon2_derive_key, derive_key_pair};
-use random::{secure_random_bytes, SecureRng};
+use random::secure_random_bytes;
 
 
 /// Mercury Crypto - High-performance cryptographic operations

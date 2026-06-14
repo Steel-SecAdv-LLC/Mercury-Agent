@@ -148,3 +148,30 @@ class TestDetectCalibratedAppliesCalibration:
             f"differs from calibrated score_fusion={score} by more than the "
             "fp32 wrapper-drift tolerance — calibration likely not applied."
         )
+
+
+class TestDetectWithFusionSingleSampleShape:
+    def test_one_dim_sample_matches_two_dim_row(self, trained_engine: Any) -> None:
+        """A 1-D sample is one observation, exactly as score_fusion treats it.
+
+        Before the entry normalization, a plain ``x[0]`` crashed five frames
+        deep in the fusion forward (detector extractors disagree on whether a
+        1-D array is one sample or n one-feature samples). The contract is
+        score_fusion's: 1-D == one sample == its (1, n_features) reshape.
+        """
+        x, _ = _fixture(seed=23)
+
+        from_1d = trained_engine.detect_with_fusion(x[0])
+        from_2d = trained_engine.detect_with_fusion(x[:1])
+
+        assert from_1d["anomaly_prob"] == pytest.approx(from_2d["anomaly_prob"], abs=1e-6)
+        assert from_1d["is_anomaly"] == from_2d["is_anomaly"]
+
+    def test_one_dim_torch_tensor_matches_numpy(self, trained_engine: Any) -> None:
+        """The torch.Tensor input branch gets the same normalization."""
+        x, _ = _fixture(seed=29)
+
+        from_tensor = trained_engine.detect_with_fusion(torch.from_numpy(x[0]))
+        from_numpy = trained_engine.detect_with_fusion(x[:1])
+
+        assert from_tensor["anomaly_prob"] == pytest.approx(from_numpy["anomaly_prob"], abs=1e-6)
