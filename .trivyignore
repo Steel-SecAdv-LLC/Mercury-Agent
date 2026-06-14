@@ -23,7 +23,10 @@
 # CRITICAL/HIGH CVEs. Nine were first enumerated from the
 # python:3.13-slim-bookworm base (local trivy 0.71.0 scan, same day);
 # four more (libexpat1, mesa GL) surface only in the gates' built-image
-# scan, which is the canonical source for this ledger. Common
+# scan, which is the canonical source for this ledger. The 2026-06-13
+# review added two more (the SQLite FTS5 pair below), enumerated the same
+# way after a vuln-DB update introduced them on the unchanged base image
+# — total 15 distinct unfixed CRITICAL/HIGH CVEs. Common
 # mitigations: the container runs as non-root UID 1000 with SUID/SGID
 # bits stripped, and none of these components sits on an
 # untrusted-input path in the shipped API (per-entry rationale below).
@@ -38,7 +41,16 @@ CVE-2023-45853 exp:2026-09-08
 
 # SQLite (libsqlite3-0) — no upstream fix in bookworm; Mercury ships no
 # SQLite-backed feature by default (DATABASE_URL persistence is optional).
+# CVE-2026-11822 / CVE-2026-11824 are FTS5 full-text-search memory-corruption
+# bugs (fixed upstream only in SQLite >= 3.53.2; Debian bookworm status
+# "affected", no fix available) reachable only by opening an attacker-crafted
+# database through the FTS5 extension, which Mercury never does. Enumerated
+# 2026-06-13 from the blocking gate's own built-image scan (trivy 0.70.0)
+# after a vulnerability-DB update; same component and non-untrusted-input
+# rationale as CVE-2025-7458 above.
 CVE-2025-7458 exp:2026-09-08
+CVE-2026-11822 exp:2026-09-08
+CVE-2026-11824 exp:2026-09-08
 
 # ncurses (libncursesw6 / libtinfo6 / ncurses-base / ncurses-bin) — no
 # bookworm fix; terminal handling only, never exposed to untrusted input
