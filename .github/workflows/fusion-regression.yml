@@ -46,7 +46,7 @@ jobs:
         run: |
           python -m pip install --upgrade "pip>=26.1"
           pip install -e ".[ml]"
-          pip install pytest scikit-learn hypothesis
+          pip install pytest pytest-asyncio scikit-learn hypothesis
 
       # AMA Cryptography is the mandatory PQC backend; the package fails closed
       # at import without it, so it must be built before anything imports
