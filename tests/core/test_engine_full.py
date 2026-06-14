@@ -139,7 +139,9 @@ def test_engine_explain_detection_is_governed_and_offline() -> None:
     Verifies the wiring is real: a ``detect_with_fusion`` certificate flows into
     ``explain_detection`` and comes back as a governed, provenance-stamped
     Explanation served by the offline-first local backend (template in CI), with
-    the usage ledger threaded and the template path booked as unmetered.
+    the usage ledger threaded. The template path records no usage at all (it
+    never calls ``_record_usage``), so the ledger total is zero tokens — never a
+    fabricated count.
     """
     engine = OmniMercuryEngine(mode="fusion", auto_load_checkpoint=True)
     data = np.random.RandomState(7).randn(48, 16).astype(np.float64)
@@ -153,7 +155,7 @@ def test_engine_explain_detection_is_governed_and_offline() -> None:
 
     totals = engine.reasoning_usage()
     assert totals is not None
-    assert totals["total_tokens"] == 0  # template path is unmetered, never fabricated
+    assert totals["total_tokens"] == 0  # template records no usage -> zero, never fabricated
 
 
 def test_engine_reasoning_respects_ethics_gate_fail_closed() -> None:
