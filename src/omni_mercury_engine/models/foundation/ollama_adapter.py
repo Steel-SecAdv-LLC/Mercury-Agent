@@ -1292,8 +1292,12 @@ class FallbackLLMChain:
             logger.info(f"LLM chain using Ollama ({self.ollama_config.model})")
             return
 
-        # Try cloud if enabled
-        if self.enable_cloud and self.cloud_config:
+        # Try cloud only if explicitly enabled AND not under the hard air-gap.
+        # MERCURY_OFFLINE is the master switch (reused from the dataset layer):
+        # when set, no cloud adapter is ever constructed — local + template only.
+        from omni_mercury_engine.datasets.exceptions import offline_mode_active
+
+        if self.enable_cloud and self.cloud_config and not offline_mode_active():
             self._cloud = self._create_cloud_adapter()
             if self._cloud is not None:
                 self._cloud.attach_usage_ledger(self.usage_ledger)
@@ -1316,10 +1320,22 @@ class FallbackLLMChain:
     def _create_cloud_adapter(self) -> BaseLLMAdapter | None:
         """Create cloud adapter based on configuration.
 
-        Supports OpenAI, Anthropic, and HuggingFace cloud providers. Each provider requires
-        appropriate API keys set via environment variables or configuration.
+        All cloud providers are interchangeable and equal here; none is
+        privileged. The constructed adapter matches the operator-configured
+        ``provider`` only. Each provider requires its own API key set via
+        environment variable or configuration.
+
+        Returns ``None`` under ``MERCURY_OFFLINE`` (defense in depth) so no
+        cloud adapter is ever constructed in the hard air-gap, even if this is
+        reached directly.
         """
         if not self.cloud_config:
+            return None
+
+        from omni_mercury_engine.datasets.exceptions import offline_mode_active
+
+        if offline_mode_active():
+            logger.info("MERCURY_OFFLINE set; refusing to construct a cloud LLM adapter")
             return None
 
         try:

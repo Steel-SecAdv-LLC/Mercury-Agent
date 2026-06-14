@@ -74,8 +74,10 @@ class ReasoningRouter:
         """Return the backend to use for a call.
 
         The remote backend is chosen only when it exists, the call allows it
-        (``allow_remote`` or :attr:`prefer_remote`), and the router is not in
-        hard-offline mode. Otherwise the local backend is returned.
+        (``allow_remote`` or :attr:`prefer_remote`), and neither hard-offline
+        mode nor the ``MERCURY_OFFLINE`` master air-gap is active. Otherwise the
+        local backend is returned. Local-first is the baseline regardless of any
+        flag: remote is never the default.
 
         Args:
             allow_remote: Opt in to remote escalation for this call.
@@ -83,7 +85,9 @@ class ReasoningRouter:
         Returns:
             The selected backend (the local backend whenever in doubt).
         """
-        if self.hard_offline or self.remote is None:
+        from omni_mercury_engine.datasets.exceptions import offline_mode_active
+
+        if self.hard_offline or offline_mode_active() or self.remote is None:
             return self.local
         if allow_remote or self.prefer_remote:
             return self.remote

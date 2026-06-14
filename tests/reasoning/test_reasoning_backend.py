@@ -227,3 +227,13 @@ class TestRouterOfflineFirst:
     def test_prefer_remote_requires_remote(self) -> None:
         with pytest.raises(ValueError, match="prefer_remote"):
             ReasoningRouter(local=_mock(), prefer_remote=True)
+
+    def test_mercury_offline_pins_to_local(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # The master air-gap forces local even without hard_offline set and with
+        # explicit opt-in; the network backend is never called.
+        monkeypatch.setenv("MERCURY_OFFLINE", "1")
+        remote = _NetworkBackend(benevolence_scorer=_PassScorer(), sigma_gate=_PassSigma())
+        router = ReasoningRouter(local=_mock(), remote=remote, prefer_remote=True)
+        assert router.select(allow_remote=True) is router.local
+        router.explain(_ctx(), allow_remote=True)
+        assert remote.generate_calls == 0
