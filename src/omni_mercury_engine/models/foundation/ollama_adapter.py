@@ -721,8 +721,12 @@ class OpenAICloudAdapter(BaseLLMAdapter):
                 timeout=self.config.timeout,
                 user_configured=True,
             )
+            # Extract content first: record usage only after a successful
+            # extraction, so a malformed payload books nothing (failed calls
+            # book nothing).
+            content = str(data["choices"][0]["message"]["content"])
             self._record_usage(self.model, *_usage_from_openai(data))
-            return str(data["choices"][0]["message"]["content"])
+            return content
 
         except UnsafeURLError:
             # The configured ``base_url`` was refused (SSRF gate, scheme,
@@ -1006,8 +1010,12 @@ class _OpenAICompatibleCloudAdapter(BaseLLMAdapter):
                 timeout=self.config.timeout,
                 user_configured=True,
             )
+            # Extract content first: record usage only after a successful
+            # extraction, so a malformed payload books nothing (failed calls
+            # book nothing).
+            content = str(data["choices"][0]["message"]["content"])
             self._record_usage(self.model, *_usage_from_openai(data))
-            return str(data["choices"][0]["message"]["content"])
+            return content
 
         except UnsafeURLError:
             # Operator-misconfigured base_url (SSRF gate, scheme, IMDS,

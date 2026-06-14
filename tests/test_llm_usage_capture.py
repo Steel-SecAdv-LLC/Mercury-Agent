@@ -185,6 +185,23 @@ class TestProviderUsageParsing:
         assert result.startswith("API error")
         assert adapter.last_usage is None
 
+    def test_malformed_payload_books_nothing(self) -> None:
+        """A 200 carrying a usage block but no extractable content books nothing.
+
+        Content is extracted before usage is recorded, so an unextractable
+        payload (missing ``choices``) raises before booking — the failed call
+        books nothing even though the provider returned a usage block.
+        """
+        ledger = UsageLedger()
+        adapter = OpenAICloudAdapter(
+            LLMConfig(provider=LLMProvider.OPENAI, api_key="sk-test", model_name="gpt-test")
+        )
+        adapter.attach_usage_ledger(ledger)
+        result = _generate_with(adapter, {"usage": {"prompt_tokens": 5, "completion_tokens": 7}})
+        assert isinstance(result, str)
+        assert adapter.last_usage is None
+        assert len(ledger) == 0
+
 
 class TestAsCount:
     """Token-count coercion is provider-truthful: exact or unreported, never guessed."""
