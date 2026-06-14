@@ -27,6 +27,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### LLM layer: free-weights-first & provider-neutral under Mercury's identity
+
+Defaults, selection order, and naming only — no rewrite; OpenAI and every other
+cloud adapter stay available, just never privileged.
+
+* **Free/local is the baseline default.** `LLMModelRegistry.select()`
+  (`models/llm_registry.py`) now orders **free/local ahead of paid cloud**:
+  `local`/`builtin` providers are treated as genuinely cost-0, so they sort
+  first, satisfy any budget, and win ties; an *undeclared cloud* price stays
+  unknown and is excluded from budget queries (not assumed free). Replaces the
+  prior "priced-first, unpriced-last" order. Pinned by
+  `tests/models/test_llm_registry_local_first.py` and the updated
+  `tests/models/test_llm_registry.py`.
+* **`MERCURY_OFFLINE` is the master air-gap for the LLM layer too.**
+  `FallbackLLMChain` (`models/foundation/ollama_adapter.py`) and the reasoning
+  router now refuse to construct or call any cloud adapter when
+  `MERCURY_OFFLINE` is set — reusing the dataset layer's
+  `offline_mode_active()` so one switch governs both. Local + template only.
+  Pinned by `tests/models/test_llm_offline_airgap.py` (zero cloud construction)
+  and a reasoning-router offline test.
+* **No vendor privileged by default.** `FallbackLLMChain` already tries local
+  (Ollama) → optional cloud → template, with cloud off unless explicitly
+  enabled and configured (confirmed, unchanged). `.env.example` now presents
+  the reasoning backend as local/free by default and lists cloud keys as an
+  unordered optional set (no OpenAI-first framing); `docs/OFFLINE_OPERATION.md`
+  documents the now-*enforced* LLM air-gap and the free/local-first baseline.
+
 ### Reasoning backend layer — Mercury-owned, offline-first, ethics-gated co-AI interface (`reasoning/`)
 
 * **`reasoning/` subpackage** (new): a pluggable reasoning layer Mercury *calls*
