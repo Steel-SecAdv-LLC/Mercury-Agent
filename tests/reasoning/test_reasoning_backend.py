@@ -314,3 +314,23 @@ class TestProvenanceReflectsServingAdapter:
         # reflects that rather than the configured Ollama model.
         assert backend.model == backend._chain.get_active_adapter()
         assert backend.model == "template"
+
+
+class TestSelectReasoningModel:
+    """The registry actually drives local reasoning-model selection."""
+
+    def test_empty_registry_returns_default(self) -> None:
+        from omni_mercury_engine.models.llm_registry import LLMModelRegistry
+        from omni_mercury_engine.reasoning.backends import select_reasoning_model
+
+        assert select_reasoning_model(LLMModelRegistry(), default="llama3.2:3b") == "llama3.2:3b"
+
+    def test_populated_registry_selects_ollama_model(self) -> None:
+        from omni_mercury_engine.models.llm_registry import LLMModelRegistry, LLMModelSpec
+        from omni_mercury_engine.reasoning.backends import select_reasoning_model
+
+        registry = LLMModelRegistry()
+        registry.register(
+            LLMModelSpec(provider="ollama", model_id="qwen2.5:7b", context_window=8192)
+        )
+        assert select_reasoning_model(registry, default="llama3.2:3b") == "qwen2.5:7b"

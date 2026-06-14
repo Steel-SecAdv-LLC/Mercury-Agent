@@ -74,9 +74,23 @@ cloud adapter stay available, just never privileged.
     hard-offline mode provably never selects or calls a network backend.
   * Threads the PR #289 `UsageLedger` so token spend is accounted regardless of
     which backend serves a call.
-  * Tests: `tests/reasoning/test_reasoning_backend.py` (15 passed) — gate
-    fail-closed, provenance stamping, hard-offline zero-network, ledger
-    threading.
+  * **Wired into the engine (real consumer, not standalone substrate):**
+    `OmniMercuryEngine.enable_reasoning()`, the lazy `reasoning_backend`
+    property, and `explain_detection(result, domain=...)` let Mercury call the
+    backend on its *own* `detect_with_fusion` certificates — Mercury owns the
+    detection and the decision and invokes the subordinate backend only to
+    render a governed, evidence-grounded explanation (offline-first; the dual
+    ethical gate still fail-closes the call at the engine boundary).
+    `reasoning_usage()` exposes the threaded ledger's provider-truthful totals
+    (the offline template path books nothing — never fabricated tokens). The
+    `LLMModelRegistry` is consumed too: `reasoning.backends.select_reasoning_model()`
+    lets an operator-populated registry choose the local model (free/local-first)
+    instead of a hard-coded default.
+  * Tests: `tests/reasoning/test_reasoning_backend.py` (gate fail-closed,
+    provenance stamping, hard-offline zero-network, ledger threading,
+    registry-driven model selection) and `tests/core/test_engine_full.py`
+    (engine-governed explanation, ethics fail-closed at the engine boundary,
+    registry-driven local model).
 * **Vendor-neutral defaults (identity):** `LLMConfig.model_name` default changed
   from `"gpt-4o"` to `""` (unset) — each adapter applies its own
   provider-appropriate default, so no vendor model id (nor the `"template"`

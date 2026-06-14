@@ -32,13 +32,38 @@ from omni_mercury_engine.reasoning.backend import ReasoningBackend
 if TYPE_CHECKING:
     from omni_mercury_engine.models.foundation.llm_adapter import LLMConfig
     from omni_mercury_engine.models.foundation.llm_usage import UsageLedger
+    from omni_mercury_engine.models.llm_registry import LLMModelRegistry
 
 __all__ = [
     "LocalReasoningBackend",
     "MockReasoningBackend",
     "ReasoningBackendUnavailableError",
     "RemoteReasoningBackend",
+    "select_reasoning_model",
 ]
+
+
+def select_reasoning_model(registry: LLMModelRegistry, *, default: str) -> str:
+    """Pick the free/local-first local model id for reasoning from a registry.
+
+    Consumes an operator-populated registry so the local reasoning model is
+    deployment configuration rather than a hard-coded default. Returns the
+    ``model_id`` of the registry's best ``ollama`` spec -- the registry orders
+    free/local providers first -- or ``default`` when the registry declares no
+    Ollama model.
+
+    Args:
+        registry: Operator-populated model registry.
+        default: Model id to fall back to when no Ollama spec is registered.
+
+    Returns:
+        The selected Ollama model id, or ``default``.
+    """
+    try:
+        spec = registry.select_one(providers=("ollama",))
+    except LookupError:
+        return default
+    return spec.model_id
 
 
 class ReasoningBackendUnavailableError(RuntimeError):
