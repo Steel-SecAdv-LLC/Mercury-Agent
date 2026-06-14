@@ -154,6 +154,45 @@ class TestCheckpointRoundTrip:
         np.testing.assert_array_equal(sets_a.contains_anomaly, sets_b.contains_anomaly)
         np.testing.assert_array_equal(sets_a.contains_normal, sets_b.contains_normal)
 
+    def test_checkpoint_without_conformal_resets_it(
+        self, trained_engine_and_data: dict[str, Any], tmp_path: Path
+    ) -> None:
+        """Loading a conformal-free checkpoint drops this engine's own fit.
+
+        A conformal surface calibrated against a previous fusion stack
+        misapplies to the loaded one — loaded state must equal saved state,
+        including absent state.
+        """
+        full_path = str(tmp_path / "with_conformal.pt")
+        trained_engine_and_data["engine"].save_model(full_path)
+        stripped = torch.load(full_path, map_location="cpu", weights_only=True)
+        stripped["conformal_state"] = None
+        stripped_path = str(tmp_path / "no_conformal.pt")
+        torch.save(stripped, stripped_path)
+
+        loaded = OmniMercuryEngine(mode="fusion", device="cpu")
+        loaded.load_model(full_path)
+        assert loaded._fusion_conformal is not None
+        loaded.load_model(stripped_path)
+        assert loaded._fusion_conformal is None
+
+    def test_checkpoint_without_temperature_resets_calibrator(
+        self, trained_engine_and_data: dict[str, Any], tmp_path: Path
+    ) -> None:
+        """Loading a temperature-free checkpoint drops a stale calibrator."""
+        full_path = str(tmp_path / "with_temperature.pt")
+        trained_engine_and_data["engine"].save_model(full_path)
+        stripped = torch.load(full_path, map_location="cpu", weights_only=True)
+        stripped["temperature"] = None
+        stripped_path = str(tmp_path / "no_temperature.pt")
+        torch.save(stripped, stripped_path)
+
+        loaded = OmniMercuryEngine(mode="fusion", device="cpu")
+        loaded.load_model(full_path)
+        assert loaded._fusion_calibrator is not None
+        loaded.load_model(stripped_path)
+        assert loaded._fusion_calibrator is None
+
     def test_legacy_checkpoint_without_new_keys_still_loads(
         self, trained_engine_and_data: dict[str, Any], tmp_path: Path
     ) -> None:
@@ -173,6 +212,35 @@ class TestCheckpointRoundTrip:
         fresh = OmniMercuryEngine(mode="fusion", device="cpu")
         fresh.load_model(path)
         assert fresh._fusion_trained
+
+    def test_load_clears_superseded_auto_fit_record(
+        self, trained_engine_and_data: dict[str, Any], tmp_path: Path
+    ) -> None:
+        """Restoring detector state from a checkpoint supersedes a prior
+        first-batch auto-fit, so the leak audit record is dropped; a legacy
+        load that restores nothing keeps the (still accurate) record.
+        """
+        full_path = str(tmp_path / "full.pt")
+        trained_engine_and_data["engine"].save_model(full_path)
+        legacy_path = str(tmp_path / "legacy_audit.pt")
+        checkpoint = torch.load(full_path, weights_only=True)
+        for key in ("detector_fitted_state", "model_state_dicts", "model_fitted_state"):
+            checkpoint.pop(key, None)
+        torch.save(checkpoint, legacy_path)
+
+        engine = OmniMercuryEngine(mode="fusion", device="cpu")
+        engine.load_model(legacy_path)
+        # The production serve path auto-fits unfitted detectors on the first
+        # inference batch and records the leak for audit.
+        engine.detect_with_fusion(trained_engine_and_data["x_test"])
+        contaminated = set(engine._inference_auto_fit_detectors)
+        assert contaminated
+
+        engine.load_model(legacy_path)  # restores no detector state
+        assert engine._inference_auto_fit_detectors == contaminated
+
+        engine.load_model(full_path)  # checkpoint state replaces the leak
+        assert not engine._inference_auto_fit_detectors
 
 
 class TestQuarantinedAffectiveModel:

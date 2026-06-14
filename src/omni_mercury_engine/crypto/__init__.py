@@ -17,8 +17,9 @@ Features:
 Usage:
     from omni_mercury_engine.crypto import encrypt, decrypt, hash_data
 
-    # Encrypt data
-    ciphertext = encrypt(plaintext, key, nonce)
+    # Encrypt data — returns (ciphertext, nonce); the nonce is generated
+    # when not supplied and is required again for decryption
+    ciphertext, nonce = encrypt(plaintext, key)
 
     # Decrypt data
     plaintext = decrypt(ciphertext, key, nonce)

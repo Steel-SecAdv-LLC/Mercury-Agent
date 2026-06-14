@@ -5,6 +5,7 @@
 Implements calibration methods to align confidence scores with true error rates:
 - Platt Scaling (logistic regression on scores)
 - Isotonic Regression (non-parametric monotonic calibration)
+- Strict Isotonic (isotonic + strictly-increasing tie-break; AUROC-preserving)
 - Temperature Scaling (single-parameter neural network calibration)
 - Reliability diagrams for visualization
 - Target: Brier score < 0.05 for well-calibrated predictions
@@ -136,7 +137,11 @@ class PlattScaling:
             from omni_mercury_engine.ml.mercury_ml import LogisticRegression
         except ImportError as e:
             raise ImportError(
-                "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+                "This feature requires the bundled ML module "
+                "omni_mercury_engine.ml.mercury_ml (pure numpy/scipy; no scikit-learn). "
+                "It ships with the package, so an ImportError here means its numpy/scipy "
+                "backing (Mercury core dependencies) is missing or broken — reinstall with "
+                "`pip install mercury-agent`."
             ) from e
 
         self.model = LogisticRegression(
@@ -210,7 +215,11 @@ class IsotonicCalibration:
             from omni_mercury_engine.ml.mercury_ml import IsotonicRegression
         except ImportError as e:
             raise ImportError(
-                "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+                "This feature requires the bundled ML module "
+                "omni_mercury_engine.ml.mercury_ml (pure numpy/scipy; no scikit-learn). "
+                "It ships with the package, so an ImportError here means its numpy/scipy "
+                "backing (Mercury core dependencies) is missing or broken — reinstall with "
+                "`pip install mercury-agent`."
             ) from e
 
         self.model = IsotonicRegression(
@@ -256,6 +265,80 @@ class IsotonicCalibration:
             return y_prob
 
         return np.asarray(self.model.predict(y_prob))  # type: ignore[no-any-return, unused-ignore]
+
+
+class StrictIsotonicCalibration:
+    """Isotonic calibration with a strictly-increasing tie-break (PR #275, X1).
+
+    Vanilla isotonic maps distinct scores to equal values (flat regions), which
+    creates ties that *reduce* AUROC — measured loss on 5/6 ADBench datasets,
+    e.g. thyroid 0.9788 -> 0.9535 (``benchmarks/calibration_brief/REPORT.md``).
+    This variant squeezes the isotonic output into the open interval and adds a
+    centered ``eps * (s - 0.5)`` perturbation, making the map strictly increasing
+    in ``s`` and therefore AUROC-preserving (exact), while leaving ECE essentially
+    unchanged (within ~10% of vanilla isotonic on the brief's register).
+
+    A naive ``clip(g + eps*s, 0, 1)`` re-saturates exactly the points isotonic
+    flattened to {0, 1}; squeezing first avoids that.
+    """
+
+    def __init__(self, eps: float = 1e-6, out_of_bounds: str = "clip") -> None:
+        """Initialize strict isotonic calibration.
+
+        Args:
+            eps: Tie-break slope; also the squeeze margin keeping outputs in
+                the open interval (0, 1).
+            out_of_bounds: Forwarded to the underlying isotonic regression
+                ("clip" or "nan").
+
+        Raises:
+            ValueError: If ``eps`` is not in the open interval ``(0, 0.5)``.
+                The strictly-increasing / in-``(0, 1)`` contract depends on it:
+                ``eps <= 0`` loses the tie-break (map no longer strictly
+                increasing) and ``eps >= 0.5`` makes the squeeze coefficient
+                ``1 - 2*eps`` non-positive, inverting or collapsing the map.
+        """
+        if not 0.0 < eps < 0.5:
+            raise ValueError(
+                f"eps must be in the open interval (0, 0.5); got {eps!r}. "
+                "It is both the tie-break slope and the squeeze margin that "
+                "keeps calibrated outputs strictly increasing and within (0, 1)."
+            )
+        self.eps = eps
+        self._iso = IsotonicCalibration(out_of_bounds=out_of_bounds)
+        self._fitted = False
+
+    def fit(
+        self, y_prob: np.ndarray[Any, Any], y_true: np.ndarray[Any, Any]
+    ) -> StrictIsotonicCalibration:
+        """Fit the underlying isotonic regression.
+
+        Args:
+            y_prob: Uncalibrated probability predictions
+            y_true: Binary ground truth labels
+
+        Returns:
+            Self for method chaining
+        """
+        self._iso.fit(y_prob, y_true)
+        self._fitted = self._iso._fitted
+        return self
+
+    def calibrate(self, y_prob: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Apply isotonic calibration, then a squeezed strictly-increasing tie-break.
+
+        Args:
+            y_prob: Uncalibrated probabilities
+
+        Returns:
+            Calibrated probabilities, strictly increasing in ``y_prob``
+        """
+        if not self._fitted:
+            return y_prob
+        g = self._iso.calibrate(y_prob)
+        d = self.eps
+        s = np.asarray(y_prob, dtype=float)
+        return np.asarray(d + (1.0 - 2.0 * d) * g + self.eps * (s - 0.5))
 
 
 def _ece_kernel_surrogate(
@@ -533,7 +616,11 @@ class TemperatureScaling:
             from omni_mercury_engine.ml.mercury_ml import log_loss
         except ImportError as e:
             raise ImportError(
-                "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+                "This feature requires the bundled ML module "
+                "omni_mercury_engine.ml.mercury_ml (pure numpy/scipy; no scikit-learn). "
+                "It ships with the package, so an ImportError here means its numpy/scipy "
+                "backing (Mercury core dependencies) is missing or broken — reinstall with "
+                "`pip install mercury-agent`."
             ) from e
 
         # Grid search for optimal temperature
@@ -632,7 +719,11 @@ class CalibrationEnsemble:
                 from omni_mercury_engine.ml.mercury_ml import brier_score_loss
             except ImportError as e:
                 raise ImportError(
-                    "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+                    "This feature requires the bundled ML module "
+                    "omni_mercury_engine.ml.mercury_ml (pure numpy/scipy; no scikit-learn). "
+                    "It ships with the package, so an ImportError here means its numpy/scipy "
+                    "backing (Mercury core dependencies) is missing or broken — reinstall "
+                    "with `pip install mercury-agent`."
                 ) from e
 
             try:
@@ -690,7 +781,11 @@ def evaluate_calibration(
         from omni_mercury_engine.ml.mercury_ml import brier_score_loss, calibration_curve
     except ImportError as e:
         raise ImportError(
-            "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+            "This feature requires the bundled ML module "
+            "omni_mercury_engine.ml.mercury_ml (pure numpy/scipy; no scikit-learn). "
+            "It ships with the package, so an ImportError here means its numpy/scipy "
+            "backing (Mercury core dependencies) is missing or broken — reinstall "
+            "with `pip install mercury-agent`."
         ) from e
 
     # Brier scores
@@ -759,7 +854,8 @@ def calibrate_detector(
             score_samples, or predict).
         X_cal: Calibration set features.
         y_cal: Calibration set labels.
-        method: Calibration method ("platt", "isotonic", "temperature", "auto").
+        method: Calibration method ("platt", "isotonic", "strict_isotonic",
+            "temperature", "auto").
 
     Returns:
         Tuple of (calibrator, CalibrationResult). Returns (None, None) only if
@@ -781,13 +877,21 @@ def calibrate_detector(
     logger.info(f"Extracted scores using {score_source} for calibration")
 
     # Select calibrator
-    calibrator: CalibrationEnsemble | PlattScaling | IsotonicCalibration | TemperatureScaling
+    calibrator: (
+        CalibrationEnsemble
+        | PlattScaling
+        | IsotonicCalibration
+        | StrictIsotonicCalibration
+        | TemperatureScaling
+    )
     if method == "auto":
         calibrator = CalibrationEnsemble()
     elif method == "platt":
         calibrator = PlattScaling()
     elif method == "isotonic":
         calibrator = IsotonicCalibration()
+    elif method == "strict_isotonic":
+        calibrator = StrictIsotonicCalibration()
     elif method == "temperature":
         calibrator = TemperatureScaling()
     else:

@@ -117,3 +117,50 @@ class TestValidationAndEdgeCases:
         assert (
             a.coverage_report(probs, y)["thresholds"] == b.coverage_report(probs, y)["thresholds"]
         )
+
+
+class TestStateRoundTrip:
+    """export_state()/from_state() reproduce the full post-fit read surface."""
+
+    def test_round_trip_reproduces_serving_surface(self) -> None:
+        probs, y = _synthetic_probs(2000, seed=3)
+        original = BinaryConformalClassifier(coverage=0.9).fit(probs[:1000], y[:1000])
+        restored = BinaryConformalClassifier.from_state(original.export_state())
+
+        assert restored.coverage == original.coverage
+        assert restored.seed == original.seed
+        assert restored.anomaly_score_threshold() == original.anomaly_score_threshold()
+
+        grid = np.linspace(0.0, 1.0, 201)
+        sets_a, sets_b = original.predict(grid), restored.predict(grid)
+        np.testing.assert_array_equal(sets_a.contains_anomaly, sets_b.contains_anomaly)
+        np.testing.assert_array_equal(sets_a.contains_normal, sets_b.contains_normal)
+        assert restored.coverage_report(probs[1000:], y[1000:]) == original.coverage_report(
+            probs[1000:], y[1000:]
+        )
+
+    def test_export_is_checkpoint_safe_primitives(self) -> None:
+        """The mapping matches the ``conformal_state`` checkpoint layout."""
+        probs, y = _synthetic_probs(800, seed=11)
+        state = BinaryConformalClassifier(coverage=0.85).fit(probs, y).export_state()
+        assert set(state) == {"coverage", "seed", "thresholds"}
+        assert isinstance(state["coverage"], float)
+        assert isinstance(state["seed"], int)
+        for label, threshold in state["thresholds"].items():
+            assert type(label) is int and type(threshold) is float
+
+    def test_export_before_fit_raises(self) -> None:
+        with pytest.raises(RuntimeError, match="fit"):
+            BinaryConformalClassifier().export_state()
+
+    def test_from_state_coerces_string_labels(self) -> None:
+        """A JSON round-trip of the mapping (str-keyed thresholds) loads equally."""
+        probs, y = _synthetic_probs(800, seed=13)
+        state = BinaryConformalClassifier(coverage=0.9).fit(probs, y).export_state()
+        json_like = dict(state, thresholds={str(k): v for k, v in state["thresholds"].items()})
+        restored = BinaryConformalClassifier.from_state(json_like)
+        assert restored._thresholds == {int(k): v for k, v in state["thresholds"].items()}
+        assert (
+            restored.anomaly_score_threshold()
+            == BinaryConformalClassifier.from_state(state).anomaly_score_threshold()
+        )

@@ -1,0 +1,15 @@
+=== X1 synthetic AUROC-invariance probe (V1 world) ===
+raw AUROC = 0.918545
+  Vanilla   AUROC=0.917396  |delta|=1.15e-03
+  Iso+eps   AUROC=0.918545  |delta|=0.00e+00
+  CIR       AUROC=0.918541  |delta|=3.43e-06
+
+=== X1 real Standard Track (6 datasets x large+small x seeds 0..4) ===
+method     mean|dAUROC|  max|dAUROC|   meanECE  exact-AUROC runs
+Vanilla        3.08e-02     2.29e-01    0.0221              0%
+Iso+eps        0.00e+00     0.00e+00    0.0240            100%
+CIR            5.92e-04     1.56e-02    0.0395             57%
+
+=== VERDICT (Kill: not-exact-AUROC OR ECE > vanilla*1.10) ===
+  Iso+eps  : restores exact AUROC=True  ECE<=110% vanilla=True  -> SURVIVES
+  CIR      : restores exact AUROC=False  ECE<=110% vanilla=False  -> KILLED
