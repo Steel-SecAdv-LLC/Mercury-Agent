@@ -481,8 +481,12 @@ token estimates, no hard-coded market facts.
   Anthropic (`usage.{input,output}_tokens`), Gemini (`usageMetadata`),
   Cohere v2 (`usage.tokens`), Ollama (`prompt_eval_count`/`eval_count`),
   HuggingFace Inference (no usage block → unmetered record). Failed
-  calls book nothing. `FallbackLLMChain(usage_ledger=...)` threads one
-  ledger through every adapter in the chain and exposes `last_usage`.
+  calls book nothing — **every** adapter extracts the response content
+  *before* recording usage, so a 200 carrying a usage block but
+  unextractable content books nothing (uniform across all ten adapters,
+  not only the OpenAI-style ones).
+  `FallbackLLMChain(usage_ledger=...)` threads one ledger through every
+  adapter in the chain and exposes `last_usage`.
 * **LLM model registry** (`omni_mercury_engine.models.llm_registry`,
   importable without torch): `PROVIDER_CATALOG` — code-grounded facts
   about the ten shipped adapters (wire format, key env var, locality,

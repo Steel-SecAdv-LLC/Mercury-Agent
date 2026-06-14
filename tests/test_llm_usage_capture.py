@@ -37,7 +37,10 @@ from omni_mercury_engine.models.foundation.ollama_adapter import (
 _POST_JSON = "omni_mercury_engine.models.foundation.ollama_adapter.SafeHTTPClient.post_json"
 
 
-def _generate_with(adapter: Any, fake_response: dict[str, Any]) -> str:
+def _generate_with(adapter: Any, fake_response: Any) -> str:
+    # ``fake_response`` is ``Any`` (not ``dict``) because the HuggingFace
+    # Inference route returns a JSON *list*, and the malformed-payload
+    # contract tests deliberately feed non-dict shapes.
     with patch(_POST_JSON, return_value=fake_response):
         return str(adapter.generate("hi"))
 
@@ -152,7 +155,7 @@ class TestProviderUsageParsing:
             LLMConfig(provider=LLMProvider.HUGGINGFACE, api_key="hf-test", model_name="m/test")
         )
         adapter.attach_usage_ledger(ledger)
-        _generate_with(adapter, [{"generated_text": "ok"}])  # type: ignore[arg-type]
+        _generate_with(adapter, [{"generated_text": "ok"}])
         assert adapter.last_usage is not None
         assert adapter.last_usage.reported is False
         assert ledger.totals() == {
@@ -276,3 +279,84 @@ class TestFallbackChainLedger:
         assert chain.last_usage is not None
         assert chain.last_usage.total_tokens == 4
         assert ledger.totals()["calls"] == 1
+
+
+class TestMalformedPayloadBooksNothing:
+    """The "failed calls book nothing" contract holds for EVERY adapter.
+
+    A 200 response carrying a usage block but content that cannot be
+    extracted (a malformed nested shape) must raise during extraction --
+    which now happens *before* usage is recorded in every adapter -- so
+    nothing is booked. This pins the contract uniformly across the shipped
+    wire formats, not only the OpenAI-style ones, matching the documented
+    "content is extracted before usage is recorded" guarantee.
+    """
+
+    @pytest.mark.parametrize(
+        ("cls", "provider", "model", "payload"),
+        [
+            (
+                OpenAICloudAdapter,
+                LLMProvider.OPENAI,
+                "gpt-test",
+                {"usage": {"prompt_tokens": 5, "completion_tokens": 7}},
+            ),
+            (
+                XAIGrokAdapter,
+                LLMProvider.XAI,
+                "grok-test",
+                {"usage": {"prompt_tokens": 5, "completion_tokens": 7}},
+            ),
+            (
+                AnthropicCloudAdapter,
+                LLMProvider.ANTHROPIC,
+                "claude-test",
+                {"content": ["not-a-block"], "usage": {"input_tokens": 5, "output_tokens": 7}},
+            ),
+            (
+                CohereCloudAdapter,
+                LLMProvider.COHERE,
+                "command-test",
+                {"message": "not-a-dict", "usage": {"tokens": {"input_tokens": 6}}},
+            ),
+            (
+                GeminiCloudAdapter,
+                LLMProvider.GEMINI,
+                "gemini-test",
+                {"candidates": ["not-a-candidate"], "usageMetadata": {"totalTokenCount": 11}},
+            ),
+            (
+                HuggingFaceCloudAdapter,
+                LLMProvider.HUGGINGFACE,
+                "m/test",
+                ["not-a-generation"],
+            ),
+        ],
+    )
+    def test_generate_books_nothing_on_unextractable_content(
+        self, cls: Any, provider: LLMProvider, model: str, payload: Any
+    ) -> None:
+        ledger = UsageLedger()
+        adapter = cls(LLMConfig(provider=provider, api_key="test-key", model_name=model))
+        adapter.attach_usage_ledger(ledger)
+        result = _generate_with(adapter, payload)
+        # The adapter caught the extraction error and returned a string;
+        # critically, no usage was booked for the failed call.
+        assert isinstance(result, str)
+        assert adapter.last_usage is None
+        assert len(ledger) == 0
+
+    def test_ollama_chat_books_nothing_on_unextractable_content(self) -> None:
+        """Ollama's chat path also extracts content before recording usage."""
+        ledger = UsageLedger()
+        adapter = OllamaLLMAdapter(ollama_config=OllamaConfig())
+        adapter._is_available = True  # bypass the socket probe; HTTP is mocked
+        adapter.attach_usage_ledger(ledger)
+        with patch(
+            _POST_JSON,
+            return_value={"message": "not-a-dict", "prompt_eval_count": 15, "eval_count": 8},
+        ):
+            result = adapter.generate_chat([{"role": "user", "content": "hi"}])
+        assert isinstance(result, str)
+        assert adapter.last_usage is None
+        assert len(ledger) == 0
