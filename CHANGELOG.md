@@ -77,11 +77,12 @@ cloud adapter stay available, just never privileged.
   * Tests: `tests/reasoning/test_reasoning_backend.py` (15 passed) — gate
     fail-closed, provenance stamping, hard-offline zero-network, ledger
     threading.
-* **Vendor-neutral, offline-first defaults (identity):** `LLMConfig.model_name`
-  default changed from `"gpt-4o"` to `"template"` (the builtin offline path —
-  no external provider, no cost); the `llm_registry` docstring example now uses
-  a local open-weights model instead of a hosted one. Mercury presents as
-  itself by default, not as any external AI.
+* **Vendor-neutral defaults (identity):** `LLMConfig.model_name` default changed
+  from `"gpt-4o"` to `""` (unset) — each adapter applies its own
+  provider-appropriate default, so no vendor model id (nor the `"template"`
+  sentinel) is ever sent across providers; the `llm_registry` docstring example
+  now uses a local open-weights model instead of a hosted one. Mercury presents
+  as itself by default, not as any external AI.
 
 ### Calibration — `StrictIsotonicCalibration` ported from PR #275 (X1 survivor) (2026-06-12)
 
