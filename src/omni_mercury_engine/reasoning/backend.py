@@ -80,7 +80,7 @@ class ReasoningBackend(abc.ABC):
         *,
         ethics_enabled: bool = True,
         benevolence_scorer: Any | None = None,
-        sigma_gate: SigmaImmutableGate | None = None,
+        sigma_gate: Any | None = None,
     ) -> None:
         """Initialize the backend and bind Mercury's ethical gates.
 
@@ -180,10 +180,11 @@ class ReasoningBackend(abc.ABC):
                 the operation; no content is returned in that case.
         """
         self._enforce("reasoning_backend.explain", context)
+        safe_domain = sanitize_domain(context.domain)
         prompt = (
             "Explain the following Mercury finding for an analyst, grounded in "
             "the evidence and no longer than a short paragraph.\n"
-            f"Domain: {context.domain}\n"
+            f"Domain: {safe_domain}\n"
             f"Summary: {context.summary}\n"
             f"Evidence: {context.evidence}"
         )
@@ -206,11 +207,12 @@ class ReasoningBackend(abc.ABC):
                 the operation; no content is returned in that case.
         """
         self._enforce("reasoning_backend.propose_hypotheses", evidence)
+        safe_domain = sanitize_domain(evidence.domain)
         prompt = (
             "Propose candidate hypotheses (one per line) that could account "
             "for the following Mercury evidence. Mercury, not you, will weigh "
             "and decide among them.\n"
-            f"Domain: {evidence.domain}\n"
+            f"Domain: {safe_domain}\n"
             f"Summary: {evidence.summary}\n"
             f"Evidence: {evidence.evidence}"
         )
@@ -235,15 +237,16 @@ class ReasoningBackend(abc.ABC):
                 the operation; no content is returned in that case.
         """
         self._enforce("reasoning_backend.synthesize_report", findings)
+        safe_domain = sanitize_domain(findings.domain)
         prompt = (
             "Synthesize a brief analyst report over the following Mercury "
             "findings, grounded strictly in the evidence.\n"
-            f"Domain: {findings.domain}\n"
+            f"Domain: {safe_domain}\n"
             f"Summary: {findings.summary}\n"
             f"Evidence: {findings.evidence}"
         )
         text = self._generate(prompt, SYSTEM_PROMPT)
-        title = f"Mercury reasoning report: {findings.domain}"
+        title = f"Mercury reasoning report: {safe_domain}"
         return Report(
             title=title, body=text, backend=self.name, model=self.model, gated=self.ethics_enabled
         )

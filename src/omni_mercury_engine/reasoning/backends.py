@@ -32,7 +32,6 @@ from omni_mercury_engine.reasoning.backend import ReasoningBackend
 if TYPE_CHECKING:
     from omni_mercury_engine.models.foundation.llm_adapter import LLMConfig
     from omni_mercury_engine.models.foundation.llm_usage import UsageLedger
-    from omni_mercury_engine.security.sigma_immutable_gate import SigmaImmutableGate
 
 __all__ = [
     "LocalReasoningBackend",
@@ -101,7 +100,7 @@ class LocalReasoningBackend(ReasoningBackend):
         usage_ledger: UsageLedger | None = None,
         ethics_enabled: bool = True,
         benevolence_scorer: Any | None = None,
-        sigma_gate: SigmaImmutableGate | None = None,
+        sigma_gate: Any | None = None,
     ) -> None:
         """Initialize the offline-first local backend.
 
@@ -132,8 +131,13 @@ class LocalReasoningBackend(ReasoningBackend):
 
     @property
     def model(self) -> str:
-        """Local model this backend is configured to serve."""
-        return self._ollama_config.model
+        """Model actually serving (e.g. ``ollama:llama3.2:3b`` or ``template``).
+
+        Reflects the adapter the chain selected, not merely the configured
+        Ollama model — so provenance is truthful when the chain falls back to
+        the builtin template (Ollama unavailable).
+        """
+        return self._chain.get_active_adapter()
 
     @property
     def is_offline(self) -> bool:
@@ -164,7 +168,7 @@ class RemoteReasoningBackend(ReasoningBackend):
         usage_ledger: UsageLedger | None = None,
         ethics_enabled: bool = True,
         benevolence_scorer: Any | None = None,
-        sigma_gate: SigmaImmutableGate | None = None,
+        sigma_gate: Any | None = None,
     ) -> None:
         """Initialize the network-capable remote backend.
 
@@ -182,7 +186,6 @@ class RemoteReasoningBackend(ReasoningBackend):
             benevolence_scorer=benevolence_scorer,
             sigma_gate=sigma_gate,
         )
-        self._model = cloud_config.model_name
         self._chain = FallbackLLMChain(
             ollama_config=ollama_config or OllamaConfig(),
             enable_cloud=True,
@@ -197,8 +200,13 @@ class RemoteReasoningBackend(ReasoningBackend):
 
     @property
     def model(self) -> str:
-        """Operator-declared model id this backend targets."""
-        return self._model
+        """Model actually serving (e.g. ``cloud:openai``, ``ollama:…`` or ``template``).
+
+        Reflects the adapter the chain selected, not the operator-declared cloud
+        model — so provenance is truthful when the offline-first chain serves a
+        local/template path instead of the cloud model.
+        """
+        return self._chain.get_active_adapter()
 
     @property
     def is_offline(self) -> bool:
