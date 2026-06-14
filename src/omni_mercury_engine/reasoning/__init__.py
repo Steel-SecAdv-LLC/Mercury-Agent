@@ -27,6 +27,7 @@ from omni_mercury_engine.reasoning.backend import ReasoningBackend
 from omni_mercury_engine.reasoning.backends import (
     LocalReasoningBackend,
     MockReasoningBackend,
+    ReasoningBackendUnavailableError,
     RemoteReasoningBackend,
 )
 from omni_mercury_engine.reasoning.router import ReasoningRouter
@@ -43,6 +44,7 @@ __all__ = [
     "LocalReasoningBackend",
     "MockReasoningBackend",
     "ReasoningBackend",
+    "ReasoningBackendUnavailableError",
     "ReasoningContext",
     "ReasoningRouter",
     "RemoteReasoningBackend",

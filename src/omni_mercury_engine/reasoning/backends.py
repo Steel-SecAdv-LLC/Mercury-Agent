@@ -37,8 +37,20 @@ if TYPE_CHECKING:
 __all__ = [
     "LocalReasoningBackend",
     "MockReasoningBackend",
+    "ReasoningBackendUnavailableError",
     "RemoteReasoningBackend",
 ]
+
+
+class ReasoningBackendUnavailableError(RuntimeError):
+    """Raised when a network-capable backend is invoked under the air-gap.
+
+    Fail-closed by design: a direct cloud call made while ``MERCURY_OFFLINE`` is
+    set raises rather than silently substituting a weaker local/template answer
+    for the cloud call the caller explicitly made — the unconscious-substitution
+    Mercury's design rejects. (The router's serving path degrades gracefully to
+    a local backend instead; this guard is only for direct, explicit use.)
+    """
 
 
 class MockReasoningBackend(ReasoningBackend):
@@ -194,5 +206,18 @@ class RemoteReasoningBackend(ReasoningBackend):
         return False
 
     def _generate(self, prompt: str, system_prompt: str | None = None) -> str:
-        """Generate via the network-capable chain."""
+        """Generate via the network-capable chain.
+
+        Fail-closed under the air-gap: a direct call (bypassing the router)
+        while ``MERCURY_OFFLINE`` is set raises
+        :class:`ReasoningBackendUnavailableError` rather than silently serving a
+        weaker local/template answer. The router degrades gracefully to a local
+        backend on the serving path; this guard is only for direct, explicit use.
+        """
+        from omni_mercury_engine.datasets.exceptions import offline_mode_active
+
+        if offline_mode_active():
+            raise ReasoningBackendUnavailableError(
+                "RemoteReasoningBackend unavailable: MERCURY_OFFLINE air-gap active"
+            )
         return self._chain.generate(prompt, system_prompt)

@@ -22,6 +22,7 @@ from typing import Any
 import pytest
 
 from omni_mercury_engine.cognitive.ethical_bounding import EthicalConstraintViolationError
+from omni_mercury_engine.models.foundation.llm_adapter import LLMConfig, LLMProvider
 from omni_mercury_engine.models.foundation.llm_usage import UsageLedger
 from omni_mercury_engine.reasoning import (
     Explanation,
@@ -29,8 +30,10 @@ from omni_mercury_engine.reasoning import (
     LocalReasoningBackend,
     MockReasoningBackend,
     ReasoningBackend,
+    ReasoningBackendUnavailableError,
     ReasoningContext,
     ReasoningRouter,
+    RemoteReasoningBackend,
     Report,
 )
 
@@ -237,3 +240,33 @@ class TestRouterOfflineFirst:
         assert router.select(allow_remote=True) is router.local
         router.explain(_ctx(), allow_remote=True)
         assert remote.generate_calls == 0
+
+
+class TestRemoteFailClosed:
+    """A *direct* cloud call (bypassing the router) fails loud under the air-gap.
+
+    Contrast with the router, which degrades gracefully to local — here the
+    explicit cloud call raises rather than silently substituting a local answer.
+    """
+
+    def _remote(self) -> RemoteReasoningBackend:
+        # No api key (and OPENAI_API_KEY cleared per test) so the online path
+        # falls to the deterministic template — hermetic, no network.
+        cfg = LLMConfig(provider=LLMProvider.OPENAI, model_name="frontier-x", api_key=None)
+        return RemoteReasoningBackend(
+            cloud_config=cfg, benevolence_scorer=_PassScorer(), sigma_gate=_PassSigma()
+        )
+
+    def test_direct_call_raises_under_airgap(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("MERCURY_OFFLINE", "1")
+        backend = self._remote()
+        with pytest.raises(ReasoningBackendUnavailableError, match="MERCURY_OFFLINE"):
+            backend.explain(_ctx())
+
+    def test_direct_call_serves_when_offline_unset(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("MERCURY_OFFLINE", raising=False)
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        backend = self._remote()
+        result = backend.explain(_ctx())
+        assert isinstance(result, Explanation)
+        assert result.backend == "remote" and result.text
