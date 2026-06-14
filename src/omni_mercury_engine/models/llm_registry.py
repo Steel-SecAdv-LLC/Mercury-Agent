@@ -30,19 +30,16 @@ Example:
     registry = LLMModelRegistry()
     registry.register(
         LLMModelSpec(
-            provider="anthropic",
-            model_id="claude-sonnet-4-5",
-            context_window=200_000,
-            capabilities=frozenset({"chat", "tool_use", "vision"}),
-            input_cost_per_mtok=3.0,
-            output_cost_per_mtok=15.0,
-            pricing_as_of="2026-06-01",
+            provider="ollama",
+            model_id="llama3.2:3b",
+            context_window=8_192,
+            capabilities=frozenset({"chat", "tool_use"}),
+            notes="local open-weights model; no per-token cost",
         )
     )
     spec = registry.select_one(
-        required_capabilities=("chat", "tool_use"),
-        min_context=100_000,
-        max_input_cost_per_mtok=5.0,
+        required_capabilities=("chat",),
+        min_context=8_000,
     )
 """
 

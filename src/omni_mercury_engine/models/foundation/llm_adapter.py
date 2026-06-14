@@ -69,7 +69,10 @@ class LLMConfig:
     """Configuration for LLM adapter."""
 
     provider: LLMProvider = LLMProvider.MOCK
-    model_name: str = "gpt-4o"
+    # Vendor-neutral, offline-first default: the builtin template path runs
+    # with no external provider and no cost. Operators opt into a concrete
+    # cloud/local model by setting ``provider`` and ``model_name`` explicitly.
+    model_name: str = "template"
     temperature: float = 0.0
     max_tokens: int = 512
     api_key: str | None = None
