@@ -131,3 +131,68 @@ def test_engine_with_fusion_inference() -> None:
 
     assert results is not None
     assert "mode" in results
+
+
+def test_engine_explain_detection_is_governed_and_offline() -> None:
+    """Engine calls its subordinate reasoning backend to explain its own detection.
+
+    Verifies the wiring is real: a ``detect_with_fusion`` certificate flows into
+    ``explain_detection`` and comes back as a governed, provenance-stamped
+    Explanation served by the offline-first local backend (template in CI), with
+    the usage ledger threaded. The template path records no usage at all (it
+    never calls ``_record_usage``), so the ledger total is zero tokens — never a
+    fabricated count.
+    """
+    engine = OmniMercuryEngine(mode="fusion", auto_load_checkpoint=True)
+    data = np.random.RandomState(7).randn(48, 16).astype(np.float64)
+    result = engine.detect_with_fusion(data, domain="security")
+
+    explanation = engine.explain_detection(result, domain="security")
+    assert explanation.backend == "local"
+    assert explanation.gated is True
+    assert isinstance(explanation.text, str) and explanation.text
+    assert engine.reasoning_backend.is_offline is True
+
+    totals = engine.reasoning_usage()
+    assert totals is not None
+    assert totals["total_tokens"] == 0  # template records no usage -> zero, never fabricated
+
+
+def test_engine_reasoning_respects_ethics_gate_fail_closed() -> None:
+    """A benevolence violation blocks explanation at the engine boundary (fail-closed)."""
+    from omni_mercury_engine.cognitive.ethical_bounding import EthicalConstraintViolationError
+    from omni_mercury_engine.reasoning.backends import LocalReasoningBackend
+
+    class _DenyScorer:
+        def enforce(self, action: str, context: object) -> object:
+            raise EthicalConstraintViolationError(action, 0.10, 0.70, check="benevolence")
+
+    engine = OmniMercuryEngine(mode="fusion", auto_load_checkpoint=True)
+    engine.enable_reasoning(backend=LocalReasoningBackend(benevolence_scorer=_DenyScorer()))
+    data = np.random.RandomState(1).randn(48, 16).astype(np.float64)
+    result = engine.detect_with_fusion(data, domain="security")
+
+    with pytest.raises(EthicalConstraintViolationError):
+        engine.explain_detection(result, domain="security")
+
+
+def test_engine_reasoning_registry_drives_local_model() -> None:
+    """An operator-populated registry chooses the engine's local reasoning model."""
+    from omni_mercury_engine.models.llm_registry import LLMModelRegistry, LLMModelSpec
+    from omni_mercury_engine.reasoning.backends import LocalReasoningBackend
+
+    registry = LLMModelRegistry()
+    registry.register(
+        LLMModelSpec(
+            provider="ollama",
+            model_id="llama3.1:8b",
+            context_window=8192,
+            capabilities=frozenset({"chat"}),
+        )
+    )
+    engine = OmniMercuryEngine(mode="fusion")
+    engine.enable_reasoning(registry=registry)
+
+    backend = engine.reasoning_backend
+    assert isinstance(backend, LocalReasoningBackend)
+    assert backend._ollama_config.model == "llama3.1:8b"

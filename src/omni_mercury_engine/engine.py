@@ -188,9 +188,13 @@ if TYPE_CHECKING:
         LLMProvider,
         ZeroShotAnomalyDetector,
     )
+    from omni_mercury_engine.models.foundation.llm_usage import UsageLedger
+    from omni_mercury_engine.models.llm_registry import LLMModelRegistry
     from omni_mercury_engine.models.neural import NeuralCognitiveModel
     from omni_mercury_engine.models.parapsychology import ParapsychologyDetector
     from omni_mercury_engine.models.quantum import QuantumAnomalyModel
+    from omni_mercury_engine.reasoning.backend import ReasoningBackend
+    from omni_mercury_engine.reasoning.schemas import Explanation
     from omni_mercury_engine.resilience.self_healing import SelfHealingEngine
     from omni_mercury_engine.security.intelligence_fusion import IntelligenceFusionEngine
     from omni_mercury_engine.security.threat_detection import ThreatDetector
@@ -786,6 +790,15 @@ class OmniMercuryEngine(LoggerMixin):
         from omni_mercury_engine.security.sigma_immutable_gate import get_sigma_immutable_gate
 
         self._sigma_immutable_gate = get_sigma_immutable_gate()
+
+        # Mercury-owned reasoning backend (subordinate, optional, offline-first).
+        # Mercury is the agent and brain of record; the backend is a *called*
+        # dependency it invokes for natural-language explanation over its own
+        # detections -- never the front of the system. Constructed lazily (first
+        # use, or via ``enable_reasoning``) so the engine pays no LLM-chain cost
+        # unless reasoning is actually requested.
+        self._reasoning_backend: ReasoningBackend | None = None
+        self._reasoning_ledger: UsageLedger | None = None
 
         self._init_detectors()
         self._init_models()
@@ -2684,6 +2697,163 @@ class OmniMercuryEngine(LoggerMixin):
         )
         self.decision_ledger = ledger
         logger.info("Decision / abstention / response layer enabled")
+
+    def enable_reasoning(
+        self,
+        *,
+        backend: ReasoningBackend | None = None,
+        usage_ledger: UsageLedger | None = None,
+        registry: LLMModelRegistry | None = None,
+        ethics_enabled: bool = True,
+    ) -> None:
+        """Attach Mercury's subordinate, offline-first reasoning backend.
+
+        Mercury (this engine) is the agent and brain of record; the backend is a
+        *called dependency* it invokes to render natural-language explanations of
+        its own detections. Every reasoning call passes Mercury's benevolence +
+        ``sigma_Immutable`` dual hard ethical gate inside the backend before any
+        text is surfaced (fail-closed). The backend is never the front of the
+        system, and Mercury is never a wrapper around it.
+
+        Args:
+            backend: Explicit backend to use. Defaults to a
+                :class:`~omni_mercury_engine.reasoning.backends.LocalReasoningBackend`
+                -- offline-first and air-gap-safe (local Ollama when present, the
+                deterministic builtin template otherwise; never a network call).
+            usage_ledger: Optional shared
+                :class:`~omni_mercury_engine.models.foundation.llm_usage.UsageLedger`
+                threaded through the default backend so provider-reported token
+                spend on reasoning calls is accounted. One is created when a
+                default backend is built and none is supplied.
+            registry: Optional operator-populated
+                :class:`~omni_mercury_engine.models.llm_registry.LLMModelRegistry`.
+                When supplied (and ``backend`` is not), the local model is chosen
+                by the registry's free/local-first ``select_one`` rather than the
+                shipped default -- model choice is deployment config, not a
+                hard-code.
+            ethics_enabled: Forwarded to the default backend's dual ethical gate;
+                leave True outside trusted offline tests.
+        """
+        if backend is not None:
+            self._reasoning_backend = backend
+            self._reasoning_ledger = usage_ledger
+            logger.info("Reasoning backend enabled (operator-supplied)")
+            return
+
+        from omni_mercury_engine.models.foundation.llm_usage import UsageLedger
+        from omni_mercury_engine.models.foundation.ollama_adapter import OllamaConfig
+        from omni_mercury_engine.reasoning.backends import (
+            LocalReasoningBackend,
+            select_reasoning_model,
+        )
+
+        ledger = usage_ledger if usage_ledger is not None else UsageLedger()
+        ollama_config: OllamaConfig | None = None
+        if registry is not None:
+            model_id = select_reasoning_model(registry, default=OllamaConfig().model)
+            ollama_config = OllamaConfig(model=model_id)
+        self._reasoning_backend = LocalReasoningBackend(
+            ollama_config=ollama_config,
+            usage_ledger=ledger,
+            ethics_enabled=ethics_enabled,
+        )
+        self._reasoning_ledger = ledger
+        logger.info("Reasoning backend enabled (offline-first local default)")
+
+    @property
+    def reasoning_backend(self) -> ReasoningBackend:
+        """Mercury's reasoning backend, lazily defaulting to offline-first local.
+
+        Accessing this property before :meth:`enable_reasoning` constructs the
+        default offline-first
+        :class:`~omni_mercury_engine.reasoning.backends.LocalReasoningBackend`,
+        so :meth:`explain_detection` works out of the box without ceremony.
+        """
+        if self._reasoning_backend is None:
+            self.enable_reasoning()
+        backend = self._reasoning_backend
+        if backend is None:  # pragma: no cover - enable_reasoning always sets it
+            raise RuntimeError("reasoning backend failed to initialize")
+        return backend
+
+    @staticmethod
+    def _clamp_unit(value: Any) -> float:
+        """Coerce ``value`` to a float clamped to ``[0, 1]`` (0.0 on failure)."""
+        try:
+            return max(0.0, min(1.0, float(value)))
+        except (TypeError, ValueError):
+            return 0.0
+
+    def explain_detection(
+        self,
+        result: dict[str, Any],
+        *,
+        domain: str = "security",
+    ) -> Explanation:
+        """Explain one of Mercury's detection certificates in natural language.
+
+        Mercury owns the detection and the decision; it calls its subordinate
+        reasoning backend only to render a concise, evidence-grounded explanation
+        of a certificate produced by :meth:`detect_with_fusion`. The call passes
+        Mercury's dual hard ethical gate inside the backend (fail-closed): a
+        violation raises and no text is returned.
+
+        Args:
+            result: A detection certificate as returned by
+                :meth:`detect_with_fusion` /
+                :meth:`detect_with_fusion_calibrated`.
+            domain: Mercury domain hint; sanitized at the ethical boundary.
+
+        Returns:
+            A provenance-stamped
+            :class:`~omni_mercury_engine.reasoning.schemas.Explanation` recording
+            which backend and model actually served and that the gate cleared it.
+
+        Raises:
+            EthicalConstraintViolationError: If the dual ethical gate blocks the
+                operation; no explanation is returned in that case.
+        """
+        from omni_mercury_engine.reasoning.schemas import ReasoningContext
+
+        is_anomaly = bool(result.get("is_anomaly", False))
+        anomaly_prob = self._clamp_unit(result.get("anomaly_prob", 0.0))
+        threshold = self._clamp_unit(result.get("threshold_used", 0.0))
+        summary = (
+            f"Mercury fusion detection: is_anomaly={is_anomaly}, "
+            f"anomaly_prob={anomaly_prob:.3f} (threshold {threshold:.3f})"
+        )
+        evidence: dict[str, Any] = {
+            "anomaly_prob": result.get("anomaly_prob"),
+            "is_anomaly": result.get("is_anomaly"),
+            "threshold_used": result.get("threshold_used"),
+            "class_prediction": result.get("class_prediction"),
+            "severity": result.get("severity"),
+        }
+        importance = result.get("detector_importance")
+        if isinstance(importance, dict):
+            evidence["detector_importance"] = importance
+        context = ReasoningContext(
+            summary=summary,
+            domain=domain,
+            evidence=evidence,
+            severity=self._clamp_unit(result.get("severity", 0.0)),
+            anomaly_prob=anomaly_prob,
+        )
+        return self.reasoning_backend.explain(context)
+
+    def reasoning_usage(self) -> dict[str, int] | None:
+        """Return provider-reported token totals for reasoning calls.
+
+        Reads the ledger threaded through the default reasoning backend (see
+        :meth:`enable_reasoning`). Returns ``None`` when no ledger is attached
+        (e.g. an operator-supplied backend constructed without one). Counts are
+        provider-truthful: only real provider/adapter calls (Ollama, cloud)
+        contribute; the deterministic builtin template is not a tokenised
+        provider call and so books nothing.
+        """
+        if self._reasoning_ledger is None:
+            return None
+        return self._reasoning_ledger.totals()
 
     def enable_llm_enhancement(
         self,

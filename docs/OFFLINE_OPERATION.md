@@ -18,12 +18,22 @@ optional integrations.
 |---|---|---|
 | Dataset fetches (ADBench, AD-Repository, domain loaders) | Downloaded on first use, cached under `MERCURY_DATA_DIR` | Served from the cache; **uncached fetches refuse fail-closed** (`OfflineModeError`) — never stale or fabricated data |
 | Engine inference (`detect_with_fusion`, orchestrator, decision layer) | Local | Local — unchanged |
-| Optional LLM enhancement (`enable_llm_enhancement`) | Reaches the configured provider | Do not enable, or point at a local provider (e.g. Ollama adapter) |
+| Reasoning backend / LLM (`reasoning/`, `FallbackLLMChain`) | **Local by default** (Ollama → built-in template); reaches a cloud provider only if you explicitly configure one | **Cloud adapters are never constructed or called** — enforced in `FallbackLLMChain._initialize_chain`/`_create_cloud_adapter` and the reasoning router; local + template only |
 | Live data-source integrations (`data_sources/`) | Reach their upstreams | Refused at the shared HTTP chokepoint |
 
 The switch is enforced at the dataset layer's **single network chokepoint**
 (`datasets/base.py::http_get_with_retry`), before any socket is opened, so
-every loader inherits the contract at once.
+every loader inherits the contract at once. The same `MERCURY_OFFLINE` switch
+also governs the reasoning/LLM layer: when set, `FallbackLLMChain` and the
+reasoning router never construct or call a cloud adapter.
+
+**Local-first is the baseline, not a consequence of the flag.** With
+`MERCURY_OFFLINE` unset, the reasoning backend still runs local + template only
+and reaches no network — a cloud provider is used solely when the operator
+explicitly sets its key. The flag is the *hard* air-gap on top of that default.
+Where multiple models are registered, `LLMModelRegistry.select()` orders
+free/local ahead of paid cloud (local inference is cost-0), so the cheap, local
+path is preferred by default.
 
 ## Environment variables
 

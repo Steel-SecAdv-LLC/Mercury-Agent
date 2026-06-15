@@ -205,6 +205,35 @@ All cognitive modules are advisory — they augment results, never
 overwrite detector scores. Failure in any module is caught and logged;
 detection continues without cognitive enrichment.
 
+## Reasoning Backend (subordinate, called dependency)
+
+Mercury Agent is the agent and the brain of record: its OODA loop,
+neuro-symbolic detection, and dual ethical gates own the control flow. The
+`reasoning/` subpackage gives Mercury a **pluggable, subordinate** reasoning
+engine to *call* — for explanation, hypothesis proposal, and report synthesis
+— and is **never** a system Mercury is wrapped around.
+
+- **Interface:** `reasoning.ReasoningBackend` exposes `explain()`,
+  `propose_hypotheses()`, and `synthesize_report()` over Mercury's own typed
+  shapes (`reasoning/schemas.py`). No provider name appears in any signature;
+  the model is a swappable dependency Mercury calls, not the front of the
+  system.
+- **Governed by Mercury, not the model:** every reasoning operation passes the
+  benevolence + σ_Immutable dual hard gate (`enforce_dual_ethical_gate`) at the
+  reasoning boundary before any output is surfaced. The gate fails closed — the
+  backend does not get to bypass Mercury's governance.
+- **Offline-first:** `LocalReasoningBackend` runs air-gap-safe over the local
+  Ollama/template chain (free to run, no external call);
+  `RemoteReasoningBackend` reaches an operator-declared model only when
+  configured. `ReasoningRouter` defaults to local and, under hard-offline mode,
+  never selects or calls a network backend.
+- **Costed:** backends thread the LLM usage ledger
+  (`models/foundation/llm_usage.py`) so provider-reported token spend is
+  accounted wherever a call lands.
+
+Mercury calls the backend from inside its loop; the backend never fronts
+Mercury.
+
 ## Integration Backend Configuration
 
 ### Database (`integrations/stubs/database.py`)

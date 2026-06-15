@@ -37,7 +37,105 @@ from omni_mercury_engine.models.foundation.llm_adapter import (
 )
 from omni_mercury_engine.security.safe_http import SafeHTTPClient, UnsafeURLError
 
+if TYPE_CHECKING:
+    from omni_mercury_engine.models.foundation.llm_usage import UsageLedger
+
 logger = logging.getLogger(__name__)
+
+
+def _as_count(value: Any) -> int | None:
+    """Coerce a provider-reported token count to a non-negative int.
+
+    Providers occasionally serialize integer counts as floats (e.g. Cohere
+    reports its token counts as ``42.0``); such integer-valued floats are
+    accepted exactly. Anything that is not a non-negative, integer-valued
+    number — a bool, a non-numeric type, a negative, or a genuinely fractional
+    float — is treated as unreported (``None``) rather than guessed at or
+    silently truncated, so a count is only booked when it is provider-truthful.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    if value < 0:
+        return None
+    if isinstance(value, float) and not value.is_integer():
+        return None
+    return int(value)
+
+
+def _usage_from_openai(data: dict[str, Any]) -> tuple[int | None, int | None, int | None]:
+    """Extract usage from an OpenAI-style Chat Completions response.
+
+    Wire format: ``{"usage": {"prompt_tokens", "completion_tokens",
+    "total_tokens"}}`` — shared by OpenAI, xAI, DeepSeek, and Cursor.
+    """
+    usage = data.get("usage")
+    if not isinstance(usage, dict):
+        return None, None, None
+    return (
+        _as_count(usage.get("prompt_tokens")),
+        _as_count(usage.get("completion_tokens")),
+        _as_count(usage.get("total_tokens")),
+    )
+
+
+def _usage_from_anthropic(data: dict[str, Any]) -> tuple[int | None, int | None, int | None]:
+    """Extract usage from an Anthropic Messages response.
+
+    Wire format: ``{"usage": {"input_tokens", "output_tokens"}}`` (no total).
+    """
+    usage = data.get("usage")
+    if not isinstance(usage, dict):
+        return None, None, None
+    return (
+        _as_count(usage.get("input_tokens")),
+        _as_count(usage.get("output_tokens")),
+        None,
+    )
+
+
+def _usage_from_gemini(data: dict[str, Any]) -> tuple[int | None, int | None, int | None]:
+    """Extract usage from a Gemini ``generateContent`` response.
+
+    Wire format: ``{"usageMetadata": {"promptTokenCount",
+    "candidatesTokenCount", "totalTokenCount"}}``.
+    """
+    usage = data.get("usageMetadata")
+    if not isinstance(usage, dict):
+        return None, None, None
+    return (
+        _as_count(usage.get("promptTokenCount")),
+        _as_count(usage.get("candidatesTokenCount")),
+        _as_count(usage.get("totalTokenCount")),
+    )
+
+
+def _usage_from_cohere(data: dict[str, Any]) -> tuple[int | None, int | None, int | None]:
+    """Extract usage from a Cohere Chat v2 response.
+
+    Wire format: ``{"usage": {"tokens": {"input_tokens", "output_tokens"}}}``
+    (no total; ``billed_units`` is a billing view, not the raw token count).
+    """
+    usage = data.get("usage")
+    tokens = usage.get("tokens") if isinstance(usage, dict) else None
+    if not isinstance(tokens, dict):
+        return None, None, None
+    return (
+        _as_count(tokens.get("input_tokens")),
+        _as_count(tokens.get("output_tokens")),
+        None,
+    )
+
+
+def _usage_from_ollama(data: dict[str, Any]) -> tuple[int | None, int | None, int | None]:
+    """Extract usage from an Ollama ``/api/generate`` or ``/api/chat`` response.
+
+    Wire format: top-level ``prompt_eval_count`` / ``eval_count`` (no total).
+    """
+    return (
+        _as_count(data.get("prompt_eval_count")),
+        _as_count(data.get("eval_count")),
+        None,
+    )
 
 
 class OllamaModel(StrEnum):
@@ -327,7 +425,12 @@ class OllamaLLMAdapter(BaseLLMAdapter):
                 user_configured=True,
                 loopback_only=True,
             )
-            return str(result.get("response", ""))
+            # Extract content first: record usage only after a successful
+            # extraction, so a malformed payload books nothing (failed calls
+            # book nothing).
+            content = str(result.get("response", ""))
+            self._record_usage(self.ollama_config.model, *_usage_from_ollama(result))
+            return content
 
         except UnsafeURLError:
             # SSRF / config refusal. Surface so the operator sees the
@@ -381,7 +484,12 @@ class OllamaLLMAdapter(BaseLLMAdapter):
                 user_configured=True,
                 loopback_only=True,
             )
-            return str(result.get("message", {}).get("content", ""))
+            # Extract content first: record usage only after a successful
+            # extraction, so a malformed payload books nothing (failed calls
+            # book nothing).
+            content = str(result.get("message", {}).get("content", ""))
+            self._record_usage(self.ollama_config.model, *_usage_from_ollama(result))
+            return content
 
         except UnsafeURLError:
             # SSRF / config refusal. Surface so the operator sees the
@@ -621,7 +729,12 @@ class OpenAICloudAdapter(BaseLLMAdapter):
                 timeout=self.config.timeout,
                 user_configured=True,
             )
-            return str(data["choices"][0]["message"]["content"])
+            # Extract content first: record usage only after a successful
+            # extraction, so a malformed payload books nothing (failed calls
+            # book nothing).
+            content = str(data["choices"][0]["message"]["content"])
+            self._record_usage(self.model, *_usage_from_openai(data))
+            return content
 
         except UnsafeURLError:
             # The configured ``base_url`` was refused (SSRF gate, scheme,
@@ -704,10 +817,16 @@ class AnthropicCloudAdapter(BaseLLMAdapter):
                 timeout=self.config.timeout,
                 user_configured=True,
             )
+            # Extract content first: record usage only after a successful
+            # extraction, so a malformed payload books nothing (failed calls
+            # book nothing).
             content = data.get("content", [])
             if content and len(content) > 0:
-                return str(content[0].get("text", ""))
-            return ""
+                text = str(content[0].get("text", ""))
+            else:
+                text = ""
+            self._record_usage(self.model, *_usage_from_anthropic(data))
+            return text
 
         except UnsafeURLError:
             # See OpenAICloudAdapter.generate -- the same config-error
@@ -792,9 +911,17 @@ class HuggingFaceCloudAdapter(BaseLLMAdapter):
                 timeout=self.config.timeout,
                 user_configured=True,
             )
+            # Extract content first: record usage only after a successful
+            # extraction, so a malformed payload books nothing (failed calls
+            # book nothing). The Inference API text-generation route reports no
+            # token usage, so the call is recorded as unmetered -- the spend
+            # stays visible in the ledger instead of silently absent.
             if isinstance(data, list) and len(data) > 0:
-                return str(data[0].get("generated_text", ""))
-            return str(data)
+                text = str(data[0].get("generated_text", ""))
+            else:
+                text = str(data)
+            self._record_usage(self.model, None, None, None)
+            return text
 
         except UnsafeURLError:
             # See OpenAICloudAdapter.generate -- the same config-error
@@ -900,7 +1027,12 @@ class _OpenAICompatibleCloudAdapter(BaseLLMAdapter):
                 timeout=self.config.timeout,
                 user_configured=True,
             )
-            return str(data["choices"][0]["message"]["content"])
+            # Extract content first: record usage only after a successful
+            # extraction, so a malformed payload books nothing (failed calls
+            # book nothing).
+            content = str(data["choices"][0]["message"]["content"])
+            self._record_usage(self.model, *_usage_from_openai(data))
+            return content
 
         except UnsafeURLError:
             # Operator-misconfigured base_url (SSRF gate, scheme, IMDS,
@@ -1007,7 +1139,10 @@ class CohereCloudAdapter(BaseLLMAdapter):
                 timeout=self.config.timeout,
                 user_configured=True,
             )
-            # Cohere v2 returns {"message": {"content": [{"type": "text", "text": "..."}]}}
+            # Extract content first: record usage only after a successful
+            # extraction, so a malformed payload books nothing (failed calls
+            # book nothing). Cohere v2 returns
+            # {"message": {"content": [{"type": "text", "text": "..."}]}}.
             message = data.get("message", {})
             content_items = message.get("content", [])
             if isinstance(content_items, list):
@@ -1016,8 +1151,11 @@ class CohereCloudAdapter(BaseLLMAdapter):
                     for item in content_items
                     if isinstance(item, dict) and item.get("type") == "text"
                 ]
-                return "".join(texts)
-            return str(content_items)
+                text = "".join(texts)
+            else:
+                text = str(content_items)
+            self._record_usage(self.model, *_usage_from_cohere(data))
+            return text
 
         except UnsafeURLError:
             raise
@@ -1095,13 +1233,18 @@ class GeminiCloudAdapter(BaseLLMAdapter):
                 timeout=self.config.timeout,
                 user_configured=True,
             )
+            # Extract content first: record usage only after a successful
+            # extraction, so a malformed payload books nothing (failed calls
+            # book nothing).
             candidates = data.get("candidates", [])
+            text = ""
             if candidates:
                 first = candidates[0]
                 parts = first.get("content", {}).get("parts", [])
                 texts = [p.get("text", "") for p in parts if isinstance(p, dict)]
-                return "".join(texts)
-            return ""
+                text = "".join(texts)
+            self._record_usage(self.model, *_usage_from_gemini(data))
+            return text
 
         except UnsafeURLError:
             raise
@@ -1141,6 +1284,7 @@ class FallbackLLMChain:
         ollama_config: OllamaConfig | None = None,
         enable_cloud: bool = False,
         cloud_config: LLMConfig | None = None,
+        usage_ledger: UsageLedger | None = None,
     ):
         """Initialize fallback chain.
 
@@ -1148,15 +1292,21 @@ class FallbackLLMChain:
             ollama_config: Ollama configuration
             enable_cloud: Whether to enable cloud fallback
             cloud_config: Cloud provider configuration (if enabled)
+            usage_ledger: Optional shared usage ledger attached to every
+                adapter in the chain, so provider-reported token usage is
+                aggregated in one place regardless of which adapter served
+                a given call.
         """
         self.ollama_config = ollama_config or OllamaConfig()
         self.enable_cloud = enable_cloud
         self.cloud_config = cloud_config
+        self.usage_ledger = usage_ledger
 
         # Initialize adapters
         self._ollama: OllamaLLMAdapter | None = None
         self._cloud: BaseLLMAdapter | None = None
         self._template = TemplateLLMAdapter()
+        self._template.attach_usage_ledger(usage_ledger)
 
         # Track which adapter is active
         self._active_adapter: BaseLLMAdapter | None = None
@@ -1168,6 +1318,7 @@ class FallbackLLMChain:
         """Initialize the fallback chain."""
         # Try Ollama first
         self._ollama = OllamaLLMAdapter(ollama_config=self.ollama_config)
+        self._ollama.attach_usage_ledger(self.usage_ledger)
 
         if self._ollama.is_available():
             self._active_adapter = self._ollama
@@ -1175,9 +1326,15 @@ class FallbackLLMChain:
             logger.info(f"LLM chain using Ollama ({self.ollama_config.model})")
             return
 
-        # Try cloud if enabled
-        if self.enable_cloud and self.cloud_config:
+        # Try cloud only if explicitly enabled AND not under the hard air-gap.
+        # MERCURY_OFFLINE is the master switch (reused from the dataset layer):
+        # when set, no cloud adapter is ever constructed — local + template only.
+        from omni_mercury_engine.datasets.exceptions import offline_mode_active
+
+        if self.enable_cloud and self.cloud_config and not offline_mode_active():
             self._cloud = self._create_cloud_adapter()
+            if self._cloud is not None:
+                self._cloud.attach_usage_ledger(self.usage_ledger)
             if self._cloud and self._cloud.is_available():
                 self._active_adapter = self._cloud
                 self._active_name = f"cloud:{self.cloud_config.provider.value}"
@@ -1189,13 +1346,30 @@ class FallbackLLMChain:
         self._active_name = "template"
         logger.info("LLM chain using template fallback")
 
+    @property
+    def last_usage(self) -> Any:
+        """Provider-reported usage of the active adapter's last generation."""
+        return self._active_adapter.last_usage if self._active_adapter else None
+
     def _create_cloud_adapter(self) -> BaseLLMAdapter | None:
         """Create cloud adapter based on configuration.
 
-        Supports OpenAI, Anthropic, and HuggingFace cloud providers. Each provider requires
-        appropriate API keys set via environment variables or configuration.
+        All cloud providers are interchangeable and equal here; none is
+        privileged. The constructed adapter matches the operator-configured
+        ``provider`` only. Each provider requires its own API key set via
+        environment variable or configuration.
+
+        Returns ``None`` under ``MERCURY_OFFLINE`` (defense in depth) so no
+        cloud adapter is ever constructed in the hard air-gap, even if this is
+        reached directly.
         """
         if not self.cloud_config:
+            return None
+
+        from omni_mercury_engine.datasets.exceptions import offline_mode_active
+
+        if offline_mode_active():
+            logger.info("MERCURY_OFFLINE set; refusing to construct a cloud LLM adapter")
             return None
 
         try:

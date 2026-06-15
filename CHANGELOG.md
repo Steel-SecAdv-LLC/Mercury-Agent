@@ -27,6 +27,77 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### LLM layer: free-weights-first & provider-neutral under Mercury's identity
+
+Defaults, selection order, and naming only — no rewrite; OpenAI and every other
+cloud adapter stay available, just never privileged.
+
+* **Free/local is the baseline default.** `LLMModelRegistry.select()`
+  (`models/llm_registry.py`) now orders **free/local ahead of paid cloud**:
+  `local`/`builtin` providers are treated as genuinely cost-0, so they sort
+  first, satisfy any budget, and win ties; an *undeclared cloud* price stays
+  unknown and is excluded from budget queries (not assumed free). Replaces the
+  prior "priced-first, unpriced-last" order. Pinned by
+  `tests/models/test_llm_registry_local_first.py` and the updated
+  `tests/models/test_llm_registry.py`.
+* **`MERCURY_OFFLINE` is the master air-gap for the LLM layer too.**
+  `FallbackLLMChain` (`models/foundation/ollama_adapter.py`) and the reasoning
+  router now refuse to construct or call any cloud adapter when
+  `MERCURY_OFFLINE` is set — reusing the dataset layer's
+  `offline_mode_active()` so one switch governs both. Local + template only.
+  Pinned by `tests/models/test_llm_offline_airgap.py` (zero cloud construction)
+  and a reasoning-router offline test.
+* **No vendor privileged by default.** `FallbackLLMChain` already tries local
+  (Ollama) → optional cloud → template, with cloud off unless explicitly
+  enabled and configured (confirmed, unchanged). `.env.example` now presents
+  the reasoning backend as local/free by default and lists cloud keys as an
+  unordered optional set (no OpenAI-first framing); `docs/OFFLINE_OPERATION.md`
+  documents the now-*enforced* LLM air-gap and the free/local-first baseline.
+
+### Reasoning backend layer — Mercury-owned, offline-first, ethics-gated co-AI interface (`reasoning/`)
+
+* **`reasoning/` subpackage** (new): a pluggable reasoning layer Mercury *calls*
+  as a subordinate dependency — never a wrapper Mercury sits behind.
+  * `ReasoningBackend` (ABC): typed, provider-neutral surface — `explain()`,
+    `propose_hypotheses()`, `synthesize_report()` (`reasoning/schemas.py`).
+    Every operation passes Mercury's benevolence + σ_Immutable dual hard
+    ethical gate (`enforce_dual_ethical_gate`) before any output is surfaced;
+    the gate fails closed, so an integrated LLM cannot bypass Mercury's
+    governance.
+  * Implementations: `MockReasoningBackend` (deterministic, network-free, for
+    CI), `LocalReasoningBackend` (offline-first / air-gap-safe over the local
+    Ollama+template chain — free to run, no external call), and
+    `RemoteReasoningBackend` (operator-declared frontier model; no hard-coded
+    model name, credentials via env).
+  * `ReasoningRouter`: offline-first routing — the local backend is the floor
+    and default, the remote backend is reached only on explicit opt-in, and
+    hard-offline mode provably never selects or calls a network backend.
+  * Threads the PR #289 `UsageLedger` so token spend is accounted regardless of
+    which backend serves a call.
+  * **Wired into the engine (real consumer, not standalone substrate):**
+    `OmniMercuryEngine.enable_reasoning()`, the lazy `reasoning_backend`
+    property, and `explain_detection(result, domain=...)` let Mercury call the
+    backend on its *own* `detect_with_fusion` certificates — Mercury owns the
+    detection and the decision and invokes the subordinate backend only to
+    render a governed, evidence-grounded explanation (offline-first; the dual
+    ethical gate still fail-closes the call at the engine boundary).
+    `reasoning_usage()` exposes the threaded ledger's provider-truthful totals
+    (the offline template path books nothing — never fabricated tokens). The
+    `LLMModelRegistry` is consumed too: `reasoning.backends.select_reasoning_model()`
+    lets an operator-populated registry choose the local model (free/local-first)
+    instead of a hard-coded default.
+  * Tests: `tests/reasoning/test_reasoning_backend.py` (gate fail-closed,
+    provenance stamping, hard-offline zero-network, ledger threading,
+    registry-driven model selection) and `tests/core/test_engine_full.py`
+    (engine-governed explanation, ethics fail-closed at the engine boundary,
+    registry-driven local model).
+* **Vendor-neutral defaults (identity):** `LLMConfig.model_name` default changed
+  from `"gpt-4o"` to `""` (unset) — each adapter applies its own
+  provider-appropriate default, so no vendor model id (nor the `"template"`
+  sentinel) is ever sent across providers; the `llm_registry` docstring example
+  now uses a local open-weights model instead of a hosted one. Mercury presents
+  as itself by default, not as any external AI.
+
 ### Calibration — `StrictIsotonicCalibration` ported from PR #275 (X1 survivor) (2026-06-12)
 
 * **`StrictIsotonicCalibration`** (`core/calibration.py`): isotonic calibration
@@ -402,6 +473,52 @@ under the same ablation discipline as every other revival.
   `plasticity_engine` split into rows 10b/11b (still retained — no honest
   harness yet); capability matrix "Multi-agent" row moved to
   **Shipped + measured** with the build-out item (B) closed.
+### Added — multi-model substrate: provider-reported usage accounting + LLM model registry (2026-06-11)
+
+First slice of the multi-agent/multi-model build-out
+(`docs/capability_vs_vision_matrix.md` §4 item B): before orchestrating
+across Mercury's ten LLM providers, calls must be *costed* and models must
+be *selectable*. Both pieces are provider-truth-only — no client-side
+token estimates, no hard-coded market facts.
+
+* **Usage accounting**
+  (`omni_mercury_engine.models.foundation.llm_usage`): `LLMUsage` (one
+  immutable record per successful generation, counts exactly as the
+  provider's response reported them) and `UsageLedger` (thread-safe;
+  exact lifetime totals via running counters; bounded recent-history
+  ring that never bends the totals). Calls whose provider reports no
+  usage are recorded as **unmetered** (`reported=False`) so unmeasured
+  spend is visible rather than silently absent.
+* **Adapter wiring**: every shipped adapter's success path now parses
+  its provider's usage block into `last_usage` and an optionally
+  attached ledger (`BaseLLMAdapter.attach_usage_ledger`) — OpenAI +
+  xAI/DeepSeek/Cursor (`usage.{prompt,completion,total}_tokens`),
+  Anthropic (`usage.{input,output}_tokens`), Gemini (`usageMetadata`),
+  Cohere v2 (`usage.tokens`), Ollama (`prompt_eval_count`/`eval_count`),
+  HuggingFace Inference (no usage block → unmetered record). Failed
+  calls book nothing — **every** adapter extracts the response content
+  *before* recording usage, so a 200 carrying a usage block but
+  unextractable content books nothing (uniform across all ten adapters,
+  not only the OpenAI-style ones).
+  `FallbackLLMChain(usage_ledger=...)` threads one ledger through every
+  adapter in the chain and exposes `last_usage`.
+* **LLM model registry** (`omni_mercury_engine.models.llm_registry`,
+  importable without torch): `PROVIDER_CATALOG` — code-grounded facts
+  about the ten shipped adapters (wire format, key env var, locality,
+  explicit-base_url requirement, usage-reporting), drift-gated in CI
+  against `IMPLEMENTED_LLM_PROVIDERS`; `LLMModelSpec` /
+  `LLMModelRegistry` — operator-declared model facts with mandatory
+  provenance (a spec carrying prices must carry `pricing_as_of`) and
+  deterministic capability/context/budget selection (`select` /
+  `select_one`; unpriced specs are excluded from budget queries rather
+  than assumed free; unknown capabilities raise rather than silently
+  matching nothing).
+* **Locks:** `tests/models/test_llm_usage_ledger.py` (validation,
+  aggregation, bounded-ring-vs-exact-totals, concurrent exactness),
+  `tests/test_llm_usage_capture.py` (per-wire-format parsing against
+  canned payloads, unmetered HF route, failed-call no-booking, chain
+  threading), `tests/models/test_llm_registry.py` (spec/selection
+  contracts + the provider-catalog drift gate).
 
 ### Security — owner-governed risk posture: enumerated CVE ledger, shared HD master seed, signed cache entries (2026-06-10)
 
