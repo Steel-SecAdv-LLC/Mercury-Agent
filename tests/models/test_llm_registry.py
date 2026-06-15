@@ -132,20 +132,25 @@ class TestLLMModelRegistry:
         matches = registry.select(required_capabilities=("chat", "tool_use"), min_context=150_000)
         assert [s.key for s in matches] == ["anthropic:strong"]
 
-    def test_select_orders_priced_cheapest_first_then_unpriced(self) -> None:
+    def test_select_orders_free_local_first_then_priced_cheapest(self) -> None:
         registry = self._populated()
         matches = registry.select(required_capabilities=("chat",))
+        # Free/local first, then priced cheapest-first.
         assert [s.key for s in matches] == [
+            "ollama:local-unpriced",
             "openai:cheap",
             "anthropic:strong",
-            "ollama:local-unpriced",
         ]
 
-    def test_cost_budget_excludes_unpriced_specs(self) -> None:
-        """An unpriced spec cannot honestly satisfy a budget — exclude it."""
+    def test_cost_budget_includes_free_local_excludes_costlier(self) -> None:
+        """A free local model satisfies any budget; costlier paid is excluded.
+
+        (Unpriced *cloud* specs — unknown cost — remain excluded from budgets;
+        that case is pinned in ``test_llm_registry_local_first.py``.)
+        """
         registry = self._populated()
         matches = registry.select(max_input_cost_per_mtok=1.0)
-        assert [s.key for s in matches] == ["openai:cheap"]
+        assert [s.key for s in matches] == ["ollama:local-unpriced", "openai:cheap"]
 
     def test_select_rejects_unknown_capability_loudly(self) -> None:
         """A typo'd capability must raise, not silently return nothing."""
@@ -154,7 +159,8 @@ class TestLLMModelRegistry:
 
     def test_select_one_returns_best_or_raises(self) -> None:
         registry = self._populated()
-        assert registry.select_one(required_capabilities=("chat",)).key == "openai:cheap"
+        # Best = the free local model.
+        assert registry.select_one(required_capabilities=("chat",)).key == "ollama:local-unpriced"
         with pytest.raises(LookupError, match="no registered model satisfies"):
             registry.select_one(min_context=10_000_000)
 

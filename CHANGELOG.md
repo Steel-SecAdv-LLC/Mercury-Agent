@@ -104,6 +104,77 @@ regression tests against the corrected implementations.
   implementations).  Affected existing suites pass unchanged (domain
   loaders, detector manifest, spatial detector).
 
+### LLM layer: free-weights-first & provider-neutral under Mercury's identity
+
+Defaults, selection order, and naming only — no rewrite; OpenAI and every other
+cloud adapter stay available, just never privileged.
+
+* **Free/local is the baseline default.** `LLMModelRegistry.select()`
+  (`models/llm_registry.py`) now orders **free/local ahead of paid cloud**:
+  `local`/`builtin` providers are treated as genuinely cost-0, so they sort
+  first, satisfy any budget, and win ties; an *undeclared cloud* price stays
+  unknown and is excluded from budget queries (not assumed free). Replaces the
+  prior "priced-first, unpriced-last" order. Pinned by
+  `tests/models/test_llm_registry_local_first.py` and the updated
+  `tests/models/test_llm_registry.py`.
+* **`MERCURY_OFFLINE` is the master air-gap for the LLM layer too.**
+  `FallbackLLMChain` (`models/foundation/ollama_adapter.py`) and the reasoning
+  router now refuse to construct or call any cloud adapter when
+  `MERCURY_OFFLINE` is set — reusing the dataset layer's
+  `offline_mode_active()` so one switch governs both. Local + template only.
+  Pinned by `tests/models/test_llm_offline_airgap.py` (zero cloud construction)
+  and a reasoning-router offline test.
+* **No vendor privileged by default.** `FallbackLLMChain` already tries local
+  (Ollama) → optional cloud → template, with cloud off unless explicitly
+  enabled and configured (confirmed, unchanged). `.env.example` now presents
+  the reasoning backend as local/free by default and lists cloud keys as an
+  unordered optional set (no OpenAI-first framing); `docs/OFFLINE_OPERATION.md`
+  documents the now-*enforced* LLM air-gap and the free/local-first baseline.
+
+### Reasoning backend layer — Mercury-owned, offline-first, ethics-gated co-AI interface (`reasoning/`)
+
+* **`reasoning/` subpackage** (new): a pluggable reasoning layer Mercury *calls*
+  as a subordinate dependency — never a wrapper Mercury sits behind.
+  * `ReasoningBackend` (ABC): typed, provider-neutral surface — `explain()`,
+    `propose_hypotheses()`, `synthesize_report()` (`reasoning/schemas.py`).
+    Every operation passes Mercury's benevolence + σ_Immutable dual hard
+    ethical gate (`enforce_dual_ethical_gate`) before any output is surfaced;
+    the gate fails closed, so an integrated LLM cannot bypass Mercury's
+    governance.
+  * Implementations: `MockReasoningBackend` (deterministic, network-free, for
+    CI), `LocalReasoningBackend` (offline-first / air-gap-safe over the local
+    Ollama+template chain — free to run, no external call), and
+    `RemoteReasoningBackend` (operator-declared frontier model; no hard-coded
+    model name, credentials via env).
+  * `ReasoningRouter`: offline-first routing — the local backend is the floor
+    and default, the remote backend is reached only on explicit opt-in, and
+    hard-offline mode provably never selects or calls a network backend.
+  * Threads the PR #289 `UsageLedger` so token spend is accounted regardless of
+    which backend serves a call.
+  * **Wired into the engine (real consumer, not standalone substrate):**
+    `OmniMercuryEngine.enable_reasoning()`, the lazy `reasoning_backend`
+    property, and `explain_detection(result, domain=...)` let Mercury call the
+    backend on its *own* `detect_with_fusion` certificates — Mercury owns the
+    detection and the decision and invokes the subordinate backend only to
+    render a governed, evidence-grounded explanation (offline-first; the dual
+    ethical gate still fail-closes the call at the engine boundary).
+    `reasoning_usage()` exposes the threaded ledger's provider-truthful totals
+    (the offline template path books nothing — never fabricated tokens). The
+    `LLMModelRegistry` is consumed too: `reasoning.backends.select_reasoning_model()`
+    lets an operator-populated registry choose the local model (free/local-first)
+    instead of a hard-coded default.
+  * Tests: `tests/reasoning/test_reasoning_backend.py` (gate fail-closed,
+    provenance stamping, hard-offline zero-network, ledger threading,
+    registry-driven model selection) and `tests/core/test_engine_full.py`
+    (engine-governed explanation, ethics fail-closed at the engine boundary,
+    registry-driven local model).
+* **Vendor-neutral defaults (identity):** `LLMConfig.model_name` default changed
+  from `"gpt-4o"` to `""` (unset) — each adapter applies its own
+  provider-appropriate default, so no vendor model id (nor the `"template"`
+  sentinel) is ever sent across providers; the `llm_registry` docstring example
+  now uses a local open-weights model instead of a hosted one. Mercury presents
+  as itself by default, not as any external AI.
+
 ### Calibration — `StrictIsotonicCalibration` ported from PR #275 (X1 survivor) (2026-06-12)
 
 * **`StrictIsotonicCalibration`** (`core/calibration.py`): isotonic calibration
@@ -502,8 +573,12 @@ token estimates, no hard-coded market facts.
   Anthropic (`usage.{input,output}_tokens`), Gemini (`usageMetadata`),
   Cohere v2 (`usage.tokens`), Ollama (`prompt_eval_count`/`eval_count`),
   HuggingFace Inference (no usage block → unmetered record). Failed
-  calls book nothing. `FallbackLLMChain(usage_ledger=...)` threads one
-  ledger through every adapter in the chain and exposes `last_usage`.
+  calls book nothing — **every** adapter extracts the response content
+  *before* recording usage, so a 200 carrying a usage block but
+  unextractable content books nothing (uniform across all ten adapters,
+  not only the OpenAI-style ones).
+  `FallbackLLMChain(usage_ledger=...)` threads one ledger through every
+  adapter in the chain and exposes `last_usage`.
 * **LLM model registry** (`omni_mercury_engine.models.llm_registry`,
   importable without torch): `PROVIDER_CATALOG` — code-grounded facts
   about the ten shipped adapters (wire format, key env var, locality,

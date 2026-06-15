@@ -30,19 +30,16 @@ Example:
     registry = LLMModelRegistry()
     registry.register(
         LLMModelSpec(
-            provider="anthropic",
-            model_id="claude-sonnet-4-5",
-            context_window=200_000,
-            capabilities=frozenset({"chat", "tool_use", "vision"}),
-            input_cost_per_mtok=3.0,
-            output_cost_per_mtok=15.0,
-            pricing_as_of="2026-06-01",
+            provider="ollama",
+            model_id="llama3.2:3b",
+            context_window=8_192,
+            capabilities=frozenset({"chat", "tool_use"}),
+            notes="local open-weights model; no per-token cost",
         )
     )
     spec = registry.select_one(
-        required_capabilities=("chat", "tool_use"),
-        min_context=100_000,
-        max_input_cost_per_mtok=5.0,
+        required_capabilities=("chat",),
+        min_context=8_000,
     )
 """
 
@@ -266,6 +263,28 @@ class LLMModelSpec:
         }
 
 
+def _is_local(spec: LLMModelSpec) -> bool:
+    """Whether the spec's provider runs locally (loopback) or in-process."""
+    return PROVIDER_CATALOG[spec.provider].locality in ("local", "builtin")
+
+
+def _effective_input_cost(spec: LLMModelSpec) -> float | None:
+    """Input $/MTok used for budgeting and ordering.
+
+    A declared price always wins. Otherwise a ``local``/``builtin`` model is
+    genuinely free (``0.0``) — local inference has no per-token charge — while
+    an *undeclared cloud* price stays unknown (``None``) so it is excluded from
+    budget queries rather than assumed free. This is what makes free/local the
+    baseline preference: a free local model beats any paid cloud on cost and
+    wins ties.
+    """
+    if spec.input_cost_per_mtok is not None:
+        return spec.input_cost_per_mtok
+    if _is_local(spec):
+        return 0.0
+    return None
+
+
 @dataclass
 class LLMModelRegistry:
     """Instance-owned registry of selectable LLM model specs.
@@ -324,11 +343,16 @@ class LLMModelRegistry:
     ) -> list[LLMModelSpec]:
         """Return all specs satisfying the requirements, best-first.
 
-        Filtering is conjunctive. When ``max_input_cost_per_mtok`` is given,
-        only specs that **declare** an input price participate — an unpriced
-        spec cannot honestly satisfy a budget, so it is excluded rather than
-        assumed free. Ordering is deterministic: by declared input cost
-        ascending (unpriced specs last), then by key.
+        Filtering is conjunctive. **Free and local first** is the ordering rule:
+        a ``local``/``builtin`` model is treated as genuinely free (cost ``0``),
+        so it sorts ahead of any paid cloud model and wins ties. Ordering is
+        deterministic: known cost ascending (free local leads at ``0``), then
+        local/builtin ahead of cloud on equal cost, then key.
+
+        When ``max_input_cost_per_mtok`` is given, local/builtin models always
+        qualify (they are free); a cloud spec with **no declared price** cannot
+        honestly satisfy a budget, so it is excluded (unknown cost, sorted
+        last) rather than assumed free.
 
         Args:
             required_capabilities: Capabilities every result must declare.
@@ -356,19 +380,25 @@ class LLMModelRegistry:
             if not set(required_capabilities) <= spec.capabilities:
                 continue
             if max_input_cost_per_mtok is not None:
-                if spec.input_cost_per_mtok is None:
+                effective_cost = _effective_input_cost(spec)
+                if effective_cost is None:
+                    # Undeclared cloud price: unknown, cannot honestly satisfy a
+                    # budget. (Local/builtin are free and never reach here.)
                     continue
-                if spec.input_cost_per_mtok > max_input_cost_per_mtok:
+                if effective_cost > max_input_cost_per_mtok:
                     continue
             results.append(spec)
 
-        results.sort(
-            key=lambda s: (
-                s.input_cost_per_mtok is None,  # priced specs first
-                s.input_cost_per_mtok if s.input_cost_per_mtok is not None else 0.0,
-                s.key,
+        def _ordering(spec: LLMModelSpec) -> tuple[bool, float, int, str]:
+            effective_cost = _effective_input_cost(spec)
+            return (
+                effective_cost is None,  # unknown-cost (undeclared cloud) last
+                effective_cost if effective_cost is not None else 0.0,  # cheapest first
+                0 if _is_local(spec) else 1,  # local/free ahead of cloud on ties
+                spec.key,  # deterministic final tiebreak
             )
-        )
+
+        results.sort(key=_ordering)
         return results
 
     def select_one(self, **criteria: Any) -> LLMModelSpec:

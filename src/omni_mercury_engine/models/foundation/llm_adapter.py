@@ -69,7 +69,12 @@ class LLMConfig:
     """Configuration for LLM adapter."""
 
     provider: LLMProvider = LLMProvider.MOCK
-    model_name: str = "gpt-4o"
+    # Vendor-neutral default: empty means "operator has not chosen a model", so
+    # each adapter applies its own provider-appropriate default rather than a
+    # hard-coded vendor model id leaking across providers (and the "template"
+    # sentinel is never sent to a cloud API). No cloud provider is privileged;
+    # operators set ``provider`` and ``model_name`` explicitly.
+    model_name: str = ""
     temperature: float = 0.0
     max_tokens: int = 512
     api_key: str | None = None
