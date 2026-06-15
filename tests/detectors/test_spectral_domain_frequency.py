@@ -10,6 +10,8 @@ shipped detector is not relying on incidental coverage.
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pytest
 
@@ -19,7 +21,9 @@ from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.detectors.spectral_domain_frequency import SpectralDomainFrequency
 
 
-def _signals(n: int = 12, t: int = 512, fs: float = 1000.0, freq: float = 50.0, seed: int = 0):
+def _signals(
+    n: int = 12, t: int = 512, fs: float = 1000.0, freq: float = 50.0, seed: int = 0
+) -> np.ndarray[Any, Any]:
     """``(n, t)`` time-domain sinusoids at ``freq`` Hz with light noise."""
     rng = np.random.RandomState(seed)
     tt = np.arange(t) / fs
