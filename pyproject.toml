@@ -38,6 +38,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Security",
     "Typing :: Typed",
@@ -49,7 +50,7 @@ dependencies = [
     # install mercury-agent[ml] or mercury-agent[all].
     # Floor is 2.4.0, not the historical 1.24.0: (1) numpy 1.24 ships no wheels
     # for Python 3.12 (first added in 1.26) or 3.13 (first added in 2.1), yet
-    # this project is requires-python>=3.11 and CI builds/tests 3.11/3.12/3.13,
+    # this project is requires-python>=3.11 and CI builds/tests 3.11/3.12/3.13/3.14,
     # so the old floor was not installable across its own matrix; and (2) the
     # codebase's strict mypy gate relies on
     # numpy's PEP-696 ``ndarray`` type-parameter defaults plus the indexing

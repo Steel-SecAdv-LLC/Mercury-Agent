@@ -1521,7 +1521,7 @@ GitHub Actions enforce the following gates on every pull request and push to `ma
 
 ### CI Matrix
 
-- **Python Versions**: 3.11, 3.12, 3.13 (declared in `pyproject.toml` and exercised by `ci.yml`'s `code-quality` / `core-tests` / `type-checking` matrix).
+- **Python Versions**: 3.11, 3.12, 3.13, 3.14 (declared in `pyproject.toml` and exercised by `ci.yml`'s `code-quality` / `core-tests` / `type-checking` matrix).
 - **Platforms**: Ubuntu Latest (Linux x86_64).  macOS and Windows are supported as install targets but are not part of the CI matrix (see [Cross-Platform Support](#cross-platform-support)).
 - **Coverage floors**: `COVERAGE_THRESHOLD_CORE = 25 %` on the curated core lane, `COVERAGE_THRESHOLD_FULL = 50 %` on the ML lane.  The 85 % figure quoted under [Code Quality Standards](#code-quality-standards) is the aspirational nightly target, not the merge gate; the floors above are the actual blocking thresholds and are documented in `.github/workflows/ci.yml` alongside the measured baseline that justifies them.
 - **Required status checks**: `Code Quality`, `Workflow Hardening`, `Type Checking`, `Security Scan`, `Core Tests`, `Neuro-Symbolic Tests`, `Integration Tests`, `Performance Benchmark`, `CI Success` (rollup), `ISO Hardening Success` (rollup), `PQC Production Readiness`.
@@ -1669,7 +1669,7 @@ language:
 
 | Language | Where | Role |
 |----------|-------|------|
-| **Python** (3.11–3.13) | `src/omni_mercury_engine/` | Core engine, detectors, fusion, API, ML pipeline — the primary language. |
+| **Python** (3.11–3.14) | `src/omni_mercury_engine/` | Core engine, detectors, fusion, API, ML pipeline — the primary language. |
 | **Rust** | `rust_crypto/` (PyO3) | *Optional, opt-in* classical-crypto acceleration (AES-256-GCM, ChaCha20-Poly1305, BLAKE3, Argon2id). Absent → explicit, tested Python fallback. |
 | **C / C++** | AMA Cryptography native PQC backend (`.github/actions/build-ama-cryptography`, cmake + `g++`) | Compiled native post-quantum backend; **fails closed** when unavailable rather than silently weakening. |
 
