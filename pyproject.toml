@@ -281,7 +281,7 @@ dev = [
     "pytest-mock>=3.15.1",
     "pytest-xdist>=3.8.0",
     "hypothesis>=6.0.0",
-    "black==26.3.1",  # CVE-2026-32274; PINNED exact for byte-identical formatting local<->CI
+    "black==26.5.1",  # CVE-2026-32274; PINNED exact for byte-identical formatting local<->CI
     "mypy==2.1.0",  # PINNED: identical type-ignore set locally and in CI (see [ml])
     "types-requests==2.33.0.20260518",  # PINNED with mypy (see [ml])
     "ruff>=0.15.12",
