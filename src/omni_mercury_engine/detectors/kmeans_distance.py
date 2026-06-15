@@ -21,27 +21,45 @@ signal available as a standard detector.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
+
+from omni_mercury_engine.core.base import BaseDetector
+
+if TYPE_CHECKING:
+    import torch
 
 __all__ = ["KMeansDistanceDetector"]
 
 
-class KMeansDistanceDetector:
+class KMeansDistanceDetector(BaseDetector):
     """Unsupervised detector emitting per-centroid distances as fusion features.
 
-    Implements the base-detector contract consumed by
-    :meth:`OmniMercuryEngine._extract_fusion_features` -- ``fit``,
-    ``is_fitted`` and ``extract_features`` returning a per-sample
+    Implements the :class:`~omni_mercury_engine.core.base.BaseDetector`
+    contract consumed by :meth:`OmniMercuryEngine._extract_fusion_features` --
+    ``fit``, ``is_fitted`` and ``extract_features`` returning a per-sample
     ``(n_samples, n_clusters + 1)`` feature block (distance to every centroid
     plus the nearest-centroid distance). Features are standardised internally so
     Euclidean distance is scale-invariant, matching how the standalone benchmark
-    measured the signal.
+    measured the signal. Registered in ``DETECTOR_MANIFEST`` (BASE,
+    feature_dim ``n_clusters + 1``) so it is reachable through the engine via
+    ``enable_detector("kmeans_distance")``; it is opt-in, not a default base
+    detector, so the calibrated fusion ensemble is unchanged until enabled.
     """
 
-    def __init__(self, n_clusters: int = 8) -> None:
-        """Initialize the instance."""
+    def __init__(self, n_clusters: int = 8, config: dict[str, Any] | None = None) -> None:
+        """Initialize the detector with the target cluster count.
+
+        Args:
+            n_clusters: Number of k-means centroids to learn (>= 1).
+            config: Optional ``BaseDetector`` config (``threshold``,
+                ``auto_calibrate``, ...).
+
+        Raises:
+            ValueError: If ``n_clusters`` is less than 1.
+        """
+        super().__init__(config)
         if n_clusters < 1:
             raise ValueError(f"n_clusters must be >= 1, got {n_clusters}")
         self.n_clusters = int(n_clusters)
@@ -56,11 +74,23 @@ class KMeansDistanceDetector:
         """Return ``True`` once :meth:`fit` has learned the cluster centroids."""
         return self._clusterer is not None
 
-    def fit(self, X: np.ndarray[Any, Any]) -> KMeansDistanceDetector:
+    @staticmethod
+    def _to_2d_f32(data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
+        """Coerce numpy or torch input to a 2-D float32 array (1-D -> one sample).
+
+        Accepts ``torch.Tensor`` (the BaseDetector contract) without a hard torch
+        import: a tensor is detached to CPU numpy via duck-typing.
+        """
+        detach = getattr(data, "detach", None)  # torch.Tensor, without importing torch
+        if callable(detach):
+            data = detach().cpu().numpy()
+        return np.atleast_2d(np.nan_to_num(np.asarray(data, dtype=np.float32)))
+
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> KMeansDistanceDetector:
         """Fit the k-means clusterer on standardised features.
 
         Args:
-            X: Training features ``(n_samples, n_features)``; a 1-D array is
+            data: Training features ``(n_samples, n_features)``; a 1-D array is
                 treated as a single sample (``(1, n_features)``).
 
         Returns:
@@ -68,7 +98,7 @@ class KMeansDistanceDetector:
         """
         from omni_mercury_engine.cognitive.neural_memory_layer import KMeansClusterer
 
-        arr = np.atleast_2d(np.nan_to_num(np.asarray(X, dtype=np.float32)))
+        arr = self._to_2d_f32(data)
         self._mean = arr.mean(axis=0)
         self._std = arr.std(axis=0)
         self._std[self._std < 1e-8] = 1.0
@@ -76,33 +106,34 @@ class KMeansDistanceDetector:
         self._clusterer = KMeansClusterer(n_clusters=k).fit((arr - self._mean) / self._std)
         nearest = self._cluster_distances(arr).min(axis=1)
         self._scale = float(np.median(nearest)) + 1e-9
+        self._is_fitted = True
         return self
 
-    def _cluster_distances(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    def _cluster_distances(self, data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
         """Per-sample distance to every centroid, ``(n_samples, n_clusters)``."""
         if self._clusterer is None or self._mean is None or self._std is None:
             raise RuntimeError("KMeansDistanceDetector must be fit before use")
-        arr = np.atleast_2d(np.nan_to_num(np.asarray(X, dtype=np.float32)))
+        arr = self._to_2d_f32(data)
         scaled = (arr - self._mean) / self._std
         dists = np.asarray(self._clusterer.get_cluster_distances(scaled), dtype=np.float32)
         if dists.ndim != 2 or dists.shape[0] != len(arr):
             dists = dists.reshape(len(arr), -1)
         return dists
 
-    def extract_features(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
         """Per-sample fusion features: distance to each centroid plus the nearest.
 
         Args:
-            X: Features ``(n_samples, n_features)``.
+            data: Features ``(n_samples, n_features)``.
 
         Returns:
             ``(n_samples, n_clusters + 1)`` float32 feature block.
         """
-        dists = self._cluster_distances(X)
+        dists = self._cluster_distances(data)
         nearest = dists.min(axis=1, keepdims=True)
         return np.concatenate([dists, nearest], axis=1).astype(np.float32)
 
-    def detect(self, X: np.ndarray[Any, Any]) -> dict[str, Any]:
+    def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Per-sample anomaly scores in ``[0, 1]`` (the live-inference contract).
 
         ``OmniMercuryEngine.detect``/``detect_with_fusion`` call every detector's
@@ -113,10 +144,13 @@ class KMeansDistanceDetector:
         so points near a centroid score ~0 and points far from every centroid
         approach 1.
         """
-        nearest = self._cluster_distances(X).min(axis=1)
+        nearest = self._cluster_distances(data).min(axis=1)
         scores = 1.0 - np.exp(-nearest / self._scale)
         scores = np.clip(scores, 0.0, 1.0).astype(np.float32)
         return {
+            # Scalar summary for the BaseDetector result contract; the per-sample
+            # ``scores`` array remains the signal the fusion/consensus path reads.
+            "anomaly_score": float(scores.max()) if scores.size else 0.0,
             "scores": scores,
             "is_anomaly": scores > 0.5,
             "confidence": scores,

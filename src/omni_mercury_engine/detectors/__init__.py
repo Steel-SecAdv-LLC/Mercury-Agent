@@ -74,6 +74,7 @@ _LAZY_IMPORTS: dict[str, tuple[str, ...]] = {
         "GeoMovementAnomalyDetector",
         "MovementAssessment",
     ),
+    "omni_mercury_engine.detectors.kmeans_distance": ("KMeansDistanceDetector",),
     "omni_mercury_engine.detectors.spatial": ("SpatialAnomalyDetector",),
     "omni_mercury_engine.detectors.spectral_vibration": (
         "SpectralAnalysisMode",
@@ -143,6 +144,7 @@ __all__ = [
     "GWOEnsembleDetector",
     "GeoMovementAnomalyDetector",
     "InteractionType",
+    "KMeansDistanceDetector",
     "LAVADDetector",
     "MercuryAnomalyDetector",
     "MotionState",

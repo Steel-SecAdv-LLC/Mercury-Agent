@@ -148,6 +148,37 @@ detect → fuse → decide path it was nominally registered for.
   detector, and the inference graceful-skip regression lock (a fail-loud
   detector cannot crash `detect_with_fusion`).
 
+* **Detector audit — orphaned first-class detector wired in, manifest hygiene.**
+  A full audit of every `*Detector`/`*Analyzer` in `detectors/` (manifest
+  membership, exports, engine reachability, callers, tests, `BaseDetector`
+  conformance) found the framework largely sound — the apparent orphans are
+  deprecated-on-purpose (`enhanced_statistical`), abstract bases
+  (`BaseVLMDetector`, `BaseVisualDetector`), or wired subsystem components
+  (the VLM / advanced families, the EMP pulse channels of `EMPDetector`). Two
+  genuine gaps were closed:
+  * **`KMeansDistanceDetector` is now a first-class registered detector.** The
+    revived dormant clusterer (measured on ADBench, ROC-AUC ~0.8–0.98) existed
+    as a plain duck-typed class in neither the manifest nor the exports — built
+    as "a first-class detector" but reachable through nothing. It now subclasses
+    `BaseDetector` (backward-compatible constructor; genuinely accepts numpy or
+    torch input), is registered in `DETECTOR_MANIFEST` (`kmeans_distance`, BASE,
+    feature_dim 9) and exported, so it is reachable via
+    `engine.enable_detector("kmeans_distance")`. Opt-in, not a default base
+    detector — the calibrated ensemble is unchanged.
+  * **`SpectralDomainFrequency` now has a dedicated test.** A shipped manifest
+    BASE detector that previously relied on incidental coverage; new
+    `tests/detectors/test_spectral_domain_frequency.py` exercises the real
+    fit → extract_features → detect path and the `BaseDetector` contract.
+
+* **Manifest/engine drift lock (CI):
+  `tests/detectors/test_detector_manifest_integrity.py`.** Pins the invariants
+  that let the gap form: every manifest entry resolves to its class; every BASE
+  entry is a `BaseDetector` exposing the engine's contract (the check that would
+  have caught `kmeans_distance`); the engine's default detector set is a subset
+  of the manifest, so the two catalogs cannot silently drift; and
+  `geo_movement` / `graph_based` / `kmeans_distance` are reachable through the
+  engine seam.
+
 ### LLM layer: free-weights-first & provider-neutral under Mercury's identity
 
 Defaults, selection order, and naming only — no rewrite; OpenAI and every other
