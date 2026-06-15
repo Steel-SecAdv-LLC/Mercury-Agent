@@ -375,13 +375,15 @@ jobs:
 
       - name: Run pinned dev-tool version parity gate
         # Dependency-free structural gate: black/mypy/types-requests/pydocstyle
-        # are pinned *exactly* for byte-identical behaviour local<->CI, but the
-        # pin is duplicated across pyproject.toml, this file, format.yml and
-        # .pre-commit-config.yaml.  Dependabot's pip ecosystem only rewrites
-        # pyproject.toml and cannot reach the inline ``pip install black==X``
-        # strings here, so without this gate a bump silently diverges the
-        # surfaces.  Co-located with the other hygiene gates so a pin-drift
-        # regression is caught at the same stage as a workflow-permissions one.
+        # are pinned *exactly* for byte-identical behaviour local<->CI.  Each
+        # tool is pinned in a subset of pyproject.toml, this file, format.yml
+        # and .pre-commit-config.yaml (black in all four; the others fewer), and
+        # the gate cross-checks each wherever it is pinned.  Dependabot's pip
+        # ecosystem only rewrites pyproject.toml and cannot reach the inline
+        # ``pip install black==X`` strings here, so without this gate a bump
+        # silently diverges the surfaces.  Co-located with the other hygiene
+        # gates so a pin-drift regression is caught at the same stage as a
+        # workflow-permissions one.
         run: python scripts/check_pinned_tool_versions.py
 
       - name: Run Lyapunov λ documentation drift gate

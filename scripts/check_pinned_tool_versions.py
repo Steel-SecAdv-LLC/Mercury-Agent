@@ -12,12 +12,23 @@ developer running them locally and for CI running them on a pull request:
 * ``types-requests`` -- bumped in lockstep with ``mypy``
 * ``pydocstyle``     -- identical google-convention docstring codes
 
-That pin is duplicated across four independent surfaces:
+Those exact pins live across four independent surfaces -- though each tool
+appears only in the subset that actually installs or runs it, not in all four:
 
 * ``pyproject.toml``                 (``[project.optional-dependencies]`` ml/dev)
 * ``.github/workflows/ci.yml``       (Code Quality + Type Checking jobs)
 * ``.github/workflows/format.yml``   (Auto-Format job)
 * ``.pre-commit-config.yaml``        (hook ``rev:`` pins)
+
+Concretely: ``black`` is pinned in all four; ``mypy`` in three (not
+``format.yml``); ``types-requests`` only where ``mypy`` is installed
+(``pyproject.toml`` + ``ci.yml`` -- in pre-commit it is an *un*pinned
+``additional_dependencies`` entry, not a ``rev`` pin); ``pydocstyle`` in
+``ci.yml`` + ``.pre-commit-config.yaml`` (it has no ``pyproject`` dependency
+pin, only a ``[tool.pydocstyle]`` config block).  The gate therefore compares
+each tool's pins *wherever they are pinned* and requires every tracked tool to
+stay pinned in at least two surfaces (see ``TRACKED_TOOLS``) so a lone,
+drift-prone pin cannot slip through.
 
 Dependabot's ``pip`` ecosystem only rewrites ``pyproject.toml``; it cannot
 reach the inline ``pip install black==X`` strings in the workflow ``run:``

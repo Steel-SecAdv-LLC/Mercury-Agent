@@ -135,9 +135,10 @@ repos:
       - id: mercury-pinned-tool-versions
         name: mercury — pinned dev-tool version parity gate
         # Asserts black/mypy/types-requests/pydocstyle carry identical exact
-        # pins across pyproject.toml, ci.yml, format.yml and this file.
-        # Dependabot only edits pyproject.toml, so without this gate a bump
-        # silently diverges the inline workflow pins (the bug it now guards).
+        # pins wherever each is pinned (black spans pyproject, ci.yml,
+        # format.yml and this file; the others a subset), with a >=2-surface
+        # floor.  Dependabot only edits pyproject.toml, so without this gate a
+        # bump silently diverges the inline workflow pins (the bug it guards).
         entry: python scripts/check_pinned_tool_versions.py
         language: system
         pass_filenames: false

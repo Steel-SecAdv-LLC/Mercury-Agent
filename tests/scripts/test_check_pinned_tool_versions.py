@@ -3,9 +3,12 @@
 """Tests for :mod:`scripts.check_pinned_tool_versions`.
 
 The script is the pinned dev-tool version parity gate: ``black`` / ``mypy`` /
-``types-requests`` / ``pydocstyle`` are pinned *exactly* across four surfaces
-(``pyproject.toml``, ``ci.yml``, ``format.yml``, ``.pre-commit-config.yaml``)
-and the gate fails closed when those pins diverge.  These tests exercise the
+``types-requests`` / ``pydocstyle`` are pinned *exactly*, and the gate fails
+closed when a tool's pins diverge across the surfaces that pin it.  Each tool
+appears in a different subset of the four surfaces (``pyproject.toml``,
+``ci.yml``, ``format.yml``, ``.pre-commit-config.yaml``) -- ``black`` in all
+four, the others in fewer -- so the gate only cross-checks where a tool is
+actually pinned and enforces a >=2-surface floor.  These tests exercise the
 live repository (so the gate stays honest as the pins evolve) plus synthetic
 fixtures covering each documented failure mode:
 
