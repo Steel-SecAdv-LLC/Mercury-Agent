@@ -96,6 +96,7 @@ from omni_mercury_engine.cognitive.ethical_bounding import (
     EthicalConstraintViolationError,
     sanitize_domain,
 )
+from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.config import EngineConfig
 from omni_mercury_engine.core.conformal_prediction import (
     BinaryConformalClassifier,
@@ -105,6 +106,7 @@ from omni_mercury_engine.core.equation_profiles import (
     components_from_score_channels,
     score_runtime_equation_profile,
 )
+from omni_mercury_engine.core.exceptions import OmniAnomalyException
 from omni_mercury_engine.core.global_omni_scalar_network import (
     ScalarGroup,
     get_global_scalar_network,
@@ -828,6 +830,171 @@ class OmniMercuryEngine(LoggerMixin):
             "dimensional": DimensionalAnalyzer(),
             "directive": SigmaDirectiveDetector(),
         }
+
+    # ------------------------------------------------------------------
+    # Detector registration seam
+    #
+    # The default set above is intentionally the five general-purpose base
+    # detectors. Specialized detectors (e.g. ``geo_movement``) are declared
+    # in ``DETECTOR_MANIFEST`` but were previously unreachable through the
+    # engine: nothing consumed the manifest, so a manifest-registered
+    # detector never participated in detect/fuse/decide. These methods are
+    # the supported, opt-in bridge. They are purely additive — the
+    # calibrated default path is byte-identical until a caller opts in.
+    # ------------------------------------------------------------------
+    def register_detector(
+        self,
+        name: str,
+        detector: BaseDetector,
+        *,
+        replace: bool = False,
+    ) -> OmniMercuryEngine:
+        """Add a base detector to the engine's active detector set.
+
+        The supported seam for extending the engine with a further
+        :class:`~omni_mercury_engine.core.base.BaseDetector` so it
+        participates in the same feature-extraction, fusion, and decision
+        path as the built-in detectors. Additive by construction: existing
+        detectors are untouched, so the default calibrated path is unchanged
+        until a caller opts in.
+
+        A registered detector contributes a fusion feature group named
+        ``name`` on the next :meth:`fit_fusion` (learned into the network)
+        and on every :meth:`detect_with_fusion`. If it cannot process a
+        given input it raises and is skipped gracefully by the feature
+        extractors — it never crashes detection.
+
+        Note:
+            Registering *after* :meth:`fit_fusion` has trained does not
+            retroactively extend a trained network: fusion inference is
+            restricted to the feature groups training saw
+            (``_fusion_feature_groups``), so a *new* detector is recorded but
+            ignored at fusion inference until ``fit_fusion`` is re-run.
+            ``replace=True`` on a detector whose name is already a trained
+            group is more dangerous — inference keeps using that group but
+            with a different feature distribution — so both cases warn and
+            recommend a re-fit.
+
+        Args:
+            name: Unique key for the detector within the engine.
+            detector: A ``BaseDetector`` instance (fitted or not).
+            replace: When True, replace an existing detector of the same
+                name; otherwise a duplicate name raises ``ValueError``.
+
+        Returns:
+            ``self``, for chaining.
+
+        Raises:
+            TypeError: If ``detector`` is not a ``BaseDetector``.
+            ValueError: If ``name`` is empty, or already registered while
+                ``replace`` is False.
+        """
+        if not name:
+            raise ValueError("Detector name must be a non-empty string")
+        if not isinstance(detector, BaseDetector):
+            raise TypeError(
+                f"detector must be a BaseDetector instance, got {type(detector).__name__}"
+            )
+        if name in self.detectors and not replace:
+            raise ValueError(
+                f"Detector {name!r} is already registered; pass replace=True to override it."
+            )
+
+        self.detectors[name] = detector
+
+        trained_groups = (
+            self._fusion_feature_groups
+            if self.mode == "fusion" and getattr(self, "_fusion_trained", False)
+            else None
+        )
+        if trained_groups is not None and name in trained_groups:
+            # Replacing/re-registering a detector the fusion net was trained on: the
+            # group name persists in _fusion_feature_groups, so inference keeps using
+            # it but now feeds the net a *different* feature distribution for that
+            # group. Silent miscalibration unless the operator re-fits.
+            logger.warning(
+                "Detector %r changed after fusion training; the fusion network was "
+                "trained on the previous detector's features for this group, so "
+                "inference now feeds it a different distribution. Re-run fit_fusion() "
+                "to retrain on the new detector.",
+                name,
+            )
+        elif trained_groups is not None:
+            # New group: filtered out at fusion inference until a re-fit.
+            logger.warning(
+                "Detector %r registered after fusion training; it will be ignored at "
+                "fusion inference until fit_fusion() is re-run (inference is restricted "
+                "to the trained feature groups).",
+                name,
+            )
+        else:
+            logger.info("Registered detector %r (%s)", name, type(detector).__name__)
+        return self
+
+    def enable_detector(self, name: str) -> BaseDetector:
+        """Instantiate and register a manifest detector by name.
+
+        Bridges the declarative manifest
+        (:data:`~omni_mercury_engine.core.detector_registry.DETECTOR_MANIFEST`)
+        to a live engine instance: looks ``name`` up in the manifest,
+        imports and constructs the class, and registers it via
+        :meth:`register_detector`. This is how an operator turns on an
+        opt-in detector — e.g. ``engine.enable_detector("geo_movement")`` —
+        without importing detector classes by hand.
+
+        Args:
+            name: Manifest entry name (see :meth:`available_detectors`).
+
+        Returns:
+            The constructed and registered detector instance.
+
+        Raises:
+            ValueError: If ``name`` is not in the manifest, its manifest
+                ``module_path`` is outside the ``omni_mercury_engine``
+                package, or it is already enabled.
+        """
+        import importlib
+
+        from omni_mercury_engine.core.detector_registry import DETECTOR_MANIFEST
+
+        entry = next((e for e in DETECTOR_MANIFEST if e.name == name), None)
+        if entry is None:
+            available = ", ".join(sorted(e.name for e in DETECTOR_MANIFEST))
+            raise ValueError(
+                f"Unknown detector {name!r}. Available manifest detectors: {available}"
+            )
+        # Defense in depth: the manifest is curated code, but never import from
+        # outside the package tree (mirrors DetectorRegistry.auto_discover_detectors).
+        if not entry.module_path.startswith("omni_mercury_engine."):
+            raise ValueError(
+                f"Refusing to import detector {name!r} from untrusted module path "
+                f"{entry.module_path!r}"
+            )
+        module = importlib.import_module(entry.module_path)
+        detector_cls = getattr(module, entry.class_name)
+        detector = detector_cls()
+        self.register_detector(name, detector)
+        return detector  # type: ignore[no-any-return]
+
+    def available_detectors(self) -> dict[str, bool]:
+        """Map every manifest detector name to whether it is currently active.
+
+        Lets a caller discover opt-in detectors (those in
+        ``DETECTOR_MANIFEST``) and see which are already part of this
+        engine's active set (the five built-ins plus anything added via
+        :meth:`register_detector` / :meth:`enable_detector`).
+
+        Returns:
+            Mapping ``{detector_name: is_active}`` covering every manifest
+            entry; any active detector not represented in the manifest
+            (e.g. a custom one) is appended with value True.
+        """
+        from omni_mercury_engine.core.detector_registry import DETECTOR_MANIFEST
+
+        status = {entry.name: entry.name in self.detectors for entry in DETECTOR_MANIFEST}
+        for active_name in self.detectors:
+            status.setdefault(active_name, True)
+        return status
 
     def _init_models(self) -> None:
         """Initialize all specialized domain models.
@@ -3860,7 +4027,23 @@ class OmniMercuryEngine(LoggerMixin):
                 detector_scores[name] = self._normalize_scores(scores, features.shape[0])
                 if "info_geometry_certificate" in result:
                     detector_certificates[name] = result["info_geometry_certificate"]
-            except (ValueError, TypeError, RuntimeError, KeyError, AttributeError, IndexError) as e:
+            except (
+                OmniAnomalyException,
+                ValueError,
+                TypeError,
+                RuntimeError,
+                KeyError,
+                AttributeError,
+                IndexError,
+            ) as e:
+                # OmniAnomalyException (DetectorException/ModelException/...) is a
+                # detector signalling "I cannot process this input" — the same
+                # fail-loud contract a specialized detector (e.g. geo_movement on
+                # non-trajectory data) uses. The training-time extractor
+                # (_extract_fusion_features) already skips it via ``except
+                # Exception``; catching it here keeps the inference path's
+                # graceful-skip contract symmetric so one incompatible detector
+                # cannot crash detect_with_fusion.
                 logger.debug(f"Detector {name} feature extraction failed: {e}")
                 continue
 
@@ -3914,7 +4097,19 @@ class OmniMercuryEngine(LoggerMixin):
                 model_features[name] = features
                 scores = prediction.get("anomaly_scores", 0)
                 model_scores[name] = self._normalize_scores(scores, features.shape[0])
-            except (ValueError, TypeError, RuntimeError, KeyError, AttributeError, IndexError) as e:
+            except (
+                OmniAnomalyException,
+                ValueError,
+                TypeError,
+                RuntimeError,
+                KeyError,
+                AttributeError,
+                IndexError,
+            ) as e:
+                # Mirror the detector path: a ModelException (or any Mercury
+                # component exception) means "this model cannot process the
+                # input" and must degrade gracefully, matching this method's
+                # documented contract, rather than propagating out of inference.
                 logger.debug(f"Model {name} feature extraction failed: {e}")
                 continue
 
