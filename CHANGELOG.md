@@ -104,6 +104,50 @@ regression tests against the corrected implementations.
   implementations).  Affected existing suites pass unchanged (domain
   loaders, detector manifest, spatial detector).
 
+### Engine integration — manifest detectors made reachable through `OmniMercuryEngine`; inference/training exception symmetry
+
+Closes the wiring gap that left every `DETECTOR_MANIFEST` entry outside the
+five built-in base detectors — notably the new `geo_movement`, and
+`graph_based` — registered but unreachable through the engine: nothing
+consumed the manifest, so such a detector never participated in the
+detect → fuse → decide path it was nominally registered for.
+
+* **Opt-in detector-registration seam on `OmniMercuryEngine`.**
+  `register_detector(name, detector, *, replace=False)` adds a
+  `BaseDetector` to the engine's active set; `enable_detector(name)` bridges
+  the declarative manifest to a live instance
+  (`engine.enable_detector("geo_movement")`); `available_detectors()` reports
+  which manifest detectors are active on the engine. Purely additive — the
+  default five-detector set (`statistical`, `temporal`, `spatial`,
+  `dimensional`, `directive`) and the calibrated fusion path are byte-identical
+  until a caller opts in. A detector registered after `fit_fusion` has trained
+  is recorded but ignored at fusion inference — which is restricted to the
+  trained feature groups (`_fusion_feature_groups`) — until a re-fit, and that
+  case warns rather than silently misleading. Once enabled, the detector
+  contributes its feature group through the single source of truth
+  (`_extract_fusion_features`) on both the training and inference paths;
+  verified end-to-end for `geo_movement` (an `(n, 8)` group on trajectory
+  input, the five base groups still present).
+
+* **Inference/training exception-handling symmetry (latent defect, fixed).**
+  The inference feature extractors (`_extract_detector_features`,
+  `_extract_model_features`) caught only six built-in exception types, while
+  the training extractor (`_extract_fusion_features`) catches `Exception`. A
+  detector or model that fail-louds with Mercury's own `OmniAnomalyException`
+  (e.g. `geo_movement` raising `DetectorException` on non-trajectory data)
+  was therefore skipped gracefully during training but would crash
+  `detect_with_fusion` at inference. Both inference extractors now also catch
+  `OmniAnomalyException`, honouring their documented graceful-degradation
+  contract; the five built-ins never raise it, so the default path is
+  unchanged. This asymmetry is what made a specialized, fail-loud detector
+  unsafe to add — fixing it is the precondition for the seam above.
+
+* **Tests: 15 new** (`tests/core/test_engine_detector_registration.py`):
+  default-set lock, `register`/`enable`/`available` contracts, the
+  post-training warning path, fusion-feature-group wiring for an enabled
+  detector, and the inference graceful-skip regression lock (a fail-loud
+  detector cannot crash `detect_with_fusion`).
+
 ### LLM layer: free-weights-first & provider-neutral under Mercury's identity
 
 Defaults, selection order, and naming only — no rewrite; OpenAI and every other
