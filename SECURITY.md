@@ -299,7 +299,7 @@ Mercury Agent's Docker container implements defense-in-depth:
 
 ### Unresolved Vulnerabilities
 
-Accepted risks are re-reviewed at most every 90 days, enforced by the `exp:` dates in [`.trivyignore`](.trivyignore). As of the 2026-06-10 review, documented acceptances are 13 CVEs (5 Critical, 8 High), all no-upstream-fix Debian packages in the deployment image, none on an untrusted-input path in the shipped API. The ledger file and the table above are the complete record.
+Accepted risks are re-reviewed at most every 90 days, enforced by the `exp:` dates in [`.trivyignore`](.trivyignore). As of the 2026-06-15 review, documented acceptances are 14 CVEs (4 Critical, 10 High), all no-upstream-fix Debian packages in the deployment image, none on an untrusted-input path in the shipped API. The ledger file and the table above are the complete record.
 
 ### Two-Tier Dependency-CVE Coverage
 
