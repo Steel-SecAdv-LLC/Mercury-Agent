@@ -868,9 +868,12 @@ class OmniMercuryEngine(LoggerMixin):
             Registering *after* :meth:`fit_fusion` has trained does not
             retroactively extend a trained network: fusion inference is
             restricted to the feature groups training saw
-            (``_fusion_feature_groups``), so the detector is recorded but
-            ignored at fusion inference until ``fit_fusion`` is re-run. A
-            warning is emitted in that case.
+            (``_fusion_feature_groups``), so a *new* detector is recorded but
+            ignored at fusion inference until ``fit_fusion`` is re-run.
+            ``replace=True`` on a detector whose name is already a trained
+            group is more dangerous — inference keeps using that group but
+            with a different feature distribution — so both cases warn and
+            recommend a re-fit.
 
         Args:
             name: Unique key for the detector within the engine.
@@ -899,12 +902,25 @@ class OmniMercuryEngine(LoggerMixin):
 
         self.detectors[name] = detector
 
-        if (
-            self.mode == "fusion"
-            and getattr(self, "_fusion_trained", False)
-            and self._fusion_feature_groups is not None
-            and name not in self._fusion_feature_groups
-        ):
+        trained_groups = (
+            self._fusion_feature_groups
+            if self.mode == "fusion" and getattr(self, "_fusion_trained", False)
+            else None
+        )
+        if trained_groups is not None and name in trained_groups:
+            # Replacing/re-registering a detector the fusion net was trained on: the
+            # group name persists in _fusion_feature_groups, so inference keeps using
+            # it but now feeds the net a *different* feature distribution for that
+            # group. Silent miscalibration unless the operator re-fits.
+            logger.warning(
+                "Detector %r changed after fusion training; the fusion network was "
+                "trained on the previous detector's features for this group, so "
+                "inference now feeds it a different distribution. Re-run fit_fusion() "
+                "to retrain on the new detector.",
+                name,
+            )
+        elif trained_groups is not None:
+            # New group: filtered out at fusion inference until a re-fit.
             logger.warning(
                 "Detector %r registered after fusion training; it will be ignored at "
                 "fusion inference until fit_fusion() is re-run (inference is restricted "

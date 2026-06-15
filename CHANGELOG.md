@@ -179,6 +179,31 @@ detect → fuse → decide path it was nominally registered for.
   `geo_movement` / `graph_based` / `kmeans_distance` are reachable through the
   engine seam.
 
+### Deployment image & review hardening
+
+* **Mesa GL stack removed from the runtime image — accepted-CVE ledger 15 → 14
+  (Critical 5 → 4).** `libgl1-mesa-glx` was installed only as OpenCV's `libGL`
+  dependency, but Mercury uses `opencv-python-headless` (whose `cv2` extension
+  links no `libGL` — verified: zero GL linkage in the wheel's `.so`) and makes
+  no `cv2` GUI calls, so it was dead weight carrying an unfixed **Critical** CVE
+  (CVE-2026-40393). Dropping the package **eliminates** the CVE rather than
+  accepting it: the Dockerfile no longer installs it, and the `.trivyignore`
+  entry plus the SECURITY.md ledger row are removed. The ledger header now
+  states plainly that the remaining entries are *irreducible* — CPython itself
+  links `libsqlite3-0` / `libexpat1` / `zlib1g` / `ncurses` (the `sqlite3`,
+  `pyexpat`, `zlib`, `readline`/`curses` stdlib modules), and `perl-base` is
+  apt's own `adduser` dependency — rather than the previous "deferred slimmer
+  image" framing. The blocking Trivy gate (`ignore-unfixed: false`) re-verifies
+  the package stays gone on every build.
+* **`register_detector` now warns when replacing a *trained* feature group.**
+  Review surfaced that `replace=True` after `fit_fusion` left the fusion network
+  consuming a different feature distribution for an existing group with no
+  operator signal; it now warns and recommends a re-fit in that case too, not
+  only when adding a new group. Locked by a new test.
+* **Wildfire clustering docstring** corrected to describe the actual
+  latitude-band pruning (`neighbor_counts_within_km`) instead of the
+  inaccurate "vectorized in row blocks".
+
 ### LLM layer: free-weights-first & provider-neutral under Mercury's identity
 
 Defaults, selection order, and naming only — no rewrite; OpenAI and every other

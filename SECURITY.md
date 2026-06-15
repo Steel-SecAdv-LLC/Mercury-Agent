@@ -248,9 +248,9 @@ built-image scan — trivy 0.70.0 via `aquasecurity/trivy-action@v0.36.0`,
 cross-checked with a local trivy 0.71.0 scan the same day; entries expire
 2026-09-08):
 
-- **Total accepted:** 15 CVEs — **Critical:** 5, **High:** 10
+- **Total accepted:** 14 CVEs — **Critical:** 4, **High:** 10
 - All are Debian-bookworm OS packages with **no upstream fix available**; none sits on an untrusted-input path in the shipped API; the container runs as non-root UID 1000 with SUID/SGID bits stripped
-- The strategic remediation — a slimmer image that drops these packages entirely — is tracked as follow-up work requiring a Docker-equipped environment
+- These are genuinely irreducible, not deferred: `libsqlite3-0`, `libexpat1`, `zlib1g` and `ncurses` (`libtinfo6`/`libncursesw6`) are linked by CPython itself (the `sqlite3`, `pyexpat`, `zlib`, and `readline`/`curses` stdlib modules), so they cannot be removed without removing the interpreter, and Debian ships no patched build to `apt-get upgrade` to; `perl-base` is pulled by apt's own `adduser` dependency. The one genuinely removable package — the Mesa GL stack — was **eliminated outright** rather than accepted (see below)
 
 | CVE | Severity | Component | Status | Mitigation |
 |-----|----------|-----------|--------|------------|
@@ -260,7 +260,6 @@ cross-checked with a local trivy 0.71.0 scan the same day; entries expire
 | CVE-2026-11824 | High | SQLite (libsqlite3-0) | No upstream fix (affected; fixed upstream only in SQLite ≥ 3.53.2) | Same FTS5 attacker-crafted-database surface as CVE-2026-11822; not on any shipped-API input path |
 | CVE-2026-8376 | Critical | perl-base | No upstream fix | Container executes no Perl; pulled in by Debian essential tooling |
 | CVE-2026-42496 | Critical | perl-base | No upstream fix (fix_deferred) | Container executes no Perl |
-| CVE-2026-40393 | Critical | Mesa GL stack (libgl1-mesa-dri, libgl1-mesa-glx, libglapi-mesa, libglx-mesa0) | No upstream fix (will_not_fix; fixed only in Mesa ≥ 25.3.6) | Present solely as OpenCV's libGL import dependency; headless container renders nothing and accepts no GL contexts |
 | CVE-2025-69720 | High | ncurses (libncursesw6 et al.) | No upstream fix | Terminal handling only; never exposed to untrusted input |
 | CVE-2026-42497 | High | perl-base | No upstream fix (fix_deferred) | Container executes no Perl |
 | CVE-2026-48959 | High | perl-base | No upstream fix | Container executes no Perl |
@@ -270,9 +269,11 @@ cross-checked with a local trivy 0.71.0 scan the same day; entries expire
 | CVE-2026-25210 | High | libexpat1 | No upstream fix (affected) | Same defusedxml-hardened, non-API XML surface |
 | CVE-2026-45186 | High | libexpat1 | No upstream fix (affected) | Same defusedxml-hardened, non-API XML surface |
 
-**Added at the 2026-06-10 review from the first enforced built-image gate run:** the mesa CVE (pulled into the runtime image by the Dockerfile's `libgl1-mesa-glx` OpenCV dependency) and the three libexpat1 CVEs surface only in the built image — the gates' own scan of it is the canonical enumeration source for the ledger, which the original base-image enumeration could not cover.
+**Added at the 2026-06-10 review from the first enforced built-image gate run:** the three libexpat1 CVEs surface only in the built image — the gates' own scan of it is the canonical enumeration source for the ledger, which the original base-image enumeration could not cover. (The mesa CVE first enumerated at this review has since been remediated by removal — see the 2026-06-15 note below.)
 
 **Added at the 2026-06-13 review:** the SQLite FTS5 pair CVE-2026-11822 / CVE-2026-11824 — newly published memory-corruption bugs (fixed upstream only in SQLite ≥ 3.53.2, no Debian bookworm fix) that a vuln-DB update introduced into the gate scan on the unchanged base image. They share `libsqlite3-0` and the same non-untrusted-input rationale as the existing CVE-2025-7458 acceptance, and a built-image scan confirmed they are the only new findings (no fixable CVE and no library CVE appeared).
+
+**Resolved and removed from the ledger (2026-06-15 review):** the Mesa GL stack (CVE-2026-40393, Critical) was **eliminated rather than accepted**. It was installed only as OpenCV's `libGL` import dependency, but Mercury depends on `opencv-python-headless` — whose `cv2` extension links no `libGL` (verified: the wheel's `cv2.*.so` shows zero GL linkage) — and makes no `cv2` GUI calls, so the Dockerfile no longer installs `libgl1-mesa-glx`. The package and its CVE are gone from the image; the blocking Trivy gate (`ignore-unfixed: false`) re-verifies this on every build, failing loudly if the package ever reappears. Accepted count: 15 → 14 (Critical 5 → 4).
 
 **Resolved and removed from the ledger (2026-06-10 review):** the pip CVE family (CVE-2025-8869, CVE-2026-1703, CVE-2026-6357) is fixed repo-wide by the `pip >= 26.1` floor and gated by `tests/security/test_cve_2026_6357_regression.py`; the formerly-listed gpgv (CVE-2025-68973), libglib2.0-0 (CVE-2025-13601), linux-pam (CVE-2025-6020), util-linux (CVE-2025-14104), and SQLite FTS5 (CVE-2025-7709) findings no longer appear at the gated severities in the current base image. The seven newly listed entries (ncurses + six perl-base) were present but invisible under the old blanket waiver — disclosed here for the first time.
 

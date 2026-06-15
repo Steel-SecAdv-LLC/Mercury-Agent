@@ -124,6 +124,21 @@ def test_register_after_training_warns_and_records(caplog: pytest.LogCaptureFixt
     assert any("until fit_fusion()" in r.message for r in caplog.records)
 
 
+def test_replace_detector_in_trained_group_warns(caplog: pytest.LogCaptureFixture) -> None:
+    """replace=True on a detector the fusion net trained on warns of the distribution shift.
+
+    The group name persists in the trained feature groups, so inference keeps using it
+    but with a different detector's features — a silent miscalibration without a warning.
+    """
+    eng = _engine()
+    eng._fusion_trained = True
+    eng._fusion_feature_groups = ["statistical", "temporal"]
+    with caplog.at_level(logging.WARNING):
+        eng.register_detector("statistical", _ConstantDetector(), replace=True)
+    assert isinstance(eng.detectors["statistical"], _ConstantDetector)
+    assert any("different distribution" in r.message for r in caplog.records)
+
+
 # ---------------------------------------------------------------------------
 # enable_detector (manifest bridge)
 # ---------------------------------------------------------------------------

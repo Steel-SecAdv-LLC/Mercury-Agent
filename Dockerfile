@@ -94,10 +94,15 @@ RUN apt-get update && \
     # dependency resolver.
     apt-get install -y --no-install-recommends adduser && \
     apt-get upgrade -y && \
+    # NOTE: no libgl1-mesa-glx. Mercury depends on opencv-python-headless,
+    # whose cv2 extension links no libGL/libGLX (verified: the wheel's
+    # cv2.*.so has zero GL linkage), and the API container makes no cv2 GUI
+    # calls. Installing the mesa GL stack only added an unused, unfixed-CVE
+    # surface (CVE-2026-40393); dropping it removes the package and the CVE
+    # rather than accepting it.
     apt-get install -y --no-install-recommends \
         ca-certificates \
         libgomp1 \
-        libgl1-mesa-glx \
         libglib2.0-0 && \
     # Clean up to reduce image size and attack surface
     apt-get autoremove -y && \

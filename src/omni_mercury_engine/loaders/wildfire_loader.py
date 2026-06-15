@@ -549,8 +549,12 @@ class WildfireLoader(BaseDomainLoader):
     ) -> np.ndarray[Any, Any]:
         """Count the number of other fire detections within a given radius.
 
-        Every candidate pair is measured with the exact Haversine distance
-        (vectorized in row blocks).  The previous implementation pre-filtered
+        Delegates to :func:`~omni_mercury_engine.utils.geo.neighbor_counts_within_km`,
+        which prunes candidates with an *exact* latitude band (sort +
+        ``searchsorted``; on the sphere the central angle is at least |Δlat|,
+        so the band can never drop a true neighbour) and measures exact
+        Haversine distance only within each point's band — never materialising
+        the full n² matrix.  The previous implementation pre-filtered
         candidates with a flat ``radius_km / 111 * 1.5`` degree box, which
         silently dropped true neighbours above ~48 deg latitude — at 62 deg N
         (boreal fire country) it missed ~20% of genuine within-radius pairs.
