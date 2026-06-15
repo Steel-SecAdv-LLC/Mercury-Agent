@@ -107,12 +107,32 @@ class TestWorkflowInventory:
         )
 
     def test_dockerfile_removes_stale_system_pip_metadata(self) -> None:
-        """Runtime image must not retain the base image's vulnerable pip metadata."""
+        """Runtime image must not retain the base image's vulnerable pip metadata.
+
+        The hardening upgrades the *system* interpreter's pip in place — which
+        replaces the base image's stale ``pip-*.dist-info`` with the patched
+        version's — drops the bundled ``ensurepip`` wheels that could re-seed a
+        pre-floor pip, and asserts that **both** the system and the venv
+        interpreters resolve ``pip>=26.1``.  The stdlib path is derived from
+        ``sysconfig`` rather than a hardcoded ``/usr/local/lib/python3.NN``
+        directory, so a base-image Python bump (e.g. 3.13 -> 3.14) cannot
+        silently turn the cleanup into a vacuously-passing no-op that ships the
+        vulnerable bundled pip.  (The blocking Trivy image scan in ``ci.yml`` is
+        the empirical backstop; this test pins the source-level mechanism.)
+        """
         text = DOCKERFILE.read_text(encoding="utf-8")
+        # System pip upgraded in place — replaces the stale base-image dist-info.
         assert "/usr/local/bin/python -m pip install --upgrade" in text
-        assert "pip-26.0.1.dist-info" in text
-        assert "ensurepip/_bundled" in text
-        assert "assert v >= (26, 1)" in text
+        # Bundled ensurepip wheels (the re-seed vector) removed AND removal verified.
+        assert 'rm -rf "${SYS_STDLIB}/ensurepip/_bundled"' in text
+        assert 'test ! -d "${SYS_STDLIB}/ensurepip/_bundled"' in text
+        # Path derived from sysconfig, not a hardcoded python3.NN directory, so a
+        # base-image Python bump cannot turn the cleanup into a no-op.
+        assert 'sysconfig.get_path("stdlib")' in text
+        # The actual security guarantee: BOTH the system and venv interpreters
+        # are asserted to resolve a patched pip (>=26.1) — two independent checks.
+        assert "/opt/venv/bin/python -c" in text
+        assert text.count(">= (26, 1)") >= 2
 
     def test_dockerfile_prunes_unused_dataset_fetchers(self) -> None:
         """Runtime image must not ship unused network dataset fetchers."""
