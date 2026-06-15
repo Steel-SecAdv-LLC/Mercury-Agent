@@ -5,7 +5,7 @@
 # =============================================================================
 # Stage 1: Builder - Install dependencies in a full environment
 # =============================================================================
-FROM python:3.13-slim-bookworm AS builder
+FROM python:3.13-slim-trixie AS builder
 
 # Install build dependencies
 # gfortran + libopenblas-dev + pkg-config: required when pip falls back to
@@ -59,7 +59,7 @@ COPY . /app
 # =============================================================================
 # Stage 2: Runtime - Minimal image with only runtime dependencies
 # =============================================================================
-FROM python:3.13-slim-bookworm AS runtime
+FROM python:3.13-slim-trixie AS runtime
 
 # Build arguments for flexibility
 ARG USERNAME=mercuryagent
@@ -78,7 +78,7 @@ LABEL security.scan-date="2026-01-09"
 
 # Critical security patches - updates system packages.
 # ``apt-get upgrade`` here is the canonical fix path for every OS-level
-# CVE that ships with a Debian bookworm patch -- the blocking CI Trivy
+# CVE that ships with a Debian trixie patch -- the blocking CI Trivy
 # gates (``severity: CRITICAL,HIGH``, ``ignore-unfixed: false``,
 # ``exit-code: 1``) fail on any fixable CRITICAL/HIGH finding, so this
 # upgrade is what keeps them green.  The residual ``affected`` /
@@ -89,15 +89,22 @@ LABEL security.scan-date="2026-01-09"
 # stripping SUID/SGID bits from every binary, and not invoking the
 # vulnerable code paths.
 RUN apt-get update && \
-    # adduser: the upgraded apt in python:3.13-slim-bookworm depends on it,
-    # but the slim base omits it.  Install before upgrade to unblock the
-    # dependency resolver.
+    # adduser: the upgraded apt in the slim Debian base depends on it, but
+    # the slim base omits it.  Install before upgrade to unblock the
+    # dependency resolver.  (If a future base drops the apt->adduser
+    # dependency, removing this also drops perl-base and its CVEs — verify
+    # against the gate's built-image scan before changing.)
     apt-get install -y --no-install-recommends adduser && \
     apt-get upgrade -y && \
+    # NOTE: no libgl1-mesa-glx. Mercury depends on opencv-python-headless,
+    # whose cv2 extension links no libGL/libGLX (verified: the wheel's
+    # cv2.*.so has zero GL linkage), and the API container makes no cv2 GUI
+    # calls. Installing the mesa GL stack only added an unused, unfixed-CVE
+    # surface (CVE-2026-40393); dropping it removes the package and the CVE
+    # rather than accepting it.
     apt-get install -y --no-install-recommends \
         ca-certificates \
         libgomp1 \
-        libgl1-mesa-glx \
         libglib2.0-0 && \
     # Clean up to reduce image size and attack surface
     apt-get autoremove -y && \
@@ -106,7 +113,7 @@ RUN apt-get update && \
 
 # Security hardening: strip setuid/setgid bits from all binaries.
 # This replaces the previous "apt-get purge login passwd" approach which
-# broke on python:3.13-slim-bookworm due to the apt→adduser→passwd
+# broke on the slim Debian base due to the apt→adduser→passwd
 # dependency chain — purging passwd cascades into removing adduser,
 # which breaks the apt package manager.  Stripping SUID/SGID bits
 # achieves the same privilege-escalation mitigation without breaking
@@ -129,7 +136,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 #   CVE-2026-1703  (path traversal in wheel archives, GHSA-6vgw-5pg2-w6jp)
 #   CVE-2026-6357  (arbitrary code execution via malicious wheel)
 # The builder's venv (copied above) already ships pip>=26.1, but the base
-# python:3.13-slim-bookworm image carries its OWN pip under /usr/local that
+# python:3.13-slim-trixie image carries its OWN pip under /usr/local that
 # Trivy detects (pip-26.0.1.dist-info).  Because ``ENV PATH`` puts
 # /opt/venv/bin first, a bare ``python -m pip`` would upgrade the *venv* pip
 # (already patched) and leave the vulnerable *system* pip in place — so target

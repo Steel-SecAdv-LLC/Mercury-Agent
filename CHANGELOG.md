@@ -27,6 +27,254 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Geospatial kernel + movement-plausibility detector — one lat/lon geometry, a boreal undercount fixed, FINDΩYOU groundwork (2026-06-11)
+
+Consolidates all latitude/longitude geometry behind a single numpy-only
+kernel, fixes a measured correctness defect in the wildfire loader, and
+adds the engine's first trajectory-level geographic detector.  The
+detector core is a corrective rebuild of an externally audited geospatial
+module (2026-06-10 audit); all four audited defects are reproduced as
+regression tests against the corrected implementations.
+
+* **New `omni_mercury_engine.utils.geo` — canonical geospatial kernel
+  (numpy only).** `haversine_km`, `haversine_km_to_point`, and
+  `pairwise_haversine_km` use the numerically robust `atan2` haversine
+  form and the IUGG mean Earth radius (6371.0088 km).
+  `neighbor_counts_within_km` (with an optional temporal co-occurrence
+  window) and `dbscan_geo` (kilometre-denominated DBSCAN, Ester et al.
+  1996) prune candidate pairs with an *exact* latitude band — on the
+  sphere the central angle is at least |Δlat|, so the band can never drop
+  a true neighbor — and never materialize the full n² distance matrix.
+  `dbscan_geo` closes a real gap: the native `ml.mercury_ml.DBSCAN`
+  delegates to `scipy.cdist`, which has no haversine metric, and no single
+  euclidean-degrees eps is meaningful across latitudes (50 km spans 0.45°
+  of longitude at the equator but 0.90° at 60°N).
+
+* **Wildfire loader correctness fix (boreal undercount).**
+  `WildfireLoader._compute_spatial_clustering` pre-filtered candidates
+  with a flat `radius_km / 111 * 1.5` degree box before exact distance
+  checks.  Above ~48° latitude one degree of longitude spans too few km
+  for that buffer: at 62°N (boreal fire country, prime VIIRS territory)
+  two detections 9.49 km apart — inside the 10 km radius — were dropped
+  entirely, and a 400-point synthetic boreal swarm lost 9,886 true
+  neighbor pairs (~20%).  The `cluster_count` feature is now exact at
+  every latitude; `tests/loaders/test_geo_rewire.py` pins mid-latitude
+  parity with a verbatim port of the legacy loop and demonstrates the
+  boreal fix against brute-force ground truth.
+
+* **Loader geometry rewired to the kernel — faster, behavior pinned.**
+  Tornado temporal clustering (same-hour + 100 km co-occurrence): 18×
+  faster at n=3,000 (4.7 s → 0.26 s).  Wildfire spatial clustering: 3.6×
+  at n=3,000 and 9× at n=20,000 (12.7 s → 1.4 s).  Wildfire spread rate:
+  2× (lookahead window vectorized; first-minimum tie semantics
+  preserved).  Tornado centroid distance (`geo_anomaly` feature)
+  vectorized.  Three private haversine copies collapse into the kernel.
+  Standardizing the Earth radius (6371.0 → 6371.0088, +1.4e-6 relative)
+  shifts a 10 km cutoff by ~1.4 cm; measured effect on dense synthetic
+  swarms: 2–4 flipped neighbor counts per ~1.7M true pairs, versus VIIRS
+  positional resolution of 375 m.  Deliberately untouched: the hurricane
+  loader's translation speed (angular degrees by documented design) and
+  the landslide loader's ArcGIS bounding box (correct cos-compensated
+  server-side prefilter).
+
+* **New `GeoMovementAnomalyDetector`
+  (`detectors/geo_movement.py`) — movement plausibility for
+  (lat, lon, time) trajectories.**  BaseDetector-compliant
+  (`fit`/`detect`/`extract_features`, auto-calibration supported,
+  registered in the detectors lazy-import table and `DETECTOR_MANIFEST`
+  as `geo_movement`, BASE category, feature_dim 8), plus a casework
+  `assess(history, current, now)` API for datetime-stamped sightings —
+  groundwork for the FINDΩYOU missing-persons mission.  Three channels in
+  [0, 1] (velocity vs. a 130 km/h feasibility ceiling, step-length z-score
+  vs. *fitted* history, silence vs. expected reporting cadence) fuse by
+  noisy-OR, so one saturated channel alone exceeds any threshold below
+  1.0.  The audited module it rebuilds could not fire on a 450 km/h
+  teleport: weighted-sum fusion (0.4/0.3/0.3 vs. a 0.72 threshold) capped
+  any single channel at 0.4, and the jump statistic measured spread from
+  the candidate point, suppressing its own signal.  Both failure modes
+  are locked as tests (`test_impossible_jump_fires`,
+  `test_single_saturated_channel_fires_alone`,
+  `test_jump_scored_against_history_not_candidate`).
+
+* **Tests: 36 new** across `tests/utils/test_geo.py` (ground-truth
+  distances, brute-force neighbor parity, permutation invariance, DBSCAN
+  transitivity/planted-cluster recovery), `tests/detectors/
+  test_geo_movement.py` (audit regressions + interface contract), and
+  `tests/loaders/test_geo_rewire.py` (parity with verbatim legacy
+  implementations).  Affected existing suites pass unchanged (domain
+  loaders, detector manifest, spatial detector).
+
+### Engine integration — manifest detectors made reachable through `OmniMercuryEngine`; inference/training exception symmetry
+
+Closes the wiring gap that left every `DETECTOR_MANIFEST` entry outside the
+five built-in base detectors — notably the new `geo_movement`, and
+`graph_based` — registered but unreachable through the engine: nothing
+consumed the manifest, so such a detector never participated in the
+detect → fuse → decide path it was nominally registered for.
+
+* **Opt-in detector-registration seam on `OmniMercuryEngine`.**
+  `register_detector(name, detector, *, replace=False)` adds a
+  `BaseDetector` to the engine's active set; `enable_detector(name)` bridges
+  the declarative manifest to a live instance
+  (`engine.enable_detector("geo_movement")`); `available_detectors()` reports
+  which manifest detectors are active on the engine. Purely additive — the
+  default five-detector set (`statistical`, `temporal`, `spatial`,
+  `dimensional`, `directive`) and the calibrated fusion path are byte-identical
+  until a caller opts in. A detector registered after `fit_fusion` has trained
+  is recorded but ignored at fusion inference — which is restricted to the
+  trained feature groups (`_fusion_feature_groups`) — until a re-fit, and that
+  case warns rather than silently misleading. Once enabled, the detector
+  contributes its feature group through the single source of truth
+  (`_extract_fusion_features`) on both the training and inference paths;
+  verified end-to-end for `geo_movement` (an `(n, 8)` group on trajectory
+  input, the five base groups still present).
+
+* **Inference/training exception-handling symmetry (latent defect, fixed).**
+  The inference feature extractors (`_extract_detector_features`,
+  `_extract_model_features`) caught only six built-in exception types, while
+  the training extractor (`_extract_fusion_features`) catches `Exception`. A
+  detector or model that fail-louds with Mercury's own `OmniAnomalyException`
+  (e.g. `geo_movement` raising `DetectorException` on non-trajectory data)
+  was therefore skipped gracefully during training but would crash
+  `detect_with_fusion` at inference. Both inference extractors now also catch
+  `OmniAnomalyException`, honouring their documented graceful-degradation
+  contract; the five built-ins never raise it, so the default path is
+  unchanged. This asymmetry is what made a specialized, fail-loud detector
+  unsafe to add — fixing it is the precondition for the seam above.
+
+* **Tests: 15 new** (`tests/core/test_engine_detector_registration.py`):
+  default-set lock, `register`/`enable`/`available` contracts, the
+  post-training warning path, fusion-feature-group wiring for an enabled
+  detector, and the inference graceful-skip regression lock (a fail-loud
+  detector cannot crash `detect_with_fusion`).
+
+* **Detector audit — orphaned first-class detector wired in, manifest hygiene.**
+  A full audit of every `*Detector`/`*Analyzer` in `detectors/` (manifest
+  membership, exports, engine reachability, callers, tests, `BaseDetector`
+  conformance) found the framework largely sound — the apparent orphans are
+  deprecated-on-purpose (`enhanced_statistical`), abstract bases
+  (`BaseVLMDetector`, `BaseVisualDetector`), or wired subsystem components
+  (the VLM / advanced families, the EMP pulse channels of `EMPDetector`). Two
+  genuine gaps were closed:
+  * **`KMeansDistanceDetector` is now a first-class registered detector.** The
+    revived dormant clusterer (measured on ADBench, ROC-AUC ~0.8–0.98) existed
+    as a plain duck-typed class in neither the manifest nor the exports — built
+    as "a first-class detector" but reachable through nothing. It now subclasses
+    `BaseDetector` (backward-compatible constructor; genuinely accepts numpy or
+    torch input), is registered in `DETECTOR_MANIFEST` (`kmeans_distance`, BASE,
+    feature_dim 9) and exported, so it is reachable via
+    `engine.enable_detector("kmeans_distance")`. Opt-in, not a default base
+    detector — the calibrated ensemble is unchanged.
+  * **`SpectralDomainFrequency` now has a dedicated test.** A shipped manifest
+    BASE detector that previously relied on incidental coverage; new
+    `tests/detectors/test_spectral_domain_frequency.py` exercises the real
+    fit → extract_features → detect path and the `BaseDetector` contract.
+
+* **Manifest/engine drift lock (CI):
+  `tests/detectors/test_detector_manifest_integrity.py`.** Pins the invariants
+  that let the gap form: every manifest entry resolves to its class; every BASE
+  entry is a `BaseDetector` exposing the engine's contract (the check that would
+  have caught `kmeans_distance`); the engine's default detector set is a subset
+  of the manifest, so the two catalogs cannot silently drift; and
+  `geo_movement` / `graph_based` / `kmeans_distance` are reachable through the
+  engine seam.
+
+### Deployment image & review hardening
+
+* **Mesa GL stack removed from the runtime image — accepted-CVE ledger 15 → 14
+  (Critical 5 → 4).** `libgl1-mesa-glx` was installed only as OpenCV's `libGL`
+  dependency, but Mercury uses `opencv-python-headless` (whose `cv2` extension
+  links no `libGL` — verified: zero GL linkage in the wheel's `.so`) and makes
+  no `cv2` GUI calls, so it was dead weight carrying an unfixed **Critical** CVE
+  (CVE-2026-40393). Dropping the package **eliminates** the CVE rather than
+  accepting it: the Dockerfile no longer installs it, and the `.trivyignore`
+  entry plus the SECURITY.md ledger row are removed. The ledger header now
+  states plainly that the remaining entries are *irreducible* — CPython itself
+  links `libsqlite3-0` / `libexpat1` / `zlib1g` / `ncurses` (the `sqlite3`,
+  `pyexpat`, `zlib`, `readline`/`curses` stdlib modules), and `perl-base` is
+  apt's own `adduser` dependency — rather than the previous "deferred slimmer
+  image" framing. The blocking Trivy gate (`ignore-unfixed: false`) re-verifies
+  the package stays gone on every build.
+* **`register_detector` now warns when replacing a *trained* feature group.**
+  Review surfaced that `replace=True` after `fit_fusion` left the fusion network
+  consuming a different feature distribution for an existing group with no
+  operator signal; it now warns and recommends a re-fit in that case too, not
+  only when adding a new group. Locked by a new test.
+* **Wildfire clustering docstring** corrected to describe the actual
+  latitude-band pruning (`neighbor_counts_within_km`) instead of the
+  inaccurate "vectorized in row blocks".
+
+### LLM layer: free-weights-first & provider-neutral under Mercury's identity
+
+Defaults, selection order, and naming only — no rewrite; OpenAI and every other
+cloud adapter stay available, just never privileged.
+
+* **Free/local is the baseline default.** `LLMModelRegistry.select()`
+  (`models/llm_registry.py`) now orders **free/local ahead of paid cloud**:
+  `local`/`builtin` providers are treated as genuinely cost-0, so they sort
+  first, satisfy any budget, and win ties; an *undeclared cloud* price stays
+  unknown and is excluded from budget queries (not assumed free). Replaces the
+  prior "priced-first, unpriced-last" order. Pinned by
+  `tests/models/test_llm_registry_local_first.py` and the updated
+  `tests/models/test_llm_registry.py`.
+* **`MERCURY_OFFLINE` is the master air-gap for the LLM layer too.**
+  `FallbackLLMChain` (`models/foundation/ollama_adapter.py`) and the reasoning
+  router now refuse to construct or call any cloud adapter when
+  `MERCURY_OFFLINE` is set — reusing the dataset layer's
+  `offline_mode_active()` so one switch governs both. Local + template only.
+  Pinned by `tests/models/test_llm_offline_airgap.py` (zero cloud construction)
+  and a reasoning-router offline test.
+* **No vendor privileged by default.** `FallbackLLMChain` already tries local
+  (Ollama) → optional cloud → template, with cloud off unless explicitly
+  enabled and configured (confirmed, unchanged). `.env.example` now presents
+  the reasoning backend as local/free by default and lists cloud keys as an
+  unordered optional set (no OpenAI-first framing); `docs/OFFLINE_OPERATION.md`
+  documents the now-*enforced* LLM air-gap and the free/local-first baseline.
+
+### Reasoning backend layer — Mercury-owned, offline-first, ethics-gated co-AI interface (`reasoning/`)
+
+* **`reasoning/` subpackage** (new): a pluggable reasoning layer Mercury *calls*
+  as a subordinate dependency — never a wrapper Mercury sits behind.
+  * `ReasoningBackend` (ABC): typed, provider-neutral surface — `explain()`,
+    `propose_hypotheses()`, `synthesize_report()` (`reasoning/schemas.py`).
+    Every operation passes Mercury's benevolence + σ_Immutable dual hard
+    ethical gate (`enforce_dual_ethical_gate`) before any output is surfaced;
+    the gate fails closed, so an integrated LLM cannot bypass Mercury's
+    governance.
+  * Implementations: `MockReasoningBackend` (deterministic, network-free, for
+    CI), `LocalReasoningBackend` (offline-first / air-gap-safe over the local
+    Ollama+template chain — free to run, no external call), and
+    `RemoteReasoningBackend` (operator-declared frontier model; no hard-coded
+    model name, credentials via env).
+  * `ReasoningRouter`: offline-first routing — the local backend is the floor
+    and default, the remote backend is reached only on explicit opt-in, and
+    hard-offline mode provably never selects or calls a network backend.
+  * Threads the PR #289 `UsageLedger` so token spend is accounted regardless of
+    which backend serves a call.
+  * **Wired into the engine (real consumer, not standalone substrate):**
+    `OmniMercuryEngine.enable_reasoning()`, the lazy `reasoning_backend`
+    property, and `explain_detection(result, domain=...)` let Mercury call the
+    backend on its *own* `detect_with_fusion` certificates — Mercury owns the
+    detection and the decision and invokes the subordinate backend only to
+    render a governed, evidence-grounded explanation (offline-first; the dual
+    ethical gate still fail-closes the call at the engine boundary).
+    `reasoning_usage()` exposes the threaded ledger's provider-truthful totals
+    (the offline template path books nothing — never fabricated tokens). The
+    `LLMModelRegistry` is consumed too: `reasoning.backends.select_reasoning_model()`
+    lets an operator-populated registry choose the local model (free/local-first)
+    instead of a hard-coded default.
+  * Tests: `tests/reasoning/test_reasoning_backend.py` (gate fail-closed,
+    provenance stamping, hard-offline zero-network, ledger threading,
+    registry-driven model selection) and `tests/core/test_engine_full.py`
+    (engine-governed explanation, ethics fail-closed at the engine boundary,
+    registry-driven local model).
+* **Vendor-neutral defaults (identity):** `LLMConfig.model_name` default changed
+  from `"gpt-4o"` to `""` (unset) — each adapter applies its own
+  provider-appropriate default, so no vendor model id (nor the `"template"`
+  sentinel) is ever sent across providers; the `llm_registry` docstring example
+  now uses a local open-weights model instead of a hosted one. Mercury presents
+  as itself by default, not as any external AI.
+
 ### Calibration — `StrictIsotonicCalibration` ported from PR #275 (X1 survivor) (2026-06-12)
 
 * **`StrictIsotonicCalibration`** (`core/calibration.py`): isotonic calibration
@@ -402,6 +650,52 @@ under the same ablation discipline as every other revival.
   `plasticity_engine` split into rows 10b/11b (still retained — no honest
   harness yet); capability matrix "Multi-agent" row moved to
   **Shipped + measured** with the build-out item (B) closed.
+### Added — multi-model substrate: provider-reported usage accounting + LLM model registry (2026-06-11)
+
+First slice of the multi-agent/multi-model build-out
+(`docs/capability_vs_vision_matrix.md` §4 item B): before orchestrating
+across Mercury's ten LLM providers, calls must be *costed* and models must
+be *selectable*. Both pieces are provider-truth-only — no client-side
+token estimates, no hard-coded market facts.
+
+* **Usage accounting**
+  (`omni_mercury_engine.models.foundation.llm_usage`): `LLMUsage` (one
+  immutable record per successful generation, counts exactly as the
+  provider's response reported them) and `UsageLedger` (thread-safe;
+  exact lifetime totals via running counters; bounded recent-history
+  ring that never bends the totals). Calls whose provider reports no
+  usage are recorded as **unmetered** (`reported=False`) so unmeasured
+  spend is visible rather than silently absent.
+* **Adapter wiring**: every shipped adapter's success path now parses
+  its provider's usage block into `last_usage` and an optionally
+  attached ledger (`BaseLLMAdapter.attach_usage_ledger`) — OpenAI +
+  xAI/DeepSeek/Cursor (`usage.{prompt,completion,total}_tokens`),
+  Anthropic (`usage.{input,output}_tokens`), Gemini (`usageMetadata`),
+  Cohere v2 (`usage.tokens`), Ollama (`prompt_eval_count`/`eval_count`),
+  HuggingFace Inference (no usage block → unmetered record). Failed
+  calls book nothing — **every** adapter extracts the response content
+  *before* recording usage, so a 200 carrying a usage block but
+  unextractable content books nothing (uniform across all ten adapters,
+  not only the OpenAI-style ones).
+  `FallbackLLMChain(usage_ledger=...)` threads one ledger through every
+  adapter in the chain and exposes `last_usage`.
+* **LLM model registry** (`omni_mercury_engine.models.llm_registry`,
+  importable without torch): `PROVIDER_CATALOG` — code-grounded facts
+  about the ten shipped adapters (wire format, key env var, locality,
+  explicit-base_url requirement, usage-reporting), drift-gated in CI
+  against `IMPLEMENTED_LLM_PROVIDERS`; `LLMModelSpec` /
+  `LLMModelRegistry` — operator-declared model facts with mandatory
+  provenance (a spec carrying prices must carry `pricing_as_of`) and
+  deterministic capability/context/budget selection (`select` /
+  `select_one`; unpriced specs are excluded from budget queries rather
+  than assumed free; unknown capabilities raise rather than silently
+  matching nothing).
+* **Locks:** `tests/models/test_llm_usage_ledger.py` (validation,
+  aggregation, bounded-ring-vs-exact-totals, concurrent exactness),
+  `tests/test_llm_usage_capture.py` (per-wire-format parsing against
+  canned payloads, unmetered HF route, failed-call no-booking, chain
+  threading), `tests/models/test_llm_registry.py` (spec/selection
+  contracts + the provider-catalog drift gate).
 
 ### Security — owner-governed risk posture: enumerated CVE ledger, shared HD master seed, signed cache entries (2026-06-10)
 

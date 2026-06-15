@@ -16,6 +16,7 @@ import numpy as np
 import pandas as pd
 
 from omni_mercury_engine.loaders.base import BaseDomainLoader
+from omni_mercury_engine.utils.geo import haversine_km_to_point, neighbor_counts_within_km
 
 logger = logging.getLogger(__name__)
 
@@ -562,35 +563,18 @@ class TornadoLoader(BaseDomainLoader):
             1-D array of cluster counts (float64).
         """
         n = len(timestamps)
-        cluster_counts = np.zeros(n, dtype=np.float64)
-
         if n <= 1:
-            return cluster_counts
+            return np.zeros(n, dtype=np.float64)
 
-        # Convert timestamps to epoch seconds for efficient comparison
+        # Convert timestamps to epoch seconds for the co-occurrence window
         epoch_seconds = np.array([ts.timestamp() for ts in timestamps], dtype=np.float64)
-        one_hour_s = 3600.0
-
-        for i in range(n):
-            count = 0.0
-            for j in range(n):
-                if i == j:
-                    continue
-                # Check temporal proximity (within same hour)
-                if abs(epoch_seconds[i] - epoch_seconds[j]) > one_hour_s:
-                    continue
-                # Check spatial proximity using haversine approximation
-                dist = _haversine_km(
-                    latitudes[i],
-                    longitudes[i],
-                    latitudes[j],
-                    longitudes[j],
-                )
-                if dist <= radius_km:
-                    count += 1.0
-            cluster_counts[i] = count
-
-        return cluster_counts
+        return neighbor_counts_within_km(
+            latitudes,
+            longitudes,
+            radius_km,
+            times_s=epoch_seconds,
+            time_window_s=3600.0,
+        )
 
     @staticmethod
     def _compute_geographic_anomaly(
@@ -610,50 +594,9 @@ class TornadoLoader(BaseDomainLoader):
         Returns:
             1-D array of distances in km (float64).
         """
-        n = len(latitudes)
-        distances = np.zeros(n, dtype=np.float64)
-
-        for i in range(n):
-            distances[i] = _haversine_km(
-                latitudes[i],
-                longitudes[i],
-                _TORNADO_DENSITY_CENTROID_LAT,
-                _TORNADO_DENSITY_CENTROID_LON,
-            )
-
-        return distances
-
-
-# ---------------------------------------------------------------------------
-# Module-level utility functions
-# ---------------------------------------------------------------------------
-
-
-def _haversine_km(
-    lat1: float,
-    lon1: float,
-    lat2: float,
-    lon2: float,
-) -> float:
-    """Compute great-circle distance between two points using the haversine formula.
-
-    Args:
-        lat1: Latitude of point 1 in decimal degrees.
-        lon1: Longitude of point 1 in decimal degrees.
-        lat2: Latitude of point 2 in decimal degrees.
-        lon2: Longitude of point 2 in decimal degrees.
-
-    Returns:
-        Distance in kilometres.
-    """
-    earth_radius_km = 6371.0
-
-    lat1_r = np.radians(lat1)
-    lat2_r = np.radians(lat2)
-    dlat = np.radians(lat2 - lat1)
-    dlon = np.radians(lon2 - lon1)
-
-    a = np.sin(dlat / 2.0) ** 2 + np.cos(lat1_r) * np.cos(lat2_r) * np.sin(dlon / 2.0) ** 2
-    c = 2.0 * np.arctan2(np.sqrt(a), np.sqrt(1.0 - a))
-
-    return float(earth_radius_km * c)
+        return haversine_km_to_point(
+            latitudes,
+            longitudes,
+            _TORNADO_DENSITY_CENTROID_LAT,
+            _TORNADO_DENSITY_CENTROID_LON,
+        )

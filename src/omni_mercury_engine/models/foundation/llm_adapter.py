@@ -24,6 +24,7 @@ from urllib.parse import urlparse
 import numpy as np
 import torch
 
+from omni_mercury_engine.models.foundation.llm_usage import LLMUsage, UsageLedger
 from omni_mercury_engine.security.model_policy import SafeHFLoader, UnsafeModelError
 
 logger = logging.getLogger(__name__)
@@ -68,7 +69,12 @@ class LLMConfig:
     """Configuration for LLM adapter."""
 
     provider: LLMProvider = LLMProvider.MOCK
-    model_name: str = "gpt-4o"
+    # Vendor-neutral default: empty means "operator has not chosen a model", so
+    # each adapter applies its own provider-appropriate default rather than a
+    # hard-coded vendor model id leaking across providers (and the "template"
+    # sentinel is never sent to a cloud API). No cloud provider is privileged;
+    # operators set ``provider`` and ``model_name`` explicitly.
+    model_name: str = ""
     temperature: float = 0.0
     max_tokens: int = 512
     api_key: str | None = None
@@ -132,6 +138,55 @@ class BaseLLMAdapter(ABC):
         """
         self.config = config
         self._is_available = False
+        # Usage accounting: ``last_usage`` always reflects the most recent
+        # successful generation's provider-reported token counts;
+        # ``usage_ledger`` aggregates across calls when a caller attaches
+        # one (no ledger is created ambiently).
+        self.usage_ledger: UsageLedger | None = None
+        self.last_usage: LLMUsage | None = None
+
+    def attach_usage_ledger(self, ledger: UsageLedger | None) -> None:
+        """Attach (or detach, with ``None``) a shared usage ledger.
+
+        Args:
+            ledger: Ledger that subsequent generations record into.
+        """
+        self.usage_ledger = ledger
+
+    def _record_usage(
+        self,
+        model: str,
+        prompt_tokens: int | None,
+        completion_tokens: int | None,
+        total_tokens: int | None = None,
+    ) -> None:
+        """Record provider-reported usage for one successful generation.
+
+        Counts must come from the provider's response payload — never a
+        client-side estimate. When the provider reported nothing, pass all
+        ``None``: the call is recorded as *unreported* so unmetered spend
+        stays visible.
+
+        Args:
+            model: Model identifier the call was made with.
+            prompt_tokens: Provider-reported input tokens, or ``None``.
+            completion_tokens: Provider-reported output tokens, or ``None``.
+            total_tokens: Provider-reported total, or ``None``.
+        """
+        reported = any(
+            value is not None for value in (prompt_tokens, completion_tokens, total_tokens)
+        )
+        usage = LLMUsage(
+            provider=str(self.config.provider.value),
+            model=model,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=total_tokens,
+            reported=reported,
+        )
+        self.last_usage = usage
+        if self.usage_ledger is not None:
+            self.usage_ledger.record(usage)
 
     @abstractmethod
     def generate(self, prompt: str, system_prompt: str | None = None) -> str:

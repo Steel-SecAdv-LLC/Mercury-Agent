@@ -26,14 +26,22 @@
 # scan, which is the canonical source for this ledger. The 2026-06-13
 # review added two more (the SQLite FTS5 pair below), enumerated the same
 # way after a vuln-DB update introduced them on the unchanged base image
-# — total 15 distinct unfixed CRITICAL/HIGH CVEs. Common
-# mitigations: the container runs as non-root UID 1000 with SUID/SGID
-# bits stripped, and none of these components sits on an
-# untrusted-input path in the shipped API (per-entry rationale below).
-# The strategic fix — a slimmer image that drops these packages
-# entirely (perl, ncurses, sqlite, zlib/minizip, mesa GL) — is tracked
-# for a Docker-equipped follow-up; this file makes the interim posture
-# visible and reviewable.
+# — 15 distinct unfixed CRITICAL/HIGH CVEs at that review. The
+# 2026-06-15 review then *eliminated* the Mesa GL stack outright (was
+# CVE-2026-40393): it had been installed only for OpenCV's libGL, but
+# Mercury depends on opencv-python-headless, whose cv2 extension links
+# no libGL, so the package was dropped from the Dockerfile rather than
+# accepted here — leaving 14. Common mitigations: the container runs as
+# non-root UID 1000 with SUID/SGID bits stripped, and none of these
+# components sits on an untrusted-input path in the shipped API
+# (per-entry rationale below). The remaining entries are genuinely
+# irreducible, not deferred: libsqlite3-0, libexpat1, zlib1g and ncurses
+# (libtinfo6/libncursesw6) are linked by CPython itself (the sqlite3,
+# pyexpat, zlib and readline/curses stdlib modules) and cannot be
+# removed without removing the interpreter; Debian bookworm ships no
+# patched build to upgrade to; perl-base is pulled by apt's own adduser
+# dependency. Each is accepted only as a time-boxed, enumerated,
+# expiring risk — never silenced.
 
 # zlib/minizip — MiniZip integer overflow; Debian will_not_fix; minizip
 # is not used by any Mercury code path.
@@ -78,9 +86,10 @@ CVE-2025-59375 exp:2026-09-08
 CVE-2026-25210 exp:2026-09-08
 CVE-2026-45186 exp:2026-09-08
 
-# Mesa GL stack (libgl1-mesa-dri / libgl1-mesa-glx / libglapi-mesa /
-# libglx-mesa0) — installed by the Dockerfile runtime stage solely as
-# OpenCV's libGL import-time dependency; the headless API container
-# renders nothing and accepts no GL contexts. No bookworm fix
-# (will_not_fix; upstream fixed only in Mesa >= 25.3.6 / 26.0.1).
-CVE-2026-40393 exp:2026-09-08
+# Mesa GL stack (CVE-2026-40393): REMOVED, not accepted. It was installed
+# only as OpenCV's libGL dependency, but Mercury uses
+# opencv-python-headless (no libGL linkage) and makes no cv2 GUI calls, so
+# the Dockerfile no longer installs libgl1-mesa-glx — the package and its
+# CVE are gone from the image. The blocking Trivy gate (ignore-unfixed:
+# false) re-verifies this on every build: were the package to reappear,
+# the gate would fail rather than silently pass.

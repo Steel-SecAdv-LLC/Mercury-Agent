@@ -214,6 +214,15 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "Geographic and spatial relationship anomalies",
     ),
     DetectorManifestEntry(
+        "geo_movement",
+        "omni_mercury_engine.detectors.geo_movement",
+        "GeoMovementAnomalyDetector",
+        DetectorCategory.BASE,
+        "Trajectory movement plausibility: velocity, jump, and silence channels",
+        feature_dim=8,
+        tags=["geospatial", "trajectory"],
+    ),
+    DetectorManifestEntry(
         "dimensional",
         "omni_mercury_engine.detectors.dimensional",
         "DimensionalAnalyzer",
@@ -233,6 +242,16 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "GraphAnomalyDetector",
         DetectorCategory.BASE,
         "Graph structure anomaly detection",
+    ),
+    DetectorManifestEntry(
+        "kmeans_distance",
+        "omni_mercury_engine.detectors.kmeans_distance",
+        "KMeansDistanceDetector",
+        DetectorCategory.BASE,
+        "Distance-to-nearest-centroid unsupervised anomaly signal (revived "
+        "cognitive clusterer; ROC-AUC ~0.8-0.98 on ADBench)",
+        feature_dim=9,
+        tags=["unsupervised", "clustering"],
     ),
     # -- Specialized models ---------------------------------------------------
     DetectorManifestEntry(

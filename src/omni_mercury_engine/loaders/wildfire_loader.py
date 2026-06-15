@@ -11,13 +11,17 @@ from __future__ import annotations
 
 import io
 import logging
-import math
 from typing import Any
 
 import numpy as np
 import pandas as pd
 
 from omni_mercury_engine.loaders.base import BaseDomainLoader
+from omni_mercury_engine.utils.geo import (
+    haversine_km,
+    haversine_km_to_point,
+    neighbor_counts_within_km,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -522,6 +526,10 @@ class WildfireLoader(BaseDomainLoader):
     def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
         """Compute the Haversine distance between two points in kilometres.
 
+        Delegates to the canonical kernel in
+        :mod:`omni_mercury_engine.utils.geo`; kept as a class-level helper
+        for API stability.
+
         Args:
             lat1: Latitude of point 1 (degrees).
             lon1: Longitude of point 1 (degrees).
@@ -531,28 +539,25 @@ class WildfireLoader(BaseDomainLoader):
         Returns:
             Distance in kilometres.
         """
-        r = 6371.0  # Earth radius in km
-        dlat = math.radians(lat2 - lat1)
-        dlon = math.radians(lon2 - lon1)
-        a = (
-            math.sin(dlat / 2.0) ** 2
-            + math.cos(math.radians(lat1))
-            * math.cos(math.radians(lat2))
-            * math.sin(dlon / 2.0) ** 2
-        )
-        c = 2.0 * math.atan2(math.sqrt(a), math.sqrt(1.0 - a))
-        return r * c
+        return haversine_km(lat1, lon1, lat2, lon2)
 
+    @staticmethod
     def _compute_spatial_clustering(
-        self,
         lat: np.ndarray[Any, Any],
         lon: np.ndarray[Any, Any],
         radius_km: float = 10.0,
     ) -> np.ndarray[Any, Any]:
         """Count the number of other fire detections within a given radius.
 
-        For performance on large datasets, uses a rough latitude/longitude
-        pre-filter before computing exact Haversine distances.
+        Delegates to :func:`~omni_mercury_engine.utils.geo.neighbor_counts_within_km`,
+        which prunes candidates with an *exact* latitude band (sort +
+        ``searchsorted``; on the sphere the central angle is at least |Δlat|,
+        so the band can never drop a true neighbour) and measures exact
+        Haversine distance only within each point's band — never materialising
+        the full n² matrix.  The previous implementation pre-filtered
+        candidates with a flat ``radius_km / 111 * 1.5`` degree box, which
+        silently dropped true neighbours above ~48 deg latitude — at 62 deg N
+        (boreal fire country) it missed ~20% of genuine within-radius pairs.
 
         Args:
             lat: 1-D array of latitudes (degrees).
@@ -562,42 +567,19 @@ class WildfireLoader(BaseDomainLoader):
         Returns:
             1-D float64 array of neighbour counts.
         """
-        n = len(lat)
-        counts = np.zeros(n, dtype=np.float64)
+        return neighbor_counts_within_km(lat, lon, radius_km)
 
-        if n <= 1:
-            return counts
-
-        # Rough degree threshold for pre-filtering (~111 km per degree)
-        deg_threshold = radius_km / 111.0 * 1.5  # generous buffer
-
-        for i in range(n):
-            # Pre-filter by coordinate distance
-            lat_diff = np.abs(lat - lat[i])
-            lon_diff = np.abs(lon - lon[i])
-            candidates = np.where((lat_diff <= deg_threshold) & (lon_diff <= deg_threshold))[0]
-
-            count = 0
-            for j in candidates:
-                if j == i:
-                    continue
-                dist = self._haversine_km(lat[i], lon[i], lat[j], lon[j])
-                if dist <= radius_km:
-                    count += 1
-            counts[i] = float(count)
-
-        return counts
-
+    @staticmethod
     def _compute_spread_rate(
-        self,
         lat: np.ndarray[Any, Any],
         lon: np.ndarray[Any, Any],
         hours: np.ndarray[Any, Any],
     ) -> np.ndarray[Any, Any]:
         """Estimate fire spread rate from sequential detections.
 
-        For each detection, computes the distance to the nearest
-        subsequent detection divided by the elapsed time between them.
+        For each detection, computes the distance to the nearest of the
+        next 49 detections divided by the elapsed time between them.  Ties
+        keep the earliest detection, matching the original scalar loop.
 
         Args:
             lat: 1-D array of latitudes (degrees), chronologically sorted.
@@ -615,15 +597,14 @@ class WildfireLoader(BaseDomainLoader):
             return rate
 
         for i in range(n - 1):
-            # Find the nearest subsequent detection
-            min_dist = float("inf")
-            min_dt = 0.0
-
-            for j in range(i + 1, min(i + 50, n)):
-                dist = self._haversine_km(lat[i], lon[i], lat[j], lon[j])
-                if dist < min_dist:
-                    min_dist = dist
-                    min_dt = hours[j] - hours[i]
+            # Vectorized distances to the lookahead window of detections
+            window_end = min(i + 50, n)
+            dists = haversine_km_to_point(
+                lat[i + 1 : window_end], lon[i + 1 : window_end], lat[i], lon[i]
+            )
+            j = i + 1 + int(np.argmin(dists))
+            min_dist = float(dists[j - i - 1])
+            min_dt = hours[j] - hours[i]
 
             if min_dt > 0.0 and np.isfinite(min_dist):
                 rate[i] = min_dist / min_dt
