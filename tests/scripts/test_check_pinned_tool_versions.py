@@ -28,6 +28,10 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:  # pragma: no cover - import bootstrap
@@ -111,11 +115,11 @@ def test_clean_fixture_passes(tmp_path: Path) -> None:
     assert cptv.main(["--root", str(tmp_path)]) == 0
 
 
-def test_single_divergent_surface_fails(tmp_path: Path, capsys: object) -> None:
+def test_single_divergent_surface_fails(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """One surface (ci.yml) on a stale black trips the gate and is pinpointed."""
     _write_repo(tmp_path, black=("26.5.1", "26.3.1", "26.5.1", "26.5.1"))
     assert cptv.main(["--root", str(tmp_path)]) == 1
-    err = capsys.readouterr().err  # type: ignore[attr-defined]
+    err = capsys.readouterr().err
     assert "black" in err
     assert "26.3.1" in err and "26.5.1" in err
 
