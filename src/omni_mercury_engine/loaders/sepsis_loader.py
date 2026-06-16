@@ -143,6 +143,10 @@ class SepsisLoader(BaseDomainLoader):
 
     DOMAIN: str = "sepsis"
     SOURCE_URL: str = "https://physionet.org/content/challenge-2019/"
+    # Labels come directly from the ``SepsisLabel`` column in the PhysioNet
+    # Challenge 2019 PSV files — a clinician-derived ground truth annotation
+    # independent of any scored vital-sign feature.
+    LABEL_SOURCE: str = "ground_truth"
     REQUIRES_API_KEY: bool = False
     FEATURE_COLUMNS: list[str] = [
         # Raw vital signs (7)

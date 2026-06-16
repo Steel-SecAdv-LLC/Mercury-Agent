@@ -197,6 +197,23 @@ figures (Mean AUC 0.8466 / Median 0.9100) are retained for continuity with the
 auto-generated block, but they blend both regimes and are therefore **not** a
 comparable benchmark headline.
 
+**Live-API loaders (`src/omni_mercury_engine/loaders/`).** Phase 1 of the
+governed recursive self-improvement work extends the same label-provenance
+discipline to the live-API loader path that the governed-fusion suite
+(`research/governed_fusion/`) consumes. Of the 15 concrete loaders, only
+**2** produce labels independent of any scored feature — `network_security`
+(NSL-KDD `label`, BATADAL `ATT_FLAG`) and `sepsis` (PhysioNet SepsisLabel).
+The remaining 13 threshold a scored column or reconstruct the entire series
+and are tagged `LABEL_SOURCE = "statistical"`. The governed-fusion manifest
+(`research/governed_fusion/manifest.json`) carries this audit per-event: of
+the 23 live events, **2 are eligible for the honest fitness signal** Phase 2
+will gate self-improvement against; the other 21 are reported separately as
+leakage-flagged. CI enforces this split via the loader audit
+(`python -m omni_mercury_engine.loaders.label_provenance --check`) and the
+manifest-integrity tests under `tests/research/`. See
+[docs/SELF_IMPROVEMENT_LOOP.md](docs/SELF_IMPROVEMENT_LOOP.md) for the full
+rollout narrative.
+
 > **\*Reproducibility note.** 10 of the 75 attempted datasets are not currently
 > reproducible because their external data sources (SMAP, MSL, CICIDS-2017,
 > MIT-BIH, UCR, SWaT, WADI, USGS Geochemistry, NOAA ERDDAP,

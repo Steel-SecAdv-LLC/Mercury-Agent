@@ -45,7 +45,7 @@ def load_scores(kind: str = "real", cap: int = CAP) -> list[EventScores]:
 
 
 def _summarize(events: list[EventScores]) -> dict[str, Any]:
-    """Per-event macro mean + per-domain + pooled-row metrics for one group."""
+    """Per-event macro mean + per-domain + per-provenance + pooled-row metrics."""
     res = aggregate(events, baseline_scorer)
     yy = np.concatenate([e.y for e in events])
     ss = np.concatenate([e.combined for e in events])
@@ -53,13 +53,14 @@ def _summarize(events: list[EventScores]) -> dict[str, Any]:
     return {
         "overall": res["overall"],
         "per_domain": res["per_domain"],
+        "per_provenance": res["per_provenance"],
         "pooled_rows": pooled_metrics(yy, ss, pp),
         "per_event": res["per_event"],
     }
 
 
 def _print_block(title: str, block: dict[str, Any]) -> None:
-    """Print one group's per-domain table + overall + pooled row."""
+    """Print one group's per-domain + per-provenance + overall + pooled row."""
     print(f"\n==== {title}: {block['overall']['n_events']} events (cap={CAP}) ====")
     print(f"{'domain':<18}{'AUROC':>8}{'AUPRC':>8}{'F1':>8}{'P':>8}{'R':>8}  events")
     for dom in sorted(block["per_domain"]):
@@ -78,6 +79,18 @@ def _print_block(title: str, block: dict[str, Any]) -> None:
         f"{'POOLED (rows)':<18}{pm['auroc']:>8.3f}{pm['auprc']:>8.3f}{pm['f1']:>8.3f}"
         f"{pm['precision']:>8.3f}{pm['recall']:>8.3f}  n={pm['n']}"
     )
+    pp = block.get("per_provenance", {})
+    if pp:
+        print(f"\n{'-- by provenance --':<18}")
+        for bucket in ("external_label", "self_label", "reconstructed"):
+            row = pp.get(bucket)
+            if not row or row["n_events"] == 0:
+                continue
+            tag = bucket + (" (FITNESS)" if bucket == "external_label" else "")
+            print(
+                f"{tag:<26}{row['auroc']:>8.3f}{row['auprc']:>8.3f}{row['f1']:>8.3f}"
+                f"{row['precision']:>8.3f}{row['recall']:>8.3f}  {row['n_events']}"
+            )
 
 
 def main() -> None:

@@ -147,6 +147,11 @@ class VolcanicLoader(BaseDomainLoader):
 
     DOMAIN: str = "volcanic"
     SOURCE_URL: str = _API_BASE
+    # Labels = (WARNING alert level OR RED aviation color code).  Both
+    # ``alert_level_numeric`` and ``color_code_numeric`` are scored features
+    # (features 1 and 2), so the label is a direct categorical threshold on
+    # scored features.
+    LABEL_SOURCE: str = "statistical"
     REQUIRES_API_KEY: bool = False
     FEATURE_COLUMNS: list[str] = [
         "alert_level_numeric",

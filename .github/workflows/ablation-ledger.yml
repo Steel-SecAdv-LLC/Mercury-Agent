@@ -1,0 +1,106 @@
+# Mercury-Agent Honest Fitness Substrate / Marginal Ablation Ledger
+# Phase 1 of governed recursive self-improvement.
+#
+# This is the leakage-split gate the autonomous self-improvement loop's
+# fitness signal will read from once Phase 2's promotion gate is wired.
+# It enforces, on every PR to a release branch:
+#
+#   1. The loader-side label-provenance audit is clean
+#      (tests/loaders/test_label_provenance_gate.py): every concrete
+#      live-API loader is registered with an audited LABEL_SOURCE and the
+#      AST circularity heuristic stays silent on the genuine ones.
+#   2. The governed-fusion manifest's per-event label_provenance /
+#      series_provenance / external_label tags agree with the loader
+#      registry and reconcile to the committed provenance_summary
+#      (tests/research/test_governed_fusion_label_provenance.py).
+#   3. The marginal-ablation ledger module produces records matching its
+#      committed schema and computes leave-one-out lift correctly on
+#      synthetic ground truth (tests/research/test_marginal_ablation_ledger.py).
+#   4. The measurement entry point itself runs and appends one record (an
+#      informational 'needs_cache' record when no $GF_CACHE_DIR is present
+#      on the runner, otherwise the real per-component lift). The ledger is
+#      uploaded as a CI artifact for review and post-Phase-2 regression.
+#
+# Loosening any of these gates to make CI pass is an automatic failure of
+# the governed-self-improvement discipline: a fitness signal that can be
+# silently broadened to admit leakage is no signal at all.
+#
+# Copyright (C) 2025 Steel Security Advisors LLC
+
+name: Honest Fitness Substrate (Ablation Ledger)
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ablation-ledger-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+on:
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+  schedule:
+    # Nightly, 05:17 UTC.  Decoupled from fusion-regression's Sunday weekly
+    # so a manifest-drift surfaces within 24h not 7 days.
+    - cron: "17 5 * * *"
+
+env:
+  PYTHON_VERSION: "3.12"
+  MERCURY_REQUIRES_ML: "1"
+
+jobs:
+  ablation-ledger:
+    name: Leakage-split gate + marginal ablation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Mercury [ml] + test tooling
+        run: |
+          python -m pip install --upgrade "pip>=26.1"
+          pip install -e ".[ml]"
+          pip install pytest pytest-asyncio scikit-learn hypothesis
+
+      # AMA Cryptography is the mandatory PQC backend; the package fails
+      # closed at import without it.
+      - name: Build AMA Cryptography (native PQC)
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v3.2.0
+
+      # 1. Loader-side audit -- the foundation everything else stands on.
+      - name: Loader label-provenance audit
+        run: python -m omni_mercury_engine.loaders.label_provenance --check
+
+      # 2. Manifest integrity vs loader registry (offline, no cache).
+      - name: Manifest provenance integrity
+        run: pytest tests/research/test_governed_fusion_label_provenance.py -q
+
+      # 3. Ablation ledger schema + math correctness on synthetic events.
+      - name: Marginal-ablation ledger unit tests
+        run: pytest tests/research/test_marginal_ablation_ledger.py -q
+
+      # 4. Run the actual measurement.  When the score cache is absent on
+      # the runner, the script writes a 'needs_cache' record (exit 0) so
+      # the ledger keeps a chronological account of reachability without
+      # blocking the gate.  --check would be enabled by the same job on a
+      # nightly runner with a pre-built $GF_CACHE_DIR; that's a Phase 2
+      # follow-up, not Phase 1's deliverable.
+      - name: Measure marginal-ablation ledger (informational)
+        run: |
+          source research/governed_fusion/gf_env.sh
+          python research/governed_fusion/measure_marginal_ablation.py
+
+      - name: Upload ablation ledger
+        uses: actions/upload-artifact@v7
+        with:
+          name: ablation-ledger
+          path: research/governed_fusion/ablation_ledger.json
+          retention-days: 90

@@ -221,6 +221,9 @@ class HurricaneLoader(BaseDomainLoader):
 
     DOMAIN: str = "hurricane"
     SOURCE_URL: str = _BASE_CSV_URL
+    # Labels = 24h wind delta >= 30 kt (rapid intensification window); the
+    # 24h wind delta is also a scored feature. Feature-threshold circularity.
+    LABEL_SOURCE: str = "statistical"
     REQUIRES_API_KEY: bool = False
     FEATURE_COLUMNS: list[str] = [
         "delta_wind_6h",

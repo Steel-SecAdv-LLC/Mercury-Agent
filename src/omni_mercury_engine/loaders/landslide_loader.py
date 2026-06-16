@@ -141,6 +141,10 @@ class LandslideLoader(BaseDomainLoader):
 
     DOMAIN: str = "landslide"
     SOURCE_URL: str = "https://maps.nccs.nasa.gov/arcgis/rest/services/" "global_landslide_catalog/"
+    # Labels = (fatality_count > 0) OR (size_code >= large). Both
+    # ``fatality_count`` and ``size_code`` are scored features. Direct
+    # feature-equality / feature-threshold circularity.
+    LABEL_SOURCE: str = "statistical"
     REQUIRES_API_KEY: bool = False
     FEATURE_COLUMNS: list[str] = [
         "category_code",

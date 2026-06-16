@@ -219,3 +219,29 @@ The stopping point remains principled, not an omission: every module with an
 honest, non-contrived measurement has one; the rest wait — ranked and retained
 — for a real task to measure them against, exactly as rows 10/11 did until the
 orchestration task arose.
+
+## 7. Standing fitness substrate — fusion-marginal ablation ledger
+
+`benchmarks/dormant_module_revival.py` is the **one-off** revival harness:
+operator-triggered, ADBench-corpus-only, results frozen in
+`artifacts/dormant_module_revival.json`. Phase 1 of the governed recursive
+self-improvement work introduces the **standing** complement to that
+harness — `research/governed_fusion/measure_marginal_ablation.py`. It
+measures the per-component leave-one-out lift of the default fusion stack
+(`resonance`, `kinematic`, `info_geo`) on the *honest fitness subset* of
+the governed-fusion live suite — the audited externally-labelled events
+only — and appends one record per CI run to
+`research/governed_fusion/ablation_ledger.json`. The CI workflow
+`.github/workflows/ablation-ledger.yml` runs it on every PR and nightly.
+
+This is what closes the measurement-to-revival loop for live-API
+domains: a future detector promoted via the `engine.py` registration
+seam earns a ledger entry the first time it appears in the fusion stack;
+a future component whose lift drifts to zero across consecutive ledger
+entries is the candidate for retirement. The generalised recurring
+dormant-revival job (Phase 3 of the self-improvement plan) reads from this
+ledger; this PR ships only the substrate, not the recurring policy.
+
+See `docs/SELF_IMPROVEMENT_LOOP.md` for the full rollout narrative and
+the scope boundaries between Phase 1 (this substrate) and Phase 3 (the
+recurring revival job).

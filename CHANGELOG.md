@@ -27,6 +27,106 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Phase 1: Honest fitness substrate — leakage-split gate + fusion-marginal ablation ledger (2026-06-16)
+
+Closes the **measurement** stage of the governed recursive self-improvement
+loop. The autonomous self-improvement work that follows (Phase 2: governed
+promotion gate; Phase 3: Reflexion / drift-triggered recalibration / recurring
+dormant revival) optimises whatever the fitness signal measures — and Phase 0
+verification found the fitness signal was partly dishonest. The `loaders/`
+side of the codebase had no label-provenance discipline at all, even though
+the governed-fusion suite (`research/governed_fusion/`) was already using
+those loaders to compute its 23-event live headline. Of the 15 concrete
+live-API loaders, **13** manufacture anomaly labels by thresholding a column
+that is also a scored feature (label leakage / circularity); only **2**
+(`network_security`, `sepsis`) produce labels independent of the scored
+signal. Phase 1 surfaces that honestly and CI-enforces the discipline so the
+autonomous loop reads only honest events.
+
+* `src/omni_mercury_engine/loaders/base.py` — adds `LABEL_SOURCE: str = "ground_truth"`
+  to `BaseDomainLoader` (forcing-honesty default; loaders override to declare
+  their actual provenance). Mirrors `datasets/base.py`.
+* Every concrete loader updated with an audited `LABEL_SOURCE` and a
+  per-loader justification citing the exact circular pattern: earthquake
+  (`magnitude >= mainshock_mag - 1.0` on feature[0]), hurricane (24h wind
+  delta on the scored wind-delta feature), tornado (`mag >= 3` on
+  feature[0] `ef_scale`), fema (DR + IA + PA flags scored as features),
+  marine (richness-decline threshold on the scored richness-loss feature),
+  pandemic (7d rolling > 2x 30d baseline on the same 7d feature; ebola_2014
+  reconstructed), energy (`kp >= 7` on reconstructed kp), tsunami
+  (reconstructed series), financial (VIX / yield-curve thresholds on scored
+  features), flood (`gauge_height >= NWS flood-stage` on feature[0]),
+  landslide (fatality/size on scored features), wildfire (FRP p90 on scored
+  `frp`), volcanic (alert level on scored feature 1). The two
+  ground-truth loaders (`network_security`, `sepsis`) are explicitly
+  declared with their justifications.
+* `src/omni_mercury_engine/loaders/label_provenance.py` — canonical
+  per-loader registry (`LABEL_PROVENANCE_REGISTRY`), audit
+  (`audit_label_provenance`), discovery (`discover_loaders`), AST
+  circularity heuristic (`scan_circular_label_construction`), and the
+  honest-subset helper (`ground_truth_loader_keys`). Module CLI:
+  `python -m omni_mercury_engine.loaders.label_provenance --check`.
+* `research/governed_fusion/label_provenance.py` — pivots from per-loader
+  `LABEL_SOURCE` to per-event `(label_provenance, series_provenance,
+  external_label)`. Single source of truth for the manifest, the
+  aggregator, and the ablation ledger.
+* `research/governed_fusion/manifest.json` — every entry now carries the
+  three new audit fields, plus a top-level `provenance_summary` block.
+  Today's headline: 2 external-label, 21 self-label, 7 reconstructed.
+* `research/governed_fusion/build_manifest.py` — emits the new fields
+  and summary; reads from the loader audit so manifest and loader
+  registry can never silently drift.
+* `research/governed_fusion/evaluate.py` — `aggregate()` adds a
+  `per_provenance` breakdown alongside `per_event` / `per_domain` /
+  `overall`. Phase 2's promotion gate reads `external_label` only.
+* `research/governed_fusion/measure_baseline.py` — prints the
+  per-provenance block alongside the per-domain block, with the
+  external-label bucket tagged `(FITNESS)`.
+* `research/governed_fusion/measure_marginal_ablation.py` — standing
+  fusion-marginal ablation ledger: leave-one-component-out
+  ΔAUROC / ΔAUPRC / ΔF1 on the external-label live subset only. Records
+  timestamp, git SHA, components, and event keys per run. When the
+  score cache is absent (typical on a fresh CI runner) emits an
+  informational `needs_cache` record (exit 0) so the ledger keeps a
+  chronological reachability account.
+* `research/governed_fusion/ablation_ledger.json` — seed ledger; the
+  fitness function the autonomous loop will climb.
+* `.github/workflows/ablation-ledger.yml` — runs on PR + nightly: loader
+  audit, manifest integrity, ledger schema + math correctness, then the
+  measurement itself. Uploads the ledger as a CI artifact.
+* `tests/loaders/test_label_provenance_gate.py` (12 assertions) —
+  mirrors the `datasets/` gate for the live-API path.
+* `tests/research/test_governed_fusion_label_provenance.py` (7
+  assertions) — per-event provenance integrity, manifest-vs-loader
+  drift, the `external_label` bucket lock at exactly
+  `{network_security/batadal, network_security/nsl_kdd}`.
+* `tests/research/test_marginal_ablation_ledger.py` (5 assertions) —
+  ledger schema, math correctness on synthetic events (informative
+  components produce positive lift; a noise component ranks below),
+  and the missing-cache informational path.
+* `docs/SELF_IMPROVEMENT_LOOP.md` — the rollout narrative: the verified
+  capabilities map, the honest baseline, the 10-dataset reconciliation
+  (mirror vs cannot-score), Phase 1 deliverables, and the explicit
+  out-of-scope decisions for Phases 2–8 (each is a documented decision,
+  not a gap). NAS is excluded; UBI 9/10 is a separate PR; HITL for
+  actuation is documented as a Phase 8 contingency, not a Phase 1
+  deliverable (Mercury is sensing-only today).
+* `docs/BENCHMARKS.md` — adds the honest-split block surfacing the
+  Phase 1 finding: of the 23 live events, only 2 (network_security)
+  produce labels independent of any scored feature; honest mean AUROC
+  **0.7704** / F1 **0.1863**.
+* `docs/DORMANCY_LEDGER.md` — section 7 names the ablation ledger as
+  the standing measurement substrate the future recurring revival job
+  (Phase 3) will write through.
+* `README.md` — adds a paragraph on the live-API loader provenance
+  audit and points at `docs/SELF_IMPROVEMENT_LOOP.md`.
+
+No gate, threshold, ethics floor, or assertion was loosened to make CI
+pass: σ_Immutable (0.93/0.96), benevolence floor (0.99), Lyapunov
+certificate, conformal coverage target (0.90), the
+`fusion-regression.yml` floors, and the existing `datasets/`-side
+provenance gate are all unchanged. The new gates are additive.
+
 ### Geospatial kernel + movement-plausibility detector — one lat/lon geometry, a boreal undercount fixed, FINDΩYOU groundwork (2026-06-11)
 
 Consolidates all latitude/longitude geometry behind a single numpy-only

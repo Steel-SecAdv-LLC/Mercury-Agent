@@ -110,6 +110,9 @@ class WildfireLoader(BaseDomainLoader):
 
     DOMAIN: str = "wildfire"
     SOURCE_URL: str = "https://firms.modaps.eosdis.nasa.gov/api/area/csv/"
+    # Labels = (FRP >= 90th percentile) and ``frp`` is a scored feature.
+    # Per-dataset percentile threshold on a scored feature — circular.
+    LABEL_SOURCE: str = "statistical"
     REQUIRES_API_KEY: bool = True
     API_KEY_ENV_VAR: str = "NASA_FIRMS_MAP_KEY"
     FEATURE_COLUMNS: list[str] = [
