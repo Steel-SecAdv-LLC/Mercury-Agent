@@ -56,8 +56,14 @@ jobs:
         with:
           ama-ref: v3.2.0
 
-      - name: Phase 3 governance unit tests
-        run: pytest tests/research/test_phase3_governance.py -q
+      - name: Phase 3 governance routing + live-wiring tests
+        # The routing-logic tests are deterministic and network-free; the
+        # live-wiring tests instantiate the real orchestrator / online-learning
+        # pipeline against the real promotion gate (engine + [ml] + AMA are
+        # installed above), proving the governed arrows are connected end to end.
+        run: >-
+          pytest tests/research/test_phase3_governance.py
+          tests/research/test_phase3_live_wiring.py -q
 
   recurring-dormant-revival:
     name: Recurring dormant-module revival measurement
