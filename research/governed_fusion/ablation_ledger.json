@@ -6,7 +6,7 @@
     "kinematic",
     "info_geo"
   ],
-  "honest_fitness_bucket": "external_label",
+  "transparent_fitness_bucket": "external_label",
   "note": "Phase 1 seed record. The script measure_marginal_ablation.py appends one entry per CI run; the rolling baseline for regression is the most recent 'ok' record. When run on a host with no cached event scores (e.g. a fresh CI runner before measure_baseline has fit + cached), the record is written with status='needs_cache' so the ledger always carries a chronological account of suite reachability.",
   "runs": []
 }

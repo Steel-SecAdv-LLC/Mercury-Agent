@@ -1,4 +1,4 @@
-# Mercury-Agent Honest Fitness Substrate / Marginal Ablation Ledger
+# Mercury-Agent Transparent Fitness Substrate / Marginal Ablation Ledger
 # Phase 1 of governed recursive self-improvement.
 #
 # This is the leakage-split gate the autonomous self-improvement loop's
@@ -27,7 +27,7 @@
 #
 # Copyright (C) 2025 Steel Security Advisors LLC
 
-name: Honest Fitness Substrate (Ablation Ledger)
+name: Transparent Fitness Substrate (Ablation Ledger)
 
 permissions:
   contents: read

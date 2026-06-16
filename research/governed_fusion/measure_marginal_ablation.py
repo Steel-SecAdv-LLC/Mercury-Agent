@@ -4,7 +4,7 @@
 
 For every component in the default fusion stack (``resonance``, ``kinematic``,
 ``info_geo``), compute the leave-one-out marginal lift on **external-label
-live events only** -- the honest fitness substrate Phase 2's promotion gate
+live events only** -- the transparent fitness substrate Phase 2's promotion gate
 reads from.  The lift per component is
 
     delta_AUROC[c] = AUROC(mean(all components)) - AUROC(mean(all - c))
@@ -79,7 +79,7 @@ def _is_git_sha(value: str) -> bool:
 def _f1_from_scores(y: np.ndarray[Any, Any], s: np.ndarray[Any, Any]) -> float:
     """Best-of-threshold F1, mirroring the suite's oracle-F1 convention.
 
-    The honest-fitness ledger reports the *best-achievable* operational F1
+    The transparent-fitness ledger reports the *best-achievable* operational F1
     (a calibration-independent, ranking-only summary), the same convention
     the rest of the governed-fusion measurements use.
     """
@@ -240,7 +240,7 @@ def _load_ledger() -> dict[str, Any]:
             "schema_version": 1,
             "ledger": "governed-fusion marginal ablation",
             "components": list(_COMPONENTS),
-            "honest_fitness_bucket": "external_label",
+            "transparent_fitness_bucket": "external_label",
             "runs": [],
         }
     with _LEDGER_PATH.open() as fh:
@@ -283,7 +283,7 @@ def measure(*, cache_dir: str = _DEFAULT_CACHE_DIR) -> dict[str, Any]:
         record.update(_empty_subset_record("no_external_label_events"))
         record["note"] = (
             "the manifest contains no live events with audited ground-truth "
-            "labels; the honest fitness substrate is empty"
+            "labels; the transparent fitness substrate is empty"
         )
         return record
 

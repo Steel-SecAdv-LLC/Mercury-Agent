@@ -2,14 +2,14 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Per-event label-provenance integrity for the governed-fusion manifest.
 
-This locks the honest-fitness substrate Phase 2's promotion gate reads from:
+This locks the transparent-fitness substrate Phase 2's promotion gate reads from:
 
 * every (domain, event_id) in the manifest classifies cleanly into one of
   ``external_label`` / ``self_label`` / ``reconstructed``;
 * the manifest's ``provenance_summary`` agrees with the loader-side audit;
 * the ``external_label`` bucket is exactly the two ``network_security``
-  events (Phase 1's honest finding) -- not zero (a regression that would
-  silently strand the autonomous fitness loop with no honest signal) and
+  events (Phase 1's provenance finding) -- not zero (a regression that would
+  silently strand the autonomous fitness loop with no admissible signal) and
   not silently broader (a regression that would re-admit a leakage-flagged
   event without an audited registry update);
 * every manifest entry's ``label_provenance`` matches the loader's
@@ -26,7 +26,7 @@ import pytest
 
 from omni_mercury_engine.datasets.metadata import GENUINE_LABEL_SOURCES
 from research.governed_fusion.label_provenance import (
-    HONEST_BUCKET,
+    FITNESS_BUCKET,
     event_is_external_label,
     label_provenance,
     series_provenance,
@@ -59,7 +59,7 @@ def test_manifest_provenance_matches_loader_audit(manifest: dict[str, Any]) -> N
     A drift here means either the manifest was hand-edited out of sync (which
     is what build_manifest.py prevents), or a loader's ``LABEL_SOURCE`` was
     flipped without re-running the manifest builder. Either way the headline
-    is no longer honest.
+    is no longer provenance-safe.
     """
     for e in _all_entries(manifest):
         d, eid = e["domain"], e["event_id"]
@@ -69,7 +69,7 @@ def test_manifest_provenance_matches_loader_audit(manifest: dict[str, Any]) -> N
 
 
 def test_external_label_bucket_is_the_phase_1_finding(manifest: dict[str, Any]) -> None:
-    """Phase 1's honest finding: only 2 live events feed the fitness signal.
+    """Phase 1's provenance finding: only 2 live events feed the fitness signal.
 
     Today those are network_security/batadal and network_security/nsl_kdd
     (the only loader in the manifest with audited ``LABEL_SOURCE = "ground_truth"``).
@@ -77,7 +77,7 @@ def test_external_label_bucket_is_the_phase_1_finding(manifest: dict[str, Any]) 
     the loader registry with an audited justification, then update this test
     explicitly. Do not weaken the assertion silently.
     """
-    bucket = manifest["provenance_summary"]["real"][HONEST_BUCKET]
+    bucket = manifest["provenance_summary"]["real"][FITNESS_BUCKET]
     assert bucket["n_events"] == 2, bucket
 
     expected = {
@@ -128,5 +128,5 @@ def test_provenance_summary_counts_match_entries(manifest: dict[str, Any]) -> No
         assert from_summary == counted, (kind, from_summary, counted)
 
 
-def test_honest_fitness_bucket_is_named_external_label(manifest: dict[str, Any]) -> None:
-    assert manifest["provenance_summary"]["honest_fitness_bucket"] == HONEST_BUCKET
+def test_transparent_fitness_bucket_is_named_external_label(manifest: dict[str, Any]) -> None:
+    assert manifest["provenance_summary"]["transparent_fitness_bucket"] == FITNESS_BUCKET

@@ -76,7 +76,7 @@ Results" block.
 | Mean Oracle F1 | 0.5886 |
 | Median Oracle F1 | 0.6250 |
 
-### Honest fitness substrate (Phase 1) — governed-fusion live suite
+### Transparent fitness substrate (Phase 1) — governed-fusion live suite
 
 Phase 1 of the governed recursive self-improvement work (see
 `docs/SELF_IMPROVEMENT_LOOP.md`) extends the same label-provenance
@@ -91,10 +91,10 @@ in the live headline manifest, only **2** have audited ground-truth labels
 
 | Bucket | n_events | Mean AUROC | Mean F1 | Notes |
 |---|---:|---:|---:|---|
-| `external_label` (FITNESS) | 2 | 0.7704 | 0.1863 | The honest fitness signal Phase 2's promotion gate reads from. |
+| `external_label` (FITNESS) | 2 | 0.7704 | 0.1863 | The transparent fitness signal Phase 2's promotion gate reads from. |
 | `self_label` (leakage-flagged) | 21 | 0.8282 | 0.2854 | Reported for pipeline transparency; never folded into the headline that grades self-improvement. |
 | `reconstructed` | 7 | n/a | n/a | Reported separately by existing suite design. |
-| Mixed (historical) | 23 | 0.8231 | 0.2768 | The pre-Phase-1 headline; superseded by the honest split above. |
+| Mixed (historical) | 23 | 0.8231 | 0.2768 | The pre-Phase-1 headline; superseded by the provenance split above. |
 
 The audit is committed in
 `src/omni_mercury_engine/loaders/label_provenance.py`
@@ -107,7 +107,7 @@ fusion-marginal ablation ledger
 `.github/workflows/ablation-ledger.yml`) tracks per-component leave-one-out
 lift on the `external_label` subset only.
 
-The honest mean is *below* the historical mixed mean. Label leakage
+The external-label mean is *below* the historical mixed mean. Label leakage
 does not only inflate; it can also degrade in either direction depending
 on the geometry of the threshold rule. The discipline is unchanged
 either way: do not grade self-improvement against labels that are a

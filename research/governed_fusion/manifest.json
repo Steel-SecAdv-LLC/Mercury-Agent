@@ -41,8 +41,8 @@
         "n_pos": 1611
       }
     },
-    "honest_fitness_bucket": "external_label",
-    "honest_fitness_note": "Phase 2's promotion gate / autonomous fitness signal reads only live events with label_provenance in {ground_truth, expert_annotated}. Self-labelled events are reported separately as leakage-flagged; reconstructed-series events are reported separately by design."
+    "transparent_fitness_bucket": "external_label",
+    "transparent_fitness_note": "Phase 2's promotion gate / autonomous fitness signal reads only live events with label_provenance in {ground_truth, expert_annotated}. Self-labelled events are reported separately as leakage-flagged; reconstructed-series events are reported separately by design."
   },
   "real": [
     {

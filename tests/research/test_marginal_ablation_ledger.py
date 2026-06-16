@@ -87,7 +87,7 @@ def test_committed_ledger_is_well_formed() -> None:
     assert ledger["schema_version"] == 1
     assert ledger["ledger"] == "governed-fusion marginal ablation"
     assert ledger["components"] == list(_COMPONENTS)
-    assert ledger["honest_fitness_bucket"] == "external_label"
+    assert ledger["transparent_fitness_bucket"] == "external_label"
     assert isinstance(ledger["runs"], list)
 
 

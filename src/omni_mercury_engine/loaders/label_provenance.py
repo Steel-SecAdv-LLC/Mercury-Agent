@@ -3,7 +3,7 @@
 """Canonical label-provenance leak detector for the live-API loaders.
 
 Phase 1 of the governed recursive self-improvement loop: the autonomous
-fitness signal can only be honest if every loader feeding it has its label
+fitness signal can only be trusted if every loader feeding it has its label
 provenance declared and verified.  This module is the live-API mirror of
 :mod:`omni_mercury_engine.datasets.label_provenance` (which enforces the
 same discipline for the ADBench / benchmark side of the codebase).
@@ -102,7 +102,7 @@ from omni_mercury_engine.loaders.base import BaseDomainLoader
 #   none              -- unlabeled.
 # ---------------------------------------------------------------------------
 LABEL_PROVENANCE_REGISTRY: dict[str, tuple[str, str]] = {
-    # --- Genuine ground-truth (eligible for the honest fitness substrate) ---
+    # --- Genuine ground-truth (eligible for the transparent fitness substrate) ---
     "network_security_loader.NetworkSecurityLoader": (
         "ground_truth",
         "Benchmark per-row attack flags (NSL-KDD ``label``, BATADAL ``ATT_FLAG``).",
@@ -244,7 +244,7 @@ def scan_circular_label_construction(cls: type) -> bool:
 
     Applies only to *real* (non-synthetic) code paths -- methods whose name
     contains ``synthetic`` or ``reconstruct`` are skipped, since a clearly
-    labelled, gated synthetic / reconstructed fallback is a separate honesty
+    labelled, gated synthetic / reconstructed fallback is a separate provenance
     mechanism (the suite's ``RECONSTRUCTED_*`` lists), not a circular real-
     label path.
 
@@ -393,7 +393,7 @@ def audit_label_provenance(
 def ground_truth_loader_keys() -> frozenset[str]:
     """Registry keys whose audited provenance is genuine ground truth.
 
-    These are the only loaders whose events feed the honest fitness signal
+    These are the only loaders whose events feed the transparent fitness signal
     that Phase 2's promotion gate will read from. Used by the governed-fusion
     suite to partition the manifest into ``external_label`` vs leakage-flagged.
     """
@@ -433,7 +433,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.check:
             return 1
         return 0
-    print("\nclean: every loader is registered, declared honestly, and non-circular.")
+    print("\nclean: every loader is registered, provenance-declared, and non-circular.")
     return 0
 
 

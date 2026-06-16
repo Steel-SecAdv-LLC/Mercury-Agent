@@ -20,8 +20,8 @@ Two orthogonal axes of "trust" exist for an event:
 * **series_provenance** -- is the row data live or reconstructed-from-stats?
   ``live | reconstructed``.  Tracked by ``suite.is_reconstructed``.
 
-An event is **eligible for the honest fitness signal** iff both axes are
-trustworthy: ``label_provenance in GENUINE_LABEL_SOURCES`` *and*
+An event is **eligible for the transparent fitness signal** iff both axes
+are independently auditable: ``label_provenance in GENUINE_LABEL_SOURCES`` *and*
 ``series_provenance == "live"``.  Today that intersection is exactly the
 two ``network_security`` events (``batadal``, ``nsl_kdd``); ``sepsis`` is
 the third genuine loader but it has no events in the governed-fusion
@@ -80,12 +80,12 @@ def series_provenance(domain: str, event_id: str) -> str:
 
 
 def event_is_external_label(domain: str, event_id: str) -> bool:
-    """True iff an event is honest for the autonomous fitness signal.
+    """True iff an event is admissible for the autonomous fitness signal.
 
-    Honest = labels are genuine ground-truth / expert annotation **and** the
-    row data is live (not reconstructed).  These are the only events the
-    Phase 2 promotion gate is allowed to grade a self-improvement proposal
-    on; everything else is reported separately as leakage-flagged.
+    Admissible = labels are genuine ground-truth / expert annotation **and**
+    the row data is live (not reconstructed).  These are the only events
+    the Phase 2 promotion gate is allowed to grade a self-improvement
+    proposal on; everything else is reported separately as leakage-flagged.
     """
     return (
         label_provenance(domain) in GENUINE_LABEL_SOURCES
@@ -94,7 +94,7 @@ def event_is_external_label(domain: str, event_id: str) -> bool:
 
 
 def external_label_events(events: list[EventData]) -> list[EventData]:
-    """Filter ``events`` to those eligible for the honest fitness signal."""
+    """Filter ``events`` to those eligible for the transparent fitness signal."""
     return [ev for ev in events if event_is_external_label(ev.domain, ev.event_id)]
 
 
@@ -138,12 +138,12 @@ def summary(events: list[EventData]) -> dict[str, dict[str, int]]:
     return out
 
 
-#: Bucket name used everywhere for the honest fitness substrate.
-HONEST_BUCKET: Final[str] = "external_label"
+#: Bucket name used everywhere for the transparent fitness substrate.
+FITNESS_BUCKET: Final[str] = "external_label"
 
 
 __all__ = [
-    "HONEST_BUCKET",
+    "FITNESS_BUCKET",
     "event_is_external_label",
     "external_label_events",
     "label_provenance",

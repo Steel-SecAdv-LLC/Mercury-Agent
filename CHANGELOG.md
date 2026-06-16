@@ -27,25 +27,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Phase 1: Honest fitness substrate — leakage-split gate + fusion-marginal ablation ledger (2026-06-16)
+### Phase 1: Transparent fitness substrate — leakage-split gate + fusion-marginal ablation ledger (2026-06-16)
 
 Closes the **measurement** stage of the governed recursive self-improvement
 loop. The autonomous self-improvement work that follows (Phase 2: governed
-promotion gate; Phase 3: Reflexion / drift-triggered recalibration / recurring
-dormant revival) optimises whatever the fitness signal measures — and Phase 0
-verification found the fitness signal was partly dishonest. The `loaders/`
-side of the codebase had no label-provenance discipline at all, even though
+promotion gate; Phase 3: Reflexion / drift-triggered recalibration /
+recurring dormant revival) optimises whatever the fitness signal measures —
+and Phase 0 verification found the fitness signal was partly
+provenance-contaminated. The `loaders/` side of the codebase had no
+label-provenance discipline at all, even though
 the governed-fusion suite (`research/governed_fusion/`) was already using
 those loaders to compute its 23-event live headline. Of the 15 concrete
 live-API loaders, **13** manufacture anomaly labels by thresholding a column
 that is also a scored feature (label leakage / circularity); only **2**
 (`network_security`, `sepsis`) produce labels independent of the scored
-signal. Phase 1 surfaces that honestly and CI-enforces the discipline so the
-autonomous loop reads only honest events.
+signal. Phase 1 surfaces that transparently and CI-enforces the discipline
+so the autonomous loop reads only independently labelled live events.
 
-* `src/omni_mercury_engine/loaders/base.py` — adds `LABEL_SOURCE: str = "ground_truth"`
-  to `BaseDomainLoader` (forcing-honesty default; loaders override to declare
-  their actual provenance). Mirrors `datasets/base.py`.
+* `src/omni_mercury_engine/loaders/base.py` — adds
+  `LABEL_SOURCE: str = "ground_truth"` to `BaseDomainLoader`
+  (provenance-declaration default; loaders override to declare their
+  actual provenance). Mirrors `datasets/base.py`.
 * Every concrete loader updated with an audited `LABEL_SOURCE` and a
   per-loader justification citing the exact circular pattern: earthquake
   (`magnitude >= mainshock_mag - 1.0` on feature[0]), hurricane (24h wind
@@ -64,7 +66,7 @@ autonomous loop reads only honest events.
   per-loader registry (`LABEL_PROVENANCE_REGISTRY`), audit
   (`audit_label_provenance`), discovery (`discover_loaders`), AST
   circularity heuristic (`scan_circular_label_construction`), and the
-  honest-subset helper (`ground_truth_loader_keys`). Module CLI:
+  ground-truth subset helper (`ground_truth_loader_keys`). Module CLI:
   `python -m omni_mercury_engine.loaders.label_provenance --check`.
 * `research/governed_fusion/label_provenance.py` — pivots from per-loader
   `LABEL_SOURCE` to per-event `(label_provenance, series_provenance,
@@ -106,15 +108,15 @@ autonomous loop reads only honest events.
   the missing-cache informational path, and `--cache-dir` propagation
   into the score-cache reader.
 * `docs/SELF_IMPROVEMENT_LOOP.md` — the rollout narrative: the verified
-  capabilities map, the honest baseline, the 10-dataset reconciliation
+  capabilities map, the transparent baseline, the 10-dataset reconciliation
   (mirror vs cannot-score), Phase 1 deliverables, and the explicit
   out-of-scope decisions for Phases 2–8 (each is a documented decision,
   not a gap). NAS is excluded; UBI 9/10 is a separate PR; HITL for
   actuation is documented as a Phase 8 contingency, not a Phase 1
   deliverable (Mercury is sensing-only today).
-* `docs/BENCHMARKS.md` — adds the honest-split block surfacing the
+* `docs/BENCHMARKS.md` — adds the provenance-split block surfacing the
   Phase 1 finding: of the 23 live events, only 2 (network_security)
-  produce labels independent of any scored feature; honest mean AUROC
+  produce labels independent of any scored feature; external-label mean AUROC
   **0.7704** / F1 **0.1863**.
 * `docs/DORMANCY_LEDGER.md` — section 7 names the ablation ledger as
   the standing measurement substrate the future recurring revival job

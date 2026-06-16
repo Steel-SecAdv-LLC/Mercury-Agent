@@ -41,7 +41,7 @@ def _mean(rows: list[dict[str, Any]], key: str) -> float:
 def aggregate(events: list[EventScores], scorer: Scorer) -> dict[str, Any]:
     """Return per-event rows, per-domain / per-provenance means and overall macro mean.
 
-    ``per_provenance`` carries the honest fitness substrate's headline: the
+    ``per_provenance`` carries the transparent fitness substrate's headline: the
     mean over the ``external_label`` bucket (live events with audited genuine
     labels) reported separately from the leakage-flagged ``self_label``
     bucket and the ``reconstructed`` bucket.  The autonomous loop's promotion

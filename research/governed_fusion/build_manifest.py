@@ -16,7 +16,7 @@ tsunami, energy, ebola_2014), so provenance is never ambiguous.
 Each entry additionally carries the audited ``label_provenance`` (the
 producing loader's ``LABEL_SOURCE`` -- ``ground_truth | expert_annotated |
 statistical | none``) and ``series_provenance`` (``live | reconstructed``)
-so the autonomous fitness loop reads only events where both are honest.
+so the autonomous fitness loop reads only independently labelled live events.
 The single source of truth for these fields is
 :mod:`research.governed_fusion.label_provenance`, which pivots from the
 loader-side audit (:mod:`omni_mercury_engine.loaders.label_provenance`).
@@ -36,7 +36,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -49,7 +49,7 @@ from research.governed_fusion.label_provenance import (
 from research.governed_fusion.measure_baseline import CAP
 from research.governed_fusion.suite import EventData, build_suite, stratified_subsample
 
-_GF_DIR = os.path.dirname(os.path.abspath(__file__))
+_GF_DIR = Path(__file__).resolve().parent
 
 
 def _sha256_xy(X: np.ndarray[Any, Any], y: np.ndarray[Any, Any]) -> str:
@@ -113,8 +113,8 @@ def _provenance_summary(real: list[dict[str, Any]], recon: list[dict[str, Any]])
     return {
         "real": _bucket(real),
         "reconstructed": _bucket(recon),
-        "honest_fitness_bucket": "external_label",
-        "honest_fitness_note": (
+        "transparent_fitness_bucket": "external_label",
+        "transparent_fitness_note": (
             "Phase 2's promotion gate / autonomous fitness signal reads only "
             "live events with label_provenance in {ground_truth, expert_annotated}. "
             "Self-labelled events are reported separately as leakage-flagged; "
@@ -150,8 +150,8 @@ def main() -> None:
         "real": real,
         "reconstructed": recon,
     }
-    out_path = os.path.join(_GF_DIR, "manifest.json")
-    with open(out_path, "w") as fh:
+    out_path = _GF_DIR / "manifest.json"
+    with out_path.open("w") as fh:
         json.dump(manifest, fh, indent=2)
 
     print(

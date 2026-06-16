@@ -1,22 +1,22 @@
-# Governed Recursive Self-Improvement — Phase 1 (Honest Fitness Substrate)
+# Governed Recursive Self-Improvement — Phase 1 (Transparent Fitness Substrate)
 
 > Status of this document: **Phase 1 in flight.** This PR closes the
-> measurement honesty problem only; Phases 2–8 are explicitly out of scope
+> measurement-provenance problem only; Phases 2–8 are explicitly out of scope
 > and tracked at the bottom of this document as documented decisions, not
 > as gaps. The single biggest risk to Mercury's recursive self-improvement
-> path was a dishonest fitness signal — optimising against labels that are
+> path was a contaminated fitness signal — optimising against labels that are
 > a deterministic function of the scored signal makes a system confidently
-> *worse* while its dashboards improve. Phase 1 surfaces that signal
-> honestly and locks the discipline in CI so later phases can build on
-> something real.
+> *worse* while its dashboards improve. Phase 1 surfaces that boundary
+> transparently and locks the discipline in CI so later phases can build on
+> independently auditable measurements.
 
 ## 0. What this loop is, in one paragraph
 
 Recursive self-improvement is one loop: **measure → propose a change →
-evaluate it safely → keep it only if it is genuinely better → lock it so
+evaluate it safely → keep it only if it is measurably better → lock it so
 it cannot regress.** Mercury already contains a fragment of every stage,
-but the loop is not closed and the measurement stage is partly dishonest.
-You cannot autonomously optimise against a dishonest signal — the
+but the loop is not closed and the measurement stage is partly contaminated.
+You cannot autonomously optimise against a provenance-contaminated signal — the
 optimiser will find the shortcut every time. Phase 1 fixes the
 measurement; Phase 2 (separate PR) wires the gated promotion path;
 Phase 3+ wire the recursive arrows.
@@ -33,7 +33,7 @@ proceeds from reality.
 | Capability | Existing seam (verified) | Notes |
 |---|---|---|
 | Measurement substrate | `research/governed_fusion/` (`suite.py`, `evaluate.py`, `metrics.py`, `measure_baseline.py`, `measure_conformal.py`, `measure_reliability_fusion.py`, `measure_survivability.py`, `measure_calibration*.py`, `measure_decorrelation.py`, `build_manifest.py`, `manifest.json`, `score_cache.py`) | Mature. The "fusion-marginal ablation" function the upstream prompt expected to find did **not** exist yet — Phase 1 adds it (`measure_marginal_ablation.py`). |
-| Honest-vs-leaky split | `README.md`, `docs/BENCHMARKS.md`, `src/omni_mercury_engine/datasets/label_provenance.py` (already gated by `tests/datasets/test_label_provenance_gate.py`). | Discipline existed only on the **`datasets/`** side. The **`loaders/`** side — which produces the governed-fusion live headline — had no provenance discipline at all. Phase 1 closes that gap. |
+| Transparent-vs-leakage-flagged split | `README.md`, `docs/BENCHMARKS.md`, `src/omni_mercury_engine/datasets/label_provenance.py` (already gated by `tests/datasets/test_label_provenance_gate.py`). | Discipline existed only on the **`datasets/`** side. The **`loaders/`** side — which produces the governed-fusion live headline — had no provenance discipline at all. Phase 1 closes that gap. |
 | Dead-loader tracking | `.github/workflows/dataset-reachability.yml`, v1.7.0 reachability harness. | Two-lane (offline / nightly) confirmed. |
 | Fusion regression CI | `.github/workflows/fusion-regression.yml`, `benchmarks/fusion_regression_guard.py`. | Confirmed; runs on PR + weekly. |
 | Dormancy / ablation (manual) | `benchmarks/dormant_module_revival.py`, `benchmarks/neurosymbolic_ablation.py`, `docs/DORMANCY_LEDGER.md`. | Confirmed manual passes. Phase 3 generalises to a recurring CI job — not in this PR. |
@@ -48,14 +48,14 @@ proceeds from reality.
 | PQC / FIPS | AMA-Cryptography v3.2.0 hard-required-at-import, `.github/workflows/pqc-production-check.yml`, `integrations/mercury_amacrypto.py`. | Confirmed fail-closed; Phase 1 leaves it unchanged. |
 | Hardware harness | `docs/HARDWARE_HARNESS.md`, `docs/drone/`, `docs/LIVE_DATA_VALIDATION.md`, `docs/DATASOURCES.md`. | Confirmed. Mercury today is **sensing-only**: no actuation path exists in code. The "human-in-the-loop for actuation" clause from the upstream prompt is therefore not a Phase 1 deliverable — it's a future Phase 8 contingency, not a gap. |
 
-### 1.2 Honest baseline metrics, locked
+### 1.2 Transparent baseline metrics, locked
 
 Reported as of this PR, computed from the committed
 `research/governed_fusion/results/baseline_results.json`:
 
 * **ADBench (47 datasets, externally labelled, comparable to published baselines):** Mean AUC **0.8180**, Mean F1 **0.5859**. *(`docs/BENCHMARKS.md`, `README.md` L182)*
 * **Governed-fusion live suite (23 events, mixed regime — historical).** Macro-mean AUROC **0.8231**, F1 **0.2768**. This number is the headline before Phase 1's leakage-split: it blends 2 ground-truth-labelled events with 21 statistical-labelled ones.
-* **Governed-fusion live suite, honest split (Phase 1 result):**
+* **Governed-fusion live suite, provenance split (Phase 1 result):**
 
 | Bucket | n_events | mean AUROC | mean F1 | source |
 |---|---:|---:|---:|---|
@@ -63,14 +63,14 @@ Reported as of this PR, computed from the committed
 | `self_label` (leakage-flagged) | 21 | 0.8282 | 0.2854 | every other live loader |
 | `reconstructed` | 7 | n/a (reported separately by design) | | `tsunami/*, energy/*, pandemic/ebola_2014` |
 
-The `external_label` row above is the honest fitness signal Phase 2's
+The `external_label` row above is the transparent fitness signal Phase 2's
 promotion gate will read from. It is **two events**, not 23 — and they're
 both from the same domain (`network_security`). That is the real
-rate-limiter on autonomous self-improvement today, and naming it honestly
+rate-limiter on autonomous self-improvement today, and making it explicit
 is Phase 1's deliverable.
 
 > The numbers above are per-event macro means recomputed from the
-> committed `baseline_results.json`. The honest-bucket mean is **lower**
+> committed `baseline_results.json`. The external-label mean is **lower**
 > than the mixed mean, which is at first counter-intuitive — the popular
 > reading of "label leakage" assumes leaky labels inflate AUROC toward
 > 1.0. Leaky labels can also produce *degenerate* splits (marine cells
@@ -84,7 +84,7 @@ is Phase 1's deliverable.
 The upstream prompt asked to "restore the 10 non-loading datasets so the
 eval is not blind". That oversells the recovery — several are
 licence-gated or require registration, and redistributing fixtures has
-exposure. The honest reframing is **reconcile**: mirror what is
+exposure. The professional framing is **reconcile**: mirror what is
 licence-compatible to mirror, mark the rest `cannot_score`. Phase 1 does
 the audit and locks the policy; the actual mirror commits (where
 appropriate) follow in a Phase-1.1 commit on the same branch or a
@@ -115,8 +115,9 @@ justification.
 ### 2.1 Loader-side label-provenance discipline (mirror of `datasets/`)
 
 * `src/omni_mercury_engine/loaders/base.py` — adds
-  `LABEL_SOURCE: str = "ground_truth"` to `BaseDomainLoader` (the
-  forcing-honesty default; loaders must override to be honest).
+  `LABEL_SOURCE: str = "ground_truth"` to `BaseDomainLoader` (a
+  provenance-declaration default; loaders must override to declare
+  their actual source).
 * All 15 concrete loaders updated:
   * `ground_truth` (2): `network_security_loader.NetworkSecurityLoader`,
     `sepsis_loader.SepsisLoader`.
@@ -195,7 +196,7 @@ justification.
 
 * `README.md` — adds the live-API loader provenance summary and points
   at this document.
-* `docs/BENCHMARKS.md` — adds a Phase 1 honest-split section (see below).
+* `docs/BENCHMARKS.md` — adds a Phase 1 provenance-split section (see below).
 * `docs/DORMANCY_LEDGER.md` — flags the ablation ledger as the
   standing measurement substrate the future generalised dormant-revival
   job will write through.
@@ -213,15 +214,14 @@ threshold, ethics floor, or assertion was loosened to make CI pass:
 * The pre-existing `fusion-regression.yml` floors are **unchanged**;
   the new `ablation-ledger.yml` is additive.
 
-The two findings that *moved* (and would be uncomfortable to surface but
-are honest):
+The two findings that *moved* and must be surfaced transparently:
 
-1. The governed-fusion live headline's honest subset is **2 events from
+1. The governed-fusion live headline's external-label subset is **2 events from
    one domain**, not 23 across seven. Every public Mercury claim of "live
    AUROC ~0.82 on real-world events" has been silently averaging two
    externally-labelled events with 21 leakage-contaminated ones. Phase 1
    stops doing that.
-2. The two ground-truth events' honest mean (AUROC 0.7704, F1 0.1863)
+2. The two ground-truth events' external-label mean (AUROC 0.7704, F1 0.1863)
    is **below** the previously-reported mixed mean. Leakage does not
    only inflate; it can also degrade in either direction. The discipline
    is the same: don't grade self-improvement against it.
@@ -230,7 +230,7 @@ are honest):
 
 The upstream prompt asked for one PR covering Phases 1–8. The
 authorising user capped this at **two PRs** and ordered Phase 1 first to
-prove the fitness signal is honest before any automation rides on it.
+prove the fitness signal is provenance-safe before any automation rides on it.
 Therefore this PR delivers Phase 1 only; everything below is a *decision*
 to defer, not a gap.
 
@@ -251,9 +251,9 @@ to defer, not a gap.
   the fitness signal is solid, and the fitness signal only became solid
   with Phase 1. That is a stated decision, not a gap.
 * **Phase 6 — continual-learning memory + neuro-symbolic evolution.**
-  Both must be either fully gated-and-real or fail-closed-and-honestly-
+  Both must be either fully gated-and-real or fail-closed-and-explicitly-
   labelled; neither qualifies today. Stays disabled behind its existing
-  flags with status honestly documented.
+  flags with status explicitly documented.
 * **Phase 7 — UBI 9/10 base + FIPS/PQC alignment.** The current main
   base is `python:3.13-slim-trixie` (post-#296). The UBI migration is a
   separate, contained PR — it does not belong on the fitness-substrate
