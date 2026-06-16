@@ -136,7 +136,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 #   CVE-2026-1703  (path traversal in wheel archives, GHSA-6vgw-5pg2-w6jp)
 #   CVE-2026-6357  (arbitrary code execution via malicious wheel)
 # The builder's venv (copied above) already ships pip>=26.1, but the base
-# python:3.14-slim-trixie image carries its OWN pip under /usr/local that
+# python:3.13-slim-trixie image carries its OWN pip under /usr/local that
 # Trivy detects.  Because ``ENV PATH`` puts /opt/venv/bin first, a bare
 # ``python -m pip`` would upgrade the *venv* pip (already patched) and leave
 # the vulnerable *system* pip in place — so target the system interpreter

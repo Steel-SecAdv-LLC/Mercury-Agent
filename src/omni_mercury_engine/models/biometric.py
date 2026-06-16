@@ -43,8 +43,11 @@ _SIMULATED_FALLBACK_WARNED = False
 
 
 def _warn_simulated_biometric_fallback() -> None:
-    """Emit one WARNING the first time biometric features fall back to the
-    simulated harmonic path because DeepFace is unavailable."""
+    """Warn once when face features fall back to the simulated path.
+
+    Fires the first time ``extract_features`` uses the harmonic fallback
+    because DeepFace is unavailable, so the degraded mode is never silent.
+    """
     global _SIMULATED_FALLBACK_WARNED
     if not _SIMULATED_FALLBACK_WARNED:
         _SIMULATED_FALLBACK_WARNED = True
