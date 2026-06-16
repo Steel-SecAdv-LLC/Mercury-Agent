@@ -137,6 +137,10 @@ class EnergyLoader(BaseDomainLoader):
 
     DOMAIN: str = "energy"
     SOURCE_URL: str = "https://services.swpc.noaa.gov/json/"
+    # Labels = (kp >= 7) and feature[0] is the same ``kp`` index.  The series
+    # itself is also reconstructed from documented Kp storm profiles (no live
+    # pre-realtime SWPC feed). Doubly circular.
+    LABEL_SOURCE: str = "statistical"
     REQUIRES_API_KEY: bool = False
     API_KEY_ENV_VAR: str = ""
     FEATURE_COLUMNS: list[str] = [

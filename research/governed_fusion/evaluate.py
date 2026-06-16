@@ -18,6 +18,11 @@ from typing import Any
 
 import numpy as np
 
+from research.governed_fusion.label_provenance import (
+    event_is_external_label,
+    label_provenance,
+    series_provenance,
+)
 from research.governed_fusion.metrics import pooled_metrics
 from research.governed_fusion.score_cache import EventScores
 
@@ -34,22 +39,49 @@ def _mean(rows: list[dict[str, Any]], key: str) -> float:
 
 
 def aggregate(events: list[EventScores], scorer: Scorer) -> dict[str, Any]:
-    """Return per-event rows, per-domain means and the overall macro mean."""
+    """Return per-event rows, per-domain / per-provenance means and overall macro mean.
+
+    ``per_provenance`` carries the transparent fitness substrate's headline: the
+    mean over the ``external_label`` bucket (live events with audited genuine
+    labels) reported separately from the leakage-flagged ``self_label``
+    bucket and the ``reconstructed`` bucket.  The autonomous loop's promotion
+    gate reads ``per_provenance["external_label"]`` only.
+    """
     per_event: list[dict[str, Any]] = []
     by_domain: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    by_provenance: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for es in events:
         y, score, pred = scorer(es)
         m: dict[str, Any] = dict(pooled_metrics(y, score, pred))
         m["domain"] = es.domain
         m["event"] = es.event_id
+        m["label_provenance"] = label_provenance(es.domain)
+        m["series_provenance"] = series_provenance(es.domain, es.event_id)
+        m["external_label"] = bool(event_is_external_label(es.domain, es.event_id))
         per_event.append(m)
         by_domain[es.domain].append(m)
+        if m["series_provenance"] == "reconstructed":
+            bucket = "reconstructed"
+        elif m["external_label"]:
+            bucket = "external_label"
+        else:
+            bucket = "self_label"
+        by_provenance[bucket].append(m)
     per_domain = {
         dom: {k: _mean(rows, k) for k in _KEYS} | {"n_events": len(rows)}
         for dom, rows in by_domain.items()
     }
+    per_provenance = {
+        bucket: {k: _mean(rows, k) for k in _KEYS} | {"n_events": len(rows)}
+        for bucket, rows in by_provenance.items()
+    }
     overall = {k: _mean(per_event, k) for k in _KEYS} | {"n_events": len(per_event)}
-    return {"per_event": per_event, "per_domain": per_domain, "overall": overall}
+    return {
+        "per_event": per_event,
+        "per_domain": per_domain,
+        "per_provenance": per_provenance,
+        "overall": overall,
+    }
 
 
 def print_compare(

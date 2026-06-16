@@ -95,6 +95,11 @@ class EarthquakeLoader(BaseDomainLoader):
 
     DOMAIN: str = "earthquake"
     SOURCE_URL: str = _REALTIME_URL
+    # Labels derive from ``df["magnitude"] >= mainshock_mag - 1.0``; magnitude
+    # is also feature[0], so this is a feature-threshold (circular). Excluded
+    # from the honest fitness substrate; reported only in the leakage-flagged
+    # split. See ``loaders.label_provenance``.
+    LABEL_SOURCE: str = "statistical"
     REQUIRES_API_KEY: bool = False
 
     FEATURE_COLUMNS: list[str] = [

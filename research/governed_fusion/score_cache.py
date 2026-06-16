@@ -49,14 +49,27 @@ class EventScores:
         return np.column_stack([self.resonance, self.kinematic, self.info_geo])
 
 
-def _scores_path(domain: str, event_id: str, cap: int, seed: int) -> str:
+def _scores_path(
+    domain: str,
+    event_id: str,
+    cap: int,
+    seed: int,
+    *,
+    cache_dir: str = _CACHE_DIR,
+) -> str:
     key = hashlib.sha256(f"{domain}:{event_id}:{cap}:{seed}".encode()).hexdigest()[:16]
-    return os.path.join(_CACHE_DIR, f"scores_{domain}_{event_id}_{cap}_{key}.npz")
+    return os.path.join(cache_dir, f"scores_{domain}_{event_id}_{cap}_{key}.npz")
 
 
-def event_scores(ev: EventData, *, cap: int = 6000, seed: int = 42) -> EventScores:
+def event_scores(
+    ev: EventData,
+    *,
+    cap: int = 6000,
+    seed: int = 42,
+    cache_dir: str = _CACHE_DIR,
+) -> EventScores:
     """Fit the default detector once on the (subsampled) event; cache outputs."""
-    path = _scores_path(ev.domain, ev.event_id, cap, seed)
+    path = _scores_path(ev.domain, ev.event_id, cap, seed, cache_dir=cache_dir)
     if os.path.exists(path):
         with np.load(path) as z:
             return EventScores(
@@ -89,7 +102,7 @@ def event_scores(ev: EventData, *, cap: int = 6000, seed: int = 42) -> EventScor
         ig_mean=np.asarray(det._ig_mean, dtype=np.float64).reshape(-1),
         ig_cov_inv=np.asarray(det._ig_cov_inv, dtype=np.float64),
     )
-    os.makedirs(_CACHE_DIR, exist_ok=True)
+    os.makedirs(cache_dir, exist_ok=True)
     np.savez(
         path,
         y=es.y,

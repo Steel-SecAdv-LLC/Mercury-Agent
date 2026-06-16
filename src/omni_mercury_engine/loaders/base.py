@@ -62,6 +62,18 @@ class BaseDomainLoader(ABC):
     #: Cache TTL in seconds (default 1 hour)
     CACHE_TTL: int = 3600
 
+    # Label provenance, declared at source. One of the values in
+    # ``datasets.metadata.VALID_LABEL_SOURCES``. Loaders that manufacture
+    # anomaly labels by thresholding a scored feature (``magnitude >= cut``,
+    # ``kp >= 7``, ``FRP >= p90``, a z-score fence) or by synthetic
+    # reconstruction MUST override this to ``"statistical"`` so the
+    # governed-fusion headline excludes them as circular and the autonomous
+    # fitness signal reads only honestly-labelled events. Defaults to
+    # ``"ground_truth"``; override to be honest. The frozen audit lives in
+    # ``omni_mercury_engine.loaders.label_provenance.LABEL_PROVENANCE_REGISTRY``
+    # and the CI gate in ``tests/loaders/test_label_provenance_gate.py``.
+    LABEL_SOURCE: str = "ground_truth"
+
     def __init__(
         self,
         cache_dir: Path | None = None,

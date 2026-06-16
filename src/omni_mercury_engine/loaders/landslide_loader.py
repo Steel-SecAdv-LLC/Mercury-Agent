@@ -141,6 +141,10 @@ class LandslideLoader(BaseDomainLoader):
 
     DOMAIN: str = "landslide"
     SOURCE_URL: str = "https://maps.nccs.nasa.gov/arcgis/rest/services/" "global_landslide_catalog/"
+    # Labels = (fatality_count > 0) OR (size_code >= large). Both
+    # ``fatality_count`` and ``size_code`` are scored features. Direct
+    # feature-equality / feature-threshold circularity.
+    LABEL_SOURCE: str = "statistical"
     REQUIRES_API_KEY: bool = False
     FEATURE_COLUMNS: list[str] = [
         "category_code",
@@ -650,17 +654,16 @@ def _parse_date(value: Any) -> datetime | None:
     if value is None or (isinstance(value, str) and value.strip() in ("", "None", "nan")):
         return None
 
-    # Try epoch milliseconds (ArcGIS often returns dates as ms since epoch)
+    numeric: float | None
     try:
         numeric = float(value)
-        if numeric > 1e12:
-            # Likely milliseconds since epoch
-            return datetime.utcfromtimestamp(numeric / 1000.0)
-        elif numeric > 1e9:
-            # Likely seconds since epoch
-            return datetime.utcfromtimestamp(numeric)
     except (ValueError, TypeError, OSError):
-        pass
+        numeric = None
+
+    if numeric is not None and numeric > 1e12:
+        return datetime.utcfromtimestamp(numeric / 1000.0)
+    if numeric is not None and numeric > 1e9:
+        return datetime.utcfromtimestamp(numeric)
 
     # Try ISO format parsing
     if isinstance(value, str):

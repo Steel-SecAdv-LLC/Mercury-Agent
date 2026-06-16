@@ -221,6 +221,11 @@ class FEMALoader(BaseDomainLoader):
 
     DOMAIN: str = "fema"
     SOURCE_URL: str = _DECLARATIONS_URL
+    # Labels = (declarationType == "DR") AND iaProgramDeclared AND
+    # paProgramDeclared. The ``ia_program`` / ``pa_program`` flags are also
+    # scored features, so the label is a direct conjunction of feature
+    # columns. Circular.
+    LABEL_SOURCE: str = "statistical"
     REQUIRES_API_KEY: bool = False
     FEATURE_COLUMNS: list[str] = [
         "state_fips",
