@@ -5,7 +5,7 @@
 # =============================================================================
 # Stage 1: Builder - Install dependencies in a full environment
 # =============================================================================
-FROM python:3.13-slim-trixie AS builder
+FROM python:3.14-slim-trixie AS builder
 
 # Install build dependencies
 # gfortran + libopenblas-dev + pkg-config: required when pip falls back to
@@ -59,7 +59,7 @@ COPY . /app
 # =============================================================================
 # Stage 2: Runtime - Minimal image with only runtime dependencies
 # =============================================================================
-FROM python:3.13-slim-trixie AS runtime
+FROM python:3.14-slim-trixie AS runtime
 
 # Build arguments for flexibility
 ARG USERNAME=mercuryagent
