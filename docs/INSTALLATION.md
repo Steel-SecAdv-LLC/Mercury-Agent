@@ -1,10 +1,10 @@
 # Installation
 
-Applies to Mercury Agent **v1.7.x**. Last updated: 2026-06-10.
+Applies to Mercury Agent **v1.7.x**. Last updated: 2026-06-16.
 
 ## Requirements
 
-- Python >= 3.11 (3.12 recommended; 3.13 supported)
+- Python >= 3.11 (3.12 recommended; 3.13 and 3.14 supported)
 - pip >= 26.1 (the CVE-2026-6357 floor enforced across every install
   path in CI by `tests/security/test_cve_2026_6357_regression.py`)
 - GCC >= 12 and CMake >= 4.3.2 for the AMA Cryptography native PQC

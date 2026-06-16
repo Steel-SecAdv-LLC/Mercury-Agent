@@ -34,6 +34,31 @@ except Exception:
     DEEPFACE_AVAILABLE = False
 
 
+# Flipped once, on the first feature-extraction call that has to fall back to
+# the simulated harmonic path because DeepFace is unavailable.  That fallback
+# is deterministic but is *not* a face-identity embedding, so we surface a
+# single WARNING rather than let callers silently mistake degraded signal for
+# real recognition (``biometric_advanced.py`` logs the equivalent per call).
+_SIMULATED_FALLBACK_WARNED = False
+
+
+def _warn_simulated_biometric_fallback() -> None:
+    """Warn once when face features fall back to the simulated path.
+
+    Fires the first time ``extract_features`` uses the harmonic fallback
+    because DeepFace is unavailable, so the degraded mode is never silent.
+    """
+    global _SIMULATED_FALLBACK_WARNED
+    if not _SIMULATED_FALLBACK_WARNED:
+        _SIMULATED_FALLBACK_WARNED = True
+        logger.warning(
+            "DeepFace unavailable -- biometric features are using the simulated "
+            "harmonic fallback, which is NOT a face-identity embedding and must "
+            "not be relied on for recognition or matching. Install the 'face' "
+            "extra on Python < 3.14 for real embeddings."
+        )
+
+
 class HarmonicDecomposer:
     """Simple harmonic decomposition using FFT for biometric feature analysis."""
 
@@ -222,6 +247,8 @@ class BiometricAnomalyModel:
                 logger.debug("DeepFace feature extraction failed, using harmonic fallback: %s", e)
                 features = self._extract_harmonic_features(data)
         else:
+            if DeepFace is None and image_input:
+                _warn_simulated_biometric_fallback()
             features = self._extract_harmonic_features(data)
 
         features = self._normalize_embedding_size(features)  # type: ignore[assignment, unused-ignore]

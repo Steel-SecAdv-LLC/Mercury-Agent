@@ -75,7 +75,7 @@ jobs:
     timeout-minutes: 10
     strategy:
       matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
 
     steps:
       - name: Checkout code (attempt 1)
@@ -129,7 +129,7 @@ jobs:
           # datasets/mitbih.py:105/109 between "needed" and "unused-ignore"
           # (1.19 vs 2.1); an unpinned pydocstyle could change the enforced
           # google-convention docstring codes out from under a green commit.
-          pip install "black==26.3.1" flake8 mypy==2.1.0 ruff pydocstyle==6.3.0
+          pip install "black==26.5.1" flake8 mypy==2.1.0 ruff pydocstyle==6.3.0
 
       - name: Run Black (formatting)
         run: black --check --diff src/ tests/
@@ -373,6 +373,19 @@ jobs:
       - name: Run suppression hygiene checks
         run: python scripts/check_suppression_hygiene.py
 
+      - name: Run pinned dev-tool version parity gate
+        # Dependency-free structural gate: black/mypy/types-requests/pydocstyle
+        # are pinned *exactly* for byte-identical behaviour local<->CI.  Each
+        # tool is pinned in a subset of pyproject.toml, this file, format.yml
+        # and .pre-commit-config.yaml (black in all four; the others fewer), and
+        # the gate cross-checks each wherever it is pinned.  Dependabot's pip
+        # ecosystem only rewrites pyproject.toml and cannot reach the inline
+        # ``pip install black==X`` strings here, so without this gate a bump
+        # silently diverges the surfaces.  Co-located with the other hygiene
+        # gates so a pin-drift regression is caught at the same stage as a
+        # workflow-permissions one.
+        run: python scripts/check_pinned_tool_versions.py
+
       - name: Run Lyapunov λ documentation drift gate
         # Import-based λ drift gate: imports
         # LyapunovConstants.LAMBDA_CONVERGENCE and
@@ -407,7 +420,7 @@ jobs:
     timeout-minutes: 15
     strategy:
       matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
 
     steps:
       - name: Checkout code (attempt 1)
@@ -825,7 +838,7 @@ jobs:
     needs: [code-quality]
     strategy:
       matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
 
     steps:
       - name: Checkout code (attempt 1)

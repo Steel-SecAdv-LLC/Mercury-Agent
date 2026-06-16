@@ -38,6 +38,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Security",
     "Typing :: Typed",
@@ -49,7 +50,7 @@ dependencies = [
     # install mercury-agent[ml] or mercury-agent[all].
     # Floor is 2.4.0, not the historical 1.24.0: (1) numpy 1.24 ships no wheels
     # for Python 3.12 (first added in 1.26) or 3.13 (first added in 2.1), yet
-    # this project is requires-python>=3.11 and CI builds/tests 3.11/3.12/3.13,
+    # this project is requires-python>=3.11 and CI builds/tests 3.11/3.12/3.13/3.14,
     # so the old floor was not installable across its own matrix; and (2) the
     # codebase's strict mypy gate relies on
     # numpy's PEP-696 ``ndarray`` type-parameter defaults plus the indexing
@@ -165,16 +166,34 @@ compliance = [
 ]
 
 # Deep face recognition
+#
+# deepface and tf-keras both hard-require TensorFlow, which has no cp314
+# (Python 3.14) wheel.  On 3.14 pip cannot satisfy TensorFlow from any wheel
+# and backtracks into an unbounded scipy-from-source build (~11 min per
+# metadata pass).  Every other package in ``[all]`` (torch, numpy, scipy,
+# scikit-learn, opencv, shap, pandas, numba, ...) already ships cp314 wheels,
+# so TensorFlow is the *sole* blocker.
+#
+# The production container pins Python 3.13 (see Dockerfile), where TensorFlow
+# ships wheels and face support is fully retained.  But the project advertises
+# 3.14 support (classifier + CI matrix), so gate deepface/tf-keras to
+# ``python_version < "3.14"`` to keep ``pip install .[all]`` resolvable on 3.14
+# for end users: it installs *without* face there instead of hanging.  The
+# deepface imports in ``models/biometric.py`` / ``models/biometric_advanced.py``
+# are guarded (``except Exception`` -> ``DeepFace = None``, and call sites check
+# ``DeepFace is not None``), so 3.14 degrades to simulated embeddings.  Remove
+# the markers once TensorFlow publishes a cp314 wheel.
 face = [
-    "deepface>=0.0.79",
+    "deepface>=0.0.79; python_version < '3.14'",
     # tf-keras is required by retinaface (imported transitively by
     # deepface) starting with tensorflow 2.16; without it,
     # ``retinaface.commons.package_utils.validate_for_keras3()``
     # raises ``ValueError`` at import time, breaking any module that
     # does ``from deepface import DeepFace`` even inside a try/except
     # block that only catches ``ImportError``.  Pin the floor so the
-    # contract is explicit in the extras graph.
-    "tf-keras>=2.16",
+    # contract is explicit in the extras graph.  Shares the 3.14 gate
+    # above: tf-keras pulls TensorFlow, which has no cp314 wheel.
+    "tf-keras>=2.16; python_version < '3.14'",
 ]
 
 # API server
@@ -281,7 +300,7 @@ dev = [
     "pytest-mock>=3.15.1",
     "pytest-xdist>=3.8.0",
     "hypothesis>=6.0.0",
-    "black==26.3.1",  # CVE-2026-32274; PINNED exact for byte-identical formatting local<->CI
+    "black==26.5.1",  # CVE-2026-32274; PINNED exact for byte-identical formatting local<->CI
     "mypy==2.1.0",  # PINNED: identical type-ignore set locally and in CI (see [ml])
     "types-requests==2.33.0.20260518",  # PINNED with mypy (see [ml])
     "ruff>=0.15.12",

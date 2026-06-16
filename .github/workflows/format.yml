@@ -67,7 +67,7 @@ jobs:
           # byte-identical locally and in CI — same parity rationale as the
           # mypy/pydocstyle pins.  Bump in lockstep with pyproject [dev] and
           # the Code Quality job in ci.yml.
-          pip install "black==26.3.1"
+          pip install "black==26.5.1"
 
       - name: Check formatting with Black
         run: black --check src/ tests/ benchmarks/ scripts/ examples/

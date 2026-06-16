@@ -137,16 +137,25 @@ ENV PATH="/opt/venv/bin:$PATH"
 #   CVE-2026-6357  (arbitrary code execution via malicious wheel)
 # The builder's venv (copied above) already ships pip>=26.1, but the base
 # python:3.13-slim-trixie image carries its OWN pip under /usr/local that
-# Trivy detects (pip-26.0.1.dist-info).  Because ``ENV PATH`` puts
-# /opt/venv/bin first, a bare ``python -m pip`` would upgrade the *venv* pip
-# (already patched) and leave the vulnerable *system* pip in place — so target
-# the system interpreter explicitly via its absolute path, and drop the
-# bundled ensurepip wheels that would otherwise re-seed a stale pip dist-info.
+# Trivy detects.  Because ``ENV PATH`` puts /opt/venv/bin first, a bare
+# ``python -m pip`` would upgrade the *venv* pip (already patched) and leave
+# the vulnerable *system* pip in place — so target the system interpreter
+# explicitly via its absolute path, and drop the bundled ensurepip wheels that
+# would otherwise let ``python -m ensurepip`` re-seed a stale, pre-floor pip.
+#
+# The system stdlib path is derived from ``sysconfig`` rather than hardcoded to
+# ``/usr/local/lib/python3.NN``.  A hardcoded minor-version path silently turns
+# into a no-op the moment the base image's Python is bumped (e.g. 3.13 -> 3.14):
+# the cleanup would "pass" vacuously while leaving the vulnerable bundled pip in
+# the image.  Deriving the path keeps this hardening correct across base-image
+# Python bumps, and the version assertions below verify *both* the system and
+# venv interpreters resolve a patched pip rather than trusting a filename glob.
 RUN /usr/local/bin/python -m pip install --upgrade --no-cache-dir "pip>=26.1" "setuptools>=78.1.1" && \
-    find /opt/venv /usr/local/lib/python3.13 -name 'pip-26.0.1.dist-info' -type d -prune -exec rm -rf {} + && \
-    rm -rf /usr/local/lib/python3.13/ensurepip/_bundled && \
-    test -z "$(find /opt/venv /usr/local/lib/python3.13 -name 'pip-26.0.1.dist-info' -print -quit)" && \
-    /usr/local/bin/python -c "import pip; v = tuple(map(int, pip.__version__.split('.')[:2])); assert v >= (26, 1), pip.__version__" && \
+    SYS_STDLIB="$(/usr/local/bin/python -c 'import sysconfig; print(sysconfig.get_path("stdlib"))')" && \
+    rm -rf "${SYS_STDLIB}/ensurepip/_bundled" && \
+    test ! -d "${SYS_STDLIB}/ensurepip/_bundled" && \
+    /usr/local/bin/python -c "import pip; assert tuple(map(int, pip.__version__.split('.')[:2])) >= (26, 1), pip.__version__" && \
+    /opt/venv/bin/python -c "import pip; assert tuple(map(int, pip.__version__.split('.')[:2])) >= (26, 1), pip.__version__" && \
     pip cache purge
 
 # Mercury never calls SciPy/scikit-image sample datasets in production.  Drop
