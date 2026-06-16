@@ -166,16 +166,34 @@ compliance = [
 ]
 
 # Deep face recognition
+#
+# deepface and tf-keras both hard-require TensorFlow, which has no cp314
+# (Python 3.14) wheel yet.  Installing them on 3.14 sends pip into an
+# unbounded source-build backtrack: it cannot satisfy the TensorFlow
+# dependency from any wheel, so it explores ever-older deepface versions
+# and re-resolves the scientific stack for each — building scipy from
+# source (~11 min per metadata pass) until CI's 60-minute job timeout
+# cancels the Docker build.  Every other package in ``[all]`` (torch,
+# numpy, scipy, scikit-learn, opencv, shap, pandas, tf-keras's own wheel)
+# already ships cp314 wheels, so TensorFlow is the *sole* blocker.
+#
+# Gate both to ``python_version < "3.14"`` so the ``[all]`` closure stays
+# wheel-resolvable on 3.14 (the container base).  The deepface imports in
+# ``models/biometric.py`` / ``models/biometric_advanced.py`` are guarded
+# with ``except Exception`` and fall back to simulated embeddings, so the
+# capability degrades gracefully wherever TensorFlow is unavailable.
+# Remove the markers once TensorFlow publishes a cp314 wheel.
 face = [
-    "deepface>=0.0.79",
+    "deepface>=0.0.79; python_version < '3.14'",
     # tf-keras is required by retinaface (imported transitively by
     # deepface) starting with tensorflow 2.16; without it,
     # ``retinaface.commons.package_utils.validate_for_keras3()``
     # raises ``ValueError`` at import time, breaking any module that
     # does ``from deepface import DeepFace`` even inside a try/except
     # block that only catches ``ImportError``.  Pin the floor so the
-    # contract is explicit in the extras graph.
-    "tf-keras>=2.16",
+    # contract is explicit in the extras graph.  Shares the 3.14 gate
+    # above: tf-keras pulls TensorFlow, which has no cp314 wheel.
+    "tf-keras>=2.16; python_version < '3.14'",
 ]
 
 # API server
