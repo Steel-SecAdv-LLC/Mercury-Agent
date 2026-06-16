@@ -1,10 +1,10 @@
-# Governed Recursive Self-Improvement — Phases 1–2
+# Governed Recursive Self-Improvement — Phases 1–3
 
-> Status of this document: **Phase 2 in flight.** Phase 1 closed the
-> measurement-provenance problem. Phase 2 adds the governed promotion gate
-> that consumes that substrate, enforces safety/capability floors, and emits
-> rollback-safe decision records. Phases 3–8 remain documented decisions, not
-> unstated gaps.
+> Status of this document: **Phases 1–3 implemented.** Phase 1 closed the
+> measurement-provenance problem. Phase 2 added the governed promotion gate.
+> Phase 3 wires Reflexion threshold recommendations, high/critical-drift
+> recalibration candidates, and dormant-module revival candidates through that
+> gate. Phases 4–8 remain documented decisions, not unstated gaps.
 
 ## 0. What this loop is, in one paragraph
 
@@ -13,8 +13,8 @@ evaluate it safely → keep it only if it is measurably better → lock it so
 it cannot regress.** Mercury contains the required control surfaces, but the
 recursive proposal/execution arrows remain deliberately unwired until they can
 operate behind measured gates. Phase 1 fixes the measurement substrate; Phase 2
-wires the gated promotion path; Phase 3+ wire recursive proposals behind this
-gate.
+wires the gated promotion path; Phase 3 routes Reflexion, drift recalibration,
+and dormant revival through this gate.
 
 ## 1. Phase 0 — verified ground truth (the map)
 
@@ -31,7 +31,7 @@ proceeds from reality.
 | Transparent-vs-leakage-flagged split | `README.md`, `docs/BENCHMARKS.md`, `src/omni_mercury_engine/datasets/label_provenance.py` (already gated by `tests/datasets/test_label_provenance_gate.py`). | Discipline existed only on the **`datasets/`** side. The **`loaders/`** side — which produces the governed-fusion live headline — had no provenance discipline at all. Phase 1 closes that gap. |
 | Dead-loader tracking | `.github/workflows/dataset-reachability.yml`, v1.7.0 reachability harness. | Two-lane (offline / nightly) confirmed. |
 | Fusion regression CI | `.github/workflows/fusion-regression.yml`, `benchmarks/fusion_regression_guard.py`. | Confirmed; runs on PR + weekly. |
-| Dormancy / ablation (manual) | `benchmarks/dormant_module_revival.py`, `benchmarks/neurosymbolic_ablation.py`, `docs/DORMANCY_LEDGER.md`. | Confirmed manual passes. Phase 3 generalises to a recurring CI job — not in this PR. |
+| Dormancy / ablation | `benchmarks/dormant_module_revival.py`, `benchmarks/neurosymbolic_ablation.py`, `docs/DORMANCY_LEDGER.md`, `.github/workflows/phase3-governance.yml`. | Confirmed manual pass and Phase 3 recurring CI measurement. |
 | Calibration / conformal | `src/omni_mercury_engine/core/calibration.py`, `core/score_calibration.py`, `core/conformal_prediction.py`, `research/governed_fusion/measure_conformal.py`. | Confirmed. Conformal coverage target 0.90 (measure_conformal.py L45). |
 | Dual ethical gate (fail-closed) | `src/omni_mercury_engine/security/sigma_immutable_gate.py` (σ_Immutable, 256-D, 0.93/0.96), benevolence ≥ 0.99, `core/global_omni_scalar_network.py` (GOSNN), `benchmarks/run_ethics_audit.py`. | Confirmed fail-closed. Not exercised by Phase 1 (no promotion path enabled here). |
 | Lyapunov pre-gate | `scripts/run_ablation.py`, `tools/lyapunov_validator.py`, `configs/ablation_3r_lyapunov.yaml`. | Confirmed. |
@@ -246,17 +246,40 @@ The gate:
 
 See `docs/GOVERNED_PROMOTION_GATE.md` for the operator contract and CLI.
 
-## 5. Explicit out-of-scope decisions (deferred, not omitted)
+## 5. Phase 3 — gated Reflexion, drift recalibration, dormant revival
 
-The upstream prompt asked for one PR covering Phases 1–8. The authorising
-user capped this at **two PRs** and ordered Phase 1 first to prove the
-fitness signal is provenance-safe before any automation rides on it. Phase
-2 completes that approved two-PR path by adding the gate. Everything below
-is a *decision* to defer, not a gap.
+Phase 3 ships `research/governed_fusion/phase3_governance.py`,
+`tests/research/test_phase3_governance.py`,
+`docs/PHASE3_GOVERNANCE.md`, and
+`.github/workflows/phase3-governance.yml`.
 
-* **Phase 3 — Reflexion executor wiring, drift-triggered auto-
-  calibration, recurring dormant-revival CI job.** Routed through the
-  Phase 2 gate. Not in scope here.
+The wiring:
+
+* Reads `AnomalyReflexion.get_threshold_recommendation()` and routes threshold
+  changes through the Phase 2 gate. `maintain` remains a no-op; threshold
+  changes without candidate evidence reject.
+* Treats only high/critical drift as a recalibration trigger. Medium/low drift
+  stays observable; high/critical drift without held-out replay evidence fails
+  closed.
+* Consumes `benchmarks.dormant_module_revival` verdicts. Dormant modules that
+  do not clear the pre-registered signal bar remain archived; modules that do
+  clear it still must pass external-label replay, safety, capability, and
+  ablation checks before revival is promotion-eligible.
+* Writes append-only Phase 3 routing records and preserves human approval for
+  every `promote` gate result.
+* Adds a recurring CI workflow: pull requests run deterministic Phase 3 routing
+  tests; scheduled/manual runs also execute the real dormant-revival benchmark
+  and publish the report.
+
+See `docs/PHASE3_GOVERNANCE.md` for the operator contract and CLI.
+
+## 6. Explicit out-of-scope decisions (deferred, not omitted)
+
+The upstream prompt asked for one PR covering Phases 1–8. The implementation
+has intentionally moved through reviewable phases: Phase 1 made the fitness
+signal provenance-safe, Phase 2 added the governed promotion gate, and Phase 3
+wires Reflexion/drift/dormancy through that gate. Everything below remains a
+*decision* to defer, not a gap.
 * **Phase 4 — streaming + active-learning queue + versioned data.** Out
   of scope here.
 * **Phase 5 — search mechanism (GWO/Optuna producing gated proposals).**

@@ -1,0 +1,93 @@
+# Mercury-Agent Phase 3 Governed Self-Improvement
+#
+# Phase 3 wires Reflexion threshold recommendations, drift-triggered
+# recalibration candidates, and dormant-module revival candidates through the
+# Phase 2 governed promotion gate.  Pull requests run the deterministic unit
+# gate; scheduled/manual runs also execute the real dormant-module revival
+# benchmark against externally labelled ADBench data and publish the report.
+#
+# Copyright (C) 2025 Steel Security Advisors LLC
+
+name: Phase 3 Governed Self-Improvement
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phase3-governance-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+on:
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+  schedule:
+    # Weekly Monday, 06:43 UTC.  Separate from the nightly ablation ledger so
+    # dormant-revival measurement remains recurring without slowing every PR.
+    - cron: "43 6 * * 1"
+
+env:
+  PYTHON_VERSION: "3.12"
+  MERCURY_REQUIRES_ML: "1"
+
+jobs:
+  phase3-gates:
+    name: Reflexion/drift/dormant routing gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Mercury [ml] + test tooling
+        run: |
+          python -m pip install --upgrade "pip>=26.1"
+          pip install -e ".[ml]"
+          pip install pytest pytest-asyncio scikit-learn hypothesis
+
+      - name: Build AMA Cryptography (native PQC)
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v3.2.0
+
+      - name: Phase 3 governance unit tests
+        run: pytest tests/research/test_phase3_governance.py -q
+
+  recurring-dormant-revival:
+    name: Recurring dormant-module revival measurement
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Mercury [ml] + benchmark tooling
+        run: |
+          python -m pip install --upgrade "pip>=26.1"
+          pip install -e ".[ml]"
+          pip install scikit-learn
+
+      - name: Build AMA Cryptography (native PQC)
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v3.2.0
+
+      - name: Measure dormant-module revival on external labels
+        run: python -m benchmarks.dormant_module_revival --out artifacts/dormant_module_revival.json
+
+      - name: Upload dormant-module revival report
+        uses: actions/upload-artifact@v7
+        with:
+          name: dormant-module-revival
+          path: artifacts/dormant_module_revival.json
+          retention-days: 90

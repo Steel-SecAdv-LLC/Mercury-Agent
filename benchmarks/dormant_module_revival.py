@@ -7,7 +7,7 @@ The audit (docs/NEUROSYMBOLIC.md / the dormancy report) found ~13 K LOC of
 cognitive modules that are exported in the public API but never run in any live
 path. A module's *interface* is not evidence it carries signal -- only a paired
 measurement on real held-out labels is. This harness asks, per candidate
-detector, the only honest question: **does it produce an anomaly score that
+detector, the required validation question: **does it produce an anomaly score that
 beats chance on real ADBench labels, and does it add anything beyond the
 detector the live ensemble already has?**
 
@@ -231,7 +231,7 @@ def derive_verdicts(results: list[dict[str, Any]]) -> dict[str, Any]:
     ensemble-marginal ablation* -- the separate, rigorous test of whether it adds
     over the full live fusion ensemble (the single ``lof_reference`` AUC is only
     informational context, not a fused-ensemble proxy). A candidate that does not
-    clear the standalone bar is ARCHIVE: no honest detection salvage.
+    clear the standalone bar is ARCHIVE: no usable detection signal.
     """
     ref = next((r for r in results if r["candidate"] == "lof_reference"), None)
     ref_mean = ref["mean_auc"] if ref else float("nan")

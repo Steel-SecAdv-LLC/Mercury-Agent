@@ -1,5 +1,5 @@
 # Mercury-Agent Transparent Fitness Substrate / Governed Promotion Gate
-# Phases 1-2 of governed recursive self-improvement.
+# Phases 1-3 of governed recursive self-improvement.
 #
 # This is the leakage-split gate and promotion decision harness the
 # autonomous self-improvement loop reads from.
@@ -22,7 +22,7 @@
 #   5. The measurement entry point itself runs and appends one record (an
 #      informational 'needs_cache' record when no $GF_CACHE_DIR is present
 #      on the runner, otherwise the real per-component lift). The ledger is
-#      uploaded as a CI artifact for review and post-Phase-2 regression.
+#      uploaded as a CI artifact for review and Phase 3 routing.
 #
 # Loosening any of these gates to make CI pass is an automatic failure of
 # the governed-self-improvement discipline: a fitness signal that can be

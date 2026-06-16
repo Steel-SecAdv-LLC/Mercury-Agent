@@ -2,6 +2,9 @@
 
 Phase 2 converts the transparent fitness substrate into an enforceable
 promotion boundary for recursive self-improvement candidates.
+Phase 3 consumes this same boundary for Reflexion threshold changes,
+drift-triggered recalibration candidates, and dormant-module revival candidates;
+see `docs/PHASE3_GOVERNANCE.md`.
 
 ## Contract
 

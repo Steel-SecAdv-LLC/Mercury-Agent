@@ -27,6 +27,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Phase 3: Reflexion executor + drift-triggered recalibration + dormant-revival (2026-06-16)
+
+Adds the governed execution layer that consumes Phase 2 promotion decisions
+instead of allowing Reflexion, drift, or dormancy surfaces to mutate Mercury
+directly.
+
+* `research/governed_fusion/phase3_governance.py` — routes
+  `AnomalyReflexion.get_threshold_recommendation()` threshold changes,
+  high/critical drift recalibration candidates, and dormant-module revival
+  verdicts through the Phase 2 promotion gate. `maintain` remains a no-op;
+  missing candidate evidence fails closed; `promote` remains human-review
+  gated.
+* `Phase3DecisionStore` — append-only JSON records plus `index.jsonl` for
+  Reflexion, drift, and dormant-revival routing outcomes.
+* `tests/research/test_phase3_governance.py` (9 tests) — Reflexion no-op and
+  gate-routed threshold changes, drift severity triggers, fail-closed missing
+  evidence, gate rejection propagation, dormant archive/revival decisions,
+  composite-report evaluation, append-only records, and CLI `--check`
+  behavior.
+* `.github/workflows/phase3-governance.yml` — pull requests run deterministic
+  Phase 3 routing tests; scheduled/manual runs execute the real
+  dormant-module revival benchmark and upload the report.
+* `docs/PHASE3_GOVERNANCE.md`, `docs/SELF_IMPROVEMENT_LOOP.md`, and
+  `README.md` — document Phase 3 as implemented while keeping Phases 4–8
+  explicitly deferred.
+
 ### Phase 2: Governed promotion gate — held-out replay, experiment store, rollback decisions (2026-06-16)
 
 Adds the enforcement layer that consumes Phase 1's transparent fitness
@@ -144,8 +170,7 @@ so the autonomous loop reads only independently labelled live events.
   produce labels independent of any scored feature; external-label mean AUROC
   **0.7704** / F1 **0.1863**.
 * `docs/DORMANCY_LEDGER.md` — section 7 names the ablation ledger as
-  the standing measurement substrate the future recurring revival job
-  (Phase 3) will write through.
+  the standing measurement substrate that Phase 3 revival routing reads.
 * `README.md` — adds a paragraph on the live-API loader provenance
   audit and points at `docs/SELF_IMPROVEMENT_LOOP.md`.
 
