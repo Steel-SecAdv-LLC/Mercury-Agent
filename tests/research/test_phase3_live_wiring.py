@@ -1,7 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""End-to-end Phase 3 wiring: the live engine surfaces route real proposals
-through the real governance seam and the real Phase 2 promotion gate.
+"""End-to-end Phase 3 wiring against the real governance seam and promotion gate.
 
 The deterministic unit tests in ``test_phase3_governance.py`` prove the routing
 *logic*. These tests prove the *wiring*: they instantiate the production
