@@ -4,7 +4,9 @@
 # recalibration candidates, and dormant-module revival candidates through the
 # Phase 2 governed promotion gate.  Pull requests run the deterministic unit
 # gate; scheduled/manual runs also execute the real dormant-module revival
-# benchmark against externally labelled ADBench data and publish the report.
+# benchmark against externally labelled ADBench data, route every measured
+# verdict through the governed gate, and publish both the measurement and the
+# routing decisions (closing the measure -> route loop).
 #
 # Copyright (C) 2025 Steel Security Advisors LLC
 
@@ -85,9 +87,23 @@ jobs:
       - name: Measure dormant-module revival on external labels
         run: python -m benchmarks.dormant_module_revival --out artifacts/dormant_module_revival.json
 
-      - name: Upload dormant-module revival report
+      - name: Route dormant-revival verdicts through the Phase 3 governed gate
+        # Closes the loop: each measured verdict becomes a governed routing
+        # decision (archived / withheld-pending-evidence / queued) rather than a
+        # raw measurement. No --check: this is the recurring measurement+record
+        # job, so a fail-closed reject is recorded for human review, not a CI
+        # failure. The gate fails a candidate that carries signal but lacks
+        # held-out-replay promotion evidence — the honest disposition.
+        run: |
+          python research/governed_fusion/phase3_governance.py \
+            --dormant-revival artifacts/dormant_module_revival.json \
+            --out artifacts/dormant_module_revival_routing.json
+
+      - name: Upload dormant-module revival measurement + routing
         uses: actions/upload-artifact@v7
         with:
           name: dormant-module-revival
-          path: artifacts/dormant_module_revival.json
+          path: |
+            artifacts/dormant_module_revival.json
+            artifacts/dormant_module_revival_routing.json
           retention-days: 90

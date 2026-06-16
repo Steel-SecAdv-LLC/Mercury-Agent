@@ -228,6 +228,41 @@ Mercury Agent includes security intelligence capabilities. Users must:
 - **Adversarial Inputs**: Be aware of potential adversarial attacks on ML models
 - **Training Data**: Ensure training data is from trusted sources
 
+### Autonomous Self-Modification (Governed, Fail-Closed)
+
+**Threat.** A recursively self-improving agent that can change its own live
+decision boundary without evidence or review is a security risk in its own
+right: a poisoned feedback stream could drive the reflexion critic to move the
+operating threshold into a blind spot, or drive the online-learning pipeline to
+retrain on adversarial drift. Mercury contains both arrows — reflexion threshold
+adaptation (`agentic/orchestration.py`) and drift-/performance-triggered
+recalibration (`ml/online_learning.py`).
+
+**Control (Phase 3 governed self-improvement).** Neither arrow may mutate live
+behaviour autonomously. Each proposed change is routed through an engine-owned,
+fail-closed governance seam (`omni_mercury_engine.governance.self_improvement`)
+before it can take effect:
+
+- The **default policy withholds every autonomous change.** The live operating
+  point or model only changes through an evidence-backed, human-approved
+  promotion executed out of band.
+- The **gate-backed policy** routes a proposal through the Phase 2 promotion gate
+  (`research/governed_fusion/promotion_gate.py`), which re-checks the σ_Immutable,
+  benevolence, conformal-coverage, and Lyapunov floors and the external-label
+  fitness bucket. A gate `promote` is **queued for human approval**, never
+  auto-applied.
+- An adversarial or malformed proposal therefore fails closed: with no held-out
+  promotion evidence it is rejected; with a regressed metric it is rejected; with
+  a tripped safety floor it is rejected.
+- The only path that applies an autonomous change is an **explicit, named**
+  `MeasurementGovernance` used solely by offline held-out measurement harnesses —
+  it is never the production default, so any adapting context is auditable as a
+  measurement.
+
+Every disposition is recorded to an append-only audit trail. See
+[ARCHITECTURE.md](ARCHITECTURE.md) ("Governed Self-Improvement Seam") and
+[docs/PHASE3_GOVERNANCE.md](docs/PHASE3_GOVERNANCE.md) for the full contract.
+
 ## Current Vulnerability Status
 
 *Last Review: 2026-06-10*

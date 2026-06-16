@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 from research.governed_fusion.phase3_governance import (
     Phase3Action,
     Phase3DecisionStore,
+    dormant_revival_report_to_section,
     evaluate_phase3_report,
     main,
     route_dormant_revival_candidate,
@@ -276,3 +277,60 @@ def test_phase3_cli_check_exits_nonzero_on_rejection(tmp_path: Path) -> None:
         ledger=_ledger(),
     )
     assert maintain_decision[0].action == Phase3Action.MAINTAIN.value
+
+
+def test_dormant_revival_report_routes_each_verdict_through_the_gate() -> None:
+    # The shape emitted by benchmarks.dormant_module_revival.derive_verdicts.
+    benchmark_report = {
+        "verdicts": {
+            "lof_reference_mean_auc": 0.80,
+            "candidates": {
+                "kmeans_distance": {"mean_auc": 0.86, "carries_signal": True, "verdict": "REVIVE"},
+                "predictive_coding": {
+                    "mean_auc": 0.54,
+                    "carries_signal": False,
+                    "verdict": "ARCHIVE",
+                },
+            },
+        }
+    }
+    section = dormant_revival_report_to_section(benchmark_report)
+    decisions = evaluate_phase3_report(
+        {"dormant_revival": section}, manifest=_manifest(), ledger=_ledger()
+    )
+    by_candidate = {decision.candidate_id: decision.action for decision in decisions}
+    # Carries signal but no held-out-replay candidate evidence -> fail-closed reject.
+    assert by_candidate["kmeans_distance"] == Phase3Action.REJECT.value
+    # Below the pre-registered signal bar -> archived (maintain).
+    assert by_candidate["predictive_coding"] == Phase3Action.MAINTAIN.value
+
+
+def test_phase3_cli_routes_a_dormant_revival_report(tmp_path: Path) -> None:
+    manifest = tmp_path / "manifest.json"
+    ledger = tmp_path / "ledger.json"
+    bench = tmp_path / "dormant_module_revival.json"
+    out = tmp_path / "routing.json"
+    manifest.write_text(json.dumps(_manifest()), encoding="utf-8")
+    ledger.write_text(json.dumps(_ledger()), encoding="utf-8")
+    bench.write_text(
+        json.dumps({"verdicts": {"candidates": {"predictive_coding": {"carries_signal": False}}}}),
+        encoding="utf-8",
+    )
+
+    exit_code = main(
+        [
+            "--dormant-revival",
+            str(bench),
+            "--manifest",
+            str(manifest),
+            "--ledger",
+            str(ledger),
+            "--out",
+            str(out),
+        ]
+    )
+    decisions = json.loads(out.read_text(encoding="utf-8"))
+
+    assert exit_code == 0
+    assert decisions[0]["surface"] == "dormant_revival"
+    assert decisions[0]["action"] == Phase3Action.MAINTAIN.value

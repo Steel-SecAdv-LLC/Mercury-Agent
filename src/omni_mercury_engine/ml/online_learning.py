@@ -34,6 +34,12 @@ if TYPE_CHECKING:
 
     from numpy.typing import NDArray
 
+    from omni_mercury_engine.governance.self_improvement import (
+        GovernanceReview,
+        RecalibrationGovernance,
+    )
+
+from omni_mercury_engine.governance.self_improvement import ProposedRecalibration
 from omni_mercury_engine.ml.drift import (
     DriftResult,
     DriftSeverity,
@@ -412,6 +418,7 @@ class OnlineLearningPipeline:
         performance_threshold: float = 0.1,
         retrain_interval: int = 1000,
         ema_decay: float = 0.99,
+        recalibration_governance: RecalibrationGovernance | None = None,
         random_state: int | None = None,
     ):
         """Initialize online learning pipeline.
@@ -426,6 +433,15 @@ class OnlineLearningPipeline:
             performance_threshold: Accuracy drop to trigger retraining
             retrain_interval: Samples between automatic retraining checks
             ema_decay: Decay rate for EMA strategy
+            recalibration_governance: Optional Phase 3 governance policy. When
+                ``None`` (the default for a standalone online learner) drift-
+                and performance-triggered retraining proceed autonomously, as
+                an online learner does by construction. When a policy is
+                installed — the governed self-improvement composition — those
+                autonomous retrains become *proposals* routed through the
+                policy, which decides fail-closed whether the live model may be
+                retrained. Explicit :meth:`force_retrain` is an operator action
+                and is never gated by this policy.
             random_state: Seed for reproducible random sampling
         """
         self.model = model
@@ -469,6 +485,14 @@ class OnlineLearningPipeline:
         # Callbacks
         self._on_drift_callbacks: list[Callable[[DriftResult], None]] = []
         self._on_retrain_callbacks: list[Callable[[RetrainingEvent], None]] = []
+
+        # Phase 3 recalibration governance (optional). When installed, the
+        # autonomous drift/performance retrain triggers are routed through it;
+        # the last review and the full append-only review trail are retained
+        # for inspection and the governed self-improvement audit.
+        self._recalibration_governance = recalibration_governance
+        self._last_recalibration_review: GovernanceReview | None = None
+        self._recalibration_reviews: list[GovernanceReview] = []
 
         # Start time for throughput calculation
         self._start_time = time.time()
@@ -603,9 +627,25 @@ class OnlineLearningPipeline:
             except Exception as e:
                 logger.warning(f"Drift callback failed: {e}")
 
-        # Trigger retraining based on severity
+        # Trigger retraining based on severity — but only with governance
+        # authorisation. High/critical drift is the autonomous self-improvement
+        # arrow Phase 3 governs: when a governance policy is installed the
+        # recalibration is a proposal, not a fait accompli.
         if drift_result.severity in [DriftSeverity.HIGH, DriftSeverity.CRITICAL]:
-            self._trigger_retraining(RetrainingTrigger.DRIFT_DETECTED, drift_result.severity)
+            proposal = ProposedRecalibration(
+                surface="drift_recalibration",
+                trigger=RetrainingTrigger.DRIFT_DETECTED.value,
+                severity=drift_result.severity.value,
+                is_drift=True,
+                reasoning=(f"{drift_result.severity.value} drift (p={drift_result.p_value:.4g})"),
+                evidence={
+                    "p_value": float(drift_result.p_value),
+                    "drift_type": drift_result.drift_type.value,
+                    "message": drift_result.message,
+                },
+            )
+            if self._authorize_recalibration(proposal):
+                self._trigger_retraining(RetrainingTrigger.DRIFT_DETECTED, drift_result.severity)
 
     def _check_performance_and_retrain(self) -> None:
         """Check performance and trigger retraining if needed."""
@@ -627,7 +667,22 @@ class OnlineLearningPipeline:
                 f"Performance degradation detected: "
                 f"{self._baseline_accuracy:.4f} -> {current_accuracy:.4f}"
             )
-            self._trigger_retraining(RetrainingTrigger.PERFORMANCE_DEGRADATION)
+            proposal = ProposedRecalibration(
+                surface="drift_recalibration",
+                trigger=RetrainingTrigger.PERFORMANCE_DEGRADATION.value,
+                severity=DriftSeverity.NONE.value,
+                is_drift=False,
+                reasoning=(
+                    f"performance degradation {degradation:.4g} exceeds "
+                    f"threshold {self.performance_threshold:.4g}"
+                ),
+                evidence={
+                    "baseline_accuracy": float(self._baseline_accuracy),
+                    "current_accuracy": float(current_accuracy),
+                },
+            )
+            if self._authorize_recalibration(proposal):
+                self._trigger_retraining(RetrainingTrigger.PERFORMANCE_DEGRADATION)
 
     def _get_rolling_accuracy(self) -> float | None:
         """Get rolling accuracy from recent predictions."""
@@ -752,8 +807,45 @@ class OnlineLearningPipeline:
         self._on_retrain_callbacks.append(callback)
 
     def force_retrain(self) -> None:
-        """Force model retraining."""
+        """Force model retraining (explicit operator action; never gated)."""
         self._trigger_retraining(RetrainingTrigger.MANUAL)
+
+    def set_recalibration_governance(self, governance: RecalibrationGovernance | None) -> None:
+        """Install (or clear) the Phase 3 recalibration-governance policy.
+
+        Installing a policy converts the pipeline's autonomous drift/performance
+        retrain triggers into governed proposals; passing ``None`` restores the
+        standalone autonomous online-learning default.
+        """
+        self._recalibration_governance = governance
+
+    @property
+    def last_recalibration_review(self) -> GovernanceReview | None:
+        """The most recent governance disposition of a recalibration proposal."""
+        return self._last_recalibration_review
+
+    def _authorize_recalibration(self, proposal: ProposedRecalibration) -> bool:
+        """Consult the Phase 3 recalibration-governance policy, if installed.
+
+        With no policy installed the pipeline is a standalone online learner and
+        adapts autonomously (its documented default). With a policy installed —
+        the governed self-improvement composition — an autonomous retrain is a
+        *proposal* that proceeds only if governance authorises it. The default
+        governed policy is fail-closed, so drift/performance triggers are
+        withheld and recorded rather than silently retraining the live model.
+        """
+        if self._recalibration_governance is None:
+            return True
+        review = self._recalibration_governance.review_recalibration(proposal)
+        self._last_recalibration_review = review
+        self._recalibration_reviews.append(review)
+        if not review.applied:
+            logger.warning(
+                "recalibration withheld by governance (%s): %s",
+                review.outcome,
+                "; ".join(review.reasons),
+            )
+        return review.applied
 
 
 def create_online_pipeline(

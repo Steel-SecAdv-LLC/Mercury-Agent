@@ -10,11 +10,18 @@
 
 Recursive self-improvement is one loop: **measure → propose a change →
 evaluate it safely → keep it only if it is measurably better → lock it so
-it cannot regress.** Mercury contains the required control surfaces, but the
-recursive proposal/execution arrows remain deliberately unwired until they can
-operate behind measured gates. Phase 1 fixes the measurement substrate; Phase 2
-wires the gated promotion path; Phase 3 routes Reflexion, drift recalibration,
-and dormant revival through this gate.
+it cannot regress.** Mercury contains the required control surfaces. Phase 1
+fixes the measurement substrate; Phase 2 wires the gated promotion path; Phase 3
+connects the live proposal surfaces to that gate **at the exact point a change
+would take effect**, through a fail-closed governance seam
+(`src/omni_mercury_engine/governance/self_improvement.py`). The reflexion
+critic in `agentic/orchestration.py` and the drift/performance triggers in
+`ml/online_learning.py` no longer apply their own recommendations: each
+proposed change is reviewed by a governance policy that, by default, withholds
+every autonomous mutation. A change moves the live boundary only when it carries
+promotion-gate evidence **and** human approval. The recursive arrows are
+therefore *governed*, not unwired — and the wiring is proven end-to-end
+(`tests/research/test_phase3_live_wiring.py`), not asserted.
 
 ## 1. Phase 0 — verified ground truth (the map)
 
@@ -248,28 +255,54 @@ See `docs/GOVERNED_PROMOTION_GATE.md` for the operator contract and CLI.
 
 ## 5. Phase 3 — gated Reflexion, drift recalibration, dormant revival
 
-Phase 3 ships `research/governed_fusion/phase3_governance.py`,
-`tests/research/test_phase3_governance.py`,
-`docs/PHASE3_GOVERNANCE.md`, and
-`.github/workflows/phase3-governance.yml`.
+Phase 3 closes the loop at the live mutation sites, not beside them. It ships an
+**engine-owned governance seam** plus the **gate-backed policy** that fills it:
 
-The wiring:
+* `src/omni_mercury_engine/governance/self_improvement.py` — the seam. Defines
+  `ThresholdGovernance` / `RecalibrationGovernance` (the interfaces the engine
+  consults), the proposal/review records, and two built-in policies:
+  `FailClosedSelfImprovementGovernance` (the default — withhold every autonomous
+  change) and `MeasurementGovernance` (an explicit, named opt-in for held-out
+  measurement harnesses). The engine depends only on this seam, never on the
+  research tree.
+* `research/governed_fusion/phase3_governance.py` — the pure routing core
+  (`route_reflexion_threshold`, `route_drift_recalibration`,
+  `route_dormant_revival_candidate`, `evaluate_phase3_report`) and CLI.
+* `research/governed_fusion/phase3_governance_adapters.py` — the gate-backed
+  policies (`PromotionGateThresholdGovernance`,
+  `PromotionGateRecalibrationGovernance`) that implement the engine seam by
+  routing a live proposal through the Phase 2 promotion gate. The dependency
+  points research → engine; injection happens at composition time.
 
-* Reads `AnomalyReflexion.get_threshold_recommendation()` and routes threshold
-  changes through the Phase 2 gate. `maintain` remains a no-op; threshold
-  changes without candidate evidence reject.
-* Treats only high/critical drift as a recalibration trigger. Medium/low drift
-  stays observable; high/critical drift without held-out replay evidence fails
-  closed.
-* Consumes `benchmarks.dormant_module_revival` verdicts. Dormant modules that
-  do not clear the pre-registered signal bar remain archived; modules that do
-  clear it still must pass external-label replay, safety, capability, and
-  ablation checks before revival is promotion-eligible.
-* Writes append-only Phase 3 routing records and preserves human approval for
-  every `promote` gate result.
-* Adds a recurring CI workflow: pull requests run deterministic Phase 3 routing
-  tests; scheduled/manual runs also execute the real dormant-revival benchmark
-  and publish the report.
+The wiring, surface by surface:
+
+* **Reflexion (live).** `MultiAgentOrchestrator.reflect()` no longer applies
+  `AnomalyReflexion.get_threshold_recommendation()`. An actionable
+  (`increase`/`decrease`) recommendation becomes a `ProposedThresholdChange`
+  handed to the installed policy. `maintain` is a no-op. The default policy
+  withholds; a gate-backed policy with no held-out-replay evidence withholds
+  (gate `reject`); even a gate `promote` is *queued for human approval*, never
+  auto-applied. The live operating point is unmoved unless a human approves.
+* **Drift / performance (live).** `OnlineLearningPipeline` routes its
+  high/critical-drift and performance-degradation retrain triggers through a
+  `RecalibrationGovernance` policy before `model.fit()`. Installed standalone it
+  remains an autonomous online learner by construction; installed in the
+  governed composition it is fail-closed. Medium/low drift stays observable and
+  never triggers a retrain. Explicit `force_retrain()` is an operator action and
+  is never gated.
+* **Dormant revival (offline).** `benchmarks.dormant_module_revival` produces
+  real held-out verdicts; the recurring workflow now **routes every verdict
+  through the gate** (`--dormant-revival`) instead of only uploading it. A module
+  below the pre-registered signal bar is archived; one that clears it but lacks
+  promotion-gate candidate evidence is recorded as a fail-closed reject — the
+  honest disposition until the full ablation+gate evidence exists.
+* Every routing decision is written to an append-only store, and human approval
+  is preserved for every `promote`.
+
+This is verified on both ends: the deterministic routing logic in
+`tests/research/test_phase3_governance.py`, and the live engine surfaces against
+the real gate in `tests/research/test_phase3_live_wiring.py` (the autonomous
+threshold move and the autonomous retrain are both observed to be withheld).
 
 See `docs/PHASE3_GOVERNANCE.md` for the operator contract and CLI.
 

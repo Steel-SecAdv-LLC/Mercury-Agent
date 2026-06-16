@@ -27,31 +27,83 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Phase 3: Reflexion executor + drift-triggered recalibration + dormant-revival (2026-06-16)
+### Phase 3: Governed self-improvement seam — live reflexion + drift arrows routed through the gate (2026-06-16)
 
-Adds the governed execution layer that consumes Phase 2 promotion decisions
-instead of allowing Reflexion, drift, or dormancy surfaces to mutate Mercury
-directly.
+Wires the live self-improvement arrows through a fail-closed governance seam at
+the exact point a change would take effect, so neither the reflexion critic nor
+the online-learning drift trigger can mutate Mercury's live behaviour
+autonomously. (Supersedes the earlier routing-only Phase 3 surface, which
+governed a copy of the decision while the live mutation still executed
+ungoverned.)
 
-* `research/governed_fusion/phase3_governance.py` — routes
-  `AnomalyReflexion.get_threshold_recommendation()` threshold changes,
-  high/critical drift recalibration candidates, and dormant-module revival
-  verdicts through the Phase 2 promotion gate. `maintain` remains a no-op;
-  missing candidate evidence fails closed; `promote` remains human-review
+* `src/omni_mercury_engine/governance/self_improvement.py` (new) — the
+  engine-owned seam: `ThresholdGovernance` / `RecalibrationGovernance`
+  protocols, the `ProposedThresholdChange` / `ProposedRecalibration` /
+  `GovernanceReview` records, and two built-in policies —
+  `FailClosedSelfImprovementGovernance` (default; withholds every autonomous
+  change) and `MeasurementGovernance` (explicit, named opt-in for held-out
+  measurement harnesses).
+* `agentic/orchestration.py` — `MultiAgentOrchestrator.reflect()` now routes an
+  actionable threshold recommendation through `threshold_governance` instead of
+  applying it; `ReflectionRecord` gains the governance disposition. Default
+  fail-closed; the live operating point moves only on an authorised review.
+* `ml/online_learning.py` — `OnlineLearningPipeline` routes its
+  high/critical-drift and performance-degradation retrain triggers through an
+  optional `recalibration_governance` policy before `model.fit()`. Standalone it
+  remains an autonomous online learner; in the governed composition it is
+  fail-closed. Explicit `force_retrain()` is never gated.
+* `engine.py` — `enable_multi_agent_orchestration(threshold_governance=…)`
+  installs the policy on the production orchestrator.
+* `research/governed_fusion/phase3_governance_adapters.py` (new) — the
+  gate-backed policies (`PromotionGateThresholdGovernance`,
+  `PromotionGateRecalibrationGovernance`) implement the engine seam by routing a
+  proposal through the Phase 2 promotion gate (research → engine dependency). A
+  gate `promote` is queued for human approval, never auto-applied.
+* `research/governed_fusion/phase3_governance.py` — adds
+  `dormant_revival_report_to_section` and a `--dormant-revival` CLI path so the
+  recurring workflow routes every measured verdict through the gate instead of
+  only uploading it (closes the measure → route loop). `maintain` remains a
+  no-op; missing candidate evidence fails closed; `promote` remains human-review
   gated.
 * `Phase3DecisionStore` — append-only JSON records plus `index.jsonl` for
   Reflexion, drift, and dormant-revival routing outcomes.
-* `tests/research/test_phase3_governance.py` (9 tests) — Reflexion no-op and
-  gate-routed threshold changes, drift severity triggers, fail-closed missing
-  evidence, gate rejection propagation, dormant archive/revival decisions,
-  composite-report evaluation, append-only records, and CLI `--check`
-  behavior.
+* `tests/research/test_phase3_governance.py` — routing logic, composite reports,
+  append-only records, CLI `--check`, and the dormant report → routing loop.
+* `tests/research/test_phase3_live_wiring.py` (new) — end-to-end proof against
+  the real gate: the autonomous threshold move and the autonomous drift retrain
+  are both observed to be withheld by default, applied only under an explicit
+  measurement stance, and queued (never auto-applied) when the gate-backed
+  policy clears them.
 * `.github/workflows/phase3-governance.yml` — pull requests run deterministic
-  Phase 3 routing tests; scheduled/manual runs execute the real
-  dormant-module revival benchmark and upload the report.
-* `docs/PHASE3_GOVERNANCE.md`, `docs/SELF_IMPROVEMENT_LOOP.md`, and
-  `README.md` — document Phase 3 as implemented while keeping Phases 4–8
+  Phase 3 routing tests; scheduled/manual runs execute the real dormant-module
+  revival benchmark, route every verdict through the gate, and upload both the
+  measurement and the routing decisions.
+* `docs/PHASE3_GOVERNANCE.md`, `docs/SELF_IMPROVEMENT_LOOP.md`,
+  `ARCHITECTURE.md`, `SECURITY.md`, and `README.md` — document the governed
+  seam, the live wiring, and the fail-closed posture; Phases 4–8 remain
   explicitly deferred.
+
+### Promotion-gate ingestion hardening — close fail-open paths on the decision boundary (2026-06-16)
+
+Hardens the Phase 2 gate (`research/governed_fusion/promotion_gate.py`) and the
+Phase 3 router CLI against malformed and non-finite evidence. Each fix closes a
+fail-**open** path on the security-critical decision boundary; all are locked by
+new tests in `tests/research/test_governed_promotion_gate.py`.
+
+* `_as_float` now rejects `bool` (a Python `int` subclass) and non-finite
+  values. Previously a JSON `true`/`false` in a safety field read as `1.0`/`0.0`
+  and cleared a floor (`{"benevolence": true}` → promote), and an `Inf` metric
+  satisfied the improvement delta while a `NaN` never compared below a regression
+  floor.
+* `_as_int` rejects `bool` and accepts an integral float (`2.0` → `2`) so a
+  legitimate candidate whose metric code emits `2.0` is no longer rejected by a
+  crash.
+* A non-finite **ledger baseline** (e.g. a degenerate single-class measurement
+  that produced `NaN`) is now a fail-closed reject reason, not a silently-skipped
+  ablation check.
+* Both CLI `main()` entry points convert validation errors into an auditable
+  REJECT decision record plus a non-zero exit, instead of a bare traceback that
+  leaves the store empty; decision records are written with `allow_nan=False`.
 
 ### Phase 2: Governed promotion gate — held-out replay, experiment store, rollback decisions (2026-06-16)
 

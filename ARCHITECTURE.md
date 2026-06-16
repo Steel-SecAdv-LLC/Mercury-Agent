@@ -669,6 +669,51 @@ engine, the hub, and the orchestrator all observe the same trained
 network and the same signed-corpus verdict, so a corpus tampering at
 startup poisons every decision boundary uniformly (fail-closed).
 
+### Governed Self-Improvement Seam (Phase 3)
+
+The two gates above bind every *inference*. A third fail-closed control binds
+every *self-modification*: Mercury may not change its own live decision boundary
+autonomously. The threat is concrete — the reflexion critic
+(`agentic/orchestration.py`) recommends operating-threshold moves from real
+labeled feedback, and the online-learning pipeline (`ml/online_learning.py`)
+triggers model retraining on high/critical drift or performance degradation.
+Both are genuine self-improvement arrows, and both, left unmediated, mutate live
+behaviour with no evidence and no review.
+
+Phase 3 routes both arrows through an engine-owned governance seam so the
+*proposal* and the *application* are separated:
+
+```
+reflexion / drift trigger → ProposedThresholdChange | ProposedRecalibration
+              │
+              └── governance.review(proposal)  →  GovernanceReview
+                    ├── default (FailClosedSelfImprovementGovernance): WITHHELD
+                    ├── gate-backed, no evidence:                       WITHHELD (gate reject)
+                    ├── gate-backed, evidence + gate promote:           QUEUED (human approval)
+                    └── explicit MeasurementGovernance:                 APPLIED (measurement only)
+              │
+              └── apply iff review.applied  (default: never)
+```
+
+* **Interface (engine).** `omni_mercury_engine.governance.self_improvement`
+  defines `ThresholdGovernance` / `RecalibrationGovernance`, the proposal/review
+  records, and the two built-in policies (`FailClosedSelfImprovementGovernance`,
+  `MeasurementGovernance`). The engine depends only on this interface.
+* **Policy (research, injected).**
+  `research/governed_fusion/phase3_governance_adapters.py` implements the
+  interface by routing a proposal through the Phase 2 promotion gate
+  (`promotion_gate.py`). The dependency points research → engine, so the engine
+  wheel never carries the research tree, and the gate-backed policy is installed
+  at composition time (`enable_multi_agent_orchestration(threshold_governance=…)`,
+  `OnlineLearningPipeline(recalibration_governance=…)`).
+* **Posture.** The default withholds every autonomous mutation. A gate `promote`
+  is *queued for human approval*, never auto-applied — so the live boundary moves
+  only through an evidence-backed, human-approved promotion executed out of band.
+  `MeasurementGovernance` is the single, explicit, auditable exception used by the
+  held-out measurement harnesses. Every disposition is recorded for the
+  append-only audit trail; the wiring is proven end-to-end in
+  `tests/research/test_phase3_live_wiring.py`.
+
 ### Governance Framework Modules (v1.7)
 
 The v1.7 development cycle introduced three first-party governance

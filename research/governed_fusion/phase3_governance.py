@@ -364,7 +364,7 @@ class Phase3DecisionStore:
         record_path = self.root / f"{stamp}-phase3-decisions.json"
         payload = [asdict(decision) for decision in decisions]
         with record_path.open("w", encoding="utf-8") as fh:
-            json.dump(payload, fh, indent=2, sort_keys=True)
+            json.dump(payload, fh, indent=2, sort_keys=True, allow_nan=False)
             fh.write("\n")
         with (self.root / "index.jsonl").open("a", encoding="utf-8") as fh:
             for decision in payload:
@@ -375,15 +375,51 @@ class Phase3DecisionStore:
                     "record": str(record_path),
                     "decided_at": decision["decided_at"],
                 }
-                json.dump(row, fh, sort_keys=True)
+                json.dump(row, fh, sort_keys=True, allow_nan=False)
                 fh.write("\n")
         return record_path
 
 
+def dormant_revival_report_to_section(
+    report: Mapping[str, object],
+    *,
+    candidate_records: Mapping[str, object] | None = None,
+) -> dict[str, object]:
+    """Convert a ``benchmarks.dormant_module_revival`` report into a routable section.
+
+    The revival benchmark nests its measured verdicts under
+    ``verdicts.candidates``; Phase 3 routing consumes them under the report's
+    ``dormant_revival.candidates`` key, with optional per-candidate
+    promotion-gate ``candidate_records``. This closes the measurement→routing
+    loop: the recurring workflow measures revival on real labels, then routes
+    every verdict through the governed gate instead of merely uploading it.
+
+    Args:
+        report: The parsed ``dormant_module_revival.json`` benchmark report.
+        candidate_records: Optional per-candidate held-out-replay records for
+            candidates that have promotion-gate evidence.
+
+    Returns:
+        A ``dormant_revival`` report section suitable for
+        :func:`evaluate_phase3_report`.
+    """
+    verdicts = _as_mapping(report.get("verdicts"), "dormant_revival_report.verdicts")
+    candidates = _as_mapping(
+        verdicts.get("candidates"), "dormant_revival_report.verdicts.candidates"
+    )
+    section: dict[str, object] = {"candidates": dict(candidates)}
+    if candidate_records:
+        section["candidate_records"] = dict(candidate_records)
+    return section
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--report", type=Path, help="Composite Phase 3 evidence JSON.")
     parser.add_argument(
-        "--report", type=Path, required=True, help="Composite Phase 3 evidence JSON."
+        "--dormant-revival",
+        type=Path,
+        help="A benchmarks.dormant_module_revival report to route through the gate.",
     )
     parser.add_argument("--manifest", type=Path, default=_DEFAULT_MANIFEST)
     parser.add_argument("--ledger", type=Path, default=_DEFAULT_LEDGER)
@@ -397,18 +433,55 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _error_decision(reasons: list[str]) -> Phase3Decision:
+    """Build a fail-closed REJECT decision for an unevaluable Phase 3 report."""
+    return Phase3Decision(
+        schema_version=1,
+        phase="phase3",
+        surface="error",
+        action=Phase3Action.REJECT.value,
+        candidate_id=None,
+        gate_decision=None,
+        reasons=reasons,
+        evidence={"error": "phase3 report could not be evaluated"},
+        gate_result=None,
+        decided_at=datetime.now(UTC).isoformat(),
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
-    decisions = evaluate_phase3_report(
-        _load_json(args.report),
-        manifest=_load_json(args.manifest),
-        ledger=_load_json(args.ledger),
-    )
+    errored = False
+    try:
+        report: JsonMap = {}
+        if args.report is not None:
+            report.update(_load_json(args.report))
+        if args.dormant_revival is not None:
+            report["dormant_revival"] = dormant_revival_report_to_section(
+                _load_json(args.dormant_revival)
+            )
+        if not report:
+            parser.error("provide --report and/or --dormant-revival")
+        decisions = evaluate_phase3_report(
+            report,
+            manifest=_load_json(args.manifest),
+            ledger=_load_json(args.ledger),
+        )
+    except ValueError as exc:
+        # Malformed evidence is a fail-closed reject record, never a bare crash.
+        decisions = [_error_decision([f"phase3 report rejected: {exc}"])]
+        errored = True
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         with args.out.open("w", encoding="utf-8") as fh:
-            json.dump([asdict(decision) for decision in decisions], fh, indent=2, sort_keys=True)
+            json.dump(
+                [asdict(decision) for decision in decisions],
+                fh,
+                indent=2,
+                sort_keys=True,
+                allow_nan=False,
+            )
             fh.write("\n")
         output_path = args.out
     else:
@@ -418,6 +491,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  - {decision.surface}: {decision.action}")
         for reason in decision.reasons:
             print(f"      {reason}")
+    if errored:
+        return 1
     if args.check:
         blocked = {
             Phase3Action.REJECT.value,

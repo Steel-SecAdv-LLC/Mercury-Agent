@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import re
 import sys
 from collections.abc import Mapping
@@ -103,15 +104,30 @@ def _as_str(value: object, path: str) -> str:
 
 
 def _as_float(value: object, path: str) -> float:
-    if not isinstance(value, int | float):
+    # bool is a subclass of int: a JSON ``true``/``false`` slipping into a
+    # safety or metric field would otherwise read as 1.0/0.0 and silently
+    # clear a floor. Reject it. Non-finite (NaN/Inf) is also rejected at
+    # ingestion: an Inf metric otherwise satisfies the improvement delta and a
+    # NaN never compares ``< 0`` against a regression floor — both fail open.
+    if isinstance(value, bool) or not isinstance(value, int | float):
         raise ValueError(f"{path} must be numeric")
-    return float(value)
+    result = float(value)
+    if not math.isfinite(result):
+        raise ValueError(f"{path} must be a finite number (got {result})")
+    return result
 
 
 def _as_int(value: object, path: str) -> int:
-    if not isinstance(value, int):
+    # Reject bool (an int subclass). Accept an integral float (``2.0``): real
+    # metric/count computations naturally emit floats, and rejecting them would
+    # reject a legitimate candidate by raising rather than by decision.
+    if isinstance(value, bool):
         raise ValueError(f"{path} must be an integer")
-    return value
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    raise ValueError(f"{path} must be an integer")
 
 
 def _optional_mapping(value: object, path: str) -> Mapping[str, object]:
@@ -209,6 +225,29 @@ def _capability_reasons(capability: Mapping[str, object]) -> list[str]:
     return reasons
 
 
+def _finite_baseline(value: object, metric: str, reasons: list[str]) -> float | None:
+    """Read a ledger baseline metric, failing closed on a non-finite value.
+
+    The ablation baseline is environmental ledger data, not candidate-controlled.
+    A non-finite baseline — e.g. a degenerate single-class measurement that
+    produced ``NaN`` — makes the regression check un-evaluable. It is recorded as
+    a reject reason rather than silently skipped (which would let any candidate
+    pass against a corrupt baseline) or raised (which would crash the in-process
+    gate on environmental data).
+    """
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, int | float)
+        or not math.isfinite(float(value))
+    ):
+        reasons.append(
+            f"ablation {metric} baseline in the latest ok ledger run is not a finite "
+            "number; the regression check cannot be evaluated"
+        )
+        return None
+    return float(value)
+
+
 def _ablation_reasons(
     candidate: Mapping[str, object],
     latest_run: Mapping[str, object],
@@ -225,7 +264,9 @@ def _ablation_reasons(
     reasons: list[str] = []
     for metric in _METRICS:
         candidate_value = _as_float(candidate_full.get(metric), f"candidate.ablation.full.{metric}")
-        baseline_value = _as_float(baseline_full.get(metric), f"ledger.latest_ok.full.{metric}")
+        baseline_value = _finite_baseline(baseline_full.get(metric), metric, reasons)
+        if baseline_value is None:
+            continue
         delta = candidate_value - baseline_value
         if delta < -thresholds.max_ablation_regression:
             reasons.append(
@@ -361,7 +402,7 @@ class ExperimentStore:
         record_path = self.root / f"{stamp}-{safe_candidate}-{result.decision}.json"
         payload = asdict(result)
         with record_path.open("w", encoding="utf-8") as fh:
-            json.dump(payload, fh, indent=2, sort_keys=True)
+            json.dump(payload, fh, indent=2, sort_keys=True, allow_nan=False)
             fh.write("\n")
         index_row = {
             "candidate_id": result.candidate_id,
@@ -371,7 +412,7 @@ class ExperimentStore:
             "decided_at": result.decided_at,
         }
         with (self.root / "index.jsonl").open("a", encoding="utf-8") as fh:
-            json.dump(index_row, fh, sort_keys=True)
+            json.dump(index_row, fh, sort_keys=True, allow_nan=False)
             fh.write("\n")
         return record_path
 
@@ -393,18 +434,67 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _error_result(reasons: list[str], *, candidate_id: str) -> GateResult:
+    """Build a fail-closed REJECT record for a candidate that could not be evaluated.
+
+    A malformed or unexpectedly-typed candidate is a reject *decision* with an
+    auditable record, not a bare traceback that leaves the store empty.
+    """
+    return GateResult(
+        schema_version=1,
+        gate="governed-promotion",
+        decision=GateDecision.REJECT.value,
+        candidate_id=candidate_id,
+        baseline_id="current_baseline",
+        evaluation_mode=EvaluationMode.HELD_OUT_REPLAY.value,
+        fitness_bucket=_FITNESS_BUCKET,
+        manifest_external_label_events=0,
+        metric_deltas={},
+        reasons=reasons,
+        evidence={"error": "candidate could not be evaluated"},
+        rollback={
+            "enabled": True,
+            "triggered": False,
+            "target": "current_baseline",
+            "reason": None,
+        },
+        requires_human_approval=False,
+        decided_at=datetime.now(UTC).isoformat(),
+    )
+
+
+def _candidate_id_best_effort(path: Path) -> str:
+    """Recover ``candidate_id`` from a possibly-malformed candidate file."""
+    try:
+        raw = _load_json(path)
+        candidate_id = raw.get("candidate_id")
+        if isinstance(candidate_id, str) and candidate_id:
+            return candidate_id
+    except (ValueError, OSError):
+        pass
+    return "unparsed-candidate"
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
-    result = evaluate_candidate(
-        _load_json(args.candidate),
-        manifest=_load_json(args.manifest),
-        ledger=_load_json(args.ledger),
-    )
+    errored = False
+    try:
+        result = evaluate_candidate(
+            _load_json(args.candidate),
+            manifest=_load_json(args.manifest),
+            ledger=_load_json(args.ledger),
+        )
+    except ValueError as exc:
+        result = _error_result(
+            [f"candidate rejected: {exc}"],
+            candidate_id=_candidate_id_best_effort(args.candidate),
+        )
+        errored = True
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         with args.out.open("w", encoding="utf-8") as fh:
-            json.dump(asdict(result), fh, indent=2, sort_keys=True)
+            json.dump(asdict(result), fh, indent=2, sort_keys=True, allow_nan=False)
             fh.write("\n")
         output_path = args.out
     else:
@@ -412,6 +502,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"governed-promotion decision={result.decision} record={output_path}")
     for reason in result.reasons:
         print(f"  - {reason}")
+    if errored:
+        return 1
     if args.check and result.decision != GateDecision.PROMOTE.value:
         return 1
     return 0
