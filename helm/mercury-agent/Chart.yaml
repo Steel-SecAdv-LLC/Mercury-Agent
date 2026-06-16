@@ -64,7 +64,7 @@ dependencies:
 
   # Optional: Redis for caching
   - name: redis
-    version: 27.0.8
+    version: 27.0.10
     repository: "https://charts.bitnami.com/bitnami"
     condition: redis.enabled
     tags:
