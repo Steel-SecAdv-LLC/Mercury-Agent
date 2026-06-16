@@ -85,10 +85,10 @@ autonomous loop reads only honest events.
 * `research/governed_fusion/measure_marginal_ablation.py` — standing
   fusion-marginal ablation ledger: leave-one-component-out
   ΔAUROC / ΔAUPRC / ΔF1 on the external-label live subset only. Records
-  timestamp, git SHA, components, and event keys per run. When the
-  score cache is absent (typical on a fresh CI runner) emits an
-  informational `needs_cache` record (exit 0) so the ledger keeps a
-  chronological reachability account.
+  timestamp, git SHA, components, event keys, and the selected cache
+  path per run. When the selected score cache is absent (typical on a
+  fresh CI runner) emits an informational `needs_cache` record (exit 0)
+  so the ledger keeps a chronological reachability account.
 * `research/governed_fusion/ablation_ledger.json` — seed ledger; the
   fitness function the autonomous loop will climb.
 * `.github/workflows/ablation-ledger.yml` — runs on PR + nightly: loader
@@ -100,10 +100,11 @@ autonomous loop reads only honest events.
   assertions) — per-event provenance integrity, manifest-vs-loader
   drift, the `external_label` bucket lock at exactly
   `{network_security/batadal, network_security/nsl_kdd}`.
-* `tests/research/test_marginal_ablation_ledger.py` (5 assertions) —
+* `tests/research/test_marginal_ablation_ledger.py` (6 assertions) —
   ledger schema, math correctness on synthetic events (informative
   components produce positive lift; a noise component ranks below),
-  and the missing-cache informational path.
+  the missing-cache informational path, and `--cache-dir` propagation
+  into the score-cache reader.
 * `docs/SELF_IMPROVEMENT_LOOP.md` — the rollout narrative: the verified
   capabilities map, the honest baseline, the 10-dataset reconciliation
   (mirror vs cannot-score), Phase 1 deliverables, and the explicit

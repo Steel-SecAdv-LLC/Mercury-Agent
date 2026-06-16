@@ -168,14 +168,14 @@ justification.
   component-out lift (`resonance`, `kinematic`, `info_geo`) on the
   external-label live subset only. Macro-mean ΔAUROC / ΔAUPRC / ΔF1 per
   component. Records timestamp, git SHA, components, the full vs
-  ablated metrics, and the event keys actually scored. When
-  `$GF_CACHE_DIR` is absent on the runner, writes a `needs_cache`
-  record (exit 0) so the ledger keeps a chronological reachability
-  account without blocking the gate; `--check` flips that to exit 1 for
-  the nightly job once Phase 2 wires a cache build.
+  ablated metrics, and the event keys actually scored. When the selected
+  score cache (`$GF_CACHE_DIR` or `--cache-dir`) is absent on the runner,
+  writes a `needs_cache` record (exit 0) so the ledger keeps a
+  chronological reachability account without blocking the gate; `--check`
+  flips that to exit 1 for the nightly job once Phase 2 wires a cache build.
 * `research/governed_fusion/ablation_ledger.json` — seed ledger;
   `runs[]` grows append-only across CI runs.
-* `tests/research/test_marginal_ablation_ledger.py` — 5 assertions:
+* `tests/research/test_marginal_ablation_ledger.py` — 6 assertions:
   schema integrity of the committed ledger; informative components show
   positive lift; a noise component ranks below the informative ones;
   missing-cache path produces the `needs_cache` informational record

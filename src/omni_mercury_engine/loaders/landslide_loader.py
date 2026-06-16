@@ -654,17 +654,16 @@ def _parse_date(value: Any) -> datetime | None:
     if value is None or (isinstance(value, str) and value.strip() in ("", "None", "nan")):
         return None
 
-    # Try epoch milliseconds (ArcGIS often returns dates as ms since epoch)
+    numeric: float | None
     try:
         numeric = float(value)
-        if numeric > 1e12:
-            # Likely milliseconds since epoch
-            return datetime.utcfromtimestamp(numeric / 1000.0)
-        elif numeric > 1e9:
-            # Likely seconds since epoch
-            return datetime.utcfromtimestamp(numeric)
     except (ValueError, TypeError, OSError):
-        pass
+        numeric = None
+
+    if numeric is not None and numeric > 1e12:
+        return datetime.utcfromtimestamp(numeric / 1000.0)
+    if numeric is not None and numeric > 1e9:
+        return datetime.utcfromtimestamp(numeric)
 
     # Try ISO format parsing
     if isinstance(value, str):

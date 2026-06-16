@@ -20,16 +20,22 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING
 
 import numpy as np
 
+from research.governed_fusion import measure_marginal_ablation as mma
 from research.governed_fusion.measure_marginal_ablation import (
     _COMPONENTS,
+    _load_external_label_scores,
     compute_marginal_lift,
     measure,
 )
 from research.governed_fusion.score_cache import EventScores
+from research.governed_fusion.suite import EventData
+
+if TYPE_CHECKING:
+    import pytest
 
 _LEDGER_PATH = (
     Path(__file__).resolve().parents[2] / "research" / "governed_fusion" / "ablation_ledger.json"
@@ -141,7 +147,7 @@ def test_compute_marginal_lift_flags_a_noise_component() -> None:
     assert d_kin > d_inf, (d_res, d_kin, d_inf)
 
 
-def test_measure_handles_missing_cache(tmp_path: Any) -> None:
+def test_measure_handles_missing_cache(tmp_path: Path) -> None:
     """Without a score cache, the script must produce an informational record
     (not crash) so the ledger keeps a chronological account of reachability."""
     rec = measure(cache_dir=str(tmp_path / "nonexistent"))
@@ -150,6 +156,37 @@ def test_measure_handles_missing_cache(tmp_path: Any) -> None:
     assert rec["full"] is None
     assert rec["leave_one_out"] is None
     assert rec["components"] == list(_COMPONENTS)
+
+
+def test_external_label_score_loader_uses_requested_cache_dir(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """The CLI's --cache-dir must control the score-cache path it reads."""
+    requested: list[str] = []
+    event = EventData(
+        domain="network_security",
+        event_id="nsl_kdd",
+        X=np.zeros((8, 3), dtype=np.float64),
+        y=np.array([0, 0, 0, 0, 1, 1, 1, 1], dtype=int),
+    )
+
+    def fake_event_scores(
+        ev: EventData,
+        *,
+        cap: int = 6000,
+        seed: int = 42,
+        cache_dir: str,
+    ) -> EventScores:
+        requested.append(cache_dir)
+        return _make_event(ev.domain, ev.event_id, seed=seed, n=cap // 15)
+
+    monkeypatch.setattr(mma, "build_suite", lambda kind="real": [event])
+    monkeypatch.setattr("research.governed_fusion.score_cache.event_scores", fake_event_scores)
+
+    scores = _load_external_label_scores(str(tmp_path))
+    assert [(score.domain, score.event_id) for score in scores] == [("network_security", "nsl_kdd")]
+    assert requested == [str(tmp_path)]
 
 
 def test_compute_marginal_lift_schema_is_stable() -> None:

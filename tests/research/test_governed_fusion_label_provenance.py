@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -40,7 +40,7 @@ _MANIFEST_PATH = (
 @pytest.fixture(scope="module")
 def manifest() -> dict[str, Any]:
     with _MANIFEST_PATH.open() as fh:
-        return json.load(fh)
+        return cast("dict[str, Any]", json.load(fh))
 
 
 def _all_entries(manifest: dict[str, Any]) -> list[dict[str, Any]]:

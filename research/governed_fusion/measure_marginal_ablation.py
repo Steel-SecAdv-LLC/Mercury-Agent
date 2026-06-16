@@ -29,13 +29,13 @@ CI runs::
     source research/governed_fusion/gf_env.sh
     python research/governed_fusion/measure_marginal_ablation.py
 
-When the score cache is absent (typical on a fresh CI runner that has not
-yet built ``$GF_CACHE_DIR``), the script writes a ``needs_cache`` record so
-the ledger keeps a chronological account of when the suite was last
-runnable, and exits ``0`` in informational mode (default) or ``1`` in
+When the selected score cache is absent (typical on a fresh CI runner that
+has not yet built ``$GF_CACHE_DIR``), the script writes a ``needs_cache``
+record so the ledger keeps a chronological account of when the suite was
+last runnable, and exits ``0`` in informational mode (default) or ``1`` in
 ``--check`` mode.  The leakage-split discipline (every event correctly
-tagged, the external-label bucket non-empty) is enforced offline and
-exits non-zero independently of whether the cache is present.
+tagged, the external-label bucket non-empty) is enforced offline and exits
+non-zero independently of whether the cache is present.
 
 The intentional simplification of using a *mean-of-components* fusion
 ablation is the only fusion-style available offline-from-cache today; the
@@ -50,24 +50,30 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import subprocess
 import sys
 from datetime import UTC, datetime
-from typing import Any
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 
 from research.governed_fusion.label_provenance import external_label_events
 from research.governed_fusion.metrics import _safe_auc, _safe_auprc
-from research.governed_fusion.score_cache import EventScores
 from research.governed_fusion.suite import build_suite
 
-_LEDGER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ablation_ledger.json")
+if TYPE_CHECKING:
+    from research.governed_fusion.score_cache import EventScores
+
+_LEDGER_PATH = Path(__file__).resolve().with_name("ablation_ledger.json")
 _DEFAULT_CACHE_DIR = os.environ.get("GF_CACHE_DIR", "/home/user/gf_cache")
 
 # Detectors whose marginal lift the ledger tracks.  Names must match the
 # attribute names on ``EventScores``.
 _COMPONENTS = ("resonance", "kinematic", "info_geo")
+
+
+def _is_git_sha(value: str) -> bool:
+    return len(value) == 40 and all(c in "0123456789abcdefABCDEF" for c in value)
 
 
 def _f1_from_scores(y: np.ndarray[Any, Any], s: np.ndarray[Any, Any]) -> float:
@@ -162,21 +168,45 @@ def compute_marginal_lift(events: list[EventScores]) -> dict[str, Any]:
 
 
 def _git_sha() -> str | None:
-    try:
-        out = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            check=True,
-            capture_output=True,
-            text=True,
-            timeout=10,
-        ).stdout.strip()
-        return out or None
-    except Exception:
-        return None
+    env_sha = os.environ.get("GITHUB_SHA")
+    repo_root = Path(__file__).resolve().parents[2]
+    git_marker = repo_root / ".git"
+    git_dir = git_marker
+    if git_marker.is_file():
+        marker = git_marker.read_text(encoding="utf-8", errors="replace").strip()
+        if marker.startswith("gitdir:"):
+            git_dir = (repo_root / marker.removeprefix("gitdir:").strip()).resolve()
+    head_path = git_dir / "HEAD"
+    if not head_path.exists():
+        return env_sha if env_sha and _is_git_sha(env_sha) else None
+
+    head = head_path.read_text(encoding="utf-8", errors="replace").strip()
+    if _is_git_sha(head):
+        return head
+    if not head.startswith("ref:"):
+        return env_sha if env_sha and _is_git_sha(env_sha) else None
+
+    ref = head.removeprefix("ref:").strip()
+    ref_path = git_dir / ref
+    if ref_path.exists():
+        sha = ref_path.read_text(encoding="utf-8", errors="replace").strip()
+        if _is_git_sha(sha):
+            return sha
+
+    packed_refs = git_dir / "packed-refs"
+    if packed_refs.exists():
+        for line in packed_refs.read_text(encoding="utf-8", errors="replace").splitlines():
+            if line.startswith("#") or not line.strip():
+                continue
+            sha, _, packed_ref = line.partition(" ")
+            if packed_ref == ref and _is_git_sha(sha):
+                return sha
+    return env_sha if env_sha and _is_git_sha(env_sha) else None
 
 
 def _has_cache(cache_dir: str) -> bool:
-    return os.path.isdir(cache_dir) and any(os.scandir(cache_dir))
+    path = Path(cache_dir)
+    return path.is_dir() and any(path.iterdir())
 
 
 def _load_external_label_scores(cache_dir: str) -> list[EventScores]:
@@ -191,7 +221,7 @@ def _load_external_label_scores(cache_dir: str) -> list[EventScores]:
     from research.governed_fusion.score_cache import event_scores
 
     events = external_label_events(build_suite(kind="real"))
-    return [event_scores(ev) for ev in events]
+    return [event_scores(ev, cache_dir=cache_dir) for ev in events]
 
 
 def _empty_subset_record(reason: str) -> dict[str, Any]:
@@ -205,7 +235,7 @@ def _empty_subset_record(reason: str) -> dict[str, Any]:
 
 
 def _load_ledger() -> dict[str, Any]:
-    if not os.path.exists(_LEDGER_PATH):
+    if not _LEDGER_PATH.exists():
         return {
             "schema_version": 1,
             "ledger": "governed-fusion marginal ablation",
@@ -213,12 +243,12 @@ def _load_ledger() -> dict[str, Any]:
             "honest_fitness_bucket": "external_label",
             "runs": [],
         }
-    with open(_LEDGER_PATH) as fh:
-        return json.load(fh)
+    with _LEDGER_PATH.open() as fh:
+        return cast("dict[str, Any]", json.load(fh))
 
 
 def _write_ledger(ledger: dict[str, Any]) -> None:
-    with open(_LEDGER_PATH, "w") as fh:
+    with _LEDGER_PATH.open("w") as fh:
         json.dump(ledger, fh, indent=2)
         fh.write("\n")
 
