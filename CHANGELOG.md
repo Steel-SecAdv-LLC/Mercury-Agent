@@ -27,6 +27,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Phase 2: Governed promotion gate — held-out replay, experiment store, rollback decisions (2026-06-16)
+
+Adds the enforcement layer that consumes Phase 1's transparent fitness
+substrate before any recursive self-improvement candidate can advance.
+
+* `research/governed_fusion/promotion_gate.py` — deterministic promotion
+  gate for candidate evidence records. The gate reads only the
+  `external_label` bucket, requires AUROC or F1 improvement without
+  AUROC/AUPRC/F1 regression, enforces σ_Immutable / benevolence /
+  conformal / Lyapunov floors, requires capability-regression success,
+  checks the latest `status="ok"` marginal-ablation baseline when present,
+  and emits rollback decisions for failed canaries.
+* `ExperimentStore` — append-only JSON decision records plus `index.jsonl`
+  so promotion, rejection, and rollback outcomes remain reviewable.
+* `tests/research/test_governed_promotion_gate.py` (8 assertions) —
+  promotion eligibility, external-label-only optimization, broadened-bucket
+  rejection, capability-evidence enforcement, ablation-regression rejection,
+  canary rollback, manifest-count reconciliation, and append-only store
+  behavior.
+* `.github/workflows/ablation-ledger.yml` — extends the transparent fitness
+  substrate CI lane with the governed promotion gate tests.
+* `docs/GOVERNED_PROMOTION_GATE.md`, `docs/SELF_IMPROVEMENT_LOOP.md`, and
+  `README.md` — document the Phase 2 operator contract, held-out replay
+  terminology, human-review requirement, and rollback behavior.
+
 ### Phase 1: Transparent fitness substrate — leakage-split gate + fusion-marginal ablation ledger (2026-06-16)
 
 Closes the **measurement** stage of the governed recursive self-improvement

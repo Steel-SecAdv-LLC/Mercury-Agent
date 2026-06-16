@@ -115,7 +115,7 @@ def _provenance_summary(real: list[dict[str, Any]], recon: list[dict[str, Any]])
         "reconstructed": _bucket(recon),
         "transparent_fitness_bucket": "external_label",
         "transparent_fitness_note": (
-            "Phase 2's promotion gate / autonomous fitness signal reads only "
+            "The governed promotion gate / autonomous fitness signal reads only "
             "live events with label_provenance in {ground_truth, expert_annotated}. "
             "Self-labelled events are reported separately as leakage-flagged; "
             "reconstructed-series events are reported separately by design."

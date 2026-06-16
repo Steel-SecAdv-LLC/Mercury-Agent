@@ -1,29 +1,24 @@
-# Governed Recursive Self-Improvement — Phase 1 (Transparent Fitness Substrate)
+# Governed Recursive Self-Improvement — Phases 1–2
 
-> Status of this document: **Phase 1 in flight.** This PR closes the
-> measurement-provenance problem only; Phases 2–8 are explicitly out of scope
-> and tracked at the bottom of this document as documented decisions, not
-> as gaps. The single biggest risk to Mercury's recursive self-improvement
-> path was a contaminated fitness signal — optimising against labels that are
-> a deterministic function of the scored signal makes a system confidently
-> *worse* while its dashboards improve. Phase 1 surfaces that boundary
-> transparently and locks the discipline in CI so later phases can build on
-> independently auditable measurements.
+> Status of this document: **Phase 2 in flight.** Phase 1 closed the
+> measurement-provenance problem. Phase 2 adds the governed promotion gate
+> that consumes that substrate, enforces safety/capability floors, and emits
+> rollback-safe decision records. Phases 3–8 remain documented decisions, not
+> unstated gaps.
 
 ## 0. What this loop is, in one paragraph
 
 Recursive self-improvement is one loop: **measure → propose a change →
 evaluate it safely → keep it only if it is measurably better → lock it so
-it cannot regress.** Mercury already contains a fragment of every stage,
-but the loop is not closed and the measurement stage is partly contaminated.
-You cannot autonomously optimise against a provenance-contaminated signal — the
-optimiser will find the shortcut every time. Phase 1 fixes the
-measurement; Phase 2 (separate PR) wires the gated promotion path;
-Phase 3+ wire the recursive arrows.
+it cannot regress.** Mercury contains the required control surfaces, but the
+recursive proposal/execution arrows remain deliberately unwired until they can
+operate behind measured gates. Phase 1 fixes the measurement substrate; Phase 2
+wires the gated promotion path; Phase 3+ wire recursive proposals behind this
+gate.
 
 ## 1. Phase 0 — verified ground truth (the map)
 
-This PR's first commit verifies the inventory the upstream prompt
+The Phase 1 audit verified the inventory the upstream prompt
 asserted, against the live (post-#287) code. Where the prompt was right,
 it's cited; where it was wrong, the reality is recorded here and the work
 proceeds from reality.
@@ -226,21 +221,39 @@ The two findings that *moved* and must be surfaced transparently:
    only inflate; it can also degrade in either direction. The discipline
    is the same: don't grade self-improvement against it.
 
-## 4. Explicit out-of-scope decisions (deferred, not omitted)
+## 4. Phase 2 — governed promotion gate
 
-The upstream prompt asked for one PR covering Phases 1–8. The
-authorising user capped this at **two PRs** and ordered Phase 1 first to
-prove the fitness signal is provenance-safe before any automation rides on it.
-Therefore this PR delivers Phase 1 only; everything below is a *decision*
-to defer, not a gap.
+Phase 2 ships `research/governed_fusion/promotion_gate.py` and
+`tests/research/test_governed_promotion_gate.py`.
 
-* **Phase 2 — governed promotion gate, shadow/canary, experiment store,
-  capability-regression suite, auto-rollback.** This is the next PR. It
-  reads `external_label` from Phase 1's manifest and from the
-  ablation-ledger baseline; it never silently broadens that subset. The
-  user explicitly flagged that there is no production traffic in CI to
-  shadow against, so Phase 2 will be careful to call the cross-validation
-  surface what it is (a held-out replay), not invent fake live traffic.
+The gate:
+
+* Reads only the `external_label` fitness bucket from the Phase 1 manifest.
+  It rejects any candidate that attempts to optimise against `self_label`,
+  `reconstructed`, or `overall` metrics.
+* Uses `held_out_replay` as the CI evaluation surface. This is intentionally
+  not called live shadow traffic because no production traffic exists in CI.
+* Requires measurable AUROC or F1 lift with no AUROC/AUPRC/F1 regression on
+  the external-label bucket.
+* Enforces σ_Immutable, benevolence, conformal coverage, and Lyapunov floors
+  without loosening any existing threshold.
+* Requires the capability-regression suite to pass.
+* Checks the latest `status="ok"` marginal-ablation ledger baseline when one
+  exists.
+* Writes append-only experiment records and emits `rollback` decisions for
+  failed canaries. A `promote` result remains human-review-gated; the module
+  does not perform unattended deployment.
+
+See `docs/GOVERNED_PROMOTION_GATE.md` for the operator contract and CLI.
+
+## 5. Explicit out-of-scope decisions (deferred, not omitted)
+
+The upstream prompt asked for one PR covering Phases 1–8. The authorising
+user capped this at **two PRs** and ordered Phase 1 first to prove the
+fitness signal is provenance-safe before any automation rides on it. Phase
+2 completes that approved two-PR path by adding the gate. Everything below
+is a *decision* to defer, not a gap.
+
 * **Phase 3 — Reflexion executor wiring, drift-triggered auto-
   calibration, recurring dormant-revival CI job.** Routed through the
   Phase 2 gate. Not in scope here.

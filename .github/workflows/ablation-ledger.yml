@@ -1,8 +1,8 @@
-# Mercury-Agent Transparent Fitness Substrate / Marginal Ablation Ledger
-# Phase 1 of governed recursive self-improvement.
+# Mercury-Agent Transparent Fitness Substrate / Governed Promotion Gate
+# Phases 1-2 of governed recursive self-improvement.
 #
-# This is the leakage-split gate the autonomous self-improvement loop's
-# fitness signal will read from once Phase 2's promotion gate is wired.
+# This is the leakage-split gate and promotion decision harness the
+# autonomous self-improvement loop reads from.
 # It enforces, on every PR to a release branch:
 #
 #   1. The loader-side label-provenance audit is clean
@@ -16,7 +16,10 @@
 #   3. The marginal-ablation ledger module produces records matching its
 #      committed schema and computes leave-one-out lift correctly on
 #      synthetic ground truth (tests/research/test_marginal_ablation_ledger.py).
-#   4. The measurement entry point itself runs and appends one record (an
+#   4. The Phase 2 governed-promotion gate promotes only external-label
+#      improvements, rejects broadened/unsafe proposals, and emits rollback
+#      decisions for failed canaries.
+#   5. The measurement entry point itself runs and appends one record (an
 #      informational 'needs_cache' record when no $GF_CACHE_DIR is present
 #      on the runner, otherwise the real per-component lift). The ledger is
 #      uploaded as a CI artifact for review and post-Phase-2 regression.
@@ -27,7 +30,7 @@
 #
 # Copyright (C) 2025 Steel Security Advisors LLC
 
-name: Transparent Fitness Substrate (Ablation Ledger)
+name: Transparent Fitness Substrate (Promotion Gate)
 
 permissions:
   contents: read
@@ -87,7 +90,11 @@ jobs:
       - name: Marginal-ablation ledger unit tests
         run: pytest tests/research/test_marginal_ablation_ledger.py -q
 
-      # 4. Run the actual measurement.  When the score cache is absent on
+      # 4. Promotion gate: held-out replay, capability, safety, and rollback.
+      - name: Governed promotion gate unit tests
+        run: pytest tests/research/test_governed_promotion_gate.py -q
+
+      # 5. Run the actual measurement.  When the score cache is absent on
       # the runner, the script writes a 'needs_cache' record (exit 0) so
       # the ledger keeps a chronological account of reachability without
       # blocking the gate.  --check would be enabled by the same job on a
