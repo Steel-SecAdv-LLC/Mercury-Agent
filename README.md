@@ -13,7 +13,7 @@
 [![Anomaly Detection](https://img.shields.io/badge/Anomaly%20Detection-Multi--Domain%20Neuro--Symbolic-00bcd4.svg)](#current-benchmarks-and-visual-proof)
 [![Fairlearn](https://img.shields.io/badge/Fairness-Fairlearn-orange.svg)](https://fairlearn.org/)
 [![Security Scan](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yml/badge.svg)](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yml)
-[![Tests](https://img.shields.io/badge/tests-8700%2B%20collected-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-8%2C789%20collected-brightgreen.svg)](tests/)
 [![Coverage](https://img.shields.io/badge/coverage-measured%20per%20release-lightgrey.svg)](tests/)
 [![3R|Mechanism](https://img.shields.io/badge/3R-Mechanism-red.svg)](#3r-recursion-resonance-refactoring)
 [![GOSNN](https://img.shields.io/badge/GOSNN-Synaptic%20Integration-purple.svg)](#gosnn-global-omni-scalar-network)
@@ -27,7 +27,7 @@
               | Neuro-Symbolic AI for Autonomous, Multi-Model, Multi-Domain Anomaly Detection |
               |                                                                               |
               |   7-Phase Evolution      |   Hybrid Fusion ML      |   Production Security    |
-              |   Neural + Symbolic      |   22+ Detection Engines |   Post-Quantum Crypto    |
+              |   Neural + Symbolic      |   30 Detection Engines  |   Post-Quantum Crypto    |
               |   Ethical Governance     |   Multi-Head Attention  |   OWASP Validation       |
               |                                                                               |
               |   LAYER 3: Ethics        |   LAYER 2: ML/AI        |   LAYER 1: Security      |
@@ -40,12 +40,18 @@
               +===============================================================================+
 ```
 
+> **On the Layer-3 entries:** these are runtime-enforced gates, **not static
+> guarantees**. The benevolence gate defaults to ≥ 0.99 and is configurable no
+> lower than a hard 0.70 floor (enforced in `cognitive/ethical_bounding.py`);
+> Lyapunov stability is *monitored and reported* (`is_stable`), not proven a
+> priori. See [`docs/MATH_SPEC.md`](docs/MATH_SPEC.md) §2.2 and §2.7.3.
+
 **Copyright 2025 Steel Security Advisors LLC**
 **Author/Inventor:** Andrew E. A.
 **Contact:** steel.sa.llc@gmail.com
 **License:** GNU General Public License v3.0
 **Version:** v1.7.0
-**Date:** 2026-06-10
+**Date:** 2026-06-17
 **AI Co-Architects:** Eris ✠ | Eden ♱ | Devin ⚛︎ | Claude ⊛
 
 ---
@@ -54,7 +60,7 @@
 
 Mercury Agent is a comprehensive neuro-symbolic AI Archetype implementing a 7-phase cognitive evolution for multi-domain anomaly detection. The system combines neural pattern recognition with symbolic reasoning to produce explainable, ethically-bounded decisions across security, medical, environmental, humanitarian, and infrastructure domains.
 
-The framework embodies a **Civilization-First** philosophy, prioritizing ethical AI governance and humanitarian impact. Every action must pass a benevolence threshold of 0.99 or higher, ensuring the system operates in service of human flourishing and civilizational progress.
+The framework embodies a **Civilization-First** philosophy, prioritizing ethical AI governance and humanitarian impact. Every action must clear a mandatory benevolence enforcement gate — **0.99 by default**, configurable no lower than a hard **0.70** floor — keeping the system in service of human flourishing and civilizational progress.
 
 > **Project Philosophy:** Mercury Agent represents the next evolution in AI systems - one that combines the pattern recognition power of neural networks with the interpretability and reasoning capabilities of symbolic AI. This neuro-symbolic fusion enables the system to not only detect anomalies but explain why they matter and what actions should be taken.
 >
@@ -72,7 +78,7 @@ The framework embodies a **Civilization-First** philosophy, prioritizing ethical
 > This ensures the code and all future improvements remain free and open source forever, even if used by corporations or governments.
 >
 > **Status:** Research-grade | Community-tested | Not externally audited
-> **Last Updated:** 2026-06-10
+> **Last Updated:** 2026-06-17
 >
 
 ---
@@ -200,7 +206,7 @@ comparable benchmark headline.
 **Live-API loaders (`src/omni_mercury_engine/loaders/`).** Phase 1 of the
 governed recursive self-improvement work extends the same label-provenance
 discipline to the live-API loader path that the governed-fusion suite
-(`research/governed_fusion/`) consumes. Of the 15 concrete loaders, only
+(`research/governed_fusion/`) consumes. Of the 15 concrete loaders (the 16 `*Loader` classes measured in the [Codebase Scale](#codebase-scale-measured-not-estimated) block, minus the abstract `BaseDomainLoader` base), only
 **2** produce labels independent of any scored feature — `network_security`
 (NSL-KDD `label`, BATADAL `ATT_FLAG`) and `sepsis` (PhysioNet SepsisLabel).
 The remaining 13 threshold a scored column or reconstruct the entire series
@@ -328,15 +334,18 @@ sourced.*
 
 | Detector | breast_cancer AUC | covtype AUC | digits_8 AUC |
 |----------|-------------------|-------------|--------------|
-| **Mercury-Agent** | **0.796** | **0.896** | 0.489 |
-| Isolation Forest | - | - | - |
-| One-Class SVM | 0.662 | 0.901 | **0.767** |
+| **Mercury-Agent** | 0.796 | 0.896 | 0.489 |
+| One-Class SVM | 0.662 | **0.901** | **0.767** |
 | LOF | 0.544 | 0.667 | 0.571 |
-| Elliptic Envelope | **0.888** | 0.899 | 0.503 |
+| Elliptic Envelope | 0.888 | 0.899 | 0.503 |
 | TranAD (SOTA) | 0.940 | 0.892 | 0.742 |
-| MAAT (SOTA) | 0.946 | - | 0.747 |
+| MAAT (SOTA) | **0.946** | — | 0.747 |
 
-*Mercury-Agent is competitive with traditional detectors on tabular data without any tuning. SOTA supervised methods (TranAD, MAAT) outperform on labeled tasks as expected.*
+*Bold marks the best AUC in each column; "—" denotes a dataset not evaluated for
+that method. Mercury-Agent is run untuned against standard unsupervised baselines
+(One-Class SVM, LOF, Elliptic Envelope) and stays competitive on tabular data; the
+supervised SOTA references (TranAD, MAAT) are the performance ceiling and
+outperform on labeled tasks, as expected.*
 
 **Calibration Validation (MD-011 / MD-003 / MD-005):**
 
@@ -432,7 +441,7 @@ Distribution of unsupervised adaptive weights across all datasets, and mean weig
 
 ### Domain Loader Validation (28 Real-World Domain Loaders)
 
-Mercury Agent validates its core `MercuryAnomalyDetector` against 28 domain-specific dataset loaders spanning 12 domains. The benchmark covers 75 total datasets (47 ADBench + 28 domain). Domain-level results (committed `mercury_benchmark_results.json` run, 2026-05-19):
+Mercury Agent validates its core `MercuryAnomalyDetector` against 28 domain-specific dataset loaders spanning 12 domains. The benchmark covers 75 total datasets (47 ADBench + 28 domain). These 28 are benchmark *dataset* entries exercised through the concrete domain loaders — a single `*Loader` class can serve several datasets — and are therefore distinct from the 16 `*Loader` classes counted structurally in [Codebase Scale](#codebase-scale-measured-not-estimated). Domain-level results (committed `mercury_benchmark_results.json` run, 2026-05-19):
 
 Label column: **ext** = externally-labeled (comparable); **self** =
 self-labeled / threshold-derived (unsupervised-eval-only, not comparable — see
@@ -750,7 +759,7 @@ loss = loss_fn(
 ### Integration with Mercury Agent
 
 The 3R mechanism is integrated throughout Mercury Agent:
-- **Detectors**: All 22+ detection engines leverage 3R for feature extraction
+- **Detectors**: All 30 detection engines leverage 3R for feature extraction
 - **Fusion Network**: Multi-head attention combines 3R outputs across domains
 - **Ethical Governance**: Refactoring engine ensures Lyapunov stability constraints
 - **Self-Healing**: CRISPR-inspired adaptation uses recursive pattern learning
@@ -804,7 +813,7 @@ Modern anomaly detection faces three critical challenges:
 
 Mercury Agent addresses all three challenges through:
 
-- **Unified Framework**: 22+ detection engines under a single hybrid fusion architecture covering medical, security, space, infrastructure, and environmental domains
+- **Unified Framework**: 30 detection engines under a single hybrid fusion architecture covering medical, security, space, infrastructure, and environmental domains
 - **Ethical Governance**: Fairlearn bias detection with demographic parity, equalized odds, and 80% rule enforcement; 180+ ethical scalars with Lyapunov stability
 - **Production Security**: OWASP-compliant input validation, post-quantum cryptography (Kyber-1024 / ML-KEM-1024, ML-DSA-65, SPHINCS+-SHA2-256f-simple) via AMA Cryptography v3.2.0, JWT authentication, rate limiting
 
@@ -829,7 +838,7 @@ See [Use Cases by Sector](#use-cases-by-sector) for detailed scenarios.
 | Layer | Protection | Components |
 |-------|------------|------------|
 | 1. Core Infrastructure | Security foundation | Kyber-1024 / ML-DSA-65 / SPHINCS+ PQC (AMA Cryptography v3.2.0), JWT auth, OWASP validation |
-| 2. ML/AI Pipeline | Detection intelligence | 22+ engines, hybrid fusion, multi-head attention |
+| 2. ML/AI Pipeline | Detection intelligence | 30 engines, hybrid fusion, multi-head attention |
 | 3. Ethical Governance | Fairness assurance | Fairlearn bias audit, 180+ ethical scalars, Lyapunov stability |
 
 ### Ethical AI Governance
@@ -845,7 +854,7 @@ The signature innovation providing transparent, auditable AI decision-making:
 
 Optimized for both accuracy and interpretability:
 
-- **Feature Fusion**: `torch.cat()` across 22+ detector outputs
+- **Feature Fusion**: `torch.cat()` across 30 detector outputs
 - **Decision Fusion**: Weighted voting with learned importance scores
 - **Attention Fusion**: Multi-head attention (8 heads) for cross-domain correlation
 - **Final Score**: `0.7 * MLP + 0.3 * weighted_vote` ensemble
@@ -884,7 +893,7 @@ See `examples/decision_abstention_response_demo.py` and
 
 | Achievement | Description |
 |-------------|-------------|
-| Multi-Domain Coverage | 22+ detection engines across 12 domains (8 new statistical methods) |
+| Multi-Domain Coverage | 30 detection engines across 12 domains (8 new statistical methods) |
 | Ethical Governance | Fairlearn bias detection, 180+ ethical scalars |
 | Production Security | OWASP validation, PQC support, JWT authentication |
 | Comprehensive Testing | 8,789 tests collected (2026-06-10, full optional-dependency surface) across the test modules counted in the CI-gated [Codebase Scale](#codebase-scale-measured-not-estimated) block; property-based testing, security scanning |
@@ -982,7 +991,7 @@ See `examples/decision_abstention_response_demo.py` and
 
 | Configuration | CPU Latency | GPU Latency (RTX 4090) |
 |---------------|-------------|------------------------|
-| Full (22+ engines) | ~500ms | ~50ms |
+| Full (30 engines) | ~500ms | ~50ms |
 | Standard | ~250ms | ~25ms |
 | Fast (statistical only) | ~100ms | ~10ms |
 
@@ -1805,8 +1814,8 @@ Where:
 <details>
 <summary><strong>Anomaly Math Arrest (21-Probe Ensemble)</strong></summary>
 
-A mathematically-independent equation ensemble that replaces IsolationForest
-with transparent, auditable anomaly detection. Each of the 21 probes detects
+A mathematically-independent equation ensemble providing transparent,
+auditable anomaly detection. Each of the 21 probes detects
 a different anomaly geometry using fundamentally different mathematical
 frameworks:
 
@@ -1953,7 +1962,7 @@ Mercury Agent employs a comprehensive security architecture designed for product
 </details>
 
 <details>
-<summary><strong>Multi-Domain Detection</strong> - 22+ Specialized Engines</summary>
+<summary><strong>Multi-Domain Detection</strong> - 30 Specialized Engines</summary>
 
 Mercury Agent transcends single-domain limitations by providing specialized detection engines across multiple domains:
 
@@ -2397,7 +2406,7 @@ GitHub dependency graph is enabled for this repository. View the complete depend
 
 **Author/Inventor**: Andrew E. A.
 
-**AI Co-Architects:** Devin ⚛︎ | Claude ⊛
+**AI Co-Architects:** Eris ✠ | Eden ♱ | Devin ⚛︎ | Claude ⊛
 
 **Special Thanks**:
 - NIST Post-Quantum Cryptography Standardization Project
@@ -2445,7 +2454,7 @@ Dataset fetching in `benchmarks/empirical_benchmark.py` can be configured via en
 
 **Conceptual Architect:** Steel Security Advisors LLC and Andrew E. A. conceived, directed, validated, and supervised the development of Mercury Agent.
 
-**AI Co-Architects:** Significant portions of the codebase, documentation, mathematical frameworks, and technical implementation were constructed by AI systems: Devin ⚛︎ and Claude ⊛.
+**AI Co-Architects:** Significant portions of the codebase, documentation, mathematical frameworks, and technical implementation were constructed by AI systems: Eris ✠, Eden ♱, Devin ⚛︎, and Claude ⊛.
 
 This project represents a human/AI collaborative construct - a development paradigm where human vision, requirements, and critical evaluation guide AI-generated implementation.
 
@@ -2501,6 +2510,6 @@ THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE AUTHORS AND 
 
 </div>
 
-*Last updated: 2026-06-10*
+*Last updated: 2026-06-17*
 
 </div>
