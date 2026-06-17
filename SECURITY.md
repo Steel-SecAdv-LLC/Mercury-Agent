@@ -13,9 +13,9 @@ immediately previous line at the maintainers' discretion.
 
 | Version | Status               | Security updates |
 | ------- | -------------------- | ---------------- |
-| 1.7.x   | **Current**          | :white_check_mark: |
-| 1.6.x   | Previous (EOL on next minor) | Critical CVEs only |
-| < 1.6   | End-of-life          | :x:              |
+| 1.8.x   | **Current**          | :white_check_mark: |
+| 1.7.x   | Previous (EOL on next minor) | Critical CVEs only |
+| < 1.7   | End-of-life          | :x:              |
 
 ## Reporting a Vulnerability
 
@@ -283,6 +283,11 @@ built-image scan — trivy 0.70.0 via `aquasecurity/trivy-action@v0.36.0`,
 cross-checked with a local trivy 0.71.0 scan the same day; entries expire
 2026-09-08):
 
+> **⚠ Base-image migration — re-validation pending.** The shipped image is now
+> Debian **trixie** (`python:3.13-slim-trixie`, see `Dockerfile`); the acceptance
+> entries below were last enumerated against the bookworm base, so their per-CVE
+> Debian-suite statuses must be re-scanned on trixie before the next review.
+
 - **Total accepted:** 14 CVEs — **Critical:** 4, **High:** 10
 - All are Debian-bookworm OS packages with **no upstream fix available**; none sits on an untrusted-input path in the shipped API; the container runs as non-root UID 1000 with SUID/SGID bits stripped
 - These are genuinely irreducible, not deferred: `libsqlite3-0`, `libexpat1`, `zlib1g` and `ncurses` (`libtinfo6`/`libncursesw6`) are linked by CPython itself (the `sqlite3`, `pyexpat`, `zlib`, and `readline`/`curses` stdlib modules), so they cannot be removed without removing the interpreter, and Debian ships no patched build to `apt-get upgrade` to; `perl-base` is pulled by apt's own `adduser` dependency. The one genuinely removable package — the Mesa GL stack — was **eliminated outright** rather than accepted (see below)
@@ -429,4 +434,4 @@ We thank the security researchers who have helped improve Mercury Agent's securi
 ---
 
 *Last Updated: 2026-06-15*
-*Version: 1.7.0*
+*Version: 1.8.0*

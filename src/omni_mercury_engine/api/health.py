@@ -129,7 +129,7 @@ class DetailedHealthResponse(BaseModel):
         "json_schema_extra": {
             "example": {
                 "status": "healthy",
-                "version": "1.7.0",
+                "version": "1.8.0",
                 "uptime_seconds": 3600.5,
                 "components": [
                     {"name": "database", "status": "up", "latency_ms": 5.2},
@@ -158,7 +158,7 @@ class HealthChecker:
         >>> results = await checker.run_checks()
     """
 
-    def __init__(self, version: str = "1.7.0") -> None:
+    def __init__(self, version: str = "1.8.0") -> None:
         """Initialize health checker.
 
         Args:

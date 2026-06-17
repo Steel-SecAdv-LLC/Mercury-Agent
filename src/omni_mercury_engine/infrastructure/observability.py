@@ -606,7 +606,7 @@ class DistributedTracer:
         resource = Resource.create(
             {
                 "service.name": self._service_name,
-                "service.version": "1.7.0",
+                "service.version": "1.8.0",
             }
         )
 

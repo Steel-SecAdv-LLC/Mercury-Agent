@@ -77,8 +77,8 @@ The Mercury Agent is a neuro-symbolic AI framework that integrates 30 diverse sc
 
 **Architecture**:
 ```python
-HybridFusionNetwork(
-    input_dims={
+OmniFusionModel(
+    feature_dims={
         'statistical': 32,
         'temporal': 32,
         'spatial': 32,
@@ -198,7 +198,7 @@ Harmonic score * 0.1
 
 ### 5. Black Hole Physics
 
-**Utilities** (in `utils.py`):
+**Utilities** (in `omni_mercury_engine/utils/__init__.py`):
 - `compress_information()`: zlib level 9 compression
 - `gravitational_lensing()`: Amplify weak signals
 - `detect_singularity()`: Find critical points
@@ -215,19 +215,20 @@ if self.use_black_hole_features:
     }
 ```
 
-### 6. Ava Optimizers
+### 6. Mercury Optimizers
 
 **Variants** (in `ml/training.py`):
 
-1. **AvaOptimizer (base)**: `state_evolution = α*grad + β*state_vector`
-2. **AvaMomentumOptimizer**: Momentum buffer with exponential averaging
-3. **AvaExponentialDecayOptimizer**: Decaying learning rate
-4. **AvaHarmonicOptimizer**: Sinusoidal modulation for periodic patterns
+1. **MercuryOptimizer (base)**: `state_evolution = α*grad + β*state_vector`
+2. **MercuryMomentumOptimizer**: Momentum buffer with exponential averaging
+3. **MercuryExponentialDecayOptimizer**: Decaying learning rate
+4. **MercuryHarmonicOptimizer**: Sinusoidal modulation for periodic patterns
 
 **Usage**:
 ```python
 config = {"fusion": {"optimizer": "ava_harmonic"}}
-trainer = FusionTrainer(...)  # Automatically uses Ava optimizer
+trainer = FusionTrainer(...)  # 'ava_' prefix retained for back-compat;
+# FusionTrainer maps it to MercuryHarmonicOptimizer via create_mercury_optimizer()
 ```
 
 ### 7. Banish Threat Logic
@@ -556,12 +557,10 @@ Each module is tagged with category and priority for flexible selection (registr
 The **fusion_network.py** includes enhanced STEM discipline routing for optimized multi-engine detection:
 
 ```python
-from omni_mercury_engine.ml.fusion_network import HybridFusionNetwork
+from omni_mercury_engine.ml.fusion_network import STEMDisciplineRouter
 
-fusion = HybridFusionNetwork(
-    input_dims={...},
-    stem_discipline='physics'  # Routes to quantum + astrophysical engines
-)
+router = STEMDisciplineRouter()
+weights = router.route(data, discipline='physics')  # Routes to quantum + astrophysical engines
 
 # Discipline-specific routing weights:
 # - Biology → biometric (0.8) + neural (0.6) + affective (0.4)
@@ -1162,7 +1161,7 @@ The authoritative per-capability status (Designed / Stubbed / Functional, with t
 5. **AutoML** — Functional hyperparameter search wired into the training loop
 6. **Federated Learning** — Functional: privacy-preserving training with bidirectional GOSNN coupling
    - `federated_learning/` is the canonical package (server, client, privacy engine, CISA coordinator)
-   - `federated/` is a backwards-compatibility shim that re-exports from `federated_learning/`; new code should import from `federated_learning` directly
+   - `federation/` is a distinct Mercury-native federated subsystem (sufficient-statistics aggregation: `FederatedAggregator`, `FederatedNode`, `DifferentialPrivacy`), complementary to `federated_learning/` — not a shim
 7. **Explainability** — Functional: SHAP variants, counterfactuals, and serve-path integrated-gradients attributions via `detect_with_fusion(explain=True)`
 
 ## Conclusion

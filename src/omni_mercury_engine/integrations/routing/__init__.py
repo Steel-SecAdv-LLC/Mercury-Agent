@@ -8,6 +8,7 @@ from omni_mercury_engine.integrations.routing.fallback import (
     FallbackChain,
     FallbackError,
     FallbackHandler,
+    FallbackRegistry,
     FallbackResult,
 )
 from omni_mercury_engine.integrations.routing.router import (
@@ -21,6 +22,7 @@ __all__ = [
     "FallbackChain",
     "FallbackError",
     "FallbackHandler",
+    "FallbackRegistry",
     "FallbackResult",
     "RequestRouter",
     "Route",
