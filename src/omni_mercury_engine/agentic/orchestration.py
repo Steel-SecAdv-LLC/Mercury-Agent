@@ -19,8 +19,14 @@ live, measurable execution path:
   real detectors (``engine.detectors``) — not toy scorers.
 * ``reflexion.AnomalyReflexion`` is the **critic**: every issued decision is
   recorded against real ground-truth feedback when it arrives, and the
-  resulting threshold recommendation moves the live operating point for the
-  next episode (verbal reinforcement with real signal, Shinn et al. 2023).
+  resulting threshold recommendation is routed through a
+  :class:`~omni_mercury_engine.governance.self_improvement.ThresholdGovernance`
+  policy before it can move the live operating point. The default policy is
+  fail-closed (Phase 3 governed self-improvement): an autonomous threshold
+  change is *withheld* pending promotion-gate evidence and human approval;
+  measurement harnesses install an explicit ``MeasurementGovernance`` to apply
+  it and measure its effect (verbal reinforcement with real signal, Shinn
+  et al. 2023).
 * ``chain_of_thought.AnomalyChainOfThought`` is the **depictor**: each
   decision can be explained by a reasoning trace whose stated determination
   is contractually locked to the issued decision (trace fidelity), because
@@ -70,11 +76,17 @@ from omni_mercury_engine.cognitive.multi_agent_coordination import (
     DetectionResult,
 )
 from omni_mercury_engine.cognitive.reflexion import AnomalyReflexion
+from omni_mercury_engine.governance.self_improvement import (
+    FailClosedSelfImprovementGovernance,
+    GovernanceOutcome,
+    ProposedThresholdChange,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
     from omni_mercury_engine.agentic._incremental_serving import _ServingCache
+    from omni_mercury_engine.governance.self_improvement import ThresholdGovernance
 
 logger = logging.getLogger(__name__)
 
@@ -358,7 +370,15 @@ class CoordinationBatch:
 
 @dataclass
 class ReflectionRecord:
-    """Outcome of one reflexion pass over labeled feedback."""
+    """Outcome of one reflexion pass over labeled feedback.
+
+    The ``governance_*`` fields record how the Phase 3 governance seam
+    disposed of an actionable threshold recommendation: ``applied`` is the
+    *effective* outcome (the threshold only moved if governance authorised it),
+    while ``governance_outcome``/``governance_reasons`` capture why, and
+    ``governance_record`` preserves any routed promotion-gate decision for the
+    append-only audit trail.
+    """
 
     n_observations: int
     false_positives: int
@@ -369,6 +389,10 @@ class ReflectionRecord:
     threshold_after: float
     applied: bool
     reasoning: str = ""
+    governed: bool = False
+    governance_outcome: str = GovernanceOutcome.MAINTAIN.value
+    governance_reasons: list[str] = field(default_factory=list)
+    governance_record: dict[str, Any] | None = None
 
 
 @dataclass
@@ -422,6 +446,7 @@ class MultiAgentOrchestrator:
         min_participants: int = 3,
         contamination: float = 0.1,
         operating_threshold: float = 0.5,
+        threshold_governance: ThresholdGovernance | None = None,
         seed: int | None = None,
     ) -> None:
         """Initialize the orchestrator.
@@ -433,7 +458,15 @@ class MultiAgentOrchestrator:
             min_participants: Quorum; below it every sample abstains.
             contamination: Expected anomaly fraction for agent calibration.
             operating_threshold: Initial decision boundary on the consensus
-                score; adapted by reflexion as labeled feedback arrives.
+                score; reflexion *proposes* adapting it, but the change is
+                applied only when ``threshold_governance`` authorises it.
+            threshold_governance: Phase 3 governance policy consulted before any
+                reflexion-proposed threshold move takes effect. Defaults to
+                :class:`~omni_mercury_engine.governance.self_improvement.FailClosedSelfImprovementGovernance`
+                — autonomous changes are withheld pending promotion-gate
+                evidence and human approval. Measurement harnesses pass
+                :class:`~omni_mercury_engine.governance.self_improvement.MeasurementGovernance`
+                to apply adaptation and measure its effect.
             seed: Seed for deterministic agent calibration and reasoning.
         """
         detector_map = dict(detectors) if detectors is not None else default_detector_suite()
@@ -462,6 +495,12 @@ class MultiAgentOrchestrator:
 
         self.min_participants = int(min_participants)
         self.operating_threshold = float(operating_threshold)
+        # Phase 3 governance seam: reflexion proposes, governance disposes.
+        # Default fail-closed — no autonomous mutation of the live operating
+        # point. Measurement contexts inject MeasurementGovernance explicitly.
+        self._threshold_governance: ThresholdGovernance = (
+            threshold_governance or FailClosedSelfImprovementGovernance()
+        )
         self._seed = seed
 
         # --- Executor tier: coordinator over real-detector agents ---------
@@ -951,13 +990,17 @@ class MultiAgentOrchestrator:
         *,
         apply: bool = True,
     ) -> ReflectionRecord:
-        """Record real outcomes and adapt the operating threshold.
+        """Record real outcomes and route any threshold change through governance.
 
         Every non-abstained decision is recorded against its true label
-        (TP/FP/FN/TN with real error magnitudes); the accumulated error
-        balance produces a threshold recommendation which, when ``apply`` is
-        set and actionable, moves the live operating point for subsequent
-        episodes — the Reflexion loop with measured, non-fabricated feedback.
+        (TP/FP/FN/TN with real error magnitudes); the accumulated error balance
+        produces a threshold recommendation. When ``apply`` is set and the
+        recommendation is actionable, the proposed change is handed to the
+        Phase 3
+        :class:`~omni_mercury_engine.governance.self_improvement.ThresholdGovernance`
+        policy, which decides — fail closed by default — whether it may move the
+        live operating point. The returned :class:`ReflectionRecord` reports both
+        the effective outcome (``applied``) and the governance disposition.
         """
         y = np.asarray(y_true).astype(bool).ravel()
         if y.shape[0] != batch.consensus_scores.shape[0]:
@@ -984,21 +1027,56 @@ class MultiAgentOrchestrator:
         recommendation = self.reflexion.get_threshold_recommendation()
         suggested = float(recommendation["suggested_threshold"])
         before = self.operating_threshold
-        actionable = recommendation["recommendation"] != "maintain"
-        applied = bool(apply and actionable)
-        if applied:
-            self.set_operating_threshold(suggested)
+        rec = str(recommendation["recommendation"])
+        actionable = rec != "maintain"
+
+        # Phase 3 governance: an actionable threshold change is a *proposal*,
+        # not a fait accompli. It moves the live operating point only if the
+        # governance policy authorises it; the default policy (fail-closed)
+        # withholds every autonomous move, so the boundary changes only via an
+        # evidence-backed, human-approved promotion.
+        applied = False
+        governed = bool(apply and actionable)
+        governance_outcome = GovernanceOutcome.MAINTAIN.value
+        governance_reasons: list[str] = []
+        governance_record: dict[str, Any] | None = None
+        if actionable and not apply:
+            governance_outcome = GovernanceOutcome.NOT_REQUESTED.value
+        elif actionable and apply:
+            change = ProposedThresholdChange(
+                surface="reflexion_threshold",
+                recommendation=rec,
+                current_threshold=before,
+                suggested_threshold=suggested,
+                reasoning=str(recommendation.get("reasoning", "")),
+                evidence={
+                    "false_positives": int(recommendation["false_positives"]),
+                    "false_negatives": int(recommendation["false_negatives"]),
+                    "n_observations": recorded,
+                },
+            )
+            review = self._threshold_governance.review_threshold_change(change)
+            governance_outcome = review.outcome
+            governance_reasons = list(review.reasons)
+            governance_record = dict(review.record) if review.record is not None else None
+            if review.applied:
+                self.set_operating_threshold(suggested)
+                applied = True
 
         return ReflectionRecord(
             n_observations=recorded,
             false_positives=int(recommendation["false_positives"]),
             false_negatives=int(recommendation["false_negatives"]),
-            recommendation=str(recommendation["recommendation"]),
+            recommendation=rec,
             threshold_before=before,
             threshold_suggested=suggested,
             threshold_after=self.operating_threshold,
             applied=applied,
             reasoning=str(recommendation.get("reasoning", "")),
+            governed=governed,
+            governance_outcome=governance_outcome,
+            governance_reasons=governance_reasons,
+            governance_record=governance_record,
         )
 
     def set_operating_threshold(self, threshold: float) -> None:

@@ -177,6 +177,7 @@ if TYPE_CHECKING:
     from omni_mercury_engine.cognitive.ethical_bounding import BenevolenceScorer
     from omni_mercury_engine.cognitive.orchestrator import CognitiveOrchestrator
     from omni_mercury_engine.decision import DecisionAbstentionResponder, DecisionLedger
+    from omni_mercury_engine.governance.self_improvement import ThresholdGovernance
 
     # Type hints for lazy-loaded models (improves IDE support without import cost)
     from omni_mercury_engine.medical.abms_disciplines import ABMSDisciplineDetector
@@ -2758,6 +2759,7 @@ class OmniMercuryEngine(LoggerMixin):
         min_participants: int = 3,
         contamination: float = 0.1,
         operating_threshold: float = 0.5,
+        threshold_governance: ThresholdGovernance | None = None,
         seed: int | None = None,
     ) -> MultiAgentOrchestrator:
         """Enable planner/critic/executor multi-agent orchestration (pillar B).
@@ -2765,8 +2767,10 @@ class OmniMercuryEngine(LoggerMixin):
         Wires a :class:`~omni_mercury_engine.agentic.orchestration.MultiAgentOrchestrator`
         over this engine's own base detectors: the hierarchical planner
         sequences the real pipeline stages, the consensus protocol fuses
-        per-sample votes from the live detectors, the reflexion critic adapts
-        the operating threshold from real labeled feedback, and every issued
+        per-sample votes from the live detectors, the reflexion critic
+        *proposes* operating-threshold changes from real labeled feedback that
+        are routed through the Phase 3 governance seam (fail-closed by default —
+        no autonomous mutation of the live boundary), and every issued
         decision can be depicted by a chain-of-thought trace whose stated
         determination is contractually locked to the decision. The dual hard
         ethical gates run fail-closed at the orchestrator's decision boundary,
@@ -2781,8 +2785,14 @@ class OmniMercuryEngine(LoggerMixin):
             min_participants: Quorum below which every sample abstains.
             contamination: Expected anomaly fraction for per-agent threshold
                 calibration.
-            operating_threshold: Initial consensus decision boundary; adapted
-                by reflexion as labeled feedback arrives.
+            operating_threshold: Initial consensus decision boundary; reflexion
+                proposes adapting it, subject to governance.
+            threshold_governance: Phase 3 governance policy consulted before any
+                reflexion-proposed threshold move takes effect. Defaults to
+                fail-closed (autonomous changes withheld pending promotion-gate
+                evidence and human approval). Inject
+                ``research.governed_fusion.phase3_governance.PromotionGateThresholdGovernance``
+                to route proposals through the Phase 2 promotion gate.
             seed: Seed for deterministic agent calibration and reasoning.
 
         Returns:
@@ -2804,6 +2814,7 @@ class OmniMercuryEngine(LoggerMixin):
             min_participants=min_participants,
             contamination=contamination,
             operating_threshold=operating_threshold,
+            threshold_governance=threshold_governance,
             seed=seed,
         )
         logger.info("Multi-agent orchestration enabled")

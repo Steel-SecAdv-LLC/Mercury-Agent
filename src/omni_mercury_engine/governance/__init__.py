@@ -33,18 +33,40 @@ from omni_mercury_engine.governance.contract import (
     unavailable,
     undecidable,
 )
+from omni_mercury_engine.governance.self_improvement import (
+    FailClosedSelfImprovementGovernance,
+    GovernanceOutcome,
+    GovernanceReview,
+    MeasurementGovernance,
+    ProposedRecalibration,
+    ProposedThresholdChange,
+    RecalibrationGovernance,
+    ThresholdGovernance,
+    default_self_improvement_governance,
+)
 from omni_mercury_engine.verifiers.three_state import ThreeState
 
 __all__ = [
     "GOVERNANCE_FAMILY_VET",
+    # Phase 3 governed self-improvement seam (engine-owned interface; the
+    # gate-backed policy lives in research/governed_fusion/phase3_governance.py).
+    "FailClosedSelfImprovementGovernance",
     "FamilyVet",
     "GovernanceLedgerEntry",
+    "GovernanceOutcome",
     "GovernanceRegistry",
+    "GovernanceReview",
     "GovernanceScalar",
+    "MeasurementGovernance",
+    "ProposedRecalibration",
+    "ProposedThresholdChange",
+    "RecalibrationGovernance",
     "SignalClass",
     "ThreeState",
+    "ThresholdGovernance",
     "ai_safety",
     "clinical",
+    "default_self_improvement_governance",
     "eu_ai_act",
     "grounded",
     "medical_device",

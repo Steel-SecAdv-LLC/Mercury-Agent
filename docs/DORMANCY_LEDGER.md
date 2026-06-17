@@ -238,10 +238,10 @@ This is what closes the measurement-to-revival loop for live-API
 domains: a future detector promoted via the `engine.py` registration
 seam earns a ledger entry the first time it appears in the fusion stack;
 a future component whose lift drifts to zero across consecutive ledger
-entries is the candidate for retirement. The generalised recurring
-dormant-revival job (Phase 3 of the self-improvement plan) reads from this
-ledger; this PR ships only the substrate, not the recurring policy.
+entries is the candidate for retirement. The Phase 3 recurring
+dormant-revival job (`.github/workflows/phase3-governance.yml`) runs the real
+revival benchmark on schedule and routes revival candidates through the Phase 2
+promotion gate.
 
 See `docs/SELF_IMPROVEMENT_LOOP.md` for the full rollout narrative and
-the scope boundaries between Phase 1 (this substrate) and Phase 3 (the
-recurring revival job).
+the scope boundaries between implemented Phases 1–3 and deferred Phases 4–8.
