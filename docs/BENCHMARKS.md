@@ -193,7 +193,7 @@ function of the scored signal.
    KinematicScore computes derivatives (velocity, acceleration, jerk) via `np.diff`.
    This assumes adjacent rows are temporally ordered. On shuffled tabular data
    (e.g., ADBench datasets), derivatives are meaningless noise. The kinematic
-   component achieved mean AUC 0.6017 across all datasets — near-random on
+   component achieved mean AUC 0.6013 across all datasets — near-random on
    unordered tabular data, more useful on time-series.
 
 2. **Ensemble inversion on high-dimensional data.**

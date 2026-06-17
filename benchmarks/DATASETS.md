@@ -39,7 +39,7 @@ domains.
 | USGS_Earthquake | USGSEarthquakeLoader | environmental | [USGS Earthquake API](https://earthquake.usgs.gov/fdsnws/event/1/) | None | ~1,000-10,000 | 5-10 | ~5-15% | Public Domain (USGS) |
 | NOAA_Weather | NOAAWeatherLoader | environmental | [NOAA Climate Data Online](https://www.ncdc.noaa.gov/cdo-web/) | None | ~500-5,000 | 8-15 | ~10-20% | Public Domain (NOAA) |
 | Wildfire | WildfireDataLoader | environmental | [MODIS/FIRMS](https://firms.modaps.eosdis.nasa.gov/) | None | ~1,000-10,000 | 6-12 | ~5-10% | NASA Open Data |
-| USGS_Geochemistry | USGSGeochemistryLoader | environmental | [USGS Geochemistry DB](https://mrdata.usgs.gov/geochem/) | None | ~500-5,000 | 10-20 | ~5-15% | Public Domain (USGS) |
+| USGS_Geochemistry | USGSGeochemistryLoader | environmental | [USGS NURE-HSSR Stream Sediment](https://mrdata.usgs.gov/nure/sediment/nuresed-csv.zip) | None | 397,609 | 11 | ~5-15% | Public Domain (USGS) |
 
 ### Ocean
 
