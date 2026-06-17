@@ -161,11 +161,12 @@ proxy inflates the gap (IsolationForest simply out-detects LOF here, so "learned
 detector-selection); the real-3R 64-dataset sweep remains the definitive test. The *direction*
 (reconcile to one derivation; Φ not special) is robust and matches the repo's own UNJUSTIFIED flag.
 
-### X12a — Gate hardening (the only permitted ethics work; **R4**) — **delivered**
-AST linter `tools/lint_no_eta_score_multiply.py` makes the V6/V12d bug class statically
-unrepresentable: it flags any `score * (eta ** _)` (directly or via local taint). Self-test
-passes; run on the real `fusion.py` it flags **line 237** — the live V12d site. Wired with
-unit tests; ready for CI (`--selftest` + per-file scan, exit 1 on violation).
+### X12a — Gate hardening (the only permitted ethics work; **R4**) — **not ported**
+The X12a AST linter (`tools/lint_no_eta_score_multiply.py`) that would flag any
+`score * (eta ** _)` was authored in PR #275 but is **deliberately not ported** to
+`main`: PR #278 settled the η^Φ term as an opt-in, default-off decoupling (R6), so a
+blanket lint would flag the shipped intentional design. The script is therefore not in
+the tree and not wired into CI.
 
 ---
 
@@ -173,7 +174,7 @@ unit tests; ready for CI (`--selftest` + per-file scan, exit 1 on violation).
 - `src/omni_mercury_engine/core/calibration.py`: **+`BetaCalibration`** (V12a/V10),
   **+`StrictIsotonicCalibration`** (X1), `calibrate_detector` gains `beta`/`strict_isotonic`,
   five stale "requires scikit-learn" messages reworded (V12c). Existing classes untouched.
-- `tools/lint_no_eta_score_multiply.py`: X12a gate-hardening lint (new).
+- (`tools/lint_no_eta_score_multiply.py`: X12a gate-hardening lint — **authored in PR #275, deliberately not ported**; see X12a above.)
 - `docs/MATH_SPEC.md`: φ_sum arithmetic truth-up + weight reconciliation (V12b/X8).
 - `tests/test_calibration_brief.py`: dual-path tests for the new calibrators + the lint.
 - `benchmarks/calibration_brief/`: this suite + `results/`.

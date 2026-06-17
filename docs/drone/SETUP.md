@@ -1,6 +1,6 @@
 # Drone modules — operator setup guide
 
-Applies to Mercury Agent **v1.7.x**. Last updated: 2026-05-20.
+Applies to Mercury Agent **v1.8.x**. Last updated: 2026-05-20.
 
 Mercury Agent's drone detection stack is **integration-ready, not
 pre-integrated**. The platform never ships vendor SDKs, telemetry

@@ -5,7 +5,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # Capability‑vs‑Vision Matrix (code‑grounded)
 
-Applies to Mercury Agent **v1.7.x**. Last updated: 2026-06-11.
+Applies to Mercury Agent **v1.8.x**. Last updated: 2026-06-11.
 
 **Method:** every row below is anchored to a file (and, where useful, a
 symbol) in `src/omni_mercury_engine/`. Where a previously‑circulated claim

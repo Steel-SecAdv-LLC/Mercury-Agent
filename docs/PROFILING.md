@@ -1,6 +1,6 @@
 # Performance Profiling
 
-Applies to Mercury Agent **v1.7.x**. Last updated: 2026-05-20.
+Applies to Mercury Agent **v1.8.x**. Last updated: 2026-05-20.
 
 `omni_mercury_engine.utils.profiling` is the first-party profiling
 toolkit ported from Omni-AXA-Engine and hardened for Mercury Agent's
