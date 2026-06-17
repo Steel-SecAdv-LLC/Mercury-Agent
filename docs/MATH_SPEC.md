@@ -24,7 +24,7 @@ in the sections below, and **measured at runtime** for the data-dependent ones:
 1. **Lyapunov-style contraction** of fusion score trajectories ($\dot{V} \leq -\lambda V$, $\lambda = 0.25$) — a decay-schedule *design target* the engine monitors and reports (`is_stable`), not a guarantee asserted a priori (see §2.2.3, §4.2 discrete-time note).
 2. **Banach contraction** bounds on recursive decomposition ($\alpha < 1 \Rightarrow$ geometric convergence) — proven (§4.2).
 3. **Conformal coverage** of prediction intervals (finite-sample valid *under exchangeability*; on real, non-exchangeable anomaly data the coverage is **empirical/measured, not assumed** — see `docs/LIVE_DATA_VALIDATION.md`).
-4. **Ethical gating** via continuous sigmoid benevolence function (domain-adaptive).
+4. **Ethical gating** — a continuous, domain-adaptive sigmoid benevolence function shapes the fusion score (§2.1.3), while a hard benevolence enforcement gate ($\beta \geq 0.99$ default, configurable no lower than the $0.70$ floor) blocks impermissible actions at every public boundary (§2.7.3).
 
 All scores are normalized to $[0, 1]$. All weights sum to $1.0$. All division
 operations are guarded with $\varepsilon = 10^{-8}$.
@@ -126,8 +126,12 @@ construction.
 
 #### 2.1.3 Sigmoid Benevolence Gate
 
-The sigmoid gate replaces the legacy hard threshold ($\beta \geq 0.99$) with a
-smooth, differentiable function:
+Within the OAE fusion score, benevolence enters through a smooth, differentiable
+sigmoid gate rather than a hard step. This continuous gate shapes the fusion
+score; it is *distinct from* — and does not remove — the hard benevolence
+enforcement gate ($\beta \geq 0.99$ default, configurable no lower than the
+$0.70$ floor) that `cognitive/ethical_bounding.py` applies at every public
+decision boundary (§2.7.3). The continuous gate is:
 
 $$
 \eta(b) = \frac{1}{1 + \exp\!\bigl(-k \cdot (b - b_0)\bigr)}
@@ -258,8 +262,12 @@ layout across all boundary surfaces.
 
 ### 2.2 Lyapunov Stability Framework
 
-The fusion score trajectory is bounded by a Lyapunov stability envelope,
-guaranteeing that the system converges and does not exhibit unbounded oscillation.
+The fusion score trajectory is tracked against a Lyapunov stability envelope
+(decay rate $\lambda = 0.25$). As §2.2.2 makes precise, this envelope is a
+**design target the engine monitors and reports** (`is_stable`), not a
+convergence guarantee asserted a priori: short or NaN-affected histories make the
+estimator return `is_stable=False` (see the §2.2.3 guards, the §4.2 discrete-time
+note, and the §6.3 convergence-history gap).
 
 #### 2.2.1 Stability Bound
 
@@ -627,16 +635,24 @@ All components $\in [0, 1]$. Weights $w_J, w_A, w_C, w_T$ are sourced from
 
 #### 2.7.3 Benevolence Immutable
 
-Legacy hard threshold (superseded by sigmoid gate in Section 2.1.3):
+Hard benevolence enforcement gate — **active** at every public decision boundary
+(`cognitive/ethical_bounding.py`, `BenevolenceScorer.enforce()`). The continuous
+sigmoid gate of Section 2.1.3 shapes the fusion score upstream but does **not**
+replace this gate:
 
 $$
 \text{pass} = \begin{cases} \text{true} & \text{if } \beta \geq 0.99 \\ \text{false} & \text{otherwise} \end{cases}
 $$
 
-> **DESIGN NOTE:** The hard threshold creates a discontinuity at $\beta = 0.99$.
-> The sigmoid benevolence gate (Section 2.1.3) is the recommended replacement.
+The threshold defaults to $0.99$ and is configurable no lower than the $0.70$
+floor — `BenevolenceScorer` clamps any lower assignment via its property setter.
 
-**Implementation:** `core/centralized_constants.py`, line 118.
+> **DESIGN NOTE:** The discontinuity at the threshold is intentional — this is an
+> enforcement gate, not a score. The continuous sigmoid of Section 2.1.3 supplies
+> the differentiable, domain-adaptive *score-shaping* upstream; the two are
+> complementary, and the sigmoid does not replace this enforcement boundary.
+
+**Implementation:** enforced in `cognitive/ethical_bounding.py` (`BenevolenceScorer.enforce()`, `BENEVOLENCE_THRESHOLD = 0.99`); constant `BENEVOLENCE_IMMUTABLE = 0.99` in `core/centralized_constants.py`.
 
 ---
 
@@ -806,7 +822,8 @@ $V(t) \leq V(0) \cdot e^{-\lambda t}$.
 **Discrete-time note:** The implementation uses discrete time steps. The bound
 $V(S_t) \leq \varepsilon \cdot e^{-\lambda t}$ is computed at each step but is
 a tracking bound, not a proven invariant of the discrete system. The empirical
-convergence rate estimation (Section 2.2.3) provides runtime verification.
+convergence rate estimation (Section 2.2.3) provides runtime verification and
+returns `is_stable=False` on short or NaN-affected histories (§2.2.3, §6.3).
 
 ### 4.3 OAE Weight Normalization Proof
 
@@ -1066,7 +1083,7 @@ in $(0, 1]$. No overflow risk.
 | $\alpha_{\max}$ | Maximum contraction factor (0.95) | Section 2.3.2 |
 | $b$ | Benevolence score | Section 2.1.3 |
 | $b_0$ | Sigmoid inflection point | Section 2.1.3 |
-| $\beta$ | Legacy benevolence threshold | Section 2.7.3 |
+| $\beta$ | Benevolence enforcement-gate threshold (default 0.99) | Section 2.7.3 |
 | $d$ | Recursion depth | Section 2.3.1 |
 | $\varepsilon$ | Numerical stability epsilon ($10^{-8}$) | Section 1 |
 | $\eta(b)$ | Sigmoid benevolence gate function | Section 2.1.3 |
