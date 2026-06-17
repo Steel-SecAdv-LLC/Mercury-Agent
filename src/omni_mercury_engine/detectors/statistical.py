@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Statistical anomaly detector using Mercury's original mathematical frameworks.
 
-Ensemble composition (replaces prior z-score + IQR + IsolationForest):
+Ensemble composition:
   - ResonanceScore  (40%): FFT-based harmonic spectral anomaly detection
   - KinematicScore  (30%): Physics-based jerk/curvature dynamics
   - InfoGeometryScore (30%): Fisher Information Matrix OOD detection

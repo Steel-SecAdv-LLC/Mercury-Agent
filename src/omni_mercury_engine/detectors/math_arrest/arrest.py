@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """AnomalyMathArrest: 21-probe mathematically-independent equation ensemble.
 
-Replaces IsolationForest with transparent, auditable anomaly detection. Every detection traces to a
+Transparent, auditable anomaly detection. Every detection traces to a
 specific mathematical violation in one or more of the 21 probe equations.
 """
 

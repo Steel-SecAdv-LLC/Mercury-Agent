@@ -4,7 +4,7 @@ Applies to Mercury Agent **v1.7.x**. Last updated: 2026-06-10.
 
 ## Overview
 
-The Mercury Agent is a neuro-symbolic AI framework that integrates 22+ diverse scientific and computational paradigms — a deep-learning core (170 `torch.nn.Module` subclasses across visual, behavioural, physics-based, fusion and differentiable-logic theorem-proving subsystems, imported across 129 source files; both counts CI-gated in the README [Codebase Scale block](README.md)) coupled with an explicit symbolic layer (knowledge graphs, rule bases, formal verification, AST-based code analysis, case-based reasoning) — into a unified hybrid-fusion architecture. Multi-domain anomaly detection is one of the capabilities this AI exposes, not the limit of what it is. This document describes the system architecture, data flow, and key design decisions.
+The Mercury Agent is a neuro-symbolic AI framework that integrates 30 diverse scientific and computational paradigms — a deep-learning core (170 `torch.nn.Module` subclasses across visual, behavioural, physics-based, fusion and differentiable-logic theorem-proving subsystems, imported across 129 source files; both counts CI-gated in the README [Codebase Scale block](README.md)) coupled with an explicit symbolic layer (knowledge graphs, rule bases, formal verification, AST-based code analysis, case-based reasoning) — into a unified hybrid-fusion architecture. Multi-domain anomaly detection is one of the capabilities this AI exposes, not the limit of what it is. This document describes the system architecture, data flow, and key design decisions.
 
 ## System Architecture Diagram
 
@@ -131,8 +131,8 @@ if self.use_harmonic_features:
 
 ### 3. Anomaly Math Arrest (21-Probe Ensemble)
 
-The Anomaly Math Arrest replaces IsolationForest with a transparent,
-auditable ensemble of 21 mathematically-independent equation probes.
+The Anomaly Math Arrest is a transparent, auditable ensemble of 21
+mathematically-independent equation probes.
 
 **Architecture**:
 ```
@@ -613,7 +613,7 @@ The infrastructure modules implement several specialized capabilities:
 
 ### Integration with Core Engines
 
-Infrastructure modules integrate seamlessly with the core 22+ detection engines:
+Infrastructure modules integrate seamlessly with the core 30 detection engines:
 
 - **NCF Monitor** → Uses temporal, statistical, and spatial detectors for pattern analysis
 - **Space Infrastructure** → Leverages quantum and astrophysical models for orbital anomalies
@@ -772,7 +772,7 @@ enable with `set_profiling_enabled(True)`. See
 - **AC-2**: Account Management (rate limiting)
 - **AU-2**: Audit Events (threat logging with Banish logic)
 - **SC-13**: Cryptographic Protection (bcrypt, AES-256)
-- **SI-4**: Information System Monitoring (all 22+ detection engines)
+- **SI-4**: Information System Monitoring (all 30 detection engines)
 
 ### Threat Detection Pipeline
 
@@ -851,7 +851,7 @@ conda install -c conda-forge qutip
 
 | Configuration | Latency | Notes |
 |---------------|---------|-------|
-| Full (22+ engines) | ~500ms | All deep features enabled |
+| Full (30 engines) | ~500ms | All deep features enabled |
 | Standard | ~250ms | Core detectors |
 | Fast (statistical only) | ~100ms | Only statistical + temporal |
 
@@ -859,7 +859,7 @@ conda install -c conda-forge qutip
 
 | Configuration | Latency | Notes |
 |---------------|---------|-------|
-| Full (22+ engines) | ~50ms | RTX 4090 |
+| Full (30 engines) | ~50ms | RTX 4090 |
 | Batch 32 | ~5ms/sample | Amortized |
 
 ### Memory Usage
@@ -1167,7 +1167,7 @@ The authoritative per-capability status (Designed / Stubbed / Functional, with t
 
 ## Conclusion
 
-The Mercury Agent integrates **22+ detection engines** with **12 infrastructure monitoring modules** across **8 major frameworks** into a research-grade neuro-symbolic AI platform engineered to production conventions (CI-gated structural counts, hard ethical gates, fail-closed PQC; not externally audited — see the README status line). The hybrid fusion approach — neural networks coupled to an explicit symbolic reasoning layer with hard ethical bounding — balances complexity and performance, with runtime configuration toggles and flexible module selection allowing users to customize feature depth and infrastructure coverage based on their specific requirements.
+The Mercury Agent integrates **30 detection engines** with **12 infrastructure monitoring modules** across **8 major frameworks** into a research-grade neuro-symbolic AI platform engineered to production conventions (CI-gated structural counts, hard ethical gates, fail-closed PQC; not externally audited — see the README status line). The hybrid fusion approach — neural networks coupled to an explicit symbolic reasoning layer with hard ethical bounding — balances complexity and performance, with runtime configuration toggles and flexible module selection allowing users to customize feature depth and infrastructure coverage based on their specific requirements.
 
 ### Core ML Achievements:
 - ✅ Hybrid fusion (feature + decision level) with multi-head attention
