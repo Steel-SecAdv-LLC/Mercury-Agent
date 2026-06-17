@@ -89,6 +89,7 @@ KNOWN_CHECKSUMS: dict[str, str | None] = {
 # benchmarks cannot run and will fail explicitly (no silent fallbacks).
 from sklearn.covariance import EllipticEnvelope
 from sklearn.datasets import fetch_covtype, fetch_kddcup99, load_breast_cancer, load_digits
+from sklearn.ensemble import IsolationForest
 from sklearn.neighbors import LocalOutlierFactor
 from sklearn.svm import OneClassSVM
 
@@ -2133,9 +2134,12 @@ def run_full_benchmark(
         (OmniMercuryDetector, "Mercury-Agent", {}),
     ]
 
-    # Third-party detectors for comparison (external comparison targets only)
+    # Third-party detectors for comparison (external comparison targets only;
+    # IsolationForest is benchmarked here as a peer baseline, never wired into
+    # Mercury's detection path).
     detectors.extend(
         [
+            (IsolationForest, "IsolationForest", {"random_state": 42}),
             (OneClassSVM, "OneClassSVM", {"kernel": "rbf", "gamma": "auto"}),
             (LocalOutlierFactor, "LocalOutlierFactor", {"n_neighbors": 20}),
             (EllipticEnvelope, "EllipticEnvelope", {"random_state": 42}),
