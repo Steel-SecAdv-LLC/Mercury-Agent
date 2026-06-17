@@ -1,6 +1,6 @@
 # Live Data Validation Guide
 
-Applies to Mercury Agent **v1.7.x**. Last updated: 2026-05-20.
+Applies to Mercury Agent **v1.8.x**. Last updated: 2026-05-20.
 
 ## Overview
 

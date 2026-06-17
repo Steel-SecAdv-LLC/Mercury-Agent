@@ -1,6 +1,6 @@
 # Fusion Capacity Strategy
 
-Applies to Mercury Agent **v1.7.x**.
+Applies to Mercury Agent **v1.8.x**.
 
 This document holds the strategic production rationale for Mercury's shipped
 fusion-network width. Raw sweep artifacts and reproduction commands remain in
@@ -84,8 +84,10 @@ outperforms `dim=32` on this proxy.
 
 ## UCR time-series axis status
 
-The UCR sweep (`sweep_ucr_v1.json`) targets 8 datasets to form the independent
-time-series bump-criterion axis:
+The UCR sweep (`sweep_ucr_v1.json`, **pending** — see the in-flight status in
+`benchmarks/fusion_capacity/README.md`) targets 8 datasets to form the independent
+time-series bump-criterion axis; the table below is the **preliminary** seed-pass
+signal, not the committed full sweep:
 
 | dataset | status | reason |
 |---------|--------|--------|

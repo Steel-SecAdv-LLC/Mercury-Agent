@@ -23,7 +23,7 @@
 
 ```
               +===============================================================================+
-              |                            Mercury Agent ♱ v1.7.0                             |
+              |                            Mercury Agent ♱ v1.8.0                             |
               | Neuro-Symbolic AI for Autonomous, Multi-Model, Multi-Domain Anomaly Detection |
               |                                                                               |
               |   7-Phase Evolution      |   Hybrid Fusion ML      |   Production Security    |
@@ -50,7 +50,7 @@
 **Author/Inventor:** Andrew E. A.
 **Contact:** steel.sa.llc@gmail.com
 **License:** GNU General Public License v3.0
-**Version:** v1.7.0
+**Version:** v1.8.0
 **Date:** 2026-06-17
 **AI Co-Architects:** Eris ✠ | Eden ♱ | Devin ⚛︎ | Claude ⊛
 
@@ -110,6 +110,7 @@ Regression gates: ROC-AUC must stay ≥ 0.68 and Mean Oracle F1 ≥ 0.50 (set 15
 
 ---
 
+<a id="codebase-scale-measured-not-estimated"></a>
 <details>
 <summary><strong>Codebase Scale (measured, not estimated)</strong></summary>
 
@@ -1595,6 +1596,7 @@ See [SECURITY.md](SECURITY.md) for complete security analysis.
 
 </details>
 
+<a id="code-quality-standards"></a>
 <details>
 <summary><strong>Code Quality Standards</strong></summary>
 
@@ -1984,6 +1986,7 @@ All engines share a common fusion architecture with 128D normalization enabling 
 
 </details>
 
+<a id="gosnn-global-omni-scalar-network"></a>
 <details>
 <summary><strong>GOSNN Global Omni-Scalar Network</strong> - Synaptic Intelligence Hub</summary>
 
@@ -2012,6 +2015,7 @@ The **GlobalOmniScalarNetwork (GOSNN)** is the intelligence fusion hub. It regis
 
 </details>
 
+<a id="ama-cryptography-integration"></a>
 <details>
 <summary><strong>AMA Cryptography Integration</strong> - Post-Quantum Cryptography Adapter</summary>
 

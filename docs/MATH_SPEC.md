@@ -1,7 +1,7 @@
 # Mercury Agent -- Formal Mathematical Specification
 
-**Version:** 1.7.0
-**Date:** 2026-05-20 (v1.7.0 release; the formal mathematical surfaces below are unchanged from the 2026-05-05 revision — v1.7 deltas are wiring/enforcement of these specs, not redefinitions)
+**Version:** 1.8.0
+**Date:** 2026-06-17 (v1.8.0 release; the formal mathematical surfaces below are unchanged from the 2026-05-05 revision — the v1.7/v1.8 deltas are wiring/enforcement of these specs, not redefinitions)
 **Status:** Living Document
 **Cross-references:** top-level [`ARCHITECTURE.md`](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/ARCHITECTURE.md) §"Dual-Gate Hard Ethical Enforcement", [`ROUTING_GUIDE.md`](ROUTING_GUIDE.md)
 

@@ -1,6 +1,6 @@
 # Installation
 
-Applies to Mercury Agent **v1.7.x**. Last updated: 2026-06-16.
+Applies to Mercury Agent **v1.8.x**. Last updated: 2026-06-16.
 
 ## Requirements
 

@@ -1,10 +1,10 @@
 # Mercury Agent Architecture
 
-Applies to Mercury Agent **v1.7.x**. Last updated: 2026-06-10.
+Applies to Mercury Agent **v1.8.x**. Last updated: 2026-06-10.
 
 ## Overview
 
-The Mercury Agent is a neuro-symbolic AI framework that integrates 30 diverse scientific and computational paradigms — a deep-learning core (170 `torch.nn.Module` subclasses across visual, behavioural, physics-based, fusion and differentiable-logic theorem-proving subsystems, imported across 129 source files; both counts CI-gated in the README [Codebase Scale block](README.md)) coupled with an explicit symbolic layer (knowledge graphs, rule bases, formal verification, AST-based code analysis, case-based reasoning) — into a unified hybrid-fusion architecture. Multi-domain anomaly detection is one of the capabilities this AI exposes, not the limit of what it is. This document describes the system architecture, data flow, and key design decisions.
+The Mercury Agent is a neuro-symbolic AI framework that integrates 30 diverse scientific and computational paradigms — a deep-learning core (170 `torch.nn.Module` subclasses across visual, behavioural, physics-based, fusion and differentiable-logic theorem-proving subsystems, imported across 131 source files; both counts CI-gated in the README [Codebase Scale block](README.md)) coupled with an explicit symbolic layer (knowledge graphs, rule bases, formal verification, AST-based code analysis, case-based reasoning) — into a unified hybrid-fusion architecture. Multi-domain anomaly detection is one of the capabilities this AI exposes, not the limit of what it is. This document describes the system architecture, data flow, and key design decisions.
 
 ## System Architecture Diagram
 
@@ -91,8 +91,8 @@ HybridFusionNetwork(
         'affective': 64,
         'consciousness': 32,
     },
-    hidden_dim=256,
-    num_heads=8,
+    hidden_dim=128,
+    num_heads=4,
 )
 ```
 
@@ -883,7 +883,7 @@ conda install -c conda-forge qutip
 
 ### Unit Tests
 
-The test-module count is measured and CI-gated in the README [Codebase Scale block](README.md) (406 `test_*.py` modules as of 2026-06-10).
+The test-module count is measured and CI-gated in the README [Codebase Scale block](README.md) (433 `test_*.py` modules as of 2026-06-17).
 
 ```bash
 # Run specific test
@@ -1201,18 +1201,18 @@ The Mercury Agent integrates **30 detection engines** with **12 infrastructure m
 5. **Future-proofing**: Emerging technology monitoring across 9+ categories
 6. **Sustainable development**: World Bank sector tracking with net-positive impact scoring
 
-### System Scale (measured 2026-06-10 by `scripts/measure_codebase_scale.py`; CI-gated in the README [Codebase Scale block](README.md)):
-- **47 top-level subpackages** under `src/omni_mercury_engine/`
+### System Scale (measured 2026-06-17 by `scripts/measure_codebase_scale.py`; CI-gated in the README [Codebase Scale block](README.md)):
+- **48 top-level subpackages** under `src/omni_mercury_engine/`
   (agentic, alerting, anomaly, api, automl, biometric, cognitive,
   comparison, compliance, core, crypto, data, data_sources, datasets,
   decision, detectors, distributed, emergent, energy, ethical,
   evaluation, explainability, federated_learning, federation,
   governance, gui, harmonics, infrastructure, integrations, loaders,
   medical, metrics, ml, models, narrative, ocean, quantum_computing,
-  resilience, safeguards, scaling, security, space, streaming, tools,
-  utils, validation, verifiers)
-- **~313,000 LOC** in `src/omni_mercury_engine/` (618 source files)
-- **406 test modules** under `tests/`; 8,789 tests collected with the
+  reasoning, resilience, safeguards, scaling, security, space, streaming,
+  tools, utils, validation, verifiers)
+- **~320,000 LOC** in `src/omni_mercury_engine/` (631 source files)
+- **433 test modules** under `tests/`; 8,789 tests collected with the
   full optional-dependency surface (`pytest --collect-only -q`,
   2026-06-10) — fewer on a minimal install because optional-import-gated
   modules skip. See the README "Testing and Quality Assurance" section

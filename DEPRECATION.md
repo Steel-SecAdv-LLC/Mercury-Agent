@@ -4,7 +4,7 @@
 |----------|-------|
 | Document Version | 1.2 |
 | Last Updated | 2026-05-20 |
-| Applies to | Mercury Agent v1.7.x |
+| Applies to | Mercury Agent v1.8.x |
 
 This document tracks deprecated modules, classes, methods, and parameters in Mercury Agent.
 

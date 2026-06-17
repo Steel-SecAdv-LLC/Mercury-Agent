@@ -27,6 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-06-17
+
 ### Phase 3: Governed self-improvement seam — live reflexion + drift arrows routed through the gate (2026-06-16)
 
 Wires the live self-improvement arrows through a fail-closed governance seam at
@@ -3276,8 +3278,7 @@ and regression tests:
     `BenevolenceScorer.enforce` call against an action description
     rich in defensive-purpose keywords.  The boundary scorer is
     constructed eagerly at engine init so the first concurrent call
-    cannot race the gate.  σ_Immutable is now trained (99.6% val_acc
-    on a labelled scalar-vector corpus; weights persisted at
+    cannot race the gate.  σ_Immutable is now trained (weights persisted at
     `src/omni_mercury_engine/security/sigma_immutable_weights.pt`)
     and `EthicalGate.evaluate` gates its torch path on
     `self._trained`.  At the engine boundary σ_Immutable remains
@@ -4037,7 +4038,7 @@ and regression tests:
 - CRISPR-inspired self-healing for adaptive immunity
 - Humanitarian extensions: Cyber Fortress, Medical Cure Predictor, Emergent Life Detector
 - 140+ experiments with statistical validation (20-48% gains vs baselines)
-- 730+ tests with 85%+ coverage
+- 730+ tests
 - Graph-based anomaly detection with NetworkX
 - Multimodal fusion with attention mechanisms
 - VAE for unsupervised pattern learning

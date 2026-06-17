@@ -63,9 +63,10 @@ genuinely-labelled ADBench datasets (`cardio`, `mammography`, `pendigits`,
 ECE in this sweep. It is the empirical leader on the unpooled summary. But the
 paired analysis against `dim = 32` gives mean Δ = +0.0062 and paired t = +1.69
 — short of both the +0.02 delta threshold and the +2.0 t threshold. **None of
-the four bump-criterion conditions is met**, so the shipped default stays at
-`dim = 32`. The `dim = 64` result is real enough to be worth re-measuring on a
-tighter sweep, but not strong enough to change the shipped artifact today.
+the four bump-criterion conditions is met** in v3, so v3 alone did not justify raising the
+`dim = 32` default in place at the time. (It was later raised to 64 on the
+broader evidence — see Production strategy below.) The `dim = 64` result was
+real enough to warrant re-measuring on tighter sweeps, which followed.
 
 This also refutes the single-seed PR #256 claim that `dim = 128` wins by
 +0.014: in v3, `dim = 128` versus `dim = 32` lands at mean Δ = −0.0010 (dead
@@ -166,7 +167,7 @@ power. The honest reading: across these 8 datasets, *no* dim in {32, 64,
 holds on positive evidence (deltas inside the noise floor by 6-20×), not
 on parsimony fallback.
 
-## sweep_ucr_v1.json (full-evidence UCR, 160 runs) — settles UCR axis
+## sweep_ucr_v1.json (full-evidence UCR, 160 runs) — pending; will settle the UCR axis
 
 **Config:** 4 dims (32, 64, 128, 256) × 5 seeds (0…4) × 8 UCR datasets
 (ECG5000, ECGFiveDays, Wafer, SonyAIBORobotSurface1, SonyAIBORobotSurface2,
@@ -249,7 +250,7 @@ PY
 
 ## The full-evidence sweep config (reproduction)
 
-The committed v5 + UCR v1 sweeps were produced with:
+The committed v5 sweep (and the pending UCR v1 sweep) are produced with:
 
 ```bash
 # ADBench axis — 256 runs, ~40 min on a modern CPU.
