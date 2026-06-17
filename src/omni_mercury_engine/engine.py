@@ -145,7 +145,7 @@ try:  # avoid a hard import cycle with the package __init__
 
     __version__ = _pkg_version("mercury-agent")
 except Exception:
-    __version__ = "1.7.0"
+    __version__ = "1.8.0"
 
 # Core detectors - always imported (lightweight base classes)
 from omni_mercury_engine.detectors.dimensional import DimensionalAnalyzer

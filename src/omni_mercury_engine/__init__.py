@@ -5,7 +5,7 @@
 Mercury Agent is a comprehensive neuro-symbolic AI platform.  It hybridises a
 deep-learning core (170 ``torch.nn.Module`` subclasses spanning visual,
 behavioural, physics-based, fusion and differentiable-logic theorem-proving
-subsystems, imported across 129 source files; both counts measured by
+subsystems, imported across 131 source files; both counts measured by
 ``scripts/measure_codebase_scale.py`` and CI-gated in the README Codebase
 Scale block) with an explicit symbolic layer (knowledge graphs, rule bases,
 formal verification, AST-based code analysis and case-based reasoning),
@@ -116,7 +116,7 @@ def __getattr__(name: str) -> type:
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-__version__ = "1.7.0"
+__version__ = "1.8.0"
 __author__ = "Steel Security Advisors LLC"
 __license__ = "GPL-3.0"
 

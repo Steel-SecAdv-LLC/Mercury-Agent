@@ -99,7 +99,7 @@ docker run -d \
 ### Install
 
 ```bash
-helm install mercury-agent ./helm \
+helm install mercury-agent ./helm/mercury-agent \
   --namespace mercury \
   --create-namespace \
   -f helm/values.yaml \
@@ -111,7 +111,7 @@ helm install mercury-agent ./helm \
 ### Upgrade
 
 ```bash
-helm upgrade mercury-agent ./helm \
+helm upgrade mercury-agent ./helm/mercury-agent \
   --namespace mercury \
   -f helm/values.yaml
 ```
@@ -324,17 +324,31 @@ kubectl create secret generic mercury-agent-secrets \
   --from-literal=API_KEY_HASH_SALT="$(openssl rand -hex 32)"
 ```
 
-### External Secrets Operator (recommended for production)
+### External Secrets Operator (manual, for production)
 
-The Helm chart supports External Secrets Operator (ESO). Enable it:
+The Helm chart renders a plain `Secret` from `config.secrets.*`; it does **not**
+wire External Secrets Operator (ESO) through values. To source secrets from a
+vault, apply your own `ExternalSecret` targeting the same `mercury-agent` Secret
+the Deployment reads (via `envFrom`), so the operator populates `API_SECRET_KEY`
+/ `JWT_SECRET_KEY`. A commented starting template ships in
+[`k8s/base/secret.yaml`](../k8s/base/secret.yaml):
 
 ```yaml
-# helm/values.yaml
-externalSecrets:
-  enabled: true
-  secretStore: cluster-secret-store
-  remoteRef:
-    key: mercury-agent/prod
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: mercury-agent
+spec:
+  secretStoreRef:
+    name: cluster-secret-store
+    kind: ClusterSecretStore
+  target:
+    name: mercury-agent          # the Secret the Deployment reads via envFrom
+  data:
+    - secretKey: JWT_SECRET_KEY
+      remoteRef: { key: mercury-agent/prod, property: jwt_secret_key }
+    - secretKey: API_SECRET_KEY
+      remoteRef: { key: mercury-agent/prod, property: api_secret_key }
 ```
 
 ### Rotation
@@ -355,7 +369,7 @@ There is currently **no automated secret rotation**. Manual rotation steps:
 docker pull ghcr.io/steel-secadv-llc/mercury-agent:latest
 
 # 2. For Helm deployments — upgrade in place (rolling update)
-helm upgrade mercury-agent ./helm \
+helm upgrade mercury-agent ./helm/mercury-agent \
   --namespace mercury \
   --set image.tag=<new-tag>
 

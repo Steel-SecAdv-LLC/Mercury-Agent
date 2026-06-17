@@ -105,7 +105,7 @@ for logger_name in ["omni_mercury_engine.api", "omni_mercury_engine.security", "
     _logger.addFilter(PIIMaskingFilter())
 
 # API version information
-API_VERSION = "1.7.0"
+API_VERSION = "1.8.0"
 API_TITLE = "Mercury Agent API"
 API_DESCRIPTION = """
 ## Overview
@@ -652,12 +652,12 @@ class HealthResponse(BaseModel):
     status: str = Field(
         ..., description="Service health status", json_schema_extra={"example": "healthy"}
     )
-    version: str = Field(..., description="API version", json_schema_extra={"example": "1.7.0"})
+    version: str = Field(..., description="API version", json_schema_extra={"example": "1.8.0"})
     uptime_seconds: float | None = Field(default=None, description="Server uptime in seconds")
 
     model_config = {
         "json_schema_extra": {
-            "examples": [{"status": "healthy", "version": "1.7.0", "uptime_seconds": 3600.5}]
+            "examples": [{"status": "healthy", "version": "1.8.0", "uptime_seconds": 3600.5}]
         }
     }
 
@@ -830,7 +830,7 @@ def _classify_severity(score: float, threshold: float) -> SeverityLevel:
     responses={
         200: {
             "description": "Service is healthy",
-            "content": {"application/json": {"example": {"status": "healthy", "version": "1.7.0"}}},
+            "content": {"application/json": {"example": {"status": "healthy", "version": "1.8.0"}}},
         },
         503: {
             "description": "Service is unhealthy",
@@ -854,7 +854,7 @@ async def health_check() -> HealthResponse:
 
         Response:
         ```json
-        {"status": "healthy", "version": "1.7.0"}
+        {"status": "healthy", "version": "1.8.0"}
         ```
     """
     return HealthResponse(status="healthy", version=API_VERSION)
@@ -1290,6 +1290,26 @@ try:
     logger.info("Voice interface routes registered")
 except ImportError as e:
     logger.warning(f"Voice interface routes not available: {e}")
+
+
+# Prometheus metrics at the conventional root path (/metrics) — the target scraped
+# by monitoring/prometheus/prometheus.yml, the k8s ``prometheus.io/path``
+# annotations, and the Helm chart. The Prometheus exposition handler lives on
+# health_router (api/health.py); register it directly on the app at root so the
+# scrape target resolves instead of returning 404.
+try:
+    from omni_mercury_engine.api.health import health_metrics as _health_metrics
+
+    app.add_api_route(
+        "/metrics",
+        _health_metrics,
+        methods=["GET"],
+        tags=["Health"],
+        include_in_schema=False,
+    )
+    logger.info("Prometheus /metrics endpoint registered at root")
+except ImportError as e:
+    logger.warning(f"/metrics endpoint not available: {e}")
 
 
 # =============================================================================

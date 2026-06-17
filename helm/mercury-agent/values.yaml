@@ -252,7 +252,7 @@ config:
     # Values (only used if existingSecret is empty)
     DB_PASSWORD: ""
     API_SECRET_KEY: ""
-    JWT_SECRET: ""
+    JWT_SECRET_KEY: ""
 
 # ============================================================================
 # Persistence

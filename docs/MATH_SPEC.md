@@ -755,9 +755,9 @@ The five ethical pillars are:
 | $z_{\text{threshold}}$ | 3.0 | `centralized_constants.py:363` | Z-score anomaly threshold | Gaussian theory: 99.7% coverage |
 | IQR multiplier | 1.5 | `centralized_constants.py:367` | IQR fence multiplier | Tukey (1977) |
 | MAD multiplier | 3.0 | `centralized_constants.py:375` | MAD-based threshold | Robust statistics convention |
-| $w_R$ (OAE Recursion) | $\Phi / \phi_{\text{sum}} \approx 0.559$ | `fusion.py:108` | Golden ratio proportion | Mathematically grounded |
-| $w_H$ (OAE Harmonic) | $1 / \phi_{\text{sum}} \approx 0.346$ | `fusion.py:109` | Golden ratio proportion | Mathematically grounded |
-| $w_O$ (OAE Optimization) | $(1/\Phi) / \phi_{\text{sum}} \approx 0.214$ | `fusion.py:110` | Golden ratio proportion | Mathematically grounded |
+| $w_R$ (OAE Recursion) | $\Phi / \phi_{\text{sum}} \approx 0.4472$ | `core/three_r/fusion.py:153` | Golden ratio proportion (§2.1.1) | Mathematically grounded |
+| $w_H$ (OAE Harmonic) | $1 / \phi_{\text{sum}} \approx 0.2764$ | `core/three_r/fusion.py:154` | Golden ratio proportion (§2.1.1) | Mathematically grounded |
+| $w_O$ (OAE Optimization) | $1 / \phi_{\text{sum}} \approx 0.2764$ | `core/three_r/fusion.py:155` | Golden ratio proportion (§2.1.1) | Mathematically grounded |
 | $p$ (ethical exponent) | $\Phi = 1.618$ | `fusion.py:96` | Ethical scaling power | **UNJUSTIFIED:** needs parameter sweep |
 | Statistical fusion weights | 0.4 / 0.3 / 0.3 | `statistical.py:197` | Z / IQR / IF combination | **UNJUSTIFIED:** needs cross-validation |
 | Neural-symbolic weights | 0.6 / 0.4 | `centralized_constants.py:400-401` | Neural vs. symbolic | **UNJUSTIFIED:** needs empirical tuning |

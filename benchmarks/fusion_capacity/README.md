@@ -221,7 +221,7 @@ status above). The cross-axis accuracy check is reproducible via:
 
 ```bash
 python3 - <<'PY'
-import json, statistics, math
+import json, statistics, math, os
 def agg(p, default=32):
     runs = json.load(open(p))["runs"]
     dims = sorted({r["dim"] for r in runs})
@@ -239,6 +239,9 @@ def agg(p, default=32):
     return summ, pairs
 for label, path in (("ADBench", "benchmarks/fusion_capacity/sweep_real_v5.json"),
                     ("UCR",     "benchmarks/fusion_capacity/sweep_ucr_v1.json")):
+    if not os.path.exists(path):
+        print(f"== {label} == (pending — {path} not committed yet)")
+        continue
     s, p = agg(path)
     print(f"== {label} ==")
     for d, (m, t) in p.items():
