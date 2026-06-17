@@ -100,6 +100,10 @@ class FloodLoader(BaseDomainLoader):
 
     DOMAIN: str = "flood"
     SOURCE_URL: str = _USGS_IV_URL
+    # Labels = (gauge_height_ft >= NWS flood-stage). The NWS flood-stage is
+    # an external per-site catalog constant, but the threshold is on
+    # ``gauge_height_ft`` which is feature[0]. Feature-threshold circularity.
+    LABEL_SOURCE: str = "statistical"
     REQUIRES_API_KEY: bool = False
     FEATURE_COLUMNS: list[str] = [
         "gauge_height_ft",

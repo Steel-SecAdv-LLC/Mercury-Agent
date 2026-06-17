@@ -1,0 +1,115 @@
+# Mercury-Agent Phase 3 Governed Self-Improvement
+#
+# Phase 3 wires Reflexion threshold recommendations, drift-triggered
+# recalibration candidates, and dormant-module revival candidates through the
+# Phase 2 governed promotion gate.  Pull requests run the deterministic unit
+# gate; scheduled/manual runs also execute the real dormant-module revival
+# benchmark against externally labelled ADBench data, route every measured
+# verdict through the governed gate, and publish both the measurement and the
+# routing decisions (closing the measure -> route loop).
+#
+# Copyright (C) 2025 Steel Security Advisors LLC
+
+name: Phase 3 Governed Self-Improvement
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phase3-governance-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+on:
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+  schedule:
+    # Weekly Monday, 06:43 UTC.  Separate from the nightly ablation ledger so
+    # dormant-revival measurement remains recurring without slowing every PR.
+    - cron: "43 6 * * 1"
+
+env:
+  PYTHON_VERSION: "3.12"
+  MERCURY_REQUIRES_ML: "1"
+
+jobs:
+  phase3-gates:
+    name: Reflexion/drift/dormant routing gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Mercury [ml] + test tooling
+        run: |
+          python -m pip install --upgrade "pip>=26.1"
+          pip install -e ".[ml]"
+          pip install pytest pytest-asyncio scikit-learn hypothesis
+
+      - name: Build AMA Cryptography (native PQC)
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v3.2.0
+
+      - name: Phase 3 governance routing + live-wiring tests
+        # The routing-logic tests are deterministic and network-free; the
+        # live-wiring tests instantiate the real orchestrator / online-learning
+        # pipeline against the real promotion gate (engine + [ml] + AMA are
+        # installed above), proving the governed arrows are connected end to end.
+        run: >-
+          pytest tests/research/test_phase3_governance.py
+          tests/research/test_phase3_live_wiring.py -q
+
+  recurring-dormant-revival:
+    name: Recurring dormant-module revival measurement
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Mercury [ml] + benchmark tooling
+        run: |
+          python -m pip install --upgrade "pip>=26.1"
+          pip install -e ".[ml]"
+          pip install scikit-learn
+
+      - name: Build AMA Cryptography (native PQC)
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v3.2.0
+
+      - name: Measure dormant-module revival on external labels
+        run: python -m benchmarks.dormant_module_revival --out artifacts/dormant_module_revival.json
+
+      - name: Route dormant-revival verdicts through the Phase 3 governed gate
+        # Closes the loop: each measured verdict becomes a governed routing
+        # decision (archived / withheld-pending-evidence / queued) rather than a
+        # raw measurement. No --check: this is the recurring measurement+record
+        # job, so a fail-closed reject is recorded for human review, not a CI
+        # failure. The gate fails a candidate that carries signal but lacks
+        # held-out-replay promotion evidence — the honest disposition.
+        run: |
+          python research/governed_fusion/phase3_governance.py \
+            --dormant-revival artifacts/dormant_module_revival.json \
+            --out artifacts/dormant_module_revival_routing.json
+
+      - name: Upload dormant-module revival measurement + routing
+        uses: actions/upload-artifact@v7
+        with:
+          name: dormant-module-revival
+          path: |
+            artifacts/dormant_module_revival.json
+            artifacts/dormant_module_revival_routing.json
+          retention-days: 90

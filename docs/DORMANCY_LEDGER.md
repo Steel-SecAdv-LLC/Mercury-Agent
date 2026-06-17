@@ -11,7 +11,7 @@ held-out labels is.
 dormant module is retained as a reference implementation. The work here is to (1)
 identify, on **real labels**, which dormant code carries genuine signal and
 revive it under the same ablation discipline as the rest of the repo, and (2)
-rank the remainder by honest, remaining salvage value so future revival is
+rank the remainder by auditable, remaining salvage value so future revival is
 prioritised, not guessed.
 
 ## 0. The lesson up front: interface ≠ signal
@@ -61,7 +61,7 @@ which trains the fusion model with and without the detector from the same split.
 > +0.0006, breastw −0.0014, WBC −0.0017, Pima −0.0040), seed agreement 0.53 —
 > within the ±0.002 noise floor. The detector is strong *standalone* but
 > **redundant with the live `spatial` detector** inside the fusion ensemble, so
-> it does not move the fused score. Honest outcome: the dormant clusterer is
+> it does not move the fused score. Transparent outcome: the dormant clusterer is
 > genuinely revived as a tested, first-class detector and is available to opt in
 > (`engine.detectors["kmeans_distance"] = KMeansDistanceDetector()`), but it is
 > **not** enabled by default — adding a redundant detector to ship would be the
@@ -70,12 +70,12 @@ which trains the fusion model with and without the detector from the same split.
 ## 2. Precedence ranking of the remaining dormant modules
 
 For the modules that do **not** expose a per-sample anomaly score over tabular
-features, there is no honest in-repo detection metric to revive them against
+features, there is no provenance-safe in-repo detection metric to revive them against
 today. They are ranked by *remaining salvage value* — the plausibility and cost
-of producing **some** honest measurable signal — so revival effort is spent in
+of producing **some** independently measurable signal — so revival effort is spent in
 order. None are deleted.
 
-| Rank | Module | LOC | What it is | Honest measurable signal? | Salvage | Revival path |
+| Rank | Module | LOC | What it is | Independently measurable signal? | Salvage | Revival path |
 |---|---|---|---|---|---|---|
 | 1 | `symbolic_logic_layer.py` | 1127 | Forward-chaining rule reasoner (crisp) | **MEASURED ✓** — its `ThresholdRule` idea revived as a *differentiable* salience rule and ablated: consensus_salience +0.0022 vs consensus +0.0009 low-data ΔAUC, seed agreement 0.81 vs 0.63 — directionally better but +0.0013 sub-threshold | **done (KEEP consensus)** | Revived as the `consensus_salience` rule graph (`NEUROSYMBOLIC.md` §2.3); live, tested, selectable; the most promising symbolic follow-up, awaiting a larger-N confirmation. |
 | 2 | `causal_discovery.py` | 1442 | Causal-graph discovery | **VALIDATED ✓ (non-AUC)** — not an anomaly scorer, but on its *own* metric (skeleton recovery vs a known SEM) it recovers structure well above chance: mean F1 **0.853** vs chance 0.286, degrading gracefully as samples thin (`benchmarks/causal_discovery_validation.py`) | **revived (causal tool)** | A genuinely working constraint-based causal-discovery engine; revived and measured as a causal tool, not an anomaly detector. |
@@ -85,7 +85,7 @@ order. None are deleted.
 | 6 | `knowledge_graph.py` + `multi_hop_reasoner.py` | 2109+718 | Symbolic KB + multi-hop reasoning | **No (numeric)** — operate on symbolic facts, not feature vectors | LOW | Only via a rules/KB bridge to the symbolic constraint; no direct tabular signal. **Algorithmic correctness now behaviourally covered (2026-06-02):** `tests/cognitive/test_knowledge_graph_behavioral.py` asserts embedding recovery on a known two-cluster graph (intra > inter cosine over 5 seeds), GNN message passing, link-prediction recovery of a held-out intra-cluster edge, and transitive / symmetric inference — the reference methods compute what they claim even though the surface carries no anomaly-detection signal. |
 | 7 | `neural_memory_layer.py` (remainder) | 941 | Text/dict memory + pattern detection (the `KMeansClusterer` within is revived in §1) | **No (beyond the clusterer) ✓ checked** — `get_anomaly_score()` is *the same* k-means-distance path already revived; the memory/embedding path is hash-projection over dicts, not tabular | LOW | The salvageable part (`KMeansClusterer`) is revived; the rest is a text-memory system. |
 | 8 | `predictive_coding.py` | 1296 | Predictive-coding / active-inference detector | **Measured — none** (0.536 AUC) | LOW | No revival path as a detector; retain as reference. |
-| 9 | `case_based_reasoning.py` | 625 | Case-based retrieval reasoner | **Measured — none** (0.572 AUC) | LOW | No revival path as a detector; retain as reference. **CBR cycle now behaviourally covered (2026-06-02):** `tests/cognitive/test_case_based_reasoning_behavioral.py` asserts retrieval ranking + counters, the REUSE-vs-REVISE branch in `solve` (incl. honest `no_matching_cases` on an empty base), proportional `adapt` + adaptation history, and `learn_from_outcome` state updates. |
+| 9 | `case_based_reasoning.py` | 625 | Case-based retrieval reasoner | **Measured — none** (0.572 AUC) | LOW | No revival path as a detector; retain as reference. **CBR cycle now behaviourally covered (2026-06-02):** `tests/cognitive/test_case_based_reasoning_behavioral.py` asserts retrieval ranking + counters, the REUSE-vs-REVISE branch in `solve` (incl. explicit `no_matching_cases` on an empty base), proportional `adapt` + adaptation history, and `learn_from_outcome` state updates. |
 | 10 | `chain_of_thought.py` / `reflexion.py` | 1501/1734 | Reasoning traces / self-reflection loops | **MEASURED ✓ (non-AUC, 2026-06-11)** — wired into the live multi-agent orchestration (`agentic/orchestration.py`) and measured on real ADBench labels by `benchmarks/orchestration_validation.py`: chain-of-thought **trace fidelity 600/600** (every sampled decision's stated determination matches the issued decision; every quoted score is the real consensus score), reflexion **paired Δ balanced-accuracy +0.079** over a fixed operating point (15/15 dataset×seed runs acted, never harmed a well-calibrated point) | **revived (orchestration tier)** | Reflexion's original `fn > 2·fp` adaptation rule was itself measured **harmful** (Δ −0.071; WBC 0.98 → 0.50) and replaced by an evidence-grounded balanced-accuracy sweep with minimum-evidence and hysteresis guards — the harness caught a real defect before it shipped. CoT conclusions previously classified against hardcoded 0.7/0.4 bands regardless of the issuing boundary (fixed: traces classify at the decision threshold); the self-consistency strategy returned the vote *token* as its conclusion, stripping the human-readable determination (fixed). |
 | 10b | `chain_of_hindsight.py` | 1548 | Hindsight relabeling / credit assignment | **No** — no in-repo harness yet | LOW | Retained as reference; candidate for the same orchestration-loop treatment (its `FeedbackProcessor` is the natural batch-level critic). |
 | 11 | `hierarchical_planning.py` / `multi_agent_coordination.py` | 1489/1293 | Planning / agent coordination | **MEASURED ✓ (non-AUC, 2026-06-11)** — same harness: the planner drives every live detection episode via real options bound to the pipeline stages — **executability 129/129 episodes** with TD value learning on real stage rewards (initial-state value strictly increasing); coordination forms per-sample consensus over the five real engine detectors — **mean consensus AUC 0.827 ≥ mean member AUC 0.821** (best member 0.903; no claim of beating the trained fusion model is made), below-quorum cases **abstain explicitly** | **revived (orchestration tier)** | Both modules carried blocking defects while dormant: the planner could not select options at all (its option library returned dict projections that the planner type-checked away — every plan shipped empty, every action fell back to `default_action`), option eviction never fired, and below-quorum consensus returned a silent benign verdict (fail-open) while duck-typed dict votes were silently dropped. All fixed and pinned by `tests/cognitive/test_orchestration_behavioral.py`. |
@@ -106,7 +106,7 @@ set — the worst variant of interface ≠ signal). It now emits a
 deterministic neutral output (zero features, 0.5 scores) with a one-time
 warning until a real, measured affective extractor exists; the serve-path
 determinism and checkpoint-equivalence tests
-(`tests/test_fusion_checkpoint_roundtrip.py`) keep it honest.
+(`tests/test_fusion_checkpoint_roundtrip.py`) keep it regression-checked.
 
 ## 4. Status & reproduce
 
@@ -133,7 +133,7 @@ pre-registered bar on real held-out labels is cleared, exactly as for the
 neuro-symbolic constraint. Everything else is retained, ranked, and awaiting a
 measurable signal — not deleted, and not asserted to work until it is shown to.
 
-## 5. The revival frontier (honest boundary)
+## 5. The revival frontier (measurement boundary)
 
 After measuring every dormant module that can produce a per-sample score on
 tabular features, **the ADBench-AUC-measurable revival surface is effectively
@@ -200,7 +200,7 @@ Building these harnesses — not fabricating a metric win — is how the rest of
 dormant subsystem earns its place. Until a module's harness exists and it clears
 the bar, the module stays ranked and retained, not revived and not deleted.
 
-## 6. Consolidation — the honest boundary today
+## 6. Consolidation — the measurement boundary today
 
 The measurable revival frontier now covers: three modules revived on AUC
 (adaptive co-training, the salience rule, the k-means detector), three on their
@@ -209,13 +209,39 @@ on the orchestration harness (`hierarchical_planning`,
 `multi_agent_coordination`, `reflexion`, `chain_of_thought` — rows 10/11,
 2026-06-11). The remaining tier — `chain_of_hindsight`, `plasticity_engine`,
 `knowledge_graph`, `multi_hop_reasoner` (rows 6, 10b, 11b) — stays explicitly
-marked **retained, no honest in-repo metric yet**. The orchestration loop is
+marked **retained, no provenance-safe in-repo metric yet**. The orchestration loop is
 the natural future harness for `chain_of_hindsight` (batch-level credit
 assignment over episode history); the others still lack a non-contrived task.
 They are kept as reference implementations, not deleted, and not asserted to
 work.
 
 The stopping point remains principled, not an omission: every module with an
-honest, non-contrived measurement has one; the rest wait — ranked and retained
+independent, non-contrived measurement has one; the rest wait — ranked and retained
 — for a real task to measure them against, exactly as rows 10/11 did until the
 orchestration task arose.
+
+## 7. Standing fitness substrate — fusion-marginal ablation ledger
+
+`benchmarks/dormant_module_revival.py` is the **one-off** revival harness:
+operator-triggered, ADBench-corpus-only, results frozen in
+`artifacts/dormant_module_revival.json`. Phase 1 of the governed recursive
+self-improvement work introduces the **standing** complement to that
+harness — `research/governed_fusion/measure_marginal_ablation.py`. It
+measures the per-component leave-one-out lift of the default fusion stack
+(`resonance`, `kinematic`, `info_geo`) on the *transparent fitness subset* of
+the governed-fusion live suite — the audited externally-labelled events
+only — and appends one record per CI run to
+`research/governed_fusion/ablation_ledger.json`. The CI workflow
+`.github/workflows/ablation-ledger.yml` runs it on every PR and nightly.
+
+This is what closes the measurement-to-revival loop for live-API
+domains: a future detector promoted via the `engine.py` registration
+seam earns a ledger entry the first time it appears in the fusion stack;
+a future component whose lift drifts to zero across consecutive ledger
+entries is the candidate for retirement. The Phase 3 recurring
+dormant-revival job (`.github/workflows/phase3-governance.yml`) runs the real
+revival benchmark on schedule and routes revival candidates through the Phase 2
+promotion gate.
+
+See `docs/SELF_IMPROVEMENT_LOOP.md` for the full rollout narrative and
+the scope boundaries between implemented Phases 1–3 and deferred Phases 4–8.

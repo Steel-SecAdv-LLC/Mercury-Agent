@@ -27,6 +27,211 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Phase 3: Governed self-improvement seam — live reflexion + drift arrows routed through the gate (2026-06-16)
+
+Wires the live self-improvement arrows through a fail-closed governance seam at
+the exact point a change would take effect, so neither the reflexion critic nor
+the online-learning drift trigger can mutate Mercury's live behaviour
+autonomously. (Supersedes the earlier routing-only Phase 3 surface, which
+governed a copy of the decision while the live mutation still executed
+ungoverned.)
+
+* `src/omni_mercury_engine/governance/self_improvement.py` (new) — the
+  engine-owned seam: `ThresholdGovernance` / `RecalibrationGovernance`
+  protocols, the `ProposedThresholdChange` / `ProposedRecalibration` /
+  `GovernanceReview` records, and two built-in policies —
+  `FailClosedSelfImprovementGovernance` (default; withholds every autonomous
+  change) and `MeasurementGovernance` (explicit, named opt-in for held-out
+  measurement harnesses).
+* `agentic/orchestration.py` — `MultiAgentOrchestrator.reflect()` now routes an
+  actionable threshold recommendation through `threshold_governance` instead of
+  applying it; `ReflectionRecord` gains the governance disposition. Default
+  fail-closed; the live operating point moves only on an authorised review.
+* `ml/online_learning.py` — `OnlineLearningPipeline` routes its
+  high/critical-drift and performance-degradation retrain triggers through an
+  optional `recalibration_governance` policy before `model.fit()`. Standalone it
+  remains an autonomous online learner; in the governed composition it is
+  fail-closed. Explicit `force_retrain()` is never gated.
+* `engine.py` — `enable_multi_agent_orchestration(threshold_governance=…)`
+  installs the policy on the production orchestrator.
+* `research/governed_fusion/phase3_governance_adapters.py` (new) — the
+  gate-backed policies (`PromotionGateThresholdGovernance`,
+  `PromotionGateRecalibrationGovernance`) implement the engine seam by routing a
+  proposal through the Phase 2 promotion gate (research → engine dependency). A
+  gate `promote` is queued for human approval, never auto-applied.
+* `research/governed_fusion/phase3_governance.py` — adds
+  `dormant_revival_report_to_section` and a `--dormant-revival` CLI path so the
+  recurring workflow routes every measured verdict through the gate instead of
+  only uploading it (closes the measure → route loop). `maintain` remains a
+  no-op; missing candidate evidence fails closed; `promote` remains human-review
+  gated.
+* `Phase3DecisionStore` — append-only JSON records plus `index.jsonl` for
+  Reflexion, drift, and dormant-revival routing outcomes.
+* `tests/research/test_phase3_governance.py` — routing logic, composite reports,
+  append-only records, CLI `--check`, and the dormant report → routing loop.
+* `tests/research/test_phase3_live_wiring.py` (new) — end-to-end proof against
+  the real gate: the autonomous threshold move and the autonomous drift retrain
+  are both observed to be withheld by default, applied only under an explicit
+  measurement stance, and queued (never auto-applied) when the gate-backed
+  policy clears them.
+* `.github/workflows/phase3-governance.yml` — pull requests run deterministic
+  Phase 3 routing tests; scheduled/manual runs execute the real dormant-module
+  revival benchmark, route every verdict through the gate, and upload both the
+  measurement and the routing decisions.
+* `docs/PHASE3_GOVERNANCE.md`, `docs/SELF_IMPROVEMENT_LOOP.md`,
+  `ARCHITECTURE.md`, `SECURITY.md`, and `README.md` — document the governed
+  seam, the live wiring, and the fail-closed posture; Phases 4–8 remain
+  explicitly deferred.
+
+### Promotion-gate ingestion hardening — close fail-open paths on the decision boundary (2026-06-16)
+
+Hardens the Phase 2 gate (`research/governed_fusion/promotion_gate.py`) and the
+Phase 3 router CLI against malformed and non-finite evidence. Each fix closes a
+fail-**open** path on the security-critical decision boundary; all are locked by
+new tests in `tests/research/test_governed_promotion_gate.py`.
+
+* `_as_float` now rejects `bool` (a Python `int` subclass) and non-finite
+  values. Previously a JSON `true`/`false` in a safety field read as `1.0`/`0.0`
+  and cleared a floor (`{"benevolence": true}` → promote), and an `Inf` metric
+  satisfied the improvement delta while a `NaN` never compared below a regression
+  floor.
+* `_as_int` rejects `bool` and accepts an integral float (`2.0` → `2`) so a
+  legitimate candidate whose metric code emits `2.0` is no longer rejected by a
+  crash.
+* A non-finite **ledger baseline** (e.g. a degenerate single-class measurement
+  that produced `NaN`) is now a fail-closed reject reason, not a silently-skipped
+  ablation check.
+* Both CLI `main()` entry points convert validation errors into an auditable
+  REJECT decision record plus a non-zero exit, instead of a bare traceback that
+  leaves the store empty; decision records are written with `allow_nan=False`.
+
+### Phase 2: Governed promotion gate — held-out replay, experiment store, rollback decisions (2026-06-16)
+
+Adds the enforcement layer that consumes Phase 1's transparent fitness
+substrate before any recursive self-improvement candidate can advance.
+
+* `research/governed_fusion/promotion_gate.py` — deterministic promotion
+  gate for candidate evidence records. The gate reads only the
+  `external_label` bucket, requires AUROC or F1 improvement without
+  AUROC/AUPRC/F1 regression, enforces σ_Immutable / benevolence /
+  conformal / Lyapunov floors, requires capability-regression success,
+  checks the latest `status="ok"` marginal-ablation baseline when present,
+  and emits rollback decisions for failed canaries.
+* `ExperimentStore` — append-only JSON decision records plus `index.jsonl`
+  so promotion, rejection, and rollback outcomes remain reviewable.
+* `tests/research/test_governed_promotion_gate.py` (8 assertions) —
+  promotion eligibility, external-label-only optimization, broadened-bucket
+  rejection, capability-evidence enforcement, ablation-regression rejection,
+  canary rollback, manifest-count reconciliation, and append-only store
+  behavior.
+* `.github/workflows/ablation-ledger.yml` — extends the transparent fitness
+  substrate CI lane with the governed promotion gate tests.
+* `docs/GOVERNED_PROMOTION_GATE.md`, `docs/SELF_IMPROVEMENT_LOOP.md`, and
+  `README.md` — document the Phase 2 operator contract, held-out replay
+  terminology, human-review requirement, and rollback behavior.
+
+### Phase 1: Transparent fitness substrate — leakage-split gate + fusion-marginal ablation ledger (2026-06-16)
+
+Closes the **measurement** stage of the governed recursive self-improvement
+loop. The autonomous self-improvement work that follows (Phase 2: governed
+promotion gate; Phase 3: Reflexion / drift-triggered recalibration /
+recurring dormant revival) optimises whatever the fitness signal measures —
+and Phase 0 verification found the fitness signal was partly
+provenance-contaminated. The `loaders/` side of the codebase had no
+label-provenance discipline at all, even though
+the governed-fusion suite (`research/governed_fusion/`) was already using
+those loaders to compute its 23-event live headline. Of the 15 concrete
+live-API loaders, **13** manufacture anomaly labels by thresholding a column
+that is also a scored feature (label leakage / circularity); only **2**
+(`network_security`, `sepsis`) produce labels independent of the scored
+signal. Phase 1 surfaces that transparently and CI-enforces the discipline
+so the autonomous loop reads only independently labelled live events.
+
+* `src/omni_mercury_engine/loaders/base.py` — adds
+  `LABEL_SOURCE: str = "ground_truth"` to `BaseDomainLoader`
+  (provenance-declaration default; loaders override to declare their
+  actual provenance). Mirrors `datasets/base.py`.
+* Every concrete loader updated with an audited `LABEL_SOURCE` and a
+  per-loader justification citing the exact circular pattern: earthquake
+  (`magnitude >= mainshock_mag - 1.0` on feature[0]), hurricane (24h wind
+  delta on the scored wind-delta feature), tornado (`mag >= 3` on
+  feature[0] `ef_scale`), fema (DR + IA + PA flags scored as features),
+  marine (richness-decline threshold on the scored richness-loss feature),
+  pandemic (7d rolling > 2x 30d baseline on the same 7d feature; ebola_2014
+  reconstructed), energy (`kp >= 7` on reconstructed kp), tsunami
+  (reconstructed series), financial (VIX / yield-curve thresholds on scored
+  features), flood (`gauge_height >= NWS flood-stage` on feature[0]),
+  landslide (fatality/size on scored features), wildfire (FRP p90 on scored
+  `frp`), volcanic (alert level on scored feature 1). The two
+  ground-truth loaders (`network_security`, `sepsis`) are explicitly
+  declared with their justifications.
+* `src/omni_mercury_engine/loaders/label_provenance.py` — canonical
+  per-loader registry (`LABEL_PROVENANCE_REGISTRY`), audit
+  (`audit_label_provenance`), discovery (`discover_loaders`), AST
+  circularity heuristic (`scan_circular_label_construction`), and the
+  ground-truth subset helper (`ground_truth_loader_keys`). Module CLI:
+  `python -m omni_mercury_engine.loaders.label_provenance --check`.
+* `research/governed_fusion/label_provenance.py` — pivots from per-loader
+  `LABEL_SOURCE` to per-event `(label_provenance, series_provenance,
+  external_label)`. Single source of truth for the manifest, the
+  aggregator, and the ablation ledger.
+* `research/governed_fusion/manifest.json` — every entry now carries the
+  three new audit fields, plus a top-level `provenance_summary` block.
+  Today's headline: 2 external-label, 21 self-label, 7 reconstructed.
+* `research/governed_fusion/build_manifest.py` — emits the new fields
+  and summary; reads from the loader audit so manifest and loader
+  registry can never silently drift.
+* `research/governed_fusion/evaluate.py` — `aggregate()` adds a
+  `per_provenance` breakdown alongside `per_event` / `per_domain` /
+  `overall`. Phase 2's promotion gate reads `external_label` only.
+* `research/governed_fusion/measure_baseline.py` — prints the
+  per-provenance block alongside the per-domain block, with the
+  external-label bucket tagged `(FITNESS)`.
+* `research/governed_fusion/measure_marginal_ablation.py` — standing
+  fusion-marginal ablation ledger: leave-one-component-out
+  ΔAUROC / ΔAUPRC / ΔF1 on the external-label live subset only. Records
+  timestamp, git SHA, components, event keys, and the selected cache
+  path per run. When the selected score cache is absent (typical on a
+  fresh CI runner) emits an informational `needs_cache` record (exit 0)
+  so the ledger keeps a chronological reachability account.
+* `research/governed_fusion/ablation_ledger.json` — seed ledger; the
+  fitness function the autonomous loop will climb.
+* `.github/workflows/ablation-ledger.yml` — runs on PR + nightly: loader
+  audit, manifest integrity, ledger schema + math correctness, then the
+  measurement itself. Uploads the ledger as a CI artifact.
+* `tests/loaders/test_label_provenance_gate.py` (12 assertions) —
+  mirrors the `datasets/` gate for the live-API path.
+* `tests/research/test_governed_fusion_label_provenance.py` (7
+  assertions) — per-event provenance integrity, manifest-vs-loader
+  drift, the `external_label` bucket lock at exactly
+  `{network_security/batadal, network_security/nsl_kdd}`.
+* `tests/research/test_marginal_ablation_ledger.py` (6 assertions) —
+  ledger schema, math correctness on synthetic events (informative
+  components produce positive lift; a noise component ranks below),
+  the missing-cache informational path, and `--cache-dir` propagation
+  into the score-cache reader.
+* `docs/SELF_IMPROVEMENT_LOOP.md` — the rollout narrative: the verified
+  capabilities map, the transparent baseline, the 10-dataset reconciliation
+  (mirror vs cannot-score), Phase 1 deliverables, and the explicit
+  out-of-scope decisions for Phases 2–8 (each is a documented decision,
+  not a gap). NAS is excluded; UBI 9/10 is a separate PR; HITL for
+  actuation is documented as a Phase 8 contingency, not a Phase 1
+  deliverable (Mercury is sensing-only today).
+* `docs/BENCHMARKS.md` — adds the provenance-split block surfacing the
+  Phase 1 finding: of the 23 live events, only 2 (network_security)
+  produce labels independent of any scored feature; external-label mean AUROC
+  **0.7704** / F1 **0.1863**.
+* `docs/DORMANCY_LEDGER.md` — section 7 names the ablation ledger as
+  the standing measurement substrate that Phase 3 revival routing reads.
+* `README.md` — adds a paragraph on the live-API loader provenance
+  audit and points at `docs/SELF_IMPROVEMENT_LOOP.md`.
+
+No gate, threshold, ethics floor, or assertion was loosened to make CI
+pass: σ_Immutable (0.93/0.96), benevolence floor (0.99), Lyapunov
+certificate, conformal coverage target (0.90), the
+`fusion-regression.yml` floors, and the existing `datasets/`-side
+provenance gate are all unchanged. The new gates are additive.
+
 ### Geospatial kernel + movement-plausibility detector — one lat/lon geometry, a boreal undercount fixed, FINDΩYOU groundwork (2026-06-11)
 
 Consolidates all latitude/longitude geometry behind a single numpy-only

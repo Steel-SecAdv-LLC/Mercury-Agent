@@ -274,6 +274,11 @@ class PandemicLoader(BaseDomainLoader):
 
     DOMAIN: str = "pandemic"
     SOURCE_URL: str = "https://github.com/owid/covid-19-data"
+    # Labels = (7-day rolling new_cases > 2 * 30-day baseline mean); the
+    # 7-day-smoothed new_cases is also the primary scored feature. Feature-
+    # threshold circularity. The ``ebola_2014`` event additionally
+    # reconstructs the entire series (no live WHO GHO feed).
+    LABEL_SOURCE: str = "statistical"
     REQUIRES_API_KEY: bool = False
     FEATURE_COLUMNS: list[str] = [
         "new_cases_smoothed",

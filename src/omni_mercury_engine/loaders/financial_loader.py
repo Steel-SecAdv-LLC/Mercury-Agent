@@ -114,6 +114,10 @@ class FinancialLoader(BaseDomainLoader):
 
     DOMAIN: str = "financial"
     SOURCE_URL: str = _FRED_BASE_URL
+    # Labels = (VIX > 30 AND yield_curve < 0) OR (VIX > 45). VIX and yield-
+    # curve are both scored features (and ``vix_zscore`` / ``yc_zscore`` too).
+    # Feature-threshold circularity.
+    LABEL_SOURCE: str = "statistical"
     REQUIRES_API_KEY: bool = True
     API_KEY_ENV_VAR: str = "FRED_API_KEY"
     FEATURE_COLUMNS: list[str] = [

@@ -164,6 +164,10 @@ class MarineLoader(BaseDomainLoader):
 
     DOMAIN: str = "marine"
     SOURCE_URL: str = _OBIS_BASE_URL
+    # Labels = (baseline_richness - event_richness) / baseline_richness > 0.70
+    # while a related ``richness_loss`` magnitude is also a scored feature.
+    # Feature-threshold circularity.
+    LABEL_SOURCE: str = "statistical"
     REQUIRES_API_KEY: bool = False
     FEATURE_COLUMNS: list[str] = [
         "richness_loss_weighted",

@@ -121,6 +121,11 @@ class TsunamiLoader(BaseDomainLoader):
 
     DOMAIN: str = "tsunami"
     SOURCE_URL: str = "https://www.ndbc.noaa.gov/data/realtime2/"
+    # Labels are documented arrival-time windows (genuinely external), but
+    # the BPR series itself is reconstructed (NDBC files rotate out after
+    # ~45 days). Synthesized data is excluded from the supervised headline
+    # by the same discipline that excludes feature-threshold loaders.
+    LABEL_SOURCE: str = "statistical"
     REQUIRES_API_KEY: bool = False
     FEATURE_COLUMNS: list[str] = [
         "bpr",

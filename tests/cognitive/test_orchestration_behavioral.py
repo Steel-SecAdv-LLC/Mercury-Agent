@@ -37,6 +37,7 @@ from omni_mercury_engine.agentic.orchestration import (
     OrchestrationError,
 )
 from omni_mercury_engine.cognitive.ethical_bounding import EthicalConstraintViolationError
+from omni_mercury_engine.governance.self_improvement import MeasurementGovernance
 
 SEEDS = (0, 1, 2)
 
@@ -68,6 +69,10 @@ def _fitted_orchestrator(seed: int, **kwargs: Any) -> tuple[
     np.ndarray[Any, Any],
 ]:
     X_train, X_test, y_test = _planted_outlier_data(seed)
+    # This suite *characterises* the adaptation mechanism, so it adapts in an
+    # explicit measurement stance; the production default is fail-closed and is
+    # exercised directly in tests/research/test_phase3_live_wiring.py.
+    kwargs.setdefault("threshold_governance", MeasurementGovernance())
     orch = MultiAgentOrchestrator(seed=seed, **kwargs).fit(X_train)
     return orch, X_test, y_test
 

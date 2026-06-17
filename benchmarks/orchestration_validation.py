@@ -124,6 +124,7 @@ def run_dataset_seed(name: str, seed: int) -> dict[str, Any] | None:
         MultiAgentOrchestrator,
         OrchestrationError,
     )
+    from omni_mercury_engine.governance.self_improvement import MeasurementGovernance
     from omni_mercury_engine.ml.mercury_ml import roc_auc_score
 
     # Pin the global RNGs per run: some live detectors carry stochastic
@@ -152,7 +153,12 @@ def run_dataset_seed(name: str, seed: int) -> dict[str, Any] | None:
     X_tr, X_te = (X[tr] - mu) / sd, (X[te] - mu) / sd
     y_te = y[te].astype(bool)
 
-    orch = MultiAgentOrchestrator(seed=seed).fit(np.asarray(X_tr, dtype=np.float64))
+    # The reflexion arm measures the *effect* of adaptation on held-out labels,
+    # so it runs in an explicit measurement governance stance (the production
+    # default is fail-closed and would withhold the adaptation under test).
+    orch = MultiAgentOrchestrator(seed=seed, threshold_governance=MeasurementGovernance()).fit(
+        np.asarray(X_tr, dtype=np.float64)
+    )
 
     plan_episodes_ok = 0
     plan_episodes_total = 0

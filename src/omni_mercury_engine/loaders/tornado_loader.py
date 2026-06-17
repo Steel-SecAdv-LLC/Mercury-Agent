@@ -129,6 +129,9 @@ class TornadoLoader(BaseDomainLoader):
 
     DOMAIN: str = "tornado"
     SOURCE_URL: str = _ARCHIVE_URL
+    # Labels = ``mag >= 3`` (EF3+) and feature[0] is the same ``ef_scale``
+    # column. Direct feature-threshold circularity.
+    LABEL_SOURCE: str = "statistical"
     REQUIRES_API_KEY: bool = False
 
     FEATURE_COLUMNS: list[str] = [
