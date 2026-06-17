@@ -1049,7 +1049,7 @@ The declared core dependency was `numpy>=1.24.0`, which was inaccurate on two
 independent axes and is now corrected to `numpy>=2.4.0`:
 
 * **Python-matrix reality.** The project is `requires-python>=3.11` and CI
-  builds/tests on Python 3.11/3.12/3.13, but numpy `1.24` publishes no wheels
+  builds/tests on Python 3.11/3.12/3.13/3.14, but numpy `1.24` publishes no wheels
   for Python 3.12 (first added in `1.26`) or 3.13 (first added in `2.1`) — so
   the old `1.24.0` floor was not installable across the very matrix the
   project claims to support.

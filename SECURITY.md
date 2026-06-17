@@ -265,7 +265,7 @@ Every disposition is recorded to an append-only audit trail. See
 
 ## Current Vulnerability Status
 
-*Last Review: 2026-06-10*
+*Last Review: 2026-06-15*
 
 ### Accepted Vulnerabilities (with Mitigations)
 
@@ -382,7 +382,7 @@ Mercury Agent is designed with compliance in mind:
   [`docs/COMPLIANCE.md`](docs/COMPLIANCE.md).
 - **FIRST.org / CISA TLP 2.0**: First-party handler at
   `omni_mercury_engine.compliance.tlp_handler` implements the full
-  five-colour ladder (CLEAR / GREEN / AMBER / AMBER+STRICT / RED) for
+  five-label, four-colour ladder (CLEAR / GREEN / AMBER / AMBER+STRICT / RED) for
   every Mercury output, including watermarking and export metadata.
 - **OSHA / eCFR**: First-party detector at
   `omni_mercury_engine.compliance.osha_anomaly` covers 12 hazard
@@ -428,5 +428,5 @@ We thank the security researchers who have helped improve Mercury Agent's securi
 
 ---
 
-*Last Updated: 2026-06-10*
+*Last Updated: 2026-06-15*
 *Version: 1.7.0*

@@ -49,7 +49,7 @@ for the post-quantum cryptographic substrate.
   PR #166 deleted the `pickle` code path from the training-data
   loader; benchmark and dataset artefacts use npz / json /
   safetensors. The repo still ships
-  `security/sigma_immutable_weights.pt` and loads it via
+  `src/omni_mercury_engine/security/sigma_immutable_weights.pt` and loads it via
   `torch.load(..., weights_only=True)` (the safe-tensor torch
   loader path), so PyTorch's `.pt` format is still in use for
   trained-model weights — this is intentional and not a `pickle`
@@ -88,11 +88,14 @@ DATASOURCES
 LIVE_DATA_VALIDATION
 ORACLE_NOISE_COLOR
 DEPLOYMENT
+OFFLINE_OPERATION
+HARDWARE_HARNESS
 ROADMAP
 SECURITY
 MIGRATION-1.6-to-1.7
 COMPLIANCE
 PROFILING
+TOOLS
 medical/SETUP
 drone/SETUP
 ```
