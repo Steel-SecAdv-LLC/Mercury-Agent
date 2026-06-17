@@ -149,8 +149,8 @@ from omni_mercury_engine.compliance import (
 - **OSHA / eCFR** — 12 hazard categories × 6 industry sectors with
   CFR citations and NWS Rothfusz heat-index regression
   (`compute_heat_index_fahrenheit(temp_f, rh_pct)`).
-- **TLP 2.0** — full five-colour ladder (CLEAR / GREEN / AMBER /
-  AMBER+STRICT / RED), single/batch classification, watermark
+- **TLP 2.0** — full five-label, four-colour ladder (CLEAR / GREEN / AMBER /
+  AMBER+STRICT / RED; AMBER+STRICT shares AMBER's colour), single/batch classification, watermark
   generation, JSON export metadata. `AMBER+STRICT` is implemented
   end-to-end — the upstream module shipped only TLP 1.0 colours.
 

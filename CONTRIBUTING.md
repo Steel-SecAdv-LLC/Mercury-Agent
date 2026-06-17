@@ -652,6 +652,7 @@ Contributors will be recognized in:
 | 2.4.0 | 2026-05-05 | Updated to v1.6.x, added Wave B dual-gate hard ethics, AMA Cryptography sole PQC backend, pickle/training-data removal, TODO discipline |
 | 2.5.0 | 2026-05-19 | Updated to v1.6.x / v1.7 development cycle. Added v1.7 do-not-restore items (SafeHTTPClient `allow_untrusted`, MockLLMAdapter silent fallback, `security/` vs `compliance/` boundary). Linked medical / drone / compliance integration-ready contracts. |
 | 2.6.0 | 2026-05-22 | Replaced aspirational 85 / 90 / 95 % coverage claims with the actual measured-floor merge gates (CORE 25 %, FULL 50 %) plus the 85 % aspirational target.  Aligned the PR-template and new-engine checklists with the same posture. |
+| 2.7.0 | 2026-06-17 | v1.7.0 released (2026-05-20); reconciled documentation with the shipped line and source tree. The "v1.7 development cycle" wording in row 2.5.0 predates the release. |
 
 ---
 

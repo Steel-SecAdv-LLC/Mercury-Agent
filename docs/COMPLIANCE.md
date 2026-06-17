@@ -8,7 +8,7 @@ ported from Omni-AXA-Engine and hardened during the port:
 
 - [NIST CSF 2.0 integrator](#nist-csf-20-integrator) — six core functions, 22 categories, 106+ subcategories, live reference fetcher.
 - [OSHA / eCFR compliance detector](#osha--ecfr-compliance-detector) — 12 hazard categories × 6 industry sectors with NWS Rothfusz heat-index regression and live eCFR citation lookup.
-- [TLP 2.0 handler](#tlp-20-handler) — FIRST.org / CISA Traffic Light Protocol 2.0 with the full five-colour ladder (CLEAR / GREEN / AMBER / AMBER+STRICT / RED), watermarks and JSON export metadata.
+- [TLP 2.0 handler](#tlp-20-handler) — FIRST.org / CISA Traffic Light Protocol 2.0 with the full five-label, four-colour ladder (CLEAR / GREEN / AMBER / AMBER+STRICT / RED), watermarks and JSON export metadata.
 
 > **Why `compliance/` and not `security/`.** Mercury's `security/`
 > package is reserved for *implementation primitives* (crypto, PQC,
@@ -114,7 +114,7 @@ report = integrator.generate_compliance_report(
 ## OSHA / eCFR compliance detector
 
 **Module:** `omni_mercury_engine.compliance.osha_anomaly`
-**Locking tests:** `tests/test_osha_anomaly.py` (28 tests covering every sector × hazard combo, the Rothfusz regression, and the low-humidity / low-temperature adjustments).
+**Locking tests:** `tests/test_osha_anomaly.py` (36 tests covering every sector × hazard combo, the Rothfusz regression, and the low-humidity / low-temperature adjustments).
 
 Multi-sector OSHA compliance detector covering 12 hazard categories
 across 6 industry sectors with CFR citations.
@@ -194,10 +194,10 @@ for h in hazards:
 ## TLP 2.0 handler
 
 **Module:** `omni_mercury_engine.compliance.tlp_handler`
-**Locking tests:** `tests/test_tlp_handler.py` (45 tests covering every public surface including AMBER+STRICT escalation, watermark integrity, and export-metadata schema).
+**Locking tests:** `tests/test_tlp_handler.py` (37 tests covering every public surface including AMBER+STRICT escalation, watermark integrity, and export-metadata schema).
 
 Implements FIRST.org / CISA Traffic Light Protocol 2.0 classification
-end-to-end. The five-colour model is implemented for classification,
+end-to-end. The five-label, four-colour model is implemented for classification,
 reasoning, sharing guidelines, ethical considerations, watermark
 generation, and JSON export metadata.
 
