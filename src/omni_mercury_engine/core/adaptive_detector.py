@@ -405,7 +405,7 @@ class TemporalPatternDetector:
 
 
 # ---------------------------------------------------------------------------
-# Mercury-native backend detectors (replace sklearn IsolationForest/LOF/EE)
+# Mercury-native backend detectors (no sklearn dependency in the detection path)
 # ---------------------------------------------------------------------------
 
 

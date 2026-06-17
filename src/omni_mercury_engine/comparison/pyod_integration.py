@@ -45,7 +45,7 @@ class PyODComparison:
     """Compare Mercury Agent with PyOD algorithms.
 
     Enables:
-    - Benchmarking Mercury-Agent's 22+ engines against PyOD's 40+ algorithms
+    - Benchmarking Mercury-Agent's 30 engines against PyOD's 40+ algorithms
     - Learning from PyOD's ensemble combination methods
     - Identifying complementary detection approaches
     - Algorithm selection guidance
