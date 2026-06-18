@@ -417,7 +417,14 @@ jobs:
   type-checking:
     name: Type Checking (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # The native AMA Cryptography (PQC) build below is the variable cost here —
+    # the same build core-tests budgets 30 min for. mypy itself is fast, but on
+    # a slow GitHub-hosted runner the build+mypy can exceed a tight cap and
+    # cancel a leg whose type-check has already passed (observed: one leg hit
+    # the old 15-min cap seconds after "Success: no issues found"). 25 min gives
+    # that build headroom; it masks nothing — a genuine hang still times out and
+    # a real type error still fails immediately.
+    timeout-minutes: 25
     strategy:
       matrix:
         python-version: ["3.11", "3.12", "3.13", "3.14"]
