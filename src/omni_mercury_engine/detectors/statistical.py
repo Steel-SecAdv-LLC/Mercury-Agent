@@ -2,11 +2,15 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Statistical anomaly detector using Mercury's original mathematical frameworks.
 
-Ensemble composition — three complementary, deterministic detectors whose
-fusion weights adapt to each component's measured AUC separation after fit:
-  - ResonanceScore  (40%): FFT-based harmonic spectral anomaly detection
-  - KinematicScore  (30%): Physics-based jerk/curvature dynamics
-  - InfoGeometryScore (30%): Fisher Information Matrix OOD detection
+Ensemble composition — three complementary, deterministic detectors. The
+percentages below are the **default (fallback) weights**; after ``fit()`` they
+are re-weighted proportional to each component's measured AUC separation (a
+component with AUC < 0.5 is inverted and receives zero weight), falling back to
+the defaults only when every component is near-random — so the ensemble is
+adaptive, not static:
+  - ResonanceScore  (default 40%): FFT-based harmonic spectral anomaly detection
+  - KinematicScore  (default 30%): Physics-based jerk/curvature dynamics
+  - InfoGeometryScore (default 30%): Fisher Information Matrix OOD detection
 
 All three methods are deterministic after fit, numerically stable, and
 produce continuous scores in [0, 1] for downstream fusion.

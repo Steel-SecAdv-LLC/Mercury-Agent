@@ -252,8 +252,9 @@ config:
     # Values (only used if existingSecret is empty)
     DB_PASSWORD: ""
     API_SECRET_KEY: ""
-    # ``JWT_SECRET`` (the pre-1.8 key name) is still honored as a fallback;
-    # prefer ``JWT_SECRET_KEY`` — the name the application reads.
+    # The chart also accepts the pre-1.8 values key ``config.secrets.JWT_SECRET``
+    # and renders it into the ``JWT_SECRET_KEY`` secret/env that the app reads;
+    # prefer setting ``JWT_SECRET_KEY`` here directly.
     JWT_SECRET_KEY: ""
 
 # ============================================================================
