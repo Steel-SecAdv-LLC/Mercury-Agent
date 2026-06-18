@@ -30,6 +30,8 @@ from typing import TYPE_CHECKING, Any
 from fastapi import APIRouter, Response, status
 from pydantic import BaseModel, Field
 
+from omni_mercury_engine._version import __version__ as _DISTRIBUTION_VERSION
+
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
@@ -158,7 +160,7 @@ class HealthChecker:
         >>> results = await checker.run_checks()
     """
 
-    def __init__(self, version: str = "1.8.0") -> None:
+    def __init__(self, version: str = _DISTRIBUTION_VERSION) -> None:
         """Initialize health checker.
 
         Args:

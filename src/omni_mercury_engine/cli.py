@@ -12,6 +12,8 @@ from typing import Any
 import click
 import numpy as np
 
+from omni_mercury_engine._version import __version__ as _DISTRIBUTION_VERSION
+
 # Lazy import to support CLI help without torch dependency
 # OmniMercuryEngine is only imported when actually needed (not for --help)
 OmniMercuryEngine: Any = None
@@ -38,7 +40,7 @@ def _get_engine(*args: Any, **kwargs: Any) -> Any:
 
 
 @click.group()
-@click.version_option(version="1.8.0")
+@click.version_option(version=_DISTRIBUTION_VERSION)
 def main() -> None:
     """Mercury Agent: Neuro-Symbolic AI Framework (CLI entry point)."""
     pass

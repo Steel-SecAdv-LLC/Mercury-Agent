@@ -19,6 +19,7 @@ References:
 
 from __future__ import annotations
 
+from omni_mercury_engine._version import get_version as _get_version
 from omni_mercury_engine.models.sota.association_discrepancy import (
     AnomalyTransformerEncoder,
     AssociationDiscrepancyModule,
@@ -53,5 +54,5 @@ __all__ = [
     "TranADModel",
 ]
 
-__version__ = "1.8.0"
+__version__ = _get_version()
 __author__ = "Steel Security Advisors LLC"
