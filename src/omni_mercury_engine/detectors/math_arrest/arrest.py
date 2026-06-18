@@ -2,8 +2,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """AnomalyMathArrest: 21-probe mathematically-independent equation ensemble.
 
-Transparent, auditable anomaly detection. Every detection traces to a
+Transparent, auditable anomaly detection in which every score traces to a
 specific mathematical violation in one or more of the 21 probe equations.
+Each probe targets a distinct anomaly geometry — trend and level shifts,
+periodicity, curvature and jerk, spectral and information-geometric
+structure, and chaos onset — and the probe outputs are aggregated into a
+single calibrated score with per-probe attribution retained for
+explainability.
 """
 
 from __future__ import annotations
