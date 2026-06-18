@@ -1664,7 +1664,7 @@ jobs:
         # re-reviewed.  ``vuln-type: os,library`` scopes the scan to the
         # OS and Python library surfaces this image actually ships.
         # Fixable CVEs never enter the ledger — the Dockerfile's
-        # runtime-stage ``apt-get upgrade`` (latest bookworm security
+        # runtime-stage ``apt-get upgrade`` (latest trixie security
         # patches at build time) and the ``pip>=26.1`` floor are the fix
         # path for those.
         # Action pinned to the same tagged version as security.yml's
