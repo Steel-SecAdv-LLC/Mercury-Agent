@@ -1210,7 +1210,7 @@ The Mercury Agent integrates **30 detection engines** with **12 infrastructure m
   medical, metrics, ml, models, narrative, ocean, quantum_computing,
   reasoning, resilience, safeguards, scaling, security, space, streaming,
   tools, utils, validation, verifiers)
-- **~320,000 LOC** in `src/omni_mercury_engine/` (631 source files)
+- **~320,000 LOC** in `src/omni_mercury_engine/` (632 source files)
 - **433 test modules** under `tests/`; 8,789 tests collected with the
   full optional-dependency surface (`pytest --collect-only -q`,
   2026-06-10) — fewer on a minimal install because optional-import-gated
