@@ -2,11 +2,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Single source of truth for the Mercury Agent distribution version.
 
-The version is resolved at import time so every surface that reports it — the
+The version is resolved at import time so the canonical version surfaces — the
 package ``__version__``, the API server's ``API_VERSION``, the ``mercury
---version`` CLI, OpenTelemetry/OTLP ``service.version`` attributes, and any
-operator-facing banner — stays in lockstep with the distribution and cannot
-silently drift when a release is cut.
+--version`` CLI, OpenTelemetry/OTLP ``service.version`` attributes, and the
+operator-facing health/version banners — stay in lockstep with the
+distribution and cannot silently drift when a release is cut. (Deliberately
+coarse, stable client identifiers — e.g. the outbound ``User-Agent`` tokens —
+are not release-versioned and are intentionally out of scope.)
 
 Resolution order (first that succeeds wins):
 

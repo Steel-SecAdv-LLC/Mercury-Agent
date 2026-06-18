@@ -65,16 +65,20 @@ FROM python:3.13-slim-trixie AS runtime
 ARG USERNAME=mercuryagent
 ARG USER_UID=1000
 ARG USER_GID=$USER_UID
+# OCI version label (build-time metadata; bump with pyproject [project].version
+# or override via --build-arg MERCURY_VERSION=...). The runtime __version__ is
+# SSOT-resolved at import; this image-metadata surface can't read it at build.
+ARG MERCURY_VERSION=2.0.0
 
 # Security labels
 LABEL maintainer="Steel Security Advisors LLC <steel.sa.llc@gmail.com>"
 LABEL org.opencontainers.image.title="Mercury Agent"
 LABEL org.opencontainers.image.description="ML-Centric Multi-Domain Anomaly Detection Framework"
 LABEL org.opencontainers.image.vendor="Steel Security Advisors LLC"
-LABEL org.opencontainers.image.version="1.7.0"
+LABEL org.opencontainers.image.version="${MERCURY_VERSION}"
 LABEL org.opencontainers.image.licenses="GPL-3.0"
 LABEL security.hardened="true"
-LABEL security.scan-date="2026-01-09"
+LABEL security.scan-date="2026-06-18"
 
 # Critical security patches - updates system packages.
 # ``apt-get upgrade`` here is the canonical fix path for every OS-level
