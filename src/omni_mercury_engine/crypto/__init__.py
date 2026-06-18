@@ -34,6 +34,8 @@ import logging
 import secrets
 from typing import TYPE_CHECKING, Any, Literal
 
+from omni_mercury_engine._version import get_version as _get_version
+
 logger = logging.getLogger(__name__)
 
 # Try to import Rust bindings, fall back to pure Python
@@ -74,7 +76,7 @@ except ImportError:
 # Version and Feature Detection
 # =============================================================================
 
-__version__ = "1.8.0"
+__version__ = _get_version()
 
 
 def get_crypto_backend() -> str:
