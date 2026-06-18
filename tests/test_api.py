@@ -27,6 +27,26 @@ class TestAPI:
         assert result["status"] == "healthy"
         assert result["version"] == "1.8.0"
 
+    def test_metrics_endpoint(self) -> None:
+        """Root ``/metrics`` exposes Prometheus metrics for scraping.
+
+        Guards the root-level registration in ``api/server.py`` — the target in
+        ``monitoring/prometheus/prometheus.yml``, the k8s ``prometheus.io/path``
+        annotation, and the Helm chart — against silent regression to 404 or a
+        non-Prometheus content type.
+        """
+        response = client.get("/metrics")
+
+        assert response.status_code == 200
+        content_type = response.headers["content-type"]
+        assert content_type.startswith("text/plain")
+        # Prometheus text exposition format version marker.
+        assert "version=0.0.4" in content_type
+        body = response.text
+        assert "# HELP omni_mercury_up" in body
+        assert "# TYPE omni_mercury_up gauge" in body
+        assert "omni_mercury_uptime_seconds" in body
+
     def test_univariate_detection_endpoint(self) -> None:
         """Test univariate anomaly detection endpoint."""
         response = client.post(
