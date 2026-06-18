@@ -1,6 +1,6 @@
 # Mercury-Agent Deployment Guide
 
-Applies to Mercury Agent **v1.8.x**. Last updated: 2026-06-10.
+Applies to Mercury Agent **v2.0.x**. Last updated: 2026-06-10.
 
 This guide covers deploying Mercury-Agent from a local Docker environment through
 production Kubernetes/Helm. It documents every required configuration value, the
@@ -175,7 +175,7 @@ hash if it is absent (`api/auth.py::APIKeyStore.hash_key`):
 | `API_KEY_HASH_SALT` | Salt for API key hashing (PBKDF2-HMAC-SHA256, 260,000 iterations) | `openssl rand -hex 32` |
 
 The Helm chart additionally provisions a `MERCURY_CACHE_SECRET` pod secret
-(`secrets.mercuryCacheSecret`), consumed by
+(`config.secrets.MERCURY_CACHE_SECRET`), consumed by
 `integrations/stubs/cache.py::RedisCache`: when set, every Redis cache entry
 is HMAC-SHA256-signed on write and verified on read, and a tampered,
 unsigned, or foreign-keyed entry raises `CacheIntegrityError` instead of

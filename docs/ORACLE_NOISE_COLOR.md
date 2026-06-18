@@ -1,6 +1,6 @@
 # Oracle Noise Color Calibration
 
-Applies to Mercury Agent **v1.8.x**. Last updated: 2026-05-20.
+Applies to Mercury Agent **v2.0.x**. Last updated: 2026-05-20.
 
 ## Theory
 

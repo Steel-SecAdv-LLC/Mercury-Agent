@@ -27,11 +27,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.8.0] - 2026-06-17
+## [2.0.0] - 2026-06-17
 
 ### Docs↔code reconciliation + release-engineering pass (2026-06-17)
 
-The pass that cut 1.8.0: published figures trued to the CI-gated source of truth,
+The pass that cut 2.0.0: published figures trued to the CI-gated source of truth,
 plus the version and deployment-secret wiring that entries below already assumed.
 
 * **Single source of truth for the distribution version
@@ -41,7 +41,7 @@ plus the version and deployment-secret wiring that entries below already assumed
   `service.version` resource/exports, and the `crypto` / `models.sota` package
   versions all derive from it. Closes a live drift where `engine.py` reported
   `1.7.0` from stale installed metadata while the hard-coded literals said
-  `1.8.0`; every surface now agrees and cannot desync on a release bump.
+  `2.0.0`; every surface now agrees and cannot desync on a release bump.
 * **Helm chart now provisions every runtime secret the app reads.** The chart
   rendered only `JWT_SECRET_KEY`; `API_KEY_HASH_SALT` (required in production by
   `api/auth.py`) and `MERCURY_CACHE_SECRET` (the cache entry-signing key) were
@@ -4096,8 +4096,8 @@ and regression tests:
 ### Note
 **All benchmarks based on simulated data. Real-world validation recommended before production use.**
 
-[Unreleased]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.8.0...HEAD
-[1.8.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.7.0...v1.8.0
+[Unreleased]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.7.0...v2.0.0
 [1.7.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.5.1...v1.6.0
 [1.5.1]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.5.0...v1.5.1

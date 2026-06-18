@@ -1,6 +1,6 @@
 # Domain Performance Analysis
 
-Applies to Mercury Agent **v1.8.x**. Last updated: 2026-05-20.
+Applies to Mercury Agent **v2.0.x**. Last updated: 2026-05-20.
 
 Per-domain precision/recall analysis from real benchmark data.
 

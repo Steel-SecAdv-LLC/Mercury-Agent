@@ -1,17 +1,17 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Tests for CRISPR-inspired self-healing module."""
+"""Tests for the adaptive self-healing module (resilience.self_healing)."""
 
 from __future__ import annotations
 
 import numpy as np
 
-from omni_mercury_engine.core.self_healing import AnomalySignature, CRISPRInspiredSelfHealing
+from omni_mercury_engine.resilience.self_healing import AdaptiveDefenseSystem, AnomalySignature
 
 
 def test_self_healing_initialization() -> None:
     """Test self-healing system initialization"""
-    system = CRISPRInspiredSelfHealing(max_signatures=100, similarity_threshold=0.85)
+    system = AdaptiveDefenseSystem(max_signatures=100, similarity_threshold=0.85)
     assert system.max_signatures == 100
     assert system.similarity_threshold == 0.85
     assert len(system.signature_library) == 0
@@ -19,7 +19,7 @@ def test_self_healing_initialization() -> None:
 
 def test_stage_1_acquisition() -> None:
     """Test Stage 1: Acquisition of anomaly signature"""
-    system = CRISPRInspiredSelfHealing()
+    system = AdaptiveDefenseSystem()
     anomaly_data = np.random.randn(10, 5)
 
     signature = system.stage_1_acquisition(anomaly_data)
@@ -32,7 +32,7 @@ def test_stage_1_acquisition() -> None:
 
 def test_stage_2_expression() -> None:
     """Test Stage 2: Expression of signature into detection pattern"""
-    system = CRISPRInspiredSelfHealing()
+    system = AdaptiveDefenseSystem()
     anomaly_data = np.random.randn(10, 5)
 
     signature = system.stage_1_acquisition(anomaly_data)
@@ -45,7 +45,7 @@ def test_stage_2_expression() -> None:
 
 def test_stage_3_interference() -> None:
     """Test Stage 3: Interference - detecting known anomalies"""
-    system = CRISPRInspiredSelfHealing(similarity_threshold=0.7)
+    system = AdaptiveDefenseSystem(similarity_threshold=0.7)
 
     anomaly_data = np.random.randn(10, 5)
     system.stage_1_acquisition(anomaly_data)
@@ -63,7 +63,7 @@ def test_heritable_immunity() -> None:
     import tempfile
     from pathlib import Path
 
-    system = CRISPRInspiredSelfHealing()
+    system = AdaptiveDefenseSystem()
 
     for i in range(3):
         anomaly_data = np.random.randn(10, 5) * (i + 1)
@@ -77,7 +77,7 @@ def test_heritable_immunity() -> None:
     try:
         system.save_signature_library(temp_path)
 
-        new_system = CRISPRInspiredSelfHealing()
+        new_system = AdaptiveDefenseSystem()
         new_system.load_signature_library(temp_path)
 
         assert len(new_system.signature_library) == 3
@@ -88,7 +88,7 @@ def test_heritable_immunity() -> None:
 
 def test_max_signatures_pruning() -> None:
     """Test that old signatures are pruned when max is reached"""
-    system = CRISPRInspiredSelfHealing(max_signatures=5)
+    system = AdaptiveDefenseSystem(max_signatures=5)
 
     for i in range(10):
         anomaly_data = np.random.randn(10, 5) * (i + 1)
