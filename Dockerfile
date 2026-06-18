@@ -89,11 +89,10 @@ LABEL security.scan-date="2026-01-09"
 # stripping SUID/SGID bits from every binary, and not invoking the
 # vulnerable code paths.
 RUN apt-get update && \
-    # adduser: the upgraded apt in the slim Debian base depends on it, but
-    # the slim base omits it.  Install before upgrade to unblock the
-    # dependency resolver.  (If a future base drops the apt->adduser
-    # dependency, removing this also drops perl-base and its CVEs — verify
-    # against the gate's built-image scan before changing.)
+    # adduser: the upgraded apt in the slim Debian base depends on it for the
+    # dependency resolver during ``apt-get upgrade``.  Install it before the
+    # upgrade, then purge it (and the perl-base it pulls) immediately after --
+    # see the attack-surface-reduction step below.
     apt-get install -y --no-install-recommends adduser && \
     apt-get upgrade -y && \
     # NOTE: no libgl1-mesa-glx. Mercury depends on opencv-python-headless,
@@ -106,6 +105,19 @@ RUN apt-get update && \
         ca-certificates \
         libgomp1 \
         libglib2.0-0 && \
+    # Attack-surface reduction: ELIMINATE perl-base rather than accept its CVEs.
+    # perl-base is a Debian "essential" package present in the base image, but
+    # nothing in the runtime needs it -- Mercury is Python/Rust/C, and the
+    # non-root user is created with ``useradd`` (from passwd) below, not
+    # ``adduser``. ``adduser`` (a Perl script) is perl-base's only consumer here
+    # and was installed solely to satisfy the upgrade dependency resolver above,
+    # so both are purged now that all apt operations are complete. This removes
+    # the perl-base CVE family -- CVE-2026-8376 / CVE-2026-42496 (Critical) and
+    # CVE-2026-42497 / CVE-2026-48962 / CVE-2026-9538 (High), none with a Debian
+    # trixie fix -- from the image, the same eliminate-don't-accept posture used
+    # for the mesa GL stack. Verified: interpreter, sqlite3, pip and useradd all
+    # work without perl; the blocking Trivy gate re-proves the package stays gone.
+    apt-get purge -y --allow-remove-essential perl-base adduser && \
     # Clean up to reduce image size and attack surface
     apt-get autoremove -y && \
     apt-get clean && \

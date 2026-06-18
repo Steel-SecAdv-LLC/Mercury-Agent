@@ -285,22 +285,17 @@ Debian 13.5) after the base-image migration off bookworm; every entry
 cross-checked against the Debian Security Tracker (trixie status "open",
 no fixed version). Entries expire 2026-09-16:
 
-- **Total accepted:** 8 CVEs — **Critical:** 2, **High:** 6
-- All are Debian-**trixie** OS packages with **no upstream fix available**; none sits on an untrusted-input path in the shipped API; the container runs as non-root UID 1000 with SUID/SGID bits stripped
-- These are genuinely irreducible, not deferred: `libsqlite3-0` and `ncurses` (`libtinfo6`/`libncursesw6`/`ncurses-base`/`ncurses-bin`) are linked by CPython itself (the `sqlite3` and `readline`/`curses` stdlib modules), so they cannot be removed without removing the interpreter, and Debian trixie ships no patched build to `apt-get upgrade` to; `perl-base` is pulled by apt's own `adduser` dependency. The one genuinely removable package — the Mesa GL stack — was **eliminated outright** rather than accepted (see below)
+- **Total accepted:** 3 CVEs — **Critical:** 0, **High:** 3
+- Both packages are Debian-**trixie** OS packages with **no upstream fix available**; neither sits on an untrusted-input path in the shipped API; the container runs as non-root UID 1000 with SUID/SGID bits stripped
+- Both are genuinely irreducible: `libsqlite3-0` and `ncurses` (`libtinfo6`/`libncursesw6`/`ncurses-base`/`ncurses-bin`) are linked by CPython itself (the `sqlite3` and `readline`/`curses` stdlib modules), so they cannot be removed without breaking the interpreter, and Debian trixie ships no patched build to `apt-get upgrade` to. The genuinely removable packages were **eliminated outright** rather than accepted: `perl-base` — which carried both former CRITICALs — is now purged in the Dockerfile (together with its `adduser` consumer), as was the Mesa GL stack before it (see below)
 
 | CVE | Severity | Component (trixie version) | Status | Mitigation |
 |-----|----------|-----------|--------|------------|
-| CVE-2026-8376 | Critical | perl-base 5.40.1-6 | trixie open, no fix | Container executes no Perl; `perl-base` pulled in by apt's `adduser` dependency |
-| CVE-2026-42496 | Critical | perl-base 5.40.1-6 | trixie open, no fix | Archive::Tar path traversal; Mercury runs no Perl over attacker-controlled archives |
-| CVE-2026-11822 | High | SQLite (libsqlite3-0 3.46.1-7+deb13u1) | trixie open, no fix (fixed upstream only in SQLite ≥ 3.53.2) | FTS5 memory corruption, reachable only by opening an attacker-crafted database through FTS5; no SQLite-backed feature ships by default and Mercury never uses FTS5 |
+| CVE-2026-11822 | High | SQLite (libsqlite3-0 3.46.1-7+deb13u1) | trixie open, no fix (fixed upstream only in SQLite ≥ 3.53.2) | FTS5 memory corruption, reachable only by opening an attacker-crafted database through FTS5; no SQLite-backed feature ships by default and Mercury never uses FTS5. `libsqlite3-0` stays because CPython's `sqlite3` stdlib module links it (used transitively, e.g. by optuna's study storage) |
 | CVE-2026-11824 | High | SQLite (libsqlite3-0 3.46.1-7+deb13u1) | trixie open, no fix (fixed upstream only in SQLite ≥ 3.53.2) | Same FTS5 attacker-crafted-database surface as CVE-2026-11822; not on any shipped-API input path |
-| CVE-2025-69720 | High | ncurses (libncursesw6 et al. 6.5+20250216-2) | trixie open, no fix | Terminal handling only; never exposed to untrusted input |
-| CVE-2026-42497 | High | perl-base 5.40.1-6 | trixie open, no fix | Archive::Tar hardlink extraction; container executes no Perl |
-| CVE-2026-48962 | High | perl-base 5.40.1-6 | trixie open, no fix | IO-Compress arbitrary code execution; container executes no Perl |
-| CVE-2026-9538 | High | perl-base 5.40.1-6 | trixie open, no fix | Archive::Tar memory exhaustion; container executes no Perl |
+| CVE-2025-69720 | High | ncurses (libncursesw6 et al. 6.5+20250216-2) | trixie open, no fix | Terminal handling only; never exposed to untrusted input. Linked by CPython's `readline`/`_curses` stdlib modules (and `libtinfo` backs the shell) |
 
-**Trixie re-enumeration (2026-06-18).** The deployment image migrated from `python:3.13-slim-bookworm` to `python:3.13-slim-trixie` (Debian 13.5). The ledger was rebuilt from first principles: the runtime image's OS layer was built and scanned with the gate's own trivy 0.70.0, and each finding cross-checked against the Debian Security Tracker. Six bookworm-era acceptances were **dropped, not carried inert**, because they are gone or no longer CRITICAL/HIGH on trixie — CVE-2023-45853 (zlib, resolved in trixie `1:1.3.dfsg-2`) and CVE-2025-7458 (SQLite, resolved in trixie `3.42.0-1`) are fixed by trixie's newer packages; CVE-2025-59375 / CVE-2026-25210 / CVE-2026-45186 (expat) drop because `libexpat1` is not an installed dpkg package in the trixie image, so trivy reports no OS-level expat finding (the Python `pyexpat` path remains defusedxml-hardened); and CVE-2026-48959 (perl-base) is no longer a CRITICAL/HIGH finding under the current vuln DB, so it is left to the gate to re-surface if it ever escalates rather than being pre-accepted. Accepted count: **14 → 8 (Critical 4 → 2, High 10 → 6)**. The eight retained entries each suppress a real, currently-present trixie finding (verified 1:1 against the built-image scan — no inert entries).
+**Trixie re-enumeration + perl-base elimination (2026-06-18).** The deployment image migrated from `python:3.13-slim-bookworm` to `python:3.13-slim-trixie` (Debian 13.5). The ledger was rebuilt from first principles: the runtime image's OS layer was built and scanned with the gate's own trivy 0.70.0, and each finding cross-checked against the Debian Security Tracker. Six bookworm-era acceptances were **dropped, not carried inert**, because they are gone or no longer CRITICAL/HIGH on trixie — CVE-2023-45853 (zlib, resolved in trixie `1:1.3.dfsg-2`) and CVE-2025-7458 (SQLite, resolved in trixie `3.42.0-1`) are fixed by trixie's newer packages; CVE-2025-59375 / CVE-2026-25210 / CVE-2026-45186 (expat) drop because `libexpat1` is not an installed dpkg package in the trixie image, so trivy reports no OS-level expat finding (the Python `pyexpat` path remains defusedxml-hardened); and CVE-2026-48959 (perl-base) is no longer a CRITICAL/HIGH finding under the current vuln DB. That left 8. Then **`perl-base` was eliminated, not accepted**: it is a Debian-essential package carrying 5 of those 8 — both CRITICALs (CVE-2026-8376, CVE-2026-42496) plus CVE-2026-42497 / CVE-2026-48962 / CVE-2026-9538 — but nothing in the runtime needs Perl, so the Dockerfile purges `perl-base` and its `adduser` consumer right after the apt upgrade (verified on the built image: the interpreter, `sqlite3`, `pip` and `useradd` all work without it, and trivy then reports the 5 CVEs gone). Accepted count: **14 → 8 → 3 (Critical 4 → 2 → 0, High 10 → 6 → 3)**. The three retained entries each suppress a real, currently-present trixie finding (verified 1:1 against the built-image scan — no inert entries).
 
 **Mesa GL stack — eliminated, not accepted (carried forward).** CVE-2026-40393 was installed only as OpenCV's `libGL` import dependency, but Mercury depends on `opencv-python-headless` — whose `cv2` extension links no `libGL` (verified: the wheel's `cv2.*.so` shows zero GL linkage) — and makes no `cv2` GUI calls, so the Dockerfile no longer installs `libgl1-mesa-glx`. The package and its CVE are absent from the image; the blocking Trivy gate (`ignore-unfixed: false`) re-verifies this on every build, failing loudly if the package ever reappears.
 
@@ -328,7 +323,7 @@ Mercury Agent's Docker container implements defense-in-depth:
 
 ### Unresolved Vulnerabilities
 
-Accepted risks are re-reviewed at most every 90 days, enforced by the `exp:` dates in [`.trivyignore`](.trivyignore). As of the 2026-06-18 trixie re-enumeration, documented acceptances are 8 CVEs (2 Critical, 6 High), all no-upstream-fix Debian trixie packages in the deployment image, none on an untrusted-input path in the shipped API. The ledger file and the table above are the complete record.
+Accepted risks are re-reviewed at most every 90 days, enforced by the `exp:` dates in [`.trivyignore`](.trivyignore). As of the 2026-06-18 trixie re-enumeration (and the perl-base elimination that followed it), documented acceptances are 3 CVEs (0 Critical, 3 High), all no-upstream-fix Debian trixie packages linked by CPython itself, none on an untrusted-input path in the shipped API. The ledger file and the table above are the complete record.
 
 ### Two-Tier Dependency-CVE Coverage
 
@@ -347,7 +342,7 @@ re-implementation — see the CHANGELOG entries dated 2026-05-20
 ("Permanent supply-chain remediations") for the current
 remediation ledger. The deployment-image gate blocks every fixable
 CRITICAL/HIGH finding and every unfixed finding not enumerated in
-[`.trivyignore`](.trivyignore) (8 CVEs, each with a 90-day expiry that
+[`.trivyignore`](.trivyignore) (3 CVEs, each with a 90-day expiry that
 fails the gate until re-reviewed).
 
 ## Security Assessment Posture
