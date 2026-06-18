@@ -832,7 +832,9 @@ def _classify_severity(score: float, threshold: float) -> SeverityLevel:
     responses={
         200: {
             "description": "Service is healthy",
-            "content": {"application/json": {"example": {"status": "healthy", "version": API_VERSION}}},
+            "content": {
+                "application/json": {"example": {"status": "healthy", "version": API_VERSION}}
+            },
         },
         503: {
             "description": "Service is unhealthy",
