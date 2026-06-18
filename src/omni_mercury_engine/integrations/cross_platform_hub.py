@@ -25,6 +25,8 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from omni_mercury_engine._version import __version__
+
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
@@ -210,7 +212,7 @@ class DataTransformer:
                     "resource": {
                         "attributes": [
                             {"key": "service.name", "value": {"stringValue": event.source}},
-                            {"key": "service.version", "value": {"stringValue": "1.8.0"}},
+                            {"key": "service.version", "value": {"stringValue": __version__}},
                         ]
                     },
                     "scopeMetrics": [

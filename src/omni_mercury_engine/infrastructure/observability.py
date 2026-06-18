@@ -39,6 +39,8 @@ from functools import wraps
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from omni_mercury_engine._version import __version__
+
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator
 
@@ -606,7 +608,7 @@ class DistributedTracer:
         resource = Resource.create(
             {
                 "service.name": self._service_name,
-                "service.version": "1.8.0",
+                "service.version": __version__,
             }
         )
 

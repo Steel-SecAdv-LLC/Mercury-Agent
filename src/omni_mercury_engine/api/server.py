@@ -50,6 +50,7 @@ correlation_id_ctx: contextvars.ContextVar[str] = contextvars.ContextVar(
     "correlation_id", default=""
 )
 
+from omni_mercury_engine._version import __version__ as _DISTRIBUTION_VERSION
 from omni_mercury_engine.validation.api_validators import (
     APIRequestValidator,
     ValidationConfig,
@@ -104,8 +105,9 @@ for logger_name in ["omni_mercury_engine.api", "omni_mercury_engine.security", "
     _logger = logging.getLogger(logger_name)
     _logger.addFilter(PIIMaskingFilter())
 
-# API version information
-API_VERSION = "1.8.0"
+# API version information — tracks the installed distribution version via the
+# single source of truth in omni_mercury_engine._version (no manual drift).
+API_VERSION = _DISTRIBUTION_VERSION
 API_TITLE = "Mercury Agent API"
 API_DESCRIPTION = """
 ## Overview

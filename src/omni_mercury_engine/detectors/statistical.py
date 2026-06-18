@@ -4,9 +4,11 @@
 
 Ensemble composition — three complementary, deterministic detectors. The
 percentages below are the **default (fallback) weights**; after ``fit()`` they
-are re-weighted proportional to each component's measured AUC separation (a
-component with AUC < 0.5 is inverted and receives zero weight), falling back to
-the defaults only when every component is near-random — so the ensemble is
+are re-weighted proportional to each component's measured AUC separation. A
+component whose signal is anti-correlated with anomalies (AUC < 0.5) is given
+zero weight — its own scores are not flipped; whole-ensemble score inversion
+is a separate safeguard applied during validation and detection. The ensemble
+falls back to the defaults only when every component is near-random, so it is
 adaptive, not static:
   - ResonanceScore  (default 40%): FFT-based harmonic spectral anomaly detection
   - KinematicScore  (default 30%): Physics-based jerk/curvature dynamics

@@ -140,12 +140,10 @@ _GOSNN_TESTING_BYPASS: bool = False
 # ---------------------------------------------------------------------------
 FUSION_CHECKPOINT_FORMAT_VERSION: int = 1
 
-try:  # avoid a hard import cycle with the package __init__
-    from importlib.metadata import version as _pkg_version
-
-    __version__ = _pkg_version("mercury-agent")
-except Exception:
-    __version__ = "1.8.0"
+# Resolved from installed package metadata via the single source of truth in
+# ``_version`` (a stdlib-only leaf module, so importing it here cannot create an
+# import cycle with the package ``__init__``).
+from omni_mercury_engine._version import __version__
 
 # Core detectors - always imported (lightweight base classes)
 from omni_mercury_engine.detectors.dimensional import DimensionalAnalyzer
