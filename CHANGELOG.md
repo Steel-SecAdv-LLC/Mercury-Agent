@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > NOAA ERDDAP, FEMA HazardMitigation). As of v1.7.0
 > the previously-flagged "FEMA Disaster — inverted scores" loader
 > is no longer in the broken set; the label-polarity correction is
-> documented under `[Unreleased]` below and locked by
+> documented under `[1.7.0]` below and locked by
 > `tests/datasets/test_disaster.py::TestFEMAInvertedScoresCorrection`.
 > The 11 watch-listed loaders now have a two-lane reachability harness
 > (`tests/datasets/test_unreachable_loaders_{offline,network}.py`,
@@ -28,6 +28,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ## [1.8.0] - 2026-06-17
+
+### Docs↔code reconciliation + release-engineering pass (2026-06-17)
+
+The pass that cut 1.8.0: published figures trued to the CI-gated source of truth,
+plus the version and deployment-secret wiring that entries below already assumed.
+
+* **Single source of truth for the distribution version
+  (`omni_mercury_engine/_version.py`, new).** Resolves the version once from
+  installed package metadata (`importlib.metadata`) with a source-tree fallback;
+  `__version__`, `API_VERSION`, the `mercury --version` CLI, the OTLP
+  `service.version` resource/exports, and the `crypto` / `models.sota` package
+  versions all derive from it. Closes a live drift where `engine.py` reported
+  `1.7.0` from stale installed metadata while the hard-coded literals said
+  `1.8.0`; every surface now agrees and cannot desync on a release bump.
+* **Helm chart now provisions every runtime secret the app reads.** The chart
+  rendered only `JWT_SECRET_KEY`; `API_KEY_HASH_SALT` (required in production by
+  `api/auth.py`) and `MERCURY_CACHE_SECRET` (the cache entry-signing key) were
+  documented and read by the app but never placed in the Secret. Added both to
+  `config.secrets` + `templates/secret.yaml` (auto-injected via the deployments'
+  existing `envFrom: secretRef`); `JWT_SECRET_KEY` keeps its legacy `JWT_SECRET`
+  values-key fallback. Verified with `helm lint` / `helm template`;
+  `docs/DEPLOYMENT.md` install/upgrade commands corrected to the real
+  `helm/mercury-agent/values.yaml` path and `config.secrets.*` keys.
+* **Prometheus `/metrics` served at the conventional root path.** The exposition
+  handler (`api/health.py::health_metrics`) is mounted at `/metrics` on the app
+  — the target scraped by `monitoring/prometheus/prometheus.yml`, the k8s
+  `prometheus.io/path` annotation, and the chart — instead of 404. Locked by
+  `tests/test_api.py::TestAPI::test_metrics_endpoint`.
+* **Documentation trued to CI-gated reality.** Engine/loader/test counts, dates,
+  benchmark prose, the adaptive-ensemble detector docstring, and the OpenAPI
+  version examples aligned to proven values; version-pinned tests assert against
+  the resolved constants instead of frozen literals.
 
 ### Phase 3: Governed self-improvement seam — live reflexion + drift arrows routed through the gate (2026-06-16)
 
@@ -4064,7 +4096,8 @@ and regression tests:
 ### Note
 **All benchmarks based on simulated data. Real-world validation recommended before production use.**
 
-[Unreleased]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.7.0...HEAD
+[Unreleased]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.8.0...HEAD
+[1.8.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.5.1...v1.6.0
 [1.5.1]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.5.0...v1.5.1
