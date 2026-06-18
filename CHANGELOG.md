@@ -420,6 +420,22 @@ detect → fuse → decide path it was nominally registered for.
 
 ### Deployment image & review hardening
 
+* **Deployment image on Debian trixie — accepted-CVE ledger re-validated 14 → 8
+  (Critical 4 → 2, High 10 → 6); closes GOV-001.** The runtime base is
+  `python:3.13-slim-trixie` (Debian 13.5). The `.trivyignore` ledger and the
+  SECURITY.md table were rebuilt from a fresh trixie scan with the gate's own
+  trivy 0.70.0 and cross-checked against the Debian Security Tracker: every
+  retained entry suppresses a real, currently-present trixie CRITICAL/HIGH OS
+  finding (verified 1:1 against the built-image scan — no inert entries). Six
+  bookworm-era acceptances were **dropped, not carried inert** — CVE-2023-45853
+  (zlib) and CVE-2025-7458 (SQLite) are resolved in trixie's newer packages;
+  CVE-2025-59375 / CVE-2026-25210 / CVE-2026-45186 drop because `libexpat1` is
+  not an installed dpkg package in the trixie image; CVE-2026-48959 (perl) is no
+  longer a CRITICAL/HIGH finding and is left to the gate to re-surface if it
+  escalates. The eight retained acceptances (`libsqlite3-0`, `ncurses`,
+  `perl-base` — CPython/apt-essential, no trixie fix published) replace the prior
+  bookworm enumeration, which is superseded. The earlier SECURITY.md "re-validation
+  pending" caveat is removed: the posture is now measured, not deferred.
 * **Mesa GL stack removed from the runtime image — accepted-CVE ledger 15 → 14
   (Critical 5 → 4).** `libgl1-mesa-glx` was installed only as OpenCV's `libGL`
   dependency, but Mercury uses `opencv-python-headless` (whose `cv2` extension

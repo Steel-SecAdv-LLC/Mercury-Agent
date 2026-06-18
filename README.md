@@ -1680,7 +1680,7 @@ mypy src/
 | Linux (Ubuntu 22.04+) | Supported, CI-tested | Primary development platform; the only platform in the CI matrix |
 | macOS (13+) | Supported install target | Apple Silicon compatible; not in the CI matrix |
 | Windows (10/11) | Supported install target | WSL2 recommended; not in the CI matrix |
-| Docker | Supported, CI-tested | Multi-stage build (`python:3.13-slim-bookworm`), Trivy-gated |
+| Docker | Supported, CI-tested | Multi-stage build (`python:3.13-slim-trixie`), Trivy-gated |
 | Kubernetes | Supported install target | Helm chart and overlays included as reference configurations |
 
 </details>

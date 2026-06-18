@@ -265,7 +265,7 @@ Every disposition is recorded to an append-only audit trail. See
 
 ## Current Vulnerability Status
 
-*Last Review: 2026-06-15*
+*Last Review: 2026-06-18*
 
 ### Accepted Vulnerabilities (with Mitigations)
 
@@ -279,43 +279,32 @@ The only path-level skips are the eight `skip-files` entries in those workflows 
 
 Current accepted-risk posture (as measured by the blocking gates' own
 built-image scan — trivy 0.70.0 via `aquasecurity/trivy-action@v0.36.0`,
-2026-06-10, with a 2026-06-13 follow-up review; base-image enumeration
-cross-checked with a local trivy 0.71.0 scan the same day; entries expire
-2026-09-08):
+the version the enforcing workflows run), **re-enumerated 2026-06-18
+against the shipped Debian trixie base** (`python:3.13-slim-trixie`,
+Debian 13.5) after the base-image migration off bookworm; every entry
+cross-checked against the Debian Security Tracker (trixie status "open",
+no fixed version). Entries expire 2026-09-16:
 
-> **⚠ Base-image migration — re-validation pending.** The shipped image is now
-> Debian **trixie** (`python:3.13-slim-trixie`, see `Dockerfile`); the acceptance
-> entries below were last enumerated against the bookworm base, so their per-CVE
-> Debian-suite statuses must be re-scanned on trixie before the next review.
+- **Total accepted:** 8 CVEs — **Critical:** 2, **High:** 6
+- All are Debian-**trixie** OS packages with **no upstream fix available**; none sits on an untrusted-input path in the shipped API; the container runs as non-root UID 1000 with SUID/SGID bits stripped
+- These are genuinely irreducible, not deferred: `libsqlite3-0` and `ncurses` (`libtinfo6`/`libncursesw6`/`ncurses-base`/`ncurses-bin`) are linked by CPython itself (the `sqlite3` and `readline`/`curses` stdlib modules), so they cannot be removed without removing the interpreter, and Debian trixie ships no patched build to `apt-get upgrade` to; `perl-base` is pulled by apt's own `adduser` dependency. The one genuinely removable package — the Mesa GL stack — was **eliminated outright** rather than accepted (see below)
 
-- **Total accepted:** 14 CVEs — **Critical:** 4, **High:** 10
-- All are Debian-bookworm OS packages with **no upstream fix available**; none sits on an untrusted-input path in the shipped API; the container runs as non-root UID 1000 with SUID/SGID bits stripped
-- These are genuinely irreducible, not deferred: `libsqlite3-0`, `libexpat1`, `zlib1g` and `ncurses` (`libtinfo6`/`libncursesw6`) are linked by CPython itself (the `sqlite3`, `pyexpat`, `zlib`, and `readline`/`curses` stdlib modules), so they cannot be removed without removing the interpreter, and Debian ships no patched build to `apt-get upgrade` to; `perl-base` is pulled by apt's own `adduser` dependency. The one genuinely removable package — the Mesa GL stack — was **eliminated outright** rather than accepted (see below)
-
-| CVE | Severity | Component | Status | Mitigation |
+| CVE | Severity | Component (trixie version) | Status | Mitigation |
 |-----|----------|-----------|--------|------------|
-| CVE-2023-45853 | Critical | zlib/minizip | No upstream fix (will_not_fix) | No minizip usage in any Mercury code path |
-| CVE-2025-7458 | Critical | SQLite (libsqlite3-0) | No upstream fix | No SQLite-backed feature ships by default; non-root execution |
-| CVE-2026-11822 | High | SQLite (libsqlite3-0) | No upstream fix (affected; fixed upstream only in SQLite ≥ 3.53.2) | FTS5 full-text-search memory corruption, reachable only by opening an attacker-crafted database through FTS5; no SQLite-backed feature ships by default and Mercury never uses FTS5 |
-| CVE-2026-11824 | High | SQLite (libsqlite3-0) | No upstream fix (affected; fixed upstream only in SQLite ≥ 3.53.2) | Same FTS5 attacker-crafted-database surface as CVE-2026-11822; not on any shipped-API input path |
-| CVE-2026-8376 | Critical | perl-base | No upstream fix | Container executes no Perl; pulled in by Debian essential tooling |
-| CVE-2026-42496 | Critical | perl-base | No upstream fix (fix_deferred) | Container executes no Perl |
-| CVE-2025-69720 | High | ncurses (libncursesw6 et al.) | No upstream fix | Terminal handling only; never exposed to untrusted input |
-| CVE-2026-42497 | High | perl-base | No upstream fix (fix_deferred) | Container executes no Perl |
-| CVE-2026-48959 | High | perl-base | No upstream fix | Container executes no Perl |
-| CVE-2026-48962 | High | perl-base | No upstream fix | Container executes no Perl |
-| CVE-2026-9538 | High | perl-base | No upstream fix (fix_deferred) | Container executes no Perl |
-| CVE-2025-59375 | High | libexpat1 | No upstream fix (will_not_fix) | Only XML parse path (CAP alert validation, `alerting/cap_generator.py`) is defusedxml-hardened and not exposed by any API route |
-| CVE-2026-25210 | High | libexpat1 | No upstream fix (affected) | Same defusedxml-hardened, non-API XML surface |
-| CVE-2026-45186 | High | libexpat1 | No upstream fix (affected) | Same defusedxml-hardened, non-API XML surface |
+| CVE-2026-8376 | Critical | perl-base 5.40.1-6 | trixie open, no fix | Container executes no Perl; `perl-base` pulled in by apt's `adduser` dependency |
+| CVE-2026-42496 | Critical | perl-base 5.40.1-6 | trixie open, no fix | Archive::Tar path traversal; Mercury runs no Perl over attacker-controlled archives |
+| CVE-2026-11822 | High | SQLite (libsqlite3-0 3.46.1-7+deb13u1) | trixie open, no fix (fixed upstream only in SQLite ≥ 3.53.2) | FTS5 memory corruption, reachable only by opening an attacker-crafted database through FTS5; no SQLite-backed feature ships by default and Mercury never uses FTS5 |
+| CVE-2026-11824 | High | SQLite (libsqlite3-0 3.46.1-7+deb13u1) | trixie open, no fix (fixed upstream only in SQLite ≥ 3.53.2) | Same FTS5 attacker-crafted-database surface as CVE-2026-11822; not on any shipped-API input path |
+| CVE-2025-69720 | High | ncurses (libncursesw6 et al. 6.5+20250216-2) | trixie open, no fix | Terminal handling only; never exposed to untrusted input |
+| CVE-2026-42497 | High | perl-base 5.40.1-6 | trixie open, no fix | Archive::Tar hardlink extraction; container executes no Perl |
+| CVE-2026-48962 | High | perl-base 5.40.1-6 | trixie open, no fix | IO-Compress arbitrary code execution; container executes no Perl |
+| CVE-2026-9538 | High | perl-base 5.40.1-6 | trixie open, no fix | Archive::Tar memory exhaustion; container executes no Perl |
 
-**Added at the 2026-06-10 review from the first enforced built-image gate run:** the three libexpat1 CVEs surface only in the built image — the gates' own scan of it is the canonical enumeration source for the ledger, which the original base-image enumeration could not cover. (The mesa CVE first enumerated at this review has since been remediated by removal — see the 2026-06-15 note below.)
+**Trixie re-enumeration (2026-06-18).** The deployment image migrated from `python:3.13-slim-bookworm` to `python:3.13-slim-trixie` (Debian 13.5). The ledger was rebuilt from first principles: the runtime image's OS layer was built and scanned with the gate's own trivy 0.70.0, and each finding cross-checked against the Debian Security Tracker. Six bookworm-era acceptances were **dropped, not carried inert**, because they are gone or no longer CRITICAL/HIGH on trixie — CVE-2023-45853 (zlib, resolved in trixie `1:1.3.dfsg-2`) and CVE-2025-7458 (SQLite, resolved in trixie `3.42.0-1`) are fixed by trixie's newer packages; CVE-2025-59375 / CVE-2026-25210 / CVE-2026-45186 (expat) drop because `libexpat1` is not an installed dpkg package in the trixie image, so trivy reports no OS-level expat finding (the Python `pyexpat` path remains defusedxml-hardened); and CVE-2026-48959 (perl-base) is no longer a CRITICAL/HIGH finding under the current vuln DB, so it is left to the gate to re-surface if it ever escalates rather than being pre-accepted. Accepted count: **14 → 8 (Critical 4 → 2, High 10 → 6)**. The eight retained entries each suppress a real, currently-present trixie finding (verified 1:1 against the built-image scan — no inert entries).
 
-**Added at the 2026-06-13 review:** the SQLite FTS5 pair CVE-2026-11822 / CVE-2026-11824 — newly published memory-corruption bugs (fixed upstream only in SQLite ≥ 3.53.2, no Debian bookworm fix) that a vuln-DB update introduced into the gate scan on the unchanged base image. They share `libsqlite3-0` and the same non-untrusted-input rationale as the existing CVE-2025-7458 acceptance, and a built-image scan confirmed they are the only new findings (no fixable CVE and no library CVE appeared).
+**Mesa GL stack — eliminated, not accepted (carried forward).** CVE-2026-40393 was installed only as OpenCV's `libGL` import dependency, but Mercury depends on `opencv-python-headless` — whose `cv2` extension links no `libGL` (verified: the wheel's `cv2.*.so` shows zero GL linkage) — and makes no `cv2` GUI calls, so the Dockerfile no longer installs `libgl1-mesa-glx`. The package and its CVE are absent from the image; the blocking Trivy gate (`ignore-unfixed: false`) re-verifies this on every build, failing loudly if the package ever reappears.
 
-**Resolved and removed from the ledger (2026-06-15 review):** the Mesa GL stack (CVE-2026-40393, Critical) was **eliminated rather than accepted**. It was installed only as OpenCV's `libGL` import dependency, but Mercury depends on `opencv-python-headless` — whose `cv2` extension links no `libGL` (verified: the wheel's `cv2.*.so` shows zero GL linkage) — and makes no `cv2` GUI calls, so the Dockerfile no longer installs `libgl1-mesa-glx`. The package and its CVE are gone from the image; the blocking Trivy gate (`ignore-unfixed: false`) re-verifies this on every build, failing loudly if the package ever reappears. Accepted count: 15 → 14 (Critical 5 → 4).
-
-**Resolved and removed from the ledger (2026-06-10 review):** the pip CVE family (CVE-2025-8869, CVE-2026-1703, CVE-2026-6357) is fixed repo-wide by the `pip >= 26.1` floor and gated by `tests/security/test_cve_2026_6357_regression.py`; the formerly-listed gpgv (CVE-2025-68973), libglib2.0-0 (CVE-2025-13601), linux-pam (CVE-2025-6020), util-linux (CVE-2025-14104), and SQLite FTS5 (CVE-2025-7709) findings no longer appear at the gated severities in the current base image. The seven newly listed entries (ncurses + six perl-base) were present but invisible under the old blanket waiver — disclosed here for the first time.
+The bookworm-era ledger evolution (the 2026-06-10 first-enforced-gate enumeration, the 2026-06-13 SQLite FTS5 additions, and the 2026-06-15 mesa elimination) is preserved in this PR's commit history and the CHANGELOG; it is superseded as the live posture by the 2026-06-18 trixie re-enumeration above.
 
 ### Vulnerability Assessment Process
 
@@ -339,7 +328,7 @@ Mercury Agent's Docker container implements defense-in-depth:
 
 ### Unresolved Vulnerabilities
 
-Accepted risks are re-reviewed at most every 90 days, enforced by the `exp:` dates in [`.trivyignore`](.trivyignore). As of the 2026-06-15 review, documented acceptances are 14 CVEs (4 Critical, 10 High), all no-upstream-fix Debian packages in the deployment image, none on an untrusted-input path in the shipped API. The ledger file and the table above are the complete record.
+Accepted risks are re-reviewed at most every 90 days, enforced by the `exp:` dates in [`.trivyignore`](.trivyignore). As of the 2026-06-18 trixie re-enumeration, documented acceptances are 8 CVEs (2 Critical, 6 High), all no-upstream-fix Debian trixie packages in the deployment image, none on an untrusted-input path in the shipped API. The ledger file and the table above are the complete record.
 
 ### Two-Tier Dependency-CVE Coverage
 
@@ -358,7 +347,7 @@ re-implementation — see the CHANGELOG entries dated 2026-05-20
 ("Permanent supply-chain remediations") for the current
 remediation ledger. The deployment-image gate blocks every fixable
 CRITICAL/HIGH finding and every unfixed finding not enumerated in
-[`.trivyignore`](.trivyignore) (13 CVEs, each with a 90-day expiry that
+[`.trivyignore`](.trivyignore) (8 CVEs, each with a 90-day expiry that
 fails the gate until re-reviewed).
 
 ## Security Assessment Posture
@@ -433,5 +422,5 @@ We thank the security researchers who have helped improve Mercury Agent's securi
 
 ---
 
-*Last Updated: 2026-06-15*
+*Last Updated: 2026-06-18*
 *Version: 2.0.0*
