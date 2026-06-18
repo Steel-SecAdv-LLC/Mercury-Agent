@@ -102,10 +102,10 @@ docker run -d \
 helm install mercury-agent ./helm/mercury-agent \
   --namespace mercury \
   --create-namespace \
-  -f helm/values.yaml \
-  --set secrets.jwtSecretKey="$(openssl rand -hex 32)" \
-  --set secrets.mercuryCacheSecret="$(openssl rand -hex 32)" \
-  --set secrets.apiKeyHashSalt="$(openssl rand -hex 32)"
+  -f helm/mercury-agent/values.yaml \
+  --set config.secrets.JWT_SECRET_KEY="$(openssl rand -hex 32)" \
+  --set config.secrets.API_KEY_HASH_SALT="$(openssl rand -hex 32)" \
+  --set config.secrets.MERCURY_CACHE_SECRET="$(openssl rand -hex 32)"
 ```
 
 ### Upgrade
@@ -113,7 +113,7 @@ helm install mercury-agent ./helm/mercury-agent \
 ```bash
 helm upgrade mercury-agent ./helm/mercury-agent \
   --namespace mercury \
-  -f helm/values.yaml
+  -f helm/mercury-agent/values.yaml
 ```
 
 ### Key Helm values
@@ -127,9 +127,9 @@ helm upgrade mercury-agent ./helm/mercury-agent \
 | `autoscaling.enabled` | `true` | HPA enabled |
 | `autoscaling.minReplicas` | 3 | Minimum pods |
 | `autoscaling.maxReplicas` | 20 | Maximum pods |
-| `secrets.jwtSecretKey` | *(required)* | JWT signing key |
-| `secrets.mercuryCacheSecret` | *(required)* | Cache HMAC key |
-| `secrets.apiKeyHashSalt` | *(required)* | API key hash salt |
+| `config.secrets.JWT_SECRET_KEY` | *(required)* | JWT signing key (or AMA-derived in production) |
+| `config.secrets.API_KEY_HASH_SALT` | *(required in production)* | API-key hashing salt |
+| `config.secrets.MERCURY_CACHE_SECRET` | *(recommended)* | Cache entry HMAC signing key |
 
 The Helm chart configures liveness/readiness probes, PodDisruptionBudget, anti-affinity,
 and topology spread constraints automatically.
