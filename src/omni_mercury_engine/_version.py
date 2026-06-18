@@ -53,8 +53,9 @@ def _version_from_pyproject() -> str | None:
     try:
         import tomllib
 
-        # ``.../src/omni_mercury_engine/_version.py`` → the repo root is three
-        # directories up, which is where ``pyproject.toml`` lives.
+        # This file is ``<root>/src/omni_mercury_engine/_version.py``; the repo
+        # root (where ``pyproject.toml`` lives) is ``parents[2]`` —
+        # parents[0]=omni_mercury_engine, [1]=src, [2]=root.
         pyproject = Path(__file__).resolve().parents[2] / "pyproject.toml"
         with pyproject.open("rb") as handle:
             return str(tomllib.load(handle)["project"]["version"])
