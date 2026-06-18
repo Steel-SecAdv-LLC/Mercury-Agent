@@ -42,7 +42,7 @@
 
 > **On the Layer-3 entries:** these are runtime-enforced gates, **not static
 > guarantees**. The benevolence gate defaults to ≥ 0.99 and is configurable no
-> lower than a hard 0.70 floor (enforced in `cognitive/ethical_bounding.py`);
+> lower than a hard 0.70 floor (enforced in `src/omni_mercury_engine/cognitive/ethical_bounding.py`);
 > Lyapunov stability is *monitored and reported* (`is_stable`), not proven a
 > priori. See [`docs/MATH_SPEC.md`](docs/MATH_SPEC.md) §2.2 and §2.7.3.
 
