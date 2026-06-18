@@ -1597,7 +1597,41 @@ jobs:
           sudo chown -R "$USER:$USER" /mnt/trivy-tmp /mnt/trivy-cache
           df -h /mnt /
 
-      - name: Set up Docker Buildx
+      # Set up Docker Buildx with the same 3-attempt retry the checkout step
+      # above uses. Booting the buildkit container pulls
+      # ``moby/buildkit:buildx-stable-1`` from ``registry-1.docker.io``, which
+      # intermittently times out on GitHub-hosted runners ("Client.Timeout
+      # exceeded while awaiting headers" while booting buildkit). That is a
+      # transient Docker Hub blip, not a build defect, and must not fail the
+      # gate — but the final attempt has no ``continue-on-error``, so a genuine
+      # registry outage still surfaces as a job failure (nothing is masked).
+      - name: Set up Docker Buildx (attempt 1)
+        id: buildx
+        continue-on-error: true
+        uses: docker/setup-buildx-action@v4
+
+      - name: Pause before Buildx retry 1 (transient registry flake stabilisation)
+        if: steps.buildx.outcome == 'failure'
+        shell: bash
+        run: |
+          echo "::warning::docker/setup-buildx-action@v4 attempt 1 failed (likely a transient registry-1.docker.io timeout booting the buildkit container). Sleeping 15s before retry."
+          sleep 15
+
+      - name: Set up Docker Buildx (attempt 2, runs only on attempt-1 failure)
+        id: buildx2
+        if: steps.buildx.outcome == 'failure'
+        continue-on-error: true
+        uses: docker/setup-buildx-action@v4
+
+      - name: Pause before Buildx retry 2 (extended backoff)
+        if: steps.buildx.outcome == 'failure' && steps.buildx2.outcome == 'failure'
+        shell: bash
+        run: |
+          echo "::warning::docker/setup-buildx-action@v4 attempts 1 and 2 both failed. Sleeping 60s before final retry."
+          sleep 60
+
+      - name: Set up Docker Buildx (attempt 3, final; runs only on attempts 1+2 failure)
+        if: steps.buildx.outcome == 'failure' && steps.buildx2.outcome == 'failure'
         uses: docker/setup-buildx-action@v4
 
       - name: Build Docker image
