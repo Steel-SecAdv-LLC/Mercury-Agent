@@ -131,7 +131,7 @@ class DetailedHealthResponse(BaseModel):
         "json_schema_extra": {
             "example": {
                 "status": "healthy",
-                "version": "1.8.0",
+                "version": _DISTRIBUTION_VERSION,
                 "uptime_seconds": 3600.5,
                 "components": [
                     {"name": "database", "status": "up", "latency_ms": 5.2},

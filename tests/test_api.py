@@ -10,7 +10,7 @@ pytest.importorskip("fastapi")
 
 from fastapi.testclient import TestClient
 
-from omni_mercury_engine.api.server import app
+from omni_mercury_engine.api.server import API_VERSION, app
 
 client = TestClient(app)
 
@@ -25,7 +25,7 @@ class TestAPI:
         assert response.status_code == 200
         result = response.json()
         assert result["status"] == "healthy"
-        assert result["version"] == "1.8.0"
+        assert result["version"] == API_VERSION
 
     def test_metrics_endpoint(self) -> None:
         """Root ``/metrics`` exposes Prometheus metrics for scraping.

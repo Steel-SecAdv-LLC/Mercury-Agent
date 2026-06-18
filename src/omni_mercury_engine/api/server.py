@@ -654,12 +654,12 @@ class HealthResponse(BaseModel):
     status: str = Field(
         ..., description="Service health status", json_schema_extra={"example": "healthy"}
     )
-    version: str = Field(..., description="API version", json_schema_extra={"example": "1.8.0"})
+    version: str = Field(..., description="API version", json_schema_extra={"example": API_VERSION})
     uptime_seconds: float | None = Field(default=None, description="Server uptime in seconds")
 
     model_config = {
         "json_schema_extra": {
-            "examples": [{"status": "healthy", "version": "1.8.0", "uptime_seconds": 3600.5}]
+            "examples": [{"status": "healthy", "version": API_VERSION, "uptime_seconds": 3600.5}]
         }
     }
 
@@ -832,7 +832,7 @@ def _classify_severity(score: float, threshold: float) -> SeverityLevel:
     responses={
         200: {
             "description": "Service is healthy",
-            "content": {"application/json": {"example": {"status": "healthy", "version": "1.8.0"}}},
+            "content": {"application/json": {"example": {"status": "healthy", "version": API_VERSION}}},
         },
         503: {
             "description": "Service is unhealthy",
@@ -856,7 +856,7 @@ async def health_check() -> HealthResponse:
 
         Response:
         ```json
-        {"status": "healthy", "version": "1.8.0"}
+        {"status": "healthy", "version": "x.y.z"}
         ```
     """
     return HealthResponse(status="healthy", version=API_VERSION)
