@@ -256,6 +256,12 @@ config:
     # and renders it into the ``JWT_SECRET_KEY`` secret/env that the app reads;
     # prefer setting ``JWT_SECRET_KEY`` here directly.
     JWT_SECRET_KEY: ""
+    # Required in production when API-key auth is used: ``api/auth.py`` raises if
+    # the built-in default salt is left in place. Rendered into the app env.
+    API_KEY_HASH_SALT: ""
+    # Recommended in production: shared HMAC key that signs cache entries
+    # (read as ``MERCURY_CACHE_SECRET`` by the cache layer).
+    MERCURY_CACHE_SECRET: ""
 
 # ============================================================================
 # Persistence
