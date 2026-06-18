@@ -148,7 +148,13 @@ jobs:
   load-tests:
     name: Load Tests (smoke)
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # Real workload is heavy: pip install .[api,ml] (torch + sklearn) + the
+    # native AMA PQC build (~10 min) + k6 install + API cold-start + smoke run.
+    # 25 min left no margin once a flaky apt mirror forced a retry cycle. The
+    # k6 install network ops below are now timeout-bounded (so a hung mirror
+    # fails fast instead of stalling to the cap), and this headroom covers the
+    # genuine build/run cost plus a couple of bounded retries.
+    timeout-minutes: 40
     needs: [examples-parity]
     permissions:
       # ``contents: read`` for actions/checkout; ``pull-requests: write``
@@ -184,10 +190,34 @@ jobs:
       - name: Install k6
         run: |
           set -euo pipefail
+          # Bounded-retry helper for the network-bound apt/gpg operations
+          # below.  Each attempt runs as root under a hard ``timeout`` cap, so a
+          # hung Ubuntu mirror or keyserver (observed: azure.archive.ubuntu.com
+          # stalling for >10 min) fails fast into a retry instead of silently
+          # burning the job's ``timeout-minutes`` budget.  ``timeout`` runs
+          # *inside* ``sudo`` so SIGTERM lands directly on the root child;
+          # exit 124 on expiry (like any non-zero) drives the next attempt.
+          run_net() {
+            local cap="$1"; shift
+            local attempt
+            for attempt in 1 2 3; do
+              if sudo timeout "${cap}" "$@"; then
+                return 0
+              fi
+              if [ "${attempt}" -eq 3 ]; then
+                echo "'$*' failed after 3 attempts (${cap}s cap each)" >&2
+                return 1
+              fi
+              echo "'$*' failed (attempt ${attempt}/3, ${cap}s cap); retrying in 5s" >&2
+              sleep 5
+            done
+          }
           # Use the official Grafana repository (signed package);
           # avoids downloading arbitrary binaries from GitHub releases.
           sudo gpg -k
-          sudo gpg --no-default-keyring \
+          # Keyserver fetch is network-bound (hkp keyserver.ubuntu.com) and a
+          # known CI hang vector -- bound it the same way as the apt calls.
+          run_net 90 gpg --no-default-keyring \
             --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
             --keyserver hkp://keyserver.ubuntu.com:80 \
             --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
@@ -201,16 +231,8 @@ jobs:
           sudo grep -rlZ --include='*.list' --include='*.sources' \
             'packages\.microsoft\.com' /etc/apt/sources.list.d/ 2>/dev/null \
             | sudo xargs -0r rm -f || true
-          for attempt in 1 2 3; do
-            sudo apt-get update && break
-            if [ "${attempt}" -eq 3 ]; then
-              echo "apt-get update failed after ${attempt} attempts" >&2
-              exit 1
-            fi
-            echo "apt-get update failed (attempt ${attempt}); retrying in 5s" >&2
-            sleep 5
-          done
-          sudo apt-get install -y k6 jq
+          run_net 120 apt-get update
+          run_net 180 apt-get install -y k6 jq
 
       - name: Verify API import surface (fail fast before backgrounding)
         # Validate that ``omni_mercury_engine.api.server:app`` actually
