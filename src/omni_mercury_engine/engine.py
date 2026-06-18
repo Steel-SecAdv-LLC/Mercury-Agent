@@ -143,7 +143,9 @@ FUSION_CHECKPOINT_FORMAT_VERSION: int = 1
 # Resolved from installed package metadata via the single source of truth in
 # ``_version`` (a stdlib-only leaf module, so importing it here cannot create an
 # import cycle with the package ``__init__``).
-from omni_mercury_engine._version import __version__
+from omni_mercury_engine._version import get_version as _get_version
+
+__version__ = _get_version()
 
 # Core detectors - always imported (lightweight base classes)
 from omni_mercury_engine.detectors.dimensional import DimensionalAnalyzer

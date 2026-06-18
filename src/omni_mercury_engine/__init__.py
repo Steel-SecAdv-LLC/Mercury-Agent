@@ -116,8 +116,9 @@ def __getattr__(name: str) -> type:
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-from omni_mercury_engine._version import __version__
+from omni_mercury_engine._version import get_version as _get_version
 
+__version__ = _get_version()
 __author__ = "Steel Security Advisors LLC"
 __license__ = "GPL-3.0"
 
