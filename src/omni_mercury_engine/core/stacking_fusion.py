@@ -1,6 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""DEPRECATED: This module uses sklearn for anomaly detection.
+"""DEPRECATED: legacy stacking / Bayesian-averaging fusion ensemble.
 
 Mercury's production detector is MercuryAnomalyDetector in detectors/statistical.py. This module is
 retained for reference only and will be removed in a future release.
@@ -104,7 +104,8 @@ class StackingFusion:
                 from omni_mercury_engine.ml.mercury_ml import LogisticRegression
             except ImportError as e:
                 raise ImportError(
-                    "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+                    "Default meta-learner needs omni_mercury_engine.ml.mercury_ml "
+                    "(numpy/scipy); the package install is incomplete."
                 ) from e
             meta_learner = LogisticRegression(
                 solver="lbfgs",
@@ -154,7 +155,7 @@ class StackingFusion:
             raise ValueError("Must add detectors before fitting")
 
         # Intentional global-state seeding: the downstream ``cross_val_predict``
-        # in ``mercury_ml`` is a thin sklearn shim whose internal ``KFold``
+        # in ``mercury_ml`` uses a ``KFold`` splitter whose internal shuffling
         # consumes the legacy global ``np.random`` state when ``random_state``
         # is not threaded through.  Until ``cross_val_predict`` accepts an
         # explicit ``random_state``/``Generator`` parameter, calling
@@ -165,12 +166,13 @@ class StackingFusion:
         # plumbing.
         np.random.seed(self.seed)
 
-        # Import sklearn functions needed for cross-validation
+        # Mercury's cross-validation helper (omni_mercury_engine.ml.mercury_ml)
         try:
             from omni_mercury_engine.ml.mercury_ml import cross_val_predict
         except ImportError as e:
             raise ImportError(
-                "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+                "Cross-validated stacking needs omni_mercury_engine.ml.mercury_ml "
+                "(numpy/scipy); the package install is incomplete."
             ) from e
 
         # Generate out-of-fold predictions for each detector

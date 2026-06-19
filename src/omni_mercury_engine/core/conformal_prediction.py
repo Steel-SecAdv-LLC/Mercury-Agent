@@ -209,7 +209,7 @@ class CrossConformalPredictor:
             from omni_mercury_engine.ml.mercury_ml import KFold
         except ImportError as e:
             raise ImportError(
-                "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+                "This feature needs omni_mercury_engine.ml.mercury_ml; reinstall mercury-agent."
             ) from e
 
         kf = KFold(n_splits=self.n_folds, shuffle=True, random_state=self.seed)

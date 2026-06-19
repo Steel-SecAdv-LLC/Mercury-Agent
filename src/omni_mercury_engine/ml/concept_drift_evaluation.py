@@ -927,7 +927,7 @@ class ConceptDriftEvaluator:
 
                     current_model = clone(model)
                 except (ImportError, TypeError):
-                    # If sklearn not available or model not clonable, use original
+                    # If mercury_ml.clone is unavailable or the model isn't clonable, use original
                     current_model = model
 
             # Train
@@ -970,7 +970,7 @@ class ConceptDriftEvaluator:
                 )
             except ImportError as e:
                 raise ImportError(
-                    "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+                    "This feature needs omni_mercury_engine.ml.mercury_ml; reinstall mercury-agent."
                 ) from e
 
             with warnings.catch_warnings():

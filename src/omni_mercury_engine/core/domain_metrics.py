@@ -222,7 +222,7 @@ class MetricsCalculator:
             )
         except ImportError as e:
             raise ImportError(
-                "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+                "This feature needs omni_mercury_engine.ml.mercury_ml; reinstall mercury-agent."
             ) from e
 
         try:
@@ -307,7 +307,7 @@ class MetricsCalculator:
                 )
             except ImportError as e:
                 raise ImportError(
-                    "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+                    "This feature needs omni_mercury_engine.ml.mercury_ml; reinstall mercury-agent."
                 ) from e
             metrics.pa_precision = float(precision_score(y_true, y_pred_adjusted, zero_division=0))
             metrics.pa_recall = float(recall_score(y_true, y_pred_adjusted, zero_division=0))
@@ -356,7 +356,7 @@ class MetricsCalculator:
             from omni_mercury_engine.ml.mercury_ml import brier_score_loss
         except ImportError as e:
             raise ImportError(
-                "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+                "This feature needs omni_mercury_engine.ml.mercury_ml; reinstall mercury-agent."
             ) from e
 
         try:
