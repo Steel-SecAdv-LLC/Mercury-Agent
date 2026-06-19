@@ -60,6 +60,26 @@ plus the version and deployment-secret wiring that entries below already assumed
   benchmark prose, the adaptive-ensemble detector docstring, and the OpenAPI
   version examples aligned to proven values; version-pinned tests assert against
   the resolved constants instead of frozen literals.
+* **Integration test lane built out — `tests/integration/` now carries real
+  cross-subsystem signal.** The CI `integration-tests` job built the full
+  `.[api,dev]` stack and the native AMA backend only to run zero tests (the
+  directory had never existed) and was timing out before reaching the no-op.
+  Added end-to-end suites that exercise genuine component boundaries: the
+  detection pipeline through the `OmniMercuryEngine` facade and its detector
+  suite; the REST API request→engine→response path asserting detection
+  *correctness* (not just shape) plus boundary validation; external-source
+  ingestion (USGS loader → feature matrix → detector) with the network mocked;
+  and post-quantum signing of a real detection artifact through Mercury's
+  `MLDSAProvider` / `KyberProvider` on the live ML-DSA-65 / ML-KEM-1024 backend.
+  No `skipif` escape hatch — a missing native backend fails loudly, matching the
+  repo's PQC-gate convention.
+* **CI `integration-tests` lane given the pip cache it was missing.** It was the
+  single heaviest-install lane (`.[api,dev]` + API server stack) with no
+  `actions/cache`, so it rebuilt the whole torch/dev tree from scratch every run
+  and tipped past its 30-minute budget mid-setup. Added the cache (shared
+  `-pip-` restore-key warms a cold first run from sibling lanes), bringing the
+  lane in line with `core-tests` / `type-checking`. Root-cause fix, not a
+  timeout bump.
 
 ### Phase 3: Governed self-improvement seam — live reflexion + drift arrows routed through the gate (2026-06-16)
 

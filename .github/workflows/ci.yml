@@ -1306,6 +1306,26 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
+      - name: Cache pip dependencies
+        # Integration installs the heaviest extra set in the pipeline
+        # (``.[api,dev]`` + the API server stack).  It was the only heavy lane
+        # without this cache — core-tests / type-checking already use it — so
+        # it rebuilt the entire torch/dev tree from scratch every run and was
+        # tipping past the 30-minute budget before the test step was reached.
+        # The broad ``-pip-`` restore-key warms even a cold first run from any
+        # sibling lane's cache, so a new cache key never re-downloads the whole
+        # tree.  (The native AMA build is intentionally NOT cached: it is a
+        # ~few-minute compile, and setup.py re-runs cmake on install, so a
+        # multi-hundred-MB artifact cache would be net-neutral at best while
+        # adding a regression surface to every AMA-building lane.)
+        uses: actions/cache@v5
+        with:
+          path: ${{ env.PIP_CACHE_DIR }}
+          key: ${{ runner.os }}-pip-integration-${{ hashFiles('pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-integration-
+            ${{ runner.os }}-pip-
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade "pip>=26.1"
