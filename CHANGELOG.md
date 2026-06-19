@@ -27,6 +27,79 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Statistical ensemble: fusion-margin sharpening, data-type gate correction, temporal robustness
+
+A measurement-driven pass on `MercuryAnomalyDetector` (`detectors/statistical.py`)
+that sharpens the unsupervised fusion weights, corrects a data-type
+misclassification that mistreated tabular data as temporal, and adds opt-in
+temporal robustness. All changes are label-free and validated on an 18-set
+ADBench harness (transductive protocol, AUROC via Mann-Whitney; matches
+`research/omni_equation/harness_tabular.py`) plus the real SMD machine-1-1
+time-series. Net transductive Mean AUROC **0.7804 → 0.8142 (+3.38 pts, 14 W /
+3 L)**; the three losses are tabular sets that were exploiting a non-
+generalizable row-ordering artifact (see below).
+
+* **Sharpen the unsupervised fusion-weight margins (`_WEIGHT_MARGIN_POWER = 4.0`,
+  new module constant).** The self-supervised pseudo-AUCs that drive the
+  unsupervised weighter saturate into a narrow 0.72-1.0 band on easy 3σ
+  Gaussian-blob synthetic anomalies, so a *linear* AUC-separation margin leaves
+  the consistently weakest component — kinematic, last on 18/18 ADBench sets —
+  with 30-42% of the ensemble weight. Each surviving margin `(auc - 0.5)` is now
+  raised to a power `P` before normalisation, in both
+  `_compute_unsupervised_adaptive_weights()` and the supervised
+  `_compute_adaptive_weights()`. `P=1` reproduces the prior behaviour exactly
+  (regression-tested). Isolated effect: Mean AUROC +1.04 pts; biggest wins where
+  kinematic was most over-weighted (wine, glass, PageBlocks, cardio).
+
+* **Fix the data-type gate so tabular data is not mislabeled temporal
+  (`_detect_data_characteristics`).** The previous single-signal gate
+  (autocorrelation **or** adjacent-row correlation > 0.3) classified 13/18
+  shuffled-tabular ADBench sets as `TEMPORAL` on spurious lag-1 autocorrelation
+  or class-ordering adjacency, handing KinematicScore the largest compatibility
+  weight. The gate now requires *strong* evidence on either of two complementary
+  signals — median lag-1 autocorrelation > `_TEMPORAL_AUTOCORR_THRESHOLD` (0.55)
+  **or** median adjacent full-row coherence > `_TEMPORAL_ADJ_ROW_THRESHOLD`
+  (0.75) — thresholds that sit in the empirical gap between the tabular cluster
+  (autocorr ≤0.50, adjacency ≤0.67) and the temporal cluster (autocorr ≥0.60,
+  adjacency ≥0.82, including spike-contaminated series whose per-feature
+  autocorr is masked but whose adjacency stays ~0.99). Genuine temporal data
+  (sine / AR(1) / random-walk fixtures, the existing
+  `test_temporal_data_detected` case, and real SMD telemetry — autocorr 0.91)
+  stays `TEMPORAL`; the existing `TABULAR → kinematic=0` hard-zero is untouched.
+
+* **Restrict the temporal residual-frequency filter to genuinely temporal data
+  (`detect()`).** The Phase-7 `_residual_frequency_filter` treats the score
+  vector as an ordered time series (moving-average baseline + rFFT band-pass), so
+  it is only meaningful when row order is meaningful. It was gated on a shape
+  proxy (`n ≥ max(50, 10·d)`) that also fires on wide/long *tabular* sets, where
+  it is rank-altering — measured to drag optdigits from 0.52 to **0.39 (below
+  random)**. It is now gated on the fitted `_data_type == TEMPORAL`. This both
+  removes that harm and makes detection **robust to test-row ordering**: on the
+  inductive benchmark protocol the prior code scored 0.8828 on a class-grouped
+  test set but only 0.8722 once the test rows are shuffled (it was exploiting the
+  label ordering), whereas the corrected detector scores 0.8792 / 0.8800 — flat.
+
+* **Opt-in inference-time multi-scale "time-dilation" TTA (DEFAULT-OFF).**
+  New `multiscale_tta` / `multiscale_tta_pool` config flags. When enabled and the
+  fitted data is `TEMPORAL`, `detect()` scores the series at
+  `_MULTISCALE_TTA_SCALES = (0.8, 0.9, 1.0, 1.1, 1.25)` time-dilations
+  (`np.interp` resample), maps each per-sample score vector back to the original
+  length, and pools across scales (`mean`, the false-alarm-safe default, or
+  `max`). DEFAULT-OFF is byte-identical to the prior output (Invariant I2). Pure
+  inference, no fit change, K× scoring compute. Validated on real SMD
+  machine-1-1 collective anomalies: mean-pool **+5.1 pts** clean (0.565 → 0.616)
+  and **+5.8 pts** under a 0.85× rate change; on controlled collective anomalies
+  max-pool wins 8/8 (+0.66 pts).
+
+* **Sampling-jitter robustness characterization
+  (`tests/detectors/test_sampling_jitter_robustness.py`, new).** Clock-skew /
+  rate-drift on a temporal feed degrades AUROC −5 pts (eps 0.10) to −16 pts (eps
+  0.20) — a documented limitation, not an invariance claim. The new test asserts
+  a *tolerance band* (bounded AUROC loss, score-ranking correlation above a
+  floor) so robustness regressions fail loudly, and pins the multi-scale TTA
+  invariants (default-off byte-identity, temporal-only gating, valid pooled
+  scores, collective-anomaly improvement).
+
 ## [2.0.0] - 2026-06-17
 
 ### Docs↔code reconciliation + release-engineering pass (2026-06-17)

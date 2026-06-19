@@ -104,8 +104,21 @@ MercuryAnomalyDetector.detect(data)
     │   ├─ multiplier = influence_vector.influence_multiplier
     │   └─ combined = combined * multiplier
     │
+    ├─ if _data_type == TEMPORAL and n >= max(50, 10*d):   # not a shape proxy
+    │   └─ combined = _residual_frequency_filter(combined) # rFFT band-pass
+    │
+    ├─ if multiscale_tta and _data_type == TEMPORAL:        # opt-in, DEFAULT-OFF
+    │   └─ combined = _multiscale_tta_scores(data, combined) # pool over dilations
+    │
     └─ return {..., "oracle_metadata": {...}}
 ```
+
+`_detect_data_characteristics` classifies `TEMPORAL` only on *strong*
+per-feature lag-1 autocorrelation (> 0.55) **or** adjacent full-row coherence
+(> 0.75) — two complementary signals whose thresholds sit in the empirical gap
+between unordered tabular data and genuine time series. This keeps KinematicScore
+and the temporal residual filter off tabular rows whose order is arbitrary, and
+on real sensor/telemetry series.
 
 ### Oracle Domain Auto-Selection
 

@@ -79,12 +79,17 @@ class DataCharacteristics(Enum):
 # ensemble component given detected data characteristics.
 # Values represent multiplicative weight modifiers (1.0 = no change).
 #
-# Rationale:
+# Rationale (see docs/BENCHMARKS.md "Known Weaknesses"):
 #   TEMPORAL  - Kinematics excels (derivatives meaningful); all components useful.
-#   TABULAR   - Kinematics near-random on shuffled rows (AUC ~0.60, see
-#               BENCHMARKS.md line 126-131); InfoGeometry strongest.
+#   TABULAR   - Kinematics near-random on shuffled rows (AUC ~0.60);
+#               InfoGeometry strongest.
 #   IMAGE     - High-dimensional data; Kinematics less useful; Resonance moderate.
 #   UNKNOWN   - Neutral fallback; no adjustment applied.
+#
+# These modifiers only land correctly when the data type is classified
+# correctly: ``_detect_data_characteristics`` gates ``TEMPORAL`` on *strong*
+# autocorrelation (> 0.55) or adjacent-row coherence (> 0.75), so unordered
+# tabular data does not pick up the high TEMPORAL kinematic modifier.
 COMPONENT_COMPATIBILITY: dict[DataCharacteristics, dict[str, float]] = {
     DataCharacteristics.TEMPORAL: {
         "resonance": 0.8,

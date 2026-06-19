@@ -26,6 +26,19 @@ Applies to Mercury Agent **v2.0.x**. Last updated: 2026-05-20.
 > Results" block (65/75, Mean ROC-AUC 0.8466). The externally-
 > comparable subset is ADBench Mean AUC 0.8180.
 
+> **Unreleased ensemble changes.** The Unreleased CHANGELOG entry
+> "fusion-margin sharpening, data-type gate correction, temporal
+> robustness" changes the data-type classification, the fusion-weight
+> margins, and restricts the temporal residual-frequency filter to
+> genuinely temporal data. These shift per-dataset numbers (e.g.
+> optdigits / ADBench-26 recovers from below-random; tabular sets that
+> were mis-treated as temporal change). The committed
+> `mercury_benchmark_results.json` and the per-dataset tables below are
+> the *pre-change* run; both regenerate via
+> `.github/workflows/benchmark.yml` on push to `main`. On the
+> transductive 18-set ADBench harness the change is Mean AUROC
+> 0.7804 → 0.8142 (+3.38 pts).
+
 ## What This Measures
 
 This document reports the empirical performance of `MercuryAnomalyDetector` — Mercury's
@@ -43,6 +56,13 @@ unsupervised anomaly detection ensemble — on labeled real-world datasets.
 > component's AUC separation from random. Components with AUC < 0.5 are zeroed out.
 > The 40/30/30 defaults above are the fallback when all components produce
 > near-random scores. See `_compute_adaptive_weights()` in `statistical.py`.
+>
+> **Margin sharpening (`_WEIGHT_MARGIN_POWER = 4.0`):** the self-supervised
+> pseudo-AUCs the unsupervised weighter uses saturate into a narrow 0.72-1.0 band
+> on easy synthetic anomalies, so a linear margin leaves the weakest component
+> (kinematic) over-weighted. Each surviving `(auc - 0.5)` margin is raised to a
+> power before normalisation, concentrating weight on the discriminative
+> components. `P=1` reproduces the prior linear behaviour exactly.
 
 **Protocol:**
 - Normal-only training (unsupervised) with `StandardScaler`
@@ -195,11 +215,22 @@ function of the scored signal.
    (e.g., ADBench datasets), derivatives are meaningless noise. The kinematic
    component achieved mean AUC 0.6013 across all datasets — near-random on
    unordered tabular data, more useful on time-series.
+   *Mitigation (Unreleased):* the data-type gate now requires *strong*
+   autocorrelation (> 0.55) **or** adjacent-row coherence (> 0.75) before
+   classifying `TEMPORAL`, so tabular sets that previously tripped the old 0.3
+   gate are correctly `TABULAR` and zero out kinematic. Margin sharpening
+   (`_WEIGHT_MARGIN_POWER`) further suppresses it where it leaks through.
 
-2. **Ensemble inversion on high-dimensional data.**
+2. **Ensemble inversion on high-dimensional / mis-gated data.**
    On high-dimensional image-like features (optdigits, landsat, WPBC), the ensemble
    score can invert (anomalies score lower than normal). This manifests as
    ROC-AUC < 0.5 on 6 datasets.
+   *Mitigation (Unreleased):* a substantial part of the optdigits (ADBench-26)
+   inversion was the temporal `_residual_frequency_filter` firing on tabular rows
+   via a shape proxy — measured to drag optdigits from 0.52 to 0.39. The filter
+   is now gated on `_data_type == TEMPORAL`, removing that rank-altering pass from
+   tabular data. The pairwise/ensemble inversion guards remain for the residual
+   high-dimensional cases.
 
 3. **Oracle F1 is an upper bound, not operational performance.**
    The oracle threshold sweeps 101 values and picks the best F1. A deployed
