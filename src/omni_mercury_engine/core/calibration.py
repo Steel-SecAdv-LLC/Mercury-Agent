@@ -943,7 +943,7 @@ def _extract_calibration_scores(
     # Strategy 2: decision_function with sigmoid transformation
     try:
         decision = detector.decision_function(X)
-        # Apply sigmoid to convert margins to pseudo-probabilities
+        # Apply sigmoid to map decision margins to bounded [0, 1] scores
         y_prob = 1.0 / (1.0 + np.exp(-decision))
         return y_prob, "decision_function"
     except (AttributeError, NotImplementedError):

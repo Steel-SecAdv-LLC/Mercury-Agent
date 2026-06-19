@@ -58,7 +58,7 @@ unsupervised anomaly detection ensemble — on labeled real-world datasets.
 > near-random scores. See `_compute_adaptive_weights()` in `statistical.py`.
 >
 > **Margin sharpening (`_WEIGHT_MARGIN_POWER = 4.0`):** the self-supervised
-> pseudo-AUCs the unsupervised weighter uses saturate into a narrow 0.72-1.0 band
+> separation AUCs the unsupervised weighter uses saturate into a narrow 0.72-1.0 band
 > on easy synthetic anomalies, so a linear margin leaves the weakest component
 > (kinematic) over-weighted. Each surviving `(auc - 0.5)` margin is raised to a
 > power before normalisation, concentrating weight on the discriminative
@@ -243,7 +243,7 @@ function of the scored signal.
 5. **InfoGeometryScore requires d < n.**
    The Fisher Information component inverts a d x d covariance matrix. When
    the number of features exceeds the number of training samples, the matrix
-   is singular and a pseudo-inverse is used, degrading accuracy.
+   is singular and the Moore-Penrose inverse is used, degrading accuracy.
 
 ## Data Sources
 

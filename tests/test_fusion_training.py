@@ -68,7 +68,7 @@ class TestFusionTraining:
 
         metrics = engine.fit_fusion(
             X,
-            y=None,  # No labels - use pseudo-labeling
+            y=None,  # No labels - use consensus labeling
             epochs=10,
             contamination=0.15,
         )
@@ -404,8 +404,8 @@ class TestSaveLoadRoundTrip:
             assert fusion._fusion_trained
 
 
-class TestPseudoLabeling:
-    """Test pseudo-label generation for semi-supervised learning."""
+class TestConsensusLabeling:
+    """Test consensus-label generation for semi-supervised learning."""
 
     @pytest.fixture
     def engine(self):
@@ -414,8 +414,8 @@ class TestPseudoLabeling:
 
         return OmniMercuryEngine(mode="fusion", device="cpu")
 
-    def test_pseudo_labels_generated(self, engine: Any) -> None:
-        """Verify pseudo-labels are generated when y is None."""
+    def test_consensus_labels_generated(self, engine: Any) -> None:
+        """Verify consensus labels are generated when y is None."""
         X, _ = make_classification(
             n_samples=100,
             n_features=10,
@@ -431,14 +431,14 @@ class TestPseudoLabeling:
             except Exception:
                 pass
 
-        pseudo_labels = engine._generate_pseudo_labels(X, contamination=0.1)
+        consensus_labels = engine._generate_consensus_labels(X, contamination=0.1)
 
-        assert len(pseudo_labels) == len(X)
-        assert pseudo_labels.sum() > 0, "Should have some positive labels"
-        assert pseudo_labels.sum() < len(X), "Should not label everything as anomaly"
+        assert len(consensus_labels) == len(X)
+        assert consensus_labels.sum() > 0, "Should have some positive labels"
+        assert consensus_labels.sum() < len(X), "Should not label everything as anomaly"
 
-    def test_pseudo_labels_respect_contamination(self, engine: Any) -> None:
-        """Verify pseudo-labels respect specified contamination rate."""
+    def test_consensus_labels_respect_contamination(self, engine: Any) -> None:
+        """Verify consensus labels respect specified contamination rate."""
         X = np.random.randn(100, 10).astype(np.float32)
 
         # Fit detectors
@@ -449,13 +449,13 @@ class TestPseudoLabeling:
                 pass
 
         contamination = 0.2  # 20%
-        pseudo_labels = engine._generate_pseudo_labels(X, contamination=contamination)
+        consensus_labels = engine._generate_consensus_labels(X, contamination=contamination)
 
         # Should have approximately contamination * n_samples anomalies
-        actual_rate = pseudo_labels.sum() / len(X)
+        actual_rate = consensus_labels.sum() / len(X)
         assert (
             abs(actual_rate - contamination) < 0.1
-        ), f"Pseudo-label rate {actual_rate:.2f} should be near {contamination}"
+        ), f"Consensus-label rate {actual_rate:.2f} should be near {contamination}"
 
 
 class TestEdgeCases:

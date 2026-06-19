@@ -106,7 +106,7 @@ class MultiverseOmniEngine:
         logging.info(f"Number of parallel universes: {num_universes}")
 
     def _initialize_multiverse(self) -> None:
-        """Initialize the multiverse with pseudo-random universes.
+        """Initialize the multiverse with deterministically seeded random universes.
 
         The initial universe states are an *architecture constant*, not a
         per-process lottery: they are drawn from a dedicated fixed-seed

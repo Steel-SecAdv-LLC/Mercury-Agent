@@ -250,7 +250,7 @@ class NaturalGradient:
             cho_lower = sp_linalg.cholesky(damped, lower=True)
             result = sp_linalg.cho_solve((cho_lower, True), euclidean_gradient)
         except sp_linalg.LinAlgError:
-            # Fall back to pseudo-inverse if Cholesky still fails.
+            # Fall back to the Moore-Penrose inverse if Cholesky still fails.
             result = np.linalg.pinv(damped) @ euclidean_gradient
 
         return result

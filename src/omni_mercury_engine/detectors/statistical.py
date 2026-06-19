@@ -68,16 +68,16 @@ _TIKHONOV_LAMBDA: float = 1e-6
 # ``(auc - 0.5)`` before it is normalised into an ensemble weight (see
 # ``_compute_adaptive_weights`` / ``_compute_unsupervised_adaptive_weights``).
 #
-# Why > 1: the self-supervised pseudo-AUCs used by the unsupervised weighter
+# Why > 1: the self-supervised AUCs used by the unsupervised weighter
 # are driven by easy 3-sigma Gaussian-blob synthetic anomalies, which push
-# every component's pseudo-AUC into a narrow, saturated 0.72-1.0 band. A linear
+# every component's AUC into a narrow, saturated 0.72-1.0 band. A linear
 # margin (P=1) therefore leaves the consistently weakest component — kinematic,
 # which ranks last on 18/18 ADBench sets — with 30-42% of the ensemble weight.
 # Raising the margin to a power sharpens those diffuse margins: a component that
 # is, say, 0.10 below the others in margin is suppressed multiplicatively
 # (0.40^4 vs 0.50^4 = 0.41x), concentrating weight on the discriminative
 # components. The transform is monotone and self-correcting — genuinely
-# temporal data gives kinematic a real high pseudo-AUC that survives the power.
+# temporal data gives kinematic a genuinely high AUC that survives the power.
 #
 # P=4 was selected on the 18-set ADBench harness (Mean AUROC 0.774 -> 0.790,
 # 13 W / 3 L with losses <=0.4 pt; biggest wins where kinematic was most
@@ -881,7 +881,7 @@ class MercuryAnomalyDetector(BaseDetector):
             # log det(Sigma_reg) = 2 * sum(log(diag(L)))
             self._ig_log_det = float(2.0 * np.sum(np.log(np.diag(cho))))
         except sp_linalg.LinAlgError:
-            # Fallback to pseudo-inverse if Cholesky still fails
+            # Fallback to the Moore-Penrose inverse if Cholesky still fails
             self._ig_cov_inv = np.linalg.pinv(cov_reg)
             sign, logdet = np.linalg.slogdet(cov_reg)
             self._ig_log_det = float(logdet) if sign > 0 else 0.0
@@ -1249,16 +1249,27 @@ class MercuryAnomalyDetector(BaseDetector):
         self,
         X: np.ndarray[Any, Any],
     ) -> np.ndarray[Any, Any]:
-        """Compute adaptive ensemble weights without labels via self-supervised anomaly injection.
+        """Estimate ensemble weights without ground-truth labels via self-supervised contrast.
 
-        Strategy:
+        This is the **fallback** weighting path, used only when the caller
+        supplies no ground-truth labels. When real labels *are* available,
+        ``fit(data, calibration_labels=...)`` / :meth:`fit_with_labels` route to
+        :meth:`_compute_adaptive_weights`, which measures each component's
+        separation against the real labels — always preferred over this
+        self-supervised estimate.
+
+        Strategy (self-supervised, no labels required):
           1. Split training data into K=5 folds.
           2. For each fold, fit on K-1 folds and score the held-out fold.
           3. Inject synthetic anomalies into the held-out fold (Gaussian noise
-             with sigma = 3 * std per feature) to create pseudo-labels.
-          4. Compute per-component AUC using pseudo-labels.
-          5. Apply the same logic as ``_compute_adaptive_weights()``: zero out
-             components with AUC < 0.5, apply 0.05 minimum floor.
+             with sigma = 3 * std per feature). The held-out real rows (label 0)
+             versus the injected synthetic rows (label 1) form a
+             **synthetic-contrast** label set — a self-supervised stand-in for
+             the absent ground truth, never persisted past this computation.
+          4. Compute each component's separation AUC against those
+             synthetic-contrast labels.
+          5. Apply the same logic as :meth:`_compute_adaptive_weights`: zero out
+             components with AUC < 0.5, apply the 0.05 minimum floor.
 
         Additionally applies data-type-aware weight adjustment using
         :data:`COMPONENT_COMPATIBILITY` from ``config.py``.
@@ -1318,9 +1329,10 @@ class MercuryAnomalyDetector(BaseDetector):
                 noise = rng.randn(n_anomalies, n_features) * 3.0 * fold_det.std
                 synthetic_anomalies = fold_det.mean + noise
 
-                # Combine normal (val) + synthetic anomalies
+                # Combine held-out real rows (label 0) + synthetic anomalies
+                # (label 1) into the self-supervised contrast set.
                 X_combined = np.vstack([X_val_fold, synthetic_anomalies])
-                pseudo_labels = np.concatenate(
+                contrast_labels = np.concatenate(
                     [
                         np.zeros(len(X_val_fold), dtype=np.int32),
                         np.ones(n_anomalies, dtype=np.int32),
@@ -1333,7 +1345,7 @@ class MercuryAnomalyDetector(BaseDetector):
                 ig_scores = fold_det._compute_info_geometry_score(X_combined)
 
                 for comp_idx, comp_scores in enumerate([res_scores, kin_scores, ig_scores]):
-                    auc = self._component_separation(comp_scores, pseudo_labels)
+                    auc = self._component_separation(comp_scores, contrast_labels)
                     component_aucs_accum[comp_idx].append(auc)
 
             # Aggregate AUCs across folds
@@ -1360,7 +1372,7 @@ class MercuryAnomalyDetector(BaseDetector):
 
             # Standard adaptive weight logic: zero out inverted, normalize.
             # Surviving margins are raised to _WEIGHT_MARGIN_POWER to sharpen
-            # the saturated self-supervised pseudo-AUC band (see the constant's
+            # the saturated self-supervised AUC band (see the constant's
             # rationale) before the compatibility multiply and floor below.
             effective_aucs = np.where(
                 mean_aucs < 0.5, 0.0, (mean_aucs - 0.5) ** _WEIGHT_MARGIN_POWER
@@ -1573,7 +1585,8 @@ class MercuryAnomalyDetector(BaseDetector):
         else:
             normal_data = train_data
 
-        # Combine and create pseudo-labels
+        # Combine real rows + synthetic OOD samples into a synthetic-contrast
+        # label set (0 = real, 1 = synthetic) for the inversion diagnostic.
         X_eval = np.vstack([normal_data[:n_synthetic], synthetic])
         y_eval = np.concatenate(
             [

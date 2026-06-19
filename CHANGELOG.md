@@ -40,7 +40,7 @@ time-series. Net transductive Mean AUROC **0.7804 → 0.8142 (+3.38 pts, 14 W /
 generalizable row-ordering artifact (see below).
 
 * **Sharpen the unsupervised fusion-weight margins (`_WEIGHT_MARGIN_POWER = 4.0`,
-  new module constant).** The self-supervised pseudo-AUCs that drive the
+  new module constant).** The self-supervised separation AUCs that drive the
   unsupervised weighter saturate into a narrow 0.72-1.0 band on easy 3σ
   Gaussian-blob synthetic anomalies, so a *linear* AUC-separation margin leaves
   the consistently weakest component — kinematic, last on 18/18 ADBench sets —

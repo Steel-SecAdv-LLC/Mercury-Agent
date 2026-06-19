@@ -131,7 +131,7 @@ def security(payload: str) -> None:
     help=(
         "Optional labels file (.csv/.npy/.json, 1=anomaly/0=normal) for "
         "supervised training of raw .csv/.npy data. If omitted, "
-        "semi-supervised pseudo-labels are derived from detector consensus."
+        "semi-supervised consensus labels are derived from detector agreement."
     ),
 )
 @click.option("--output", "-o", required=True, help="Model checkpoint output path (.pt)")
@@ -145,7 +145,7 @@ def train(data: str, labels: str | None, output: str, epochs: int) -> None:
     * Raw features (.csv / .npy): the engine fits all base detectors, extracts
       the full fusion feature pipeline, and trains via the
       supervised/semi-supervised ``fit_fusion`` path. Provide ``--labels`` for
-      supervised training, or omit it for detector-consensus pseudo-labels.
+      supervised training, or omit it for detector-consensus labels.
     * Pre-extracted feature archive (.npz): trained directly via
       ``train_fusion_model`` (see ``mercury-agent build-features``).
     """
@@ -160,7 +160,7 @@ def train(data: str, labels: str | None, output: str, epochs: int) -> None:
             y = _load_labels(labels) if labels else None
             if y is not None and len(y) != len(X):
                 raise ValueError(f"Label count ({len(y)}) does not match sample count ({len(X)}).")
-            mode_str = "supervised" if y is not None else "semi-supervised (pseudo-labels)"
+            mode_str = "supervised" if y is not None else "semi-supervised (consensus labels)"
             click.echo(f"Training fusion model on {len(X)} samples from {data} [{mode_str}]...")
             metrics = engine.fit_fusion(X, y, epochs=epochs)
 
@@ -184,7 +184,7 @@ def train(data: str, labels: str | None, output: str, epochs: int) -> None:
     "-l",
     default=None,
     help="Optional labels file (.csv/.npy/.json, 1=anomaly/0=normal); omit for "
-    "semi-supervised pseudo-labels.",
+    "semi-supervised consensus labels.",
 )
 @click.option("--output", "-o", required=True, help="Output feature archive path (.npz)")
 def build_features(data: str, labels: str | None, output: str) -> None:

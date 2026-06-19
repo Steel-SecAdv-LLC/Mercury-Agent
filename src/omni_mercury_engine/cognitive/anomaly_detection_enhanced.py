@@ -310,8 +310,8 @@ class BayesianPredictor:
         """Initialize Bayesian predictor.
 
         Args:
-            prior_alpha: Prior alpha parameter (pseudo-successes)
-            prior_beta: Prior beta parameter (pseudo-failures)
+            prior_alpha: Prior alpha parameter (Beta alpha; prior successes)
+            prior_beta: Prior beta parameter (Beta beta; prior failures)
         """
         self.prior_alpha = prior_alpha
         self.prior_beta = prior_beta

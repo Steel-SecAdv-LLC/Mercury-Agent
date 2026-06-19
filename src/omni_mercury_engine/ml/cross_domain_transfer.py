@@ -895,7 +895,7 @@ class JDAAdapter(BaseDomainAdapter):
     """Joint Distribution Adaptation (JDA) adapter.
 
     Adapts both marginal and conditional distributions between domains
-    by iteratively minimizing MMD with pseudo-labels.
+    by iteratively minimizing MMD with estimated target labels.
 
     Reference: "Transfer Feature Learning with Joint Distribution Adaptation"
                (Long et al., 2013)
@@ -944,7 +944,7 @@ class JDAAdapter(BaseDomainAdapter):
         source_X: NDArray[np.float64],
         target_X: NDArray[np.float64],
         source_y: NDArray[np.int64],
-        target_y_pseudo: NDArray[np.int64],
+        target_y_estimated: NDArray[np.int64],
     ) -> NDArray[np.float64]:
         """Compute joint MMD matrix for all classes."""
         n_s, n_t = len(source_X), len(target_X)
@@ -962,7 +962,7 @@ class JDAAdapter(BaseDomainAdapter):
         # Add conditional MMD terms for each class
         for c in self.classes:
             src_mask = source_y == c
-            tgt_mask = target_y_pseudo == c
+            tgt_mask = target_y_estimated == c
             n_sc = np.sum(src_mask)
             n_tc = np.sum(tgt_mask)
 
@@ -990,7 +990,7 @@ class JDAAdapter(BaseDomainAdapter):
         target_X: NDArray[np.float64],
         target_y: NDArray[np.int64] | None = None,
     ) -> None:
-        """Fit JDA with iterative pseudo-labeling."""
+        """Fit JDA with iterative self-training (estimated target labels)."""
         # Normalize
         self.source_mean = np.mean(source_X, axis=0)
         self.source_std = np.std(source_X, axis=0) + 1e-10
@@ -1003,15 +1003,15 @@ class JDAAdapter(BaseDomainAdapter):
         X_combined = np.vstack([source_X_norm, target_X_norm])
         len(source_X)
 
-        # Initialize pseudo-labels using simple 1-NN
+        # Initialize estimated target labels using simple 1-NN
         dists = cdist(target_X_norm, source_X_norm)
         nn_idx = np.argmin(dists, axis=1)
-        target_y_pseudo = source_y[nn_idx]
+        target_y_estimated = source_y[nn_idx]
 
         # Iterative JDA
         for _ in range(self.n_iterations):
             # Compute joint MMD matrix
-            M = self._compute_mmd_matrix(source_X_norm, target_X_norm, source_y, target_y_pseudo)
+            M = self._compute_mmd_matrix(source_X_norm, target_X_norm, source_y, target_y_estimated)
 
             # Solve generalized eigenvalue problem
             # min_A tr(A^T X M X^T A) s.t. A^T X H X^T A = I
@@ -1035,12 +1035,12 @@ class JDAAdapter(BaseDomainAdapter):
                 _, _, Vt = np.linalg.svd(X_combined, full_matrices=False)
                 self.projection_matrix = Vt[: self.n_components].T
 
-            # Update pseudo-labels
+            # Update estimated target labels
             source_proj = source_X_norm @ self.projection_matrix
             target_proj = target_X_norm @ self.projection_matrix
             dists = cdist(target_proj, source_proj)
             nn_idx = np.argmin(dists, axis=1)
-            target_y_pseudo = source_y[nn_idx]
+            target_y_estimated = source_y[nn_idx]
 
         # Train final classifier
         source_proj = source_X_norm @ self.projection_matrix
