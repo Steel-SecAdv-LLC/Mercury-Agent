@@ -90,11 +90,12 @@ class TestUsgsIngestionToFeatureMatrix:
         # Parsed, persisted, and shaped to the documented 11-feature schema.
         cached = loader.data_path / "usgs_earthquake_real.npz"
         assert cached.exists()
-        payload = np.load(cached)
-        features = payload["features"]
+        with np.load(cached) as payload:
+            features = payload["features"]
+            labels = payload["labels"]
         assert features.shape == (5, len(USGSEarthquakeLoader.FEATURE_NAMES))
         assert features.shape[1] == 11
-        assert payload["labels"].shape == (5,)
+        assert labels.shape == (5,)
 
 
 class TestIngestedDataFeedsDetection:
@@ -108,7 +109,8 @@ class TestIngestedDataFeedsDetection:
         with patch(_PATCH_TARGET, return_value=body):
             assert loader._download_from_usgs() is True
 
-        features = np.load(loader.data_path / "usgs_earthquake_real.npz")["features"]
+        with np.load(loader.data_path / "usgs_earthquake_real.npz") as payload:
+            features = payload["features"]
 
         detector = MercuryAnomalyDetector()
         detector.fit(features)

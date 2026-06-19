@@ -1308,8 +1308,9 @@ jobs:
 
       - name: Cache pip dependencies
         # Integration installs the heaviest extra set in the pipeline
-        # (``.[api,dev]`` + the API server stack).  It was the only heavy lane
-        # without this cache — core-tests / type-checking already use it — so
+        # (``.[ml,api,dev]`` — the torch-backed engine + API server stack).  It
+        # was the only heavy lane without this cache — core-tests / type-checking
+        # already use it — so
         # it rebuilt the entire torch/dev tree from scratch every run and was
         # tipping past the 30-minute budget before the test step was reached.
         # The broad ``-pip-`` restore-key warms even a cold first run from any
@@ -1327,9 +1328,13 @@ jobs:
             ${{ runner.os }}-pip-
 
       - name: Install dependencies
+        # ``[ml]`` (torch) is required: the integration suite drives the real
+        # ``OmniMercuryEngine`` (and the API it powers), which hard-fails import
+        # without PyTorch.  ``[api]`` supplies fastapi/uvicorn; matches the
+        # engine-exercising ``core-tests`` lane's ``.[ml,dev,api]``.
         run: |
           python -m pip install --upgrade "pip>=26.1"
-          pip install -e ".[api,dev]"
+          pip install -e ".[ml,api,dev]"
           pip install pytest pytest-asyncio httpx fastapi uvicorn
 
       - name: Build + install AMA Cryptography (native PQC backend)
