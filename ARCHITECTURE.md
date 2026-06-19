@@ -882,7 +882,7 @@ conda install -c conda-forge qutip
 
 ### Unit Tests
 
-The test-module count is measured and CI-gated in the README [Codebase Scale block](README.md) (433 `test_*.py` modules as of 2026-06-17).
+The test-module count is measured and CI-gated in the README [Codebase Scale block](README.md) (437 `test_*.py` modules as of 2026-06-19).
 
 ```bash
 # Run specific test
@@ -1211,7 +1211,7 @@ The Mercury Agent integrates **30 detection engines** with **12 infrastructure m
   reasoning, resilience, safeguards, scaling, security, space, streaming,
   tools, utils, validation, verifiers)
 - **~320,000 LOC** in `src/omni_mercury_engine/` (632 source files)
-- **433 test modules** under `tests/`; 8,789 tests collected with the
+- **437 test modules** under `tests/`; 8,789 tests collected with the
   full optional-dependency surface (`pytest --collect-only -q`,
   2026-06-10) — fewer on a minimal install because optional-import-gated
   modules skip. See the README "Testing and Quality Assurance" section
