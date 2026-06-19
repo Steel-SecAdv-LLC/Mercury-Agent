@@ -11,13 +11,16 @@ subsequent ``enforce`` blocks. These tests pin both properties.
 """
 from __future__ import annotations
 
-import pytest
+from typing import TYPE_CHECKING
 
 from omni_mercury_engine.security import sigma_immutable_corpus
 from omni_mercury_engine.security.sigma_immutable_gate import (
     SigmaImmutableGate,
     _is_pqc_backend_unavailable,
 )
+
+if TYPE_CHECKING:
+    import pytest
 
 
 class TestPqcUnavailableHelper:
