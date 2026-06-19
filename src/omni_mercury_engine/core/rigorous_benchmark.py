@@ -200,7 +200,7 @@ def stratified_split(
         from omni_mercury_engine.ml.mercury_ml import train_test_split
     except ImportError as e:
         raise ImportError(
-            "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+            "This feature needs omni_mercury_engine.ml.mercury_ml; reinstall mercury-agent."
         ) from e
 
     set_all_seeds(seed)
@@ -306,7 +306,7 @@ def point_adjusted_f1(
         from omni_mercury_engine.ml.mercury_ml import f1_score
     except ImportError as e:
         raise ImportError(
-            "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+            "This feature needs omni_mercury_engine.ml.mercury_ml; reinstall mercury-agent."
         ) from e
 
     # Get anomaly segments
@@ -403,7 +403,7 @@ class RigorousBenchmarkHarness:
             )
         except ImportError as e:
             raise ImportError(
-                "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+                "This feature needs omni_mercury_engine.ml.mercury_ml; reinstall mercury-agent."
             ) from e
 
         set_all_seeds(self.seed)
