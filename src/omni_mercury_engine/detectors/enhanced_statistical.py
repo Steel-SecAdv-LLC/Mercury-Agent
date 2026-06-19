@@ -1,6 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""DEPRECATED: This module uses sklearn (LOF, DBSCAN, MinCovDet, NearestNeighbors) for anomaly.
+"""DEPRECATED: This module uses Mercury's mercury_ml (DBSCAN, NearestNeighbors) and scipy for anomaly.
 
 detection. Mercury's production detector is MercuryAnomalyDetector in detectors/statistical.py. This
 module is retained for reference only and will be removed in a future release.
@@ -377,7 +377,9 @@ class DBSCANDetector:
         try:
             from omni_mercury_engine.ml.mercury_ml import DBSCAN
         except ImportError:
-            raise DetectorException("scikit-learn required for DBSCAN detection")
+            raise DetectorException(
+                "omni_mercury_engine.ml.mercury_ml required for DBSCAN detection"
+            )
 
         X = np.asarray(X)
         if X.ndim == 1:
