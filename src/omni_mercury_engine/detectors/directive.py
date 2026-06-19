@@ -1,6 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""DEPRECATED: This module uses sklearn (PCA) for anomaly detection. Mercury's production detector is MercuryAnomalyDetector in detectors/statistical.py. This module is retained for reference only.
+"""DEPRECATED: This module uses Mercury's mercury_ml (PCA) for anomaly detection. Mercury's production detector is MercuryAnomalyDetector in detectors/statistical.py. This module is retained for reference only.
 
 Original: Sigma Directive detector implementing PCP, GSIS, RMD, and EOA protocols.
 

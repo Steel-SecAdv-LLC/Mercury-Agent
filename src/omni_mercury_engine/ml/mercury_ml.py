@@ -612,7 +612,7 @@ def cross_val_score(
 
 
 def clone(estimator: Any) -> Any:
-    """Deep-copy an estimator (sklearn-free clone)."""
+    """Deep-copy an estimator."""
     return copy.deepcopy(estimator)
 
 
@@ -915,7 +915,7 @@ class NotFittedError(ValueError, AttributeError):
 
 
 class LogisticRegression:
-    """Logistic Regression using L-BFGS (sklearn-free reimplementation)."""
+    """Logistic Regression using L-BFGS."""
 
     def __init__(
         self,
@@ -1012,7 +1012,7 @@ class LogisticRegression:
 
 
 class SGDClassifier:
-    """SGD classifier for online learning (sklearn-free reimplementation).
+    """SGD classifier for online learning.
 
     Based on standard stochastic gradient descent with hinge/log loss.
     """
@@ -1105,7 +1105,7 @@ class SGDClassifier:
 
 
 class PassiveAggressiveClassifier:
-    """Passive-Aggressive classifier (sklearn-free reimplementation).
+    """Passive-Aggressive classifier.
 
     Algorithm by Crammer, Dekel, Keshet, Shalev-Shwartz & Singer (2006).
 
@@ -1184,7 +1184,7 @@ class PassiveAggressiveClassifier:
 
 
 class GradientBoostingClassifier:
-    """Gradient Boosting using decision stumps (sklearn-free reimplementation).
+    """Gradient Boosting using decision stumps.
 
     Based on Friedman (2001). Simplified to binary classification with
     decision stumps as weak learners.
@@ -1258,7 +1258,7 @@ class GradientBoostingClassifier:
 
 
 class RandomForestClassifier:
-    """Random Forest classifier (sklearn-free reimplementation).
+    """Random Forest classifier.
 
     Ensemble of bootstrapped decision stumps. Based on Breiman (2001).
 
@@ -1326,7 +1326,7 @@ class RandomForestClassifier:
 
 
 class SVC:
-    """SVC using kernel-based scoring (sklearn-free reimplementation).
+    """SVC using kernel-based scoring.
 
     Lightweight RBF-kernel similarity scorer. Based on the support vector classification framework
     of Vapnik (1995).
@@ -1461,7 +1461,7 @@ class _DecisionStump:
 
 
 class GaussianMixture:
-    """Gaussian Mixture Model via EM (sklearn-free reimplementation).
+    """Gaussian Mixture Model via EM.
 
     Expectation-Maximization algorithm by Dempster, Laird & Rubin (1977).
 
@@ -1671,7 +1671,7 @@ def make_blobs(
 
 
 class IsotonicRegression:
-    """Isotonic regression via pool adjacent violators (sklearn-free reimplementation).
+    """Isotonic regression via pool adjacent violators.
 
     Algorithm by Barlow, Bartholomew, Bremner & Brunk (1972).
     """
