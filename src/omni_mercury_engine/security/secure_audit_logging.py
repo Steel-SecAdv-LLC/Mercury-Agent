@@ -262,7 +262,7 @@ class SecureHashChain:
         return self._hmac_hash(genesis_data.encode())
 
     def _hmac_hash(self, data: bytes) -> str:
-        """Compute HMAC-SHA3-256 hash for Ava-Guardian alignment."""
+        """Compute HMAC-SHA3-256 hash for AMA Cryptography alignment."""
         return hmac.new(self.hmac_key, data, hashlib.sha3_256).hexdigest()
 
     def compute_event_hash(self, event_data: dict[str, Any]) -> tuple[str, str, int]:
@@ -648,7 +648,7 @@ class SecureAuditLogger:
         logger.info(f"Rotated audit log: {rotated_path} (hash: {file_hash[:16]}...)")
 
     def _compute_file_hash(self, path: Path) -> str:
-        """Compute SHA3-256 hash of file for Ava-Guardian alignment."""
+        """Compute SHA3-256 hash of file for AMA Cryptography alignment."""
         sha3 = hashlib.sha3_256()
         with open(path, "rb") as f:
             for chunk in iter(lambda: f.read(8192), b""):

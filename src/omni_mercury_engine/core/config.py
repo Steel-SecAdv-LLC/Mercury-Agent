@@ -607,7 +607,7 @@ class ConfigurationManager:
         # Check rollout percentage
         if flag.rollout_percentage < 100.0 and user_id:
             # Deterministic hash for consistent user experience
-            # Using SHA3-256 for Ava-Guardian alignment
+            # Using SHA3-256 for AMA Cryptography alignment
             # Note: This is not security-sensitive (just bucketing), but SHA3-256
             # eliminates CodeQL weak-hash alerts while maintaining determinism
             import hashlib
@@ -632,7 +632,7 @@ class ConfigurationManager:
         if user_id:
             import hashlib
 
-            # Using SHA3-256 for Ava-Guardian alignment
+            # Using SHA3-256 for AMA Cryptography alignment
             user_hash = int(
                 hashlib.sha3_256(f"{name}:{user_id}".encode()).hexdigest()[:8],
                 16,

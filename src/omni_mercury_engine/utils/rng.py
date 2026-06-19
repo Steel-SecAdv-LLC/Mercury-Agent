@@ -312,7 +312,7 @@ class RNGState:
             "seed": self.seed,
             "version": self.version,
             "numpy_state_hash": (
-                # Using SHA3-256 for Ava-Guardian alignment
+                # Using SHA3-256 for AMA Cryptography alignment
                 # Note: This is non-cryptographic use for state hashing
                 hashlib.sha3_256(str(self.numpy_state).encode()).hexdigest()
                 if self.numpy_state

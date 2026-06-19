@@ -145,6 +145,32 @@ _PERMISSIBLE_INPUT_RANGE: float = 1.0 - MINIMUM_BENEVOLENCE_FLOOR
 CRITICAL_ETHICAL_FLOOR: float = SIGMA_IMMUTABLE_DEFAULT_THRESHOLD
 
 
+def _is_pqc_backend_unavailable(exc: BaseException) -> bool:
+    """Whether *exc* is AMA Cryptography's typed "PQC backend unavailable" error.
+
+    Aligns σ_Immutable's corpus-verification failure classification with
+    ``ama_cryptography``'s public exception hierarchy: ``PQCUnavailableError``
+    and its ``QuantumSignatureUnavailableError`` subclass are raised when the
+    native post-quantum signature backend is not loadable — a known, actionable
+    build/deployment condition, *not* an unexpected fault. Falls back to a
+    string probe on the canonical ``PQC_UNAVAILABLE`` marker if the exception
+    type cannot be imported (e.g. the AMA package itself failed to import), so
+    the classification is robust regardless of how far the backend got.
+
+    This never changes the gate's decision — an unverifiable corpus is untrusted
+    no matter *why* verification could not run — it only sharpens the operator
+    diagnostic.
+    """
+    try:
+        from ama_cryptography.exceptions import PQCUnavailableError
+
+        if isinstance(exc, PQCUnavailableError):
+            return True
+    except Exception:
+        pass
+    return "PQC_UNAVAILABLE" in str(exc)
+
+
 def project_benevolence_to_sigma_band(benevolence_score: float) -> float:
     """Project a clamped benevolence score into the σ_Immutable input band.
 
@@ -500,6 +526,21 @@ class SigmaImmutableGate:
 
             if isinstance(exc, CorpusVerificationError):
                 self._corpus_error = str(exc)
+            elif _is_pqc_backend_unavailable(exc):
+                # AMA Cryptography raises a typed PQCUnavailableError /
+                # QuantumSignatureUnavailableError when the native post-quantum
+                # signature backend is not loadable. That is a known, actionable
+                # build/deployment condition — not an "unexpected" fault — so
+                # report it precisely (aligned with ama_cryptography's exception
+                # hierarchy). The gate still fails closed: an unverifiable corpus
+                # is untrusted regardless of *why* verification could not run.
+                self._corpus_error = (
+                    "σ_Immutable corpus verification unavailable: the AMA "
+                    "Cryptography native post-quantum signature backend is not "
+                    f"loadable ({type(exc).__name__}: {exc}). Build the AMA native "
+                    "library — see docs/INSTALLATION.md 'Post-Quantum Cryptography "
+                    "backend' or the build-ama-cryptography CI action."
+                )
             else:
                 self._corpus_error = (
                     f"σ_Immutable corpus verification failed unexpectedly: "

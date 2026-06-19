@@ -220,7 +220,7 @@ class AdaptiveDefenseSystem:
         """
         import hashlib
 
-        # Use SHA3-256 for Ava-Guardian alignment with stable, reproducible hashing
+        # Use SHA3-256 for AMA Cryptography alignment with stable, reproducible hashing
         hash_bytes = hashlib.sha3_256(feature_vector.tobytes()).digest()
         # Take first 8 bytes (64 bits) for a compact but collision-resistant ID
         hash_value = int.from_bytes(hash_bytes[:8], byteorder="big")

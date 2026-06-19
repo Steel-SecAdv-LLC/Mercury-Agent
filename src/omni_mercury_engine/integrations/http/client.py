@@ -295,7 +295,7 @@ class HTTPClient:
         """Get or create circuit breaker for endpoint."""
         # Create a key based on the endpoint pattern (ignore query params)
         pattern = endpoint.split("?", maxsplit=1)[0]
-        # Use SHA3-256 for Ava-Guardian alignment (non-cryptographic use for cache keys)
+        # Use SHA3-256 for AMA Cryptography alignment (non-cryptographic use for cache keys)
         pattern_hash = hashlib.sha3_256(pattern.encode()).hexdigest()[:8]
 
         with self._cb_lock:
