@@ -1035,16 +1035,23 @@ class MercuryAnomalyDetector(BaseDetector):
             "infogeo": float(aucs[2]),
         }
 
-        # Inverted components get zero contribution. The surviving margins are
-        # raised to _WEIGHT_MARGIN_POWER to sharpen otherwise-diffuse AUC
-        # separations before normalisation (see the constant's rationale).
-        effective_aucs = np.where(aucs < 0.5, 0.0, (aucs - 0.5) ** _WEIGHT_MARGIN_POWER)
-
-        total = effective_aucs.sum()
-        if total < 1e-6:
+        # Inverted components (AUC < 0.5) get zero contribution. Gate the
+        # no-signal fallback on the *raw* margins, not the _WEIGHT_MARGIN_POWER
+        # values: with P > 1 a weak-but-real separation (e.g. AUC 0.52 ->
+        # margin 0.02 -> 1.6e-7 at P=4) would underflow the 1e-6 threshold and
+        # spuriously fall back even though a component carries usable signal.
+        # The raw-margin sum is scale-invariant in P, so P=1 still reproduces
+        # the prior behaviour exactly.
+        raw_margins = np.where(aucs < 0.5, 0.0, aucs - 0.5)
+        if float(raw_margins.sum()) < 1e-6:
             self._weight_source = "fallback_default"
             return np.array([0.40, 0.30, 0.30])
 
+        # At least one component has real separation: sharpen the surviving
+        # margins by raising them to _WEIGHT_MARGIN_POWER before normalisation
+        # (see the constant's rationale). ``total`` is strictly positive here.
+        effective_aucs = raw_margins**_WEIGHT_MARGIN_POWER
+        total = effective_aucs.sum()
         weights = effective_aucs / total
         # Apply minimum floor of 0.05 for components with any positive signal
         has_signal = aucs >= 0.5
@@ -1140,9 +1147,7 @@ class MercuryAnomalyDetector(BaseDetector):
 
         # --- Combined temporal gate (Rec 2) ---
         strong_autocorr = autocorr is not None and autocorr > _TEMPORAL_AUTOCORR_THRESHOLD
-        strong_adjacency = (
-            adj_row_corr is not None and adj_row_corr > _TEMPORAL_ADJ_ROW_THRESHOLD
-        )
+        strong_adjacency = adj_row_corr is not None and adj_row_corr > _TEMPORAL_ADJ_ROW_THRESHOLD
         if strong_autocorr or strong_adjacency:
             return DataCharacteristics.TEMPORAL
 
@@ -1366,28 +1371,29 @@ class MercuryAnomalyDetector(BaseDetector):
             compat = COMPONENT_COMPATIBILITY.get(
                 self._data_type, COMPONENT_COMPATIBILITY[DataCharacteristics.UNKNOWN]
             )
+            compat_vec = np.array([compat["resonance"], compat["kinematic"], compat["infogeo"]])
             # If TABULAR, force kinematic weight to near-zero
             if self._data_type == DataCharacteristics.TABULAR:
                 mean_aucs[1] = min(mean_aucs[1], 0.50)  # Cap at random
 
-            # Standard adaptive weight logic: zero out inverted, normalize.
-            # Surviving margins are raised to _WEIGHT_MARGIN_POWER to sharpen
-            # the saturated self-supervised AUC band (see the constant's
-            # rationale) before the compatibility multiply and floor below.
-            effective_aucs = np.where(
-                mean_aucs < 0.5, 0.0, (mean_aucs - 0.5) ** _WEIGHT_MARGIN_POWER
-            )
-
-            # Apply compatibility multipliers
-            effective_aucs[0] *= compat["resonance"]
-            effective_aucs[1] *= compat["kinematic"]
-            effective_aucs[2] *= compat["infogeo"]
-
-            total = effective_aucs.sum()
-            if total < 1e-6:
+            # Zero out inverted components (AUC < 0.5). Gate the no-signal
+            # fallback on the *raw* compatibility-weighted margins, not the
+            # _WEIGHT_MARGIN_POWER values: with P > 1 a weak-but-real separation
+            # (e.g. AUC 0.52 -> margin 0.02 -> 1.6e-7 at P=4) would underflow
+            # the 1e-6 threshold and spuriously fall back to the data-type
+            # defaults. The raw-margin sum is scale-invariant in P, so P=1 still
+            # reproduces the prior behaviour exactly.
+            raw_margins = np.where(mean_aucs < 0.5, 0.0, mean_aucs - 0.5)
+            if float((raw_margins * compat_vec).sum()) < 1e-6:
                 self._weight_source = "fallback_data_type"
                 return self._data_type_default_weights()
 
+            # Sharpen the surviving margins by raising them to
+            # _WEIGHT_MARGIN_POWER (see the constant's rationale), then scale by
+            # the data-type compatibility modifiers. ``total`` is strictly
+            # positive here because the gate above passed.
+            effective_aucs = (raw_margins**_WEIGHT_MARGIN_POWER) * compat_vec
+            total = effective_aucs.sum()
             weights = effective_aucs / total
             # Apply minimum floor of 0.05 for components with positive signal
             has_signal = mean_aucs >= 0.5
@@ -2199,9 +2205,8 @@ class MercuryAnomalyDetector(BaseDetector):
         # optdigits from 0.52 to 0.39 (below random) under the transductive
         # protocol. Restricting it to genuine temporal data removes that harm
         # and makes detection robust to test-row ordering.
-        is_temporal_like = (
-            self._data_type == DataCharacteristics.TEMPORAL
-            and data.shape[0] >= max(50, 10 * data.shape[1])
+        is_temporal_like = self._data_type == DataCharacteristics.TEMPORAL and data.shape[0] >= max(
+            50, 10 * data.shape[1]
         )
         if is_temporal_like and len(combined_scores) >= 32:
             combined_scores = self._residual_frequency_filter(combined_scores)
@@ -2842,18 +2847,14 @@ class MercuryAnomalyDetector(BaseDetector):
         return np.clip(pooled, 0.0, 1.0)
 
     @staticmethod
-    def _resample_along_time(
-        X: np.ndarray[Any, Any], new_len: int
-    ) -> np.ndarray[Any, Any]:
+    def _resample_along_time(X: np.ndarray[Any, Any], new_len: int) -> np.ndarray[Any, Any]:
         """Linearly resample each feature column to ``new_len`` rows along time."""
         length = X.shape[0]
         if new_len == length:
             return X
         old_grid = np.linspace(0.0, 1.0, length)
         new_grid = np.linspace(0.0, 1.0, new_len)
-        return np.column_stack(
-            [np.interp(new_grid, old_grid, X[:, j]) for j in range(X.shape[1])]
-        )
+        return np.column_stack([np.interp(new_grid, old_grid, X[:, j]) for j in range(X.shape[1])])
 
     @staticmethod
     def _resample_1d(values: np.ndarray[Any, Any], new_len: int) -> np.ndarray[Any, Any]:
