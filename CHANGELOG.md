@@ -32,12 +32,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 A measurement-driven pass on `MercuryAnomalyDetector` (`detectors/statistical.py`)
 that sharpens the unsupervised fusion weights, corrects a data-type
 misclassification that mistreated tabular data as temporal, and adds opt-in
-temporal robustness. All changes are label-free and validated on an 18-set
-ADBench harness (transductive protocol, AUROC via Mann-Whitney; matches
-`research/omni_equation/harness_tabular.py`) plus the real SMD machine-1-1
-time-series. Net transductive Mean AUROC **0.7804 → 0.8142 (+3.38 pts, 14 W /
-3 L)**; the three losses are tabular sets that were exploiting a non-
-generalizable row-ordering artifact (see below).
+temporal robustness. All changes are label-free and validated on a committed,
+re-runnable 18-set real-ADBench transductive harness
+(`research/omni_equation/harness_adbench.py`; AUROC via Mann-Whitney). Net
+transductive Mean AUROC **0.7397 → 0.7634 (+2.37 pts, 14 W / 2 tie / 2 L)** —
+base `e118e1f` vs the hardened detector, full per-set results in
+`research/omni_equation/adbench_results.json`; the two losses are within noise
+(≤0.0003 AUROC). This supersedes an earlier ad-hoc `0.7804 → 0.8142` figure that
+is **not reproducible**: its harness resolved several sets through the now-broken
+ADRepository mirror, which silently substitutes synthetic data. Re-run:
+`python research/omni_equation/harness_adbench.py`.
 
 * **Sharpen the unsupervised fusion-weight margins (`_WEIGHT_MARGIN_POWER = 4.0`,
   new module constant).** The self-supervised separation AUCs that drive the
@@ -48,8 +52,9 @@ generalizable row-ordering artifact (see below).
   raised to a power `P` before normalisation, in both
   `_compute_unsupervised_adaptive_weights()` and the supervised
   `_compute_adaptive_weights()`. `P=1` reproduces the prior behaviour exactly
-  (regression-tested). Isolated effect: Mean AUROC +1.04 pts; biggest wins where
-  kinematic was most over-weighted (wine, glass, PageBlocks, cardio).
+  (regression-tested). On the committed harness the biggest wins land where
+  kinematic was most over-weighted (wine, glass, PageBlocks, cardio — all wins
+  vs base).
 
 * **Fix the data-type gate so tabular data is not mislabeled temporal
   (`_detect_data_characteristics`).** The previous single-signal gate

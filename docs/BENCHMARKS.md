@@ -35,9 +35,16 @@ Applies to Mercury Agent **v2.0.x**. Last updated: 2026-05-20.
 > were mis-treated as temporal change). The committed
 > `mercury_benchmark_results.json` and the per-dataset tables below are
 > the *pre-change* run; both regenerate via
-> `.github/workflows/benchmark.yml` on push to `main`. On the
-> transductive 18-set ADBench harness the change is Mean AUROC
-> 0.7804 → 0.8142 (+3.38 pts).
+> `.github/workflows/benchmark.yml` on push to `main`. On the committed,
+> re-runnable 18-set real-ADBench transductive harness
+> (`research/omni_equation/harness_adbench.py`, results in
+> `research/omni_equation/adbench_results.json`) the change is Mean AUROC
+> **0.7397 → 0.7634 (+2.37 pts, 14 W / 2 tie / 2 L)** — base `e118e1f` vs the
+> hardened detector; the two losses are within noise (≤0.0003). This supersedes
+> an earlier ad-hoc `0.7804 → 0.8142` figure that is not reproducible: its
+> harness resolved several sets through the now-broken ADRepository mirror, which
+> silently substitutes synthetic data. Re-run:
+> `python research/omni_equation/harness_adbench.py`.
 
 ## What This Measures
 
