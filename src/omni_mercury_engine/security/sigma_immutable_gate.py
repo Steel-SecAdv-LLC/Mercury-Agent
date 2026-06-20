@@ -157,17 +157,35 @@ def _is_pqc_backend_unavailable(exc: BaseException) -> bool:
     type cannot be imported (e.g. the AMA package itself failed to import), so
     the classification is robust regardless of how far the backend got.
 
+    Only the *expected* ``ImportError`` is swallowed silently. An unexpected
+    fault while importing the exception module (e.g. a runtime error inside the
+    package) is logged at warning level rather than hidden — silently dropping
+    it would mask a real environment problem behind the string probe. The
+    classifier still never raises: it must not displace the original
+    corpus-verification exception it is being asked to classify.
+
     This never changes the gate's decision — an unverifiable corpus is untrusted
     no matter *why* verification could not run — it only sharpens the operator
     diagnostic.
     """
     try:
         from ama_cryptography.exceptions import PQCUnavailableError
-
+    except ImportError:
+        # Expected on builds without the AMA package or the typed symbol; fall
+        # through to the canonical string-marker probe below.
+        pass
+    except Exception:  # pragma: no cover - defensive
+        # An unexpected import-time fault (not a plain ImportError) must not be
+        # swallowed silently: surface it for debugging, then still fall back so
+        # this diagnostic never changes the gate's fail-closed decision.
+        logger.warning(
+            "Unexpected error importing ama_cryptography.exceptions while "
+            "classifying a PQC-backend failure; falling back to string probe.",
+            exc_info=True,
+        )
+    else:
         if isinstance(exc, PQCUnavailableError):
             return True
-    except Exception:
-        pass
     return "PQC_UNAVAILABLE" in str(exc)
 
 
