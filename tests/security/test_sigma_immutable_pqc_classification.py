@@ -9,6 +9,7 @@ known build/deployment condition precisely (so operators get an actionable
 message) — and it must still fail closed, recording a corpus error so every
 subsequent ``enforce`` blocks. These tests pin both properties.
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

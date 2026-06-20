@@ -201,9 +201,9 @@ class TestMultiscaleTTA:
         """Pooled TTA scores stay in [0, 1] with the input length, both pools."""
         X, _ = _make_temporal_series(1)
         for pool in ("mean", "max"):
-            det = MercuryAnomalyDetector(
-                {"multiscale_tta": True, "multiscale_tta_pool": pool}
-            ).fit(X)
+            det = MercuryAnomalyDetector({"multiscale_tta": True, "multiscale_tta_pool": pool}).fit(
+                X
+            )
             s = _scores(det, X)
             assert s.shape == (X.shape[0],)
             assert np.all(s >= 0.0) and np.all(s <= 1.0)
@@ -245,9 +245,9 @@ class TestMultiscaleTTA:
             base = MercuryAnomalyDetector().fit(X)
             tta = MercuryAnomalyDetector({"multiscale_tta": True}).fit(X)  # default mean
             deltas.append(_auroc(y, _scores(tta, X)) - _auroc(y, _scores(base, X)))
-        assert float(np.mean(deltas)) >= -0.02, (
-            f"mean-pool TTA degraded AUROC by {np.mean(deltas):+.4f} (> 0.02 band)"
-        )
+        assert (
+            float(np.mean(deltas)) >= -0.02
+        ), f"mean-pool TTA degraded AUROC by {np.mean(deltas):+.4f} (> 0.02 band)"
 
 
 if __name__ == "__main__":

@@ -104,7 +104,7 @@ MercuryAnomalyDetector.detect(data)
     │   ├─ multiplier = influence_vector.influence_multiplier
     │   └─ combined = combined * multiplier
     │
-    ├─ if _data_type == TEMPORAL and n >= max(50, 10*d):   # not a shape proxy
+    ├─ if _data_type == TEMPORAL and n >= max(50, 10*d):   # data-type gated; n-bound = rFFT min-length guard, not a temporality proxy
     │   └─ combined = _residual_frequency_filter(combined) # rFFT band-pass
     │
     ├─ if multiscale_tta and _data_type == TEMPORAL:        # opt-in, DEFAULT-OFF
