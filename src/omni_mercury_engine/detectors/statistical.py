@@ -247,7 +247,15 @@ class MercuryAnomalyDetector(BaseDetector):
         # K x scoring compute. ``_in_multiscale_tta`` guards the recursive
         # per-scale detect() calls so the augmentation never re-enters itself.
         self._multiscale_tta_enabled: bool = bool(self.config.get("multiscale_tta", False))
-        self._multiscale_tta_pool: str = str(self.config.get("multiscale_tta_pool", "mean"))
+        # Normalise + validate the pool so misconfiguration (e.g. "Mean", stray
+        # whitespace, typos) fails loud instead of silently defaulting to mean.
+        _pool = str(self.config.get("multiscale_tta_pool", "mean")).strip().lower()
+        if _pool not in ("mean", "max"):
+            raise ValueError(
+                "multiscale_tta_pool must be 'mean' or 'max', got "
+                f"{self.config.get('multiscale_tta_pool')!r}"
+            )
+        self._multiscale_tta_pool: str = _pool
         self._in_multiscale_tta: bool = False
 
         # Oracle detector (set during fit if data is temporal)

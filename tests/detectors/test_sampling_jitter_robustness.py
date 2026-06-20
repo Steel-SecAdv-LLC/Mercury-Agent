@@ -210,6 +210,16 @@ class TestMultiscaleTTA:
             assert np.all(s >= 0.0) and np.all(s <= 1.0)
             assert np.all(np.isfinite(s))
 
+    def test_invalid_pool_fails_loud(self) -> None:
+        """An unrecognised pool value raises instead of silently meaning 'mean'."""
+        with pytest.raises(ValueError, match="multiscale_tta_pool"):
+            MercuryAnomalyDetector({"multiscale_tta_pool": "median"})
+
+    def test_pool_value_is_normalised(self) -> None:
+        """Case / whitespace variants normalise rather than falling back to mean."""
+        det = MercuryAnomalyDetector({"multiscale_tta_pool": " MAX "})
+        assert det._multiscale_tta_pool == "max"
+
     def test_tta_max_improves_collective_anomalies(self) -> None:
         """Max-pool TTA improves AUROC on collective (regime-change) anomalies.
 
