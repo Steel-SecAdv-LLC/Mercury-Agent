@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import time
 import warnings
 from pathlib import Path
@@ -30,6 +31,12 @@ from typing import Any
 import numpy as np
 
 warnings.filterwarnings("ignore")
+
+# Runnable from a fresh checkout without an editable install: put the repo's
+# src/ on sys.path before importing the engine (mirrors benchmarks/*.py).
+_SRC = Path(__file__).resolve().parents[2] / "src"
+if _SRC.is_dir() and str(_SRC) not in sys.path:
+    sys.path.insert(0, str(_SRC))
 
 from omni_mercury_engine.datasets.adbench import ADBenchLoader
 from omni_mercury_engine.datasets.base import DatasetConfig

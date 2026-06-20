@@ -79,10 +79,11 @@ _TIKHONOV_LAMBDA: float = 1e-6
 # components. The transform is monotone and self-correcting — genuinely
 # temporal data gives kinematic a genuinely high AUC that survives the power.
 #
-# P=4 was selected on the 18-set ADBench harness (Mean AUROC 0.774 -> 0.790,
-# 13 W / 3 L with losses <=0.4 pt; biggest wins where kinematic was most
-# over-weighted: wine, glass, PageBlocks, magic, cardio). P=1 reproduces the
-# pre-sharpening behaviour exactly, which the regression tests assert.
+# P=4 sharpens the fusion-weight margins; on the committed 18-set ADBench
+# harness (research/omni_equation/harness_adbench.py) the biggest wins land
+# where kinematic was most over-weighted: wine, glass, PageBlocks, cardio.
+# P=1 reproduces the pre-sharpening behaviour exactly, which the regression
+# tests assert.
 _WEIGHT_MARGIN_POWER: float = 4.0
 
 # Data-type gate thresholds (see ``_detect_data_characteristics``). Two
