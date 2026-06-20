@@ -1,7 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Sampling-jitter robustness characterization (Rec 4) and multi-scale
-time-dilation TTA invariants (Rec 3).
+"""Sampling-jitter robustness characterization (Rec 4) and multi-scale time-dilation TTA invariants (Rec 3).
 
 These tests pin two related temporal behaviours of
 :class:`MercuryAnomalyDetector`:
