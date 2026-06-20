@@ -23,6 +23,8 @@ characterize behaviour without being brittle to numpy/scipy point releases.
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pytest
 from scipy.stats import rankdata, spearmanr
@@ -269,7 +271,7 @@ class TestMultiscaleTTA:
                 self.seen_lengths: list[int] = []
                 self.alpha_at_call: list[float] = []
 
-            def detect(self, data: np.ndarray) -> dict:
+            def detect(self, data: np.ndarray) -> dict[str, Any]:
                 self.seen_lengths.append(int(data.shape[0]))
                 self.alpha_at_call.append(float(self._dynamic_alpha_factor))
                 iv = types.SimpleNamespace(influence_multiplier=1.0)
