@@ -105,6 +105,44 @@ ADRepository mirror, which silently substitutes synthetic data. Re-run:
   invariants (default-off byte-identity, temporal-only gating, valid pooled
   scores, collective-anomaly improvement).
 
+### Data loaders: close the ADRepository silent-synthetic fallback, repoint the moved mirror
+
+Removes the last silent synthetic-data fallback on the dataset layer — the exact
+foot-gun that contaminated the superseded `0.7804 → 0.8142` headline. The
+`ADRepositoryLoader` previously called `_create_synthetic_fallback()` directly in
+three `except`/fallback sites with **no policy check**, so a moved mirror or an
+unreachable host returned fabricated data that downstream code could not
+distinguish from real signal. Every other dataset loader already routed synthetic
+generation through `check_synthetic_allowed()`; ADRepository was the sole holdout
+(confirmed by a full per-loader audit).
+
+* **Fail loud by default (root-cause fix).** `_create_synthetic_fallback()` is now
+  the single synthetic chokepoint and self-gates on `MERCURY_ALLOW_SYNTHETIC` via
+  `check_synthetic_allowed()`. With the policy off (the default) it raises
+  `DataSourceUnavailableError` with context; with `MERCURY_ALLOW_SYNTHETIC=1` it
+  honours the opt-in and marks the result `is_real_data=False` / `synthetic=True`.
+  No production path can fabricate data without the explicit deployment opt-in.
+* **Repoint the moved mirror.** The ADRepository corpus moved
+  `GuansongPang → mala-lab`; the old `github.com/.../raw/main/` form 301-redirects
+  to `raw.githubusercontent.com`, which the SSRF-safe HTTP client refuses to
+  follow — the failure that triggered the silent fallback. The loader now pins
+  directly to the `raw.githubusercontent.com` mala-lab path (already on the
+  trusted-domain allowlist, no redirect) and uses the real DevNet filenames
+  (`annthyroid_21feat_normalised.csv`, `creditcardfraud_normalised.tar.xz`, …),
+  with a single canonical source per dataset so a name always resolves to the
+  same composition. `.tar.xz` archives are now supported alongside `.csv`/`.npz`,
+  with path-traversal (tar-slip / zip-slip) guards on both extraction paths.
+* **Allowlist ODDS.** `odds.cs.stonybrook.edu` (Outlier Detection DataSets, Stony
+  Brook) is added to `TrustedEndpoints.TRUSTED_DOMAINS` so the loader's ODDS
+  `.mat` path clears SSRF validation instead of failing into synthetic.
+* **Tests.** `tests/datasets/test_adrepository.py` gains a `TestSyntheticPolicyGate`
+  class (chokepoint raises when policy off; production load fails loud on an
+  unreachable source; opt-in synthetic is labelled; time-series sets with no
+  mirror fail loud) and a network-lane `TestADRepositoryRealMirror` that loads
+  real thyroid (CSV) and backdoor (`.tar.xz`) from the repointed mirror with
+  synthetic denied (real-or-raise). The transductive ADBench headline is
+  unaffected — that harness uses the already-clean `ADBenchLoader`.
+
 ## [2.0.0] - 2026-06-17
 
 ### Docs↔code reconciliation + release-engineering pass (2026-06-17)

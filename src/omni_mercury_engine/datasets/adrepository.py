@@ -19,6 +19,7 @@ Datasets include:
 from __future__ import annotations
 
 import logging
+import tarfile
 import zipfile
 from typing import TYPE_CHECKING, Any, TypedDict
 
@@ -50,8 +51,52 @@ class ODDSDatasetInfo(TypedDict, total=False):
 
 
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry, safe_urlretrieve
+from .exceptions import DataSourceUnavailableError, check_synthetic_allowed
 
 logger = logging.getLogger(__name__)
+
+
+def _safe_extract_tar(tf: tarfile.TarFile, dest: Path) -> None:
+    """Extract a tar archive, refusing path-traversal and non-regular members.
+
+    Tar archives from external mirrors (unlike the pure-numpy ADBench ``.npz``
+    files) can carry absolute paths, ``..`` escapes, symlinks and device nodes.
+    We resolve every member against ``dest`` and extract only regular files and
+    directories that stay inside it — a tar-slip guard for the DevNet mirror.
+    """
+    dest = dest.resolve()
+    safe_members: list[tarfile.TarInfo] = []
+    for member in tf.getmembers():
+        if not (member.isfile() or member.isdir()):
+            logger.warning("Skipping non-regular tar member %r in %s", member.name, dest)
+            continue
+        target = (dest / member.name).resolve()
+        if target != dest and dest not in target.parents:
+            raise RuntimeError(
+                f"Refusing tar member {member.name!r}: it escapes the extraction directory."
+            )
+        safe_members.append(member)
+    tf.extractall(dest, members=safe_members)  # noqa: S202 - members validated above
+
+
+def _safe_extract_zip(zf: zipfile.ZipFile, dest: Path) -> None:
+    """Extract a zip archive, refusing path-traversal members (zip-slip guard).
+
+    Mirrors :func:`_safe_extract_tar` for the ``.zip`` time-series archives:
+    every member is resolved against ``dest`` and anything that would land
+    outside it is refused before extraction.
+    """
+    dest = dest.resolve()
+    safe_names: list[str] = []
+    for name in zf.namelist():
+        target = (dest / name).resolve()
+        if target != dest and dest not in target.parents:
+            raise RuntimeError(
+                f"Refusing zip member {name!r}: it escapes the extraction directory."
+            )
+        safe_names.append(name)
+    zf.extractall(dest, members=safe_names)  # noqa: S202 - members validated above
+
 
 # =============================================================================
 # ADRepository Dataset Metadata
@@ -66,7 +111,7 @@ ADREPOSITORY_DATASETS: dict[str, DatasetMetadata] = {
         "domain": "finance",
         "description": "Credit card fraud detection dataset",
         "url": "https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud",
-        "file": "creditcard.csv",
+        "file": "creditcardfraud_normalised.tar.xz",
     },
     "backdoor": {
         "samples": 95329,
@@ -75,7 +120,7 @@ ADREPOSITORY_DATASETS: dict[str, DatasetMetadata] = {
         "domain": "security",
         "description": "Network intrusion backdoor detection",
         "url": "https://research.unsw.edu.au/projects/unsw-nb15-dataset",
-        "file": "UNSW_NB15_training-set.csv",
+        "file": "UNSW_NB15_traintest_backdoor.tar.xz",
     },
     "campaign": {
         "samples": 41188,
@@ -84,7 +129,7 @@ ADREPOSITORY_DATASETS: dict[str, DatasetMetadata] = {
         "domain": "marketing",
         "description": "Bank marketing campaign success prediction",
         "url": "https://archive.ics.uci.edu/ml/datasets/bank+marketing",
-        "file": "bank-additional-full.csv",
+        "file": "bank-additional-full_normalised.csv",
     },
     "thyroid": {
         "samples": 7200,
@@ -93,7 +138,7 @@ ADREPOSITORY_DATASETS: dict[str, DatasetMetadata] = {
         "domain": "medical",
         "description": "Thyroid disease detection",
         "url": "https://archive.ics.uci.edu/ml/datasets/thyroid+disease",
-        "file": "thyroid.npz",
+        "file": "annthyroid_21feat_normalised.csv",
     },
     "donors": {
         "samples": 619326,
@@ -102,7 +147,7 @@ ADREPOSITORY_DATASETS: dict[str, DatasetMetadata] = {
         "domain": "nonprofit",
         "description": "KDD Cup 2014 donor prediction",
         "url": "https://www.kaggle.com/c/kdd-cup-2014-predicting-excitement-at-donors-choose",
-        "file": "donors.npz",
+        "file": "KDD2014_donors_10feat_nomissing_normalised.csv",
     },
     "census": {
         "samples": 299285,
@@ -111,7 +156,7 @@ ADREPOSITORY_DATASETS: dict[str, DatasetMetadata] = {
         "domain": "demographics",
         "description": "US Census income prediction (high-income as anomaly)",
         "url": "https://archive.ics.uci.edu/ml/datasets/census+income",
-        "file": "census.npz",
+        "file": "census-income-full-mixed-binarized.tar.xz",
     },
     "celeba": {
         "samples": 202599,
@@ -120,7 +165,7 @@ ADREPOSITORY_DATASETS: dict[str, DatasetMetadata] = {
         "domain": "vision",
         "description": "Celebrity face attributes (bald as anomaly)",
         "url": "http://mmlab.ie.cuhk.edu.hk/projects/CelebA.html",
-        "file": "celeba.npz",
+        "file": "celeba_baldvsnonbald_normalised.csv",
     },
     # Time series datasets
     "smd": {
@@ -184,11 +229,28 @@ class ADRepositoryLoader(DatasetLoader):
     A review. ACM Computing Surveys. 2021;54(2):1-38."""
     REQUIRES_CREDENTIALS = False
 
-    # Mirror URLs for preprocessed datasets
-    MIRROR_URLS = {
-        "primary": "https://github.com/GuansongPang/ADRepository-Anomaly-detection-datasets/raw/main/",
-        "fallback": "https://raw.githubusercontent.com/mala-lab/ADRepository-Anomaly-detection-datasets/main/",
-    }
+    # Canonical raw mirror. The ADRepository dataset corpus moved
+    # ``GuansongPang`` -> ``mala-lab``; the old ``github.com/.../raw/main/``
+    # form issues a 301 to ``raw.githubusercontent.com`` that the SSRF-safe
+    # HTTP client refuses to follow by design, which is what silently routed
+    # this loader to synthetic data. Pin directly to ``raw.githubusercontent``
+    # (already on ``TrustedEndpoints.TRUSTED_DOMAINS``) so no redirect is
+    # involved. The DevNet tabular sets live under ``numerical data/DevNet
+    # datasets/`` with spaces in the path — the loader URL-encodes them.
+    MIRROR_BASE = (
+        "https://raw.githubusercontent.com/mala-lab/"
+        "ADRepository-Anomaly-detection-datasets/main/"
+    )
+    DEVNET_FOLDER = "numerical data/DevNet datasets"
+
+    # Tabular DevNet sets the mala-lab mirror actually serves (verified
+    # reachable). The time-series sets (smd/swat/dsads/epilepsy) are NOT in
+    # this mirror — they are served by their dedicated loaders (SMDLoader,
+    # SWaTLoader, ...), so this loader fails loud for them rather than
+    # silently fabricating data.
+    _DEVNET_TABULAR = frozenset(
+        {"fraud", "backdoor", "campaign", "thyroid", "donors", "census", "celeba"}
+    )
 
     # ODDS (Outlier Detection DataSets) - Stony Brook University
     # These are VERIFIED working URLs for real anomaly detection datasets
@@ -258,17 +320,27 @@ class ADRepositoryLoader(DatasetLoader):
         return self._is_real_data
 
     def download(self) -> bool:
-        """Download dataset from ADRepository or original source.
+        """Download the dataset from its canonical real-data mirror.
+
+        Real data only by default. If the real fetch fails, the synthetic
+        path is *attempted* but :meth:`_create_synthetic_fallback` self-gates
+        on ``MERCURY_ALLOW_SYNTHETIC`` and re-raises
+        :class:`DataSourceUnavailableError` when synthetic is forbidden (the
+        default) — so this method never silently degrades to fabricated data.
 
         Returns:
-            True if download successful, False otherwise.
+            True when real (or, only when explicitly permitted, synthetic)
+            data was obtained.
+
+        Raises:
+            DataSourceUnavailableError: the real source was unreachable and
+                ``MERCURY_ALLOW_SYNTHETIC`` is not set.
         """
         try:
             return self._download_from_repository()
         except Exception as e:
-            logger.warning(f"Failed to download real data: {e}")
-            logger.info("Falling back to synthetic approximation")
-            return self._create_synthetic_fallback()
+            logger.warning("ADRepository %s: real download failed: %s", self.dataset_name, e)
+            return self._create_synthetic_fallback(reason=f"download failed: {e}")
 
     def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load raw data from files (implements abstract method)."""
@@ -301,8 +373,8 @@ class ADRepositoryLoader(DatasetLoader):
             self._load_from_file(local_path)
 
         if self._features is None:
-            # Use synthetic fallback
-            self._create_synthetic_fallback()
+            # Real load produced nothing usable. Gate before fabricating.
+            self._create_synthetic_fallback(reason="download succeeded but no features were parsed")
 
         # Type guard for mypy - at this point both should be set
         if self._features is None or self._raw_labels is None:
@@ -318,98 +390,98 @@ class ADRepositoryLoader(DatasetLoader):
         return np.asarray((data - mean) / std)  # type: ignore[no-any-return, unused-ignore]
 
     def _download_from_repository(self) -> bool:
-        """Download from ODDS or ADRepository GitHub."""
+        """Fetch the dataset from its single canonical real-data source.
+
+        DevNet tabular sets come from the mala-lab ``raw.githubusercontent``
+        mirror — one source per dataset, so a given name always resolves to the
+        same composition (no count-ambiguous multi-mirror racing). Any failure
+        propagates so the caller applies the synthetic policy gate; this method
+        never substitutes data on its own.
+
+        Raises:
+            DataSourceUnavailableError: no canonical mirror serves this set
+                (e.g. the time-series sets, which have their own loaders), or
+                the set requires credentials.
+        """
+        from urllib.parse import quote
+
         dataset_dir = self.data_path / self.dataset_name
         dataset_dir.mkdir(parents=True, exist_ok=True)
 
-        # Try ODDS URLs first (verified working)
-        if self.dataset_name in self.ODDS_URLS:
-            odds_info = self.ODDS_URLS[self.dataset_name]
-
-            # Check if requires authentication (e.g., Kaggle)
-            if odds_info.get("requires_auth"):
-                instructions = odds_info.get("instructions", "Authentication required")
-                logger.warning(
-                    f"Dataset '{self.dataset_name}' requires authentication. " f"{instructions}"
-                )
-                raise ValueError(
-                    f"Dataset '{self.dataset_name}' requires authentication. " f"{instructions}"
-                )
-
-            url = odds_info["url"]
-            file_ext = odds_info["format"]
-            local_path = dataset_dir / f"{self.dataset_name}.{file_ext}"
-
-            if local_path.exists():
-                logger.info(f"Dataset already exists at {local_path}")
-                self._is_real_data = True
-                return True
-
-            try:
-                logger.info(f"Downloading {self.dataset_name} from ODDS: {url}")
-                safe_urlretrieve(url, str(local_path))
-                self._is_real_data = True
-                logger.info(f"Successfully downloaded ODDS dataset to {local_path}")
-                return True
-            except Exception as e:
-                logger.warning(f"ODDS download failed: {e}")
-
-        # Fallback to ADRepository GitHub mirrors
-        # Determine folder based on dataset type
-        if self.dataset_name in ["smd", "swat", "dsads", "epilepsy"]:
-            folder = "Time%20Series"
-        elif self.dataset_name in [
-            "fraud",
-            "backdoor",
-            "campaign",
-            "thyroid",
-            "donors",
-            "census",
-            "celeba",
-        ]:
-            folder = "Numerical%20Data%20(DevNet)"
-        else:
-            folder = "Numerical%20Data%20(DevNet)"
-
         filename = self.dataset_info["file"]
         local_path = dataset_dir / filename
-
         if local_path.exists():
-            logger.info(f"Dataset already exists at {local_path}")
+            logger.info("ADRepository %s already cached at %s", self.dataset_name, local_path)
             self._is_real_data = True
             return True
 
-        # Try primary mirror
-        url = f"{self.MIRROR_URLS['primary']}{folder}/{filename}"
-        try:
-            logger.info(f"Downloading {self.dataset_name} from {url}")
+        if self.dataset_name in self._DEVNET_TABULAR:
+            # ``quote`` encodes the spaces in "numerical data/DevNet datasets"
+            # and any spaces in the filename; the slash structure is preserved
+            # because we encode the folder and filename segments separately.
+            url = f"{self.MIRROR_BASE}{quote(self.DEVNET_FOLDER)}/{quote(filename)}"
+            logger.info("Downloading ADRepository %s from %s", self.dataset_name, url)
             safe_urlretrieve(url, str(local_path))
             self._is_real_data = True
-            logger.info(f"Successfully downloaded to {local_path}")
+            logger.info(
+                "Successfully downloaded ADRepository %s to %s", self.dataset_name, local_path
+            )
             return True
-        except Exception as e:
-            logger.warning(f"Primary mirror failed: {e}")
 
-        # Try fallback mirror
-        url = f"{self.MIRROR_URLS['fallback']}{folder}/{filename}"
-        try:
-            logger.info(f"Trying fallback mirror: {url}")
-            safe_urlretrieve(url, str(local_path))
+        # ODDS-only sets (host now allowlisted in TrustedEndpoints). None of the
+        # currently-registered datasets are ODDS-canonical, but keep the path so
+        # a future .mat-only set works without re-plumbing.
+        if self.dataset_name in self.ODDS_URLS:
+            odds_info = self.ODDS_URLS[self.dataset_name]
+            if odds_info.get("requires_auth"):
+                raise DataSourceUnavailableError(
+                    loader_name=f"ADRepository-{self.dataset_name}",
+                    source_url=odds_info.get("url", ""),
+                    reason=odds_info.get("instructions", "authentication required"),
+                )
+            odds_path = dataset_dir / f"{self.dataset_name}.{odds_info['format']}"
+            logger.info(
+                "Downloading ADRepository %s from ODDS: %s", self.dataset_name, odds_info["url"]
+            )
+            safe_urlretrieve(odds_info["url"], str(odds_path))
             self._is_real_data = True
-            logger.info("Successfully downloaded from fallback")
             return True
-        except Exception as e:
-            logger.warning(f"Fallback mirror failed: {e}")
-            raise
 
-    def _create_synthetic_fallback(self) -> bool:
-        """Create synthetic approximation when real data unavailable.
+        raise DataSourceUnavailableError(
+            loader_name=f"ADRepository-{self.dataset_name}",
+            reason=(
+                "no canonical real-data mirror for this set; the time-series sets "
+                "(smd/swat/dsads/epilepsy) are served by their dedicated loaders "
+                "(SMDLoader, SWaTLoader, SMAPMSLLoader)."
+            ),
+        )
 
-        This is a FALLBACK only. Real data should be preferred.
+    def _create_synthetic_fallback(self, reason: str = "real data unavailable") -> bool:
+        """Create a synthetic approximation — only when policy permits it.
+
+        This is the single synthetic chokepoint for the loader. It self-gates
+        on ``MERCURY_ALLOW_SYNTHETIC`` via
+        :func:`~omni_mercury_engine.datasets.exceptions.check_synthetic_allowed`,
+        which raises :class:`DataSourceUnavailableError` when synthetic is
+        forbidden (the default). Every internal call site routes through here,
+        so no production path can fabricate data without the explicit opt-in —
+        this is the closure for the silent-synthetic foot-gun. The metadata is
+        marked ``is_real_data=False`` so a permitted synthetic run can never be
+        mistaken for real signal.
+
+        Args:
+            reason: Human-readable explanation of why real data was
+                unavailable, surfaced in logs and in the raised error.
         """
+        # Fail loud unless the deployment explicitly opted into synthetic.
+        check_synthetic_allowed(f"ADRepository-{self.dataset_name}", reason)
+
         logger.warning(
-            f"Creating SYNTHETIC approximation for {self.dataset_name}. "
-            "Results may not reflect real-world performance."
+            "ADRepository %s: returning SYNTHETIC approximation "
+            "(MERCURY_ALLOW_SYNTHETIC=1). Results do NOT reflect real-world "
+            "performance. Reason: %s",
+            self.dataset_name,
+            reason,
         )
 
         rng = np.random.default_rng(self.config.random_seed)
@@ -512,11 +584,30 @@ class ADRepositoryLoader(DatasetLoader):
                 self._raw_labels = df.iloc[:, -1].values.astype(np.int64)
                 self._is_real_data = True
 
+            elif suffix in (".xz", ".tar"):
+                # The DevNet mirror ships several sets as a single CSV inside a
+                # ``.tar.xz``. Extract with the tar-slip guard, then load the
+                # CSV exactly like the plain-``.csv`` path (last column=label).
+                import pandas as pd
+
+                extract_dir = path.parent / f"{path.name}_extracted"
+                extract_dir.mkdir(parents=True, exist_ok=True)
+                with tarfile.open(path, "r:*") as tf:
+                    _safe_extract_tar(tf, extract_dir)
+
+                csv_members = sorted(extract_dir.rglob("*.csv"))
+                if not csv_members:
+                    raise RuntimeError(f"No CSV member found inside archive '{path.name}'.")
+                df = pd.read_csv(csv_members[0])
+                self._features = df.iloc[:, :-1].values.astype(np.float32)
+                self._raw_labels = df.iloc[:, -1].values.astype(np.int64)
+                self._is_real_data = True
+
             elif suffix == ".zip":
-                # Extract and load
+                # Extract and load (zip-slip guarded)
                 extract_dir = path.parent / path.stem
                 with zipfile.ZipFile(path, "r") as zf:
-                    zf.extractall(extract_dir)
+                    _safe_extract_zip(zf, extract_dir)
 
                 # Find npz or csv files
                 for f in extract_dir.rglob("*.npz"):
@@ -592,6 +683,10 @@ class ADRepositoryLoader(DatasetLoader):
             "description": info["description"],
             "original_url": info["url"],
             "is_real_data": self._is_real_data,
+            # Explicit, positively-named flag so callers that check
+            # ``meta["synthetic"]`` (the harness convention) see the honest
+            # value rather than having to invert ``is_real_data``.
+            "synthetic": not self._is_real_data,
             "citation": self.CITATION,
         }
 
