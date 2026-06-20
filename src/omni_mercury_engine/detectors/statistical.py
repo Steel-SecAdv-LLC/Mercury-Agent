@@ -2812,7 +2812,10 @@ class MercuryAnomalyDetector(BaseDetector):
         scores are interpolated back to the original length and pooled (mean or
         max). ``base_scores`` is the already-computed scale-1.0 vector, so the
         unit scale is never recomputed. ``_in_multiscale_tta`` is held for the
-        duration so the nested ``detect`` calls take the plain scoring path.
+        duration so the nested ``detect`` calls take the plain scoring path, and
+        the oracle-related mutable state those calls touch (``_oracle_metadata``
+        and the Oracle's ``_dynamic_alpha_factor``) is snapshotted and restored
+        so the instance reflects the outer real-length pass, not a dilation.
 
         Args:
             data: Input series of shape ``(T, n_features)``.
@@ -2823,6 +2826,21 @@ class MercuryAnomalyDetector(BaseDetector):
         """
         length = data.shape[0]
         stack: list[np.ndarray[Any, Any]] = [np.asarray(base_scores, dtype=np.float64)]
+
+        # Each nested detect() below re-runs the full ensemble on a *dilated*
+        # view of the series, which overwrites the instance's oracle-related
+        # mutable state — ``self._oracle_metadata`` and, when an Oracle is
+        # attached, its ``_dynamic_alpha_factor`` — with values computed for the
+        # resampled length. Snapshot that state and restore it after pooling so
+        # that once the outer detect() returns, the instance still reflects the
+        # real-length detection (matching the returned ``oracle_metadata``)
+        # rather than the last dilation, which would mislead any downstream
+        # inspection of these attributes.
+        saved_oracle_metadata = self._oracle_metadata
+        oracle = self._oracle_detector
+        saved_alpha_factor = (
+            getattr(oracle, "_dynamic_alpha_factor", None) if oracle is not None else None
+        )
 
         self._in_multiscale_tta = True
         try:
@@ -2838,6 +2856,9 @@ class MercuryAnomalyDetector(BaseDetector):
                 stack.append(self._resample_1d(inner_scores, length))
         finally:
             self._in_multiscale_tta = False
+            self._oracle_metadata = saved_oracle_metadata
+            if oracle is not None and saved_alpha_factor is not None:
+                oracle._dynamic_alpha_factor = saved_alpha_factor
 
         stacked = np.vstack(stack)
         if self._multiscale_tta_pool == "max":

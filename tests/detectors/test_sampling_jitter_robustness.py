@@ -1,18 +1,18 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Sampling-jitter robustness characterization (Rec 4) and multi-scale time-dilation TTA invariants (Rec 3).
+"""Sampling-jitter robustness characterization and multi-scale time-dilation TTA invariants.
 
 These tests pin two related temporal behaviours of
 :class:`MercuryAnomalyDetector`:
 
-* **Rec 4 — jitter tolerance band.** Clock skew / sampling-rate drift perturbs
+* **Jitter tolerance band.** Clock skew / sampling-rate drift perturbs
   the sampling grid of a temporal feed. The ensemble *does* degrade under this
   (a documented limitation, not an invariance claim), so the test asserts a
   tolerance *band*: the AUROC loss stays bounded and the score ranking stays
   correlated with the unperturbed ranking. It fails loudly if robustness
   regresses past the band.
 
-* **Rec 3 — multi-scale TTA.** The opt-in ``multiscale_tta`` path is DEFAULT-OFF
+* **Multi-scale TTA.** The opt-in ``multiscale_tta`` path is DEFAULT-OFF
   and byte-identical when off (Invariant I2), activates only on TEMPORAL data,
   produces valid scores, and recovers part of the accuracy lost to *global*
   sampling-rate drift (one of its dilation scales realigns the series).
@@ -130,7 +130,7 @@ def _scores(det: MercuryAnomalyDetector, X: np.ndarray) -> np.ndarray:
 
 
 # ===========================================================================
-# Rec 4 — sampling-jitter tolerance band (characterization)
+# Sampling-jitter tolerance band (characterization)
 # ===========================================================================
 class TestSamplingJitterTolerance:
     """Characterize, with a documented band, how jitter degrades detection."""
@@ -174,7 +174,7 @@ class TestSamplingJitterTolerance:
 
 
 # ===========================================================================
-# Rec 3 — multi-scale TTA invariants + rate-drift mitigation
+# Multi-scale TTA invariants + rate-drift mitigation
 # ===========================================================================
 class TestMultiscaleTTA:
     """Opt-in DEFAULT-OFF TTA: invariants, gating, and drift recovery."""
@@ -247,6 +247,55 @@ class TestMultiscaleTTA:
         assert (
             float(np.mean(deltas)) >= -0.02
         ), f"mean-pool TTA degraded AUROC by {np.mean(deltas):+.4f} (> 0.02 band)"
+
+    def test_tta_restores_oracle_state(self) -> None:
+        """Regression: the nested detect() calls in the TTA path must not leave
+        instance state describing a *dilated* series.
+
+        Each inner detect() re-runs the ensemble on a resampled view and
+        overwrites ``_oracle_metadata`` and the Oracle's ``_dynamic_alpha_factor``.
+        After the outer detect() returns, those attributes must match the
+        real-length result, not the last dilation.
+        """
+        import types
+
+        class _StubOracle:
+            """Minimal Oracle whose metadata is length-dependent, so a leaked
+            dilation value is observable."""
+
+            def __init__(self) -> None:
+                self._dynamic_alpha_factor = 1.0
+                self._oracle_config = types.SimpleNamespace(domain="stub")
+                self.seen_lengths: list[int] = []
+                self.alpha_at_call: list[float] = []
+
+            def detect(self, data: np.ndarray) -> dict:
+                self.seen_lengths.append(int(data.shape[0]))
+                self.alpha_at_call.append(float(self._dynamic_alpha_factor))
+                iv = types.SimpleNamespace(influence_multiplier=1.0)
+                return {
+                    "influence_vector": iv,
+                    "band_results": [],
+                    "n_change_points": int(data.shape[0]),
+                }
+
+        X, _ = _make_temporal_series(0)
+        det = MercuryAnomalyDetector({"multiscale_tta": True}).fit(X)
+        oracle = _StubOracle()
+        det._oracle_detector = oracle
+
+        result = det.detect(X)
+
+        # TTA must actually have exercised dilated lengths (else the test is moot).
+        assert any(n != X.shape[0] for n in oracle.seen_lengths)
+        # The returned metadata describes the real-length pass...
+        assert result["oracle_metadata"]["change_points"] == X.shape[0]
+        # ...and the instance attribute matches it, not a dilation leak.
+        assert det._oracle_metadata == result["oracle_metadata"]
+        assert det._oracle_metadata["change_points"] == X.shape[0]
+        # The Oracle's per-call factor is restored to the outer (first) call's
+        # value, not whatever the last dilation set.
+        assert det._oracle_detector._dynamic_alpha_factor == pytest.approx(oracle.alpha_at_call[0])
 
 
 if __name__ == "__main__":
