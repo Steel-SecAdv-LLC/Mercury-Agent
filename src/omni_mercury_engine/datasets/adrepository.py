@@ -41,15 +41,6 @@ class DatasetMetadata(TypedDict):
     file: str
 
 
-class ODDSDatasetInfo(TypedDict, total=False):
-    """Type definition for ODDS dataset info."""
-
-    url: str
-    format: str
-    requires_auth: bool
-    instructions: str
-
-
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry, safe_urlretrieve
 from .exceptions import DataSourceUnavailableError, check_synthetic_allowed
 
@@ -233,48 +224,31 @@ class ADRepositoryLoader(DatasetLoader):
     DEVNET_FOLDER = "numerical data/DevNet datasets"
 
     # Tabular DevNet sets the mala-lab mirror actually serves (verified
-    # reachable). The time-series sets (smd/swat/dsads/epilepsy) are NOT in
-    # this mirror — they are served by their dedicated loaders (SMDLoader,
-    # SWaTLoader, ...), so this loader fails loud for them rather than
-    # silently fabricating data.
+    # reachable end-to-end). The time-series sets (smd/swat/dsads/epilepsy) are
+    # NOT in this mirror; they are handled in ``_load_raw`` — delegated to a
+    # dedicated loader where one exists (_TIMESERIES_DELEGATES) or failed loud
+    # with a named closing step otherwise (_TIMESERIES_NO_LOADER). Either way
+    # this loader never fabricates them.
     _DEVNET_TABULAR = frozenset(
         {"fraud", "backdoor", "campaign", "thyroid", "donors", "census", "celeba"}
     )
 
-    # ODDS (Outlier Detection DataSets) - Stony Brook University
-    # These are VERIFIED working URLs for real anomaly detection datasets
-    # Reference: https://odds.cs.stonybrook.edu/
-    ODDS_URLS: dict[str, ODDSDatasetInfo] = {
-        "thyroid": {
-            "url": "https://odds.cs.stonybrook.edu/wp-content/uploads/2016/04/thyroid.mat",
-            "format": "mat",
-        },
-        "smtp": {
-            "url": "https://odds.cs.stonybrook.edu/wp-content/uploads/2016/04/smtp.mat",
-            "format": "mat",
-        },
-        "satellite": {
-            "url": "https://odds.cs.stonybrook.edu/wp-content/uploads/2016/04/satellite.mat",
-            "format": "mat",
-        },
-        "pendigits": {
-            "url": "https://odds.cs.stonybrook.edu/wp-content/uploads/2016/04/pendigits.mat",
-            "format": "mat",
-        },
-        "mammography": {
-            "url": "https://odds.cs.stonybrook.edu/wp-content/uploads/2016/04/mammography.mat",
-            "format": "mat",
-        },
-        "shuttle": {
-            "url": "https://odds.cs.stonybrook.edu/wp-content/uploads/2016/04/shuttle.mat",
-            "format": "mat",
-        },
-        "fraud": {
-            "url": "kaggle://mlg-ulb/creditcardfraud/creditcard.csv",
-            "format": "csv",
-            "requires_auth": True,
-            "instructions": "Run: kaggle datasets download -d mlg-ulb/creditcardfraud",
-        },
+    # Time-series sets are NOT in the DevNet tabular mirror. Those with a
+    # dedicated Mercury loader are delegated to it (the loader owns the real
+    # fetch and fails loud when it can't); the mapping is name -> (module,
+    # class). The legacy ODDS (Stony Brook) path was removed: the host is dead
+    # (503) and no registered dataset name ever routed through it.
+    _TIMESERIES_DELEGATES: dict[str, tuple[str, str]] = {
+        "smd": ("omni_mercury_engine.datasets.timeseries", "SMDLoader"),
+        "swat": ("omni_mercury_engine.datasets.industrial", "SWaTLoader"),
+    }
+
+    # Time-series sets with a documented real upstream but no dedicated Mercury
+    # loader yet (mala-lab "time series data/readme.md"). They fail loud naming
+    # the source and the exact closing step — they are never fabricated.
+    _TIMESERIES_NO_LOADER: dict[str, str] = {
+        "dsads": "https://github.com/zhangyuxin621/AMSL",
+        "epilepsy": "https://github.com/boschresearch/NeuTraL-AD/",
     }
 
     def __init__(self, config: DatasetConfig, dataset_name: str = "thyroid") -> None:
@@ -332,31 +306,39 @@ class ADRepositoryLoader(DatasetLoader):
             return self._create_synthetic_fallback(reason=f"download failed: {e}")
 
     def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """Load raw data from files (implements abstract method)."""
+        """Load raw data (implements abstract method).
+
+        Time-series sets are never served by the DevNet tabular mirror: those
+        with a dedicated Mercury loader (smd, swat) are delegated to it, and
+        those without one yet (dsads, epilepsy) fail loud naming the real
+        upstream and the exact closing step. Only the tabular DevNet sets flow
+        through the download + file-parse path below.
+        """
+        if self.dataset_name in self._TIMESERIES_DELEGATES:
+            return self._load_via_delegate()
+        if self.dataset_name in self._TIMESERIES_NO_LOADER:
+            # No dedicated Mercury loader yet → route through the single gated
+            # chokepoint (raises by default, naming the upstream + closing step;
+            # only fabricates, marked synthetic, under MERCURY_ALLOW_SYNTHETIC).
+            self._create_synthetic_fallback(
+                reason=(
+                    f"'{self.dataset_name}' is a time-series set with no dedicated "
+                    f"Mercury loader yet (it is not in the DevNet tabular mirror). "
+                    f"Real source: {self._TIMESERIES_NO_LOADER[self.dataset_name]}. "
+                    f"Closing step: add a dedicated loader (cf. SMDLoader) and register "
+                    f"it in ADRepositoryLoader._TIMESERIES_DELEGATES."
+                )
+            )
+            if self._features is None or self._raw_labels is None:
+                raise RuntimeError("Failed to load dataset features and labels")
+            return self._features, self._raw_labels
+
         dataset_dir = self.data_path / self.dataset_name
         filename = self.dataset_info["file"]
         local_path = dataset_dir / filename
 
-        # Check for ODDS-downloaded .mat file first
-        if self.dataset_name in self.ODDS_URLS:
-            odds_info = self.ODDS_URLS[self.dataset_name]
-            odds_path = dataset_dir / f"{self.dataset_name}.{odds_info['format']}"
-            if odds_path.exists():
-                self._load_from_file(odds_path)
-                if self._features is not None and self._raw_labels is not None:
-                    return self._features, self._raw_labels
-
         if not local_path.exists():
             self.download()
-
-        # Check again for ODDS file after download
-        if self.dataset_name in self.ODDS_URLS:
-            odds_info = self.ODDS_URLS[self.dataset_name]
-            odds_path = dataset_dir / f"{self.dataset_name}.{odds_info['format']}"
-            if odds_path.exists():
-                self._load_from_file(odds_path)
-                if self._features is not None and self._raw_labels is not None:
-                    return self._features, self._raw_labels
 
         if local_path.exists():
             self._load_from_file(local_path)
@@ -369,6 +351,65 @@ class ADRepositoryLoader(DatasetLoader):
         if self._features is None or self._raw_labels is None:
             raise RuntimeError("Failed to load dataset features and labels")
 
+        return self._features, self._raw_labels
+
+    def _load_via_delegate(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+        """Load a time-series set through its dedicated loader (real data only).
+
+        The DevNet mirror serves only tabular sets, so smd/swat are routed to
+        their own loaders (SMDLoader, SWaTLoader). This fails loud — never
+        fabricates — whenever the dedicated loader cannot produce real data,
+        including the credentialed case (SWaT requires iTrust registration),
+        which is detected up front so we never invoke a loader that cannot
+        succeed.
+        """
+        import importlib
+
+        module_name, cls_name = self._TIMESERIES_DELEGATES[self.dataset_name]
+        loader_cls = getattr(importlib.import_module(module_name), cls_name)
+
+        # Single gated chokepoint for every failure mode: ``_create_synthetic_fallback``
+        # raises by default (fail loud) and only fabricates — clearly marked
+        # synthetic — under MERCURY_ALLOW_SYNTHETIC.
+        if getattr(loader_cls, "REQUIRES_CREDENTIALS", False) and not self.config.credentials_path:
+            # Detected up front so we never invoke a loader that cannot succeed.
+            self._create_synthetic_fallback(
+                reason=(
+                    f"'{self.dataset_name}' is served by {cls_name}, which requires credentials "
+                    f"({getattr(loader_cls, 'DATASET_URL', 'the data provider')}); set "
+                    f"DatasetConfig.credentials_path to the registered download."
+                )
+            )
+        else:
+            delegate = loader_cls(self.config)
+            try:
+                delegate.download()
+                features, labels = delegate._load_raw()
+            except Exception as exc:  # the dedicated loader couldn't get real data
+                self._create_synthetic_fallback(
+                    reason=(
+                        f"delegated to {cls_name}, which could not load real data: "
+                        f"{type(exc).__name__}: {exc}"
+                    )
+                )
+            else:
+                features = np.asarray(features, dtype=np.float32)
+                labels = np.asarray(labels).ravel().astype(np.int64)
+                if self.config.max_samples:
+                    n = min(len(features), self.config.max_samples)
+                    features, labels = features[:n], labels[:n]
+                self._features = features
+                self._raw_labels = labels
+                self._is_real_data = True
+                logger.info(
+                    "ADRepository %s: loaded %d real samples via %s (real_data=True)",
+                    self.dataset_name,
+                    len(features),
+                    cls_name,
+                )
+
+        if self._features is None or self._raw_labels is None:
+            raise RuntimeError("Failed to load dataset features and labels")
         return self._features, self._raw_labels
 
     def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
@@ -388,9 +429,8 @@ class ADRepositoryLoader(DatasetLoader):
         never substitutes data on its own.
 
         Raises:
-            DataSourceUnavailableError: no canonical mirror serves this set
-                (e.g. the time-series sets, which have their own loaders), or
-                the set requires credentials.
+            DataSourceUnavailableError: a name reaches here without a DevNet
+                fetch path (time-series sets are resolved earlier in _load_raw).
         """
         from urllib.parse import quote
 
@@ -417,31 +457,17 @@ class ADRepositoryLoader(DatasetLoader):
             )
             return True
 
-        # ODDS-only sets (host now allowlisted in TrustedEndpoints). None of the
-        # currently-registered datasets are ODDS-canonical, but keep the path so
-        # a future .mat-only set works without re-plumbing.
-        if self.dataset_name in self.ODDS_URLS:
-            odds_info = self.ODDS_URLS[self.dataset_name]
-            if odds_info.get("requires_auth"):
-                raise DataSourceUnavailableError(
-                    loader_name=f"ADRepository-{self.dataset_name}",
-                    source_url=odds_info.get("url", ""),
-                    reason=odds_info.get("instructions", "authentication required"),
-                )
-            odds_path = dataset_dir / f"{self.dataset_name}.{odds_info['format']}"
-            logger.info(
-                "Downloading ADRepository %s from ODDS: %s", self.dataset_name, odds_info["url"]
-            )
-            safe_urlretrieve(odds_info["url"], str(odds_path))
-            self._is_real_data = True
-            return True
-
+        # All time-series sets are resolved in ``_load_raw`` (delegated to a
+        # dedicated loader, or failed loud with a closing step) before
+        # ``download`` is ever reached, and every other registered name is a
+        # DevNet tabular set. Reaching here means a name was added to
+        # ADREPOSITORY_DATASETS without a fetch path — fail loud, never fabricate.
         raise DataSourceUnavailableError(
             loader_name=f"ADRepository-{self.dataset_name}",
             reason=(
-                "no canonical real-data mirror for this set; the time-series sets "
-                "(smd/swat/dsads/epilepsy) are served by their dedicated loaders "
-                "(SMDLoader, SWaTLoader, SMAPMSLLoader)."
+                "no canonical real-data mirror for this set. Tabular DevNet sets "
+                "load from the mala-lab mirror; time-series sets are delegated to "
+                "their dedicated loaders in _load_raw."
             ),
         )
 
@@ -515,25 +541,12 @@ class ADRepositoryLoader(DatasetLoader):
 
         return self._load_raw()
 
-    def _load_mat_file(self, path: Path) -> None:
-        """Load MATLAB .mat file from ODDS repository."""
-        from scipy.io import loadmat
-
-        data = loadmat(str(path))
-        self._features = data["X"].astype(np.float32)
-        self._raw_labels = data["y"].ravel().astype(np.int64)
-        self._is_real_data = True
-        logger.info(f"Loaded .mat file from {path.name} (real_data=True)")
-
     def _load_from_file(self, path: Path) -> None:
         """Load data from downloaded file."""
         suffix = path.suffix.lower()
 
         try:
-            if suffix == ".mat":
-                self._load_mat_file(path)
-
-            elif suffix == ".npz":
+            if suffix == ".npz":
                 # External dataset files MUST round-trip through
                 # allow_pickle=False. A ValueError means the file
                 # contains pickled objects; refuse rather than

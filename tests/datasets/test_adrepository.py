@@ -295,21 +295,93 @@ class TestSyntheticPolicyGate:
         assert meta["synthetic"] is True
         assert meta["is_real_data"] is False
 
-    def test_time_series_set_has_no_mirror_fails_loud(
+    def test_delegated_timeseries_returns_real_data(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
     ) -> None:
-        """smd/swat/dsads/epilepsy aren't in the DevNet mirror -> loud error.
+        """smd is delegated to SMDLoader; its real (X, y) flows back, marked real.
 
-        These sets are served by their dedicated loaders (SMDLoader, ...); the
-        ADRepository loader must not fabricate them.
+        The dedicated loader is stubbed at its boundary so the *wiring* is tested
+        without the network — a test double, not a benchmark result (the real
+        end-to-end load lives in the network lane).
+        """
+        from omni_mercury_engine.datasets import timeseries
+
+        rng = np.random.RandomState(0)
+        fake_x = rng.randn(120, 38).astype(np.float32)
+        fake_y = (np.arange(120) % 12 == 0).astype(np.int64)
+        monkeypatch.setattr(timeseries.SMDLoader, "download", lambda self: True)
+        monkeypatch.setattr(timeseries.SMDLoader, "_load_raw", lambda self: (fake_x, fake_y))
+
+        loader = ADRepositoryLoader(
+            DatasetConfig(name="smd", data_dir=str(tmp_path / "d")), dataset_name="smd"
+        )
+        X, y = loader.load_data()
+
+        assert X.shape == (120, 38)
+        assert loader.is_real_data is True
+        assert loader.get_metadata()["synthetic"] is False
+        assert 0 < int(y.sum()) < len(y)
+
+    def test_delegated_timeseries_fails_loud_when_delegate_cannot(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    ) -> None:
+        """If the dedicated loader can't get real data, fail loud — never fabricate."""
+        from omni_mercury_engine.datasets import timeseries
+
+        def _boom(_self: Any) -> Any:
+            raise FileNotFoundError("SMD data not found")
+
+        monkeypatch.delenv("MERCURY_ALLOW_SYNTHETIC", raising=False)
+        monkeypatch.setattr(timeseries.SMDLoader, "download", lambda self: False)
+        monkeypatch.setattr(timeseries.SMDLoader, "_load_raw", _boom)
+        loader = ADRepositoryLoader(
+            DatasetConfig(name="smd", data_dir=str(tmp_path / "e")), dataset_name="smd"
+        )
+        with pytest.raises(DataSourceUnavailableError, match="SMDLoader"):
+            loader.load_data()
+
+    def test_credentialed_timeseries_fails_loud(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    ) -> None:
+        """swat -> SWaTLoader, which needs iTrust credentials: loud, no fabrication."""
+        monkeypatch.delenv("MERCURY_ALLOW_SYNTHETIC", raising=False)
+        loader = ADRepositoryLoader(
+            DatasetConfig(name="swat", data_dir=str(tmp_path / "f")), dataset_name="swat"
+        )
+        with pytest.raises(DataSourceUnavailableError, match="credentials"):
+            loader.load_data()
+
+    @pytest.mark.parametrize("name", ["dsads", "epilepsy"])
+    def test_no_loader_timeseries_fails_loud_with_closing_step(
+        self, name: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    ) -> None:
+        """dsads/epilepsy have a documented upstream but no dedicated loader yet.
+
+        The loud error must name the real source and the exact closing step.
         """
         monkeypatch.delenv("MERCURY_ALLOW_SYNTHETIC", raising=False)
         loader = ADRepositoryLoader(
-            DatasetConfig(name="smd", data_dir=str(tmp_path / "c")),
-            dataset_name="smd",
+            DatasetConfig(name=name, data_dir=str(tmp_path / name)), dataset_name=name
         )
-        with pytest.raises(DataSourceUnavailableError):
+        with pytest.raises(DataSourceUnavailableError) as exc:
             loader.load_data()
+        msg = str(exc.value)
+        assert "Closing step" in msg and "github.com" in msg
+
+    def test_no_loader_timeseries_opt_in_synthetic_is_marked(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    ) -> None:
+        """Policy on → a no-loader time-series set yields *marked* synthetic
+        (same single chokepoint as every other set), never silent real-looking data."""
+        monkeypatch.setenv("MERCURY_ALLOW_SYNTHETIC", "1")
+        loader = ADRepositoryLoader(
+            DatasetConfig(name="epilepsy", data_dir=str(tmp_path / "g"), max_samples=100),
+            dataset_name="epilepsy",
+        )
+        X, _y = loader.load_data()
+        assert X.shape[0] == 100
+        assert loader.get_metadata()["synthetic"] is True
+        assert loader.is_real_data is False
 
 
 @pytest.mark.network
