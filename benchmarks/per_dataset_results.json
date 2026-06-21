@@ -1,0 +1,2177 @@
+{
+  "run_metadata": {
+    "run_id": "a7a194bdbcd5-20260621T001110",
+    "timestamp": "2026-06-21T00:11:10.392986+00:00",
+    "git_sha": "a7a194bdbcd5c31d43b6697396b5811cff74f08c",
+    "branch": "steel/detector-fusion-temporal-hardening",
+    "python_version": "3.11.15",
+    "detector": "MercuryAnomalyDetector"
+  },
+  "summary": {
+    "total_datasets": 75,
+    "successful": 66,
+    "failed": 9,
+    "headline_label_policy": "genuine_labels_only (ground_truth | expert_annotated)",
+    "n_genuine_labeled": 53,
+    "mean_auc": 0.8251272583791851,
+    "median_auc": 0.8746990217754546,
+    "std_auc": 0.16375114509596395,
+    "mean_oracle_f1": 0.5997552368176666,
+    "median_oracle_f1": 0.6746506986027944,
+    "unsupervised_eval": {
+      "n_datasets": 13,
+      "dataset_names": [
+        "USGS_Earthquake",
+        "NOAA_Weather",
+        "Wildfire",
+        "NOAA_Buoy",
+        "NOAA_StormEvents",
+        "NOAA_GSOD",
+        "NOAA_ERDDAP",
+        "EPA_AirQuality",
+        "FEMA_Disaster",
+        "NASA_Exoplanet",
+        "SolarDynamics",
+        "MSDS",
+        "ThreatIntel"
+      ],
+      "mean_auc": 0.9281419294785813,
+      "median_auc": 0.9850215895708943,
+      "note": "Labels manufactured by thresholding a detector-like score/feature; excluded from headline AUC as circular. Use for unsupervised eval only."
+    },
+    "deleak_delta": {
+      "median_auc_all_datasets": 0.8967536763526653,
+      "median_auc_genuine_only": 0.8746990217754546,
+      "median_auc_delta": -0.022054654577210786,
+      "mean_auc_all_datasets": 0.8454180269290661,
+      "mean_auc_genuine_only": 0.8251272583791851,
+      "mean_auc_delta": -0.02029076854988099
+    }
+  },
+  "domain_summary": {
+    "adbench": {
+      "n_datasets": 47,
+      "n_measured": 47,
+      "n_below_random": 3,
+      "n_failed": 0,
+      "oracle_active_count": 2,
+      "stats": {
+        "mean_auc": 0.825110247390594,
+        "median_auc": 0.8625833505190073,
+        "std_auc": 0.16187351430207295,
+        "mean_f1": 0.5974765382103744,
+        "mean_precision": 0.5395722386473789,
+        "mean_recall": 0.7723246855587714,
+        "component_mean_aucs": {
+          "resonance": 0.7649062882598179,
+          "kinematic": 0.596428885788855,
+          "info_geometry": 0.8272002972860732
+        },
+        "best_component": "info_geometry",
+        "best_component_auc": 0.8272002972860732
+      }
+    },
+    "security": {
+      "n_datasets": 2,
+      "n_measured": 2,
+      "n_below_random": 0,
+      "n_failed": 0,
+      "oracle_active_count": 0,
+      "stats": {
+        "mean_auc": 0.8995179038808458,
+        "median_auc": 0.8995179038808458,
+        "std_auc": 0.07059332876028784,
+        "mean_f1": 0.7423490279008775,
+        "mean_precision": 0.7119118745332338,
+        "mean_recall": 0.7778757104149665,
+        "component_mean_aucs": {
+          "resonance": 0.9337210709307091,
+          "kinematic": 0.6232795690196906,
+          "info_geometry": 0.8914080985982048
+        },
+        "best_component": "resonance",
+        "best_component_auc": 0.9337210709307091
+      }
+    },
+    "timeseries": {
+      "n_datasets": 2,
+      "n_measured": 2,
+      "n_below_random": 1,
+      "n_failed": 0,
+      "oracle_active_count": 0,
+      "stats": {
+        "mean_auc": 0.6806909297956745,
+        "median_auc": 0.6806909297956745,
+        "std_auc": 0.19400809197978014,
+        "mean_f1": 0.43334754797441366,
+        "mean_precision": 0.32967675342047337,
+        "mean_recall": 0.8464955577492597,
+        "component_mean_aucs": {
+          "resonance": 0.6136065225018872,
+          "kinematic": 0.6526390837309735,
+          "info_geometry": 0.6743301194103455
+        },
+        "best_component": "info_geometry",
+        "best_component_auc": 0.6743301194103455
+      }
+    },
+    "industrial": {
+      "n_datasets": 1,
+      "n_measured": 1,
+      "n_below_random": 0,
+      "n_failed": 0,
+      "oracle_active_count": 0,
+      "stats": {
+        "mean_auc": 0.911435627925677,
+        "median_auc": 0.911435627925677,
+        "std_auc": 0.0,
+        "mean_f1": 0.5544554455445544,
+        "mean_precision": 0.6054054054054054,
+        "mean_recall": 0.5114155251141552,
+        "component_mean_aucs": {
+          "resonance": 0.7256181614542948,
+          "kinematic": 0.6432695069067517,
+          "info_geometry": 0.9177095000143591
+        },
+        "best_component": "info_geometry",
+        "best_component_auc": 0.9177095000143591
+      }
+    },
+    "environmental": {
+      "n_datasets": 3,
+      "n_measured": 3,
+      "n_below_random": 0,
+      "n_failed": 0,
+      "oracle_active_count": 0,
+      "stats": {
+        "mean_auc": 0.8855833961412034,
+        "median_auc": 0.8521510458740826,
+        "std_auc": 0.0638862150262379,
+        "mean_f1": 0.685770690189288,
+        "mean_precision": 0.6131520395343452,
+        "mean_recall": 0.7898873054487302,
+        "component_mean_aucs": {
+          "resonance": 0.8647885345323404,
+          "kinematic": 0.8035044356066813,
+          "info_geometry": 0.8741314634378231
+        },
+        "best_component": "info_geometry",
+        "best_component_auc": 0.8741314634378231
+      }
+    },
+    "ocean": {
+      "n_datasets": 1,
+      "n_measured": 1,
+      "n_below_random": 0,
+      "n_failed": 0,
+      "oracle_active_count": 0,
+      "stats": {
+        "mean_auc": 0.8509572278923307,
+        "median_auc": 0.8509572278923307,
+        "std_auc": 0.0,
+        "mean_f1": 0.6921165574881409,
+        "mean_precision": 0.7462250365319045,
+        "mean_recall": 0.645324347093513,
+        "component_mean_aucs": {
+          "resonance": 0.7122014722333476,
+          "kinematic": 0.8694369328932285,
+          "info_geometry": 0.8202328504150151
+        },
+        "best_component": "kinematic",
+        "best_component_auc": 0.8694369328932285
+      }
+    },
+    "climate": {
+      "n_datasets": 3,
+      "n_measured": 3,
+      "n_below_random": 0,
+      "n_failed": 0,
+      "oracle_active_count": 0,
+      "stats": {
+        "mean_auc": 0.9939200271801311,
+        "median_auc": 0.9971773918092701,
+        "std_auc": 0.006366954284413525,
+        "mean_f1": 0.9209808979670827,
+        "mean_precision": 0.8794702088150844,
+        "mean_recall": 0.9669530355097365,
+        "component_mean_aucs": {
+          "resonance": 0.9528180544312083,
+          "kinematic": 0.9621470049234424,
+          "info_geometry": 0.9941717760630414
+        },
+        "best_component": "info_geometry",
+        "best_component_auc": 0.9941717760630414
+      }
+    },
+    "air_quality": {
+      "n_datasets": 1,
+      "n_measured": 1,
+      "n_below_random": 0,
+      "n_failed": 0,
+      "oracle_active_count": 0,
+      "stats": {
+        "mean_auc": 0.997541951158168,
+        "median_auc": 0.997541951158168,
+        "std_auc": 0.0,
+        "mean_f1": 0.7958333333333333,
+        "mean_precision": 0.6655052264808362,
+        "mean_recall": 0.9896373056994818,
+        "component_mean_aucs": {
+          "resonance": 0.9800666611010073,
+          "kinematic": 0.8734131265726071,
+          "info_geometry": 0.9985723026718335
+        },
+        "best_component": "info_geometry",
+        "best_component_auc": 0.9985723026718335
+      }
+    },
+    "disaster": {
+      "n_datasets": 1,
+      "n_measured": 1,
+      "n_below_random": 0,
+      "n_failed": 0,
+      "oracle_active_count": 0,
+      "stats": {
+        "mean_auc": 0.9992588039923874,
+        "median_auc": 0.9992588039923874,
+        "std_auc": 0.0,
+        "mean_f1": 0.9943074003795066,
+        "mean_precision": 0.9886792452830189,
+        "mean_recall": 1.0,
+        "component_mean_aucs": {
+          "resonance": 0.9958948765062141,
+          "kinematic": 0.3635491665220911,
+          "info_geometry": 0.9992637737761024
+        },
+        "best_component": "info_geometry",
+        "best_component_auc": 0.9992637737761024
+      }
+    },
+    "space": {
+      "n_datasets": 2,
+      "n_measured": 2,
+      "n_below_random": 0,
+      "n_failed": 0,
+      "oracle_active_count": 1,
+      "stats": {
+        "mean_auc": 0.8753261275470547,
+        "median_auc": 0.8753261275470547,
+        "std_auc": 0.1242483192337604,
+        "mean_f1": 0.7355983241686306,
+        "mean_precision": 0.6908057618726087,
+        "mean_recall": 0.7978873239436619,
+        "component_mean_aucs": {
+          "resonance": 0.8681912954692927,
+          "kinematic": 0.834413653643473,
+          "info_geometry": 0.8700431011477178
+        },
+        "best_component": "info_geometry",
+        "best_component_auc": 0.8700431011477178
+      }
+    },
+    "academic": {
+      "n_datasets": 2,
+      "n_measured": 2,
+      "n_below_random": 0,
+      "n_failed": 0,
+      "oracle_active_count": 0,
+      "stats": {
+        "mean_auc": 1.0,
+        "median_auc": 1.0,
+        "std_auc": 7.850462293418876e-17,
+        "mean_f1": 1.0,
+        "mean_precision": 1.0,
+        "mean_recall": 1.0,
+        "component_mean_aucs": {
+          "resonance": 0.9975924210526317,
+          "kinematic": 0.7646006191950465,
+          "info_geometry": 1.0
+        },
+        "best_component": "info_geometry",
+        "best_component_auc": 1.0
+      }
+    },
+    "general": {
+      "n_datasets": 1,
+      "n_measured": 1,
+      "n_below_random": 0,
+      "n_failed": 0,
+      "oracle_active_count": 0,
+      "stats": {
+        "mean_auc": 0.7086343465807255,
+        "median_auc": 0.7086343465807255,
+        "std_auc": 0.0,
+        "mean_f1": 0.3467902051621443,
+        "mean_precision": 0.26816786079836236,
+        "mean_recall": 0.49063670411985016,
+        "component_mean_aucs": {
+          "resonance": 0.7580229933105671,
+          "kinematic": 0.6485671039014014,
+          "info_geometry": 0.7048536314305589
+        },
+        "best_component": "resonance",
+        "best_component_auc": 0.7580229933105671
+      }
+    }
+  },
+  "datasets": {
+    "ADBench-01": {
+      "category": "adbench",
+      "auc": 0.5655308386669092,
+      "f1": 0.12528026905829598,
+      "precision": 0.06828597616865262,
+      "recall": 0.7576271186440678,
+      "n_total": 49534,
+      "n_train": 9695,
+      "n_test": 9999,
+      "n_features": 27,
+      "anomaly_ratio": 0.030443735615940565,
+      "adaptive_weights": {
+        "resonance": 0.4674732136965154,
+        "kinematic": 0.0,
+        "info_geometry": 0.5325267863034846
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 269.4029419999424,
+      "score_ms": 43.47187900020799,
+      "error": null
+    },
+    "ADBench-02": {
+      "category": "adbench",
+      "auc": 0.8325697738313158,
+      "f1": 0.4829396325459318,
+      "precision": 0.45320197044334976,
+      "recall": 0.5168539325842697,
+      "n_total": 7200,
+      "n_train": 3333,
+      "n_test": 3867,
+      "n_features": 6,
+      "anomaly_ratio": 0.07416666666666667,
+      "adaptive_weights": {
+        "resonance": 0.2861612746555926,
+        "kinematic": 0.0,
+        "info_geometry": 0.7138387253444074
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 48.603131999698235,
+      "score_ms": 9.137429000475095,
+      "error": null
+    },
+    "ADBench-03": {
+      "category": "adbench",
+      "auc": 0.9439495004134175,
+      "f1": 0.9012208657047726,
+      "precision": 0.9552941176470588,
+      "recall": 0.8529411764705882,
+      "n_total": 95329,
+      "n_train": 9755,
+      "n_test": 9999,
+      "n_features": 196,
+      "anomaly_ratio": 0.02443118043827167,
+      "adaptive_weights": {
+        "resonance": 0.4398398449578234,
+        "kinematic": 0.047644619317135935,
+        "info_geometry": 0.5125155357250407
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "IMAGE",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 3758.2071930000893,
+      "score_ms": 774.3351020008049,
+      "error": null
+    },
+    "ADBench-04": {
+      "category": "adbench",
+      "auc": 0.9918202721550002,
+      "f1": 0.9668049792531119,
+      "precision": 0.9588477366255144,
+      "recall": 0.9748953974895398,
+      "n_total": 683,
+      "n_train": 222,
+      "n_test": 461,
+      "n_features": 9,
+      "anomaly_ratio": 0.34992679355783307,
+      "adaptive_weights": {
+        "resonance": 0.4900738178911846,
+        "kinematic": 0.0,
+        "info_geometry": 0.5099261821088155
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 33.5292899999331,
+      "score_ms": 3.5901490000469494,
+      "error": null
+    },
+    "ADBench-05": {
+      "category": "adbench",
+      "auc": 0.7995378343885908,
+      "f1": 0.5474418604651162,
+      "precision": 0.5171353251318102,
+      "recall": 0.5815217391304348,
+      "n_total": 41188,
+      "n_train": 8873,
+      "n_test": 9999,
+      "n_features": 62,
+      "anomaly_ratio": 0.11265417111780131,
+      "adaptive_weights": {
+        "resonance": 0.467227490538453,
+        "kinematic": 0.0,
+        "info_geometry": 0.532772509461547
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 621.7315009998856,
+      "score_ms": 111.29701899972133,
+      "error": null
+    },
+    "ADBench-06": {
+      "category": "adbench",
+      "auc": 0.9498517786561265,
+      "f1": 0.7751937984496123,
+      "precision": 0.7109004739336493,
+      "recall": 0.8522727272727273,
+      "n_total": 1831,
+      "n_train": 827,
+      "n_test": 1004,
+      "n_features": 21,
+      "anomaly_ratio": 0.0961223375204806,
+      "adaptive_weights": {
+        "resonance": 0.46606264282707793,
+        "kinematic": 0.0,
+        "info_geometry": 0.5339373571729221
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 49.69965300006152,
+      "score_ms": 5.699870000171359,
+      "error": null
+    },
+    "ADBench-07": {
+      "category": "adbench",
+      "auc": 0.7707026855285637,
+      "f1": 0.6190102120974077,
+      "precision": 0.4882280049566295,
+      "recall": 0.8454935622317596,
+      "n_total": 2114,
+      "n_train": 824,
+      "n_test": 1290,
+      "n_features": 21,
+      "anomaly_ratio": 0.22043519394512773,
+      "adaptive_weights": {
+        "resonance": 0.46657922114952727,
+        "kinematic": 0.0,
+        "info_geometry": 0.5334207788504728
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 45.19253899979958,
+      "score_ms": 6.636258000071393,
+      "error": null
+    },
+    "ADBench-08": {
+      "category": "adbench",
+      "auc": 0.7857014249765624,
+      "f1": 0.24444444444444444,
+      "precision": 0.17564870259481039,
+      "recall": 0.4018264840182648,
+      "n_total": 202599,
+      "n_train": 9775,
+      "n_test": 9999,
+      "n_features": 39,
+      "anomaly_ratio": 0.022443348683853327,
+      "adaptive_weights": {
+        "resonance": 0.4666666666666666,
+        "kinematic": 0.0,
+        "info_geometry": 0.5333333333333333
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 320.98097400012193,
+      "score_ms": 62.919187000261445,
+      "error": null
+    },
+    "ADBench-09": {
+      "category": "adbench",
+      "auc": 0.7077304388187227,
+      "f1": 0.29591214154972545,
+      "precision": 0.1799962887363147,
+      "recall": 0.831191088260497,
+      "n_total": 299285,
+      "n_train": 9379,
+      "n_test": 9999,
+      "n_features": 500,
+      "anomaly_ratio": 0.062041198189017155,
+      "adaptive_weights": {
+        "resonance": 0.46900545796858695,
+        "kinematic": 0.0,
+        "info_geometry": 0.530994542031413
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 15340.580297000088,
+      "score_ms": 4763.353009999264,
+      "error": null
+    },
+    "ADBench-10": {
+      "category": "adbench",
+      "auc": 0.9444393172757564,
+      "f1": 0.30112359550561796,
+      "precision": 0.19142857142857142,
+      "recall": 0.7052631578947368,
+      "n_total": 286048,
+      "n_train": 9903,
+      "n_test": 9999,
+      "n_features": 10,
+      "anomaly_ratio": 0.009603283365029646,
+      "adaptive_weights": {
+        "resonance": 0.45853787795732953,
+        "kinematic": 0.0,
+        "info_geometry": 0.5414621220426705
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 120.87691699980496,
+      "score_ms": 23.548070999822812,
+      "error": null
+    },
+    "ADBench-11": {
+      "category": "adbench",
+      "auc": 0.9259148845226256,
+      "f1": 0.6567635903919089,
+      "precision": 0.5078201368523949,
+      "recall": 0.9293381037567084,
+      "n_total": 619326,
+      "n_train": 9407,
+      "n_test": 9999,
+      "n_features": 10,
+      "anomaly_ratio": 0.05927411411760527,
+      "adaptive_weights": {
+        "resonance": 0.474987343659118,
+        "kinematic": 0.0,
+        "info_geometry": 0.5250126563408821
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 113.73353999988467,
+      "score_ms": 23.021528000754188,
+      "error": null
+    },
+    "ADBench-12": {
+      "category": "adbench",
+      "auc": 0.6889018050913795,
+      "f1": 0.7114666666666666,
+      "precision": 0.5549084858569051,
+      "recall": 0.9910846953937593,
+      "n_total": 1941,
+      "n_train": 634,
+      "n_test": 1307,
+      "n_features": 27,
+      "anomaly_ratio": 0.3467284904688305,
+      "adaptive_weights": {
+        "resonance": 0.4660645346140323,
+        "kinematic": 0.0,
+        "info_geometry": 0.5339354653859678
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 50.64585099989927,
+      "score_ms": 8.170414999767672,
+      "error": null
+    },
+    "ADBench-13": {
+      "category": "adbench",
+      "auc": 0.971922719062996,
+      "f1": 0.45454545454545453,
+      "precision": 0.9090909090909091,
+      "recall": 0.30303030303030304,
+      "n_total": 284807,
+      "n_train": 9982,
+      "n_test": 9999,
+      "n_features": 29,
+      "anomaly_ratio": 0.001727485630620034,
+      "adaptive_weights": {
+        "resonance": 0.30381239616018707,
+        "kinematic": 0.0,
+        "info_geometry": 0.6961876038398129
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 274.17888599939033,
+      "score_ms": 47.9824619997089,
+      "error": null
+    },
+    "ADBench-14": {
+      "category": "adbench",
+      "auc": 0.7680690399137001,
+      "f1": 0.30303030303030304,
+      "precision": 0.20833333333333334,
+      "recall": 0.5555555555555556,
+      "n_total": 214,
+      "n_train": 102,
+      "n_test": 112,
+      "n_features": 7,
+      "anomaly_ratio": 0.04205607476635514,
+      "adaptive_weights": {
+        "resonance": 0.2793041367652895,
+        "kinematic": 0.0,
+        "info_geometry": 0.7206958632347106
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 25.17783999974199,
+      "score_ms": 3.105910000158474,
+      "error": null
+    },
+    "ADBench-15": {
+      "category": "adbench",
+      "auc": 0.7828054298642534,
+      "f1": 0.6060606060606061,
+      "precision": 0.5,
+      "recall": 0.7692307692307693,
+      "n_total": 80,
+      "n_train": 33,
+      "n_test": 47,
+      "n_features": 19,
+      "anomaly_ratio": 0.1625,
+      "adaptive_weights": {
+        "resonance": 0.512389196767663,
+        "kinematic": 0.0,
+        "info_geometry": 0.48761080323233696
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 22.616410000409815,
+      "score_ms": 2.7426030001151958,
+      "error": null
+    },
+    "ADBench-16": {
+      "category": "adbench",
+      "auc": 0.9938752075189485,
+      "f1": 0.6912442396313363,
+      "precision": 0.5319148936170213,
+      "recall": 0.9868421052631579,
+      "n_total": 567498,
+      "n_train": 9961,
+      "n_test": 9999,
+      "n_features": 3,
+      "anomaly_ratio": 0.003896048972859816,
+      "adaptive_weights": {
+        "resonance": 0.64948980541946,
+        "kinematic": 0.0,
+        "info_geometry": 0.35051019458054
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 75.3434140005993,
+      "score_ms": 20.170565000626084,
+      "error": null
+    },
+    "ADBench-17": {
+      "category": "adbench",
+      "auc": 0.9031942101539969,
+      "f1": 0.774114774114774,
+      "precision": 0.7028824833702882,
+      "recall": 0.8614130434782609,
+      "n_total": 1966,
+      "n_train": 799,
+      "n_test": 1167,
+      "n_features": 1555,
+      "anomaly_ratio": 0.1871820956256358,
+      "adaptive_weights": {
+        "resonance": 0.6207151463124506,
+        "kinematic": 0.0,
+        "info_geometry": 0.37928485368754944
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 12122.96931199944,
+      "score_ms": 4945.020864000071,
+      "error": null
+    },
+    "ADBench-18": {
+      "category": "adbench",
+      "auc": 0.9438123331928641,
+      "f1": 0.901185770750988,
+      "precision": 0.8976377952755905,
+      "recall": 0.9047619047619048,
+      "n_total": 351,
+      "n_train": 112,
+      "n_test": 239,
+      "n_features": 32,
+      "anomaly_ratio": 0.358974358974359,
+      "adaptive_weights": {
+        "resonance": 0.46597513297402,
+        "kinematic": 0.0,
+        "info_geometry": 0.5340248670259801
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 34.491917000195826,
+      "score_ms": 4.155224999522034,
+      "error": null
+    },
+    "ADBench-19": {
+      "category": "adbench",
+      "auc": 0.47067695971425233,
+      "f1": 0.5110216599578301,
+      "precision": 0.34320288362512874,
+      "recall": 1.0,
+      "n_total": 6435,
+      "n_train": 2551,
+      "n_test": 3884,
+      "n_features": 36,
+      "anomaly_ratio": 0.20714840714840715,
+      "adaptive_weights": {
+        "resonance": 0.43925503260407506,
+        "kinematic": 0.0,
+        "info_geometry": 0.5607449673959249
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 113.53947299994616,
+      "score_ms": 24.616933000288554,
+      "error": null
+    },
+    "ADBench-20": {
+      "category": "adbench",
+      "auc": 0.8298266666666666,
+      "f1": 0.48666666666666664,
+      "precision": 0.365,
+      "recall": 0.73,
+      "n_total": 1600,
+      "n_train": 750,
+      "n_test": 850,
+      "n_features": 32,
+      "anomaly_ratio": 0.0625,
+      "adaptive_weights": {
+        "resonance": 0.4666666666666666,
+        "kinematic": 0.0,
+        "info_geometry": 0.5333333333333333
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 52.387128999725974,
+      "score_ms": 6.6421219999028835,
+      "error": null
+    },
+    "ADBench-21": {
+      "category": "adbench",
+      "auc": 0.9835680751173709,
+      "f1": 0.8,
+      "precision": 0.6666666666666666,
+      "recall": 1.0,
+      "n_total": 148,
+      "n_train": 71,
+      "n_test": 77,
+      "n_features": 18,
+      "anomaly_ratio": 0.04054054054054054,
+      "adaptive_weights": {
+        "resonance": 0.49954334085619123,
+        "kinematic": 0.0,
+        "info_geometry": 0.5004566591438088
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 25.00004400008038,
+      "score_ms": 2.9472559999703662,
+      "error": null
+    },
+    "ADBench-22": {
+      "category": "adbench",
+      "auc": 0.8031636973408394,
+      "f1": 0.7462612982744455,
+      "precision": 0.6517869958375198,
+      "recall": 0.8727657120891793,
+      "n_total": 19020,
+      "n_train": 6166,
+      "n_test": 9999,
+      "n_features": 10,
+      "anomaly_ratio": 0.3516298633017876,
+      "adaptive_weights": {
+        "resonance": 0.44297881391372756,
+        "kinematic": 0.0,
+        "info_geometry": 0.5570211860862725
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 99.27772399987589,
+      "score_ms": 23.585807000017667,
+      "error": null
+    },
+    "ADBench-23": {
+      "category": "adbench",
+      "auc": 0.8903131425513338,
+      "f1": 0.46724890829694327,
+      "precision": 0.5404040404040404,
+      "recall": 0.4115384615384615,
+      "n_total": 11183,
+      "n_train": 5461,
+      "n_test": 5722,
+      "n_features": 6,
+      "anomaly_ratio": 0.023249575248144506,
+      "adaptive_weights": {
+        "resonance": 0.4699940227657205,
+        "kinematic": 0.0,
+        "info_geometry": 0.5300059772342794
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 64.16203000026144,
+      "score_ms": 11.70092000029399,
+      "error": null
+    },
+    "ADBench-24": {
+      "category": "adbench",
+      "auc": 0.9310023174971032,
+      "f1": 0.7277777777777776,
+      "precision": 0.7081081081081081,
+      "recall": 0.7485714285714286,
+      "n_total": 7603,
+      "n_train": 3451,
+      "n_test": 4152,
+      "n_features": 100,
+      "anomaly_ratio": 0.09206892016309351,
+      "adaptive_weights": {
+        "resonance": 0.473479072049428,
+        "kinematic": 0.0,
+        "info_geometry": 0.5265209279505719
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 562.0993660004387,
+      "score_ms": 94.7002100001555,
+      "error": null
+    },
+    "ADBench-25": {
+      "category": "adbench",
+      "auc": 0.9998748705257523,
+      "f1": 0.9948717948717948,
+      "precision": 0.9897959183673469,
+      "recall": 1.0,
+      "n_total": 3062,
+      "n_train": 1482,
+      "n_test": 1580,
+      "n_features": 166,
+      "anomaly_ratio": 0.03167864141084259,
+      "adaptive_weights": {
+        "resonance": 0.4759722710574134,
+        "kinematic": 0.048055457885173146,
+        "info_geometry": 0.4759722710574134
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "UNKNOWN",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 672.0588259995566,
+      "score_ms": 84.9414419999448,
+      "error": null
+    },
+    "ADBench-26": {
+      "category": "adbench",
+      "auc": 0.765740228977497,
+      "f1": 0.22144522144522144,
+      "precision": 0.134180790960452,
+      "recall": 0.6333333333333333,
+      "n_total": 5216,
+      "n_train": 2533,
+      "n_test": 2683,
+      "n_features": 64,
+      "anomaly_ratio": 0.028757668711656442,
+      "adaptive_weights": {
+        "resonance": 0.47136812961773966,
+        "kinematic": 0.0,
+        "info_geometry": 0.5286318703822603
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 245.5880490006166,
+      "score_ms": 32.76204800022242,
+      "error": null
+    },
+    "ADBench-27": {
+      "category": "adbench",
+      "auc": 0.9546675017263253,
+      "f1": 0.7411764705882353,
+      "precision": 0.7411764705882353,
+      "recall": 0.7411764705882353,
+      "n_total": 5393,
+      "n_train": 2441,
+      "n_test": 2952,
+      "n_features": 10,
+      "anomaly_ratio": 0.09456703133691823,
+      "adaptive_weights": {
+        "resonance": 0.4340529807811936,
+        "kinematic": 0.0,
+        "info_geometry": 0.5659470192188065
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 50.88169500049844,
+      "score_ms": 8.274642000287713,
+      "error": null
+    },
+    "ADBench-28": {
+      "category": "adbench",
+      "auc": 0.8625833505190073,
+      "f1": 0.2637795275590551,
+      "precision": 0.1903409090909091,
+      "recall": 0.42948717948717946,
+      "n_total": 6870,
+      "n_train": 3357,
+      "n_test": 3513,
+      "n_features": 16,
+      "anomaly_ratio": 0.022707423580786028,
+      "adaptive_weights": {
+        "resonance": 0.4659778869341726,
+        "kinematic": 0.0,
+        "info_geometry": 0.5340221130658274
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 76.4732580000782,
+      "score_ms": 13.063112999589066,
+      "error": null
+    },
+    "ADBench-29": {
+      "category": "adbench",
+      "auc": 0.711134328358209,
+      "f1": 0.7160839160839162,
+      "precision": 0.5727069351230425,
+      "recall": 0.9552238805970149,
+      "n_total": 768,
+      "n_train": 250,
+      "n_test": 518,
+      "n_features": 8,
+      "anomaly_ratio": 0.3489583333333333,
+      "adaptive_weights": {
+        "resonance": 0.46634391990321705,
+        "kinematic": 0.0,
+        "info_geometry": 0.533656080096783
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 33.39745399989624,
+      "score_ms": 3.754829999706999,
+      "error": null
+    },
+    "ADBench-30": {
+      "category": "adbench",
+      "auc": 0.7760885872477228,
+      "f1": 0.7575418994413406,
+      "precision": 0.8782383419689119,
+      "recall": 0.6660117878192534,
+      "n_total": 6435,
+      "n_train": 2199,
+      "n_test": 4236,
+      "n_features": 36,
+      "anomaly_ratio": 0.3163947163947164,
+      "adaptive_weights": {
+        "resonance": 0.4659136929467013,
+        "kinematic": 0.0,
+        "info_geometry": 0.5340863070532987
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 102.64096099945164,
+      "score_ms": 25.165252000078908,
+      "error": null
+    },
+    "ADBench-31": {
+      "category": "adbench",
+      "auc": 0.9985994122445769,
+      "f1": 0.896551724137931,
+      "precision": 0.8783783783783784,
+      "recall": 0.9154929577464789,
+      "n_total": 5803,
+      "n_train": 2866,
+      "n_test": 2937,
+      "n_features": 36,
+      "anomaly_ratio": 0.0122350508357746,
+      "adaptive_weights": {
+        "resonance": 0.46294074522447687,
+        "kinematic": 0.0,
+        "info_geometry": 0.5370592547755232
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 156.27436600061628,
+      "score_ms": 18.876532999456686,
+      "error": null
+    },
+    "ADBench-32": {
+      "category": "adbench",
+      "auc": 0.9950166578568764,
+      "f1": 0.9739263803680982,
+      "precision": 0.9968602825745683,
+      "recall": 0.952023988005997,
+      "n_total": 49097,
+      "n_train": 9284,
+      "n_test": 9999,
+      "n_features": 9,
+      "anomaly_ratio": 0.0715114976475141,
+      "adaptive_weights": {
+        "resonance": 0.46510970849573063,
+        "kinematic": 0.0,
+        "info_geometry": 0.5348902915042694
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 119.69437200059474,
+      "score_ms": 27.761981999901764,
+      "error": null
+    },
+    "ADBench-33": {
+      "category": "adbench",
+      "auc": 0.7918350075927472,
+      "f1": 0.7145922746781116,
+      "precision": 0.6052100161550888,
+      "recall": 0.8722351571594877,
+      "n_total": 245057,
+      "n_train": 7924,
+      "n_test": 9999,
+      "n_features": 3,
+      "anomaly_ratio": 0.20753947040892526,
+      "adaptive_weights": {
+        "resonance": 0.20199206292164382,
+        "kinematic": 0.47441179001069594,
+        "info_geometry": 0.3235961470676604
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 0.889874348869021,
+        "significant_bands": [],
+        "change_points": 0
+      },
+      "fit_ms": 1025.764576000256,
+      "score_ms": 6803.288404999876,
+      "error": null
+    },
+    "ADBench-34": {
+      "category": "adbench",
+      "auc": 0.9418651190714428,
+      "f1": 0.07407407407407407,
+      "precision": 0.039473684210526314,
+      "recall": 0.6,
+      "n_total": 95156,
+      "n_train": 9996,
+      "n_test": 9999,
+      "n_features": 3,
+      "anomaly_ratio": 0.0003152717642607928,
+      "adaptive_weights": {
+        "resonance": 0.3485622470082459,
+        "kinematic": 0.3376176401989624,
+        "info_geometry": 0.3138201127927917
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "environmental",
+        "mean_multiplier": 0.8613912419205477,
+        "significant_bands": [],
+        "change_points": 0
+      },
+      "fit_ms": 1506.4333379996242,
+      "score_ms": 9285.467179999614,
+      "error": null
+    },
+    "ADBench-35": {
+      "category": "adbench",
+      "auc": 0.8031321386298356,
+      "f1": 0.7808219178082192,
+      "precision": 0.7229832572298326,
+      "recall": 0.848719475878499,
+      "n_total": 4207,
+      "n_train": 1264,
+      "n_test": 2943,
+      "n_features": 57,
+      "anomaly_ratio": 0.39909674352270025,
+      "adaptive_weights": {
+        "resonance": 0.4932207424311972,
+        "kinematic": 0.0,
+        "info_geometry": 0.5067792575688029
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 94.37915200032876,
+      "score_ms": 30.190489999768033,
+      "error": null
+    },
+    "ADBench-36": {
+      "category": "adbench",
+      "auc": 0.501424140768403,
+      "f1": 0.09090909090909091,
+      "precision": 0.10204081632653061,
+      "recall": 0.08196721311475409,
+      "n_total": 3686,
+      "n_train": 1812,
+      "n_test": 1874,
+      "n_features": 400,
+      "anomaly_ratio": 0.016549104720564298,
+      "adaptive_weights": {
+        "resonance": 0.6363636363636364,
+        "kinematic": 0.0,
+        "info_geometry": 0.36363636363636365
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 2040.023461000601,
+      "score_ms": 521.9307540000955,
+      "error": null
+    },
+    "ADBench-37": {
+      "category": "adbench",
+      "auc": 0.9257023933402706,
+      "f1": 0.7466666666666666,
+      "precision": 0.6363636363636364,
+      "recall": 0.9032258064516129,
+      "n_total": 340,
+      "n_train": 154,
+      "n_test": 186,
+      "n_features": 9,
+      "anomaly_ratio": 0.09117647058823529,
+      "adaptive_weights": {
+        "resonance": 0.46785220041914216,
+        "kinematic": 0.0,
+        "info_geometry": 0.5321477995808579
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 29.37958799975604,
+      "score_ms": 3.0326899995998247,
+      "error": null
+    },
+    "ADBench-38": {
+      "category": "adbench",
+      "auc": 0.9795640486208508,
+      "f1": 0.7204301075268817,
+      "precision": 0.7204301075268817,
+      "recall": 0.7204301075268817,
+      "n_total": 3772,
+      "n_train": 1839,
+      "n_test": 1933,
+      "n_features": 6,
+      "anomaly_ratio": 0.024655355249204668,
+      "adaptive_weights": {
+        "resonance": 0.2856269075545878,
+        "kinematic": 0.0,
+        "info_geometry": 0.7143730924454121
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 43.199235000429326,
+      "score_ms": 6.526881999889156,
+      "error": null
+    },
+    "ADBench-39": {
+      "category": "adbench",
+      "auc": 0.5168253968253969,
+      "f1": 0.3941605839416058,
+      "precision": 0.2523364485981308,
+      "recall": 0.9,
+      "n_total": 240,
+      "n_train": 105,
+      "n_test": 135,
+      "n_features": 6,
+      "anomaly_ratio": 0.125,
+      "adaptive_weights": {
+        "resonance": 0.4310444036935534,
+        "kinematic": 0.0,
+        "info_geometry": 0.5689555963064467
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 23.319773999901372,
+      "score_ms": 3.0575339997085393,
+      "error": null
+    },
+    "ADBench-40": {
+      "category": "adbench",
+      "auc": 0.952660028449502,
+      "f1": 0.7272727272727272,
+      "precision": 0.6666666666666666,
+      "recall": 0.8,
+      "n_total": 1456,
+      "n_train": 703,
+      "n_test": 753,
+      "n_features": 12,
+      "anomaly_ratio": 0.034340659340659344,
+      "adaptive_weights": {
+        "resonance": 0.4636969848272842,
+        "kinematic": 0.0,
+        "info_geometry": 0.5363030151727157
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 41.33660299976327,
+      "score_ms": 4.458802999579348,
+      "error": null
+    },
+    "ADBench-41": {
+      "category": "adbench",
+      "auc": 0.5928827751196172,
+      "f1": 0.13487475915221578,
+      "precision": 0.08353221957040573,
+      "recall": 0.35,
+      "n_total": 3443,
+      "n_train": 1671,
+      "n_test": 1772,
+      "n_features": 21,
+      "anomaly_ratio": 0.02904443799012489,
+      "adaptive_weights": {
+        "resonance": 0.4663779366156225,
+        "kinematic": 0.0,
+        "info_geometry": 0.5336220633843775
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 63.784193999708805,
+      "score_ms": 8.408544999838341,
+      "error": null
+    },
+    "ADBench-42": {
+      "category": "adbench",
+      "auc": 0.9897196261682243,
+      "f1": 0.9,
+      "precision": 0.9,
+      "recall": 0.9,
+      "n_total": 223,
+      "n_train": 106,
+      "n_test": 117,
+      "n_features": 9,
+      "anomaly_ratio": 0.04484304932735426,
+      "adaptive_weights": {
+        "resonance": 0.464101916090683,
+        "kinematic": 0.0,
+        "info_geometry": 0.5358980839093169
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 25.893808000546414,
+      "score_ms": 2.956631999950332,
+      "error": null
+    },
+    "ADBench-43": {
+      "category": "adbench",
+      "auc": 0.9983240223463687,
+      "f1": 0.9090909090909091,
+      "precision": 0.8333333333333334,
+      "recall": 1.0,
+      "n_total": 367,
+      "n_train": 178,
+      "n_test": 189,
+      "n_features": 30,
+      "anomaly_ratio": 0.027247956403269755,
+      "adaptive_weights": {
+        "resonance": 0.45645017717634906,
+        "kinematic": 0.0,
+        "info_geometry": 0.5435498228236509
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 38.78859499945975,
+      "score_ms": 3.5491129992806236,
+      "error": null
+    },
+    "ADBench-44": {
+      "category": "adbench",
+      "auc": 0.6815581943205331,
+      "f1": 0.28449014567266495,
+      "precision": 0.1824175824175824,
+      "recall": 0.6459143968871596,
+      "n_total": 4819,
+      "n_train": 2281,
+      "n_test": 2538,
+      "n_features": 5,
+      "anomaly_ratio": 0.05333056650757419,
+      "adaptive_weights": {
+        "resonance": 0.43571125850973996,
+        "kinematic": 0.0,
+        "info_geometry": 0.56428874149026
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 42.65340600068157,
+      "score_ms": 6.943463999959931,
+      "error": null
+    },
+    "ADBench-45": {
+      "category": "adbench",
+      "auc": 0.94,
+      "f1": 0.7142857142857143,
+      "precision": 0.5555555555555556,
+      "recall": 1.0,
+      "n_total": 129,
+      "n_train": 59,
+      "n_test": 70,
+      "n_features": 13,
+      "anomaly_ratio": 0.07751937984496124,
+      "adaptive_weights": {
+        "resonance": 0.4666666666666666,
+        "kinematic": 0.0,
+        "info_geometry": 0.5333333333333333
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 22.208984999451786,
+      "score_ms": 2.931981000074302,
+      "error": null
+    },
+    "ADBench-46": {
+      "category": "adbench",
+      "auc": 0.48292273236282196,
+      "f1": 0.5529411764705883,
+      "precision": 0.3821138211382114,
+      "recall": 1.0,
+      "n_total": 198,
+      "n_train": 75,
+      "n_test": 123,
+      "n_features": 33,
+      "anomaly_ratio": 0.23737373737373738,
+      "adaptive_weights": {
+        "resonance": 0.4693546690608744,
+        "kinematic": 0.0,
+        "info_geometry": 0.5306453309391256
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 28.778067000530427,
+      "score_ms": 3.1642159992770758,
+      "error": null
+    },
+    "ADBench-47": {
+      "category": "adbench",
+      "auc": 0.43918071336665016,
+      "f1": 0.6746506986027944,
+      "precision": 0.5090361445783133,
+      "recall": 1.0,
+      "n_total": 1484,
+      "n_train": 488,
+      "n_test": 996,
+      "n_features": 8,
+      "anomaly_ratio": 0.341644204851752,
+      "adaptive_weights": {
+        "resonance": 0.5010376405383353,
+        "kinematic": 0.0,
+        "info_geometry": 0.4989623594616648
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 34.972543000549194,
+      "score_ms": 4.594522999468609,
+      "error": null
+    },
+    "NSL-KDD": {
+      "category": "security",
+      "auc": 0.9701112326411337,
+      "f1": 0.9376895087932079,
+      "precision": 0.9238237490664675,
+      "recall": 0.9519778359242728,
+      "n_total": 148517,
+      "n_train": 5188,
+      "n_test": 9999,
+      "n_features": 41,
+      "anomaly_ratio": 0.4811772389692762,
+      "adaptive_weights": {
+        "resonance": 0.4688488986330206,
+        "kinematic": 0.0,
+        "info_geometry": 0.5311511013669795
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 258.7223330001507,
+      "score_ms": 61.64413899932697,
+      "error": null
+    },
+    "SMD": {
+      "category": "timeseries",
+      "auc": 0.8746990217754546,
+      "f1": 0.5714285714285714,
+      "precision": 0.48614958448753465,
+      "recall": 0.6929911154985192,
+      "n_total": 75876,
+      "n_train": 9465,
+      "n_test": 9999,
+      "n_features": 38,
+      "anomaly_ratio": 0.05341609995255417,
+      "adaptive_weights": {
+        "resonance": 0.46771419568728223,
+        "kinematic": 0.0,
+        "info_geometry": 0.5322858043127179
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 457.46473700000934,
+      "score_ms": 60.61838000005082,
+      "error": null
+    },
+    "NAB": {
+      "category": "timeseries",
+      "auc": 0.4866828378158943,
+      "f1": 0.29526652452025587,
+      "precision": 0.17320392235341206,
+      "recall": 1.0,
+      "n_total": 69561,
+      "n_train": 9052,
+      "n_test": 9999,
+      "n_features": 4,
+      "anomaly_ratio": 0.09479449691637555,
+      "adaptive_weights": {
+        "resonance": 0.29053489288419404,
+        "kinematic": 0.0,
+        "info_geometry": 0.7094651071158059
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 66.00085900026897,
+      "score_ms": 19.46225899973797,
+      "error": null
+    },
+    "SMAP": {
+      "category": "timeseries",
+      "auc": null,
+      "f1": null,
+      "precision": null,
+      "recall": null,
+      "n_total": null,
+      "n_train": null,
+      "n_test": null,
+      "n_features": null,
+      "anomaly_ratio": null,
+      "adaptive_weights": null,
+      "weight_source": null,
+      "data_type": null,
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": null,
+      "score_ms": null,
+      "error": "SMAP/MSL (SMAP): data source unavailable. URL: https://raw.githubusercontent.com/NetManAIOps/OmniAnomaly/master/data/. Could not download telemetry data from GitHub mirrors (OmniAnomaly + khundman/telemanom). Manual install: download from Zenodo TimeEval archive (https://zenodo.org/record/5899270) and extract train/ and test/ directories to: /home/user/Mercury-Agent/data/smap_msl"
+    },
+    "MSL": {
+      "category": "timeseries",
+      "auc": null,
+      "f1": null,
+      "precision": null,
+      "recall": null,
+      "n_total": null,
+      "n_train": null,
+      "n_test": null,
+      "n_features": null,
+      "anomaly_ratio": null,
+      "adaptive_weights": null,
+      "weight_source": null,
+      "data_type": null,
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": null,
+      "score_ms": null,
+      "error": "SMAP/MSL (MSL): data source unavailable. URL: https://raw.githubusercontent.com/NetManAIOps/OmniAnomaly/master/data/. Could not download telemetry data from GitHub mirrors (OmniAnomaly + khundman/telemanom). Manual install: download from Zenodo TimeEval archive (https://zenodo.org/record/5899270) and extract train/ and test/ directories to: /home/user/Mercury-Agent/data/smap_msl"
+    },
+    "BATADAL": {
+      "category": "industrial",
+      "auc": 0.911435627925677,
+      "f1": 0.5544554455445544,
+      "precision": 0.6054054054054054,
+      "recall": 0.5114155251141552,
+      "n_total": 12938,
+      "n_train": 6359,
+      "n_test": 6579,
+      "n_features": 43,
+      "anomaly_ratio": 0.016926882052867524,
+      "adaptive_weights": {
+        "resonance": 0.4668233393261085,
+        "kinematic": 0.0,
+        "info_geometry": 0.5331766606738915
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 258.56563500019547,
+      "score_ms": 43.789530000140076,
+      "error": null
+    },
+    "CICIDS-2017": {
+      "category": "security",
+      "auc": null,
+      "f1": null,
+      "precision": null,
+      "recall": null,
+      "n_total": null,
+      "n_train": null,
+      "n_test": null,
+      "n_features": null,
+      "anomaly_ratio": null,
+      "adaptive_weights": null,
+      "weight_source": null,
+      "data_type": null,
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": null,
+      "score_ms": null,
+      "error": "CICIDS-2017: data source unavailable. All download sources failed. Options: (1) HuggingFace: pip install datasets, then set env var MERCURY_CICIDS_HF_REV_BVK_CICIDS_2017=<commit-sha> (get SHA via: python -c \"from huggingface_hub import HfApi; print(HfApi().list_repo_commits('bvk/CICIDS-2017')[0].commit_id)\"); (2) Kaggle: place kaggle.json in ~/.kaggle/ and run again; (3) Manual: set preprocessing={'local_path': '/path/to/cicids2017/'}. Official source: https://www.unb.ca/cic/datasets/ids-2017.html"
+    },
+    "MIT-BIH": {
+      "category": "medical",
+      "auc": null,
+      "f1": null,
+      "precision": null,
+      "recall": null,
+      "n_total": null,
+      "n_train": null,
+      "n_test": null,
+      "n_features": null,
+      "anomaly_ratio": null,
+      "adaptive_weights": null,
+      "weight_source": null,
+      "data_type": null,
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": null,
+      "score_ms": null,
+      "error": "MIT-BIH: data source unavailable. wfdb library required: pip install mercury-agent[medical] (or: pip install wfdb>=4.3.1). MIT-BIH data source: https://physionet.org/content/mitdb/1.0.0/"
+    },
+    "USGS_Earthquake": {
+      "category": "environmental",
+      "auc": 0.8521510458740826,
+      "f1": 0.593607305936073,
+      "precision": 0.593607305936073,
+      "recall": 0.593607305936073,
+      "n_total": 1812,
+      "n_train": 796,
+      "n_test": 1016,
+      "n_features": 11,
+      "anomaly_ratio": 0.12086092715231789,
+      "adaptive_weights": {
+        "resonance": 0.47372657438581983,
+        "kinematic": 0.0,
+        "info_geometry": 0.5262734256141802
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 46.75229499935085,
+      "score_ms": 5.548336000174459,
+      "error": null
+    },
+    "NOAA_Weather": {
+      "category": "environmental",
+      "auc": 0.9749898813049217,
+      "f1": 0.647244094488189,
+      "precision": 0.5393700787401575,
+      "recall": 0.8090551181102362,
+      "n_total": 17472,
+      "n_train": 8482,
+      "n_test": 8990,
+      "n_features": 8,
+      "anomaly_ratio": 0.029075091575091576,
+      "adaptive_weights": {
+        "resonance": 0.452626355401195,
+        "kinematic": 0.0,
+        "info_geometry": 0.547373644598805
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 93.31278599984216,
+      "score_ms": 16.817140999592084,
+      "error": null
+    },
+    "Wildfire": {
+      "category": "environmental",
+      "auc": 0.829609261244606,
+      "f1": 0.8164606701436022,
+      "precision": 0.7064787339268052,
+      "recall": 0.9669994922998816,
+      "n_total": 63850,
+      "n_train": 5806,
+      "n_test": 9999,
+      "n_features": 7,
+      "anomaly_ratio": 0.41937353171495695,
+      "adaptive_weights": {
+        "resonance": 0.4427809258710667,
+        "kinematic": 0.0,
+        "info_geometry": 0.5572190741289333
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 78.00463300009142,
+      "score_ms": 21.627805999742122,
+      "error": null
+    },
+    "USGS_Geochemistry": {
+      "category": "environmental",
+      "auc": null,
+      "f1": null,
+      "precision": null,
+      "recall": null,
+      "n_total": null,
+      "n_train": null,
+      "n_test": null,
+      "n_features": null,
+      "anomaly_ratio": null,
+      "adaptive_weights": null,
+      "weight_source": null,
+      "data_type": null,
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": null,
+      "score_ms": null,
+      "error": "Labels have fewer than 2 distinct values"
+    },
+    "NOAA_Buoy": {
+      "category": "ocean",
+      "auc": 0.8509572278923307,
+      "f1": 0.6921165574881409,
+      "precision": 0.7462250365319045,
+      "recall": 0.645324347093513,
+      "n_total": 27222,
+      "n_train": 8652,
+      "n_test": 9999,
+      "n_features": 9,
+      "anomaly_ratio": 0.13470722209977223,
+      "adaptive_weights": {
+        "resonance": 0.4534454243794144,
+        "kinematic": 0.0,
+        "info_geometry": 0.5465545756205856
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 112.79481399924407,
+      "score_ms": 23.538513999483257,
+      "error": null
+    },
+    "NOAA_StormEvents": {
+      "category": "climate",
+      "auc": 0.9971773918092701,
+      "f1": 0.9375,
+      "precision": 0.8823529411764706,
+      "recall": 1.0,
+      "n_total": 359682,
+      "n_train": 9878,
+      "n_test": 9999,
+      "n_features": 10,
+      "anomaly_ratio": 0.012169082689709242,
+      "adaptive_weights": {
+        "resonance": 0.47109278862207277,
+        "kinematic": 0.0,
+        "info_geometry": 0.5289072113779273
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 135.84519699998054,
+      "score_ms": 23.951193999891984,
+      "error": null
+    },
+    "NOAA_GSOD": {
+      "category": "climate",
+      "auc": 0.9850215895708943,
+      "f1": 0.872549019607843,
+      "precision": 0.8317757009345794,
+      "recall": 0.9175257731958762,
+      "n_total": 1095,
+      "n_train": 499,
+      "n_test": 596,
+      "n_features": 15,
+      "anomaly_ratio": 0.08858447488584476,
+      "adaptive_weights": {
+        "resonance": 0.4638097367069243,
+        "kinematic": 0.0,
+        "info_geometry": 0.5361902632930756
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 40.179924999392824,
+      "score_ms": 4.397048000100767,
+      "error": null
+    },
+    "NOAA_ERDDAP": {
+      "category": "climate",
+      "auc": 0.9995611001602288,
+      "f1": 0.952893674293405,
+      "precision": 0.9242819843342036,
+      "recall": 0.9833333333333333,
+      "n_total": 34001,
+      "n_train": 9816,
+      "n_test": 9999,
+      "n_features": 4,
+      "anomaly_ratio": 0.018381812299638246,
+      "adaptive_weights": {
+        "resonance": 0.7163092534433183,
+        "kinematic": 0.0,
+        "info_geometry": 0.28369074655668164
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 83.06836800056772,
+      "score_ms": 19.74065700051142,
+      "error": null
+    },
+    "EPA_AirQuality": {
+      "category": "air_quality",
+      "auc": 0.997541951158168,
+      "f1": 0.7958333333333333,
+      "precision": 0.6655052264808362,
+      "recall": 0.9896373056994818,
+      "n_total": 847370,
+      "n_train": 9902,
+      "n_test": 9999,
+      "n_features": 8,
+      "anomaly_ratio": 0.009797373048373201,
+      "adaptive_weights": {
+        "resonance": 0.4928309876221892,
+        "kinematic": 0.0,
+        "info_geometry": 0.5071690123778108
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 107.28153499985638,
+      "score_ms": 23.38160599992989,
+      "error": null
+    },
+    "FEMA_Disaster": {
+      "category": "disaster",
+      "auc": 0.9992588039923874,
+      "f1": 0.9943074003795066,
+      "precision": 0.9886792452830189,
+      "recall": 1.0,
+      "n_total": 10000,
+      "n_train": 2904,
+      "n_test": 7096,
+      "n_features": 11,
+      "anomaly_ratio": 0.4192,
+      "adaptive_weights": {
+        "resonance": 0.4667498658299965,
+        "kinematic": 0.0,
+        "info_geometry": 0.5332501341700036
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 56.20797200026573,
+      "score_ms": 12.795499000276322,
+      "error": null
+    },
+    "FEMA_HazardMitigation": {
+      "category": "disaster",
+      "auc": null,
+      "f1": null,
+      "precision": null,
+      "recall": null,
+      "n_total": null,
+      "n_train": null,
+      "n_test": null,
+      "n_features": null,
+      "anomaly_ratio": null,
+      "adaptive_weights": null,
+      "weight_source": null,
+      "data_type": null,
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": null,
+      "score_ms": null,
+      "error": "FEMAHazardMitigation: data source unavailable. URL: https://www.fema.gov/api/open/v2/HazardMitigationGrants. OpenFEMA Hazard Mitigation API unavailable"
+    },
+    "NASA_Exoplanet": {
+      "category": "space",
+      "auc": 0.7510778083132943,
+      "f1": 0.6378633150039277,
+      "precision": 0.5482781904118839,
+      "recall": 0.7624413145539906,
+      "n_total": 5000,
+      "n_train": 1967,
+      "n_test": 3033,
+      "n_features": 8,
+      "anomaly_ratio": 0.213,
+      "adaptive_weights": {
+        "resonance": 0.46353911058827674,
+        "kinematic": 0.0,
+        "info_geometry": 0.5364608894117233
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 49.92409399983444,
+      "score_ms": 8.585844999288383,
+      "error": null
+    },
+    "SolarDynamics": {
+      "category": "space",
+      "auc": 0.9995744467808151,
+      "f1": 0.8333333333333334,
+      "precision": 0.8333333333333334,
+      "recall": 0.8333333333333334,
+      "n_total": 20158,
+      "n_train": 9993,
+      "n_test": 9999,
+      "n_features": 2,
+      "anomaly_ratio": 0.0006945133445778351,
+      "adaptive_weights": {
+        "resonance": 0.21497347743924058,
+        "kinematic": 0.4169476804260402,
+        "info_geometry": 0.36807884213471925
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "environmental",
+        "mean_multiplier": 0.855226108467809,
+        "significant_bands": [],
+        "change_points": 0
+      },
+      "fit_ms": 1417.579478999869,
+      "score_ms": 8746.314768999582,
+      "error": null
+    },
+    "UCR": {
+      "category": "academic",
+      "auc": null,
+      "f1": null,
+      "precision": null,
+      "recall": null,
+      "n_total": null,
+      "n_train": null,
+      "n_test": null,
+      "n_features": null,
+      "anomaly_ratio": null,
+      "adaptive_weights": null,
+      "weight_source": null,
+      "data_type": null,
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": null,
+      "score_ms": null,
+      "error": "Labels have fewer than 2 distinct values"
+    },
+    "CWRU_Bearing": {
+      "category": "academic",
+      "auc": 0.9999999999999999,
+      "f1": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "n_total": 594,
+      "n_train": 119,
+      "n_test": 475,
+      "n_features": 1024,
+      "anomaly_ratio": 0.5993265993265994,
+      "adaptive_weights": {
+        "resonance": 0.4761894344048019,
+        "kinematic": 0.04762113119039628,
+        "info_geometry": 0.4761894344048019
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "UNKNOWN",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 1605.0289209997572,
+      "score_ms": 829.4192909997946,
+      "error": null
+    },
+    "MSDS": {
+      "category": "academic",
+      "auc": 1.0,
+      "f1": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "n_total": 10000,
+      "n_train": 4750,
+      "n_test": 5250,
+      "n_features": 30,
+      "anomaly_ratio": 0.05,
+      "adaptive_weights": {
+        "resonance": 0.46665475304098675,
+        "kinematic": 0.0,
+        "info_geometry": 0.5333452469590132
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 144.91961599924252,
+      "score_ms": 26.177445999564952,
+      "error": null
+    },
+    "ThreatIntel": {
+      "category": "security",
+      "auc": 0.8289245751205581,
+      "f1": 0.5470085470085471,
+      "precision": 0.5,
+      "recall": 0.6037735849056604,
+      "n_total": 858,
+      "n_train": 402,
+      "n_test": 456,
+      "n_features": 18,
+      "anomaly_ratio": 0.06177156177156177,
+      "adaptive_weights": {
+        "resonance": 0.46815540803788447,
+        "kinematic": 0.0,
+        "info_geometry": 0.5318445919621155
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 38.09600800013868,
+      "score_ms": 3.1732710003780085,
+      "error": null
+    },
+    "ADRepository": {
+      "category": "general",
+      "auc": 0.7086343465807255,
+      "f1": 0.3467902051621443,
+      "precision": 0.26816786079836236,
+      "recall": 0.49063670411985016,
+      "n_total": 7200,
+      "n_train": 3333,
+      "n_test": 3867,
+      "n_features": 21,
+      "anomaly_ratio": 0.07416666666666667,
+      "adaptive_weights": {
+        "resonance": 0.47142132080017074,
+        "kinematic": 0.0,
+        "info_geometry": 0.5285786791998293
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 80.56835800016415,
+      "score_ms": 12.421452999660687,
+      "error": null
+    },
+    "SWaT": {
+      "category": "industrial",
+      "auc": null,
+      "f1": null,
+      "precision": null,
+      "recall": null,
+      "n_total": null,
+      "n_train": null,
+      "n_test": null,
+      "n_features": null,
+      "anomaly_ratio": null,
+      "adaptive_weights": null,
+      "weight_source": null,
+      "data_type": null,
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": null,
+      "score_ms": null,
+      "error": "SWaT: data source unavailable. URL: https://itrust.sutd.edu.sg/itrust-labs-datasets/. SWaT (51 sensors, water treatment plant) requires manual iTrust registration. Steps: (1) register at https://itrust.sutd.edu.sg/itrust-labs-datasets/ (2) download 'SWaT.A1 & A2_Dec 2015' and 'SWaT_Dataset_Attack_v0.xlsx' (3) place extracted files in /home/user/Mercury-Agent/data/swat. Once placed, re-run the benchmark \u2014 the loader will detect the files automatically."
+    },
+    "WADI": {
+      "category": "industrial",
+      "auc": null,
+      "f1": null,
+      "precision": null,
+      "recall": null,
+      "n_total": null,
+      "n_train": null,
+      "n_test": null,
+      "n_features": null,
+      "anomaly_ratio": null,
+      "adaptive_weights": null,
+      "weight_source": null,
+      "data_type": null,
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": null,
+      "score_ms": null,
+      "error": "WADI: data source unavailable. URL: https://itrust.sutd.edu.sg/itrust-labs-datasets/. WADI (127 sensors, water distribution network) requires manual iTrust registration. Steps: (1) register at https://itrust.sutd.edu.sg/itrust-labs-datasets/ (2) download 'WADI.A1_9 Oct 2017' and 'WADI_attackdata.csv' (3) place extracted files in /home/user/Mercury-Agent/data/wadi. Once placed, re-run the benchmark \u2014 the loader will detect the files automatically."
+    }
+  },
+  "inverted_datasets": [
+    "ADBench-19",
+    "ADBench-46",
+    "ADBench-47",
+    "NAB"
+  ],
+  "n_inverted": 4
+}

@@ -1,8 +1,8 @@
 {
   "metadata": {
-    "git_commit": "79e83353fa24e0c28792f12d83de9ae2d309fe06",
-    "python_version": "3.12.13",
-    "timestamp": "2026-05-19T02:21:59.007549+00:00",
+    "git_commit": "a7a194bdbcd5c31d43b6697396b5811cff74f08c",
+    "python_version": "3.11.15",
+    "timestamp": "2026-06-21T00:11:10.047740+00:00",
     "max_samples_per_dataset": 10000,
     "n_thresholds": 101,
     "detector": "MercuryAnomalyDetector",
@@ -14,48 +14,79 @@
   },
   "summary": {
     "total_datasets": 75,
-    "successful": 65,
-    "failed": 10,
-    "mean_auc": 0.8465524074862719,
-    "median_auc": 0.9100068923925217,
-    "std_auc": 0.17254817892214,
-    "mean_oracle_f1": 0.6427672890159823,
-    "median_oracle_f1": 0.7142857142857143
+    "successful": 66,
+    "failed": 9,
+    "headline_label_policy": "genuine_labels_only (ground_truth | expert_annotated)",
+    "n_genuine_labeled": 53,
+    "mean_auc": 0.8251272583791851,
+    "median_auc": 0.8746990217754546,
+    "std_auc": 0.16375114509596395,
+    "mean_oracle_f1": 0.5997552368176666,
+    "median_oracle_f1": 0.6746506986027944,
+    "unsupervised_eval": {
+      "n_datasets": 13,
+      "dataset_names": [
+        "USGS_Earthquake",
+        "NOAA_Weather",
+        "Wildfire",
+        "NOAA_Buoy",
+        "NOAA_StormEvents",
+        "NOAA_GSOD",
+        "NOAA_ERDDAP",
+        "EPA_AirQuality",
+        "FEMA_Disaster",
+        "NASA_Exoplanet",
+        "SolarDynamics",
+        "MSDS",
+        "ThreatIntel"
+      ],
+      "mean_auc": 0.9281419294785813,
+      "median_auc": 0.9850215895708943,
+      "note": "Labels manufactured by thresholding a detector-like score/feature; excluded from headline AUC as circular. Use for unsupervised eval only."
+    },
+    "deleak_delta": {
+      "median_auc_all_datasets": 0.8967536763526653,
+      "median_auc_genuine_only": 0.8746990217754546,
+      "median_auc_delta": -0.022054654577210786,
+      "mean_auc_all_datasets": 0.8454180269290661,
+      "mean_auc_genuine_only": 0.8251272583791851,
+      "mean_auc_delta": -0.02029076854988099
+    }
   },
   "component_summary": {
     "resonance": {
-      "mean_auc": 0.7976914652467758,
-      "median_auc": 0.8420663360973373,
-      "std_auc": 0.18572667820150685,
-      "n_datasets": 65
+      "mean_auc": 0.766484016613671,
+      "median_auc": 0.8293587307862345,
+      "std_auc": 0.18992800842864074,
+      "n_datasets": 53
     },
     "kinematic": {
-      "mean_auc": 0.6412239094567946,
-      "median_auc": 0.6623407178055007,
-      "std_auc": 0.23763817280545443,
-      "n_datasets": 65
+      "mean_auc": 0.6009349528980513,
+      "median_auc": 0.6115504682622268,
+      "std_auc": 0.23010309352310845,
+      "n_datasets": 53
     },
     "info_geometry": {
-      "mean_auc": 0.8503843460323577,
-      "median_auc": 0.9092496018989277,
-      "std_auc": 0.15409128089065327,
-      "n_datasets": 65
+      "mean_auc": 0.826706938225752,
+      "median_auc": 0.8759956905050279,
+      "std_auc": 0.1595272946286148,
+      "n_datasets": 53
     }
   },
   "domain_summary": {
     "adbench": {
       "n_datasets": 47,
       "n_measured": 47,
-      "n_below_random": 4,
+      "n_below_random": 3,
       "n_failed": 0,
-      "oracle_active_count": 29,
+      "oracle_active_count": 2,
       "stats": {
-        "mean_auc": 0.8180173106168402,
-        "median_auc": 0.8854391057083236,
-        "std_auc": 0.17891220317820414,
-        "mean_f1": 0.5858691687848255,
-        "mean_precision": 0.5212369113151274,
-        "mean_recall": 0.7862223783104141,
+        "mean_auc": 0.825110247390594,
+        "median_auc": 0.8625833505190073,
+        "std_auc": 0.16187351430207295,
+        "mean_f1": 0.5974765382103744,
+        "mean_precision": 0.5395722386473789,
+        "mean_recall": 0.7723246855587714,
         "component_mean_aucs": {
           "resonance": 0.7649062882598179,
           "kinematic": 0.596428885788855,
@@ -72,12 +103,12 @@
       "n_failed": 0,
       "oracle_active_count": 0,
       "stats": {
-        "mean_auc": 0.9079253497388755,
-        "median_auc": 0.9079253497388755,
-        "std_auc": 0.0691688536482345,
-        "mean_f1": 0.7415002385701241,
-        "mean_precision": 0.704306057718664,
-        "mean_recall": 0.7883101344306951,
+        "mean_auc": 0.8995179038808458,
+        "median_auc": 0.8995179038808458,
+        "std_auc": 0.07059332876028784,
+        "mean_f1": 0.7423490279008775,
+        "mean_precision": 0.7119118745332338,
+        "mean_recall": 0.7778757104149665,
         "component_mean_aucs": {
           "resonance": 0.9337210709307091,
           "kinematic": 0.6232795690196906,
@@ -92,21 +123,21 @@
       "n_measured": 2,
       "n_below_random": 1,
       "n_failed": 0,
-      "oracle_active_count": 2,
+      "oracle_active_count": 0,
       "stats": {
-        "mean_auc": 0.689938252584399,
-        "median_auc": 0.689938252584399,
-        "std_auc": 0.2190375173365201,
-        "mean_f1": 0.4400553879889311,
-        "mean_precision": 0.34427122170456326,
-        "mean_recall": 0.8381046396841065,
+        "mean_auc": 0.6806909297956745,
+        "median_auc": 0.6806909297956745,
+        "std_auc": 0.19400809197978014,
+        "mean_f1": 0.43334754797441366,
+        "mean_precision": 0.32967675342047337,
+        "mean_recall": 0.8464955577492597,
         "component_mean_aucs": {
-          "resonance": 0.6167663911930498,
-          "kinematic": 0.6588591488683402,
-          "info_geometry": 0.6750983083897604
+          "resonance": 0.6136065225018872,
+          "kinematic": 0.6526390837309735,
+          "info_geometry": 0.6743301194103455
         },
         "best_component": "info_geometry",
-        "best_component_auc": 0.6750983083897604
+        "best_component_auc": 0.6743301194103455
       }
     },
     "industrial": {
@@ -116,12 +147,12 @@
       "n_failed": 0,
       "oracle_active_count": 0,
       "stats": {
-        "mean_auc": 0.9100068923925217,
-        "median_auc": 0.9100068923925217,
+        "mean_auc": 0.911435627925677,
+        "median_auc": 0.911435627925677,
         "std_auc": 0.0,
-        "mean_f1": 0.5657015590200446,
-        "mean_precision": 0.5521739130434783,
-        "mean_recall": 0.5799086757990868,
+        "mean_f1": 0.5544554455445544,
+        "mean_precision": 0.6054054054054054,
+        "mean_recall": 0.5114155251141552,
         "component_mean_aucs": {
           "resonance": 0.7256181614542948,
           "kinematic": 0.6432695069067517,
@@ -136,21 +167,21 @@
       "n_measured": 3,
       "n_below_random": 0,
       "n_failed": 0,
-      "oracle_active_count": 3,
+      "oracle_active_count": 0,
       "stats": {
-        "mean_auc": 0.9159850863939671,
-        "median_auc": 0.931463887661413,
-        "std_auc": 0.039876402758752774,
-        "mean_f1": 0.7196187367623995,
-        "mean_precision": 0.6937591313029685,
-        "mean_recall": 0.7487465598552924,
+        "mean_auc": 0.8855833961412034,
+        "median_auc": 0.8521510458740826,
+        "std_auc": 0.0638862150262379,
+        "mean_f1": 0.685770690189288,
+        "mean_precision": 0.6131520395343452,
+        "mean_recall": 0.7898873054487302,
         "component_mean_aucs": {
-          "resonance": 0.8839201107088397,
-          "kinematic": 0.7535401473395203,
-          "info_geometry": 0.9011917563008053
+          "resonance": 0.8647885345323404,
+          "kinematic": 0.8035044356066813,
+          "info_geometry": 0.8741314634378231
         },
         "best_component": "info_geometry",
-        "best_component_auc": 0.9011917563008053
+        "best_component_auc": 0.8741314634378231
       }
     },
     "ocean": {
@@ -158,43 +189,43 @@
       "n_measured": 1,
       "n_below_random": 0,
       "n_failed": 0,
-      "oracle_active_count": 1,
+      "oracle_active_count": 0,
       "stats": {
-        "mean_auc": 0.9721626141016274,
-        "median_auc": 0.9721626141016274,
+        "mean_auc": 0.8509572278923307,
+        "median_auc": 0.8509572278923307,
         "std_auc": 0.0,
-        "mean_f1": 0.8964866776703607,
-        "mean_precision": 0.8964866776703607,
-        "mean_recall": 0.8964866776703607,
+        "mean_f1": 0.6921165574881409,
+        "mean_precision": 0.7462250365319045,
+        "mean_recall": 0.645324347093513,
         "component_mean_aucs": {
-          "resonance": 0.8351622613533234,
-          "kinematic": 0.950920278309976,
-          "info_geometry": 0.9092496018989277
+          "resonance": 0.7122014722333476,
+          "kinematic": 0.8694369328932285,
+          "info_geometry": 0.8202328504150151
         },
         "best_component": "kinematic",
-        "best_component_auc": 0.950920278309976
+        "best_component_auc": 0.8694369328932285
       }
     },
     "climate": {
-      "n_datasets": 2,
-      "n_measured": 2,
+      "n_datasets": 3,
+      "n_measured": 3,
       "n_below_random": 0,
       "n_failed": 0,
-      "oracle_active_count": 2,
+      "oracle_active_count": 0,
       "stats": {
-        "mean_auc": 0.9954263132013945,
-        "median_auc": 0.9954263132013945,
-        "std_auc": 0.0044546792117658995,
-        "mean_f1": 0.9429995138551288,
-        "mean_precision": 0.9604683195592287,
-        "mean_recall": 0.9267913436142114,
+        "mean_auc": 0.9939200271801311,
+        "median_auc": 0.9971773918092701,
+        "std_auc": 0.006366954284413525,
+        "mean_f1": 0.9209808979670827,
+        "mean_precision": 0.8794702088150844,
+        "mean_recall": 0.9669530355097365,
         "component_mean_aucs": {
-          "resonance": 0.9326095881990634,
-          "kinematic": 0.9539225344963032,
-          "info_geometry": 0.9911492650960941
+          "resonance": 0.9528180544312083,
+          "kinematic": 0.9621470049234424,
+          "info_geometry": 0.9941717760630414
         },
         "best_component": "info_geometry",
-        "best_component_auc": 0.9911492650960941
+        "best_component_auc": 0.9941717760630414
       }
     },
     "air_quality": {
@@ -202,14 +233,14 @@
       "n_measured": 1,
       "n_below_random": 0,
       "n_failed": 0,
-      "oracle_active_count": 1,
+      "oracle_active_count": 0,
       "stats": {
-        "mean_auc": 0.9979023099952551,
-        "median_auc": 0.9979023099952551,
+        "mean_auc": 0.997541951158168,
+        "median_auc": 0.997541951158168,
         "std_auc": 0.0,
-        "mean_f1": 0.8644067796610171,
-        "mean_precision": 0.9503105590062112,
-        "mean_recall": 0.7927461139896373,
+        "mean_f1": 0.7958333333333333,
+        "mean_precision": 0.6655052264808362,
+        "mean_recall": 0.9896373056994818,
         "component_mean_aucs": {
           "resonance": 0.9800666611010073,
           "kinematic": 0.8734131265726071,
@@ -224,21 +255,21 @@
       "n_measured": 1,
       "n_below_random": 0,
       "n_failed": 0,
-      "oracle_active_count": 1,
+      "oracle_active_count": 0,
       "stats": {
-        "mean_auc": 0.9999175262338864,
-        "median_auc": 0.9999175262338864,
+        "mean_auc": 0.9992588039923874,
+        "median_auc": 0.9992588039923874,
         "std_auc": 0.0,
-        "mean_f1": 0.9970255800118977,
-        "mean_precision": 0.994540707334441,
-        "mean_recall": 0.9995229007633588,
+        "mean_f1": 0.9943074003795066,
+        "mean_precision": 0.9886792452830189,
+        "mean_recall": 1.0,
         "component_mean_aucs": {
-          "resonance": 0.9949984260982483,
-          "kinematic": 0.373263779361975,
-          "info_geometry": 0.9990081379592244
+          "resonance": 0.9958948765062141,
+          "kinematic": 0.3635491665220911,
+          "info_geometry": 0.9992637737761024
         },
         "best_component": "info_geometry",
-        "best_component_auc": 0.9990081379592244
+        "best_component_auc": 0.9992637737761024
       }
     },
     "space": {
@@ -246,21 +277,21 @@
       "n_measured": 2,
       "n_below_random": 0,
       "n_failed": 0,
-      "oracle_active_count": 2,
+      "oracle_active_count": 1,
       "stats": {
-        "mean_auc": 0.8822842273308278,
-        "median_auc": 0.8822842273308278,
-        "std_auc": 0.11700510633362154,
-        "mean_f1": 0.7562178828365879,
-        "mean_precision": 0.7689463955637708,
-        "mean_recall": 0.7578581871345029,
+        "mean_auc": 0.8753261275470547,
+        "median_auc": 0.8753261275470547,
+        "std_auc": 0.1242483192337604,
+        "mean_f1": 0.7355983241686306,
+        "mean_precision": 0.6908057618726087,
+        "mean_recall": 0.7978873239436619,
         "component_mean_aucs": {
-          "resonance": 0.8751824539723476,
-          "kinematic": 0.8178379212760692,
-          "info_geometry": 0.8765711820214641
+          "resonance": 0.8681912954692927,
+          "kinematic": 0.834413653643473,
+          "info_geometry": 0.8700431011477178
         },
         "best_component": "info_geometry",
-        "best_component_auc": 0.8765711820214641
+        "best_component_auc": 0.8700431011477178
       }
     },
     "academic": {
@@ -292,19 +323,19 @@
       "n_failed": 0,
       "oracle_active_count": 0,
       "stats": {
-        "mean_auc": 1.0,
-        "median_auc": 1.0,
+        "mean_auc": 0.7086343465807255,
+        "median_auc": 0.7086343465807255,
         "std_auc": 0.0,
-        "mean_f1": 1.0,
-        "mean_precision": 1.0,
-        "mean_recall": 1.0,
+        "mean_f1": 0.3467902051621443,
+        "mean_precision": 0.26816786079836236,
+        "mean_recall": 0.49063670411985016,
         "component_mean_aucs": {
-          "resonance": 1.0,
-          "kinematic": 0.9089097637346997,
-          "info_geometry": 1.0
+          "resonance": 0.7580229933105671,
+          "kinematic": 0.6485671039014014,
+          "info_geometry": 0.7048536314305589
         },
         "best_component": "resonance",
-        "best_component_auc": 1.0
+        "best_component_auc": 0.7580229933105671
       }
     }
   },
@@ -312,124 +343,117 @@
     {
       "name": "ADBench-01",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 49534,
       "n_train": 9695,
       "n_test": 9999,
       "n_features": 27,
       "anomaly_ratio": 0.030443735615940565,
       "test_anomaly_ratio": 0.05900590059005901,
-      "ensemble_auc": 0.5201357877690131,
+      "ensemble_auc": 0.5655308386669092,
       "resonance_auc": 0.547843481988936,
       "kinematic_auc": 0.5474795138444799,
       "info_geometry_auc": 0.5540199520473545,
-      "oracle_f1": 0.1135413628851949,
-      "oracle_precision": 0.06022481179746313,
-      "oracle_recall": 0.9898305084745763,
-      "oracle_threshold": 0.18,
-      "threshold_strategy": "sweep_0.18",
-      "fit_ms": 1333.0232480000177,
-      "score_ms": 18748.621272999968,
+      "oracle_f1": 0.12528026905829598,
+      "oracle_precision": 0.06828597616865262,
+      "oracle_recall": 0.7576271186440678,
+      "oracle_threshold": 0.15,
+      "threshold_strategy": "sweep_0.15",
+      "fit_ms": 269.4029419999424,
+      "score_ms": 43.47187900020799,
       "progressive_validation": {
         "split_aucs": [
-          0.555538647710557
+          0.5613477001707693
         ],
         "split_f1s": [
-          0.4535603715170279
+          0.45669291338582674
         ],
-        "mean_auc": 0.555538647710557,
-        "mean_f1": 0.4535603715170279,
+        "mean_auc": 0.5613477001707693,
+        "mean_f1": 0.45669291338582674,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.4290771809868769,
-        "kinematic": 0.19578429381408866,
-        "info_geometry": 0.3751385251990345
+        "resonance": 0.4674732136965154,
+        "kinematic": 0.0,
+        "info_geometry": 0.5325267863034846
       },
       "weight_source": "unsupervised_adaptive",
-      "data_type": "TEMPORAL",
+      "data_type": "TABULAR",
       "oracle_metadata": {
-        "active": true,
-        "domain": "security",
-        "mean_multiplier": 1.2046139351522027,
-        "significant_bands": [
-          "baseline"
-        ],
-        "change_points": 0
+        "active": false
       },
       "error": null
     },
     {
       "name": "ADBench-02",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 7200,
       "n_train": 3333,
       "n_test": 3867,
       "n_features": 6,
       "anomaly_ratio": 0.07416666666666667,
       "test_anomaly_ratio": 0.13809154383242825,
-      "ensemble_auc": 0.8854391057083236,
+      "ensemble_auc": 0.8325697738313158,
       "resonance_auc": 0.8453800436223398,
       "kinematic_auc": 0.8859237047300235,
       "info_geometry_auc": 0.8156006611897145,
-      "oracle_f1": 0.5427910562837317,
-      "oracle_precision": 0.4613368283093054,
-      "oracle_recall": 0.6591760299625468,
-      "oracle_threshold": 0.37,
-      "threshold_strategy": "sweep_0.37",
-      "fit_ms": 520.8077030000027,
-      "score_ms": 3518.4047060000125,
+      "oracle_f1": 0.4829396325459318,
+      "oracle_precision": 0.45320197044334976,
+      "oracle_recall": 0.5168539325842697,
+      "oracle_threshold": 0.47000000000000003,
+      "threshold_strategy": "sweep_0.47",
+      "fit_ms": 48.603131999698235,
+      "score_ms": 9.137429000475095,
       "progressive_validation": {
         "split_aucs": [
-          0.924773032165476
+          0.8336895142420367
         ],
         "split_f1s": [
-          0.9149130832570906
+          0.8656224237427864
         ],
-        "mean_auc": 0.924773032165476,
-        "mean_f1": 0.9149130832570906,
+        "mean_auc": 0.8336895142420367,
+        "mean_f1": 0.8656224237427864,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.20855893079843113,
-        "kinematic": 0.41839826641862365,
-        "info_geometry": 0.3730428027829452
+        "resonance": 0.2861612746555926,
+        "kinematic": 0.0,
+        "info_geometry": 0.7138387253444074
       },
       "weight_source": "unsupervised_adaptive",
-      "data_type": "TEMPORAL",
+      "data_type": "TABULAR",
       "oracle_metadata": {
-        "active": true,
-        "domain": "medical",
-        "mean_multiplier": 0.8699571710008575,
-        "significant_bands": [],
-        "change_points": 0
+        "active": false
       },
       "error": null
     },
     {
       "name": "ADBench-03",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 95329,
       "n_train": 9755,
       "n_test": 9999,
       "n_features": 196,
       "anomaly_ratio": 0.02443118043827167,
       "test_anomaly_ratio": 0.04760476047604761,
-      "ensemble_auc": 0.9706700804862531,
+      "ensemble_auc": 0.9439495004134175,
       "resonance_auc": 0.8293587307862345,
       "kinematic_auc": 0.6026462249291189,
       "info_geometry_auc": 0.941921460382956,
-      "oracle_f1": 0.8793103448275862,
-      "oracle_precision": 0.9026548672566371,
-      "oracle_recall": 0.8571428571428571,
-      "oracle_threshold": 0.65,
-      "threshold_strategy": "sweep_0.65",
-      "fit_ms": 3049.291521999976,
-      "score_ms": 591.4907990000415,
+      "oracle_f1": 0.9012208657047726,
+      "oracle_precision": 0.9552941176470588,
+      "oracle_recall": 0.8529411764705882,
+      "oracle_threshold": 0.72,
+      "threshold_strategy": "sweep_0.72",
+      "fit_ms": 3758.2071930000893,
+      "score_ms": 774.3351020008049,
       "progressive_validation": null,
       "adaptive_weights": {
-        "resonance": 0.43398632716919017,
-        "kinematic": 0.0598520012456809,
-        "info_geometry": 0.5061616715851289
+        "resonance": 0.4398398449578234,
+        "kinematic": 0.047644619317135935,
+        "info_geometry": 0.5125155357250407
       },
       "weight_source": "unsupervised_adaptive",
       "data_type": "IMAGE",
@@ -441,78 +465,73 @@
     {
       "name": "ADBench-04",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 683,
       "n_train": 222,
       "n_test": 461,
       "n_features": 9,
       "anomaly_ratio": 0.34992679355783307,
       "test_anomaly_ratio": 0.5184381778741866,
-      "ensemble_auc": 0.9976817822006107,
+      "ensemble_auc": 0.9918202721550002,
       "resonance_auc": 0.9924045384296432,
       "kinematic_auc": 0.8490990990990991,
       "info_geometry_auc": 0.9906328923065324,
-      "oracle_f1": 0.9769392033542977,
-      "oracle_precision": 0.9789915966386554,
+      "oracle_f1": 0.9668049792531119,
+      "oracle_precision": 0.9588477366255144,
       "oracle_recall": 0.9748953974895398,
-      "oracle_threshold": 0.67,
-      "threshold_strategy": "sweep_0.67",
-      "fit_ms": 51.82350400002633,
-      "score_ms": 629.6758380000256,
+      "oracle_threshold": 0.62,
+      "threshold_strategy": "sweep_0.62",
+      "fit_ms": 33.5292899999331,
+      "score_ms": 3.5901490000469494,
       "progressive_validation": {
         "split_aucs": [
-          0.9961013645224172
+          0.9917153996101364
         ],
         "split_f1s": [
-          0.9814814814814815
+          0.9719626168224299
         ],
-        "mean_auc": 0.9961013645224172,
-        "mean_f1": 0.9814814814814815,
+        "mean_auc": 0.9917153996101364,
+        "mean_f1": 0.9719626168224299,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.38234841981128664,
-        "kinematic": 0.2908525052526412,
-        "info_geometry": 0.3267990749360721
+        "resonance": 0.4900738178911846,
+        "kinematic": 0.0,
+        "info_geometry": 0.5099261821088155
       },
       "weight_source": "unsupervised_adaptive",
-      "data_type": "TEMPORAL",
+      "data_type": "TABULAR",
       "oracle_metadata": {
-        "active": true,
-        "domain": "security",
-        "mean_multiplier": 1.0605631666892066,
-        "significant_bands": [
-          "baseline",
-          "scan"
-        ],
-        "change_points": 0
+        "active": false
       },
       "error": null
     },
     {
       "name": "ADBench-05",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 41188,
       "n_train": 8873,
       "n_test": 9999,
       "n_features": 62,
       "anomaly_ratio": 0.11265417111780131,
       "test_anomaly_ratio": 0.20242024202420242,
-      "ensemble_auc": 0.8104275341668009,
+      "ensemble_auc": 0.7995378343885908,
       "resonance_auc": 0.772262071443617,
       "kinematic_auc": 0.587827387958913,
       "info_geometry_auc": 0.797020023046328,
-      "oracle_f1": 0.5561877667140825,
-      "oracle_precision": 0.5346399270738378,
-      "oracle_recall": 0.5795454545454546,
+      "oracle_f1": 0.5474418604651162,
+      "oracle_precision": 0.5171353251318102,
+      "oracle_recall": 0.5815217391304348,
       "oracle_threshold": 0.37,
       "threshold_strategy": "sweep_0.37",
-      "fit_ms": 582.1264039999505,
-      "score_ms": 82.60345999997298,
+      "fit_ms": 621.7315009998856,
+      "score_ms": 111.29701899972133,
       "progressive_validation": null,
       "adaptive_weights": {
-        "resonance": 0.46680686479247513,
+        "resonance": 0.467227490538453,
         "kinematic": 0.0,
-        "info_geometry": 0.5331931352075249
+        "info_geometry": 0.532772509461547
       },
       "weight_source": "unsupervised_adaptive",
       "data_type": "TABULAR",
@@ -524,38 +543,39 @@
     {
       "name": "ADBench-06",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 1831,
       "n_train": 827,
       "n_test": 1004,
       "n_features": 21,
       "anomaly_ratio": 0.0961223375204806,
       "test_anomaly_ratio": 0.1752988047808765,
-      "ensemble_auc": 0.9575304677206851,
+      "ensemble_auc": 0.9498517786561265,
       "resonance_auc": 0.9570638449714537,
       "kinematic_auc": 0.6663818895476504,
       "info_geometry_auc": 0.946036451471234,
-      "oracle_f1": 0.798941798941799,
-      "oracle_precision": 0.7475247524752475,
-      "oracle_recall": 0.8579545454545454,
-      "oracle_threshold": 0.47000000000000003,
-      "threshold_strategy": "sweep_0.47",
-      "fit_ms": 41.04767600000514,
-      "score_ms": 4.252907999955369,
+      "oracle_f1": 0.7751937984496123,
+      "oracle_precision": 0.7109004739336493,
+      "oracle_recall": 0.8522727272727273,
+      "oracle_threshold": 0.46838912777146174,
+      "threshold_strategy": "mad_2.5",
+      "fit_ms": 49.69965300006152,
+      "score_ms": 5.699870000171359,
       "progressive_validation": {
         "split_aucs": [
-          0.9588870431893688
+          0.9676079734219268
         ],
         "split_f1s": [
-          0.9593023255813954
+          0.9651162790697675
         ],
-        "mean_auc": 0.9588870431893688,
-        "mean_f1": 0.9593023255813954,
+        "mean_auc": 0.9676079734219268,
+        "mean_f1": 0.9651162790697675,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.4665156514748767,
+        "resonance": 0.46606264282707793,
         "kinematic": 0.0,
-        "info_geometry": 0.5334843485251233
+        "info_geometry": 0.5339373571729221
       },
       "weight_source": "unsupervised_adaptive",
       "data_type": "TABULAR",
@@ -567,38 +587,39 @@
     {
       "name": "ADBench-07",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 2114,
       "n_train": 824,
       "n_test": 1290,
       "n_features": 21,
       "anomaly_ratio": 0.22043519394512773,
       "test_anomaly_ratio": 0.3612403100775194,
-      "ensemble_auc": 0.7851811533813909,
+      "ensemble_auc": 0.7707026855285637,
       "resonance_auc": 0.8420663360973373,
       "kinematic_auc": 0.6730345535230634,
       "info_geometry_auc": 0.749921871744656,
-      "oracle_f1": 0.635599694423224,
-      "oracle_precision": 0.49347568208778175,
-      "oracle_recall": 0.8927038626609443,
+      "oracle_f1": 0.6190102120974077,
+      "oracle_precision": 0.4882280049566295,
+      "oracle_recall": 0.8454935622317596,
       "oracle_threshold": 0.29,
       "threshold_strategy": "sweep_0.29",
-      "fit_ms": 37.597461000018484,
-      "score_ms": 4.8402460000147585,
+      "fit_ms": 45.19253899979958,
+      "score_ms": 6.636258000071393,
       "progressive_validation": {
         "split_aucs": [
-          0.5538461538461539
+          0.5402884615384616
         ],
         "split_f1s": [
-          0.9
+          0.8947368421052632
         ],
-        "mean_auc": 0.5538461538461539,
-        "mean_f1": 0.9,
+        "mean_auc": 0.5402884615384616,
+        "mean_f1": 0.8947368421052632,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.4666448050951479,
+        "resonance": 0.46657922114952727,
         "kinematic": 0.0,
-        "info_geometry": 0.5333551949048522
+        "info_geometry": 0.5334207788504728
       },
       "weight_source": "unsupervised_adaptive",
       "data_type": "TABULAR",
@@ -610,32 +631,33 @@
     {
       "name": "ADBench-08",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 202599,
       "n_train": 9775,
       "n_test": 9999,
       "n_features": 39,
       "anomaly_ratio": 0.022443348683853327,
       "test_anomaly_ratio": 0.043804380438043806,
-      "ensemble_auc": 0.7661349212148478,
+      "ensemble_auc": 0.7857014249765624,
       "resonance_auc": 0.7543843687659961,
       "kinematic_auc": 0.6491605929530117,
       "info_geometry_auc": 0.783778898197061,
-      "oracle_f1": 0.2292682926829268,
-      "oracle_precision": 0.14578163771712158,
-      "oracle_recall": 0.5365296803652968,
-      "oracle_threshold": 0.42,
-      "threshold_strategy": "sweep_0.42",
-      "fit_ms": 469.7811909999814,
-      "score_ms": 42.558950000000095,
+      "oracle_f1": 0.24444444444444444,
+      "oracle_precision": 0.17564870259481039,
+      "oracle_recall": 0.4018264840182648,
+      "oracle_threshold": 0.46,
+      "threshold_strategy": "sweep_0.46",
+      "fit_ms": 320.98097400012193,
+      "score_ms": 62.919187000261445,
       "progressive_validation": {
         "split_aucs": [
-          0.800188454233595
+          0.7920989090266634
         ],
         "split_f1s": [
-          0.6012024048096193
+          0.5898234683281413
         ],
-        "mean_auc": 0.800188454233595,
-        "mean_f1": 0.6012024048096193,
+        "mean_auc": 0.7920989090266634,
+        "mean_f1": 0.5898234683281413,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
@@ -653,28 +675,29 @@
     {
       "name": "ADBench-09",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 299285,
       "n_train": 9379,
       "n_test": 9999,
       "n_features": 500,
       "anomaly_ratio": 0.062041198189017155,
       "test_anomaly_ratio": 0.11671167116711671,
-      "ensemble_auc": 0.7029975131328937,
+      "ensemble_auc": 0.7077304388187227,
       "resonance_auc": 0.6710861143710491,
       "kinematic_auc": 0.5000566123188406,
       "info_geometry_auc": 0.7078725760031296,
-      "oracle_f1": 0.2945205479452055,
-      "oracle_precision": 0.18648710340105,
-      "oracle_recall": 0.7000856898029134,
-      "oracle_threshold": 0.25,
-      "threshold_strategy": "sweep_0.25",
-      "fit_ms": 12000.798093000014,
-      "score_ms": 3697.1837940000114,
+      "oracle_f1": 0.29591214154972545,
+      "oracle_precision": 0.1799962887363147,
+      "oracle_recall": 0.831191088260497,
+      "oracle_threshold": 0.22,
+      "threshold_strategy": "sweep_0.22",
+      "fit_ms": 15340.580297000088,
+      "score_ms": 4763.353009999264,
       "progressive_validation": null,
       "adaptive_weights": {
-        "resonance": 0.467251231195804,
+        "resonance": 0.46900545796858695,
         "kinematic": 0.0,
-        "info_geometry": 0.532748768804196
+        "info_geometry": 0.530994542031413
       },
       "weight_source": "unsupervised_adaptive",
       "data_type": "TABULAR",
@@ -686,187 +709,171 @@
     {
       "name": "ADBench-10",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 286048,
       "n_train": 9903,
       "n_test": 9999,
       "n_features": 10,
       "anomaly_ratio": 0.009603283365029646,
       "test_anomaly_ratio": 0.019001900190019003,
-      "ensemble_auc": 0.9132574273894544,
+      "ensemble_auc": 0.9444393172757564,
       "resonance_auc": 0.8933911391793787,
       "kinematic_auc": 0.4683609574450961,
       "info_geometry_auc": 0.9484490612809933,
-      "oracle_f1": 0.2220095693779904,
-      "oracle_precision": 0.13567251461988303,
-      "oracle_recall": 0.6105263157894737,
-      "oracle_threshold": 0.43576851466762334,
-      "threshold_strategy": "mad_2.5",
-      "fit_ms": 1383.343468000021,
-      "score_ms": 10406.161561000034,
+      "oracle_f1": 0.30112359550561796,
+      "oracle_precision": 0.19142857142857142,
+      "oracle_recall": 0.7052631578947368,
+      "oracle_threshold": 0.495890860300138,
+      "threshold_strategy": "percentile_93",
+      "fit_ms": 120.87691699980496,
+      "score_ms": 23.548070999822812,
       "progressive_validation": {
         "split_aucs": [
-          0.8904328950411899
+          0.9454269938140906
         ],
         "split_f1s": [
-          0.48684210526315785
+          0.6494623655913979
         ],
-        "mean_auc": 0.8904328950411899,
-        "mean_f1": 0.48684210526315785,
+        "mean_auc": 0.9454269938140906,
+        "mean_f1": 0.6494623655913979,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.3465046854466961,
-        "kinematic": 0.34781505470966817,
-        "info_geometry": 0.3056802598436358
+        "resonance": 0.45853787795732953,
+        "kinematic": 0.0,
+        "info_geometry": 0.5414621220426705
       },
       "weight_source": "unsupervised_adaptive",
-      "data_type": "TEMPORAL",
+      "data_type": "TABULAR",
       "oracle_metadata": {
-        "active": true,
-        "domain": "infrastructure",
-        "mean_multiplier": 0.9346542922099385,
-        "significant_bands": [
-          "harmonic_distortion"
-        ],
-        "change_points": 0
+        "active": false
       },
       "error": null
     },
     {
       "name": "ADBench-11",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 619326,
       "n_train": 9407,
       "n_test": 9999,
       "n_features": 10,
       "anomaly_ratio": 0.05927411411760527,
       "test_anomaly_ratio": 0.11181118111811181,
-      "ensemble_auc": 0.8984736364077681,
+      "ensemble_auc": 0.9259148845226256,
       "resonance_auc": 0.8805305652415893,
       "kinematic_auc": 0.5696078077880882,
       "info_geometry_auc": 0.9240750137124157,
-      "oracle_f1": 0.514490161001789,
-      "oracle_precision": 0.4287418008348241,
-      "oracle_recall": 0.6431127012522362,
-      "oracle_threshold": 0.3843245381066247,
-      "threshold_strategy": "contam_1.5",
-      "fit_ms": 1313.540133999993,
-      "score_ms": 10414.729387000023,
+      "oracle_f1": 0.6567635903919089,
+      "oracle_precision": 0.5078201368523949,
+      "oracle_recall": 0.9293381037567084,
+      "oracle_threshold": 0.41000000000000003,
+      "threshold_strategy": "sweep_0.41",
+      "fit_ms": 113.73353999988467,
+      "score_ms": 23.021528000754188,
       "progressive_validation": {
         "split_aucs": [
-          0.8924484475955734
+          0.9213137368266237
         ],
         "split_f1s": [
-          0.8663366336633664
+          0.9456102783725909
         ],
-        "mean_auc": 0.8924484475955734,
-        "mean_f1": 0.8663366336633664,
+        "mean_auc": 0.9213137368266237,
+        "mean_f1": 0.9456102783725909,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.3530342506520093,
-        "kinematic": 0.34062918178618673,
-        "info_geometry": 0.306336567561804
+        "resonance": 0.474987343659118,
+        "kinematic": 0.0,
+        "info_geometry": 0.5250126563408821
       },
       "weight_source": "unsupervised_adaptive",
-      "data_type": "TEMPORAL",
+      "data_type": "TABULAR",
       "oracle_metadata": {
-        "active": true,
-        "domain": "infrastructure",
-        "mean_multiplier": 0.92712838912281,
-        "significant_bands": [
-          "harmonic_distortion"
-        ],
-        "change_points": 0
+        "active": false
       },
       "error": null
     },
     {
       "name": "ADBench-12",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 1941,
       "n_train": 634,
       "n_test": 1307,
       "n_features": 27,
       "anomaly_ratio": 0.3467284904688305,
       "test_anomaly_ratio": 0.5149196633511859,
-      "ensemble_auc": 0.7035309668558786,
+      "ensemble_auc": 0.6889018050913795,
       "resonance_auc": 0.5012351118631674,
       "kinematic_auc": 0.6216116452065004,
       "info_geometry_auc": 0.6950082262668684,
-      "oracle_f1": 0.7030567685589519,
-      "oracle_precision": 0.5556514236410699,
-      "oracle_recall": 0.9569093610698366,
-      "oracle_threshold": 0.34,
-      "threshold_strategy": "sweep_0.34",
-      "fit_ms": 112.9101689999743,
-      "score_ms": 2400.3874610000366,
+      "oracle_f1": 0.7114666666666666,
+      "oracle_precision": 0.5549084858569051,
+      "oracle_recall": 0.9910846953937593,
+      "oracle_threshold": 0.23,
+      "threshold_strategy": "sweep_0.23",
+      "fit_ms": 50.64585099989927,
+      "score_ms": 8.170414999767672,
       "progressive_validation": {
         "split_aucs": [
-          0.5663350910834133
+          0.5804769894534996
         ],
         "split_f1s": [
           0.726829268292683
         ],
-        "mean_auc": 0.5663350910834133,
+        "mean_auc": 0.5804769894534996,
         "mean_f1": 0.726829268292683,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.36983411782456793,
-        "kinematic": 0.3063652312552496,
-        "info_geometry": 0.32380065092018256
+        "resonance": 0.4660645346140323,
+        "kinematic": 0.0,
+        "info_geometry": 0.5339354653859678
       },
       "weight_source": "unsupervised_adaptive",
-      "data_type": "TEMPORAL",
+      "data_type": "TABULAR",
       "oracle_metadata": {
-        "active": true,
-        "domain": "security",
-        "mean_multiplier": 1.3110329633981466,
-        "significant_bands": [
-          "baseline",
-          "burst",
-          "scan"
-        ],
-        "change_points": 0
+        "active": false
       },
       "error": null
     },
     {
       "name": "ADBench-13",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 284807,
       "n_train": 9982,
       "n_test": 9999,
       "n_features": 29,
       "anomaly_ratio": 0.001727485630620034,
       "test_anomaly_ratio": 0.0033003300330033004,
-      "ensemble_auc": 0.9694263526292425,
+      "ensemble_auc": 0.971922719062996,
       "resonance_auc": 0.9634606145744016,
       "kinematic_auc": 0.83298213927353,
       "info_geometry_auc": 0.9744297277409861,
-      "oracle_f1": 0.36666666666666664,
-      "oracle_precision": 0.4074074074074074,
-      "oracle_recall": 0.3333333333333333,
-      "oracle_threshold": 0.7604752303750526,
-      "threshold_strategy": "contam_0.8",
-      "fit_ms": 210.14623500002472,
-      "score_ms": 29.983155000024908,
+      "oracle_f1": 0.45454545454545453,
+      "oracle_precision": 0.9090909090909091,
+      "oracle_recall": 0.30303030303030304,
+      "oracle_threshold": 0.8200000000000001,
+      "threshold_strategy": "sweep_0.82",
+      "fit_ms": 274.17888599939033,
+      "score_ms": 47.9824619997089,
       "progressive_validation": {
         "split_aucs": [
-          0.969945737791003
+          0.9666549973744092
         ],
         "split_f1s": [
-          0.6530612244897959
+          0.641025641025641
         ],
-        "mean_auc": 0.969945737791003,
-        "mean_f1": 0.6530612244897959,
+        "mean_auc": 0.9666549973744092,
+        "mean_f1": 0.641025641025641,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.30421391884588667,
+        "resonance": 0.30381239616018707,
         "kinematic": 0.0,
-        "info_geometry": 0.6957860811541132
+        "info_geometry": 0.6961876038398129
       },
       "weight_source": "unsupervised_adaptive",
       "data_type": "TABULAR",
@@ -878,77 +885,73 @@
     {
       "name": "ADBench-14",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 214,
       "n_train": 102,
       "n_test": 112,
       "n_features": 7,
       "anomaly_ratio": 0.04205607476635514,
       "test_anomaly_ratio": 0.08035714285714286,
-      "ensemble_auc": 0.7454153182308523,
+      "ensemble_auc": 0.7680690399137001,
       "resonance_auc": 0.7518878101402373,
       "kinematic_auc": 0.3624595469255663,
       "info_geometry_auc": 0.7713052858683926,
-      "oracle_f1": 0.28571428571428575,
-      "oracle_precision": 0.18181818181818182,
-      "oracle_recall": 0.6666666666666666,
-      "oracle_threshold": 0.38,
-      "threshold_strategy": "sweep_0.38",
-      "fit_ms": 36.194421000004695,
-      "score_ms": 123.16535500002601,
+      "oracle_f1": 0.30303030303030304,
+      "oracle_precision": 0.20833333333333334,
+      "oracle_recall": 0.5555555555555556,
+      "oracle_threshold": 0.4901384464600107,
+      "threshold_strategy": "mad_4.0",
+      "fit_ms": 25.17783999974199,
+      "score_ms": 3.105910000158474,
       "progressive_validation": {
         "split_aucs": [
-          0.8380952380952381
+          0.8571428571428571
         ],
         "split_f1s": [
-          0.7142857142857143
+          0.7368421052631579
         ],
-        "mean_auc": 0.8380952380952381,
-        "mean_f1": 0.7142857142857143,
+        "mean_auc": 0.8571428571428571,
+        "mean_f1": 0.7368421052631579,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.2279281382961727,
-        "kinematic": 0.3609229249060434,
-        "info_geometry": 0.4111489367977839
+        "resonance": 0.2793041367652895,
+        "kinematic": 0.0,
+        "info_geometry": 0.7206958632347106
       },
       "weight_source": "unsupervised_adaptive",
-      "data_type": "TEMPORAL",
+      "data_type": "TABULAR",
       "oracle_metadata": {
-        "active": true,
-        "domain": "medical",
-        "mean_multiplier": 0.9321040854305161,
-        "significant_bands": [
-          "high_gamma_motor"
-        ],
-        "change_points": 0
+        "active": false
       },
       "error": null
     },
     {
       "name": "ADBench-15",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 80,
       "n_train": 33,
       "n_test": 47,
       "n_features": 19,
       "anomaly_ratio": 0.1625,
       "test_anomaly_ratio": 0.2765957446808511,
-      "ensemble_auc": 0.7895927601809954,
+      "ensemble_auc": 0.7828054298642534,
       "resonance_auc": 0.746606334841629,
       "kinematic_auc": 0.2726244343891403,
       "info_geometry_auc": 0.7895927601809954,
       "oracle_f1": 0.6060606060606061,
       "oracle_precision": 0.5,
       "oracle_recall": 0.7692307692307693,
-      "oracle_threshold": 0.6276194529769048,
+      "oracle_threshold": 0.6149372285321469,
       "threshold_strategy": "contam_1.5",
-      "fit_ms": 17.40125399999215,
-      "score_ms": 1.9953149999878406,
+      "fit_ms": 22.616410000409815,
+      "score_ms": 2.7426030001151958,
       "progressive_validation": null,
       "adaptive_weights": {
-        "resonance": 0.47807486631016044,
+        "resonance": 0.512389196767663,
         "kinematic": 0.0,
-        "info_geometry": 0.5219251336898395
+        "info_geometry": 0.48761080323233696
       },
       "weight_source": "unsupervised_adaptive",
       "data_type": "TABULAR",
@@ -960,75 +963,73 @@
     {
       "name": "ADBench-16",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 567498,
       "n_train": 9961,
       "n_test": 9999,
       "n_features": 3,
       "anomaly_ratio": 0.003896048972859816,
       "test_anomaly_ratio": 0.007600760076007601,
-      "ensemble_auc": 0.9846197298143069,
+      "ensemble_auc": 0.9938752075189485,
       "resonance_auc": 0.9949612012496222,
       "kinematic_auc": 0.2897985541299586,
       "info_geometry_auc": 0.9986156563433173,
-      "oracle_f1": 0.3776595744680851,
-      "oracle_precision": 0.23666666666666666,
-      "oracle_recall": 0.9342105263157895,
-      "oracle_threshold": 0.3873067799190574,
-      "threshold_strategy": "percentile_97",
-      "fit_ms": 1110.8946520000131,
-      "score_ms": 5771.722065000005,
+      "oracle_f1": 0.6912442396313363,
+      "oracle_precision": 0.5319148936170213,
+      "oracle_recall": 0.9868421052631579,
+      "oracle_threshold": 0.67,
+      "threshold_strategy": "sweep_0.67",
+      "fit_ms": 75.3434140005993,
+      "score_ms": 20.170565000626084,
       "progressive_validation": {
         "split_aucs": [
-          0.886200484345269
+          0.992374445021046
         ],
         "split_f1s": [
-          0.3865546218487395
+          0.8930817610062893
         ],
-        "mean_auc": 0.886200484345269,
-        "mean_f1": 0.3865546218487395,
+        "mean_auc": 0.992374445021046,
+        "mean_f1": 0.8930817610062893,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.3910725646097905,
-        "kinematic": 0.4402616481212492,
-        "info_geometry": 0.16866578726896037
+        "resonance": 0.64948980541946,
+        "kinematic": 0.0,
+        "info_geometry": 0.35051019458054
       },
       "weight_source": "unsupervised_adaptive",
-      "data_type": "TEMPORAL",
+      "data_type": "TABULAR",
       "oracle_metadata": {
-        "active": true,
-        "domain": "security",
-        "mean_multiplier": 0.859282434931713,
-        "significant_bands": [],
-        "change_points": 0
+        "active": false
       },
       "error": null
     },
     {
       "name": "ADBench-17",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 1966,
       "n_train": 799,
       "n_test": 1167,
       "n_features": 1555,
       "anomaly_ratio": 0.1871820956256358,
       "test_anomaly_ratio": 0.31533847472150817,
-      "ensemble_auc": 0.903229920552865,
+      "ensemble_auc": 0.9031942101539969,
       "resonance_auc": 0.6503254747782554,
       "kinematic_auc": 0.5,
       "info_geometry_auc": 0.893868694563857,
-      "oracle_f1": 0.7756097560975611,
-      "oracle_precision": 0.7035398230088495,
-      "oracle_recall": 0.8641304347826086,
-      "oracle_threshold": 0.49,
-      "threshold_strategy": "sweep_0.49",
-      "fit_ms": 10045.962768000038,
-      "score_ms": 4008.83329200002,
+      "oracle_f1": 0.774114774114774,
+      "oracle_precision": 0.7028824833702882,
+      "oracle_recall": 0.8614130434782609,
+      "oracle_threshold": 0.46,
+      "threshold_strategy": "sweep_0.46",
+      "fit_ms": 12122.96931199944,
+      "score_ms": 4945.020864000071,
       "progressive_validation": null,
       "adaptive_weights": {
-        "resonance": 0.5057491579628751,
+        "resonance": 0.6207151463124506,
         "kinematic": 0.0,
-        "info_geometry": 0.49425084203712494
+        "info_geometry": 0.37928485368754944
       },
       "weight_source": "unsupervised_adaptive",
       "data_type": "TABULAR",
@@ -1040,63 +1041,58 @@
     {
       "name": "ADBench-18",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 351,
       "n_train": 112,
       "n_test": 239,
       "n_features": 32,
       "anomaly_ratio": 0.358974358974359,
       "test_anomaly_ratio": 0.5271966527196653,
-      "ensemble_auc": 0.9492906307065598,
+      "ensemble_auc": 0.9438123331928641,
       "resonance_auc": 0.8350891979210564,
       "kinematic_auc": 0.8371611181345695,
       "info_geometry_auc": 0.9601067565669337,
-      "oracle_f1": 0.912,
-      "oracle_precision": 0.9193548387096774,
+      "oracle_f1": 0.901185770750988,
+      "oracle_precision": 0.8976377952755905,
       "oracle_recall": 0.9047619047619048,
-      "oracle_threshold": 0.85,
-      "threshold_strategy": "sweep_0.85",
-      "fit_ms": 47.870801999977175,
-      "score_ms": 455.2068579999968,
+      "oracle_threshold": 0.64,
+      "threshold_strategy": "sweep_0.64",
+      "fit_ms": 34.491917000195826,
+      "score_ms": 4.155224999522034,
       "progressive_validation": {
         "split_aucs": [
-          1.0
+          0.9924812030075189
         ],
         "split_f1s": [
-          1.0
+          0.9642857142857143
         ],
-        "mean_auc": 1.0,
-        "mean_f1": 1.0,
+        "mean_auc": 0.9924812030075189,
+        "mean_f1": 0.9642857142857143,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.3693919699427092,
-        "kinematic": 0.3071654434500543,
-        "info_geometry": 0.32344258660723657
+        "resonance": 0.46597513297402,
+        "kinematic": 0.0,
+        "info_geometry": 0.5340248670259801
       },
       "weight_source": "unsupervised_adaptive",
-      "data_type": "TEMPORAL",
+      "data_type": "TABULAR",
       "oracle_metadata": {
-        "active": true,
-        "domain": "security",
-        "mean_multiplier": 1.417175213001906,
-        "significant_bands": [
-          "burst",
-          "scan"
-        ],
-        "change_points": 0
+        "active": false
       },
       "error": null
     },
     {
       "name": "ADBench-19",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 6435,
       "n_train": 2551,
       "n_test": 3884,
       "n_features": 36,
       "anomaly_ratio": 0.20714840714840715,
       "test_anomaly_ratio": 0.34320288362512874,
-      "ensemble_auc": 0.41366447060608746,
+      "ensemble_auc": 0.47067695971425233,
       "resonance_auc": 0.42757455337962286,
       "kinematic_auc": 0.35618866496318313,
       "info_geometry_auc": 0.49253179621836074,
@@ -1105,59 +1101,52 @@
       "oracle_recall": 1.0,
       "oracle_threshold": 0.0,
       "threshold_strategy": "sweep_0.00",
-      "fit_ms": 436.7830559999675,
-      "score_ms": 7203.314496000019,
+      "fit_ms": 113.53947299994616,
+      "score_ms": 24.616933000288554,
       "progressive_validation": {
         "split_aucs": [
-          0.3121660084820668
+          0.3194803720432374
         ],
         "split_f1s": [
           0.8322046651617757
         ],
-        "mean_auc": 0.3121660084820668,
+        "mean_auc": 0.3194803720432374,
         "mean_f1": 0.8322046651617757,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.3324932937102327,
-        "kinematic": 0.3684144864485914,
-        "info_geometry": 0.29909221984117584
+        "resonance": 0.43925503260407506,
+        "kinematic": 0.0,
+        "info_geometry": 0.5607449673959249
       },
       "weight_source": "unsupervised_adaptive",
-      "data_type": "TEMPORAL",
+      "data_type": "TABULAR",
       "oracle_metadata": {
-        "active": true,
-        "domain": "security",
-        "mean_multiplier": 1.2691076394047645,
-        "significant_bands": [
-          "baseline",
-          "burst",
-          "scan"
-        ],
-        "change_points": 0
+        "active": false
       },
       "error": null
     },
     {
       "name": "ADBench-20",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 1600,
       "n_train": 750,
       "n_test": 850,
       "n_features": 32,
       "anomaly_ratio": 0.0625,
       "test_anomaly_ratio": 0.11764705882352941,
-      "ensemble_auc": 0.8293333333333333,
+      "ensemble_auc": 0.8298266666666666,
       "resonance_auc": 0.49017333333333335,
       "kinematic_auc": 0.7899066666666666,
       "info_geometry_auc": 0.83624,
-      "oracle_f1": 0.47349823321554774,
-      "oracle_precision": 0.366120218579235,
-      "oracle_recall": 0.67,
+      "oracle_f1": 0.48666666666666664,
+      "oracle_precision": 0.365,
+      "oracle_recall": 0.73,
       "oracle_threshold": 0.42,
       "threshold_strategy": "sweep_0.42",
-      "fit_ms": 135.86019699999952,
-      "score_ms": 5.548986999997396,
+      "fit_ms": 52.387128999725974,
+      "score_ms": 6.6421219999028835,
       "progressive_validation": {
         "split_aucs": [
           0.6527142857142857
@@ -1184,6 +1173,7 @@
     {
       "name": "ADBench-21",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 148,
       "n_train": 71,
       "n_test": 77,
@@ -1197,10 +1187,10 @@
       "oracle_f1": 0.8,
       "oracle_precision": 0.6666666666666666,
       "oracle_recall": 1.0,
-      "oracle_threshold": 0.690064437379319,
+      "oracle_threshold": 0.6805503863899688,
       "threshold_strategy": "contam_1.5",
-      "fit_ms": 19.772221999971862,
-      "score_ms": 2.0777999999950225,
+      "fit_ms": 25.00004400008038,
+      "score_ms": 2.9472559999703662,
       "progressive_validation": {
         "split_aucs": [
           1.0
@@ -1213,9 +1203,9 @@
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.4748698914952294,
+        "resonance": 0.49954334085619123,
         "kinematic": 0.0,
-        "info_geometry": 0.5251301085047706
+        "info_geometry": 0.5004566591438088
       },
       "weight_source": "unsupervised_adaptive",
       "data_type": "TABULAR",
@@ -1227,124 +1217,117 @@
     {
       "name": "ADBench-22",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 19020,
       "n_train": 6166,
       "n_test": 9999,
       "n_features": 10,
       "anomaly_ratio": 0.3516298633017876,
       "test_anomaly_ratio": 0.5203520352035204,
-      "ensemble_auc": 0.8566470280746801,
+      "ensemble_auc": 0.8031636973408394,
       "resonance_auc": 0.6714103398677577,
       "kinematic_auc": 0.855813640908073,
       "info_geometry_auc": 0.8042449446548527,
-      "oracle_f1": 0.7958561852528945,
-      "oracle_precision": 0.7274029280712921,
-      "oracle_recall": 0.8785316163751682,
-      "oracle_threshold": 0.35000000000000003,
-      "threshold_strategy": "sweep_0.35",
-      "fit_ms": 879.2057960000079,
-      "score_ms": 10475.858340000059,
+      "oracle_f1": 0.7462612982744455,
+      "oracle_precision": 0.6517869958375198,
+      "oracle_recall": 0.8727657120891793,
+      "oracle_threshold": 0.3,
+      "threshold_strategy": "sweep_0.30",
+      "fit_ms": 99.27772399987589,
+      "score_ms": 23.585807000017667,
       "progressive_validation": {
         "split_aucs": [
-          0.8733438508844968
+          0.8027646134486924
         ],
         "split_f1s": [
-          0.8472828242760809
+          0.7938931297709925
         ],
-        "mean_auc": 0.8733438508844968,
-        "mean_f1": 0.8472828242760809,
+        "mean_auc": 0.8027646134486924,
+        "mean_f1": 0.7938931297709925,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.3411834700595102,
-        "kinematic": 0.3530638744189085,
-        "info_geometry": 0.3057526555215813
+        "resonance": 0.44297881391372756,
+        "kinematic": 0.0,
+        "info_geometry": 0.5570211860862725
       },
       "weight_source": "unsupervised_adaptive",
-      "data_type": "TEMPORAL",
+      "data_type": "TABULAR",
       "oracle_metadata": {
-        "active": true,
-        "domain": "infrastructure",
-        "mean_multiplier": 0.959987864563326,
-        "significant_bands": [
-          "harmonic_distortion"
-        ],
-        "change_points": 0
+        "active": false
       },
       "error": null
     },
     {
       "name": "ADBench-23",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 11183,
       "n_train": 5461,
       "n_test": 5722,
       "n_features": 6,
       "anomaly_ratio": 0.023249575248144506,
       "test_anomaly_ratio": 0.045438657811953866,
-      "ensemble_auc": 0.9093210432921162,
+      "ensemble_auc": 0.8903131425513338,
       "resonance_auc": 0.890176886460299,
       "kinematic_auc": 0.847031588879813,
       "info_geometry_auc": 0.8759956905050279,
-      "oracle_f1": 0.4153846153846154,
-      "oracle_precision": 0.4153846153846154,
-      "oracle_recall": 0.4153846153846154,
-      "oracle_threshold": 0.5080545634115151,
-      "threshold_strategy": "contam_1.0",
-      "fit_ms": 790.7266619999973,
-      "score_ms": 4621.472249000021,
+      "oracle_f1": 0.46724890829694327,
+      "oracle_precision": 0.5404040404040404,
+      "oracle_recall": 0.4115384615384615,
+      "oracle_threshold": 0.66,
+      "threshold_strategy": "sweep_0.66",
+      "fit_ms": 64.16203000026144,
+      "score_ms": 11.70092000029399,
       "progressive_validation": {
         "split_aucs": [
-          0.9300488214604441
+          0.8863741753722856
         ],
         "split_f1s": [
-          0.7317829457364341
+          0.6518987341772151
         ],
-        "mean_auc": 0.9300488214604441,
-        "mean_f1": 0.7317829457364341,
+        "mean_auc": 0.8863741753722856,
+        "mean_f1": 0.6518987341772151,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.3599338499731907,
-        "kinematic": 0.3261744253708071,
-        "info_geometry": 0.3138917246560022
+        "resonance": 0.4699940227657205,
+        "kinematic": 0.0,
+        "info_geometry": 0.5300059772342794
       },
       "weight_source": "unsupervised_adaptive",
-      "data_type": "TEMPORAL",
+      "data_type": "TABULAR",
       "oracle_metadata": {
-        "active": true,
-        "domain": "environmental",
-        "mean_multiplier": 0.8632678800146872,
-        "significant_bands": [],
-        "change_points": 0
+        "active": false
       },
       "error": null
     },
     {
       "name": "ADBench-24",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 7603,
       "n_train": 3451,
       "n_test": 4152,
       "n_features": 100,
       "anomaly_ratio": 0.09206892016309351,
       "test_anomaly_ratio": 0.16859344894026976,
-      "ensemble_auc": 0.9405909617612978,
+      "ensemble_auc": 0.9310023174971032,
       "resonance_auc": 0.8987791756331733,
       "kinematic_auc": 0.6871378910776362,
       "info_geometry_auc": 0.9282846383049164,
-      "oracle_f1": 0.7412398921832885,
-      "oracle_precision": 0.701530612244898,
-      "oracle_recall": 0.7857142857142857,
-      "oracle_threshold": 0.38,
-      "threshold_strategy": "sweep_0.38",
-      "fit_ms": 581.8027430000257,
-      "score_ms": 75.71518999998261,
+      "oracle_f1": 0.7277777777777776,
+      "oracle_precision": 0.7081081081081081,
+      "oracle_recall": 0.7485714285714286,
+      "oracle_threshold": 0.39,
+      "threshold_strategy": "sweep_0.39",
+      "fit_ms": 562.0993660004387,
+      "score_ms": 94.7002100001555,
       "progressive_validation": null,
       "adaptive_weights": {
-        "resonance": 0.4683687028745624,
+        "resonance": 0.473479072049428,
         "kinematic": 0.0,
-        "info_geometry": 0.5316312971254376
+        "info_geometry": 0.5265209279505719
       },
       "weight_source": "unsupervised_adaptive",
       "data_type": "TABULAR",
@@ -1356,70 +1339,63 @@
     {
       "name": "ADBench-25",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 3062,
       "n_train": 1482,
       "n_test": 1580,
       "n_features": 166,
       "anomaly_ratio": 0.03167864141084259,
       "test_anomaly_ratio": 0.06139240506329114,
-      "ensemble_auc": 0.9998053541511703,
+      "ensemble_auc": 0.9998748705257523,
       "resonance_auc": 0.9991379969551828,
       "kinematic_auc": 0.5845492905853973,
       "info_geometry_auc": 0.9999999999999999,
-      "oracle_f1": 0.9844559585492227,
-      "oracle_precision": 0.9895833333333334,
-      "oracle_recall": 0.979381443298969,
-      "oracle_threshold": 0.8,
-      "threshold_strategy": "sweep_0.80",
-      "fit_ms": 750.4010430000108,
-      "score_ms": 3915.467161000038,
+      "oracle_f1": 0.9948717948717948,
+      "oracle_precision": 0.9897959183673469,
+      "oracle_recall": 1.0,
+      "oracle_threshold": 0.6,
+      "threshold_strategy": "sweep_0.60",
+      "fit_ms": 672.0588259995566,
+      "score_ms": 84.9414419999448,
       "progressive_validation": null,
       "adaptive_weights": {
-        "resonance": 0.43590665426273845,
-        "kinematic": 0.18267502325736543,
-        "info_geometry": 0.3814183224798961
+        "resonance": 0.4759722710574134,
+        "kinematic": 0.048055457885173146,
+        "info_geometry": 0.4759722710574134
       },
       "weight_source": "unsupervised_adaptive",
-      "data_type": "TEMPORAL",
+      "data_type": "UNKNOWN",
       "oracle_metadata": {
-        "active": true,
-        "domain": "security",
-        "mean_multiplier": 1.361331812839632,
-        "significant_bands": [
-          "baseline",
-          "session",
-          "burst",
-          "scan"
-        ],
-        "change_points": 0
+        "active": false
       },
       "error": null
     },
     {
       "name": "ADBench-26",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 5216,
       "n_train": 2533,
       "n_test": 2683,
       "n_features": 64,
       "anomaly_ratio": 0.028757668711656442,
       "test_anomaly_ratio": 0.05590756615728662,
-      "ensemble_auc": 0.7128701144887485,
+      "ensemble_auc": 0.765740228977497,
       "resonance_auc": 0.5222976707461509,
       "kinematic_auc": 0.03589551256744307,
       "info_geometry_auc": 0.8158389261744967,
-      "oracle_f1": 0.1869158878504673,
-      "oracle_precision": 0.11331444759206799,
-      "oracle_recall": 0.5333333333333333,
+      "oracle_f1": 0.22144522144522144,
+      "oracle_precision": 0.134180790960452,
+      "oracle_recall": 0.6333333333333333,
       "oracle_threshold": 0.35000000000000003,
       "threshold_strategy": "sweep_0.35",
-      "fit_ms": 220.70061499994154,
-      "score_ms": 27.786834000039562,
+      "fit_ms": 245.5880490006166,
+      "score_ms": 32.76204800022242,
       "progressive_validation": null,
       "adaptive_weights": {
-        "resonance": 0.46784151032140087,
+        "resonance": 0.47136812961773966,
         "kinematic": 0.0,
-        "info_geometry": 0.5321584896785991
+        "info_geometry": 0.5286318703822603
       },
       "weight_source": "unsupervised_adaptive",
       "data_type": "TABULAR",
@@ -1431,339 +1407,310 @@
     {
       "name": "ADBench-27",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 5393,
       "n_train": 2441,
       "n_test": 2952,
       "n_features": 10,
       "anomaly_ratio": 0.09456703133691823,
       "test_anomaly_ratio": 0.17276422764227642,
-      "ensemble_auc": 0.9645412792471616,
+      "ensemble_auc": 0.9546675017263253,
       "resonance_auc": 0.9170127346597935,
       "kinematic_auc": 0.897514894573718,
       "info_geometry_auc": 0.9579964991729698,
-      "oracle_f1": 0.7676935886761033,
-      "oracle_precision": 0.6671490593342981,
-      "oracle_recall": 0.903921568627451,
-      "oracle_threshold": 0.39,
-      "threshold_strategy": "sweep_0.39",
-      "fit_ms": 360.59201400007623,
-      "score_ms": 3072.5861600000144,
+      "oracle_f1": 0.7411764705882353,
+      "oracle_precision": 0.7411764705882353,
+      "oracle_recall": 0.7411764705882353,
+      "oracle_threshold": 0.570373388574099,
+      "threshold_strategy": "contam_1.0",
+      "fit_ms": 50.88169500049844,
+      "score_ms": 8.274642000287713,
       "progressive_validation": {
         "split_aucs": [
-          0.9665114269252929
+          0.9518196658344538
         ],
         "split_f1s": [
-          0.9758454106280193
+          0.9737098344693282
         ],
-        "mean_auc": 0.9665114269252929,
-        "mean_f1": 0.9758454106280193,
+        "mean_auc": 0.9518196658344538,
+        "mean_f1": 0.9737098344693282,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.3527921673088359,
-        "kinematic": 0.3281736195995696,
-        "info_geometry": 0.31903421309159463
+        "resonance": 0.4340529807811936,
+        "kinematic": 0.0,
+        "info_geometry": 0.5659470192188065
       },
       "weight_source": "unsupervised_adaptive",
-      "data_type": "TEMPORAL",
+      "data_type": "TABULAR",
       "oracle_metadata": {
-        "active": true,
-        "domain": "infrastructure",
-        "mean_multiplier": 0.8769815760527456,
-        "significant_bands": [],
-        "change_points": 0
+        "active": false
       },
       "error": null
     },
     {
       "name": "ADBench-28",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 6870,
       "n_train": 3357,
       "n_test": 3513,
       "n_features": 16,
       "anomaly_ratio": 0.022707423580786028,
       "test_anomaly_ratio": 0.0444064901793339,
-      "ensemble_auc": 0.7611668690757163,
+      "ensemble_auc": 0.8625833505190073,
       "resonance_auc": 0.9490062861376535,
       "kinematic_auc": 0.3368745369415611,
       "info_geometry_auc": 0.8458846039274994,
-      "oracle_f1": 0.2054054054054054,
-      "oracle_precision": 0.14285714285714285,
-      "oracle_recall": 0.36538461538461536,
-      "oracle_threshold": 0.4,
-      "threshold_strategy": "sweep_0.40",
-      "fit_ms": 567.9462059999878,
-      "score_ms": 4234.585582000022,
+      "oracle_f1": 0.2637795275590551,
+      "oracle_precision": 0.1903409090909091,
+      "oracle_recall": 0.42948717948717946,
+      "oracle_threshold": 0.45826938398495703,
+      "threshold_strategy": "percentile_90",
+      "fit_ms": 76.4732580000782,
+      "score_ms": 13.063112999589066,
       "progressive_validation": {
         "split_aucs": [
-          0.8862816529161757
+          0.8757455623415122
         ],
         "split_f1s": [
-          0.6597402597402598
+          0.6355555555555555
         ],
-        "mean_auc": 0.8862816529161757,
-        "mean_f1": 0.6597402597402598,
+        "mean_auc": 0.8757455623415122,
+        "mean_f1": 0.6355555555555555,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.34067844637957856,
-        "kinematic": 0.361021585038145,
-        "info_geometry": 0.2982999685822765
+        "resonance": 0.4659778869341726,
+        "kinematic": 0.0,
+        "info_geometry": 0.5340221130658274
       },
       "weight_source": "unsupervised_adaptive",
-      "data_type": "TEMPORAL",
+      "data_type": "TABULAR",
       "oracle_metadata": {
-        "active": true,
-        "domain": "medical",
-        "mean_multiplier": 0.9032001541375275,
-        "significant_bands": [
-          "high_gamma_motor"
-        ],
-        "change_points": 0
+        "active": false
       },
       "error": null
     },
     {
       "name": "ADBench-29",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 768,
       "n_train": 250,
       "n_test": 518,
       "n_features": 8,
       "anomaly_ratio": 0.3489583333333333,
       "test_anomaly_ratio": 0.5173745173745173,
-      "ensemble_auc": 0.7408358208955225,
+      "ensemble_auc": 0.711134328358209,
       "resonance_auc": 0.6815671641791046,
       "kinematic_auc": 0.6752835820895523,
       "info_geometry_auc": 0.7046716417910448,
-      "oracle_f1": 0.7430340557275541,
-      "oracle_precision": 0.6349206349206349,
-      "oracle_recall": 0.8955223880597015,
-      "oracle_threshold": 0.32,
-      "threshold_strategy": "sweep_0.32",
-      "fit_ms": 61.103407000018706,
-      "score_ms": 835.7970050000176,
+      "oracle_f1": 0.7160839160839162,
+      "oracle_precision": 0.5727069351230425,
+      "oracle_recall": 0.9552238805970149,
+      "oracle_threshold": 0.24,
+      "threshold_strategy": "sweep_0.24",
+      "fit_ms": 33.39745399989624,
+      "score_ms": 3.754829999706999,
       "progressive_validation": {
         "split_aucs": [
-          0.700693374422188
+          0.6825885978428351
         ],
         "split_f1s": [
-          0.7913669064748202
+          0.7631578947368421
         ],
-        "mean_auc": 0.700693374422188,
-        "mean_f1": 0.7913669064748202,
+        "mean_auc": 0.6825885978428351,
+        "mean_f1": 0.7631578947368421,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.37471522736247376,
-        "kinematic": 0.2973026335773519,
-        "info_geometry": 0.32798213906017437
+        "resonance": 0.46634391990321705,
+        "kinematic": 0.0,
+        "info_geometry": 0.533656080096783
       },
       "weight_source": "unsupervised_adaptive",
-      "data_type": "TEMPORAL",
+      "data_type": "TABULAR",
       "oracle_metadata": {
-        "active": true,
-        "domain": "environmental",
-        "mean_multiplier": 0.9779870662682429,
-        "significant_bands": [
-          "elf_upper"
-        ],
-        "change_points": 0
+        "active": false
       },
       "error": null
     },
     {
       "name": "ADBench-30",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 6435,
       "n_train": 2199,
       "n_test": 4236,
       "n_features": 36,
       "anomaly_ratio": 0.3163947163947164,
       "test_anomaly_ratio": 0.4806421152030217,
-      "ensemble_auc": 0.7949274424004287,
+      "ensemble_auc": 0.7760885872477228,
       "resonance_auc": 0.6345445615288445,
       "kinematic_auc": 0.575436573495267,
       "info_geometry_auc": 0.8030998839078407,
-      "oracle_f1": 0.7568894952251023,
-      "oracle_precision": 0.8514426028238183,
-      "oracle_recall": 0.681237721021611,
-      "oracle_threshold": 0.4763469076525868,
-      "threshold_strategy": "contam_0.8",
-      "fit_ms": 600.875250999934,
-      "score_ms": 7866.0206389999985,
+      "oracle_f1": 0.7575418994413406,
+      "oracle_precision": 0.8782383419689119,
+      "oracle_recall": 0.6660117878192534,
+      "oracle_threshold": 0.42,
+      "threshold_strategy": "sweep_0.42",
+      "fit_ms": 102.64096099945164,
+      "score_ms": 25.165252000078908,
       "progressive_validation": {
         "split_aucs": [
-          0.846464131304116
+          0.8511469405260046
         ],
         "split_f1s": [
-          0.8241042345276873
+          0.8273615635179153
         ],
-        "mean_auc": 0.846464131304116,
-        "mean_f1": 0.8241042345276873,
+        "mean_auc": 0.8511469405260046,
+        "mean_f1": 0.8273615635179153,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.33766076696046815,
-        "kinematic": 0.3666624930608562,
-        "info_geometry": 0.2956767399786756
+        "resonance": 0.4659136929467013,
+        "kinematic": 0.0,
+        "info_geometry": 0.5340863070532987
       },
       "weight_source": "unsupervised_adaptive",
-      "data_type": "TEMPORAL",
+      "data_type": "TABULAR",
       "oracle_metadata": {
-        "active": true,
-        "domain": "security",
-        "mean_multiplier": 1.2612560166002347,
-        "significant_bands": [
-          "baseline",
-          "burst",
-          "scan"
-        ],
-        "change_points": 0
+        "active": false
       },
       "error": null
     },
     {
       "name": "ADBench-31",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 5803,
       "n_train": 2866,
       "n_test": 2937,
       "n_features": 36,
       "anomaly_ratio": 0.0122350508357746,
       "test_anomaly_ratio": 0.02417432754511406,
-      "ensemble_auc": 0.9997837689079346,
+      "ensemble_auc": 0.9985994122445769,
       "resonance_auc": 0.957854594419272,
       "kinematic_auc": 0.9668724138269955,
       "info_geometry_auc": 0.9942797047462724,
-      "oracle_f1": 0.9714285714285714,
-      "oracle_precision": 0.9855072463768116,
-      "oracle_recall": 0.9577464788732394,
-      "oracle_threshold": 0.76,
-      "threshold_strategy": "sweep_0.76",
-      "fit_ms": 555.4612340000631,
-      "score_ms": 5454.344971999944,
+      "oracle_f1": 0.896551724137931,
+      "oracle_precision": 0.8783783783783784,
+      "oracle_recall": 0.9154929577464789,
+      "oracle_threshold": 0.66,
+      "threshold_strategy": "sweep_0.66",
+      "fit_ms": 156.27436600061628,
+      "score_ms": 18.876532999456686,
       "progressive_validation": {
         "split_aucs": [
-          0.9996642605338257
+          0.9997481954003694
         ],
         "split_f1s": [
-          0.9781021897810219
+          0.9777777777777777
         ],
-        "mean_auc": 0.9996642605338257,
-        "mean_f1": 0.9781021897810219,
+        "mean_auc": 0.9997481954003694,
+        "mean_f1": 0.9777777777777777,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.3377215931082257,
-        "kinematic": 0.36566341687574105,
-        "info_geometry": 0.29661499001603325
+        "resonance": 0.46294074522447687,
+        "kinematic": 0.0,
+        "info_geometry": 0.5370592547755232
       },
       "weight_source": "unsupervised_adaptive",
-      "data_type": "TEMPORAL",
+      "data_type": "TABULAR",
       "oracle_metadata": {
-        "active": true,
-        "domain": "security",
-        "mean_multiplier": 1.2890464592946722,
-        "significant_bands": [
-          "baseline",
-          "burst",
-          "scan"
-        ],
-        "change_points": 0
+        "active": false
       },
       "error": null
     },
     {
       "name": "ADBench-32",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 49097,
       "n_train": 9284,
       "n_test": 9999,
       "n_features": 9,
       "anomaly_ratio": 0.0715114976475141,
       "test_anomaly_ratio": 0.1334133413341334,
-      "ensemble_auc": 0.9986913352325568,
+      "ensemble_auc": 0.9950166578568764,
       "resonance_auc": 0.994201543198395,
       "kinematic_auc": 0.8853858558314611,
       "info_geometry_auc": 0.9929908531020122,
-      "oracle_f1": 0.9698099142750652,
-      "oracle_precision": 0.9644180874722016,
-      "oracle_recall": 0.9752623688155923,
-      "oracle_threshold": 0.48,
-      "threshold_strategy": "sweep_0.48",
-      "fit_ms": 1306.3758139999209,
-      "score_ms": 10338.594827999941,
+      "oracle_f1": 0.9739263803680982,
+      "oracle_precision": 0.9968602825745683,
+      "oracle_recall": 0.952023988005997,
+      "oracle_threshold": 0.71,
+      "threshold_strategy": "sweep_0.71",
+      "fit_ms": 119.69437200059474,
+      "score_ms": 27.761981999901764,
       "progressive_validation": {
         "split_aucs": [
-          0.9993065623700508
+          0.9955898715398364
         ],
         "split_f1s": [
-          0.9909706546275395
+          0.9863739591218773
         ],
-        "mean_auc": 0.9993065623700508,
-        "mean_f1": 0.9909706546275395,
+        "mean_auc": 0.9955898715398364,
+        "mean_f1": 0.9863739591218773,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.34196089082680203,
-        "kinematic": 0.35835491810344505,
-        "info_geometry": 0.29968419106975297
+        "resonance": 0.46510970849573063,
+        "kinematic": 0.0,
+        "info_geometry": 0.5348902915042694
       },
       "weight_source": "unsupervised_adaptive",
-      "data_type": "TEMPORAL",
+      "data_type": "TABULAR",
       "oracle_metadata": {
-        "active": true,
-        "domain": "infrastructure",
-        "mean_multiplier": 0.8668339177303998,
-        "significant_bands": [],
-        "change_points": 0
+        "active": false
       },
       "error": null
     },
     {
       "name": "ADBench-33",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 245057,
       "n_train": 7924,
       "n_test": 9999,
       "n_features": 3,
       "anomaly_ratio": 0.20753947040892526,
       "test_anomaly_ratio": 0.3436343634363436,
-      "ensemble_auc": 0.7959807752105189,
+      "ensemble_auc": 0.7918350075927472,
       "resonance_auc": 0.5436967871354155,
       "kinematic_auc": 0.17676120956780145,
       "info_geometry_auc": 0.8866775181783367,
-      "oracle_f1": 0.7192270992366413,
-      "oracle_precision": 0.6093371059013742,
-      "oracle_recall": 0.8774738067520372,
+      "oracle_f1": 0.7145922746781116,
+      "oracle_precision": 0.6052100161550888,
+      "oracle_recall": 0.8722351571594877,
       "oracle_threshold": 0.28,
       "threshold_strategy": "sweep_0.28",
-      "fit_ms": 883.0216830000381,
-      "score_ms": 5752.387645999988,
+      "fit_ms": 1025.764576000256,
+      "score_ms": 6803.288404999876,
       "progressive_validation": {
         "split_aucs": [
-          0.7492177077913592
+          0.7384900095921725
         ],
         "split_f1s": [
-          0.8856868395773295
+          0.8836012861736334
         ],
-        "mean_auc": 0.7492177077913592,
-        "mean_f1": 0.8856868395773295,
+        "mean_auc": 0.7384900095921725,
+        "mean_f1": 0.8836012861736334,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.29672578295760765,
-        "kinematic": 0.401259168194302,
-        "info_geometry": 0.30201504884809033
+        "resonance": 0.20199206292164382,
+        "kinematic": 0.47441179001069594,
+        "info_geometry": 0.3235961470676604
       },
       "weight_source": "unsupervised_adaptive",
       "data_type": "TEMPORAL",
       "oracle_metadata": {
         "active": true,
         "domain": "security",
-        "mean_multiplier": 0.8898743488690184,
+        "mean_multiplier": 0.889874348869021,
         "significant_bands": [],
         "change_points": 0
       },
@@ -1772,38 +1719,39 @@
     {
       "name": "ADBench-34",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 95156,
       "n_train": 9996,
       "n_test": 9999,
       "n_features": 3,
       "anomaly_ratio": 0.0003152717642607928,
       "test_anomaly_ratio": 0.0005000500050005,
-      "ensemble_auc": 0.9463878326996197,
+      "ensemble_auc": 0.9418651190714428,
       "resonance_auc": 0.8855913548128878,
       "kinematic_auc": 0.9359615769461677,
       "info_geometry_auc": 0.8815589353612168,
-      "oracle_f1": 0.09375000000000001,
-      "oracle_precision": 0.05084745762711865,
+      "oracle_f1": 0.07407407407407407,
+      "oracle_precision": 0.039473684210526314,
       "oracle_recall": 0.6,
       "oracle_threshold": 0.6,
       "threshold_strategy": "sweep_0.60",
-      "fit_ms": 1353.7512000000334,
-      "score_ms": 7911.905544999968,
+      "fit_ms": 1506.4333379996242,
+      "score_ms": 9285.467179999614,
       "progressive_validation": {
         "split_aucs": [
-          0.960960960960961
+          0.964964964964965
         ],
         "split_f1s": [
-          0.024390243902439022
+          0.02777777777777778
         ],
-        "mean_auc": 0.960960960960961,
-        "mean_f1": 0.024390243902439022,
+        "mean_auc": 0.964964964964965,
+        "mean_f1": 0.02777777777777778,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.3372746047710281,
-        "kinematic": 0.36549734766589903,
-        "info_geometry": 0.2972280475630729
+        "resonance": 0.3485622470082459,
+        "kinematic": 0.3376176401989624,
+        "info_geometry": 0.3138201127927917
       },
       "weight_source": "unsupervised_adaptive",
       "data_type": "TEMPORAL",
@@ -1819,28 +1767,29 @@
     {
       "name": "ADBench-35",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 4207,
       "n_train": 1264,
       "n_test": 2943,
       "n_features": 57,
       "anomaly_ratio": 0.39909674352270025,
       "test_anomaly_ratio": 0.5705062861026163,
-      "ensemble_auc": 0.8191481140823728,
+      "ensemble_auc": 0.8031321386298356,
       "resonance_auc": 0.8341887123890803,
       "kinematic_auc": 0.5613191810978506,
       "info_geometry_auc": 0.7968753533975166,
-      "oracle_f1": 0.7868852459016393,
-      "oracle_precision": 0.7169441723800196,
-      "oracle_recall": 0.8719475878499107,
+      "oracle_f1": 0.7808219178082192,
+      "oracle_precision": 0.7229832572298326,
+      "oracle_recall": 0.848719475878499,
       "oracle_threshold": 0.26,
       "threshold_strategy": "sweep_0.26",
-      "fit_ms": 245.67947000002732,
-      "score_ms": 25.616323999997803,
+      "fit_ms": 94.37915200032876,
+      "score_ms": 30.190489999768033,
       "progressive_validation": null,
       "adaptive_weights": {
-        "resonance": 0.47329338693524653,
+        "resonance": 0.4932207424311972,
         "kinematic": 0.0,
-        "info_geometry": 0.5267066130647534
+        "info_geometry": 0.5067792575688029
       },
       "weight_source": "unsupervised_adaptive",
       "data_type": "TABULAR",
@@ -1852,6 +1801,7 @@
     {
       "name": "ADBench-36",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 3686,
       "n_train": 1812,
       "n_test": 1874,
@@ -1865,10 +1815,10 @@
       "oracle_f1": 0.09090909090909091,
       "oracle_precision": 0.10204081632653061,
       "oracle_recall": 0.08196721311475409,
-      "oracle_threshold": 0.4646983527401848,
+      "oracle_threshold": 0.46469835274018473,
       "threshold_strategy": "contam_0.8",
-      "fit_ms": 1754.43176400006,
-      "score_ms": 443.30926800000725,
+      "fit_ms": 2040.023461000601,
+      "score_ms": 521.9307540000955,
       "progressive_validation": null,
       "adaptive_weights": {
         "resonance": 0.6363636363636364,
@@ -1885,267 +1835,244 @@
     {
       "name": "ADBench-37",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 340,
       "n_train": 154,
       "n_test": 186,
       "n_features": 9,
       "anomaly_ratio": 0.09117647058823529,
       "test_anomaly_ratio": 0.16666666666666666,
-      "ensemble_auc": 0.9238293444328824,
+      "ensemble_auc": 0.9257023933402706,
       "resonance_auc": 0.9302809573361083,
       "kinematic_auc": 0.6115504682622268,
       "info_geometry_auc": 0.92528616024974,
-      "oracle_f1": 0.7297297297297297,
-      "oracle_precision": 0.627906976744186,
-      "oracle_recall": 0.8709677419354839,
-      "oracle_threshold": 0.46,
-      "threshold_strategy": "sweep_0.46",
-      "fit_ms": 40.83035999997264,
-      "score_ms": 254.19439799998145,
+      "oracle_f1": 0.7466666666666666,
+      "oracle_precision": 0.6363636363636364,
+      "oracle_recall": 0.9032258064516129,
+      "oracle_threshold": 0.45362095115926815,
+      "threshold_strategy": "mad_2.5",
+      "fit_ms": 29.37958799975604,
+      "score_ms": 3.0326899995998247,
       "progressive_validation": {
         "split_aucs": [
-          0.6571428571428571
+          0.7285714285714285
         ],
         "split_f1s": [
-          0.9375
+          0.9523809523809523
         ],
-        "mean_auc": 0.6571428571428571,
-        "mean_f1": 0.9375,
+        "mean_auc": 0.7285714285714285,
+        "mean_f1": 0.9523809523809523,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.3591818548868693,
-        "kinematic": 0.32690799850437796,
-        "info_geometry": 0.31391014660875277
+        "resonance": 0.46785220041914216,
+        "kinematic": 0.0,
+        "info_geometry": 0.5321477995808579
       },
       "weight_source": "unsupervised_adaptive",
-      "data_type": "TEMPORAL",
+      "data_type": "TABULAR",
       "oracle_metadata": {
-        "active": true,
-        "domain": "security",
-        "mean_multiplier": 1.0391917249454752,
-        "significant_bands": [
-          "baseline",
-          "scan"
-        ],
-        "change_points": 0
+        "active": false
       },
       "error": null
     },
     {
       "name": "ADBench-38",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 3772,
       "n_train": 1839,
       "n_test": 1933,
       "n_features": 6,
       "anomaly_ratio": 0.024655355249204668,
       "test_anomaly_ratio": 0.04811174340403518,
-      "ensemble_auc": 0.9875233754090696,
+      "ensemble_auc": 0.9795640486208508,
       "resonance_auc": 0.9863604488078541,
       "kinematic_auc": 0.93424497428705,
       "info_geometry_auc": 0.9766450444132773,
-      "oracle_f1": 0.7741935483870968,
-      "oracle_precision": 0.7741935483870968,
-      "oracle_recall": 0.7741935483870968,
-      "oracle_threshold": 0.567373323059026,
+      "oracle_f1": 0.7204301075268817,
+      "oracle_precision": 0.7204301075268817,
+      "oracle_recall": 0.7204301075268817,
+      "oracle_threshold": 0.7382821740809861,
       "threshold_strategy": "contam_1.0",
-      "fit_ms": 229.74328299994795,
-      "score_ms": 1146.2829309999734,
+      "fit_ms": 43.199235000429326,
+      "score_ms": 6.526881999889156,
       "progressive_validation": {
         "split_aucs": [
-          0.9931681681681682
+          0.9824324324324325
         ],
         "split_f1s": [
-          0.9265536723163842
+          0.888888888888889
         ],
-        "mean_auc": 0.9931681681681682,
-        "mean_f1": 0.9265536723163842,
+        "mean_auc": 0.9824324324324325,
+        "mean_f1": 0.888888888888889,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.21066259931645276,
-        "kinematic": 0.41228518766577926,
-        "info_geometry": 0.3770522130177679
+        "resonance": 0.2856269075545878,
+        "kinematic": 0.0,
+        "info_geometry": 0.7143730924454121
       },
       "weight_source": "unsupervised_adaptive",
-      "data_type": "TEMPORAL",
+      "data_type": "TABULAR",
       "oracle_metadata": {
-        "active": true,
-        "domain": "security",
-        "mean_multiplier": 0.8845870820648327,
-        "significant_bands": [],
-        "change_points": 0
+        "active": false
       },
       "error": null
     },
     {
       "name": "ADBench-39",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 240,
       "n_train": 105,
       "n_test": 135,
       "n_features": 6,
       "anomaly_ratio": 0.125,
       "test_anomaly_ratio": 0.2222222222222222,
-      "ensemble_auc": 0.4476190476190476,
+      "ensemble_auc": 0.5168253968253969,
       "resonance_auc": 0.518095238095238,
       "kinematic_auc": 0.37444444444444447,
       "info_geometry_auc": 0.5257142857142857,
-      "oracle_f1": 0.37037037037037035,
-      "oracle_precision": 0.22727272727272727,
-      "oracle_recall": 1.0,
-      "oracle_threshold": 0.14,
-      "threshold_strategy": "sweep_0.14",
-      "fit_ms": 34.119035999992775,
-      "score_ms": 109.93268699996861,
+      "oracle_f1": 0.3941605839416058,
+      "oracle_precision": 0.2523364485981308,
+      "oracle_recall": 0.9,
+      "oracle_threshold": 0.19,
+      "threshold_strategy": "sweep_0.19",
+      "fit_ms": 23.319773999901372,
+      "score_ms": 3.0575339997085393,
       "progressive_validation": {
         "split_aucs": [
-          0.0
+          0.08333333333333333
         ],
         "split_f1s": [
           0.19999999999999998
         ],
-        "mean_auc": 0.0,
+        "mean_auc": 0.08333333333333333,
         "mean_f1": 0.19999999999999998,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.353483734263991,
-        "kinematic": 0.32587560762806933,
-        "info_geometry": 0.3206406581079396
+        "resonance": 0.4310444036935534,
+        "kinematic": 0.0,
+        "info_geometry": 0.5689555963064467
       },
       "weight_source": "unsupervised_adaptive",
-      "data_type": "TEMPORAL",
+      "data_type": "TABULAR",
       "oracle_metadata": {
-        "active": true,
-        "domain": "infrastructure",
-        "mean_multiplier": 0.8658522099244027,
-        "significant_bands": [],
-        "change_points": 0
+        "active": false
       },
       "error": null
     },
     {
       "name": "ADBench-40",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 1456,
       "n_train": 703,
       "n_test": 753,
       "n_features": 12,
       "anomaly_ratio": 0.034340659340659344,
       "test_anomaly_ratio": 0.06640106241699867,
-      "ensemble_auc": 0.9822475106685633,
+      "ensemble_auc": 0.952660028449502,
       "resonance_auc": 0.5733428165007113,
       "kinematic_auc": 0.9519914651493598,
       "info_geometry_auc": 0.9539971550497865,
-      "oracle_f1": 0.7843137254901961,
-      "oracle_precision": 0.7692307692307693,
+      "oracle_f1": 0.7272727272727272,
+      "oracle_precision": 0.6666666666666666,
       "oracle_recall": 0.8,
-      "oracle_threshold": 0.41000000000000003,
-      "threshold_strategy": "sweep_0.41",
-      "fit_ms": 125.42897800005903,
-      "score_ms": 784.1050609999911,
+      "oracle_threshold": 0.47857654106561454,
+      "threshold_strategy": "contam_1.2",
+      "fit_ms": 41.33660299976327,
+      "score_ms": 4.458802999579348,
       "progressive_validation": {
         "split_aucs": [
-          0.9287337326998554
+          0.9237760793224539
         ],
         "split_f1s": [
-          0.7884615384615385
+          0.780952380952381
         ],
-        "mean_auc": 0.9287337326998554,
-        "mean_f1": 0.7884615384615385,
+        "mean_auc": 0.9237760793224539,
+        "mean_f1": 0.780952380952381,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.35042301806576903,
-        "kinematic": 0.3420404704446659,
-        "info_geometry": 0.307536511489565
+        "resonance": 0.4636969848272842,
+        "kinematic": 0.0,
+        "info_geometry": 0.5363030151727157
       },
       "weight_source": "unsupervised_adaptive",
-      "data_type": "TEMPORAL",
+      "data_type": "TABULAR",
       "oracle_metadata": {
-        "active": true,
-        "domain": "infrastructure",
-        "mean_multiplier": 0.9127510432610072,
-        "significant_bands": [
-          "harmonic_distortion"
-        ],
-        "change_points": 0
+        "active": false
       },
       "error": null
     },
     {
       "name": "ADBench-41",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 3443,
       "n_train": 1671,
       "n_test": 1772,
       "n_features": 21,
       "anomaly_ratio": 0.02904443799012489,
       "test_anomaly_ratio": 0.056433408577878104,
-      "ensemble_auc": 0.5369796650717704,
+      "ensemble_auc": 0.5928827751196172,
       "resonance_auc": 0.6376614832535885,
       "kinematic_auc": 0.4268092105263157,
       "info_geometry_auc": 0.5846889952153109,
-      "oracle_f1": 0.11479028697571743,
-      "oracle_precision": 0.061953931691818905,
-      "oracle_recall": 0.78,
-      "oracle_threshold": 0.47000000000000003,
-      "threshold_strategy": "sweep_0.47",
-      "fit_ms": 241.78735700002107,
-      "score_ms": 3234.15834299999,
+      "oracle_f1": 0.13487475915221578,
+      "oracle_precision": 0.08353221957040573,
+      "oracle_recall": 0.35,
+      "oracle_threshold": 0.39,
+      "threshold_strategy": "sweep_0.39",
+      "fit_ms": 63.784193999708805,
+      "score_ms": 8.408544999838341,
       "progressive_validation": {
         "split_aucs": [
-          0.6102120535714286
+          0.610889668367347
         ],
         "split_f1s": [
-          0.45482866043613707
+          0.45497630331753547
         ],
-        "mean_auc": 0.6102120535714286,
-        "mean_f1": 0.45482866043613707,
+        "mean_auc": 0.610889668367347,
+        "mean_f1": 0.45497630331753547,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.3551001834761677,
-        "kinematic": 0.33409702683519743,
-        "info_geometry": 0.3108027896886349
+        "resonance": 0.4663779366156225,
+        "kinematic": 0.0,
+        "info_geometry": 0.5336220633843775
       },
       "weight_source": "unsupervised_adaptive",
-      "data_type": "TEMPORAL",
+      "data_type": "TABULAR",
       "oracle_metadata": {
-        "active": true,
-        "domain": "security",
-        "mean_multiplier": 1.3252207006762153,
-        "significant_bands": [
-          "baseline",
-          "burst",
-          "scan"
-        ],
-        "change_points": 0
+        "active": false
       },
       "error": null
     },
     {
       "name": "ADBench-42",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 223,
       "n_train": 106,
       "n_test": 117,
       "n_features": 9,
       "anomaly_ratio": 0.04484304932735426,
       "test_anomaly_ratio": 0.08547008547008547,
-      "ensemble_auc": 0.9925233644859813,
+      "ensemble_auc": 0.9897196261682243,
       "resonance_auc": 0.994392523364486,
       "kinematic_auc": 0.7943925233644861,
       "info_geometry_auc": 0.9728971962616823,
-      "oracle_f1": 0.888888888888889,
-      "oracle_precision": 1.0,
-      "oracle_recall": 0.8,
-      "oracle_threshold": 0.6792970685933916,
-      "threshold_strategy": "contam_0.8",
-      "fit_ms": 35.69445599998744,
-      "score_ms": 192.06760600002326,
+      "oracle_f1": 0.9,
+      "oracle_precision": 0.9,
+      "oracle_recall": 0.9,
+      "oracle_threshold": 0.7201304760799893,
+      "threshold_strategy": "contam_1.0",
+      "fit_ms": 25.893808000546414,
+      "score_ms": 2.956631999950332,
       "progressive_validation": {
         "split_aucs": [
           1.0
@@ -2158,27 +2085,21 @@
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.39840244726148366,
-        "kinematic": 0.25209586726866123,
-        "info_geometry": 0.34950168546985516
+        "resonance": 0.464101916090683,
+        "kinematic": 0.0,
+        "info_geometry": 0.5358980839093169
       },
       "weight_source": "unsupervised_adaptive",
-      "data_type": "TEMPORAL",
+      "data_type": "TABULAR",
       "oracle_metadata": {
-        "active": true,
-        "domain": "environmental",
-        "mean_multiplier": 1.012613078524115,
-        "significant_bands": [
-          "elf_upper",
-          "vlf_environmental"
-        ],
-        "change_points": 0
+        "active": false
       },
       "error": null
     },
     {
       "name": "ADBench-43",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 367,
       "n_train": 178,
       "n_test": 189,
@@ -2192,10 +2113,10 @@
       "oracle_f1": 0.9090909090909091,
       "oracle_precision": 0.8333333333333334,
       "oracle_recall": 1.0,
-      "oracle_threshold": 0.6849903721892237,
+      "oracle_threshold": 0.687486560336738,
       "threshold_strategy": "contam_1.2",
-      "fit_ms": 30.72529600001417,
-      "score_ms": 2.499267999951371,
+      "fit_ms": 38.78859499945975,
+      "score_ms": 3.5491129992806236,
       "progressive_validation": {
         "split_aucs": [
           1.0
@@ -2208,9 +2129,9 @@
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.46410958308081324,
+        "resonance": 0.45645017717634906,
         "kinematic": 0.0,
-        "info_geometry": 0.5358904169191868
+        "info_geometry": 0.5435498228236509
       },
       "weight_source": "unsupervised_adaptive",
       "data_type": "TABULAR",
@@ -2222,53 +2143,51 @@
     {
       "name": "ADBench-44",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 4819,
       "n_train": 2281,
       "n_test": 2538,
       "n_features": 5,
       "anomaly_ratio": 0.05333056650757419,
       "test_anomaly_ratio": 0.10126083530338849,
-      "ensemble_auc": 0.5527253559688647,
+      "ensemble_auc": 0.6815581943205331,
       "resonance_auc": 0.35718513792674045,
       "kinematic_auc": 0.21752354503537086,
       "info_geometry_auc": 0.7314219819623109,
-      "oracle_f1": 0.21882352941176472,
-      "oracle_precision": 0.1288981288981289,
-      "oracle_recall": 0.7237354085603113,
-      "oracle_threshold": 0.22,
-      "threshold_strategy": "sweep_0.22",
-      "fit_ms": 328.5088930000484,
-      "score_ms": 2028.4984559999657,
+      "oracle_f1": 0.28449014567266495,
+      "oracle_precision": 0.1824175824175824,
+      "oracle_recall": 0.6459143968871596,
+      "oracle_threshold": 0.29,
+      "threshold_strategy": "sweep_0.29",
+      "fit_ms": 42.65340600068157,
+      "score_ms": 6.943463999959931,
       "progressive_validation": {
         "split_aucs": [
-          0.41200087143257286
+          0.6630201363169524
         ],
         "split_f1s": [
-          0.6675427069645204
+          0.7165109034267914
         ],
-        "mean_auc": 0.41200087143257286,
-        "mean_f1": 0.6675427069645204,
+        "mean_auc": 0.6630201363169524,
+        "mean_f1": 0.7165109034267914,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.33949631332688224,
-        "kinematic": 0.35401053171622426,
-        "info_geometry": 0.30649315495689344
+        "resonance": 0.43571125850973996,
+        "kinematic": 0.0,
+        "info_geometry": 0.56428874149026
       },
       "weight_source": "unsupervised_adaptive",
-      "data_type": "TEMPORAL",
+      "data_type": "TABULAR",
       "oracle_metadata": {
-        "active": true,
-        "domain": "infrastructure",
-        "mean_multiplier": 0.8713936541982639,
-        "significant_bands": [],
-        "change_points": 0
+        "active": false
       },
       "error": null
     },
     {
       "name": "ADBench-45",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 129,
       "n_train": 59,
       "n_test": 70,
@@ -2284,8 +2203,8 @@
       "oracle_recall": 1.0,
       "oracle_threshold": 0.44,
       "threshold_strategy": "sweep_0.44",
-      "fit_ms": 18.22839900000872,
-      "score_ms": 2.02569099997163,
+      "fit_ms": 22.208984999451786,
+      "score_ms": 2.931981000074302,
       "progressive_validation": {
         "split_aucs": [
           1.0
@@ -2312,6 +2231,7 @@
     {
       "name": "ADBench-46",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 198,
       "n_train": 75,
       "n_test": 123,
@@ -2327,23 +2247,23 @@
       "oracle_recall": 1.0,
       "oracle_threshold": 0.0,
       "threshold_strategy": "sweep_0.00",
-      "fit_ms": 27.1382440000707,
-      "score_ms": 2.769065000052251,
+      "fit_ms": 28.778067000530427,
+      "score_ms": 3.1642159992770758,
       "progressive_validation": {
         "split_aucs": [
-          0.7374999999999999
+          0.6625000000000001
         ],
         "split_f1s": [
-          0.9500000000000001
+          0.9090909090909091
         ],
-        "mean_auc": 0.7374999999999999,
-        "mean_f1": 0.9500000000000001,
+        "mean_auc": 0.6625000000000001,
+        "mean_f1": 0.9090909090909091,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.46733849199208205,
+        "resonance": 0.4693546690608744,
         "kinematic": 0.0,
-        "info_geometry": 0.532661508007918
+        "info_geometry": 0.5306453309391256
       },
       "weight_source": "unsupervised_adaptive",
       "data_type": "TABULAR",
@@ -2355,13 +2275,14 @@
     {
       "name": "ADBench-47",
       "category": "adbench",
+      "label_source": "ground_truth",
       "n_total": 1484,
       "n_train": 488,
       "n_test": 996,
       "n_features": 8,
       "anomaly_ratio": 0.341644204851752,
       "test_anomaly_ratio": 0.5090361445783133,
-      "ensemble_auc": 0.38039633273234025,
+      "ensemble_auc": 0.43918071336665016,
       "resonance_auc": 0.4501760627291538,
       "kinematic_auc": 0.3264662818697741,
       "info_geometry_auc": 0.45643203736644034,
@@ -2370,72 +2291,67 @@
       "oracle_recall": 1.0,
       "oracle_threshold": 0.0,
       "threshold_strategy": "sweep_0.00",
-      "fit_ms": 80.5440980000185,
-      "score_ms": 1347.2729410000284,
+      "fit_ms": 34.972543000549194,
+      "score_ms": 4.594522999468609,
       "progressive_validation": {
         "split_aucs": [
-          0.26882376882376885
+          0.37189662189662187
         ],
         "split_f1s": [
           0.7035830618892508
         ],
-        "mean_auc": 0.26882376882376885,
+        "mean_auc": 0.37189662189662187,
         "mean_f1": 0.7035830618892508,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.3647454088138337,
-        "kinematic": 0.32690082440151574,
-        "info_geometry": 0.30835376678465054
+        "resonance": 0.5010376405383353,
+        "kinematic": 0.0,
+        "info_geometry": 0.4989623594616648
       },
       "weight_source": "unsupervised_adaptive",
-      "data_type": "TEMPORAL",
+      "data_type": "TABULAR",
       "oracle_metadata": {
-        "active": true,
-        "domain": "security",
-        "mean_multiplier": 1.0961036236507038,
-        "significant_bands": [
-          "baseline"
-        ],
-        "change_points": 0
+        "active": false
       },
       "error": null
     },
     {
       "name": "NSL-KDD",
       "category": "security",
+      "label_source": "ground_truth",
       "n_total": 148517,
       "n_train": 5188,
       "n_test": 9999,
       "n_features": 41,
       "anomaly_ratio": 0.4811772389692762,
       "test_anomaly_ratio": 0.6497649764976497,
-      "ensemble_auc": 0.97709420338711,
+      "ensemble_auc": 0.9701112326411337,
       "resonance_auc": 0.9622031325445025,
       "kinematic_auc": 0.6908683285445545,
       "info_geometry_auc": 0.9658303832538093,
-      "oracle_f1": 0.9420168705828711,
-      "oracle_precision": 0.9303512458721105,
-      "oracle_recall": 0.953978759427428,
-      "oracle_threshold": 0.38,
-      "threshold_strategy": "sweep_0.38",
-      "fit_ms": 609.4504410000354,
-      "score_ms": 54.98294899996381,
+      "oracle_f1": 0.9376895087932079,
+      "oracle_precision": 0.9238237490664675,
+      "oracle_recall": 0.9519778359242728,
+      "oracle_threshold": 0.37,
+      "threshold_strategy": "sweep_0.37",
+      "fit_ms": 258.7223330001507,
+      "score_ms": 61.64413899932697,
       "progressive_validation": {
         "split_aucs": [
-          0.9754496383576932
+          0.970027686562359
         ],
         "split_f1s": [
-          0.8495575221238939
+          0.8377065111758988
         ],
-        "mean_auc": 0.9754496383576932,
-        "mean_f1": 0.8495575221238939,
+        "mean_auc": 0.970027686562359,
+        "mean_f1": 0.8377065111758988,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.4672121083737955,
+        "resonance": 0.4688488986330206,
         "kinematic": 0.0,
-        "info_geometry": 0.5327878916262045
+        "info_geometry": 0.5311511013669795
       },
       "weight_source": "unsupervised_adaptive",
       "data_type": "TABULAR",
@@ -2447,145 +2363,139 @@
     {
       "name": "SMD",
       "category": "timeseries",
+      "label_source": "ground_truth",
       "n_total": 75876,
       "n_train": 9465,
       "n_test": 9999,
       "n_features": 38,
       "anomaly_ratio": 0.05341609995255417,
       "test_anomaly_ratio": 0.10131013101310131,
-      "ensemble_auc": 0.9089757699209191,
+      "ensemble_auc": 0.8746990217754546,
       "resonance_auc": 0.7517165563455185,
       "kinematic_auc": 0.8512706724445112,
       "info_geometry_auc": 0.858203690329742,
-      "oracle_f1": 0.5849701110162254,
-      "oracle_precision": 0.5154251316779533,
-      "oracle_recall": 0.6762092793682132,
-      "oracle_threshold": 0.6020329652964023,
-      "threshold_strategy": "mad_3.5",
-      "fit_ms": 1593.1782679999742,
-      "score_ms": 18378.87222400002,
+      "oracle_f1": 0.5714285714285714,
+      "oracle_precision": 0.48614958448753465,
+      "oracle_recall": 0.6929911154985192,
+      "oracle_threshold": 0.44,
+      "threshold_strategy": "sweep_0.44",
+      "fit_ms": 457.46473700000934,
+      "score_ms": 60.61838000005082,
       "progressive_validation": {
         "split_aucs": [
-          0.9168553723558679
+          0.8619925719033747
         ],
         "split_f1s": [
-          0.849740932642487
+          0.803622497616778
         ],
-        "mean_auc": 0.9168553723558679,
-        "mean_f1": 0.849740932642487,
+        "mean_auc": 0.8619925719033747,
+        "mean_f1": 0.803622497616778,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.36512565592824014,
-        "kinematic": 0.31572533554685156,
-        "info_geometry": 0.31914900852490824
+        "resonance": 0.46771419568728223,
+        "kinematic": 0.0,
+        "info_geometry": 0.5322858043127179
       },
       "weight_source": "unsupervised_adaptive",
-      "data_type": "TEMPORAL",
+      "data_type": "TABULAR",
       "oracle_metadata": {
-        "active": true,
-        "domain": "security",
-        "mean_multiplier": 1.3219019471032192,
-        "significant_bands": [
-          "baseline",
-          "burst"
-        ],
-        "change_points": 0
+        "active": false
       },
       "error": null
     },
     {
       "name": "NAB",
       "category": "timeseries",
+      "label_source": "ground_truth",
       "n_total": 69561,
       "n_train": 9052,
       "n_test": 9999,
       "n_features": 4,
       "anomaly_ratio": 0.09479449691637555,
       "test_anomaly_ratio": 0.17311731173117312,
-      "ensemble_auc": 0.4709007352478789,
-      "resonance_auc": 0.48181622604058105,
-      "kinematic_auc": 0.4664476252921693,
-      "info_geometry_auc": 0.49199292644977877,
-      "oracle_f1": 0.2951406649616368,
-      "oracle_precision": 0.17311731173117312,
+      "ensemble_auc": 0.4866828378158943,
+      "resonance_auc": 0.4754964886582558,
+      "kinematic_auc": 0.45400749501743587,
+      "info_geometry_auc": 0.4904565484909489,
+      "oracle_f1": 0.29526652452025587,
+      "oracle_precision": 0.17320392235341206,
       "oracle_recall": 1.0,
-      "oracle_threshold": 0.0,
-      "threshold_strategy": "sweep_0.00",
-      "fit_ms": 1223.6529379999865,
-      "score_ms": 8134.433693000005,
+      "oracle_threshold": 0.1,
+      "threshold_strategy": "sweep_0.10",
+      "fit_ms": 66.00085900026897,
+      "score_ms": 19.46225899973797,
       "progressive_validation": {
         "split_aucs": [
-          0.5232573486835382
+          0.4553171514697367
         ],
         "split_f1s": [
-          0.9269994632313473
+          0.927248322147651
         ],
-        "mean_auc": 0.5232573486835382,
-        "mean_f1": 0.9269994632313473,
+        "mean_auc": 0.4553171514697367,
+        "mean_f1": 0.927248322147651,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.195245315274222,
-        "kinematic": 0.45774094277282834,
-        "info_geometry": 0.3470137419529496
+        "resonance": 0.29053489288419404,
+        "kinematic": 0.0,
+        "info_geometry": 0.7094651071158059
       },
       "weight_source": "unsupervised_adaptive",
-      "data_type": "TEMPORAL",
+      "data_type": "TABULAR",
       "oracle_metadata": {
-        "active": true,
-        "domain": "infrastructure",
-        "mean_multiplier": 0.9148378959017859,
-        "significant_bands": [],
-        "change_points": 0
+        "active": false
       },
       "error": null
     },
     {
       "name": "SMAP",
       "category": "timeseries",
-      "error": "SMAP/MSL (SMAP): data source unavailable. URL: https://raw.githubusercontent.com/NetManAIOps/OmniAnomaly/master/data/. Could not download telemetry data from OmniAnomaly mirror. Alternative: download from TimeEval HiDrive mirror (https://my.hidrive.com/share/ma4p8w4qqb) and extract train/ and test/ directories to: data/smap_msl"
+      "label_source": "ground_truth",
+      "error": "SMAP/MSL (SMAP): data source unavailable. URL: https://raw.githubusercontent.com/NetManAIOps/OmniAnomaly/master/data/. Could not download telemetry data from GitHub mirrors (OmniAnomaly + khundman/telemanom). Manual install: download from Zenodo TimeEval archive (https://zenodo.org/record/5899270) and extract train/ and test/ directories to: /home/user/Mercury-Agent/data/smap_msl"
     },
     {
       "name": "MSL",
       "category": "timeseries",
-      "error": "SMAP/MSL (MSL): data source unavailable. URL: https://raw.githubusercontent.com/NetManAIOps/OmniAnomaly/master/data/. Could not download telemetry data from OmniAnomaly mirror. Alternative: download from TimeEval HiDrive mirror (https://my.hidrive.com/share/ma4p8w4qqb) and extract train/ and test/ directories to: data/smap_msl"
+      "label_source": "ground_truth",
+      "error": "SMAP/MSL (MSL): data source unavailable. URL: https://raw.githubusercontent.com/NetManAIOps/OmniAnomaly/master/data/. Could not download telemetry data from GitHub mirrors (OmniAnomaly + khundman/telemanom). Manual install: download from Zenodo TimeEval archive (https://zenodo.org/record/5899270) and extract train/ and test/ directories to: /home/user/Mercury-Agent/data/smap_msl"
     },
     {
       "name": "BATADAL",
       "category": "industrial",
+      "label_source": "ground_truth",
       "n_total": 12938,
       "n_train": 6359,
       "n_test": 6579,
       "n_features": 43,
       "anomaly_ratio": 0.016926882052867524,
       "test_anomaly_ratio": 0.033287733698130414,
-      "ensemble_auc": 0.9100068923925217,
+      "ensemble_auc": 0.911435627925677,
       "resonance_auc": 0.7256181614542948,
       "kinematic_auc": 0.6432695069067517,
       "info_geometry_auc": 0.9177095000143591,
-      "oracle_f1": 0.5657015590200446,
-      "oracle_precision": 0.5521739130434783,
-      "oracle_recall": 0.5799086757990868,
-      "oracle_threshold": 0.47000000000000003,
-      "threshold_strategy": "sweep_0.47",
-      "fit_ms": 637.9970990000174,
-      "score_ms": 32.24689700005001,
+      "oracle_f1": 0.5544554455445544,
+      "oracle_precision": 0.6054054054054054,
+      "oracle_recall": 0.5114155251141552,
+      "oracle_threshold": 0.55,
+      "threshold_strategy": "sweep_0.55",
+      "fit_ms": 258.56563500019547,
+      "score_ms": 43.789530000140076,
       "progressive_validation": {
         "split_aucs": [
-          0.8240549682875266
+          0.8770993657505284
         ],
         "split_f1s": [
-          0.6232741617357003
+          0.6258503401360545
         ],
-        "mean_auc": 0.8240549682875266,
-        "mean_f1": 0.6232741617357003,
+        "mean_auc": 0.8770993657505284,
+        "mean_f1": 0.6258503401360545,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.4667058342163517,
+        "resonance": 0.4668233393261085,
         "kinematic": 0.0,
-        "info_geometry": 0.5332941657836483
+        "info_geometry": 0.5331766606738915
       },
       "weight_source": "unsupervised_adaptive",
       "data_type": "TABULAR",
@@ -2597,492 +2507,394 @@
     {
       "name": "CICIDS-2017",
       "category": "security",
-      "error": "CICIDS-2017: data source unavailable. All download sources failed. Place kaggle.json in ~/.kaggle/ or provide local_path."
+      "label_source": "ground_truth",
+      "error": "CICIDS-2017: data source unavailable. All download sources failed. Options: (1) HuggingFace: pip install datasets, then set env var MERCURY_CICIDS_HF_REV_BVK_CICIDS_2017=<commit-sha> (get SHA via: python -c \"from huggingface_hub import HfApi; print(HfApi().list_repo_commits('bvk/CICIDS-2017')[0].commit_id)\"); (2) Kaggle: place kaggle.json in ~/.kaggle/ and run again; (3) Manual: set preprocessing={'local_path': '/path/to/cicids2017/'}. Official source: https://www.unb.ca/cic/datasets/ids-2017.html"
     },
     {
       "name": "MIT-BIH",
       "category": "medical",
-      "error": "MIT-BIH: data source unavailable. wfdb library required: pip install wfdb Add 'wfdb' to pyproject.toml [project.optional-dependencies.medical]"
+      "label_source": "ground_truth",
+      "error": "MIT-BIH: data source unavailable. wfdb library required: pip install mercury-agent[medical] (or: pip install wfdb>=4.3.1). MIT-BIH data source: https://physionet.org/content/mitdb/1.0.0/"
     },
     {
       "name": "USGS_Earthquake",
       "category": "environmental",
-      "n_total": 1937,
-      "n_train": 875,
-      "n_test": 1062,
+      "label_source": "statistical",
+      "n_total": 1812,
+      "n_train": 796,
+      "n_test": 1016,
       "n_features": 11,
-      "anomaly_ratio": 0.09602478058853897,
-      "test_anomaly_ratio": 0.1751412429378531,
-      "ensemble_auc": 0.931463887661413,
-      "resonance_auc": 0.9188392988658123,
-      "kinematic_auc": 0.8163113124171454,
-      "info_geometry_auc": 0.9117444886335739,
-      "oracle_f1": 0.7116883116883116,
-      "oracle_precision": 0.6884422110552764,
-      "oracle_recall": 0.7365591397849462,
-      "oracle_threshold": 0.4501960480176554,
-      "threshold_strategy": "mad_2.0",
-      "fit_ms": 151.04136299999027,
-      "score_ms": 1712.2250080000185,
+      "anomaly_ratio": 0.12086092715231789,
+      "test_anomaly_ratio": 0.2155511811023622,
+      "ensemble_auc": 0.8521510458740826,
+      "resonance_auc": 0.8643543424829412,
+      "kinematic_auc": 0.7931598517270816,
+      "info_geometry_auc": 0.8294918730627984,
+      "oracle_f1": 0.593607305936073,
+      "oracle_precision": 0.593607305936073,
+      "oracle_recall": 0.593607305936073,
+      "oracle_threshold": 0.4300116131359694,
+      "threshold_strategy": "contam_1.0",
+      "fit_ms": 46.75229499935085,
+      "score_ms": 5.548336000174459,
       "progressive_validation": {
         "split_aucs": [
-          0.9642857142857143
+          0.9127659574468086
         ],
         "split_f1s": [
-          0.9645776566757494
+          0.5625
         ],
-        "mean_auc": 0.9642857142857143,
-        "mean_f1": 0.9645776566757494,
+        "mean_auc": 0.9127659574468086,
+        "mean_f1": 0.5625,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.35602923292633876,
-        "kinematic": 0.3355540351064844,
-        "info_geometry": 0.3084167319671769
+        "resonance": 0.47372657438581983,
+        "kinematic": 0.0,
+        "info_geometry": 0.5262734256141802
       },
       "weight_source": "unsupervised_adaptive",
-      "data_type": "TEMPORAL",
+      "data_type": "TABULAR",
       "oracle_metadata": {
-        "active": true,
-        "domain": "environmental",
-        "mean_multiplier": 0.9700575975502622,
-        "significant_bands": [
-          "elf_upper"
-        ],
-        "change_points": 0
+        "active": false
       },
       "error": null
     },
     {
       "name": "NOAA_Weather",
       "category": "environmental",
+      "label_source": "statistical",
       "n_total": 17472,
-      "n_train": 8449,
-      "n_test": 9023,
+      "n_train": 8482,
+      "n_test": 8990,
       "n_features": 8,
-      "anomaly_ratio": 0.032852564102564104,
-      "test_anomaly_ratio": 0.06361520558572537,
-      "ensemble_auc": 0.955208397340386,
-      "resonance_auc": 0.9379175235879306,
-      "kinematic_auc": 0.6623407178055007,
-      "info_geometry_auc": 0.9803935315108523,
-      "oracle_f1": 0.6167247386759582,
-      "oracle_precision": 0.6167247386759582,
-      "oracle_recall": 0.6167247386759582,
-      "oracle_threshold": 0.41993338667831875,
-      "threshold_strategy": "contam_1.0",
-      "fit_ms": 1173.1359159999784,
-      "score_ms": 9380.856871999982,
+      "anomaly_ratio": 0.029075091575091576,
+      "test_anomaly_ratio": 0.05650723025583982,
+      "ensemble_auc": 0.9749898813049217,
+      "resonance_auc": 0.9145355518959092,
+      "kinematic_auc": 0.8172513771636833,
+      "info_geometry_auc": 0.9793016986411243,
+      "oracle_f1": 0.647244094488189,
+      "oracle_precision": 0.5393700787401575,
+      "oracle_recall": 0.8090551181102362,
+      "oracle_threshold": 0.5374570085898381,
+      "threshold_strategy": "contam_1.5",
+      "fit_ms": 93.31278599984216,
+      "score_ms": 16.817140999592084,
       "progressive_validation": {
         "split_aucs": [
-          0.7824919784729057
+          0.846473478605872
         ],
         "split_f1s": [
-          0.6773618538324421
+          0.613166144200627
         ],
-        "mean_auc": 0.7824919784729057,
-        "mean_f1": 0.6773618538324421,
+        "mean_auc": 0.846473478605872,
+        "mean_f1": 0.613166144200627,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.3442080096371126,
-        "kinematic": 0.35087188479409886,
-        "info_geometry": 0.3049201055687885
+        "resonance": 0.452626355401195,
+        "kinematic": 0.0,
+        "info_geometry": 0.547373644598805
       },
       "weight_source": "unsupervised_adaptive",
-      "data_type": "TEMPORAL",
+      "data_type": "TABULAR",
       "oracle_metadata": {
-        "active": true,
-        "domain": "infrastructure",
-        "mean_multiplier": 0.9087935245071044,
-        "significant_bands": [
-          "harmonic_distortion"
-        ],
-        "change_points": 0
+        "active": false
       },
       "error": null
     },
     {
       "name": "Wildfire",
       "category": "environmental",
-      "n_total": 38631,
-      "n_train": 5923,
+      "label_source": "statistical",
+      "n_total": 63850,
+      "n_train": 5806,
       "n_test": 9999,
       "n_features": 7,
-      "anomaly_ratio": 0.407651885791204,
-      "test_anomaly_ratio": 0.5792579257925793,
-      "ensemble_auc": 0.8612829741801024,
-      "resonance_auc": 0.7950035096727763,
-      "kinematic_auc": 0.781968411795915,
-      "info_geometry_auc": 0.8114372487579896,
-      "oracle_f1": 0.8304431599229287,
-      "oracle_precision": 0.776110444177671,
-      "oracle_recall": 0.8929558011049724,
-      "oracle_threshold": 0.34,
-      "threshold_strategy": "sweep_0.34",
-      "fit_ms": 947.6549299999988,
-      "score_ms": 10981.094158000018,
+      "anomaly_ratio": 0.41937353171495695,
+      "test_anomaly_ratio": 0.590959095909591,
+      "ensemble_auc": 0.829609261244606,
+      "resonance_auc": 0.8154757092181707,
+      "kinematic_auc": 0.8001020779292787,
+      "info_geometry_auc": 0.8136008186095471,
+      "oracle_f1": 0.8164606701436022,
+      "oracle_precision": 0.7064787339268052,
+      "oracle_recall": 0.9669994922998816,
+      "oracle_threshold": 0.26,
+      "threshold_strategy": "sweep_0.26",
+      "fit_ms": 78.00463300009142,
+      "score_ms": 21.627805999742122,
       "progressive_validation": {
         "split_aucs": [
-          0.8488813450589399
+          0.8145847107909077
         ],
         "split_f1s": [
-          0.9491706795077582
+          0.9806949806949807
         ],
-        "mean_auc": 0.8488813450589399,
-        "mean_f1": 0.9491706795077582,
+        "mean_auc": 0.8145847107909077,
+        "mean_f1": 0.9806949806949807,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.3380332074026695,
-        "kinematic": 0.35644377111724157,
-        "info_geometry": 0.30552302148008886
+        "resonance": 0.4427809258710667,
+        "kinematic": 0.0,
+        "info_geometry": 0.5572190741289333
       },
       "weight_source": "unsupervised_adaptive",
-      "data_type": "TEMPORAL",
+      "data_type": "TABULAR",
       "oracle_metadata": {
-        "active": true,
-        "domain": "medical",
-        "mean_multiplier": 0.9330348598270641,
-        "significant_bands": [
-          "high_gamma_motor"
-        ],
-        "change_points": 0
+        "active": false
       },
       "error": null
     },
     {
       "name": "USGS_Geochemistry",
       "category": "environmental",
-      "error": "USGSGeochemistry: data source unavailable. URL: https://mrdata.usgs.gov/geochem/. USGS MRData API requires bulk download"
+      "label_source": "ground_truth",
+      "error": "Labels have fewer than 2 distinct values"
     },
     {
       "name": "NOAA_Buoy",
       "category": "ocean",
-      "n_total": 19407,
-      "n_train": 7092,
+      "label_source": "statistical",
+      "n_total": 27222,
+      "n_train": 8652,
       "n_test": 9999,
       "n_features": 9,
-      "anomaly_ratio": 0.2691296954707064,
-      "test_anomaly_ratio": 0.4241424142414241,
-      "ensemble_auc": 0.9721626141016274,
-      "resonance_auc": 0.8351622613533234,
-      "kinematic_auc": 0.950920278309976,
-      "info_geometry_auc": 0.9092496018989277,
-      "oracle_f1": 0.8964866776703607,
-      "oracle_precision": 0.8964866776703607,
-      "oracle_recall": 0.8964866776703607,
-      "oracle_threshold": 0.425968673791597,
-      "threshold_strategy": "contam_1.0",
-      "fit_ms": 1150.8816470000056,
-      "score_ms": 12138.229893999891,
+      "anomaly_ratio": 0.13470722209977223,
+      "test_anomaly_ratio": 0.2374237423742374,
+      "ensemble_auc": 0.8509572278923307,
+      "resonance_auc": 0.7122014722333476,
+      "kinematic_auc": 0.8694369328932285,
+      "info_geometry_auc": 0.8202328504150151,
+      "oracle_f1": 0.6921165574881409,
+      "oracle_precision": 0.7462250365319045,
+      "oracle_recall": 0.645324347093513,
+      "oracle_threshold": 0.46,
+      "threshold_strategy": "sweep_0.46",
+      "fit_ms": 112.79481399924407,
+      "score_ms": 23.538513999483257,
       "progressive_validation": {
         "split_aucs": [
-          0.9694489349562572
+          0.8195245600905978
         ],
         "split_f1s": [
-          0.8368200836820082
+          0.6348733233979137
         ],
-        "mean_auc": 0.9694489349562572,
-        "mean_f1": 0.8368200836820082,
+        "mean_auc": 0.8195245600905978,
+        "mean_f1": 0.6348733233979137,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.33604531322242515,
-        "kinematic": 0.36705600682132,
-        "info_geometry": 0.29689867995625485
+        "resonance": 0.4534454243794144,
+        "kinematic": 0.0,
+        "info_geometry": 0.5465545756205856
       },
       "weight_source": "unsupervised_adaptive",
-      "data_type": "TEMPORAL",
+      "data_type": "TABULAR",
       "oracle_metadata": {
-        "active": true,
-        "domain": "medical",
-        "mean_multiplier": 0.9327856839410706,
-        "significant_bands": [
-          "high_gamma_motor"
-        ],
-        "change_points": 0
+        "active": false
       },
       "error": null
     },
     {
       "name": "NOAA_StormEvents",
       "category": "climate",
-      "n_total": 355625,
-      "n_train": 9877,
+      "label_source": "statistical",
+      "n_total": 359682,
+      "n_train": 9878,
       "n_test": 9999,
       "n_features": 10,
-      "anomaly_ratio": 0.012279789103690686,
-      "test_anomaly_ratio": 0.0242024202420242,
-      "ensemble_auc": 0.9998809924131604,
-      "resonance_auc": 0.9838895067495512,
-      "kinematic_auc": 0.9740186532745722,
-      "info_geometry_auc": 0.9994875474018653,
-      "oracle_f1": 0.987603305785124,
-      "oracle_precision": 0.987603305785124,
-      "oracle_recall": 0.987603305785124,
-      "oracle_threshold": 0.5498691870325513,
-      "threshold_strategy": "contam_1.0",
-      "fit_ms": 1599.2180939999798,
-      "score_ms": 12005.584955000017,
+      "anomaly_ratio": 0.012169082689709242,
+      "test_anomaly_ratio": 0.024002400240024,
+      "ensemble_auc": 0.9971773918092701,
+      "resonance_auc": 0.9837829183317963,
+      "kinematic_auc": 0.9794036274208423,
+      "info_geometry_auc": 0.9997438262117021,
+      "oracle_f1": 0.9375,
+      "oracle_precision": 0.8823529411764706,
+      "oracle_recall": 1.0,
+      "oracle_threshold": 0.66,
+      "threshold_strategy": "sweep_0.66",
+      "fit_ms": 135.84519699998054,
+      "score_ms": 23.951193999891984,
       "progressive_validation": {
         "split_aucs": [
-          1.0
+          0.9983608448618977
         ],
         "split_f1s": [
-          1.0
+          0.9936842105263157
         ],
-        "mean_auc": 1.0,
-        "mean_f1": 1.0,
+        "mean_auc": 0.9983608448618977,
+        "mean_f1": 0.9936842105263157,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.3406462898585691,
-        "kinematic": 0.3625627558642331,
-        "info_geometry": 0.29679095427719776
+        "resonance": 0.47109278862207277,
+        "kinematic": 0.0,
+        "info_geometry": 0.5289072113779273
       },
       "weight_source": "unsupervised_adaptive",
-      "data_type": "TEMPORAL",
+      "data_type": "TABULAR",
       "oracle_metadata": {
-        "active": true,
-        "domain": "medical",
-        "mean_multiplier": 0.8920621129833163,
-        "significant_bands": [
-          "high_gamma_motor"
-        ],
-        "change_points": 0
+        "active": false
       },
       "error": null
     },
     {
       "name": "NOAA_GSOD",
       "category": "climate",
+      "label_source": "statistical",
       "n_total": 1095,
       "n_train": 499,
       "n_test": 596,
       "n_features": 15,
       "anomaly_ratio": 0.08858447488584476,
       "test_anomaly_ratio": 0.16275167785234898,
-      "ensemble_auc": 0.9909716339896286,
+      "ensemble_auc": 0.9850215895708943,
       "resonance_auc": 0.8813296696485755,
       "kinematic_auc": 0.933826415718034,
       "info_geometry_auc": 0.982810982790323,
-      "oracle_f1": 0.8983957219251337,
-      "oracle_precision": 0.9333333333333333,
-      "oracle_recall": 0.865979381443299,
-      "oracle_threshold": 0.6958053193182951,
-      "threshold_strategy": "percentile_85",
-      "fit_ms": 90.54446400000415,
-      "score_ms": 1085.5053450000014,
+      "oracle_f1": 0.872549019607843,
+      "oracle_precision": 0.8317757009345794,
+      "oracle_recall": 0.9175257731958762,
+      "oracle_threshold": 0.5,
+      "threshold_strategy": "sweep_0.50",
+      "fit_ms": 40.179924999392824,
+      "score_ms": 4.397048000100767,
       "progressive_validation": {
         "split_aucs": [
-          0.9868659420289856
+          0.9859601449275361
         ],
         "split_f1s": [
-          0.9795918367346939
+          0.9746192893401014
         ],
-        "mean_auc": 0.9868659420289856,
-        "mean_f1": 0.9795918367346939,
+        "mean_auc": 0.9859601449275361,
+        "mean_f1": 0.9746192893401014,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.35635550798294957,
-        "kinematic": 0.33093698478303923,
-        "info_geometry": 0.31270750723401125
+        "resonance": 0.4638097367069243,
+        "kinematic": 0.0,
+        "info_geometry": 0.5361902632930756
       },
       "weight_source": "unsupervised_adaptive",
-      "data_type": "TEMPORAL",
+      "data_type": "TABULAR",
       "oracle_metadata": {
-        "active": true,
-        "domain": "security",
-        "mean_multiplier": 1.3115935082691785,
-        "significant_bands": [
-          "baseline",
-          "burst",
-          "scan"
-        ],
-        "change_points": 0
+        "active": false
       },
       "error": null
     },
     {
       "name": "NOAA_ERDDAP",
       "category": "climate",
-      "error": "NOAA-ERDDAP-ssh: data source unavailable. URL: https://coastwatch.pfeg.noaa.gov/erddap/griddap/nesdisSSH1day.csv?sla[(2026-04-19T00:00:00Z)][(20.0):(50.0)][(-130.0):(-60.0)]. All ERDDAP date offsets failed: 404 Client Error:  for url: https://coastwatch.pfeg.noaa.gov/erddap/griddap/nesdisSSH1day.csv?sla%5B(2026-04-19T00:00:00Z)%5D%5B(20.0):(50.0)%5D%5B(-130.0):(-60.0)%5D"
+      "label_source": "statistical",
+      "n_total": 34001,
+      "n_train": 9816,
+      "n_test": 9999,
+      "n_features": 4,
+      "anomaly_ratio": 0.018381812299638246,
+      "test_anomaly_ratio": 0.036003600360036005,
+      "ensemble_auc": 0.9995611001602288,
+      "resonance_auc": 0.993341575313253,
+      "kinematic_auc": 0.9732109716314509,
+      "info_geometry_auc": 0.9999605191870988,
+      "oracle_f1": 0.952893674293405,
+      "oracle_precision": 0.9242819843342036,
+      "oracle_recall": 0.9833333333333333,
+      "oracle_threshold": 0.59,
+      "threshold_strategy": "sweep_0.59",
+      "fit_ms": 83.06836800056772,
+      "score_ms": 19.74065700051142,
+      "progressive_validation": {
+        "split_aucs": [
+          0.9992956157207629
+        ],
+        "split_f1s": [
+          0.9860724233983287
+        ],
+        "mean_auc": 0.9992956157207629,
+        "mean_f1": 0.9860724233983287,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.7163092534433183,
+        "kinematic": 0.0,
+        "info_geometry": 0.28369074655668164
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "error": null
     },
     {
       "name": "EPA_AirQuality",
       "category": "air_quality",
+      "label_source": "statistical",
       "n_total": 847370,
       "n_train": 9902,
       "n_test": 9999,
       "n_features": 8,
       "anomaly_ratio": 0.009797373048373201,
       "test_anomaly_ratio": 0.0193019301930193,
-      "ensemble_auc": 0.9979023099952551,
+      "ensemble_auc": 0.997541951158168,
       "resonance_auc": 0.9800666611010073,
       "kinematic_auc": 0.8734131265726071,
       "info_geometry_auc": 0.9985723026718335,
-      "oracle_f1": 0.8644067796610171,
-      "oracle_precision": 0.9503105590062112,
-      "oracle_recall": 0.7927461139896373,
-      "oracle_threshold": 0.5700000000000001,
-      "threshold_strategy": "sweep_0.57",
-      "fit_ms": 1363.1655310000497,
-      "score_ms": 10355.750473999933,
+      "oracle_f1": 0.7958333333333333,
+      "oracle_precision": 0.6655052264808362,
+      "oracle_recall": 0.9896373056994818,
+      "oracle_threshold": 0.62,
+      "threshold_strategy": "sweep_0.62",
+      "fit_ms": 107.28153499985638,
+      "score_ms": 23.38160599992989,
       "progressive_validation": {
         "split_aucs": [
-          0.9980268350434096
+          0.9989651846005437
         ],
         "split_f1s": [
-          0.931129476584022
+          0.9692307692307692
         ],
-        "mean_auc": 0.9980268350434096,
-        "mean_f1": 0.931129476584022,
+        "mean_auc": 0.9989651846005437,
+        "mean_f1": 0.9692307692307692,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.35584375703171056,
-        "kinematic": 0.3408487823028897,
-        "info_geometry": 0.30330746066539976
+        "resonance": 0.4928309876221892,
+        "kinematic": 0.0,
+        "info_geometry": 0.5071690123778108
       },
       "weight_source": "unsupervised_adaptive",
-      "data_type": "TEMPORAL",
+      "data_type": "TABULAR",
       "oracle_metadata": {
-        "active": true,
-        "domain": "infrastructure",
-        "mean_multiplier": 0.9274262717067147,
-        "significant_bands": [
-          "harmonic_distortion"
-        ],
-        "change_points": 0
+        "active": false
       },
       "error": null
     },
     {
       "name": "FEMA_Disaster",
       "category": "disaster",
+      "label_source": "statistical",
       "n_total": 10000,
       "n_train": 2904,
       "n_test": 7096,
       "n_features": 11,
       "anomaly_ratio": 0.4192,
       "test_anomaly_ratio": 0.5907553551296505,
-      "ensemble_auc": 0.9999175262338864,
-      "resonance_auc": 0.9949984260982483,
-      "kinematic_auc": 0.373263779361975,
-      "info_geometry_auc": 0.9990081379592244,
-      "oracle_f1": 0.9970255800118977,
-      "oracle_precision": 0.994540707334441,
-      "oracle_recall": 0.9995229007633588,
-      "oracle_threshold": 0.56,
-      "threshold_strategy": "sweep_0.56",
-      "fit_ms": 421.91309399993315,
-      "score_ms": 7386.504404999982,
-      "progressive_validation": {
-        "split_aucs": [
-          0.9964948823041949
-        ],
-        "split_f1s": [
-          0.9985239852398524
-        ],
-        "mean_auc": 0.9964948823041949,
-        "mean_f1": 0.9985239852398524,
-        "temporal_leakage_detected": false
-      },
-      "adaptive_weights": {
-        "resonance": 0.37553758388033026,
-        "kinematic": 0.2959220951602987,
-        "info_geometry": 0.32854032095937097
-      },
-      "weight_source": "unsupervised_adaptive",
-      "data_type": "TEMPORAL",
-      "oracle_metadata": {
-        "active": true,
-        "domain": "infrastructure",
-        "mean_multiplier": 0.9175330678492771,
-        "significant_bands": [
-          "harmonic_distortion"
-        ],
-        "change_points": 0
-      },
-      "error": null
-    },
-    {
-      "name": "FEMA_HazardMitigation",
-      "category": "disaster",
-      "error": "FEMAHazardMitigation: data source unavailable. URL: https://www.fema.gov/api/open/v2/HazardMitigationGrants. OpenFEMA Hazard Mitigation API unavailable"
-    },
-    {
-      "name": "NASA_Exoplanet",
-      "category": "space",
-      "n_total": 5000,
-      "n_train": 2068,
-      "n_test": 2932,
-      "n_features": 8,
-      "anomaly_ratio": 0.1728,
-      "test_anomaly_ratio": 0.2946793997271487,
-      "ensemble_auc": 0.7652791209972062,
-      "resonance_auc": 0.7503649079446951,
-      "kinematic_auc": 0.6692515245540512,
-      "info_geometry_auc": 0.7532427555698832,
-      "oracle_f1": 0.5981500513874615,
-      "oracle_precision": 0.5378927911275416,
-      "oracle_recall": 0.6736111111111112,
-      "oracle_threshold": 0.43,
-      "threshold_strategy": "sweep_0.43",
-      "fit_ms": 259.1407590000472,
-      "score_ms": 3974.3629390000024,
-      "progressive_validation": {
-        "split_aucs": [
-          0.6718209443665264
-        ],
-        "split_f1s": [
-          0.6733668341708543
-        ],
-        "mean_auc": 0.6718209443665264,
-        "mean_f1": 0.6733668341708543,
-        "temporal_leakage_detected": false
-      },
-      "adaptive_weights": {
-        "resonance": 0.35445907050751957,
-        "kinematic": 0.33183187059510333,
-        "info_geometry": 0.31370905889737716
-      },
-      "weight_source": "unsupervised_adaptive",
-      "data_type": "TEMPORAL",
-      "oracle_metadata": {
-        "active": true,
-        "domain": "security",
-        "mean_multiplier": 1.2915552953096887,
-        "significant_bands": [
-          "baseline",
-          "scan"
-        ],
-        "change_points": 0
-      },
-      "error": null
-    },
-    {
-      "name": "SolarDynamics",
-      "category": "space",
-      "n_total": 20152,
-      "n_train": 9980,
-      "n_test": 9999,
-      "n_features": 2,
-      "anomaly_ratio": 0.001984914648670107,
-      "test_anomaly_ratio": 0.0038003800380038005,
-      "ensemble_auc": 0.9992893336644493,
-      "resonance_auc": 1.0,
-      "kinematic_auc": 0.9664243179980873,
-      "info_geometry_auc": 0.9998996084730449,
-      "oracle_f1": 0.9142857142857143,
-      "oracle_precision": 1.0,
-      "oracle_recall": 0.8421052631578947,
-      "oracle_threshold": 0.66,
-      "threshold_strategy": "sweep_0.66",
-      "fit_ms": 1285.817108999936,
-      "score_ms": 7599.272113999973,
+      "ensemble_auc": 0.9992588039923874,
+      "resonance_auc": 0.9958948765062141,
+      "kinematic_auc": 0.3635491665220911,
+      "info_geometry_auc": 0.9992637737761024,
+      "oracle_f1": 0.9943074003795066,
+      "oracle_precision": 0.9886792452830189,
+      "oracle_recall": 1.0,
+      "oracle_threshold": 0.61,
+      "threshold_strategy": "sweep_0.61",
+      "fit_ms": 56.20797200026573,
+      "score_ms": 12.795499000276322,
       "progressive_validation": {
         "split_aucs": [
           1.0
@@ -3095,15 +2907,109 @@
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.31427098478842974,
-        "kinematic": 0.3725463639955081,
-        "info_geometry": 0.31318265121606215
+        "resonance": 0.4667498658299965,
+        "kinematic": 0.0,
+        "info_geometry": 0.5332501341700036
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "error": null
+    },
+    {
+      "name": "FEMA_HazardMitigation",
+      "category": "disaster",
+      "label_source": "ground_truth",
+      "error": "FEMAHazardMitigation: data source unavailable. URL: https://www.fema.gov/api/open/v2/HazardMitigationGrants. OpenFEMA Hazard Mitigation API unavailable"
+    },
+    {
+      "name": "NASA_Exoplanet",
+      "category": "space",
+      "label_source": "statistical",
+      "n_total": 5000,
+      "n_train": 1967,
+      "n_test": 3033,
+      "n_features": 8,
+      "anomaly_ratio": 0.213,
+      "test_anomaly_ratio": 0.35113748763600394,
+      "ensemble_auc": 0.7510778083132943,
+      "resonance_auc": 0.7363825909385855,
+      "kinematic_auc": 0.6897753731058437,
+      "info_geometry_auc": 0.7404366578877055,
+      "oracle_f1": 0.6378633150039277,
+      "oracle_precision": 0.5482781904118839,
+      "oracle_recall": 0.7624413145539906,
+      "oracle_threshold": 0.3,
+      "threshold_strategy": "sweep_0.30",
+      "fit_ms": 49.92409399983444,
+      "score_ms": 8.585844999288383,
+      "progressive_validation": {
+        "split_aucs": [
+          0.7786111111111111
+        ],
+        "split_f1s": [
+          0.8833151581243185
+        ],
+        "mean_auc": 0.7786111111111111,
+        "mean_f1": 0.8833151581243185,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.46353911058827674,
+        "kinematic": 0.0,
+        "info_geometry": 0.5364608894117233
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "error": null
+    },
+    {
+      "name": "SolarDynamics",
+      "category": "space",
+      "label_source": "statistical",
+      "n_total": 20158,
+      "n_train": 9993,
+      "n_test": 9999,
+      "n_features": 2,
+      "anomaly_ratio": 0.0006945133445778351,
+      "test_anomaly_ratio": 0.0012001200120012002,
+      "ensemble_auc": 0.9995744467808151,
+      "resonance_auc": 1.0,
+      "kinematic_auc": 0.9790519341811021,
+      "info_geometry_auc": 0.99964954440773,
+      "oracle_f1": 0.8333333333333334,
+      "oracle_precision": 0.8333333333333334,
+      "oracle_recall": 0.8333333333333334,
+      "oracle_threshold": 0.6687759503401225,
+      "threshold_strategy": "contam_1.0",
+      "fit_ms": 1417.579478999869,
+      "score_ms": 8746.314768999582,
+      "progressive_validation": {
+        "split_aucs": [
+          0.9984932194876946
+        ],
+        "split_f1s": [
+          0.9333333333333333
+        ],
+        "mean_auc": 0.9984932194876946,
+        "mean_f1": 0.9333333333333333,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.21497347743924058,
+        "kinematic": 0.4169476804260402,
+        "info_geometry": 0.36807884213471925
       },
       "weight_source": "unsupervised_adaptive",
       "data_type": "TEMPORAL",
       "oracle_metadata": {
         "active": true,
-        "domain": "infrastructure",
+        "domain": "environmental",
         "mean_multiplier": 0.855226108467809,
         "significant_bands": [],
         "change_points": 0
@@ -3113,11 +3019,13 @@
     {
       "name": "UCR",
       "category": "academic",
-      "error": "UCR dataset ECG5000 not found. Please download from UCR archive."
+      "label_source": "ground_truth",
+      "error": "Labels have fewer than 2 distinct values"
     },
     {
       "name": "CWRU_Bearing",
       "category": "academic",
+      "label_source": "ground_truth",
       "n_total": 594,
       "n_train": 119,
       "n_test": 475,
@@ -3133,13 +3041,13 @@
       "oracle_recall": 1.0,
       "oracle_threshold": 0.66,
       "threshold_strategy": "sweep_0.66",
-      "fit_ms": 1557.3592749999534,
-      "score_ms": 700.6773019999173,
+      "fit_ms": 1605.0289209997572,
+      "score_ms": 829.4192909997946,
       "progressive_validation": null,
       "adaptive_weights": {
-        "resonance": 0.47508300564591394,
-        "kinematic": 0.049833988708172045,
-        "info_geometry": 0.47508300564591394
+        "resonance": 0.4761894344048019,
+        "kinematic": 0.04762113119039628,
+        "info_geometry": 0.4761894344048019
       },
       "weight_source": "unsupervised_adaptive",
       "data_type": "UNKNOWN",
@@ -3151,6 +3059,7 @@
     {
       "name": "MSDS",
       "category": "academic",
+      "label_source": "statistical",
       "n_total": 10000,
       "n_train": 4750,
       "n_test": 5250,
@@ -3164,25 +3073,25 @@
       "oracle_f1": 1.0,
       "oracle_precision": 1.0,
       "oracle_recall": 1.0,
-      "oracle_threshold": 0.5534312852733707,
+      "oracle_threshold": 0.5463731348174095,
       "threshold_strategy": "contam_1.0",
-      "fit_ms": 111.1420199999884,
-      "score_ms": 18.15143800001806,
+      "fit_ms": 144.91961599924252,
+      "score_ms": 26.177445999564952,
       "progressive_validation": {
         "split_aucs": [
-          0.9978654545454546
+          0.9971563636363637
         ],
         "split_f1s": [
-          0.988
+          0.982
         ],
-        "mean_auc": 0.9978654545454546,
-        "mean_f1": 0.988,
+        "mean_auc": 0.9971563636363637,
+        "mean_f1": 0.982,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.4666636882566819,
+        "resonance": 0.46665475304098675,
         "kinematic": 0.0,
-        "info_geometry": 0.5333363117433181
+        "info_geometry": 0.5333452469590132
       },
       "weight_source": "unsupervised_adaptive",
       "data_type": "TABULAR",
@@ -3194,23 +3103,24 @@
     {
       "name": "ThreatIntel",
       "category": "security",
+      "label_source": "statistical",
       "n_total": 858,
       "n_train": 402,
       "n_test": 456,
       "n_features": 18,
       "anomaly_ratio": 0.06177156177156177,
       "test_anomaly_ratio": 0.1162280701754386,
-      "ensemble_auc": 0.838756496090641,
+      "ensemble_auc": 0.8289245751205581,
       "resonance_auc": 0.9052390093169156,
       "kinematic_auc": 0.5556908094948266,
       "info_geometry_auc": 0.8169858139426003,
-      "oracle_f1": 0.5409836065573771,
-      "oracle_precision": 0.4782608695652174,
-      "oracle_recall": 0.6226415094339622,
-      "oracle_threshold": 0.44485280140891825,
-      "threshold_strategy": "percentile_85",
-      "fit_ms": 30.513634000044476,
-      "score_ms": 2.3345889999291103,
+      "oracle_f1": 0.5470085470085471,
+      "oracle_precision": 0.5,
+      "oracle_recall": 0.6037735849056604,
+      "oracle_threshold": 0.45955568531442614,
+      "threshold_strategy": "contam_1.2",
+      "fit_ms": 38.09600800013868,
+      "score_ms": 3.1732710003780085,
       "progressive_validation": {
         "split_aucs": [
           0.8574950690335306
@@ -3223,9 +3133,9 @@
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.4670387974014908,
+        "resonance": 0.46815540803788447,
         "kinematic": 0.0,
-        "info_geometry": 0.5329612025985092
+        "info_geometry": 0.5318445919621155
       },
       "weight_source": "unsupervised_adaptive",
       "data_type": "TABULAR",
@@ -3237,38 +3147,39 @@
     {
       "name": "ADRepository",
       "category": "general",
+      "label_source": "ground_truth",
       "n_total": 7200,
-      "n_train": 3512,
-      "n_test": 3688,
+      "n_train": 3333,
+      "n_test": 3867,
       "n_features": 21,
-      "anomaly_ratio": 0.024305555555555556,
-      "test_anomaly_ratio": 0.047451193058568326,
-      "ensemble_auc": 1.0,
-      "resonance_auc": 1.0,
-      "kinematic_auc": 0.9089097637346997,
-      "info_geometry_auc": 1.0,
-      "oracle_f1": 1.0,
-      "oracle_precision": 1.0,
-      "oracle_recall": 1.0,
-      "oracle_threshold": 0.6181754691974,
-      "threshold_strategy": "contam_1.0",
-      "fit_ms": 90.12315799998305,
-      "score_ms": 8.920835000026273,
+      "anomaly_ratio": 0.07416666666666667,
+      "test_anomaly_ratio": 0.13809154383242825,
+      "ensemble_auc": 0.7086343465807255,
+      "resonance_auc": 0.7580229933105671,
+      "kinematic_auc": 0.6485671039014014,
+      "info_geometry_auc": 0.7048536314305589,
+      "oracle_f1": 0.3467902051621443,
+      "oracle_precision": 0.26816786079836236,
+      "oracle_recall": 0.49063670411985016,
+      "oracle_threshold": 0.38,
+      "threshold_strategy": "sweep_0.38",
+      "fit_ms": 80.56835800016415,
+      "score_ms": 12.421452999660687,
       "progressive_validation": {
         "split_aucs": [
-          1.0
+          0.6932892396967523
         ],
         "split_f1s": [
-          1.0
+          0.8306188925081432
         ],
-        "mean_auc": 1.0,
-        "mean_f1": 1.0,
+        "mean_auc": 0.6932892396967523,
+        "mean_f1": 0.8306188925081432,
         "temporal_leakage_detected": false
       },
       "adaptive_weights": {
-        "resonance": 0.30434748336294076,
+        "resonance": 0.47142132080017074,
         "kinematic": 0.0,
-        "info_geometry": 0.6956525166370593
+        "info_geometry": 0.5285786791998293
       },
       "weight_source": "unsupervised_adaptive",
       "data_type": "TABULAR",
@@ -3280,12 +3191,14 @@
     {
       "name": "SWaT",
       "category": "industrial",
-      "error": "SWaT: data source unavailable. URL: https://itrust.sutd.edu.sg/itrust-labs-datasets/. SWaT/WADI requires iTrust registration: https://itrust.sutd.edu.sg/itrust-labs-datasets/ Download data and place in data/swat"
+      "label_source": "ground_truth",
+      "error": "SWaT: data source unavailable. URL: https://itrust.sutd.edu.sg/itrust-labs-datasets/. SWaT (51 sensors, water treatment plant) requires manual iTrust registration. Steps: (1) register at https://itrust.sutd.edu.sg/itrust-labs-datasets/ (2) download 'SWaT.A1 & A2_Dec 2015' and 'SWaT_Dataset_Attack_v0.xlsx' (3) place extracted files in /home/user/Mercury-Agent/data/swat. Once placed, re-run the benchmark \u2014 the loader will detect the files automatically."
     },
     {
       "name": "WADI",
       "category": "industrial",
-      "error": "WADI: data source unavailable. URL: https://itrust.sutd.edu.sg/itrust-labs-datasets/. SWaT/WADI requires iTrust registration: https://itrust.sutd.edu.sg/itrust-labs-datasets/ Download data and place in data/wadi"
+      "label_source": "ground_truth",
+      "error": "WADI: data source unavailable. URL: https://itrust.sutd.edu.sg/itrust-labs-datasets/. WADI (127 sensors, water distribution network) requires manual iTrust registration. Steps: (1) register at https://itrust.sutd.edu.sg/itrust-labs-datasets/ (2) download 'WADI.A1_9 Oct 2017' and 'WADI_attackdata.csv' (3) place extracted files in /home/user/Mercury-Agent/data/wadi. Once placed, re-run the benchmark \u2014 the loader will detect the files automatically."
     }
   ]
 }

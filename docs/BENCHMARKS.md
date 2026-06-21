@@ -22,9 +22,10 @@ Applies to Mercury Agent **v2.0.x**. Last updated: 2026-05-20.
 > it: ROC-AUC 0.68 / F1 0.50), preserved here for the auditable
 > trajectory — it is **not** the current committed run. For the
 > authoritative current figures see the committed
-> `mercury_benchmark_results.json` and the README "Latest Benchmark
-> Results" block (65/75, Mean ROC-AUC 0.8466). The externally-
-> comparable subset is ADBench Mean AUC 0.8180.
+> `mercury_benchmark_results.json` (this committed run: 66/75 scored) and
+> the CI-refreshed README "Latest Benchmark Results" block. The externally-
+> comparable ADBench subset is Mean AUC **0.8251** on the hardened detector
+> (base `e118e1f` 0.8180; see the base-vs-current section below).
 
 > **Unreleased ensemble changes.** The Unreleased CHANGELOG entry
 > "fusion-margin sharpening, data-type gate correction, temporal
@@ -42,9 +43,50 @@ Applies to Mercury Agent **v2.0.x**. Last updated: 2026-05-20.
 > **0.7397 → 0.7634 (+2.37 pts, 14 W / 2 tie / 2 L)** — base `e118e1f` vs the
 > hardened detector; the two losses are within noise (≤0.0003). This supersedes
 > an earlier ad-hoc `0.7804 → 0.8142` figure that is not reproducible: its
-> harness resolved several sets through the now-broken ADRepository mirror, which
-> silently substitutes synthetic data. Re-run:
+> harness resolved several sets through the then-broken ADRepository mirror, which
+> silently substituted synthetic data. That loader has since been repointed
+> (`GuansongPang → mala-lab`) and made **fail-loud**; the base-vs-current section
+> below catches it red-handed (base scores a tell-tale AUROC 1.0000 on the
+> synthetic data; the fixed loader scores real thyroid 0.7086). Re-run:
 > `python research/omni_equation/harness_adbench.py`.
+
+## Inductive suite — base vs current (real data, full registry)
+
+A committed real-data run of the **inductive** `benchmarks/mercury_benchmark.py`
+(normal-train / test-on-rest; distinct from the transductive harness above),
+base `e118e1f` vs the hardened current tree, `MERCURY_ALLOW_SYNTHETIC=0` so
+unreachable sources fail loud and are excluded — **never synthetic-substituted**.
+Both runs: 75 attempted, **66 scored, 9 failed loud** (identical ledger:
+CICIDS-2017, FEMA_HazardMitigation, MIT-BIH, MSL, SMAP, SWaT, UCR,
+USGS_Geochemistry, WADI).
+
+| Slice | base → current | W/T/L |
+|---|---|---|
+| **ADBench (deterministic, both real, n=47)** | 0.8180 → 0.8251 (**+0.0071**) | 18/5/24 |
+| All real datasets, excl. ADRepository artifact (n=65) | 0.8446 → 0.8475 (**+0.0029**) | 22/7/36 |
+| Naive all-both-scored (n=66) | 0.8470 → 0.8454 (−0.0016) | 22/7/37 |
+
+Read the decontaminated rows, not the naive −0.0016. Two honest caveats:
+
+1. **A live synthetic-contamination artifact.** On the base commit the *unfixed*
+   ADRepository loader silently returns synthetic data and the detector scores a
+   meaningless **AUROC 1.0000**; the hardened tree's repointed, fail-loud loader
+   returns **real thyroid (0.7086)**. That one set inflates the base mean;
+   excluding it, the hardening is net-positive (**+0.0029**) — the exact foot-gun
+   the loader fix closes, caught in the act.
+2. **The inductive protocol carries a test-row-ordering artifact.** Its test set
+   is class-grouped (normals then anomalies — a step) which the temporal residual
+   filter sharpens. The base detector applied that filter to many *tabular* sets
+   (the data-type-gate bug), gaining an order-dependent boost the hardened
+   detector correctly forgoes (it restricts the filter to genuine temporal data).
+   Hence many small per-set "regressions" alongside large wins on the hard sets —
+   net **+0.0071** on deterministic ADBench. The leak-free transductive harness
+   shows the cleaner **+0.0237**.
+
+Net: positive on both protocols once synthetic contamination is removed; the
+inductive delta is smaller because the base partly exploited a protocol leak.
+Reproduce by running `python benchmarks/mercury_benchmark.py` from a base
+(`e118e1f`) worktree and the current tree, then diffing per-dataset `ensemble_auc`.
 
 ## What This Measures
 

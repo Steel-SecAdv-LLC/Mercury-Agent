@@ -143,6 +143,26 @@ generation through `check_synthetic_allowed()`; ADRepository was the sole holdou
   synthetic denied (real-or-raise). The transductive ADBench headline is
   unaffected — that harness uses the already-clean `ADBenchLoader`.
 
+### Full inductive suite refreshed — real-data base-vs-current (75 attempted / 66 scored)
+
+Re-ran the committed `benchmarks/mercury_benchmark.py` (inductive
+normal-train/test-on-rest protocol) on the full 75-dataset registry, **real data
+only** (`MERCURY_ALLOW_SYNTHETIC=0`) — base `e118e1f` vs the hardened current
+tree. 9 datasets fail loud (unreachable upstream: SMAP, MSL, CICIDS-2017,
+MIT-BIH, USGS_Geochemistry, FEMA_HazardMitigation, UCR, SWaT, WADI) and are
+excluded, never synthetic-substituted; the ledger is identical in both runs. On
+the deterministic ADBench subset the hardening is **0.8180 → 0.8251 (+0.0071,
+18 W / 5 tie / 24 L)**; across all real datasets excluding the ADRepository
+artifact, **+0.0029**. The naive all-sets number is a slight −0.0016 *because the
+base commit's unfixed ADRepository loader silently returns synthetic data and the
+detector scores a meaningless AUROC 1.0000 on it* — a live capture of the exact
+foot-gun the loader fix closes (the hardened tree scores real thyroid 0.7086
+there). The inductive deltas run smaller than the transductive +0.0237 because
+the inductive protocol's class-grouped test ordering lets the old temporal filter
+exploit a row-order artifact the hardened detector correctly forgoes; both
+protocols are net-positive once decontaminated. Full analysis + reproduction in
+`docs/BENCHMARKS.md`; refreshed results in `benchmarks/mercury_benchmark_results.json`.
+
 ## [2.0.0] - 2026-06-17
 
 ### Docs↔code reconciliation + release-engineering pass (2026-06-17)
