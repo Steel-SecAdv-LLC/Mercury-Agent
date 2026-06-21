@@ -414,3 +414,58 @@ class TestADRepositoryRealMirror:
         X, _y = loader.load_data()
         assert X.shape[1] == 196
         assert loader.is_real_data is True
+
+    # (name, expected feature count, anomalies dense enough to land in first 2k rows)
+    # Closes the open gap: campaign/donors/celeba/census/fraud were only
+    # reachability-checked (HTTP 200), never load-verified end-to-end. census's
+    # 500-feature claim is asserted here against the real CSV.
+    _DEVNET_REAL = [
+        ("campaign", 62, True),
+        ("donors", 10, True),
+        ("celeba", 39, True),
+        ("census", 500, True),
+        ("fraud", 29, False),  # 0.17% anomaly ratio: too sparse to require in 2k rows
+    ]
+
+    @pytest.mark.parametrize("name, n_features, has_anomalies", _DEVNET_REAL)
+    def test_real_devnet_set_load_verified(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Any,
+        name: str,
+        n_features: int,
+        has_anomalies: bool,
+    ) -> None:
+        """Each DevNet tabular set loads real data with its documented feature count.
+
+        Synthetic is denied so any fallback would *raise*; ``max_samples`` bounds
+        the parse (the loader reads only the first rows of large CSVs like the
+        299k x 500 census set) so the network lane stays fast.
+        """
+        monkeypatch.setenv("MERCURY_ALLOW_SYNTHETIC", "0")
+        loader = ADRepositoryLoader(
+            DatasetConfig(name=name, data_dir=str(tmp_path / name), max_samples=2000),
+            dataset_name=name,
+        )
+        X, y = loader.load_data()
+        assert X.shape[1] == n_features, f"{name}: {X.shape[1]} features, expected {n_features}"
+        assert loader.is_real_data is True
+        assert set(np.unique(np.asarray(y))).issubset({0, 1}), f"{name}: non-binary labels"
+        if has_anomalies:
+            assert int(np.asarray(y).sum()) > 0, f"{name}: no real anomalies in first 2000 rows"
+
+    def test_real_smd_via_delegation(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> None:
+        """smd is delegated to SMDLoader and loads real server telemetry end-to-end."""
+        monkeypatch.setenv("MERCURY_ALLOW_SYNTHETIC", "0")
+        loader = ADRepositoryLoader(
+            DatasetConfig(
+                name="smd",
+                data_dir=str(tmp_path / "smd"),
+                preprocessing={"machines": ["machine-1-1"]},
+            ),
+            dataset_name="smd",
+        )
+        X, y = loader.load_data()
+        assert X.shape[1] == 38
+        assert loader.is_real_data is True
+        assert int(np.asarray(y).sum()) > 0  # machine-1-1 test split carries real anomalies

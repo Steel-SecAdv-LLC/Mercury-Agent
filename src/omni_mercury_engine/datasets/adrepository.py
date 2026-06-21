@@ -579,7 +579,11 @@ class ADRepositoryLoader(DatasetLoader):
             elif suffix == ".csv":
                 import pandas as pd
 
-                df = pd.read_csv(path)
+                # ``nrows`` bounds memory on large sets (e.g. census 299k x 500)
+                # without changing the result: the post-read cap below keeps the
+                # same first ``max_samples`` rows, but this avoids materialising
+                # the whole CSV first. ``None`` (no cap) reads everything.
+                df = pd.read_csv(path, nrows=self.config.max_samples)
 
                 # Assume last column is label
                 self._features = df.iloc[:, :-1].values.astype(np.float32)
@@ -600,7 +604,7 @@ class ADRepositoryLoader(DatasetLoader):
                 csv_members = sorted(extract_dir.rglob("*.csv"))
                 if not csv_members:
                     raise RuntimeError(f"No CSV member found inside archive '{path.name}'.")
-                df = pd.read_csv(csv_members[0])
+                df = pd.read_csv(csv_members[0], nrows=self.config.max_samples)
                 self._features = df.iloc[:, :-1].values.astype(np.float32)
                 self._raw_labels = df.iloc[:, -1].values.astype(np.int64)
                 self._is_real_data = True
