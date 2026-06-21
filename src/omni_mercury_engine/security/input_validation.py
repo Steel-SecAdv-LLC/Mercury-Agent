@@ -587,11 +587,6 @@ class TrustedEndpoints:
             "cds.climate.copernicus.eu",
             # Academic/Research Datasets
             "archive.ics.uci.edu",
-            # ODDS — Outlier Detection DataSets (Stony Brook University).
-            # Canonical .mat anomaly-detection benchmarks used by the
-            # ADRepository loader's ODDS path; allowlisted so the SSRF gate
-            # no longer silently routes that path to synthetic data.
-            "odds.cs.stonybrook.edu",
             "intrusion-detection.distrinet-research.be",  # CICIDS 2017 improved dataset
             "cicresearch.ca",  # CICIDS 2017 legacy mirror hostname
             # Weather APIs

@@ -142,9 +142,13 @@ generation through `check_synthetic_allowed()`; ADRepository was the sole holdou
   from a previously-extracted archive with a different layout. Covered by a new
   `TestArchiveExtractionSafety` (tar/zip-slip refusal, symlink refusal, the
   filter-absent fallback, stale-dir clearing).
-* **Allowlist ODDS.** `odds.cs.stonybrook.edu` (Outlier Detection DataSets, Stony
-  Brook) is added to `TrustedEndpoints.TRUSTED_DOMAINS` so the loader's ODDS
-  `.mat` path clears SSRF validation instead of failing into synthetic.
+* **Remove the dead ODDS path.** The ADRepository loader's legacy ODDS (Outlier
+  Detection DataSets, Stony Brook) `.mat` codepath was removed — the host is
+  unreachable (503) and no registered dataset name ever routed through it. Because
+  nothing fetches from it, `odds.cs.stonybrook.edu` is deliberately **not** added
+  to `TrustedEndpoints.TRUSTED_DOMAINS`, keeping the trusted-egress surface
+  minimal; time-series sets without a dedicated loader fail loud naming their real
+  upstream instead of routing to synthetic.
 * **Tests.** `tests/datasets/test_adrepository.py` gains a `TestSyntheticPolicyGate`
   class (chokepoint raises when policy off; production load fails loud on an
   unreachable source; opt-in synthetic is labelled; time-series sets with no
