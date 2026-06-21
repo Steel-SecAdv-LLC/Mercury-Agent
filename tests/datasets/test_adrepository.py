@@ -4,6 +4,9 @@
 
 from __future__ import annotations
 
+import io
+import tarfile
+import zipfile
 from typing import Any
 
 import numpy as np
@@ -17,11 +20,26 @@ from omni_mercury_engine.datasets import (
     list_available_datasets,
     load_dataset,
 )
+from omni_mercury_engine.datasets.adrepository import (
+    _extract_tar_members_guarded,
+    _fresh_extract_dir,
+    _safe_extract_tar,
+    _safe_extract_zip,
+)
 
 
 def _raise_offline(*_args: object, **_kwargs: object) -> bool:
     """Stand-in for an unreachable real source (simulated offline)."""
     raise RuntimeError("simulated offline / real source unreachable")
+
+
+def _write_tar(path: Any, members: dict[str, bytes]) -> None:
+    """Write a tar at ``path`` from an ``arcname -> payload`` mapping."""
+    with tarfile.open(path, "w") as tf:
+        for arcname, payload in members.items():
+            info = tarfile.TarInfo(name=arcname)
+            info.size = len(payload)
+            tf.addfile(info, io.BytesIO(payload))
 
 
 class TestADRepositoryMetadata:
@@ -469,3 +487,134 @@ class TestADRepositoryRealMirror:
         assert X.shape[1] == 38
         assert loader.is_real_data is True
         assert int(np.asarray(y).sum()) > 0  # machine-1-1 test split carries real anomalies
+
+
+class TestArchiveExtractionSafety:
+    """External-mirror archive extraction must be slip-safe, version-portable,
+    and stale-free.
+
+    These guard the ``.tar.xz`` / ``.zip`` path in ``_load_from_file``: a
+    hostile or malformed archive must never write outside the extraction dir
+    (tar-slip / zip-slip), the tar path must not depend on a ``filter=`` kwarg
+    that pre-3.11.4 interpreters lack, and a re-used extraction dir must not
+    leak stale members into the ``rglob('*.csv')`` member search.
+    """
+
+    # ---- zip-slip --------------------------------------------------------
+    def test_zip_traversal_member_is_refused(self, tmp_path: Any) -> None:
+        archive = tmp_path / "evil.zip"
+        with zipfile.ZipFile(archive, "w") as zf:
+            zf.writestr("ok.csv", "a,b\n1,2\n")
+            zf.writestr("../escape.csv", "pwned")
+        dest = tmp_path / "out"
+        dest.mkdir()
+        with (
+            zipfile.ZipFile(archive, "r") as zf,
+            pytest.raises(RuntimeError, match="escapes the extraction directory"),
+        ):
+            _safe_extract_zip(zf, dest)
+        assert not (tmp_path / "escape.csv").exists()
+
+    def test_zip_clean_archive_extracts(self, tmp_path: Any) -> None:
+        archive = tmp_path / "clean.zip"
+        with zipfile.ZipFile(archive, "w") as zf:
+            zf.writestr("data.csv", "a,b\n1,2\n")
+        dest = tmp_path / "out"
+        dest.mkdir()
+        with zipfile.ZipFile(archive, "r") as zf:
+            _safe_extract_zip(zf, dest)
+        assert (dest / "data.csv").read_text() == "a,b\n1,2\n"
+
+    # ---- tar-slip (legacy guard, exercised on every interpreter) ---------
+    def test_legacy_tar_guard_refuses_traversal(self, tmp_path: Any) -> None:
+        archive = tmp_path / "evil.tar"
+        _write_tar(archive, {"ok.csv": b"x", "../escape.csv": b"pwned"})
+        dest = tmp_path / "out"
+        dest.mkdir()
+        with (
+            tarfile.open(archive, "r") as tf,
+            pytest.raises(RuntimeError, match="escapes the extraction directory"),
+        ):
+            _extract_tar_members_guarded(tf, dest)
+        assert not (tmp_path / "escape.csv").exists()
+
+    def test_legacy_tar_guard_refuses_symlink(self, tmp_path: Any) -> None:
+        archive = tmp_path / "link.tar"
+        with tarfile.open(archive, "w") as tf:
+            info = tarfile.TarInfo(name="link")
+            info.type = tarfile.SYMTYPE
+            info.linkname = "/etc/passwd"
+            tf.addfile(info)
+        dest = tmp_path / "out"
+        dest.mkdir()
+        with (
+            tarfile.open(archive, "r") as tf,
+            pytest.raises(RuntimeError, match="links are not allowed"),
+        ):
+            _extract_tar_members_guarded(tf, dest)
+
+    def test_legacy_tar_guard_extracts_clean(self, tmp_path: Any) -> None:
+        archive = tmp_path / "clean.tar"
+        _write_tar(archive, {"data.csv": b"a,b\n1,2\n"})
+        dest = tmp_path / "out"
+        dest.mkdir()
+        with tarfile.open(archive, "r") as tf:
+            _extract_tar_members_guarded(tf, dest)
+        assert (dest / "data.csv").read_bytes() == b"a,b\n1,2\n"
+
+    # ---- feature-detect fallback: the fix for pre-3.11.4 `filter=` -------
+    def test_safe_extract_tar_falls_back_when_filter_absent(
+        self, tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Simulate a pre-3.11.4 interpreter (no ``tarfile.data_filter``).
+
+        The public entry must route through the manual guard instead of raising
+        ``TypeError`` on ``filter="data"`` — still extracting clean archives and
+        still refusing traversal — so dataset loading does not silently collapse
+        into the synthetic fallback on old patch releases.
+        """
+        monkeypatch.delattr(tarfile, "data_filter", raising=False)
+
+        clean = tmp_path / "clean.tar"
+        _write_tar(clean, {"d.csv": b"hello"})
+        dest = tmp_path / "out"
+        dest.mkdir()
+        with tarfile.open(clean, "r") as tf:
+            _safe_extract_tar(tf, dest)
+        assert (dest / "d.csv").read_bytes() == b"hello"
+
+        evil = tmp_path / "evil.tar"
+        _write_tar(evil, {"../escape.csv": b"pwned"})
+        with (
+            tarfile.open(evil, "r") as tf,
+            pytest.raises(RuntimeError, match="escapes the extraction directory"),
+        ):
+            _safe_extract_tar(tf, dest)
+        assert not (tmp_path / "escape.csv").exists()
+
+    def test_safe_extract_tar_clean_roundtrip_modern(self, tmp_path: Any) -> None:
+        """On an interpreter that has the filter, the public entry still works."""
+        archive = tmp_path / "clean.tar"
+        _write_tar(archive, {"d.csv": b"a,b\n1,2\n"})
+        dest = tmp_path / "out"
+        dest.mkdir()
+        with tarfile.open(archive, "r") as tf:
+            _safe_extract_tar(tf, dest)
+        assert (dest / "d.csv").read_bytes() == b"a,b\n1,2\n"
+
+    # ---- stale-dir clearing ----------------------------------------------
+    def test_fresh_extract_dir_clears_stale_members(self, tmp_path: Any) -> None:
+        d = tmp_path / "archive.tar.xz_extracted"
+        d.mkdir()
+        (d / "stale.csv").write_text("from a previous, different archive")
+        out = _fresh_extract_dir(d)
+        assert out == d
+        assert d.is_dir()
+        assert list(d.iterdir()) == []  # the stale CSV is gone
+
+    def test_fresh_extract_dir_creates_when_absent(self, tmp_path: Any) -> None:
+        d = tmp_path / "nested" / "x_extracted"
+        assert not d.exists()
+        out = _fresh_extract_dir(d)
+        assert out == d
+        assert d.is_dir()

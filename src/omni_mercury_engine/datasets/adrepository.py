@@ -19,6 +19,7 @@ Datasets include:
 from __future__ import annotations
 
 import logging
+import shutil
 import tarfile
 import zipfile
 from typing import TYPE_CHECKING, Any, TypedDict
@@ -48,25 +49,61 @@ logger = logging.getLogger(__name__)
 
 
 def _safe_extract_tar(tf: tarfile.TarFile, dest: Path) -> None:
-    """Extract a tar archive with the stdlib ``data`` filter (tar-slip safe).
+    """Extract a tar archive, rejecting tar-slip members (tar-slip safe).
 
     Tar archives from external mirrors (unlike the pure-numpy ADBench ``.npz``
     files) can carry absolute paths, ``..`` escapes, symlinks and device nodes.
-    Python's ``data`` extraction filter (3.12; backported to the 3.9-3.11
-    security releases) rejects exactly those — raising rather than writing
-    outside ``dest``. It is the stdlib-sanctioned, fail-loud safe extraction for
-    untrusted tar archives, so no hand-rolled member validation is needed.
+    Python's ``data`` extraction filter rejects exactly those — but the
+    ``filter=`` parameter only exists on CPython 3.12+ and the 3.9-3.11
+    *security* releases (3.11.4+). On the 3.11.0-3.11.3 patch releases this
+    project still supports (``requires-python = ">=3.11"``) it is absent, so
+    passing ``filter="data"`` there raises ``TypeError`` — which the caller's
+    broad ``except`` would turn into a silent synthetic-data fallback. We
+    therefore feature-detect the filter (``tarfile.data_filter`` was added in
+    lock-step with the parameter) and fall back to an explicit member guard that
+    enforces the same invariants when it is missing.
     """
-    tf.extractall(dest, filter="data")
+    if hasattr(tarfile, "data_filter"):
+        tf.extractall(dest, filter="data")
+        return
+    _extract_tar_members_guarded(tf, dest)
+
+
+def _extract_tar_members_guarded(tf: tarfile.TarFile, dest: Path) -> None:
+    """Tar-slip-safe extraction for interpreters predating the ``data`` filter.
+
+    Enforces the same invariants the stdlib ``data`` filter would: reject
+    sym/hard links and device/special members outright, and refuse any member
+    whose resolved path escapes ``dest``. Members are extracted individually
+    (never a bare ``extractall``) and only after they pass the guard, so a
+    malicious archive cannot write outside ``dest`` even on old interpreters.
+    """
+    dest = dest.resolve()
+    for member in tf.getmembers():
+        if member.issym() or member.islnk():
+            raise RuntimeError(f"Refusing tar member {member.name!r}: links are not allowed.")
+        if not (member.isfile() or member.isdir()):
+            raise RuntimeError(
+                f"Refusing tar member {member.name!r}: only regular files and "
+                "directories may be extracted."
+            )
+        target = (dest / member.name).resolve()
+        if target != dest and dest not in target.parents:
+            raise RuntimeError(
+                f"Refusing tar member {member.name!r}: it escapes the extraction directory."
+            )
+        tf.extract(member, dest)
 
 
 def _safe_extract_zip(zf: zipfile.ZipFile, dest: Path) -> None:
     """Extract a zip archive, refusing path-traversal members (zip-slip guard).
 
-    ``zipfile`` already sanitises member paths on extraction; as defence in depth
-    we additionally resolve every member against ``dest``, refuse anything that
-    would escape, and extract members **individually** (never ``extractall``) for
-    the ``.zip`` archives from external mirrors.
+    Do **not** assume ``zipfile`` sanitises member paths for you: a member named
+    ``../x`` or with an absolute path can write outside the destination
+    (zip-slip). This helper *is* the sanitiser — it resolves every member
+    against ``dest``, refuses anything that would escape, and extracts members
+    **individually** (never ``extractall``). Keep this guard even if a future
+    stdlib adds its own, and never replace it with a bare ``extractall``.
     """
     dest = dest.resolve()
     for name in zf.namelist():
@@ -76,6 +113,22 @@ def _safe_extract_zip(zf: zipfile.ZipFile, dest: Path) -> None:
                 f"Refusing zip member {name!r}: it escapes the extraction directory."
             )
         zf.extract(name, dest)
+
+
+def _fresh_extract_dir(base: Path) -> Path:
+    """Return ``base`` emptied of any prior extraction, then (re)created.
+
+    Re-using a persistent extraction directory across runs is a stale-data
+    hazard: the callers locate the member to load via ``rglob('*.csv')`` and
+    take the first match, so a leftover CSV from a previously-extracted archive
+    with a different layout could be picked up and silently loaded as the wrong
+    dataset. Clearing first guarantees the directory reflects only the archive
+    about to be extracted.
+    """
+    if base.exists():
+        shutil.rmtree(base)
+    base.mkdir(parents=True)
+    return base
 
 
 # =============================================================================
@@ -596,8 +649,7 @@ class ADRepositoryLoader(DatasetLoader):
                 # CSV exactly like the plain-``.csv`` path (last column=label).
                 import pandas as pd
 
-                extract_dir = path.parent / f"{path.name}_extracted"
-                extract_dir.mkdir(parents=True, exist_ok=True)
+                extract_dir = _fresh_extract_dir(path.parent / f"{path.name}_extracted")
                 with tarfile.open(path, "r:*") as tf:
                     _safe_extract_tar(tf, extract_dir)
 
@@ -611,7 +663,7 @@ class ADRepositoryLoader(DatasetLoader):
 
             elif suffix == ".zip":
                 # Extract and load (zip-slip guarded)
-                extract_dir = path.parent / path.stem
+                extract_dir = _fresh_extract_dir(path.parent / path.stem)
                 with zipfile.ZipFile(path, "r") as zf:
                     _safe_extract_zip(zf, extract_dir)
 
