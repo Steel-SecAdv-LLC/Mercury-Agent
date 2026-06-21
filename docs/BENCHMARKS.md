@@ -74,19 +74,36 @@ Read the decontaminated rows, not the naive −0.0016. Two honest caveats:
    returns **real thyroid (0.7086)**. That one set inflates the base mean;
    excluding it, the hardening is net-positive (**+0.0029**) — the exact foot-gun
    the loader fix closes, caught in the act.
-2. **The inductive protocol carries a test-row-ordering artifact.** Its test set
-   is class-grouped (normals then anomalies — a step) which the temporal residual
-   filter sharpens. The base detector applied that filter to many *tabular* sets
-   (the data-type-gate bug), gaining an order-dependent boost the hardened
-   detector correctly forgoes (it restricts the filter to genuine temporal data).
-   Hence many small per-set "regressions" alongside large wins on the hard sets —
-   net **+0.0071** on deterministic ADBench. The leak-free transductive harness
-   shows the cleaner **+0.0237**.
+2. **The inductive protocol fed a class-grouped test set — now de-leaked
+   (commit `632d3e5`).** The harness built `X_test` as `vstack([normals,
+   anomalies])` with `y_test` label-sorted (`[0…0, 1…1]`), and `_cap_stratified`
+   preserved that grouping, so the detector scored a label-sorted batch. A
+   label-sorted batch is a step the temporal residual filter sharpens — and the
+   base detector's data-type-gate bug applied that filter to many *tabular* sets,
+   gaining an order-dependent boost the hardened detector forgoes (it restricts
+   the filter to genuine temporal data). That is why the inductive delta
+   (**+0.0071**) understates the leak-free transductive **+0.0237**.
+
+   The numbers above predate the fix; the table is retained for audit. The
+   ordering artifact is now closed **at the harness level**: `X_test`/`y_test`
+   are shuffled (fixed seed) after the cap, so evaluation order carries no label
+   information and no detector — base, current, or future — can exploit it.
+   Measured on a 10-dataset real-ADBench subset (current detector, grouped vs
+   shuffled): **ensemble AUC is order-robust** (mean +0.0016, max 0.0100/set),
+   so the headline means above are materially unchanged; the residual artifact
+   lived in the **kinematic component** AUC (max |Δ| **0.41** — e.g. `wine`
+   0.18→0.60, below-random under grouping; `breastw` −0.32; resonance and
+   info-geometry are exactly order-invariant). Per-component kinematic figures
+   from the pre-de-leak harness are superseded.
 
 Net: positive on both protocols once synthetic contamination is removed; the
-inductive delta is smaller because the base partly exploited a protocol leak.
-Reproduce by running `python benchmarks/mercury_benchmark.py` from a base
-(`e118e1f`) worktree and the current tree, then diffing per-dataset `ensemble_auc`.
+inductive ensemble delta is a *protocol* difference (normal-train/test-on-rest
+vs transductive), not the ordering leak — measured ensemble order-sensitivity is
+≤0.01/set on the hardened detector. To regenerate the fully leak-free inductive
+base-vs-current, run `python benchmarks/mercury_benchmark.py` on the current tree
+and on a base (`e118e1f`) worktree with `632d3e5` cherry-picked, then diff
+per-dataset `ensemble_auc`; the base loses its order-dependent temporal-filter
+boost, so its inductive mean is expected to fall toward the transductive delta.
 
 ## What This Measures
 

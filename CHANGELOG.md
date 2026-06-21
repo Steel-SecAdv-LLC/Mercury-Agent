@@ -132,6 +132,16 @@ generation through `check_synthetic_allowed()`; ADRepository was the sole holdou
   with a single canonical source per dataset so a name always resolves to the
   same composition. `.tar.xz` archives are now supported alongside `.csv`/`.npz`,
   with path-traversal (tar-slip / zip-slip) guards on both extraction paths.
+* **Harden the archive-extraction helpers (review follow-ups).** `_safe_extract_tar`
+  now feature-detects `tarfile.data_filter` and falls back to an explicit member
+  guard on the 3.11.0–3.11.3 patch releases that lack the `filter=` kwarg (where
+  it would otherwise raise `TypeError` straight into the synthetic path);
+  `_safe_extract_zip`'s docstring no longer implies the stdlib sanitises member
+  paths (this helper *is* the sanitiser); and both archive paths clear any stale
+  reuse directory before extracting, so `rglob('*.csv')` cannot pick up a leftover
+  from a previously-extracted archive with a different layout. Covered by a new
+  `TestArchiveExtractionSafety` (tar/zip-slip refusal, symlink refusal, the
+  filter-absent fallback, stale-dir clearing).
 * **Allowlist ODDS.** `odds.cs.stonybrook.edu` (Outlier Detection DataSets, Stony
   Brook) is added to `TrustedEndpoints.TRUSTED_DOMAINS` so the loader's ODDS
   `.mat` path clears SSRF validation instead of failing into synthetic.
@@ -158,10 +168,39 @@ base commit's unfixed ADRepository loader silently returns synthetic data and th
 detector scores a meaningless AUROC 1.0000 on it* — a live capture of the exact
 foot-gun the loader fix closes (the hardened tree scores real thyroid 0.7086
 there). The inductive deltas run smaller than the transductive +0.0237 because
-the inductive protocol's class-grouped test ordering lets the old temporal filter
+the inductive protocol's class-grouped test ordering let the old temporal filter
 exploit a row-order artifact the hardened detector correctly forgoes; both
 protocols are net-positive once decontaminated. Full analysis + reproduction in
 `docs/BENCHMARKS.md`; refreshed results in `benchmarks/mercury_benchmark_results.json`.
+
+**De-leak follow-up (`632d3e5`).** The class-grouped test ordering is now closed
+at the harness level — `X_test`/`y_test` are shuffled (fixed seed) after the cap,
+so evaluation order carries no label information and no detector (base, current,
+or future) can exploit it. Measured on a 10-set real-ADBench subset (current
+detector, grouped vs shuffled): ensemble AUC is order-robust (mean +0.0016, max
+0.0100/set — the headline means above stand), while the kinematic *component* AUC
+was distorted up to **0.41**/set (`wine` 0.18→0.60, below-random under grouping;
+resonance / info-geometry are exactly order-invariant) and is now corrected. The
+base-vs-current table predates the fix and is retained for audit; regenerating it
+on the de-leaked harness is expected to widen the inductive delta toward the
+transductive +0.0237 as the base loses its order-dependent boost.
+
+### CI: gate the engine import (and full PQC contract) at the AMA build seam
+
+The `build-ama-cryptography` composite action (used by ~21 engine-importing jobs
+across 11 workflows) built AMA and verified only `dilithium_available`, then
+assumed "AMA built" implied "`omni_mercury_engine` imports". Two gaps closed:
+
+* **Full PQC contract.** The engine's import-time gate
+  (`_pqc_gate._PQC_HARD_REQUIRED`) requires ML-DSA-65 **+** Kyber-1024 **+**
+  SPHINCS+, but the action checked only ML-DSA — a Kyber/SPHINCS-incomplete build
+  passed it and surfaced later as an opaque collection error. The backend check
+  now asserts all three.
+* **Engine-import gate.** A new step imports `omni_mercury_engine` immediately
+  after the build, so an engine-side import regression or an AMA/engine version
+  skew fails loudly at the seam rather than 20+ minutes deep in a test lane.
+  Self-gating via `find_spec` keeps the action reusable for pure-AMA jobs. No new
+  CI jobs, no DAG/latency change.
 
 ## [2.0.0] - 2026-06-17
 
