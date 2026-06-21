@@ -235,7 +235,7 @@ class QuantumAnomalyModel:
             p = self._noise_model.depolarizing_rate
             if self._rng.random() < p:
                 # Apply random Pauli error
-                pauli_choice = self._rng.choice(["I", "X", "Y", "Z"])
+                pauli_choice = str(self._rng.choice(["I", "X", "Y", "Z"]))
                 state = self._apply_pauli(state, pauli_choice)
 
         elif noise_type == "amplitude_damping":
@@ -514,7 +514,7 @@ class QuantumAnomalyModel:
 
         anomaly_scores = (amp_anomaly + phase_anomaly + ent_anomaly) / 3.0
 
-        result = {
+        result: dict[str, Any] = {
             "anomaly_scores": anomaly_scores.astype(np.float32),
             "quantum_states": features[:, :8],
             "coherence": (1.0 - ent_anomaly).astype(np.float32),

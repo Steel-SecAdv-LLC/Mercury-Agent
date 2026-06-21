@@ -31,7 +31,7 @@ import time
 from collections import Counter
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 
@@ -1212,7 +1212,10 @@ class ChainOfThoughtEngine:
         for depth in range(max_depth):
             # Randomly choose thought type
             thought_types = [ThoughtType.ANALYSIS, ThoughtType.INFERENCE, ThoughtType.HYPOTHESIS]
-            thought_type = self._rng.choice(thought_types)  # type: ignore[arg-type, unused-ignore]
+            thought_type = cast(
+                "ThoughtType",
+                self._rng.choice(thought_types),  # type: ignore[arg-type, unused-ignore]
+            )
 
             step_context = {
                 "subject": f"branch aspect {depth}",

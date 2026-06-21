@@ -102,13 +102,14 @@ class LVLMBackend(ABC):
         if isinstance(image, Image.Image):
             return image
         if isinstance(image, np.ndarray):
-            if image.ndim == 4:
-                image = image[0]  # Take first if batched
-            if image.shape[0] in [1, 3]:  # type: ignore[union-attr, unused-ignore]  # CHW format
-                image = np.transpose(image, (1, 2, 0))  # type: ignore[arg-type, unused-ignore]
-            if image.max() <= 1.0:  # type: ignore[union-attr, unused-ignore]
-                image = (image * 255).astype(np.uint8)  # type: ignore[operator, union-attr, unused-ignore]
-            return Image.fromarray(image)
+            arr: np.ndarray[Any, Any] = image
+            if arr.ndim == 4:
+                arr = arr[0]  # Take first if batched
+            if arr.shape[0] in [1, 3]:  # CHW format
+                arr = np.transpose(arr, (1, 2, 0))
+            if arr.max() <= 1.0:
+                arr = (arr * 255).astype(np.uint8)
+            return Image.fromarray(arr)
         raise ValueError(f"Unsupported image type: {type(image)}")
 
 

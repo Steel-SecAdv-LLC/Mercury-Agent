@@ -168,7 +168,7 @@ def attack_nes(
     best = x0.copy()
     best_scores = np.asarray(score_fn(best), dtype=np.float64)
     for _ in range(draws):
-        noise = rng.normal(size=x0.shape)
+        noise = np.asarray(rng.normal(size=x0.shape))
         noise[:, ~mask] = 0.0
         nrm = np.maximum(np.linalg.norm(noise, axis=1, keepdims=True), 1e-12)
         cand = _apply_controlled(x0 + eps * noise / nrm, x0, mask)

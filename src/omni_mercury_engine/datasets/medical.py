@@ -570,7 +570,7 @@ class PhysioNetLoader(DatasetLoader):
             # 20% anomalies
             if rng.random() < 0.2:
                 # Various arrhythmia patterns
-                anomaly_type = rng.choice(["afib", "vt", "pvc", "noise"])
+                anomaly_type = str(rng.choice(["afib", "vt", "pvc", "noise"]))
                 if anomaly_type == "afib":
                     # Irregular RR intervals
                     ecg *= rng.uniform(0.8, 1.2, signal_length)

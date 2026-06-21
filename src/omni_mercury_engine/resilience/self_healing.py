@@ -153,7 +153,8 @@ class AdaptiveDefenseSystem:
         norm = np.linalg.norm(signature.feature_vector)
         if norm == 0:
             return signature.feature_vector
-        return signature.feature_vector / norm
+        normalized: npt.NDArray[np.floating[Any]] = signature.feature_vector / norm
+        return normalized
 
     def stage_3_interference(
         self, input_data: npt.NDArray[np.floating[Any]]

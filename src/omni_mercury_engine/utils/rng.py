@@ -127,7 +127,7 @@ class DeterministicRNG:
             Random array from normal distribution
         """
         rng = self.get_numpy_rng()
-        return rng.normal(loc=loc, scale=scale, size=size).astype(dtype)
+        return np.asarray(rng.normal(loc=loc, scale=scale, size=size)).astype(dtype)
 
     def uniform(
         self,
@@ -148,7 +148,7 @@ class DeterministicRNG:
             Random array from uniform distribution
         """
         rng = self.get_numpy_rng()
-        return rng.uniform(low=low, high=high, size=size).astype(dtype)
+        return np.asarray(rng.uniform(low=low, high=high, size=size)).astype(dtype)
 
     def random(self, size: int | tuple[int, ...] | None = None) -> np.ndarray[Any, Any]:
         """Generate random floats in the half-open interval [0.0, 1.0).

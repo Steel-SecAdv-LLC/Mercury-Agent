@@ -379,7 +379,7 @@ class NSLKDDLoader(DatasetLoader):
         attack_probs = {"normal": 0.53, "dos": 0.36, "probe": 0.08, "r2l": 0.02, "u2r": 0.01}
 
         for _ in range(n_samples):
-            attack_type = rng.choice(list(attack_probs.keys()), p=list(attack_probs.values()))
+            attack_type = str(rng.choice(list(attack_probs.keys()), p=list(attack_probs.values())))
 
             # Generate base features
             feature_vec = np.zeros(n_features)
@@ -1148,7 +1148,7 @@ class CICIDSLoader(DatasetLoader):
         }
 
         for _ in range(n_samples):
-            attack_type = rng.choice(list(attack_probs.keys()), p=list(attack_probs.values()))
+            attack_type = str(rng.choice(list(attack_probs.keys()), p=list(attack_probs.values())))
 
             # Generate features based on attack type
             if attack_type == "benign":

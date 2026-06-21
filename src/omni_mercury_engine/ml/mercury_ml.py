@@ -362,7 +362,7 @@ def calibration_curve(
         bins = np.percentile(y_prob, quantiles)
         bins = np.unique(bins)
 
-    bin_ids = np.digitize(y_prob, bins[1:-1])
+    bin_ids = np.digitize(np.asarray(y_prob, dtype=np.float64), bins[1:-1])
 
     prob_true: list[float] = []
     prob_pred: list[float] = []
@@ -1416,7 +1416,7 @@ class _DecisionStump:
             col = X[:, f]
             # Try a few random thresholds
             for _ in range(min(10, len(col))):
-                t = float(self.rng.uniform(col.min(), col.max()))
+                t = float(self.rng.uniform(float(col.min()), float(col.max())))
                 left_mask = col < t
                 right_mask = ~left_mask
                 if not np.any(left_mask) or not np.any(right_mask):
@@ -1702,7 +1702,7 @@ class IsotonicRegression:
         # Pool Adjacent Violators
         n = len(y_sorted)
         blocks = list(range(n))
-        values: NDArray[np.float64] = y_sorted.copy()
+        values: NDArray[np.float64] = y_sorted.astype(np.float64)
         weights: NDArray[np.float64] = np.ones(n, dtype=np.float64)
 
         i = 0
@@ -1732,15 +1732,15 @@ class IsotonicRegression:
             result[idx:] = values[-1]
 
         result = np.clip(result, self.y_min, self.y_max)
-        self._x = X_sorted
+        self._x = X_sorted.astype(np.float64)
         self._y = result
         return self
 
     def predict(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         """Predict."""
         assert self._x is not None and self._y is not None
-        X = np.asarray(X, dtype=np.float64).ravel()
-        result = np.interp(X, self._x, self._y)
+        x_query = np.asarray(X, dtype=np.float64).ravel()
+        result = np.interp(x_query, self._x, self._y)
         if self.out_of_bounds == "clip":
             result = np.clip(result, self.y_min, self.y_max)
         return result

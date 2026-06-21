@@ -431,10 +431,10 @@ class PatchCoreDetector(BaseVisualDetector):
 
         # Use mean distance to k neighbors
         patch_scores = distances.mean(axis=1)
-        patch_scores = torch.from_numpy(patch_scores).to(patches.device)
+        patch_scores_t = torch.from_numpy(patch_scores).to(patches.device)
 
         # Reshape to spatial map
-        score_maps = patch_scores.view(batch_size, h, w)
+        score_maps = patch_scores_t.view(batch_size, h, w)
 
         # Image-level score is max of patch scores
         image_scores = score_maps.view(batch_size, -1).max(dim=1)[0]

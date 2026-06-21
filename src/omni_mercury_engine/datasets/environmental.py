@@ -232,7 +232,7 @@ class USGSEarthquakeLoader(DatasetLoader):
 
         for _i in range(n_samples):
             # Spatial distribution (clustered around fault zones)
-            zone = rng.choice(["pacific_rim", "mediterranean", "himalayan", "mid_atlantic"])
+            zone = str(rng.choice(["pacific_rim", "mediterranean", "himalayan", "mid_atlantic"]))
 
             if zone == "pacific_rim":
                 lat = rng.normal(35, 20)
@@ -902,7 +902,7 @@ class WildfireDataLoader(DatasetLoader):
 
         for _i in range(n_samples):
             # Fire-prone regions
-            region = rng.choice(["western_us", "australia", "amazon", "mediterranean"])
+            region = str(rng.choice(["western_us", "australia", "amazon", "mediterranean"]))
 
             if region == "western_us":
                 lat = rng.normal(38, 5)

@@ -862,12 +862,14 @@ class DANNAdapter(BaseDomainAdapter):
             dW_feat = src_batch.T @ d_src_feat + tgt_batch.T @ d_tgt_feat
             db_feat = np.sum(d_src_feat, axis=0) + np.sum(d_tgt_feat, axis=0)
 
-            # Update parameters
+            # Update parameters (W_feat/b_feat are lazily initialised -> Optional;
+            # they are always set by the time training reaches this update).
+            assert self.W_feat is not None and self.b_feat is not None
             self.W_label -= self.learning_rate * dW_label
             self.b_label -= self.learning_rate * db_label
             self.W_domain -= self.learning_rate * dW_domain
             self.b_domain -= self.learning_rate * db_domain
-            self.W_feat -= self.learning_rate * dW_feat  # type: ignore[operator, unused-ignore]
+            self.W_feat -= self.learning_rate * dW_feat
             self.b_feat -= self.learning_rate * db_feat
 
     def transform(self, X: NDArray[np.float64], domain: str = "target") -> NDArray[np.float64]:
@@ -1043,6 +1045,7 @@ class JDAAdapter(BaseDomainAdapter):
             target_y_estimated = source_y[nn_idx]
 
         # Train final classifier
+        assert self.projection_matrix is not None
         source_proj = source_X_norm @ self.projection_matrix
         try:
             from omni_mercury_engine.ml.mercury_ml import GradientBoostingClassifier

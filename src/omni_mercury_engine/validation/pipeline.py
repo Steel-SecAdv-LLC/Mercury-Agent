@@ -178,7 +178,7 @@ class DataQualityChecker:
         low_variance_count = np.sum(variances < 1e-6)
         low_variance_ratio = low_variance_count / len(variances) if len(variances) > 0 else 0
 
-        passed = low_variance_ratio <= 0.1
+        passed = bool(low_variance_ratio <= 0.1)
         score = 1.0 - low_variance_ratio
 
         return QualityCheckResult(
