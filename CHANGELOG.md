@@ -176,14 +176,16 @@ protocols are net-positive once decontaminated. Full analysis + reproduction in
 **De-leak follow-up (`632d3e5`).** The class-grouped test ordering is now closed
 at the harness level — `X_test`/`y_test` are shuffled (fixed seed) after the cap,
 so evaluation order carries no label information and no detector (base, current,
-or future) can exploit it. Measured on a 10-set real-ADBench subset (current
-detector, grouped vs shuffled): ensemble AUC is order-robust (mean +0.0016, max
-0.0100/set — the headline means above stand), while the kinematic *component* AUC
-was distorted up to **0.41**/set (`wine` 0.18→0.60, below-random under grouping;
-resonance / info-geometry are exactly order-invariant) and is now corrected. The
-base-vs-current table predates the fix and is retained for audit; regenerating it
-on the de-leaked harness is expected to widen the inductive delta toward the
-transductive +0.0237 as the base loses its order-dependent boost.
+or future) can exploit it. The distortion is **material and bidirectional**: on
+the 8-dataset deterministic regression guard (current detector, full
+`MAX_SAMPLES`, grouped vs de-leaked) the **ensemble** AUC moved `pendigits`
+0.761→0.874 (+0.113, grouping *deflated* it), `Pima` 0.741→0.705 (−0.036,
+grouping *inflated* it), `glass` 0.745→0.768; guard mean 0.891→0.901. The
+per-component **kinematic** AUC moves more still (max |Δ| **0.41** — `wine`
+0.18→0.60; resonance / info-geometry are exactly order-invariant).
+`benchmarks/anomaly_regression_baseline.json` is re-pinned on the de-leaked eval;
+the full inductive base-vs-current table in `docs/BENCHMARKS.md` is superseded and
+must be regenerated on the de-leaked harness.
 
 ### CI: gate the engine import (and full PQC contract) at the AMA build seam
 

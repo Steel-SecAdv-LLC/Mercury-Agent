@@ -84,26 +84,28 @@ Read the decontaminated rows, not the naive −0.0016. Two honest caveats:
    the filter to genuine temporal data). That is why the inductive delta
    (**+0.0071**) understates the leak-free transductive **+0.0237**.
 
-   The numbers above predate the fix; the table is retained for audit. The
-   ordering artifact is now closed **at the harness level**: `X_test`/`y_test`
-   are shuffled (fixed seed) after the cap, so evaluation order carries no label
-   information and no detector — base, current, or future — can exploit it.
-   Measured on a 10-dataset real-ADBench subset (current detector, grouped vs
-   shuffled): **ensemble AUC is order-robust** (mean +0.0016, max 0.0100/set),
-   so the headline means above are materially unchanged; the residual artifact
-   lived in the **kinematic component** AUC (max |Δ| **0.41** — e.g. `wine`
-   0.18→0.60, below-random under grouping; `breastw` −0.32; resonance and
-   info-geometry are exactly order-invariant). Per-component kinematic figures
-   from the pre-de-leak harness are superseded.
+   The numbers above predate the fix; the table is retained for audit but is
+   **superseded**. The ordering artifact is now closed **at the harness level**:
+   `X_test`/`y_test` are shuffled (fixed seed) after the cap, so evaluation order
+   carries no label information and no detector — base, current, or future — can
+   exploit it. The distortion is **material and bidirectional**, largest where
+   the temporal/kinematic cross-sample processing engages (typically larger
+   sets). On the 8-dataset deterministic regression guard (current detector,
+   full `MAX_SAMPLES`, grouped vs de-leaked) the **ensemble** AUC moved:
+   `pendigits` **0.761→0.874** (+0.113 — grouping *deflated* it), `Pima`
+   0.741→0.705 (−0.036 — grouping *inflated* it), `glass` 0.745→0.768; guard
+   mean 0.891→0.901 (+0.0097). The per-component **kinematic** AUC moves more
+   still (max |Δ| **0.41** — e.g. `wine` 0.18→0.60; resonance and info-geometry
+   are exactly order-invariant). The deterministic baseline
+   (`benchmarks/anomaly_regression_baseline.json`) is re-pinned on the de-leaked
+   eval; the full-suite headline table above must be regenerated likewise.
 
-Net: positive on both protocols once synthetic contamination is removed; the
-inductive ensemble delta is a *protocol* difference (normal-train/test-on-rest
-vs transductive), not the ordering leak — measured ensemble order-sensitivity is
-≤0.01/set on the hardened detector. To regenerate the fully leak-free inductive
-base-vs-current, run `python benchmarks/mercury_benchmark.py` on the current tree
-and on a base (`e118e1f`) worktree with `632d3e5` cherry-picked, then diff
-per-dataset `ensemble_auc`; the base loses its order-dependent temporal-filter
-boost, so its inductive mean is expected to fall toward the transductive delta.
+Net: positive on both protocols once synthetic contamination is removed. The
+ordering leak distorted individual inductive AUCs by up to ~0.11 (ensemble) and
+~0.41 (kinematic) **in both directions** — the de-leaked numbers are the honest
+ones. To regenerate the leak-free inductive base-vs-current, run `python
+benchmarks/mercury_benchmark.py` on the current tree and on a base (`e118e1f`)
+worktree with `632d3e5` cherry-picked, then diff per-dataset `ensemble_auc`.
 
 ## What This Measures
 
