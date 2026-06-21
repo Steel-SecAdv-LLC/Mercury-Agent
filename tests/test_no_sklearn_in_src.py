@@ -160,12 +160,16 @@ def test_dynamic_import_detection_is_live() -> None:
         "import numpy  # not sklearn\n"
     )
     tree = ast.parse(src)
-    hits = []
+    hits: list[str] = []
     for node in ast.walk(tree):
-        if isinstance(node, ast.Call) and _called_name(node.func) in _DYNAMIC_IMPORT_CALLS:
-            arg = node.args[0] if node.args else None
-            if isinstance(arg, ast.Constant) and _is_sklearn_name(str(arg.value)):
-                hits.append(_called_name(node.func))
+        if not isinstance(node, ast.Call):
+            continue
+        name = _called_name(node.func)
+        if name is None or name not in _DYNAMIC_IMPORT_CALLS:
+            continue
+        arg = node.args[0] if node.args else None
+        if isinstance(arg, ast.Constant) and _is_sklearn_name(str(arg.value)):
+            hits.append(name)
     assert sorted(hits) == ["find_spec", "importorskip"], hits
 
 
