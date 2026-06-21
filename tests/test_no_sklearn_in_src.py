@@ -28,6 +28,7 @@ names sklearn as a module to load or probe is an offence.
 from __future__ import annotations
 
 import ast
+import os
 from pathlib import Path
 
 # Repo root = two levels up from this file: tests/<this file> -> tests -> repo.
@@ -77,15 +78,30 @@ def _is_sklearn_name(name: str) -> bool:
 
 
 def _scanned_python_files() -> list[Path]:
-    """Every first-party ``*.py`` outside ``benchmarks/`` and the skip-dirs."""
+    """Every first-party ``*.py`` outside ``benchmarks/`` and the skip-dirs.
+
+    Uses a *pruned* ``os.walk`` — skip-dirs are removed from ``dirnames``
+    in-place so heavy trees (``.git``, ``.venv``, ``node_modules`` …) are never
+    descended into. ``rglob('*.py')`` would still walk those subtrees in full
+    and only filter afterwards, which is needlessly slow on CI checkouts with a
+    large ``.git``. ``benchmarks/`` is pruned at the repo root only (a nested
+    ``tests/benchmarks/`` is still scanned), matching the prefix exemption.
+    """
+    allowed_root = _ALLOWED_ROOT.rstrip("/")
     files: list[Path] = []
-    for p in _REPO.rglob("*.py"):
-        rel = p.relative_to(_REPO)
-        if any(part in _SKIP_DIR_NAMES for part in rel.parts):
-            continue
-        if rel.as_posix().startswith(_ALLOWED_ROOT):
-            continue
-        files.append(p)
+    for dirpath, dirnames, filenames in os.walk(_REPO):
+        rel_root = Path(dirpath).relative_to(_REPO)
+        at_repo_root = rel_root == Path()
+        # Prune in-place so os.walk does not descend skipped trees; the
+        # top-level benchmarks/ root is exempt (competitor baselines live there).
+        dirnames[:] = [
+            d
+            for d in dirnames
+            if d not in _SKIP_DIR_NAMES and not (at_repo_root and d == allowed_root)
+        ]
+        for name in filenames:
+            if name.endswith(".py"):
+                files.append(Path(dirpath) / name)
     return files
 
 
