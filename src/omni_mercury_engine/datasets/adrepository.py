@@ -48,6 +48,21 @@ from .exceptions import DataSourceUnavailableError, check_synthetic_allowed
 logger = logging.getLogger(__name__)
 
 
+def _tar_supports_data_filter() -> bool:
+    """Whether this interpreter's ``tarfile`` exposes the PEP 706 ``data`` filter.
+
+    ``tarfile.data_filter`` was added in lock-step with the ``filter=`` keyword
+    on ``TarFile.extract``/``extractall`` (CPython 3.12, backported to the
+    3.9-3.11 *security* releases, i.e. 3.11.4+). This is the single
+    feature-detection seam for the extraction path, so tests can simulate a
+    pre-3.11.4 interpreter by patching this one function **without** deleting the
+    stdlib attribute: on CPython 3.14 the ``data`` filter is the PEP 706 default
+    that ``TarFile.extract`` looks up *by that global name*, so deleting it
+    breaks extraction itself (``NameError``) and models no real interpreter.
+    """
+    return hasattr(tarfile, "data_filter")
+
+
 def _safe_extract_tar(tf: tarfile.TarFile, dest: Path) -> None:
     """Extract a tar archive, rejecting tar-slip members (tar-slip safe).
 
@@ -59,11 +74,11 @@ def _safe_extract_tar(tf: tarfile.TarFile, dest: Path) -> None:
     project still supports (``requires-python = ">=3.11"``) it is absent, so
     passing ``filter="data"`` there raises ``TypeError`` — which the caller's
     broad ``except`` would turn into a silent synthetic-data fallback. We
-    therefore feature-detect the filter (``tarfile.data_filter`` was added in
-    lock-step with the parameter) and fall back to an explicit member guard that
-    enforces the same invariants when it is missing.
+    therefore feature-detect the filter (via ``_tar_supports_data_filter``) and
+    fall back to an explicit member guard that enforces the same invariants when
+    it is missing.
     """
-    if hasattr(tarfile, "data_filter"):
+    if _tar_supports_data_filter():
         tf.extractall(dest, filter="data")
         return
     _extract_tar_members_guarded(tf, dest)
@@ -79,6 +94,18 @@ def _extract_tar_members_guarded(tf: tarfile.TarFile, dest: Path) -> None:
     malicious archive cannot write outside ``dest`` even on old interpreters.
     """
     dest = dest.resolve()
+    # If the runtime actually exposes the ``filter=`` kwarg, pass ``data``
+    # explicitly per member instead of relying on ``TarFile``'s default-filter
+    # resolution. On CPython 3.14 a bare ``extract()`` resolves the default by
+    # looking up the module-global ``data_filter`` *by name*, so an explicit
+    # kwarg keeps any path that reaches this guard on a modern interpreter
+    # deterministic and free of that global dependency. On the genuine
+    # pre-3.11.4 releases this guard targets, the kwarg does not exist (and no
+    # default-filter machinery references that global), so we call plain
+    # ``extract()`` there. ``hasattr`` (not ``_tar_supports_data_filter``) is
+    # the real runtime capability: the latter is patched in tests to force this
+    # fallback branch, but the per-member call must still match the interpreter.
+    pass_data_filter = hasattr(tarfile, "data_filter")
     for member in tf.getmembers():
         if member.issym() or member.islnk():
             raise RuntimeError(f"Refusing tar member {member.name!r}: links are not allowed.")
@@ -92,7 +119,10 @@ def _extract_tar_members_guarded(tf: tarfile.TarFile, dest: Path) -> None:
             raise RuntimeError(
                 f"Refusing tar member {member.name!r}: it escapes the extraction directory."
             )
-        tf.extract(member, dest)
+        if pass_data_filter:
+            tf.extract(member, dest, filter="data")
+        else:
+            tf.extract(member, dest)
 
 
 def _safe_extract_zip(zf: zipfile.ZipFile, dest: Path) -> None:
@@ -104,10 +134,19 @@ def _safe_extract_zip(zf: zipfile.ZipFile, dest: Path) -> None:
     against ``dest``, refuses anything that would escape, and extracts members
     **individually** (never ``extractall``). Keep this guard even if a future
     stdlib adds its own, and never replace it with a bare ``extractall``.
+
+    The escape check runs against a separator-normalised name: ZIP entries may
+    carry **backslash** separators, which ``zipfile.extract`` honours as path
+    separators on Windows but POSIX ``Path`` treats as an ordinary filename
+    character. A ``..\\escape.csv`` member would therefore slip past a raw-name
+    check on POSIX yet escape ``dest`` on Windows. Normalising ``\\`` -> ``/``
+    for the *check* refuses it on every platform; ``zf.extract`` still receives
+    the original member name.
     """
     dest = dest.resolve()
     for name in zf.namelist():
-        target = (dest / name).resolve()
+        check_name = name.replace("\\", "/")
+        target = (dest / check_name).resolve()
         if target != dest and dest not in target.parents:
             raise RuntimeError(
                 f"Refusing zip member {name!r}: it escapes the extraction directory."

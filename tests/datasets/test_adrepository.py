@@ -27,6 +27,10 @@ from omni_mercury_engine.datasets.adrepository import (
     _safe_extract_zip,
 )
 
+# Sentinel: distinguishes "extract() called with no filter= kwarg" (the bare,
+# default-resolving call) from "filter=None passed explicitly" in spy assertions.
+_MISSING = object()
+
 
 def _raise_offline(*_args: object, **_kwargs: object) -> bool:
     """Stand-in for an unreachable real source (simulated offline)."""
@@ -525,6 +529,25 @@ class TestArchiveExtractionSafety:
             _safe_extract_zip(zf, dest)
         assert (dest / "data.csv").read_text() == "a,b\n1,2\n"
 
+    def test_zip_refuses_backslash_traversal(self, tmp_path: Any) -> None:
+        """A ``..\\escape.csv`` member uses a backslash separator that
+        ``zipfile.extract`` honours on Windows but POSIX ``Path`` treats as a
+        literal char. The guard normalises ``\\``->``/`` for the escape check so
+        the member is refused on every platform, not silently written outside
+        ``dest`` on Windows (cross-platform zip-slip)."""
+        archive = tmp_path / "evil_bs.zip"
+        with zipfile.ZipFile(archive, "w") as zf:
+            zf.writestr("ok.csv", "a,b\n1,2\n")
+            zf.writestr("..\\escape.csv", "pwned")
+        dest = tmp_path / "out"
+        dest.mkdir()
+        with (
+            zipfile.ZipFile(archive, "r") as zf,
+            pytest.raises(RuntimeError, match="escapes the extraction directory"),
+        ):
+            _safe_extract_zip(zf, dest)
+        assert not (tmp_path / "escape.csv").exists()
+
     # ---- tar-slip (legacy guard, exercised on every interpreter) ---------
     def test_legacy_tar_guard_refuses_traversal(self, tmp_path: Any) -> None:
         archive = tmp_path / "evil.tar"
@@ -572,8 +595,18 @@ class TestArchiveExtractionSafety:
         ``TypeError`` on ``filter="data"`` — still extracting clean archives and
         still refusing traversal — so dataset loading does not silently collapse
         into the synthetic fallback on old patch releases.
+
+        The feature-absence is forced at the routing seam
+        (``_tar_supports_data_filter``) rather than by deleting
+        ``tarfile.data_filter``: on CPython 3.14 the ``data`` filter is the
+        PEP 706 default that ``TarFile.extract`` looks up by that global name, so
+        deleting it breaks extraction itself (``NameError``) and models no real
+        interpreter.
         """
-        monkeypatch.delattr(tarfile, "data_filter", raising=False)
+        monkeypatch.setattr(
+            "omni_mercury_engine.datasets.adrepository._tar_supports_data_filter",
+            lambda: False,
+        )
 
         clean = tmp_path / "clean.tar"
         _write_tar(clean, {"d.csv": b"hello"})
@@ -601,6 +634,38 @@ class TestArchiveExtractionSafety:
         with tarfile.open(archive, "r") as tf:
             _safe_extract_tar(tf, dest)
         assert (dest / "d.csv").read_bytes() == b"a,b\n1,2\n"
+
+    def test_guard_passes_explicit_filter_when_runtime_supports_it(
+        self, tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The guard must pass ``filter="data"`` explicitly per member whenever
+        the runtime exposes it, never a bare ``extract()``.
+
+        A bare ``extract()`` resolves the default filter by looking up the
+        module-global ``tarfile.data_filter`` *by name* on CPython 3.14 — the
+        exact path that NameErrored when the old fallback test deleted that
+        global. Pinning the explicit kwarg keeps the guard deterministic and
+        free of that default-resolution dependency on every modern interpreter.
+        """
+        if not hasattr(tarfile, "data_filter"):
+            pytest.skip("interpreter predates the tarfile data filter")
+
+        real_extract = tarfile.TarFile.extract
+        seen: list[Any] = []
+
+        def _spy_extract(self: Any, member: Any, path: Any = "", **kwargs: Any) -> Any:
+            seen.append(kwargs.get("filter", _MISSING))
+            return real_extract(self, member, path, **kwargs)
+
+        monkeypatch.setattr(tarfile.TarFile, "extract", _spy_extract)
+        archive = tmp_path / "clean.tar"
+        _write_tar(archive, {"d.csv": b"hello"})
+        dest = tmp_path / "out"
+        dest.mkdir()
+        with tarfile.open(archive, "r") as tf:
+            _extract_tar_members_guarded(tf, dest)
+        assert seen == ["data"], f"guard relied on the default filter: {seen}"
+        assert (dest / "d.csv").read_bytes() == b"hello"
 
     # ---- stale-dir clearing ----------------------------------------------
     def test_fresh_extract_dir_clears_stale_members(self, tmp_path: Any) -> None:
