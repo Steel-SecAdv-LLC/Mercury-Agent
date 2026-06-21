@@ -121,17 +121,17 @@ runs:
         PY
 
     - name: Gate engine import against the native AMA backend
-      # The check above proves AMA itself loaded, but only verifies ML-DSA
-      # (``dilithium_available``). Every downstream step that imports
-      # ``omni_mercury_engine`` depends on a stronger contract: the package's
-      # import-time PQC gate (``omni_mercury_engine._pqc_gate``) refuses to load
-      # unless ALL THREE algorithms are present (ML-DSA-65 + Kyber-1024 +
-      # SPHINCS+). A Kyber/SPHINCS-incomplete build would pass the ML-DSA check
-      # above yet break the engine import — surfacing many minutes later as an
-      # opaque pytest-collection / mypy "could not import" error in the calling
-      # job. Assert the real contract here, at the build seam, so an engine-side
-      # import regression or an AMA/engine version skew fails loudly now rather
-      # than being assumed to hold.
+      # The install step above already verifies all three PQC capabilities at the
+      # AMA level (ML-DSA-65 + Kyber-1024 + SPHINCS+). This step adds the stronger,
+      # end-to-end contract: it actually imports ``omni_mercury_engine``,
+      # exercising the package's import-time PQC gate
+      # (``omni_mercury_engine._pqc_gate``) against the freshly built backend.
+      # That catches what a pure AMA-level capability probe cannot — an
+      # engine-side gate regression, or an AMA/engine version skew where the gate
+      # reads the ``*_AVAILABLE`` flags from a location the installed AMA no longer
+      # populates — surfacing it here at the build seam rather than many minutes
+      # later as an opaque pytest-collection / mypy "could not import" error in
+      # the calling job.
       #
       # Self-gating: this action is reusable for pure-AMA jobs, so when the
       # engine is not installed (``find_spec`` is None) the gate is skipped
