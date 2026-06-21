@@ -57,45 +57,34 @@ logger = logging.getLogger(__name__)
 
 
 def _safe_extract_tar(tf: tarfile.TarFile, dest: Path) -> None:
-    """Extract a tar archive, refusing path-traversal and non-regular members.
+    """Extract a tar archive with the stdlib ``data`` filter (tar-slip safe).
 
     Tar archives from external mirrors (unlike the pure-numpy ADBench ``.npz``
     files) can carry absolute paths, ``..`` escapes, symlinks and device nodes.
-    We resolve every member against ``dest`` and extract only regular files and
-    directories that stay inside it — a tar-slip guard for the DevNet mirror.
+    Python's ``data`` extraction filter (3.12; backported to the 3.9-3.11
+    security releases) rejects exactly those — raising rather than writing
+    outside ``dest``. It is the stdlib-sanctioned, fail-loud safe extraction for
+    untrusted tar archives, so no hand-rolled member validation is needed.
     """
-    dest = dest.resolve()
-    safe_members: list[tarfile.TarInfo] = []
-    for member in tf.getmembers():
-        if not (member.isfile() or member.isdir()):
-            logger.warning("Skipping non-regular tar member %r in %s", member.name, dest)
-            continue
-        target = (dest / member.name).resolve()
-        if target != dest and dest not in target.parents:
-            raise RuntimeError(
-                f"Refusing tar member {member.name!r}: it escapes the extraction directory."
-            )
-        safe_members.append(member)
-    tf.extractall(dest, members=safe_members)  # noqa: S202 - members validated above
+    tf.extractall(dest, filter="data")
 
 
 def _safe_extract_zip(zf: zipfile.ZipFile, dest: Path) -> None:
     """Extract a zip archive, refusing path-traversal members (zip-slip guard).
 
-    Mirrors :func:`_safe_extract_tar` for the ``.zip`` time-series archives:
-    every member is resolved against ``dest`` and anything that would land
-    outside it is refused before extraction.
+    ``zipfile`` already sanitises member paths on extraction; as defence in depth
+    we additionally resolve every member against ``dest``, refuse anything that
+    would escape, and extract members **individually** (never ``extractall``) for
+    the ``.zip`` archives from external mirrors.
     """
     dest = dest.resolve()
-    safe_names: list[str] = []
     for name in zf.namelist():
         target = (dest / name).resolve()
         if target != dest and dest not in target.parents:
             raise RuntimeError(
                 f"Refusing zip member {name!r}: it escapes the extraction directory."
             )
-        safe_names.append(name)
-    zf.extractall(dest, members=safe_names)  # noqa: S202 - members validated above
+        zf.extract(name, dest)
 
 
 # =============================================================================
