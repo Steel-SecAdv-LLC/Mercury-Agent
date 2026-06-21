@@ -12,15 +12,12 @@ import sys
 from pathlib import Path
 
 import numpy as np
-import pytest
 
 # Ensure src/ and benchmarks/ are on the path
 _project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(_project_root / "src"))
 sys.path.insert(0, str(_project_root / "benchmarks"))
 sys.path.insert(0, str(_project_root))
-
-sklearn = pytest.importorskip("sklearn")
 
 from calibration_validation import (
     run_calibration_validation,

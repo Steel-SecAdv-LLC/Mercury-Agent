@@ -18,7 +18,7 @@ from typing import Any
 # Import modules to test
 import pytest
 
-pytest.importorskip("sklearn")
+pytest.importorskip("hypothesis")
 
 import sys
 from pathlib import Path
