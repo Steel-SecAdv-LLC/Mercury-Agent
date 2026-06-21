@@ -1062,8 +1062,12 @@ class MercuryAnomalyDetector(BaseDetector):
         effective_aucs = raw_margins**_WEIGHT_MARGIN_POWER
         total = effective_aucs.sum()
         weights = effective_aucs / total
-        # Apply minimum floor of 0.05 for components with any positive signal
-        has_signal = aucs >= 0.5
+        # Apply a 0.05 minimum floor to components with *strictly positive*
+        # separation (AUC > 0.5). A component at exactly 0.5 carries no signal
+        # (its raw margin is 0, so it already has weight 0); ``>= 0.5`` would
+        # floor that pure-noise component up to 0.05 and dilute a real
+        # component's share, contradicting the "positive signal" intent.
+        has_signal = aucs > 0.5
         weights = np.where(has_signal & (weights < 0.05), 0.05, weights)
         weights = weights / weights.sum()
 
@@ -1404,8 +1408,12 @@ class MercuryAnomalyDetector(BaseDetector):
             effective_aucs = (raw_margins**_WEIGHT_MARGIN_POWER) * compat_vec
             total = effective_aucs.sum()
             weights = effective_aucs / total
-            # Apply minimum floor of 0.05 for components with positive signal
-            has_signal = mean_aucs >= 0.5
+            # Apply a 0.05 minimum floor to components with *strictly positive*
+            # separation (AUC > 0.5). A component at exactly 0.5 carries no
+            # signal (raw margin 0 -> weight 0 already); ``>= 0.5`` would floor
+            # that pure-noise component to 0.05 and dilute a real component's
+            # share, contradicting the "positive signal" intent.
+            has_signal = mean_aucs > 0.5
             weights = np.where(has_signal & (weights < 0.05), 0.05, weights)
             # Zero out kinematic on tabular data explicitly
             if self._data_type == DataCharacteristics.TABULAR:

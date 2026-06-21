@@ -17,6 +17,8 @@ Coverage targets:
 
 from __future__ import annotations
 
+from itertools import cycle
+
 import numpy as np
 import pytest
 
@@ -350,6 +352,43 @@ class TestWeightMarginPowerFallbackGate:
         weights = det._compute_adaptive_weights(X, y)
         assert det._weight_source == "fallback_default"
         assert np.allclose(weights, [0.40, 0.30, 0.30])
+
+    def test_supervised_floor_excludes_zero_signal_component(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The 0.05 floor is for *strictly positive* separation only: a
+        component at exactly AUC 0.5 (no signal) keeps weight 0 instead of being
+        floored to 0.05, which would dilute the real components' share."""
+        X, y = _make_gaussian_dataset()
+        det = MercuryAnomalyDetector()
+        det.fit(X)
+        det._data_type = DataCharacteristics.UNKNOWN
+        # resonance/kinematic carry real signal; infogeo (3rd call) is dead 0.5.
+        seps = cycle([0.9, 0.6, 0.5])
+        monkeypatch.setattr(det, "_component_separation", lambda scores, labels: next(seps))
+        weights = det._compute_adaptive_weights(X, y)
+        assert det._weight_source == "adaptive"
+        assert weights[2] == 0.0, f"zero-signal component floored to {weights[2]:.4f}"
+        assert weights[0] > 0.0 and weights[1] > 0.0
+        assert abs(float(weights.sum()) - 1.0) < 1e-9
+
+    def test_unsupervised_floor_excludes_zero_signal_component(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Self-supervised path: a component whose mean contrast AUC is exactly
+        0.5 keeps weight 0 rather than being floored to 0.05."""
+        X, _ = _make_gaussian_dataset()
+        det = MercuryAnomalyDetector()
+        det._data_type = DataCharacteristics.UNKNOWN
+        # Called once per component per fold in (resonance, kinematic, infogeo)
+        # order, so a 3-cycle gives each a constant mean AUC: [0.9, 0.6, 0.5].
+        seps = cycle([0.9, 0.6, 0.5])
+        monkeypatch.setattr(det, "_component_separation", lambda scores, labels: next(seps))
+        weights = det._compute_unsupervised_adaptive_weights(X)
+        assert det._weight_source == "unsupervised_adaptive"
+        assert weights[2] == 0.0, f"zero-signal component floored to {weights[2]:.4f}"
+        assert weights[0] > 0.0 and weights[1] > 0.0
+        assert abs(float(weights.sum()) - 1.0) < 1e-9
 
 
 class TestEnsembleDiversityMetrics:
