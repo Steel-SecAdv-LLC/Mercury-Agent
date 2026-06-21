@@ -9,7 +9,7 @@ side-effect-free.
 
 Usage::
 
-    from omni_mercury_engine._compat import HAS_TORCH, HAS_SKLEARN
+    from omni_mercury_engine._compat import HAS_TORCH, HAS_TORCHVISION
 
     if HAS_TORCH:
         import torch
@@ -25,9 +25,11 @@ from importlib.util import find_spec
 HAS_TORCH: bool = find_spec("torch") is not None
 HAS_TORCHVISION: bool = find_spec("torchvision") is not None
 HAS_PYTORCH_LIGHTNING: bool = find_spec("pytorch_lightning") is not None
-# NOTE: sklearn is NOT used for detection in Mercury-Agent.
-# This flag exists only for optional benchmark comparison tooling.
-HAS_SKLEARN: bool = find_spec("sklearn") is not None
+# NOTE: scikit-learn is a *competitor*, not a Mercury dependency, and is
+# confined to ``benchmarks/`` (head-to-head baselines only) — so there is
+# deliberately no ``HAS_SKLEARN`` probe here. The repo-wide guard
+# ``tests/test_no_sklearn_in_src.py`` fails loudly if sklearn reappears outside
+# ``benchmarks/`` — including via a dynamic ``find_spec`` / importorskip probe.
 HAS_TIMM: bool = find_spec("timm") is not None
 HAS_CV2: bool = find_spec("cv2") is not None
 
