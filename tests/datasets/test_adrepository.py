@@ -25,6 +25,7 @@ from omni_mercury_engine.datasets.adrepository import (
     _fresh_extract_dir,
     _safe_extract_tar,
     _safe_extract_zip,
+    _select_single_csv,
 )
 
 # Sentinel: distinguishes "extract() called with no filter= kwarg" (the bare,
@@ -666,6 +667,25 @@ class TestArchiveExtractionSafety:
             _extract_tar_members_guarded(tf, dest)
         assert seen == ["data"], f"guard relied on the default filter: {seen}"
         assert (dest / "d.csv").read_bytes() == b"hello"
+
+    # ---- single-CSV selection (multi-member archives must fail loud) ------
+    def test_select_single_csv_returns_sole_member(self, tmp_path: Any) -> None:
+        only = tmp_path / "annthyroid_normalised.csv"
+        only.write_text("a,b\n1,2\n")
+        assert _select_single_csv([only], "thyroid.tar.xz") == only
+
+    def test_select_single_csv_fails_loud_on_multiple(self, tmp_path: Any) -> None:
+        """A train/test bundle must not be silently narrowed to one split."""
+        train = tmp_path / "train.csv"
+        test = tmp_path / "test.csv"
+        train.write_text("x")
+        test.write_text("y")
+        with pytest.raises(RuntimeError, match="multiple CSV members"):
+            _select_single_csv([train, test], "UNSW_NB15_traintest_backdoor.tar.xz")
+
+    def test_select_single_csv_fails_loud_on_none(self) -> None:
+        with pytest.raises(RuntimeError, match="No CSV member"):
+            _select_single_csv([], "empty.tar.xz")
 
     # ---- stale-dir clearing ----------------------------------------------
     def test_fresh_extract_dir_clears_stale_members(self, tmp_path: Any) -> None:

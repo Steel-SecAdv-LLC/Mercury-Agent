@@ -170,6 +170,27 @@ def _fresh_extract_dir(base: Path) -> Path:
     return base
 
 
+def _select_single_csv(members: list[Path], archive_name: str) -> Path:
+    """Return the sole CSV member of an archive, or fail loud otherwise.
+
+    The ``.tar(.xz)`` DevNet sets each ship a *single* normalised CSV. Silently
+    taking the first of several (``sorted(...)[0]``) could load the wrong split —
+    e.g. a train/test bundle whose name implies multiple members — and change the
+    dataset composition with no signal. Refuse rather than guess: a deterministic
+    loud failure is recoverable; a silently-wrong split is not.
+    """
+    if not members:
+        raise RuntimeError(f"No CSV member found inside archive {archive_name!r}.")
+    if len(members) > 1:
+        names = ", ".join(sorted(m.name for m in members))
+        raise RuntimeError(
+            f"Archive {archive_name!r} contains multiple CSV members ({names}); "
+            "refusing to silently pick one (it could load the wrong split). Add an "
+            "explicit member-selection rule for this dataset to load it."
+        )
+    return members[0]
+
+
 # =============================================================================
 # ADRepository Dataset Metadata
 # =============================================================================
@@ -693,9 +714,8 @@ class ADRepositoryLoader(DatasetLoader):
                     _safe_extract_tar(tf, extract_dir)
 
                 csv_members = sorted(extract_dir.rglob("*.csv"))
-                if not csv_members:
-                    raise RuntimeError(f"No CSV member found inside archive '{path.name}'.")
-                df = pd.read_csv(csv_members[0], nrows=self.config.max_samples)
+                csv_path = _select_single_csv(csv_members, path.name)
+                df = pd.read_csv(csv_path, nrows=self.config.max_samples)
                 self._features = df.iloc[:, :-1].values.astype(np.float32)
                 self._raw_labels = df.iloc[:, -1].values.astype(np.int64)
                 self._is_real_data = True
