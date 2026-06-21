@@ -108,7 +108,44 @@ runs:
         from ama_cryptography.pqc_backends import get_pqc_backend_info
 
         info = get_pqc_backend_info()
-        if not info.get("dilithium_available"):
-            raise SystemExit(f"AMA ML-DSA unavailable after install: {info!r}")
-        print("AMA Cryptography native PQC backend verified")
+        # Match the engine's import-time PQC gate (omni_mercury_engine._pqc_gate
+        # ._PQC_HARD_REQUIRED): Mercury exposes ML-DSA + Kyber + SPHINCS+, so a
+        # partial (e.g. ML-DSA-only) build must be rejected here too — otherwise
+        # this step goes green and the failure resurfaces later as an opaque
+        # engine-import error in the calling job.
+        required = ("dilithium_available", "kyber_available", "sphincs_available")
+        missing = [name for name in required if not info.get(name)]
+        if missing:
+            raise SystemExit(f"AMA native PQC backend incomplete after install; missing {missing}: {info!r}")
+        print("AMA Cryptography native PQC backend verified (ML-DSA-65 + Kyber-1024 + SPHINCS+)")
+        PY
+
+    - name: Gate engine import against the native AMA backend
+      # The check above proves AMA itself loaded, but only verifies ML-DSA
+      # (``dilithium_available``). Every downstream step that imports
+      # ``omni_mercury_engine`` depends on a stronger contract: the package's
+      # import-time PQC gate (``omni_mercury_engine._pqc_gate``) refuses to load
+      # unless ALL THREE algorithms are present (ML-DSA-65 + Kyber-1024 +
+      # SPHINCS+). A Kyber/SPHINCS-incomplete build would pass the ML-DSA check
+      # above yet break the engine import — surfacing many minutes later as an
+      # opaque pytest-collection / mypy "could not import" error in the calling
+      # job. Assert the real contract here, at the build seam, so an engine-side
+      # import regression or an AMA/engine version skew fails loudly now rather
+      # than being assumed to hold.
+      #
+      # Self-gating: this action is reusable for pure-AMA jobs, so when the
+      # engine is not installed (``find_spec`` is None) the gate is skipped
+      # rather than forcing the package to be present. LD_LIBRARY_PATH was
+      # exported to GITHUB_ENV above, so this step loads the freshly built .so.
+      shell: bash
+      run: |
+        python - <<'PY'
+        import importlib
+        import importlib.util
+
+        if importlib.util.find_spec("omni_mercury_engine") is None:
+            print("omni_mercury_engine not installed in this job — engine-import gate skipped")
+        else:
+            importlib.import_module("omni_mercury_engine")
+            print("omni_mercury_engine imports cleanly against the native AMA backend")
         PY
