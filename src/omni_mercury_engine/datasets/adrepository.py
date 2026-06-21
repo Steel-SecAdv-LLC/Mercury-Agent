@@ -126,7 +126,7 @@ def _extract_tar_members_guarded(tf: tarfile.TarFile, dest: Path) -> None:
 
 
 def _safe_extract_zip(zf: zipfile.ZipFile, dest: Path) -> None:
-    """Extract a zip archive, refusing path-traversal members (zip-slip guard).
+    r"""Extract a zip archive, refusing path-traversal members (zip-slip guard).
 
     Do **not** assume ``zipfile`` sanitises member paths for you: a member named
     ``../x`` or with an absolute path can write outside the destination
@@ -138,8 +138,8 @@ def _safe_extract_zip(zf: zipfile.ZipFile, dest: Path) -> None:
     The escape check runs against a separator-normalised name: ZIP entries may
     carry **backslash** separators, which ``zipfile.extract`` honours as path
     separators on Windows but POSIX ``Path`` treats as an ordinary filename
-    character. A ``..\\escape.csv`` member would therefore slip past a raw-name
-    check on POSIX yet escape ``dest`` on Windows. Normalising ``\\`` -> ``/``
+    character. A ``..\escape.csv`` member would therefore slip past a raw-name
+    check on POSIX yet escape ``dest`` on Windows. Normalising ``\`` -> ``/``
     for the *check* refuses it on every platform; ``zf.extract`` still receives
     the original member name.
     """
