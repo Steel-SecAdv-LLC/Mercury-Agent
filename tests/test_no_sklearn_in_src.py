@@ -65,6 +65,12 @@ _SKIP_DIR_NAMES = frozenset(
 # Dynamic-import / probe callables that take the module name as a string literal.
 _DYNAMIC_IMPORT_CALLS = frozenset({"importorskip", "import_module", "__import__", "find_spec"})
 
+# Keyword names under which those callables accept the module name as their first
+# parameter: ``import_module(name=…)`` / ``find_spec(name=…)`` / ``__import__(name=…)``
+# and ``pytest.importorskip(modname=…)``. Scanning only the first *positional*
+# arg would miss these keyword spellings — an easy bypass of the guard.
+_DYNAMIC_IMPORT_NAME_KWARGS = frozenset({"name", "modname"})
+
 
 def _is_sklearn_name(name: str) -> bool:
     return name == "sklearn" or name.startswith("sklearn.")
@@ -92,6 +98,25 @@ def _called_name(func: ast.expr) -> str | None:
     return None
 
 
+def _dynamic_import_modname(node: ast.Call) -> str | None:
+    """The module-name string literal a dynamic-import call resolves, or ``None``.
+
+    Considers the first *positional* argument **and** the first-parameter
+    *keyword* spellings (``import_module(name=…)``, ``importorskip(modname=…)``);
+    a positional-only scan would miss the keyword forms, which is an easy bypass.
+    Non-literal or absent module-name arguments return ``None``.
+    """
+    arg: ast.expr | None = node.args[0] if node.args else None
+    if arg is None:
+        for kw in node.keywords:
+            if kw.arg in _DYNAMIC_IMPORT_NAME_KWARGS:
+                arg = kw.value
+                break
+    if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+        return arg.value
+    return None
+
+
 def _sklearn_usage(path: Path) -> str | None:
     """Return a short reason iff the module *actually pulls in* sklearn.
 
@@ -113,12 +138,11 @@ def _sklearn_usage(path: Path) -> str | None:
             if _is_sklearn_name(mod):
                 return f"from {mod} import ..."
         elif isinstance(node, ast.Call):
-            if _called_name(node.func) in _DYNAMIC_IMPORT_CALLS and node.args:
-                arg = node.args[0]
-                if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
-                    if _is_sklearn_name(arg.value):
-                        name = _called_name(node.func)
-                        return f"{name}({arg.value!r})"
+            name = _called_name(node.func)
+            if name in _DYNAMIC_IMPORT_CALLS:
+                modname = _dynamic_import_modname(node)
+                if modname is not None and _is_sklearn_name(modname):
+                    return f"{name}({modname!r})"
     return None
 
 
@@ -150,13 +174,18 @@ def test_guard_scans_repo_wide_not_vacuously() -> None:
 
 def test_dynamic_import_detection_is_live() -> None:
     """Pin the detector so a future AST refactor can't silently stop catching
-    the dynamic ``importorskip``/``find_spec`` forms (a pure import-node scan
-    would miss them, which is how the original gap let sklearn into tests)."""
+    the dynamic ``importorskip``/``find_spec``/``import_module`` forms — including
+    the keyword spellings (``modname=``/``name=``) a pure positional scan would
+    miss (the original gap that let sklearn into tests). Exercises the real
+    ``_dynamic_import_modname`` helper rather than re-implementing it."""
     src = (
+        "import importlib\n"
         "import pytest\n"
         "from importlib.util import find_spec\n"
-        "pytest.importorskip('sklearn')\n"
-        "find_spec('sklearn')\n"
+        "pytest.importorskip('sklearn')\n"  # positional
+        "find_spec('sklearn')\n"  # positional
+        "pytest.importorskip(modname='sklearn')\n"  # keyword bypass
+        "importlib.import_module(name='sklearn')\n"  # keyword bypass
         "import numpy  # not sklearn\n"
     )
     tree = ast.parse(src)
@@ -167,10 +196,23 @@ def test_dynamic_import_detection_is_live() -> None:
         name = _called_name(node.func)
         if name is None or name not in _DYNAMIC_IMPORT_CALLS:
             continue
-        arg = node.args[0] if node.args else None
-        if isinstance(arg, ast.Constant) and _is_sklearn_name(str(arg.value)):
+        modname = _dynamic_import_modname(node)
+        if modname is not None and _is_sklearn_name(modname):
             hits.append(name)
-    assert sorted(hits) == ["find_spec", "importorskip"], hits
+    assert sorted(hits) == ["find_spec", "import_module", "importorskip", "importorskip"], hits
+
+
+def test_sklearn_usage_detects_keyword_module_arg(tmp_path: Path) -> None:
+    """End-to-end: the file-level detector flags the keyword-arg dynamic forms,
+    closing the ``import_module(name=…)`` / ``importorskip(modname=…)`` bypass —
+    while a benign keyword call to an unrelated module stays clean."""
+    offender = tmp_path / "probe.py"
+    offender.write_text("import importlib\nimportlib.import_module(name='sklearn.svm')\n")
+    assert _sklearn_usage(offender) == "import_module('sklearn.svm')"
+
+    benign = tmp_path / "benign.py"
+    benign.write_text("import importlib\nimportlib.import_module(name='numpy')\n")
+    assert _sklearn_usage(benign) is None
 
 
 def test_benchmarks_are_exempt_and_really_use_sklearn() -> None:
