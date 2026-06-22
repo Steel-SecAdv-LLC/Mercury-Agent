@@ -27,7 +27,9 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-def _write_set(base: Path, set_name: str, n_files: int, *, n_samples: int = 4097, layout: str = "zip") -> None:
+def _write_set(
+    base: Path, set_name: str, n_files: int, *, n_samples: int = 4097, layout: str = "zip"
+) -> None:
     rng = np.random.default_rng(ord(set_name))
     files = {
         f"{set_name}{i:03d}.txt": "\n".join(str(int(v)) for v in rng.integers(-300, 300, n_samples))
