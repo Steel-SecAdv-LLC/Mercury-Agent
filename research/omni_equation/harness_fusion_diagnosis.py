@@ -95,9 +95,14 @@ def _auroc(y: np.ndarray[Any, Any], s: np.ndarray[Any, Any]) -> float:
 
 
 def _rank(s: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-    """Rank-normalise scores to [0, 1] (ties broken by argsort order)."""
+    """Rank-normalise scores to [0, 1] (ties broken by original index).
+
+    Uses a stable argsort so tied scores keep their input order deterministically
+    across NumPy versions / platforms -- the frontier search this feeds must be
+    reproducible, which an unstable (default quicksort) tie order would break.
+    """
     s = np.asarray(s, dtype=float)
-    order = s.argsort()
+    order = s.argsort(kind="stable")
     r = np.empty(len(s), dtype=float)
     r[order] = np.arange(len(s))
     return r / max(len(s) - 1, 1)

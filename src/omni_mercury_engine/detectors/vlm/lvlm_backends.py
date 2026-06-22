@@ -105,7 +105,7 @@ class LVLMBackend(ABC):
             arr: np.ndarray[Any, Any] = image
             if arr.ndim == 4:
                 arr = arr[0]  # Take first if batched
-            if arr.shape[0] in [1, 3]:  # CHW format
+            if arr.ndim == 3 and arr.shape[0] in [1, 3]:  # CHW format
                 arr = np.transpose(arr, (1, 2, 0))
             if arr.max() <= 1.0:
                 arr = (arr * 255).astype(np.uint8)
