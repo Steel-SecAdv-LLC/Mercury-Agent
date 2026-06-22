@@ -14,15 +14,13 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING, Any
+from pathlib import Path
+from typing import Any
 
 import numpy as np
 
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry, safe_urlretrieve
 from .exceptions import DataSourceUnavailableError
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -705,6 +703,9 @@ class DSADSLoader(DatasetLoader):
         "The Computer Journal 57(11), 2014."
     )
     REQUIRES_CREDENTIALS = False
+    # Manufactured anomaly labels (activity designation) — excluded from the
+    # comparable headline; registered in datasets.label_provenance.
+    LABEL_SOURCE = "statistical"
 
     DATA_URL = "https://archive.ics.uci.edu/ml/machine-learning-databases/00256/data.zip"
     N_ACTIVITIES = 19
@@ -817,8 +818,171 @@ class DSADSLoader(DatasetLoader):
             "name": "Daily and Sports Activities (DSADS, UCI 256)",
             "type": "REAL DATA",
             "source": self.DATASET_URL,
-            "label_source": "constructed",
+            "label_source": "statistical",
             "anomaly_activities": sorted(self.anomaly_activities),
+            "citation": self.CITATION,
+        }
+
+
+class EpilepsyLoader(DatasetLoader):
+    """Bonn single-electrode EEG (Andrzejak et al. 2001) — Epileptic Seizure set.
+
+    Reconstructs the canonical **11500 × 178** tabular anomaly-detection task from
+    the OFFICIAL raw Bonn EEG time series (five sets A–E), hosted by the NTSA
+    group at Universitat Pompeu Fabra: https://www.upf.edu/web/ntsa/downloads/.
+
+    Official source only — no third-party mirrors, no simulated "mimic" data. The
+    UCI tabular version (11500 × 178) was removed, and the UPF page sits behind a
+    Cloudflare JS challenge that blocks automated download from the SSRF-safe
+    client. So the data is supplied via a **local path** to the manually-
+    downloaded official sets; absent that, the loader fails loud (it never
+    fabricates and never pulls an unvetted mirror).
+
+    Provide ``preprocessing={"bonn_dir": "<dir>"}`` where ``<dir>`` holds the five
+    official set archives (``Z.zip O.zip N.zip F.zip S.zip``) or five extracted
+    set directories (``Z/ O/ N/ F/ S/``), each containing 100 text files of 4097
+    single-channel EEG samples (one value per line) — the published Bonn format.
+
+    Reconstruction (the standard tabular derivation): every 4097-sample recording
+    is chunked into 23 non-overlapping 178-sample segments (4094 used; the final
+    3 dropped), so 100 × 23 = 2300 rows per set × 5 sets = **11500 × 178**.
+    Labels: set **S** (set E in the paper; ictal/seizure activity) = anomaly (1),
+    the four non-ictal sets (Z, O, N, F) = normal (0) → 2300/11500 = **0.20**.
+
+    Citation (required by the data authors): Andrzejak RG, Lehnertz K, Mormann F,
+    Rieke C, David P, Elger CE. "Indications of nonlinear deterministic and
+    finite-dimensional structures in time series of brain electrical activity:
+    Dependence on recording region and brain state." Phys. Rev. E 64, 061907
+    (2001).
+    """
+
+    DATASET_NAME = "epilepsy"
+    DATASET_URL = "https://www.upf.edu/web/ntsa/downloads/"
+    LICENSE = "Free for research use with citation (Andrzejak et al. 2001)"
+    CITATION = (
+        "Andrzejak RG, Lehnertz K, Mormann F, Rieke C, David P, Elger CE. "
+        "Indications of nonlinear deterministic and finite-dimensional structures "
+        "in time series of brain electrical activity. Phys. Rev. E 64, 061907 (2001)."
+    )
+    REQUIRES_CREDENTIALS = False
+    # Genuine ictal/seizure brain-state labels (set E) — registered ground_truth.
+    LABEL_SOURCE = "ground_truth"
+
+    SETS = ("Z", "O", "N", "F", "S")
+    _SEIZURE_SET = "S"  # set E in the paper (ictal/seizure)
+    FILES_PER_SET = 100
+    SAMPLES_PER_FILE = 4097
+    SEGMENT_LEN = 178
+    SEGMENTS_PER_FILE = 23  # 23 * 178 = 4094 (final 3 samples dropped)
+
+    def __init__(self, config: DatasetConfig) -> None:
+        """Initialize the instance; ``preprocessing['bonn_dir']`` supplies the data."""
+        super().__init__(config)
+        bonn_dir = config.preprocessing.get("bonn_dir")
+        self.bonn_dir: Path | None = Path(bonn_dir) if bonn_dir else None
+
+    def download(self) -> bool:
+        """Validate the user-provided official data; fail loud if absent.
+
+        The official UPF source is Cloudflare-gated, so there is no automated
+        fetch — the supported path is a manually-downloaded local copy.
+        """
+        if self.bonn_dir is not None and self.bonn_dir.exists():
+            return True
+        raise DataSourceUnavailableError(
+            loader_name="Epilepsy (Bonn EEG / UPF)",
+            source_url=self.DATASET_URL,
+            reason=(
+                "Official Bonn EEG data (Andrzejak et al. 2001) is hosted at "
+                f"{self.DATASET_URL} behind a Cloudflare challenge that blocks automated "
+                "download. Download the five sets (A–E) from there and pass "
+                "preprocessing={'bonn_dir': '<dir with Z/O/N/F/S .zip or folders>'}. "
+                "Third-party mirrors and 'mimic' datasets are deliberately not used."
+            ),
+        )
+
+    def _read_set(self, set_name: str) -> list[np.ndarray[Any, Any]]:
+        """Read one set's 100 recordings (each a 1-D array) from a .zip or a dir."""
+        import zipfile
+
+        assert self.bonn_dir is not None  # download() guarantees this
+        zip_path = self.bonn_dir / f"{set_name}.zip"
+        dir_path = self.bonn_dir / set_name
+        recordings: list[np.ndarray[Any, Any]] = []
+        if zip_path.exists():
+            with zipfile.ZipFile(zip_path) as zf:
+                for name in sorted(n for n in zf.namelist() if not n.endswith("/")):
+                    with zf.open(name) as handle:
+                        recordings.append(np.loadtxt(handle))
+        elif dir_path.is_dir():
+            for path in sorted(p for p in dir_path.iterdir() if p.is_file()):
+                recordings.append(np.loadtxt(path))
+        else:
+            raise FileNotFoundError(
+                f"Epilepsy set '{set_name}': expected {zip_path} or {dir_path}/ "
+                f"under bonn_dir={self.bonn_dir}."
+            )
+        return recordings
+
+    def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+        """Reconstruct (X[11500, 178], y[11500]) from the official sets."""
+        if self.bonn_dir is None or not self.bonn_dir.exists():
+            raise FileNotFoundError(
+                "Epilepsy: no bonn_dir provided. See EpilepsyLoader docstring — "
+                "supply the official Bonn EEG sets via preprocessing['bonn_dir']."
+            )
+
+        seg_per = self.SEGMENTS_PER_FILE
+        usable = seg_per * self.SEGMENT_LEN
+        feats: list[np.ndarray[Any, Any]] = []
+        labels: list[int] = []
+        for set_name in self.SETS:
+            recordings = self._read_set(set_name)
+            if len(recordings) != self.FILES_PER_SET:
+                raise ValueError(
+                    f"Epilepsy set '{set_name}': expected {self.FILES_PER_SET} recordings, "
+                    f"got {len(recordings)} — not the official Bonn layout."
+                )
+            label = 1 if set_name == self._SEIZURE_SET else 0
+            for rec in recordings:
+                flat = np.asarray(rec, dtype=np.float64).ravel()
+                if flat.shape[0] < usable:
+                    raise ValueError(
+                        f"Epilepsy set '{set_name}': a recording has {flat.shape[0]} samples, "
+                        f"need >= {usable} (official files are {self.SAMPLES_PER_FILE})."
+                    )
+                feats.append(flat[:usable].reshape(seg_per, self.SEGMENT_LEN))
+                labels.extend([label] * seg_per)
+
+        features = np.vstack(feats)
+        targets = np.asarray(labels, dtype=np.int64)
+        expected_rows = len(self.SETS) * self.FILES_PER_SET * seg_per
+        if features.shape != (expected_rows, self.SEGMENT_LEN):
+            raise ValueError(
+                f"Epilepsy reconstruction produced {features.shape}, expected "
+                f"({expected_rows}, {self.SEGMENT_LEN})."
+            )
+        logger.info(
+            "Reconstructed REAL Epilepsy (Bonn): %d × %d, %d seizure rows (%.1f%%)",
+            features.shape[0],
+            features.shape[1],
+            int(targets.sum()),
+            100.0 * float(targets.mean()),
+        )
+        return features, targets
+
+    def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Z-score normalise the per-segment EEG amplitudes."""
+        data = np.nan_to_num(data, nan=0.0)
+        return ((data - data.mean(axis=0)) / (data.std(axis=0) + 1e-8)).astype(np.float32)
+
+    def get_dataset_info(self) -> dict[str, Any]:
+        """Return dataset metadata."""
+        return {
+            "name": "Epileptic Seizure (Bonn EEG, Andrzejak et al. 2001)",
+            "type": "REAL DATA",
+            "source": self.DATASET_URL,
+            "label_source": "ground_truth",
             "citation": self.CITATION,
         }
 
@@ -829,3 +993,4 @@ DatasetRegistry.register("smd", SMDLoader)
 DatasetRegistry.register("smap", SMAPMSLLoader)
 DatasetRegistry.register("msl", SMAPMSLLoader)
 DatasetRegistry.register("dsads", DSADSLoader)
+DatasetRegistry.register("epilepsy", EpilepsyLoader)

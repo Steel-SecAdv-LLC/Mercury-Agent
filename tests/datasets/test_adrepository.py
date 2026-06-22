@@ -374,31 +374,32 @@ class TestSyntheticPolicyGate:
         with pytest.raises(DataSourceUnavailableError, match="credentials"):
             loader.load_data()
 
-    @pytest.mark.parametrize("name", ["epilepsy"])
-    def test_no_loader_timeseries_fails_loud_with_closing_step(
-        self, name: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    def test_epilepsy_delegate_fails_loud_without_official_data(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
     ) -> None:
-        """epilepsy has a documented upstream but no dedicated loader yet.
+        """epilepsy now delegates to EpilepsyLoader (Bonn EEG reconstruction).
 
-        (dsads now has a dedicated DSADSLoader — see ``test_dsads.py``.) The loud
-        error must name the real source and the exact closing step. epilepsy's
-        authentic Bonn EEG source is currently offline across UCI/Bonn/UPF, so it
-        fails loud rather than load simulated/unvetted re-hosted data.
+        Without the official data (no ``bonn_dir``) it fails loud naming the Bonn
+        source — the UPF page is Cloudflare-gated, so there is no automated fetch,
+        and it never fabricates or pulls an unvetted mirror. (dsads likewise has a
+        real DSADSLoader now — see ``test_dsads.py``; both moved out of the
+        fail-loud ``_TIMESERIES_NO_LOADER`` set into ``_TIMESERIES_DELEGATES``.)
         """
         monkeypatch.delenv("MERCURY_ALLOW_SYNTHETIC", raising=False)
         loader = ADRepositoryLoader(
-            DatasetConfig(name=name, data_dir=str(tmp_path / name)), dataset_name=name
+            DatasetConfig(name="epilepsy", data_dir=str(tmp_path / "ep")),
+            dataset_name="epilepsy",
         )
         with pytest.raises(DataSourceUnavailableError) as exc:
             loader.load_data()
-        msg = str(exc.value)
-        assert "Closing step" in msg and "Bonn" in msg
+        assert "Bonn" in str(exc.value)
 
-    def test_no_loader_timeseries_opt_in_synthetic_is_marked(
+    def test_timeseries_opt_in_synthetic_is_marked(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
     ) -> None:
-        """Policy on → a no-loader time-series set yields *marked* synthetic
-        (same single chokepoint as every other set), never silent real-looking data."""
+        """Policy on → a delegated time-series set that cannot fetch real data
+        (epilepsy without ``bonn_dir``) yields *marked* synthetic through the same
+        single chokepoint, never silent real-looking data."""
         monkeypatch.setenv("MERCURY_ALLOW_SYNTHETIC", "1")
         loader = ADRepositoryLoader(
             DatasetConfig(name="epilepsy", data_dir=str(tmp_path / "g"), max_samples=100),

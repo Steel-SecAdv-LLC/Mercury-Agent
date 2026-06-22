@@ -362,25 +362,18 @@ class ADRepositoryLoader(DatasetLoader):
         # DSADS: real UCI-256 inertial-sensor data; DSADSLoader fetches it and
         # constructs a documented anomaly convention (DSADS has no native labels).
         "dsads": ("omni_mercury_engine.datasets.timeseries", "DSADSLoader"),
+        # Epilepsy: EpilepsyLoader reconstructs the canonical 11500×178 form from
+        # the official Bonn EEG sets (Andrzejak et al. 2001). The UPF source is
+        # Cloudflare-gated, so the data is supplied via preprocessing['bonn_dir'];
+        # without it the loader fails loud (never fabricates, never uses a mirror).
+        "epilepsy": ("omni_mercury_engine.datasets.timeseries", "EpilepsyLoader"),
     }
 
     # Time-series sets with a documented real upstream but no dedicated Mercury
-    # loader yet. They fail loud naming the source and the exact closing step —
-    # they are never fabricated.
-    _TIMESERIES_NO_LOADER: dict[str, str] = {
-        # The classic "Epileptic Seizure Recognition" (Bonn single-electrode EEG,
-        # Andrzejak et al. 2001; 11500×178, class-1 seizure = anomaly) has no
-        # stable, verifiable public source left: UCI removed it (404), the Bonn
-        # host redirects to a contentless landing page, the UPF repository serves
-        # only a JavaScript DSpace shell, and the reachable Zenodo record is an
-        # explicit "mimic" of Bonn, not the authentic data. Fails loud rather
-        # than load simulated or unvetted re-hosted data. Closing step: supply a
-        # verified raw source and add a dedicated loader to _TIMESERIES_DELEGATES.
-        "epilepsy": (
-            "Bonn EEG (Andrzejak et al. 2001) — authentic source currently offline "
-            "across UCI/Bonn/UPF; no verified public mirror"
-        ),
-    }
+    # loader yet. Currently empty — smd/swat/dsads/epilepsy are all delegated
+    # above. Retained as the explicit, gated chokepoint for any future such set:
+    # it fails loud (naming the source) rather than silently fabricating.
+    _TIMESERIES_NO_LOADER: dict[str, str] = {}
 
     def __init__(self, config: DatasetConfig, dataset_name: str = "thyroid") -> None:
         """Initialize ADRepository loader.

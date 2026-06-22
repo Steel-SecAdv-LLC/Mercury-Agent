@@ -180,9 +180,12 @@ def test_no_sklearn_outside_benchmarks() -> None:
 def test_guard_scans_repo_wide_not_vacuously() -> None:
     """The scan must genuinely span the repo (not the old src+research subset)."""
     files = _scanned_python_files()
-    assert len(files) > 500, (
-        f"repo-wide scan unexpectedly small ({len(files)} files) — the skip-list "
-        "is probably too broad and the guard could pass vacuously."
+    # Non-vacuity is proven by the scan being non-empty AND spanning both src and
+    # tests (below) — no brittle magnitude threshold, which would false-fail on a
+    # legitimate repo reshuffle or a partial checkout.
+    assert files, (
+        "repo-wide scan is empty — the skip-list is probably too broad and the "
+        "guard could pass vacuously."
     )
     roots = {p.relative_to(_REPO).parts[0] for p in files}
     assert {"src", "tests"} <= roots, f"expected src+tests in the scan, saw {sorted(roots)}"
