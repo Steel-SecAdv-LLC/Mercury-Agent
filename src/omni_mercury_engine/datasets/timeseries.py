@@ -689,9 +689,10 @@ class DSADSLoader(DatasetLoader):
     ("playing basketball") — the only ball sport and the most irregular,
     non-cyclic activity in the set — giving 480 / 9120 = 5.26% anomalies.
     Override with ``preprocessing={"anomaly_activities": [..1-based..]}``. The
-    constructed nature is surfaced in ``get_dataset_info`` (``label_source =
-    "constructed"``); only the *labels* are constructed — the sensor features
-    are real and never fabricated.
+    manufactured nature is surfaced in ``get_dataset_info`` (``label_source =
+    "statistical"`` — the repo taxonomy's value for constructed/heuristic labels);
+    only the *labels* are constructed — the sensor features are real and never
+    fabricated.
     """
 
     DATASET_NAME = "dsads"
