@@ -3,9 +3,9 @@
 Applies to Mercury Agent **v2.0.x**. Last updated: 2026-05-20.
 
 > **v1.7 update.** The current public headline is the committed
-> `benchmarks/mercury_benchmark_results.json` run — **65 successful /
-> 75 attempted**, Mean ROC-AUC **0.8466**, Median **0.9100**, Mean
-> Oracle F1 **0.6428** (2026-05-19, commit 79e8335) — surfaced in the
+> `benchmarks/mercury_benchmark_results.json` run — **66 successful /
+> 75 attempted**, Mean ROC-AUC **0.8251**, Median **0.8747**, Mean
+> Oracle F1 **0.5998** (2026-06-21, commit a7a194b) — surfaced in the
 > README "Latest Benchmark Results" block and regenerated on every
 > push to `main` by `.github/workflows/benchmark.yml`. The FEMA
 > Disaster label-polarity fix (v1.7.0) and the 11-loader reachability

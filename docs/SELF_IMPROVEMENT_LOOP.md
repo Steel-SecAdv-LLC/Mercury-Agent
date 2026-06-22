@@ -55,7 +55,7 @@ proceeds from reality.
 Reported as of this PR, computed from the committed
 `research/governed_fusion/results/baseline_results.json`:
 
-* **ADBench (47 datasets, externally labelled, comparable to published baselines):** Mean AUC **0.8180**, Mean F1 **0.5859**. *(`docs/BENCHMARKS.md`, `README.md` L182)*
+* **ADBench (47 datasets, externally labelled, comparable to published baselines):** Mean AUC **0.8251**, Mean F1 **0.5975**. *(`docs/BENCHMARKS.md`, `README.md` L182)*
 * **Governed-fusion live suite (23 events, mixed regime — historical).** Macro-mean AUROC **0.8231**, F1 **0.2768**. This number is the headline before Phase 1's leakage-split: it blends 2 ground-truth-labelled events with 21 statistical-labelled ones.
 * **Governed-fusion live suite, provenance split (Phase 1 result):**
 
