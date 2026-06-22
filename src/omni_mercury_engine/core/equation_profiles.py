@@ -280,4 +280,8 @@ def _mean_or_fallback(
 ) -> np.ndarray[Any, Any]:
     if not arrays:
         return cast("np.ndarray[Any, Any]", np.clip(fallback, 0.0, 1.0))
-    return cast("np.ndarray[Any, Any]", np.clip(np.mean(np.vstack(arrays), axis=0), 0.0, 1.0))
+    # numpy 2.5 types ``np.clip(np.mean(...))`` as a concrete ndarray, so a cast
+    # is redundant there; an annotated local stays valid on the numpy-floor build
+    # (where ``clip`` still returns ``Any``) without tripping warn-redundant-casts.
+    clipped: np.ndarray[Any, Any] = np.clip(np.mean(np.vstack(arrays), axis=0), 0.0, 1.0)
+    return clipped

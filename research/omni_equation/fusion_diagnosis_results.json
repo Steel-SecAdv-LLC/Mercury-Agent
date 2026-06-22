@@ -1,0 +1,280 @@
+{
+  "summary": {
+    "n_scored": 18,
+    "mean_fused": 0.7634,
+    "mean_best_single": 0.7934,
+    "dilution_gap": 0.03,
+    "mean_knn_stream": 0.7523,
+    "knn_beats_best_single_on_sets": 7,
+    "regression_tolerance": 0.002,
+    "any_combiner_clears_bar": false
+  },
+  "results": [
+    {
+      "dataset": "breastw",
+      "n": 683,
+      "d": 9,
+      "auroc_fused": 0.9715,
+      "auroc_resonance": 0.8921,
+      "auroc_kinematic": 0.6527,
+      "auroc_infogeo": 0.9724,
+      "auroc_knn": 0.9778,
+      "best_single": 0.9724,
+      "dilution_gap": 0.0009
+    },
+    {
+      "dataset": "cardio",
+      "n": 1831,
+      "d": 21,
+      "auroc_fused": 0.9084,
+      "auroc_resonance": 0.9439,
+      "auroc_kinematic": 0.7246,
+      "auroc_infogeo": 0.8965,
+      "auroc_knn": 0.7046,
+      "best_single": 0.9439,
+      "dilution_gap": 0.0356
+    },
+    {
+      "dataset": "Cardiotocography",
+      "n": 2114,
+      "d": 21,
+      "auroc_fused": 0.6288,
+      "auroc_resonance": 0.7876,
+      "auroc_kinematic": 0.5744,
+      "auroc_infogeo": 0.6025,
+      "auroc_knn": 0.489,
+      "best_single": 0.7876,
+      "dilution_gap": 0.1588
+    },
+    {
+      "dataset": "glass",
+      "n": 214,
+      "d": 7,
+      "auroc_fused": 0.7442,
+      "auroc_resonance": 0.6932,
+      "auroc_kinematic": 0.4629,
+      "auroc_infogeo": 0.7447,
+      "auroc_knn": 0.865,
+      "best_single": 0.7447,
+      "dilution_gap": 0.0005
+    },
+    {
+      "dataset": "Hepatitis",
+      "n": 80,
+      "d": 19,
+      "auroc_fused": 0.682,
+      "auroc_resonance": 0.721,
+      "auroc_kinematic": 0.6625,
+      "auroc_infogeo": 0.6739,
+      "auroc_knn": 0.7279,
+      "best_single": 0.721,
+      "dilution_gap": 0.039
+    },
+    {
+      "dataset": "Ionosphere",
+      "n": 351,
+      "d": 32,
+      "auroc_fused": 0.9116,
+      "auroc_resonance": 0.7374,
+      "auroc_kinematic": 0.6017,
+      "auroc_infogeo": 0.9219,
+      "auroc_knn": 0.9254,
+      "best_single": 0.9219,
+      "dilution_gap": 0.0103
+    },
+    {
+      "dataset": "Lymphography",
+      "n": 148,
+      "d": 18,
+      "auroc_fused": 0.9918,
+      "auroc_resonance": 0.9953,
+      "auroc_kinematic": 0.8169,
+      "auroc_infogeo": 0.9859,
+      "auroc_knn": 0.9953,
+      "best_single": 0.9953,
+      "dilution_gap": 0.0035
+    },
+    {
+      "dataset": "mammography",
+      "n": 11183,
+      "d": 6,
+      "auroc_fused": 0.8664,
+      "auroc_resonance": 0.8739,
+      "auroc_kinematic": 0.7031,
+      "auroc_infogeo": 0.8602,
+      "auroc_knn": 0.842,
+      "best_single": 0.8739,
+      "dilution_gap": 0.0075
+    },
+    {
+      "dataset": "optdigits",
+      "n": 5216,
+      "d": 64,
+      "auroc_fused": 0.5043,
+      "auroc_resonance": 0.4767,
+      "auroc_kinematic": 0.4518,
+      "auroc_infogeo": 0.505,
+      "auroc_knn": 0.3749,
+      "best_single": 0.505,
+      "dilution_gap": 0.0007
+    },
+    {
+      "dataset": "PageBlocks",
+      "n": 5393,
+      "d": 10,
+      "auroc_fused": 0.916,
+      "auroc_resonance": 0.9013,
+      "auroc_kinematic": 0.7102,
+      "auroc_infogeo": 0.9156,
+      "auroc_knn": 0.8901,
+      "best_single": 0.9156,
+      "dilution_gap": -0.0004
+    },
+    {
+      "dataset": "Pima",
+      "n": 768,
+      "d": 8,
+      "auroc_fused": 0.6718,
+      "auroc_resonance": 0.6375,
+      "auroc_kinematic": 0.5279,
+      "auroc_infogeo": 0.6744,
+      "auroc_knn": 0.7133,
+      "best_single": 0.6744,
+      "dilution_gap": 0.0027
+    },
+    {
+      "dataset": "Stamps",
+      "n": 340,
+      "d": 9,
+      "auroc_fused": 0.8702,
+      "auroc_resonance": 0.909,
+      "auroc_kinematic": 0.5882,
+      "auroc_infogeo": 0.8565,
+      "auroc_knn": 0.8459,
+      "best_single": 0.909,
+      "dilution_gap": 0.0387
+    },
+    {
+      "dataset": "thyroid",
+      "n": 3772,
+      "d": 6,
+      "auroc_fused": 0.9385,
+      "auroc_resonance": 0.9685,
+      "auroc_kinematic": 0.7318,
+      "auroc_infogeo": 0.9342,
+      "auroc_knn": 0.9614,
+      "best_single": 0.9685,
+      "dilution_gap": 0.03
+    },
+    {
+      "dataset": "vertebral",
+      "n": 240,
+      "d": 6,
+      "auroc_fused": 0.4013,
+      "auroc_resonance": 0.423,
+      "auroc_kinematic": 0.4756,
+      "auroc_infogeo": 0.4022,
+      "auroc_knn": 0.3627,
+      "best_single": 0.4756,
+      "dilution_gap": 0.0744
+    },
+    {
+      "dataset": "Waveform",
+      "n": 3443,
+      "d": 21,
+      "auroc_fused": 0.5867,
+      "auroc_resonance": 0.6219,
+      "auroc_kinematic": 0.5411,
+      "auroc_infogeo": 0.5723,
+      "auroc_knn": 0.7362,
+      "best_single": 0.6219,
+      "dilution_gap": 0.0352
+    },
+    {
+      "dataset": "WBC",
+      "n": 223,
+      "d": 9,
+      "auroc_fused": 0.9878,
+      "auroc_resonance": 0.9953,
+      "auroc_kinematic": 0.8157,
+      "auroc_infogeo": 0.9742,
+      "auroc_knn": 0.9878,
+      "best_single": 0.9953,
+      "dilution_gap": 0.0075
+    },
+    {
+      "dataset": "wine",
+      "n": 129,
+      "d": 13,
+      "auroc_fused": 0.6824,
+      "auroc_resonance": 0.7815,
+      "auroc_kinematic": 0.4563,
+      "auroc_infogeo": 0.6496,
+      "auroc_knn": 0.6277,
+      "best_single": 0.7815,
+      "dilution_gap": 0.0992
+    },
+    {
+      "dataset": "WPBC",
+      "n": 198,
+      "d": 33,
+      "auroc_fused": 0.4768,
+      "auroc_resonance": 0.4619,
+      "auroc_kinematic": 0.4324,
+      "auroc_infogeo": 0.4733,
+      "auroc_knn": 0.5147,
+      "best_single": 0.4733,
+      "dilution_gap": -0.0035
+    }
+  ],
+  "frontier": [
+    {
+      "combiner": "resonance_only",
+      "mean_auroc": 0.7678,
+      "delta_mean": 0.0045,
+      "worst_set_delta": -0.1742,
+      "n_regress_beyond_tol": 7,
+      "clears_zero_regression_bar": false
+    },
+    {
+      "combiner": "blend_0.6R_0.4I",
+      "mean_auroc": 0.7732,
+      "delta_mean": 0.0099,
+      "worst_set_delta": -0.0876,
+      "n_regress_beyond_tol": 7,
+      "clears_zero_regression_bar": false
+    },
+    {
+      "combiner": "rankmean_R_I",
+      "mean_auroc": 0.7732,
+      "delta_mean": 0.0098,
+      "worst_set_delta": -0.065,
+      "n_regress_beyond_tol": 7,
+      "clears_zero_regression_bar": false
+    },
+    {
+      "combiner": "blend_0.8fused_0.2knn",
+      "mean_auroc": 0.7632,
+      "delta_mean": -0.0002,
+      "worst_set_delta": -0.0287,
+      "n_regress_beyond_tol": 5,
+      "clears_zero_regression_bar": false
+    },
+    {
+      "combiner": "rankmax_fused_knn",
+      "mean_auroc": 0.7724,
+      "delta_mean": 0.009,
+      "worst_set_delta": -0.0573,
+      "n_regress_beyond_tol": 7,
+      "clears_zero_regression_bar": false
+    },
+    {
+      "combiner": "rankmean_fused_knn",
+      "mean_auroc": 0.7631,
+      "delta_mean": -0.0003,
+      "worst_set_delta": -0.0865,
+      "n_regress_beyond_tol": 6,
+      "clears_zero_regression_bar": false
+    }
+  ]
+}

@@ -105,6 +105,11 @@ LABEL_PROVENANCE_REGISTRY: dict[str, tuple[str, str]] = {
         "ground_truth",
         "Server Machine Dataset ships curated labeled anomaly intervals.",
     ),
+    "timeseries.EpilepsyLoader": (
+        "ground_truth",
+        "Bonn set E is genuine ictal/seizure EEG (Andrzejak et al. 2001 clinical "
+        "brain-state); seizure remapped to anomaly vs the four non-ictal sets.",
+    ),
     "ucr_archive.UCRLoader": (
         "ground_truth",
         "Genuine UCR class labels remapped to anomaly (minority class).",
@@ -198,6 +203,13 @@ LABEL_PROVENANCE_REGISTRY: dict[str, tuple[str, str]] = {
     "security.ThreatIntelLoader": (
         "statistical",
         "Labels = (num_phases>=2 & num_platforms>=3) heuristic threshold.",
+    ),
+    "timeseries.DSADSLoader": (
+        "statistical",
+        "DSADS (UCI 256) ships no native anomaly labels; the binary label is a "
+        "manufactured domain cut over genuine activity classes (default: activity "
+        "19 = anomaly). Not feature-circular, but constructed -> excluded from the "
+        "comparable headline.",
     ),
     "ucr_archive.MSDSLoader": (
         "statistical",

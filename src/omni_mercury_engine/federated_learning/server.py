@@ -183,7 +183,7 @@ class FedAdamAggregator(Aggregator):
             beta1: First moment decay
             beta2: Second moment decay
             epsilon: Numerical stability
-            tau: Pseudo-gradient scaling
+            tau: Server aggregate-gradient (FedOpt delta) scaling
         """
         self._lr = learning_rate
         self._beta1 = beta1

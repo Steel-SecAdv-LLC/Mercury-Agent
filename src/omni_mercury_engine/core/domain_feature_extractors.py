@@ -1194,7 +1194,7 @@ class InfrastructureFeatureExtractor(BaseDomainExtractor):
         Returns:
             Tuple of (features, feature_names)
         """
-        features = []
+        features: list[float] = []
         names = []
 
         n_vars = data.shape[1]
@@ -1221,12 +1221,12 @@ class InfrastructureFeatureExtractor(BaseDomainExtractor):
 
         # Mean absolute correlation
         mean_corr = np.mean(np.abs(correlations))
-        features.append(mean_corr)
+        features.append(float(mean_corr))
         names.append("corr_matrix_mean")
 
         # Correlation variability
         std_corr = np.std(correlations)
-        features.append(std_corr)
+        features.append(float(std_corr))
         names.append("corr_matrix_std")
 
         # Count of high correlations
@@ -1239,10 +1239,10 @@ class InfrastructureFeatureExtractor(BaseDomainExtractor):
             determinant = np.linalg.det(corr_matrix)
         except np.linalg.LinAlgError:
             determinant = 0.0
-        features.append(determinant)
+        features.append(float(determinant))
         names.append("corr_determinant")
 
-        return features, names  # type: ignore[return-value, unused-ignore]
+        return features, names
 
     def _compute_lagged_correlation_features(
         self, data: NDArray[np.float64]
@@ -1306,7 +1306,7 @@ class InfrastructureFeatureExtractor(BaseDomainExtractor):
         Returns:
             Tuple of (features, feature_names)
         """
-        features = []
+        features: list[float] = []
         names = []
 
         n_samples, n_vars = data.shape
@@ -1329,13 +1329,13 @@ class InfrastructureFeatureExtractor(BaseDomainExtractor):
         mean_devs = [d[0] for d in deviations]
         max_devs = [d[1] for d in deviations]
 
-        features.append(np.mean(mean_devs))
+        features.append(float(np.mean(mean_devs)))
         names.append("setpoint_mean_deviation")
 
-        features.append(np.mean(max_devs))
+        features.append(float(np.mean(max_devs)))
         names.append("setpoint_max_deviation")
 
-        features.append(np.std(mean_devs))
+        features.append(float(np.std(mean_devs)))
         names.append("setpoint_deviation_variability")
 
         # Count of variables with significant deviation

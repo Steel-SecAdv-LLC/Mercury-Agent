@@ -394,8 +394,9 @@ EXPLANATION: [Your detailed explanation]
         frame_counts = np.maximum(frame_counts, 1)
         scores = frame_scores / frame_counts
 
-        # Determine anomalies
-        is_anomaly = scores > self.vlm_config.confidence_threshold  # type: ignore[assignment, unused-ignore]
+        # Determine anomalies (per-frame mask; distinct from the per-segment
+        # ``is_anomaly`` bool reused in the segment loop above).
+        anomaly_mask = np.asarray(scores > self.vlm_config.confidence_threshold, dtype=bool)
 
         # Collect explanations for anomalous segments
         explanations = [r["explanation"] for r in segment_results if r["is_anomaly"]]
@@ -412,11 +413,11 @@ EXPLANATION: [Your detailed explanation]
 
         return {
             "scores": scores,
-            "is_anomaly": is_anomaly,
+            "is_anomaly": anomaly_mask,
             "explanations": explanations,
             "features": features,
             "segment_results": segment_results,
-            "anomaly_frames": np.where(is_anomaly)[0].tolist(),
+            "anomaly_frames": np.where(anomaly_mask)[0].tolist(),
             "reasoning": reasoning,
         }
 

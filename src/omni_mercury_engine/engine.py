@@ -1182,20 +1182,21 @@ class OmniMercuryEngine(LoggerMixin):
 
         This method extracts features from all detectors and trains the OmniFusionModel
         to produce calibrated anomaly scores. Supports both supervised (with labels)
-        and semi-supervised (estimated pseudo-labels) training.
+        and semi-supervised (detector-consensus labels) training.
 
         This is the primary fix for Issue #1: Untrained Fusion Neural Network.
 
         Args:
             X: Training features (n_samples, n_features).
             y: Optional training labels (1=anomaly, 0=normal). If None, uses
-               semi-supervised learning with pseudo-labels from detector consensus.
+               semi-supervised learning with consensus labels derived from
+               detector agreement.
             epochs: Maximum training epochs (default: 50).
             batch_size: Training batch size (default: 32).
             learning_rate: Learning rate for optimizer (default: 0.001).
             early_stopping_patience: Epochs without improvement before stopping.
             validation_split: Fraction of data for validation.
-            contamination: Expected anomaly fraction for pseudo-labeling. If None,
+            contamination: Expected anomaly fraction for consensus labeling. If None,
                           estimated from data using adaptive methods.
             use_focal_loss: Train with FocalLoss instead of BCE (default True).
                 Focal loss down-weights easy negatives so rare anomalies are not
@@ -1286,12 +1287,13 @@ class OmniMercuryEngine(LoggerMixin):
         detector_features = self._extract_fusion_features(X, fit_detectors=True)
         self._fusion_feature_groups = sorted(detector_features.keys())
 
-        # Generate pseudo-labels if not provided (semi-supervised). Done here --
-        # before the symbolic weight is resolved -- because the label-scarcity
-        # schedule keys on the number of (pseudo-)labelled anomalies.
+        # Generate consensus labels if not provided (semi-supervised). Done
+        # here -- before the symbolic weight is resolved -- because the
+        # label-scarcity schedule keys on the number of consensus-labelled
+        # anomalies.
         if y is None:
-            logger.info("No labels provided, using semi-supervised pseudo-labeling...")
-            y = self._generate_pseudo_labels(X, contamination)
+            logger.info("No labels provided, using semi-supervised consensus labeling...")
+            y = self._generate_consensus_labels(X, contamination)
 
         # Resolve the symbolic co-training weight to a concrete lambda. The
         # public argument may be a float, the string "adaptive", or a
@@ -1883,12 +1885,12 @@ class OmniMercuryEngine(LoggerMixin):
         )
         return metrics
 
-    def _generate_pseudo_labels(
+    def _generate_consensus_labels(
         self,
         X: np.ndarray[Any, Any],
         contamination: float | None = None,
     ) -> np.ndarray[Any, Any]:
-        """Generate pseudo-labels using detector consensus for semi-supervised learning.
+        """Generate consensus labels using detector agreement for semi-supervised learning.
 
         Uses adaptive contamination estimation and ensemble voting from detector
         scores to identify likely anomalies for training.
@@ -1898,7 +1900,7 @@ class OmniMercuryEngine(LoggerMixin):
             contamination: Expected anomaly fraction. If None, estimated adaptively.
 
         Returns:
-            Binary pseudo-labels (0=normal, 1=anomaly).
+            Binary consensus labels (0=normal, 1=anomaly).
         """
         n_samples = len(X)
 
@@ -1937,14 +1939,14 @@ class OmniMercuryEngine(LoggerMixin):
 
         # Threshold at (1 - contamination) percentile
         threshold = np.percentile(ensemble_score, (1 - contamination) * 100)
-        pseudo_labels = (ensemble_score > threshold).astype(float)
+        consensus_labels = (ensemble_score > threshold).astype(float)
 
         logger.info(
-            f"Generated pseudo-labels: contamination={contamination:.4f}, "
-            f"n_anomalies={int(pseudo_labels.sum())}/{n_samples}"
+            f"Generated consensus labels: contamination={contamination:.4f}, "
+            f"n_anomalies={int(consensus_labels.sum())}/{n_samples}"
         )
 
-        return pseudo_labels  # type: ignore[no-any-return, unused-ignore]
+        return consensus_labels  # type: ignore[no-any-return, unused-ignore]
 
     def _extract_fusion_features(
         self,
@@ -2291,8 +2293,8 @@ class OmniMercuryEngine(LoggerMixin):
         Args:
             X: Raw training features ``(n_samples, n_features)``.
             output_path: Destination ``.npz`` path.
-            y: Optional binary labels (1=anomaly, 0=normal). If None, semi
-                supervised pseudo-labels are generated from detector consensus.
+            y: Optional binary labels (1=anomaly, 0=normal). If None, semi-
+                supervised consensus labels are generated from detector agreement.
             contamination: Expected anomaly fraction used only when ``y`` is
                 None. If None, estimated adaptively.
 
@@ -2322,7 +2324,7 @@ class OmniMercuryEngine(LoggerMixin):
             arrays[name] = feat.detach().cpu().numpy().astype(np.float32)
 
         if y is None:
-            y = self._generate_pseudo_labels(X, contamination)
+            y = self._generate_consensus_labels(X, contamination)
         arrays["labels"] = np.asarray(y).astype(np.int64)
 
         if not output_path.endswith(".npz"):

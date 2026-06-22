@@ -926,7 +926,7 @@ ignore-imports = true
 # =============================================================================
 [tool.bandit]
 exclude_dirs = ["tests", "venv", ".venv", "build", "dist"]
-# B311: pseudo-random for ML (init, dropout, shuffle, anomaly noise).
+# B311: non-cryptographic RNG for ML (init, dropout, shuffle, anomaly noise) — not security-sensitive.
 #   Every np.random / random use under src/ is ML / numerics, not
 #   crypto -- AMA owns crypto random. Documented and not enumerated
 #   per-call.

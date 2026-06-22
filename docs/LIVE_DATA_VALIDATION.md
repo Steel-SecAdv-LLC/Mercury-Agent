@@ -10,17 +10,17 @@ synthetic data, no tuning. Results are measured, not estimated.
 The committed `benchmarks/mercury_benchmark_results.json` run is the
 single source of truth:
 
-- **Committed benchmark run: 65 successful / 75 attempted.**
+- **Committed benchmark run: 66 successful / 75 attempted.**
   47 ADBench tabular + 28 domain loaders attempted; 10 external
-  sources unavailable / rate-limited. Measured **Mean AUC 0.8466 /
-  Median 0.9100 / Mean Oracle F1 0.6428** (2026-05-19, commit
-  79e8335), surfaced in the README *Latest Benchmark Results* block
+  sources unavailable / rate-limited. Measured **Mean AUC 0.8251 /
+  Median 0.8747 / Mean Oracle F1 0.5998** (2026-06-21, commit
+  a7a194b), surfaced in the README *Latest Benchmark Results* block
   and regenerated on every push to `main`.
 - **CI regression-gate floor (historical): Mean AUC 0.803 / Mean
   Oracle F1 0.589.** The benchmark workflow fails if ROC-AUC drops
   below 0.68 or Mean Oracle F1 below 0.50 — 15% margins below this
   historical measured baseline (see `.github/workflows/benchmark.yml`).
-- **Externally-comparable subset: ADBench Mean AUC 0.8180** — the
+- **Externally-comparable subset: ADBench Mean AUC 0.8251** — the
   numbers comparable to published detectors (the self-labeled
   environmental loaders are threshold-derived; see the README
   "Label provenance and comparability" split).

@@ -124,8 +124,8 @@ class ScalarImportanceAnalyzer:
             variance = np.var(values)
             stability = 1 / (1 + variance)
 
-            # Compute correlation with pseudo-output
-            # (using mean of other scalars as proxy)
+            # Compute correlation with a surrogate target
+            # (the mean of the other scalars)
             other_mean = np.mean(np.delete(history_arr, i, axis=1), axis=1)
             if np.std(values) > 0 and np.std(other_mean) > 0:
                 correlation = np.abs(np.corrcoef(values, other_mean)[0, 1])

@@ -38,12 +38,12 @@ for the post-quantum cryptographic substrate.
   boundary. See [`SECURITY.md`](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/SECURITY.md) for the full
   contract.
 - **Committed benchmark run.** The README headline is the committed
-  `mercury_benchmark_results.json` run — **65 successful / 75
-  attempted**, Mean AUC **0.8466**, Median **0.9100**, Mean Oracle
-  F1 **0.6428** (2026-05-19) — surfaced in the README "Latest
+  `mercury_benchmark_results.json` run — **66 successful / 75
+  attempted**, Mean AUC **0.8251**, Median **0.8747**, Mean Oracle
+  F1 **0.5998** (2026-06-21) — surfaced in the README "Latest
   Benchmark Results" block. CI's regression-gate floor is the
   historical **0.803 AUC / 0.589 F1** baseline (the gate trips 15%
-  below it). Externally-comparable subset: ADBench Mean AUC 0.8180.
+  below it). Externally-comparable subset: ADBench Mean AUC 0.8251.
   See [`BENCHMARKS.md`](BENCHMARKS.md).
 - **Pickle removed from the training-data path; not a blanket ban.**
   PR #166 deleted the `pickle` code path from the training-data

@@ -31,8 +31,8 @@ from typing import Any
 class ContextStats:
     """Statistics for a single context (domain, goal_type)."""
 
-    alpha: float = 0.76  # Prior pseudo-successes (mean = 0.76 with kappa=1)
-    beta: float = 0.24  # Prior pseudo-failures
+    alpha: float = 0.76  # Prior successes (Beta alpha; mean = 0.76 with kappa=1)
+    beta: float = 0.24  # Prior failures (Beta beta)
     successes: int = 0  # Actual observed successes
     failures: int = 0  # Actual observed failures
     last_updated: float = 0.0  # Timestamp of last update
@@ -85,7 +85,7 @@ class CalibrationConfig:
 
     # Prior parameters (kappa=1 gives weak prior, fast adaptation)
     prior_mean: float = 0.76  # Starting confidence for novel contexts
-    prior_kappa: float = 1.0  # Prior strength (pseudo-observations)
+    prior_kappa: float = 1.0  # Prior strength (Beta concentration / prior sample count)
 
     # Familiarity interpolation
     familiarity_target: int = 5  # Observations needed for full posterior trust

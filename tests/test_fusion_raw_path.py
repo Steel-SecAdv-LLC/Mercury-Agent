@@ -125,8 +125,8 @@ class TestFeatureNpzBuilder:
             assert archive[name].shape == tuple(tensor.shape)
             assert np.all(np.isfinite(archive[name]))
 
-    def test_build_feature_npz_pseudo_labels(self, engine: Any, tmp_path: Any) -> None:
-        """Without labels the builder emits detector-consensus pseudo-labels."""
+    def test_build_feature_npz_consensus_labels(self, engine: Any, tmp_path: Any) -> None:
+        """Without labels the builder emits detector-consensus labels."""
         X, _ = _separable_fixture()
         out = str(tmp_path / "feats_unlabeled.npz")
         engine.build_feature_npz(X, out, y=None, contamination=0.1)

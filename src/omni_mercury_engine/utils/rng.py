@@ -127,7 +127,7 @@ class DeterministicRNG:
             Random array from normal distribution
         """
         rng = self.get_numpy_rng()
-        return rng.normal(loc=loc, scale=scale, size=size).astype(dtype)
+        return np.asarray(rng.normal(loc=loc, scale=scale, size=size)).astype(dtype)
 
     def uniform(
         self,
@@ -148,7 +148,7 @@ class DeterministicRNG:
             Random array from uniform distribution
         """
         rng = self.get_numpy_rng()
-        return rng.uniform(low=low, high=high, size=size).astype(dtype)
+        return np.asarray(rng.uniform(low=low, high=high, size=size)).astype(dtype)
 
     def random(self, size: int | tuple[int, ...] | None = None) -> np.ndarray[Any, Any]:
         """Generate random floats in the half-open interval [0.0, 1.0).
@@ -312,7 +312,7 @@ class RNGState:
             "seed": self.seed,
             "version": self.version,
             "numpy_state_hash": (
-                # Using SHA3-256 for Ava-Guardian alignment
+                # Using SHA3-256 for AMA Cryptography alignment
                 # Note: This is non-cryptographic use for state hashing
                 hashlib.sha3_256(str(self.numpy_state).encode()).hexdigest()
                 if self.numpy_state

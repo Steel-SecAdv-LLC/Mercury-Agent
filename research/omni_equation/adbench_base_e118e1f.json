@@ -1,0 +1,192 @@
+{
+  "summary": {
+    "n_datasets": 18,
+    "n_scored": 18,
+    "mean_auroc": 0.7397,
+    "protocol": "transductive (fit unlabeled on X, score X, AUROC vs y); full sets",
+    "commit": "e118e1f3ec34fddbaf246d3b2898ebb4d2f56ccf",
+    "note": "Base (pre-hardening) run of harness_adbench.py at commit e118e1f, the PR-302 merge base. Regenerate byte-for-byte on a base worktree with the AMA backend built: `git worktree add /tmp/base e118e1f && (cd /tmp/base && LD_LIBRARY_PATH=<ama-build-lib> python research/omni_equation/harness_adbench.py --out adbench_base_e118e1f.json)`. Consumed by --baseline to produce adbench_base_vs_current.json. Note the base data-type gate mislabels 11/18 tabular sets as TEMPORAL (the exact bug PR-302 fixes)."
+  },
+  "results": [
+    {
+      "dataset": "breastw",
+      "n": 683,
+      "d": 9,
+      "anom_rate": 0.3499,
+      "data_type": "temporal",
+      "weight_source": "unsupervised_adaptive",
+      "auroc": 0.9551,
+      "secs": 1.4
+    },
+    {
+      "dataset": "cardio",
+      "n": 1831,
+      "d": 21,
+      "anom_rate": 0.0961,
+      "data_type": "tabular",
+      "weight_source": "unsupervised_adaptive",
+      "auroc": 0.906,
+      "secs": 0.1
+    },
+    {
+      "dataset": "Cardiotocography",
+      "n": 2114,
+      "d": 21,
+      "anom_rate": 0.2204,
+      "data_type": "tabular",
+      "weight_source": "unsupervised_adaptive",
+      "auroc": 0.6248,
+      "secs": 0.1
+    },
+    {
+      "dataset": "glass",
+      "n": 214,
+      "d": 7,
+      "anom_rate": 0.0421,
+      "data_type": "temporal",
+      "weight_source": "unsupervised_adaptive",
+      "auroc": 0.6461,
+      "secs": 0.4
+    },
+    {
+      "dataset": "Hepatitis",
+      "n": 80,
+      "d": 19,
+      "anom_rate": 0.1625,
+      "data_type": "tabular",
+      "weight_source": "unsupervised_adaptive",
+      "auroc": 0.682,
+      "secs": 0.0
+    },
+    {
+      "dataset": "Ionosphere",
+      "n": 351,
+      "d": 32,
+      "anom_rate": 0.359,
+      "data_type": "temporal",
+      "weight_source": "unsupervised_adaptive",
+      "auroc": 0.8753,
+      "secs": 1.5
+    },
+    {
+      "dataset": "Lymphography",
+      "n": 148,
+      "d": 18,
+      "anom_rate": 0.0405,
+      "data_type": "tabular",
+      "weight_source": "unsupervised_adaptive",
+      "auroc": 0.9918,
+      "secs": 0.0
+    },
+    {
+      "dataset": "mammography",
+      "n": 11183,
+      "d": 6,
+      "anom_rate": 0.0232,
+      "data_type": "temporal",
+      "weight_source": "unsupervised_adaptive",
+      "auroc": 0.8354,
+      "secs": 17.9
+    },
+    {
+      "dataset": "optdigits",
+      "n": 5216,
+      "d": 64,
+      "anom_rate": 0.0288,
+      "data_type": "tabular",
+      "weight_source": "unsupervised_adaptive",
+      "auroc": 0.4972,
+      "secs": 0.8
+    },
+    {
+      "dataset": "PageBlocks",
+      "n": 5393,
+      "d": 10,
+      "anom_rate": 0.0946,
+      "data_type": "temporal",
+      "weight_source": "unsupervised_adaptive",
+      "auroc": 0.8604,
+      "secs": 11.5
+    },
+    {
+      "dataset": "Pima",
+      "n": 768,
+      "d": 8,
+      "anom_rate": 0.349,
+      "data_type": "temporal",
+      "weight_source": "unsupervised_adaptive",
+      "auroc": 0.6441,
+      "secs": 1.4
+    },
+    {
+      "dataset": "Stamps",
+      "n": 340,
+      "d": 9,
+      "anom_rate": 0.0912,
+      "data_type": "temporal",
+      "weight_source": "unsupervised_adaptive",
+      "auroc": 0.7952,
+      "secs": 0.7
+    },
+    {
+      "dataset": "thyroid",
+      "n": 3772,
+      "d": 6,
+      "anom_rate": 0.0247,
+      "data_type": "temporal",
+      "weight_source": "unsupervised_adaptive",
+      "auroc": 0.9079,
+      "secs": 6.2
+    },
+    {
+      "dataset": "vertebral",
+      "n": 240,
+      "d": 6,
+      "anom_rate": 0.125,
+      "data_type": "temporal",
+      "weight_source": "unsupervised_adaptive",
+      "auroc": 0.3998,
+      "secs": 0.4
+    },
+    {
+      "dataset": "Waveform",
+      "n": 3443,
+      "d": 21,
+      "anom_rate": 0.029,
+      "data_type": "temporal",
+      "weight_source": "unsupervised_adaptive",
+      "auroc": 0.587,
+      "secs": 14.6
+    },
+    {
+      "dataset": "WBC",
+      "n": 223,
+      "d": 9,
+      "anom_rate": 0.0448,
+      "data_type": "tabular",
+      "weight_source": "unsupervised_adaptive",
+      "auroc": 0.9869,
+      "secs": 0.0
+    },
+    {
+      "dataset": "wine",
+      "n": 129,
+      "d": 13,
+      "anom_rate": 0.0775,
+      "data_type": "temporal",
+      "weight_source": "unsupervised_adaptive",
+      "auroc": 0.6429,
+      "secs": 0.3
+    },
+    {
+      "dataset": "WPBC",
+      "n": 198,
+      "d": 33,
+      "anom_rate": 0.2374,
+      "data_type": "tabular",
+      "weight_source": "unsupervised_adaptive",
+      "auroc": 0.477,
+      "secs": 0.1
+    }
+  ]
+}

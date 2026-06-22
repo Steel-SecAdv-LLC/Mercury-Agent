@@ -321,7 +321,7 @@ class SPDManifold(Manifold):
             return result
         except scipy.linalg.LinAlgError:
             logger.warning(
-                "Singular matrix encountered in SPD inverse; falling back to pseudo-inverse."
+                "Singular matrix encountered in SPD inverse; falling back to the Moore-Penrose inverse."
             )
             result = scipy.linalg.pinvh(x)
             return result

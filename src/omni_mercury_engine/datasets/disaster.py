@@ -455,7 +455,7 @@ class FEMADisasterLoader(DatasetLoader):
             if rng.random() < 0.7:
                 state_fips = rng.choice(disaster_prone_states)
             else:
-                state_fips = rng.integers(1, 57)
+                state_fips = int(rng.integers(1, 57))
 
             # Date within year range
             year = rng.integers(self.year_range[0], self.year_range[1] + 1)
@@ -468,7 +468,7 @@ class FEMADisasterLoader(DatasetLoader):
             elif state_fips == 6:  # California
                 month = rng.choice([7, 8, 9, 10, 11], p=[0.1, 0.2, 0.2, 0.3, 0.2])
             else:
-                month = rng.integers(1, 13)
+                month = int(rng.integers(1, 13))
 
             day = rng.integers(1, 29)
 
@@ -480,7 +480,7 @@ class FEMADisasterLoader(DatasetLoader):
             elif state_fips == 6:
                 incident_code = rng.choice([3, 5])  # Fire, Earthquake
             else:
-                incident_code = rng.integers(0, len(self.INCIDENT_TYPES))
+                incident_code = int(rng.integers(0, len(self.INCIDENT_TYPES)))
 
             # Declaration type (DR is most common)
             decl_code = rng.choice([0, 1, 2], p=[0.7, 0.2, 0.1])

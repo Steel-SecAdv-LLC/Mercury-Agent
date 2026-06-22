@@ -14,15 +14,13 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING, Any
+from pathlib import Path
+from typing import Any
 
 import numpy as np
 
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry, safe_urlretrieve
 from .exceptions import DataSourceUnavailableError
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -660,8 +658,340 @@ class SMAPMSLLoader(DatasetLoader):
         }
 
 
+class DSADSLoader(DatasetLoader):
+    """Daily and Sports Activities Dataset (DSADS) — UCI 256.
+
+    Downloads the REAL multivariate inertial-sensor recordings from the UCI
+    Machine Learning Repository (dataset 256) and turns them into a tabular
+    anomaly-detection task. Real data only — fails loud if the archive is
+    unreachable; never substitutes synthetic.
+
+    Data source:
+        https://archive.ics.uci.edu/ml/machine-learning-databases/00256/data.zip
+    Paper:
+        Barshan B, Yüksek M C. "Recognizing Daily and Sports Activities in Two
+        Open Source Machine Learning Environments Using Body-Worn Sensor Units."
+        The Computer Journal 57(11), 2014.
+
+    Archive layout: ``data/a{01..19}/p{1..8}/s{01..60}.txt`` — 19 activities ×
+    8 subjects × 60 five-second segments = 9120 segments, each a 125 × 45 matrix
+    (5 s @ 25 Hz across 45 channels: 9 axes × 5 body units).
+
+    Representation: each 125 × 45 segment is reduced to a fixed **405-dim**
+    feature vector — 9 per-channel statistics (mean, std, min, max, median,
+    25th/75th percentile, peak-to-peak, RMS) across the 45 channels. Standard
+    statistical HAR featurisation; fully deterministic, no randomness.
+
+    Anomaly labels: DSADS has **no native anomaly labels** (it is a 19-class
+    activity-recognition set), so this loader constructs a transparent,
+    DOCUMENTED convention: segments of a designated minority of activities are
+    labelled anomalous, the rest normal. The default singles out activity 19
+    ("playing basketball") — the only ball sport and the most irregular,
+    non-cyclic activity in the set — giving 480 / 9120 = 5.26% anomalies.
+    Override with ``preprocessing={"anomaly_activities": [..1-based..]}``. The
+    manufactured nature is surfaced in ``get_dataset_info`` (``label_source =
+    "statistical"`` — the repo taxonomy's value for constructed/heuristic labels);
+    only the *labels* are constructed — the sensor features are real and never
+    fabricated.
+    """
+
+    DATASET_NAME = "dsads"
+    DATASET_URL = "https://archive.ics.uci.edu/dataset/256/daily+and+sports+activities"
+    LICENSE = "CC BY 4.0 (UCI)"
+    CITATION = (
+        "Barshan B, Yüksek M C. Recognizing Daily and Sports Activities in Two Open "
+        "Source Machine Learning Environments Using Body-Worn Sensor Units. "
+        "The Computer Journal 57(11), 2014."
+    )
+    REQUIRES_CREDENTIALS = False
+    # Manufactured anomaly labels (activity designation) — excluded from the
+    # comparable headline; registered in datasets.label_provenance.
+    LABEL_SOURCE = "statistical"
+
+    DATA_URL = "https://archive.ics.uci.edu/ml/machine-learning-databases/00256/data.zip"
+    N_ACTIVITIES = 19
+    N_SUBJECTS = 8
+    N_SEGMENTS = 60
+    SEGMENT_ROWS = 125
+    SEGMENT_COLS = 45
+    _DEFAULT_ANOMALY_ACTIVITIES = (19,)
+
+    def __init__(self, config: DatasetConfig) -> None:
+        """Initialize the instance, validating the anomaly-activity convention."""
+        super().__init__(config)
+        raw = config.preprocessing.get("anomaly_activities", self._DEFAULT_ANOMALY_ACTIVITIES)
+        self.anomaly_activities = frozenset(int(a) for a in raw)
+        if not self.anomaly_activities or not all(
+            1 <= a <= self.N_ACTIVITIES for a in self.anomaly_activities
+        ):
+            raise ValueError(
+                f"anomaly_activities must be a non-empty subset of 1..{self.N_ACTIVITIES}; "
+                f"got {sorted(self.anomaly_activities)}"
+            )
+
+    @property
+    def _zip_path(self) -> Path:
+        return self.data_path / "dsads_data.zip"
+
+    def download(self) -> bool:
+        """Download the REAL DSADS archive from UCI (~170 MB), cached on disk."""
+        if self._zip_path.exists():
+            logger.info("DSADS archive already cached at %s", self._zip_path)
+            return True
+        logger.info("Downloading REAL DSADS (UCI 256, ~170 MB)...")
+        safe_urlretrieve(self.DATA_URL, self._zip_path)
+        return self._zip_path.exists()
+
+    @staticmethod
+    def _segment_features(seg: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Reduce a (125, 45) segment to 405 deterministic per-channel statistics."""
+        seg = seg.astype(np.float64)
+        return np.concatenate(
+            [
+                seg.mean(axis=0),
+                seg.std(axis=0),
+                seg.min(axis=0),
+                seg.max(axis=0),
+                np.median(seg, axis=0),
+                np.percentile(seg, 25, axis=0),
+                np.percentile(seg, 75, axis=0),
+                np.ptp(seg, axis=0),
+                np.sqrt((seg**2).mean(axis=0)),
+            ]
+        )
+
+    def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+        """Parse the cached archive into (X[9120, 405], y[9120]) — real data only."""
+        import re
+        import zipfile
+
+        if not self._zip_path.exists():
+            raise FileNotFoundError(
+                f"DSADS archive not found at {self._zip_path}. Run with download=True."
+            )
+
+        seg_re = re.compile(r"(?:^|/)a(\d{2})/p(\d)/s(\d{2})\.txt$")
+        feats: list[np.ndarray[Any, Any]] = []
+        labels: list[int] = []
+        expected = self.N_ACTIVITIES * self.N_SUBJECTS * self.N_SEGMENTS
+        with zipfile.ZipFile(self._zip_path) as zf:
+            members = sorted(n for n in zf.namelist() if seg_re.search(n))
+            if len(members) != expected:
+                raise ValueError(
+                    f"DSADS archive layout unexpected: found {len(members)} segment "
+                    f"files, expected {expected} (19 activities × 8 subjects × 60)."
+                )
+            for name in members:
+                match = seg_re.search(name)
+                assert match is not None  # guaranteed by the filter above
+                activity = int(match.group(1))
+                with zf.open(name) as handle:
+                    seg = np.loadtxt(handle, delimiter=",")
+                if seg.shape != (self.SEGMENT_ROWS, self.SEGMENT_COLS):
+                    raise ValueError(
+                        f"DSADS segment {name} has shape {seg.shape}, expected "
+                        f"({self.SEGMENT_ROWS}, {self.SEGMENT_COLS})."
+                    )
+                feats.append(self._segment_features(seg))
+                labels.append(1 if activity in self.anomaly_activities else 0)
+
+        features = np.asarray(feats, dtype=np.float64)
+        targets = np.asarray(labels, dtype=np.int64)
+        logger.info(
+            "Loaded REAL DSADS: %d segments × %d features, %d anomalies (%.2f%%); "
+            "anomaly activities=%s",
+            features.shape[0],
+            features.shape[1],
+            int(targets.sum()),
+            100.0 * float(targets.mean()),
+            sorted(self.anomaly_activities),
+        )
+        return features, targets
+
+    def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Z-score normalise the per-channel statistic features."""
+        data = np.nan_to_num(data, nan=0.0)
+        return ((data - data.mean(axis=0)) / (data.std(axis=0) + 1e-8)).astype(np.float32)
+
+    def get_dataset_info(self) -> dict[str, Any]:
+        """Return dataset metadata, flagging the constructed anomaly labels."""
+        return {
+            "name": "Daily and Sports Activities (DSADS, UCI 256)",
+            "type": "REAL DATA",
+            "source": self.DATASET_URL,
+            "label_source": "statistical",
+            "anomaly_activities": sorted(self.anomaly_activities),
+            "citation": self.CITATION,
+        }
+
+
+class EpilepsyLoader(DatasetLoader):
+    """Bonn single-electrode EEG (Andrzejak et al. 2001) — Epileptic Seizure set.
+
+    Reconstructs the canonical **11500 × 178** tabular anomaly-detection task from
+    the OFFICIAL raw Bonn EEG time series (five sets A–E), hosted by the NTSA
+    group at Universitat Pompeu Fabra: https://www.upf.edu/web/ntsa/downloads/.
+
+    Official source only — no third-party mirrors, no simulated "mimic" data. The
+    UCI tabular version (11500 × 178) was removed, and the UPF page sits behind a
+    Cloudflare JS challenge that blocks automated download from the SSRF-safe
+    client. So the data is supplied via a **local path** to the manually-
+    downloaded official sets; absent that, the loader fails loud (it never
+    fabricates and never pulls an unvetted mirror).
+
+    Provide ``preprocessing={"bonn_dir": "<dir>"}`` where ``<dir>`` holds the five
+    official set archives (``Z.zip O.zip N.zip F.zip S.zip``) or five extracted
+    set directories (``Z/ O/ N/ F/ S/``), each containing 100 text files of 4097
+    single-channel EEG samples (one value per line) — the published Bonn format.
+
+    Reconstruction (the standard tabular derivation): every 4097-sample recording
+    is chunked into 23 non-overlapping 178-sample segments (4094 used; the final
+    3 dropped), so 100 × 23 = 2300 rows per set × 5 sets = **11500 × 178**.
+    Labels: set **S** (set E in the paper; ictal/seizure activity) = anomaly (1),
+    the four non-ictal sets (Z, O, N, F) = normal (0) → 2300/11500 = **0.20**.
+
+    Citation (required by the data authors): Andrzejak RG, Lehnertz K, Mormann F,
+    Rieke C, David P, Elger CE. "Indications of nonlinear deterministic and
+    finite-dimensional structures in time series of brain electrical activity:
+    Dependence on recording region and brain state." Phys. Rev. E 64, 061907
+    (2001).
+    """
+
+    DATASET_NAME = "epilepsy"
+    DATASET_URL = "https://www.upf.edu/web/ntsa/downloads/"
+    LICENSE = "Free for research use with citation (Andrzejak et al. 2001)"
+    CITATION = (
+        "Andrzejak RG, Lehnertz K, Mormann F, Rieke C, David P, Elger CE. "
+        "Indications of nonlinear deterministic and finite-dimensional structures "
+        "in time series of brain electrical activity. Phys. Rev. E 64, 061907 (2001)."
+    )
+    REQUIRES_CREDENTIALS = False
+    # Genuine ictal/seizure brain-state labels (set E) — registered ground_truth.
+    LABEL_SOURCE = "ground_truth"
+
+    SETS = ("Z", "O", "N", "F", "S")
+    _SEIZURE_SET = "S"  # set E in the paper (ictal/seizure)
+    FILES_PER_SET = 100
+    SAMPLES_PER_FILE = 4097
+    SEGMENT_LEN = 178
+    SEGMENTS_PER_FILE = 23  # 23 * 178 = 4094 (final 3 samples dropped)
+
+    def __init__(self, config: DatasetConfig) -> None:
+        """Initialize the instance; ``preprocessing['bonn_dir']`` supplies the data."""
+        super().__init__(config)
+        bonn_dir = config.preprocessing.get("bonn_dir")
+        self.bonn_dir: Path | None = Path(bonn_dir) if bonn_dir else None
+
+    def download(self) -> bool:
+        """Validate the user-provided official data; fail loud if absent.
+
+        The official UPF source is Cloudflare-gated, so there is no automated
+        fetch — the supported path is a manually-downloaded local copy.
+        """
+        if self.bonn_dir is not None and self.bonn_dir.exists():
+            return True
+        raise DataSourceUnavailableError(
+            loader_name="Epilepsy (Bonn EEG / UPF)",
+            source_url=self.DATASET_URL,
+            reason=(
+                "Official Bonn EEG data (Andrzejak et al. 2001) is hosted at "
+                f"{self.DATASET_URL} behind a Cloudflare challenge that blocks automated "
+                "download. Download the five sets (A–E) from there and pass "
+                "preprocessing={'bonn_dir': '<dir with Z/O/N/F/S .zip or folders>'}. "
+                "Third-party mirrors and 'mimic' datasets are deliberately not used."
+            ),
+        )
+
+    def _read_set(self, set_name: str) -> list[np.ndarray[Any, Any]]:
+        """Read one set's 100 recordings (each a 1-D array) from a .zip or a dir."""
+        import zipfile
+
+        assert self.bonn_dir is not None  # download() guarantees this
+        zip_path = self.bonn_dir / f"{set_name}.zip"
+        dir_path = self.bonn_dir / set_name
+        recordings: list[np.ndarray[Any, Any]] = []
+        if zip_path.exists():
+            with zipfile.ZipFile(zip_path) as zf:
+                for name in sorted(n for n in zf.namelist() if not n.endswith("/")):
+                    with zf.open(name) as handle:
+                        recordings.append(np.loadtxt(handle))
+        elif dir_path.is_dir():
+            for path in sorted(p for p in dir_path.iterdir() if p.is_file()):
+                recordings.append(np.loadtxt(path))
+        else:
+            raise FileNotFoundError(
+                f"Epilepsy set '{set_name}': expected {zip_path} or {dir_path}/ "
+                f"under bonn_dir={self.bonn_dir}."
+            )
+        return recordings
+
+    def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+        """Reconstruct (X[11500, 178], y[11500]) from the official sets."""
+        if self.bonn_dir is None or not self.bonn_dir.exists():
+            raise FileNotFoundError(
+                "Epilepsy: no bonn_dir provided. See EpilepsyLoader docstring — "
+                "supply the official Bonn EEG sets via preprocessing['bonn_dir']."
+            )
+
+        seg_per = self.SEGMENTS_PER_FILE
+        usable = seg_per * self.SEGMENT_LEN
+        feats: list[np.ndarray[Any, Any]] = []
+        labels: list[int] = []
+        for set_name in self.SETS:
+            recordings = self._read_set(set_name)
+            if len(recordings) != self.FILES_PER_SET:
+                raise ValueError(
+                    f"Epilepsy set '{set_name}': expected {self.FILES_PER_SET} recordings, "
+                    f"got {len(recordings)} — not the official Bonn layout."
+                )
+            label = 1 if set_name == self._SEIZURE_SET else 0
+            for rec in recordings:
+                flat = np.asarray(rec, dtype=np.float64).ravel()
+                if flat.shape[0] < usable:
+                    raise ValueError(
+                        f"Epilepsy set '{set_name}': a recording has {flat.shape[0]} samples, "
+                        f"need >= {usable} (official files are {self.SAMPLES_PER_FILE})."
+                    )
+                feats.append(flat[:usable].reshape(seg_per, self.SEGMENT_LEN))
+                labels.extend([label] * seg_per)
+
+        features = np.vstack(feats)
+        targets = np.asarray(labels, dtype=np.int64)
+        expected_rows = len(self.SETS) * self.FILES_PER_SET * seg_per
+        if features.shape != (expected_rows, self.SEGMENT_LEN):
+            raise ValueError(
+                f"Epilepsy reconstruction produced {features.shape}, expected "
+                f"({expected_rows}, {self.SEGMENT_LEN})."
+            )
+        logger.info(
+            "Reconstructed REAL Epilepsy (Bonn): %d × %d, %d seizure rows (%.1f%%)",
+            features.shape[0],
+            features.shape[1],
+            int(targets.sum()),
+            100.0 * float(targets.mean()),
+        )
+        return features, targets
+
+    def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Z-score normalise the per-segment EEG amplitudes."""
+        data = np.nan_to_num(data, nan=0.0)
+        return ((data - data.mean(axis=0)) / (data.std(axis=0) + 1e-8)).astype(np.float32)
+
+    def get_dataset_info(self) -> dict[str, Any]:
+        """Return dataset metadata."""
+        return {
+            "name": "Epileptic Seizure (Bonn EEG, Andrzejak et al. 2001)",
+            "type": "REAL DATA",
+            "source": self.DATASET_URL,
+            "label_source": "ground_truth",
+            "citation": self.CITATION,
+        }
+
+
 # Register time-series loaders
 DatasetRegistry.register("nab", NABLoader)
 DatasetRegistry.register("smd", SMDLoader)
 DatasetRegistry.register("smap", SMAPMSLLoader)
 DatasetRegistry.register("msl", SMAPMSLLoader)
+DatasetRegistry.register("dsads", DSADSLoader)
+DatasetRegistry.register("epilepsy", EpilepsyLoader)

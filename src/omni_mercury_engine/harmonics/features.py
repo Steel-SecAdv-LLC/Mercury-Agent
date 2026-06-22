@@ -263,12 +263,12 @@ class HarmonicFeatureExtractor:
         if not powers:
             return 0.0
 
-        powers = np.array(powers)  # type: ignore[assignment, unused-ignore]
-        total = np.sum(powers) + 1e-10
-        probs = powers / total
+        power_arr = np.array(powers)
+        total = np.sum(power_arr) + 1e-10
+        probs = power_arr / total
 
         entropy = -np.sum(probs * np.log(probs + 1e-10))
-        max_entropy = np.log(len(powers))
+        max_entropy = np.log(len(power_arr))
 
         return float(entropy / (max_entropy + 1e-10))
 

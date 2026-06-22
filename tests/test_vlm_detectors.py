@@ -395,3 +395,21 @@ class TestLVLMBackends:
 
         with pytest.raises(ValueError, match="Unknown LVLM model_type"):
             get_lvlm_backend("unknown")
+
+    def test_to_pil_2d_grayscale_is_not_transposed(self) -> None:
+        """A 2-D (H, W) grayscale array whose height is 1 or 3 must not enter
+        the CHW transpose path, which needs three axes.
+
+        Regression for a missing ``ndim == 3`` guard: ``arr.shape[0] in (1, 3)``
+        also matched a 2-D image one or three rows tall, so ``np.transpose(arr,
+        (1, 2, 0))`` raised ``ValueError: axes don't match array``. ``_to_pil`` is
+        model-independent, so the mock backend exercises it without a real LVLM.
+        """
+        from omni_mercury_engine.detectors.vlm.lvlm_backends import get_lvlm_backend
+
+        backend = get_lvlm_backend("mock")
+        for height in (1, 3):  # heights that collide with the CHW channel check
+            img = backend._to_pil(np.zeros((height, 8), dtype=np.uint8))
+            assert img.size == (8, height)  # PIL size is (width, height)
+        # a genuine CHW array is still transposed to HWC
+        assert backend._to_pil(np.zeros((3, 4, 5), dtype=np.uint8)).size == (5, 4)

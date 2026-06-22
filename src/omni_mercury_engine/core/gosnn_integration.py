@@ -91,7 +91,7 @@ class TTLCache:
     def _compute_key(self, data: np.ndarray[Any, Any]) -> str:
         """Compute cache key from numpy array using fast hashing."""
         # Use tobytes() for efficient array hashing
-        # Using SHA3-256 for Ava-Guardian alignment
+        # Using SHA3-256 for AMA Cryptography alignment
         return hashlib.sha3_256(data.tobytes()).hexdigest()
 
     def get(self, data: np.ndarray[Any, Any]) -> Any | None:

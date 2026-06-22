@@ -343,7 +343,10 @@ class PopulationStabilityIndexDetector:
             is_drift=is_drift,
             drift_type=DriftType.DATA_DRIFT,
             severity=severity,
-            p_value=1.0 - min(max_psi, 1.0),  # Invert PSI as pseudo p-value
+            p_value=1.0
+            - min(
+                max_psi, 1.0
+            ),  # Invert PSI into a [0, 1] significance proxy (not a calibrated p-value)
             test_statistic=float(max_psi),
             threshold=self.psi_threshold_low,
             feature_drifts=feature_drifts,

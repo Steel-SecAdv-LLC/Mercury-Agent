@@ -211,8 +211,8 @@ def detect_singularity(
     singularity_values = data_flat[singularity_indices]
 
     if len(singularity_indices) > 0:
-        singularity_strength = np.mean(np.abs(singularity_values)) / (
-            np.mean(np.abs(data_flat)) + 1e-10
+        singularity_strength = float(
+            np.mean(np.abs(singularity_values)) / (np.mean(np.abs(data_flat)) + 1e-10)
         )
     else:
         singularity_strength = 0.0

@@ -263,7 +263,7 @@ class DatasetConfig:
         """Generate unique cache key for this configuration."""
         key_data = f"{self.name}_{self.version}_{self.max_samples}_{self.random_seed}"
         key_data += json.dumps(self.preprocessing, sort_keys=True)
-        # Using SHA3-256 for Ava-Guardian alignment
+        # Using SHA3-256 for AMA Cryptography alignment
         # Note: This is non-cryptographic use for cache key generation
         return hashlib.sha3_256(key_data.encode()).hexdigest()[:16]
 

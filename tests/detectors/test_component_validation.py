@@ -17,6 +17,8 @@ Coverage targets:
 
 from __future__ import annotations
 
+from itertools import cycle
+
 import numpy as np
 import pytest
 
@@ -297,6 +299,96 @@ class TestUnsupervisedAdaptiveWeighting:
         det = MercuryAnomalyDetector()
         det.fit(X)
         assert det._data_type != DataCharacteristics.UNKNOWN or X.shape[0] < 5
+
+
+class TestWeightMarginPowerFallbackGate:
+    """Regression: ``_WEIGHT_MARGIN_POWER`` sharpening must not let the
+    no-signal fallback gate discard weak-but-real component separation.
+
+    With ``_WEIGHT_MARGIN_POWER > 1`` the powered margin of a real-but-weak
+    separation (AUC 0.52 -> ``0.02 ** 4 == 1.6e-7``) underflows the historical
+    ``total < 1e-6`` threshold, which would spuriously collapse the ensemble to
+    fixed/data-type weights. The gate is therefore keyed on the *raw* margins
+    (scale-invariant in the power), so genuine signal is kept and only true
+    noise (AUC ~ 0.5) falls back. At ``P == 1`` this is identical to the prior
+    behaviour, because ``raw_margins ** 1`` is ``raw_margins``.
+    """
+
+    def test_supervised_weak_but_real_margin_avoids_fallback(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Supervised weighter keeps a 0.52-AUC separation (not 40/30/30)."""
+        X, y = _make_gaussian_dataset()
+        det = MercuryAnomalyDetector()
+        det.fit(X)
+        monkeypatch.setattr(det, "_component_separation", lambda scores, labels: 0.52)
+        weights = det._compute_adaptive_weights(X, y)
+        assert det._weight_source == "adaptive"
+        assert not np.allclose(weights, [0.40, 0.30, 0.30])
+        assert abs(float(weights.sum()) - 1.0) < 1e-9
+        assert np.all(np.isfinite(weights))
+
+    def test_unsupervised_weak_but_real_margin_avoids_fallback(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Self-supervised weighter keeps a 0.52-AUC contrast, not the
+        data-type default."""
+        X, _ = _make_gaussian_dataset()
+        det = MercuryAnomalyDetector()
+        det._data_type = DataCharacteristics.UNKNOWN
+        monkeypatch.setattr(det, "_component_separation", lambda scores, labels: 0.52)
+        weights = det._compute_unsupervised_adaptive_weights(X)
+        assert det._weight_source == "unsupervised_adaptive"
+        assert abs(float(weights.sum()) - 1.0) < 1e-9
+        assert np.all(np.isfinite(weights))
+
+    def test_pure_noise_still_falls_back(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A genuine no-signal case (every separation at AUC 0.5) must still
+        fall back — the raw-margin gate keeps the safety net, not disables it."""
+        X, y = _make_gaussian_dataset()
+        det = MercuryAnomalyDetector()
+        det.fit(X)
+        monkeypatch.setattr(det, "_component_separation", lambda scores, labels: 0.5)
+        weights = det._compute_adaptive_weights(X, y)
+        assert det._weight_source == "fallback_default"
+        assert np.allclose(weights, [0.40, 0.30, 0.30])
+
+    def test_supervised_floor_excludes_zero_signal_component(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The 0.05 floor is for *strictly positive* separation only: a
+        component at exactly AUC 0.5 (no signal) keeps weight 0 instead of being
+        floored to 0.05, which would dilute the real components' share."""
+        X, y = _make_gaussian_dataset()
+        det = MercuryAnomalyDetector()
+        det.fit(X)
+        det._data_type = DataCharacteristics.UNKNOWN
+        # resonance/kinematic carry real signal; infogeo (3rd call) is dead 0.5.
+        seps = cycle([0.9, 0.6, 0.5])
+        monkeypatch.setattr(det, "_component_separation", lambda scores, labels: next(seps))
+        weights = det._compute_adaptive_weights(X, y)
+        assert det._weight_source == "adaptive"
+        assert weights[2] == 0.0, f"zero-signal component floored to {weights[2]:.4f}"
+        assert weights[0] > 0.0 and weights[1] > 0.0
+        assert abs(float(weights.sum()) - 1.0) < 1e-9
+
+    def test_unsupervised_floor_excludes_zero_signal_component(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Self-supervised path: a component whose mean contrast AUC is exactly
+        0.5 keeps weight 0 rather than being floored to 0.05."""
+        X, _ = _make_gaussian_dataset()
+        det = MercuryAnomalyDetector()
+        det._data_type = DataCharacteristics.UNKNOWN
+        # Called once per component per fold in (resonance, kinematic, infogeo)
+        # order, so a 3-cycle gives each a constant mean AUC: [0.9, 0.6, 0.5].
+        seps = cycle([0.9, 0.6, 0.5])
+        monkeypatch.setattr(det, "_component_separation", lambda scores, labels: next(seps))
+        weights = det._compute_unsupervised_adaptive_weights(X)
+        assert det._weight_source == "unsupervised_adaptive"
+        assert weights[2] == 0.0, f"zero-signal component floored to {weights[2]:.4f}"
+        assert weights[0] > 0.0 and weights[1] > 0.0
+        assert abs(float(weights.sum()) - 1.0) < 1e-9
 
 
 class TestEnsembleDiversityMetrics:

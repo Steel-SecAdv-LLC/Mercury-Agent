@@ -304,7 +304,7 @@ class ScarcityWeightSchedule:
         """Resolve the effective ``lambda`` for a training set with ``n_positive`` anomalies.
 
         Args:
-            n_positive: Number of labelled (or pseudo-labelled) anomalies in the
+            n_positive: Number of labelled (or consensus-labelled) anomalies in the
                 training split. Negative values are treated as ``0``.
 
         Returns:

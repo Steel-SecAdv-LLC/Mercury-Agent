@@ -660,6 +660,22 @@ def _benchmark_single(entry: dict[str, Any]) -> dict[str, Any]:
     # Cap test set
     X_test, y_test = _cap_stratified(X_test, y_test, MAX_SAMPLES)
 
+    # De-leak the evaluation order. X_test is built normals-then-anomalies and
+    # _cap_stratified preserves that class grouping, so y_test arrives
+    # label-sorted ([0...0, 1...1]). MercuryAnomalyDetector's kinematic stream
+    # applies a finite-difference (Conv1d) ACROSS the batch, so on a label-sorted
+    # batch the single normal->anomaly transition — a positional artifact, not
+    # per-sample evidence — drives the kinematic score: measured grouped-vs-
+    # shuffled kinematic AUC swings up to ~0.14 on individual sets (resonance /
+    # info-geometry are order-invariant; the ensemble is mostly robust but not
+    # exactly). Label-sorted order also makes run_progressive_validation's
+    # positional splits degenerate (single-class windows are skipped). Shuffle
+    # X_test and y_test together with a fixed seed so evaluation order carries no
+    # label information and every reported AUC reflects genuine per-sample
+    # discrimination rather than the block structure.
+    deleak_perm = np.random.RandomState(42).permutation(len(X_test))
+    X_test, y_test = X_test[deleak_perm], y_test[deleak_perm]
+
     # Handle NaN/Inf
     X_train = np.nan_to_num(X_train, nan=0.0, posinf=1e10, neginf=-1e10).astype(np.float64)
     X_test = np.nan_to_num(X_test, nan=0.0, posinf=1e10, neginf=-1e10).astype(np.float64)

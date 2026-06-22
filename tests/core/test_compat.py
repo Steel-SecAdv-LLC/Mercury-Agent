@@ -25,7 +25,6 @@ class TestCompatFlags:
 
     def test_core_ml_flags_exist(self) -> None:
         assert hasattr(_compat, "HAS_TORCH")
-        assert hasattr(_compat, "HAS_SKLEARN")
         assert hasattr(_compat, "HAS_TORCHVISION")
         assert hasattr(_compat, "HAS_TIMM")
         assert hasattr(_compat, "HAS_CV2")

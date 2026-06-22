@@ -75,3 +75,51 @@ measured accuracy/cost win with no value surrendered. Breadth (LLM / predictive 
 multimodal streams) comes **after**, each admitted only if it shows positive
 conditional lift under reliability-weighting so it cannot dilute. The actionable,
 gated, kill-criteria version is in `PROMPT.md`.
+
+---
+
+## Update — fusion frontier on real ADBench tabular (post-hardening)
+
+The detector-hardening pass (PR #302) lifted the committed 18-set transductive
+mean **0.7397 → 0.7634**, mostly by fixing the data-type gate (tabular sets were
+mislabelled temporal). That re-opened FINDINGS Gate 1 — *can reliability-weighting
+close the remaining gap to best-single without labels?* It was measured directly
+(`harness_fusion_diagnosis.py`, `fusion_diagnosis_results.json`). **The answer is
+no, for these streams.**
+
+* **The dilution gap is real and confirmed on ADBench:** mean fused **0.7634** vs
+  per-set best single stream **0.7934** (**+0.030**). It concentrates on a few
+  sets where resonance is strong and gets averaged down by info-geometry —
+  Cardiotocography (R 0.79 → fused 0.63), wine (0.78 → 0.68), Stamps, cardio,
+  thyroid — and it is the mechanism behind both PR-302 "losses" (Waveform,
+  WPBC).
+* **No label-free signal ranks the streams per-set.** The self-supervised
+  weighter estimates separation against a *synthetic contrast* set (3σ Gaussian
+  blobs), which every stream separates ~perfectly, so its per-stream AUCs
+  saturate at ~1.0 and carry no ranking information. Tested replacements all
+  fail: score-distribution statistics (skew / kurtosis / tail mass) predict the
+  better of {resonance, info-geometry} on only **10/18** sets (chance 9), and
+  **no** contrast (Gaussian σ∈{0.5…3}, feature-shuffle, uniform) does better than
+  **6–7/18**. The synthetic anomalies simply do not reflect real-anomaly
+  structure, so separation on them does not transfer.
+* **Every mean-improving combiner regresses real sets.** A fixed re-tilt toward
+  resonance, rank-mean, and rank-max all raise the mean (to ~0.773) but regress
+  **7+** sets by 0.06–0.17 (e.g. Ionosphere 0.92 → 0.74). None clears the
+  pre-registered keep bar (*net-positive AND no set below −0.002*).
+* **A native kNN-distance stream is genuinely complementary — but not free.** It
+  beats the per-set best on **7/18** sets, exactly the weak band (glass +0.12,
+  Waveform +0.11, Pima +0.04, Hepatitis, WPBC → above-random) and is weak where
+  the current streams are strong (Cardiotocography, cardio, wine). It would
+  convert both PR-302 losses — *but* added at any fixed weight it still regresses
+  5–7 sets, because choosing when to trust it is the same unsolved per-set
+  problem.
+
+**Consequence (refines Gate 1).** Reliability-weighted fusion is the right idea,
+but on these three streams it is **not realisable label-free** — the hardened
+0.7634 sits on the unsupervised, zero-regression frontier. Closing the +0.030 gap
+requires either (a) **ground-truth / calibration labels**, which the detector
+already exploits via `fit(calibration_labels=…)` → `_compute_adaptive_weights`
+(the preferred path whenever labels exist), or (b) a **per-set reliability signal
+that the four tested candidate families do not provide**. The kNN stream is worth
+keeping in reserve: it earns its place the moment a working per-set weighter
+exists, not before. Reproduce: `python research/omni_equation/harness_fusion_diagnosis.py`.

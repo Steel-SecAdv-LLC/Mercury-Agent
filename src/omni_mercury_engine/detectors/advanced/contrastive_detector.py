@@ -108,10 +108,14 @@ class TimeSeriesAugmenter:
 
     def augment(self, x: torch.Tensor) -> torch.Tensor:
         """Apply random augmentations to input."""
-        # Randomly select augmentation
-        aug_type = self._rng.choice(
-            ["noise", "mask", "scale", "shift", "permute", "combined"],
-            p=[0.2, 0.15, 0.2, 0.15, 0.1, 0.2],
+        # Randomly select augmentation. ``Generator.choice`` over a ``list[str]``
+        # returns a ``np.str_`` (a ``str`` subclass); ``str(...)`` makes that
+        # explicit so the equality dispatch below is statically a ``str == str``.
+        aug_type = str(
+            self._rng.choice(
+                ["noise", "mask", "scale", "shift", "permute", "combined"],
+                p=[0.2, 0.15, 0.2, 0.15, 0.1, 0.2],
+            )
         )
 
         if aug_type == "noise":

@@ -282,44 +282,36 @@ class TestNativeLOFDuplicateClusterContract:
             "share it byte-for-byte; differing floors break the LOF ratio."
         )
 
-    def test_matches_sklearn_sign_on_unambiguous_cases(self) -> None:
-        """Sign of decision_function must agree with sklearn on clear inlier/outlier cases.
+    def test_sign_convention_on_unambiguous_cases(self) -> None:
+        """decision_function must honour the LOF sign convention (positive/zero ~
+        inlier, negative ~ outlier) on cases where the answer is analytically
+        unambiguous — no competitor oracle required.
 
-        sklearn.neighbors.LocalOutlierFactor is the de-facto reference; our
-        _NativeLOF is meant to track its semantic sign (positive/zero ~ inlier,
-        negative ~ outlier), even if absolute magnitudes differ. We restrict
-        to the unambiguous cases — duplicate-cluster centre and a query far
-        from any training point — because near-cluster queries depend on
-        density estimation details that both impls handle similarly but where
-        ``inlier vs outlier`` is judgement-dependent.
+        We restrict to two unambiguous queries — the centre of a dense duplicate
+        cluster (clear inlier) and a point 100 stds from any training sample
+        (clear outlier) — because near-cluster queries depend on density details
+        where ``inlier vs outlier`` is judgement-dependent. The head-to-head
+        magnitude comparison against scikit-learn's reference LOF lives in
+        ``benchmarks/`` (sklearn is a competitor, never imported here). The -0.5
+        floor on the inlier matches sklearn's convention (a true inlier scores
+        ~0) without needing sklearn present to tell us so.
         """
-        sklearn = pytest.importorskip("sklearn.neighbors")
         rng = np.random.RandomState(7)
         X_train = np.vstack(
             [rng.randn(50, 2) * 3.0, np.tile(np.zeros(2, dtype=np.float64), (8, 1))]
         )
         native = _NativeLOF(n_neighbors=5).fit(X_train)
-        sk = sklearn.LocalOutlierFactor(n_neighbors=5, novelty=True).fit(X_train)
 
-        # Unambiguous inlier: a query placed exactly at the duplicate cluster.
-        # Both impls must score this as non-anomalous (decision >= -0.5 is
-        # the tolerance that accepts ~0 native and +0.5 sklearn).
+        # Unambiguous inlier: a query placed exactly at the duplicate cluster
+        # must score as non-anomalous (decision >= -0.5; a true inlier is ~0).
         q_dup = np.array([[0.0, 0.0]], dtype=np.float64)
         n_dup = float(native.decision_function(q_dup)[0])
-        s_dup = float(sk.decision_function(q_dup)[0])
-        assert n_dup >= -0.5 and s_dup >= -0.5, (
-            f"duplicate-cluster query disagrees on inlier-ness: "
-            f"native={n_dup:.3e}, sklearn={s_dup:.3e}"
-        )
+        assert n_dup >= -0.5, f"duplicate-cluster query mis-scored as outlier: native={n_dup:.3e}"
 
-        # Unambiguous outlier: a query 100 stds away. Both must be negative.
+        # Unambiguous outlier: a query 100 stds away must score negative.
         q_far = np.array([[100.0, 100.0]], dtype=np.float64)
         n_far = float(native.decision_function(q_far)[0])
-        s_far = float(sk.decision_function(q_far)[0])
-        assert n_far < 0 and s_far < 0, (
-            f"far-isolated query disagrees on outlier-ness: "
-            f"native={n_far:.3e}, sklearn={s_far:.3e}"
-        )
+        assert n_far < 0, f"far-isolated query mis-scored as inlier: native={n_far:.3e}"
 
 
 class TestLOFKEqualsOneRegression:

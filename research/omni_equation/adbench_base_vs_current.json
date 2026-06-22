@@ -1,0 +1,177 @@
+{
+  "summary": {
+    "n_scored": 18,
+    "mean_baseline": 0.7397,
+    "mean_current": 0.7634,
+    "mean_delta": 0.0237,
+    "wins": 14,
+    "ties": 2,
+    "losses": 2,
+    "tie_tol": 0.0,
+    "baseline_commit": "e118e1f3ec34fddbaf246d3b2898ebb4d2f56ccf"
+  },
+  "per_set": [
+    {
+      "dataset": "glass",
+      "baseline_auroc": 0.6461,
+      "auroc": 0.7442,
+      "delta": 0.0981,
+      "verdict": "win",
+      "baseline_data_type": "temporal",
+      "data_type": "tabular"
+    },
+    {
+      "dataset": "Stamps",
+      "baseline_auroc": 0.7952,
+      "auroc": 0.8702,
+      "delta": 0.075,
+      "verdict": "win",
+      "baseline_data_type": "temporal",
+      "data_type": "tabular"
+    },
+    {
+      "dataset": "PageBlocks",
+      "baseline_auroc": 0.8604,
+      "auroc": 0.916,
+      "delta": 0.0556,
+      "verdict": "win",
+      "baseline_data_type": "temporal",
+      "data_type": "tabular"
+    },
+    {
+      "dataset": "wine",
+      "baseline_auroc": 0.6429,
+      "auroc": 0.6824,
+      "delta": 0.0395,
+      "verdict": "win",
+      "baseline_data_type": "temporal",
+      "data_type": "tabular"
+    },
+    {
+      "dataset": "Ionosphere",
+      "baseline_auroc": 0.8753,
+      "auroc": 0.9116,
+      "delta": 0.0363,
+      "verdict": "win",
+      "baseline_data_type": "temporal",
+      "data_type": "tabular"
+    },
+    {
+      "dataset": "mammography",
+      "baseline_auroc": 0.8354,
+      "auroc": 0.8664,
+      "delta": 0.031,
+      "verdict": "win",
+      "baseline_data_type": "temporal",
+      "data_type": "tabular"
+    },
+    {
+      "dataset": "thyroid",
+      "baseline_auroc": 0.9079,
+      "auroc": 0.9385,
+      "delta": 0.0306,
+      "verdict": "win",
+      "baseline_data_type": "temporal",
+      "data_type": "tabular"
+    },
+    {
+      "dataset": "Pima",
+      "baseline_auroc": 0.6441,
+      "auroc": 0.6718,
+      "delta": 0.0277,
+      "verdict": "win",
+      "baseline_data_type": "temporal",
+      "data_type": "tabular"
+    },
+    {
+      "dataset": "breastw",
+      "baseline_auroc": 0.9551,
+      "auroc": 0.9715,
+      "delta": 0.0164,
+      "verdict": "win",
+      "baseline_data_type": "temporal",
+      "data_type": "tabular"
+    },
+    {
+      "dataset": "optdigits",
+      "baseline_auroc": 0.4972,
+      "auroc": 0.5043,
+      "delta": 0.0071,
+      "verdict": "win",
+      "baseline_data_type": "tabular",
+      "data_type": "tabular"
+    },
+    {
+      "dataset": "Cardiotocography",
+      "baseline_auroc": 0.6248,
+      "auroc": 0.6288,
+      "delta": 0.004,
+      "verdict": "win",
+      "baseline_data_type": "tabular",
+      "data_type": "tabular"
+    },
+    {
+      "dataset": "cardio",
+      "baseline_auroc": 0.906,
+      "auroc": 0.9084,
+      "delta": 0.0024,
+      "verdict": "win",
+      "baseline_data_type": "tabular",
+      "data_type": "tabular"
+    },
+    {
+      "dataset": "vertebral",
+      "baseline_auroc": 0.3998,
+      "auroc": 0.4013,
+      "delta": 0.0015,
+      "verdict": "win",
+      "baseline_data_type": "temporal",
+      "data_type": "tabular"
+    },
+    {
+      "dataset": "WBC",
+      "baseline_auroc": 0.9869,
+      "auroc": 0.9878,
+      "delta": 0.0009,
+      "verdict": "win",
+      "baseline_data_type": "tabular",
+      "data_type": "tabular"
+    },
+    {
+      "dataset": "Hepatitis",
+      "baseline_auroc": 0.682,
+      "auroc": 0.682,
+      "delta": 0.0,
+      "verdict": "tie",
+      "baseline_data_type": "tabular",
+      "data_type": "tabular"
+    },
+    {
+      "dataset": "Lymphography",
+      "baseline_auroc": 0.9918,
+      "auroc": 0.9918,
+      "delta": 0.0,
+      "verdict": "tie",
+      "baseline_data_type": "tabular",
+      "data_type": "tabular"
+    },
+    {
+      "dataset": "WPBC",
+      "baseline_auroc": 0.477,
+      "auroc": 0.4768,
+      "delta": -0.0002,
+      "verdict": "loss",
+      "baseline_data_type": "tabular",
+      "data_type": "tabular"
+    },
+    {
+      "dataset": "Waveform",
+      "baseline_auroc": 0.587,
+      "auroc": 0.5867,
+      "delta": -0.0003,
+      "verdict": "loss",
+      "baseline_data_type": "temporal",
+      "data_type": "tabular"
+    }
+  ]
+}

@@ -520,7 +520,7 @@ class MSDSLoader(DatasetLoader):
         # Inject anomalies (affect multiple sources)
         for idx in anomaly_indices:
             # Random anomaly type
-            anomaly_type = rng.choice(["spike", "drift", "noise"])
+            anomaly_type = str(rng.choice(["spike", "drift", "noise"]))
             affected_sources = rng.choice(
                 self.n_sources, rng.integers(1, self.n_sources + 1), replace=False
             )

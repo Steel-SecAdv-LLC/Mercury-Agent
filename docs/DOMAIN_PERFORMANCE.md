@@ -6,9 +6,9 @@ Per-domain precision/recall analysis from real benchmark data.
 
 > **v1.7 update.** The per-domain tables below are an older
 > illustrative snapshot. The committed
-> `benchmarks/mercury_benchmark_results.json` run (65 successful / 75
-> attempted, Mean AUC 0.8466, Median 0.9100, Mean Oracle F1 0.6428,
-> 2026-05-19) is surfaced in the README "Latest Benchmark Results"
+> `benchmarks/mercury_benchmark_results.json` run (66 successful / 75
+> attempted, Mean AUC 0.8251, Median 0.8747, Mean Oracle F1 0.5998,
+> 2026-06-21) is surfaced in the README "Latest Benchmark Results"
 > block and is the authoritative source; its `domain_summary` is the
 > per-domain ground truth. The CI regression-gate floor is the
 > historical 0.803 AUC / 0.589 F1 baseline. The FEMA Disaster row's

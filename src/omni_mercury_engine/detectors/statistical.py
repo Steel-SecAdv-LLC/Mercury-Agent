@@ -64,6 +64,59 @@ logger = logging.getLogger(__name__)
 _MIN_VARIANCE: float = 1e-12
 _TIKHONOV_LAMBDA: float = 1e-6
 
+# Exponent applied to each component's AUC separation margin
+# ``(auc - 0.5)`` before it is normalised into an ensemble weight (see
+# ``_compute_adaptive_weights`` / ``_compute_unsupervised_adaptive_weights``).
+#
+# Why > 1: the self-supervised AUCs used by the unsupervised weighter
+# are driven by easy 3-sigma Gaussian-blob synthetic anomalies, which push
+# every component's AUC into a narrow, saturated 0.72-1.0 band. A linear
+# margin (P=1) therefore leaves the consistently weakest component — kinematic,
+# which ranks last on 18/18 ADBench sets — with 30-42% of the ensemble weight.
+# Raising the margin to a power sharpens those diffuse margins: a component that
+# is, say, 0.10 below the others in margin is suppressed multiplicatively
+# (0.40^4 vs 0.50^4 = 0.41x), concentrating weight on the discriminative
+# components. The transform is monotone and self-correcting — genuinely
+# temporal data gives kinematic a genuinely high AUC that survives the power.
+#
+# P=4 sharpens the fusion-weight margins; on the committed 18-set ADBench
+# harness (research/omni_equation/harness_adbench.py) the biggest wins land
+# where kinematic was most over-weighted: wine, glass, PageBlocks, cardio.
+# P=1 reproduces the pre-sharpening behaviour exactly, which the regression
+# tests assert.
+_WEIGHT_MARGIN_POWER: float = 4.0
+
+# Data-type gate thresholds (see ``_detect_data_characteristics``). Two
+# complementary temporal signals are measured: the per-feature lag-1
+# autocorrelation (does each channel evolve smoothly?) and the correlation
+# between adjacent full-row vectors (are consecutive snapshots similar?).
+# Genuine time series exhibit at least one of these *strongly*; class- or
+# collection-ordered tabular data (the norm in ADBench) shows only the weak-to-
+# moderate values that the original single 0.3 gate misread as temporal.
+#
+# The thresholds sit in the empirical gap between the two clusters measured on
+# 18 standardized ADBench sets vs sine / AR(1) / random-walk fixtures:
+#   * autocorrelation — tabular tops out ~0.50 (wine); temporal floors ~0.60
+#     (AR phi=0.6). Threshold 0.55 splits the gap.
+#   * adjacency — tabular tops out ~0.67 (musk); temporal floors ~0.82 (AR
+#     phi=0.6). Threshold 0.75 splits the gap. The adjacency path is what keeps
+#     spike-contaminated temporal series (whose per-feature autocorr is masked
+#     by injected anomalies, e.g. ~0.25) on the temporal side, since their
+#     adjacency stays ~0.99.
+# A permutation/shuffle guard was evaluated and rejected: every autocorrelated
+# set here (genuine temporal AND class-ordered tabular alike) collapses to
+# ~0.01 autocorr on a row shuffle, so a shuffle test cannot separate the two —
+# only the cluster-gap thresholds do.
+_TEMPORAL_AUTOCORR_THRESHOLD: float = 0.55
+_TEMPORAL_ADJ_ROW_THRESHOLD: float = 0.75
+
+# Inference-time multi-scale "time-dilation" test-time augmentation (Rec 3).
+# The series is resampled to each of these length multiples, scored, mapped
+# back to the original length, and the per-sample scores are pooled across
+# scales. Recovers accuracy lost to sampling-rate drift / clock skew on
+# temporal feeds. Opt-in and gated to TEMPORAL data (see ``detect``).
+_MULTISCALE_TTA_SCALES: tuple[float, ...] = (0.8, 0.9, 1.0, 1.1, 1.25)
+
 
 class MercuryAnomalyDetector(BaseDetector):
     """Mercury's original anomaly detection ensemble.
@@ -183,6 +236,27 @@ class MercuryAnomalyDetector(BaseDetector):
         # leaving "scores" / "is_anomaly" untouched (exact-reducing).
         self._calibration_map: str = str(self.config.get("calibration_map", "identity"))
         self._mca_calibrator: Any = None
+
+        # Inference-time multi-scale time-dilation TTA (Rec 3). Optional and
+        # DEFAULT-OFF (Invariant I2): when off, detect() output is byte-identical
+        # to the pre-feature behaviour. When on AND the fitted data is TEMPORAL,
+        # detect() scores the series at ``_MULTISCALE_TTA_SCALES`` time-dilations
+        # (np.interp resample), maps each per-sample score vector back to the
+        # original length, and pools across scales ("mean" = false-alarm-safe
+        # default, "max" = higher-recall). Pure inference, no fit change; costs
+        # K x scoring compute. ``_in_multiscale_tta`` guards the recursive
+        # per-scale detect() calls so the augmentation never re-enters itself.
+        self._multiscale_tta_enabled: bool = bool(self.config.get("multiscale_tta", False))
+        # Normalise + validate the pool so misconfiguration (e.g. "Mean", stray
+        # whitespace, typos) fails loud instead of silently defaulting to mean.
+        _pool = str(self.config.get("multiscale_tta_pool", "mean")).strip().lower()
+        if _pool not in ("mean", "max"):
+            raise ValueError(
+                "multiscale_tta_pool must be 'mean' or 'max', got "
+                f"{self.config.get('multiscale_tta_pool')!r}"
+            )
+        self._multiscale_tta_pool: str = _pool
+        self._in_multiscale_tta: bool = False
 
         # Oracle detector (set during fit if data is temporal)
         self._oracle_detector: Any = None
@@ -816,7 +890,7 @@ class MercuryAnomalyDetector(BaseDetector):
             # log det(Sigma_reg) = 2 * sum(log(diag(L)))
             self._ig_log_det = float(2.0 * np.sum(np.log(np.diag(cho))))
         except sp_linalg.LinAlgError:
-            # Fallback to pseudo-inverse if Cholesky still fails
+            # Fallback to the Moore-Penrose inverse if Cholesky still fails
             self._ig_cov_inv = np.linalg.pinv(cov_reg)
             sign, logdet = np.linalg.slogdet(cov_reg)
             self._ig_log_det = float(logdet) if sign > 0 else 0.0
@@ -970,17 +1044,30 @@ class MercuryAnomalyDetector(BaseDetector):
             "infogeo": float(aucs[2]),
         }
 
-        # Inverted components get zero contribution
-        effective_aucs = np.where(aucs < 0.5, 0.0, aucs - 0.5)
-
-        total = effective_aucs.sum()
-        if total < 1e-6:
+        # Inverted components (AUC < 0.5) get zero contribution. Gate the
+        # no-signal fallback on the *raw* margins, not the _WEIGHT_MARGIN_POWER
+        # values: with P > 1 a weak-but-real separation (e.g. AUC 0.52 ->
+        # margin 0.02 -> 1.6e-7 at P=4) would underflow the 1e-6 threshold and
+        # spuriously fall back even though a component carries usable signal.
+        # The raw-margin sum is scale-invariant in P, so P=1 still reproduces
+        # the prior behaviour exactly.
+        raw_margins = np.where(aucs < 0.5, 0.0, aucs - 0.5)
+        if float(raw_margins.sum()) < 1e-6:
             self._weight_source = "fallback_default"
             return np.array([0.40, 0.30, 0.30])
 
+        # At least one component has real separation: sharpen the surviving
+        # margins by raising them to _WEIGHT_MARGIN_POWER before normalisation
+        # (see the constant's rationale). ``total`` is strictly positive here.
+        effective_aucs = raw_margins**_WEIGHT_MARGIN_POWER
+        total = effective_aucs.sum()
         weights = effective_aucs / total
-        # Apply minimum floor of 0.05 for components with any positive signal
-        has_signal = aucs >= 0.5
+        # Apply a 0.05 minimum floor to components with *strictly positive*
+        # separation (AUC > 0.5). A component at exactly 0.5 carries no signal
+        # (its raw margin is 0, so it already has weight 0); ``>= 0.5`` would
+        # floor that pure-noise component up to 0.05 and dilute a real
+        # component's share, contradicting the "positive signal" intent.
+        has_signal = aucs > 0.5
         weights = np.where(has_signal & (weights < 0.05), 0.05, weights)
         weights = weights / weights.sum()
 
@@ -994,23 +1081,30 @@ class MercuryAnomalyDetector(BaseDetector):
     def _detect_data_characteristics(self, X: np.ndarray[Any, Any]) -> DataCharacteristics:
         """Automatically detect whether data is temporal, tabular, or image-like.
 
-        Detection heuristics (applied in order):
+        Two complementary temporal signals are measured and combined (Rec 2):
 
-        1. **Temporal autocorrelation**: Compute lag-1 autocorrelation for each
-           feature. If mean |autocorrelation| > 0.3, classify as ``TEMPORAL``.
-           Rationale: temporally ordered data exhibits serial dependence.
+        1. **Per-feature lag-1 autocorrelation** (median over up to 50 columns,
+           robust to anomaly spikes). Does each channel evolve smoothly between
+           consecutive rows? Genuine time series score high; unordered tabular
+           features score ~0.
 
-        2. **Row shuffling test**: Compute mean absolute correlation between
-           adjacent rows. If mean correlation < 0.1, classify as ``TABULAR``
-           (shuffled). Rationale: shuffled tabular rows have near-zero
-           adjacent-row correlation.
+        2. **Adjacent full-row coherence** (median |corr| between consecutive
+           row vectors). Are consecutive snapshots similar? Genuine time series
+           score very high (~0.8-1.0); this signal survives spike contamination
+           that masks per-feature autocorr.
 
-        3. **Dimensionality heuristic**: If ``n_features > 100`` and
-           ``n_features`` is approximately ``sqrt(n_samples)``, classify as
-           ``IMAGE``. Rationale: image-like datasets have many features
-           (pixels) and the feature count often relates to image dimensions.
+        Data is classified ``TEMPORAL`` when **either** signal is *strongly*
+        present (autocorr > :data:`_TEMPORAL_AUTOCORR_THRESHOLD` **or** adjacency
+        > :data:`_TEMPORAL_ADJ_ROW_THRESHOLD`). The earlier single-0.3 gate
+        misread class-/collection-ordered tabular data — which shows only weak-
+        to-moderate autocorr and moderate adjacency — as temporal, handing
+        KinematicScore the largest compatibility weight and triggering the
+        temporal residual-frequency filter on rows whose order is arbitrary.
 
-        Falls back to ``UNKNOWN`` if no heuristic triggers.
+        A very low adjacency (< 0.1) is an explicit shuffled-``TABULAR`` signal.
+        High dimensionality (``n_features > 100`` and ``~sqrt(n_samples)``)
+        classifies as ``IMAGE``. Falls back to ``TABULAR`` (the ADBench-common
+        case) for moderate dimensionality, else ``UNKNOWN``.
 
         Args:
             X: Training data of shape ``(n_samples, n_features)``.
@@ -1023,9 +1117,10 @@ class MercuryAnomalyDetector(BaseDetector):
         if n_samples < 5:
             return DataCharacteristics.UNKNOWN
 
-        # --- Heuristic 1: Temporal autocorrelation ---
-        # Use *median* autocorrelation (robust to outlier spikes that
-        # destroy mean autocorrelation in anomaly-injected temporal data).
+        # --- Temporal signal 1: per-feature lag-1 autocorrelation ---
+        # Median (robust to outlier spikes that destroy the mean in
+        # anomaly-injected temporal data).
+        autocorr: float | None = None
         try:
             autocorrs: list[float] = []
             n_cols = min(n_features, 50)  # Cap for efficiency
@@ -1037,19 +1132,12 @@ class MercuryAnomalyDetector(BaseDetector):
                     continue
                 lag1_cov = np.mean(col_centered[:-1] * col_centered[1:])
                 autocorrs.append(abs(lag1_cov / var))
-            if autocorrs and np.median(autocorrs) > 0.3:
-                return DataCharacteristics.TEMPORAL
+            if autocorrs:
+                autocorr = float(np.median(autocorrs))
         except (ValueError, TypeError, FloatingPointError, IndexError) as exc:
-            logger.debug(
-                "Data type detection: autocorrelation heuristic failed (%s), "
-                "falling through to next heuristic.",
-                exc,
-            )
+            logger.debug("Data type detection: autocorrelation signal failed (%s).", exc)
 
-        # --- Heuristic 2: Adjacent row correlation ---
-        # High adjacent-row correlation (> 0.3) also indicates temporal
-        # ordering (rows are related to their neighbours).
-        # Low adjacent-row correlation (< 0.1) indicates shuffled tabular.
+        # --- Temporal signal 2: adjacent full-row coherence ---
         adj_row_corr: float | None = None
         try:
             if n_samples > 10 and n_features >= 2:
@@ -1067,28 +1155,27 @@ class MercuryAnomalyDetector(BaseDetector):
                         row_corrs.append(abs(corr))
                 if row_corrs:
                     adj_row_corr = float(np.median(row_corrs))
-                    if adj_row_corr > 0.3:
-                        # High adjacent-row correlation: temporal ordering
-                        return DataCharacteristics.TEMPORAL
-                    if adj_row_corr < 0.1:
-                        # Low adjacent-row correlation: shuffled tabular
-                        return DataCharacteristics.TABULAR
         except (ValueError, TypeError, FloatingPointError, IndexError) as exc:
-            logger.debug(
-                "Data type detection: adjacent-row correlation heuristic failed (%s), "
-                "falling through to next heuristic.",
-                exc,
-            )
+            logger.debug("Data type detection: adjacent-row signal failed (%s).", exc)
 
-        # --- Heuristic 3: Image dimensionality ---
+        # --- Combined temporal gate (Rec 2) ---
+        strong_autocorr = autocorr is not None and autocorr > _TEMPORAL_AUTOCORR_THRESHOLD
+        strong_adjacency = adj_row_corr is not None and adj_row_corr > _TEMPORAL_ADJ_ROW_THRESHOLD
+        if strong_autocorr or strong_adjacency:
+            return DataCharacteristics.TEMPORAL
+
+        # Very low adjacent-row coherence: explicitly shuffled tabular.
+        if adj_row_corr is not None and adj_row_corr < 0.1:
+            return DataCharacteristics.TABULAR
+
+        # --- Image dimensionality ---
         if n_features > 100:
             sqrt_n = np.sqrt(n_samples)
             if 0.3 * sqrt_n <= n_features <= 3.0 * sqrt_n:
                 return DataCharacteristics.IMAGE
 
-        # Default: if not temporal and not obviously image, assume tabular.
-        # This is the conservative choice — tabular is the most common case
-        # in ADBench-style datasets, and KinematicScore underperforms on it.
+        # Default: tabular is the most common case in ADBench-style datasets,
+        # and KinematicScore underperforms on it.
         if n_features <= 100:
             return DataCharacteristics.TABULAR
 
@@ -1180,16 +1267,27 @@ class MercuryAnomalyDetector(BaseDetector):
         self,
         X: np.ndarray[Any, Any],
     ) -> np.ndarray[Any, Any]:
-        """Compute adaptive ensemble weights without labels via self-supervised anomaly injection.
+        """Estimate ensemble weights without ground-truth labels via self-supervised contrast.
 
-        Strategy:
+        This is the **fallback** weighting path, used only when the caller
+        supplies no ground-truth labels. When real labels *are* available,
+        ``fit(data, calibration_labels=...)`` / :meth:`fit_with_labels` route to
+        :meth:`_compute_adaptive_weights`, which measures each component's
+        separation against the real labels — always preferred over this
+        self-supervised estimate.
+
+        Strategy (self-supervised, no labels required):
           1. Split training data into K=5 folds.
           2. For each fold, fit on K-1 folds and score the held-out fold.
           3. Inject synthetic anomalies into the held-out fold (Gaussian noise
-             with sigma = 3 * std per feature) to create pseudo-labels.
-          4. Compute per-component AUC using pseudo-labels.
-          5. Apply the same logic as ``_compute_adaptive_weights()``: zero out
-             components with AUC < 0.5, apply 0.05 minimum floor.
+             with sigma = 3 * std per feature). The held-out real rows (label 0)
+             versus the injected synthetic rows (label 1) form a
+             **synthetic-contrast** label set — a self-supervised stand-in for
+             the absent ground truth, never persisted past this computation.
+          4. Compute each component's separation AUC against those
+             synthetic-contrast labels.
+          5. Apply the same logic as :meth:`_compute_adaptive_weights`: zero out
+             components with AUC < 0.5, apply the 0.05 minimum floor.
 
         Additionally applies data-type-aware weight adjustment using
         :data:`COMPONENT_COMPATIBILITY` from ``config.py``.
@@ -1249,9 +1347,10 @@ class MercuryAnomalyDetector(BaseDetector):
                 noise = rng.randn(n_anomalies, n_features) * 3.0 * fold_det.std
                 synthetic_anomalies = fold_det.mean + noise
 
-                # Combine normal (val) + synthetic anomalies
+                # Combine held-out real rows (label 0) + synthetic anomalies
+                # (label 1) into the self-supervised contrast set.
                 X_combined = np.vstack([X_val_fold, synthetic_anomalies])
-                pseudo_labels = np.concatenate(
+                contrast_labels = np.concatenate(
                     [
                         np.zeros(len(X_val_fold), dtype=np.int32),
                         np.ones(n_anomalies, dtype=np.int32),
@@ -1264,7 +1363,7 @@ class MercuryAnomalyDetector(BaseDetector):
                 ig_scores = fold_det._compute_info_geometry_score(X_combined)
 
                 for comp_idx, comp_scores in enumerate([res_scores, kin_scores, ig_scores]):
-                    auc = self._component_separation(comp_scores, pseudo_labels)
+                    auc = self._component_separation(comp_scores, contrast_labels)
                     component_aucs_accum[comp_idx].append(auc)
 
             # Aggregate AUCs across folds
@@ -1285,26 +1384,36 @@ class MercuryAnomalyDetector(BaseDetector):
             compat = COMPONENT_COMPATIBILITY.get(
                 self._data_type, COMPONENT_COMPATIBILITY[DataCharacteristics.UNKNOWN]
             )
+            compat_vec = np.array([compat["resonance"], compat["kinematic"], compat["infogeo"]])
             # If TABULAR, force kinematic weight to near-zero
             if self._data_type == DataCharacteristics.TABULAR:
                 mean_aucs[1] = min(mean_aucs[1], 0.50)  # Cap at random
 
-            # Standard adaptive weight logic: zero out inverted, normalize
-            effective_aucs = np.where(mean_aucs < 0.5, 0.0, mean_aucs - 0.5)
-
-            # Apply compatibility multipliers
-            effective_aucs[0] *= compat["resonance"]
-            effective_aucs[1] *= compat["kinematic"]
-            effective_aucs[2] *= compat["infogeo"]
-
-            total = effective_aucs.sum()
-            if total < 1e-6:
+            # Zero out inverted components (AUC < 0.5). Gate the no-signal
+            # fallback on the *raw* compatibility-weighted margins, not the
+            # _WEIGHT_MARGIN_POWER values: with P > 1 a weak-but-real separation
+            # (e.g. AUC 0.52 -> margin 0.02 -> 1.6e-7 at P=4) would underflow
+            # the 1e-6 threshold and spuriously fall back to the data-type
+            # defaults. The raw-margin sum is scale-invariant in P, so P=1 still
+            # reproduces the prior behaviour exactly.
+            raw_margins = np.where(mean_aucs < 0.5, 0.0, mean_aucs - 0.5)
+            if float((raw_margins * compat_vec).sum()) < 1e-6:
                 self._weight_source = "fallback_data_type"
                 return self._data_type_default_weights()
 
+            # Sharpen the surviving margins by raising them to
+            # _WEIGHT_MARGIN_POWER (see the constant's rationale), then scale by
+            # the data-type compatibility modifiers. ``total`` is strictly
+            # positive here because the gate above passed.
+            effective_aucs = (raw_margins**_WEIGHT_MARGIN_POWER) * compat_vec
+            total = effective_aucs.sum()
             weights = effective_aucs / total
-            # Apply minimum floor of 0.05 for components with positive signal
-            has_signal = mean_aucs >= 0.5
+            # Apply a 0.05 minimum floor to components with *strictly positive*
+            # separation (AUC > 0.5). A component at exactly 0.5 carries no
+            # signal (raw margin 0 -> weight 0 already); ``>= 0.5`` would floor
+            # that pure-noise component to 0.05 and dilute a real component's
+            # share, contradicting the "positive signal" intent.
+            has_signal = mean_aucs > 0.5
             weights = np.where(has_signal & (weights < 0.05), 0.05, weights)
             # Zero out kinematic on tabular data explicitly
             if self._data_type == DataCharacteristics.TABULAR:
@@ -1499,7 +1608,8 @@ class MercuryAnomalyDetector(BaseDetector):
         else:
             normal_data = train_data
 
-        # Combine and create pseudo-labels
+        # Combine real rows + synthetic OOD samples into a synthetic-contrast
+        # label set (0 = real, 1 = synthetic) for the inversion diagnostic.
         X_eval = np.vstack([normal_data[:n_synthetic], synthetic])
         y_eval = np.concatenate(
             [
@@ -2103,10 +2213,32 @@ class MercuryAnomalyDetector(BaseDetector):
         combined_scores = np.clip(combined_scores, 0.0, 1.0)
 
         # Residual frequency filter (F1 Precision Directive, Phase 7):
-        # Only apply to temporal-like data where FFT filtering is meaningful.
-        is_temporal_like = data.shape[0] >= max(50, 10 * data.shape[1])
+        # The filter treats the score vector as an ordered time series (moving-
+        # average baseline + rFFT band-pass of the residual), so it is only
+        # meaningful when row order is meaningful. Gate on the fitted
+        # ``_data_type`` (Rec 2) — not just the ``n >= max(50, 10*d)`` shape
+        # proxy, which also fires on wide/long *tabular* sets where adjacency is
+        # arbitrary. On such data the filter is rank-altering: measured to drag
+        # optdigits from 0.52 to 0.39 (below random) under the transductive
+        # protocol. Restricting it to genuine temporal data removes that harm
+        # and makes detection robust to test-row ordering.
+        is_temporal_like = self._data_type == DataCharacteristics.TEMPORAL and data.shape[0] >= max(
+            50, 10 * data.shape[1]
+        )
         if is_temporal_like and len(combined_scores) >= 32:
             combined_scores = self._residual_frequency_filter(combined_scores)
+
+        # Multi-scale time-dilation TTA (Rec 3, opt-in DEFAULT-OFF, temporal only).
+        # Pools the per-sample scores of the series viewed at several time
+        # dilations; ``combined_scores`` (scale 1.0) seeds the pool so the base
+        # path is never recomputed. Recovers ranking lost to sampling-rate drift.
+        if (
+            self._multiscale_tta_enabled
+            and not self._in_multiscale_tta
+            and self._data_type == DataCharacteristics.TEMPORAL
+            and len(combined_scores) >= 16
+        ):
+            combined_scores = self._multiscale_tta_scores(data, combined_scores)
 
         # Score flip for detected ensemble inversion (Task 4)
         if self._score_flip:
@@ -2680,6 +2812,97 @@ class MercuryAnomalyDetector(BaseDetector):
 
         blended = 0.7 * scores + 0.3 * (baseline + filtered_residual)
         return np.clip(blended, 0.0, 1.0)
+
+    # =====================================================================
+    # Multi-scale time-dilation TTA (Rec 3)
+    # =====================================================================
+
+    def _multiscale_tta_scores(
+        self,
+        data: np.ndarray[Any, Any],
+        base_scores: np.ndarray[Any, Any],
+    ) -> np.ndarray[Any, Any]:
+        """Pool detect() scores across :data:`_MULTISCALE_TTA_SCALES` dilations.
+
+        The series is linearly resampled to each length multiple, re-scored
+        through the full deterministic ensemble, and the resulting per-sample
+        scores are interpolated back to the original length and pooled (mean or
+        max). ``base_scores`` is the already-computed scale-1.0 vector, so the
+        unit scale is never recomputed. ``_in_multiscale_tta`` is held for the
+        duration so the nested ``detect`` calls take the plain scoring path, and
+        the oracle-related mutable state those calls touch (``_oracle_metadata``
+        and the Oracle's ``_dynamic_alpha_factor``) is snapshotted and restored
+        so the instance reflects the outer real-length pass, not a dilation.
+
+        Args:
+            data: Input series of shape ``(T, n_features)``.
+            base_scores: Scale-1.0 ensemble scores, shape ``(T,)``.
+
+        Returns:
+            Pooled scores in ``[0, 1]``, shape ``(T,)``.
+        """
+        length = data.shape[0]
+        stack: list[np.ndarray[Any, Any]] = [np.asarray(base_scores, dtype=np.float64)]
+
+        # Each nested detect() below re-runs the full ensemble on a *dilated*
+        # view of the series, which overwrites the instance's oracle-related
+        # mutable state — ``self._oracle_metadata`` and, when an Oracle is
+        # attached, its ``_dynamic_alpha_factor`` — with values computed for the
+        # resampled length. Snapshot that state and restore it after pooling so
+        # that once the outer detect() returns, the instance still reflects the
+        # real-length detection (matching the returned ``oracle_metadata``)
+        # rather than the last dilation, which would mislead any downstream
+        # inspection of these attributes.
+        saved_oracle_metadata = self._oracle_metadata
+        oracle = self._oracle_detector
+        saved_alpha_factor = (
+            getattr(oracle, "_dynamic_alpha_factor", None) if oracle is not None else None
+        )
+
+        self._in_multiscale_tta = True
+        try:
+            for scale in _MULTISCALE_TTA_SCALES:
+                if abs(scale - 1.0) < 1e-9:
+                    continue  # base_scores already covers the unit scale
+                new_len = round(length * scale)
+                if new_len < 8:
+                    continue
+                resampled = self._resample_along_time(data, new_len)
+                inner = self.detect(resampled)
+                inner_scores = np.asarray(inner["scores"], dtype=np.float64)
+                stack.append(self._resample_1d(inner_scores, length))
+        finally:
+            self._in_multiscale_tta = False
+            self._oracle_metadata = saved_oracle_metadata
+            if oracle is not None and saved_alpha_factor is not None:
+                oracle._dynamic_alpha_factor = saved_alpha_factor
+
+        stacked = np.vstack(stack)
+        if self._multiscale_tta_pool == "max":
+            pooled = stacked.max(axis=0)
+        else:
+            pooled = stacked.mean(axis=0)
+        return np.clip(pooled, 0.0, 1.0)
+
+    @staticmethod
+    def _resample_along_time(X: np.ndarray[Any, Any], new_len: int) -> np.ndarray[Any, Any]:
+        """Linearly resample each feature column to ``new_len`` rows along time."""
+        length = X.shape[0]
+        if new_len == length:
+            return X
+        old_grid = np.linspace(0.0, 1.0, length)
+        new_grid = np.linspace(0.0, 1.0, new_len)
+        return np.column_stack([np.interp(new_grid, old_grid, X[:, j]) for j in range(X.shape[1])])
+
+    @staticmethod
+    def _resample_1d(values: np.ndarray[Any, Any], new_len: int) -> np.ndarray[Any, Any]:
+        """Linearly resample a 1-D score vector to ``new_len`` samples."""
+        length = len(values)
+        if length == new_len:
+            return values
+        old_grid = np.linspace(0.0, 1.0, length)
+        new_grid = np.linspace(0.0, 1.0, new_len)
+        return np.interp(new_grid, old_grid, values)
 
     def _compute_iqr_scores(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Compute continuous IQR-based anomaly scores.
