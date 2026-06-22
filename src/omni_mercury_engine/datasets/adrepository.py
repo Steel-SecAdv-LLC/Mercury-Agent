@@ -282,10 +282,15 @@ ADREPOSITORY_DATASETS: dict[str, DatasetMetadata] = {
     "dsads": {
         "samples": 9120,
         "features": 405,
-        "anomaly_ratio": 0.066,
+        # Constructed convention (DSADS has no native anomaly labels): default
+        # anomaly = activity 19 (basketball) -> 480/9120 = 0.0526. See DSADSLoader.
+        "anomaly_ratio": 0.0526,
         "domain": "activity",
-        "description": "Daily and Sports Activities Dataset",
-        "url": "https://archive.ics.uci.edu/ml/datasets/daily+and+sports+activities",
+        "description": (
+            "Daily and Sports Activities (UCI 256): 9120 segments x 405 per-channel "
+            "stats; real sensor data, documented constructed anomaly labels"
+        ),
+        "url": "https://archive.ics.uci.edu/dataset/256/daily+and+sports+activities",
         "file": "DSADS.npz",
     },
     "epilepsy": {
@@ -354,14 +359,27 @@ class ADRepositoryLoader(DatasetLoader):
     _TIMESERIES_DELEGATES: dict[str, tuple[str, str]] = {
         "smd": ("omni_mercury_engine.datasets.timeseries", "SMDLoader"),
         "swat": ("omni_mercury_engine.datasets.industrial", "SWaTLoader"),
+        # DSADS: real UCI-256 inertial-sensor data; DSADSLoader fetches it and
+        # constructs a documented anomaly convention (DSADS has no native labels).
+        "dsads": ("omni_mercury_engine.datasets.timeseries", "DSADSLoader"),
     }
 
     # Time-series sets with a documented real upstream but no dedicated Mercury
-    # loader yet (mala-lab "time series data/readme.md"). They fail loud naming
-    # the source and the exact closing step — they are never fabricated.
+    # loader yet. They fail loud naming the source and the exact closing step —
+    # they are never fabricated.
     _TIMESERIES_NO_LOADER: dict[str, str] = {
-        "dsads": "https://github.com/zhangyuxin621/AMSL",
-        "epilepsy": "https://github.com/boschresearch/NeuTraL-AD/",
+        # The classic "Epileptic Seizure Recognition" (Bonn single-electrode EEG,
+        # Andrzejak et al. 2001; 11500×178, class-1 seizure = anomaly) has no
+        # stable, verifiable public source left: UCI removed it (404), the Bonn
+        # host redirects to a contentless landing page, the UPF repository serves
+        # only a JavaScript DSpace shell, and the reachable Zenodo record is an
+        # explicit "mimic" of Bonn, not the authentic data. Fails loud rather
+        # than load simulated or unvetted re-hosted data. Closing step: supply a
+        # verified raw source and add a dedicated loader to _TIMESERIES_DELEGATES.
+        "epilepsy": (
+            "Bonn EEG (Andrzejak et al. 2001) — authentic source currently offline "
+            "across UCI/Bonn/UPF; no verified public mirror"
+        ),
     }
 
     def __init__(self, config: DatasetConfig, dataset_name: str = "thyroid") -> None:

@@ -374,13 +374,16 @@ class TestSyntheticPolicyGate:
         with pytest.raises(DataSourceUnavailableError, match="credentials"):
             loader.load_data()
 
-    @pytest.mark.parametrize("name", ["dsads", "epilepsy"])
+    @pytest.mark.parametrize("name", ["epilepsy"])
     def test_no_loader_timeseries_fails_loud_with_closing_step(
         self, name: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
     ) -> None:
-        """dsads/epilepsy have a documented upstream but no dedicated loader yet.
+        """epilepsy has a documented upstream but no dedicated loader yet.
 
-        The loud error must name the real source and the exact closing step.
+        (dsads now has a dedicated DSADSLoader — see ``test_dsads.py``.) The loud
+        error must name the real source and the exact closing step. epilepsy's
+        authentic Bonn EEG source is currently offline across UCI/Bonn/UPF, so it
+        fails loud rather than load simulated/unvetted re-hosted data.
         """
         monkeypatch.delenv("MERCURY_ALLOW_SYNTHETIC", raising=False)
         loader = ADRepositoryLoader(
@@ -389,7 +392,7 @@ class TestSyntheticPolicyGate:
         with pytest.raises(DataSourceUnavailableError) as exc:
             loader.load_data()
         msg = str(exc.value)
-        assert "Closing step" in msg and "github.com" in msg
+        assert "Closing step" in msg and "Bonn" in msg
 
     def test_no_loader_timeseries_opt_in_synthetic_is_marked(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any

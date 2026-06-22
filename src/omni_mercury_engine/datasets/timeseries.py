@@ -660,8 +660,172 @@ class SMAPMSLLoader(DatasetLoader):
         }
 
 
+class DSADSLoader(DatasetLoader):
+    """Daily and Sports Activities Dataset (DSADS) — UCI 256.
+
+    Downloads the REAL multivariate inertial-sensor recordings from the UCI
+    Machine Learning Repository (dataset 256) and turns them into a tabular
+    anomaly-detection task. Real data only — fails loud if the archive is
+    unreachable; never substitutes synthetic.
+
+    Data source:
+        https://archive.ics.uci.edu/ml/machine-learning-databases/00256/data.zip
+    Paper:
+        Barshan B, Yüksek M C. "Recognizing Daily and Sports Activities in Two
+        Open Source Machine Learning Environments Using Body-Worn Sensor Units."
+        The Computer Journal 57(11), 2014.
+
+    Archive layout: ``data/a{01..19}/p{1..8}/s{01..60}.txt`` — 19 activities ×
+    8 subjects × 60 five-second segments = 9120 segments, each a 125 × 45 matrix
+    (5 s @ 25 Hz across 45 channels: 9 axes × 5 body units).
+
+    Representation: each 125 × 45 segment is reduced to a fixed **405-dim**
+    feature vector — 9 per-channel statistics (mean, std, min, max, median,
+    25th/75th percentile, peak-to-peak, RMS) across the 45 channels. Standard
+    statistical HAR featurisation; fully deterministic, no randomness.
+
+    Anomaly labels: DSADS has **no native anomaly labels** (it is a 19-class
+    activity-recognition set), so this loader constructs a transparent,
+    DOCUMENTED convention: segments of a designated minority of activities are
+    labelled anomalous, the rest normal. The default singles out activity 19
+    ("playing basketball") — the only ball sport and the most irregular,
+    non-cyclic activity in the set — giving 480 / 9120 = 5.26% anomalies.
+    Override with ``preprocessing={"anomaly_activities": [..1-based..]}``. The
+    constructed nature is surfaced in ``get_dataset_info`` (``label_source =
+    "constructed"``); only the *labels* are constructed — the sensor features
+    are real and never fabricated.
+    """
+
+    DATASET_NAME = "dsads"
+    DATASET_URL = "https://archive.ics.uci.edu/dataset/256/daily+and+sports+activities"
+    LICENSE = "CC BY 4.0 (UCI)"
+    CITATION = (
+        "Barshan B, Yüksek M C. Recognizing Daily and Sports Activities in Two Open "
+        "Source Machine Learning Environments Using Body-Worn Sensor Units. "
+        "The Computer Journal 57(11), 2014."
+    )
+    REQUIRES_CREDENTIALS = False
+
+    DATA_URL = "https://archive.ics.uci.edu/ml/machine-learning-databases/00256/data.zip"
+    N_ACTIVITIES = 19
+    N_SUBJECTS = 8
+    N_SEGMENTS = 60
+    SEGMENT_ROWS = 125
+    SEGMENT_COLS = 45
+    _DEFAULT_ANOMALY_ACTIVITIES = (19,)
+
+    def __init__(self, config: DatasetConfig) -> None:
+        """Initialize the instance, validating the anomaly-activity convention."""
+        super().__init__(config)
+        raw = config.preprocessing.get("anomaly_activities", self._DEFAULT_ANOMALY_ACTIVITIES)
+        self.anomaly_activities = frozenset(int(a) for a in raw)
+        if not self.anomaly_activities or not all(
+            1 <= a <= self.N_ACTIVITIES for a in self.anomaly_activities
+        ):
+            raise ValueError(
+                f"anomaly_activities must be a non-empty subset of 1..{self.N_ACTIVITIES}; "
+                f"got {sorted(self.anomaly_activities)}"
+            )
+
+    @property
+    def _zip_path(self) -> Path:
+        return self.data_path / "dsads_data.zip"
+
+    def download(self) -> bool:
+        """Download the REAL DSADS archive from UCI (~170 MB), cached on disk."""
+        if self._zip_path.exists():
+            logger.info("DSADS archive already cached at %s", self._zip_path)
+            return True
+        logger.info("Downloading REAL DSADS (UCI 256, ~170 MB)...")
+        safe_urlretrieve(self.DATA_URL, self._zip_path)
+        return self._zip_path.exists()
+
+    @staticmethod
+    def _segment_features(seg: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Reduce a (125, 45) segment to 405 deterministic per-channel statistics."""
+        seg = seg.astype(np.float64)
+        return np.concatenate(
+            [
+                seg.mean(axis=0),
+                seg.std(axis=0),
+                seg.min(axis=0),
+                seg.max(axis=0),
+                np.median(seg, axis=0),
+                np.percentile(seg, 25, axis=0),
+                np.percentile(seg, 75, axis=0),
+                np.ptp(seg, axis=0),
+                np.sqrt((seg**2).mean(axis=0)),
+            ]
+        )
+
+    def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+        """Parse the cached archive into (X[9120, 405], y[9120]) — real data only."""
+        import re
+        import zipfile
+
+        if not self._zip_path.exists():
+            raise FileNotFoundError(
+                f"DSADS archive not found at {self._zip_path}. Run with download=True."
+            )
+
+        seg_re = re.compile(r"(?:^|/)a(\d{2})/p(\d)/s(\d{2})\.txt$")
+        feats: list[np.ndarray[Any, Any]] = []
+        labels: list[int] = []
+        expected = self.N_ACTIVITIES * self.N_SUBJECTS * self.N_SEGMENTS
+        with zipfile.ZipFile(self._zip_path) as zf:
+            members = sorted(n for n in zf.namelist() if seg_re.search(n))
+            if len(members) != expected:
+                raise ValueError(
+                    f"DSADS archive layout unexpected: found {len(members)} segment "
+                    f"files, expected {expected} (19 activities × 8 subjects × 60)."
+                )
+            for name in members:
+                match = seg_re.search(name)
+                assert match is not None  # guaranteed by the filter above
+                activity = int(match.group(1))
+                with zf.open(name) as handle:
+                    seg = np.loadtxt(handle, delimiter=",")
+                if seg.shape != (self.SEGMENT_ROWS, self.SEGMENT_COLS):
+                    raise ValueError(
+                        f"DSADS segment {name} has shape {seg.shape}, expected "
+                        f"({self.SEGMENT_ROWS}, {self.SEGMENT_COLS})."
+                    )
+                feats.append(self._segment_features(seg))
+                labels.append(1 if activity in self.anomaly_activities else 0)
+
+        features = np.asarray(feats, dtype=np.float64)
+        targets = np.asarray(labels, dtype=np.int64)
+        logger.info(
+            "Loaded REAL DSADS: %d segments × %d features, %d anomalies (%.2f%%); "
+            "anomaly activities=%s",
+            features.shape[0],
+            features.shape[1],
+            int(targets.sum()),
+            100.0 * float(targets.mean()),
+            sorted(self.anomaly_activities),
+        )
+        return features, targets
+
+    def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Z-score normalise the per-channel statistic features."""
+        data = np.nan_to_num(data, nan=0.0)
+        return ((data - data.mean(axis=0)) / (data.std(axis=0) + 1e-8)).astype(np.float32)
+
+    def get_dataset_info(self) -> dict[str, Any]:
+        """Return dataset metadata, flagging the constructed anomaly labels."""
+        return {
+            "name": "Daily and Sports Activities (DSADS, UCI 256)",
+            "type": "REAL DATA",
+            "source": self.DATASET_URL,
+            "label_source": "constructed",
+            "anomaly_activities": sorted(self.anomaly_activities),
+            "citation": self.CITATION,
+        }
+
+
 # Register time-series loaders
 DatasetRegistry.register("nab", NABLoader)
 DatasetRegistry.register("smd", SMDLoader)
 DatasetRegistry.register("smap", SMAPMSLLoader)
 DatasetRegistry.register("msl", SMAPMSLLoader)
+DatasetRegistry.register("dsads", DSADSLoader)
