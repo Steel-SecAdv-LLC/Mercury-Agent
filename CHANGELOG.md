@@ -27,6 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-06-17
+
 ### Statistical ensemble: fusion-margin sharpening, data-type gate correction, temporal robustness
 
 A measurement-driven pass on `MercuryAnomalyDetector` (`detectors/statistical.py`)
@@ -207,8 +209,6 @@ assumed "AMA built" implied "`omni_mercury_engine` imports". Two gaps closed:
   skew fails loudly at the seam rather than 20+ minutes deep in a test lane.
   Self-gating via `find_spec` keeps the action reusable for pure-AMA jobs. No new
   CI jobs, no DAG/latency change.
-
-## [2.0.0] - 2026-06-17
 
 ### Docs↔code reconciliation + release-engineering pass (2026-06-17)
 
