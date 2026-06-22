@@ -52,8 +52,10 @@ def _imports_pyca_cryptography(path: Path) -> bool:
             ):
                 return True
         elif isinstance(node, ast.ImportFrom):
+            # Absolute imports only (level == 0): a relative ``from .cryptography
+            # import ...`` is a local module, not the pyca package.
             mod = node.module or ""
-            if mod == "cryptography" or mod.startswith("cryptography."):
+            if node.level == 0 and (mod == "cryptography" or mod.startswith("cryptography.")):
                 return True
     return False
 
@@ -79,15 +81,34 @@ def test_pyca_cryptography_confined_to_crypto_security_tools() -> None:
     )
 
 
-def test_guard_actually_observes_known_importers() -> None:
-    """Non-vacuity: the scan really sees the (allowlisted) pyca importers.
+def test_scan_is_non_vacuous_and_importers_in_boundary() -> None:
+    """The engine scan is real, and any pyca importers it finds are in-boundary.
 
-    If the scan silently found nothing, the boundary test above would pass
-    vacuously. Pin that the known classical-crypto importers are detected.
+    Non-vacuity is pinned on the *scan* (engine modules are actually walked), not
+    on pyca being present: eliminating the pyca dependency entirely is a
+    legitimate future hardening that must not false-fail this guard, so an empty
+    importer set is allowed — only an *out-of-boundary* importer fails.
     """
-    importers = {_rel(p) for p in _src_python_files() if _imports_pyca_cryptography(p)}
-    assert importers, "expected to find pyca importers under crypto/security/tools; found none"
-    # every detected importer must already be inside the allowed boundary
+    files = _src_python_files()
+    assert files, "engine module scan is empty — the boundary test could pass vacuously."
+    importers = {_rel(p) for p in files if _imports_pyca_cryptography(p)}
     assert all(
-        prefix_ok for prefix_ok in (s.startswith(_ALLOWED_PREFIXES) for s in importers)
+        s.startswith(_ALLOWED_PREFIXES) for s in importers
     ), f"a pyca importer sits outside the allowed boundary: {sorted(importers)}"
+
+
+def test_scanner_detects_absolute_and_ignores_relative(tmp_path: Path) -> None:
+    """``_imports_pyca_cryptography`` flags absolute pyca imports and ignores a
+    relative import of a local module named ``cryptography`` (node.level > 0).
+
+    Fixture-based so it stays meaningful even if the repo ever drops pyca, and so
+    it pins the absolute-vs-relative distinction directly.
+    """
+    (tmp_path / "abs1.py").write_text("import cryptography\n")
+    (tmp_path / "abs2.py").write_text("from cryptography.hazmat.primitives import hashes\n")
+    (tmp_path / "rel.py").write_text("from .cryptography import helper\n")
+    (tmp_path / "benign.py").write_text("import numpy  # cryptography in a comment\n")
+    assert _imports_pyca_cryptography(tmp_path / "abs1.py") is True
+    assert _imports_pyca_cryptography(tmp_path / "abs2.py") is True
+    assert _imports_pyca_cryptography(tmp_path / "rel.py") is False  # relative -> local
+    assert _imports_pyca_cryptography(tmp_path / "benign.py") is False

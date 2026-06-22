@@ -150,8 +150,10 @@ def _sklearn_usage(path: Path) -> str | None:
                 if _is_sklearn_name(alias.name):
                     return f"import {alias.name}"
         elif isinstance(node, ast.ImportFrom):
+            # Absolute imports only (level == 0): a relative ``from .sklearn
+            # import ...`` is a local module, not the third-party package.
             mod = node.module or ""
-            if _is_sklearn_name(mod):
+            if node.level == 0 and _is_sklearn_name(mod):
                 return f"from {mod} import ..."
         elif isinstance(node, ast.Call):
             name = _called_name(node.func)
