@@ -225,17 +225,6 @@ class SchumannResonanceDetector:
 
         self.ancient_knowledge = self._initialize_ancient_correlations()
 
-        self.omni_resonance_scalars = {
-            "omni_electromagnetic_harmony": 1.46 * self.golden_ratio,
-            "omni_ionospheric_coherence": 1.42 * self.golden_ratio,
-            "omni_planetary_resonance": 1.44 * self.golden_ratio,
-            "omni_seismic_precursor_detection": 1.48 * self.golden_ratio,
-            "omni_space_weather_correlation": 1.40 * self.golden_ratio,
-            "omni_frequency_stability": 1.38 * self.golden_ratio,
-            "omni_amplitude_sensitivity": 1.43 * self.golden_ratio,
-            "omni_ancient_wisdom_alignment": 1.37 * self.golden_ratio,
-        }
-
         self.logger.info(f"Schumann Resonance Detector initialized (fs={sampling_rate}Hz)")
 
     @property
@@ -306,7 +295,8 @@ class SchumannResonanceDetector:
 
         amplitude_anomaly = self._detect_amplitude_anomaly(power_spectrum, frequencies)
 
-        frequency_anomaly = fundamental_deviation > (0.5 * self.golden_ratio)
+        # Fixed fundamental-frequency deviation threshold (φ scaling removed).
+        frequency_anomaly = fundamental_deviation > 0.5
 
         power_shift = self._detect_spectrum_shift(power_spectrum, frequencies)
 
@@ -345,11 +335,11 @@ class SchumannResonanceDetector:
                 amplitude_anomaly, frequency_anomaly, power_shift, fundamental_deviation
             )
 
-        risk_score = (
-            confidence_score
-            * self.omni_resonance_scalars["omni_seismic_precursor_detection"]
-            * (1 + fundamental_deviation)
-        )
+        # Raw confidence scaled only by the physics-derived deviation factor;
+        # the former φ-scaled ``omni_seismic_precursor_detection`` multiplier
+        # was removed (a reported score must not be multiplied by an unlearned
+        # constant).
+        risk_score = confidence_score * (1 + fundamental_deviation)
 
         correlated_events = self._correlate_with_events(
             fundamental_deviation, harmonic_deviations, amplitude_anomaly
@@ -519,7 +509,10 @@ class SchumannResonanceDetector:
         mean_power = np.mean(schumann_power)
         std_power = np.std(schumann_power)
 
-        threshold = self.golden_ratio * std_power
+        # Fixed sigma-multiple amplitude threshold (φ scaling removed); flag a
+        # spectral peak that exceeds the band mean by more than this many
+        # standard deviations.
+        threshold = 1.5 * std_power
 
         max_power = np.max(schumann_power)
 
@@ -542,7 +535,8 @@ class SchumannResonanceDetector:
 
         expected_ratio = 0.3
 
-        return bool(abs(ratio - expected_ratio) > (0.2 * self.golden_ratio))
+        # Fixed band-power ratio deviation threshold (φ scaling removed).
+        return bool(abs(ratio - expected_ratio) > 0.3)
 
     def _process_temporal_history(
         self, temporal_history: list[np.ndarray[Any, Any]]
@@ -690,25 +684,3 @@ class SchumannResonanceDetector:
             "confidence": result.confidence,
             "fundamental_freq": result.fundamental_freq,
         }
-
-
-def create_omni_resonance_scalars() -> dict[str, float]:
-    """Create doctorate-level Schumann resonance scalars.
-
-    Returns:
-        Dictionary of omni-resonance scalars with golden ratio optimization
-    """
-    phi = 1.618
-
-    return {
-        "omni_electromagnetic_harmony": 1.46 * phi,
-        "omni_ionospheric_coherence": 1.42 * phi,
-        "omni_planetary_resonance": 1.44 * phi,
-        "omni_seismic_precursor_detection": 1.48 * phi,
-        "omni_space_weather_correlation": 1.40 * phi,
-        "omni_frequency_stability": 1.38 * phi,
-        "omni_amplitude_sensitivity": 1.43 * phi,
-        "omni_ancient_wisdom_alignment": 1.37 * phi,
-        "omni_waveguide_propagation": 1.39 * phi,
-        "omni_solar_modulation": 1.41 * phi,
-    }

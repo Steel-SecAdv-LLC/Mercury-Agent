@@ -181,6 +181,18 @@ else:
             )
 
 
+# Fixed operating point for the medical anomaly decision.  Replaces the
+# former ``0.5 * golden_ratio`` (≈0.809) threshold that was applied to a
+# φ-inflated risk score (``confidence * 1.42 * φ``).  With the score now the
+# raw model confidence (a softmax probability in ``[0, 1]``), this constant
+# preserves the previous effective operating point — the old rule reduced to
+# ``confidence > 0.352`` — without multiplying a reported score by an
+# unlearned constant.  It is a documented fixed default, NOT a calibrated
+# threshold: conformal calibration of this path on real ABMS-labelled data is
+# a separate, measured follow-up (see CHANGELOG / WORKSTREAM A1).
+MEDICAL_ANOMALY_THRESHOLD = 0.35
+
+
 class ABMSDisciplineDetector:
     """ABMS Medical Disciplines Anomaly Detector.
 
@@ -195,11 +207,18 @@ class ABMSDisciplineDetector:
 
         Args:
             enable_neurosymbolic: Enable symbolic medical reasoning
-            golden_ratio_threshold: Use φ-optimized decision thresholds
+            golden_ratio_threshold: Deprecated and ignored.  Retained only for
+                API compatibility with existing callers.  The φ-scaled scoring
+                path it once toggled was removed for calibration integrity
+                (a reported score must never be multiplied by an unlearned
+                constant); the decision now uses the raw model confidence and
+                the fixed :data:`MEDICAL_ANOMALY_THRESHOLD`.
         """
         self.logger = logging.getLogger(__name__)
         self.enable_neurosymbolic = enable_neurosymbolic
-        self.golden_ratio = 1.618 if golden_ratio_threshold else 1.0
+        # ``golden_ratio_threshold`` is accepted but no longer applied; the
+        # numerological φ multipliers were excised from every scoring path.
+        del golden_ratio_threshold
 
         self.model = MultiSpecialtyNeuralNet(input_dim=64, num_specialties=24)
 
@@ -207,18 +226,7 @@ class ABMSDisciplineDetector:
 
         self.medical_knowledge_base = self._initialize_medical_kb()
 
-        self.omni_medical_scalars = {
-            "omni_diagnostic_precision": 1.42 * self.golden_ratio,
-            "omni_clinical_judgment": 1.38 * self.golden_ratio,
-            "omni_treatment_efficacy": 1.45 * self.golden_ratio,
-            "omni_patient_safety": 1.50 * self.golden_ratio,
-            "omni_interdisciplinary_coordination": 1.35 * self.golden_ratio,
-            "omni_evidence_based_medicine": 1.40 * self.golden_ratio,
-            "omni_preventive_care": 1.33 * self.golden_ratio,
-            "omni_holistic_assessment": 1.37 * self.golden_ratio,
-        }
-
-        self.specialty_thresholds = {board.value: 0.5 * self.golden_ratio for board in ABMSBoard}
+        self.specialty_thresholds = {board.value: 0.5 for board in ABMSBoard}
 
         self.logger.info(f"ABMS Disciplines Detector initialized with {len(ABMSBoard)} boards")
 
@@ -500,9 +508,12 @@ class ABMSDisciplineDetector:
             predictions, patient_data
         )
 
-        risk_score = confidence * self.omni_medical_scalars["omni_diagnostic_precision"]
+        # Raw calibrated model confidence is the risk score.  It must not be
+        # multiplied by an unlearned constant (the former φ-scaled
+        # ``omni_diagnostic_precision`` factor inflated probabilities past 1.0).
+        risk_score = confidence
 
-        anomaly_detected = risk_score > (0.5 * self.golden_ratio)
+        anomaly_detected = risk_score > MEDICAL_ANOMALY_THRESHOLD
 
         clinical_indicators = self._identify_clinical_indicators(patient_data, primary_board)
 
@@ -846,33 +857,6 @@ class ABMSDisciplineDetector:
         for board in ABMSBoard:
             results[board.value] = self.detect(data, board.value)
         return results
-
-
-def create_omni_medical_scalars() -> dict[str, float]:
-    """Create doctorate-level medical scalars for truth deciphering.
-
-    Returns:
-        Dictionary of omni-medical scalars with golden ratio optimization
-    """
-    phi = 1.618
-
-    return {
-        "omni_diagnostic_precision": 1.42 * phi,
-        "omni_clinical_judgment": 1.38 * phi,
-        "omni_treatment_efficacy": 1.45 * phi,
-        "omni_patient_safety": 1.50 * phi,
-        "omni_interdisciplinary_coordination": 1.35 * phi,
-        "omni_evidence_based_medicine": 1.40 * phi,
-        "omni_preventive_care": 1.33 * phi,
-        "omni_holistic_assessment": 1.37 * phi,
-        "omni_subspecialty_expertise": 1.44 * phi,
-        "omni_emergency_responsiveness": 1.48 * phi,
-        "omni_chronic_disease_management": 1.36 * phi,
-        "omni_surgical_precision": 1.46 * phi,
-        "omni_pharmaceutical_optimization": 1.39 * phi,
-        "omni_imaging_interpretation": 1.41 * phi,
-        "omni_laboratory_correlation": 1.34 * phi,
-    }
 
 
 ABMSAnomalyDetector = ABMSDisciplineDetector

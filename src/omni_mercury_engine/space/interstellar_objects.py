@@ -229,15 +229,6 @@ class InterstellarObjectDetector:
 
         self.known_isos = self._initialize_iso_database()
 
-        self.omni_interstellar_scalars = {
-            "omni_orbital_precision": 1.44 * self.golden_ratio,
-            "omni_spectroscopic_sensitivity": 1.42 * self.golden_ratio,
-            "omni_morphological_analysis": 1.40 * self.golden_ratio,
-            "omni_acceleration_detection": 1.48 * self.golden_ratio,
-            "omni_comparative_assessment": 1.38 * self.golden_ratio,
-            "omni_hypothesis_evaluation": 1.43 * self.golden_ratio,
-        }
-
         self.logger.info(
             f"Interstellar Object Detector initialized "
             f"(artificial_origin_test={enable_artificial_origin_test})"
@@ -320,9 +311,12 @@ class InterstellarObjectDetector:
         anomaly_types = [t.value for t in ISOAnomalyType]
         anomaly_type = anomaly_types[anomaly_class]  # type: ignore[index, unused-ignore]
 
-        anomaly_score = confidence_score * self.omni_interstellar_scalars["omni_orbital_precision"]
+        # Raw model confidence is the anomaly score; the former φ-scaled
+        # ``omni_orbital_precision`` multiplier was removed for integrity.
+        anomaly_score = confidence_score
 
-        anomaly_detected = anomaly_score > (0.4 * self.golden_ratio)
+        # Fixed operating point (φ scaling removed from the threshold).
+        anomaly_detected = anomaly_score > 0.4
 
         orbital_anomalies = self._analyze_orbital_anomalies(iso_data)
 
@@ -638,23 +632,3 @@ class InterstellarObjectDetector:
             base_significance *= 1.3
 
         return min(1.0, base_significance)
-
-
-def create_omni_interstellar_scalars() -> dict[str, float]:
-    """Create doctorate-level interstellar object analysis scalars.
-
-    Returns:
-        Dictionary of interstellar scalars with golden ratio optimization
-    """
-    phi = 1.618
-
-    return {
-        "omni_orbital_precision": 1.44 * phi,
-        "omni_spectroscopic_sensitivity": 1.42 * phi,
-        "omni_morphological_analysis": 1.40 * phi,
-        "omni_acceleration_detection": 1.48 * phi,
-        "omni_comparative_assessment": 1.38 * phi,
-        "omni_hypothesis_evaluation": 1.43 * phi,
-        "omni_follow_up_prioritization": 1.41 * phi,
-        "omni_scientific_significance": 1.46 * phi,
-    }

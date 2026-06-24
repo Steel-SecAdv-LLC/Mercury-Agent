@@ -27,6 +27,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Integrity: excise golden-ratio (φ) numerology from every scoring path + lock it with a CI drift gate
+
+A reported anomaly/risk/confidence score must never be multiplied by an
+*unlearned constant*. Six discipline modules violated this by scaling model
+confidences through `create_omni_*_scalars` dictionaries whose every entry was
+`<coef> * φ` (φ = 1.618…) and by thresholding the inflated scores against
+`k * golden_ratio`. The worst case was `medical/abms_disciplines.py`, a real
+module: `risk_score = confidence * omni_diagnostic_precision` with
+`omni_diagnostic_precision = 1.42 * φ ≈ 2.30` pushed a softmax probability past
+`2.0` and compared it to `0.5 * φ ≈ 0.809` — a probability that could exceed
+the `[0, 1]` invariant its own test (`tests/test_abms_disciplines.py:229`)
+asserts. This pass removes the numerology, surgically, leaving the legitimate φ
+in `harmonics/`, `core/three_r/`, the GA-optimized `core/fusion.py` coefficient,
+and architectural layer-sizing untouched.
+
+* **`medical/abms_disciplines.py` (real module).** `risk_score` is now the raw
+  calibrated model confidence (`:503`), and the decision uses a documented fixed
+  operating point `MEDICAL_ANOMALY_THRESHOLD = 0.35` (new module constant)
+  instead of `0.5 * golden_ratio` (`:505`). `0.35` preserves the prior effective
+  boundary — the old rule reduced to `confidence > 0.352` — without re-encoding
+  φ; it is an honest fixed default, not a calibrated threshold (conformal
+  calibration on real ABMS labels is a labelled follow-up, not faked here). The
+  `golden_ratio_threshold` constructor arg is kept for API compatibility but
+  documented as deprecated/ignored. The dead `create_omni_medical_scalars()`
+  generator and the unused `self.omni_medical_scalars` dict are deleted.
+* **`models/chemistry.py`, `models/parapsychology.py`,
+  `space/interstellar_objects.py`, `space/schumann_resonance.py`,
+  `security/intelligence_fusion.py` (experimental modules).** Every
+  `* self.golden_ratio` / `* omni_*_scalars[...]` score multiplier and every
+  `k * golden_ratio` threshold is replaced with the raw score and a documented
+  fixed constant; the dead `create_omni_*_scalars` generators and unused scalar
+  dicts are deleted. The `golden_ratio_*` constructor flags are retained for the
+  callers that pass them (`space/disaster_precursor_detector.py`,
+  `security/counterintelligence.py`).
+* **CI drift gate — `scripts/check_no_numerology_in_scoring.py` (new).** A
+  token-based gate (modelled on `scripts/check_readme_lyapunov.py`) that fails
+  the build if `create_omni_*_scalars`, `omni_*_scalars[...]`,
+  `* self.golden_ratio`, `* self.phi`, or a bare `score * phi` reappears on a
+  scoring path. Token-based so prose mentioning the idioms is never flagged;
+  architectural φ (layer sizing) and the allow-listed legitimate-math paths
+  (`harmonics/`, `core/three_r/`, `core/fusion.py`) are permitted; carries a
+  vacuous-green floor (`MIN_FILES_SCANNED`) so a moved scan target cannot pass
+  silently. Wired into `.github/workflows/ci.yml` beside the λ gate. Currently
+  green across all **632** scanned engine files.
+* **Tests — `tests/integrity/test_no_numerology_in_scoring.py` (new, 19 cases).**
+  Locks the live tree clean, proves each forbidden idiom is detected (teeth),
+  proves architectural φ and prose are *not* flagged (no false positives),
+  proves the allow-list and the vacuous-green guard. `ruff`/`black`/`flake8`/
+  `mypy` green on all touched files.
+
 ### Statistical ensemble: fusion-margin sharpening, data-type gate correction, temporal robustness
 
 A measurement-driven pass on `MercuryAnomalyDetector` (`detectors/statistical.py`)

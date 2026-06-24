@@ -160,7 +160,6 @@ class ParapsychologyDetector:
         self.significance_threshold = significance_threshold
         self.enable_consciousness_field = enable_consciousness_field
         self.bayesian_analysis = bayesian_analysis
-        self.golden_ratio = 1.618
 
         self.field_analyzer: ConsciousnessFieldAnalyzer | None = None
         if enable_consciousness_field:
@@ -174,17 +173,6 @@ class ParapsychologyDetector:
         self._warned_untrained = False
 
         self.historical_baselines = self._initialize_baselines()
-
-        self.omni_psi_scalars = {
-            "omni_statistical_rigor": 1.50 * self.golden_ratio,
-            "omni_effect_size_sensitivity": 1.42 * self.golden_ratio,
-            "omni_replication_confidence": 1.45 * self.golden_ratio,
-            "omni_consciousness_coherence": 1.44 * self.golden_ratio,
-            "omni_temporal_precognition": 1.47 * self.golden_ratio,
-            "omni_information_transfer": 1.40 * self.golden_ratio,
-            "omni_mind_matter_interaction": 1.43 * self.golden_ratio,
-            "omni_presentiment_detection": 1.41 * self.golden_ratio,
-        }
 
         self.logger.info(f"Parapsychology Detector initialized (p < {significance_threshold})")
 
@@ -618,25 +606,3 @@ class ParapsychologyDetector:
             "p_value": result.p_value,
             "effect_size": result.effect_size,
         }
-
-
-def create_omni_psi_scalars() -> dict[str, float]:
-    """Create doctorate-level parapsychology scalars.
-
-    Returns:
-        Dictionary of omni-psi scalars with golden ratio optimization
-    """
-    phi = 1.618
-
-    return {
-        "omni_statistical_rigor": 1.50 * phi,
-        "omni_effect_size_sensitivity": 1.42 * phi,
-        "omni_replication_confidence": 1.45 * phi,
-        "omni_consciousness_coherence": 1.44 * phi,
-        "omni_temporal_precognition": 1.47 * phi,
-        "omni_information_transfer": 1.40 * phi,
-        "omni_mind_matter_interaction": 1.43 * phi,
-        "omni_presentiment_detection": 1.41 * phi,
-        "omni_field_resonance": 1.39 * phi,
-        "omni_bayesian_evidence": 1.46 * phi,
-    }

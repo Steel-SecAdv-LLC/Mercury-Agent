@@ -239,19 +239,6 @@ class IntelligenceFusionEngine:
 
         self.int_reliability_scores = self._initialize_reliability_scores()
 
-        self.omni_intelligence_scalars = {
-            "omni_source_credibility": 1.45 * self.golden_ratio,
-            "omni_corroboration_strength": 1.42 * self.golden_ratio,
-            "omni_temporal_correlation": 1.38 * self.golden_ratio,
-            "omni_geospatial_precision": 1.40 * self.golden_ratio,
-            "omni_threat_anticipation": 1.47 * self.golden_ratio,
-            "omni_cryptographic_insight": 1.43 * self.golden_ratio,
-            "omni_human_factor_analysis": 1.36 * self.golden_ratio,
-            "omni_signal_clarity": 1.41 * self.golden_ratio,
-            "omni_financial_tracing": 1.39 * self.golden_ratio,
-            "omni_cyber_attribution": 1.44 * self.golden_ratio,
-        }
-
         self.logger.info(
             f"Intelligence Fusion Engine initialized with {len(IntelligenceDiscipline)} disciplines"
         )
@@ -362,13 +349,13 @@ class IntelligenceFusionEngine:
         threat_level_enum = ThreatLevel(threat_class)
         confidence_score = float(confidence[0].item())
 
-        risk_score = (
-            confidence_score
-            * self.omni_intelligence_scalars["omni_source_credibility"]
-            * (threat_class / 5.0)
-        )
+        # Raw confidence scaled only by the threat-class severity factor; the
+        # former φ-scaled ``omni_source_credibility`` multiplier was removed
+        # (a reported score must not be multiplied by an unlearned constant).
+        risk_score = confidence_score * (threat_class / 5.0)
 
-        threat_detected = risk_score > (0.5 * self.golden_ratio)
+        # Fixed operating point (φ scaling removed from the threshold).
+        threat_detected = risk_score > 0.5
 
         primary_sources, corroborating = self._identify_sources(intel_reports, attention[0].numpy())
 
@@ -662,28 +649,3 @@ class IntelligenceFusionEngine:
             "confidence": result.confidence,
             "intel_sources": result.primary_intel_sources,
         }
-
-
-def create_omni_intelligence_scalars() -> dict[str, float]:
-    """Create doctorate-level intelligence scalars for truth deciphering.
-
-    Returns:
-        Dictionary of omni-intelligence scalars with golden ratio optimization
-    """
-    phi = 1.618
-
-    return {
-        "omni_source_credibility": 1.45 * phi,
-        "omni_corroboration_strength": 1.42 * phi,
-        "omni_temporal_correlation": 1.38 * phi,
-        "omni_geospatial_precision": 1.40 * phi,
-        "omni_threat_anticipation": 1.47 * phi,
-        "omni_cryptographic_insight": 1.43 * phi,
-        "omni_human_factor_analysis": 1.36 * phi,
-        "omni_signal_clarity": 1.41 * phi,
-        "omni_financial_tracing": 1.39 * phi,
-        "omni_cyber_attribution": 1.44 * phi,
-        "omni_all_source_synthesis": 1.48 * phi,
-        "omni_counterintelligence": 1.46 * phi,
-        "omni_predictive_analysis": 1.43 * phi,
-    }

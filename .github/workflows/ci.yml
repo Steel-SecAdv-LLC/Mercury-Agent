@@ -401,6 +401,19 @@ jobs:
           AMA_REQUIRE_REAL_PQC: "true"
         run: python scripts/check_readme_lyapunov.py
 
+      - name: Run golden-ratio scoring-numerology drift gate
+        # Anti-theater integrity gate (Workstream A1): fails the build if φ
+        # numerology re-enters a scoring path -- a reported anomaly/risk score
+        # multiplied by an unlearned constant (``create_omni_*_scalars``,
+        # ``omni_*_scalars[...]``, ``* self.golden_ratio``, or a bare
+        # ``score * phi``).  Token-based, so prose mentioning the idioms is
+        # never flagged; architectural φ (layer sizing) and the GA-optimized
+        # ``core/fusion.py`` coefficient are explicitly permitted.  Carries a
+        # vacuous-green floor so a moved scan target cannot pass silently.
+        # Dependency-free (stdlib only -- it never imports the package), so it
+        # runs in the same minimal code-quality job as the other drift gates.
+        run: python scripts/check_no_numerology_in_scoring.py
+
       - name: Run codebase-scale documentation drift gate
         # Measures src files / LOC / true subpackages / detector & loader
         # classes / test files / workflows from disk and asserts the
@@ -965,6 +978,7 @@ jobs:
             tests/scripts/test_run_ablation.py \
             tests/scripts/test_check_readme_lyapunov.py \
             tests/scripts/test_run_hardware_benchmark.py \
+            tests/integrity/ \
             tests/test_adaptive_detector.py \
             tests/test_acceleration_dynamics.py \
             tests/test_advanced_ml_capabilities.py \

@@ -173,18 +173,6 @@ class ChemistryAnomalyDetector:
 
         self.alchemical_knowledge = self._initialize_alchemical_kb()
 
-        self.omni_chemistry_scalars = {
-            "omni_elemental_purity": 1.44 * self.golden_ratio,
-            "omni_isotopic_stability": 1.47 * self.golden_ratio,
-            "omni_reaction_equilibrium": 1.41 * self.golden_ratio,
-            "omni_periodic_harmony": 1.43 * self.golden_ratio,
-            "omni_molecular_integrity": 1.45 * self.golden_ratio,
-            "omni_catalytic_efficiency": 1.39 * self.golden_ratio,
-            "omni_thermodynamic_optimization": 1.42 * self.golden_ratio,
-            "omni_quantum_coherence": 1.46 * self.golden_ratio,
-            "omni_alchemical_wisdom": 1.38 * self.golden_ratio,
-        }
-
         self.logger.info("Chemistry Anomaly Detector initialized")
 
     def _initialize_element_data(self) -> dict[int, dict[str, Any]]:
@@ -341,11 +329,10 @@ class ChemistryAnomalyDetector:
             element_anomalies, isotope_anomalies, reaction_anomalies
         )
 
-        risk_score = (
-            confidence
-            * self.omni_chemistry_scalars["omni_elemental_purity"]
-            * (1 + len(element_anomalies) * 0.1)
-        )
+        # Raw confidence scaled only by the count-based anomaly factor; the
+        # former φ-inflated ``omni_elemental_purity`` multiplier was removed
+        # (a reported score must not be multiplied by an unlearned constant).
+        risk_score = confidence * (1 + len(element_anomalies) * 0.1)
 
         recommendations = self._generate_recommendations(
             anomaly_type, element_anomalies, isotope_anomalies, stability_concerns
@@ -416,7 +403,9 @@ class ChemistryAnomalyDetector:
                     expected_abundance = isotope_info.get("abundance", 0.0)
                     deviation = abs(measured_ratio - expected_abundance)
 
-                    if deviation > (10.0 * self.golden_ratio):
+                    # Fixed isotope-abundance deviation threshold (φ scaling
+                    # removed; thresholds are no longer φ-derived).
+                    if deviation > 10.0:
                         anomalies.append(
                             {
                                 "isotope": isotope_name,
@@ -453,9 +442,11 @@ class ChemistryAnomalyDetector:
 
             rate_ratio = measured_rate / expected_rate if expected_rate > 0 else float("inf")
 
-            phi_threshold = self.golden_ratio
+            # Fixed symmetric reaction-rate anomaly band (φ scaling removed);
+            # flag rates that deviate from parity by more than the band factor.
+            rate_band = 1.5
 
-            if rate_ratio > phi_threshold or rate_ratio < (1.0 / phi_threshold):
+            if rate_ratio > rate_band or rate_ratio < (1.0 / rate_band):
                 anomalies.append(
                     {
                         "reaction": reaction_name,
@@ -673,25 +664,3 @@ class ChemistryAnomalyDetector:
             "confidence": result.confidence,
             "element_count": len(result.element_anomalies),
         }
-
-
-def create_omni_chemistry_scalars() -> dict[str, float]:
-    """Create doctorate-level chemistry scalars for truth deciphering.
-
-    Returns:
-        Dictionary of omni-chemistry scalars with golden ratio optimization
-    """
-    phi = 1.618
-
-    return {
-        "omni_elemental_purity": 1.44 * phi,
-        "omni_isotopic_stability": 1.47 * phi,
-        "omni_reaction_equilibrium": 1.41 * phi,
-        "omni_periodic_harmony": 1.43 * phi,
-        "omni_molecular_integrity": 1.45 * phi,
-        "omni_catalytic_efficiency": 1.39 * phi,
-        "omni_thermodynamic_optimization": 1.42 * phi,
-        "omni_quantum_coherence": 1.46 * phi,
-        "omni_alchemical_wisdom": 1.38 * phi,
-        "omni_nuclear_stability": 1.48 * phi,
-    }
