@@ -37,8 +37,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
-import subprocess
 import sys
 from pathlib import Path
 
@@ -127,33 +125,33 @@ def _verify_gate_passes(results: list[dict]) -> None:
 def _verify_fail_closed(results: list[dict]) -> None:
     """The gate MUST still fail closed on a partial backend.
 
-    Run in a subprocess so monkeypatching the availability flag cannot leak
-    into the verifier's own process state. A partial native build (one
-    algorithm flag False) must make the gate raise — never silently degrade.
+    Force one algorithm's availability flag False to simulate a partial native
+    build and assert the gate raises rather than silently degrading. The flag
+    is restored in ``finally`` so the simulated failure cannot leak into the
+    verifier's other checks; the gate reads the flag live on every call, so an
+    in-process monkeypatch + restore is sufficient and faithful.
     """
-    snippet = (
-        "import sys; sys.path.insert(0, %r)\n"
-        "from omni_mercury_engine._pqc_gate import _enforce_pqc_production_gate\n"
-        "import ama_cryptography.pqc_backends as ap\n"
-        "ap.KYBER_AVAILABLE = False\n"
-        "try:\n"
-        "    _enforce_pqc_production_gate()\n"
-        "    print('OPEN')\n"
-        "except RuntimeError:\n"
-        "    print('CLOSED')\n"
-    ) % str(_SRC)
-    proc = subprocess.run(
-        [sys.executable, "-c", snippet],
-        capture_output=True,
-        text=True,
-        env={**os.environ, "PYTHONWARNINGS": "ignore"},
-    )
-    closed = proc.stdout.strip().splitlines()[-1:] == ["CLOSED"]
+    import ama_cryptography.pqc_backends as ap
+
+    from omni_mercury_engine._pqc_gate import _enforce_pqc_production_gate
+
+    original = ap.KYBER_AVAILABLE
+    closed = False
+    try:
+        ap.KYBER_AVAILABLE = False
+        _enforce_pqc_production_gate()
+    except RuntimeError:
+        closed = True
+    finally:
+        ap.KYBER_AVAILABLE = original
+
     _check(
         results,
         "fail_closed_on_partial_backend",
         closed,
-        "gate raised on simulated missing Kyber" if closed else proc.stdout + proc.stderr,
+        "gate raised on simulated missing Kyber"
+        if closed
+        else "gate did NOT raise on a partial backend",
     )
 
 
