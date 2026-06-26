@@ -216,6 +216,12 @@ api = [
     # third-party JWT library is required at runtime; see the
     # 2026-05-20 "Permanent supply-chain remediation" entry in
     # ``CHANGELOG.md`` for the rationale.
+    # Prometheus instrumentation: core.metrics records http_requests_total /
+    # http_request_duration_seconds (and the omni_* metric surface) into the
+    # default registry, exposed at /metrics. Without this the metrics no-op and
+    # the monitoring stack (monitoring/prometheus, Grafana dashboards, the API
+    # HPA custom metrics) has no data source.
+    "prometheus-client>=0.20.0",
 ]
 
 # SOTA anomaly detection models (TranAD, MAAT, etc.)

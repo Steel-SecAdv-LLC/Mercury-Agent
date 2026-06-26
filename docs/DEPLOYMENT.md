@@ -332,7 +332,21 @@ python -c "import omni_mercury_engine; print('OK')"
 
 ## Monitoring
 
-Prometheus metrics are served on the API port at `/metrics`.
+Prometheus metrics are served on the API port at `/metrics` (the engine /
+streaming-worker tier serves its own metrics on `:9090`, see the streaming
+section above). The `/metrics` endpoint merges the health gauges
+(`omni_mercury_up`, component status/latency) with the `prometheus_client`
+default registry, so a single scrape target covers both. This requires the
+`prometheus-client` dependency from the `[api]` extra (installed by `[all]`);
+without it the application metrics no-op and `/metrics` serves only the health
+gauges.
+
+Emitted by the API on every request (via `CorrelationIDMiddleware`):
+`http_requests_total{method,endpoint,status}` and
+`http_request_duration_seconds{method,endpoint}` — the series the
+`prometheus-rules.yaml` recording/alerting rules and the API HPA custom metrics
+consume. The detection/model `omni_*` metrics are defined in
+`core.metrics` and surface on `/metrics` as the code paths that record them run.
 
 ### Grafana dashboards
 

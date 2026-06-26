@@ -400,6 +400,22 @@ class CorrelationIDMiddleware(BaseHTTPMiddleware):
             response.headers[self.HEADER_NAME] = correlation_id
             response.headers["X-Request-Duration-Ms"] = f"{duration_ms:.2f}"
 
+            # Record Prometheus HTTP metrics (http_requests_total /
+            # http_request_duration_seconds) the monitoring stack + API HPA
+            # consume. Best-effort and fully isolated: a metrics error must never
+            # affect the response. Uses the matched route template (not the raw
+            # path) to keep label cardinality bounded.
+            try:
+                from omni_mercury_engine.core.metrics import record_http_request
+
+                route = request.scope.get("route")
+                endpoint = getattr(route, "path", None) or request.url.path
+                record_http_request(
+                    request.method, endpoint, response.status_code, duration_ms / 1000.0
+                )
+            except Exception:  # pragma: no cover - metrics must never break a request
+                pass
+
             # Log request completion with correlation ID
             logger.info(
                 f"Request completed: {request.method} {request.url.path} "

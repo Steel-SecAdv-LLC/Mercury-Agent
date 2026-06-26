@@ -64,6 +64,18 @@ table reproducible, without weakening the PQC posture.
   variants. Extended `scripts/normalize_headers.py` to check/apply the canonical
   `// Copyright / // SPDX` header on `rust_crypto/src/*.rs` and wired it into the
   same pre-commit hook and CI gate as the Python headers.
+- **Observability wired.** Added `prometheus-client` to the `[api]` extra and
+  exposed the `prometheus_client` registry through the API `/metrics` endpoint
+  (alongside the existing health gauges). The API now emits
+  `http_requests_total` / `http_request_duration_seconds` on every request via
+  `CorrelationIDMiddleware` — the series `monitoring/prometheus/prometheus-rules.yaml`
+  and the API HPA custom metrics consume (previously they had no data source).
+- **Consistency reconciliation.** Bumped the stale k8s/Helm `1.7.0` version
+  stamps to `2.0.0`; corrected the benchmark reproducibility notes to the
+  committed run's 66 successful / 9 failed (NOAA ERDDAP recovered); fixed an
+  import-time CLI crash where a bad `MERCURY_METRICS_PORT` could take down every
+  `mercury` subcommand; and hardened the Rust header normalizer against
+  relabelling a vendored third-party license.
 
 ### Statistical ensemble: fusion-margin sharpening, data-type gate correction, temporal robustness
 
