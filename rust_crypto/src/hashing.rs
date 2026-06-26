@@ -1,3 +1,5 @@
+// Copyright (C) 2025 Steel Security Advisors LLC
+// SPDX-License-Identifier: GPL-3.0-or-later
 //! Cryptographic Hashing Functions
 //!
 //! Provides high-performance implementations of various hash functions.

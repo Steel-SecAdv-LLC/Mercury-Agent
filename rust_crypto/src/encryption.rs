@@ -1,3 +1,5 @@
+// Copyright (C) 2025 Steel Security Advisors LLC
+// SPDX-License-Identifier: GPL-3.0-or-later
 //! Authenticated Encryption Functions
 //!
 //! Provides AEAD (Authenticated Encryption with Associated Data) implementations.

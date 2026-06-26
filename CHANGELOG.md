@@ -27,6 +27,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Deployability hardening: importable image, real streaming worker, reproducible benchmarks, license-clean
+
+A correctness pass that makes Mercury actually deployable and the benchmark
+table reproducible, without weakening the PQC posture.
+
+- **AMA native PQC backend now builds into the image.** The runtime container
+  previously ran `pip install ".[all]"` but never built AMA's native C library,
+  so `import omni_mercury_engine` (the mandatory import-time PQC gate) — and
+  therefore the Docker `HEALTHCHECK` and the k8s liveness/readiness probes —
+  would fail. Added `scripts/build_ama_native.sh` (clone pinned `v3.2.0`, cmake
+  `-DAMA_USE_NATIVE_PQC=ON`, install, **co-locate `libama_cryptography.so` inside
+  the installed package** so it loads with no `LD_LIBRARY_PATH`, verify ML-DSA-65
+  + Kyber-1024 + SPHINCS+ or fail loud), wired into the Dockerfile builder stage
+  with a build-time `import omni_mercury_engine` smoke test. The PQC gate is
+  unchanged — AMA stays a hard dependency. `docs/INSTALLATION.md` updated.
+- **Real `stream` worker command; broken engine deployment fixed.** The k8s/Helm
+  engine deployment ran a non-existent `serve --mode worker` and contained invalid
+  YAML (`- name: OMNI_WORKER_MODE: "true"`) that broke `kubectl apply`. Added a
+  `mercury stream` command wrapping the existing `StreamingAnomalyPipeline`
+  (consume → detect → publish, circuit breaker, graceful SIGTERM drain, Prometheus
+  `/metrics` on `:9090`), repointed the base/Helm engine deployments and the
+  distributed streaming-worker fleet at it, added the streaming config to the
+  ConfigMap/values, and removed the phantom `OMNI_WORKER_MODE`. `docs/DEPLOYMENT.md`
+  documents the API + streaming-worker tiers.
+- **Reproducible empirical benchmark; synthetic shim removed.** Deleted the
+  ungated synthetic-data fabricator in `benchmarks/empirical_benchmark.py` (it
+  bypassed the `MERCURY_ALLOW_SYNTHETIC` policy and made runs non-reproducible) —
+  unavailable datasets are now skipped, never faked. Added a deterministic
+  argparse CLI (`python -m benchmarks.empirical_benchmark --readme-subset`) so the
+  README "Near-Peer Baselines" table is regenerable from license-clean
+  scikit-learn datasets; the results JSON stays a CI artifact (repo stays lean).
+- **License made consistent (`GPL-3.0-or-later`).** Normalized `pyproject.toml`,
+  `rust_crypto/{Cargo.toml,pyproject.toml}`, the Dockerfile OCI label, `__license__`,
+  README/CONTRIBUTING and the Rust source headers off the mixed `GPL-3.0+` / `GPL-3.0`
+  variants. Extended `scripts/normalize_headers.py` to check/apply the canonical
+  `// Copyright / // SPDX` header on `rust_crypto/src/*.rs` and wired it into the
+  same pre-commit hook and CI gate as the Python headers.
+
 ### Statistical ensemble: fusion-margin sharpening, data-type gate correction, temporal robustness
 
 A measurement-driven pass on `MercuryAnomalyDetector` (`detectors/statistical.py`)

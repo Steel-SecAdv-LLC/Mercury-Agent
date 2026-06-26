@@ -26,6 +26,15 @@ TARGET_DIRS = (
 COPYRIGHT_HEADER = "# Copyright (C) 2025 Steel Security Advisors LLC"
 SPDX_HEADER = "# SPDX-License-Identifier: GPL-3.0-or-later"
 CANONICAL_HEADERS = (COPYRIGHT_HEADER, SPDX_HEADER)
+
+# Rust sources carry the same canonical copyright/SPDX pair, expressed with the
+# ``//`` line-comment prefix and placed *above* any ``//!`` crate/module doc so
+# the header never leaks into the rendered rustdoc. The standard is enforced by
+# the same pre-commit hook and CI gate as the Python headers.
+RUST_TARGET_DIRS = ("rust_crypto/src",)
+RUST_COPYRIGHT_HEADER = "// Copyright (C) 2025 Steel Security Advisors LLC"
+RUST_SPDX_HEADER = "// SPDX-License-Identifier: GPL-3.0-or-later"
+RUST_CANONICAL_HEADERS = (RUST_COPYRIGHT_HEADER, RUST_SPDX_HEADER)
 CODING_RE = re.compile(r"^#.*coding[:=]\s*[-\w.]+")
 SEPARATOR_RE = re.compile(r"^\s*[-=]{6,}\s*$")
 LICENSE_MARKERS = (
@@ -488,6 +497,60 @@ def diff_for(path: Path, original: str, normalized: str) -> str:
     )
 
 
+def iter_rust_files(paths: tuple[Path, ...]) -> list[Path]:
+    """Return Rust files under the requested paths (or the Rust target dirs)."""
+    if paths:
+        roots = [path if path.is_absolute() else ROOT / path for path in paths]
+    else:
+        roots = [ROOT / dirname for dirname in RUST_TARGET_DIRS]
+
+    files: list[Path] = []
+    for path in roots:
+        if not path.exists():
+            continue
+        if path.is_file():
+            if path.suffix == ".rs":
+                files.append(path)
+            continue
+        files.extend(sorted(child for child in path.rglob("*.rs") if child.is_file()))
+    return sorted(dict.fromkeys(files))
+
+
+def _is_rust_header_line(line: str) -> bool:
+    """Return whether a leading ``//`` line is an existing copyright/SPDX header."""
+    stripped = line.strip()
+    if stripped.startswith("// SPDX-License-Identifier:") or stripped in RUST_CANONICAL_HEADERS:
+        return True
+    if stripped.startswith("// Licensed under"):
+        return True
+    return stripped.startswith("// Copyright") and "Steel Security Advisors LLC" in stripped
+
+
+def normalized_rust_source(original: str) -> str:
+    """Return Rust source with exactly the canonical copyright/SPDX header on top.
+
+    Any pre-existing copyright/SPDX line comments at the very top are dropped and
+    replaced by the canonical pair, so the operation is idempotent. ``//!`` crate
+    and module docs (and all code) are preserved untouched below the header.
+    """
+    lines = original.splitlines(keepends=True)
+    index = 0
+    while index < len(lines) and _is_rust_header_line(lines[index]):
+        index += 1
+    body = lines[index:]
+    header = [f"{RUST_COPYRIGHT_HEADER}\n", f"{RUST_SPDX_HEADER}\n"]
+    return "".join(header + body)
+
+
+def rust_validation_errors(path: Path, source: str) -> list[str]:
+    """Return an error if the Rust file lacks the canonical header pair on top."""
+    lines = source.splitlines()
+    if lines[: len(RUST_CANONICAL_HEADERS)] != list(RUST_CANONICAL_HEADERS):
+        rel = path.relative_to(ROOT) if path.is_relative_to(ROOT) else path
+        return [f"{rel}: missing canonical copyright/SPDX header pair"]
+    return []
+
+
 def main() -> int:
     """Run the header normalizer."""
     args = parse_args()
@@ -506,14 +569,28 @@ def main() -> int:
         else:
             print(diff_for(path, original, normalized))
 
+    rust_changed: list[Path] = []
+    for path in iter_rust_files(paths):
+        original = path.read_text(encoding="utf-8")
+        normalized = normalized_rust_source(original)
+        errors.extend(rust_validation_errors(path, normalized if args.apply else original))
+        if normalized == original:
+            continue
+        rust_changed.append(path)
+        if args.apply:
+            path.write_text(normalized, encoding="utf-8")
+        else:
+            print(diff_for(path, original, normalized))
+
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1
-    if args.check and changed:
-        print(f"{len(changed)} Python file(s) need normalized headers.", file=sys.stderr)
+    if args.check and (changed or rust_changed):
+        total = len(changed) + len(rust_changed)
+        print(f"{total} file(s) need normalized headers.", file=sys.stderr)
         return 1
     if args.apply:
-        print(f"Normalized {len(changed)} Python file(s).")
+        print(f"Normalized {len(changed)} Python file(s) and {len(rust_changed)} Rust file(s).")
     return 0
 
 

@@ -68,8 +68,6 @@ spec:
             - secretRef:
                 name: {{ include "mercury-agent.secretName" . }}
           env:
-            - name: OMNI_WORKER_MODE
-              value: "true"
             - name: POD_NAME
               valueFrom:
                 fieldRef:

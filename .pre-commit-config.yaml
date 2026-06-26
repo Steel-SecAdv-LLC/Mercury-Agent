@@ -144,11 +144,11 @@ repos:
         pass_filenames: false
         files: ^(pyproject\.toml|\.pre-commit-config\.yaml|\.github/workflows/(ci|format)\.ya?ml)$
       - id: mercury-canonical-python-headers
-        name: mercury — canonical Python headers
+        name: mercury — canonical Python/Rust headers
         entry: python scripts/normalize_headers.py --check
         language: system
         pass_filenames: false
-        files: ^(src|tests|scripts|tools|research|benchmarks|examples)/.*\.py$
+        files: ^((src|tests|scripts|tools|research|benchmarks|examples)/.*\.py|rust_crypto/src/.*\.rs)$
       - id: mercury-convergence-proof
         name: mercury — convergence-proof emitter (--check)
         entry: python -m omni_mercury_engine.tools.convergence_proof_emitter --check

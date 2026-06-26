@@ -1,10 +1,12 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 [package]
 name = "mercury_crypto"
 version = "0.1.0"
 edition = "2021"
 authors = ["Steel Security Advisors LLC"]
 description = "High-performance cryptographic operations for Mercury Agent"
-license = "GPL-3.0"
+license = "GPL-3.0-or-later"
 readme = "README.md"
 repository = "https://github.com/Steel-SecAdv-LLC/Mercury-Agent"
 

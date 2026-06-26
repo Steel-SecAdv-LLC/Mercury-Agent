@@ -1,6 +1,6 @@
 # Mercury Agent Project Configuration
 # Copyright (C) 2025 Steel Security Advisors LLC
-# SPDX-License-Identifier: GPL-3.0+
+# SPDX-License-Identifier: GPL-3.0-or-later
 
 [build-system]
 requires = ["setuptools>=82.0.1", "wheel"]
@@ -11,7 +11,7 @@ name = "mercury-agent"
 version = "2.0.0"
 description = "Mercury Agent: ML-Centric Multi-Domain Anomaly Detection Framework"
 readme = "README.md"
-license = {text = "GPL-3.0+"}
+license = {text = "GPL-3.0-or-later"}
 requires-python = ">=3.11"
 authors = [
     {name = "Steel Security Advisors LLC", email = "steel.sa.llc@gmail.com"}

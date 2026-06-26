@@ -495,9 +495,16 @@ measured performance:
 
 - **MIN_ROC_AUC: 0.68** — fail if mean AUC drops below this (measured: 0.803)
 - **MIN_F1: 0.50** — fail if mean F1 drops below this (measured: 0.589)
-- **MERCURY_ALLOW_SYNTHETIC: false** — no synthetic data fallbacks in CI
+- **MERCURY_ALLOW_SYNTHETIC: false** — the deployment-level policy gate for the
+  production data loaders (`validation/data_loaders.py`); CI keeps it off.
 
-`empirical_benchmark.py` runs as a non-gating comparison step on scheduled/manual runs.
+`empirical_benchmark.py` runs as a non-gating comparison step on scheduled/manual
+runs. It is a runnable, deterministic harness (`python -m benchmarks.empirical_benchmark
+--help`): real datasets are fetched on demand, and any dataset whose real sources are
+unavailable is **skipped (recorded as unavailable), never substituted with synthetic
+data**. Reproduce the README near-peer table with
+`python -m benchmarks.empirical_benchmark --readme-subset -o benchmarks/empirical_benchmark_results.json`
+(license-clean scikit-learn datasets only).
 
 ## References
 

@@ -410,30 +410,18 @@ jobs:
 
       # Empirical comparison baselines run on schedule / workflow_dispatch.
       # The previous `continue-on-error: true` swallowed failures from
-      # broken external data loaders.  The runner is invoked under a
-      # strict policy: it MUST succeed on the reproducible-loader subset
-      # (MERCURY_ALLOW_SYNTHETIC=false above already prevents synthetic
-      # fallbacks).  Failures here are real regressions and gate the
-      # workflow as a whole — but they no longer block the mercury
-      # auto-commit above, which has already run by this point.
+      # broken external data loaders.  The harness fabricates nothing: a dataset
+      # whose real sources are unavailable is skipped (recorded as unavailable),
+      # never substituted with synthetic data.  Failures here are real
+      # regressions and gate the workflow as a whole — but they no longer block
+      # the mercury auto-commit above, which has already run by this point.
+      # `--quick` runs the deterministic sklearn subset (3-fold CV, no
+      # time-series, no SOTA), matching the reproducible README comparison.
       - name: Run empirical benchmarks (comparison)
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: |
-          cd benchmarks
-          python -c "
-          import sys
-          sys.path.insert(0, '..')
-          from benchmarks.empirical_benchmark import run_full_benchmark, save_results
-
-          results = run_full_benchmark(
-              use_kfold=True,
-              n_folds=3,
-              include_time_series=False,
-              include_sota=False,
-          )
-          save_results(results, 'empirical_benchmark_results.json')
-          print('Empirical benchmark complete.')
-          "
+          python -m benchmarks.empirical_benchmark --quick \
+            -o benchmarks/empirical_benchmark_results.json
 
       - name: Upload empirical results (comparison)
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'

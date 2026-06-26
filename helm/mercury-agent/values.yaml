@@ -175,13 +175,15 @@ engine:
     tag: ""
     pullPolicy: IfNotPresent
 
+  # Streaming anomaly-detection worker (consume -> detect -> publish). Topics /
+  # consumer-group / backend are read from the chart ConfigMap (engine.streaming
+  # below); STREAMING_BACKEND defaults to "memory" and is set to "kafka" in the
+  # production/distributed values.
   command:
     - python
     - -m
     - omni_mercury_engine.cli
-    - serve
-    - --mode
-    - worker
+    - stream
 
   serviceAccount:
     create: true
@@ -244,6 +246,14 @@ config:
     OMNI_ENABLE_TRACING: "true"
     OMNI_ETHICS_ENABLED: "true"
     OMNI_ETHICS_STRICT_MODE: "true"
+    # Streaming worker settings (consumed by `mercury stream`, the engine
+    # entrypoint). STREAMING_BACKEND defaults to the in-process "memory" backend;
+    # production/distributed values override it to "kafka" with a real broker.
+    STREAMING_BACKEND: "memory"
+    MERCURY_STREAM_INPUT_TOPIC: "mercury-detections"
+    MERCURY_STREAM_OUTPUT_TOPIC: "mercury-anomalies"
+    MERCURY_STREAM_CONSUMER_GROUP: "mercury-streaming-workers"
+    MERCURY_METRICS_PORT: "9090"
 
   # Secrets configuration
   secrets:

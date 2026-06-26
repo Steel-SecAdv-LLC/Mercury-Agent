@@ -1037,6 +1037,228 @@ def serve(host: str, port: int, workers: int, reload: bool, log_level: str) -> N
 
 
 @main.command()
+@click.option(
+    "--input-topic",
+    "-i",
+    default=os.environ.get("MERCURY_STREAM_INPUT_TOPIC", "mercury-detections"),
+    help="Input topic/stream to consume data points from.",
+)
+@click.option(
+    "--output-topic",
+    "-o",
+    default=os.environ.get("MERCURY_STREAM_OUTPUT_TOPIC", "mercury-anomalies"),
+    help="Output topic/stream to publish anomaly results to.",
+)
+@click.option(
+    "--consumer-group",
+    "-g",
+    default=os.environ.get("MERCURY_STREAM_CONSUMER_GROUP", "mercury-streaming-workers"),
+    help="Consumer group id for load-balanced, at-least-once consumption.",
+)
+@click.option(
+    "--backend",
+    "-b",
+    default=os.environ.get("STREAMING_BACKEND", "memory"),
+    type=click.Choice(["kafka", "redis", "memory"]),
+    help=(
+        "Streaming backend. 'kafka'/'redis' require a reachable broker "
+        "(KAFKA_BOOTSTRAP_SERVERS / REDIS_URL); 'memory' is an in-process, "
+        "single-pod default for local development and smoke tests."
+    ),
+)
+@click.option(
+    "--stats-interval",
+    default=30.0,
+    type=float,
+    help="Seconds between throughput/latency stat lines on stderr (0 disables).",
+)
+@click.option(
+    "--metrics-port",
+    default=int(os.environ.get("MERCURY_METRICS_PORT", "9090")),
+    type=int,
+    help=(
+        "Port for the Prometheus /metrics endpoint exposing live pipeline stats "
+        "(0 disables). Matches the engine deployment's metrics container port."
+    ),
+)
+def stream(
+    input_topic: str,
+    output_topic: str,
+    consumer_group: str,
+    backend: str,
+    stats_interval: float,
+    metrics_port: int,
+) -> None:
+    """Run a streaming anomaly-detection worker (consume -> detect -> publish).
+
+    This is the long-running worker entrypoint used by the Kubernetes engine /
+    streaming-worker deployments. It wires the production ``StreamingAnomalyPipeline``
+    (back-pressure handling, a circuit breaker, and full throughput/latency
+    observability) to the configured backend and runs until the process receives
+    SIGTERM/SIGINT, at which point it drains and shuts the pipeline down cleanly.
+
+    Examples:
+        mercury stream                              # in-memory dev worker
+        mercury stream --backend kafka \\
+            --input-topic mercury-detections \\
+            --output-topic mercury-anomalies \\
+            --consumer-group mercury-streaming-workers
+    """
+    import asyncio
+
+    try:
+        from omni_mercury_engine.infrastructure.streaming import (
+            StreamConfig,
+            StreamingAnomalyPipeline,
+            StreamingBackend,
+        )
+    except ImportError as exc:  # optional aiokafka/redis extras not installed
+        click.echo(
+            "Error: streaming dependencies are not installed. "
+            f"Install with: pip install 'mercury-agent[streaming]' ({exc})",
+            err=True,
+        )
+        raise SystemExit(1) from exc
+
+    click.echo("\n" + "=" * 60, err=True)
+    click.echo("  Mercury Agent Streaming Worker", err=True)
+    click.echo("=" * 60, err=True)
+    click.echo(f"  Backend:        {backend}", err=True)
+    click.echo(f"  Input topic:    {input_topic}", err=True)
+    click.echo(f"  Output topic:   {output_topic}", err=True)
+    click.echo(f"  Consumer group: {consumer_group}", err=True)
+    click.echo("-" * 60 + "\n", err=True)
+
+    def _start_metrics_server(pipeline: Any) -> Any:
+        """Serve live pipeline stats as Prometheus exposition on ``metrics_port``.
+
+        Hand-rolls the text exposition with the stdlib (matching
+        ``api/health.py``'s ``/metrics`` endpoint) so the worker needs no extra
+        runtime dependency. Returns the server (for shutdown) or ``None`` when
+        metrics are disabled.
+        """
+        if not metrics_port or metrics_port <= 0:
+            return None
+
+        import http.server
+        import threading
+
+        # (metric_name, stats_key, prom_type, help_text)
+        metrics_spec = (
+            (
+                "mercury_stream_messages_processed",
+                "messages_processed",
+                "counter",
+                "Messages processed",
+            ),
+            (
+                "mercury_stream_anomalies_detected",
+                "anomalies_detected",
+                "counter",
+                "Anomalies detected",
+            ),
+            ("mercury_stream_errors_total", "errors", "counter", "Processing errors"),
+            (
+                "mercury_stream_messages_per_second",
+                "messages_per_second",
+                "gauge",
+                "Throughput (msg/s)",
+            ),
+            (
+                "mercury_stream_anomaly_rate",
+                "anomaly_rate",
+                "gauge",
+                "Fraction of messages flagged",
+            ),
+            (
+                "mercury_stream_uptime_seconds",
+                "uptime_seconds",
+                "gauge",
+                "Worker uptime in seconds",
+            ),
+        )
+
+        def _exposition() -> bytes:
+            stats = pipeline.get_stats()
+            lines: list[str] = []
+            for metric_name, stats_key, prom_type, help_text in metrics_spec:
+                lines.append(f"# HELP {metric_name} {help_text}")
+                lines.append(f"# TYPE {metric_name} {prom_type}")
+                lines.append(f"{metric_name} {float(stats.get(stats_key, 0.0) or 0.0)}")
+            return ("\n".join(lines) + "\n").encode()
+
+        class _MetricsHandler(http.server.BaseHTTPRequestHandler):
+            def do_GET(self) -> None:
+                body = _exposition()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *_args: Any) -> None:  # silence per-request logging
+                return
+
+        server = http.server.ThreadingHTTPServer(("0.0.0.0", metrics_port), _MetricsHandler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        click.echo(f"  Metrics:        http://0.0.0.0:{metrics_port}/metrics", err=True)
+        return server
+
+    async def _run() -> None:
+        config = StreamConfig(backend=StreamingBackend(backend))
+        pipeline = StreamingAnomalyPipeline(
+            input_topic=input_topic,
+            output_topic=output_topic,
+            backend=config.backend,
+            config=config,
+            group_id=consumer_group,
+        )
+        metrics_server = _start_metrics_server(pipeline)
+        await pipeline.start()
+
+        stop = asyncio.Event()
+        loop = asyncio.get_running_loop()
+        for sig_name in ("SIGTERM", "SIGINT"):
+            import signal
+
+            sig = getattr(signal, sig_name, None)
+            if sig is None:
+                continue
+            try:
+                loop.add_signal_handler(sig, stop.set)
+            except (NotImplementedError, RuntimeError):
+                # Signal handlers are unavailable on some platforms (e.g. Windows);
+                # KeyboardInterrupt below still triggers a clean shutdown.
+                pass
+
+        try:
+            while not stop.is_set():
+                if stats_interval and stats_interval > 0:
+                    try:
+                        await asyncio.wait_for(stop.wait(), timeout=stats_interval)
+                    except asyncio.TimeoutError:
+                        s = pipeline.get_stats()
+                        click.echo(
+                            f"[stream] processed={s['messages_processed']} "
+                            f"anomalies={s['anomalies_detected']} "
+                            f"errors={s['errors']} "
+                            f"mps={s['messages_per_second']:.1f}",
+                            err=True,
+                        )
+                else:
+                    await stop.wait()
+        finally:
+            await pipeline.stop()
+            if metrics_server is not None:
+                metrics_server.shutdown()
+
+    try:
+        asyncio.run(_run())
+    except KeyboardInterrupt:
+        click.echo("\nStreaming worker interrupted; shutting down.", err=True)
+
+
+@main.command()
 @click.option("--domain", "-d", default=None, help="Domain context (medical, security, etc.)")
 @click.option("--model", "-m", default="llama3.2:3b", help="Ollama model to use")
 @click.option("--offline", is_flag=True, help="Force offline mode (template responses)")

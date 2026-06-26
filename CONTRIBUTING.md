@@ -14,7 +14,7 @@
 
 ## Overview
 
-This document provides guidelines for contributing to the Mercury Agent neuro-symbolic AI framework. Mercury Agent is released under the GNU General Public License v3.0 as free and open-source software, accessible for universal use as a knowledge vault and bridge to AI/ML frontiers.
+This document provides guidelines for contributing to the Mercury Agent neuro-symbolic AI framework. Mercury Agent is released under the GNU General Public License v3.0 or later (SPDX: GPL-3.0-or-later) as free and open-source software, accessible for universal use as a knowledge vault and bridge to AI/ML frontiers.
 
 ---
 
@@ -211,6 +211,14 @@ Every Python file under `src/`, `tests/`, `scripts/`, `tools/`, `research/`, `be
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
 """One-line module summary."""
+```
+
+Rust sources under `rust_crypto/src/` carry the same canonical pair, expressed with the `//` line-comment prefix and placed **above** any `//!` crate/module doc so the header never leaks into the rendered rustdoc. The same `normalize_headers.py` tool checks and applies them (`--apply` rewrites both Python and Rust), and the same pre-commit hook and CI gate enforce them.
+
+```rust
+// Copyright (C) 2025 Steel Security Advisors LLC
+// SPDX-License-Identifier: GPL-3.0-or-later
+//! One-line crate/module doc.
 ```
 
 ### General Principles

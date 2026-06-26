@@ -1,3 +1,5 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
 [build-system]
 requires = ["maturin>=1.4,<2.0"]
 build-backend = "maturin"
@@ -8,14 +10,14 @@ version = "0.1.0"
 description = "High-performance cryptographic operations for Mercury Agent"
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "GPL-3.0" }
+license = { text = "GPL-3.0-or-later" }
 authors = [
     { name = "Steel Security Advisors LLC", email = "steel.sa.llc@gmail.com" }
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",

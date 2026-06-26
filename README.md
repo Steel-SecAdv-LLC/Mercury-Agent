@@ -49,7 +49,7 @@
 **Copyright 2025 Steel Security Advisors LLC**
 **Author/Inventor:** Andrew E. A.
 **Contact:** steel.sa.llc@gmail.com
-**License:** GNU General Public License v3.0
+**License:** GNU General Public License v3.0 or later (SPDX: GPL-3.0-or-later)
 **Version:** v2.0.0
 **Date:** 2026-06-17
 **AI Co-Architects:** Eris ✠ | Eden ♱ | Devin ⚛︎ | Claude ⊛
@@ -71,7 +71,7 @@ The framework embodies a **Civilization-First** philosophy, prioritizing ethical
 > - Post-quantum cryptography for Mercury Agent and FINDΩYOU™ is derived from [AMA Cryptography](https://github.com/Steel-SecAdv-LLC/AMA-Cryptography)
 > - FINDΩYOU™ is a near-future addition with a people-first mission: locating the lost, missing, and abducted to reunite families and help bring perpetrators to justice.
 >
-> **This project is licensed under the GNU General Public License v3.0 (GPL v3)**
+> **This project is licensed under the GNU General Public License v3.0 or later (SPDX: GPL-3.0-or-later)**
 >
 > Everyone is permitted to copy and distribute verbatim copies of this license document, but **changing it is not allowed**.
 > Any derivative work, fork, or modification **must also be released under GPL v3** — no proprietary versions allowed, ever.
@@ -351,6 +351,17 @@ that method. Mercury-Agent is run untuned against standard unsupervised baseline
 (One-Class SVM, LOF, Elliptic Envelope) and stays competitive on tabular data; the
 supervised SOTA references (TranAD, MAAT) are the performance ceiling and
 outperform on labeled tasks, as expected.*
+
+> **Reproduce this table.** The Mercury and unsupervised-baseline columns are
+> regenerated from license-clean scikit-learn datasets by the harness — no
+> committed data, no synthetic substitution:
+> ```bash
+> python -m benchmarks.empirical_benchmark --readme-subset \
+>     -o benchmarks/empirical_benchmark_results.json
+> ```
+> The run is deterministic for the default `--seed 42` and a fixed
+> NumPy/scikit-learn version. The `TranAD`/`MAAT` rows are published references
+> (Tuli et al., VLDB 2022; Kang & Kang, 2023), not re-run here.
 
 **Calibration Validation (MD-011 / MD-003 / MD-005):**
 
@@ -2361,7 +2372,7 @@ dashboard.export_html("anomaly_report.html")
 
 Copyright 2025 Steel Security Advisors LLC
 
-Licensed under the GNU General Public License v3.0. See [LICENSE](LICENSE) file for details.
+Licensed under the GNU General Public License v3.0 or later (SPDX: GPL-3.0-or-later). See [LICENSE](LICENSE) file for details.
 
 ```
 Mercury Agent - Multi-Domain Anomaly Detection Framework
@@ -2443,13 +2454,17 @@ Benchmark results include a `data_source` field indicating data provenance:
 - `real-github`: Direct from public GitHub repositories
 - `real-local`: User-downloaded authentic data
 - `real-github-partial`: Partial real data (some machines/channels failed)
-- `synthetic-fallback`: Generated data when real sources unavailable
 
-> **Note:** Synthetic fallbacks are explicitly flagged. Results using >50% synthetic data trigger quality warnings.
+> **Note:** The benchmark never fabricates data. When a dataset's real sources
+> are unavailable it is **skipped** (recorded as unavailable), never substituted
+> with synthetic data — consistent with the deployment-level
+> `MERCURY_ALLOW_SYNTHETIC` policy gate (`tests/validation/test_synthetic_policy_gate.py`).
 
 ### Configuration
 
-Dataset fetching in `benchmarks/empirical_benchmark.py` can be configured via environment variables:
+The harness is a runnable CLI (`python -m benchmarks.empirical_benchmark --help`); a run
+is deterministic for a fixed `--seed` and dataset snapshot. Dataset fetching can be
+configured via environment variables:
 - `MERCURY_SMD_MACHINES`: Number of SMD machines to fetch (default: 28, CI: 5)
 - `MERCURY_FETCH_RETRIES`: Maximum retry attempts (default: 10)
 - `MERCURY_FETCH_DELAY`: Base delay for exponential backoff (default: 2.0 s)

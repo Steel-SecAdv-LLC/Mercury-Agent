@@ -44,6 +44,17 @@ data:
   # Ethical Framework Settings
   OMNI_ETHICS_ENABLED: "true"
   OMNI_ETHICS_STRICT_MODE: "true"
+
+  # Streaming Worker Settings (consumed by `mercury stream`, the engine
+  # deployment's entrypoint). STREAMING_BACKEND defaults to the in-process
+  # "memory" backend so the base manifests run with no external broker; the
+  # distributed overlay patches it to "kafka" and supplies KAFKA_BOOTSTRAP_SERVERS
+  # / REDIS_URL.
+  STREAMING_BACKEND: "memory"
+  MERCURY_STREAM_INPUT_TOPIC: "mercury-detections"
+  MERCURY_STREAM_OUTPUT_TOPIC: "mercury-anomalies"
+  MERCURY_STREAM_CONSUMER_GROUP: "mercury-streaming-workers"
+  MERCURY_METRICS_PORT: "9090"
 ---
 # ConfigMap for Prometheus metrics configuration
 apiVersion: v1

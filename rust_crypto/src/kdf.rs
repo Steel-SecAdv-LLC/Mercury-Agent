@@ -1,3 +1,5 @@
+// Copyright (C) 2025 Steel Security Advisors LLC
+// SPDX-License-Identifier: GPL-3.0-or-later
 //! Key Derivation Functions
 //!
 //! Provides secure key derivation primitives.
