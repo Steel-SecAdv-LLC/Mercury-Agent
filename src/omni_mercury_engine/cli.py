@@ -1074,7 +1074,11 @@ def serve(host: str, port: int, workers: int, reload: bool, log_level: str) -> N
 )
 @click.option(
     "--metrics-port",
-    default=int(os.environ.get("MERCURY_METRICS_PORT", "9090")),
+    # Pass the env value as a string and let Click coerce it via type=int at
+    # invocation time. Calling int() here (decorator/import time) would crash the
+    # whole CLI — including `serve`, `--help`, and the k8s probes that import the
+    # package — if MERCURY_METRICS_PORT were ever set to a non-integer.
+    default=os.environ.get("MERCURY_METRICS_PORT", "9090"),
     type=int,
     help=(
         "Port for the Prometheus /metrics endpoint exposing live pipeline stats "

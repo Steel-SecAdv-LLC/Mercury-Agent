@@ -521,7 +521,10 @@ def _is_rust_header_line(line: str) -> bool:
     stripped = line.strip()
     if stripped.startswith("// SPDX-License-Identifier:") or stripped in RUST_CANONICAL_HEADERS:
         return True
-    if stripped.startswith("// Licensed under"):
+    # Only strip Mercury's own legacy "Licensed under GPL..." form — never a
+    # third-party Apache/MIT/BSD "// Licensed under ..." header (would silently
+    # relabel a vendored file's license as GPL).
+    if stripped.startswith("// Licensed under") and "GPL" in stripped:
         return True
     return stripped.startswith("// Copyright") and "Steel Security Advisors LLC" in stripped
 

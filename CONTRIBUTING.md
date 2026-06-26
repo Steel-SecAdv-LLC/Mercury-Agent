@@ -664,4 +664,4 @@ Contributors will be recognized in:
 
 ---
 
-Copyright 2025-2026 Steel Security Advisors LLC. Licensed under GNU General Public License v3.0.
+Copyright 2025-2026 Steel Security Advisors LLC. Licensed under the GNU General Public License v3.0 or later (SPDX: GPL-3.0-or-later).

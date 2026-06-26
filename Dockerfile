@@ -49,11 +49,14 @@ COPY pyproject.toml /app/
 COPY src/ /app/src/
 
 # AMA_NO_CYTHON short-circuits AMA Cryptography's optional Cython/numpy build
-# floor (the native C library is loaded via ctypes), keeping the dependency
-# install robust. Builder-stage only; the runtime image is a fresh FROM.
+# floor (the native C library is loaded via ctypes). It is consumed only by the
+# AMA build in scripts/build_ama_native.sh below — `.[all]` does NOT pull the
+# [pqc] extra, so it has no effect on the install on the next line. Exported here
+# (builder-stage only; the runtime image is a fresh FROM) as belt-and-suspenders.
 ENV AMA_NO_CYTHON=1
 
-# Install the package with all dependencies
+# Install the package with all features. AMA (the [pqc] extra) is intentionally
+# NOT installed here; the native build below is its sole installer.
 RUN pip install --no-cache-dir ".[all]"
 
 # Build and install the AMA Cryptography native PQC backend so the runtime image

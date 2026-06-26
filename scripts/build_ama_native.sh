@@ -57,9 +57,11 @@ cmake --build "${AMA_BUILD_DIR}/build" -j "$(nproc)"
 # --no-build-isolation links the wheel against the .so just produced rather than
 # re-running cmake into a transient build env. AMA_NO_CYTHON skips the optional
 # Cython bindings (the Python API loads the .so via ctypes at runtime).
-# --force-reinstall --no-deps guarantees the installed Python package is the one
-# built from this exact checkout (ABI-matched to the .so co-located below) even
-# when an earlier ``pip install '.[all]'`` already pulled ama-cryptography.
+# This script is the sole installer of ama-cryptography (it lives in the [pqc]
+# extra, which `pip install '.[all]'` does NOT pull). --no-deps keeps the install
+# isolated (AMA has no runtime deps); --force-reinstall guarantees the installed
+# Python package is the one built from this exact checkout (ABI-matched to the
+# .so co-located below) even if a future change pre-installs it.
 ( cd "${AMA_BUILD_DIR}" && AMA_NO_CYTHON=1 python -m pip install \
     --no-build-isolation --force-reinstall --no-deps . )
 

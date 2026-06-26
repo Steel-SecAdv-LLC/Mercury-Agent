@@ -243,7 +243,7 @@ app = FastAPI(
         "email": "steel.sa.llc@gmail.com",
     },
     license_info={
-        "name": "GNU General Public License v3.0",
+        "name": "GPL-3.0-or-later",
         "url": "https://www.gnu.org/licenses/gpl-3.0.html",
     },
     docs_url="/docs",

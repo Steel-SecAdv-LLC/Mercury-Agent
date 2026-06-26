@@ -248,9 +248,9 @@ real labels and routes every verdict through the gate. The live wiring is proven
 end-to-end in `tests/research/test_phase3_live_wiring.py`. See
 [docs/PHASE3_GOVERNANCE.md](docs/PHASE3_GOVERNANCE.md).
 
-> **\*Reproducibility note.** 10 of the 75 attempted datasets are not currently
+> **\*Reproducibility note.** 9 of the 75 attempted datasets are not currently
 > reproducible because their external data sources (SMAP, MSL, CICIDS-2017,
-> MIT-BIH, UCR, SWaT, WADI, USGS Geochemistry, NOAA ERDDAP,
+> MIT-BIH, UCR, SWaT, WADI, USGS Geochemistry,
 > FEMA HazardMitigation) are unavailable or rate-limited from this build
 > environment. The comparable headline (Mean AUC 0.8251, Median AUC 0.8747) is
 > the genuine-only figure; the aggregate over all **66 successful** datasets
@@ -323,7 +323,7 @@ benchmark performance. Listed for pipeline transparency only.
 | Domain | Datasets | Mean AUC | Mean F1 | Label rule (leaky) |
 |--------|----------|----------|---------|--------------------|
 | Air Quality (EPA) | 1 | 0.9975 | 0.7958 | PM2.5 > 35.4 µg/m³ threshold |
-| Climate (NOAA GSOD, StormEvents) | 2 | 0.9939 | 0.9210 | ±3σ statistical threshold |
+| Climate (NOAA GSOD, StormEvents, ERDDAP) | 3 | 0.9939 | 0.9210 | ±3σ statistical threshold |
 | Ocean (NOAA Buoy) | 1 | 0.8510 | 0.6921 | ±3σ statistical threshold |
 | Environmental (USGS/NOAA/EPA) | 3 | 0.8856 | 0.6858 | threshold-derived |
 | Disaster (FEMA) | 1 | 0.9993 | 0.9943 | threshold/polarity-derived |
@@ -482,7 +482,7 @@ self-labeled / threshold-derived (unsupervised-eval-only, not comparable — see
 the committed run reflects the corrected score. See the reproducibility note
 above and `CHANGELOG.md` for details.*
 
-**10 datasets failed** due to unavailable external sources (SMAP, MSL, CICIDS-2017, MIT-BIH, UCR, SWaT, WADI, USGS Geochemistry, NOAA ERDDAP, FEMA HazardMitigation). As of v1.7.0 these are tracked by a two-lane reachability harness so an upstream outage now surfaces as a failed nightly run (see `.github/workflows/dataset-reachability.yml`, `tests/datasets/test_unreachable_loaders_offline.py`, `tests/datasets/test_unreachable_loaders_network.py`).
+**9 datasets failed** due to unavailable external sources (SMAP, MSL, CICIDS-2017, MIT-BIH, UCR, SWaT, WADI, USGS Geochemistry, FEMA HazardMitigation). As of v1.7.0 these are tracked by a two-lane reachability harness so an upstream outage now surfaces as a failed nightly run (see `.github/workflows/dataset-reachability.yml`, `tests/datasets/test_unreachable_loaders_offline.py`, `tests/datasets/test_unreachable_loaders_network.py`).
 
 ### Federated Learning (Privacy-Preserving Detection)
 
@@ -1531,7 +1531,7 @@ The test suite includes:
 - `tests/tools/test_lyapunov_validator.py` + `tests/tools/test_lyapunov_reconciliation.py`: pin the executable Lyapunov certificate against documentation drift and against `LyapunovConstants.LAMBDA_CONVERGENCE`.
 - `tests/scripts/test_check_readme_lyapunov.py` + `tests/scripts/test_run_ablation.py` + `tests/scripts/test_run_hardware_benchmark.py`: lock the ISO Hardening operator-tool surface (drift gate, ablation runner pre-gate, hardware harness throughput math).
 - `tests/api/test_server_comprehensive.py::TestLifespanWarmup`: 4 tests pinning the API warmup lifespan (wiring, success path, internal-failure propagation under the fail-fast contract, TestClient lifecycle).
-- `tests/datasets/test_unreachable_loaders_{offline,network}.py`: two-lane reachability harness for the 11 watch-listed datasets whose upstream sources are flaky or not currently fetchable (10 failed in the committed benchmark run; NOAA StormEvents recovered).
+- `tests/datasets/test_unreachable_loaders_{offline,network}.py`: two-lane reachability harness for the 11 watch-listed datasets whose upstream sources are flaky or not currently fetchable (9 failed in the committed benchmark run; NOAA StormEvents and NOAA ERDDAP recovered).
 - `tests/validation/test_synthetic_policy_gate.py`: locks the `MERCURY_ALLOW_SYNTHETIC` policy gate across every loader that previously exposed a `use_synthetic` kwarg bypass.
 
 **Test Suite Stabilization (v1.6.0 Patch — historical):**
@@ -2499,7 +2499,7 @@ The human architect does not hold formal credentials in machine learning or medi
 
 - **No Independent Audit:** All security and performance analysis is self-assessed. Production deployment requires review by qualified professionals.
 - **AI-Generated Code:** May contain subtle implementation errors. All critical paths require independent verification.
-- **Domain-Specific Validation:** Core detection is benchmarked on **66 reproducible real datasets** (of 75 attempted; canonical Mean ROC-AUC **0.8251** / Median **0.8747** from the CI-refreshed "Latest Benchmark Results" block; externally-comparable subset ADBench Mean AUC **0.8251**). 10 datasets currently fail to load due to unavailable external sources and are tracked by a two-lane reachability harness (offline + nightly network) as of v1.7.0. The FEMA Disaster loader's previously-flagged inverted-score bug is fixed in v1.7.0 (`FEMADisasterLoader._select_anomaly_polarity`); the committed run reflects the corrected score. Domain-specific modules may require additional validation.
+- **Domain-Specific Validation:** Core detection is benchmarked on **66 reproducible real datasets** (of 75 attempted; canonical Mean ROC-AUC **0.8251** / Median **0.8747** from the CI-refreshed "Latest Benchmark Results" block; externally-comparable subset ADBench Mean AUC **0.8251**). 9 datasets currently fail to load due to unavailable external sources and are tracked by a two-lane reachability harness (offline + nightly network) as of v1.7.0. The FEMA Disaster loader's previously-flagged inverted-score bug is fixed in v1.7.0 (`FEMADisasterLoader._select_anomaly_polarity`); the committed run reflects the corrected score. Domain-specific modules may require additional validation.
 - **Medical Applications:** No clinical validation. Medical modules require validation on real patient data before any deployment.
 - **Research Status:** This is a research-grade framework, not a production-ready product.
 

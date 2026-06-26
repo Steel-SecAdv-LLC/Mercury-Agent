@@ -7,11 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > **Reproducibility note (applies to all 1.x release entries below):**
 > Headline benchmark numbers vary by release cut; the current committed
-> run is **65 reproducible datasets** (of 75 attempted), surfaced in the
-> README "Latest Benchmark Results" block. 10 datasets currently
+> run is **66 reproducible datasets** (of 75 attempted), surfaced in the
+> README "Latest Benchmark Results" block. 9 datasets currently
 > fail to load due to unavailable external sources (SMAP, MSL,
 > CICIDS-2017, MIT-BIH, UCR, SWaT, WADI, USGS Geochemistry,
-> NOAA ERDDAP, FEMA HazardMitigation). As of v1.7.0
+> FEMA HazardMitigation). As of v1.7.0
 > the previously-flagged "FEMA Disaster — inverted scores" loader
 > is no longer in the broken set; the label-polarity correction is
 > documented under `[1.7.0]` below and locked by
