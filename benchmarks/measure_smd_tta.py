@@ -115,14 +115,23 @@ def main() -> int:
         m = auroc(y, _scores(dm, Xd))
         xx = auroc(y, _scores(dx, Xd))
         lost = clean - c
+        if lost <= 1e-9:
+            # The base detector did not degrade under this drift on this window
+            # (global resampling can incidentally smooth a borderline series),
+            # so a "% recovery" ratio is undefined. Report the raw TTA deltas vs
+            # the drifted base instead of a meaningless fraction.
+            print(
+                f"  drift x{fac}: base->{c:.4f} (no degradation, {lost * 100:+.2f}pt vs clean)  "
+                f"TTA-mean={m:.4f} ({(m - c) * 100:+.2f})  "
+                f"TTA-max={xx:.4f} ({(xx - c) * 100:+.2f})"
+            )
+            continue
         rm = m - c
         rx = xx - c
-        fm = rm / lost * 100 if lost > 1e-9 else float("nan")
-        fx = rx / lost * 100 if lost > 1e-9 else float("nan")
         print(
             f"  drift x{fac}: base->{c:.4f} (lost {lost * 100:+.2f}pt)  "
-            f"TTA-mean={m:.4f} (recover {rm * 100:+.2f}, {fm:.0f}%)  "
-            f"TTA-max={xx:.4f} (recover {rx * 100:+.2f}, {fx:.0f}%)"
+            f"TTA-mean={m:.4f} (recover {rm * 100:+.2f}, {rm / lost * 100:.0f}%)  "
+            f"TTA-max={xx:.4f} (recover {rx * 100:+.2f}, {rx / lost * 100:.0f}%)"
         )
     return 0
 
