@@ -9,8 +9,8 @@ Applies to Mercury Agent **v2.0.x**. Last updated: 2026-06-22.
 > README "Latest Benchmark Results" block and regenerated on every
 > push to `main` by `.github/workflows/benchmark.yml`. The FEMA
 > Disaster label-polarity fix (v1.7.0) and the 11-loader reachability
-> harness are reflected in that run (disaster AUC 0.9999; 10 loaders
-> failed, NOAA StormEvents recovered) — see `docs/ROADMAP.md`
+> harness are reflected in that run (disaster AUC 0.9999; 9 loaders
+> failed, NOAA StormEvents and NOAA ERDDAP recovered) — see `docs/ROADMAP.md`
 > cross-cutting entries "FEMA Disaster loader label polarity" and
 > "Dataset reachability harness (unreachable-11)".
 

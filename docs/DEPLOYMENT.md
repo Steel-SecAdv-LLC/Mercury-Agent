@@ -160,10 +160,10 @@ streaming under Helm, set `STREAMING_BACKEND=kafka` in `config.app` and point
 
 ```bash
 # Run a streaming worker locally (in-memory backend, dev smoke test)
-mercury stream
+mercury-agent stream
 
 # Against a Kafka broker
-mercury stream --backend kafka \
+mercury-agent stream --backend kafka \
   --input-topic mercury-detections \
   --output-topic mercury-anomalies \
   --consumer-group mercury-streaming-workers
@@ -250,7 +250,7 @@ See [`MIGRATION-1.6-to-1.7.md`](MIGRATION-1.6-to-1.7.md) §3.
 | `OMNI_API_PORT` | `8000` | Listen port |
 | `OMNI_API_WORKERS` | `4` | Uvicorn worker count |
 
-### Streaming Worker (`mercury stream`)
+### Streaming Worker (`mercury-agent stream`)
 
 These configure the engine / streaming-worker tier. CLI flags
 (`--backend`, `--input-topic`, `--output-topic`, `--consumer-group`,

@@ -1884,10 +1884,34 @@ def benchmark_detector(
     y_pred = detector.predict(dataset.X_test)
     infer_time = (time.perf_counter() - infer_start) * 1000
 
+    # Get raw scores from decision_function
     try:
-        y_scores = -detector.decision_function(dataset.X_test)
+        raw_scores = detector.decision_function(dataset.X_test)
     except Exception:
-        y_scores = (y_pred == -1).astype(float)
+        raw_scores = (y_pred == -1).astype(float)
+
+    # Detector-agnostic score-direction calibration on training data, identical
+    # to benchmark_detector_kfold. Unconditionally negating decision_function is
+    # correct only for sklearn detectors whose convention is higher=more-normal;
+    # it would invert Mercury-Agent/TranAD/MAAT scores (higher=more-anomalous)
+    # and depress their ROC-AUC on this single-split path. Flip only when the
+    # training AUC shows the scores are inverted.
+    try:
+        train_scores = detector.decision_function(dataset.X_train)
+        from omni_mercury_engine.ml.mercury_ml import roc_auc_score
+
+        if len(np.unique(dataset.y_train)) >= 2:
+            train_auc = roc_auc_score(dataset.y_train, train_scores)
+            if train_auc < 0.5:
+                # Scores are inverted (higher = more normal), flip them
+                y_scores = -raw_scores
+            else:
+                y_scores = raw_scores
+        else:
+            y_scores = raw_scores
+    except Exception:
+        # Fallback: use raw scores as-is
+        y_scores = raw_scores
 
     metrics = compute_metrics(dataset.y_test, y_pred, y_scores)
 

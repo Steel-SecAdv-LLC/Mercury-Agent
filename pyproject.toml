@@ -174,15 +174,18 @@ compliance = [
 # scikit-learn, opencv, shap, pandas, numba, ...) already ships cp314 wheels,
 # so TensorFlow is the *sole* blocker.
 #
-# The production container pins Python 3.13 (see Dockerfile), where TensorFlow
-# ships wheels and face support is fully retained.  But the project advertises
-# 3.14 support (classifier + CI matrix), so gate deepface/tf-keras to
-# ``python_version < "3.14"`` to keep ``pip install .[all]`` resolvable on 3.14
-# for end users: it installs *without* face there instead of hanging.  The
+# The production container now pins Python 3.14 (see Dockerfile), where
+# TensorFlow has no cp314 wheel — so deepface/tf-keras are gated out of the
+# shipped image too, and its biometric path degrades to simulated embeddings.
+# The project advertises 3.14 support (classifier + CI matrix), so gating
+# deepface/tf-keras to ``python_version < "3.14"`` keeps ``pip install .[all]``
+# resolvable on 3.14 for end users as well: it installs *without* face there
+# instead of hanging.  Real face recognition therefore requires Python <= 3.13
+# (where TensorFlow ships wheels) until a cp314 TensorFlow wheel exists.  The
 # deepface imports in ``models/biometric.py`` / ``models/biometric_advanced.py``
 # are guarded (``except Exception`` -> ``DeepFace = None``, and call sites check
-# ``DeepFace is not None``), so 3.14 degrades to simulated embeddings.  Remove
-# the markers once TensorFlow publishes a cp314 wheel.
+# ``DeepFace is not None``), so the gated-out environments degrade to simulated
+# embeddings.  Remove the markers once TensorFlow publishes a cp314 wheel.
 face = [
     "deepface>=0.0.79; python_version < '3.14'",
     # tf-keras is required by retinaface (imported transitively by

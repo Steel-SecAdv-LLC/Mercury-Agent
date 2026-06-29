@@ -403,13 +403,15 @@ class CorrelationIDMiddleware(BaseHTTPMiddleware):
             # Record Prometheus HTTP metrics (http_requests_total /
             # http_request_duration_seconds) the monitoring stack + API HPA
             # consume. Best-effort and fully isolated: a metrics error must never
-            # affect the response. Uses the matched route template (not the raw
-            # path) to keep label cardinality bounded.
+            # affect the response. Labels with the matched route template, and
+            # collapses unmatched requests (404s, scanner/probe traffic on
+            # arbitrary paths) to a single "__unmatched__" label — using the raw
+            # URL path there would let external callers explode label cardinality.
             try:
                 from omni_mercury_engine.core.metrics import record_http_request
 
                 route = request.scope.get("route")
-                endpoint = getattr(route, "path", None) or request.url.path
+                endpoint = getattr(route, "path", None) or "__unmatched__"
                 record_http_request(
                     request.method, endpoint, response.status_code, duration_ms / 1000.0
                 )

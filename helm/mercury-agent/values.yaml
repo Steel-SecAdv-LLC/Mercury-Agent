@@ -177,8 +177,10 @@ engine:
 
   # Streaming anomaly-detection worker (consume -> detect -> publish). Topics /
   # consumer-group / backend are read from the chart ConfigMap (engine.streaming
-  # below); STREAMING_BACKEND defaults to "memory" and is set to "kafka" in the
-  # production/distributed values.
+  # below); STREAMING_BACKEND defaults to "memory". No shipped values file
+  # overrides it, so running the engine against Kafka requires the operator to
+  # set engine config.app.STREAMING_BACKEND=kafka and supply
+  # KAFKA_BOOTSTRAP_SERVERS.
   command:
     - python
     - -m
@@ -246,9 +248,10 @@ config:
     OMNI_ENABLE_TRACING: "true"
     OMNI_ETHICS_ENABLED: "true"
     OMNI_ETHICS_STRICT_MODE: "true"
-    # Streaming worker settings (consumed by `mercury stream`, the engine
-    # entrypoint). STREAMING_BACKEND defaults to the in-process "memory" backend;
-    # production/distributed values override it to "kafka" with a real broker.
+    # Streaming worker settings (consumed by the engine's `stream` worker).
+    # STREAMING_BACKEND defaults to the in-process "memory" backend; no shipped
+    # values file overrides it — set it to "kafka" here (and provide
+    # KAFKA_BOOTSTRAP_SERVERS) to run the engine against a real broker.
     STREAMING_BACKEND: "memory"
     MERCURY_STREAM_INPUT_TOPIC: "mercury-detections"
     MERCURY_STREAM_OUTPUT_TOPIC: "mercury-anomalies"

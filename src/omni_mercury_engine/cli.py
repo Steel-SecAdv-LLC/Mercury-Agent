@@ -1225,7 +1225,6 @@ def stream(
             group_id=consumer_group,
         )
         metrics_server = _start_metrics_server(pipeline)
-        await pipeline.start()
 
         stop = asyncio.Event()
         loop = asyncio.get_running_loop()
@@ -1242,7 +1241,11 @@ def stream(
                 # KeyboardInterrupt below still triggers a clean shutdown.
                 pass
 
+        # ``pipeline.start()`` lives inside the try so a broker-connection
+        # failure (kafka/redis backends) still runs the finally below and the
+        # metrics server is torn down rather than left bound until process exit.
         try:
+            await pipeline.start()
             while not stop.is_set():
                 if stats_interval and stats_interval > 0:
                     try:
@@ -1259,9 +1262,13 @@ def stream(
                 else:
                     await stop.wait()
         finally:
-            await pipeline.stop()
-            if metrics_server is not None:
-                metrics_server.shutdown()
+            # Nested so the metrics server is shut down even if pipeline.stop()
+            # itself raises (e.g. a half-connected backend during teardown).
+            try:
+                await pipeline.stop()
+            finally:
+                if metrics_server is not None:
+                    metrics_server.shutdown()
 
     try:
         asyncio.run(_run())

@@ -11,8 +11,8 @@ run documented in the README "Latest Benchmark Results" section:
 The 11 watch-listed loaders (SMAP, MSL, CICIDS-2017, MIT-BIH, UCR,
 SWaT, WADI, USGS Geochemistry, NOAA StormEvents, NOAA ERDDAP, FEMA
 HazardMitigation) are tracked by a two-lane reachability harness
-rather than counted as silent benchmark drops (10 failed in the
-committed run; NOAA StormEvents recovered). See `docs/BENCHMARKS.md`.
+rather than counted as silent benchmark drops (9 failed in the
+committed run; NOAA StormEvents and NOAA ERDDAP recovered). See `docs/BENCHMARKS.md`.
 
 ## Successfully Loading (legacy 2026-02-15 sweep: 51 datasets)
 
