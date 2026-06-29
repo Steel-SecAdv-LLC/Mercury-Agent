@@ -133,6 +133,14 @@ dmypy.json
 results/latest/
 benchmarks/*.png
 
+# Empirical comparison harness output (benchmarks/empirical_benchmark.py): an
+# on-demand, user-reproducible CI artifact (uploaded, not committed) — keep it
+# out of the repo so it stays lean. Regenerate with
+# `python -m benchmarks.empirical_benchmark --readme-subset`.
+benchmarks/empirical_benchmark_results.json
+benchmarks/empirical_benchmark_report.md
+benchmarks/EMPIRICAL_BENCHMARK_REPORT.md
+
 # Generated report files (CI artifacts)
 live-data-report.json
 bandit-report.json

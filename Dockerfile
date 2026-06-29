@@ -5,11 +5,14 @@
 # =============================================================================
 # Stage 1: Builder - Install dependencies in a full environment
 # =============================================================================
-FROM python:3.13-slim-trixie AS builder
+FROM python:3.14-slim-trixie AS builder
 
 # Install build dependencies
 # gfortran + libopenblas-dev + pkg-config: required when pip falls back to
 # building scipy from source (no pre-built wheel for the target ABI).
+# git + cmake + ninja-build: required to clone and build the AMA Cryptography
+# native PQC library (Mercury's mandatory crypto core; see
+# scripts/build_ama_native.sh).
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         build-essential \
@@ -19,7 +22,10 @@ RUN apt-get update && \
         libffi-dev \
         libssl-dev \
         libopenblas-dev \
-        pkg-config && \
+        pkg-config \
+        git \
+        cmake \
+        ninja-build && \
     rm -rf /var/lib/apt/lists/*
 
 # Create virtual environment for isolation
@@ -42,8 +48,26 @@ WORKDIR /app
 COPY pyproject.toml /app/
 COPY src/ /app/src/
 
-# Install the package with all dependencies
+# AMA_NO_CYTHON short-circuits AMA Cryptography's optional Cython/numpy build
+# floor (the native C library is loaded via ctypes). It is consumed only by the
+# AMA build in scripts/build_ama_native.sh below — `.[all]` does NOT pull the
+# [pqc] extra, so it has no effect on the install on the next line. Exported here
+# (builder-stage only; the runtime image is a fresh FROM) as belt-and-suspenders.
+ENV AMA_NO_CYTHON=1
+
+# Install the package with all features. AMA (the [pqc] extra) is intentionally
+# NOT installed here; the native build below is its sole installer.
 RUN pip install --no-cache-dir ".[all]"
+
+# Build and install the AMA Cryptography native PQC backend so the runtime image
+# can import omni_mercury_engine (the import-time PQC gate requires ML-DSA-65 +
+# Kyber-1024 + SPHINCS+ native availability — see omni_mercury_engine._pqc_gate).
+# The shared object is co-located inside the installed ama_cryptography package
+# so it travels with the venv into the runtime stage and loads without
+# LD_LIBRARY_PATH. Pin matches pyproject's ama-cryptography git ref.
+ARG AMA_REF=v3.2.0
+COPY scripts/build_ama_native.sh /app/scripts/build_ama_native.sh
+RUN AMA_REF="${AMA_REF}" bash /app/scripts/build_ama_native.sh
 
 # Remove unused sample dataset fetchers before the virtualenv is copied into the
 # runtime image; deleting them only after ``COPY --from=builder`` still leaves
@@ -59,7 +83,7 @@ COPY . /app
 # =============================================================================
 # Stage 2: Runtime - Minimal image with only runtime dependencies
 # =============================================================================
-FROM python:3.13-slim-trixie AS runtime
+FROM python:3.14-slim-trixie AS runtime
 
 # Build arguments for flexibility
 ARG USERNAME=mercuryagent
@@ -76,7 +100,7 @@ LABEL org.opencontainers.image.title="Mercury Agent"
 LABEL org.opencontainers.image.description="ML-Centric Multi-Domain Anomaly Detection Framework"
 LABEL org.opencontainers.image.vendor="Steel Security Advisors LLC"
 LABEL org.opencontainers.image.version="${MERCURY_VERSION}"
-LABEL org.opencontainers.image.licenses="GPL-3.0"
+LABEL org.opencontainers.image.licenses="GPL-3.0-or-later"
 LABEL security.hardened="true"
 LABEL security.scan-date="2026-06-18"
 
@@ -194,6 +218,13 @@ USER $USERNAME
 ENV PIP_NO_WARN_SCRIPT_LOCATION=0
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+
+# Fail the build loudly if the engine cannot import against the native AMA PQC
+# backend baked into the venv above — the same contract the HEALTHCHECK and the
+# k8s liveness/readiness probes enforce at runtime. This guarantees the shipped
+# image is importable as the final non-root user rather than crash-looping on
+# first start.
+RUN python -c "import omni_mercury_engine; print('engine import OK — native AMA PQC backend verified')"
 
 # Health check for container orchestration
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \

@@ -165,6 +165,6 @@ is_equal = mercury_crypto.py_constant_time_compare(a, b)
 
 ## License
 
-GNU General Public License v3.0 (GPL-3.0)
+GNU General Public License v3.0 or later (SPDX: GPL-3.0-or-later)
 
 Copyright (C) 2025 Steel Security Advisors LLC

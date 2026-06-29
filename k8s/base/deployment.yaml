@@ -8,7 +8,7 @@ metadata:
   labels:
     app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: api
-    app.kubernetes.io/version: "1.7.0"
+    app.kubernetes.io/version: "2.0.0"
   annotations:
     kubernetes.io/change-cause: "Initial deployment"
 spec:
@@ -28,7 +28,7 @@ spec:
       labels:
         app.kubernetes.io/name: mercury-agent
         app.kubernetes.io/component: api
-        app.kubernetes.io/version: "1.7.0"
+        app.kubernetes.io/version: "2.0.0"
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "8000"
@@ -215,7 +215,7 @@ metadata:
   labels:
     app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: engine
-    app.kubernetes.io/version: "1.7.0"
+    app.kubernetes.io/version: "2.0.0"
 spec:
   replicas: 2
   revisionHistoryLimit: 5
@@ -233,7 +233,7 @@ spec:
       labels:
         app.kubernetes.io/name: mercury-agent
         app.kubernetes.io/component: engine
-        app.kubernetes.io/version: "1.7.0"
+        app.kubernetes.io/version: "2.0.0"
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "9090"
@@ -273,7 +273,12 @@ spec:
         - name: engine
           image: ghcr.io/steel-secadv-llc/mercury-agent:latest
           imagePullPolicy: Always
-          command: ["python", "-m", "omni_mercury_engine.cli", "serve", "--mode", "worker"]
+          # Streaming anomaly-detection worker: consume -> detect -> publish.
+          # Topics / consumer-group / backend come from the mercury-agent-config
+          # ConfigMap (STREAMING_BACKEND defaults to "memory"; the distributed
+          # overlay patches it to "kafka" and provides the broker). The worker
+          # serves Prometheus stats on :9090 (see prometheus.io annotations).
+          command: ["python", "-m", "omni_mercury_engine.cli", "stream"]
 
           ports:
             - name: metrics
@@ -287,7 +292,6 @@ spec:
                 name: mercury-agent-secrets
 
           env:
-            - name: OMNI_WORKER_MODE: "true"
             - name: POD_NAME
               valueFrom:
                 fieldRef:

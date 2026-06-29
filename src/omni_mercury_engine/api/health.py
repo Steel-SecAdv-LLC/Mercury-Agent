@@ -562,6 +562,21 @@ async def health_metrics() -> Response:
             lines.append(f"{metric} {component.latency_ms}")
 
     content = "\n".join(lines) + "\n"
+
+    # Append the prometheus_client default registry exposition (http_requests_total,
+    # http_request_duration_seconds, and the omni_* detection/model metrics defined
+    # in core.metrics) so this single /metrics target serves both the health gauges
+    # above and the application metrics the monitoring stack consumes. Best-effort:
+    # a no-op when prometheus_client is not installed.
+    try:
+        from omni_mercury_engine.core.metrics import render_exposition
+
+        rendered = render_exposition()
+        if rendered is not None:
+            content += rendered[0].decode("utf-8")
+    except Exception:  # pragma: no cover - exposition must never break the scrape
+        pass
+
     return Response(
         content=content,
         media_type="text/plain; version=0.0.4; charset=utf-8",

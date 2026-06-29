@@ -545,10 +545,20 @@ class KafkaStreamProducer(StreamProducer):
                     timestamp=None,
                 )
                 if metadata is None:
-                    # Batch is full, send it
+                    # Batch is full: send it, count the records it actually
+                    # carried, then start a fresh batch and re-append this
+                    # message. Its append() returned None precisely because the
+                    # batch had no room, so it is in no batch yet and would
+                    # otherwise be silently dropped. Counting must happen before
+                    # `batch` is reassigned, or it tallies the empty new batch.
                     await self._producer.send_batch(batch, topic)
-                    batch = self._producer.create_batch()
                     count += batch.record_count()
+                    batch = self._producer.create_batch()
+                    batch.append(
+                        value=json.dumps(msg).encode("utf-8"),
+                        key=None,
+                        timestamp=None,
+                    )
             except Exception as e:
                 logger.error(f"Kafka batch append failed: {e}")
 

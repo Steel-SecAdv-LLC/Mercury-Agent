@@ -243,7 +243,7 @@ app = FastAPI(
         "email": "steel.sa.llc@gmail.com",
     },
     license_info={
-        "name": "GNU General Public License v3.0",
+        "name": "GPL-3.0-or-later",
         "url": "https://www.gnu.org/licenses/gpl-3.0.html",
     },
     docs_url="/docs",
@@ -399,6 +399,24 @@ class CorrelationIDMiddleware(BaseHTTPMiddleware):
             # Add tracing headers to response
             response.headers[self.HEADER_NAME] = correlation_id
             response.headers["X-Request-Duration-Ms"] = f"{duration_ms:.2f}"
+
+            # Record Prometheus HTTP metrics (http_requests_total /
+            # http_request_duration_seconds) the monitoring stack + API HPA
+            # consume. Best-effort and fully isolated: a metrics error must never
+            # affect the response. Labels with the matched route template, and
+            # collapses unmatched requests (404s, scanner/probe traffic on
+            # arbitrary paths) to a single "__unmatched__" label — using the raw
+            # URL path there would let external callers explode label cardinality.
+            try:
+                from omni_mercury_engine.core.metrics import record_http_request
+
+                route = request.scope.get("route")
+                endpoint = getattr(route, "path", None) or "__unmatched__"
+                record_http_request(
+                    request.method, endpoint, response.status_code, duration_ms / 1000.0
+                )
+            except Exception:  # pragma: no cover - metrics must never break a request
+                pass
 
             # Log request completion with correlation ID
             logger.info(

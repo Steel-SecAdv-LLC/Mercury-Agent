@@ -49,7 +49,7 @@
 **Copyright 2025 Steel Security Advisors LLC**
 **Author/Inventor:** Andrew E. A.
 **Contact:** steel.sa.llc@gmail.com
-**License:** GNU General Public License v3.0
+**License:** GNU General Public License v3.0 or later (SPDX: GPL-3.0-or-later)
 **Version:** v2.0.0
 **Date:** 2026-06-17
 **AI Co-Architects:** Eris ✠ | Eden ♱ | Devin ⚛︎ | Claude ⊛
@@ -71,7 +71,7 @@ The framework embodies a **Civilization-First** philosophy, prioritizing ethical
 > - Post-quantum cryptography for Mercury Agent and FINDΩYOU™ is derived from [AMA Cryptography](https://github.com/Steel-SecAdv-LLC/AMA-Cryptography)
 > - FINDΩYOU™ is a near-future addition with a people-first mission: locating the lost, missing, and abducted to reunite families and help bring perpetrators to justice.
 >
-> **This project is licensed under the GNU General Public License v3.0 (GPL v3)**
+> **This project is licensed under the GNU General Public License v3.0 or later (SPDX: GPL-3.0-or-later)**
 >
 > Everyone is permitted to copy and distribute verbatim copies of this license document, but **changing it is not allowed**.
 > Any derivative work, fork, or modification **must also be released under GPL v3** — no proprietary versions allowed, ever.
@@ -248,9 +248,9 @@ real labels and routes every verdict through the gate. The live wiring is proven
 end-to-end in `tests/research/test_phase3_live_wiring.py`. See
 [docs/PHASE3_GOVERNANCE.md](docs/PHASE3_GOVERNANCE.md).
 
-> **\*Reproducibility note.** 10 of the 75 attempted datasets are not currently
+> **\*Reproducibility note.** 9 of the 75 attempted datasets are not currently
 > reproducible because their external data sources (SMAP, MSL, CICIDS-2017,
-> MIT-BIH, UCR, SWaT, WADI, USGS Geochemistry, NOAA ERDDAP,
+> MIT-BIH, UCR, SWaT, WADI, USGS Geochemistry,
 > FEMA HazardMitigation) are unavailable or rate-limited from this build
 > environment. The comparable headline (Mean AUC 0.8251, Median AUC 0.8747) is
 > the genuine-only figure; the aggregate over all **66 successful** datasets
@@ -323,7 +323,7 @@ benchmark performance. Listed for pipeline transparency only.
 | Domain | Datasets | Mean AUC | Mean F1 | Label rule (leaky) |
 |--------|----------|----------|---------|--------------------|
 | Air Quality (EPA) | 1 | 0.9975 | 0.7958 | PM2.5 > 35.4 µg/m³ threshold |
-| Climate (NOAA GSOD, StormEvents) | 2 | 0.9939 | 0.9210 | ±3σ statistical threshold |
+| Climate (NOAA GSOD, StormEvents, ERDDAP) | 3 | 0.9939 | 0.9210 | ±3σ statistical threshold |
 | Ocean (NOAA Buoy) | 1 | 0.8510 | 0.6921 | ±3σ statistical threshold |
 | Environmental (USGS/NOAA/EPA) | 3 | 0.8856 | 0.6858 | threshold-derived |
 | Disaster (FEMA) | 1 | 0.9993 | 0.9943 | threshold/polarity-derived |
@@ -351,6 +351,17 @@ that method. Mercury-Agent is run untuned against standard unsupervised baseline
 (One-Class SVM, LOF, Elliptic Envelope) and stays competitive on tabular data; the
 supervised SOTA references (TranAD, MAAT) are the performance ceiling and
 outperform on labeled tasks, as expected.*
+
+> **Reproduce this table.** The Mercury and unsupervised-baseline columns are
+> regenerated from license-clean scikit-learn datasets by the harness — no
+> committed data, no synthetic substitution:
+> ```bash
+> python -m benchmarks.empirical_benchmark --readme-subset \
+>     -o benchmarks/empirical_benchmark_results.json
+> ```
+> The run is deterministic for the default `--seed 42` and a fixed
+> NumPy/scikit-learn version. The `TranAD`/`MAAT` rows are published references
+> (Tuli et al., VLDB 2022; Kang & Kang, 2023), not re-run here.
 
 **Calibration Validation (MD-011 / MD-003 / MD-005):**
 
@@ -471,7 +482,7 @@ self-labeled / threshold-derived (unsupervised-eval-only, not comparable — see
 the committed run reflects the corrected score. See the reproducibility note
 above and `CHANGELOG.md` for details.*
 
-**10 datasets failed** due to unavailable external sources (SMAP, MSL, CICIDS-2017, MIT-BIH, UCR, SWaT, WADI, USGS Geochemistry, NOAA ERDDAP, FEMA HazardMitigation). As of v1.7.0 these are tracked by a two-lane reachability harness so an upstream outage now surfaces as a failed nightly run (see `.github/workflows/dataset-reachability.yml`, `tests/datasets/test_unreachable_loaders_offline.py`, `tests/datasets/test_unreachable_loaders_network.py`).
+**9 datasets failed** due to unavailable external sources (SMAP, MSL, CICIDS-2017, MIT-BIH, UCR, SWaT, WADI, USGS Geochemistry, FEMA HazardMitigation). As of v1.7.0 these are tracked by a two-lane reachability harness so an upstream outage now surfaces as a failed nightly run (see `.github/workflows/dataset-reachability.yml`, `tests/datasets/test_unreachable_loaders_offline.py`, `tests/datasets/test_unreachable_loaders_network.py`).
 
 ### Federated Learning (Privacy-Preserving Detection)
 
@@ -1520,7 +1531,7 @@ The test suite includes:
 - `tests/tools/test_lyapunov_validator.py` + `tests/tools/test_lyapunov_reconciliation.py`: pin the executable Lyapunov certificate against documentation drift and against `LyapunovConstants.LAMBDA_CONVERGENCE`.
 - `tests/scripts/test_check_readme_lyapunov.py` + `tests/scripts/test_run_ablation.py` + `tests/scripts/test_run_hardware_benchmark.py`: lock the ISO Hardening operator-tool surface (drift gate, ablation runner pre-gate, hardware harness throughput math).
 - `tests/api/test_server_comprehensive.py::TestLifespanWarmup`: 4 tests pinning the API warmup lifespan (wiring, success path, internal-failure propagation under the fail-fast contract, TestClient lifecycle).
-- `tests/datasets/test_unreachable_loaders_{offline,network}.py`: two-lane reachability harness for the 11 watch-listed datasets whose upstream sources are flaky or not currently fetchable (10 failed in the committed benchmark run; NOAA StormEvents recovered).
+- `tests/datasets/test_unreachable_loaders_{offline,network}.py`: two-lane reachability harness for the 11 watch-listed datasets whose upstream sources are flaky or not currently fetchable (9 failed in the committed benchmark run; NOAA StormEvents and NOAA ERDDAP recovered).
 - `tests/validation/test_synthetic_policy_gate.py`: locks the `MERCURY_ALLOW_SYNTHETIC` policy gate across every loader that previously exposed a `use_synthetic` kwarg bypass.
 
 **Test Suite Stabilization (v1.6.0 Patch — historical):**
@@ -1684,7 +1695,7 @@ mypy src/
 | Linux (Ubuntu 22.04+) | Supported, CI-tested | Primary development platform; the only platform in the CI matrix |
 | macOS (13+) | Supported install target | Apple Silicon compatible; not in the CI matrix |
 | Windows (10/11) | Supported install target | WSL2 recommended; not in the CI matrix |
-| Docker | Supported, CI-tested | Multi-stage build (`python:3.13-slim-trixie`), Trivy-gated |
+| Docker | Supported, CI-tested | Multi-stage build (`python:3.14-slim-trixie`), Trivy-gated |
 | Kubernetes | Supported install target | Helm chart and overlays included as reference configurations |
 
 </details>
@@ -2361,7 +2372,7 @@ dashboard.export_html("anomaly_report.html")
 
 Copyright 2025 Steel Security Advisors LLC
 
-Licensed under the GNU General Public License v3.0. See [LICENSE](LICENSE) file for details.
+Licensed under the GNU General Public License v3.0 or later (SPDX: GPL-3.0-or-later). See [LICENSE](LICENSE) file for details.
 
 ```
 Mercury Agent - Multi-Domain Anomaly Detection Framework
@@ -2443,13 +2454,17 @@ Benchmark results include a `data_source` field indicating data provenance:
 - `real-github`: Direct from public GitHub repositories
 - `real-local`: User-downloaded authentic data
 - `real-github-partial`: Partial real data (some machines/channels failed)
-- `synthetic-fallback`: Generated data when real sources unavailable
 
-> **Note:** Synthetic fallbacks are explicitly flagged. Results using >50% synthetic data trigger quality warnings.
+> **Note:** The benchmark never fabricates data. When a dataset's real sources
+> are unavailable it is **skipped** (recorded as unavailable), never substituted
+> with synthetic data — consistent with the deployment-level
+> `MERCURY_ALLOW_SYNTHETIC` policy gate (`tests/validation/test_synthetic_policy_gate.py`).
 
 ### Configuration
 
-Dataset fetching in `benchmarks/empirical_benchmark.py` can be configured via environment variables:
+The harness is a runnable CLI (`python -m benchmarks.empirical_benchmark --help`); a run
+is deterministic for a fixed `--seed` and dataset snapshot. Dataset fetching can be
+configured via environment variables:
 - `MERCURY_SMD_MACHINES`: Number of SMD machines to fetch (default: 28, CI: 5)
 - `MERCURY_FETCH_RETRIES`: Maximum retry attempts (default: 10)
 - `MERCURY_FETCH_DELAY`: Base delay for exponential backoff (default: 2.0 s)
@@ -2484,7 +2499,7 @@ The human architect does not hold formal credentials in machine learning or medi
 
 - **No Independent Audit:** All security and performance analysis is self-assessed. Production deployment requires review by qualified professionals.
 - **AI-Generated Code:** May contain subtle implementation errors. All critical paths require independent verification.
-- **Domain-Specific Validation:** Core detection is benchmarked on **66 reproducible real datasets** (of 75 attempted; canonical Mean ROC-AUC **0.8251** / Median **0.8747** from the CI-refreshed "Latest Benchmark Results" block; externally-comparable subset ADBench Mean AUC **0.8251**). 10 datasets currently fail to load due to unavailable external sources and are tracked by a two-lane reachability harness (offline + nightly network) as of v1.7.0. The FEMA Disaster loader's previously-flagged inverted-score bug is fixed in v1.7.0 (`FEMADisasterLoader._select_anomaly_polarity`); the committed run reflects the corrected score. Domain-specific modules may require additional validation.
+- **Domain-Specific Validation:** Core detection is benchmarked on **66 reproducible real datasets** (of 75 attempted; canonical Mean ROC-AUC **0.8251** / Median **0.8747** from the CI-refreshed "Latest Benchmark Results" block; externally-comparable subset ADBench Mean AUC **0.8251**). 9 datasets currently fail to load due to unavailable external sources and are tracked by a two-lane reachability harness (offline + nightly network) as of v1.7.0. The FEMA Disaster loader's previously-flagged inverted-score bug is fixed in v1.7.0 (`FEMADisasterLoader._select_anomaly_polarity`); the committed run reflects the corrected score. Domain-specific modules may require additional validation.
 - **Medical Applications:** No clinical validation. Medical modules require validation on real patient data before any deployment.
 - **Research Status:** This is a research-grade framework, not a production-ready product.
 

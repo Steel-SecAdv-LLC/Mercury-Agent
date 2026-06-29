@@ -309,7 +309,7 @@ def fetch_smap_from_github(max_channels: int = 10) -> tuple[np.ndarray, np.ndarr
 
     NOTE: The NASA telemanom repo (https://github.com/khundman/telemanom) stores
     actual data files on Kaggle which requires authentication. This function
-    returns None to trigger synthetic fallback with transparent logging.
+    returns None (the SMAP dataset is then skipped) with transparent logging.
 
     For real SMAP data, users can:
     1. Install kaggle CLI: pip install kaggle
@@ -323,7 +323,7 @@ def fetch_smap_from_github(max_channels: int = 10) -> tuple[np.ndarray, np.ndarr
         max_channels: Maximum number of channels to fetch (unused, kept for API compat)
 
     Returns:
-        None - SMAP data requires Kaggle auth, triggers synthetic fallback.
+        None - SMAP data requires Kaggle auth; the dataset is skipped.
     """
     # NASA SMAP data is stored on Kaggle (requires auth), not directly on GitHub
     # The telemanom repo only contains labels CSV, not the actual .npy data files
@@ -340,7 +340,7 @@ def fetch_msl_from_github(max_channels: int = 10) -> tuple[np.ndarray, np.ndarra
 
     NOTE: The NASA telemanom repo (https://github.com/khundman/telemanom) stores
     actual data files on Kaggle which requires authentication. This function
-    returns None to trigger synthetic fallback with transparent logging.
+    returns None (the MSL dataset is then skipped) with transparent logging.
 
     For real MSL data, users can:
     1. Install kaggle CLI: pip install kaggle
@@ -354,7 +354,7 @@ def fetch_msl_from_github(max_channels: int = 10) -> tuple[np.ndarray, np.ndarra
         max_channels: Maximum number of channels to fetch (unused, kept for API compat)
 
     Returns:
-        None - MSL data requires Kaggle auth, triggers synthetic fallback.
+        None - MSL data requires Kaggle auth; the dataset is skipped.
     """
     # NASA MSL data is stored on Kaggle (requires auth), not directly on GitHub
     # The telemanom repo only contains labels CSV, not the actual .npy data files
@@ -695,7 +695,7 @@ class BenchmarkResult:
     class_recall: dict[str, float] = field(default_factory=dict)
     class_f1: dict[str, float] = field(default_factory=dict)
     # Data provenance tracking
-    data_source: str = "unknown"  # 'real-github', 'real-local', 'synthetic-fallback'
+    data_source: str = "unknown"  # 'real-github', 'real-local' (real data only)
 
 
 @dataclass
@@ -712,7 +712,7 @@ class DatasetInfo:
     is_time_series: bool = False
     window_size: int = 10
     # Data provenance tracking
-    data_source: str = "unknown"  # 'real-github', 'real-local', 'synthetic-fallback'
+    data_source: str = "unknown"  # 'real-github', 'real-local' (real data only)
     source_url: str = ""  # Attribution URL
     citation: str = ""  # Academic citation
 
@@ -800,10 +800,10 @@ def prepare_covtype_dataset(n_samples: int = 5000) -> DatasetInfo | None:
 
     Uses retry logic with exponential backoff for HTTP errors.
     Falls back to UCI mirror if sklearn fetch fails (HTTP 403).
-    Falls back to synthetic data only as last resort.
+    Returns None (dataset skipped) if every real source is unavailable.
     """
     X, y = None, None
-    source = "synthetic"
+    source = "unavailable"
 
     # Try fetch_covtype first (uses OpenML/Figshare)
     data = fetch_with_retry(
@@ -865,30 +865,14 @@ def prepare_covtype_dataset(n_samples: int = 5000) -> DatasetInfo | None:
             domain="environmental",
         )
 
-    # Last resort: synthetic data
+    # All real sources failed: skip the dataset rather than fabricate synthetic
+    # data. Synthetic substitution would make the benchmark non-reproducible and
+    # bypass the deployment-level MERCURY_ALLOW_SYNTHETIC policy.
     logger.warning(
-        "FALLBACK: All covtype sources failed (sklearn + UCI mirror). "
-        "Using synthetic data - benchmark results may differ from real dataset."
+        "covtype: all real sources failed (sklearn fetch + UCI mirror); "
+        "skipping dataset (recorded as unavailable)."
     )
-    X, y = _generate_synthetic_time_series(
-        n_samples=n_samples, n_features=54, anomaly_ratio=0.03, seed=45
-    )
-
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
-
-    scaler = StandardScaler()
-    X_train = scaler.fit_transform(X_train)
-    X_test = scaler.transform(X_test)
-
-    return DatasetInfo(
-        name="covtype_synthetic",
-        X_train=X_train,
-        X_test=X_test,
-        y_train=y_train,
-        y_test=y_test,
-        description="Synthetic environmental data (covtype fallback)",
-        domain="environmental",
-    )
+    return None
 
 
 def prepare_kddcup_dataset(n_samples: int = 5000) -> DatasetInfo | None:
@@ -898,10 +882,10 @@ def prepare_kddcup_dataset(n_samples: int = 5000) -> DatasetInfo | None:
 
     Uses retry logic with exponential backoff for HTTP errors.
     Falls back to NSL-KDD from GitHub if sklearn fetch fails (HTTP 403).
-    Falls back to synthetic data only as last resort.
+    Returns None (dataset skipped) if every real source is unavailable.
     """
     X_numeric, y_anomaly = None, None
-    source = "synthetic"
+    source = "unavailable"
     dataset_name = "kddcup99"
 
     # Try fetch_kddcup99 first
@@ -984,90 +968,13 @@ def prepare_kddcup_dataset(n_samples: int = 5000) -> DatasetInfo | None:
             domain="cybersecurity",
         )
 
-    # Last resort: synthetic data
+    # All real sources failed: skip the dataset rather than fabricate synthetic
+    # data. Synthetic substitution would make the benchmark non-reproducible and
+    # bypass the deployment-level MERCURY_ALLOW_SYNTHETIC policy.
     logger.warning(
-        "FALLBACK: All KDDCup99/NSL-KDD sources failed. "
-        "Using synthetic data - benchmark results may differ from real dataset."
+        "KDDCup99/NSL-KDD: all real sources failed; " "skipping dataset (recorded as unavailable)."
     )
-    X, y = _generate_synthetic_time_series(
-        n_samples=n_samples, n_features=41, anomaly_ratio=0.20, seed=46
-    )
-
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
-
-    scaler = StandardScaler()
-    X_train = scaler.fit_transform(X_train)
-    X_test = scaler.transform(X_test)
-
-    return DatasetInfo(
-        name="kddcup99_synthetic",
-        X_train=X_train,
-        X_test=X_test,
-        y_train=y_train,
-        y_test=y_test,
-        description="Synthetic cybersecurity data (KDDCup99 fallback)",
-        domain="cybersecurity",
-    )
-
-
-def _generate_synthetic_time_series(
-    n_samples: int = 5000,
-    n_features: int = 25,
-    anomaly_ratio: float = 0.05,
-    window_size: int = 10,
-    seed: int = 42,
-) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Generate synthetic time-series data for benchmarking when real datasets unavailable.
-
-    Creates realistic multivariate time-series with injected anomalies including:
-    - Point anomalies (sudden spikes)
-    - Contextual anomalies (unusual patterns)
-    - Collective anomalies (sustained deviations)
-    """
-    rng = np.random.RandomState(seed)
-
-    # Generate base time series with trends and seasonality
-    t = np.arange(n_samples)
-    X = np.zeros((n_samples, n_features))
-
-    for i in range(n_features):
-        # Base signal with trend and seasonality
-        trend = 0.001 * t * rng.randn()
-        seasonality = np.sin(2 * np.pi * t / (100 + 10 * rng.randn())) * rng.uniform(0.5, 2)
-        noise = rng.randn(n_samples) * 0.1
-        X[:, i] = trend + seasonality + noise
-
-        # Add correlations between features
-        if i > 0:
-            X[:, i] += 0.3 * X[:, i - 1]
-
-    # Inject anomalies
-    n_anomalies = int(n_samples * anomaly_ratio)
-    anomaly_indices = rng.choice(n_samples, n_anomalies, replace=False)
-    y = np.zeros(n_samples, dtype=int)
-
-    for idx in anomaly_indices:
-        anomaly_type = rng.choice(["point", "contextual", "collective"])
-        affected_features = rng.choice(
-            n_features, rng.randint(1, n_features // 2 + 1), replace=False
-        )
-
-        if anomaly_type == "point":
-            # Sudden spike
-            X[idx, affected_features] += rng.uniform(3, 6) * rng.choice([-1, 1])
-        elif anomaly_type == "contextual":
-            # Unusual pattern for context
-            X[idx, affected_features] *= rng.uniform(2, 4)
-        else:
-            # Collective anomaly (sustained deviation)
-            end_idx = min(idx + rng.randint(3, 10), n_samples)
-            X[idx:end_idx, affected_features] += rng.uniform(2, 4)
-            y[idx:end_idx] = 1
-
-        y[idx] = 1
-
-    return X, y
+    return None
 
 
 def prepare_smd_dataset(n_samples: int = 5000, window_size: int = 10) -> DatasetInfo | None:
@@ -1080,20 +987,18 @@ def prepare_smd_dataset(n_samples: int = 5000, window_size: int = 10) -> Dataset
     Data source priority:
     1. GitHub raw (OmniAnomaly repo) - no auth required
     2. Local files (if pre-downloaded)
-    3. Synthetic fallback (with explicit warning)
+    3. Skipped (returns None) if neither source is available
 
     Citation: Su et al., "Robust Anomaly Detection for Multivariate Time Series", KDD 2019
     """
     try:
         X, y = None, None
-        source_info = "synthetic"
-        is_synthetic = True
+        source_info = "unavailable"
 
         # Priority 1: Try GitHub raw fetch (no auth required)
         github_result = fetch_smd_from_github(max_machines=5)
         if github_result is not None:
             X, y, source_info = github_result
-            is_synthetic = False
             logger.info(f"Loaded real SMD from {source_info}")
         else:
             # Priority 2: Try local files
@@ -1115,21 +1020,18 @@ def prepare_smd_dataset(n_samples: int = 5000, window_size: int = 10) -> Dataset
                             y = np.concatenate([np.loadtxt(f) for f in label_files[:3]])
                         else:
                             y = np.zeros(len(X))
-                        is_synthetic = False
                         source_info = f"local ({path})"
                         logger.info(f"Successfully loaded SMD from {path}")
                         break
 
-        # Priority 3: Synthetic fallback (with explicit warning)
+        # All real sources failed: skip the dataset rather than fabricate
+        # synthetic data (keeps the benchmark reproducible and policy-compliant).
         if X is None:
             logger.warning(
-                "SMD: GitHub fetch failed and no local files found. "
-                "Using SYNTHETIC data - metrics may vary 20-40% from real benchmarks."
+                "SMD: GitHub fetch failed and no local files found; "
+                "skipping dataset (recorded as unavailable)."
             )
-            X, y = _generate_synthetic_time_series(
-                n_samples=n_samples, n_features=38, anomaly_ratio=0.04, seed=42
-            )
-            source_info = "synthetic (fallback)"
+            return None
 
         # Limit samples if needed
         if len(X) > n_samples:
@@ -1143,7 +1045,7 @@ def prepare_smd_dataset(n_samples: int = 5000, window_size: int = 10) -> Dataset
         X_train = scaler.fit_transform(X_train)
         X_test = scaler.transform(X_test)
 
-        dataset_name = "smd_synthetic" if is_synthetic else "smd"
+        dataset_name = "smd"
         description = f"Server Machine Dataset (server metrics anomaly) [{source_info}]"
         return DatasetInfo(
             name=dataset_name,
@@ -1170,20 +1072,18 @@ def prepare_smap_dataset(n_samples: int = 5000, window_size: int = 10) -> Datase
     Data source priority:
     1. GitHub raw (NASA telemanom repo) - no auth required
     2. Local files (if pre-downloaded)
-    3. Synthetic fallback (with explicit warning)
+    3. Skipped (returns None) if neither source is available
 
     Citation: Hundman et al., "Detecting Spacecraft Anomalies Using LSTMs", KDD 2018
     """
     try:
         X, y = None, None
-        source_info = "synthetic"
-        is_synthetic = True
+        source_info = "unavailable"
 
         # Priority 1: Try GitHub raw fetch (no auth required)
         github_result = fetch_smap_from_github(max_channels=10)
         if github_result is not None:
             X, y, source_info = github_result
-            is_synthetic = False
             logger.info(f"Loaded real SMAP from {source_info}")
         else:
             # Priority 2: Try local files
@@ -1206,21 +1106,18 @@ def prepare_smap_dataset(n_samples: int = 5000, window_size: int = 10) -> Datase
                             y = np.concatenate([np.zeros(len(X_train_raw)), y_test_raw])
                         else:
                             y = np.zeros(len(X))
-                        is_synthetic = False
                         source_info = f"local ({path})"
                         logger.info(f"Successfully loaded SMAP from {path}")
                         break
 
-        # Priority 3: Synthetic fallback (with explicit warning)
+        # All real sources failed: skip the dataset rather than fabricate
+        # synthetic data (keeps the benchmark reproducible and policy-compliant).
         if X is None:
             logger.warning(
-                "SMAP: GitHub fetch failed and no local files found. "
-                "Using SYNTHETIC data - metrics may vary 20-40% from real benchmarks."
+                "SMAP: GitHub fetch failed and no local files found; "
+                "skipping dataset (recorded as unavailable)."
             )
-            X, y = _generate_synthetic_time_series(
-                n_samples=n_samples, n_features=25, anomaly_ratio=0.05, seed=43
-            )
-            source_info = "synthetic (fallback)"
+            return None
 
         if len(X) > n_samples:
             indices = np.random.RandomState(43).choice(len(X), n_samples, replace=False)
@@ -1233,7 +1130,7 @@ def prepare_smap_dataset(n_samples: int = 5000, window_size: int = 10) -> Datase
         X_train = scaler.fit_transform(X_train)
         X_test = scaler.transform(X_test)
 
-        dataset_name = "smap_synthetic" if is_synthetic else "smap"
+        dataset_name = "smap"
         description = f"SMAP satellite telemetry (sensor anomaly) [{source_info}]"
         return DatasetInfo(
             name=dataset_name,
@@ -1260,20 +1157,18 @@ def prepare_msl_dataset(n_samples: int = 5000, window_size: int = 10) -> Dataset
     Data source priority:
     1. GitHub raw (NASA telemanom repo) - no auth required
     2. Local files (if pre-downloaded)
-    3. Synthetic fallback (with explicit warning)
+    3. Skipped (returns None) if neither source is available
 
     Citation: Hundman et al., "Detecting Spacecraft Anomalies Using LSTMs", KDD 2018
     """
     try:
         X, y = None, None
-        source_info = "synthetic"
-        is_synthetic = True
+        source_info = "unavailable"
 
         # Priority 1: Try GitHub raw fetch (no auth required)
         github_result = fetch_msl_from_github(max_channels=10)
         if github_result is not None:
             X, y, source_info = github_result
-            is_synthetic = False
             logger.info(f"Loaded real MSL from {source_info}")
         else:
             # Priority 2: Try local files
@@ -1296,21 +1191,18 @@ def prepare_msl_dataset(n_samples: int = 5000, window_size: int = 10) -> Dataset
                             y = np.concatenate([np.zeros(len(X_train_raw)), y_test_raw])
                         else:
                             y = np.zeros(len(X))
-                        is_synthetic = False
                         source_info = f"local ({path})"
                         logger.info(f"Successfully loaded MSL from {path}")
                         break
 
-        # Priority 3: Synthetic fallback (with explicit warning)
+        # All real sources failed: skip the dataset rather than fabricate
+        # synthetic data (keeps the benchmark reproducible and policy-compliant).
         if X is None:
             logger.warning(
-                "MSL: GitHub fetch failed and no local files found. "
-                "Using SYNTHETIC data - metrics may vary 20-40% from real benchmarks."
+                "MSL: GitHub fetch failed and no local files found; "
+                "skipping dataset (recorded as unavailable)."
             )
-            X, y = _generate_synthetic_time_series(
-                n_samples=n_samples, n_features=55, anomaly_ratio=0.06, seed=44
-            )
-            source_info = "synthetic (fallback)"
+            return None
 
         if len(X) > n_samples:
             indices = np.random.RandomState(44).choice(len(X), n_samples, replace=False)
@@ -1323,7 +1215,7 @@ def prepare_msl_dataset(n_samples: int = 5000, window_size: int = 10) -> Dataset
         X_train = scaler.fit_transform(X_train)
         X_test = scaler.transform(X_test)
 
-        dataset_name = "msl_synthetic" if is_synthetic else "msl"
+        dataset_name = "msl"
         description = f"Mars Science Laboratory telemetry (rover anomaly) [{source_info}]"
         return DatasetInfo(
             name=dataset_name,
@@ -1352,22 +1244,20 @@ def prepare_swat_dataset(n_samples: int = 5000, window_size: int = 10) -> Datase
     Data source priority:
     1. BATADAL from GitHub (no auth required) - public alternative to SWaT
     2. Local SWaT files (if user has registered and downloaded)
-    3. Synthetic fallback (with explicit warning)
+    3. Skipped (returns None) if neither source is available
 
     Citation: Taormina et al., "Battle of the Attack Detection Algorithms", ASCE 2018
     Note: SWaT requires registration at iTrust SUTD (https://itrust.sutd.edu.sg/)
     """
     try:
         X, y = None, None
-        source_info = "synthetic"
-        is_synthetic = True
+        source_info = "unavailable"
         dataset_name_base = "swat"
 
         # Priority 1: Try BATADAL from GitHub (public alternative to SWaT)
         github_result = fetch_batadal_from_github()
         if github_result is not None:
             X, y, source_info = github_result
-            is_synthetic = False
             dataset_name_base = "batadal"
             logger.info(f"Loaded real BATADAL (SWaT alternative) from {source_info}")
         else:
@@ -1389,22 +1279,19 @@ def prepare_swat_dataset(n_samples: int = 5000, window_size: int = 10) -> Datase
                         y_test_raw = test_df.iloc[:, -1].values
                         X = np.vstack([X_train_raw, X_test_raw])
                         y = np.concatenate([np.zeros(len(X_train_raw)), y_test_raw])
-                        is_synthetic = False
                         source_info = f"local SWaT ({path})"
                         logger.info(f"Successfully loaded SWaT from {path}")
                         break
 
-        # Priority 3: Synthetic fallback (with explicit warning)
+        # All real sources failed: skip the dataset rather than fabricate
+        # synthetic data (keeps the benchmark reproducible and policy-compliant).
+        # SWaT requires registration at https://itrust.sutd.edu.sg/.
         if X is None:
             logger.warning(
-                "SWaT/BATADAL: GitHub fetch failed and no local files found. "
-                "Using SYNTHETIC data - metrics may vary 20-40% from real benchmarks. "
-                "Note: SWaT requires registration at https://itrust.sutd.edu.sg/"
+                "SWaT/BATADAL: GitHub fetch failed and no local files found; "
+                "skipping dataset (recorded as unavailable)."
             )
-            X, y = _generate_synthetic_time_series(
-                n_samples=n_samples, n_features=51, anomaly_ratio=0.12, seed=45
-            )
-            source_info = "synthetic (fallback)"
+            return None
 
         if len(X) > n_samples:
             indices = np.random.RandomState(45).choice(len(X), n_samples, replace=False)
@@ -1417,7 +1304,7 @@ def prepare_swat_dataset(n_samples: int = 5000, window_size: int = 10) -> Datase
         X_train = scaler.fit_transform(X_train)
         X_test = scaler.transform(X_test)
 
-        dataset_name = f"{dataset_name_base}_synthetic" if is_synthetic else dataset_name_base
+        dataset_name = dataset_name_base
         description = f"Water Treatment ICS (attack detection) [{source_info}]"
         return DatasetInfo(
             name=dataset_name,
@@ -1997,10 +1884,34 @@ def benchmark_detector(
     y_pred = detector.predict(dataset.X_test)
     infer_time = (time.perf_counter() - infer_start) * 1000
 
+    # Get raw scores from decision_function
     try:
-        y_scores = -detector.decision_function(dataset.X_test)
+        raw_scores = detector.decision_function(dataset.X_test)
     except Exception:
-        y_scores = (y_pred == -1).astype(float)
+        raw_scores = (y_pred == -1).astype(float)
+
+    # Detector-agnostic score-direction calibration on training data, identical
+    # to benchmark_detector_kfold. Unconditionally negating decision_function is
+    # correct only for sklearn detectors whose convention is higher=more-normal;
+    # it would invert Mercury-Agent/TranAD/MAAT scores (higher=more-anomalous)
+    # and depress their ROC-AUC on this single-split path. Flip only when the
+    # training AUC shows the scores are inverted.
+    try:
+        train_scores = detector.decision_function(dataset.X_train)
+        from omni_mercury_engine.ml.mercury_ml import roc_auc_score
+
+        if len(np.unique(dataset.y_train)) >= 2:
+            train_auc = roc_auc_score(dataset.y_train, train_scores)
+            if train_auc < 0.5:
+                # Scores are inverted (higher = more normal), flip them
+                y_scores = -raw_scores
+            else:
+                y_scores = raw_scores
+        else:
+            y_scores = raw_scores
+    except Exception:
+        # Fallback: use raw scores as-is
+        y_scores = raw_scores
 
     metrics = compute_metrics(dataset.y_test, y_pred, y_scores)
 
@@ -2024,11 +1935,29 @@ def benchmark_detector(
     )
 
 
+def _seed_everything(seed: int) -> None:
+    """Seed every RNG the benchmark touches so a run is reproducible.
+
+    Seeds the NumPy global RNG (used by sklearn estimators instantiated with
+    ``random_state=None``) and PyTorch. The dataset preparers additionally pin
+    their own ``RandomState``/``random_state`` so splits are stable.
+    """
+    import random as _random
+
+    _random.seed(seed)
+    np.random.seed(seed)
+    try:
+        torch.manual_seed(seed)
+    except Exception:  # pragma: no cover - torch always present here, defensive
+        pass
+
+
 def run_full_benchmark(
     use_kfold: bool = True,
     n_folds: int = 5,
     include_time_series: bool = True,
     include_sota: bool = True,
+    seed: int = 42,
 ) -> dict[str, Any]:
     """
     Run complete benchmark suite with enhanced features.
@@ -2038,10 +1967,12 @@ def run_full_benchmark(
         n_folds: Number of folds for cross-validation (default: 5)
         include_time_series: Whether to include time-series datasets (default: True)
         include_sota: Whether to include SOTA models (TranAD, MAAT) (default: True)
+        seed: Master RNG seed for reproducibility (default: 42)
 
     Returns:
         Dictionary containing benchmark results, methodology, and summary statistics
     """
+    _seed_everything(seed)
     print("=" * 70)
     print("Mercury-Agent EMPIRICAL BENCHMARK SUITE")
     print("Comparing against near-peer anomaly detection systems")
@@ -2049,7 +1980,7 @@ def run_full_benchmark(
     print()
     print(
         f"Configuration: K-Fold={use_kfold} (n={n_folds}), "
-        f"Time-Series={include_time_series}, SOTA={include_sota}"
+        f"Time-Series={include_time_series}, SOTA={include_sota}, seed={seed}"
     )
     print()
 
@@ -2058,7 +1989,7 @@ def run_full_benchmark(
     print("Loading datasets...")
     print("-" * 40)
 
-    # Standard datasets (requires sklearn for real data, falls back to synthetic)
+    # Standard datasets (sklearn-provided; unavailable datasets are skipped, never faked)
     bc_data = prepare_breast_cancer_dataset()
     if bc_data is not None:
         datasets.append(bc_data)
@@ -2273,7 +2204,12 @@ def run_full_benchmark(
             "n_folds": n_folds if use_kfold else None,
             "include_time_series": include_time_series,
             "include_sota": include_sota,
-            "note": "Empirical benchmarks using publicly available datasets with K-fold CV",
+            "seed": seed,
+            "note": (
+                "Empirical benchmarks using publicly available datasets with K-fold CV; "
+                "deterministic for a fixed seed and dataset snapshot. Unavailable datasets "
+                "are skipped (never substituted with synthetic data)."
+            ),
         },
         "results": [asdict(r) for r in results],
         "summary": summary,
@@ -2363,7 +2299,8 @@ def generate_honest_assessment(
             "Datasets are proxies for real-world anomaly detection scenarios",
             "Medical dataset (breast_cancer) is not actual clinical data",
             "Cybersecurity dataset (KDDCup99) is from 1999, may not reflect modern attacks",
-            "Results may vary with different random seeds and hyperparameters",
+            "A run is deterministic for a fixed --seed and dataset snapshot; absolute "
+            "scores can shift across NumPy/scikit-learn versions and hyperparameters",
         ],
     }
 
@@ -2483,14 +2420,75 @@ def save_results(results: dict[str, Any], output_path: Path | str) -> None:
     print(f"Report saved to: {report_path}")
 
 
-if __name__ == "__main__":
+def main(argv: list[str] | None = None) -> int:
+    r"""CLI entry point for the reproducible empirical benchmark harness.
+
+    Real data is fetched on demand (license-clean sklearn datasets for the
+    headline comparison; optional network/local time-series datasets are skipped
+    when unavailable — never substituted with synthetic data). A run is
+    deterministic for a fixed ``--seed`` and dataset snapshot.
+
+    Examples:
+        python -m benchmarks.empirical_benchmark            # full suite -> results/
+        python -m benchmarks.empirical_benchmark --readme-subset \\
+            -o benchmarks/empirical_benchmark_results.json  # reproduce the README table
+        python -m benchmarks.empirical_benchmark --quick    # fast smoke run
+    """
+    import argparse
+
+    parser = argparse.ArgumentParser(description=main.__doc__)
+    parser.add_argument(
+        "-o",
+        "--output",
+        default=None,
+        help="Output path: a .json file, or a directory (default: <repo>/results/).",
+    )
+    parser.add_argument("--seed", type=int, default=42, help="Master RNG seed (default: 42).")
+    parser.add_argument("--folds", type=int, default=5, help="K-fold splits (default: 5).")
+    parser.add_argument("--no-kfold", action="store_true", help="Disable K-fold cross-validation.")
+    parser.add_argument(
+        "--no-time-series",
+        action="store_true",
+        help="Skip the network/local time-series datasets (SMD/SMAP/MSL/SWaT).",
+    )
+    parser.add_argument(
+        "--no-sota",
+        action="store_true",
+        help="Skip the SOTA reference detectors (TranAD, MAAT).",
+    )
+    parser.add_argument(
+        "--readme-subset",
+        action="store_true",
+        help=(
+            "Reproduce the README 'Near-Peer Baselines' table: license-clean sklearn "
+            "datasets only, no time-series, no SOTA. Implies a deterministic, offline-"
+            "friendly run."
+        ),
+    )
+    parser.add_argument(
+        "--quick",
+        action="store_true",
+        help="Fast smoke run: 3 folds, sklearn datasets only.",
+    )
+    args = parser.parse_args(argv)
+
+    include_time_series = not (args.no_time_series or args.readme_subset or args.quick)
+    include_sota = not (args.no_sota or args.readme_subset or args.quick)
+    n_folds = 3 if args.quick else args.folds
+
     print("\nStarting Mercury-Agent Empirical Benchmark Suite...")
-    print("This may take a few minutes to download datasets and run benchmarks.\n")
+    print("Fetching real datasets (unavailable ones are skipped, never faked).\n")
 
-    results = run_full_benchmark()
+    results = run_full_benchmark(
+        use_kfold=not args.no_kfold,
+        n_folds=n_folds,
+        include_time_series=include_time_series,
+        include_sota=include_sota,
+        seed=args.seed,
+    )
 
-    output_dir = Path(__file__).parent.parent / "results"
-    save_results(results, output_dir)
+    output: Path | str = args.output if args.output else Path(__file__).parent.parent / "results"
+    save_results(results, output)
 
     print("\n" + "=" * 70)
     print("BENCHMARK COMPLETE")
@@ -2505,4 +2503,8 @@ if __name__ == "__main__":
         print(f"  vs Best Baseline: {comp.get('vs_best_baseline', 0):+.3f}")
         print(f"  vs Avg Baseline: {comp.get('vs_avg_baseline', 0):+.3f}")
 
-    print("\nSee results/ directory for detailed reports.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

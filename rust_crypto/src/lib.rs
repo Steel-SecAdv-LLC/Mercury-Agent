@@ -1,3 +1,5 @@
+// Copyright (C) 2025 Steel Security Advisors LLC
+// SPDX-License-Identifier: GPL-3.0-or-later
 //! Mercury Agent Cryptographic Operations
 //!
 //! High-performance cryptographic primitives implemented in Rust with Python bindings.
@@ -7,9 +9,6 @@
 //! - Cryptographic hashing (BLAKE3, SHA-256, SHA-3)
 //! - Key derivation (Argon2id)
 //! - Constant-time operations for security
-//!
-//! Copyright (C) 2025 Steel Security Advisors LLC
-//! Licensed under GPL-3.0
 
 use pyo3::prelude::*;
 use pyo3::exceptions::{PyValueError, PyRuntimeError};

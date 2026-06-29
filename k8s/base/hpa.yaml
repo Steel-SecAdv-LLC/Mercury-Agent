@@ -122,7 +122,8 @@ spec:
           name: omni_detection_queue_depth
           selector:
             matchLabels:
-              app: mercury-agent
+              app.kubernetes.io/name: mercury-agent
+              app.kubernetes.io/component: engine
         target:
           type: Value
           value: "50"

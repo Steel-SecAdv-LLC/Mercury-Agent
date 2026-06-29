@@ -9,8 +9,8 @@ Applies to Mercury Agent **v2.0.x**. Last updated: 2026-06-22.
 > README "Latest Benchmark Results" block and regenerated on every
 > push to `main` by `.github/workflows/benchmark.yml`. The FEMA
 > Disaster label-polarity fix (v1.7.0) and the 11-loader reachability
-> harness are reflected in that run (disaster AUC 0.9999; 10 loaders
-> failed, NOAA StormEvents recovered) — see `docs/ROADMAP.md`
+> harness are reflected in that run (disaster AUC 0.9999; 9 loaders
+> failed, NOAA StormEvents and NOAA ERDDAP recovered) — see `docs/ROADMAP.md`
 > cross-cutting entries "FEMA Disaster loader label polarity" and
 > "Dataset reachability harness (unreachable-11)".
 
@@ -495,9 +495,16 @@ measured performance:
 
 - **MIN_ROC_AUC: 0.68** — fail if mean AUC drops below this (measured: 0.803)
 - **MIN_F1: 0.50** — fail if mean F1 drops below this (measured: 0.589)
-- **MERCURY_ALLOW_SYNTHETIC: false** — no synthetic data fallbacks in CI
+- **MERCURY_ALLOW_SYNTHETIC: false** — the deployment-level policy gate for the
+  production data loaders (`validation/data_loaders.py`); CI keeps it off.
 
-`empirical_benchmark.py` runs as a non-gating comparison step on scheduled/manual runs.
+`empirical_benchmark.py` runs as a non-gating comparison step on scheduled/manual
+runs. It is a runnable, deterministic harness (`python -m benchmarks.empirical_benchmark
+--help`): real datasets are fetched on demand, and any dataset whose real sources are
+unavailable is **skipped (recorded as unavailable), never substituted with synthetic
+data**. Reproduce the README near-peer table with
+`python -m benchmarks.empirical_benchmark --readme-subset -o benchmarks/empirical_benchmark_results.json`
+(license-clean scikit-learn datasets only).
 
 ## References
 

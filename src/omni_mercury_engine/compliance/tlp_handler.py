@@ -19,7 +19,7 @@ specification from FIRST.org and CISA:
 The source provenance for this module is::
 
     Omni-AXA-Engine/src/omni_anomaly_engine/domains/ciad/compliance/tlp_handler.py
-    (313 LOC, GPL-3.0+)
+    (313 LOC, GPL-3.0-or-later)
 
 with the following behavioural deltas applied during the port:
 

@@ -43,3 +43,32 @@ def test_security_help() -> None:
     runner = CliRunner()
     result = runner.invoke(main, ["security", "--help"])
     assert result.exit_code == 0
+
+
+def test_stream_help() -> None:
+    """Test stream worker command help"""
+    runner = CliRunner()
+    result = runner.invoke(main, ["stream", "--help"])
+    assert result.exit_code == 0
+
+
+def test_stream_options_match_deployment_manifests() -> None:
+    """The `stream` worker must expose the exact flags the k8s/Helm manifests pass.
+
+    The distributed streaming-worker manifest invokes
+    ``mercury stream --input-topic ... --output-topic ... --consumer-group ...``,
+    so a rename here would silently break the deployment (the failure this guards
+    against: a CLI command referenced by a manifest that does not accept its
+    arguments). Keep this in lockstep with k8s/overlays/distributed/streaming-workers.yaml.
+    """
+    runner = CliRunner()
+    result = runner.invoke(main, ["stream", "--help"])
+    assert result.exit_code == 0
+    for option in (
+        "--input-topic",
+        "--output-topic",
+        "--consumer-group",
+        "--backend",
+        "--metrics-port",
+    ):
+        assert option in result.output, f"stream command missing {option}"

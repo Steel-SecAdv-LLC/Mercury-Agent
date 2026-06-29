@@ -120,7 +120,7 @@ from omni_mercury_engine._version import get_version as _get_version
 
 __version__ = _get_version()
 __author__ = "Steel Security Advisors LLC"
-__license__ = "GPL-3.0"
+__license__ = "GPL-3.0-or-later"
 
 __all__ = [
     "AnomalyMathArrest",

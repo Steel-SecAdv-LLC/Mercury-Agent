@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 # Try to import prometheus_client, fall back to no-op implementations
 try:
-    from prometheus_client import Counter, Gauge, Histogram
+    from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, generate_latest
 
     PROMETHEUS_AVAILABLE = True
     logger.info("Prometheus metrics enabled")
@@ -188,6 +188,23 @@ MODEL_F1_SCORE = _create_gauge(
     ["model_version", "dataset"],
 )
 
+# HTTP request metrics (matches monitoring/prometheus/prometheus-rules.yaml and the
+# API HorizontalPodAutoscaler's http_requests_per_second /
+# http_request_duration_seconds_p95 custom metrics). Recorded by the API's
+# CorrelationIDMiddleware on every request.
+HTTP_REQUESTS = _create_counter(
+    "http_requests_total",
+    "Total number of HTTP requests",
+    ["method", "endpoint", "status"],
+)
+
+HTTP_REQUEST_DURATION = _create_histogram(
+    "http_request_duration_seconds",
+    "HTTP request duration in seconds",
+    ["method", "endpoint"],
+    buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0),
+)
+
 
 @contextmanager
 def time_detection(detector_type: str) -> Generator[None, None, None]:
@@ -294,6 +311,31 @@ def update_model_metrics(
         MODEL_ROC_AUC.labels(model_version=model_version, dataset=dataset).set(roc_auc)
     if f1_score is not None:
         MODEL_F1_SCORE.labels(model_version=model_version, dataset=dataset).set(f1_score)
+
+
+def record_http_request(method: str, endpoint: str, status: int, duration_seconds: float) -> None:
+    """Record one HTTP request's count and latency.
+
+    Args:
+        method: HTTP method (GET, POST, ...).
+        endpoint: Route template/path (use the template, not the raw path, to
+            keep label cardinality bounded).
+        status: HTTP status code.
+        duration_seconds: Wall-clock request duration in seconds.
+    """
+    HTTP_REQUESTS.labels(method=method, endpoint=endpoint, status=str(status)).inc()
+    HTTP_REQUEST_DURATION.labels(method=method, endpoint=endpoint).observe(duration_seconds)
+
+
+def render_exposition() -> tuple[bytes, str] | None:
+    """Return ``(payload, content_type)`` for the Prometheus default registry.
+
+    Returns ``None`` when ``prometheus_client`` is not installed, so callers can
+    fall back to their own exposition without a hard dependency.
+    """
+    if not PROMETHEUS_AVAILABLE:
+        return None
+    return generate_latest(), CONTENT_TYPE_LATEST
 
 
 def is_prometheus_available() -> bool:

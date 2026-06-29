@@ -96,39 +96,34 @@ SPHINCS+ native availability. Missing or partially-built AMA
 Cryptography raises `RuntimeError` before any other package state is
 materialised.
 
-For production, build and install the native library from the
-upstream AMA-Cryptography repository (note: the `cmake` step
-operates on the AMA-Cryptography checkout, **not** on the
-Mercury-Agent repo, which has no `CMakeLists.txt` of its own).
-The canonical build steps are exercised by
-`.github/workflows/pqc-production-check.yml` (currently pinned to
-`AMA_REF: v3.2.0`):
+For local and production installs, build and install the native library with the
+canonical helper Mercury ships, **`scripts/build_ama_native.sh`** (the `cmake`
+step operates on the AMA-Cryptography checkout the script clones, **not** on the
+Mercury-Agent repo, which has no `CMakeLists.txt` of its own). It clones the
+pinned `AMA_REF` (`v3.2.0`, matching pyproject's `ama-cryptography` git pin and
+`.github/actions/build-ama-cryptography`), builds the native PQC library,
+installs the Python package, **co-locates the shared object inside the installed
+`ama_cryptography` package** so it loads with no `LD_LIBRARY_PATH`, and fails
+loudly unless ML-DSA-65 + Kyber-1024 + SPHINCS+ all load:
 
 ```bash
-# 1. Clone and build the AMA-Cryptography native library
-git clone --depth 1 --branch v3.2.0 \
-    https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git /tmp/ama-cryptography
-cd /tmp/ama-cryptography
-python -m pip install --upgrade "setuptools>=78.1.1" "wheel>=0.47.0" "cmake>=4.3.2"
-CC=/usr/bin/gcc-12 CXX=/usr/bin/g++-12 cmake -B build \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DAMA_USE_NATIVE_PQC=ON \
-  -DAMA_BUILD_SHARED=ON \
-  -DAMA_BUILD_STATIC=ON \
-  -DAMA_BUILD_TESTS=OFF \
-  -DAMA_BUILD_EXAMPLES=OFF
-cmake --build build
-
-# 2. Install the Python package from the same checkout
-AMA_NO_CYTHON=1 pip install --no-build-isolation .
-
-# 3. Export the runtime loader path and the constant-time gate
-export LD_LIBRARY_PATH="/tmp/ama-cryptography/build/lib:/tmp/ama-cryptography/build:${LD_LIBRARY_PATH:-}"
+# Requires git, gcc/g++ >= 12, and cmake >= 4.3.2 on PATH.
+bash scripts/build_ama_native.sh
 export AMA_REQUIRE_CONSTANT_TIME=true   # recommended
-
-# 4. Return to the Mercury-Agent checkout for the rest of the install
-cd /path/to/Mercury-Agent
 ```
+
+Override the ref/repo/scratch dir via `AMA_REF`, `AMA_REPO`, `AMA_BUILD_DIR`.
+The script performs, in order: install the PEP 517 build floors
+(`setuptools>=78.1.1`, `wheel>=0.47.0`, `cmake>=4.3.2`); `git clone --branch
+v3.2.0`; `cmake -DAMA_USE_NATIVE_PQC=ON -DAMA_BUILD_SHARED=ON` + build;
+`AMA_NO_CYTHON=1 pip install --no-build-isolation --force-reinstall --no-deps .`;
+co-locate `libama_cryptography.so*`; verify via `get_pqc_backend_info()`.
+
+**Docker / Kubernetes:** the production image builds this automatically — the
+Dockerfile builder stage runs `scripts/build_ama_native.sh`, the `.so` travels
+into the runtime image with the virtualenv, and a build-time
+`import omni_mercury_engine` smoke test fails the build if the backend is
+missing. No extra steps are required to deploy a PQC-complete image.
 
 The inlined gate at
 `omni_mercury_engine/__init__.py::_enforce_pqc_production_gate` runs at

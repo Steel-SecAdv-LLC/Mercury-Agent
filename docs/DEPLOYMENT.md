@@ -134,6 +134,41 @@ helm upgrade mercury-agent ./helm/mercury-agent \
 The Helm chart configures liveness/readiness probes, PodDisruptionBudget, anti-affinity,
 and topology spread constraints automatically.
 
+### Deployment topology: API tier + streaming-worker (engine) tier
+
+Mercury deploys as two cooperating tiers:
+
+| Tier | Command | Purpose |
+|------|---------|---------|
+| **API** | `python -m uvicorn omni_mercury_engine.api.server:app` (the image default) | Stateless REST surface for synchronous detection, batch, model and export endpoints. Scales on request load. |
+| **Engine / streaming worker** | `python -m omni_mercury_engine.cli stream` | Long-running worker that consumes data points from a stream, runs anomaly detection, and publishes results. Scales on backlog. |
+
+The `stream` worker wires the production `StreamingAnomalyPipeline` (back-pressure
+handling, circuit breaker, throughput/latency observability) to a configurable
+backend and runs until it receives `SIGTERM`/`SIGINT`, then drains and shuts down
+cleanly. It serves its live stats as Prometheus exposition on `:9090/metrics`
+(the port the engine deployment's `prometheus.io/path` annotation scrapes).
+
+`STREAMING_BACKEND` defaults to the in-process `memory` backend, so the base
+manifests and the default Helm values run with **no external broker**. The
+`k8s/overlays/distributed` overlay provisions Kafka + Redis and patches
+`STREAMING_BACKEND=kafka` (plus `KAFKA_BOOTSTRAP_SERVERS` / `REDIS_URL`) onto the
+engine deployment, and adds a dedicated, horizontally-autoscaled
+`mercury-streaming-worker` fleet running the same `stream` command. To enable
+streaming under Helm, set `STREAMING_BACKEND=kafka` in `config.app` and point
+`KAFKA_BOOTSTRAP_SERVERS` / `REDIS_URL` at your broker.
+
+```bash
+# Run a streaming worker locally (in-memory backend, dev smoke test)
+mercury-agent stream
+
+# Against a Kafka broker
+mercury-agent stream --backend kafka \
+  --input-topic mercury-detections \
+  --output-topic mercury-anomalies \
+  --consumer-group mercury-streaming-workers
+```
+
 ---
 
 ## Required Environment Variables
@@ -215,6 +250,22 @@ See [`MIGRATION-1.6-to-1.7.md`](MIGRATION-1.6-to-1.7.md) §3.
 | `OMNI_API_PORT` | `8000` | Listen port |
 | `OMNI_API_WORKERS` | `4` | Uvicorn worker count |
 
+### Streaming Worker (`mercury-agent stream`)
+
+These configure the engine / streaming-worker tier. CLI flags
+(`--backend`, `--input-topic`, `--output-topic`, `--consumer-group`,
+`--metrics-port`) override the corresponding variable.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `STREAMING_BACKEND` | `memory` | `kafka`, `redis`, or in-process `memory` |
+| `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | Kafka brokers (when `STREAMING_BACKEND=kafka`) |
+| `REDIS_URL` | `redis://localhost:6379` | Redis URL (when `STREAMING_BACKEND=redis`) |
+| `MERCURY_STREAM_INPUT_TOPIC` | `mercury-detections` | Topic/stream consumed for input data |
+| `MERCURY_STREAM_OUTPUT_TOPIC` | `mercury-anomalies` | Topic/stream anomaly results are published to |
+| `MERCURY_STREAM_CONSUMER_GROUP` | `mercury-streaming-workers` | Consumer group for load-balanced consumption |
+| `MERCURY_METRICS_PORT` | `9090` | Port for the worker's Prometheus `/metrics` endpoint (`0` disables) |
+
 ### Logging
 
 | Variable | Default | Description |
@@ -281,7 +332,21 @@ python -c "import omni_mercury_engine; print('OK')"
 
 ## Monitoring
 
-Prometheus metrics are served on the API port at `/metrics`.
+Prometheus metrics are served on the API port at `/metrics` (the engine /
+streaming-worker tier serves its own metrics on `:9090`, see the streaming
+section above). The `/metrics` endpoint merges the health gauges
+(`omni_mercury_up`, component status/latency) with the `prometheus_client`
+default registry, so a single scrape target covers both. This requires the
+`prometheus-client` dependency from the `[api]` extra (installed by `[all]`);
+without it the application metrics no-op and `/metrics` serves only the health
+gauges.
+
+Emitted by the API on every request (via `CorrelationIDMiddleware`):
+`http_requests_total{method,endpoint,status}` and
+`http_request_duration_seconds{method,endpoint}` — the series the
+`prometheus-rules.yaml` recording/alerting rules and the API HPA custom metrics
+consume. The detection/model `omni_*` metrics are defined in
+`core.metrics` and surface on `/metrics` as the code paths that record them run.
 
 ### Grafana dashboards
 
