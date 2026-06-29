@@ -1093,7 +1093,7 @@ def stream(
     stats_interval: float,
     metrics_port: int,
 ) -> None:
-    """Run a streaming anomaly-detection worker (consume -> detect -> publish).
+    r"""Run a streaming anomaly-detection worker (consume -> detect -> publish).
 
     This is the long-running worker entrypoint used by the Kubernetes engine /
     streaming-worker deployments. It wires the production ``StreamingAnomalyPipeline``
@@ -1203,7 +1203,14 @@ def stream(
             def log_message(self, *_args: Any) -> None:  # silence per-request logging
                 return
 
-        server = http.server.ThreadingHTTPServer(("0.0.0.0", metrics_port), _MetricsHandler)
+        # Bind all interfaces: this endpoint exists solely as a Prometheus scrape
+        # target reached cross-pod at <pod-ip>:<metrics_port> (the engine/streaming
+        # deployment annotates prometheus.io/scrape + prometheus.io/port). A
+        # loopback bind would make it unreachable to the scraper and defeat the
+        # metrics tier. Exposure is bounded to the metrics-only port; set
+        # MERCURY_METRICS_PORT=0 to disable the server entirely.
+        bind_host = "0.0.0.0"  # noqa: S104  # nosec B104 - metrics scrape target (see above)
+        server = http.server.ThreadingHTTPServer((bind_host, metrics_port), _MetricsHandler)
         threading.Thread(target=server.serve_forever, daemon=True).start()
         click.echo(f"  Metrics:        http://0.0.0.0:{metrics_port}/metrics", err=True)
         return server
@@ -1240,7 +1247,7 @@ def stream(
                 if stats_interval and stats_interval > 0:
                     try:
                         await asyncio.wait_for(stop.wait(), timeout=stats_interval)
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         s = pipeline.get_stats()
                         click.echo(
                             f"[stream] processed={s['messages_processed']} "

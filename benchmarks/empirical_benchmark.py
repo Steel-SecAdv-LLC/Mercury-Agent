@@ -2397,7 +2397,7 @@ def save_results(results: dict[str, Any], output_path: Path | str) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """CLI entry point for the reproducible empirical benchmark harness.
+    r"""CLI entry point for the reproducible empirical benchmark harness.
 
     Real data is fetched on demand (license-clean sklearn datasets for the
     headline comparison; optional network/local time-series datasets are skipped
