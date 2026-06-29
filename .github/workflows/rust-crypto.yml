@@ -36,7 +36,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       # ubuntu-latest ships a maintained stable Rust toolchain; the crate
       # pins its dependency graph via the committed Cargo.lock.
