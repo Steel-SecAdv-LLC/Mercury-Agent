@@ -9,10 +9,10 @@ coordinates, and exactly one of the Seven **Omni-Codes**
 (:class:`~omni_mercury_engine.utils.constants.OmniCodes`) as its autonomy anchor.
 
 Naming convention (Mercury-only; FINDΩYOU™ may adopt a similar pattern later):
-Greek-pantheon identity + Roman numeral (``Themis_I`` … ``Rhea_XXXIII``). The
-sole intentional exception is ``Selinus_XXXI`` (an ancient Sicilian city / the
-river Selinos), kept for the river→flow→normalize fit and flagged in
-``name_flag``.
+Greek-pantheon identity + Roman numeral (``Themis_I`` … ``Rhea_XXXIII``). Every
+member is a Greek deity or personification chosen so the myth matches the
+function — e.g. ``Hecate`` (crossroads/thresholds) for the gateway, ``Harmonia``
+(concord) for normalization, and ``Eleos`` (mercy) for survivor support.
 
 Two depth tiers, both real (no theater):
 
@@ -191,7 +191,7 @@ ROSTER: tuple[RosterEntry, ...] = (
         domain=DomainType.INFRASTRUCTURE,
     ),
     RosterEntry(
-        id="Aphrodite_XII",
+        id="Eleos_XII",
         role="Empathy / survivor support",
         subsystems=("narrative", "medical"),
         anchor="OMNI_BENEVOLENT",
@@ -325,7 +325,7 @@ ROSTER: tuple[RosterEntry, ...] = (
         code_bearer=True,
     ),
     RosterEntry(
-        id="Janus_XXVIII",
+        id="Hecate_XXVIII",
         role="Gateway / protocol translation",
         subsystems=("api", "integrations"),
         anchor="OMNI_UNIVERSAL",
@@ -349,15 +349,13 @@ ROSTER: tuple[RosterEntry, ...] = (
         code_bearer=True,
     ),
     RosterEntry(
-        id="Selinus_XXXI",
+        id="Harmonia_XXXI",
         role="Data normalization / canonicalization",
         subsystems=("data", "models"),
         anchor="OMNI_UNIVERSAL",
         keywords=("normalization", "canonicalization", "schema", "standardize", "clean",
                   "transform"),
         domain=DomainType.SCIENTIFIC,
-        name_flag="Not a Greek deity (ancient Sicilian city / river Selinos); kept for "
-        "river->flow->normalize fit.",
     ),
     RosterEntry(
         id="Hyperion_XXXII",

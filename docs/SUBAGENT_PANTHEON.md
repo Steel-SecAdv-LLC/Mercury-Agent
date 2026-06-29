@@ -15,10 +15,10 @@ contract. The implementation lives in
 
 ## Naming convention
 
-Greek-pantheon identity + Roman numeral: `Themis_I` … `Rhea_XXXIII`. The sole
-intentional exception is **`Selinus_XXXI`** (an ancient Sicilian city / the river
-Selinos), kept for the river→flow→normalize fit and flagged in the roster's
-`name_flag`.
+Greek-pantheon identity + Roman numeral: `Themis_I` … `Rhea_XXXIII`. Every member
+is a Greek deity or personification chosen so the myth matches the function —
+e.g. **Hecate** (crossroads/thresholds) for the gateway, **Harmonia** (concord)
+for normalization, and **Eleos** (mercy) for survivor support.
 
 ## Architecture
 
@@ -100,7 +100,7 @@ from the roster; the structural invariants are gated by
 | 9 | **Poseidon_IX** | Data flow / secure vault | `data`, `data_sources`, `crypto` | OMNI_DIRECTIONAL (👁∞) | 0.95 | coordinator |  |
 | 10 | **Demeter_X** | Cognitive evolution / growth | `cognitive`, `emergent` | OMNI_POTENT (Γϖ) | 0.95 | coordinator |  |
 | 11 | **Hephaestus_XI** | Infrastructure / auto-scaling | `scaling`, `infrastructure` | OMNI_POTENT (Γϖ) | 0.95 | coordinator |  |
-| 12 | **Aphrodite_XII** | Empathy / survivor support | `narrative`, `medical` | OMNI_BENEVOLENT (Σϵ) | 0.95 | coordinator |  |
+| 12 | **Eleos_XII** | Empathy / survivor support | `narrative`, `medical` | OMNI_BENEVOLENT (Σϵ) | 0.95 | coordinator |  |
 | 13 | **Dionysus_XIII** | Pattern / emergent recognition | `anomaly`, `detectors`, `harmonics`, `emergent` | OMNI_DIRECTIONAL (👁∞) | 0.95 | deep |  |
 | 14 | **Ares_XIV** | Security / defense / instant bans | `security`, `safeguards` | OMNI_INDIVISIBLE (Φϖ) | 0.847 | deep |  |
 | 15 | **Hades_XV** | Compression / deep (cold) storage | `data`, `crypto` | OMNI_UNIVERSAL (Θϵ) | 0.788 | coordinator |  |
@@ -116,10 +116,10 @@ from the roster; the structural invariants are gated by
 | 25 | **Pan_XXV** | Sensor fusion / peripheral integration | `data_sources`, `core`, `integrations` | OMNI_DIRECTIONAL (👁∞) | 0.95 | coordinator |  |
 | 26 | **Persephone_XXVI** | Lifecycle management / archival retrieval | `data`, `federation`, `resilience` | OMNI_POTENT (Γϖ) | 0.95 | coordinator |  |
 | 27 | **Prometheus_XXVII** | Model training / resource provisioning | `ml`, `automl` | OMNI_SCIENT (Ωϖ) | 0.95 | coordinator | ★ |
-| 28 | **Janus_XXVIII** | Gateway / protocol translation | `api`, `integrations` | OMNI_UNIVERSAL (Θϵ) | 0.788 | coordinator |  |
+| 28 | **Hecate_XXVIII** | Gateway / protocol translation | `api`, `integrations` | OMNI_UNIVERSAL (Θϵ) | 0.788 | coordinator |  |
 | 29 | **Nyx_XXIX** | Secrets / secure enclave control | `crypto`, `security` | OMNI_INDIVISIBLE (Φϖ) | 0.847 | coordinator |  |
 | 30 | **Atlas_XXX** | Distributed orchestration / cluster management | `distributed`, `agentic` | OMNI_UNIVERSAL (Θϵ) | 0.788 | coordinator | ★ |
-| 31 | **Selinus_XXXI** | Data normalization / canonicalization | `data`, `models` | OMNI_UNIVERSAL (Θϵ) | 0.788 | coordinator |  |
+| 31 | **Harmonia_XXXI** | Data normalization / canonicalization | `data`, `models` | OMNI_UNIVERSAL (Θϵ) | 0.788 | coordinator |  |
 | 32 | **Hyperion_XXXII** | High-performance compute / GPU scheduling | `scaling`, `distributed`, `ml` | OMNI_POTENT (Γϖ) | 0.95 | coordinator |  |
 | 33 | **Rhea_XXXIII** | Dependency management / resilience control | `resilience` | OMNI_POTENT (Γϖ) | 0.95 | coordinator | ★ |
 
