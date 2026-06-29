@@ -158,7 +158,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Cache pip dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ${{ env.PIP_CACHE_DIR }}
           key: ${{ runner.os }}-pip-benchmark-${{ hashFiles('pyproject.toml') }}
