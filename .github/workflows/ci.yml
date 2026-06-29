@@ -113,7 +113,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Cache pip dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ${{ env.PIP_CACHE_DIR }}
           key: ${{ runner.os }}-pip-quality-${{ hashFiles('pyproject.toml') }}
@@ -465,7 +465,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Cache pip dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ${{ env.PIP_CACHE_DIR }}
           key: ${{ runner.os }}-pip-types-${{ hashFiles('pyproject.toml') }}
@@ -890,7 +890,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Cache pip dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ${{ env.PIP_CACHE_DIR }}
           key: ${{ runner.os }}-pip-core-${{ hashFiles('pyproject.toml') }}
@@ -1056,7 +1056,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Cache pip dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ${{ env.PIP_CACHE_DIR }}
           key: ${{ runner.os }}-pip-neurosym-${{ hashFiles('pyproject.toml') }}
@@ -1192,7 +1192,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Cache pip dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: |
             ${{ env.PIP_CACHE_DIR }}
@@ -1319,7 +1319,7 @@ jobs:
         # ~few-minute compile, and setup.py re-runs cmake on install, so a
         # multi-hundred-MB artifact cache would be net-neutral at best while
         # adding a regression surface to every AMA-building lane.)
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ${{ env.PIP_CACHE_DIR }}
           key: ${{ runner.os }}-pip-integration-${{ hashFiles('pyproject.toml') }}
