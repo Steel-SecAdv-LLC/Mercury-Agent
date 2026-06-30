@@ -110,6 +110,24 @@ _WEIGHT_MARGIN_POWER: float = 4.0
 _TEMPORAL_AUTOCORR_THRESHOLD: float = 0.55
 _TEMPORAL_ADJ_ROW_THRESHOLD: float = 0.75
 
+# Ljung-Box white-noise significance gate (Rec: gate Kinematic behind a real
+# temporal-structure test, not just a magnitude heuristic). The magnitude
+# thresholds above are a fast pre-filter; a column only counts as temporal if
+# its autocorrelation sequence also *rejects the white-noise null* under a
+# Ljung-Box test. Crucially this is row-order-sensitive: a shuffle drives the
+# Q statistic back to its chi-square null, so class-/collection-ordered tabular
+# data (autocorrelated in raw magnitude but white-noise under the chi-square
+# null) no longer passes as TEMPORAL. ``MIN_SIGNIFICANT_FRAC`` of tested feature
+# columns must reject the null. Implemented with scipy.stats.chi2 + numpy only
+# (statsmodels/sklearn are not Mercury dependencies).
+_LJUNGBOX_LAGS: int = 10
+_LJUNGBOX_ALPHA: float = 0.05
+_LJUNGBOX_MIN_SIGNIFICANT_FRAC: float = 0.5
+# Series shorter than this multiple of the lag count give unreliable chi-square
+# p-values; below it the significance gate abstains (passes through the
+# magnitude pre-filter) rather than over-rejecting.
+_LJUNGBOX_MIN_SAMPLES_PER_LAG: int = 5
+
 # Inference-time multi-scale "time-dilation" test-time augmentation (Rec 3).
 # The series is resampled to each of these length multiples, scored, mapped
 # back to the original length, and the per-sample scores are pooled across
@@ -218,6 +236,18 @@ class MercuryAnomalyDetector(BaseDetector):
 
         # Data type detection (Task 2)
         self._data_type: DataCharacteristics = DataCharacteristics.UNKNOWN
+        # Diagnostics from the Ljung-Box temporal-structure gate (set at fit).
+        self._temporal_diagnostics: dict[str, Any] | None = None
+
+        # Per-component isotonic calibrators (default-off; fit on a labeled
+        # holdout via _calibrate_components). When enabled, each component score
+        # is mapped to a calibrated [0,1] probability before the weighted sum so
+        # the components mix on a comparable, accuracy-aligned scale instead of
+        # their raw, differently-offset native scales.
+        self._component_calibrators: dict[str, Any] | None = None
+        self._component_calibration_enabled: bool = bool(
+            self.config.get("component_calibration", False)
+        )
 
         # Ensemble diversity metrics (Task 6)
         self._ensemble_diversity: dict[str, float] | None = None
@@ -508,6 +538,10 @@ class MercuryAnomalyDetector(BaseDetector):
                     )
                 except ImportError:
                     logger.debug("fit: calibration_pipeline not available")
+
+                # Per-component isotonic calibration on the labeled set (opt-in).
+                if self._component_calibration_enabled:
+                    self._calibrate_components(arr, cal_labels)
             else:
                 logger.warning(
                     "fit: calibration_labels length (%d) != data length (%d), ignoring",
@@ -1112,6 +1146,125 @@ class MercuryAnomalyDetector(BaseDetector):
     # Data type detection (Task 2)
     # =====================================================================
 
+    @staticmethod
+    def _ljung_box(
+        x: np.ndarray[Any, Any], lags: int = _LJUNGBOX_LAGS
+    ) -> tuple[float, float]:
+        """Ljung-Box Q statistic and p-value testing the white-noise null.
+
+        ``Q = n(n+2) * sum_{k=1..h} r_k^2 / (n - k)`` where ``r_k`` is the lag-k
+        autocorrelation of the mean-centred series; under the white-noise null
+        ``Q ~ chi^2_h``, so ``p = chi2.sf(Q, h)``. A small p-value rejects white
+        noise (i.e. the series carries genuine temporal autocorrelation). Pure
+        numpy + ``scipy.stats.chi2`` -- no statsmodels.
+        """
+        x = np.asarray(x, dtype=float).reshape(-1)
+        n = x.size
+        h = int(min(lags, n - 1))
+        if n < 4 or h < 1:
+            return 0.0, 1.0
+        xc = x - x.mean()
+        denom = float(np.dot(xc, xc))
+        if denom < _MIN_VARIANCE:
+            return 0.0, 1.0
+        q = 0.0
+        for k in range(1, h + 1):
+            r_k = float(np.dot(xc[:-k], xc[k:]) / denom)
+            q += r_k * r_k / (n - k)
+        q *= n * (n + 2)
+        p = float(sp_stats.chi2.sf(q, h))
+        return q, p
+
+    def _temporal_structure_test(self, X: np.ndarray[Any, Any]) -> dict[str, Any]:
+        """Decide whether columns carry genuine temporal structure (Ljung-Box).
+
+        Runs :meth:`_ljung_box` per feature column and counts how many reject the
+        white-noise null at :data:`_LJUNGBOX_ALPHA`. ``is_temporal`` is True when
+        at least :data:`_LJUNGBOX_MIN_SIGNIFICANT_FRAC` of tested columns reject.
+        Abstains (``is_temporal=None``) when the series is too short for a
+        reliable chi-square p-value, so the caller falls back to the magnitude
+        pre-filter rather than over-rejecting.
+        """
+        n_samples, n_features = X.shape
+        lags = _LJUNGBOX_LAGS
+        if n_samples < _LJUNGBOX_MIN_SAMPLES_PER_LAG * lags:
+            return {"is_temporal": None, "n_significant": 0, "n_tested": 0, "lags": lags}
+        n_cols = min(n_features, 50)
+        n_tested = 0
+        n_significant = 0
+        for f_idx in range(n_cols):
+            col = X[:, f_idx]
+            if np.var(col) < _MIN_VARIANCE:
+                continue
+            n_tested += 1
+            _, p = self._ljung_box(col, lags=lags)
+            if p < _LJUNGBOX_ALPHA:
+                n_significant += 1
+        if n_tested == 0:
+            return {"is_temporal": None, "n_significant": 0, "n_tested": 0, "lags": lags}
+        frac = n_significant / n_tested
+        return {
+            "is_temporal": bool(frac >= _LJUNGBOX_MIN_SIGNIFICANT_FRAC),
+            "n_significant": n_significant,
+            "n_tested": n_tested,
+            "significant_fraction": float(frac),
+            "lags": lags,
+        }
+
+    def _calibrate_components(
+        self, X: np.ndarray[Any, Any], labels: np.ndarray[Any, Any]
+    ) -> None:
+        """Fit one AUROC-preserving isotonic calibrator per component on a label set.
+
+        Each of the three component scores lives on a different native scale
+        (resonance carries a ``1 - h_train`` baseline offset, InfoGeometry uses
+        ``1 - exp(-d^2/2n)``, kinematic a clipped z-score), so the fixed-weight
+        average mixes incomparable quantities. Fitting a
+        :class:`StrictIsotonicCalibration` per component against the labeled
+        calibration set maps each to a calibrated, comparable [0,1] probability
+        while preserving its ranking (AUROC). Stored in
+        ``self._component_calibrators``; applied in :meth:`detect` only when
+        ``component_calibration`` is enabled (default-off).
+        """
+        from omni_mercury_engine.core.calibration import StrictIsotonicCalibration
+
+        labels = np.asarray(labels, dtype=float).ravel()
+        if len(np.unique(labels)) < 2:
+            self._component_calibrators = None
+            return
+        components = {
+            "resonance": self._compute_resonance_score(X),
+            "kinematic": self._compute_kinematic_score(X),
+            "info_geometry": self._compute_info_geometry_score(X),
+        }
+        calibrators: dict[str, Any] = {}
+        for name, scores in components.items():
+            try:
+                calibrators[name] = StrictIsotonicCalibration().fit(
+                    np.asarray(scores, dtype=float), labels
+                )
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.debug("Per-component calibration failed for %s: %s", name, exc)
+        self._component_calibrators = calibrators or None
+        logger.info(
+            "Per-component isotonic calibration fitted for %s",
+            sorted((self._component_calibrators or {}).keys()),
+        )
+
+    def _apply_component_calibration(
+        self, name: str, scores: np.ndarray[Any, Any]
+    ) -> np.ndarray[Any, Any]:
+        """Map a component's raw scores through its fitted calibrator (identity if none)."""
+        cal = (self._component_calibrators or {}).get(name)
+        if cal is None:
+            return scores
+        try:
+            return np.clip(
+                np.asarray(cal.calibrate(np.asarray(scores, dtype=float))), 0.0, 1.0
+            )
+        except Exception:  # pragma: no cover - defensive
+            return scores
+
     def _detect_data_characteristics(self, X: np.ndarray[Any, Any]) -> DataCharacteristics:
         """Automatically detect whether data is temporal, tabular, or image-like.
 
@@ -1192,11 +1345,39 @@ class MercuryAnomalyDetector(BaseDetector):
         except (ValueError, TypeError, FloatingPointError, IndexError) as exc:
             logger.debug("Data type detection: adjacent-row signal failed (%s).", exc)
 
-        # --- Combined temporal gate (Rec 2) ---
+        # --- Combined temporal gate (Rec 2) + Ljung-Box significance ---
         strong_autocorr = autocorr is not None and autocorr > _TEMPORAL_AUTOCORR_THRESHOLD
         strong_adjacency = adj_row_corr is not None and adj_row_corr > _TEMPORAL_ADJ_ROW_THRESHOLD
-        if strong_autocorr or strong_adjacency:
-            return DataCharacteristics.TEMPORAL
+        magnitude_temporal = strong_autocorr or strong_adjacency
+
+        # Real temporal-structure test: the magnitude thresholds are a fast
+        # pre-filter; a white-noise-null (Ljung-Box) significance test then
+        # confirms genuine autocorrelation so class-/collection-ordered tabular
+        # data (high raw magnitude but white-noise under the chi-square null) is
+        # not mistaken for a time series. This only TIGHTENS the TEMPORAL
+        # decision (genuine AR/sine data rejects the null and stays TEMPORAL),
+        # so tabular results are unchanged. Opt-out via config for byte-identical
+        # legacy behaviour.
+        gate_enabled = bool(self.config.get("kinematic_temporal_gate", True))
+        sig = self._temporal_structure_test(X) if gate_enabled else {"is_temporal": None}
+        self._temporal_diagnostics = {
+            "autocorr": autocorr,
+            "adjacency": adj_row_corr,
+            "magnitude_temporal": bool(magnitude_temporal),
+            "ljung_box": sig,
+            "gate_enabled": gate_enabled,
+        }
+        if magnitude_temporal:
+            # ``is_temporal is None`` means the series was too short for a
+            # reliable test -> defer to the magnitude pre-filter (legacy).
+            if sig.get("is_temporal") is False:
+                logger.debug(
+                    "Data type: magnitude looked temporal but Ljung-Box rejected "
+                    "(%s/%s cols significant); classifying TABULAR.",
+                    sig.get("n_significant"), sig.get("n_tested"),
+                )
+            else:
+                return DataCharacteristics.TEMPORAL
 
         # Very low adjacent-row coherence: explicitly shuffled tabular.
         if adj_row_corr is not None and adj_row_corr < 0.1:
@@ -2133,6 +2314,16 @@ class MercuryAnomalyDetector(BaseDetector):
         resonance = self._compute_resonance_score(data)
         kinematic = self._compute_kinematic_score(data)
         info_geo = self._compute_info_geometry_score(data)
+
+        # Per-component calibration (opt-in, default-off): map each component to
+        # a calibrated [0,1] probability before the weighted sum so they mix on a
+        # comparable, accuracy-aligned scale. Rank-preserving (StrictIsotonic),
+        # so the downstream Spearman inversion guard and ensemble flip (both
+        # rank-based) are unaffected.
+        if self._component_calibration_enabled and self._component_calibrators is not None:
+            resonance = self._apply_component_calibration("resonance", resonance)
+            kinematic = self._apply_component_calibration("kinematic", kinematic)
+            info_geo = self._apply_component_calibration("info_geometry", info_geo)
 
         # --- Ensemble (weighted average) ---
         weights = self._adaptive_weights.copy()
