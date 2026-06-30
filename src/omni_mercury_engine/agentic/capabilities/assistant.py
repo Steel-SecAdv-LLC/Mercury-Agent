@@ -78,7 +78,11 @@ class GeneralAssistant:
         doc_generator: DocumentGenerator | None = None,
         benevolence_scorer: Any | None = None,
     ) -> None:
-        self.researcher = researcher or WebResearcher()
+        # Default to the env-configured provider ladder (keyed engine / keyless
+        # self-hosted SearXNG first, DuckDuckGo scrape only as fallback) rather
+        # than a bare DDG scrape -- the provider-first posture, configurable
+        # without code via BRAVE_API_KEY / MERCURY_SEARXNG_URL.
+        self.researcher = researcher or WebResearcher.from_env()
         self.synthesizer = synthesizer or ExtractiveSynthesizer()
         self.doc_generator = doc_generator or DocumentGenerator()
         if benevolence_scorer is None:

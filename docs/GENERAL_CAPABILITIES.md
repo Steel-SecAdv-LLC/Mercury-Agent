@@ -34,30 +34,44 @@ fabricate prose. This is a deliberate honesty contract.
   yields a `FetchResult` carrying the error (never a fabricated body); `search`
   returns `[]` with the reason logged.
 
-### Why DuckDuckGo, and how search stays robust
+### Search is a provider ladder, not a single scrape
 
-Under the project's hard constraints — **no new dependency, no API key, standard
-library only** — DuckDuckGo is the strongest general-web engine, because it
-exposes *keyless* HTML endpoints we can `GET` and parse. Google (Programmable
-Search JSON API), Bing (search API retired / keyed), and Brave (keyed) all
-require an API key and account, i.e. a dependency *and* a credential. So the
-keyless default is DuckDuckGo. Two design choices keep it from being fragile:
+Web search resolves through a **ranked ladder of providers**, tried in order,
+each fail-closed. The recommended rungs are robust and operator-owned; HTML
+scraping is the explicit last resort, **not** the default. From highest to
+lowest priority:
 
-1. **Multi-endpoint chain.** `search()` queries the full `html.duckduckgo.com`
-   page first (richer: titles + snippets), then falls back to the leaner
-   `lite.duckduckgo.com` page, which is far more tolerant of non-browser
-   clients. It returns the first endpoint that yields hits, so a challenge or
-   empty body on one endpoint degrades to the other rather than to nothing.
-2. **Pluggable provider.** `WebResearcher(search_provider=…)` accepts an
-   injectable `(query, max_results) -> [SearchResult]`. A deployment that *does*
-   hold a key for a higher-quality engine (Brave, Google, …) can slot it in and
-   it fully replaces the built-in chain — **without this module taking a
-   dependency**. The default stays keyless; the ceiling is whatever engine the
-   operator chooses to supply.
+1. **A keyed engine** — `brave_provider(api_key)` (Brave Search) or any
+   `(query, max_results) -> [SearchResult]` you supply. Highest quality and
+   contractually stable. Stdlib-only; no SDK dependency.
+2. **A self-hosted SearXNG** — `searxng_provider(base_url)`. *Keyless* and
+   *self-hostable*, so it adds no SaaS dependency and runs entirely under your
+   control. This is the preferred default for an offline-leaning deployment:
+   pair it with the local Ollama reasoning backend and Mercury's open-web
+   research needs no third-party credential at all.
+3. **Keyless DuckDuckGo HTML scrape** — a **best-effort fallback only**. Scrape
+   endpoints rate-limit, serve challenges, and change markup without notice, so
+   they are the bottom rung — enabled by default so a zero-config install still
+   returns *something*, but never the recommended path. The fallback itself is
+   robust (it queries the richer `html.duckduckgo.com` page, then the leaner
+   `lite.duckduckgo.com`), and you can disable it entirely with
+   `enable_ddg_fallback=False` for a provider-only posture.
 
-Either way the contract is unchanged: any failure (network, parse, or an
-exception from a custom provider) is fail-closed to `[]` with the reason logged
-— Mercury never fabricates search hits.
+Configure the ladder explicitly or from the environment:
+
+```python
+# Explicit (provider-first):
+WebResearcher(search_providers=[brave_provider(key), searxng_provider(url)])
+
+# From the environment (BRAVE_API_KEY / MERCURY_SEARXNG_URL /
+# MERCURY_SEARCH_DDG_FALLBACK):
+WebResearcher.from_env()
+```
+
+The legacy singular `WebResearcher(search_provider=…)` still fully replaces the
+chain, for backward compatibility. Either way the contract is unchanged: any
+failure (network, parse, or an exception from any provider) is fail-closed to
+`[]` with the reason logged — Mercury never fabricates search hits.
 - **`ExtractiveSynthesizer`** (`text_synthesis.py`) — numpy-only TF-IDF
   centroid sentence ranking (the LexRank/centroid family), `summarize`,
   `summarize_sources`, `keywords`, `relevance`. Returned summary sentences are

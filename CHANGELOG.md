@@ -105,11 +105,16 @@ abduction (Jaccard, not Bayesian) are scope-labeled in-code and in
 synthesis (`ExtractiveSynthesizer` — numpy-only, quotes sources verbatim),
 document generation (`DocumentGenerator` — Markdown/HTML/text), and a
 `GeneralAssistant` (research → synthesize → cited document), surfaced on
-`MercuryAgent.research/answer/write_document`. Search is keyless DuckDuckGo —
-the only strong general-web engine that needs no API key/dependency — queried
-as a resilient `html` → `lite` endpoint chain (with snippet extraction), and
-the `search_provider` hook lets a deployment slot in a keyed engine (Brave,
-Google, …) without this layer taking a dependency.
+`MercuryAgent.research/answer/write_document`. Search is a **provider ladder**,
+tried in order and fail-closed, configurable in code (`search_providers=[…]`) or
+from the environment (`WebResearcher.from_env()`): a keyed engine
+(`brave_provider`) and/or a *keyless, self-hostable* SearXNG (`searxng_provider`,
+`MERCURY_SEARXNG_URL`) are the recommended, operator-owned rungs, with the
+keyless DuckDuckGo HTML→lite scrape demoted to an explicit best-effort fallback
+(`enable_ddg_fallback`, default on for zero-config installs, off for a
+provider-only posture). The self-hosted SearXNG rung pairs with the local Ollama
+reasoning backend for fully operator-owned, offline-leaning open-web research.
+The legacy singular `search_provider` hook still fully replaces the chain.
 
 ### Subagent pantheon: a 33-member internal delegation fleet for Mercury Agent
 

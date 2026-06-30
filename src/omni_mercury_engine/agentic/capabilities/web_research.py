@@ -7,17 +7,29 @@ HTTP client, no scraping framework, no language model. The transport is
 injectable so the behaviour is fully testable offline; in production the default
 transport honours the environment's proxy and TLS configuration.
 
-**Search engine choice.** Under the project's hard constraints -- no new
-dependency, no API key, standard library only -- DuckDuckGo is the strongest
-general-web engine: it exposes *keyless* HTML endpoints we can GET and parse,
-whereas Google (Programmable Search JSON API), Bing (retired/keyed), and Brave
-(keyed) all require an API key + account, which would be a dependency and a
-credential. So the keyless default is DuckDuckGo, and to be robust it queries a
-*chain* of its endpoints -- the full HTML page first, then the leaner ``lite``
-page (far more tolerant of non-browser clients) -- returning the first that
-yields hits. For deployments that *do* hold a key for a higher-quality engine,
-:class:`WebResearcher` accepts an injectable ``search_provider``: the best
-available engine can be slotted in without this module taking a dependency.
+**Search backend -- a provider ladder, not a single scrape.** Search is a
+*ranked ladder of providers*, tried in order, each fail-closed. The recommended
+rungs are robust and operator-owned; HTML scraping is the explicit last resort,
+not the default:
+
+1. **A keyed engine** (Brave, Google Programmable Search, ...), if the operator
+   holds a key -- the highest-quality, contractually-stable option.
+2. **A self-hosted SearXNG** (``MERCURY_SEARXNG_URL``) -- *keyless* and
+   *self-hostable*, so it adds no SaaS dependency and runs fully under the
+   operator's control. This is the preferred default for an offline-leaning
+   deployment: pair it with the local Ollama reasoning backend and Mercury's
+   open-web research needs no third-party credential at all.
+3. **Keyless DuckDuckGo HTML scrape** -- a *best-effort fallback only*. Scrape
+   endpoints rate-limit, serve challenges, and change markup without notice, so
+   relying on them as a primary backend invites silent breakage; they are the
+   bottom rung, enabled by default so a zero-config install still returns
+   *something*, but never positioned as the recommended path. Disable with
+   ``enable_ddg_fallback=False``.
+
+Build the ladder explicitly via ``search_providers=[...]`` or from the
+environment via :meth:`WebResearcher.from_env`. The legacy singular
+``search_provider`` (a single ``(query, max_results) -> [SearchResult]``) still
+fully replaces the built-in chain, for backward compatibility.
 
 Everything here is **fail-closed and honest**: a network error, a non-OK status,
 or an oversized body yields a :class:`FetchResult` carrying the error (never a
@@ -36,6 +48,7 @@ import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -191,16 +204,56 @@ class WebResearcher:
         timeout: Per-request timeout in seconds.
         allowed_schemes: URL schemes permitted (default http/https). Anything
             else is refused fail-closed (no file://, no ftp://).
-        search_provider: Optional ``(query, max_results) -> [SearchResult]``.
-            When set it fully replaces the built-in keyless DuckDuckGo chain --
-            the hook through which a deployment with an API key can use a
-            higher-quality engine without this module taking a dependency.
+        search_providers: Ordered ladder of providers tried in turn (first with
+            hits wins), each fail-closed. The recommended way to configure
+            search: put a keyed engine and/or a self-hosted SearXNG ahead of the
+            keyless DuckDuckGo fallback. See :func:`brave_provider`,
+            :func:`searxng_provider`, and :meth:`from_env`.
+        enable_ddg_fallback: Whether the keyless DuckDuckGo HTML scrape is the
+            final rung when every configured provider yields nothing. Default
+            ``True`` so a zero-config install still returns results; set
+            ``False`` to refuse scraping entirely (provider-only).
+        search_provider: Legacy single ``(query, max_results) -> [SearchResult]``.
+            When set it fully replaces the built-in chain (backward-compatible);
+            prefer ``search_providers`` for new code.
     """
 
     transport: Transport = _urllib_transport
     timeout: float = 10.0
     allowed_schemes: frozenset[str] = field(default_factory=lambda: frozenset({"http", "https"}))
     search_provider: SearchProvider | None = None
+    search_providers: tuple[SearchProvider, ...] = ()
+    enable_ddg_fallback: bool = True
+
+    @classmethod
+    def from_env(cls, **kwargs: Any) -> WebResearcher:
+        """Build a researcher whose search ladder is configured from the environment.
+
+        Recognised variables (all optional):
+
+        * ``BRAVE_API_KEY`` -- prepend a keyed Brave provider (highest priority).
+        * ``MERCURY_SEARXNG_URL`` -- add a keyless self-hosted SearXNG provider.
+        * ``MERCURY_SEARCH_DDG_FALLBACK`` -- ``"0"``/``"false"`` disables the
+          DuckDuckGo scrape fallback (default enabled).
+
+        The resulting ladder is ``[Brave?, SearXNG?]`` with the DuckDuckGo scrape
+        as the (optional) final rung -- the recommended, provider-first ordering.
+        Any keyword overrides are forwarded to the constructor.
+        """
+        import os
+
+        providers: list[SearchProvider] = []
+        brave_key = os.environ.get("BRAVE_API_KEY", "").strip()
+        if brave_key:
+            providers.append(brave_provider(brave_key))
+        searxng_url = os.environ.get("MERCURY_SEARXNG_URL", "").strip()
+        if searxng_url:
+            providers.append(searxng_provider(searxng_url))
+        ddg = os.environ.get("MERCURY_SEARCH_DDG_FALLBACK", "1").strip().lower()
+        enable_ddg = ddg not in {"0", "false", "no", "off"}
+        kwargs.setdefault("search_providers", tuple(providers))
+        kwargs.setdefault("enable_ddg_fallback", enable_ddg)
+        return cls(**kwargs)
 
     def fetch(self, url: str) -> FetchResult:
         """Fetch a URL, returning a fail-closed :class:`FetchResult`."""
@@ -238,16 +291,25 @@ class WebResearcher:
         return result
 
     def search(self, query: str, max_results: int = 5) -> list[SearchResult]:
-        """Best-effort web search; returns up to ``max_results`` ranked hits.
+        """Best-effort web search over the provider ladder; up to ``max_results`` hits.
 
-        If a ``search_provider`` was supplied it is used exclusively. Otherwise
-        the built-in keyless DuckDuckGo chain is queried -- the html endpoint
-        first, then the leaner lite endpoint -- returning the first that yields
-        results. Fail-closed throughout: returns ``[]`` (and logs the reason) on
-        any network/parse failure or an exception from a custom provider, so a
-        blocked or offline environment degrades honestly rather than fabricating
-        hits.
+        Resolution order:
+
+        1. If the legacy singular ``search_provider`` is set, it is used
+           *exclusively* (fully replaces the chain), fail-closed to ``[]`` -- an
+           operator who pinned one engine does not want a silent fallback to a
+           different one.
+        2. Otherwise each provider in ``search_providers`` is tried in order; the
+           first that returns hits wins. Each rung is fail-closed (an exception
+           yields no hits and moves to the next rung).
+        3. If no provider yielded hits and ``enable_ddg_fallback`` is set, the
+           keyless DuckDuckGo HTML->lite scrape chain is the final rung.
+
+        Fail-closed throughout: returns ``[]`` (and logs the reason) on any
+        network/parse failure, so a blocked or offline environment degrades
+        honestly rather than fabricating hits.
         """
+        # (1) Legacy singular provider fully replaces the chain (back-compat).
         if self.search_provider is not None:
             try:
                 return list(self.search_provider(query, max_results))[:max_results]
@@ -255,6 +317,26 @@ class WebResearcher:
                 logger.info("custom search_provider failed (%s): %s", query, exc)
                 return []
 
+        # (2) Provider ladder, each rung fail-closed.
+        for i, provider in enumerate(self.search_providers):
+            try:
+                hits = list(provider(query, max_results))[:max_results]
+            except Exception as exc:
+                logger.info("search provider %d failed (%s): %s", i, query, exc)
+                continue
+            if hits:
+                return hits
+
+        # (3) Keyless DuckDuckGo scrape -- explicit best-effort last resort.
+        if self.enable_ddg_fallback:
+            return self._ddg_search(query, max_results)
+        logger.info(
+            "web search: no provider returned results and DDG fallback disabled (%s)", query
+        )
+        return []
+
+    def _ddg_search(self, query: str, max_results: int) -> list[SearchResult]:
+        """Keyless DuckDuckGo html->lite scrape chain (the fallback rung)."""
         last_reason = "no DuckDuckGo endpoint returned results"
         for template in _DDG_ENDPOINTS:
             result = self.fetch(template + urllib.parse.quote_plus(query))
@@ -318,4 +400,129 @@ class WebResearcher:
         return None
 
 
-__all__ = ["FetchResult", "SearchProvider", "SearchResult", "WebResearcher"]
+# ---------------------------------------------------------------------------
+# Built-in search providers (the recommended rungs of the ladder). Each is a
+# factory returning a ``SearchProvider`` -- a ``(query, max_results) ->
+# [SearchResult]`` callable -- and is fail-closed (any error yields ``[]`` so the
+# ladder moves to the next rung). Both stay stdlib-only and accept an injectable
+# ``opener`` so they are testable offline.
+# ---------------------------------------------------------------------------
+
+# An opener maps a (url, headers) GET to the decoded response body. Injectable so
+# a keyed/self-hosted provider is testable without network.
+JsonOpener = Callable[[str, "dict[str, str]"], str]
+
+
+def _default_json_opener(url: str, headers: dict[str, str]) -> str:
+    """Stdlib GET returning the decoded body, honouring env proxies/TLS."""
+    merged = {"User-Agent": _DEFAULT_USER_AGENT, "Accept": "application/json"}
+    merged.update(headers)
+    # http/https only -- callers build the URL from a trusted base/template.
+    req = urllib.request.Request(url, headers=merged)
+    with urllib.request.urlopen(req, timeout=15.0) as resp:
+        raw = resp.read(_DEFAULT_MAX_BYTES)
+        charset = resp.headers.get_content_charset() or "utf-8"
+    body: str = raw.decode(charset, errors="replace")
+    return body
+
+
+def searxng_provider(
+    base_url: str,
+    *,
+    opener: JsonOpener | None = None,
+    extra_params: dict[str, str] | None = None,
+) -> SearchProvider:
+    """A keyless, self-hostable SearXNG provider (the recommended offline rung).
+
+    Queries ``{base_url}/search?q=...&format=json`` -- a SearXNG instance the
+    operator runs, so there is no API key and no third-party SaaS dependency.
+    Pair it with the local Ollama reasoning backend for fully operator-owned,
+    offline-leaning open-web research.
+
+    Args:
+        base_url: Base URL of the SearXNG instance (e.g. ``http://localhost:8080``).
+        opener: Injectable ``(url, headers) -> body`` (defaults to a urllib GET).
+        extra_params: Extra query parameters (e.g. ``{"language": "en"}``).
+    """
+    import json
+
+    base = base_url.rstrip("/")
+    get = opener or _default_json_opener
+
+    def _provider(query: str, max_results: int) -> list[SearchResult]:
+        params = {"q": query, "format": "json"}
+        if extra_params:
+            params.update(extra_params)
+        url = f"{base}/search?{urllib.parse.urlencode(params)}"
+        try:
+            data = json.loads(get(url, {}))
+        except Exception as exc:
+            logger.info("searxng provider failed (%s): %s", query, exc)
+            return []
+        out: list[SearchResult] = []
+        for item in data.get("results", [])[:max_results]:
+            link = str(item.get("url", "")).strip()
+            if urllib.parse.urlparse(link).scheme not in {"http", "https"}:
+                continue
+            out.append(
+                SearchResult(
+                    title=str(item.get("title", "")).strip() or link,
+                    url=link,
+                    snippet=str(item.get("content", "")).strip(),
+                )
+            )
+        return out
+
+    return _provider
+
+
+def brave_provider(api_key: str, *, opener: JsonOpener | None = None) -> SearchProvider:
+    """A keyed Brave Search provider (the highest-quality, contractually-stable rung).
+
+    Uses the operator's Brave Search API key. Fail-closed: any error yields
+    ``[]`` so the ladder falls through to the next rung.
+
+    Args:
+        api_key: Brave Search API subscription token.
+        opener: Injectable ``(url, headers) -> body`` (defaults to a urllib GET).
+    """
+    import json
+
+    get = opener or _default_json_opener
+
+    def _provider(query: str, max_results: int) -> list[SearchResult]:
+        url = "https://api.search.brave.com/res/v1/web/search?" + urllib.parse.urlencode(
+            {"q": query, "count": max_results}
+        )
+        headers = {"X-Subscription-Token": api_key, "Accept": "application/json"}
+        try:
+            data = json.loads(get(url, headers))
+        except Exception as exc:
+            logger.info("brave provider failed (%s): %s", query, exc)
+            return []
+        out: list[SearchResult] = []
+        for item in data.get("web", {}).get("results", [])[:max_results]:
+            link = str(item.get("url", "")).strip()
+            if urllib.parse.urlparse(link).scheme not in {"http", "https"}:
+                continue
+            out.append(
+                SearchResult(
+                    title=str(item.get("title", "")).strip() or link,
+                    url=link,
+                    snippet=str(item.get("description", "")).strip(),
+                )
+            )
+        return out
+
+    return _provider
+
+
+__all__ = [
+    "FetchResult",
+    "JsonOpener",
+    "SearchProvider",
+    "SearchResult",
+    "WebResearcher",
+    "brave_provider",
+    "searxng_provider",
+]
