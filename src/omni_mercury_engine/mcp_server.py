@@ -402,6 +402,11 @@ class MercuryMCPServer:
     def handle_message(self, message: dict[str, Any]) -> dict[str, Any] | None:
         """Handle one JSON-RPC message; return a response, or ``None`` for a notification."""
         if message.get("jsonrpc") != "2.0" or "method" not in message:
+            # A message with no ``id`` is a notification; per JSON-RPC 2.0 the
+            # server must NOT reply to one, even a malformed one. Only an
+            # identifiable request (has an ``id``) gets an error envelope.
+            if "id" not in message:
+                return None
             return self._error(message.get("id"), _INVALID_REQUEST, "invalid JSON-RPC request")
         method = message["method"]
         msg_id = message.get("id")
@@ -428,6 +433,12 @@ class MercuryMCPServer:
         if method == "tools/list":
             return self._result(msg_id, {"tools": self.manifest()})
         if method == "tools/call":
+            # ``params`` may be any JSON value; a truthy non-object (e.g. an
+            # array) slips past the ``or {}`` guard above, so re-check before
+            # dereferencing it -- otherwise ``params.get`` raises and (without
+            # the serve_stdio guard) would kill the loop.
+            if not isinstance(params, dict):
+                return self._error(msg_id, _INVALID_PARAMS, "'params' must be an object")
             name = params.get("name")
             if not isinstance(name, str):
                 return self._error(msg_id, _INVALID_PARAMS, "tools/call requires a string 'name'")
@@ -456,7 +467,15 @@ class MercuryMCPServer:
             if not isinstance(message, dict):
                 self._write(wstream, self._error(None, _INVALID_REQUEST, "invalid request"))
                 continue
-            response = self.handle_message(message)
+            # Defense in depth: no single malformed message may ever kill the
+            # serve loop. Any unexpected error becomes a JSON-RPC internal error.
+            try:
+                response = self.handle_message(message)
+            except Exception as exc:  # pragma: no cover - belt-and-suspenders
+                logger.exception("handle_message crashed")
+                response = self._error(
+                    message.get("id"), _INTERNAL_ERROR, f"internal error: {type(exc).__name__}"
+                )
             if response is not None:
                 self._write(wstream, response)
 

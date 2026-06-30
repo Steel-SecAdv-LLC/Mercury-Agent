@@ -224,3 +224,41 @@ class TestStdioLoop:
         server.serve_stdio(stdin=stdin, stdout=stdout)
         line = json.loads(stdout.getvalue().strip())
         assert line["error"]["code"] == -32700
+
+
+class TestMalformedInputHardening:
+    """A single malformed message must never crash the server or wrongly reply."""
+
+    def test_non_dict_params_is_invalid_params_not_crash(self) -> None:
+        # A truthy non-object params (e.g. a JSON array) slips past `or {}`; the
+        # server must return -32602, never raise AttributeError on params.get.
+        server = MercuryMCPServer()
+        resp = server.handle_message(
+            {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": [1, 2]}
+        )
+        assert resp is not None and resp["error"]["code"] == -32602
+
+    def test_non_dict_params_does_not_kill_serve_loop(self) -> None:
+        server = MercuryMCPServer()
+        stdin = io.StringIO(
+            json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": [1, 2]})
+            + "\n"
+            + json.dumps({"jsonrpc": "2.0", "id": 2, "method": "ping"})
+            + "\n"
+        )
+        stdout = io.StringIO()
+        server.serve_stdio(stdin=stdin, stdout=stdout)
+        lines = [json.loads(x) for x in stdout.getvalue().splitlines() if x.strip()]
+        # Both messages answered -> the bad params did not kill the loop.
+        assert {ln["id"] for ln in lines} == {1, 2}
+        assert lines[0]["error"]["code"] == -32602
+        assert lines[1]["result"] == {}  # ping still served
+
+    def test_malformed_notification_gets_no_response(self) -> None:
+        server = MercuryMCPServer()
+        # No id => notification; even malformed, JSON-RPC forbids a reply.
+        assert server.handle_message({"jsonrpc": "2.0"}) is None
+        assert server.handle_message({"jsonrpc": "1.0", "method": "x"}) is None
+        # A malformed *request* (has an id) still gets an error.
+        bad_req = server.handle_message({"jsonrpc": "1.0", "id": 7})
+        assert bad_req is not None and bad_req["error"]["code"] == -32600

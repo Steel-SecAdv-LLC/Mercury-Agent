@@ -146,6 +146,18 @@ class TestCrossValidatedHonesty:
             assert report.brier_cal == report.brier_raw
             assert report.ece_cal == report.ece_raw
 
+    def test_refit_same_instance_is_reproducible(self) -> None:
+        # The acceptance bootstrap consumes the instance rng; reseeding per fit
+        # makes a second fit of the SAME instance produce the identical verdict,
+        # honouring the determinism contract for the re-fit usage too.
+        s, y = _miscalibrated_data()
+        cc = CalibratedConfidence(method="auto", seed=0)
+        r1 = cc.fit(s, y)
+        r2 = cc.fit(s, y)
+        assert r1.accepted == r2.accepted
+        assert r1.brier_cal == r2.brier_cal
+        assert r1.brier_delta_ci_high == r2.brier_delta_ci_high
+
     def test_acceptance_implies_significance(self) -> None:
         # Soundness invariant: whenever the gate accepts, the improvement is
         # statistically backed (whole one-sided Brier-delta CI below zero), so an

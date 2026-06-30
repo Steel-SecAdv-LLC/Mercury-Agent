@@ -195,6 +195,8 @@ def _safe_http_transport(url: str, timeout: float) -> tuple[int, str, str]:
     IP-gated). Body is bounded to ``_DEFAULT_MAX_BYTES``; ``requests`` honours
     ``HTTPS_PROXY``/``HTTP_PROXY`` and the system trust store.
     """
+    import requests
+
     from omni_mercury_engine.security.safe_http import SafeHTTPClient
 
     with SafeHTTPClient.get(
@@ -206,7 +208,17 @@ def _safe_http_transport(url: str, timeout: float) -> tuple[int, str, str]:
     ) as resp:
         status = int(resp.status_code)
         raw = resp.raw.read(_DEFAULT_MAX_BYTES, decode_content=True) or b""
-        charset = resp.encoding or "utf-8"
+        # ``requests`` reports ``ISO-8859-1`` as its *no-charset-in-header*
+        # sentinel for ``text/*`` -- trusting it mojibakes the UTF-8 majority of
+        # the open web (and DDG's own scrape pages). Use the header charset only
+        # when one was actually declared; otherwise sniff the real bytes
+        # (``apparent_encoding``), defaulting to UTF-8.
+        header_charset = requests.utils.get_encoding_from_headers(resp.headers)
+        if header_charset and header_charset.lower() != "iso-8859-1":
+            charset = header_charset
+        else:
+            resp._content = raw  # so apparent_encoding sees the body we just read
+            charset = resp.apparent_encoding or "utf-8"
         final_url = resp.url or url
     return status, raw.decode(charset, errors="replace"), final_url
 
@@ -288,7 +300,13 @@ class WebResearcher:
                 url=url, status=int(exc.code), error=f"HTTP {exc.code}: {exc.reason}"
             )
         except Exception as exc:
-            return FetchResult(url=url, error=f"{type(exc).__name__}: {exc}")
+            # Preserve the numeric status when the transport raised an HTTP error
+            # carrying one (``requests.exceptions.HTTPError`` exposes it via
+            # ``exc.response.status_code``); fail-closed to 0 otherwise.
+            http_status = getattr(getattr(exc, "response", None), "status_code", 0) or 0
+            return FetchResult(
+                url=url, status=int(http_status), error=f"{type(exc).__name__}: {exc}"
+            )
         return FetchResult(url=url, status=int(status), text=body, final_url=final_url or url)
 
     @staticmethod
@@ -431,32 +449,44 @@ class WebResearcher:
 JsonOpener = Callable[[str, "dict[str, str]"], str]
 
 
-def _default_json_opener(url: str, headers: dict[str, str]) -> str:
-    """Operator-trusted JSON GET (SearXNG / keyed engine) via SafeHTTPClient.
+def _make_json_opener(*, operator_hosted: bool) -> JsonOpener:
+    """Build a JSON GET opener with the right SSRF policy for its host class.
 
-    The search-provider endpoints are *operator-configured* (the deployer set
-    ``MERCURY_SEARXNG_URL`` / supplied the key), so this trusts the operator's
-    own infrastructure: a localhost SearXNG is reached via ``loopback_only``, a
-    LAN host via ``allow_private`` -- while still going through the SSRF-guarded
-    SafeHTTPClient (no raw ``urlopen``), which refuses redirects and re-checks
-    the resolved IP. A public endpoint (a keyed cloud engine) uses neither flag.
+    ``operator_hosted=True`` (a self-hosted SearXNG the deployer points wherever
+    its own infra lives) trusts the operator's network: a localhost instance via
+    ``loopback_only``, a LAN host via ``allow_private``. ``operator_hosted=False``
+    (a *public* keyed cloud engine such as Brave) keeps the **strict default**
+    SSRF policy -- private/RFC1918/IMDS all refused -- so a public provider host
+    that DNS-rebinds to an internal address is still blocked. Either way the GET
+    goes through the SSRF-guarded SafeHTTPClient (no raw ``urlopen``), which
+    refuses redirects and re-checks the resolved IP.
     """
-    from omni_mercury_engine.security.safe_http import SafeHTTPClient
 
-    merged = {"User-Agent": _DEFAULT_USER_AGENT, "Accept": "application/json"}
-    merged.update(headers)
-    kwargs: dict[str, Any] = {
-        "headers": merged,
-        "timeout": 15.0,
-        "allow_http": True,
-        "user_configured": True,
-    }
-    if _host_is_loopback_literal(url):
-        kwargs["loopback_only"] = True
-    else:
-        # Permits a LAN-hosted SearXNG; a public host is unaffected (not private).
-        kwargs["allow_private"] = True
-    return SafeHTTPClient.get_text(url, **kwargs)
+    def _opener(url: str, headers: dict[str, str]) -> str:
+        from omni_mercury_engine.security.safe_http import SafeHTTPClient
+
+        merged = {"User-Agent": _DEFAULT_USER_AGENT, "Accept": "application/json"}
+        merged.update(headers)
+        kwargs: dict[str, Any] = {
+            "headers": merged,
+            "timeout": 15.0,
+            "allow_http": True,
+            "user_configured": True,
+        }
+        if operator_hosted:
+            if _host_is_loopback_literal(url):
+                kwargs["loopback_only"] = True
+            else:
+                kwargs["allow_private"] = True
+        return SafeHTTPClient.get_text(url, **kwargs)
+
+    return _opener
+
+
+# SearXNG is operator-hosted (often localhost/LAN) -> trust the operator's infra.
+# A keyed cloud engine (Brave) is a public host -> strict default SSRF policy.
+_SEARXNG_JSON_OPENER = _make_json_opener(operator_hosted=True)
+_PUBLIC_JSON_OPENER = _make_json_opener(operator_hosted=False)
 
 
 def searxng_provider(
@@ -480,7 +510,7 @@ def searxng_provider(
     import json
 
     base = base_url.rstrip("/")
-    get = opener or _default_json_opener
+    get = opener or _SEARXNG_JSON_OPENER
 
     def _provider(query: str, max_results: int) -> list[SearchResult]:
         params = {"q": query, "format": "json"}
@@ -517,11 +547,13 @@ def brave_provider(api_key: str, *, opener: JsonOpener | None = None) -> SearchP
 
     Args:
         api_key: Brave Search API subscription token.
-        opener: Injectable ``(url, headers) -> body`` (defaults to a urllib GET).
+        opener: Injectable ``(url, headers) -> body``. Defaults to the strict
+            public-host opener (Brave's host is public, so the default SSRF
+            policy applies -- private/IMDS refused).
     """
     import json
 
-    get = opener or _default_json_opener
+    get = opener or _PUBLIC_JSON_OPENER
 
     def _provider(query: str, max_results: int) -> list[SearchResult]:
         url = "https://api.search.brave.com/res/v1/web/search?" + urllib.parse.urlencode(

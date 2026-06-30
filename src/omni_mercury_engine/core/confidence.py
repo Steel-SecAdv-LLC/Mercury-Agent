@@ -335,6 +335,12 @@ class CalibratedConfidence:
         y = np.asarray(labels, dtype=float).reshape(-1)
         n = s.size
 
+        # Reseed per fit so the acceptance bootstrap (which consumes ``self._rng``)
+        # is reproducible even when the SAME instance is fit more than once --
+        # otherwise the rng would advance and a borderline verdict could flip on a
+        # second fit, contradicting the determinism contract.
+        self._rng = np.random.default_rng(self.seed if self.seed is not None else _DEFAULT_SEED)
+
         from omni_mercury_engine.ml.mercury_ml import brier_score_loss
 
         # Degenerate data: cannot calibrate, stay identity (honest).

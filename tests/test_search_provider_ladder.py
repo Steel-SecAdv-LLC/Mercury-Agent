@@ -127,6 +127,88 @@ class TestBraveProvider:
         assert provider("q", 3) == []
 
 
+class TestDefaultOpenerSSRFPolicy:
+    """The built-in openers must apply the right SSRF policy per host class:
+    SearXNG (operator-hosted) may reach localhost/LAN; a public keyed engine
+    (Brave) stays on the strict default policy (no private/IMDS)."""
+
+    def test_searxng_default_opener_trusts_operator_localhost(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from omni_mercury_engine.security.safe_http import SafeHTTPClient
+
+        captured: dict[str, object] = {}
+
+        def _fake_get_text(url: str, **kwargs: object) -> str:
+            captured.update(kwargs)
+            return '{"results": []}'
+
+        monkeypatch.setattr(SafeHTTPClient, "get_text", _fake_get_text)
+        searxng_provider("http://localhost:8080")("q", 5)
+        assert captured.get("loopback_only") is True
+        assert "allow_private" not in captured  # loopback wins, not blanket private
+
+    def test_brave_default_opener_uses_strict_public_policy(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from omni_mercury_engine.security.safe_http import SafeHTTPClient
+
+        captured: dict[str, object] = {}
+
+        def _fake_get_text(url: str, **kwargs: object) -> str:
+            captured.update(kwargs)
+            return '{"web": {"results": []}}'
+
+        monkeypatch.setattr(SafeHTTPClient, "get_text", _fake_get_text)
+        brave_provider("token")("q", 3)
+        # Public host -> strict default SSRF: neither private nor loopback opened.
+        assert "allow_private" not in captured
+        assert "loopback_only" not in captured
+        assert captured.get("user_configured") is True
+
+
+class TestDefaultTransportEncoding:
+    """The SafeHTTPClient-backed default transport must not mojibake a UTF-8
+    page that is served as text/* with no charset (requests reports its
+    ISO-8859-1 sentinel there)."""
+
+    def test_charsetless_utf8_text_is_not_mojibaked(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import requests
+
+        from omni_mercury_engine.agentic.capabilities import web_research
+        from omni_mercury_engine.security.safe_http import SafeHTTPClient
+
+        text = "café — naïve résumé ☃"
+        body = text.encode("utf-8")
+
+        class _Raw:
+            def read(self, amt: int = -1, decode_content: bool = True) -> bytes:
+                return body
+
+        class _Resp:
+            status_code = 200
+            url = "https://example.test/"
+            headers = requests.structures.CaseInsensitiveDict({"Content-Type": "text/html"})
+            encoding = "ISO-8859-1"  # requests' "no charset declared" sentinel
+            raw = _Raw()
+            _content = None
+
+            @property
+            def apparent_encoding(self) -> str:
+                return "utf-8"
+
+            def __enter__(self) -> _Resp:
+                return self
+
+            def __exit__(self, *a: object) -> bool:
+                return False
+
+        monkeypatch.setattr(SafeHTTPClient, "get", staticmethod(lambda url, **kw: _Resp()))
+        status, decoded, _final = web_research._safe_http_transport("https://example.test/", 5.0)
+        assert status == 200
+        assert decoded == text  # decoded as UTF-8, not Latin-1 mojibake
+
+
 class TestFromEnv:
     def test_builds_ladder_from_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("BRAVE_API_KEY", "bk")
