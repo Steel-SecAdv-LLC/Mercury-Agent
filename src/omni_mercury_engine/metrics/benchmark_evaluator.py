@@ -15,7 +15,6 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-import torch
 
 from omni_mercury_engine.metrics.anomaly_metrics import AnomalyMetrics
 
@@ -153,7 +152,13 @@ class BenchmarkEvaluator:
                 score = result.get("scores", result.get("score", 0.0))
                 if isinstance(score, np.ndarray):
                     score = score.mean()
-                elif isinstance(score, torch.Tensor):
+                elif hasattr(score, "cpu"):
+                    # Torch tensor, duck-typed exactly as ``anomaly_metrics.
+                    # _to_numpy`` does — so this evaluator (and the whole
+                    # ``metrics`` package) imports with no hard ``torch``
+                    # dependency, matching the package's "compatible with both
+                    # numpy and torch tensors" contract. ``.mean().item()`` is a
+                    # tensor method call; it needs no ``import torch``.
                     score = score.mean().item()
 
                 all_scores.append(float(score))

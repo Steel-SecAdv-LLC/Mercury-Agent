@@ -149,8 +149,16 @@ foundation = [
     "nixtla>=0.5.0",
 ]
 
-# Medical dataset loaders (MIT-BIH, PhysioNet)
+# Medical detectors + dataset loaders (MIT-BIH, PhysioNet).
+#
+# The medical suite's anesthesiology / endocrinology / cure predictors are
+# real ``torch.nn`` models, and ``MedicalCoordinator`` binds them in its
+# registry, so ``import omni_mercury_engine.medical`` requires the ML stack.
+# Compose ``mercury-agent[ml]`` (same convention as the ``[visual]`` / ``[sota]``
+# extras) so ``pip install mercury-agent[medical]`` yields an importable,
+# functional package instead of one that fails at import on a missing ``torch``.
 medical = [
+    "mercury-agent[ml]",
     "wfdb>=4.3.1",
 ]
 
