@@ -182,6 +182,38 @@ each candidate verified against the actual call sites) turned up and closed:
   reduction into the key: still no buffer copy (unlike `tobytes()`), but a
   vectorized O(N) reduction is cheap enough not to undo the sampling's perf
   win while catching off-sample changes the stride alone misses.
+- *Unpinned-dependency mypy drift* (`infrastructure/streaming.py`). Building
+  the full toolchain locally (native AMA, then `mypy --strict` against a
+  freshly resolved `redis>=5.0.0`) surfaced 9 errors a CI run pinned to an
+  older cached `redis` doesn't yet hit — the same class of gate fragility as
+  the `.trivyignore` reconciliation above, here in a Python stub instead of
+  an OS CVE feed. Underneath the stub noise was a real type-honesty gap:
+  `StreamMessage.offset` was typed `int | None`, but Redis Streams identifies
+  entries by string IDs (`"<ms>-<seq>"`), not integers; the field silently
+  carried a `str` through an `int`-typed slot on the Redis consume path.
+  Widened to `int | str | None` and added a narrowing assert at the one call
+  site (Kafka's `commit()`) that does integer arithmetic on it.
+- ***σ_Immutable artifacts were never shipped by a real install*** — found
+  by actually building the native AMA backend and running
+  `mercury-agent detect -d fusion` end to end instead of relying on CI alone.
+  `pyproject.toml`'s `[tool.setuptools.package-data]` declared only
+  `py.typed` and `models/checkpoints/*.pt`; the σ_Immutable hard ethical
+  gate's corpus (`sigma_immutable_corpus.json`), its Ed25519/ML-DSA-65
+  signature bundle (`sigma_immutable_corpus.sig.json`), and its trained
+  GOSNN weights (`sigma_immutable_weights.pt`) were not declared. CI's
+  `pip install -e .` (editable) resolves `Path(__file__).parent`-relative
+  loads against the source checkout regardless of package-data declarations,
+  so this was invisible to every CI job — but the Dockerfile's
+  `pip install ".[all]"` (no `-e`) and any real `pip install mercury-agent`
+  install a package missing all three files. The gate's own fail-closed
+  design then turns that into `EthicalConstraintViolationError` on the
+  *first real engine construction*, not at import time, so
+  `import omni_mercury_engine` and the container's `HEALTHCHECK` both
+  report healthy while every actual detection call fails closed. All three
+  files are now declared; `tests/test_package_data_completeness.py` pins the
+  general invariant (every non-`.py` runtime data file under
+  `src/omni_mercury_engine/` must be covered by a package-data glob) so a
+  future file can't reopen this gap silently.
 
 ### Subagent pantheon: a 33-member internal delegation fleet for Mercury Agent
 

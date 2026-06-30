@@ -409,7 +409,29 @@ namespaces = false
 # so ``mercury-agent detect -d fusion`` has trained weights out of the box even
 # from a built wheel, where ``Path(__file__).parent`` resolves inside the
 # installed package rather than the source tree.
-omni_mercury_engine = ["py.typed", "models/checkpoints/*.pt"]
+#
+# The three ``security/sigma_immutable_*`` entries ship the corpus + Ed25519/
+# ML-DSA-65 signature bundle and the trained GOSNN weights the σ_Immutable
+# hard ethical gate reads at first ``MercuryEngine`` construction (lazily, not
+# at import time -- see ``security/sigma_immutable_corpus.py`` and
+# ``core/global_omni_scalar_network.py``). Without them here, a non-editable
+# install (``pip install ".[all]"`` with no ``-e`` -- what the Dockerfile and
+# any real `pip install mercury-agent` do) silently ships a package missing
+# these files, and the gate's own fail-closed design means every detection
+# call then raises ``EthicalConstraintViolationError`` (corpus/weights
+# unreadable -> score 0.0 -> below threshold) rather than warning. CI's own
+# ``pip install -e .`` never hits this: an editable install resolves
+# ``Path(__file__).parent`` against the source checkout, where these files
+# exist regardless of what's declared here, which is exactly why this gap
+# went unnoticed -- the gate's own correctness was never exercised against a
+# real (non-editable) install before.
+omni_mercury_engine = [
+    "py.typed",
+    "models/checkpoints/*.pt",
+    "security/sigma_immutable_corpus.json",
+    "security/sigma_immutable_corpus.sig.json",
+    "security/sigma_immutable_weights.pt",
+]
 
 # =============================================================================
 # Black Configuration
