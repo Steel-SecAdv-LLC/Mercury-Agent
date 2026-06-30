@@ -781,6 +781,13 @@ class OmniMercuryEngine(LoggerMixin):
         # Fail-loud on an unfit detector at inference instead of leaking the
         # first batch as its reference distribution (see __init__ docstring).
         self._require_explicit_fit: bool = require_explicit_fit
+        # Online drift recalibration (opt-in via enable_online_recalibration).
+        # When set, detect_with_fusion feeds each sample's calibrated score to a
+        # Gibbs-Candes AdaptiveConformalInference so the operating threshold
+        # tracks score drift instead of going stale (the decider would otherwise
+        # only DEFER on drift). None = disabled (exact legacy behaviour).
+        self._adaptive_conformal: Any = None
+        self._recalibration_warmup: int = 30
 
         if not TORCH_AVAILABLE:
             raise ImportError(
@@ -2965,6 +2972,59 @@ class OmniMercuryEngine(LoggerMixin):
         self.decision_ledger = ledger
         logger.info("Decision / abstention / response layer enabled")
 
+    def enable_online_recalibration(
+        self,
+        *,
+        target_coverage: float = 0.9,
+        learning_rate: float = 0.05,
+        initial_threshold: float | None = None,
+        warmup: int = 30,
+    ) -> None:
+        """Recalibrate the operating threshold online instead of only deferring.
+
+        On its own, the decision layer demotes a grounded verdict to ``DEFER``
+        when drift is detected but leaves the threshold stale -- so the next
+        sample under the same drift just defers again. This wires the existing
+        :class:`~omni_mercury_engine.core.conformal_prediction.AdaptiveConformalInference`
+        (Gibbs & Candes 2021) into :meth:`detect_with_fusion`: every sample's
+        calibrated score updates an online quantile threshold, so under drift the
+        operating point *tracks the shifting score distribution* and the decider
+        grounds on a fresh threshold rather than a stale one. The conformal
+        certificate path (``calibrate_fusion_conformal``) stays authoritative when
+        present; this updates the uncalibrated threshold-band operating point and
+        is surfaced under ``result['adaptive_threshold']`` /
+        ``result['adaptive_conformal']``. The DEFER-on-severe-drift demotion is
+        kept as a safety net while the online threshold has not yet converged.
+
+        Args:
+            target_coverage: Target fraction of scores at or below the threshold
+                (i.e. the expected normal-class fraction; ``0.9`` -> ~10% alert
+                rate). The threshold converges to this quantile and re-tracks it
+                under drift.
+            learning_rate: Gibbs-Candes step size for the online threshold update.
+            initial_threshold: Starting threshold; defaults to the current fusion
+                operating threshold so recalibration starts where the system
+                already operates.
+            warmup: Number of online updates before the recalibrated threshold
+                replaces the static operating point (avoids acting on an
+                unconverged threshold). Until then it is surfaced but not applied.
+        """
+        from omni_mercury_engine.core.conformal_prediction import AdaptiveConformalInference
+
+        if initial_threshold is None:
+            initial_threshold = float(getattr(self.config, "anomaly_threshold", 0.5) or 0.5)
+        self._adaptive_conformal = AdaptiveConformalInference(
+            target_coverage=target_coverage,
+            learning_rate=learning_rate,
+            initial_threshold=initial_threshold,
+        )
+        self._recalibration_warmup = max(1, int(warmup))
+        logger.info(
+            "Online drift recalibration enabled (target_coverage=%.2f, lr=%.3f, "
+            "initial_threshold=%.3f, warmup=%d)",
+            target_coverage, learning_rate, initial_threshold, self._recalibration_warmup,
+        )
+
     def enable_reasoning(
         self,
         *,
@@ -4635,6 +4695,24 @@ class OmniMercuryEngine(LoggerMixin):
                     "p_value": drift_result.p_value,
                     "message": drift_result.message,
                 }
+
+        # Online drift recalibration: feed this batch's calibrated scores to the
+        # adaptive conformal threshold so the operating point tracks score drift
+        # rather than going stale (see enable_online_recalibration). Surfaced for
+        # audit; applied as the operating threshold only after warmup so the
+        # decider grounds on a converged, fresh threshold instead of deferring
+        # forever on drift.
+        if self._adaptive_conformal is not None:
+            batch_scores = np.asarray(fusion_result["anomaly_probs"], dtype=float).reshape(-1)
+            for s in batch_scores:
+                self._adaptive_conformal.update(float(s))
+            adaptive_threshold = self._adaptive_conformal.get_current_threshold()
+            result["adaptive_conformal"] = self._adaptive_conformal.get_coverage_stats()
+            if np.isfinite(adaptive_threshold):
+                result["adaptive_threshold"] = float(adaptive_threshold)
+                if self._adaptive_conformal.n_updates >= self._recalibration_warmup:
+                    result["threshold_used"] = float(adaptive_threshold)
+                    result["is_anomaly"] = bool(float(anomaly_prob_val) > adaptive_threshold)
 
         # Neuro-symbolic feedback diagnostics. The co-trained LTN is retained
         # after fit/load so production inference can expose whether the current
