@@ -96,3 +96,63 @@ class TestCalibratedConfidence:
         cc = CalibratedConfidence(seed=0)
         cc.fit(s, y)
         json.dumps(cc.report.to_dict())  # must not raise
+
+
+class TestCrossValidatedHonesty:
+    """The deployed (refit-on-all) map is what is measured, the verdict is
+    reproducible, and small-n noise cannot be accepted as calibration."""
+
+    def test_eval_protocol_is_cross_validated(self) -> None:
+        s, y = _miscalibrated_data()
+        cc = CalibratedConfidence(method="auto", seed=0)
+        report = cc.fit(s, y)
+        # Metrics are an out-of-fold estimate of the deployed map, not a discarded
+        # holdout: protocol is CV and at least two folds ran.
+        assert report.eval_protocol == "cv_oof"
+        assert report.n_folds >= 2
+        assert report.held_out is True
+        # The acceptance is backed by a bootstrap CI on the Brier improvement.
+        d = report.to_dict()
+        assert "brier_delta_ci" in d and len(d["brier_delta_ci"]) == 2
+        if report.accepted:
+            # Accepted only when the whole one-sided CI sits below zero.
+            assert report.brier_delta_ci_high < 0.0
+            assert report.accepted_significant is True
+
+    def test_verdict_is_deterministic_by_default(self) -> None:
+        # Same data, default (fixed) seed -> identical accept/reject + metrics,
+        # so this calibration *contract* does not flip run to run.
+        s, y = _miscalibrated_data()
+        r1 = CalibratedConfidence(method="auto").fit(s, y)
+        r2 = CalibratedConfidence(method="auto").fit(s, y)
+        assert r1.accepted == r2.accepted
+        assert r1.brier_cal == r2.brier_cal
+        assert r1.ece_cal == r2.ece_cal
+        assert r1.brier_delta_ci_high == r2.brier_delta_ci_high
+
+    def test_no_signal_small_n_abstains(self) -> None:
+        # Already well-calibrated data (P(y|s)=s) at small n: there is no
+        # miscalibration to exploit, so the bootstrap gate must abstain rather
+        # than manufacture an "improvement" from fold noise.
+        for seed in range(5):
+            rng = np.random.default_rng(seed)
+            s = rng.uniform(0, 1, 30)
+            y = (rng.uniform(0, 1, 30) < s).astype(int)
+            cc = CalibratedConfidence(method="isotonic", seed=seed)
+            report = cc.fit(s, y)
+            assert report.accepted is False
+            assert not cc.is_calibrated
+            # Never claims an improvement it cannot support.
+            assert report.brier_cal == report.brier_raw
+            assert report.ece_cal == report.ece_raw
+
+    def test_acceptance_implies_significance(self) -> None:
+        # Soundness invariant: whenever the gate accepts, the improvement is
+        # statistically backed (whole one-sided Brier-delta CI below zero), so an
+        # accept is never a coin flip.
+        s, y = _miscalibrated_data(n=500, seed=11)
+        cc = CalibratedConfidence(method="auto", seed=11)
+        report = cc.fit(s, y)
+        if report.accepted:
+            assert report.brier_delta_ci_high < 0.0
+            assert report.brier_cal < report.brier_raw
