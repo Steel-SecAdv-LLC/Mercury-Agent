@@ -73,6 +73,13 @@ class CapabilityCeiling:
     tripwire_min_observations: int = 8
 
     def __post_init__(self) -> None:
+        """Validate the capability-ceiling invariants, failing closed.
+
+        Raises:
+            ValueError: If any ceiling is out of range (non-positive bounds, a
+                negative recursion depth, or an autonomy / benevolence /
+                failure-rate value outside its permitted interval).
+        """
         if self.max_replicas < 1 or self.max_total_active < 1:
             raise ValueError("capability ceilings must be >= 1")
         if self.max_recursion_depth < 0:
