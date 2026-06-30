@@ -809,6 +809,10 @@ class MercuryAgent:
         # internal-only and never exposed on the public package surface.
         self.fleet: SubAgentFleet | None = None
 
+        # General-purpose capability layer (web research + document generation),
+        # lazily enabled via enable_assistant(). Native, no new deps, no LLM.
+        self.assistant: Any | None = None
+
         # Fail-closed ethical gate on the execution path (mirrors the OODA
         # reference's pre-act ethical check).  Constructed eagerly; the floor
         # matches the engine/orchestrator boundary contract.
@@ -891,6 +895,59 @@ class MercuryAgent:
             The fleet result with per-replica outcomes and an honest aggregate.
         """
         return self.enable_fleet().scale_dispatch(task, replicas, specialty)
+
+    # ------------------------------------------------------------------
+    # General-purpose capabilities (web research + document generation)
+    # ------------------------------------------------------------------
+
+    def enable_assistant(self, *, researcher: Any | None = None) -> Any:
+        """Enable (idempotently) the general-purpose assistant capability layer.
+
+        Gives Mercury general usefulness beyond anomaly detection: open-web
+        research, source synthesis, and document generation -- native (stdlib +
+        numpy, no new dependencies, no language model) and governed by this
+        agent's own fail-closed benevolence gate. Returns the
+        :class:`GeneralAssistant`.
+        """
+        if getattr(self, "assistant", None) is None:
+            from omni_mercury_engine.agentic.capabilities import GeneralAssistant
+
+            self.assistant = GeneralAssistant(
+                researcher=researcher, benevolence_scorer=self._benevolence_scorer
+            )
+            self.logger.info("General assistant capability enabled for %s", self.name)
+        return self.assistant
+
+    def research(self, query: str, *, max_sources: int = 5, fmt: str = "markdown") -> Any:
+        """Research a question on the open web and return a cited report.
+
+        Fail-closed and honest: an ethics-refused query, an unreachable network,
+        or zero readable sources each yield a report flagged accordingly rather
+        than a fabricated answer. Returns a
+        :class:`~omni_mercury_engine.agentic.capabilities.assistant.ResearchReport`.
+        """
+        return self.enable_assistant().research_report(query, max_sources=max_sources, fmt=fmt)
+
+    def answer(self, question: str, *, max_sources: int = 3) -> str:
+        """Answer a question with sentences extracted (verbatim) from web sources."""
+        return self.enable_assistant().answer(question, max_sources=max_sources)
+
+    def write_document(
+        self,
+        title: str,
+        sections: Any,
+        *,
+        fmt: str = "markdown",
+        metadata: dict[str, str] | None = None,
+        sources: list[str] | None = None,
+    ) -> Any:
+        """Generate a Markdown/HTML/text document, gated by the benevolence check.
+
+        Returns the rendered ``Document`` or ``None`` if the content is refused.
+        """
+        return self.enable_assistant().write_document(
+            title, sections, fmt=fmt, metadata=metadata, sources=sources
+        )
 
     def analyze(
         self,

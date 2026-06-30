@@ -1,0 +1,129 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Extractive text synthesis -- numpy-only, no language model.
+
+Mercury has no generative language model, so it does not *write* prose. What it
+can do honestly is **extract**: rank the sentences a source already contains by
+how central they are to the document, and return the most representative ones
+verbatim. This is classic centroid/TF-based extractive summarization (the family
+behind TextRank/LexRank), implemented here with numpy + the standard library so
+there is no dependency and the output is deterministic.
+
+The contract is honest: every returned sentence is copied verbatim from the
+input -- nothing is paraphrased, invented, or hallucinated.
+"""
+
+from __future__ import annotations
+
+import math
+import re
+from collections import Counter
+from dataclasses import dataclass
+
+import numpy as np
+
+# A compact English stopword list (stdlib-only; no nltk dependency).
+_STOPWORDS = frozenset(
+    """
+    a an the and or but if then else for to of in on at by with from as is are was were be been being
+    this that these those it its their his her our your my we you they he she them us i me do does did
+    has have had will would shall should can could may might must not no nor so than too very just
+    about into over under again further once here there when where why how all any both each few more
+    most other some such only own same s t don now also which who whom what
+    """.split()
+)
+
+_SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+(?=[A-Z0-9])")
+_WORD = re.compile(r"[a-z][a-z'-]+")
+
+
+@dataclass
+class ExtractiveSynthesizer:
+    """Rank-and-extract sentences/keywords from text (deterministic, no LLM).
+
+    Args:
+        min_sentence_chars: Sentences shorter than this are ignored as fragments.
+    """
+
+    min_sentence_chars: int = 25
+
+    @staticmethod
+    def split_sentences(text: str) -> list[str]:
+        """Split text into sentence-like spans (regex; punctuation-based)."""
+        text = re.sub(r"\s+", " ", text or "").strip()
+        if not text:
+            return []
+        parts = _SENTENCE_SPLIT.split(text)
+        return [p.strip() for p in parts if p.strip()]
+
+    @staticmethod
+    def _tokens(text: str) -> list[str]:
+        return [w for w in _WORD.findall(text.lower()) if w not in _STOPWORDS and len(w) > 2]
+
+    def keywords(self, text: str, top_k: int = 10) -> list[str]:
+        """Return the ``top_k`` most frequent content words (stopword-filtered)."""
+        counts = Counter(self._tokens(text))
+        return [w for w, _ in counts.most_common(top_k)]
+
+    def summarize(self, text: str, max_sentences: int = 5) -> str:
+        """Return the most central sentences, verbatim, in original order.
+
+        Each sentence is scored by the TF-IDF-weighted cosine similarity to the
+        document centroid; the top ``max_sentences`` are returned in their
+        original order so the summary reads coherently. Returns the input
+        (trimmed) unchanged when it is already short.
+        """
+        sentences = [s for s in self.split_sentences(text) if len(s) >= self.min_sentence_chars]
+        if len(sentences) <= max_sentences:
+            return " ".join(sentences) if sentences else (text or "").strip()
+
+        # Build a sentence x vocabulary TF matrix, weight by IDF, score by cosine
+        # similarity to the (IDF-weighted) document centroid.
+        tokenized = [self._tokens(s) for s in sentences]
+        vocab = sorted({w for toks in tokenized for w in toks})
+        if not vocab:
+            return " ".join(sentences[:max_sentences])
+        index = {w: i for i, w in enumerate(vocab)}
+        n_sent = len(sentences)
+        tf = np.zeros((n_sent, len(vocab)))
+        for i, toks in enumerate(tokenized):
+            for w in toks:
+                tf[i, index[w]] += 1.0
+        df = np.count_nonzero(tf > 0, axis=0)
+        idf = np.log((1.0 + n_sent) / (1.0 + df)) + 1.0
+        weighted = tf * idf
+        norms = np.linalg.norm(weighted, axis=1, keepdims=True)
+        norms[norms == 0] = 1.0
+        unit = weighted / norms
+        centroid = unit.mean(axis=0)
+        c_norm = np.linalg.norm(centroid) or 1.0
+        scores = unit @ (centroid / c_norm)
+
+        top_idx = sorted(np.argsort(scores)[-max_sentences:].tolist())
+        return " ".join(sentences[i] for i in top_idx)
+
+    def summarize_sources(
+        self, sources: list[tuple[str, str]], max_sentences: int = 6
+    ) -> str:
+        """Summarize across multiple ``(label, text)`` sources into one digest.
+
+        Sentences are pooled across sources (longer sources naturally
+        contribute more), then ranked as in :meth:`summarize`.
+        """
+        combined = " ".join(text for _, text in sources if text)
+        return self.summarize(combined, max_sentences=max_sentences)
+
+    def relevance(self, query: str, text: str) -> float:
+        """Cosine relevance of ``text`` to ``query`` over content-word TF (0..1)."""
+        q = Counter(self._tokens(query))
+        d = Counter(self._tokens(text))
+        if not q or not d:
+            return 0.0
+        vocab = set(q) | set(d)
+        qv = np.array([q.get(w, 0) for w in vocab], dtype=float)
+        dv = np.array([d.get(w, 0) for w in vocab], dtype=float)
+        denom = (np.linalg.norm(qv) * np.linalg.norm(dv)) or 1.0
+        return float(np.dot(qv, dv) / denom)
+
+
+__all__ = ["ExtractiveSynthesizer"]
