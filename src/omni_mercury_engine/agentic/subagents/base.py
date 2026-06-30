@@ -126,9 +126,7 @@ def anchor_autonomy(anchor: OmniCode) -> float:
     max_stability = max(stabilities) if stabilities else 1.0
     norm = anchor.stability / max_stability if max_stability > 0 else 0.0
     base = 0.55 + 0.35 * norm
-    return compute_ethical_autonomy(
-        base_autonomy=base, ethical_threshold=0.99, use_omni_codes=True
-    )
+    return compute_ethical_autonomy(base_autonomy=base, ethical_threshold=0.99, use_omni_codes=True)
 
 
 @dataclass(frozen=True)

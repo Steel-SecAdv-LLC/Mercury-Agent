@@ -270,9 +270,7 @@ class SubAgentFleet:
     # Execution helpers
     # ------------------------------------------------------------------
 
-    def _run_pool(
-        self, work: Sequence[tuple[SubAgentTask, str, int]]
-    ) -> list[SubAgentResult]:
+    def _run_pool(self, work: Sequence[tuple[SubAgentTask, str, int]]) -> list[SubAgentResult]:
         """Run (task, specialty, index) units concurrently; assemble in order.
 
         Each unit constructs its own subagent (seeded by index for

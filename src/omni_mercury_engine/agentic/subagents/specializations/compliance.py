@@ -143,7 +143,6 @@ class ComplianceAutomationAgent:
     inputs produce identical outputs.
     """
 
-
     def __init__(self) -> None:
         """Initialize the agent and load the built-in rule tables."""
         self.rules: dict[str, ComplianceRule] = {}
@@ -419,7 +418,9 @@ class ComplianceAutomationAgent:
             The :class:`ComplianceStatus` from the checker, or
             ``NEEDS_REVIEW`` if no checker is bound or it raised.
         """
-        check_func: Callable[[str, dict[str, Any]], ComplianceStatus] | None = getattr(self, rule.check_function, None)
+        check_func: Callable[[str, dict[str, Any]], ComplianceStatus] | None = getattr(
+            self, rule.check_function, None
+        )
 
         if check_func is None:
             return ComplianceStatus.NEEDS_REVIEW
@@ -504,12 +505,7 @@ class ComplianceAutomationAgent:
 
         acceptable_encryption = "AES-256" in encryption_strength
 
-        if (
-            encryption_enabled
-            and acceptable_encryption
-            and access_control
-            and audit_logging
-        ):
+        if encryption_enabled and acceptable_encryption and access_control and audit_logging:
             return ComplianceStatus.COMPLIANT
 
         if encryption_enabled:
@@ -670,16 +666,12 @@ class ComplianceAutomationAgent:
         violations_by_framework: dict[str, int] = {}
         for v in self.violations:
             framework = v.framework.value
-            violations_by_framework[framework] = (
-                violations_by_framework.get(framework, 0) + 1
-            )
+            violations_by_framework[framework] = violations_by_framework.get(framework, 0) + 1
 
         violations_by_severity: dict[str, int] = {}
         for v in self.violations:
             severity = v.severity
-            violations_by_severity[severity] = (
-                violations_by_severity.get(severity, 0) + 1
-            )
+            violations_by_severity[severity] = violations_by_severity.get(severity, 0) + 1
 
         report: dict[str, Any] = {
             "total_rules": len(self.rules),
@@ -687,9 +679,7 @@ class ComplianceAutomationAgent:
             "unresolved_violations": unresolved_violations,
             "violations_by_framework": violations_by_framework,
             "violations_by_severity": violations_by_severity,
-            "frameworks_monitored": sorted(
-                {rule.framework.value for rule in self.rules.values()}
-            ),
+            "frameworks_monitored": sorted({rule.framework.value for rule in self.rules.values()}),
             "consent_records_count": len(self.consent_records),
             "recent_violations": [
                 {
@@ -844,9 +834,7 @@ class ComplianceSubAgent(SubAgent):
         rules_checked = int(result["rules_checked"])
         n_violations = len(result["violations"])
         n_warnings = len(result["warnings"])
-        confidence = (
-            1.0 - (n_violations / rules_checked) if rules_checked else 0.0
-        )
+        confidence = 1.0 - (n_violations / rules_checked) if rules_checked else 0.0
 
         output: dict[str, Any] = {
             "status": result["status"],

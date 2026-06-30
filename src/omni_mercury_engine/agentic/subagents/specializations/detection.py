@@ -40,9 +40,7 @@ class DetectionSubAgent(SubAgent):
         """
         raw = task.payload.get("data")
         if raw is None:
-            raise SubAgentExecutionError(
-                "detection requires payload['data'] (the batch to score)"
-            )
+            raise SubAgentExecutionError("detection requires payload['data'] (the batch to score)")
         X = np.asarray(raw, dtype=np.float64)
         if X.ndim == 1:
             X = X.reshape(1, -1)
@@ -75,9 +73,7 @@ class DetectionSubAgent(SubAgent):
         decided_mask = ~batch.abstained
         n_decided = int(decided_mask.sum())
         n_anomalies = int(batch.decisions[decided_mask].sum()) if n_decided else 0
-        confidence = (
-            float(np.mean(batch.agreement[decided_mask])) if n_decided else 0.0
-        )
+        confidence = float(np.mean(batch.agreement[decided_mask])) if n_decided else 0.0
         output = {
             "n_samples": int(X.shape[0]),
             "n_decided": n_decided,

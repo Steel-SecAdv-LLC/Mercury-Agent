@@ -72,9 +72,7 @@ class SubAgentRegistry:
             KeyError: If the id is unknown.
         """
         if agent_id not in self._entries:
-            raise KeyError(
-                f"unknown subagent {agent_id!r}; registered: {self.list_specialties()}"
-            )
+            raise KeyError(f"unknown subagent {agent_id!r}; registered: {self.list_specialties()}")
         return self._entries[agent_id]
 
     def list_specialties(self) -> list[str]:

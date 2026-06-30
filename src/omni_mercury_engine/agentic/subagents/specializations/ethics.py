@@ -418,11 +418,7 @@ class AIEthicsEnforcer:
             A :class:`BiasAssessment`, or ``None`` when fewer than two
             non-empty groups are available.
         """
-        usable = {
-            group: values
-            for group, values in results_by_group.items()
-            if values
-        }
+        usable = {group: values for group, values in results_by_group.items() if values}
         if len(usable) < 2:
             return None
 
@@ -477,8 +473,7 @@ class AIEthicsEnforcer:
     def _check_wellbeing(self, context: dict[str, Any]) -> bool:
         """Check well-being considerations (trauma-informed, survivor-first)."""
         return bool(
-            context.get("trauma_informed_design", False)
-            and context.get("survivor_first_ux", False)
+            context.get("trauma_informed_design", False) and context.get("survivor_first_ux", False)
         )
 
     def _check_data_agency(self, context: dict[str, Any]) -> bool:
@@ -497,8 +492,7 @@ class AIEthicsEnforcer:
     def _check_transparency(self, context: dict[str, Any]) -> bool:
         """Check transparency (explanations and audit trail)."""
         return bool(
-            context.get("provides_explanations", False)
-            and context.get("audit_trail", False)
+            context.get("provides_explanations", False) and context.get("audit_trail", False)
         )
 
     def _check_accountability(self, context: dict[str, Any]) -> bool:
@@ -511,10 +505,7 @@ class AIEthicsEnforcer:
 
     def _check_misuse_awareness(self, context: dict[str, Any]) -> bool:
         """Check misuse safeguards (rate limiting, abuse detection)."""
-        return bool(
-            context.get("rate_limiting", False)
-            and context.get("abuse_detection", False)
-        )
+        return bool(context.get("rate_limiting", False) and context.get("abuse_detection", False))
 
     def _check_competence(self, context: dict[str, Any]) -> bool:
         """Check operator competence (ethics training, certification)."""
@@ -683,9 +674,7 @@ class EthicsEnforcementSubAgent(SubAgent):
 
         risk_level = self._parse_risk_level(system.get("risk_category"))
         predictions = self._parse_predictions(payload.get("predictions"))
-        protected = self._parse_protected_attributes(
-            payload.get("protected_attributes")
-        )
+        protected = self._parse_protected_attributes(payload.get("protected_attributes"))
         fairness_metric = self._parse_fairness_metric(payload.get("fairness_metric"))
 
         return _EthicsRequest(
@@ -796,9 +785,7 @@ class EthicsEnforcementSubAgent(SubAgent):
         if raw is None:
             return []
         if not isinstance(raw, (list, tuple)):
-            raise SubAgentExecutionError(
-                "payload['protected_attributes'] must be a list of names"
-            )
+            raise SubAgentExecutionError("payload['protected_attributes'] must be a list of names")
         return [str(item) for item in raw]
 
     @staticmethod
@@ -855,9 +842,7 @@ class EthicsEnforcementSubAgent(SubAgent):
             recs.append(str(violation["remediation"]))
         if eu_act is not None:
             for violation in eu_act["violations"]:
-                recs.append(
-                    f"Satisfy EU AI Act requirement: {violation['requirement']}"
-                )
+                recs.append(f"Satisfy EU AI Act requirement: {violation['requirement']}")
         if bias is not None and not bias.passed:
             recs.append(
                 "Mitigate disparate impact across protected groups "
@@ -893,9 +878,7 @@ class EthicsEnforcementSubAgent(SubAgent):
         Returns:
             A confidence in ``[0, 1]``.
         """
-        components: list[float] = [
-            ead["principles_passed"] / ead["principles_checked"]
-        ]
+        components: list[float] = [ead["principles_passed"] / ead["principles_checked"]]
         if eu_act is not None:
             components.append(1.0 if eu_act["compliant"] else 0.0)
         if bias is not None:

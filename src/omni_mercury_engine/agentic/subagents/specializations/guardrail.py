@@ -73,9 +73,7 @@ class EthicalGuardrailSystem:
             "override",
         ]
 
-    def verify_action_ethics(
-        self, action: str, context: dict[str, Any]
-    ) -> tuple[bool, str]:
+    def verify_action_ethics(self, action: str, context: dict[str, Any]) -> tuple[bool, str]:
         """Verify a proposed action meets the guardrail's ethical standards.
 
         Args:
@@ -98,9 +96,7 @@ class EthicalGuardrailSystem:
             if indicator in action_lower and "security" in action_lower:
                 return False, f"Potentially harmful action detected: {indicator}"
 
-        if "biometric" in action_lower and "consent" not in str(
-            context.get("user_consent", "")
-        ):
+        if "biometric" in action_lower and "consent" not in str(context.get("user_consent", "")):
             return False, "BIPA consent required for biometric operations"
 
         return True, "Action meets ethical standards"
@@ -293,8 +289,6 @@ class GuardrailSubAgent(SubAgent):
                 parts.append(f"{len(prohibited_violations)} prohibited violation(s)")
             if manipulation_detected:
                 parts.append(f"{len(manipulation_patterns)} manipulation pattern(s)")
-            reasoning = (
-                f"screening blocked: {', '.join(parts)} (risk {risk_score:.2f})"
-            )
+            reasoning = f"screening blocked: {', '.join(parts)} (risk {risk_score:.2f})"
 
         return output, confidence, reasoning

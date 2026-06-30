@@ -85,7 +85,9 @@ def test_routing_to_pantheon_members() -> None:
     assert route("check BIPA consent compliance", DomainType.GENERAL) == "Hera_VII"
     assert route("assess AI ethics and bias", DomainType.GENERAL) == "Themis_I"
     assert route("screen for manipulation and prohibited ops", DomainType.SECURITY) == "Ares_XIV"
-    assert route("emit telemetry and monitoring metrics", DomainType.INFRASTRUCTURE) == "Helios_XVII"
+    assert (
+        route("emit telemetry and monitoring metrics", DomainType.INFRASTRUCTURE) == "Helios_XVII"
+    )
     assert route("train a model", DomainType.SCIENTIFIC) == "Prometheus_XXVII"
     # No specialist keyword -> the internal generalist floor (never silence).
     assert route("ponder something entirely vague", DomainType.GENERAL) == "_generalist"
