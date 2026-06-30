@@ -131,6 +131,58 @@ unavailable backing stack returns an MCP `isError` result rather than a fabricat
 capability, and the server inherits Mercury's offline posture (self-hosted SearXNG
 search + local Ollama reasoning). See `docs/INTERCONNECT.md`.
 
+**Review-fix pass: CI gates, a CLI regression, and two silent-correctness gaps.**
+A full adversarial re-review of the branch above (8 independent finder passes,
+each candidate verified against the actual call sites) turned up and closed:
+
+- *CI red.* `tests/test_search_provider_ladder.py`'s stub `__exit__` was typed
+  `-> bool`, which `mypy --strict` correctly flags as exit-swallowing-prone
+  (`exit-return`); retyped to `-> None`. Separately, the blocking Trivy image
+  gate (`ignore-unfixed: false`) started failing on a clean diff because the
+  live CVE feed moved since the `.trivyignore` ledger's last enumeration:
+  `CVE-2026-54369`/`CVE-2026-54371` (libacl1/libattr1, local symlink-traversal
+  privesc, no upstream fix) are newly published and weren't yet enumerated,
+  while `CVE-2026-11822`/`CVE-2026-11824` (libsqlite3-0) were re-scored
+  HIGH→MEDIUM upstream and dropped out of the gate's severity filter. The
+  ledger is reconciled against a fresh scan of the shipped
+  `python:3.14-slim-trixie` image (re-enumerated 2026-06-30; the file still
+  read `python:3.13-slim-trixie` from before the 3.14 base-image bump).
+- *CodeQL: incomplete URL substring sanitization
+  (`web_research.py::_decode_ddg_href`).* The DuckDuckGo-redirect host check
+  was `"duckduckgo.com" in parsed.netloc`, satisfied by a spoofed host such as
+  `duckduckgo.com.evil.test` or `notduckduckgo.com`. Replaced with an exact
+  host-or-subdomain match (`WebResearcher._is_ddg_host`); a non-matching host
+  now falls through to the literal-href path instead of having its `uddg`
+  redirect target trusted.
+- *CLI regression.* `detect_with_fusion`'s new `require_explicit_fit=True`
+  default (above) was threaded through every internal call site the PR
+  description claims — except `cli.py`'s `detect -d fusion` and `explain`
+  commands, which construct the engine with no override and never fit the
+  base detectors before calling `detect_with_fusion`. Both commands would
+  raise `RuntimeError` on every invocation. Fixed by passing
+  `require_explicit_fit=False` at those two call sites (the CLI has no
+  train/test split to fit detectors on; it restores the documented legacy
+  auto-fit-on-first-batch behavior those commands always relied on).
+- *Decider: calibrated confidence not flipped for CLEAR verdicts*
+  (`decision/decider.py`). With a fitted `confidence_calibrator` attached,
+  `_from_threshold_band` reported the calibrated **P(anomaly)** as
+  `decision_confidence` regardless of which label was chosen — so a
+  confidently-benign CLEAR call (e.g. `P(anomaly)=0.03`) surfaced as
+  near-zero confidence, the opposite of the uncalibrated margin fallback's
+  symmetric behavior. `decision_confidence` is now `P(anomaly)` for ACT and
+  `1 - P(anomaly)` for CLEAR, consistent with every other path in this
+  module reporting confidence *in the verdict*, not in a fixed direction.
+- *FeatureCache: silent wrong-cache-hit on large arrays* (`engine.py`).
+  The new 256-point strided sampling key (avoids `tobytes()`-copying the
+  whole buffer) folded in shape/dtype/size but no information about the
+  ~99% of elements outside the sampled stride — so a change confined to an
+  unsampled index (e.g. one element of a streaming window update) produced
+  an identical key, and `get_or_compute` would silently return stale
+  features for genuinely different data. Folded a full-array `np.sum`
+  reduction into the key: still no buffer copy (unlike `tobytes()`), but a
+  vectorized O(N) reduction is cheap enough not to undo the sampling's perf
+  win while catching off-sample changes the stride alone misses.
+
 ### Subagent pantheon: a 33-member internal delegation fleet for Mercury Agent
 
 Mercury Agent becomes the AI centerpiece that hosts the combined agentic

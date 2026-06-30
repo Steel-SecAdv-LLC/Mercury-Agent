@@ -200,8 +200,8 @@ class TestDefaultTransportEncoding:
             def __enter__(self) -> _Resp:
                 return self
 
-            def __exit__(self, *a: object) -> bool:
-                return False
+            def __exit__(self, *a: object) -> None:
+                return None
 
         monkeypatch.setattr(SafeHTTPClient, "get", staticmethod(lambda url, **kw: _Resp()))
         status, decoded, _final = web_research._safe_http_transport("https://example.test/", 5.0)

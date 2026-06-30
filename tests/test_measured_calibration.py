@@ -15,6 +15,7 @@ import numpy as np
 from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
 from omni_mercury_engine.decision.decider import DecisionAbstentionResponder
 from omni_mercury_engine.decision.policy import DecisionPolicy
+from omni_mercury_engine.decision.states import Disposition
 
 
 class TestUncertaintyHonesty:
@@ -86,3 +87,25 @@ class TestDeciderCalibratorRouting:
         rec = responder.decide(self._uncalibrated_positive_result())
         assert rec.decision_confidence == 0.123
         assert any("fitted score calibrator" in r for r in rec.reasons)
+
+    def test_calibrated_confidence_is_flipped_for_clear_verdict(self) -> None:
+        """A confidently-benign CLEAR call must report high confidence, not the
+        raw calibrated P(anomaly) -- which would read as near-zero confidence
+        for the most confident possible CLEAR verdict."""
+        responder = DecisionAbstentionResponder(
+            policy=DecisionPolicy(require_calibrated_for_act=False),
+            confidence_calibrator=_FakeCalibrator(),
+        )
+        # anomaly_prob well below threshold - margin -> label=0 (CLEAR).
+        result = {
+            "anomaly_prob": 0.02,
+            "threshold_used": 0.5,
+            "is_anomaly": False,
+            "severity": 0.0,
+        }
+        rec = responder.decide(result)
+        assert rec.disposition is Disposition.CLEAR
+        # _FakeCalibrator.transform_one always returns 0.123 (P(anomaly));
+        # confidence in a CLEAR verdict is 1 - P(anomaly) = 0.877.
+        assert rec.decision_confidence is not None
+        assert abs(rec.decision_confidence - 0.877) < 1e-9

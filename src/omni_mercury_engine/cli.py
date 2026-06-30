@@ -61,7 +61,14 @@ def main() -> None:
 @click.option("--threshold", "-t", default=0.5, type=float, help="Anomaly threshold")
 def detect(input: str, detector: str, output: str, threshold: float) -> None:
     """Detect anomalies in data."""
-    engine = _get_engine(mode=detector)
+    # require_explicit_fit=False: this command has no train/test split to fit
+    # the base detectors on (it scores whatever single file the caller gives
+    # it), so it relies on detect_with_fusion's legacy auto-fit-on-first-batch
+    # path -- load_default_fusion_checkpoint() below restores the trained
+    # *fusion network* but never touches base-detector fit state. Without this
+    # override `detect -d fusion` would raise RuntimeError on every run (the 5
+    # base detectors are always constructed unfitted; see _init_detectors).
+    engine = _get_engine(mode=detector, require_explicit_fit=False)
 
     data = _load_data(input)
 
@@ -285,7 +292,10 @@ def symbolic_rules(output: str | None) -> None:
 def explain(input: str, model: str) -> None:
     """Explain anomaly detection decision."""
     try:
-        engine = _get_engine(mode=model)
+        # See the `detect` command above: require_explicit_fit=False is
+        # needed because this command has no train/test split to fit the
+        # base detectors on, only an inference file to explain.
+        engine = _get_engine(mode=model, require_explicit_fit=False)
         # Use the same trained checkpoint the fusion detect path loads so
         # explanations reflect the shipped model, not random-init weights.
         if model == "fusion":

@@ -420,17 +420,27 @@ class WebResearcher:
         return hits
 
     @staticmethod
-    def _decode_ddg_href(href: str) -> str | None:
+    def _is_ddg_host(netloc: str) -> bool:
+        """Exact-match the DuckDuckGo host (or a subdomain of it) -- never a
+        substring containment, which a host like ``duckduckgo.com.evil.test``
+        or ``notduckduckgo.com`` would otherwise satisfy."""
+        host = netloc.rsplit("@", 1)[-1].split(":", 1)[0].lower().rstrip(".")
+        return host == "duckduckgo.com" or host.endswith(".duckduckgo.com")
+
+    @classmethod
+    def _decode_ddg_href(cls, href: str) -> str | None:
         """Resolve a DuckDuckGo redirect link (``/l/?uddg=<encoded>``) to its target."""
         parsed = urllib.parse.urlparse(href)
-        if "duckduckgo.com" in parsed.netloc and parsed.path.startswith("/l/"):
+        if cls._is_ddg_host(parsed.netloc) and parsed.path.startswith("/l/"):
             qs = urllib.parse.parse_qs(parsed.query)
             if "uddg" in qs:
                 return qs["uddg"][0]
-        if href.startswith("//duckduckgo.com/l/"):
-            qs = urllib.parse.parse_qs(urllib.parse.urlparse("https:" + href).query)
-            if "uddg" in qs:
-                return qs["uddg"][0]
+        if href.startswith("//"):
+            protocol_relative = urllib.parse.urlparse("https:" + href)
+            if cls._is_ddg_host(protocol_relative.netloc) and protocol_relative.path.startswith("/l/"):
+                qs = urllib.parse.parse_qs(protocol_relative.query)
+                if "uddg" in qs:
+                    return qs["uddg"][0]
         if parsed.scheme in ("http", "https"):
             return href
         return None

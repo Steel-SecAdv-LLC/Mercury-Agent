@@ -148,6 +148,23 @@ class TestWebResearcher:
         r = WebResearcher(search_provider=_provider)
         assert r.search("anything") == []
 
+    def test_decode_ddg_href_resolves_real_redirect(self) -> None:
+        href = "//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.org%2Fa&rut=x"
+        assert WebResearcher._decode_ddg_href(href) == "https://example.org/a"
+        href2 = "https://html.duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.org%2Fb"
+        assert WebResearcher._decode_ddg_href(href2) == "https://example.org/b"
+
+    def test_decode_ddg_href_rejects_spoofed_host(self) -> None:
+        """A host that merely *contains* "duckduckgo.com" as a substring must
+        not be treated as the trusted DDG redirector (CodeQL: incomplete URL
+        substring sanitization, js/incomplete-url-substring-sanitization)."""
+        spoofed = "https://duckduckgo.com.evil.test/l/?uddg=https%3A%2F%2Fattacker.test%2Fpwn"
+        assert WebResearcher._decode_ddg_href(spoofed) == spoofed
+        spoofed2 = "https://notduckduckgo.com/l/?uddg=https%3A%2F%2Fattacker.test%2Fpwn"
+        assert WebResearcher._decode_ddg_href(spoofed2) == spoofed2
+        spoofed3 = "//duckduckgo.com.evil.test/l/?uddg=https%3A%2F%2Fattacker.test%2Fpwn"
+        assert WebResearcher._decode_ddg_href(spoofed3) is None
+
 
 class TestExtractiveSynthesizer:
     def test_summary_is_verbatim_subset(self) -> None:

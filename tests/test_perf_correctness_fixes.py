@@ -90,6 +90,22 @@ class TestFeatureCacheKey:
         b = np.zeros((100,))
         assert cache._make_key(a) != cache._make_key(b)
 
+    def test_off_sample_point_mutation_changes_key(self) -> None:
+        """A change confined to an index the 256-point stride never samples
+        must still change the key -- otherwise get_or_compute() would return
+        stale cached features for genuinely different data (a silent wrong-
+        cache-hit, not just a missed optimization)."""
+        from omni_mercury_engine.engine import FeatureCache
+
+        cache = FeatureCache()
+        n = 10_000
+        a = np.arange(n, dtype=float)
+        sampled = set(np.linspace(0, n - 1, 256).astype(int).tolist())
+        off_sample = next(i for i in range(n) if i not in sampled)
+        b = a.copy()
+        b[off_sample] += 1.0
+        assert cache._make_key(a) != cache._make_key(b)
+
 
 class TestResidualFilterCache:
     def test_cache_hit_matches_uncached(self) -> None:

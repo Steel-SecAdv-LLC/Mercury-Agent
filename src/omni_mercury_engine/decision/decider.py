@@ -271,7 +271,14 @@ class DecisionAbstentionResponder:
         if cal is not None and getattr(cal, "is_calibrated", False):
             # A fitted score->probability calibrator gives a real calibrated
             # confidence even without a conformal coverage certificate.
-            v.confidence = float(cal.transform_one(ev.anomaly_prob))
+            # transform_one() reports P(anomaly); confidence is in the chosen
+            # *verdict* (symmetric like the margin-heuristic fallback below
+            # and the conformal-coverage path above), so a CLEAR call's
+            # confidence is P(not anomaly) = 1 - P(anomaly), not P(anomaly)
+            # itself -- otherwise a confidently-correct CLEAR (e.g.
+            # P(anomaly)=0.03) would be misreported as near-zero confidence.
+            p_anomaly = float(cal.transform_one(ev.anomaly_prob))
+            v.confidence = p_anomaly if label == 1 else 1.0 - p_anomaly
             v.reasons.append(
                 f"probability {ev.anomaly_prob:.3f} past threshold "
                 f"{ev.threshold:.3f}; confidence {v.confidence:.3f} from the fitted "

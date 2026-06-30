@@ -484,17 +484,29 @@ class FeatureCache:
 
         # numpy arrays: sample a bounded, strided slice instead of copying the
         # whole buffer. ``tobytes()`` materialises the entire array before the
-        # ``[:1024]`` slice, which is O(N); sampling bounds the work at O(256)
-        # regardless of array size. shape+dtype+size are folded into the key to
-        # keep collisions negligible for this best-effort feature cache.
+        # ``[:1024]`` slice, which is O(N); sampling bounds the *copy* work at
+        # O(256) regardless of array size. shape+dtype+size are folded into
+        # the key to keep collisions negligible for this best-effort feature
+        # cache. A 256-point stride alone would silently miss a change
+        # confined to the (n - 256) unsampled positions -- e.g. a single
+        # streaming-window element updated between two sample points -- and
+        # return stale cached features for genuinely different data. A
+        # vectorized sum reduction over the full array is still O(N) but,
+        # unlike ``tobytes()``, never materialises a Python bytes copy of the
+        # buffer; folding it into the key catches off-sample changes at a
+        # fraction of the original full-hash cost.
         flat = np.ascontiguousarray(data).reshape(-1)
         n = flat.size
         if n <= 256:
             sample = flat.tobytes()
+            checksum = 0.0
         else:
             idx = np.linspace(0, n - 1, 256).astype(np.intp)
             sample = flat[idx].tobytes()
-        data_hash = hash((data.shape, data.dtype.str, n, sample))
+            checksum = (
+                float(np.sum(flat, dtype=np.float64)) if np.issubdtype(flat.dtype, np.number) else 0.0
+            )
+        data_hash = hash((data.shape, data.dtype.str, n, sample, checksum))
         return f"{prefix}_{data_hash}"
 
     def get_or_compute(
