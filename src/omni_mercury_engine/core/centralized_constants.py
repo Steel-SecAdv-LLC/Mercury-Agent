@@ -135,7 +135,9 @@ class EthicalConstants:
     # change to the ethical ruleset cannot be served from a stale cache.
     # Format: monotonically increasing integer; bump on any semantic change
     # to scoring weights, principle definitions, or threshold floors.
-    RULESET_VERSION: int = 1
+    # v2: benevolence scorer gains semantic harm matching + a severity x
+    # irreversibility damping (fail-closed), so cached v1 verdicts must invalidate.
+    RULESET_VERSION: int = 2
 
 
 ETHICAL = EthicalConstants()

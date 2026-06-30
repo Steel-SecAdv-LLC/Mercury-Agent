@@ -23,11 +23,15 @@ Integration:
 
 from __future__ import annotations
 
+import functools
 import logging
+import re
 import time
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +40,102 @@ logger = logging.getLogger(__name__)
 # below this value, regardless of domain or operational mode.
 # ---------------------------------------------------------------------------
 MINIMUM_BENEVOLENCE_FLOOR: float = 0.70
+
+
+@dataclass(frozen=True)
+class BenevolenceCalibration:
+    """Calibration knobs for the benevolence scorer.
+
+    These are the parameters meant to be *fit on labeled decisions* (via
+    ``tools/benevolence_calibration_report.py`` / ``benevolence_certifier.py``)
+    rather than hand-set. They are gathered here, version-pinned, and frozen so a
+    change is explicit and invalidates the benevolence cache (bump
+    ``ETHICAL.RULESET_VERSION``). The component weights must sum to 1.
+    """
+
+    w_harm: float = 0.30
+    w_benefit: float = 0.25
+    w_equity: float = 0.20
+    w_principles: float = 0.15
+    w_long_term: float = 0.10
+    # Strength of the severity x irreversibility damping (multiplicative, <=1).
+    severity_gamma: float = 0.5
+    # Char-trigram cosine above which a word counts as a semantic match of a
+    # harm/benefit keyword (catches morphological variants the substring scan
+    # misses: "injuries" -> "injury", "manipulative" -> "manipulate").
+    semantic_match_threshold: float = 0.6
+
+
+BENEVOLENCE_CALIBRATION = BenevolenceCalibration()
+
+
+def _det_hash(s: str) -> int:
+    """Deterministic (process-independent) string hash.
+
+    Python's built-in ``hash`` is salted per process (PYTHONHASHSEED), which
+    would make benevolence scores non-reproducible and break the cache /
+    certifier. This polynomial rolling hash is stable across runs.
+    """
+    h = 0
+    for ch in s:
+        h = (h * 131 + ord(ch)) & 0xFFFFFFFF
+    return h
+
+
+@functools.lru_cache(maxsize=4096)
+def _char_trigram_vector(word: str, dim: int = 512) -> tuple[float, ...]:
+    """Deterministic char-trigram term-frequency vector for a word (padded)."""
+    v = [0.0] * dim
+    w = f"  {word.lower()} "
+    for i in range(len(w) - 2):
+        v[_det_hash(w[i : i + 3]) % dim] += 1.0
+    return tuple(v)
+
+
+def _cosine(a: tuple[float, ...], b: tuple[float, ...]) -> float:
+    av = np.asarray(a)
+    bv = np.asarray(b)
+    na = float(np.linalg.norm(av))
+    nb = float(np.linalg.norm(bv))
+    if na == 0.0 or nb == 0.0:
+        return 0.0
+    return float(np.dot(av, bv) / (na * nb))
+
+
+def _semantic_match_count(words: tuple[str, ...], keywords: list[str], threshold: float) -> int:
+    """Count keywords with a strong char-trigram cosine to some word in ``words``.
+
+    A lightweight, numpy/stdlib-only stand-in for embedding similarity: it
+    catches morphological variants and near-spellings of the harm/benefit
+    keywords that the exact-substring scan misses, without any model dependency
+    or non-determinism. (It does not catch pure synonyms; that would require a
+    text-embedding model, which Mercury does not ship.)
+    """
+    if not words or not keywords:
+        return 0
+    # Ignore very short words: 3-letter stopwords ("for", "the") share a
+    # trigram prefix with longer keywords ("force") and would false-match. True
+    # morphological variants of the (>=4-char) keywords are themselves >=4 chars.
+    long_words = [w for w in words if len(w) >= 4]
+    if not long_words:
+        return 0
+    count = 0
+    for kw in keywords:
+        kv = _char_trigram_vector(kw)
+        if any(_cosine(_char_trigram_vector(w), kv) >= threshold for w in long_words):
+            count += 1
+    return count
+
+
+# Reversibility lexicons: an irreversible action is far harder to justify than a
+# reversible one. Used (with context overrides, fail-closed) by the severity x
+# irreversibility damping in the benevolence calculation.
+_IRREVERSIBLE_KEYWORDS = (
+    "destroy", "permanent", "death", "irreversible", "delete", "wipe", "kill", "erase", "fatal"
+)
+_REVERSIBLE_KEYWORDS = (
+    "temporary", "undo", "restore", "rollback", "reversible", "recover", "revert"
+)
 
 # ---------------------------------------------------------------------------
 # σ_Immutable Wave B Vector 2-6 closure: canonical domain sanitiser.
@@ -222,6 +322,12 @@ class EthicalScore:
     explanation: str
     recommendations: list[str]
     timestamp: float = field(default_factory=time.time)
+    # Severity (max weighted harm) and reversibility in [0, 1]; together they
+    # form the multiplicative damping in the benevolence calculation. Defaults
+    # (0.0 / 1.0) make a high-severity-irreversible action the only thing the
+    # damping bites, and keep older positional constructors working.
+    severity_score: float = 0.0
+    reversibility_score: float = 1.0
 
 
 @dataclass
@@ -333,7 +439,17 @@ class HarmReducer:
         combined = action_lower + " " + context_str
 
         keywords = harm_keywords.get(category, [])
-        matches = sum(1 for kw in keywords if kw in combined)
+        substring_matches = sum(1 for kw in keywords if kw in combined)
+
+        # Semantic term: catch morphological variants ("injuries", "harmful",
+        # "manipulative") that the exact-substring scan misses. Combined with
+        # max() so the semantic path can only ADD evidence of harm, never lower
+        # it -- fail-closed even if the similarity is noisy.
+        words = tuple(re.findall(r"[a-z]+", combined))
+        semantic_matches = _semantic_match_count(
+            words, keywords, BENEVOLENCE_CALIBRATION.semantic_match_threshold
+        )
+        matches = max(substring_matches, semantic_matches)
 
         harm_level = min(1.0, matches * 0.25)
 
@@ -827,12 +943,17 @@ class BenevolenceScorer:
 
         long_term_score = self._evaluate_long_term(action, context, benefit_score, harm_score)
 
+        severity_score = self._assess_severity(harm_breakdown, context)
+        reversibility_score = self._assess_reversibility(action, context)
+
         benevolence_score = self._calculate_benevolence(
             harm_score=harm_score,
             benefit_score=benefit_score,
             equity_score=equity_score,
             principle_scores=principle_scores,
             long_term_score=long_term_score,
+            severity=severity_score,
+            reversibility=reversibility_score,
         )
 
         is_permissible = benevolence_score >= self.benevolence_threshold
@@ -858,6 +979,8 @@ class BenevolenceScorer:
             benefit_breakdown=benefit_breakdown,
             explanation=explanation,
             recommendations=recommendations,
+            severity_score=severity_score,
+            reversibility_score=reversibility_score,
         )
 
     def enforce(
@@ -954,6 +1077,45 @@ class BenevolenceScorer:
 
         return max(0.0, min(1.0, base_score))
 
+    @staticmethod
+    def _assess_severity(harm_breakdown: dict[str, float], context: dict[str, Any]) -> float:
+        """Severity in [0, 1]: worst per-category harm, raised by context.
+
+        A caller-supplied ``context['severity']`` can only INCREASE severity
+        (MAX), never decrease it -- fail-closed.
+        """
+        sev = max(harm_breakdown.values()) if harm_breakdown else 0.0
+        ctx = context.get("severity")
+        if isinstance(ctx, (int, float)) and not isinstance(ctx, bool):
+            sev = max(sev, float(np.clip(ctx, 0.0, 1.0)))
+        return float(np.clip(sev, 0.0, 1.0))
+
+    @staticmethod
+    def _assess_reversibility(action: str, context: dict[str, Any]) -> float:
+        """Reversibility in [0, 1] (1 = fully reversible).
+
+        Derived from reversible/irreversible lexicons over the action+context
+        text; a caller-supplied ``context['reversibility']`` can only DECREASE
+        reversibility (MIN), never increase it -- fail-closed (a caller may
+        assert an action is *less* reversible, never more).
+        """
+        text = (action + " " + str(context)).lower()
+        irreversible = any(kw in text for kw in _IRREVERSIBLE_KEYWORDS)
+        reversible = any(kw in text for kw in _REVERSIBLE_KEYWORDS)
+        # Assume reversible (1.0) unless there is positive EVIDENCE of
+        # irreversibility. Damping benevolence merely because reversibility is
+        # *unknown* would false-reject legitimate actions (the failure mode the
+        # ethics-gate hardening is meant to avoid); the damping bites only when
+        # an irreversibility signal is actually present.
+        if irreversible and not reversible:
+            base = 0.1
+        else:
+            base = 1.0
+        ctx = context.get("reversibility")
+        if isinstance(ctx, (int, float)) and not isinstance(ctx, bool):
+            base = min(base, float(np.clip(ctx, 0.0, 1.0)))
+        return float(np.clip(base, 0.0, 1.0))
+
     def _calculate_benevolence(
         self,
         harm_score: float,
@@ -961,32 +1123,40 @@ class BenevolenceScorer:
         equity_score: float,
         principle_scores: dict[str, float],
         long_term_score: float,
+        severity: float = 0.0,
+        reversibility: float = 1.0,
     ) -> float:
         """Calculate overall benevolence score.
 
-        Formula weights:
-        - Harm reduction: 30% (inverted)
-        - Benefit maximization: 25%
-        - Equity: 20%
-        - Principles average: 15%
-        - Long-term impact: 10%
+        Weighted sum of (1-harm), benefit, equity, principles, long-term using
+        the calibratable :data:`BENEVOLENCE_CALIBRATION` weights, then a
+        multiplicative severity x irreversibility damping so a high-severity,
+        irreversible action cannot be "averaged away" by positive keywords. The
+        damping multiplier is ``1 - severity*(1-reversibility)*gamma`` (always
+        <= 1, so it only ever LOWERS the score -- fail-closed). Defaults
+        (severity=0, reversibility=1) leave the score unchanged for legacy
+        callers.
         """
-        harm_component = (1 - harm_score) * 0.30
-        benefit_component = benefit_score * 0.25
-        equity_component = equity_score * 0.20
+        cal = BENEVOLENCE_CALIBRATION
+        harm_component = (1 - harm_score) * cal.w_harm
+        benefit_component = benefit_score * cal.w_benefit
+        equity_component = equity_score * cal.w_equity
 
         principles_avg = sum(principle_scores.values()) / len(principle_scores)
-        principles_component = principles_avg * 0.15
+        principles_component = principles_avg * cal.w_principles
 
-        long_term_component = long_term_score * 0.10
+        long_term_component = long_term_score * cal.w_long_term
 
-        benevolence = (
+        weighted_sum = (
             harm_component
             + benefit_component
             + equity_component
             + principles_component
             + long_term_component
         )
+
+        damping = 1.0 - severity * (1.0 - reversibility) * cal.severity_gamma
+        benevolence = weighted_sum * max(0.0, damping)
 
         return max(0.0, min(1.0, benevolence))
 
