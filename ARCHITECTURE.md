@@ -789,6 +789,63 @@ Temporal Relevance → Ethical Alignment → Confidence
 Action: ESCALATE / BANISH / MAINTAIN / VOID
 ```
 
+## Subagent Fleet (Greek Pantheon — Internal Delegation Tier)
+
+The subagent fleet (`src/omni_mercury_engine/agentic/subagents/`) is the tier
+through which the **root Mercury Agent delegates arbitrary tasks** to a fleet of
+**33 named subagents** — the Greek pantheon `Themis_I` … `Rhea_XXXIII` — singly,
+across a batch, or to many replicas at once ("mine and dig to the capability of
+the main agent … even in the masses"). It consolidates the agentic capabilities
+transferred from the sibling FINDΩYOU™ platform as that platform is made
+agent-free; Mercury Agent is the AI centerpiece that hosts them. The full roster,
+anchors, and design contract live in
+[`docs/SUBAGENT_PANTHEON.md`](docs/SUBAGENT_PANTHEON.md).
+
+- **Root agent.** The `MercuryAgent` supervises the fleet and is governed by *all
+  seven* Omni-Codes; it delegates via `delegate()` / `delegate_masses()`, and the
+  engine enables the fleet with `OmniMercuryEngine.enable_subagent_fleet()`.
+- **Capability parity.** Each `SubAgent` subclasses `MercuryAgent`, so every
+  member carries the full planning / reasoning / memory / tool toolkit. Not a
+  wrapper; the internal `_generalist` routing floor runs the complete `analyze`
+  pipeline.
+- **Omni-Code anchor.** Each member is anchored to exactly one of the Seven
+  [Omni-Codes](#omni-codes-bio-inspired-helical-parameters); the anchor's helical
+  stability sets the member's autonomy ceiling via `compute_ethical_autonomy`
+  (capped 0.95) — the same constellation shared with AMA Cryptography. Seven
+  members are code-bearers (one lead per Code).
+- **Depth tiers (both real).** `deep` members carry bespoke domain logic
+  (`Themis_I` ethics, `Hera_VII` compliance, `Ares_XIV` guardrail, and the
+  detection bridge `Zeus_VIII` / `Dionysus_XIII` over the real
+  `MultiAgentOrchestrator`). Each `coordinator` member is a genuine subsystem
+  **operator** (not merely a binding): an adapter in
+  `agentic/subagents/operations.py` invokes the member's real
+  `omni_mercury_engine` entrypoint with `task.payload`-derived inputs and returns
+  its honest result (`mode="operation"`) — e.g. `Helios_XVII` computes real
+  telemetry metrics, `Kronos_XXII` fits and runs a real detector, `Artemis_VI`
+  genuinely probes data-source reachability. It fails closed
+  (`SubAgentExecutionError`) on malformed inputs and never fabricates signal.
+  When the entrypoint is input-gated and the payload lacks its inputs — or the
+  caller requests a readiness probe (`payload["mode"]="introspect"`) — it falls
+  back to the honest live **binding report** (`mode="binding"`): importing each
+  declared subsystem, introspecting its public API, and failing closed when no
+  subsystem binds. The binding report is the honest no-input floor, never the
+  whole behavior. (Phase 2 deepened all 28 coordinators from binding to operator;
+  the per-member operation + payload contract is tabulated in
+  [`docs/SUBAGENT_PANTHEON.md`](docs/SUBAGENT_PANTHEON.md).)
+- **Access boundary (internal-only).** Nothing is re-exported from the public
+  `omni_mercury_engine` surface; every constructor requires a package-private
+  access sentinel (`SubAgentAccessError` otherwise). The main agent calls on
+  subagents; users do not.
+- **Autonomy governor.** Fail-closed capability ceiling (replicas / total-active /
+  recursion depth), Omni-Code autonomy cap, corrigibility pause/resume +
+  irreversible kill-switch, and a failure-rate tripwire (ethical refusals are
+  correct, never failures).
+- **Dual-gate commit.** Results are committed through the same
+  [dual hard ethical gate](#dual-gate-hard-ethical-enforcement) — benevolence
+  floor **and** σ-Immutable — used on the engine and orchestrator boundaries;
+  fail-closed. Mass dispatch aggregates honestly (failures surfaced, dissent
+  shown; no reordering or fabricated agreement).
+
 ## Deployment Architecture
 
 ### Docker Container

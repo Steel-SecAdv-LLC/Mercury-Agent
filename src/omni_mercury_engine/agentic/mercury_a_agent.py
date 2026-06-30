@@ -39,6 +39,8 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from omni_mercury_engine.agentic.bayesian_calibrator import BayesianConfidenceCalibrator
+    from omni_mercury_engine.agentic.subagents.base import SubAgentResult, SubAgentTask
+    from omni_mercury_engine.agentic.subagents.fleet import FleetResult, SubAgentFleet
 
 
 class AgentMode(Enum):
@@ -802,6 +804,11 @@ class MercuryAgent:
         self.execution_history: list[dict[str, Any]] = []
         self.tools: dict[str, Callable[..., Any]] = {}
 
+        # Internal subagent fleet (lazily enabled). The main agent delegates
+        # tasks to specialized full-capability subagents through this; it is
+        # internal-only and never exposed on the public package surface.
+        self.fleet: SubAgentFleet | None = None
+
         # Fail-closed ethical gate on the execution path (mirrors the OODA
         # reference's pre-act ethical check).  Constructed eagerly; the floor
         # matches the engine/orchestrator boundary contract.
@@ -818,6 +825,72 @@ class MercuryAgent:
         """Register a tool for agent use."""
         self.tools[name] = tool
         self.logger.debug(f"Registered tool: {name}")
+
+    # ------------------------------------------------------------------
+    # Subagent delegation
+    # ------------------------------------------------------------------
+
+    def enable_fleet(
+        self,
+        *,
+        engine: Any | None = None,
+        seed: int | None = None,
+    ) -> SubAgentFleet:
+        """Enable (idempotently) the internal subagent fleet for delegation.
+
+        The fleet is constructed with the package-private access sentinel —
+        users cannot address subagents directly; only the main agent (or the
+        engine) calls on them. Repeated calls return the existing fleet.
+
+        Args:
+            engine: Optional :class:`OmniMercuryEngine` the detection
+                specialization uses for Mercury's own real detection.
+            seed: Base seed for deterministic subagent construction.
+
+        Returns:
+            The enabled :class:`SubAgentFleet`.
+        """
+        if self.fleet is None:
+            from omni_mercury_engine.agentic.subagents.base import _INTERNAL
+            from omni_mercury_engine.agentic.subagents.fleet import SubAgentFleet
+
+            self.fleet = SubAgentFleet(access=_INTERNAL, seed=seed, engine=engine)
+            self.logger.info("Subagent fleet enabled for %s", self.name)
+        return self.fleet
+
+    def delegate(
+        self,
+        task: SubAgentTask,
+        specialty: str | None = None,
+    ) -> SubAgentResult:
+        """Delegate one task to the most competent subagent (lazy-enabling the fleet).
+
+        Args:
+            task: The task to delegate.
+            specialty: Force a specialty; defaults to capability-based routing.
+
+        Returns:
+            The committed (dual-gated) subagent result.
+        """
+        return self.enable_fleet().dispatch(task, specialty)
+
+    def delegate_masses(
+        self,
+        task: SubAgentTask,
+        replicas: int,
+        specialty: str | None = None,
+    ) -> FleetResult:
+        """Delegate one task to ``replicas`` subagents concurrently ("in the masses").
+
+        Args:
+            task: The task to fan out.
+            replicas: Number of concurrent full-capability subagents.
+            specialty: Force a specialty; defaults to capability-based routing.
+
+        Returns:
+            The fleet result with per-replica outcomes and an honest aggregate.
+        """
+        return self.enable_fleet().scale_dispatch(task, replicas, specialty)
 
     def analyze(
         self,

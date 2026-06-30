@@ -174,6 +174,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from omni_mercury_engine.agentic.orchestration import MultiAgentOrchestrator
+    from omni_mercury_engine.agentic.subagents.fleet import SubAgentFleet
     from omni_mercury_engine.cognitive.ethical_bounding import BenevolenceScorer
     from omni_mercury_engine.cognitive.orchestrator import CognitiveOrchestrator
     from omni_mercury_engine.decision import DecisionAbstentionResponder, DecisionLedger
@@ -1132,6 +1133,13 @@ class OmniMercuryEngine(LoggerMixin):
         # loop over this engine's own detectors. None until enabled via
         # enable_multi_agent_orchestration().
         self.multi_agent_orchestrator: MultiAgentOrchestrator | None = None
+        # Internal subagent fleet: the main-agent delegation tier over a
+        # catalogue of full-capability specialized subagents (compliance,
+        # ethics, reporting, guardrail, detection, generalist), runnable in the
+        # masses under autonomy governance and the dual ethical gate. None until
+        # enabled via enable_subagent_fleet(); internal-only (never on the
+        # public package surface).
+        self.subagent_fleet: SubAgentFleet | None = None
         # Decision / abstention / response layer: closes the loop from the
         # calibrated detection certificate to a bounded, non-destructive
         # response with an explicit "don't-know" gate.  None until enabled via
@@ -2821,6 +2829,42 @@ class OmniMercuryEngine(LoggerMixin):
         )
         logger.info("Multi-agent orchestration enabled")
         return self.multi_agent_orchestrator
+
+    def enable_subagent_fleet(
+        self,
+        *,
+        seed: int | None = None,
+    ) -> SubAgentFleet:
+        """Enable the internal subagent fleet for main-agent delegation.
+
+        Wires a :class:`~omni_mercury_engine.agentic.subagents.fleet.SubAgentFleet`
+        bound to this engine, so the detection specialization can delegate to
+        Mercury's own real multi-agent detection. The fleet lets the main agent
+        delegate arbitrary tasks to full-capability specialized subagents
+        (compliance, ethics enforcement, law-enforcement reporting, guardrail,
+        detection, generalist), singly or in the masses, under the autonomy
+        governor (capability ceiling, corrigibility kill-switch, tripwire) and
+        the dual hard ethical gate (benevolence floor + σ-Immutable) at the
+        fleet's commit boundary — fail-closed, exactly as on this engine's other
+        decision boundaries.
+
+        The fleet is internal-only: it is constructed with the package-private
+        access sentinel and is never exposed on the public ``omni_mercury_engine``
+        surface. Idempotent — repeated calls return the existing fleet.
+
+        Args:
+            seed: Base seed for deterministic subagent construction.
+
+        Returns:
+            The enabled fleet (also stored as ``self.subagent_fleet``).
+        """
+        if self.subagent_fleet is None:
+            from omni_mercury_engine.agentic.subagents.base import _INTERNAL
+            from omni_mercury_engine.agentic.subagents.fleet import SubAgentFleet
+
+            self.subagent_fleet = SubAgentFleet(access=_INTERNAL, seed=seed, engine=self)
+            logger.info("Subagent fleet enabled")
+        return self.subagent_fleet
 
     def enable_decision_layer(
         self,

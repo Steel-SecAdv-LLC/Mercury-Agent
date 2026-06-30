@@ -34,19 +34,45 @@ from omni_mercury_engine.agentic.orchestration import (
     default_detector_suite,
 )
 
+# Internal subagent fleet (delegation tier). Re-exported here for internal
+# consumers; deliberately NOT re-exported from the public ``omni_mercury_engine``
+# package surface — subagents are reachable only through the engine-mediated
+# path (``OmniMercuryEngine.enable_subagent_fleet`` / ``MercuryAgent.enable_fleet``).
+# Importing these symbols does not eagerly load the specializations (those load
+# only when ``default_registry`` is called).
+from omni_mercury_engine.agentic.subagents import (
+    AggregateResult,
+    AutonomyGovernor,
+    CapabilityCeiling,
+    FleetResult,
+    GovernorTripped,
+    SubAgent,
+    SubAgentAccessError,
+    SubAgentExecutionError,
+    SubAgentFleet,
+    SubAgentRegistry,
+    SubAgentResult,
+    SubAgentTask,
+)
+
 __all__ = [
     "AgentAction",
     "AgentMemory",
     "AgentMode",
     "AgentState",
     "AgenticAutonomy",
+    "AggregateResult",
+    "AutonomyGovernor",
     "BayesianConfidenceCalibrator",
     "CalibrationConfig",
+    "CapabilityCeiling",
     "ContextStats",
     "CoordinationBatch",
     "DetectorAgent",
     "DomainType",
     "EpisodeResult",
+    "FleetResult",
+    "GovernorTripped",
     "MercuryAgent",
     "MercuryPlanner",
     "MercuryReasoner",
@@ -56,6 +82,13 @@ __all__ = [
     "PlanTrace",
     "ReasoningStep",
     "ReflectionRecord",
+    "SubAgent",
+    "SubAgentAccessError",
+    "SubAgentExecutionError",
+    "SubAgentFleet",
+    "SubAgentRegistry",
+    "SubAgentResult",
+    "SubAgentTask",
     "Task",
     "TaskPriority",
     "create_mercury_agent",

@@ -27,6 +27,102 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Subagent pantheon: a 33-member internal delegation fleet for Mercury Agent
+
+Mercury Agent becomes the AI centerpiece that hosts the combined agentic
+capabilities of the sibling platforms via a new internal-only **subagent fleet**
+(`src/omni_mercury_engine/agentic/subagents/`): the root agent delegates
+arbitrary tasks to **33 named, full-capability subagents** — a Greek pantheon
+(`Themis_I` … `Rhea_XXXIII`) — singly, in a batch, or to many replicas at once,
+under hard governance and the dual ethical gate. The capabilities formerly
+carried by FINDΩYOU™'s agent layer are transferred here as first-class deep
+specializations as that platform is made agent-free. No public API surface
+changes; the fleet is reachable only through the engine-mediated path. The
+naming convention is Mercury-only (FINDΩYOU™ may adopt a similar pattern later).
+
+- **Capability parity, not wrappers.** `SubAgent` subclasses `MercuryAgent`, so
+  every member carries the full planning / reasoning / memory / tool toolkit; the
+  internal `_generalist` routing floor runs the complete `analyze` pipeline.
+- **Omni-Code anchors.** Each member is anchored to exactly one of the Seven
+  Omni-Codes; the anchor's helical stability sets the member's autonomy ceiling
+  via `compute_ethical_autonomy` (capped 0.95) — a real, monotonic binding to the
+  constellation shared with AMA Cryptography. Seven members are code-bearers (one
+  lead per Code). The root agent is governed by all seven.
+- **Two real depth tiers (no theater).** `deep` members carry bespoke logic
+  (`Themis_I` ethics, `Hera_VII` compliance, `Ares_XIV` guardrail, and the
+  detection bridge `Zeus_VIII`/`Dionysus_XIII` over the real
+  `MultiAgentOrchestrator`); `coordinator` members bind to and exercise their
+  real `omni_mercury_engine` subsystem(s), reporting genuine availability and
+  failing closed when a subsystem is absent — never fabricated output.
+- **Internal-only access boundary.** Not re-exported from the public
+  `omni_mercury_engine` surface; `SubAgent`/`SubAgentRegistry`/`SubAgentFleet`
+  require a package-private access sentinel (`SubAgentAccessError` otherwise), and
+  are reachable only via `OmniMercuryEngine.enable_subagent_fleet` /
+  `MercuryAgent.enable_fleet` (`delegate` / `delegate_masses`).
+- **Autonomy governor.** Fail-closed capability ceiling (replicas / total-active /
+  recursion depth), Omni-Code autonomy cap, corrigibility pause/resume +
+  irreversible kill-switch, and a failure-rate tripwire (ethical refusals counted
+  as correct, never as failures).
+- **Dual-gate commit boundary.** Results commit through the same benevolence-floor
+  + σ-Immutable gate used on the engine and orchestrator boundaries; fail-closed.
+  The per-task benevolence gate authorizes the controlled defensive action
+  (mirroring `MultiAgentOrchestrator._enforce_ethics`) rather than scoring caller
+  text — so it neither over-blocks defensive vocabulary nor is steered by
+  adversarial phrasing; untrusted content is screened by the `Ares_XIV` guardrail.
+- **Terminology.** Omni-Codes only — no other code system is referenced in this
+  subsystem (enforced by a roster test).
+- **Tests & docs.** `tests/test_subagent_roster.py`, `test_subagent_fleet.py`,
+  `test_subagent_governor.py`, and `test_subagent_specializations.py` (43 tests)
+  pin the roster invariants, access boundary, routing, real delegated detection,
+  coordinator subsystem binding, mass-dispatch aggregation with surfaced
+  failures, governor enforcement, the dual-gate commit, and each deep member's
+  real ported logic. New code is mypy-strict and ruff clean; the canonical roster
+  is documented in `docs/SUBAGENT_PANTHEON.md`; the CI-gated README
+  codebase-scale block is regenerated.
+
+### Subagent pantheon phase 2: coordinators deepened from binding to real operators
+
+The 28 `coordinator` members are deepened from subsystem *bindings* (import +
+introspect) into genuine subsystem **operators**: each now invokes its real
+`omni_mercury_engine` entrypoint. The five deep members (`Themis_I`, `Hera_VII`,
+`Zeus_VIII`, `Dionysus_XIII`, `Ares_XIV`) are unchanged. No public API surface
+changes; the fleet remains reachable only through the engine-mediated path.
+
+- **Operations adapter layer.** New
+  `src/omni_mercury_engine/agentic/subagents/operations.py` maps each pantheon id
+  to an adapter; `CoordinatorSubAgent._perform` dispatches to it, invoking the
+  real entrypoint with `task.payload`-derived inputs and returning the honest
+  result (`output["mode"]="operation"`). Examples: `Helios_XVII` →
+  `metrics.AnomalyMetrics.compute_all`; `Kronos_XXII` →
+  `detectors.MercuryAnomalyDetector.fit().detect()`; `Tyche_XX` →
+  `decision.DecisionAbstentionResponder.decide`; `Eos_XVIII` → native-JWT
+  create+validate in-process; `Hecate_XXVIII` → `RequestRouter.match` in-process;
+  `Atlas_XXX` → `DistributedMercuryCluster.detect_anomalies` via bounded
+  `asyncio.run`; `Pan_XXV` → `GlobalOmniScalarNetwork` register + global score.
+- **Honest friction handling.** `Artemis_VI` genuinely attempts a bounded network
+  fetch over real data sources and reports true per-source reachability (green or
+  red, never fabricated). `Nyx_XXIX` (crypto seal primary; `MercuryCrypto`
+  signing-keypair secondary) and `Prometheus_XXVII` (lightweight scorer primary;
+  `MercuryAutoML.fit` heavy/budget-gated) keep the always-safe primitive as the
+  primary path.
+- **Binding report is the honest floor, not the whole behavior.** The
+  import+introspect report is retained only as the fail-closed fallback —
+  reached when an input-gated member lacks inputs or a caller requests the
+  readiness probe (`payload["mode"]="introspect"`) — and as the unavailability
+  surface (`output["mode"]="binding"`). Malformed inputs fail closed
+  (`SubAgentExecutionError`); no fabricated output anywhere.
+- **Roster tweaks.** `Harmonia_XXXI` and `Hades_XV` gain the `utils` subsystem
+  (the real `normalize_data` / `compress_information` operator entrypoints live
+  there); `validate_roster()`'s subsystem-resolution invariant re-passes.
+- **Tests & docs.** `tests/test_subagent_operations.py` (69 tests) proves, for
+  every coordinator, a real-op path (valid inputs, asserts the real entrypoint
+  ran — not the fallback) plus a no-input fallback path, with fail-closed cases
+  for malformed inputs and a gap guard asserting all 28 coordinators have an
+  adapter and a real-op test. The full subagent suite is 112 tests. New code is
+  mypy-strict and ruff clean; `docs/SUBAGENT_PANTHEON.md` gains an
+  operation + payload-inputs table; `ARCHITECTURE.md` notes the binding→operator
+  deepening; the CI-gated README codebase-scale block is regenerated.
+
 ### Deployability hardening: importable image, real streaming worker, reproducible benchmarks, license-clean
 
 A correctness pass that makes Mercury actually deployable and the benchmark
