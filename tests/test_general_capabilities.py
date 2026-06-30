@@ -13,6 +13,7 @@ from omni_mercury_engine.agentic.capabilities import (
     DocumentGenerator,
     ExtractiveSynthesizer,
     GeneralAssistant,
+    SearchResult,
     WebResearcher,
 )
 from omni_mercury_engine.agentic.capabilities.document_generator import Section
@@ -91,6 +92,62 @@ class TestWebResearcher:
 
     def test_search_failclosed_offline(self) -> None:
         assert _offline_researcher().search("anything") == []
+
+    def test_search_extracts_snippets(self) -> None:
+        html = (
+            "<html><body><div>"
+            '<a class="result__a" href="https://example.org/a">Title A</a>'
+            '<a class="result__snippet" href="https://example.org/a">Snippet about A.</a>'
+            "</div></body></html>"
+        )
+
+        def _t(url: str, timeout: float):
+            if "duckduckgo.com/html" in url:
+                return 200, html, url
+            raise OSError("unreachable")
+
+        hits = WebResearcher(transport=_t).search("a")
+        assert hits[0].url == "https://example.org/a"
+        assert hits[0].snippet == "Snippet about A."
+
+    def test_search_falls_back_to_lite_endpoint(self) -> None:
+        lite = (
+            "<html><body><table>"
+            '<a class="result-link" href="https://example.org/lite">Lite hit</a>'
+            "</table></body></html>"
+        )
+
+        def _t(url: str, timeout: float):
+            if "html.duckduckgo.com" in url:
+                return 503, "challenge", url  # html endpoint blocked
+            if "lite.duckduckgo.com" in url:
+                return 200, lite, url
+            raise OSError("unreachable")
+
+        hits = WebResearcher(transport=_t).search("x")
+        assert [h.url for h in hits] == ["https://example.org/lite"]
+
+    def test_search_uses_injected_provider(self) -> None:
+        calls: list[str] = []
+
+        def _provider(query: str, max_results: int):
+            calls.append(query)
+            return [SearchResult(title="Custom", url="https://example.org/custom")]
+
+        def _t(url: str, timeout: float):  # must never be called
+            raise AssertionError("built-in DDG path should not run")
+
+        r = WebResearcher(transport=_t, search_provider=_provider)
+        hits = r.search("anything")
+        assert calls == ["anything"]
+        assert hits[0].url == "https://example.org/custom"
+
+    def test_search_provider_exception_is_failclosed(self) -> None:
+        def _provider(query: str, max_results: int):
+            raise RuntimeError("provider boom")
+
+        r = WebResearcher(search_provider=_provider)
+        assert r.search("anything") == []
 
 
 class TestExtractiveSynthesizer:

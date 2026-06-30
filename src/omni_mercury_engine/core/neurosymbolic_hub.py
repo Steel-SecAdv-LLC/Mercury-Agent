@@ -415,7 +415,11 @@ class KnowledgeGraph:
         for rule_id in rules_fired:
             rule = self.rules.get(rule_id)
             if rule is not None and getattr(rule, "hard", False):
-                hard.append((rule_id, float(rule.confidence)))
+                # Clip to [0, 1] -- consistent with get_symbolic_evidence -- so a
+                # malformed rule (confidence > 1) cannot drive veto_level above 1
+                # and push the fused anomaly score past the [0, 1] invariant.
+                conf = min(max(float(rule.confidence), 0.0), 1.0)
+                hard.append((rule_id, conf))
         return hard
 
     _ANOMALY_CONCLUSIONS = frozenset(
@@ -1485,6 +1489,13 @@ class NeuroSymbolicHub:
                             + f" fired (confidence >= {self.veto_confidence:g}); "
                             "overriding the neural score to force an anomaly verdict"
                         )
+
+            # Final guard: the reported anomaly score and calibrated score must
+            # honor the [0, 1] invariant regardless of which fusion path ran or
+            # what the veto raised them to.
+            fused_score = float(np.clip(fused_score, 0.0, 1.0))
+            if calibrated_score is not None:
+                calibrated_score = float(np.clip(calibrated_score, 0.0, 1.0))
 
             # Build reasoning chain with P2 integration info
             reasoning_chain = []

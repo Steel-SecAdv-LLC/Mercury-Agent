@@ -17,7 +17,7 @@ fail-closed.
 |---|---|
 | A native, tool-using agent capability layer | A large language model / chatbot |
 | Open-web fetch + HTML→text extraction (stdlib `urllib`/`html.parser`) | A scraping framework or headless browser |
-| Best-effort keyless web search (DuckDuckGo HTML endpoint) | A search-API client (no key, no SaaS dependency) |
+| Best-effort keyless web search (DuckDuckGo html→lite chain) | A search-API client (no key, no SaaS dependency) |
 | **Extractive** synthesis — ranks and quotes source sentences verbatim | A generative summarizer (it never paraphrases or invents text) |
 | Markdown / HTML / plain-text document generation | A document editor or publishing pipeline |
 
@@ -33,6 +33,31 @@ fabricate prose. This is a deliberate honesty contract.
   offline. Fail-closed: a network error / non-OK status / disallowed scheme
   yields a `FetchResult` carrying the error (never a fabricated body); `search`
   returns `[]` with the reason logged.
+
+### Why DuckDuckGo, and how search stays robust
+
+Under the project's hard constraints — **no new dependency, no API key, standard
+library only** — DuckDuckGo is the strongest general-web engine, because it
+exposes *keyless* HTML endpoints we can `GET` and parse. Google (Programmable
+Search JSON API), Bing (search API retired / keyed), and Brave (keyed) all
+require an API key and account, i.e. a dependency *and* a credential. So the
+keyless default is DuckDuckGo. Two design choices keep it from being fragile:
+
+1. **Multi-endpoint chain.** `search()` queries the full `html.duckduckgo.com`
+   page first (richer: titles + snippets), then falls back to the leaner
+   `lite.duckduckgo.com` page, which is far more tolerant of non-browser
+   clients. It returns the first endpoint that yields hits, so a challenge or
+   empty body on one endpoint degrades to the other rather than to nothing.
+2. **Pluggable provider.** `WebResearcher(search_provider=…)` accepts an
+   injectable `(query, max_results) -> [SearchResult]`. A deployment that *does*
+   hold a key for a higher-quality engine (Brave, Google, …) can slot it in and
+   it fully replaces the built-in chain — **without this module taking a
+   dependency**. The default stays keyless; the ceiling is whatever engine the
+   operator chooses to supply.
+
+Either way the contract is unchanged: any failure (network, parse, or an
+exception from a custom provider) is fail-closed to `[]` with the reason logged
+— Mercury never fabricates search hits.
 - **`ExtractiveSynthesizer`** (`text_synthesis.py`) — numpy-only TF-IDF
   centroid sentence ranking (the LexRank/centroid family), `summarize`,
   `summarize_sources`, `keywords`, `relevance`. Returned summary sentences are

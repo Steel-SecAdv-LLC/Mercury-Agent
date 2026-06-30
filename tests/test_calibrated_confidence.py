@@ -70,6 +70,25 @@ class TestCalibratedConfidence:
         if not cc.is_calibrated:
             assert np.allclose(cc.transform(s[:5]), np.clip(s[:5], 0, 1))
 
+    def test_no_holdout_split_never_accepts_in_sample(self) -> None:
+        # n >= 8 and two classes (so it passes the degenerate gate), but the
+        # minority class has a single sample -> the stratified split cannot
+        # leave a positive on the eval side, so no genuine held-out split is
+        # possible. The routing point must NOT fit-and-accept in-sample (that
+        # would reward overfitting); it must stay identity and say so.
+        s = np.array([0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.95])
+        y = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 1])
+        cc = CalibratedConfidence(method="auto", seed=0)
+        report = cc.fit(s, y)
+        assert report.held_out is False
+        assert report.accepted is False
+        assert not cc.is_calibrated
+        # Identity passthrough, and metrics reported are the raw (in-sample) ones
+        # with no claimed improvement.
+        assert report.brier_cal == report.brier_raw
+        assert report.ece_cal == report.ece_raw
+        assert np.allclose(cc.transform(s[:5]), np.clip(s[:5], 0, 1))
+
     def test_report_to_dict_is_json_safe(self) -> None:
         import json
 

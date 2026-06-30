@@ -43,6 +43,26 @@ class TestHardConstraints:
         hard = hub.knowledge_graph.get_hard_constraints({"deviation_score": 3.0})
         assert "high_deviation" not in [r for r, _ in hard]
 
+    def test_malformed_confidence_is_clipped(self) -> None:
+        # A hard rule whose confidence is malformed (> 1.0) must not leak an
+        # out-of-range veto level: get_hard_constraints clips to [0, 1], the
+        # same as get_symbolic_evidence.
+        from omni_mercury_engine.core.neurosymbolic_hub import SymbolicRule
+
+        hub = NeuroSymbolicHub(input_dim=8, seed=0)
+        hub.knowledge_graph.add_rule(
+            SymbolicRule(
+                rule_id="bad_conf",
+                premise="threat_score >= 0.7",
+                conclusion="threat_detected",
+                confidence=5.0,  # malformed
+                hard=True,
+            )
+        )
+        hard = dict(hub.knowledge_graph.get_hard_constraints({"threat_score": 0.9}))
+        assert hard["bad_conf"] == 1.0
+        assert all(0.0 <= c <= 1.0 for c in hard.values())
+
 
 class TestLyapunovRemoval:
     def test_benevolence_has_no_static_squash(self) -> None:
@@ -133,3 +153,29 @@ class TestVetoOverridesNeural:
         # Without the veto, a single (diluted) symbolic rule cannot push the
         # conjunctive/neural fusion to a forced high-confidence anomaly.
         assert out[0].anomaly_score < 0.9
+
+    def test_malformed_hard_rule_keeps_score_bounded(self, monkeypatch) -> None:
+        from omni_mercury_engine.core.neurosymbolic_hub import SymbolicRule
+
+        hub = NeuroSymbolicHub(
+            input_dim=8,
+            seed=0,
+            enable_domain_features=False,
+            enable_adaptive_thresholding=False,
+            enable_gosnn_3r=False,
+        )
+        _bypass_gates(hub, monkeypatch)
+        hub.knowledge_graph.add_rule(
+            SymbolicRule(
+                rule_id="bad_conf",
+                premise="threat_score >= 0.7",
+                conclusion="threat_detected",
+                confidence=5.0,  # malformed; veto must not exceed 1.0
+                hard=True,
+            )
+        )
+        X = np.zeros((1, 8))
+        out = hub.predict(X, context={"threat_score": 0.95})
+        o = out[0]
+        assert o.is_anomaly is True
+        assert 0.0 <= o.anomaly_score <= 1.0  # invariant holds despite bad rule

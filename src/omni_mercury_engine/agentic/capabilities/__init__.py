@@ -37,6 +37,7 @@ from omni_mercury_engine.agentic.capabilities.document_generator import (
 from omni_mercury_engine.agentic.capabilities.text_synthesis import ExtractiveSynthesizer
 from omni_mercury_engine.agentic.capabilities.web_research import (
     FetchResult,
+    SearchProvider,
     SearchResult,
     WebResearcher,
 )
@@ -48,6 +49,7 @@ __all__ = [
     "FetchResult",
     "GeneralAssistant",
     "ResearchReport",
+    "SearchProvider",
     "SearchResult",
     "WebResearcher",
 ]

@@ -37,7 +37,11 @@ dependencies, no language-model service.
 **Measured calibration.** New single routing point
 `core/confidence.py::CalibratedConfidence` turns a raw score into a calibrated
 probability on a held-out split with an R4 accept-gate (never regresses
-Brier/ECE) and reports both. The golden-ratio `exp(-φ·total)` confidence in
+Brier/ECE) and reports both. A calibrator is accepted **only** on a genuine
+held-out evaluation; when the data is too imbalanced to split (a single-sample
+class) the routing point stays identity rather than fitting and accepting
+in-sample, where the no-regression gate would reward overfitting. The
+golden-ratio `exp(-φ·total)` confidence in
 `cognitive/uncertainty.py` is removed in favour of a parameter-free monotone
 prior routed through the calibrator; epistemic/aleatoric carry honest
 `*_measured` flags (the single-scalar path is flagged *unmeasured* instead of
@@ -69,7 +73,10 @@ high-confidence rule override a low neural score (monotone, never bypasses the
 gates); a new `FusionMode.CONJUNCTIVE` (weighted geometric mean over undiluted
 symbolic evidence) is the default; the STACKING meta-learner conditions on
 disagreement and `update_from_outcome` learns from labels; the static,
-mislabeled "Lyapunov" benevolence damping is removed.
+mislabeled "Lyapunov" benevolence damping is removed. Hard-rule confidence is
+clipped to `[0, 1]` on the veto path and the fused score is clamped after the
+veto, so a malformed rule cannot push an anomaly score past the `[0, 1]`
+invariant.
 
 **Detector gating.** Kinematic is gated behind a real Ljung-Box white-noise test
 (tightening only); optional per-component isotonic calibration (default-off).
@@ -91,7 +98,11 @@ abduction (Jaccard, not Bayesian) are scope-labeled in-code and in
 synthesis (`ExtractiveSynthesizer` — numpy-only, quotes sources verbatim),
 document generation (`DocumentGenerator` — Markdown/HTML/text), and a
 `GeneralAssistant` (research → synthesize → cited document), surfaced on
-`MercuryAgent.research/answer/write_document`.
+`MercuryAgent.research/answer/write_document`. Search is keyless DuckDuckGo —
+the only strong general-web engine that needs no API key/dependency — queried
+as a resilient `html` → `lite` endpoint chain (with snippet extraction), and
+the `search_provider` hook lets a deployment slot in a keyed engine (Brave,
+Google, …) without this layer taking a dependency.
 
 ### Subagent pantheon: a 33-member internal delegation fleet for Mercury Agent
 

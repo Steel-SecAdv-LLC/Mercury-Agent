@@ -43,8 +43,11 @@ logger = logging.getLogger(__name__)
 class ConfidenceReport:
     """Held-out calibration quality for a fitted :class:`CalibratedConfidence`.
 
-    ``brier``/``ece`` are measured on a held-out evaluation split (or in-sample,
-    flagged via ``held_out=False``, when the data was too small to split).
+    ``brier``/``ece`` are measured on a held-out evaluation split. When
+    ``held_out`` is ``False`` the data could not be split (too few samples or a
+    single-sample class); in that case ``accepted`` is always ``False`` and the
+    routing point stays identity -- an in-sample fit is never accepted, since
+    its no-regression gate would reward overfitting.
     """
 
     n: int
@@ -207,8 +210,12 @@ class CalibratedConfidence:
             )
             return self._report
 
-        # Try a held-out evaluation; fall back to in-sample if the split would
-        # leave a side single-class.
+        # A genuine held-out split is REQUIRED for acceptance. Evaluating a
+        # calibrator on the same rows it was fit on rewards overfitting -- the
+        # no-regression gate (brier_cal <= brier_raw) passes almost vacuously
+        # in-sample -- so a map that cannot be shown to generalize is never
+        # deployed (module contract, line 18). If the data is too imbalanced to
+        # split (a class with a single sample), we stay identity and say so.
         fit_idx, eval_idx = self._stratified_split(n, y)
         held_out = bool(
             len(eval_idx) > 0
@@ -216,8 +223,34 @@ class CalibratedConfidence:
             and len(np.unique(y[fit_idx])) >= 2
         )
         if not held_out:
-            fit_idx = np.arange(n)
-            eval_idx = np.arange(n)
+            brier_raw = float(brier_score_loss(y, s))
+            ece_raw = compute_ece(y, s)
+            self._calibrator = None
+            self._accepted = False
+            self._report = ConfidenceReport(
+                n=n,
+                method=self.method,
+                accepted=False,
+                brier_raw=brier_raw,
+                brier_cal=brier_raw,
+                ece_raw=ece_raw,
+                ece_cal=ece_raw,
+                held_out=False,
+                note=(
+                    "data too imbalanced for a held-out split (single-sample "
+                    "class); staying uncalibrated (identity) -- never accept "
+                    "an in-sample fit"
+                ),
+            )
+            logger.info(
+                "CalibratedConfidence[%s] fit on n=%d: no held-out split possible, "
+                "staying identity (Brier %.4f, ECE %.4f)",
+                self.method,
+                n,
+                brier_raw,
+                ece_raw,
+            )
+            return self._report
 
         cal = self._new_calibrator()
         cal.fit(s[fit_idx], y[fit_idx])
@@ -233,15 +266,12 @@ class CalibratedConfidence:
         accepted = bool(brier_cal <= brier_raw + 1e-12 and ece_cal <= ece_raw + self.ece_tol)
 
         if accepted:
-            # Refit on all data for deployment now that the map is trusted.
+            # Refit on all data for deployment now that the map is trusted on
+            # the held-out split.
             deploy = self._new_calibrator()
             deploy.fit(s, y)
             self._calibrator = deploy
-            note = (
-                "calibrated (accepted on held-out split)"
-                if held_out
-                else ("calibrated (in-sample; data too small to hold out)")
-            )
+            note = "calibrated (accepted on held-out split)"
         else:
             self._calibrator = None
             note = "calibration regressed Brier/ECE on held-out split; staying identity"
