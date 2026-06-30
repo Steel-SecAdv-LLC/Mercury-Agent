@@ -1,10 +1,14 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Regression suite for FusionMode.FIBRING as the named default top-level mode.
+"""Regression suite for fusion-mode defaults and FibringComposer behaviour.
+
+The top-level default is now FusionMode.CONJUNCTIVE (a weighted geometric mean
+where both modalities must agree); FIBRING remains a valid explicit mode and its
+composer behaviour is still covered here.
 
 Covers:
 
-- The default fusion mode at both the class and the factory level is FIBRING.
+- The default fusion mode at both the class and the factory level is CONJUNCTIVE.
 - The FibringComposer reduces to phi-weighted base when no history exists
   and no domain bias is configured.
 - When recent (neural, symbolic) pairs are highly correlated the composer
@@ -72,21 +76,28 @@ def _brier(y_true: np.ndarray, scores: np.ndarray) -> float:
 # ---------------------------------------------------------------------------
 
 
-def test_neurosymbolic_hub_default_fusion_mode_is_fibring() -> None:
-    """The class default is FusionMode.FIBRING."""
+def test_neurosymbolic_hub_default_fusion_mode_is_conjunctive() -> None:
+    """The class default is now FusionMode.CONJUNCTIVE (both modalities must
+    agree; FIBRING remains a valid explicit mode)."""
     hub = NeuroSymbolicHub(input_dim=8)
-    assert hub.fusion_mode is FusionMode.FIBRING
+    assert hub.fusion_mode is FusionMode.CONJUNCTIVE
 
 
-def test_factory_default_fusion_mode_is_fibring() -> None:
-    """The factory default string is "fibring" and resolves to FIBRING."""
+def test_factory_default_fusion_mode_is_conjunctive() -> None:
+    """The factory default string is "conjunctive" and resolves to CONJUNCTIVE."""
     hub = create_neurosymbolic_hub(input_dim=8)
-    assert hub.fusion_mode is FusionMode.FIBRING
+    assert hub.fusion_mode is FusionMode.CONJUNCTIVE
 
 
-def test_factory_unknown_string_falls_back_to_fibring() -> None:
-    """Unknown fusion-mode strings should fall back to FIBRING (the default)."""
+def test_factory_unknown_string_falls_back_to_conjunctive() -> None:
+    """Unknown fusion-mode strings fall back to CONJUNCTIVE (the new default)."""
     hub = create_neurosymbolic_hub(input_dim=8, fusion_mode="this-is-not-a-mode")
+    assert hub.fusion_mode is FusionMode.CONJUNCTIVE
+
+
+def test_fibring_remains_an_explicit_mode() -> None:
+    """FIBRING is still selectable explicitly (only the default changed)."""
+    hub = create_neurosymbolic_hub(input_dim=8, fusion_mode="fibring")
     assert hub.fusion_mode is FusionMode.FIBRING
 
 

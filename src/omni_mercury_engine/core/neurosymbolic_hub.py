@@ -28,7 +28,6 @@ from scipy.optimize import minimize
 # P2-P3 Integration: Import centralized constants and domain modules
 from omni_mercury_engine.core.centralized_constants import (
     ETHICAL,
-    LYAPUNOV,
     MATH,
 )
 from omni_mercury_engine.core.config import ThresholdConfig
@@ -81,7 +80,6 @@ logger = logging.getLogger(__name__)
 PHI = MATH.GOLDEN_RATIO
 BENEVOLENCE_THRESHOLD = ETHICAL.BENEVOLENCE_IMMUTABLE
 SIGMA_IMMUTABLE_DEFAULT = ETHICAL.SIGMA_IMMUTABLE_DEFAULT
-LYAPUNOV_LAMBDA = LYAPUNOV.LAMBDA_CONVERGENCE
 
 try:
     import networkx as nx
@@ -119,6 +117,7 @@ class FusionMode(Enum):
     STACKING = "stacking"  # Meta-learner fusion
     BMA = "bma"  # Bayesian Model Averaging
     FIBRING = "fibring"  # PHI base + decorrelator + domain affinity (NSAI fibring)
+    CONJUNCTIVE = "conjunctive"  # Weighted geometric mean: both modalities must agree
 
 
 @dataclass
@@ -183,6 +182,11 @@ class SymbolicRule:
     activation_count: int = 0
     last_activated: float | None = None
     explanation_template: str = ""
+    # Hard ("must-alert") rule: when it fires with high confidence the symbolic
+    # path may OVERRIDE a low neural score and force an anomaly verdict (a
+    # monotone, score-raising veto). Default False -> rule participates only in
+    # the ordinary fused score. Set on safety-critical rules (harm/threat/etc.).
+    hard: bool = False
 
     def evaluate(self, facts: set[str], context: dict[str, Any]) -> tuple[bool, float]:
         """Evaluate if rule fires given facts and context.
@@ -397,6 +401,56 @@ class KnowledgeGraph:
 
         return anomaly_score, explanations
 
+    def get_hard_constraints(self, context: dict[str, Any]) -> list[tuple[str, float]]:
+        """Return fired hard ("must-alert") rules as (rule_id, confidence) pairs.
+
+        Reads each fired rule's confidence DIRECTLY rather than through
+        :meth:`get_anomaly_indicators`, which divides the summed confidence by the
+        full anomaly-conclusion count (8) and would dilute a single decisive rule
+        to ~0.12. A hard constraint is meant to be able to override the neural
+        score, so its confidence must reach the veto path undiluted.
+        """
+        _, rules_fired = self.forward_chain(context)
+        hard: list[tuple[str, float]] = []
+        for rule_id in rules_fired:
+            rule = self.rules.get(rule_id)
+            if rule is not None and getattr(rule, "hard", False):
+                hard.append((rule_id, float(rule.confidence)))
+        return hard
+
+    _ANOMALY_CONCLUSIONS = frozenset(
+        {
+            "is_anomalous",
+            "security_alert",
+            "behavioral_anomaly",
+            "high_risk",
+            "critical_deviation",
+            "ethical_violation",
+            "unusual_pattern",
+            "threat_detected",
+        }
+    )
+
+    def get_symbolic_evidence(self, context: dict[str, Any]) -> float:
+        """Undiluted symbolic anomaly evidence via noisy-OR over fired rules.
+
+        ``1 - prod(1 - conf_i)`` over the confidences of fired rules whose
+        conclusion is an anomaly conclusion. Unlike
+        :meth:`get_anomaly_indicators` (which divides by the full 8-conclusion
+        count), a single decisive rule yields ~its own confidence and agreeing
+        rules accumulate -- the semantics the conjunctive fusion path needs.
+        Returns 0.0 when no anomaly rule fires.
+        """
+        _, rules_fired = self.forward_chain(context)
+        prod = 1.0
+        fired_any = False
+        for rule_id in rules_fired:
+            rule = self.rules.get(rule_id)
+            if rule is not None and rule.conclusion in self._ANOMALY_CONCLUSIONS:
+                fired_any = True
+                prod *= 1.0 - min(max(float(rule.confidence), 0.0), 1.0)
+        return float(1.0 - prod) if fired_any else 0.0
+
 
 class NeuralEncoder:
     """Neural encoder for neuro-symbolic fusion.
@@ -586,7 +640,7 @@ class NeuroSymbolicHub:
     def __init__(
         self,
         input_dim: int = 64,
-        fusion_mode: FusionMode = FusionMode.FIBRING,
+        fusion_mode: FusionMode = FusionMode.CONJUNCTIVE,
         sigma_immutable: float = SIGMA_IMMUTABLE_DEFAULT,
         benevolence_threshold: float = BENEVOLENCE_THRESHOLD,
         use_calibration: bool = True,
@@ -596,6 +650,8 @@ class NeuroSymbolicHub:
         enable_domain_features: bool = True,
         enable_adaptive_thresholding: bool = True,
         enable_gosnn_3r: bool = True,
+        enable_symbolic_veto: bool = True,
+        veto_confidence: float = 0.9,
     ):
         """Initialize Neuro-Symbolic Hub.
 
@@ -614,6 +670,13 @@ class NeuroSymbolicHub:
         """
         self.input_dim = input_dim
         self.fusion_mode = fusion_mode
+        # Hard symbolic veto: a fired hard rule with confidence >= veto_confidence
+        # may raise the fused score / force is_anomaly (monotone "must-alert"),
+        # so agreeing high-confidence symbolic rules can override a low neural
+        # score. Never suppresses (never lowers the score) and never bypasses the
+        # σ_Immutable gate.
+        self.enable_symbolic_veto = enable_symbolic_veto
+        self.veto_confidence = float(veto_confidence)
         self.sigma_immutable = sigma_immutable
         from omni_mercury_engine.cognitive.ethical_bounding import (
             MINIMUM_BENEVOLENCE_FLOOR,
@@ -678,6 +741,9 @@ class NeuroSymbolicHub:
 
         # Meta-learner for stacking
         self._meta_learner: Any = None
+        # Outcome buffer for online disagreement-resolution learning
+        # (update_from_outcome): each entry is (neural, symbolic, label).
+        self._outcome_buffer: list[tuple[float, float, int]] = []
 
         # P2-P3 Integration: Domain-specific components
         self._domain_extractor: BaseDomainExtractor | None = None
@@ -781,6 +847,7 @@ class NeuroSymbolicHub:
                 confidence=0.95,
                 category="security",
                 explanation_template="Security threat (score ≥70%, unauthorized)",
+                hard=True,
             ),
             SymbolicRule(
                 rule_id="temporal_anomaly",
@@ -825,6 +892,7 @@ class NeuroSymbolicHub:
                 category="ethical",
                 provenance="system",
                 explanation_template="Potential harm detected (≥50%)",
+                hard=True,
             ),
         ]
 
@@ -997,6 +1065,53 @@ class NeuroSymbolicHub:
             # Simple sigmoid calibration fallback
             self._calibrator = None
 
+    @staticmethod
+    def _meta_features(
+        neural: np.ndarray[Any, Any], symbolic: np.ndarray[Any, Any]
+    ) -> np.ndarray[Any, Any]:
+        """Stacking meta-features: [neural, symbolic, |neural - symbolic|].
+
+        The disagreement column lets the meta-learner resolve neural-vs-symbolic
+        conflicts as a learned function of how far apart they are, rather than a
+        fixed linear blend.
+        """
+        neural = np.asarray(neural, dtype=float).reshape(-1)
+        symbolic = np.asarray(symbolic, dtype=float).reshape(-1)
+        return np.column_stack([neural, symbolic, np.abs(neural - symbolic)])
+
+    def update_from_outcome(
+        self, neural_score: float, symbolic_score: float, true_label: int, refit_every: int = 32
+    ) -> bool:
+        """Record a labeled outcome and periodically relearn disagreement resolution.
+
+        Buffers ``(neural_score, symbolic_score, true_label)`` and, once
+        ``refit_every`` new outcomes have accumulated, refits the STACKING
+        meta-learner on the buffer (with the disagreement feature) so the hub
+        learns from real outcomes how to resolve neural-vs-symbolic conflicts.
+        No-op for non-STACKING modes. Returns True when a refit happened.
+        """
+        self._outcome_buffer.append(
+            (float(neural_score), float(symbolic_score), int(bool(true_label)))
+        )
+        if (
+            self.fusion_mode != FusionMode.STACKING
+            or len(self._outcome_buffer) < refit_every
+            or len({lbl for _, _, lbl in self._outcome_buffer}) < 2
+        ):
+            return False
+        arr = np.asarray(self._outcome_buffer, dtype=float)
+        meta_features = self._meta_features(arr[:, 0], arr[:, 1])
+        from omni_mercury_engine.ml.mercury_ml import LogisticRegression
+
+        meta_learner = LogisticRegression(solver="lbfgs", max_iter=1000, random_state=self.seed)
+        meta_learner.fit(meta_features, arr[:, 2].astype(int))
+        self._meta_learner = meta_learner
+        logger.info(
+            "NeuroSymbolicHub: refit stacking meta-learner on %d outcomes (disagreement-aware)",
+            len(self._outcome_buffer),
+        )
+        return True
+
     def _learn_fusion_weights(self, X: np.ndarray[Any, Any], y: np.ndarray[Any, Any]) -> None:
         """Learn optimal fusion weights."""
         # Get neural scores
@@ -1011,8 +1126,10 @@ class NeuroSymbolicHub:
         symbolic_scores = np.array(symbolic_scores)  # type: ignore[assignment, unused-ignore]
 
         if self.fusion_mode == FusionMode.STACKING:
-            # Train meta-learner
-            meta_features = np.column_stack([neural_scores, symbolic_scores])
+            # Train meta-learner. Include |neural - symbolic| so the learner
+            # explicitly conditions on DISAGREEMENT and can learn how to resolve
+            # it from outcomes (not just blend the two scores linearly).
+            meta_features = self._meta_features(neural_scores, np.asarray(symbolic_scores))
 
             from omni_mercury_engine.ml.mercury_ml import LogisticRegression
 
@@ -1154,7 +1271,9 @@ class NeuroSymbolicHub:
             neural_score = float(neural_scores[i])
 
             if self.fusion_mode == FusionMode.STACKING and self._meta_learner is not None:
-                meta_features = np.array([[neural_score, symbolic_score]])
+                meta_features = self._meta_features(
+                    np.array([neural_score]), np.array([symbolic_score])
+                )
                 fused_score = float(self._meta_learner.predict_proba(meta_features)[0, 1])
                 neural_weight = self._neural_weight
                 symbolic_weight = self._symbolic_weight
@@ -1180,6 +1299,30 @@ class NeuroSymbolicHub:
                 neural_weight = 0.3
                 symbolic_weight = 0.7
                 fused_score = neural_weight * neural_score + symbolic_weight * symbolic_score
+
+            elif self.fusion_mode == FusionMode.CONJUNCTIVE:
+                # Weighted geometric mean: both modalities must AGREE for a high
+                # score, so a single confident modality cannot carry the fusion
+                # the way the additive blend lets it. Uses the undiluted symbolic
+                # evidence (noisy-OR) so a real rule firing is not crushed by the
+                # /8 dilution. When no rule fires (sym_eff == 0) we fall back to
+                # the neural score so the mere absence of a symbolic rule never
+                # vetoes a neural detection downward; a hard rule that DOES fire
+                # is handled by the monotone veto overlay below.
+                neural_weight = self._neural_weight
+                symbolic_weight = self._symbolic_weight
+                sym_eff = self.knowledge_graph.get_symbolic_evidence(sample_context)
+                if sym_eff <= 0.0:
+                    fused_score = neural_score
+                else:
+                    tot = neural_weight + symbolic_weight
+                    wn = neural_weight / tot if tot > 0 else 0.5
+                    ws = symbolic_weight / tot if tot > 0 else 0.5
+                    eps = 1e-9
+                    fused_score = float(
+                        np.exp(wn * np.log(neural_score + eps) + ws * np.log(sym_eff + eps))
+                    )
+                fused_score = float(np.clip(fused_score, 0.0, 1.0))
 
             else:  # BALANCED or ADAPTIVE
                 neural_weight = self._neural_weight
@@ -1313,6 +1456,36 @@ class NeuroSymbolicHub:
                 },
             )
 
+            # Hard symbolic veto ("must-alert"). Applied AFTER the benevolence
+            # and σ_Immutable gates (which still run on every sample using the
+            # model's own fused score, so the veto never bypasses them) and last
+            # among the score transforms so neither calibration nor GOSNN-3R
+            # refinement washes it out. Monotone: an agreeing high-confidence
+            # hard rule RAISES the reported score and forces is_anomaly; it never
+            # suppresses a detection and never raises an exception (that is the
+            # benevolence/σ_Immutable gates' job, not the detection veto's).
+            veto_rules: list[str] = []
+            if self.enable_symbolic_veto:
+                hard_fired = [
+                    (rid, c)
+                    for rid, c in self.knowledge_graph.get_hard_constraints(sample_context)
+                    if c >= self.veto_confidence
+                ]
+                if hard_fired:
+                    veto_level = max(c for _, c in hard_fired)
+                    veto_rules = [rid for rid, _ in hard_fired]
+                    fused_score = max(fused_score, veto_level)
+                    if calibrated_score is not None:
+                        calibrated_score = max(calibrated_score, veto_level)
+                    is_anomaly = True
+                    if return_explanations:
+                        explanations.append(
+                            "symbolic veto: hard rule(s) "
+                            + ", ".join(veto_rules)
+                            + f" fired (confidence >= {self.veto_confidence:g}); "
+                            "overriding the neural score to force an anomaly verdict"
+                        )
+
             # Build reasoning chain with P2 integration info
             reasoning_chain = []
 
@@ -1338,6 +1511,11 @@ class NeuroSymbolicHub:
                     {"step": "fusion", "fused_score": fused_score, "mode": self.fusion_mode.value},
                 ]
             )
+
+            if veto_rules:
+                reasoning_chain.append(
+                    {"step": "symbolic_veto", "rules": veto_rules, "forced_anomaly": True}
+                )
 
             # Add GOSNN-3R integration step if used
             if gosnn_3r_info:
@@ -1476,11 +1654,16 @@ class NeuroSymbolicHub:
         if anomaly_score > 0.7 and confidence > 0.7:
             base_benevolence += 0.1
 
-        # Apply Lyapunov stability factor
-        stability = np.exp(-LYAPUNOV_LAMBDA * (1 - base_benevolence))
-        benevolence = base_benevolence * stability
-
-        return float(np.clip(benevolence, 0.0, 1.0))
+        # NOTE: a static ``exp(-LYAPUNOV_LAMBDA*(1-b))`` factor was previously
+        # applied here under the name "Lyapunov stability". It carried no time
+        # index, score trajectory, or measured contraction -- it was a fixed
+        # monotonic squash that silently lowered every benevolence score (except
+        # exactly 1.0), so the >=0.99 ethical gate rejected samples whose RAW
+        # benevolence already met it. Removed: the gate now compares the
+        # threshold against the actual benevolence it claims to measure. Genuine
+        # trajectory-stability monitoring belongs in the measured Lyapunov
+        # monitor (core/three_r), not as a hidden multiplier on the gate input.
+        return float(np.clip(base_benevolence, 0.0, 1.0))
 
     def get_gosnn_scalars(self) -> dict[str, float]:
         """Get scalars for GOSNN integration.
@@ -1535,16 +1718,19 @@ class NeuroSymbolicHub:
 
 def create_neurosymbolic_hub(
     input_dim: int = 64,
-    fusion_mode: str = "fibring",
+    fusion_mode: str = "conjunctive",
     **kwargs: Any,
 ) -> NeuroSymbolicHub:
     """Factory function to create neuro-symbolic hub.
 
     Args:
         input_dim: Input feature dimension
-        fusion_mode: Fusion mode string. Defaults to "fibring", which composes
-            Phi-weighted base, correlation-aware decorrelation, and per-domain
-            affinity bias (NSAI fibring pattern).
+        fusion_mode: Fusion mode string. Defaults to "conjunctive" -- a weighted
+            geometric mean where both the neural score and the (undiluted)
+            symbolic evidence must agree to produce a high fused score, so a
+            single confident modality cannot carry the fusion the way the
+            additive blend does. Paired with the hard-rule veto, agreeing
+            symbolic rules can override a low neural score.
         **kwargs: Additional arguments
 
     Returns:
@@ -1559,9 +1745,10 @@ def create_neurosymbolic_hub(
         "stacking": FusionMode.STACKING,
         "bma": FusionMode.BMA,
         "fibring": FusionMode.FIBRING,
+        "conjunctive": FusionMode.CONJUNCTIVE,
     }
 
-    mode = mode_map.get(fusion_mode, FusionMode.FIBRING)
+    mode = mode_map.get(fusion_mode, FusionMode.CONJUNCTIVE)
 
     return NeuroSymbolicHub(
         input_dim=input_dim,
