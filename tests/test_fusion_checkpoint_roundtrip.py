@@ -228,9 +228,11 @@ class TestCheckpointRoundTrip:
             checkpoint.pop(key, None)
         torch.save(checkpoint, legacy_path)
 
-        engine = OmniMercuryEngine(mode="fusion", device="cpu")
+        # This test validates the legacy auto-fit *audit* path specifically, so
+        # it opts into auto-fit (the engine default is now fail-loud).
+        engine = OmniMercuryEngine(mode="fusion", device="cpu", require_explicit_fit=False)
         engine.load_model(legacy_path)
-        # The production serve path auto-fits unfitted detectors on the first
+        # The legacy serve path auto-fits unfitted detectors on the first
         # inference batch and records the leak for audit.
         engine.detect_with_fusion(trained_engine_and_data["x_test"])
         contaminated = set(engine._inference_auto_fit_detectors)

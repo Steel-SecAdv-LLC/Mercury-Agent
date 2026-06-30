@@ -467,12 +467,34 @@ class FeatureCache:
         Returns:
             String hash key for the data.
         """
+        # Torch tensors: key on identity + metadata without forcing a full
+        # device->host copy on every lookup. The storage pointer + shape +
+        # dtype + device uniquely identify a contiguous tensor for the lifetime
+        # of this best-effort cache (bounded LRU, so stale pointers age out).
         if isinstance(data, torch.Tensor):
-            data = data.cpu().numpy()
-        # Use shape and sample of data for key
-        data_hash = hash(
-            (data.shape, data.tobytes()[:1024] if data.nbytes > 1024 else data.tobytes())
-        )
+            ptr = data.data_ptr() if data.is_contiguous() else 0
+            key_tuple: tuple[Any, ...] = (
+                "torch",
+                int(ptr),
+                tuple(data.shape),
+                str(data.dtype),
+                str(data.device),
+            )
+            return f"{prefix}_{hash(key_tuple)}"
+
+        # numpy arrays: sample a bounded, strided slice instead of copying the
+        # whole buffer. ``tobytes()`` materialises the entire array before the
+        # ``[:1024]`` slice, which is O(N); sampling bounds the work at O(256)
+        # regardless of array size. shape+dtype+size are folded into the key to
+        # keep collisions negligible for this best-effort feature cache.
+        flat = np.ascontiguousarray(data).reshape(-1)
+        n = flat.size
+        if n <= 256:
+            sample = flat.tobytes()
+        else:
+            idx = np.linspace(0, n - 1, 256).astype(np.intp)
+            sample = flat[idx].tobytes()
+        data_hash = hash((data.shape, data.dtype.str, n, sample))
         return f"{prefix}_{data_hash}"
 
     def get_or_compute(
@@ -703,6 +725,7 @@ class OmniMercuryEngine(LoggerMixin):
         memory_threshold_mb: float = 2048.0,
         auto_load_checkpoint: bool = False,
         equation_profile: str | None = None,
+        require_explicit_fit: bool = True,
     ) -> None:
         """Initialize the OmniMercuryEngine.
 
@@ -713,6 +736,14 @@ class OmniMercuryEngine(LoggerMixin):
             device: Computation device ('cpu' or 'cuda').
             cache_size: Maximum entries in feature cache. Default 128.
             memory_threshold_mb: Memory threshold for GC in MB. Default 2048.
+            require_explicit_fit: When True (default), ``detect_with_fusion``
+                fails loud if a detector was never fit, rather than silently
+                auto-fitting it on the first inference batch (which leaks that
+                batch as the detector's reference distribution -- a correctness
+                bug). Set False to opt into the legacy auto-fit-on-first-batch
+                behaviour (still warned and audited via
+                ``_inference_auto_fit_detectors``); loaded checkpoints and a
+                prior ``fit_fusion`` both satisfy the requirement.
             auto_load_checkpoint: When True and mode='fusion', load the packaged
                 default fusion checkpoint at init so detection works without a
                 training step. Default False to keep a freshly-constructed
@@ -747,6 +778,9 @@ class OmniMercuryEngine(LoggerMixin):
         # surface (warning + result-dict key) works for every engine mode,
         # not only ``mode='fusion'``.
         self._inference_auto_fit_detectors: set[str] = set()
+        # Fail-loud on an unfit detector at inference instead of leaking the
+        # first batch as its reference distribution (see __init__ docstring).
+        self._require_explicit_fit: bool = require_explicit_fit
 
         if not TORCH_AVAILABLE:
             raise ImportError(
@@ -4040,22 +4074,35 @@ class OmniMercuryEngine(LoggerMixin):
         detector_certificates: dict[str, Any] = {}
 
         for name, detector in self.detectors.items():
+            # Fail-loud (or legacy auto-fit) on an unfit detector. This runs
+            # OUTSIDE the try below so the fail-loud RuntimeError is not
+            # swallowed by the graceful per-detector skip handler.
+            if not detector.is_fitted() and not isinstance(data, dict):
+                if self._require_explicit_fit:
+                    raise RuntimeError(
+                        f"Detector {name!r} is not fitted; refusing to auto-fit on the "
+                        "inference batch. Call fit_fusion(X_train, y_train) (or load a "
+                        "checkpoint) before detect_with_fusion so the reference "
+                        "distribution comes from training data, not the first batch "
+                        "scored. To opt into the legacy auto-fit-on-first-batch "
+                        "behaviour, construct OmniMercuryEngine(require_explicit_fit=False)."
+                    )
+                if name not in self._inference_auto_fit_detectors:
+                    logger.warning(
+                        "Detector %r was auto-fit on the first inference "
+                        "batch (n=%s) because it had no prior fit. The "
+                        "batch's distribution is now this detector's "
+                        "reference — call fit_fusion(X_train, y_train) "
+                        "before detect_with_fusion to avoid the leakage.",
+                        name,
+                        getattr(data, "shape", ("?",))[0] if hasattr(data, "shape") else "?",
+                    )
+                self._inference_auto_fit_detectors.add(name)
+                detector.fit(data)
+
             try:
-                if not detector.is_fitted():
-                    if isinstance(data, dict):
-                        continue
-                    if name not in self._inference_auto_fit_detectors:
-                        logger.warning(
-                            "Detector %r was auto-fit on the first inference "
-                            "batch (n=%s) because it had no prior fit. The "
-                            "batch's distribution is now this detector's "
-                            "reference — call fit_fusion(X_train, y_train) "
-                            "before detect_with_fusion to avoid the leakage.",
-                            name,
-                            getattr(data, "shape", ("?",))[0] if hasattr(data, "shape") else "?",
-                        )
-                    self._inference_auto_fit_detectors.add(name)
-                    detector.fit(data)
+                if isinstance(data, dict) and not detector.is_fitted():
+                    continue
 
                 # Try to use cached features
                 cache_key = self.feature_cache._make_key(

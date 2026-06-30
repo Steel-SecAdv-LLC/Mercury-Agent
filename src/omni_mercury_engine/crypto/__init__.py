@@ -72,6 +72,17 @@ try:
 except ImportError:
     _HASHLIB_AVAILABLE = False
 
+# BLAKE3 pure-Python binding (optional). Detect once at import time rather than
+# re-running the import machinery (and swallowing an ImportError) on every hash
+# call -- mirrors the _RUST_AVAILABLE / _PYTHON_CRYPTO_AVAILABLE pattern above.
+try:
+    import blake3 as _blake3
+
+    _BLAKE3_AVAILABLE = True
+except ImportError:
+    _blake3 = None  # type: ignore[assignment]
+    _BLAKE3_AVAILABLE = False
+
 # =============================================================================
 # Version and Feature Detection
 # =============================================================================
@@ -122,13 +133,10 @@ def hash_data(data: bytes, algorithm: HashAlgorithm = "blake3") -> bytes:
     # Python fallback
     if _HASHLIB_AVAILABLE:
         if algorithm == "blake3":
-            try:
-                import blake3 as blake3_lib
-
-                return bytes(blake3_lib.blake3(data).digest())
-            except ImportError:
-                # Fall back to SHA-256 if blake3 not available
-                return hashlib.sha256(data).digest()
+            if _BLAKE3_AVAILABLE:
+                return bytes(_blake3.blake3(data).digest())
+            # Documented fallback: blake3 binding absent -> SHA-256 digest.
+            return hashlib.sha256(data).digest()
         elif algorithm == "sha256":
             return hashlib.sha256(data).digest()
         elif algorithm == "sha3-256":

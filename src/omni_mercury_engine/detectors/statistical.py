@@ -118,6 +118,34 @@ _TEMPORAL_ADJ_ROW_THRESHOLD: float = 0.75
 _MULTISCALE_TTA_SCALES: tuple[float, ...] = (0.8, 0.9, 1.0, 1.1, 1.25)
 
 
+def _sliding_backmax(
+    values: np.ndarray[Any, Any], n_samples: int, window: int
+) -> np.ndarray[Any, Any]:
+    """Spread a per-derivative score back to per-sample indices via a backward
+    sliding max.
+
+    Returns ``out`` of length ``n_samples`` where
+    ``out[i] = max(base[i-window+1 .. i])`` and ``base`` is ``values``
+    zero-padded up to ``n_samples`` (so positions past ``len(values)`` and
+    before index 0 contribute 0). This is the vectorised, allocation-light
+    equivalent of the previous per-shift Python loop
+    (``max(base[i], base[i-1], ... base[i-window+1])``) and is bit-exact with it
+    -- a single ``sliding_window_view`` over one padded buffer instead of
+    ``window-1`` full-length temporaries per call.
+    """
+    out = np.zeros(n_samples)
+    k = len(values)
+    if k == 0 or n_samples == 0:
+        return out
+    base = np.zeros(n_samples)
+    base[: min(k, n_samples)] = values[: min(k, n_samples)]
+    if window <= 1:
+        return base
+    padded = np.concatenate([np.zeros(window - 1), base])
+    windows = np.lib.stride_tricks.sliding_window_view(padded, window)
+    return np.asarray(windows.max(axis=1))
+
+
 class MercuryAnomalyDetector(BaseDetector):
     """Mercury's original anomaly detection ensemble.
 
@@ -172,6 +200,12 @@ class MercuryAnomalyDetector(BaseDetector):
 
         # Training data reference for resonance (needed for per-feature FFT)
         self._train_data: np.ndarray[Any, Any] | None = None
+
+        # Bounded memo for the residual band-pass FFT, keyed on a digest of the
+        # input score vector. Repeated detect() calls on identical batches
+        # (replay, idempotent scoring) reuse the rfft/irfft pair instead of
+        # recomputing it. Best-effort and correctness-safe (digest in the key).
+        self._resid_filter_cache: dict[tuple[Any, ...], np.ndarray[Any, Any]] = {}
 
         # Precomputed spectral profiles per feature (set during fit)
         self._res_h_train: np.ndarray[Any, Any] | None = None
@@ -2226,7 +2260,9 @@ class MercuryAnomalyDetector(BaseDetector):
             50, 10 * data.shape[1]
         )
         if is_temporal_like and len(combined_scores) >= 32:
-            combined_scores = self._residual_frequency_filter(combined_scores)
+            combined_scores = self._residual_frequency_filter(
+                combined_scores, cache=self._resid_filter_cache
+            )
 
         # Multi-scale time-dilation TTA (Rec 3, opt-in DEFAULT-OFF, temporal only).
         # Pools the per-sample scores of the series viewed at several time
@@ -2676,27 +2712,13 @@ class MercuryAnomalyDetector(BaseDetector):
         jerk_score = np.clip(max_jerk_z / 3.0, 0.0, 1.0)  # (n-3,)
 
         # Map derivative scores back to per-sample indices (vectorized).
-        # accel[i] reflects samples i..i+2 -> sliding max over window 3
-        # jerk[i] reflects samples i..i+3 -> sliding max over window 4
-        # Use cumulative-max trick with padded arrays instead of Python loops.
-        accel_padded = np.zeros(n_samples)
-        n_a = len(accel_score)
-        accel_padded[:n_a] = 0.4 * accel_score
-        # Sliding-max via shifts: max(score[i], score[i-1], score[i-2])
-        accel_spread = accel_padded.copy()
-        for shift in range(1, 3):
-            shifted = np.zeros(n_samples)
-            shifted[shift : shift + n_a] = 0.4 * accel_score[: n_samples - shift]
-            np.maximum(accel_spread, shifted, out=accel_spread)
-
-        jerk_padded = np.zeros(n_samples)
-        n_j = len(jerk_score)
-        jerk_padded[:n_j] = 0.6 * jerk_score
-        jerk_spread = jerk_padded.copy()
-        for shift in range(1, 4):
-            shifted = np.zeros(n_samples)
-            shifted[shift : shift + n_j] = 0.6 * jerk_score[: n_samples - shift]
-            np.maximum(jerk_spread, shifted, out=jerk_spread)
+        # accel[i] reflects samples i..i+2 -> backward sliding max over window 3
+        # jerk[i] reflects samples i..i+3 -> backward sliding max over window 4
+        # A single strided sliding_window_view replaces the per-shift Python
+        # loops and their per-shift temp allocations (bit-exact equivalent; see
+        # _sliding_backmax docstring and the parity test in the kinematic suite).
+        accel_spread = _sliding_backmax(0.4 * accel_score, n_samples, 3)
+        jerk_spread = _sliding_backmax(0.6 * jerk_score, n_samples, 4)
 
         scores = np.maximum(accel_spread, jerk_spread)
         return np.clip(scores, 0.0, 1.0)
@@ -2770,7 +2792,9 @@ class MercuryAnomalyDetector(BaseDetector):
 
     @staticmethod
     def _residual_frequency_filter(
-        scores: np.ndarray[Any, Any], cutoff_quantile: float = 0.75
+        scores: np.ndarray[Any, Any],
+        cutoff_quantile: float = 0.75,
+        cache: dict[tuple[Any, ...], np.ndarray[Any, Any]] | None = None,
     ) -> np.ndarray[Any, Any]:
         """Apply frequency-domain filtering to the score residual.
 
@@ -2781,12 +2805,23 @@ class MercuryAnomalyDetector(BaseDetector):
         Args:
             scores: Raw anomaly scores, shape (n_samples,).
             cutoff_quantile: Fraction of frequency spectrum to preserve.
+            cache: Optional bounded memo (input-digest -> result). When given,
+                the rfft/irfft pair is reused for identical inputs (e.g. repeated
+                scoring of the same batch). The digest is in the key, so a hit
+                always returns the exact same result the full computation would.
 
         Returns:
             Filtered scores with noise-suppressed anomaly signal.
         """
         if len(scores) < 16:
             return scores
+
+        key: tuple[Any, ...] | None = None
+        if cache is not None:
+            key = (len(scores), round(float(cutoff_quantile), 6), hash(scores.round(6).tobytes()))
+            hit = cache.get(key)
+            if hit is not None:
+                return hit
 
         kernel_size = max(5, len(scores) // 20)
         if kernel_size % 2 == 0:
@@ -2810,8 +2845,13 @@ class MercuryAnomalyDetector(BaseDetector):
 
         filtered_residual = np.fft.irfft(filtered_fft, n=len(residual))
 
-        blended = 0.7 * scores + 0.3 * (baseline + filtered_residual)
-        return np.clip(blended, 0.0, 1.0)
+        blended = np.clip(0.7 * scores + 0.3 * (baseline + filtered_residual), 0.0, 1.0)
+        if cache is not None and key is not None:
+            cache[key] = blended
+            # Bound the memo (insertion-ordered dict): keep the most recent 8.
+            while len(cache) > 8:
+                cache.pop(next(iter(cache)), None)
+        return blended
 
     # =====================================================================
     # Multi-scale time-dilation TTA (Rec 3)

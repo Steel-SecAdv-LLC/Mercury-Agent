@@ -333,10 +333,17 @@ class TestNeuroSymbolicHubBoundary:
 
 
 def _make_engine_in_fusion_mode() -> OmniMercuryEngine:
-    """Build a minimal fusion-mode engine for boundary tests."""
+    """Build a minimal fusion-mode engine for boundary tests.
+
+    These tests exercise the *ethical gate* at the detect_with_fusion boundary,
+    not detection quality, so they deliberately score raw batches without a
+    prior fit_fusion. Opt into the legacy auto-fit-on-first-batch convenience
+    (the default is now fail-loud) so the gate -- not a fit requirement -- is
+    what the assertions observe.
+    """
     from omni_mercury_engine.engine import OmniMercuryEngine
 
-    engine = OmniMercuryEngine(mode="fusion")
+    engine = OmniMercuryEngine(mode="fusion", require_explicit_fit=False)
     return engine
 
 

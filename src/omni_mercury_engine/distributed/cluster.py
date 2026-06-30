@@ -63,6 +63,9 @@ class TaskResult:
     start_time: float | None = None
     end_time: float | None = None
     metrics: dict[str, float] = field(default_factory=dict)
+    # Half-open [start, end) range of the original data this task scored, so the
+    # aggregator can reassemble disjoint partitions back into input order.
+    data_indices: tuple[int, int] | None = None
 
     @property
     def duration(self) -> float | None:
@@ -298,9 +301,18 @@ class DataPartitioner:
 
 
 class ResultAggregator:
-    """Aggregates results from distributed tasks.
+    """Reassembles results from distributed tasks.
 
-    Supports multiple aggregation strategies including weighted fusion.
+    The distributed detector partitions the input into **disjoint** index
+    ranges (``DataPartitioner`` -> ``data[start:end]`` per node), so every
+    sample is scored by exactly one node. There is therefore no per-sample
+    quantity to "fuse", "vote", or "average" across nodes -- the only correct
+    aggregation is to **merge the disjoint partitions back into input order**.
+
+    ``aggregation_method`` is retained for API compatibility but is advisory:
+    all values resolve to the same order-preserving merge. (Genuine ensemble
+    fusion would require *replicated* samples scored by multiple detectors,
+    which this partition-parallel detector does not produce.)
     """
 
     def __init__(self, aggregation_method: str = "weighted_fusion") -> None:
@@ -313,58 +325,48 @@ class ResultAggregator:
         self._results[result.task_id] = result
 
     def aggregate(self) -> dict[str, Any]:
-        """Aggregate all results."""
+        """Merge all completed partition results back into input order."""
         if not self._results:
             return {"anomaly_scores": np.array([]), "predictions": np.array([])}
+        return self._merge_partitions()
 
-        if self._method == "weighted_fusion":
-            return self._weighted_fusion()
-        elif self._method == "majority_vote":
-            return self._majority_vote()
-        elif self._method == "average":
-            return self._average()
-        else:
-            return self._weighted_fusion()
+    def _merge_partitions(self) -> dict[str, Any]:
+        """Concatenate disjoint partition results, ordered by input index.
 
-    def _weighted_fusion(self) -> dict[str, Any]:
-        """Weighted fusion of results based on confidence."""
-        all_scores = []
-        all_predictions = []
-        weights = []
+        Partitions arrive in nondeterministic task order; we sort them by their
+        recorded ``data_indices`` start so the merged ``anomaly_scores`` /
+        ``predictions`` line up with the original sample order. Results that
+        never recorded their indices (legacy/handler-only) fall back to
+        insertion order, preserving prior behaviour.
+        """
+        completed = [
+            r
+            for r in self._results.values()
+            if r.status == TaskStatus.COMPLETED
+            and r.result is not None
+            and len(r.result.get("anomaly_scores", np.array([]))) > 0
+        ]
 
-        for result in self._results.values():
-            if result.status != TaskStatus.COMPLETED or result.result is None:
-                continue
+        # Order by partition start index when available (None sorts last but
+        # stably, so unindexed legacy results keep their insertion order).
+        completed.sort(
+            key=lambda r: r.data_indices[0] if r.data_indices is not None else float("inf")
+        )
 
-            scores = result.result.get("anomaly_scores", np.array([]))
-            predictions = result.result.get("predictions", np.array([]))
-            confidence = result.result.get("confidence", 1.0)
-
-            if len(scores) > 0:
-                all_scores.append(scores)
-                all_predictions.append(predictions)
-                weights.append(confidence)
+        all_scores = [r.result["anomaly_scores"] for r in completed]
+        all_predictions = [
+            r.result.get("predictions", np.array([])) for r in completed
+        ]
 
         if not all_scores:
             return {"anomaly_scores": np.array([]), "predictions": np.array([])}
 
-        scores_array = np.concatenate(all_scores)
-        predictions_array = np.concatenate(all_predictions)
-
         return {
-            "anomaly_scores": scores_array,
-            "predictions": predictions_array,
+            "anomaly_scores": np.concatenate(all_scores),
+            "predictions": np.concatenate(all_predictions),
             "n_results": len(self._results),
             "aggregation_method": self._method,
         }
-
-    def _majority_vote(self) -> dict[str, Any]:
-        """Majority voting for classification."""
-        return self._weighted_fusion()
-
-    def _average(self) -> dict[str, Any]:
-        """Simple averaging of scores."""
-        return self._weighted_fusion()
 
     def clear(self) -> None:
         """Clear all results."""
@@ -523,6 +525,7 @@ class DistributedAnomalyDetector:
                     node_id=node_id,
                     start_time=start_time,
                     end_time=time.time(),
+                    data_indices=task.data_indices,
                 )
             except Exception as e:
                 logger.error("Task %s failed: %s", task.task_id, e)
