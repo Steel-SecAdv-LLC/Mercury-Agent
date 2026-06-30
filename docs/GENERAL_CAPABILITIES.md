@@ -71,8 +71,9 @@ exception from a custom provider) is fail-closed to `[]` with the reason logged
 ## Ethics gate
 
 Every outward action passes a **fail-closed harm gate** built on Mercury's own
-`BenevolenceScorer` (the same scorer hardened in this PR with semantic harm
-matching and severity/reversibility). The gate refuses an action when detected
+`BenevolenceScorer` (the same scorer hardened in this PR with morphological +
+curated-euphemism harm matching, an optional pluggable semantic classifier, and
+severity/reversibility damping). The gate refuses an action when detected
 harm or severity crosses `GeneralAssistant.HARM_REFUSAL_THRESHOLD` (0.5).
 
 It gates on **detected harm**, not on a positive-benevolence floor: a benign,

@@ -34,11 +34,18 @@ if TYPE_CHECKING:
     from omni_mercury_engine.models.foundation.llm_usage import UsageLedger
     from omni_mercury_engine.models.llm_registry import LLMModelRegistry
 
+# Re-exported from the lightweight, dependency-free
+# :mod:`omni_mercury_engine.cognitive.harm_classifier` so it is importable
+# without the LLM/crypto stack, yet discoverable here next to the backends that
+# feed it.
+from omni_mercury_engine.cognitive.harm_classifier import reasoning_harm_classifier
+
 __all__ = [
     "LocalReasoningBackend",
     "MockReasoningBackend",
     "ReasoningBackendUnavailableError",
     "RemoteReasoningBackend",
+    "reasoning_harm_classifier",
     "select_reasoning_model",
 ]
 

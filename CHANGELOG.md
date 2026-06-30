@@ -81,10 +81,17 @@ invariant.
 **Detector gating.** Kinematic is gated behind a real Ljung-Box white-noise test
 (tightening only); optional per-component isotonic calibration (default-off).
 
-**Ethics gate.** Lightweight semantic (char-trigram) harm matching catches
-paraphrases; severity × irreversibility multiplicative damping (fail-closed);
+**Ethics gate.** Layered, fail-closed harm matching: exact-substring keywords,
+char-trigram **morphological** matching (catches inflection/spelling — *not*
+meaning, and no longer mislabeled "semantic"), a curated **euphemism/paraphrase
+lexicon** for meaning-level intent ("put him down", "make them disappear") tuned
+for high precision so it never over-blocks Mercury's own defensive language
+("kill the process", "neutralize the threat"), and an **optional pluggable harm
+classifier** (`BenevolenceScorer(harm_classifier=…)`) that can ride Mercury's own
+offline Ollama backend via `reasoning_harm_classifier(...)` — every layer can
+only RAISE harm. Severity × irreversibility multiplicative damping (fail-closed);
 calibratable weights in a `BenevolenceCalibration` dataclass; `RULESET_VERSION`
-bumped to 2.
+bumped to 3 (cache invalidation).
 
 **Honesty labels.** `bain_ai_scaling` power estimate, the ~82 uncomputed
 `global_omni_scalar_network` diagnostic scalars + its untrained attention,

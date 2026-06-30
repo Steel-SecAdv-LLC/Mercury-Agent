@@ -102,14 +102,110 @@ def _cosine(a: tuple[float, ...], b: tuple[float, ...]) -> float:
     return float(np.dot(av, bv) / (na * nb))
 
 
+# ---------------------------------------------------------------------------
+# Euphemism / paraphrase lexicon for lethal-and-grave harm intent.
+#
+# Char-trigram matching (below) catches *morphology* ("injuries" ~ "injury"),
+# NOT *meaning*: an adversary who writes "make them disappear" or "put him down"
+# instead of "kill" sails straight past it. This curated lexicon closes that gap
+# deterministically, with no model dependency, by matching the finite set of
+# euphemisms real harmful intent actually uses.
+#
+# Design constraint -- DO NOT false-positive on Mercury's own defensive/security
+# language. Bare verbs like "neutralize", "eliminate", "terminate", "kill" (as in
+# "kill the process" / "neutralize the threat") are legitimate defensive idioms,
+# so they are deliberately EXCLUDED here. Only entries that are unambiguous about
+# harm *to a person* are included: standalone lethal idioms, and verb phrases
+# pinned to a human object via :data:`_EUPHEMISM_OBJECT`. The lexicon is auditable
+# and version-pinned by ``ETHICAL.RULESET_VERSION``.
+# ---------------------------------------------------------------------------
+
+# Standalone idioms whose meaning is lethal/grave harm regardless of object.
+_EUPHEMISM_STANDALONE: tuple[str, ...] = (
+    "make them disappear",
+    "make him disappear",
+    "make her disappear",
+    "make it look like an accident",
+    "wet work",
+    "dispose of the body",
+    "sleep with the fishes",
+    "six feet under",
+    "put a hit on",
+    "take out a hit",
+    "contract killing",
+    "snuff out",
+    "off the witness",
+    "silence the witness",
+    "silence the journalist",
+    "ethnic cleansing",
+    "final solution",
+)
+
+# Human objects an attacker pins a euphemism to. Deliberately HIGH-PRECISION:
+# caregiving-ambiguous objects ("the kids", "the family") and generic nouns are
+# excluded so benign phrasings ("take care of the kids", "take out the trash")
+# never match. Only objects that make the verb phrase unambiguously about
+# harming a *specific* person are listed.
+_EUPHEMISM_OBJECT: tuple[str, ...] = (
+    "him",
+    "her",
+    "them",
+    "the witness",
+    "the witnesses",
+    "the target",
+    "the targets",
+    "the journalist",
+    "the prisoners",
+    "the hostages",
+    "everyone",
+    "these people",
+    "those people",
+)
+_OBJ = "|".join(re.escape(o) for o in _EUPHEMISM_OBJECT)
+
+# Separable particle verbs ("take X out" / "take out X", "put X down"): the
+# object may sit before OR after the particle. "deal with" / "take care of" are
+# intentionally absent -- they are too ambiguous (benevolent in "take care of the
+# patient") to carry harm evidence without a model.
+_PARTICLE_VERBS = "put|take|knock|bump|finish"
+_PARTICLES = "down|out|off"
+# Non-separable prepositional verbs ("get rid of X").
+_PREP_VERBS = "get rid of|do away with|dispose of"
+
+_EUPHEMISM_PATTERN = re.compile(
+    r"\b(?:(?:" + _PARTICLE_VERBS + r")\s+(?:(?:" + _OBJ + r")\s+(?:" + _PARTICLES + r")"
+    r"|(?:" + _PARTICLES + r")\s+(?:" + _OBJ + r"))"
+    r"|(?:" + _PREP_VERBS + r")\s+(?:" + _OBJ + r"))\b"
+)
+
+
+def _euphemism_harm_present(text: str) -> bool:
+    """True when ``text`` contains a curated lethal/grave-harm euphemism.
+
+    Deterministic, model-free paraphrase detection: it matches the standalone
+    idioms above and human-object-pinned (separable or prepositional) verb
+    phrases. This is genuine *meaning-level* harm evidence -- the layer the
+    char-trigram matcher cannot provide -- tuned for high precision (it must not
+    over-block Mercury's own defensive language), and fail-closed (it only ever
+    ADDS harm).
+    """
+    t = text.lower()
+    if any(phrase in t for phrase in _EUPHEMISM_STANDALONE):
+        return True
+    return bool(_EUPHEMISM_PATTERN.search(t))
+
+
 def _semantic_match_count(words: tuple[str, ...], keywords: list[str], threshold: float) -> int:
     """Count keywords with a strong char-trigram cosine to some word in ``words``.
 
-    A lightweight, numpy/stdlib-only stand-in for embedding similarity: it
-    catches morphological variants and near-spellings of the harm/benefit
-    keywords that the exact-substring scan misses, without any model dependency
-    or non-determinism. (It does not catch pure synonyms; that would require a
-    text-embedding model, which Mercury does not ship.)
+    NOTE: this is *morphological/lexical* matching, not semantic-by-meaning. It is
+    a numpy/stdlib-only stand-in that catches morphological variants and
+    near-spellings of the harm/benefit keywords the exact-substring scan misses
+    ("injuries" ~ "injury", "manipulative" ~ "manipulate"), with no model
+    dependency or non-determinism. It does NOT catch synonyms or euphemism
+    ("put him down" for "kill") -- that meaning-level evidence comes from the
+    curated :func:`_euphemism_harm_present` lexicon and the optional pluggable
+    harm classifier, not from here.
     """
     if not words or not keywords:
         return 0
@@ -400,9 +496,23 @@ class HarmReducer:
         HarmCategory.SOCIETAL: 0.8,
     }
 
-    def __init__(self) -> None:
-        """Initialize harm reducer."""
+    def __init__(self, harm_classifier: Any | None = None) -> None:
+        """Initialize harm reducer.
+
+        Args:
+            harm_classifier: Optional ``Callable[[str], float]`` returning a harm
+                probability in ``[0, 1]`` for a piece of text. This is the
+                meaning-level extension point -- a deployment can plug in a real
+                *semantic* classifier (e.g. one backed by Mercury's own local
+                Ollama reasoning backend, see
+                :func:`omni_mercury_engine.reasoning.backends.reasoning_harm_classifier`)
+                without this module taking a model dependency. It is fail-safe and
+                can only RAISE harm (combined by ``max``); an exception or a
+                lower score never lowers the deterministic lexical harm. Default
+                ``None`` keeps the scorer fully deterministic and model-free.
+        """
         self._evaluation_counter = 0
+        self._harm_classifier = harm_classifier
 
     def evaluate_harm(
         self,
@@ -410,6 +520,13 @@ class HarmReducer:
         context: dict[str, Any],
     ) -> tuple[float, dict[str, float]]:
         """Evaluate potential harm from an action.
+
+        Layers of evidence, fail-closed (each can only RAISE harm):
+        1. exact-substring keyword scan, per harm category;
+        2. char-trigram morphological match (catches spelling/inflection);
+        3. curated euphemism/paraphrase lexicon (meaning-level: "put him down");
+        4. an optional pluggable harm classifier (e.g. a local-model semantic
+           classifier), combined by ``max``.
 
         Args:
             action: Action to evaluate
@@ -424,9 +541,31 @@ class HarmReducer:
             harm_level = self._assess_category_harm(action, context, category)
             breakdown[category.value] = harm_level
 
+        combined = action.lower() + " " + str(context).lower()
+
+        # Euphemism/paraphrase evidence is unambiguous harm-to-person intent ->
+        # raise the gravest (PHYSICAL) category to near-max. Meaning-level, not
+        # spelling-level; fail-closed (max, never lowers).
+        if _euphemism_harm_present(combined):
+            breakdown[HarmCategory.PHYSICAL.value] = max(
+                breakdown[HarmCategory.PHYSICAL.value], 0.9
+            )
+
         weighted_sum = sum(breakdown[cat.value] * self.HARM_WEIGHTS[cat] for cat in HarmCategory)
         max_weighted = sum(self.HARM_WEIGHTS.values())
         overall_harm = weighted_sum / max_weighted
+
+        # Optional semantic classifier: can only RAISE the overall harm. If it
+        # errors we keep the deterministic lexical harm (never lower it for a
+        # classifier failure), so an unavailable model is not a safety regression.
+        if self._harm_classifier is not None:
+            try:
+                score = float(self._harm_classifier(combined))
+                overall_harm = max(overall_harm, min(max(score, 0.0), 1.0))
+            except Exception as exc:
+                logger.warning(
+                    "harm_classifier failed (%s); keeping deterministic lexical harm", exc
+                )
 
         return overall_harm, breakdown
 
@@ -875,7 +1014,9 @@ class BenevolenceScorer:
 
     BENEVOLENCE_THRESHOLD = 0.99
 
-    def __init__(self, benevolence_threshold: float = 0.99) -> None:
+    def __init__(
+        self, benevolence_threshold: float = 0.99, *, harm_classifier: Any | None = None
+    ) -> None:
         """Initialize benevolence scorer.
 
         Args:
@@ -885,12 +1026,17 @@ class BenevolenceScorer:
                 assignment to :attr:`benevolence_threshold` is also clamped
                 via the property setter — the floor cannot be lowered after
                 construction.
+            harm_classifier: Optional ``Callable[[str], float]`` forwarded to the
+                :class:`HarmReducer` -- a meaning-level harm classifier (e.g. one
+                backed by Mercury's local Ollama reasoning backend) that can only
+                RAISE harm. Default ``None`` keeps scoring deterministic and
+                model-free.
         """
         # Use the property setter so the floor is enforced consistently
         # whether the value is set in __init__ or reassigned later.
         self.benevolence_threshold = benevolence_threshold
 
-        self.harm_reducer = HarmReducer()
+        self.harm_reducer = HarmReducer(harm_classifier=harm_classifier)
         self.benefit_maximizer = BenefitMaximizer()
         self.equity_calculator = EquityCalculator()
         self.empathy_module = EmpathyModule()
