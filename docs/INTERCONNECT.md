@@ -8,8 +8,8 @@ side. MCP is the contract; Mercury ships the server.
 This is the universal path. If you are embedding Mercury in Python, the
 in-process API (`from omni_mercury_engine.agentic import MercuryAgent`) and the
 REST API (`mercury-agent serve`) are still there — but to let *another* AI system
-(Claude Desktop/Code, an IDE agent, an orchestrator) drive Mercury, use the MCP
-server.
+(an MCP-capable desktop assistant, an IDE agent, an orchestrator) drive Mercury,
+use the MCP server.
 
 ## Run it
 
@@ -25,8 +25,8 @@ transport. It is implemented with the Python **standard library only** (`json` +
 
 ## Connect any MCP client
 
-Point the client at the command. For a Claude Desktop / Claude Code style client
-config:
+Point the client at the command. A typical MCP client config (the standard
+`mcpServers` block most MCP clients accept) looks like:
 
 ```json
 {

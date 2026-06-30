@@ -1042,7 +1042,7 @@ def mcp() -> None:
 
     Exposes Mercury's capabilities -- anomaly detection, ethics scoring, web
     research, document generation, and confidence calibration -- as Model Context
-    Protocol tools, so ANY MCP client (Claude Desktop/Code or other agents) can
+    Protocol tools, so ANY MCP client (desktop assistants, IDE agents, etc.) can
     discover and run them. Speaks newline-delimited JSON-RPC 2.0 on stdin/stdout;
     standard-library only, no extra dependency.
 

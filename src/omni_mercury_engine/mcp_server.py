@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Mercury as an MCP server -- the universal interconnect.
 
-Any AI system that speaks the Model Context Protocol (Claude Desktop, Claude
-Code, and a growing list of agents/IDEs) can *link up to and run* Mercury through
-this server: it advertises Mercury's capabilities as discoverable, self-
+Any AI system that speaks the Model Context Protocol (MCP-capable desktop
+assistants, IDE agents, and orchestrators) can *link up to and run* Mercury
+through this server: it advertises Mercury's capabilities as discoverable, self-
 describing MCP tools and executes them on request. No Mercury-specific client,
 SDK, or glue code is required on the other side -- MCP is the contract.
 
