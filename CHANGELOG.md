@@ -116,6 +116,21 @@ provider-only posture). The self-hosted SearXNG rung pairs with the local Ollama
 reasoning backend for fully operator-owned, offline-leaning open-web research.
 The legacy singular `search_provider` hook still fully replaces the chain.
 
+**Universal interconnect (MCP server).** Mercury is now interconnectable: any AI
+system that speaks the Model Context Protocol can link up to and run it through
+`omni_mercury_engine.mcp_server` (`mercury-agent mcp`, or
+`python -m omni_mercury_engine.mcp_server`). It serves JSON-RPC 2.0 over stdio
+using the **standard library only** (no `mcp` package, no web framework, no new
+dependency) and advertises Mercury's capabilities as discoverable, self-
+describing MCP tools — `mercury_detect_anomaly`, `mercury_score_ethics`,
+`mercury_research`, `mercury_answer`, `mercury_write_document`,
+`mercury_calibrate_confidence` — whose `tools/list` payload doubles as a
+machine-readable capability manifest (`MercuryMCPServer.manifest()`). Every tool
+is honest and fail-closed: outward tools pass the benevolence gate, an
+unavailable backing stack returns an MCP `isError` result rather than a fabricated
+capability, and the server inherits Mercury's offline posture (self-hosted SearXNG
+search + local Ollama reasoning). See `docs/INTERCONNECT.md`.
+
 ### Subagent pantheon: a 33-member internal delegation fleet for Mercury Agent
 
 Mercury Agent becomes the AI centerpiece that hosts the combined agentic

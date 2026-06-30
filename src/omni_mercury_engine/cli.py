@@ -1037,6 +1037,25 @@ def serve(host: str, port: int, workers: int, reload: bool, log_level: str) -> N
 
 
 @main.command()
+def mcp() -> None:
+    """Run Mercury as an MCP server on stdio (the universal interconnect).
+
+    Exposes Mercury's capabilities -- anomaly detection, ethics scoring, web
+    research, document generation, and confidence calibration -- as Model Context
+    Protocol tools, so ANY MCP client (Claude Desktop/Code or other agents) can
+    discover and run them. Speaks newline-delimited JSON-RPC 2.0 on stdin/stdout;
+    standard-library only, no extra dependency.
+
+    Point an MCP client at this command, e.g. in a client config:
+
+        {"command": "mercury-agent", "args": ["mcp"]}
+    """
+    from omni_mercury_engine.mcp_server import MercuryMCPServer
+
+    MercuryMCPServer().serve_stdio()
+
+
+@main.command()
 @click.option(
     "--input-topic",
     "-i",
