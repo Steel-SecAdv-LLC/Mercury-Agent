@@ -19,6 +19,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+# Power-estimate coefficients. THESE ARE ILLUSTRATIVE, UNCALIBRATED round
+# numbers, NOT fitted to any hardware -- hoisted to named constants so their
+# heuristic status is visible and they are trivially tunable/replaceable by a
+# real per-(GPU, dtype) lookup table later. Use the estimate only for *relative*
+# comparison, never as an absolute power budget.
+BASE_POWER_W: float = 100.0  # fixed overhead
+PER_GIGAPARAM_W: float = 10.0  # per 1e9 parameters
+PER_BATCH_ITEM_W: float = 0.5  # per batch element
+PER_HUNDRED_TOKENS_W: float = 1.0  # per 100 tokens of sequence length
+
 
 @dataclass
 class ComputeResource:
@@ -82,7 +92,15 @@ class BainAIScaling:
     ) -> float:
         """Estimate power consumption for AI inference/training.
 
-        Based on typical power profiles from hyperscaler deployments.
+        .. warning::
+            **ORDER-OF-MAGNITUDE HEURISTIC, NOT CALIBRATED.** The coefficients
+            (:data:`BASE_POWER_W`, :data:`PER_GIGAPARAM_W`,
+            :data:`PER_BATCH_ITEM_W`, :data:`PER_HUNDRED_TOKENS_W`) are
+            illustrative round numbers, not fitted to any hardware or measured
+            hyperscaler profile. Use it only for *relative* comparison between
+            configurations, never as an absolute power budget. Back it with a
+            real per-(GPU model, dtype) lookup table before using it to drive
+            scheduling or cost decisions.
 
         Args:
             model_size: Number of parameters
@@ -90,12 +108,12 @@ class BainAIScaling:
             sequence_length: Sequence length for transformers
 
         Returns:
-            Estimated power consumption in watts
+            Estimated (uncalibrated) power consumption in watts.
         """
-        base_power = 100.0
-        model_power = model_size / 1e9 * 10.0
-        batch_power = batch_size * 0.5
-        sequence_power = sequence_length / 100.0
+        base_power = BASE_POWER_W
+        model_power = model_size / 1e9 * PER_GIGAPARAM_W
+        batch_power = batch_size * PER_BATCH_ITEM_W
+        sequence_power = sequence_length / 100.0 * PER_HUNDRED_TOKENS_W
 
         total_power = base_power + model_power + batch_power + sequence_power
         return min(total_power, self.max_power_watts)

@@ -245,3 +245,18 @@ promotion gate.
 
 See `docs/SELF_IMPROVEMENT_LOOP.md` for the full rollout narrative and
 the scope boundaries between implemented Phases 1–3 and deferred Phases 4–8.
+
+## 8. Honestly-labelled heuristics (interface claims tightened, not pruned)
+
+These modules expose interfaces whose docstrings previously implied empirical or
+algorithmic grounding they do not have. Per the anti-theater rule they are
+**retained** but their claims are now scoped in-code so no caller mistakes a
+heuristic for a measurement. None drives a safety-critical decision uncalibrated.
+
+| Module | Claim before | Reality (now labelled) |
+|---|---|---|
+| `scaling/bain_ai_scaling.py` `estimate_power_consumption` | "typical power profiles from hyperscaler deployments" | Uncalibrated order-of-magnitude heuristic; coefficients are named, illustrative constants (`BASE_POWER_W`, …). `_op_hyperion` now returns `calibrated: False`. Relative comparison only. |
+| `core/global_omni_scalar_network.py` (~82 ISO-25010/Halstead/DORA/SLSA/… scalars) | declared diagnostic scalars | Static placeholder weights, never computed (no collectors exist); filtered from every operational path. Kept for registration/reporting only. |
+| `core/global_omni_scalar_network.py` `MultiHeadAttentionFusion` | "32-head attention" learned fusion | Random-initialised, never trained, `no_grad` → fixed random projection + averaging; numpy phi-weighted average is the honest reference. One-time runtime warning added. |
+| `cognitive/hierarchical_planning.py` | Options/MAXQ/HAM/Feudal RL planner | Template-driven decomposition + greedy option selection; no search. `PlannerType` MAXQ/FEUDAL/HAM are reserved labels, not algorithms. |
+| `cognitive/multi_hop_reasoner.py` `abduce` | "Bayesian-like P(H\|O)" | Jaccard token-overlap ranking (`0.3 + 0.7*overlap`); deduction `_match_premises` is substring containment, not unification. Lexical heuristic, not inference. |

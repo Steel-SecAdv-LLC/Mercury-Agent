@@ -1244,9 +1244,17 @@ def _op_hyperion(agent: CoordinatorSubAgent, task: SubAgentTask) -> OperationRes
         output = {
             "operation": "scaling.BainAIScaling.estimate_power_consumption",
             "power_watts": power,
+            # The power/impact numbers are an uncalibrated order-of-magnitude
+            # heuristic (illustrative coefficients, no hardware curve), surfaced
+            # explicitly so a consumer never treats them as a real HPC budget.
+            "calibrated": False,
             "impact_keys": sorted(impact)[:8] if isinstance(impact, dict) else [],
         }
-        return output, 1.0, f"Hyperion_XXXII scheduled HPC budget: {power:.1f}W estimated"
+        return (
+            output,
+            1.0,
+            f"Hyperion_XXXII heuristic power estimate (uncalibrated): {power:.1f}W",
+        )
 
     data = payload.get("data")
     if data is None:
