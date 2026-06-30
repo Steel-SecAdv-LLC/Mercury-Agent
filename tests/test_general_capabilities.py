@@ -1,7 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Tests for Mercury's general-purpose capabilities: native web research,
-extractive synthesis, document generation, and the GeneralAssistant workflow.
+"""Tests for Mercury's general-purpose capabilities: native web research, extractive synthesis, document generation, and the GeneralAssistant workflow.
 
 All network is stubbed via an injected transport, so the suite is offline,
 deterministic, and exercises the real parsing/synthesis/rendering code paths.
@@ -42,7 +41,7 @@ Calibrated detectors report honest confidence. Conformal prediction gives covera
 """
 
 
-def _stub_transport(url: str, timeout: float):
+def _stub_transport(url: str, timeout: float) -> tuple[int, str, str]:
     if "duckduckgo.com/html" in url:
         return 200, _DDG_HTML, url
     if "quantum" in url:
@@ -57,7 +56,7 @@ def _online_researcher() -> WebResearcher:
 
 
 def _offline_researcher() -> WebResearcher:
-    def _dead(url: str, timeout: float):
+    def _dead(url: str, timeout: float) -> tuple[int, str, str]:
         raise OSError("offline (stub)")
 
     return WebResearcher(transport=_dead)
@@ -101,7 +100,7 @@ class TestWebResearcher:
             "</div></body></html>"
         )
 
-        def _t(url: str, timeout: float):
+        def _t(url: str, timeout: float) -> tuple[int, str, str]:
             if "duckduckgo.com/html" in url:
                 return 200, html, url
             raise OSError("unreachable")
@@ -117,7 +116,7 @@ class TestWebResearcher:
             "</table></body></html>"
         )
 
-        def _t(url: str, timeout: float):
+        def _t(url: str, timeout: float) -> tuple[int, str, str]:
             if "html.duckduckgo.com" in url:
                 return 503, "challenge", url  # html endpoint blocked
             if "lite.duckduckgo.com" in url:
@@ -130,11 +129,11 @@ class TestWebResearcher:
     def test_search_uses_injected_provider(self) -> None:
         calls: list[str] = []
 
-        def _provider(query: str, max_results: int):
+        def _provider(query: str, max_results: int) -> list[SearchResult]:
             calls.append(query)
             return [SearchResult(title="Custom", url="https://example.org/custom")]
 
-        def _t(url: str, timeout: float):  # must never be called
+        def _t(url: str, timeout: float) -> tuple[int, str, str]:  # must never be called
             raise AssertionError("built-in DDG path should not run")
 
         r = WebResearcher(transport=_t, search_provider=_provider)
@@ -143,7 +142,7 @@ class TestWebResearcher:
         assert hits[0].url == "https://example.org/custom"
 
     def test_search_provider_exception_is_failclosed(self) -> None:
-        def _provider(query: str, max_results: int):
+        def _provider(query: str, max_results: int) -> list[SearchResult]:
             raise RuntimeError("provider boom")
 
         r = WebResearcher(search_provider=_provider)

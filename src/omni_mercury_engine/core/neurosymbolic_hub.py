@@ -671,6 +671,11 @@ class NeuroSymbolicHub:
             enable_domain_features: Enable domain-specific feature extraction
             enable_adaptive_thresholding: Enable adaptive per-domain thresholding
             enable_gosnn_3r: Enable GOSNN-3R bidirectional integration
+            enable_symbolic_veto: Allow an agreeing high-confidence hard rule to
+                override a low neural score (monotone "must-alert"; never bypasses
+                the gates)
+            veto_confidence: Minimum fired-hard-rule confidence that triggers the
+                symbolic veto
         """
         self.input_dim = input_dim
         self.fusion_mode = fusion_mode

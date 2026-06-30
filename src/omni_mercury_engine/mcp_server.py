@@ -101,6 +101,7 @@ class MercuryMCPServer:
         benevolence_scorer: Any | None = None,
         assistant: Any | None = None,
     ) -> None:
+        """Initialize the server; capabilities are injectable for testing."""
         self._scorer = benevolence_scorer
         self._assistant = assistant
         self._initialized = False
@@ -375,7 +376,7 @@ class MercuryMCPServer:
     # -- public surfaces ---------------------------------------------------
 
     def manifest(self) -> list[dict[str, Any]]:
-        """Machine-readable capability manifest (the ``tools/list`` payload)."""
+        """Return the ``tools/list`` payload -- a machine-readable capability list."""
         return [spec.advertise() for spec in self._tools.values()]
 
     def call_tool(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:

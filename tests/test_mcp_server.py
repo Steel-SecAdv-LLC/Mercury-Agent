@@ -4,16 +4,21 @@
 
 Drives the server with crafted JSON-RPC 2.0 messages (the same wire an MCP client
 speaks) and asserts the protocol handshake, tool discovery, tool execution, and
-fail-closed/honest behaviour, all offline."""
+fail-closed/honest behaviour, all offline.
+"""
 
 from __future__ import annotations
 
 import io
 import json
+from typing import TYPE_CHECKING
 
 import numpy as np
 
 from omni_mercury_engine.agentic.capabilities.web_research import SearchResult, WebResearcher
+
+if TYPE_CHECKING:
+    from typing import Any
 from omni_mercury_engine.mcp_server import PROTOCOL_VERSION, MercuryMCPServer
 
 
@@ -106,7 +111,7 @@ class TestToolDiscovery:
         assert manifest == listed["result"]["tools"]
 
 
-def _call(server: MercuryMCPServer, name: str, arguments: dict) -> dict:
+def _call(server: MercuryMCPServer, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     resp = server.handle_message(
         {
             "jsonrpc": "2.0",
@@ -116,7 +121,9 @@ def _call(server: MercuryMCPServer, name: str, arguments: dict) -> dict:
         }
     )
     assert resp is not None
-    return resp["result"]
+    result = resp["result"]
+    assert isinstance(result, dict)
+    return result
 
 
 class TestToolCalls:

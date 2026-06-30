@@ -21,7 +21,7 @@ from omni_mercury_engine._compat import HAS_TORCH
 pytestmark = pytest.mark.skipif(not HAS_TORCH, reason="fleet deep-detection needs torch ([ml])")
 
 
-def _data_with_outliers(seed: int = 0):
+def _data_with_outliers(seed: int = 0) -> tuple[np.ndarray, np.ndarray]:
     rng = np.random.default_rng(seed)
     train = rng.normal(0, 1, (200, 6))
     X = rng.normal(0, 1, (40, 6))

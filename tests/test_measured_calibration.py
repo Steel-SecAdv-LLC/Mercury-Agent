@@ -64,7 +64,7 @@ class _FakeCalibrator:
 
 class TestDeciderCalibratorRouting:
     @staticmethod
-    def _uncalibrated_positive_result() -> dict:
+    def _uncalibrated_positive_result() -> dict[str, float | bool]:
         # No conformal certificate -> the threshold-band fallback path.
         return {"anomaly_prob": 0.95, "threshold_used": 0.5, "is_anomaly": True, "severity": 0.6}
 

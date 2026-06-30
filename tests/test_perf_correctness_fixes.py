@@ -9,11 +9,16 @@ ordering, and the fail-loud-on-unfit engine guard.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import numpy as np
 import pytest
 
 from omni_mercury_engine import crypto
 from omni_mercury_engine.detectors.statistical import _sliding_backmax
+
+if TYPE_CHECKING:
+    from typing import Any
 
 
 class TestBlake3Hoist:
@@ -21,7 +26,9 @@ class TestBlake3Hoist:
         # Module-level detection booleans exist (no per-call import).
         assert hasattr(crypto, "_BLAKE3_AVAILABLE")
 
-    def test_blake3_hash_is_32_bytes_and_no_per_call_import(self, monkeypatch) -> None:
+    def test_blake3_hash_is_32_bytes_and_no_per_call_import(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         import builtins
 
         digest = crypto.hash_data(b"mercury", "blake3")
@@ -91,19 +98,19 @@ class TestResidualFilterCache:
         rng = np.random.default_rng(0)
         scores = np.clip(rng.random(128), 0, 1)
         uncached = MercuryAnomalyDetector._residual_frequency_filter(scores)
-        cache: dict = {}
+        cache: dict[Any, Any] = {}
         first = MercuryAnomalyDetector._residual_frequency_filter(scores, cache=cache)
         second = MercuryAnomalyDetector._residual_frequency_filter(scores, cache=cache)
         assert np.array_equal(first, second)
         assert np.allclose(uncached, first)
         assert len(cache) == 1  # second call was a hit, not a new entry
 
-    def test_cache_avoids_rfft_on_hit(self, monkeypatch) -> None:
+    def test_cache_avoids_rfft_on_hit(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from omni_mercury_engine.detectors import statistical
 
         rng = np.random.default_rng(1)
         scores = np.clip(rng.random(128), 0, 1)
-        cache: dict = {}
+        cache: dict[Any, Any] = {}
         statistical.MercuryAnomalyDetector._residual_frequency_filter(scores, cache=cache)
 
         calls = {"n": 0}

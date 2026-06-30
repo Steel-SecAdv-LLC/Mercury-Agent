@@ -94,8 +94,8 @@ class TestCalibratedConfidence:
 
         s, y = _miscalibrated_data()
         cc = CalibratedConfidence(seed=0)
-        cc.fit(s, y)
-        json.dumps(cc.report.to_dict())  # must not raise
+        report = cc.fit(s, y)
+        json.dumps(report.to_dict())  # must not raise
 
 
 class TestCrossValidatedHonesty:

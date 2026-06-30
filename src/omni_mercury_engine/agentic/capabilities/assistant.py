@@ -78,6 +78,7 @@ class GeneralAssistant:
         doc_generator: DocumentGenerator | None = None,
         benevolence_scorer: Any | None = None,
     ) -> None:
+        """Wire the researcher, synthesizer, document generator, and ethics gate."""
         # Default to the env-configured provider ladder (keyed engine / keyless
         # self-hosted SearXNG first, DuckDuckGo scrape only as fallback) rather
         # than a bare DDG scrape -- the provider-first posture, configurable

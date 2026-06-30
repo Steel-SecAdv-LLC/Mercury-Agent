@@ -1,10 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Tests for the Ljung-Box temporal-structure gate + per-component calibration
-(issue #6). The Kinematic component assumes temporal ordering; gate it behind a
-real white-noise-null significance test (not just a magnitude heuristic), and
-calibrate each component to [0,1] via isotonic on a labeled holdout.
-"""
+"""Tests for the Ljung-Box temporal-structure gate + per-component calibration (issue #6). The Kinematic component assumes temporal ordering; gate it behind a real white-noise-null significance test (not just a magnitude heuristic), and calibrate each component to [0,1] via isotonic on a labeled holdout."""
 
 from __future__ import annotations
 
@@ -67,7 +63,7 @@ class TestTemporalGate:
 
 
 class TestComponentCalibration:
-    def _labeled_data(self, seed: int = 0):
+    def _labeled_data(self, seed: int = 0) -> tuple[np.ndarray, np.ndarray]:
         rng = np.random.default_rng(seed)
         normal = rng.normal(0, 1, (200, 5))
         anom = rng.normal(0, 1, (40, 5)) + 6.0

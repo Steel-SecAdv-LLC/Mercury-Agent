@@ -1,10 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Tests for the meaning-level harm layers added on top of the char-trigram
-(morphological) matcher: a curated euphemism/paraphrase lexicon and an optional
-pluggable harm classifier. Both are strictly fail-closed (can only RAISE harm),
-and the euphemism lexicon must NOT false-positive on Mercury's own defensive
-security language."""
+"""Tests for the meaning-level harm layers added on top of the char-trigram (morphological) matcher: a curated euphemism/paraphrase lexicon and an optional pluggable harm classifier. Both are strictly fail-closed (can only RAISE harm), and the euphemism lexicon must NOT false-positive on Mercury's own defensive security language."""
 
 from __future__ import annotations
 

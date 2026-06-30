@@ -1,8 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Tests for the search provider ladder: provider-first resolution with the
-keyless DuckDuckGo scrape demoted to an explicit best-effort fallback, plus the
-keyless SearXNG and keyed Brave provider factories and env-driven wiring."""
+"""Tests for the search provider ladder: provider-first resolution with the keyless DuckDuckGo scrape demoted to an explicit best-effort fallback, plus the keyless SearXNG and keyed Brave provider factories and env-driven wiring."""
 
 from __future__ import annotations
 

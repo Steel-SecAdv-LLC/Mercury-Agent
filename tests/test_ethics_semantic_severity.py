@@ -1,8 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Tests for the ethics-gate hardening (issue #7): lightweight semantic harm
-matching + severity/reversibility damping, calibratable, and strictly
-fail-closed (new features can only LOWER benevolence / RAISE harm)."""
+"""Tests for the ethics-gate hardening (issue #7): lightweight semantic harm matching + severity/reversibility damping, calibratable, and strictly fail-closed (new features can only LOWER benevolence / RAISE harm)."""
 
 from __future__ import annotations
 

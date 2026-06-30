@@ -1,9 +1,10 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Tests for the symbolic veto / conjunctive fusion / disagreement learning and
-the removal of the fake Lyapunov damping (issue #5)."""
+"""Tests for the symbolic veto / conjunctive fusion / disagreement learning and the removal of the fake Lyapunov damping (issue #5)."""
 
 from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -11,6 +12,9 @@ from omni_mercury_engine.core.neurosymbolic_hub import (
     FusionMode,
     NeuroSymbolicHub,
 )
+
+if TYPE_CHECKING:
+    import pytest
 
 
 class TestSymbolicEvidenceNoisyOr:
@@ -104,7 +108,7 @@ class TestMetaFeaturesAndOutcomeLearning:
             assert hub.update_from_outcome(0.5, 0.5, 1, refit_every=32) is False
 
 
-def _bypass_gates(hub, monkeypatch) -> None:
+def _bypass_gates(hub: NeuroSymbolicHub, monkeypatch: pytest.MonkeyPatch) -> None:
     """Mock the σ_Immutable gate (its PQC enforce is heavy) and drop the
     benevolence floor so predict() exercises the *detection* paths -- matching
     the established pattern in tests/ethical/test_hard_enforcement.py."""
@@ -121,7 +125,7 @@ def _bypass_gates(hub, monkeypatch) -> None:
 
 
 class TestVetoOverridesNeural:
-    def test_hard_rule_forces_anomaly_on_low_neural(self, monkeypatch) -> None:
+    def test_hard_rule_forces_anomaly_on_low_neural(self, monkeypatch: pytest.MonkeyPatch) -> None:
         hub = NeuroSymbolicHub(
             input_dim=8,
             seed=0,
@@ -138,7 +142,7 @@ class TestVetoOverridesNeural:
         assert "threat_detected" in o.rules_fired
         assert any("symbolic veto" in e for e in o.explanations)
 
-    def test_veto_disabled_does_not_force(self, monkeypatch) -> None:
+    def test_veto_disabled_does_not_force(self, monkeypatch: pytest.MonkeyPatch) -> None:
         hub = NeuroSymbolicHub(
             input_dim=8,
             seed=0,
@@ -154,7 +158,7 @@ class TestVetoOverridesNeural:
         # conjunctive/neural fusion to a forced high-confidence anomaly.
         assert out[0].anomaly_score < 0.9
 
-    def test_malformed_hard_rule_keeps_score_bounded(self, monkeypatch) -> None:
+    def test_malformed_hard_rule_keeps_score_bounded(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from omni_mercury_engine.core.neurosymbolic_hub import SymbolicRule
 
         hub = NeuroSymbolicHub(

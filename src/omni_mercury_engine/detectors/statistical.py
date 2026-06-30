@@ -139,8 +139,7 @@ _MULTISCALE_TTA_SCALES: tuple[float, ...] = (0.8, 0.9, 1.0, 1.1, 1.25)
 def _sliding_backmax(
     values: np.ndarray[Any, Any], n_samples: int, window: int
 ) -> np.ndarray[Any, Any]:
-    """Spread a per-derivative score back to per-sample indices via a backward
-    sliding max.
+    """Spread a per-derivative score back to per-sample indices (backward sliding max).
 
     Returns ``out`` of length ``n_samples`` where
     ``out[i] = max(base[i-window+1 .. i])`` and ``base`` is ``values``

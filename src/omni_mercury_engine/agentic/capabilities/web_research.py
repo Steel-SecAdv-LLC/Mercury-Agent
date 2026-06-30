@@ -2,10 +2,17 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Native web research: fetch URLs, extract readable text, best-effort search.
 
-Pure standard library (``urllib`` + ``html.parser`` + ``ssl``) -- no third-party
-HTTP client, no scraping framework, no language model. The transport is
-injectable so the behaviour is fully testable offline; in production the default
-transport honours the environment's proxy and TLS configuration.
+HTML parsing and extraction are pure standard library (``html.parser``); no
+scraping framework and no language model. All outbound HTTP is routed through
+Mercury's :class:`~omni_mercury_engine.security.safe_http.SafeHTTPClient` -- the
+single sanctioned, **SSRF-guarded** egress path (it validates the URL, resolves
+and re-checks the IP to refuse private/link-local/IMDS targets, pins the
+connection to the validated IP against DNS-rebinding, and refuses redirects).
+This matters because search results are *untrusted* URLs: a hostile result that
+points at ``http://169.254.169.254/`` (cloud metadata) or an internal host must
+never be fetched. The transport is injectable so the behaviour is fully testable
+offline; in production the default transport honours the environment's proxy and
+TLS configuration via ``requests``.
 
 **Search backend -- a provider ladder, not a single scrape.** Search is a
 *ranked ladder of providers*, tried in order, each fail-closed. The recommended
@@ -44,7 +51,6 @@ import logging
 import re
 import urllib.error
 import urllib.parse
-import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
@@ -174,23 +180,35 @@ class _DdgResultParser(HTMLParser):
             self._text = []
 
 
-def _urllib_transport(url: str, timeout: float) -> tuple[int, str, str]:
-    """Default transport: a plain GET via urllib, honouring env proxies/TLS.
+def _host_is_loopback_literal(url: str) -> bool:
+    """True when ``url``'s host is a loopback literal (localhost / 127.x / ::1)."""
+    host = (urllib.parse.urlparse(url).hostname or "").lower()
+    return host in {"localhost", "127.0.0.1", "::1"} or host.startswith("127.")
 
-    ``urllib`` reads ``HTTPS_PROXY`` / ``HTTP_PROXY`` from the environment by
-    default and uses the system trust store, so the managed proxy + CA bundle in
-    the deployment environment are respected without extra configuration.
+
+def _safe_http_transport(url: str, timeout: float) -> tuple[int, str, str]:
+    """Default transport: a validated GET via Mercury's SSRF-guarded SafeHTTPClient.
+
+    The open web is *untrusted*, so this uses the default (strict) SSRF policy --
+    private/link-local/IMDS/loopback targets are refused. ``allow_http=True``
+    because the open web includes plain-``http``: pages (the scheme is still
+    IP-gated). Body is bounded to ``_DEFAULT_MAX_BYTES``; ``requests`` honours
+    ``HTTPS_PROXY``/``HTTP_PROXY`` and the system trust store.
     """
-    # The scheme is guarded to http/https in WebResearcher.fetch before any
-    # transport call, so urllib never opens a file:// or other local URL
-    # (ruff S310 is suppressed for this module via per-file-ignores).
-    req = urllib.request.Request(url, headers={"User-Agent": _DEFAULT_USER_AGENT})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        raw = resp.read(_DEFAULT_MAX_BYTES)
-        charset = resp.headers.get_content_charset() or "utf-8"
-        status = getattr(resp, "status", 200) or 200
-        final_url = resp.geturl()
-    return int(status), raw.decode(charset, errors="replace"), final_url
+    from omni_mercury_engine.security.safe_http import SafeHTTPClient
+
+    with SafeHTTPClient.get(
+        url,
+        headers={"User-Agent": _DEFAULT_USER_AGENT},
+        timeout=timeout,
+        allow_http=True,
+        stream=True,
+    ) as resp:
+        status = int(resp.status_code)
+        raw = resp.raw.read(_DEFAULT_MAX_BYTES, decode_content=True) or b""
+        charset = resp.encoding or "utf-8"
+        final_url = resp.url or url
+    return status, raw.decode(charset, errors="replace"), final_url
 
 
 @dataclass
@@ -199,8 +217,8 @@ class WebResearcher:
 
     Args:
         transport: Injectable ``(url, timeout) -> (status, body, final_url)``.
-            Defaults to a urllib GET. Tests pass a stub to stay offline/
-            deterministic.
+            Defaults to an SSRF-guarded SafeHTTPClient GET. Tests pass a stub to
+            stay offline/deterministic.
         timeout: Per-request timeout in seconds.
         allowed_schemes: URL schemes permitted (default http/https). Anything
             else is refused fail-closed (no file://, no ftp://).
@@ -218,7 +236,7 @@ class WebResearcher:
             prefer ``search_providers`` for new code.
     """
 
-    transport: Transport = _urllib_transport
+    transport: Transport = _safe_http_transport
     timeout: float = 10.0
     allowed_schemes: frozenset[str] = field(default_factory=lambda: frozenset({"http", "https"}))
     search_provider: SearchProvider | None = None
@@ -404,8 +422,8 @@ class WebResearcher:
 # Built-in search providers (the recommended rungs of the ladder). Each is a
 # factory returning a ``SearchProvider`` -- a ``(query, max_results) ->
 # [SearchResult]`` callable -- and is fail-closed (any error yields ``[]`` so the
-# ladder moves to the next rung). Both stay stdlib-only and accept an injectable
-# ``opener`` so they are testable offline.
+# ladder moves to the next rung). Both route HTTP through the SSRF-guarded
+# SafeHTTPClient and accept an injectable ``opener`` so they are testable offline.
 # ---------------------------------------------------------------------------
 
 # An opener maps a (url, headers) GET to the decoded response body. Injectable so
@@ -414,16 +432,31 @@ JsonOpener = Callable[[str, "dict[str, str]"], str]
 
 
 def _default_json_opener(url: str, headers: dict[str, str]) -> str:
-    """Stdlib GET returning the decoded body, honouring env proxies/TLS."""
+    """Operator-trusted JSON GET (SearXNG / keyed engine) via SafeHTTPClient.
+
+    The search-provider endpoints are *operator-configured* (the deployer set
+    ``MERCURY_SEARXNG_URL`` / supplied the key), so this trusts the operator's
+    own infrastructure: a localhost SearXNG is reached via ``loopback_only``, a
+    LAN host via ``allow_private`` -- while still going through the SSRF-guarded
+    SafeHTTPClient (no raw ``urlopen``), which refuses redirects and re-checks
+    the resolved IP. A public endpoint (a keyed cloud engine) uses neither flag.
+    """
+    from omni_mercury_engine.security.safe_http import SafeHTTPClient
+
     merged = {"User-Agent": _DEFAULT_USER_AGENT, "Accept": "application/json"}
     merged.update(headers)
-    # http/https only -- callers build the URL from a trusted base/template.
-    req = urllib.request.Request(url, headers=merged)
-    with urllib.request.urlopen(req, timeout=15.0) as resp:
-        raw = resp.read(_DEFAULT_MAX_BYTES)
-        charset = resp.headers.get_content_charset() or "utf-8"
-    body: str = raw.decode(charset, errors="replace")
-    return body
+    kwargs: dict[str, Any] = {
+        "headers": merged,
+        "timeout": 15.0,
+        "allow_http": True,
+        "user_configured": True,
+    }
+    if _host_is_loopback_literal(url):
+        kwargs["loopback_only"] = True
+    else:
+        # Permits a LAN-hosted SearXNG; a public host is unaffected (not private).
+        kwargs["allow_private"] = True
+    return SafeHTTPClient.get_text(url, **kwargs)
 
 
 def searxng_provider(
