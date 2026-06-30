@@ -3022,7 +3022,10 @@ class OmniMercuryEngine(LoggerMixin):
         logger.info(
             "Online drift recalibration enabled (target_coverage=%.2f, lr=%.3f, "
             "initial_threshold=%.3f, warmup=%d)",
-            target_coverage, learning_rate, initial_threshold, self._recalibration_warmup,
+            target_coverage,
+            learning_rate,
+            initial_threshold,
+            self._recalibration_warmup,
         )
 
     def enable_reasoning(

@@ -131,10 +131,24 @@ def _semantic_match_count(words: tuple[str, ...], keywords: list[str], threshold
 # reversible one. Used (with context overrides, fail-closed) by the severity x
 # irreversibility damping in the benevolence calculation.
 _IRREVERSIBLE_KEYWORDS = (
-    "destroy", "permanent", "death", "irreversible", "delete", "wipe", "kill", "erase", "fatal"
+    "destroy",
+    "permanent",
+    "death",
+    "irreversible",
+    "delete",
+    "wipe",
+    "kill",
+    "erase",
+    "fatal",
 )
 _REVERSIBLE_KEYWORDS = (
-    "temporary", "undo", "restore", "rollback", "reversible", "recover", "revert"
+    "temporary",
+    "undo",
+    "restore",
+    "rollback",
+    "reversible",
+    "recover",
+    "revert",
 )
 
 # ---------------------------------------------------------------------------

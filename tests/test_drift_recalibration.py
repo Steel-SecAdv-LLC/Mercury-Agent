@@ -16,7 +16,9 @@ from omni_mercury_engine.core.conformal_prediction import AdaptiveConformalInfer
 
 class TestAdaptiveConformalUpdate:
     def test_uncovered_raises_threshold(self) -> None:
-        aci = AdaptiveConformalInference(target_coverage=0.9, learning_rate=0.1, initial_threshold=0.5)
+        aci = AdaptiveConformalInference(
+            target_coverage=0.9, learning_rate=0.1, initial_threshold=0.5
+        )
         t0 = aci.get_current_threshold()
         # score above threshold -> not covered -> threshold rises
         new_t, covered = aci.update(0.9)
@@ -24,14 +26,18 @@ class TestAdaptiveConformalUpdate:
         assert new_t > t0
 
     def test_covered_lowers_threshold(self) -> None:
-        aci = AdaptiveConformalInference(target_coverage=0.9, learning_rate=0.1, initial_threshold=0.5)
+        aci = AdaptiveConformalInference(
+            target_coverage=0.9, learning_rate=0.1, initial_threshold=0.5
+        )
         t0 = aci.get_current_threshold()
         new_t, covered = aci.update(0.1)  # below threshold -> covered
         assert covered is True
         assert new_t <= t0
 
     def test_threshold_tracks_score_quantile_under_drift(self) -> None:
-        aci = AdaptiveConformalInference(target_coverage=0.8, learning_rate=0.05, initial_threshold=0.5)
+        aci = AdaptiveConformalInference(
+            target_coverage=0.8, learning_rate=0.05, initial_threshold=0.5
+        )
         rng = np.random.default_rng(0)
         # Stream from a shifted-up distribution; threshold should climb to track
         # the ~80th percentile of the new score regime.

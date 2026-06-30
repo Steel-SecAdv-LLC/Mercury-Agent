@@ -277,8 +277,8 @@ def split_three_way(
 
     def _carve(order: np.ndarray[Any, Any]) -> tuple[Any, Any, Any]:
         m = len(order)
-        n_test = int(round(m * test_frac))
-        n_val = int(round(m * val_frac))
+        n_test = round(m * test_frac)
+        n_val = round(m * val_frac)
         n_train = m - n_val - n_test
         return order[:n_train], order[n_train : n_train + n_val], order[n_train + n_val :]
 
@@ -684,15 +684,15 @@ def evaluate_anomaly_detection_split(
             "evaluation. Reported metrics are an optimistic upper bound.",
             n,
         )
-        return evaluate_anomaly_detection(y_true, y_score, threshold=threshold, is_timeseries=is_timeseries)
+        return evaluate_anomaly_detection(
+            y_true, y_score, threshold=threshold, is_timeseries=is_timeseries
+        )
 
     tuned_threshold = (
         threshold if threshold is not None else fit_threshold(y_true[val_idx], y_score[val_idx])
     )
     # Honest "best F1": the val-tuned threshold scored on the validation split.
-    val_f1 = compute_f1(
-        y_true[val_idx], (y_score[val_idx] >= tuned_threshold).astype(int)
-    )
+    val_f1 = compute_f1(y_true[val_idx], (y_score[val_idx] >= tuned_threshold).astype(int))
 
     yt = y_true[test_idx]
     ys = y_score[test_idx]

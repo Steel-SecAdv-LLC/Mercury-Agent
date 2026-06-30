@@ -23,13 +23,113 @@ import numpy as np
 
 # A compact English stopword list (stdlib-only; no nltk dependency).
 _STOPWORDS = frozenset(
-    """
-    a an the and or but if then else for to of in on at by with from as is are was were be been being
-    this that these those it its their his her our your my we you they he she them us i me do does did
-    has have had will would shall should can could may might must not no nor so than too very just
-    about into over under again further once here there when where why how all any both each few more
-    most other some such only own same s t don now also which who whom what
-    """.split()
+    [
+        "a",
+        "an",
+        "the",
+        "and",
+        "or",
+        "but",
+        "if",
+        "then",
+        "else",
+        "for",
+        "to",
+        "of",
+        "in",
+        "on",
+        "at",
+        "by",
+        "with",
+        "from",
+        "as",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "being",
+        "this",
+        "that",
+        "these",
+        "those",
+        "it",
+        "its",
+        "their",
+        "his",
+        "her",
+        "our",
+        "your",
+        "my",
+        "we",
+        "you",
+        "they",
+        "he",
+        "she",
+        "them",
+        "us",
+        "i",
+        "me",
+        "do",
+        "does",
+        "did",
+        "has",
+        "have",
+        "had",
+        "will",
+        "would",
+        "shall",
+        "should",
+        "can",
+        "could",
+        "may",
+        "might",
+        "must",
+        "not",
+        "no",
+        "nor",
+        "so",
+        "than",
+        "too",
+        "very",
+        "just",
+        "about",
+        "into",
+        "over",
+        "under",
+        "again",
+        "further",
+        "once",
+        "here",
+        "there",
+        "when",
+        "where",
+        "why",
+        "how",
+        "all",
+        "any",
+        "both",
+        "each",
+        "few",
+        "more",
+        "most",
+        "other",
+        "some",
+        "such",
+        "only",
+        "own",
+        "same",
+        "s",
+        "t",
+        "don",
+        "now",
+        "also",
+        "which",
+        "who",
+        "whom",
+        "what",
+    ]
 )
 
 _SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+(?=[A-Z0-9])")
@@ -101,9 +201,7 @@ class ExtractiveSynthesizer:
         top_idx = sorted(np.argsort(scores)[-max_sentences:].tolist())
         return " ".join(sentences[i] for i in top_idx)
 
-    def summarize_sources(
-        self, sources: list[tuple[str, str]], max_sentences: int = 6
-    ) -> str:
+    def summarize_sources(self, sources: list[tuple[str, str]], max_sentences: int = 6) -> str:
         """Summarize across multiple ``(label, text)`` sources into one digest.
 
         Sentences are pooled across sources (longer sources naturally

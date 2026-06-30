@@ -930,7 +930,8 @@ class MercuryAgent:
 
     def answer(self, question: str, *, max_sources: int = 3) -> str:
         """Answer a question with sentences extracted (verbatim) from web sources."""
-        return self.enable_assistant().answer(question, max_sources=max_sources)
+        result: str = self.enable_assistant().answer(question, max_sources=max_sources)
+        return result
 
     def write_document(
         self,

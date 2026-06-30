@@ -73,11 +73,11 @@ __all__ = [
     "evaluate_anomaly_detection",
     "evaluate_anomaly_detection_split",
     "fit_threshold",
-    "split_three_way",
     "get_baseline_citations",
     "get_sota_for_dataset",
     "list_available_datasets",
     "print_baseline_table",
     "print_metrics_report",
     "run_diagnostic_benchmark",
+    "split_three_way",
 ]

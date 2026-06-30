@@ -43,13 +43,15 @@ class TestHierarchicalPlannerScoped:
 
         # Members still exist (public API) but are documented as cosmetic.
         assert {p.name for p in PlannerType} >= {"OPTIONS", "MAXQ", "FEUDAL", "HAM"}
-        assert "RESERVED" in (PlannerType.__doc__ or "") or "cosmetic" in (PlannerType.__doc__ or "")
+        assert "RESERVED" in (PlannerType.__doc__ or "") or "cosmetic" in (
+            PlannerType.__doc__ or ""
+        )
 
     def test_generic_subgoals_are_a_fixed_template(self) -> None:
         from omni_mercury_engine.cognitive.hierarchical_planning import (
             AbstractionLevel,
-            GoalDecomposer,
             Goal,
+            GoalDecomposer,
         )
 
         dec = GoalDecomposer()
@@ -74,9 +76,7 @@ class TestAbductionIsLexical:
 
         r = MultiHopReasoner()
         obs = Proposition(prop_id="o", content="server cpu spike and memory leak", truth_value=1.0)
-        overlapping = Proposition(
-            prop_id="h1", content="memory leak in server", truth_value=1.0
-        )
+        overlapping = Proposition(prop_id="h1", content="memory leak in server", truth_value=1.0)
         disjoint = Proposition(prop_id="h2", content="weather is sunny today", truth_value=1.0)
         lk_overlap = r._compute_likelihood(obs, overlapping)
         lk_disjoint = r._compute_likelihood(obs, disjoint)

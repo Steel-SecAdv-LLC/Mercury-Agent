@@ -65,7 +65,6 @@ class SearchResult:
     snippet: str = ""
 
 
-@dataclass
 class _TextExtractor(HTMLParser):
     """Collect visible text from HTML, skipping script/style/etc."""
 
@@ -74,15 +73,15 @@ class _TextExtractor(HTMLParser):
         self._chunks: list[str] = []
         self._skip_depth = 0
 
-    def handle_starttag(self, tag: str, attrs: list) -> None:  # type: ignore[override]
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag in _SKIP_TAGS:
             self._skip_depth += 1
 
-    def handle_endtag(self, tag: str) -> None:  # type: ignore[override]
+    def handle_endtag(self, tag: str) -> None:
         if tag in _SKIP_TAGS and self._skip_depth > 0:
             self._skip_depth -= 1
 
-    def handle_data(self, data: str) -> None:  # type: ignore[override]
+    def handle_data(self, data: str) -> None:
         if self._skip_depth == 0:
             text = data.strip()
             if text:
@@ -101,20 +100,20 @@ class _LinkExtractor(HTMLParser):
         self._href: str | None = None
         self._text: list[str] = []
 
-    def handle_starttag(self, tag: str, attrs: list) -> None:  # type: ignore[override]
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag == "a":
             href = dict(attrs).get("href")
             if href:
                 self._href = href
                 self._text = []
 
-    def handle_data(self, data: str) -> None:  # type: ignore[override]
+    def handle_data(self, data: str) -> None:
         if self._href is not None:
             t = data.strip()
             if t:
                 self._text.append(t)
 
-    def handle_endtag(self, tag: str) -> None:  # type: ignore[override]
+    def handle_endtag(self, tag: str) -> None:
         if tag == "a" and self._href is not None:
             self.links.append((self._href, " ".join(self._text).strip()))
             self._href = None
@@ -128,8 +127,11 @@ def _urllib_transport(url: str, timeout: float) -> tuple[int, str, str]:
     default and uses the system trust store, so the managed proxy + CA bundle in
     the deployment environment are respected without extra configuration.
     """
+    # The scheme is guarded to http/https in WebResearcher.fetch before any
+    # transport call, so urllib never opens a file:// or other local URL
+    # (ruff S310 is suppressed for this module via per-file-ignores).
     req = urllib.request.Request(url, headers={"User-Agent": _DEFAULT_USER_AGENT})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310 (http(s) only, see scheme guard)
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
         raw = resp.read(_DEFAULT_MAX_BYTES)
         charset = resp.headers.get_content_charset() or "utf-8"
         status = getattr(resp, "status", 200) or 200
@@ -158,12 +160,17 @@ class WebResearcher:
         """Fetch a URL, returning a fail-closed :class:`FetchResult`."""
         scheme = urllib.parse.urlparse(url).scheme.lower()
         if scheme not in self.allowed_schemes:
-            return FetchResult(url=url, error=f"refused scheme {scheme!r} (allowed: {sorted(self.allowed_schemes)})")
+            return FetchResult(
+                url=url,
+                error=f"refused scheme {scheme!r} (allowed: {sorted(self.allowed_schemes)})",
+            )
         try:
             status, body, final_url = self.transport(url, self.timeout)
         except urllib.error.HTTPError as exc:  # pragma: no cover - network dependent
-            return FetchResult(url=url, status=int(exc.code), error=f"HTTP {exc.code}: {exc.reason}")
-        except Exception as exc:  # noqa: BLE001 - any transport failure is fail-closed
+            return FetchResult(
+                url=url, status=int(exc.code), error=f"HTTP {exc.code}: {exc.reason}"
+            )
+        except Exception as exc:
             return FetchResult(url=url, error=f"{type(exc).__name__}: {exc}")
         return FetchResult(url=url, status=int(status), text=body, final_url=final_url or url)
 
@@ -173,7 +180,7 @@ class WebResearcher:
         parser = _TextExtractor()
         try:
             parser.feed(html)
-        except Exception:  # noqa: BLE001 - malformed HTML must not crash research
+        except Exception:
             pass
         return parser.text()
 
@@ -200,7 +207,7 @@ class WebResearcher:
         link_parser = _LinkExtractor()
         try:
             link_parser.feed(result.text)
-        except Exception:  # noqa: BLE001
+        except Exception:
             return []
         hits: list[SearchResult] = []
         seen: set[str] = set()

@@ -164,7 +164,7 @@ class CalibratedConfidence:
         for cls in np.unique(y):
             cls_idx = idx[y == cls]
             self._rng.shuffle(cls_idx)
-            n_eval = int(round(len(cls_idx) * self.eval_fraction))
+            n_eval = round(len(cls_idx) * self.eval_fraction)
             n_eval = min(max(n_eval, 1), len(cls_idx) - 1)  # keep >=1 each side
             eval_parts.append(cls_idx[:n_eval])
             fit_parts.append(cls_idx[n_eval:])
@@ -173,9 +173,7 @@ class CalibratedConfidence:
     def _new_calibrator(self) -> Any:
         return _CALIBRATOR_FACTORIES[self.method]()
 
-    def fit(
-        self, scores: np.ndarray[Any, Any], labels: np.ndarray[Any, Any]
-    ) -> ConfidenceReport:
+    def fit(self, scores: np.ndarray[Any, Any], labels: np.ndarray[Any, Any]) -> ConfidenceReport:
         """Fit the calibrator on a held-out split and decide acceptance.
 
         Args:
@@ -239,8 +237,10 @@ class CalibratedConfidence:
             deploy = self._new_calibrator()
             deploy.fit(s, y)
             self._calibrator = deploy
-            note = "calibrated (accepted on held-out split)" if held_out else (
-                "calibrated (in-sample; data too small to hold out)"
+            note = (
+                "calibrated (accepted on held-out split)"
+                if held_out
+                else ("calibrated (in-sample; data too small to hold out)")
             )
         else:
             self._calibrator = None
@@ -260,7 +260,13 @@ class CalibratedConfidence:
         )
         logger.info(
             "CalibratedConfidence[%s] fit on n=%d: accepted=%s, Brier %.4f->%.4f, ECE %.4f->%.4f",
-            self.method, n, accepted, brier_raw, self._report.brier_cal, ece_raw, self._report.ece_cal,
+            self.method,
+            n,
+            accepted,
+            brier_raw,
+            self._report.brier_cal,
+            ece_raw,
+            self._report.ece_cal,
         )
         return self._report
 
@@ -268,8 +274,9 @@ class CalibratedConfidence:
         """Map raw scores to calibrated probabilities (identity if uncalibrated)."""
         s = np.asarray(scores, dtype=float).reshape(-1)
         if not self.is_calibrated:
-            return np.clip(s, 0.0, 1.0)
-        return np.clip(np.asarray(self._calibrator.calibrate(s), dtype=float).reshape(-1), 0.0, 1.0)
+            return np.asarray(np.clip(s, 0.0, 1.0))
+        calibrated = np.asarray(self._calibrator.calibrate(s), dtype=float).reshape(-1)
+        return np.asarray(np.clip(calibrated, 0.0, 1.0))
 
     def transform_one(self, score: float) -> float:
         """Calibrate a single scalar score."""

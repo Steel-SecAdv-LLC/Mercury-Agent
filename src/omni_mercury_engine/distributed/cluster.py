@@ -339,24 +339,25 @@ class ResultAggregator:
         never recorded their indices (legacy/handler-only) fall back to
         insertion order, preserving prior behaviour.
         """
-        completed = [
-            r
-            for r in self._results.values()
-            if r.status == TaskStatus.COMPLETED
-            and r.result is not None
-            and len(r.result.get("anomaly_scores", np.array([]))) > 0
-        ]
+        # Collect (start_index, scores, predictions) for every completed,
+        # non-empty partition. Pulling result into a local keeps the non-None
+        # narrowing in scope (and off the Any|None field) for the type checker.
+        gathered: list[tuple[float, Any, Any]] = []
+        for r in self._results.values():
+            res = r.result
+            if r.status != TaskStatus.COMPLETED or res is None:
+                continue
+            scores = res.get("anomaly_scores", np.array([]))
+            if len(scores) == 0:
+                continue
+            start = r.data_indices[0] if r.data_indices is not None else float("inf")
+            gathered.append((start, scores, res.get("predictions", np.array([]))))
 
-        # Order by partition start index when available (None sorts last but
-        # stably, so unindexed legacy results keep their insertion order).
-        completed.sort(
-            key=lambda r: r.data_indices[0] if r.data_indices is not None else float("inf")
-        )
-
-        all_scores = [r.result["anomaly_scores"] for r in completed]
-        all_predictions = [
-            r.result.get("predictions", np.array([])) for r in completed
-        ]
+        # Order by partition start index (None/unindexed sort last but stably,
+        # so legacy results without indices keep their insertion order).
+        gathered.sort(key=lambda item: item[0])
+        all_scores = [scores for _, scores, _ in gathered]
+        all_predictions = [preds for _, _, preds in gathered]
 
         if not all_scores:
             return {"anomaly_scores": np.array([]), "predictions": np.array([])}

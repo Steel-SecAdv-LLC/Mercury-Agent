@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import html
 from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass
@@ -59,7 +60,7 @@ class DocumentGenerator:
     def report(
         self,
         title: str,
-        sections: list[Section] | list[tuple[str, str]] | list[dict],
+        sections: list[Section] | list[tuple[str, str]] | list[dict[str, Any]],
         *,
         fmt: str = "markdown",
         metadata: dict[str, str] | None = None,
@@ -90,10 +91,12 @@ class DocumentGenerator:
             "text": self._render_text,
         }[fmt]
         content = renderer(title, norm, meta, srcs)
-        return Document(title=title, fmt=fmt, content=content, sections=norm, metadata=meta, sources=srcs)
+        return Document(
+            title=title, fmt=fmt, content=content, sections=norm, metadata=meta, sources=srcs
+        )
 
     @staticmethod
-    def _coerce_section(s: Section | tuple | dict) -> Section:
+    def _coerce_section(s: Section | tuple[Any, ...] | dict[str, Any]) -> Section:
         if isinstance(s, Section):
             return s
         if isinstance(s, tuple):
@@ -110,7 +113,9 @@ class DocumentGenerator:
     # -- renderers ---------------------------------------------------------
 
     @staticmethod
-    def _render_markdown(title: str, sections: list[Section], meta: dict, sources: list[str]) -> str:
+    def _render_markdown(
+        title: str, sections: list[Section], meta: dict[str, str], sources: list[str]
+    ) -> str:
         lines = [f"# {title}", ""]
         if meta:
             for k, v in meta.items():
@@ -135,9 +140,18 @@ class DocumentGenerator:
         return "\n".join(lines).rstrip() + "\n"
 
     @staticmethod
-    def _render_html(title: str, sections: list[Section], meta: dict, sources: list[str]) -> str:
+    def _render_html(
+        title: str, sections: list[Section], meta: dict[str, str], sources: list[str]
+    ) -> str:
         e = html.escape
-        out = ["<!DOCTYPE html>", "<html>", "<head>", f"<title>{e(title)}</title>", "</head>", "<body>"]
+        out = [
+            "<!DOCTYPE html>",
+            "<html>",
+            "<head>",
+            f"<title>{e(title)}</title>",
+            "</head>",
+            "<body>",
+        ]
         out.append(f"<h1>{e(title)}</h1>")
         if meta:
             out.append("<dl>")
@@ -161,7 +175,9 @@ class DocumentGenerator:
         return "\n".join(out) + "\n"
 
     @staticmethod
-    def _render_text(title: str, sections: list[Section], meta: dict, sources: list[str]) -> str:
+    def _render_text(
+        title: str, sections: list[Section], meta: dict[str, str], sources: list[str]
+    ) -> str:
         lines = [title, "=" * len(title), ""]
         if meta:
             for k, v in meta.items():

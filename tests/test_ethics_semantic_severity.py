@@ -10,8 +10,8 @@ from omni_mercury_engine.cognitive.ethical_bounding import (
     BENEVOLENCE_CALIBRATION,
     BenevolenceScorer,
     HarmReducer,
-    _semantic_match_count,
     _char_trigram_vector,
+    _semantic_match_count,
 )
 
 
@@ -23,7 +23,9 @@ class TestSemanticDeterminism:
     def test_semantic_catches_morphological_variant(self) -> None:
         # "injuries" is NOT a substring of "injury" but is a near-trigram match.
         words = ("inflicting", "injuries", "today")
-        n = _semantic_match_count(words, ["injury"], BENEVOLENCE_CALIBRATION.semantic_match_threshold)
+        n = _semantic_match_count(
+            words, ["injury"], BENEVOLENCE_CALIBRATION.semantic_match_threshold
+        )
         assert n >= 1
 
 
@@ -86,7 +88,9 @@ class TestFailClosedMonotonicity:
 class TestCalibrationKnobsAndBackCompat:
     def test_weights_sum_to_one(self) -> None:
         c = BENEVOLENCE_CALIBRATION
-        assert abs(c.w_harm + c.w_benefit + c.w_equity + c.w_principles + c.w_long_term - 1.0) < 1e-9
+        assert (
+            abs(c.w_harm + c.w_benefit + c.w_equity + c.w_principles + c.w_long_term - 1.0) < 1e-9
+        )
 
     def test_default_severity_reversibility_keeps_legacy_formula(self) -> None:
         scorer = BenevolenceScorer()

@@ -80,7 +80,7 @@ try:
 
     _BLAKE3_AVAILABLE = True
 except ImportError:
-    _blake3 = None  # type: ignore[assignment]
+    _blake3 = None
     _BLAKE3_AVAILABLE = False
 
 # =============================================================================

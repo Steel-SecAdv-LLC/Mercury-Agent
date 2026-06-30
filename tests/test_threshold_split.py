@@ -48,9 +48,7 @@ class TestSplitThreeWay:
             assert np.array_equal(x, y)
 
     def test_timeseries_split_is_contiguous(self) -> None:
-        train, val, test = split_three_way(
-            100, val_frac=0.2, test_frac=0.4, is_timeseries=True
-        )
+        train, val, test = split_three_way(100, val_frac=0.2, test_frac=0.4, is_timeseries=True)
         # No shuffling: each split is a contiguous, ordered block.
         assert np.array_equal(train, np.sort(train))
         assert train[-1] < val[0] < test[0]
@@ -66,17 +64,13 @@ class TestThresholdLeakage:
         rng = np.random.default_rng(0)
         n = 400
         y = np.array([0] * (n // 2) + [1] * (n // 2))
-        score = np.where(
-            y == 1, rng.normal(0.6, 0.25, n), rng.normal(0.4, 0.25, n)
-        )
+        score = np.where(y == 1, rng.normal(0.6, 0.25, n), rng.normal(0.4, 0.25, n))
         return y, np.clip(score, 0.0, 1.0)
 
     def test_split_reports_honest_not_optimistic_f1(self) -> None:
         y, score = self._leaky_dataset()
         # Reconstruct the same test split the honest evaluator uses.
-        _, _, test_idx = split_three_way(
-            len(y), y, val_frac=0.2, test_frac=0.4, random_state=0
-        )
+        _, _, test_idx = split_three_way(len(y), y, val_frac=0.2, test_frac=0.4, random_state=0)
         # Oracle: the best achievable F1 on the *test* set if its threshold were
         # tuned in-sample (this is exactly what the leaky path would report).
         oracle_test_f1, _ = compute_best_f1(y[test_idx], score[test_idx])
@@ -136,9 +130,7 @@ class TestBackwardCompatAndFallback:
         rng = np.random.default_rng(1)
         n = 300
         y = np.array([0] * 150 + [1] * 150)
-        score = np.clip(
-            np.where(y == 1, rng.normal(0.6, 0.2, n), rng.normal(0.4, 0.2, n)), 0, 1
-        )
+        score = np.clip(np.where(y == 1, rng.normal(0.6, 0.2, n), rng.normal(0.4, 0.2, n)), 0, 1)
         _, _, test_idx = split_three_way(n, y, val_frac=0.2, test_frac=0.4, random_state=0)
         oracle_test = AnomalyMetrics.compute_all(y[test_idx], score[test_idx])
         honest = AnomalyMetrics.compute_all(y, score, tune_on="val", random_state=0)

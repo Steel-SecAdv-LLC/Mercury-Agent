@@ -112,7 +112,7 @@ class GeneralAssistant:
             # score, which would false-reject all neutral research.
             harmful = harm >= self.HARM_REFUSAL_THRESHOLD or severity >= self.HARM_REFUSAL_THRESHOLD
             return (not harmful), harm
-        except Exception as exc:  # noqa: BLE001 - any scorer failure fails closed
+        except Exception as exc:
             logger.warning("harm scoring failed (%s); refusing fail-closed", exc)
             return False, 1.0
 
@@ -220,7 +220,10 @@ class GeneralAssistant:
         document = self.doc_generator.report(
             title=f"Research report: {query}",
             sections=sections,
-            metadata={"capability": "GeneralAssistant.research_report", "sources_read": str(len(read))},
+            metadata={
+                "capability": "GeneralAssistant.research_report",
+                "sources_read": str(len(read)),
+            },
             sources=[m["url"] for m in source_meta],
             fmt=fmt,
         )
@@ -240,9 +243,7 @@ class GeneralAssistant:
         an honest unavailability message. Not a generated answer -- extracted,
         verbatim, from sources.
         """
-        report = self.research_report(
-            question, max_sources=max_sources, max_summary_sentences=4
-        )
+        report = self.research_report(question, max_sources=max_sources, max_summary_sentences=4)
         if report.refused:
             return f"[refused] {report.note}"
         if not report.available:
@@ -254,7 +255,7 @@ class GeneralAssistant:
     def write_document(
         self,
         title: str,
-        sections: list[Section] | list[tuple[str, str]] | list[dict],
+        sections: list[Section] | list[tuple[str, str]] | list[dict[str, Any]],
         *,
         fmt: str = "markdown",
         metadata: dict[str, str] | None = None,
@@ -265,12 +266,13 @@ class GeneralAssistant:
         Returns ``None`` (fail-closed) if the title/content is refused by the
         benevolence gate.
         """
-        body_preview = " ".join(
-            (s.body if isinstance(s, Section) else str(s)) for s in sections
-        )
+        body_preview = " ".join((s.body if isinstance(s, Section) else str(s)) for s in sections)
         permitted, _ = self._permitted(
             f"author a document to inform, educate, and help understanding: {title}",
-            {"purpose": "document generation to inform and help", "content_preview": body_preview[:500]},
+            {
+                "purpose": "document generation to inform and help",
+                "content_preview": body_preview[:500],
+            },
         )
         if not permitted:
             logger.info("document generation refused by benevolence gate: %s", title)

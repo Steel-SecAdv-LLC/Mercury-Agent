@@ -124,9 +124,7 @@ class TruthDecipherFramework(LoggerMixin):
         # in a single pass (no separate training step), so it intentionally opts
         # into the engine's auto-fit-on-first-batch path rather than the
         # fail-loud default that requires a prior fit_fusion.
-        self.anomaly_engine = OmniMercuryEngine(
-            config=self.config, require_explicit_fit=False
-        )
+        self.anomaly_engine = OmniMercuryEngine(config=self.config, require_explicit_fit=False)
         self.novel_discovery = NovelClassDiscovery() if enable_novel_discovery else None
 
         # Cognitive layer - integrates knowledge graph, reasoning, causality, uncertainty

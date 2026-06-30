@@ -1053,6 +1053,9 @@ ignore = [
 # TrustedEndpoints.validate_url() provides SSRF protection via domain allowlist
 "src/omni_mercury_engine/datasets/*.py" = ["S310"]
 "src/omni_mercury_engine/detectors/**/*.py" = ["S310"]
+# S310: WebResearcher.fetch guards the URL scheme to http/https before any
+# transport call, so urllib never opens a file:// or other local-scheme URL.
+"src/omni_mercury_engine/agentic/capabilities/web_research.py" = ["S310"]
 # Operator tools intentionally accept user paths and shell out to a
 # hardcoded `git` executable for release manifest provenance.  The
 # subprocess invocations have no user input in the program name.

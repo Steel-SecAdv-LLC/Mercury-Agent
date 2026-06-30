@@ -1147,9 +1147,7 @@ class MercuryAnomalyDetector(BaseDetector):
     # =====================================================================
 
     @staticmethod
-    def _ljung_box(
-        x: np.ndarray[Any, Any], lags: int = _LJUNGBOX_LAGS
-    ) -> tuple[float, float]:
+    def _ljung_box(x: np.ndarray[Any, Any], lags: int = _LJUNGBOX_LAGS) -> tuple[float, float]:
         """Ljung-Box Q statistic and p-value testing the white-noise null.
 
         ``Q = n(n+2) * sum_{k=1..h} r_k^2 / (n - k)`` where ``r_k`` is the lag-k
@@ -1211,9 +1209,7 @@ class MercuryAnomalyDetector(BaseDetector):
             "lags": lags,
         }
 
-    def _calibrate_components(
-        self, X: np.ndarray[Any, Any], labels: np.ndarray[Any, Any]
-    ) -> None:
+    def _calibrate_components(self, X: np.ndarray[Any, Any], labels: np.ndarray[Any, Any]) -> None:
         """Fit one AUROC-preserving isotonic calibrator per component on a label set.
 
         Each of the three component scores lives on a different native scale
@@ -1259,9 +1255,7 @@ class MercuryAnomalyDetector(BaseDetector):
         if cal is None:
             return scores
         try:
-            return np.clip(
-                np.asarray(cal.calibrate(np.asarray(scores, dtype=float))), 0.0, 1.0
-            )
+            return np.clip(np.asarray(cal.calibrate(np.asarray(scores, dtype=float))), 0.0, 1.0)
         except Exception:  # pragma: no cover - defensive
             return scores
 
@@ -1374,7 +1368,8 @@ class MercuryAnomalyDetector(BaseDetector):
                 logger.debug(
                     "Data type: magnitude looked temporal but Ljung-Box rejected "
                     "(%s/%s cols significant); classifying TABULAR.",
-                    sig.get("n_significant"), sig.get("n_tested"),
+                    sig.get("n_significant"),
+                    sig.get("n_tested"),
                 )
             else:
                 return DataCharacteristics.TEMPORAL
