@@ -2906,6 +2906,7 @@ class OmniMercuryEngine(LoggerMixin):
         policy: Any | None = None,
         response_policy: Any | None = None,
         ledger: DecisionLedger | None = None,
+        confidence_calibrator: Any | None = None,
     ) -> None:
         """Enable the decision / abstention / response layer.
 
@@ -2940,6 +2941,13 @@ class OmniMercuryEngine(LoggerMixin):
                 "verify" step -- an append-only, JSON-serialisable audit trail
                 queryable via ``ledger.summary()``).  ``None`` keeps the serve
                 path stateless (no recording).
+            confidence_calibrator: Optional fitted
+                :class:`~omni_mercury_engine.core.confidence.CalibratedConfidence`.
+                When attached, the decider reports a calibrated probability on
+                the uncalibrated threshold-band fallback (the path taken when no
+                conformal certificate is present) instead of the
+                ``0.5 + |margin|`` heuristic. Fit it on a held-out (fusion-score,
+                label) split; the conformal certificate path stays authoritative.
 
         Example:
             >>> engine = OmniMercuryEngine()
@@ -2952,6 +2960,7 @@ class OmniMercuryEngine(LoggerMixin):
         self.decision_layer = DecisionAbstentionResponder(
             policy=policy,
             response_policy=response_policy,
+            confidence_calibrator=confidence_calibrator,
         )
         self.decision_ledger = ledger
         logger.info("Decision / abstention / response layer enabled")

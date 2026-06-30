@@ -77,10 +77,24 @@ class DecisionAbstentionResponder:
         self,
         policy: DecisionPolicy | None = None,
         response_policy: ResponsePolicy | None = None,
+        confidence_calibrator: Any | None = None,
     ) -> None:
-        """Initialize the responder."""
+        """Initialize the responder.
+
+        Args:
+            policy: The abstention thresholds.
+            response_policy: The disposition -> response mapping.
+            confidence_calibrator: Optional fitted
+                :class:`~omni_mercury_engine.core.confidence.CalibratedConfidence`
+                (or any object with ``is_calibrated`` and ``transform_one``).
+                When attached *and* calibrated, the uncalibrated threshold-band
+                fallback reports a real calibrated probability instead of the
+                ``0.5 + |margin|`` heuristic. The responder stays a pure function
+                of (evidence, policy, calibrator): same inputs -> same record.
+        """
         self.policy = policy or DecisionPolicy()
         self.response_policy = response_policy or ResponsePolicy()
+        self.confidence_calibrator = confidence_calibrator
 
     # -- public API ---------------------------------------------------------
 
@@ -253,12 +267,25 @@ class DecisionAbstentionResponder:
         v.state = ThreeState.GROUNDED
         v.label = label
         v.disposition = Disposition.ACT if label == 1 else Disposition.CLEAR
-        # Margin confidence in [0.5, 1.0]: how far past the threshold we are.
-        v.confidence = min(1.0, 0.5 + abs(distance))
-        v.reasons.append(
-            f"probability {ev.anomaly_prob:.3f} is {abs(distance):.3f} past "
-            f"threshold {ev.threshold:.3f} (uncalibrated: no coverage guarantee)"
-        )
+        cal = self.confidence_calibrator
+        if cal is not None and getattr(cal, "is_calibrated", False):
+            # A fitted score->probability calibrator gives a real calibrated
+            # confidence even without a conformal coverage certificate.
+            v.confidence = float(cal.transform_one(ev.anomaly_prob))
+            v.reasons.append(
+                f"probability {ev.anomaly_prob:.3f} past threshold "
+                f"{ev.threshold:.3f}; confidence {v.confidence:.3f} from the fitted "
+                "score calibrator (calibrated, but no distribution-free coverage "
+                "certificate)"
+            )
+        else:
+            # Margin confidence in [0.5, 1.0]: how far past the threshold we are.
+            v.confidence = min(1.0, 0.5 + abs(distance))
+            v.reasons.append(
+                f"probability {ev.anomaly_prob:.3f} is {abs(distance):.3f} past "
+                f"threshold {ev.threshold:.3f} (uncalibrated margin heuristic: no "
+                "calibrator fitted and no coverage guarantee)"
+            )
 
     def _apply_demotions(self, ev: Evidence, v: _Verdict) -> None:
         """Weaken a grounded verdict to a deferral on disagreement / drift."""
