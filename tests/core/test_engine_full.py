@@ -124,7 +124,9 @@ def test_engine_batch_detection() -> None:
 
 def test_engine_with_fusion_inference() -> None:
     """Test detection using fusion network"""
-    engine = OmniMercuryEngine(mode="fusion")
+    # Opt into legacy auto-fit-on-first-batch so this smoke test of the inference
+    # path does not trip the (intentional) fail-loud-on-unfit-detector guard.
+    engine = OmniMercuryEngine(mode="fusion", require_explicit_fit=False)
 
     test_data = np.random.randn(50, 3)
     results = engine.detect_with_fusion(test_data)
