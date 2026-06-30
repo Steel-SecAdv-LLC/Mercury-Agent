@@ -107,10 +107,9 @@ class GeneralAssistant:
             score = self._benevolence.score_action(action, context)
             harm = float(getattr(score, "harm_score", 0.0))
             severity = float(getattr(score, "severity_score", 0.0))
-            permitted = bool(getattr(score, "is_permissible", True))
-            # Refuse on real harm signal OR an explicit gate refusal that is
-            # actually harm-driven (so a harmful query is blocked) -- but do not
-            # refuse a benign, harmless action just for a low benevolence score.
+            # Refuse on real harm signal (so a harmful query is blocked) -- but do
+            # NOT refuse a benign, harmless action just for a low benevolence
+            # score, which would false-reject all neutral research.
             harmful = harm >= self.HARM_REFUSAL_THRESHOLD or severity >= self.HARM_REFUSAL_THRESHOLD
             return (not harmful), harm
         except Exception as exc:  # noqa: BLE001 - any scorer failure fails closed

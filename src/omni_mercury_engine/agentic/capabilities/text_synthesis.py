@@ -15,7 +15,6 @@ input -- nothing is paraphrased, invented, or hallucinated.
 
 from __future__ import annotations
 
-import math
 import re
 from collections import Counter
 from dataclasses import dataclass

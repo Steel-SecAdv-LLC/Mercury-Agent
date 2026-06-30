@@ -8,8 +8,6 @@ that re-introduce overstated claims are caught.
 
 from __future__ import annotations
 
-import numpy as np
-
 
 class TestBainPowerHeuristicLabelled:
     def test_coefficients_are_named_constants(self) -> None:

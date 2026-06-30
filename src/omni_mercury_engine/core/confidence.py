@@ -22,7 +22,7 @@ the raw score is never silently "calibrated".
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
