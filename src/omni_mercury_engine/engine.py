@@ -504,7 +504,9 @@ class FeatureCache:
             idx = np.linspace(0, n - 1, 256).astype(np.intp)
             sample = flat[idx].tobytes()
             checksum = (
-                float(np.sum(flat, dtype=np.float64)) if np.issubdtype(flat.dtype, np.number) else 0.0
+                float(np.sum(flat, dtype=np.float64))
+                if np.issubdtype(flat.dtype, np.number)
+                else 0.0
             )
         data_hash = hash((data.shape, data.dtype.str, n, sample, checksum))
         return f"{prefix}_{data_hash}"

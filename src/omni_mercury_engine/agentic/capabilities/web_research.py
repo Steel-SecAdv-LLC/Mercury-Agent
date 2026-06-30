@@ -437,7 +437,9 @@ class WebResearcher:
                 return qs["uddg"][0]
         if href.startswith("//"):
             protocol_relative = urllib.parse.urlparse("https:" + href)
-            if cls._is_ddg_host(protocol_relative.netloc) and protocol_relative.path.startswith("/l/"):
+            if cls._is_ddg_host(protocol_relative.netloc) and protocol_relative.path.startswith(
+                "/l/"
+            ):
                 qs = urllib.parse.parse_qs(protocol_relative.query)
                 if "uddg" in qs:
                     return qs["uddg"][0]
