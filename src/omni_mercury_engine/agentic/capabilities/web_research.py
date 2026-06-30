@@ -421,9 +421,12 @@ class WebResearcher:
 
     @staticmethod
     def _is_ddg_host(netloc: str) -> bool:
-        """Exact-match the DuckDuckGo host (or a subdomain of it) -- never a
-        substring containment, which a host like ``duckduckgo.com.evil.test``
-        or ``notduckduckgo.com`` would otherwise satisfy."""
+        """Exact-match the DuckDuckGo host (or a subdomain of it).
+
+        Never a substring containment, which a host like
+        ``duckduckgo.com.evil.test`` or ``notduckduckgo.com`` would
+        otherwise satisfy.
+        """
         host = netloc.rsplit("@", 1)[-1].split(":", 1)[0].lower().rstrip(".")
         return host == "duckduckgo.com" or host.endswith(".duckduckgo.com")
 
