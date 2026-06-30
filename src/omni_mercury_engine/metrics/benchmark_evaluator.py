@@ -97,16 +97,25 @@ class BenchmarkEvaluator:
         self,
         output_dir: str | Path = "./evaluation_results",
         save_predictions: bool = False,
+        tune_on: str = "val",
     ):
         """Initialize evaluator.
 
         Args:
             output_dir: Directory for saving results
             save_predictions: Whether to save raw predictions
+            tune_on: Threshold-selection policy passed to
+                :meth:`AnomalyMetrics.compute_all`.  Defaults to ``"val"`` so
+                benchmark numbers are reported on a held-out test split with the
+                threshold tuned on validation (honest operating point).  Use
+                ``"in_sample"`` to reproduce the legacy optimistic upper bound.
+                On datasets too small to split, ``"val"`` falls back to
+                in-sample with a logged warning.
         """
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.save_predictions = save_predictions
+        self.tune_on = tune_on
 
     def evaluate(
         self,
@@ -182,12 +191,15 @@ class BenchmarkEvaluator:
             scores,
             masks_true=np.stack(all_masks_true) if all_masks_true else None,
             masks_score=np.stack(all_masks_pred) if all_masks_pred else None,
+            tune_on=self.tune_on,
         )
 
         # Per-category metrics
         per_category = {}
         if len(set(all_categories)) > 1:
-            per_category = AnomalyMetrics.compute_per_category(labels, scores, all_categories)
+            per_category = AnomalyMetrics.compute_per_category(
+                labels, scores, all_categories, tune_on=self.tune_on
+            )
 
         # Create result
         result = EvaluationResult(
