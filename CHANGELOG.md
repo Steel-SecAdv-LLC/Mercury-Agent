@@ -27,6 +27,72 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Neuro-symbolic calibration & honesty engineering + general-purpose capabilities
+
+Make Mercury's confidence *measured* rather than heuristic, harden the
+neuro-symbolic and ethics paths, scope-label uncalibrated heuristics, and add a
+native general-purpose capability layer — all native (stdlib + numpy), no new
+dependencies, no language-model service.
+
+**Measured calibration.** New single routing point
+`core/confidence.py::CalibratedConfidence` turns a raw score into a calibrated
+probability on a held-out split with an R4 accept-gate (never regresses
+Brier/ECE) and reports both. The golden-ratio `exp(-φ·total)` confidence in
+`cognitive/uncertainty.py` is removed in favour of a parameter-free monotone
+prior routed through the calibrator; epistemic/aleatoric carry honest
+`*_measured` flags (the single-scalar path is flagged *unmeasured* instead of
+emitting a `0.1` placeholder as a measurement) and a new `ensemble_predictions`
+path gives measured cross-member variance. The decider's uncalibrated
+threshold-band fallback routes through an attached calibrator when present
+(wired via `engine.enable_decision_layer(confidence_calibrator=...)`).
+
+**Honest evaluation.** `evaluation/metrics.py` / `metrics/anomaly_metrics.py`
+gain a seeded stratified/temporal 3-way splitter, `fit_threshold` (tune on
+val), and `evaluate_anomaly_detection_split` / `compute_all(tune_on="val")` so
+operating-point metrics are reported on a disjoint test split — no more
+threshold tuning on the reported data. `BenchmarkEvaluator` defaults to the
+honest path. Legacy in-sample functions kept and documented as diagnostics.
+
+**Drift recalibration.** `engine.enable_online_recalibration()` wires
+`AdaptiveConformalInference` into `detect_with_fusion` so the operating
+threshold tracks score drift instead of only deferring.
+
+**Perf + correctness.** blake3 import hoisted; FeatureCache key no longer
+materializes the whole array (and avoids the torch host copy); kinematic
+sliding-max vectorized; residual-FFT memoized; distributed `ResultAggregator`
+drops dead "weights" and reassembles disjoint partitions in input order;
+`detect_with_fusion` is fail-loud on an unfit detector by default
+(`require_explicit_fit`, opt-out for the legacy auto-fit).
+
+**Neuro-symbolic.** Hard symbolic veto (`SymbolicRule.hard`) lets an agreeing
+high-confidence rule override a low neural score (monotone, never bypasses the
+gates); a new `FusionMode.CONJUNCTIVE` (weighted geometric mean over undiluted
+symbolic evidence) is the default; the STACKING meta-learner conditions on
+disagreement and `update_from_outcome` learns from labels; the static,
+mislabeled "Lyapunov" benevolence damping is removed.
+
+**Detector gating.** Kinematic is gated behind a real Ljung-Box white-noise test
+(tightening only); optional per-component isotonic calibration (default-off).
+
+**Ethics gate.** Lightweight semantic (char-trigram) harm matching catches
+paraphrases; severity × irreversibility multiplicative damping (fail-closed);
+calibratable weights in a `BenevolenceCalibration` dataclass; `RULESET_VERSION`
+bumped to 2.
+
+**Honesty labels.** `bain_ai_scaling` power estimate, the ~82 uncomputed
+`global_omni_scalar_network` diagnostic scalars + its untrained attention,
+`hierarchical_planning` (template/greedy, not search), and `multi_hop_reasoner`
+abduction (Jaccard, not Bayesian) are scope-labeled in-code and in
+`docs/DORMANCY_LEDGER.md` §8.
+
+**General-purpose capabilities** (`agentic/capabilities/`,
+`docs/GENERAL_CAPABILITIES.md`). Mercury gains native, harm-gated web research
+(`WebResearcher` — stdlib `urllib`/`html.parser`, fail-closed), extractive
+synthesis (`ExtractiveSynthesizer` — numpy-only, quotes sources verbatim),
+document generation (`DocumentGenerator` — Markdown/HTML/text), and a
+`GeneralAssistant` (research → synthesize → cited document), surfaced on
+`MercuryAgent.research/answer/write_document`.
+
 ### Subagent pantheon: a 33-member internal delegation fleet for Mercury Agent
 
 Mercury Agent becomes the AI centerpiece that hosts the combined agentic
