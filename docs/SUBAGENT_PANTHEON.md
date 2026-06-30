@@ -38,10 +38,20 @@ for normalization, and **Eleos** (mercy) for survivor support.
   real, monotonic binding, not a tag.
 - **Depth tiers (both real, no theater).**
   - `deep` — a bespoke specialization with genuine domain logic.
-  - `coordinator` — a `CoordinatorSubAgent` that *binds to and exercises* its
-    real `omni_mercury_engine` subsystem(s): it imports them, introspects their
-    live public API, reports genuine availability/capability, and **fails closed**
-    when a subsystem is absent. The signal reflects the actual state of the repo.
+  - `coordinator` — a `CoordinatorSubAgent` that is a genuine subsystem
+    **operator**. For each member an adapter in
+    [`operations.py`](../src/omni_mercury_engine/agentic/subagents/operations.py)
+    invokes the member's **real** `omni_mercury_engine` entrypoint with inputs
+    derived from `task.payload` (the "operation + inputs" column below) and
+    returns the honest result of that call (`output["mode"] == "operation"`). It
+    **fails closed** (`SubAgentExecutionError`) on malformed inputs and never
+    fabricates signal. When the entrypoint is input-gated and the payload lacks
+    its inputs — or the caller asks for a readiness probe via
+    `payload["mode"] == "introspect"` — it falls back to the honest live
+    **binding report** (`output["mode"] == "binding"`): it imports each declared
+    subsystem, introspects its live public API, reports genuine
+    availability/capability, and fails closed when *no* subsystem binds. The
+    binding report is the honest no-input floor, never the whole behavior.
 - **Access boundary (internal-only).** Nothing here is exported from the public
   `omni_mercury_engine` surface. `SubAgent` / `SubAgentRegistry` / `SubAgentFleet`
   require the package-private access sentinel; direct construction raises
@@ -103,7 +113,7 @@ from the roster; the structural invariants are gated by
 | 12 | **Eleos_XII** | Empathy / survivor support | `narrative`, `medical` | OMNI_BENEVOLENT (Σϵ) | 0.95 | coordinator |  |
 | 13 | **Dionysus_XIII** | Pattern / emergent recognition | `anomaly`, `detectors`, `harmonics`, `emergent` | OMNI_DIRECTIONAL (👁∞) | 0.95 | deep |  |
 | 14 | **Ares_XIV** | Security / defense / instant bans | `security`, `safeguards` | OMNI_INDIVISIBLE (Φϖ) | 0.847 | deep |  |
-| 15 | **Hades_XV** | Compression / deep (cold) storage | `data`, `crypto` | OMNI_UNIVERSAL (Θϵ) | 0.788 | coordinator |  |
+| 15 | **Hades_XV** | Compression / deep (cold) storage | `data`, `crypto`, `utils` | OMNI_UNIVERSAL (Θϵ) | 0.788 | coordinator |  |
 | 16 | **Selene_XVI** | Night/cron scheduling / temporal coordination | `streaming`, `scaling` | OMNI_UNIVERSAL (Θϵ) | 0.788 | coordinator |  |
 | 17 | **Helios_XVII** | Telemetry / real-time monitoring | `metrics`, `alerting`, `streaming` | OMNI_DIRECTIONAL (👁∞) | 0.95 | coordinator | ★ |
 | 18 | **Eos_XVIII** | Onboarding / session initiation | `api` | OMNI_POTENT (Γϖ) | 0.95 | coordinator |  |
@@ -119,13 +129,62 @@ from the roster; the structural invariants are gated by
 | 28 | **Hecate_XXVIII** | Gateway / protocol translation | `api`, `integrations` | OMNI_UNIVERSAL (Θϵ) | 0.788 | coordinator |  |
 | 29 | **Nyx_XXIX** | Secrets / secure enclave control | `crypto`, `security` | OMNI_INDIVISIBLE (Φϖ) | 0.847 | coordinator |  |
 | 30 | **Atlas_XXX** | Distributed orchestration / cluster management | `distributed`, `agentic` | OMNI_UNIVERSAL (Θϵ) | 0.788 | coordinator | ★ |
-| 31 | **Harmonia_XXXI** | Data normalization / canonicalization | `data`, `models` | OMNI_UNIVERSAL (Θϵ) | 0.788 | coordinator |  |
+| 31 | **Harmonia_XXXI** | Data normalization / canonicalization | `utils`, `data`, `models` | OMNI_UNIVERSAL (Θϵ) | 0.788 | coordinator |  |
 | 32 | **Hyperion_XXXII** | High-performance compute / GPU scheduling | `scaling`, `distributed`, `ml` | OMNI_POTENT (Γϖ) | 0.95 | coordinator |  |
 | 33 | **Rhea_XXXIII** | Dependency management / resilience control | `resilience` | OMNI_POTENT (Γϖ) | 0.95 | coordinator | ★ |
 
 Plus one internal, non-public member — `_generalist` (the routing floor): full
 main-agent capability, used only when capability routing finds no specialist, so
 the fleet is never silent.
+
+## Coordinator operations (real entrypoint + payload contract)
+
+Every one of the 28 `coordinator` members is a genuine subsystem **operator**:
+its adapter in
+[`operations.py`](../src/omni_mercury_engine/agentic/subagents/operations.py)
+invokes the real `omni_mercury_engine` entrypoint below with the listed
+`task.payload` inputs and returns the honest result (`mode="operation"`). An
+*input-gated* member with no inputs — or any member asked for a readiness probe
+(`payload["mode"]="introspect"`) — falls back to the live binding report
+(`mode="binding"`). Each member has a real-op test (valid inputs, asserts the
+real path) and a fallback test in
+[`tests/test_subagent_operations.py`](../tests/test_subagent_operations.py).
+
+| Member | Real entrypoint (operation) | Payload inputs |
+|--------|-----------------------------|----------------|
+| **Hestia_II** | `utils.normalize_data` / `utils.constants.OmniCodes` stability | `data?`, `method?` (none ⇒ stability) |
+| **Hermes_III** | `narrative.create_mercury_interface().process_detection` | `detection_result` |
+| **Athena_IV** | `validation.ValidationPipeline.validate(model, X, y)` | `model`, `X`, `y` |
+| **Apollo_V** | `biometric.BiometricAnomalyDetector.detect_anomaly` | `iris_image` / `fingerprint_image` / `voice_sample` |
+| **Artemis_VI** | `data_sources.fetch_all` (genuine reachability) | none; `sources?`, `timeout?` 🌐 |
+| **Poseidon_IX** | `crypto.encrypt` + `crypto.hash_data` (round-trip verified) | `data`, `key?` |
+| **Demeter_X** | `cognitive.CognitiveOrchestrator.analyze` | `detection_result`, `raw_data?` |
+| **Hephaestus_XI** | `scaling.BainAIScaling.optimize_compute_allocation` / `infrastructure.instantiate_filtered_modules` | `workloads`,`resources` (none ⇒ provision) |
+| **Eleos_XII** | `narrative.MercuryConversationInterface.process_detection` (empathetic) | `detection_result` |
+| **Hades_XV** | `utils.compress_information` + `crypto.hash_data` | `data`, `compression_level?` |
+| **Selene_XVI** | `streaming.StreamingDetector.ingest` (stateful) | `points` |
+| **Helios_XVII** ★ | `metrics.AnomalyMetrics.compute_all(labels, scores)` | `labels`, `scores` |
+| **Eos_XVIII** | `api.auth.JWTAuth.create_token` + native-JWT validate (in-proc) | `user_id`, `username`, `roles?`, `secret_key?` |
+| **Nemesis_XIX** | `evaluation.evaluate_anomaly_detection` / `ethical.TwelveFoldVerificationSystem.verify` | `y_true`,`y_score` / `dimension_scores` |
+| **Tyche_XX** ★ | `decision.DecisionAbstentionResponder.decide` | `detection_result`, `domain?` |
+| **Zelos_XXI** | `ml.quick_anomaly_score` | `data`, `method?` |
+| **Kronos_XXII** | `detectors.MercuryAnomalyDetector.fit().detect()` | `data`, `train?` |
+| **Morpheus_XXIII** | `cognitive.CognitiveOrchestrator.analyze` (scenario context) | `detection_result`, `scenario?` |
+| **Iris_XXIV** | `alerting.CAPAlertGenerator.generate_alert` | `headline`, `description`, `score?`, `area?`, `domain?` |
+| **Pan_XXV** | `core.GlobalOmniScalarNetwork` register + `compute_global_intelligence_score` | `scalars` |
+| **Persephone_XXVI** | `resilience.get_all_breaker_stats` | none |
+| **Prometheus_XXVII** ★ | `ml.quick_anomaly_score` (light) / `automl.MercuryAutoML.fit` (heavy, budget-gated) | `X` / `X_train`,`y_train`,`automl` |
+| **Hecate_XXVIII** | `integrations.routing.RequestRouter.match` (in-proc routing) | `request`, `routes?` |
+| **Nyx_XXIX** | `crypto.encrypt`+`hash_data` (primary) / `security.MercuryCrypto.generate_signing_keypair` | `data` / `keygen` |
+| **Atlas_XXX** ★ | `distributed.DistributedMercuryCluster.detect_anomalies` (asyncio, bounded) | `data`, `nodes?`, `timeout?` |
+| **Harmonia_XXXI** | `utils.normalize_data` | `data`, `method?` |
+| **Hyperion_XXXII** | `scaling.BainAIScaling.estimate_power_consumption`/`estimate_agentic_ai_impact` / `ml.quick_anomaly_score` | `model_size`,… / `data` |
+| **Rhea_XXXIII** ★ | `resilience.get_all_breaker_stats` + `SelfHealingEngine.get_system_health` | none |
+
+The five `deep` members invoke their bespoke specialization directly: `Themis_I`
+(`system`), `Hera_VII` (`data_category`, `data_subject_id`, `context`),
+`Zeus_VIII` / `Dionysus_XIII` (`data`, `train?`), and `Ares_XIV` (`action`,
+`user_input`, `context?`).
 
 ## Provenance
 

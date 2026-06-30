@@ -816,9 +816,22 @@ anchors, and design contract live in
 - **Depth tiers (both real).** `deep` members carry bespoke domain logic
   (`Themis_I` ethics, `Hera_VII` compliance, `Ares_XIV` guardrail, and the
   detection bridge `Zeus_VIII` / `Dionysus_XIII` over the real
-  `MultiAgentOrchestrator`). `coordinator` members bind to and exercise their
-  real `omni_mercury_engine` subsystem(s), reporting genuine availability/
-  capability and failing closed when a subsystem is absent — no fabricated output.
+  `MultiAgentOrchestrator`). Each `coordinator` member is a genuine subsystem
+  **operator** (not merely a binding): an adapter in
+  `agentic/subagents/operations.py` invokes the member's real
+  `omni_mercury_engine` entrypoint with `task.payload`-derived inputs and returns
+  its honest result (`mode="operation"`) — e.g. `Helios_XVII` computes real
+  telemetry metrics, `Kronos_XXII` fits and runs a real detector, `Artemis_VI`
+  genuinely probes data-source reachability. It fails closed
+  (`SubAgentExecutionError`) on malformed inputs and never fabricates signal.
+  When the entrypoint is input-gated and the payload lacks its inputs — or the
+  caller requests a readiness probe (`payload["mode"]="introspect"`) — it falls
+  back to the honest live **binding report** (`mode="binding"`): importing each
+  declared subsystem, introspecting its public API, and failing closed when no
+  subsystem binds. The binding report is the honest no-input floor, never the
+  whole behavior. (Phase 2 deepened all 28 coordinators from binding to operator;
+  the per-member operation + payload contract is tabulated in
+  [`docs/SUBAGENT_PANTHEON.md`](docs/SUBAGENT_PANTHEON.md).)
 - **Access boundary (internal-only).** Nothing is re-exported from the public
   `omni_mercury_engine` surface; every constructor requires a package-private
   access sentinel (`SubAgentAccessError` otherwise). The main agent calls on

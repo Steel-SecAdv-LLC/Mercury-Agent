@@ -80,6 +80,49 @@ naming convention is Mercury-only (FINDΩYOU™ may adopt a similar pattern late
   is documented in `docs/SUBAGENT_PANTHEON.md`; the CI-gated README
   codebase-scale block is regenerated.
 
+### Subagent pantheon phase 2: coordinators deepened from binding to real operators
+
+The 28 `coordinator` members are deepened from subsystem *bindings* (import +
+introspect) into genuine subsystem **operators**: each now invokes its real
+`omni_mercury_engine` entrypoint. The five deep members (`Themis_I`, `Hera_VII`,
+`Zeus_VIII`, `Dionysus_XIII`, `Ares_XIV`) are unchanged. No public API surface
+changes; the fleet remains reachable only through the engine-mediated path.
+
+- **Operations adapter layer.** New
+  `src/omni_mercury_engine/agentic/subagents/operations.py` maps each pantheon id
+  to an adapter; `CoordinatorSubAgent._perform` dispatches to it, invoking the
+  real entrypoint with `task.payload`-derived inputs and returning the honest
+  result (`output["mode"]="operation"`). Examples: `Helios_XVII` →
+  `metrics.AnomalyMetrics.compute_all`; `Kronos_XXII` →
+  `detectors.MercuryAnomalyDetector.fit().detect()`; `Tyche_XX` →
+  `decision.DecisionAbstentionResponder.decide`; `Eos_XVIII` → native-JWT
+  create+validate in-process; `Hecate_XXVIII` → `RequestRouter.match` in-process;
+  `Atlas_XXX` → `DistributedMercuryCluster.detect_anomalies` via bounded
+  `asyncio.run`; `Pan_XXV` → `GlobalOmniScalarNetwork` register + global score.
+- **Honest friction handling.** `Artemis_VI` genuinely attempts a bounded network
+  fetch over real data sources and reports true per-source reachability (green or
+  red, never fabricated). `Nyx_XXIX` (crypto seal primary; `MercuryCrypto`
+  signing-keypair secondary) and `Prometheus_XXVII` (lightweight scorer primary;
+  `MercuryAutoML.fit` heavy/budget-gated) keep the always-safe primitive as the
+  primary path.
+- **Binding report is the honest floor, not the whole behavior.** The
+  import+introspect report is retained only as the fail-closed fallback —
+  reached when an input-gated member lacks inputs or a caller requests the
+  readiness probe (`payload["mode"]="introspect"`) — and as the unavailability
+  surface (`output["mode"]="binding"`). Malformed inputs fail closed
+  (`SubAgentExecutionError`); no fabricated output anywhere.
+- **Roster tweaks.** `Harmonia_XXXI` and `Hades_XV` gain the `utils` subsystem
+  (the real `normalize_data` / `compress_information` operator entrypoints live
+  there); `validate_roster()`'s subsystem-resolution invariant re-passes.
+- **Tests & docs.** `tests/test_subagent_operations.py` (69 tests) proves, for
+  every coordinator, a real-op path (valid inputs, asserts the real entrypoint
+  ran — not the fallback) plus a no-input fallback path, with fail-closed cases
+  for malformed inputs and a gap guard asserting all 28 coordinators have an
+  adapter and a real-op test. The full subagent suite is 112 tests. New code is
+  mypy-strict and ruff clean; `docs/SUBAGENT_PANTHEON.md` gains an
+  operation + payload-inputs table; `ARCHITECTURE.md` notes the binding→operator
+  deepening; the CI-gated README codebase-scale block is regenerated.
+
 ### Deployability hardening: importable image, real streaming worker, reproducible benchmarks, license-clean
 
 A correctness pass that makes Mercury actually deployable and the benchmark

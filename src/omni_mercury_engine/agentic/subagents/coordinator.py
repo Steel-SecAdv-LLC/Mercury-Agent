@@ -1,19 +1,26 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Coordinator subagent: a real binding to one or more engine subsystems.
+"""Coordinator subagent: a real **operator** over one or more engine subsystems.
 
 A :class:`CoordinatorSubAgent` is the pantheon member used when a role maps to a
-real ``omni_mercury_engine`` subsystem that does not (yet) have a bespoke deep
-specialization. Its work is genuine and fail-closed: it *binds* to its declared
-subsystem(s) by importing them, introspects their real public API, and reports
-live availability and capability. It never fabricates a domain result; when none
-of its subsystems can be imported it fails honestly with
-:class:`SubAgentExecutionError`.
+real ``omni_mercury_engine`` subsystem that does not have a bespoke deep
+specialization. Its work is genuine and fail-closed. It is a true subsystem
+*operator*: for each member, an adapter in
+:mod:`~omni_mercury_engine.agentic.subagents.operations` invokes that member's
+**real** engine entrypoint with inputs derived from ``task.payload`` (e.g.
+``Helios_XVII`` computes real telemetry metrics, ``Kronos_XXII`` fits and runs a
+real detector, ``Artemis_VI`` genuinely probes data-source reachability). The
+result is the honest output of that call (``mode="operation"``); it is never
+fabricated.
 
-This gives the root agent a real, auditable substrate — the live capability
-surface of each bound subsystem — on which deeper, operation-specific behavior
-can be layered per subsystem over time. The binding reflects the actual state of
-the repository, so the signal is true by construction.
+When a member's entrypoint is *input-gated* and the payload lacks the required
+inputs — or the operator is asked for a readiness probe via
+``payload["mode"] == "introspect"`` — the coordinator falls back to the honest
+**binding report** (``mode="binding"``): it imports each declared subsystem,
+introspects its live public API, and reports genuine availability/capability.
+That report fails closed when *no* subsystem binds, so the signal is true by
+construction either way. The binding report is the honest no-input floor, never
+the whole behavior.
 """
 
 from __future__ import annotations
@@ -23,6 +30,7 @@ import inspect
 from typing import TYPE_CHECKING, Any
 
 from omni_mercury_engine.agentic.subagents.base import SubAgent, SubAgentExecutionError
+from omni_mercury_engine.agentic.subagents.operations import OPERATIONS
 from omni_mercury_engine.agentic.subagents.roster import subsystem_module
 
 if TYPE_CHECKING:
@@ -49,10 +57,40 @@ def _public_api(module: Any, module_path: str) -> list[str]:
 
 
 class CoordinatorSubAgent(SubAgent):
-    """A subagent that binds to and assesses its real engine subsystem(s)."""
+    """A subagent that *operates* its real engine subsystem(s), honestly.
+
+    Dispatches to the member's real-entrypoint adapter in
+    :mod:`~omni_mercury_engine.agentic.subagents.operations`; falls back to a
+    live binding/capability report when input-gated and uninvoked.
+    """
 
     def _perform(self, task: SubAgentTask) -> tuple[dict[str, Any], float, str]:
-        """Bind to each declared subsystem and report genuine capability.
+        """Run the member's real entrypoint, else report its genuine binding.
+
+        Dispatches to the operations adapter for this pantheon id, invoking the
+        real ``omni_mercury_engine`` entrypoint with payload-derived inputs and
+        returning its honest output (``mode="operation"``). When the adapter is
+        input-gated and the payload lacks its inputs, or the caller asks for a
+        readiness probe (``payload["mode"] == "introspect"``), it falls back to
+        the live binding report (``mode="binding"``). Fails closed throughout —
+        never a fabricated result.
+        """
+        if str(task.payload.get("mode", "")) != "introspect":
+            adapter = OPERATIONS.get(self.id)
+            if adapter is not None:
+                result = adapter(self, task)  # may raise SubAgentExecutionError (fail-closed)
+                if result is not None:
+                    output, confidence, reasoning = result
+                    output.setdefault("subagent", self.id)
+                    output.setdefault("role", self.role)
+                    output["anchor"] = self.anchor_name
+                    output["autonomy_ceiling"] = self.autonomy_ceiling
+                    output["mode"] = "operation"
+                    return output, float(confidence), reasoning
+        return self._binding_report(task)
+
+    def _binding_report(self, task: SubAgentTask) -> tuple[dict[str, Any], float, str]:
+        """Honest fallback: bind to each declared subsystem and report capability.
 
         Imports each subsystem module, records whether it is available and its
         live public API, and returns a real capability report. Confidence is the
@@ -92,6 +130,7 @@ class CoordinatorSubAgent(SubAgent):
             "role": self.role,
             "anchor": self.anchor_name,
             "autonomy_ceiling": self.autonomy_ceiling,
+            "mode": "binding",
             "bound_subsystems": bound,
             "subsystems": report,
             "task": task.description,
