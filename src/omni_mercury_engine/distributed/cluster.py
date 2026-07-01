@@ -333,16 +333,20 @@ class ResultAggregator:
     def _merge_partitions(self) -> dict[str, Any]:
         """Concatenate disjoint partition results, ordered by input index.
 
-        Partitions arrive in nondeterministic task order; we sort them by their
-        recorded ``data_indices`` start so the merged ``anomaly_scores`` /
-        ``predictions`` line up with the original sample order. Results that
-        never recorded their indices (legacy/handler-only) fall back to
-        insertion order, preserving prior behaviour.
+        Partitions arrive in nondeterministic task order. When **every**
+        completed partition recorded its ``data_indices``, we sort by the start
+        index so the merged ``anomaly_scores`` / ``predictions`` line up with
+        the original sample order. If **any** partition is missing its indices
+        (legacy/handler-only), index-ordering is not reliably defined for the
+        set, so we preserve insertion order for all of them rather than forcing
+        the unindexed ones to the end (which would reorder the indexed ones
+        relative to them).
         """
         # Collect (start_index, scores, predictions) for every completed,
-        # non-empty partition. Pulling result into a local keeps the non-None
-        # narrowing in scope (and off the Any|None field) for the type checker.
-        gathered: list[tuple[float, Any, Any]] = []
+        # non-empty partition. ``start`` is ``None`` for an unindexed result.
+        # Pulling result into a local keeps the non-None narrowing in scope
+        # (and off the Any|None field) for the type checker.
+        gathered: list[tuple[int | None, Any, Any]] = []
         for r in self._results.values():
             res = r.result
             if r.status != TaskStatus.COMPLETED or res is None:
@@ -350,12 +354,15 @@ class ResultAggregator:
             scores = res.get("anomaly_scores", np.array([]))
             if len(scores) == 0:
                 continue
-            start = r.data_indices[0] if r.data_indices is not None else float("inf")
+            start = r.data_indices[0] if r.data_indices is not None else None
             gathered.append((start, scores, res.get("predictions", np.array([]))))
 
-        # Order by partition start index (None/unindexed sort last but stably,
-        # so legacy results without indices keep their insertion order).
-        gathered.sort(key=lambda item: item[0])
+        # Sort by start index only when the ordering is well-defined for the
+        # whole set (every partition indexed); otherwise keep insertion order.
+        if gathered and all(start is not None for start, _, _ in gathered):
+            # The ``all(...)`` guard proves every start is an int; the ``or 0``
+            # is an unreachable fallback that keeps the sort key typed as int.
+            gathered.sort(key=lambda item: item[0] if item[0] is not None else 0)
         all_scores = [scores for _, scores, _ in gathered]
         all_predictions = [preds for _, _, preds in gathered]
 

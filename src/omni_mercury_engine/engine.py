@@ -504,18 +504,29 @@ class FeatureCache:
         # fraction of the original full-hash cost.
         flat = np.ascontiguousarray(data).reshape(-1)
         n = flat.size
+        # Non-finite-aware checksum components. A plain ``np.sum`` becomes NaN
+        # for any array containing a NaN, and ``hash(nan)`` is a constant, so
+        # off-sample mutations of a NaN-bearing array would NOT change the key
+        # -> stale cache hit. Sum only the finite elements and fold the NaN /
+        # +Inf / -Inf counts into the key separately, so a change involving a
+        # non-finite position still moves the hash.
+        checksum = 0.0
+        n_nan = n_posinf = n_neginf = 0
         if n <= 256:
             sample = flat.tobytes()
-            checksum = 0.0
         else:
             idx = np.linspace(0, n - 1, 256).astype(np.intp)
             sample = flat[idx].tobytes()
-            checksum = (
-                float(np.sum(flat, dtype=np.float64))
-                if np.issubdtype(flat.dtype, np.number)
-                else 0.0
-            )
-        data_hash = hash((data.shape, data.dtype.str, n, sample, checksum))
+            if np.issubdtype(flat.dtype, np.number):
+                finite_mask = np.isfinite(flat)
+                if finite_mask.any():
+                    checksum = float(np.sum(flat[finite_mask], dtype=np.float64))
+                n_nan = int(np.isnan(flat).sum())
+                n_posinf = int(np.isposinf(flat).sum())
+                n_neginf = int(np.isneginf(flat).sum())
+        data_hash = hash(
+            (data.shape, data.dtype.str, n, sample, checksum, n_nan, n_posinf, n_neginf)
+        )
         return f"{prefix}_{data_hash}"
 
     def get_or_compute(

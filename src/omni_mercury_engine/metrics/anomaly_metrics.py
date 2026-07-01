@@ -519,17 +519,28 @@ class AnomalyMetrics:
         fn = ((y_pred_test == 0) & (yt == 1)).sum()
         precision = float(tp / max(tp + fp, 1))
         recall = float(tp / max(tp + fn, 1))
-        results["f1_max"] = (
-            2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
-        )
+        op_f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
+        # This is the operating-point F1 at the val-tuned threshold on the test
+        # split -- NOT an oracle max-over-thresholds (computing that on test
+        # would re-introduce the threshold leakage this split exists to remove).
+        # Exposed as "f1" (honest name); "f1_max" is kept as a backward-compatible
+        # alias for consumers of the in-sample API, with the same value.
+        results["f1"] = op_f1
+        results["f1_max"] = op_f1
         results["optimal_threshold"] = float(threshold)
         results["accuracy"] = float((y_pred_test == yt).mean())
         results["precision"] = precision
         results["recall"] = recall
 
         if masks_true is not None and masks_score is not None:
-            results["pixel_auroc"] = compute_pixel_auroc(masks_true, masks_score)
-            results["pro"] = compute_pro(masks_true, masks_score)
+            # Keep pixel-level metrics on the SAME disjoint test split as the
+            # sample-level metrics; scoring them on the full (train+val+test)
+            # masks would leak optimistic pixels and break the honest-split
+            # contract. Only index when the mask arrays are per-sample aligned.
+            mt = masks_true[test_idx] if len(masks_true) == n else masks_true
+            ms = masks_score[test_idx] if len(masks_score) == n else masks_score
+            results["pixel_auroc"] = compute_pixel_auroc(mt, ms)
+            results["pro"] = compute_pro(mt, ms)
 
         return results
 

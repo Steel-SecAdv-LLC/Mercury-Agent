@@ -11,8 +11,25 @@ so generated artifacts are reproducible and diffable.
 from __future__ import annotations
 
 import html
+import urllib.parse
 from dataclasses import dataclass, field
 from typing import Any
+
+
+def _render_source_link(source: str) -> str:
+    """Render one source as safe HTML.
+
+    Only ``http``/``https`` sources become clickable ``<a href>`` links; any
+    other scheme (notably ``javascript:``, ``data:``, ``file:``) is rendered as
+    plain escaped text. ``html.escape`` alone stops markup injection but does
+    NOT neutralize a dangerous URL scheme in an ``href`` -- a ``javascript:``
+    link would still execute on click -- so the scheme is allowlisted here.
+    """
+    e = html.escape
+    scheme = urllib.parse.urlparse(source).scheme.lower()
+    if scheme in ("http", "https"):
+        return f'<a href="{e(source)}">{e(source)}</a>'
+    return e(source)
 
 
 @dataclass
@@ -169,7 +186,7 @@ class DocumentGenerator:
         if sources:
             out.append("<h2>Sources</h2>")
             out.append("<ol>")
-            out.extend(f'<li><a href="{e(s)}">{e(s)}</a></li>' for s in sources)
+            out.extend(f"<li>{_render_source_link(s)}</li>" for s in sources)
             out.append("</ol>")
         out.extend(["</body>", "</html>"])
         return "\n".join(out) + "\n"
