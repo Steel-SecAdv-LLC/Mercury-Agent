@@ -168,3 +168,20 @@ class TestDurableAudit:
         assert log.is_file()
         recs = [json.loads(x) for x in log.read_text(encoding="utf-8").splitlines()]
         assert any(r["decision"] == "refused" for r in recs)
+
+
+class TestAggregateFailClosed:
+    """The aggregate tracker matches the per-query gate's fail-closed contract."""
+
+    def test_record_and_assess_fails_closed_on_gate_error(self) -> None:
+        from omni_mercury_engine.agentic.capabilities.aggregate_gate import (
+            SessionActionabilityTracker,
+        )
+
+        def _boom(_query: str):
+            raise RuntimeError("gate exploded")
+
+        tracker = SessionActionabilityTracker(gate=_boom)
+        verdict = tracker.record_and_assess("any query")
+        assert verdict.disposition is WeaponsDisposition.HARD_REFUSE
+        assert verdict.blocks

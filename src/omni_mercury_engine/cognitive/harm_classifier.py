@@ -93,8 +93,10 @@ def _parse_probability(reply: str) -> float:
     reply -- e.g. a template backend that echoes the input ("Received query
     (12 words)...") -- returns ``0.0`` rather than a spurious probability parsed
     out of arbitrary text. Fail-safe: the classifier must never *lower* harm, so
-    an unparseable/prose reply contributes no evidence. A value above 1 is
-    treated as a 0-100 scale and divided by 100.
+    an unparseable/prose reply contributes no evidence. A value in ``(1, 100]`` is
+    treated as a 0-100 percentage and divided by 100; a value **above 100** is
+    implausible for a probability classifier (e.g. a model that echoed a large
+    number) and yields ``0.0`` rather than clamping to a spurious ``1.0``.
     """
     text = (reply or "").strip()
     if not text:
@@ -109,6 +111,10 @@ def _parse_probability(reply: str) -> float:
     try:
         value = float(match.group(1))
     except (ValueError, IndexError):
+        return 0.0
+    if value > 100.0:
+        # Implausible for a 0.00-1.00 / 0-100 classifier -> not a probability.
+        # Fail-safe: contribute no evidence rather than clamp to a spurious 1.0.
         return 0.0
     if value > 1.0:  # a model that answered on a 0-100 scale
         value /= 100.0

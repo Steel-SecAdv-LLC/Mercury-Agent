@@ -747,9 +747,11 @@ _ALLOW_INTENT_PATTERNS: tuple[tuple[re.Pattern[str], OperationalIntent, str], ..
     ),
     (
         re.compile(
-            r"\bdetect(?:ion|ing)?\b|\bidentif(?:y|ication)\b|\bdiagnos(?:is|e|tic)\b|"
-            r"\bscreen(?:ing)? for\b|\btest(?:ing)? for\b|\brecogni[sz]e symptoms\b|"
-            r"\bsequencing for diagnosis\b|\bsurveillance\b|\bepidemiology\b"
+            r"\bdetect(?:s|ed|ion|ing|or|ors)?\b|\bidentif(?:y|ication)\b|"
+            r"\bdiagnos(?:is|e|tic|tics)\b|\bscreen(?:ing)? for\b|\btest(?:ing)? for\b|"
+            r"\btest kit\b|\bassay\b|\bsensor\b|\bbiosensor\b|\balarm\b|\bmonitor(?:ing)?\b|"
+            r"\brecogni[sz]e symptoms\b|\bsequencing for diagnosis\b|\bsurveillance\b|"
+            r"\bepidemiology\b"
         ),
         OperationalIntent.DETECTION,
         "detection",
@@ -758,7 +760,9 @@ _ALLOW_INTENT_PATTERNS: tuple[tuple[re.Pattern[str], OperationalIntent, str], ..
         re.compile(
             r"\btreat(?:ment|ing)?\b|\bantidote\b|\bdecontaminat(?:e|ion)\b|"
             r"\bprotective equipment\b|\bppe\b|\bvaccin(?:e|ation)\b|\btherapy\b|"
-            r"\bdosing\b|\boxime\b|\batropine\b|\bcasualty care\b"
+            r"\bdosing\b|\boxime\b|\batropine\b|\bcasualty care\b|\bcountermeasure\b|"
+            r"\bprophylaxis\b|\bprotective (?:gear|suit|mask|clothing)\b|\brespirator\b|"
+            r"\bfilter(?:ing)?\b|\bmedical countermeasure\b"
         ),
         OperationalIntent.DEFENSE,
         "defense_treatment",
@@ -897,6 +901,28 @@ def _gate_evidence(text: str, context: dict[str, Any] | None) -> _GateEvidence:
 
     allowed = _match_intent_patterns(haystack, _ALLOW_INTENT_PATTERNS)
     weight = _HAZARD_DOMAIN_WEIGHTS[domain]
+
+    # Defensive-production carve-out (protect professionals). *Making* a detector,
+    # sensor, vaccine, antidote, countermeasure, or protective equipment is
+    # defensive work, not weapons production -- but the production verb ("make",
+    # "process of making", "create") fires on it. When the only offensive tier is
+    # B6 PRODUCTION *and* a detection / defense / response allow-signal is present,
+    # the production is defensively framed: drop the PRODUCTION matches so the
+    # query resolves to the ALLOW ladder. B7-B10 (weaponization / acquisition /
+    # enhancement / targeting) are inherently offensive and are NEVER carved out
+    # by a defensive object. The residual (an attacker appending a defensive noun)
+    # is carried by the reasoning-backed classifier + escalation + audit -- the
+    # deliberate bias is toward not strangling defensive CBRN work.
+    _DEFENSIVE_ALLOW = {
+        OperationalIntent.DETECTION,
+        OperationalIntent.DEFENSE,
+        OperationalIntent.RESPONSE,
+    }
+    if any(t is OperationalIntent.PRODUCTION for t, _ in offensive) and (
+        _DEFENSIVE_ALLOW & {t for t, _ in allowed}
+    ):
+        offensive = [(t, lbl) for t, lbl in offensive if t is not OperationalIntent.PRODUCTION]
+
     return _GateEvidence(domain, weight, offensive, allowed)
 
 

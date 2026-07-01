@@ -207,6 +207,59 @@ def _punct_strip(folded: str) -> str:
     return _WHITESPACE_RE.sub(" ", _PUNCT_RE.sub("", folded)).strip()
 
 
+# Cyrillic -> Latin PHONETIC transliteration (distinct from the visual homoglyph
+# fold above: e.g. 'в' is visually 'B' but phonetically 'v'). Complements the
+# homoglyph variant so a *phonetic* Cyrillic obfuscation ("н3рв3" mixing Cyrillic
+# н/р/в with leetspeak) also normalizes toward its Latin form. Applied only to
+# build an extra variant; the base and visual-fold variants are unchanged.
+_CYRILLIC_TRANSLIT: dict[str, str] = {
+    "а": "a",
+    "б": "b",
+    "в": "v",
+    "г": "g",
+    "ґ": "g",
+    "д": "d",
+    "е": "e",
+    "є": "ie",
+    "ё": "e",
+    "ж": "zh",
+    "з": "z",
+    "и": "i",
+    "і": "i",
+    "ї": "i",
+    "й": "i",
+    "к": "k",
+    "л": "l",
+    "м": "m",
+    "н": "n",
+    "о": "o",
+    "п": "p",
+    "р": "r",
+    "с": "s",
+    "т": "t",
+    "у": "u",
+    "ф": "f",
+    "х": "kh",
+    "ц": "ts",
+    "ч": "ch",
+    "ш": "sh",
+    "щ": "shch",
+    "ъ": "",
+    "ы": "y",
+    "ь": "",
+    "э": "e",
+    "ю": "yu",
+    "я": "ya",
+}
+
+
+def _cyrillic_translit(base: str) -> str:
+    """Phonetically transliterate any Cyrillic in ``base`` to Latin."""
+    if not any(ch in _CYRILLIC_TRANSLIT for ch in base):
+        return base
+    return "".join(_CYRILLIC_TRANSLIT.get(ch, ch) for ch in base)
+
+
 def normalized_haystack(text: str) -> str:
     """Return a newline-joined bundle of normalization variants for matching.
 
@@ -228,10 +281,18 @@ def normalized_haystack(text: str) -> str:
         folded = _fold_obfuscation(base)
         collapsed = _collapse(folded)
         despaced = _punct_strip(folded)
+        # Phonetic-Cyrillic variant: transliterate then apply the same folds, so a
+        # phonetic Cyrillic obfuscation (Cyrillic н/р/в mixed with leetspeak) also
+        # normalizes toward Latin. Skipped when there is no Cyrillic (no cost).
+        translit = _cyrillic_translit(base)
+        translit_variants = ()
+        if translit != base:
+            t_folded = _fold_obfuscation(translit)
+            translit_variants = (t_folded, _collapse(t_folded), _punct_strip(t_folded))
         # De-dup identical variants to keep the haystack compact.
         seen: set[str] = set()
         variants: list[str] = []
-        for v in (base, folded, despaced, collapsed):
+        for v in (base, folded, despaced, collapsed, *translit_variants):
             if v and v not in seen:
                 seen.add(v)
                 variants.append(v)

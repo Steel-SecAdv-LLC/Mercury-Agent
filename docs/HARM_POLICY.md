@@ -107,6 +107,19 @@ production verbs (make / synthesize / build) are deliberately *not* sufficient o
 their own — they require either a routed hazard domain or a hazard-context anchor —
 so benign text ("how do I cook dinner") cannot trip the net.
 
+**Defensive-production carve-out (protect professionals).** *Making* a detector,
+sensor, vaccine, antidote, countermeasure, or protective equipment is defensive
+work, not weapons production — but a production verb ("make", "create", "process of
+making") fires on it. When the only offensive tier is B6 PRODUCTION *and* a
+detection / defense / response allow-signal is present, the production is treated as
+defensively framed and does not gate, so "how to make a nerve-agent detector" and
+"how to make a vaccine against anthrax" are ALLOWed. This carve-out is
+PRODUCTION-only: B7–B10 (weaponization / acquisition / enhancement / targeting) are
+inherently offensive and are **never** unblocked by a defensive noun. The residual
+(an attacker appending a defensive word) is carried by the reasoning-backed
+classifier, escalation, and the audit log — the deliberate bias is toward not
+strangling defensive CBRN work.
+
 **Obfuscation and language resistance.** Axis A matches over an obfuscation-
 normalized bundle (homoglyph fold, leetspeak fold, zero-width stripping, and both
 whole- and word-boundary-preserving separator collapse), so `n3rv3 ag3nt`,

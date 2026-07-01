@@ -218,7 +218,27 @@ class SessionActionabilityTracker:
         synthesized when undifferentiated-mechanism accretion crosses the
         ceiling. A non-blocking result means the aggregate view is clean; the
         caller still applies its own per-query verdict independently.
+
+        Fail-closed: any internal error (a numpy/clustering failure, a raising
+        injected gate) yields ``HARD_REFUSE`` rather than propagating -- the
+        aggregate boundary matches the per-query gate's fail-closed contract so a
+        caller can never be crashed into an unguarded path.
         """
+        try:
+            return self._record_and_assess(query)
+        except Exception:
+            logger.exception("aggregate gate failed; failing closed to HARD_REFUSE")
+            return WeaponsRiskAssessment(
+                hazard_domain=HazardDomain.OTHER_MASS_HARM,
+                hazard_weight=1.0,
+                intent_tier=OperationalIntent.PRODUCTION,
+                confidence=0.0,
+                disposition=WeaponsDisposition.HARD_REFUSE,
+                signals=("aggregate_error",),
+            )
+
+    def _record_and_assess(self, query: str) -> WeaponsRiskAssessment:
+        """Aggregate assessment implementation (see :meth:`record_and_assess`)."""
         per_query = self._gate(query)
         self._queries.append(query)
         self._mech_flags.append(self._is_undifferentiated_mechanism(per_query))
