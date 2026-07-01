@@ -269,6 +269,7 @@ class DecisionAbstentionResponder:
         v.label = label
         v.disposition = Disposition.ACT if label == 1 else Disposition.CLEAR
         cal = self.confidence_calibrator
+        calibrated_ok = False
         if cal is not None and getattr(cal, "is_calibrated", False):
             # A fitted score->probability calibrator gives a real calibrated
             # confidence even without a conformal coverage certificate.
@@ -278,27 +279,35 @@ class DecisionAbstentionResponder:
             # confidence is P(not anomaly) = 1 - P(anomaly), not P(anomaly)
             # itself -- otherwise a confidently-correct CLEAR (e.g.
             # P(anomaly)=0.03) would be misreported as near-zero confidence.
-            # The calibrator contract only requires a ``transform_one`` method;
-            # a custom/misbehaving calibrator could return a non-numeric value
-            # (raising in ``float()``), an out-of-range value, or NaN. Guard the
-            # conversion and sanitize to a valid probability, so a bad calibrator
-            # degrades this branch rather than crashing the decider, and
-            # ``decision_confidence`` can never escape [0, 1] or become NaN
-            # (matching the margin-heuristic path's clamp below).
+            # The calibrator is typed ``Any`` and the contract only requires a
+            # ``transform_one`` method, so a custom/misbehaving one could raise,
+            # or return a non-numeric / out-of-range / non-finite value. Any
+            # such misbehaviour must NOT crash the decider and must NOT yield a
+            # degenerate confidence: on failure we fall through to the margin
+            # heuristic and record the fallback, rather than fabricating a
+            # calibrated number.
             try:
                 p_raw = float(cal.transform_one(ev.anomaly_prob))
-            except (TypeError, ValueError):
+            except Exception:  # any misbehaving calibrator -> margin fallback
                 p_raw = float("nan")
-            p_anomaly = 0.0 if math.isnan(p_raw) else min(1.0, max(0.0, p_raw))
-            v.confidence = p_anomaly if label == 1 else 1.0 - p_anomaly
-            v.reasons.append(
-                f"probability {ev.anomaly_prob:.3f} past threshold "
-                f"{ev.threshold:.3f}; confidence {v.confidence:.3f} from the fitted "
-                "score calibrator (calibrated, but no distribution-free coverage "
-                "certificate)"
-            )
-        else:
+            if math.isfinite(p_raw):
+                p_anomaly = min(1.0, max(0.0, p_raw))
+                v.confidence = p_anomaly if label == 1 else 1.0 - p_anomaly
+                v.reasons.append(
+                    f"probability {ev.anomaly_prob:.3f} past threshold "
+                    f"{ev.threshold:.3f}; confidence {v.confidence:.3f} from the fitted "
+                    "score calibrator (calibrated, but no distribution-free coverage "
+                    "certificate)"
+                )
+                calibrated_ok = True
+            else:
+                v.reasons.append(
+                    "confidence calibrator misbehaved (raised or returned a "
+                    "non-finite value); falling back to the uncalibrated margin heuristic"
+                )
+        if not calibrated_ok:
             # Margin confidence in [0.5, 1.0]: how far past the threshold we are.
+            # Reached when no calibrator is fitted, or a fitted one misbehaved.
             v.confidence = min(1.0, 0.5 + abs(distance))
             v.reasons.append(
                 f"probability {ev.anomaly_prob:.3f} is {abs(distance):.3f} past "

@@ -25,7 +25,7 @@ score → `_parse_response`) is exercised for real.
 
 Remediation plan to graduate to a trained VLM
 ----------------------------------------------
-1. ``pip install 'mercury-agent[vlm]'`` (pulls ``transformers``).
+1. ``pip install 'omni-mercury-engine[vlm]'`` (pulls ``transformers``).
 2. Use :class:`~omni_mercury_engine.detectors.vlm.blip_vlm.BLIPVLMDetector`
    or :func:`~omni_mercury_engine.detectors.vlm.lvlm_backends.get_lvlm_backend`
    with an explicit ``revision=`` SHA pin.
