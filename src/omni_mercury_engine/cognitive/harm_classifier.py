@@ -18,11 +18,15 @@ the gate (combined by ``max``), and any failure or unparseable reply yields
 
 from __future__ import annotations
 
+import logging
+import os
 import re
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+logger = logging.getLogger(__name__)
 
 # Static, model-free instruction. The model returns ONLY a probability, so a
 # weak/templated local model that cannot comply degrades to an unparseable reply
@@ -81,22 +85,100 @@ def reasoning_harm_classifier(
 
 
 def _parse_probability(reply: str) -> float:
-    """Extract the first probability-like float in ``[0, 1]`` from ``reply``.
+    """Extract a probability in ``[0, 1]`` from a reply that is *just a number*.
 
-    Returns ``0.0`` when nothing parseable is present (fail-safe: the classifier
-    must never *lower* harm, so an ambiguous reply contributes no evidence). A
-    value above 1 is treated as a 0-100 scale and divided by 100.
+    The classifier is instructed to output ONLY the number. Parsing is therefore
+    strict: the reply must be a bare number (optionally with a ``%`` or trailing
+    punctuation), or a short reply that clearly leads with one. A long/prose
+    reply -- e.g. a template backend that echoes the input ("Received query
+    (12 words)...") -- returns ``0.0`` rather than a spurious probability parsed
+    out of arbitrary text. Fail-safe: the classifier must never *lower* harm, so
+    an unparseable/prose reply contributes no evidence. A value above 1 is
+    treated as a 0-100 scale and divided by 100.
     """
-    match = re.search(r"\d*\.?\d+", reply or "")
-    if not match:
+    text = (reply or "").strip()
+    if not text:
+        return 0.0
+    # Whole-reply number (allow a trailing % or single sentence-final period).
+    match = re.fullmatch(r"(\d*\.?\d+)\s*%?\.?", text)
+    if match is None and len(text) <= 16:
+        # Short reply that leads with a number ("prob 0.85", "0.85 harm").
+        match = re.match(r"[^\d]{0,6}(\d*\.?\d+)", text)
+    if match is None:
         return 0.0
     try:
-        value = float(match.group())
-    except ValueError:
+        value = float(match.group(1))
+    except (ValueError, IndexError):
         return 0.0
     if value > 1.0:  # a model that answered on a 0-100 scale
         value /= 100.0
     return float(min(max(value, 0.0), 1.0))
 
 
-__all__ = ["reasoning_harm_classifier"]
+#: Adapter names the default classifier trusts as a genuine semantic model. A
+#: ``template`` fallback (no model) is NOT trusted -- its output is not a harm
+#: probability -- so the default classifier contributes 0.0 under it.
+_REAL_MODEL_PREFIXES = ("ollama", "cloud", "remote", "openai", "anthropic")
+
+_DEFAULT_CACHE: dict[str, object] = {}
+
+
+def _resolve_default_backend() -> object | None:
+    """Lazily build Mercury's offline-first local reasoning backend (cached).
+
+    Returns ``None`` if the reasoning stack cannot be constructed at all. Import
+    and construction are deferred to first use so importing this module stays
+    stdlib-only and cheap.
+    """
+    if "backend" in _DEFAULT_CACHE:
+        return _DEFAULT_CACHE["backend"]
+    backend: object | None = None
+    try:
+        from omni_mercury_engine.reasoning.backends import LocalReasoningBackend
+
+        backend = LocalReasoningBackend()
+    except Exception as exc:  # pragma: no cover - environment-dependent
+        logger.info("default harm classifier: local reasoning backend unavailable (%s)", exc)
+        backend = None
+    _DEFAULT_CACHE["backend"] = backend
+    return backend
+
+
+def default_harm_classifier() -> Callable[[str], float]:
+    """Mercury's own offline reasoning-backed harm classifier, wired by default.
+
+    Returns a fail-open ``Callable[[str], float]`` backed by
+    :class:`~omni_mercury_engine.reasoning.backends.LocalReasoningBackend`
+    (Ollama-when-present, deterministic-template otherwise, always offline-safe).
+    It contributes a harm probability **only when a genuine local/cloud model is
+    actually serving**; under the template fallback (no model), a missing
+    reasoning stack, or any error, it returns ``0.0``. Because the ethics gate
+    combines the classifier by ``max``, this can only ever RAISE harm when a real
+    semantic model is present and never regresses the deterministic lexical gate
+    -- so it is safe to wire by default on the open-web/text surface without
+    adding a hard dependency or a network call in air-gapped deployments.
+
+    Disable entirely with ``MERCURY_DISABLE_DEFAULT_HARM_CLASSIFIER=1`` (e.g. to
+    keep a surface strictly deterministic). The returned callable is cheap to
+    obtain repeatedly (backend construction is cached).
+    """
+
+    def classify(text: str) -> float:
+        if os.environ.get("MERCURY_DISABLE_DEFAULT_HARM_CLASSIFIER") == "1":
+            return 0.0
+        backend = _resolve_default_backend()
+        if backend is None:
+            return 0.0
+        try:
+            active = str(getattr(backend, "model", "")).lower()
+            if not active.startswith(_REAL_MODEL_PREFIXES):
+                return 0.0  # template / no real model: not a harm probability
+            return reasoning_harm_classifier(backend._generate)(text)  # type: ignore[attr-defined]
+        except Exception as exc:  # pragma: no cover - fail-open
+            logger.info("default harm classifier failed (%s); contributing 0.0", exc)
+            return 0.0
+
+    return classify
+
+
+__all__ = ["default_harm_classifier", "reasoning_harm_classifier"]

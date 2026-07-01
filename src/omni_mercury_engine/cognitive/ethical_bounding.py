@@ -27,11 +27,21 @@ import functools
 import logging
 import re
 import time
-from dataclasses import dataclass, field
+from dataclasses import (
+    dataclass,
+    field,
+    fields as dataclass_fields,
+)
 from enum import Enum
 from typing import Any
 
 import numpy as np
+
+from omni_mercury_engine.cognitive.harm_normalization import (
+    MULTILINGUAL_HAZARD_TERMS,
+    MULTILINGUAL_OFFENSIVE_CUES,
+    normalized_haystack,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -46,10 +56,15 @@ MINIMUM_BENEVOLENCE_FLOOR: float = 0.70
 class BenevolenceCalibration:
     """Calibration knobs for the benevolence scorer.
 
-    These are the parameters meant to be *fit on labeled decisions* (via
-    ``tools/benevolence_calibration_report.py`` / ``benevolence_certifier.py``)
-    rather than hand-set. They are gathered here, version-pinned, and frozen so a
-    change is explicit and invalidates the benevolence cache (bump
+    These parameters are meant to be *fit on labeled decisions* rather than
+    hand-set. The defaults below are honest fallbacks; a fitted set is produced
+    by ``scripts/fit_weapons_gate_calibration.py`` from the labeled corpus in
+    ``benchmarks/weapons_gate_corpus.jsonl`` and written to
+    ``configs/weapons_gate_calibration.json``, which :meth:`load_default` reads at
+    import time. When that file is absent the defaults apply and
+    :attr:`is_fitted` is ``False`` -- so the code never *claims* a measurement it
+    does not have. The parameters are gathered here, version-pinned, and frozen so
+    a change is explicit and invalidates the benevolence cache (bump
     ``ETHICAL.RULESET_VERSION``). The component weights must sum to 1.
     """
 
@@ -64,7 +79,20 @@ class BenevolenceCalibration:
     # harm/benefit keyword (catches morphological variants the substring scan
     # misses: "injuries" -> "injury", "manipulative" -> "manipulate").
     semantic_match_threshold: float = 0.6
-    # -- Weapons/mass-casualty uplift gate (see assess_weapons_uplift below) --
+    # -- Weapons/mass-casualty uplift confidence model (see assess_weapons_uplift)
+    # The Axis-B offensive confidence is a logistic over evidence:
+    #   z = conf_bias + conf_w_offensive*n_off - conf_w_allow*n_allow
+    #       + conf_w_weight*hazard_weight + conf_w_classifier*classifier_boost
+    #   confidence = sigmoid(z)
+    # fit by scripts/fit_weapons_gate_calibration.py (maximum-likelihood logistic
+    # on the labeled corpus). Monotone in offensive evidence, the hazard weight,
+    # and the classifier signal; decreasing in allow-signal -- so the gray-zone
+    # ESCALATE/REFUSE_REDACT split tracks measured evidence, not a raw ratio.
+    conf_bias: float = -1.0
+    conf_w_offensive: float = 1.1
+    conf_w_allow: float = 1.3
+    conf_w_weight: float = 0.6
+    conf_w_classifier: float = 3.0
     # Below this Axis-B confidence, a B6 (production/synthesis) verdict is
     # treated as the genuine gray zone and ESCALATEd (slowed + audited) rather
     # than REFUSE_REDACTed outright; an asserted licensed-professional context
@@ -78,9 +106,49 @@ class BenevolenceCalibration:
     weapons_hard_refuse_harm_floor: float = 0.95
     weapons_refuse_redact_harm_floor: float = 0.75
     weapons_escalate_harm_floor: float = 0.55
+    # Provenance of the active parameters: "default" (hand-set fallbacks) or the
+    # calibration-file path the fitted values were loaded from. Never fabricated.
+    source: str = "default"
+
+    @property
+    def is_fitted(self) -> bool:
+        """True only when the active parameters were loaded from a fitted file."""
+        return self.source != "default"
+
+    @classmethod
+    def load_default(cls) -> BenevolenceCalibration:
+        """Load fitted parameters from ``configs/weapons_gate_calibration.json``.
+
+        Falls back to the hand-set defaults (``source="default"``) when the file
+        is absent or unreadable -- fail-safe and honest: an unfit deployment is
+        labelled ``default``, never silently presented as calibrated. Only known
+        float fields are accepted from the file; unknown keys are ignored.
+        """
+        import json
+        from pathlib import Path
+
+        # Repo layout: .../src/omni_mercury_engine/cognitive/ethical_bounding.py
+        # -> repo root is four parents up; configs/ sits at the root.
+        candidates = [
+            Path(__file__).resolve().parents[3] / "configs" / "weapons_gate_calibration.json",
+        ]
+        float_fields = {f.name for f in dataclass_fields(cls) if f.name not in ("source",)}
+        for path in candidates:
+            try:
+                if not path.is_file():
+                    continue
+                data = json.loads(path.read_text(encoding="utf-8"))
+                params = data.get("parameters", data)
+                overrides = {k: float(v) for k, v in params.items() if k in float_fields}
+                if not overrides:
+                    continue
+                return cls(**overrides, source=str(path))
+            except Exception:  # pragma: no cover - fail-safe to defaults
+                logger.warning("failed to load weapons-gate calibration from %s", path)
+        return cls()
 
 
-BENEVOLENCE_CALIBRATION = BenevolenceCalibration()
+BENEVOLENCE_CALIBRATION = BenevolenceCalibration.load_default()
 
 
 def _det_hash(s: str) -> int:
@@ -519,6 +587,53 @@ _HAZARD_DOMAIN_WEIGHTS: dict[HazardDomain, float] = {
     HazardDomain.OTHER_MASS_HARM: 0.9,
 }
 
+# Merge the multilingual/transliterated taxonomy terms (native script + Latin
+# transliteration across widely spoken languages) into the Axis-A router. Axis A
+# is high-recall/no-precision -- a hit only decides whether Axis B runs, never a
+# refusal on its own -- so broad multilingual coverage is safe and desired. The
+# obfuscation-normalized haystack (see assess_weapons_uplift) additionally lets
+# these match through leetspeak, homoglyph spoofing, and separator insertion.
+_HAZARD_DOMAIN_KEYWORDS = {
+    domain: keywords + MULTILINGUAL_HAZARD_TERMS.get(domain.value, ())
+    for domain, keywords in _HAZARD_DOMAIN_KEYWORDS.items()
+}
+
+# Hazard-context anchors: generic (not agent-specific) nouns that mark a query
+# as being *about* a weapon/agent even when the specific agent is absent from
+# the Axis-A lexicon. Paired with a production/acquisition verb below, they close
+# the out-of-lexicon false-negative (Task #4: "synthesis route for <novel agent>"
+# where <novel agent> is not itself a listed keyword). Deliberately weapons-
+# anchored so a benign "how do I make bread" carries none of them.
+_HAZARD_CONTEXT_ANCHORS: frozenset[str] = frozenset(
+    {
+        "nerve agent",
+        "chemical agent",
+        "biological agent",
+        "toxin",
+        "toxic agent",
+        "poison gas",
+        "poisonous gas",
+        "lethal gas",
+        "deadly gas",
+        "chemical weapon",
+        "biological weapon",
+        "bioweapon",
+        "pathogen",
+        "select agent",
+        "explosive",
+        "explosive charge",
+        "warhead",
+        "propellant",
+        "fissile",
+        "radiological",
+        "weapon of mass destruction",
+        "mass casualty",
+        "mass-casualty",
+        "chemical warfare",
+        "biological warfare",
+    }
+)
+
 # Axis-B intent patterns: (compiled regex, tier, audit label). Offensive
 # patterns match *actionable verbs/phrases* ("how to produce", "evade
 # detection", "maximize casualties"), never the hazard noun alone -- Axis A
@@ -634,6 +749,15 @@ _ALLOW_INTENT_PATTERNS: tuple[tuple[re.Pattern[str], OperationalIntent, str], ..
 )
 
 
+# Multilingual Axis-B offensive cues compiled to (substring, intent, label).
+# The cue tier name (a plain string in the language table so that module needs
+# no enum import) is resolved to an OperationalIntent here.
+_MULTILINGUAL_OFFENSIVE: tuple[tuple[str, OperationalIntent, str], ...] = tuple(
+    (cue, OperationalIntent[tier_name], label)
+    for cue, tier_name, label in MULTILINGUAL_OFFENSIVE_CUES
+)
+
+
 def _match_hazard_domain(haystack: str) -> HazardDomain:
     """Axis A: cheap high-recall routing match; returns the first domain hit."""
     for domain, keywords in _HAZARD_DOMAIN_KEYWORDS.items():
@@ -642,10 +766,42 @@ def _match_hazard_domain(haystack: str) -> HazardDomain:
     return HazardDomain.NONE
 
 
+def _match_multilingual_offensive(haystack: str) -> list[tuple[OperationalIntent, str]]:
+    """Substring pass for the multilingual offensive-intent cues."""
+    return [(tier, label) for cue, tier, label in _MULTILINGUAL_OFFENSIVE if cue in haystack]
+
+
 def _match_intent_patterns(
     haystack: str, patterns: tuple[tuple[re.Pattern[str], OperationalIntent, str], ...]
 ) -> list[tuple[OperationalIntent, str]]:
     return [(tier, label) for pattern, tier, label in patterns if pattern.search(haystack)]
+
+
+def _offensive_confidence(
+    n_offensive: int,
+    n_allow: int,
+    hazard_weight: float,
+    classifier_boost: float,
+    cal: BenevolenceCalibration = BENEVOLENCE_CALIBRATION,
+) -> float:
+    """Calibrated logistic confidence that evidence favors offensive intent.
+
+    ``sigmoid(bias + w_off*n_off - w_allow*n_allow + w_weight*weight
+    + w_classifier*boost)``. Monotone increasing in offensive evidence, the
+    hazard weight, and the classifier signal; decreasing in allow-signal. The
+    coefficients are fit on the labeled corpus (see
+    :meth:`BenevolenceCalibration.load_default`); the defaults are honest
+    fallbacks. Returns a value in ``(0, 1)``.
+    """
+    z = (
+        cal.conf_bias
+        + cal.conf_w_offensive * float(n_offensive)
+        - cal.conf_w_allow * float(n_allow)
+        + cal.conf_w_weight * float(hazard_weight)
+        + cal.conf_w_classifier * float(classifier_boost)
+    )
+    # Numerically stable logistic (avoids overflow warnings on large |z|).
+    return float(1.0 / (1.0 + np.exp(-np.clip(z, -60.0, 60.0))))
 
 
 def assess_weapons_uplift(
@@ -684,33 +840,40 @@ def assess_weapons_uplift(
     """
     ctx = context or {}
     try:
-        haystack = f"{text}\n{ctx}".lower()
+        # Obfuscation-resistant, multilingual normalization: the matchers below
+        # run over base + homoglyph/leet-folded + separator-collapsed variants
+        # at once, so "n3rv3 ag3nt", Cyrillic-glyph spoofing, and "s a r i n"
+        # are all seen. See cognitive.harm_normalization.
+        haystack = normalized_haystack(f"{text}\n{ctx}")
         domain = _match_hazard_domain(haystack)
-        offensive = _match_intent_patterns(haystack, _OFFENSIVE_INTENT_PATTERNS)
+        offensive = _match_intent_patterns(
+            haystack, _OFFENSIVE_INTENT_PATTERNS
+        ) + _match_multilingual_offensive(haystack)
 
-        # Safety net: an *inherently weapons-specific* offensive phrase
-        # (weaponize / increase transmissibility / immune escape / maximize
-        # casualties / attack-plan-targeting) is itself weapons evidence -- an
-        # explicit actionable request Axis A's noun lexicon happened not to
-        # route. Rather than let it fall through to ALLOW (the exact miss a
-        # high-recall router is meant to prevent), classify it as
-        # OTHER_MASS_HARM so Axis B still gates it. The GENERIC production
-        # verbs (make/cook/build) and acquisition-evasion verbs (smuggle/evade
-        # detection) are NOT sufficient on their own -- they gate only once a
-        # hazard domain is routed -- so a benign "how do I cook dinner" cannot
-        # trip the net. Fail-closed on the dangerous, precise on the benign.
+        # Safety net (no Axis-A hazard domain routed). Two ways an offensive
+        # request still gates:
+        #  (a) an *inherently weapons-specific* phrase (weaponize / increase
+        #      transmissibility / immune escape / maximize casualties / attack-
+        #      plan-targeting) -- weapons evidence on its own; OR
+        #  (b) a production/acquisition verb ANCHORED to generic hazard-context
+        #      vocabulary ("synthesis route for a lethal toxin", "smuggle the
+        #      explosive precursor") -- weapons evidence even when the specific
+        #      agent is absent from the Axis-A lexicon (Task #4 out-of-lexicon
+        #      false-negative). The bare verb alone is NOT enough (it would
+        #      false-positive on "how do I cook dinner"): it must co-occur with
+        #      a hazard-context anchor.
+        # Either way the query is routed to OTHER_MASS_HARM so Axis B gates it.
+        # Fail-closed on the dangerous, precise on the benign.
         if domain is HazardDomain.NONE:
-            inherently_offensive = any(
-                tier in _INHERENTLY_OFFENSIVE_INTENTS for tier, _ in offensive
-            )
-            if not inherently_offensive:
+            anchored = any(anchor in haystack for anchor in _HAZARD_CONTEXT_ANCHORS)
+            gated_intents = set(_INHERENTLY_OFFENSIVE_INTENTS)
+            if anchored:
+                gated_intents |= {OperationalIntent.PRODUCTION, OperationalIntent.ACQUISITION}
+            keep = [(tier, label) for tier, label in offensive if tier in gated_intents]
+            if not keep:
                 return WeaponsRiskAssessment()  # ALLOW / MECHANISM / NONE defaults
             domain = HazardDomain.OTHER_MASS_HARM
-            # Keep only the inherently-offensive matches; a bare generic
-            # production verb with no hazard domain is not weapons evidence.
-            offensive = [
-                (tier, label) for tier, label in offensive if tier in _INHERENTLY_OFFENSIVE_INTENTS
-            ]
+            offensive = keep
 
         allowed = _match_intent_patterns(haystack, _ALLOW_INTENT_PATTERNS)
         weight = _HAZARD_DOMAIN_WEIGHTS[domain]
@@ -737,10 +900,14 @@ def assess_weapons_uplift(
         offensive_labels = tuple(sorted({label for _, label in offensive}))
         allow_labels = tuple(sorted({label for _, label in allowed}))
 
-        # Confidence: how one-sidedly the evidence favors offensive intent.
-        # Mixed evidence (e.g. a defensive-treatment query that also brushes a
-        # production-adjacent phrase) reads as genuinely ambiguous, which only
-        # matters for the B6 gray zone below -- B7-B10 refuse regardless.
+        # Confidence: how one-sidedly the evidence favors offensive intent, via
+        # the calibrated logistic in BENEVOLENCE_CALIBRATION (fit on the labeled
+        # corpus, not a raw match ratio). Mixed evidence (e.g. a defensive-
+        # treatment query that also brushes a production-adjacent phrase) reads
+        # as genuinely ambiguous, which only matters for the B6 gray zone below
+        # -- B7-B10 refuse regardless. The optional meaning-level classifier is
+        # consulted here and can only RAISE confidence, never lower a disposition
+        # already earned by lexical evidence.
         classifier_boost = 0.0
         if harm_classifier is not None:
             try:
@@ -749,10 +916,8 @@ def assess_weapons_uplift(
                 logger.warning(
                     "weapons-uplift harm_classifier failed (%s); no confidence boost applied", exc
                 )
-        confidence = min(
-            1.0,
-            (len(offensive_labels) + classifier_boost)
-            / (len(offensive_labels) + len(allow_labels) + 1.0),
+        confidence = _offensive_confidence(
+            len(offensive_labels), len(allow_labels), weight, classifier_boost
         )
 
         licensed_context = bool(ctx.get("licensed_context")) or "licensed_practice" in allow_labels

@@ -244,20 +244,22 @@ def _safe_http_transport(url: str, timeout: float) -> tuple[int, str, str]:
     return status, raw.decode(charset, errors="replace"), final_url
 
 
-def default_content_gate(text: str) -> tuple[bool, str]:
+def default_content_gate(text: str, harm_classifier: Any | None = None) -> tuple[bool, str]:
     """Default post-retrieval harm screen: the two-axis weapons/mass-casualty gate.
 
     Returns ``(blocked, note)``. Blocks fetched content whose weapons
     disposition is anything other than plain ALLOW/ALLOW_LOG -- i.e. a page
     carrying operational production/weaponization/acquisition-evasion/
     enhancement/targeting content, even when the query that surfaced it was
-    benign. The ethics import is lazy so :mod:`web_research` stays importable
-    without the cognitive layer; any failure fails closed to *blocked*.
+    benign. ``harm_classifier`` (optional) wires the reasoning-backed semantic
+    layer through to the gate. The ethics import is lazy so :mod:`web_research`
+    stays importable without the cognitive layer; any failure fails closed to
+    *blocked*.
     """
     try:
         from omni_mercury_engine.cognitive.ethical_bounding import assess_weapons_uplift
 
-        verdict = assess_weapons_uplift(text)
+        verdict = assess_weapons_uplift(text, harm_classifier=harm_classifier)
         if verdict.blocks:
             return True, (
                 f"weapons/mass-casualty content gate: {verdict.disposition.value} "
@@ -316,7 +318,14 @@ class WebResearcher:
         as the (optional) final rung -- the recommended, provider-first ordering.
         Any keyword overrides are forwarded to the constructor.
         """
+        import functools
         import os
+
+        # Optional reasoning-backed harm classifier to thread through the content
+        # gate (wired by the GeneralAssistant on the open-web surface). Popped
+        # here because it is not a WebResearcher field -- it is bound into the
+        # content-gate closure instead.
+        harm_classifier = kwargs.pop("harm_classifier", None)
 
         providers: list[SearchProvider] = []
         brave_key = os.environ.get("BRAVE_API_KEY", "").strip()
@@ -332,8 +341,10 @@ class WebResearcher:
         # Wire the default post-retrieval harm screen unless the caller supplied
         # one. Keeps this module dependency-free (the ethics import is lazy,
         # inside the gate) while giving every from_env researcher the §5.2
-        # content screen for free.
-        kwargs.setdefault("content_gate", default_content_gate)
+        # content screen for free, with the reasoning classifier bound through.
+        kwargs.setdefault(
+            "content_gate", functools.partial(default_content_gate, harm_classifier=harm_classifier)
+        )
         return cls(**kwargs)
 
     def fetch(self, url: str) -> FetchResult:

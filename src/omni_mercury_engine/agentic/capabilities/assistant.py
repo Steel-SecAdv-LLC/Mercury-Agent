@@ -104,11 +104,22 @@ class GeneralAssistant:
         benevolence_scorer: Any | None = None,
     ) -> None:
         """Wire the researcher, synthesizer, document generator, and ethics gate."""
+        # Reasoning-backed harm classifier, wired by default on this open-web/
+        # text surface (the highest-uplift capability). Fail-open and offline-
+        # safe: it contributes a meaning-level harm probability only when a real
+        # local/cloud model is serving, and 0.0 otherwise -- so it strengthens
+        # the gate where a semantic model is available without adding a hard
+        # dependency or changing deterministic behavior in air-gapped/CI runs.
+        from omni_mercury_engine.cognitive.harm_classifier import default_harm_classifier
+
+        self._harm_classifier = default_harm_classifier()
         # Default to the env-configured provider ladder (keyed engine / keyless
         # self-hosted SearXNG first, DuckDuckGo scrape only as fallback) rather
         # than a bare DDG scrape -- the provider-first posture, configurable
         # without code via BRAVE_API_KEY / MERCURY_SEARXNG_URL.
-        self.researcher = researcher or WebResearcher.from_env()
+        self.researcher = researcher or WebResearcher.from_env(
+            harm_classifier=self._harm_classifier
+        )
         # Pre-emission output gate (spec §5.3): the verbatim extractor must not
         # reproduce operational weapons procedure even from a source that
         # passed the query/content gates. A default synthesizer is wired to the
@@ -124,7 +135,10 @@ class GeneralAssistant:
                 BenevolenceScorer,
             )
 
-            benevolence_scorer = BenevolenceScorer(benevolence_threshold=MINIMUM_BENEVOLENCE_FLOOR)
+            benevolence_scorer = BenevolenceScorer(
+                benevolence_threshold=MINIMUM_BENEVOLENCE_FLOOR,
+                harm_classifier=self._harm_classifier,
+            )
         self._benevolence = benevolence_scorer
 
         # Orchestration-boundary aggregate gate (spec §6): tracks the session's
@@ -149,19 +163,19 @@ class GeneralAssistant:
     #: are computed in the SAME ``score_action`` call -- one harm policy.
     HARM_REFUSAL_THRESHOLD: float = 0.5
 
-    @staticmethod
-    def _sentence_is_safe(sentence: str) -> bool:
+    def _sentence_is_safe(self, sentence: str) -> bool:
         """Output-gate predicate: True unless a sentence is operational weapons content.
 
         Backs the :class:`ExtractiveSynthesizer` sentence gate. Uses the same
-        two-axis :func:`assess_weapons_uplift` as every other gate, so the
-        output layer redacts on exactly the intersection the rest of the
-        policy refuses. Fail-closed: any error redacts (returns ``False``).
+        two-axis :func:`assess_weapons_uplift` as every other gate (with the
+        reasoning-backed classifier wired), so the output layer redacts on
+        exactly the intersection the rest of the policy refuses. Fail-closed:
+        any error redacts (returns ``False``).
         """
         try:
             from omni_mercury_engine.cognitive.ethical_bounding import assess_weapons_uplift
 
-            return not assess_weapons_uplift(sentence).blocks
+            return not assess_weapons_uplift(sentence, harm_classifier=self._harm_classifier).blocks
         except Exception:
             return False
 
