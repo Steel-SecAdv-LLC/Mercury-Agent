@@ -85,17 +85,37 @@ failure (network, parse, or an exception from any provider) is fail-closed to
 ## Ethics gate
 
 Every outward action passes a **fail-closed harm gate** built on Mercury's own
-`BenevolenceScorer` (the same scorer hardened in this PR with morphological +
-curated-euphemism harm matching, an optional pluggable semantic classifier, and
-severity/reversibility damping). The gate refuses an action when detected
-harm or severity crosses `GeneralAssistant.HARM_REFUSAL_THRESHOLD` (0.5).
+`BenevolenceScorer` — the *same* gate `detect`/`analyze`/`predict` use, so the
+open-web/authoring surface (the highest-uplift capability in the system) inherits
+the one harm policy rather than a weaker bespoke check. It refuses an action when
+**either** general harm/severity crosses `GeneralAssistant.HARM_REFUSAL_THRESHOLD`
+(0.5) **or** the two-axis weapons/mass-casualty gate returns a blocking
+disposition.
 
-It gates on **detected harm**, not on a positive-benevolence floor: a benign,
-neutral research query carries no harm and is permitted, while a query expressing
-intent to injure/kill/destroy is refused. (The benevolence-floor model is
-calibrated for detection *actions* and would false-reject all neutral research —
-gating on harm is the correct, fail-closed semantics for a research/author
-capability.)
+It gates on **detected harm and operational uplift**, not on a positive-benevolence
+floor: a benign, neutral research query carries no harm and is permitted, while a
+query expressing intent to injure/kill/destroy — or to build, produce, acquire,
+weaponize, disseminate, enhance, or deploy a weapon — is refused. (The
+benevolence-floor model is calibrated for detection *actions* and would
+false-reject all neutral research — gating on harm/uplift is the correct,
+fail-closed semantics for a research/author capability.)
+
+### Weapons / mass-casualty uplift — a two-axis gate, not a topic blocklist
+
+The weapons control is **not** a keyword blocklist on hazardous topics (which
+would false-reject clinical toxicology, pathology, virology, critical-infrastructure
+safety, licensed demolition, dispersion modeling, and CBRN emergency response —
+professions that all work *inside* the same hazard vocabulary). It is a two-axis
+assessment (`cognitive.ethical_bounding.assess_weapons_uplift`): **Axis A** routes
+on hazard domain (high-recall, never blocks alone) and **Axis B** gates on
+*operational intent* — mechanism / detection / treatment / response / policy /
+licensed-practice default to **ALLOW**; only the narrow production / weaponization /
+acquisition-evasion / offensive-enhancement / targeting intersection is refused,
+via a calibrated ladder (ALLOW → ALLOW_LOG → ESCALATE → REFUSE_REDACT →
+HARD_REFUSE). Enforced at four points — pre-retrieval (query), post-retrieval
+(fetched content), pre-emission (verbatim sentence redaction), and the
+orchestration boundary (session decomposition). See **[`HARM_POLICY.md`](HARM_POLICY.md)**
+for the full policy, response ladder, and residual-risk statement.
 
 ## Usage
 

@@ -90,8 +90,25 @@ for high precision so it never over-blocks Mercury's own defensive language
 classifier** (`BenevolenceScorer(harm_classifier=…)`) that can ride Mercury's own
 offline Ollama backend via `reasoning_harm_classifier(...)` — every layer can
 only RAISE harm. Severity × irreversibility multiplicative damping (fail-closed);
-calibratable weights in a `BenevolenceCalibration` dataclass; `RULESET_VERSION`
-bumped to 3 (cache invalidation).
+calibratable weights in a `BenevolenceCalibration` dataclass.
+
+**Weapons / mass-casualty uplift gate (two-axis, not a topic blocklist).** New
+`cognitive/ethical_bounding.py::assess_weapons_uplift` gates on *operational
+intent* (Axis B: mechanism/detection/treatment/response/policy/licensed-practice
+→ ALLOW; production/weaponization/acquisition-evasion/offensive-enhancement/
+targeting → REFUSE) routed by a high-recall hazard-domain filter (Axis A), with a
+calibrated ladder (ALLOW → ALLOW_LOG → ESCALATE → REFUSE_REDACT → HARD_REFUSE).
+Folded into the single `BenevolenceScorer`/`HarmReducer` hard gate (blocking
+disposition raises PHYSICAL/SOCIETAL harm and hard-vetoes `is_permissible`,
+monotone), and enforced in depth across the general-capability layer:
+pre-retrieval query gate, post-retrieval content gate (verdict travels with
+`FetchResult`), pre-emission verbatim-sentence redaction
+(`ExtractiveSynthesizer` sentence gate), and an orchestration-boundary aggregate
+gate (`SessionActionabilityTracker`) against query decomposition. Paired
+red-team / professional CI suite (`tests/ethical/test_weapons_uplift_gate.py`)
+pins both false-negative and false-positive rates; full policy, response ladder,
+and residual-risk statement in `docs/HARM_POLICY.md`. `RULESET_VERSION` bumped to
+4 (cache invalidation).
 
 **Honesty labels.** `bain_ai_scaling` power estimate, the ~82 uncomputed
 `global_omni_scalar_network` diagnostic scalars + its untrained attention,
