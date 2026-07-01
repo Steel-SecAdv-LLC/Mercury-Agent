@@ -39,7 +39,7 @@ from __future__ import annotations
 
 import logging
 from collections import deque
-from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from omni_mercury_engine.cognitive.ethical_bounding import (
     HazardDomain,
@@ -48,6 +48,9 @@ from omni_mercury_engine.cognitive.ethical_bounding import (
     WeaponsRiskAssessment,
     assess_weapons_uplift,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
