@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from omni_mercury_engine.agentic.capabilities.document_generator import (
     Document,
@@ -28,6 +28,11 @@ from omni_mercury_engine.agentic.capabilities.document_generator import (
 )
 from omni_mercury_engine.agentic.capabilities.text_synthesis import ExtractiveSynthesizer
 from omni_mercury_engine.agentic.capabilities.web_research import WebResearcher
+from omni_mercury_engine.cognitive.escalation import EscalationBroker, EscalationRecord
+from omni_mercury_engine.cognitive.gate_audit import record_gate_decision
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +58,16 @@ class GateVerdict:
     def escalatable(self) -> bool:
         """True when a human-in-the-loop could authorize (B6 gray zone)."""
         return self.disposition == "escalate"
+
+    @property
+    def provenance_required(self) -> bool:
+        """True when the answer is permitted but must be source-attributed.
+
+        Set for an otherwise-allowable query in a high-severity hazard domain
+        (ALLOW_PROVENANCE): the output boundary must withhold rather than emit
+        uncited synthesis on a hazardous topic.
+        """
+        return self.disposition == "allow_provenance"
 
 
 @dataclass
@@ -102,8 +117,17 @@ class GeneralAssistant:
         synthesizer: ExtractiveSynthesizer | None = None,
         doc_generator: DocumentGenerator | None = None,
         benevolence_scorer: Any | None = None,
+        *,
+        escalation_reviewer: Callable[[EscalationRecord], bool] | None = None,
+        escalation_max_approvals: int = 3,
     ) -> None:
-        """Wire the researcher, synthesizer, document generator, and ethics gate."""
+        """Wire the researcher, synthesizer, document generator, and ethics gate.
+
+        ``escalation_reviewer`` is the human-in-the-loop hook consulted on an
+        ESCALATE verdict (a gray-zone request). With none wired, escalations are
+        denied fail-closed; a wired reviewer may authorize up to
+        ``escalation_max_approvals`` per session (bounded autonomy).
+        """
         # Reasoning-backed harm classifier, wired by default on this open-web/
         # text surface (the highest-uplift capability). Fail-open and offline-
         # safe: it contributes a meaning-level harm probability only when a real
@@ -149,6 +173,11 @@ class GeneralAssistant:
         )
 
         self._session_tracker = SessionActionabilityTracker()
+
+        # Human-in-the-loop / bounded-autonomy broker for ESCALATE verdicts.
+        self._escalation = EscalationBroker(
+            reviewer=escalation_reviewer, max_approvals=escalation_max_approvals
+        )
 
     # -- ethics gate (unified with the rest of Mercury) --------------------
 
@@ -227,6 +256,55 @@ class GeneralAssistant:
                 reason=f"gate error: {exc}",
             )
 
+    def _adjudicate_block(
+        self,
+        *,
+        query: str,
+        disposition: str,
+        hazard_domain: str,
+        intent: str,
+        signals: tuple[str, ...],
+        reason: str,
+        escalatable: bool,
+        source: str,
+    ) -> tuple[bool, str]:
+        """Audit a blocking verdict and, if escalatable, consult the HITL broker.
+
+        Returns ``(proceed, note)``. An escalatable verdict is routed to the
+        :class:`EscalationBroker`: on approval the request proceeds (and its
+        output is treated as provenance-required); otherwise it is refused. Every
+        outcome is written to the durable gate audit log (the broker audits its
+        own decisions; non-escalatable refusals are audited here).
+        """
+        if escalatable:
+            decision = self._escalation.review(
+                EscalationRecord(
+                    query=query,
+                    reason=reason,
+                    disposition=disposition,
+                    hazard_domain=hazard_domain,
+                    intent=intent,
+                    signals=tuple(signals),
+                )
+            )
+            if decision.approved:
+                return True, f"escalation authorized by human-in-the-loop: {decision.reason}"
+            return False, (
+                f"escalate: {reason} -- a licensed/authorized human-in-the-loop review is "
+                f"required before this query can proceed ({decision.reason})"
+            )
+        record_gate_decision(
+            decision="refused",
+            source=source,
+            disposition=disposition,
+            hazard_domain=hazard_domain,
+            intent=intent,
+            signals=signals,
+            reason=reason,
+            query=query,
+        )
+        return False, f"refused: {reason}"
+
     # -- capabilities ------------------------------------------------------
 
     def summarize_url(self, url: str, max_sentences: int = 5) -> str:
@@ -262,22 +340,31 @@ class GeneralAssistant:
             f"raw query: {query}",
             {"purpose": "informational research to inform and help", "capability": "web_research"},
         )
+        # Output on a hazardous-but-allowable topic must be source-attributed
+        # (ALLOW_PROVENANCE); an approved escalation is treated the same way.
+        provenance_required = verdict.provenance_required
         if not verdict.permitted:
-            note = (
-                f"escalate: {verdict.reason} -- a licensed/authorized human-in-the-loop "
-                "review is required before this query can proceed"
-                if verdict.escalatable
-                else f"refused: {verdict.reason}"
-            )
-            return ResearchReport(
+            proceed, note = self._adjudicate_block(
                 query=query,
-                summary="",
-                document=None,
-                available=False,
-                refused=True,
-                note=note,
                 disposition=verdict.disposition,
+                hazard_domain=verdict.hazard_domain,
+                intent=verdict.operational_intent,
+                signals=(),
+                reason=verdict.reason,
+                escalatable=verdict.escalatable,
+                source="assistant.research_report",
             )
+            if not proceed:
+                return ResearchReport(
+                    query=query,
+                    summary="",
+                    document=None,
+                    available=False,
+                    refused=True,
+                    note=note,
+                    disposition=verdict.disposition,
+                )
+            provenance_required = True  # an approved gray-zone query must be cited
 
         # Orchestration-boundary aggregate gate (spec §6): even though this
         # query passed on its own, evaluate the realized plan / accretion over
@@ -286,21 +373,32 @@ class GeneralAssistant:
         aggregate = self._session_tracker.record_and_assess(query)
         if aggregate.blocks:
             disp = aggregate.disposition.value
-            return ResearchReport(
+            proceed, note = self._adjudicate_block(
                 query=query,
-                summary="",
-                document=None,
-                available=False,
-                refused=True,
-                note=(
-                    f"{'escalate' if disp == 'escalate' else 'refused'}: aggregate harm gate "
-                    f"across the session's query sequence ({disp}, "
-                    f"hazard={aggregate.hazard_domain.value}, "
-                    f"intent={aggregate.intent_tier.value}); "
-                    "a decomposition of a restricted request was detected"
-                ),
                 disposition=disp,
+                hazard_domain=aggregate.hazard_domain.value,
+                intent=aggregate.intent_tier.value,
+                signals=aggregate.signals,
+                reason=(
+                    "aggregate harm gate across the session's query sequence "
+                    f"(hazard={aggregate.hazard_domain.value}, "
+                    f"intent={aggregate.intent_tier.value}); a decomposition of a "
+                    "restricted request was detected"
+                ),
+                escalatable=(disp == "escalate"),
+                source="assistant.aggregate_gate",
             )
+            if not proceed:
+                return ResearchReport(
+                    query=query,
+                    summary="",
+                    document=None,
+                    available=False,
+                    refused=True,
+                    note=note,
+                    disposition=disp,
+                )
+            provenance_required = True
 
         hits = self.researcher.search(query, max_results=max_sources)
         if not hits:
@@ -362,9 +460,28 @@ class GeneralAssistant:
                     "post-retrieval harm gate (operational weapons content)"
                 )
                 refused = True
+                disp = "refuse_redact"
+            elif provenance_required:
+                # ALLOW_PROVENANCE enforcement: a hazardous-topic query may be
+                # answered only from cited sources. With none readable, withhold
+                # rather than emit uncited synthesis on a hazardous topic.
+                note = (
+                    "withheld: this hazardous-topic query may be answered only from cited "
+                    "sources (provenance required), but no citable source was readable"
+                )
+                refused = True
+                disp = "allow_provenance"
+                record_gate_decision(
+                    decision="provenance_withheld",
+                    source="assistant.research_report",
+                    disposition="allow_provenance",
+                    reason=note,
+                    query=query,
+                )
             else:
                 note = "search returned hits but none were readable"
                 refused = False
+                disp = "allow"
             return ResearchReport(
                 query=query,
                 summary="",
@@ -373,7 +490,7 @@ class GeneralAssistant:
                 available=False,
                 refused=refused,
                 note=note,
-                disposition="refuse_redact" if dropped_for_harm else "allow",
+                disposition=disp,
             )
 
         # Rank sources by relevance; synthesize across the most relevant ones.
@@ -409,6 +526,15 @@ class GeneralAssistant:
             sources=[m["url"] for m in source_meta],
             fmt=fmt,
         )
+        if provenance_required:
+            # Emitted with citations -> provenance satisfied; record the decision.
+            record_gate_decision(
+                decision="allow_provenance_emitted",
+                source="assistant.research_report",
+                disposition="allow_provenance",
+                reason=f"answered from {len(read)} cited source(s)",
+                query=query,
+            )
         return ResearchReport(
             query=query,
             summary=summary,
@@ -416,6 +542,7 @@ class GeneralAssistant:
             sources=source_meta,
             available=True,
             note=f"{len(read)} of {len(hits)} sources read",
+            disposition="allow_provenance" if provenance_required else "allow",
         )
 
     def answer(self, question: str, *, max_sources: int = 3) -> str:
@@ -458,10 +585,33 @@ class GeneralAssistant:
                 "content_preview": body_preview[:500],
             },
         )
+        provenance_required = verdict.provenance_required
         if not verdict.permitted:
-            logger.info(
-                "document generation refused by harm gate (%s): %s", verdict.disposition, title
+            proceed, note = self._adjudicate_block(
+                query=title,
+                disposition=verdict.disposition,
+                hazard_domain=verdict.hazard_domain,
+                intent=verdict.operational_intent,
+                signals=(),
+                reason=verdict.reason,
+                escalatable=verdict.escalatable,
+                source="assistant.write_document",
             )
+            if not proceed:
+                logger.info("document generation blocked by harm gate (%s): %s", note, title)
+                return None
+            provenance_required = True
+        if provenance_required and not sources:
+            # ALLOW_PROVENANCE: a hazardous-topic document must carry source
+            # attribution. Withhold rather than emit uncited hazardous content.
+            record_gate_decision(
+                decision="provenance_withheld",
+                source="assistant.write_document",
+                disposition="allow_provenance",
+                reason="document on a hazardous topic requires cited sources; none supplied",
+                query=title,
+            )
+            logger.info("document generation withheld (provenance required, no sources): %s", title)
             return None
         return self.doc_generator.report(
             title, sections, fmt=fmt, metadata=metadata, sources=sources

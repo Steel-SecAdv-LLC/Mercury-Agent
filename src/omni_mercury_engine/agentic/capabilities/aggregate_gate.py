@@ -56,6 +56,7 @@ from omni_mercury_engine.cognitive.ethical_bounding import (
     WeaponsRiskAssessment,
     assess_weapons_uplift,
 )
+from omni_mercury_engine.cognitive.gate_audit import record_gate_decision
 from omni_mercury_engine.cognitive.harm_normalization import base_normalize
 
 if TYPE_CHECKING:
@@ -250,6 +251,19 @@ class SessionActionabilityTracker:
                     len(cluster_idx),
                     top_domain.value,
                 )
+                record_gate_decision(
+                    decision="accretion_detected",
+                    source="aggregate_gate",
+                    disposition="escalate",
+                    hazard_domain=top_domain.value,
+                    intent="production",
+                    signals=("aggregate_semantic_accretion",),
+                    reason=(
+                        f"{len(cluster_idx)} cohesive undifferentiated-mechanism probes "
+                        f"in {top_domain.value} within the session window"
+                    ),
+                    query=query,
+                )
                 accretion_verdict = WeaponsRiskAssessment(
                     hazard_domain=top_domain,
                     hazard_weight=1.0,
@@ -271,9 +285,10 @@ class SessionActionabilityTracker:
 _DISPOSITION_SEVERITY: dict[WeaponsDisposition, int] = {
     WeaponsDisposition.ALLOW: 0,
     WeaponsDisposition.ALLOW_LOG: 1,
-    WeaponsDisposition.ESCALATE: 2,
-    WeaponsDisposition.REFUSE_REDACT: 3,
-    WeaponsDisposition.HARD_REFUSE: 4,
+    WeaponsDisposition.ALLOW_PROVENANCE: 2,
+    WeaponsDisposition.ESCALATE: 3,
+    WeaponsDisposition.REFUSE_REDACT: 4,
+    WeaponsDisposition.HARD_REFUSE: 5,
 }
 
 

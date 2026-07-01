@@ -203,7 +203,11 @@ class TestBenevolenceScorerVeto:
     def test_professional_surfaces_axes_without_blocking(self) -> None:
         scorer = BenevolenceScorer(benevolence_threshold=0.70)
         score = scorer.score_action(PROFESSIONAL["nerve_agent_treatment"], {})
-        assert score.weapons_disposition in ("allow", "allow_log")
+        # A defensive CBRN query is permitted (non-blocking). Because it sits in a
+        # high-severity hazard domain it is ALLOW_PROVENANCE (answerable, but the
+        # output must be source-attributed) rather than plain ALLOW -- still one
+        # of the non-blocking allow variants, never a refusal.
+        assert score.weapons_disposition in ("allow", "allow_log", "allow_provenance")
 
 
 class TestOutputGate:

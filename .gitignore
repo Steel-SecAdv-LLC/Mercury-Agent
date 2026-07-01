@@ -175,3 +175,7 @@ Thumbs.db
 
 # Downloaded benchmark dataset cache (ADBench, etc.)
 cache/
+
+# Harm-gate durable audit sinks (runtime, not committed)
+artifacts/audit/
+audit_logs/

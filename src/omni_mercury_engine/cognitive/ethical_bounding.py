@@ -431,11 +431,24 @@ class WeaponsDisposition(Enum):
     """Calibrated response ladder for a weapons/mass-casualty verdict.
 
     Not binary, so professionals are not crippled by a gate tuned for genuine
-    mass-casualty uplift.
+    mass-casualty uplift. In increasing order of restriction:
+
+    * ``ALLOW`` -- permit, no special handling.
+    * ``ALLOW_LOG`` -- permit, log (licensed-practice framing).
+    * ``ALLOW_PROVENANCE`` -- permit, but the emitted answer MUST be
+      source-attributed. Assigned to an otherwise-allowable query that sits in a
+      high-severity hazard domain (defensive/mechanistic CBRN etc.): the answer
+      is available, but only sourced/cited -- never uncited synthesis on a
+      hazardous topic. Enforced at the output boundary (GeneralAssistant), which
+      withholds when no citable source is available. Non-blocking.
+    * ``ESCALATE`` -- gray zone; defer to a human-in-the-loop reviewer.
+    * ``REFUSE_REDACT`` -- refuse the operational part; redact at sentence level.
+    * ``HARD_REFUSE`` -- refuse outright.
     """
 
     ALLOW = "allow"
     ALLOW_LOG = "allow_log"
+    ALLOW_PROVENANCE = "allow_provenance"
     ESCALATE = "escalate"
     REFUSE_REDACT = "refuse_redact"
     HARD_REFUSE = "hard_refuse"
@@ -586,6 +599,11 @@ _HAZARD_DOMAIN_WEIGHTS: dict[HazardDomain, float] = {
     HazardDomain.CYBER_OFFENSIVE: 0.65,
     HazardDomain.OTHER_MASS_HARM: 0.9,
 }
+
+# Per-domain weight at/above which a domain is "high severity" (mass-casualty
+# CBRN + high-yield explosive + mass-harm). Used to route an otherwise-allowable
+# query to ALLOW_PROVENANCE (source-attribution required) rather than plain ALLOW.
+HIGH_SEVERITY_WEIGHT: float = 0.85
 
 # Merge the multilingual/transliterated taxonomy terms (native script + Latin
 # transliteration across widely spoken languages) into the Axis-A router. Axis A
@@ -879,19 +897,24 @@ def assess_weapons_uplift(
         weight = _HAZARD_DOMAIN_WEIGHTS[domain]
 
         if not offensive:
-            # Hazard vocabulary present but no offensive-actionability signal
-            # at all: default ALLOW, logged when it also reads as licensed
-            # professional practice.
+            # Hazard vocabulary present but no offensive-actionability signal at
+            # all: permit. Licensed-practice framing is ALLOW_LOG; an otherwise-
+            # allowable query that sits in a HIGH-severity hazard domain (weight
+            # >= HIGH_SEVERITY_WEIGHT: CBRN / high-yield-explosive / mass-harm) is
+            # ALLOW_PROVENANCE -- answerable, but only source-attributed, never
+            # uncited synthesis on a hazardous topic (enforced at the output
+            # boundary). Everything else is plain ALLOW.
             tier = max(
                 (t for t, _ in allowed),
                 key=_INTENT_ORDER.index,
                 default=OperationalIntent.MECHANISM,
             )
-            disposition = (
-                WeaponsDisposition.ALLOW_LOG
-                if tier is OperationalIntent.LICENSED_PRACTICE
-                else WeaponsDisposition.ALLOW
-            )
+            if tier is OperationalIntent.LICENSED_PRACTICE:
+                disposition = WeaponsDisposition.ALLOW_LOG
+            elif weight >= HIGH_SEVERITY_WEIGHT:
+                disposition = WeaponsDisposition.ALLOW_PROVENANCE
+            else:
+                disposition = WeaponsDisposition.ALLOW
             return WeaponsRiskAssessment(
                 domain, weight, tier, 0.0, disposition, tuple(label for _, label in allowed)
             )
