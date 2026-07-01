@@ -529,8 +529,8 @@ _OFFENSIVE_INTENT_PATTERNS: tuple[tuple[re.Pattern[str], OperationalIntent, str]
     (
         re.compile(
             r"\b(?:how (?:do|can|would) (?:i|we|one|you)|steps? to|guide (?:to|for)|"
-            r"instructions? (?:to|for)|recipe for)\s+(?:make|produce|synthesi[sz]e|"
-            r"manufacture|build|create|cook)\b"
+            r"instructions? (?:to|for))\s+(?:make|produce|synthesi[sz]e|"
+            r"manufacture|fabricate|build|construct|assemble)\b"
         ),
         OperationalIntent.PRODUCTION,
         "production_howto",
@@ -574,7 +574,8 @@ _OFFENSIVE_INTENT_PATTERNS: tuple[tuple[re.Pattern[str], OperationalIntent, str]
         re.compile(
             r"\bmaximi[sz]e casualties\b|\battack plan\b|\btarget(?:ing)? "
             r"(?:a crowd|civilians|a stadium|a school|a gathering)\b|\bkill as many\b|"
-            r"\bmass[- ]casualty target\b"
+            r"\bmass[- ]casualty target\b|\bantipersonnel\b|"
+            r"\b(?:against|to (?:kill|harm|maim|injure)) (?:people|persons|civilians|humans)\b"
         ),
         OperationalIntent.TARGETING,
         "targeting_planning",
@@ -1114,6 +1115,13 @@ class HarmReducer:
         self.last_weapons_assessment = assess_weapons_uplift(
             action, context, harm_classifier=self._harm_classifier
         )
+        # A blocking weapons verdict floors both the relevant categories (so the
+        # breakdown and the severity damping reflect it) AND the overall harm
+        # (below). Flooring only 2 of 8 categories would otherwise be diluted by
+        # the weighted average to well under 0.5 -- e.g. a HARD_REFUSE with two
+        # categories at 0.95 averages to ~0.26 -- so the scalar harm_score would
+        # not track the verdict. Both are max-only / fail-closed (never lower).
+        weapons_overall_floor = 0.0
         if self.last_weapons_assessment.disposition is WeaponsDisposition.HARD_REFUSE:
             floor = BENEVOLENCE_CALIBRATION.weapons_hard_refuse_harm_floor
             breakdown[HarmCategory.PHYSICAL.value] = max(
@@ -1122,6 +1130,7 @@ class HarmReducer:
             breakdown[HarmCategory.SOCIETAL.value] = max(
                 breakdown[HarmCategory.SOCIETAL.value], floor
             )
+            weapons_overall_floor = floor
         elif self.last_weapons_assessment.disposition is WeaponsDisposition.REFUSE_REDACT:
             floor = BENEVOLENCE_CALIBRATION.weapons_refuse_redact_harm_floor
             breakdown[HarmCategory.PHYSICAL.value] = max(
@@ -1130,15 +1139,17 @@ class HarmReducer:
             breakdown[HarmCategory.SOCIETAL.value] = max(
                 breakdown[HarmCategory.SOCIETAL.value], floor
             )
+            weapons_overall_floor = floor
         elif self.last_weapons_assessment.disposition is WeaponsDisposition.ESCALATE:
             floor = BENEVOLENCE_CALIBRATION.weapons_escalate_harm_floor
             breakdown[HarmCategory.SOCIETAL.value] = max(
                 breakdown[HarmCategory.SOCIETAL.value], floor
             )
+            weapons_overall_floor = floor
 
         weighted_sum = sum(breakdown[cat.value] * self.HARM_WEIGHTS[cat] for cat in HarmCategory)
         max_weighted = sum(self.HARM_WEIGHTS.values())
-        overall_harm = weighted_sum / max_weighted
+        overall_harm = max(weighted_sum / max_weighted, weapons_overall_floor)
 
         # Optional semantic classifier: can only RAISE the overall harm. If it
         # errors we keep the deterministic lexical harm (never lower it for a
