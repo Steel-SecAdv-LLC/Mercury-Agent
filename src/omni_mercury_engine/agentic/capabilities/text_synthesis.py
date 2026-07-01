@@ -167,22 +167,59 @@ class ExtractiveSynthesizer:
 
     min_sentence_chars: int = 25
     sentence_gate: SentenceGate | None = None
+    #: Largest span of consecutive sentences re-gated together as an assembled
+    #: procedure (spec §5.3). 1 = per-sentence only; the default 3 also catches a
+    #: procedure split across 2-3 sentences that each pass individually.
+    cross_sentence_window: int = 3
+
+    def _gate_ok(self, text: str) -> bool:
+        """True when ``text`` passes the sentence gate. Fail-closed on error."""
+        if self.sentence_gate is None:
+            return True
+        try:
+            return bool(self.sentence_gate(text))
+        except Exception:
+            return False  # fail-closed: a gate error redacts, never passes.
 
     def _emit(self, sentence: str) -> str:
         """Return ``sentence`` verbatim, or the redaction notice if the gate rejects it."""
         if self.sentence_gate is None:
             return sentence
-        try:
-            safe = bool(self.sentence_gate(sentence))
-        except Exception:
-            safe = False  # fail-closed: a gate error redacts, never passes.
-        return sentence if safe else REDACTION_NOTICE
+        return sentence if self._gate_ok(sentence) else REDACTION_NOTICE
+
+    def _safe_flags(self, sentences: list[str]) -> list[bool]:
+        """Per-sentence safety flags, tightened by a cross-sentence re-gate.
+
+        A verbatim extractor can leak an operational procedure whose steps are
+        individually innocuous but assemble into weapons content once emitted
+        together ("Step 1 ..." / "Step 2 ..."). After the per-sentence pass, any
+        run of ``2..cross_sentence_window`` **individually-safe** sentences whose
+        concatenation trips the gate is redacted as an assembled procedure. Runs
+        that already contain an individually-unsafe (redacted) sentence are left
+        alone -- that sentence is handled per-sentence and its safe neighbours are
+        not punished (so defensive context adjacent to a redacted step survives).
+        """
+        flags = [self._gate_ok(s) for s in sentences]
+        if self.sentence_gate is None:
+            return flags
+        n = len(sentences)
+        window = max(1, self.cross_sentence_window)
+        for size in range(2, window + 1):
+            for i in range(n - size + 1):
+                span = range(i, i + size)
+                if all(flags[j] for j in span) and not self._gate_ok(
+                    " ".join(sentences[j] for j in span)
+                ):
+                    for j in span:
+                        flags[j] = False
+        return flags
 
     def _join(self, sentences: list[str]) -> str:
         """Join sentences through the output gate, collapsing adjacent redactions."""
+        flags = self._safe_flags(sentences)
         out: list[str] = []
-        for s in sentences:
-            emitted = self._emit(s)
+        for s, ok in zip(sentences, flags):
+            emitted = s if ok else REDACTION_NOTICE
             if emitted == REDACTION_NOTICE and out and out[-1] == REDACTION_NOTICE:
                 continue  # don't repeat the notice for consecutive redactions
             out.append(emitted)

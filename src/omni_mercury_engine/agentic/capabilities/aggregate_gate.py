@@ -38,8 +38,11 @@ residual; this module reduces the easy decomposition attacks, not all of them.
 from __future__ import annotations
 
 import logging
+import re
 from collections import deque
 from typing import TYPE_CHECKING
+
+import numpy as np
 
 from omni_mercury_engine.cognitive.ethical_bounding import (
     HazardDomain,
@@ -48,11 +51,44 @@ from omni_mercury_engine.cognitive.ethical_bounding import (
     WeaponsRiskAssessment,
     assess_weapons_uplift,
 )
+from omni_mercury_engine.cognitive.harm_normalization import base_normalize
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
+
+# Hashed word-level embedding for semantic accretion. Deterministic (no
+# PYTHONHASHSEED dependency) so the accretion signal is reproducible.
+_EMBED_DIM = 256
+_WORD_RE = re.compile(r"[a-z0-9]{3,}")
+
+
+def _det_word_hash(word: str) -> int:
+    """Stable polynomial rolling hash (process-independent)."""
+    h = 0
+    for ch in word:
+        h = (h * 131 + ord(ch)) & 0xFFFFFFFF
+    return h
+
+
+def _embed(text: str) -> np.ndarray:
+    """Deterministic L2-normalized hashed term-frequency embedding of ``text``.
+
+    numpy/stdlib only -- no model. Content words (>=3 chars) after obfuscation-
+    resistant normalization are hashed into a fixed-width vector, so semantically
+    similar queries (same hazard vocabulary, different phrasing) land close in
+    cosine space. Used to detect *distributed* probing that the exact-domain
+    counter misses.
+    """
+    v = np.zeros(_EMBED_DIM, dtype=np.float64)
+    for word in _WORD_RE.findall(base_normalize(text)):
+        v[_det_word_hash(word) % _EMBED_DIM] += 1.0
+    norm = float(np.linalg.norm(v))
+    if norm == 0.0:
+        return v
+    return v / norm
+
 
 # Hazard domains whose undifferentiated-mechanism probing is worth accreting.
 # The mass-casualty CBRN + high-yield-explosive set; lower-severity domains
@@ -91,22 +127,39 @@ class SessionActionabilityTracker:
         *,
         window: int = 12,
         mechanism_ceiling: int = 5,
+        similarity_threshold: float = 0.45,
         gate: Callable[[str], WeaponsRiskAssessment] | None = None,
     ) -> None:
-        """Initialize an empty session tracker."""
-        self._queries: deque[str] = deque(maxlen=max(2, window))
+        """Initialize an empty session tracker.
+
+        Args:
+            window: How many recent queries to retain.
+            mechanism_ceiling: Cohesive-probe count within the window that trips
+                escalation.
+            similarity_threshold: Cosine above which two undifferentiated probes
+                count as the *same* line of enquiry for the semantic-accretion
+                cluster (so re-phrasing across sub-queries no longer splits the
+                count the way exact hazard-domain matching did).
+            gate: Injectable weapons gate (defaults to assess_weapons_uplift).
+        """
+        maxlen = max(2, window)
+        self._queries: deque[str] = deque(maxlen=maxlen)
         self._mechanism_ceiling = max(2, mechanism_ceiling)
+        self._similarity_threshold = float(similarity_threshold)
         self._gate = gate or assess_weapons_uplift
-        # Rolling record of (domain, is_undifferentiated_mechanism) for the
-        # accretion counter, kept in lockstep with ``_queries``.
-        self._mech_flags: deque[bool] = deque(maxlen=max(2, window))
-        self._mech_domains: deque[HazardDomain] = deque(maxlen=max(2, window))
+        # Rolling records kept in lockstep with ``_queries``: whether each query
+        # was an undifferentiated high-severity probe, its hazard domain, and its
+        # semantic embedding (for the cluster-based accretion signal).
+        self._mech_flags: deque[bool] = deque(maxlen=maxlen)
+        self._mech_domains: deque[HazardDomain] = deque(maxlen=maxlen)
+        self._embeddings: deque[np.ndarray] = deque(maxlen=maxlen)
 
     def reset(self) -> None:
         """Clear all session state (e.g. at the start of a new task)."""
         self._queries.clear()
         self._mech_flags.clear()
         self._mech_domains.clear()
+        self._embeddings.clear()
 
     @staticmethod
     def _is_undifferentiated_mechanism(assessment: WeaponsRiskAssessment) -> bool:
@@ -124,6 +177,25 @@ class SessionActionabilityTracker:
             and not assessment.blocks
         )
 
+    def _largest_semantic_cluster(self, embeddings: list[np.ndarray]) -> list[int]:
+        """Indices of the densest set of mutually similar (cosine>=thr) embeddings.
+
+        Greedy single-linkage-by-seed: every embedding is unit-normalized, so the
+        dot product is the cosine; for each seed we take the set of embeddings
+        within ``similarity_threshold`` of it and return the largest such
+        neighbourhood. This measures how concentrated the undifferentiated
+        probing is as one line of enquiry, independent of exact phrasing.
+        """
+        n = len(embeddings)
+        if n == 0:
+            return []
+        mat = np.vstack(embeddings)
+        sims = mat @ mat.T
+        neighbourhoods = [
+            [j for j in range(n) if sims[i, j] >= self._similarity_threshold] for i in range(n)
+        ]
+        return max(neighbourhoods, key=len)
+
     def record_and_assess(self, query: str) -> WeaponsRiskAssessment:
         """Record ``query`` and return the AGGREGATE weapons verdict for the session.
 
@@ -137,37 +209,50 @@ class SessionActionabilityTracker:
         self._queries.append(query)
         self._mech_flags.append(self._is_undifferentiated_mechanism(per_query))
         self._mech_domains.append(per_query.hazard_domain)
+        self._embeddings.append(_embed(query))
 
-        # (1) Realized-plan re-gate over the concatenated recent queries.
+        # (1) Realized-plan re-gate over the concatenated recent queries. Catches
+        # an offensive phrasing physically SPLIT across sub-queries so that no
+        # single one tripped an offensive pattern but the concatenation does.
         joined = "  ".join(self._queries)
         plan_verdict = self._gate(joined)
 
-        # (2) Undifferentiated-mechanism accretion within a single domain.
+        # (2) Semantic-accretion of undifferentiated high-severity probing.
+        # Concatenation (control 1) is defeated by a *semantically-clean*
+        # decomposition that never co-locates offensive phrasing. This control
+        # instead measures whether the undifferentiated probes form a cohesive
+        # line of enquiry in embedding space: the largest cluster of mutually
+        # similar (cosine >= threshold) flagged probes, regardless of how the
+        # phrasing or the exact HazardDomain label varied across sub-queries.
+        # When that cluster reaches the ceiling it ESCALATES (human-in-the-loop
+        # / audit), never denies -- a real engineer is slowed and logged.
         accretion_verdict: WeaponsRiskAssessment | None = None
-        if sum(self._mech_flags) >= self._mechanism_ceiling:
-            # Only escalate if the accretion concentrates in ONE domain -- a
-            # scattershot of unrelated domains is not a procedure being
-            # assembled. Count the most common flagged domain.
-            flagged_domains = [
-                d for d, f in zip(self._mech_domains, self._mech_flags, strict=True) if f
-            ]
-            if flagged_domains:
-                top_domain = max(set(flagged_domains), key=flagged_domains.count)
-                if flagged_domains.count(top_domain) >= self._mechanism_ceiling:
-                    logger.info(
-                        "aggregate gate: undifferentiated-mechanism accretion in %s "
-                        "(%d probes) -> ESCALATE",
-                        top_domain.value,
-                        flagged_domains.count(top_domain),
-                    )
-                    accretion_verdict = WeaponsRiskAssessment(
-                        hazard_domain=top_domain,
-                        hazard_weight=1.0,
-                        intent_tier=OperationalIntent.PRODUCTION,
-                        confidence=0.0,
-                        disposition=WeaponsDisposition.ESCALATE,
-                        signals=("aggregate_mechanism_accretion",),
-                    )
+        flagged = [
+            (emb, dom)
+            for emb, dom, flag in zip(
+                self._embeddings, self._mech_domains, self._mech_flags, strict=True
+            )
+            if flag
+        ]
+        if len(flagged) >= self._mechanism_ceiling:
+            cluster_idx = self._largest_semantic_cluster([emb for emb, _ in flagged])
+            if len(cluster_idx) >= self._mechanism_ceiling:
+                cluster_domains = [flagged[i][1] for i in cluster_idx]
+                top_domain = max(set(cluster_domains), key=cluster_domains.count)
+                logger.info(
+                    "aggregate gate: semantic undifferentiated-mechanism accretion "
+                    "(%d cohesive probes, dominant domain %s) -> ESCALATE",
+                    len(cluster_idx),
+                    top_domain.value,
+                )
+                accretion_verdict = WeaponsRiskAssessment(
+                    hazard_domain=top_domain,
+                    hazard_weight=1.0,
+                    intent_tier=OperationalIntent.PRODUCTION,
+                    confidence=0.0,
+                    disposition=WeaponsDisposition.ESCALATE,
+                    signals=("aggregate_semantic_accretion",),
+                )
 
         # Return the most severe aggregate signal. Both are fail-closed; a
         # blocking plan re-gate (which can be HARD_REFUSE) outranks the
