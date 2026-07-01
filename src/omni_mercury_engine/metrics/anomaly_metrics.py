@@ -476,10 +476,12 @@ class AnomalyMetrics:
     ) -> dict[str, float]:
         """Leakage-free ``compute_all``: tune threshold on val, report on test.
 
-        Threshold-dependent metrics (``f1_max``, accuracy/precision/recall) are
-        evaluated on a disjoint test split using a threshold tuned on validation.
-        Pixel-level metrics (mask-based) are not split (they are per-image maps,
-        not threshold-tuned here) and are computed on the full input as before.
+        Threshold-dependent metrics (``f1``/``f1_max``, accuracy/precision/recall)
+        are evaluated on a disjoint test split using a threshold tuned on
+        validation. Pixel-level (mask-based) metrics are computed on the SAME
+        test split when the mask arrays are per-sample aligned (leading dim equals
+        the sample count); if they are not aligned to the samples, they fall back
+        to the full mask input.
         """
         from omni_mercury_engine.evaluation.metrics import fit_threshold, split_three_way
 
