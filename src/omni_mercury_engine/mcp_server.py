@@ -156,8 +156,10 @@ class MercuryMCPServer:
                 name="mercury_score_ethics",
                 description=(
                     "Score an action against Mercury's benevolence/harm gate. Returns "
-                    "the benevolence score, harm, severity, permissibility, and the "
-                    "explanation -- the same fail-closed ethics used across Mercury."
+                    "the benevolence score, harm, severity, permissibility, the two-axis "
+                    "weapons/mass-casualty verdict (hazard domain, operational intent, "
+                    "disposition), and the explanation -- the same fail-closed ethics "
+                    "used across Mercury."
                 ),
                 input_schema={
                     "type": "object",
@@ -311,6 +313,13 @@ class MercuryMCPServer:
                 "severity_score": round(float(score.severity_score), 6),
                 "is_permissible": bool(score.is_permissible),
                 "threshold": round(float(self._benevolence().benevolence_threshold), 6),
+                # Two-axis weapons/mass-casualty uplift verdict (see
+                # docs/HARM_POLICY.md), surfaced so an MCP caller can see the
+                # hazard-domain/operational-intent routing and disposition, not
+                # just the scalar benevolence/harm.
+                "hazard_domain": getattr(score, "hazard_domain", "none"),
+                "operational_intent": getattr(score, "operational_intent", "mechanism"),
+                "weapons_disposition": getattr(score, "weapons_disposition", "allow"),
                 "explanation": score.explanation,
             }
         )

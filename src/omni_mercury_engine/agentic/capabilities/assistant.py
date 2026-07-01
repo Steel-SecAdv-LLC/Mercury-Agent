@@ -127,6 +127,15 @@ class GeneralAssistant:
             benevolence_scorer = BenevolenceScorer(benevolence_threshold=MINIMUM_BENEVOLENCE_FLOOR)
         self._benevolence = benevolence_scorer
 
+        # Orchestration-boundary aggregate gate (spec §6): tracks the session's
+        # query sequence so a task decomposed into individually-benign
+        # sub-queries is still evaluated as a realized plan / accretion.
+        from omni_mercury_engine.agentic.capabilities.aggregate_gate import (
+            SessionActionabilityTracker,
+        )
+
+        self._session_tracker = SessionActionabilityTracker()
+
     # -- ethics gate (unified with the rest of Mercury) --------------------
 
     #: General-harm floor: harm/severity at or above this refuses a
@@ -254,6 +263,29 @@ class GeneralAssistant:
                 refused=True,
                 note=note,
                 disposition=verdict.disposition,
+            )
+
+        # Orchestration-boundary aggregate gate (spec §6): even though this
+        # query passed on its own, evaluate the realized plan / accretion over
+        # the session's query sequence, so a decomposition into individually-
+        # benign sub-queries cannot assemble a blocked procedure unchecked.
+        aggregate = self._session_tracker.record_and_assess(query)
+        if aggregate.blocks:
+            disp = aggregate.disposition.value
+            return ResearchReport(
+                query=query,
+                summary="",
+                document=None,
+                available=False,
+                refused=True,
+                note=(
+                    f"{'escalate' if disp == 'escalate' else 'refused'}: aggregate harm gate "
+                    f"across the session's query sequence ({disp}, "
+                    f"hazard={aggregate.hazard_domain.value}, "
+                    f"intent={aggregate.intent_tier.value}); "
+                    "a decomposition of a restricted request was detected"
+                ),
+                disposition=disp,
             )
 
         hits = self.researcher.search(query, max_results=max_sources)
