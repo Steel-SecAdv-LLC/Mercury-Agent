@@ -159,6 +159,47 @@ class TestDurableAudit:
         assert rec["source"] == "unit_test"
         assert "ts" in rec
 
+    def test_default_path_uses_user_state_dir_when_not_a_checkout(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # In a wheel/site-packages install the repo-relative artifacts dir is
+        # absent or read-only; the default must fall back to a writable
+        # per-user state dir so "durable by default" is a real guarantee.
+        from omni_mercury_engine.cognitive import gate_audit
+
+        monkeypatch.delenv("MERCURY_GATE_AUDIT_LOG", raising=False)
+        monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
+        monkeypatch.setattr(gate_audit, "_looks_like_source_checkout", lambda _root: False)
+        path = gate_audit._default_log_path()
+        assert path == tmp_path / "state" / "mercury-agent" / "audit" / "gate_decisions.jsonl"
+
+    def test_default_path_prefers_repo_artifacts_in_checkout(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # A writable source checkout keeps the developer-facing repo default.
+        from omni_mercury_engine.cognitive import gate_audit
+
+        monkeypatch.delenv("MERCURY_GATE_AUDIT_LOG", raising=False)
+        monkeypatch.setattr(gate_audit, "_looks_like_source_checkout", lambda _root: True)
+        path = gate_audit._default_log_path()
+        assert path.parts[-3:] == ("artifacts", "audit", "gate_decisions.jsonl")
+
+    def test_fallback_path_is_actually_writable(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # End-to-end: with only the user-state fallback available, a decision
+        # still lands on disk (the swallowed-write bug would leave nothing).
+        from omni_mercury_engine.cognitive import gate_audit
+
+        monkeypatch.delenv("MERCURY_GATE_AUDIT_LOG", raising=False)
+        monkeypatch.delenv("MERCURY_GATE_AUDIT_DISABLED", raising=False)
+        monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
+        monkeypatch.setattr(gate_audit, "_looks_like_source_checkout", lambda _root: False)
+        record_gate_decision(decision="refused", source="unit_test", disposition="hard_refuse")
+        sink = tmp_path / "state" / "mercury-agent" / "audit" / "gate_decisions.jsonl"
+        assert sink.is_file()
+        assert json.loads(sink.read_text(encoding="utf-8").splitlines()[0])["decision"] == "refused"
+
     def test_audit_disabled_writes_nothing(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:

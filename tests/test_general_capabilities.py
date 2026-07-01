@@ -211,6 +211,47 @@ class TestDocumentGenerator:
         assert "&lt;script&gt;" in doc.content
         assert "<script>alert(1)</script>" not in doc.content
 
+    def test_markdown_neutralizes_raw_html(self) -> None:
+        # Markdown renderers pass raw HTML through, so untrusted (web-extracted)
+        # content must be defanged in the Markdown path too, not just HTML.
+        gen = DocumentGenerator()
+        doc = gen.report(
+            "<script>t()</script>",
+            [
+                Section(
+                    "<img src=x onerror=alert(1)>",
+                    "<script>evil()</script>",
+                    bullets=["<b>bad</b>"],
+                )
+            ],
+            metadata={"author": "<i>x</i>"},
+            sources=["<script>src()</script>"],
+            fmt="markdown",
+        )
+        # No live tag survives anywhere in the rendered Markdown.
+        assert "<script>" not in doc.content
+        assert "<img " not in doc.content
+        assert "<b>" not in doc.content and "<i>" not in doc.content
+        # The escaped, literal form is present instead.
+        assert "&lt;script&gt;evil()&lt;/script&gt;" in doc.content
+        # Markdown structure is untouched: headings/bullets still render.
+        assert doc.content.startswith("# &lt;script&gt;")
+        assert "- &lt;b&gt;bad&lt;/b&gt;" in doc.content
+
+    def test_markdown_preserves_ordinary_prose(self) -> None:
+        # A document with no HTML-significant characters must be byte-for-byte
+        # what a Markdown author expects -- escaping only touches & < >.
+        gen = DocumentGenerator()
+        doc = gen.report(
+            "Findings",
+            [Section("Summary", "All good.", bullets=["point a"])],
+            fmt="markdown",
+        )
+        assert doc.content.startswith("# Findings")
+        assert "## Summary" in doc.content
+        assert "All good." in doc.content
+        assert "- point a" in doc.content
+
     def test_text_format(self) -> None:
         gen = DocumentGenerator()
         doc = gen.report("Title", [("Heading", "Body")], fmt="text")

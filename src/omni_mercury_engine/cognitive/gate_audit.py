@@ -36,13 +36,55 @@ _LOCK = threading.Lock()
 _MAX_FIELD_CHARS = 800  # cap persisted free-text so a full procedure is not stored verbatim
 
 
+def _user_state_dir() -> Path:
+    """Return a per-user, writable state directory (XDG_STATE_HOME or ~/.local/state)."""
+    xdg = os.environ.get("XDG_STATE_HOME", "").strip()
+    base = Path(xdg) if xdg else Path.home() / ".local" / "state"
+    return base / "mercury-agent" / "audit"
+
+
+def _looks_like_source_checkout(repo_root: Path) -> bool:
+    """True when ``repo_root`` is a writable source checkout (has ``artifacts/`` we can write).
+
+    The repo-relative default is only durable when the code is running from a
+    checkout: a non-editable wheel install resolves ``parents[3]`` to
+    ``site-packages`` (or the interpreter prefix), which is typically read-only,
+    so a repo-relative write would fail and be silently swallowed. Presence of
+    the repo's own ``pyproject.toml`` at ``repo_root`` distinguishes a checkout
+    from an installed package tree; writability is then confirmed against the
+    ``artifacts`` directory (creating it if the checkout allows).
+    """
+    try:
+        if not (repo_root / "pyproject.toml").is_file():
+            return False
+        artifacts = repo_root / "artifacts"
+        artifacts.mkdir(parents=True, exist_ok=True)
+        return os.access(artifacts, os.W_OK)
+    except Exception:
+        return False
+
+
 def _default_log_path() -> Path:
-    """Resolve the JSONL sink path (env override, else repo artifacts/audit/)."""
+    """Resolve the JSONL sink path.
+
+    Order of precedence:
+
+    1. ``$MERCURY_GATE_AUDIT_LOG`` -- an explicit operator-chosen path always wins.
+    2. ``<repo>/artifacts/audit/gate_decisions.jsonl`` -- only when running from a
+       writable source checkout, so the developer-facing default stays put.
+    3. ``<user-state>/mercury-agent/audit/gate_decisions.jsonl`` -- for installed
+       (wheel/site-packages) deployments where the repo path is absent or
+       read-only, keeping "durable by default" a real guarantee rather than a
+       silently-swallowed write.
+    """
     env = os.environ.get("MERCURY_GATE_AUDIT_LOG", "").strip()
     if env:
         return Path(env)
     # .../src/omni_mercury_engine/cognitive/gate_audit.py -> repo root is 3 up.
-    return Path(__file__).resolve().parents[3] / "artifacts" / "audit" / "gate_decisions.jsonl"
+    repo_root = Path(__file__).resolve().parents[3]
+    if _looks_like_source_checkout(repo_root):
+        return repo_root / "artifacts" / "audit" / "gate_decisions.jsonl"
+    return _user_state_dir() / "gate_decisions.jsonl"
 
 
 def _truncate(value: Any) -> Any:

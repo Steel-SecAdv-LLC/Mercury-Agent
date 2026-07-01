@@ -372,7 +372,13 @@ class ResultAggregator:
         return {
             "anomaly_scores": np.concatenate(all_scores),
             "predictions": np.concatenate(all_predictions),
-            "n_results": len(self._results),
+            # Report the number of partitions actually merged, not
+            # ``len(self._results)`` -- the latter counts failed / incomplete /
+            # empty partitions that were filtered out above, so a consumer
+            # reading ``n_results`` as "partitions aggregated" (see
+            # agentic/subagents/operations.py Atlas_XXX) would get an
+            # inconsistent count.
+            "n_results": len(all_scores),
             "aggregation_method": self._method,
         }
 

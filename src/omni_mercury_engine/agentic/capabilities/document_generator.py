@@ -16,6 +16,24 @@ from dataclasses import dataclass, field
 from typing import Any
 
 
+def _md_safe(text: str) -> str:
+    """Neutralize raw-HTML passthrough in Markdown content.
+
+    Markdown is not a safe-by-default sink: CommonMark and GitHub-flavored
+    renderers pass raw HTML through, so untrusted content (notably
+    web-extracted text) containing ``<script>`` or ``<img onerror=...>`` becomes
+    scriptable markup when the generated document is displayed in a browser.
+    This escapes the three HTML-significant characters (``&``, ``<``, ``>``) so
+    an embedded tag renders as literal text. Markdown *structure* is emitted by
+    the renderer itself (``#``, ``-``, ``##``) and is never passed through this
+    function, so headings, bullets, and front-matter formatting are preserved;
+    only the caller-supplied text is defanged. ``quote=False`` keeps quotes
+    literal -- they are harmless in Markdown flow text and escaping them would
+    corrupt ordinary prose.
+    """
+    return html.escape(text, quote=False)
+
+
 def _render_source_link(source: str) -> str:
     """Render one source as safe HTML.
 
@@ -133,26 +151,31 @@ class DocumentGenerator:
     def _render_markdown(
         title: str, sections: list[Section], meta: dict[str, str], sources: list[str]
     ) -> str:
-        lines = [f"# {title}", ""]
+        # Content fields are HTML-neutralized (see _md_safe): the values may
+        # originate from untrusted web-extracted text, and Markdown renderers
+        # pass raw HTML through. Structural tokens ('#', '-', numbering) are
+        # emitted here, not escaped, so document formatting is unaffected.
+        s = _md_safe
+        lines = [f"# {s(title)}", ""]
         if meta:
             for k, v in meta.items():
-                lines.append(f"- **{k}**: {v}")
+                lines.append(f"- **{s(str(k))}**: {s(str(v))}")
             lines.append("")
         for sec in sections:
-            lines.append(f"## {sec.heading}")
+            lines.append(f"## {s(sec.heading)}")
             lines.append("")
             if sec.body:
-                lines.append(sec.body)
+                lines.append(s(sec.body))
                 lines.append("")
             for b in sec.bullets:
-                lines.append(f"- {b}")
+                lines.append(f"- {s(b)}")
             if sec.bullets:
                 lines.append("")
         if sources:
             lines.append("## Sources")
             lines.append("")
             for i, src in enumerate(sources, 1):
-                lines.append(f"{i}. {src}")
+                lines.append(f"{i}. {s(src)}")
             lines.append("")
         return "\n".join(lines).rstrip() + "\n"
 

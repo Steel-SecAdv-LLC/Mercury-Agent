@@ -171,6 +171,39 @@ class TestPartitionMergeOrdering:
         assert np.array_equal(out["anomaly_scores"], np.array([1.0, 2.0, 3.0, 4.0]))
         assert np.array_equal(out["predictions"], np.array([0, 0, 1, 1]))
 
+    def test_n_results_counts_only_merged_partitions(self) -> None:
+        # A failed and an empty partition are recorded but not merged; n_results
+        # must report the count actually concatenated, not len(self._results).
+        from omni_mercury_engine.distributed.cluster import (
+            ResultAggregator,
+            TaskResult,
+            TaskStatus,
+        )
+
+        agg = ResultAggregator()
+        agg.add_result(
+            TaskResult(
+                task_id="ok",
+                status=TaskStatus.COMPLETED,
+                result={"anomaly_scores": np.array([1.0, 2.0]), "predictions": np.array([0, 0])},
+                data_indices=(0, 2),
+            )
+        )
+        agg.add_result(
+            TaskResult(task_id="failed", status=TaskStatus.FAILED, result=None, data_indices=(2, 4))
+        )
+        agg.add_result(
+            TaskResult(
+                task_id="empty",
+                status=TaskStatus.COMPLETED,
+                result={"anomaly_scores": np.array([]), "predictions": np.array([])},
+                data_indices=(4, 4),
+            )
+        )
+        out = agg.aggregate()
+        assert out["n_results"] == 1  # only "ok" was merged, not the 3 recorded
+        assert np.array_equal(out["anomaly_scores"], np.array([1.0, 2.0]))
+
 
 class TestFailLoudOnUnfit:
     def test_detect_with_fusion_raises_when_unfit_by_default(self) -> None:

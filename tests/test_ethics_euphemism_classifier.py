@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from omni_mercury_engine.cognitive.ethical_bounding import (
     BenevolenceScorer,
     HarmReducer,
@@ -13,6 +15,9 @@ from omni_mercury_engine.cognitive.harm_classifier import (
     _parse_probability,
     reasoning_harm_classifier,
 )
+
+if TYPE_CHECKING:
+    import pytest
 
 
 class TestEuphemismLexicon:
@@ -101,9 +106,17 @@ class TestHarmClassifierHook:
 
 class TestReasoningHarmClassifierAdapter:
     def test_parses_probability_forms(self) -> None:
+        # Hardened, fail-safe contract (see harm_classifier._parse_probability and
+        # the canonical corpus in tests/ethical/test_weapons_gate_properties.py):
+        # the classifier is instructed to output ONLY the number, so a bare number
+        # -- or a *short* reply leading with one -- parses, but verbose prose fails
+        # safe to 0.0 rather than having a number scraped out of arbitrary text
+        # (which a template backend echoing the input could otherwise weaponize).
         assert _parse_probability("0.85") == 0.85
-        assert _parse_probability("The probability is 0.30.") == 0.30
+        assert _parse_probability("prob 0.30") == 0.30  # short lead-in still parses
         assert _parse_probability("85") == 0.85  # 0-100 scale normalized
+        assert _parse_probability("100%") == 1.0
+        assert _parse_probability("The probability is 0.30.") == 0.0  # verbose prose -> fail-safe
         assert _parse_probability("definitely harmful") == 0.0  # unparseable -> 0
         assert _parse_probability("") == 0.0
 
@@ -115,8 +128,11 @@ class TestReasoningHarmClassifierAdapter:
         assert clf("any text") == 0.77
 
     def test_adapter_wraps_single_arg_generate(self) -> None:
+        # Reply is a short number-leading form ("prob 0.42"), which the hardened
+        # parser accepts; the point of this case is the single-argument generate
+        # fallback (the two-arg call raises TypeError and is retried with one arg).
         def _generate(prompt: str) -> str:
-            return "probability 0.42"
+            return "prob 0.42"
 
         clf = reasoning_harm_classifier(_generate)
         assert clf("any text") == 0.42
@@ -127,3 +143,48 @@ class TestReasoningHarmClassifierAdapter:
 
         clf = reasoning_harm_classifier(_generate)
         assert clf("any text") == 0.0
+
+
+class TestDefaultHarmClassifierCaching:
+    """The default classifier caches its backend adapter, not just the backend."""
+
+    def test_adapter_built_once_and_reused(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # Exercises the REAL _resolve_default_backend: only the backend class and
+        # the adapter constructor are stubbed, so the production caching path is
+        # what's under test (the adapter must be built once per backend, not per
+        # classify() call on this hot safety-gate boundary).
+        import omni_mercury_engine.cognitive.harm_classifier as hc
+        from omni_mercury_engine.reasoning import backends
+
+        calls = {"generate": 0, "adapter_builds": 0}
+
+        class _FakeBackend:
+            model = "ollama:stub"
+
+            def _generate(self, prompt: str, system: str | None = None) -> str:
+                calls["generate"] += 1
+                return "0.9"
+
+        real_adapter = hc.reasoning_harm_classifier
+
+        def _counting_adapter(fn: object) -> object:
+            calls["adapter_builds"] += 1
+            return real_adapter(fn)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(hc, "_DEFAULT_CACHE", {})
+        monkeypatch.setattr(hc, "reasoning_harm_classifier", _counting_adapter)
+        monkeypatch.setattr(backends, "LocalReasoningBackend", _FakeBackend)
+        monkeypatch.delenv("MERCURY_DISABLE_DEFAULT_HARM_CLASSIFIER", raising=False)
+
+        classify = hc.default_harm_classifier()
+        assert classify("t1") == 0.9
+        assert classify("t2") == 0.9
+        assert classify("t3") == 0.9
+        assert calls["adapter_builds"] == 1  # built once, reused thrice
+        assert calls["generate"] == 3
+
+    def test_disabled_env_short_circuits(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import omni_mercury_engine.cognitive.harm_classifier as hc
+
+        monkeypatch.setenv("MERCURY_DISABLE_DEFAULT_HARM_CLASSIFIER", "1")
+        assert hc.default_harm_classifier()("anything") == 0.0

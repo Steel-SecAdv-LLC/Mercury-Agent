@@ -147,6 +147,17 @@ def _resolve_default_backend() -> object | None:
         logger.info("default harm classifier: local reasoning backend unavailable (%s)", exc)
         backend = None
     _DEFAULT_CACHE["backend"] = backend
+    # Build the reasoning->probability adapter once per backend, not per
+    # classify() call: this is a hot safety-gate boundary, and
+    # reasoning_harm_classifier() constructs a fresh closure each time.
+    if backend is not None:
+        try:
+            _DEFAULT_CACHE["adapter"] = reasoning_harm_classifier(backend._generate)
+        except Exception as exc:  # pragma: no cover - environment-dependent
+            logger.info("default harm classifier: adapter construction failed (%s)", exc)
+            _DEFAULT_CACHE["adapter"] = None
+    else:
+        _DEFAULT_CACHE["adapter"] = None
     return backend
 
 
@@ -179,7 +190,10 @@ def default_harm_classifier() -> Callable[[str], float]:
             active = str(getattr(backend, "model", "")).lower()
             if not active.startswith(_REAL_MODEL_PREFIXES):
                 return 0.0  # template / no real model: not a harm probability
-            return reasoning_harm_classifier(backend._generate)(text)  # type: ignore[attr-defined]
+            adapter = _DEFAULT_CACHE.get("adapter")
+            if adapter is None:
+                return 0.0
+            return float(adapter(text))  # type: ignore[operator]
         except Exception as exc:  # pragma: no cover - fail-open
             logger.info("default harm classifier failed (%s); contributing 0.0", exc)
             return 0.0
