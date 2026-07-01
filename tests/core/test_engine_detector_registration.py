@@ -226,9 +226,7 @@ def test_failloud_detector_skipped_on_inference_path() -> None:
     non_trajectory = np.random.RandomState(0).randn(20, 7).astype(np.float32)
     det_features, _scores, _certs = eng._extract_detector_features(non_trajectory)
     assert "geo_movement" not in det_features
-    assert _BASE_FIVE & set(
-        det_features
-    )  # base detectors still produced features  # base detectors still produced features
+    assert _BASE_FIVE & set(det_features)  # base detectors still produced features
 
 
 def test_detect_with_fusion_does_not_crash_with_failloud_detector() -> None:

@@ -360,8 +360,11 @@ _INHERENTLY_OFFENSIVE_INTENTS = frozenset(
 
 
 class WeaponsDisposition(Enum):
-    """Calibrated response ladder -- not binary, so professionals are not
-    crippled by a gate tuned for genuine mass-casualty uplift."""
+    """Calibrated response ladder for a weapons/mass-casualty verdict.
+
+    Not binary, so professionals are not crippled by a gate tuned for genuine
+    mass-casualty uplift.
+    """
 
     ALLOW = "allow"
     ALLOW_LOG = "allow_log"

@@ -51,6 +51,10 @@ _API_EXTRA_HINT = (
     "(FastAPI/uvicorn). Install it with: pip install 'omni-mercury-engine[api]'"
 )
 
+# Import-root names whose absence genuinely means the [api] extra is missing.
+# An ImportError for anything else is a real bug and must not be masked.
+_API_EXTRA_PACKAGES = frozenset({"fastapi", "starlette", "uvicorn"})
+
 
 def __getattr__(name: str) -> Any:
     """Lazily import FastAPI-dependent API names (:pep:`562`).
@@ -68,8 +72,17 @@ def __getattr__(name: str) -> Any:
 
     try:
         module = importlib.import_module(submodule, __name__)
-    except ImportError as exc:  # FastAPI / [api] extra absent
-        raise ModuleNotFoundError(f"{_API_EXTRA_HINT} (could not resolve {name!r}: {exc})") from exc
+    except ImportError as exc:
+        # Only rewrite the error when it is genuinely the missing [api] extra
+        # (FastAPI/Starlette/uvicorn). A real ImportError *inside* an api
+        # submodule (a bug, or an unrelated missing dependency) must propagate
+        # unchanged so it is not masked as "install the [api] extra".
+        missing_root = (getattr(exc, "name", "") or "").split(".", 1)[0]
+        if missing_root in _API_EXTRA_PACKAGES:
+            raise ModuleNotFoundError(
+                f"{_API_EXTRA_HINT} (could not resolve {name!r}: {exc})"
+            ) from exc
+        raise
     return getattr(module, symbol)
 
 

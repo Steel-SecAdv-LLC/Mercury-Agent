@@ -290,6 +290,15 @@ def split_three_way(
     rng = np.random.default_rng(random_state)
     if stratify and y_true is not None:
         y = np.asarray(y_true).flatten()
+        # ``n_samples`` is a separate argument, so a caller can easily pass a
+        # ``y_true`` whose length disagrees with it. ``idx[y == cls]`` would then
+        # silently mis-index (or raise an opaque error). Validate up front with a
+        # clear message.
+        if y.shape[0] != n_samples:
+            raise ValueError(
+                f"y_true length ({y.shape[0]}) must equal n_samples ({n_samples}) "
+                "for a stratified split"
+            )
         idx = np.arange(n_samples)
         train_parts, val_parts, test_parts = [], [], []
         for cls in np.unique(y):

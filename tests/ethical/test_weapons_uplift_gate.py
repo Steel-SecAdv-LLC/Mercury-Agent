@@ -25,9 +25,15 @@ import pytest
 from omni_mercury_engine.agentic.capabilities.aggregate_gate import (
     SessionActionabilityTracker,
 )
+from omni_mercury_engine.agentic.capabilities.assistant import GeneralAssistant
+from omni_mercury_engine.agentic.capabilities.document_generator import Section
 from omni_mercury_engine.agentic.capabilities.text_synthesis import (
     REDACTION_NOTICE,
     ExtractiveSynthesizer,
+)
+from omni_mercury_engine.agentic.capabilities.web_research import (
+    SearchResult,
+    WebResearcher,
 )
 from omni_mercury_engine.cognitive.ethical_bounding import (
     BenevolenceScorer,
@@ -244,42 +250,35 @@ class TestAggregateGate:
         assert not tracker.record_and_assess("what is the capital of France").blocks
 
 
-class _StubResearcher:
-    """Offline researcher: canned hits/text, no network, no content gate."""
+def _offline_assistant(source_text: str) -> GeneralAssistant:
+    """Build a fully offline assistant: a real WebResearcher wired to a canned
+    transport + single-hit provider (no network), with a real benevolence gate.
+    """
 
-    def __init__(self, text: str) -> None:
-        self._text = text
+    def _transport(url: str, timeout: float) -> tuple[int, str, str]:
+        return 200, f"<html><body>{source_text}</body></html>", url
 
-    def search(self, query: str, max_results: int = 5):
-        from omni_mercury_engine.agentic.capabilities.web_research import SearchResult
+    def _provider(query: str, max_results: int) -> list[SearchResult]:
+        return [SearchResult(title="Source", url="http://example.test/a")]
 
-        return [SearchResult(title="Stub", url="http://example.test/a", snippet="")]
-
-    def fetch_text(self, url: str):
-        from omni_mercury_engine.agentic.capabilities.web_research import FetchResult
-
-        return FetchResult(url=url, status=200, text=self._text, final_url=url)
+    researcher = WebResearcher(transport=_transport, search_provider=_provider)
+    return GeneralAssistant(
+        researcher=researcher,
+        benevolence_scorer=BenevolenceScorer(benevolence_threshold=0.70),
+    )
 
 
 class TestAssistantEndToEnd:
     """The general-capability layer inherits the unified gate."""
 
-    def _assistant(self, text: str):
-        from omni_mercury_engine.agentic.capabilities.assistant import GeneralAssistant
-
-        return GeneralAssistant(
-            researcher=_StubResearcher(text),
-            benevolence_scorer=BenevolenceScorer(benevolence_threshold=0.70),
-        )
-
     def test_research_refuses_red_team_query(self) -> None:
-        assistant = self._assistant("irrelevant source text about chemistry")
+        assistant = _offline_assistant("irrelevant source text about chemistry")
         report = assistant.research_report(RED_TEAM["B10_targeting"])
         assert report.refused
         assert report.disposition in ("hard_refuse", "escalate", "refuse_redact")
 
     def test_research_allows_professional_query(self) -> None:
-        assistant = self._assistant(
+        assistant = _offline_assistant(
             "Nerve agent casualties are treated with atropine and oxime therapy. "
             "Responders perform decontamination and triage of affected patients on site. "
             "Detection relies on recognizing cholinergic symptoms early in the field."
@@ -289,9 +288,7 @@ class TestAssistantEndToEnd:
         assert report.available
 
     def test_write_document_refuses_operational_content(self) -> None:
-        from omni_mercury_engine.agentic.capabilities.document_generator import Section
-
-        assistant = self._assistant("")
+        assistant = _offline_assistant("")
         doc = assistant.write_document(
             "Field guide",
             [Section("Body", RED_TEAM["B7_weaponization_design"])],

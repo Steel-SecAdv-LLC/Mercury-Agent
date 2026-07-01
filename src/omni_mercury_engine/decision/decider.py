@@ -35,6 +35,7 @@ order:
 
 from __future__ import annotations
 
+import math
 from typing import TYPE_CHECKING, Any
 
 from omni_mercury_engine.decision.evidence import Evidence
@@ -277,7 +278,13 @@ class DecisionAbstentionResponder:
             # confidence is P(not anomaly) = 1 - P(anomaly), not P(anomaly)
             # itself -- otherwise a confidently-correct CLEAR (e.g.
             # P(anomaly)=0.03) would be misreported as near-zero confidence.
-            p_anomaly = float(cal.transform_one(ev.anomaly_prob))
+            # The calibrator contract only requires a ``transform_one`` method;
+            # a custom/misbehaving calibrator could return an out-of-range value
+            # or NaN. Sanitize to a valid probability before deriving the verdict
+            # confidence, so ``decision_confidence`` can never escape [0, 1] or
+            # become NaN (matching the margin-heuristic path's clamp below).
+            p_raw = float(cal.transform_one(ev.anomaly_prob))
+            p_anomaly = 0.0 if math.isnan(p_raw) else min(1.0, max(0.0, p_raw))
             v.confidence = p_anomaly if label == 1 else 1.0 - p_anomaly
             v.reasons.append(
                 f"probability {ev.anomaly_prob:.3f} past threshold "

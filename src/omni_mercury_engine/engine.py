@@ -467,15 +467,22 @@ class FeatureCache:
         Returns:
             String hash key for the data.
         """
-        # Torch tensors: key on identity + metadata without forcing a full
-        # device->host copy on every lookup. The storage pointer + shape +
-        # dtype + device uniquely identify a contiguous tensor for the lifetime
-        # of this best-effort cache (bounded LRU, so stale pointers age out).
+        # Torch tensors: key on identity + view metadata without forcing a full
+        # device->host copy on every lookup. ``data_ptr()`` is the address of
+        # the first element and is valid for NON-contiguous tensors too, so we
+        # never zero it (a previous version set ptr=0 for non-contiguous
+        # tensors, which collapsed the identity component and let two different
+        # views with the same shape/dtype/device collide -> stale cached
+        # features for genuinely different inputs). Folding in ``stride`` and
+        # ``storage_offset`` disambiguates distinct views that share a first-
+        # element pointer, keeping the key collision-resistant for the lifetime
+        # of this best-effort bounded-LRU cache (stale pointers age out).
         if isinstance(data, torch.Tensor):
-            ptr = data.data_ptr() if data.is_contiguous() else 0
             key_tuple: tuple[Any, ...] = (
                 "torch",
-                int(ptr),
+                int(data.data_ptr()),
+                int(data.storage_offset()),
+                tuple(data.stride()),
                 tuple(data.shape),
                 str(data.dtype),
                 str(data.device),
