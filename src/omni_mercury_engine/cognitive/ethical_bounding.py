@@ -340,11 +340,19 @@ _INTENT_ORDER: tuple[OperationalIntent, ...] = (
     OperationalIntent.ENHANCEMENT,
     OperationalIntent.TARGETING,
 )
-_OFFENSIVE_INTENTS = frozenset(
+# Intents whose *phrasing is weapons-specific on its own* -- "weaponize",
+# "increase transmissibility/lethality", "immune escape", "maximize
+# casualties", "attack plan targeting a crowd". Only these justify the
+# no-hazard-domain safety net in assess_weapons_uplift, because they cannot
+# describe a benign activity. The generic production verbs
+# (make/cook/build/synthesize) and the acquisition-evasion verbs
+# (smuggle/evade detection) are deliberately EXCLUDED: they are meaningful
+# only once Axis A has routed a hazard domain, and firing the safety net on
+# them alone would false-positive on benign text ("how do I cook dinner",
+# "how does antivirus evade detection").
+_INHERENTLY_OFFENSIVE_INTENTS = frozenset(
     {
-        OperationalIntent.PRODUCTION,
         OperationalIntent.WEAPONIZATION,
-        OperationalIntent.ACQUISITION,
         OperationalIntent.ENHANCEMENT,
         OperationalIntent.TARGETING,
     }
@@ -463,6 +471,9 @@ _HAZARD_DOMAIN_KEYWORDS: dict[HazardDomain, tuple[str, ...]] = {
         "high explosive charge",
         "detonator",
         "explosive precursor",
+        "explosive properties",
+        "commercial explosive",
+        "blasting",
         "pipe bomb",
         "car bomb",
         "vehicle-borne explosive",
@@ -673,16 +684,29 @@ def assess_weapons_uplift(
         domain = _match_hazard_domain(haystack)
         offensive = _match_intent_patterns(haystack, _OFFENSIVE_INTENT_PATTERNS)
 
-        # Safety net: the offensive-intent patterns (produce/weaponize/evade-
-        # detection/enhance-a-pathogen/maximize-casualties) are themselves
-        # weapons evidence -- an explicit actionable request that Axis A's noun
-        # lexicon happened not to route. Rather than let it fall through to
-        # ALLOW (the exact miss a high-recall router is meant to prevent),
-        # classify it as OTHER_MASS_HARM so Axis B still gates it. Fail-closed.
+        # Safety net: an *inherently weapons-specific* offensive phrase
+        # (weaponize / increase transmissibility / immune escape / maximize
+        # casualties / attack-plan-targeting) is itself weapons evidence -- an
+        # explicit actionable request Axis A's noun lexicon happened not to
+        # route. Rather than let it fall through to ALLOW (the exact miss a
+        # high-recall router is meant to prevent), classify it as
+        # OTHER_MASS_HARM so Axis B still gates it. The GENERIC production
+        # verbs (make/cook/build) and acquisition-evasion verbs (smuggle/evade
+        # detection) are NOT sufficient on their own -- they gate only once a
+        # hazard domain is routed -- so a benign "how do I cook dinner" cannot
+        # trip the net. Fail-closed on the dangerous, precise on the benign.
         if domain is HazardDomain.NONE:
-            if not offensive:
+            inherently_offensive = any(
+                tier in _INHERENTLY_OFFENSIVE_INTENTS for tier, _ in offensive
+            )
+            if not inherently_offensive:
                 return WeaponsRiskAssessment()  # ALLOW / MECHANISM / NONE defaults
             domain = HazardDomain.OTHER_MASS_HARM
+            # Keep only the inherently-offensive matches; a bare generic
+            # production verb with no hazard domain is not weapons evidence.
+            offensive = [
+                (tier, label) for tier, label in offensive if tier in _INHERENTLY_OFFENSIVE_INTENTS
+            ]
 
         allowed = _match_intent_patterns(haystack, _ALLOW_INTENT_PATTERNS)
         weight = _HAZARD_DOMAIN_WEIGHTS[domain]
