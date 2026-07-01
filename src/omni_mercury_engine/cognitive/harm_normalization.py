@@ -161,6 +161,10 @@ _LEET: dict[str, str] = {
 
 _COLLAPSE_RE = re.compile(r"[^a-z0-9-￿]+")
 _WHITESPACE_RE = re.compile(r"\s+")
+# Intra-word punctuation only (keeps whitespace + word chars incl. non-Latin
+# scripts), so a per-character-DOTTED multi-word term ("n.e.r.v.e a.g.e.n.t")
+# rejoins to "nerve agent" without merging the two words.
+_PUNCT_RE = re.compile(r"[^\w\s]", re.UNICODE)
 
 
 def _strip_diacritics(text: str) -> str:
@@ -198,6 +202,11 @@ def _collapse(folded: str) -> str:
     return _COLLAPSE_RE.sub("", folded)
 
 
+def _punct_strip(folded: str) -> str:
+    """Drop intra-word punctuation but keep word boundaries (dotted multi-words)."""
+    return _WHITESPACE_RE.sub(" ", _PUNCT_RE.sub("", folded)).strip()
+
+
 def normalized_haystack(text: str) -> str:
     """Return a newline-joined bundle of normalization variants for matching.
 
@@ -218,12 +227,14 @@ def normalized_haystack(text: str) -> str:
         base = base_normalize(text)
         folded = _fold_obfuscation(base)
         collapsed = _collapse(folded)
+        despaced = _punct_strip(folded)
         # De-dup identical variants to keep the haystack compact.
-        variants = [base]
-        if folded != base:
-            variants.append(folded)
-        if collapsed and collapsed not in (base, folded):
-            variants.append(collapsed)
+        seen: set[str] = set()
+        variants: list[str] = []
+        for v in (base, folded, despaced, collapsed):
+            if v and v not in seen:
+                seen.add(v)
+                variants.append(v)
         return "\n".join(variants)
     except Exception:
         return (text or "").lower()
@@ -248,6 +259,8 @@ MULTILINGUAL_HAZARD_TERMS: dict[str, tuple[str, ...]] = {
         # Spanish / Portuguese / Italian / French / German / Dutch
         "arma quimica",
         "agente nervioso",
+        "agente nervoso",
+        "agente quimico",
         "gas nervioso",
         "gas venenoso",
         "arma quimica",

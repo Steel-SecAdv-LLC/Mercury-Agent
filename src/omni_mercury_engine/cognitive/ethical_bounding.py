@@ -661,9 +661,10 @@ _HAZARD_CONTEXT_ANCHORS: frozenset[str] = frozenset(
 _OFFENSIVE_INTENT_PATTERNS: tuple[tuple[re.Pattern[str], OperationalIntent, str], ...] = (
     (
         re.compile(
-            r"\b(?:how (?:do|can|would) (?:i|we|one|you)|steps? to|guide (?:to|for)|"
-            r"instructions? (?:to|for))\s+(?:make|produce|synthesi[sz]e|"
-            r"manufacture|fabricate|build|construct|assemble)\b"
+            r"\b(?:how to|how (?:do|can|would|should) (?:i|we|one|you)|steps? to|"
+            r"guide (?:to|for|on)|instructions? (?:to|for|on)|recipe (?:to|for)|"
+            r"tutorial (?:to|for|on))\s+(?:make|produce|synthesi[sz]e|manufacture|"
+            r"fabricate|build|construct|assemble|formulate)\b"
         ),
         OperationalIntent.PRODUCTION,
         "production_howto",
@@ -822,6 +823,84 @@ def _offensive_confidence(
     return float(1.0 / (1.0 + np.exp(-np.clip(z, -60.0, 60.0))))
 
 
+@dataclass(frozen=True)
+class _GateEvidence:
+    """Routed Axis-A/Axis-B evidence for a query (pre-disposition).
+
+    ``domain is HazardDomain.NONE`` with empty ``offensive`` means a clean ALLOW
+    (no hazard vocabulary and no gating offensive intent).
+    """
+
+    domain: HazardDomain
+    weight: float
+    offensive: list[tuple[OperationalIntent, str]]
+    allowed: list[tuple[OperationalIntent, str]]
+
+
+def _gate_evidence(text: str, context: dict[str, Any] | None) -> _GateEvidence:
+    """Route a query through Axis A + Axis B and return the matched evidence.
+
+    Shared by :func:`assess_weapons_uplift` (which maps evidence -> disposition)
+    and :func:`compute_gate_features` (which exposes the evidence to the
+    calibration fitter), so the two can never diverge.
+    """
+    ctx = context or {}
+    # Obfuscation-resistant, multilingual normalization: the matchers run over
+    # base + homoglyph/leet-folded + separator-collapsed variants at once, so
+    # "n3rv3 ag3nt", Cyrillic-glyph spoofing, and "s a r i n" are all seen.
+    haystack = normalized_haystack(f"{text}\n{ctx}")
+    domain = _match_hazard_domain(haystack)
+    offensive = _match_intent_patterns(
+        haystack, _OFFENSIVE_INTENT_PATTERNS
+    ) + _match_multilingual_offensive(haystack)
+
+    # Safety net (no Axis-A hazard domain routed). Two ways an offensive request
+    # still gates: (a) an *inherently weapons-specific* phrase; or (b) a
+    # production/acquisition verb ANCHORED to generic hazard-context vocabulary
+    # (Task #4 out-of-lexicon false-negative). The bare verb alone is NOT enough
+    # (it would false-positive on "how do I cook dinner"). Either way the query
+    # is routed to OTHER_MASS_HARM so Axis B gates it.
+    if domain is HazardDomain.NONE:
+        anchored = any(anchor in haystack for anchor in _HAZARD_CONTEXT_ANCHORS)
+        gated_intents = set(_INHERENTLY_OFFENSIVE_INTENTS)
+        if anchored:
+            gated_intents |= {OperationalIntent.PRODUCTION, OperationalIntent.ACQUISITION}
+        keep = [(tier, label) for tier, label in offensive if tier in gated_intents]
+        if not keep:
+            return _GateEvidence(HazardDomain.NONE, 0.0, [], [])
+        domain = HazardDomain.OTHER_MASS_HARM
+        offensive = keep
+
+    allowed = _match_intent_patterns(haystack, _ALLOW_INTENT_PATTERNS)
+    weight = _HAZARD_DOMAIN_WEIGHTS[domain]
+    return _GateEvidence(domain, weight, offensive, allowed)
+
+
+def compute_gate_features(
+    text: str,
+    context: dict[str, Any] | None = None,
+    *,
+    harm_classifier: Any | None = None,
+) -> tuple[int, int, float, float]:
+    """Return ``(n_offensive_labels, n_allow_labels, hazard_weight, classifier_boost)``.
+
+    The exact feature vector the confidence logistic consumes, exposed so
+    ``scripts/fit_weapons_gate_calibration.py`` fits the SAME features the gate
+    scores at runtime. ``classifier_boost`` is ``0.0`` unless a ``harm_classifier``
+    is supplied and returns a value.
+    """
+    ev = _gate_evidence(text, context)
+    n_off = len({label for _, label in ev.offensive})
+    n_allow = len({label for _, label in ev.allowed})
+    boost = 0.0
+    if harm_classifier is not None:
+        try:
+            boost = max(0.0, min(1.0, float(harm_classifier(text))))
+        except Exception:  # pragma: no cover - fail-open
+            boost = 0.0
+    return n_off, n_allow, ev.weight, boost
+
+
 def assess_weapons_uplift(
     text: str,
     context: dict[str, Any] | None = None,
@@ -858,43 +937,11 @@ def assess_weapons_uplift(
     """
     ctx = context or {}
     try:
-        # Obfuscation-resistant, multilingual normalization: the matchers below
-        # run over base + homoglyph/leet-folded + separator-collapsed variants
-        # at once, so "n3rv3 ag3nt", Cyrillic-glyph spoofing, and "s a r i n"
-        # are all seen. See cognitive.harm_normalization.
-        haystack = normalized_haystack(f"{text}\n{ctx}")
-        domain = _match_hazard_domain(haystack)
-        offensive = _match_intent_patterns(
-            haystack, _OFFENSIVE_INTENT_PATTERNS
-        ) + _match_multilingual_offensive(haystack)
+        ev = _gate_evidence(text, ctx)
+        domain, weight, offensive, allowed = ev.domain, ev.weight, ev.offensive, ev.allowed
 
-        # Safety net (no Axis-A hazard domain routed). Two ways an offensive
-        # request still gates:
-        #  (a) an *inherently weapons-specific* phrase (weaponize / increase
-        #      transmissibility / immune escape / maximize casualties / attack-
-        #      plan-targeting) -- weapons evidence on its own; OR
-        #  (b) a production/acquisition verb ANCHORED to generic hazard-context
-        #      vocabulary ("synthesis route for a lethal toxin", "smuggle the
-        #      explosive precursor") -- weapons evidence even when the specific
-        #      agent is absent from the Axis-A lexicon (Task #4 out-of-lexicon
-        #      false-negative). The bare verb alone is NOT enough (it would
-        #      false-positive on "how do I cook dinner"): it must co-occur with
-        #      a hazard-context anchor.
-        # Either way the query is routed to OTHER_MASS_HARM so Axis B gates it.
-        # Fail-closed on the dangerous, precise on the benign.
-        if domain is HazardDomain.NONE:
-            anchored = any(anchor in haystack for anchor in _HAZARD_CONTEXT_ANCHORS)
-            gated_intents = set(_INHERENTLY_OFFENSIVE_INTENTS)
-            if anchored:
-                gated_intents |= {OperationalIntent.PRODUCTION, OperationalIntent.ACQUISITION}
-            keep = [(tier, label) for tier, label in offensive if tier in gated_intents]
-            if not keep:
-                return WeaponsRiskAssessment()  # ALLOW / MECHANISM / NONE defaults
-            domain = HazardDomain.OTHER_MASS_HARM
-            offensive = keep
-
-        allowed = _match_intent_patterns(haystack, _ALLOW_INTENT_PATTERNS)
-        weight = _HAZARD_DOMAIN_WEIGHTS[domain]
+        if domain is HazardDomain.NONE and not offensive:
+            return WeaponsRiskAssessment()  # clean ALLOW / MECHANISM / NONE defaults
 
         if not offensive:
             # Hazard vocabulary present but no offensive-actionability signal at

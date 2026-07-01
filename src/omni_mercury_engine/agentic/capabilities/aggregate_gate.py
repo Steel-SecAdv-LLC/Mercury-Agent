@@ -134,6 +134,7 @@ class SessionActionabilityTracker:
         window: int = 12,
         mechanism_ceiling: int = 5,
         similarity_threshold: float = 0.45,
+        plan_window: int = 3,
         gate: Callable[[str], WeaponsRiskAssessment] | None = None,
     ) -> None:
         """Initialize an empty session tracker.
@@ -146,12 +147,19 @@ class SessionActionabilityTracker:
                 count as the *same* line of enquiry for the semantic-accretion
                 cluster (so re-phrasing across sub-queries no longer splits the
                 count the way exact hazard-domain matching did).
+            plan_window: Max number of *adjacent* queries the realized-plan
+                re-gate concatenates. Adjacent-only (not the whole window) so an
+                offensive request split across consecutive sub-queries is caught
+                without cross-contaminating unrelated queries scattered across
+                the session (e.g. a benign "how to cook pasta" beside an
+                unrelated hazard-domain query).
             gate: Injectable weapons gate (defaults to assess_weapons_uplift).
         """
         maxlen = max(2, window)
         self._queries: deque[str] = deque(maxlen=maxlen)
         self._mechanism_ceiling = max(2, mechanism_ceiling)
         self._similarity_threshold = float(similarity_threshold)
+        self._plan_window = max(2, plan_window)
         self._gate = gate or assess_weapons_uplift
         # Rolling records kept in lockstep with ``_queries``: whether each query
         # was an undifferentiated high-severity probe, its hazard domain, and its
@@ -217,11 +225,38 @@ class SessionActionabilityTracker:
         self._mech_domains.append(per_query.hazard_domain)
         self._embeddings.append(_embed(query))
 
-        # (1) Realized-plan re-gate over the concatenated recent queries. Catches
-        # an offensive phrasing physically SPLIT across sub-queries so that no
-        # single one tripped an offensive pattern but the concatenation does.
-        joined = "  ".join(self._queries)
-        plan_verdict = self._gate(joined)
+        # (1) Realized-plan re-gate over ADJACENT recent queries. Catches an
+        # offensive phrasing physically SPLIT across consecutive sub-queries so
+        # that no single one tripped an offensive pattern but the concatenation
+        # does -- while (unlike whole-window concatenation) NOT cross-
+        # contaminating unrelated queries scattered across the session.
+        #
+        # The aggregate signal is inherently uncertain: a production VERB from
+        # one benign query co-located with a hazard NOUN from an adjacent benign
+        # query can trip the concatenation without any real intent to split a
+        # request, and no lexical/embedding test cleanly separates the two. So a
+        # blocking realized-plan verdict is CAPPED to ESCALATE (audit + human-in-
+        # the-loop), never a hard denial -- a coincidental co-location slows and
+        # logs a user, it never refuses them; a genuine split is caught for
+        # review. The per-query gate still hard-refuses an unambiguous single
+        # query independently.
+        queries = list(self._queries)
+        plan_verdict = per_query
+        for size in range(2, min(self._plan_window, len(queries)) + 1):
+            window_verdict = self._gate("  ".join(queries[-size:]))
+            if (
+                window_verdict.blocks
+                and _DISPOSITION_SEVERITY[WeaponsDisposition.ESCALATE]
+                > _DISPOSITION_SEVERITY[plan_verdict.disposition]
+            ):
+                plan_verdict = WeaponsRiskAssessment(
+                    hazard_domain=window_verdict.hazard_domain,
+                    hazard_weight=window_verdict.hazard_weight,
+                    intent_tier=window_verdict.intent_tier,
+                    confidence=window_verdict.confidence,
+                    disposition=WeaponsDisposition.ESCALATE,
+                    signals=("aggregate_realized_plan", *window_verdict.signals),
+                )
 
         # (2) Semantic-accretion of undifferentiated high-severity probing.
         # Concatenation (control 1) is defeated by a *semantically-clean*

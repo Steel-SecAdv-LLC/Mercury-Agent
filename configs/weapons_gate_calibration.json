@@ -1,0 +1,24 @@
+{
+  "_comment": "Fitted by scripts/fit_weapons_gate_calibration.py on benchmarks/weapons_gate_corpus.py. conf_* are the measured Axis-B confidence logistic; conf_w_classifier and the harm floors are retained policy constants (see the script docstring).",
+  "parameters": {
+    "conf_bias": -1.974079,
+    "conf_w_offensive": 4.134473,
+    "conf_w_allow": 2.793007,
+    "conf_w_weight": 1.235543,
+    "conf_w_classifier": 3.0,
+    "weapons_b6_escalate_confidence": 0.6,
+    "weapons_hard_refuse_harm_floor": 0.95,
+    "weapons_refuse_redact_harm_floor": 0.75,
+    "weapons_escalate_harm_floor": 0.55
+  },
+  "metrics": {
+    "n_train": 235,
+    "n_val": 61,
+    "val_brier": 0.002126,
+    "val_ece": 0.038544,
+    "val_fp": 0,
+    "val_fn": 0,
+    "gate_agreement": 1.0,
+    "n": 362.0
+  }
+}
