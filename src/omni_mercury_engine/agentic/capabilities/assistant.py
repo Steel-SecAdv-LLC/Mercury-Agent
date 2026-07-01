@@ -276,15 +276,21 @@ class GeneralAssistant:
                 continue
             # Post-retrieval content gate (spec §5.2). A benign query can still
             # return a page carrying operational weapons procedure; that content
-            # must never reach the verbatim synthesizer. Classify the fetched
-            # text and drop any source whose content the weapons gate blocks --
-            # even though the query itself passed. Fail-closed on the content,
-            # not just the query.
-            content_verdict = self._permitted(
-                fetched.text[:4000],
-                {"purpose": "post-retrieval content screen", "capability": "web_research"},
-            )
-            if not content_verdict.permitted:
+            # must never reach the verbatim synthesizer. A from_env researcher
+            # already screened the fetch (verdict on the FetchResult); for an
+            # injected researcher that did not screen, apply the same gate here
+            # as a fallback so the guarantee holds regardless of researcher.
+            if fetched.screened:
+                content_blocked = fetched.harm_blocked
+                content_note = fetched.harm_note
+            else:
+                cv = self._permitted(
+                    fetched.text[:4000],
+                    {"purpose": "post-retrieval content screen", "capability": "web_research"},
+                )
+                content_blocked = not cv.permitted
+                content_note = cv.disposition
+            if content_blocked:
                 dropped_for_harm += 1
                 source_meta.append(
                     {
@@ -292,7 +298,7 @@ class GeneralAssistant:
                         "url": hit.url,
                         "read": False,
                         "dropped": "harm_gate",
-                        "disposition": content_verdict.disposition,
+                        "note": content_note,
                     }
                 )
                 continue

@@ -68,6 +68,14 @@ Transport = Callable[[str, float], "tuple[int, str, str]"]
 # dependency. Raising is allowed; search() converts it into a fail-closed [].
 SearchProvider = Callable[[str, int], "list[SearchResult]"]
 
+# A content gate maps extracted page text -> (blocked, note). Injectable so the
+# post-retrieval harm screen (spec §5.2) rides on every fetch without this
+# transport module importing the ethics layer. Fetched web content is
+# *untrusted*: a benign query can still return operational weapons procedure,
+# and the verbatim synthesizer downstream would faithfully reproduce it. Any
+# error in the gate is treated as "blocked" by fetch_text (fail-closed).
+ContentGate = Callable[[str], "tuple[bool, str]"]
+
 _DEFAULT_USER_AGENT = "MercuryAgent/1.0 (+research; stdlib-urllib)"
 _DEFAULT_MAX_BYTES = 2_000_000  # 2 MB cap; large pages are truncated, not OOM'd.
 _SKIP_TAGS = {"script", "style", "noscript", "template", "svg", "head"}
@@ -98,11 +106,24 @@ class FetchResult:
     text: str = ""
     final_url: str = ""
     error: str | None = None
+    # Post-retrieval harm screen (spec §5.2). ``screened`` records whether a
+    # content gate ran at all (so a consumer can tell "gate said safe" from "no
+    # gate configured"); ``harm_blocked`` is the gate's verdict; ``harm_note``
+    # is its human-readable reason for audit. Defaults keep an ungated fetch
+    # (no content_gate) fully backward-compatible.
+    screened: bool = False
+    harm_blocked: bool = False
+    harm_note: str = ""
 
     @property
     def ok(self) -> bool:
         """Whether the fetch succeeded (2xx and a body, no error)."""
         return self.error is None and 200 <= self.status < 300
+
+    @property
+    def usable(self) -> bool:
+        """Whether the content may be consumed: fetched OK *and* not harm-blocked."""
+        return self.ok and not self.harm_blocked
 
 
 @dataclass
@@ -223,6 +244,30 @@ def _safe_http_transport(url: str, timeout: float) -> tuple[int, str, str]:
     return status, raw.decode(charset, errors="replace"), final_url
 
 
+def default_content_gate(text: str) -> tuple[bool, str]:
+    """Default post-retrieval harm screen: the two-axis weapons/mass-casualty gate.
+
+    Returns ``(blocked, note)``. Blocks fetched content whose weapons
+    disposition is anything other than plain ALLOW/ALLOW_LOG -- i.e. a page
+    carrying operational production/weaponization/acquisition-evasion/
+    enhancement/targeting content, even when the query that surfaced it was
+    benign. The ethics import is lazy so :mod:`web_research` stays importable
+    without the cognitive layer; any failure fails closed to *blocked*.
+    """
+    try:
+        from omni_mercury_engine.cognitive.ethical_bounding import assess_weapons_uplift
+
+        verdict = assess_weapons_uplift(text)
+        if verdict.blocks:
+            return True, (
+                f"weapons/mass-casualty content gate: {verdict.disposition.value} "
+                f"(hazard={verdict.hazard_domain.value}, intent={verdict.intent_tier.value})"
+            )
+        return False, ""
+    except Exception as exc:  # pragma: no cover - defensive fail-closed
+        return True, f"content gate error (fail-closed): {exc}"
+
+
 @dataclass
 class WebResearcher:
     """Fetch, extract, and search the open web with the standard library only.
@@ -254,6 +299,7 @@ class WebResearcher:
     search_provider: SearchProvider | None = None
     search_providers: tuple[SearchProvider, ...] = ()
     enable_ddg_fallback: bool = True
+    content_gate: ContentGate | None = None
 
     @classmethod
     def from_env(cls, **kwargs: Any) -> WebResearcher:
@@ -283,6 +329,11 @@ class WebResearcher:
         enable_ddg = ddg not in {"0", "false", "no", "off"}
         kwargs.setdefault("search_providers", tuple(providers))
         kwargs.setdefault("enable_ddg_fallback", enable_ddg)
+        # Wire the default post-retrieval harm screen unless the caller supplied
+        # one. Keeps this module dependency-free (the ethics import is lazy,
+        # inside the gate) while giving every from_env researcher the §5.2
+        # content screen for free.
+        kwargs.setdefault("content_gate", default_content_gate)
         return cls(**kwargs)
 
     def fetch(self, url: str) -> FetchResult:
@@ -320,10 +371,27 @@ class WebResearcher:
         return parser.text()
 
     def fetch_text(self, url: str) -> FetchResult:
-        """Fetch a URL and replace the body with its extracted readable text."""
+        """Fetch a URL, extract readable text, and run the post-retrieval harm screen.
+
+        When a :attr:`content_gate` is configured, the extracted text is
+        classified before the result is returned so the harm verdict travels
+        with the :class:`FetchResult` for *every* consumer (spec §5.2), not
+        just callers that remember to screen. Fail-closed: a gate that raises
+        marks the content blocked rather than passing it through.
+        """
         result = self.fetch(url)
         if result.ok:
             result.text = self.extract_text(result.text)
+            if self.content_gate is not None and result.text:
+                result.screened = True
+                try:
+                    blocked, note = self.content_gate(result.text)
+                except Exception as exc:
+                    result.harm_blocked = True
+                    result.harm_note = f"content gate error (fail-closed): {exc}"
+                else:
+                    result.harm_blocked = bool(blocked)
+                    result.harm_note = str(note)
         return result
 
     def search(self, query: str, max_results: int = 5) -> list[SearchResult]:
@@ -598,11 +666,13 @@ def brave_provider(api_key: str, *, opener: JsonOpener | None = None) -> SearchP
 
 
 __all__ = [
+    "ContentGate",
     "FetchResult",
     "JsonOpener",
     "SearchProvider",
     "SearchResult",
     "WebResearcher",
     "brave_provider",
+    "default_content_gate",
     "searxng_provider",
 ]
