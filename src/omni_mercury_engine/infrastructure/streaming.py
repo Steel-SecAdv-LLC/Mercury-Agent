@@ -813,12 +813,14 @@ class RedisStreamProducer(StreamProducer):
         try:
             # Prepare message with metadata.  The dict annotation matches
             # redis-py's ``StreamCommands.xadd`` field-value type (it
-            # accepts bytes/bytearray/memoryview/str/int/float for both
-            # keys and values).  ``dict`` is invariant in mypy, so a
-            # narrower ``dict[str, str]`` cannot be passed even when the
-            # values are subtypes.  The values we actually store here
-            # are always ``str``, so the wider annotation is purely a
-            # typing accommodation.
+            # accepts bytes/bytearray/``memoryview[int]``/str/int/float for
+            # both keys and values).  ``memoryview`` is generic in typeshed and
+            # redis-py parameterises it as ``memoryview[int]``, so that exact
+            # form -- not a bare ``memoryview`` -- is what matches the stub.
+            # ``dict`` is invariant in mypy, so a narrower ``dict[str, str]``
+            # cannot be passed even when the values are subtypes.  The values we
+            # actually store here are always ``str``, so the wider annotation is
+            # purely a typing accommodation.
             message_data: dict[
                 bytes | bytearray | memoryview[int] | str | int | float,
                 bytes | bytearray | memoryview[int] | str | int | float,
@@ -972,10 +974,11 @@ class RedisStreamConsumer(StreamConsumer):
 
         try:
             # Build streams dict for XREADGROUP.  redis-py types this as
-            # ``dict[bytes | str | memoryview, int | bytes | str | memoryview]``
-            # — ``dict.fromkeys(..., ">")`` returns ``dict[str, str]``,
-            # which is invariant-incompatible, so the explicit annotation
-            # is required to land in the wider union.
+            # ``dict[bytes | str | memoryview[int], int | bytes | str | memoryview[int]]``
+            # (typeshed's ``memoryview`` is generic; redis parameterises it as
+            # ``memoryview[int]``).  ``dict.fromkeys(..., ">")`` returns
+            # ``dict[str, str]``, which is invariant-incompatible, so the explicit
+            # annotation is required to land in the wider union.
             streams: dict[bytes | str | memoryview[int], int | bytes | str | memoryview[int]] = (
                 dict.fromkeys(self._subscribed_topics, ">")
             )

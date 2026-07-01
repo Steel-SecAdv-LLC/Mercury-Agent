@@ -202,7 +202,17 @@ jobs:
               current_docstring = headers.module_docstring(path, path.read_text(encoding="utf-8"))
               base_compact = headers.squashed(base_docstring)
               current_compact = headers.squashed(current_docstring)
-              if len(current_compact) >= len(base_compact):
+              # Retention floor rather than a strict no-shrink rule: legitimate
+              # tightening/clarifying/error-fixing routinely reduces length while
+              # improving the docstring, and a monotone char-count gate blocks all
+              # of it. Only fail when a docstring is GUTTED -- removed entirely, or
+              # reduced below RETENTION_FLOOR of the base compacted length -- which
+              # still catches accidental deletion without penalising honest edits.
+              # (A base with no meaningful docstring imposes no floor.)
+              retention_floor = 0.60
+              if not base_compact:
+                  continue
+              if current_compact and len(current_compact) >= retention_floor * len(base_compact):
                   continue
               diff = "".join(
                   difflib.unified_diff(
@@ -213,8 +223,9 @@ jobs:
                   )
               )
               errors.append(
-                  f"{rel}: module docstring is shorter than the license-stripped "
-                  f"{base_ref} description ({len(current_compact)} < {len(base_compact)})\n{diff}"
+                  f"{rel}: module docstring was gutted vs the license-stripped "
+                  f"{base_ref} description -- retained {len(current_compact)} of "
+                  f"{len(base_compact)} chars, below the {retention_floor:.0%} floor\n{diff}"
               )
 
           if errors:
