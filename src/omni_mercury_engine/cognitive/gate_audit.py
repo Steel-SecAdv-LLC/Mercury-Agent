@@ -1,6 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Durable, append-only audit log for harm-gate decisions.
+r"""Durable, append-only audit log for harm-gate decisions.
 
 The harm-policy spec calls for a persisted refusal/decision audit trail (domain,
 intent, signals, disposition). Before this module those decisions were only
