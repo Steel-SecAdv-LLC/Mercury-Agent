@@ -19,20 +19,25 @@ research/answer/author loop -- with two complementary, fail-closed controls:
    aggregate, exactly as the spec asks ("evaluate the realized plan ... not
    only per-leaf queries").
 
-2. **Undifferentiated-mechanism accretion.** Repeatedly probing the *pure
-   mechanism* ("how does it work") of a high-severity weapons hazard domain,
-   with no defensive framing (detection / treatment / response / policy /
-   licensed practice), is the accretion signature of assembling a knowledge
-   base. Legitimate defensive professionals almost always frame their work
-   defensively, so this counter does not trip on them. When it crosses a
-   ceiling it **escalates** (human-in-the-loop / audit) rather than denies --
-   a real engineer is slowed and logged, never blocked outright.
+2. **Semantic undifferentiated-mechanism accretion.** Repeatedly probing the
+   *pure mechanism* ("how does it work") of a high-severity weapons hazard
+   domain, with no defensive framing (detection / treatment / response / policy
+   / licensed practice), is the accretion signature of assembling a knowledge
+   base. Each undifferentiated probe is embedded (deterministic hashed word-TF
+   vector) and the signal fires on the largest *semantically cohesive* cluster
+   of such probes -- so an attacker re-phrasing across sub-queries, or drifting
+   the exact HazardDomain wording, no longer splits the count the way exact
+   domain-equality matching did. Legitimate defensive professionals frame their
+   work defensively, so this cluster does not trip on them. When it crosses a
+   ceiling it **escalates** (human-in-the-loop / audit) rather than denies -- a
+   real engineer is slowed and logged, never blocked outright.
 
 Residual risk is real and stated plainly in ``docs/HARM_POLICY.md`` §"Residual
 risk": a semantically perfect decomposition that never co-locates offensive
-phrasing and never over-probes a single domain can still evade a lexical
-aggregate. Logging, provenance, and the bounded-autonomy ceiling carry that
-residual; this module reduces the easy decomposition attacks, not all of them.
+phrasing and keeps each probe both defensively framed and dissimilar can still
+evade a lexical/embedding aggregate. Durable audit logging, provenance, and the
+bounded-autonomy ceiling carry that residual; this module reduces the easy and
+the moderately-sophisticated decomposition attacks, not all of them.
 """
 
 from __future__ import annotations
