@@ -279,11 +279,16 @@ class DecisionAbstentionResponder:
             # itself -- otherwise a confidently-correct CLEAR (e.g.
             # P(anomaly)=0.03) would be misreported as near-zero confidence.
             # The calibrator contract only requires a ``transform_one`` method;
-            # a custom/misbehaving calibrator could return an out-of-range value
-            # or NaN. Sanitize to a valid probability before deriving the verdict
-            # confidence, so ``decision_confidence`` can never escape [0, 1] or
-            # become NaN (matching the margin-heuristic path's clamp below).
-            p_raw = float(cal.transform_one(ev.anomaly_prob))
+            # a custom/misbehaving calibrator could return a non-numeric value
+            # (raising in ``float()``), an out-of-range value, or NaN. Guard the
+            # conversion and sanitize to a valid probability, so a bad calibrator
+            # degrades this branch rather than crashing the decider, and
+            # ``decision_confidence`` can never escape [0, 1] or become NaN
+            # (matching the margin-heuristic path's clamp below).
+            try:
+                p_raw = float(cal.transform_one(ev.anomaly_prob))
+            except (TypeError, ValueError):
+                p_raw = float("nan")
             p_anomaly = 0.0 if math.isnan(p_raw) else min(1.0, max(0.0, p_raw))
             v.confidence = p_anomaly if label == 1 else 1.0 - p_anomaly
             v.reasons.append(

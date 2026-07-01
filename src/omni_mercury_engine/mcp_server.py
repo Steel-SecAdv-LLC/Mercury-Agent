@@ -349,11 +349,19 @@ class MercuryMCPServer:
         raw_sections = args.get("sections")
         if not isinstance(raw_sections, list) or not raw_sections:
             raise ToolError("'sections' must be a non-empty array of {heading, body}")
-        sections = [
-            Section(str(s.get("heading", "")), str(s.get("body", "")))
-            for s in raw_sections
-            if isinstance(s, dict)
-        ]
+        # Fail closed on a malformed section rather than silently dropping it:
+        # the advertised inputSchema requires each item to be an object with a
+        # non-empty 'heading' and 'body', so an MCP client that sends anything
+        # else gets a clear, actionable error instead of a silently shorter doc.
+        sections = []
+        for i, s in enumerate(raw_sections):
+            if not isinstance(s, dict):
+                raise ToolError(f"section[{i}] must be an object with 'heading' and 'body'")
+            heading = s.get("heading")
+            body = s.get("body")
+            if not isinstance(heading, str) or not isinstance(body, str):
+                raise ToolError(f"section[{i}] requires string 'heading' and 'body'")
+            sections.append(Section(heading, body))
         fmt = str(args.get("format", "markdown"))
         document = self._research_assistant().write_document(title, sections, fmt=fmt)
         if document is None:

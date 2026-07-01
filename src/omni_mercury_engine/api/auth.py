@@ -82,7 +82,7 @@ else:
     except ImportError:
         _FASTAPI_HINT = (
             "FastAPI is required for Mercury's HTTP auth surface; install the "
-            "API extra:  pip install 'omni-mercury-engine[api]'"
+            "API extra:  pip install 'mercury-agent[api]'"
         )
 
         # Annotation-only names (this module uses ``from __future__ import

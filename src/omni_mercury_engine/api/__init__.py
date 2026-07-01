@@ -13,7 +13,7 @@ The package is split along the optional ``[api]`` extra boundary so that
   (FastAPI/uvicorn) and is exposed lazily via :pep:`562` ``__getattr__``.
   Accessing one of those names without the extra installed raises an
   actionable :class:`ModuleNotFoundError` pointing at
-  ``pip install 'omni-mercury-engine[api]'`` rather than failing the whole
+  ``pip install 'mercury-agent[api]'`` rather than failing the whole
   package import.
 
 Keeping the package importable without FastAPI is what lets the agentic
@@ -48,7 +48,7 @@ _LAZY: dict[str, tuple[str, str]] = {
 
 _API_EXTRA_HINT = (
     "Mercury's HTTP-server surface requires the optional [api] extra "
-    "(FastAPI/uvicorn). Install it with: pip install 'omni-mercury-engine[api]'"
+    "(FastAPI/uvicorn). Install it with: pip install 'mercury-agent[api]'"
 )
 
 # Import-root names whose absence genuinely means the [api] extra is missing.
