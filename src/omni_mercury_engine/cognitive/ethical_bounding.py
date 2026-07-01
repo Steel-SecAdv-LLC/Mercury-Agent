@@ -545,6 +545,11 @@ _HAZARD_DOMAIN_KEYWORDS: dict[HazardDomain, tuple[str, ...]] = {
         "nuclear device",
         "fissile material",
         "enriched uranium",
+        "highly enriched uranium",
+        "weapons-grade uranium",
+        "weapons grade uranium",
+        "uranium enrichment",
+        "enriching uranium",
         "weapons-grade plutonium",
         "nuclear warhead",
         "gas centrifuge cascade",
@@ -663,24 +668,43 @@ _OFFENSIVE_INTENT_PATTERNS: tuple[tuple[re.Pattern[str], OperationalIntent, str]
         re.compile(
             r"\b(?:how to|how (?:do|can|would|should) (?:i|we|one|you)|steps? to|"
             r"guide (?:to|for|on)|instructions? (?:to|for|on)|recipe (?:to|for)|"
-            r"tutorial (?:to|for|on))\s+(?:make|produce|synthesi[sz]e|manufacture|"
-            r"fabricate|build|construct|assemble|formulate)\b"
+            r"tutorial (?:to|for|on)|help me|teach me to|(?:want|trying|need) to|"
+            r"best way to)\s+(?:make|produce|synthesi[sz]e|manufacture|fabricate|"
+            r"build|construct|assemble|formulate|create|generate)\b"
         ),
         OperationalIntent.PRODUCTION,
         "production_howto",
     ),
     (
         re.compile(
-            r"\bsynthesis route\b|\bproduction process for\b|\bprecursors? (?:for|to make)\b"
+            r"\bsynthesis route\b|\bsynthesis steps?\b|\bproduction process for\b|"
+            r"\bprecursors? (?:for|to make)\b|"
+            # indirect / gerund production framings ("process of making",
+            # "go about producing", "fabrication of", "cooking up", "enriching
+            # uranium to weapons grade"). Verb stems catch make/making/produced/...
+            r"\b(?:process|method|procedure|steps?) (?:of|for) (?:mak|produc|"
+            r"synthesi[sz]|manufactur|build|fabricat|construct|assembl|creat)\w*|"
+            r"\b(?:go about|trying to|want to|need to|help me|teach me to) (?:mak|"
+            r"produc|synthesi[sz]|manufactur|build|fabricat|construct|assembl|creat|"
+            r"generat)\w*|\bfabrication of\b|\bcooking up\b|"
+            r"\brecipe for (?:a |an )?homemade\b|"
+            r"\benrich(?:ing)? uranium to weapons[- ]grade\b|"
+            r"\bweapons[- ]grade (?:uranium|plutonium)\b"
         ),
         OperationalIntent.PRODUCTION,
         "production_route",
     ),
     (
         re.compile(
-            r"\bweaponi[sz]e\b|\bweaponi[sz]ation\b|\bdelivery mechanism\b|"
-            r"\bdissemination device\b|\baerosoli[sz]e\b|\bdetonation mechanism\b|"
-            r"\barm(?:ing)? the device\b|\bwarhead design\b"
+            r"\bweaponi[sz](?:e|es|ed|ing|ation)\b|\bdelivery mechanism\b|"
+            r"\bdissemination device\b|\baerosoli[sz](?:e|es|ed|ing)\b|"
+            r"\bdetonation mechanism\b|"
+            r"\barm(?:ing)? the device\b|\bwarhead design\b|"
+            # "turn X into a weapon/bomb" and "device that disperses/releases X"
+            r"\bturn(?:s|ing)?\b.{0,30}?\binto a (?:weapon|bioweapon|bomb|"
+            r"dispersal device)\b|"
+            r"\bdevice that (?:disperses|releases|aerosoli[sz]es|spreads|"
+            r"disseminates)\b"
         ),
         OperationalIntent.WEAPONIZATION,
         "weaponization_design",
