@@ -118,6 +118,28 @@ class TestBackwardCompatAndFallback:
         assert split.f1 == legacy.f1
         assert split.best_threshold == legacy.best_threshold
 
+    def test_single_class_test_split_falls_back_not_degenerate(self) -> None:
+        # A clustered-anomaly time series: anomalies live in the first ~60% of
+        # samples, so the contiguous test split (last 40%) is all-normal
+        # (single-class). AUC/recall on it are degenerate; the evaluator must
+        # fall back to in-sample rather than return AUC=0.5 as an "honest"
+        # number (mirrors AnomalyMetrics._compute_all_split's both-splits guard).
+        n = 100
+        y = np.zeros(n, dtype=int)
+        y[5:57] = 1  # anomalies clustered in the first ~60%
+        rng = np.random.default_rng(0)
+        score = np.clip(np.where(y == 1, rng.normal(0.6, 0.2, n), rng.normal(0.4, 0.2, n)), 0, 1)
+        # Confirm the trigger: the contiguous test split really is single-class.
+        _, _, test_idx = split_three_way(
+            n, y, val_frac=0.2, test_frac=0.4, is_timeseries=True, stratify=False
+        )
+        assert len(np.unique(y[test_idx])) == 1
+        split = evaluate_anomaly_detection_split(y, score, is_timeseries=True, stratify=False)
+        legacy = evaluate_anomaly_detection(y, score, is_timeseries=True)
+        # Fell back to in-sample instead of emitting degenerate test metrics.
+        assert split.f1 == legacy.f1
+        assert split.best_threshold == legacy.best_threshold
+
     def test_compute_all_default_matches_legacy(self) -> None:
         y = np.array([0, 0, 1, 1, 0, 1])
         score = np.array([0.1, 0.2, 0.9, 0.8, 0.15, 0.7])
