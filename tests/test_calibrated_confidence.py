@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from omni_mercury_engine.core.confidence import CalibratedConfidence, ConfidenceReport
 
@@ -56,6 +57,16 @@ class TestCalibratedConfidence:
         assert not cc.is_calibrated
         assert not report.accepted
         assert "uncalibrated" in report.note or "single-class" in report.note
+
+    def test_mismatched_lengths_raise_clear_error(self) -> None:
+        # scores/labels length mismatch is a caller contract violation; fit()
+        # must raise a clear ValueError up front, not an opaque broadcasting
+        # error from computing joint metrics on the mismatched arrays.
+        cc = CalibratedConfidence()
+        with pytest.raises(ValueError, match="length"):
+            cc.fit(np.zeros(9), np.array([0, 1, 0, 1, 0, 1, 0, 1.0]))
+        # And the instance stays usable/identity afterwards.
+        assert not cc.is_calibrated
 
     def test_accept_gate_rejects_when_no_improvement(self) -> None:
         # Already well-calibrated data: calibration cannot meaningfully help and

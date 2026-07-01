@@ -238,6 +238,27 @@ class TestDocumentGenerator:
         assert doc.content.startswith("# &lt;script&gt;")
         assert "- &lt;b&gt;bad&lt;/b&gt;" in doc.content
 
+    def test_markdown_neutralizes_link_and_image_injection(self) -> None:
+        # Extracted text carrying a Markdown link/image with a dangerous URL
+        # scheme must not render as a live link (the HTML scheme-allowlist does
+        # not apply to inline Markdown). Escaping the [ ] delimiters defuses it.
+        gen = DocumentGenerator()
+        doc = gen.report(
+            "T",
+            [
+                Section(
+                    "S",
+                    "Click [here](javascript:steal(document.cookie)) now",
+                    bullets=["![x](javascript:alert(1))"],
+                )
+            ],
+            fmt="markdown",
+        )
+        # No unescaped link/image opener survives: every "[" is backslash-escaped.
+        assert "[here]" not in doc.content
+        assert "![x]" not in doc.content
+        assert "\\[here\\]" in doc.content
+
     def test_markdown_preserves_ordinary_prose(self) -> None:
         # A document with no HTML-significant characters must be byte-for-byte
         # what a Markdown author expects -- escaping only touches & < >.

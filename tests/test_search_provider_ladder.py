@@ -209,6 +209,67 @@ class TestDefaultTransportEncoding:
         assert decoded == text  # decoded as UTF-8, not Latin-1 mojibake
 
 
+class TestDefaultTransportReachesOpenWeb:
+    """The open-web page transport must pass user_configured=True so arbitrary
+    research hosts are not rejected by the dataset TRUSTED_DOMAINS allowlist,
+    while still running the private-network / IMDS SSRF gate."""
+
+    def test_default_transport_passes_user_configured(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from omni_mercury_engine.agentic.capabilities import web_research
+        from omni_mercury_engine.security.safe_http import SafeHTTPClient
+
+        captured: dict[str, object] = {}
+
+        class _Resp:
+            status_code = 200
+            url = "https://en.wikipedia.org/wiki/X"
+            headers: dict[str, str] = {}
+
+            apparent_encoding = "utf-8"
+
+            class _Raw:
+                @staticmethod
+                def read(amt: int = -1, decode_content: bool = True) -> bytes:
+                    return b"<html>ok</html>"
+
+            raw = _Raw()
+            _content = None
+
+            def __enter__(self) -> _Resp:
+                return self
+
+            def __exit__(self, *a: object) -> None:
+                return None
+
+        def _fake_get(url: str, **kwargs: object) -> _Resp:
+            captured.update(kwargs)
+            return _Resp()
+
+        monkeypatch.setattr(SafeHTTPClient, "get", staticmethod(_fake_get))
+        web_research._safe_http_transport("https://en.wikipedia.org/wiki/X", 5.0)
+        # Without user_configured=True the arbitrary open-web host would be
+        # refused by the dataset allowlist (the shipped bug); with it the SSRF
+        # IP gate still runs (verified in tests/security/test_safe_http.py).
+        assert captured.get("user_configured") is True
+        assert captured.get("allow_http") is True
+
+    def test_real_open_web_host_validates_but_imds_is_refused(self) -> None:
+        # End-to-end against the real validator: an arbitrary public host passes
+        # under user_configured=True, but link-local IMDS / loopback are refused.
+        import pytest as _pytest
+
+        from omni_mercury_engine.security.safe_http import SafeHTTPClient, UnsafeURLError
+
+        SafeHTTPClient.validate_url(
+            "https://en.wikipedia.org/wiki/X", allow_http=True, user_configured=True
+        )
+        for blocked in ("http://169.254.169.254/latest/meta-data/", "http://127.0.0.1/"):
+            with _pytest.raises(UnsafeURLError):
+                SafeHTTPClient.validate_url(blocked, allow_http=True, user_configured=True)
+
+
 class TestFromEnv:
     def test_builds_ladder_from_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("BRAVE_API_KEY", "bk")

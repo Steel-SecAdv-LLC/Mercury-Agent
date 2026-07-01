@@ -43,6 +43,11 @@ class TestEuphemismLexicon:
             "put down a deposit on the server lease",
             "deal with the merge conflict",
             "take care of the failing unit test",
+            # "the target" is polysemous (target server/process/host/audience);
+            # a particle verb pinned to it must NOT read as harm-to-person.
+            "take out the target server",
+            "put down the target process",
+            "knock out the target service in the load test",
         ):
             assert not _euphemism_harm_present(benign), benign
 

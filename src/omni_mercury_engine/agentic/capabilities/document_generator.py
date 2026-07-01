@@ -17,21 +17,31 @@ from typing import Any
 
 
 def _md_safe(text: str) -> str:
-    """Neutralize raw-HTML passthrough in Markdown content.
+    """Neutralize raw-HTML passthrough AND link/image injection in Markdown content.
 
     Markdown is not a safe-by-default sink: CommonMark and GitHub-flavored
-    renderers pass raw HTML through, so untrusted content (notably
-    web-extracted text) containing ``<script>`` or ``<img onerror=...>`` becomes
-    scriptable markup when the generated document is displayed in a browser.
-    This escapes the three HTML-significant characters (``&``, ``<``, ``>``) so
-    an embedded tag renders as literal text. Markdown *structure* is emitted by
-    the renderer itself (``#``, ``-``, ``##``) and is never passed through this
-    function, so headings, bullets, and front-matter formatting are preserved;
-    only the caller-supplied text is defanged. ``quote=False`` keeps quotes
-    literal -- they are harmless in Markdown flow text and escaping them would
-    corrupt ordinary prose.
+    renderers pass raw HTML through, so untrusted content (notably web-extracted
+    text) containing ``<script>`` or ``<img onerror=...>`` becomes scriptable
+    markup when the generated document is displayed in a browser. This escapes
+    the three HTML-significant characters (``&``, ``<``, ``>``) so an embedded
+    tag renders as literal text.
+
+    It also neutralizes Markdown *link* and *image* syntax by backslash-escaping
+    the ``[`` and ``]`` delimiters: without this, extracted text like
+    ``Click [here](javascript:steal(document.cookie))`` renders as a live link
+    carrying a dangerous URL scheme (the HTML renderer's ``_render_source_link``
+    scheme-allowlist does not apply to inline Markdown links). Escaping the
+    brackets makes the whole construct render as literal text -- no link, any
+    scheme -- which is the robust, renderer-independent defense.
+
+    Markdown *structure* is emitted by the renderer itself (``#``, ``-``, ``##``)
+    and never passed through this function, so headings, bullets, and
+    front-matter formatting are preserved; only caller-supplied text is defanged.
+    ``quote=False`` keeps quotes literal -- harmless in Markdown flow text and
+    escaping them would corrupt ordinary prose.
     """
-    return html.escape(text, quote=False)
+    escaped = html.escape(text, quote=False)
+    return escaped.replace("[", "\\[").replace("]", "\\]")
 
 
 def _render_source_link(source: str) -> str:

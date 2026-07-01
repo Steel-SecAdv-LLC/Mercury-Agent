@@ -335,6 +335,15 @@ class CalibratedConfidence:
         y = np.asarray(labels, dtype=float).reshape(-1)
         n = s.size
 
+        # Mismatched scores/labels is a caller contract violation, not degenerate
+        # data to absorb: validate up front with a clear message. (A previous
+        # version routed a size mismatch to the identity path, but that path then
+        # computed joint raw metrics -- brier_score_loss(y, s) -- on the
+        # mismatched arrays and raised an opaque broadcasting error, defeating the
+        # guard's intent.)
+        if s.size != y.size:
+            raise ValueError(f"scores length ({s.size}) must equal labels length ({y.size})")
+
         # Reseed per fit so the acceptance bootstrap (which consumes ``self._rng``)
         # is reproducible even when the SAME instance is fit more than once --
         # otherwise the rng would advance and a borderline verdict could flip on a
@@ -344,7 +353,7 @@ class CalibratedConfidence:
         from omni_mercury_engine.ml.mercury_ml import brier_score_loss
 
         # Degenerate data: cannot calibrate, stay identity (honest).
-        if n < _MIN_SAMPLES or len(np.unique(y)) < 2 or s.size != y.size:
+        if n < _MIN_SAMPLES or len(np.unique(y)) < 2:
             return self._identity_report(
                 n=n,
                 s=s,

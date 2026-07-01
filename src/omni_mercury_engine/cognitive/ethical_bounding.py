@@ -234,8 +234,13 @@ _EUPHEMISM_OBJECT: tuple[str, ...] = (
     "them",
     "the witness",
     "the witnesses",
-    "the target",
-    "the targets",
+    # NB: "the target"/"the targets" are intentionally NOT listed. They are
+    # polysemous -- "take out the target server / process / host", "the target
+    # audience / market" -- so pinning a euphemism to them false-positives on
+    # routine security/ops language ("take out the target process") and violates
+    # this list's high-precision, person-specific invariant. The genuine
+    # person-directed cases stay covered by the standalone idioms and the
+    # unambiguous person objects (him/her/the witness/the hostages).
     "the journalist",
     "the prisoners",
     "the hostages",
@@ -819,6 +824,30 @@ _ALLOW_INTENT_PATTERNS: tuple[tuple[re.Pattern[str], OperationalIntent, str], ..
 )
 
 
+# Defensive-production frame: a production verb whose *object* is a defensive
+# artifact (a detector / sensor / vaccine / antidote / countermeasure / monitor /
+# protective equipment / detection-or-decontamination system). This is what the
+# defensive-production carve-out keys on -- NOT the mere co-presence of a
+# detection keyword. The distinction closes the "append a defensive clause"
+# bypass: "how to synthesize sarin AND how to detect it" pairs a production verb
+# with a *hazard* object and a separate detection *verb* (no defensive object
+# noun), so it does NOT match here and stays gated, whereas "make a nerve agent
+# detector" (defensive object bound to the verb) does. ``.`` never crosses the
+# newline between normalization variants; the window admits an article/adjective
+# ("a", "an", "the", "chemical agent") between verb and object.
+_DEFENSIVE_PRODUCTION_RE = re.compile(
+    r"\b(?:make|makes|making|build|builds|building|create|creates|creating|"
+    r"develop|develops|developing|design|designs|designing|produce|produces|"
+    r"producing|construct|constructs|constructing|manufactur\w*|formulat\w*|"
+    r"engineer|engineers|engineering|fabricat\w*|assembl\w*|synthesi[sz]\w*)\b"
+    r"[^.\n]{0,40}?\b(?:detector|detectors|sensor|sensors|biosensor|dosimeter|"
+    r"vaccine|vaccines|antidote|antidotes|countermeasure|countermeasures|"
+    r"monitor|monitors|alarm|alarms|assay|test kit|respirator|prophylaxis|"
+    r"therapeutic|antitoxin|protective (?:equipment|gear|suit|mask|clothing)|"
+    r"ppe|detection (?:system|kit|device|assay)|decontamination (?:kit|system))\b"
+)
+
+
 # Multilingual Axis-B offensive cues compiled to (substring, intent, label).
 # The cue tier name (a plain string in the language table so that module needs
 # no enum import) is resolved to an OperationalIntent here.
@@ -928,21 +957,28 @@ def _gate_evidence(text: str, context: dict[str, Any] | None) -> _GateEvidence:
     # Defensive-production carve-out (protect professionals). *Making* a detector,
     # sensor, vaccine, antidote, countermeasure, or protective equipment is
     # defensive work, not weapons production -- but the production verb ("make",
-    # "process of making", "create") fires on it. When the only offensive tier is
-    # B6 PRODUCTION *and* a detection / defense / response allow-signal is present,
-    # the production is defensively framed: drop the PRODUCTION matches so the
-    # query resolves to the ALLOW ladder. B7-B10 (weaponization / acquisition /
-    # enhancement / targeting) are inherently offensive and are NEVER carved out
-    # by a defensive object. The residual (an attacker appending a defensive noun)
-    # is carried by the reasoning-backed classifier + escalation + audit -- the
-    # deliberate bias is toward not strangling defensive CBRN work.
+    # "process of making", "create") fires on it. Drop the B6 PRODUCTION matches
+    # only when the production is genuinely defensively framed: the production
+    # verb's OBJECT is a defensive artifact (``_DEFENSIVE_PRODUCTION_RE``) AND a
+    # detection/defense/response allow-signal is present. Requiring the verb->
+    # defensive-object binding -- not the mere co-presence of a detection keyword
+    # -- closes the "append a defensive clause" bypass ("how to synthesize sarin
+    # AND how to detect it" keeps its hazard object and stays gated) while still
+    # protecting "make a nerve agent detector". B7-B10 (weaponization /
+    # acquisition / enhancement / targeting) are inherently offensive and are
+    # NEVER carved out. The narrow residual (an attacker conjoining a real
+    # defensive object, "make sarin and a detector") is carried by the
+    # reasoning-backed classifier + escalation + durable audit -- the deliberate
+    # bias is toward not strangling defensive CBRN work.
     _DEFENSIVE_ALLOW = {
         OperationalIntent.DETECTION,
         OperationalIntent.DEFENSE,
         OperationalIntent.RESPONSE,
     }
-    if any(t is OperationalIntent.PRODUCTION for t, _ in offensive) and (
-        _DEFENSIVE_ALLOW & {t for t, _ in allowed}
+    if (
+        any(t is OperationalIntent.PRODUCTION for t, _ in offensive)
+        and (_DEFENSIVE_ALLOW & {t for t, _ in allowed})
+        and _DEFENSIVE_PRODUCTION_RE.search(haystack)
     ):
         offensive = [(t, lbl) for t, lbl in offensive if t is not OperationalIntent.PRODUCTION]
 

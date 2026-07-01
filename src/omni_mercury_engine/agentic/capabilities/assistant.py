@@ -37,6 +37,26 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _section_text(s: Section | tuple[Any, ...] | dict[str, Any]) -> str:
+    """Return all caller-authored, renderable text of a section for screening.
+
+    Every field that ends up in the rendered document -- heading, body, and
+    bullets -- must be visible to the harm gate. Accepts the same shapes
+    :meth:`DocumentGenerator.report` does (``Section``, ``(heading, body)``
+    tuple, ``{"heading","body","bullets"}`` dict) so the gate sees exactly what
+    will be rendered, never a subset.
+    """
+    if isinstance(s, Section):
+        return " ".join([s.heading, s.body, *s.bullets])
+    if isinstance(s, dict):
+        parts = [str(s.get("heading", "")), str(s.get("body", ""))]
+        parts.extend(str(b) for b in s.get("bullets", []) or [])
+        return " ".join(parts)
+    if isinstance(s, tuple):
+        return " ".join(str(x) for x in s)
+    return str(s)
+
+
 @dataclass
 class GateVerdict:
     """Outcome of the unified harm gate for one general-capability action.
@@ -575,9 +595,14 @@ class GeneralAssistant:
         Returns ``None`` (fail-closed) if the title/content is refused by the
         benevolence gate.
         """
-        body_preview = " ".join((s.body if isinstance(s, Section) else str(s)) for s in sections)
-        # Gate BOTH the title and the supplied content (the content is
-        # caller-authored, so it must be screened, not just the title framing).
+        # Gate the title AND the *entire* caller-authored content -- every
+        # rendered field, not just the body. A Section's heading and bullets are
+        # rendered into the output document too, so screening only ``s.body``
+        # (as an earlier version did) let harmful content ride in the heading or
+        # a bullet straight past the benevolence/weapons gate. The MCP surface
+        # coerces client dicts into Section objects before this call, so that
+        # bypass was reachable by any MCP client.
+        body_preview = " ".join(_section_text(s) for s in sections)
         verdict = self._permitted(
             f"author a document to inform, educate, and help understanding: {title}\n{body_preview}",
             {

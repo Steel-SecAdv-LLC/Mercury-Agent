@@ -210,10 +210,18 @@ def _host_is_loopback_literal(url: str) -> bool:
 def _safe_http_transport(url: str, timeout: float) -> tuple[int, str, str]:
     """Default transport: a validated GET via Mercury's SSRF-guarded SafeHTTPClient.
 
-    The open web is *untrusted*, so this uses the default (strict) SSRF policy --
-    private/link-local/IMDS/loopback targets are refused. ``allow_http=True``
-    because the open web includes plain-``http``: pages (the scheme is still
-    IP-gated). Body is bounded to ``_DEFAULT_MAX_BYTES``; ``requests`` honours
+    The open web is *untrusted*, so this uses the SSRF-guarded egress path --
+    private/link-local/IMDS/loopback targets are refused. ``user_configured=True``
+    is required and deliberate: the arbitrary open-web hosts a research fetch
+    targets are, by design, NOT in :attr:`TrustedEndpoints.TRUSTED_DOMAINS`
+    (that allowlist is for pinned dataset/API mirrors). Without this flag every
+    real fetch would fail closed against the dataset allowlist AND -- for an
+    https URL -- skip the resolve-and-recheck IP gate entirely. Setting it
+    bypasses the *dataset* allowlist while activating the private-network / IMDS
+    IP gate that actually protects the open-web path (it matches the
+    ``operator_hosted=False`` JSON-opener policy above). ``allow_http=True``
+    because the open web includes plain-``http``: pages (still IP-gated). Body is
+    bounded to ``_DEFAULT_MAX_BYTES``; ``requests`` honours
     ``HTTPS_PROXY``/``HTTP_PROXY`` and the system trust store.
     """
     import requests
@@ -225,6 +233,7 @@ def _safe_http_transport(url: str, timeout: float) -> tuple[int, str, str]:
         headers={"User-Agent": _DEFAULT_USER_AGENT},
         timeout=timeout,
         allow_http=True,
+        user_configured=True,
         stream=True,
     ) as resp:
         status = int(resp.status_code)
