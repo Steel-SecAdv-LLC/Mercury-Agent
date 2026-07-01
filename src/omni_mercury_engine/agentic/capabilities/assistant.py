@@ -33,6 +33,29 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
+class GateVerdict:
+    """Outcome of the unified harm gate for one general-capability action.
+
+    Carries the two-axis weapons/mass-casualty verdict alongside the scalar
+    harm so callers can distinguish an outright HARD_REFUSE from an ESCALATE
+    (a genuine gray-zone request a human-in-the-loop could authorize) and
+    surface an honest, auditable reason rather than a bare boolean.
+    """
+
+    permitted: bool
+    harm_score: float = 0.0
+    disposition: str = "allow"
+    hazard_domain: str = "none"
+    operational_intent: str = "mechanism"
+    reason: str = ""
+
+    @property
+    def escalatable(self) -> bool:
+        """True when a human-in-the-loop could authorize (B6 gray zone)."""
+        return self.disposition == "escalate"
+
+
+@dataclass
 class ResearchReport:
     """Result of a research-and-report workflow."""
 
@@ -43,6 +66,7 @@ class ResearchReport:
     available: bool = True
     refused: bool = False
     note: str = ""
+    disposition: str = "allow"
 
     def to_dict(self) -> dict[str, Any]:
         """JSON-safe view."""
@@ -53,6 +77,7 @@ class ResearchReport:
             "available": self.available,
             "refused": self.refused,
             "note": self.note,
+            "disposition": self.disposition,
             "document": self.document.content if self.document else None,
             "format": self.document.fmt if self.document else None,
         }
@@ -84,7 +109,14 @@ class GeneralAssistant:
         # than a bare DDG scrape -- the provider-first posture, configurable
         # without code via BRAVE_API_KEY / MERCURY_SEARXNG_URL.
         self.researcher = researcher or WebResearcher.from_env()
-        self.synthesizer = synthesizer or ExtractiveSynthesizer()
+        # Pre-emission output gate (spec §5.3): the verbatim extractor must not
+        # reproduce operational weapons procedure even from a source that
+        # passed the query/content gates. A default synthesizer is wired to the
+        # weapons output gate; an injected synthesizer is used as-is (the caller
+        # owns its gating). This is the highest-leverage enforcement point.
+        self.synthesizer = synthesizer or ExtractiveSynthesizer(
+            sentence_gate=self._sentence_is_safe
+        )
         self.doc_generator = doc_generator or DocumentGenerator()
         if benevolence_scorer is None:
             from omni_mercury_engine.cognitive.ethical_bounding import (
@@ -95,31 +127,82 @@ class GeneralAssistant:
             benevolence_scorer = BenevolenceScorer(benevolence_threshold=MINIMUM_BENEVOLENCE_FLOOR)
         self._benevolence = benevolence_scorer
 
-    # -- ethics gate -------------------------------------------------------
+    # -- ethics gate (unified with the rest of Mercury) --------------------
 
-    #: Harm/severity at or above this refuses a general-capability action. The
-    #: gate is on detected HARM, not on a positive-benevolence floor: a neutral
-    #: research query carries no harm and must not be false-rejected merely for
-    #: lacking positive keywords (the benevolence-floor model is calibrated for
-    #: detection *actions*, and would refuse all benign research). Refusing only
-    #: on real harm signal is the correct fail-closed gate for a research/author
-    #: capability -- harmful intent is blocked, benign intent is permitted.
+    #: General-harm floor: harm/severity at or above this refuses a
+    #: general-capability action. The gate is on detected HARM, not on a
+    #: positive-benevolence floor: a neutral research query carries no harm
+    #: and must not be false-rejected merely for lacking positive keywords
+    #: (the benevolence-floor model is calibrated for detection *actions* and
+    #: would refuse all benign research). This catches interpersonal-harm
+    #: intent; the weapons/mass-casualty uplift gate (below) is the
+    #: authoritative control for CBRN/explosive/weapon actionability, and both
+    #: are computed in the SAME ``score_action`` call -- one harm policy.
     HARM_REFUSAL_THRESHOLD: float = 0.5
 
-    def _permitted(self, action: str, context: dict[str, Any]) -> tuple[bool, float]:
-        """Fail-closed harm check; returns (permitted, harm_score)."""
+    @staticmethod
+    def _sentence_is_safe(sentence: str) -> bool:
+        """Output-gate predicate: True unless a sentence is operational weapons content.
+
+        Backs the :class:`ExtractiveSynthesizer` sentence gate. Uses the same
+        two-axis :func:`assess_weapons_uplift` as every other gate, so the
+        output layer redacts on exactly the intersection the rest of the
+        policy refuses. Fail-closed: any error redacts (returns ``False``).
+        """
+        try:
+            from omni_mercury_engine.cognitive.ethical_bounding import assess_weapons_uplift
+
+            return not assess_weapons_uplift(sentence).blocks
+        except Exception:
+            return False
+
+    def _permitted(self, action: str, context: dict[str, Any]) -> GateVerdict:
+        """Unified fail-closed harm gate for a general-capability action.
+
+        Routes through :meth:`BenevolenceScorer.score_action` -- the *same*
+        gate detect/analyze/predict use -- so the open-web/authoring surface
+        (the highest-uplift capability in the system) inherits the two-axis
+        weapons/mass-casualty verdict instead of a weaker bespoke check. An
+        action is refused when EITHER the weapons gate returns a blocking
+        disposition (ESCALATE/REFUSE_REDACT/HARD_REFUSE) OR the scalar
+        harm/severity crosses :attr:`HARM_REFUSAL_THRESHOLD`. Benign,
+        harmless research still passes (low benevolence alone never refuses).
+        Any scoring error fails closed to refused.
+        """
         try:
             score = self._benevolence.score_action(action, context)
             harm = float(getattr(score, "harm_score", 0.0))
             severity = float(getattr(score, "severity_score", 0.0))
-            # Refuse on real harm signal (so a harmful query is blocked) -- but do
-            # NOT refuse a benign, harmless action just for a low benevolence
-            # score, which would false-reject all neutral research.
+            disposition = str(getattr(score, "weapons_disposition", "allow"))
+            hazard = str(getattr(score, "hazard_domain", "none"))
+            intent = str(getattr(score, "operational_intent", "mechanism"))
+            weapons_blocks = disposition in ("escalate", "refuse_redact", "hard_refuse")
             harmful = harm >= self.HARM_REFUSAL_THRESHOLD or severity >= self.HARM_REFUSAL_THRESHOLD
-            return (not harmful), harm
+            if weapons_blocks:
+                reason = (
+                    f"weapons/mass-casualty uplift gate: {disposition} "
+                    f"(hazard={hazard}, intent={intent})"
+                )
+            elif harmful:
+                reason = f"harmful content detected (harm={harm:.3f}, severity={severity:.3f})"
+            else:
+                reason = ""
+            return GateVerdict(
+                permitted=not (weapons_blocks or harmful),
+                harm_score=harm,
+                disposition=disposition,
+                hazard_domain=hazard,
+                operational_intent=intent,
+                reason=reason,
+            )
         except Exception as exc:
             logger.warning("harm scoring failed (%s); refusing fail-closed", exc)
-            return False, 1.0
+            return GateVerdict(
+                permitted=False,
+                harm_score=1.0,
+                disposition="hard_refuse",
+                reason=f"gate error: {exc}",
+            )
 
     # -- capabilities ------------------------------------------------------
 
@@ -146,23 +229,31 @@ class GeneralAssistant:
         zero readable sources each yield an honest report (``refused`` /
         ``available=False``) rather than a fabricated answer.
         """
-        # Describe the genuinely benevolent purpose (research informs/educates and
-        # helps understanding -- KNOWLEDGE + WELLBEING benefits) so the keyword
-        # benevolence gate scores the real intent, mirroring how the engine
-        # boundary names its defensive detection purpose. This is honest framing,
-        # not gaming: the capability's purpose is to inform, not to harm.
-        permitted, harm = self._permitted(
-            f"research to inform and educate, helping and supporting understanding of: {query}",
+        # Pre-retrieval intent gate (spec §5.1). Score the RAW query for
+        # weapons/mass-casualty uplift (Axis A/B is intent-driven and does not
+        # need the benevolent-purpose framing), while still naming the benign
+        # informational purpose so the scalar benevolence/harm keyword gate
+        # reads the real intent rather than false-rejecting neutral research.
+        verdict = self._permitted(
+            f"research to inform and educate, helping understanding of: {query}\n"
+            f"raw query: {query}",
             {"purpose": "informational research to inform and help", "capability": "web_research"},
         )
-        if not permitted:
+        if not verdict.permitted:
+            note = (
+                f"escalate: {verdict.reason} -- a licensed/authorized human-in-the-loop "
+                "review is required before this query can proceed"
+                if verdict.escalatable
+                else f"refused: {verdict.reason}"
+            )
             return ResearchReport(
                 query=query,
                 summary="",
                 document=None,
                 available=False,
                 refused=True,
-                note=f"refused: harmful content detected (harm={harm:.3f})",
+                note=note,
+                disposition=verdict.disposition,
             )
 
         hits = self.researcher.search(query, max_results=max_sources)
@@ -177,10 +268,33 @@ class GeneralAssistant:
 
         gathered: list[tuple[str, str]] = []
         source_meta: list[dict[str, Any]] = []
+        dropped_for_harm = 0
         for hit in hits:
             fetched = self.researcher.fetch_text(hit.url)
             if not fetched.ok or not fetched.text:
                 source_meta.append({"title": hit.title, "url": hit.url, "read": False})
+                continue
+            # Post-retrieval content gate (spec §5.2). A benign query can still
+            # return a page carrying operational weapons procedure; that content
+            # must never reach the verbatim synthesizer. Classify the fetched
+            # text and drop any source whose content the weapons gate blocks --
+            # even though the query itself passed. Fail-closed on the content,
+            # not just the query.
+            content_verdict = self._permitted(
+                fetched.text[:4000],
+                {"purpose": "post-retrieval content screen", "capability": "web_research"},
+            )
+            if not content_verdict.permitted:
+                dropped_for_harm += 1
+                source_meta.append(
+                    {
+                        "title": hit.title,
+                        "url": hit.url,
+                        "read": False,
+                        "dropped": "harm_gate",
+                        "disposition": content_verdict.disposition,
+                    }
+                )
                 continue
             relevance = self.synthesizer.relevance(query, fetched.text)
             gathered.append((hit.title, fetched.text))
@@ -190,13 +304,24 @@ class GeneralAssistant:
 
         read = [(t, x) for t, x in gathered]
         if not read:
+            if dropped_for_harm:
+                note = (
+                    f"refused: all {dropped_for_harm} readable source(s) were dropped by the "
+                    "post-retrieval harm gate (operational weapons content)"
+                )
+                refused = True
+            else:
+                note = "search returned hits but none were readable"
+                refused = False
             return ResearchReport(
                 query=query,
                 summary="",
                 document=None,
                 sources=source_meta,
                 available=False,
-                note="search returned hits but none were readable",
+                refused=refused,
+                note=note,
+                disposition="refuse_redact" if dropped_for_harm else "allow",
             )
 
         # Rank sources by relevance; synthesize across the most relevant ones.
@@ -272,15 +397,19 @@ class GeneralAssistant:
         benevolence gate.
         """
         body_preview = " ".join((s.body if isinstance(s, Section) else str(s)) for s in sections)
-        permitted, _ = self._permitted(
-            f"author a document to inform, educate, and help understanding: {title}",
+        # Gate BOTH the title and the supplied content (the content is
+        # caller-authored, so it must be screened, not just the title framing).
+        verdict = self._permitted(
+            f"author a document to inform, educate, and help understanding: {title}\n{body_preview}",
             {
                 "purpose": "document generation to inform and help",
                 "content_preview": body_preview[:500],
             },
         )
-        if not permitted:
-            logger.info("document generation refused by benevolence gate: %s", title)
+        if not verdict.permitted:
+            logger.info(
+                "document generation refused by harm gate (%s): %s", verdict.disposition, title
+            )
             return None
         return self.doc_generator.report(
             title, sections, fmt=fmt, metadata=metadata, sources=sources

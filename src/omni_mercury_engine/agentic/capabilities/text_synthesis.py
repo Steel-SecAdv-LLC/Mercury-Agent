@@ -17,9 +17,20 @@ from __future__ import annotations
 
 import re
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass
 
 import numpy as np
+
+# A sentence gate maps one sentence to True (safe to emit) / False (redact).
+# Injectable so this module stays dependency-free: the caller wires it to the
+# weapons/mass-casualty output gate (assess_weapons_uplift) without this file
+# importing the ethics layer.
+SentenceGate = Callable[[str], bool]
+
+#: Placeholder substituted for a redacted sentence, so the output is honest
+#: about *where* content was withheld rather than silently dropping it.
+REDACTION_NOTICE = "[redacted: operational content withheld by the harm gate]"
 
 # A compact English stopword list (stdlib-only; no nltk dependency).
 _STOPWORDS = frozenset(
@@ -142,9 +153,40 @@ class ExtractiveSynthesizer:
 
     Args:
         min_sentence_chars: Sentences shorter than this are ignored as fragments.
+        sentence_gate: Optional ``Callable[[str], bool]`` -- the pre-emission
+            output gate (spec §5.3). The verbatim extractor is the single
+            highest-risk component: a benign query can surface a source
+            sentence that IS operational weapons procedure, and a faithful
+            quoter would reproduce it. When set, every candidate sentence is
+            passed through the gate before it can appear in a summary; a
+            sentence the gate rejects (returns ``False``) is replaced with
+            :data:`REDACTION_NOTICE`. Fail-closed: a gate that raises is
+            treated as a rejection, never a pass. Default ``None`` keeps the
+            synthesizer a pure extractor.
     """
 
     min_sentence_chars: int = 25
+    sentence_gate: SentenceGate | None = None
+
+    def _emit(self, sentence: str) -> str:
+        """Return ``sentence`` verbatim, or the redaction notice if the gate rejects it."""
+        if self.sentence_gate is None:
+            return sentence
+        try:
+            safe = bool(self.sentence_gate(sentence))
+        except Exception:
+            safe = False  # fail-closed: a gate error redacts, never passes.
+        return sentence if safe else REDACTION_NOTICE
+
+    def _join(self, sentences: list[str]) -> str:
+        """Join sentences through the output gate, collapsing adjacent redactions."""
+        out: list[str] = []
+        for s in sentences:
+            emitted = self._emit(s)
+            if emitted == REDACTION_NOTICE and out and out[-1] == REDACTION_NOTICE:
+                continue  # don't repeat the notice for consecutive redactions
+            out.append(emitted)
+        return " ".join(out)
 
     @staticmethod
     def split_sentences(text: str) -> list[str]:
@@ -174,14 +216,18 @@ class ExtractiveSynthesizer:
         """
         sentences = [s for s in self.split_sentences(text) if len(s) >= self.min_sentence_chars]
         if len(sentences) <= max_sentences:
-            return " ".join(sentences) if sentences else (text or "").strip()
+            if sentences:
+                return self._join(sentences)
+            # Short/unsplittable input: still gate the whole thing before emitting.
+            trimmed = (text or "").strip()
+            return self._emit(trimmed) if trimmed else ""
 
         # Build a sentence x vocabulary TF matrix, weight by IDF, score by cosine
         # similarity to the (IDF-weighted) document centroid.
         tokenized = [self._tokens(s) for s in sentences]
         vocab = sorted({w for toks in tokenized for w in toks})
         if not vocab:
-            return " ".join(sentences[:max_sentences])
+            return self._join(sentences[:max_sentences])
         index = {w: i for i, w in enumerate(vocab)}
         n_sent = len(sentences)
         tf = np.zeros((n_sent, len(vocab)))
@@ -199,7 +245,7 @@ class ExtractiveSynthesizer:
         scores = unit @ (centroid / c_norm)
 
         top_idx = sorted(np.argsort(scores)[-max_sentences:].tolist())
-        return " ".join(sentences[i] for i in top_idx)
+        return self._join([sentences[i] for i in top_idx])
 
     def summarize_sources(self, sources: list[tuple[str, str]], max_sentences: int = 6) -> str:
         """Summarize across multiple ``(label, text)`` sources into one digest.
