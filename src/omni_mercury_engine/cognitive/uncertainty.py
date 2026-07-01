@@ -547,6 +547,11 @@ class UncertaintyQuantifier:
         self.n_monte_carlo = n_monte_carlo
         self.calibration_bins = calibration_bins
         self.reliability_threshold = reliability_threshold
+        # Keep the constructor seed (not just the derived Generator) so the
+        # confidence calibrator can be fit reproducibly: re-fitting the same
+        # instance must use the same CV split / bootstrap seed, or the
+        # accept/reject verdict would flap run-to-run.
+        self._seed = seed
         self._rng: np.random.Generator = np.random.default_rng(seed)
 
         # Components
@@ -1371,7 +1376,11 @@ class UncertaintyQuantifier:
             return None
         scores = np.asarray(list(self._confidences), dtype=float)
         labels = np.asarray([1 if o else 0 for o in self._outcomes], dtype=float)
-        calibrator = CalibratedConfidence(method=method, seed=int(self._rng.integers(0, 2**31 - 1)))
+        # Use the instance's constructor seed (falling back to
+        # CalibratedConfidence's fixed default when None) rather than drawing a
+        # fresh seed from self._rng -- so re-fitting the same instance is
+        # reproducible and the bootstrap accept/reject verdict does not flap.
+        calibrator = CalibratedConfidence(method=method, seed=self._seed)
         report = calibrator.fit(scores, labels)
         self._confidence_calibrator = calibrator
         self._stats["calibrations_performed"] += 1
