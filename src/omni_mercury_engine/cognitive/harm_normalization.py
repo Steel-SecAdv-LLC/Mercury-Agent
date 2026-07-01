@@ -261,9 +261,9 @@ def _cyrillic_translit(base: str) -> str:
 
 
 def normalized_haystack(text: str) -> str:
-    """Return a newline-joined bundle of normalization variants for matching.
+    r"""Return a newline-joined bundle of normalization variants for matching.
 
-    The bundle is ``base \\n folded \\n collapsed``:
+    The bundle is ``base \n folded \n collapsed``:
 
     * **base** -- lowercased, zero-width-stripped, diacritic-folded, whitespace-
       collapsed. Script-preserving; multi-word and native-script terms match here.
@@ -285,7 +285,7 @@ def normalized_haystack(text: str) -> str:
         # phonetic Cyrillic obfuscation (Cyrillic н/р/в mixed with leetspeak) also
         # normalizes toward Latin. Skipped when there is no Cyrillic (no cost).
         translit = _cyrillic_translit(base)
-        translit_variants = ()
+        translit_variants: tuple[str, ...] = ()
         if translit != base:
             t_folded = _fold_obfuscation(translit)
             translit_variants = (t_folded, _collapse(t_folded), _punct_strip(t_folded))

@@ -658,6 +658,8 @@ module = [
     # override declares them as a typed-boundary equivalent.
     "calibration_validation",
     "mercury_benchmark",
+    "eval_weapons_gate",
+    "weapons_gate_corpus",
     # Optional in-tree modules the tools surface ``try/except``-imports.
     # The ML detector and federated aggregator surfaces ship behind
     # ``[ml]`` / ``[federated]`` extras and are *expected* to be absent

@@ -499,8 +499,14 @@ jobs:
           # byte-identical locally and in CI.  Without the pin a newer
           # mypy/types-requests marks datasets/mitbih.py:105/109 as
           # ``unused-ignore`` in one place while the other still needs them.
+          # hypothesis mirrors the pytest rationale above: the strict test
+          # lane checks tests/ethical/, whose property/fuzz suite decorates
+          # tests with ``@given`` / ``@settings``.  hypothesis ships
+          # ``py.typed``, so installing it lets mypy resolve the decorator
+          # signatures; without it the [[tool.mypy.overrides]] boundary turns
+          # them into ``Any`` and the strict lane flags [untyped-decorator].
           pip install mypy==2.1.0 types-requests==2.33.0.20260518 \
-            "pytest>=9.0.3" pytest-asyncio pytest-mock
+            "pytest>=9.0.3" pytest-asyncio pytest-mock "hypothesis>=6.0.0"
 
       - name: Build + install AMA Cryptography (native PQC backend)
         uses: ./.github/actions/build-ama-cryptography

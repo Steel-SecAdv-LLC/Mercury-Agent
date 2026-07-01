@@ -5,6 +5,12 @@
 from __future__ import annotations
 
 import json
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    import pytest
 
 from omni_mercury_engine.agentic.capabilities.assistant import GeneralAssistant
 from omni_mercury_engine.agentic.capabilities.web_research import SearchResult, WebResearcher
@@ -12,6 +18,7 @@ from omni_mercury_engine.cognitive.escalation import EscalationBroker, Escalatio
 from omni_mercury_engine.cognitive.ethical_bounding import (
     BenevolenceScorer,
     WeaponsDisposition,
+    WeaponsRiskAssessment,
     assess_weapons_uplift,
 )
 from omni_mercury_engine.cognitive.gate_audit import record_gate_decision
@@ -128,7 +135,9 @@ class TestEscalationBroker:
 class TestDurableAudit:
     """Gate decisions persist to a durable append-only JSONL sink."""
 
-    def test_record_appends_durable_jsonl_line(self, tmp_path, monkeypatch) -> None:
+    def test_record_appends_durable_jsonl_line(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         log = tmp_path / "gate_decisions.jsonl"
         monkeypatch.setenv("MERCURY_GATE_AUDIT_LOG", str(log))
         record_gate_decision(
@@ -150,14 +159,18 @@ class TestDurableAudit:
         assert rec["source"] == "unit_test"
         assert "ts" in rec
 
-    def test_audit_disabled_writes_nothing(self, tmp_path, monkeypatch) -> None:
+    def test_audit_disabled_writes_nothing(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         log = tmp_path / "gate_decisions.jsonl"
         monkeypatch.setenv("MERCURY_GATE_AUDIT_LOG", str(log))
         monkeypatch.setenv("MERCURY_GATE_AUDIT_DISABLED", "1")
         record_gate_decision(decision="refused", source="unit_test", disposition="hard_refuse")
         assert not log.exists()
 
-    def test_refused_research_writes_audit(self, tmp_path, monkeypatch) -> None:
+    def test_refused_research_writes_audit(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         log = tmp_path / "gate_decisions.jsonl"
         monkeypatch.setenv("MERCURY_GATE_AUDIT_LOG", str(log))
         assistant = _offline_assistant("benign text")
@@ -178,7 +191,7 @@ class TestAggregateFailClosed:
             SessionActionabilityTracker,
         )
 
-        def _boom(_query: str):
+        def _boom(_query: str) -> WeaponsRiskAssessment:
             raise RuntimeError("gate exploded")
 
         tracker = SessionActionabilityTracker(gate=_boom)
