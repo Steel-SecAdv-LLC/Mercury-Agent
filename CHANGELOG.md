@@ -27,6 +27,89 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Merge-readiness hardening (PR #315 review round)
+
+A focused pass that reproduced the full CI pipeline locally, closed every red
+lane, and fixed the defects surfaced by an adversarial multi-lens review (each
+finding independently verified against the running code, then fixed with a
+regression test). No suppression: every issue is resolved or documented.
+
+**CI reds closed**
+
+- `cognitive/harm_normalization.py`: `normalized_haystack` docstring made a raw
+  string (pydocstyle D301); `translit_variants` annotated `tuple[str, ...]` so
+  mypy no longer infers `tuple[()]`.
+- README codebase-scale block regenerated (measured 658 source / 467 test
+  modules).
+- Strict test-lane typing for the new ethical suites: full annotations in
+  `tests/ethical/test_gate_governance.py`; `eval_weapons_gate` /
+  `weapons_gate_corpus` declared as sibling-script mypy boundaries; `hypothesis`
+  added to the Type-Checking install so the strict lane resolves
+  `@given`/`@settings` (previously flagged `[untyped-decorator]`).
+
+**Harm-gate correctness (verified, FP-safe)**
+
+- **Nuclear enrichment false-negative closed.** `how to enrich uranium to
+  weapons-grade` answered ALLOW (harm 0.0) — the Axis-A NUCLEAR lexicon carried
+  `enriching uranium`/`uranium enrichment` but not the bare-verb variant
+  `enrich uranium`, so the query routed no hazard domain. Added the
+  morphological variants and a **weapons-directed** enrichment/reprocessing
+  intent pattern (`enrich|reprocess … to/for/into … weapons-grade/warhead/a
+  nuclear weapon`). Civilian/policy/mechanistic enrichment stays on the ALLOW
+  ladder; corpus still 0% FP / 0% FN.
+- **Defensive-production carve-out bypass closed.** Dropping the B6 PRODUCTION
+  match on the mere co-presence of a detection keyword let `synthesize sarin AND
+  how to detect it` downgrade to ALLOW_PROVENANCE. The carve-out now requires a
+  production verb bound to a defensive **object** (`_DEFENSIVE_PRODUCTION_RE`:
+  make/build/… a detector/sensor/vaccine/antidote/countermeasure/…), so a hazard
+  object stays gated while `make a nerve agent detector` is still protected.
+- **Euphemism false-positive removed.** `the target`/`the targets` are
+  polysemous (target server/process/host/audience) and tripped the euphemism
+  layer on routine security/ops language, violating its documented
+  person-specific invariant; removed.
+- **`write_document` fail-open closed.** The benevolence/weapons gate screened
+  only `Section.body`; a harmful `heading` or `bullet` bypassed it while still
+  rendering (reachable via the MCP surface, which coerces client dicts to
+  `Section` objects). Now screens all rendered fields.
+
+**Capability-surface & operational readiness**
+
+- **Web research made functional + SSRF-correct.** The open-web page transport
+  omitted `user_configured=True`, so `SafeHTTPClient` applied the dataset
+  `TRUSTED_DOMAINS` allowlist to every fetch (wikipedia/arxiv/… all refused) and
+  an https URL skipped the IP re-check. Now bypasses the dataset allowlist while
+  running the private-network / IMDS gate (loopback/IMDS still refused).
+- **Markdown link/image injection neutralized.** `DocumentGenerator._md_safe`
+  now backslash-escapes `[`/`]` in addition to `&`/`<`/`>`, so extracted
+  `[text](javascript:…)` renders as literal text (any scheme, renderer-agnostic).
+- **Durable gate audit persists on installed deployments.** `gate_audit`'s
+  default sink resolved under `site-packages` on a wheel install (read-only →
+  silently swallowed). Now: env override → repo `artifacts/` only for a writable
+  source checkout → per-user `XDG_STATE_HOME`/`~/.local/state` fallback.
+- `distributed/cluster.py`: `n_results` reports the count of partitions actually
+  merged (not `len(self._results)`, which included failed/empty ones).
+- `cognitive/harm_classifier.py`: the reasoning→probability adapter is built
+  once per backend, not per `classify()` call on the hot gate path.
+
+**Evaluation & calibration honesty**
+
+- `evaluation/metrics.py`: `evaluate_anomaly_detection_split` now guards the
+  **test** split's class composition (not just val), falling back to in-sample
+  with a warning on a single-class test split instead of emitting AUC=0.5 as an
+  "honest" number; the `best_f1` docstring is corrected — it is the validation
+  in-sample maximum (optimistic upper bound), and the leakage-free operating
+  point is the `f1` field.
+- `core/confidence.py`: `fit` validates a scores/labels length mismatch up front
+  with a clear `ValueError` instead of raising an opaque broadcasting error from
+  the "graceful" identity path.
+
+**Reviewed, not a live defect (documented):** the 2 MB body read is a
+decompression-bomb concern only on older urllib3; urllib3 2.7.0 (pinned) bounds
+the decoded read to the requested size (~4.7 MB peak on a 500 MB logical bomb).
+`FeatureCache` torch-tensor identity keying (data_ptr + view metadata) is a
+deliberate, documented tradeoff — content-hashing a device tensor would force a
+per-lookup sync — and stale pointers age out of the bounded LRU.
+
 ### Harm-gate hardening — measured, multilingual, obfuscation-resistant, governed
 
 A focused hardening round on the weapons/mass-casualty uplift gate, turning

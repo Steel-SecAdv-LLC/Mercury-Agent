@@ -110,15 +110,29 @@ so benign text ("how do I cook dinner") cannot trip the net.
 **Defensive-production carve-out (protect professionals).** *Making* a detector,
 sensor, vaccine, antidote, countermeasure, or protective equipment is defensive
 work, not weapons production — but a production verb ("make", "create", "process of
-making") fires on it. When the only offensive tier is B6 PRODUCTION *and* a
-detection / defense / response allow-signal is present, the production is treated as
-defensively framed and does not gate, so "how to make a nerve-agent detector" and
-"how to make a vaccine against anthrax" are ALLOWed. This carve-out is
-PRODUCTION-only: B7–B10 (weaponization / acquisition / enhancement / targeting) are
-inherently offensive and are **never** unblocked by a defensive noun. The residual
-(an attacker appending a defensive word) is carried by the reasoning-backed
-classifier, escalation, and the audit log — the deliberate bias is toward not
-strangling defensive CBRN work.
+making") fires on it. The carve-out drops the B6 PRODUCTION match only when the
+production verb is bound to a defensive **object** (a detector / sensor / vaccine /
+antidote / countermeasure / monitor / protective equipment / detection-or-
+decontamination system) *and* a detection / defense / response allow-signal is
+present, so "how to make a nerve-agent detector" and "how to make a vaccine against
+anthrax" are ALLOWed. Requiring the verb→defensive-object binding — rather than the
+mere co-presence of a detection keyword — is what keeps the carve-out from being an
+"append a defensive clause" bypass: "how to synthesize sarin **and** how to detect
+it" keeps its hazard object and stays gated. This carve-out is PRODUCTION-only:
+B7–B10 (weaponization / acquisition / enhancement / targeting) are inherently
+offensive and are **never** unblocked by a defensive noun. The narrow residual (an
+attacker conjoining a genuine defensive object, "make sarin and a detector") is
+carried by the reasoning-backed classifier, escalation, and the audit log — the
+deliberate bias is toward not strangling defensive CBRN work.
+
+Nuclear-weapon production is routed on the enrichment/reprocessing vocabulary in
+its morphological variants ("enrich uranium" as well as "enriching uranium" /
+"uranium enrichment"), and a weapons-*directed* enrichment or reprocessing verb
+("enrich uranium **to** weapons-grade", "enriching uranium … **for** a warhead")
+gates as B6 PRODUCTION. Civilian, mechanistic, and policy enrichment discussion
+(reactor fuel, research-reactor licensing, non-proliferation history, border
+detection) stays on the ALLOW ladder — routing NUCLEAR only subjects a query to
+Axis-B intent analysis, it does not refuse on its own.
 
 **Obfuscation and language resistance.** Axis A matches over an obfuscation-
 normalized bundle (homoglyph fold, leetspeak fold, zero-width stripping, and both
