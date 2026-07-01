@@ -111,11 +111,24 @@ on hazard domain (high-recall, never blocks alone) and **Axis B** gates on
 *operational intent* — mechanism / detection / treatment / response / policy /
 licensed-practice default to **ALLOW**; only the narrow production / weaponization /
 acquisition-evasion / offensive-enhancement / targeting intersection is refused,
-via a calibrated ladder (ALLOW → ALLOW_LOG → ESCALATE → REFUSE_REDACT →
-HARD_REFUSE). Enforced at four points — pre-retrieval (query), post-retrieval
-(fetched content), pre-emission (verbatim sentence redaction), and the
-orchestration boundary (session decomposition). See **[`HARM_POLICY.md`](HARM_POLICY.md)**
-for the full policy, response ladder, and residual-risk statement.
+via a calibrated ladder (ALLOW → ALLOW_LOG → ALLOW_PROVENANCE → ESCALATE →
+REFUSE_REDACT → HARD_REFUSE). Axis A matches over an **obfuscation-normalized,
+multilingual** bundle (leetspeak / homoglyph / zero-width / separator obfuscation;
+taxonomy terms across widely spoken languages), and a **reasoning-backed classifier
+is wired by default** on this text surface — fail-open and offline-safe, so it
+strengthens meaning-level coverage only when a real local/cloud model is serving.
+
+Enforced at four points — pre-retrieval (query), post-retrieval (fetched content),
+pre-emission (verbatim sentence redaction **plus a cross-sentence re-gate for
+procedures assembled across sentences**), and the orchestration boundary (adjacent
+realized-plan re-gate + semantic-embedding accretion). On this surface:
+`ALLOW_PROVENANCE` answers a high-severity hazard-domain query **only from cited
+sources** (withholding uncited synthesis); `ESCALATE` routes to an injectable
+**human-in-the-loop** reviewer (fail-closed, bounded per session); and every
+refusal / escalation / withhold is written to a **durable audit log**. The operating
+point is a **measured, CI-failing FP/FN metric** over a 362-case labeled corpus
+(currently 0% FP / 0% FN). See **[`HARM_POLICY.md`](HARM_POLICY.md)** for the full
+policy, response ladder, evaluation, and residual-risk statement.
 
 ## Usage
 

@@ -27,6 +27,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Harm-gate hardening — measured, multilingual, obfuscation-resistant, governed
+
+A focused hardening round on the weapons/mass-casualty uplift gate, turning
+hand-set heuristics into measured ones and inert controls into real ones. All
+native (stdlib + numpy); the reasoning-backed classifier is fail-open and
+offline-safe (no new hard dependency).
+
+- **Reasoning classifier wired by default** on the open-web/text surface
+  (`GeneralAssistant`, `WebResearcher`, output gate). Contributes a meaning-level
+  harm probability only when a real local/cloud model is serving and `0.0`
+  otherwise, so it can only raise harm and never changes deterministic behaviour
+  in air-gapped/CI runs. `_parse_probability` hardened against prose/echo replies.
+- **Obfuscation resistance + multilingual routing** (`cognitive/harm_normalization.py`):
+  matching runs over homoglyph/leetspeak-folded, zero-width-stripped, and both
+  whole- and word-boundary-preserving separator-collapsed variants (`n3rv3 ag3nt`,
+  Cyrillic spoofing, `s a r i n`, `n.e.r.v.e a.g.e.n.t`); 266 taxonomy-level hazard
+  terms + 52 offensive cues across ~30 languages (native script + transliteration).
+- **Out-of-lexicon false-negative fix**: a production/acquisition verb anchored to
+  generic hazard-context vocabulary now gates even when the specific agent is not
+  in the Axis-A lexicon; `how to make/synthesize/produce X` and many indirect
+  production/weaponization framings (previously missed) now block, all FP-safe.
+- **Semantic-embedding accretion** replaces exact-domain counting in the aggregate
+  tracker; the realized-plan re-gate is adjacent-window and capped to ESCALATE, so
+  a benign production-verb query beside an unrelated hazard query never refuses a
+  professional.
+- **Cross-sentence output gate**: a procedure assembled across individually-safe
+  sentences is redacted; defensive context beside a redacted step is preserved.
+- **`ALLOW_PROVENANCE` disposition** (new): a high-severity hazard-domain query is
+  answered only from cited sources; the output boundary withholds uncited
+  hazardous-topic synthesis.
+- **Human-in-the-loop / bounded-autonomy escalation** (`cognitive/escalation.py`):
+  ESCALATE routes to an injectable reviewer, fail-closed with no reviewer, capped
+  per session, and durably audited.
+- **Durable decision/refusal audit log** (`cognitive/gate_audit.py`): append-only,
+  fsynced JSONL sink (+ optional hash-chained `SecureAuditLogger`) for every
+  refusal / escalation / provenance-withhold / accretion signal.
+- **Measured FP/FN + fitted confidence**: a 362-case labeled corpus
+  (`benchmarks/weapons_gate_corpus.py` + `.jsonl`, 60/20/20 split); the confidence
+  logistic is fit on it (`scripts/fit_weapons_gate_calibration.py` →
+  `configs/weapons_gate_calibration.json`; val Brier ≈0.002, ECE ≈0.039); a
+  CI-failing FP/FN metric (`tests/ethical/test_weapons_gate_eval.py`; 0% FP / 0% FN
+  on held-out val+test); and hypothesis property/fuzz + adversarial-paraphrase
+  tests (`tests/ethical/test_weapons_gate_properties.py`).
+- **Pre-existing items resolved**: `statistical_vlm` install hint now names both
+  `transformers` and `accelerate`; the docstring-retention CI gate uses a 60%
+  retention floor instead of a brittle no-shrink rule; the `memoryview[int]`
+  annotation in `infrastructure/streaming.py` is confirmed correct (matches
+  redis-py's generic `memoryview[int]`) with its misleading comments corrected.
+
 ### Neuro-symbolic calibration & honesty engineering + general-purpose capabilities
 
 Make Mercury's confidence *measured* rather than heuristic, harden the
