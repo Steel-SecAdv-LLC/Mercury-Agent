@@ -64,6 +64,20 @@ class BenevolenceCalibration:
     # harm/benefit keyword (catches morphological variants the substring scan
     # misses: "injuries" -> "injury", "manipulative" -> "manipulate").
     semantic_match_threshold: float = 0.6
+    # -- Weapons/mass-casualty uplift gate (see assess_weapons_uplift below) --
+    # Below this Axis-B confidence, a B6 (production/synthesis) verdict is
+    # treated as the genuine gray zone and ESCALATEd (slowed + audited) rather
+    # than REFUSE_REDACTed outright; an asserted licensed-professional context
+    # has the same effect. B7-B10 ignore this entirely (always HARD_REFUSE).
+    weapons_b6_escalate_confidence: float = 0.6
+    # Harm-score floors a weapons-uplift disposition raises the deterministic
+    # lexical harm to (max-only, fail-closed -- never lowers it). HARD_REFUSE
+    # (B7-B10) floors highest; REFUSE_REDACT (non-gray B6) next; ESCALATE
+    # (gray-zone B6) just above the general-capability HARM_REFUSAL_THRESHOLD
+    # so the harm-score gate and the disposition gate agree.
+    weapons_hard_refuse_harm_floor: float = 0.95
+    weapons_refuse_redact_harm_floor: float = 0.75
+    weapons_escalate_harm_floor: float = 0.55
 
 
 BENEVOLENCE_CALIBRATION = BenevolenceCalibration()
@@ -246,6 +260,505 @@ _REVERSIBLE_KEYWORDS = (
     "recover",
     "revert",
 )
+
+# ---------------------------------------------------------------------------
+# Weapons / mass-casualty uplift gate -- two-axis (hazard domain x operational
+# intent) assessment. See docs/HARM_POLICY.md for the full rationale.
+#
+# Root-cause fix for a structural gap a scalar "does this text mention a
+# hazardous topic" check cannot resolve: a gate loose enough to catch a real
+# attack false-positives on every profession that works *inside* the same
+# hazard vocabulary every day (toxicology, pathology, virology,
+# critical-infrastructure safety, licensed demolition/blasting, atmospheric
+# modeling, CBRN emergency response, ...); a gate tight enough to spare them
+# misses real attacks. The two axes resolve the conflict:
+#
+#   Axis A (HazardDomain) -- a deliberately high-recall, no-precision-
+#   required *router*. A hit only decides whether to run the real (Axis B)
+#   assessment; it is NEVER by itself a reason to refuse. Over-triggering
+#   here is fine and expected.
+#
+#   Axis B (OperationalIntent) -- the actual gate. It asks "does fulfilling
+#   this materially help someone build, produce, acquire, weaponize,
+#   disseminate, enhance, or deploy a weapon, cause mass casualties, or
+#   defeat a safety/screening control" -- not "does this mention a
+#   dangerous substance/method." Mechanism, detection, defense/treatment,
+#   response, policy, and licensed professional practice default to ALLOW
+#   (some logged); only the narrow production/weaponization/acquisition-
+#   evasion/offensive-enhancement/targeting intersection is refused.
+#
+# This is deliberately *more permissive* than a keyword blocklist for every
+# legitimate profession Mercury serves, and strictly *stronger* on the thing
+# that actually matters. All lexicons below are taxonomy-level category
+# terms (the same vocabulary used in public CBRN/non-proliferation policy
+# literature) -- never operational specifics -- consistent with the
+# high-recall/no-precision-required role Axis A is meant to play.
+# ---------------------------------------------------------------------------
+
+
+class HazardDomain(Enum):
+    """Axis A: the hazard vocabulary a piece of text falls in (routing only)."""
+
+    NONE = "none"
+    CHEMICAL = "chemical"
+    BIOLOGICAL = "biological"
+    RADIOLOGICAL = "radiological"
+    NUCLEAR = "nuclear"
+    HIGH_YIELD_EXPLOSIVE = "high_yield_explosive"
+    CONVENTIONAL_WEAPON = "conventional_weapon"
+    CYBER_OFFENSIVE = "cyber_offensive"
+    OTHER_MASS_HARM = "other_mass_harm"
+
+
+class OperationalIntent(Enum):
+    """Axis B: actionability toward harm, low -> high (the real gate)."""
+
+    MECHANISM = "mechanism"  # B0 - science / "how does X work"
+    DETECTION = "detection"  # B1 - detection / diagnosis / identification
+    DEFENSE = "defense"  # B2 - defense / mitigation / treatment / decontamination
+    RESPONSE = "response"  # B3 - response / triage / consequence & dispersion modeling
+    POLICY = "policy"  # B4 - policy / compliance / history / safety standards
+    LICENSED_PRACTICE = "licensed_practice"  # B5 - licensed professional practice
+    PRODUCTION = "production"  # B6 - production/synthesis route toward a weapon
+    WEAPONIZATION = "weaponization"  # B7 - weaponization / delivery / dissemination design
+    ACQUISITION = "acquisition"  # B8 - acquisition / diversion / screening-evasion
+    ENHANCEMENT = "enhancement"  # B9 - offensive pathogen/agent enhancement
+    TARGETING = "targeting"  # B10 - targeting / attack planning to maximize casualties
+
+
+# Ordering used to pick the single highest (most actionable) matched tier.
+_INTENT_ORDER: tuple[OperationalIntent, ...] = (
+    OperationalIntent.MECHANISM,
+    OperationalIntent.DETECTION,
+    OperationalIntent.DEFENSE,
+    OperationalIntent.RESPONSE,
+    OperationalIntent.POLICY,
+    OperationalIntent.LICENSED_PRACTICE,
+    OperationalIntent.PRODUCTION,
+    OperationalIntent.WEAPONIZATION,
+    OperationalIntent.ACQUISITION,
+    OperationalIntent.ENHANCEMENT,
+    OperationalIntent.TARGETING,
+)
+_OFFENSIVE_INTENTS = frozenset(
+    {
+        OperationalIntent.PRODUCTION,
+        OperationalIntent.WEAPONIZATION,
+        OperationalIntent.ACQUISITION,
+        OperationalIntent.ENHANCEMENT,
+        OperationalIntent.TARGETING,
+    }
+)
+
+
+class WeaponsDisposition(Enum):
+    """Calibrated response ladder -- not binary, so professionals are not
+    crippled by a gate tuned for genuine mass-casualty uplift."""
+
+    ALLOW = "allow"
+    ALLOW_LOG = "allow_log"
+    ESCALATE = "escalate"
+    REFUSE_REDACT = "refuse_redact"
+    HARD_REFUSE = "hard_refuse"
+
+
+@dataclass(frozen=True)
+class WeaponsRiskAssessment:
+    """Result of the two-axis weapons/mass-casualty uplift assessment.
+
+    Attributes:
+        hazard_domain: Axis A -- the routing hazard vocabulary detected.
+        hazard_weight: Per-domain severity weight in ``[0, 1]`` (``0.0`` for
+            :attr:`HazardDomain.NONE`).
+        intent_tier: Axis B -- the highest-actionability intent matched.
+        confidence: In ``[0, 1]``; how one-sidedly the evidence favors
+            offensive intent over allow-signal (mechanism/detection/
+            defense/...) intent. Low confidence in the B6 gray zone favors
+            :attr:`WeaponsDisposition.ESCALATE` over
+            :attr:`WeaponsDisposition.REFUSE_REDACT`.
+        disposition: The calibrated response per the decision rule.
+        signals: Human-readable matched-pattern labels, for audit logging.
+    """
+
+    hazard_domain: HazardDomain = HazardDomain.NONE
+    hazard_weight: float = 0.0
+    intent_tier: OperationalIntent = OperationalIntent.MECHANISM
+    confidence: float = 0.0
+    disposition: WeaponsDisposition = WeaponsDisposition.ALLOW
+    signals: tuple[str, ...] = ()
+
+    @property
+    def blocks(self) -> bool:
+        """True when this assessment must prevent the action outright."""
+        return self.disposition in (
+            WeaponsDisposition.ESCALATE,
+            WeaponsDisposition.REFUSE_REDACT,
+            WeaponsDisposition.HARD_REFUSE,
+        )
+
+
+# Axis-A routing lexicon: deliberately high recall, taxonomy-level category
+# terms only. A hit here only decides whether Axis B runs -- it is never, by
+# itself, a reason to refuse.
+_HAZARD_DOMAIN_KEYWORDS: dict[HazardDomain, tuple[str, ...]] = {
+    HazardDomain.CHEMICAL: (
+        "nerve agent",
+        "nerve toxin",
+        "chemical warfare agent",
+        "chemical weapon",
+        "blister agent",
+        "choking agent",
+        "blood agent",
+        "organophosphate",
+        "chlorine gas",
+        "phosgene",
+        "sarin",
+        "tabun",
+        "soman",
+        "vx nerve",
+        "mustard gas",
+        "novichok",
+        "cyanide gas",
+    ),
+    HazardDomain.BIOLOGICAL: (
+        "biological weapon",
+        "bioweapon",
+        "biological agent",
+        "select agent",
+        "pathogen",
+        "gain-of-function",
+        "gain of function",
+        "pandemic",
+        "virulence",
+        "transmissibility",
+        "anthrax",
+        "botulinum toxin",
+        "ricin",
+        "smallpox",
+        "plague bacterium",
+        "biohazard",
+        "bioterrorism",
+    ),
+    HazardDomain.RADIOLOGICAL: (
+        "dirty bomb",
+        "radiological dispersal device",
+        "radioactive source",
+        "radiological weapon",
+        "cesium-137",
+        "cobalt-60",
+        "orphan source",
+    ),
+    HazardDomain.NUCLEAR: (
+        "nuclear weapon",
+        "nuclear device",
+        "fissile material",
+        "enriched uranium",
+        "weapons-grade plutonium",
+        "nuclear warhead",
+        "gas centrifuge cascade",
+        "critical mass assembly",
+    ),
+    HazardDomain.HIGH_YIELD_EXPLOSIVE: (
+        "improvised explosive device",
+        "high explosive charge",
+        "detonator",
+        "explosive precursor",
+        "pipe bomb",
+        "car bomb",
+        "vehicle-borne explosive",
+        "tatp",
+        "petn",
+        "rdx",
+        "semtex",
+        "plastic explosive",
+    ),
+    HazardDomain.CONVENTIONAL_WEAPON: (
+        "untraceable firearm",
+        "ghost gun",
+        "illegal firearm conversion",
+        "automatic weapon conversion",
+        "silencer fabrication",
+    ),
+    HazardDomain.CYBER_OFFENSIVE: (
+        "ransomware deployment",
+        "zero-day exploit",
+        "critical infrastructure attack",
+        "scada attack",
+        "botnet for attack",
+        "destructive malware",
+    ),
+    HazardDomain.OTHER_MASS_HARM: (
+        "weapon of mass destruction",
+        "mass casualty weapon",
+        "mass-casualty attack",
+    ),
+}
+_HAZARD_DOMAIN_WEIGHTS: dict[HazardDomain, float] = {
+    HazardDomain.NONE: 0.0,
+    HazardDomain.CHEMICAL: 0.9,
+    HazardDomain.BIOLOGICAL: 1.0,
+    HazardDomain.RADIOLOGICAL: 0.95,
+    HazardDomain.NUCLEAR: 1.0,
+    HazardDomain.HIGH_YIELD_EXPLOSIVE: 0.85,
+    HazardDomain.CONVENTIONAL_WEAPON: 0.6,
+    HazardDomain.CYBER_OFFENSIVE: 0.65,
+    HazardDomain.OTHER_MASS_HARM: 0.9,
+}
+
+# Axis-B intent patterns: (compiled regex, tier, audit label). Offensive
+# patterns match *actionable verbs/phrases* ("how to produce", "evade
+# detection", "maximize casualties"), never the hazard noun alone -- Axis A
+# already covers that. Allow patterns match the mechanism/detection/defense/
+# response/policy/licensed-practice frame the professions in
+# docs/HARM_POLICY.md work inside every day.
+_OFFENSIVE_INTENT_PATTERNS: tuple[tuple[re.Pattern[str], OperationalIntent, str], ...] = (
+    (
+        re.compile(
+            r"\b(?:how (?:do|can|would) (?:i|we|one|you)|steps? to|guide (?:to|for)|"
+            r"instructions? (?:to|for)|recipe for)\s+(?:make|produce|synthesi[sz]e|"
+            r"manufacture|build|create|cook)\b"
+        ),
+        OperationalIntent.PRODUCTION,
+        "production_howto",
+    ),
+    (
+        re.compile(
+            r"\bsynthesis route\b|\bproduction process for\b|\bprecursors? (?:for|to make)\b"
+        ),
+        OperationalIntent.PRODUCTION,
+        "production_route",
+    ),
+    (
+        re.compile(
+            r"\bweaponi[sz]e\b|\bweaponi[sz]ation\b|\bdelivery mechanism\b|"
+            r"\bdissemination device\b|\baerosoli[sz]e\b|\bdetonation mechanism\b|"
+            r"\barm(?:ing)? the device\b|\bwarhead design\b"
+        ),
+        OperationalIntent.WEAPONIZATION,
+        "weaponization_design",
+    ),
+    (
+        re.compile(
+            r"\b(?:evade|avoid|escape)\s+detection\b|\bwithout (?:being )?detect(?:ed|ion)\b|"
+            r"\bbypass screening\b|\bcircumvent (?:export controls?|safeguards?|customs)\b|"
+            r"\bsmuggl(?:e|ing)\b|\bblack market\b|\bundetectable\b|\bavoid (?:customs|inspection)\b|"
+            r"\bdivert(?:ing)? .*(?:material|precursor)\b"
+        ),
+        OperationalIntent.ACQUISITION,
+        "acquisition_evasion",
+    ),
+    (
+        re.compile(
+            r"\bincrease (?:the )?(?:transmissibility|lethality|virulence)\b|"
+            r"\benhance .*(?:pathogen|virus|toxin)\b|\bimmune escape\b|"
+            r"\bengineer .*(?:more (?:lethal|contagious)|immune evasion)\b"
+        ),
+        OperationalIntent.ENHANCEMENT,
+        "offensive_enhancement",
+    ),
+    (
+        re.compile(
+            r"\bmaximi[sz]e casualties\b|\battack plan\b|\btarget(?:ing)? "
+            r"(?:a crowd|civilians|a stadium|a school|a gathering)\b|\bkill as many\b|"
+            r"\bmass[- ]casualty target\b"
+        ),
+        OperationalIntent.TARGETING,
+        "targeting_planning",
+    ),
+)
+_ALLOW_INTENT_PATTERNS: tuple[tuple[re.Pattern[str], OperationalIntent, str], ...] = (
+    (
+        re.compile(r"\bhow does .* work\b|\bmechanism of action\b|\bchemistry of\b|\bphysics of\b"),
+        OperationalIntent.MECHANISM,
+        "mechanism",
+    ),
+    (
+        re.compile(
+            r"\bdetect(?:ion|ing)?\b|\bidentif(?:y|ication)\b|\bdiagnos(?:is|e|tic)\b|"
+            r"\bscreen(?:ing)? for\b|\btest(?:ing)? for\b|\brecogni[sz]e symptoms\b|"
+            r"\bsequencing for diagnosis\b|\bsurveillance\b|\bepidemiology\b"
+        ),
+        OperationalIntent.DETECTION,
+        "detection",
+    ),
+    (
+        re.compile(
+            r"\btreat(?:ment|ing)?\b|\bantidote\b|\bdecontaminat(?:e|ion)\b|"
+            r"\bprotective equipment\b|\bppe\b|\bvaccin(?:e|ation)\b|\btherapy\b|"
+            r"\bdosing\b|\boxime\b|\batropine\b|\bcasualty care\b"
+        ),
+        OperationalIntent.DEFENSE,
+        "defense_treatment",
+    ),
+    (
+        re.compile(
+            r"\btriage\b|\bconsequence modeling\b|\bdispersion model(?:ing)?\b|"
+            r"\bplume model(?:ing)?\b|\bevacuation plan(?:ning)?\b|\bemergency response\b|"
+            r"\bcasualty management\b"
+        ),
+        OperationalIntent.RESPONSE,
+        "response_modeling",
+    ),
+    (
+        re.compile(
+            r"\bpolicy\b|\bregulation\b|\bcompliance\b|\btreaty\b|\bhistory of\b|"
+            r"\bsafety standards?\b|\bnon-proliferation\b|\bexport control law\b"
+        ),
+        OperationalIntent.POLICY,
+        "policy_history",
+    ),
+    (
+        re.compile(
+            r"\blicensed\b|\bcertified\b|\bunder permit\b|\bregulatory approval\b|"
+            r"\bcommercial (?:blasting|demolition)\b|\bcontrolled demolition\b|"
+            r"\blicensing (?:standard|requirement)\b"
+        ),
+        OperationalIntent.LICENSED_PRACTICE,
+        "licensed_practice",
+    ),
+)
+
+
+def _match_hazard_domain(haystack: str) -> HazardDomain:
+    """Axis A: cheap high-recall routing match; returns the first domain hit."""
+    for domain, keywords in _HAZARD_DOMAIN_KEYWORDS.items():
+        if any(kw in haystack for kw in keywords):
+            return domain
+    return HazardDomain.NONE
+
+
+def _match_intent_patterns(
+    haystack: str, patterns: tuple[tuple[re.Pattern[str], OperationalIntent, str], ...]
+) -> list[tuple[OperationalIntent, str]]:
+    return [(tier, label) for pattern, tier, label in patterns if pattern.search(haystack)]
+
+
+def assess_weapons_uplift(
+    text: str,
+    context: dict[str, Any] | None = None,
+    *,
+    harm_classifier: Any | None = None,
+) -> WeaponsRiskAssessment:
+    """Two-axis (hazard-domain x operational-intent) weapons/mass-casualty gate.
+
+    Answers "does fulfilling this materially help someone build, produce,
+    acquire, weaponize, disseminate, enhance, or deploy a weapon, cause mass
+    casualties, or defeat a safety/screening control" -- not "does this
+    mention a hazardous topic." See ``docs/HARM_POLICY.md`` for the full
+    rationale and response ladder.
+
+    Args:
+        text: The action/query/content to assess.
+        context: Optional context; ``context["licensed_context"]`` (truthy)
+            marks caller-asserted licensed-professional context, which can
+            widen a non-gray B6 verdict to ESCALATE -- it can never downgrade
+            a B7-B10 HARD_REFUSE, nor upgrade a REFUSE_REDACT/HARD_REFUSE to
+            an ALLOW variant.
+        harm_classifier: Optional ``Callable[[str], float]`` -- Mercury's
+            existing pluggable meaning-level classifier hook (e.g.
+            :func:`~omni_mercury_engine.reasoning.backends.reasoning_harm_classifier`).
+            Consulted, not trusted: it can only raise offensive confidence in
+            the B6 gray zone, never lower a disposition already earned by
+            lexical evidence; its own failure is treated as "no additional
+            evidence," not a crash.
+
+    Returns:
+        A :class:`WeaponsRiskAssessment`. Fail-closed: any internal error
+        (malformed input, a regex/logic bug) yields ``HARD_REFUSE`` rather
+        than propagating an exception or silently defaulting to ALLOW.
+    """
+    ctx = context or {}
+    try:
+        haystack = f"{text}\n{ctx}".lower()
+        domain = _match_hazard_domain(haystack)
+        offensive = _match_intent_patterns(haystack, _OFFENSIVE_INTENT_PATTERNS)
+
+        # Safety net: the offensive-intent patterns (produce/weaponize/evade-
+        # detection/enhance-a-pathogen/maximize-casualties) are themselves
+        # weapons evidence -- an explicit actionable request that Axis A's noun
+        # lexicon happened not to route. Rather than let it fall through to
+        # ALLOW (the exact miss a high-recall router is meant to prevent),
+        # classify it as OTHER_MASS_HARM so Axis B still gates it. Fail-closed.
+        if domain is HazardDomain.NONE:
+            if not offensive:
+                return WeaponsRiskAssessment()  # ALLOW / MECHANISM / NONE defaults
+            domain = HazardDomain.OTHER_MASS_HARM
+
+        allowed = _match_intent_patterns(haystack, _ALLOW_INTENT_PATTERNS)
+        weight = _HAZARD_DOMAIN_WEIGHTS[domain]
+
+        if not offensive:
+            # Hazard vocabulary present but no offensive-actionability signal
+            # at all: default ALLOW, logged when it also reads as licensed
+            # professional practice.
+            tier = max(
+                (t for t, _ in allowed),
+                key=_INTENT_ORDER.index,
+                default=OperationalIntent.MECHANISM,
+            )
+            disposition = (
+                WeaponsDisposition.ALLOW_LOG
+                if tier is OperationalIntent.LICENSED_PRACTICE
+                else WeaponsDisposition.ALLOW
+            )
+            return WeaponsRiskAssessment(
+                domain, weight, tier, 0.0, disposition, tuple(label for _, label in allowed)
+            )
+
+        tier = max((t for t, _ in offensive), key=_INTENT_ORDER.index)
+        offensive_labels = tuple(sorted({label for _, label in offensive}))
+        allow_labels = tuple(sorted({label for _, label in allowed}))
+
+        # Confidence: how one-sidedly the evidence favors offensive intent.
+        # Mixed evidence (e.g. a defensive-treatment query that also brushes a
+        # production-adjacent phrase) reads as genuinely ambiguous, which only
+        # matters for the B6 gray zone below -- B7-B10 refuse regardless.
+        classifier_boost = 0.0
+        if harm_classifier is not None:
+            try:
+                classifier_boost = max(0.0, min(1.0, float(harm_classifier(text))))
+            except Exception as exc:
+                logger.warning(
+                    "weapons-uplift harm_classifier failed (%s); no confidence boost applied", exc
+                )
+        confidence = min(
+            1.0,
+            (len(offensive_labels) + classifier_boost)
+            / (len(offensive_labels) + len(allow_labels) + 1.0),
+        )
+
+        licensed_context = bool(ctx.get("licensed_context")) or "licensed_practice" in allow_labels
+        signals = offensive_labels + allow_labels
+
+        if tier is not OperationalIntent.PRODUCTION:
+            # B7-B10: hard refuse. No gray zone, no partial, no escalation --
+            # this is the ~6-category intersection that does not overlap any
+            # legitimate profession.
+            return WeaponsRiskAssessment(
+                domain, weight, tier, confidence, WeaponsDisposition.HARD_REFUSE, signals
+            )
+
+        # B6 (PRODUCTION): the one genuine gray zone. Low confidence or an
+        # asserted licensed-professional context slows and audits a real
+        # engineer instead of denying them outright; otherwise refuse (the
+        # defensive/mechanistic remainder stays answerable via the output-
+        # gate's REFUSE_REDACT sentence-level redaction, not a blanket denial).
+        if confidence < BENEVOLENCE_CALIBRATION.weapons_b6_escalate_confidence or licensed_context:
+            disposition = WeaponsDisposition.ESCALATE
+        else:
+            disposition = WeaponsDisposition.REFUSE_REDACT
+        return WeaponsRiskAssessment(domain, weight, tier, confidence, disposition, signals)
+    except Exception:
+        logger.exception("assess_weapons_uplift failed; failing closed to HARD_REFUSE")
+        return WeaponsRiskAssessment(
+            HazardDomain.OTHER_MASS_HARM,
+            1.0,
+            OperationalIntent.TARGETING,
+            0.0,
+            WeaponsDisposition.HARD_REFUSE,
+            ("assessment_error",),
+        )
+
 
 # ---------------------------------------------------------------------------
 # σ_Immutable Wave B Vector 2-6 closure: canonical domain sanitiser.
@@ -438,6 +951,12 @@ class EthicalScore:
     # damping bites, and keep older positional constructors working.
     severity_score: float = 0.0
     reversibility_score: float = 1.0
+    # Two-axis weapons/mass-casualty uplift verdict (see assess_weapons_uplift).
+    # Defaults are the "no hazard vocabulary detected" case so older positional
+    # constructors and callers that never touch weapons content are unaffected.
+    hazard_domain: str = "none"
+    operational_intent: str = "mechanism"
+    weapons_disposition: str = "allow"
 
 
 @dataclass
@@ -513,6 +1032,11 @@ class HarmReducer:
         """
         self._evaluation_counter = 0
         self._harm_classifier = harm_classifier
+        # Populated by evaluate_harm(); read back by BenevolenceScorer.score_action
+        # so the two-axis weapons verdict rides along with the harm computation
+        # instead of being assessed twice. Single-caller-per-instance-at-a-time
+        # assumption, consistent with the counters above.
+        self.last_weapons_assessment: WeaponsRiskAssessment = WeaponsRiskAssessment()
 
     def evaluate_harm(
         self,
@@ -549,6 +1073,40 @@ class HarmReducer:
         if _euphemism_harm_present(combined):
             breakdown[HarmCategory.PHYSICAL.value] = max(
                 breakdown[HarmCategory.PHYSICAL.value], 0.9
+            )
+
+        # Two-axis weapons/mass-casualty uplift assessment (Axis A hazard
+        # routing + Axis B operational-intent gate). A blocking disposition
+        # raises PHYSICAL (direct casualty risk) and SOCIETAL (mass-harm
+        # blast radius) to a floor -- fail-closed (max-only), never lowering
+        # the lexical harm already computed above. This is the ONE harm
+        # policy: every caller of HarmReducer/BenevolenceScorer -- including
+        # GeneralAssistant's general-capability gate -- inherits this signal
+        # through the ordinary harm_score/EthicalScore path rather than a
+        # second, divergent check.
+        self.last_weapons_assessment = assess_weapons_uplift(
+            action, context, harm_classifier=self._harm_classifier
+        )
+        if self.last_weapons_assessment.disposition is WeaponsDisposition.HARD_REFUSE:
+            floor = BENEVOLENCE_CALIBRATION.weapons_hard_refuse_harm_floor
+            breakdown[HarmCategory.PHYSICAL.value] = max(
+                breakdown[HarmCategory.PHYSICAL.value], floor
+            )
+            breakdown[HarmCategory.SOCIETAL.value] = max(
+                breakdown[HarmCategory.SOCIETAL.value], floor
+            )
+        elif self.last_weapons_assessment.disposition is WeaponsDisposition.REFUSE_REDACT:
+            floor = BENEVOLENCE_CALIBRATION.weapons_refuse_redact_harm_floor
+            breakdown[HarmCategory.PHYSICAL.value] = max(
+                breakdown[HarmCategory.PHYSICAL.value], floor
+            )
+            breakdown[HarmCategory.SOCIETAL.value] = max(
+                breakdown[HarmCategory.SOCIETAL.value], floor
+            )
+        elif self.last_weapons_assessment.disposition is WeaponsDisposition.ESCALATE:
+            floor = BENEVOLENCE_CALIBRATION.weapons_escalate_harm_floor
+            breakdown[HarmCategory.SOCIETAL.value] = max(
+                breakdown[HarmCategory.SOCIETAL.value], floor
             )
 
         weighted_sum = sum(breakdown[cat.value] * self.HARM_WEIGHTS[cat] for cat in HarmCategory)
@@ -1118,12 +1676,29 @@ class BenevolenceScorer:
 
         is_permissible = benevolence_score >= self.benevolence_threshold
 
+        # Weapons/mass-casualty uplift hard veto: a blocking Axis-B
+        # disposition (ESCALATE/REFUSE_REDACT/HARD_REFUSE) forces
+        # is_permissible False regardless of the benevolence float --
+        # monotone, can only revoke permission, never grant it. This is what
+        # makes the general-capability layer inherit the SAME hard gate as
+        # detect/analyze/predict instead of a separate, weaker check: one
+        # harm policy, computed once, consulted everywhere.
+        weapons = self.harm_reducer.last_weapons_assessment
+        if weapons.blocks:
+            is_permissible = False
+
         explanation = self._generate_explanation(
             action, benevolence_score, harm_score, benefit_score, is_permissible
         )
         recommendations = self._generate_recommendations(
             harm_breakdown, benefit_breakdown, is_permissible
         )
+        if weapons.blocks:
+            recommendations.insert(
+                0,
+                f"weapons-uplift gate: {weapons.disposition.value} "
+                f"(hazard={weapons.hazard_domain.value}, intent={weapons.intent_tier.value})",
+            )
 
         return EthicalScore(
             score_id=score_id,
@@ -1141,6 +1716,9 @@ class BenevolenceScorer:
             recommendations=recommendations,
             severity_score=severity_score,
             reversibility_score=reversibility_score,
+            hazard_domain=weapons.hazard_domain.value,
+            operational_intent=weapons.intent_tier.value,
+            weapons_disposition=weapons.disposition.value,
         )
 
     def enforce(

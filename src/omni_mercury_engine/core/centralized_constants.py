@@ -141,7 +141,12 @@ class EthicalConstants:
     # v3: benevolence scorer gains a curated euphemism/paraphrase harm lexicon
     # (meaning-level: "put him down") + an optional pluggable harm classifier, both
     # fail-closed (can only RAISE harm); cached v2 verdicts must invalidate.
-    RULESET_VERSION: int = 3
+    # v4: benevolence scorer gains the two-axis (hazard-domain x operational-
+    # intent) weapons/mass-casualty uplift gate (assess_weapons_uplift in
+    # cognitive/ethical_bounding.py, see docs/HARM_POLICY.md) -- a blocking
+    # disposition now raises PHYSICAL/SOCIETAL harm and hard-vetoes
+    # is_permissible; cached v3 verdicts must invalidate.
+    RULESET_VERSION: int = 4
 
 
 ETHICAL = EthicalConstants()
