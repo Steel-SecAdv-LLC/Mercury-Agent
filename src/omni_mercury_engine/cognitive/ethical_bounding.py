@@ -550,7 +550,19 @@ _HAZARD_DOMAIN_KEYWORDS: dict[HazardDomain, tuple[str, ...]] = {
         "weapons grade uranium",
         "uranium enrichment",
         "enriching uranium",
+        # Morphological/word-order variants of the enrichment vocabulary above.
+        # The lexicon is high-recall routing only (a hit merely subjects the
+        # query to Axis-B intent analysis; benign/mechanistic enrichment
+        # discussion resolves to ALLOW/ALLOW_PROVENANCE, never a refusal), so
+        # covering the bare-verb form "enrich uranium" -- as in "how to enrich
+        # uranium to weapons-grade", which the -ing/-ment forms miss -- is
+        # FP-safe and closes a nuclear production false-negative.
+        "enrich uranium",
+        "enrich plutonium",
+        "reprocess plutonium",
+        "reprocessing plutonium",
         "weapons-grade plutonium",
+        "weapons grade plutonium",
         "nuclear warhead",
         "gas centrifuge cascade",
         "critical mass assembly",
@@ -688,8 +700,19 @@ _OFFENSIVE_INTENT_PATTERNS: tuple[tuple[re.Pattern[str], OperationalIntent, str]
             r"produc|synthesi[sz]|manufactur|build|fabricat|construct|assembl|creat|"
             r"generat)\w*|\bfabrication of\b|\bcooking up\b|"
             r"\brecipe for (?:a |an )?homemade\b|"
-            r"\benrich(?:ing)? uranium to weapons[- ]grade\b|"
-            r"\bweapons[- ]grade (?:uranium|plutonium)\b"
+            # Weapons-DIRECTED nuclear enrichment/reprocessing. An enrichment or
+            # reprocessing verb *directed* (to/for/into) at an explicit weapons
+            # marker (weapons-grade / warhead / a nuclear weapon-bomb-device) is
+            # production intent regardless of word order or morphology, so
+            # "enrich uranium to weapons-grade" and "enriching uranium to 90%
+            # U-235 for a warhead" both gate. The directional preposition is what
+            # keeps this FP-safe: a definitional/policy question ("what percent
+            # enrichment IS weapons-grade uranium") uses a copula, not to/for/into,
+            # and a civilian "enrich uranium for reactor fuel" carries no weapons
+            # marker -- both stay mechanism (ALLOW_PROVENANCE), not a refusal.
+            # ``.`` never crosses the newline between normalization variants.
+            r"\b(?:enrich|reprocess)\w*\b.{0,40}?\b(?:to|for|into)\b.{0,25}?"
+            r"\b(?:weapons?[- ]grade|warhead|(?:a |an )?nuclear (?:weapon|device|bomb))\b"
         ),
         OperationalIntent.PRODUCTION,
         "production_route",
