@@ -252,15 +252,19 @@ class TestAnomalyMetrics:
         y_true = np.array([0, 1] * (n // 2))
         y_score = rng.random(n)
 
-        masks_true_t = torch.from_numpy((rng.random((n, 4, 4)) > 0.7).astype(np.float32))
-        masks_score_t = torch.from_numpy(rng.random((n, 4, 4)).astype(np.float32))
+        # Annotated ``Any`` on purpose: the point of this test is to feed the
+        # ``compute_all`` mask params (typed ``ndarray | None``) the non-ndarray
+        # arraylikes a real caller might pass -- a torch tensor and a Python
+        # list -- and prove the val-split path converts before indexing.
+        masks_true_t: Any = torch.from_numpy((rng.random((n, 4, 4)) > 0.7).astype(np.float32))
+        masks_score_t: Any = torch.from_numpy(rng.random((n, 4, 4)).astype(np.float32))
         r_torch = AnomalyMetrics.compute_all(
             y_true, y_score, tune_on="val", masks_true=masks_true_t, masks_score=masks_score_t
         )
         assert "pixel_auroc" in r_torch and "pro" in r_torch
 
-        masks_true_l = [(rng.random((4, 4)) > 0.7).astype(np.float32) for _ in range(n)]
-        masks_score_l = [rng.random((4, 4)).astype(np.float32) for _ in range(n)]
+        masks_true_l: Any = [(rng.random((4, 4)) > 0.7).astype(np.float32) for _ in range(n)]
+        masks_score_l: Any = [rng.random((4, 4)).astype(np.float32) for _ in range(n)]
         r_list = AnomalyMetrics.compute_all(
             y_true, y_score, tune_on="val", masks_true=masks_true_l, masks_score=masks_score_l
         )
