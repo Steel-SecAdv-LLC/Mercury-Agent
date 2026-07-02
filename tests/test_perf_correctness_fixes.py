@@ -106,6 +106,56 @@ class TestFeatureCacheKey:
         b[off_sample] += 1.0
         assert cache._make_key(a) != cache._make_key(b)
 
+    def test_torch_cpu_noncontiguous_distinct_tensors_do_not_collide(self) -> None:
+        """Distinct non-contiguous CPU tensors of the same shape/dtype must key
+        differently (regression guard against the ptr=0 collapse Copilot flagged,
+        and against the address-reuse alias identity keying leaves open)."""
+        torch = pytest.importorskip("torch")
+        from omni_mercury_engine.engine import FeatureCache
+
+        cache = FeatureCache()
+        a = torch.arange(64, dtype=torch.float32).reshape(8, 8)[:, ::2]
+        b = (torch.arange(64, dtype=torch.float32).reshape(8, 8) + 100.0)[:, ::2]
+        assert not a.is_contiguous()
+        assert cache._make_key(a) != cache._make_key(b)
+        # A contiguous tensor and its (non-contiguous) transpose differ too.
+        m = torch.arange(24, dtype=torch.float32).reshape(4, 6)
+        assert cache._make_key(m) != cache._make_key(m.t())
+
+    def test_torch_cpu_inplace_mutation_changes_key(self) -> None:
+        """In-place mutation of a CPU tensor (same storage) must change the key.
+
+        Pure identity keying (data_ptr + view metadata) would return the SAME
+        key for the mutated tensor -> a stale cache hit for different contents.
+        CPU tensors are content-keyed to close this; see ``FeatureCache._make_key``.
+        """
+        torch = pytest.importorskip("torch")
+        from omni_mercury_engine.engine import FeatureCache
+
+        cache = FeatureCache()
+        x = torch.arange(10_000, dtype=torch.float32)
+        k1 = cache._make_key(x)
+        x[500] = 9999.0  # in-place, same storage
+        assert cache._make_key(x) != k1
+        # Off-sample mutation is caught by the folded finite-aware checksum too.
+        y = torch.arange(10_000, dtype=torch.float32)
+        k_y = cache._make_key(y)
+        sampled = set(np.linspace(0, y.numel() - 1, 256).astype(int).tolist())
+        off = next(i for i in range(y.numel()) if i not in sampled)
+        y[off] += 1.0
+        assert cache._make_key(y) != k_y
+
+    def test_torch_cpu_equal_content_same_key(self) -> None:
+        """Two distinct CPU tensors with equal content key identically (content
+        keying) -- correct: equal data yields equal cached features."""
+        torch = pytest.importorskip("torch")
+        from omni_mercury_engine.engine import FeatureCache
+
+        cache = FeatureCache()
+        a = torch.arange(1000, dtype=torch.float32)
+        b = torch.arange(1000, dtype=torch.float32)
+        assert cache._make_key(a) == cache._make_key(b)
+
 
 class TestResidualFilterCache:
     def test_cache_hit_matches_uncached(self) -> None:

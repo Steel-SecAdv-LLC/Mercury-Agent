@@ -189,6 +189,10 @@ class TestDefaultTransportEncoding:
             status_code = 200
             url = "https://example.test/"
             headers = requests.structures.CaseInsensitiveDict({"Content-Type": "text/html"})
+
+            def iter_content(self, chunk_size: int = 65536) -> object:
+                yield body
+
             encoding = "ISO-8859-1"  # requests' "no charset declared" sentinel
             raw = _Raw()
             _content = None
@@ -207,6 +211,53 @@ class TestDefaultTransportEncoding:
         status, decoded, _final = web_research._safe_http_transport("https://example.test/", 5.0)
         assert status == 200
         assert decoded == text  # decoded as UTF-8, not Latin-1 mojibake
+
+
+class TestDefaultTransportDecodedSizeCap:
+    """The transport caps DECODED body size to mitigate decompression bombs.
+
+    ``iter_content`` yields already-decompressed chunks; the transport must stop
+    at ``_DEFAULT_MAX_BYTES`` of decoded output even when the stream would inflate
+    far past it -- bounding peak memory regardless of urllib3's read() semantics.
+    """
+
+    def test_decoded_body_truncated_at_cap(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from omni_mercury_engine.agentic.capabilities import web_research
+        from omni_mercury_engine.security.safe_http import SafeHTTPClient
+
+        cap = web_research._DEFAULT_MAX_BYTES
+        chunk = b"A" * 65536
+        # Enough chunks to represent a multi-hundred-MB "decompressed" bomb; the
+        # transport must consume only up to the cap and then stop iterating.
+        emitted = {"n": 0}
+
+        class _Resp:
+            status_code = 200
+            url = "https://example.test/"
+            headers: dict[str, str] = {}
+            apparent_encoding = "utf-8"
+            _content = None
+
+            def iter_content(self, chunk_size: int = 65536) -> object:
+                # A generator that would yield ~600 MB if fully consumed; the
+                # transport must break well before exhausting it.
+                for _ in range(10_000):
+                    emitted["n"] += 1
+                    yield chunk
+
+            def __enter__(self) -> _Resp:
+                return self
+
+            def __exit__(self, *a: object) -> None:
+                return None
+
+        monkeypatch.setattr(SafeHTTPClient, "get", staticmethod(lambda url, **kw: _Resp()))
+        status, decoded, _final = web_research._safe_http_transport("https://example.test/", 5.0)
+        assert status == 200
+        # Decoded output is capped, not the full 600 MB stream.
+        assert len(decoded.encode("utf-8", errors="ignore")) <= cap
+        # And we stopped pulling chunks near the cap, not after all 10k.
+        assert emitted["n"] <= (cap // len(chunk)) + 2
 
 
 class TestDefaultTransportReachesOpenWeb:
@@ -236,6 +287,9 @@ class TestDefaultTransportReachesOpenWeb:
 
             raw = _Raw()
             _content = None
+
+            def iter_content(self, chunk_size: int = 65536) -> object:
+                yield b"<html>ok</html>"
 
             def __enter__(self) -> _Resp:
                 return self

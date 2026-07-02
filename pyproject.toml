@@ -67,6 +67,14 @@ dependencies = [
     "cryptography>=46.0.7",  # CVE-2026-26007, CVE-2026-34073, CVE-2026-39892
     "pillow>=12.2.0",  # Security: CVE-2026-25990, CVE-2026-40192
     "requests>=2.33.1",  # Security: CVE-2026-25645
+    # Pin urllib3's floor even though it is transitive via requests: the open-web
+    # research fetch relies on streaming, incrementally-decoded reads to bound
+    # decompression-bomb peak memory (see web_research._safe_http_transport). A
+    # floor prevents a transitive resolver from selecting an older urllib3 whose
+    # decode/streaming behaviour reintroduces the unbounded-inflation DoS. The
+    # explicit decoded-size cap in the transport is the primary control; this is
+    # defence in depth against dependency drift.
+    "urllib3>=2.5.0",
     "tqdm>=4.65.0",
     "networkx>=3.6.1",
     "defusedxml>=0.7.1",

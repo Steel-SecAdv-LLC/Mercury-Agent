@@ -80,6 +80,27 @@ size. Out-of-lexicon *agent-name* misses on fully-benign-routing text remain a
 small-high-precision-lexicon concern for a human domain expert, deliberately not
 closed by silent lexicon growth.
 
+## Security & correctness: egress, gzip, FeatureCache (2026-07-02)
+
+Full write-up in `docs/PR315_SECURITY_REPORT.md`. Summary:
+
+| # | Area | Action | Tests |
+|---|---|---|---|
+| S1 | **SafeHTTPClient egress re-audit** (after the A3 `user_configured=True` web-research fix) | Confirmed the IP/IMDS gate still runs on the widened path — the A3 fix bypassed only the *dataset allowlist*, not the SSRF IP gate. Documented allowed/blocked egress. | `tests/test_search_provider_ladder.py::TestDefaultTransportReachesOpenWeb` (user_configured forwarded; IMDS/loopback refused) + `tests/security/test_safe_http.py` (full gate suite, 119 pass with the transport tests) |
+| S2 | **Decompression-bomb (gzip) cap** | Replaced `resp.raw.read(amt, decode_content=True)` (relied on urllib3 bounding the *decoded* read — version-dependent) with an explicit streamed **decoded-size** cap: accumulate `iter_content` chunks, stop at `_DEFAULT_MAX_BYTES`. Peak bounded regardless of urllib3 version. | `TestDefaultTransportDecodedSizeCap::test_decoded_body_truncated_at_cap` (a ~600 MB generator consumed only to the cap) |
+| S3 | **urllib3 dependency policy** | Pinned floor `urllib3>=2.5.0` in `pyproject.toml` (defence in depth against a transitive resolver picking an older urllib3 with unbounded-inflation behaviour). The explicit cap in S2 is the primary control. | dependency-scan / build lanes |
+| S4 | **FeatureCache torch stale-hit** (live Copilot thread) | Root cause was broader than in-place mutation: two distinct CPU tensors can share a `data_ptr` (allocator address reuse) and identity keying returned a stale hit for different data. Fix: **content-key CPU tensors** (numpy view, no device copy) closing both in-place-mutation and address-reuse surfaces; CUDA keeps identity keying (avoids per-lookup host sync) as a documented, LRU-bounded tradeoff. | `tests/test_perf_correctness_fixes.py::TestFeatureCacheKey` — non-contiguous distinct don't collide, in-place mutation changes the key, equal content shares a key |
+
+**Local verification note.** These paths import Mercury's crypto surface
+(`security/__init__` → `crypto_api` → `pqc_backends`), which needs the native AMA
+backend. As above, AMA can't be built in this sandbox (egress-blocked repo), so a
+**non-crypto local test double** of `ama_cryptography` (flags + capability
+constants + no-op operation stubs that *raise* if a real crypto op is actually
+invoked) was used solely to import the modules for the egress / gzip / cache
+tests, none of which perform cryptography. CI builds the real backend and runs
+these same suites against it. black / ruff / mypy (src + relaxed & strict test
+lanes) clean on all changed files.
+
 ## CI pipeline (reproduced locally, all green)
 
 Reproduced in a CI-faithful virtualenv (isolated from the sandbox's user-site

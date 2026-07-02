@@ -237,7 +237,28 @@ def _safe_http_transport(url: str, timeout: float) -> tuple[int, str, str]:
         stream=True,
     ) as resp:
         status = int(resp.status_code)
-        raw = resp.raw.read(_DEFAULT_MAX_BYTES, decode_content=True) or b""
+        # Explicit DECODED-size cap (decompression-bomb mitigation). Stream the
+        # already-decompressed body in bounded chunks and stop at
+        # ``_DEFAULT_MAX_BYTES`` of *decoded* output. ``iter_content`` decodes the
+        # Content-Encoding (gzip/deflate/br) incrementally via urllib3's
+        # ``stream(..., decode_content=True)``, so a small compressed payload that
+        # inflates to gigabytes never fully materialises: the decompressor yields
+        # ~chunk-sized decoded blocks and we abort once the cap is reached. This
+        # bounds the peak regardless of the urllib3 version's ``read(amt)``
+        # semantics -- we no longer rely on ``read`` honouring ``amt`` as a
+        # decoded bound (older urllib3 measured ``amt`` against the *compressed*
+        # stream, which a gzip bomb defeats). The urllib3 floor pin in
+        # pyproject is defence in depth; this cap is the primary control.
+        chunks: list[bytes] = []
+        total = 0
+        for chunk in resp.iter_content(chunk_size=65536):
+            if not chunk:
+                continue
+            chunks.append(chunk)
+            total += len(chunk)
+            if total >= _DEFAULT_MAX_BYTES:
+                break
+        raw = b"".join(chunks)[:_DEFAULT_MAX_BYTES]
         # ``requests`` reports ``ISO-8859-1`` as its *no-charset-in-header*
         # sentinel for ``text/*`` -- trusting it mojibakes the UTF-8 majority of
         # the open web (and DDG's own scrape pages). Use the header charset only

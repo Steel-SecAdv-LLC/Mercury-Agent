@@ -467,27 +467,42 @@ class FeatureCache:
         Returns:
             String hash key for the data.
         """
-        # Torch tensors: key on identity + view metadata without forcing a full
-        # device->host copy on every lookup. ``data_ptr()`` is the address of
-        # the first element and is valid for NON-contiguous tensors too, so we
-        # never zero it (a previous version set ptr=0 for non-contiguous
-        # tensors, which collapsed the identity component and let two different
-        # views with the same shape/dtype/device collide -> stale cached
-        # features for genuinely different inputs). Folding in ``stride`` and
-        # ``storage_offset`` disambiguates distinct views that share a first-
-        # element pointer, keeping the key collision-resistant for the lifetime
-        # of this best-effort bounded-LRU cache (stale pointers age out).
+        # Torch tensors split by device:
+        #
+        # * CPU tensor -> key on CONTENT (fall through to the numpy path below).
+        #   A CPU tensor shares memory with numpy, so ``.numpy()`` is a view (no
+        #   host<-device copy); content keying costs the same bounded O(N) sum
+        #   the numpy path already accepts. This closes two stale-hit surfaces
+        #   that pure identity keying leaves open: an in-place mutation of the
+        #   same storage, AND an allocator reusing a freed tensor's address for a
+        #   genuinely different tensor (measured: two distinct ``torch.zeros(10)``
+        #   can share a ``data_ptr`` and would otherwise collide -> a stale hit
+        #   for different data, not merely a missed optimization).
+        #
+        # * CUDA tensor -> identity keying (data_ptr + storage_offset + stride +
+        #   shape + dtype + device). Content-hashing a device tensor would force
+        #   a per-lookup host<-device sync on the hot path, so we accept the
+        #   documented tradeoff: an in-place mutation of the same device storage
+        #   (or an address reuse) can alias, bounded by the LRU aging stale
+        #   pointers out. ``data_ptr()`` is valid for non-contiguous tensors too,
+        #   so it is never zeroed; ``stride``/``storage_offset`` disambiguate
+        #   distinct views that share a first-element pointer.
         if isinstance(data, torch.Tensor):
-            key_tuple: tuple[Any, ...] = (
-                "torch",
-                int(data.data_ptr()),
-                int(data.storage_offset()),
-                tuple(data.stride()),
-                tuple(data.shape),
-                str(data.dtype),
-                str(data.device),
-            )
-            return f"{prefix}_{hash(key_tuple)}"
+            if data.is_cuda:
+                key_tuple: tuple[Any, ...] = (
+                    "torch-cuda",
+                    int(data.data_ptr()),
+                    int(data.storage_offset()),
+                    tuple(data.stride()),
+                    tuple(data.shape),
+                    str(data.dtype),
+                    str(data.device),
+                )
+                return f"{prefix}_{hash(key_tuple)}"
+            # CPU tensor: content keying via the numpy path. ``.contiguous()``
+            # copies only when the tensor is a non-contiguous view (bounded);
+            # ``.detach()`` drops any autograd linkage so ``.numpy()`` succeeds.
+            data = data.detach().cpu().contiguous().numpy()
 
         # numpy arrays: sample a bounded, strided slice instead of copying the
         # whole buffer. ``tobytes()`` materialises the entire array before the
