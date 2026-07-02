@@ -327,7 +327,15 @@ class ResultAggregator:
     def aggregate(self) -> dict[str, Any]:
         """Merge all completed partition results back into input order."""
         if not self._results:
-            return {"anomaly_scores": np.array([]), "predictions": np.array([])}
+            return {
+                "anomaly_scores": np.array([]),
+                "predictions": np.array([]),
+                # Keep the empty-result shape identical to the successful merge
+                # below so callers can read ``n_results`` / ``aggregation_method``
+                # unconditionally (no KeyError on the empty path).
+                "n_results": 0,
+                "aggregation_method": self._method,
+            }
         return self._merge_partitions()
 
     def _merge_partitions(self) -> dict[str, Any]:
@@ -367,7 +375,15 @@ class ResultAggregator:
         all_predictions = [preds for _, _, preds in gathered]
 
         if not all_scores:
-            return {"anomaly_scores": np.array([]), "predictions": np.array([])}
+            return {
+                "anomaly_scores": np.array([]),
+                "predictions": np.array([]),
+                # Keep the empty-result shape identical to the successful merge
+                # below so callers can read ``n_results`` / ``aggregation_method``
+                # unconditionally (no KeyError on the empty path).
+                "n_results": 0,
+                "aggregation_method": self._method,
+            }
 
         return {
             "anomaly_scores": np.concatenate(all_scores),

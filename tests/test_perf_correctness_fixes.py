@@ -254,6 +254,46 @@ class TestPartitionMergeOrdering:
         assert out["n_results"] == 1  # only "ok" was merged, not the 3 recorded
         assert np.array_equal(out["anomaly_scores"], np.array([1.0, 2.0]))
 
+    def test_empty_result_shape_matches_merged(self) -> None:
+        # Both empty paths -- no results recorded, and all recorded results
+        # filtered out (failed/empty) -- must return the same key shape as a
+        # successful merge so callers can read ``n_results`` /
+        # ``aggregation_method`` unconditionally (no KeyError on the empty path).
+        from omni_mercury_engine.distributed.cluster import (
+            ResultAggregator,
+            TaskResult,
+            TaskStatus,
+        )
+
+        expected_keys = {"anomaly_scores", "predictions", "n_results", "aggregation_method"}
+
+        # (1) No results at all -> ResultAggregator.aggregate() empty path.
+        agg = ResultAggregator(aggregation_method="weighted_fusion")
+        out = agg.aggregate()
+        assert set(out) == expected_keys
+        assert out["n_results"] == 0
+        assert out["aggregation_method"] == "weighted_fusion"
+        assert len(out["anomaly_scores"]) == 0
+
+        # (2) Results recorded but all filtered out (failed + empty) ->
+        #     _merge_partitions() empty path.
+        agg.add_result(
+            TaskResult(task_id="failed", status=TaskStatus.FAILED, result=None, data_indices=(0, 2))
+        )
+        agg.add_result(
+            TaskResult(
+                task_id="empty",
+                status=TaskStatus.COMPLETED,
+                result={"anomaly_scores": np.array([]), "predictions": np.array([])},
+                data_indices=(2, 2),
+            )
+        )
+        out2 = agg.aggregate()
+        assert set(out2) == expected_keys
+        assert out2["n_results"] == 0
+        assert out2["aggregation_method"] == "weighted_fusion"
+        assert len(out2["anomaly_scores"]) == 0
+
 
 class TestFailLoudOnUnfit:
     def test_detect_with_fusion_raises_when_unfit_by_default(self) -> None:
