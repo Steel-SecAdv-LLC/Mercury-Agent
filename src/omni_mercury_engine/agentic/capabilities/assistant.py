@@ -18,6 +18,7 @@ Honest by construction:
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -35,6 +36,47 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
+
+# Warn-once latch so the lexical-only advisory is emitted a single time per
+# process rather than on every GeneralAssistant construction.
+_MEANING_LEVEL_CLASSIFIER_WARNED = False
+
+
+def _warn_or_require_meaning_level_classifier() -> None:
+    """Loudly surface a lexical-only harm posture; optionally fail closed.
+
+    When no real meaning-level model backs the harm classifier, the weapons
+    gate's routing rescue cannot fire and the surface runs lexical-only (a
+    materially higher held-out false-negative rate -- see
+    ``docs/WEAPONS_GATE_ADVERSARIAL_EVAL.md``). This warns exactly once per
+    process so the degraded posture is never silent. With
+    ``MERCURY_REQUIRE_REAL_HARM_CLASSIFIER=1`` it raises instead, so deployments
+    that mandate meaning-level screening fail closed at enablement rather than
+    serving the generative surface with lexical-only coverage.
+    """
+    global _MEANING_LEVEL_CLASSIFIER_WARNED
+    from omni_mercury_engine.cognitive.harm_classifier import real_harm_classifier_available
+
+    if real_harm_classifier_available():
+        return
+    message = (
+        "GeneralAssistant meaning-level harm classifier is INACTIVE: no real "
+        "reasoning model is serving (template/mock backend, missing reasoning "
+        "stack, or MERCURY_DISABLE_DEFAULT_HARM_CLASSIFIER=1), so the weapons "
+        "gate runs LEXICAL-ONLY. The meaning-level routing rescue that catches "
+        "paraphrased / out-of-lexicon offensive requests will NOT fire; the "
+        "held-out false-negative rate is materially higher in this posture "
+        "(see docs/WEAPONS_GATE_ADVERSARIAL_EVAL.md). Configure a real model "
+        "(e.g. Ollama, or a RemoteReasoningBackend) to enable it."
+    )
+    if os.environ.get("MERCURY_REQUIRE_REAL_HARM_CLASSIFIER") == "1":
+        raise RuntimeError(
+            message + " MERCURY_REQUIRE_REAL_HARM_CLASSIFIER=1 makes this a "
+            "fatal enablement error (fail-closed)."
+        )
+    if not _MEANING_LEVEL_CLASSIFIER_WARNED:
+        logger.warning(message)
+        _MEANING_LEVEL_CLASSIFIER_WARNED = True
 
 
 def _section_text(s: Section | tuple[Any, ...] | dict[str, Any]) -> str:
@@ -157,6 +199,14 @@ class GeneralAssistant:
         from omni_mercury_engine.cognitive.harm_classifier import default_harm_classifier
 
         self._harm_classifier = default_harm_classifier()
+        # Enablement check: the meaning-level routing rescue only cuts the
+        # gate's held-out false-negatives when a REAL model backs the classifier
+        # (see docs/WEAPONS_GATE_ADVERSARIAL_EVAL.md). Under a template/absent
+        # model the surface runs LEXICAL-ONLY -- warn loudly (once) so this is a
+        # visible operational choice, never a silent degradation. Set
+        # MERCURY_REQUIRE_REAL_HARM_CLASSIFIER=1 to make it fatal (fail-closed
+        # enablement) for deployments that mandate meaning-level screening.
+        _warn_or_require_meaning_level_classifier()
         # Default to the env-configured provider ladder (keyed engine / keyless
         # self-hosted SearXNG first, DuckDuckGo scrape only as fallback) rather
         # than a bare DDG scrape -- the provider-first posture, configurable

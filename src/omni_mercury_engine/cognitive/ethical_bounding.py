@@ -1049,6 +1049,61 @@ def assess_weapons_uplift(
         ev = _gate_evidence(text, ctx)
         domain, weight, offensive, allowed = ev.domain, ev.weight, ev.offensive, ev.allowed
 
+        # Meaning-level ROUTING rescue (consulted-not-trusted, raise-only).
+        # ------------------------------------------------------------------
+        # The lexical axes can miss a *paraphrased* offensive request whose
+        # hazard noun still routed a domain but whose production/weaponization
+        # verb is off-lexicon ("brew mustard gas in quantity", "rig a chlorine
+        # gas release", "putting together a pipe bomb"). Measured as a real
+        # false-negative class in docs/WEAPONS_GATE_ADVERSARIAL_EVAL.md. The
+        # existing classifier consult (further down) only runs once lexical
+        # evidence has ALREADY routed an offensive intent, so it never rescues a
+        # routing miss. This block moves a meaning-level consult ABOVE the early
+        # ALLOW returns for exactly the routing-miss case.
+        #
+        # Fires only when: a hazard domain routed (so there is real hazard
+        # context), NO offensive intent matched lexically, and NO professional
+        # allow-signal is present (detection/defense/response/policy/mechanism).
+        # The last condition is what keeps false-positives at 0 on the
+        # professional/defensive slice -- a query framed defensively is never
+        # overridden by the classifier. A high harm score raises to ESCALATE
+        # (human-in-the-loop via the fail-closed EscalationBroker), never a
+        # silent ALLOW and never an auto-REFUSE on classifier-alone evidence.
+        #
+        # Deliberately NOT run on the fully-benign domain-NONE path below:
+        #   (a) it would call a model on every benign query (hot-path cost);
+        #   (b) with zero hazard evidence the classifier would be the SOLE
+        #       signal -- the least-safe place to trust an offline model.
+        # The residual there is the out-of-lexicon *agent-name* miss, which is a
+        # small-high-precision-lexicon concern documented in HARM_POLICY.md, not
+        # something this raise-only meaning-level hook should silently paper over.
+        #
+        # With the default no-op classifier (template/mock backend returns 0.0)
+        # this block is a no-op, so the base-corpus operating point is unchanged;
+        # it only cuts false-negatives when a REAL classifier is configured.
+        if (
+            harm_classifier is not None
+            and domain is not HazardDomain.NONE
+            and not offensive
+            and not allowed
+        ):
+            routing_score = 0.0
+            try:
+                routing_score = max(0.0, min(1.0, float(harm_classifier(text))))
+            except Exception as exc:  # fail-open: no raise, never a crash
+                logger.warning(
+                    "weapons-uplift routing classifier failed (%s); no raise applied", exc
+                )
+            if routing_score >= BENEVOLENCE_CALIBRATION.weapons_b6_escalate_confidence:
+                return WeaponsRiskAssessment(
+                    domain,
+                    weight,
+                    OperationalIntent.PRODUCTION,
+                    routing_score,
+                    WeaponsDisposition.ESCALATE,
+                    ("meaning_level_routing_raise",),
+                )
+
         if domain is HazardDomain.NONE and not offensive:
             return WeaponsRiskAssessment()  # clean ALLOW / MECHANISM / NONE defaults
 

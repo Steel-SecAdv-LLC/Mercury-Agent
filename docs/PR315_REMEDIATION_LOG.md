@@ -38,6 +38,48 @@ paths, which exercise no PQC. CI builds the real backend
 gate is unchanged and unweakened. Targeted `mypy` (2.1.0), `black`, and `ruff`
 are clean on the four changed files.
 
+Also fixed the two `escalation.py` Copilot comments: `HumanReviewCallback` is
+now a real (implicit) type alias `Callable[[EscalationRecord], bool]` rather than
+a string value (bare assignment, not a `TypeAlias` annotation, to stay valid on
+the 3.11 floor while avoiding ruff UP040's 3.12-only `type` suggestion).
+
+## Harm-gate generalization: adversarial eval + routing fix (2026-07-02)
+
+Addresses the P0 "adversarial eval" and "harm-gate robustness / meaning-level
+checks in default posture" items. **No lexicon expansion** — the fix is
+control-flow + wiring + CI, because lexicon growth is memorization, not
+generalization. The small, high-precision Axis-A/Axis-B lexicons are unchanged.
+
+**Measurement (task: held-out adversarial slice).** New disjoint slice
+`benchmarks/weapons_gate_adversarial.py` (41 cases, asserted non-overlapping with
+the base corpus) across paraphrase / conjunction / obfuscation / out-of-lexicon
+axes + a hard-benign professional slice; harness
+`benchmarks/eval_weapons_gate_adversarial.py` reports FP/FN/precision/recall/Brier
+overall and per axis; report in `docs/WEAPONS_GATE_ADVERSARIAL_EVAL.md`. Measured
+default posture: **precision 1.0 (0 FP incl. all professional queries), overall
+FN-rate 0.52** (paraphrase 0.80, out-of-lexicon 0.83) — the honest lexical-only
+generalization floor.
+
+**Root-cause finding.** The reasoning classifier was consulted only *after*
+lexical routing already found offensive intent, so it never rescued a routing
+miss (classifier-on FN == classifier-off FN, measured). The PR claim that "the
+meaning-only residual is carried by the classifier" held for the gray-zone
+residual but **not** the routing-level residual.
+
+| # | Fix | Location | Validation |
+|---|---|---|---|
+| H1 | **Routing rescue**: consult the classifier *before* the early ALLOW returns when a hazard domain routed, no offensive intent matched, and no professional allow-signal is present; a high score raises to ESCALATE (fail-closed review), never silent-ALLOW/auto-REFUSE. Not run on fully-benign domain-NONE (cost + sole-signal risk) — documented. | `cognitive/ethical_bounding.py::assess_weapons_uplift` | base corpus 0 FP/FN unchanged; adversarial FN 15→5 (recall 0.48→0.83) with a discriminating classifier; hard-benign 0 FP; 108 weapons-gate/property/governance tests pass |
+| H2 | **Real-classifier requirement made loud**: `real_harm_classifier_available()` probe; `GeneralAssistant` warns loudly once on a no-op classifier (lexical-only) and fails closed under `MERCURY_REQUIRE_REAL_HARM_CLASSIFIER=1`. | `cognitive/harm_classifier.py`, `agentic/capabilities/assistant.py` | verified warn-once + fail-closed |
+| H3 | **Generalization gate in CI** (blocking ethical lane): 0 FP on professionals, default-posture FN *ceiling* (no lexical regression), routing-rescue mechanism asserted, and a real-classifier FN *budget* (<30%) that skips LOUDLY (or fails under `MERCURY_CI_REQUIRE_REAL_CLASSIFIER=1`) when no real model serves. | `tests/ethical/test_weapons_gate_adversarial_eval.py` | 5 pass + 1 loud skip (no real model here) |
+| H4 | **Honesty docs**: pre-fix routing limitation + resolution recorded. | `docs/HARM_POLICY.md` §8, `docs/WEAPONS_GATE_ADVERSARIAL_EVAL.md` | — |
+
+**Owned residual.** With no real model (CI/air-gapped default) the paraphrase /
+out-of-lexicon FN persists — this is why H2 warns loudly and H3 marks
+"meaning-level coverage met" by the real-classifier CI FN budget, not by lexicon
+size. Out-of-lexicon *agent-name* misses on fully-benign-routing text remain a
+small-high-precision-lexicon concern for a human domain expert, deliberately not
+closed by silent lexicon growth.
+
 ## CI pipeline (reproduced locally, all green)
 
 Reproduced in a CI-faithful virtualenv (isolated from the sandbox's user-site

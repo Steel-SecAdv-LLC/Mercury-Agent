@@ -252,11 +252,52 @@ limits plainly:
 - **The deterministic lexicon will miss meaning-only paraphrases.** The lexical
   layer — even with obfuscation normalization and multilingual routing — has no
   complete coverage of unbounded phrasing space. This residual is *measured* (the
-  semantic-paraphrase slice in the property tests) and closed, where a model is
-  available, by the reasoning-backed classifier wired by default on the text
-  surface. The classifier is fail-open (offline-safe; contributes only when a real
-  local/cloud model serves), so it strengthens coverage without ever weakening the
-  deterministic floor.
+  semantic-paraphrase slice in the property tests, and the held-out adversarial
+  slice `benchmarks/weapons_gate_adversarial.py` — see
+  `docs/WEAPONS_GATE_ADVERSARIAL_EVAL.md`) and closed, where a model is
+  available, by the reasoning-backed classifier. The classifier is fail-open
+  (offline-safe; contributes only when a real local/cloud model serves), so it
+  strengthens coverage without ever weakening the deterministic floor. **The
+  lexicon is deliberately kept small, high-precision, and human-maintained — it
+  is not the lever for generalization; meaning-level coverage is.**
+
+- **Routing-level false negatives and the classifier's reach (measured, then
+  fixed).** A held-out adversarial slice (2026-07-02) surfaced that the *default,
+  no-model* posture misses ~52% of paraphrased / out-of-lexicon offensive
+  requests (production verbs off the lexicon — "brew … in quantity", "putting
+  together …", "rig a … release" — and agents not in the Axis-A lexicon).
+  Crucially, the reasoning classifier as originally wired did **not** rescue
+  these: it was consulted only *after* lexical evidence had already routed an
+  offensive intent, so a query the lexicon failed to route returned ALLOW before
+  the classifier ran (turning the classifier on left the FN count unchanged —
+  measured). Resolution, all in `assess_weapons_uplift`:
+  1. **Routing rescue (control-flow, not lexicon).** When a hazard domain routed
+     but no offensive intent matched *and no professional allow-signal is
+     present*, the meaning-level classifier is now consulted **before** the early
+     ALLOW returns; a high harm score raises the disposition to **ESCALATE**
+     (human-in-the-loop via the fail-closed `EscalationBroker`) — never a silent
+     ALLOW and never an auto-REFUSE on classifier-alone evidence. It is
+     deliberately **not** run on fully-benign domain-NONE text (it would call a
+     model on every benign query, and with zero hazard evidence the classifier
+     would be the sole signal — the least-safe place to trust it); the residual
+     there is the out-of-lexicon *agent-name* miss, an explicitly-deferred,
+     small-high-precision-lexicon concern, not something a raise-only hook should
+     silently paper over.
+  2. **Real-classifier requirement, made loud.** `default_harm_classifier`
+     returns 0.0 under the template/mock backend, so the rescue only cuts FN when
+     a real model serves. The generative surface (`GeneralAssistant`) now warns
+     **loudly, once**, when it enables with a no-op classifier (lexical-only
+     posture), and fails closed at enablement under
+     `MERCURY_REQUIRE_REAL_HARM_CLASSIFIER=1` — no silent 0.0 degradation.
+  3. **Generalization gate in CI.** The held-out slice is wired into the blocking
+     ethical lane (`tests/ethical/test_weapons_gate_adversarial_eval.py`): 0 FP
+     on the professional slice + an FN *ceiling* in the default posture (lexical
+     coverage may not regress), the routing-rescue mechanism asserted directly,
+     and — when a real model is configured — an FN *budget* (< 30%) with a real
+     classifier. Absent a real model the FN-budget lane skips **loudly** (or
+     fails under `MERCURY_CI_REQUIRE_REAL_CLASSIFIER=1`), so "meaning-level
+     coverage met" is marked by the CI FN budget with a real model, **not** by
+     lexicon size.
 - **The verbatim synthesizer is the single highest-risk component.** The
   pre-emission output gate — now including the cross-sentence assembled-procedure
   re-gate — is load-bearing; any weakening of it is treated as a security

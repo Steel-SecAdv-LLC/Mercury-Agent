@@ -23,13 +23,10 @@ enforcement boundary (:class:`GeneralAssistant`) without pulling heavy imports.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
 
 from omni_mercury_engine.cognitive.gate_audit import record_gate_decision
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
 
 
 @dataclass(frozen=True)
@@ -55,8 +52,13 @@ class EscalationDecision:
 
 
 #: A reviewer: given the record, return True to authorize the gray-zone request.
-#: Any exception is treated as a denial (fail-closed).
-HumanReviewCallback = "Callable[[EscalationRecord], bool]"
+#: Any exception is treated as a denial (fail-closed). A real (implicit) type
+#: alias -- not a string -- so consumers that ``from ... import
+#: HumanReviewCallback`` get a usable type for annotations and static checking.
+#: Bare assignment rather than an explicit ``TypeAlias`` annotation keeps it
+#: valid on the project's 3.11 floor (the PEP 695 ``type`` statement ruff's
+#: UP040 would suggest is 3.12+ only) while mypy still resolves it as an alias.
+HumanReviewCallback = Callable[[EscalationRecord], bool]
 
 
 class EscalationBroker:

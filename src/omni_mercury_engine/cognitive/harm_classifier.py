@@ -201,4 +201,37 @@ def default_harm_classifier() -> Callable[[str], float]:
     return classify
 
 
-__all__ = ["default_harm_classifier", "reasoning_harm_classifier"]
+def real_harm_classifier_available() -> bool:
+    """True iff a genuine meaning-level model backs :func:`default_harm_classifier`.
+
+    Resolves Mercury's local reasoning backend and reports whether a *real* model
+    (not the deterministic template fallback, and not disabled) is actually
+    serving -- i.e. whether ``default_harm_classifier()`` can contribute a nonzero
+    meaning-level harm probability. The meaning-level routing rescue in
+    :func:`~omni_mercury_engine.cognitive.ethical_bounding.assess_weapons_uplift`
+    only cuts false-negatives when this is ``True``; under a template/absent model
+    the weapons gate is lexical-only. A generative surface can branch on this to
+    warn (or fail closed) rather than silently degrading -- see
+    ``docs/WEAPONS_GATE_ADVERSARIAL_EVAL.md`` for the measured FN gap between the
+    two postures.
+
+    Fail-safe: any resolution/attribute error returns ``False`` (treat an
+    unknown backend as no meaning-level coverage).
+    """
+    if os.environ.get("MERCURY_DISABLE_DEFAULT_HARM_CLASSIFIER") == "1":
+        return False
+    backend = _resolve_default_backend()
+    if backend is None:
+        return False
+    try:
+        active = str(getattr(backend, "model", "")).lower()
+    except Exception:  # pragma: no cover - defensive
+        return False
+    return active.startswith(_REAL_MODEL_PREFIXES) and _DEFAULT_CACHE.get("adapter") is not None
+
+
+__all__ = [
+    "default_harm_classifier",
+    "real_harm_classifier_available",
+    "reasoning_harm_classifier",
+]

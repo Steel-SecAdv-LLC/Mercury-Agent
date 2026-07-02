@@ -660,6 +660,8 @@ module = [
     "mercury_benchmark",
     "eval_weapons_gate",
     "weapons_gate_corpus",
+    "eval_weapons_gate_adversarial",
+    "weapons_gate_adversarial",
     # Optional in-tree modules the tools surface ``try/except``-imports.
     # The ML detector and federated aggregator surfaces ship behind
     # ``[ml]`` / ``[federated]`` extras and are *expected* to be absent
