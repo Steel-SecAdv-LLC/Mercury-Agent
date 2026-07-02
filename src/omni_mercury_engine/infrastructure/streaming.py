@@ -717,14 +717,24 @@ class KafkaStreamConsumer(StreamConsumer):
             logger.debug(f"Skipping Kafka commit for message with no partition: {message.topic}")
             return
 
+        # Always a Kafka-populated int on this path (consume() above sets it
+        # from aiokafka's ConsumerRecord.offset); the int | str union exists
+        # only to also honestly type Redis's string stream IDs. Guard with an
+        # explicit runtime check rather than ``assert`` -- asserts are stripped
+        # under ``python -O``, and a stray string offset would then reach
+        # ``message.offset + 1`` and raise TypeError. Skip with a debug log,
+        # matching the offset-None / partition-None contract above.
+        if not isinstance(message.offset, int):
+            logger.debug(
+                "Skipping Kafka commit for message with non-int offset "
+                f"({type(message.offset).__name__}): {message.topic}"
+            )
+            return
+
         try:
             from aiokafka import TopicPartition
 
             tp = TopicPartition(message.topic, message.partition)
-            # Always a Kafka-populated int on this path (consume() above sets
-            # it from aiokafka's ConsumerRecord.offset); the int | str union
-            # exists only to also honestly type Redis's string stream IDs.
-            assert isinstance(message.offset, int)
             await self._consumer.commit({tp: message.offset + 1})
         except Exception as e:
             logger.error(f"Kafka commit failed: {e}")

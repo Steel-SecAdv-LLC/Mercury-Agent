@@ -353,6 +353,64 @@ class TestKafkaProducerMocked:
         assert result is False
 
 
+class TestKafkaConsumerCommit:
+    """Tests for KafkaStreamConsumer.commit offset guarding."""
+
+    @pytest.mark.asyncio
+    async def test_commit_skips_non_int_offset(self) -> None:
+        """A non-int (e.g. Redis-style string) offset must be skipped, not asserted.
+
+        Regression: the commit path used ``assert isinstance(offset, int)`` to
+        guard ``message.offset + 1``. Under ``python -O`` asserts are stripped,
+        so a stray string offset would reach ``offset + 1`` and raise
+        TypeError. The guard is now an explicit runtime check that skips with a
+        debug log, matching the offset-None / partition-None contract.
+        """
+        from unittest.mock import AsyncMock
+
+        from omni_mercury_engine.infrastructure.streaming import KafkaStreamConsumer
+
+        consumer = KafkaStreamConsumer(auto_commit=False)
+        consumer._consumer = AsyncMock()
+
+        msg = StreamMessage(
+            topic="t",
+            key=None,
+            value={"x": 1},
+            timestamp=datetime.now(),
+            partition=0,
+            offset="1526-0",  # Redis stream id shape reaching the Kafka path
+        )
+
+        # Must not raise and must not attempt the commit.
+        await consumer.commit(msg)
+        consumer._consumer.commit.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_commit_int_offset_commits_next(self) -> None:
+        """A normal int offset commits ``offset + 1`` (aiokafka semantics)."""
+        from unittest.mock import AsyncMock
+
+        from omni_mercury_engine.infrastructure.streaming import KafkaStreamConsumer
+
+        consumer = KafkaStreamConsumer(auto_commit=False)
+        consumer._consumer = AsyncMock()
+
+        msg = StreamMessage(
+            topic="t",
+            key=None,
+            value={"x": 1},
+            timestamp=datetime.now(),
+            partition=2,
+            offset=41,
+        )
+
+        await consumer.commit(msg)
+        consumer._consumer.commit.assert_awaited_once()
+        (committed,), _ = consumer._consumer.commit.call_args
+        assert list(committed.values()) == [42]
+
+
 class TestRedisProducerMocked:
     """Tests for Redis producer with mocked redis."""
 

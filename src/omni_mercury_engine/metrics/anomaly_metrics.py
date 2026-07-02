@@ -538,9 +538,17 @@ class AnomalyMetrics:
             # Keep pixel-level metrics on the SAME disjoint test split as the
             # sample-level metrics; scoring them on the full (train+val+test)
             # masks would leak optimistic pixels and break the honest-split
-            # contract. Only index when the mask arrays are per-sample aligned.
-            mt = masks_true[test_idx] if len(masks_true) == n else masks_true
-            ms = masks_score[test_idx] if len(masks_score) == n else masks_score
+            # contract. Convert to NumPy BEFORE applying the split index: the
+            # mask args may be torch tensors, lists, or other arraylikes that
+            # do not support NumPy advanced indexing with ``test_idx`` (a NumPy
+            # int array). ``compute_pixel_auroc``/``compute_pro`` flatten via
+            # ``_to_numpy`` anyway, so this only hoists the conversion. Index
+            # only when the mask arrays are per-sample aligned (leading
+            # dim == sample count).
+            mt_np = _to_numpy(masks_true)
+            ms_np = _to_numpy(masks_score)
+            mt = mt_np[test_idx] if len(mt_np) == n else mt_np
+            ms = ms_np[test_idx] if len(ms_np) == n else ms_np
             results["pixel_auroc"] = compute_pixel_auroc(mt, ms)
             results["pro"] = compute_pro(mt, ms)
 

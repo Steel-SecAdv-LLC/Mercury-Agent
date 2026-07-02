@@ -20,6 +20,24 @@ Scan/CodeQL). The two red jobs above share the single root cause in V1;
 the fix commit re-triggers the full PR-event suite for fresh confirmation
 on the merge-targeted commit.
 
+### Copilot review comments (round 2, 2026-07-02)
+
+| # | File:line | Comment | Diagnosis | Action | Tests |
+|---|---|---|---|---|---|
+| C1 | `metrics/anomaly_metrics.py:542` | `tune_on='val'` indexes `masks_true[test_idx]` (NumPy int array) before `_to_numpy`; torch tensors / other arraylikes don't support NumPy advanced indexing → runtime raise | Confirmed: a Python-list mask raises `TypeError` on `list[np.ndarray]`; the in-sample path converts first, the val path did not | Hoist `_to_numpy` ahead of the split index; index only when leading dim == sample count | `test_compute_all_val_split_masks_torch_and_list` (torch + list masks) |
+| C2 | `infrastructure/streaming.py:727` | `assert isinstance(offset, int)` is stripped under `python -O`; a Redis-style string offset then reaches `offset + 1` → TypeError | Confirmed | Replace assert with an explicit runtime check that skips with a debug log, matching the offset-None / partition-None contract | `TestKafkaConsumerCommit` (non-int skip + int commits `offset+1`), also asserted under `-O` |
+
+Local verification used a CI-faithful venv (`PYTHONNOUSERSITE=1`, `mypy==2.1.0`
+/ `black==26.5.1` / `pydocstyle==6.3.0`). The native AMA PQC backend cannot be
+built in this environment — the AMA-Cryptography repo is outside the session's
+egress allow-list (proxy 403) — so a **non-crypto local test double** of
+`ama_cryptography.pqc_backends` (the three `*_AVAILABLE` flags, no cryptography)
+was used solely to import the engine for the Python-level metrics/streaming
+paths, which exercise no PQC. CI builds the real backend
+(`scripts/build_ama_native.sh`) on every lane, so the shipped fail-closed PQC
+gate is unchanged and unweakened. Targeted `mypy` (2.1.0), `black`, and `ruff`
+are clean on the four changed files.
+
 ## CI pipeline (reproduced locally, all green)
 
 Reproduced in a CI-faithful virtualenv (isolated from the sandbox's user-site
