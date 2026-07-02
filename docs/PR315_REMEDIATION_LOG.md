@@ -5,6 +5,21 @@ hardened harm gate + native general-purpose capabilities*. Every issue below was
 reproduced against the running code (or CI), fixed, and covered by a regression
 test. Metrics were measured, not asserted.
 
+## Validation round 2 (2026-07-02) — PR-event CI back to green
+
+| # | Item | Diagnosis | Action | Status |
+|---|---|---|---|---|
+| V1 | PR-event CI red: `Docker Build` (ci.yml) and `Container Security Scan (Trivy)` (security.yml) failed on head `ca0b502` | Not introduced by this PR: the Trivy vulnerability DB published 4 new **unfixed** Debian-trixie CRITICAL/HIGH CVEs against the runtime image — `gzip` CVE-2026-41992 (High) and `libglib2.0-0t64` CVE-2026-58016 (Critical) / CVE-2026-58014 / CVE-2026-58015 (High) — and the blocking gates (`ignore-unfixed: false`) correctly refused them | **Eliminated, not accepted** (ledger policy): `libglib2.0-0` dropped from the Dockerfile (cv2 ≥ 4.13 vendors its media stack, links no glib — verified via `readelf` NEEDED + cv2 import/`cvtColor`/`Canny` on a glib-less trixie base); `gzip` purged alongside `perl-base` (no runtime consumer — verified post-purge: `apt-get update/install/upgrade`, `dpkg`, Python `gzip` round-trip). `.trivyignore` acceptances unchanged at 3 (0C/3H); SECURITY.md posture synced to the ledger's 2026-06-30 re-enumeration + this round | Fixed |
+
+All other PR-event jobs on `ca0b502` were green (Core Tests 3.11–3.14, Type
+Checking, Code Quality, Neuro-Symbolic, Integration, ML, Ethics Audit,
+Performance Benchmark, benchmark.yml, fusion-regression.yml,
+phase3-governance.yml, iso-hardening.yml, load-tests, verify-real-pqc,
+verifiers, format, docker.yml, Security Scan/Secret Detection/Dependency
+Scan/CodeQL). The two red jobs above share the single root cause in V1;
+the fix commit re-triggers the full PR-event suite for fresh confirmation
+on the merge-targeted commit.
+
 ## CI pipeline (reproduced locally, all green)
 
 Reproduced in a CI-faithful virtualenv (isolated from the sandbox's user-site

@@ -110,6 +110,25 @@ the decoded read to the requested size (~4.7 MB peak on a 500 MB logical bomb).
 deliberate, documented tradeoff — content-hashing a device tensor would force a
 per-lookup sync — and stale pointers age out of the bounded LRU.
 
+**Deployment-image CVE response — gzip + glib eliminated, not accepted
+(2026-07-02).** The vulnerability DB published four new unfixed CRITICAL/HIGH
+findings against the runtime image, turning the blocking Trivy gates red:
+`gzip` CVE-2026-41992 (High) and `libglib2.0-0t64` CVE-2026-58016 (Critical) /
+CVE-2026-58014 / CVE-2026-58015 (High), none with a Debian trixie fix. Both
+packages were **removed from the image** rather than ledgered:
+`libglib2.0-0` was only cv2's historical `libgthread` dependency, but the
+shipped `opencv-python-headless` wheel (≥ 4.13) vendors its media stack and
+links no glib at all (verified via `readelf` NEEDED and a cv2 import +
+`cvtColor`/`Canny` run on a glib-less trixie base), so the Dockerfile no longer
+installs it; `gzip` is Debian-essential with no runtime consumer (CPython's
+`gzip`/`zlib` use the linked `libz`, dpkg/apt decompress internally, nothing
+runs `tar -z`), so it is purged alongside `perl-base` (verified post-purge:
+`apt-get update`/`install`/`upgrade`, `dpkg`, Python `gzip` round-trip). The
+`.trivyignore` acceptance count is unchanged at 3 (0 Critical, 3 High);
+SECURITY.md's posture section was brought in sync with the ledger's
+2026-06-30 re-enumeration (SQLite FTS5 pair re-scored MEDIUM upstream and out
+of the CRITICAL/HIGH gate's scope; acl/attr pair documented in the table).
+
 ### Harm-gate hardening — measured, multilingual, obfuscation-resistant, governed
 
 A focused hardening round on the weapons/mass-casualty uplift gate, turning

@@ -23,11 +23,14 @@
 # enforcing workflows actually run), re-enumerated 2026-06-30 against the
 # shipped Debian **trixie** base (`python:3.14-slim-trixie`, Debian 13.5)
 # after the Python 3.13 -> 3.14 base-image bump, the base-image migration off
-# bookworm, and the perl-base elimination below. The built runtime image now
-# carries 3 distinct unfixed CRITICAL/HIGH OS CVEs (0 CRITICAL, 3 HIGH), each
-# cross-checked against the Debian Security Tracker (trixie status "open", no
-# fixed version published) and each linked by either CPython or the base
-# image's own coreutils/tar toolchain.
+# bookworm, and the perl-base elimination below; re-checked 2026-07-02 after
+# the vulnerability DB published 4 new unfixed CRITICAL/HIGH findings against
+# the 2026-06-30 posture (gzip, libglib2.0-0t64 — both ELIMINATED below, not
+# accepted). The built runtime image carries 3 distinct unfixed CRITICAL/HIGH
+# OS CVEs (0 CRITICAL, 3 HIGH), each cross-checked against the Debian
+# Security Tracker (trixie status "open", no fixed version published) and
+# each linked by either CPython or the base image's own coreutils/tar
+# toolchain.
 #
 # ELIMINATED, not accepted (removed from the image rather than waived here):
 #   * perl-base (CVE-2026-8376, CVE-2026-42496 [Critical]; CVE-2026-42497,
@@ -37,6 +40,20 @@
 #     adduser right after `apt-get upgrade`, so all 5 CVEs are gone from the
 #     image. This removed both of the ledger's former CRITICALs (8 → 3).
 #   * mesa GL stack (CVE-2026-40393) — see the note at the foot of this file.
+#   * libglib2.0-0 / libglib2.0-0t64 (CVE-2026-58016 [Critical];
+#     CVE-2026-58014, CVE-2026-58015 [High], 2026-07-02) — was installed only
+#     as cv2's historical libgthread-2.0 import dependency, but the shipped
+#     opencv-python-headless wheel (>= 4.13) vendors its media stack and
+#     links no glib library at all (verified: readelf on the wheel's
+#     cv2.abi3.so NEEDED list; cv2 import + cvtColor/Canny run clean on a
+#     glib-less trixie base). The Dockerfile no longer installs it, so all
+#     3 CVEs are gone from the image rather than waived here.
+#   * gzip (CVE-2026-41992 [High], 2026-07-02) — Debian "essential" but with
+#     no runtime consumer: CPython's gzip/zlib modules use the linked libz
+#     (never the gzip binary), dpkg/apt decompress with internal code, and
+#     the image never runs `tar -z`. The Dockerfile purges it alongside
+#     perl-base (verified post-purge: apt-get update/install/upgrade, dpkg,
+#     python gzip round-trip all work), so the CVE is gone from the image.
 #
 # DROPPED in the 2026-06-30 trixie re-enumeration (present in the prior
 # ledger; not carried inert, because each is gone or no longer a CRITICAL/HIGH
