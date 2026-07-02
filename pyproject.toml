@@ -102,7 +102,16 @@ ml = [
     "torchvision>=0.17.0",
     "pytorch-lightning>=2.0.0",
     "timm>=1.0.26",
-    "opencv-python-headless>=4.8.0",
+    # Upper-capped below 5.0: OpenCV 5.0.0 (released 2026-07) removed a number of
+    # long-standing top-level ``cv2`` symbols -- including ``cv2.CascadeClassifier``
+    # (used by ``models/biometric_advanced.py``), which no longer exists on the
+    # ``cv2`` module at *runtime* (it moved out of the flat namespace) and also
+    # vanished from the type stubs, breaking the blocking ``mypy`` gate with
+    # ``Module has no attribute "CascadeClassifier"``.  Without a cap the
+    # unbounded floor resolves 5.0.x and both the Type Checking lane and the
+    # affected runtime path break.  Pin to the 4.x API this codebase targets;
+    # revisit as a deliberate migration when adopting the 5.x namespace.
+    "opencv-python-headless>=4.8.0,<5",
     # CVE-2025-47273: path traversal / arbitrary file write in setuptools'
     # ``PackageIndex`` (fixed in 78.1.1).  ``setuptools`` is a *runtime*
     # dependency of both ``torch`` and ``tensorflow`` (``Required-by:
