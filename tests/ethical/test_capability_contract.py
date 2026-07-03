@@ -255,19 +255,24 @@ class TestRealCapabilityContracts:
             assert "WEAPONIZE" not in out
             assert syn.unsafe_output_spans(out) == []
 
-    def test_monotone_harm_diff_skips_but_still_enforces(self) -> None:
-        # The residue check O(1)-skips its own freshly-gated output, but a
-        # different (externally-produced) unsafe string is still fully re-gated.
-        gate = lambda s: "WEAPONIZE" not in s  # noqa: E731
+    def test_monotone_harm_regate_is_independent_and_live(self) -> None:
+        # The residue re-check must NOT trust the synthesizer's own output (no
+        # diff-skip): re-gating the SAME emitted string under a tightened gate
+        # must surface the newly-unsafe span, proving the contract independently
+        # re-evaluates rather than short-circuiting to a no-op.
+        rejected: set[str] = set()
+        gate = lambda s: not any(bad in s for bad in rejected)  # noqa: E731
         syn = ExtractiveSynthesizer(sentence_gate=gate)
         out = syn.summarize(
-            "A safe line. Here is how to WEAPONIZE the payload. A safe closing remark.",
+            "Alpha sentence here is certainly long enough to keep. "
+            "Bravo sentence here is also plainly long enough. "
+            "Charlie sentence rounds out the set nicely.",
             max_sentences=3,
         )
-        assert out == syn._last_gated_output  # fingerprint set
-        assert syn.unsafe_output_spans(out) == []  # fast path, no residue
-        # A string that is NOT the fingerprint must still be caught.
-        assert syn.unsafe_output_spans("safe. now WEAPONIZE the thing. bye.") != []
+        assert syn.unsafe_output_spans(out) == []  # clean under the current gate
+        # Tighten the gate to reject a token that IS in the emitted output.
+        rejected.add(out.split()[0])
+        assert syn.unsafe_output_spans(out) != []  # re-gate runs live, catches it
 
     def test_research_report_fails_closed_on_raising_researcher(self) -> None:
         # An offline/deterministic assistant with a researcher that raises must

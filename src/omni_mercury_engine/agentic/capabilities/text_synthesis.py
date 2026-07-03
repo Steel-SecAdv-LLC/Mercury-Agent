@@ -18,7 +18,7 @@ from __future__ import annotations
 import re
 from collections import Counter
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -173,11 +173,6 @@ class ExtractiveSynthesizer:
     #: procedure (spec §5.3). 1 = per-sentence only; the default 3 also catches a
     #: procedure split across 2-3 sentences that each pass individually.
     cross_sentence_window: int = 3
-    #: The exact string most recently emitted through the output gate (`_join` /
-    #: `_emit`). Lets :meth:`unsafe_output_spans` diff-skip the re-gate when it is
-    #: handed back this synthesizer's own freshly-gated output (the common case),
-    #: turning the monotone_harm contract's postcondition into an O(1) compare.
-    _last_gated_output: str = field(default="", init=False, repr=False, compare=False)
 
     def _gate_ok(self, text: str) -> bool:
         """True when ``text`` passes the sentence gate. Fail-closed on error."""
@@ -190,13 +185,9 @@ class ExtractiveSynthesizer:
 
     def _emit(self, sentence: str) -> str:
         """Return ``sentence`` verbatim, or the redaction notice if the gate rejects it."""
-        result = (
-            sentence
-            if (self.sentence_gate is None or self._gate_ok(sentence))
-            else REDACTION_NOTICE
-        )
-        self._last_gated_output = result
-        return result
+        if self.sentence_gate is None:
+            return sentence
+        return sentence if self._gate_ok(sentence) else REDACTION_NOTICE
 
     def _safe_flags(self, sentences: list[str]) -> list[bool]:
         """Per-sentence safety flags, tightened by a cross-sentence re-gate.
@@ -234,31 +225,25 @@ class ExtractiveSynthesizer:
             if emitted == REDACTION_NOTICE and out and out[-1] == REDACTION_NOTICE:
                 continue  # don't repeat the notice for consecutive redactions
             out.append(emitted)
-        result = " ".join(out)
-        self._last_gated_output = result
-        return result
+        return " ".join(out)
 
     def unsafe_output_spans(self, text: str) -> list[str]:
         """Gate-unsafe sentences present in already-emitted ``text`` (empty when clean).
 
         Backs the :attr:`~omni_mercury_engine.agentic.capabilities.contract.Invariant.MONOTONE_HARM`
-        capability contract: it re-checks emitted output against the *same*
-        per-sentence + cross-sentence gate the synthesizer used to build it, so a
-        regression that let operational content through is detected. Normal
-        output is clean (unsafe sentences were already replaced by
-        :data:`REDACTION_NOTICE`, which is benign and passes), so this returns
-        ``[]`` and the contract is a no-op; with no gate configured there is
-        nothing to check.
-
-        Diff-skip: when ``text`` is exactly this synthesizer's most recently
-        gated output (:attr:`_last_gated_output`), it was already gated in this
-        pass, so the expensive re-gate is skipped for an O(1) string compare. The
-        full re-gate still runs for any other input (a caller-mutated or
-        externally-produced string), preserving the contract's enforcement.
+        capability contract as an **independent** re-check: it re-runs the *same*
+        per-sentence + cross-sentence gate over the emitted output, without
+        trusting how that output was produced, so a regression in the emission
+        path (``summarize`` / ``_join`` / ``_emit``) that let operational content
+        through is caught and redacted. Normal output is clean (unsafe sentences
+        were already replaced by :data:`REDACTION_NOTICE`, which is benign and
+        passes), so this returns ``[]``; with no gate configured there is nothing
+        to check. The cost is O(sentences) gate calls -- bounded (a summary is a
+        handful of sentences) and deliberately *not* short-circuited on the
+        synthesizer's own output, which would make the contract trust the very
+        method it exists to double-check.
         """
         if self.sentence_gate is None:
-            return []
-        if text == self._last_gated_output:
             return []
         sentences = self.split_sentences(text)
         flags = self._safe_flags(sentences)

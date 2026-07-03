@@ -49,7 +49,7 @@ downgrades.
 
 | Variable | Value | Purpose |
 |---|---|---|
-| `AMA_CRYPTO_VERSION` | `3.2.0` | Pinned PQC backend version; the import gate refuses a mismatch (`_pqc_gate._enforce_ama_version`). |
+| `AMA_CRYPTO_VERSION` | `3.2.0` | Pinned PQC backend version; the import gate refuses a different *release* (`_pqc_gate._enforce_ama_version`). Matched PEP 440-tolerantly: `v3.2.0`, `3.2.0.post1`, `3.2` are accepted; `3.1.0` is not. |
 | `LD_LIBRARY_PATH` | native AMA lib dir | Only for a manual out-of-tree AMA build; unneeded when `scripts/build_ama_native.sh` co-locates the `.so`. |
 | `MERCURY_ENV` | `production` | Mock/stub collaborators raise instead of downgrading. |
 | `AMA_REQUIRE_CONSTANT_TIME` | `true` | Refuse non-constant-time PQC primitives. |

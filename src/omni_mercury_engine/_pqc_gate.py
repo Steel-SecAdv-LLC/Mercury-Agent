@@ -21,9 +21,12 @@ in a cryptographically incomplete state.
 On top of algorithm availability the gate also enforces the pinned
 **version** (:data:`_AMA_REQUIRED_VERSION`, ``3.2.0``): the installed
 ``ama_cryptography.__version__`` and, when set, the operator's
-``AMA_CRYPTO_VERSION`` env var must both equal it, so a build of the
-wrong AMA release (that happens to expose the three flags) is
-refused rather than started.  See :func:`_enforce_ama_version`.
+``AMA_CRYPTO_VERSION`` env var must match the pinned *release*
+PEP 440-tolerantly (``v3.2.0`` / ``3.2.0.post1`` / ``3.2`` are accepted;
+a different release such as ``3.1.0`` is refused), so a build of the
+wrong AMA release (that happens to expose the three flags) is refused
+rather than started.  See :func:`_enforce_ama_version` /
+:func:`_release_matches`.
 
 The flags are read from ``ama_cryptography.pqc_backends`` — the
 canonical location matching what ``security/pqc_backends.py`` reads
@@ -63,8 +66,10 @@ _AMA_REQUIRED_VERSION = "3.2.0"
 #: all satisfy it (same release); ``3.1.0`` / ``3.3.0`` / ``9.9.9`` do not.
 _AMA_REQUIRED_RELEASE = (3, 2, 0)
 
-#: Operator-facing env var to *declare* the AMA version. When set it must equal
-#: :data:`_AMA_REQUIRED_VERSION`; a mismatch is a loud, fail-closed configuration
+#: Operator-facing env var to *declare* the AMA version. When set it must match
+#: the pinned *release* (:data:`_AMA_REQUIRED_RELEASE`) PEP 440-tolerantly via
+#: :func:`_release_matches` -- ``v3.2.0`` / ``3.2.0.post1`` / ``3.2`` are accepted,
+#: a different release is refused. A mismatch is a loud, fail-closed configuration
 #: error rather than a silent downgrade.
 AMA_CRYPTO_VERSION_ENV = "AMA_CRYPTO_VERSION"
 
