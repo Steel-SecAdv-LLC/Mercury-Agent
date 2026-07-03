@@ -166,3 +166,29 @@ class TestEscalationAuditIntegration:
         ok, message = secure.verify_log_integrity(secure_path)
         assert ok is False
         assert "broken" in message.lower()
+
+    def test_content_tampering_is_detected(
+        self, audit_sinks: tuple[Path, sal.SecureAuditLogger]
+    ) -> None:
+        # Editing a hashed field (details) while leaving the hash columns intact
+        # must still be caught -- the per-event hash recompute, not just linkage.
+        import json
+
+        tmp_path, secure = audit_sinks
+        broker = EscalationBroker(reviewer=lambda r: True, max_approvals=5)
+        for i in range(3):
+            broker.review(_escalation(i))
+        secure.flush()
+
+        secure_path = tmp_path / "secure" / "audit.jsonl"
+        assert secure.verify_log_integrity(secure_path)[0] is True  # clean first
+
+        lines = secure_path.read_text(encoding="utf-8").splitlines()
+        record = json.loads(lines[1])
+        record["details"] = {"tampered": True}  # edit content; DO NOT touch the hashes
+        lines[1] = json.dumps(record)
+        secure_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+        ok, message = secure.verify_log_integrity(secure_path)
+        assert ok is False
+        assert "broken" in message.lower()

@@ -296,33 +296,76 @@ class SecureHashChain:
 
             return event_hash, previous, seq
 
-    def verify_chain(self, events: list[AuditEvent]) -> tuple[bool, list[int]]:
-        """Verify integrity of event chain.
+    def _recompute_event_hash(self, event: AuditEvent) -> str:
+        """Recompute an event's HMAC hash from its persisted content.
 
-        Uses constant-time comparison to prevent timing attacks
-        that could reveal information about the hash chain.
+        Mirrors :meth:`compute_event_hash` exactly (same ``event_data`` shape,
+        same ``sort_keys`` JSON envelope), so an untampered event recomputes to
+        its stored ``event_hash`` and any edit to the hashed content does not.
+        """
+        event_data = {
+            "event_id": event.event_id,
+            "timestamp": event.timestamp,
+            "category": event.category.value,
+            "action": event.action,
+            "outcome": event.outcome,
+            "actor": event.actor,
+            "resource": event.resource,
+            "details": event.details,
+        }
+        hash_input = json.dumps(
+            {
+                "previous_hash": event.previous_hash,
+                "sequence_number": event.sequence_number,
+                "event_data": event_data,
+            },
+            sort_keys=True,
+        ).encode()
+        return self._hmac_hash(hash_input)
+
+    def verify_chain(self, events: list[AuditEvent]) -> tuple[bool, list[int]]:
+        """Verify integrity of the event chain (content *and* linkage).
+
+        Two constant-time checks per event, either of which flags the index:
+
+        * **Content** -- the stored ``event_hash`` must equal a fresh HMAC recompute
+          over the event's persisted content (:meth:`_recompute_event_hash`). This
+          catches an edit to a hashed field (``action`` / ``details`` / ...) that
+          left the hash columns untouched -- undetectable by linkage alone, and
+          unforgeable without the HMAC key. Recompute requires the *same* key the
+          log was written with, so cross-process verification needs a stable
+          configured key (``AMA_MASTER_SEED`` / an explicit ``hmac_key``), not the
+          per-process ephemeral default.
+        * **Linkage** -- each event's ``previous_hash`` must equal the prior
+          event's ``event_hash``, so a deletion or reordering breaks the chain.
+
+        Uses :func:`hmac.compare_digest` to avoid leaking hash information via
+        timing.
 
         Args:
-            events: List of events to verify
+            events: List of events to verify.
 
         Returns:
-            Tuple of (is_valid, list_of_invalid_indices)
+            Tuple of ``(is_valid, sorted_list_of_invalid_indices)``.
         """
-        invalid_indices = []
+        invalid_indices: set[int] = set()
 
         for i, event in enumerate(events):
-            # Skip genesis verification
+            # (1) Content integrity: recompute the event's own hash.
+            expected = self._recompute_event_hash(event)
+            if not hmac.compare_digest(expected.encode("utf-8"), event.event_hash.encode("utf-8")):
+                invalid_indices.add(i)
+
+            # (2) Linkage: this event's back-pointer must match the prior hash.
+            # Skip for the first event (its previous_hash is the genesis hash).
             if i == 0:
                 continue
-
-            # Verify link to previous event using constant-time comparison
-            # SECURITY: Using hmac.compare_digest prevents timing attacks
             if not hmac.compare_digest(
                 event.previous_hash.encode("utf-8"), events[i - 1].event_hash.encode("utf-8")
             ):
-                invalid_indices.append(i)
+                invalid_indices.add(i)
 
-        return len(invalid_indices) == 0, invalid_indices
+        return len(invalid_indices) == 0, sorted(invalid_indices)
 
     def get_chain_state(self) -> dict[str, Any]:
         """Get current chain state."""

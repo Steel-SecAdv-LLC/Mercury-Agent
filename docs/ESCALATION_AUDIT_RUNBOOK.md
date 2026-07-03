@@ -72,8 +72,16 @@ tail -f "$MERCURY_GATE_AUDIT_LOG" | jq '{ts, decision, source, disposition, haza
 ### 3.2 Tamper-evident sink (hash-chained, opt-in)
 
 Set `MERCURY_GATE_AUDIT_SECURELOG=1` to *also* forward each decision to the
-hash-chained, PII-masking `SecureAuditLogger`. Each event stores the previous
-event's hash, so any deletion, reordering, or edit breaks the chain.
+hash-chained, PII-masking `SecureAuditLogger`. Verification is two-fold and
+constant-time: each event's stored hash must recompute from its own content
+(so an **edit** to a hashed field is caught, unforgeable without the HMAC key),
+and each event's back-pointer must match the prior event's hash (so a
+**deletion or reordering** breaks the chain).
+
+> **Cross-process verification needs a stable key.** The hash recompute uses the
+> HMAC key the log was written with; the default is a per-process ephemeral key.
+> To verify a log written by another process, configure a stable key
+> (`AMA_MASTER_SEED`, or `configure_audit_logger(hmac_key=...)`).
 
 > **Note.** `MERCURY_GATE_AUDIT_LOG` steers only the plain JSONL. The secure
 > sink writes to its own directory — set `MERCURY_SECURE_AUDIT_DIR` to point it
