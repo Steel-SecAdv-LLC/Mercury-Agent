@@ -57,7 +57,7 @@ downgrades.
 | `MERCURY_GATE_AUDIT_SECURELOG` | `1` | Also forward to the hash-chained, tamper-evident audit. |
 | `MERCURY_REQUIRE_REAL_HARM_CLASSIFIER` | `1` | Fail closed unless a real meaning-level classifier is serving. |
 | `MERCURY_MODEL_ENDPOINT` | `http://127.0.0.1:11434` | Loopback served-model endpoint for the meaning-level classifier. |
-| `CI_MEANING_LEVEL_ENABLED` | `true` | Enable the served-model adversarial FN-budget CI lane (`ci/meaning-level`). |
+| `CI_MEANING_LEVEL_ENABLED` | `true` | *(CI repository variable, not a runtime env var.)* The `ci/meaning-level` adversarial FN-budget lane runs on **every** PR via a validated stdlib model double, so this variable does **not** switch the lane on or off. It is the documented marker for opting into a deeper *real-served-model* run, applied by swapping in the real-Ollama serving block (see the header comment in `.github/workflows/tier0-safety.yml`). |
 
 ```bash
 # Tier 0 minimal production env
@@ -170,8 +170,12 @@ export AMA_CRYPTO_VERSION=3.2.0
 ```
 
 The import-time gate additionally enforces the pinned **version**: it refuses
-unless `ama_cryptography.__version__ == 3.2.0` and, when set, `AMA_CRYPTO_VERSION`
-agrees (`omni_mercury_engine/_pqc_gate.py::_enforce_ama_version`).
+unless the installed `ama_cryptography.__version__` resolves to release `3.2.0`
+and, when set, `AMA_CRYPTO_VERSION` agrees. Both are matched PEP 440-tolerantly
+(`v3.2.0`, `3.2.0.post1`, `3.2.0+cpu`, and even `3.2` are accepted; a different
+release such as `3.1.0` is refused), so a valid post/local build is not
+misdiagnosed as a failure — see
+`omni_mercury_engine/_pqc_gate.py::_enforce_ama_version` / `_release_matches`.
 
 **Docker / Kubernetes:** the production image builds this automatically — the
 Dockerfile builder stage runs `scripts/build_ama_native.sh`, the `.so` travels

@@ -143,6 +143,132 @@ class TestEscalationAuditIntegration:
                 current.shutdown()
             sal._audit_logger = saved
 
+    def test_reconfigure_retires_prior_secure_logger_no_leak(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Repointing MERCURY_SECURE_AUDIT_DIR must *retire* the previous
+        # SecureAuditLogger -- flush its buffered events and stop its flush thread
+        # -- not orphan it. Orphaning would leak the daemon thread + file handle
+        # and silently drop any events still sitting in the old logger's buffer.
+        from omni_mercury_engine.cognitive.gate_audit import record_gate_decision
+
+        monkeypatch.setenv("MERCURY_GATE_AUDIT_LOG", str(tmp_path / "gate.jsonl"))
+        monkeypatch.setenv("MERCURY_GATE_AUDIT_SECURELOG", "1")
+        monkeypatch.delenv("MERCURY_GATE_AUDIT_DISABLED", raising=False)
+        saved = sal._audit_logger
+        sal._audit_logger = None
+        try:
+            # First decision -> logger bound to dir A; the event sits in A's buffer
+            # (buffer flush threshold is 100, so a single event is not auto-written).
+            dir_a = tmp_path / "secure_a"
+            monkeypatch.setenv("MERCURY_SECURE_AUDIT_DIR", str(dir_a))
+            record_gate_decision(
+                decision="refused", source="leak_test_a", disposition="hard_refuse", reason="a"
+            )
+            logger_a = sal._audit_logger
+            assert logger_a is not None
+            assert str(logger_a.log_dir) == str(dir_a)
+            thread_a = logger_a._flush_thread
+            assert thread_a is not None and thread_a.is_alive()
+
+            # Repoint to dir B -> A must be shut down and replaced by a new logger.
+            dir_b = tmp_path / "secure_b"
+            monkeypatch.setenv("MERCURY_SECURE_AUDIT_DIR", str(dir_b))
+            record_gate_decision(
+                decision="refused", source="leak_test_b", disposition="hard_refuse", reason="b"
+            )
+            logger_b = sal._audit_logger
+            assert logger_b is not None
+            assert logger_b is not logger_a  # global was replaced, not reused
+            assert str(logger_b.log_dir) == str(dir_b)
+
+            # A was retired: stop event set and the flush thread joins promptly
+            # (the responsive wait-based loop, not a 5s sleep).
+            assert logger_a._stop_event.is_set()
+            thread_a.join(timeout=5.0)
+            assert not thread_a.is_alive()
+
+            # A's buffered event was flushed by shutdown, not lost -- it is on disk
+            # in A's own file even though this test never called flush() on A.
+            a_file = dir_a / "audit.jsonl"
+            assert a_file.exists()
+            assert "harm_gate:refused" in a_file.read_text(encoding="utf-8")
+        finally:
+            current = sal._audit_logger
+            if current is not None and current is not saved:
+                current.shutdown()
+            sal._audit_logger = saved
+
+    def test_shutdown_is_prompt_and_flushes_buffer(self, tmp_path: Path) -> None:
+        # Direct teeth for the flush-loop change (Event.wait, not time.sleep) and
+        # for shutdown flushing the buffer. With a long flush_interval the loop
+        # would block the whole interval under the old `time.sleep`, so its
+        # shutdown() join(5s) would time out and leave the thread ALIVE -- the
+        # assertions below go red. The new wait-based loop wakes on the stop event
+        # and returns in milliseconds. Uses a logger built directly so the test
+        # can set flush_interval (the gate-audit path always uses the default),
+        # which also removes the background-flush timing confound.
+        import time as _time
+
+        logger = sal.SecureAuditLogger(log_dir=str(tmp_path / "prompt"), flush_interval=30.0)
+        thread = logger._flush_thread
+        assert thread is not None and thread.is_alive()
+        # One event sits in the buffer (flush threshold is 100), not yet on disk.
+        logger.log_security_incident(action="harm_gate:refused", details={"k": "v"}, resource="t")
+        log_file = tmp_path / "prompt" / "audit.jsonl"
+
+        start = _time.perf_counter()
+        logger.shutdown()
+        elapsed = _time.perf_counter() - start
+
+        assert (
+            elapsed < 3.0
+        ), f"shutdown blocked {elapsed:.1f}s (~flush_interval => sleep, not wait)"
+        assert not thread.is_alive()  # the flush thread was actually reaped
+        # The buffered event was flushed by shutdown, not dropped.
+        assert log_file.exists()
+        assert "harm_gate:refused" in log_file.read_text(encoding="utf-8")
+
+    def test_same_secure_dir_reuses_logger_and_keeps_one_hash_chain(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Two decisions under the SAME MERCURY_SECURE_AUDIT_DIR must hit the
+        # hot-path early return and REUSE the one logger, never rebuild it.
+        # Rebuilding per decision would mint a fresh HMAC key + reset the genesis
+        # hash, silently breaking cross-event chain linkage -- an integrity
+        # regression the other tests miss (they use the no-secure_dir sink).
+        from omni_mercury_engine.cognitive.gate_audit import record_gate_decision
+
+        monkeypatch.setenv("MERCURY_GATE_AUDIT_LOG", str(tmp_path / "gate.jsonl"))
+        monkeypatch.setenv("MERCURY_GATE_AUDIT_SECURELOG", "1")
+        monkeypatch.setenv("MERCURY_SECURE_AUDIT_DIR", str(tmp_path / "secure_same"))
+        monkeypatch.delenv("MERCURY_GATE_AUDIT_DISABLED", raising=False)
+        saved = sal._audit_logger
+        sal._audit_logger = None
+        try:
+            record_gate_decision(
+                decision="refused", source="same_dir_1", disposition="hard_refuse", reason="1"
+            )
+            logger1 = sal._audit_logger
+            record_gate_decision(
+                decision="escalated", source="same_dir_2", disposition="escalate", reason="2"
+            )
+            logger2 = sal._audit_logger
+
+            assert logger1 is not None
+            assert logger2 is logger1  # same dir -> identical logger, no reset
+            logger1.flush()
+
+            secure_path = tmp_path / "secure_same" / "audit.jsonl"
+            assert len(secure_path.read_text(encoding="utf-8").splitlines()) >= 2
+            ok, message = logger1.verify_log_integrity(secure_path)
+            assert ok, message  # both events form ONE verifiable hash chain
+        finally:
+            current = sal._audit_logger
+            if current is not None and current is not saved:
+                current.shutdown()
+            sal._audit_logger = saved
+
     def test_tampering_secure_log_is_detected(
         self, audit_sinks: tuple[Path, sal.SecureAuditLogger]
     ) -> None:

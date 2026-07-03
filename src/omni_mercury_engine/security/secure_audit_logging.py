@@ -446,9 +446,17 @@ class SecureAuditLogger:
         self._flush_thread.start()
 
     def _flush_loop(self) -> None:
-        """Background flush loop."""
-        while not self._stop_event.is_set():
-            time.sleep(self.flush_interval)
+        """Background flush loop.
+
+        Blocks on the stop event rather than an unconditional ``sleep`` so that
+        :meth:`shutdown` (and the audit-logger reconfigure path that calls it)
+        returns promptly instead of waiting up to ``flush_interval`` for an
+        in-progress sleep to elapse. ``Event.wait`` returns ``True`` the instant
+        the event is set, ending the loop; it returns ``False`` on timeout, which
+        preserves the original "wait one interval, then flush" cadence. The final
+        flush on shutdown is issued explicitly by :meth:`shutdown`.
+        """
+        while not self._stop_event.wait(self.flush_interval):
             self.flush()
 
     def log(
