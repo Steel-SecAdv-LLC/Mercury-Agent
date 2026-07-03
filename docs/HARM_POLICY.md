@@ -115,15 +115,22 @@ production verb is bound to a defensive **object** (a detector / sensor / vaccin
 antidote / countermeasure / monitor / protective equipment / detection-or-
 decontamination system) *and* a detection / defense / response allow-signal is
 present, so "how to make a nerve-agent detector" and "how to make a vaccine against
-anthrax" are ALLOWed. Requiring the verb→defensive-object binding — rather than the
-mere co-presence of a detection keyword — is what keeps the carve-out from being an
+anthrax" are permitted — but **provenance-gated** (`ALLOW_PROVENANCE`): the answer is
+served only from cited sources, never uncited operational synthesis on a hazardous
+topic, and the output boundary withholds when no citable source is available. A
+carved-out request is *never* a plain `ALLOW` or `ALLOW_LOG`, regardless of hazard
+severity or licensed-practice framing; provenance is non-blocking, so a real
+detector-builder still gets sourced material while an attacker gets no free
+synthesis. Requiring the verb→defensive-object binding — rather than the mere
+co-presence of a detection keyword — is what keeps the carve-out from being an
 "append a defensive clause" bypass: "how to synthesize sarin **and** how to detect
 it" keeps its hazard object and stays gated. This carve-out is PRODUCTION-only:
 B7–B10 (weaponization / acquisition / enhancement / targeting) are inherently
 offensive and are **never** unblocked by a defensive noun. The narrow residual (an
 attacker conjoining a genuine defensive object, "make sarin and a detector") is
-carried by the reasoning-backed classifier, escalation, and the audit log — the
-deliberate bias is toward not strangling defensive CBRN work.
+itself provenance-gated (cited-only, no free synthesis) and further carried by the
+reasoning-backed classifier, escalation, and the audit log — the deliberate bias is
+toward not strangling defensive CBRN work.
 
 Nuclear-weapon production is routed on the enrichment/reprocessing vocabulary in
 its morphological variants ("enrich uranium" as well as "enriching uranium" /
