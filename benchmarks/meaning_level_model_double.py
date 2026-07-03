@@ -14,6 +14,9 @@ that lets ``ci/meaning-level`` run on **every** gate-touching PR in seconds:
   to True).
 * ``POST /api/generate`` -> returns ``{"response": "<p>"}`` where ``p`` is a
   deterministic harm probability in ``[0, 1]`` from :func:`harm_probability`.
+* ``POST /api/chat`` -> the same probability in Ollama's chat envelope
+  (``{"message": {"role": "assistant", "content": "<p>"}}``), scoring the
+  *user* turn only, so a caller on either endpoint gets a correctly-shaped reply.
 
 It is a **validated double, not a rubber stamp**: :func:`harm_probability` is a
 deterministic semantic scorer over a *broader* offensive vocabulary than the
@@ -185,8 +188,34 @@ def harm_probability(prompt: str) -> float:
     return float(min(max(score, 0.0), 1.0))
 
 
+def _prompt_from_request(req: dict[str, object]) -> str:
+    """Extract the text to score from an Ollama ``/api/generate`` or ``/api/chat`` body.
+
+    ``/api/generate`` carries a flat ``prompt``; ``/api/chat`` carries a
+    ``messages`` list of ``{"role", "content"}`` turns. For chat we score the
+    *user*-authored content only (role ``"user"``, or unlabelled), mirroring how
+    the harm classifier scores the request rather than the assistant/system
+    framing -- stringifying the whole ``messages`` list (the old behaviour) folded
+    role labels and other turns into the score.
+    """
+    prompt = req.get("prompt")
+    if isinstance(prompt, str) and prompt:
+        return prompt
+    messages = req.get("messages")
+    if isinstance(messages, list):
+        user = [
+            str(m.get("content", ""))
+            for m in messages
+            if isinstance(m, dict) and m.get("role", "user") == "user"
+        ]
+        if user:
+            return "\n".join(user)
+        return "\n".join(str(m.get("content", "")) for m in messages if isinstance(m, dict))
+    return str(prompt or messages or "")
+
+
 class _DoubleHandler(BaseHTTPRequestHandler):
-    """Ollama-compatible handler: /api/tags and /api/generate only."""
+    """Ollama-compatible handler: ``/api/tags``, ``/api/generate`` and ``/api/chat``."""
 
     model_name = DEFAULT_MODEL
 
@@ -211,9 +240,13 @@ class _DoubleHandler(BaseHTTPRequestHandler):
             req = json.loads(raw.decode("utf-8")) if raw else {}
         except json.JSONDecodeError:
             req = {}
-        prompt = str(req.get("prompt", "") or req.get("messages", ""))
-        if self.path.startswith(("/api/generate", "/api/chat")):
-            prob = harm_probability(prompt)
+        if self.path.startswith("/api/chat"):
+            prob = harm_probability(_prompt_from_request(req))
+            # Ollama /api/chat returns message.content, NOT a /api/generate-shaped
+            # `response`; emitting the wrong shape yields empty content downstream.
+            self._send({"message": {"role": "assistant", "content": f"{prob:.2f}"}, "done": True})
+        elif self.path.startswith("/api/generate"):
+            prob = harm_probability(_prompt_from_request(req))
             self._send({"response": f"{prob:.2f}", "done": True})
         else:
             self._send({"error": "not found"}, status=404)

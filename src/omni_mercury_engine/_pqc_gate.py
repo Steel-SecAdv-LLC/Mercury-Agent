@@ -63,7 +63,9 @@ _AMA_REQUIRED_VERSION = "3.2.0"
 
 #: The numeric release the pin resolves to, matched PEP 440-tolerantly: a build
 #: reporting ``3.2.0``, ``v3.2.0``, ``3.2.0.post1``, ``3.2.0rc1`` or ``3.2.0+cpu``
-#: all satisfy it (same release); ``3.1.0`` / ``3.3.0`` / ``9.9.9`` do not.
+#: all satisfy it (same release); ``3.1.0`` / ``3.3.0`` / ``9.9.9`` do not, and
+#: neither does a *longer* release sharing the prefix (``3.2.0.1``) -- see
+#: :func:`_release_matches`, which compares the full tuple rather than truncating.
 _AMA_REQUIRED_RELEASE = (3, 2, 0)
 
 #: Operator-facing env var to *declare* the AMA version. When set it must match
@@ -154,16 +156,24 @@ def _release_tuple(value: str) -> tuple[int, ...]:
 def _release_matches(value: str) -> bool:
     """True when ``value``'s numeric release equals :data:`_AMA_REQUIRED_RELEASE`.
 
-    Shorter releases are zero-padded (``'3.2'`` -> ``(3, 2, 0)``) and longer ones
-    are truncated to the pinned width, so a patch/build suffix is accepted while a
-    different minor/major (``3.1.0`` / ``3.3.0``) is refused.
+    Both sides are zero-padded to their common length and compared in *full* --
+    the longer release is **never truncated**. Zero-padding accepts trailing-zero
+    equivalents of the pin (``'3.2'`` / ``'3.2.0'`` / ``'3.2.0.0'`` all match
+    ``(3, 2, 0)``), while comparing the full tuple means a *longer, different*
+    release that merely shares the pinned prefix (``'3.2.0.1'``) is **refused**,
+    not silently accepted. A different minor/major (``3.1.0`` / ``3.3.0``) is
+    refused as before. Truncating longer releases would weaken the Tier-0 pin by
+    treating a distinct release as the pinned one, so it is deliberately avoided.
+    A pre/post/dev/local *suffix* (``3.2.0.post1`` / ``3.2.0+cpu``) is not part of
+    the numeric release and is already dropped by :func:`_release_tuple`.
     """
     release = _release_tuple(value)
     if not release:
         return False
-    width = len(_AMA_REQUIRED_RELEASE)
-    padded = release + (0,) * (width - len(release)) if len(release) < width else release
-    return padded[:width] == _AMA_REQUIRED_RELEASE
+    width = max(len(release), len(_AMA_REQUIRED_RELEASE))
+    padded_release = release + (0,) * (width - len(release))
+    padded_required = _AMA_REQUIRED_RELEASE + (0,) * (width - len(_AMA_REQUIRED_RELEASE))
+    return padded_release == padded_required
 
 
 def _enforce_ama_version() -> None:
