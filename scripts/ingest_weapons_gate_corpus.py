@@ -163,7 +163,9 @@ def build_manifest(rows: list[dict[str, Any]]) -> dict[str, Any]:
 def write_manifest(rows: list[dict[str, Any]]) -> dict[str, Any]:
     """Write and return the manifest for ``rows``."""
     manifest = build_manifest(rows)
-    MANIFEST_PATH.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    MANIFEST_PATH.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     return manifest
 
 
@@ -223,9 +225,7 @@ def check() -> list[str]:
             f"{str(manifest.get('sha256'))[:12]}; corpus changed without re-manifest"
         )
     if manifest.get("n_cases") != expected["n_cases"]:
-        problems.append(
-            f"n_cases {expected['n_cases']} != manifest {manifest.get('n_cases')}"
-        )
+        problems.append(f"n_cases {expected['n_cases']} != manifest {manifest.get('n_cases')}")
     per_label = expected["per_label"]
     for cls in ("offensive", "benign"):
         if per_label.get(cls, 0) < _MIN_PER_CLASS:

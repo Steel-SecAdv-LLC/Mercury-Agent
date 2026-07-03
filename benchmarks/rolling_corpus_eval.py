@@ -77,7 +77,9 @@ MARGINS = {
 # Deterministic logistic (mirrors scripts/fit_weapons_gate_calibration.py so the
 # OOF metrics are computed on the exact model the config ships; kept in lockstep).
 # --------------------------------------------------------------------------- #
-def _fit_logistic(x: np.ndarray, y: np.ndarray, *, l2: float = 1.0, iters: int = 20000) -> np.ndarray:
+def _fit_logistic(
+    x: np.ndarray, y: np.ndarray, *, l2: float = 1.0, iters: int = 20000
+) -> np.ndarray:
     """Deterministic gradient-descent logistic fit. Returns ``[bias, w0, w1, w2]``."""
     n, d = x.shape
     xb = np.hstack([np.ones((n, 1)), x])
@@ -93,7 +95,8 @@ def _fit_logistic(x: np.ndarray, y: np.ndarray, *, l2: float = 1.0, iters: int =
 def _predict(x: np.ndarray, w: np.ndarray) -> np.ndarray:
     """Logistic prediction for feature matrix ``x`` under weights ``w``."""
     xb = np.hstack([np.ones((x.shape[0], 1)), x])
-    return 1.0 / (1.0 + np.exp(-np.clip(xb @ w, -60, 60)))
+    preds: np.ndarray = 1.0 / (1.0 + np.exp(-np.clip(xb @ w, -60, 60)))
+    return preds
 
 
 # --------------------------------------------------------------------------- #
@@ -280,7 +283,9 @@ def evaluate() -> dict[str, Any]:
     gate = gate_level_eval(rows)
     adversarial = adversarial_holdout(x, y)
 
-    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8")) if MANIFEST_PATH.is_file() else {}
+    manifest = (
+        json.loads(MANIFEST_PATH.read_text(encoding="utf-8")) if MANIFEST_PATH.is_file() else {}
+    )
     return {
         "corpus_version": manifest.get("corpus_version", f"{len(rows)}-unversioned"),
         "corpus_sha256": manifest.get("sha256", ""),
@@ -383,17 +388,23 @@ def main(argv: list[str] | None = None) -> int:
     """CLI entry point."""
     parser = argparse.ArgumentParser(description=__doc__)
     group = parser.add_mutually_exclusive_group()
-    group.add_argument("--update", action="store_true", help="recompute and pin the baseline + report")
+    group.add_argument(
+        "--update", action="store_true", help="recompute and pin the baseline + report"
+    )
     group.add_argument("--check", action="store_true", help="fail (exit 1) on OOF regression")
     args = parser.parse_args(argv)
 
     metrics = evaluate()
 
     if args.update:
-        BASELINE_PATH.write_text(json.dumps(metrics, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        BASELINE_PATH.write_text(
+            json.dumps(metrics, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
         REPORT_PATH.write_text(_render_report(metrics), encoding="utf-8")
-        print(f"pinned baseline {metrics['corpus_version']}: OOF ECE={metrics['oof_ece']:.4f} "
-              f"Brier={metrics['oof_brier']:.4f} AUROC={metrics['oof_auroc']:.4f}")
+        print(
+            f"pinned baseline {metrics['corpus_version']}: OOF ECE={metrics['oof_ece']:.4f} "
+            f"Brier={metrics['oof_brier']:.4f} AUROC={metrics['oof_auroc']:.4f}"
+        )
         return 0
 
     if args.check:
@@ -403,8 +414,10 @@ def main(argv: list[str] | None = None) -> int:
             for p in problems:
                 print(f"  - {p}", file=sys.stderr)
             return 1
-        print(f"OK: OOF calibration within margins (ECE={metrics['oof_ece']:.4f}, "
-              f"Brier={metrics['oof_brier']:.4f})")
+        print(
+            f"OK: OOF calibration within margins (ECE={metrics['oof_ece']:.4f}, "
+            f"Brier={metrics['oof_brier']:.4f})"
+        )
         return 0
 
     print(json.dumps(metrics, indent=2, sort_keys=True))

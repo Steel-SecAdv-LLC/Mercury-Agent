@@ -218,8 +218,10 @@ def capability_contract(
         if Invariant.CITE_OR_REFUSE in active:
             assert emitted is not None and provenance_required is not None
             assert cited is not None and refuse is not None
-            if emitted(result, instance) and provenance_required(result, instance) and not cited(
-                result, instance
+            if (
+                emitted(result, instance)
+                and provenance_required(result, instance)
+                and not cited(result, instance)
             ):
                 logger.warning(
                     "capability_contract[%s]: cite_or_refuse breach; refusing (fail-closed)",

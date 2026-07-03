@@ -295,9 +295,7 @@ class TestAnnotationRegression:
         [(m, inv) for m, inv in _EXPECTED.items()],
         ids=["research_report", "fetch_text", "summarize"],
     )
-    def test_core_capability_is_contracted(
-        self, method: Any, invariants: set[Invariant]
-    ) -> None:
+    def test_core_capability_is_contracted(self, method: Any, invariants: set[Invariant]) -> None:
         marker = getattr(method, CONTRACT_MARKER, None)
         assert marker is not None, f"{method.__qualname__} lost its @capability_contract"
         assert set(marker) == invariants

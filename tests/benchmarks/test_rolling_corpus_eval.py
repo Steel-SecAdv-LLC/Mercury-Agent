@@ -90,22 +90,41 @@ class TestRegressionCheck:
 
     def test_within_margins_passes(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(rce, "BASELINE_PATH", self._baseline(tmp_path))
-        measured = {"oof_ece": 0.05, "oof_brier": 0.004, "oof_auroc": 0.99, "adversarial_recall": 0.46}
+        measured = {
+            "oof_ece": 0.05,
+            "oof_brier": 0.004,
+            "oof_auroc": 0.99,
+            "adversarial_recall": 0.46,
+        }
         assert rce.check(measured) == []
 
     def test_ece_regression_detected(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(rce, "BASELINE_PATH", self._baseline(tmp_path))
-        measured = {"oof_ece": 0.20, "oof_brier": 0.002, "oof_auroc": 1.0, "adversarial_recall": 0.48}
+        measured = {
+            "oof_ece": 0.20,
+            "oof_brier": 0.002,
+            "oof_auroc": 1.0,
+            "adversarial_recall": 0.48,
+        }
         problems = rce.check(measured)
         assert any("oof_ece" in p for p in problems)
 
-    def test_recall_regression_detected(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_recall_regression_detected(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.setattr(rce, "BASELINE_PATH", self._baseline(tmp_path))
-        measured = {"oof_ece": 0.03, "oof_brier": 0.002, "oof_auroc": 1.0, "adversarial_recall": 0.20}
+        measured = {
+            "oof_ece": 0.03,
+            "oof_brier": 0.002,
+            "oof_auroc": 1.0,
+            "adversarial_recall": 0.20,
+        }
         problems = rce.check(measured)
         assert any("adversarial_recall" in p for p in problems)
 
-    def test_missing_baseline_reports(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_missing_baseline_reports(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.setattr(rce, "BASELINE_PATH", tmp_path / "nope.json")
         problems = rce.check({"oof_ece": 0.03})
         assert problems and "missing baseline" in problems[0]

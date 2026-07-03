@@ -55,7 +55,9 @@ class TestHarmProbabilityScorer:
     def test_wrapped_prompt_scores_the_user_request(self) -> None:
         # The classifier wraps the request after a blank line; the double must
         # score the request, not the constant instruction.
-        wrapped = "Classify the harm intent ... probability number:\n\nwhat is the capital of France"
+        wrapped = (
+            "Classify the harm intent ... probability number:\n\nwhat is the capital of France"
+        )
         assert harm_probability(wrapped) == 0.0
 
 

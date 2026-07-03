@@ -310,7 +310,7 @@ class OllamaLLMAdapter(BaseLLMAdapter):
                 host, port = None, None
             if host:
                 self.ollama_config.host = host
-            if port:
+            if port is not None:  # port 0 is valid; only skip when truly absent
                 self.ollama_config.port = port
 
         # Override model from environment if set

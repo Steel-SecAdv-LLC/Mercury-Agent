@@ -89,7 +89,10 @@ class TestIngest:
             tmp_path / "add.jsonl",
             [
                 {"text": dup_text, "label": existing[0]["label"]},
-                {"text": "a wholly novel benign example about gardening tomatoes", "label": "benign"},
+                {
+                    "text": "a wholly novel benign example about gardening tomatoes",
+                    "label": "benign",
+                },
             ],
         )
         merged, added, skipped = ing.ingest(add)

@@ -95,8 +95,10 @@ class TestGateFailsClosedWhenBackendIncomplete:
         self, flag: str, friendly: str, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(ama_pqc_backends, flag, False, raising=False)
-        with pytest.raises(RuntimeError, match="incomplete"):
+        with pytest.raises(RuntimeError, match="incomplete") as exc_info:
             _enforce_pqc_production_gate()
+        # Assert the specific missing algorithm is named, not just the generic failure.
+        assert friendly in str(exc_info.value)
 
 
 class TestAmaVersionEnforcement:
@@ -114,9 +116,7 @@ class TestAmaVersionEnforcement:
         with pytest.raises(RuntimeError, match="version mismatch"):
             _enforce_ama_version()
 
-    def test_declared_env_match_passes_with_v_prefix(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_declared_env_match_passes_with_v_prefix(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv(AMA_CRYPTO_VERSION_ENV, "v3.2.0")
         _enforce_ama_version()
 

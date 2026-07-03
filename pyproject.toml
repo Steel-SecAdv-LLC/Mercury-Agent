@@ -679,6 +679,8 @@ module = [
     "weapons_gate_corpus",
     "eval_weapons_gate_adversarial",
     "weapons_gate_adversarial",
+    "cal_core",
+    "meaning_level_model_double",
     # Optional in-tree modules the tools surface ``try/except``-imports.
     # The ML detector and federated aggregator surfaces ship behind
     # ``[ml]`` / ``[federated]`` extras and are *expected* to be absent

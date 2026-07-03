@@ -145,7 +145,7 @@ jobs:
       - name: Serve the validated meaning-level model double
         run: |
           nohup python benchmarks/meaning_level_model_double.py >/tmp/double.log 2>&1 &
-          for i in $(seq 1 20); do
+          for _ in $(seq 1 20); do
             if curl -sf http://127.0.0.1:11434/api/tags >/dev/null; then break; fi
             sleep 1
           done
