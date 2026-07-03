@@ -134,4 +134,4 @@ measured only in the default (no-model) posture and, in CI, with a real model.
   meaning-level FN budget is *unmeasured* and the CI records it loudly rather
   than passing silently.
 
-Owned in `docs/PR315_REMEDIATION_LOG.md` and `docs/HARM_POLICY.md` §8.
+Owned in `docs/HARM_POLICY.md` §8.
