@@ -233,6 +233,43 @@ class TestAnomalyMetrics:
         assert "cat_a" in results
         assert "cat_b" in results
 
+    def test_compute_all_val_split_masks_torch_and_list(self) -> None:
+        """``tune_on='val'`` must index masks that are not NumPy arrays.
+
+        Regression: the val-split pixel path indexed ``masks_true[test_idx]``
+        with a NumPy int array *before* converting to NumPy. torch tensors and
+        Python lists do not support NumPy advanced indexing with an int array
+        (a list raises ``TypeError``), so the path raised at runtime whenever a
+        caller passed per-sample masks as anything other than a NumPy array.
+        The conversion is now hoisted ahead of the split index.
+        """
+        import torch
+
+        from omni_mercury_engine.metrics import AnomalyMetrics
+
+        rng = np.random.default_rng(0)
+        n = 60
+        y_true = np.array([0, 1] * (n // 2))
+        y_score = rng.random(n)
+
+        # Annotated ``Any`` on purpose: the point of this test is to feed the
+        # ``compute_all`` mask params (typed ``ndarray | None``) the non-ndarray
+        # arraylikes a real caller might pass -- a torch tensor and a Python
+        # list -- and prove the val-split path converts before indexing.
+        masks_true_t: Any = torch.from_numpy((rng.random((n, 4, 4)) > 0.7).astype(np.float32))
+        masks_score_t: Any = torch.from_numpy(rng.random((n, 4, 4)).astype(np.float32))
+        r_torch = AnomalyMetrics.compute_all(
+            y_true, y_score, tune_on="val", masks_true=masks_true_t, masks_score=masks_score_t
+        )
+        assert "pixel_auroc" in r_torch and "pro" in r_torch
+
+        masks_true_l: Any = [(rng.random((4, 4)) > 0.7).astype(np.float32) for _ in range(n)]
+        masks_score_l: Any = [rng.random((4, 4)).astype(np.float32) for _ in range(n)]
+        r_list = AnomalyMetrics.compute_all(
+            y_true, y_score, tune_on="val", masks_true=masks_true_l, masks_score=masks_score_l
+        )
+        assert "pixel_auroc" in r_list and "pro" in r_list
+
 
 class TestBenchmarkEvaluator:
     """Tests for BenchmarkEvaluator class."""

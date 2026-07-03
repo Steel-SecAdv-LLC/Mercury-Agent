@@ -2,11 +2,23 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Hierarchical Planning Agent for Mercury Agent.
 
-Implements hierarchical reinforcement learning and planning inspired by:
+Conceptually inspired by (NOT a literal implementation of):
 - "Hierarchical Reinforcement Learning with Options" (Sutton et al., 1999)
 - "MAXQ Value Function Decomposition" (Dietterich, 2000)
 - "HAM: Hierarchies of Abstract Machines" (Parr & Russell, 1998)
 - "Feudal Reinforcement Learning" (Dayan & Hinton, 1993)
+
+.. note::
+    **Scope/honesty:** planning here is TEMPLATE-DRIVEN goal decomposition plus
+    greedy option selection, NOT a search algorithm. There is no MCTS, value
+    iteration, policy optimization, MAXQ value decomposition, HAM, or Feudal
+    control implemented as named -- the citations above are conceptual
+    inspiration only. ``PlannerType`` selects no distinct algorithm (it is
+    cosmetic; OPTIONS/MAXQ/FEUDAL/HAM all run the one template-driven
+    ``plan()``). The only learning is a per-state TD update in
+    ``HierarchicalValueFunction.update_value``. This is useful as an
+    orchestration/decomposition tier; it makes no claim of optimal planning or
+    of beating the trained fusion model (see docs/DORMANCY_LEDGER.md).
 
 Hierarchical planning decomposes complex tasks into:
 1. High-level goals (strategic layer)
@@ -61,12 +73,17 @@ class GoalStatus(Enum):
 
 
 class PlannerType(Enum):
-    """Types of hierarchical planners."""
+    """Types of hierarchical planners.
 
-    OPTIONS = "options"  # Options framework
-    MAXQ = "maxq"  # MAXQ decomposition
-    FEUDAL = "feudal"  # Feudal networks
-    HAM = "ham"  # Hierarchies of Abstract Machines
+    NOTE: cosmetic only -- all members currently route through the single
+    template-driven ``plan()``. MAXQ/FEUDAL/HAM are RESERVED labels, not
+    distinct algorithms (see the module docstring's scope note).
+    """
+
+    OPTIONS = "options"  # Options framework (the only path actually exercised)
+    MAXQ = "maxq"  # RESERVED -- not implemented as MAXQ value decomposition
+    FEUDAL = "feudal"  # RESERVED -- not implemented as Feudal control
+    HAM = "ham"  # RESERVED -- not implemented as Hierarchies of Abstract Machines
 
 
 class AbstractionLevel(Enum):

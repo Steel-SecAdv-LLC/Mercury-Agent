@@ -357,6 +357,17 @@ class MultiHeadAttentionFusion:
     The triadic phi-weighting applies golden ratio (phi = 1.618) scaling to
     attention scores, creating coherent frequency patterns that enhance the
     H(omega) component of the weighted fusion Equation.
+
+    .. warning::
+        **The torch attention here is RANDOM-INITIALISED AND NEVER TRAINED.**
+        There is no optimizer, no training loop, no loaded checkpoint, and it
+        runs only under ``torch.no_grad()``. Functionally it is a fixed random
+        linear projection followed by averaging -- it is *not* a learned
+        attention model. The numpy fallback (when torch is absent) is the honest
+        reference behaviour: a deterministic phi-weighted average. Treat the
+        torch path as a structured-averaging placeholder, not learned fusion,
+        until weights are actually trained/loaded. (Mirrors the untrained-network
+        disclosure pattern in docs/NEUROSYMBOLIC.md.)
     """
 
     def __init__(
@@ -380,6 +391,8 @@ class MultiHeadAttentionFusion:
         self.head_dim = d_model // num_heads
         self.enable_triadic_phi = enable_triadic_phi
         self.logger = logging.getLogger(__name__)
+        # One-time disclosure that the torch attention path is untrained.
+        self._warned_untrained_attention = False
 
         # Triadic phi-weighting for harmonic synergy
         self.triadic_weighting = TriadicPhiWeighting(num_heads) if enable_triadic_phi else None
@@ -421,6 +434,14 @@ class MultiHeadAttentionFusion:
         harmonic_synergy = 0.5
 
         if self.attention is not None and TORCH_AVAILABLE:
+            if not self._warned_untrained_attention:
+                self.logger.warning(
+                    "MultiHeadAttentionFusion: torch attention is random-initialised "
+                    "and never trained (no_grad, no checkpoint) -- functionally a fixed "
+                    "random projection + averaging, not learned attention. The numpy "
+                    "phi-weighted average is the honest reference behaviour."
+                )
+                self._warned_untrained_attention = True
             with torch.no_grad():
                 tensor_input = torch.tensor(stacked, dtype=torch.float32)
                 projected = self.projection(tensor_input)
@@ -593,6 +614,14 @@ class GlobalOmniScalarNetwork:
     # ``_is_metric_only_scalar`` so the σ_Immutable layout contract,
     # the hierarchical accountability bucket's semantics, and the
     # fusion pipeline's dimensional layout stay consistent.
+    #
+    # HONESTY NOTE: these ~82 diagnostic scalars carry STATIC default
+    # direction/weight literals and are NOT computed from any analyzed
+    # code or system -- there is no Halstead operand counter, DORA
+    # collector, or ISO-25010 scorer in this build.  They are registered
+    # for naming/reporting only.  Treat their values as placeholders, not
+    # measurements, until a real collector is wired in (which must keep
+    # them filtered from the [0, 180) operational σ band per above).
     #
     # Adding a new measurement family means updating these two
     # allowlists once; no other call site needs to change.

@@ -66,8 +66,12 @@ def _trajectory(n: int = 40) -> np.ndarray[Any, Any]:
     return np.column_stack([lat, lon, t]).astype(np.float32)
 
 
-def _engine() -> OmniMercuryEngine:
-    return OmniMercuryEngine(mode="fusion", auto_load_checkpoint=False)
+def _engine(*, require_explicit_fit: bool = True) -> OmniMercuryEngine:
+    return OmniMercuryEngine(
+        mode="fusion",
+        auto_load_checkpoint=False,
+        require_explicit_fit=require_explicit_fit,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -210,6 +214,15 @@ def test_failloud_detector_skipped_on_inference_path() -> None:
     """
     eng = _engine()
     eng.enable_detector("geo_movement")
+    # Fit each detector on data IT accepts so none is unfit (the fail-loud guard
+    # passes): the base detectors on a generic (n, 7) batch, geo_movement on a
+    # valid [n, 3] (lat, lon, epoch) trajectory. The non-trajectory inference
+    # batch below is then incompatible with the *fitted* geo_movement, so its
+    # extract raises and it is skipped -- the train/inference-symmetry behaviour
+    # this test locks, expressed under the require_explicit_fit contract.
+    warm = np.random.RandomState(2).randn(40, 7).astype(np.float32)
+    for name, det in eng.detectors.items():
+        det.fit(_trajectory(40) if name == "geo_movement" else warm)
     non_trajectory = np.random.RandomState(0).randn(20, 7).astype(np.float32)
     det_features, _scores, _certs = eng._extract_detector_features(non_trajectory)
     assert "geo_movement" not in det_features
@@ -220,6 +233,13 @@ def test_detect_with_fusion_does_not_crash_with_failloud_detector() -> None:
     """End-to-end public path: an incompatible enabled detector cannot crash it."""
     eng = _engine()
     eng.enable_detector("geo_movement")
+    # Fit base detectors on a generic (n, 5) batch and geo_movement on a valid
+    # trajectory, so the non-trajectory inference batch makes the fitted
+    # geo_movement raise at extract -> skipped -> the public path still returns a
+    # verdict rather than crashing.
+    warm = np.random.RandomState(3).randn(40, 5).astype(np.float32)
+    for name, det in eng.detectors.items():
+        det.fit(_trajectory(40) if name == "geo_movement" else warm)
     result = eng.detect_with_fusion(np.random.RandomState(1).randn(16, 5).astype(np.float32))
     assert isinstance(result, dict)
     assert "is_anomaly" in result

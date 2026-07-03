@@ -136,6 +136,14 @@ def compute_f1_max(
 ) -> tuple[float, float]:
     """Compute maximum F1 score across thresholds.
 
+    .. warning::
+        **In-sample / diagnostic.** The threshold is tuned on the same
+        ``(y_true, y_score)`` it is scored against, so ``max_f1`` is an
+        optimistic upper bound, not an honest operating point.  For leakage-free
+        reporting tune on validation and report on test via
+        :func:`omni_mercury_engine.evaluation.metrics.fit_threshold` /
+        :meth:`AnomalyMetrics.compute_all` with ``tune_on="val"``.
+
     Args:
         y_true: Binary labels [N]
         y_score: Anomaly scores [N]
@@ -177,6 +185,12 @@ def compute_optimal_threshold(
     metric: str = "f1",
 ) -> float:
     """Compute optimal threshold for given metric.
+
+    .. warning::
+        **In-sample.** The threshold is chosen on the supplied data; to avoid
+        leakage when the same data is then scored, select on a validation split
+        and apply to a disjoint test split (see
+        :func:`omni_mercury_engine.evaluation.metrics.fit_threshold`).
 
     Args:
         y_true: Binary labels
@@ -371,6 +385,11 @@ class AnomalyMetrics:
         y_pred: np.ndarray[Any, Any] | None = None,
         masks_true: np.ndarray[Any, Any] | None = None,
         masks_score: np.ndarray[Any, Any] | None = None,
+        *,
+        tune_on: str = "in_sample",
+        val_frac: float = 0.2,
+        test_frac: float = 0.4,
+        random_state: int = 0,
     ) -> dict[str, float]:
         """Compute all standard metrics.
 
@@ -380,11 +399,40 @@ class AnomalyMetrics:
             y_pred: Binary predictions (optional)
             masks_true: Ground truth masks for localization [N, H, W]
             masks_score: Predicted anomaly maps [N, H, W]
+            tune_on: ``"in_sample"`` (default, legacy) tunes and reports the
+                threshold on the same data -- ``f1_max``/``optimal_threshold``
+                are an optimistic upper bound.  ``"val"`` tunes the threshold on
+                a held-out validation split and reports the threshold-dependent
+                metrics (``f1_max``, accuracy/precision/recall) on a disjoint
+                test split, with AUROC/AUPRC also computed on test.  Falls back
+                to in-sample (with a warning) when the data is too small or
+                single-class to split.
+            val_frac: Validation fraction for ``tune_on="val"``.
+            test_frac: Test fraction for ``tune_on="val"``.
+            random_state: Split seed for ``tune_on="val"``.
 
         Returns:
             Dict of metric names to values
+
+        Raises:
+            ValueError: If ``tune_on`` is not ``"in_sample"`` or ``"val"``.
         """
-        results = {}
+        if tune_on not in ("in_sample", "val"):
+            raise ValueError(f"tune_on must be 'in_sample' or 'val', got {tune_on!r}")
+
+        results: dict[str, float] = {}
+
+        if tune_on == "val":
+            return AnomalyMetrics._compute_all_split(
+                y_true,
+                y_score,
+                y_pred=y_pred,
+                masks_true=masks_true,
+                masks_score=masks_score,
+                val_frac=val_frac,
+                test_frac=test_frac,
+                random_state=random_state,
+            )
 
         # Image-level metrics
         results["auroc"] = compute_auroc(y_true, y_score)
@@ -415,10 +463,104 @@ class AnomalyMetrics:
         return results
 
     @staticmethod
+    def _compute_all_split(
+        y_true: np.ndarray[Any, Any],
+        y_score: np.ndarray[Any, Any],
+        y_pred: np.ndarray[Any, Any] | None = None,
+        masks_true: np.ndarray[Any, Any] | None = None,
+        masks_score: np.ndarray[Any, Any] | None = None,
+        *,
+        val_frac: float = 0.2,
+        test_frac: float = 0.4,
+        random_state: int = 0,
+    ) -> dict[str, float]:
+        """Leakage-free ``compute_all``: tune threshold on val, report on test.
+
+        Threshold-dependent metrics (``f1``/``f1_max``, accuracy/precision/recall)
+        are evaluated on a disjoint test split using a threshold tuned on
+        validation. Pixel-level (mask-based) metrics are computed on the SAME
+        test split when the mask arrays are per-sample aligned (leading dim equals
+        the sample count); if they are not aligned to the samples, they fall back
+        to the full mask input.
+        """
+        from omni_mercury_engine.evaluation.metrics import fit_threshold, split_three_way
+
+        yt_all = _to_numpy(y_true).flatten().astype(int)
+        ys_all = _to_numpy(y_score).flatten()
+        n = len(yt_all)
+
+        _, val_idx, test_idx = split_three_way(
+            n, yt_all, val_frac=val_frac, test_frac=test_frac, random_state=random_state
+        )
+        feasible = (
+            len(val_idx) > 0
+            and len(test_idx) > 0
+            and len(np.unique(yt_all[val_idx])) >= 2
+            and len(np.unique(yt_all[test_idx])) >= 2
+        )
+        if not feasible:
+            logger.warning(
+                "compute_all(tune_on='val'): split infeasible for N=%d; falling "
+                "back to in-sample metrics (optimistic upper bound).",
+                n,
+            )
+            return AnomalyMetrics.compute_all(
+                y_true, y_score, y_pred=y_pred, masks_true=masks_true, masks_score=masks_score
+            )
+
+        threshold = fit_threshold(yt_all[val_idx], ys_all[val_idx])
+        yt, ys = yt_all[test_idx], ys_all[test_idx]
+        y_pred_test = (ys >= threshold).astype(int)
+
+        results: dict[str, float] = {}
+        results["auroc"] = compute_auroc(yt, ys)
+        results["auprc"] = compute_auprc(yt, ys)
+
+        tp = ((y_pred_test == 1) & (yt == 1)).sum()
+        fp = ((y_pred_test == 1) & (yt == 0)).sum()
+        fn = ((y_pred_test == 0) & (yt == 1)).sum()
+        precision = float(tp / max(tp + fp, 1))
+        recall = float(tp / max(tp + fn, 1))
+        op_f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
+        # This is the operating-point F1 at the val-tuned threshold on the test
+        # split -- NOT an oracle max-over-thresholds (computing that on test
+        # would re-introduce the threshold leakage this split exists to remove).
+        # Exposed as "f1" (honest name); "f1_max" is kept as a backward-compatible
+        # alias for consumers of the in-sample API, with the same value.
+        results["f1"] = op_f1
+        results["f1_max"] = op_f1
+        results["optimal_threshold"] = float(threshold)
+        results["accuracy"] = float((y_pred_test == yt).mean())
+        results["precision"] = precision
+        results["recall"] = recall
+
+        if masks_true is not None and masks_score is not None:
+            # Keep pixel-level metrics on the SAME disjoint test split as the
+            # sample-level metrics; scoring them on the full (train+val+test)
+            # masks would leak optimistic pixels and break the honest-split
+            # contract. Convert to NumPy BEFORE applying the split index: the
+            # mask args may be torch tensors, lists, or other arraylikes that
+            # do not support NumPy advanced indexing with ``test_idx`` (a NumPy
+            # int array). ``compute_pixel_auroc``/``compute_pro`` flatten via
+            # ``_to_numpy`` anyway, so this only hoists the conversion. Index
+            # only when the mask arrays are per-sample aligned (leading
+            # dim == sample count).
+            mt_np = _to_numpy(masks_true)
+            ms_np = _to_numpy(masks_score)
+            mt = mt_np[test_idx] if len(mt_np) == n else mt_np
+            ms = ms_np[test_idx] if len(ms_np) == n else ms_np
+            results["pixel_auroc"] = compute_pixel_auroc(mt, ms)
+            results["pro"] = compute_pro(mt, ms)
+
+        return results
+
+    @staticmethod
     def compute_per_category(
         y_true: np.ndarray[Any, Any],
         y_score: np.ndarray[Any, Any],
         categories: list[str],
+        *,
+        tune_on: str = "in_sample",
     ) -> dict[str, dict[str, Any]]:
         """Compute metrics per category.
 
@@ -426,6 +568,8 @@ class AnomalyMetrics:
             y_true: Ground truth labels [N]
             y_score: Anomaly scores [N]
             categories: Category for each sample [N]
+            tune_on: Threshold-selection policy forwarded to
+                :meth:`compute_all` per category (``"in_sample"`` or ``"val"``).
 
         Returns:
             Dict mapping category to metric dict
@@ -449,6 +593,6 @@ class AnomalyMetrics:
                 results[cat] = {"auroc": 0.5, "note": "single_class"}
                 continue
 
-            results[cat] = AnomalyMetrics.compute_all(cat_true, cat_score)
+            results[cat] = AnomalyMetrics.compute_all(cat_true, cat_score, tune_on=tune_on)
 
         return results

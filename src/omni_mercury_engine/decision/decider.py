@@ -35,6 +35,7 @@ order:
 
 from __future__ import annotations
 
+import math
 from typing import TYPE_CHECKING, Any
 
 from omni_mercury_engine.decision.evidence import Evidence
@@ -77,10 +78,24 @@ class DecisionAbstentionResponder:
         self,
         policy: DecisionPolicy | None = None,
         response_policy: ResponsePolicy | None = None,
+        confidence_calibrator: Any | None = None,
     ) -> None:
-        """Initialize the responder."""
+        """Initialize the responder.
+
+        Args:
+            policy: The abstention thresholds.
+            response_policy: The disposition -> response mapping.
+            confidence_calibrator: Optional fitted
+                :class:`~omni_mercury_engine.core.confidence.CalibratedConfidence`
+                (or any object with ``is_calibrated`` and ``transform_one``).
+                When attached *and* calibrated, the uncalibrated threshold-band
+                fallback reports a real calibrated probability instead of the
+                ``0.5 + |margin|`` heuristic. The responder stays a pure function
+                of (evidence, policy, calibrator): same inputs -> same record.
+        """
         self.policy = policy or DecisionPolicy()
         self.response_policy = response_policy or ResponsePolicy()
+        self.confidence_calibrator = confidence_calibrator
 
     # -- public API ---------------------------------------------------------
 
@@ -253,12 +268,52 @@ class DecisionAbstentionResponder:
         v.state = ThreeState.GROUNDED
         v.label = label
         v.disposition = Disposition.ACT if label == 1 else Disposition.CLEAR
-        # Margin confidence in [0.5, 1.0]: how far past the threshold we are.
-        v.confidence = min(1.0, 0.5 + abs(distance))
-        v.reasons.append(
-            f"probability {ev.anomaly_prob:.3f} is {abs(distance):.3f} past "
-            f"threshold {ev.threshold:.3f} (uncalibrated: no coverage guarantee)"
-        )
+        cal = self.confidence_calibrator
+        calibrated_ok = False
+        if cal is not None and getattr(cal, "is_calibrated", False):
+            # A fitted score->probability calibrator gives a real calibrated
+            # confidence even without a conformal coverage certificate.
+            # transform_one() reports P(anomaly); confidence is in the chosen
+            # *verdict* (symmetric like the margin-heuristic fallback below
+            # and the conformal-coverage path above), so a CLEAR call's
+            # confidence is P(not anomaly) = 1 - P(anomaly), not P(anomaly)
+            # itself -- otherwise a confidently-correct CLEAR (e.g.
+            # P(anomaly)=0.03) would be misreported as near-zero confidence.
+            # The calibrator is typed ``Any`` and the contract only requires a
+            # ``transform_one`` method, so a custom/misbehaving one could raise,
+            # or return a non-numeric / out-of-range / non-finite value. Any
+            # such misbehaviour must NOT crash the decider and must NOT yield a
+            # degenerate confidence: on failure we fall through to the margin
+            # heuristic and record the fallback, rather than fabricating a
+            # calibrated number.
+            try:
+                p_raw = float(cal.transform_one(ev.anomaly_prob))
+            except Exception:  # any misbehaving calibrator -> margin fallback
+                p_raw = float("nan")
+            if math.isfinite(p_raw):
+                p_anomaly = min(1.0, max(0.0, p_raw))
+                v.confidence = p_anomaly if label == 1 else 1.0 - p_anomaly
+                v.reasons.append(
+                    f"probability {ev.anomaly_prob:.3f} past threshold "
+                    f"{ev.threshold:.3f}; confidence {v.confidence:.3f} from the fitted "
+                    "score calibrator (calibrated, but no distribution-free coverage "
+                    "certificate)"
+                )
+                calibrated_ok = True
+            else:
+                v.reasons.append(
+                    "confidence calibrator misbehaved (raised or returned a "
+                    "non-finite value); falling back to the uncalibrated margin heuristic"
+                )
+        if not calibrated_ok:
+            # Margin confidence in [0.5, 1.0]: how far past the threshold we are.
+            # Reached when no calibrator is fitted, or a fitted one misbehaved.
+            v.confidence = min(1.0, 0.5 + abs(distance))
+            v.reasons.append(
+                f"probability {ev.anomaly_prob:.3f} is {abs(distance):.3f} past "
+                f"threshold {ev.threshold:.3f} (uncalibrated margin heuristic: no "
+                "calibrator fitted and no coverage guarantee)"
+            )
 
     def _apply_demotions(self, ev: Evidence, v: _Verdict) -> None:
         """Weaken a grounded verdict to a deferral on disagreement / drift."""

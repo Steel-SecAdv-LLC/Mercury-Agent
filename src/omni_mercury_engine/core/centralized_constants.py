@@ -135,7 +135,18 @@ class EthicalConstants:
     # change to the ethical ruleset cannot be served from a stale cache.
     # Format: monotonically increasing integer; bump on any semantic change
     # to scoring weights, principle definitions, or threshold floors.
-    RULESET_VERSION: int = 1
+    # v2: benevolence scorer gains morphological (char-trigram) harm matching + a
+    # severity x irreversibility damping (fail-closed), so cached v1 verdicts must
+    # invalidate.
+    # v3: benevolence scorer gains a curated euphemism/paraphrase harm lexicon
+    # (meaning-level: "put him down") + an optional pluggable harm classifier, both
+    # fail-closed (can only RAISE harm); cached v2 verdicts must invalidate.
+    # v4: benevolence scorer gains the two-axis (hazard-domain x operational-
+    # intent) weapons/mass-casualty uplift gate (assess_weapons_uplift in
+    # cognitive/ethical_bounding.py, see docs/HARM_POLICY.md) -- a blocking
+    # disposition now raises PHYSICAL/SOCIETAL harm and hard-vetoes
+    # is_permissible; cached v3 verdicts must invalidate.
+    RULESET_VERSION: int = 4
 
 
 ETHICAL = EthicalConstants()

@@ -69,6 +69,12 @@ class CognitiveAnalysisResult:
     aleatoric_uncertainty: float = 0.0
     confidence: float = 0.0
     is_reliable: bool = True
+    # Honesty flags: whether epistemic/aleatoric were measured (vs a placeholder
+    # when no ensemble/model was supplied) and whether confidence came from a
+    # fitted calibrator (vs an uncalibrated monotone prior).
+    epistemic_measured: bool = True
+    aleatoric_measured: bool = True
+    confidence_calibrated: bool = False
 
     # Knowledge updates
     knowledge_updates: list[str] = field(default_factory=list)
@@ -354,6 +360,11 @@ class CognitiveOrchestrator(LoggerMixin):
             result.aleatoric_uncertainty = uncertainty_est.aleatoric
             result.confidence = uncertainty_est.confidence
             result.is_reliable = uncertainty_est.is_reliable
+            # Carry the honesty flags downstream so narrative/explanation layers
+            # do not present a placeholder/uncalibrated number as a measurement.
+            result.epistemic_measured = uncertainty_est.epistemic_measured
+            result.aleatoric_measured = uncertainty_est.aleatoric_measured
+            result.confidence_calibrated = uncertainty_est.confidence_calibrated
 
         # === STEP 2: KNOWLEDGE GRAPH UPDATE ===
         if anomaly_detected:

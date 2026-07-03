@@ -47,7 +47,10 @@ from .metrics import (
     compute_precision_at_k,
     compute_range_based_f1,
     evaluate_anomaly_detection,
+    evaluate_anomaly_detection_split,
+    fit_threshold,
     print_metrics_report,
+    split_three_way,
 )
 
 __all__ = [
@@ -68,10 +71,13 @@ __all__ = [
     "compute_precision_at_k",
     "compute_range_based_f1",
     "evaluate_anomaly_detection",
+    "evaluate_anomaly_detection_split",
+    "fit_threshold",
     "get_baseline_citations",
     "get_sota_for_dataset",
     "list_available_datasets",
     "print_baseline_table",
     "print_metrics_report",
     "run_diagnostic_benchmark",
+    "split_three_way",
 ]

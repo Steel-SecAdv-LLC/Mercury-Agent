@@ -4,7 +4,7 @@ Applies to Mercury Agent **v2.0.x**. Last updated: 2026-06-10.
 
 ## Overview
 
-The Mercury Agent is a neuro-symbolic AI framework that integrates 30 diverse scientific and computational paradigms — a deep-learning core (170 `torch.nn.Module` subclasses across visual, behavioural, physics-based, fusion and differentiable-logic theorem-proving subsystems, imported across 131 source files; both counts CI-gated in the README [Codebase Scale block](README.md)) coupled with an explicit symbolic layer (knowledge graphs, rule bases, formal verification, AST-based code analysis, case-based reasoning) — into a unified hybrid-fusion architecture. Multi-domain anomaly detection is one of the capabilities this AI exposes, not the limit of what it is. This document describes the system architecture, data flow, and key design decisions.
+The Mercury Agent is a neuro-symbolic AI framework that integrates 30 diverse scientific and computational paradigms — a deep-learning core (170 `torch.nn.Module` subclasses across visual, behavioural, physics-based, fusion and differentiable-logic theorem-proving subsystems, imported across 130 source files; both counts CI-gated in the README [Codebase Scale block](README.md)) coupled with an explicit symbolic layer (knowledge graphs, rule bases, formal verification, AST-based code analysis, case-based reasoning) — into a unified hybrid-fusion architecture. Multi-domain anomaly detection is one of the capabilities this AI exposes, not the limit of what it is. This document describes the system architecture, data flow, and key design decisions.
 
 ## System Architecture Diagram
 

@@ -47,12 +47,72 @@ try:
 except ImportError:
     _AMA_KEY_MGMT_AVAILABLE = False
 
-from fastapi import HTTPException, Request, status
-from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
+# ``pydantic`` is a core dependency (always installed); ``AuthConfig`` stays a
+# real model regardless of the optional ``[api]`` extra.
 from pydantic import BaseModel
 
+# FastAPI is the optional ``[api]`` extra.  The framework-independent surface of
+# this module — native JWT mint/verify (``JWTAuth.create_token`` +
+# ``omni_mercury_engine.security.native_jwt``), the ``User`` / ``APIKey`` /
+# ``Permission`` models, ``APIKeyStore`` and ``AuthKeyManager`` — must import and
+# run with **no** web framework present.  Concretely, the in-process
+# ``Eos_XVIII`` onboarding coordinator mints and validates a session token with
+# no server.  The HTTP dependency-injection surface (``APIKeyAuth`` / ``JWTAuth``
+# as FastAPI ``Depends`` objects, the ``require_*`` decorators, and the
+# rate-limit middleware) genuinely needs FastAPI; when the extra is absent those
+# names resolve to fail-closed placeholders that raise an actionable error only
+# if they are actually constructed/called (never merely imported).
+#
+# The ``TYPE_CHECKING`` branch always imports the real FastAPI symbols so static
+# analysis types every annotation correctly; the runtime ``else`` branch (which
+# mypy skips) provides the placeholders, so no ``# type: ignore`` is needed.
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    from fastapi import HTTPException, Request, status
+    from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
+else:
+    try:
+        from fastapi import HTTPException, Request, status
+        from fastapi.security import (
+            APIKeyHeader,
+            HTTPAuthorizationCredentials,
+            HTTPBearer,
+        )
+    except ImportError:
+        _FASTAPI_HINT = (
+            "FastAPI is required for Mercury's HTTP auth surface; install the "
+            "API extra:  pip install 'mercury-agent[api]'"
+        )
+
+        # Annotation-only names (this module uses ``from __future__ import
+        # annotations``, so these are never evaluated at runtime).
+        Request = Any
+        HTTPAuthorizationCredentials = Any
+
+        class _RequiresFastAPI:
+            """Fail-closed stand-in for a FastAPI symbol used as a runtime value.
+
+            Importing this module without FastAPI keeps the framework-independent
+            auth primitives usable; constructing a FastAPI-only object (a
+            ``Depends`` dependency, an ``HTTPException``) without FastAPI
+            installed raises a clear, actionable error instead of an opaque
+            ``NameError`` deep inside a request handler.
+            """
+
+            def __init__(self, *args: Any, **kwargs: Any) -> None:
+                raise RuntimeError(_FASTAPI_HINT)
+
+        class _FastAPIStatusUnavailable:
+            """Stand-in for ``fastapi.status`` — attribute access fails closed."""
+
+            def __getattr__(self, _name: str) -> Any:
+                raise RuntimeError(_FASTAPI_HINT)
+
+        HTTPException = _RequiresFastAPI
+        APIKeyHeader = _RequiresFastAPI
+        HTTPBearer = _RequiresFastAPI
+        status = _FastAPIStatusUnavailable()
 
 logger = logging.getLogger(__name__)
 

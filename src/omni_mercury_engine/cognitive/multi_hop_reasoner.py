@@ -439,10 +439,17 @@ class MultiHopReasoner:
         candidate_hypotheses: list[Proposition],
         prior_probabilities: dict[str, float] | None = None,
     ) -> ReasoningChain | None:
-        """Perform abductive reasoning (inference to best explanation).
+        """Rank candidate hypotheses by lexical-overlap explanatory score.
 
-        Uses Bayesian-like reasoning to select the hypothesis that
-        best explains the observation.
+        .. note::
+            **Scope/honesty:** this is a LEXICAL HEURISTIC, not probabilistic or
+            causal inference. The "likelihood" P(O|H) is approximated by Jaccard
+            token overlap between the observation and hypothesis text
+            (``0.3 + 0.7*overlap``; see :meth:`_compute_likelihood`), multiplied
+            by the prior. A hypothesis "wins" by sharing surface words with the
+            observation -- there is no causal model or genuine Bayesian update.
+            Useful as a symbolic ranking toy; do not read the score as a
+            calibrated posterior probability.
 
         Args:
             observation: The observation to explain
@@ -450,7 +457,7 @@ class MultiHopReasoner:
             prior_probabilities: Prior probability for each hypothesis
 
         Returns:
-            ReasoningChain with best explanation
+            ReasoningChain with the highest-overlap explanation
         """
         start_time = time.time()
         self._stats["abductive_inferences"] += 1
@@ -622,8 +629,13 @@ class MultiHopReasoner:
         observation: Proposition,
         hypothesis: Proposition,
     ) -> float:
-        """Compute P(observation | hypothesis)."""
-        # Simplified: based on content overlap and confidence
+        """Lexical surrogate for P(observation | hypothesis) -- NOT a real likelihood.
+
+        Returns ``0.3 + 0.7 * jaccard(obs_words, hyp_words)``: a Jaccard
+        word-overlap score on the proposition text, floored at 0.3. This ranks
+        hypotheses by surface-token similarity only; it is not a probabilistic or
+        causal likelihood (see :meth:`abduce`'s scope note).
+        """
         obs_words = set(observation.content.lower().split())
         hyp_words = set(hypothesis.content.lower().split())
 

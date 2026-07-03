@@ -27,6 +27,374 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Merge-readiness hardening (PR #315 review round)
+
+A focused pass that reproduced the full CI pipeline locally, closed every red
+lane, and fixed the defects surfaced by an adversarial multi-lens review (each
+finding independently verified against the running code, then fixed with a
+regression test). No suppression: every issue is resolved or documented.
+
+**CI reds closed**
+
+- `cognitive/harm_normalization.py`: `normalized_haystack` docstring made a raw
+  string (pydocstyle D301); `translit_variants` annotated `tuple[str, ...]` so
+  mypy no longer infers `tuple[()]`.
+- README codebase-scale block regenerated (measured 658 source / 467 test
+  modules).
+- Strict test-lane typing for the new ethical suites: full annotations in
+  `tests/ethical/test_gate_governance.py`; `eval_weapons_gate` /
+  `weapons_gate_corpus` declared as sibling-script mypy boundaries; `hypothesis`
+  added to the Type-Checking install so the strict lane resolves
+  `@given`/`@settings` (previously flagged `[untyped-decorator]`).
+
+**Harm-gate correctness (verified, FP-safe)**
+
+- **Defensive-production carve-out seam closed.** A carved-out request
+  (make-a-detector/vaccine/antidote defusing a B6 PRODUCTION match) previously
+  resolved to a plain `ALLOW` (low-severity domain) or `ALLOW_LOG` (licensed
+  framing) — free, uncited synthesis on a hazardous topic. The carve-out now
+  floors to `ALLOW_PROVENANCE` whenever it fires (cited-sources-only, withheld
+  when no source is available; enforced at the `GeneralAssistant` output
+  boundary), regardless of hazard severity or licensed framing. `ALLOW_PROVENANCE`
+  is non-blocking, so professionals are not re-strangled and the measured
+  operating point is unchanged (**FP 0.000% / FN 0.000%** on val/test/train);
+  B7–B10 are never carved out. Regression tests added in
+  `tests/ethical/test_gate_governance.py` (including the load-bearing
+  `ALLOW_LOG → ALLOW_PROVENANCE` licensed-practice case).
+- **Nuclear enrichment false-negative closed.** `how to enrich uranium to
+  weapons-grade` answered ALLOW (harm 0.0) — the Axis-A NUCLEAR lexicon carried
+  `enriching uranium`/`uranium enrichment` but not the bare-verb variant
+  `enrich uranium`, so the query routed no hazard domain. Added the
+  morphological variants and a **weapons-directed** enrichment/reprocessing
+  intent pattern (`enrich|reprocess … to/for/into … weapons-grade/warhead/a
+  nuclear weapon`). Civilian/policy/mechanistic enrichment stays on the ALLOW
+  ladder; corpus still 0% FP / 0% FN.
+- **Defensive-production carve-out bypass closed.** Dropping the B6 PRODUCTION
+  match on the mere co-presence of a detection keyword let `synthesize sarin AND
+  how to detect it` downgrade to ALLOW_PROVENANCE. The carve-out now requires a
+  production verb bound to a defensive **object** (`_DEFENSIVE_PRODUCTION_RE`:
+  make/build/… a detector/sensor/vaccine/antidote/countermeasure/…), so a hazard
+  object stays gated while `make a nerve agent detector` is still protected.
+- **Euphemism false-positive removed.** `the target`/`the targets` are
+  polysemous (target server/process/host/audience) and tripped the euphemism
+  layer on routine security/ops language, violating its documented
+  person-specific invariant; removed.
+- **`write_document` fail-open closed.** The benevolence/weapons gate screened
+  only `Section.body`; a harmful `heading` or `bullet` bypassed it while still
+  rendering (reachable via the MCP surface, which coerces client dicts to
+  `Section` objects). Now screens all rendered fields.
+
+**Capability-surface & operational readiness**
+
+- **Web research made functional + SSRF-correct.** The open-web page transport
+  omitted `user_configured=True`, so `SafeHTTPClient` applied the dataset
+  `TRUSTED_DOMAINS` allowlist to every fetch (wikipedia/arxiv/… all refused) and
+  an https URL skipped the IP re-check. Now bypasses the dataset allowlist while
+  running the private-network / IMDS gate (loopback/IMDS still refused).
+- **Markdown link/image injection neutralized.** `DocumentGenerator._md_safe`
+  now backslash-escapes `[`/`]` in addition to `&`/`<`/`>`, so extracted
+  `[text](javascript:…)` renders as literal text (any scheme, renderer-agnostic).
+- **Durable gate audit persists on installed deployments.** `gate_audit`'s
+  default sink resolved under `site-packages` on a wheel install (read-only →
+  silently swallowed). Now: env override → repo `artifacts/` only for a writable
+  source checkout → per-user `XDG_STATE_HOME`/`~/.local/state` fallback.
+- `distributed/cluster.py`: `n_results` reports the count of partitions actually
+  merged (not `len(self._results)`, which included failed/empty ones).
+- `cognitive/harm_classifier.py`: the reasoning→probability adapter is built
+  once per backend, not per `classify()` call on the hot gate path.
+
+**Evaluation & calibration honesty**
+
+- `evaluation/metrics.py`: `evaluate_anomaly_detection_split` now guards the
+  **test** split's class composition (not just val), falling back to in-sample
+  with a warning on a single-class test split instead of emitting AUC=0.5 as an
+  "honest" number; the `best_f1` docstring is corrected — it is the validation
+  in-sample maximum (optimistic upper bound), and the leakage-free operating
+  point is the `f1` field.
+- `core/confidence.py`: `fit` validates a scores/labels length mismatch up front
+  with a clear `ValueError` instead of raising an opaque broadcasting error from
+  the "graceful" identity path.
+
+**Reviewed, not a live defect (documented):** the 2 MB body read is a
+decompression-bomb concern only on older urllib3; urllib3 2.7.0 (pinned) bounds
+the decoded read to the requested size (~4.7 MB peak on a 500 MB logical bomb).
+`FeatureCache` torch-tensor identity keying (data_ptr + view metadata) is a
+deliberate, documented tradeoff — content-hashing a device tensor would force a
+per-lookup sync — and stale pointers age out of the bounded LRU.
+
+**Deployment-image CVE response — gzip + glib eliminated, not accepted
+(2026-07-02).** The vulnerability DB published four new unfixed CRITICAL/HIGH
+findings against the runtime image, turning the blocking Trivy gates red:
+`gzip` CVE-2026-41992 (High) and `libglib2.0-0t64` CVE-2026-58016 (Critical) /
+CVE-2026-58014 / CVE-2026-58015 (High), none with a Debian trixie fix. Both
+packages were **removed from the image** rather than ledgered:
+`libglib2.0-0` was only cv2's historical `libgthread` dependency, but the
+shipped `opencv-python-headless` wheel (≥ 4.13) vendors its media stack and
+links no glib at all (verified via `readelf` NEEDED and a cv2 import +
+`cvtColor`/`Canny` run on a glib-less trixie base), so the Dockerfile no longer
+installs it; `gzip` is Debian-essential with no runtime consumer (CPython's
+`gzip`/`zlib` use the linked `libz`, dpkg/apt decompress internally, nothing
+runs `tar -z`), so it is purged alongside `perl-base` (verified post-purge:
+`apt-get update`/`install`/`upgrade`, `dpkg`, Python `gzip` round-trip). The
+`.trivyignore` acceptance count is unchanged at 3 (0 Critical, 3 High);
+SECURITY.md's posture section was brought in sync with the ledger's
+2026-06-30 re-enumeration (SQLite FTS5 pair re-scored MEDIUM upstream and out
+of the CRITICAL/HIGH gate's scope; acl/attr pair documented in the table).
+
+### Harm-gate hardening — measured, multilingual, obfuscation-resistant, governed
+
+A focused hardening round on the weapons/mass-casualty uplift gate, turning
+hand-set heuristics into measured ones and inert controls into real ones. All
+native (stdlib + numpy); the reasoning-backed classifier is fail-open and
+offline-safe (no new hard dependency).
+
+- **Reasoning classifier wired by default** on the open-web/text surface
+  (`GeneralAssistant`, `WebResearcher`, output gate). Contributes a meaning-level
+  harm probability only when a real local/cloud model is serving and `0.0`
+  otherwise, so it can only raise harm and never changes deterministic behaviour
+  in air-gapped/CI runs. `_parse_probability` hardened against prose/echo replies.
+- **Obfuscation resistance + multilingual routing** (`cognitive/harm_normalization.py`):
+  matching runs over homoglyph/leetspeak-folded, zero-width-stripped, and both
+  whole- and word-boundary-preserving separator-collapsed variants (`n3rv3 ag3nt`,
+  Cyrillic spoofing, `s a r i n`, `n.e.r.v.e a.g.e.n.t`); 266 taxonomy-level hazard
+  terms + 52 offensive cues across ~30 languages (native script + transliteration).
+- **Out-of-lexicon false-negative fix**: a production/acquisition verb anchored to
+  generic hazard-context vocabulary now gates even when the specific agent is not
+  in the Axis-A lexicon; `how to make/synthesize/produce X` and many indirect
+  production/weaponization framings (previously missed) now block, all FP-safe.
+- **Semantic-embedding accretion** replaces exact-domain counting in the aggregate
+  tracker; the realized-plan re-gate is adjacent-window and capped to ESCALATE, so
+  a benign production-verb query beside an unrelated hazard query never refuses a
+  professional.
+- **Cross-sentence output gate**: a procedure assembled across individually-safe
+  sentences is redacted; defensive context beside a redacted step is preserved.
+- **`ALLOW_PROVENANCE` disposition** (new): a high-severity hazard-domain query is
+  answered only from cited sources; the output boundary withholds uncited
+  hazardous-topic synthesis.
+- **Human-in-the-loop / bounded-autonomy escalation** (`cognitive/escalation.py`):
+  ESCALATE routes to an injectable reviewer, fail-closed with no reviewer, capped
+  per session, and durably audited.
+- **Durable decision/refusal audit log** (`cognitive/gate_audit.py`): append-only,
+  fsynced JSONL sink (+ optional hash-chained `SecureAuditLogger`) for every
+  refusal / escalation / provenance-withhold / accretion signal.
+- **Measured FP/FN + fitted confidence**: a 362-case labeled corpus
+  (`benchmarks/weapons_gate_corpus.py` + `.jsonl`, 60/20/20 split); the confidence
+  logistic is fit on it (`scripts/fit_weapons_gate_calibration.py` →
+  `configs/weapons_gate_calibration.json`; val Brier ≈0.002, ECE ≈0.039); a
+  CI-failing FP/FN metric (`tests/ethical/test_weapons_gate_eval.py`; 0% FP / 0% FN
+  on held-out val+test); and hypothesis property/fuzz + adversarial-paraphrase
+  tests (`tests/ethical/test_weapons_gate_properties.py`).
+- **Pre-existing items resolved**: `statistical_vlm` install hint now names both
+  `transformers` and `accelerate`; the docstring-retention CI gate uses a 60%
+  retention floor instead of a brittle no-shrink rule; the `memoryview[int]`
+  annotation in `infrastructure/streaming.py` is confirmed correct (matches
+  redis-py's generic `memoryview[int]`) with its misleading comments corrected.
+
+### Neuro-symbolic calibration & honesty engineering + general-purpose capabilities
+
+Make Mercury's confidence *measured* rather than heuristic, harden the
+neuro-symbolic and ethics paths, scope-label uncalibrated heuristics, and add a
+native general-purpose capability layer — all native (stdlib + numpy), no new
+dependencies, no language-model service.
+
+**Measured calibration.** New single routing point
+`core/confidence.py::CalibratedConfidence` turns a raw score into a calibrated
+probability on a held-out split with an R4 accept-gate (never regresses
+Brier/ECE) and reports both. A calibrator is accepted **only** on a genuine
+held-out evaluation; when the data is too imbalanced to split (a single-sample
+class) the routing point stays identity rather than fitting and accepting
+in-sample, where the no-regression gate would reward overfitting. The
+golden-ratio `exp(-φ·total)` confidence in
+`cognitive/uncertainty.py` is removed in favour of a parameter-free monotone
+prior routed through the calibrator; epistemic/aleatoric carry honest
+`*_measured` flags (the single-scalar path is flagged *unmeasured* instead of
+emitting a `0.1` placeholder as a measurement) and a new `ensemble_predictions`
+path gives measured cross-member variance. The decider's uncalibrated
+threshold-band fallback routes through an attached calibrator when present
+(wired via `engine.enable_decision_layer(confidence_calibrator=...)`).
+
+**Honest evaluation.** `evaluation/metrics.py` / `metrics/anomaly_metrics.py`
+gain a seeded stratified/temporal 3-way splitter, `fit_threshold` (tune on
+val), and `evaluate_anomaly_detection_split` / `compute_all(tune_on="val")` so
+operating-point metrics are reported on a disjoint test split — no more
+threshold tuning on the reported data. `BenchmarkEvaluator` defaults to the
+honest path. Legacy in-sample functions kept and documented as diagnostics.
+
+**Drift recalibration.** `engine.enable_online_recalibration()` wires
+`AdaptiveConformalInference` into `detect_with_fusion` so the operating
+threshold tracks score drift instead of only deferring.
+
+**Perf + correctness.** blake3 import hoisted; FeatureCache key no longer
+materializes the whole array (and avoids the torch host copy); kinematic
+sliding-max vectorized; residual-FFT memoized; distributed `ResultAggregator`
+drops dead "weights" and reassembles disjoint partitions in input order;
+`detect_with_fusion` is fail-loud on an unfit detector by default
+(`require_explicit_fit`, opt-out for the legacy auto-fit).
+
+**Neuro-symbolic.** Hard symbolic veto (`SymbolicRule.hard`) lets an agreeing
+high-confidence rule override a low neural score (monotone, never bypasses the
+gates); a new `FusionMode.CONJUNCTIVE` (weighted geometric mean over undiluted
+symbolic evidence) is the default; the STACKING meta-learner conditions on
+disagreement and `update_from_outcome` learns from labels; the static,
+mislabeled "Lyapunov" benevolence damping is removed. Hard-rule confidence is
+clipped to `[0, 1]` on the veto path and the fused score is clamped after the
+veto, so a malformed rule cannot push an anomaly score past the `[0, 1]`
+invariant.
+
+**Detector gating.** Kinematic is gated behind a real Ljung-Box white-noise test
+(tightening only); optional per-component isotonic calibration (default-off).
+
+**Ethics gate.** Layered, fail-closed harm matching: exact-substring keywords,
+char-trigram **morphological** matching (catches inflection/spelling — *not*
+meaning, and no longer mislabeled "semantic"), a curated **euphemism/paraphrase
+lexicon** for meaning-level intent ("put him down", "make them disappear") tuned
+for high precision so it never over-blocks Mercury's own defensive language
+("kill the process", "neutralize the threat"), and an **optional pluggable harm
+classifier** (`BenevolenceScorer(harm_classifier=…)`) that can ride Mercury's own
+offline Ollama backend via `reasoning_harm_classifier(...)` — every layer can
+only RAISE harm. Severity × irreversibility multiplicative damping (fail-closed);
+calibratable weights in a `BenevolenceCalibration` dataclass.
+
+**Weapons / mass-casualty uplift gate (two-axis, not a topic blocklist).** New
+`cognitive/ethical_bounding.py::assess_weapons_uplift` gates on *operational
+intent* (Axis B: mechanism/detection/treatment/response/policy/licensed-practice
+→ ALLOW; production/weaponization/acquisition-evasion/offensive-enhancement/
+targeting → REFUSE) routed by a high-recall hazard-domain filter (Axis A), with a
+calibrated ladder (ALLOW → ALLOW_LOG → ESCALATE → REFUSE_REDACT → HARD_REFUSE).
+Folded into the single `BenevolenceScorer`/`HarmReducer` hard gate (blocking
+disposition raises PHYSICAL/SOCIETAL harm and hard-vetoes `is_permissible`,
+monotone), and enforced in depth across the general-capability layer:
+pre-retrieval query gate, post-retrieval content gate (verdict travels with
+`FetchResult`), pre-emission verbatim-sentence redaction
+(`ExtractiveSynthesizer` sentence gate), and an orchestration-boundary aggregate
+gate (`SessionActionabilityTracker`) against query decomposition. Paired
+red-team / professional CI suite (`tests/ethical/test_weapons_uplift_gate.py`)
+pins both false-negative and false-positive rates; full policy, response ladder,
+and residual-risk statement in `docs/HARM_POLICY.md`. `RULESET_VERSION` bumped to
+4 (cache invalidation).
+
+**Honesty labels.** `bain_ai_scaling` power estimate, the ~82 uncomputed
+`global_omni_scalar_network` diagnostic scalars + its untrained attention,
+`hierarchical_planning` (template/greedy, not search), and `multi_hop_reasoner`
+abduction (Jaccard, not Bayesian) are scope-labeled in-code and in
+`docs/DORMANCY_LEDGER.md` §8.
+
+**General-purpose capabilities** (`agentic/capabilities/`,
+`docs/GENERAL_CAPABILITIES.md`). Mercury gains native, harm-gated web research
+(`WebResearcher` — stdlib `urllib`/`html.parser`, fail-closed), extractive
+synthesis (`ExtractiveSynthesizer` — numpy-only, quotes sources verbatim),
+document generation (`DocumentGenerator` — Markdown/HTML/text), and a
+`GeneralAssistant` (research → synthesize → cited document), surfaced on
+`MercuryAgent.research/answer/write_document`. Search is a **provider ladder**,
+tried in order and fail-closed, configurable in code (`search_providers=[…]`) or
+from the environment (`WebResearcher.from_env()`): a keyed engine
+(`brave_provider`) and/or a *keyless, self-hostable* SearXNG (`searxng_provider`,
+`MERCURY_SEARXNG_URL`) are the recommended, operator-owned rungs, with the
+keyless DuckDuckGo HTML→lite scrape demoted to an explicit best-effort fallback
+(`enable_ddg_fallback`, default on for zero-config installs, off for a
+provider-only posture). The self-hosted SearXNG rung pairs with the local Ollama
+reasoning backend for fully operator-owned, offline-leaning open-web research.
+The legacy singular `search_provider` hook still fully replaces the chain.
+
+**Universal interconnect (MCP server).** Mercury is now interconnectable: any AI
+system that speaks the Model Context Protocol can link up to and run it through
+`omni_mercury_engine.mcp_server` (`mercury-agent mcp`, or
+`python -m omni_mercury_engine.mcp_server`). It serves JSON-RPC 2.0 over stdio
+using the **standard library only** (no `mcp` package, no web framework, no new
+dependency) and advertises Mercury's capabilities as discoverable, self-
+describing MCP tools — `mercury_detect_anomaly`, `mercury_score_ethics`,
+`mercury_research`, `mercury_answer`, `mercury_write_document`,
+`mercury_calibrate_confidence` — whose `tools/list` payload doubles as a
+machine-readable capability manifest (`MercuryMCPServer.manifest()`). Every tool
+is honest and fail-closed: outward tools pass the benevolence gate, an
+unavailable backing stack returns an MCP `isError` result rather than a fabricated
+capability, and the server inherits Mercury's offline posture (self-hosted SearXNG
+search + local Ollama reasoning). See `docs/INTERCONNECT.md`.
+
+**Review-fix pass: CI gates, a CLI regression, and two silent-correctness gaps.**
+A full adversarial re-review of the branch above (8 independent finder passes,
+each candidate verified against the actual call sites) turned up and closed:
+
+- *CI red.* `tests/test_search_provider_ladder.py`'s stub `__exit__` was typed
+  `-> bool`, which `mypy --strict` correctly flags as exit-swallowing-prone
+  (`exit-return`); retyped to `-> None`. Separately, the blocking Trivy image
+  gate (`ignore-unfixed: false`) started failing on a clean diff because the
+  live CVE feed moved since the `.trivyignore` ledger's last enumeration:
+  `CVE-2026-54369`/`CVE-2026-54371` (libacl1/libattr1, local symlink-traversal
+  privesc, no upstream fix) are newly published and weren't yet enumerated,
+  while `CVE-2026-11822`/`CVE-2026-11824` (libsqlite3-0) were re-scored
+  HIGH→MEDIUM upstream and dropped out of the gate's severity filter. The
+  ledger is reconciled against a fresh scan of the shipped
+  `python:3.14-slim-trixie` image (re-enumerated 2026-06-30; the file still
+  read `python:3.13-slim-trixie` from before the 3.14 base-image bump).
+- *CodeQL: incomplete URL substring sanitization
+  (`web_research.py::_decode_ddg_href`).* The DuckDuckGo-redirect host check
+  was `"duckduckgo.com" in parsed.netloc`, satisfied by a spoofed host such as
+  `duckduckgo.com.evil.test` or `notduckduckgo.com`. Replaced with an exact
+  host-or-subdomain match (`WebResearcher._is_ddg_host`); a non-matching host
+  now falls through to the literal-href path instead of having its `uddg`
+  redirect target trusted.
+- *CLI regression.* `detect_with_fusion`'s new `require_explicit_fit=True`
+  default (above) was threaded through every internal call site the PR
+  description claims — except `cli.py`'s `detect -d fusion` and `explain`
+  commands, which construct the engine with no override and never fit the
+  base detectors before calling `detect_with_fusion`. Both commands would
+  raise `RuntimeError` on every invocation. Fixed by passing
+  `require_explicit_fit=False` at those two call sites (the CLI has no
+  train/test split to fit detectors on; it restores the documented legacy
+  auto-fit-on-first-batch behavior those commands always relied on).
+- *Decider: calibrated confidence not flipped for CLEAR verdicts*
+  (`decision/decider.py`). With a fitted `confidence_calibrator` attached,
+  `_from_threshold_band` reported the calibrated **P(anomaly)** as
+  `decision_confidence` regardless of which label was chosen — so a
+  confidently-benign CLEAR call (e.g. `P(anomaly)=0.03`) surfaced as
+  near-zero confidence, the opposite of the uncalibrated margin fallback's
+  symmetric behavior. `decision_confidence` is now `P(anomaly)` for ACT and
+  `1 - P(anomaly)` for CLEAR, consistent with every other path in this
+  module reporting confidence *in the verdict*, not in a fixed direction.
+- *FeatureCache: silent wrong-cache-hit on large arrays* (`engine.py`).
+  The new 256-point strided sampling key (avoids `tobytes()`-copying the
+  whole buffer) folded in shape/dtype/size but no information about the
+  ~99% of elements outside the sampled stride — so a change confined to an
+  unsampled index (e.g. one element of a streaming window update) produced
+  an identical key, and `get_or_compute` would silently return stale
+  features for genuinely different data. Folded a full-array `np.sum`
+  reduction into the key: still no buffer copy (unlike `tobytes()`), but a
+  vectorized O(N) reduction is cheap enough not to undo the sampling's perf
+  win while catching off-sample changes the stride alone misses.
+- *Unpinned-dependency mypy drift* (`infrastructure/streaming.py`). Building
+  the full toolchain locally (native AMA, then `mypy --strict` against a
+  freshly resolved `redis>=5.0.0`) surfaced 9 errors a CI run pinned to an
+  older cached `redis` doesn't yet hit — the same class of gate fragility as
+  the `.trivyignore` reconciliation above, here in a Python stub instead of
+  an OS CVE feed. Underneath the stub noise was a real type-honesty gap:
+  `StreamMessage.offset` was typed `int | None`, but Redis Streams identifies
+  entries by string IDs (`"<ms>-<seq>"`), not integers; the field silently
+  carried a `str` through an `int`-typed slot on the Redis consume path.
+  Widened to `int | str | None` and added a narrowing assert at the one call
+  site (Kafka's `commit()`) that does integer arithmetic on it.
+- ***σ_Immutable artifacts were never shipped by a real install*** — found
+  by actually building the native AMA backend and running
+  `mercury-agent detect -d fusion` end to end instead of relying on CI alone.
+  `pyproject.toml`'s `[tool.setuptools.package-data]` declared only
+  `py.typed` and `models/checkpoints/*.pt`; the σ_Immutable hard ethical
+  gate's corpus (`sigma_immutable_corpus.json`), its Ed25519/ML-DSA-65
+  signature bundle (`sigma_immutable_corpus.sig.json`), and its trained
+  GOSNN weights (`sigma_immutable_weights.pt`) were not declared. CI's
+  `pip install -e .` (editable) resolves `Path(__file__).parent`-relative
+  loads against the source checkout regardless of package-data declarations,
+  so this was invisible to every CI job — but the Dockerfile's
+  `pip install ".[all]"` (no `-e`) and any real `pip install mercury-agent`
+  install a package missing all three files. The gate's own fail-closed
+  design then turns that into `EthicalConstraintViolationError` on the
+  *first real engine construction*, not at import time, so
+  `import omni_mercury_engine` and the container's `HEALTHCHECK` both
+  report healthy while every actual detection call fails closed. All three
+  files are now declared; `tests/test_package_data_completeness.py` pins the
+  general invariant (every non-`.py` runtime data file under
+  `src/omni_mercury_engine/` must be covered by a package-data glob) so a
+  future file can't reopen this gap silently.
+
 ### Subagent pantheon: a 33-member internal delegation fleet for Mercury Agent
 
 Mercury Agent becomes the AI centerpiece that hosts the combined agentic

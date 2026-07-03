@@ -467,11 +467,80 @@ class FeatureCache:
         Returns:
             String hash key for the data.
         """
+        # Torch tensors split by device:
+        #
+        # * CPU tensor -> key on CONTENT (fall through to the numpy path below).
+        #   A CPU tensor shares memory with numpy, so ``.numpy()`` is a view (no
+        #   host<-device copy); content keying costs the same bounded O(N) sum
+        #   the numpy path already accepts. This closes two stale-hit surfaces
+        #   that pure identity keying leaves open: an in-place mutation of the
+        #   same storage, AND an allocator reusing a freed tensor's address for a
+        #   genuinely different tensor (measured: two distinct ``torch.zeros(10)``
+        #   can share a ``data_ptr`` and would otherwise collide -> a stale hit
+        #   for different data, not merely a missed optimization).
+        #
+        # * CUDA tensor -> identity keying (data_ptr + storage_offset + stride +
+        #   shape + dtype + device). Content-hashing a device tensor would force
+        #   a per-lookup host<-device sync on the hot path, so we accept the
+        #   documented tradeoff: an in-place mutation of the same device storage
+        #   (or an address reuse) can alias, bounded by the LRU aging stale
+        #   pointers out. ``data_ptr()`` is valid for non-contiguous tensors too,
+        #   so it is never zeroed; ``stride``/``storage_offset`` disambiguate
+        #   distinct views that share a first-element pointer.
         if isinstance(data, torch.Tensor):
-            data = data.cpu().numpy()
-        # Use shape and sample of data for key
+            if data.is_cuda:
+                key_tuple: tuple[Any, ...] = (
+                    "torch-cuda",
+                    int(data.data_ptr()),
+                    int(data.storage_offset()),
+                    tuple(data.stride()),
+                    tuple(data.shape),
+                    str(data.dtype),
+                    str(data.device),
+                )
+                return f"{prefix}_{hash(key_tuple)}"
+            # CPU tensor: content keying via the numpy path. ``.contiguous()``
+            # copies only when the tensor is a non-contiguous view (bounded);
+            # ``.detach()`` drops any autograd linkage so ``.numpy()`` succeeds.
+            data = data.detach().cpu().contiguous().numpy()
+
+        # numpy arrays: sample a bounded, strided slice instead of copying the
+        # whole buffer. ``tobytes()`` materialises the entire array before the
+        # ``[:1024]`` slice, which is O(N); sampling bounds the *copy* work at
+        # O(256) regardless of array size. shape+dtype+size are folded into
+        # the key to keep collisions negligible for this best-effort feature
+        # cache. A 256-point stride alone would silently miss a change
+        # confined to the (n - 256) unsampled positions -- e.g. a single
+        # streaming-window element updated between two sample points -- and
+        # return stale cached features for genuinely different data. A
+        # vectorized sum reduction over the full array is still O(N) but,
+        # unlike ``tobytes()``, never materialises a Python bytes copy of the
+        # buffer; folding it into the key catches off-sample changes at a
+        # fraction of the original full-hash cost.
+        flat = np.ascontiguousarray(data).reshape(-1)
+        n = flat.size
+        # Non-finite-aware checksum components. A plain ``np.sum`` becomes NaN
+        # for any array containing a NaN, and ``hash(nan)`` is a constant, so
+        # off-sample mutations of a NaN-bearing array would NOT change the key
+        # -> stale cache hit. Sum only the finite elements and fold the NaN /
+        # +Inf / -Inf counts into the key separately, so a change involving a
+        # non-finite position still moves the hash.
+        checksum = 0.0
+        n_nan = n_posinf = n_neginf = 0
+        if n <= 256:
+            sample = flat.tobytes()
+        else:
+            idx = np.linspace(0, n - 1, 256).astype(np.intp)
+            sample = flat[idx].tobytes()
+            if np.issubdtype(flat.dtype, np.number):
+                finite_mask = np.isfinite(flat)
+                if finite_mask.any():
+                    checksum = float(np.sum(flat[finite_mask], dtype=np.float64))
+                n_nan = int(np.isnan(flat).sum())
+                n_posinf = int(np.isposinf(flat).sum())
+                n_neginf = int(np.isneginf(flat).sum())
         data_hash = hash(
-            (data.shape, data.tobytes()[:1024] if data.nbytes > 1024 else data.tobytes())
+            (data.shape, data.dtype.str, n, sample, checksum, n_nan, n_posinf, n_neginf)
         )
         return f"{prefix}_{data_hash}"
 
@@ -703,6 +772,7 @@ class OmniMercuryEngine(LoggerMixin):
         memory_threshold_mb: float = 2048.0,
         auto_load_checkpoint: bool = False,
         equation_profile: str | None = None,
+        require_explicit_fit: bool = True,
     ) -> None:
         """Initialize the OmniMercuryEngine.
 
@@ -713,6 +783,14 @@ class OmniMercuryEngine(LoggerMixin):
             device: Computation device ('cpu' or 'cuda').
             cache_size: Maximum entries in feature cache. Default 128.
             memory_threshold_mb: Memory threshold for GC in MB. Default 2048.
+            require_explicit_fit: When True (default), ``detect_with_fusion``
+                fails loud if a detector was never fit, rather than silently
+                auto-fitting it on the first inference batch (which leaks that
+                batch as the detector's reference distribution -- a correctness
+                bug). Set False to opt into the legacy auto-fit-on-first-batch
+                behaviour (still warned and audited via
+                ``_inference_auto_fit_detectors``); loaded checkpoints and a
+                prior ``fit_fusion`` both satisfy the requirement.
             auto_load_checkpoint: When True and mode='fusion', load the packaged
                 default fusion checkpoint at init so detection works without a
                 training step. Default False to keep a freshly-constructed
@@ -747,6 +825,16 @@ class OmniMercuryEngine(LoggerMixin):
         # surface (warning + result-dict key) works for every engine mode,
         # not only ``mode='fusion'``.
         self._inference_auto_fit_detectors: set[str] = set()
+        # Fail-loud on an unfit detector at inference instead of leaking the
+        # first batch as its reference distribution (see __init__ docstring).
+        self._require_explicit_fit: bool = require_explicit_fit
+        # Online drift recalibration (opt-in via enable_online_recalibration).
+        # When set, detect_with_fusion feeds each sample's calibrated score to a
+        # Gibbs-Candes AdaptiveConformalInference so the operating threshold
+        # tracks score drift instead of going stale (the decider would otherwise
+        # only DEFER on drift). None = disabled (exact legacy behaviour).
+        self._adaptive_conformal: Any = None
+        self._recalibration_warmup: int = 30
 
         if not TORCH_AVAILABLE:
             raise ImportError(
@@ -2872,6 +2960,7 @@ class OmniMercuryEngine(LoggerMixin):
         policy: Any | None = None,
         response_policy: Any | None = None,
         ledger: DecisionLedger | None = None,
+        confidence_calibrator: Any | None = None,
     ) -> None:
         """Enable the decision / abstention / response layer.
 
@@ -2906,6 +2995,13 @@ class OmniMercuryEngine(LoggerMixin):
                 "verify" step -- an append-only, JSON-serialisable audit trail
                 queryable via ``ledger.summary()``).  ``None`` keeps the serve
                 path stateless (no recording).
+            confidence_calibrator: Optional fitted
+                :class:`~omni_mercury_engine.core.confidence.CalibratedConfidence`.
+                When attached, the decider reports a calibrated probability on
+                the uncalibrated threshold-band fallback (the path taken when no
+                conformal certificate is present) instead of the
+                ``0.5 + |margin|`` heuristic. Fit it on a held-out (fusion-score,
+                label) split; the conformal certificate path stays authoritative.
 
         Example:
             >>> engine = OmniMercuryEngine()
@@ -2918,9 +3014,66 @@ class OmniMercuryEngine(LoggerMixin):
         self.decision_layer = DecisionAbstentionResponder(
             policy=policy,
             response_policy=response_policy,
+            confidence_calibrator=confidence_calibrator,
         )
         self.decision_ledger = ledger
         logger.info("Decision / abstention / response layer enabled")
+
+    def enable_online_recalibration(
+        self,
+        *,
+        target_coverage: float = 0.9,
+        learning_rate: float = 0.05,
+        initial_threshold: float | None = None,
+        warmup: int = 30,
+    ) -> None:
+        """Recalibrate the operating threshold online instead of only deferring.
+
+        On its own, the decision layer demotes a grounded verdict to ``DEFER``
+        when drift is detected but leaves the threshold stale -- so the next
+        sample under the same drift just defers again. This wires the existing
+        :class:`~omni_mercury_engine.core.conformal_prediction.AdaptiveConformalInference`
+        (Gibbs & Candes 2021) into :meth:`detect_with_fusion`: every sample's
+        calibrated score updates an online quantile threshold, so under drift the
+        operating point *tracks the shifting score distribution* and the decider
+        grounds on a fresh threshold rather than a stale one. The conformal
+        certificate path (``calibrate_fusion_conformal``) stays authoritative when
+        present; this updates the uncalibrated threshold-band operating point and
+        is surfaced under ``result['adaptive_threshold']`` /
+        ``result['adaptive_conformal']``. The DEFER-on-severe-drift demotion is
+        kept as a safety net while the online threshold has not yet converged.
+
+        Args:
+            target_coverage: Target fraction of scores at or below the threshold
+                (i.e. the expected normal-class fraction; ``0.9`` -> ~10% alert
+                rate). The threshold converges to this quantile and re-tracks it
+                under drift.
+            learning_rate: Gibbs-Candes step size for the online threshold update.
+            initial_threshold: Starting threshold; defaults to the current fusion
+                operating threshold so recalibration starts where the system
+                already operates.
+            warmup: Number of online updates before the recalibrated threshold
+                replaces the static operating point (avoids acting on an
+                unconverged threshold). Until then it is surfaced but not applied.
+        """
+        from omni_mercury_engine.core.conformal_prediction import AdaptiveConformalInference
+
+        if initial_threshold is None:
+            initial_threshold = float(getattr(self.config, "anomaly_threshold", 0.5) or 0.5)
+        self._adaptive_conformal = AdaptiveConformalInference(
+            target_coverage=target_coverage,
+            learning_rate=learning_rate,
+            initial_threshold=initial_threshold,
+        )
+        self._recalibration_warmup = max(1, int(warmup))
+        logger.info(
+            "Online drift recalibration enabled (target_coverage=%.2f, lr=%.3f, "
+            "initial_threshold=%.3f, warmup=%d)",
+            target_coverage,
+            learning_rate,
+            initial_threshold,
+            self._recalibration_warmup,
+        )
 
     def enable_reasoning(
         self,
@@ -4040,22 +4193,35 @@ class OmniMercuryEngine(LoggerMixin):
         detector_certificates: dict[str, Any] = {}
 
         for name, detector in self.detectors.items():
+            # Fail-loud (or legacy auto-fit) on an unfit detector. This runs
+            # OUTSIDE the try below so the fail-loud RuntimeError is not
+            # swallowed by the graceful per-detector skip handler.
+            if not detector.is_fitted() and not isinstance(data, dict):
+                if self._require_explicit_fit:
+                    raise RuntimeError(
+                        f"Detector {name!r} is not fitted; refusing to auto-fit on the "
+                        "inference batch. Call fit_fusion(X_train, y_train) (or load a "
+                        "checkpoint) before detect_with_fusion so the reference "
+                        "distribution comes from training data, not the first batch "
+                        "scored. To opt into the legacy auto-fit-on-first-batch "
+                        "behaviour, construct OmniMercuryEngine(require_explicit_fit=False)."
+                    )
+                if name not in self._inference_auto_fit_detectors:
+                    logger.warning(
+                        "Detector %r was auto-fit on the first inference "
+                        "batch (n=%s) because it had no prior fit. The "
+                        "batch's distribution is now this detector's "
+                        "reference — call fit_fusion(X_train, y_train) "
+                        "before detect_with_fusion to avoid the leakage.",
+                        name,
+                        getattr(data, "shape", ("?",))[0] if hasattr(data, "shape") else "?",
+                    )
+                self._inference_auto_fit_detectors.add(name)
+                detector.fit(data)
+
             try:
-                if not detector.is_fitted():
-                    if isinstance(data, dict):
-                        continue
-                    if name not in self._inference_auto_fit_detectors:
-                        logger.warning(
-                            "Detector %r was auto-fit on the first inference "
-                            "batch (n=%s) because it had no prior fit. The "
-                            "batch's distribution is now this detector's "
-                            "reference — call fit_fusion(X_train, y_train) "
-                            "before detect_with_fusion to avoid the leakage.",
-                            name,
-                            getattr(data, "shape", ("?",))[0] if hasattr(data, "shape") else "?",
-                        )
-                    self._inference_auto_fit_detectors.add(name)
-                    detector.fit(data)
+                if isinstance(data, dict) and not detector.is_fitted():
+                    continue
 
                 # Try to use cached features
                 cache_key = self.feature_cache._make_key(
@@ -4579,6 +4745,24 @@ class OmniMercuryEngine(LoggerMixin):
                     "p_value": drift_result.p_value,
                     "message": drift_result.message,
                 }
+
+        # Online drift recalibration: feed this batch's calibrated scores to the
+        # adaptive conformal threshold so the operating point tracks score drift
+        # rather than going stale (see enable_online_recalibration). Surfaced for
+        # audit; applied as the operating threshold only after warmup so the
+        # decider grounds on a converged, fresh threshold instead of deferring
+        # forever on drift.
+        if self._adaptive_conformal is not None:
+            batch_scores = np.asarray(fusion_result["anomaly_probs"], dtype=float).reshape(-1)
+            for s in batch_scores:
+                self._adaptive_conformal.update(float(s))
+            adaptive_threshold = self._adaptive_conformal.get_current_threshold()
+            result["adaptive_conformal"] = self._adaptive_conformal.get_coverage_stats()
+            if np.isfinite(adaptive_threshold):
+                result["adaptive_threshold"] = float(adaptive_threshold)
+                if self._adaptive_conformal.n_updates >= self._recalibration_warmup:
+                    result["threshold_used"] = float(adaptive_threshold)
+                    result["is_anomaly"] = bool(float(anomaly_prob_val) > adaptive_threshold)
 
         # Neuro-symbolic feedback diagnostics. The co-trained LTN is retained
         # after fit/load so production inference can expose whether the current

@@ -120,8 +120,11 @@ class TruthDecipherFramework(LoggerMixin):
         self.enable_self_healing = enable_self_healing
         self.enable_cognitive = enable_cognitive
 
-        # Core detection
-        self.anomaly_engine = OmniMercuryEngine(config=self.config)
+        # Core detection. TruthDecipher deciphers arbitrary, unlabelled streams
+        # in a single pass (no separate training step), so it intentionally opts
+        # into the engine's auto-fit-on-first-batch path rather than the
+        # fail-loud default that requires a prior fit_fusion.
+        self.anomaly_engine = OmniMercuryEngine(config=self.config, require_explicit_fit=False)
         self.novel_discovery = NovelClassDiscovery() if enable_novel_discovery else None
 
         # Cognitive layer - integrates knowledge graph, reasoning, causality, uncertainty

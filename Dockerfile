@@ -102,7 +102,7 @@ LABEL org.opencontainers.image.vendor="Steel Security Advisors LLC"
 LABEL org.opencontainers.image.version="${MERCURY_VERSION}"
 LABEL org.opencontainers.image.licenses="GPL-3.0-or-later"
 LABEL security.hardened="true"
-LABEL security.scan-date="2026-06-18"
+LABEL security.scan-date="2026-07-02"
 
 # Critical security patches - updates system packages.
 # ``apt-get upgrade`` here is the canonical fix path for every OS-level
@@ -129,10 +129,18 @@ RUN apt-get update && \
     # calls. Installing the mesa GL stack only added an unused, unfixed-CVE
     # surface (CVE-2026-40393); dropping it removes the package and the CVE
     # rather than accepting it.
+    # NOTE: no libglib2.0-0 either (2026-07-02). It was carried as cv2's
+    # historical libgthread-2.0 import dependency, but the shipped
+    # opencv-python-headless wheel (>= 4.13) vendors its full media stack
+    # and links NO glib library (verified: readelf on the wheel's
+    # cv2.abi3.so NEEDED list shows no libglib/libgthread, and cv2 import +
+    # cvtColor/Canny run clean on a glib-less trixie base). Dropping it
+    # eliminates the unfixed CVE-2026-58016 (Critical) and
+    # CVE-2026-58014 / CVE-2026-58015 (High) rather than accepting them --
+    # the same eliminate-don't-accept posture as the mesa note above.
     apt-get install -y --no-install-recommends \
         ca-certificates \
-        libgomp1 \
-        libglib2.0-0 && \
+        libgomp1 && \
     # Attack-surface reduction: ELIMINATE perl-base rather than accept its CVEs.
     # perl-base is a Debian "essential" package present in the base image, but
     # nothing in the runtime needs it -- Mercury is Python/Rust/C, and the
@@ -145,7 +153,17 @@ RUN apt-get update && \
     # trixie fix -- from the image, the same eliminate-don't-accept posture used
     # for the mesa GL stack. Verified: interpreter, sqlite3, pip and useradd all
     # work without perl; the blocking Trivy gate re-proves the package stays gone.
-    apt-get purge -y --allow-remove-essential perl-base adduser && \
+    #
+    # gzip (2026-07-02): ELIMINATED on the same grounds. It is another Debian
+    # "essential" package, but nothing in the runtime invokes gzip(1):
+    # CPython's gzip/zlib stdlib modules use the linked libz (never the
+    # binary), dpkg/apt decompress with their own internal code, and the
+    # image never runs `tar -z`. Purging it removes the unfixed
+    # CVE-2026-41992 (High -- LZH-decompression buffer overflow, Debian
+    # trixie status "open", no fixed version) instead of accepting it.
+    # Verified post-purge on the trixie base: apt-get update / install /
+    # upgrade, dpkg, and `python -c "import gzip"` round-trip all work.
+    apt-get purge -y --allow-remove-essential perl-base adduser gzip && \
     # Clean up to reduce image size and attack surface
     apt-get autoremove -y && \
     apt-get clean && \

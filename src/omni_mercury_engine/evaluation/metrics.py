@@ -183,6 +183,16 @@ def compute_best_f1(
 ) -> tuple[float, float]:
     """Find the threshold that maximizes F1-score.
 
+    .. warning::
+        This is an **in-sample / diagnostic** measure: the returned ``best_f1``
+        is the F1 at the threshold tuned on the *same* ``(y_true, y_score)`` it
+        is scored against, so it is an optimistic upper bound (like AUC), **not**
+        an honest operating-point estimate.  To report operating-point metrics
+        without threshold leakage, tune on a validation split and report on a
+        disjoint test split via :func:`fit_threshold` /
+        :func:`evaluate_anomaly_detection_split` (or
+        ``evaluate_anomaly_detection(..., tune_on="val")``).
+
     Args:
         y_true: Binary ground truth labels
         y_score: Anomaly scores
@@ -218,6 +228,124 @@ def compute_f1(y_true: np.ndarray[Any, Any], y_pred: np.ndarray[Any, Any]) -> fl
     if precision + recall == 0:
         return 0.0
     return float(2 * precision * recall / (precision + recall))
+
+
+def split_three_way(
+    n_samples: int,
+    y_true: np.ndarray[Any, Any] | None = None,
+    *,
+    val_frac: float = 0.2,
+    test_frac: float = 0.4,
+    is_timeseries: bool = False,
+    random_state: int = 0,
+    stratify: bool = True,
+) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+    """Partition ``n_samples`` indices into disjoint (train, val, test) splits.
+
+    The split is the antidote to threshold leakage: tune a threshold on ``val``
+    and report threshold-dependent metrics on ``test`` so the operating point is
+    never chosen on the data it is scored against.
+
+    Args:
+        n_samples: Total number of samples.
+        y_true: Binary labels, used only for stratification (ignored for the
+            time-series and non-stratified paths).
+        val_frac: Fraction routed to the validation split.
+        test_frac: Fraction routed to the test split.  ``train`` gets the rest.
+        is_timeseries: When ``True`` the split is **contiguous and temporal**
+            (``train | val | test`` in index order, no shuffling) so adjacent
+            points never leak across the split boundary.  Otherwise the split is
+            a seeded random shuffle.
+        random_state: Seed for the shuffle (ignored for time-series).
+        stratify: When ``True`` and ``y_true`` is given, each class is split
+            independently so every partition keeps a proportional share of each
+            class (important for the rare-anomaly regime).
+
+    Returns:
+        ``(train_idx, val_idx, test_idx)`` -- disjoint, sorted index arrays whose
+        union is ``range(n_samples)``.
+
+    Raises:
+        ValueError: If the fractions are not in ``(0, 1)`` with
+            ``val_frac + test_frac < 1``.
+    """
+    if not (0.0 < val_frac < 1.0 and 0.0 < test_frac < 1.0 and val_frac + test_frac < 1.0):
+        raise ValueError(
+            "val_frac and test_frac must be in (0, 1) with val_frac + test_frac < 1; "
+            f"got val_frac={val_frac}, test_frac={test_frac}"
+        )
+
+    def _carve(order: np.ndarray[Any, Any]) -> tuple[Any, Any, Any]:
+        m = len(order)
+        n_test = round(m * test_frac)
+        n_val = round(m * val_frac)
+        n_train = m - n_val - n_test
+        return order[:n_train], order[n_train : n_train + n_val], order[n_train + n_val :]
+
+    if is_timeseries:
+        # Contiguous temporal split -- never shuffle ordered data.
+        train, val, test = _carve(np.arange(n_samples))
+        return train, val, test
+
+    rng = np.random.default_rng(random_state)
+    if stratify and y_true is not None:
+        y = np.asarray(y_true).flatten()
+        # ``n_samples`` is a separate argument, so a caller can easily pass a
+        # ``y_true`` whose length disagrees with it. ``idx[y == cls]`` would then
+        # silently mis-index (or raise an opaque error). Validate up front with a
+        # clear message.
+        if y.shape[0] != n_samples:
+            raise ValueError(
+                f"y_true length ({y.shape[0]}) must equal n_samples ({n_samples}) "
+                "for a stratified split"
+            )
+        idx = np.arange(n_samples)
+        train_parts, val_parts, test_parts = [], [], []
+        for cls in np.unique(y):
+            cls_idx = idx[y == cls]
+            rng.shuffle(cls_idx)
+            tr, va, te = _carve(cls_idx)
+            train_parts.append(tr)
+            val_parts.append(va)
+            test_parts.append(te)
+        train = np.concatenate(train_parts) if train_parts else np.array([], dtype=int)
+        val = np.concatenate(val_parts) if val_parts else np.array([], dtype=int)
+        test = np.concatenate(test_parts) if test_parts else np.array([], dtype=int)
+        return np.sort(train), np.sort(val), np.sort(test)
+
+    perm = rng.permutation(n_samples)
+    train, val, test = _carve(perm)
+    return np.sort(train), np.sort(val), np.sort(test)
+
+
+def fit_threshold(
+    y_true_val: np.ndarray[Any, Any],
+    y_score_val: np.ndarray[Any, Any],
+    n_thresholds: int = 100,
+    objective: str = "f1",
+) -> float:
+    """Select an operating threshold on a **validation** split only.
+
+    This is the leakage-free counterpart to :func:`compute_best_f1`: it returns
+    *only* the threshold, chosen on held-out validation data, to be applied to a
+    disjoint test split.
+
+    Args:
+        y_true_val: Validation labels.
+        y_score_val: Validation anomaly scores.
+        n_thresholds: Number of candidate thresholds to sweep.
+        objective: Metric to maximise.  Currently only ``"f1"`` is supported.
+
+    Returns:
+        The selected threshold.
+
+    Raises:
+        ValueError: If ``objective`` is not supported.
+    """
+    if objective != "f1":
+        raise ValueError(f"Unsupported threshold objective: {objective!r} (only 'f1')")
+    _, threshold = compute_best_f1(y_true_val, y_score_val, n_thresholds=n_thresholds)
+    return threshold
 
 
 def compute_precision_at_k(
@@ -401,6 +529,12 @@ def evaluate_anomaly_detection(
     y_score: np.ndarray[Any, Any],
     threshold: float | None = None,
     is_timeseries: bool = False,
+    *,
+    tune_on: str = "in_sample",
+    val_frac: float = 0.2,
+    test_frac: float = 0.4,
+    random_state: int = 0,
+    stratify: bool = True,
 ) -> AnomalyMetrics:
     """Comprehensive evaluation of anomaly detection results.
 
@@ -409,10 +543,37 @@ def evaluate_anomaly_detection(
         y_score: Anomaly scores (higher = more anomalous)
         threshold: Fixed threshold for binary predictions (if None, finds optimal)
         is_timeseries: Whether to compute time-series adjusted metrics
+        tune_on: Where the operating threshold is chosen.  ``"in_sample"``
+            (default, preserves legacy behaviour) tunes and reports on the same
+            data -- an optimistic upper bound.  ``"val"`` delegates to
+            :func:`evaluate_anomaly_detection_split`, tuning the threshold on a
+            held-out validation split and reporting threshold-dependent metrics
+            on a disjoint test split (no leakage).
+        val_frac: Validation fraction for ``tune_on="val"``.
+        test_frac: Test fraction for ``tune_on="val"``.
+        random_state: Split seed for ``tune_on="val"``.
+        stratify: Stratify the split on ``y_true`` for ``tune_on="val"``.
 
     Returns:
         AnomalyMetrics object with all evaluation metrics
+
+    Raises:
+        ValueError: If ``tune_on`` is not ``"in_sample"`` or ``"val"``.
     """
+    if tune_on == "val":
+        return evaluate_anomaly_detection_split(
+            y_true,
+            y_score,
+            threshold=threshold,
+            is_timeseries=is_timeseries,
+            val_frac=val_frac,
+            test_frac=test_frac,
+            random_state=random_state,
+            stratify=stratify,
+        )
+    if tune_on != "in_sample":
+        raise ValueError(f"tune_on must be 'in_sample' or 'val', got {tune_on!r}")
+
     y_true = np.array(y_true).flatten().astype(int)
     y_score = np.array(y_score).flatten()
 
@@ -420,7 +581,8 @@ def evaluate_anomaly_detection(
     auc_roc = compute_auc_roc(y_true, y_score)
     auc_pr = compute_auc_pr(y_true, y_score)
 
-    # Find best threshold if not provided
+    # Find best threshold if not provided.  NB: in-sample / diagnostic -- the
+    # threshold is tuned on the same data it is reported on (optimistic).
     best_f1, best_threshold = compute_best_f1(y_true, y_score)
 
     if threshold is None:
@@ -452,6 +614,136 @@ def evaluate_anomaly_detection(
         auc_pr=auc_pr,
         best_f1=best_f1,
         best_threshold=best_threshold,
+        precision=precision,
+        recall=recall,
+        f1=f1,
+        accuracy=accuracy,
+        true_positives=tp,
+        false_positives=fp,
+        true_negatives=tn,
+        false_negatives=fn,
+        point_adjusted_f1=point_adjusted_f1,
+        range_based_f1=range_based_f1,
+    )
+
+
+def evaluate_anomaly_detection_split(
+    y_true: np.ndarray[Any, Any],
+    y_score: np.ndarray[Any, Any],
+    *,
+    val_frac: float = 0.2,
+    test_frac: float = 0.4,
+    threshold: float | None = None,
+    is_timeseries: bool = False,
+    random_state: int = 0,
+    stratify: bool = True,
+) -> AnomalyMetrics:
+    """Leakage-free evaluation: tune the threshold on val, report on test.
+
+    The operating threshold is chosen on a held-out validation split (unless
+    ``threshold`` is given) and **all threshold-dependent metrics**
+    (precision/recall/F1/accuracy/confusion + the point/range-adjusted F1) are
+    computed on a disjoint test split.  AUC-ROC/AUC-PR are threshold-free and are
+    reported on the test split as well.
+
+    The genuinely leakage-free operating point is the ``f1`` field (test split,
+    val-tuned threshold).  ``best_f1`` / ``best_threshold`` instead carry the
+    *validation* in-sample maximum: ``best_threshold`` is the F1-argmax over
+    thresholds on val and ``best_f1`` is its F1 on that same val split, so
+    ``best_f1`` is an optimistic upper bound (like AUC), NOT an honest operating
+    point.  Compare models by ``f1`` (or the AUCs), never by ``best_f1``.
+
+    Falls back to :func:`evaluate_anomaly_detection` (in-sample) with a logged
+    warning when the data is too small, or when the validation split (which we
+    tune on) or the test split (which we report on) is single-class -- a
+    single-class test split makes AUC/recall degenerate, so we say so and fall
+    back rather than emit meaningless "honest" numbers.
+
+    Args:
+        y_true: Binary ground truth labels (0 = normal, 1 = anomaly).
+        y_score: Anomaly scores (higher = more anomalous).
+        val_frac: Fraction of samples for the validation (threshold-tuning) split.
+        test_frac: Fraction of samples for the test (reporting) split.
+        threshold: Fixed threshold; when given, no val tuning is performed (the
+            split still isolates the test split for reporting).
+        is_timeseries: Contiguous temporal split + time-series adjusted metrics.
+        random_state: Split seed.
+        stratify: Stratify the (non-time-series) split on ``y_true``.
+
+    Returns:
+        AnomalyMetrics computed on the held-out test split.
+    """
+    y_true = np.array(y_true).flatten().astype(int)
+    y_score = np.array(y_score).flatten()
+    n = len(y_true)
+
+    train_idx, val_idx, test_idx = split_three_way(
+        n,
+        y_true,
+        val_frac=val_frac,
+        test_frac=test_frac,
+        is_timeseries=is_timeseries,
+        random_state=random_state,
+        stratify=stratify,
+    )
+
+    # Feasibility: need a non-empty val/test split, a two-class TEST split
+    # (a single-class test split makes AUC-ROC 0.5 and recall/F1 degenerate, so
+    # the reported "honest" numbers would be meaningless), and -- when we must
+    # tune -- a two-class VALIDATION split (otherwise F1 tuning is degenerate).
+    # This mirrors AnomalyMetrics._compute_all_split, which guards BOTH splits;
+    # the test-split check was missing here, letting a clustered-anomaly
+    # time-series split (val two-class, test single-class) silently return
+    # AUC=0.5 as an honest metric.
+    needs_tuning = threshold is None
+    feasible = len(test_idx) > 0 and len(val_idx) > 0 and len(np.unique(y_true[test_idx])) >= 2
+    if needs_tuning and feasible:
+        feasible = len(np.unique(y_true[val_idx])) >= 2
+    if not feasible:
+        logger.warning(
+            "3-way split infeasible for N=%d (insufficient samples, or a "
+            "single-class validation or test split); falling back to in-sample "
+            "evaluation. Reported metrics are an optimistic upper bound.",
+            n,
+        )
+        return evaluate_anomaly_detection(
+            y_true, y_score, threshold=threshold, is_timeseries=is_timeseries
+        )
+
+    tuned_threshold = (
+        threshold if threshold is not None else fit_threshold(y_true[val_idx], y_score[val_idx])
+    )
+    # Honest "best F1": the val-tuned threshold scored on the validation split.
+    val_f1 = compute_f1(y_true[val_idx], (y_score[val_idx] >= tuned_threshold).astype(int))
+
+    yt = y_true[test_idx]
+    ys = y_score[test_idx]
+    y_pred = (ys >= tuned_threshold).astype(int)
+
+    auc_roc = compute_auc_roc(yt, ys)
+    auc_pr = compute_auc_pr(yt, ys)
+
+    tp = int(np.sum((yt == 1) & (y_pred == 1)))
+    fp = int(np.sum((yt == 0) & (y_pred == 1)))
+    tn = int(np.sum((yt == 0) & (y_pred == 0)))
+    fn = int(np.sum((yt == 1) & (y_pred == 0)))
+
+    precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+    recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
+    accuracy = (tp + tn) / len(yt) if len(yt) > 0 else 0.0
+
+    point_adjusted_f1 = None
+    range_based_f1 = None
+    if is_timeseries:
+        point_adjusted_f1 = compute_point_adjusted_f1(yt, y_pred)
+        range_based_f1 = compute_range_based_f1(yt, y_pred)
+
+    return AnomalyMetrics(
+        auc_roc=auc_roc,
+        auc_pr=auc_pr,
+        best_f1=val_f1,
+        best_threshold=float(tuned_threshold),
         precision=precision,
         recall=recall,
         f1=f1,

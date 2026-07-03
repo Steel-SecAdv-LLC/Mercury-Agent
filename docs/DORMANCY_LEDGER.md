@@ -245,3 +245,19 @@ promotion gate.
 
 See `docs/SELF_IMPROVEMENT_LOOP.md` for the full rollout narrative and
 the scope boundaries between implemented Phases 1–3 and deferred Phases 4–8.
+
+## 8. Honestly-labelled heuristics (interface claims tightened, not pruned)
+
+These modules expose interfaces whose docstrings previously implied empirical or
+algorithmic grounding they do not have. Per the anti-theater rule they are
+**retained** but their claims are now scoped in-code so no caller mistakes a
+heuristic for a measurement. None drives a safety-critical decision uncalibrated.
+
+| Module | Claim before | Reality (now labelled) |
+|---|---|---|
+| `scaling/bain_ai_scaling.py` `estimate_power_consumption` | "typical power profiles from hyperscaler deployments" | Uncalibrated order-of-magnitude heuristic; coefficients are named, illustrative constants (`BASE_POWER_W`, …). `_op_hyperion` now returns `calibrated: False`. Relative comparison only. |
+| `core/global_omni_scalar_network.py` (~82 ISO-25010/Halstead/DORA/SLSA/… scalars) | declared diagnostic scalars | Static placeholder weights, never computed (no collectors exist); filtered from every operational path. Kept for registration/reporting only. |
+| `core/global_omni_scalar_network.py` `MultiHeadAttentionFusion` | "32-head attention" learned fusion | Random-initialised, never trained, `no_grad` → fixed random projection + averaging; numpy phi-weighted average is the honest reference. One-time runtime warning added. |
+| `cognitive/hierarchical_planning.py` | Options/MAXQ/HAM/Feudal RL planner | Template-driven decomposition + greedy option selection; no search. `PlannerType` MAXQ/FEUDAL/HAM are reserved labels, not algorithms. |
+| `cognitive/multi_hop_reasoner.py` `abduce` | "Bayesian-like P(H\|O)" | Jaccard token-overlap ranking (`0.3 + 0.7*overlap`); deduction `_match_premises` is substring containment, not unification. Lexical heuristic, not inference. |
+| `cognitive/ethical_bounding.py` `assess_weapons_uplift` | two-axis weapons/mass-casualty gate | Axis A is (now obfuscation-normalized, multilingual) keyword routing; Axis B is regex intent matching **plus a reasoning-backed classifier wired by default on the text surface** (fail-open / offline-safe — it contributes only when a real local/cloud model serves). The deterministic core remains a lexical heuristic, **not** a trained model, and says so. What *is* now measured: the Axis-B confidence logistic is fit on a 362-case labeled corpus (`configs/weapons_gate_calibration.json`; `is_fitted`/`source` are honest), and the false-positive/false-negative operating point is a measured, CI-failing metric (`tests/ethical/test_weapons_gate_eval.py`; currently 0% FP / 0% FN on held-out val+test) with property/fuzz coverage (`test_weapons_gate_properties.py`). Coverage limits + the now-implemented compensating controls (durable audit, provenance enforcement, HITL escalation) are stated in [`HARM_POLICY.md`](HARM_POLICY.md) §8. Active safety control, not dormant. |

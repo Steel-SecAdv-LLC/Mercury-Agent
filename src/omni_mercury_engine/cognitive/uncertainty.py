@@ -81,6 +81,14 @@ class UncertaintyEstimate:
     predictive_entropy: float = 0.0  # Total predictive uncertainty
     mc_samples: int = 0  # Number of MC samples used
     is_overconfident: bool = False  # High confidence despite poor calibration
+    # Honesty flags: whether epistemic/aleatoric were *measured* (ensemble / MC
+    # variance, heteroscedastic residual) versus a default placeholder used when
+    # no ensemble/model/features were supplied. ``confidence_calibrated`` is True
+    # only when a fitted calibrator (not the uncalibrated monotone prior) drove
+    # the confidence number.
+    epistemic_measured: bool = True
+    aleatoric_measured: bool = True
+    confidence_calibrated: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         """To dict."""
@@ -98,6 +106,9 @@ class UncertaintyEstimate:
             "predictive_entropy": self.predictive_entropy,
             "mc_samples": self.mc_samples,
             "overconfident": self.is_overconfident,
+            "epistemic_measured": self.epistemic_measured,
+            "aleatoric_measured": self.aleatoric_measured,
+            "confidence_calibrated": self.confidence_calibrated,
         }
 
 
@@ -508,8 +519,6 @@ class UncertaintyQuantifier:
        - Blends raw UQ confidence with domain-specific historical accuracy
     """
 
-    PHI = (1 + np.sqrt(5)) / 2  # Golden ratio
-
     def __init__(
         self,
         n_monte_carlo: int = 30,
@@ -538,6 +547,11 @@ class UncertaintyQuantifier:
         self.n_monte_carlo = n_monte_carlo
         self.calibration_bins = calibration_bins
         self.reliability_threshold = reliability_threshold
+        # Keep the constructor seed (not just the derived Generator) so the
+        # confidence calibrator can be fit reproducibly: re-fitting the same
+        # instance must use the same CV split / bootstrap seed, or the
+        # accept/reject verdict would flap run-to-run.
+        self._seed = seed
         self._rng: np.random.Generator = np.random.default_rng(seed)
 
         # Components
@@ -545,6 +559,11 @@ class UncertaintyQuantifier:
         self.aci = AdaptiveConformalInference(target_coverage=aci_coverage) if enable_aci else None
         self.heteroscedastic = HeteroscedasticEstimator()
         self.bayesian_calibrator = bayesian_calibrator
+        # The single confidence-calibration routing point. Fitted on the
+        # accumulated (confidence, correct?) history via fit_confidence_calibrator;
+        # until then confidence is the uncalibrated monotone prior (see
+        # _compute_confidence) and UncertaintyEstimate.confidence_calibrated=False.
+        self._confidence_calibrator: Any = None
 
         # Calibration history
         self._predictions: deque[float] = deque(maxlen=5000)
@@ -576,8 +595,9 @@ class UncertaintyQuantifier:
         input_data: np.ndarray[Any, Any] | None = None,
         model: Any = None,
         return_samples: bool = False,
+        ensemble_predictions: np.ndarray[Any, Any] | None = None,
     ) -> UncertaintyEstimate:
-        """Estimate uncertainty for a prediction using MC Dropout.
+        """Estimate uncertainty for a prediction using MC Dropout / an ensemble.
 
         Args:
             predictions: Initial model predictions
@@ -585,9 +605,19 @@ class UncertaintyQuantifier:
             input_data: Input data for prediction function
             model: PyTorch model (for MC Dropout wrapper)
             return_samples: Whether to include MC samples in result
+            ensemble_predictions: Optional stack of predictions from independent
+                ensemble members / detectors, shape ``(n_members,)`` or
+                ``(n_members, ...)``. When supplied (and no MC path ran), epistemic
+                uncertainty is the **measured** variance across members rather than
+                a placeholder.
 
         Returns:
-            Complete uncertainty estimate with epistemic/aleatoric decomposition
+            Complete uncertainty estimate with epistemic/aleatoric decomposition.
+            ``epistemic_measured`` / ``aleatoric_measured`` flag whether each
+            component was actually measured (ensemble/MC variance, heteroscedastic
+            residuals) versus a default placeholder used when no such information
+            was supplied -- so a caller passing only a single scalar gets an
+            *honest* "unmeasured" signal instead of a fabricated constant.
         """
         self._stats["estimates_computed"] += 1
 
@@ -637,6 +667,15 @@ class UncertaintyQuantifier:
             )
             self._stats["mc_samples_total"] += self.n_monte_carlo
 
+        if mc_predictions is None and ensemble_predictions is not None:
+            # Explicit ensemble: treat each member as a sample so epistemic
+            # uncertainty is the measured cross-member variance.
+            ens = np.asarray(ensemble_predictions, dtype=float)
+            if ens.ndim == 1:
+                ens = ens.reshape(-1, 1)
+            if ens.shape[0] > 1:
+                mc_predictions = ens
+
         if mc_predictions is None:
             mc_predictions = predictions
 
@@ -644,12 +683,17 @@ class UncertaintyQuantifier:
         # Variance across MC samples (reducible with more data/better model)
         if mc_predictions.shape[0] > 1:
             epistemic = float(np.var(mc_predictions, axis=0).mean())
+            epistemic_measured = True
             # Compute BALD: mutual information for active learning
             predictive_entropy = self._compute_predictive_entropy(mc_predictions)
             expected_entropy = self._compute_expected_entropy(mc_predictions)
             mutual_information = max(0, predictive_entropy - expected_entropy)
         else:
+            # No ensemble/MC samples were supplied -- epistemic uncertainty is
+            # NOT measurable from a single point. Use a neutral placeholder and
+            # flag it as unmeasured rather than presenting 0.1 as a measurement.
             epistemic = 0.1
+            epistemic_measured = False
             predictive_entropy = 0.0
             mutual_information = 0.0
 
@@ -657,8 +701,13 @@ class UncertaintyQuantifier:
         # Input-dependent data uncertainty (heteroscedastic)
         if input_data is not None:
             aleatoric = self.heteroscedastic.estimate_variance(input_data)
+            # estimate_variance returns a default until enough residuals are seen.
+            aleatoric_measured = (
+                len(self.heteroscedastic._residuals) >= self.heteroscedastic.min_samples
+            )
         else:
             aleatoric = self._estimate_aleatoric_from_predictions(mc_predictions)
+            aleatoric_measured = mc_predictions.shape[0] > 1
 
         # === TOTAL UNCERTAINTY ===
         # Proper propagation: sqrt(epistemic^2 + aleatoric^2)
@@ -675,16 +724,16 @@ class UncertaintyQuantifier:
             ci_low = prediction - 1.96 * np.sqrt(total)
             ci_high = prediction + 1.96 * np.sqrt(total)
 
-        # === CALIBRATED CONFIDENCE ===
-        # Apply temperature scaling if fitted
-        if self.temperature_scaler._fitted:
-            # Transform uncertainty to confidence with temperature
-            raw_conf = np.exp(-total * self.PHI)
-            confidence = float(
-                np.clip(raw_conf ** (1 / self.temperature_scaler.temperature), 0.01, 0.99)
-            )
-        else:
-            confidence = self._compute_confidence(epistemic, aleatoric)
+        # === CONFIDENCE ===
+        # Route through the single calibration point when one has been fitted on
+        # observed outcomes (see fit_confidence_calibrator); otherwise emit the
+        # uncalibrated, parameter-free monotone prior (no golden-ratio constant)
+        # and flag it as uncalibrated below.
+        confidence = self._compute_confidence(epistemic, aleatoric)
+        confidence_calibrated = bool(
+            self._confidence_calibrator is not None
+            and getattr(self._confidence_calibrator, "is_calibrated", False)
+        )
 
         calibration_error = self._compute_ece()
 
@@ -715,6 +764,21 @@ class UncertaintyQuantifier:
             predictive_entropy,
             is_overconfident,
         )
+        if not (epistemic_measured and aleatoric_measured):
+            unmeasured = []
+            if not epistemic_measured:
+                unmeasured.append("epistemic (no ensemble/MC samples)")
+            if not aleatoric_measured:
+                unmeasured.append("aleatoric (insufficient residual history)")
+            explanation = (
+                f"NOTE: {', '.join(unmeasured)} not measured this call -- placeholder used; "
+                "supply an ensemble/model or accumulate outcomes for a measured estimate. "
+            ) + explanation
+        if not confidence_calibrated:
+            explanation += (
+                " Confidence is an uncalibrated monotone prior (no calibrator fitted yet); "
+                "call fit_confidence_calibrator once outcomes accumulate."
+            )
 
         # Update running statistics
         alpha = 0.05  # EMA smoothing
@@ -740,6 +804,9 @@ class UncertaintyQuantifier:
             predictive_entropy=predictive_entropy,
             mc_samples=self.n_monte_carlo if mc_predictions.shape[0] > 1 else 0,
             is_overconfident=is_overconfident,
+            epistemic_measured=epistemic_measured,
+            aleatoric_measured=aleatoric_measured,
+            confidence_calibrated=confidence_calibrated,
         )
 
     def estimate_epistemic(
@@ -1268,15 +1335,56 @@ class UncertaintyQuantifier:
 
         return float(np.mean(entropies))
 
+    def _raw_confidence(self, total: float) -> float:
+        """Uncalibrated, parameter-free monotone prior: confidence from total UQ.
+
+        ``1 / (1 + total)`` is strictly decreasing in total uncertainty, maps
+        ``total=0 -> 1`` and saturates toward 0, and -- unlike the previous
+        golden-ratio ``exp(-total * PHI)`` -- carries **no magic constant**. It is only a
+        *prior*: it is not calibrated against accuracy until a calibrator is
+        fitted (see :meth:`fit_confidence_calibrator`), which is why any estimate
+        produced from it alone is flagged ``confidence_calibrated=False``.
+        """
+        return float(np.clip(1.0 / (1.0 + max(0.0, total)), 0.01, 0.99))
+
     def _compute_confidence(self, epistemic: float, aleatoric: float) -> float:
-        """Compute calibrated confidence from uncertainties."""
-        total = np.sqrt(epistemic**2 + aleatoric**2)
+        """Confidence from uncertainties, routed through the calibrator if fit.
 
-        # Exponential transform: high uncertainty -> low confidence
-        # Scale by PHI for smoother curve
-        confidence = np.exp(-total * self.PHI)
+        Falls back to the uncalibrated monotone prior (:meth:`_raw_confidence`)
+        until :meth:`fit_confidence_calibrator` has accepted a calibrator.
+        """
+        total = float(np.sqrt(epistemic**2 + aleatoric**2))
+        raw = self._raw_confidence(total)
+        cal = self._confidence_calibrator
+        if cal is not None and getattr(cal, "is_calibrated", False):
+            return float(np.clip(cal.transform_one(raw), 0.01, 0.99))
+        return raw
 
-        return float(np.clip(confidence, 0.01, 0.99))
+    def fit_confidence_calibrator(self, min_samples: int = 50, method: str = "auto") -> Any:
+        """Fit the confidence routing point on accumulated (confidence, correct?).
+
+        Maps the raw monotone confidence onto measured P(correct) using the
+        history recorded by :meth:`update_with_outcome`. Returns the
+        :class:`~omni_mercury_engine.core.confidence.ConfidenceReport` (with
+        held-out ECE/Brier) or ``None`` if there is not yet enough history.
+        Subsequent ``estimate_uncertainty`` calls then emit calibrated
+        confidence (``confidence_calibrated=True``).
+        """
+        from omni_mercury_engine.core.confidence import CalibratedConfidence
+
+        if len(self._confidences) < min_samples or len(self._outcomes) < min_samples:
+            return None
+        scores = np.asarray(list(self._confidences), dtype=float)
+        labels = np.asarray([1 if o else 0 for o in self._outcomes], dtype=float)
+        # Use the instance's constructor seed (falling back to
+        # CalibratedConfidence's fixed default when None) rather than drawing a
+        # fresh seed from self._rng -- so re-fitting the same instance is
+        # reproducible and the bootstrap accept/reject verdict does not flap.
+        calibrator = CalibratedConfidence(method=method, seed=self._seed)
+        report = calibrator.fit(scores, labels)
+        self._confidence_calibrator = calibrator
+        self._stats["calibrations_performed"] += 1
+        return report
 
     def _compute_ece(self) -> float:
         """Compute current Expected Calibration Error using vectorized operations.

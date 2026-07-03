@@ -67,6 +67,14 @@ dependencies = [
     "cryptography>=46.0.7",  # CVE-2026-26007, CVE-2026-34073, CVE-2026-39892
     "pillow>=12.2.0",  # Security: CVE-2026-25990, CVE-2026-40192
     "requests>=2.33.1",  # Security: CVE-2026-25645
+    # Pin urllib3's floor even though it is transitive via requests: the open-web
+    # research fetch relies on streaming, incrementally-decoded reads to bound
+    # decompression-bomb peak memory (see web_research._safe_http_transport). A
+    # floor prevents a transitive resolver from selecting an older urllib3 whose
+    # decode/streaming behaviour reintroduces the unbounded-inflation DoS. The
+    # explicit decoded-size cap in the transport is the primary control; this is
+    # defence in depth against dependency drift.
+    "urllib3>=2.5.0",
     "tqdm>=4.65.0",
     "networkx>=3.6.1",
     "defusedxml>=0.7.1",
@@ -94,7 +102,16 @@ ml = [
     "torchvision>=0.17.0",
     "pytorch-lightning>=2.0.0",
     "timm>=1.0.26",
-    "opencv-python-headless>=4.8.0",
+    # Upper-capped below 5.0: OpenCV 5.0.0 (released 2026-07) removed a number of
+    # long-standing top-level ``cv2`` symbols -- including ``cv2.CascadeClassifier``
+    # (used by ``models/biometric_advanced.py``), which no longer exists on the
+    # ``cv2`` module at *runtime* (it moved out of the flat namespace) and also
+    # vanished from the type stubs, breaking the blocking ``mypy`` gate with
+    # ``Module has no attribute "CascadeClassifier"``.  Without a cap the
+    # unbounded floor resolves 5.0.x and both the Type Checking lane and the
+    # affected runtime path break.  Pin to the 4.x API this codebase targets;
+    # revisit as a deliberate migration when adopting the 5.x namespace.
+    "opencv-python-headless>=4.8.0,<5",
     # CVE-2025-47273: path traversal / arbitrary file write in setuptools'
     # ``PackageIndex`` (fixed in 78.1.1).  ``setuptools`` is a *runtime*
     # dependency of both ``torch`` and ``tensorflow`` (``Required-by:
@@ -149,8 +166,16 @@ foundation = [
     "nixtla>=0.5.0",
 ]
 
-# Medical dataset loaders (MIT-BIH, PhysioNet)
+# Medical detectors + dataset loaders (MIT-BIH, PhysioNet).
+#
+# The medical suite's anesthesiology / endocrinology / cure predictors are
+# real ``torch.nn`` models, and ``MedicalCoordinator`` binds them in its
+# registry, so ``import omni_mercury_engine.medical`` requires the ML stack.
+# Compose ``mercury-agent[ml]`` (same convention as the ``[visual]`` / ``[sota]``
+# extras) so ``pip install mercury-agent[medical]`` yields an importable,
+# functional package instead of one that fails at import on a missing ``torch``.
 medical = [
+    "mercury-agent[ml]",
     "wfdb>=4.3.1",
 ]
 
@@ -401,7 +426,29 @@ namespaces = false
 # so ``mercury-agent detect -d fusion`` has trained weights out of the box even
 # from a built wheel, where ``Path(__file__).parent`` resolves inside the
 # installed package rather than the source tree.
-omni_mercury_engine = ["py.typed", "models/checkpoints/*.pt"]
+#
+# The three ``security/sigma_immutable_*`` entries ship the corpus + Ed25519/
+# ML-DSA-65 signature bundle and the trained GOSNN weights the σ_Immutable
+# hard ethical gate reads at first ``MercuryEngine`` construction (lazily, not
+# at import time -- see ``security/sigma_immutable_corpus.py`` and
+# ``core/global_omni_scalar_network.py``). Without them here, a non-editable
+# install (``pip install ".[all]"`` with no ``-e`` -- what the Dockerfile and
+# any real `pip install mercury-agent` do) silently ships a package missing
+# these files, and the gate's own fail-closed design means every detection
+# call then raises ``EthicalConstraintViolationError`` (corpus/weights
+# unreadable -> score 0.0 -> below threshold) rather than warning. CI's own
+# ``pip install -e .`` never hits this: an editable install resolves
+# ``Path(__file__).parent`` against the source checkout, where these files
+# exist regardless of what's declared here, which is exactly why this gap
+# went unnoticed -- the gate's own correctness was never exercised against a
+# real (non-editable) install before.
+omni_mercury_engine = [
+    "py.typed",
+    "models/checkpoints/*.pt",
+    "security/sigma_immutable_corpus.json",
+    "security/sigma_immutable_corpus.sig.json",
+    "security/sigma_immutable_weights.pt",
+]
 
 # =============================================================================
 # Black Configuration
@@ -628,6 +675,10 @@ module = [
     # override declares them as a typed-boundary equivalent.
     "calibration_validation",
     "mercury_benchmark",
+    "eval_weapons_gate",
+    "weapons_gate_corpus",
+    "eval_weapons_gate_adversarial",
+    "weapons_gate_adversarial",
     # Optional in-tree modules the tools surface ``try/except``-imports.
     # The ML detector and federated aggregator surfaces ship behind
     # ``[ml]`` / ``[federated]`` extras and are *expected* to be absent

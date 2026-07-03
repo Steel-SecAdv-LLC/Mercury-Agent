@@ -118,7 +118,13 @@ class StreamMessage:
     timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     headers: dict[str, str] = field(default_factory=dict)
     partition: int | None = None
-    offset: int | None = None
+    # Kafka's broker-assigned offset is a real integer; Redis Streams has no
+    # analogous numeric cursor and instead identifies each entry by its
+    # ``<ms-timestamp>-<seq>`` stream ID string (e.g. ``"1234567890123-0"``,
+    # consumed by ``XACK``/``XCLAIM``). Both sources populate this field with
+    # their own consume-position identifier, so it is honestly ``int | str``
+    # rather than narrowed to the Kafka-only ``int`` shape.
+    offset: int | str | None = None
 
     def to_json(self) -> str:
         """Serialize message to JSON."""
@@ -711,6 +717,20 @@ class KafkaStreamConsumer(StreamConsumer):
             logger.debug(f"Skipping Kafka commit for message with no partition: {message.topic}")
             return
 
+        # Always a Kafka-populated int on this path (consume() above sets it
+        # from aiokafka's ConsumerRecord.offset); the int | str union exists
+        # only to also honestly type Redis's string stream IDs. Guard with an
+        # explicit runtime check rather than ``assert`` -- asserts are stripped
+        # under ``python -O``, and a stray string offset would then reach
+        # ``message.offset + 1`` and raise TypeError. Skip with a debug log,
+        # matching the offset-None / partition-None contract above.
+        if not isinstance(message.offset, int):
+            logger.debug(
+                "Skipping Kafka commit for message with non-int offset "
+                f"({type(message.offset).__name__}): {message.topic}"
+            )
+            return
+
         try:
             from aiokafka import TopicPartition
 
@@ -803,12 +823,14 @@ class RedisStreamProducer(StreamProducer):
         try:
             # Prepare message with metadata.  The dict annotation matches
             # redis-py's ``StreamCommands.xadd`` field-value type (it
-            # accepts bytes/bytearray/memoryview/str/int/float for both
-            # keys and values).  ``dict`` is invariant in mypy, so a
-            # narrower ``dict[str, str]`` cannot be passed even when the
-            # values are subtypes.  The values we actually store here
-            # are always ``str``, so the wider annotation is purely a
-            # typing accommodation.
+            # accepts bytes/bytearray/``memoryview[int]``/str/int/float for
+            # both keys and values).  ``memoryview`` is generic in typeshed and
+            # redis-py parameterises it as ``memoryview[int]``, so that exact
+            # form -- not a bare ``memoryview`` -- is what matches the stub.
+            # ``dict`` is invariant in mypy, so a narrower ``dict[str, str]``
+            # cannot be passed even when the values are subtypes.  The values we
+            # actually store here are always ``str``, so the wider annotation is
+            # purely a typing accommodation.
             message_data: dict[
                 bytes | bytearray | memoryview[int] | str | int | float,
                 bytes | bytearray | memoryview[int] | str | int | float,
@@ -962,20 +984,33 @@ class RedisStreamConsumer(StreamConsumer):
 
         try:
             # Build streams dict for XREADGROUP.  redis-py types this as
-            # ``dict[bytes | str | memoryview, int | bytes | str | memoryview]``
-            # — ``dict.fromkeys(..., ">")`` returns ``dict[str, str]``,
-            # which is invariant-incompatible, so the explicit annotation
-            # is required to land in the wider union.
+            # ``dict[bytes | str | memoryview[int], int | bytes | str | memoryview[int]]``
+            # (typeshed's ``memoryview`` is generic; redis parameterises it as
+            # ``memoryview[int]``).  ``dict.fromkeys(..., ">")`` returns
+            # ``dict[str, str]``, which is invariant-incompatible, so the explicit
+            # annotation is required to land in the wider union.
             streams: dict[bytes | str | memoryview[int], int | bytes | str | memoryview[int]] = (
                 dict.fromkeys(self._subscribed_topics, ">")
             )
 
-            result = await self._redis.xreadgroup(
-                self.group_id,
-                self.consumer_name,
-                streams,
-                count=self.config.batch_size,
-                block=timeout_ms,
+            # redis-py's ``XReadGroupResponse`` stub is a 3-way union covering
+            # both RESP2 (list-of-[stream, entries] pairs) and RESP3
+            # (dict-keyed) reply shapes the server can send depending on
+            # negotiated protocol. ``redis.from_url`` above does not pass
+            # ``protocol=3``, so the connection stays on the default RESP2
+            # protocol and the broker always replies in the list shape this
+            # method has always iterated -- the cast pins that one concrete,
+            # actually-returned member of the union for mypy (same idiom as
+            # the ``ping()`` cast in ``RedisStreamProducer.connect`` above).
+            result = cast(
+                "list[tuple[str, list[tuple[str, dict[str, str]]]]]",
+                await self._redis.xreadgroup(
+                    self.group_id,
+                    self.consumer_name,
+                    streams,
+                    count=self.config.batch_size,
+                    block=timeout_ms,
+                ),
             )
 
             if result:
