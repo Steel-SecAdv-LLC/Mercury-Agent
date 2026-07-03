@@ -915,6 +915,11 @@ class _GateEvidence:
     weight: float
     offensive: list[tuple[OperationalIntent, str]]
     allowed: list[tuple[OperationalIntent, str]]
+    # True when the defensive-production carve-out dropped a B6 PRODUCTION match
+    # (make-a-detector/vaccine/antidote framing). Such a query is permitted, but
+    # provenance-gated (ALLOW_PROVENANCE) rather than a plain ALLOW -- see
+    # ``assess_weapons_uplift``.
+    defensive_carveout: bool = False
 
 
 def _gate_evidence(text: str, context: dict[str, Any] | None) -> _GateEvidence:
@@ -975,14 +980,15 @@ def _gate_evidence(text: str, context: dict[str, Any] | None) -> _GateEvidence:
         OperationalIntent.DEFENSE,
         OperationalIntent.RESPONSE,
     }
-    if (
+    defensive_carveout = bool(
         any(t is OperationalIntent.PRODUCTION for t, _ in offensive)
         and (_DEFENSIVE_ALLOW & {t for t, _ in allowed})
         and _DEFENSIVE_PRODUCTION_RE.search(haystack)
-    ):
+    )
+    if defensive_carveout:
         offensive = [(t, lbl) for t, lbl in offensive if t is not OperationalIntent.PRODUCTION]
 
-    return _GateEvidence(domain, weight, offensive, allowed)
+    return _GateEvidence(domain, weight, offensive, allowed, defensive_carveout)
 
 
 def compute_gate_features(
@@ -1126,6 +1132,23 @@ def assess_weapons_uplift(
                 disposition = WeaponsDisposition.ALLOW_PROVENANCE
             else:
                 disposition = WeaponsDisposition.ALLOW
+            # Defensive-production carve-out is provenance-gated, never a plain
+            # ALLOW/ALLOW_LOG. A request whose ONLY offensive signal was a B6
+            # PRODUCTION verb defused by a defensive object ("make a nerve-agent
+            # detector") is answered only from cited sources -- never uncited
+            # synthesis on a hazardous topic -- regardless of hazard severity or
+            # licensed framing. This closes the "append a defensive noun to flip
+            # B6 -> ALLOW" seam without re-strangling professionals: provenance
+            # is non-blocking (a real detector-builder still gets sourced
+            # material; an attacker gets no free operational synthesis), and it
+            # is enforced at the output boundary (GeneralAssistant). B7-B10 are
+            # never carved out, so this only ever tightens a permit, never
+            # loosens a refusal.
+            if ev.defensive_carveout and disposition in (
+                WeaponsDisposition.ALLOW,
+                WeaponsDisposition.ALLOW_LOG,
+            ):
+                disposition = WeaponsDisposition.ALLOW_PROVENANCE
             return WeaponsRiskAssessment(
                 domain, weight, tier, 0.0, disposition, tuple(label for _, label in allowed)
             )
