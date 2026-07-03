@@ -34,10 +34,13 @@ if TYPE_CHECKING:
     from omni_mercury_engine.models.foundation.llm_usage import UsageLedger
     from omni_mercury_engine.models.llm_registry import LLMModelRegistry
 
-# Re-exported from the lightweight, dependency-free
-# :mod:`omni_mercury_engine.cognitive.harm_classifier` so it is importable
-# without the LLM/crypto stack, yet discoverable here next to the backends that
-# feed it.
+# ``reasoning_harm_classifier`` itself lives in the lightweight, dependency-free
+# :mod:`omni_mercury_engine.cognitive.harm_classifier` -- import it FROM THERE for
+# a lean install with no LLM/reasoning stack. This re-export exists only so the
+# adapter is discoverable next to the backends that feed it; note that importing
+# *this* module is NOT dependency-free -- it pulls the full reasoning backend
+# stack (``ollama_adapter`` above imports ``requests``), so it is a
+# discoverability alias, not a lightweight access path.
 from omni_mercury_engine.cognitive.harm_classifier import reasoning_harm_classifier
 
 __all__ = [
