@@ -114,6 +114,35 @@ class TestEscalationAuditIntegration:
             encoding="utf-8"
         )
 
+    def test_secure_audit_dir_env_routes_the_hash_chained_sink(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # MERCURY_SECURE_AUDIT_DIR is the only env knob for the tamper-evident
+        # sink's directory; a decision must land there, not in the code default.
+        from omni_mercury_engine.cognitive.gate_audit import record_gate_decision
+
+        monkeypatch.setenv("MERCURY_GATE_AUDIT_LOG", str(tmp_path / "gate.jsonl"))
+        monkeypatch.setenv("MERCURY_GATE_AUDIT_SECURELOG", "1")
+        monkeypatch.setenv("MERCURY_SECURE_AUDIT_DIR", str(tmp_path / "secure_env"))
+        monkeypatch.delenv("MERCURY_GATE_AUDIT_DISABLED", raising=False)
+        saved = sal._audit_logger
+        sal._audit_logger = None
+        try:
+            record_gate_decision(
+                decision="refused", source="test_env_dir", disposition="hard_refuse", reason="x"
+            )
+            secure = sal.get_audit_logger()
+            secure.flush()
+            secure_path = tmp_path / "secure_env" / "audit.jsonl"
+            assert secure_path.exists()
+            assert "harm_gate:refused" in secure_path.read_text(encoding="utf-8")
+            assert str(secure.log_dir) == str(tmp_path / "secure_env")
+        finally:
+            current = sal._audit_logger
+            if current is not None and current is not saved:
+                current.shutdown()
+            sal._audit_logger = saved
+
     def test_tampering_secure_log_is_detected(
         self, audit_sinks: tuple[Path, sal.SecureAuditLogger]
     ) -> None:

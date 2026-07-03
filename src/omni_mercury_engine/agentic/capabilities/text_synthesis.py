@@ -18,7 +18,7 @@ from __future__ import annotations
 import re
 from collections import Counter
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 
@@ -173,6 +173,11 @@ class ExtractiveSynthesizer:
     #: procedure (spec §5.3). 1 = per-sentence only; the default 3 also catches a
     #: procedure split across 2-3 sentences that each pass individually.
     cross_sentence_window: int = 3
+    #: The exact string most recently emitted through the output gate (`_join` /
+    #: `_emit`). Lets :meth:`unsafe_output_spans` diff-skip the re-gate when it is
+    #: handed back this synthesizer's own freshly-gated output (the common case),
+    #: turning the monotone_harm contract's postcondition into an O(1) compare.
+    _last_gated_output: str = field(default="", init=False, repr=False, compare=False)
 
     def _gate_ok(self, text: str) -> bool:
         """True when ``text`` passes the sentence gate. Fail-closed on error."""
@@ -185,9 +190,13 @@ class ExtractiveSynthesizer:
 
     def _emit(self, sentence: str) -> str:
         """Return ``sentence`` verbatim, or the redaction notice if the gate rejects it."""
-        if self.sentence_gate is None:
-            return sentence
-        return sentence if self._gate_ok(sentence) else REDACTION_NOTICE
+        result = (
+            sentence
+            if (self.sentence_gate is None or self._gate_ok(sentence))
+            else REDACTION_NOTICE
+        )
+        self._last_gated_output = result
+        return result
 
     def _safe_flags(self, sentences: list[str]) -> list[bool]:
         """Per-sentence safety flags, tightened by a cross-sentence re-gate.
@@ -225,7 +234,9 @@ class ExtractiveSynthesizer:
             if emitted == REDACTION_NOTICE and out and out[-1] == REDACTION_NOTICE:
                 continue  # don't repeat the notice for consecutive redactions
             out.append(emitted)
-        return " ".join(out)
+        result = " ".join(out)
+        self._last_gated_output = result
+        return result
 
     def unsafe_output_spans(self, text: str) -> list[str]:
         """Gate-unsafe sentences present in already-emitted ``text`` (empty when clean).
@@ -238,8 +249,16 @@ class ExtractiveSynthesizer:
         :data:`REDACTION_NOTICE`, which is benign and passes), so this returns
         ``[]`` and the contract is a no-op; with no gate configured there is
         nothing to check.
+
+        Diff-skip: when ``text`` is exactly this synthesizer's most recently
+        gated output (:attr:`_last_gated_output`), it was already gated in this
+        pass, so the expensive re-gate is skipped for an O(1) string compare. The
+        full re-gate still runs for any other input (a caller-mutated or
+        externally-produced string), preserving the contract's enforcement.
         """
         if self.sentence_gate is None:
+            return []
+        if text == self._last_gated_output:
             return []
         sentences = self.split_sentences(text)
         flags = self._safe_flags(sentences)

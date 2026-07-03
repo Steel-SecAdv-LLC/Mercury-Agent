@@ -21,6 +21,17 @@ Corpus version: `362-cac87dc649b9` (362 cases, 5-fold OOF, 15-bin equal-mass ECE
 | rolling Brier | 0.0056 |
 | windows | 5 |
 
+## Gate-level (end-to-end disposition)
+
+| metric | value |
+|---|---|
+| ECE (gate confidence) | 0.0204 |
+| Brier (gate confidence) | 0.0016 |
+| AUROC | 1.0000 |
+| block recall | 1.0000 |
+| block FN rate | 0.0000 |
+| block FP rate | 0.0000 |
+
 ## Held-out adversarial set (never trained)
 
 | metric | value |

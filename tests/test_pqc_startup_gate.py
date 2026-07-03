@@ -23,6 +23,7 @@ from omni_mercury_engine._pqc_gate import (
     AMA_CRYPTO_VERSION_ENV,
     _enforce_ama_version,
     _enforce_pqc_production_gate,
+    _release_matches,
 )
 
 
@@ -123,3 +124,20 @@ class TestAmaVersionEnforcement:
         monkeypatch.setattr(ama_cryptography, "__version__", "9.9.9", raising=False)
         with pytest.raises(RuntimeError, match="version mismatch"):
             _enforce_ama_version()
+
+    @pytest.mark.parametrize(
+        "version", ["3.2.0", "v3.2.0", "3.2.0.post1", "3.2.0rc1", "3.2.0+cpu", "3.2", "  3.2.0 "]
+    )
+    def test_release_matches_accepts_pinned_release_variants(self, version: str) -> None:
+        assert _release_matches(version) is True
+
+    @pytest.mark.parametrize("version", ["3.1.0", "3.3.0", "9.9.9", "2.0.0", "3", "", "garbage"])
+    def test_release_matches_rejects_other_releases(self, version: str) -> None:
+        assert _release_matches(version) is False
+
+    def test_post_release_build_is_accepted_end_to_end(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # A post/local build of the pinned release must NOT be refused.
+        monkeypatch.setattr(ama_cryptography, "__version__", "3.2.0.post1", raising=False)
+        _enforce_ama_version()  # must not raise

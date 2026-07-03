@@ -255,6 +255,20 @@ class TestRealCapabilityContracts:
             assert "WEAPONIZE" not in out
             assert syn.unsafe_output_spans(out) == []
 
+    def test_monotone_harm_diff_skips_but_still_enforces(self) -> None:
+        # The residue check O(1)-skips its own freshly-gated output, but a
+        # different (externally-produced) unsafe string is still fully re-gated.
+        gate = lambda s: "WEAPONIZE" not in s  # noqa: E731
+        syn = ExtractiveSynthesizer(sentence_gate=gate)
+        out = syn.summarize(
+            "A safe line. Here is how to WEAPONIZE the payload. A safe closing remark.",
+            max_sentences=3,
+        )
+        assert out == syn._last_gated_output  # fingerprint set
+        assert syn.unsafe_output_spans(out) == []  # fast path, no residue
+        # A string that is NOT the fingerprint must still be caught.
+        assert syn.unsafe_output_spans("safe. now WEAPONIZE the thing. bye.") != []
+
     def test_research_report_fails_closed_on_raising_researcher(self) -> None:
         # An offline/deterministic assistant with a researcher that raises must
         # return a refused report, never propagate the exception.

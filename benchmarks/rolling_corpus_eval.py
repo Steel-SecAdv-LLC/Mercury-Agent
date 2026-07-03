@@ -218,6 +218,41 @@ def rolling_origin(
     return m
 
 
+def gate_level_eval(rows: list[dict[str, Any]]) -> dict[str, float]:
+    """End-to-end **gate-level** (disposition-based) metrics on the corpus.
+
+    Complements the feature-logistic OOF: instead of a per-fold logistic, this
+    scores each row through the *shipped* gate (``assess_weapons_uplift``) and
+    reports calibration on the gate's own ``confidence`` plus the decision quality
+    of its ``blocks`` disposition. It is not fold-based because the gate is
+    deterministic (it does not train on the corpus), so there is nothing to hold
+    out -- it is the honest end-to-end operating point, reported alongside the OOF
+    numbers so both the calibrated probability and the realized disposition are
+    visible.
+    """
+    from omni_mercury_engine.cognitive.ethical_bounding import assess_weapons_uplift
+
+    ys, ps, blocks = [], [], []
+    for row in rows:
+        assessment = assess_weapons_uplift(row["text"])
+        ys.append(1.0 if row["label"] == "offensive" else 0.0)
+        ps.append(float(assessment.confidence))
+        blocks.append(1.0 if assessment.blocks else 0.0)
+    y = np.asarray(ys, dtype=float)
+    p = np.asarray(ps, dtype=float)
+    b = np.asarray(blocks, dtype=float)
+    metrics = _metrics(y, p)  # ECE/Brier/AUROC/NLL on the gate's confidence
+    # Decision quality uses the realized block disposition, not a p>=0.5 cut.
+    n_pos = float(np.sum(y == 1.0)) or 1.0
+    n_neg = float(np.sum(y == 0.0)) or 1.0
+    fn = float(np.sum((b == 0.0) & (y == 1.0)))
+    fp = float(np.sum((b == 1.0) & (y == 0.0)))
+    metrics["block_fn_rate"] = round(fn / n_pos, 6)
+    metrics["block_fp_rate"] = round(fp / n_neg, 6)
+    metrics["block_recall"] = round(1.0 - fn / n_pos, 6)
+    return metrics
+
+
 def adversarial_holdout(x_full: np.ndarray, y_full: np.ndarray) -> dict[str, float]:
     """Fit on the full corpus; score the never-trained adversarial set (all offensive)."""
     adv = _load_jsonl(ADVERSARIAL_PATH)
@@ -242,6 +277,7 @@ def evaluate() -> dict[str, Any]:
 
     kfold = kfold_oof(x, y, texts)
     rolling = rolling_origin(x, y, order)
+    gate = gate_level_eval(rows)
     adversarial = adversarial_holdout(x, y)
 
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8")) if MANIFEST_PATH.is_file() else {}
@@ -260,6 +296,12 @@ def evaluate() -> dict[str, Any]:
         "rolling_ece": rolling.get("ece"),
         "rolling_brier": rolling.get("brier"),
         "rolling_windows": rolling.get("windows"),
+        "gate_ece": gate["ece"],
+        "gate_brier": gate["brier"],
+        "gate_auroc": gate["auroc"],
+        "gate_block_recall": gate["block_recall"],
+        "gate_block_fn_rate": gate["block_fn_rate"],
+        "gate_block_fp_rate": gate["block_fp_rate"],
         "adversarial_recall": adversarial.get("recall"),
         "adversarial_fn_rate": adversarial.get("fn_rate"),
         "adversarial_brier": adversarial.get("brier"),
@@ -318,6 +360,14 @@ def _render_report(metrics: dict[str, Any]) -> str:
         f"| rolling ECE | {metrics['rolling_ece']:.4f} |\n"
         f"| rolling Brier | {metrics['rolling_brier']:.4f} |\n"
         f"| windows | {metrics['rolling_windows']} |\n\n"
+        "## Gate-level (end-to-end disposition)\n\n"
+        "| metric | value |\n|---|---|\n"
+        f"| ECE (gate confidence) | {metrics['gate_ece']:.4f} |\n"
+        f"| Brier (gate confidence) | {metrics['gate_brier']:.4f} |\n"
+        f"| AUROC | {metrics['gate_auroc']:.4f} |\n"
+        f"| block recall | {metrics['gate_block_recall']:.4f} |\n"
+        f"| block FN rate | {metrics['gate_block_fn_rate']:.4f} |\n"
+        f"| block FP rate | {metrics['gate_block_fp_rate']:.4f} |\n\n"
         "## Held-out adversarial set (never trained)\n\n"
         "| metric | value |\n|---|---|\n"
         f"| n | {metrics['adversarial_n']} |\n"

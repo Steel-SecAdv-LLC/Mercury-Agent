@@ -156,14 +156,33 @@ def _write_jsonl(record: dict[str, Any]) -> None:
         logger.warning("gate audit: durable JSONL write failed (%s); decision=%s", exc, record)
 
 
+def _secure_audit_logger() -> Any:
+    """Return the hash-chained SecureAuditLogger, honoring ``MERCURY_SECURE_AUDIT_DIR``.
+
+    When ``MERCURY_SECURE_AUDIT_DIR`` is set, the tamper-evident sink is (re)pointed
+    at that directory -- the *only* environment knob for the secure sink, since
+    ``MERCURY_GATE_AUDIT_LOG`` steers only the plain JSONL. Reconfiguration happens
+    at most once (when the active logger is absent or points elsewhere), so the
+    hash chain is never reset on the hot path.
+    """
+    from omni_mercury_engine.security import secure_audit_logging as sal
+
+    secure_dir = os.environ.get("MERCURY_SECURE_AUDIT_DIR", "").strip()
+    if not secure_dir:
+        return sal.get_audit_logger()
+
+    existing = sal._audit_logger
+    if existing is not None and str(getattr(existing, "log_dir", "")) == str(Path(secure_dir)):
+        return existing
+    return sal.configure_audit_logger(log_dir=secure_dir)
+
+
 def _forward_secure(record: dict[str, Any]) -> None:
     """Best-effort forward to the hash-chained SecureAuditLogger (opt-in)."""
     if os.environ.get("MERCURY_GATE_AUDIT_SECURELOG") != "1":
         return
     try:
-        from omni_mercury_engine.security.secure_audit_logging import get_audit_logger
-
-        get_audit_logger().log_security_incident(
+        _secure_audit_logger().log_security_incident(
             action=f"harm_gate:{record.get('decision', 'decision')}",
             details=record,
             resource=record.get("source", "harm_gate"),

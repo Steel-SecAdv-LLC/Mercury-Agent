@@ -76,8 +76,9 @@ hash-chained, PII-masking `SecureAuditLogger`. Each event stores the previous
 event's hash, so any deletion, reordering, or edit breaks the chain.
 
 > **Note.** `MERCURY_GATE_AUDIT_LOG` steers only the plain JSONL. The secure
-> sink writes to its own directory (default `./audit_logs/audit.jsonl`),
-> configured in code via `configure_audit_logger(log_dir=…)`.
+> sink writes to its own directory — set `MERCURY_SECURE_AUDIT_DIR` to point it
+> (default `./audit_logs/audit.jsonl`). The sink is (re)configured at most once,
+> so the hash chain is never reset on the hot path.
 
 Verify integrity (and detect tampering):
 
