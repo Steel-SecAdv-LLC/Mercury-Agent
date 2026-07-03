@@ -21,6 +21,7 @@ import json
 import logging
 import os
 import socket
+import urllib.parse
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
@@ -286,11 +287,39 @@ class OllamaLLMAdapter(BaseLLMAdapter):
 
         self.ollama_config = ollama_config or OllamaConfig()
 
+        # Tier-0 canonical served-model endpoint (docs/INSTALLATION.md): a URL
+        # like ``http://127.0.0.1:11434`` parsed into host+port. Loopback is still
+        # enforced downstream by SafeHTTPClient(loopback_only=True), so this can
+        # only point at a local server, never pivot to a remote host.
+        env_endpoint = os.environ.get("MERCURY_MODEL_ENDPOINT", "").strip()
+        if env_endpoint:
+            parsed = urllib.parse.urlparse(
+                env_endpoint if "://" in env_endpoint else f"http://{env_endpoint}"
+            )
+            try:
+                # ``.port`` lazily validates and raises ValueError on a
+                # non-numeric / out-of-range port; treat a malformed endpoint as
+                # a no-op (log + keep defaults) rather than crashing construction
+                # and taking the whole fallback chain down with it.
+                host, port = parsed.hostname, parsed.port
+            except ValueError:
+                logger.warning(
+                    "MERCURY_MODEL_ENDPOINT=%r is malformed (bad port); ignoring it",
+                    env_endpoint,
+                )
+                host, port = None, None
+            if host:
+                self.ollama_config.host = host
+            if port:
+                self.ollama_config.port = port
+
         # Override model from environment if set
         env_model = os.environ.get("MERCURY_OLLAMA_MODEL")
         if env_model:
             self.ollama_config.model = env_model
 
+        # The more specific MERCURY_OLLAMA_HOST wins over the endpoint host, for
+        # backward compatibility with existing deployments.
         env_host = os.environ.get("MERCURY_OLLAMA_HOST")
         if env_host:
             self.ollama_config.host = env_host

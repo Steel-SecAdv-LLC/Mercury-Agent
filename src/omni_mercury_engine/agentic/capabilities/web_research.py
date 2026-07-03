@@ -56,6 +56,8 @@ from dataclasses import dataclass, field
 from html.parser import HTMLParser
 from typing import Any
 
+from omni_mercury_engine.agentic.capabilities.contract import Invariant, capability_contract
+
 logger = logging.getLogger(__name__)
 
 # A transport maps (url, timeout) -> (status_code, body_text, final_url). Raising
@@ -411,6 +413,16 @@ class WebResearcher:
             pass
         return parser.text()
 
+    @capability_contract(
+        Invariant.FAIL_CLOSED,
+        on_error=lambda exc, args, kwargs: FetchResult(
+            url=str(args[1]) if len(args) > 1 else str(kwargs.get("url", "")),
+            error=(
+                "fail-closed: fetch aborted by an unexpected error "
+                f"({type(exc).__name__}: {exc})"
+            ),
+        ),
+    )
     def fetch_text(self, url: str) -> FetchResult:
         """Fetch a URL, extract readable text, and run the post-retrieval harm screen.
 

@@ -40,6 +40,42 @@ AMA/PQC is mandatory regardless of its value:
   `import omni_mercury_engine` time before any other package state is
   materialised.
 
+## Tier 0 minimal (hardened) configuration
+
+The **Tier 0** posture is the smallest set of variables that makes Mercury refuse
+to start or serve in a cryptographically- or safety-degraded state. All of it is
+fail-closed: an omission or mismatch stops the process, it never silently
+downgrades.
+
+| Variable | Value | Purpose |
+|---|---|---|
+| `AMA_CRYPTO_VERSION` | `3.2.0` | Pinned PQC backend version; the import gate refuses a mismatch (`_pqc_gate._enforce_ama_version`). |
+| `LD_LIBRARY_PATH` | native AMA lib dir | Only for a manual out-of-tree AMA build; unneeded when `scripts/build_ama_native.sh` co-locates the `.so`. |
+| `MERCURY_ENV` | `production` | Mock/stub collaborators raise instead of downgrading. |
+| `AMA_REQUIRE_CONSTANT_TIME` | `true` | Refuse non-constant-time PQC primitives. |
+| `MERCURY_GATE_AUDIT_LOG` | durable path | Persistent JSONL sink for every harm-gate decision. |
+| `MERCURY_GATE_AUDIT_SECURELOG` | `1` | Also forward to the hash-chained, tamper-evident audit. |
+| `MERCURY_REQUIRE_REAL_HARM_CLASSIFIER` | `1` | Fail closed unless a real meaning-level classifier is serving. |
+| `MERCURY_MODEL_ENDPOINT` | `http://127.0.0.1:11434` | Loopback served-model endpoint for the meaning-level classifier. |
+| `CI_MEANING_LEVEL_ENABLED` | `true` | Enable the served-model adversarial FN-budget CI lane (`ci/meaning-level`). |
+
+```bash
+# Tier 0 minimal production env
+export MERCURY_ENV=production
+export AMA_CRYPTO_VERSION=3.2.0
+export AMA_REQUIRE_CONSTANT_TIME=true
+export MERCURY_GATE_AUDIT_LOG=/var/lib/mercury/audit/gate_decisions.jsonl
+export MERCURY_GATE_AUDIT_SECURELOG=1
+export MERCURY_REQUIRE_REAL_HARM_CLASSIFIER=1
+export MERCURY_MODEL_ENDPOINT=http://127.0.0.1:11434
+```
+
+The four Tier 0 CI lanes (`ci/tier0-verify`, `ci/gate-unit`, `ci/meaning-level`,
+`ci/rolling-corpus-eval`) live in `.github/workflows/tier0-safety.yml`. To make
+them **required for PRs touching gate logic**, add those check names under the
+repository's branch-protection rules. See the escalation/audit operations guide
+in [`ESCALATION_AUDIT_RUNBOOK.md`](ESCALATION_AUDIT_RUNBOOK.md).
+
 ## Quick Start
 
 ```bash
@@ -118,6 +154,24 @@ The script performs, in order: install the PEP 517 build floors
 v3.2.0`; `cmake -DAMA_USE_NATIVE_PQC=ON -DAMA_BUILD_SHARED=ON` + build;
 `AMA_NO_CYTHON=1 pip install --no-build-isolation --force-reinstall --no-deps .`;
 co-locate `libama_cryptography.so*`; verify via `get_pqc_backend_info()`.
+
+**Manual out-of-tree build (only if you do not co-locate the `.so`).** If you
+build AMA yourself and leave the shared object in the build tree, export its
+directory on `LD_LIBRARY_PATH` before importing Mercury:
+
+```bash
+git clone --depth 1 --branch v3.2.0 \
+    https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git /tmp/ama-cryptography
+cd /tmp/ama-cryptography
+cmake -B build -DAMA_USE_NATIVE_PQC=ON && cmake --build build
+AMA_NO_CYTHON=1 pip install --no-build-isolation .
+export LD_LIBRARY_PATH=/tmp/ama-cryptography/build/lib:/tmp/ama-cryptography/build:${LD_LIBRARY_PATH:-}
+export AMA_CRYPTO_VERSION=3.2.0
+```
+
+The import-time gate additionally enforces the pinned **version**: it refuses
+unless `ama_cryptography.__version__ == 3.2.0` and, when set, `AMA_CRYPTO_VERSION`
+agrees (`omni_mercury_engine/_pqc_gate.py::_enforce_ama_version`).
 
 **Docker / Kubernetes:** the production image builds this automatically — the
 Dockerfile builder stage runs `scripts/build_ama_native.sh`, the `.so` travels

@@ -18,6 +18,13 @@ partial build is rejected because Mercury exposes all three
 surfaces and a Dilithium-only install would let the process start
 in a cryptographically incomplete state.
 
+On top of algorithm availability the gate also enforces the pinned
+**version** (:data:`_AMA_REQUIRED_VERSION`, ``3.2.0``): the installed
+``ama_cryptography.__version__`` and, when set, the operator's
+``AMA_CRYPTO_VERSION`` env var must both equal it, so a build of the
+wrong AMA release (that happens to expose the three flags) is
+refused rather than started.  See :func:`_enforce_ama_version`.
+
 The flags are read from ``ama_cryptography.pqc_backends`` — the
 canonical location matching what ``security/pqc_backends.py`` reads
 (``from ama_cryptography.pqc_backends import DILITHIUM_AVAILABLE,
@@ -42,6 +49,18 @@ re-binding to keep the public package surface clean.
 """
 
 from __future__ import annotations
+
+import os
+
+#: The single AMA-Cryptography version Mercury is pinned to. Kept in lockstep
+#: with the pyproject ``ama-cryptography`` git pin, ``.github/actions/build-ama-
+#: cryptography`` (``AMA_REF``), and ``scripts/build_ama_native.sh``.
+_AMA_REQUIRED_VERSION = "3.2.0"
+
+#: Operator-facing env var to *declare* the AMA version. When set it must equal
+#: :data:`_AMA_REQUIRED_VERSION`; a mismatch is a loud, fail-closed configuration
+#: error rather than a silent downgrade.
+AMA_CRYPTO_VERSION_ENV = "AMA_CRYPTO_VERSION"
 
 _PQC_BUILD_RECOVERY_HINT = (
     "Build the AMA-Cryptography native library from a clone of the upstream\n"
@@ -102,5 +121,56 @@ def _enforce_pqc_production_gate() -> None:
         raise RuntimeError(
             "AMA/PQC is mandatory for Mercury, but the AMA Cryptography native C "
             f"backend is incomplete; missing or unavailable: {', '.join(missing)}.\n"
+            f"{_PQC_BUILD_RECOVERY_HINT}"
+        )
+
+    _enforce_ama_version()
+
+
+def _normalize_version(value: str) -> str:
+    """Strip whitespace and a leading ``v``/``V`` so ``' v3.2.0 '`` == ``'3.2.0'``."""
+    return value.strip().lstrip("vV")
+
+
+def _enforce_ama_version() -> None:
+    """Fail-closed unless AMA Cryptography is the pinned :data:`_AMA_REQUIRED_VERSION`.
+
+    Two independent, fail-closed checks, either of which refuses:
+
+    * ``AMA_CRYPTO_VERSION`` (:data:`AMA_CRYPTO_VERSION_ENV`) -- if the operator
+      sets it, it must *declare* the pinned version. A mismatched declaration is a
+      loud misconfiguration (a typo or an attempt to run an unpinned build),
+      never a silent downgrade.
+    * ``ama_cryptography.__version__`` -- the *installed* version, when the
+      package exposes it, must equal the pinned version. A build of the wrong AMA
+      release that still exposed the three backend flags would otherwise pass the
+      algorithm-availability check; this closes that gap.
+
+    Absent version metadata is not, on its own, fatal: the v3.2.0-only symbol
+    imports in ``security/pqc_backends.py`` already floor the surface. This adds an
+    explicit, operator-visible version gate on top of that structural floor.
+    """
+    declared = os.environ.get(AMA_CRYPTO_VERSION_ENV, "").strip()
+    if declared and _normalize_version(declared) != _AMA_REQUIRED_VERSION:
+        raise RuntimeError(
+            f"AMA/PQC version mismatch: {AMA_CRYPTO_VERSION_ENV}={declared!r} but "
+            f"Mercury is pinned to AMA Cryptography v{_AMA_REQUIRED_VERSION}. Unset the "
+            f"variable or set {AMA_CRYPTO_VERSION_ENV}={_AMA_REQUIRED_VERSION}.\n"
+            f"{_PQC_BUILD_RECOVERY_HINT}"
+        )
+
+    try:
+        import ama_cryptography
+
+        installed_raw = str(getattr(ama_cryptography, "__version__", "") or "")
+    except Exception:  # pragma: no cover - top-level import already succeeded above
+        installed_raw = ""
+
+    installed = _normalize_version(installed_raw)
+    if installed and installed != _AMA_REQUIRED_VERSION:
+        raise RuntimeError(
+            "AMA/PQC version mismatch: the installed ama_cryptography is "
+            f"v{installed_raw}, but Mercury requires exactly v{_AMA_REQUIRED_VERSION} "
+            "(the pyproject pin, CI AMA_REF, and the production PQC gate all agree).\n"
             f"{_PQC_BUILD_RECOVERY_HINT}"
         )

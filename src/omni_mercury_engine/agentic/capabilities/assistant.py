@@ -22,6 +22,7 @@ import os
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
+from omni_mercury_engine.agentic.capabilities.contract import Invariant, capability_contract
 from omni_mercury_engine.agentic.capabilities.document_generator import (
     Document,
     DocumentGenerator,
@@ -384,6 +385,35 @@ class GeneralAssistant:
             return f"[unavailable] could not read {url}: {result.error}"
         return self.synthesizer.summarize(result.text, max_sentences=max_sentences)
 
+    @capability_contract(
+        Invariant.FAIL_CLOSED,
+        Invariant.CITE_OR_REFUSE,
+        on_error=lambda exc, args, kwargs: ResearchReport(
+            query=str(args[1]) if len(args) > 1 else str(kwargs.get("query", "")),
+            summary="",
+            document=None,
+            available=False,
+            refused=True,
+            note=(
+                "fail-closed: research aborted by an unexpected error "
+                f"({type(exc).__name__}: {exc})"
+            ),
+            disposition="hard_refuse",
+        ),
+        emitted=lambda r, _inst: r.available and not r.refused and r.document is not None,
+        provenance_required=lambda r, _inst: r.disposition == "allow_provenance",
+        cited=lambda r, _inst: any(bool(s.get("read")) for s in r.sources),
+        refuse=lambda r, _inst: ResearchReport(
+            query=r.query,
+            summary="",
+            document=None,
+            sources=r.sources,
+            available=False,
+            refused=True,
+            note="withheld: provenance-required answer lacked citations (capability contract)",
+            disposition="allow_provenance",
+        ),
+    )
     def research_report(
         self,
         query: str,

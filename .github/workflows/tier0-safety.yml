@@ -1,0 +1,224 @@
+# Mercury-Agent Tier 0 safety-foundation CI lanes.
+#
+# Four focused, fail-closed gates for the safety foundation:
+#   * ci/tier0-verify       -- import-time native PQC build + version pin
+#   * ci/gate-unit          -- fail-closed + capability-contract unit tests
+#   * ci/meaning-level      -- served-model adversarial false-negative budget
+#   * ci/rolling-corpus-eval-- rolling corpus integrity + OOF ECE/Brier
+#
+# The job display names are literally `ci/<lane>` so branch-protection required
+# checks read as `Tier 0 Safety / ci/tier0-verify` etc. To make them REQUIRED for
+# PRs touching gate logic, add those check names in the repository's branch
+# protection settings (see docs/INSTALLATION.md "Tier 0 minimal configuration").
+#
+# Copyright (C) 2025 Steel Security Advisors LLC
+
+name: Tier 0 Safety
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tier0-safety-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  tier0-verify:
+    name: ci/tier0-verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Mercury (core) + test tooling
+        run: |
+          python -m pip install --upgrade "pip>=26.1"
+          pip install -e .
+          pip install pytest pytest-asyncio
+
+      - name: Build AMA Cryptography (native PQC)
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v3.2.0
+
+      - name: Import-time gate must succeed with a real, correctly-versioned AMA
+        run: python -c "import omni_mercury_engine; print('omni_mercury_engine imported (PQC gate passed)')"
+
+      - name: Import-time gate must FAIL closed on a wrong AMA_CRYPTO_VERSION
+        run: |
+          if AMA_CRYPTO_VERSION=9.9.9 python -c "import omni_mercury_engine" 2>/dev/null; then
+            echo "::error::PQC gate accepted AMA_CRYPTO_VERSION=9.9.9 (should fail closed)"
+            exit 1
+          fi
+          echo "OK: mismatched AMA_CRYPTO_VERSION rejected fail-closed"
+
+      - name: PQC startup-gate unit tests
+        run: pytest tests/test_pqc_startup_gate.py -q
+
+  gate-unit:
+    name: ci/gate-unit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Mercury [ml] + test tooling
+        run: |
+          python -m pip install --upgrade "pip>=26.1"
+          pip install -e ".[ml]"
+          pip install pytest pytest-asyncio pytest-mock hypothesis
+
+      - name: Build AMA Cryptography (native PQC)
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v3.2.0
+
+      - name: Fail-closed + capability-contract + no-weakening unit tests
+        run: >-
+          pytest
+          tests/ethical/test_capability_contract.py
+          tests/ethical/test_weapons_gate_fail_closed.py
+          tests/ethical/test_gates_present_no_weakening.py
+          tests/security/test_sigma_immutable_fail_closed.py
+          tests/security/test_escalation_audit_integration.py
+          tests/scripts/test_ingest_weapons_gate_corpus.py
+          tests/benchmarks/test_rolling_corpus_eval.py
+          tests/test_pqc_startup_gate.py
+          -q
+
+  meaning-level:
+    name: ci/meaning-level
+    runs-on: ubuntu-latest
+    # Served-model lane: opt-in via the CI_MEANING_LEVEL_ENABLED repo variable
+    # (or run on demand). It pulls a real local reasoning model, so it is not
+    # forced on every PR by default; enable it and mark it required in branch
+    # protection for PRs touching gate logic.
+    if: ${{ github.event_name == 'workflow_dispatch' || vars.CI_MEANING_LEVEL_ENABLED == 'true' }}
+    timeout-minutes: 45
+    env:
+      CI_MEANING_LEVEL_ENABLED: "true"
+      MERCURY_MODEL_ENDPOINT: "http://127.0.0.1:11434"
+      MERCURY_OLLAMA_MODEL: "llama3.2:3b"
+      MERCURY_CI_REQUIRE_REAL_CLASSIFIER: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Mercury [ml] + test tooling
+        run: |
+          python -m pip install --upgrade "pip>=26.1"
+          pip install -e ".[ml]"
+          pip install pytest pytest-asyncio
+
+      - name: Build AMA Cryptography (native PQC)
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v3.2.0
+
+      - name: Install and serve a local reasoning backend (Ollama)
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          nohup ollama serve >/tmp/ollama.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:11434/api/tags >/dev/null; then break; fi
+            sleep 2
+          done
+          ollama pull "${MERCURY_OLLAMA_MODEL}"
+
+      - name: Confirm the meaning-level classifier is actually served
+        run: |
+          python -c "
+          from omni_mercury_engine.cognitive.harm_classifier import real_harm_classifier_available
+          assert real_harm_classifier_available(), 'served reasoning model not detected; meaning-level lane cannot measure'
+          print('meaning-level classifier active')
+          "
+
+      - name: Adversarial false-negative budget (served-model posture)
+        run: pytest tests/ethical/test_weapons_gate_adversarial_eval.py::test_real_classifier_fn_budget -q
+
+      - name: Sample run artifact (classifier posture)
+        run: |
+          mkdir -p artifacts
+          PYTHONPATH=src:benchmarks python benchmarks/eval_weapons_gate_adversarial.py --posture classifier \
+            | tee artifacts/meaning_level_sample_run.txt
+
+      - name: Upload meaning-level sample run
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: meaning-level-sample-run
+          path: artifacts/meaning_level_sample_run.txt
+          retention-days: 30
+
+  rolling-corpus-eval:
+    name: ci/rolling-corpus-eval
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Mercury (core) + benchmark tooling
+        run: |
+          python -m pip install --upgrade "pip>=26.1"
+          pip install -e .
+          pip install pytest
+
+      - name: Build AMA Cryptography (native PQC)
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v3.2.0
+
+      - name: Corpus integrity + versioning check
+        run: python scripts/ingest_weapons_gate_corpus.py --check
+
+      - name: Out-of-fold ECE/Brier regression gate
+        run: PYTHONPATH=src python benchmarks/rolling_corpus_eval.py --check
+
+      - name: Emit fresh OOF metrics artifact
+        if: always()
+        run: |
+          mkdir -p artifacts
+          PYTHONPATH=src python benchmarks/rolling_corpus_eval.py > artifacts/oof_metrics.json || true
+          cp benchmarks/weapons_gate_oof_baseline.json artifacts/ 2>/dev/null || true
+          cp benchmarks/weapons_gate_calibration_report.md artifacts/ 2>/dev/null || true
+
+      - name: Upload OOF metrics + baseline + report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: rolling-corpus-oof
+          path: |
+            artifacts/oof_metrics.json
+            artifacts/weapons_gate_oof_baseline.json
+            artifacts/weapons_gate_calibration_report.md
+          retention-days: 90
