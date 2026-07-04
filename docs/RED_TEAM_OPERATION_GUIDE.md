@@ -87,10 +87,11 @@ The summary shape:
 ```json
 {
   "harness_version": "1.0",
-  "n_seeds": 8,
-  "n_skipped_seeds": 0,
+  "n_seeds": 29,
+  "n_skipped_seeds": 15,
   "n_candidates": 420,
   "n_survivors": 140,
+  "n_downgraded": 0,
   "survival_rate": 0.333333,
   "appended_to_pending": 0
 }
@@ -98,8 +99,15 @@ The summary shape:
 
 A seed whose *unmutated* form the gate already ALLOWs is skipped (counted in
 `n_skipped_seeds`, not attacked) — a bypass is only meaningful relative to a
-blocked seed. Appends are deduped by the candidate id (`sha256(mutated_text)[:16]`)
-and are durable (flush + `fsync`), so re-running never double-writes a survivor.
+blocked seed. `n_downgraded` counts mutations that *softened* the gate's
+disposition (e.g. `hard_refuse` → `escalate`) without a full bypass — a weakening
+the survival rate alone cannot see; it is surfaced for triage, not gated on.
+`--check` additionally fails if `n_skipped_seeds` rises or `n_candidates` falls
+versus the pinned baseline (a seed the gate used to block becoming ALLOW would
+otherwise drop out of the denominator and lower the survival rate while the gate
+is *more* broken). Appends are deduped by the candidate id
+(`sha256(mutated_text)[:16]`) and are durable (flush + `fsync`), so re-running
+never double-writes a survivor.
 
 ## 4. Findings
 

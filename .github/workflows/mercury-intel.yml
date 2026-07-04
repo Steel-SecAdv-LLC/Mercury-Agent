@@ -31,6 +31,10 @@ on:
     branches: [main, develop]
     paths:
       - "src/omni_mercury_engine/intel/**"
+      # Live-wiring surfaces the intel streams run on (verifier-guarded emission,
+      # selectable MCP tools, the `mercury-agent intel` CLI group).
+      - "src/omni_mercury_engine/mcp_server.py"
+      - "src/omni_mercury_engine/cli.py"
       - "benchmarks/confidence_cascade_report.py"
       - "benchmarks/self_consistency_signal_report.py"
       - "benchmarks/intel_value_metrics_report.py"
@@ -40,6 +44,7 @@ on:
       - "scripts/mercury_retrain_rollback.py"
       - "configs/red_team.yaml"
       - "tests/intel/**"
+      - "tests/test_mcp_server.py"
       - ".github/workflows/mercury-intel.yml"
   push:
     branches: [main, develop]
@@ -88,7 +93,28 @@ jobs:
           tests/intel/test_closed_loop_integration.py
           tests/intel/test_regression_gate.py
           tests/intel/test_feedback_loop.py
+          tests/intel/test_cli_intel.py
           -q -p no:cov
+
+      - name: Break-glass rollback CLI (monotonic; a repeat is a no-op)
+        run: |
+          PYTHONPATH=src python - <<'PY'
+          import subprocess, sys, tempfile
+          from pathlib import Path
+          from omni_mercury_engine.intel.feedback_loop import ModelEntry, ModelRegistry
+          d = Path(tempfile.mkdtemp())
+          reg = ModelRegistry(d)
+          reg.register(ModelEntry("v1_good", str(d / "v1.json"), "candidate"))
+          reg.register(ModelEntry("v2_bad", str(d / "v2.json"), "candidate"))
+          run = lambda: subprocess.run(
+              [sys.executable, "scripts/mercury_retrain_rollback.py", "--staging-dir", str(d)]
+          ).returncode
+          assert run() == 0, "first rollback should restore the previous model"
+          assert reg.active().version == "v1_good", "rollback did not restore v1_good"
+          assert run() == 1, "a repeated rollback must be a no-op (never re-arm v2_bad)"
+          assert reg.active().version == "v1_good", "second rollback re-armed a model"
+          print("break-glass rollback CLI OK (monotonic)")
+          PY
 
       - name: Value board (no-weakening gate)
         run: PYTHONPATH=src python benchmarks/intel_value_metrics_report.py --check
@@ -237,6 +263,7 @@ jobs:
           tests/intel/test_verifier_loop.py
           tests/intel/test_propositional_claims.py
           tests/intel/test_provenance.py
+          tests/test_mcp_server.py
           -q -p no:cov
 
       - name: Hard-mode blocking must fire on refuted claims

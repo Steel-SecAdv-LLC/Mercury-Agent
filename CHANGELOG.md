@@ -83,8 +83,47 @@ foundation; every gate is fail-closed.
   `ci/verifier-integration` (each builds the native AMA/PQC backend).
 - **Docs.** `docs/RETRAIN_RUNBOOK.md`, `docs/RED_TEAM_OPERATION_GUIDE.md`,
   `docs/PROVENANCE_MIGRATION_PLAN.md`, `docs/INTEL_VALUE_METRICS.md`.
-- **Tests.** `tests/intel/` (93 tests) covering every stream, incl. corpus-backed
+- **Tests.** `tests/intel/` (112 tests) covering every stream, incl. corpus-backed
   regression-gate and end-to-end closed-loop integration (`slow`/`integration`).
+
+#### Live wiring + audit hardening (review round)
+
+De-islanding: the streams above are no longer standalone modules measured only in
+benchmarks — they run on the live request/emission/operator path, and an
+adversarial audit's defects are fixed (no suppression; each fix carries a test).
+
+- **Verifier-in-the-loop is live.** The MCP `mercury_research` / `mercury_answer`
+  emission path now routes its output through the verifier loop — hard mode blocks
+  an oracle-refuted claim, soft mode flags it (`MERCURY_VERIFIER_MODE`),
+  unavailable never blocks. Four streams are exposed as selectable MCP tools
+  (`mercury_verify_claims`, `mercury_check_provenance`, `mercury_self_consistency`,
+  `mercury_value_metrics`) and as a `mercury-agent intel …` CLI group (`verify`,
+  `provenance`, `self-consistency`, `value-board`, `audit-log`, `rollback`,
+  `red-team`, `cascade`).
+- **Feedback loop reads the real gate log.** `feedback_loop.read_audit_log`
+  ingests the actual `gate_decisions.jsonl` the harm gate writes
+  (`gate_audit.default_audit_log_path`), so the loop learns from the gate's real
+  decisions rather than hand-authored records.
+- **Closed-loop safety fixes.** Rollback is monotonic (a repeated rollback is a
+  no-op, never re-arming the superseded model); `staged_refit` reads the queue via
+  a single atomic `snapshot()` (closes a TOCTOU window between the signed hash and
+  the trained rows); the trigger `nonce` is a real single-use anti-replay token
+  (durable `NonceLedger`) and `n_examples` is asserted against the snapshot.
+- **Soundness / fail-open fixes.** Tseitin auxiliary variables are namespaced away
+  from formula variables (a formula naming a variable `_t1` no longer corrupts the
+  CNF); `Provenance.is_adequate` requires an *attributed* origin (a fabricated
+  citation on a synthetic/model-generated origin no longer passes a hazardous
+  boundary) and `enforce_at_boundary` fails closed with no topic signal.
+- **De-theatered value gates.** The value board `--check` requires the target for
+  non-aspirational streams (the baseline-0 `improves_on_baseline` check was
+  vacuous); the adversarial row is measured live; the red-team `--check` drops a
+  bogus 0.02 slack (the rate is deterministic) and catches seed-level weakening
+  (pins `n_skipped_seeds` / `n_candidates`, surfaces `n_downgraded`); the
+  confidence-cascade workload includes a confident-but-wrong slice so the accuracy
+  tolerance gate is load-bearing.
+- **Test isolation.** `tests/intel/conftest` no longer leaks
+  `MERCURY_GATE_AUDIT_DISABLED` into sibling suites (session `os.environ` mutation
+  → function-scoped `monkeypatch`).
 
 ### Merge-readiness hardening (PR #315 review round)
 
