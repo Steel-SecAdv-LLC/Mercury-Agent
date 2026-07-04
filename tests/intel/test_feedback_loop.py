@@ -295,10 +295,18 @@ def test_queue_read_tolerates_corrupt_or_truncated_line(tmp_path: Path) -> None:
     examples, h = fresh.snapshot()
     assert len(examples) == 2 and h  # snapshot tolerant too
 
-    # A valid-JSON but non-object line (a bare scalar) is also skipped, not crashed.
+    # A valid-JSON but non-object line (a bare scalar) AND a valid JSON *object*
+    # missing required LabeledExample fields are both skipped, not crashed.
     with qpath.open("a", encoding="utf-8") as fh:
-        fh.write("\n42\n")
-    assert len(DurableLabeledQueue(f"file://{qpath}")) == 2
+        fh.write('\n42\n{"id": "x", "reviewer": "bob"}\n')  # scalar + dict w/o text/label
+    reread = DurableLabeledQueue(f"file://{qpath}")
+    # __len__, pending, and snapshot must agree on exactly the 2 readable examples
+    # (a desync here would refuse a validly-signed retrain trigger on a count check).
+    assert len(reread) == 2
+    assert len(reread.pending()) == 2
+    snap_examples, snap_hash = reread.snapshot()
+    assert len(snap_examples) == 2
+    assert snap_hash == reread.snapshot_hash()
 
 
 # --------------------------- verify_trigger: no secret-derived data in clear-text logs --------- #

@@ -102,10 +102,27 @@ class DurableLabeledQueue:
         """Enqueue several examples; return the number newly stored."""
         return sum(1 for e in examples if self.enqueue(e))
 
-    def _rows_unlocked(self) -> list[dict[str, object]]:
+    def _examples_unlocked(self) -> list[LabeledExample]:
+        r"""Every enqueued example that is durably readable, in insertion order.
+
+        A single defensively-parsed view that **all** consumers -- dedup,
+        :meth:`pending`, :meth:`__len__`, :meth:`snapshot` -- derive from, so their
+        counts, ids, and examples can never disagree. This consistency is
+        load-bearing: the retrain trigger binds ``n_examples`` to a count and
+        asserts it against the live queue, so a ``len`` that counted rows the
+        snapshot cannot parse would refuse a validly-signed trigger.
+
+        A line is skipped, with a warning, when it is (a) not valid JSON (a
+        truncated/corrupt final line from an interrupted fsync), (b) valid JSON
+        but not an object, or (c) a JSON object that does not parse into a
+        well-formed :class:`LabeledExample` (missing/invalid
+        ``text``/``label``/``source``). Fail-closed w.r.t. training: an unreadable
+        example is simply not trained on -- a garbage line never fabricates a
+        label nor crashes the whole read.
+        """
         if not self.path.is_file():
             return []
-        rows: list[dict[str, object]] = []
+        examples: list[LabeledExample] = []
         for lineno, raw in enumerate(self.path.read_text(encoding="utf-8").splitlines(), start=1):
             line = raw.strip()
             if not line:
@@ -113,11 +130,6 @@ class DurableLabeledQueue:
             try:
                 row = json.loads(line)
             except ValueError:
-                # A truncated/corrupt line -- e.g. a partial final append whose
-                # fsync was interrupted by a crash -- must not crash *every*
-                # queue read (dedup, snapshot, len, retrain). Skip it and warn.
-                # Fail-closed w.r.t. training: an unreadable example is simply not
-                # trained on; we never fabricate a label to recover one.
                 logger.warning(
                     "feedback queue %s: skipping corrupt line %d (not valid JSON)",
                     self.path,
@@ -125,30 +137,42 @@ class DurableLabeledQueue:
                 )
                 continue
             if not isinstance(row, dict):
-                # Valid JSON but not a record object (a bare scalar/array) -- also
-                # unusable downstream; skip rather than let `.get`/`from_dict` raise.
                 logger.warning(
                     "feedback queue %s: skipping malformed line %d (not a JSON object)",
                     self.path,
                     lineno,
                 )
                 continue
-            rows.append(row)
-        return rows
+            try:
+                examples.append(LabeledExample.from_dict(row))
+            except (KeyError, TypeError, ValueError) as exc:
+                # A valid JSON object missing/invalid the required fields is not a
+                # usable example; skip it rather than let from_dict crash pending/
+                # snapshot/len (and desync those views from each other).
+                logger.warning(
+                    "feedback queue %s: skipping unparseable example on line %d (%s)",
+                    self.path,
+                    lineno,
+                    exc,
+                )
+                continue
+        return examples
 
     def _ids_unlocked(self) -> set[str]:
-        return {str(r.get("id")) for r in self._rows_unlocked()}
+        # Content-address every readable example (== its stored ``id`` for a
+        # well-formed row), so dedup and the snapshot hash cover exactly the same
+        # set and a malformed line perturbs neither.
+        return {_content_id(ex) for ex in self._examples_unlocked()}
 
     def pending(self) -> list[LabeledExample]:
-        """Return every enqueued example (in insertion order)."""
+        """Return every enqueued, durably-readable example (in insertion order)."""
         with _LOCK:
-            rows = self._rows_unlocked()
-        return [LabeledExample.from_dict(r) for r in rows]
+            return self._examples_unlocked()
 
     def __len__(self) -> int:
-        """Number of enqueued examples."""
+        """Number of enqueued, durably-readable examples (matches :meth:`snapshot`)."""
         with _LOCK:
-            return len(self._rows_unlocked())
+            return len(self._examples_unlocked())
 
     @staticmethod
     def _hash_ids(ids: set[str]) -> str:
@@ -167,9 +191,8 @@ class DurableLabeledQueue:
         authorized hash).
         """
         with _LOCK:
-            rows = self._rows_unlocked()
-        examples = [LabeledExample.from_dict(r) for r in rows]
-        ids = {str(r.get("id")) for r in rows}
+            examples = self._examples_unlocked()
+        ids = {_content_id(ex) for ex in examples}
         return examples, self._hash_ids(ids)
 
     def snapshot_hash(self) -> str:
