@@ -66,9 +66,16 @@ class SelfConsistencyResult:
     support: float
 
     def as_dict(self) -> dict[str, object]:
-        """Return a JSON-friendly mapping (answers rendered as strings)."""
+        """Return a JSON-friendly mapping (answers rendered as strings).
+
+        Both the plurality ``answer`` and the ``distribution`` keys are rendered
+        with ``str`` so the mapping is always JSON-serializable even when the
+        sampler returned a non-JSON answer type (a tuple, an int label, a custom
+        object) -- matching this method's documented contract rather than leaking
+        a raw ``Any`` the caller cannot ``json.dumps``.
+        """
         return {
-            "answer": self.answer,
+            "answer": str(self.answer),
             "disagreement": self.disagreement,
             "agreement": self.agreement,
             "n_samples": self.n_samples,

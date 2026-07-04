@@ -52,9 +52,15 @@ def test_parse_trailing_strips_leading_prose() -> None:
     assert node2 is not None
 
 
+def test_parse_trailing_parses_prose_words_as_variables() -> None:
+    # Bare prose words are valid propositional variables, so a trailing word
+    # ("jumps") parses as a one-atom formula -- parse_trailing returns non-None.
+    assert parse_trailing("the quick brown fox jumps") is not None
+
+
 def test_parse_trailing_returns_none_for_non_formula() -> None:
-    assert parse_trailing("the quick brown fox jumps") is not None  # words parse as vars
-    assert parse_trailing("") is None
+    # The genuine non-formula cases: nothing parses -> None.
+    assert parse_trailing("") is None  # no tokens at all
     assert parse_trailing("and or implies") is None  # only connectives, no atom
 
 

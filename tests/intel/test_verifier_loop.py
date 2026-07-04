@@ -81,6 +81,39 @@ def test_value_metric_block_rate() -> None:
     assert false_claim_block_rate(soft, _FALSE_CLAIMS) == 0.0
 
 
+def test_all_dispositions_are_audited(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Every disposition -- pass, hard block, soft flag -- is durably audited.
+
+    Regression for the module contract "Every decision is durably audited": the
+    clean/allowed path previously returned without recording anything, so the
+    (common) allowed disposition was silently absent from the audit trail.
+    """
+    from omni_mercury_engine.intel import verifier_loop as vl
+
+    records: list[dict[str, object]] = []
+    monkeypatch.setattr(vl, "record_gate_decision", lambda **kw: records.append(kw))
+
+    # Clean pass (a true claim, nothing refuted) is now audited as an allow.
+    vl.VerifierLoop(mode=VerifierMode.HARD).guard_emission("7 is prime.", source="unit")
+    assert records and records[-1]["decision"] == "verifier_pass"
+    assert records[-1]["disposition"] == "allow"
+
+    # Text with zero checkable claims still produces a pass audit (no silent gap).
+    records.clear()
+    vl.VerifierLoop(mode=VerifierMode.HARD).guard_emission("Hello, world.", source="unit")
+    assert records and records[-1]["decision"] == "verifier_pass"
+
+    # Hard block is audited.
+    records.clear()
+    vl.VerifierLoop(mode=VerifierMode.HARD).guard_emission("91 is prime.", source="unit")
+    assert any(r["decision"] == "verifier_block" for r in records)
+
+    # Soft flag is audited.
+    records.clear()
+    vl.VerifierLoop(mode=VerifierMode.SOFT).guard_emission("91 is prime.", source="unit")
+    assert any(r["decision"] == "verifier_flag" for r in records)
+
+
 def test_mode_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("MERCURY_VERIFIER_MODE", "soft")
     assert VerifierMode.from_env() is VerifierMode.SOFT

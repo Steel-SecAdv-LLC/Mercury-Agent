@@ -8,6 +8,7 @@ The corpus-heavy regression gate and end-to-end demo are exercised in
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 import pytest
@@ -242,3 +243,107 @@ def test_queue_snapshot_is_atomic_and_matches_hash(tmp_path: Path) -> None:
     assert len(examples) == 2
     # The snapshot hash provably covers exactly the returned examples.
     assert h == q.snapshot_hash()
+
+
+# --------------------------- nonce ledger (inter-process single-use) --------------------------- #
+def _consume_worker(args: tuple[str, str]) -> bool:
+    """Top-level (picklable) worker: consume ``nonce`` against the ledger at ``path``."""
+    path_str, nonce = args
+    from omni_mercury_engine.intel.feedback_loop.trigger import NonceLedger
+
+    return NonceLedger(path_str).consume(nonce, requested_by="proc")
+
+
+def test_nonce_ledger_single_use_across_processes(tmp_path: Path) -> None:
+    """Two concurrent *processes* must not both consume the same nonce.
+
+    The in-process ``threading.Lock`` is per-process, so without the inter-process
+    advisory file lock several forked workers could each observe the nonce as
+    absent and each append it -- consuming a single-use authorization more than
+    once. With the ``flock`` guard exactly one worker wins.
+    """
+    import multiprocessing as mp
+
+    nonce = "shared-nonce"
+    n_workers = 12
+    ctx = mp.get_context("fork")  # engine is Linux-only (native AMA .so gate)
+    with ctx.Pool(n_workers) as pool:
+        results = pool.map(_consume_worker, [(str(tmp_path), nonce)] * n_workers)
+    assert sum(1 for r in results if r) == 1  # exactly one process consumed it
+    # And it is durably recorded exactly once.
+    assert NonceLedger(tmp_path).is_consumed(nonce)
+
+
+# --------------------------- queue tolerates a corrupt/truncated line --------------------------- #
+def test_queue_read_tolerates_corrupt_or_truncated_line(tmp_path: Path) -> None:
+    """A truncated/corrupt line must not crash every queue read (fail-closed).
+
+    A crash mid-append leaves a partial final line; the previous ``json.loads``
+    per line would raise on it, crashing dedup/snapshot/len/retrain. The valid
+    rows must survive (an unreadable example is simply not trained on) and reads
+    must not raise.
+    """
+    qpath = tmp_path / "queue.jsonl"
+    q = DurableLabeledQueue(f"file://{qpath}")
+    q.enqueue(override_to_example("good1", label="offensive", reviewer="alice"))
+    q.enqueue(override_to_example("good2", label="benign", reviewer="alice"))
+    with qpath.open("a", encoding="utf-8") as fh:
+        fh.write('{"id": "trunc", "text": "partial record with no closing')  # invalid, no newline
+    fresh = DurableLabeledQueue(f"file://{qpath}")
+    assert len(fresh) == 2  # does not raise; corrupt tail skipped
+    assert {e.text for e in fresh.pending()} == {"good1", "good2"}
+    examples, h = fresh.snapshot()
+    assert len(examples) == 2 and h  # snapshot tolerant too
+
+    # A valid-JSON but non-object line (a bare scalar) is also skipped, not crashed.
+    with qpath.open("a", encoding="utf-8") as fh:
+        fh.write("\n42\n")
+    assert len(DurableLabeledQueue(f"file://{qpath}")) == 2
+
+
+# --------------------------- verify_trigger: no secret-derived data in clear-text logs --------- #
+def test_verify_trigger_no_secret_configured_logs_only_reason_code(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The operator warning must carry only the enumerated reason_code.
+
+    The composed ``reason`` names ``SECRET_ENV`` (a secret-flagged token); it must
+    reach the structured audit record, never the clear-text logger.
+    """
+    monkeypatch.delenv("MERCURY_RETRAIN_TRIGGER_SECRET", raising=False)
+    trig = sign_trigger(
+        queue_hash="abc123",
+        corpus_version="v",
+        requested_by="svc",
+        n_examples=1,
+        nonce="n",
+        secret=_SECRET,
+    )
+    with caplog.at_level(logging.WARNING):
+        assert not verify_trigger(trig, secret=None, audit=False)  # no secret -> unauthorizable
+    logged = " ".join(r.getMessage() for r in caplog.records)
+    assert "secret_unconfigured" in logged
+    assert "MERCURY_RETRAIN_TRIGGER_SECRET" not in logged  # env-var name never in clear-text log
+    assert _SECRET not in logged
+
+
+def test_verify_trigger_audit_preserves_full_reason_and_code(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The detailed reason + reason_code go to the audit sink (observability kept)."""
+    from omni_mercury_engine.intel.feedback_loop import trigger as trig_mod
+
+    captured: dict[str, object] = {}
+    monkeypatch.setattr(trig_mod, "record_gate_decision", lambda **kw: captured.update(kw))
+    trig = sign_trigger(
+        queue_hash="abc123",
+        corpus_version="v",
+        requested_by="svc",
+        n_examples=1,
+        nonce="n",
+        secret=_SECRET,
+    )
+    assert not verify_trigger(trig, secret="wrong-secret", audit=True)  # noqa: S106
+    assert captured["reason"] == "HMAC signature mismatch"
+    extra = captured["extra"]
+    assert isinstance(extra, dict) and extra["reason_code"] == "signature_mismatch"

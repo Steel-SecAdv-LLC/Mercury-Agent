@@ -139,8 +139,14 @@ class CascadeInstrumentation:
         """Total measured latency across all routed items."""
         return self.cheap_latency + self.heavy_latency
 
-    def report(self) -> dict[str, float]:
+    def report(self) -> dict[str, float | int]:
         """Render the cost/latency/savings summary.
+
+        The mapping is deliberately heterogeneous -- the ``n_*`` fields are exact
+        integer counts and the fraction/cost/latency fields are floats -- so the
+        return type is ``dict[str, float | int]`` rather than the dishonest
+        ``dict[str, float]`` (a consumer reading ``report()["n_items"]`` gets an
+        ``int``, not a ``float``).
 
         ``compute_saved_fraction`` is the fraction of the all-heavy baseline cost
         the cascade avoided -- the stream's declared value metric -- floored at

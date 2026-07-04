@@ -82,6 +82,22 @@ def test_instrumentation_and_compute_savings_meet_value_target() -> None:
     assert report["compute_saved_fraction"] >= target
 
 
+def test_report_count_fields_are_ints_and_json_serializable() -> None:
+    """report() is honestly typed dict[str, float | int]: the n_* fields are exact
+    integer counts (not floats masquerading as counts) and the whole mapping is
+    JSON-serializable."""
+    import json
+
+    r = _router()
+    r.route([("easy", 0.99, 0.0)] * 3 + [("hard", 0.5, 0.0)] * 2)
+    report = r.instrumentation.report()
+    for count_field in ("n_items", "n_cheap", "n_heavy"):
+        assert type(report[count_field]) is int  # genuine int, not 3.0
+    for float_field in ("cheap_fraction", "compute_saved_fraction", "mean_latency"):
+        assert isinstance(report[float_field], float)
+    json.dumps(report)  # fully serializable
+
+
 def test_cascade_accuracy_stays_within_tolerance_of_all_heavy() -> None:
     """The 'at bounded accuracy' half of the metric, not just compute savings.
 

@@ -105,11 +105,35 @@ class DurableLabeledQueue:
     def _rows_unlocked(self) -> list[dict[str, object]]:
         if not self.path.is_file():
             return []
-        rows = []
-        for line in self.path.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if line:
-                rows.append(json.loads(line))
+        rows: list[dict[str, object]] = []
+        for lineno, raw in enumerate(self.path.read_text(encoding="utf-8").splitlines(), start=1):
+            line = raw.strip()
+            if not line:
+                continue
+            try:
+                row = json.loads(line)
+            except ValueError:
+                # A truncated/corrupt line -- e.g. a partial final append whose
+                # fsync was interrupted by a crash -- must not crash *every*
+                # queue read (dedup, snapshot, len, retrain). Skip it and warn.
+                # Fail-closed w.r.t. training: an unreadable example is simply not
+                # trained on; we never fabricate a label to recover one.
+                logger.warning(
+                    "feedback queue %s: skipping corrupt line %d (not valid JSON)",
+                    self.path,
+                    lineno,
+                )
+                continue
+            if not isinstance(row, dict):
+                # Valid JSON but not a record object (a bare scalar/array) -- also
+                # unusable downstream; skip rather than let `.get`/`from_dict` raise.
+                logger.warning(
+                    "feedback queue %s: skipping malformed line %d (not a JSON object)",
+                    self.path,
+                    lineno,
+                )
+                continue
+            rows.append(row)
         return rows
 
     def _ids_unlocked(self) -> set[str]:

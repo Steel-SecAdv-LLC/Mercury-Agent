@@ -20,6 +20,18 @@ from omni_mercury_engine.intel.self_consistency import (
 from omni_mercury_engine.intel.value_metrics import VALUE_METRICS
 
 
+def test_as_dict_renders_answer_as_string_and_is_json_serializable() -> None:
+    """as_dict() renders the plurality answer as a string (its documented contract),
+    so a non-JSON-native sampler answer (a tuple) still serializes cleanly."""
+    import json
+
+    result = self_consistency(lambda _rng: (1, 2), n_samples=3, seed=0)
+    d = result.as_dict()
+    assert isinstance(d["answer"], str)  # rendered as string, not a raw tuple
+    assert all(isinstance(k, str) for k in d["distribution"])
+    json.dumps(d)  # must not raise
+
+
 def test_vote_disagreement_bounds() -> None:
     assert vote_disagreement(["a", "a", "a"]) == 0.0
     assert vote_disagreement(["a", "b"]) == 0.5

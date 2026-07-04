@@ -29,6 +29,8 @@ time, and a mismatch is audited as a rejected authorization.
 
 from __future__ import annotations
 
+import contextlib
+import fcntl
 import hashlib
 import hmac
 import json
@@ -38,9 +40,12 @@ import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from omni_mercury_engine.cognitive.gate_audit import record_gate_decision
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 logger = logging.getLogger(__name__)
 
@@ -188,17 +193,26 @@ def verify_trigger(
     """
     key = secret if secret is not None else secret_from_env()
     reason: str
+    # ``reason_code`` is a fixed, enumerated category per branch; it carries no
+    # data flow from any source and is the *only* thing written to the operator
+    # log. The composed ``reason`` string (which names ``SECRET_ENV`` and embeds
+    # queue-hash prefixes) is recorded solely in the structured audit sink below.
+    reason_code: str
     ok = False
     if not key:
+        reason_code = "secret_unconfigured"
         reason = f"{SECRET_ENV} not configured; authorization impossible (fail-closed)"
     elif not trigger.signature:
+        reason_code = "no_signature"
         reason = "trigger carries no signature"
     else:
         expected = _sign(trigger.canonical_payload(), key)
         sig_ok = hmac.compare_digest(expected, trigger.signature)
         if not sig_ok:
+            reason_code = "signature_mismatch"
             reason = "HMAC signature mismatch"
         elif expected_queue_hash is not None and trigger.queue_hash != expected_queue_hash:
+            reason_code = "queue_hash_mismatch"
             reason = (
                 "queue hash mismatch: trigger bound to "
                 f"{trigger.queue_hash[:12]} but queue is {expected_queue_hash[:12]} "
@@ -206,6 +220,7 @@ def verify_trigger(
             )
         else:
             ok = True
+            reason_code = "valid"
             reason = "signature and queue binding valid"
 
     if audit:
@@ -216,13 +231,20 @@ def verify_trigger(
             signals=("closed_loop", "signed_trigger"),
             reason=reason,
             extra={
+                "reason_code": reason_code,
                 "requested_by": trigger.requested_by,
                 "fingerprint": trigger.fingerprint(),
                 "queue_hash": trigger.queue_hash[:16],
             },
         )
     if not ok:
-        logger.warning("retrain trigger rejected: %s", reason)
+        # Log only the enumerated ``reason_code`` -- never the composed ``reason``.
+        # ``reason`` interpolates the ``SECRET_ENV`` name (a secret-flagged token)
+        # and queue-hash prefixes; CodeQL's clear-text-logging query follows that
+        # flow into the logger. A fixed category string keeps the operator log
+        # actionable while the full detail lives only in the audit record above --
+        # so no secret-derived data can reach clear-text logs by construction.
+        logger.warning("retrain trigger rejected (%s)", reason_code)
     return ok
 
 
@@ -235,6 +257,15 @@ class NonceLedger:
     sink is a JSON-Lines file (flushed + ``fsync``\ ed) so a consumed nonce
     survives process exit; the default location is co-located with the staging
     registry the retrain writes to.
+
+    The check-then-append is atomic **across processes**, not just threads: an
+    in-process :class:`threading.Lock` alone would let two concurrent *processes*
+    (two retrain workers, a CI matrix job racing an operator) both observe the
+    nonce as absent and both append it, silently consuming it twice and defeating
+    single-use authorization. So the critical section is additionally guarded by
+    an exclusive advisory file lock (:func:`fcntl.flock` on a sidecar ``.lock``
+    file) held for the whole read-modify-write; the kernel releases it if the
+    holder dies, so a crashed worker cannot wedge the ledger with a stale lock.
     """
 
     DEFAULT_NAME = "consumed_nonces.jsonl"
@@ -244,6 +275,30 @@ class NonceLedger:
         p = Path(path)
         # A directory argument is a convenience: use the conventional filename.
         self.path = p / self.DEFAULT_NAME if (p.is_dir() or not p.suffix) else p
+        # Sidecar lock file for the inter-process advisory lock. Kept distinct
+        # from the data file so locking never truncates/appends the ledger itself.
+        self.lock_path = self.path.with_name(self.path.name + ".lock")
+
+    @contextlib.contextmanager
+    def _interprocess_lock(self) -> Iterator[None]:
+        r"""Hold an exclusive advisory lock over the ledger's critical section.
+
+        Combined with :data:`_NONCE_LOCK` (threads) this makes check-then-append
+        atomic across both threads and processes. The lock is advisory
+        (``flock``): every accessor goes through this method, so cooperating
+        writers serialize; the kernel drops the lock on ``close``/process death,
+        so there is no stale-lock recovery to get wrong.
+        """
+        self.lock_path.parent.mkdir(parents=True, exist_ok=True)
+        fd = os.open(self.lock_path, os.O_CREAT | os.O_RDWR, 0o600)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(fd, fcntl.LOCK_UN)
+        finally:
+            os.close(fd)
 
     def _consumed_unlocked(self) -> set[str]:
         if not self.path.is_file():
@@ -261,7 +316,7 @@ class NonceLedger:
 
     def is_consumed(self, nonce: str) -> bool:
         """Whether ``nonce`` has already been consumed."""
-        with _NONCE_LOCK:
+        with _NONCE_LOCK, self._interprocess_lock():
             return nonce in self._consumed_unlocked()
 
     def consume(self, nonce: str, *, queue_hash: str = "", requested_by: str = "") -> bool:
@@ -270,8 +325,12 @@ class NonceLedger:
         The first call for a nonce returns ``True`` (newly consumed -> proceed);
         any later call with the same nonce returns ``False`` (replay -> refuse).
         The write is flushed + ``fsync``\ ed so a consumed nonce is never lost.
+
+        The whole check-then-append runs under both the in-process lock and the
+        inter-process advisory lock, so two concurrent *processes* can never both
+        see the nonce as absent and both append it -- exactly one wins.
         """
-        with _NONCE_LOCK:
+        with _NONCE_LOCK, self._interprocess_lock():
             if nonce in self._consumed_unlocked():
                 return False
             self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -289,9 +348,13 @@ class NonceLedger:
 
     def clear(self) -> None:
         """Delete the ledger (staging/test/demo reset convenience, not a loop op)."""
-        with _NONCE_LOCK:
+        with _NONCE_LOCK, self._interprocess_lock():
             if self.path.is_file():
                 self.path.unlink()
+        # Best-effort removal of the sidecar lock file (never inside the lock we
+        # are holding on it): its absence is harmless -- it is recreated on demand.
+        with contextlib.suppress(FileNotFoundError):
+            self.lock_path.unlink()
 
 
 __all__ = [

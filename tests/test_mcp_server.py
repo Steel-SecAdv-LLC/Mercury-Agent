@@ -19,6 +19,8 @@ from omni_mercury_engine.agentic.capabilities.web_research import SearchResult, 
 
 if TYPE_CHECKING:
     from typing import Any
+
+    import pytest
 from omni_mercury_engine.mcp_server import PROTOCOL_VERSION, MercuryMCPServer
 
 
@@ -321,3 +323,67 @@ class TestMalformedInputHardening:
         # A malformed *request* (has an id) still gets an error.
         bad_req = server.handle_message({"jsonrpc": "1.0", "id": 7})
         assert bad_req is not None and bad_req["error"]["code"] == -32600
+
+
+def _boom_guard(self: object, text: str, *, source: str = "generation") -> object:
+    """A verifier that raises at runtime (a bug), not one that is unavailable."""
+    raise RuntimeError("verifier exploded")
+
+
+class TestGuardEmissionFailClosed:
+    """A verifier *runtime* fault must fail closed, never silently disable gating."""
+
+    def test_runtime_error_fails_closed_in_hard_mode(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from omni_mercury_engine.intel import verifier_loop as vl
+
+        monkeypatch.setenv("MERCURY_VERIFIER_MODE", "hard")
+        monkeypatch.setattr(vl.VerifierLoop, "guard_emission", _boom_guard)
+        guard = MercuryMCPServer._guard_emission("2 is prime.", source="unit")
+        assert guard["allowed"] is False  # emission blocked, not emitted ungated
+        assert guard["mode"] == "verifier_error"
+        assert guard["blocked"]  # the fault surfaces as a block, not silence
+
+    def test_runtime_error_soft_mode_flags_but_allows(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from omni_mercury_engine.intel import verifier_loop as vl
+
+        monkeypatch.setenv("MERCURY_VERIFIER_MODE", "soft")
+        monkeypatch.setattr(vl.VerifierLoop, "guard_emission", _boom_guard)
+        guard = MercuryMCPServer._guard_emission("2 is prime.", source="unit")
+        assert guard["allowed"] is True  # soft mode never blocks...
+        assert guard["mode"] == "verifier_error_soft"
+        assert guard["flagged"]  # ...but the fault is flagged, not swallowed
+
+    def test_clean_verifier_still_blocks_a_false_claim_in_hard_mode(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Sanity: with no injected fault, a genuinely refuted claim still blocks
+        # (default mode is hard) -- the fail-closed change did not weaken gating.
+        monkeypatch.delenv("MERCURY_VERIFIER_MODE", raising=False)
+        guard = MercuryMCPServer._guard_emission("91 is prime.", source="unit")
+        assert guard["allowed"] is False  # 91 = 7*13 -> refuted -> blocked
+
+
+class TestCheckProvenanceVerifiedType:
+    """`verified` is validated as a real bool, not truthiness-coerced (a truthy
+    string like "false" must not be read as True on a hazardous boundary)."""
+
+    def test_string_false_is_rejected_not_treated_as_true(self) -> None:
+        server = MercuryMCPServer()
+        result = _call(
+            server,
+            "mercury_check_provenance",
+            {"text": "a benign claim", "sources": ["s1"], "verified": "false"},
+        )
+        assert result["isError"] is True
+        assert "boolean" in result["content"][0]["text"].lower()
+
+    def test_bool_verified_is_accepted(self) -> None:
+        server = MercuryMCPServer()
+        result = _call(
+            server,
+            "mercury_check_provenance",
+            {"text": "a benign claim", "sources": ["s1"], "verified": True},
+        )
+        assert result["isError"] is False

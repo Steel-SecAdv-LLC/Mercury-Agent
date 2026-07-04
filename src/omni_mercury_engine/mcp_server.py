@@ -458,20 +458,62 @@ class MercuryMCPServer:
         Returns ``{"allowed", "mode", "blocked", "flagged"}``. In ``hard`` mode a
         single oracle-refuted claim yields ``allowed=False`` with the refuted
         claims in ``blocked``; in ``soft`` mode they are returned in ``flagged``
-        and the emission is allowed. If the verifier stack is unavailable (slim
-        install) the guard degrades honestly to allow -- an *unavailable* check
-        never blocks (the loop refutes, it never guesses), matching the module's
-        own contract and this server's honest-degradation posture.
+        and the emission is allowed.
+
+        Degradation is scoped precisely so a runtime fault can **never silently
+        disable gating**:
+
+        * If the verifier stack is genuinely **unavailable** -- a slim install
+          where the module does not import -- the guard degrades honestly to allow
+          (``mode="unavailable"``): an *unavailable* check never blocks (the loop
+          refutes, it never guesses).
+        * If the stack imports but the verifier **raises at runtime** (a bug, an
+          oracle crash), that is *not* unavailability. Failing open there would
+          silently turn hard-mode gating off, so the guard **fails closed**: it
+          blocks in ``hard`` mode (surfacing the fault as a refusal,
+          ``mode="verifier_error"``) and allow-but-flags in ``soft`` mode (whose
+          contract is annotate-and-allow, ``mode="verifier_error_soft"``).
         """
         if not text or not text.strip():
             return {"allowed": True, "mode": "empty", "blocked": [], "flagged": []}
+        # Genuine unavailability is import-time only. Keep this guard narrow to
+        # ImportError so a fault *inside* a present verifier cannot masquerade as
+        # "unavailable" and thereby disable gating.
         try:
-            from omni_mercury_engine.intel.verifier_loop import VerifierLoop
-
-            decision = VerifierLoop().guard_emission(text, source=source)
-        except Exception as exc:  # pragma: no cover - slim-install / unavailable path
-            logger.info("verifier-in-the-loop unavailable; emission not gated (%s)", exc)
+            from omni_mercury_engine.intel.verifier_loop import VerifierLoop, VerifierMode
+        except ImportError as exc:  # pragma: no cover - slim-install path
+            logger.info(
+                "verifier-in-the-loop unavailable (slim install); emission not gated (%s)", exc
+            )
             return {"allowed": True, "mode": "unavailable", "blocked": [], "flagged": []}
+        try:
+            decision = VerifierLoop().guard_emission(text, source=source)
+        except Exception:
+            # A runtime fault in an *importable* verifier is a bug, not
+            # unavailability -- fail closed rather than emit ungated.
+            logger.exception(
+                "verifier-in-the-loop runtime failure guarding %s; failing closed", source
+            )
+            err_claim = {
+                "kind": "verifier_error",
+                "claim_text": "",
+                "status": "unavailable",
+                "reason": "verifier-in-the-loop runtime failure (failing closed)",
+                "checker": "verifier_loop",
+            }
+            if VerifierMode.from_env() is VerifierMode.HARD:
+                return {
+                    "allowed": False,
+                    "mode": "verifier_error",
+                    "blocked": [err_claim],
+                    "flagged": [],
+                }
+            return {
+                "allowed": True,
+                "mode": "verifier_error_soft",
+                "blocked": [],
+                "flagged": [err_claim],
+            }
         return {
             "allowed": decision.allowed,
             "mode": decision.mode.value,
@@ -508,7 +550,16 @@ class MercuryMCPServer:
         sources = args.get("sources") or []
         if not isinstance(sources, list) or not all(isinstance(s, str) for s in sources):
             raise ToolError("'sources' must be an array of strings")
-        verified = bool(args.get("verified", False))
+        # Validate the type rather than truthiness-coerce: ``verified`` asserts a
+        # safety-relevant fact (the sources were independently checked) on a
+        # possibly-hazardous boundary. ``bool(args.get("verified"))`` would treat a
+        # non-bool truthy value -- notably the JSON string ``"false"`` -- as True,
+        # wrongly asserting verification. The schema declares a boolean; enforce it
+        # (fail closed on anything else) so a caller can never smuggle a truthy
+        # non-bool into the "verified" attestation.
+        verified = args.get("verified", False)
+        if not isinstance(verified, bool):
+            raise ToolError("'verified' must be a boolean (true or false)")
         try:
             from omni_mercury_engine.intel.provenance import (
                 Provenance,

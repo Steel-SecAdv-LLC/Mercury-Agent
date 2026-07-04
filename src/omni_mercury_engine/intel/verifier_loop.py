@@ -279,13 +279,26 @@ class VerifierLoop:
 
         In ``hard`` mode a single oracle-refuted claim blocks emission
         (``allowed=False``); in ``soft`` mode refuted claims are flagged but the
-        emission is allowed. Unavailable claims never block. Every refutation is
-        durably audited.
+        emission is allowed. Unavailable claims never block. **Every** disposition
+        -- pass, hard block, and soft flag -- is durably audited, so the audit
+        trail matches the module contract and an auditor can distinguish "checked
+        and passed" from "never checked".
         """
         verdicts = self.review(text)
         refuted = tuple(v for v in verdicts if v.status is ClaimStatus.REFUTED)
 
         if not refuted:
+            # Audit the clean disposition too, not only refusals: without this the
+            # (common) allowed path is silently absent from the trail, contradicting
+            # the module's "every decision is durably audited" contract.
+            record_gate_decision(
+                decision="verifier_pass",
+                source=f"verifier_loop:{source}",
+                disposition="allow",
+                signals=("verifier_in_loop",),
+                reason=f"{len(verdicts)} oracle-checkable claim(s); none refuted (emission allowed)",
+                extra={"claims": [v.as_dict() for v in verdicts]},
+            )
             return EmissionDecision(allowed=True, mode=self.mode, verdicts=verdicts)
 
         if self.mode is VerifierMode.HARD:
