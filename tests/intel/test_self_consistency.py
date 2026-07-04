@@ -28,7 +28,9 @@ def test_as_dict_renders_answer_as_string_and_is_json_serializable() -> None:
     result = self_consistency(lambda _rng: (1, 2), n_samples=3, seed=0)
     d = result.as_dict()
     assert isinstance(d["answer"], str)  # rendered as string, not a raw tuple
-    assert all(isinstance(k, str) for k in d["distribution"])
+    dist = d["distribution"]
+    assert isinstance(dist, dict)
+    assert all(isinstance(k, str) for k in dist)
     json.dumps(d)  # must not raise
 
 
