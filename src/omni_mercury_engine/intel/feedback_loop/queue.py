@@ -99,8 +99,33 @@ class DurableLabeledQueue:
         return True
 
     def enqueue_many(self, examples: list[LabeledExample]) -> int:
-        """Enqueue several examples; return the number newly stored."""
-        return sum(1 for e in examples if self.enqueue(e))
+        """Durably append several examples (deduped); return the number newly stored.
+
+        Reads the existing dedup ids **once** and appends all new examples under a
+        single lock with a single ``fsync`` -- O(n + m), not the O(n*m) reads +
+        per-example fsync that calling :meth:`enqueue` in a loop would incur
+        (each call re-reads and re-parses the whole queue). Deduplicates within
+        the batch as well as against the stored ids, matching the per-call path.
+        """
+        if not examples:
+            return 0
+        with _LOCK:
+            seen = self._ids_unlocked()  # one read+parse of the existing queue
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            new_count = 0
+            with self.path.open("a", encoding="utf-8") as fh:
+                for example in examples:
+                    content_id = _content_id(example)
+                    if content_id in seen:
+                        continue
+                    seen.add(content_id)  # dedup within the batch too
+                    record = {"id": content_id, **example.as_dict()}
+                    fh.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
+                    new_count += 1
+                if new_count:
+                    fh.flush()
+                    os.fsync(fh.fileno())
+        return new_count
 
     def _examples_unlocked(self) -> list[LabeledExample]:
         r"""Every enqueued example that is durably readable, in insertion order.

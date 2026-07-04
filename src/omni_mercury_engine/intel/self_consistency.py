@@ -39,9 +39,12 @@ from typing import Any
 
 import numpy as np
 
-#: A sampler draws one reasoning-path answer given a seeded RNG. Returning a
-#: hashable answer (a label/string/int) enables categorical voting; returning a
-#: float in ``[0, 1]`` enables the continuous dispersion path.
+#: A sampler draws one reasoning-path answer given a seeded RNG, returning a
+#: hashable answer (a label/string/int). :func:`self_consistency` always votes on
+#: these categorically (via :func:`vote_disagreement`); it does not branch on the
+#: answer type. The continuous :func:`dispersion` metric is a *separate* entry
+#: point a caller applies directly to a sequence of floats in ``[0, 1]`` -- it is
+#: not auto-selected from a sampler that happens to return floats.
 Sampler = Callable[[np.random.Generator], Any]
 
 

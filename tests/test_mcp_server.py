@@ -14,13 +14,12 @@ import json
 from typing import TYPE_CHECKING
 
 import numpy as np
+import pytest
 
 from omni_mercury_engine.agentic.capabilities.web_research import SearchResult, WebResearcher
 
 if TYPE_CHECKING:
     from typing import Any
-
-    import pytest
 from omni_mercury_engine.mcp_server import PROTOCOL_VERSION, MercuryMCPServer
 
 
@@ -363,6 +362,43 @@ class TestGuardEmissionFailClosed:
         monkeypatch.delenv("MERCURY_VERIFIER_MODE", raising=False)
         guard = MercuryMCPServer._guard_emission("91 is prime.", source="unit")
         assert guard["allowed"] is False  # 91 = 7*13 -> refuted -> blocked
+
+
+class TestGuardEmissionImportHandling:
+    """Only a *missing module* degrades to allow; a symbol-import bug fails closed."""
+
+    def test_module_not_found_degrades_to_unavailable(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import builtins
+
+        real_import = builtins.__import__
+
+        def _fake(name: str, *a: object, **k: object) -> object:
+            if name == "omni_mercury_engine.intel.verifier_loop":
+                raise ModuleNotFoundError(
+                    "No module named 'omni_mercury_engine.intel.verifier_loop'"
+                )
+            return real_import(name, *a, **k)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(builtins, "__import__", _fake)
+        guard = MercuryMCPServer._guard_emission("2 is prime.", source="unit")
+        assert guard["allowed"] is True and guard["mode"] == "unavailable"
+
+    def test_symbol_import_error_fails_closed(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import builtins
+
+        real_import = builtins.__import__
+
+        def _fake(name: str, *a: object, **k: object) -> object:
+            if name == "omni_mercury_engine.intel.verifier_loop":
+                raise ImportError("cannot import name 'VerifierMode'")  # a bug, not unavailability
+            return real_import(name, *a, **k)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(builtins, "__import__", _fake)
+        # Not downgraded to "unavailable": it propagates (emission blocked at call_tool).
+        with pytest.raises(ImportError):
+            MercuryMCPServer._guard_emission("2 is prime.", source="unit")
 
 
 class TestCheckProvenanceVerifiedType:

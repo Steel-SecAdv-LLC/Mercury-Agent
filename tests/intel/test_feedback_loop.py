@@ -234,6 +234,26 @@ def test_nonce_ledger_single_use(tmp_path: Path) -> None:
     assert ledger.consume("n1") is True  # reset
 
 
+def test_enqueue_many_dedups_within_batch_and_against_store(tmp_path: Path) -> None:
+    """Batch ingest dedups against the store AND within the batch, one atomic append."""
+    q = DurableLabeledQueue(f"file://{tmp_path / 'q.jsonl'}")
+    q.enqueue(override_to_example("a", label="offensive", reviewer="alice"))
+    batch = [
+        override_to_example(
+            "a", label="offensive", reviewer="bob"
+        ),  # dup of stored (id=text+label)
+        override_to_example("b", label="benign", reviewer="bob"),
+        override_to_example("b", label="benign", reviewer="bob"),  # intra-batch dup
+        override_to_example("c", label="benign", reviewer="bob"),
+    ]
+    assert q.enqueue_many(batch) == 2  # only b, c are newly stored
+    assert len(q) == 3
+    assert {e.text for e in q.pending()} == {"a", "b", "c"}
+    assert q.enqueue_many([]) == 0  # empty batch is a no-op
+    # Durable: a fresh handle sees exactly the deduped set.
+    assert len(DurableLabeledQueue(f"file://{tmp_path / 'q.jsonl'}")) == 3
+
+
 # --------------------------- atomic queue snapshot (TOCTOU) --------------------------- #
 def test_queue_snapshot_is_atomic_and_matches_hash(tmp_path: Path) -> None:
     q = DurableLabeledQueue(f"file://{tmp_path / 'q.jsonl'}")

@@ -476,12 +476,15 @@ class MercuryMCPServer:
         """
         if not text or not text.strip():
             return {"allowed": True, "mode": "empty", "blocked": [], "flagged": []}
-        # Genuine unavailability is import-time only. Keep this guard narrow to
-        # ImportError so a fault *inside* a present verifier cannot masquerade as
-        # "unavailable" and thereby disable gating.
+        # Genuine unavailability is a *missing module* only, so catch just
+        # ModuleNotFoundError (the slim-install case). A broader ImportError --
+        # e.g. "cannot import name VerifierMode" -- is a verifier bug, not
+        # unavailability, and must fail closed rather than masquerade as
+        # "unavailable" and disable gating; left uncaught it propagates to
+        # call_tool, which surfaces it as an error (emission blocked).
         try:
             from omni_mercury_engine.intel.verifier_loop import VerifierLoop, VerifierMode
-        except ImportError as exc:  # pragma: no cover - slim-install path
+        except ModuleNotFoundError as exc:  # pragma: no cover - slim-install path
             logger.info(
                 "verifier-in-the-loop unavailable (slim install); emission not gated (%s)", exc
             )
