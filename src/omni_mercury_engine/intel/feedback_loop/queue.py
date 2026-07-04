@@ -54,9 +54,19 @@ def resolve_queue_path(url: str | None = None) -> Path:
     if not raw:
         return DEFAULT_QUEUE_PATH
     parsed = urlparse(raw)
-    if parsed.scheme in ("", "file"):
-        # file:///abs/path -> parsed.path; bare path -> raw
-        return Path(parsed.path if parsed.scheme == "file" else raw)
+    if parsed.scheme == "":
+        return Path(raw)  # a bare filesystem path
+    if parsed.scheme == "file":
+        # `file:///abs/path` -> netloc="", path="/abs/path". But a file URL built
+        # from a *relative* path (`file://artifacts/x`) is split by the `//` at
+        # its first segment into netloc="artifacts", path="/x"; dropping the
+        # netloc would mint a spurious absolute `/x` at the filesystem root (an
+        # unwritable path in a sandboxed CI runner). Rejoin netloc+path so a
+        # relative file URL resolves relative to CWD as intended. A `localhost`
+        # netloc (`file://localhost/abs`) is the standard local-host form -> /abs.
+        if parsed.netloc and parsed.netloc != "localhost":
+            return Path(parsed.netloc + parsed.path)
+        return Path(parsed.path)
     raise NotImplementedError(
         f"MERCURY_FEEDBACK_QUEUE_URL scheme {parsed.scheme!r} is not supported; "
         "use a file:// URL or a path (SQS/PubSub/Kafka adapters are the documented "

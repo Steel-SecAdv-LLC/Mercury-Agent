@@ -79,6 +79,24 @@ def test_resolve_queue_path_schemes(tmp_path: Path) -> None:
         resolve_queue_path("sqs://queue/name")
 
 
+def test_resolve_queue_path_relative_file_url_stays_relative() -> None:
+    """A file:// URL built from a *relative* path must resolve relative to CWD.
+
+    Regression: ``file://artifacts/x`` is split by ``//`` into netloc="artifacts",
+    path="/x"; dropping the netloc minted a spurious absolute ``/x`` at the
+    filesystem root (an unwritable path in a sandboxed CI runner -> PermissionError
+    when the demo passed a relative --staging-dir).
+    """
+    from pathlib import Path as _Path
+
+    resolved = resolve_queue_path("file://artifacts/closed_loop/staging/labeled_queue.jsonl")
+    assert not resolved.is_absolute()
+    assert resolved == _Path("artifacts/closed_loop/staging/labeled_queue.jsonl")
+    # Absolute file URLs and the localhost host form still resolve absolute.
+    assert resolve_queue_path("file:///abs/q.jsonl") == _Path("/abs/q.jsonl")
+    assert resolve_queue_path("file://localhost/abs/q.jsonl") == _Path("/abs/q.jsonl")
+
+
 def test_queue_enqueue_dedup_and_snapshot(tmp_path: Path) -> None:
     q = DurableLabeledQueue(f"file://{tmp_path / 'queue.jsonl'}")
     ex = override_to_example("q1", label="offensive", reviewer="alice")
