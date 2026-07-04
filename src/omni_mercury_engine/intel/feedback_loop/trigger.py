@@ -193,15 +193,19 @@ def verify_trigger(
     """
     key = secret if secret is not None else secret_from_env()
     reason: str
-    # ``reason_code`` is a fixed, enumerated category per branch; it carries no
-    # data flow from any source and is the *only* thing written to the operator
-    # log. The composed ``reason`` string (which names ``SECRET_ENV`` and embeds
-    # queue-hash prefixes) is recorded solely in the structured audit sink below.
+    # ``reason_code`` is a fixed, enumerated category per branch and is the only
+    # thing written to the operator log. The human-readable ``reason`` (audited
+    # below) deliberately does NOT interpolate the ``SECRET_ENV`` identifier: that
+    # name matches the clear-text-logging/-storage secret heuristic, and ``reason``
+    # reaches the durable audit sink (which stores it and, on a write failure, logs
+    # the whole record). Keeping every secret-named token out of ``reason`` means
+    # no secret-derived data can reach any clear-text sink by construction -- the
+    # env-var name itself lives in the module docstring / ``.env.example``.
     reason_code: str
     ok = False
     if not key:
         reason_code = "secret_unconfigured"
-        reason = f"{SECRET_ENV} not configured; authorization impossible (fail-closed)"
+        reason = "retrain signing secret not configured; authorization impossible (fail-closed)"
     elif not trigger.signature:
         reason_code = "no_signature"
         reason = "trigger carries no signature"
@@ -238,12 +242,8 @@ def verify_trigger(
             },
         )
     if not ok:
-        # Log only the enumerated ``reason_code`` -- never the composed ``reason``.
-        # ``reason`` interpolates the ``SECRET_ENV`` name (a secret-flagged token)
-        # and queue-hash prefixes; CodeQL's clear-text-logging query follows that
-        # flow into the logger. A fixed category string keeps the operator log
-        # actionable while the full detail lives only in the audit record above --
-        # so no secret-derived data can reach clear-text logs by construction.
+        # Log only the enumerated ``reason_code`` (a fixed literal); the full
+        # human-readable detail lives in the audit record above.
         logger.warning("retrain trigger rejected (%s)", reason_code)
     return ok
 
