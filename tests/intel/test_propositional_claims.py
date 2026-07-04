@@ -67,3 +67,21 @@ def test_bounded_variable_cap_fails_closed() -> None:
     big = " and ".join(f"V{i}" for i in range(25))
     with pytest.raises(PropositionalParseError):
         to_cnf(parse(big))
+
+
+def test_tseitin_aux_vars_do_not_collide_with_user_variables() -> None:
+    """A formula whose variables are named like the Tseitin aux vars (``_t1``,
+    ``_t2``, ...) must still be adjudicated soundly. Before aux-var namespacing a
+    user variable ``_t1`` collided with the first auxiliary variable, corrupting
+    the CNF and returning a wrong SAT/tautology verdict -- a fail-open that could
+    CONFIRM a false propositional claim and emit it in hard mode."""
+    # Excluded middle over the aux-namespace names is still a tautology.
+    assert is_tautology("_t1 | ~_t1")
+    assert is_tautology("(_t1 & _t2) | ~(_t1 & _t2)")
+    # Contradictions over those names are UNSAT (not tautologies).
+    assert not is_tautology("_t1 & ~_t1")
+    assert not is_satisfiable_formula("_t1 & ~_t1")
+    # A genuinely satisfiable formula over the aux names is SAT.
+    assert is_satisfiable_formula("_t1 & _t2")
+    # Mixed user + aux-looking names behave soundly.
+    assert is_tautology("(a -> _t1) | (a & ~_t1)")

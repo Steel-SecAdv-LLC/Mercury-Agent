@@ -82,6 +82,41 @@ def test_instrumentation_and_compute_savings_meet_value_target() -> None:
     assert report["compute_saved_fraction"] >= target
 
 
+def test_cascade_accuracy_stays_within_tolerance_of_all_heavy() -> None:
+    """The 'at bounded accuracy' half of the metric, not just compute savings.
+
+    Routes a labeled workload that includes a *confident-but-wrong* cheap item
+    (served cheap, so the cascade answers it wrong while the accurate heavy
+    baseline gets it right). The cascade's accuracy must stay within tolerance of
+    all-heavy -- and the delta is genuinely negative here, so the assertion is
+    non-vacuous (it would trip if routing trusted more miscalibrated cheap
+    answers).
+    """
+    accuracy_tolerance = 0.02
+    cfg = CascadeConfig(
+        low_uncertainty=0.30, high_uncertainty=0.60, cheap_cost=1.0, heavy_cost=20.0
+    )
+    # item = (label, cheap_answer, cheap_prob, cheap_disagreement, heavy_answer)
+    items: list[tuple[int, int, float, float, int]] = []
+    items += [(1, 1, 0.98, 0.0, 1)] * 40 + [(0, 0, 0.02, 0.0, 0)] * 39  # easy: cheap correct
+    items += [(0, 1, 0.98, 0.0, 0)]  # confident-WRONG: served cheap -> cascade wrong
+    items += [(1, 0, 0.5, 0.0, 1)] * 10 + [(0, 1, 0.5, 0.0, 0)] * 10  # hard: escalate -> heavy
+
+    def cheap(it: tuple[int, int, float, float, int]) -> PathResult:
+        return PathResult(it[1], it[2], it[3])
+
+    def heavy(it: tuple[int, int, float, float, int]) -> PathResult:
+        return PathResult(it[4], 0.99, 0.0)
+
+    router = ConfidenceCascadeRouter(cheap, heavy, cfg, clock=_deterministic_clock())
+    outcomes = router.route(items)
+    cascade_correct = sum(1 for it, o in zip(items, outcomes) if o.result.answer == it[0])
+    heavy_correct = sum(1 for it in items if it[4] == it[0])
+    delta = cascade_correct / len(items) - heavy_correct / len(items)
+    assert delta >= -accuracy_tolerance  # bounded-accuracy guarantee holds
+    assert delta < 0.0  # non-vacuous: the cheap path really did cost some accuracy
+
+
 def test_calibrator_applied_before_routing() -> None:
     # A calibrator that maps everything to 0.5 forces max uncertainty -> heavy.
     class HalfCalibrator:

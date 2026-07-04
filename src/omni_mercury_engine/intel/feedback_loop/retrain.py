@@ -2,16 +2,24 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """The accept-gated staged retrain pipeline.
 
-This is where the closed loop's safety guarantees compose. A retrain runs only
-when **all** of these hold, checked in order and each fail-closed:
+This is where the closed loop's safety guarantees compose. The queue is read
+**once, atomically** (:meth:`DurableLabeledQueue.snapshot`), so the hash the
+trigger is verified against provably covers the exact examples the candidate is
+trained on -- no TOCTOU window in which a row could be folded into training
+without being covered by the authorized snapshot. A retrain then runs only when
+**all** of these hold, checked in order and each fail-closed:
 
 1. **Signed trigger** -- the run carries a valid :class:`RetrainTrigger` whose
-   HMAC verifies and whose bound queue hash still matches the live queue
-   (:mod:`.trigger`). No signature, no run.
+   HMAC verifies and whose bound queue hash still matches the atomically-read
+   queue snapshot (:mod:`.trigger`). No signature, no run.
 2. **Human verification** -- ``human_verified`` is ``True``. Human-in-the-loop
    sign-off is required *before* any model update; the pipeline refuses without
    it even with a valid trigger.
-3. **Regression gate** -- the candidate refit on ``base corpus + queue`` must
+3. **Authorization is single-use** -- the signed ``n_examples`` must match the
+   snapshot's count, and the trigger's ``nonce`` is consumed in a durable
+   :class:`NonceLedger`; a replayed trigger (same nonce) is refused even against
+   an unchanged queue.
+4. **Regression gate** -- the candidate refit on ``base corpus + queue`` must
    pass the OOF/adversarial merge-blocker (:mod:`.regression_gate`). A regressing
    or poisoned candidate is refused and the baseline stands.
 
@@ -37,7 +45,11 @@ from omni_mercury_engine.intel.feedback_loop.regression_gate import (
     fit_candidate_weights,
 )
 from omni_mercury_engine.intel.feedback_loop.rollback import ModelEntry, ModelRegistry
-from omni_mercury_engine.intel.feedback_loop.trigger import RetrainTrigger, verify_trigger
+from omni_mercury_engine.intel.feedback_loop.trigger import (
+    NonceLedger,
+    RetrainTrigger,
+    verify_trigger,
+)
 
 if TYPE_CHECKING:
     from omni_mercury_engine.intel.feedback_loop.queue import DurableLabeledQueue
@@ -125,8 +137,12 @@ def staged_refit(
     """
     staging = Path(staging_dir)
 
-    # Gate 1: signed trigger, bound to the live queue snapshot.
-    live_hash = queue.snapshot_hash()
+    # Read the queue ONCE, atomically: the returned hash provably covers exactly
+    # these examples, so the trigger's binding and the trained data cannot drift
+    # apart (no TOCTOU window between hashing and reading the rows).
+    examples, live_hash = queue.snapshot()
+
+    # Gate 1: signed trigger, bound to the atomically-read queue snapshot.
     if not verify_trigger(trigger, secret=secret, expected_queue_hash=live_hash):
         return _refuse(
             "signed trigger did not verify (bad signature or queue changed since signing)",
@@ -142,7 +158,6 @@ def staged_refit(
             human_verified=False,
         )
 
-    examples = queue.pending()
     if not examples:
         return _refuse(
             "labeled queue is empty; nothing to retrain on",
@@ -150,7 +165,32 @@ def staged_refit(
             human_verified=True,
         )
 
-    # Gate 3: OOF/adversarial regression gate (the merge-blocker).
+    # Gate 3a: the signed example count must match the atomically-read snapshot.
+    # The queue-hash binding already implies this; the explicit check makes
+    # n_examples a load-bearing bound (not a decorative field) and audits any
+    # divergence rather than training on a count the authorization never saw.
+    if trigger.n_examples != len(examples):
+        return _refuse(
+            f"trigger authorized {trigger.n_examples} example(s) but the queue "
+            f"snapshot holds {len(examples)} (authorization does not match data)",
+            trigger_verified=True,
+            human_verified=True,
+        )
+
+    # Gate 3b: single-use authorization. Consume the nonce durably before any
+    # (expensive) refit; a replayed trigger reusing a spent nonce is refused even
+    # against an unchanged queue. Consumed at the point the authorization is
+    # exercised, so a gate-blocked attempt still spends it (re-authorizing needs
+    # a fresh trigger), while an earlier fail-closed refusal above does not.
+    ledger = NonceLedger(staging)
+    if not ledger.consume(trigger.nonce, queue_hash=live_hash, requested_by=trigger.requested_by):
+        return _refuse(
+            f"retrain trigger nonce already consumed; replay refused (nonce={trigger.nonce!r})",
+            trigger_verified=True,
+            human_verified=True,
+        )
+
+    # Gate 4: OOF/adversarial regression gate (the merge-blocker).
     verdict = evaluate_candidate(examples, base_rows=base_rows)
     if not verdict.accepted:
         return _refuse(

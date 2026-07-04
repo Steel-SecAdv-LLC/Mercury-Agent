@@ -251,13 +251,24 @@ def _normalize(node: Node) -> Node:
 class _Tseitin:
     """Tseitin transform of a normalized AST to CNF over propositional Literals."""
 
-    def __init__(self) -> None:
+    def __init__(self, reserved: set[str] | None = None) -> None:
         self.clauses: list[Clause] = []
         self._counter = 0
+        # Names already used as *formula* variables. A Tseitin auxiliary variable
+        # must be genuinely fresh -- disjoint from every user variable -- or the
+        # CNF is corrupted and the SAT/tautology verdict is wrong (a fail-open
+        # that could CONFIRM a false claim and emit it in hard mode). A formula is
+        # free to name a variable ``_t1``; ``_fresh`` therefore skips any name a
+        # user variable already occupies rather than assuming the ``_t`` prefix is
+        # private.
+        self._reserved = reserved or set()
 
     def _fresh(self) -> Literal:
-        self._counter += 1
-        return Literal(f"_t{self._counter}", True)
+        while True:
+            self._counter += 1
+            name = f"_t{self._counter}"
+            if name not in self._reserved:
+                return Literal(name, True)
 
     def encode(self, node: Node) -> Literal:
         """Return the literal equivalent to ``node``, appending defining clauses."""
@@ -291,7 +302,9 @@ def to_cnf(node: Node) -> tuple[Literal, tuple[Clause, ...]]:
         raise PropositionalParseError(
             f"formula uses {len(variables)} variables; the bounded oracle caps at {_MAX_VARS}"
         )
-    tseitin = _Tseitin()
+    # Reserve the user variable names so Tseitin aux vars can never collide with
+    # a formula variable that happens to be named ``_t1``, ``_t2``, ....
+    tseitin = _Tseitin(reserved=variables)
     root = tseitin.encode(normalized)
     return root, tuple(tseitin.clauses)
 

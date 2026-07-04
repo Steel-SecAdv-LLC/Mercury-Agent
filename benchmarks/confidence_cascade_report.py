@@ -45,6 +45,15 @@ ARTIFACT_PATH = _REPO / "artifacts" / "confidence_cascade" / "cost_report.json"
 ACCURACY_TOLERANCE = 0.02
 N_ITEMS = 1000
 EASY_FRACTION = 0.70
+#: A small slice of items where the cheap path is *confident but wrong* (a
+#: calibration error): confidently routed cheap, so the cascade serves a wrong
+#: answer the all-heavy baseline gets right. This makes the ACCURACY_TOLERANCE
+#: gate load-bearing -- without it the workload guarantees the cheap path is
+#: never served while wrong, so the accuracy delta is structurally ~0 and the
+#: gate is incapable of firing. Kept below the tolerance so a correct cascade
+#: still passes, while a regression that trusts more miscalibrated cheap answers
+#: pushes the delta past the tolerance and trips the gate.
+CONFIDENT_WRONG_FRACTION = 0.015
 SEED = 20260704
 
 
@@ -54,8 +63,16 @@ def _build_workload(seed: int) -> list[dict[str, Any]]:
     items = []
     for _ in range(N_ITEMS):
         label = int(rng.integers(0, 2))
-        easy = rng.random() < EASY_FRACTION
-        if easy:
+        draw = rng.random()
+        if draw < CONFIDENT_WRONG_FRACTION:
+            # Cheap path: confident but WRONG (its high-confidence answer is the
+            # opposite of the label). Routed cheap on that confidence, so the
+            # cascade is wrong here while the accurate heavy baseline is right --
+            # a real, measurable accuracy cost the tolerance gate can see.
+            cheap_prob = (
+                float(rng.uniform(0.90, 0.99)) if label == 0 else float(rng.uniform(0.01, 0.10))
+            )
+        elif draw < EASY_FRACTION:
             # Cheap path: confident + correct.
             cheap_prob = (
                 float(rng.uniform(0.90, 0.99)) if label == 1 else float(rng.uniform(0.01, 0.10))

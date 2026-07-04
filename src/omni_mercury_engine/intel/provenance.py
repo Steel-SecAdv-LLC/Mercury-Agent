@@ -94,6 +94,22 @@ _ORIGIN_RANK: dict[ProvenanceOrigin, int] = {
     ProvenanceOrigin.SYNTHETIC: 4,
 }
 
+#: Origins that constitute genuine *source attribution* -- the value was checked
+#: (oracle), authored by a human, or extracted/quoted from a cited source. The
+#: weaker origins (:attr:`ProvenanceOrigin.MODEL_GENERATED`,
+#: :attr:`ProvenanceOrigin.SYNTHETIC`) are unattributed synthesis: the value was
+#: produced by the model, not drawn from the listed sources, so attaching a
+#: ``sources`` list to them is not real attribution and must not satisfy a
+#: hazardous-topic boundary (otherwise a fabricated citation on the weakest origin
+#: would launder synthetic content past the gate).
+_ATTRIBUTED_ORIGINS: frozenset[ProvenanceOrigin] = frozenset(
+    {
+        ProvenanceOrigin.ORACLE_VERIFIED,
+        ProvenanceOrigin.HUMAN,
+        ProvenanceOrigin.EXTRACTIVE,
+    }
+)
+
 
 @dataclass(frozen=True)
 class Provenance:
@@ -118,9 +134,16 @@ class Provenance:
     def is_adequate(self, *, require_verified: bool = False) -> bool:
         """Whether this provenance suffices for a provenance-required emission.
 
-        Adequate means at least one citation is present; ``require_verified``
-        additionally demands the sources were independently checked.
+        Adequate requires an *attributed* origin (oracle/human/extractive) **and**
+        at least one citation; ``require_verified`` additionally demands the
+        sources were independently checked. An unattributed origin
+        (model-generated / synthetic) is never adequate on its own, no matter what
+        ``sources`` or ``verified`` it self-asserts -- that closes the fail-open
+        where a fabricated citation on the weakest origin would pass a
+        hazardous-topic boundary.
         """
+        if self.origin not in _ATTRIBUTED_ORIGINS:
+            return False
         if not self.has_citations():
             return False
         return self.verified if require_verified else True
@@ -305,9 +328,13 @@ def enforce_at_boundary(
         carried = provenance
         bare_value = payload
 
-    # Decide whether provenance is required.
+    # Decide whether provenance is required. With no topic signal at all (neither
+    # ``text`` to assess nor an explicit ``provenance_required``) the boundary
+    # cannot rule the emission benign, so it fails **closed** (requires provenance)
+    # rather than silently emitting -- a caller that means "not required" must say
+    # so explicitly.
     if provenance_required is None:
-        required = provenance_required_for(text) if text is not None else False
+        required = provenance_required_for(text) if text is not None else True
     else:
         required = bool(provenance_required)
 

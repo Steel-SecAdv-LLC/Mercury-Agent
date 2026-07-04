@@ -67,6 +67,15 @@ def _measure_verifier_in_loop() -> float:
 
 
 def _measure_provenance() -> float:
+    """Boundary enforcement rate over a representative provenance-required population.
+
+    Not a 3-element literal: a mix of inadequate origins (no record, synthetic,
+    model-generated, empty-source, unverified-where-verification-is-required) that
+    the boundary MUST withhold, plus adequate ones (cited/verified) that it MUST
+    emit (excluded from the enforcement denominator). The rate is ``1.0`` only if
+    every inadequate emission is actually withheld -- a boundary bug that emitted
+    any of them would drop it below 1.0.
+    """
     from omni_mercury_engine.intel.provenance import (
         Provenance,
         ProvenanceMode,
@@ -74,15 +83,31 @@ def _measure_provenance() -> float:
         boundary_enforcement_rate,
     )
 
-    good = Provenance(ProvenanceOrigin.EXTRACTIVE, sources=("doi:x",), verified=True)
-    emissions = [("a", None), ("b", Provenance(ProvenanceOrigin.SYNTHETIC)), ("c", good)]
+    cited = Provenance(ProvenanceOrigin.EXTRACTIVE, sources=("doi:10.1/x",), verified=True)
+    human = Provenance(ProvenanceOrigin.HUMAN, sources=("reviewer:alice",), verified=True)
+    emissions: list[tuple[Any, Provenance | None]] = [
+        ("no-record", None),  # inadequate: no provenance at all
+        ("synthetic", Provenance(ProvenanceOrigin.SYNTHETIC)),  # inadequate: no sources
+        ("model-gen", Provenance(ProvenanceOrigin.MODEL_GENERATED)),  # inadequate: unattributed
+        ("empty-src", Provenance(ProvenanceOrigin.EXTRACTIVE, sources=("",))),  # inadequate: blank
+        ("cited", cited),  # adequate -> emitted (excluded from the denominator)
+        ("human", human),  # adequate -> emitted (excluded)
+    ]
     return boundary_enforcement_rate(emissions, mode=ProvenanceMode.BOUNDARY_FALLBACK)
 
 
 def _measure_adversarial() -> float:
-    if BASELINE_PATH.is_file():
-        return float(json.loads(BASELINE_PATH.read_text(encoding="utf-8"))["survival_rate"])
-    return math.nan
+    """Live surviving-bypass rate: run the red-team harness against the current gate.
+
+    Measured, not read from the pinned floor: the committed
+    ``red_team_baseline.json`` is the *no-weakening floor* the board compares
+    against (via :meth:`ValueMetric.improves_on_baseline`), never the 'measured'
+    value itself. A gate weakening that raises the true survival rate is reflected
+    here rather than masked by a stale constant.
+    """
+    from omni_mercury_engine.intel.red_team import run_red_team
+
+    return float(run_red_team().survival_rate)
 
 
 def _measure_closed_loop() -> float:
@@ -170,16 +195,28 @@ def main(argv: list[str] | None = None) -> int:
             measured = r["measured"]
             if isinstance(measured, float) and math.isnan(measured):
                 continue  # not measurable here -> skip (do not fail the gate)
+            # No-weakening: never regress below the baseline floor.
             if not r["improves_on_baseline"]:
                 problems.append(
                     f"{r['stream']}: measured {measured:.4f} weaker than baseline {r['baseline']:.4f}"
+                )
+            # Non-vacuous gate: for a HIGHER_IS_BETTER metric whose baseline is 0,
+            # `improves_on_baseline` is trivially true for any measurement -- even a
+            # total collapse to 0. For those (non-aspirational) streams the *target*
+            # is the real, load-bearing requirement, so require meets_target too;
+            # only genuinely aspirational targets (e.g. adversarial survival 0.0)
+            # are reported-but-not-required.
+            if not r.get("aspirational", False) and not r["meets_target"]:
+                problems.append(
+                    f"{r['stream']}: measured {measured:.4f} does not meet required "
+                    f"target {r['target']:.4f}"
                 )
         if problems:
             print("VALUE-BOARD REGRESSION:", file=sys.stderr)
             for p in problems:
                 print(f"  - {p}", file=sys.stderr)
             return 1
-        print("OK: no measured stream regressed below its baseline")
+        print("OK: every measured stream meets its required target and its no-weakening floor")
         return 0
 
     print(_render_markdown(rows))

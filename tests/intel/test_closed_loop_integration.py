@@ -150,6 +150,60 @@ def test_refuses_on_bad_signature_or_changed_queue(tmp_path: Path) -> None:
     assert not changed.accepted and not changed.trigger_verified
 
 
+def test_replayed_trigger_nonce_is_refused(tmp_path: Path) -> None:
+    """A signed trigger is single-use: reusing its nonce is refused (anti-replay)."""
+    queue = _seed_queue(tmp_path, poisoned=False)
+    trigger = _sign(queue)
+    first = staged_refit(
+        queue,
+        trigger,
+        human_verified=True,
+        staging_dir=tmp_path,
+        secret=_SECRET,
+        corpus_version="test",
+    )
+    assert first.accepted, first.reason
+    # Replay the very same trigger against the unchanged queue: the queue-hash
+    # binding still matches, but the nonce is already consumed -> refused.
+    replay = staged_refit(
+        queue,
+        trigger,
+        human_verified=True,
+        staging_dir=tmp_path,
+        secret=_SECRET,
+        corpus_version="test",
+    )
+    assert not replay.accepted
+    assert replay.trigger_verified and replay.human_verified
+    assert "nonce" in replay.reason.lower()
+
+
+def test_signed_example_count_must_match_queue(tmp_path: Path) -> None:
+    """n_examples is load-bearing: a validly-signed but count-mismatched trigger is refused."""
+    queue = _seed_queue(tmp_path, poisoned=False)
+    # Sign a trigger whose n_examples does NOT match the queue (but whose hash
+    # and signature are valid): the explicit count check must refuse it.
+    trigger = sign_trigger(
+        queue_hash=queue.snapshot_hash(),
+        corpus_version="test",
+        requested_by="integration",
+        n_examples=len(queue) + 5,
+        nonce="count-mismatch-nonce",
+        secret=_SECRET,
+    )
+    result = staged_refit(
+        queue,
+        trigger,
+        human_verified=True,
+        staging_dir=tmp_path,
+        secret=_SECRET,
+        corpus_version="test",
+    )
+    assert not result.accepted
+    assert result.trigger_verified and result.human_verified
+    assert "authorized" in result.reason and "snapshot holds" in result.reason
+
+
 def test_trigger_verification_is_audited(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     queue = _seed_queue(tmp_path, poisoned=False)
     trigger = _sign(queue)

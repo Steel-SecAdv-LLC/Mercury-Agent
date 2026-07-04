@@ -186,6 +186,65 @@ class TestToolCalls:
         assert payload["available"] is True
         assert payload["document"]
 
+    def test_intel_tools_are_selectable(self) -> None:
+        """The intel streams are advertised as first-class, discoverable MCP tools."""
+        server = MercuryMCPServer()
+        names = {t["name"] for t in server.manifest()}
+        assert {
+            "mercury_verify_claims",
+            "mercury_check_provenance",
+            "mercury_self_consistency",
+            "mercury_value_metrics",
+        } <= names
+
+    def test_verify_claims_refutes_false_symbolic_claim(self) -> None:
+        server = MercuryMCPServer()
+        result = _call(
+            server,
+            "mercury_verify_claims",
+            {"text": "Note that 91 is prime, a well-known fact."},
+        )
+        payload = json.loads(result["content"][0]["text"])
+        assert payload["allowed"] is False  # hard mode blocks a refuted claim
+        assert payload["n_refuted"] >= 1
+        assert any(
+            v["kind"] == "primality" and v["status"] == "refuted" for v in payload["verdicts"]
+        )
+
+    def test_answer_emission_is_verifier_guarded(self, monkeypatch: Any) -> None:
+        """A research/answer emission carrying an oracle-refuted claim is blocked live."""
+        server = MercuryMCPServer(assistant=_online_assistant())
+        # Force the assistant's answer to carry a refutable claim, then confirm
+        # the MCP emission guard (hard mode) blocks it rather than emitting it.
+        monkeypatch.setattr(
+            server._research_assistant(),
+            "answer",
+            lambda question, **kw: "The number 91 is prime.",
+        )
+        result = _call(server, "mercury_answer", {"question": "is 91 prime?"})
+        assert result["isError"] is True
+        assert "verifier" in result["content"][0]["text"].lower()
+
+    def test_answer_emission_soft_mode_flags_not_blocks(self, monkeypatch: Any) -> None:
+        server = MercuryMCPServer(assistant=_online_assistant())
+        monkeypatch.setenv("MERCURY_VERIFIER_MODE", "soft")
+        monkeypatch.setattr(
+            server._research_assistant(),
+            "answer",
+            lambda question, **kw: "The number 91 is prime.",
+        )
+        result = _call(server, "mercury_answer", {"question": "is 91 prime?"})
+        assert result["isError"] is False  # soft mode annotates, does not block
+        payload = json.loads(result["content"][0]["text"])
+        assert payload.get("verifier_flags")
+
+    def test_value_metrics_board_is_served(self) -> None:
+        server = MercuryMCPServer()
+        result = _call(server, "mercury_value_metrics", {})
+        payload = json.loads(result["content"][0]["text"])
+        assert "closed_feedback_loop" in payload["streams"]
+        assert payload["streams"]["verifier_in_loop"]["target"] == 1.0
+
     def test_unknown_tool_is_error_result(self) -> None:
         server = MercuryMCPServer()
         result = _call(server, "mercury_nonexistent", {})

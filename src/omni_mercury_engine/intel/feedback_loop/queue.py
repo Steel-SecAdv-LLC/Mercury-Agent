@@ -116,16 +116,39 @@ class DurableLabeledQueue:
         with _LOCK:
             return len(self._rows_unlocked())
 
+    @staticmethod
+    def _hash_ids(ids: set[str]) -> str:
+        """Order-independent content hash of a set of dedup ids."""
+        return hashlib.sha256("\n".join(sorted(ids)).encode("utf-8")).hexdigest()
+
+    def snapshot(self) -> tuple[list[LabeledExample], str]:
+        """Atomically read the pending examples **and** their snapshot hash.
+
+        Returns ``(examples, hash)`` computed from a *single* locked read of the
+        queue, so the hash provably covers exactly the returned examples. The
+        retrain pipeline binds a signed trigger to this hash and trains on these
+        exact examples -- eliminating the TOCTOU window that a separate
+        :meth:`snapshot_hash` + :meth:`pending` pair would leave open (a row
+        enqueued between the two calls would be trained on but not covered by the
+        authorized hash).
+        """
+        with _LOCK:
+            rows = self._rows_unlocked()
+        examples = [LabeledExample.from_dict(r) for r in rows]
+        ids = {str(r.get("id")) for r in rows}
+        return examples, self._hash_ids(ids)
+
     def snapshot_hash(self) -> str:
         """Content hash of the whole queue (dedup ids, order-independent).
 
         The retrain trigger binds this so a signature authorizes exactly the
         queue state it was signed against; any later enqueue changes the hash.
+        Prefer :meth:`snapshot` in the retrain path so the hash and the trained
+        rows come from one atomic read.
         """
         with _LOCK:
-            ids = sorted(self._ids_unlocked())
-        digest = hashlib.sha256("\n".join(ids).encode("utf-8")).hexdigest()
-        return digest
+            ids = self._ids_unlocked()
+        return self._hash_ids(ids)
 
     def clear(self) -> None:
         """Delete the queue file (staging/test convenience, not a loop operation)."""

@@ -140,10 +140,19 @@ class ModelRegistry:
         )
 
     def rollback(self) -> RollbackResult:
-        """Swap ``active`` back to ``previous`` (the one-command rollback).
+        """Restore ``previous`` as ``active`` (the one-command rollback).
 
         Fail-safe: with no active or no previous model there is nothing to roll
         back to, so it reports ``rolled_back=False`` rather than corrupting state.
+
+        **Monotonic, not a toggle.** A rollback restores the previous good model
+        and then *clears* the ``previous`` pointer, so a repeated ``rollback()``
+        (an operator double-click, a retry wrapper) is a no-op rather than
+        swapping the just-removed candidate back into ``active``. Re-activating a
+        model that was rolled back must go through a fresh, gate-checked
+        :meth:`register` -- never through a blind second rollback. Without this,
+        two rollbacks would silently re-arm the exact (possibly poisoned) model
+        the first rollback removed, and audit it as an approved decision.
         """
         state = self._read()
         active = state.get("active")
@@ -152,10 +161,17 @@ class ModelRegistry:
             return RollbackResult(False, "no active model to roll back")
         if not previous:
             return RollbackResult(
-                False, "no previous model to roll back to", from_version=active.get("version")
+                False,
+                "no previous model to roll back to (already rolled back, or only "
+                "one model registered); re-activate via a fresh gated register",
+                from_version=active.get("version"),
             )
-        # Swap: previous becomes active, the rolled-back model becomes previous.
-        state["active"], state["previous"] = previous, active
+        # Restore the previous good model as active, then clear the previous
+        # pointer: the rolled-back-from candidate is intentionally NOT restorable
+        # via another rollback (that would re-arm a bad model). A subsequent
+        # register() repopulates previous with the then-current active.
+        state["active"] = previous
+        state["previous"] = None
         history = state.get("history", [])
         history.append({**previous, "kind": "rollback_restore"})
         state["history"] = history

@@ -10,6 +10,18 @@ payload that **binds the exact queue snapshot** the retrain is authorized for --
 so a signature cannot be replayed against a different (e.g. later-poisoned) queue
 state, and every verification is durably audited.
 
+Two independent replay defenses, so "single-use authorization" is a real
+guarantee rather than a slogan:
+
+* **Queue-snapshot binding** (primary) -- the signed payload includes the queue
+  ``snapshot_hash``; a trigger only authorizes the *exact* queue state it was
+  signed against, and any later enqueue changes the hash and invalidates it.
+* **Nonce ledger** (:class:`NonceLedger`) -- the retrain pipeline durably records
+  each consumed ``nonce`` and refuses a second run that reuses one, so even a
+  replay against the *same* queue state is rejected. This is what makes the
+  ``nonce`` field's "prevents signature reuse" contract enforceable rather than
+  decorative.
+
 Fail-closed throughout: no configured secret means no authorization is possible
 (:func:`verify_trigger` returns ``False``), signatures are compared in constant
 time, and a mismatch is audited as a rejected authorization.
@@ -22,7 +34,10 @@ import hmac
 import json
 import logging
 import os
+import threading
+import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from omni_mercury_engine.cognitive.gate_audit import record_gate_decision
@@ -30,6 +45,8 @@ from omni_mercury_engine.cognitive.gate_audit import record_gate_decision
 logger = logging.getLogger(__name__)
 
 SECRET_ENV = "MERCURY_RETRAIN_TRIGGER_SECRET"  # noqa: S105 - env var name, not a secret
+
+_NONCE_LOCK = threading.Lock()
 
 
 def secret_from_env() -> str | None:
@@ -48,7 +65,11 @@ class RetrainTrigger:
         corpus_version: The base corpus version being augmented.
         requested_by: The operator/service that requested the retrain.
         n_examples: How many labeled examples the queue held at signing time.
-        nonce: A caller-supplied uniqueness token (prevents signature reuse).
+            Cryptographically bound (tampering breaks the signature) and asserted
+            against the live queue count when the trigger is consumed.
+        nonce: A caller-supplied single-use token. Recorded in the
+            :class:`NonceLedger` when the trigger is consumed so a replay that
+            reuses it is refused (see the module docstring's replay defenses).
         signature: HMAC-SHA256 hex of the canonical payload.
     """
 
@@ -205,8 +226,77 @@ def verify_trigger(
     return ok
 
 
+class NonceLedger:
+    """A durable, append-only ledger of consumed retrain-trigger nonces.
+
+    Makes a signed trigger genuinely single-use: :meth:`consume` records a nonce
+    the first time it is seen and refuses it thereafter, so a trigger cannot be
+    replayed to authorize a second retrain even against an unchanged queue. The
+    sink is a JSON-Lines file (flushed + ``fsync``\\ed) so a consumed nonce
+    survives process exit; the default location is co-located with the staging
+    registry the retrain writes to.
+    """
+
+    DEFAULT_NAME = "consumed_nonces.jsonl"
+
+    def __init__(self, path: str | os.PathLike[str]) -> None:
+        """Open (or lazily create) the ledger at ``path`` (a file, or a dir)."""
+        p = Path(path)
+        # A directory argument is a convenience: use the conventional filename.
+        self.path = p / self.DEFAULT_NAME if (p.is_dir() or not p.suffix) else p
+
+    def _consumed_unlocked(self) -> set[str]:
+        if not self.path.is_file():
+            return set()
+        seen: set[str] = set()
+        for line in self.path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                seen.add(str(json.loads(line)["nonce"]))
+            except (ValueError, KeyError, TypeError):  # tolerate a corrupt line
+                continue
+        return seen
+
+    def is_consumed(self, nonce: str) -> bool:
+        """Whether ``nonce`` has already been consumed."""
+        with _NONCE_LOCK:
+            return nonce in self._consumed_unlocked()
+
+    def consume(self, nonce: str, *, queue_hash: str = "", requested_by: str = "") -> bool:
+        """Durably record ``nonce`` as consumed. Returns ``False`` on replay.
+
+        The first call for a nonce returns ``True`` (newly consumed -> proceed);
+        any later call with the same nonce returns ``False`` (replay -> refuse).
+        The write is flushed + ``fsync``\\ed so a consumed nonce is never lost.
+        """
+        with _NONCE_LOCK:
+            if nonce in self._consumed_unlocked():
+                return False
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            record = {
+                "nonce": nonce,
+                "queue_hash": queue_hash,
+                "requested_by": requested_by,
+                "ts": time.time(),
+            }
+            with self.path.open("a", encoding="utf-8") as fh:
+                fh.write(json.dumps(record, sort_keys=True) + "\n")
+                fh.flush()
+                os.fsync(fh.fileno())
+        return True
+
+    def clear(self) -> None:
+        """Delete the ledger (staging/test/demo reset convenience, not a loop op)."""
+        with _NONCE_LOCK:
+            if self.path.is_file():
+                self.path.unlink()
+
+
 __all__ = [
     "SECRET_ENV",
+    "NonceLedger",
     "RetrainTrigger",
     "secret_from_env",
     "sign_trigger",

@@ -21,7 +21,11 @@ from omni_mercury_engine.intel.feedback_loop.labeling import (
 )
 from omni_mercury_engine.intel.feedback_loop.queue import DurableLabeledQueue, resolve_queue_path
 from omni_mercury_engine.intel.feedback_loop.rollback import ModelEntry, ModelRegistry
-from omni_mercury_engine.intel.feedback_loop.trigger import sign_trigger, verify_trigger
+from omni_mercury_engine.intel.feedback_loop.trigger import (
+    NonceLedger,
+    sign_trigger,
+    verify_trigger,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -176,3 +180,46 @@ def test_register_same_version_is_noop(tmp_path: Path) -> None:
     reg.register(ModelEntry("v2", "m2", "candidate"))  # re-register active -> no shuffle
     previous = reg.previous()
     assert previous is not None and previous.version == "v1"
+
+
+def test_rollback_is_monotonic_not_a_toggle(tmp_path: Path) -> None:
+    """A second rollback must NOT swap the rolled-back (bad) model back in."""
+    reg = ModelRegistry(tmp_path)
+    reg.register(ModelEntry("v1_good", str(tmp_path / "v1.json"), "candidate"))
+    reg.register(ModelEntry("v2_bad", str(tmp_path / "v2.json"), "candidate"))
+    first = reg.rollback()
+    assert first.rolled_back and first.to_version == "v1_good"
+    assert reg.active() is not None and reg.active().version == "v1_good"
+    # The bug: a repeated rollback re-arming v2_bad. It must be a no-op instead.
+    second = reg.rollback()
+    assert not second.rolled_back
+    still = reg.active()
+    assert still is not None and still.version == "v1_good"  # v2_bad NOT restored
+    # A fresh gated register repopulates the previous pointer (rollback works again).
+    reg.register(ModelEntry("v3", str(tmp_path / "v3.json"), "candidate"))
+    third = reg.rollback()
+    assert third.rolled_back and third.to_version == "v1_good"
+
+
+# --------------------------- nonce ledger (single-use) --------------------------- #
+def test_nonce_ledger_single_use(tmp_path: Path) -> None:
+    ledger = NonceLedger(tmp_path)
+    assert ledger.consume("n1", queue_hash="h", requested_by="svc") is True
+    assert ledger.consume("n1") is False  # replay refused
+    assert ledger.is_consumed("n1")
+    assert ledger.consume("n2") is True  # a distinct nonce is fine
+    # Durability: a fresh handle still sees the consumed nonce.
+    assert NonceLedger(tmp_path).is_consumed("n1")
+    ledger.clear()
+    assert ledger.consume("n1") is True  # reset
+
+
+# --------------------------- atomic queue snapshot (TOCTOU) --------------------------- #
+def test_queue_snapshot_is_atomic_and_matches_hash(tmp_path: Path) -> None:
+    q = DurableLabeledQueue(f"file://{tmp_path / 'q.jsonl'}")
+    q.enqueue(override_to_example("a", label="offensive", reviewer="alice"))
+    q.enqueue(override_to_example("b", label="benign", reviewer="alice"))
+    examples, h = q.snapshot()
+    assert len(examples) == 2
+    # The snapshot hash provably covers exactly the returned examples.
+    assert h == q.snapshot_hash()

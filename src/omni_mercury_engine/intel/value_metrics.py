@@ -46,6 +46,14 @@ class ValueMetric:
             stream must never regress past.
         target: The goal value the stream aims to reach.
         description: One-line rationale of why this quantity is the value.
+        aspirational: When ``True`` the *target* is a goal the stream reaches for
+            but is not required to hit (the no-weakening *floor* is the real
+            gate). When ``False`` (default) the target is a hard requirement the
+            board's ``--check`` enforces via :meth:`meets_target` -- necessary
+            because :meth:`improves_on_baseline` is vacuous for a
+            ``HIGHER_IS_BETTER`` metric whose baseline is ``0`` (any non-negative
+            measurement, including a total collapse to ``0``, trivially "improves"
+            on it), so those streams need the target as their non-vacuous gate.
     """
 
     stream: str
@@ -55,6 +63,7 @@ class ValueMetric:
     baseline: float
     target: float
     description: str
+    aspirational: bool = False
 
     def meets_target(self, measured: float) -> bool:
         """True when ``measured`` reaches (or beats) :attr:`target`.
@@ -90,6 +99,7 @@ class ValueMetric:
             "direction": self.direction.value,
             "baseline": self.baseline,
             "target": self.target,
+            "aspirational": self.aspirational,
             "description": self.description,
         }
 
@@ -162,6 +172,7 @@ VALUE_METRICS: dict[str, ValueMetric] = {
         # fails if a gate change *raises* the bypass rate above the floor.
         baseline=0.34,
         target=0.0,
+        aspirational=True,  # target 0.0 is the goal; the no-weakening floor is the gate
         description=(
             "The red-team harness's surviving-bypass rate against the current gate "
             "may never rise above the pinned floor (no weakening); triaged "

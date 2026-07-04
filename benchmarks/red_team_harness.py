@@ -42,9 +42,12 @@ from omni_mercury_engine.intel.value_metrics import VALUE_METRICS
 
 BASELINE_PATH = _REPO / "benchmarks" / "red_team_baseline.json"
 ARTIFACT_PATH = _REPO / "artifacts" / "red_team" / "run_summary.json"
-#: The survival rate may rise at most this far above the pinned floor before the
-#: no-weakening gate fails (a small margin absorbs benign seed-file reordering).
-SURVIVAL_MARGIN = 0.02
+#: Float-comparison epsilon only. The survival rate is ``survivors/candidates`` --
+#: a set-cardinality ratio that is fully deterministic and order-independent for a
+#: fixed config + gate, so there is NO benign drift for a slack margin to absorb.
+#: The gate therefore fails on any rise above the pinned floor (a real weakening),
+#: and separately never permits a rate above the declared value-metric ceiling.
+_FLOAT_EPS = 1e-9
 
 
 def _run() -> tuple[Any, dict[str, Any]]:
@@ -92,6 +95,10 @@ def main(argv: list[str] | None = None) -> int:
                     "survival_rate": round(rate, 6),
                     "n_candidates": summary["n_candidates"],
                     "n_survivors": summary["n_survivors"],
+                    # Pinned so a seed the gate USED to block becoming ALLOW (which
+                    # drops it from the denominator and can silently lower the
+                    # survival rate) is caught as a seed-level weakening in --check.
+                    "n_skipped_seeds": summary["n_skipped_seeds"],
                     "harness_version": summary["harness_version"],
                 },
                 indent=2,
@@ -109,25 +116,59 @@ def main(argv: list[str] | None = None) -> int:
         if not BASELINE_PATH.is_file():
             print(f"missing baseline {BASELINE_PATH.name}; run --update to pin it", file=sys.stderr)
             return 1
-        floor = json.loads(BASELINE_PATH.read_text(encoding="utf-8"))["survival_rate"]
+        baseline = json.loads(BASELINE_PATH.read_text(encoding="utf-8"))
+        floor = baseline["survival_rate"]
+        problems = []
+        # Compare at the precision the floor is pinned to (6 decimals, as --update
+        # writes): the true rate is a full-precision ratio (e.g. 140/420 =
+        # 0.333333...) while the pinned floor is rounded, so a raw ``>`` would trip
+        # on the rounding delta, not a real weakening.
+        rate_q = round(rate, 6)
         # The pinned floor must itself stay within the declared value-metric ceiling.
-        if floor > declared + 1e-9:
+        if floor > declared + _FLOAT_EPS:
             print(
                 f"pinned floor {floor:.4f} exceeds value-metric baseline {declared:.4f}; "
                 "re-declare the value metric before pinning higher",
                 file=sys.stderr,
             )
             return 1
-        if rate > floor + SURVIVAL_MARGIN:
-            print(
-                f"RED-TEAM REGRESSION: survival rate {rate:.4f} rose above floor "
-                f"{floor:.4f} + {SURVIVAL_MARGIN} (gate weakened against obfuscation)",
-                file=sys.stderr,
+        # No weakening: the rate may not rise above the pinned floor (deterministic,
+        # so no slack beyond the pinning precision), and may never exceed the
+        # declared value-metric ceiling.
+        if rate_q > floor + _FLOAT_EPS:
+            problems.append(
+                f"survival rate {rate_q:.6f} rose above pinned floor {floor:.6f} "
+                "(gate weakened against obfuscation)"
             )
+        if rate_q > declared + _FLOAT_EPS:
+            problems.append(
+                f"survival rate {rate_q:.6f} exceeds declared value-metric ceiling {declared:.4f}"
+            )
+        # Seed-level weakening: a seed the gate previously blocked becoming ALLOW
+        # is dropped from the denominator (n_skipped_seeds rises / n_candidates
+        # falls) and can lower the survival rate while the gate is *more* broken.
+        # Guard both counts so that failure mode cannot pass green.
+        pinned_skipped = baseline.get("n_skipped_seeds")
+        if pinned_skipped is not None and summary["n_skipped_seeds"] > pinned_skipped:
+            problems.append(
+                f"n_skipped_seeds rose {pinned_skipped} -> {summary['n_skipped_seeds']}: a seed "
+                "the gate used to block is now ALLOWed (seed-level weakening)"
+            )
+        pinned_candidates = baseline.get("n_candidates")
+        if pinned_candidates is not None and summary["n_candidates"] < pinned_candidates:
+            problems.append(
+                f"n_candidates fell {pinned_candidates} -> {summary['n_candidates']}: fewer "
+                "attackable seeds (a blocked seed became ALLOW, shrinking the denominator)"
+            )
+        if problems:
+            print("RED-TEAM REGRESSION:", file=sys.stderr)
+            for p in problems:
+                print(f"  - {p}", file=sys.stderr)
             return 1
         print(
-            f"OK: survival rate {rate:.4f} within floor {floor:.4f}+{SURVIVAL_MARGIN}; "
-            f"{summary['n_survivors']} bypass(es), {appended} newly appended"
+            f"OK: survival rate {rate:.4f} at/below pinned floor {floor:.4f}; "
+            f"{summary['n_survivors']} bypass(es), {summary['n_skipped_seeds']} skipped seed(s), "
+            f"{appended} newly appended"
         )
         return 0
 

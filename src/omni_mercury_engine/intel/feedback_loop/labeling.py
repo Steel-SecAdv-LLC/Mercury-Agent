@@ -20,9 +20,14 @@ half).
 
 from __future__ import annotations
 
+import json
+import logging
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 _VALID_LABELS = {"offensive", "benign"}
 _LABEL_TO_EXPECTED = {"offensive": "block", "benign": "allow"}
@@ -153,6 +158,78 @@ def ingest_audit_event(record: dict[str, Any]) -> AuditEvent:
     return AuditEvent.from_record(record)
 
 
+def read_audit_log(
+    path: str | Path | None = None,
+    *,
+    decisions: set[str] | frozenset[str] | None = None,
+    dispositions: set[str] | frozenset[str] | None = None,
+    limit: int | None = None,
+) -> list[AuditEvent]:
+    """Read the **live** durable gate-audit log into labelable :class:`AuditEvent`\\ s.
+
+    This is the closed loop's real connection to the running gate: it reads the
+    same append-only ``gate_decisions.jsonl`` that
+    :func:`omni_mercury_engine.cognitive.gate_audit.record_gate_decision` writes
+    on every harm-gate decision (resolving the same path via
+    :func:`~omni_mercury_engine.cognitive.gate_audit.default_audit_log_path`), so
+    a human reviewer can pull the gate's actual recent decisions, label them, and
+    feed them into the queue -- rather than hand-authoring records.
+
+    Only records that carry a non-empty ``query`` are returned (an event with no
+    action text cannot be labeled into an example); malformed JSON lines are
+    skipped with a warning rather than aborting the read. Optional ``decisions`` /
+    ``dispositions`` filters narrow to the interesting-to-relabel outcomes (e.g.
+    ``{"refuse_redact", "hard_refuse", "escalate"}``); ``limit`` keeps only the
+    most recent N.
+
+    Args:
+        path: The log file to read; defaults to the gate's resolved sink.
+        decisions: If given, keep only records whose ``decision`` is in this set.
+        dispositions: If given, keep only records whose ``disposition`` is in this
+            set.
+        limit: If given, return only the last ``limit`` matching events.
+
+    Returns:
+        The parsed :class:`AuditEvent`\\ s in log (chronological) order.
+    """
+    if path is None:
+        from omni_mercury_engine.cognitive.gate_audit import default_audit_log_path
+
+        log_path = default_audit_log_path()
+    else:
+        log_path = Path(path)
+
+    if not log_path.is_file():
+        return []
+
+    events: list[AuditEvent] = []
+    for lineno, line in enumerate(log_path.read_text(encoding="utf-8").splitlines(), start=1):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            record = json.loads(line)
+        except ValueError:
+            logger.warning("read_audit_log: skipping malformed JSON at %s:%d", log_path, lineno)
+            continue
+        if not isinstance(record, dict):
+            continue
+        if decisions is not None and str(record.get("decision", "")) not in decisions:
+            continue
+        if dispositions is not None and str(record.get("disposition", "")) not in dispositions:
+            continue
+        query = record.get("query")
+        if not query or not str(query).strip():
+            # Not labelable (no action text): skip rather than raising, so one
+            # query-less record cannot break a bulk read of the live log.
+            continue
+        events.append(AuditEvent.from_record(record))
+
+    if limit is not None and limit >= 0:
+        events = events[-limit:]
+    return events
+
+
 def apply_human_label(
     event: AuditEvent,
     *,
@@ -202,4 +279,5 @@ __all__ = [
     "apply_human_label",
     "ingest_audit_event",
     "override_to_example",
+    "read_audit_log",
 ]

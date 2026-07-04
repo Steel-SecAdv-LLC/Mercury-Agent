@@ -95,6 +95,36 @@ def test_disagreement_predicts_error_auroc_meets_value_target() -> None:
     assert auroc >= target, f"disagreement AUROC {auroc:.3f} below value target {target}"
 
 
+def test_disagreement_from_real_self_consistency_predicts_error() -> None:
+    """The value metric measured on disagreement the stream ACTUALLY produces.
+
+    Unlike the hand-fabricated-separable test above, this drives real
+    :func:`self_consistency` runs: each item's disagreement is computed from
+    actual sampled votes, and error is whether the plurality vote is wrong. A
+    sampler that near-splits on hard items (which are also more error-prone)
+    yields real disagreement that must rank errors above correct items at least as
+    well as the declared value target.
+    """
+    rng = np.random.default_rng(1)
+    disagreements: list[float] = []
+    errors: list[int] = []
+    for i in range(300):
+        hard = i % 2 == 0
+        # Easy: near-unanimous for the true answer (low disagreement, rarely wrong).
+        # Hard: a near coin-flip (high disagreement, often wrong).
+        p_true = 0.55 if hard else 0.95
+
+        def sampler(gen: np.random.Generator, p_true: float = p_true) -> str:
+            return "A" if gen.random() < p_true else "B"
+
+        result = self_consistency(sampler, n_samples=7, seed=int(rng.integers(0, 2**31)))
+        disagreements.append(result.disagreement)  # real, from the votes
+        errors.append(0 if result.answer == "A" else 1)
+    auroc = disagreement_error_auroc(disagreements, errors)
+    target = VALUE_METRICS["self_consistency"].target
+    assert auroc >= target, f"real-sampler disagreement AUROC {auroc:.3f} below target {target}"
+
+
 def test_auroc_single_class_is_uninformative() -> None:
     assert disagreement_error_auroc([0.1, 0.2, 0.3], [0, 0, 0]) == 0.5
     assert disagreement_error_auroc([], []) == 0.5

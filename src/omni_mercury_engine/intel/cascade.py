@@ -143,8 +143,13 @@ class CascadeInstrumentation:
         """Render the cost/latency/savings summary.
 
         ``compute_saved_fraction`` is the fraction of the all-heavy baseline cost
-        the cascade avoided -- the stream's declared value metric. It is ``0``
-        when nothing was routed.
+        the cascade avoided -- the stream's declared value metric -- floored at
+        ``0`` (a value metric cannot be negative). ``compute_saved_fraction_raw``
+        is the *unclamped* fraction, so a cascade that is a net compute LOSS
+        (escalating so often that the cheap probe overhead exceeds the savings)
+        shows as a negative number here instead of being masked to ``0`` -- the
+        regression stays visible in the report even though the headline metric
+        floors at zero.
         """
         total = self.total or 1
         baseline = self.baseline_heavy_cost or (self._heavy_unit_cost * self.total)
@@ -158,6 +163,7 @@ class CascadeInstrumentation:
             "total_cost": self.total_cost,
             "baseline_heavy_cost": baseline,
             "compute_saved_fraction": max(0.0, saved),
+            "compute_saved_fraction_raw": saved,
             "total_latency": self.total_latency,
             "mean_latency": self.total_latency / total,
         }

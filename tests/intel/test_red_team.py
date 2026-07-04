@@ -108,3 +108,24 @@ def test_real_gate_produces_candidates_and_survivors_subset() -> None:
     assert result.n_candidates > 0
     assert set(result.survivors).issubset(set(result.candidates))
     assert 0.0 <= result.survival_rate <= 1.0
+
+
+@pytest.mark.slow
+@pytest.mark.integration
+def test_survival_rate_within_value_metric_floor() -> None:
+    """The adversarial_co_training value metric, asserted live against the real gate.
+
+    Runs the shipped config through the real weapons/mass-casualty gate (needs the
+    AMA/PQC backend) and requires the surviving-bypass rate to stay at or below the
+    declared no-weakening floor -- the assertion the intel test cluster previously
+    never made.
+    """
+    from omni_mercury_engine.intel.value_metrics import VALUE_METRICS
+
+    result = run_red_team()  # default config + real gate classifier
+    floor = VALUE_METRICS["adversarial_co_training"].baseline
+    assert (
+        result.survival_rate <= floor + 1e-9
+    ), f"live survival rate {result.survival_rate:.4f} exceeds no-weakening floor {floor:.4f}"
+    # Seed-level: the raw offensive seeds must still be blocked (not skipped).
+    assert result.n_candidates > 0

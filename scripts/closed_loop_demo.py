@@ -38,6 +38,7 @@ from omni_mercury_engine.intel.feedback_loop import (
     DurableLabeledQueue,
     ModelEntry,
     ModelRegistry,
+    NonceLedger,
     apply_human_label,
     ingest_audit_event,
     override_to_example,
@@ -71,6 +72,9 @@ def run_demo(staging_dir: Path, *, poisoned: bool, secret: str) -> int:
     staging_dir.mkdir(parents=True, exist_ok=True)
     queue = DurableLabeledQueue(f"file://{staging_dir / 'labeled_queue.jsonl'}")
     queue.clear()  # reproducible demo
+    # Reset the single-use nonce ledger too, so the fixed demo nonce can be
+    # re-run (a real operator uses a fresh nonce per authorization instead).
+    NonceLedger(staging_dir).clear()
 
     _print_step(1, "Ingest a gate-audit event")
     event = ingest_audit_event(_SAMPLE_AUDIT_RECORD)
@@ -144,7 +148,20 @@ def run_demo(staging_dir: Path, *, poisoned: bool, secret: str) -> int:
         if result.accepted:
             print("\nFAIL: poisoned candidate was ACCEPTED (regression gate did not block)")
             return 1
-        print("\nOK: poisoned candidate BLOCKED by the OOF/adversarial regression gate.")
+        # Prove the block came specifically from the OOF/adversarial regression
+        # gate (a verdict with violations) -- not from an unrelated refusal
+        # (bad trigger / no human), which would not demonstrate the poisoning
+        # defense at all.
+        if result.verdict is None or not result.verdict.violations:
+            print(
+                f"\nFAIL: poisoned candidate was refused but NOT by the regression gate "
+                f"(reason: {result.reason!r})"
+            )
+            return 1
+        print(
+            "\nOK: poisoned candidate BLOCKED by the OOF/adversarial regression gate "
+            f"({len(result.verdict.violations)} violation(s): {'; '.join(result.verdict.violations)})."
+        )
         return 0
 
     if not result.accepted:
@@ -165,8 +182,20 @@ def run_demo(staging_dir: Path, *, poisoned: bool, secret: str) -> int:
     print(f"  rolled_back={rb.rolled_back} {rb.from_version} -> {rb.to_version}")
     print(f"  active after rollback:  {active_after.version if active_after else None}")
 
+    # Assert the rollback actually happened and restored the originally-staged
+    # candidate (not just that a message printed): active must be back to
+    # result.version, and a repeated rollback must be a monotonic no-op.
+    if not (rb.rolled_back and active_after is not None and active_after.version == result.version):
+        got = active_after.version if active_after else None
+        print(f"\nFAIL: rollback did not restore the staged candidate (active={got!r})")
+        return 1
+    if registry.rollback().rolled_back:
+        print("\nFAIL: a second rollback was not a no-op (would re-arm the superseded model)")
+        return 1
+
     print(
-        "\nOK: closed-loop demo complete — candidate staged, artifact written, rollback verified."
+        "\nOK: closed-loop demo complete — candidate staged, artifact written, rollback verified "
+        "(and idempotent)."
     )
     return 0
 

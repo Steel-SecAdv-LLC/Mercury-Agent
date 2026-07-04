@@ -24,6 +24,7 @@ from omni_mercury_engine.intel.feedback_loop.labeling import (
     apply_human_label,
     ingest_audit_event,
     override_to_example,
+    read_audit_log,
 )
 from omni_mercury_engine.intel.feedback_loop.queue import (
     DEFAULT_QUEUE_PATH,
@@ -45,6 +46,7 @@ from omni_mercury_engine.intel.feedback_loop.rollback import (
     rollback_staging,
 )
 from omni_mercury_engine.intel.feedback_loop.trigger import (
+    NonceLedger,
     RetrainTrigger,
     secret_from_env,
     sign_trigger,
@@ -60,6 +62,7 @@ __all__ = [
     "LabeledExample",
     "ModelEntry",
     "ModelRegistry",
+    "NonceLedger",
     "RegressionVerdict",
     "RetrainResult",
     "RetrainTrigger",
@@ -70,6 +73,7 @@ __all__ = [
     "ingest_audit_event",
     "load_base_corpus",
     "override_to_example",
+    "read_audit_log",
     "resolve_queue_path",
     "rollback_staging",
     "secret_from_env",

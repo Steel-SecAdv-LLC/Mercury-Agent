@@ -91,6 +91,18 @@ def _default_log_path() -> Path:
     return _user_state_dir() / "gate_decisions.jsonl"
 
 
+def default_audit_log_path() -> Path:
+    """Public accessor for the resolved durable JSONL sink path.
+
+    Consumers of the audit trail (e.g. the closed feedback loop's
+    :func:`omni_mercury_engine.intel.feedback_loop.read_audit_log`) resolve the
+    same path the gate writes to, honoring ``$MERCURY_GATE_AUDIT_LOG`` and the
+    source-checkout / user-state fallbacks, so a reader and the writer never
+    disagree about where the log lives.
+    """
+    return _default_log_path()
+
+
 def _truncate(value: Any) -> Any:
     """Cap long strings so the audit log records the decision, not a full payload."""
     if isinstance(value, str) and len(value) > _MAX_FIELD_CHARS:
@@ -210,4 +222,4 @@ def _forward_secure(record: dict[str, Any]) -> None:
         logger.info("gate audit: secure-log forward unavailable (%s)", exc)
 
 
-__all__ = ["record_gate_decision"]
+__all__ = ["default_audit_log_path", "record_gate_decision"]
