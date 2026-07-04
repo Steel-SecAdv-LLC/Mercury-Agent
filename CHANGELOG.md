@@ -27,6 +27,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Intelligence layer: closed-loop learning + decision geometry (steel/refinement-mercury-intel)
+
+The learning-and-geometry layer on top of the Tier-0 safety foundation. New
+package `omni_mercury_engine.intel`, six streams, each shipping a **measured
+value metric** (baseline + target, `intel.value_metrics.VALUE_METRICS`; board
+rendered by `benchmarks/intel_value_metrics_report.py`). No stream regresses the
+foundation; every gate is fail-closed.
+
+- **Closed feedback loop (accept-gated).** `intel.feedback_loop`: audit events
+  and human overrides become human-verified labels (`labeling`, reviewer
+  required — anonymous labels refused), stored in a durable, snapshot-hashable
+  queue (`queue`, `MERCURY_FEEDBACK_QUEUE_URL`). A retrain runs only behind three
+  fail-closed gates: a **signed/audited trigger** (`trigger`, HMAC-SHA256 bound
+  to the exact queue snapshot, `MERCURY_RETRAIN_TRIGGER_SECRET`), a **human
+  verification** flag, and an **OOF/adversarial regression gate**
+  (`regression_gate`) that reuses the shipped `rolling_corpus_eval` MARGINS as a
+  merge-blocker on the candidate model — a regressing or data-poisoned candidate
+  is blocked (measured poisoned-candidate block rate 1.0). Accepted candidates
+  are staged (never promoted straight to prod) with a **one-command rollback**
+  (`rollback`, `scripts/mercury_retrain_rollback.py`). End-to-end staging demo:
+  `scripts/closed_loop_demo.py` (`--poisoned` shows the block).
+- **Confidence cascade.** `intel.cascade`: calibrated-uncertainty routing between
+  a cheap template path and a heavy model path, folding in the self-consistency
+  disagreement, with compute-cost/latency instrumentation. Cost-vs-accuracy
+  report `benchmarks/confidence_cascade_report.py` (~64% compute saved at zero
+  accuracy loss on the synthetic workload; target ≥50%).
+- **Self-consistency signal.** `intel.self_consistency`: N-sample reasoning-path
+  sampling and a vote-disagreement uncertainty metric the calibrator consumes
+  (`widen_uncertainty`, `self_consistency_decision` abstains on high
+  disagreement). Disagreement predicts error at AUROC ≈0.86 on held-out
+  (`benchmarks/self_consistency_signal_report.py`; target ≥0.70).
+- **Verifier-in-the-loop.** `intel.verifier_loop`: routes generative claims
+  through the symbolic verifiers (primality, Collatz, propositional, physics) and
+  blocks emission on an oracle-refuted claim (`MERCURY_VERIFIER_MODE=hard|soft`).
+  Propositional claims are decided by the shipped DPLL oracle via a Tseitin CNF
+  transform (`intel.propositional_claims`). Hard-mode false-claim block rate 1.0.
+- **Adversarial co-training.** `intel.red_team` + `benchmarks/red_team_harness.py`:
+  a deterministic paraphrase/obfuscation generator (`configs/red_team.yaml`,
+  `MERCURY_RED_TEAM_CONFIG`) attacks the shipped gate; surviving bypasses are
+  appended to `corpus/pending` with triage metadata for the closed loop. Honest
+  finding: character obfuscation (spacing/punctuation) defeats lexical matching
+  (~0.33 survival rate), pinned as a no-weakening floor
+  (`benchmarks/red_team_baseline.json`).
+- **Provenance-as-type + boundary fallback.** `intel.provenance`: the timeboxed
+  decision ships the ~80%-value fallback — provenance carried as a typed
+  companion (`Provenanced[T]`) and enforced at the output boundary
+  (`enforce_at_boundary` refuses/redacts an unprovenanced provenance-required
+  emission), reusing the gate's own `ALLOW_PROVENANCE` rule for what needs
+  citations. `MERCURY_PROVENANCE_MODE=type|boundary-fallback`; the `type` seed
+  (`require_provenanced`) and the migration plan to full unrepresentability are in
+  `docs/PROVENANCE_MIGRATION_PLAN.md`.
+- **CI.** New `Mercury Intel` workflow with the four required lanes:
+  `ci/closed-loop-integration`, `ci/confidence-cascade`, `ci/red-team`,
+  `ci/verifier-integration` (each builds the native AMA/PQC backend).
+- **Docs.** `docs/RETRAIN_RUNBOOK.md`, `docs/RED_TEAM_OPERATION_GUIDE.md`,
+  `docs/PROVENANCE_MIGRATION_PLAN.md`, `docs/INTEL_VALUE_METRICS.md`.
+- **Tests.** `tests/intel/` (93 tests) covering every stream, incl. corpus-backed
+  regression-gate and end-to-end closed-loop integration (`slow`/`integration`).
+
 ### Merge-readiness hardening (PR #315 review round)
 
 A focused pass that reproduced the full CI pipeline locally, closed every red
