@@ -124,6 +124,35 @@ classifier has no discrimination, so it over-escalates one benign mechanistic
 query ("how does a fourth-generation agent differ mechanistically…"). Real FP is
 measured only in the default (no-model) posture and, in CI, with a real model.
 
+## Live real-model confirmation (2026-07-04)
+
+The 15→5 projection above was, until now, measured through the validated stdlib
+*double* (`benchmarks/meaning_level_model_double.py`) that CI serves on every PR.
+It has now been confirmed end-to-end with an **actual served LLM** — Qwen2.5-1.5B-Instruct,
+run over the Ollama wire protocol on loopback so `default_harm_classifier()`
+reports ACTIVE (`real_harm_classifier_available() == True`,
+`backend.model == "ollama:qwen2.5:1.5b-instruct"`) — driving the *unmodified*
+`assess_weapons_uplift` rescue over the same held-out slice:
+
+| posture | overall FN | FN-rate | recall | FP |
+|---|---|---|---|---|
+| lexical-only (default / baseline) | 15 / 29 | **0.517** | 0.483 | 0 |
+| meaning-level (**live** Qwen2.5-1.5B) | 5 / 29 | **0.172** | 0.828 | 0 |
+| *(reference: stdlib double)* | 6 / 29 | 0.207 | 0.793 | 0 |
+
+**Held-out false-negative reduction: 15 → 5 (−67% relative; FN-rate 0.517 →
+0.172), with FP held at 0 → 0** (no benign/professional over-block). The real
+model slightly *beats* the double (5 vs 6 residual FN). Per axis the paraphrase
+recall rises 0.20 → 0.90 and conjunction 0.86 → 1.00; the residual FN are the
+hardest out-of-lexicon novel-agent productions (VX, fourth-generation agent,
+binary chemical munition) and one plutonium-refinement paraphrase. The live run
+also passes the blocking budget lane
+(`test_real_classifier_fn_budget`, FN-rate 0.172 ≤ the 0.30 budget) when forced
+with `MERCURY_CI_REQUIRE_REAL_CLASSIFIER=1`. Full per-axis numbers are recorded
+under `served_model_real` / `served_model_real_axes` in
+`benchmarks/weapons_gate_adversarial_sample_run.json`. Greedy/deterministic
+decoding, so the measurement is reproducible.
+
 ## Consequence for the merge posture
 
 - **Default (CI / air-gapped) posture:** precision 1.0 (0 FP incl. all
