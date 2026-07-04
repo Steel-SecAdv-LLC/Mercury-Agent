@@ -18,6 +18,16 @@ partial build is rejected because Mercury exposes all three
 surfaces and a Dilithium-only install would let the process start
 in a cryptographically incomplete state.
 
+On top of algorithm availability the gate also enforces the pinned
+**version** (:data:`_AMA_REQUIRED_VERSION`, ``3.2.0``): the installed
+``ama_cryptography.__version__`` and, when set, the operator's
+``AMA_CRYPTO_VERSION`` env var must match the pinned *release*
+PEP 440-tolerantly (``v3.2.0`` / ``3.2.0.post1`` / ``3.2`` are accepted;
+a different release such as ``3.1.0`` is refused), so a build of the
+wrong AMA release (that happens to expose the three flags) is refused
+rather than started.  See :func:`_enforce_ama_version` /
+:func:`_release_matches`.
+
 The flags are read from ``ama_cryptography.pqc_backends`` — the
 canonical location matching what ``security/pqc_backends.py`` reads
 (``from ama_cryptography.pqc_backends import DILITHIUM_AVAILABLE,
@@ -42,6 +52,28 @@ re-binding to keep the public package surface clean.
 """
 
 from __future__ import annotations
+
+import os
+import re
+
+#: The single AMA-Cryptography version Mercury is pinned to. Kept in lockstep
+#: with the pyproject ``ama-cryptography`` git pin, ``.github/actions/build-ama-
+#: cryptography`` (``AMA_REF``), and ``scripts/build_ama_native.sh``.
+_AMA_REQUIRED_VERSION = "3.2.0"
+
+#: The numeric release the pin resolves to, matched PEP 440-tolerantly: a build
+#: reporting ``3.2.0``, ``v3.2.0``, ``3.2.0.post1``, ``3.2.0rc1`` or ``3.2.0+cpu``
+#: all satisfy it (same release); ``3.1.0`` / ``3.3.0`` / ``9.9.9`` do not, and
+#: neither does a *longer* release sharing the prefix (``3.2.0.1``) -- see
+#: :func:`_release_matches`, which compares the full tuple rather than truncating.
+_AMA_REQUIRED_RELEASE = (3, 2, 0)
+
+#: Operator-facing env var to *declare* the AMA version. When set it must match
+#: the pinned *release* (:data:`_AMA_REQUIRED_RELEASE`) PEP 440-tolerantly via
+#: :func:`_release_matches` -- ``v3.2.0`` / ``3.2.0.post1`` / ``3.2`` are accepted,
+#: a different release is refused. A mismatch is a loud, fail-closed configuration
+#: error rather than a silent downgrade.
+AMA_CRYPTO_VERSION_ENV = "AMA_CRYPTO_VERSION"
 
 _PQC_BUILD_RECOVERY_HINT = (
     "Build the AMA-Cryptography native library from a clone of the upstream\n"
@@ -102,5 +134,89 @@ def _enforce_pqc_production_gate() -> None:
         raise RuntimeError(
             "AMA/PQC is mandatory for Mercury, but the AMA Cryptography native C "
             f"backend is incomplete; missing or unavailable: {', '.join(missing)}.\n"
+            f"{_PQC_BUILD_RECOVERY_HINT}"
+        )
+
+    _enforce_ama_version()
+
+
+def _release_tuple(value: str) -> tuple[int, ...]:
+    """Leading numeric release of a version string, PEP 440-tolerantly.
+
+    ``' v3.2.0.post1 '`` / ``'3.2.0rc1'`` / ``'3.2.0+cpu'`` all yield ``(3, 2, 0)``;
+    a non-numeric or empty value yields ``()``. Only the dotted numeric prefix is
+    read, so pre/post/dev/local suffixes never change the matched release.
+    """
+    match = re.match(r"\s*[vV]?(\d+(?:\.\d+)*)", value or "")
+    if not match:
+        return ()
+    return tuple(int(part) for part in match.group(1).split("."))
+
+
+def _release_matches(value: str) -> bool:
+    """True when ``value``'s numeric release equals :data:`_AMA_REQUIRED_RELEASE`.
+
+    Both sides are zero-padded to their common length and compared in *full* --
+    the longer release is **never truncated**. Zero-padding accepts trailing-zero
+    equivalents of the pin (``'3.2'`` / ``'3.2.0'`` / ``'3.2.0.0'`` all match
+    ``(3, 2, 0)``), while comparing the full tuple means a *longer, different*
+    release that merely shares the pinned prefix (``'3.2.0.1'``) is **refused**,
+    not silently accepted. A different minor/major (``3.1.0`` / ``3.3.0``) is
+    refused as before. Truncating longer releases would weaken the Tier-0 pin by
+    treating a distinct release as the pinned one, so it is deliberately avoided.
+    A pre/post/dev/local *suffix* (``3.2.0.post1`` / ``3.2.0+cpu``) is not part of
+    the numeric release and is already dropped by :func:`_release_tuple`.
+    """
+    release = _release_tuple(value)
+    if not release:
+        return False
+    width = max(len(release), len(_AMA_REQUIRED_RELEASE))
+    padded_release = release + (0,) * (width - len(release))
+    padded_required = _AMA_REQUIRED_RELEASE + (0,) * (width - len(_AMA_REQUIRED_RELEASE))
+    return padded_release == padded_required
+
+
+def _enforce_ama_version() -> None:
+    """Fail-closed unless AMA Cryptography is the pinned :data:`_AMA_REQUIRED_VERSION`.
+
+    Two independent, fail-closed checks, either of which refuses:
+
+    * ``AMA_CRYPTO_VERSION`` (:data:`AMA_CRYPTO_VERSION_ENV`) -- if the operator
+      sets it, it must *declare* the pinned version. A mismatched declaration is a
+      loud misconfiguration (a typo or an attempt to run an unpinned build),
+      never a silent downgrade.
+    * ``ama_cryptography.__version__`` -- the *installed* version, when the
+      package exposes it, must equal the pinned version. A build of the wrong AMA
+      release that still exposed the three backend flags would otherwise pass the
+      algorithm-availability check; this closes that gap.
+
+    Matching is PEP 440-tolerant (see :func:`_release_matches`): a post/local/dev
+    build of the pinned release (``3.2.0.post1``, ``3.2.0+cpu``) is accepted, a
+    different release (``3.1.0``, ``3.3.0``) is refused. Absent version metadata
+    is not, on its own, fatal: the v3.2.0-only symbol imports in
+    ``security/pqc_backends.py`` already floor the surface. This adds an explicit,
+    operator-visible version gate on top of that structural floor.
+    """
+    declared = os.environ.get(AMA_CRYPTO_VERSION_ENV, "").strip()
+    if declared and not _release_matches(declared):
+        raise RuntimeError(
+            f"AMA/PQC version mismatch: {AMA_CRYPTO_VERSION_ENV}={declared!r} but "
+            f"Mercury is pinned to AMA Cryptography v{_AMA_REQUIRED_VERSION}. Unset the "
+            f"variable or set {AMA_CRYPTO_VERSION_ENV}={_AMA_REQUIRED_VERSION}.\n"
+            f"{_PQC_BUILD_RECOVERY_HINT}"
+        )
+
+    try:
+        import ama_cryptography
+
+        installed_raw = str(getattr(ama_cryptography, "__version__", "") or "")
+    except Exception:  # pragma: no cover - top-level import already succeeded above
+        installed_raw = ""
+
+    if installed_raw and not _release_matches(installed_raw):
+        raise RuntimeError(
+            "AMA/PQC version mismatch: the installed ama_cryptography is "
+            f"v{installed_raw}, but Mercury requires release v{_AMA_REQUIRED_VERSION} "
+            "(the pyproject pin, CI AMA_REF, and the production PQC gate all agree).\n"
             f"{_PQC_BUILD_RECOVERY_HINT}"
         )

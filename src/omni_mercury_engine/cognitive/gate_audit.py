@@ -33,6 +33,10 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 _LOCK = threading.Lock()
+#: Serializes the check -> shutdown-prior -> reconfigure sequence in
+#: :func:`_secure_audit_logger` so two concurrent gate decisions cannot both
+#: reconfigure the process-global SecureAuditLogger and leak/replace it in a race.
+_SECURE_LOGGER_LOCK = threading.Lock()
 _MAX_FIELD_CHARS = 800  # cap persisted free-text so a full procedure is not stored verbatim
 
 
@@ -156,14 +160,48 @@ def _write_jsonl(record: dict[str, Any]) -> None:
         logger.warning("gate audit: durable JSONL write failed (%s); decision=%s", exc, record)
 
 
+def _secure_audit_logger() -> Any:
+    """Return the hash-chained SecureAuditLogger, honoring ``MERCURY_SECURE_AUDIT_DIR``.
+
+    When ``MERCURY_SECURE_AUDIT_DIR`` is set, the tamper-evident sink is (re)pointed
+    at that directory -- the *only* environment knob for the secure sink, since
+    ``MERCURY_GATE_AUDIT_LOG`` steers only the plain JSONL. Reconfiguration happens
+    at most once (when the active logger is absent or points elsewhere), so the
+    hash chain is never reset on the hot path.
+
+    Reconfiguration is serialized (``_SECURE_LOGGER_LOCK``) and the superseded
+    logger is *shut down* before it is replaced: a ``SecureAuditLogger`` owns a
+    daemon flush thread and may hold buffered, not-yet-persisted events, so
+    dropping the reference without :meth:`shutdown` would both leak the thread /
+    file handle and lose those events. Shutting it down first flushes its buffer
+    and joins its thread. The shutdown is best-effort -- a fault in the prior
+    logger is logged and swallowed, never allowed to break the audit path it is
+    part of (mirroring the fail-safe contract of the rest of this module).
+    """
+    from omni_mercury_engine.security import secure_audit_logging as sal
+
+    secure_dir = os.environ.get("MERCURY_SECURE_AUDIT_DIR", "").strip()
+    if not secure_dir:
+        return sal.get_audit_logger()
+
+    with _SECURE_LOGGER_LOCK:
+        existing = sal._audit_logger
+        if existing is not None and str(getattr(existing, "log_dir", "")) == str(Path(secure_dir)):
+            return existing
+        if existing is not None:
+            try:
+                existing.shutdown()
+            except Exception as exc:  # pragma: no cover - shutdown is best-effort
+                logger.info("gate audit: prior secure logger shutdown failed (%s)", exc)
+        return sal.configure_audit_logger(log_dir=secure_dir)
+
+
 def _forward_secure(record: dict[str, Any]) -> None:
     """Best-effort forward to the hash-chained SecureAuditLogger (opt-in)."""
     if os.environ.get("MERCURY_GATE_AUDIT_SECURELOG") != "1":
         return
     try:
-        from omni_mercury_engine.security.secure_audit_logging import get_audit_logger
-
-        get_audit_logger().log_security_incident(
+        _secure_audit_logger().log_security_incident(
             action=f"harm_gate:{record.get('decision', 'decision')}",
             details=record,
             resource=record.get("source", "harm_gate"),

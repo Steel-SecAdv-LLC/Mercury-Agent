@@ -30,6 +30,15 @@ from omni_mercury_engine.agentic.capabilities.assistant import (
     GeneralAssistant,
     ResearchReport,
 )
+from omni_mercury_engine.agentic.capabilities.contract import (
+    CONTRACT_MARKER,
+    ContractViolation,
+    Invariant,
+    SupportsRefusal,
+    capability_contract,
+    is_honest_negative,
+    registered_contracts,
+)
 from omni_mercury_engine.agentic.capabilities.document_generator import (
     Document,
     DocumentGenerator,
@@ -43,13 +52,20 @@ from omni_mercury_engine.agentic.capabilities.web_research import (
 )
 
 __all__ = [
+    "CONTRACT_MARKER",
+    "ContractViolation",
     "Document",
     "DocumentGenerator",
     "ExtractiveSynthesizer",
     "FetchResult",
     "GeneralAssistant",
+    "Invariant",
     "ResearchReport",
     "SearchProvider",
     "SearchResult",
+    "SupportsRefusal",
     "WebResearcher",
+    "capability_contract",
+    "is_honest_negative",
+    "registered_contracts",
 ]

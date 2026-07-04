@@ -1,0 +1,28 @@
+{
+  "adversarial_corpus": "weapons_gate_adversarial.jsonl",
+  "adversarial_n": 41,
+  "corpus": "weapons_gate_corpus.jsonl",
+  "corpus_version": "362-cac87dc649b9",
+  "n_cases": 362,
+  "per_expected": {
+    "allow": 180,
+    "block": 182
+  },
+  "per_label": {
+    "benign": 180,
+    "offensive": 182
+  },
+  "per_split": {
+    "test": 66,
+    "train": 235,
+    "val": 61
+  },
+  "schema": [
+    "expected",
+    "label",
+    "split",
+    "tags",
+    "text"
+  ],
+  "sha256": "cac87dc649b962e633abdade5e42e00801fcbf231135061eb49bf579b52a3e0e"
+}

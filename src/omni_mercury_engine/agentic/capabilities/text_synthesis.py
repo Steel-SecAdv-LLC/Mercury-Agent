@@ -22,6 +22,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from omni_mercury_engine.agentic.capabilities.contract import Invariant, capability_contract
+
 # A sentence gate maps one sentence to True (safe to emit) / False (redact).
 # Injectable so this module stays dependency-free: the caller wires it to the
 # weapons/mass-casualty output gate (assess_weapons_uplift) without this file
@@ -225,6 +227,28 @@ class ExtractiveSynthesizer:
             out.append(emitted)
         return " ".join(out)
 
+    def unsafe_output_spans(self, text: str) -> list[str]:
+        """Gate-unsafe sentences present in already-emitted ``text`` (empty when clean).
+
+        Backs the :attr:`~omni_mercury_engine.agentic.capabilities.contract.Invariant.MONOTONE_HARM`
+        capability contract as an **independent** re-check: it re-runs the *same*
+        per-sentence + cross-sentence gate over the emitted output, without
+        trusting how that output was produced, so a regression in the emission
+        path (``summarize`` / ``_join`` / ``_emit``) that let operational content
+        through is caught and redacted. Normal output is clean (unsafe sentences
+        were already replaced by :data:`REDACTION_NOTICE`, which is benign and
+        passes), so this returns ``[]``; with no gate configured there is nothing
+        to check. The cost is O(sentences) gate calls -- bounded (a summary is a
+        handful of sentences) and deliberately *not* short-circuited on the
+        synthesizer's own output, which would make the contract trust the very
+        method it exists to double-check.
+        """
+        if self.sentence_gate is None:
+            return []
+        sentences = self.split_sentences(text)
+        flags = self._safe_flags(sentences)
+        return [s for s, ok in zip(sentences, flags) if not ok and s != REDACTION_NOTICE]
+
     @staticmethod
     def split_sentences(text: str) -> list[str]:
         """Split text into sentence-like spans (regex; punctuation-based)."""
@@ -243,6 +267,13 @@ class ExtractiveSynthesizer:
         counts = Counter(self._tokens(text))
         return [w for w, _ in counts.most_common(top_k)]
 
+    @capability_contract(
+        Invariant.FAIL_CLOSED,
+        Invariant.MONOTONE_HARM,
+        on_error=lambda _exc, _args, _kwargs: "",
+        harm_residue=lambda result, inst: inst.unsafe_output_spans(result),
+        redact=lambda result, inst: inst._join(inst.split_sentences(result)),
+    )
     def summarize(self, text: str, max_sentences: int = 5) -> str:
         """Return the most central sentences, verbatim, in original order.
 

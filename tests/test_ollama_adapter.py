@@ -262,6 +262,47 @@ class TestOllamaLLMAdapter:
         assert adapter.is_available() is False
 
 
+class TestModelEndpointEnv:
+    """The Tier-0 ``MERCURY_MODEL_ENDPOINT`` env var configures the served backend."""
+
+    def test_endpoint_sets_host_and_port(
+        self, ollama_module: Any, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("MERCURY_MODEL_ENDPOINT", "http://127.0.0.1:11500")
+        monkeypatch.delenv("MERCURY_OLLAMA_HOST", raising=False)
+        adapter = ollama_module.OllamaLLMAdapter()
+        assert adapter.ollama_config.host == "127.0.0.1"
+        assert adapter.ollama_config.port == 11500
+
+    def test_bare_host_port_endpoint_parsed(
+        self, ollama_module: Any, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("MERCURY_MODEL_ENDPOINT", "127.0.0.1:11502")
+        monkeypatch.delenv("MERCURY_OLLAMA_HOST", raising=False)
+        adapter = ollama_module.OllamaLLMAdapter()
+        assert adapter.ollama_config.host == "127.0.0.1"
+        assert adapter.ollama_config.port == 11502
+
+    def test_specific_ollama_host_wins_over_endpoint(
+        self, ollama_module: Any, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("MERCURY_MODEL_ENDPOINT", "http://127.0.0.1:11500")
+        monkeypatch.setenv("MERCURY_OLLAMA_HOST", "localhost")
+        adapter = ollama_module.OllamaLLMAdapter()
+        assert adapter.ollama_config.host == "localhost"  # specific var wins
+        assert adapter.ollama_config.port == 11500  # port still from the endpoint
+
+    def test_malformed_endpoint_port_is_ignored_not_fatal(
+        self, ollama_module: Any, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # A bad port must NOT crash construction (and take the fallback chain
+        # down) -- it is logged and ignored, keeping the config defaults.
+        monkeypatch.setenv("MERCURY_MODEL_ENDPOINT", "localhost:99999")
+        monkeypatch.delenv("MERCURY_OLLAMA_HOST", raising=False)
+        adapter = ollama_module.OllamaLLMAdapter()  # must not raise
+        assert adapter.ollama_config.port == 11434  # default retained
+
+
 class TestTemplateLLMAdapter:
     """Tests for template-based fallback adapter."""
 
