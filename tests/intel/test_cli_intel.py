@@ -127,4 +127,5 @@ def test_intel_rollback_is_monotonic(tmp_path: Path) -> None:
     # A repeated rollback is a no-op (exit 1), never re-arming v2_bad.
     second = CliRunner().invoke(main, ["intel", "rollback", "--staging-dir", str(tmp_path)])
     assert second.exit_code == 1
-    assert reg.active() is not None and reg.active().version == "v1_good"
+    active = reg.active()
+    assert active is not None and active.version == "v1_good"

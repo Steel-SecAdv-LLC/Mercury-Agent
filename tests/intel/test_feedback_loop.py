@@ -207,7 +207,8 @@ def test_rollback_is_monotonic_not_a_toggle(tmp_path: Path) -> None:
     reg.register(ModelEntry("v2_bad", str(tmp_path / "v2.json"), "candidate"))
     first = reg.rollback()
     assert first.rolled_back and first.to_version == "v1_good"
-    assert reg.active() is not None and reg.active().version == "v1_good"
+    restored = reg.active()
+    assert restored is not None and restored.version == "v1_good"
     # The bug: a repeated rollback re-arming v2_bad. It must be a no-op instead.
     second = reg.rollback()
     assert not second.rolled_back

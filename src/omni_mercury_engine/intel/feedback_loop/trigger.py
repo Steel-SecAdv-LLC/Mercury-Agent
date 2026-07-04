@@ -227,12 +227,12 @@ def verify_trigger(
 
 
 class NonceLedger:
-    """A durable, append-only ledger of consumed retrain-trigger nonces.
+    r"""A durable, append-only ledger of consumed retrain-trigger nonces.
 
     Makes a signed trigger genuinely single-use: :meth:`consume` records a nonce
     the first time it is seen and refuses it thereafter, so a trigger cannot be
     replayed to authorize a second retrain even against an unchanged queue. The
-    sink is a JSON-Lines file (flushed + ``fsync``\\ed) so a consumed nonce
+    sink is a JSON-Lines file (flushed + ``fsync``\ ed) so a consumed nonce
     survives process exit; the default location is co-located with the staging
     registry the retrain writes to.
     """
@@ -265,11 +265,11 @@ class NonceLedger:
             return nonce in self._consumed_unlocked()
 
     def consume(self, nonce: str, *, queue_hash: str = "", requested_by: str = "") -> bool:
-        """Durably record ``nonce`` as consumed. Returns ``False`` on replay.
+        r"""Durably record ``nonce`` as consumed. Returns ``False`` on replay.
 
         The first call for a nonce returns ``True`` (newly consumed -> proceed);
         any later call with the same nonce returns ``False`` (replay -> refuse).
-        The write is flushed + ``fsync``\\ed so a consumed nonce is never lost.
+        The write is flushed + ``fsync``\ ed so a consumed nonce is never lost.
         """
         with _NONCE_LOCK:
             if nonce in self._consumed_unlocked():

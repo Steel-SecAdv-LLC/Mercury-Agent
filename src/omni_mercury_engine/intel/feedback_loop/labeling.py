@@ -165,7 +165,7 @@ def read_audit_log(
     dispositions: set[str] | frozenset[str] | None = None,
     limit: int | None = None,
 ) -> list[AuditEvent]:
-    """Read the **live** durable gate-audit log into labelable :class:`AuditEvent`\\ s.
+    r"""Read the **live** durable gate-audit log into labelable :class:`AuditEvent`\ s.
 
     This is the closed loop's real connection to the running gate: it reads the
     same append-only ``gate_decisions.jsonl`` that
@@ -190,7 +190,7 @@ def read_audit_log(
         limit: If given, return only the last ``limit`` matching events.
 
     Returns:
-        The parsed :class:`AuditEvent`\\ s in log (chronological) order.
+        The parsed :class:`AuditEvent`\ s in log (chronological) order.
     """
     if path is None:
         from omni_mercury_engine.cognitive.gate_audit import default_audit_log_path
