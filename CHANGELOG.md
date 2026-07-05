@@ -27,6 +27,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Detection mechanisms: streaming / statistical / state-space detectors (steel/detection-mechanisms)
+
+Five new first-class anomaly detectors, all pure-NumPy/SciPy (no PyTorch, so
+always importable), all conforming to the `BaseDetector` contract
+(`fit`/`detect`/`extract_features`/`is_fitted`) and registered as opt-in `BASE`
+entries in `DETECTOR_MANIFEST` (auto-discovered by the engine; not added to the
+default fusion set, so the calibrated ensemble is unchanged until enabled). Each
+emits calibrated per-sample scores in `[0, 1]` for ensemble stacking, and every
+squash-based detector anchors its 0.5 boundary at a training quantile for an
+explicit, controlled false-positive rate. Design rationale in
+`docs/DETECTION_MECHANISMS.md`.
+
+- **Spectral Residual (SR)** — `detectors.spectral_residual.SpectralResidualDetector`.
+  Training-free FFT saliency (Ren et al., KDD 2019) for streaming series; scores
+  the local saliency deviation.
+- **Bayesian Online Change-Point Detection (BOCPD)** —
+  `detectors.bocpd.BOCPDDetector`. Run-length posterior under a Gaussian /
+  Normal-Inverse-Gamma conjugate model with constant hazard (Adams & MacKay,
+  2007); the score is the calibrated change-point probability.
+- **SPOT / DSPOT Peaks-Over-Threshold (EVT)** — `detectors.spot_evt.SPOTDetector`.
+  Data-driven dynamic threshold from a Generalized-Pareto tail fit with a target
+  risk budget `q` bounding the false-positive rate (Siffer et al., KDD 2017);
+  DSPOT mode (`depth > 0`) removes a moving-average trend for drift.
+- **Hawkes event-rate / burst** — `detectors.hawkes.HawkesBurstDetector`.
+  Self-exciting point-process intensity on per-bin count streams; scores the
+  absolute Pearson residual against the predicted intensity (catches bursts and
+  anomalous silences).
+- **Particle-filter state-space residual** —
+  `detectors.particle_filter.ParticleFilterDetector`. Bootstrap particle filter
+  over a local-level model scoring normalised one-step-ahead predictive
+  innovations; seeded for reproducible output.
+
+Wired through `detectors/__init__.py` (lazy imports + `__all__`) and covered by
+38 unit tests (`tests/detectors/test_{spectral_residual,bocpd,spot_evt,hawkes,particle_filter}.py`)
+asserting the contract, signal separation on injected anomalies, and empirical
+false-positive control. No regressions: existing detectors and the default
+ensemble are untouched.
+
 ### Intelligence layer: closed-loop learning + decision geometry (steel/refinement-mercury-intel)
 
 The learning-and-geometry layer on top of the Tier-0 safety foundation. New
