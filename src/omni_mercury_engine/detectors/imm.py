@@ -165,9 +165,7 @@ class IMMDetector(BaseDetector):
             comb_pred_mean = 0.0
             comb_pred_var = 0.0
             for j in range(n_modes):
-                q_mat = np.array(
-                    [[q_modes[j], 0.0], [0.0, q_modes[j]]], dtype=np.float64
-                )
+                q_mat = np.array([[q_modes[j], 0.0], [0.0, q_modes[j]]], dtype=np.float64)
                 x_pred = f_mat @ mixed_means[j]
                 p_pred = f_mat @ mixed_covs[j] @ f_mat.T + q_mat
                 y_pred = float(h_vec @ x_pred)
@@ -175,9 +173,7 @@ class IMMDetector(BaseDetector):
                 s_inn = max(s_inn, 1e-12)
                 resid = float(series[t]) - y_pred
                 # Gaussian innovation likelihood for the mode-probability update.
-                likelihood[j] = np.exp(-0.5 * resid * resid / s_inn) / np.sqrt(
-                    2.0 * np.pi * s_inn
-                )
+                likelihood[j] = np.exp(-0.5 * resid * resid / s_inn) / np.sqrt(2.0 * np.pi * s_inn)
                 comb_pred_mean += mode_prob[j] * y_pred
                 comb_pred_var += mode_prob[j] * (s_inn + y_pred * y_pred)
                 # Kalman gain update on the observation.
@@ -222,9 +218,7 @@ class IMMDetector(BaseDetector):
         self._is_fitted = True
         return self
 
-    def extract_features(
-        self, data: np.ndarray[Any, Any] | torch.Tensor
-    ) -> np.ndarray[Any, Any]:
+    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
         """Per-sample fusion feature: the combined normalised innovation.
 
         Args:

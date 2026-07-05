@@ -111,7 +111,9 @@ class DigitalTwinResidualDetector(BaseDetector):
             q = float(np.mean(raw)) + 1e-9
         return max(q / _LN2, 1e-9)
 
-    def _design(self, series: np.ndarray[Any, Any]) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+    def _design(
+        self, series: np.ndarray[Any, Any]
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Build the AR design matrix ``X`` and target ``y`` (order lags)."""
         p = self.order
         n = series.size
@@ -178,9 +180,7 @@ class DigitalTwinResidualDetector(BaseDetector):
         self._is_fitted = True
         return self
 
-    def extract_features(
-        self, data: np.ndarray[Any, Any] | torch.Tensor
-    ) -> np.ndarray[Any, Any]:
+    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
         """Per-sample fusion feature: the blended twin-divergence residual.
 
         Args:

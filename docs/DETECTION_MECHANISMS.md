@@ -7,7 +7,7 @@ This document is the design rationale for the detection-mechanisms expansion
 
 The standing rule is anti-theater: every detector here is a complete, enabled,
 unit-tested `BaseDetector` — training, inference, feature extraction, and
-manifest registration — not a scaffold or a flagged-off stub. All five are pure
+manifest registration — not a scaffold or a flagged-off stub. All are pure
 NumPy/SciPy so they import without the optional PyTorch stack and run on the
 lightweight core install.
 
@@ -126,14 +126,30 @@ additionally asserts bit-identical output for a fixed seed. The existing
 parametrised manifest-integrity suite automatically covers the new manifest
 entries (class resolution, `BaseDetector` subclassing, engine reachability).
 
-## 5. Deliberately out of scope
+## 5. Extended tier (state-space, generative, neuromorphic, systems)
 
-The wider "detection mechanisms" wishlist also names deep generative and
-neuromorphic detectors (diffusion/DDPM, energy-based models, Deep SVDD, spiking
-networks, reservoir/echo-state), digital-twin residuals, and a dedicated RCA
-module. Those require the PyTorch/simulation stack and substantial training and
-evaluation infrastructure; bolting on flagged-off stubs would violate the
-no-scaffolding rule. This PR delivers the classical streaming / statistical /
-state-space tier **completely** — the detectors that are correct, cheap, and
-fully testable in the lightweight core — as a solid, non-regressing foundation
-the heavier tier can build on.
+The wider "detection mechanisms" catalog is delivered in this PR as **real,
+pure-NumPy algorithms** — not PyTorch stubs — each a complete, enabled,
+unit-tested `BaseDetector` registered in `DETECTOR_MANIFEST`:
+
+| Detector | Module / class | Principle |
+| --- | --- | --- |
+| Interacting Multiple Model | `imm.IMMDetector` | Two-mode (quiet/manoeuvre) Kalman bank; mixed innovation residual. |
+| Gaussian-process regression | `gaussian_process.GaussianProcessDetector` | Windowed RBF-GP predictive residual normalised by predictive variance. |
+| Echo-state / reservoir | `echo_state.EchoStateDetector` | Reservoir-computing one-step prediction residual. |
+| Digital-twin residual | `digital_twin.DigitalTwinResidualDetector` | AR forward-model observed-vs-simulated divergence. |
+| Spiking network | `spiking.SpikingNetworkDetector` | LIF population spike-rate novelty vs. baseline. |
+| Survival / hazard | `survival.SurvivalHazardDetector` | Kaplan-Meier + Cox proportional-hazard elevation. |
+| Energy-based model | `energy_based.EnergyBasedDetector` | Score-matching Gaussian free energy in delay space. |
+| Deep SVDD | `deep_svdd.DeepSVDDDetector` | One-class ellipsoidal hypersphere on a `tanh` embedding. |
+| Root-cause graph | `rca.RootCauseGraphDetector` | Reverse personalised random walk over the causal/service graph. |
+| DeepLog sequence | `deeplog_sequence.DeepLogSequenceDetector` | Back-off n-gram next-key miss probability + top-`g` violation. |
+| Frequent-pattern mining | `frequent_pattern.FrequentPatternDetector` | Apriori association-rule confidence violation. |
+
+Every one follows the same calibration contract (Section 2), emits `scores` in
+`[0, 1]` for ensemble stacking, and ships a `tests/detectors/test_*.py` suite
+covering the contract, input validation, determinism, signal separation on an
+injected anomaly, and empirical false-positive control. The deep tier is
+realised in NumPy specifically so it stays importable and testable on the
+lightweight core install rather than being deferred behind the optional PyTorch
+stack.

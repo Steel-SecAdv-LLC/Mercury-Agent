@@ -19,7 +19,6 @@ Pure NumPy (always importable); registered as an opt-in BASE detector.
 
 from __future__ import annotations
 
-from itertools import combinations
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -116,9 +115,7 @@ class FrequentPatternDetector(BaseDetector):
         support: dict[frozenset[int], float] = {}
         # Level 1: frequent single items.
         col_support = mat.mean(axis=0)
-        current = [
-            frozenset([j]) for j in range(n_items) if col_support[j] >= self.min_support
-        ]
+        current = [frozenset([j]) for j in range(n_items) if col_support[j] >= self.min_support]
         for iset in current:
             support[iset] = float(col_support[next(iter(iset))])
         # Levels 2..max_itemset: join and prune.
@@ -189,9 +186,7 @@ class FrequentPatternDetector(BaseDetector):
         self._is_fitted = True
         return self
 
-    def extract_features(
-        self, data: np.ndarray[Any, Any] | torch.Tensor
-    ) -> np.ndarray[Any, Any]:
+    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
         """Per-transaction fusion feature: the rule-violation mass.
 
         Args:

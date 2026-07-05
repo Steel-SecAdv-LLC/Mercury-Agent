@@ -190,9 +190,7 @@ class DeepSVDDDetector(BaseDetector):
         self._is_fitted = True
         return self
 
-    def extract_features(
-        self, data: np.ndarray[Any, Any] | torch.Tensor
-    ) -> np.ndarray[Any, Any]:
+    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
         """Per-sample fusion feature: distance to the hypersphere centre.
 
         Args:

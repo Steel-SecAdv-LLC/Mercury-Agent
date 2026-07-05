@@ -192,9 +192,7 @@ class SurvivalHazardDetector(BaseDetector):
         self._is_fitted = True
         return self
 
-    def extract_features(
-        self, data: np.ndarray[Any, Any] | torch.Tensor
-    ) -> np.ndarray[Any, Any]:
+    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
         """Per-sample fusion feature: the tail surprisal.
 
         Args:

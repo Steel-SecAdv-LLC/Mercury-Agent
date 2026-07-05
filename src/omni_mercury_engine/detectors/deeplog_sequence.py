@@ -35,7 +35,6 @@ if TYPE_CHECKING:
 __all__ = ["DeepLogSequenceDetector"]
 
 
-
 class DeepLogSequenceDetector(BaseDetector):
     """Back-off n-gram next-key surprisal detector for log/event sequences.
 
@@ -146,7 +145,7 @@ class DeepLogSequenceDetector(BaseDetector):
         """
         seq = self._to_1d_int(data)
         self._counts = [defaultdict(lambda: defaultdict(int)) for _ in range(self.order)]
-        self._vocab = set(int(v) for v in seq.tolist())
+        self._vocab = {int(v) for v in seq.tolist()}
         self._unigram = defaultdict(int)
         for v in seq.tolist():
             self._unigram[int(v)] += 1
@@ -163,9 +162,7 @@ class DeepLogSequenceDetector(BaseDetector):
         self._is_fitted = True
         return self
 
-    def extract_features(
-        self, data: np.ndarray[Any, Any] | torch.Tensor
-    ) -> np.ndarray[Any, Any]:
+    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
         """Per-position fusion feature: the next-key surprisal.
 
         Args:

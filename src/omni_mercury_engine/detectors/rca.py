@@ -169,17 +169,13 @@ class RootCauseGraphDetector(BaseDetector):
             else:
                 self._adjacency = np.zeros((n_nodes, n_nodes), dtype=np.float64)
         elif self._adjacency.shape[0] != n_nodes:
-            raise ValueError(
-                f"adjacency size {self._adjacency.shape[0]} != n_nodes {n_nodes}"
-            )
+            raise ValueError(f"adjacency size {self._adjacency.shape[0]} != n_nodes {n_nodes}")
         raw = self._peak_residuals(rows)
         self._scale = self._squash_scale(raw)
         self._is_fitted = True
         return self
 
-    def extract_features(
-        self, data: np.ndarray[Any, Any] | torch.Tensor
-    ) -> np.ndarray[Any, Any]:
+    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
         """Per-row fusion feature: the peak node residual.
 
         Args:
