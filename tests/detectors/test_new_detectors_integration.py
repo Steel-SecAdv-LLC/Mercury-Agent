@@ -24,6 +24,7 @@ from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.detector_registry import (
     DETECTOR_MANIFEST,
     DetectorCategory,
+    DetectorManifestEntry,
     DetectorRegistry,
 )
 
@@ -32,7 +33,7 @@ _NEW_DETECTORS = ("spectral_residual", "bocpd", "spot_evt", "hawkes", "particle_
 _CONTRACT_METHODS = ("fit", "detect", "extract_features", "is_fitted")
 
 
-def _manifest_entry(name: str):  # type: ignore[no-untyped-def]
+def _manifest_entry(name: str) -> DetectorManifestEntry:
     return next(e for e in DETECTOR_MANIFEST if e.name == name)
 
 
