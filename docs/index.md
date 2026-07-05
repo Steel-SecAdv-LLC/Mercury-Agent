@@ -1,6 +1,6 @@
 # Mercury Agent Documentation
 
-Version `2.0.0` — Steel-SecAdv-LLC. Last updated: 2026-06-17.
+Version `2.0.0` — Steel-SecAdv-LLC. Last updated: 2026-07-05.
 
 Mercury Agent is the **neuro-symbolic AI** orchestration / cognition layer
 of the FIND**Ω**YOU stack — a hybrid of deep-learning detectors, an
@@ -41,9 +41,10 @@ for the post-quantum cryptographic substrate.
   `mercury_benchmark_results.json` run — **66 successful / 75
   attempted**, Mean AUC **0.8251**, Median **0.8747**, Mean Oracle
   F1 **0.5998** (2026-06-21) — surfaced in the README "Latest
-  Benchmark Results" block. CI's regression-gate floor is the
-  historical **0.803 AUC / 0.589 F1** baseline (the gate trips 15%
-  below it). Externally-comparable subset: ADBench Mean AUC 0.8251.
+  Benchmark Results" block. CI's coarse regression-gate floors are
+  **ROC-AUC 0.75 / F1 0.55** (`.github/workflows/benchmark.yml`), ~7%
+  below the historical **0.803 AUC / 0.589 F1** baseline.
+  Externally-comparable subset: ADBench Mean AUC 0.8251.
   See [`BENCHMARKS.md`](BENCHMARKS.md).
 - **Pickle removed from the training-data path; not a blanket ban.**
   PR #166 deleted the `pickle` code path from the training-data
@@ -72,31 +73,112 @@ for the post-quantum cryptographic substrate.
 
 ## Navigation
 
+Every documentation surface under `docs/` is grouped below. Start with
+**Getting started**, then dive into the area you need.
+
 ```{toctree}
 :maxdepth: 2
-:caption: Contents
+:caption: Getting started
 
 INSTALLATION
 ARCHITECTURE
 API_REFERENCE
+GENERAL_CAPABILITIES
+INTERCONNECT
+```
+
+```{toctree}
+:maxdepth: 2
+:caption: Mathematics & neuro-symbolic core
+
 MATH_SPEC
-BENCHMARKS
-FUSION_CAPACITY_STRATEGY
-DOMAIN_PERFORMANCE
+NEUROSYMBOLIC
+DOMAIN_ENCODERS
 ROUTING_GUIDE
+FUSION_CAPACITY_STRATEGY
+```
+
+```{toctree}
+:maxdepth: 2
+:caption: Benchmarks & data
+
+BENCHMARKS
+DOMAIN_PERFORMANCE
 DATASOURCES
 LIVE_DATA_VALIDATION
 ORACLE_NOISE_COLOR
+ANOMALY_REGRESSION_WS_A
+NEURAL_SUBMODULE_COVERAGE
+```
+
+```{toctree}
+:maxdepth: 2
+:caption: Harm, ethics & safety
+
+HARM_POLICY
+WEAPONS_GATE_EVALUATION
+WEAPONS_GATE_ADVERSARIAL_EVAL
+```
+
+```{toctree}
+:maxdepth: 2
+:caption: Intel & self-improvement loop
+
+SELF_IMPROVEMENT_LOOP
+INTEL_VALUE_METRICS
+RED_TEAM_OPERATION_GUIDE
+GOVERNED_PROMOTION_GATE
+PHASE3_GOVERNANCE
+PROVENANCE_MIGRATION_PLAN
+RETRAIN_RUNBOOK
+ESCALATION_AUDIT_RUNBOOK
+DORMANCY_LEDGER
+```
+
+```{toctree}
+:maxdepth: 2
+:caption: Agents & capabilities
+
+SUBAGENT_PANTHEON
+capability_vs_vision_matrix
+```
+
+```{toctree}
+:maxdepth: 2
+:caption: Research protocols & verification
+
+EQUATION_RESEARCH_PROTOCOL
+SCHUMANN_PREREGISTRATION
+PARAPSYCH_PREREGISTRATION
+WS_F_VERIFICATION
+```
+
+```{toctree}
+:maxdepth: 2
+:caption: Operations & deployment
+
 DEPLOYMENT
 OFFLINE_OPERATION
 HARDWARE_HARNESS
-ROADMAP
-MIGRATION-1.6-to-1.7
-COMPLIANCE
 PROFILING
 TOOLS
+COMPLIANCE
+```
+
+```{toctree}
+:maxdepth: 2
+:caption: Domain runbooks
+
 medical/SETUP
 drone/SETUP
+```
+
+```{toctree}
+:maxdepth: 2
+:caption: Project
+
+ROADMAP
+MIGRATION-1.6-to-1.7
 ```
 
 ## See also
