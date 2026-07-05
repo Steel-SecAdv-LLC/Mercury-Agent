@@ -169,7 +169,7 @@ Loader: `CICIDSLoader` in `src/omni_mercury_engine/datasets/security.py`
 Source: PhysioNet via `wfdb` library
 Issue: Requires `wfdb` Python library (not in default requirements).
 To access: `pip install wfdb`, then loader works automatically. Add `wfdb` to `pyproject.toml [project.optional-dependencies.medical]`.
-Loader: `MITBIHLoader` in `src/omni_mercury_engine/datasets/medical.py`
+Loader: `MITBIHLoader` in `src/omni_mercury_engine/datasets/mitbih.py`
 
 ### SWaT / WADI (Secure Water Treatment)
 
@@ -374,9 +374,10 @@ window where the attacker can race the validator.  See:
 
 * `src/omni_mercury_engine/security/safe_http.py:138-155` —
   the `getaddrinfo` failure branch.
-* `tests/loaders/test_base_loader.py:99` — the regression test
-  that locks the "DNS failure must NOT be classified as
-  non-fatal" contract.
+* `tests/security/test_safe_http.py::test_unresolvable_host_rejected`
+  (line 166) — the regression test that locks the "DNS failure must
+  NOT be classified as non-fatal" contract (patches
+  `socket.getaddrinfo`, asserts `UnsafeURLError` match="did not resolve").
 
 **Operator symptoms.**  Any of these usually mean DNS-fails-closed
 fired, not that Mercury is broken:

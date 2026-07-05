@@ -81,15 +81,15 @@ weak signal:
 
 | dataset | AUC | F1 |
 |---|---|---|
-| breastw | 0.9977 | 0.9769 |
-| cardio | 0.9575 | 0.7989 |
-| Ionosphere | 0.9493 | 0.9120 |
-| WBC | 0.9925 | 0.8889 |
+| breastw | 0.9915 | 0.9668 |
+| cardio | 0.9514 | 0.7769 |
+| Ionosphere | 0.9414 | 0.8976 |
+| WBC | 0.9907 | 0.9000 |
 | Lymphography | 0.9836 | 0.8000 |
-| Pima | 0.7408 | 0.7430 |
-| glass | 0.7454 | 0.2857 |
-| pendigits | 0.7612 | 0.2054 |
-| **mean** | **0.8910** | **0.7014** |
+| Pima | 0.7047 | 0.7077 |
+| glass | 0.7681 | 0.3030 |
+| pendigits | 0.8741 | 0.2891 |
+| **mean** | **0.9007** | **0.7051** |
 
 Per-dataset + mean floors (measured − margin) are pinned in
 `anomaly_regression_baseline.json` together with full provenance (ADBench
@@ -120,7 +120,7 @@ not scale; one canonical detector does.
 `src/omni_mercury_engine/datasets/label_provenance.py` is that detector:
 
 * **`LABEL_PROVENANCE_REGISTRY`** — the frozen result of a full audit of all
-  **38** concrete loaders: each maps to `(label_source, justification)`, where
+  **40** concrete loaders: each maps to `(label_source, justification)`, where
   the justification states *how the labels are derived*. Flipping a loader from
   `statistical` to `ground_truth` to inflate a number now requires a reviewable
   one-line diff here.
@@ -154,8 +154,8 @@ unaffected* — but each was a latent leak: adding any to the eval set would hav
 silently inflated the supervised AUC. All four are corrected to
 `LABEL_SOURCE = "statistical"` at source. Two medical loaders mislabeled by the
 same silent default (`PhysioNetLoader`, `CardiologyDataset`) were corrected to
-`expert_annotated`. Post-fix the tree is **15 ground_truth / 3 expert_annotated /
-20 statistical**, and the audit is clean.
+`expert_annotated`. Post-fix the tree is **16 ground_truth / 3 expert_annotated /
+21 statistical**, and the audit is clean.
 
 ### The gate
 

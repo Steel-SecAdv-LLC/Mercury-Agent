@@ -60,5 +60,5 @@ See `src/omni_mercury_engine/detectors/spectral_domain_oracle.py`:
 
 - `SpectralDomainOracle._estimate_noise_color()` — β estimation
 - `SpectralDomainOracle._expected_band_power()` — model-based expected power
-- `SpectralDomainOracle._analyze_band()` — corrected z-scores
+- `SpectralDomainOracle._compute_band_anomaly()` — corrected z-scores
 - `SpectralDomainOracle._compute_adaptive_alpha()` — window-aware thresholds

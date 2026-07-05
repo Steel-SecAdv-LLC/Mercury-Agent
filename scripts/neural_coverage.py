@@ -170,7 +170,7 @@ COVERAGE_ROWS: list[Row] = [
 GATE_ROWS: list[Row] = [
     Row(
         module="label_provenance (WS-A leak gate)",
-        dataset="all 38 dataset loaders",
+        dataset="all 40 dataset loaders",
         seeds="—",
         metric="circular-label audit",
         artifact_display="registry in-module",
