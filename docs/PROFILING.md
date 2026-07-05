@@ -4,7 +4,7 @@ Applies to Mercury Agent **v2.0.x**. Last updated: 2026-05-20.
 
 `omni_mercury_engine.utils.profiling` is the first-party profiling
 toolkit ported from Omni-AXA-Engine and hardened for Mercury Agent's
-asyncio paths and `mypy --strict` configuration. It provides six
+asyncio paths and `mypy --strict` configuration. It provides five
 public decorators, one context manager, and one benchmarking helper
 for measuring CPU time, memory consumption, and wall-clock execution.
 
@@ -124,15 +124,14 @@ stats = benchmark_function(
     expensive_op,
     10_000,                  # positional args to expensive_op
     iterations=200,          # how many times to call it
-    warmup_iterations=10,    # discarded JIT-warmup calls
+    warmup=10,               # discarded warmup calls
 )
 
-print(stats["mean_ms"], stats["std_ms"], stats["p99_ms"])
+print(stats["mean_ms"], stats["std_ms"], stats["median_ms"])
 ```
 
-Returns a dict with `mean_ms`, `median_ms`, `std_ms`, `min_ms`,
-`max_ms`, `p50_ms`, `p95_ms`, `p99_ms`, `total_seconds`,
-`iterations`, and `warmup_iterations`.
+Returns a dict with `mean_ms`, `std_ms`, `min_ms`, `max_ms`,
+`median_ms`, `iterations`, and `warmup`.
 
 ---
 

@@ -91,7 +91,7 @@ state = DroneState(
     distance_to_home=125.0,
 )
 
-faults = detector.detect(state)
+faults = detector.detect_faults(state)
 for fault in faults:
     print(fault.fault_type, fault.severity, fault.description)
 ```
@@ -160,7 +160,7 @@ def states_from_ulog(path: str) -> list[DroneState]:
     return out
 
 states = states_from_ulog("/path/to/log_001.ulg")
-faults_per_state = [detector.detect(s) for s in states]
+faults_per_state = [detector.detect_faults(s) for s in states]
 ```
 
 `pyulog` is a runtime-optional dependency: install with
@@ -197,7 +197,7 @@ while True:
     if msg is None:
         continue
     if msg.get_type() == "GLOBAL_POSITION_INT":
-        # build / update a DroneState; call detector.detect() at the
+        # build / update a DroneState; call detector.detect_faults() at the
         # cadence that matches your operational protocol (typically
         # 1–10 Hz)
         ...
