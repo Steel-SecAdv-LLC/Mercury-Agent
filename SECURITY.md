@@ -72,9 +72,11 @@ Mercury Agent implements multiple layers of security:
 
 Mercury Agent uses NIST-approved post-quantum cryptographic algorithms
 sourced from AMA Cryptography v3.2.0 (pinned in
-`pyproject.toml [project.optional-dependencies].pqc` and the
-`AMA_REF` env var of `.github/workflows/ci.yml` /
-`.github/workflows/pqc-production-check.yml`):
+`pyproject.toml [project.optional-dependencies].pqc` and via the
+`ama-ref: v3.2.0` input that `.github/workflows/ci.yml` /
+`.github/workflows/pqc-production-check.yml` pass to the
+`build-ama-cryptography` composite action, which exports it internally
+as `AMA_REF`):
 
 | Algorithm | Parameter set | FIPS standard | Mercury type |
 |-----------|---------------|---------------|--------------|
@@ -424,5 +426,5 @@ We thank the security researchers who have helped improve Mercury Agent's securi
 
 ---
 
-*Last Updated: 2026-06-18*
+*Last Updated: 2026-07-02*
 *Version: 2.0.0*

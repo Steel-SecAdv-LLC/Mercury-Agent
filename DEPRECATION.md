@@ -41,7 +41,7 @@ Until these criteria are met, deprecated items operate via compatibility shims t
 |------------|-------------|--------|
 | `core.self_healing` | `resilience.self_healing` | **Preserved** - Compatibility shim active |
 | `core.neurosymbolic_engine` | `core.code_analysis` / `models.neurosymbolic` | **Preserved** - Compatibility shim active |
-| Legacy scalar names (38) | Omni-prefixed names | **Preserved** - Both naming conventions supported |
+| Legacy scalar names (37) | Omni-prefixed names | **Preserved** - Both naming conventions supported |
 | `sigma_immutable` param | `ethical_compliance_threshold` | **Preserved** - Alias mapping active |
 | `lambda_lyapunov` param | `convergence_rate` | **Preserved** - Alias mapping active |
 | `enable_quantum_terms` | `enable_optimization_terms` | **Preserved** - Alias mapping active |

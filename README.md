@@ -103,7 +103,7 @@ A multi-panel visual summary appears in the [Current Benchmarks and Visual Proof
 | Run timestamp (UTC) | 2026-06-21T00:11:10.047740+00:00 | 2026-06-21T00:11:10.047740+00:00 | — |
 | Commit | `a7a194b` | `a7a194b` | — |
 
-Regression gates: ROC-AUC must stay ≥ 0.68 and Mean Oracle F1 ≥ 0.50 (set 15% below the 2026-02-15 measured baseline of AUC 0.803 / F1 0.589). CI fails the workflow if either drops below threshold.
+Regression gates: ROC-AUC must stay ≥ 0.75 and Mean Oracle F1 ≥ 0.55 (the coarse floors set in `.github/workflows/benchmark.yml`, held ~9% below the current headline AUC/F1 so they do not flap on normal load-availability variance). Fine-grained, tight regression protection is the deterministic per-dataset guard (`anomaly_regression_guard.py`), not these coarse floors. CI fails the workflow if either drops below threshold.
 <!-- BENCHMARK:END -->
 
 **Comparability note.** The aggregate ROC-AUC above blends two evaluation regimes. Only externally-labeled datasets — ADBench and the standard labeled sets, where labels come from a source independent of the scored signal — are comparable to published baselines; the comparable headline is **ADBench Mean AUC 0.8251**. Several environmental loaders are self-labeled by thresholding the signal they score, which inflates their AUC toward 1.0 (label leakage) and is reported for pipeline transparency only. See *Label provenance and comparability* in the benchmarks below for the full split.
@@ -872,7 +872,7 @@ Optimized for both accuracy and interpretability:
 
 - **Feature Fusion**: `torch.cat()` across 30 detector outputs
 - **Decision Fusion**: Weighted voting with learned importance scores
-- **Attention Fusion**: Multi-head attention (8 heads) for cross-domain correlation
+- **Attention Fusion**: Multi-head attention (4 heads) for cross-domain correlation
 - **Final Score**: `0.7 * MLP + 0.3 * weighted_vote` ensemble
 
 ### Decision / Abstention / Response Layer (autonomous loop)
@@ -1321,7 +1321,8 @@ The Lyapunov decay rate `λ` cited throughout this README and `docs/MATH_SPEC.md
 
 **Single source of truth.** `configs/lyapunov_canonical.yaml` declares the
 canonical linear surrogate `(A, P)` of the fusion-trajectory dynamics and
-the certified rate `λ = 0.25`.  `LyapunovConstants.LAMBDA_CONVERGENCE`
+the claimed rate `λ = 0.25` (certified with a 2× margin against the
+computed `λ = 0.5`; see below).  `LyapunovConstants.LAMBDA_CONVERGENCE`
 in `src/omni_mercury_engine/core/centralized_constants.py` is the matching
 Python constant; the reconciliation test
 `tests/tools/test_lyapunov_reconciliation.py` fails CI the moment they
@@ -1823,7 +1824,7 @@ Where:
 
 - **Feature Fusion**: `torch.cat()` across detector outputs
 - **Decision Fusion**: Weighted voting with learned importance
-- **Attention Fusion**: Multi-head attention (8 heads)
+- **Attention Fusion**: Multi-head attention (4 heads)
 - **Final Score**: `0.7 * MLP + 0.3 * weighted_vote`
 
 </details>
