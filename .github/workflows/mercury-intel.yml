@@ -1,0 +1,284 @@
+# Mercury-Agent intelligence-layer CI lanes.
+#
+# Four lanes for the learning + geometry layer (steel/refinement-mercury-intel),
+# each fail-closed and each building the mandatory AMA/PQC backend first (every
+# `import omni_mercury_engine` runs the import-time PQC gate):
+#   * ci/closed-loop-integration -- end-to-end gated retrain staging run + the
+#     OOF/adversarial regression gate (poisoned candidate must be blocked)
+#   * ci/confidence-cascade       -- routing correctness + cost/accuracy report
+#   * ci/red-team                 -- adversarial generator; survivors appended to
+#     corpus/pending; no-weakening survival-rate gate
+#   * ci/verifier-integration     -- symbolic verifier gating (block on refuted)
+#
+# The job display names are literally `ci/<lane>` so branch-protection required
+# checks read as `Mercury Intel / ci/closed-loop-integration` etc. Per the
+# cross-branch governance, these are REQUIRED on the intelligence branch in
+# addition to the Tier 0 foundation checks.
+#
+# Copyright (C) 2025 Steel Security Advisors LLC
+
+name: Mercury Intel
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mercury-intel-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "src/omni_mercury_engine/intel/**"
+      # Live-wiring surfaces the intel streams run on (verifier-guarded emission,
+      # selectable MCP tools, the `mercury-agent intel` CLI group).
+      - "src/omni_mercury_engine/mcp_server.py"
+      - "src/omni_mercury_engine/cli.py"
+      - "benchmarks/confidence_cascade_report.py"
+      - "benchmarks/self_consistency_signal_report.py"
+      - "benchmarks/intel_value_metrics_report.py"
+      - "benchmarks/red_team_harness.py"
+      - "benchmarks/red_team_baseline.json"
+      - "scripts/closed_loop_demo.py"
+      - "scripts/mercury_retrain_rollback.py"
+      - "configs/red_team.yaml"
+      - "tests/intel/**"
+      - "tests/test_mcp_server.py"
+      - ".github/workflows/mercury-intel.yml"
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.12"
+  MERCURY_GATE_AUDIT_DISABLED: "1"
+
+jobs:
+  closed-loop-integration:
+    name: ci/closed-loop-integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      MERCURY_RETRAIN_TRIGGER_SECRET: ci-closed-loop-secret
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Mercury (core) + test tooling
+        run: |
+          python -m pip install --upgrade "pip>=26.1"
+          pip install -e .
+          pip install pytest pytest-asyncio
+
+      - name: Build AMA Cryptography (native PQC)
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v3.2.0
+
+      - name: Closed-loop staging demo (clean run) -> retrain artifact
+        run: PYTHONPATH=src python scripts/closed_loop_demo.py --staging-dir artifacts/closed_loop/staging
+
+      - name: Closed-loop staging demo (poisoned) -> regression gate must block
+        run: PYTHONPATH=src python scripts/closed_loop_demo.py --poisoned --staging-dir artifacts/closed_loop/poison
+
+      - name: Regression gate + end-to-end integration tests
+        run: >-
+          pytest
+          tests/intel/test_closed_loop_integration.py
+          tests/intel/test_regression_gate.py
+          tests/intel/test_feedback_loop.py
+          tests/intel/test_cli_intel.py
+          -q -p no:cov
+
+      - name: Break-glass rollback CLI (monotonic; a repeat is a no-op)
+        run: |
+          PYTHONPATH=src python - <<'PY'
+          import subprocess, sys, tempfile
+          from pathlib import Path
+          from omni_mercury_engine.intel.feedback_loop import ModelEntry, ModelRegistry
+          d = Path(tempfile.mkdtemp())
+          reg = ModelRegistry(d)
+          reg.register(ModelEntry("v1_good", str(d / "v1.json"), "candidate"))
+          reg.register(ModelEntry("v2_bad", str(d / "v2.json"), "candidate"))
+          run = lambda: subprocess.run(
+              [sys.executable, "scripts/mercury_retrain_rollback.py", "--staging-dir", str(d)]
+          ).returncode
+          assert run() == 0, "first rollback should restore the previous model"
+          assert reg.active().version == "v1_good", "rollback did not restore v1_good"
+          assert run() == 1, "a repeated rollback must be a no-op (never re-arm v2_bad)"
+          assert reg.active().version == "v1_good", "second rollback re-armed a model"
+          print("break-glass rollback CLI OK (monotonic)")
+          PY
+
+      - name: Value board (no-weakening gate)
+        run: PYTHONPATH=src python benchmarks/intel_value_metrics_report.py --check
+
+      - name: Upload retrain artifact + value board
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: closed-loop-artifacts
+          path: |
+            artifacts/closed_loop/**
+            artifacts/intel/value_metrics_board.*
+          retention-days: 30
+
+  confidence-cascade:
+    name: ci/confidence-cascade
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Mercury (core) + test tooling
+        run: |
+          python -m pip install --upgrade "pip>=26.1"
+          pip install -e .
+          pip install pytest pytest-asyncio
+
+      - name: Build AMA Cryptography (native PQC)
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v3.2.0
+
+      - name: Cascade routing + self-consistency unit tests
+        run: >-
+          pytest
+          tests/intel/test_cascade.py
+          tests/intel/test_self_consistency.py
+          tests/intel/test_value_metrics.py
+          -q -p no:cov
+
+      - name: Cost-vs-accuracy report (savings gate)
+        run: PYTHONPATH=src python benchmarks/confidence_cascade_report.py --check
+
+      - name: Self-consistency signal report (AUROC gate)
+        run: PYTHONPATH=src python benchmarks/self_consistency_signal_report.py --check
+
+      - name: Upload cost + signal reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: confidence-cascade-reports
+          path: |
+            artifacts/confidence_cascade/cost_report.json
+            artifacts/self_consistency/signal_report.json
+          retention-days: 30
+
+  red-team:
+    name: ci/red-team
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Mercury (core) + test tooling
+        run: |
+          python -m pip install --upgrade "pip>=26.1"
+          pip install -e .
+          pip install pytest pytest-asyncio
+
+      - name: Build AMA Cryptography (native PQC)
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v3.2.0
+
+      - name: Red-team harness unit tests (incl. real-gate smoke)
+        run: pytest tests/intel/test_red_team.py -q -p no:cov
+
+      - name: Run harness -> append surviving bypasses to corpus/pending
+        run: PYTHONPATH=src python benchmarks/red_team_harness.py
+
+      - name: No-weakening survival-rate gate
+        run: PYTHONPATH=src python benchmarks/red_team_harness.py --check --no-append
+
+      - name: Confirm survivors appended with metadata
+        run: |
+          python - <<'PY'
+          import json, pathlib
+          p = pathlib.Path("corpus/pending/red_team_survivors.jsonl")
+          rows = [json.loads(l) for l in p.read_text().splitlines() if l.strip()] if p.is_file() else []
+          print(f"corpus/pending survivors: {len(rows)}")
+          for r in rows[:3]:
+              assert r["label"] == "offensive" and r["split"] == "pending", r
+              assert "red_team" in r["tags"] and r["red_team"]["id"], r
+          print("survivor schema + metadata OK")
+          PY
+
+      - name: Upload red-team run summary + survivors
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: red-team-run
+          path: |
+            artifacts/red_team/run_summary.json
+            corpus/pending/red_team_survivors.jsonl
+          retention-days: 30
+
+  verifier-integration:
+    name: ci/verifier-integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Mercury (core) + test tooling
+        run: |
+          python -m pip install --upgrade "pip>=26.1"
+          pip install -e .
+          pip install pytest pytest-asyncio
+
+      - name: Build AMA Cryptography (native PQC)
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v3.2.0
+
+      - name: Verifier-in-the-loop gating tests (Collatz/primality/propositional/physics)
+        run: >-
+          pytest
+          tests/intel/test_verifier_loop.py
+          tests/intel/test_propositional_claims.py
+          tests/intel/test_provenance.py
+          tests/test_mcp_server.py
+          -q -p no:cov
+
+      - name: Hard-mode blocking must fire on refuted claims
+        env:
+          MERCURY_VERIFIER_MODE: hard
+        run: |
+          PYTHONPATH=src python - <<'PY'
+          from omni_mercury_engine.intel.verifier_loop import VerifierLoop, VerifierMode, false_claim_block_rate
+          false_claims = [
+              "91 is prime.",
+              "The Collatz sequence of 27 never reaches 1.",
+              "P and not P is a tautology.",
+              "E = mc is dimensionally consistent.",
+          ]
+          rate = false_claim_block_rate(VerifierLoop(mode=VerifierMode.HARD), false_claims)
+          assert rate == 1.0, f"hard-mode block rate {rate} != 1.0"
+          print("verifier hard-mode block rate = 1.0 (all refuted claims blocked)")
+          PY

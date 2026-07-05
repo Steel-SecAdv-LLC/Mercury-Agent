@@ -15,7 +15,7 @@ Per-domain precision/recall analysis from real benchmark data.
 > former pre-fix AUC ≈ 0 is corrected in v1.7.0
 > (`FEMADisasterLoader._select_anomaly_polarity` enforces the
 > minority-as-anomaly convention); the committed run reflects the
-> corrected score (disaster AUC 0.9999).
+> corrected score (disaster AUC 0.9993).
 
 ## Data Source
 

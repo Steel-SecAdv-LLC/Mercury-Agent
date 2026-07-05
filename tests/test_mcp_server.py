@@ -14,6 +14,7 @@ import json
 from typing import TYPE_CHECKING
 
 import numpy as np
+import pytest
 
 from omni_mercury_engine.agentic.capabilities.web_research import SearchResult, WebResearcher
 
@@ -186,6 +187,65 @@ class TestToolCalls:
         assert payload["available"] is True
         assert payload["document"]
 
+    def test_intel_tools_are_selectable(self) -> None:
+        """The intel streams are advertised as first-class, discoverable MCP tools."""
+        server = MercuryMCPServer()
+        names = {t["name"] for t in server.manifest()}
+        assert {
+            "mercury_verify_claims",
+            "mercury_check_provenance",
+            "mercury_self_consistency",
+            "mercury_value_metrics",
+        } <= names
+
+    def test_verify_claims_refutes_false_symbolic_claim(self) -> None:
+        server = MercuryMCPServer()
+        result = _call(
+            server,
+            "mercury_verify_claims",
+            {"text": "Note that 91 is prime, a well-known fact."},
+        )
+        payload = json.loads(result["content"][0]["text"])
+        assert payload["allowed"] is False  # hard mode blocks a refuted claim
+        assert payload["n_refuted"] >= 1
+        assert any(
+            v["kind"] == "primality" and v["status"] == "refuted" for v in payload["verdicts"]
+        )
+
+    def test_answer_emission_is_verifier_guarded(self, monkeypatch: Any) -> None:
+        """A research/answer emission carrying an oracle-refuted claim is blocked live."""
+        server = MercuryMCPServer(assistant=_online_assistant())
+        # Force the assistant's answer to carry a refutable claim, then confirm
+        # the MCP emission guard (hard mode) blocks it rather than emitting it.
+        monkeypatch.setattr(
+            server._research_assistant(),
+            "answer",
+            lambda question, **kw: "The number 91 is prime.",
+        )
+        result = _call(server, "mercury_answer", {"question": "is 91 prime?"})
+        assert result["isError"] is True
+        assert "verifier" in result["content"][0]["text"].lower()
+
+    def test_answer_emission_soft_mode_flags_not_blocks(self, monkeypatch: Any) -> None:
+        server = MercuryMCPServer(assistant=_online_assistant())
+        monkeypatch.setenv("MERCURY_VERIFIER_MODE", "soft")
+        monkeypatch.setattr(
+            server._research_assistant(),
+            "answer",
+            lambda question, **kw: "The number 91 is prime.",
+        )
+        result = _call(server, "mercury_answer", {"question": "is 91 prime?"})
+        assert result["isError"] is False  # soft mode annotates, does not block
+        payload = json.loads(result["content"][0]["text"])
+        assert payload.get("verifier_flags")
+
+    def test_value_metrics_board_is_served(self) -> None:
+        server = MercuryMCPServer()
+        result = _call(server, "mercury_value_metrics", {})
+        payload = json.loads(result["content"][0]["text"])
+        assert "closed_feedback_loop" in payload["streams"]
+        assert payload["streams"]["verifier_in_loop"]["target"] == 1.0
+
     def test_unknown_tool_is_error_result(self) -> None:
         server = MercuryMCPServer()
         result = _call(server, "mercury_nonexistent", {})
@@ -262,3 +322,104 @@ class TestMalformedInputHardening:
         # A malformed *request* (has an id) still gets an error.
         bad_req = server.handle_message({"jsonrpc": "1.0", "id": 7})
         assert bad_req is not None and bad_req["error"]["code"] == -32600
+
+
+def _boom_guard(self: object, text: str, *, source: str = "generation") -> object:
+    """A verifier that raises at runtime (a bug), not one that is unavailable."""
+    raise RuntimeError("verifier exploded")
+
+
+class TestGuardEmissionFailClosed:
+    """A verifier *runtime* fault must fail closed, never silently disable gating."""
+
+    def test_runtime_error_fails_closed_in_hard_mode(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from omni_mercury_engine.intel import verifier_loop as vl
+
+        monkeypatch.setenv("MERCURY_VERIFIER_MODE", "hard")
+        monkeypatch.setattr(vl.VerifierLoop, "guard_emission", _boom_guard)
+        guard = MercuryMCPServer._guard_emission("2 is prime.", source="unit")
+        assert guard["allowed"] is False  # emission blocked, not emitted ungated
+        assert guard["mode"] == "verifier_error"
+        assert guard["blocked"]  # the fault surfaces as a block, not silence
+
+    def test_runtime_error_soft_mode_flags_but_allows(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from omni_mercury_engine.intel import verifier_loop as vl
+
+        monkeypatch.setenv("MERCURY_VERIFIER_MODE", "soft")
+        monkeypatch.setattr(vl.VerifierLoop, "guard_emission", _boom_guard)
+        guard = MercuryMCPServer._guard_emission("2 is prime.", source="unit")
+        assert guard["allowed"] is True  # soft mode never blocks...
+        assert guard["mode"] == "verifier_error_soft"
+        assert guard["flagged"]  # ...but the fault is flagged, not swallowed
+
+    def test_clean_verifier_still_blocks_a_false_claim_in_hard_mode(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Sanity: with no injected fault, a genuinely refuted claim still blocks
+        # (default mode is hard) -- the fail-closed change did not weaken gating.
+        monkeypatch.delenv("MERCURY_VERIFIER_MODE", raising=False)
+        guard = MercuryMCPServer._guard_emission("91 is prime.", source="unit")
+        assert guard["allowed"] is False  # 91 = 7*13 -> refuted -> blocked
+
+
+class TestGuardEmissionImportHandling:
+    """Only a *missing module* degrades to allow; a symbol-import bug fails closed."""
+
+    def test_module_not_found_degrades_to_unavailable(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import builtins
+
+        real_import = builtins.__import__
+
+        def _fake(name: str, *a: object, **k: object) -> object:
+            if name == "omni_mercury_engine.intel.verifier_loop":
+                raise ModuleNotFoundError(
+                    "No module named 'omni_mercury_engine.intel.verifier_loop'"
+                )
+            return real_import(name, *a, **k)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(builtins, "__import__", _fake)
+        guard = MercuryMCPServer._guard_emission("2 is prime.", source="unit")
+        assert guard["allowed"] is True and guard["mode"] == "unavailable"
+
+    def test_symbol_import_error_fails_closed(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import builtins
+
+        real_import = builtins.__import__
+
+        def _fake(name: str, *a: object, **k: object) -> object:
+            if name == "omni_mercury_engine.intel.verifier_loop":
+                raise ImportError("cannot import name 'VerifierMode'")  # a bug, not unavailability
+            return real_import(name, *a, **k)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(builtins, "__import__", _fake)
+        # Not downgraded to "unavailable": it propagates (emission blocked at call_tool).
+        with pytest.raises(ImportError):
+            MercuryMCPServer._guard_emission("2 is prime.", source="unit")
+
+
+class TestCheckProvenanceVerifiedType:
+    """`verified` is validated as a real bool, not truthiness-coerced (a truthy
+    string like "false" must not be read as True on a hazardous boundary)."""
+
+    def test_string_false_is_rejected_not_treated_as_true(self) -> None:
+        server = MercuryMCPServer()
+        result = _call(
+            server,
+            "mercury_check_provenance",
+            {"text": "a benign claim", "sources": ["s1"], "verified": "false"},
+        )
+        assert result["isError"] is True
+        assert "boolean" in result["content"][0]["text"].lower()
+
+    def test_bool_verified_is_accepted(self) -> None:
+        server = MercuryMCPServer()
+        result = _call(
+            server,
+            "mercury_check_provenance",
+            {"text": "a benign claim", "sources": ["s1"], "verified": True},
+        )
+        assert result["isError"] is False

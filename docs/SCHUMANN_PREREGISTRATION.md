@@ -91,16 +91,16 @@ NOAA), sweeping **optimisation regime** × **objective** over 6 seeds:
 | regime | objective | per-seed AUC | collapse rate |
 |---|---|---|---|
 | **full-batch** | sigmoid+BCELoss (historical) | `[1,1,0.37,0.75,0.90,1]` | 0.17 |
-| **full-batch** | logits+BCEWithLogitsLoss | `[1,1,0.35,0.66,0.88,1]` | 0.17 |
-| full-batch | sigmoid, lr 3e-4 | `[1,1,0.03,1.0,0.83,1]` | 0.17 |
+| **full-batch** | logits+BCEWithLogitsLoss | `[1,1,0.24,0.78,0.90,0.99]` | 0.17 |
 | **mini-batch** | sigmoid+BCELoss | `[1,1,1,1,1,1]` | **0.00** |
 | **mini-batch** | logits+BCEWithLogitsLoss | `[1,1,1,1,1,1]` | **0.00** |
 
 **Root cause: the optimisation regime, not the objective, the initialisation, or
 the data.** The original harness trained **full-batch** — one Adam update per
 epoch, ~`epochs` updates total — too few for some seeds' inits to escape a
-sign-inverted basin. The collapse persists under both objectives and *worsens* at
-a lower LR (AUC 0.03), so it is not a saturating-sigmoid or step-size problem.
+sign-inverted basin. The collapse persists under both objectives (sigmoid+BCELoss
+and logits+BCEWithLogitsLoss both collapse one of six seeds), so it is not a
+saturating-sigmoid or objective problem — it is the full-batch regime itself.
 **Mini-batch SGD removes it completely** (every seed → AUC ~1.0). The fix is now
 the default in `schumann_eval.run_seed` (mini-batch + `BCEWithLogitsLoss` on the
 newly-exposed `SchumannHarmonicAnalyzer.confidence_logits`; inference is

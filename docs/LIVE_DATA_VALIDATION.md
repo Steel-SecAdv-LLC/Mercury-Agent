@@ -18,7 +18,7 @@ single source of truth:
   and regenerated on every push to `main`.
 - **CI regression-gate floor (historical): Mean AUC 0.803 / Mean
   Oracle F1 0.589.** The benchmark workflow fails if ROC-AUC drops
-  below 0.68 or Mean Oracle F1 below 0.50 — 15% margins below this
+  below 0.75 or Mean Oracle F1 below 0.55 — ~7% margins below this
   historical measured baseline (see `.github/workflows/benchmark.yml`).
 - **Externally-comparable subset: ADBench Mean AUC 0.8251** — the
   numbers comparable to published detectors (the self-labeled
@@ -42,7 +42,8 @@ python benchmarks/mercury_benchmark.py
 # Results saved to benchmarks/mercury_benchmark_results.json
 ```
 
-The benchmark caches downloaded datasets in `~/.omni_mercury/datasets/`.
+The benchmark writes downloaded datasets to `./data` and caches under
+`./cache` (overridable via `MERCURY_DATA_DIR` / `MERCURY_CACHE_DIR`).
 Subsequent runs are faster.
 
 ## Dataset Categories
@@ -109,7 +110,7 @@ python benchmarks/mercury_benchmark.py
 **Fix:** Clear the dataset cache:
 
 ```bash
-rm -rf ~/.omni_mercury/datasets/
+rm -rf ./data ./cache
 python benchmarks/mercury_benchmark.py
 ```
 
@@ -144,8 +145,8 @@ appropriate timeouts in `.github/workflows/benchmark.yml`. If timeouts occur:
 
 The benchmark runs in CI via `.github/workflows/benchmark.yml` with regression gates:
 
-- `MIN_ROC_AUC: 0.68` (15% margin from measured 0.803)
-- `MIN_F1: 0.50` (15% margin from measured 0.589)
+- `MIN_ROC_AUC: 0.75` (~7% margin from measured 0.803)
+- `MIN_F1: 0.55` (~7% margin from measured 0.589)
 - `MERCURY_ALLOW_SYNTHETIC: false` (no synthetic data fallbacks)
 
 A PR that degrades detection performance below these thresholds will fail CI.

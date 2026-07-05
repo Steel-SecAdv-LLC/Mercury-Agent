@@ -4,8 +4,8 @@
 
 | Property | Value |
 |----------|-------|
-| Document Version | 2.6 |
-| Last Updated | 2026-05-22 |
+| Document Version | 2.7 |
+| Last Updated | 2026-06-17 |
 | Classification | Public |
 | Maintainer | Steel Security Advisors LLC |
 | Applies to | Mercury Agent v2.0.x |
@@ -116,8 +116,10 @@ Please **DO NOT** submit pull requests that:
   Plain `pickle.load` / `torch.load(weights_only=False)` is the
   banned surface, not the `.pt` extension.
 - Add a non-AMA-Cryptography PQC backend (PR #144 made AMA
-  Cryptography the **sole** PQC backend; Mercury hard-requires it
-  under `AMA_REQUIRE_REAL_PQC=true`, pinned to `v3.2.0` in
+  Cryptography the **sole** PQC backend; the import-time gate in
+  `_pqc_gate.py` is unconditional — `AMA_REQUIRE_REAL_PQC` is retained
+  only for diagnostics and no longer disables the gate. Pinned to
+  `v3.2.0` via the `ama-ref` input in
   `.github/workflows/pqc-production-check.yml` and
   `pyproject.toml [project.optional-dependencies].pqc`)
 - Restore the `SafeHTTPClient(..., allow_untrusted=True)` kwarg

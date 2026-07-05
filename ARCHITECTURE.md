@@ -163,7 +163,7 @@ Input Data (n_samples,) or (n_samples, n_features)
 - Every detection traces to a specific mathematical violation
 - All scores normalized to [0, 1] with NaN-free guarantees
 - Fail-open design: uncalibrated decorrelator proceeds with unmodified weights
-- 83 tests covering all probes, fusion, and decorrelation
+- 113 tests covering all probes, fusion, and decorrelation
 
 ### 4. Quantum-Enhanced Directive Detector
 
@@ -850,7 +850,7 @@ anchors, and design contract live in
 
 ### Docker Container
 
-The shipped `Dockerfile` is a two-stage build on `python:3.13-slim-trixie`: a `builder` stage compiles dependencies (including the AMA Cryptography native PQC library), and the default `runtime` stage copies the built virtualenv, strips SUID/SGID bits, and runs as the non-root `mercuryagent` user (UID 1000). The default entrypoint serves the FastAPI inference API. Trivy scans the built image in CI with `severity: CRITICAL,HIGH`, `ignore-unfixed: false`, and `exit-code: 1`, applying the enumerated, expiring accepted-risk ledger in [`.trivyignore`](.trivyignore) (`.github/workflows/ci.yml`; ledger contract in [SECURITY.md](SECURITY.md)). See the README "Docker Quick Start" section for usage modes.
+The shipped `Dockerfile` is a two-stage build on `python:3.14-slim-trixie`: a `builder` stage compiles dependencies (including the AMA Cryptography native PQC library), and the default `runtime` stage copies the built virtualenv, strips SUID/SGID bits, and runs as the non-root `mercuryagent` user (UID 1000). The default entrypoint serves the FastAPI inference API. Trivy scans the built image in CI with `severity: CRITICAL,HIGH`, `ignore-unfixed: false`, and `exit-code: 1`, applying the enumerated, expiring accepted-risk ledger in [`.trivyignore`](.trivyignore) (`.github/workflows/ci.yml`; ledger contract in [SECURITY.md](SECURITY.md)). See the README "Docker Quick Start" section for usage modes.
 
 ### API Endpoint (FastAPI)
 
@@ -939,7 +939,7 @@ conda install -c conda-forge qutip
 
 ### Unit Tests
 
-The test-module count is measured and CI-gated in the README [Codebase Scale block](README.md) (437 `test_*.py` modules as of 2026-06-19).
+The test-module count is measured and CI-gated in the README [Codebase Scale block](README.md) (487 `test_*.py` modules as of 2026-07-05).
 
 ```bash
 # Run specific test
@@ -1257,18 +1257,18 @@ The Mercury Agent integrates **30 detection engines** with **12 infrastructure m
 5. **Future-proofing**: Emerging technology monitoring across 9+ categories
 6. **Sustainable development**: World Bank sector tracking with net-positive impact scoring
 
-### System Scale (measured 2026-06-17 by `scripts/measure_codebase_scale.py`; CI-gated in the README [Codebase Scale block](README.md)):
-- **48 top-level subpackages** under `src/omni_mercury_engine/`
+### System Scale (measured 2026-07-05 by `scripts/measure_codebase_scale.py`; CI-gated in the README [Codebase Scale block](README.md)):
+- **49 top-level subpackages** under `src/omni_mercury_engine/`
   (agentic, alerting, anomaly, api, automl, biometric, cognitive,
   comparison, compliance, core, crypto, data, data_sources, datasets,
   decision, detectors, distributed, emergent, energy, ethical,
   evaluation, explainability, federated_learning, federation,
-  governance, gui, harmonics, infrastructure, integrations, loaders,
-  medical, metrics, ml, models, narrative, ocean, quantum_computing,
-  reasoning, resilience, safeguards, scaling, security, space, streaming,
-  tools, utils, validation, verifiers)
-- **~320,000 LOC** in `src/omni_mercury_engine/` (632 source files)
-- **437 test modules** under `tests/`; 8,789 tests collected with the
+  governance, gui, harmonics, infrastructure, integrations, intel,
+  loaders, medical, metrics, ml, models, narrative, ocean,
+  quantum_computing, reasoning, resilience, safeguards, scaling,
+  security, space, streaming, tools, utils, validation, verifiers)
+- **~340,000 LOC** in `src/omni_mercury_engine/` (674 source files)
+- **487 test modules** under `tests/`; 8,789 tests collected with the
   full optional-dependency surface (`pytest --collect-only -q`,
   2026-06-10) — fewer on a minimal install because optional-import-gated
   modules skip. See the README "Testing and Quality Assurance" section

@@ -28,7 +28,7 @@ off-path/quarantine contract.
 
 | Module | Dataset (provenance) | Seed(s) | Metric | Artifact | Tests | Off-path / quarantine contract | Status |
 |---|---|---|---|---|---|---|---|
-| `label_provenance (WS-A leak gate)` | all 38 dataset loaders | — | circular-label audit | registry in-module | `test_label_provenance_gate` (11) | repo-wide; CI `--check` | **ACTIVE (gate)** |
+| `label_provenance (WS-A leak gate)` | all 40 dataset loaders | — | circular-label audit | registry in-module | `test_label_provenance_gate` (11) | repo-wide; CI `--check` | **ACTIVE (gate)** |
 | `ablation_guard (WS-B confound guard)` | paired ablation AUCs | — | inverted-ranking detection | wired into both ablations | `test_ablation_guard` (10) | forces QUARANTINE on confound | **ACTIVE (gate)** |
 | `event_coincidence (WS-D null-test)` | any score stream + event catalog | permutation null | pre-registered p, FDR/Bonferroni | `spaceweather_coincidence.json` | `test_event_coincidence` (offline) | pre-registered; honest null | **ACTIVE (gate)** |
 

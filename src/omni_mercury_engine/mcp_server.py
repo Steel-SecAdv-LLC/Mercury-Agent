@@ -257,6 +257,98 @@ class MercuryMCPServer:
                 },
                 handler=self._tool_calibrate_confidence,
             ),
+            ToolSpec(
+                name="mercury_verify_claims",
+                description=(
+                    "Route the checkable claims in a text through Mercury's oracle-"
+                    "validated verifiers (primality, Collatz, propositional "
+                    "tautology/SAT via a Tseitin->DPLL transform, and physics "
+                    "dimensional consistency) and return a per-claim verdict "
+                    "(confirmed/refuted/unavailable). This is the verifier-in-the-"
+                    "loop that gates Mercury's own research/answer emissions."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "text": {"type": "string", "description": "Text to scan for claims."}
+                    },
+                    "required": ["text"],
+                },
+                handler=self._tool_verify_claims,
+            ),
+            ToolSpec(
+                name="mercury_check_provenance",
+                description=(
+                    "Enforce provenance at the output boundary: decide whether a "
+                    "candidate emission on a (possibly hazardous) topic may be "
+                    "emitted given its cited sources, using Mercury's own "
+                    "weapons/mass-casualty gate to decide when attribution is "
+                    "required. Returns whether it is emitted, whether the boundary "
+                    "enforced (withheld/redacted), and the mode."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "text": {"type": "string", "description": "The emission text."},
+                        "sources": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Source identifiers/citations carried with the text.",
+                        },
+                        "verified": {
+                            "type": "boolean",
+                            "description": "Whether the sources were independently checked.",
+                        },
+                    },
+                    "required": ["text"],
+                },
+                handler=self._tool_check_provenance,
+            ),
+            ToolSpec(
+                name="mercury_self_consistency",
+                description=(
+                    "Score N sampled reasoning-path answers for disagreement and "
+                    "apply the calibrated decision rule (widen confidence toward "
+                    "0.5 with disagreement, abstain when the paths are too split). "
+                    "Returns the plurality answer, a disagreement in [0,1], and the "
+                    "decision (positive/negative/abstain)."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "answers": {
+                            "type": "array",
+                            "description": "The sampled reasoning-path answers to vote over.",
+                        },
+                        "prob": {
+                            "type": "number",
+                            "description": "Optional base calibrated probability for the decision.",
+                            "minimum": 0.0,
+                            "maximum": 1.0,
+                        },
+                    },
+                    "required": ["answers"],
+                },
+                handler=self._tool_self_consistency,
+            ),
+            ToolSpec(
+                name="mercury_value_metrics",
+                description=(
+                    "Return Mercury's intelligence-layer value board: each stream's "
+                    "declared, measured value metric with its baseline, target, and "
+                    "direction (the single source of truth the CI lanes enforce)."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "stream": {
+                            "type": "string",
+                            "description": "Optional single stream to return; omit for all.",
+                        }
+                    },
+                },
+                handler=self._tool_value_metrics,
+            ),
         ]
         self._tools = {s.name: s for s in specs}
 
@@ -330,7 +422,19 @@ class MercuryMCPServer:
             raise ToolError("'query' must be a non-empty string")
         max_sources = int(args.get("max_sources", 5))
         report = self._research_assistant().research_report(query, max_sources=max_sources)
-        return json.dumps(report.to_dict())
+        out = report.to_dict()
+        # Verifier-in-the-loop: an extractive report can still surface a source's
+        # oracle-refutable claim ("91 is prime", "the Collatz sequence of 27 never
+        # reaches 1"). Guard the emitted text; in hard mode a refuted claim blocks
+        # the report, in soft mode it is flagged. Unavailable checks never block.
+        if report.available and not report.refused:
+            emitted = " ".join(t for t in (out.get("summary", ""), out.get("document") or "") if t)
+            guard = self._guard_emission(emitted, source="mercury_research")
+            if not guard["allowed"]:
+                raise ToolError(_verifier_block_message(guard["blocked"]))
+            if guard["flagged"]:
+                out["verifier_flags"] = guard["flagged"]
+        return json.dumps(out)
 
     def _tool_answer(self, args: dict[str, Any]) -> str:
         question = args.get("question")
@@ -338,7 +442,197 @@ class MercuryMCPServer:
             raise ToolError("'question' must be a non-empty string")
         max_sources = int(args.get("max_sources", 3))
         answer = self._research_assistant().answer(question, max_sources=max_sources)
-        return json.dumps({"question": question, "answer": answer})
+        # Guard the emitted answer the same way as a research report.
+        guard = self._guard_emission(answer, source="mercury_answer")
+        if not guard["allowed"]:
+            raise ToolError(_verifier_block_message(guard["blocked"]))
+        payload: dict[str, Any] = {"question": question, "answer": answer}
+        if guard["flagged"]:
+            payload["verifier_flags"] = guard["flagged"]
+        return json.dumps(payload)
+
+    @staticmethod
+    def _guard_emission(text: str, *, source: str) -> dict[str, Any]:
+        """Route a candidate emission through the verifier-in-the-loop.
+
+        Returns ``{"allowed", "mode", "blocked", "flagged"}``. In ``hard`` mode a
+        single oracle-refuted claim yields ``allowed=False`` with the refuted
+        claims in ``blocked``; in ``soft`` mode they are returned in ``flagged``
+        and the emission is allowed.
+
+        Degradation is scoped precisely so a runtime fault can **never silently
+        disable gating**:
+
+        * If the verifier stack is genuinely **unavailable** -- a slim install
+          where the module does not import -- the guard degrades honestly to allow
+          (``mode="unavailable"``): an *unavailable* check never blocks (the loop
+          refutes, it never guesses).
+        * If the stack imports but the verifier **raises at runtime** (a bug, an
+          oracle crash), that is *not* unavailability. Failing open there would
+          silently turn hard-mode gating off, so the guard **fails closed**: it
+          blocks in ``hard`` mode (surfacing the fault as a refusal,
+          ``mode="verifier_error"``) and allow-but-flags in ``soft`` mode (whose
+          contract is annotate-and-allow, ``mode="verifier_error_soft"``).
+        """
+        if not text or not text.strip():
+            return {"allowed": True, "mode": "empty", "blocked": [], "flagged": []}
+        # Genuine unavailability is a *missing module* only, so catch just
+        # ModuleNotFoundError (the slim-install case). A broader ImportError --
+        # e.g. "cannot import name VerifierMode" -- is a verifier bug, not
+        # unavailability, and must fail closed rather than masquerade as
+        # "unavailable" and disable gating; left uncaught it propagates to
+        # call_tool, which surfaces it as an error (emission blocked).
+        try:
+            from omni_mercury_engine.intel.verifier_loop import VerifierLoop, VerifierMode
+        except ModuleNotFoundError as exc:  # pragma: no cover - slim-install path
+            logger.info(
+                "verifier-in-the-loop unavailable (slim install); emission not gated (%s)", exc
+            )
+            return {"allowed": True, "mode": "unavailable", "blocked": [], "flagged": []}
+        try:
+            decision = VerifierLoop().guard_emission(text, source=source)
+        except Exception:
+            # A runtime fault in an *importable* verifier is a bug, not
+            # unavailability -- fail closed rather than emit ungated.
+            logger.exception(
+                "verifier-in-the-loop runtime failure guarding %s; failing closed", source
+            )
+            err_claim = {
+                "kind": "verifier_error",
+                "claim_text": "",
+                "status": "unavailable",
+                "reason": "verifier-in-the-loop runtime failure (failing closed)",
+                "checker": "verifier_loop",
+            }
+            if VerifierMode.from_env() is VerifierMode.HARD:
+                return {
+                    "allowed": False,
+                    "mode": "verifier_error",
+                    "blocked": [err_claim],
+                    "flagged": [],
+                }
+            return {
+                "allowed": True,
+                "mode": "verifier_error_soft",
+                "blocked": [],
+                "flagged": [err_claim],
+            }
+        return {
+            "allowed": decision.allowed,
+            "mode": decision.mode.value,
+            "blocked": [c.as_dict() for c in decision.blocked_claims],
+            "flagged": [c.as_dict() for c in decision.flagged_claims],
+        }
+
+    @staticmethod
+    def _tool_verify_claims(args: dict[str, Any]) -> str:
+        text = args.get("text")
+        if not isinstance(text, str) or not text.strip():
+            raise ToolError("'text' must be a non-empty string")
+        try:
+            from omni_mercury_engine.intel.verifier_loop import VerifierLoop
+        except Exception as exc:  # pragma: no cover - slim-install path
+            raise ToolError(f"verifier stack unavailable in this environment: {exc}") from exc
+        decision = VerifierLoop().guard_emission(text, source="mercury_verify_claims")
+        return json.dumps(
+            {
+                "allowed": decision.allowed,
+                "mode": decision.mode.value,
+                "n_claims": len(decision.verdicts),
+                "n_refuted": len(decision.refuted),
+                "verdicts": [v.as_dict() for v in decision.verdicts],
+                "blocked": [c.as_dict() for c in decision.blocked_claims],
+            }
+        )
+
+    @staticmethod
+    def _tool_check_provenance(args: dict[str, Any]) -> str:
+        text = args.get("text")
+        if not isinstance(text, str) or not text.strip():
+            raise ToolError("'text' must be a non-empty string")
+        sources = args.get("sources") or []
+        if not isinstance(sources, list) or not all(isinstance(s, str) for s in sources):
+            raise ToolError("'sources' must be an array of strings")
+        # Validate the type rather than truthiness-coerce: ``verified`` asserts a
+        # safety-relevant fact (the sources were independently checked) on a
+        # possibly-hazardous boundary. ``bool(args.get("verified"))`` would treat a
+        # non-bool truthy value -- notably the JSON string ``"false"`` -- as True,
+        # wrongly asserting verification. The schema declares a boolean; enforce it
+        # (fail closed on anything else) so a caller can never smuggle a truthy
+        # non-bool into the "verified" attestation.
+        verified = args.get("verified", False)
+        if not isinstance(verified, bool):
+            raise ToolError("'verified' must be a boolean (true or false)")
+        try:
+            from omni_mercury_engine.intel.provenance import (
+                Provenance,
+                ProvenanceOrigin,
+                enforce_at_boundary,
+            )
+        except Exception as exc:  # pragma: no cover - slim-install path
+            raise ToolError(f"provenance stack unavailable in this environment: {exc}") from exc
+        prov = Provenance(
+            origin=ProvenanceOrigin.EXTRACTIVE, sources=tuple(sources), verified=verified
+        )
+        decision = enforce_at_boundary(
+            text, text=text, provenance=prov, source="mercury_check_provenance"
+        )
+        return json.dumps(decision.as_dict())
+
+    @staticmethod
+    def _tool_self_consistency(args: dict[str, Any]) -> str:
+        from collections import Counter
+
+        answers = args.get("answers")
+        if not isinstance(answers, list) or not answers:
+            raise ToolError("'answers' must be a non-empty array")
+        try:
+            from omni_mercury_engine.intel.self_consistency import (
+                self_consistency_decision,
+                vote_disagreement,
+            )
+        except Exception as exc:  # pragma: no cover - slim-install path
+            raise ToolError(f"self-consistency stack unavailable: {exc}") from exc
+        # Votes must be hashable; coerce structured answers to a canonical string.
+        votes = [
+            json.dumps(a, sort_keys=True) if isinstance(a, (dict, list)) else a for a in answers
+        ]
+        disagreement = vote_disagreement(votes)
+        top, top_count = Counter(votes).most_common(1)[0]
+        result: dict[str, Any] = {
+            "n_samples": len(votes),
+            "plurality_answer": top,
+            "disagreement": round(float(disagreement), 6),
+            "agreement": round(1.0 - float(disagreement), 6),
+            "plurality_vote_fraction": round(top_count / len(votes), 6),
+        }
+        prob = args.get("prob")
+        if prob is not None:
+            try:
+                dec = self_consistency_decision(float(prob), float(disagreement))
+            except (TypeError, ValueError) as exc:
+                raise ToolError(f"'prob' must be a number in [0,1]: {exc}") from exc
+            result["decision"] = {
+                "decision": dec.decision,
+                "widened_prob": round(float(dec.widened_prob), 6),
+                "abstained": dec.abstained,
+            }
+        return json.dumps(result)
+
+    @staticmethod
+    def _tool_value_metrics(args: dict[str, Any]) -> str:
+        from omni_mercury_engine.intel.value_metrics import VALUE_METRICS, get_value_metric
+
+        stream = args.get("stream")
+        if stream:
+            if not isinstance(stream, str):
+                raise ToolError("'stream' must be a string")
+            try:
+                metric = get_value_metric(stream)
+            except KeyError as exc:
+                raise ToolError(str(exc)) from exc
+            return json.dumps(metric.as_dict())
+        return json.dumps({"streams": {k: v.as_dict() for k, v in VALUE_METRICS.items()}})
 
     def _tool_write_document(self, args: dict[str, Any]) -> str:
         from omni_mercury_engine.agentic.capabilities.document_generator import Section
@@ -510,6 +804,15 @@ class MercuryMCPServer:
     @staticmethod
     def _error(msg_id: Any, code: int, message: str) -> dict[str, Any]:
         return {"jsonrpc": "2.0", "id": msg_id, "error": {"code": code, "message": message}}
+
+
+def _verifier_block_message(blocked: list[dict[str, Any]]) -> str:
+    """Human-readable reason a verifier-in-the-loop refused an emission."""
+    reasons = "; ".join(str(c.get("reason") or c.get("claim_text", "")) for c in blocked)
+    return (
+        f"verifier-in-the-loop blocked this emission: {len(blocked)} oracle-refuted "
+        f"claim(s): {reasons}. Set MERCURY_VERIFIER_MODE=soft to flag instead of block."
+    )
 
 
 def _server_version() -> str:

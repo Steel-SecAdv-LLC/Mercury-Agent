@@ -1,0 +1,32 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Red-team adversarial co-training config (MERCURY_RED_TEAM_CONFIG).
+#
+# The generator applies these deterministic mutation strategies (and ordered
+# chains up to `max_chain`) to each offensive seed, then re-scores the mutation
+# through the shipped weapons/mass-casualty gate. A mutation that flips a
+# should-block seed to an ALLOW disposition is a surviving bypass, appended to
+# `pending_path` with triage metadata for the closed-loop labeling pipeline.
+#
+# See docs/RED_TEAM_OPERATION_GUIDE.md for the operator workflow.
+
+# Mutation strategies to apply (names must exist in
+# omni_mercury_engine.intel.red_team.MUTATIONS).
+mutations:
+  - leetspeak            # a->4 e->3 i->1 o->0 s->5
+  - char_spacing         # space out words > 3 chars (dominant bypass class)
+  - punctuation_injection  # s.a.r.i.n
+  - homoglyph            # Cyrillic look-alikes
+  - benign_framing       # fiction/hypothetical wrapper
+
+# Maximum mutation-chain length (1 = singles only, 2 = singles + ordered pairs).
+max_chain: 2
+
+# Offensive seeds. Either an inline list of prompt strings, or a path (relative
+# to the repo root) to a JSONL corpus whose `label == "offensive"` rows are used.
+# Omit to use the harness's bundled seed set (intent markers only, no procedures).
+seeds: benchmarks/weapons_gate_adversarial.jsonl
+
+# Where surviving bypasses are appended (relative to the repo root).
+pending_path: corpus/pending/red_team_survivors.jsonl

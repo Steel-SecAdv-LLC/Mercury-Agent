@@ -103,7 +103,12 @@ except ImportError:
 class FusionMode(Enum):
     """Fusion modes for neuro-symbolic integration.
 
-    FIBRING is the named default and composes three already-present
+    CONJUNCTIVE is the constructor default (see ``NeuroSymbolicHub`` and
+    ``create_neurosymbolic_hub``): a weighted geometric mean in which both the
+    neural and the undiluted symbolic score must agree for a high fused score,
+    so a confident symbolic veto cannot be averaged away.
+
+    FIBRING remains a valid explicit mode; it composes three already-present
     primitives — Phi-weighted base, correlation-aware decorrelation
     (running window), and per-domain affinity bias — into a single
     NSAI-taxonomy-faithful mode. See ``core.fibring_fusion.FibringComposer``.

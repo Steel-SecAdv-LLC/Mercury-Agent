@@ -1065,6 +1065,231 @@ def mcp() -> None:
     MercuryMCPServer().serve_stdio()
 
 
+@main.group()
+def intel() -> None:
+    """Mercury intelligence layer: verifier, provenance, feedback loop, red-team, value board.
+
+    Operator surface for the learning + decision-geometry streams -- the same
+    controls the engine wires into its live request/emission path, exposed here
+    so every stream is runnable and selectable (no unselectable options).
+    """
+
+
+@intel.command("verify")
+@click.argument("text")
+@click.option(
+    "--mode",
+    type=click.Choice(["hard", "soft"]),
+    default=None,
+    help="Override MERCURY_VERIFIER_MODE (hard=block, soft=flag).",
+)
+def intel_verify(text: str, mode: str | None) -> None:
+    """Route the checkable claims in TEXT through the oracle verifiers.
+
+    Exits non-zero when a claim is oracle-refuted and the mode is ``hard`` (the
+    emission would be blocked on the live path).
+    """
+    from omni_mercury_engine.intel.verifier_loop import VerifierLoop, VerifierMode
+
+    loop = VerifierLoop(mode=VerifierMode(mode)) if mode else VerifierLoop()
+    decision = loop.guard_emission(text, source="cli")
+    click.echo(json.dumps(decision.as_dict(), indent=2))
+    if not decision.allowed:
+        raise SystemExit(2)
+
+
+@intel.command("provenance")
+@click.argument("text")
+@click.option(
+    "--source", "-s", multiple=True, help="A source/citation carried with TEXT (repeatable)."
+)
+@click.option("--verified", is_flag=True, help="The sources were independently checked.")
+def intel_provenance(text: str, source: tuple[str, ...], verified: bool) -> None:
+    """Enforce provenance at the output boundary for TEXT given its --source citations.
+
+    Uses Mercury's own weapons/mass-casualty gate to decide when attribution is
+    required. Exits non-zero when the boundary withholds the emission.
+    """
+    from omni_mercury_engine.intel.provenance import (
+        Provenance,
+        ProvenanceOrigin,
+        enforce_at_boundary,
+    )
+
+    prov = Provenance(origin=ProvenanceOrigin.EXTRACTIVE, sources=tuple(source), verified=verified)
+    decision = enforce_at_boundary(text, text=text, provenance=prov, source="cli")
+    click.echo(json.dumps(decision.as_dict(), indent=2))
+    if not decision.emitted:
+        raise SystemExit(2)
+
+
+@intel.command("self-consistency")
+@click.argument("answers", nargs=-1, required=True)
+@click.option(
+    "--prob", type=float, default=None, help="Base calibrated probability for the decision rule."
+)
+def intel_self_consistency(answers: tuple[str, ...], prob: float | None) -> None:
+    """Score sampled ANSWERS for disagreement and (with --prob) apply the decision rule."""
+    from collections import Counter
+
+    from omni_mercury_engine.intel.self_consistency import (
+        self_consistency_decision,
+        vote_disagreement,
+    )
+
+    disagreement = vote_disagreement(list(answers))
+    top, top_count = Counter(answers).most_common(1)[0]
+    out: dict[str, Any] = {
+        "n_samples": len(answers),
+        "plurality_answer": top,
+        "disagreement": round(float(disagreement), 6),
+        "agreement": round(1.0 - float(disagreement), 6),
+        "plurality_vote_fraction": round(top_count / len(answers), 6),
+    }
+    if prob is not None:
+        dec = self_consistency_decision(prob, disagreement)
+        out["decision"] = {
+            "decision": dec.decision,
+            "widened_prob": round(float(dec.widened_prob), 6),
+            "abstained": dec.abstained,
+        }
+    click.echo(json.dumps(out, indent=2))
+
+
+@intel.command("value-board")
+@click.option("--json", "as_json", is_flag=True, help="Emit the raw JSON board.")
+def intel_value_board(as_json: bool) -> None:
+    """Print the intelligence-layer value board (each stream's baseline/target)."""
+    from omni_mercury_engine.intel.value_metrics import VALUE_METRICS
+
+    if as_json:
+        click.echo(json.dumps({k: v.as_dict() for k, v in VALUE_METRICS.items()}, indent=2))
+        return
+    for key, metric in VALUE_METRICS.items():
+        arrow = "^" if metric.direction.value == "higher_is_better" else "v"
+        click.echo(
+            f"{key:26s} {metric.metric:34s} "
+            f"baseline={metric.baseline:<7g} target={metric.target:<7g} {arrow} {metric.unit}"
+        )
+
+
+@intel.command("audit-log")
+@click.option(
+    "--path", default=None, help="Gate-audit JSONL path (default: the gate's resolved sink)."
+)
+@click.option("--limit", default=20, type=int, help="Return only the last N labelable events.")
+@click.option(
+    "--decisions",
+    default=None,
+    help="Comma-separated decision filter, e.g. 'refuse_redact,hard_refuse,escalate'.",
+)
+def intel_audit_log(path: str | None, limit: int, decisions: str | None) -> None:
+    """Dump the live gate-audit log as labelable events (the closed loop's real input).
+
+    Reads the same durable ``gate_decisions.jsonl`` the harm gate writes, so a
+    reviewer sees the gate's actual recent decisions to label -- not synthetic
+    records.
+    """
+    from omni_mercury_engine.intel.feedback_loop import read_audit_log
+
+    dec = {d.strip() for d in decisions.split(",") if d.strip()} if decisions else None
+    events = read_audit_log(path, decisions=dec, limit=limit)
+    click.echo(
+        json.dumps(
+            [
+                {
+                    "ts": e.ts,
+                    "decision": e.decision,
+                    "disposition": e.disposition,
+                    "hazard_domain": e.hazard_domain,
+                    "source": e.source,
+                    "query": e.query,
+                }
+                for e in events
+            ],
+            indent=2,
+        )
+    )
+
+
+@intel.command("rollback")
+@click.option("--staging-dir", required=True, help="Staging registry directory to roll back.")
+def intel_rollback(staging_dir: str) -> None:
+    """One-command rollback of a staged model registry (restore previous, monotonically)."""
+    from omni_mercury_engine.intel.feedback_loop import rollback_staging
+
+    result = rollback_staging(staging_dir)
+    click.echo(json.dumps(result.as_dict(), indent=2))
+    if not result.rolled_back:
+        raise SystemExit(1)
+
+
+@intel.command("red-team")
+@click.option(
+    "--append",
+    is_flag=True,
+    help="Append surviving bypasses to corpus/pending (default: report only).",
+)
+@click.option(
+    "--config", default=None, help="Red-team config YAML (default: configs/red_team.yaml)."
+)
+def intel_red_team(append: bool, config: str | None) -> None:
+    """Run the adversarial red-team harness against the LIVE harm gate.
+
+    Reports the surviving-bypass rate (the ``adversarial_co_training`` value
+    metric) and, with --append, triages survivors into ``corpus/pending``. Exits
+    non-zero if the survival rate exceeds the pinned no-weakening floor.
+    """
+    from omni_mercury_engine.intel.red_team import (
+        RedTeamConfig,
+        append_survivors,
+        run_red_team,
+    )
+    from omni_mercury_engine.intel.value_metrics import get_value_metric
+
+    cfg = RedTeamConfig.load(config) if config else None
+    result = run_red_team(cfg)
+    summary = result.summary()
+    floor = get_value_metric("adversarial_co_training").baseline
+    click.echo(json.dumps(summary, indent=2))
+    if append:
+        n = append_survivors(result.survivors)
+        click.echo(f"appended {n} new surviving bypass(es) to corpus/pending", err=True)
+    rate = result.survival_rate
+    if rate > floor + 1e-9:
+        click.echo(
+            f"FAIL: survival rate {rate:.4f} exceeds no-weakening floor {floor:.4f}", err=True
+        )
+        raise SystemExit(1)
+
+
+@intel.command("cascade")
+def intel_cascade() -> None:
+    """Route the measured cascade workload and report compute saved at bounded accuracy.
+
+    Reuses the same ``evaluate()`` the ``confidence_cascade`` value metric and CI
+    lane use (single source of truth), so the operator sees the real routing
+    outcome -- not a re-derived number. Degrades honestly when run from an
+    installed wheel that does not ship the ``benchmarks`` tree.
+    """
+    import sys
+    from pathlib import Path as _Path
+
+    bench = _Path(__file__).resolve().parents[2] / "benchmarks"
+    if not (bench / "confidence_cascade_report.py").is_file():
+        click.echo(
+            "confidence cascade report unavailable (benchmarks/ not present in this "
+            "install); run from a source checkout.",
+            err=True,
+        )
+        raise SystemExit(1)
+    if str(bench) not in sys.path:
+        sys.path.insert(0, str(bench))
+    import confidence_cascade_report as ccr  # type: ignore[import-not-found]
+
+    click.echo(json.dumps(ccr.evaluate(), indent=2))
+
+
 @main.command()
 @click.option(
     "--input-topic",

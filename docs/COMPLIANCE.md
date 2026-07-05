@@ -145,7 +145,7 @@ hi = compute_heat_index_fahrenheit(temperature_f=95.0, relative_humidity=70.0)
 
 | Symbol | Kind | Purpose |
 |--------|------|---------|
-| `OSHASector` | `Enum` | 6 sectors (construction, healthcare, manufacturing, transportation, agriculture, general industry) |
+| `OSHASector` | `Enum` | 6 sectors (construction, healthcare, manufacturing, maritime, agriculture, general industry) |
 | `HazardCategory` | `Enum` | 12 hazard categories (heat stress, fall, chemical, …) |
 | `ComplianceLevel` | `Enum` | `COMPLIANT`, `MINOR`, `MAJOR`, `CRITICAL` |
 | `OSHAStandard` | dataclass | CFR citation record |

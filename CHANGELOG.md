@@ -27,6 +27,158 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Intelligence layer: closed-loop learning + decision geometry (steel/refinement-mercury-intel)
+
+The learning-and-geometry layer on top of the Tier-0 safety foundation. New
+package `omni_mercury_engine.intel`, six streams, each shipping a **measured
+value metric** (baseline + target, `intel.value_metrics.VALUE_METRICS`; board
+rendered by `benchmarks/intel_value_metrics_report.py`). No stream regresses the
+foundation; every gate is fail-closed.
+
+- **Closed feedback loop (accept-gated).** `intel.feedback_loop`: audit events
+  and human overrides become human-verified labels (`labeling`, reviewer
+  required — anonymous labels refused), stored in a durable, snapshot-hashable
+  queue (`queue`, `MERCURY_FEEDBACK_QUEUE_URL`). A retrain runs only behind three
+  fail-closed gates: a **signed/audited trigger** (`trigger`, HMAC-SHA256 bound
+  to the exact queue snapshot, `MERCURY_RETRAIN_TRIGGER_SECRET`), a **human
+  verification** flag, and an **OOF/adversarial regression gate**
+  (`regression_gate`) that reuses the shipped `rolling_corpus_eval` MARGINS as a
+  merge-blocker on the candidate model — a regressing or data-poisoned candidate
+  is blocked (measured poisoned-candidate block rate 1.0). Accepted candidates
+  are staged (never promoted straight to prod) with a **one-command rollback**
+  (`rollback`, `scripts/mercury_retrain_rollback.py`). End-to-end staging demo:
+  `scripts/closed_loop_demo.py` (`--poisoned` shows the block).
+- **Confidence cascade.** `intel.cascade`: calibrated-uncertainty routing between
+  a cheap template path and a heavy model path, folding in the self-consistency
+  disagreement, with compute-cost/latency instrumentation. Cost-vs-accuracy
+  report `benchmarks/confidence_cascade_report.py` (~64% compute saved at zero
+  accuracy loss on the synthetic workload; target ≥50%).
+- **Self-consistency signal.** `intel.self_consistency`: N-sample reasoning-path
+  sampling and a vote-disagreement uncertainty metric the calibrator consumes
+  (`widen_uncertainty`, `self_consistency_decision` abstains on high
+  disagreement). Disagreement predicts error at AUROC ≈0.86 on held-out
+  (`benchmarks/self_consistency_signal_report.py`; target ≥0.70).
+- **Verifier-in-the-loop.** `intel.verifier_loop`: routes generative claims
+  through the symbolic verifiers (primality, Collatz, propositional, physics) and
+  blocks emission on an oracle-refuted claim (`MERCURY_VERIFIER_MODE=hard|soft`).
+  Propositional claims are decided by the shipped DPLL oracle via a Tseitin CNF
+  transform (`intel.propositional_claims`). Hard-mode false-claim block rate 1.0.
+- **Adversarial co-training.** `intel.red_team` + `benchmarks/red_team_harness.py`:
+  a deterministic paraphrase/obfuscation generator (`configs/red_team.yaml`,
+  `MERCURY_RED_TEAM_CONFIG`) attacks the shipped gate; surviving bypasses are
+  appended to `corpus/pending` with triage metadata for the closed loop. Honest
+  finding: character obfuscation (spacing/punctuation) defeats lexical matching
+  (~0.33 survival rate), pinned as a no-weakening floor
+  (`benchmarks/red_team_baseline.json`).
+- **Provenance-as-type + boundary fallback.** `intel.provenance`: the timeboxed
+  decision ships the ~80%-value fallback — provenance carried as a typed
+  companion (`Provenanced[T]`) and enforced at the output boundary
+  (`enforce_at_boundary` refuses/redacts an unprovenanced provenance-required
+  emission), reusing the gate's own `ALLOW_PROVENANCE` rule for what needs
+  citations. `MERCURY_PROVENANCE_MODE=type|boundary-fallback`; the `type` seed
+  (`require_provenanced`) and the migration plan to full unrepresentability are in
+  `docs/PROVENANCE_MIGRATION_PLAN.md`.
+- **CI.** New `Mercury Intel` workflow with the four required lanes:
+  `ci/closed-loop-integration`, `ci/confidence-cascade`, `ci/red-team`,
+  `ci/verifier-integration` (each builds the native AMA/PQC backend).
+- **Docs.** `docs/RETRAIN_RUNBOOK.md`, `docs/RED_TEAM_OPERATION_GUIDE.md`,
+  `docs/PROVENANCE_MIGRATION_PLAN.md`, `docs/INTEL_VALUE_METRICS.md`.
+- **Tests.** `tests/intel/` (112 tests) covering every stream, incl. corpus-backed
+  regression-gate and end-to-end closed-loop integration (`slow`/`integration`).
+
+#### Live wiring + audit hardening (review round)
+
+De-islanding: the streams above are no longer standalone modules measured only in
+benchmarks — they run on the live request/emission/operator path, and an
+adversarial audit's defects are fixed (no suppression; each fix carries a test).
+
+- **Verifier-in-the-loop is live.** The MCP `mercury_research` / `mercury_answer`
+  emission path now routes its output through the verifier loop — hard mode blocks
+  an oracle-refuted claim, soft mode flags it (`MERCURY_VERIFIER_MODE`),
+  unavailable never blocks. Four streams are exposed as selectable MCP tools
+  (`mercury_verify_claims`, `mercury_check_provenance`, `mercury_self_consistency`,
+  `mercury_value_metrics`) and as a `mercury-agent intel …` CLI group (`verify`,
+  `provenance`, `self-consistency`, `value-board`, `audit-log`, `rollback`,
+  `red-team`, `cascade`).
+- **Feedback loop reads the real gate log.** `feedback_loop.read_audit_log`
+  ingests the actual `gate_decisions.jsonl` the harm gate writes
+  (`gate_audit.default_audit_log_path`), so the loop learns from the gate's real
+  decisions rather than hand-authored records.
+- **Closed-loop safety fixes.** Rollback is monotonic (a repeated rollback is a
+  no-op, never re-arming the superseded model); `staged_refit` reads the queue via
+  a single atomic `snapshot()` (closes a TOCTOU window between the signed hash and
+  the trained rows); the trigger `nonce` is a real single-use anti-replay token
+  (durable `NonceLedger`) and `n_examples` is asserted against the snapshot.
+- **Soundness / fail-open fixes.** Tseitin auxiliary variables are namespaced away
+  from formula variables (a formula naming a variable `_t1` no longer corrupts the
+  CNF); `Provenance.is_adequate` requires an *attributed* origin (a fabricated
+  citation on a synthetic/model-generated origin no longer passes a hazardous
+  boundary) and `enforce_at_boundary` fails closed with no topic signal.
+- **De-theatered value gates.** The value board `--check` requires the target for
+  non-aspirational streams (the baseline-0 `improves_on_baseline` check was
+  vacuous); the adversarial row is measured live; the red-team `--check` drops a
+  bogus 0.02 slack (the rate is deterministic) and catches seed-level weakening
+  (pins `n_skipped_seeds` / `n_candidates`, surfaces `n_downgraded`); the
+  confidence-cascade workload includes a confident-but-wrong slice so the accuracy
+  tolerance gate is load-bearing.
+- **Test isolation.** `tests/intel/conftest` no longer leaks
+  `MERCURY_GATE_AUDIT_DISABLED` into sibling suites (session `os.environ` mutation
+  → function-scoped `monkeypatch`).
+
+#### Bot/AI alert resolution + live meaning-level harm classifier (review round)
+
+Full resolution of the open CodeQL/Copilot alerts against the intel layer — each
+verified against the running code and fixed with a regression test; no
+suppression, no weakening. All CI lanes green on the native AMA backend.
+
+- **CodeQL clear-text logging (secret) — resolved (alerts 900/902/903).**
+  `verify_trigger` now logs an enumerated `reason_code` (a fixed literal), and the
+  human-readable `reason` no longer interpolates the `SECRET_ENV` identifier at
+  all — that name reaches the durable audit sink (which stores it and, on a write
+  failure, logs the whole record), so keeping every secret-named token out of
+  `reason` removes the finding by construction rather than masking it. CodeQL
+  reports 0 alerts. (The failing GitHub-managed `CodeQL` check was the
+  code-scanning *results* check reporting these alerts — **not** a default-vs-
+  advanced-setup conflict: the advanced `security.yml` analysis uploads SARIF
+  cleanly, which GitHub rejects when default setup is enabled, so no repo/settings
+  toggle was needed.)
+- **Verifier emission guard fails closed on runtime faults.** `mcp_server._guard_emission`
+  degrades to *allow* only on genuine unavailability (`ModuleNotFoundError`, the
+  slim-install case); a verifier **runtime** fault now fails **closed** (block in
+  hard mode, flag-allow in soft), and a symbol-level `ImportError` (a verifier bug)
+  propagates rather than masquerading as "unavailable" — a broken verifier can no
+  longer silently disable hard-mode gating.
+- **Provenance `verified` is type-validated.** `mercury_check_provenance` rejects a
+  non-bool `verified` (a truthy string like `"false"` can no longer assert
+  verification on a hazardous boundary).
+- **`NonceLedger` is single-use across processes.** The check-then-append is guarded
+  by an inter-process advisory file lock (`fcntl.flock`) in addition to the
+  in-process lock, so two concurrent *processes* can never both consume the same
+  retrain nonce (a multi-process test pins exactly-one-consumer).
+- **Durable queue tolerates malformed lines and stays self-consistent.** A
+  truncated/corrupt final line (or a valid-JSON-but-non-record line, or a dict
+  missing required fields) is skipped with a warning instead of crashing every
+  read; `dedup`/`pending`/`__len__`/`snapshot` all derive from one defensively-
+  parsed view so their counts can never disagree (a mismatch would refuse a
+  validly-signed trigger). `enqueue_many` reads the dedup ids once and appends the
+  batch under a single lock + fsync — O(n+m), not O(n·m).
+- **Honest types & docstrings.** `SelfConsistencyResult.as_dict` renders the
+  plurality answer as a string (JSON-safe, matching its contract);
+  `CascadeInstrumentation.report` is typed `dict[str, float | int]` (the `n_*`
+  fields are integer counts); `VerifierLoop.guard_emission` audits **every**
+  disposition (pass/block/flag), making "every decision is durably audited" true;
+  the `Sampler` comment no longer implies `self_consistency` auto-selects the
+  continuous `dispersion` path; and the mislabeled `returns_none_for_non_formula`
+  test is split so each name matches its asserted behaviour.
+- **Meaning-level harm classifier proven live.** The weapons-gate routing rescue was
+  confirmed end-to-end with an actual served instruction-tuned model (Qwen2.5-1.5B-
+  Instruct over the Ollama wire protocol on loopback), so `default_harm_classifier()`
+  reports ACTIVE. Measured on the held-out adversarial slice: false negatives
+  **15 → 5 (−67 %; FN-rate 0.517 → 0.172)** with FP held at **0 → 0**; the blocking
+  `test_real_classifier_fn_budget` lane passes under `MERCURY_CI_REQUIRE_REAL_CLASSIFIER=1`.
+  Evidence recorded in `docs/WEAPONS_GATE_ADVERSARIAL_EVAL.md` and the
+  `served_model_real` block of `benchmarks/weapons_gate_adversarial_sample_run.json`.
+
 ### Merge-readiness hardening (PR #315 review round)
 
 A focused pass that reproduced the full CI pipeline locally, closed every red
