@@ -19,7 +19,7 @@ with this canonical envelope:
   "schema": "mercury.tools.<name>/v1",
   "status": "ok" | "warn" | "fail",
   "generated_at": "<RFC3339 UTC>",
-  "mercury_version": "1.7.0",
+  "mercury_version": "<version>",
   "body": { ... tool-specific ... },
   "warnings": [ "..." ]
 }
