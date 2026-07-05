@@ -125,6 +125,60 @@ adversarial audit's defects are fixed (no suppression; each fix carries a test).
   `MERCURY_GATE_AUDIT_DISABLED` into sibling suites (session `os.environ` mutation
   → function-scoped `monkeypatch`).
 
+#### Bot/AI alert resolution + live meaning-level harm classifier (review round)
+
+Full resolution of the open CodeQL/Copilot alerts against the intel layer — each
+verified against the running code and fixed with a regression test; no
+suppression, no weakening. All CI lanes green on the native AMA backend.
+
+- **CodeQL clear-text logging (secret) — resolved (alerts 900/902/903).**
+  `verify_trigger` now logs an enumerated `reason_code` (a fixed literal), and the
+  human-readable `reason` no longer interpolates the `SECRET_ENV` identifier at
+  all — that name reaches the durable audit sink (which stores it and, on a write
+  failure, logs the whole record), so keeping every secret-named token out of
+  `reason` removes the finding by construction rather than masking it. CodeQL
+  reports 0 alerts. (The failing GitHub-managed `CodeQL` check was the
+  code-scanning *results* check reporting these alerts — **not** a default-vs-
+  advanced-setup conflict: the advanced `security.yml` analysis uploads SARIF
+  cleanly, which GitHub rejects when default setup is enabled, so no repo/settings
+  toggle was needed.)
+- **Verifier emission guard fails closed on runtime faults.** `mcp_server._guard_emission`
+  degrades to *allow* only on genuine unavailability (`ModuleNotFoundError`, the
+  slim-install case); a verifier **runtime** fault now fails **closed** (block in
+  hard mode, flag-allow in soft), and a symbol-level `ImportError` (a verifier bug)
+  propagates rather than masquerading as "unavailable" — a broken verifier can no
+  longer silently disable hard-mode gating.
+- **Provenance `verified` is type-validated.** `mercury_check_provenance` rejects a
+  non-bool `verified` (a truthy string like `"false"` can no longer assert
+  verification on a hazardous boundary).
+- **`NonceLedger` is single-use across processes.** The check-then-append is guarded
+  by an inter-process advisory file lock (`fcntl.flock`) in addition to the
+  in-process lock, so two concurrent *processes* can never both consume the same
+  retrain nonce (a multi-process test pins exactly-one-consumer).
+- **Durable queue tolerates malformed lines and stays self-consistent.** A
+  truncated/corrupt final line (or a valid-JSON-but-non-record line, or a dict
+  missing required fields) is skipped with a warning instead of crashing every
+  read; `dedup`/`pending`/`__len__`/`snapshot` all derive from one defensively-
+  parsed view so their counts can never disagree (a mismatch would refuse a
+  validly-signed trigger). `enqueue_many` reads the dedup ids once and appends the
+  batch under a single lock + fsync — O(n+m), not O(n·m).
+- **Honest types & docstrings.** `SelfConsistencyResult.as_dict` renders the
+  plurality answer as a string (JSON-safe, matching its contract);
+  `CascadeInstrumentation.report` is typed `dict[str, float | int]` (the `n_*`
+  fields are integer counts); `VerifierLoop.guard_emission` audits **every**
+  disposition (pass/block/flag), making "every decision is durably audited" true;
+  the `Sampler` comment no longer implies `self_consistency` auto-selects the
+  continuous `dispersion` path; and the mislabeled `returns_none_for_non_formula`
+  test is split so each name matches its asserted behaviour.
+- **Meaning-level harm classifier proven live.** The weapons-gate routing rescue was
+  confirmed end-to-end with an actual served instruction-tuned model (Qwen2.5-1.5B-
+  Instruct over the Ollama wire protocol on loopback), so `default_harm_classifier()`
+  reports ACTIVE. Measured on the held-out adversarial slice: false negatives
+  **15 → 5 (−67 %; FN-rate 0.517 → 0.172)** with FP held at **0 → 0**; the blocking
+  `test_real_classifier_fn_budget` lane passes under `MERCURY_CI_REQUIRE_REAL_CLASSIFIER=1`.
+  Evidence recorded in `docs/WEAPONS_GATE_ADVERSARIAL_EVAL.md` and the
+  `served_model_real` block of `benchmarks/weapons_gate_adversarial_sample_run.json`.
+
 ### Merge-readiness hardening (PR #315 review round)
 
 A focused pass that reproduced the full CI pipeline locally, closed every red
