@@ -60,7 +60,11 @@ Frozen dataclass carried alongside a value:
   EXTRACTIVE > MODEL_GENERATED > SYNTHETIC` (weakest), by `.rank`.
 - `sources: tuple[str, ...]`, `verified: bool`, `notes: str`.
 - `has_citations()` — true when at least one non-empty source is attached.
-- `is_adequate(require_verified=False)` — cited suffices; `require_verified=True`
+- `is_adequate(require_verified=False)` — adequacy requires **both** an
+  attributed origin (`ORACLE_VERIFIED` / `HUMAN` / `EXTRACTIVE`) **and** at least
+  one citation; an unattributed `MODEL_GENERATED` / `SYNTHETIC` value is never
+  adequate even when cited (this closes the fail-open where a fabricated citation
+  on the weakest origin would launder synthetic content). `require_verified=True`
   additionally demands `verified` sources.
 - `merge(other)` — the pipeline-join rule: **weakest origin wins**, sources are
   unioned (order-stable, deduped), and `verified` holds **only if both** inputs

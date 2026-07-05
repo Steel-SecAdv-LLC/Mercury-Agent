@@ -324,7 +324,7 @@ wires Reflexion/drift/dormancy through that gate. Everything below remains a
   labelled; neither qualifies today. Stays disabled behind its existing
   flags with status explicitly documented.
 * **Phase 7 — UBI 9/10 base + FIPS/PQC alignment.** The current main
-  base is `python:3.13-slim-trixie` (post-#296). The UBI migration is a
+  base is `python:3.14-slim-trixie` (post-#296). The UBI migration is a
   separate, contained PR — it does not belong on the fitness-substrate
   branch.
 * **Phase 8 — hardware / signal-mesh adapters, GPU-on-drift orchestration,

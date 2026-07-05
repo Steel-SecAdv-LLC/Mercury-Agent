@@ -133,14 +133,18 @@ The stream's value metric (`omni_mercury_engine.intel.value_metrics.VALUE_METRIC
 `--check` compares the current run's `survival_rate` against the floor pinned in
 `benchmarks/red_team_baseline.json` and fails (exit 1) when:
 
-- the run rate exceeds `floor + SURVIVAL_MARGIN` (`0.02`) — a gate change
-  *weakened* the surface against obfuscation; or
+- the run rate (rounded to 6 decimals) rises above the pinned floor — compared
+  strictly, with only a `1e-9` float epsilon (`round(rate, 6) > floor + _FLOAT_EPS`)
+  — a gate change *weakened* the surface against obfuscation; or
 - the pinned floor itself exceeds the declared value-metric baseline (`0.34`) —
   re-declare the value metric before pinning a higher floor.
 
-The small margin absorbs benign seed-file reordering. The floor is a *ceiling on
-badness*: driving the true rate down (triage → retrain) lets you re-pin lower with
-`--update`; you may never re-pin higher without editing the value metric.
+There is no slack margin: the survival rate is `survivors / candidates`, a
+set-cardinality ratio that is fully deterministic and order-independent for a
+fixed config + gate, so there is no benign seed-file-reordering drift for a
+margin to absorb. The floor is a *ceiling on badness*: driving the true rate down
+(triage → retrain) lets you re-pin lower with `--update`; you may never re-pin
+higher without editing the value metric.
 
 ## 6. Triage workflow
 

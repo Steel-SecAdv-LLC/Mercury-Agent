@@ -19,7 +19,9 @@ number.
 `VALUE_METRICS` is a `dict[str, ValueMetric]`, one entry per stream. Each
 `ValueMetric` is a frozen dataclass with fields `stream`, `metric`, `unit`,
 `direction` (`Direction.HIGHER_IS_BETTER` / `Direction.LOWER_IS_BETTER`),
-`baseline`, `target`, and `description`.
+`baseline`, `target`, `description`, and `aspirational` (`bool`, default
+`False` — when set, the metric's `target` is treated as non-gating, as for
+`adversarial_co_training`; see §5).
 
 | Stream | Metric | Direction | Baseline | Target | How measured |
 |---|---|---|---|---|---|
@@ -115,10 +117,13 @@ PYTHONPATH=src python benchmarks/red_team_harness.py --update   # (re)pin the su
 ```
 
 `--check` fails (exit 1) when a gate change *raises* the survival rate above the
-floor — i.e. weakens the gate. It reads the floor from
-`VALUE_METRICS["adversarial_co_training"].baseline`, so the pinned JSON and the
-declared baseline stay in lockstep. Triaged survivors feed the corpus to push the
-measured rate down toward the aspirational `0.0` over time.
+floor — i.e. weakens the gate. It reads the floor from the pinned
+`red_team_baseline.json` (`survival_rate`, `0.333333`) and separately enforces
+that this floor stays ≤ the declared
+`VALUE_METRICS["adversarial_co_training"].baseline` (`0.34`, the ceiling), so a
+higher floor can never be pinned without first re-declaring the value metric.
+Triaged survivors feed the corpus to push the measured rate down toward the
+aspirational `0.0` over time.
 
 ## 6. Measuring each stream
 
