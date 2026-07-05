@@ -303,6 +303,116 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         feature_dim=1,
         tags=["streaming", "state-space", "tracking", "residual"],
     ),
+    DetectorManifestEntry(
+        "imm",
+        "omni_mercury_engine.detectors.imm",
+        "IMMDetector",
+        DetectorCategory.BASE,
+        "Interacting-Multiple-Model switching state-space residual detector "
+        "(quiet + manoeuvring Kalman bank; Blom & Bar-Shalom, 1988)",
+        feature_dim=1,
+        tags=["streaming", "state-space", "tracking", "switching", "residual"],
+    ),
+    DetectorManifestEntry(
+        "gaussian_process",
+        "omni_mercury_engine.detectors.gaussian_process",
+        "GaussianProcessDetector",
+        DetectorCategory.BASE,
+        "Windowed RBF Gaussian-Process one-step-ahead residual detector with "
+        "calibrated predictive variance (Rasmussen & Williams, 2006)",
+        feature_dim=1,
+        tags=["streaming", "probabilistic", "regression", "uncertainty"],
+    ),
+    DetectorManifestEntry(
+        "echo_state",
+        "omni_mercury_engine.detectors.echo_state",
+        "EchoStateDetector",
+        DetectorCategory.BASE,
+        "Echo-State-Network reservoir-computing predictive residual detector "
+        "(fixed spectral-radius reservoir + ridge readout; Jaeger, 2001)",
+        feature_dim=1,
+        tags=["streaming", "neuromorphic", "reservoir", "residual"],
+    ),
+    DetectorManifestEntry(
+        "spiking",
+        "omni_mercury_engine.detectors.spiking",
+        "SpikingNetworkDetector",
+        DetectorCategory.BASE,
+        "Spiking-neural-network (leaky integrate-and-fire) novelty detector "
+        "scoring spike-rate divergence from the learned normal regime",
+        feature_dim=1,
+        tags=["streaming", "neuromorphic", "spiking", "novelty"],
+    ),
+    DetectorManifestEntry(
+        "digital_twin",
+        "omni_mercury_engine.detectors.digital_twin",
+        "DigitalTwinResidualDetector",
+        DetectorCategory.BASE,
+        "Digital-twin simulation-residual detector: observed-vs-simulated "
+        "divergence of an identified AR forward model (Grieves & Vickers, 2017)",
+        feature_dim=1,
+        tags=["state-space", "simulation", "digital-twin", "residual"],
+    ),
+    DetectorManifestEntry(
+        "survival",
+        "omni_mercury_engine.detectors.survival",
+        "SurvivalHazardDetector",
+        DetectorCategory.BASE,
+        "Survival / time-to-event hazard detector (Kaplan-Meier baseline + Cox "
+        "proportional-hazards deviation) for inter-event-time streams",
+        feature_dim=1,
+        tags=["probabilistic", "survival", "time-to-event", "hazard"],
+    ),
+    DetectorManifestEntry(
+        "energy_based",
+        "omni_mercury_engine.detectors.energy_based",
+        "EnergyBasedDetector",
+        DetectorCategory.BASE,
+        "Explicit energy-based model detector: RBF-feature quadratic energy "
+        "fitted by score matching; anomaly score is the calibrated free energy",
+        feature_dim=1,
+        tags=["generative", "energy-based", "representation", "density"],
+    ),
+    DetectorManifestEntry(
+        "deep_svdd",
+        "omni_mercury_engine.detectors.deep_svdd",
+        "DeepSVDDDetector",
+        DetectorCategory.BASE,
+        "One-class SVDD hypersphere detector on a fixed random-Fourier-feature "
+        "embedding; distance-to-centre is the anomaly signal (Tax & Duin, 2004)",
+        feature_dim=1,
+        tags=["generative", "one-class", "representation", "embedding"],
+    ),
+    DetectorManifestEntry(
+        "rca",
+        "omni_mercury_engine.detectors.rca",
+        "RootCauseGraphDetector",
+        DetectorCategory.BASE,
+        "Root-cause localisation detector: propagates per-node residuals over a "
+        "causal/service graph to rank candidate root causes with attribution",
+        feature_dim=1,
+        tags=["systems", "rca", "causal-graph", "attribution"],
+    ),
+    DetectorManifestEntry(
+        "deeplog_sequence",
+        "omni_mercury_engine.detectors.deeplog_sequence",
+        "DeepLogSequenceDetector",
+        DetectorCategory.BASE,
+        "DeepLog-style log/sequence detector: next-key surprisal from an n-gram "
+        "transition model flags sequences leaving the learned template grammar",
+        feature_dim=1,
+        tags=["systems", "sequence", "log", "surprisal"],
+    ),
+    DetectorManifestEntry(
+        "frequent_pattern",
+        "omni_mercury_engine.detectors.frequent_pattern",
+        "FrequentPatternDetector",
+        DetectorCategory.BASE,
+        "Frequent-pattern / association-rule mining detector: flags transactions "
+        "violating high-confidence rules mined from normal traces (Apriori)",
+        feature_dim=1,
+        tags=["systems", "association-rules", "frequent-pattern", "tabular"],
+    ),
     # -- Specialized models ---------------------------------------------------
     DetectorManifestEntry(
         "quantum",
