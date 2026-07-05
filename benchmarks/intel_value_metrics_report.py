@@ -35,7 +35,6 @@ from omni_mercury_engine.intel.value_metrics import VALUE_METRICS
 
 ARTIFACT_PATH = _REPO / "artifacts" / "intel" / "value_metrics_board.json"
 REPORT_PATH = _REPO / "artifacts" / "intel" / "value_metrics_board.md"
-BASELINE_PATH = _REPO / "benchmarks" / "red_team_baseline.json"
 
 
 def _measure_self_consistency() -> float:
