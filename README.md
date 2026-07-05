@@ -1322,7 +1322,7 @@ The Lyapunov decay rate `λ` cited throughout this README and `docs/MATH_SPEC.md
 **Single source of truth.** `configs/lyapunov_canonical.yaml` declares the
 canonical linear surrogate `(A, P)` of the fusion-trajectory dynamics and
 the claimed rate `λ = 0.25` (certified with a 2× margin against the
-computed `λ = 0.5`; see below).  `LyapunovConstants.LAMBDA_CONVERGENCE`
+larger computed rate; see below).  `LyapunovConstants.LAMBDA_CONVERGENCE`
 in `src/omni_mercury_engine/core/centralized_constants.py` is the matching
 Python constant; the reconciliation test
 `tests/tools/test_lyapunov_reconciliation.py` fails CI the moment they
