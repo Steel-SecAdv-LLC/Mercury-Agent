@@ -160,9 +160,13 @@ Mercury's neuro-symbolic fusion is implemented at two levels:
 - **Ensemble level** (`core/stacking_fusion.py`): combines `N` detector
   predictions for stacking / BMA / phi-weighted ethical fusion.
 
-### Top-level fusion mode: FIBRING (default)
+### Fusion modes: CONJUNCTIVE (hub default) and FIBRING
 
-The hub-level default is `FusionMode.FIBRING`. In the NSAI taxonomy
+The hub-level default is `FusionMode.CONJUNCTIVE` — a weighted geometric mean in
+which both the neural score and the (undiluted) symbolic score must *agree* for a
+high fused score, so a confident symbolic veto cannot be averaged away.
+`FusionMode.FIBRING` remains a valid explicit mode; the rest of this section
+describes it. In the NSAI taxonomy
 (Garcez & Lamb 2020; Sarker et al. 2021) "fibring" denotes the
 architectural pattern in which one reasoning system is *fibred* over
 another — a hierarchical composition rather than a sequential pipeline
@@ -193,11 +197,12 @@ composition.
 
 The ensemble-level factory `create_fusion_ensemble(method="fibring")`
 returns the existing `EthicallyConstrainedFusion` with `use_golden_ratio=True`,
-which is the natural ensemble-level dual of the hub-level FIBRING mode.
+which is the natural ensemble-level dual of the FIBRING mode.
 
-Tests: `tests/core/test_fibring_default.py` pins default routing,
-composer behaviour, and an ablation against BALANCED on a deterministic
-channel-symmetric synthetic workload (no AUROC or Brier regression).
+Tests: `tests/core/test_fibring_default.py` pins the CONJUNCTIVE default at both
+the class and factory level and covers FibringComposer behaviour and an ablation
+against BALANCED on a deterministic channel-symmetric synthetic workload (no
+AUROC or Brier regression).
 
 ## Cognitive Module Wiring
 
