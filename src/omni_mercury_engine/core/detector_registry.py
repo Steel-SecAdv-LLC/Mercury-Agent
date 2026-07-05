@@ -253,6 +253,56 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         feature_dim=9,
         tags=["unsupervised", "clustering"],
     ),
+    DetectorManifestEntry(
+        "spectral_residual",
+        "omni_mercury_engine.detectors.spectral_residual",
+        "SpectralResidualDetector",
+        DetectorCategory.BASE,
+        "Spectral-Residual saliency detector for streaming time series "
+        "(training-free FFT saliency; Ren et al., KDD 2019)",
+        feature_dim=1,
+        tags=["streaming", "temporal", "spectral"],
+    ),
+    DetectorManifestEntry(
+        "bocpd",
+        "omni_mercury_engine.detectors.bocpd",
+        "BOCPDDetector",
+        DetectorCategory.BASE,
+        "Bayesian Online Change-Point Detection via run-length posterior "
+        "(Gaussian/NIG conjugate model; Adams & MacKay, 2007)",
+        feature_dim=1,
+        tags=["streaming", "temporal", "change-point", "probabilistic"],
+    ),
+    DetectorManifestEntry(
+        "spot_evt",
+        "omni_mercury_engine.detectors.spot_evt",
+        "SPOTDetector",
+        DetectorCategory.BASE,
+        "SPOT/DSPOT Peaks-Over-Threshold EVT dynamic-threshold detector with "
+        "risk-budgeted false-positive control (Siffer et al., KDD 2017)",
+        feature_dim=1,
+        tags=["streaming", "statistical", "evt", "thresholding"],
+    ),
+    DetectorManifestEntry(
+        "hawkes",
+        "omni_mercury_engine.detectors.hawkes",
+        "HawkesBurstDetector",
+        DetectorCategory.BASE,
+        "Hawkes self-exciting point-process event-rate / burst detector for "
+        "count streams (exponential-kernel intensity residuals)",
+        feature_dim=1,
+        tags=["streaming", "temporal", "event-rate", "burst"],
+    ),
+    DetectorManifestEntry(
+        "particle_filter",
+        "omni_mercury_engine.detectors.particle_filter",
+        "ParticleFilterDetector",
+        DetectorCategory.BASE,
+        "Bootstrap particle-filter state-space residual detector scoring "
+        "normalised one-step-ahead predictive innovations",
+        feature_dim=1,
+        tags=["streaming", "state-space", "tracking", "residual"],
+    ),
     # -- Specialized models ---------------------------------------------------
     DetectorManifestEntry(
         "quantum",
