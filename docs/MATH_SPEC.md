@@ -62,7 +62,7 @@ $$
 | $p$ | Ethical exponent | $\mathbb{R}^+$ | Default $\Phi = 1.618\ldots$ (configurable) |
 | $A$ | Fusion score | $[0, 1]$ | Final anomaly score |
 
-**Implementation:** `core/three_r/fusion.py`, class `OmniAvaEquation.compute()`, lines 119--202.
+**Implementation:** `core/three_r/fusion.py`, class `OmniAvaEquation`, method `compute()`.
 
 #### 2.1.1 Weight Derivation (Golden Ratio Proportions)
 
@@ -115,8 +115,9 @@ $$
 
 The exponent always attenuates the fusion score (since $\eta < 1$ and $p > 0$),
 enforcing the design invariant that ethical non-compliance reduces detection
-output. The ethical compliance threshold is clamped to $[0.90, 0.99]$ at
-construction.
+output. The ethical compliance threshold is clamped to $[0.93, 0.99]$ at
+construction (the floor is `SIGMA_IMMUTABLE_MEDICAL` = 0.93, the lowest domain
+floor).
 
 > **UNJUSTIFIED:** The choice of $\Phi$ as the exponent lacks published
 > derivation. It should be validated via parameter sweep or replaced with an
@@ -318,7 +319,7 @@ $$
 - If initial variance is zero, fall back to the configured $\lambda$.
 - If ratio is zero or negative, fall back to the configured $\lambda$.
 
-**Implementation:** `core/three_r/fusion.py`, method `verify_lyapunov_stability()`, lines 228--261.
+**Implementation:** `core/three_r/fusion.py`, method `verify_lyapunov_stability()`.
 
 ---
 
@@ -362,7 +363,7 @@ $$
 
 This satisfies the Banach contraction mapping requirement.
 
-**Implementation:** `core/three_r/fusion.py`, class `BanachRecursion`, lines 361--544.
+**Implementation:** `core/three_r/fusion.py`, class `BanachRecursion`.
 
 #### 2.3.3 Error Bound
 
@@ -475,7 +476,7 @@ p_{\text{calibrated}} = \frac{1}{1 + e^{-(ax + b)}}
 $$
 
 where $a, b$ are learned from a held-out calibration set via logistic regression
-with minimal regularization ($C = 10^{10}$, max iterations $= 100$).
+with minimal regularization ($C = 10^{10}$, max iterations $= 1000$).
 
 **Provenance:** Platt (1999) "Probabilistic Outputs for Support Vector Machines."
 
@@ -723,53 +724,53 @@ The five ethical pillars are:
 
 | Parameter | Value | Location | Justification | Source |
 |-----------|-------|----------|---------------|--------|
-| $\Phi$ (golden ratio) | 1.618033988749895 | `centralized_constants.py:38` | Mathematical constant | Exact: $(1 + \sqrt{5})/2$ |
-| $\varepsilon$ (numerical stability) | $10^{-8}$ | `centralized_constants.py:52` | Standard floating-point guard | IEEE 754 practice |
-| $\varepsilon_{\text{small}}$ | $10^{-10}$ | `centralized_constants.py:54` | Tighter guard for sensitive divisions | IEEE 754 practice |
-| $\lambda$ (Lyapunov rate) | 0.25 | `centralized_constants.py:72` | Controls convergence speed | **UNJUSTIFIED:** design choice, needs empirical validation |
-| $\varepsilon_{\text{Lyapunov}}$ (initial bound) | 1.0 | `centralized_constants.py:76` | Unit initial bound | Convention |
-| Stability window | 10 | `centralized_constants.py:80` | Samples for stability check | **UNJUSTIFIED:** design choice |
-| $\sigma_{\text{default}}$ | 0.96 | `centralized_constants.py:102` | Default ethical threshold | **UNJUSTIFIED:** needs domain calibration |
-| $\sigma_{\text{medical}}$ | 0.93 | `centralized_constants.py:106` | Medical ethical threshold | **UNJUSTIFIED:** needs clinical validation |
-| $\sigma_{\text{infrastructure}}$ | 0.995 | `centralized_constants.py:110` | Infrastructure ethical threshold | **UNJUSTIFIED:** needs operational validation |
-| $\sigma_{\text{humanitarian}}$ | 0.95 | `centralized_constants.py:114` | Humanitarian ethical threshold | **UNJUSTIFIED:** needs field validation |
-| $\beta_{\text{immutable}}$ | 0.99 | `centralized_constants.py:118` | Benevolence hard threshold | **UNJUSTIFIED:** needs empirical basis for 0.99 vs. alternatives |
-| Sigma Directive threshold | 0.8 | `centralized_constants.py:126` | Ethical gate pass/fail | **UNJUSTIFIED:** design choice |
-| Bias detection threshold | 0.1 | `centralized_constants.py:130` | Demographic parity max diff | Fairlearn convention |
-| $b_0$ (Medical sigmoid) | 0.93 | `centralized_constants.py:182` | Sigmoid inflection point | **UNJUSTIFIED:** needs clinical calibration |
-| $k$ (Medical sigmoid) | 30.0 | `centralized_constants.py:183` | Sigmoid steepness | **UNJUSTIFIED:** needs calibration |
-| $b_0$ (Security sigmoid) | 0.95 | `centralized_constants.py:185` | Sigmoid inflection point | **UNJUSTIFIED:** needs security domain calibration |
-| $k$ (Security sigmoid) | 25.0 | `centralized_constants.py:186` | Sigmoid steepness | **UNJUSTIFIED:** needs calibration |
-| $b_0$ (Environmental sigmoid) | 0.90 | `centralized_constants.py:188` | Sigmoid inflection point | **UNJUSTIFIED:** needs calibration |
-| $k$ (Environmental sigmoid) | 20.0 | `centralized_constants.py:189` | Sigmoid steepness | **UNJUSTIFIED:** needs calibration |
-| $b_0$ (Humanitarian sigmoid) | 0.92 | `centralized_constants.py:191` | Sigmoid inflection point | **UNJUSTIFIED:** needs calibration |
-| $k$ (Humanitarian sigmoid) | 35.0 | `centralized_constants.py:192` | Sigmoid steepness | **UNJUSTIFIED:** needs calibration |
-| $b_0$ (Infrastructure sigmoid) | 0.94 | `centralized_constants.py:194` | Sigmoid inflection point | **UNJUSTIFIED:** needs calibration |
-| $k$ (Infrastructure sigmoid) | 25.0 | `centralized_constants.py:195` | Sigmoid steepness | **UNJUSTIFIED:** needs calibration |
-| $b_0$ (Default sigmoid) | 0.93 | `centralized_constants.py:197` | Sigmoid inflection point | **UNJUSTIFIED:** needs calibration |
-| $k$ (Default sigmoid) | 25.0 | `centralized_constants.py:198` | Sigmoid steepness | **UNJUSTIFIED:** needs calibration |
-| $\alpha_{\max}$ (recursion) | 0.95 | `centralized_constants.py:317` | Max contraction factor | Design: must be $< 1$ for Banach theorem |
-| $d_{\max}$ (recursion depth) | 50 | `centralized_constants.py:324` | Max recursion depth | **UNJUSTIFIED:** design choice, needs profiling |
-| $\epsilon_{\text{conv}}$ (convergence) | $10^{-6}$ | `centralized_constants.py:327` | Early termination tolerance | Standard numerical tolerance |
-| Contraction violation threshold | 1.0 | `centralized_constants.py:330` | Divergence detection | Theoretical: contraction ratio must be $< 1$ |
-| $z_{\text{threshold}}$ | 3.0 | `centralized_constants.py:363` | Z-score anomaly threshold | Gaussian theory: 99.7% coverage |
-| IQR multiplier | 1.5 | `centralized_constants.py:367` | IQR fence multiplier | Tukey (1977) |
-| MAD multiplier | 3.0 | `centralized_constants.py:375` | MAD-based threshold | Robust statistics convention |
-| $w_R$ (OAE Recursion) | $\Phi / \phi_{\text{sum}} \approx 0.4472$ | `core/three_r/fusion.py:153` | Golden ratio proportion (§2.1.1) | Mathematically grounded |
-| $w_H$ (OAE Harmonic) | $1 / \phi_{\text{sum}} \approx 0.2764$ | `core/three_r/fusion.py:154` | Golden ratio proportion (§2.1.1) | Mathematically grounded |
-| $w_O$ (OAE Optimization) | $1 / \phi_{\text{sum}} \approx 0.2764$ | `core/three_r/fusion.py:155` | Golden ratio proportion (§2.1.1) | Mathematically grounded |
-| $p$ (ethical exponent) | $\Phi = 1.618$ | `fusion.py:96` | Ethical scaling power | **UNJUSTIFIED:** needs parameter sweep |
-| Statistical fusion weights | 0.4 / 0.3 / 0.3 | `statistical.py:197` | Z / IQR / IF combination | **UNJUSTIFIED:** needs cross-validation |
-| Neural-symbolic weights | 0.6 / 0.4 | `centralized_constants.py:400-401` | Neural vs. symbolic | **UNJUSTIFIED:** needs empirical tuning |
-| Ensemble decay | 0.9 | `centralized_constants.py:411` | Temporal weight decay $w_t = 0.9^t$ | Exponential decay convention |
-| GOSNN gate weights | 0.4 / 0.4 / 0.2 | `global_omni_scalar_network.py:192-196` | Ethical gate score | **UNJUSTIFIED:** ad-hoc combination |
-| GOSNN gate threshold | 0.93 | `global_omni_scalar_network.py:145` | Ethical compliance | **UNJUSTIFIED:** needs validation |
-| ECE bins | 10 | `calibration.py:62` | Calibration evaluation | Naeini et al. (2015) |
-| Platt regularization $C$ | $10^{10}$ | `calibration.py:144` | Minimal regularization | Platt (1999) |
-| Temperature range | [0.1, 10] | `calibration.py:314` | Temperature search bounds | Guo et al. (2017) |
-| Weight update LR | 0.01 | `fusion.py:207` | Attention weight EMA rate | Standard EMA practice |
-| Optimizer LR | 0.01 | `fusion.py:274` | Weight optimization | Standard SGD practice |
-| Optimizer momentum | 0.9 | `fusion.py:275` | Momentum coefficient | Polyak (1964) |
+| $\Phi$ (golden ratio) | 1.618033988749895 | `centralized_constants.py` `MathConstants.GOLDEN_RATIO` | Mathematical constant | Exact: $(1 + \sqrt{5})/2$ |
+| $\varepsilon$ (numerical stability) | $10^{-8}$ | `centralized_constants.py` `MathConstants.EPSILON` | Standard floating-point guard | IEEE 754 practice |
+| $\varepsilon_{\text{small}}$ | $10^{-10}$ | `centralized_constants.py` `MathConstants.EPSILON_SMALL` | Tighter guard for sensitive divisions | IEEE 754 practice |
+| $\lambda$ (Lyapunov rate) | 0.25 | `centralized_constants.py` `LyapunovConstants.LAMBDA_CONVERGENCE` | Controls convergence speed | **UNJUSTIFIED:** design choice, needs empirical validation |
+| $\varepsilon_{\text{Lyapunov}}$ (initial bound) | 1.0 | `centralized_constants.py` `LyapunovConstants.EPSILON_INITIAL` | Unit initial bound | Convention |
+| Stability window | 10 | `centralized_constants.py` `LyapunovConstants.STABILITY_WINDOW` | Samples for stability check | **UNJUSTIFIED:** design choice |
+| $\sigma_{\text{default}}$ | 0.96 | `centralized_constants.py` `EthicalConstants.SIGMA_IMMUTABLE_DEFAULT` | Default ethical threshold | **UNJUSTIFIED:** needs domain calibration |
+| $\sigma_{\text{medical}}$ | 0.93 | `centralized_constants.py` `EthicalConstants.SIGMA_IMMUTABLE_MEDICAL` | Medical ethical threshold | **UNJUSTIFIED:** needs clinical validation |
+| $\sigma_{\text{infrastructure}}$ | 0.995 | `centralized_constants.py` `EthicalConstants.SIGMA_IMMUTABLE_INFRASTRUCTURE` | Infrastructure ethical threshold | **UNJUSTIFIED:** needs operational validation |
+| $\sigma_{\text{humanitarian}}$ | 0.95 | `centralized_constants.py` `EthicalConstants.SIGMA_IMMUTABLE_HUMANITARIAN` | Humanitarian ethical threshold | **UNJUSTIFIED:** needs field validation |
+| $\beta_{\text{immutable}}$ | 0.99 | `centralized_constants.py` `EthicalConstants.BENEVOLENCE_IMMUTABLE` | Benevolence hard threshold | **UNJUSTIFIED:** needs empirical basis for 0.99 vs. alternatives |
+| Sigma Directive threshold | 0.8 | `centralized_constants.py` `EthicalConstants.SIGMA_DIRECTIVE_THRESHOLD` | Ethical gate pass/fail | **UNJUSTIFIED:** design choice |
+| Bias detection threshold | 0.1 | `centralized_constants.py` `EthicalConstants.BIAS_DETECTION_THRESHOLD` | Demographic parity max diff | Fairlearn convention |
+| $b_0$ (Medical sigmoid) | 0.93 | `centralized_constants.py` `BenevolenceGateConstants.MEDICAL` | Sigmoid inflection point | **UNJUSTIFIED:** needs clinical calibration |
+| $k$ (Medical sigmoid) | 30.0 | `centralized_constants.py` `BenevolenceGateConstants.MEDICAL` | Sigmoid steepness | **UNJUSTIFIED:** needs calibration |
+| $b_0$ (Security sigmoid) | 0.95 | `centralized_constants.py` `BenevolenceGateConstants.SECURITY` | Sigmoid inflection point | **UNJUSTIFIED:** needs security domain calibration |
+| $k$ (Security sigmoid) | 25.0 | `centralized_constants.py` `BenevolenceGateConstants.SECURITY` | Sigmoid steepness | **UNJUSTIFIED:** needs calibration |
+| $b_0$ (Environmental sigmoid) | 0.90 | `centralized_constants.py` `BenevolenceGateConstants.ENVIRONMENTAL` | Sigmoid inflection point | **UNJUSTIFIED:** needs calibration |
+| $k$ (Environmental sigmoid) | 20.0 | `centralized_constants.py` `BenevolenceGateConstants.ENVIRONMENTAL` | Sigmoid steepness | **UNJUSTIFIED:** needs calibration |
+| $b_0$ (Humanitarian sigmoid) | 0.92 | `centralized_constants.py` `BenevolenceGateConstants.HUMANITARIAN` | Sigmoid inflection point | **UNJUSTIFIED:** needs calibration |
+| $k$ (Humanitarian sigmoid) | 35.0 | `centralized_constants.py` `BenevolenceGateConstants.HUMANITARIAN` | Sigmoid steepness | **UNJUSTIFIED:** needs calibration |
+| $b_0$ (Infrastructure sigmoid) | 0.94 | `centralized_constants.py` `BenevolenceGateConstants.INFRASTRUCTURE` | Sigmoid inflection point | **UNJUSTIFIED:** needs calibration |
+| $k$ (Infrastructure sigmoid) | 25.0 | `centralized_constants.py` `BenevolenceGateConstants.INFRASTRUCTURE` | Sigmoid steepness | **UNJUSTIFIED:** needs calibration |
+| $b_0$ (Default sigmoid) | 0.93 | `centralized_constants.py` `BenevolenceGateConstants.DEFAULT` | Sigmoid inflection point | **UNJUSTIFIED:** needs calibration |
+| $k$ (Default sigmoid) | 25.0 | `centralized_constants.py` `BenevolenceGateConstants.DEFAULT` | Sigmoid steepness | **UNJUSTIFIED:** needs calibration |
+| $\alpha_{\max}$ (recursion) | 0.95 | `centralized_constants.py` `RecursionConvergenceConstants.ALPHA_MAX` | Max contraction factor | Design: must be $< 1$ for Banach theorem |
+| $d_{\max}$ (recursion depth) | 50 | `centralized_constants.py` `RecursionConvergenceConstants.MAX_DEPTH` | Max recursion depth | **UNJUSTIFIED:** design choice, needs profiling |
+| $\epsilon_{\text{conv}}$ (convergence) | $10^{-6}$ | `centralized_constants.py` `RecursionConvergenceConstants.CONVERGENCE_TOLERANCE` | Early termination tolerance | Standard numerical tolerance |
+| Contraction violation threshold | 1.0 | `centralized_constants.py` `RecursionConvergenceConstants.CONTRACTION_VIOLATION_THRESHOLD` | Divergence detection | Theoretical: contraction ratio must be $< 1$ |
+| $z_{\text{threshold}}$ | 3.0 | `centralized_constants.py` `AnomalyDetectionConstants.ZSCORE_DEFAULT_THRESHOLD` | Z-score anomaly threshold | Gaussian theory: 99.7% coverage |
+| IQR multiplier | 1.5 | `centralized_constants.py` `AnomalyDetectionConstants.IQR_MULTIPLIER` | IQR fence multiplier | Tukey (1977) |
+| MAD multiplier | 3.0 | `centralized_constants.py` `AnomalyDetectionConstants.MAD_MULTIPLIER` | MAD-based threshold | Robust statistics convention |
+| $w_R$ (OAE Recursion) | $\Phi / \phi_{\text{sum}} \approx 0.4472$ | `core/three_r/fusion.py` `OmniAvaEquation` (`w_R` weight init) | Golden ratio proportion (§2.1.1) | Mathematically grounded |
+| $w_H$ (OAE Harmonic) | $1 / \phi_{\text{sum}} \approx 0.2764$ | `core/three_r/fusion.py` `OmniAvaEquation` (`w_H` weight init) | Golden ratio proportion (§2.1.1) | Mathematically grounded |
+| $w_O$ (OAE Optimization) | $1 / \phi_{\text{sum}} \approx 0.2764$ | `core/three_r/fusion.py` `OmniAvaEquation` (`w_O` weight init) | Golden ratio proportion (§2.1.1) | Mathematically grounded |
+| $p$ (ethical exponent) | $\Phi = 1.618$ | `core/three_r/fusion.py` `OmniAvaEquation.ethical_exponent` | Ethical scaling power | **UNJUSTIFIED:** needs parameter sweep |
+| Statistical fusion weights | 0.4 / 0.3 / 0.3 | `detectors/statistical.py` `_adaptive_weights` | Z / IQR / IF combination | **UNJUSTIFIED:** needs cross-validation |
+| Neural-symbolic weights | 0.6 / 0.4 | `centralized_constants.py` `FusionConstants.NEURAL_WEIGHT` / `SYMBOLIC_WEIGHT` | Neural vs. symbolic | **UNJUSTIFIED:** needs empirical tuning |
+| Ensemble decay | 0.9 | `centralized_constants.py` `FusionConstants.ENSEMBLE_DECAY` | Temporal weight decay $w_t = 0.9^t$ | Exponential decay convention |
+| GOSNN gate weights | 0.4 / 0.4 / 0.2 | `core/global_omni_scalar_network.py` (ethical gate score) | Ethical gate score | **UNJUSTIFIED:** ad-hoc combination |
+| GOSNN gate threshold | 0.93 | `core/global_omni_scalar_network.py` `GlobalOmniScalarNetwork(threshold=0.93)` | Ethical compliance | **UNJUSTIFIED:** needs validation |
+| ECE bins | 10 | `core/calibration.py` `compute_ece(n_bins=10)` | Calibration evaluation | Naeini et al. (2015) |
+| Platt regularization $C$ | $10^{10}$ | `core/calibration.py` `PlattScaling` (`C=1e10`) | Minimal regularization | Platt (1999) |
+| Temperature range | [0.1, 10] | `core/calibration.py` `TemperatureScaling` | Temperature search bounds | Guo et al. (2017) |
+| Weight update LR | 0.01 | `core/three_r/fusion.py` `OmniAvaEquation` (attention EMA) | Attention weight EMA rate | Standard EMA practice |
+| Optimizer LR | 0.01 | `core/three_r/fusion.py` (weight optimizer) | Weight optimization | Standard SGD practice |
+| Optimizer momentum | 0.9 | `core/three_r/fusion.py` (weight optimizer) | Momentum coefficient | Polyak (1964) |
 | Weight decay | $10^{-4}$ | `fusion.py:276` | L2 regularization | Standard regularization |
 
 ---
@@ -1012,7 +1013,7 @@ in $(0, 1]$. No overflow risk.
 | $\sigma_{\text{immutable}}$ | 0.96 | 0.93 | 0.96 | 0.96 | 0.95 | 0.995 |
 | Sigmoid $b_0$ | 0.93 | 0.93 | 0.95 | 0.90 | 0.92 | 0.94 |
 | Sigmoid $k$ | 25.0 | 30.0 | 25.0 | 20.0 | 35.0 | 25.0 |
-| Harmonic fundamentals (Hz) | Env. default | 0.04, 0.15, 0.4, 1.0, 40.0 | Adaptive | 7.83, 14.3, 20.8, 27.3, 33.8 | Env. default | 50, 60, 0.1, 0.01 |
+| Harmonic fundamentals (Hz) | Env. default | 0.04, 0.15, 0.4, 1.0, 40.0 | Adaptive | 7.83, 14.3, 20.8, 27.3, 33.8 | 0.01, 0.1, 1.0, 10.0, 100.0 | 50, 60, 0.1, 0.01 |
 | Harmonic detection method | FFT | FFT | MUSIC/ESPRIT | FFT | FFT | FFT |
 
 ### 7.2 Medical Domain Constants
