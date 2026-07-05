@@ -84,7 +84,7 @@ Retained (not fit here, and documented as such):
   allow stays below it, so the harm-score gate and the disposition gate never
   disagree (measured: 1.0 on the corpus).
 
-Current fitted metrics: `val_brier ≈ 0.002`, `val_ece ≈ 0.039`, `val_fp = 0`,
+Current fitted metrics: `val_brier ≈ 0.003`, `val_ece ≈ 0.044`, `val_fp = 0`,
 `val_fn = 0`, `gate_agreement = 1.0`.
 
 ## 4. Reproduce

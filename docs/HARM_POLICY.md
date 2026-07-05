@@ -223,9 +223,11 @@ handful of fixed strings:
 - **Labeled corpus** — `benchmarks/weapons_gate_corpus.py` (+ the shipped
   `weapons_gate_corpus.jsonl`) expands intent templates over taxonomy-level hazard
   category nouns and multilingual/obfuscated transforms into **362 labeled
-  examples** (≈182 offensive / ≈180 benign) spanning every hazard domain and every
-  Axis-B intent tier, on a deterministic 60/20/20 train/val/test split. No
-  operational specifics are stored anywhere.
+  examples** (≈182 offensive / ≈180 benign) spanning five hazard domains
+  (chemical / biological / radiological / nuclear / high-yield-explosive) and the
+  mechanism-through-targeting Axis-B tiers (excluding licensed_practice), on a
+  deterministic 60/20/20 train/val/test split. No operational specifics are
+  stored anywhere.
 - **Measured FP/FN gate** — `benchmarks/eval_weapons_gate.py` computes a real
   confusion matrix + false-positive / false-negative *rates* on a held-out split,
   and `tests/ethical/test_weapons_gate_eval.py` fails CI when the false-positive
@@ -243,8 +245,8 @@ handful of fixed strings:
   lexicon does not close it; the reasoning-backed classifier does.
 - **Confidence calibration** — the Axis-B offensive-confidence logistic is **fit on
   the corpus** (`scripts/fit_weapons_gate_calibration.py` →
-  `configs/weapons_gate_calibration.json`, loaded at import; val Brier ≈0.002,
-  ECE ≈0.039), and the harm-score ⇄ disposition gate-agreement invariant is
+  `configs/weapons_gate_calibration.json`, loaded at import; val Brier ≈0.003,
+  ECE ≈0.044), and the harm-score ⇄ disposition gate-agreement invariant is
   verified (1.0 on the corpus). `BenevolenceCalibration.is_fitted`/`source` report
   honestly whether the active parameters are measured or default fallbacks.
 - **Legacy paired set** — `tests/ethical/test_weapons_uplift_gate.py` retains the
