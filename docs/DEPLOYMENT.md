@@ -120,13 +120,13 @@ helm upgrade mercury-agent ./helm/mercury-agent \
 
 | Value | Default | Description |
 |-------|---------|-------------|
-| `replicaCount` | 3 | Number of API pods |
-| `image.tag` | `latest` | Docker image tag |
-| `resources.requests.cpu` | `500m` | CPU request |
-| `resources.requests.memory` | `1Gi` | Memory request |
-| `autoscaling.enabled` | `true` | HPA enabled |
-| `autoscaling.minReplicas` | 3 | Minimum pods |
-| `autoscaling.maxReplicas` | 20 | Maximum pods |
+| `api.replicaCount` | 3 | Number of API pods |
+| `api.image.tag` | `""` (defaults to `Chart.appVersion`) | Docker image tag |
+| `api.resources.requests.cpu` | `500m` | CPU request |
+| `api.resources.requests.memory` | `1Gi` | Memory request |
+| `api.autoscaling.enabled` | `true` | HPA enabled |
+| `api.autoscaling.minReplicas` | 3 | Minimum pods |
+| `api.autoscaling.maxReplicas` | 20 | Maximum pods |
 | `config.secrets.JWT_SECRET_KEY` | *(required)* | JWT signing key (or AMA-derived in production) |
 | `config.secrets.API_KEY_HASH_SALT` | *(required in production)* | API-key hashing salt |
 | `config.secrets.MERCURY_CACHE_SECRET` | *(recommended)* | Cache entry HMAC signing key |
@@ -246,9 +246,9 @@ See [`MIGRATION-1.6-to-1.7.md`](MIGRATION-1.6-to-1.7.md) §3.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `MERCURY_AGENT_ENV` | `development` | Set to `production` for strict mode |
-| `OMNI_API_HOST` | `0.0.0.0` | Bind address |
-| `OMNI_API_PORT` | `8000` | Listen port |
-| `OMNI_API_WORKERS` | `4` | Uvicorn worker count |
+| `MERCURY_HOST` | `127.0.0.1` | Bind address for `mercury-agent serve`; set `0.0.0.0` for all interfaces |
+
+Port and worker count are **CLI flags**, not environment variables: `mercury-agent serve --port <n> --workers <n>` (defaults 8000 / 1). The shipped container image bypasses the CLI and serves uvicorn on a fixed `0.0.0.0:8000` via its `CMD` (single process). There are no `OMNI_API_HOST`/`OMNI_API_PORT`/`OMNI_API_WORKERS` hooks in the application.
 
 ### Streaming Worker (`mercury-agent stream`)
 
@@ -268,10 +268,11 @@ These configure the engine / streaming-worker tier. CLI flags
 
 ### Logging
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `OMNI_LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR` |
-| `OMNI_LOG_FORMAT` | `json` | `json` (structured) or `text` (human-readable) |
+Log level is a **CLI flag** on the serve command, not an environment variable:
+`mercury-agent serve --log-level <debug|info|warning|error>` (default `info`).
+Structured-vs-text formatting is selected by the logging setup in
+`omni_mercury_engine.utils.logging`; there are no `OMNI_LOG_LEVEL`/
+`OMNI_LOG_FORMAT` environment hooks in the application.
 
 ### Rate Limiting
 
@@ -498,7 +499,8 @@ docker run -d --name mercury-agent \
 **Symptom:** Pod OOMKilled or memory > 4 GiB.
 
 1. Reduce `OMP_NUM_THREADS` (default 4)
-2. Reduce `OMNI_API_WORKERS` (default 4)
+2. Reduce the `mercury-agent serve --workers` count (default 1); the shipped
+   container image already runs a single uvicorn process
 3. Enable model offloading: set `TORCH_HOME` to a persistent volume
 4. Check for detector memory leaks in `/metrics`
 

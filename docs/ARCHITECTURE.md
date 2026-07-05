@@ -258,8 +258,8 @@ Mercury.
 
 | Setting | Default | Override |
 |---------|---------|----------|
-| Backend | SQLite (zero deps) | `DATABASE_BACKEND=postgresql` |
-| Database | `mercury.db` | `DATABASE_NAME=<path>` |
+| Backend | In-memory stub (zero deps) | `DATABASE_BACKEND=sqlite\|postgresql` |
+| Database | `mercury` | `DATABASE_NAME=<path>` |
 | Host | — | `DATABASE_HOST=<host>` |
 
 Health check: `await db.health_check()` → `{"status": "healthy"|"degraded"|"unhealthy", "latency_ms": float}`
@@ -320,7 +320,7 @@ CrossDomainFrequencyCorrelator.correlate({
 ```python
 # Export
 stats = detector.get_oracle_statistics()
-# → {"domain": "environmental", "ref_mean_power": [...], ...}
+# → {"domain": "environmental", "ref_band_means": {...}, ...}
 
 # Reconstruct
 federated = MercuryAnomalyDetector.from_statistics(
