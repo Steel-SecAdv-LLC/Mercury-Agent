@@ -1,0 +1,824 @@
+{
+  "aggregate": {
+    "detectors": {
+      "bocpd": {
+        "mean_auc": 0.670319,
+        "mean_f1": 0.312177,
+        "mean_latency_ms": 58.171485,
+        "n_scenarios": 5
+      },
+      "deep_svdd": {
+        "mean_auc": 0.786442,
+        "mean_f1": 0.222078,
+        "mean_latency_ms": 1.522714,
+        "n_scenarios": 5
+      },
+      "digital_twin": {
+        "mean_auc": 0.905033,
+        "mean_f1": 0.478996,
+        "mean_latency_ms": 9.998865,
+        "n_scenarios": 5
+      },
+      "echo_state": {
+        "mean_auc": 0.895272,
+        "mean_f1": 0.263151,
+        "mean_latency_ms": 5.566626,
+        "n_scenarios": 5
+      },
+      "energy_based": {
+        "mean_auc": 0.853507,
+        "mean_f1": 0.196365,
+        "mean_latency_ms": 0.207415,
+        "n_scenarios": 5
+      },
+      "gaussian_process": {
+        "mean_auc": 0.919146,
+        "mean_f1": 0.447817,
+        "mean_latency_ms": 36.4466,
+        "n_scenarios": 5
+      },
+      "hawkes": {
+        "mean_auc": 0.683373,
+        "mean_f1": 0.226644,
+        "mean_latency_ms": 0.326625,
+        "n_scenarios": 5
+      },
+      "imm": {
+        "mean_auc": 0.862979,
+        "mean_f1": 0.414616,
+        "mean_latency_ms": 63.493064,
+        "n_scenarios": 5
+      },
+      "particle_filter": {
+        "mean_auc": 0.919013,
+        "mean_f1": 0.40527,
+        "mean_latency_ms": 43.14546,
+        "n_scenarios": 5
+      },
+      "spectral_residual": {
+        "mean_auc": 0.952896,
+        "mean_f1": 0.85696,
+        "mean_latency_ms": 0.258168,
+        "n_scenarios": 5
+      },
+      "spiking": {
+        "mean_auc": 0.733261,
+        "mean_f1": 0.202191,
+        "mean_latency_ms": 8.366929,
+        "n_scenarios": 5
+      },
+      "spot_evt": {
+        "mean_auc": 0.63885,
+        "mean_f1": 0.275709,
+        "mean_latency_ms": 4.570738,
+        "n_scenarios": 5
+      },
+      "survival": {
+        "mean_auc": 0.881673,
+        "mean_f1": 0.284097,
+        "mean_latency_ms": 3.369445,
+        "n_scenarios": 5
+      }
+    },
+    "ensembles": {
+      "average": {
+        "mean_auc": 0.927296,
+        "mean_f1": 0.677698,
+        "mean_latency_ms": 236.267722,
+        "n_scenarios": 5
+      },
+      "bma": {
+        "mean_auc": 0.954903,
+        "mean_f1": 0.842068,
+        "mean_latency_ms": 237.079816,
+        "n_scenarios": 5
+      },
+      "stacking": {
+        "mean_auc": 0.941409,
+        "mean_f1": 0.734884,
+        "mean_latency_ms": 237.696709,
+        "n_scenarios": 5
+      }
+    }
+  },
+  "config": {
+    "ensemble_methods": [
+      "stacking",
+      "bma",
+      "average"
+    ],
+    "members": [
+      "spectral_residual",
+      "bocpd",
+      "spot_evt",
+      "hawkes",
+      "particle_filter",
+      "imm",
+      "gaussian_process",
+      "echo_state",
+      "spiking",
+      "digital_twin",
+      "survival",
+      "energy_based",
+      "deep_svdd"
+    ],
+    "n": 1800,
+    "point_threshold": 0.5,
+    "scenarios": [
+      "burst",
+      "drift",
+      "concept_shift",
+      "missing_data",
+      "adversarial_noise"
+    ],
+    "seed": 0
+  },
+  "scenarios": {
+    "adversarial_noise": {
+      "anomaly_rate": 0.04,
+      "detectors": {
+        "bocpd": {
+          "detector": "bocpd",
+          "f1": 0.133333,
+          "latency_ms": 55.343128,
+          "precision": 0.142857,
+          "recall": 0.125,
+          "roc_auc": 0.612759
+        },
+        "deep_svdd": {
+          "detector": "deep_svdd",
+          "f1": 0.226087,
+          "latency_ms": 1.458356,
+          "precision": 0.156627,
+          "recall": 0.40625,
+          "roc_auc": 0.83709
+        },
+        "digital_twin": {
+          "detector": "digital_twin",
+          "f1": 0.568421,
+          "latency_ms": 9.875677,
+          "precision": 0.428571,
+          "recall": 0.84375,
+          "roc_auc": 0.974006
+        },
+        "echo_state": {
+          "detector": "echo_state",
+          "f1": 0.366197,
+          "latency_ms": 5.523968,
+          "precision": 0.236364,
+          "recall": 0.8125,
+          "roc_auc": 0.923243
+        },
+        "energy_based": {
+          "detector": "energy_based",
+          "f1": 0.202335,
+          "latency_ms": 0.201967,
+          "precision": 0.115556,
+          "recall": 0.8125,
+          "roc_auc": 0.841662
+        },
+        "gaussian_process": {
+          "detector": "gaussian_process",
+          "f1": 0.585366,
+          "latency_ms": 34.313741,
+          "precision": 0.48,
+          "recall": 0.75,
+          "roc_auc": 0.957517
+        },
+        "hawkes": {
+          "detector": "hawkes",
+          "f1": 0.309524,
+          "latency_ms": 0.308558,
+          "precision": 0.25,
+          "recall": 0.40625,
+          "roc_auc": 0.713782
+        },
+        "imm": {
+          "detector": "imm",
+          "f1": 0.441176,
+          "latency_ms": 59.505119,
+          "precision": 0.416667,
+          "recall": 0.46875,
+          "roc_auc": 0.877124
+        },
+        "particle_filter": {
+          "detector": "particle_filter",
+          "f1": 0.455446,
+          "latency_ms": 40.496956,
+          "precision": 0.333333,
+          "recall": 0.71875,
+          "roc_auc": 0.921587
+        },
+        "spectral_residual": {
+          "detector": "spectral_residual",
+          "f1": 0.852459,
+          "latency_ms": 0.228069,
+          "precision": 0.896552,
+          "recall": 0.8125,
+          "roc_auc": 0.979011
+        },
+        "spiking": {
+          "detector": "spiking",
+          "f1": 0.074074,
+          "latency_ms": 8.284312,
+          "precision": 0.090909,
+          "recall": 0.0625,
+          "roc_auc": 0.658662
+        },
+        "spot_evt": {
+          "detector": "spot_evt",
+          "f1": 0.057143,
+          "latency_ms": 3.397219,
+          "precision": 0.333333,
+          "recall": 0.03125,
+          "roc_auc": 0.514473
+        },
+        "survival": {
+          "detector": "survival",
+          "f1": 0.464646,
+          "latency_ms": 3.311801,
+          "precision": 0.343284,
+          "recall": 0.71875,
+          "roc_auc": 0.866575
+        }
+      },
+      "ensembles": {
+        "average": {
+          "f1": 0.666667,
+          "latency_ms": 229.473486,
+          "precision": 0.894737,
+          "recall": 0.53125,
+          "roc_auc": 0.967202,
+          "threshold": 0.499185
+        },
+        "bma": {
+          "f1": 0.842105,
+          "latency_ms": 231.01102,
+          "precision": 0.96,
+          "recall": 0.75,
+          "roc_auc": 0.979011,
+          "threshold": 0.543343
+        },
+        "stacking": {
+          "f1": 0.814815,
+          "latency_ms": 226.67064,
+          "precision": 1.0,
+          "recall": 0.6875,
+          "roc_auc": 0.984519,
+          "threshold": 0.399238
+        }
+      },
+      "n_test": 900,
+      "n_train": 900
+    },
+    "burst": {
+      "anomaly_rate": 0.035556,
+      "detectors": {
+        "bocpd": {
+          "detector": "bocpd",
+          "f1": 0.533333,
+          "latency_ms": 64.527007,
+          "precision": 0.571429,
+          "recall": 0.5,
+          "roc_auc": 0.496076
+        },
+        "deep_svdd": {
+          "detector": "deep_svdd",
+          "f1": 0.460432,
+          "latency_ms": 1.489665,
+          "precision": 0.299065,
+          "recall": 1.0,
+          "roc_auc": 0.971018
+        },
+        "digital_twin": {
+          "detector": "digital_twin",
+          "f1": 0.744186,
+          "latency_ms": 10.497234,
+          "precision": 0.592593,
+          "recall": 1.0,
+          "roc_auc": 1.0
+        },
+        "echo_state": {
+          "detector": "echo_state",
+          "f1": 0.446043,
+          "latency_ms": 5.788125,
+          "precision": 0.28972,
+          "recall": 0.96875,
+          "roc_auc": 0.977895
+        },
+        "energy_based": {
+          "detector": "energy_based",
+          "f1": 0.4,
+          "latency_ms": 0.20454,
+          "precision": 0.25,
+          "recall": 1.0,
+          "roc_auc": 0.983151
+        },
+        "gaussian_process": {
+          "detector": "gaussian_process",
+          "f1": 0.603774,
+          "latency_ms": 38.06028,
+          "precision": 0.432432,
+          "recall": 1.0,
+          "roc_auc": 0.998056
+        },
+        "hawkes": {
+          "detector": "hawkes",
+          "f1": 0.272727,
+          "latency_ms": 0.439527,
+          "precision": 0.264706,
+          "recall": 0.28125,
+          "roc_auc": 0.660912
+        },
+        "imm": {
+          "detector": "imm",
+          "f1": 0.472222,
+          "latency_ms": 76.961157,
+          "precision": 0.425,
+          "recall": 0.53125,
+          "roc_auc": 0.803535
+        },
+        "particle_filter": {
+          "detector": "particle_filter",
+          "f1": 0.528302,
+          "latency_ms": 50.794093,
+          "precision": 0.378378,
+          "recall": 0.875,
+          "roc_auc": 0.940272
+        },
+        "spectral_residual": {
+          "detector": "spectral_residual",
+          "f1": 0.814815,
+          "latency_ms": 0.264678,
+          "precision": 1.0,
+          "recall": 0.6875,
+          "roc_auc": 0.999856
+        },
+        "spiking": {
+          "detector": "spiking",
+          "f1": 0.55,
+          "latency_ms": 9.11662,
+          "precision": 0.458333,
+          "recall": 0.6875,
+          "roc_auc": 0.906862
+        },
+        "spot_evt": {
+          "detector": "spot_evt",
+          "f1": 0.439024,
+          "latency_ms": 4.248972,
+          "precision": 1.0,
+          "recall": 0.28125,
+          "roc_auc": 0.640625
+        },
+        "survival": {
+          "detector": "survival",
+          "f1": 0.366667,
+          "latency_ms": 3.481416,
+          "precision": 0.25,
+          "recall": 0.6875,
+          "roc_auc": 0.897141
+        }
+      },
+      "ensembles": {
+        "average": {
+          "f1": 0.853333,
+          "latency_ms": 246.010105,
+          "precision": 0.744186,
+          "recall": 1.0,
+          "roc_auc": 0.998488,
+          "threshold": 0.479452
+        },
+        "bma": {
+          "f1": 1.0,
+          "latency_ms": 223.515832,
+          "precision": 1.0,
+          "recall": 1.0,
+          "roc_auc": 1.0,
+          "threshold": 0.797013
+        },
+        "stacking": {
+          "f1": 0.984127,
+          "latency_ms": 228.599706,
+          "precision": 1.0,
+          "recall": 0.96875,
+          "roc_auc": 1.0,
+          "threshold": 0.475497
+        }
+      },
+      "n_test": 900,
+      "n_train": 900
+    },
+    "concept_shift": {
+      "anomaly_rate": 0.043889,
+      "detectors": {
+        "bocpd": {
+          "detector": "bocpd",
+          "f1": 0.137931,
+          "latency_ms": 60.693895,
+          "precision": 0.8,
+          "recall": 0.075472,
+          "roc_auc": 0.592992
+        },
+        "deep_svdd": {
+          "detector": "deep_svdd",
+          "f1": 0.111579,
+          "latency_ms": 1.636352,
+          "precision": 0.059086,
+          "recall": 1.0,
+          "roc_auc": 0.499699
+        },
+        "digital_twin": {
+          "detector": "digital_twin",
+          "f1": 0.112941,
+          "latency_ms": 9.950283,
+          "precision": 0.060226,
+          "recall": 0.90566,
+          "roc_auc": 0.565124
+        },
+        "echo_state": {
+          "detector": "echo_state",
+          "f1": 0.110363,
+          "latency_ms": 5.210959,
+          "precision": 0.05942,
+          "recall": 0.773585,
+          "roc_auc": 0.577822
+        },
+        "energy_based": {
+          "detector": "energy_based",
+          "f1": 0.111228,
+          "latency_ms": 0.23859,
+          "precision": 0.058889,
+          "recall": 1.0,
+          "roc_auc": 0.636297
+        },
+        "gaussian_process": {
+          "detector": "gaussian_process",
+          "f1": 0.147982,
+          "latency_ms": 35.679676,
+          "precision": 0.083969,
+          "recall": 0.622642,
+          "roc_auc": 0.678131
+        },
+        "hawkes": {
+          "detector": "hawkes",
+          "f1": 0.08149,
+          "latency_ms": 0.298733,
+          "precision": 0.043424,
+          "recall": 0.660377,
+          "roc_auc": 0.508654
+        },
+        "imm": {
+          "detector": "imm",
+          "f1": 0.189655,
+          "latency_ms": 62.39851,
+          "precision": 0.111864,
+          "recall": 0.622642,
+          "roc_auc": 0.686975
+        },
+        "particle_filter": {
+          "detector": "particle_filter",
+          "f1": 0.174292,
+          "latency_ms": 44.581629,
+          "precision": 0.098522,
+          "recall": 0.754717,
+          "roc_auc": 0.767526
+        },
+        "spectral_residual": {
+          "detector": "spectral_residual",
+          "f1": 0.632911,
+          "latency_ms": 0.243981,
+          "precision": 0.961538,
+          "recall": 0.471698,
+          "roc_auc": 0.785614
+        },
+        "spiking": {
+          "detector": "spiking",
+          "f1": 0.108046,
+          "latency_ms": 7.70283,
+          "precision": 0.057528,
+          "recall": 0.886792,
+          "roc_auc": 0.59219
+        },
+        "spot_evt": {
+          "detector": "spot_evt",
+          "f1": 0.173228,
+          "latency_ms": 6.618179,
+          "precision": 0.10061,
+          "recall": 0.622642,
+          "roc_auc": 0.64905
+        },
+        "survival": {
+          "detector": "survival",
+          "f1": 0.135685,
+          "latency_ms": 3.579726,
+          "precision": 0.073099,
+          "recall": 0.943396,
+          "roc_auc": 0.716402
+        }
+      },
+      "ensembles": {
+        "average": {
+          "f1": 0.256604,
+          "latency_ms": 239.232927,
+          "precision": 0.160377,
+          "recall": 0.641509,
+          "roc_auc": 0.671783,
+          "threshold": 0.578931
+        },
+        "bma": {
+          "f1": 0.578947,
+          "latency_ms": 239.550628,
+          "precision": 0.956522,
+          "recall": 0.415094,
+          "roc_auc": 0.795505,
+          "threshold": 0.52959
+        },
+        "stacking": {
+          "f1": 0.300429,
+          "latency_ms": 247.539196,
+          "precision": 0.194444,
+          "recall": 0.660377,
+          "roc_auc": 0.724043,
+          "threshold": 0.143514
+        }
+      },
+      "n_test": 900,
+      "n_train": 900
+    },
+    "drift": {
+      "anomaly_rate": 0.04,
+      "detectors": {
+        "bocpd": {
+          "detector": "bocpd",
+          "f1": 0.385321,
+          "latency_ms": 54.055692,
+          "precision": 0.272727,
+          "recall": 0.65625,
+          "roc_auc": 0.744888
+        },
+        "deep_svdd": {
+          "detector": "deep_svdd",
+          "f1": 0.095238,
+          "latency_ms": 1.479375,
+          "precision": 0.05,
+          "recall": 1.0,
+          "roc_auc": 0.77963
+        },
+        "digital_twin": {
+          "detector": "digital_twin",
+          "f1": 0.2397,
+          "latency_ms": 9.830833,
+          "precision": 0.13617,
+          "recall": 1.0,
+          "roc_auc": 1.0
+        },
+        "echo_state": {
+          "detector": "echo_state",
+          "f1": 0.133891,
+          "latency_ms": 5.999061,
+          "precision": 0.071749,
+          "recall": 1.0,
+          "roc_auc": 0.999712
+        },
+        "energy_based": {
+          "detector": "energy_based",
+          "f1": 0.084656,
+          "latency_ms": 0.188496,
+          "precision": 0.044199,
+          "recall": 1.0,
+          "roc_auc": 0.904576
+        },
+        "gaussian_process": {
+          "detector": "gaussian_process",
+          "f1": 0.266667,
+          "latency_ms": 40.136173,
+          "precision": 0.153846,
+          "recall": 1.0,
+          "roc_auc": 0.998848
+        },
+        "hawkes": {
+          "detector": "hawkes",
+          "f1": 0.152019,
+          "latency_ms": 0.297708,
+          "precision": 0.082262,
+          "recall": 1.0,
+          "roc_auc": 0.853471
+        },
+        "imm": {
+          "detector": "imm",
+          "f1": 0.435374,
+          "latency_ms": 58.317698,
+          "precision": 0.278261,
+          "recall": 1.0,
+          "roc_auc": 0.987399
+        },
+        "particle_filter": {
+          "detector": "particle_filter",
+          "f1": 0.363636,
+          "latency_ms": 40.107678,
+          "precision": 0.222222,
+          "recall": 1.0,
+          "roc_auc": 1.0
+        },
+        "spectral_residual": {
+          "detector": "spectral_residual",
+          "f1": 0.984615,
+          "latency_ms": 0.236922,
+          "precision": 0.969697,
+          "recall": 1.0,
+          "roc_auc": 1.0
+        },
+        "spiking": {
+          "detector": "spiking",
+          "f1": 0.089645,
+          "latency_ms": 8.841985,
+          "precision": 0.047154,
+          "recall": 0.90625,
+          "roc_auc": 0.707499
+        },
+        "spot_evt": {
+          "detector": "spot_evt",
+          "f1": 0.20915,
+          "latency_ms": 5.261133,
+          "precision": 0.132231,
+          "recall": 0.5,
+          "roc_auc": 0.71227
+        },
+        "survival": {
+          "detector": "survival",
+          "f1": 0.135307,
+          "latency_ms": 3.201931,
+          "precision": 0.072562,
+          "recall": 1.0,
+          "roc_auc": 0.952801
+        }
+      },
+      "ensembles": {
+        "average": {
+          "f1": 0.680851,
+          "latency_ms": 243.150194,
+          "precision": 0.516129,
+          "recall": 1.0,
+          "roc_auc": 0.999784,
+          "threshold": 0.588162
+        },
+        "bma": {
+          "f1": 0.914286,
+          "latency_ms": 265.364816,
+          "precision": 0.842105,
+          "recall": 1.0,
+          "roc_auc": 1.0,
+          "threshold": 0.367957
+        },
+        "stacking": {
+          "f1": 0.659794,
+          "latency_ms": 255.281385,
+          "precision": 0.492308,
+          "recall": 1.0,
+          "roc_auc": 1.0,
+          "threshold": 0.136615
+        }
+      },
+      "n_test": 900,
+      "n_train": 900
+    },
+    "missing_data": {
+      "anomaly_rate": 0.035,
+      "detectors": {
+        "bocpd": {
+          "detector": "bocpd",
+          "f1": 0.370968,
+          "latency_ms": 56.237702,
+          "precision": 0.239583,
+          "recall": 0.821429,
+          "roc_auc": 0.904878
+        },
+        "deep_svdd": {
+          "detector": "deep_svdd",
+          "f1": 0.217054,
+          "latency_ms": 1.549821,
+          "precision": 0.121739,
+          "recall": 1.0,
+          "roc_auc": 0.844774
+        },
+        "digital_twin": {
+          "detector": "digital_twin",
+          "f1": 0.72973,
+          "latency_ms": 9.8403,
+          "precision": 0.586957,
+          "recall": 0.964286,
+          "roc_auc": 0.986034
+        },
+        "echo_state": {
+          "detector": "echo_state",
+          "f1": 0.259259,
+          "latency_ms": 5.311018,
+          "precision": 0.148936,
+          "recall": 1.0,
+          "roc_auc": 0.997686
+        },
+        "energy_based": {
+          "detector": "energy_based",
+          "f1": 0.183607,
+          "latency_ms": 0.203483,
+          "precision": 0.101083,
+          "recall": 1.0,
+          "roc_auc": 0.901847
+        },
+        "gaussian_process": {
+          "detector": "gaussian_process",
+          "f1": 0.635294,
+          "latency_ms": 34.043128,
+          "precision": 0.473684,
+          "recall": 0.964286,
+          "roc_auc": 0.96318
+        },
+        "hawkes": {
+          "detector": "hawkes",
+          "f1": 0.31746,
+          "latency_ms": 0.288601,
+          "precision": 0.285714,
+          "recall": 0.357143,
+          "roc_auc": 0.680046
+        },
+        "imm": {
+          "detector": "imm",
+          "f1": 0.534653,
+          "latency_ms": 60.282838,
+          "precision": 0.369863,
+          "recall": 0.964286,
+          "roc_auc": 0.959862
+        },
+        "particle_filter": {
+          "detector": "particle_filter",
+          "f1": 0.504673,
+          "latency_ms": 39.746945,
+          "precision": 0.341772,
+          "recall": 0.964286,
+          "roc_auc": 0.965678
+        },
+        "spectral_residual": {
+          "detector": "spectral_residual",
+          "f1": 1.0,
+          "latency_ms": 0.317188,
+          "precision": 1.0,
+          "recall": 1.0,
+          "roc_auc": 1.0
+        },
+        "spiking": {
+          "detector": "spiking",
+          "f1": 0.189189,
+          "latency_ms": 7.8889,
+          "precision": 0.152174,
+          "recall": 0.25,
+          "roc_auc": 0.801094
+        },
+        "spot_evt": {
+          "detector": "spot_evt",
+          "f1": 0.5,
+          "latency_ms": 3.328187,
+          "precision": 0.833333,
+          "recall": 0.357143,
+          "roc_auc": 0.677834
+        },
+        "survival": {
+          "detector": "survival",
+          "f1": 0.318182,
+          "latency_ms": 3.272349,
+          "precision": 0.189189,
+          "recall": 1.0,
+          "roc_auc": 0.975446
+        }
+      },
+      "ensembles": {
+        "average": {
+          "f1": 0.931034,
+          "latency_ms": 223.471897,
+          "precision": 0.9,
+          "recall": 0.964286,
+          "roc_auc": 0.999222,
+          "threshold": 0.571384
+        },
+        "bma": {
+          "f1": 0.875,
+          "latency_ms": 225.956783,
+          "precision": 0.777778,
+          "recall": 1.0,
+          "roc_auc": 1.0,
+          "threshold": 0.344365
+        },
+        "stacking": {
+          "f1": 0.915254,
+          "latency_ms": 230.39262,
+          "precision": 0.870968,
+          "recall": 0.964286,
+          "roc_auc": 0.998485,
+          "threshold": 0.109628
+        }
+      },
+      "n_test": 900,
+      "n_train": 900
+    }
+  },
+  "skipped": []
+}

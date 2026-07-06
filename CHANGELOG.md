@@ -27,6 +27,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Detection mechanisms: streaming / statistical / state-space detector tier (steel/detection-mechanisms)
+
+A deliberate, end-to-end expansion of the classical anomaly-detection surface:
+**eighteen detectors across six paradigms**, each implementing the
+`omni_mercury_engine.core.base.BaseDetector` contract, auto-discovered through
+`core/detector_registry.py::DETECTOR_MANIFEST`, calibrated to emit probabilistic
+scores, and wired into a calibrated ensemble with distribution-free
+false-positive control and graph-based attribution. No stubs, no disabled feature
+flags. Design doc `docs/DETECTION_MECHANISMS.md`; ops
+`docs/DETECTION_MECHANISMS_RUNBOOK.md`.
+
+- **Detectors (16 pure-NumPy, always importable).** Temporal/streaming
+  `spectral_residual` (SR saliency, Ren et al. KDD 2019), `bocpd` (Bayesian
+  online change-point), `hawkes` (self-exciting burst); state-space
+  `particle_filter`, `imm` (interacting-multiple-model switching), `digital_twin`
+  (observed-vs-simulated AR residual); probabilistic `spot_evt` (SPOT/DSPOT EVT
+  peaks-over-threshold), `gaussian_process`, `survival` (Kaplan-Meier + Cox);
+  generative `energy_based`, `deep_svdd`; neuromorphic `echo_state`, `spiking`;
+  systems-level `rca` (random-walk root-cause over a causal/service graph),
+  `deeplog_sequence`, `frequent_pattern`.
+- **Torch-gated detectors (2, `[ml]` extra).** `srcnn` — CNN discriminator over
+  SR saliency trained on synthetic-anomaly-augmented series (Ren et al. 2019);
+  `diffusion_ad` — DDPM denoising-reconstruction detector (Ho et al. 2020).
+  Lazily imported so the tier degrades gracefully without PyTorch.
+- **Calibration contract.** Residual detectors squash raw residuals via
+  `1 - exp(-r/scale)` with `scale` anchored at a high training quantile (default
+  0.98), placing the 0.5 boundary in the normal tail for a controlled ~1–2% FPR;
+  natively-probabilistic detectors (BOCPD, SPOT) are left unsquashed.
+- **End-to-end integration** (`detectors/detection_tier.py`).
+  `StreamingScoreEnsemble` combines per-point scores through Mercury's own
+  logistic meta-learner (`ml.mercury_ml.LogisticRegression`, stacking) or
+  Bayesian Model Averaging (BIC weights + bootstrap uncertainty), thresholded via
+  `core.score_calibration.calibrate_scores`, with per-point cross-detector
+  disagreement as ensemble uncertainty. `conformal_threshold` / `conformal_flags`
+  bound the streaming FPR distribution-free via
+  `core.conformal_prediction.SplitConformalPredictor`. `rca_localize` returns
+  ranked root-cause attributions over a causal/service graph.
+- **Robustness fix.** `FrequentPatternDetector` Apriori mining is now bounded to
+  the top `max_items` itemsets per level (deterministic tie-break, truncation
+  logged), eliminating a combinatorial hang on wide/degenerate input (e.g. a
+  single continuous series fed through the fusion registry). Regression tests
+  added.
+- **Validation.** Per-detector contract + signal tests under `tests/detectors/`;
+  tier wiring in `tests/detectors/test_detection_tier_integration.py`; synthetic
+  burst/drift/concept-shift/missing-data/adversarial generators
+  (`benchmarks/detection_tier_synthetic.py`) + benchmark harness
+  (`benchmarks/detection_tier_benchmark.py`, committed
+  `detection_tier_results.json`). Measured: the **BMA ensemble leads at ROC-AUC
+  0.955** across five scenarios, pooling all thirteen 1-D members.
+- **AMA-Cryptography pin bumped `v3.2.0 → v3.3.0`** (still mandatory, fail-closed):
+  `_pqc_gate.py` constants, the pyproject `pqc` git pin, every CI `AMA_REF`,
+  `scripts/build_ama_native.sh`, and the version-gate tests updated in lockstep.
+
 ### Intelligence layer: closed-loop learning + decision geometry (steel/refinement-mercury-intel)
 
 The learning-and-geometry layer on top of the Tier-0 safety foundation. New
