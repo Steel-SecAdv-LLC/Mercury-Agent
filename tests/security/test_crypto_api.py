@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Tests for the crypto_api module - cryptographic operations.
 
-AMA Cryptography v3.2.0 is a mandatory Mercury capability.  There is no
+AMA Cryptography v3.3.0 is a mandatory Mercury capability.  There is no
 simulation mode and no AMA-less skip path; missing AMA/PQC fails at import.
 """
 

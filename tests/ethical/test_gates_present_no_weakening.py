@@ -109,7 +109,7 @@ class TestControlsPresent:
     def test_tier0_pqc_version_pin_present(self) -> None:
         from omni_mercury_engine._pqc_gate import _AMA_REQUIRED_VERSION, _enforce_ama_version
 
-        assert _AMA_REQUIRED_VERSION == "3.2.0"
+        assert _AMA_REQUIRED_VERSION == "3.3.0"
         assert callable(_enforce_ama_version)
 
 

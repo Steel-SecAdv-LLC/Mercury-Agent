@@ -12,7 +12,7 @@
 #     python research/governed_fusion/build_manifest.py
 #
 # The AMA native backend is built by .github/actions/build-ama-cryptography
-# (ama-ref v3.2.0) into ${AMA_HOME}/build/lib/libama_cryptography.so.  Override
+# (ama-ref v3.3.0) into ${AMA_HOME}/build/lib/libama_cryptography.so.  Override
 # AMA_HOME / GF_CACHE_DIR / GF_RESULTS_DIR if your layout differs.
 
 # Repo root = two levels up from this script (research/governed_fusion/).

@@ -71,9 +71,9 @@ Mercury Agent implements multiple layers of security:
 ### Post-Quantum Cryptography (PQC) Backend Audit Status
 
 Mercury Agent uses NIST-approved post-quantum cryptographic algorithms
-sourced from AMA Cryptography v3.2.0 (pinned in
+sourced from AMA Cryptography v3.3.0 (pinned in
 `pyproject.toml [project.optional-dependencies].pqc` and via the
-`ama-ref: v3.2.0` input that `.github/workflows/ci.yml` /
+`ama-ref: v3.3.0` input that `.github/workflows/ci.yml` /
 `.github/workflows/pqc-production-check.yml` pass to the
 `build-ama-cryptography` composite action, which exports it internally
 as `AMA_REF`):
@@ -98,7 +98,7 @@ SlhDsaKeyPair` declarations).
 
 | Backend | Status | Recommendation |
 |---------|--------|----------------|
-| AMA Cryptography (Native C, v3.2.0) | Community-tested, NOT externally audited | Production (sole backend — hard-required) |
+| AMA Cryptography (Native C, v3.3.0) | Community-tested, NOT externally audited | Production (sole backend — hard-required) |
 
 **Important Security Considerations:**
 
@@ -111,7 +111,7 @@ SlhDsaKeyPair` declarations).
 
 3. **Sole Backend**: Mercury Agent **hard-requires** AMA Cryptography. There is no fallback chain — if AMA Cryptography is not installed, Mercury refuses to start. The native C library must be built for PQC algorithms:
    ```bash
-   pip install "ama-cryptography @ git+https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git@v3.2.0"
+   pip install "ama-cryptography @ git+https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git@v3.3.0"
    cmake -B build -DAMA_USE_NATIVE_PQC=ON && cmake --build build
    ```
 
@@ -119,12 +119,12 @@ SlhDsaKeyPair` declarations).
 
 5. **Constant-Time Requirement**: AMA Cryptography's native C library provides constant-time implementations. Set `AMA_REQUIRE_CONSTANT_TIME=true` to enforce this at startup.
 
-6. **HMAC routing (v1.7.x)**: AMA Cryptography v3.2.0 also surfaces
-   ACVP-validated HMAC-SHA-256 / HMAC-SHA-512 bindings
-   (`native_hmac_sha256`, `native_hmac_sha256_2`). Mercury's
-   `native_jwt` module routes HS256 and HS512 through these bindings
-   with no stdlib fallback; HS384 remains stdlib-only until AMA ships a
-   SHA-384 HMAC binding. See
+6. **HMAC routing (v1.7.x)**: AMA Cryptography v3.3.0 also surfaces
+   ACVP-validated HMAC-SHA-256 / HMAC-SHA-384 / HMAC-SHA-512 bindings
+   (`native_hmac_sha256`, `native_hmac_sha256_2`, `native_hmac_sha384`,
+   `native_hmac_sha512`). Mercury's `native_jwt` module routes HS256,
+   HS384, and HS512 through these bindings with no stdlib fallback
+   (fail-closed). See
    `tests/security/test_native_jwt_ama_routing.py` for the RFC 4231 KAT
    and fail-closed route locks.
 

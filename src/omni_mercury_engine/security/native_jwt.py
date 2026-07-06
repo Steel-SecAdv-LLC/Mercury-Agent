@@ -12,15 +12,16 @@ crypto" posture (cf. ``AMA-Cryptography`` INVARIANT-1).
 
 AMA HMAC routing
 ----------------
-The HS256 and HS512 signing primitives are routed through AMA's ACVP-validated
+The HS256, HS384, and HS512 signing primitives are routed through AMA's ACVP-validated
 constant-time C HMAC implementations
-(:func:`omni_mercury_engine.security.ama_hmac.ama_hmac_sha256` and
+(:func:`omni_mercury_engine.security.ama_hmac.ama_hmac_sha256`,
+:func:`omni_mercury_engine.security.ama_hmac.ama_hmac_sha384`, and
 :func:`omni_mercury_engine.security.ama_hmac.ama_hmac_sha512`).  This
 puts the JWT signing path on the same crypto backend the rest of
 Mercury's PQC + HKDF stack already uses, matches AMA's INVARIANT-1
 posture, and removes OpenSSL-backed stdlib HMAC from the production
-auth path.  HS384 stays on stdlib because AMA does not currently bind
-HMAC-SHA-384 (tracked in ``docs/ROADMAP.md``).
+auth path.  HS384 joined the AMA-routed set once AMA v3.3.0 added a
+native HMAC-SHA-384 binding.
 
 Scope
 -----
@@ -29,7 +30,7 @@ Compact JWS (RFC 7519 §3) with HMAC-SHA2 family signatures (RFC 7518
 
 * ``HS256`` (HMAC-SHA-256) — required by Mercury's API; default;
   **AMA-routed**.
-* ``HS384`` (HMAC-SHA-384) — supported for interop; stdlib only.
+* ``HS384`` (HMAC-SHA-384) — supported for interop; **AMA-routed**.
 * ``HS512`` (HMAC-SHA-512) — supported for interop; **AMA-routed**.
 
 Asymmetric algorithms (RS*/ES*/PS*/EdDSA) are out of scope for this
@@ -49,7 +50,7 @@ Security properties
 * HMAC digest computation is delegated to AMA Cryptography's
   constant-time C backend (see
   ``AMA-Cryptography/CONSTANT_TIME_VERIFICATION.md``); stdlib HMAC
-  is retained only for HS384, which AMA v3.2.0 does not bind.
+  is retained as a verification cross-check against the AMA-routed HS* path.
 * ``alg`` is read from the header BUT is then matched against the
   caller-supplied ``algorithms=`` whitelist; a token whose header
   claims an algorithm not in the whitelist is rejected before any
@@ -148,12 +149,10 @@ _HASH_BY_ALG: dict[str, Any] = {
 
 SUPPORTED_ALGORITHMS: tuple[str, ...] = tuple(_HASH_BY_ALG.keys())
 
-# JWS algorithms that may be routed through AMA's native C HMAC when
-# the AMA shared library is loaded.  HS384 stays stdlib-only because
-# AMA Cryptography does not bind HMAC-SHA-384 (cf. AMA's
-# ``src/c/ama_hmac_sha256.c`` / ``ama_hmac_sha512.c``; no SHA-384
-# variant ships in the C library).
-_AMA_ROUTABLE_ALGS: frozenset[str] = frozenset({"HS256", "HS512"})
+# JWS algorithms routed through AMA's native C HMAC.  As of AMA v3.3.0 the C
+# library binds HMAC-SHA-256, HMAC-SHA-384, and HMAC-SHA-512 (ACVP-validated),
+# so all three HS* JOSE algorithms route through the same fail-closed backend.
+_AMA_ROUTABLE_ALGS: frozenset[str] = frozenset({"HS256", "HS384", "HS512"})
 
 # --------------------------------------------------------------------------- #
 # Base64URL helpers
@@ -253,10 +252,14 @@ def _sign_ama(header_segment: bytes, payload_segment: bytes, key: bytes, alg: st
     match alg:
         case "HS256":
             return ama_hmac.ama_hmac_sha256_2(key, header_segment + b".", payload_segment)
+        case "HS384":
+            # AMA v3.3.0 added a native HMAC-SHA-384 binding; route HS384 through
+            # it (one-segment) so all HS* algorithms share the ACVP-validated C
+            # backend rather than silently downgrading to stdlib.
+            return ama_hmac.ama_hmac_sha384(key, _signing_input(header_segment, payload_segment))
         case "HS512":
-            # AMA v3.2.0 does not yet ship a two-segment HMAC-SHA-512
-            # variant; use the one-segment binding with a
-            # single concat.  Tracked in docs/ROADMAP.md.
+            # The pinned AMA v3.3.0 does not ship a two-segment HMAC-SHA-512
+            # variant; use the one-segment binding with a single concat.
             return ama_hmac.ama_hmac_sha512(key, _signing_input(header_segment, payload_segment))
     raise InvalidAlgorithmError(f"Algorithm {alg!r} is not AMA-routable")
 
@@ -264,13 +267,17 @@ def _sign_ama(header_segment: bytes, payload_segment: bytes, key: bytes, alg: st
 def _alg_uses_ama(alg: str) -> bool:
     """Return ``True`` iff ``alg`` will be served by the AMA backend.
 
-    HS256 and HS512 are mandatory AMA routes; HS384 remains stdlib-only until
-    AMA exports a SHA-384 HMAC binding.
+    HS256, HS384, and HS512 are all mandatory AMA routes (AMA v3.3.0 binds
+    native HMAC-SHA-256/384/512).
     """
     match alg:
         case "HS256":
             if not ama_hmac.HAS_AMA_HMAC_SHA256:
                 raise RuntimeError("AMA HMAC-SHA-256 is mandatory for HS256")
+            return True
+        case "HS384":
+            if not ama_hmac.HAS_AMA_HMAC_SHA384:
+                raise RuntimeError("AMA HMAC-SHA-384 is mandatory for HS384")
             return True
         case "HS512":
             if not ama_hmac.HAS_AMA_HMAC_SHA512:
@@ -283,8 +290,8 @@ def _alg_uses_ama(alg: str) -> bool:
 def _sign(header_segment: bytes, payload_segment: bytes, key: bytes, alg: str) -> bytes:
     """Compute the HMAC tag for ``b64(header).b64(payload)`` under ``alg``.
 
-    Routes HS256/HS512 through AMA Cryptography's native C HMAC.  HS384 remains
-    stdlib-only because AMA v3.2.0 does not bind HMAC-SHA-384.
+    Routes HS256/HS384/HS512 through AMA Cryptography's native C HMAC (all three
+    HMAC variants are bound by the pinned AMA v3.3.0).
     """
     if _alg_uses_ama(alg):
         return _sign_ama(header_segment, payload_segment, key, alg)

@@ -56,7 +56,17 @@ jobs:
           # was failing this lane. The CPU wheel is ~10x smaller and satisfies the [ml]
           # torch>=2.2 pin, so the editable install keeps it; the lane needs torch only
           # to run the GOSNN gate on CPU for the sigma_Immutable probe.
-          pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision
+          #
+          # Resilient install: download.pytorch.org intermittently fails the TLS
+          # handshake from hosted runners (SSLV3_ALERT_HANDSHAKE_FAILURE). Retry the
+          # CPU index with backoff, then fall back to the default PyPI index (larger
+          # build, still CPU-usable) so an upstream CDN outage cannot fail this lane.
+          for attempt in 1 2 3; do
+            pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision && break
+            echo "::warning::PyTorch CPU index attempt ${attempt} failed (CDN); retrying"
+            sleep $((attempt * 20))
+          done
+          python -c "import torch" 2>/dev/null || pip install torch torchvision
           pip install -e ".[ml]"
           pip install pytest pytest-asyncio
 
@@ -71,7 +81,7 @@ jobs:
       - name: Build + install AMA Cryptography (native PQC backend)
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v3.2.0
+          ama-ref: v3.3.0
 
       - name: Install Lean 4 (theorem-tier oracle)
         run: |

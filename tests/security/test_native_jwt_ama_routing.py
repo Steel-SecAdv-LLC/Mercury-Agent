@@ -4,7 +4,7 @@
 
 These tests pin that Mercury's :mod:`native_jwt` signing primitive
 produces byte-identical output whether routed through AMA
-Cryptography v3.2.0's native HMAC C backend and match stdlib
+Cryptography v3.3.0's native HMAC C backend and match stdlib
 ``hmac`` over ``hashlib`` for the same FIPS 198-1 / RFC 2104 wire format.
 AMA absence is not a test skip or fallback path; module import fails closed.
 """
@@ -23,6 +23,10 @@ _RFC4231_TC1_KEY = b"\x0b" * 20
 _RFC4231_TC1_MSG = b"Hi There"
 _RFC4231_TC1_HS256 = bytes.fromhex(
     "b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7"
+)
+_RFC4231_TC1_HS384 = bytes.fromhex(
+    "afd03944d84895626b0825f4ab46907f15f9dadbe4101ec682aa034c7cebc59c"
+    "faea9ea9076ede7f4af152e8b2fa9cb6"
 )
 _RFC4231_TC1_HS512 = bytes.fromhex(
     "87aa7cdea5ef619d4ff0b4241a1d6cb02379f4e2ce4ec2787ad0b30545e17cde"
@@ -53,12 +57,11 @@ class TestSigningBackendSurface:
             backend = native_jwt.get_signing_backend(alg)
             assert backend in ("ama", "stdlib")
 
-    def test_hs384_is_always_stdlib(self) -> None:
-        # AMA Cryptography v3.2.0 does not ship HMAC-SHA-384 in its C
-        # backend; the HS384 path is wired to stdlib regardless of
-        # AMA availability.  Locks the deferral until AMA adds the
-        # binding.
-        assert native_jwt.get_signing_backend("HS384") == "stdlib"
+    def test_hs384_routes_ama(self) -> None:
+        # AMA v3.3.0 binds a native HMAC-SHA-384 in its C backend, so HS384
+        # routes through AMA (ACVP-validated, fail-closed) like HS256/HS512 --
+        # never a silent stdlib downgrade.
+        assert native_jwt.get_signing_backend("HS384") == "ama"
 
     def test_unknown_algorithm_raises(self) -> None:
         with pytest.raises(native_jwt.InvalidAlgorithmError):
@@ -68,10 +71,12 @@ class TestSigningBackendSurface:
         snapshot = ama_hmac.available()
         assert set(snapshot.keys()) == {
             "ama_hmac_sha256",
+            "ama_hmac_sha384",
             "ama_hmac_sha512",
             "reason",
         }
         assert isinstance(snapshot["ama_hmac_sha256"], bool)
+        assert isinstance(snapshot["ama_hmac_sha384"], bool)
         assert isinstance(snapshot["ama_hmac_sha512"], bool)
         assert isinstance(snapshot["reason"], str)
 
@@ -86,6 +91,9 @@ class TestAMAKnownAnswerVectors:
 
     def test_rfc4231_tc1_hmac_sha256(self) -> None:
         assert ama_hmac.ama_hmac_sha256(_RFC4231_TC1_KEY, _RFC4231_TC1_MSG) == _RFC4231_TC1_HS256
+
+    def test_rfc4231_tc1_hmac_sha384(self) -> None:
+        assert ama_hmac.ama_hmac_sha384(_RFC4231_TC1_KEY, _RFC4231_TC1_MSG) == _RFC4231_TC1_HS384
 
     def test_rfc4231_tc1_hmac_sha512(self) -> None:
         assert ama_hmac.ama_hmac_sha512(_RFC4231_TC1_KEY, _RFC4231_TC1_MSG) == _RFC4231_TC1_HS512
@@ -124,6 +132,11 @@ class TestSignBoundaryEquivalence:
         stdlib_sig = native_jwt._sign_stdlib(self.HEADER, self.PAYLOAD, self.KEY, "HS256")
         assert ama == stdlib_sig
 
+    def test_hs384_ama_matches_stdlib(self) -> None:
+        ama = native_jwt._sign_ama(self.HEADER, self.PAYLOAD, self.KEY, "HS384")
+        stdlib_sig = native_jwt._sign_stdlib(self.HEADER, self.PAYLOAD, self.KEY, "HS384")
+        assert ama == stdlib_sig
+
     def test_hs512_ama_matches_stdlib(self) -> None:
         ama = native_jwt._sign_ama(self.HEADER, self.PAYLOAD, self.KEY, "HS512")
         stdlib_sig = native_jwt._sign_stdlib(self.HEADER, self.PAYLOAD, self.KEY, "HS512")
@@ -155,6 +168,13 @@ class TestFailClosedWhenAMAInvalidated:
         monkeypatch.setattr(ama_hmac, "HAS_AMA_HMAC_SHA256", False)
         with pytest.raises(RuntimeError, match="AMA HMAC-SHA-256"):
             native_jwt.get_signing_backend("HS256")
+
+    def test_get_signing_backend_rejects_hs384_without_ama(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(ama_hmac, "HAS_AMA_HMAC_SHA384", False)
+        with pytest.raises(RuntimeError, match="AMA HMAC-SHA-384"):
+            native_jwt.get_signing_backend("HS384")
 
     def test_get_signing_backend_rejects_hs512_without_ama(
         self, monkeypatch: pytest.MonkeyPatch
@@ -215,9 +235,11 @@ class TestReinitialization:
     def test_reinitialize_restores_real_flag_values(self) -> None:
         # Capture truth.
         truth_256 = ama_hmac.HAS_AMA_HMAC_SHA256
+        truth_384 = ama_hmac.HAS_AMA_HMAC_SHA384
         truth_512 = ama_hmac.HAS_AMA_HMAC_SHA512
 
         ama_hmac._reinitialize_for_tests()
 
         assert ama_hmac.HAS_AMA_HMAC_SHA256 is truth_256
+        assert ama_hmac.HAS_AMA_HMAC_SHA384 is truth_384
         assert ama_hmac.HAS_AMA_HMAC_SHA512 is truth_512

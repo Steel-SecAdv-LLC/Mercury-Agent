@@ -119,7 +119,7 @@ Please **DO NOT** submit pull requests that:
   Cryptography the **sole** PQC backend; the import-time gate in
   `_pqc_gate.py` is unconditional — `AMA_REQUIRE_REAL_PQC` is retained
   only for diagnostics and no longer disables the gate. Pinned to
-  `v3.2.0` via the `ama-ref` input in
+  `v3.3.0` via the `ama-ref` input in
   `.github/workflows/pqc-production-check.yml` and
   `pyproject.toml [project.optional-dependencies].pqc`)
 - Restore the `SafeHTTPClient(..., allow_untrusted=True)` kwarg

@@ -54,7 +54,7 @@ jobs:
       - name: Build AMA Cryptography (native PQC)
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v3.2.0
+          ama-ref: v3.3.0
 
       - name: Import-time gate must succeed with a real, correctly-versioned AMA
         run: python -c "import omni_mercury_engine; print('omni_mercury_engine imported (PQC gate passed)')"
@@ -91,7 +91,7 @@ jobs:
       - name: Build AMA Cryptography (native PQC)
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v3.2.0
+          ama-ref: v3.3.0
 
       - name: Fail-closed + capability-contract + no-weakening unit tests
         run: >-
@@ -140,7 +140,7 @@ jobs:
       - name: Build AMA Cryptography (native PQC)
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v3.2.0
+          ama-ref: v3.3.0
 
       - name: Serve the validated meaning-level model double
         run: |
@@ -206,7 +206,7 @@ jobs:
       - name: Build AMA Cryptography (native PQC)
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v3.2.0
+          ama-ref: v3.3.0
 
       - name: Corpus integrity + versioning check
         run: python scripts/ingest_weapons_gate_corpus.py --check

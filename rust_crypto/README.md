@@ -6,7 +6,7 @@
 > post-quantum cryptography (PQC) backend. PQC for Mercury Agent
 > flows exclusively through
 > [AMA Cryptography](https://github.com/Steel-SecAdv-LLC/AMA-Cryptography)
-> (pinned to `v3.2.0` in
+> (pinned to `v3.3.0` in
 > `.github/workflows/pqc-production-check.yml` and the
 > `[pqc]` extra of `pyproject.toml`). See
 > [`SECURITY.md`](../SECURITY.md) §"Post-Quantum Cryptography

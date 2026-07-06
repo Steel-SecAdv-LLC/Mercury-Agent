@@ -179,7 +179,7 @@ jobs:
       - name: Build + install AMA Cryptography (native PQC backend)
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v3.2.0
+          ama-ref: v3.3.0
 
       - name: Run tests
         env:

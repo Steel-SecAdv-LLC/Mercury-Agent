@@ -4,11 +4,11 @@
 
 Thin Mercury-side adapter that surfaces AMA Cryptography's
 ACVP-validated, constant-time, zero-third-party-dep HMAC primitives
-to Mercury's JWT signing path so that ``HS256`` and ``HS512`` JOSE
-algorithms run on the same C backend that already serves AMA's PQC
+to Mercury's JWT signing path so that ``HS256``, ``HS384``, and
+``HS512`` JOSE algorithms run on the same C backend that already serves AMA's PQC
 and HKDF stack in this deployment.
 
-Routed primitives (AMA Cryptography v3.2.0+)
+Routed primitives (AMA Cryptography, pinned v3.3.0)
 --------------------------------------------
 * ``ama_cryptography.pqc_backends.native_hmac_sha256(key, msg)``
   HMAC-SHA-256 (FIPS 198-1 / RFC 2104), ACVP-validated 150/150 vectors.
@@ -17,6 +17,8 @@ Routed primitives (AMA Cryptography v3.2.0+)
   ``native_hmac_sha256(key, msg1 + msg2)`` but avoids materialising
   the concat in Python.  This is the JWT signing fast path
   (``b64(header) + "."`` and ``b64(payload)`` go in as two segments).
+* ``ama_cryptography.pqc_backends.native_hmac_sha384(key, msg)``
+  HMAC-SHA-384 (FIPS 198-1 / RFC 2104) — added in AMA v3.3.0.
 * ``ama_cryptography.pqc_backends.native_hmac_sha512(key, msg)``
   HMAC-SHA-512 (FIPS 198-1 / RFC 2104).
 
@@ -29,12 +31,12 @@ AMA/PQC security posture.
 
 References
 ----------
-* AMA Cryptography ``ama_cryptography/pqc_backends.py`` (v3.2.0+) —
+* AMA Cryptography ``ama_cryptography/pqc_backends.py`` (pinned v3.3.0) —
   upstream HMAC bindings.
 * FIPS 198-1 — Keyed-Hash Message Authentication Code.
 * RFC 2104 — HMAC.
 * RFC 4231 — HMAC-SHA-2 test vectors.
-* RFC 7518 §3.2 — JWS HS256 / HS512.
+* RFC 7518 §3.2 — JWS HS256 / HS384 / HS512.
 """
 
 from __future__ import annotations
@@ -46,24 +48,28 @@ if TYPE_CHECKING:
 
 from ama_cryptography.pqc_backends import (
     _HMAC_SHA256_NATIVE_AVAILABLE,
+    _HMAC_SHA384_NATIVE_AVAILABLE,
     _HMAC_SHA512_NATIVE_AVAILABLE,
     native_hmac_sha256,
     native_hmac_sha256_2,
+    native_hmac_sha384,
     native_hmac_sha512,
 )
 
 HAS_AMA_HMAC_SHA256: bool = bool(_HMAC_SHA256_NATIVE_AVAILABLE)
+HAS_AMA_HMAC_SHA384: bool = bool(_HMAC_SHA384_NATIVE_AVAILABLE)
 HAS_AMA_HMAC_SHA512: bool = bool(_HMAC_SHA512_NATIVE_AVAILABLE)
 
-if not (HAS_AMA_HMAC_SHA256 and HAS_AMA_HMAC_SHA512):
+if not (HAS_AMA_HMAC_SHA256 and HAS_AMA_HMAC_SHA384 and HAS_AMA_HMAC_SHA512):
     raise ImportError(
         "AMA Cryptography native HMAC backend is mandatory for Mercury; "
-        "build AMA v3.2.0 with native HMAC/PQC enabled."
+        "build AMA v3.3.0 with native HMAC/PQC enabled."
     )
 
 # Cached references to the AMA primitives.
 _native_hmac_sha256: Callable[[bytes, bytes], bytes] = native_hmac_sha256
 _native_hmac_sha256_2: Callable[[bytes, bytes, bytes], bytes] = native_hmac_sha256_2
+_native_hmac_sha384: Callable[[bytes, bytes], bytes] = native_hmac_sha384
 _native_hmac_sha512: Callable[[bytes, bytes], bytes] = native_hmac_sha512
 
 
@@ -103,6 +109,18 @@ def ama_hmac_sha256_2(key: bytes, msg1: bytes, msg2: bytes) -> bytes:
     return _native_hmac_sha256_2(key, msg1, msg2)
 
 
+def ama_hmac_sha384(key: bytes, msg: bytes) -> bytes:
+    """Compute HMAC-SHA-384 via AMA's native C backend (AMA v3.3.0+).
+
+    Raises:
+        RuntimeError: AMA Cryptography's native HMAC-SHA-384 binding was
+            invalidated after import.
+    """
+    if not HAS_AMA_HMAC_SHA384:
+        raise RuntimeError("AMA HMAC-SHA-384 unavailable")
+    return _native_hmac_sha384(key, msg)
+
+
 def ama_hmac_sha512(key: bytes, msg: bytes) -> bytes:
     """Compute HMAC-SHA-512 via AMA's native C backend.
 
@@ -120,12 +138,12 @@ def available() -> dict[str, bool | str]:
 
     Useful for ``/health`` endpoints and audit logs.
     """
+    all_available = HAS_AMA_HMAC_SHA256 and HAS_AMA_HMAC_SHA384 and HAS_AMA_HMAC_SHA512
     return {
         "ama_hmac_sha256": HAS_AMA_HMAC_SHA256,
+        "ama_hmac_sha384": HAS_AMA_HMAC_SHA384,
         "ama_hmac_sha512": HAS_AMA_HMAC_SHA512,
-        "reason": (
-            "" if (HAS_AMA_HMAC_SHA256 and HAS_AMA_HMAC_SHA512) else "AMA native HMAC unavailable"
-        ),
+        "reason": ("" if all_available else "AMA native HMAC unavailable"),
     }
 
 
@@ -140,9 +158,11 @@ def _reinitialize_for_tests() -> None:
 
 __all__ = [
     "HAS_AMA_HMAC_SHA256",
+    "HAS_AMA_HMAC_SHA384",
     "HAS_AMA_HMAC_SHA512",
     "ama_hmac_sha256",
     "ama_hmac_sha256_2",
+    "ama_hmac_sha384",
     "ama_hmac_sha512",
     "available",
 ]

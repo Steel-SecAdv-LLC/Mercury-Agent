@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Mercury Agent - Post-Quantum Cryptography Backends.
 
-AMA Cryptography v3.2.0 is the sole PQC implementation.  The git ref is
+AMA Cryptography v3.3.0 is the sole PQC implementation.  The git ref is
 pinned in ``pyproject.toml [project.optional-dependencies].pqc`` and in
 the ``AMA_REF`` env var of ``.github/workflows/ci.yml`` /
 ``.github/workflows/pqc-production-check.yml`` -- bump those in
@@ -11,16 +11,16 @@ lock-step when upgrading.
 Previous versions used a 4-tier fallback chain (AMA → liboqs → pqcrypto →
 SIMULATION), then a soft-import / hard-call stub bridge for AMA-less dev
 lanes.  Mercury now fails closed at module import: if
-``ama_cryptography.pqc_backends`` cannot be imported, or if the pinned v3.2.0
-FIPS 204/205 symbols are missing, this module does not load.  AMA v3.2.0
+``ama_cryptography.pqc_backends`` cannot be imported, or if the pinned v3.3.0
+FIPS 204/205 symbols are missing, this module does not load.  AMA v3.3.0
 carries its own native C backend — it *is* the implementation.  Retaining
 weaker fallbacks only widened the attack surface.
 
 The v3.x surface adds FIPS 204 §5.2 context-aware ML-DSA-65 signing and
-FIPS 205 SLH-DSA-SHAKE-128s; v3.2.0 specifically adds the
-``native_hmac_sha256`` / ``native_hmac_sha256_2`` Python bindings
-consumed by ``omni_mercury_engine.security.native_jwt`` for HS256 /
-HS512 JOSE signing.
+FIPS 205 SLH-DSA-SHAKE-128s.  The ``native_hmac_sha256`` /
+``native_hmac_sha256_2`` Python bindings consumed by
+``omni_mercury_engine.security.native_jwt`` for HS256 / HS512 JOSE
+signing were introduced in v3.2.0 and are retained in the pinned v3.3.0.
 
 SECURITY NOTICE
 ===============

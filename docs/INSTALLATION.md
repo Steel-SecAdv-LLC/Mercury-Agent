@@ -49,7 +49,7 @@ downgrades.
 
 | Variable | Value | Purpose |
 |---|---|---|
-| `AMA_CRYPTO_VERSION` | `3.2.0` | Pinned PQC backend version; the import gate refuses a different *release* (`_pqc_gate._enforce_ama_version`). Matched PEP 440-tolerantly: `v3.2.0`, `3.2.0.post1`, `3.2` are accepted; `3.1.0` is not. |
+| `AMA_CRYPTO_VERSION` | `3.3.0` | Pinned PQC backend version; the import gate refuses a different *release* (`_pqc_gate._enforce_ama_version`). Matched PEP 440-tolerantly: `v3.3.0`, `3.3.0.post1`, `3.3` are accepted; `3.1.0` is not. |
 | `LD_LIBRARY_PATH` | native AMA lib dir | Only for a manual out-of-tree AMA build; unneeded when `scripts/build_ama_native.sh` co-locates the `.so`. |
 | `MERCURY_ENV` | `production` | Mock/stub collaborators raise instead of downgrading. |
 | `AMA_REQUIRE_CONSTANT_TIME` | `true` | Refuse non-constant-time PQC primitives. |
@@ -62,7 +62,7 @@ downgrades.
 ```bash
 # Tier 0 minimal production env
 export MERCURY_ENV=production
-export AMA_CRYPTO_VERSION=3.2.0
+export AMA_CRYPTO_VERSION=3.3.0
 export AMA_REQUIRE_CONSTANT_TIME=true
 export MERCURY_GATE_AUDIT_LOG=/var/lib/mercury/audit/gate_decisions.jsonl
 export MERCURY_GATE_AUDIT_SECURELOG=1
@@ -99,7 +99,7 @@ pip install -e ".[all]"
 | **Visual** | `pip install -e ".[visual]"` | ML + visual anomaly detectors |
 | **VLM** | `pip install -e ".[vlm]"` | transformers, accelerate |
 | **API** | `pip install -e ".[api]"` | FastAPI, httpx, uvicorn, python-multipart |
-| **PQC** | `pip install -e ".[pqc]"` | AMA Cryptography (pinned to `v3.2.0`) |
+| **PQC** | `pip install -e ".[pqc]"` | AMA Cryptography (pinned to `v3.3.0`) |
 | **Compliance** | `pip install -e ".[compliance]"` | NIST CSF live-fetcher dependency (`openpyxl`) |
 | **All** | `pip install -e ".[all]"` | Every feature extra (ml, visual, vlm, foundation, medical, face, api, sota, llm, drift, fairness, streaming, optimization, benchmark, domains, gui, explainability). `[pqc]`, `[compliance]`, and `[dev]` install separately. |
 | **Dev** | `pip install -e ".[dev]"` | Tooling only: pytest (+ asyncio/cov/timeout/mock/xdist), hypothesis, black, mypy, ruff, pre-commit. Combine with `[all]` for the full stack. |
@@ -136,7 +136,7 @@ For local and production installs, build and install the native library with the
 canonical helper Mercury ships, **`scripts/build_ama_native.sh`** (the `cmake`
 step operates on the AMA-Cryptography checkout the script clones, **not** on the
 Mercury-Agent repo, which has no `CMakeLists.txt` of its own). It clones the
-pinned `AMA_REF` (`v3.2.0`, matching pyproject's `ama-cryptography` git pin and
+pinned `AMA_REF` (`v3.3.0`, matching pyproject's `ama-cryptography` git pin and
 `.github/actions/build-ama-cryptography`), builds the native PQC library,
 installs the Python package, **co-locates the shared object inside the installed
 `ama_cryptography` package** so it loads with no `LD_LIBRARY_PATH`, and fails
@@ -151,7 +151,7 @@ export AMA_REQUIRE_CONSTANT_TIME=true   # recommended
 Override the ref/repo/scratch dir via `AMA_REF`, `AMA_REPO`, `AMA_BUILD_DIR`.
 The script performs, in order: install the PEP 517 build floors
 (`setuptools>=78.1.1`, `wheel>=0.47.0`, `cmake>=4.3.2`); `git clone --branch
-v3.2.0`; `cmake -DAMA_USE_NATIVE_PQC=ON -DAMA_BUILD_SHARED=ON` + build;
+v3.3.0`; `cmake -DAMA_USE_NATIVE_PQC=ON -DAMA_BUILD_SHARED=ON` + build;
 `AMA_NO_CYTHON=1 pip install --no-build-isolation --force-reinstall --no-deps .`;
 co-locate `libama_cryptography.so*`; verify via `get_pqc_backend_info()`.
 
@@ -160,19 +160,19 @@ build AMA yourself and leave the shared object in the build tree, export its
 directory on `LD_LIBRARY_PATH` before importing Mercury:
 
 ```bash
-git clone --depth 1 --branch v3.2.0 \
+git clone --depth 1 --branch v3.3.0 \
     https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git /tmp/ama-cryptography
 cd /tmp/ama-cryptography
 cmake -B build -DAMA_USE_NATIVE_PQC=ON && cmake --build build
 AMA_NO_CYTHON=1 pip install --no-build-isolation .
 export LD_LIBRARY_PATH=/tmp/ama-cryptography/build/lib:/tmp/ama-cryptography/build:${LD_LIBRARY_PATH:-}
-export AMA_CRYPTO_VERSION=3.2.0
+export AMA_CRYPTO_VERSION=3.3.0
 ```
 
 The import-time gate additionally enforces the pinned **version**: it refuses
-unless the installed `ama_cryptography.__version__` resolves to release `3.2.0`
+unless the installed `ama_cryptography.__version__` resolves to release `3.3.0`
 and, when set, `AMA_CRYPTO_VERSION` agrees. Both are matched PEP 440-tolerantly
-(`v3.2.0`, `3.2.0.post1`, `3.2.0+cpu`, and even `3.2` are accepted; a different
+(`v3.3.0`, `3.3.0.post1`, `3.3.0+cpu`, and even `3.3` are accepted; a different
 release such as `3.1.0` is refused), so a valid post/local build is not
 misdiagnosed as a failure — see
 `omni_mercury_engine/_pqc_gate.py::_enforce_ama_version` / `_release_matches`.
