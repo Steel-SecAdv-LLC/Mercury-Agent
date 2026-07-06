@@ -24,8 +24,8 @@ for the post-quantum cryptographic substrate.
   `.github/workflows/pqc-production-check.yml` and the `[pqc]` extra
   of `pyproject.toml`) is the only
   supported post-quantum backend (PR #144). v3.3.0 also exposes the
-  native HMAC-SHA-256 / HMAC-SHA-512 bindings consumed by Mercury's
-  `native_jwt` HS256 / HS512 signing path (see CHANGELOG
+  native HMAC-SHA-256 / HMAC-SHA-384 / HMAC-SHA-512 bindings consumed by
+  Mercury's `native_jwt` HS256 / HS384 / HS512 signing path (see CHANGELOG
   `[Unreleased]` § "AMA-routed JWT HMAC signatures"). Package import is
   hard-gated: `omni_mercury_engine._pqc_gate._enforce_pqc_production_gate`
   runs from `__init__.py`, imports `ama_cryptography.pqc_backends`,

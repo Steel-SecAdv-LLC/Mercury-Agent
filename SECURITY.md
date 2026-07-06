@@ -120,11 +120,11 @@ SlhDsaKeyPair` declarations).
 5. **Constant-Time Requirement**: AMA Cryptography's native C library provides constant-time implementations. Set `AMA_REQUIRE_CONSTANT_TIME=true` to enforce this at startup.
 
 6. **HMAC routing (v1.7.x)**: AMA Cryptography v3.3.0 also surfaces
-   ACVP-validated HMAC-SHA-256 / HMAC-SHA-512 bindings
-   (`native_hmac_sha256`, `native_hmac_sha256_2`). Mercury's
-   `native_jwt` module routes HS256 and HS512 through these bindings
-   with no stdlib fallback; HS384 remains stdlib-only until AMA ships a
-   SHA-384 HMAC binding. See
+   ACVP-validated HMAC-SHA-256 / HMAC-SHA-384 / HMAC-SHA-512 bindings
+   (`native_hmac_sha256`, `native_hmac_sha256_2`, `native_hmac_sha384`,
+   `native_hmac_sha512`). Mercury's `native_jwt` module routes HS256,
+   HS384, and HS512 through these bindings with no stdlib fallback
+   (fail-closed). See
    `tests/security/test_native_jwt_ama_routing.py` for the RFC 4231 KAT
    and fail-closed route locks.
 

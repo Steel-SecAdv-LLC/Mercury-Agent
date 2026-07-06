@@ -929,7 +929,7 @@ See `examples/decision_abstention_response_demo.py` and
 | Decision / Abstention / Response | **Complete** | Calibration-grounded `ThreeState` "don't-know" gate; bounded non-destructive response; opt-in via `enable_decision_layer()` |
 | Bias Detection | **Complete** | Fairlearn metrics, built-in fallback |
 | Input Validation | **Complete** | OWASP-compliant, SQL/XSS/injection detection |
-| JWT Authentication | **Complete** | Native stdlib `omni_mercury_engine.security.native_jwt` (HS256/HS384/HS512); HS256+HS512 route through AMA Cryptography v3.3.0 ACVP-validated HMAC when available |
+| JWT Authentication | **Complete** | Native stdlib `omni_mercury_engine.security.native_jwt` (HS256/HS384/HS512); all three route through AMA Cryptography v3.3.0's ACVP-validated native HMAC, fail-closed (no stdlib downgrade) |
 | Property Testing | **Complete** | Hypothesis-based test suite |
 | Post-Quantum Crypto | **Complete** | AMA Cryptography (sole PQC backend) |
 | Real-Data Validation | **Pending** | Requires MIMIC-III, NSL-KDD datasets |
@@ -1526,7 +1526,7 @@ The test suite includes:
 - `test_mercury_amacrypto.py`: 60+ tests for AMA Cryptography PQC adapter and EWMA timing monitor
 
 **v1.7 development-cycle additions:**
-- `tests/security/test_native_jwt.py` + `tests/security/test_native_jwt_ama_routing.py`: 46 tests pinning the native JWT module (HS256/HS512 byte-equivalence with stdlib, RFC 4231 KAT, AMA-routing vs stdlib-fallback interoperability, `alg: none` rejection).
+- `tests/security/test_native_jwt.py` + `tests/security/test_native_jwt_ama_routing.py`: 50 tests pinning the native JWT module (HS256/HS384/HS512 byte-equivalence with stdlib, RFC 4231 KAT incl. SHA-384, AMA-routing vs stdlib cross-check, `alg: none` rejection).
 - `tests/security/test_cve_2026_6357_regression.py`: regression guard for the pip CVE-2026-6357 floor across every install path in CI.
 - `tests/security/test_nist_fips_kat.py`: NIST FIPS 203/204/205 ACVP-Server KAT vectors verified bit-for-bit (ML-DSA-65 deterministic sigGen, ML-KEM-1024 decapsulation, SLH-DSA-SHAKE-128s sigGen).
 - `tests/tools/test_lyapunov_validator.py` + `tests/tools/test_lyapunov_reconciliation.py`: pin the executable Lyapunov certificate against documentation drift and against `LyapunovConstants.LAMBDA_CONVERGENCE`.
@@ -1601,7 +1601,7 @@ GitHub Actions enforce the following gates on every pull request and push to `ma
 | Layer | Protection |
 |-------|------------|
 | Input Validation | OWASP-compliant SQL/XSS/injection detection |
-| Authentication | Native stdlib JWT (`security/native_jwt.py`) with constant-time HMAC verification; `alg: none` rejected by construction; HS256/HS512 route through AMA Cryptography v3.3.0 ACVP-validated HMAC when available |
+| Authentication | Native stdlib JWT (`security/native_jwt.py`) with constant-time HMAC verification; `alg: none` rejected by construction; HS256/HS384/HS512 route through AMA Cryptography v3.3.0's ACVP-validated native HMAC, fail-closed |
 | Post-Quantum Cryptography | ML-DSA-65 (FIPS 204 §5.2), ML-KEM-1024 / Kyber-1024 (FIPS 203), SLH-DSA-SHAKE-128s + legacy SPHINCS+-SHA2-256f-simple (FIPS 205); sole backend = AMA Cryptography v3.3.0 (unconditionally hard-required at import — fail-closed, no env-var escape hatch) |
 | Classical Cryptography | AES-256-GCM, ChaCha20-Poly1305, BLAKE3, Argon2id via Rust + PyO3 (`rust_crypto/`); constant-time comparisons |
 | Rate Limiting | Token bucket algorithm with configurable limits (100 req/min, 20 burst by default) |

@@ -101,8 +101,10 @@ def to_cap_alert(
         rca_causes: Optional ranked ``(node_index, attribution)`` root causes,
             e.g. from
             :func:`omni_mercury_engine.detectors.detection_tier.rca_localize`.
-            When given, the top few are attached to the alert as a ``RootCauses``
-            CAP parameter so on-call triage sees *where* the anomaly originated.
+            When given, the top few are added to the alert's Mercury metadata
+            (rendered into the CAP ``<description>`` alongside the other decision
+            fields) under ``RootCauses`` so on-call triage sees *where* the
+            anomaly originated.
 
     Returns:
         A CAP 1.2 XML string, or ``None`` when no notification is warranted.
