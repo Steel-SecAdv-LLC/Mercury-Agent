@@ -24,12 +24,12 @@
 # at runtime (``ama_cryptography._find_native_library`` searches there first).
 #
 # Environment overrides:
-#   AMA_REF        git tag/ref to build (default: v3.2.0)
+#   AMA_REF        git tag/ref to build (default: v3.3.0)
 #   AMA_REPO       repository URL (default: upstream Steel-SecAdv-LLC/AMA-Cryptography)
 #   AMA_BUILD_DIR  scratch checkout/build directory (default: /tmp/ama-cryptography)
 set -euo pipefail
 
-AMA_REF="${AMA_REF:-v3.2.0}"
+AMA_REF="${AMA_REF:-v3.3.0}"
 AMA_REPO="${AMA_REPO:-https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git}"
 AMA_BUILD_DIR="${AMA_BUILD_DIR:-/tmp/ama-cryptography}"
 
