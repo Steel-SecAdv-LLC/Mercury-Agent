@@ -3200,5 +3200,631 @@
       "label_source": "ground_truth",
       "error": "WADI: data source unavailable. URL: https://itrust.sutd.edu.sg/itrust-labs-datasets/. WADI (127 sensors, water distribution network) requires manual iTrust registration. Steps: (1) register at https://itrust.sutd.edu.sg/itrust-labs-datasets/ (2) download 'WADI.A1_9 Oct 2017' and 'WADI_attackdata.csv' (3) place extracted files in /home/user/Mercury-Agent/data/wadi. Once placed, re-run the benchmark \u2014 the loader will detect the files automatically."
     }
-  ]
+  ],
+  "detection_tier": {
+    "aggregate": {
+      "ensemble_average": {
+        "mean_auc": 0.613461,
+        "mean_f1": 0.280487,
+        "median_auc": 0.616635,
+        "n_datasets": 29
+      },
+      "ensembles_supervised": {
+        "average": {
+          "mean_auc": 0.56941,
+          "mean_f1": 0.279283,
+          "median_auc": 0.527459,
+          "n_datasets": 15
+        },
+        "bma": {
+          "mean_auc": 0.563206,
+          "mean_f1": 0.269942,
+          "median_auc": 0.531377,
+          "n_datasets": 15
+        },
+        "stacking": {
+          "mean_auc": 0.570692,
+          "mean_f1": 0.261015,
+          "median_auc": 0.526057,
+          "n_datasets": 15
+        }
+      },
+      "members": {
+        "bocpd": {
+          "mean_auc": 0.51407,
+          "mean_f1": 0.216941,
+          "mean_latency_ms": 226.097168,
+          "mean_throughput_pps": 16718.07,
+          "median_auc": 0.540498,
+          "n_datasets": 29
+        },
+        "deep_svdd": {
+          "mean_auc": 0.588049,
+          "mean_f1": 0.26799,
+          "mean_latency_ms": 5.219641,
+          "mean_throughput_pps": 712283.63,
+          "median_auc": 0.582341,
+          "n_datasets": 29
+        },
+        "digital_twin": {
+          "mean_auc": 0.551369,
+          "mean_f1": 0.243889,
+          "mean_latency_ms": 33.295206,
+          "mean_throughput_pps": 112233.95,
+          "median_auc": 0.539485,
+          "n_datasets": 29
+        },
+        "echo_state": {
+          "mean_auc": 0.610362,
+          "mean_f1": 0.279817,
+          "mean_latency_ms": 20.629888,
+          "mean_throughput_pps": 180945.0,
+          "median_auc": 0.604379,
+          "n_datasets": 29
+        },
+        "energy_based": {
+          "mean_auc": 0.577365,
+          "mean_f1": 0.283042,
+          "mean_latency_ms": 0.606236,
+          "mean_throughput_pps": 6083558.82,
+          "median_auc": 0.567112,
+          "n_datasets": 29
+        },
+        "gaussian_process": {
+          "mean_auc": 0.534522,
+          "mean_f1": 0.22326,
+          "mean_latency_ms": 147.857167,
+          "mean_throughput_pps": 25810.46,
+          "median_auc": 0.520501,
+          "n_datasets": 29
+        },
+        "hawkes": {
+          "mean_auc": 0.513013,
+          "mean_f1": 0.22391,
+          "mean_latency_ms": 0.868257,
+          "mean_throughput_pps": 4274257.4,
+          "median_auc": 0.501749,
+          "n_datasets": 29
+        },
+        "imm": {
+          "mean_auc": 0.53447,
+          "mean_f1": 0.223722,
+          "mean_latency_ms": 228.625313,
+          "mean_throughput_pps": 16431.67,
+          "median_auc": 0.510146,
+          "n_datasets": 29
+        },
+        "particle_filter": {
+          "mean_auc": 0.539339,
+          "mean_f1": 0.219755,
+          "mean_latency_ms": 152.065802,
+          "mean_throughput_pps": 24894.03,
+          "median_auc": 0.521074,
+          "n_datasets": 29
+        },
+        "spectral_residual": {
+          "mean_auc": 0.500401,
+          "mean_f1": 0.168911,
+          "mean_latency_ms": 0.766382,
+          "mean_throughput_pps": 5035496.37,
+          "median_auc": 0.500019,
+          "n_datasets": 29
+        },
+        "spiking": {
+          "mean_auc": 0.575247,
+          "mean_f1": 0.251729,
+          "mean_latency_ms": 25.798814,
+          "mean_throughput_pps": 144626.95,
+          "median_auc": 0.560863,
+          "n_datasets": 29
+        },
+        "spot_evt": {
+          "mean_auc": 0.521663,
+          "mean_f1": 0.063118,
+          "mean_latency_ms": 11.874472,
+          "mean_throughput_pps": 321269.42,
+          "median_auc": 0.501394,
+          "n_datasets": 29
+        },
+        "survival": {
+          "mean_auc": 0.574766,
+          "mean_f1": 0.233038,
+          "mean_latency_ms": 0.35366,
+          "mean_throughput_pps": 10721146.18,
+          "median_auc": 0.582874,
+          "n_datasets": 29
+        }
+      }
+    },
+    "config": {
+      "categories": [
+        "realKnownCause",
+        "realAWSCloudwatch",
+        "realTraffic"
+      ],
+      "ensemble_methods": [
+        "average",
+        "bma",
+        "stacking"
+      ],
+      "license": "AGPL-3.0",
+      "loader": "omni_mercury_engine.datasets.timeseries.NABLoader",
+      "max_len": 6000,
+      "members": [
+        "spectral_residual",
+        "bocpd",
+        "spot_evt",
+        "hawkes",
+        "particle_filter",
+        "imm",
+        "gaussian_process",
+        "echo_state",
+        "spiking",
+        "digital_twin",
+        "survival",
+        "energy_based",
+        "deep_svdd"
+      ],
+      "n_datasets_measured": 29,
+      "protocol": "unsupervised streaming: members + average ensemble fit on the normal warm-up and score the whole series (per-point ROC-AUC + oracle F1 over all labels); supervised stacking/bma on the 50/50-split subset where both folds carry both classes",
+      "seed": 0,
+      "source": "NAB (Numenta Anomaly Benchmark) real categories",
+      "warmup_frac": 0.15
+    },
+    "datasets": {
+      "realAWSCloudwatch/ec2_cpu_utilization_24ae8d.csv": {
+        "anomaly_rate": 0.099702,
+        "best_member": "bocpd",
+        "best_member_auc": 0.56982,
+        "ensemble_average_auc": 0.536033,
+        "ensemble_average_f1": 0.186589,
+        "n": 4032,
+        "supervised": {
+          "measurable": false
+        }
+      },
+      "realAWSCloudwatch/ec2_cpu_utilization_53ea38.csv": {
+        "anomaly_rate": 0.099702,
+        "best_member": "echo_state",
+        "best_member_auc": 0.610409,
+        "ensemble_average_auc": 0.605638,
+        "ensemble_average_f1": 0.216312,
+        "n": 4032,
+        "supervised": {
+          "best_auc": 0.624993,
+          "best_method": "stacking",
+          "measurable": true
+        }
+      },
+      "realAWSCloudwatch/ec2_cpu_utilization_5f5533.csv": {
+        "anomaly_rate": 0.099702,
+        "best_member": "bocpd",
+        "best_member_auc": 0.59656,
+        "ensemble_average_auc": 0.474601,
+        "ensemble_average_f1": 0.181367,
+        "n": 4032,
+        "supervised": {
+          "best_auc": 0.451388,
+          "best_method": "average",
+          "measurable": true
+        }
+      },
+      "realAWSCloudwatch/ec2_cpu_utilization_77c1ca.csv": {
+        "anomaly_rate": 0.09995,
+        "best_member": "bocpd",
+        "best_member_auc": 0.630704,
+        "ensemble_average_auc": 0.598663,
+        "ensemble_average_f1": 0.217028,
+        "n": 4032,
+        "supervised": {
+          "best_auc": 0.596778,
+          "best_method": "bma",
+          "measurable": true
+        }
+      },
+      "realAWSCloudwatch/ec2_cpu_utilization_825cc2.csv": {
+        "anomaly_rate": 0.085069,
+        "best_member": "echo_state",
+        "best_member_auc": 0.639449,
+        "ensemble_average_auc": 0.619088,
+        "ensemble_average_f1": 0.389776,
+        "n": 4032,
+        "supervised": {
+          "measurable": false
+        }
+      },
+      "realAWSCloudwatch/ec2_cpu_utilization_ac20cd.csv": {
+        "anomaly_rate": 0.09995,
+        "best_member": "echo_state",
+        "best_member_auc": 0.770379,
+        "ensemble_average_auc": 0.753896,
+        "ensemble_average_f1": 0.464444,
+        "n": 4032,
+        "supervised": {
+          "measurable": false
+        }
+      },
+      "realAWSCloudwatch/ec2_cpu_utilization_fe7f93.csv": {
+        "anomaly_rate": 0.100446,
+        "best_member": "spot_evt",
+        "best_member_auc": 0.52147,
+        "ensemble_average_auc": 0.498989,
+        "ensemble_average_f1": 0.182556,
+        "n": 4032,
+        "supervised": {
+          "best_auc": 0.526057,
+          "best_method": "stacking",
+          "measurable": true
+        }
+      },
+      "realAWSCloudwatch/ec2_disk_write_bytes_1ef3de.csv": {
+        "anomaly_rate": 0.1,
+        "best_member": "particle_filter",
+        "best_member_auc": 0.579865,
+        "ensemble_average_auc": 0.554019,
+        "ensemble_average_f1": 0.189834,
+        "n": 4730,
+        "supervised": {
+          "measurable": false
+        }
+      },
+      "realAWSCloudwatch/ec2_disk_write_bytes_c0d644.csv": {
+        "anomaly_rate": 0.100446,
+        "best_member": "survival",
+        "best_member_auc": 0.645248,
+        "ensemble_average_auc": 0.6224,
+        "ensemble_average_f1": 0.236149,
+        "n": 4032,
+        "supervised": {
+          "best_auc": 0.467089,
+          "best_method": "average",
+          "measurable": true
+        }
+      },
+      "realAWSCloudwatch/ec2_network_in_257a54.csv": {
+        "anomaly_rate": 0.09995,
+        "best_member": "imm",
+        "best_member_auc": 0.864892,
+        "ensemble_average_auc": 0.616635,
+        "ensemble_average_f1": 0.424603,
+        "n": 4032,
+        "supervised": {
+          "measurable": false
+        }
+      },
+      "realAWSCloudwatch/ec2_network_in_5abac7.csv": {
+        "anomaly_rate": 0.100211,
+        "best_member": "imm",
+        "best_member_auc": 0.71821,
+        "ensemble_average_auc": 0.689421,
+        "ensemble_average_f1": 0.294366,
+        "n": 4730,
+        "supervised": {
+          "measurable": false
+        }
+      },
+      "realAWSCloudwatch/elb_request_count_8c0756.csv": {
+        "anomaly_rate": 0.099702,
+        "best_member": "spiking",
+        "best_member_auc": 0.563121,
+        "ensemble_average_auc": 0.537904,
+        "ensemble_average_f1": 0.186682,
+        "n": 4032,
+        "supervised": {
+          "best_auc": 0.619991,
+          "best_method": "bma",
+          "measurable": true
+        }
+      },
+      "realAWSCloudwatch/grok_asg_anomaly.csv": {
+        "anomaly_rate": 0.100628,
+        "best_member": "particle_filter",
+        "best_member_auc": 0.639811,
+        "ensemble_average_auc": 0.619342,
+        "ensemble_average_f1": 0.265976,
+        "n": 4621,
+        "supervised": {
+          "best_auc": 0.664304,
+          "best_method": "average",
+          "measurable": true
+        }
+      },
+      "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": {
+        "anomaly_rate": 0.101368,
+        "best_member": "bocpd",
+        "best_member_auc": 0.832488,
+        "ensemble_average_auc": 0.72748,
+        "ensemble_average_f1": 0.321569,
+        "n": 1243,
+        "supervised": {
+          "measurable": false
+        }
+      },
+      "realAWSCloudwatch/rds_cpu_utilization_cc0c53.csv": {
+        "anomaly_rate": 0.099702,
+        "best_member": "energy_based",
+        "best_member_auc": 0.809943,
+        "ensemble_average_auc": 0.810548,
+        "ensemble_average_f1": 0.444444,
+        "n": 4032,
+        "supervised": {
+          "measurable": false
+        }
+      },
+      "realAWSCloudwatch/rds_cpu_utilization_e47b3b.csv": {
+        "anomaly_rate": 0.099702,
+        "best_member": "survival",
+        "best_member_auc": 0.530088,
+        "ensemble_average_auc": 0.495428,
+        "ensemble_average_f1": 0.181326,
+        "n": 4032,
+        "supervised": {
+          "best_auc": 0.509203,
+          "best_method": "average",
+          "measurable": true
+        }
+      },
+      "realKnownCause/ambient_temperature_system_failure.csv": {
+        "anomaly_rate": 0.121,
+        "best_member": "energy_based",
+        "best_member_auc": 0.737244,
+        "ensemble_average_auc": 0.622011,
+        "ensemble_average_f1": 0.280374,
+        "n": 6000,
+        "supervised": {
+          "best_auc": 0.716213,
+          "best_method": "average",
+          "measurable": true
+        }
+      },
+      "realKnownCause/cpu_utilization_asg_misconfiguration.csv": {
+        "anomaly_rate": 0.249833,
+        "best_member": "deep_svdd",
+        "best_member_auc": 0.880516,
+        "ensemble_average_auc": 0.793028,
+        "ensemble_average_f1": 0.635411,
+        "n": 6000,
+        "supervised": {
+          "measurable": false
+        }
+      },
+      "realKnownCause/ec2_request_latency_system_failure.csv": {
+        "anomaly_rate": 0.085813,
+        "best_member": "bocpd",
+        "best_member_auc": 0.596106,
+        "ensemble_average_auc": 0.515317,
+        "ensemble_average_f1": 0.158511,
+        "n": 4032,
+        "supervised": {
+          "best_auc": 0.513231,
+          "best_method": "bma",
+          "measurable": true
+        }
+      },
+      "realKnownCause/nyc_taxi.csv": {
+        "anomaly_rate": 0.1725,
+        "best_member": "echo_state",
+        "best_member_auc": 0.626375,
+        "ensemble_average_auc": 0.501039,
+        "ensemble_average_f1": 0.29434,
+        "n": 6000,
+        "supervised": {
+          "best_auc": 0.697266,
+          "best_method": "stacking",
+          "measurable": true
+        }
+      },
+      "realKnownCause/rogue_agent_key_hold.csv": {
+        "anomaly_rate": 0.100956,
+        "best_member": "echo_state",
+        "best_member_auc": 0.751966,
+        "ensemble_average_auc": 0.723669,
+        "ensemble_average_f1": 0.282686,
+        "n": 1882,
+        "supervised": {
+          "best_auc": 0.58604,
+          "best_method": "stacking",
+          "measurable": true
+        }
+      },
+      "realKnownCause/rogue_agent_key_updown.csv": {
+        "anomaly_rate": 0.099718,
+        "best_member": "echo_state",
+        "best_member_auc": 0.593908,
+        "ensemble_average_auc": 0.531991,
+        "ensemble_average_f1": 0.181352,
+        "n": 5315,
+        "supervised": {
+          "best_auc": 0.496667,
+          "best_method": "stacking",
+          "measurable": true
+        }
+      },
+      "realTraffic/TravelTime_387.csv": {
+        "anomaly_rate": 0.0996,
+        "best_member": "deep_svdd",
+        "best_member_auc": 0.730401,
+        "ensemble_average_auc": 0.706949,
+        "ensemble_average_f1": 0.336449,
+        "n": 2500,
+        "supervised": {
+          "best_auc": 0.84261,
+          "best_method": "average",
+          "measurable": true
+        }
+      },
+      "realTraffic/TravelTime_451.csv": {
+        "anomaly_rate": 0.10037,
+        "best_member": "echo_state",
+        "best_member_auc": 0.652267,
+        "ensemble_average_auc": 0.670918,
+        "ensemble_average_f1": 0.266839,
+        "n": 2162,
+        "supervised": {
+          "measurable": false
+        }
+      },
+      "realTraffic/occupancy_6005.csv": {
+        "anomaly_rate": 0.10042,
+        "best_member": "spiking",
+        "best_member_auc": 0.574709,
+        "ensemble_average_auc": 0.443436,
+        "ensemble_average_f1": 0.182512,
+        "n": 2380,
+        "supervised": {
+          "measurable": false
+        }
+      },
+      "realTraffic/occupancy_t4013.csv": {
+        "anomaly_rate": 0.1,
+        "best_member": "energy_based",
+        "best_member_auc": 0.633385,
+        "ensemble_average_auc": 0.621348,
+        "ensemble_average_f1": 0.221333,
+        "n": 2500,
+        "supervised": {
+          "measurable": false
+        }
+      },
+      "realTraffic/speed_6005.csv": {
+        "anomaly_rate": 0.0956,
+        "best_member": "survival",
+        "best_member_auc": 0.582874,
+        "ensemble_average_auc": 0.538696,
+        "ensemble_average_f1": 0.181467,
+        "n": 2500,
+        "supervised": {
+          "measurable": false
+        }
+      },
+      "realTraffic/speed_7578.csv": {
+        "anomaly_rate": 0.102928,
+        "best_member": "deep_svdd",
+        "best_member_auc": 0.757265,
+        "ensemble_average_auc": 0.758587,
+        "ensemble_average_f1": 0.463158,
+        "n": 1127,
+        "supervised": {
+          "best_auc": 0.780356,
+          "best_method": "average",
+          "measurable": true
+        }
+      },
+      "realTraffic/speed_t4013.csv": {
+        "anomaly_rate": 0.1002,
+        "best_member": "echo_state",
+        "best_member_auc": 0.683622,
+        "ensemble_average_auc": 0.603289,
+        "ensemble_average_f1": 0.266667,
+        "n": 2495,
+        "supervised": {
+          "measurable": false
+        }
+      }
+    },
+    "measured_datasets": [
+      "realKnownCause/ambient_temperature_system_failure.csv",
+      "realKnownCause/cpu_utilization_asg_misconfiguration.csv",
+      "realKnownCause/ec2_request_latency_system_failure.csv",
+      "realKnownCause/nyc_taxi.csv",
+      "realKnownCause/rogue_agent_key_hold.csv",
+      "realKnownCause/rogue_agent_key_updown.csv",
+      "realAWSCloudwatch/ec2_cpu_utilization_24ae8d.csv",
+      "realAWSCloudwatch/ec2_cpu_utilization_53ea38.csv",
+      "realAWSCloudwatch/ec2_cpu_utilization_5f5533.csv",
+      "realAWSCloudwatch/ec2_cpu_utilization_77c1ca.csv",
+      "realAWSCloudwatch/ec2_cpu_utilization_825cc2.csv",
+      "realAWSCloudwatch/ec2_cpu_utilization_ac20cd.csv",
+      "realAWSCloudwatch/ec2_cpu_utilization_fe7f93.csv",
+      "realAWSCloudwatch/ec2_disk_write_bytes_1ef3de.csv",
+      "realAWSCloudwatch/ec2_disk_write_bytes_c0d644.csv",
+      "realAWSCloudwatch/ec2_network_in_257a54.csv",
+      "realAWSCloudwatch/ec2_network_in_5abac7.csv",
+      "realAWSCloudwatch/elb_request_count_8c0756.csv",
+      "realAWSCloudwatch/grok_asg_anomaly.csv",
+      "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv",
+      "realAWSCloudwatch/rds_cpu_utilization_cc0c53.csv",
+      "realAWSCloudwatch/rds_cpu_utilization_e47b3b.csv",
+      "realTraffic/TravelTime_387.csv",
+      "realTraffic/TravelTime_451.csv",
+      "realTraffic/occupancy_6005.csv",
+      "realTraffic/occupancy_t4013.csv",
+      "realTraffic/speed_6005.csv",
+      "realTraffic/speed_7578.csv",
+      "realTraffic/speed_t4013.csv"
+    ],
+    "skipped": [
+      {
+        "dataset": "realKnownCause/cpu_utilization_asg_misconfiguration.csv",
+        "reason": "temporal split single-class (supervised not measurable)"
+      },
+      {
+        "dataset": "realAWSCloudwatch/ec2_cpu_utilization_24ae8d.csv",
+        "reason": "temporal split single-class (supervised not measurable)"
+      },
+      {
+        "dataset": "realAWSCloudwatch/ec2_cpu_utilization_825cc2.csv",
+        "reason": "temporal split single-class (supervised not measurable)"
+      },
+      {
+        "dataset": "realAWSCloudwatch/ec2_cpu_utilization_ac20cd.csv",
+        "reason": "temporal split single-class (supervised not measurable)"
+      },
+      {
+        "dataset": "realAWSCloudwatch/ec2_disk_write_bytes_1ef3de.csv",
+        "reason": "temporal split single-class (supervised not measurable)"
+      },
+      {
+        "dataset": "realAWSCloudwatch/ec2_network_in_257a54.csv",
+        "reason": "temporal split single-class (supervised not measurable)"
+      },
+      {
+        "dataset": "realAWSCloudwatch/ec2_network_in_5abac7.csv",
+        "reason": "temporal split single-class (supervised not measurable)"
+      },
+      {
+        "dataset": "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv",
+        "reason": "temporal split single-class (supervised not measurable)"
+      },
+      {
+        "dataset": "realAWSCloudwatch/rds_cpu_utilization_cc0c53.csv",
+        "reason": "temporal split single-class (supervised not measurable)"
+      },
+      {
+        "dataset": "realTraffic/TravelTime_451.csv",
+        "reason": "temporal split single-class (supervised not measurable)"
+      },
+      {
+        "dataset": "realTraffic/occupancy_6005.csv",
+        "reason": "temporal split single-class (supervised not measurable)"
+      },
+      {
+        "dataset": "realTraffic/occupancy_t4013.csv",
+        "reason": "temporal split single-class (supervised not measurable)"
+      },
+      {
+        "dataset": "realTraffic/speed_6005.csv",
+        "reason": "temporal split single-class (supervised not measurable)"
+      },
+      {
+        "dataset": "realTraffic/speed_t4013.csv",
+        "reason": "temporal split single-class (supervised not measurable)"
+      }
+    ],
+    "summary": {
+      "average_ensemble_mean_auc": 0.613461,
+      "best_member": "echo_state",
+      "best_member_mean_auc": 0.610362,
+      "bma_ensemble_mean_auc": 0.563206,
+      "n_datasets": 29,
+      "n_supervised_measurable": 15,
+      "stacking_ensemble_mean_auc": 0.570692
+    },
+    "run_metadata": {
+      "git_commit": "c449d3de96c3c62cddfb0ac6c19290b89287d794",
+      "timestamp": "2026-07-06T20:30:08.006705+00:00",
+      "detectors": "detection_tier: 13 x 1-D members + average/bma/stacking ensembles"
+    },
+    "status": "ok"
+  }
 }

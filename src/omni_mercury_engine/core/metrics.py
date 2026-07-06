@@ -18,6 +18,7 @@ Metrics emitted:
 from __future__ import annotations
 
 import logging
+import math
 import time
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any
@@ -162,6 +163,16 @@ DETECTOR_EXTRACTION_ERRORS = _create_counter(
     ["detector_name"],
 )
 
+# Anomaly score distribution per detector (scores are normalised to [0, 1]).
+# Gives dashboards a per-detector score histogram alongside the latency/success
+# series, so score drift is visible without per-detector panels.
+DETECTOR_SCORE = _create_histogram(
+    "omni_detector_score",
+    "Anomaly score distribution per detector",
+    ["detector_name"],
+    buckets=(0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0),
+)
+
 # Feature cache metrics
 FEATURE_CACHE_HITS = _create_counter(
     "omni_feature_cache_hits_total",
@@ -294,6 +305,29 @@ def record_cache_miss(detector_name: str) -> None:
         detector_name: Name of the detector
     """
     FEATURE_CACHE_MISSES.labels(detector_name=detector_name).inc()
+
+
+def record_detector_score(detector_name: str, score: float) -> None:
+    """Record an anomaly score in the per-detector score-distribution histogram.
+
+    Metrics emission is fail-safe: it is called from the hot streaming path and
+    must never raise into it. A non-numeric or non-finite score (``NaN`` /
+    ``inf``, which would corrupt the histogram sum) is dropped, and an
+    out-of-range value is clamped to the ``[0, 1]`` anomaly-score contract before
+    it is observed.
+
+    Args:
+        detector_name: Name of the detector.
+        score: Anomaly score, normalised to ``[0, 1]``.
+    """
+    try:
+        value = float(score)
+    except (TypeError, ValueError):
+        return
+    if not math.isfinite(value):
+        return
+    value = min(1.0, max(0.0, value))
+    DETECTOR_SCORE.labels(detector_name=detector_name).observe(value)
 
 
 def update_model_metrics(

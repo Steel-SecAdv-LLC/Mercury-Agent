@@ -47,7 +47,7 @@ proceeds from reality.
 | Detector registry | `core/detector_registry.py`, `detectors/__init__.py`, `engine.py`. | **Prompt attribution corrected:** the enable/register path lives on `engine.py` (`OmniMercuryEngine.register_detector / enable_detector / available_detectors`), added in #287. `core/detector_registry.py` + `DETECTOR_MANIFEST` pre-existed. |
 | Streaming | `infrastructure/streaming.py`, `streaming/streaming_detector.py` (aiokafka). | Confirmed. |
 | Cognitive loop | `cognitive/reflexion.py`, `cognitive/cognitive_evolution_engine.py`, `cognitive/plasticity_engine.py`, `cognitive/neural_memory_layer.py`. | Confirmed present; **not wired** into measured fitness (Phase 3 work). |
-| PQC / FIPS | AMA-Cryptography v3.2.0 hard-required-at-import, `.github/workflows/pqc-production-check.yml`, `integrations/mercury_amacrypto.py`. | Confirmed fail-closed; Phase 1 leaves it unchanged. |
+| PQC / FIPS | AMA-Cryptography v3.3.0 hard-required-at-import, `.github/workflows/pqc-production-check.yml`, `integrations/mercury_amacrypto.py`. | Confirmed fail-closed; Phase 1 leaves it unchanged. |
 | Hardware harness | `docs/HARDWARE_HARNESS.md`, `docs/drone/`, `docs/LIVE_DATA_VALIDATION.md`, `docs/DATASOURCES.md`. | Confirmed. Mercury today is **sensing-only**: no actuation path exists in code. The "human-in-the-loop for actuation" clause from the upstream prompt is therefore not a Phase 1 deliverable — it's a future Phase 8 contingency, not a gap. |
 
 ### 1.2 Transparent baseline metrics, locked

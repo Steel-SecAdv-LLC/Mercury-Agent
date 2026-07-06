@@ -22,7 +22,7 @@ env bypass). Build it once (as CI does), then point the env at it:
 
 ```bash
 # AMA backend (one-time)
-git clone --depth 1 --branch v3.2.0 \
+git clone --depth 1 --branch v3.3.0 \
   https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git /tmp/ama-cryptography
 cd /tmp/ama-cryptography && cmake -B build -DAMA_USE_NATIVE_PQC=ON && cmake --build build
 AMA_NO_CYTHON=1 pip install --no-build-isolation .

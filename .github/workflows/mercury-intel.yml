@@ -79,7 +79,7 @@ jobs:
       - name: Build AMA Cryptography (native PQC)
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v3.2.0
+          ama-ref: v3.3.0
 
       - name: Closed-loop staging demo (clean run) -> retrain artifact
         run: PYTHONPATH=src python scripts/closed_loop_demo.py --staging-dir artifacts/closed_loop/staging
@@ -151,7 +151,7 @@ jobs:
       - name: Build AMA Cryptography (native PQC)
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v3.2.0
+          ama-ref: v3.3.0
 
       - name: Cascade routing + self-consistency unit tests
         run: >-
@@ -199,7 +199,7 @@ jobs:
       - name: Build AMA Cryptography (native PQC)
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v3.2.0
+          ama-ref: v3.3.0
 
       - name: Red-team harness unit tests (incl. real-gate smoke)
         run: pytest tests/intel/test_red_team.py -q -p no:cov
@@ -255,7 +255,7 @@ jobs:
       - name: Build AMA Cryptography (native PQC)
         uses: ./.github/actions/build-ama-cryptography
         with:
-          ama-ref: v3.2.0
+          ama-ref: v3.3.0
 
       - name: Verifier-in-the-loop gating tests (Collatz/primality/propositional/physics)
         run: >-

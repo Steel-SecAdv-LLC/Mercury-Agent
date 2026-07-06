@@ -81,3 +81,16 @@ class TestCapAlertBridge:
         )
         assert rec.response.notify is False
         assert to_cap_alert(rec) is None
+
+    def test_rca_causes_attached_as_alert_attribution(self) -> None:
+        rec = _decide(
+            anomaly_prob=0.95,
+            is_anomaly=True,
+            severity=0.9,
+            conformal={"prediction_set": [1], "set_size": 1, "abstain": False, "coverage": 0.9},
+        )
+        xml = to_cap_alert(rec, area_description="Sector 7", rca_causes=[(3, 0.42), (1, 0.31)])
+        assert xml is not None
+        # Ranked root causes ride along as attribution for on-call triage.
+        assert "RootCauses" in xml
+        assert "node3" in xml

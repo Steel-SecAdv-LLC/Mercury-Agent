@@ -270,6 +270,52 @@ class NABLoader(DatasetLoader):
             "citation": self.CITATION,
         }
 
+    def iter_series(self) -> list[tuple[str, np.ndarray[Any, Any], np.ndarray[Any, Any]]]:
+        """Yield per-file 1-D value series with per-point labels, in temporal order.
+
+        Unlike :meth:`load` / :meth:`_load_raw` (which pool every file and then
+        shuffle for tabular anomaly detection), this preserves each file's native
+        temporal ordering and returns only the scalar ``value`` channel -- the
+        per-point streaming ``(series, labels)`` a 1-D anomaly detector consumes.
+        Downloads on first use (honours the configured categories, which exclude
+        NAB's synthetic ``artificial*`` sets by default).
+
+        Returns:
+            A list of ``(relative_name, values, labels)`` triples, one per real
+            NAB CSV in the configured categories: ``values`` a float64 1-D array
+            in temporal order and ``labels`` an int64 0/1 array of the same
+            length (1 where a point's timestamp falls inside a documented anomaly
+            window). Empty files are skipped.
+
+        Raises:
+            DataSourceUnavailableError: NAB labels/data could not be obtained and
+                downloading is disabled or failed.
+        """
+        labels_path = self.data_path / "labels.json"
+        if not labels_path.exists() and not (self.config.download and self.download()):
+            raise DataSourceUnavailableError(
+                loader_name="NAB",
+                source_url=self.NAB_LABELS_URL,
+                reason="NAB labels/data unavailable and download disabled or failed.",
+            )
+
+        with open(labels_path) as handle:
+            anomaly_windows = json.load(handle)
+
+        series_list: list[tuple[str, np.ndarray[Any, Any], np.ndarray[Any, Any]]] = []
+        for category in self.categories:
+            category_path = self.data_path / category
+            if not category_path.exists():
+                continue
+            for csv_file in sorted(category_path.glob("*.csv")):
+                features, labels = self._parse_nab_file(csv_file, anomaly_windows)
+                if not features:
+                    continue
+                values = np.asarray([row[0] for row in features], dtype=np.float64)
+                targets = np.asarray(labels, dtype=np.int64)
+                series_list.append((f"{category}/{csv_file.name}", values, targets))
+        return series_list
+
 
 class SMDLoader(DatasetLoader):
     """Server Machine Dataset (SMD) Loader.

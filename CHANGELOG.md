@@ -27,6 +27,107 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Detection mechanisms: streaming / statistical / state-space detector tier (steel/detection-mechanisms)
+
+A deliberate, end-to-end expansion of the classical anomaly-detection surface:
+**eighteen detectors across six paradigms**, each implementing the
+`omni_mercury_engine.core.base.BaseDetector` contract, auto-discovered through
+`core/detector_registry.py::DETECTOR_MANIFEST`, calibrated to emit probabilistic
+scores, and wired into a calibrated ensemble with distribution-free
+false-positive control and graph-based attribution. No stubs, no disabled feature
+flags. Design doc `docs/DETECTION_MECHANISMS.md`; ops
+`docs/DETECTION_MECHANISMS_RUNBOOK.md`.
+
+- **Detectors (16 pure-NumPy, always importable).** Temporal/streaming
+  `spectral_residual` (SR saliency, Ren et al. KDD 2019), `bocpd` (Bayesian
+  online change-point), `hawkes` (self-exciting burst); state-space
+  `particle_filter`, `imm` (interacting-multiple-model switching), `digital_twin`
+  (observed-vs-simulated AR residual); probabilistic `spot_evt` (SPOT/DSPOT EVT
+  peaks-over-threshold), `gaussian_process`, `survival` (Kaplan-Meier + Cox);
+  generative `energy_based`, `deep_svdd`; neuromorphic `echo_state`, `spiking`;
+  systems-level `rca` (random-walk root-cause over a causal/service graph),
+  `deeplog_sequence`, `frequent_pattern`.
+- **Torch-gated detectors (2, `[ml]` extra).** `srcnn` — CNN discriminator over
+  SR saliency trained on synthetic-anomaly-augmented series (Ren et al. 2019);
+  `diffusion_ad` — DDPM denoising-reconstruction detector (Ho et al. 2020).
+  Lazily imported so the tier degrades gracefully without PyTorch.
+- **Calibration contract.** Residual detectors squash raw residuals via
+  `1 - exp(-r/scale)` with `scale` anchored at a high training quantile (default
+  0.98), placing the 0.5 boundary in the normal tail for a controlled ~1–2% FPR;
+  natively-probabilistic detectors (BOCPD, SPOT) are left unsquashed.
+- **End-to-end integration** (`detectors/detection_tier.py`).
+  `StreamingScoreEnsemble` combines per-point scores through Mercury's own
+  logistic meta-learner (`ml.mercury_ml.LogisticRegression`, stacking) or
+  Bayesian Model Averaging (BIC weights + bootstrap uncertainty), thresholded via
+  `core.score_calibration.calibrate_scores`, with per-point cross-detector
+  disagreement as ensemble uncertainty. `conformal_threshold` / `conformal_flags`
+  bound the streaming FPR distribution-free via
+  `core.conformal_prediction.SplitConformalPredictor`. `rca_localize` returns
+  ranked root-cause attributions over a causal/service graph.
+- **Runtime pipeline wiring.** `TierStreamingScorer` adapts any tier detector to
+  the `infrastructure.streaming.StreamingAnomalyPipeline` `dict -> dict` detector
+  callable (rolling window + drift refit + metric emission);
+  `store_tier_features` persists detector features into
+  `core.feature_pipeline.FeatureStore` with a registered `FeatureSchema` for
+  provenance/versioning; `decision.bridge.to_cap_alert` gains an `rca_causes`
+  argument that attaches ranked root causes to the CAP alert's Mercury metadata
+  (rendered into the CAP `<description>`) under `RootCauses`; and
+  `core.metrics.record_detector_score` feeds a new per-detector
+  `omni_detector_score` histogram consumed by the existing Grafana boards. The
+  benchmark harness also reports throughput (points/sec).
+- **Robustness fix.** `FrequentPatternDetector` Apriori mining is now bounded to
+  the top `max_items` itemsets per level (deterministic tie-break, truncation
+  logged), eliminating a combinatorial hang on wide/degenerate input (e.g. a
+  single continuous series fed through the fusion registry). Regression tests
+  added.
+- **Validation on real data.** Per-detector contract + signal tests under
+  `tests/detectors/`; tier wiring in
+  `tests/detectors/test_detection_tier_integration.py`. The tier's **performance
+  is measured on real, human-labelled anomaly data** — the Numenta Anomaly
+  Benchmark (NAB) real categories, pulled through the shared dataset layer via
+  the new `datasets.timeseries.NABLoader.iter_series` 1-D streaming accessor (the
+  synthetic `artificial*` NAB sets are excluded). `benchmarks/detection_tier_benchmark.py`
+  is the real-data streaming-evaluation library; `benchmarks/mercury_benchmark.py`
+  merges its output into the **one canonical** `benchmarks/mercury_benchmark_results.json`
+  under the `detection_tier` key (the earlier synthetic `detection_tier_synthetic.py`
+  / `detection_tier_results.json` silo is removed). Measured over **29 real NAB
+  series** (unsupervised streaming, per-point ROC-AUC): the **unsupervised
+  `average` ensemble leads at ROC-AUC 0.613** (median 0.617), edging the best
+  single member (`echo_state`, 0.610); the supervised `stacking` / `bma` combiners
+  are reported on the 15-series subset where a temporal split leaves both classes
+  in both folds. Network-free plumbing tests in
+  `tests/benchmarks/test_detection_tier_realdata.py`.
+- **AMA-Cryptography pin bumped `v3.2.0 → v3.3.0`** (still mandatory, fail-closed):
+  `_pqc_gate.py` constants, the pyproject `pqc` git pin, every CI `AMA_REF`,
+  `scripts/build_ama_native.sh`, the `Dockerfile` build arg, and the version-gate
+  tests updated in lockstep; all remaining docs/comments reworded to a single
+  consistent pin narrative ("introduced in v3.2.0, retained in v3.3.0").
+- **HS384 JOSE signing now routes through AMA's native C HMAC.** v3.3.0 adds a
+  native HMAC-SHA-384 binding, so `security/ama_hmac.py` exposes
+  `ama_hmac_sha384` / `HAS_AMA_HMAC_SHA384` and `security/native_jwt.py` routes
+  HS384 (fail-closed, no silent stdlib downgrade) alongside HS256/HS512, locked
+  by the RFC 4231 §4.2 HMAC-SHA-384 known-answer vector.
+- **Detector correctness fixes** surfaced in review: `DigitalTwinResidualDetector`
+  now runs its free-running divergence open-loop *to* time `t` (the seed ends at
+  `t-h` and the twin feeds its own predictions), instead of indexing the
+  seed/history window; `SurvivalHazardDetector._covariate` is O(n) via a prefix
+  sum with the correct `w`-length trailing window (was O(n·w) with an off-by-one
+  and dead code).
+- **Streaming & observability hardening** surfaced in review:
+  `core.metrics.record_detector_score` is now fail-safe — a non-finite
+  (`NaN`/`inf`) or non-numeric score is dropped and an out-of-range value is
+  clamped to the `[0, 1]` anomaly-score contract before the histogram observes
+  it, so a misbehaving detector can neither raise into nor `NaN`-corrupt the
+  metric on the hot streaming path; `TierStreamingScorer` now reports `warmup`
+  from its buffered history rather than unconditionally on a value-less message,
+  so a ready scorer is no longer mistaken for warming up (which would suppress
+  downstream alerting). Manifest and design-doc descriptions were also corrected
+  to match the implementations: `deep_svdd` is a fixed random `tanh`-feature
+  embedding (saturating, not random-Fourier) and `energy_based` is a
+  delay-embedding quadratic (Gaussian-family) energy (not RBF-feature), and the
+  `rca` walk comment no longer claims an explicit `Aᵀ` transpose. Regression
+  tests added.
+
 ### Intelligence layer: closed-loop learning + decision geometry (steel/refinement-mercury-intel)
 
 The learning-and-geometry layer on top of the Tier-0 safety foundation. New
