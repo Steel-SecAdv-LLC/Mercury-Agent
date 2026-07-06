@@ -379,8 +379,9 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "omni_mercury_engine.detectors.deep_svdd",
         "DeepSVDDDetector",
         DetectorCategory.BASE,
-        "One-class SVDD hypersphere detector on a fixed random-Fourier-feature "
-        "embedding; distance-to-centre is the anomaly signal (Tax & Duin, 2004)",
+        "One-class SVDD hypersphere detector on a fixed random tanh-feature "
+        "embedding (a saturating nonlinear lift, not a Fourier map); "
+        "distance-to-centre is the anomaly signal (Tax & Duin, 2004)",
         feature_dim=1,
         tags=["generative", "one-class", "representation", "embedding"],
     ),

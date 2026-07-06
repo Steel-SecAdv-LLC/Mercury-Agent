@@ -62,8 +62,8 @@ lazily, so the tier degrades gracefully when the ML extra is absent.
 
 | Detector | Class | Idea | Reference |
 |---|---|---|---|
-| `energy_based` | `EnergyBasedDetector` | RBF-feature quadratic energy fitted by score matching; free energy is the score. | Hyvärinen, 2005 |
-| `deep_svdd` | `DeepSVDDDetector` | One-class hypersphere on a random-Fourier-feature embedding; distance-to-centre. | Tax & Duin, 2004 |
+| `energy_based` | `EnergyBasedDetector` | Delay-embedding quadratic (Gaussian-family) energy fitted by score matching; free energy is the score. | Hyvärinen, 2005 |
+| `deep_svdd` | `DeepSVDDDetector` | One-class hypersphere on a fixed random tanh-feature embedding (saturating, not Fourier); distance-to-centre. | Tax & Duin, 2004 |
 | `diffusion_ad` *(torch)* | `DiffusionReconstructionDetector` | DDPM denoising reconstruction error; off-manifold windows denoise worse. | Ho et al., 2020 |
 
 ### Neuromorphic / dynamical

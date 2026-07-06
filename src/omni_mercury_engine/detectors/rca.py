@@ -130,7 +130,9 @@ class RootCauseGraphDetector(BaseDetector):
         assert self._adjacency is not None
         n = residual_row.size
         seed = residual_row / (residual_row.sum() + 1e-12)
-        # Column-normalise A so mass moving child→parent is conserved; walk on Aᵀ.
+        # Column-normalise A: each child splits its mass across its parents, so
+        # ``transition @ r`` moves residual mass child→parent (columns→rows) --
+        # column-stochastic and mass-conserving, with no explicit transpose.
         col_sums = self._adjacency.sum(axis=0, keepdims=True)
         transition = self._adjacency / np.where(col_sums > 0.0, col_sums, 1.0)
         r = seed.copy()
