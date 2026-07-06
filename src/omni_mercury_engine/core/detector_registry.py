@@ -253,6 +253,186 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         feature_dim=9,
         tags=["unsupervised", "clustering"],
     ),
+    DetectorManifestEntry(
+        "spectral_residual",
+        "omni_mercury_engine.detectors.spectral_residual",
+        "SpectralResidualDetector",
+        DetectorCategory.BASE,
+        "Spectral-Residual saliency detector for streaming time series "
+        "(training-free FFT saliency; Ren et al., KDD 2019)",
+        feature_dim=1,
+        tags=["streaming", "temporal", "spectral"],
+    ),
+    DetectorManifestEntry(
+        "bocpd",
+        "omni_mercury_engine.detectors.bocpd",
+        "BOCPDDetector",
+        DetectorCategory.BASE,
+        "Bayesian Online Change-Point Detection via run-length posterior "
+        "(Gaussian/NIG conjugate model; Adams & MacKay, 2007)",
+        feature_dim=1,
+        tags=["streaming", "temporal", "change-point", "probabilistic"],
+    ),
+    DetectorManifestEntry(
+        "spot_evt",
+        "omni_mercury_engine.detectors.spot_evt",
+        "SPOTDetector",
+        DetectorCategory.BASE,
+        "SPOT/DSPOT Peaks-Over-Threshold EVT dynamic-threshold detector with "
+        "risk-budgeted false-positive control (Siffer et al., KDD 2017)",
+        feature_dim=1,
+        tags=["streaming", "statistical", "evt", "thresholding"],
+    ),
+    DetectorManifestEntry(
+        "hawkes",
+        "omni_mercury_engine.detectors.hawkes",
+        "HawkesBurstDetector",
+        DetectorCategory.BASE,
+        "Hawkes self-exciting point-process event-rate / burst detector for "
+        "count streams (exponential-kernel intensity residuals)",
+        feature_dim=1,
+        tags=["streaming", "temporal", "event-rate", "burst"],
+    ),
+    DetectorManifestEntry(
+        "particle_filter",
+        "omni_mercury_engine.detectors.particle_filter",
+        "ParticleFilterDetector",
+        DetectorCategory.BASE,
+        "Bootstrap particle-filter state-space residual detector scoring "
+        "normalised one-step-ahead predictive innovations",
+        feature_dim=1,
+        tags=["streaming", "state-space", "tracking", "residual"],
+    ),
+    DetectorManifestEntry(
+        "imm",
+        "omni_mercury_engine.detectors.imm",
+        "IMMDetector",
+        DetectorCategory.BASE,
+        "Interacting-Multiple-Model switching state-space residual detector "
+        "(quiet + manoeuvring Kalman bank; Blom & Bar-Shalom, 1988)",
+        feature_dim=1,
+        tags=["streaming", "state-space", "tracking", "switching", "residual"],
+    ),
+    DetectorManifestEntry(
+        "gaussian_process",
+        "omni_mercury_engine.detectors.gaussian_process",
+        "GaussianProcessDetector",
+        DetectorCategory.BASE,
+        "Windowed RBF Gaussian-Process one-step-ahead residual detector with "
+        "calibrated predictive variance (Rasmussen & Williams, 2006)",
+        feature_dim=1,
+        tags=["streaming", "probabilistic", "regression", "uncertainty"],
+    ),
+    DetectorManifestEntry(
+        "echo_state",
+        "omni_mercury_engine.detectors.echo_state",
+        "EchoStateDetector",
+        DetectorCategory.BASE,
+        "Echo-State-Network reservoir-computing predictive residual detector "
+        "(fixed spectral-radius reservoir + ridge readout; Jaeger, 2001)",
+        feature_dim=1,
+        tags=["streaming", "neuromorphic", "reservoir", "residual"],
+    ),
+    DetectorManifestEntry(
+        "spiking",
+        "omni_mercury_engine.detectors.spiking",
+        "SpikingNetworkDetector",
+        DetectorCategory.BASE,
+        "Spiking-neural-network (leaky integrate-and-fire) novelty detector "
+        "scoring spike-rate divergence from the learned normal regime",
+        feature_dim=1,
+        tags=["streaming", "neuromorphic", "spiking", "novelty"],
+    ),
+    DetectorManifestEntry(
+        "digital_twin",
+        "omni_mercury_engine.detectors.digital_twin",
+        "DigitalTwinResidualDetector",
+        DetectorCategory.BASE,
+        "Digital-twin simulation-residual detector: observed-vs-simulated "
+        "divergence of an identified AR forward model (Grieves & Vickers, 2017)",
+        feature_dim=1,
+        tags=["state-space", "simulation", "digital-twin", "residual"],
+    ),
+    DetectorManifestEntry(
+        "survival",
+        "omni_mercury_engine.detectors.survival",
+        "SurvivalHazardDetector",
+        DetectorCategory.BASE,
+        "Survival / time-to-event hazard detector (Kaplan-Meier baseline + Cox "
+        "proportional-hazards deviation) for inter-event-time streams",
+        feature_dim=1,
+        tags=["probabilistic", "survival", "time-to-event", "hazard"],
+    ),
+    DetectorManifestEntry(
+        "energy_based",
+        "omni_mercury_engine.detectors.energy_based",
+        "EnergyBasedDetector",
+        DetectorCategory.BASE,
+        "Explicit energy-based model detector: RBF-feature quadratic energy "
+        "fitted by score matching; anomaly score is the calibrated free energy",
+        feature_dim=1,
+        tags=["generative", "energy-based", "representation", "density"],
+    ),
+    DetectorManifestEntry(
+        "deep_svdd",
+        "omni_mercury_engine.detectors.deep_svdd",
+        "DeepSVDDDetector",
+        DetectorCategory.BASE,
+        "One-class SVDD hypersphere detector on a fixed random-Fourier-feature "
+        "embedding; distance-to-centre is the anomaly signal (Tax & Duin, 2004)",
+        feature_dim=1,
+        tags=["generative", "one-class", "representation", "embedding"],
+    ),
+    DetectorManifestEntry(
+        "rca",
+        "omni_mercury_engine.detectors.rca",
+        "RootCauseGraphDetector",
+        DetectorCategory.BASE,
+        "Root-cause localisation detector: propagates per-node residuals over a "
+        "causal/service graph to rank candidate root causes with attribution",
+        feature_dim=1,
+        tags=["systems", "rca", "causal-graph", "attribution"],
+    ),
+    DetectorManifestEntry(
+        "deeplog_sequence",
+        "omni_mercury_engine.detectors.deeplog_sequence",
+        "DeepLogSequenceDetector",
+        DetectorCategory.BASE,
+        "DeepLog-style log/sequence detector: next-key surprisal from an n-gram "
+        "transition model flags sequences leaving the learned template grammar",
+        feature_dim=1,
+        tags=["systems", "sequence", "log", "surprisal"],
+    ),
+    DetectorManifestEntry(
+        "frequent_pattern",
+        "omni_mercury_engine.detectors.frequent_pattern",
+        "FrequentPatternDetector",
+        DetectorCategory.BASE,
+        "Frequent-pattern / association-rule mining detector: flags transactions "
+        "violating high-confidence rules mined from normal traces (Apriori)",
+        feature_dim=1,
+        tags=["systems", "association-rules", "frequent-pattern", "tabular"],
+    ),
+    DetectorManifestEntry(
+        "srcnn",
+        "omni_mercury_engine.detectors.srcnn",
+        "SRCNNDetector",
+        DetectorCategory.BASE,
+        "SR-CNN: CNN discriminator over Spectral-Residual saliency, trained on "
+        "synthetic-anomaly-augmented series (Ren et al., KDD 2019; requires torch)",
+        feature_dim=1,
+        tags=["streaming", "temporal", "spectral", "cnn", "torch"],
+    ),
+    DetectorManifestEntry(
+        "diffusion_ad",
+        "omni_mercury_engine.detectors.diffusion_ad",
+        "DiffusionReconstructionDetector",
+        DetectorCategory.BASE,
+        "DDPM-AD: denoising-diffusion reconstruction-error detector; anomaly score "
+        "is off-manifold noise-prediction error (Ho et al., 2020; requires torch)",
+        feature_dim=1,
+        tags=["generative", "diffusion", "reconstruction", "torch"],
+    ),
     # -- Specialized models ---------------------------------------------------
     DetectorManifestEntry(
         "quantum",
