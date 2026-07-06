@@ -1,61 +1,65 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Benchmark harness for the streaming anomaly-detector tier.
+"""Real-data benchmark for the streaming anomaly-detector tier (NAB).
 
-This runs every temporal / state-space / probabilistic / generative /
-neuromorphic detector in
-:data:`omni_mercury_engine.detectors.detection_tier.STREAMING_TIER` (the 1-D
-subset -- the multivariate ``rca`` / ``deeplog_sequence`` / ``frequent_pattern``
-members are excluded) plus the three :class:`StreamingScoreEnsemble` combiners
-(``stacking`` / ``bma`` / ``average``) across the synthetic scenarios defined in
-:mod:`benchmarks.detection_tier_synthetic`.
+This evaluates the tier on **real, human-labelled** anomaly data -- the Numenta
+Anomaly Benchmark (NAB) real categories (``realKnownCause`` /
+``realAWSCloudwatch`` / ``realTraffic``), pulled through the shared dataset
+layer (:class:`omni_mercury_engine.datasets.timeseries.NABLoader`, the same
+loader the main :mod:`benchmarks.mercury_benchmark` registers). Nothing scored
+here is generated: NAB's synthetic ``artificial*`` categories are excluded by
+the loader's default real-category selection.
 
-Each scenario series is split 50/50 into train/test. Member detectors are fitted
-on the *normal* points of the train split and scored on the test split; the
-ensembles are trained on the full labelled train split and evaluated on the test
-split. Metrics -- precision, recall, F1, ROC-AUC (computed with NumPy via the
-Mann-Whitney U rank identity, so there is no scikit-learn dependency) and mean
-detect latency -- are aggregated per detector and per ensemble method.
+It is a *library*, not a standalone results silo: :func:`run_realdata_benchmark`
+returns a results dict that :mod:`benchmarks.mercury_benchmark` merges into the
+one canonical ``mercury_benchmark_results.json`` under the ``detection_tier``
+key (there is no separate committed results file).
 
-Run it directly to (re)produce :data:`RESULTS_PATH`::
+Protocol -- NAB is an **unsupervised streaming** benchmark, so the honest,
+non-leaking evaluation is:
 
-    python -m benchmarks.detection_tier_benchmark
+* **Members + ``average`` ensemble (headline).** Each 1-D member (and the
+  unsupervised score-mean ensemble) is fitted on an initial *normal* warm-up
+  window, then scores the whole series; per-point ROC-AUC (Mann-Whitney rank
+  identity, no scikit-learn) and an oracle best-F1 are computed over every
+  labelled point. Every series with an anomaly is measurable this way.
+* **Supervised ``stacking`` / ``bma`` (subset).** These combiners need labelled
+  anomalies to fit, which NAB does not provide up front. They are evaluated only
+  on the subset of series where a 50/50 temporal split leaves *both* classes in
+  *both* folds (fit on the labelled train split, score the test split); series
+  that cannot support it are recorded in ``skipped``, never silently dropped.
 
-Per-detector failures are caught and recorded as ``{"error": ...}`` so a single
-misbehaving detector never aborts the run. Everything is deterministic under a
-fixed seed.
+Long series are cropped to a contiguous window centred on their labelled
+anomalies (real data, real anomaly, temporal crop only) so the O(n) detectors
+stay fast. Per-detector failures are trapped and recorded so one misbehaving
+detector never aborts the run.
 """
 
 from __future__ import annotations
 
-import json
 import time
-from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import numpy as np
 
-from benchmarks.detection_tier_synthetic import SCENARIOS, generate_scenario
 from omni_mercury_engine.detectors.detection_tier import (
     StreamingScoreEnsemble,
     align_point_scores,
     build_tier_detectors,
 )
 
-if TYPE_CHECKING:
-    from omni_mercury_engine.core.base import BaseDetector
-
 __all__ = [
     "ENSEMBLE_METHODS",
     "MEMBER_DETECTORS",
-    "RESULTS_PATH",
-    "evaluate_detector",
-    "evaluate_ensemble",
+    "evaluate_member",
+    "load_nab_series",
     "main",
-    "run_benchmark",
+    "run_realdata_benchmark",
 ]
 
-#: 1-D-capable tier detectors benchmarked here (multivariate members excluded).
+#: 1-D-capable tier members benchmarked here (multivariate ``rca`` /
+#: ``deeplog_sequence`` / ``frequent_pattern`` and the torch-gated ``srcnn`` /
+#: ``diffusion_ad`` are excluded so the lane is pure-NumPy and always importable).
 MEMBER_DETECTORS: tuple[str, ...] = (
     "spectral_residual",
     "bocpd",
@@ -72,28 +76,29 @@ MEMBER_DETECTORS: tuple[str, ...] = (
     "deep_svdd",
 )
 
-#: Ensemble combiners evaluated per scenario.
-ENSEMBLE_METHODS: tuple[str, ...] = ("stacking", "bma", "average")
+#: Ensemble combiners. ``average`` is unsupervised (headline); ``stacking`` /
+#: ``bma`` are supervised and evaluated on the split-measurable subset.
+ENSEMBLE_METHODS: tuple[str, ...] = ("average", "bma", "stacking")
 
-#: Where :func:`main` writes the benchmark results.
-RESULTS_PATH = Path(__file__).with_name("detection_tier_results.json")
+#: NAB real categories to pull (synthetic ``artificial*`` sets are excluded).
+_NAB_REAL_CATEGORIES: tuple[str, ...] = (
+    "realKnownCause",
+    "realAWSCloudwatch",
+    "realTraffic",
+)
 
-#: Point-decision threshold applied to member detectors' per-point scores.
-_POINT_THRESHOLD = 0.5
-
-#: Number of timed ``detect`` calls averaged for the latency metric.
-_LATENCY_REPEATS = 3
+#: Fraction of a series used as the normal warm-up the members fit on.
+_WARMUP_FRAC = 0.15
+#: Floor on the warm-up length so short series still fit meaningfully.
+_WARMUP_MIN = 200
+#: Length cap; longer series are cropped anomaly-preservingly to bound runtime.
+_MAX_LEN = 6000
+#: Timed ``detect`` calls averaged for the latency/throughput metric.
+_LATENCY_REPEATS = 2
 
 
 def _average_ranks(values: np.ndarray) -> np.ndarray:
-    """Return 1-based average ranks with tie handling (fractional ranking).
-
-    Args:
-        values: 1-D array to rank.
-
-    Returns:
-        Float array of the same shape; tied values share their mean rank.
-    """
+    """Return 1-based average ranks with tie handling (fractional ranking)."""
     values = np.asarray(values, dtype=np.float64)
     order = np.argsort(values, kind="mergesort")
     sorted_values = values[order]
@@ -110,15 +115,9 @@ def _average_ranks(values: np.ndarray) -> np.ndarray:
 
 
 def _roc_auc(scores: np.ndarray, labels: np.ndarray) -> float:
-    """ROC-AUC via the Mann-Whitney U rank identity (no scikit-learn).
+    """ROC-AUC via the Mann-Whitney U rank identity (equals scikit-learn's AUC).
 
-    Args:
-        scores: Continuous anomaly scores.
-        labels: 0/1 ground-truth labels.
-
-    Returns:
-        Area under the ROC curve in ``[0, 1]``, or ``0.5`` when only one class is
-        present (AUC is undefined there).
+    Returns ``0.5`` when only one class is present (AUC is undefined there).
     """
     labels = np.asarray(labels, dtype=np.int64).ravel()
     scores = np.asarray(scores, dtype=np.float64).ravel()
@@ -132,15 +131,7 @@ def _roc_auc(scores: np.ndarray, labels: np.ndarray) -> float:
 
 
 def _classification_metrics(preds: np.ndarray, labels: np.ndarray) -> dict[str, float]:
-    """Precision / recall / F1 from 0/1 predictions and labels.
-
-    Args:
-        preds: 0/1 predicted flags.
-        labels: 0/1 ground-truth labels.
-
-    Returns:
-        Mapping with ``precision``, ``recall`` and ``f1`` keys.
-    """
+    """Precision / recall / F1 from 0/1 predictions and labels."""
     preds = np.asarray(preds, dtype=np.int64).ravel()
     labels = np.asarray(labels, dtype=np.int64).ravel()
     tp = int(np.sum((preds == 1) & (labels == 1)))
@@ -152,229 +143,322 @@ def _classification_metrics(preds: np.ndarray, labels: np.ndarray) -> dict[str, 
     return {"precision": precision, "recall": recall, "f1": f1}
 
 
+def _oracle_f1(scores: np.ndarray, labels: np.ndarray) -> dict[str, float]:
+    """Best F1 over a percentile + linear threshold sweep (oracle threshold).
+
+    Mirrors the multi-strategy sweep in :mod:`benchmarks.mercury_benchmark` so
+    the tier's F1 is comparable to the main harness's ``oracle_f1``.
+    """
+    labels = np.asarray(labels, dtype=np.int64).ravel()
+    scores = np.asarray(scores, dtype=np.float64).ravel()
+    if int(labels.sum()) in (0, labels.size):
+        return {"f1": 0.0, "precision": 0.0, "recall": 0.0, "threshold": 0.5}
+    candidates = list(np.linspace(0.0, 1.0, 51))
+    candidates += [float(np.percentile(scores, p)) for p in (80, 85, 90, 93, 95, 97, 99)]
+    best = {"f1": 0.0, "precision": 0.0, "recall": 0.0, "threshold": 0.5}
+    for thr in candidates:
+        metrics = _classification_metrics((scores > thr).astype(np.int64), labels)
+        if metrics["f1"] > best["f1"]:
+            best = {**metrics, "threshold": float(thr)}
+    return best
+
+
 def _round_metrics(metrics: dict[str, float]) -> dict[str, float]:
     """Round metric values to 6 decimals for stable JSON output."""
     return {key: round(float(value), 6) for key, value in metrics.items()}
 
 
-def evaluate_detector(
-    name: str,
-    detector: BaseDetector,
-    series: np.ndarray,
-    labels: np.ndarray,
+def _crop_to_anomaly(
+    series: np.ndarray, labels: np.ndarray, max_len: int
+) -> tuple[np.ndarray, np.ndarray]:
+    """Crop a long series to a ``max_len`` window that retains its anomalies."""
+    n = int(series.size)
+    if n <= max_len:
+        return series, labels
+    pos = np.flatnonzero(labels == 1)
+    if pos.size == 0:
+        lo = 0
+    else:
+        center = int((pos[0] + pos[-1]) // 2)
+        lo = max(0, min(center - max_len // 2, n - max_len))
+    hi = lo + max_len
+    return series[lo:hi], labels[lo:hi]
+
+
+def load_nab_series(
+    categories: tuple[str, ...] = _NAB_REAL_CATEGORIES,
+    *,
+    max_len: int = _MAX_LEN,
+    max_files: int | None = None,
+) -> list[tuple[str, np.ndarray, np.ndarray]]:
+    """Load real NAB 1-D series (name, values, labels) via the shared loader.
+
+    Args:
+        categories: NAB real categories to include.
+        max_len: Length cap; longer series are anomaly-preservingly cropped.
+        max_files: Optional cap on the number of series (for smoke runs).
+
+    Returns:
+        One ``(name, values, labels)`` triple per real NAB file with at least one
+        labelled anomaly in the (cropped) window.
+    """
+    from omni_mercury_engine.datasets.base import DatasetConfig
+    from omni_mercury_engine.datasets.timeseries import NABLoader
+
+    loader = NABLoader(DatasetConfig(name="nab", preprocessing={"categories": list(categories)}))
+    out: list[tuple[str, np.ndarray, np.ndarray]] = []
+    for name, values, labels in loader.iter_series():
+        series, lab = _crop_to_anomaly(
+            np.asarray(values, dtype=np.float64), np.asarray(labels, dtype=np.int64), max_len
+        )
+        if int(lab.sum()) == 0:
+            continue
+        out.append((name, series, lab))
+        if max_files is not None and len(out) >= max_files:
+            break
+    return out
+
+
+def _warmup_len(n: int) -> int:
+    """Warm-up length: ``_WARMUP_FRAC`` of the series, floored, kept below n/2."""
+    return int(min(max(_WARMUP_MIN, int(_WARMUP_FRAC * n)), max(2, n // 2)))
+
+
+def evaluate_member(name: str, series: np.ndarray, labels: np.ndarray) -> dict[str, Any]:
+    """Fit one member on the normal warm-up, score the whole series, score it.
+
+    Args:
+        name: Member detector name.
+        series: 1-D real series (temporal order preserved).
+        labels: 0/1 per-point labels aligned to ``series``.
+
+    Returns:
+        Metrics dict (``detector``, ``roc_auc``, ``f1``, ``precision``,
+        ``recall``, ``threshold``, ``latency_ms``, ``throughput_pps``) or
+        ``{"detector", "error"}``.
+    """
+    try:
+        detector = build_tier_detectors([name])[name]
+        warmup = _warmup_len(series.size)
+        detector.fit(np.nan_to_num(series[:warmup]))
+        scores = align_point_scores(detector, series)
+        metrics: dict[str, Any] = {"roc_auc": _roc_auc(scores, labels)}
+        metrics.update(_oracle_f1(scores, labels))
+
+        start = time.perf_counter()
+        for _ in range(_LATENCY_REPEATS):
+            detector.detect(series)
+        metrics["latency_ms"] = (time.perf_counter() - start) / _LATENCY_REPEATS * 1000.0
+        per_call_s = metrics["latency_ms"] / 1000.0
+        metrics["throughput_pps"] = float(series.size / per_call_s) if per_call_s > 0 else 0.0
+
+        result: dict[str, Any] = {**_round_metrics(metrics), "detector": name}
+        return result
+    except Exception as exc:  # noqa: BLE001 - one bad detector must not abort the run
+        return {"detector": name, "error": f"{type(exc).__name__}: {exc}"}
+
+
+def _evaluate_average_ensemble(
+    members: list[str], series: np.ndarray, labels: np.ndarray, seed: int
 ) -> dict[str, Any]:
-    """Score one fitted detector on a series and compute its metrics.
+    """Unsupervised ``average`` ensemble: fit members on warm-up, score all."""
+    try:
+        detectors = build_tier_detectors(members)
+        ensemble = StreamingScoreEnsemble(detectors, method="average", seed=seed)
+        warmup = _warmup_len(series.size)
+        ensemble.fit(series[:warmup])
+        scores = ensemble.score(series)
+        metrics: dict[str, Any] = {"roc_auc": _roc_auc(scores, labels)}
+        metrics.update(_oracle_f1(scores, labels))
+        return _round_metrics(metrics)
+    except Exception as exc:  # noqa: BLE001
+        return {"error": f"{type(exc).__name__}: {exc}"}
 
-    Args:
-        name: Detector name (echoed into the result).
-        detector: A *fitted* tier detector.
-        series: Evaluation series (1-D); the detector's per-point scores are
-            aligned to it via
-            :func:`omni_mercury_engine.detectors.detection_tier.align_point_scores`.
-        labels: 0/1 ground-truth labels aligned to ``series``.
 
-    Returns:
-        Mapping with ``detector``, ``precision``, ``recall``, ``f1``, ``roc_auc``,
-        ``latency_ms`` (mean wall time of one ``detect`` call), and
-        ``throughput_pps`` (points scored per second).
+def _evaluate_supervised_ensembles(
+    members: list[str], series: np.ndarray, labels: np.ndarray, seed: int
+) -> dict[str, dict[str, Any]] | None:
+    """Supervised ``stacking`` / ``bma`` / ``average`` on a 50/50 temporal split.
+
+    Returns ``None`` when the split is not measurable (a fold is single-class),
+    so the caller can record the series as skipped for the supervised table.
     """
-    scores = align_point_scores(detector, series)
-    preds = (scores > _POINT_THRESHOLD).astype(np.int64)
-    metrics = _classification_metrics(preds, labels)
-    metrics["roc_auc"] = _roc_auc(scores, labels)
+    split = series.size // 2
+    train_s, train_l = series[:split], labels[:split]
+    test_s, test_l = series[split:], labels[split:]
+    both = lambda y: 0 < int(y.sum()) < int(y.size)  # noqa: E731 - tiny local predicate
+    if not (both(train_l) and both(test_l)):
+        return None
 
-    start = time.perf_counter()
-    for _ in range(_LATENCY_REPEATS):
-        detector.detect(series)
-    metrics["latency_ms"] = (time.perf_counter() - start) / _LATENCY_REPEATS * 1000.0
-    per_call_s = metrics["latency_ms"] / 1000.0
-    metrics["throughput_pps"] = float(series.size / per_call_s) if per_call_s > 0 else 0.0
-
-    result: dict[str, Any] = _round_metrics(metrics)
-    result["detector"] = name
-    return result
-
-
-def evaluate_ensemble(
-    members: list[str] | tuple[str, ...],
-    series_train: np.ndarray,
-    labels_train: np.ndarray,
-    series_test: np.ndarray,
-    labels_test: np.ndarray,
-    seed: int = 0,
-) -> dict[str, dict[str, Any]]:
-    """Train and evaluate each ensemble combiner on a train/test split.
-
-    For each method in :data:`ENSEMBLE_METHODS` a fresh set of member detectors is
-    built, the ensemble is fitted on the labelled train split, and its per-point
-    probabilities score the test split. Precision/recall/F1 use the ensemble's own
-    calibrated decision (:meth:`StreamingScoreEnsemble.predict`) while ROC-AUC uses
-    the continuous :meth:`StreamingScoreEnsemble.score`. Errors are trapped per
-    method.
-
-    Args:
-        members: Member detector names to combine.
-        series_train: Train split series.
-        labels_train: Train split labels.
-        series_test: Test split series.
-        labels_test: Test split labels.
-        seed: Ensemble RNG seed.
-
-    Returns:
-        Mapping ``method -> metrics`` (or ``method -> {"error": ...}``).
-    """
     results: dict[str, dict[str, Any]] = {}
     for method in ENSEMBLE_METHODS:
         try:
-            detectors = build_tier_detectors(list(members))
+            detectors = build_tier_detectors(members)
             ensemble = StreamingScoreEnsemble(detectors, method=method, seed=seed)
-            ensemble.fit(series_train, labels_train)
-            scores = ensemble.score(series_test)
-            preds = ensemble.predict(series_test)
-            metrics = _classification_metrics(preds, labels_test)
-            metrics["roc_auc"] = _roc_auc(scores, labels_test)
-
-            start = time.perf_counter()
-            for _ in range(_LATENCY_REPEATS):
-                ensemble.score(series_test)
-            metrics["latency_ms"] = (time.perf_counter() - start) / _LATENCY_REPEATS * 1000.0
-            per_call_s = metrics["latency_ms"] / 1000.0
-            metrics["throughput_pps"] = (
-                float(series_test.size / per_call_s) if per_call_s > 0 else 0.0
-            )
-            result = _round_metrics(metrics)
-            result["threshold"] = round(float(ensemble.threshold), 6)
-            results[method] = result
-        except Exception as exc:
+            ensemble.fit(train_s, train_l)
+            scores = ensemble.score(test_s)
+            metrics: dict[str, Any] = {"roc_auc": _roc_auc(scores, test_l)}
+            metrics.update(_oracle_f1(scores, test_l))
+            results[method] = _round_metrics(metrics)
+        except Exception as exc:  # noqa: BLE001
             results[method] = {"error": f"{type(exc).__name__}: {exc}"}
     return results
 
 
-def _split_scenario(
-    series: np.ndarray, labels: np.ndarray
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Split a scenario 50/50 into ``(train_series, train_labels, test_*)``."""
-    split = series.size // 2
-    return series[:split], labels[:split], series[split:], labels[split:]
-
-
-def _fit_member(name: str, train_series: np.ndarray, train_labels: np.ndarray) -> BaseDetector:
-    """Build one detector and fit it on the normal points of the train split.
-
-    NaN dropouts are neutralised before fitting so detectors that assume finite
-    input do not choke on the ``missing_data`` scenario.
-    """
-    detector = build_tier_detectors([name])[name]
-    normal = train_series[train_labels == 0]
-    fit_input = normal if normal.size > 0 else train_series
-    detector.fit(np.nan_to_num(fit_input.astype(np.float64)))
-    return detector
-
-
 def _aggregate(
-    per_scenario: dict[str, dict[str, Any]], keys: list[str]
+    per_dataset: dict[str, dict[str, Any]], keys: list[str]
 ) -> dict[str, dict[str, Any]]:
-    """Mean F1 / AUC / latency for each entry across scenarios (skipping errors).
-
-    Args:
-        per_scenario: ``scenario -> {entry_key -> metrics}`` mapping.
-        keys: Entry keys to aggregate (detector or ensemble-method names).
-
-    Returns:
-        ``entry_key -> {mean_f1, mean_auc, mean_latency_ms, n_scenarios}`` (or an
-        ``{"error": ...}`` note when every scenario failed for that entry).
-    """
+    """Mean ROC-AUC / F1 / latency for each key across datasets (skipping errors)."""
     aggregate: dict[str, dict[str, Any]] = {}
     for key in keys:
-        f1s, aucs, lats, tputs = [], [], [], []
-        for scenario in per_scenario.values():
-            entry = scenario.get(key, {})
-            if "f1" in entry:
-                f1s.append(entry["f1"])
-                aucs.append(entry["roc_auc"])
-                lats.append(entry["latency_ms"])
-                tputs.append(entry.get("throughput_pps", 0.0))
-        if not f1s:
-            aggregate[key] = {"error": "no successful scenarios"}
+        aucs, f1s, lats, tputs = [], [], [], []
+        for entry in per_dataset.values():
+            metrics = entry.get(key, {})
+            if "roc_auc" in metrics and "error" not in metrics:
+                aucs.append(metrics["roc_auc"])
+                f1s.append(metrics["f1"])
+                if "latency_ms" in metrics:
+                    lats.append(metrics["latency_ms"])
+                    tputs.append(metrics.get("throughput_pps", 0.0))
+        if not aucs:
+            aggregate[key] = {"error": "no successful datasets"}
             continue
-        aggregate[key] = {
-            "mean_f1": round(float(np.mean(f1s)), 6),
+        summary = {
             "mean_auc": round(float(np.mean(aucs)), 6),
-            "mean_latency_ms": round(float(np.mean(lats)), 6),
-            "mean_throughput_pps": round(float(np.mean(tputs)), 2),
-            "n_scenarios": len(f1s),
+            "median_auc": round(float(np.median(aucs)), 6),
+            "mean_f1": round(float(np.mean(f1s)), 6),
+            "n_datasets": len(aucs),
         }
+        if lats:
+            summary["mean_latency_ms"] = round(float(np.mean(lats)), 6)
+            summary["mean_throughput_pps"] = round(float(np.mean(tputs)), 2)
+        aggregate[key] = summary
     return aggregate
 
 
-def run_benchmark(
+def run_realdata_benchmark(
     seed: int = 0,
-    n: int = 1800,
-    scenarios: list[str] | None = None,
+    *,
+    max_len: int = _MAX_LEN,
+    max_files: int | None = None,
     members: list[str] | tuple[str, ...] | None = None,
+    datasets: list[tuple[str, np.ndarray, np.ndarray]] | None = None,
 ) -> dict[str, Any]:
-    """Run the full detector x scenario benchmark and aggregate results.
+    """Evaluate the tier on real NAB series and aggregate the results.
 
     Args:
-        seed: Master seed forwarded to every scenario generator and ensemble.
-        n: Points per scenario series (kept modest to bound runtime).
-        scenarios: Subset of :data:`SCENARIOS` to run (defaults to all). Useful
-            for fast smoke tests.
-        members: Subset of :data:`MEMBER_DETECTORS` to run (defaults to all).
+        seed: Master seed forwarded to every ensemble.
+        max_len: Length cap forwarded to :func:`load_nab_series`.
+        max_files: Optional cap on datasets (for smoke runs).
+        members: Subset of :data:`MEMBER_DETECTORS` (defaults to all 1-D members).
+        datasets: Pre-loaded ``(name, series, labels)`` triples; when given, the
+            NAB loader is not called (used by network-free tests).
 
     Returns:
-        Nested results dict with ``config``, per-scenario ``scenarios`` tables
-        (``detectors`` + ``ensembles``), ``aggregate`` means, and a ``skipped``
-        list of ``(scenario, detector, reason)`` triples.
+        A results dict with ``config``, per-dataset ``datasets`` tables, ``aggregate``
+        means (``members`` + unsupervised ``average`` + supervised ``stacking`` /
+        ``bma``), a ``summary``, ``measured_datasets``, and a ``skipped`` list.
     """
-    scenario_names = list(scenarios) if scenarios is not None else list(SCENARIOS)
     member_names = list(members) if members is not None else list(MEMBER_DETECTORS)
+    if datasets is None:
+        datasets = load_nab_series(max_len=max_len, max_files=max_files)
 
-    scenario_tables: dict[str, Any] = {}
-    detector_by_scenario: dict[str, dict[str, Any]] = {}
-    ensemble_by_scenario: dict[str, dict[str, Any]] = {}
+    dataset_tables: dict[str, Any] = {}
+    member_by_ds: dict[str, dict[str, Any]] = {}
+    unsup_by_ds: dict[str, dict[str, Any]] = {}
+    sup_by_ds: dict[str, dict[str, Any]] = {}
     skipped: list[dict[str, str]] = []
+    measured: list[str] = []
 
-    for scenario_name in scenario_names:
-        series, labels = generate_scenario(scenario_name, n=n, seed=seed)
-        train_s, train_l, test_s, test_l = _split_scenario(series, labels)
+    for name, series, labels in datasets:
+        members_result = {m: evaluate_member(m, series, labels) for m in member_names}
+        average_result = _evaluate_average_ensemble(member_names, series, labels, seed)
+        supervised = _evaluate_supervised_ensembles(member_names, series, labels, seed)
 
-        detector_results: dict[str, Any] = {}
-        for name in member_names:
-            try:
-                detector = _fit_member(name, train_s, train_l)
-                detector_results[name] = evaluate_detector(name, detector, test_s, test_l)
-            except Exception as exc:
-                reason = f"{type(exc).__name__}: {exc}"
-                detector_results[name] = {"error": reason}
-                skipped.append({"scenario": scenario_name, "detector": name, "reason": reason})
+        member_by_ds[name] = members_result
+        unsup_by_ds[name] = {"average": average_result}
+        if supervised is None:
+            skipped.append(
+                {
+                    "dataset": name,
+                    "reason": "temporal split single-class (supervised not measurable)",
+                }
+            )
+        else:
+            sup_by_ds[name] = supervised
 
-        ensemble_results = evaluate_ensemble(member_names, train_s, train_l, test_s, test_l, seed)
-
-        detector_by_scenario[scenario_name] = detector_results
-        ensemble_by_scenario[scenario_name] = ensemble_results
-        scenario_tables[scenario_name] = {
+        # Compact per-dataset row (the full per-member matrix stays in the
+        # cross-dataset ``aggregate`` means; keeping it out of the committed file
+        # keeps the headline artefact reviewable).
+        scored_members = {m: r["roc_auc"] for m, r in members_result.items() if "roc_auc" in r}
+        best_member = (
+            max(scored_members, key=scored_members.__getitem__) if scored_members else None
+        )
+        sup_row: dict[str, Any] = {"measurable": supervised is not None}
+        if supervised is not None:
+            sup_aucs = {m: r["roc_auc"] for m, r in supervised.items() if "roc_auc" in r}
+            if sup_aucs:
+                best_sup = max(sup_aucs, key=sup_aucs.__getitem__)
+                sup_row.update(best_method=best_sup, best_auc=round(sup_aucs[best_sup], 6))
+        dataset_tables[name] = {
+            "n": int(series.size),
             "anomaly_rate": round(float(np.mean(labels)), 6),
-            "n_train": int(train_s.size),
-            "n_test": int(test_s.size),
-            "detectors": detector_results,
-            "ensembles": ensemble_results,
+            "best_member": best_member,
+            "best_member_auc": round(scored_members[best_member], 6) if best_member else None,
+            "ensemble_average_auc": average_result.get("roc_auc"),
+            "ensemble_average_f1": average_result.get("f1"),
+            "supervised": sup_row,
         }
+        measured.append(name)
+
+    member_agg = _aggregate(member_by_ds, member_names)
+    average_agg = _aggregate(unsup_by_ds, ["average"])
+    supervised_agg = _aggregate(sup_by_ds, list(ENSEMBLE_METHODS))
+
+    measurable_members = {k: v for k, v in member_agg.items() if "mean_auc" in v}
+    best_member = (
+        max(measurable_members.items(), key=lambda kv: kv[1]["mean_auc"])[0]
+        if measurable_members
+        else None
+    )
 
     return {
         "config": {
+            "source": "NAB (Numenta Anomaly Benchmark) real categories",
+            "loader": "omni_mercury_engine.datasets.timeseries.NABLoader",
+            "categories": list(_NAB_REAL_CATEGORIES),
+            "license": "AGPL-3.0",
             "seed": seed,
-            "n": n,
-            "scenarios": scenario_names,
+            "max_len": max_len,
+            "warmup_frac": _WARMUP_FRAC,
             "members": member_names,
             "ensemble_methods": list(ENSEMBLE_METHODS),
-            "point_threshold": _POINT_THRESHOLD,
+            "protocol": (
+                "unsupervised streaming: members + average ensemble fit on the normal "
+                "warm-up and score the whole series (per-point ROC-AUC + oracle F1 over "
+                "all labels); supervised stacking/bma on the 50/50-split subset where both "
+                "folds carry both classes"
+            ),
+            "n_datasets_measured": len(measured),
         },
-        "scenarios": scenario_tables,
+        "datasets": dataset_tables,
         "aggregate": {
-            "detectors": _aggregate(detector_by_scenario, member_names),
-            "ensembles": _aggregate(ensemble_by_scenario, list(ENSEMBLE_METHODS)),
+            "members": member_agg,
+            "ensemble_average": average_agg.get("average", {"error": "no successful datasets"}),
+            "ensembles_supervised": supervised_agg,
         },
+        "summary": {
+            "n_datasets": len(measured),
+            "n_supervised_measurable": len(sup_by_ds),
+            "best_member": best_member,
+            "best_member_mean_auc": (
+                measurable_members[best_member]["mean_auc"] if best_member else None
+            ),
+            "average_ensemble_mean_auc": average_agg.get("average", {}).get("mean_auc"),
+            "bma_ensemble_mean_auc": supervised_agg.get("bma", {}).get("mean_auc"),
+            "stacking_ensemble_mean_auc": supervised_agg.get("stacking", {}).get("mean_auc"),
+        },
+        "measured_datasets": measured,
         "skipped": skipped,
     }
 
@@ -382,43 +466,45 @@ def run_benchmark(
 def _format_summary(results: dict[str, Any]) -> str:
     """Render the aggregate results as a compact markdown table."""
     lines = [
-        "| detector | mean_f1 | mean_auc | mean_latency_ms | mean_throughput_pps |",
+        "| entry | mean_auc | median_auc | mean_f1 | n |",
         "| --- | ---: | ---: | ---: | ---: |",
     ]
 
     def _row(label: str, stats: dict[str, Any]) -> str:
-        if "error" in stats:
-            return f"| {label} | - | - | - | {stats['error']} |"
+        if "mean_auc" not in stats:
+            return f"| {label} | - | - | - | {stats.get('error', 'n/a')} |"
         return (
-            f"| {label} | {stats['mean_f1']:.4f} | "
-            f"{stats['mean_auc']:.4f} | {stats['mean_latency_ms']:.3f} | "
-            f"{stats.get('mean_throughput_pps', 0.0):.0f} |"
+            f"| {label} | {stats['mean_auc']:.4f} | {stats.get('median_auc', float('nan')):.4f} | "
+            f"{stats['mean_f1']:.4f} | {stats['n_datasets']} |"
         )
 
-    detectors = results["aggregate"]["detectors"]
+    members = results["aggregate"]["members"]
     for name in results["config"]["members"]:
-        lines.append(_row(name, detectors.get(name, {"error": "missing"})))
-
-    ensembles = results["aggregate"]["ensembles"]
-    for method in results["config"]["ensemble_methods"]:
-        lines.append(_row(f"ensemble:{method}", ensembles.get(method, {"error": "missing"})))
-
+        lines.append(_row(name, members.get(name, {"error": "missing"})))
+    lines.append(_row("ensemble:average", results["aggregate"]["ensemble_average"]))
+    for method in ("bma", "stacking"):
+        lines.append(
+            _row(
+                f"ensemble:{method}",
+                results["aggregate"]["ensembles_supervised"].get(method, {"error": "missing"}),
+            )
+        )
     return "\n".join(lines)
 
 
 def main() -> None:
-    """Run the benchmark, persist JSON to :data:`RESULTS_PATH`, print a summary."""
-    results = run_benchmark()
-    RESULTS_PATH.write_text(json.dumps(results, indent=2, sort_keys=True), encoding="utf-8")
+    """Run the real-data benchmark standalone and print a summary (no committed file).
 
-    print(f"# Streaming detector tier benchmark (seed={results['config']['seed']})")
+    The canonical committed artefact is the ``detection_tier`` section of
+    ``benchmarks/mercury_benchmark_results.json``, produced when
+    :mod:`benchmarks.mercury_benchmark` merges this library's output. Running
+    this module directly is for local inspection only.
+    """
+    results = run_realdata_benchmark()
+    print(f"# Detector tier -- REAL data (NAB), {results['config']['n_datasets_measured']} series")
     print(_format_summary(results))
-    skipped = results["skipped"]
-    if skipped:
-        print(f"\nskipped ({len(skipped)}):")
-        for item in skipped:
-            print(f"  - {item['scenario']}/{item['detector']}: {item['reason']}")
-    print(f"\nresults written to {RESULTS_PATH}")
+    if results["skipped"]:
+        print(f"\nsupervised-skipped ({len(results['skipped'])}): single-class temporal split")
 
 
 if __name__ == "__main__":

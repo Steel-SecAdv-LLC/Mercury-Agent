@@ -61,8 +61,11 @@ scores = ensemble.score(live_series)          # calibrated per-point probabiliti
 uncertainty = ensemble.ensemble_uncertainty(live_series)
 ```
 
-BMA is the recommended default combiner (best benchmark ROC-AUC). Use `stacking`
-when abundant point labels are available, `average` when unlabelled.
+On real streaming data without up-front labels, `average` is the recommended
+default combiner — it leads on the real-data NAB benchmark (ROC-AUC 0.613, ahead
+of `stacking` 0.571 / `bma` 0.563 on the labelled subset). Use `stacking` / `bma`
+only when abundant point labels are available to fit the meta-learner; on
+sparsely-labelled streams they do not beat `average`.
 
 ### 3.3 Bound the false-positive rate
 
@@ -80,10 +83,19 @@ flags = conformal_flags(scores, calibration_scores=normal_scores, alpha=0.05)
 - For labelled data, prefer stacking / BMA so the meta-learner reweights
   detectors to the current regime. Follow [`RETRAIN_RUNBOOK.md`](./RETRAIN_RUNBOOK.md)
   for the staged deploy / rollback path.
-- Regenerate the benchmark baseline after any detector change:
+- Regenerate the benchmark after any detector change. A quick tier-only,
+  real-data (NAB) summary — prints, does not commit:
 
 ```bash
 AMA_CRYPTO_VERSION=3.3.0 python -m benchmarks.detection_tier_benchmark
+```
+
+  The committed numbers live in the `detection_tier` section of
+  `benchmarks/mercury_benchmark_results.json`; refresh them with the canonical
+  harness (also refreshes the main headline):
+
+```bash
+AMA_CRYPTO_VERSION=3.3.0 python benchmarks/mercury_benchmark.py
 ```
 
 ## 5. Monitor

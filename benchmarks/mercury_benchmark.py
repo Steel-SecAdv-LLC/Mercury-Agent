@@ -983,6 +983,40 @@ def run_progressive_validation(
     }
 
 
+def run_detection_tier_section(*, max_files: int | None = None) -> dict[str, Any]:
+    """Evaluate the streaming detector tier on real NAB data for the results file.
+
+    Wraps :func:`benchmarks.detection_tier_benchmark.run_realdata_benchmark` -- the
+    tier's real-data streaming evaluation over the Numenta Anomaly Benchmark real
+    categories -- and stamps it with run metadata, so the tier's honest real-data
+    numbers live in the one canonical ``mercury_benchmark_results.json`` under the
+    ``detection_tier`` key rather than a separate silo. Fail-soft: a data/download
+    failure is recorded as ``status: unavailable``, never fatal to the headline run.
+
+    Args:
+        max_files: Optional cap on NAB series (for a fast local run); ``None`` runs
+            every real NAB series.
+
+    Returns:
+        The tier results dict (with ``run_metadata`` and ``status``), or an
+        ``{"status": "unavailable", "error": ...}`` marker.
+    """
+    try:
+        import detection_tier_benchmark
+
+        results = detection_tier_benchmark.run_realdata_benchmark(max_files=max_files)
+    except Exception as exc:  # noqa: BLE001 - the tier section must never abort the headline
+        logger.warning("detection_tier section unavailable: %s", exc)
+        return {"status": "unavailable", "error": f"{type(exc).__name__}: {exc}"}
+    results["run_metadata"] = {
+        "git_commit": _git_commit(),
+        "timestamp": datetime.now(UTC).isoformat(),
+        "detectors": "detection_tier: 13 x 1-D members + average/bma/stacking ensembles",
+    }
+    results["status"] = "ok"
+    return results
+
+
 if __name__ == "__main__":
     import argparse
 
@@ -1001,6 +1035,10 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     output = run_benchmark(live_only=args.live_only, domain_filter=args.domain)
+
+    # Real-data streaming evaluation of the detector tier, merged into the one
+    # canonical results file (no separate silo). Fail-soft; never blocks the headline.
+    output["detection_tier"] = run_detection_tier_section()
 
     with open(OUTPUT_PATH, "w") as f:
         json.dump(output, f, indent=2, default=str)

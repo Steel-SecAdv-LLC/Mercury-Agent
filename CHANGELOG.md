@@ -80,13 +80,23 @@ flags. Design doc `docs/DETECTION_MECHANISMS.md`; ops
   logged), eliminating a combinatorial hang on wide/degenerate input (e.g. a
   single continuous series fed through the fusion registry). Regression tests
   added.
-- **Validation.** Per-detector contract + signal tests under `tests/detectors/`;
-  tier wiring in `tests/detectors/test_detection_tier_integration.py`; synthetic
-  burst/drift/concept-shift/missing-data/adversarial generators
-  (`benchmarks/detection_tier_synthetic.py`) + benchmark harness
-  (`benchmarks/detection_tier_benchmark.py`, committed
-  `detection_tier_results.json`). Measured: the **BMA ensemble leads at ROC-AUC
-  0.955** across five scenarios, pooling all thirteen 1-D members.
+- **Validation on real data.** Per-detector contract + signal tests under
+  `tests/detectors/`; tier wiring in
+  `tests/detectors/test_detection_tier_integration.py`. The tier's **performance
+  is measured on real, human-labelled anomaly data** — the Numenta Anomaly
+  Benchmark (NAB) real categories, pulled through the shared dataset layer via
+  the new `datasets.timeseries.NABLoader.iter_series` 1-D streaming accessor (the
+  synthetic `artificial*` NAB sets are excluded). `benchmarks/detection_tier_benchmark.py`
+  is the real-data streaming-evaluation library; `benchmarks/mercury_benchmark.py`
+  merges its output into the **one canonical** `benchmarks/mercury_benchmark_results.json`
+  under the `detection_tier` key (the earlier synthetic `detection_tier_synthetic.py`
+  / `detection_tier_results.json` silo is removed). Measured over **29 real NAB
+  series** (unsupervised streaming, per-point ROC-AUC): the **unsupervised
+  `average` ensemble leads at ROC-AUC 0.613** (median 0.617), edging the best
+  single member (`echo_state`, 0.610); the supervised `stacking` / `bma` combiners
+  are reported on the 15-series subset where a temporal split leaves both classes
+  in both folds. Network-free plumbing tests in
+  `tests/benchmarks/test_detection_tier_realdata.py`.
 - **AMA-Cryptography pin bumped `v3.2.0 → v3.3.0`** (still mandatory, fail-closed):
   `_pqc_gate.py` constants, the pyproject `pqc` git pin, every CI `AMA_REF`,
   `scripts/build_ama_native.sh`, the `Dockerfile` build arg, and the version-gate

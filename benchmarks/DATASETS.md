@@ -103,6 +103,13 @@ domains.
 |------|-------|--------|--------|------|-----------------|----------|---------------|-------------------|
 | SMD | SMDLoader | timeseries | [Server Machine Dataset](https://github.com/NetManAIOps/OmniAnomaly) | None | ~25,000 | 38 | ~4% | MIT |
 | NAB | NABLoader | timeseries | [NAB](https://github.com/numenta/NAB) | None | ~22,000 | 1 | ~10% | AGPL-3.0 |
+
+> **NAB also backs the streaming detector-tier evaluation.** `NABLoader.iter_series`
+> exposes NAB as ordered per-file 1-D `(series, labels)` streams (real categories
+> only; the synthetic `artificial*` sets are excluded). The 18-detector tier is
+> scored on it by `benchmarks/detection_tier_benchmark.py`, merged into the
+> `detection_tier` section of `mercury_benchmark_results.json` — see
+> [`../docs/DETECTION_MECHANISMS.md`](../docs/DETECTION_MECHANISMS.md).
 | SMAP | SMAPMSLLoader | timeseries | [NASA SMAP](https://github.com/khundman/telemanom) | None | ~135,000 | 25 | ~12% | Apache-2.0 |
 | MSL | SMAPMSLLoader | timeseries | [NASA MSL](https://github.com/khundman/telemanom) | None | ~58,000 | 55 | ~10% | Apache-2.0 |
 
