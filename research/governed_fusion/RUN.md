@@ -12,10 +12,10 @@ recipe; the per-event results JSON in `results/` and the data manifest
 
 `omni_mercury_engine` fails closed if the native PQC backend is absent and
 `MERCURY_ALLOW_SYNTHETIC=0`. Build it exactly as CI does
-(`.github/actions/build-ama-cryptography`, `ama-ref v3.2.0`):
+(`.github/actions/build-ama-cryptography`, `ama-ref v3.3.0`):
 
 ```bash
-git clone --branch v3.2.0 --depth 1 \
+git clone --branch v3.3.0 --depth 1 \
   https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git /tmp/ama-cryptography
 cd /tmp/ama-cryptography
 CC=gcc-12 CXX=g++-12 cmake -S . -B build \

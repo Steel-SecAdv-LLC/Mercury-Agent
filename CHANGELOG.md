@@ -88,7 +88,20 @@ flags. Design doc `docs/DETECTION_MECHANISMS.md`; ops
   0.955** across five scenarios, pooling all thirteen 1-D members.
 - **AMA-Cryptography pin bumped `v3.2.0 → v3.3.0`** (still mandatory, fail-closed):
   `_pqc_gate.py` constants, the pyproject `pqc` git pin, every CI `AMA_REF`,
-  `scripts/build_ama_native.sh`, and the version-gate tests updated in lockstep.
+  `scripts/build_ama_native.sh`, the `Dockerfile` build arg, and the version-gate
+  tests updated in lockstep; all remaining docs/comments reworded to a single
+  consistent pin narrative ("introduced in v3.2.0, retained in v3.3.0").
+- **HS384 JOSE signing now routes through AMA's native C HMAC.** v3.3.0 adds a
+  native HMAC-SHA-384 binding, so `security/ama_hmac.py` exposes
+  `ama_hmac_sha384` / `HAS_AMA_HMAC_SHA384` and `security/native_jwt.py` routes
+  HS384 (fail-closed, no silent stdlib downgrade) alongside HS256/HS512, locked
+  by the RFC 4231 §4.2 HMAC-SHA-384 known-answer vector.
+- **Detector correctness fixes** surfaced in review: `DigitalTwinResidualDetector`
+  now runs its free-running divergence open-loop *to* time `t` (the seed ends at
+  `t-h` and the twin feeds its own predictions), instead of indexing the
+  seed/history window; `SurvivalHazardDetector._covariate` is O(n) via a prefix
+  sum with the correct `w`-length trailing window (was O(n·w) with an off-by-one
+  and dead code).
 
 ### Intelligence layer: closed-loop learning + decision geometry (steel/refinement-mercury-intel)
 

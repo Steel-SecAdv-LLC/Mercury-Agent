@@ -297,7 +297,7 @@ pqc = [
     # silently bump the Mercury PQC surface mid-cycle.  Bump this tag
     # in lockstep with `tests/security/test_pqc_gate_real_ama.py` and
     # the migration notes in `docs/MIGRATION-1.6-to-1.7.md` §3.
-    "ama-cryptography @ git+https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git@v3.3.0",  # Primary: Steel Security PQC framework (pinned v3.3.0; carries the native_hmac_sha256 / native_hmac_sha256_2 bindings used by native_jwt HS256 routing)
+    "ama-cryptography @ git+https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git@v3.3.0",  # Primary: Steel Security PQC framework (pinned v3.3.0; native HMAC-SHA-256/384/512 bindings route HS256/HS384/HS512 in native_jwt)
 ]
 
 

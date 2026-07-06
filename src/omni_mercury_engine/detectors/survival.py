@@ -122,14 +122,21 @@ class SurvivalHazardDetector(BaseDetector):
         return np.clip(s, 1e-9, 1.0)
 
     def _covariate(self, durations: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Recent-rate covariate (mean of trailing durations)."""
+        """Recent-rate covariate: trailing mean of the last ``covariate_window`` durations.
+
+        Computed in O(n) with a prefix sum. The window ending at ``t`` spans
+        ``[t - w + 1, t]`` (clamped at the start), so it holds exactly ``w``
+        samples once warmed up.
+        """
         w = self.covariate_window
         n = durations.size
-        cov = np.zeros(n, dtype=np.float64)
-        for t in range(n):
-            lo = max(0, t - w)
-            cov[t] = float(np.mean(durations[lo : t + 1])) if t >= 0 else 0.0
-        return cov
+        if n == 0:
+            return np.zeros(0, dtype=np.float64)
+        prefix = np.concatenate(([0.0], np.cumsum(durations, dtype=np.float64)))
+        idx = np.arange(n)
+        lo = np.maximum(0, idx - w + 1)
+        counts = (idx - lo + 1).astype(np.float64)
+        return (prefix[idx + 1] - prefix[lo]) / counts
 
     def _surprisal(self, series: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Two-sided tail surprisal of each duration under the fitted model."""

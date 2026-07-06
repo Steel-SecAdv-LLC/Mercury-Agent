@@ -140,13 +140,19 @@ class DigitalTwinResidualDetector(BaseDetector):
         for t in range(p, n):
             lags = series[t - 1 :: -1][:p]  # [y_{t-1}, ..., y_{t-p}]
             one_step = abs(series[t] - self._twin_step(lags))
-            # Free-running simulation seeded at t-p, run open-loop to t.
-            sim = list(series[t - p : t])
-            horizon = min(self.horizon, t - p + 1)
-            for _ in range(horizon):
-                nxt = self._twin_step(np.asarray(sim[-1 : -p - 1 : -1][:p]))
-                sim.append(nxt)
-            free_run = abs(series[t] - sim[min(horizon, len(sim) - 1)])
+            # Free-running divergence: seed the twin with the p real values ending
+            # at t-h and run it open-loop (feeding its own predictions back) for h
+            # steps, so the final prediction is aligned to time t and used no real
+            # data after t-h. h is clamped so the seed window stays in-bounds.
+            h = min(self.horizon, t - p + 1)
+            start = t - h
+            hist = list(series[start - p + 1 : start + 1])  # p real values, chronological
+            prediction = hist[-1]
+            for _ in range(h):
+                lag_vec = np.asarray(hist[-1 : -p - 1 : -1][:p])  # most-recent-first
+                prediction = self._twin_step(lag_vec)
+                hist.append(prediction)
+            free_run = abs(series[t] - prediction)  # h-step open-loop forecast of y_t
             out[t] = (1.0 - w) * one_step + w * free_run
         out[:p] = out[p] if n > p else 0.0
         return out / max(self._resid_std, 1e-9)
