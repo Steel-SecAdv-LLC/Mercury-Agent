@@ -153,7 +153,7 @@ def _oracle_f1(scores: np.ndarray, labels: np.ndarray) -> dict[str, float]:
     scores = np.asarray(scores, dtype=np.float64).ravel()
     if int(labels.sum()) in (0, labels.size):
         return {"f1": 0.0, "precision": 0.0, "recall": 0.0, "threshold": 0.5}
-    candidates = list(np.linspace(0.0, 1.0, 51))
+    candidates: list[float] = [float(x) for x in np.linspace(0.0, 1.0, 51)]
     candidates += [float(np.percentile(scores, p)) for p in (80, 85, 90, 93, 95, 97, 99)]
     best = {"f1": 0.0, "precision": 0.0, "recall": 0.0, "threshold": 0.5}
     for thr in candidates:

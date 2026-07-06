@@ -998,15 +998,29 @@ def run_detection_tier_section(*, max_files: int | None = None) -> dict[str, Any
             every real NAB series.
 
     Returns:
-        The tier results dict (with ``run_metadata`` and ``status``), or an
-        ``{"status": "unavailable", "error": ...}`` marker.
+        The tier results dict (with ``run_metadata`` and ``status``), or a
+        ``{"status": ..., "error": ...}`` marker -- ``import_error`` when the tier
+        library cannot be imported (kept distinct from a data outage) and
+        ``unavailable`` when the NAB data/run fails.
     """
+    # Resolve the tier library in both invocation styles: as a script
+    # (``benchmarks/`` on ``sys.path`` -> top-level ``detection_tier_benchmark``)
+    # and as a package module (``python -m benchmarks.mercury_benchmark`` ->
+    # ``benchmarks.detection_tier_benchmark``). A genuine import failure is
+    # reported as ``import_error`` so it is never mislabelled as a data outage.
     try:
-        import detection_tier_benchmark
+        try:
+            import detection_tier_benchmark as tier
+        except ModuleNotFoundError:
+            from benchmarks import detection_tier_benchmark as tier
+    except Exception as exc:  # noqa: BLE001 - never abort the headline on an import problem
+        logger.warning("detection_tier section: import failed: %s", exc)
+        return {"status": "import_error", "error": f"{type(exc).__name__}: {exc}"}
 
-        results = detection_tier_benchmark.run_realdata_benchmark(max_files=max_files)
-    except Exception as exc:  # noqa: BLE001 - the tier section must never abort the headline
-        logger.warning("detection_tier section unavailable: %s", exc)
+    try:
+        results = tier.run_realdata_benchmark(max_files=max_files)
+    except Exception as exc:  # noqa: BLE001 - a data/download failure must not abort the headline
+        logger.warning("detection_tier section: data unavailable: %s", exc)
         return {"status": "unavailable", "error": f"{type(exc).__name__}: {exc}"}
     results["run_metadata"] = {
         "git_commit": _git_commit(),
