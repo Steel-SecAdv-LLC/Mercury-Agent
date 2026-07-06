@@ -111,7 +111,7 @@ ml = [
     # unbounded floor resolves 5.0.x and both the Type Checking lane and the
     # affected runtime path break.  Pin to the 4.x API this codebase targets;
     # revisit as a deliberate migration when adopting the 5.x namespace.
-    "opencv-python-headless>=4.8.0,<5",
+    "opencv-python-headless>=4.8.0,<6",
     # CVE-2025-47273: path traversal / arbitrary file write in setuptools'
     # ``PackageIndex`` (fixed in 78.1.1).  ``setuptools`` is a *runtime*
     # dependency of both ``torch`` and ``tensorflow`` (``Required-by:
