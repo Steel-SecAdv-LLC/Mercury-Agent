@@ -368,8 +368,9 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "omni_mercury_engine.detectors.energy_based",
         "EnergyBasedDetector",
         DetectorCategory.BASE,
-        "Explicit energy-based model detector: RBF-feature quadratic energy "
-        "fitted by score matching; anomaly score is the calibrated free energy",
+        "Explicit energy-based model detector: delay-embedding quadratic "
+        "(Gaussian-family) energy fitted by score matching; anomaly score is the "
+        "calibrated free energy",
         feature_dim=1,
         tags=["generative", "energy-based", "representation", "density"],
     ),

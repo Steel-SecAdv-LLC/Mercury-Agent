@@ -49,7 +49,7 @@ downgrades.
 
 | Variable | Value | Purpose |
 |---|---|---|
-| `AMA_CRYPTO_VERSION` | `3.3.0` | Pinned PQC backend version; the import gate refuses a different *release* (`_pqc_gate._enforce_ama_version`). Matched PEP 440-tolerantly: `v3.3.0`, `3.3.0.post1`, `3.2` are accepted; `3.1.0` is not. |
+| `AMA_CRYPTO_VERSION` | `3.3.0` | Pinned PQC backend version; the import gate refuses a different *release* (`_pqc_gate._enforce_ama_version`). Matched PEP 440-tolerantly: `v3.3.0`, `3.3.0.post1`, `3.3` are accepted; `3.1.0` is not. |
 | `LD_LIBRARY_PATH` | native AMA lib dir | Only for a manual out-of-tree AMA build; unneeded when `scripts/build_ama_native.sh` co-locates the `.so`. |
 | `MERCURY_ENV` | `production` | Mock/stub collaborators raise instead of downgrading. |
 | `AMA_REQUIRE_CONSTANT_TIME` | `true` | Refuse non-constant-time PQC primitives. |
@@ -172,7 +172,7 @@ export AMA_CRYPTO_VERSION=3.3.0
 The import-time gate additionally enforces the pinned **version**: it refuses
 unless the installed `ama_cryptography.__version__` resolves to release `3.3.0`
 and, when set, `AMA_CRYPTO_VERSION` agrees. Both are matched PEP 440-tolerantly
-(`v3.3.0`, `3.3.0.post1`, `3.3.0+cpu`, and even `3.2` are accepted; a different
+(`v3.3.0`, `3.3.0.post1`, `3.3.0+cpu`, and even `3.3` are accepted; a different
 release such as `3.1.0` is refused), so a valid post/local build is not
 misdiagnosed as a failure — see
 `omni_mercury_engine/_pqc_gate.py::_enforce_ama_version` / `_release_matches`.

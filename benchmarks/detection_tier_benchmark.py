@@ -190,7 +190,7 @@ def evaluate_detector(
     per_call_s = metrics["latency_ms"] / 1000.0
     metrics["throughput_pps"] = float(series.size / per_call_s) if per_call_s > 0 else 0.0
 
-    result = _round_metrics(metrics)
+    result: dict[str, Any] = _round_metrics(metrics)
     result["detector"] = name
     return result
 

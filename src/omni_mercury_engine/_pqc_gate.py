@@ -63,7 +63,7 @@ _AMA_REQUIRED_VERSION = "3.3.0"
 
 #: The numeric release the pin resolves to, matched PEP 440-tolerantly: a build
 #: reporting ``3.3.0``, ``v3.3.0``, ``3.3.0.post1``, ``3.3.0rc1`` or ``3.3.0+cpu``
-#: all satisfy it (same release); ``3.3.0`` / ``3.4.0`` / ``9.9.9`` do not, and
+#: all satisfy it (same release); ``3.2.0`` / ``3.4.0`` / ``9.9.9`` do not, and
 #: neither does a *longer* release sharing the prefix (``3.3.0.1``) -- see
 #: :func:`_release_matches`, which compares the full tuple rather than truncating.
 _AMA_REQUIRED_RELEASE = (3, 3, 0)
@@ -161,7 +161,7 @@ def _release_matches(value: str) -> bool:
     equivalents of the pin (``'3.3'`` / ``'3.3.0'`` / ``'3.3.0.0'`` all match
     ``(3, 3, 0)``), while comparing the full tuple means a *longer, different*
     release that merely shares the pinned prefix (``'3.3.0.1'``) is **refused**,
-    not silently accepted. A different minor/major (``3.3.0`` / ``3.4.0``) is
+    not silently accepted. A different minor/major (``3.2.0`` / ``3.4.0``) is
     refused as before. Truncating longer releases would weaken the Tier-0 pin by
     treating a distinct release as the pinned one, so it is deliberately avoided.
     A pre/post/dev/local *suffix* (``3.3.0.post1`` / ``3.3.0+cpu``) is not part of
@@ -192,7 +192,7 @@ def _enforce_ama_version() -> None:
 
     Matching is PEP 440-tolerant (see :func:`_release_matches`): a post/local/dev
     build of the pinned release (``3.3.0.post1``, ``3.3.0+cpu``) is accepted, a
-    different release (``3.3.0``, ``3.4.0``) is refused. Absent version metadata
+    different release (``3.2.0``, ``3.4.0``) is refused. Absent version metadata
     is not, on its own, fatal: the v3.3.0-only symbol imports in
     ``security/pqc_backends.py`` already floor the surface. This adds an explicit,
     operator-visible version gate on top of that structural floor.
