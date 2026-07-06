@@ -162,6 +162,16 @@ DETECTOR_EXTRACTION_ERRORS = _create_counter(
     ["detector_name"],
 )
 
+# Anomaly score distribution per detector (scores are normalised to [0, 1]).
+# Gives dashboards a per-detector score histogram alongside the latency/success
+# series, so score drift is visible without per-detector panels.
+DETECTOR_SCORE = _create_histogram(
+    "omni_detector_score",
+    "Anomaly score distribution per detector",
+    ["detector_name"],
+    buckets=(0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0),
+)
+
 # Feature cache metrics
 FEATURE_CACHE_HITS = _create_counter(
     "omni_feature_cache_hits_total",
@@ -294,6 +304,16 @@ def record_cache_miss(detector_name: str) -> None:
         detector_name: Name of the detector
     """
     FEATURE_CACHE_MISSES.labels(detector_name=detector_name).inc()
+
+
+def record_detector_score(detector_name: str, score: float) -> None:
+    """Record an anomaly score in the per-detector score-distribution histogram.
+
+    Args:
+        detector_name: Name of the detector.
+        score: Anomaly score, normalised to ``[0, 1]``.
+    """
+    DETECTOR_SCORE.labels(detector_name=detector_name).observe(float(score))
 
 
 def update_model_metrics(

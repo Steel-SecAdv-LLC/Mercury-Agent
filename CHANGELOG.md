@@ -64,6 +64,16 @@ flags. Design doc `docs/DETECTION_MECHANISMS.md`; ops
   bound the streaming FPR distribution-free via
   `core.conformal_prediction.SplitConformalPredictor`. `rca_localize` returns
   ranked root-cause attributions over a causal/service graph.
+- **Runtime pipeline wiring.** `TierStreamingScorer` adapts any tier detector to
+  the `infrastructure.streaming.StreamingAnomalyPipeline` `dict -> dict` detector
+  callable (rolling window + drift refit + metric emission);
+  `store_tier_features` persists detector features into
+  `core.feature_pipeline.FeatureStore` with a registered `FeatureSchema` for
+  provenance/versioning; `decision.bridge.to_cap_alert` gains an `rca_causes`
+  argument that attaches ranked root causes to the CAP alert as a `RootCauses`
+  parameter; and `core.metrics.record_detector_score` feeds a new per-detector
+  `omni_detector_score` histogram consumed by the existing Grafana boards. The
+  benchmark harness also reports throughput (points/sec).
 - **Robustness fix.** `FrequentPatternDetector` Apriori mining is now bounded to
   the top `max_items` itemsets per level (deterministic tie-break, truncation
   logged), eliminating a combinatorial hang on wide/degenerate input (e.g. a

@@ -82,6 +82,7 @@ def to_cap_alert(
     area_description: str = "Unspecified Area",
     coordinates: tuple[float, float] | None = None,
     geocode: dict[str, str] | None = None,
+    rca_causes: list[tuple[int, float]] | None = None,
 ) -> str | None:
     """Render a CAP 1.2 alert for a decision that asks to notify.
 
@@ -97,6 +98,11 @@ def to_cap_alert(
         area_description: Human-readable affected area.
         coordinates: Optional ``(lat, lon)``.
         geocode: Optional CAP geocode dict.
+        rca_causes: Optional ranked ``(node_index, attribution)`` root causes,
+            e.g. from
+            :func:`omni_mercury_engine.detectors.detection_tier.rca_localize`.
+            When given, the top few are attached to the alert as a ``RootCauses``
+            CAP parameter so on-call triage sees *where* the anomaly originated.
 
     Returns:
         A CAP 1.2 XML string, or ``None`` when no notification is warranted.
@@ -119,6 +125,10 @@ def to_cap_alert(
         "Coverage": "n/a" if record.coverage is None else f"{record.coverage:.2f}",
         "Reasons": " | ".join(record.reasons),
     }
+    if rca_causes:
+        metadata["RootCauses"] = ", ".join(
+            f"node{node}:{attribution:.3f}" for node, attribution in rca_causes[:5]
+        )
     return generator.from_detection(
         domain=alert_domain,
         scores=alert_scores,

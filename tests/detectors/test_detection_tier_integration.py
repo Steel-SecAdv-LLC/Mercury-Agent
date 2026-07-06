@@ -11,11 +11,13 @@ from omni_mercury_engine.detectors.detection_tier import (
     STREAMING_TIER,
     TIER_PARADIGMS,
     StreamingScoreEnsemble,
+    TierStreamingScorer,
     align_point_scores,
     build_tier_detectors,
     conformal_flags,
     conformal_threshold,
     rca_localize,
+    store_tier_features,
 )
 
 
@@ -147,3 +149,73 @@ class TestRCA:
         assert len(ranked) == 3
         top_nodes = [node for node, _ in ranked]
         assert 0 in top_nodes  # the true root cause is surfaced in the top-3
+
+
+class TestStreamingAdapter:
+    def test_scores_stream_and_flags_spike(self) -> None:
+        from omni_mercury_engine.detectors.spectral_residual import SpectralResidualDetector
+
+        scorer = TierStreamingScorer(
+            SpectralResidualDetector(), name="sr", window_size=128, min_samples=32
+        )
+        rng = np.random.default_rng(9)
+        results = []
+        for i in range(300):
+            value = float(rng.normal())
+            if i == 250:
+                value += 12.0  # a clear point anomaly on the stream
+            results.append(scorer({"value": value}))
+        # warm-up points are not flagged
+        assert results[0]["warmup"] is True
+        assert results[0]["is_anomaly"] is False
+        # every emitted score is a valid probability
+        assert all(0.0 <= r["anomaly_score"] <= 1.0 for r in results)
+        # the spike neighbourhood scores above the stream's median
+        spike = max(r["anomaly_score"] for r in results[248:256])
+        median = float(np.median([r["anomaly_score"] for r in results if not r["warmup"]]))
+        assert spike > median
+
+    def test_usable_as_pipeline_detector(self) -> None:
+        # The scorer satisfies the StreamingAnomalyPipeline detector contract.
+        from omni_mercury_engine.detectors.spectral_residual import SpectralResidualDetector
+        from omni_mercury_engine.infrastructure.streaming import StreamingAnomalyPipeline
+
+        scorer = TierStreamingScorer(SpectralResidualDetector())
+        pipeline = StreamingAnomalyPipeline("in", "out", detector=scorer)
+        assert pipeline.detector is scorer
+        result = scorer({"value": 1.0})
+        assert {"is_anomaly", "anomaly_score", "score"} <= set(result)
+
+    def test_invalid_params(self) -> None:
+        from omni_mercury_engine.detectors.spectral_residual import SpectralResidualDetector
+
+        with pytest.raises(ValueError):
+            TierStreamingScorer(SpectralResidualDetector(), window_size=1)
+
+
+class TestFeatureStoreProvenance:
+    def test_store_and_schema_roundtrip(self) -> None:
+        from omni_mercury_engine.core.feature_pipeline import FeatureStore, FeatureVersionManager
+        from omni_mercury_engine.detectors.spectral_residual import SpectralResidualDetector
+
+        x, _ = _labelled_series()
+        det = SpectralResidualDetector().fit(x)
+        store = FeatureStore(backend="memory")
+        vm = FeatureVersionManager()
+        features, schema = store_tier_features(store, det, "sr", x, version_manager=vm)
+        # provenance schema is well-formed and registered
+        assert schema.name == "sr" and schema.n_features >= 1
+        assert vm.get_schema("sr") is not None
+        # features round-trip through the store (flattened float64)
+        cached = store.get("sr", np.asarray(x, dtype=np.float64))
+        assert cached is not None
+        np.testing.assert_allclose(cached.ravel(), features.astype(np.float64).ravel())
+
+
+class TestObservability:
+    def test_record_detector_score_is_safe(self) -> None:
+        from omni_mercury_engine.core.metrics import is_prometheus_available, record_detector_score
+
+        # No-op safe whether or not prometheus_client is installed.
+        record_detector_score("sr", 0.73)
+        assert isinstance(is_prometheus_available(), bool)

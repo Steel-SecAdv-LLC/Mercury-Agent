@@ -209,6 +209,31 @@ accumulates at upstream causes. `detection_tier.rca_localize` is the convenience
 entry point; it returns ranked `(node, attribution)` pairs that the decision
 layer attaches to alerts.
 
+## Pipeline integration
+
+Concrete entry points that connect the tier to the surrounding runtime (all in
+`detectors/detection_tier.py` unless noted):
+
+- **Streaming ingestion** — `TierStreamingScorer` wraps a tier detector as the
+  `dict -> dict` callable
+  `omni_mercury_engine.infrastructure.streaming.StreamingAnomalyPipeline` expects:
+  it keeps a rolling window, refits to track drift, scores the newest point, and
+  emits the score to Prometheus. Use
+  `StreamingAnomalyPipeline(detector=TierStreamingScorer(det))`.
+- **Feature store & provenance** — `store_tier_features(store, det, name, data,
+  version_manager=...)` persists a detector's fusion features into
+  `core.feature_pipeline.FeatureStore` (per-detector, data-hashed key) and
+  registers a `FeatureSchema` (feature count, dtypes, value ranges) for
+  validation/versioning.
+- **Alerting attribution** — `decision.bridge.to_cap_alert(record, ...,
+  rca_causes=...)` attaches ranked root causes (from `rca_localize`) to the CAP
+  alert as a `RootCauses` parameter, so on-call triage sees *where* the anomaly
+  originated.
+- **Observability** — `core.metrics.record_detector_score(name, score)` feeds the
+  per-detector `omni_detector_score` histogram (bucketed over `[0, 1]`) alongside
+  the existing latency/success series; `TierStreamingScorer` emits it
+  automatically on the streaming path.
+
 ## Validation & benchmarks
 
 - **Unit + integration tests** — every detector has a contract + signal test
@@ -221,9 +246,9 @@ layer attaches to alerts.
   deterministic burst / drift / concept-shift / missing-data / adversarial-noise
   generators with per-point labels.
 - **Benchmark harness** — `benchmarks/detection_tier_benchmark.py` measures
-  precision / recall / F1 / ROC-AUC and per-call latency for every detector and
-  for the three ensemble modes across all scenarios, and writes
-  `benchmarks/detection_tier_results.json`. Run it with
+  precision / recall / F1 / ROC-AUC, per-call latency, and throughput
+  (points/sec) for every detector and for the three ensemble modes across all
+  scenarios, and writes `benchmarks/detection_tier_results.json`. Run it with
   `python -m benchmarks.detection_tier_benchmark`.
 
 Aggregate results across the five synthetic scenarios (seed 0), sorted by mean
@@ -282,8 +307,10 @@ code change to be real rather than theatre:
 | `src/omni_mercury_engine/detectors/{energy_based,deep_svdd,diffusion_ad}.py` | Generative / representation detectors |
 | `src/omni_mercury_engine/detectors/{echo_state,spiking}.py` | Neuromorphic detectors |
 | `src/omni_mercury_engine/detectors/{rca,deeplog_sequence,frequent_pattern}.py` | Systems-level detectors |
-| `src/omni_mercury_engine/detectors/detection_tier.py` | Ensemble / conformal / RCA integration seam |
+| `src/omni_mercury_engine/detectors/detection_tier.py` | Ensemble / conformal / RCA / streaming / feature-store integration seam |
 | `src/omni_mercury_engine/core/detector_registry.py` | Manifest registration (auto-discovery) |
+| `src/omni_mercury_engine/core/metrics.py` | Per-detector score-distribution metric |
+| `src/omni_mercury_engine/decision/bridge.py` | RCA attribution into CAP alerts |
 | `benchmarks/detection_tier_synthetic.py` | Synthetic scenario generators |
 | `benchmarks/detection_tier_benchmark.py` | Benchmark harness + committed results |
 | `docs/DETECTION_MECHANISMS_RUNBOOK.md` | Operational runbook |

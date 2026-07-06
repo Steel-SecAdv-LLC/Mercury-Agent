@@ -38,6 +38,7 @@ always importable (no PyTorch gate) and deterministic under a fixed seed.
 from __future__ import annotations
 
 import logging
+from collections import deque
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -46,6 +47,7 @@ if TYPE_CHECKING:
     import torch
 
     from omni_mercury_engine.core.base import BaseDetector
+    from omni_mercury_engine.core.feature_pipeline import FeatureSchema, FeatureStore
 
 logger = logging.getLogger(__name__)
 
@@ -54,11 +56,13 @@ __all__ = [
     "TIER_PARADIGMS",
     "TORCH_TIER",
     "StreamingScoreEnsemble",
+    "TierStreamingScorer",
     "align_point_scores",
     "build_tier_detectors",
     "conformal_flags",
     "conformal_threshold",
     "rca_localize",
+    "store_tier_features",
 ]
 
 # ---------------------------------------------------------------------------
@@ -433,3 +437,147 @@ def rca_localize(
     detector.fit(observations if train is None else train)
     ranked = detector.rank_root_causes(observations)
     return ranked if top_k is None else ranked[:top_k]
+
+
+class TierStreamingScorer:
+    """Adapt a tier detector to the streaming pipeline's ``dict -> dict`` callable.
+
+    :class:`~omni_mercury_engine.infrastructure.streaming.StreamingAnomalyPipeline`
+    consumes messages and calls ``detector(message) -> result``. Tier detectors
+    are batch/series detectors, so this scorer keeps a rolling window of the most
+    recent numeric values, (re)fits the wrapped detector every ``refit_interval``
+    points to track drift, scores the newest point, and emits the score to the
+    per-detector Prometheus histogram. It is directly usable as
+    ``StreamingAnomalyPipeline(detector=TierStreamingScorer(det))``.
+    """
+
+    def __init__(
+        self,
+        detector: BaseDetector,
+        *,
+        name: str | None = None,
+        window_size: int = 200,
+        min_samples: int = 32,
+        refit_interval: int = 64,
+        value_key: str | None = None,
+        threshold: float = 0.5,
+    ) -> None:
+        """Initialize the streaming scorer.
+
+        Args:
+            detector: The tier detector to drive online.
+            name: Metric label for the detector (defaults to its class name).
+            window_size: Rolling-window length scored on each point. Must be >= 2.
+            min_samples: Points to buffer before scoring (warm-up). Must be >= 2.
+            refit_interval: Points between detector refits. Must be >= 1.
+            value_key: Message key to read the scalar from; if ``None`` the first
+                finite numeric value in the message is used.
+            threshold: Score above which a point is flagged anomalous.
+
+        Raises:
+            ValueError: If a window/sample/interval parameter is out of range.
+        """
+        if window_size < 2:
+            raise ValueError(f"window_size must be >= 2, got {window_size}")
+        if min_samples < 2:
+            raise ValueError(f"min_samples must be >= 2, got {min_samples}")
+        if refit_interval < 1:
+            raise ValueError(f"refit_interval must be >= 1, got {refit_interval}")
+        self.detector = detector
+        self.name = name or type(detector).__name__
+        self.window_size = int(window_size)
+        self.min_samples = int(min_samples)
+        self.refit_interval = int(refit_interval)
+        self.value_key = value_key
+        self.threshold = float(threshold)
+        self._buffer: deque[float] = deque(maxlen=self.window_size)
+        self._since_fit = 0
+
+    def _extract_value(self, message: dict[str, Any]) -> float | None:
+        """Pull the scalar to score from a stream message."""
+        if self.value_key is not None:
+            raw = message.get(self.value_key)
+            candidates: list[Any] = [raw]
+        else:
+            candidates = list(message.values())
+        for value in candidates:
+            if isinstance(value, bool):
+                continue
+            if isinstance(value, (int, float)) and np.isfinite(value):
+                return float(value)
+        return None
+
+    def __call__(self, message: dict[str, Any]) -> dict[str, Any]:
+        """Score one stream message; returns a detector-result dict."""
+        value = self._extract_value(message)
+        if value is None:
+            return {"is_anomaly": False, "anomaly_score": 0.0, "score": 0.0, "warmup": True}
+        self._buffer.append(value)
+        if len(self._buffer) < self.min_samples:
+            return {"is_anomaly": False, "anomaly_score": 0.0, "score": 0.0, "warmup": True}
+
+        window = np.asarray(self._buffer, dtype=np.float64)
+        self._since_fit += 1
+        if not self.detector.is_fitted() or self._since_fit >= self.refit_interval:
+            self.detector.fit(window)
+            self._since_fit = 0
+
+        score = float(align_point_scores(self.detector, window)[-1])
+        from omni_mercury_engine.core.metrics import record_detector_score
+
+        record_detector_score(self.name, score)
+        return {
+            "is_anomaly": bool(score > self.threshold),
+            "anomaly_score": score,
+            "score": score,
+            "warmup": False,
+        }
+
+
+def store_tier_features(
+    store: FeatureStore,
+    detector: BaseDetector,
+    name: str,
+    data: np.ndarray[Any, Any] | torch.Tensor,
+    *,
+    version_manager: Any | None = None,
+    schema_version: str = "1.0.0",
+) -> tuple[np.ndarray[Any, Any], FeatureSchema]:
+    """Extract, store, and provenance a tier detector's fusion features.
+
+    Persists the detector's ``extract_features`` output into the shared
+    :class:`~omni_mercury_engine.core.feature_pipeline.FeatureStore` (per-detector,
+    data-hashed key) and builds a
+    :class:`~omni_mercury_engine.core.feature_pipeline.FeatureSchema` recording the
+    feature count, dtypes, and value ranges. When a ``version_manager`` is given
+    the schema is registered for validation/versioning.
+
+    Args:
+        store: The feature store to write into.
+        detector: A fitted tier detector.
+        name: Detector name (feature-store key + schema name).
+        data: Input the features are extracted from.
+        version_manager: Optional ``FeatureVersionManager`` to register the schema.
+        schema_version: Schema version string.
+
+    Returns:
+        ``(features, schema)`` — the stored features and their provenance schema.
+    """
+    from omni_mercury_engine.core.feature_pipeline import FeatureSchema
+
+    features = np.asarray(detector.extract_features(data), dtype=np.float64)
+    flat = features.reshape(features.shape[0], -1) if features.ndim > 1 else features.reshape(1, -1)
+    n_features = int(flat.shape[-1])
+    store.store(name, np.asarray(data, dtype=np.float64), features)
+    schema = FeatureSchema(
+        name=name,
+        version=schema_version,
+        n_features=n_features,
+        feature_names=[f"{name}_{i}" for i in range(n_features)],
+        dtypes=["float64"] * n_features,
+        min_values=flat.min(axis=0).astype(float).tolist(),
+        max_values=flat.max(axis=0).astype(float).tolist(),
+    )
+    if version_manager is not None:
+        version_manager.register_schema(schema)
+    return features, schema

@@ -174,8 +174,9 @@ def evaluate_detector(
         labels: 0/1 ground-truth labels aligned to ``series``.
 
     Returns:
-        Mapping with ``detector``, ``precision``, ``recall``, ``f1``, ``roc_auc``
-        and ``latency_ms`` (mean wall time of one ``detect`` call).
+        Mapping with ``detector``, ``precision``, ``recall``, ``f1``, ``roc_auc``,
+        ``latency_ms`` (mean wall time of one ``detect`` call), and
+        ``throughput_pps`` (points scored per second).
     """
     scores = align_point_scores(detector, series)
     preds = (scores > _POINT_THRESHOLD).astype(np.int64)
@@ -186,6 +187,8 @@ def evaluate_detector(
     for _ in range(_LATENCY_REPEATS):
         detector.detect(series)
     metrics["latency_ms"] = (time.perf_counter() - start) / _LATENCY_REPEATS * 1000.0
+    per_call_s = metrics["latency_ms"] / 1000.0
+    metrics["throughput_pps"] = float(series.size / per_call_s) if per_call_s > 0 else 0.0
 
     result = _round_metrics(metrics)
     result["detector"] = name
@@ -235,6 +238,10 @@ def evaluate_ensemble(
             for _ in range(_LATENCY_REPEATS):
                 ensemble.score(series_test)
             metrics["latency_ms"] = (time.perf_counter() - start) / _LATENCY_REPEATS * 1000.0
+            per_call_s = metrics["latency_ms"] / 1000.0
+            metrics["throughput_pps"] = (
+                float(series_test.size / per_call_s) if per_call_s > 0 else 0.0
+            )
             result = _round_metrics(metrics)
             result["threshold"] = round(float(ensemble.threshold), 6)
             results[method] = result
@@ -279,13 +286,14 @@ def _aggregate(
     """
     aggregate: dict[str, dict[str, Any]] = {}
     for key in keys:
-        f1s, aucs, lats = [], [], []
+        f1s, aucs, lats, tputs = [], [], [], []
         for scenario in per_scenario.values():
             entry = scenario.get(key, {})
             if "f1" in entry:
                 f1s.append(entry["f1"])
                 aucs.append(entry["roc_auc"])
                 lats.append(entry["latency_ms"])
+                tputs.append(entry.get("throughput_pps", 0.0))
         if not f1s:
             aggregate[key] = {"error": "no successful scenarios"}
             continue
@@ -293,6 +301,7 @@ def _aggregate(
             "mean_f1": round(float(np.mean(f1s)), 6),
             "mean_auc": round(float(np.mean(aucs)), 6),
             "mean_latency_ms": round(float(np.mean(lats)), 6),
+            "mean_throughput_pps": round(float(np.mean(tputs)), 2),
             "n_scenarios": len(f1s),
         }
     return aggregate
@@ -373,16 +382,17 @@ def run_benchmark(
 def _format_summary(results: dict[str, Any]) -> str:
     """Render the aggregate results as a compact markdown table."""
     lines = [
-        "| detector | mean_f1 | mean_auc | mean_latency_ms |",
-        "| --- | ---: | ---: | ---: |",
+        "| detector | mean_f1 | mean_auc | mean_latency_ms | mean_throughput_pps |",
+        "| --- | ---: | ---: | ---: | ---: |",
     ]
 
     def _row(label: str, stats: dict[str, Any]) -> str:
         if "error" in stats:
-            return f"| {label} | - | - | {stats['error']} |"
+            return f"| {label} | - | - | - | {stats['error']} |"
         return (
             f"| {label} | {stats['mean_f1']:.4f} | "
-            f"{stats['mean_auc']:.4f} | {stats['mean_latency_ms']:.3f} |"
+            f"{stats['mean_auc']:.4f} | {stats['mean_latency_ms']:.3f} | "
+            f"{stats.get('mean_throughput_pps', 0.0):.0f} |"
         )
 
     detectors = results["aggregate"]["detectors"]
