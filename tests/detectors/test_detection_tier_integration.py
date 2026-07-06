@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pytest
 
@@ -192,6 +194,34 @@ class TestStreamingAdapter:
         with pytest.raises(ValueError):
             TierStreamingScorer(SpectralResidualDetector(), window_size=1)
 
+    def test_value_less_message_after_warmup_is_not_warmup(self) -> None:
+        # A message carrying no finite numeric value must not regress a ready
+        # scorer back to warm-up: ``warmup`` reflects the buffered history, not
+        # the empty message, so downstream alerting is not wrongly suppressed.
+        from omni_mercury_engine.detectors.spectral_residual import SpectralResidualDetector
+
+        scorer = TierStreamingScorer(
+            SpectralResidualDetector(), name="sr", window_size=64, min_samples=16
+        )
+        rng = np.random.default_rng(3)
+        for _ in range(20):  # buffer past min_samples (16)
+            scorer({"value": float(rng.normal())})
+
+        # NaN is not finite and "tag" is non-numeric -> nothing to score.
+        result = scorer({"value": float("nan"), "tag": "note"})
+        assert result["warmup"] is False
+        assert result["is_anomaly"] is False
+        assert result["anomaly_score"] == 0.0
+
+    def test_value_less_message_during_warmup_stays_warmup(self) -> None:
+        # Before ``min_samples`` accumulate, a value-less message stays warm-up.
+        from omni_mercury_engine.detectors.spectral_residual import SpectralResidualDetector
+
+        scorer = TierStreamingScorer(
+            SpectralResidualDetector(), name="sr", window_size=64, min_samples=16
+        )
+        assert scorer({"tag": "no-number-here"})["warmup"] is True
+
 
 class TestFeatureStoreProvenance:
     def test_store_and_schema_roundtrip(self) -> None:
@@ -219,3 +249,21 @@ class TestObservability:
         # No-op safe whether or not prometheus_client is installed.
         record_detector_score("sr", 0.73)
         assert isinstance(is_prometheus_available(), bool)
+
+    def test_record_detector_score_tolerates_bad_values(self) -> None:
+        # Metrics emission is fail-safe: a NaN/inf/out-of-range/non-numeric score
+        # from a misbehaving detector must never raise into the hot streaming
+        # path -- non-finite is dropped, out-of-range is clamped to [0, 1].
+        from omni_mercury_engine.core.metrics import record_detector_score
+
+        bad_values: list[Any] = [
+            float("nan"),
+            float("inf"),
+            float("-inf"),
+            -0.5,
+            1.5,
+            "not-a-number",
+            None,
+        ]
+        for bad in bad_values:
+            record_detector_score("sr", bad)  # must not raise

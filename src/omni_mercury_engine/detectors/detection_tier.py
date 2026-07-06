@@ -511,7 +511,17 @@ class TierStreamingScorer:
         """Score one stream message; returns a detector-result dict."""
         value = self._extract_value(message)
         if value is None:
-            return {"is_anomaly": False, "anomaly_score": 0.0, "score": 0.0, "warmup": True}
+            # No finite numeric value to score in this message. Report warm-up
+            # from the accumulated buffer state, not unconditionally: a scorer
+            # that has already buffered ``min_samples`` points is *ready*, and a
+            # single value-less message must not make downstream alerting think
+            # it regressed to warm-up and suppress results.
+            return {
+                "is_anomaly": False,
+                "anomaly_score": 0.0,
+                "score": 0.0,
+                "warmup": len(self._buffer) < self.min_samples,
+            }
         self._buffer.append(value)
         if len(self._buffer) < self.min_samples:
             return {"is_anomaly": False, "anomaly_score": 0.0, "score": 0.0, "warmup": True}

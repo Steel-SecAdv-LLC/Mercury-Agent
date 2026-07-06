@@ -70,8 +70,9 @@ flags. Design doc `docs/DETECTION_MECHANISMS.md`; ops
   `store_tier_features` persists detector features into
   `core.feature_pipeline.FeatureStore` with a registered `FeatureSchema` for
   provenance/versioning; `decision.bridge.to_cap_alert` gains an `rca_causes`
-  argument that attaches ranked root causes to the CAP alert as a `RootCauses`
-  parameter; and `core.metrics.record_detector_score` feeds a new per-detector
+  argument that attaches ranked root causes to the CAP alert's Mercury metadata
+  (rendered into the CAP `<description>`) under `RootCauses`; and
+  `core.metrics.record_detector_score` feeds a new per-detector
   `omni_detector_score` histogram consumed by the existing Grafana boards. The
   benchmark harness also reports throughput (points/sec).
 - **Robustness fix.** `FrequentPatternDetector` Apriori mining is now bounded to
@@ -102,6 +103,20 @@ flags. Design doc `docs/DETECTION_MECHANISMS.md`; ops
   seed/history window; `SurvivalHazardDetector._covariate` is O(n) via a prefix
   sum with the correct `w`-length trailing window (was O(n·w) with an off-by-one
   and dead code).
+- **Streaming & observability hardening** surfaced in review:
+  `core.metrics.record_detector_score` is now fail-safe — a non-finite
+  (`NaN`/`inf`) or non-numeric score is dropped and an out-of-range value is
+  clamped to the `[0, 1]` anomaly-score contract before the histogram observes
+  it, so a misbehaving detector can neither raise into nor `NaN`-corrupt the
+  metric on the hot streaming path; `TierStreamingScorer` now reports `warmup`
+  from its buffered history rather than unconditionally on a value-less message,
+  so a ready scorer is no longer mistaken for warming up (which would suppress
+  downstream alerting). Manifest and design-doc descriptions were also corrected
+  to match the implementations: `deep_svdd` is a fixed random `tanh`-feature
+  embedding (saturating, not random-Fourier) and `energy_based` is a
+  delay-embedding quadratic (Gaussian-family) energy (not RBF-feature), and the
+  `rca` walk comment no longer claims an explicit `Aᵀ` transpose. Regression
+  tests added.
 
 ### Intelligence layer: closed-loop learning + decision geometry (steel/refinement-mercury-intel)
 

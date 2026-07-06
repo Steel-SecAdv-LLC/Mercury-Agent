@@ -18,6 +18,7 @@ Metrics emitted:
 from __future__ import annotations
 
 import logging
+import math
 import time
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any
@@ -309,11 +310,24 @@ def record_cache_miss(detector_name: str) -> None:
 def record_detector_score(detector_name: str, score: float) -> None:
     """Record an anomaly score in the per-detector score-distribution histogram.
 
+    Metrics emission is fail-safe: it is called from the hot streaming path and
+    must never raise into it. A non-numeric or non-finite score (``NaN`` /
+    ``inf``, which would corrupt the histogram sum) is dropped, and an
+    out-of-range value is clamped to the ``[0, 1]`` anomaly-score contract before
+    it is observed.
+
     Args:
         detector_name: Name of the detector.
         score: Anomaly score, normalised to ``[0, 1]``.
     """
-    DETECTOR_SCORE.labels(detector_name=detector_name).observe(float(score))
+    try:
+        value = float(score)
+    except (TypeError, ValueError):
+        return
+    if not math.isfinite(value):
+        return
+    value = min(1.0, max(0.0, value))
+    DETECTOR_SCORE.labels(detector_name=detector_name).observe(value)
 
 
 def update_model_metrics(
