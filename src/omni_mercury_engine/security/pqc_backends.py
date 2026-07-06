@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Mercury Agent - Post-Quantum Cryptography Backends.
 
-AMA Cryptography v3.2.0 is the sole PQC implementation.  The git ref is
+AMA Cryptography v3.3.0 is the sole PQC implementation.  The git ref is
 pinned in ``pyproject.toml [project.optional-dependencies].pqc`` and in
 the ``AMA_REF`` env var of ``.github/workflows/ci.yml`` /
 ``.github/workflows/pqc-production-check.yml`` -- bump those in
@@ -11,7 +11,7 @@ lock-step when upgrading.
 Previous versions used a 4-tier fallback chain (AMA → liboqs → pqcrypto →
 SIMULATION), then a soft-import / hard-call stub bridge for AMA-less dev
 lanes.  Mercury now fails closed at module import: if
-``ama_cryptography.pqc_backends`` cannot be imported, or if the pinned v3.2.0
+``ama_cryptography.pqc_backends`` cannot be imported, or if the pinned v3.3.0
 FIPS 204/205 symbols are missing, this module does not load.  AMA v3.2.0
 carries its own native C backend — it *is* the implementation.  Retaining
 weaker fallbacks only widened the attack surface.

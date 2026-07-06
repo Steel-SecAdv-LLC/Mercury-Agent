@@ -177,8 +177,11 @@ class SRCNNDetector(BaseDetector):
 
         model = _SRCNN(self.window, self.hidden)
         optimizer = torch.optim.Adam(model.parameters(), lr=self.lr)
-        # Balance the rare positive class in the BCE objective.
-        pos_weight = torch.tensor([(labels.size - labels.sum()) / max(labels.sum(), 1.0)])
+        # Balance the rare positive class in the BCE objective. Cast the NumPy
+        # scalar to float first so the ratio is plain-float arithmetic (avoids a
+        # numpy ``__truediv__`` overload ambiguity under the strict type gate).
+        n_pos = float(labels.sum())
+        pos_weight = torch.tensor([(float(labels.size) - n_pos) / max(n_pos, 1.0)])
         loss_fn = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
         model.train()
         for _ in range(self.epochs):
