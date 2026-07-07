@@ -175,6 +175,7 @@ if TYPE_CHECKING:
 
     from omni_mercury_engine.agentic.orchestration import MultiAgentOrchestrator
     from omni_mercury_engine.agentic.subagents.fleet import SubAgentFleet
+    from omni_mercury_engine.cognitive.benevolence_cache import CachedBenevolenceScorer
     from omni_mercury_engine.cognitive.ethical_bounding import BenevolenceScorer
     from omni_mercury_engine.cognitive.orchestrator import CognitiveOrchestrator
     from omni_mercury_engine.decision import DecisionAbstentionResponder, DecisionLedger
@@ -773,6 +774,7 @@ class OmniMercuryEngine(LoggerMixin):
         auto_load_checkpoint: bool = False,
         equation_profile: str | None = None,
         require_explicit_fit: bool = True,
+        cache_ethical_decisions: bool = True,
     ) -> None:
         """Initialize the OmniMercuryEngine.
 
@@ -803,6 +805,14 @@ class OmniMercuryEngine(LoggerMixin):
                 calibrated neural score with the frozen OAE R/H/O equation
                 signal at serve time (see
                 :mod:`omni_mercury_engine.core.equation_profiles`).
+            cache_ethical_decisions: When True (default), the benevolence
+                boundary scorer is wrapped in a
+                :class:`~omni_mercury_engine.cognitive.benevolence_cache.CachedBenevolenceScorer`
+                so repeated identical ``enforce(action, context)`` calls at the
+                detection boundary return the memoised ``EthicalScore`` instead
+                of re-running the full scoring pipeline. Semantics are
+                preserved: violations are never cached, and a ruleset-version
+                bump invalidates the cache. Set False to always recompute.
 
         Raises:
             ValueError: If device is 'cuda' but CUDA is not available.
@@ -867,9 +877,26 @@ class OmniMercuryEngine(LoggerMixin):
             BenevolenceScorer as _BenevolenceScorer,
         )
 
-        self._boundary_scorer: BenevolenceScorer = _BenevolenceScorer(
+        # The boundary scorer is hit on every ``detect_with_fusion`` call with a
+        # deterministic (action, context) derived from the sanitised domain and
+        # data shape, so identical serve-path requests recompute the same
+        # EthicalScore. When ``cache_ethical_decisions`` is on we wrap it in an
+        # LRU cache that memoises those repeats. The wrapper is a strict
+        # superset of the scorer surface (``enforce``/``score_action``/
+        # ``benevolence_threshold``), never caches violations, and self-purges
+        # on a ruleset-version bump, so the swap is semantics-preserving.
+        _real_boundary_scorer = _BenevolenceScorer(
             benevolence_threshold=_MINIMUM_BENEVOLENCE_FLOOR
         )
+        self._boundary_scorer: BenevolenceScorer | CachedBenevolenceScorer
+        if cache_ethical_decisions:
+            from omni_mercury_engine.cognitive.benevolence_cache import (
+                CachedBenevolenceScorer,
+            )
+
+            self._boundary_scorer = CachedBenevolenceScorer(scorer=_real_boundary_scorer)
+        else:
+            self._boundary_scorer = _real_boundary_scorer
 
         # σ_Immutable second hard ethical gate (Wave B item 1).  Loaded
         # eagerly for the same reason as the benevolence scorer above:

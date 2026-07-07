@@ -63,6 +63,7 @@ from omni_mercury_engine.cognitive.differentiable_logic import (
     LukasiewiczTNorm,
     ProductTNorm,
 )
+from omni_mercury_engine.cognitive.benevolence_cache import CachedBenevolenceScorer
 from omni_mercury_engine.cognitive.ethical_bounding import (
     MINIMUM_BENEVOLENCE_FLOOR,
     BenevolenceScorer,
@@ -137,6 +138,7 @@ __all__ = [
     "BattlefieldAssessment",
     # Ethical framework
     "BenevolenceScorer",
+    "CachedBenevolenceScorer",
     "Case",
     "CaseBasedReasoner",
     "CausalDiscoveryEngine",
