@@ -32,6 +32,7 @@ from omni_mercury_engine.detectors._calibration import (
     finite_scores,
     squash_scale,
 )
+from omni_mercury_engine.detectors.detection_config import DetectionConfig
 
 if TYPE_CHECKING:
     import torch
@@ -56,6 +57,7 @@ class DigitalTwinResidualDetector(BaseDetector):
         horizon: int = 5,
         divergence_weight: float = 0.5,
         ridge: float = 1e-6,
+        ridge_factor: float | None = None,
         calibration_quantile: float = 0.98,
         config: dict[str, Any] | None = None,
     ) -> None:
@@ -68,16 +70,30 @@ class DigitalTwinResidualDetector(BaseDetector):
             divergence_weight: Blend in ``[0, 1]`` between the one-step residual
                 (weight ``1 - divergence_weight``) and the free-run divergence
                 (weight ``divergence_weight``).
-            ridge: Tikhonov regularisation for the least-squares identification.
-                Must be > 0.
+            ridge: Absolute Tikhonov ridge *floor* for the least-squares
+                identification, applied as ``max(ridge_factor * trace(gram) / d,
+                ridge)`` so the solve stays regularised even when the Gram matrix
+                is (near-)zero. Must be > 0.
+            ridge_factor: Scale-relative Tikhonov ridge factor: the ridge added to
+                the Gram matrix is ``ridge_factor * trace(gram) / d``, i.e.
+                proportional to the *mean eigenvalue* of the Gram matrix, so
+                regularisation tracks the data scale instead of being a fixed
+                absolute constant that is negligible for large-magnitude signals
+                and dominant for tiny ones. ``None`` (default) resolves it from
+                the tier config (env ``OMNI_DETECTOR_RIDGE_FACTOR`` / config file,
+                default ``1e-6``). Must be >= 0.
             calibration_quantile: Training-residual quantile at the 0.5 boundary;
                 ``1 - calibration_quantile`` is the normal-regime FPR. In ``(0, 1)``.
-            config: Optional ``BaseDetector`` config (``threshold`` ...).
+            config: Optional ``BaseDetector`` config. Besides ``threshold`` it may
+                carry tier knobs ``nan_policy`` / ``max_magnitude`` /
+                ``ridge_factor`` (see
+                :class:`~omni_mercury_engine.detectors.detection_config.DetectionConfig`).
 
         Raises:
             ValueError: If any parameter is out of its valid range.
         """
         super().__init__(config)
+        self._detection_config = DetectionConfig.resolve(self._config)
         if order < 1:
             raise ValueError(f"order must be >= 1, got {order}")
         if horizon < 1:
@@ -86,12 +102,18 @@ class DigitalTwinResidualDetector(BaseDetector):
             raise ValueError(f"divergence_weight must be in [0, 1], got {divergence_weight}")
         if ridge <= 0.0:
             raise ValueError("ridge must be > 0")
+        resolved_ridge_factor = (
+            self._detection_config.ridge_factor if ridge_factor is None else float(ridge_factor)
+        )
+        if resolved_ridge_factor < 0.0:
+            raise ValueError("ridge_factor must be >= 0")
         if not 0.0 < calibration_quantile < 1.0:
             raise ValueError(f"calibration_quantile must be in (0, 1), got {calibration_quantile}")
         self.order = int(order)
         self.horizon = int(horizon)
         self.divergence_weight = float(divergence_weight)
         self.ridge = float(ridge)
+        self.ridge_factor = float(resolved_ridge_factor)
         self.calibration_quantile = float(calibration_quantile)
         self._coef: np.ndarray[Any, Any] | None = None
         self._intercept: float = 0.0
@@ -102,13 +124,12 @@ class DigitalTwinResidualDetector(BaseDetector):
         """Return ``True`` once :meth:`fit` has identified the twin/scale."""
         return self._is_fitted
 
-    @staticmethod
-    def _to_1d_f64(data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
-        """Coerce numpy/torch input to a finite 1-D float64 series."""
+    def _to_1d_f64(self, data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
+        """Coerce numpy/torch input to a finite 1-D float64 series (NaN policy applied)."""
         detach = getattr(data, "detach", None)
         if callable(detach):
             data = detach().cpu().numpy()
-        return bound_finite(np.asarray(data, dtype=np.float64)).ravel()
+        return bound_finite(np.asarray(data, dtype=np.float64), detector=self.name).ravel()
 
     def _squash_scale(self, raw: np.ndarray[Any, Any]) -> float:
         """Squash scale anchoring the ``calibration_quantile`` at score 0.5."""
@@ -126,6 +147,46 @@ class DigitalTwinResidualDetector(BaseDetector):
             x[:, i] = series[p - 1 - i : n - 1 - i]
         y = series[p:]
         return x, y
+
+    def _ridge_solve(
+        self, x_aug: np.ndarray[Any, Any], y: np.ndarray[Any, Any], d: int
+    ) -> np.ndarray[Any, Any]:
+        r"""Solve ``(X'X + lambda I) beta = X'y`` with a scale-relative Tikhonov ridge.
+
+        Numerical rationale
+        -------------------
+        The AR forward model is identified by regularised least squares. A *fixed
+        absolute* ridge ``lambda = self.ridge`` (the previous behaviour) is
+        scale-blind: on a large-magnitude signal the Gram matrix eigenvalues dwarf
+        ``1e-6`` so the regularisation vanishes and a near-singular solve stays
+        ill-conditioned (unstable, huge coefficients, or a ``LinAlgError`` that
+        forced a min-norm ``lstsq`` fallback); on a tiny-magnitude signal the same
+        ``1e-6`` dominates the fit and biases it toward zero. We instead use a
+        **scale-relative** ridge
+
+        .. math:: \lambda = \max\!\left(\text{ridge\_factor} \cdot
+                  \frac{\operatorname{tr}(G)}{d},\; \text{ridge}\right),
+
+        where ``tr(G)/d`` is the *mean eigenvalue* of the Gram matrix
+        ``G = X'X``. Tying the ridge to the mean eigenvalue makes the conditioning
+        improvement invariant to the signal's magnitude; the absolute ``self.ridge``
+        acts only as a floor so the solve stays regularised when ``G`` is
+        (near-)zero (a constant training series). With ``lambda >= self.ridge > 0``
+        the regularised matrix is symmetric positive-definite, so ``np.linalg.solve``
+        is well-posed and bounded even for a rank-deficient ``G`` — this *replaces*
+        the ad-hoc ``lstsq``-on-singular fallback rather than sitting behind it.
+        """
+        gram = x_aug.T @ x_aug
+        rhs = x_aug.T @ y
+        trace = float(np.trace(gram))
+        scale_ridge = self.ridge_factor * trace / d if (trace > 0.0 and np.isfinite(trace)) else 0.0
+        lam = max(scale_ridge, self.ridge)
+        regularised = gram + lam * np.eye(d)
+        try:
+            beta = np.linalg.solve(regularised, rhs)
+        except np.linalg.LinAlgError:  # pragma: no cover - defensive: reg matrix is SPD
+            beta, *_ = np.linalg.lstsq(regularised, rhs, rcond=None)
+        return np.asarray(beta, dtype=np.float64)
 
     def _twin_step(self, lags: np.ndarray[Any, Any]) -> float:
         """One twin forward step from the most-recent ``order`` values."""
@@ -174,18 +235,7 @@ class DigitalTwinResidualDetector(BaseDetector):
             x, y = self._design(series)
             x_aug = np.hstack([x, np.ones((x.shape[0], 1))])
             d = x_aug.shape[1]
-            gram = x_aug.T @ x_aug + self.ridge * np.eye(d)
-            rhs = x_aug.T @ y
-            try:
-                beta = np.linalg.solve(gram, rhs)
-            except np.linalg.LinAlgError:
-                # A constant (DC) or very-large-magnitude series makes the Gram
-                # matrix rank-deficient against the small absolute ridge, so the
-                # exact solve is singular. Fall back to the minimum-norm
-                # least-squares solution instead of crashing. Non-degenerate
-                # data always takes the ``solve`` branch above, so fitted
-                # coefficients (and benchmark results) are unchanged.
-                beta = np.linalg.lstsq(gram, rhs, rcond=None)[0]
+            beta = self._ridge_solve(x_aug, y, d)
             self._coef = beta[:-1]
             self._intercept = float(beta[-1])
             pred = x_aug @ beta
@@ -209,7 +259,7 @@ class DigitalTwinResidualDetector(BaseDetector):
             ``(n_samples, 1)`` float32 residuals.
         """
         raw = self._residuals(self._to_1d_f64(data))
-        return finite_features(raw).reshape(-1, 1)
+        return finite_features(raw, detector=self.name).reshape(-1, 1)
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Per-sample anomaly scores in ``[0, 1]`` from twin divergence.
@@ -219,7 +269,7 @@ class DigitalTwinResidualDetector(BaseDetector):
         """
         raw = self._residuals(self._to_1d_f64(data))
         scale = self._scale if self._is_fitted else self._squash_scale(raw)
-        scores = finite_scores(1.0 - np.exp(-raw / scale)).astype(np.float32)
+        scores = finite_scores(1.0 - np.exp(-raw / scale), detector=self.name).astype(np.float32)
         return {
             "anomaly_score": float(scores.max()) if scores.size else 0.0,
             "scores": scores,

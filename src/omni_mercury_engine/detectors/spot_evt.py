@@ -40,9 +40,9 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from omni_mercury_engine.core.base import BaseDetector
+from omni_mercury_engine.detectors._calibration import bound_finite, finite_features
 from omni_mercury_engine.detectors.detection_config import (
     DetectionConfig,
-    apply_nan_policy,
     guard_finite_scalar,
 )
 
@@ -118,15 +118,7 @@ class SPOTDetector(BaseDetector):
         detach = getattr(data, "detach", None)
         if callable(detach):
             data = detach().cpu().numpy()
-        arr = np.asarray(data, dtype=np.float64).ravel()
-        sanitized, _ = apply_nan_policy(
-            arr,
-            policy=self._detection_config.nan_policy,
-            detector=self.name,
-            field="input",
-            max_magnitude=self._detection_config.max_magnitude,
-        )
-        return sanitized
+        return bound_finite(np.asarray(data, dtype=np.float64), detector=self.name).ravel()
 
     @staticmethod
     def _grimshaw(peaks: np.ndarray[Any, Any]) -> tuple[float, float]:
@@ -291,7 +283,7 @@ class SPOTDetector(BaseDetector):
             raise RuntimeError("SPOTDetector must be fit before use")
         series = self._to_1d_f64(data)
         scores = self._stream_scores(series)
-        return scores.astype(np.float32).reshape(-1, 1)
+        return finite_features(scores, detector=self.name).reshape(-1, 1)
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Per-sample anomaly scores in ``[0, 1]`` with EVT thresholding.

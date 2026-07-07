@@ -102,13 +102,12 @@ class RootCauseGraphDetector(BaseDetector):
         """Return ``True`` once :meth:`fit` has learned node baselines/scale."""
         return self._is_fitted
 
-    @staticmethod
-    def _to_2d_f64(data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
-        """Coerce numpy/torch input to a finite 2-D ``(rows, nodes)`` array."""
+    def _to_2d_f64(self, data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
+        """Coerce numpy/torch input to a finite 2-D ``(rows, nodes)`` array (NaN policy applied)."""
         detach = getattr(data, "detach", None)
         if callable(detach):
             data = detach().cpu().numpy()
-        arr = bound_finite(np.asarray(data, dtype=np.float64))
+        arr = bound_finite(np.asarray(data, dtype=np.float64), detector=self.name)
         if arr.ndim == 1:
             arr = arr.reshape(1, -1)
         elif arr.ndim > 2:
@@ -184,7 +183,11 @@ class RootCauseGraphDetector(BaseDetector):
             # Infer a causal graph from absolute training correlations
             # (thresholded, self-loops removed) when none was supplied.
             if rows.shape[0] >= 2 and n_nodes > 1:
-                corr = np.abs(np.corrcoef(rows, rowvar=False))
+                # A zero-variance (constant) node makes corrcoef divide by zero;
+                # nan_to_num rescues the resulting NaN/Inf to 0 (no edge), so
+                # silence the expected warning rather than let it leak.
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    corr = np.abs(np.corrcoef(rows, rowvar=False))
                 corr = np.nan_to_num(corr)
                 np.fill_diagonal(corr, 0.0)
                 corr[corr < 0.3] = 0.0
@@ -208,7 +211,7 @@ class RootCauseGraphDetector(BaseDetector):
             ``(n_rows, 1)`` float32 peak residuals.
         """
         raw = self._peak_residuals(self._to_2d_f64(data))
-        return finite_features(raw).reshape(-1, 1)
+        return finite_features(raw, detector=self.name).reshape(-1, 1)
 
     def rank_root_causes(
         self, data: np.ndarray[Any, Any] | torch.Tensor
@@ -240,7 +243,7 @@ class RootCauseGraphDetector(BaseDetector):
         rows = self._to_2d_f64(data)
         raw = self._peak_residuals(rows)
         scale = self._scale if self._is_fitted else self._squash_scale(raw)
-        scores = finite_scores(1.0 - np.exp(-raw / scale)).astype(np.float32)
+        scores = finite_scores(1.0 - np.exp(-raw / scale), detector=self.name).astype(np.float32)
         ranked = self.rank_root_causes(rows) if self._is_fitted else []
         return {
             "anomaly_score": float(scores.max()) if scores.size else 0.0,
