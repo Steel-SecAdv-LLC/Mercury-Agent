@@ -173,6 +173,22 @@ DETECTOR_SCORE = _create_histogram(
     buckets=(0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0),
 )
 
+# Non-finite (NaN/Inf) correction guard counter. Incremented every time a
+# detector guard rescues a non-finite value (in a score vector or a metadata
+# field) under the active NaN policy. The ``policy`` label records which policy
+# performed the correction (``impute`` / ``flag`` / ``neutral``); the ``field``
+# label records what was corrected (``scores`` for the per-point vector, or a
+# named metadata field such as ``z_q`` / ``gamma``). A rising rate on this
+# series means upstream data or an internal computation is emitting NaN/Inf that
+# the tier is silently rescuing -- a signal to investigate data quality rather
+# than a benign event. (The ``raise`` policy never increments it: it aborts
+# instead of correcting.)
+DETECTOR_NONFINITE_CORRECTED = _create_counter(
+    "omni_detector_nonfinite_corrected",
+    "Non-finite (NaN/Inf) values rescued by a detector guard, by detector/policy/field",
+    ["detector", "policy", "field"],
+)
+
 # Feature cache metrics
 FEATURE_CACHE_HITS = _create_counter(
     "omni_feature_cache_hits_total",
