@@ -79,7 +79,7 @@ passes when it genuinely holds (there is no "accept unless proven wrong" path).
 |---|---|---|
 | Ensemble calibration implemented (rank/ecdf/isotonic/platt/none) + config | `pytest tests/detectors/test_ensemble_calibration.py` | Deliverable 1 |
 | Calibrated consensus beats best single by > 0.003 (synthetic) | `pytest tests/detectors/test_ensemble_calibration.py -k consensus_beats` | Deliverable 1, acceptance |
-| Calibrated consensus beats best single by > 0.003 (**real NAB**) | `MERCURY_DATA_DIR=./.nab_cache python -m benchmarks.reproduce_detection_tier_nab` → `benchmarks/detection_tier_nab_analysis.md` (+0.0117 on 30 series) | Empirical validation, acceptance |
+| Calibrated consensus beats best single by > 0.003 (**real NAB**) | `MERCURY_DATA_DIR=./.nab_cache python -m benchmarks.reproduce_detection_tier_nab` → `benchmarks/detection_tier_nab_analysis.md` (+0.0119 on 30 series) | Empirical validation, acceptance |
 | NaN policy explicit + configurable (neutral/impute/flag/raise) + magnitude regime | `pytest tests/detectors/test_detection_config.py` | Deliverable 2 |
 | Guards metered (`omni_detector_nonfinite_corrected`) + structured logs | `pytest tests/detectors/test_detection_observability.py` | Deliverable 3 |
 | Scale-relative Tikhonov ridge; near-singular / large-magnitude stable | `pytest tests/detectors/test_digital_twin_conditioning.py` | Deliverable 4 |
