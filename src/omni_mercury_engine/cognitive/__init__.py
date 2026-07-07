@@ -63,7 +63,12 @@ from omni_mercury_engine.cognitive.differentiable_logic import (
     LukasiewiczTNorm,
     ProductTNorm,
 )
+from omni_mercury_engine.cognitive.anomaly_detection_enhanced import EnhancedAnomalyDetector
 from omni_mercury_engine.cognitive.benevolence_cache import CachedBenevolenceScorer
+from omni_mercury_engine.cognitive.cognitive_evolution_engine import (
+    CuriosityEngine,
+    ExplorationResult,
+)
 from omni_mercury_engine.cognitive.ethical_bounding import (
     MINIMUM_BENEVOLENCE_FLOOR,
     BenevolenceScorer,
@@ -154,12 +159,15 @@ __all__ = [
     "ConsensusProtocol",
     "ConstraintSolver",
     "CreditAssignment",
+    "CuriosityEngine",
     "DetectionAgent",
     "DifferentiableLogicEngine",
     "DifferentiableTNorm",
+    "EnhancedAnomalyDetector",
     # Differentiable Logic
     "EthicalConstraintViolationError",
     "ExperienceMemory",
+    "ExplorationResult",
     # Explainability
     "ExplainabilityEngine",
     "ExplanationType",

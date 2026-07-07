@@ -33,8 +33,10 @@ from typing import Any
 
 import numpy as np
 
+from omni_mercury_engine.cognitive.anomaly_detection_enhanced import EnhancedAnomalyDetector
 from omni_mercury_engine.cognitive.case_based_reasoning import Case, CaseBasedReasoner, CaseOutcome
 from omni_mercury_engine.cognitive.causal_discovery import CausalDiscoveryEngine
+from omni_mercury_engine.cognitive.cognitive_evolution_engine import CuriosityEngine
 from omni_mercury_engine.cognitive.ethical_bounding import (
     BenevolenceScorer,
     EthicalConstraintViolationError,
@@ -95,6 +97,15 @@ class CognitiveAnalysisResult:
     symbolic_consistency: dict[str, Any] = field(default_factory=dict)
     feedback_signals: dict[str, Any] = field(default_factory=dict)
 
+    # Curiosity-driven novelty (opt-in): measured distance of this observation
+    # from the distribution the CuriosityEngine has seen.
+    novelty_score: float = 0.0
+    is_novel: bool = False
+
+    # Predictive-memory forecast (opt-in): Bayesian/HMM prediction from the
+    # EnhancedAnomalyDetector for this domain.
+    predictive_forecast: dict[str, Any] = field(default_factory=dict)
+
     # Ethical gate
     benevolence_score: float = 0.0
     ethical_permissible: bool = True
@@ -120,6 +131,9 @@ class CognitiveAnalysisResult:
             "knowledge_updates": self.knowledge_updates,
             "symbolic_consistency": self.symbolic_consistency,
             "feedback_signals": self.feedback_signals,
+            "novelty_score": self.novelty_score,
+            "is_novel": self.is_novel,
+            "predictive_forecast": self.predictive_forecast,
             "benevolence_score": self.benevolence_score,
             "ethical_permissible": self.ethical_permissible,
             "analysis_time_ms": self.analysis_time_ms,
@@ -178,6 +192,8 @@ class CognitiveOrchestrator(LoggerMixin):
         enable_ipb: bool = True,
         enable_cbr: bool = True,
         enable_indicators: bool = True,
+        enable_curiosity: bool = False,
+        enable_enhanced_detection: bool = False,
         strict_ethics: bool = True,
     ):
         """Initialize Cognitive Orchestrator.
@@ -188,6 +204,13 @@ class CognitiveOrchestrator(LoggerMixin):
             enable_ipb: Enable intelligence preparation
             enable_cbr: Enable case-based reasoning
             enable_indicators: Enable indicator development
+            enable_curiosity: Enable curiosity-driven novelty scoring of detected
+                anomalies (measured distance from the observed distribution).
+                Off by default; opt-in so existing analyze() output is unchanged.
+            enable_enhanced_detection: Enable the Bayesian/HMM predictive-memory
+                augmentation (:class:`EnhancedAnomalyDetector`) over detected
+                anomalies. Off by default; constructed with no simulated/external
+                sources so it performs no network I/O on the runtime path.
             strict_ethics: **Deprecated and ignored.**  Ethics enforcement
                 at the orchestrator decision boundary is unconditional:
                 :meth:`analyze` always scores the analysis action and raises
@@ -251,6 +274,13 @@ class CognitiveOrchestrator(LoggerMixin):
         self.ipb = IPBEngine() if enable_ipb else None
         self.cbr = CaseBasedReasoner() if enable_cbr else None
         self.indicators = IndicatorDevelopmentSystem() if enable_indicators else None
+        self.curiosity = CuriosityEngine() if enable_curiosity else None
+        # No simulated/external sources on the runtime path -> no network I/O.
+        self.enhanced_detector = (
+            EnhancedAnomalyDetector(use_simulated_sources=False)
+            if enable_enhanced_detection
+            else None
+        )
 
         # State
         self._analysis_count = 0
@@ -262,7 +292,8 @@ class CognitiveOrchestrator(LoggerMixin):
         logger.info(
             f"CognitiveOrchestrator initialized ("
             f"plasticity={enable_plasticity}, causal={enable_causal}, "
-            f"ipb={enable_ipb}, cbr={enable_cbr}, indicators={enable_indicators})"
+            f"ipb={enable_ipb}, cbr={enable_cbr}, indicators={enable_indicators}, "
+            f"curiosity={enable_curiosity}, enhanced_detection={enable_enhanced_detection})"
         )
 
     def _initialize_core_knowledge(self) -> None:
@@ -499,6 +530,54 @@ class CognitiveOrchestrator(LoggerMixin):
                     "elevated": True,
                     "recommendation": "Conduct full IPB assessment",
                 }
+
+        # === STEP 9: CURIOSITY-DRIVEN NOVELTY ===
+        # Score how unusual this observation is relative to the distribution the
+        # CuriosityEngine has seen. Prefer the raw feature vector (mean over the
+        # batch) as the observation; fall back to (score, severity).
+        if self.curiosity and anomaly_detected:
+            try:
+                if raw_data is not None:
+                    features = np.asarray(raw_data, dtype=float)
+                    observation: Any = (
+                        features.mean(axis=0) if features.ndim == 2 else features.reshape(-1)
+                    )
+                else:
+                    observation = {"score": anomaly_score, "severity": severity}
+                exploration = self.curiosity.explore(
+                    f"anomaly:{context.get('domain', _DEFAULT_DOMAIN)}", observation
+                )
+                result.novelty_score = exploration.novelty_score
+                result.is_novel = exploration.is_novel
+            except Exception as e:  # noqa: BLE001 - never let augmentation break detection
+                logger.debug(f"Curiosity novelty scoring skipped: {e}")
+
+        # === STEP 10: PREDICTIVE-MEMORY AUGMENTATION ===
+        # Fold the anomaly into the Bayesian/HMM predictive memory and surface a
+        # forecast. include_external=False keeps the runtime path free of I/O.
+        if self.enhanced_detector and anomaly_detected:
+            try:
+                domain_label = str(context.get("domain", _DEFAULT_DOMAIN))
+                self.enhanced_detector.add_memory(
+                    f"obs_{self._analysis_count:06d}",
+                    "observation",
+                    {"score": anomaly_score, "severity": severity, "domain": domain_label},
+                )
+                self.enhanced_detector.update_predictor(domain_label, success=bool(anomaly_detected))
+                self.enhanced_detector.observe_sequence(f"sev_{int(severity * 10)}")
+                forecast = self.enhanced_detector.predict(domain_label, include_external=False)
+                interval = getattr(forecast, "confidence_interval", None)
+                result.predictive_forecast = {
+                    "prediction_type": getattr(
+                        forecast.prediction_type, "value", str(forecast.prediction_type)
+                    ),
+                    "probability": float(forecast.probability),
+                    "confidence_interval": (
+                        [float(v) for v in interval] if interval is not None else None
+                    ),
+                }
+            except Exception as e:  # noqa: BLE001 - never let augmentation break detection
+                logger.debug(f"Enhanced predictive analysis skipped: {e}")
 
         # Store in history for future CBR
         self._anomaly_history.append(
@@ -751,5 +830,9 @@ class CognitiveOrchestrator(LoggerMixin):
             stats["indicators"] = self.indicators.get_statistics()
         if self.ipb:
             stats["ipb"] = self.ipb.get_statistics()
+        if self.curiosity:
+            stats["curiosity"] = self.curiosity.get_statistics()
+        if self.enhanced_detector:
+            stats["enhanced_detection"] = self.enhanced_detector.get_statistics()
 
         return stats
