@@ -28,7 +28,7 @@ import torch
 from torch import nn
 
 from omni_mercury_engine.core.base import BaseDetector
-from omni_mercury_engine.detectors._calibration import bound_finite, squash_scale
+from omni_mercury_engine.detectors._calibration import bound_finite, finite_scores, squash_scale
 
 __all__ = ["DiffusionReconstructionDetector"]
 
@@ -221,7 +221,11 @@ class DiffusionReconstructionDetector(BaseDetector):
         if self._model is None:
             raise RuntimeError("call fit() before scoring")
         raw = self._recon_error(self._windows(series))
-        return np.clip(1.0 - np.exp(-raw / self._scale), 0.0, 1.0)
+        # finite_scores (not a bare np.clip, which passes NaN through): a huge
+        # in-cap input can overflow the float32 window cast / reconstruction error
+        # to inf and yield a NaN score, so guarantee a finite [0, 1] score and
+        # attribute any correction here -- consistent with the rest of the tier.
+        return finite_scores(1.0 - np.exp(-raw / self._scale), detector=self.name)
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Per-point anomaly scores in ``[0, 1]`` from diffusion reconstruction error."""

@@ -262,7 +262,7 @@ class FrequentPatternDetector(BaseDetector):
             ``(n_transactions, 1)`` float32 violation masses.
         """
         raw = self._violation_mass(self._to_bool_matrix(data))
-        return finite_features(raw).reshape(-1, 1)
+        return finite_features(raw, detector=self.name).reshape(-1, 1)
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Per-transaction anomaly scores in ``[0, 1]`` from rule violations.
@@ -272,7 +272,7 @@ class FrequentPatternDetector(BaseDetector):
         """
         raw = self._violation_mass(self._to_bool_matrix(data))
         scale = self._scale if self._is_fitted else self._squash_scale(raw)
-        scores = finite_scores(1.0 - np.exp(-raw / scale)).astype(np.float32)
+        scores = finite_scores(1.0 - np.exp(-raw / scale), detector=self.name).astype(np.float32)
         return {
             "anomaly_score": float(scores.max()) if scores.size else 0.0,
             "scores": scores,

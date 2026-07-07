@@ -64,3 +64,19 @@ class TestSignal:
             SurvivalHazardDetector(calibration_quantile=0.98).fit(train).detect(test)["scores"]
         )
         assert (scores > 0.5).mean() < 0.08
+
+
+class TestDegenerateFit:
+    def test_empty_fit_degrades_neutral_not_saturated(self) -> None:
+        # Regression: a detector fit on empty/degenerate input must score later
+        # normal data as non-anomalous (neutral), not saturate every point to ~1.0
+        # via the degenerate S(t)=1 KM baseline (surv=1 -> tail=0 -> big surprisal).
+        det = SurvivalHazardDetector().fit(np.array([]))
+        scores = np.asarray(det.detect(np.array([0.0, 0.1, -0.1, 5.0]))["scores"])
+        assert np.all(np.isfinite(scores))
+        assert float(scores.max()) <= 0.5
+
+    def test_single_sample_fit_degrades_neutral(self) -> None:
+        det = SurvivalHazardDetector().fit(np.array([3.0]))
+        scores = np.asarray(det.detect(np.array([0.0, 1.0, 9.0]))["scores"])
+        assert float(scores.max()) <= 0.5

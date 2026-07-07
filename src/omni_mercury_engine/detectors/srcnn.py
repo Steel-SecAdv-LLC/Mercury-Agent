@@ -30,7 +30,7 @@ import torch
 from torch import nn
 
 from omni_mercury_engine.core.base import BaseDetector
-from omni_mercury_engine.detectors._calibration import bound_finite
+from omni_mercury_engine.detectors._calibration import bound_finite, finite_scores
 from omni_mercury_engine.detectors.spectral_residual import SpectralResidualDetector
 
 __all__ = ["SRCNNDetector"]
@@ -206,7 +206,11 @@ class SRCNNDetector(BaseDetector):
         with torch.no_grad():
             logits = self._model(self._windows(saliency))
             probs = torch.sigmoid(logits).cpu().numpy()
-        return np.clip(probs.astype(np.float64), 0.0, 1.0)
+        # finite_scores (not a bare np.clip, which passes NaN through): a huge
+        # in-cap input can overflow the float32 saliency/window cast to inf and
+        # produce a NaN logit, so guarantee a finite [0, 1] score and attribute
+        # any correction to this detector -- consistent with the rest of the tier.
+        return finite_scores(probs.astype(np.float64), detector=self.name)
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Per-point anomaly scores in ``[0, 1]`` from the SR-CNN discriminator."""

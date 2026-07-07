@@ -99,3 +99,19 @@ class TestInputConfigPrecedence:
         det = SPOTDetector()
         arr = np.array([1e5, -1e5, 3.14])
         assert det._to_1d_f64(arr).tolist() == arr.tolist()
+
+
+class TestEmptyBatch:
+    def test_dspot_detect_empty_no_crash(self) -> None:
+        # Regression: DSPOT (depth > 0) detrending indexed series[0] and crashed
+        # with IndexError on an empty batch; plain SPOT (depth 0) already coped.
+        det = SPOTDetector(depth=10).fit(np.random.default_rng(0).normal(size=500))
+        assert np.asarray(det.detect(np.array([]))["scores"]).size == 0
+        assert det.extract_features(np.array([])).shape == (0, 1)
+
+    def test_dspot_detect_nonempty_still_flags(self) -> None:
+        rng = np.random.default_rng(1)
+        det = SPOTDetector(depth=10).fit(rng.normal(size=500))
+        test = rng.normal(size=300)
+        test[150] += 12.0
+        assert float(np.asarray(det.detect(test)["scores"])[150]) > 0.5

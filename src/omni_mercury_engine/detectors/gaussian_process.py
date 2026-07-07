@@ -198,7 +198,7 @@ class GaussianProcessDetector(BaseDetector):
             ``(n_samples, 1)`` float32 residuals.
         """
         raw = self._residuals(self._to_1d_f64(data))
-        return finite_features(raw).reshape(-1, 1)
+        return finite_features(raw, detector=self.name).reshape(-1, 1)
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Per-sample anomaly scores in ``[0, 1]`` from GP predictive residuals.
@@ -209,7 +209,7 @@ class GaussianProcessDetector(BaseDetector):
         """
         raw = self._residuals(self._to_1d_f64(data))
         scale = self._scale if self._is_fitted else self._squash_scale(raw)
-        scores = finite_scores(1.0 - np.exp(-raw / scale)).astype(np.float32)
+        scores = finite_scores(1.0 - np.exp(-raw / scale), detector=self.name).astype(np.float32)
         return {
             "anomaly_score": float(scores.max()) if scores.size else 0.0,
             "scores": scores,

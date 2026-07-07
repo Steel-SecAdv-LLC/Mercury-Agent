@@ -127,6 +127,22 @@ class TestConfigResolution:
         with pytest.raises(ValueError, match="must contain a mapping"):
             DetectionConfig.from_file(str(path))
 
+    def test_config_file_scientific_notation_numbers(self, tmp_path: Path) -> None:
+        # Regression: YAML 1.1 parses ``1e-6`` (no dot/sign) as a *string*; the
+        # numeric knobs must coerce it, not crash with a str/float TypeError.
+        path = tmp_path / "detection.yaml"
+        path.write_text("detection:\n  ridge_factor: 1e-6\n  max_magnitude: 1e15\n")
+        cfg = DetectionConfig.from_file(str(path))
+        assert cfg.ridge_factor == 1e-6
+        assert cfg.max_magnitude == 1e15
+
+    def test_numeric_knob_rejects_non_number(self) -> None:
+        with pytest.raises(ValueError, match="max_magnitude must be a number"):
+            DetectionConfig(max_magnitude="not-a-number")  # type: ignore[arg-type]
+        # bool is an int subtype (mypy accepts it), rejected at runtime.
+        with pytest.raises(ValueError, match="not a bool"):
+            DetectionConfig(ridge_factor=True)
+
     def test_merge_no_recognised_keys_is_noop(self) -> None:
         cfg = DetectionConfig()
         assert cfg.merge({"unrelated": 1}) is cfg

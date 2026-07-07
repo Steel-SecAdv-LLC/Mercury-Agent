@@ -200,7 +200,7 @@ class SpectralResidualDetector(BaseDetector):
             ``(n_samples, 1)`` float32 array of saliency deviations.
         """
         raw = self._scores(data)
-        return finite_features(raw).reshape(-1, 1)
+        return finite_features(raw, detector=self.name).reshape(-1, 1)
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Per-sample anomaly scores in ``[0, 1]`` for the live-inference path.
@@ -213,7 +213,7 @@ class SpectralResidualDetector(BaseDetector):
         raw = self._scores(data)
         scale = self._scale if self._is_fitted else self._squash_scale(raw)
         scores = 1.0 - np.exp(-raw / scale)
-        scores = finite_scores(scores).astype(np.float32)
+        scores = finite_scores(scores, detector=self.name).astype(np.float32)
         return {
             "anomaly_score": float(scores.max()) if scores.size else 0.0,
             "scores": scores,

@@ -224,8 +224,11 @@ class SPOTDetector(BaseDetector):
     def _detrend(
         self, series: np.ndarray[Any, Any]
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """Return ``(residual, trend)``; identity when ``depth == 0``."""
-        if self.depth <= 0:
+        """Return ``(residual, trend)``; identity when ``depth == 0`` or empty."""
+        if self.depth <= 0 or series.size == 0:
+            # Empty input in DSPOT mode would index ``series[0]`` below and crash;
+            # an empty series has no trend, so return it unchanged (identity),
+            # matching the plain-SPOT (``depth == 0``) empty-batch behaviour.
             return series, np.zeros_like(series)
         window = min(self.depth, series.size)
         kernel = np.ones(window, dtype=np.float64) / float(window)

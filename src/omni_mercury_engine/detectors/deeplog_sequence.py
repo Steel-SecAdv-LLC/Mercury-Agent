@@ -173,7 +173,7 @@ class DeepLogSequenceDetector(BaseDetector):
             ``(n_keys, 1)`` float32 surprisals.
         """
         surp, _, _ = self._eval(self._to_1d_int(data))
-        return finite_features(surp).reshape(-1, 1)
+        return finite_features(surp, detector=self.name).reshape(-1, 1)
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Per-position anomaly scores in ``[0, 1]`` from next-key miss probability.
@@ -187,7 +187,7 @@ class DeepLogSequenceDetector(BaseDetector):
         """
         seq = self._to_1d_int(data)
         _, probs, flags = self._eval(seq)
-        scores = finite_scores(1.0 - probs).astype(np.float32)
+        scores = finite_scores(1.0 - probs, detector=self.name).astype(np.float32)
         return {
             "anomaly_score": float(scores.max()) if scores.size else 0.0,
             "scores": scores,

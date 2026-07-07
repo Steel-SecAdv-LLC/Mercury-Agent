@@ -168,6 +168,24 @@ class NonFinitePolicyError(ValueError):
 _VALID_CALIBRATIONS: frozenset[str] = frozenset({"rank", "ecdf", "isotonic", "platt", "none"})
 
 
+def _coerce_number(field: str, value: Any) -> float:
+    """Coerce a numeric config knob to ``float``, raising ``ValueError`` on failure.
+
+    Config-file values do not always arrive as Python floats: YAML 1.1 parses
+    ``1e-6`` (no dot or sign) as a **string**, and a JSON/env config can legitimately
+    carry a numeric string. Without this, ``DetectionConfig(max_magnitude="1e15")``
+    would reach ``max_magnitude < 0.0`` and raise an opaque ``TypeError`` (``str`` vs
+    ``float``) instead of coercing cleanly. ``bool`` is rejected outright (it is an
+    ``int`` subclass, so ``True`` would silently become ``1.0``).
+    """
+    if isinstance(value, bool):
+        raise ValueError(f"{field} must be a number, not a bool ({value!r})")
+    try:
+        return float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{field} must be a number, got {value!r}") from exc
+
+
 @dataclass(frozen=True)
 class DetectionConfig:
     """Immutable runtime configuration for the detector tier.
@@ -197,6 +215,13 @@ class DetectionConfig:
     def __post_init__(self) -> None:
         """Validate and normalise fields (frozen-safe via ``object.__setattr__``)."""
         object.__setattr__(self, "nan_policy", NaNPolicy.coerce(self.nan_policy))
+        # Coerce the numeric knobs first: a config file may deliver them as strings
+        # (YAML 1.1 reads ``1e-6`` as a str; JSON can carry numeric strings), and a
+        # bare ``str < 0.0`` below would raise TypeError instead of a clean error.
+        object.__setattr__(
+            self, "max_magnitude", _coerce_number("max_magnitude", self.max_magnitude)
+        )
+        object.__setattr__(self, "ridge_factor", _coerce_number("ridge_factor", self.ridge_factor))
         if not (self.max_magnitude > 0.0) or not np.isfinite(self.max_magnitude):
             raise ValueError(
                 f"max_magnitude must be a finite positive number, got {self.max_magnitude}"
