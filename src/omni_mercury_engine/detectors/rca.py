@@ -163,6 +163,12 @@ class RootCauseGraphDetector(BaseDetector):
 
     def _peak_residuals(self, rows: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Peak per-node standardised residual for each row."""
+        if rows.shape[0] == 0 or rows.shape[1] == 0:
+            # No rows, or no nodes: an empty input coerces to ``(n, 0)`` / ``(0, n)``
+            # and ``resid.max(axis=1)`` would raise on the size-0 node axis (and
+            # ``_residuals`` would warn on the empty mean/std). Degrade to neutral
+            # (zero) residuals so fit / detect / extract_features cope.
+            return np.zeros(rows.shape[0], dtype=np.float64)
         resid = self._residuals(rows)
         return resid.max(axis=1)
 
@@ -225,9 +231,17 @@ class RootCauseGraphDetector(BaseDetector):
             ``(node_index, attribution)`` pairs sorted by descending attribution.
         """
         rows = self._to_2d_f64(data)
-        if rows.shape[0] == 0:
-            # An empty batch has no final row to localise.
+        if rows.shape[0] == 0 or rows.shape[1] == 0:
+            # No final row, or no nodes to localise.
             return []
+        if self._adjacency is None:
+            # Inferred-graph mode: the causal graph is built at fit time, so the
+            # random walk has no adjacency to traverse before fit. Fail with a
+            # clear message instead of a bare ``assert`` deep inside ``_walk``.
+            raise RuntimeError(
+                "RootCauseGraphDetector must be fit before rank_root_causes when no "
+                "adjacency is supplied (the causal graph is inferred at fit time)"
+            )
         resid = self._residuals(rows)[-1]
         attribution = self._walk(resid)
         order = np.argsort(attribution)[::-1]

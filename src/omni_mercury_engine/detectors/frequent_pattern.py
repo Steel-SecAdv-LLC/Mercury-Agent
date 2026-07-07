@@ -115,7 +115,11 @@ class FrequentPatternDetector(BaseDetector):
         if callable(detach):
             data = detach().cpu().numpy()
         arr = bound_finite(np.asarray(data, dtype=np.float64), detector=self.name)
-        if arr.ndim == 1:
+        if arr.ndim == 0:
+            # A scalar (0-D) input would fall through unshaped and crash the
+            # downstream 2-D indexing; treat it as a single 1-item transaction.
+            arr = arr.reshape(1, 1)
+        elif arr.ndim == 1:
             arr = arr.reshape(1, -1)
         elif arr.ndim > 2:
             arr = arr.reshape(arr.shape[0], -1)

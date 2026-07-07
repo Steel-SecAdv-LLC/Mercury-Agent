@@ -181,7 +181,10 @@ class SpikingNetworkDetector(BaseDetector):
         """
         series = self._to_1d_f64(data)
         self._mean = float(np.mean(series)) if series.size else 0.0
-        self._std = float(np.std(series)) + 1e-9
+        # Guard the empty case like the mean above: ``np.std([])`` is NaN, which
+        # would poison every later ``(x - mean) / std`` into NaN (the output guard
+        # then flattens the detector to all-zeros). A 1e-9 std keeps it finite.
+        self._std = (float(np.std(series)) if series.size else 0.0) + 1e-9
         self._build_population()
         rate = self._spike_rate(series)
         self._base_rate = float(np.median(rate)) if rate.size else 0.0

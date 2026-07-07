@@ -104,3 +104,12 @@ class TestRobustness:
         scores = np.asarray(det.detect(big)["scores"])
         assert scores.shape == (64,)
         assert np.isfinite(scores).all()
+
+    def test_scalar_input_no_crash(self) -> None:
+        # Regression: 0-D (scalar) input was not normalised to 2-D and crashed the
+        # downstream indexing; it must degrade to a single 1-item transaction.
+        det = FrequentPatternDetector()
+        assert det._to_bool_matrix(np.array(5.0)).shape == (1, 1)
+        det.fit(np.array(3.0))
+        scores = np.asarray(det.detect(np.array(3.0))["scores"], dtype=float)
+        assert np.all(np.isfinite(scores))

@@ -67,3 +67,20 @@ class TestSignal:
             RootCauseGraphDetector(calibration_quantile=0.98).fit(train).detect(test)["scores"]
         )
         assert (scores > 0.5).mean() < 0.08
+
+
+class TestDegenerateInput:
+    def test_empty_input_no_crash(self) -> None:
+        # Regression: empty input coerced to (n, 0) / (0, n) made _peak_residuals'
+        # resid.max(axis=1) raise ValueError on the size-0 node axis.
+        det = RootCauseGraphDetector()
+        for empty in (np.array([]), np.zeros((0, 4)), np.zeros((3, 0))):
+            scores = np.asarray(det.detect(empty)["scores"], dtype=float)
+            assert np.all(np.isfinite(scores))
+        RootCauseGraphDetector().fit(np.array([]))  # empty fit must not crash
+
+    def test_rank_before_fit_inferred_graph_raises_clearly(self) -> None:
+        # Regression: rank_root_causes before fit in inferred-graph mode tripped a
+        # bare assert in _walk; it must raise a clear RuntimeError instead.
+        with pytest.raises(RuntimeError, match="must be fit"):
+            RootCauseGraphDetector().rank_root_causes(np.random.default_rng(0).normal(size=(5, 3)))
