@@ -845,6 +845,10 @@ class OmniMercuryEngine(LoggerMixin):
         # only DEFER on drift). None = disabled (exact legacy behaviour).
         self._adaptive_conformal: Any = None
         self._recalibration_warmup: int = 30
+        # Bounded sample of the fusion training features, captured by
+        # fit_fusion(). Used as the SHAP background for the opt-in GDPR report
+        # (detect_with_fusion(gdpr_report=True)); None until a fit has run.
+        self._fusion_background: np.ndarray[Any, Any] | None = None
 
         if not TORCH_AVAILABLE:
             raise ImportError(
@@ -1492,6 +1496,17 @@ class OmniMercuryEngine(LoggerMixin):
             )
             metrics["symbolic_weight_resolved"] = float(symbolic_weight_eff)
             metrics["symbolic_n_positive"] = n_positive
+
+        # Retain a bounded sample of the raw training features as the SHAP
+        # background for the opt-in GDPR report. Raw ``X`` is the space
+        # ``score_fusion`` (hence the report's prediction function) consumes, so
+        # this is dimensionally aligned with the per-call instance.
+        try:
+            x_arr = np.asarray(X, dtype=np.float64)
+            if x_arr.ndim == 2 and x_arr.shape[0] > 0:
+                self._fusion_background = x_arr[:100].copy()
+        except (TypeError, ValueError):
+            self._fusion_background = None
 
         return metrics
 
@@ -4402,6 +4417,8 @@ class OmniMercuryEngine(LoggerMixin):
         _enable_gosnn: bool = True,
         explain: bool = False,
         equation_profile: str | None = None,
+        gdpr_report: bool = False,
+        subject_id: str | None = None,
     ) -> dict[str, Any]:
         """Detect anomalies using ML fusion with GOSNN synaptic integration.
 
@@ -4452,6 +4469,15 @@ class OmniMercuryEngine(LoggerMixin):
                 selected R/H/O equation profile before thresholding, and the
                 blend metadata is attached under ``result["equation_profile"]``.
                 ``None`` (default) leaves the calibrated probability unchanged.
+            gdpr_report: When ``True``, attach a ``gdpr_report`` field — a GDPR
+                Article 22 explanation of this decision (top contributing
+                factors via the from-scratch Shapley engine, actionable
+                counterfactual changes, and the data-subject rights narrative)
+                built over the same ``score_fusion`` serve path. Off by default
+                because it runs SHAP + counterfactual optimisation per call.
+            subject_id: Optional data-subject identifier recorded in the GDPR
+                report's audit trail. Only consulted when ``gdpr_report=True``;
+                a stable per-subject id is generated when omitted.
 
         Returns:
             Dictionary containing:
@@ -4463,6 +4489,9 @@ class OmniMercuryEngine(LoggerMixin):
                 - mode: Detection mode ('fusion')
                 - explanation: (only when ``explain=True``) Integrated-Gradients
                   feature attribution + faithfulness scores for this sample
+                - gdpr_report: (only when ``gdpr_report=True``) GDPR Article 22
+                  decision explanation — top factors, counterfactual actions,
+                  and data-subject rights narrative for this sample
                 - gosnn_metadata: GOSNN + σ_Immutable evaluation metadata:
                     - sigma_immutable_score: σ_Immutable score
                     - ethical_gate_passed: σ_Immutable threshold check
@@ -4846,6 +4875,18 @@ class OmniMercuryEngine(LoggerMixin):
         if explain and isinstance(data, (np.ndarray, torch.Tensor)):
             result["explanation"] = self._explain_fusion_decision(data)
 
+        # GDPR Article 22 report (opt-in): a data-subject-facing explanation of
+        # this automated decision — top contributing factors (Shapley),
+        # actionable counterfactual changes, and the rights narrative — built
+        # over the same ``score_fusion`` serve path. Distinct from ``explain``:
+        # that attaches an IG attribution for engineers; this attaches the
+        # compliance/recourse report neither the cognitive nor ml explainer
+        # provides. Opt-in because it runs SHAP + counterfactual optimisation.
+        if gdpr_report and isinstance(data, (np.ndarray, torch.Tensor)):
+            result["gdpr_report"] = self._gdpr_explain_fusion_decision(
+                data, subject_id, result
+            )
+
         # Decision / abstention / response layer: close the loop from the
         # calibrated certificate just assembled (probability + conformal set +
         # ethical verdict + symbolic agreement + drift) to a bounded,
@@ -4895,6 +4936,72 @@ class OmniMercuryEngine(LoggerMixin):
             _fusion_predict, instance, explanation
         )
         return explanation.to_dict()
+
+    def _gdpr_explain_fusion_decision(
+        self,
+        data: np.ndarray[Any, Any] | torch.Tensor,
+        subject_id: str | None,
+        result: dict[str, Any],
+    ) -> dict[str, Any]:
+        """GDPR Article 22 report for the serve-path fusion decision.
+
+        Builds a :class:`~omni_mercury_engine.explainability.MercuryExplainer`
+        over the same ``score_fusion`` probability the result reports, and
+        returns its report as a JSON-serialisable dict: top contributing factors
+        (from the from-scratch Shapley engine), actionable counterfactual
+        changes, and the data-subject rights narrative.
+
+        The report is decomposed against a single reference row -- the mean of
+        the training sample stored by :meth:`fit_fusion` (a standard SHAP
+        baseline, analogous to the IG baseline), or this instance itself when no
+        fit background is available. A one-row reference keeps the Shapley
+        marginalisation tractable over the full ``score_fusion`` stack; the full
+        matrix would multiply the per-coalition model evaluations by its row
+        count and make the opt-in report far slower.
+
+        Args:
+            data: The same input passed to :meth:`detect_with_fusion`.
+            subject_id: Optional data-subject id for the audit trail.
+            result: The in-progress detection result (for anomaly_prob/threshold).
+
+        Returns:
+            ``ExplanationReport.to_dict()`` for attachment to the result.
+        """
+        from omni_mercury_engine.explainability import MercuryExplainer
+
+        arr = data.detach().cpu().numpy() if isinstance(data, torch.Tensor) else np.asarray(data)
+        instance = np.atleast_2d(arr.astype(np.float64))[0]
+
+        def _fusion_predict(x: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+            return np.asarray(
+                self.score_fusion(np.atleast_2d(np.asarray(x, dtype=np.float32))),
+                dtype=np.float64,
+            )
+
+        if self._fusion_background is not None and self._fusion_background.shape[0] > 0:
+            background = self._fusion_background.mean(axis=0, keepdims=True)
+        else:
+            background = np.atleast_2d(instance)
+        threshold = float(
+            result.get("threshold_used") or result.get("threshold") or 0.5
+        )
+        explainer = MercuryExplainer(
+            model=_fusion_predict,
+            background_data=np.asarray(background, dtype=np.float64),
+            feature_names=getattr(self, "_drift_feature_names", None),
+            threshold=threshold,
+            model_id="omni_fusion",
+            model_version="1.0",
+            shap_method="auto",
+            counterfactual_method="wachter",
+            seed=0,
+        )
+        report = explainer.generate_report(
+            instance,
+            subject_id=subject_id or "unspecified_subject",
+            anomaly_score=float(result["anomaly_prob"]),
+        )
+        return report.to_dict()
 
     def detect_with_fusion_calibrated(
         self,
