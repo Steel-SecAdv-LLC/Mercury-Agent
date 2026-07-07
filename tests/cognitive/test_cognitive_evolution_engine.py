@@ -21,6 +21,18 @@ from omni_mercury_engine.cognitive.cognitive_evolution_engine import (
 )
 
 
+def test_to_vector_is_key_order_invariant() -> None:
+    """Equivalent dict observations built with different key orders map to the
+    same feature vector, so novelty scores do not depend on dict construction
+    order (``_to_vector`` reads keys sorted, not by insertion order).
+    """
+    a = CuriosityEngine._to_vector({"a": 1.0, "b": 2.0, "c": 3.0})
+    b = CuriosityEngine._to_vector({"c": 3.0, "a": 1.0, "b": 2.0})
+    assert a is not None and b is not None
+    np.testing.assert_array_equal(a, b)
+    np.testing.assert_array_equal(a, np.array([1.0, 2.0, 3.0]))
+
+
 def _feed(engine: CuriosityEngine, vectors: np.ndarray) -> ExplorationResult:
     result = None
     for vec in vectors:

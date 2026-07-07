@@ -96,6 +96,17 @@ def test_tree_shap_single_instance_returns_scalar_explanation() -> None:
     assert exp.base_value + float(np.sum(exp.shap_values)) == pytest.approx(0.9, abs=1e-9)
 
 
+def test_explain_rejects_instance_missing_features() -> None:
+    """A too-short instance raises a clear ValueError, not an opaque IndexError.
+
+    The fake tree splits on feature index 2, so a 2-element instance cannot
+    address it; the explainer must say so instead of crashing deep in recursion.
+    """
+    explainer = TreeShapExplainer(_fake_tree_model(), seed=0)
+    with pytest.raises(ValueError, match=r"feature index|features"):
+        explainer.explain(np.array([1.0, 0.0]))  # model needs 3 features
+
+
 def test_global_interaction_matrix_is_defined() -> None:
     model = _fake_tree_model()
     explainer = TreeShapExplainer(model, seed=0)

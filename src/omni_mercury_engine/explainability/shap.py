@@ -634,6 +634,20 @@ class TreeShapExplainer(ShapExplainer):
         additivity because each tree satisfies it individually.
         """
         n_features = len(x)
+        # Fail fast with an actionable message rather than an opaque IndexError
+        # deep in the recursion / boolean-mask assignment when a tree splits on a
+        # feature index the instance vector cannot address (e.g. the caller passed
+        # a reduced feature set the model was not trained on).
+        for tree_info in self._tree_info:
+            feats = tree_info["feature"]
+            max_feat = max((int(f) for f in feats if int(f) >= 0), default=-1)
+            if max_feat >= n_features:
+                raise ValueError(
+                    f"tree splits on feature index {max_feat} but the instance has "
+                    f"only {n_features} features; the explainer was built for a model "
+                    "trained on more features than were supplied"
+                )
+
         shap_values = np.zeros(n_features)
         base_sum = 0.0
         pred_sum = 0.0

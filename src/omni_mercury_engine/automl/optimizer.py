@@ -486,6 +486,10 @@ class BayesianOptimizer:
         self._n_trials = n_trials
         self._n_jobs = n_jobs
         self._seed = seed
+        if time_budget is not None and time_budget <= 0:
+            raise ValueError(
+                f"time_budget must be a positive number of seconds when set, got {time_budget}"
+            )
         self._time_budget = time_budget
 
         self._sampler = self._create_sampler(sampler, seed)
@@ -675,6 +679,10 @@ class MercuryAutoML:
 
         self._task = task
         self._metric = metric
+        if time_budget is not None and time_budget <= 0:
+            raise ValueError(
+                f"time_budget must be a positive number of seconds when set, got {time_budget}"
+            )
         self._time_budget = time_budget
         self._n_trials = n_trials
         self._sampler = sampler

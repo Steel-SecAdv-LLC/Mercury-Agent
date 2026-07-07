@@ -1551,7 +1551,9 @@ class OmniMercuryEngine(LoggerMixin):
 
         Raises:
             ValueError: If ``X`` is not 2-D with >= 4 samples, labels mismatch,
-                or ``y`` does not contain both classes.
+                ``y`` does not contain both classes, ``validation_split`` is not in
+                ``(0, 1)``, or any class has fewer than 2 samples (required for the
+                stratified held-out split).
         """
         from omni_mercury_engine.automl import (
             BayesianOptimizer,
@@ -1572,10 +1574,30 @@ class OmniMercuryEngine(LoggerMixin):
         if len(np.unique(y)) < 2:
             raise ValueError("tune_fusion needs both classes present in y to score AUC")
 
+        if not 0.0 < validation_split < 1.0:
+            raise ValueError(f"validation_split must be in (0, 1), got {validation_split}")
+        classes, counts = np.unique(y, return_counts=True)
+        if int(counts.min()) < 2:
+            raise ValueError(
+                "tune_fusion needs at least 2 samples per class for a stratified "
+                "held-out split that keeps both classes in train and validation"
+            )
+        # Stratified split: hold out ``validation_split`` of *each* class so both
+        # y_train and y_val always carry both classes. An unstratified split can
+        # leave a single-class validation fold -- held-out ROC-AUC is then
+        # undefined (``compute_auc_roc`` returns 0.5) and the search objective goes
+        # blind -- or starve a split entirely when ``validation_split`` is near 0/1.
+        # Per-class ``k`` is clamped so every class keeps >= 1 sample on each side,
+        # so each split holds >= 2 samples regardless of ``validation_split``.
         rng = np.random.default_rng(seed)
-        order = rng.permutation(len(X))
-        n_val = max(2, round(validation_split * len(X)))
-        val_idx, train_idx = order[:n_val], order[n_val:]
+        train_parts, val_parts = [], []
+        for c in classes:
+            c_idx = rng.permutation(np.flatnonzero(y == c))
+            k = min(len(c_idx) - 1, max(1, round(validation_split * len(c_idx))))
+            val_parts.append(c_idx[:k])
+            train_parts.append(c_idx[k:])
+        val_idx = np.concatenate(val_parts)
+        train_idx = np.concatenate(train_parts)
         x_train, y_train = X[train_idx], y[train_idx]
         x_val, y_val = X[val_idx], y[val_idx]
 
@@ -1601,6 +1623,12 @@ class OmniMercuryEngine(LoggerMixin):
             }
 
         def objective(config: dict[str, Any]) -> float:
+            # Reset to a fresh, untrained fusion model before each trial. fit_fusion
+            # trains ``self.fusion_model`` in place, so without this every trial
+            # would inherit the previous trial's weights/calibration and the
+            # objective would depend on evaluation order -- the reported best_config
+            # would then not reproduce from an independent, from-scratch fit.
+            self._init_fusion()
             self.fit_fusion(x_train, y_train, epochs=tuning_epochs, **_coerce(config))
             scores = np.asarray(self.score_fusion(x_val), dtype=np.float64).reshape(-1)
             # Minimise negative AUC -> maximise held-out ranking quality.
@@ -1619,6 +1647,9 @@ class OmniMercuryEngine(LoggerMixin):
 
         best_config = _coerce(result.best_config) if result.best_config else {}
         if best_config:
+            # From-scratch final fit so the delivered model matches the measured
+            # trial (same reset as each trial), not the last trial's leftover state.
+            self._init_fusion()
             self.fit_fusion(X, y, epochs=tuning_epochs, **best_config)
 
         return {
@@ -4595,7 +4626,9 @@ class OmniMercuryEngine(LoggerMixin):
                 because it runs SHAP + counterfactual optimisation per call.
             subject_id: Optional data-subject identifier recorded in the GDPR
                 report's audit trail. Only consulted when ``gdpr_report=True``;
-                a stable per-subject id is generated when omitted.
+                a unique per-report id (``anon-<hex>``) is generated when omitted,
+                so distinct data-subject audits never collapse onto one identifier
+                (the generated id is surfaced in the report's ``subject_id`` field).
 
         Returns:
             Dictionary containing:
@@ -5110,9 +5143,16 @@ class OmniMercuryEngine(LoggerMixin):
             counterfactual_method="wachter",
             seed=0,
         )
+        # Generate a unique per-report id when the caller omits ``subject_id`` so
+        # unrelated data-subject audits keep distinct identifiers instead of all
+        # collapsing onto one constant. The explicit-id path is unchanged.
+        if not subject_id:
+            from uuid import uuid4
+
+            subject_id = f"anon-{uuid4().hex[:16]}"
         report = explainer.generate_report(
             instance,
-            subject_id=subject_id or "unspecified_subject",
+            subject_id=subject_id,
             anomaly_score=float(result["anomaly_prob"]),
         )
         return report.to_dict()

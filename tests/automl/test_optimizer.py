@@ -15,6 +15,7 @@ from __future__ import annotations
 import time
 
 import numpy as np
+import pytest
 
 from omni_mercury_engine.automl.optimizer import (
     BayesianOptimizer,
@@ -22,6 +23,15 @@ from omni_mercury_engine.automl.optimizer import (
     TrialStatus,
 )
 from omni_mercury_engine.automl.search_space import SearchSpace, UniformParameter
+
+
+@pytest.mark.parametrize("bad_budget", [0, 0.0, -1.0, -0.001])
+def test_time_budget_must_be_positive(bad_budget: float) -> None:
+    """A non-positive time_budget fails fast instead of stopping after one trial."""
+    with pytest.raises(ValueError, match="time_budget"):
+        BayesianOptimizer(_bowl_space(), _bowl_objective, n_trials=5, time_budget=bad_budget)
+    with pytest.raises(ValueError, match="time_budget"):
+        MercuryAutoML(time_budget=bad_budget)  # defaults are a valid task/metric
 
 
 def _bowl_space() -> SearchSpace:

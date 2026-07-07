@@ -63,3 +63,17 @@ def test_gdpr_report_absent_by_default() -> None:
     engine, x_pos = _fitted_engine()
     result = engine.detect_with_fusion(x_pos[:1], domain="general")
     assert "gdpr_report" not in result
+
+
+def test_gdpr_report_generates_unique_id_when_subject_omitted() -> None:
+    """Omitting subject_id yields a unique per-report ``anon-`` id, never the old
+    constant that collapsed every anonymous audit onto one identifier.
+    """
+    engine, x_pos = _fitted_engine()
+    r1 = engine.detect_with_fusion(x_pos[:1], domain="general", gdpr_report=True)["gdpr_report"]
+    r2 = engine.detect_with_fusion(x_pos[:1], domain="general", gdpr_report=True)["gdpr_report"]
+    s1, s2 = json.dumps(r1), json.dumps(r2)
+    assert "anon-" in s1 and "anon-" in s2
+    assert "unspecified_subject" not in s1
+    # Two anonymous reports get distinct subject ids rather than a shared constant.
+    assert r1 != r2

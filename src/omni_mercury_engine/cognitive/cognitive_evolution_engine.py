@@ -117,14 +117,19 @@ class CuriosityEngine:
 
         Accepts a mapping of scalar values (bools excluded), or any
         array-like. Returns ``None`` when no numeric content is present.
+
+        Mapping keys are read in sorted order, not insertion order, so two
+        equivalent dicts built with different key orderings yield the same
+        feature vector -- otherwise the Mahalanobis novelty score would depend
+        on how the caller happened to construct the observation dict.
         """
         if data is None:
             return None
         if isinstance(data, dict):
             values = [
-                float(v)
-                for v in data.values()
-                if isinstance(v, (int, float, np.number)) and not isinstance(v, bool)
+                float(data[k])
+                for k in sorted(data)
+                if isinstance(data[k], (int, float, np.number)) and not isinstance(data[k], bool)
             ]
             return np.asarray(values, dtype=float) if values else None
         try:
