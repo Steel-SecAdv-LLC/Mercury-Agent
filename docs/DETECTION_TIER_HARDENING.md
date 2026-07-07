@@ -3,10 +3,11 @@
 
 # Detector-tier hardening — process note & reproduction checklist
 
-This note records the *decision boundary* for the detector-tier hardening PR: the
-pivot that shaped it, what was audited, why the hardening approach was chosen,
-and a reproducible checklist a reviewer can run locally to validate every claim
-before and after the fixes.
+This note records the *decision boundary* for the **second** detector-tier
+hardening pass in this PR — the pivot that shaped it, what was audited, why the
+hardening approach was chosen, and a reproducible checklist a reviewer can run
+locally to validate every claim. It builds on the first pass's 35-defect audit
+and its `detectors/_calibration.py` primitives (see §5).
 
 ## 1. The pivot
 
@@ -112,18 +113,27 @@ MERCURY_DATA_DIR=./.nab_cache python -m benchmarks.reproduce_detection_tier_nab 
     --analysis benchmarks/detection_tier_nab_analysis.md
 ```
 
-## 5. On the "original 35 verifier cases"
+## 5. Relationship to the first-pass "35 confirmed defects"
 
-The external verification set referenced in the brief (the "35 cases" and its
-verifier prompt) is **not present in this repository**, so it cannot be replayed
-verbatim here. Rather than fabricate a mapping to cases we cannot see, this PR
-provides the reproducible equivalent: an explicit, in-repo checklist (§4) in which
-every hardened property is a *failing-by-default* assertion tied to a concrete
-test or artefact, plus a real-data before/after benchmark. That is the auditable,
-"defaults-to-reject" verification a reviewer can actually run — each item is
-accepted only when its test passes, not by assertion. If the original 35-case set
-is provided, each case maps onto the corresponding row(s) of the §2 seam table and
-§4 checklist.
+This PR is a **two-pass** hardening of the same tier. The *first pass*
+(`steel/detection-validation`, the earlier commits on this branch) was the
+adversarial audit that surfaced and fixed **35 confirmed non-finite / crash /
+correctness defects**, introduced the shared `detectors/_calibration.py`
+primitives (`bound_finite`, `squash_scale`, `finite_scores`, `finite_features`),
+and proved detector scores byte-identical on finite data — its findings-to-fix
+map is the table in `docs/DETECTION_MECHANISMS.md` § *Robustness & hardening* and
+its CHANGELOG entry. The *second pass* (this note) builds directly on those
+primitives: it makes the guards a **configurable, observable NaN policy**, adds
+**ensemble calibration + a robust consensus combiner**, and replaces two
+first-pass stopgaps (the digital-twin `lstsq` fallback → scale-relative ridge; the
+SPOT snapshot/restore → true purity) with stronger fixes.
+
+Each hardened property in §4 is a *failing-by-default* assertion tied to a concrete
+test or artefact — the auditable, "defaults-to-reject" verification a reviewer can
+run: an item is accepted only when its test passes, not by assertion. The
+first-pass 35 defects remain covered by
+`tests/detectors/test_detector_robustness.py`; the second-pass properties by the
+suites in §4.
 
 ## 6. Commit boundary
 

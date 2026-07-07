@@ -29,7 +29,7 @@ pure NumPy/SciPy and always available; `srcnn` and `diffusion_ad` require the
 | `OMNI_ENSEMBLE_CALIBRATION` | Per-detector ensemble score calibration: `rank`/`ecdf`/`isotonic`/`platt`/`none`. | `rank` (empirical-CDF, label-free) |
 | `OMNI_ENSEMBLE_WARMUP` | Warm-up window the ensemble calibrators train on (int points / float fraction). | Unset ⇒ whole training series |
 | `OMNI_DETECTOR_NAN_POLICY` | How guards treat NaN/Inf: `neutral`/`impute`/`flag`/`raise`. | `neutral` (replace with 0.0, clamp inf; never aborts) |
-| `OMNI_DETECTOR_MAX_MAGNITUDE` | Single safe magnitude cap; `±inf` maps here and finite values are clamped into `[−cap, cap]`. | `1e15` (`API.MAX_VALUE`) |
+| `OMNI_DETECTOR_MAX_MAGNITUDE` | Single safe magnitude cap; `±inf` maps here and finite values are clamped into `[−cap, cap]`. | `1e100` (`_calibration.FINITE_CAP`) |
 | `OMNI_DETECTOR_RIDGE_FACTOR` | Digital-twin scale-relative Tikhonov ridge factor (`λ = max(f·tr(G)/d, ridge)`). | `1e-6` |
 | `OMNI_DETECTION_CONFIG` | Path to a YAML/JSON config file supplying the above knobs (env still wins). | Unset ⇒ defaults + env |
 
