@@ -128,6 +128,64 @@ flags. Design doc `docs/DETECTION_MECHANISMS.md`; ops
   `rca` walk comment no longer claims an explicit `Aᵀ` transpose. Regression
   tests added.
 
+### Detector tier hardening: non-finite, empty/short-input, and correctness fixes (steel/detection-validation)
+
+A full-effort **adversarial audit and hardening pass** over the streaming /
+statistical / state-space detector tier shipped above. An 18-detector +
+integration-seam audit (one empirical prober per detector, each finding
+independently reproduced and verified) surfaced **35 confirmed defects**; every
+one is fixed at the root, with a regression test, and with detector scores on
+ordinary finite data proven **byte-identical before/after** — so the committed
+NAB benchmark numbers are unchanged; only the previously-crashing / `NaN`-producing
+pathological paths change. New shared module
+`detectors/_calibration.py` (`bound_finite`, `squash_scale`, `finite_scores`,
+`finite_features`) removes the copy-pasted defects at a single, unit-tested source.
+
+- **Non-finite scores could escape the `[0,1]` contract (14 detectors).** Input
+  sanitisation used `np.nan_to_num`, which maps `±inf` to `±1.8e308`; that
+  sentinel overflowed downstream (FFT power, Kalman/GP covariance, AR Gram
+  matrix, Cox/KM cumulative sums, delay-embedding) into `NaN`, and the final
+  `np.clip` does **not** scrub `NaN`. A single non-finite input sample therefore
+  produced all-`NaN` scores, and at `fit` time permanently poisoned the detector
+  so even later clean data scored `NaN`/all-zero. `bound_finite` now bounds input
+  to `±1e100` (astronomically above any real signal, so realistic data is never
+  clipped) and `finite_scores`/`finite_features` guarantee finite `[0,1]` scores
+  and finite `float32` fusion features at the output boundary.
+- **Empty / very-short input crashed (17 sites).** The copy-pasted `_squash_scale`
+  called `np.quantile` on a zero-length array, crashing `fit([])` and unfitted
+  `detect([])`; `energy_based`/`deep_svdd` delay-embedding indexed `u[0]` on an
+  empty series and mis-broadcast on series shorter than the embedding dimension;
+  a single-row calibration split produced a `NaN` precision. All now degrade
+  gracefully.
+- **BOCPD run-length truncation off-by-one.** The fold double-counted
+  `growth[cap-2]` and silently dropped the boundary message `growth[cap-1]`,
+  inflating the change-point score once a run reached `max_run_length`; now folds
+  the correct tail term (dormant at the shipped default, corrected for small caps).
+- **SPOT/DSPOT non-idempotence.** `detect`/`extract_features` mutated the fitted
+  tail state, so repeated scoring drifted the threshold and scored data
+  contaminated the model; the online update is now snapshot/restored, keeping
+  within-batch DSPOT adaptation and per-call scores unchanged.
+- **digital-twin singular-matrix crash** on a constant / large-magnitude series
+  now falls back to `lstsq` only when the exact solve is singular (normal data
+  unchanged).
+- **RCA / spiking `detect`-before-`fit`** paths (which their own bodies branch
+  for) no longer assert; RCA returns empty on an empty batch and raises a *clear*
+  error on a node-count mismatch instead of a cryptic broadcast error.
+- **frequent-pattern column mismatch:** a `detect` batch narrower than the
+  training vocabulary now skips out-of-range rules instead of indexing out of
+  bounds.
+- **Ensemble seam:** `align_point_scores` sanitises member output as
+  defence-in-depth, so one member emitting `NaN` can no longer poison the
+  ensemble mean / stacking / BMA or crash `calibrate_scores`' histogram.
+- **Benchmark honesty:** `detection_tier_benchmark._crop_to_anomaly` re-centres on
+  the first anomaly when the midpoint window would retain none, so a labelled NAB
+  series is never silently dropped from the run.
+
+New tests: `tests/detectors/test_calibration_helpers.py` (shared helpers) and
+`tests/detectors/test_detector_robustness.py` (per-detector adversarial contract
+suite + targeted regressions). Design/rationale and the full findings-to-fix map
+are in `docs/DETECTION_MECHANISMS.md` (§ Robustness & hardening).
+
 ### Intelligence layer: closed-loop learning + decision geometry (steel/refinement-mercury-intel)
 
 The learning-and-geometry layer on top of the Tier-0 safety foundation. New
