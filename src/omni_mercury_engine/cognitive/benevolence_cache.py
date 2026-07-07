@@ -140,8 +140,12 @@ class CachedBenevolenceScorer:
         ``BenevolenceScorer.enforce`` always re-evaluates against the current
         threshold; clearing on write keeps the wrapper faithful to that contract.
         """
-        self._scorer.benevolence_threshold = value
-        self.clear()
+        # Update the threshold and invalidate the cache under a single lock hold
+        # so a concurrent ``enforce`` cannot observe a cache hit computed under
+        # the old threshold in the window between the two operations.
+        with self._lock:
+            self._scorer.benevolence_threshold = value
+            self._cache.clear()
 
     @property
     def stats(self) -> dict[str, int]:

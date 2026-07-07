@@ -1495,15 +1495,25 @@ class OmniMercuryEngine(LoggerMixin):
             metrics["symbolic_weight_resolved"] = float(symbolic_weight_eff)
             metrics["symbolic_n_positive"] = n_positive
 
-        # Retain a bounded sample of the raw training features as the SHAP
-        # background for the opt-in GDPR report. Raw ``X`` is the space
-        # ``score_fusion`` (hence the report's prediction function) consumes, so
-        # this is dimensionally aligned with the per-call instance.
+        # Retain a bounded, uniformly-sampled subset of the raw training
+        # features as the SHAP background for the opt-in GDPR report. Raw ``X``
+        # is the space ``score_fusion`` (hence the report's prediction function)
+        # consumes, so this is dimensionally aligned with the per-call instance.
+        # Sampling uniformly (rather than the first N rows) avoids biasing the
+        # baseline when the data is ordered (grouped by label/time); the field
+        # is reset to None when ``X`` is not a usable 2-D array so a prior fit's
+        # background is never served stale.
         try:
-            x_arr = np.asarray(X, dtype=np.float64)
-            if x_arr.ndim == 2 and x_arr.shape[0] > 0:
-                self._fusion_background = x_arr[:100].copy()
+            x_arr: np.ndarray[Any, Any] | None = np.asarray(X, dtype=np.float64)
         except (TypeError, ValueError):
+            x_arr = None
+        if x_arr is not None and x_arr.ndim == 2 and x_arr.shape[0] > 0:
+            n_background = min(100, x_arr.shape[0])
+            sample_idx = np.random.default_rng(0).choice(
+                x_arr.shape[0], size=n_background, replace=False
+            )
+            self._fusion_background = x_arr[np.sort(sample_idx)].copy()
+        else:
             self._fusion_background = None
 
         return metrics

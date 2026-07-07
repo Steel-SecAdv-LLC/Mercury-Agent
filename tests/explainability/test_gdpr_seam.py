@@ -41,6 +41,29 @@ def test_fit_fusion_captures_shap_background() -> None:
     assert engine._fusion_background.shape[1] == 6
 
 
+def test_shap_background_is_bounded_and_sampled_from_training_data() -> None:
+    """The background is capped at 100 rows and drawn from the training data.
+
+    Sampling uniformly (not the first 100 rows) avoids biasing the SHAP baseline
+    when the training data is ordered (e.g. grouped by label).
+    """
+    from omni_mercury_engine.engine import OmniMercuryEngine
+
+    rng = np.random.default_rng(0)
+    # 160 rows, grouped by label (ordered) -> first-100 would be all class 0.
+    x_train = np.vstack([rng.normal(-1.0, 0.5, (80, 6)), rng.normal(2.0, 0.5, (80, 6))])
+    y_train = np.array([0] * 80 + [1] * 80)
+
+    engine = OmniMercuryEngine(mode="fusion", device="cpu", require_explicit_fit=False)
+    engine.fit_fusion(x_train, y_train, epochs=2, batch_size=32)
+
+    background = engine._fusion_background
+    assert background is not None
+    assert background.shape == (100, 6)  # capped at 100
+    # Every background row is an actual training row (a sampled subset).
+    assert all(any(np.allclose(row, tr) for tr in x_train) for row in background[:8])
+
+
 def test_gdpr_report_attached_when_requested() -> None:
     engine, x_pos = _fitted_engine()
     result = engine.detect_with_fusion(

@@ -64,3 +64,21 @@ def test_enhanced_detector_does_no_network_io() -> None:
     orch = CognitiveOrchestrator(enable_enhanced_detection=True)
     assert orch.enhanced_detector is not None
     assert orch.enhanced_detector.use_simulated_sources is False
+
+
+def test_predictor_observes_non_anomalies_too() -> None:
+    """The Bayesian predictor must see failures, not only anomalies.
+
+    Updating only on anomalies feeds a success-only stream and drives the
+    Beta-Bernoulli forecast toward 1.0. After many normal (non-anomaly)
+    analyses, a single anomaly's forecast probability must stay well below 1.0.
+    """
+    orch = CognitiveOrchestrator(enable_enhanced_detection=True)
+    normal = {"is_anomaly": False, "anomaly_prob": 0.1, "severity": 0.1}
+    for _ in range(20):
+        orch.analyze(normal, raw_data=np.zeros((8, 4)), context={"domain": "cyber"})
+
+    result = orch.analyze(_ANOMALY, raw_data=np.zeros((8, 4)), context={"domain": "cyber"})
+    forecast = result.to_dict()["predictive_forecast"]
+    assert forecast  # anomaly -> forecast surfaced
+    assert forecast["probability"] < 0.9  # not driven to 1.0 by a success-only stream

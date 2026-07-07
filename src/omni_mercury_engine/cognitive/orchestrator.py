@@ -553,31 +553,40 @@ class CognitiveOrchestrator(LoggerMixin):
                 logger.debug(f"Curiosity novelty scoring skipped: {e}")
 
         # === STEP 10: PREDICTIVE-MEMORY AUGMENTATION ===
-        # Fold the anomaly into the Bayesian/HMM predictive memory and surface a
-        # forecast. include_external=False keeps the runtime path free of I/O.
-        if self.enhanced_detector and anomaly_detected:
+        # Fold every observation into the Bayesian/HMM predictive memory and, for
+        # detected anomalies, surface a forecast. include_external=False keeps the
+        # runtime path free of I/O.
+        if self.enhanced_detector is not None:
             try:
                 domain_label = str(context.get("domain", _DEFAULT_DOMAIN))
-                self.enhanced_detector.add_memory(
-                    f"obs_{self._analysis_count:06d}",
-                    "observation",
-                    {"score": anomaly_score, "severity": severity, "domain": domain_label},
-                )
+                # Update the predictors on EVERY analysis so they observe both
+                # anomalies (success) and normal cases (failure). Updating only
+                # on anomalies would feed the Beta-Bernoulli predictor a
+                # success-only stream and drive its forecast toward 1.0.
                 self.enhanced_detector.update_predictor(
                     domain_label, success=bool(anomaly_detected)
                 )
                 self.enhanced_detector.observe_sequence(f"sev_{int(severity * 10)}")
-                forecast = self.enhanced_detector.predict(domain_label, include_external=False)
-                interval = getattr(forecast, "confidence_interval", None)
-                result.predictive_forecast = {
-                    "prediction_type": getattr(
-                        forecast.prediction_type, "value", str(forecast.prediction_type)
-                    ),
-                    "probability": float(forecast.probability),
-                    "confidence_interval": (
-                        [float(v) for v in interval] if interval is not None else None
-                    ),
-                }
+                # Heavier memory storage + forecast generation only for anomalies.
+                if anomaly_detected:
+                    self.enhanced_detector.add_memory(
+                        f"obs_{self._analysis_count:06d}",
+                        "observation",
+                        {"score": anomaly_score, "severity": severity, "domain": domain_label},
+                    )
+                    forecast = self.enhanced_detector.predict(
+                        domain_label, include_external=False
+                    )
+                    interval = getattr(forecast, "confidence_interval", None)
+                    result.predictive_forecast = {
+                        "prediction_type": getattr(
+                            forecast.prediction_type, "value", str(forecast.prediction_type)
+                        ),
+                        "probability": float(forecast.probability),
+                        "confidence_interval": (
+                            [float(v) for v in interval] if interval is not None else None
+                        ),
+                    }
             except Exception as e:
                 logger.debug(f"Enhanced predictive analysis skipped: {e}")
 
