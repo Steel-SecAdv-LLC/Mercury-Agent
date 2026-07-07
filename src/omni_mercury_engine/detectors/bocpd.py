@@ -27,6 +27,7 @@ import numpy as np
 from scipy.special import gammaln
 
 from omni_mercury_engine.core.base import BaseDetector
+from omni_mercury_engine.detectors.detection_config import DetectionConfig, apply_nan_policy
 
 if TYPE_CHECKING:
     import torch
@@ -69,6 +70,7 @@ class BOCPDDetector(BaseDetector):
             ValueError: If parameters are out of range.
         """
         super().__init__(config)
+        self._detection_config = DetectionConfig.resolve(self._config)
         if hazard_lambda <= 1.0:
             raise ValueError(f"hazard_lambda must be > 1, got {hazard_lambda}")
         if change_grace < 1:
@@ -89,13 +91,20 @@ class BOCPDDetector(BaseDetector):
         """Return ``True`` once :meth:`fit` has set the prior from data."""
         return self._is_fitted
 
-    @staticmethod
-    def _to_1d_f64(data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
-        """Coerce numpy/torch input to a finite 1-D float64 series."""
+    def _to_1d_f64(self, data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
+        """Coerce numpy/torch input to a finite 1-D float64 series (NaN policy applied)."""
         detach = getattr(data, "detach", None)
         if callable(detach):
             data = detach().cpu().numpy()
-        return np.nan_to_num(np.asarray(data, dtype=np.float64)).ravel()
+        arr = np.asarray(data, dtype=np.float64).ravel()
+        sanitized, _ = apply_nan_policy(
+            arr,
+            policy=self._detection_config.nan_policy,
+            detector=self.name,
+            field="input",
+            max_magnitude=self._detection_config.max_magnitude,
+        )
+        return sanitized
 
     @staticmethod
     def _student_t_logpdf(
@@ -148,9 +157,40 @@ class BOCPDDetector(BaseDetector):
 
     def _run_length_scores(self, series: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Stream the BOCPD recursion, returning ``P(run < grace)`` per sample."""
+        return self._run_length_recursion(series, collect=False)[0]
+
+    def run_length_posteriors(
+        self, data: np.ndarray[Any, Any] | torch.Tensor
+    ) -> np.ndarray[Any, Any]:
+        """Per-step run-length posterior matrix ``(n_samples, max_run_length + 1)``.
+
+        Row ``t`` is the full posterior over the run length *after* observing
+        sample ``t``. By construction of BOCPD each row is a proper probability
+        distribution -- it sums to 1 (mass conservation): the recursion normalises
+        the growth + change-point masses at every step and folds any truncated
+        tail into the final bin rather than discarding it. Exposed so the mass-
+        conservation invariant can be asserted directly (and for diagnostics);
+        the hot :meth:`detect` path does not allocate this matrix.
+        """
+        series = self._to_1d_f64(data)
+        _, posteriors = self._run_length_recursion(series, collect=True)
+        assert posteriors is not None  # collect=True always populates the matrix
+        return posteriors
+
+    def _run_length_recursion(
+        self, series: np.ndarray[Any, Any], *, collect: bool
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any] | None]:
+        """Core BOCPD recursion.
+
+        Returns ``(scores, posteriors)`` where ``scores[t] = P(run < grace)`` and
+        ``posteriors`` is the ``(n, cap)`` per-step run-length posterior matrix
+        when ``collect`` is set (else ``None``, so the streaming path allocates no
+        extra ``n x cap`` array).
+        """
         n = series.size
         scores = np.zeros(n, dtype=np.float64)
         cap = self.max_run_length + 1
+        posteriors = np.zeros((n, cap), dtype=np.float64) if collect else None
 
         # Run-length posterior R[r]; starts certain that run length is 0.
         run_prob = np.zeros(cap, dtype=np.float64)
@@ -206,7 +246,9 @@ class BOCPDDetector(BaseDetector):
 
             grace = min(self.change_grace, cap)
             scores[t] = float(np.sum(run_prob[:grace]))
-        return scores
+            if posteriors is not None:
+                posteriors[t] = run_prob
+        return scores, posteriors
 
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
         """Per-sample fusion feature: the change-point probability.
