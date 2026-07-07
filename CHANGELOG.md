@@ -27,6 +27,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — `CachedBenevolenceScorer` threshold setter (drop-in fidelity)
+
+`CachedBenevolenceScorer` (the LRU wrapper the engine now places on its ethics
+boundary by default) exposed `benevolence_threshold` as a read-only pass-through
+property. Once the boundary scorer was wrapped, the previously valid
+`engine._boundary_scorer.benevolence_threshold = x` (runtime gate tuning) raised
+`AttributeError` — a compatibility regression from wrapping, and a deterministic
+failure in `tests/ethical/test_hard_enforcement.py`. Added a setter that
+delegates the assignment to the wrapped scorer (preserving its
+`MINIMUM_BENEVOLENCE_FLOOR` clamp) **and clears the cache**: cache keys are
+`(ruleset_version, action, context)` and do not encode the threshold in force at
+compute time, so raising the bar must not serve a decision cached as permissible
+under the old threshold. Locked by `test_threshold_setter_delegates_to_wrapped_scorer`,
+`test_threshold_setter_preserves_floor_clamp`, and
+`test_threshold_setter_invalidates_cache`. See `benchmarks/PR329_VERIFICATION.md`
+for the full independent verification run (real AMA v3.3.0 backend; detector-tier
+suites, real-NAB before/after, and live-path validation of the wired subsystems).
+
 ### Detection mechanisms: streaming / statistical / state-space detector tier (steel/detection-mechanisms)
 
 A deliberate, end-to-end expansion of the classical anomaly-detection surface:

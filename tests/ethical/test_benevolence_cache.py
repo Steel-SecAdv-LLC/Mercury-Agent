@@ -119,6 +119,54 @@ def test_cache_threshold_passthrough() -> None:
     assert cache.benevolence_threshold == scorer.benevolence_threshold
 
 
+def test_threshold_setter_delegates_to_wrapped_scorer() -> None:
+    """Assigning the wrapper's threshold writes through to the wrapped scorer.
+
+    The wrapper is a drop-in for ``BenevolenceScorer`` at the engine boundary;
+    once the boundary scorer is wrapped by default, ``scorer.benevolence_threshold
+    = x`` (used by operators and ``test_hard_enforcement``) must keep working.
+    """
+    scorer = BenevolenceScorer(benevolence_threshold=0.99)
+    cache = CachedBenevolenceScorer(scorer=scorer)
+
+    cache.benevolence_threshold = 1.01
+
+    assert cache.benevolence_threshold == 1.01
+    assert scorer.benevolence_threshold == 1.01  # write reached the wrapped scorer
+
+
+def test_threshold_setter_preserves_floor_clamp() -> None:
+    """The delegated assignment still runs the wrapped scorer's floor clamp."""
+    from omni_mercury_engine.cognitive.ethical_bounding import MINIMUM_BENEVOLENCE_FLOOR
+
+    cache = CachedBenevolenceScorer(scorer=BenevolenceScorer(benevolence_threshold=0.99))
+    cache.benevolence_threshold = 0.0  # below the absolute floor
+
+    assert cache.benevolence_threshold == MINIMUM_BENEVOLENCE_FLOOR
+
+
+def test_threshold_setter_invalidates_cache() -> None:
+    """Raising the bar must not serve a decision cached under the old threshold.
+
+    The cache key is ``(ruleset_version, action, context)`` — it does not encode
+    the threshold in force at compute time — so a threshold change has to clear
+    the cache or a now-impermissible action could still be served as a hit.
+    """
+    scorer = _CountingScorer()
+    cache = CachedBenevolenceScorer(scorer=scorer)
+    action, ctx = _permissible_action()
+
+    cache.enforce(action, ctx)
+    assert scorer.enforce_calls == 1
+    assert cache.stats["size"] == 1
+
+    cache.benevolence_threshold = 1.0  # tune the gate -> cache must drop
+
+    assert cache.stats["size"] == 0, "threshold change did not invalidate the cache"
+    cache.enforce(action, ctx)
+    assert scorer.enforce_calls == 2, "post-tune enforce must recompute, not hit a stale entry"
+
+
 # ---------------------------------------------------------------------------
 # (b) Identical input hits the cache
 # ---------------------------------------------------------------------------

@@ -119,6 +119,30 @@ class CachedBenevolenceScorer:
         """Pass-through for callers that introspect the gate threshold."""
         return self._scorer.benevolence_threshold
 
+    @benevolence_threshold.setter
+    def benevolence_threshold(self, value: float) -> None:
+        """Set the gate threshold on the wrapped scorer and invalidate the cache.
+
+        The wrapper is documented as a drop-in replacement for
+        :class:`BenevolenceScorer` at the engine's boundary call site, and the
+        boundary scorer's threshold is a runtime-tunable knob (operators — and
+        ``tests/ethical/test_hard_enforcement.py`` — assign to it to move the
+        gate). Without this setter that assignment raised ``AttributeError`` the
+        moment the boundary scorer was wrapped by default (the benevolence-cache
+        wiring), so the pass-through property is completed here.
+
+        Delegating the assignment preserves the underlying
+        ``MINIMUM_BENEVOLENCE_FLOOR`` clamp (the plain scorer's setter still runs).
+        The cache is then cleared because a cached :class:`EthicalScore` is keyed
+        only by ``(ruleset_version, action, context)`` — not by the threshold in
+        force when it was computed — so raising the bar must not let a decision
+        ruled permissible under the *old* threshold be served as a hit. A plain
+        ``BenevolenceScorer.enforce`` always re-evaluates against the current
+        threshold; clearing on write keeps the wrapper faithful to that contract.
+        """
+        self._scorer.benevolence_threshold = value
+        self.clear()
+
     @property
     def stats(self) -> dict[str, int]:
         """Return live counters: hits, misses, violations_uncached, size, capacity, ruleset_version."""
