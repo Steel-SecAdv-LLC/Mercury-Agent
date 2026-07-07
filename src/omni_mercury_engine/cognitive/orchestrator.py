@@ -549,7 +549,7 @@ class CognitiveOrchestrator(LoggerMixin):
                 )
                 result.novelty_score = exploration.novelty_score
                 result.is_novel = exploration.is_novel
-            except Exception as e:  # noqa: BLE001 - never let augmentation break detection
+            except Exception as e:
                 logger.debug(f"Curiosity novelty scoring skipped: {e}")
 
         # === STEP 10: PREDICTIVE-MEMORY AUGMENTATION ===
@@ -563,7 +563,9 @@ class CognitiveOrchestrator(LoggerMixin):
                     "observation",
                     {"score": anomaly_score, "severity": severity, "domain": domain_label},
                 )
-                self.enhanced_detector.update_predictor(domain_label, success=bool(anomaly_detected))
+                self.enhanced_detector.update_predictor(
+                    domain_label, success=bool(anomaly_detected)
+                )
                 self.enhanced_detector.observe_sequence(f"sev_{int(severity * 10)}")
                 forecast = self.enhanced_detector.predict(domain_label, include_external=False)
                 interval = getattr(forecast, "confidence_interval", None)
@@ -576,7 +578,7 @@ class CognitiveOrchestrator(LoggerMixin):
                         [float(v) for v in interval] if interval is not None else None
                     ),
                 }
-            except Exception as e:  # noqa: BLE001 - never let augmentation break detection
+            except Exception as e:
                 logger.debug(f"Enhanced predictive analysis skipped: {e}")
 
         # Store in history for future CBR

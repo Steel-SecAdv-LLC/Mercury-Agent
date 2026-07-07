@@ -70,9 +70,11 @@ def test_seeding_is_reproducible() -> None:
     """
 
     def run() -> float:
-        return BayesianOptimizer(
-            _bowl_space(), _bowl_objective, sampler="tpe", n_trials=40, seed=7
-        ).optimize().best_metric
+        return (
+            BayesianOptimizer(_bowl_space(), _bowl_objective, sampler="tpe", n_trials=40, seed=7)
+            .optimize()
+            .best_metric
+        )
 
     np.random.seed(1)
     first = run()
@@ -132,9 +134,7 @@ def test_failing_objective_is_isolated() -> None:
     def boom(config: dict[str, float]) -> float:
         raise ValueError("objective exploded")
 
-    opt = BayesianOptimizer(
-        space, boom, sampler="random", direction="minimize", n_trials=5, seed=0
-    )
+    opt = BayesianOptimizer(space, boom, sampler="random", direction="minimize", n_trials=5, seed=0)
     result = opt.optimize()
     # Run completes; every trial is marked FAILED with the sentinel metric.
     assert len(result.all_trials) == 5

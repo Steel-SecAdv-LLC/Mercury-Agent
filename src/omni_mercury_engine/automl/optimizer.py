@@ -567,13 +567,9 @@ class BayesianOptimizer:
             else:
                 convergence_history.append(metric)
 
-            if (
-                self._time_budget is not None
-                and (time.time() - start_time) >= self._time_budget
-            ):
+            if self._time_budget is not None and (time.time() - start_time) >= self._time_budget:
                 logger.info(
-                    "Stopping optimization after %d/%d trials: time budget "
-                    "%.1fs reached",
+                    "Stopping optimization after %d/%d trials: time budget " "%.1fs reached",
                     trial_idx + 1,
                     self._n_trials,
                     self._time_budget,

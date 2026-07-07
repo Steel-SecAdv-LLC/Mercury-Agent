@@ -15,8 +15,13 @@ smoke test cover the real path.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any, cast
+
 import numpy as np
 import pytest
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 _FIT_KEYS = {
     "learning_rate",
@@ -32,13 +37,13 @@ class _StubEngine:
     """Minimal stand-in exposing the two methods tune_fusion calls."""
 
     def __init__(self) -> None:
-        self.fit_calls: list[dict] = []
+        self.fit_calls: list[dict[str, Any]] = []
 
-    def fit_fusion(self, X, y, **kwargs):  # noqa: ANN001
+    def fit_fusion(self, X, y, **kwargs):
         self.fit_calls.append({"n": len(X), "config": kwargs})
         return {}
 
-    def score_fusion(self, X):  # noqa: ANN001
+    def score_fusion(self, X):
         # Feature 0 encodes the label, so the ranking is perfect -> AUC 1.0.
         return np.asarray(X)[:, 0]
 
@@ -52,8 +57,16 @@ def test_tune_fusion_wiring_without_torch() -> None:
     features = np.column_stack([labels + rng.normal(0, 0.01, 80), rng.normal(size=(80, 5))])
 
     stub = _StubEngine()
+    # tune_fusion only calls fit_fusion/score_fusion on ``self``; the stub duck-types
+    # both so the base-install path runs without torch or engine construction.
     result = OmniMercuryEngine.tune_fusion(
-        stub, features, labels, n_trials=4, tuning_epochs=2, sampler="random", seed=0
+        cast("OmniMercuryEngine", stub),
+        features,
+        labels,
+        n_trials=4,
+        tuning_epochs=2,
+        sampler="random",
+        seed=0,
     )
 
     # n_trials trial fits + one final refit on the full dataset.
@@ -78,7 +91,7 @@ def test_tune_fusion_requires_both_classes() -> None:
     X = np.random.default_rng(0).normal(size=(20, 4))
     y = np.zeros(20)  # single class
     with pytest.raises(ValueError, match="both classes"):
-        OmniMercuryEngine.tune_fusion(_StubEngine(), X, y, n_trials=2)
+        OmniMercuryEngine.tune_fusion(cast("OmniMercuryEngine", _StubEngine()), X, y, n_trials=2)
 
 
 def test_tune_fusion_end_to_end_small() -> None:
@@ -99,7 +112,7 @@ def test_tune_fusion_end_to_end_small() -> None:
     assert scores.shape[0] == 4
 
 
-def test_tune_cli_smoke(tmp_path, monkeypatch) -> None:
+def test_tune_cli_smoke(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from click.testing import CliRunner
 
     from omni_mercury_engine import cli
@@ -112,7 +125,7 @@ def test_tune_cli_smoke(tmp_path, monkeypatch) -> None:
     np.save(labels_path, np.array([0, 1] * 10))
 
     class _CliStub:
-        def tune_fusion(self, X, y, **kwargs):  # noqa: ANN001
+        def tune_fusion(self, X, y, **kwargs):
             return {
                 "best_auc": 0.87,
                 "best_config": {"learning_rate": 0.01, "batch_size": 32},
@@ -120,7 +133,7 @@ def test_tune_cli_smoke(tmp_path, monkeypatch) -> None:
                 "convergence_history": [],
             }
 
-        def save_model(self, path):  # noqa: ANN001
+        def save_model(self, path):
             open(path, "w").close()
 
     monkeypatch.setattr(cli, "_get_engine", lambda *a, **k: _CliStub())

@@ -598,9 +598,7 @@ class TreeShapExplainer(ShapExplainer):
                 else np.asarray([])
             ),
             "children_left": (
-                np.asarray(tree.children_left)
-                if hasattr(tree, "children_left")
-                else np.asarray([])
+                np.asarray(tree.children_left) if hasattr(tree, "children_left") else np.asarray([])
             ),
             "children_right": (
                 np.asarray(tree.children_right)

@@ -202,9 +202,7 @@ def train(data: str, labels: str | None, output: str, epochs: int) -> None:
     help="Bayesian sampler (default: tpe).",
 )
 @click.option("--epochs", default=10, type=int, help="Epochs per trial (and final refit)")
-def tune(
-    data: str, labels: str, output: str, n_trials: int, sampler: str, epochs: int
-) -> None:
+def tune(data: str, labels: str, output: str, n_trials: int, sampler: str, epochs: int) -> None:
     """Bayesian hyperparameter search for the fusion model (maximise held-out AUC).
 
     Runs Mercury's own Bayesian optimizer over the ``fit_fusion`` hyperparameters
@@ -225,7 +223,9 @@ def tune(
         )
         result = engine.tune_fusion(X, y, n_trials=n_trials, sampler=sampler, tuning_epochs=epochs)
         best_auc = result.get("best_auc")
-        click.echo(f"Best held-out AUC: {best_auc:.4f}" if best_auc is not None else "No trial succeeded")
+        click.echo(
+            f"Best held-out AUC: {best_auc:.4f}" if best_auc is not None else "No trial succeeded"
+        )
         for key, value in result.get("best_config", {}).items():
             click.echo(f"  {key}: {value}")
         engine.save_model(output)

@@ -23,9 +23,7 @@ from omni_mercury_engine.cognitive.ethical_bounding import BenevolenceScorer
 def _engine(**kwargs):
     from omni_mercury_engine.engine import OmniMercuryEngine
 
-    return OmniMercuryEngine(
-        mode="fusion", device="cpu", require_explicit_fit=False, **kwargs
-    )
+    return OmniMercuryEngine(mode="fusion", device="cpu", require_explicit_fit=False, **kwargs)
 
 
 def test_boundary_scorer_is_cached_by_default() -> None:

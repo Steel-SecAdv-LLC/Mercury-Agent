@@ -889,16 +889,14 @@ class OmniMercuryEngine(LoggerMixin):
         # superset of the scorer surface (``enforce``/``score_action``/
         # ``benevolence_threshold``), never caches violations, and self-purges
         # on a ruleset-version bump, so the swap is semantics-preserving.
-        _real_boundary_scorer = _BenevolenceScorer(
-            benevolence_threshold=_MINIMUM_BENEVOLENCE_FLOOR
-        )
+        _real_boundary_scorer = _BenevolenceScorer(benevolence_threshold=_MINIMUM_BENEVOLENCE_FLOOR)
         self._boundary_scorer: BenevolenceScorer | CachedBenevolenceScorer
         if cache_ethical_decisions:
             from omni_mercury_engine.cognitive.benevolence_cache import (
-                CachedBenevolenceScorer,
+                CachedBenevolenceScorer as _CachedBenevolenceScorer,
             )
 
-            self._boundary_scorer = CachedBenevolenceScorer(scorer=_real_boundary_scorer)
+            self._boundary_scorer = _CachedBenevolenceScorer(scorer=_real_boundary_scorer)
         else:
             self._boundary_scorer = _real_boundary_scorer
 
@@ -1576,7 +1574,7 @@ class OmniMercuryEngine(LoggerMixin):
 
         rng = np.random.default_rng(seed)
         order = rng.permutation(len(X))
-        n_val = max(2, int(round(validation_split * len(X))))
+        n_val = max(2, round(validation_split * len(X)))
         val_idx, train_idx = order[:n_val], order[n_val:]
         x_train, y_train = X[train_idx], y[train_idx]
         x_val, y_val = X[val_idx], y[val_idx]
@@ -5003,9 +5001,7 @@ class OmniMercuryEngine(LoggerMixin):
         # compliance/recourse report neither the cognitive nor ml explainer
         # provides. Opt-in because it runs SHAP + counterfactual optimisation.
         if gdpr_report and isinstance(data, (np.ndarray, torch.Tensor)):
-            result["gdpr_report"] = self._gdpr_explain_fusion_decision(
-                data, subject_id, result
-            )
+            result["gdpr_report"] = self._gdpr_explain_fusion_decision(data, subject_id, result)
 
         # Decision / abstention / response layer: close the loop from the
         # calibrated certificate just assembled (probability + conformal set +
@@ -5102,9 +5098,7 @@ class OmniMercuryEngine(LoggerMixin):
             background = self._fusion_background.mean(axis=0, keepdims=True)
         else:
             background = np.atleast_2d(instance)
-        threshold = float(
-            result.get("threshold_used") or result.get("threshold") or 0.5
-        )
+        threshold = float(result.get("threshold_used") or result.get("threshold") or 0.5)
         explainer = MercuryExplainer(
             model=_fusion_predict,
             background_data=np.asarray(background, dtype=np.float64),

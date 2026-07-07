@@ -28,9 +28,7 @@ def test_curiosity_invoked_in_analyze() -> None:
     orch = CognitiveOrchestrator(enable_curiosity=True)
     assert orch.curiosity is not None
 
-    result = orch.analyze(
-        _ANOMALY, raw_data=np.zeros((16, 4)), context={"domain": "cyber"}
-    )
+    result = orch.analyze(_ANOMALY, raw_data=np.zeros((16, 4)), context={"domain": "cyber"})
     # The novelty field is populated and the engine actually ran an exploration.
     assert "novelty_score" in result.to_dict()
     assert orch.curiosity.get_statistics()["explorations_performed"] >= 1
@@ -44,9 +42,7 @@ def test_curiosity_flags_out_of_distribution_observations() -> None:
     for _ in range(30):
         orch.analyze(_ANOMALY, raw_data=rng.normal(0.0, 1.0, (8, 4)), context={"domain": "cyber"})
     # ...then a wildly out-of-distribution one should score as novel.
-    outlier = orch.analyze(
-        _ANOMALY, raw_data=np.full((8, 4), 25.0), context={"domain": "cyber"}
-    )
+    outlier = orch.analyze(_ANOMALY, raw_data=np.full((8, 4), 25.0), context={"domain": "cyber"})
     assert outlier.is_novel is True
     assert outlier.novelty_score > 0.7
 
@@ -66,4 +62,5 @@ def test_enhanced_detector_invoked_in_analyze() -> None:
 def test_enhanced_detector_does_no_network_io() -> None:
     # use_simulated_sources=False and include_external=False -> no external fetch.
     orch = CognitiveOrchestrator(enable_enhanced_detection=True)
+    assert orch.enhanced_detector is not None
     assert orch.enhanced_detector.use_simulated_sources is False
