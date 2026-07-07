@@ -13,6 +13,14 @@
 # ``package-ecosystem: "pip"`` updates, so the explicit registry was
 # also redundant — removing it both fixes the validator and matches
 # the actual behaviour we already had.
+#
+# The ``docker``, ``github-actions`` and ``helm`` ecosystems previously
+# listed ``"docker"``, ``"github-actions"`` and ``"kubernetes"`` labels
+# respectively. None of those labels exist in the repository (only
+# ``dependencies``/``security``/``python`` etc. do), which produced a
+# Dependabot "labels could not be found" comment on PRs (see #324).
+# Dropped the non-existent labels; the surviving ``dependencies``/
+# ``security`` labels already convey the necessary triage signal.
 
 version: 2
 
@@ -104,6 +112,13 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "pydantic"
         update-types: ["version-update:semver-major"]
+      # OpenCV 5.0 removed long-standing top-level ``cv2`` symbols (including
+      # ``cv2.CascadeClassifier``, used by ``models/biometric_advanced.py``)
+      # and the corresponding type stubs, breaking both the runtime path and
+      # the blocking mypy gate. See the ``opencv-python-headless`` pin comment
+      # in pyproject.toml. Bump manually once the codebase migrates.
+      - dependency-name: "opencv-python-headless"
+        update-types: ["version-update:semver-major"]
     # Vulnerability alerts configuration
     # Prioritize security updates over feature updates
     versioning-strategy: "increase-if-necessary"
@@ -122,7 +137,6 @@ updates:
     labels:
       - "dependencies"
       - "security"
-      - "docker"
     commit-message:
       prefix: "deps(docker)"
       include: "scope"
@@ -145,7 +159,6 @@ updates:
     labels:
       - "dependencies"
       - "security"
-      - "github-actions"
     commit-message:
       prefix: "deps(actions)"
       include: "scope"
@@ -165,7 +178,6 @@ updates:
     open-pull-requests-limit: 3
     labels:
       - "dependencies"
-      - "kubernetes"
     commit-message:
       prefix: "deps(helm)"
       include: "scope"
