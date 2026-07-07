@@ -288,6 +288,18 @@ def run(
     }
 
 
+def _fmt_metric(value: Any, placeholder: str = "n/a") -> str:
+    """Format a metric as ``.4f``, degrading to ``placeholder`` when it is ``None``.
+
+    ``run()`` sets the AUC / improvement fields to ``None`` on the error path where
+    the ensemble or the best member has no measurable score (see ``summarise``'s
+    ``delta`` and ``meets_acceptance``'s explicit ``is not None`` guard). Formatting
+    such a value with a bare ``:.4f`` raises ``TypeError`` and crashes the report
+    writer, so every human-facing metric is routed through this guard.
+    """
+    return f"{value:.4f}" if isinstance(value, (int, float)) else placeholder
+
+
 def _analysis_markdown(summary: dict[str, Any]) -> str:
     b = summary["before_calibration"]
     a = summary["after_calibration"]
@@ -307,7 +319,7 @@ def _analysis_markdown(summary: dict[str, Any]) -> str:
 
     def _row(tag: str, s: dict[str, Any]) -> str:
         def fmt(x: Any) -> str:
-            return f"{x:.4f}" if isinstance(x, (int, float)) else "-"
+            return _fmt_metric(x, placeholder="-")
 
         return (
             f"| {tag} | `{s['combiner']}` | `{s['calibration']}` | {s['best_member']} | "
@@ -320,7 +332,7 @@ def _analysis_markdown(summary: dict[str, Any]) -> str:
     lines += [
         "",
         f"**Calibrated consensus ensemble beats the best single detector by "
-        f"{summary['improvement_ensemble_vs_best_member']:.4f} ROC-AUC** "
+        f"{_fmt_metric(summary['improvement_ensemble_vs_best_member'])} ROC-AUC** "
         f"(acceptance threshold > {summary['acceptance_threshold']}): "
         f"{'PASS' if summary['meets_acceptance'] else 'FAIL'}.",
         "",
@@ -358,10 +370,11 @@ def main() -> None:
     print(f"data source: {summary['data_source']}")
     print(
         f"series: {summary['n_datasets']}  best single: {a['best_member']} "
-        f"AUC={a['best_member_mean_auc']:.4f}  consensus ensemble AUC={a['ensemble_mean_auc']:.4f}"
+        f"AUC={_fmt_metric(a['best_member_mean_auc'])}  "
+        f"consensus ensemble AUC={_fmt_metric(a['ensemble_mean_auc'])}"
     )
     print(
-        f"ensemble - best single = {summary['improvement_ensemble_vs_best_member']:.4f} "
+        f"ensemble - best single = {_fmt_metric(summary['improvement_ensemble_vs_best_member'])} "
         f"(threshold > 0.003): {'PASS' if summary['meets_acceptance'] else 'FAIL'}"
     )
     print(f"wrote {out_path} and {args.analysis}")

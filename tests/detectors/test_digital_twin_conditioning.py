@@ -104,6 +104,16 @@ class TestMagnitudeScaling:
         assert max(norms) - min(norms) < 1.0
 
 
+class TestInputConfigPrecedence:
+    def test_per_detector_config_governs_input_cap(self) -> None:
+        # Regression: DigitalTwin resolves a full DetectionConfig from its ``config``
+        # dict, so a per-detector max_magnitude must govern input sanitisation
+        # (defaults < file < env < detector config), not only the env cap.
+        det = DigitalTwinResidualDetector(config={"max_magnitude": 100.0})
+        capped = det._to_1d_f64(np.array([50.0, 5000.0, -9999.0, np.inf]))
+        assert capped.tolist() == [50.0, 100.0, -100.0, 100.0]
+
+
 hyp = pytest.importorskip("hypothesis")
 from hypothesis import (
     given,

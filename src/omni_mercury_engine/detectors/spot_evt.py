@@ -118,7 +118,17 @@ class SPOTDetector(BaseDetector):
         detach = getattr(data, "detach", None)
         if callable(detach):
             data = detach().cpu().numpy()
-        return bound_finite(np.asarray(data, dtype=np.float64), detector=self.name).ravel()
+        # Honour this detector's fully-resolved config on the input path too, so the
+        # documented precedence (defaults < file < env < per-detector ``config``)
+        # holds for sanitisation -- not just the environment defaults ``bound_finite``
+        # would read on its own. Identical to the env-only path when no file /
+        # per-detector overrides are set.
+        return bound_finite(
+            np.asarray(data, dtype=np.float64),
+            detector=self.name,
+            policy=self._detection_config.nan_policy,
+            max_magnitude=self._detection_config.max_magnitude,
+        ).ravel()
 
     @staticmethod
     def _grimshaw(peaks: np.ndarray[Any, Any]) -> tuple[float, float]:

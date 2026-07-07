@@ -168,3 +168,43 @@ def test_nab_loader_exposes_iter_series() -> None:
 
     assert hasattr(NABLoader, "iter_series")
     assert callable(NABLoader.iter_series)
+
+
+def test_reproduce_report_survives_none_metrics() -> None:
+    """The reproduction report must not crash when a metric is ``None``.
+
+    Regression: ``run()`` sets the AUC / improvement fields to ``None`` on the
+    error path (no measurable ensemble/best-member score), and ``meets_acceptance``
+    already guards that with ``is not None`` -- but the report writer formatted the
+    improvement with a bare ``:.4f``, which raises ``TypeError`` on ``None``.
+    """
+    from benchmarks.reproduce_detection_tier_nab import _analysis_markdown, _fmt_metric
+
+    assert _fmt_metric(0.0119) == "0.0119"
+    assert _fmt_metric(None) == "n/a"
+    assert _fmt_metric(None, placeholder="-") == "-"
+
+    none_member = {
+        "calibration": "none",
+        "combiner": "average",
+        "best_member": "x",
+        "best_member_mean_auc": None,
+        "ensemble_mean_auc": None,
+        "ensemble_minus_best_member": None,
+        "ensemble_mean_f1": None,
+        "n_datasets": 3,
+    }
+    summary = {
+        "data_source": "test",
+        "seed": 0,
+        "max_len": 6000,
+        "n_datasets": 3,
+        "before_calibration": none_member,
+        "after_calibration": {**none_member, "calibration": "rank", "combiner": "consensus"},
+        "improvement_ensemble_vs_best_member": None,
+        "acceptance_threshold": 0.003,
+        "meets_acceptance": False,
+    }
+    md = _analysis_markdown(summary)  # previously raised TypeError on the None
+    assert "n/a ROC-AUC" in md
+    assert "FAIL" in md
