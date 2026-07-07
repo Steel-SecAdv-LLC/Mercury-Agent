@@ -128,6 +128,73 @@ flags. Design doc `docs/DETECTION_MECHANISMS.md`; ops
   `rca` walk comment no longer claims an explicit `Aᵀ` transpose. Regression
   tests added.
 
+### Detector-tier hardening: ensemble calibration, explicit NaN policy, numerical conditioning, SPOT thread-safety, observability (claude/ensemble-calibration-nan-policy)
+
+A correctness-and-robustness pass over the streaming / statistical / state-space
+detector tier. The pivot: rather than chase individual detector scores, harden
+the *seams* — how heterogeneous detectors are combined, how non-finite inputs are
+handled, how ill-conditioned solves are regularised, and how concurrent calls
+share state — and make every guard observable. New config module
+`detectors/detection_config.py`; new reproduction harness
+`benchmarks/reproduce_detection_tier_nab.py`; analysis in
+`benchmarks/detection_tier_nab_analysis.md`.
+
+- **Ensemble score calibration.** `StreamingScoreEnsemble` no longer combines raw
+  scores. Each detector's score column is first mapped through a per-detector
+  calibrator fitted on the warm-up window — `rank`/`ecdf` (empirical-CDF, label-
+  free, the **default**), or supervised `isotonic` / `platt` (which fall back to
+  ECDF when the warm-up is single-class) — so no detector's arbitrary score scale
+  dominates the combination. A new label-free `consensus` combiner takes a robust
+  cross-detector high quantile (default 0.9) of the calibrated columns, which is
+  not dragged toward 0.5 by uninformative members the way a plain mean is.
+  **On 30 real NAB series the calibrated `consensus` ensemble reaches mean
+  ROC-AUC 0.635, beating the best single detector (`echo_state`, 0.623) by
+  +0.0117** (> 0.003 target); the pre-PR raw `average` scored 0.624 (+0.0009 vs
+  best single, i.e. within noise). See `benchmarks/detection_tier_nab_analysis.md`.
+- **Explicit, configurable NaN/Inf policy.** Non-finite handling is now a named
+  policy (`neutral` — the conservative default, `impute`, `flag`, `raise`) rather
+  than an undocumented `np.nan_to_num` buried in each detector's input coercion.
+  `apply_nan_policy` / `guard_finite_scalar` are the single guard entry points;
+  they apply the policy, clamp to one **unified magnitude regime**
+  (`max_magnitude`, default `1e15` = `API.MAX_VALUE`), and guarantee finite,
+  bounded output. Metadata fields (`spot_evt`'s `z_q` / `gamma`) are guarded by
+  the same finite checks as scores.
+- **Observability for guards.** Every guard that rescues a non-finite value
+  increments the new `omni_detector_nonfinite_corrected{detector,policy,field}`
+  Prometheus counter and emits a structured `logger.warning` (detector, field,
+  NaN vs Inf counts, remediation). The `raise` policy aborts instead of
+  correcting and never increments it.
+- **Numerical conditioning (`digital_twin`).** The AR-twin least-squares solve
+  uses a **scale-relative Tikhonov ridge** `λ = max(ridge_factor · tr(G)/d, ridge)`
+  — proportional to the Gram matrix's mean eigenvalue so regularisation tracks
+  the data scale, floored by an absolute `ridge` so a (near-)singular Gram (a
+  constant series) stays solvable. Replaces a fixed absolute ridge that was
+  numerically negligible on large-magnitude signals. Coefficients stay finite and
+  bounded across ≥15 orders of magnitude.
+- **SPOT thread-safety & purity.** `_tail_probability` / `_threshold_from_tail`
+  are now pure static functions of explicit local state; `_stream_scores` evolves
+  the online tail on **local copies**, so `detect()` mutates nothing on the
+  instance. `detect()` is idempotent and safe to call concurrently on one fitted
+  detector — no snapshot/restore, no cross-call state leakage.
+- **Configuration.** Calibration method, NaN policy, magnitude cap, ridge factor,
+  and ensemble warm-up are settable via environment (`OMNI_ENSEMBLE_CALIBRATION`,
+  `OMNI_ENSEMBLE_WARMUP`, `OMNI_DETECTOR_NAN_POLICY`, `OMNI_DETECTOR_MAX_MAGNITUDE`,
+  `OMNI_DETECTOR_RIDGE_FACTOR`), a config file (`OMNI_DETECTION_CONFIG`
+  → YAML/JSON), or a detector's `config` dict, with documented defaults and
+  clear precedence (defaults < file < env < explicit).
+- **Benchmark `_crop_to_anomaly` fix.** The long-series crop now selects the
+  window that retains the **most** labelled anomalies (prefix-sum sliding window),
+  centred among ties, instead of centring on the midpoint of the first/last label
+  — which could land in a normal gap and drop *all* anomalies, silently discarding
+  a measurable series. The fix rescued one NAB series the old crop dropped
+  (30 vs 29 measurable).
+- **Testing.** Added unit, Hypothesis property (score/metadata finiteness+bounds
+  under arbitrary finite/non-finite input), SPOT concurrency, BOCPD run-length
+  mass-conservation (posterior sums to 1 every step, via the new
+  `run_length_posteriors` accessor), digital-twin conditioning, and RCA
+  `_walk`/adjacency-inference coverage tests, plus Prometheus-counter and
+  structured-log assertions for the guards. ~150 new/covered tests.
+
 ### Intelligence layer: closed-loop learning + decision geometry (steel/refinement-mercury-intel)
 
 The learning-and-geometry layer on top of the Tier-0 safety foundation. New

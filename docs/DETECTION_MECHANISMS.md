@@ -121,6 +121,56 @@ On top of this per-detector calibration, the shared score-calibration layer
 threshold (percentile / Otsu / MAD / knee / optimal-F1 …) for the combined
 ensemble score.
 
+### Ensemble score calibration
+
+Per-detector score *ranges* remain incomparable even after the contract above:
+one detector may live in `[0.4, 0.6]` and another in `[0, 1]`, so a raw average
+lets the wider-range detector dominate. Before combining, `StreamingScoreEnsemble`
+maps each detector's score column through a per-detector calibrator fitted on a
+warm-up window (`OMNI_ENSEMBLE_CALIBRATION`, default `rank`):
+
+- `rank` / `ecdf` — the empirical-CDF transform (label-free): a score becomes the
+  fraction of warm-up reference scores at or below it, i.e. uniform on `[0, 1]`
+  under the reference distribution. This is the default.
+- `isotonic` / `platt` — supervised monotone maps (isotonic regression /
+  logistic scaling) from score → `P(anomaly)` trained on the warm-up window's
+  labels. When the warm-up window is single-class (the common all-normal case) or
+  labels are absent, these fall back to `ecdf` so calibration never fails closed.
+- `none` — disable per-detector calibration.
+
+The warm-up window is `OMNI_ENSEMBLE_WARMUP` (default: the whole training series;
+an int uses the first N points, a float in `(0, 1]` a fraction).
+
+### NaN / non-finite policy
+
+Every detector's input coercion and every metadata field passes through one
+explicit, configurable non-finite policy (`detectors/detection_config.py`,
+`OMNI_DETECTOR_NAN_POLICY`) — no more undocumented `np.nan_to_num` per detector:
+
+- `neutral` (**default**) — NaN → neutral `0.0`, `±inf` → `±max_magnitude`; the
+  conservative behaviour that never invents anomaly signal and never aborts the
+  stream.
+- `impute` — NaN → the finite median of the vector (else neutral); `±inf` clamped.
+- `flag` — as `neutral`, but a boolean mask of the non-finite positions is
+  returned for downstream special-casing.
+- `raise` — refuse to continue on any non-finite value.
+
+All policies clamp output into one **unified magnitude regime**
+(`OMNI_DETECTOR_MAX_MAGNITUDE`, default `1e15` = `core.centralized_constants.API.MAX_VALUE`)
+so no score or metadata field escapes a known finite envelope. Score vectors and
+scalar metadata (`spot_evt`'s `z_q` / `gamma`) get the *same* finite guarantees.
+
+### Numerical conditioning (digital-twin)
+
+`DigitalTwinResidualDetector` identifies its AR forward model by regularised
+least squares with a **scale-relative Tikhonov ridge**
+`λ = max(ridge_factor · tr(G)/d, ridge)`, where `tr(G)/d` is the mean eigenvalue
+of the Gram matrix `G = XᵀX`. Tying the ridge to the matrix scale keeps the
+conditioning improvement invariant to the signal's magnitude (a fixed absolute
+ridge is negligible for large-magnitude signals and dominant for tiny ones); the
+absolute `ridge` acts as a floor so a near-singular `G` (a constant series) stays
+solvable. `ridge_factor` is `OMNI_DETECTOR_RIDGE_FACTOR` (default `1e-6`).
+
 ## Integration architecture
 
 ```mermaid
@@ -169,21 +219,27 @@ path via `decision/bridge.py`. The integration seam is
 
 ## Ensemble & uncertainty
 
-`detection_tier.StreamingScoreEnsemble` combines several detectors' per-point
-scores into one calibrated stream:
+`detection_tier.StreamingScoreEnsemble` first calibrates each detector's score
+column (see *Ensemble score calibration* above), then combines the calibrated
+columns into one stream by one of:
 
+- **Consensus** — a label-free robust high-quantile (default 0.9) of the
+  calibrated per-detector scores: "a point most detectors rank in their tail".
+  Unlike a plain mean it is not dragged toward 0.5 by uninformative members, so
+  it is the recommended unsupervised combiner and the one that beats the best
+  single detector on real NAB.
 - **Stacking** — a logistic meta-learner
   (`mercury_ml.LogisticRegression`) is trained on point labels over the
-  per-detector score matrix (stacked generalisation, Wolpert 1992). Output is a
+  *calibrated* score matrix (stacked generalisation, Wolpert 1992). Output is a
   calibrated per-point probability.
 - **Bayesian Model Averaging** — per-detector BIC posterior weights (with
   bootstrap weight uncertainty exposed via `bma_weights()`), for a label-aware
   weighted combination that reflects each detector's evidence.
-- **Average** — the label-free score mean as a baseline.
+- **Average** — the label-free mean of the calibrated scores as a baseline.
 
-Ensemble-level uncertainty is exposed per point as cross-detector disagreement
-(`ensemble_uncertainty()`), suitable as an attention prior for the neural fusion
-network or as a gate on automated response.
+Ensemble-level uncertainty is exposed per point as cross-detector disagreement on
+the calibrated scale (`ensemble_uncertainty()`), suitable as an attention prior
+for the neural fusion network or as a gate on automated response.
 
 ## False-positive control (EVT + conformal)
 
@@ -232,7 +288,12 @@ Concrete entry points that connect the tier to the surrounding runtime (all in
 - **Observability** — `core.metrics.record_detector_score(name, score)` feeds the
   per-detector `omni_detector_score` histogram (bucketed over `[0, 1]`) alongside
   the existing latency/success series; `TierStreamingScorer` emits it
-  automatically on the streaming path.
+  automatically on the streaming path. Every non-finite guard also increments the
+  `omni_detector_nonfinite_corrected{detector,policy,field}` counter and emits a
+  structured `logger.warning` (detector, field, NaN/Inf counts, remediation) — a
+  rising rate on that series means upstream data or an internal computation is
+  emitting NaN/Inf the tier is silently rescuing, i.e. a data-quality signal to
+  investigate rather than a benign event.
 
 ## Validation & benchmarks
 
@@ -324,11 +385,13 @@ code change to be real rather than theatre:
 | `src/omni_mercury_engine/detectors/{energy_based,deep_svdd,diffusion_ad}.py` | Generative / representation detectors |
 | `src/omni_mercury_engine/detectors/{echo_state,spiking}.py` | Neuromorphic detectors |
 | `src/omni_mercury_engine/detectors/{rca,deeplog_sequence,frequent_pattern}.py` | Systems-level detectors |
-| `src/omni_mercury_engine/detectors/detection_tier.py` | Ensemble / conformal / RCA / streaming / feature-store integration seam |
+| `src/omni_mercury_engine/detectors/detection_tier.py` | Ensemble (calibration + consensus) / conformal / RCA / streaming / feature-store integration seam |
+| `src/omni_mercury_engine/detectors/detection_config.py` | NaN/Inf policy, magnitude regime, tier config (env/file), non-finite guards |
 | `src/omni_mercury_engine/core/detector_registry.py` | Manifest registration (auto-discovery) |
-| `src/omni_mercury_engine/core/metrics.py` | Per-detector score-distribution metric |
+| `src/omni_mercury_engine/core/metrics.py` | Per-detector score-distribution + `omni_detector_nonfinite_corrected` guard metric |
 | `src/omni_mercury_engine/decision/bridge.py` | RCA attribution into CAP alerts |
 | `src/omni_mercury_engine/datasets/timeseries.py` | `NABLoader.iter_series` — real 1-D streaming data |
 | `benchmarks/detection_tier_benchmark.py` | Real-data (NAB) streaming benchmark library |
+| `benchmarks/reproduce_detection_tier_nab.py` | Reproducible real-NAB before/after (calibration) harness |
 | `benchmarks/mercury_benchmark.py` | Canonical harness; merges the `detection_tier` results section |
 | `docs/DETECTION_MECHANISMS_RUNBOOK.md` | Operational runbook |

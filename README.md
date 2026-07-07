@@ -1281,6 +1281,12 @@ docker run -it \
 | `OMNI_RATE_LIMIT_BURST` | Token-bucket burst size | `20` |
 | `MERCURY_ENV` | Environment mode (`development` / `production`; unknown values raise) | `development` |
 | `MERCURY_CORS_ORIGINS` | Explicit CORS origin allow-list; in production, unset means same-origin only (CORS middleware disabled) | unset |
+| `OMNI_ENSEMBLE_CALIBRATION` | Per-detector ensemble score calibration (`rank`/`ecdf`/`isotonic`/`platt`/`none`); see `docs/DETECTION_MECHANISMS.md` | `rank` |
+| `OMNI_ENSEMBLE_WARMUP` | Warm-up window the ensemble calibrators train on (int points / float fraction) | whole training series |
+| `OMNI_DETECTOR_NAN_POLICY` | Detector-tier NaN/Inf policy (`neutral`/`impute`/`flag`/`raise`) | `neutral` |
+| `OMNI_DETECTOR_MAX_MAGNITUDE` | Unified safe magnitude cap for detector scores/inputs/metadata | `1e15` |
+| `OMNI_DETECTOR_RIDGE_FACTOR` | Digital-twin scale-relative Tikhonov ridge factor | `1e-6` |
+| `OMNI_DETECTION_CONFIG` | Path to a YAML/JSON file supplying the `OMNI_DETECTOR_*` / `OMNI_ENSEMBLE_*` knobs (env overrides file) | unset |
 
 ### Volume Mounts
 
