@@ -62,9 +62,7 @@ class TestAlignment:
         assert scores.shape == (x.shape[0],)
         assert float(scores.min()) >= 0.0 and float(scores.max()) <= 1.0
 
-    def test_align_attributes_finite_guard_to_member(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_align_attributes_finite_guard_to_member(self, monkeypatch: pytest.MonkeyPatch) -> None:
         # Regression: the defence-in-depth finite guard must be labelled with the
         # member detector's name (not a generic "align"), so the
         # omni_detector_nonfinite_corrected metric/log names the misbehaving member.

@@ -160,9 +160,7 @@ class TestBoundFiniteConfigurableCap:
         out = bound_finite(np.array([50.0, 500.0, -9999.0, np.inf, -np.inf]))
         assert out.tolist() == [50.0, 100.0, -100.0, 100.0, -100.0]
 
-    def test_finite_in_range_unchanged_under_env_cap(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_finite_in_range_unchanged_under_env_cap(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("OMNI_DETECTOR_MAX_MAGNITUDE", "1e6")
         arr = np.array([1.0, -2.0, 1e5])
         assert np.array_equal(bound_finite(arr.copy()), arr)
