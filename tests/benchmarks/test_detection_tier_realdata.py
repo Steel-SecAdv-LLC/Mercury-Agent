@@ -83,6 +83,43 @@ def test_crop_is_noop_when_short() -> None:
     assert int(cropped_labels.sum()) == 1
 
 
+def test_crop_retains_anomalies_when_split_at_extremes() -> None:
+    """Regression: the fixed crop keeps anomalies the old midpoint crop dropped.
+
+    Two anomaly clusters sit at the extremes of a long series, more than
+    ``max_len`` apart. The old crop centred on the midpoint of the first/last
+    label -- which lands in the normal gap between the clusters -- and could
+    retain *zero* anomalies, discarding the whole series. The max-retention crop
+    always keeps the densest cluster.
+    """
+    n = 20_000
+    series = np.zeros(n, dtype=np.float64)
+    labels = np.zeros(n, dtype=np.int64)
+    labels[500:520] = 1  # small early cluster
+    labels[19_000:19_300] = 1  # larger late cluster
+    cropped_series, cropped_labels = _crop_to_anomaly(series, labels, max_len=3_000)
+    assert cropped_series.size == 3_000
+    # The crop must retain the densest cluster's anomalies (never all-zero).
+    assert int(cropped_labels.sum()) >= 300
+
+
+def test_crop_centres_single_block_for_split_measurability() -> None:
+    """A single anomaly block smaller than max_len is centred in the window.
+
+    Centring keeps a downstream 50/50 temporal split straddling the anomalies so
+    the supervised lane stays measurable.
+    """
+    n = 12_000
+    series = np.zeros(n, dtype=np.float64)
+    labels = np.zeros(n, dtype=np.int64)
+    labels[6_000:6_050] = 1
+    _, cropped_labels = _crop_to_anomaly(series, labels, max_len=4_000)
+    anomaly_pos = np.flatnonzero(cropped_labels == 1)
+    centre = cropped_labels.size / 2
+    # The retained block's centroid is near the window centre (within 15%).
+    assert abs(float(anomaly_pos.mean()) - centre) < 0.15 * cropped_labels.size
+
+
 def test_evaluate_member_returns_valid_metrics() -> None:
     """A member scores the fixture and returns bounded metrics (or an error dict)."""
     series, labels = _fixture_series()
