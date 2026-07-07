@@ -11,6 +11,8 @@ exercised at runtime, not merely importable.
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pytest
 
@@ -18,11 +20,10 @@ pytest.importorskip("torch")
 
 from omni_mercury_engine.cognitive.benevolence_cache import CachedBenevolenceScorer
 from omni_mercury_engine.cognitive.ethical_bounding import BenevolenceScorer
+from omni_mercury_engine.engine import OmniMercuryEngine
 
 
-def _engine(**kwargs):
-    from omni_mercury_engine.engine import OmniMercuryEngine
-
+def _engine(**kwargs: Any) -> OmniMercuryEngine:
     return OmniMercuryEngine(mode="fusion", device="cpu", require_explicit_fit=False, **kwargs)
 
 
@@ -35,6 +36,9 @@ def test_boundary_scorer_is_cached_by_default() -> None:
 
 def test_repeat_detection_hits_the_boundary_cache() -> None:
     engine = _engine()
+    # Default engine wraps the boundary scorer in the cache; narrow to it so the
+    # ``.stats`` counters below are on the concrete type, not the scorer union.
+    assert isinstance(engine._boundary_scorer, CachedBenevolenceScorer)
     rng = np.random.default_rng(0)
 
     # Two detections with the same data shape and domain produce an identical
