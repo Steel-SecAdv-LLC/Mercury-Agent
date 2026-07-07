@@ -82,6 +82,26 @@ def test_gdpr_report_attached_when_requested() -> None:
     assert top_factors, "expected non-empty top contributing factors"
 
 
+def test_gdpr_report_non_degenerate_without_background() -> None:
+    """Without a fit background the report uses a neutral (zero) baseline.
+
+    Using the instance as its own SHAP background would make every attribution
+    ~0. Falling back to a zero baseline keeps the report meaningful, so at least
+    one top factor must carry a non-zero contribution.
+    """
+    engine, x_pos = _fitted_engine()
+    engine._fusion_background = None  # force the no-background fallback
+
+    result = engine.detect_with_fusion(
+        x_pos[:1], domain="general", gdpr_report=True, subject_id="s"
+    )
+    report = result["gdpr_report"]
+    top_factors = report.get("top_factors") or report.get("explanation", {}).get("top_factors")
+    assert top_factors, "expected non-empty top factors even without a background"
+    contributions = [abs(float(f.get("contribution", 0.0))) for f in top_factors]
+    assert any(c > 1e-9 for c in contributions), "attributions collapsed to zero (degenerate)"
+
+
 def test_gdpr_report_absent_by_default() -> None:
     engine, x_pos = _fitted_engine()
     result = engine.detect_with_fusion(x_pos[:1], domain="general")

@@ -24,6 +24,7 @@ from __future__ import annotations
 import logging
 import time
 from abc import ABC, abstractmethod
+from collections import deque
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import Enum
@@ -124,14 +125,27 @@ class MemoryKnowledgeGraph:
     predictive analysis.
     """
 
-    def __init__(self) -> None:
-        """Initialize memory knowledge graph."""
+    #: Default cap on retained memory nodes. A long-running detection process
+    #: adds a node per observation, so the graph must be bounded or it grows
+    #: without limit; the oldest nodes are evicted FIFO once the cap is reached.
+    DEFAULT_MAX_NODES = 2000
+
+    def __init__(self, max_nodes: int = DEFAULT_MAX_NODES) -> None:
+        """Initialize memory knowledge graph.
+
+        Args:
+            max_nodes: Maximum number of memory nodes retained. When exceeded,
+                the oldest node (and its incident edges) is evicted FIFO so the
+                graph cannot grow without bound in a long-running process.
+        """
         if NETWORKX_AVAILABLE:
             self.graph = nx.DiGraph()
         else:
             self.nodes: dict[str, dict[str, Any]] = {}
             self.edges: list[tuple[str, str, dict[str, Any]]] = []
 
+        self._max_nodes = max(1, int(max_nodes))
+        self._node_order: deque[str] = deque()
         self._node_counter = 0
         self._edge_counter = 0
 
@@ -156,6 +170,7 @@ class MemoryKnowledgeGraph:
         node_id = f"mem_{memory_id}"
 
         if NETWORKX_AVAILABLE:
+            is_new = not self.graph.has_node(node_id)
             self.graph.add_node(
                 node_id,
                 memory_type=memory_type,
@@ -164,6 +179,7 @@ class MemoryKnowledgeGraph:
                 timestamp=time.time(),
             )
         else:
+            is_new = node_id not in self.nodes
             self.nodes[node_id] = {
                 "memory_type": memory_type,
                 "content": content,
@@ -171,8 +187,24 @@ class MemoryKnowledgeGraph:
                 "timestamp": time.time(),
             }
 
+        if is_new:
+            self._node_order.append(node_id)
         self._node_counter += 1
+        self._evict_if_over_capacity()
         return node_id
+
+    def _evict_if_over_capacity(self) -> None:
+        """Evict oldest nodes (and their incident edges) FIFO past ``max_nodes``."""
+        while len(self._node_order) > self._max_nodes:
+            oldest = self._node_order.popleft()
+            if NETWORKX_AVAILABLE:
+                if self.graph.has_node(oldest):
+                    self.graph.remove_node(oldest)  # also drops incident edges
+            else:
+                self.nodes.pop(oldest, None)
+                self.edges = [
+                    edge for edge in self.edges if edge[0] != oldest and edge[1] != oldest
+                ]
 
     def add_relationship(
         self,

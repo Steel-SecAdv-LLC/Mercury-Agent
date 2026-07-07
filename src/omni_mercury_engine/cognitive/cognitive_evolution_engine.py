@@ -148,8 +148,16 @@ class CuriosityEngine:
         variance = self._variance()
         if self._mean is None or variance is None:
             return self._WARMUP_NOVELTY, 0.0
-        std = np.sqrt(variance) + 1e-9
-        z = (x - self._mean) / std
+        std = np.sqrt(variance)
+        # Only dimensions with real variance can be standardized. A constant
+        # feature has std ~ 0; dividing by it would blow the whole score to 1.0
+        # on any deviation and let one degenerate dimension dominate. Such
+        # dimensions are excluded from the distance instead. If every dimension
+        # is constant, novelty is undetermined (neutral warm-up score).
+        valid = std > 1e-12
+        if not np.any(valid):
+            return self._WARMUP_NOVELTY, 0.0
+        z = (x[valid] - self._mean[valid]) / std[valid]
         distance = float(np.sqrt(np.mean(np.square(z))))
         novelty = float(1.0 - np.exp(-distance))
         return novelty, distance

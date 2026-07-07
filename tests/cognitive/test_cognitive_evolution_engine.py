@@ -82,6 +82,28 @@ def test_novelty_is_monotone_in_distance() -> None:
     assert far.novelty_score > near.novelty_score
 
 
+def test_constant_feature_does_not_peg_novelty() -> None:
+    """A zero-variance feature must not blow the score to 1.0 on every input.
+
+    Dividing a deviation by a ~0 std (a constant feature) would peg novelty at
+    1.0 for any observation; the constant dimension is excluded from the
+    distance instead, so in-distribution points score low and out-of-distribution
+    points in the *varying* feature are still flagged.
+    """
+    engine = CuriosityEngine()
+    rng = np.random.default_rng(0)
+    for _ in range(40):
+        # feature "a" varies, feature "b" is constant.
+        engine.explore("obs", {"a": float(rng.normal()), "b": 5.0})
+
+    typical = engine.explore("obs", {"a": 0.1, "b": 5.0})
+    assert np.isfinite(typical.standardized_distance)
+    assert typical.novelty_score < 0.7  # not pegged to 1.0 by the constant dim
+
+    outlier = engine.explore("obs", {"a": 20.0, "b": 5.0})
+    assert outlier.is_novel is True
+
+
 def test_non_numeric_input_yields_no_measured_novelty() -> None:
     engine = CuriosityEngine()
     result = engine.explore("obs", data=None)

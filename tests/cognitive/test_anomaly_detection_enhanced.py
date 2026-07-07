@@ -497,3 +497,33 @@ class TestIntegration:
         extraction_high = detector.extract_value(anomaly, ethical_score=0.995)
         assert extraction_high is not None
         assert extraction_high.is_benevolent is True
+
+
+class TestMemoryGraphEviction:
+    """The memory graph must be bounded so it cannot leak in a long-running run."""
+
+    def test_evicts_oldest_past_cap(self) -> None:
+        from omni_mercury_engine.cognitive.anomaly_detection_enhanced import (
+            MemoryKnowledgeGraph,
+        )
+
+        graph = MemoryKnowledgeGraph(max_nodes=10)
+        for i in range(25):
+            graph.add_memory_node(f"m{i}", "observation", {"i": i})
+
+        if hasattr(graph, "graph"):  # networkx path
+            assert graph.graph.number_of_nodes() == 10
+            assert not graph.graph.has_node("mem_m0")  # oldest evicted
+            assert graph.graph.has_node("mem_m24")  # newest retained
+        else:  # pure-dict fallback
+            assert len(graph.nodes) == 10
+            assert "mem_m0" not in graph.nodes
+            assert "mem_m24" in graph.nodes
+
+    def test_default_cap_is_bounded(self) -> None:
+        from omni_mercury_engine.cognitive.anomaly_detection_enhanced import (
+            MemoryKnowledgeGraph,
+        )
+
+        graph = MemoryKnowledgeGraph()
+        assert graph._max_nodes == MemoryKnowledgeGraph.DEFAULT_MAX_NODES

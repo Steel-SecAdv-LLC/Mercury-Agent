@@ -5140,7 +5140,14 @@ class OmniMercuryEngine(LoggerMixin):
         if self._fusion_background is not None and self._fusion_background.shape[0] > 0:
             background = self._fusion_background.mean(axis=0, keepdims=True)
         else:
-            background = np.atleast_2d(instance)
+            # No stored training background (engine used without a fit_fusion, or
+            # fit on non-2-D data). Using the instance as its own background
+            # would make every SHAP attribution ~0 -- the marginalisation
+            # baseline would equal the point being explained. Fall back to a
+            # zero-vector reference so attributions are measured against a
+            # neutral baseline (matching the IG path's zero baseline) and the
+            # report carries real signal rather than a degenerate all-zero one.
+            background = np.zeros((1, instance.shape[0]), dtype=np.float64)
         threshold = float(result.get("threshold_used") or result.get("threshold") or 0.5)
         explainer = MercuryExplainer(
             model=_fusion_predict,
