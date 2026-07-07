@@ -67,13 +67,13 @@ class TestAlignment:
         # member detector's name (not a generic "align"), so the
         # omni_detector_nonfinite_corrected metric/log names the misbehaving member.
         import omni_mercury_engine.detectors.detection_tier as tier
+        from omni_mercury_engine.detectors._calibration import finite_scores as real_finite_scores
 
         captured: list[str] = []
-        real = tier.finite_scores
 
         def spy(values: Any, **kwargs: Any) -> Any:
             captured.append(kwargs.get("detector", ""))
-            return real(values, **kwargs)
+            return real_finite_scores(values, **kwargs)
 
         monkeypatch.setattr(tier, "finite_scores", spy)
         x, _ = _labelled_series()
