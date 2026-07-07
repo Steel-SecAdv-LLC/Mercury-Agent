@@ -129,14 +129,17 @@ flowchart TD
     subgraph ingest[Ingestion]
         S[Streaming / batch series]
     end
+    BF["🛡 bound_finite<br/>input sanitisation (±FINITE_CAP)"]
     subgraph tier[Detector tier · 18 detectors]
-        D1[Temporal / streaming]
-        D2[State-space / tracking]
-        D3[Probabilistic]
-        D4[Generative]
-        D5[Neuromorphic]
-        D6[Systems-level]
+        D1["Temporal / streaming<br/>spectral_residual · srcnn · bocpd · hawkes"]
+        D2["State-space / tracking<br/>particle_filter · imm"]
+        DT["Digital twin<br/>observed − simulated residual"]
+        D3["Probabilistic<br/>spot_evt · gaussian_process · survival"]
+        D4["Generative<br/>energy_based · deep_svdd · diffusion_ad"]
+        D5["Neuromorphic<br/>echo_state · spiking"]
+        D6["Systems-level<br/>rca · deeplog · frequent_pattern"]
     end
+    FG["🛡 finite_scores / align_point_scores<br/>finite [0,1] guarantee"]
     R[DetectorRegistry<br/>auto-discovery + parallel extraction]
     subgraph fuse[detection_tier · StreamingScoreEnsemble]
         MB[Per-point score matrix]
@@ -152,14 +155,27 @@ flowchart TD
     RCA[RootCauseGraphDetector<br/>ranked attribution]
     ALERT[Decision layer → CAP alert]
     OBS[core.metrics · Prometheus / OTel]
+    FEAT[Feature store<br/>store_tier_features + provenance]
 
-    S --> tier --> R --> MB
+    S --> BF --> tier --> FG --> R --> MB
     MB --> ST & BMA & AVG --> CAL --> fpc
     fpc --> ALERT
     R --> RCA --> ALERT
+    FG -.finite features.-> FEAT
     R -.instrument.-> OBS
     CAL -.instrument.-> OBS
 ```
+
+The 🛡 nodes are the **hardening boundary** added by the robustness pass (see
+[Robustness & hardening](#robustness--hardening)): `bound_finite` neutralises
+non-finite / overflow-prone input before any detector math, and
+`finite_scores` / `align_point_scores` guarantee finite `[0, 1]` scores (and
+`finite_features` finite fusion features) before anything reaches the ensemble,
+the calibration/FPR layer, the feature store, alerting, or observability — so no
+single bad sample or misbehaving member can produce a `NaN` that propagates
+downstream. The **Digital twin** node is `digital_twin.py` wired as a
+simulation-residual detector (observed-vs-simulated divergence of an identified
+AR forward model), feeding the ensemble like any other member.
 
 The tier wires into **existing** Mercury infrastructure rather than duplicating
 it: the registry, the logistic meta-learner and Bayesian Model Averaging in
@@ -278,6 +294,43 @@ so the detector stays healthy.
 | `frequent_pattern` | `detect` batch narrower than the training vocabulary → `IndexError` | skip rules referencing out-of-range columns |
 | `detection_tier.align_point_scores` | passed a member's `NaN` straight into the calibrated combiner | finite-guard every member column (defence in depth) |
 | `benchmarks/…_crop_to_anomaly` | midpoint crop of a multi-window series could retain zero anomalies → the labelled NAB series was silently dropped | re-centre on the first anomaly so ≥1 anomaly is always retained |
+
+### Cross-detector comparison
+
+The tier is deliberately *complementary*: each paradigm is strong on a different
+anomaly shape and blind to others, which is exactly why the calibrated ensemble
+beats every single member. The table pairs each detector's characteristic
+strength with the failure mode this pass hardened (empty/short-window handling,
+non-finite robustness, or a correctness fix) and its post-hardening coverage.
+
+| Detector | Best at detecting | Characteristic blind spot | Robustness hardened this pass | Cov. |
+|---|---|---|---|---:|
+| `spectral_residual` | short salient spikes (training-free) | slow drift; smooth level shifts | inf→NaN scores; empty `fit`/`detect` | 98% |
+| `srcnn` *(torch)* | learned spike saliency vs. augmented normal | needs the ML extra; retraining cost | shares the bounded input sanitiser | — |
+| `bocpd` | abrupt distributional change points | gradual drift; sub-run-length bursts | **run-length fold off-by-one**; inf input | 99% |
+| `hawkes` | self-exciting bursts / event-rate clustering | isolated point outliers | `fit`-poisoning by inf; empty input | 97% |
+| `particle_filter` | one-step innovation on nonlinear dynamics | slow regime drift within process noise | `fit`-poisoning (obs-std→inf); empty | 98% |
+| `imm` | regime *switches* (quiet ↔ manoeuvring) | anomalies inside a single mode | Kalman overflow→NaN; empty input | 97% |
+| `digital_twin` | observed-vs-simulated divergence | model-plant mismatch masking anomalies | **singular Gram on constant/large series**; empty | 96% |
+| `spot_evt` | tail exceedances with a bounded FPR budget | sub-threshold shape anomalies | **non-idempotent `detect`**; inf tail poisoning | 91% |
+| `gaussian_process` | smooth-function residual w/ calibrated variance | multi-modal / non-stationary kernels | inf→NaN via GP solve; empty input | 99% |
+| `survival` | inter-event-time stalls / bursts | amplitude anomalies at constant rate | inf→NaN via cumsum; empty input | 99% |
+| `energy_based` | off-manifold windows (free energy) | in-distribution but rare patterns | short/empty embed crash; 1-row `NaN` precision | 97% |
+| `deep_svdd` | distance-to-hypersphere on embeddings | anomalies inside the learned sphere | short/empty embed crash; 1-row `NaN` radius | 95% |
+| `diffusion_ad` *(torch)* | reconstruction error under a DDPM | needs the ML extra; retraining cost | shares the bounded input sanitiser | — |
+| `echo_state` | reservoir predictive residual | very long-horizon dependencies | `fit`-poisoning (mean/std→inf); empty | 96% |
+| `spiking` | spike-rate divergence from the normal regime | sub-threshold gradual change | **unfitted-`detect` crash**; `fit`-poisoning | 95% |
+| `rca` | *where* a multivariate anomaly originated | needs a fixed causal/service graph | empty batch crash; unfitted crash; node mismatch | 88% |
+| `deeplog_sequence` | anomalous log/template sequences | numeric-only streams | output finite guard (no confirmed defect) | — |
+| `frequent_pattern` | rule / co-occurrence violations in traces | continuous-valued signals | **narrower-batch `IndexError`**; empty `fit` | 96% |
+
+**Ensemble improvement (already measured on real NAB, 29 series):** the
+unsupervised `average` ensemble reaches ROC-AUC **0.613** (median 0.617), edging
+the best single member (`echo_state`, 0.610) — the complementarity lift the tier
+is designed for. See [Validation & benchmarks](#validation--benchmarks) for the
+full per-member table and the honest note on the supervised combiners. Coverage
+column is from the tier robustness suite (`_calibration.py` is at 100%); torch
+members and `deeplog_sequence` are not exercised in the pure-NumPy lane.
 
 ## Validation & benchmarks
 
