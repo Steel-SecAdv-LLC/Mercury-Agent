@@ -119,7 +119,7 @@ class RandomSampler(Sampler):
         n_samples: int = 1,
     ) -> list[dict[str, Any]]:
         """Sample random configurations."""
-        return [search_space.sample() for _ in range(n_samples)]
+        return [search_space.sample(self._rng) for _ in range(n_samples)]
 
     def tell(
         self,
@@ -167,7 +167,7 @@ class TPESampler(Sampler):
     ) -> list[dict[str, Any]]:
         """Sample configurations using TPE."""
         if len(self._observations) < self._n_startup:
-            return [search_space.sample() for _ in range(n_samples)]
+            return [search_space.sample(self._rng) for _ in range(n_samples)]
 
         configs = []
         for _ in range(n_samples):
@@ -191,7 +191,7 @@ class TPESampler(Sampler):
             above_values = [c.get(name) for c in above_configs if name in c]
 
             if not below_values or not above_values:
-                config[name] = param.sample()
+                config[name] = param.sample(self._rng)
                 continue
 
             config[name] = self._sample_param_tpe(param, below_values, above_values)
@@ -209,7 +209,7 @@ class TPESampler(Sampler):
         ei_values = []
 
         for _ in range(self._n_ei_candidates):
-            candidate = param.sample()
+            candidate = param.sample(self._rng)
             candidates.append(candidate)
 
             l_below = self._parzen_estimator(candidate, below_values, param)
@@ -309,7 +309,7 @@ class GaussianProcessSampler(Sampler):
         self._param_names = list(search_space.parameters.keys())
 
         if len(self._X) < self._n_startup:
-            return [search_space.sample() for _ in range(n_samples)]
+            return [search_space.sample(self._rng) for _ in range(n_samples)]
 
         configs = []
         for _ in range(n_samples):
@@ -329,7 +329,7 @@ class GaussianProcessSampler(Sampler):
 
         candidates = []
         for _ in range(self._n_candidates):
-            config = search_space.sample()
+            config = search_space.sample(self._rng)
             x = self._config_to_vector(config)
             candidates.append((config, x))
 
@@ -346,7 +346,7 @@ class GaussianProcessSampler(Sampler):
                 best_ei = ei
                 best_config = config
 
-        return best_config if best_config else search_space.sample()
+        return best_config if best_config else search_space.sample(self._rng)
 
     def _config_to_vector(self, config: dict[str, Any]) -> np.ndarray[Any, Any]:
         """Convert config to numerical vector."""
