@@ -98,9 +98,17 @@ class TestConcurrency:
         exp_a = np.asarray(det.detect(a)["scores"])
         exp_b = np.asarray(det.detect(b)["scores"])
         out: dict[str, np.ndarray] = {}
+        errors: list[Exception] = []
 
         def work(key: str, data: np.ndarray) -> None:
-            out[key] = np.asarray(det.detect(data)["scores"])
+            # Collect any raise (as test_parallel_detect_no_corruption does) so a
+            # concurrency regression that surfaces as an exception in one thread
+            # fails the test instead of being silently dropped -- otherwise the
+            # test can pass as long as some thread happens to write each key.
+            try:
+                out[key] = np.asarray(det.detect(data)["scores"])
+            except Exception as exc:
+                errors.append(exc)
 
         threads = []
         for _ in range(4):
@@ -110,5 +118,6 @@ class TestConcurrency:
             t.start()
         for t in threads:
             t.join()
+        assert not errors, f"concurrent detect raised: {errors}"
         assert np.array_equal(out["a"], exp_a)
         assert np.array_equal(out["b"], exp_b)

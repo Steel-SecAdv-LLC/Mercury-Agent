@@ -39,6 +39,7 @@ from omni_mercury_engine.detectors.detection_config import (
     DEFAULT_MAX_MAGNITUDE,
     NaNPolicy,
     NonFinitePolicyError,
+    active_max_magnitude,
     active_nan_policy,
     record_nonfinite_correction,
 )
@@ -75,7 +76,11 @@ LN2 = float(np.log(2.0))
 #: Unified with the NaN-policy layer: this *is*
 #: ``detection_config.DEFAULT_MAX_MAGNITUDE`` (same ``1e100`` literal, defined in
 #: one place), so ``bound_finite`` and ``apply_nan_policy`` share one magnitude
-#: regime.
+#: regime. It is the *default* cap: :func:`bound_finite` resolves the effective cap
+#: from ``OMNI_DETECTOR_MAX_MAGNITUDE`` (via
+#: :func:`~omni_mercury_engine.detectors.detection_config.active_max_magnitude`) and
+#: falls back to this constant, so an operator can tighten input sanitisation
+#: without editing code.
 FINITE_CAP = DEFAULT_MAX_MAGNITUDE
 
 
@@ -91,34 +96,47 @@ def bound_finite(
     *,
     detector: str = "tier",
     policy: NaNPolicy | str | None = None,
+    max_magnitude: float | None = None,
 ) -> np.ndarray[Any, Any]:
-    """Map NaN→0 and ``±inf``/out-of-range magnitudes to ``±FINITE_CAP`` (observably).
+    """Map NaN→0 and ``±inf``/out-of-range magnitudes to ``±max_magnitude`` (observably).
 
     The overflow-safe replacement for ``np.nan_to_num`` the tier detectors use for
     input sanitisation. A bare ``np.nan_to_num`` maps ``±inf`` to ``±1.7977e308``;
     that near-max-float value overflows to ``inf`` the moment it is squared or
     summed inside a detector, and the subsequent ``inf - inf`` produces ``NaN`` —
     corrupting the score or, at ``fit`` time, permanently poisoning the detector's
-    calibration statistics. Bounding into ``[-FINITE_CAP, FINITE_CAP]`` makes that
-    impossible while leaving realistic, in-range data unchanged.
+    calibration statistics. Bounding into ``[-max_magnitude, max_magnitude]`` makes
+    that impossible while leaving realistic, in-range data unchanged.
 
-    This is now the tier's configurable, *observable* NaN/Inf guard: every
-    correction it makes is metered on ``omni_detector_nonfinite_corrected`` and
-    logged (see :func:`~omni_mercury_engine.detectors.detection_config.record_nonfinite_correction`),
+    This is the tier's configurable, *observable* NaN/Inf guard: every correction
+    it makes is metered on ``omni_detector_nonfinite_corrected`` and logged (see
+    :func:`~omni_mercury_engine.detectors.detection_config.record_nonfinite_correction`),
     and the active policy (``OMNI_DETECTOR_NAN_POLICY``, or the explicit ``policy``
     argument) selects the behaviour: ``neutral`` (default, the historical mapping),
     ``impute``, ``flag``, or ``raise`` (fail closed on any non-finite value). On
-    finite input it is a no-op with no metric/log emitted, so behaviour on
-    ordinary data is unchanged.
+    finite input within the cap it is a no-op with no metric/log emitted, so
+    behaviour on ordinary data is unchanged.
+
+    The magnitude cap is **configurable** and honours the same knob the rest of the
+    tier documents: when ``max_magnitude`` is ``None`` (the usual detector call) it
+    resolves from ``OMNI_DETECTOR_MAX_MAGNITUDE`` via
+    :func:`~omni_mercury_engine.detectors.detection_config.active_max_magnitude`
+    (default :data:`FINITE_CAP`), so lowering that env var actually tightens input
+    sanitisation instead of being silently ignored. A caller holding a resolved
+    :class:`~omni_mercury_engine.detectors.detection_config.DetectionConfig` (e.g.
+    one built from a config file or a per-detector ``config`` dict) may pass
+    ``max_magnitude=cfg.max_magnitude`` to apply that layered value directly.
 
     Args:
         arr: An already-``np.asarray``'d numeric array.
         detector: Detector name for the metric ``detector`` label / log.
         policy: Override the active NaN policy for this call (``None`` = resolve
             from the environment).
+        max_magnitude: Explicit magnitude cap for this call (``None`` = resolve
+            from ``OMNI_DETECTOR_MAX_MAGNITUDE`` / :data:`FINITE_CAP`).
 
     Returns:
-        The same-shaped array with every element finite and ``|x| <= FINITE_CAP``.
+        The same-shaped array with every element finite and ``|x| <= max_magnitude``.
 
     Raises:
         NonFinitePolicyError: If the active policy is ``raise`` and ``arr`` has a
@@ -127,12 +145,13 @@ def bound_finite(
     from omni_mercury_engine.detectors.detection_config import apply_nan_policy
 
     resolved = policy if policy is not None else active_nan_policy()
+    cap = active_max_magnitude() if max_magnitude is None else float(max_magnitude)
     sanitized, _ = apply_nan_policy(
         arr,
         policy=resolved,
         detector=detector,
         field="input",
-        max_magnitude=FINITE_CAP,
+        max_magnitude=cap,
     )
     return sanitized
 

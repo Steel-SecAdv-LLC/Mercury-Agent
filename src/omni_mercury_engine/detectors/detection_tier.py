@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import logging
 from collections import deque
+from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -296,11 +297,15 @@ def align_point_scores(
         ``(n_points,)`` float64 scores in ``[0, 1]``.
     """
     arr = _to_1d_series(series)
+    # Attribute any non-finite correction to the *member* that produced it (not a
+    # generic "align" label), so ``omni_detector_nonfinite_corrected`` and the
+    # structured log name the misbehaving detector and stay actionable.
+    member = getattr(detector, "name", "align")
     result = detector.detect(arr)
     raw = result.get("scores")
     if raw is None:
         fallback = float(result.get("anomaly_score", result.get("anomaly_prob", 0.0)))
-        return finite_scores(np.full(arr.size, fallback, dtype=np.float64), detector="align")
+        return finite_scores(np.full(arr.size, fallback, dtype=np.float64), detector=member)
     scores = np.asarray(raw, dtype=np.float64).ravel()
     if scores.size == 0:
         return np.zeros(arr.size, dtype=np.float64)
@@ -312,7 +317,7 @@ def align_point_scores(
     # would otherwise poison the ensemble mean / stacking / BMA and crash
     # calibrate_scores' np.histogram. finite_scores guarantees a finite [0, 1]
     # column regardless of member behaviour.
-    return finite_scores(scores, detector="align")
+    return finite_scores(scores, detector=member)
 
 
 class StreamingScoreEnsemble:
@@ -397,7 +402,10 @@ class StreamingScoreEnsemble:
 
         Raises:
             ValueError: If ``detectors`` is empty, ``method`` / ``calibration`` is
-                unknown, or ``consensus_quantile`` is out of ``(0, 1]``.
+                unknown, ``consensus_quantile`` is out of ``(0, 1]``, or an
+                explicit ``warmup`` fails the same validation as
+                ``DetectionConfig.ensemble_warmup`` (bool, a float outside
+                ``(0, 1]``, or an int ``< 2``).
         """
         if not detectors:
             raise ValueError("StreamingScoreEnsemble needs at least one detector")
@@ -416,7 +424,15 @@ class StreamingScoreEnsemble:
         self.detectors = dict(detectors)
         self.method = method
         self.calibration = resolved_calibration
-        self.warmup = cfg.ensemble_warmup if warmup is None else warmup
+        # An explicitly-passed ``warmup`` must clear the *same* validation
+        # ``DetectionConfig.ensemble_warmup`` enforces (reject bool, require a float
+        # in (0, 1] or an int >= 2), so the constructor argument cannot smuggle in a
+        # value the config layer would refuse. Re-validate by round-tripping through
+        # the frozen dataclass, which raises ValueError with the identical message.
+        if warmup is None:
+            self.warmup = cfg.ensemble_warmup
+        else:
+            self.warmup = replace(cfg, ensemble_warmup=warmup).ensemble_warmup
         self.consensus_quantile = float(consensus_quantile)
         self.contamination = float(contamination)
         self.seed = int(seed)

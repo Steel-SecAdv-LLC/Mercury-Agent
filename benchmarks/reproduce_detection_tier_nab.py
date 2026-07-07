@@ -1,6 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Reproducible real-NAB run + before/after analysis for the detector tier.
+r"""Reproducible real-NAB run + before/after analysis for the detector tier.
 
 This is the committed reproduction harness for the detector-tier hardening PR. It
 runs :func:`benchmarks.detection_tier_benchmark.run_realdata_benchmark` on the

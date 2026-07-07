@@ -101,12 +101,14 @@ class TestGuardStructuredLogs:
             )
         records = [r for r in caplog.records if getattr(r, "detector", None) == "log_det"]
         assert records, "expected a structured warning for the correction"
+        # ``extra=`` fields land in ``LogRecord.__dict__`` (not typed attributes),
+        # so read them there -- consistent with the ``remediation`` check below.
         rec = records[-1]
-        assert rec.field == "scores"
-        assert rec.policy == "neutral"
-        assert rec.n_corrected == 3
-        assert rec.n_nan == 1
-        assert rec.n_inf == 2
+        assert rec.__dict__["field"] == "scores"
+        assert rec.__dict__["policy"] == "neutral"
+        assert rec.__dict__["n_corrected"] == 3
+        assert rec.__dict__["n_nan"] == 1
+        assert rec.__dict__["n_inf"] == 2
         assert "remediation" in rec.__dict__
 
     def test_scalar_guard_logs_structured(self, caplog: pytest.LogCaptureFixture) -> None:
@@ -116,8 +118,8 @@ class TestGuardStructuredLogs:
             guard_finite_scalar(float("inf"), detector="log_det", field="z_q", max_magnitude=1e6)
         records = [r for r in caplog.records if getattr(r, "detector", None) == "log_det"]
         assert records
-        assert records[-1].field == "z_q"
-        assert records[-1].n_inf == 1
+        assert records[-1].__dict__["field"] == "z_q"
+        assert records[-1].__dict__["n_inf"] == 1
 
 
 @pytest.mark.skipif(not is_prometheus_available(), reason="prometheus_client not installed")

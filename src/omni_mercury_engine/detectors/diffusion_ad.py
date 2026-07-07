@@ -136,13 +136,15 @@ class DiffusionReconstructionDetector(BaseDetector):
         """Return ``True`` once the denoiser has been trained."""
         return self._is_fitted
 
-    @staticmethod
-    def _to_1d(data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
+    def _to_1d(self, data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
         """Coerce numpy/torch input to a finite 1-D float64 series."""
         detach = getattr(data, "detach", None)
         if callable(detach):
             data = detach().cpu().numpy()
-        arr = bound_finite(np.asarray(data, dtype=np.float64)).ravel()
+        # Label non-finite corrections with this detector's name so the
+        # ``omni_detector_nonfinite_corrected`` metric/log attributes them here
+        # rather than to the generic "tier" default.
+        arr = bound_finite(np.asarray(data, dtype=np.float64), detector=self.name).ravel()
         if arr.size == 0:
             raise ValueError("input series is empty")
         return arr

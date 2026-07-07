@@ -81,9 +81,12 @@ logger = logging.getLogger(__name__)
 __all__ = [
     "DEFAULT_MAX_MAGNITUDE",
     "DEFAULT_RIDGE_FACTOR",
+    "MAX_MAGNITUDE_ENV",
+    "NAN_POLICY_ENV",
     "DetectionConfig",
     "NaNPolicy",
     "NonFinitePolicyError",
+    "active_max_magnitude",
     "active_nan_policy",
     "apply_nan_policy",
     "guard_finite_scalar",
@@ -109,6 +112,15 @@ DEFAULT_RIDGE_FACTOR: float = 1e-6
 
 #: Environment variable holding an optional YAML/JSON config-file path.
 CONFIG_PATH_ENV: str = "OMNI_DETECTION_CONFIG"
+
+#: Environment variable selecting the active NaN/Inf policy (see :class:`NaNPolicy`).
+#: Read on the guards' hot path by :func:`active_nan_policy`.
+NAN_POLICY_ENV: str = "OMNI_DETECTOR_NAN_POLICY"
+
+#: Environment variable overriding the tier's magnitude cap. Read on the guards'
+#: hot path by :func:`active_max_magnitude` so the shared ``_calibration``
+#: input sanitiser honours it without constructing a full :class:`DetectionConfig`.
+MAX_MAGNITUDE_ENV: str = "OMNI_DETECTOR_MAX_MAGNITUDE"
 
 
 class NaNPolicy(StrEnum):
@@ -226,10 +238,8 @@ class DetectionConfig:
         """
         base = base or cls()
         return cls(
-            nan_policy=NaNPolicy.coerce(
-                os.getenv("OMNI_DETECTOR_NAN_POLICY", base.nan_policy.value)
-            ),
-            max_magnitude=_env_float("OMNI_DETECTOR_MAX_MAGNITUDE", base.max_magnitude),
+            nan_policy=NaNPolicy.coerce(os.getenv(NAN_POLICY_ENV, base.nan_policy.value)),
+            max_magnitude=_env_float(MAX_MAGNITUDE_ENV, base.max_magnitude),
             ridge_factor=_env_float("OMNI_DETECTOR_RIDGE_FACTOR", base.ridge_factor),
             ensemble_calibration=os.getenv("OMNI_ENSEMBLE_CALIBRATION", base.ensemble_calibration),
             ensemble_warmup=_env_warmup("OMNI_ENSEMBLE_WARMUP", base.ensemble_warmup),
@@ -377,7 +387,54 @@ def active_nan_policy() -> NaNPolicy:
     operator's configured policy without constructing a full
     :class:`DetectionConfig` on every call.
     """
-    return NaNPolicy.coerce(os.getenv("OMNI_DETECTOR_NAN_POLICY", NaNPolicy.NEUTRAL.value))
+    return NaNPolicy.coerce(os.getenv(NAN_POLICY_ENV, NaNPolicy.NEUTRAL.value))
+
+
+def active_max_magnitude() -> float:
+    """The tier's active magnitude cap from the environment.
+
+    The magnitude-regime counterpart to :func:`active_nan_policy`: reads
+    ``OMNI_DETECTOR_MAX_MAGNITUDE`` (:data:`MAX_MAGNITUDE_ENV`, default
+    :data:`DEFAULT_MAX_MAGNITUDE`) directly so the shared ``_calibration`` input
+    sanitiser (:func:`~omni_mercury_engine.detectors._calibration.bound_finite`)
+    honours the operator's configured cap on its hot path *without* constructing a
+    full :class:`DetectionConfig` on every call. Before this existed the cap was
+    hard-coded, so the documented ``OMNI_DETECTOR_MAX_MAGNITUDE`` knob (already
+    read by :meth:`DetectionConfig.from_env`) had no effect on the tier's main
+    input guard.
+
+    An unset/blank value returns the default. A non-numeric, non-positive, or
+    non-finite value is rejected the same way :meth:`DetectionConfig.__post_init__`
+    validates ``max_magnitude`` -- logged once and treated as the default -- so the
+    hot-path read can never install a cap the dataclass would refuse (``0``,
+    negative, ``nan``, ``inf``), keeping the two views of the knob consistent.
+    Like :func:`active_nan_policy`, this resolves the *environment* knob; config
+    *file* / per-detector ``config``-dict layering flows through a full
+    :class:`DetectionConfig` (whose ``max_magnitude`` a caller may pass to
+    ``bound_finite`` explicitly).
+    """
+    raw = os.getenv(MAX_MAGNITUDE_ENV)
+    if raw is None or not raw.strip():
+        return DEFAULT_MAX_MAGNITUDE
+    try:
+        value = float(raw)
+    except ValueError:
+        logger.warning(
+            "ignoring non-numeric %s=%r; using default %s",
+            MAX_MAGNITUDE_ENV,
+            raw,
+            DEFAULT_MAX_MAGNITUDE,
+        )
+        return DEFAULT_MAX_MAGNITUDE
+    if not (value > 0.0) or not np.isfinite(value):
+        logger.warning(
+            "ignoring non-positive/non-finite %s=%r; using default %s",
+            MAX_MAGNITUDE_ENV,
+            raw,
+            DEFAULT_MAX_MAGNITUDE,
+        )
+        return DEFAULT_MAX_MAGNITUDE
+    return value
 
 
 def record_nonfinite_correction(

@@ -21,6 +21,7 @@ from omni_mercury_engine.detectors._calibration import (
     finite_scores,
     squash_scale,
 )
+from omni_mercury_engine.detectors.detection_config import active_max_magnitude
 
 
 def _legacy_squash_scale(raw: np.ndarray, calibration_quantile: float) -> float:
@@ -139,6 +140,48 @@ class TestBoundFinite:
         arr = np.array([[np.inf, 1.0], [np.nan, -np.inf]])
         out = bound_finite(arr)
         assert out.shape == (2, 2) and np.all(np.isfinite(out))
+
+
+class TestBoundFiniteConfigurableCap:
+    """The input cap honours ``OMNI_DETECTOR_MAX_MAGNITUDE``.
+
+    Regression for the hard-coded ``FINITE_CAP``: the documented
+    ``OMNI_DETECTOR_MAX_MAGNITUDE`` / ``DetectionConfig.max_magnitude`` knob had no
+    effect on the tier's main input guard. ``bound_finite`` now resolves the cap
+    from :func:`active_max_magnitude` (env, default ``FINITE_CAP``) with an explicit
+    per-call override.
+    """
+
+    def test_default_cap_is_finite_cap(self) -> None:
+        assert active_max_magnitude() == FINITE_CAP
+
+    def test_env_lowers_the_input_cap(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("OMNI_DETECTOR_MAX_MAGNITUDE", "100")
+        out = bound_finite(np.array([50.0, 500.0, -9999.0, np.inf, -np.inf]))
+        assert out.tolist() == [50.0, 100.0, -100.0, 100.0, -100.0]
+
+    def test_finite_in_range_unchanged_under_env_cap(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("OMNI_DETECTOR_MAX_MAGNITUDE", "1e6")
+        arr = np.array([1.0, -2.0, 1e5])
+        assert np.array_equal(bound_finite(arr.copy()), arr)
+
+    @pytest.mark.parametrize("bad", ["0", "-5", "nan", "inf", "abc", ""])
+    def test_invalid_env_falls_back_to_default(
+        self, bad: str, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Mirrors DetectionConfig.max_magnitude validation: a value the dataclass
+        # would reject must not become an active cap via the hot-path read.
+        monkeypatch.setenv("OMNI_DETECTOR_MAX_MAGNITUDE", bad)
+        assert active_max_magnitude() == FINITE_CAP
+
+    def test_explicit_override_beats_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # A caller holding a resolved DetectionConfig (config file / per-detector
+        # dict) can pass max_magnitude directly; it wins over the env read.
+        monkeypatch.setenv("OMNI_DETECTOR_MAX_MAGNITUDE", "10")
+        out = bound_finite(np.array([1e6, 1e12]), max_magnitude=1e9)
+        assert out.tolist() == [1e6, 1e9]
 
 
 class TestFiniteFeatures:

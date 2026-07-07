@@ -11,6 +11,7 @@ overrides precedence) and the four NaN policies (``neutral`` / ``impute`` /
 from __future__ import annotations
 
 import json
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pytest
@@ -24,6 +25,9 @@ from omni_mercury_engine.detectors.detection_config import (
     apply_nan_policy,
     guard_finite_scalar,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class TestNaNPolicyEnum:
@@ -89,7 +93,7 @@ class TestConfigResolution:
         assert cfg.nan_policy is NaNPolicy.FLAG
         assert cfg.ridge_factor == 5e-4
 
-    def test_config_file_layering(self, tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_config_file_layering(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         path = tmp_path / "detection.json"
         path.write_text(json.dumps({"nan_policy": "raise", "max_magnitude": 42.0}))
         # File sets the values; env then overrides just the policy.
@@ -98,7 +102,7 @@ class TestConfigResolution:
         assert cfg.nan_policy is NaNPolicy.IMPUTE  # env wins over file
         assert cfg.max_magnitude == 42.0  # file wins over default
 
-    def test_config_file_detection_section(self, tmp_path) -> None:
+    def test_config_file_detection_section(self, tmp_path: Path) -> None:
         path = tmp_path / "detection.yaml"
         path.write_text("detection:\n  nan_policy: flag\n  ridge_factor: 0.01\n")
         cfg = DetectionConfig.from_file(str(path))
@@ -113,11 +117,11 @@ class TestConfigResolution:
         monkeypatch.setenv("OMNI_ENSEMBLE_WARMUP", "not-a-number")
         assert DetectionConfig.resolve().ensemble_warmup is None
 
-    def test_missing_config_file_uses_defaults(self, tmp_path) -> None:
+    def test_missing_config_file_uses_defaults(self, tmp_path: Path) -> None:
         cfg = DetectionConfig.from_file(str(tmp_path / "does-not-exist.yaml"))
         assert cfg == DetectionConfig()
 
-    def test_config_file_non_mapping_raises(self, tmp_path) -> None:
+    def test_config_file_non_mapping_raises(self, tmp_path: Path) -> None:
         path = tmp_path / "bad.json"
         path.write_text("[1, 2, 3]")
         with pytest.raises(ValueError, match="must contain a mapping"):
@@ -129,7 +133,10 @@ class TestConfigResolution:
         assert cfg.merge(None) is cfg
 
     def test_to_dict_roundtrips(self) -> None:
-        cfg = DetectionConfig(nan_policy="impute", ensemble_warmup=100)
+        # ``nan_policy`` accepts a raw string (coerced in ``__post_init__``); the
+        # ``type: ignore`` documents that we are intentionally exercising that
+        # string path, mirroring ``test_invalid_warmup_type_raises`` above.
+        cfg = DetectionConfig(nan_policy="impute", ensemble_warmup=100)  # type: ignore[arg-type]
         d = cfg.to_dict()
         assert d["nan_policy"] == "impute"
         assert d["ensemble_warmup"] == 100

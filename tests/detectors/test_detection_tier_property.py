@@ -15,6 +15,8 @@ magnitude regime are supposed to guarantee regardless of input.
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pytest
 
@@ -44,7 +46,7 @@ _train = hnp.arrays(
 )
 
 
-def _assert_scores_contract(result: dict) -> None:
+def _assert_scores_contract(result: dict[str, Any]) -> None:
     scores = np.asarray(result["scores"], dtype=np.float64)
     assert np.all(np.isfinite(scores)), "score vector must be finite"
     assert np.all(scores >= 0.0) and np.all(scores <= 1.0), "scores must be in [0, 1]"
@@ -52,7 +54,7 @@ def _assert_scores_contract(result: dict) -> None:
     assert np.isfinite(anomaly) and 0.0 <= anomaly <= 1.0
 
 
-def _assert_metadata_finite(result: dict) -> None:
+def _assert_metadata_finite(result: dict[str, Any]) -> None:
     for key, value in result.get("metadata", {}).items():
         if isinstance(value, (int, float)) and not isinstance(value, bool):
             assert np.isfinite(value), f"metadata field {key!r} must be finite"

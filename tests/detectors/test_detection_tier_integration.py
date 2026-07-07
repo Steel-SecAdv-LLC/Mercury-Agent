@@ -62,6 +62,29 @@ class TestAlignment:
         assert scores.shape == (x.shape[0],)
         assert float(scores.min()) >= 0.0 and float(scores.max()) <= 1.0
 
+    def test_align_attributes_finite_guard_to_member(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Regression: the defence-in-depth finite guard must be labelled with the
+        # member detector's name (not a generic "align"), so the
+        # omni_detector_nonfinite_corrected metric/log names the misbehaving member.
+        import omni_mercury_engine.detectors.detection_tier as tier
+
+        captured: list[str] = []
+        real = tier.finite_scores
+
+        def spy(values: Any, **kwargs: Any) -> Any:
+            captured.append(kwargs.get("detector", ""))
+            return real(values, **kwargs)
+
+        monkeypatch.setattr(tier, "finite_scores", spy)
+        x, _ = _labelled_series()
+        det = build_tier_detectors(["spectral_residual"])["spectral_residual"].fit(x)
+        align_point_scores(det, x)
+        assert captured, "finite_scores was not exercised by align_point_scores"
+        assert all(name == det.name for name in captured)
+        assert "align" not in captured
+
 
 class TestEnsemble:
     _MEMBERS = ["spectral_residual", "bocpd", "gaussian_process", "particle_filter"]
@@ -107,6 +130,21 @@ class TestEnsemble:
     def test_empty_detectors(self) -> None:
         with pytest.raises(ValueError):
             StreamingScoreEnsemble({}, method="average")
+
+    def test_explicit_warmup_validated_like_config(self) -> None:
+        # Regression: an explicit ``warmup`` constructor arg must clear the same
+        # validation as ``DetectionConfig.ensemble_warmup`` (reject bool, a float
+        # outside (0, 1], or an int < 2) instead of bypassing it.
+        det = build_tier_detectors(["bocpd"])
+        for bad in (True, 1, 1.5, 0.0, -0.2):
+            with pytest.raises(ValueError):
+                StreamingScoreEnsemble(det, method="average", warmup=bad)
+
+    def test_valid_warmup_accepted(self) -> None:
+        det = build_tier_detectors(["bocpd"])
+        for good in (2, 50, 0.25, 1.0):
+            ens = StreamingScoreEnsemble(det, method="average", warmup=good)
+            assert ens.warmup == good
 
 
 class TestConformal:

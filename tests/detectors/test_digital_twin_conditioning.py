@@ -64,6 +64,7 @@ class TestNearSingular:
         x = rng.normal(size=400)
         series = x + 1e-9 * np.arange(400)
         det = DigitalTwinResidualDetector(order=3).fit(series)
+        assert det._coef is not None  # populated by fit()
         assert float(np.linalg.norm(det._coef)) < 1e3, "coefficients must stay bounded"
         _finite_bounded(det, series)
 
@@ -75,6 +76,7 @@ class TestMagnitudeScaling:
         det = DigitalTwinResidualDetector(order=4).fit(big)
         # A fixed absolute ridge (1e-6) would be numerically negligible here; the
         # scale-relative ridge keeps coefficients well-conditioned and bounded.
+        assert det._coef is not None  # populated by fit()
         assert float(np.linalg.norm(det._coef)) < 10.0
         _finite_bounded(det, big)
 
@@ -94,6 +96,7 @@ class TestMagnitudeScaling:
         norms = []
         for scale in (1e-6, 1.0, 1e3, 1e9):
             det = DigitalTwinResidualDetector(order=3).fit(signal * scale)
+            assert det._coef is not None  # populated by fit()
             assert np.all(np.isfinite(det._coef))
             norms.append(float(np.linalg.norm(det._coef)))
         # All coefficient norms stay in a tight, bounded band regardless of scale.
