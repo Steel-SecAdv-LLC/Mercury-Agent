@@ -144,6 +144,19 @@ class TestEnsemble:
             ens = StreamingScoreEnsemble(det, method="average", warmup=good)
             assert ens.warmup == good
 
+    def test_resolve_warmup_never_exceeds_series_length(self) -> None:
+        # Regression: max(2, min(n, ...)) applied the floor after the cap, so a
+        # degenerate n < 2 series got warmup 2 (> n), violating the documented cap.
+        det = build_tier_detectors(["bocpd"])
+        for warm in (2, 50, 0.5, 1.0):
+            ens = StreamingScoreEnsemble(det, method="average", warmup=warm)
+            for n in range(0, 6):
+                assert ens._resolve_warmup(n) <= n
+        # ... while the n >= 2 result is unchanged (>= the 2-point floor).
+        ens2 = StreamingScoreEnsemble(det, method="average", warmup=50)
+        assert ens2._resolve_warmup(10) == 10
+        assert ens2._resolve_warmup(3) == 3
+
 
 class TestConformal:
     def test_bounds_false_positive_rate(self) -> None:

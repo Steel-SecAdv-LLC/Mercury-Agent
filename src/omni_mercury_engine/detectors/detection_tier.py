@@ -539,13 +539,20 @@ class StreamingScoreEnsemble:
         return self
 
     def _resolve_warmup(self, n: int) -> int:
-        """Resolve the calibrator warm-up length for a training series of ``n`` points."""
+        """Resolve the calibrator warm-up length for a training series of ``n`` points.
+
+        Never exceeds ``n`` (the ``min(n, ...)`` is applied *last*): the calibrators
+        want at least 2 points, but that floor cannot override the hard cap at the
+        available series length, so a degenerate ``n < 2`` series yields ``n`` rather
+        than a warm-up window longer than the data. Identical to a plain
+        ``max(2, ...)`` for every ``n >= 2``.
+        """
         warm = self.warmup
         if warm is None:
             return n
         if isinstance(warm, float):
-            return max(2, min(n, round(warm * n)))
-        return max(2, min(n, int(warm)))
+            return min(n, max(2, round(warm * n)))
+        return min(n, max(2, int(warm)))
 
     def _make_calibrator(
         self, column: np.ndarray[Any, Any], labels: np.ndarray[Any, Any] | None
