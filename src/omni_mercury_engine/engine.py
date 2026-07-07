@@ -1510,6 +1510,126 @@ class OmniMercuryEngine(LoggerMixin):
 
         return metrics
 
+    def tune_fusion(
+        self,
+        X: np.ndarray[Any, Any],
+        y: np.ndarray[Any, Any],
+        *,
+        n_trials: int = 20,
+        tuning_epochs: int = 10,
+        sampler: str = "tpe",
+        scheduler: str | None = None,
+        seed: int | None = None,
+        validation_split: float = 0.25,
+        search_space: Any = None,
+    ) -> dict[str, Any]:
+        """Bayesian hyperparameter search over ``fit_fusion``, max held-out AUC.
+
+        Runs Mercury's own :class:`~omni_mercury_engine.automl.BayesianOptimizer`
+        over the real ``fit_fusion`` training hyperparameters, scoring each trial
+        by the ROC-AUC of the calibrated ``score_fusion`` probability on a
+        held-out split (Mercury's own ``evaluation.metrics.compute_auc_roc``).
+        The engine is left fit on the *full* ``(X, y)`` with the best
+        configuration when the search finds one.
+
+        Args:
+            X: Raw training features, shape ``(n_samples, n_features)``.
+            y: Binary labels (both classes required to score AUC).
+            n_trials: Number of hyperparameter configurations to evaluate.
+            tuning_epochs: Epochs per trial's ``fit_fusion`` (kept small so the
+                search is affordable); the final refit uses the same value.
+            sampler: ``"tpe"``, ``"gp"`` or ``"random"``.
+            scheduler: Optional ``"asha"``/``"hyperband"``/``"median"`` pruner;
+                ``None`` (default) evaluates every trial.
+            seed: Seed for the split and the sampler.
+            validation_split: Fraction held out for AUC scoring.
+            search_space: Optional custom
+                :class:`~omni_mercury_engine.automl.SearchSpace`; the default
+                spans learning rate, batch size, focal loss params, early-stopping
+                patience and symbolic weight.
+
+        Returns:
+            ``{"best_config", "best_auc", "n_trials", "convergence_history"}``.
+
+        Raises:
+            ValueError: If ``X`` is not 2-D with >= 4 samples, labels mismatch,
+                or ``y`` does not contain both classes.
+        """
+        from omni_mercury_engine.automl import (
+            BayesianOptimizer,
+            CategoricalParameter,
+            IntUniformParameter,
+            LogUniformParameter,
+            SearchSpace,
+            UniformParameter,
+        )
+        from omni_mercury_engine.evaluation.metrics import compute_auc_roc
+
+        X = np.asarray(X, dtype=np.float64)
+        y = np.asarray(y)
+        if X.ndim != 2 or X.shape[0] < 4:
+            raise ValueError("tune_fusion requires a 2-D X with at least 4 samples")
+        if len(y) != len(X):
+            raise ValueError(f"label count ({len(y)}) != sample count ({len(X)})")
+        if len(np.unique(y)) < 2:
+            raise ValueError("tune_fusion needs both classes present in y to score AUC")
+
+        rng = np.random.default_rng(seed)
+        order = rng.permutation(len(X))
+        n_val = max(2, int(round(validation_split * len(X))))
+        val_idx, train_idx = order[:n_val], order[n_val:]
+        x_train, y_train = X[train_idx], y[train_idx]
+        x_val, y_val = X[val_idx], y[val_idx]
+
+        if search_space is None:
+            search_space = (
+                SearchSpace()
+                .add(LogUniformParameter("learning_rate", 1e-5, 1e-1))
+                .add(CategoricalParameter("batch_size", [16, 32, 64, 128]))
+                .add(UniformParameter("focal_alpha", 0.5, 0.95))
+                .add(UniformParameter("focal_gamma", 0.0, 3.0))
+                .add(IntUniformParameter("early_stopping_patience", 3, 15))
+                .add(UniformParameter("symbolic_weight", 0.0, 0.5))
+            )
+
+        def _coerce(config: dict[str, Any]) -> dict[str, Any]:
+            return {
+                "learning_rate": float(config["learning_rate"]),
+                "batch_size": int(config["batch_size"]),
+                "focal_alpha": float(config["focal_alpha"]),
+                "focal_gamma": float(config["focal_gamma"]),
+                "early_stopping_patience": int(config["early_stopping_patience"]),
+                "symbolic_weight": float(config["symbolic_weight"]),
+            }
+
+        def objective(config: dict[str, Any]) -> float:
+            self.fit_fusion(x_train, y_train, epochs=tuning_epochs, **_coerce(config))
+            scores = np.asarray(self.score_fusion(x_val), dtype=np.float64).reshape(-1)
+            # Minimise negative AUC -> maximise held-out ranking quality.
+            return -float(compute_auc_roc(y_val, scores))
+
+        optimizer = BayesianOptimizer(
+            search_space=search_space,
+            objective=objective,
+            sampler=sampler,
+            scheduler=scheduler,
+            direction="minimize",
+            n_trials=n_trials,
+            seed=seed,
+        )
+        result = optimizer.optimize()
+
+        best_config = _coerce(result.best_config) if result.best_config else {}
+        if best_config:
+            self.fit_fusion(X, y, epochs=tuning_epochs, **best_config)
+
+        return {
+            "best_config": best_config,
+            "best_auc": -float(result.best_metric) if result.best_config else None,
+            "n_trials": result.n_trials,
+            "convergence_history": [-float(m) for m in result.convergence_history],
+        }
+
     def _fit_fusion_on_features(
         self,
         detector_features: dict[str, torch.Tensor],
