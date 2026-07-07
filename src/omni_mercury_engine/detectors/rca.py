@@ -25,6 +25,12 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from omni_mercury_engine.core.base import BaseDetector
+from omni_mercury_engine.detectors._calibration import (
+    bound_finite_config,
+    finite_features,
+    finite_scores,
+    squash_scale,
+)
 
 if TYPE_CHECKING:
     import torch
@@ -96,13 +102,12 @@ class RootCauseGraphDetector(BaseDetector):
         """Return ``True`` once :meth:`fit` has learned node baselines/scale."""
         return self._is_fitted
 
-    @staticmethod
-    def _to_2d_f64(data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
-        """Coerce numpy/torch input to a finite 2-D ``(rows, nodes)`` array."""
+    def _to_2d_f64(self, data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
+        """Coerce numpy/torch input to a finite 2-D ``(rows, nodes)`` array (NaN policy applied)."""
         detach = getattr(data, "detach", None)
         if callable(detach):
             data = detach().cpu().numpy()
-        arr = np.nan_to_num(np.asarray(data, dtype=np.float64))
+        arr = bound_finite_config(self, np.asarray(data, dtype=np.float64))
         if arr.ndim == 1:
             arr = arr.reshape(1, -1)
         elif arr.ndim > 2:
@@ -111,15 +116,30 @@ class RootCauseGraphDetector(BaseDetector):
 
     def _squash_scale(self, raw: np.ndarray[Any, Any]) -> float:
         """Squash scale anchoring the ``calibration_quantile`` at score 0.5."""
-        q = float(np.quantile(raw, self.calibration_quantile))
-        if q < 1e-9:
-            q = float(np.mean(raw)) + 1e-9
-        return max(q / _LN2, 1e-9)
+        return squash_scale(raw, self.calibration_quantile)
 
     def _residuals(self, rows: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Per-node standardised residuals ``|x - μ| / σ`` for each row."""
-        assert self._node_mean is not None and self._node_std is not None
-        return np.abs(rows - self._node_mean) / self._node_std
+        """Per-node standardised residuals ``|x - μ| / σ`` for each row.
+
+        Before :meth:`fit` there are no learned baselines; rather than assert
+        (which made ``detect()``'s own unfitted branches unreachable), fall back
+        to standardising the batch against its own per-node mean/std — matching
+        the graceful detect-before-fit behaviour of the sibling detectors.
+        """
+        if self._node_mean is None or self._node_std is None:
+            mean = rows.mean(axis=0)
+            std = rows.std(axis=0) + 1e-9
+        else:
+            if rows.ndim == 2 and rows.shape[1] != self._node_mean.shape[0]:
+                # The graph (and its adjacency) is fixed at fit time, so a
+                # different node count is structurally invalid. Fail with a clear
+                # message rather than a cryptic NumPy broadcast error.
+                raise ValueError(
+                    f"input has {rows.shape[1]} nodes but the detector was fitted on "
+                    f"{self._node_mean.shape[0]}; the node count must match the graph"
+                )
+            mean, std = self._node_mean, self._node_std
+        return np.abs(rows - mean) / std
 
     def _walk(self, residual_row: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Reverse personalised random walk seeded by a residual vector.
@@ -143,6 +163,12 @@ class RootCauseGraphDetector(BaseDetector):
 
     def _peak_residuals(self, rows: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Peak per-node standardised residual for each row."""
+        if rows.shape[0] == 0 or rows.shape[1] == 0:
+            # No rows, or no nodes: an empty input coerces to ``(n, 0)`` / ``(0, n)``
+            # and ``resid.max(axis=1)`` would raise on the size-0 node axis (and
+            # ``_residuals`` would warn on the empty mean/std). Degrade to neutral
+            # (zero) residuals so fit / detect / extract_features cope.
+            return np.zeros(rows.shape[0], dtype=np.float64)
         resid = self._residuals(rows)
         return resid.max(axis=1)
 
@@ -163,7 +189,11 @@ class RootCauseGraphDetector(BaseDetector):
             # Infer a causal graph from absolute training correlations
             # (thresholded, self-loops removed) when none was supplied.
             if rows.shape[0] >= 2 and n_nodes > 1:
-                corr = np.abs(np.corrcoef(rows, rowvar=False))
+                # A zero-variance (constant) node makes corrcoef divide by zero;
+                # nan_to_num rescues the resulting NaN/Inf to 0 (no edge), so
+                # silence the expected warning rather than let it leak.
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    corr = np.abs(np.corrcoef(rows, rowvar=False))
                 corr = np.nan_to_num(corr)
                 np.fill_diagonal(corr, 0.0)
                 corr[corr < 0.3] = 0.0
@@ -187,7 +217,7 @@ class RootCauseGraphDetector(BaseDetector):
             ``(n_rows, 1)`` float32 peak residuals.
         """
         raw = self._peak_residuals(self._to_2d_f64(data))
-        return raw.astype(np.float32).reshape(-1, 1)
+        return finite_features(raw, detector=self.name).reshape(-1, 1)
 
     def rank_root_causes(
         self, data: np.ndarray[Any, Any] | torch.Tensor
@@ -201,6 +231,17 @@ class RootCauseGraphDetector(BaseDetector):
             ``(node_index, attribution)`` pairs sorted by descending attribution.
         """
         rows = self._to_2d_f64(data)
+        if rows.shape[0] == 0 or rows.shape[1] == 0:
+            # No final row, or no nodes to localise.
+            return []
+        if self._adjacency is None:
+            # Inferred-graph mode: the causal graph is built at fit time, so the
+            # random walk has no adjacency to traverse before fit. Fail with a
+            # clear message instead of a bare ``assert`` deep inside ``_walk``.
+            raise RuntimeError(
+                "RootCauseGraphDetector must be fit before rank_root_causes when no "
+                "adjacency is supplied (the causal graph is inferred at fit time)"
+            )
         resid = self._residuals(rows)[-1]
         attribution = self._walk(resid)
         order = np.argsort(attribution)[::-1]
@@ -216,7 +257,7 @@ class RootCauseGraphDetector(BaseDetector):
         rows = self._to_2d_f64(data)
         raw = self._peak_residuals(rows)
         scale = self._scale if self._is_fitted else self._squash_scale(raw)
-        scores = np.clip(1.0 - np.exp(-raw / scale), 0.0, 1.0).astype(np.float32)
+        scores = finite_scores(1.0 - np.exp(-raw / scale), detector=self.name).astype(np.float32)
         ranked = self.rank_root_causes(rows) if self._is_fitted else []
         return {
             "anomaly_score": float(scores.max()) if scores.size else 0.0,

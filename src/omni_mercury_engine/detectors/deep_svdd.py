@@ -24,6 +24,12 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from omni_mercury_engine.core.base import BaseDetector
+from omni_mercury_engine.detectors._calibration import (
+    bound_finite_config,
+    finite_features,
+    finite_scores,
+    squash_scale,
+)
 
 if TYPE_CHECKING:
     import torch
@@ -105,29 +111,31 @@ class DeepSVDDDetector(BaseDetector):
         """Return ``True`` once :meth:`fit` has set the centre/radius/scale."""
         return self._is_fitted
 
-    @staticmethod
-    def _to_1d_f64(data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
+    def _to_1d_f64(self, data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
         """Coerce numpy/torch input to a finite 1-D float64 series."""
         detach = getattr(data, "detach", None)
         if callable(detach):
             data = detach().cpu().numpy()
-        return np.nan_to_num(np.asarray(data, dtype=np.float64)).ravel()
+        return bound_finite_config(self, np.asarray(data, dtype=np.float64)).ravel()
 
     def _squash_scale(self, raw: np.ndarray[Any, Any]) -> float:
         """Squash scale anchoring the ``calibration_quantile`` at score 0.5."""
-        q = float(np.quantile(raw, self.calibration_quantile))
-        if q < 1e-9:
-            q = float(np.mean(raw)) + 1e-9
-        return max(q / _LN2, 1e-9)
+        return squash_scale(raw, self.calibration_quantile)
 
     def _embed(self, series: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Causal delay embedding: row ``t`` = ``[y_{t-m+1}, ..., y_t]``."""
         m = self.embed_dim
         n = series.size
-        u = (series - self._data_mean) / self._data_std
         emb = np.zeros((n, m), dtype=np.float64)
+        if n == 0:
+            return emb
+        u = (series - self._data_mean) / self._data_std
         for i in range(m):
-            emb[i:, m - 1 - i] = u[: n - i]
+            # Guard the lag-``i`` fill for series shorter than the embed
+            # dimension (``i >= n`` leaves an empty target slice); warm-up rows
+            # are edge-padded with the first sample below.
+            if i < n:
+                emb[i:, m - 1 - i] = u[: n - i]
             emb[:i, m - 1 - i] = u[0]
         return emb
 
@@ -173,13 +181,26 @@ class DeepSVDDDetector(BaseDetector):
         self._omega = rng.normal(0.0, 1.0 / self.bandwidth, (self.embed_dim, self.n_features))
         self._phase = rng.normal(0.0, 1.0, self.n_features)
 
-        phi = self._features(self._embed(series))
+        emb = self._embed(series)
+        if emb.shape[0] == 0:
+            # No samples to fit on: leave the detector inert (``_distances``
+            # returns zeros when ``_center``/``_precision`` are ``None``).
+            self._center = None
+            self._precision = None
+            self._radius = 0.0
+            self._scale = 1.0
+            self._is_fitted = True
+            return self
+        phi = self._features(emb)
         self._center = np.mean(phi, axis=0)
         # Fit the ellipsoidal metric on the first 70% of points and calibrate the
         # radius/scale on the held-out 30% so the threshold is unbiased.
         n = phi.shape[0]
         split = max(1, int(0.7 * n)) if n >= 4 else n
         cov = np.atleast_2d(np.cov(phi[:split], rowvar=False))
+        # A single calibration row makes ``np.cov`` (ddof=1) return NaN; fall back
+        # to a zero covariance so the ridge term yields a finite precision.
+        cov = np.nan_to_num(cov)
         diag = np.diag(np.diag(cov))
         cov = (1.0 - self.shrinkage) * cov + self.shrinkage * diag
         self._precision = np.linalg.inv(cov + self.ridge * np.eye(self.n_features))
@@ -200,7 +221,7 @@ class DeepSVDDDetector(BaseDetector):
             ``(n_samples, 1)`` float32 distances.
         """
         raw = self._distances(self._to_1d_f64(data))
-        return raw.astype(np.float32).reshape(-1, 1)
+        return finite_features(raw, detector=self.name).reshape(-1, 1)
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Per-sample anomaly scores in ``[0, 1]`` from centre distance.
@@ -210,7 +231,7 @@ class DeepSVDDDetector(BaseDetector):
         """
         raw = self._distances(self._to_1d_f64(data))
         scale = self._scale if self._is_fitted else self._squash_scale(raw)
-        scores = np.clip(1.0 - np.exp(-raw / scale), 0.0, 1.0).astype(np.float32)
+        scores = finite_scores(1.0 - np.exp(-raw / scale), detector=self.name).astype(np.float32)
         return {
             "anomaly_score": float(scores.max()) if scores.size else 0.0,
             "scores": scores,

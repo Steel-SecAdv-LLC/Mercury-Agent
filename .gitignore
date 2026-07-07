@@ -173,8 +173,9 @@ runs/
 .DS_Store
 Thumbs.db
 
-# Downloaded benchmark dataset cache (ADBench, etc.)
+# Downloaded benchmark dataset cache (ADBench, NAB, etc.)
 cache/
+.nab_cache/
 
 # Harm-gate durable audit sinks (runtime, not committed)
 artifacts/audit/

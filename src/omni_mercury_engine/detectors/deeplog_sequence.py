@@ -28,6 +28,11 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from omni_mercury_engine.core.base import BaseDetector
+from omni_mercury_engine.detectors._calibration import (
+    bound_finite_config,
+    finite_features,
+    finite_scores,
+)
 
 if TYPE_CHECKING:
     import torch
@@ -84,14 +89,21 @@ class DeepLogSequenceDetector(BaseDetector):
         """Return ``True`` once :meth:`fit` has accumulated counts."""
         return self._is_fitted
 
-    @staticmethod
-    def _to_1d_int(data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
-        """Coerce numpy/torch input to a finite 1-D non-negative int sequence."""
+    def _to_1d_int(self, data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
+        """Coerce numpy/torch input to a finite 1-D int sequence."""
         detach = getattr(data, "detach", None)
         if callable(detach):
             data = detach().cpu().numpy()
-        arr = np.nan_to_num(np.asarray(data)).ravel()
-        return np.rint(arr).astype(np.int64)
+        # Use the tier's overflow-safe guard, not a bare ``np.nan_to_num`` (whose
+        # ``+inf -> 1.7977e308`` sentinel would overflow the int64 cast below to an
+        # implementation-defined garbage key). Clip to +-2**53 before casting: even
+        # the bounded ``+-1e100`` exceeds int64, and ``float(int64_max)`` rounds up
+        # to 2**63 (out of range, so its cast wraps to INT64_MIN). 2**53 is the
+        # largest exactly-representable float64 integer bound, far above any real
+        # log-template vocabulary, so no legitimate key is clipped.
+        arr = bound_finite_config(self, np.asarray(data, dtype=np.float64)).ravel()
+        key_cap = 2.0**53
+        return np.clip(np.rint(arr), -key_cap, key_cap).astype(np.int64)
 
     def _prob_and_rank(self, context: tuple[int, ...], key: int) -> tuple[float, int]:
         """Back-off ``P(key | context)`` and the rank of ``key`` among next keys.
@@ -172,7 +184,7 @@ class DeepLogSequenceDetector(BaseDetector):
             ``(n_keys, 1)`` float32 surprisals.
         """
         surp, _, _ = self._eval(self._to_1d_int(data))
-        return surp.astype(np.float32).reshape(-1, 1)
+        return finite_features(surp, detector=self.name).reshape(-1, 1)
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Per-position anomaly scores in ``[0, 1]`` from next-key miss probability.
@@ -186,7 +198,14 @@ class DeepLogSequenceDetector(BaseDetector):
         """
         seq = self._to_1d_int(data)
         _, probs, flags = self._eval(seq)
-        scores = np.clip(1.0 - probs, 0.0, 1.0).astype(np.float32)
+        if self._is_fitted:
+            scores = finite_scores(1.0 - probs, detector=self.name).astype(np.float32)
+        else:
+            # Unfitted: ``_eval`` returns probs=0 (no learned model), and the
+            # ``1 - probs`` miss-probability would score every position as maximally
+            # anomalous. Degrade to neutral instead -- the tier's conservative
+            # contract never fabricates an alert from an unfitted detector.
+            scores = np.zeros(seq.size, dtype=np.float32)
         return {
             "anomaly_score": float(scores.max()) if scores.size else 0.0,
             "scores": scores,

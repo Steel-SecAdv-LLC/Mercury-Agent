@@ -22,6 +22,7 @@ fully functional, tested, and measurable state — see
 - [Ensemble & uncertainty](#ensemble--uncertainty)
 - [False-positive control (EVT + conformal)](#false-positive-control-evt--conformal)
 - [Root-cause analysis & attribution](#root-cause-analysis--attribution)
+- [Robustness & hardening](#robustness--hardening)
 - [Validation & benchmarks](#validation--benchmarks)
 - [Scope](#scope)
 - [File map](#file-map)
@@ -128,14 +129,17 @@ flowchart TD
     subgraph ingest[Ingestion]
         S[Streaming / batch series]
     end
+    BF["🛡 bound_finite<br/>input sanitisation (±FINITE_CAP)"]
     subgraph tier[Detector tier · 18 detectors]
-        D1[Temporal / streaming]
-        D2[State-space / tracking]
-        D3[Probabilistic]
-        D4[Generative]
-        D5[Neuromorphic]
-        D6[Systems-level]
+        D1["Temporal / streaming<br/>spectral_residual · srcnn · bocpd · hawkes"]
+        D2["State-space / tracking<br/>particle_filter · imm"]
+        DT["Digital twin<br/>observed − simulated residual"]
+        D3["Probabilistic<br/>spot_evt · gaussian_process · survival"]
+        D4["Generative<br/>energy_based · deep_svdd · diffusion_ad"]
+        D5["Neuromorphic<br/>echo_state · spiking"]
+        D6["Systems-level<br/>rca · deeplog · frequent_pattern"]
     end
+    FG["🛡 finite_scores / align_point_scores<br/>finite [0,1] guarantee"]
     R[DetectorRegistry<br/>auto-discovery + parallel extraction]
     subgraph fuse[detection_tier · StreamingScoreEnsemble]
         MB[Per-point score matrix]
@@ -151,14 +155,27 @@ flowchart TD
     RCA[RootCauseGraphDetector<br/>ranked attribution]
     ALERT[Decision layer → CAP alert]
     OBS[core.metrics · Prometheus / OTel]
+    FEAT[Feature store<br/>store_tier_features + provenance]
 
-    S --> tier --> R --> MB
+    S --> BF --> tier --> FG --> R --> MB
     MB --> ST & BMA & AVG --> CAL --> fpc
     fpc --> ALERT
     R --> RCA --> ALERT
+    FG -.finite features.-> FEAT
     R -.instrument.-> OBS
     CAL -.instrument.-> OBS
 ```
+
+The 🛡 nodes are the **hardening boundary** added by the robustness pass (see
+[Robustness & hardening](#robustness--hardening)): `bound_finite` neutralises
+non-finite / overflow-prone input before any detector math, and
+`finite_scores` / `align_point_scores` guarantee finite `[0, 1]` scores (and
+`finite_features` finite fusion features) before anything reaches the ensemble,
+the calibration/FPR layer, the feature store, alerting, or observability — so no
+single bad sample or misbehaving member can produce a `NaN` that propagates
+downstream. The **Digital twin** node is `digital_twin.py` wired as a
+simulation-residual detector (observed-vs-simulated divergence of an identified
+AR forward model), feeding the ensemble like any other member.
 
 The tier wires into **existing** Mercury infrastructure rather than duplicating
 it: the registry, the logistic meta-learner and Bayesian Model Averaging in
@@ -169,21 +186,39 @@ path via `decision/bridge.py`. The integration seam is
 
 ## Ensemble & uncertainty
 
-`detection_tier.StreamingScoreEnsemble` combines several detectors' per-point
-scores into one calibrated stream:
+Per-detector score *ranges* are incomparable (one detector lives in `[0.4, 0.6]`,
+another in `[0, 1]`), so `detection_tier.StreamingScoreEnsemble` first **calibrates
+each detector's score column** through a per-detector calibrator fitted on a
+warm-up window (`OMNI_ENSEMBLE_CALIBRATION`, default `rank`):
 
-- **Stacking** — a logistic meta-learner
-  (`mercury_ml.LogisticRegression`) is trained on point labels over the
-  per-detector score matrix (stacked generalisation, Wolpert 1992). Output is a
-  calibrated per-point probability.
+- `rank` / `ecdf` — the empirical-CDF transform (label-free): a score becomes the
+  fraction of warm-up reference scores at or below it (uniform on `[0, 1]` under
+  the reference). The default.
+- `isotonic` / `platt` — supervised monotone maps (isotonic regression / logistic
+  scaling) from score → `P(anomaly)` trained on the warm-up labels; they fall back
+  to `ecdf` when the warm-up is single-class or unlabelled, so calibration never
+  fails closed.
+- `none` — disable per-detector calibration.
+
+It then combines the *calibrated* columns by one of:
+
+- **Consensus** — a label-free robust high quantile (default 0.9,
+  `consensus_quantile`) of the calibrated columns: "a point most detectors rank
+  in their tail". Unlike a plain mean it is not dragged toward 0.5 by
+  uninformative members, so it is the recommended unsupervised combiner and the
+  one that beats the best single detector on real NAB (a plain mean of anomaly
+  scores is dominated by robust rank aggregation — Aggarwal & Sathe, *Outlier
+  Ensembles*, 2017).
+- **Stacking** — a logistic meta-learner (`mercury_ml.LogisticRegression`) trained
+  on point labels over the *calibrated* score matrix (stacked generalisation,
+  Wolpert 1992).
 - **Bayesian Model Averaging** — per-detector BIC posterior weights (with
-  bootstrap weight uncertainty exposed via `bma_weights()`), for a label-aware
-  weighted combination that reflects each detector's evidence.
-- **Average** — the label-free score mean as a baseline.
+  bootstrap weight uncertainty exposed via `bma_weights()`).
+- **Average** — the label-free mean of the calibrated columns, kept as a baseline.
 
-Ensemble-level uncertainty is exposed per point as cross-detector disagreement
-(`ensemble_uncertainty()`), suitable as an attention prior for the neural fusion
-network or as a gate on automated response.
+Ensemble-level uncertainty is exposed per point as cross-detector disagreement on
+the calibrated scale (`ensemble_uncertainty()`), suitable as an attention prior
+for the neural fusion network or as a gate on automated response.
 
 ## False-positive control (EVT + conformal)
 
@@ -232,7 +267,124 @@ Concrete entry points that connect the tier to the surrounding runtime (all in
 - **Observability** — `core.metrics.record_detector_score(name, score)` feeds the
   per-detector `omni_detector_score` histogram (bucketed over `[0, 1]`) alongside
   the existing latency/success series; `TierStreamingScorer` emits it
-  automatically on the streaming path.
+  automatically on the streaming path. Every non-finite guard also increments the
+  `omni_detector_nonfinite_corrected{detector,policy,field}` counter and emits a
+  structured log — a rising rate means upstream data or an internal computation is
+  emitting NaN/Inf the tier is silently rescuing.
+
+## Robustness & hardening
+
+The tier was put through an **adversarial audit** — an empirical prober per
+detector (feeding empty, single-point, sub-window, constant, large-magnitude,
+`NaN` and `±inf` inputs, plus `fit`-time poisoning, plus a math-vs-reference
+review) with every finding independently reproduced and verified. It surfaced
+**35 confirmed defects**; all are fixed at the root with regression tests
+(`tests/detectors/test_detector_robustness.py`), and detector scores on ordinary
+finite data are **byte-identical before and after** the hardening — so the NAB
+numbers below are unchanged and only the pathological paths behave differently.
+
+**The contract, enforced.** For *any* input a detector must return per-sample
+scores that are finite and in `[0, 1]` and a finite scalar `anomaly_score`, and
+must never crash on an empty/short window. Three shared, unit-tested primitives
+in `detectors/_calibration.py` enforce this once instead of in fourteen
+copy-pasted places:
+
+| Helper | Guarantee | Defect it removes |
+|---|---|---|
+| `bound_finite(arr)` | input bounded to `±1e100`, finite | `np.nan_to_num`'s `±1.8e308` sentinel overflowed downstream (FFT/covariance/Gram/cumsum) into `NaN`, corrupting `detect` scores and *poisoning* `fit`-time statistics. `1e100` is ~60+ orders above any real signal, so realistic data is never clipped; its square stays well within float64 range. |
+| `squash_scale(raw, q)` | empty-safe, non-finite-filtered `scale ≥ 1e-9` | `np.quantile` on a zero-length array crashed `fit([])` / unfitted `detect([])`. |
+| `finite_scores` / `finite_features` | finite `[0,1]` scores / finite `float32` features | `np.clip` does **not** scrub `NaN`, so an internally-produced `NaN` escaped to the ensemble, the Prometheus histogram, and alerting. |
+
+**Why input-bounding, not just an output guard.** A `NaN` produced at `fit`
+time (from the overflow sentinel) becomes a `NaN` calibration scale, after which
+*every* subsequent `detect` on clean data returns `NaN` (or, once clipped, all
+zeros) — a silently-disabled detector. An output guard alone cannot recover that;
+bounding the input at the source keeps `fit`-time mean/variance/covariance finite
+so the detector stays healthy.
+
+**Detector-specific corrections** (each root-caused, each with a test):
+
+| Detector / seam | Defect | Fix |
+|---|---|---|
+| `bocpd` | run-length truncation fold double-counted `growth[cap-2]` and dropped the boundary message `growth[cap-1]`, inflating the change-point score once a run hit `max_run_length` | fold `growth[cap-1]`; dormant at the shipped default, corrected for small caps |
+| `spot_evt` | `detect`/`extract_features` mutated the fitted tail → non-idempotent, model contaminated by scored data | snapshot/restore the online tail state (within-batch DSPOT adaptation & per-call scores unchanged) |
+| `digital_twin` | constant / large-magnitude series → `LinAlgError('Singular matrix')` | `lstsq` fallback only when the exact `solve` is singular (normal data unchanged) |
+| `energy_based`, `deep_svdd` | delay-embedding crashed on empty / sub-`embed_dim` series; single-row split → `NaN` precision | guard the embed fill for short/empty input; `nan_to_num` the degenerate covariance |
+| `rca` | empty batch crashed; `detect`-before-`fit` asserted; node-count mismatch gave a cryptic broadcast error | empty→`[]`; unfitted self-standardises; clear `ValueError` on mismatch |
+| `spiking` | `detect`-before-`fit` asserted (dead unfitted branch) | build the LIF population lazily |
+| `frequent_pattern` | `detect` batch narrower than the training vocabulary → `IndexError` | skip rules referencing out-of-range columns |
+| `detection_tier.align_point_scores` | passed a member's `NaN` straight into the calibrated combiner | finite-guard every member column (defence in depth) |
+| `benchmarks/…_crop_to_anomaly` | midpoint crop of a multi-window series could retain zero anomalies → the labelled NAB series was silently dropped | re-centre on the first anomaly so ≥1 anomaly is always retained |
+
+### Second pass: configurable policy, observability, and superseding fixes
+
+A follow-up pass makes the guards above **configurable and observable**, and
+replaces two first-pass stopgaps with stronger fixes. See
+`docs/DETECTION_TIER_HARDENING.md` for the process note + reproducible checklist.
+
+- **Explicit NaN policy (`detectors/detection_config.py`).** `bound_finite` /
+  `finite_scores` / `finite_features` are now the observable face of one named,
+  configurable policy — `neutral` (default, byte-identical to the first pass),
+  `impute`, `flag`, or `raise` (fail closed) — selected by
+  `OMNI_DETECTOR_NAN_POLICY` / a config file / a detector's `config` dict. The
+  magnitude regime is unified on one constant: `DEFAULT_MAX_MAGNITUDE` *is*
+  `_calibration.FINITE_CAP` (`1e100`). SPOT's `z_q`/`gamma` metadata are guarded
+  by the same finite checks as scores.
+- **Observability.** Every correction any guard makes increments the
+  `omni_detector_nonfinite_corrected{detector,policy,field}` Prometheus counter
+  and emits a structured `logger.warning` (detector, field, NaN/Inf counts,
+  remediation). A rising rate is a data-quality signal — the tier is silently
+  rescuing NaN/Inf under the default policy — not a benign event.
+- **digital-twin — scale-relative Tikhonov ridge (supersedes the `lstsq` fallback).**
+  `λ = max(ridge_factor · tr(G)/d, ridge)` ties the ridge to the Gram matrix's
+  mean eigenvalue, keeping the regularised matrix SPD across ≥15 orders of
+  magnitude — so the `lstsq`-on-singular fallback is no longer needed.
+  `OMNI_DETECTOR_RIDGE_FACTOR` (default `1e-6`).
+- **SPOT — true purity (supersedes snapshot/restore).** `_tail_probability` /
+  `_threshold_from_tail` are pure functions of explicit local state and
+  `_stream_scores` evolves the tail on local copies, so `detect()` mutates nothing
+  on the instance: idempotent **and** safe under concurrent calls, no
+  snapshot/restore of instance state.
+- **`_crop_to_anomaly` — max-retention (supersedes first-anomaly re-centre).** The
+  crop keeps the window retaining the *most* anomalies (prefix-sum sliding window),
+  centred among ties so a 50/50 split still straddles them.
+
+### Cross-detector comparison
+
+The tier is deliberately *complementary*: each paradigm is strong on a different
+anomaly shape and blind to others, which is exactly why the calibrated ensemble
+beats every single member. The table pairs each detector's characteristic
+strength with the failure mode this pass hardened (empty/short-window handling,
+non-finite robustness, or a correctness fix) and its post-hardening coverage.
+
+| Detector | Best at detecting | Characteristic blind spot | Robustness hardened this pass | Cov. |
+|---|---|---|---|---:|
+| `spectral_residual` | short salient spikes (training-free) | slow drift; smooth level shifts | inf→NaN scores; empty `fit`/`detect` | 98% |
+| `srcnn` *(torch)* | learned spike saliency vs. augmented normal | needs the ML extra; retraining cost | shares the bounded input sanitiser | — |
+| `bocpd` | abrupt distributional change points | gradual drift; sub-run-length bursts | **run-length fold off-by-one**; inf input | 99% |
+| `hawkes` | self-exciting bursts / event-rate clustering | isolated point outliers | `fit`-poisoning by inf; empty input | 97% |
+| `particle_filter` | one-step innovation on nonlinear dynamics | slow regime drift within process noise | `fit`-poisoning (obs-std→inf); empty | 98% |
+| `imm` | regime *switches* (quiet ↔ manoeuvring) | anomalies inside a single mode | Kalman overflow→NaN; empty input | 97% |
+| `digital_twin` | observed-vs-simulated divergence | model-plant mismatch masking anomalies | **singular Gram on constant/large series**; empty | 96% |
+| `spot_evt` | tail exceedances with a bounded FPR budget | sub-threshold shape anomalies | **non-idempotent `detect`**; inf tail poisoning | 91% |
+| `gaussian_process` | smooth-function residual w/ calibrated variance | multi-modal / non-stationary kernels | inf→NaN via GP solve; empty input | 99% |
+| `survival` | inter-event-time stalls / bursts | amplitude anomalies at constant rate | inf→NaN via cumsum; empty input | 99% |
+| `energy_based` | off-manifold windows (free energy) | in-distribution but rare patterns | short/empty embed crash; 1-row `NaN` precision | 97% |
+| `deep_svdd` | distance-to-hypersphere on embeddings | anomalies inside the learned sphere | short/empty embed crash; 1-row `NaN` radius | 95% |
+| `diffusion_ad` *(torch)* | reconstruction error under a DDPM | needs the ML extra; retraining cost | shares the bounded input sanitiser | — |
+| `echo_state` | reservoir predictive residual | very long-horizon dependencies | `fit`-poisoning (mean/std→inf); empty | 96% |
+| `spiking` | spike-rate divergence from the normal regime | sub-threshold gradual change | **unfitted-`detect` crash**; `fit`-poisoning | 95% |
+| `rca` | *where* a multivariate anomaly originated | needs a fixed causal/service graph | empty batch crash; unfitted crash; node mismatch | 88% |
+| `deeplog_sequence` | anomalous log/template sequences | numeric-only streams | output finite guard (no confirmed defect) | — |
+| `frequent_pattern` | rule / co-occurrence violations in traces | continuous-valued signals | **narrower-batch `IndexError`**; empty `fit` | 96% |
+
+**Ensemble improvement (already measured on real NAB, 29 series):** the
+unsupervised `average` ensemble reaches ROC-AUC **0.613** (median 0.617), edging
+the best single member (`echo_state`, 0.610) — the complementarity lift the tier
+is designed for. See [Validation & benchmarks](#validation--benchmarks) for the
+full per-member table and the honest note on the supervised combiners. Coverage
+column is from the tier robustness suite (`_calibration.py` is at 100%); torch
+members and `deeplog_sequence` are not exercised in the pure-NumPy lane.
 
 ## Validation & benchmarks
 
@@ -324,11 +476,19 @@ code change to be real rather than theatre:
 | `src/omni_mercury_engine/detectors/{energy_based,deep_svdd,diffusion_ad}.py` | Generative / representation detectors |
 | `src/omni_mercury_engine/detectors/{echo_state,spiking}.py` | Neuromorphic detectors |
 | `src/omni_mercury_engine/detectors/{rca,deeplog_sequence,frequent_pattern}.py` | Systems-level detectors |
-| `src/omni_mercury_engine/detectors/detection_tier.py` | Ensemble / conformal / RCA / streaming / feature-store integration seam |
+| `src/omni_mercury_engine/detectors/detection_tier.py` | Ensemble (calibration + consensus) / conformal / RCA / streaming / feature-store integration seam |
+| `src/omni_mercury_engine/detectors/_calibration.py` | Shared empty-safe / finite-guaranteeing calibration helpers (`bound_finite`, `squash_scale`, `finite_scores`, `finite_features`) — now observable + policy-aware |
+| `src/omni_mercury_engine/detectors/detection_config.py` | NaN/Inf policy, unified magnitude regime, tier config (env/file), non-finite guards + counter |
+| `tests/detectors/test_calibration_helpers.py` | Unit tests for the shared calibration helpers |
+| `tests/detectors/test_detector_robustness.py` | Adversarial contract / robustness regression suite for the tier |
+| `tests/detectors/test_detection_config.py`, `test_detection_observability.py` | NaN-policy + guard-metric/log tests |
+| `tests/detectors/test_ensemble_calibration.py`, `test_spot_concurrency.py`, `test_bocpd_invariants.py`, `test_digital_twin_conditioning.py`, `test_rca_walk_coverage.py`, `test_detection_tier_property.py` | Second-pass unit / property / concurrency / invariant suites |
 | `src/omni_mercury_engine/core/detector_registry.py` | Manifest registration (auto-discovery) |
-| `src/omni_mercury_engine/core/metrics.py` | Per-detector score-distribution metric |
+| `src/omni_mercury_engine/core/metrics.py` | Per-detector score-distribution + `omni_detector_nonfinite_corrected` guard metric |
 | `src/omni_mercury_engine/decision/bridge.py` | RCA attribution into CAP alerts |
 | `src/omni_mercury_engine/datasets/timeseries.py` | `NABLoader.iter_series` — real 1-D streaming data |
 | `benchmarks/detection_tier_benchmark.py` | Real-data (NAB) streaming benchmark library |
+| `benchmarks/reproduce_detection_tier_nab.py` | Reproducible real-NAB before/after (calibration) harness |
 | `benchmarks/mercury_benchmark.py` | Canonical harness; merges the `detection_tier` results section |
 | `docs/DETECTION_MECHANISMS_RUNBOOK.md` | Operational runbook |
+| `docs/DETECTION_TIER_HARDENING.md` | Second-pass process note + reproducible checklist |

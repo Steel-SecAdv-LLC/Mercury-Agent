@@ -62,6 +62,27 @@ class TestAlignment:
         assert scores.shape == (x.shape[0],)
         assert float(scores.min()) >= 0.0 and float(scores.max()) <= 1.0
 
+    def test_align_attributes_finite_guard_to_member(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # Regression: the defence-in-depth finite guard must be labelled with the
+        # member detector's name (not a generic "align"), so the
+        # omni_detector_nonfinite_corrected metric/log names the misbehaving member.
+        import omni_mercury_engine.detectors.detection_tier as tier
+        from omni_mercury_engine.detectors._calibration import finite_scores as real_finite_scores
+
+        captured: list[str] = []
+
+        def spy(values: Any, **kwargs: Any) -> Any:
+            captured.append(kwargs.get("detector", ""))
+            return real_finite_scores(values, **kwargs)
+
+        monkeypatch.setattr(tier, "finite_scores", spy)
+        x, _ = _labelled_series()
+        det = build_tier_detectors(["spectral_residual"])["spectral_residual"].fit(x)
+        align_point_scores(det, x)
+        assert captured, "finite_scores was not exercised by align_point_scores"
+        assert all(name == det.name for name in captured)
+        assert "align" not in captured
+
 
 class TestEnsemble:
     _MEMBERS = ["spectral_residual", "bocpd", "gaussian_process", "particle_filter"]
@@ -107,6 +128,34 @@ class TestEnsemble:
     def test_empty_detectors(self) -> None:
         with pytest.raises(ValueError):
             StreamingScoreEnsemble({}, method="average")
+
+    def test_explicit_warmup_validated_like_config(self) -> None:
+        # Regression: an explicit ``warmup`` constructor arg must clear the same
+        # validation as ``DetectionConfig.ensemble_warmup`` (reject bool, a float
+        # outside (0, 1], or an int < 2) instead of bypassing it.
+        det = build_tier_detectors(["bocpd"])
+        for bad in (True, 1, 1.5, 0.0, -0.2):
+            with pytest.raises(ValueError):
+                StreamingScoreEnsemble(det, method="average", warmup=bad)
+
+    def test_valid_warmup_accepted(self) -> None:
+        det = build_tier_detectors(["bocpd"])
+        for good in (2, 50, 0.25, 1.0):
+            ens = StreamingScoreEnsemble(det, method="average", warmup=good)
+            assert ens.warmup == good
+
+    def test_resolve_warmup_never_exceeds_series_length(self) -> None:
+        # Regression: max(2, min(n, ...)) applied the floor after the cap, so a
+        # degenerate n < 2 series got warmup 2 (> n), violating the documented cap.
+        det = build_tier_detectors(["bocpd"])
+        for warm in (2, 50, 0.5, 1.0):
+            ens = StreamingScoreEnsemble(det, method="average", warmup=warm)
+            for n in range(0, 6):
+                assert ens._resolve_warmup(n) <= n
+        # ... while the n >= 2 result is unchanged (>= the 2-point floor).
+        ens2 = StreamingScoreEnsemble(det, method="average", warmup=50)
+        assert ens2._resolve_warmup(10) == 10
+        assert ens2._resolve_warmup(3) == 3
 
 
 class TestConformal:
@@ -267,3 +316,22 @@ class TestObservability:
         ]
         for bad in bad_values:
             record_detector_score("sr", bad)  # must not raise
+
+
+class TestEnsembleSeamNaNPolicy:
+    def test_seam_honors_raise_policy(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # Regression: _to_1d_series used a bare np.nan_to_num that masked NaN/Inf
+        # before the NaN-policy layer, so OMNI_DETECTOR_NAN_POLICY=raise did NOT
+        # fail closed on the ensemble seam. It now routes through bound_finite.
+        from omni_mercury_engine.detectors.detection_config import NonFinitePolicyError
+        from omni_mercury_engine.detectors.detection_tier import _to_1d_series
+
+        monkeypatch.setenv("OMNI_DETECTOR_NAN_POLICY", "raise")
+        with pytest.raises(NonFinitePolicyError):
+            _to_1d_series(np.array([1.0, np.nan, 3.0]))
+
+    def test_seam_finite_input_unchanged(self) -> None:
+        from omni_mercury_engine.detectors.detection_tier import _to_1d_series
+
+        x = np.array([1.0, -2.5, 1e3, 0.0])
+        assert np.array_equal(_to_1d_series(x), np.nan_to_num(x))

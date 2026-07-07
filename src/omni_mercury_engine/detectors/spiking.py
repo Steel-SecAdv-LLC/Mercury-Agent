@@ -24,6 +24,12 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from omni_mercury_engine.core.base import BaseDetector
+from omni_mercury_engine.detectors._calibration import (
+    bound_finite_config,
+    finite_features,
+    finite_scores,
+    squash_scale,
+)
 
 if TYPE_CHECKING:
     import torch
@@ -105,20 +111,16 @@ class SpikingNetworkDetector(BaseDetector):
         """Return ``True`` once :meth:`fit` has learned the baseline/scale."""
         return self._is_fitted
 
-    @staticmethod
-    def _to_1d_f64(data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
+    def _to_1d_f64(self, data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
         """Coerce numpy/torch input to a finite 1-D float64 series."""
         detach = getattr(data, "detach", None)
         if callable(detach):
             data = detach().cpu().numpy()
-        return np.nan_to_num(np.asarray(data, dtype=np.float64)).ravel()
+        return bound_finite_config(self, np.asarray(data, dtype=np.float64)).ravel()
 
     def _squash_scale(self, raw: np.ndarray[Any, Any]) -> float:
         """Squash scale anchoring the ``calibration_quantile`` at score 0.5."""
-        q = float(np.quantile(raw, self.calibration_quantile))
-        if q < 1e-9:
-            q = float(np.mean(raw)) + 1e-9
-        return max(q / _LN2, 1e-9)
+        return squash_scale(raw, self.calibration_quantile)
 
     def _build_population(self) -> None:
         """Instantiate the fixed, seeded LIF neuron parameters.
@@ -134,7 +136,13 @@ class SpikingNetworkDetector(BaseDetector):
 
     def _spike_rate(self, series: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Windowed population spike rate driven by the rectified input."""
-        assert self._gains is not None and self._thresholds is not None
+        if self._gains is None or self._thresholds is None:
+            # Build the fixed population lazily so ``detect()`` before ``fit()``
+            # (whose body already branches on ``_is_fitted``) works instead of
+            # tripping an assertion — matching the graceful unfitted-detect
+            # behaviour of the sibling detectors.
+            self._build_population()
+        assert self._gains is not None and self._thresholds is not None  # set by _build_population
         n = series.size
         if n == 0:
             return np.zeros(0, dtype=np.float64)
@@ -173,7 +181,10 @@ class SpikingNetworkDetector(BaseDetector):
         """
         series = self._to_1d_f64(data)
         self._mean = float(np.mean(series)) if series.size else 0.0
-        self._std = float(np.std(series)) + 1e-9
+        # Guard the empty case like the mean above: ``np.std([])`` is NaN, which
+        # would poison every later ``(x - mean) / std`` into NaN (the output guard
+        # then flattens the detector to all-zeros). A 1e-9 std keeps it finite.
+        self._std = (float(np.std(series)) if series.size else 0.0) + 1e-9
         self._build_population()
         rate = self._spike_rate(series)
         self._base_rate = float(np.median(rate)) if rate.size else 0.0
@@ -194,7 +205,7 @@ class SpikingNetworkDetector(BaseDetector):
             ``(n_samples, 1)`` float32 deviations.
         """
         raw = self._deviations(self._to_1d_f64(data))
-        return raw.astype(np.float32).reshape(-1, 1)
+        return finite_features(raw, detector=self.name).reshape(-1, 1)
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Per-sample anomaly scores in ``[0, 1]`` from spike-rate deviation.
@@ -204,7 +215,7 @@ class SpikingNetworkDetector(BaseDetector):
         """
         raw = self._deviations(self._to_1d_f64(data))
         scale = self._scale if self._is_fitted else self._squash_scale(raw)
-        scores = np.clip(1.0 - np.exp(-raw / scale), 0.0, 1.0).astype(np.float32)
+        scores = finite_scores(1.0 - np.exp(-raw / scale), detector=self.name).astype(np.float32)
         return {
             "anomaly_score": float(scores.max()) if scores.size else 0.0,
             "scores": scores,

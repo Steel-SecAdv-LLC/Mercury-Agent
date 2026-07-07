@@ -83,6 +83,43 @@ def test_crop_is_noop_when_short() -> None:
     assert int(cropped_labels.sum()) == 1
 
 
+def test_crop_retains_anomalies_when_split_at_extremes() -> None:
+    """Regression: the fixed crop keeps anomalies the old midpoint crop dropped.
+
+    Two anomaly clusters sit at the extremes of a long series, more than
+    ``max_len`` apart. The old crop centred on the midpoint of the first/last
+    label -- which lands in the normal gap between the clusters -- and could
+    retain *zero* anomalies, discarding the whole series. The max-retention crop
+    always keeps the densest cluster.
+    """
+    n = 20_000
+    series = np.zeros(n, dtype=np.float64)
+    labels = np.zeros(n, dtype=np.int64)
+    labels[500:520] = 1  # small early cluster
+    labels[19_000:19_300] = 1  # larger late cluster
+    cropped_series, cropped_labels = _crop_to_anomaly(series, labels, max_len=3_000)
+    assert cropped_series.size == 3_000
+    # The crop must retain the densest cluster's anomalies (never all-zero).
+    assert int(cropped_labels.sum()) >= 300
+
+
+def test_crop_centres_single_block_for_split_measurability() -> None:
+    """A single anomaly block smaller than max_len is centred in the window.
+
+    Centring keeps a downstream 50/50 temporal split straddling the anomalies so
+    the supervised lane stays measurable.
+    """
+    n = 12_000
+    series = np.zeros(n, dtype=np.float64)
+    labels = np.zeros(n, dtype=np.int64)
+    labels[6_000:6_050] = 1
+    _, cropped_labels = _crop_to_anomaly(series, labels, max_len=4_000)
+    anomaly_pos = np.flatnonzero(cropped_labels == 1)
+    centre = cropped_labels.size / 2
+    # The retained block's centroid is near the window centre (within 15%).
+    assert abs(float(anomaly_pos.mean()) - centre) < 0.15 * cropped_labels.size
+
+
 def test_evaluate_member_returns_valid_metrics() -> None:
     """A member scores the fixture and returns bounded metrics (or an error dict)."""
     series, labels = _fixture_series()
@@ -131,3 +168,55 @@ def test_nab_loader_exposes_iter_series() -> None:
 
     assert hasattr(NABLoader, "iter_series")
     assert callable(NABLoader.iter_series)
+
+
+def test_reproduce_report_survives_none_metrics() -> None:
+    """The reproduction report must not crash when a metric is ``None``.
+
+    Regression: ``run()`` sets the AUC / improvement fields to ``None`` on the
+    error path (no measurable ensemble/best-member score), and ``meets_acceptance``
+    already guards that with ``is not None`` -- but the report writer formatted the
+    improvement with a bare ``:.4f``, which raises ``TypeError`` on ``None``.
+    """
+    from benchmarks.reproduce_detection_tier_nab import _analysis_markdown, _fmt_metric
+
+    assert _fmt_metric(0.0119) == "0.0119"
+    assert _fmt_metric(None) == "n/a"
+    assert _fmt_metric(None, placeholder="-") == "-"
+
+    # The metrics originate from NumPy reductions (np.mean / roc_auc_score), whose
+    # scalars are not all Python-float subclasses: np.float64 is, but np.float32 and
+    # np.integer are not. A bare ``isinstance(value, (int, float))`` would silently
+    # route those to the placeholder. They must format like native numbers.
+    assert _fmt_metric(np.float64(0.0119)) == "0.0119"
+    assert _fmt_metric(np.float32(0.5)) == "0.5000"
+    assert _fmt_metric(np.int64(1)) == "1.0000"
+    # ``bool`` is an ``int`` subclass but is never a valid metric: it must degrade to
+    # the placeholder rather than format ``True`` as ``1.0000``.
+    assert _fmt_metric(True) == "n/a"
+    assert _fmt_metric(np.bool_(True)) == "n/a"
+
+    none_member = {
+        "calibration": "none",
+        "combiner": "average",
+        "best_member": "x",
+        "best_member_mean_auc": None,
+        "ensemble_mean_auc": None,
+        "ensemble_minus_best_member": None,
+        "ensemble_mean_f1": None,
+        "n_datasets": 3,
+    }
+    summary = {
+        "data_source": "test",
+        "seed": 0,
+        "max_len": 6000,
+        "n_datasets": 3,
+        "before_calibration": none_member,
+        "after_calibration": {**none_member, "calibration": "rank", "combiner": "consensus"},
+        "improvement_ensemble_vs_best_member": None,
+        "acceptance_threshold": 0.003,
+        "meets_acceptance": False,
+    }
+    md = _analysis_markdown(summary)  # previously raised TypeError on the None
+    assert "n/a ROC-AUC" in md
+    assert "FAIL" in md

@@ -25,6 +25,12 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from omni_mercury_engine.core.base import BaseDetector
+from omni_mercury_engine.detectors._calibration import (
+    bound_finite_config,
+    finite_features,
+    finite_scores,
+    squash_scale,
+)
 
 if TYPE_CHECKING:
     import torch
@@ -103,14 +109,17 @@ class FrequentPatternDetector(BaseDetector):
         """Return ``True`` once :meth:`fit` has mined rules and the scale."""
         return self._is_fitted
 
-    @staticmethod
-    def _to_bool_matrix(data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
+    def _to_bool_matrix(self, data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
         """Coerce numpy/torch input to a 2-D boolean transaction matrix."""
         detach = getattr(data, "detach", None)
         if callable(detach):
             data = detach().cpu().numpy()
-        arr = np.nan_to_num(np.asarray(data, dtype=np.float64))
-        if arr.ndim == 1:
+        arr = bound_finite_config(self, np.asarray(data, dtype=np.float64))
+        if arr.ndim == 0:
+            # A scalar (0-D) input would fall through unshaped and crash the
+            # downstream 2-D indexing; treat it as a single 1-item transaction.
+            arr = arr.reshape(1, 1)
+        elif arr.ndim == 1:
             arr = arr.reshape(1, -1)
         elif arr.ndim > 2:
             arr = arr.reshape(arr.shape[0], -1)
@@ -118,10 +127,7 @@ class FrequentPatternDetector(BaseDetector):
 
     def _squash_scale(self, raw: np.ndarray[Any, Any]) -> float:
         """Squash scale anchoring the ``calibration_quantile`` at score 0.5."""
-        q = float(np.quantile(raw, self.calibration_quantile))
-        if q < 1e-9:
-            q = float(np.mean(raw)) + 1e-9
-        return max(q / _LN2, 1e-9)
+        return squash_scale(raw, self.calibration_quantile)
 
     def _cap_by_support(
         self, scored: list[tuple[frozenset[int], float]], level: int
@@ -204,15 +210,30 @@ class FrequentPatternDetector(BaseDetector):
         self._rules = rules
 
     def _violation_mass(self, mat: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Confidence-weighted rule-violation mass per transaction."""
+        """Confidence-weighted rule-violation mass per transaction.
+
+        Rules store *absolute* item (column) indices learned at ``fit`` time. A
+        ``detect`` batch may be narrower than the training vocabulary (a shorter
+        1-D series reshaped to one transaction, or a 2-D matrix with fewer
+        columns), so any rule that references a column beyond the current width
+        is simply skipped for that batch rather than dereferenced out of bounds.
+        """
         n_tx = mat.shape[0]
         out = np.zeros(n_tx, dtype=np.float64)
-        if not self._rules:
+        if not self._rules or mat.shape[1] == 0:
+            return out
+        width = mat.shape[1]
+        applicable = [
+            (ant, con, conf)
+            for ant, con, conf in self._rules
+            if con < width and all(a < width for a in ant)
+        ]
+        if not applicable:
             return out
         for t in range(n_tx):
             row = mat[t]
             mass = 0.0
-            for antecedent, consequent, confidence in self._rules:
+            for antecedent, consequent, confidence in applicable:
                 if all(row[a] for a in antecedent) and not row[consequent]:
                     mass += confidence
             out[t] = mass
@@ -245,7 +266,7 @@ class FrequentPatternDetector(BaseDetector):
             ``(n_transactions, 1)`` float32 violation masses.
         """
         raw = self._violation_mass(self._to_bool_matrix(data))
-        return raw.astype(np.float32).reshape(-1, 1)
+        return finite_features(raw, detector=self.name).reshape(-1, 1)
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Per-transaction anomaly scores in ``[0, 1]`` from rule violations.
@@ -255,7 +276,7 @@ class FrequentPatternDetector(BaseDetector):
         """
         raw = self._violation_mass(self._to_bool_matrix(data))
         scale = self._scale if self._is_fitted else self._squash_scale(raw)
-        scores = np.clip(1.0 - np.exp(-raw / scale), 0.0, 1.0).astype(np.float32)
+        scores = finite_scores(1.0 - np.exp(-raw / scale), detector=self.name).astype(np.float32)
         return {
             "anomaly_score": float(scores.max()) if scores.size else 0.0,
             "scores": scores,

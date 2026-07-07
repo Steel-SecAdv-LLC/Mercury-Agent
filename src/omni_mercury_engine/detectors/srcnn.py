@@ -30,6 +30,10 @@ import torch
 from torch import nn
 
 from omni_mercury_engine.core.base import BaseDetector
+from omni_mercury_engine.detectors._calibration import (
+    bound_finite_config,
+    finite_scores,
+)
 from omni_mercury_engine.detectors.spectral_residual import SpectralResidualDetector
 
 __all__ = ["SRCNNDetector"]
@@ -129,13 +133,15 @@ class SRCNNDetector(BaseDetector):
         """Return ``True`` once the CNN discriminator has been trained."""
         return self._is_fitted
 
-    @staticmethod
-    def _to_1d(data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
+    def _to_1d(self, data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
         """Coerce numpy/torch input to a finite 1-D float64 series."""
         detach = getattr(data, "detach", None)
         if callable(detach):
             data = detach().cpu().numpy()
-        arr = np.nan_to_num(np.asarray(data, dtype=np.float64)).ravel()
+        # Label non-finite corrections with this detector's name so the
+        # ``omni_detector_nonfinite_corrected`` metric/log attributes them here
+        # rather than to the generic "tier" default.
+        arr = bound_finite_config(self, np.asarray(data, dtype=np.float64)).ravel()
         if arr.size == 0:
             raise ValueError("input series is empty")
         return arr
@@ -203,7 +209,11 @@ class SRCNNDetector(BaseDetector):
         with torch.no_grad():
             logits = self._model(self._windows(saliency))
             probs = torch.sigmoid(logits).cpu().numpy()
-        return np.clip(probs.astype(np.float64), 0.0, 1.0)
+        # finite_scores (not a bare np.clip, which passes NaN through): a huge
+        # in-cap input can overflow the float32 saliency/window cast to inf and
+        # produce a NaN logit, so guarantee a finite [0, 1] score and attribute
+        # any correction to this detector -- consistent with the rest of the tier.
+        return finite_scores(probs.astype(np.float64), detector=self.name)
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Per-point anomaly scores in ``[0, 1]`` from the SR-CNN discriminator."""

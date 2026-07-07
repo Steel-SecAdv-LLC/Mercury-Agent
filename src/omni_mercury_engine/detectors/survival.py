@@ -24,6 +24,12 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from omni_mercury_engine.core.base import BaseDetector
+from omni_mercury_engine.detectors._calibration import (
+    bound_finite_config,
+    finite_features,
+    finite_scores,
+    squash_scale,
+)
 
 if TYPE_CHECKING:
     import torch
@@ -82,20 +88,16 @@ class SurvivalHazardDetector(BaseDetector):
         """Return ``True`` once :meth:`fit` has fitted the survival model."""
         return self._is_fitted
 
-    @staticmethod
-    def _to_1d_f64(data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
+    def _to_1d_f64(self, data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
         """Coerce numpy/torch input to a finite 1-D float64 series."""
         detach = getattr(data, "detach", None)
         if callable(detach):
             data = detach().cpu().numpy()
-        return np.nan_to_num(np.asarray(data, dtype=np.float64)).ravel()
+        return bound_finite_config(self, np.asarray(data, dtype=np.float64)).ravel()
 
     def _squash_scale(self, raw: np.ndarray[Any, Any]) -> float:
         """Squash scale anchoring the ``calibration_quantile`` at score 0.5."""
-        q = float(np.quantile(raw, self.calibration_quantile))
-        if q < 1e-9:
-            q = float(np.mean(raw)) + 1e-9
-        return max(q / _LN2, 1e-9)
+        return squash_scale(raw, self.calibration_quantile)
 
     def _durations(self, series: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Non-negative duration stream: |first difference| of the series."""
@@ -191,8 +193,16 @@ class SurvivalHazardDetector(BaseDetector):
             self._km_fit(durations)
             self._fit_cox(durations)
         else:
-            self._km_times = np.array([0.0])
-            self._km_surv = np.array([1.0])
+            # Too few durations to estimate a KM/Cox baseline. Leave the model
+            # unfit (``_km_times = None``) so ``_surprisal`` degrades to neutral,
+            # all-zero scores instead of saturating every later point to ~1.0: the
+            # degenerate ``S(t)=1`` baseline makes ``surv=1 -> tail=0 ->
+            # surprisal=-log(1e-9)`` for any positive gap, flagging 100% of normal
+            # input. Conservative non-anomalous degradation matches the tier
+            # contract (never fabricate an alert), mirroring the other detectors'
+            # empty-fit behaviour.
+            self._km_times = None
+            self._km_surv = None
             self._cox_beta = 0.0
         raw = self._surprisal(series)
         self._scale = self._squash_scale(raw)
@@ -209,7 +219,7 @@ class SurvivalHazardDetector(BaseDetector):
             ``(n_samples, 1)`` float32 surprisal values.
         """
         raw = self._surprisal(self._to_1d_f64(data))
-        return raw.astype(np.float32).reshape(-1, 1)
+        return finite_features(raw, detector=self.name).reshape(-1, 1)
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Per-sample anomaly scores in ``[0, 1]`` from survival tail surprisal.
@@ -219,7 +229,7 @@ class SurvivalHazardDetector(BaseDetector):
         """
         raw = self._surprisal(self._to_1d_f64(data))
         scale = self._scale if self._is_fitted else self._squash_scale(raw)
-        scores = np.clip(1.0 - np.exp(-raw / scale), 0.0, 1.0).astype(np.float32)
+        scores = finite_scores(1.0 - np.exp(-raw / scale), detector=self.name).astype(np.float32)
         return {
             "anomaly_score": float(scores.max()) if scores.size else 0.0,
             "scores": scores,

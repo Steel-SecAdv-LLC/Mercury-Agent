@@ -60,3 +60,21 @@ class TestSignal:
         train = _grammar(300)
         scores = np.asarray(DeepLogSequenceDetector().fit(train).detect(train)["scores"])
         assert (scores > 0.5).mean() < 0.05
+
+
+class TestDegenerateInput:
+    def test_unfitted_detect_is_neutral_not_saturated(self) -> None:
+        # Regression: unfitted detect returned probs=0 -> 1 - 0 = 1, flagging every
+        # position maximally anomalous. It must degrade to neutral instead.
+        det = DeepLogSequenceDetector()
+        scores = np.asarray(det.detect(np.array([1, 2, 3, 4, 5]))["scores"], dtype=float)
+        assert float(scores.max()) <= 0.5
+
+    def test_to_1d_int_overflow_safe(self) -> None:
+        # Regression: a bare np.nan_to_num turned +inf into 1.7977e308, which then
+        # overflowed the int64 cast to an implementation-defined garbage key.
+        det = DeepLogSequenceDetector()
+        keys = det._to_1d_int(np.array([1.0, np.inf, -np.inf, 1e120, np.nan, -7.0]))
+        assert keys.dtype == np.int64
+        assert np.iinfo(np.int64).min not in keys.tolist()  # no overflow wraparound
+        assert np.all(np.abs(keys) <= 2**53)

@@ -84,3 +84,34 @@ class TestSignal:
         # The spike is caught, and the ramp itself is not one giant alert.
         assert scores[250] > 0.5
         assert (scores > 0.5).mean() < 0.1
+
+
+class TestInputConfigPrecedence:
+    def test_per_detector_config_governs_input_cap(self) -> None:
+        # Regression: SPOT resolves a full DetectionConfig from its ``config`` dict,
+        # so a per-detector max_magnitude must govern input sanitisation (documented
+        # precedence defaults < file < env < detector config), not just the env cap.
+        det = SPOTDetector(config={"max_magnitude": 100.0})
+        capped = det._to_1d_f64(np.array([50.0, 5000.0, -9999.0, np.inf]))
+        assert capped.tolist() == [50.0, 100.0, -100.0, 100.0]
+
+    def test_default_input_cap_unchanged(self) -> None:
+        det = SPOTDetector()
+        arr = np.array([1e5, -1e5, 3.14])
+        assert det._to_1d_f64(arr).tolist() == arr.tolist()
+
+
+class TestEmptyBatch:
+    def test_dspot_detect_empty_no_crash(self) -> None:
+        # Regression: DSPOT (depth > 0) detrending indexed series[0] and crashed
+        # with IndexError on an empty batch; plain SPOT (depth 0) already coped.
+        det = SPOTDetector(depth=10).fit(np.random.default_rng(0).normal(size=500))
+        assert np.asarray(det.detect(np.array([]))["scores"]).size == 0
+        assert det.extract_features(np.array([])).shape == (0, 1)
+
+    def test_dspot_detect_nonempty_still_flags(self) -> None:
+        rng = np.random.default_rng(1)
+        det = SPOTDetector(depth=10).fit(rng.normal(size=500))
+        test = rng.normal(size=300)
+        test[150] += 12.0
+        assert float(np.asarray(det.detect(test)["scores"])[150]) > 0.5

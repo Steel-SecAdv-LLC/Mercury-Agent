@@ -28,6 +28,11 @@ import torch
 from torch import nn
 
 from omni_mercury_engine.core.base import BaseDetector
+from omni_mercury_engine.detectors._calibration import (
+    bound_finite_config,
+    finite_scores,
+    squash_scale,
+)
 
 __all__ = ["DiffusionReconstructionDetector"]
 
@@ -135,13 +140,15 @@ class DiffusionReconstructionDetector(BaseDetector):
         """Return ``True`` once the denoiser has been trained."""
         return self._is_fitted
 
-    @staticmethod
-    def _to_1d(data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
+    def _to_1d(self, data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
         """Coerce numpy/torch input to a finite 1-D float64 series."""
         detach = getattr(data, "detach", None)
         if callable(detach):
             data = detach().cpu().numpy()
-        arr = np.nan_to_num(np.asarray(data, dtype=np.float64)).ravel()
+        # Label non-finite corrections with this detector's name so the
+        # ``omni_detector_nonfinite_corrected`` metric/log attributes them here
+        # rather than to the generic "tier" default.
+        arr = bound_finite_config(self, np.asarray(data, dtype=np.float64)).ravel()
         if arr.size == 0:
             raise ValueError("input series is empty")
         return arr
@@ -174,10 +181,7 @@ class DiffusionReconstructionDetector(BaseDetector):
 
     def _squash_scale(self, raw: np.ndarray[Any, Any]) -> float:
         """Squash scale anchoring the ``calibration_quantile`` at score 0.5."""
-        q = float(np.quantile(raw, self.calibration_quantile))
-        if q < 1e-9:
-            q = float(np.mean(raw)) + 1e-9
-        return max(q / _LN2, 1e-9)
+        return squash_scale(raw, self.calibration_quantile)
 
     def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> DiffusionReconstructionDetector:
         """Train the denoiser on normal windows and set the squash scale.
@@ -221,7 +225,11 @@ class DiffusionReconstructionDetector(BaseDetector):
         if self._model is None:
             raise RuntimeError("call fit() before scoring")
         raw = self._recon_error(self._windows(series))
-        return np.clip(1.0 - np.exp(-raw / self._scale), 0.0, 1.0)
+        # finite_scores (not a bare np.clip, which passes NaN through): a huge
+        # in-cap input can overflow the float32 window cast / reconstruction error
+        # to inf and yield a NaN score, so guarantee a finite [0, 1] score and
+        # attribute any correction here -- consistent with the rest of the tier.
+        return finite_scores(1.0 - np.exp(-raw / self._scale), detector=self.name)
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Per-point anomaly scores in ``[0, 1]`` from diffusion reconstruction error."""

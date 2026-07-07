@@ -26,6 +26,12 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from omni_mercury_engine.core.base import BaseDetector
+from omni_mercury_engine.detectors._calibration import (
+    bound_finite_config,
+    finite_features,
+    finite_scores,
+    squash_scale,
+)
 
 if TYPE_CHECKING:
     import torch
@@ -96,13 +102,9 @@ class SpectralResidualDetector(BaseDetector):
 
     def _squash_scale(self, raw: np.ndarray[Any, Any]) -> float:
         """Squash scale anchoring the ``calibration_quantile`` at score 0.5."""
-        q = float(np.quantile(raw, self.calibration_quantile))
-        if q < 1e-9:
-            q = float(np.mean(raw)) + 1e-9
-        return max(q / _LN2, 1e-9)
+        return squash_scale(raw, self.calibration_quantile)
 
-    @staticmethod
-    def _to_1d_f64(data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
+    def _to_1d_f64(self, data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
         """Coerce numpy/torch input to a finite 1-D float64 series.
 
         A torch tensor is detached to CPU numpy by duck-typing so importing this
@@ -112,7 +114,7 @@ class SpectralResidualDetector(BaseDetector):
         detach = getattr(data, "detach", None)
         if callable(detach):
             data = detach().cpu().numpy()
-        arr = np.nan_to_num(np.asarray(data, dtype=np.float64)).ravel()
+        arr = bound_finite_config(self, np.asarray(data, dtype=np.float64)).ravel()
         return arr
 
     @staticmethod
@@ -198,7 +200,7 @@ class SpectralResidualDetector(BaseDetector):
             ``(n_samples, 1)`` float32 array of saliency deviations.
         """
         raw = self._scores(data)
-        return raw.astype(np.float32).reshape(-1, 1)
+        return finite_features(raw, detector=self.name).reshape(-1, 1)
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Per-sample anomaly scores in ``[0, 1]`` for the live-inference path.
@@ -211,7 +213,7 @@ class SpectralResidualDetector(BaseDetector):
         raw = self._scores(data)
         scale = self._scale if self._is_fitted else self._squash_scale(raw)
         scores = 1.0 - np.exp(-raw / scale)
-        scores = np.clip(scores, 0.0, 1.0).astype(np.float32)
+        scores = finite_scores(scores, detector=self.name).astype(np.float32)
         return {
             "anomaly_score": float(scores.max()) if scores.size else 0.0,
             "scores": scores,

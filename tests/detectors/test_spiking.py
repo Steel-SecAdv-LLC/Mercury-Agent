@@ -65,3 +65,13 @@ class TestSignal:
             SpikingNetworkDetector(calibration_quantile=0.98).fit(train).detect(test)["scores"]
         )
         assert (scores > 0.5).mean() < 0.1
+
+
+class TestDegenerateInput:
+    def test_empty_fit_std_stays_finite(self) -> None:
+        # Regression: np.std([]) is NaN and poisoned self._std, turning every later
+        # (x - mean) / std into NaN (flattened to all-zeros by the output guard).
+        det = SpikingNetworkDetector().fit(np.array([]))
+        assert np.isfinite(det._std) and det._std > 0.0
+        scores = np.asarray(det.detect(np.array([1.0, 2.0, 3.0]))["scores"], dtype=float)
+        assert np.all(np.isfinite(scores))
