@@ -28,6 +28,7 @@ import torch
 from torch import nn
 
 from omni_mercury_engine.core.base import BaseDetector
+from omni_mercury_engine.detectors._calibration import bound_finite, squash_scale
 
 __all__ = ["DiffusionReconstructionDetector"]
 
@@ -141,7 +142,7 @@ class DiffusionReconstructionDetector(BaseDetector):
         detach = getattr(data, "detach", None)
         if callable(detach):
             data = detach().cpu().numpy()
-        arr = np.nan_to_num(np.asarray(data, dtype=np.float64)).ravel()
+        arr = bound_finite(np.asarray(data, dtype=np.float64)).ravel()
         if arr.size == 0:
             raise ValueError("input series is empty")
         return arr
@@ -174,10 +175,7 @@ class DiffusionReconstructionDetector(BaseDetector):
 
     def _squash_scale(self, raw: np.ndarray[Any, Any]) -> float:
         """Squash scale anchoring the ``calibration_quantile`` at score 0.5."""
-        q = float(np.quantile(raw, self.calibration_quantile))
-        if q < 1e-9:
-            q = float(np.mean(raw)) + 1e-9
-        return max(q / _LN2, 1e-9)
+        return squash_scale(raw, self.calibration_quantile)
 
     def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> DiffusionReconstructionDetector:
         """Train the denoiser on normal windows and set the squash scale.

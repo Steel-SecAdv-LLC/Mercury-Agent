@@ -181,6 +181,14 @@ def _crop_to_anomaly(
     else:
         center = int((pos[0] + pos[-1]) // 2)
         lo = max(0, min(center - max_len // 2, n - max_len))
+        if not labels[lo : lo + max_len].any():
+            # The anomaly windows are farther apart than max_len, so the
+            # midpoint-centred crop fell between them and kept none. Re-centre on
+            # the first anomaly so the window always retains at least one — its
+            # documented contract — instead of silently dropping the whole
+            # labelled series from the benchmark.
+            center = int(pos[0])
+            lo = max(0, min(center - max_len // 2, n - max_len))
     hi = lo + max_len
     return series[lo:hi], labels[lo:hi]
 
@@ -254,7 +262,7 @@ def evaluate_member(name: str, series: np.ndarray, labels: np.ndarray) -> dict[s
 
         result: dict[str, Any] = {**_round_metrics(metrics), "detector": name}
         return result
-    except Exception as exc:  # noqa: BLE001 - one bad detector must not abort the run
+    except Exception as exc:
         return {"detector": name, "error": f"{type(exc).__name__}: {exc}"}
 
 
@@ -271,7 +279,7 @@ def _evaluate_average_ensemble(
         metrics: dict[str, Any] = {"roc_auc": _roc_auc(scores, labels)}
         metrics.update(_oracle_f1(scores, labels))
         return _round_metrics(metrics)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         return {"error": f"{type(exc).__name__}: {exc}"}
 
 
@@ -300,7 +308,7 @@ def _evaluate_supervised_ensembles(
             metrics: dict[str, Any] = {"roc_auc": _roc_auc(scores, test_l)}
             metrics.update(_oracle_f1(scores, test_l))
             results[method] = _round_metrics(metrics)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             results[method] = {"error": f"{type(exc).__name__}: {exc}"}
     return results
 

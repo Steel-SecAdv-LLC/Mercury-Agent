@@ -43,6 +43,8 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from omni_mercury_engine.detectors._calibration import finite_scores
+
 if TYPE_CHECKING:
     import torch
 
@@ -157,7 +159,7 @@ def align_point_scores(
     raw = result.get("scores")
     if raw is None:
         fallback = float(result.get("anomaly_score", result.get("anomaly_prob", 0.0)))
-        return np.full(arr.size, fallback, dtype=np.float64)
+        return finite_scores(np.full(arr.size, fallback, dtype=np.float64))
     scores = np.asarray(raw, dtype=np.float64).ravel()
     if scores.size == 0:
         return np.zeros(arr.size, dtype=np.float64)
@@ -165,7 +167,11 @@ def align_point_scores(
         src = np.linspace(0.0, 1.0, scores.size)
         dst = np.linspace(0.0, 1.0, arr.size)
         scores = np.interp(dst, src, scores)
-    return np.clip(scores, 0.0, 1.0)
+    # Defence in depth: a member that emits NaN/inf (np.clip does not scrub NaN)
+    # would otherwise poison the ensemble mean / stacking / BMA and crash
+    # calibrate_scores' np.histogram. finite_scores guarantees a finite [0, 1]
+    # column regardless of member behaviour.
+    return finite_scores(scores)
 
 
 class StreamingScoreEnsemble:

@@ -24,6 +24,12 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from omni_mercury_engine.core.base import BaseDetector
+from omni_mercury_engine.detectors._calibration import (
+    bound_finite,
+    finite_features,
+    finite_scores,
+    squash_scale,
+)
 
 if TYPE_CHECKING:
     import torch
@@ -88,14 +94,11 @@ class SurvivalHazardDetector(BaseDetector):
         detach = getattr(data, "detach", None)
         if callable(detach):
             data = detach().cpu().numpy()
-        return np.nan_to_num(np.asarray(data, dtype=np.float64)).ravel()
+        return bound_finite(np.asarray(data, dtype=np.float64)).ravel()
 
     def _squash_scale(self, raw: np.ndarray[Any, Any]) -> float:
         """Squash scale anchoring the ``calibration_quantile`` at score 0.5."""
-        q = float(np.quantile(raw, self.calibration_quantile))
-        if q < 1e-9:
-            q = float(np.mean(raw)) + 1e-9
-        return max(q / _LN2, 1e-9)
+        return squash_scale(raw, self.calibration_quantile)
 
     def _durations(self, series: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Non-negative duration stream: |first difference| of the series."""
@@ -209,7 +212,7 @@ class SurvivalHazardDetector(BaseDetector):
             ``(n_samples, 1)`` float32 surprisal values.
         """
         raw = self._surprisal(self._to_1d_f64(data))
-        return raw.astype(np.float32).reshape(-1, 1)
+        return finite_features(raw).reshape(-1, 1)
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Per-sample anomaly scores in ``[0, 1]`` from survival tail surprisal.
@@ -219,7 +222,7 @@ class SurvivalHazardDetector(BaseDetector):
         """
         raw = self._surprisal(self._to_1d_f64(data))
         scale = self._scale if self._is_fitted else self._squash_scale(raw)
-        scores = np.clip(1.0 - np.exp(-raw / scale), 0.0, 1.0).astype(np.float32)
+        scores = finite_scores(1.0 - np.exp(-raw / scale)).astype(np.float32)
         return {
             "anomaly_score": float(scores.max()) if scores.size else 0.0,
             "scores": scores,

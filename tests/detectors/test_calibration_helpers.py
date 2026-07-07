@@ -13,7 +13,14 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from omni_mercury_engine.detectors._calibration import LN2, finite_scores, squash_scale
+from omni_mercury_engine.detectors._calibration import (
+    FINITE_CAP,
+    LN2,
+    bound_finite,
+    finite_features,
+    finite_scores,
+    squash_scale,
+)
 
 
 def _legacy_squash_scale(raw: np.ndarray, calibration_quantile: float) -> float:
@@ -99,3 +106,54 @@ class TestFiniteScores:
     def test_empty_input(self) -> None:
         out = finite_scores(np.array([]))
         assert out.size == 0
+
+
+class TestBoundFinite:
+    def test_leaves_realistic_finite_input_unchanged(self) -> None:
+        rng = np.random.default_rng(4)
+        # Realistic magnitudes: sensor values, ns timestamps (~1.7e18), financials.
+        for vals in (rng.normal(size=50), rng.normal(size=50) * 1e18, np.array([1.7e18, -3.2e12])):
+            arr = np.asarray(vals, dtype=np.float64)
+            assert np.array_equal(bound_finite(arr.copy()), arr)
+
+    def test_inf_bounded_to_cap_not_overflow_sentinel(self) -> None:
+        out = bound_finite(np.array([np.inf, -np.inf]))
+        assert out[0] == FINITE_CAP and out[1] == -FINITE_CAP
+        # The whole point: the bounded value squares without overflowing.
+        assert np.isfinite(out[0] ** 2)
+
+    def test_nan_to_zero(self) -> None:
+        out = bound_finite(np.array([np.nan, 1.0]))
+        assert out[0] == 0.0 and out[1] == 1.0
+
+    def test_absurd_finite_magnitude_clipped(self) -> None:
+        out = bound_finite(np.array([1e300, -1e300]))
+        assert out[0] == FINITE_CAP and out[1] == -FINITE_CAP
+
+    def test_square_of_bounded_stays_finite(self) -> None:
+        # Regression: nan_to_num's 1.8e308 sentinel overflowed on squaring; the
+        # FINITE_CAP bound must not.
+        assert np.isfinite((bound_finite(np.array([np.inf])) ** 2).sum())
+
+    def test_preserves_shape(self) -> None:
+        arr = np.array([[np.inf, 1.0], [np.nan, -np.inf]])
+        out = bound_finite(arr)
+        assert out.shape == (2, 2) and np.all(np.isfinite(out))
+
+
+class TestFiniteFeatures:
+    def test_returns_float32(self) -> None:
+        out = finite_features(np.array([0.1, 0.2]))
+        assert out.dtype == np.float32
+
+    def test_maps_float32_overflow_to_finite_bound(self) -> None:
+        # A float64 value beyond float32 range would cast to inf; must be bounded.
+        f32_max = float(np.finfo(np.float32).max)
+        out = finite_features(np.array([1e300, -1e300, np.inf, np.nan]))
+        assert np.all(np.isfinite(out))
+        assert out[0] == pytest.approx(f32_max) and out[1] == pytest.approx(-f32_max)
+        assert out[3] == 0.0
+
+    def test_preserves_ordinary_values(self) -> None:
+        out = finite_features(np.array([1.5, -2.5, 0.0]))
+        assert out == pytest.approx(np.array([1.5, -2.5, 0.0], dtype=np.float32))

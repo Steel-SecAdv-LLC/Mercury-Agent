@@ -28,6 +28,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from omni_mercury_engine.core.base import BaseDetector
+from omni_mercury_engine.detectors._calibration import bound_finite, finite_features
 
 if TYPE_CHECKING:
     import torch
@@ -98,7 +99,7 @@ class SPOTDetector(BaseDetector):
         detach = getattr(data, "detach", None)
         if callable(detach):
             data = detach().cpu().numpy()
-        return np.nan_to_num(np.asarray(data, dtype=np.float64)).ravel()
+        return bound_finite(np.asarray(data, dtype=np.float64)).ravel()
 
     @staticmethod
     def _grimshaw(peaks: np.ndarray[Any, Any]) -> tuple[float, float]:
@@ -186,30 +187,43 @@ class SPOTDetector(BaseDetector):
         return series - trend_full, trend_full
 
     def _stream_scores(self, series: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Stream points, updating the tail online, returning ``[0, 1]`` scores."""
-        residual, _ = self._detrend(series)
-        scores = np.zeros(series.size, dtype=np.float64)
-        for i, value in enumerate(residual):
-            v = float(value)
-            if v > self._zq:
-                # Anomaly: excess beyond the EVT threshold -> tail probability
-                # below the risk budget maps to a high score in (0.5, 1].
-                p = self._tail_probability(v)
-                scores[i] = float(np.clip(1.0 - 0.5 * p / max(self.q, 1e-12), 0.5, 1.0))
-                # SPOT does not feed anomalies back into the tail model.
-            else:
-                if v > self._t:
-                    # Normal peak: update the tail and refit the threshold.
-                    self._n += 1
-                    self._nt += 1
-                    self._sigma = self._sigma + (v - self._t - self._sigma) / self._nt
-                    self._zq = self._threshold_from_tail(self._gamma, self._sigma)
+        """Stream points, updating the tail online, returning ``[0, 1]`` scores.
+
+        The DSPOT online update adapts the tail state (``_n``/``_nt``/``_sigma``/
+        ``_zq``) *within* this batch, but that state is snapshotted on entry and
+        restored on exit so a call never persists into the fitted calibration.
+        Without this, ``detect()`` was non-idempotent (repeated scoring of the
+        same batch drifted the threshold) and the scored data leaked into the
+        model — while the within-batch adaptation, and hence the scores of any
+        single call, are exactly as before.
+        """
+        snapshot = (self._n, self._nt, self._sigma, self._zq)
+        try:
+            residual, _ = self._detrend(series)
+            scores = np.zeros(series.size, dtype=np.float64)
+            for i, value in enumerate(residual):
+                v = float(value)
+                if v > self._zq:
+                    # Anomaly: excess beyond the EVT threshold -> tail probability
+                    # below the risk budget maps to a high score in (0.5, 1].
+                    p = self._tail_probability(v)
+                    scores[i] = float(np.clip(1.0 - 0.5 * p / max(self.q, 1e-12), 0.5, 1.0))
+                    # SPOT does not feed anomalies back into the tail model.
                 else:
-                    self._n += 1
-                p = self._tail_probability(v)
-                # Below-threshold points score in [0, 0.5): closer to 0.5 as the
-                # modelled exceedance probability approaches the budget.
-                scores[i] = float(np.clip(0.5 * (1.0 - p / max(self.q, 1e-12)), 0.0, 0.5))
+                    if v > self._t:
+                        # Normal peak: update the tail and refit the threshold.
+                        self._n += 1
+                        self._nt += 1
+                        self._sigma = self._sigma + (v - self._t - self._sigma) / self._nt
+                        self._zq = self._threshold_from_tail(self._gamma, self._sigma)
+                    else:
+                        self._n += 1
+                    p = self._tail_probability(v)
+                    # Below-threshold points score in [0, 0.5): closer to 0.5 as the
+                    # modelled exceedance probability approaches the budget.
+                    scores[i] = float(np.clip(0.5 * (1.0 - p / max(self.q, 1e-12)), 0.0, 0.5))
+        finally:
+            self._n, self._nt, self._sigma, self._zq = snapshot
         return scores
 
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
@@ -228,7 +242,7 @@ class SPOTDetector(BaseDetector):
             raise RuntimeError("SPOTDetector must be fit before use")
         series = self._to_1d_f64(data)
         scores = self._stream_scores(series)
-        return scores.astype(np.float32).reshape(-1, 1)
+        return finite_features(scores).reshape(-1, 1)
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Per-sample anomaly scores in ``[0, 1]`` with EVT thresholding.

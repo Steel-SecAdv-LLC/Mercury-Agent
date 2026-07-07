@@ -35,12 +35,76 @@ from typing import Any
 
 import numpy as np
 
-__all__ = ["LN2", "finite_scores", "squash_scale"]
+__all__ = [
+    "FINITE_CAP",
+    "LN2",
+    "bound_finite",
+    "finite_features",
+    "finite_scores",
+    "squash_scale",
+]
 
 #: ``1 - exp(-s / scale) = 0.5`` at ``s = scale * ln 2``; anchoring ``scale`` to a
 #: high training quantile places the 0.5 anomaly boundary at that quantile for a
 #: controlled ``1 - calibration_quantile`` false-positive rate.
 LN2 = float(np.log(2.0))
+
+#: Symmetric magnitude cap applied to sanitised detector input. It exists to
+#: neutralise the ``np.nan_to_num`` sentinel (``±inf`` → ``±1.7977e308``): that
+#: near-max-float value overflows to ``inf`` the moment it is squared or summed
+#: inside a detector (FFT power, covariance, Gram matrix, cumulative sum), and a
+#: subsequent ``inf - inf`` yields ``NaN`` — the exact chain that let a single
+#: non-finite input sample corrupt scores or, worse, permanently poison a
+#: detector's ``fit``-time statistics. ``1e100`` is chosen so that (a) it is
+#: astronomically larger than any physical/operational signal Mercury ingests
+#: (nanosecond-epoch timestamps are ~1.7e18, financial magnitudes ~1e12), so
+#: realistic data is *never* clipped and behaviour is unchanged; and (b) its
+#: square (``1e200``) stays comfortably within float64 range, so the arithmetic
+#: that overflowed at ``1.8e308`` no longer can. ``finite_scores`` /
+#: ``finite_features`` remain the guaranteed output backstop for any residual
+#: higher-order overflow.
+FINITE_CAP = 1e100
+
+
+def bound_finite(arr: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    """Map NaN→0 and ``±inf``/out-of-range magnitudes to ``±FINITE_CAP``.
+
+    This is the drop-in, overflow-safe replacement for the
+    ``np.nan_to_num(np.asarray(data, dtype=np.float64))`` expression the tier
+    detectors used for input sanitisation. A bare ``np.nan_to_num`` maps ``±inf``
+    to ``±1.7977e308``; that near-max-float value overflows to ``inf`` the moment
+    it is squared or summed inside a detector, and the subsequent ``inf - inf``
+    produces ``NaN`` — which then corrupts the anomaly score or, when it happens
+    at ``fit`` time, permanently poisons the detector's calibration statistics.
+    Bounding into ``[-FINITE_CAP, FINITE_CAP]`` (see :data:`FINITE_CAP`) makes
+    that overflow impossible while leaving all realistic, in-range data unchanged
+    (it is applied to the same array the old expression produced, so the coercion
+    to ``float64`` and any surrounding ``.ravel()`` / reshape stay in place).
+
+    Args:
+        arr: An already-``np.asarray``'d numeric array.
+
+    Returns:
+        The same-shaped array with every element finite and ``|x| <= FINITE_CAP``.
+    """
+    arr = np.nan_to_num(arr, nan=0.0, posinf=FINITE_CAP, neginf=-FINITE_CAP)
+    return np.clip(arr, -FINITE_CAP, FINITE_CAP)
+
+
+def finite_features(values: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    """Coerce a fusion-feature array to guaranteed-finite ``float32``.
+
+    ``extract_features`` returns *raw* (un-squashed) features cast to ``float32``
+    for the fusion network. A large-but-finite float64 feature (e.g. a residual
+    amplified by a floored ``1e-9`` denominator) can exceed ``float32``'s
+    ``~3.4e38`` range and become ``inf`` on the cast, poisoning the feature store
+    and the fusion input. This maps every non-finite entry to the finite float32
+    bound so the feature vector is always usable, then returns float32.
+    """
+    f32_max = float(np.finfo(np.float32).max)
+    arr = np.asarray(values, dtype=np.float64)
+    arr = np.nan_to_num(arr, nan=0.0, posinf=f32_max, neginf=-f32_max)
+    return np.clip(arr, -f32_max, f32_max).astype(np.float32)
 
 
 def squash_scale(raw: np.ndarray[Any, Any], calibration_quantile: float) -> float:

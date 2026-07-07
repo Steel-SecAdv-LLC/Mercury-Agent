@@ -26,6 +26,12 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from omni_mercury_engine.core.base import BaseDetector
+from omni_mercury_engine.detectors._calibration import (
+    bound_finite,
+    finite_features,
+    finite_scores,
+    squash_scale,
+)
 
 if TYPE_CHECKING:
     import torch
@@ -102,23 +108,28 @@ class EnergyBasedDetector(BaseDetector):
         detach = getattr(data, "detach", None)
         if callable(detach):
             data = detach().cpu().numpy()
-        return np.nan_to_num(np.asarray(data, dtype=np.float64)).ravel()
+        return bound_finite(np.asarray(data, dtype=np.float64)).ravel()
 
     def _squash_scale(self, raw: np.ndarray[Any, Any]) -> float:
         """Squash scale anchoring the ``calibration_quantile`` at score 0.5."""
-        q = float(np.quantile(raw, self.calibration_quantile))
-        if q < 1e-9:
-            q = float(np.mean(raw)) + 1e-9
-        return max(q / _LN2, 1e-9)
+        return squash_scale(raw, self.calibration_quantile)
 
     def _embed(self, series: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Causal, standardised delay embedding: row ``t`` = ``[y_{t-m+1}..y_t]``."""
         m = self.embed_dim
         n = series.size
-        u = (series - self._data_mean) / self._data_std
         emb = np.zeros((n, m), dtype=np.float64)
+        if n == 0:
+            return emb
+        u = (series - self._data_mean) / self._data_std
         for i in range(m):
-            emb[i:, m - 1 - i] = u[: n - i]
+            # Fill the lag-``i`` column only where a real lagged sample exists
+            # (rows ``i..n-1``). When ``i >= n`` (a series shorter than the embed
+            # dimension) that target slice is empty while ``u[:n-i]`` would be a
+            # non-empty negative slice, so guard the assignment; the warm-up
+            # rows are then edge-padded with the first sample below.
+            if i < n:
+                emb[i:, m - 1 - i] = u[: n - i]
             emb[:i, m - 1 - i] = u[0]  # edge-pad the warm-up region
         return emb
 
@@ -144,6 +155,15 @@ class EnergyBasedDetector(BaseDetector):
         self._data_std = float(np.std(series)) + 1e-9
 
         emb = self._embed(series)
+        if emb.shape[0] == 0:
+            # No samples to fit on: leave the detector inert (``_energy`` returns
+            # zeros when ``_mu``/``_precision`` are ``None``) rather than deriving
+            # a NaN mean/covariance from an empty array.
+            self._mu = None
+            self._precision = None
+            self._scale = 1.0
+            self._is_fitted = True
+            return self
         self._mu = np.mean(emb, axis=0)
         # Held-out calibration: fit the precision on the first 70% of embedded
         # points and calibrate the squash scale on the remaining 30% so the
@@ -151,6 +171,10 @@ class EnergyBasedDetector(BaseDetector):
         n = emb.shape[0]
         split = max(1, int(0.7 * n)) if n >= 4 else n
         cov = np.atleast_2d(np.cov(emb[:split], rowvar=False))
+        # A single calibration row makes ``np.cov`` (ddof=1) divide by zero and
+        # return NaN; fall back to a zero covariance so the ridge term below
+        # yields a finite isotropic precision instead of a NaN one.
+        cov = np.nan_to_num(cov)
         # Shrink toward the diagonal for a well-conditioned, less overfit precision.
         diag = np.diag(np.diag(cov))
         cov = (1.0 - self.shrinkage) * cov + self.shrinkage * diag
@@ -173,7 +197,7 @@ class EnergyBasedDetector(BaseDetector):
             ``(n_samples, 1)`` float32 energies.
         """
         raw = self._energy(self._to_1d_f64(data))
-        return raw.astype(np.float32).reshape(-1, 1)
+        return finite_features(raw).reshape(-1, 1)
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Per-sample anomaly scores in ``[0, 1]`` from EBM free energy.
@@ -183,7 +207,7 @@ class EnergyBasedDetector(BaseDetector):
         """
         raw = self._energy(self._to_1d_f64(data))
         scale = self._scale if self._is_fitted else self._squash_scale(raw)
-        scores = np.clip(1.0 - np.exp(-raw / scale), 0.0, 1.0).astype(np.float32)
+        scores = finite_scores(1.0 - np.exp(-raw / scale)).astype(np.float32)
         return {
             "anomaly_score": float(scores.max()) if scores.size else 0.0,
             "scores": scores,

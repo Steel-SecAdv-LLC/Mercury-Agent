@@ -30,6 +30,7 @@ import torch
 from torch import nn
 
 from omni_mercury_engine.core.base import BaseDetector
+from omni_mercury_engine.detectors._calibration import bound_finite
 from omni_mercury_engine.detectors.spectral_residual import SpectralResidualDetector
 
 __all__ = ["SRCNNDetector"]
@@ -135,7 +136,7 @@ class SRCNNDetector(BaseDetector):
         detach = getattr(data, "detach", None)
         if callable(detach):
             data = detach().cpu().numpy()
-        arr = np.nan_to_num(np.asarray(data, dtype=np.float64)).ravel()
+        arr = bound_finite(np.asarray(data, dtype=np.float64)).ravel()
         if arr.size == 0:
             raise ValueError("input series is empty")
         return arr

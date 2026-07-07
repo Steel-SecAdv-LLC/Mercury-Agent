@@ -28,6 +28,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from omni_mercury_engine.core.base import BaseDetector
+from omni_mercury_engine.detectors._calibration import finite_features, finite_scores
 
 if TYPE_CHECKING:
     import torch
@@ -172,7 +173,7 @@ class DeepLogSequenceDetector(BaseDetector):
             ``(n_keys, 1)`` float32 surprisals.
         """
         surp, _, _ = self._eval(self._to_1d_int(data))
-        return surp.astype(np.float32).reshape(-1, 1)
+        return finite_features(surp).reshape(-1, 1)
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Per-position anomaly scores in ``[0, 1]`` from next-key miss probability.
@@ -186,7 +187,7 @@ class DeepLogSequenceDetector(BaseDetector):
         """
         seq = self._to_1d_int(data)
         _, probs, flags = self._eval(seq)
-        scores = np.clip(1.0 - probs, 0.0, 1.0).astype(np.float32)
+        scores = finite_scores(1.0 - probs).astype(np.float32)
         return {
             "anomaly_score": float(scores.max()) if scores.size else 0.0,
             "scores": scores,
