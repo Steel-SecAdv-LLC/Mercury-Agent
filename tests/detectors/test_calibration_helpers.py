@@ -10,6 +10,8 @@ inline implementation the detectors used to duplicate.
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pytest
 
@@ -17,6 +19,7 @@ from omni_mercury_engine.detectors._calibration import (
     FINITE_CAP,
     LN2,
     bound_finite,
+    bound_finite_config,
     finite_features,
     finite_scores,
     squash_scale,
@@ -180,6 +183,38 @@ class TestBoundFiniteConfigurableCap:
         monkeypatch.setenv("OMNI_DETECTOR_MAX_MAGNITUDE", "10")
         out = bound_finite(np.array([1e6, 1e12]), max_magnitude=1e9)
         assert out.tolist() == [1e6, 1e9]
+
+
+class _FakeDetector:
+    """Minimal detector-shaped object for bound_finite_config."""
+
+    def __init__(self, config: dict[str, Any] | None = None) -> None:
+        self.name = "fake"
+        self._config = config or {}
+
+
+class TestBoundFiniteConfig:
+    """``bound_finite_config`` threads a detector's per-detector config onto input."""
+
+    def test_per_detector_config_applies_on_input(self) -> None:
+        det = _FakeDetector({"max_magnitude": 100.0})
+        out = bound_finite_config(det, np.array([50.0, 5000.0, np.inf]))
+        assert out.tolist() == [50.0, 100.0, 100.0]
+        # Resolution is cached on the object for the hot path.
+        assert getattr(det, "_detection_config", None) is not None
+
+    def test_no_override_matches_default_cap(self) -> None:
+        det = _FakeDetector()
+        out = bound_finite_config(det, np.array([np.inf]))
+        assert out.tolist() == [FINITE_CAP]
+
+    def test_reuses_preresolved_config(self) -> None:
+        from omni_mercury_engine.detectors.detection_config import DetectionConfig
+
+        det = _FakeDetector()
+        det._detection_config = DetectionConfig(max_magnitude=100.0)  # type: ignore[attr-defined]
+        out = bound_finite_config(det, np.array([5000.0]))
+        assert out.tolist() == [100.0]
 
 
 class TestFiniteFeatures:

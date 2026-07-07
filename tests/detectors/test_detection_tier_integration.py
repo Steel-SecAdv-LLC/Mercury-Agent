@@ -316,3 +316,22 @@ class TestObservability:
         ]
         for bad in bad_values:
             record_detector_score("sr", bad)  # must not raise
+
+
+class TestEnsembleSeamNaNPolicy:
+    def test_seam_honors_raise_policy(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # Regression: _to_1d_series used a bare np.nan_to_num that masked NaN/Inf
+        # before the NaN-policy layer, so OMNI_DETECTOR_NAN_POLICY=raise did NOT
+        # fail closed on the ensemble seam. It now routes through bound_finite.
+        from omni_mercury_engine.detectors.detection_config import NonFinitePolicyError
+        from omni_mercury_engine.detectors.detection_tier import _to_1d_series
+
+        monkeypatch.setenv("OMNI_DETECTOR_NAN_POLICY", "raise")
+        with pytest.raises(NonFinitePolicyError):
+            _to_1d_series(np.array([1.0, np.nan, 3.0]))
+
+    def test_seam_finite_input_unchanged(self) -> None:
+        from omni_mercury_engine.detectors.detection_tier import _to_1d_series
+
+        x = np.array([1.0, -2.5, 1e3, 0.0])
+        assert np.array_equal(_to_1d_series(x), np.nan_to_num(x))

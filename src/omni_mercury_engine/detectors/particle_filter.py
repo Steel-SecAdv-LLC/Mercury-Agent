@@ -32,7 +32,7 @@ import numpy as np
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.detectors._calibration import (
-    bound_finite,
+    bound_finite_config,
     finite_features,
     finite_scores,
     squash_scale,
@@ -109,7 +109,7 @@ class ParticleFilterDetector(BaseDetector):
         detach = getattr(data, "detach", None)
         if callable(detach):
             data = detach().cpu().numpy()
-        return bound_finite(np.asarray(data, dtype=np.float64), detector=self.name).ravel()
+        return bound_finite_config(self, np.asarray(data, dtype=np.float64)).ravel()
 
     @staticmethod
     def _systematic_resample(

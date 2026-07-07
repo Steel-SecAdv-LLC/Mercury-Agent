@@ -56,6 +56,33 @@ class TestContract:
         assert np.isfinite(scores).all()
 
 
+class TestRunLengthTruncation:
+    def test_long_stationary_hits_cap_and_stays_finite(self) -> None:
+        # A stationary run longer than max_run_length drives mass into the
+        # truncation-cap absorbing-tail bin. Scores must stay finite, in [0, 1],
+        # deterministic, and low on the stationary stretch.
+        det = BOCPDDetector(max_run_length=120).fit(np.random.default_rng(0).normal(size=300))
+        s = np.random.default_rng(1).normal(0.0, 1.0, 600)  # run length grows past 120
+        r1 = np.asarray(det.detect(s)["scores"])
+        r2 = np.asarray(det.detect(s)["scores"])
+        assert np.array_equal(r1, r2)  # deterministic / no state mutation
+        assert np.all(np.isfinite(r1)) and float(r1.min()) >= 0.0 and float(r1.max()) <= 1.0
+        assert np.median(r1[130:]) < 0.2  # stationary tail past the cap not inflated
+
+    def test_change_point_after_cap_still_flagged(self) -> None:
+        # A change point following a run that exceeded the cap must still spike:
+        # the absorbing-tail statistics must remain a sane predictive baseline.
+        det = BOCPDDetector(max_run_length=120).fit(np.random.default_rng(2).normal(size=300))
+        s = np.concatenate(
+            [
+                np.random.default_rng(3).normal(0.0, 1.0, 400),
+                np.random.default_rng(4).normal(8.0, 1.0, 200),
+            ]
+        )
+        scores = np.asarray(det.detect(s)["scores"])
+        assert float(scores[400:410].max()) > 0.5
+
+
 class TestSignal:
     def test_changepoint_detected_at_shift(self) -> None:
         x = _mean_shift(1)

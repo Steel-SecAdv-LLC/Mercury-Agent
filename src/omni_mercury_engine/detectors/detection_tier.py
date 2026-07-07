@@ -44,7 +44,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from omni_mercury_engine.detectors._calibration import finite_scores
+from omni_mercury_engine.detectors._calibration import bound_finite, finite_scores
 from omni_mercury_engine.detectors.detection_config import DetectionConfig
 
 if TYPE_CHECKING:
@@ -268,11 +268,20 @@ def build_tier_detectors(
 
 
 def _to_1d_series(data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
-    """Coerce input to a finite 1-D float series (flattening extra dimensions)."""
+    """Coerce input to a finite 1-D float series (flattening extra dimensions).
+
+    Sanitises through the tier's ``bound_finite`` guard (labelled ``"ensemble"``),
+    not a bare ``np.nan_to_num``: the seam thus honours ``OMNI_DETECTOR_NAN_POLICY``
+    (a ``raise`` policy fails closed on non-finite ensemble input instead of
+    silently masking it) and emits ``omni_detector_nonfinite_corrected{field="input"}``
+    for anything it rescues, and ``±inf`` is bounded to ``±FINITE_CAP`` rather than
+    ``np.nan_to_num``'s overflow-prone ``1.8e308`` sentinel. On finite input this is
+    byte-identical to the previous coercion, so ensemble scores are unchanged.
+    """
     detach = getattr(data, "detach", None)
     if callable(detach):
         data = detach().cpu().numpy()
-    arr = np.nan_to_num(np.asarray(data, dtype=np.float64)).ravel()
+    arr = bound_finite(np.asarray(data, dtype=np.float64), detector="ensemble").ravel()
     if arr.size == 0:
         raise ValueError("input series is empty")
     return arr

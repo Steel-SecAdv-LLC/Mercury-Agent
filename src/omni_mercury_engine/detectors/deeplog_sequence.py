@@ -29,7 +29,7 @@ import numpy as np
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.detectors._calibration import (
-    bound_finite,
+    bound_finite_config,
     finite_features,
     finite_scores,
 )
@@ -101,7 +101,7 @@ class DeepLogSequenceDetector(BaseDetector):
         # to 2**63 (out of range, so its cast wraps to INT64_MIN). 2**53 is the
         # largest exactly-representable float64 integer bound, far above any real
         # log-template vocabulary, so no legitimate key is clipped.
-        arr = bound_finite(np.asarray(data, dtype=np.float64), detector=self.name).ravel()
+        arr = bound_finite_config(self, np.asarray(data, dtype=np.float64)).ravel()
         key_cap = 2.0**53
         return np.clip(np.rint(arr), -key_cap, key_cap).astype(np.int64)
 

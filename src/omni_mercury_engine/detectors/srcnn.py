@@ -30,7 +30,10 @@ import torch
 from torch import nn
 
 from omni_mercury_engine.core.base import BaseDetector
-from omni_mercury_engine.detectors._calibration import bound_finite, finite_scores
+from omni_mercury_engine.detectors._calibration import (
+    bound_finite_config,
+    finite_scores,
+)
 from omni_mercury_engine.detectors.spectral_residual import SpectralResidualDetector
 
 __all__ = ["SRCNNDetector"]
@@ -138,7 +141,7 @@ class SRCNNDetector(BaseDetector):
         # Label non-finite corrections with this detector's name so the
         # ``omni_detector_nonfinite_corrected`` metric/log attributes them here
         # rather than to the generic "tier" default.
-        arr = bound_finite(np.asarray(data, dtype=np.float64), detector=self.name).ravel()
+        arr = bound_finite_config(self, np.asarray(data, dtype=np.float64)).ravel()
         if arr.size == 0:
             raise ValueError("input series is empty")
         return arr

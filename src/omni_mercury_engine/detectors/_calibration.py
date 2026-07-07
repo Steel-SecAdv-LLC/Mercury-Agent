@@ -48,6 +48,7 @@ __all__ = [
     "FINITE_CAP",
     "LN2",
     "bound_finite",
+    "bound_finite_config",
     "finite_features",
     "finite_scores",
     "squash_scale",
@@ -154,6 +155,47 @@ def bound_finite(
         max_magnitude=cap,
     )
     return sanitized
+
+
+def bound_finite_config(
+    detector_obj: Any,
+    arr: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
+    """``bound_finite`` honouring a detector's fully-resolved ``DetectionConfig``.
+
+    The input-sanitisation counterpart that makes the documented precedence
+    (``defaults < config file < env < per-detector config`` dict) hold *tier-wide*,
+    not only for the detectors that separately resolve a ``DetectionConfig``. It
+    resolves the detector's config from its ``_config`` dict once and caches it on
+    ``detector_obj._detection_config`` (reusing one an ``__init__`` already set, e.g.
+    SPOT / digital-twin), then threads that config's ``nan_policy`` / ``max_magnitude``
+    into :func:`bound_finite`.
+
+    Behaviour is byte-identical to the plain env-only guard whenever the detector's
+    ``config`` sets no ``nan_policy`` / ``max_magnitude`` (the resolved values then
+    equal the env defaults), so ordinary detectors and the committed benchmarks are
+    unaffected; only a detector explicitly given those overrides now applies them on
+    its input path. Resolution failure falls back to the env-only guard so this can
+    never make a detector unusable.
+
+    Args:
+        detector_obj: The detector instance (uses its ``.name`` and ``._config``).
+        arr: An already-``np.asarray``'d numeric array.
+
+    Returns:
+        The finite, bounded array (see :func:`bound_finite`).
+    """
+    name = getattr(detector_obj, "name", "tier")
+    cfg = getattr(detector_obj, "_detection_config", None)
+    if cfg is None:
+        try:
+            from omni_mercury_engine.detectors.detection_config import DetectionConfig
+
+            cfg = DetectionConfig.resolve(getattr(detector_obj, "_config", None))
+            detector_obj._detection_config = cfg
+        except Exception:  # pragma: no cover - fall back to the env-only guard
+            return bound_finite(arr, detector=name)
+    return bound_finite(arr, detector=name, policy=cfg.nan_policy, max_magnitude=cfg.max_magnitude)
 
 
 def finite_features(

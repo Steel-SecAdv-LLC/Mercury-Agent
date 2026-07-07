@@ -26,7 +26,7 @@ import numpy as np
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.detectors._calibration import (
-    bound_finite,
+    bound_finite_config,
     finite_features,
     finite_scores,
     squash_scale,
@@ -114,7 +114,7 @@ class FrequentPatternDetector(BaseDetector):
         detach = getattr(data, "detach", None)
         if callable(detach):
             data = detach().cpu().numpy()
-        arr = bound_finite(np.asarray(data, dtype=np.float64), detector=self.name)
+        arr = bound_finite_config(self, np.asarray(data, dtype=np.float64))
         if arr.ndim == 0:
             # A scalar (0-D) input would fall through unshaped and crash the
             # downstream 2-D indexing; treat it as a single 1-item transaction.
