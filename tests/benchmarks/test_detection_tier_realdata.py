@@ -184,6 +184,18 @@ def test_reproduce_report_survives_none_metrics() -> None:
     assert _fmt_metric(None) == "n/a"
     assert _fmt_metric(None, placeholder="-") == "-"
 
+    # The metrics originate from NumPy reductions (np.mean / roc_auc_score), whose
+    # scalars are not all Python-float subclasses: np.float64 is, but np.float32 and
+    # np.integer are not. A bare ``isinstance(value, (int, float))`` would silently
+    # route those to the placeholder. They must format like native numbers.
+    assert _fmt_metric(np.float64(0.0119)) == "0.0119"
+    assert _fmt_metric(np.float32(0.5)) == "0.5000"
+    assert _fmt_metric(np.int64(1)) == "1.0000"
+    # ``bool`` is an ``int`` subclass but is never a valid metric: it must degrade to
+    # the placeholder rather than format ``True`` as ``1.0000``.
+    assert _fmt_metric(True) == "n/a"
+    assert _fmt_metric(np.bool_(True)) == "n/a"
+
     none_member = {
         "calibration": "none",
         "combiner": "average",

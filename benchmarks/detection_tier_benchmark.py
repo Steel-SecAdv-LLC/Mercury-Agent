@@ -328,8 +328,12 @@ def _evaluate_supervised_ensembles(
     split = series.size // 2
     train_s, train_l = series[:split], labels[:split]
     test_s, test_l = series[split:], labels[split:]
-    both = lambda y: 0 < int(y.sum()) < int(y.size)  # noqa: E731 - tiny local predicate
-    if not (both(train_l) and both(test_l)):
+
+    def _both_classes(y: np.ndarray) -> bool:
+        """True iff the fold ``y`` contains both a positive and a negative label."""
+        return 0 < int(y.sum()) < int(y.size)
+
+    if not (_both_classes(train_l) and _both_classes(test_l)):
         return None
 
     results: dict[str, dict[str, Any]] = {}

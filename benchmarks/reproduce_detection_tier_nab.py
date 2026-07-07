@@ -296,8 +296,18 @@ def _fmt_metric(value: Any, placeholder: str = "n/a") -> str:
     ``delta`` and ``meets_acceptance``'s explicit ``is not None`` guard). Formatting
     such a value with a bare ``:.4f`` raises ``TypeError`` and crashes the report
     writer, so every human-facing metric is routed through this guard.
+
+    The metrics originate from NumPy reductions (``np.mean``/``roc_auc_score``), so
+    the accepted types include NumPy real scalars (``np.floating``/``np.integer``) as
+    well as native ``int``/``float``. ``bool`` is a subclass of ``int`` but is never a
+    valid metric, so it is excluded and degrades to ``placeholder`` rather than
+    formatting ``True`` as ``1.0000``.
     """
-    return f"{value:.4f}" if isinstance(value, (int, float)) else placeholder
+    if isinstance(value, bool):
+        return placeholder
+    if isinstance(value, (int, float, np.integer, np.floating)):
+        return f"{float(value):.4f}"
+    return placeholder
 
 
 def _analysis_markdown(summary: dict[str, Any]) -> str:
