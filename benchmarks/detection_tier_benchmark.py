@@ -76,9 +76,16 @@ MEMBER_DETECTORS: tuple[str, ...] = (
     "deep_svdd",
 )
 
-#: Ensemble combiners. ``average`` is unsupervised (headline); ``stacking`` /
-#: ``bma`` are supervised and evaluated on the split-measurable subset.
+#: Supervised ensemble combiners evaluated on the split-measurable subset.
+#: ``average`` is included as a label-free reference alongside the label-driven
+#: ``stacking`` / ``bma``.
 ENSEMBLE_METHODS: tuple[str, ...] = ("average", "bma", "stacking")
+
+#: Label-free ensemble combiners evaluated on the full series (the unsupervised
+#: headline). ``consensus`` is the calibrated robust high-quantile combiner (the
+#: recommended default); ``average`` is the plain calibrated mean, kept as a
+#: reference so the calibration + robust-aggregation gain is visible.
+UNSUPERVISED_METHODS: tuple[str, ...] = ("consensus", "average")
 
 #: NAB real categories to pull (synthetic ``artificial*`` sets are excluded).
 _NAB_REAL_CATEGORIES: tuple[str, ...] = (
@@ -171,24 +178,35 @@ def _round_metrics(metrics: dict[str, float]) -> dict[str, float]:
 def _crop_to_anomaly(
     series: np.ndarray, labels: np.ndarray, max_len: int
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Crop a long series to a ``max_len`` window that retains its anomalies."""
+    """Crop a long series to the ``max_len`` window that retains the most anomalies.
+
+    The previous crop centred the window on the midpoint between the *first* and
+    *last* labelled point. When a series' anomalies span more than ``max_len``
+    (or sit in two clusters at the extremes), that midpoint lands in a normal gap
+    and the window can retain *few or zero* anomaly points -- so
+    :func:`load_nab_series` then discards the whole series (``lab.sum() == 0``),
+    silently dropping a measurable benchmark case and biasing the aggregate.
+
+    This picks the length-``max_len`` window that **maximises the number of
+    retained labelled anomalies** via a prefix-sum sliding window, guaranteeing
+    the crop never drops all anomalies when any exist. Among equally-good windows
+    (the contiguous "plateau" of max-count offsets) it takes the middle one, which
+    *centres* the retained anomaly mass in the window -- keeping a downstream
+    50/50 temporal split straddling the anomalies (so the supervised
+    stacking/BMA lane stays measurable) exactly as the old centred crop intended,
+    without its all-anomalies-dropped failure mode.
+    """
     n = int(series.size)
     if n <= max_len:
         return series, labels
     pos = np.flatnonzero(labels == 1)
     if pos.size == 0:
-        lo = 0
-    else:
-        center = int((pos[0] + pos[-1]) // 2)
-        lo = max(0, min(center - max_len // 2, n - max_len))
-        if not labels[lo : lo + max_len].any():
-            # The anomaly windows are farther apart than max_len, so the
-            # midpoint-centred crop fell between them and kept none. Re-centre on
-            # the first anomaly so the window always retains at least one — its
-            # documented contract — instead of silently dropping the whole
-            # labelled series from the benchmark.
-            center = int(pos[0])
-            lo = max(0, min(center - max_len // 2, n - max_len))
+        return series[:max_len], labels[:max_len]
+    prefix = np.concatenate([[0], np.cumsum(labels.astype(np.int64))])
+    los = np.arange(0, n - max_len + 1)
+    counts = prefix[los + max_len] - prefix[los]  # anomalies retained per offset
+    plateau = np.flatnonzero(counts == counts.max())
+    lo = int(los[plateau[plateau.size // 2]])
     hi = lo + max_len
     return series[lo:hi], labels[lo:hi]
 
@@ -266,13 +284,19 @@ def evaluate_member(name: str, series: np.ndarray, labels: np.ndarray) -> dict[s
         return {"detector": name, "error": f"{type(exc).__name__}: {exc}"}
 
 
-def _evaluate_average_ensemble(
-    members: list[str], series: np.ndarray, labels: np.ndarray, seed: int
+def _evaluate_unsupervised_ensemble(
+    members: list[str], series: np.ndarray, labels: np.ndarray, seed: int, method: str
 ) -> dict[str, Any]:
-    """Unsupervised ``average`` ensemble: fit members on warm-up, score all."""
+    """One label-free ensemble (``consensus`` / ``average``): fit on warm-up, score all.
+
+    The members are fitted on the initial *normal* warm-up window and the
+    calibrated ensemble scores the whole series -- the honest, non-leaking
+    unsupervised protocol. ``method="consensus"`` is the calibrated robust
+    high-quantile combiner; ``method="average"`` is the calibrated mean.
+    """
     try:
         detectors = build_tier_detectors(members)
-        ensemble = StreamingScoreEnsemble(detectors, method="average", seed=seed)
+        ensemble = StreamingScoreEnsemble(detectors, method=method, seed=seed)
         warmup = _warmup_len(series.size)
         ensemble.fit(series[:warmup])
         scores = ensemble.score(series)
@@ -281,6 +305,16 @@ def _evaluate_average_ensemble(
         return _round_metrics(metrics)
     except Exception as exc:
         return {"error": f"{type(exc).__name__}: {exc}"}
+
+
+def _evaluate_unsupervised_ensembles(
+    members: list[str], series: np.ndarray, labels: np.ndarray, seed: int
+) -> dict[str, dict[str, Any]]:
+    """Every label-free combiner in :data:`UNSUPERVISED_METHODS` on the full series."""
+    return {
+        method: _evaluate_unsupervised_ensemble(members, series, labels, seed, method)
+        for method in UNSUPERVISED_METHODS
+    }
 
 
 def _evaluate_supervised_ensembles(
@@ -380,11 +414,11 @@ def run_realdata_benchmark(
 
     for name, series, labels in datasets:
         members_result = {m: evaluate_member(m, series, labels) for m in member_names}
-        average_result = _evaluate_average_ensemble(member_names, series, labels, seed)
+        unsup_result = _evaluate_unsupervised_ensembles(member_names, series, labels, seed)
         supervised = _evaluate_supervised_ensembles(member_names, series, labels, seed)
 
         member_by_ds[name] = members_result
-        unsup_by_ds[name] = {"average": average_result}
+        unsup_by_ds[name] = unsup_result
         if supervised is None:
             skipped.append(
                 {
@@ -408,11 +442,15 @@ def run_realdata_benchmark(
             if sup_aucs:
                 best_sup = max(sup_aucs, key=sup_aucs.__getitem__)
                 sup_row.update(best_method=best_sup, best_auc=round(sup_aucs[best_sup], 6))
+        consensus_result = unsup_result.get("consensus", {})
+        average_result = unsup_result.get("average", {})
         dataset_tables[name] = {
             "n": int(series.size),
             "anomaly_rate": round(float(np.mean(labels)), 6),
             "best_member": best_member,
             "best_member_auc": round(scored_members[best_member], 6) if best_member else None,
+            "ensemble_consensus_auc": consensus_result.get("roc_auc"),
+            "ensemble_consensus_f1": consensus_result.get("f1"),
             "ensemble_average_auc": average_result.get("roc_auc"),
             "ensemble_average_f1": average_result.get("f1"),
             "supervised": sup_row,
@@ -420,7 +458,7 @@ def run_realdata_benchmark(
         measured.append(name)
 
     member_agg = _aggregate(member_by_ds, member_names)
-    average_agg = _aggregate(unsup_by_ds, ["average"])
+    unsup_agg = _aggregate(unsup_by_ds, list(UNSUPERVISED_METHODS))
     supervised_agg = _aggregate(sup_by_ds, list(ENSEMBLE_METHODS))
 
     measurable_members = {k: v for k, v in member_agg.items() if "mean_auc" in v}
@@ -441,18 +479,20 @@ def run_realdata_benchmark(
             "warmup_frac": _WARMUP_FRAC,
             "members": member_names,
             "ensemble_methods": list(ENSEMBLE_METHODS),
+            "unsupervised_methods": list(UNSUPERVISED_METHODS),
             "protocol": (
-                "unsupervised streaming: members + average ensemble fit on the normal "
-                "warm-up and score the whole series (per-point ROC-AUC + oracle F1 over "
-                "all labels); supervised stacking/bma on the 50/50-split subset where both "
-                "folds carry both classes"
+                "unsupervised streaming: members + calibrated consensus/average ensembles "
+                "fit on the normal warm-up and score the whole series (per-point ROC-AUC + "
+                "oracle F1 over all labels); supervised stacking/bma on the 50/50-split "
+                "subset where both folds carry both classes"
             ),
             "n_datasets_measured": len(measured),
         },
         "datasets": dataset_tables,
         "aggregate": {
             "members": member_agg,
-            "ensemble_average": average_agg.get("average", {"error": "no successful datasets"}),
+            "ensemble_consensus": unsup_agg.get("consensus", {"error": "no successful datasets"}),
+            "ensemble_average": unsup_agg.get("average", {"error": "no successful datasets"}),
             "ensembles_supervised": supervised_agg,
         },
         "summary": {
@@ -462,9 +502,21 @@ def run_realdata_benchmark(
             "best_member_mean_auc": (
                 measurable_members[best_member]["mean_auc"] if best_member else None
             ),
-            "average_ensemble_mean_auc": average_agg.get("average", {}).get("mean_auc"),
+            "consensus_ensemble_mean_auc": unsup_agg.get("consensus", {}).get("mean_auc"),
+            "average_ensemble_mean_auc": unsup_agg.get("average", {}).get("mean_auc"),
             "bma_ensemble_mean_auc": supervised_agg.get("bma", {}).get("mean_auc"),
             "stacking_ensemble_mean_auc": supervised_agg.get("stacking", {}).get("mean_auc"),
+            "consensus_minus_best_member": (
+                round(
+                    unsup_agg["consensus"]["mean_auc"]
+                    - measurable_members[best_member]["mean_auc"],
+                    6,
+                )
+                if best_member
+                and "mean_auc" in unsup_agg.get("consensus", {})
+                and best_member in measurable_members
+                else None
+            ),
         },
         "measured_datasets": measured,
         "skipped": skipped,
@@ -489,6 +541,7 @@ def _format_summary(results: dict[str, Any]) -> str:
     members = results["aggregate"]["members"]
     for name in results["config"]["members"]:
         lines.append(_row(name, members.get(name, {"error": "missing"})))
+    lines.append(_row("ensemble:consensus", results["aggregate"]["ensemble_consensus"]))
     lines.append(_row("ensemble:average", results["aggregate"]["ensemble_average"]))
     for method in ("bma", "stacking"):
         lines.append(

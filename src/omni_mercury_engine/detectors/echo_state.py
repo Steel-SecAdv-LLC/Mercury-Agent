@@ -106,13 +106,12 @@ class EchoStateDetector(BaseDetector):
         """Return ``True`` once :meth:`fit` has trained the readout/scale."""
         return self._is_fitted
 
-    @staticmethod
-    def _to_1d_f64(data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
+    def _to_1d_f64(self, data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
         """Coerce numpy/torch input to a finite 1-D float64 series."""
         detach = getattr(data, "detach", None)
         if callable(detach):
             data = detach().cpu().numpy()
-        return bound_finite(np.asarray(data, dtype=np.float64)).ravel()
+        return bound_finite(np.asarray(data, dtype=np.float64), detector=self.name).ravel()
 
     def _squash_scale(self, raw: np.ndarray[Any, Any]) -> float:
         """Squash scale anchoring the ``calibration_quantile`` at score 0.5."""

@@ -105,13 +105,12 @@ class HawkesBurstDetector(BaseDetector):
         """Squash scale anchoring the ``calibration_quantile`` at score 0.5."""
         return squash_scale(raw, self.calibration_quantile)
 
-    @staticmethod
-    def _to_1d_f64(data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
+    def _to_1d_f64(self, data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
         """Coerce numpy/torch input to a finite, non-negative 1-D count series."""
         detach = getattr(data, "detach", None)
         if callable(detach):
             data = detach().cpu().numpy()
-        arr = bound_finite(np.asarray(data, dtype=np.float64)).ravel()
+        arr = bound_finite(np.asarray(data, dtype=np.float64), detector=self.name).ravel()
         # Counts are non-negative; clamp defensively so residuals stay meaningful.
         return np.maximum(arr, 0.0)
 

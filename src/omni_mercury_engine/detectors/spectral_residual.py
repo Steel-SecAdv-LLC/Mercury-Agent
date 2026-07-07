@@ -104,8 +104,7 @@ class SpectralResidualDetector(BaseDetector):
         """Squash scale anchoring the ``calibration_quantile`` at score 0.5."""
         return squash_scale(raw, self.calibration_quantile)
 
-    @staticmethod
-    def _to_1d_f64(data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
+    def _to_1d_f64(self, data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
         """Coerce numpy/torch input to a finite 1-D float64 series.
 
         A torch tensor is detached to CPU numpy by duck-typing so importing this
@@ -115,7 +114,7 @@ class SpectralResidualDetector(BaseDetector):
         detach = getattr(data, "detach", None)
         if callable(detach):
             data = detach().cpu().numpy()
-        arr = bound_finite(np.asarray(data, dtype=np.float64)).ravel()
+        arr = bound_finite(np.asarray(data, dtype=np.float64), detector=self.name).ravel()
         return arr
 
     @staticmethod

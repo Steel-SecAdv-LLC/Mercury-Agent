@@ -104,13 +104,12 @@ class ParticleFilterDetector(BaseDetector):
         """Squash scale anchoring the ``calibration_quantile`` at score 0.5."""
         return squash_scale(raw, self.calibration_quantile)
 
-    @staticmethod
-    def _to_1d_f64(data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
+    def _to_1d_f64(self, data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
         """Coerce numpy/torch input to a finite 1-D float64 series."""
         detach = getattr(data, "detach", None)
         if callable(detach):
             data = detach().cpu().numpy()
-        return bound_finite(np.asarray(data, dtype=np.float64)).ravel()
+        return bound_finite(np.asarray(data, dtype=np.float64), detector=self.name).ravel()
 
     @staticmethod
     def _systematic_resample(

@@ -109,13 +109,12 @@ class FrequentPatternDetector(BaseDetector):
         """Return ``True`` once :meth:`fit` has mined rules and the scale."""
         return self._is_fitted
 
-    @staticmethod
-    def _to_bool_matrix(data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
+    def _to_bool_matrix(self, data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
         """Coerce numpy/torch input to a 2-D boolean transaction matrix."""
         detach = getattr(data, "detach", None)
         if callable(detach):
             data = detach().cpu().numpy()
-        arr = bound_finite(np.asarray(data, dtype=np.float64))
+        arr = bound_finite(np.asarray(data, dtype=np.float64), detector=self.name)
         if arr.ndim == 1:
             arr = arr.reshape(1, -1)
         elif arr.ndim > 2:

@@ -35,6 +35,14 @@ from typing import Any
 
 import numpy as np
 
+from omni_mercury_engine.detectors.detection_config import (
+    DEFAULT_MAX_MAGNITUDE,
+    NaNPolicy,
+    NonFinitePolicyError,
+    active_nan_policy,
+    record_nonfinite_correction,
+)
+
 __all__ = [
     "FINITE_CAP",
     "LN2",
@@ -63,36 +71,79 @@ LN2 = float(np.log(2.0))
 #: that overflowed at ``1.8e308`` no longer can. ``finite_scores`` /
 #: ``finite_features`` remain the guaranteed output backstop for any residual
 #: higher-order overflow.
-FINITE_CAP = 1e100
+#:
+#: Unified with the NaN-policy layer: this *is*
+#: ``detection_config.DEFAULT_MAX_MAGNITUDE`` (same ``1e100`` literal, defined in
+#: one place), so ``bound_finite`` and ``apply_nan_policy`` share one magnitude
+#: regime.
+FINITE_CAP = DEFAULT_MAX_MAGNITUDE
 
 
-def bound_finite(arr: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-    """Map NaN→0 and ``±inf``/out-of-range magnitudes to ``±FINITE_CAP``.
+def _count_nonfinite(arr: np.ndarray[Any, Any]) -> tuple[int, int]:
+    """Return ``(n_nan, n_inf)`` in ``arr`` (a float array)."""
+    n_nan = int(np.isnan(arr).sum())
+    n_inf = int(np.isinf(arr).sum())
+    return n_nan, n_inf
 
-    This is the drop-in, overflow-safe replacement for the
-    ``np.nan_to_num(np.asarray(data, dtype=np.float64))`` expression the tier
-    detectors used for input sanitisation. A bare ``np.nan_to_num`` maps ``±inf``
-    to ``±1.7977e308``; that near-max-float value overflows to ``inf`` the moment
-    it is squared or summed inside a detector, and the subsequent ``inf - inf``
-    produces ``NaN`` — which then corrupts the anomaly score or, when it happens
-    at ``fit`` time, permanently poisons the detector's calibration statistics.
-    Bounding into ``[-FINITE_CAP, FINITE_CAP]`` (see :data:`FINITE_CAP`) makes
-    that overflow impossible while leaving all realistic, in-range data unchanged
-    (it is applied to the same array the old expression produced, so the coercion
-    to ``float64`` and any surrounding ``.ravel()`` / reshape stay in place).
+
+def bound_finite(
+    arr: np.ndarray[Any, Any],
+    *,
+    detector: str = "tier",
+    policy: NaNPolicy | str | None = None,
+) -> np.ndarray[Any, Any]:
+    """Map NaN→0 and ``±inf``/out-of-range magnitudes to ``±FINITE_CAP`` (observably).
+
+    The overflow-safe replacement for ``np.nan_to_num`` the tier detectors use for
+    input sanitisation. A bare ``np.nan_to_num`` maps ``±inf`` to ``±1.7977e308``;
+    that near-max-float value overflows to ``inf`` the moment it is squared or
+    summed inside a detector, and the subsequent ``inf - inf`` produces ``NaN`` —
+    corrupting the score or, at ``fit`` time, permanently poisoning the detector's
+    calibration statistics. Bounding into ``[-FINITE_CAP, FINITE_CAP]`` makes that
+    impossible while leaving realistic, in-range data unchanged.
+
+    This is now the tier's configurable, *observable* NaN/Inf guard: every
+    correction it makes is metered on ``omni_detector_nonfinite_corrected`` and
+    logged (see :func:`~omni_mercury_engine.detectors.detection_config.record_nonfinite_correction`),
+    and the active policy (``OMNI_DETECTOR_NAN_POLICY``, or the explicit ``policy``
+    argument) selects the behaviour: ``neutral`` (default, the historical mapping),
+    ``impute``, ``flag``, or ``raise`` (fail closed on any non-finite value). On
+    finite input it is a no-op with no metric/log emitted, so behaviour on
+    ordinary data is unchanged.
 
     Args:
         arr: An already-``np.asarray``'d numeric array.
+        detector: Detector name for the metric ``detector`` label / log.
+        policy: Override the active NaN policy for this call (``None`` = resolve
+            from the environment).
 
     Returns:
         The same-shaped array with every element finite and ``|x| <= FINITE_CAP``.
+
+    Raises:
+        NonFinitePolicyError: If the active policy is ``raise`` and ``arr`` has a
+            non-finite value.
     """
-    arr = np.nan_to_num(arr, nan=0.0, posinf=FINITE_CAP, neginf=-FINITE_CAP)
-    return np.clip(arr, -FINITE_CAP, FINITE_CAP)
+    from omni_mercury_engine.detectors.detection_config import apply_nan_policy
+
+    resolved = policy if policy is not None else active_nan_policy()
+    sanitized, _ = apply_nan_policy(
+        arr,
+        policy=resolved,
+        detector=detector,
+        field="input",
+        max_magnitude=FINITE_CAP,
+    )
+    return sanitized
 
 
-def finite_features(values: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-    """Coerce a fusion-feature array to guaranteed-finite ``float32``.
+def finite_features(
+    values: np.ndarray[Any, Any],
+    *,
+    detector: str = "tier",
+    policy: NaNPolicy | str | None = None,
+) -> np.ndarray[Any, Any]:
+    """Coerce a fusion-feature array to guaranteed-finite ``float32`` (observably).
 
     ``extract_features`` returns *raw* (un-squashed) features cast to ``float32``
     for the fusion network. A large-but-finite float64 feature (e.g. a residual
@@ -100,9 +151,21 @@ def finite_features(values: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
     ``~3.4e38`` range and become ``inf`` on the cast, poisoning the feature store
     and the fusion input. This maps every non-finite entry to the finite float32
     bound so the feature vector is always usable, then returns float32.
+
+    Like :func:`bound_finite`, every correction is metered + logged, and a
+    ``raise`` policy fails closed instead of correcting.
     """
+    resolved = NaNPolicy.coerce(policy if policy is not None else active_nan_policy())
     f32_max = float(np.finfo(np.float32).max)
     arr = np.asarray(values, dtype=np.float64)
+    n_nan, n_inf = _count_nonfinite(arr)
+    if n_nan or n_inf:
+        if resolved is NaNPolicy.RAISE:
+            raise NonFinitePolicyError(
+                f"{detector}: {n_nan + n_inf} non-finite value(s) in features "
+                f"({n_nan} NaN, {n_inf} Inf) and NaN policy is 'raise'"
+            )
+        record_nonfinite_correction(detector, resolved, "features", n_nan=n_nan, n_inf=n_inf)
     arr = np.nan_to_num(arr, nan=0.0, posinf=f32_max, neginf=-f32_max)
     return np.clip(arr, -f32_max, f32_max).astype(np.float32)
 
@@ -150,8 +213,10 @@ def finite_scores(
     *,
     lo: float = 0.0,
     hi: float = 1.0,
+    detector: str = "tier",
+    policy: NaNPolicy | str | None = None,
 ) -> np.ndarray[Any, Any]:
-    """Coerce a score vector to guaranteed-finite values in ``[lo, hi]``.
+    """Coerce a score vector to guaranteed-finite values in ``[lo, hi]`` (observably).
 
     This is the single choke point that enforces the ``BaseDetector`` contract's
     "all scores must be finite and in ``[0, 1]``" invariant. Unlike a bare
@@ -163,15 +228,37 @@ def finite_scores(
     * ``+inf`` → ``hi`` (a saturating positive score is maximally anomalous);
     * ``-inf`` → ``lo``.
 
+    Like :func:`bound_finite`, every correction is metered + logged, and a
+    ``raise`` policy fails closed instead of correcting. The ``lo``/``hi`` mapping
+    is score-specific (asymmetric), so this is *not* the symmetric
+    ``apply_nan_policy`` clamp — the two are consistent on the ``neutral`` /
+    ``raise`` intent while keeping the score contract's ``[lo, hi]`` semantics.
+
     Args:
         values: Raw score array (any shape / dtype).
         lo: Lower bound (default ``0.0``).
         hi: Upper bound (default ``1.0``).
+        detector: Detector name for the metric ``detector`` label / log.
+        policy: Override the active NaN policy for this call (``None`` = resolve
+            from the environment).
 
     Returns:
         A float64 array of the same shape, every element finite and in
         ``[lo, hi]``.
+
+    Raises:
+        NonFinitePolicyError: If the active policy is ``raise`` and ``values`` has
+            a non-finite entry.
     """
+    resolved = NaNPolicy.coerce(policy if policy is not None else active_nan_policy())
     arr = np.asarray(values, dtype=np.float64)
+    n_nan, n_inf = _count_nonfinite(arr)
+    if n_nan or n_inf:
+        if resolved is NaNPolicy.RAISE:
+            raise NonFinitePolicyError(
+                f"{detector}: {n_nan + n_inf} non-finite score(s) "
+                f"({n_nan} NaN, {n_inf} Inf) and NaN policy is 'raise'"
+            )
+        record_nonfinite_correction(detector, resolved, "scores", n_nan=n_nan, n_inf=n_inf)
     arr = np.nan_to_num(arr, nan=lo, posinf=hi, neginf=lo)
     return np.clip(arr, lo, hi)

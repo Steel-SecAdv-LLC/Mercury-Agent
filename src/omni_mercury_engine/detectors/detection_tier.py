@@ -43,7 +43,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from omni_mercury_engine.detectors._calibration import finite_scores
+from omni_mercury_engine.detectors.detection_config import DetectionConfig
 
 if TYPE_CHECKING:
     import torch
@@ -91,7 +91,147 @@ STREAMING_TIER: tuple[str, ...] = tuple(name for group in TIER_PARADIGMS.values(
 #: :func:`build_tier_detectors` when the ML extra is installed.
 TORCH_TIER: tuple[str, ...] = ("srcnn", "diffusion_ad")
 
-_ENSEMBLE_METHODS = ("stacking", "bma", "average")
+_ENSEMBLE_METHODS = ("stacking", "bma", "average", "consensus")
+
+#: Default cross-detector quantile for the label-free ``"consensus"`` combiner. A
+#: high quantile (~0.9) makes the combined score "a point most calibrated
+#: detectors rank in their tail", which is robust to the uninformative members a
+#: plain mean is dragged down by.
+_DEFAULT_CONSENSUS_QUANTILE = 0.9
+
+#: Per-detector score-calibration transforms selectable in
+#: :class:`StreamingScoreEnsemble`. ``rank``/``ecdf`` are label-free empirical-CDF
+#: transforms (the default); ``isotonic``/``platt`` are supervised monotone maps
+#: trained on the warm-up window; ``none`` disables per-detector calibration.
+_CALIBRATION_METHODS = ("rank", "ecdf", "isotonic", "platt", "none")
+
+
+def _pool_adjacent_violators(y: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    """Isotonic (non-decreasing) fit of ``y`` via the pool-adjacent-violators algorithm.
+
+    Returns a non-decreasing vector minimising the squared error to ``y`` (unit
+    weights). Pure NumPy; ``O(n)`` amortised.
+    """
+    y = np.asarray(y, dtype=np.float64)
+    n = y.size
+    if n == 0:
+        return y
+    # Stack of (mean, weight, length) blocks; merge while the previous block's
+    # mean exceeds the current (a monotonicity violation).
+    values = np.empty(n, dtype=np.float64)
+    weights = np.empty(n, dtype=np.float64)
+    lengths = np.empty(n, dtype=np.int64)
+    top = -1
+    for value in y:
+        top += 1
+        values[top] = value
+        weights[top] = 1.0
+        lengths[top] = 1
+        while top > 0 and values[top - 1] > values[top]:
+            w = weights[top - 1] + weights[top]
+            values[top - 1] = (weights[top - 1] * values[top - 1] + weights[top] * values[top]) / w
+            weights[top - 1] = w
+            lengths[top - 1] += lengths[top]
+            top -= 1
+    out = np.empty(n, dtype=np.float64)
+    idx = 0
+    for b in range(top + 1):
+        out[idx : idx + lengths[b]] = values[b]
+        idx += int(lengths[b])
+    return out
+
+
+class _ScoreCalibrator:
+    """Per-detector monotone map from a raw score column into a calibrated ``[0, 1]``.
+
+    Concrete subclasses implement :meth:`transform`. The point of calibration is
+    that heterogeneous detectors emit scores on incomparable scales; mapping each
+    detector's scores onto a common ``[0, 1]`` scale *before* combining stops a
+    detector with a systematically inflated score range from dominating an
+    unweighted average.
+    """
+
+    def transform(self, scores: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Map raw scores to calibrated ``[0, 1]`` scores."""
+        raise NotImplementedError
+
+
+class _IdentityCalibrator(_ScoreCalibrator):
+    """No-op calibrator (``calibration='none'``): clip into ``[0, 1]`` only."""
+
+    def transform(self, scores: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Return the scores clipped into ``[0, 1]`` unchanged otherwise."""
+        return np.clip(np.asarray(scores, dtype=np.float64), 0.0, 1.0)
+
+
+class _EcdfCalibrator(_ScoreCalibrator):
+    """Rank / empirical-CDF calibrator: map a score to ``P(reference <= score)``.
+
+    Fit on a reference (warm-up) window, it transforms any score to the fraction
+    of reference points at or below it -- the empirical CDF, which is uniform on
+    ``[0, 1]`` under the reference distribution. Monotone, label-free, and robust
+    to each detector's arbitrary score scale.
+    """
+
+    def __init__(self, reference: np.ndarray[Any, Any]) -> None:
+        """Store the sorted reference distribution."""
+        ref = np.asarray(reference, dtype=np.float64)
+        ref = ref[np.isfinite(ref)]
+        self._reference = np.sort(ref)
+
+    def transform(self, scores: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Empirical-CDF transform against the fitted reference."""
+        arr = np.asarray(scores, dtype=np.float64)
+        if self._reference.size == 0:
+            return np.clip(arr, 0.0, 1.0)
+        ranks = np.searchsorted(self._reference, arr, side="right")
+        return ranks.astype(np.float64) / float(self._reference.size)
+
+
+class _IsotonicCalibrator(_ScoreCalibrator):
+    """Isotonic-regression calibrator: monotone score->P(anomaly) from labels.
+
+    Trained on the (warm-up) window's ``(score, label)`` pairs via
+    pool-adjacent-violators; transforms via monotone interpolation. Falls back to
+    the fitted step function's endpoints outside the training range.
+    """
+
+    def __init__(self, scores: np.ndarray[Any, Any], labels: np.ndarray[Any, Any]) -> None:
+        """Fit the isotonic map on ``(scores, labels)``."""
+        x = np.asarray(scores, dtype=np.float64)
+        y = np.asarray(labels, dtype=np.float64)
+        order = np.argsort(x, kind="mergesort")
+        self._x = x[order]
+        self._y = _pool_adjacent_violators(y[order])
+
+    def transform(self, scores: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Monotone-interpolate calibrated probabilities for ``scores``."""
+        arr = np.asarray(scores, dtype=np.float64)
+        if self._x.size == 0:
+            return np.clip(arr, 0.0, 1.0)
+        calibrated = np.interp(arr, self._x, self._y, left=self._y[0], right=self._y[-1])
+        return np.clip(calibrated, 0.0, 1.0)
+
+
+class _PlattCalibrator(_ScoreCalibrator):
+    """Platt-scaling calibrator: logistic score->P(anomaly) from labels.
+
+    Fits Mercury's own logistic regression on the (warm-up) ``(score, label)``
+    pairs and transforms via the fitted sigmoid probability.
+    """
+
+    def __init__(self, scores: np.ndarray[Any, Any], labels: np.ndarray[Any, Any]) -> None:
+        """Fit the 1-D logistic map on ``(scores, labels)``."""
+        from omni_mercury_engine.ml.mercury_ml import LogisticRegression
+
+        self._model = LogisticRegression()
+        self._model.fit(np.asarray(scores, dtype=np.float64).reshape(-1, 1), np.asarray(labels))
+
+    def transform(self, scores: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Sigmoid-calibrated probabilities for ``scores``."""
+        arr = np.asarray(scores, dtype=np.float64).reshape(-1, 1)
+        proba = np.asarray(self._model.predict_proba(arr))[:, 1]
+        return np.clip(proba, 0.0, 1.0)
 
 
 def build_tier_detectors(
@@ -159,7 +299,7 @@ def align_point_scores(
     raw = result.get("scores")
     if raw is None:
         fallback = float(result.get("anomaly_score", result.get("anomaly_prob", 0.0)))
-        return finite_scores(np.full(arr.size, fallback, dtype=np.float64))
+        return np.full(arr.size, fallback, dtype=np.float64)
     scores = np.asarray(raw, dtype=np.float64).ravel()
     if scores.size == 0:
         return np.zeros(arr.size, dtype=np.float64)
@@ -167,11 +307,7 @@ def align_point_scores(
         src = np.linspace(0.0, 1.0, scores.size)
         dst = np.linspace(0.0, 1.0, arr.size)
         scores = np.interp(dst, src, scores)
-    # Defence in depth: a member that emits NaN/inf (np.clip does not scrub NaN)
-    # would otherwise poison the ensemble mean / stacking / BMA and crash
-    # calibrate_scores' np.histogram. finite_scores guarantees a finite [0, 1]
-    # column regardless of member behaviour.
-    return finite_scores(scores)
+    return np.clip(scores, 0.0, 1.0)
 
 
 class StreamingScoreEnsemble:
@@ -179,18 +315,41 @@ class StreamingScoreEnsemble:
 
     The ensemble fits each detector on (the normal part of) a training series,
     collects their per-point scores into a ``(n_points, n_detectors)`` matrix,
-    and combines them by one of:
+    **calibrates each detector's column onto a common scale** (see below), and
+    combines the calibrated columns by one of:
 
     * ``"stacking"`` -- a logistic meta-learner
       (:class:`omni_mercury_engine.ml.mercury_ml.LogisticRegression`) trained on
       point labels (stacked generalisation, Wolpert 1992);
     * ``"bma"`` -- Bayesian Model Averaging with BIC posterior weights and
       bootstrap weight uncertainty;
-    * ``"average"`` -- the unweighted score mean (label-free baseline).
+    * ``"average"`` -- the unweighted mean of the calibrated columns (label-free
+      baseline);
+    * ``"consensus"`` -- a label-free high-quantile consensus of the calibrated
+      columns (the recommended unsupervised combiner): the per-point
+      ``consensus_quantile`` across detectors, which is robust to uninformative
+      members that drag a plain mean toward 0.5. On real NAB this is what lets the
+      unsupervised ensemble beat the best single detector.
+
+    Per-detector calibration
+    ------------------------
+    Heterogeneous detectors emit scores on incomparable scales, so a raw average
+    lets a detector with a systematically inflated score range dominate. Before
+    combining, each detector's score column is mapped through a per-detector
+    calibrator fitted on a warm-up window:
+
+    * ``"rank"`` / ``"ecdf"`` (default) -- the empirical-CDF transform, which is
+      label-free and maps each detector's scores to a uniform ``[0, 1]`` scale;
+    * ``"isotonic"`` / ``"platt"`` -- supervised monotone maps (isotonic
+      regression / logistic scaling) from score to ``P(anomaly)`` trained on the
+      warm-up window's labels. When the warm-up window is single-class (the
+      common all-normal case) or labels are absent, these fall back to the ECDF
+      transform so calibration never fails closed;
+    * ``"none"`` -- disable per-detector calibration (raw scores, clipped).
 
     The combined score is thresholded through the shared score-calibration layer,
     and :meth:`ensemble_uncertainty` exposes per-point cross-detector disagreement
-    for downstream fusion weighting.
+    (on the calibrated scale) for downstream fusion weighting.
     """
 
     def __init__(
@@ -199,24 +358,61 @@ class StreamingScoreEnsemble:
         method: str = "stacking",
         contamination: float = 0.05,
         seed: int = 0,
+        calibration: str | None = None,
+        warmup: int | float | None = None,
+        consensus_quantile: float = _DEFAULT_CONSENSUS_QUANTILE,
     ) -> None:
         """Initialize the ensemble.
 
         Args:
             detectors: Mapping ``name -> BaseDetector`` to combine.
-            method: One of ``"stacking"``, ``"bma"``, ``"average"``.
+            method: The *combiner* -- one of ``"stacking"``, ``"bma"``,
+                ``"average"``, ``"consensus"``. ``"consensus"`` is a label-free
+                combiner that takes the per-point ``consensus_quantile`` across the
+                calibrated detector scores (robust to uninformative members that
+                drag a plain ``"average"`` down); ``"average"`` is the plain mean
+                of the calibrated scores.
             contamination: Expected anomaly fraction for threshold calibration.
             seed: RNG seed for the BMA bootstrap (reproducibility).
+            calibration: The per-detector score *transform* applied before
+                combining -- one of ``"rank"``/``"ecdf"`` (empirical-CDF, label-
+                free, the default), ``"isotonic"``/``"platt"`` (supervised monotone
+                maps trained on the warm-up window), or ``"none"``. ``None``
+                resolves it from the tier config (env ``OMNI_ENSEMBLE_CALIBRATION``
+                / config file, default ``"rank"``). Rank/ECDF calibration replaces
+                the old raw-score averaging: it maps every detector onto a common
+                uniform scale so no single detector's score range dominates the
+                combination.
+            warmup: Window the per-detector calibrators are trained on. ``None``
+                (resolved from ``OMNI_ENSEMBLE_WARMUP``, default the whole training
+                series) uses all training points; an ``int`` uses the first N; a
+                ``float`` in ``(0, 1]`` uses that fraction.
+            consensus_quantile: Cross-detector quantile for the ``"consensus"``
+                combiner, in ``(0, 1]`` (default ~0.9).
 
         Raises:
-            ValueError: If ``detectors`` is empty or ``method`` is unknown.
+            ValueError: If ``detectors`` is empty, ``method`` / ``calibration`` is
+                unknown, or ``consensus_quantile`` is out of ``(0, 1]``.
         """
         if not detectors:
             raise ValueError("StreamingScoreEnsemble needs at least one detector")
         if method not in _ENSEMBLE_METHODS:
             raise ValueError(f"method must be one of {_ENSEMBLE_METHODS}, got {method!r}")
+        cfg = DetectionConfig.resolve()
+        resolved_calibration = (
+            cfg.ensemble_calibration if calibration is None else str(calibration).strip().lower()
+        )
+        if resolved_calibration not in _CALIBRATION_METHODS:
+            raise ValueError(
+                f"calibration must be one of {_CALIBRATION_METHODS}, got {calibration!r}"
+            )
+        if not 0.0 < consensus_quantile <= 1.0:
+            raise ValueError(f"consensus_quantile must be in (0, 1], got {consensus_quantile}")
         self.detectors = dict(detectors)
         self.method = method
+        self.calibration = resolved_calibration
+        self.warmup = cfg.ensemble_warmup if warmup is None else warmup
+        self.consensus_quantile = float(consensus_quantile)
         self.contamination = float(contamination)
         self.seed = int(seed)
         self._names = list(self.detectors)
@@ -225,6 +421,7 @@ class StreamingScoreEnsemble:
             len(self._names), 1.0 / len(self._names), dtype=np.float64
         )
         self._weight_std: np.ndarray[Any, Any] = np.zeros(len(self._names), dtype=np.float64)
+        self._calibrators: list[_ScoreCalibrator] = []
         self._threshold: float = 0.5
         self._fitted = False
 
@@ -297,17 +494,22 @@ class StreamingScoreEnsemble:
             detector.fit(train)
 
         score_matrix = self._score_matrix(arr)
+        # Fit the per-detector calibrators on the warm-up window, then combine on
+        # the calibrated columns (the combiner -- stacking/bma -- is fit on the
+        # calibrated matrix so training and scoring see the same transform).
+        self._fit_calibrators(score_matrix, lab)
+        calibrated = self._calibrate(score_matrix)
         if self.method == "stacking":
             if lab is None:
                 raise ValueError("stacking requires per-point labels")
             from omni_mercury_engine.ml.mercury_ml import LogisticRegression
 
             self._meta = LogisticRegression()
-            self._meta.fit(score_matrix, lab)
+            self._meta.fit(calibrated, lab)
         elif self.method == "bma" and lab is not None:
-            self._fit_bma(score_matrix, lab)
+            self._fit_bma(calibrated, lab)
 
-        combined = self._combine(score_matrix)
+        combined = self._combine_calibrated(calibrated)
         from omni_mercury_engine.core.score_calibration import calibrate_scores
 
         threshold, _, _ = calibrate_scores(combined, contamination=self.contamination, labels=lab)
@@ -315,15 +517,72 @@ class StreamingScoreEnsemble:
         self._fitted = True
         return self
 
-    def _combine(self, score_matrix: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Combine the per-detector score matrix into one calibrated score."""
+    def _resolve_warmup(self, n: int) -> int:
+        """Resolve the calibrator warm-up length for a training series of ``n`` points."""
+        warm = self.warmup
+        if warm is None:
+            return n
+        if isinstance(warm, float):
+            return max(2, min(n, round(warm * n)))
+        return max(2, min(n, int(warm)))
+
+    def _make_calibrator(
+        self, column: np.ndarray[Any, Any], labels: np.ndarray[Any, Any] | None
+    ) -> _ScoreCalibrator:
+        """Build one per-detector calibrator from a warm-up score column (+labels)."""
+        method = self.calibration
+        if method == "none":
+            return _IdentityCalibrator()
+        if method in ("rank", "ecdf"):
+            return _EcdfCalibrator(column)
+        # Supervised isotonic/platt need both classes present in the warm-up
+        # window; otherwise fall back to the label-free ECDF transform so
+        # calibration degrades gracefully instead of failing.
+        if labels is None or np.unique(labels).size < 2:
+            return _EcdfCalibrator(column)
+        if method == "isotonic":
+            return _IsotonicCalibrator(column, labels)
+        return _PlattCalibrator(column, labels)
+
+    def _fit_calibrators(
+        self, score_matrix: np.ndarray[Any, Any], labels: np.ndarray[Any, Any] | None
+    ) -> None:
+        """Fit one calibrator per detector on the warm-up slice of the score matrix."""
+        k = self._resolve_warmup(score_matrix.shape[0])
+        warm_scores = score_matrix[:k]
+        warm_labels = None if labels is None else labels[:k]
+        self._calibrators = [
+            self._make_calibrator(warm_scores[:, j], warm_labels) for j in range(len(self._names))
+        ]
+
+    def _calibrate(self, score_matrix: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Apply the fitted per-detector calibrators column-wise."""
+        if not self._calibrators:
+            return np.clip(score_matrix, 0.0, 1.0)
+        columns = [
+            self._calibrators[j].transform(score_matrix[:, j]) for j in range(len(self._names))
+        ]
+        return np.clip(np.column_stack(columns), 0.0, 1.0)
+
+    def _combine_calibrated(self, calibrated: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Combine an already-calibrated score matrix into one score in ``[0, 1]``."""
         if self.method == "stacking" and self._meta is not None:
-            proba = np.asarray(self._meta.predict_proba(score_matrix))[:, 1]
+            proba = np.asarray(self._meta.predict_proba(calibrated))[:, 1]
         elif self.method == "bma":
-            proba = score_matrix @ self._weights
-        else:
-            proba = score_matrix.mean(axis=1)
+            proba = calibrated @ self._weights
+        elif self.method == "consensus":
+            # Robust label-free consensus: the point's score is the level most
+            # calibrated detectors agree it exceeds (a high cross-detector
+            # quantile), which -- unlike the mean -- is not dragged toward 0.5 by
+            # uninformative members.
+            proba = np.quantile(calibrated, self.consensus_quantile, axis=1)
+        else:  # "average": plain mean of the calibrated per-detector scores
+            proba = calibrated.mean(axis=1)
         return np.clip(proba, 0.0, 1.0)
+
+    def _combine(self, score_matrix: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Calibrate the per-detector score matrix, then combine into one score."""
+        return self._combine_calibrated(self._calibrate(score_matrix))
 
     def score(self, series: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
         """Per-point ensemble anomaly probability in ``[0, 1]``."""
@@ -338,10 +597,10 @@ class StreamingScoreEnsemble:
     def ensemble_uncertainty(
         self, series: np.ndarray[Any, Any] | torch.Tensor
     ) -> np.ndarray[Any, Any]:
-        """Per-point cross-detector disagreement (score std) as an uncertainty."""
+        """Per-point cross-detector disagreement (calibrated score std) as an uncertainty."""
         if not self._fitted:
             raise RuntimeError("call fit() before ensemble_uncertainty()")
-        return self._score_matrix(_to_1d_series(series)).std(axis=1)
+        return self._calibrate(self._score_matrix(_to_1d_series(series))).std(axis=1)
 
     def bma_weights(self) -> dict[str, tuple[float, float]]:
         """BMA weight ± bootstrap-uncertainty per detector (``{}`` if not BMA)."""
