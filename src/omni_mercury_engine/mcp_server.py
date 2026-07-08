@@ -100,10 +100,12 @@ class MercuryMCPServer:
         *,
         benevolence_scorer: Any | None = None,
         assistant: Any | None = None,
+        engine: Any | None = None,
     ) -> None:
         """Initialize the server; capabilities are injectable for testing."""
         self._scorer = benevolence_scorer
         self._assistant = assistant
+        self._engine = engine
         self._initialized = False
         self._tools: dict[str, ToolSpec] = {}
         self._register_tools()
@@ -126,6 +128,27 @@ class MercuryMCPServer:
 
             self._assistant = GeneralAssistant(benevolence_scorer=self._benevolence())
         return self._assistant
+
+    def _fusion_engine(self) -> Any:
+        """The flagship OmniMercuryEngine (fusion mode), built once and cached.
+
+        This is the SAME neuro-symbolic fusion path the ``mercury-agent detect
+        -d fusion`` CLI runs -- trained fusion network + GOSNN scalar
+        integration + the σ_Immutable second hard ethical gate -- so an MCP
+        client reaches Mercury's flagship detector, not a reduced statistical
+        stand-in. ``require_explicit_fit=False`` mirrors the CLI: there is no
+        train/test split here, so the engine relies on the shipped default
+        fusion checkpoint (loaded below) plus the auto-fit-on-first-batch path
+        for the base detectors. The stdio server is single-threaded, so one
+        cached engine is safe without locking.
+        """
+        if self._engine is None:
+            from omni_mercury_engine.engine import OmniMercuryEngine
+
+            engine = OmniMercuryEngine(mode="fusion", require_explicit_fit=False)
+            engine.load_default_fusion_checkpoint()
+            self._engine = engine
+        return self._engine
 
     # -- tool registry -----------------------------------------------------
 
@@ -151,6 +174,85 @@ class MercuryMCPServer:
                     "required": ["data"],
                 },
                 handler=self._tool_detect_anomaly,
+            ),
+            ToolSpec(
+                name="mercury_detect_fusion",
+                description=(
+                    "Flagship neuro-symbolic anomaly detection over a numeric feature "
+                    "matrix using Mercury's full OmniMercuryEngine fusion path: the "
+                    "trained fusion network, GOSNN scalar integration, and the "
+                    "sigma_Immutable hard ethical gate (the same engine the "
+                    "'mercury-agent detect -d fusion' CLI runs, loaded from the shipped "
+                    "default checkpoint). Returns a calibrated anomaly probability, the "
+                    "decision, severity, per-detector importances, and the ethical-gate "
+                    "metadata. Requires the ML stack; returns a clear error on a slim "
+                    "install, and is *blocked* (never silently allowed) if the ethical "
+                    "gate refuses the input."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "data": {
+                            "type": "array",
+                            "description": "Rows of equal-length numeric feature vectors.",
+                            "items": {"type": "array", "items": {"type": "number"}},
+                        },
+                        "domain": {
+                            "type": "string",
+                            "description": (
+                                "Optional domain for GOSNN threshold tuning " "(e.g. 'medical')."
+                            ),
+                        },
+                    },
+                    "required": ["data"],
+                },
+                handler=self._tool_detect_fusion,
+            ),
+            ToolSpec(
+                name="mercury_tier_detect",
+                description=(
+                    "Streaming detector-tier ensemble over a 1-D numeric series "
+                    "(torch-free, no ML extra required): the calibrated statistical / "
+                    "state-space / streaming tier. Returns per-point calibrated anomaly "
+                    "probabilities, flags at the calibrated threshold, cross-detector "
+                    "uncertainty, and -- when 'conformal_alpha' is set -- flags with a "
+                    "distribution-free false-positive guarantee (FPR <= alpha). The same "
+                    "runner behind 'mercury-agent tier-detect' and 'POST /detect/tier'."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "data": {
+                            "type": "array",
+                            "description": "A 1-D numeric anomaly series.",
+                            "items": {"type": "number"},
+                            "minItems": 8,
+                        },
+                        "labels": {
+                            "type": "array",
+                            "description": "Optional per-point 0/1 labels (enables stacking/BMA).",
+                            "items": {"type": "integer"},
+                        },
+                        "subset": {
+                            "type": "array",
+                            "description": "Detector names to include (default: the full tier).",
+                            "items": {"type": "string"},
+                        },
+                        "method": {
+                            "type": "string",
+                            "enum": ["stacking", "bma", "average", "consensus"],
+                        },
+                        "contamination": {"type": "number", "minimum": 0.0, "maximum": 0.5},
+                        "conformal_alpha": {
+                            "type": "number",
+                            "exclusiveMinimum": 0.0,
+                            "exclusiveMaximum": 1.0,
+                            "description": "Distribution-free FP rate; adds conformal flags.",
+                        },
+                    },
+                    "required": ["data"],
+                },
+                handler=self._tool_tier_detect,
             ),
             ToolSpec(
                 name="mercury_score_ethics",
@@ -358,15 +460,7 @@ class MercuryMCPServer:
     def _tool_detect_anomaly(args: dict[str, Any]) -> str:
         import numpy as np
 
-        rows = args.get("data")
-        if not isinstance(rows, list) or not rows:
-            raise ToolError("'data' must be a non-empty array of numeric rows")
-        try:
-            X = np.asarray(rows, dtype=float)
-        except (ValueError, TypeError) as exc:
-            raise ToolError(f"'data' is not a numeric matrix: {exc}") from exc
-        if X.ndim != 2:
-            raise ToolError("'data' must be 2-D (rows of equal-length feature vectors)")
+        X = MercuryMCPServer._coerce_matrix(args.get("data"))
         try:
             from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
         except Exception as exc:  # pragma: no cover - slim-install path
@@ -388,6 +482,130 @@ class MercuryMCPServer:
                 "note": "unsupervised batch scoring (fit on the supplied batch)",
             }
         )
+
+    @staticmethod
+    def _coerce_matrix(rows: Any) -> Any:
+        """Validate ``args['data']`` as a 2-D numeric matrix (shared by detect tools)."""
+        import numpy as np
+
+        if not isinstance(rows, list) or not rows:
+            raise ToolError("'data' must be a non-empty array of numeric rows")
+        try:
+            X = np.asarray(rows, dtype=float)
+        except (ValueError, TypeError) as exc:
+            raise ToolError(f"'data' is not a numeric matrix: {exc}") from exc
+        if X.ndim != 2:
+            raise ToolError("'data' must be 2-D (rows of equal-length feature vectors)")
+        return X
+
+    def _tool_detect_fusion(self, args: dict[str, Any]) -> str:
+        X = self._coerce_matrix(args.get("data"))
+        domain = args.get("domain")
+        if domain is not None and not isinstance(domain, str):
+            raise ToolError("'domain' must be a string")
+        # Import the gate exception before the try so the fail-closed refusal
+        # (a blocked detection) is surfaced distinctly from an internal fault.
+        try:
+            from omni_mercury_engine.engine import EthicalConstraintViolationError
+        except Exception as exc:  # pragma: no cover - slim-install path
+            raise ToolError(
+                f"flagship fusion engine unavailable in this environment: {exc}"
+            ) from exc
+        try:
+            engine = self._fusion_engine()
+        except Exception as exc:  # pragma: no cover - slim-install path (torch/checkpoint)
+            raise ToolError(
+                f"flagship fusion engine unavailable in this environment: {exc}"
+            ) from exc
+        try:
+            result = engine.detect_with_fusion(X, domain=domain)
+        except EthicalConstraintViolationError as exc:
+            # Fail closed and honestly: the detection was *refused* by a hard
+            # ethical gate, not merely errored -- say which gate and why.
+            raise ToolError(
+                f"flagship detection blocked by the '{exc.check}' ethical gate: {exc}"
+            ) from exc
+        gosnn = result.get("gosnn_metadata", {})
+        if not isinstance(gosnn, dict):
+            gosnn = {}
+        return json.dumps(
+            {
+                "n": int(X.shape[0]),
+                "anomaly_prob": round(float(result.get("anomaly_prob", 0.0)), 6),
+                "is_anomaly": bool(result.get("is_anomaly", False)),
+                "class_prediction": result.get("class_prediction"),
+                "severity": round(float(result.get("severity", 0.0)), 6),
+                "threshold_used": (
+                    round(float(result["threshold_used"]), 6)
+                    if result.get("threshold_used") is not None
+                    else None
+                ),
+                "detector_importance": {
+                    k: round(float(v), 6)
+                    for k, v in (result.get("detector_importance") or {}).items()
+                },
+                "ethical_gate": {
+                    "passed": bool(gosnn.get("ethical_gate_passed", True)),
+                    "sigma_immutable_score": (
+                        round(float(gosnn["sigma_immutable_score"]), 6)
+                        if gosnn.get("sigma_immutable_score") is not None
+                        else None
+                    ),
+                    "sigma_immutable_threshold": (
+                        round(float(gosnn["sigma_immutable_threshold"]), 6)
+                        if gosnn.get("sigma_immutable_threshold") is not None
+                        else None
+                    ),
+                    "backend": gosnn.get("sigma_immutable_backend"),
+                },
+                "mode": result.get("mode", "fusion"),
+                "note": "flagship neuro-symbolic fusion (trained checkpoint + GOSNN + sigma_Immutable)",
+            }
+        )
+
+    @staticmethod
+    def _tool_tier_detect(args: dict[str, Any]) -> str:
+        import numpy as np
+
+        raw = args.get("data")
+        if not isinstance(raw, list) or not raw:
+            raise ToolError("'data' must be a non-empty numeric array")
+        try:
+            series = np.asarray(raw, dtype=float).ravel()
+        except (ValueError, TypeError) as exc:
+            raise ToolError(f"'data' is not a numeric series: {exc}") from exc
+        labels_raw = args.get("labels")
+        labels = None
+        if labels_raw is not None:
+            try:
+                labels = np.asarray(labels_raw, dtype=int).ravel()
+            except (ValueError, TypeError) as exc:
+                raise ToolError(f"'labels' is not an integer array: {exc}") from exc
+        subset = args.get("subset")
+        if subset is not None and (
+            not isinstance(subset, list) or not all(isinstance(s, str) for s in subset)
+        ):
+            raise ToolError("'subset' must be an array of detector-name strings")
+        try:
+            from omni_mercury_engine.detectors.detection_tier import run_tier_ensemble
+        except Exception as exc:  # pragma: no cover - slim-install path
+            raise ToolError(f"detector-tier stack unavailable in this environment: {exc}") from exc
+        try:
+            result = run_tier_ensemble(
+                series,
+                labels=labels,
+                subset=tuple(subset) if subset else None,
+                method=args.get("method"),
+                contamination=float(args.get("contamination", 0.05)),
+                conformal_alpha=(
+                    float(args["conformal_alpha"])
+                    if args.get("conformal_alpha") is not None
+                    else None
+                ),
+            )
+        except (ValueError, TypeError) as exc:
+            raise ToolError(str(exc)) from exc
+        return json.dumps(result)
 
     def _tool_score_ethics(self, args: dict[str, Any]) -> str:
         action = args.get("action")

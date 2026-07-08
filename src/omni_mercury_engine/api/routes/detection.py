@@ -9,10 +9,12 @@ Provides univariate, multivariate, and advanced detection methods.
 from __future__ import annotations
 
 import logging
+import threading
 from typing import Any
 
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
 from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, User
@@ -21,6 +23,46 @@ from omni_mercury_engine.api.routes.export import record_detection
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/detect", tags=["Detection"])
+
+# ---------------------------------------------------------------------------
+# Flagship fusion engine -- one process-wide instance, serialized.
+#
+# ``/detect/flagship`` invokes the full OmniMercuryEngine fusion path (trained
+# fusion network + GOSNN scalar integration + the sigma_Immutable ethical gate),
+# the same engine ``mercury-agent detect -d fusion`` runs. That engine is NOT
+# safe to drive from multiple worker threads at once: the first call auto-fits
+# the base detectors (a fit race), and the path reads/writes the process-global
+# GOSNN singleton (cross-request scalar bleed). FastAPI runs a sync detection in
+# a threadpool, so we build the engine once, lazily, and serialize every
+# detection through a single lock. Correctness over throughput -- this is the
+# flagship decision path, not a high-QPS lane. The lazy build also means a slim
+# (no-torch) install degrades to a clean 503 on first call instead of failing at
+# import time.
+# ---------------------------------------------------------------------------
+_flagship_lock = threading.Lock()
+_flagship_engine: Any = None
+
+
+def _run_flagship_detection(
+    matrix: np.ndarray[Any, Any], domain: str | None, explain: bool
+) -> dict[str, Any]:
+    """Build (once) and run the flagship fusion engine under the serialization lock.
+
+    Runs in a worker thread via :func:`run_in_threadpool`. Holding
+    ``_flagship_lock`` across both the one-time build and every detection makes
+    the shared engine safe against the auto-fit race and the GOSNN-singleton
+    scalar bleed described above. Any :class:`EthicalConstraintViolationError`
+    propagates to the caller, which maps it to HTTP 403.
+    """
+    global _flagship_engine
+    with _flagship_lock:
+        if _flagship_engine is None:
+            from omni_mercury_engine.engine import OmniMercuryEngine
+
+            engine = OmniMercuryEngine(mode="fusion", require_explicit_fit=False)
+            engine.load_default_fusion_checkpoint()
+            _flagship_engine = engine
+        return _flagship_engine.detect_with_fusion(matrix, domain=domain, explain=explain)
 
 
 class NeurosymbolicRequest(BaseModel):
@@ -589,3 +631,106 @@ async def detect_tier(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An internal error occurred during tier detection.",
         )
+
+
+class FlagshipDetectRequest(BaseModel):
+    """Request for the flagship neuro-symbolic fusion engine."""
+
+    data: list[list[float]] = Field(
+        ...,
+        min_length=1,
+        description="Rows of equal-length numeric feature vectors (a feature matrix).",
+    )
+    domain: str | None = Field(
+        default=None,
+        description="Optional domain for GOSNN threshold tuning (e.g. 'medical').",
+    )
+    explain: bool = Field(
+        default=False,
+        description=(
+            "Attach an Integrated-Gradients attribution of this decision "
+            "(expensive; off by default)."
+        ),
+    )
+
+
+@router.post(
+    "/flagship",
+    summary="Flagship Neuro-Symbolic Fusion Detection",
+    description="""
+Run Mercury's flagship anomaly detector: the full ``OmniMercuryEngine`` fusion
+path -- the trained neural fusion network, GOSNN scalar integration, and the
+``σ_Immutable`` second hard ethical gate -- loaded from the shipped default
+fusion checkpoint. This is the same engine ``mercury-agent detect -d fusion``
+runs, now reachable over HTTP.
+
+Distinct from ``/detect/fusion`` (a lightweight statistical weighted ensemble):
+this endpoint returns a *calibrated* anomaly probability, the decision, severity,
+per-detector importances, and the ethical-gate metadata. A detection the ethical
+gate refuses returns **HTTP 403** (fail-closed), never a silent allow.
+""",
+)
+async def detect_flagship(
+    request: FlagshipDetectRequest,
+    user: User | None = Depends(_get_optional_user),
+) -> dict[str, Any]:
+    """Run the flagship neuro-symbolic fusion engine on a feature matrix."""
+    # Import the gate exception up front so the fail-closed refusal maps to a
+    # distinct 403 rather than being swallowed by the generic 500 handler.
+    try:
+        from omni_mercury_engine.engine import EthicalConstraintViolationError
+    except ImportError as e:
+        logger.error("Flagship fusion engine unavailable: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="The flagship fusion engine is not available in this environment.",
+        ) from e
+
+    try:
+        matrix = np.asarray(request.data, dtype=float)
+        if matrix.ndim != 2:
+            raise ValueError("'data' must be a 2-D feature matrix")
+
+        # Serialize + offload the blocking, stateful fusion detection.
+        result = await run_in_threadpool(
+            _run_flagship_detection, matrix, request.domain, request.explain
+        )
+
+        user_id = user.id if user else "anonymous"
+        await record_detection(
+            user_id=user_id,
+            method="flagship_fusion",
+            data=request.data,
+            results={
+                "anomalies": [bool(result.get("is_anomaly", False))],
+                "scores": [float(result.get("anomaly_prob", 0.0))],
+                "summary": {
+                    "anomaly_prob": float(result.get("anomaly_prob", 0.0)),
+                    "severity": float(result.get("severity", 0.0)),
+                    "class_prediction": result.get("class_prediction"),
+                },
+            },
+        )
+        return result
+
+    except EthicalConstraintViolationError as e:
+        # Fail closed: the flagship refused this input at a hard ethical gate.
+        logger.warning("Flagship detection blocked by ethical gate '%s'", e.check)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Detection blocked by the '{e.check}' ethical gate.",
+        ) from e
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    except ImportError as e:
+        logger.error("Flagship fusion engine unavailable: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="The flagship fusion engine is not available in this environment.",
+        ) from e
+    except Exception as e:
+        logger.error("Flagship detection failed: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An internal error occurred during flagship detection.",
+        ) from e
