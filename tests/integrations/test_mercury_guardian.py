@@ -616,3 +616,41 @@ class TestAdaptivePostureRotationWiring:
         before = ctrl._rotation_count
         ctrl._trigger_rotation()  # exercises the real KeyRotationManager path
         assert ctrl._rotation_count == before + 1
+
+
+class TestPostureStatusHonestyOnEvaluatorFailure:
+    """A failing posture evaluator must degrade the reported posture (F11).
+
+    Regression: get_pqc_status reported ThreatLevel.NOMINAL whenever there was
+    no successful evaluation, so a PostureEvaluator that started raising left
+    the crypto posture pinned at a falsely-reassuring "healthy" during an
+    attack. It now reports UNKNOWN + posture_evaluation_healthy=False.
+    """
+
+    def test_fresh_adapter_is_nominal_and_healthy(self) -> None:
+        from omni_mercury_engine.integrations.mercury_amacrypto import (
+            MercuryGuardianAdapter,
+        )
+
+        status = MercuryGuardianAdapter().get_pqc_status()
+        assert status["posture_threat_level"] == "NOMINAL"
+        assert status["posture_evaluation_healthy"] is True
+        assert status["posture_eval_consecutive_failures"] == 0
+
+    def test_failing_evaluator_reports_unknown_not_nominal(self) -> None:
+        from unittest.mock import patch
+
+        from omni_mercury_engine.integrations.mercury_amacrypto import (
+            MercuryGuardianAdapter,
+        )
+
+        adapter = MercuryGuardianAdapter()
+        with patch.object(
+            adapter._posture_evaluator, "evaluate", side_effect=RuntimeError("boom")
+        ):
+            adapter._evaluate_posture_from_gosnn()
+
+        status = adapter.get_pqc_status()
+        assert status["posture_threat_level"] == "UNKNOWN"
+        assert status["posture_evaluation_healthy"] is False
+        assert status["posture_eval_consecutive_failures"] >= 1
