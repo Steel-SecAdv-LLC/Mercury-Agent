@@ -51,6 +51,7 @@ Until these criteria are met, deprecated items operate via compatibility shims t
 | `MercuryVoice(enable_llm=True)` (no `llm_provider`) | Explicit `llm_provider=` + `llm_model_name=` (+ `llm_revision=` for remote HF) | **Removed in v1.7** - silent `MockLLMAdapter` fallback removed (see §6) |
 | `strict_ethics=False` engine flag | _no replacement_ | **Removed in v1.7** - dual hard gates are non-negotiable (see §6) |
 | `result["gosnn_metadata"]["fallback_mode"] is True` path | `EthicalConstraintViolationError(check="gosnn_unavailable")` | **Removed in v1.7** - σ_Immutable second hard gate (see §6) |
+| `ml.ppo_trainer` (`PPOTrainer` / `MultiEnvPPOTrainer` / `PPOConfig` / `TrainingStats` / `ConvergenceMonitor` / `CheckpointCallback`) | `agentic.agentic_autonomy.AgenticAutonomy` (RL-style workflow adaptation); `automl.BayesianOptimizer` / `engine.tune_fusion` (hyperparameter search) | **Removed in v2.1** - correctness exception (see §6) |
 
 ---
 
@@ -301,15 +302,17 @@ indicator_system = IndicatorSystem(enable_auto_deprecation=False)
 
 ---
 
-## 6. v1.7 Removals (security/correctness exceptions)
+## 6. Removals (security/correctness exceptions)
 
 The five-criteria preservation policy at the top of this document is the
-default. Four surfaces were **removed** in the v1.7 development cycle
-because preservation was incompatible with the project's hard ethical
-gate contract or with documented SSRF / DNS-rebinding defence.  Each
-entry below records the criterion that overrode preservation, the
-replacement surface, and the in-tree regression test that pins the new
-behaviour.
+default. The surfaces below were **removed** because preservation was
+incompatible with the project's hard ethical gate contract, with
+documented SSRF / DNS-rebinding defence, or with the fail-loud
+correctness doctrine (stub collaborators must hard-fail rather than
+silently degrade).  Each entry records the criterion that overrode
+preservation, the replacement surface, and the in-tree regression test
+that pins the new behaviour.  §6.1–6.4 were removed in the v1.7
+development cycle; §6.6 in v2.1.
 
 ### 6.1 `SafeHTTPClient.allow_untrusted=True`
 
@@ -381,6 +384,32 @@ threat detection, audit logging) and governance frameworks live in
 `compliance/`. A repository-wide `git grep` confirmed no external call
 sites at the time of relocation; no backwards-compatibility shim was
 added. New code must use the `compliance.` import path.
+
+### 6.6 `ml.ppo_trainer` (`PPOTrainer` / `MultiEnvPPOTrainer`)
+
+* **Removed by:** v2.1 improvement pass (July 2026)
+* **Override criterion:** §2 (Fundamental Incompatibility) + §3 (Zero
+  Active Usage). The module was dead in every supported install
+  profile: `stable_baselines3` appears in no dependency extra (it was
+  only a mypy override) and `gymnasium` nowhere at all, so
+  `PPOTrainer.__init__` raised `NotImplementedError` unconditionally.
+  With SB3 hand-installed it was *still* broken — its custom callback
+  class lacks SB3's `init_callback` interface, so `model.learn()`
+  raised `AttributeError`, which `pretrain()` swallowed and then logged
+  "Pretraining complete" with zeroed stats: silent fake success,
+  violating the §6.2 "stub collaborators must hard-fail" contract. A
+  `_mock_pretrain` residue fabricated reward/convergence numbers, and
+  `train_online`/`evaluate` silently substituted random actions when no
+  model was loaded. Despite being import-guarded as if lazy, the module
+  was eagerly imported on every `[ml]` install
+  (`if HAS_TORCH or TYPE_CHECKING`). Repository-wide grep: no runtime
+  callers, no tests, no docs.
+* **Replacement:** `agentic.agentic_autonomy.AgenticAutonomy` (in-house
+  numpy Q-learning with experience replay) for RL-style workflow
+  adaptation; `automl.BayesianOptimizer` / `engine.tune_fusion` for
+  hyperparameter search. Neither niche benefits from on-policy PPO at
+  Mercury's trial budgets.
+* **Regression test:** `tests/ml/test_removed_ppo.py`
 
 ---
 
