@@ -326,7 +326,53 @@ class DisasterPrecursorDetector:
         self.ionospheric_detector = IonosphericDisturbanceDetector()
         self.seismic_correlator = SeismicCorrelator()
 
+        # Anti-theater guard (mirrors SchumannResonanceDetector): the
+        # EarthquakePrecursorAnalyzer ships with random weights and no labelled
+        # EM-precursor corpus exists to train it. Until real weights are loaded
+        # via load_neural_weights(), its outputs are noise -- and unlike Kp
+        # (which has the Boyle-index physics), NO validated physics maps EM
+        # features to a Richter magnitude. The honest fallback is therefore to
+        # emit NO magnitude estimate at all: the real correlation paths
+        # (Schumann risk, geomagnetic, ionospheric, seismic) still drive
+        # precursor detection, but estimated_magnitude stays None rather than
+        # being fabricated from an untrained network scaled by 9.0.
+        self._neural_trained = False
+        self._warned_untrained = False
+
         self.logger = logging.getLogger(__name__)
+
+    def load_neural_weights(self, checkpoint_path: str) -> None:
+        """Load trained weights for the earthquake-precursor analyzer.
+
+        Until this is called, ``detect_disaster_precursor`` refuses to estimate
+        a magnitude from EM features (there is no physics substitute).
+
+        Args:
+            checkpoint_path: Path to a torch checkpoint containing an
+                ``earthquake_analyzer`` state dict.
+        """
+        if self.earthquake_analyzer is None:
+            raise RuntimeError("earthquake precursor analysis is disabled on this detector")
+        checkpoint = torch.load(checkpoint_path, map_location="cpu")
+        self.earthquake_analyzer.load_state_dict(checkpoint["earthquake_analyzer"])
+        self._neural_trained = True
+        self.logger.info(
+            "Earthquake-precursor neural weights loaded from %s; magnitude " "estimation enabled",
+            checkpoint_path,
+        )
+
+    def _warn_untrained_once(self) -> None:
+        """Emit a single WARNING that magnitude estimation is disabled."""
+        if not self._warned_untrained:
+            self.logger.warning(
+                "EarthquakePrecursorAnalyzer is untrained (no checkpoint loaded); "
+                "estimated_magnitude will remain None -- no validated physics maps "
+                "EM features to a Richter magnitude, so nothing is fabricated. "
+                "Precursor detection continues from the real Schumann/geomagnetic/"
+                "ionospheric/seismic correlations. Call load_neural_weights() once "
+                "a trained checkpoint exists."
+            )
+            self._warned_untrained = True
 
     def detect_disaster_precursor(self, precursor_data: dict[str, Any]) -> DisasterPrecursorResult:
         """Comprehensive disaster precursor detection.
@@ -405,10 +451,15 @@ class DisasterPrecursorDetector:
                 )
 
         if self.enable_earthquake and "em_features" in precursor_data:
-            eq_prediction = self._predict_earthquake(precursor_data["em_features"])
-            result.estimated_magnitude = eq_prediction["magnitude"]
-            result.time_to_event_hours = eq_prediction["time_to_event_hours"]
-            result.confidence = max(result.confidence, eq_prediction["confidence"])
+            if self._neural_trained:
+                eq_prediction = self._predict_earthquake(precursor_data["em_features"])
+                result.estimated_magnitude = eq_prediction["magnitude"]
+                result.time_to_event_hours = eq_prediction["time_to_event_hours"]
+                result.confidence = max(result.confidence, eq_prediction["confidence"])
+            else:
+                # Fail honest: an untrained network must not fabricate a
+                # magnitude. Detection still proceeds from the real correlations.
+                self._warn_untrained_once()
 
         if self.enable_tsunami and result.disaster_type == "earthquake":
             if result.estimated_magnitude and result.estimated_magnitude > 6.5:
@@ -426,7 +477,17 @@ class DisasterPrecursorDetector:
         return result
 
     def _predict_earthquake(self, em_features: np.ndarray[Any, Any]) -> dict[str, Any]:
-        """Predict earthquake from EM features."""
+        """Predict earthquake magnitude from EM features (trained network only).
+
+        Raises:
+            RuntimeError: If called before :meth:`load_neural_weights` -- an
+                untrained network's magnitude would be fabrication.
+        """
+        if not self._neural_trained:
+            raise RuntimeError(
+                "EarthquakePrecursorAnalyzer is untrained; refusing to fabricate "
+                "a magnitude. Call load_neural_weights() first."
+            )
         features_tensor = torch.tensor(em_features, dtype=torch.float32).unsqueeze(0)
 
         if self.earthquake_analyzer is None:

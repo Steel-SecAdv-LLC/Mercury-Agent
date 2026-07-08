@@ -262,7 +262,47 @@ class SolarStormDetector:
         self.cme_tracker = CMETracker() if enable_cme_tracking else None
         self.geomag_predictor = GeomagneticStormPredictor() if enable_geomag_prediction else None
 
+        # Anti-theater guard (mirrors SchumannResonanceDetector): the
+        # GeomagneticStormPredictor ships with random weights and no labelled
+        # storm corpus exists to train it. Until real weights are loaded via
+        # load_neural_weights(), its Kp/storm-probability outputs are noise, so
+        # _predict_geomagnetic_storm must NOT consult it. It falls back to the
+        # deterministic Boyle-index coupling function computed from the OBSERVED
+        # solar wind speed and IMF (see _predict_geomagnetic_storm_physics).
+        self._neural_trained = False
+        self._warned_untrained = False
+
         self.logger = logging.getLogger(__name__)
+
+    def load_neural_weights(self, checkpoint_path: str) -> None:
+        """Load trained weights for the geomagnetic storm predictor.
+
+        Until this is called the network is untrained and Kp is derived from the
+        deterministic Boyle-index physics of the observed solar wind/IMF.
+
+        Args:
+            checkpoint_path: Path to a torch checkpoint containing a
+                ``geomag_predictor`` state dict.
+        """
+        checkpoint = torch.load(checkpoint_path, map_location="cpu")
+        if self.geomag_predictor is None:
+            raise RuntimeError("geomagnetic prediction is disabled on this detector")
+        self.geomag_predictor.load_state_dict(checkpoint["geomag_predictor"])
+        self._neural_trained = True
+        self.logger.info(
+            "Geomagnetic neural weights loaded from %s; using learned Kp prediction",
+            checkpoint_path,
+        )
+
+    def _warn_untrained_once(self) -> None:
+        """Emit a single WARNING that the untrained NN is bypassed for physics."""
+        if not self._warned_untrained:
+            self.logger.warning(
+                "GeomagneticStormPredictor is untrained (no checkpoint loaded); "
+                "deriving Kp from the Boyle-index solar wind/IMF coupling instead "
+                "of the NN. Call load_neural_weights() once a checkpoint exists."
+            )
+            self._warned_untrained = True
 
     def predict_solar_storm(self, storm_data: dict[str, Any]) -> SolarStormPredictionResult:
         """Comprehensive solar storm prediction.
@@ -333,9 +373,19 @@ class SolarStormDetector:
         return result
 
     def _predict_geomagnetic_storm(self, magnetosphere_data: dict[str, Any]) -> dict[str, Any]:
-        """Predict geomagnetic storm using ML model."""
+        """Predict geomagnetic storm level from solar wind/IMF observations.
+
+        Uses the trained NN only when real weights have been loaded
+        (:meth:`load_neural_weights`); otherwise Kp comes from the deterministic
+        Boyle-index physics so an untrained network can never fabricate a storm
+        level (or mask a real one).
+        """
         if self.geomag_predictor is None:
             return {"kp_index": 0.0, "storm_level": GeostormScale.G0.value, "confidence": 0.0}
+
+        if not self._neural_trained:
+            self._warn_untrained_once()
+            return self._predict_geomagnetic_storm_physics(magnetosphere_data)
 
         if "features" in magnetosphere_data:
             features = magnetosphere_data["features"]
@@ -361,6 +411,47 @@ class SolarStormDetector:
             "kp_index": kp_index,
             "storm_level": storm_level,
             "confidence": confidence,
+            "method": "neural",
+        }
+
+    def _predict_geomagnetic_storm_physics(
+        self, magnetosphere_data: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Deterministic Kp estimate from the Boyle-index coupling function.
+
+        The polar-cap potential (Boyle et al. 1997)::
+
+            Phi [kV] = 1e-4 * v^2 + 11.7 * B_T * sin^3(theta_c / 2)
+
+        with ``v`` the solar wind speed (km/s), ``B_T = sqrt(By^2 + Bz^2)`` the
+        transverse IMF magnitude (nT), and ``theta_c = atan2(|By|, Bz)`` the IMF
+        clock angle -- southward Bz (theta_c = 180°) couples fully, northward
+        couples not at all. Kp follows the standard empirical logarithmic map
+        ``Kp ≈ 8.93·log10(Phi) − 12.55``, clamped to [0, 9]. Storm confidence is
+        the documented proximity of Kp to the G-scale onset: 0 below Kp 4,
+        saturating at Kp 8 (G4). Deterministic: identical input → identical
+        output; opaque ``features`` vectors are ignored because without the
+        trained network they cannot be interpreted.
+        """
+        v = float(magnetosphere_data.get("solar_wind_speed_km_s", 400.0))
+        bz = float(magnetosphere_data.get("bz_imf_nt", 0.0))
+        by = float(magnetosphere_data.get("by_imf_nt", 0.0))
+
+        b_transverse = float(np.hypot(by, bz))
+        clock_angle = float(np.arctan2(abs(by), bz))  # 0 = due north, pi = due south
+        coupling = np.sin(clock_angle / 2.0) ** 3
+
+        boyle_kv = 1e-4 * v**2 + 11.7 * b_transverse * coupling
+        kp_index = float(np.clip(8.93 * np.log10(max(boyle_kv, 1e-9)) - 12.55, 0.0, 9.0))
+
+        storm_level = self._classify_geostorm(kp_index)
+        confidence = float(np.clip((kp_index - 4.0) / 4.0, 0.0, 1.0))
+
+        return {
+            "kp_index": kp_index,
+            "storm_level": storm_level,
+            "confidence": confidence,
+            "method": "physics_boyle_index",
         }
 
     def _classify_geostorm(self, kp_index: float) -> str:
