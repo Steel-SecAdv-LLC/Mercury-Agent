@@ -1,6 +1,6 @@
 # Mercury Agent - Strategic Engineering Roadmap
 
-Applies to Mercury Agent **v2.0.x**. The "v1.7.x Deferred Items" ledger below is
+Applies to Mercury Agent **v2.1.x**. The "v1.7.x Deferred Items" ledger below is
 the backlog deferred at the v1.7.0 cut, carried forward and tracked here (closed
 rows are marked inline); the capability table and strategic-vision sections that
 follow are the forward-looking roadmap. Last updated: 2026-06-18.

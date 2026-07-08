@@ -23,7 +23,7 @@
 
 ```
               +===============================================================================+
-              |                            Mercury Agent ♱ v2.0.0                             |
+              |                            Mercury Agent ♱ v2.1.0                             |
               | Neuro-Symbolic AI for Autonomous, Multi-Model, Multi-Domain Anomaly Detection |
               |                                                                               |
               |   7-Phase Evolution      |   Hybrid Fusion ML      |   Production Security    |
@@ -50,8 +50,8 @@
 **Author/Inventor:** Andrew E. A.
 **Contact:** steel.sa.llc@gmail.com
 **License:** GNU General Public License v3.0 or later (SPDX: GPL-3.0-or-later)
-**Version:** v2.0.0
-**Date:** 2026-06-17
+**Version:** v2.1.0
+**Date:** 2026-07-08
 **AI Co-Architects:** Eris ✠ | Eden ♱ | Devin ⚛︎ | Claude ⊛
 
 ---
@@ -2530,7 +2530,7 @@ THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE AUTHORS AND 
 
 <div align="center">
 
-**Mercury Agent v2.0.0 - Neuro-Symbolic AI for Autonomous Anomaly Detection**
+**Mercury Agent v2.1.0 - Neuro-Symbolic AI for Autonomous Anomaly Detection**
 
 *Architected with Civilization-First principles, ethical immutability, and transparent methodology.*
 

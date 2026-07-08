@@ -1,6 +1,6 @@
 # Mercury-Agent Deployment Guide
 
-Applies to Mercury Agent **v2.0.x**. Last updated: 2026-06-10.
+Applies to Mercury Agent **v2.1.x**. Last updated: 2026-06-10.
 
 This guide covers deploying Mercury-Agent from a local Docker environment through
 production Kubernetes/Helm. It documents every required configuration value, the

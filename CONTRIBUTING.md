@@ -8,7 +8,7 @@
 | Last Updated | 2026-06-17 |
 | Classification | Public |
 | Maintainer | Steel Security Advisors LLC |
-| Applies to | Mercury Agent v2.0.x |
+| Applies to | Mercury Agent v2.1.x |
 
 ---
 
