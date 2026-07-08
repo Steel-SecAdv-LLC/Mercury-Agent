@@ -488,3 +488,47 @@ class TestIntegration:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+class TestAuditChainKeyFromHDKeyManagement:
+    """The audit hash-chain HMAC key is derived from AMA HD (purpose audit_sign).
+
+    Regression: the default was secrets.token_bytes(32) — a fresh per-process
+    key, so an audit log could never be verified after a restart or by another
+    worker, defeating the chain's cross-process tamper-evidence.
+    """
+
+    def test_explicit_key_is_respected(self) -> None:
+        from omni_mercury_engine.security.secure_audit_logging import SecureHashChain
+
+        key = b"k" * 32
+        chain = SecureHashChain(hmac_key=key)
+        assert chain.hmac_key == key
+
+    def test_default_key_is_hd_derived_and_deterministic_with_seed(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """With AMA_MASTER_SEED set the derived audit key is stable, not random."""
+        import omni_mercury_engine.api.auth as auth_mod
+        from omni_mercury_engine.security.secure_audit_logging import SecureHashChain
+
+        monkeypatch.setenv("AMA_MASTER_SEED", "a" * 128)
+        # Force the process-global key manager to re-read the seed.
+        monkeypatch.setattr(auth_mod, "_auth_key_manager", None)
+
+        key_a = SecureHashChain._default_hmac_key()
+        key_b = SecureHashChain._default_hmac_key()
+
+        # Deterministic (HD-derived), matches AuthKeyManager's audit_sign key,
+        # and is NOT a fresh random key on each call.
+        assert key_a == key_b
+        assert key_a == auth_mod.get_auth_key_manager().get_active_key_material("audit_sign")
+
+    def test_two_chains_share_the_seeded_key(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import omni_mercury_engine.api.auth as auth_mod
+        from omni_mercury_engine.security.secure_audit_logging import SecureHashChain
+
+        monkeypatch.setenv("AMA_MASTER_SEED", "b" * 128)
+        monkeypatch.setattr(auth_mod, "_auth_key_manager", None)
+
+        assert SecureHashChain().hmac_key == SecureHashChain().hmac_key

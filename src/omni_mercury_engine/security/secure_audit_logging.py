@@ -249,12 +249,54 @@ class SecureHashChain:
         """Initialize hash chain.
 
         Args:
-            hmac_key: HMAC key for signed hashes (optional)
+            hmac_key: HMAC key for signed hashes. When omitted, the key is
+                derived from AMA HD Key Management (purpose ``audit_sign``) so
+                the chain is verifiable across workers/replicas/restarts — see
+                :meth:`_default_hmac_key`.
         """
-        self.hmac_key = hmac_key or secrets.token_bytes(32)
+        self.hmac_key = hmac_key if hmac_key is not None else self._default_hmac_key()
         self._previous_hash = self._compute_genesis_hash()
         self._sequence_number = 0
         self._lock = threading.Lock()
+
+    @staticmethod
+    def _default_hmac_key() -> bytes:
+        """Derive the audit-chain HMAC key from AMA HD key management.
+
+        The chain's tamper-evidence is only useful if the key survives the
+        process that wrote the log. The previous default —
+        ``secrets.token_bytes(32)`` — was a fresh per-process key, so an audit
+        log could never be verified after a restart or by another worker, even
+        though this module's contract is cross-process integrity. Sourcing the
+        key from :class:`~omni_mercury_engine.api.auth.AuthKeyManager`'s
+        ``audit_sign`` purpose makes it stable, rotatable, and identical
+        fleet-wide whenever ``AMA_MASTER_SEED`` is set.
+
+        Falls back to a per-process random key only if HD derivation is
+        unavailable (keeps minimal environments starting), and warns when the
+        derived key is itself ephemeral (no ``AMA_MASTER_SEED``) so the
+        cross-process gap is visible rather than silent.
+        """
+        try:
+            from omni_mercury_engine.api.auth import get_auth_key_manager
+
+            km = get_auth_key_manager()
+            key = km.get_active_key_material("audit_sign")
+            if km.seed_is_ephemeral:
+                logger.warning(
+                    "Audit hash-chain HMAC key derived from an EPHEMERAL per-process "
+                    "HD master seed: the chain will not verify across workers, "
+                    "replicas, or restarts. Set AMA_MASTER_SEED "
+                    "(`openssl rand -hex 64`) for a stable, rotatable audit key."
+                )
+            return key
+        except Exception as exc:
+            logger.warning(
+                "Could not derive the audit HMAC key from AMA HD key management "
+                "(%s); falling back to a per-process random key.",
+                exc,
+            )
+            return secrets.token_bytes(32)
 
     def _compute_genesis_hash(self) -> str:
         """Compute genesis block hash."""
