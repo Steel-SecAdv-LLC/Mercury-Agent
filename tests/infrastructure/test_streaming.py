@@ -313,6 +313,69 @@ class TestStreamingAnomalyPipeline:
         assert "anomalies_detected" in stats
         assert "errors" in stats
 
+    @pytest.mark.asyncio
+    async def test_publish_success_allows_commit(self) -> None:
+        """A successful anomaly publish permits the input offset to commit."""
+        from unittest.mock import AsyncMock
+
+        pipeline = StreamingAnomalyPipeline(
+            input_topic="input",
+            output_topic="output",
+            backend="memory",
+        )
+        pipeline._producer = AsyncMock()
+        pipeline._producer.send.return_value = True
+
+        msg = StreamMessage(
+            topic="input",
+            key="k",
+            value={"v": 1},
+            timestamp=datetime.now(),
+            partition=0,
+            offset=5,
+        )
+
+        commit_ok = await pipeline._publish_anomaly({"is_anomaly": True, "score": 0.9}, msg)
+
+        assert commit_ok is True
+        pipeline._producer.send.assert_awaited_once()
+        assert pipeline._stats["anomalies_published"] == 1
+        assert pipeline._stats["error_breakdown"]["publish_failures"] == 0
+
+    @pytest.mark.asyncio
+    async def test_publish_failure_vetoes_commit(self) -> None:
+        """A failed anomaly publish must veto the offset commit (no silent loss).
+
+        Regression: the pipeline ignored ``send()``'s bool, counted the anomaly
+        as detected, and committed the input offset anyway — so a broker blip or
+        an open circuit breaker permanently dropped the detected alert.
+        """
+        from unittest.mock import AsyncMock
+
+        pipeline = StreamingAnomalyPipeline(
+            input_topic="input",
+            output_topic="output",
+            backend="memory",
+        )
+        pipeline._producer = AsyncMock()
+        pipeline._producer.send.return_value = False  # circuit open / broker error
+
+        msg = StreamMessage(
+            topic="input",
+            key="k",
+            value={"v": 1},
+            timestamp=datetime.now(),
+            partition=0,
+            offset=5,
+        )
+
+        commit_ok = await pipeline._publish_anomaly({"is_anomaly": True, "score": 0.9}, msg)
+
+        assert commit_ok is False
+        assert pipeline._stats["anomalies_published"] == 0
+        assert pipeline._stats["error_breakdown"]["publish_failures"] == 1
+        assert pipeline._stats["errors"] == 1
+
 
 class TestKafkaProducerMocked:
     """Tests for Kafka producer with mocked aiokafka."""

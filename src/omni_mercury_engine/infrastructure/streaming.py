@@ -1204,6 +1204,7 @@ class StreamingAnomalyPipeline:
             "messages_processed": 0,
             "messages_per_second": 0.0,
             "anomalies_detected": 0,
+            "anomalies_published": 0,
             "anomaly_rate": 0.0,
             "errors": 0,
             "error_rate": 0.0,
@@ -1238,6 +1239,7 @@ class StreamingAnomalyPipeline:
                 "serialization_errors": 0,
                 "connection_errors": 0,
                 "timeout_errors": 0,
+                "publish_failures": 0,
             },
             # Time tracking
             "start_time": None,
@@ -1410,6 +1412,42 @@ class StreamingAnomalyPipeline:
                         self._stats["errors"] / self._stats["messages_processed"]
                     )
 
+    async def _publish_anomaly(self, result: dict[str, Any], message: StreamMessage) -> bool:
+        """Publish an anomaly result; report whether the input offset may commit.
+
+        ``StreamProducer.send`` returns ``False`` (it does not raise) when the
+        producer's circuit breaker is open or the broker send fails. Committing
+        the *input* offset after a failed publish would permanently lose the
+        alert: the source message is acked while nothing was ever written to the
+        output topic. So on failure we surface a visible metric + error log and
+        return ``False`` — the caller then skips the commit, keeping the commit
+        cursor from advancing so a restart re-delivers from the last committed
+        offset (at-least-once semantics for the alert path).
+
+        Returns:
+            ``True`` if the publish succeeded and the input offset may be
+            committed; ``False`` if it failed and the commit must be skipped.
+        """
+        published = await self._producer.send(
+            self.output_topic,
+            result,
+            key=message.key,
+        )
+        self._stats["anomalies_detected"] += 1
+        if published:
+            self._stats["anomalies_published"] += 1
+            return True
+
+        self._stats["errors"] += 1
+        self._stats["error_breakdown"]["publish_failures"] += 1
+        logger.error(
+            "Anomaly publish to %s failed (producer rejected / circuit open); "
+            "not committing input offset %s to avoid alert loss",
+            self.output_topic,
+            message.offset,
+        )
+        return False
+
     async def _run(self) -> None:
         """Main processing loop with comprehensive observability."""
         while self._running:
@@ -1449,18 +1487,16 @@ class StreamingAnomalyPipeline:
                         score_stats["sum"] += score
                         score_stats["avg"] = score_stats["sum"] / n
 
-                        # Publish if anomaly detected
+                        # Publish if anomaly detected. A failed publish must not
+                        # ack the input offset (that would silently lose the
+                        # alert), so it vetoes the commit below.
+                        commit_offset = True
                         if result.get("is_anomaly") or score > 0.5:
                             result["source_topic"] = message.topic
                             result["source_timestamp"] = message.timestamp.isoformat()
                             result["detection_latency_ms"] = round(detection_latency_ms, 3)
 
-                            await self._producer.send(
-                                self.output_topic,
-                                result,
-                                key=message.key,
-                            )
-                            self._stats["anomalies_detected"] += 1
+                            commit_offset = await self._publish_anomaly(result, message)
 
                         # Update end-to-end latency
                         e2e_latency_ms = (time.perf_counter() - process_start) * 1000
@@ -1471,8 +1507,11 @@ class StreamingAnomalyPipeline:
                             e2e_stats["avg"] + (e2e_latency_ms - e2e_stats["avg"]) / n
                         )
 
-                        # Commit after processing
-                        await self._consumer.commit(message)
+                        # Commit after processing — unless an anomaly publish
+                        # failed, in which case leaving the offset uncommitted
+                        # lets a restart re-deliver the unpublished alert.
+                        if commit_offset:
+                            await self._consumer.commit(message)
 
                         # Periodically update percentiles and throughput (every 100 messages)
                         if n % 100 == 0:

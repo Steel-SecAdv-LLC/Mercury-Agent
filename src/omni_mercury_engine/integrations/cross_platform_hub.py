@@ -448,12 +448,19 @@ class HTTPPlatformAdapter(PlatformAdapter):
                 self._connected = resp.status in (200, 404)  # 404 is ok if no health endpoint
 
         except ImportError:
-            logger.warning("aiohttp not installed, using fallback")
-            self._connected = True
+            # This adapter's only transport IS aiohttp — there is no fallback.
+            # Reporting connected here would make send_event() drop every event
+            # (None session → error per event) while status shows healthy.
+            logger.error("aiohttp not installed; HTTP integration adapter cannot deliver events")
+            self._connected = False
         except Exception as e:
             self._last_error = str(e)
             logger.error(f"Connection failed: {e}")
             self._connected = False
+            # Don't leak the ClientSession opened above if the health probe raised.
+            if self._session is not None:
+                await self._session.close()
+                self._session = None
 
         return self._connected
 
@@ -665,8 +672,21 @@ class OpenTelemetryAdapter(PlatformAdapter):
             self._connected = True
 
         except ImportError:
-            logger.warning("OpenTelemetry SDK not installed, using HTTP fallback")
-            self._connected = True
+            # Primary OTLP gRPC exporter is unavailable. send_event() has an
+            # HTTP fallback, but that path needs aiohttp — only claim connected
+            # if that transport actually exists, otherwise this adapter cannot
+            # deliver and must not report healthy.
+            import importlib.util
+
+            if importlib.util.find_spec("aiohttp") is not None:
+                logger.warning("OpenTelemetry SDK not installed; using aiohttp HTTP fallback")
+                self._connected = True
+            else:
+                logger.error(
+                    "OpenTelemetry SDK and aiohttp both unavailable; "
+                    "OTLP adapter cannot deliver events"
+                )
+                self._connected = False
         except Exception as e:
             self._last_error = str(e)
             self._connected = False
@@ -697,8 +717,11 @@ class OpenTelemetryAdapter(PlatformAdapter):
                 return resp.status in (200, 202)
 
         except ImportError:
-            logger.warning("aiohttp not installed")
-            return True
+            # No aiohttp → nothing was sent. Returning True here would make
+            # send_batch() count this event as delivered (data loss masked as
+            # success). Report the failure honestly.
+            logger.error("aiohttp not installed; OTLP event was not delivered")
+            return False
         except Exception as e:
             self._last_error = str(e)
             logger.error(f"Failed to send OTLP event: {e}")
