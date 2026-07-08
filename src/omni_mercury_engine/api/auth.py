@@ -513,6 +513,21 @@ class AuthKeyManager:
         current_index = self._key_index.get(purpose, 0)
         return self.derive_key(purpose, current_index)
 
+    @property
+    def rotation_manager(self) -> KeyRotationManager:
+        """The underlying AMA ``KeyRotationManager`` (shared rotation state).
+
+        Exposed so components like the adaptive-posture controller can drive
+        real key rotation through the same manager Mercury's purposes use,
+        rather than being handed ``None`` and silently no-op'ing.
+        """
+        return self._rotation
+
+    @property
+    def hd_derivation(self) -> HDKeyDerivation:
+        """The underlying AMA ``HDKeyDerivation`` (BIP32 key material)."""
+        return self._hd
+
     def complete_rotation(self, purpose: str) -> None:
         """Complete rotation by deprecating the previous key."""
         current_index = self._key_index.get(purpose, 0)

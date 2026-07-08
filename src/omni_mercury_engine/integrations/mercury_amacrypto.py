@@ -290,13 +290,37 @@ class MercuryGuardianAdapter:
         self._dilithium_keypair: DilithiumKeyPair | None = None
         self._kyber_keypair: KyberKeyPair | None = None
 
-        # AMA Adaptive Posture — bidirectional GOSNN integration
+        # AMA Adaptive Posture — bidirectional GOSNN integration.
+        #
+        # Wire the controller to Mercury's real AMA key-rotation machinery so a
+        # ROTATE_KEYS decision actually rotates through the shared
+        # KeyRotationManager (BIP32 material via HDKeyDerivation), instead of
+        # being handed None and silently no-op'ing. Best-effort: if the key
+        # manager cannot be constructed the controller still evaluates posture
+        # and fires callbacks, it just cannot execute a rotation.
+        rotation_manager: Any = None
+        hd_derivation: Any = None
+        try:
+            from omni_mercury_engine.api.auth import get_auth_key_manager
+
+            key_manager = get_auth_key_manager()
+            rotation_manager = key_manager.rotation_manager
+            hd_derivation = key_manager.hd_derivation
+        except Exception as exc:
+            logger.warning(
+                "AMA key manager unavailable; adaptive-posture ROTATE_KEYS will "
+                "not be able to rotate real key material: %s",
+                exc,
+            )
+
         self._posture_evaluator = PostureEvaluator()
         self._posture_controller = CryptoPostureController(
             monitor=self.timing_monitor,
             evaluator=self._posture_evaluator,
             on_rotation=self._on_posture_rotation,
             on_algorithm_switch=self._on_posture_algorithm_switch,
+            rotation_manager=rotation_manager,
+            hd_derivation=hd_derivation,
         )
         self._last_posture_evaluation: PostureEvaluation | None = None
 
@@ -528,8 +552,10 @@ class MercuryGuardianAdapter:
                     group=ScalarGroup.SECURITY,
                     metadata={"event": "posture_key_rotation"},
                 )
-            except (ImportError, Exception) as e:
-                logger.debug(f"Could not register rotation event to GOSNN: {e}")
+            except Exception as e:
+                # A key-rotation event is a security-audit signal: surface a
+                # failure to record it at WARNING, not below the default level.
+                logger.warning("Could not register key-rotation event to GOSNN: %s", e)
 
     def _on_posture_algorithm_switch(self, new_algorithm: str) -> None:
         """Callback from CryptoPostureController when algorithm switch occurs."""
@@ -551,8 +577,10 @@ class MercuryGuardianAdapter:
                     group=ScalarGroup.SECURITY,
                     metadata={"event": "posture_algorithm_switch", "new_algorithm": new_algorithm},
                 )
-            except (ImportError, Exception) as e:
-                logger.debug(f"Could not register algorithm switch to GOSNN: {e}")
+            except Exception as e:
+                # Algorithm-switch is a security-audit signal: surface a failure
+                # to record it at WARNING, not below the default level.
+                logger.warning("Could not register algorithm-switch event to GOSNN: %s", e)
 
     def evaluate_posture(self) -> PostureEvaluation:
         """Manually trigger a posture evaluation cycle.
