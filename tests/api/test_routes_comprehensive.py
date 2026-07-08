@@ -450,6 +450,18 @@ class TestExportRoutes:
             data = response.json()
             assert "total_detections" in data
 
+    def test_export_metrics_rejects_non_json_format(self, client: Any, auth_headers: Any) -> None:
+        """Metrics is a JSON summary; a csv request must 400, not silently return JSON (F17)."""
+        response = client.get(
+            "/api/v1/export/metrics",
+            headers=auth_headers,
+            params={"format": "csv"},
+        )
+        # 400 for the unsupported format (429 possible under rate-limit ordering).
+        assert response.status_code in (400, 429)
+        if response.status_code == 400:
+            assert "not supported" in response.json()["detail"]
+
 
 # =============================================================================
 # Batch Callback URL SSRF Validation Tests

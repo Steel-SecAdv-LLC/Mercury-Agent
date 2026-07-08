@@ -907,7 +907,25 @@ class MercuryAnomalyDetector(BaseDetector):
             self._oracle_metadata = {"active": True, "domain": domain}
             logger.info("Oracle restored from federation stats: domain=%s", domain)
         except Exception as exc:
-            logger.debug("Failed to restore Oracle from federation: %s", exc)
+            # The stats DID carry an Oracle (oracle_ref_stats is not None — the
+            # None case returned early above), so a restore failure means the
+            # detector will now score WITHOUT its Oracle component and silently
+            # diverge from the checkpointed model. Surface it at WARNING and
+            # record the failure in the metadata rather than hiding it below the
+            # default log level.
+            logger.warning(
+                "Failed to restore Oracle from checkpoint/federation stats "
+                "(domain=%s); detector will score WITHOUT its Oracle component and "
+                "diverge from the checkpointed model.",
+                oracle_ref_stats.get("domain", "environmental"),
+                exc_info=True,
+            )
+            self._oracle_detector = None
+            self._oracle_metadata = {
+                "active": False,
+                "restore_failed": True,
+                "error": str(exc),
+            }
 
     def _fit_info_geometry(self, data: np.ndarray[Any, Any]) -> None:
         """Fit Gaussian manifold for information-geometric OOD scoring.
