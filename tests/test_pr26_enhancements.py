@@ -162,8 +162,8 @@ class TestNanoScaleEnhancements:
         assert 0 <= score <= 1
 
 
-class TestLWEEncryption:
-    """Test native LWE-KEM encryption (AMA Cryptography is sole PQC backend)"""
+class TestKemDemEncryption:
+    """Test ML-KEM-1024 + AES-256-GCM encryption (AMA is the sole PQC backend)"""
 
     def test_qr_encryption_initialization(self) -> None:
         """Test quantum-resistant encryption initializes"""
@@ -171,10 +171,10 @@ class TestLWEEncryption:
         assert qre.security_level == 256
 
     def test_encrypt_decrypt_roundtrip(self) -> None:
-        """Test encryption/decryption round-trip with LWE-KEM"""
+        """Test encryption/decryption round-trip with ML-KEM-1024 + AES-256-GCM"""
         qre = QuantumResistantEncryption()
 
-        public_key, private_key = qre._generate_lattice_key()
+        public_key, private_key = qre.generate_keypair()
 
         data = b"Test data for encryption"
         encrypted = qre.encrypt_hybrid(data, public_key)
@@ -183,7 +183,7 @@ class TestLWEEncryption:
         assert decrypted == data
 
     def test_sign_verify(self) -> None:
-        """Test SHA3-256 signature"""
+        """Test keyed HMAC message tag (native, constant-time verify)"""
         qre = QuantumResistantEncryption()
 
         data = b"Data to sign"

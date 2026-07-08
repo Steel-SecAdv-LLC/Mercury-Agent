@@ -25,37 +25,33 @@ from omni_mercury_engine.security.encryption import (
 
 
 class TestQuantumResistantEncryption:
-    """Tests for QuantumResistantEncryption class."""
+    """Tests for QuantumResistantEncryption (ML-KEM-1024 + AES-256-GCM via AMA)."""
 
     def test_initialization_defaults(self) -> None:
         """Test default initialization parameters."""
         qre = QuantumResistantEncryption()
         assert qre.security_level == 256
-        assert qre.n == 256
-        assert qre.q == 3329
-        assert qre.seed is not None
-        assert len(qre.seed) == 32
 
     def test_initialization_custom_level(self) -> None:
-        """Test custom security level."""
+        """security_level is advisory; the backend is always ML-KEM-1024."""
         qre = QuantumResistantEncryption(security_level=128)
         assert qre.security_level == 128
-        assert qre.n == 128
 
-    def test_generate_lattice_key(self) -> None:
-        """Test lattice-based key pair generation."""
+    def test_generate_keypair(self) -> None:
+        """ML-KEM-1024 key pair: fixed-size, distinct byte strings."""
         qre = QuantumResistantEncryption(security_level=64)
-        public_key, private_key = qre._generate_lattice_key()
+        public_key, private_key = qre.generate_keypair()
 
-        A, b = public_key
-        assert A.shape == (64, 64)
-        assert b.shape == (64,)
-        assert private_key.shape == (64,)
+        assert isinstance(public_key, bytes)
+        assert isinstance(private_key, bytes)
+        assert len(public_key) == 1568
+        assert len(private_key) == 3168
+        assert public_key != private_key
 
     def test_encrypt_decrypt_roundtrip(self) -> None:
         """Test that encryption followed by decryption recovers the plaintext."""
         qre = QuantumResistantEncryption(security_level=64)
-        public_key, private_key = qre._generate_lattice_key()
+        public_key, private_key = qre.generate_keypair()
 
         plaintext = b"Hello, quantum-resistant world!"
         ciphertext = qre.encrypt_hybrid(plaintext, public_key)
@@ -69,7 +65,7 @@ class TestQuantumResistantEncryption:
     def test_encrypt_decrypt_empty_data(self) -> None:
         """Test encryption/decryption with empty data."""
         qre = QuantumResistantEncryption(security_level=64)
-        public_key, private_key = qre._generate_lattice_key()
+        public_key, private_key = qre.generate_keypair()
 
         plaintext = b""
         ciphertext = qre.encrypt_hybrid(plaintext, public_key)
@@ -87,13 +83,13 @@ class TestQuantumResistantEncryption:
         assert len(ciphertext) > 0
 
     def test_sign_data(self) -> None:
-        """Test data signing uses SHA3-256 HMAC."""
+        """sign_data returns a 32-byte native keyed HMAC tag."""
         qre = QuantumResistantEncryption()
         data = b"sign this message"
         signature = qre.sign_data(data)
 
         assert isinstance(signature, bytes)
-        assert len(signature) == 32  # SHA3-256 digest length
+        assert len(signature) == 32  # HMAC-SHA-256 tag length
 
     def test_verify_signature_valid(self) -> None:
         """Test valid signature verification."""
@@ -120,18 +116,20 @@ class TestQuantumResistantEncryption:
 
         assert qre.verify_signature(data, wrong_sig) is False
 
-    def test_different_seeds_produce_different_keys(self) -> None:
-        """Test that different instances produce different keys."""
+    def test_different_instances_have_independent_mac_keys(self) -> None:
+        """Independent per-instance MAC keys → different tags for the same data."""
         qre1 = QuantumResistantEncryption(security_level=64)
         qre2 = QuantumResistantEncryption(security_level=64)
 
-        # Seeds should differ (random)
-        assert qre1.seed != qre2.seed
+        data = b"same message, different keys"
+        assert qre1.sign_data(data) != qre2.sign_data(data)
+        # A tag from one instance must not verify under another.
+        assert qre2.verify_signature(data, qre1.sign_data(data)) is False
 
     def test_encrypt_binary_data(self) -> None:
         """Test encryption of arbitrary binary data."""
         qre = QuantumResistantEncryption(security_level=64)
-        public_key, private_key = qre._generate_lattice_key()
+        public_key, private_key = qre.generate_keypair()
 
         # Binary data with all byte values
         plaintext = bytes(range(256))
