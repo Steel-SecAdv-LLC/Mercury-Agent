@@ -4,9 +4,14 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from click.testing import CliRunner
 
 from omni_mercury_engine.cli import main
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def test_cli_help() -> None:
@@ -72,3 +77,60 @@ def test_stream_options_match_deployment_manifests() -> None:
         "--metrics-port",
     ):
         assert option in result.output, f"stream command missing {option}"
+
+
+class TestDetectThreshold:
+    """The `detect --threshold` option must actually govern the decision.
+
+    Regression: the flag was parsed and then never used, so `-t 0.9` silently
+    ran at the model's default. It now overrides the fusion decision boundary.
+    """
+
+    @staticmethod
+    def _csv(tmp_path: Path) -> str:
+        import numpy as np
+
+        rng = np.random.default_rng(1)
+        data = rng.normal(size=(30, 5))
+        p = tmp_path / "data.csv"
+        p.write_text("\n".join(",".join(str(x) for x in row) for row in data))
+        return str(p)
+
+    def test_threshold_zero_forces_anomaly_true_on_fusion(self, tmp_path: Path) -> None:
+        import json
+
+        from click.testing import CliRunner
+
+        from omni_mercury_engine.cli import main
+
+        csv = self._csv(tmp_path)
+        result = CliRunner().invoke(main, ["detect", "-i", csv, "-d", "fusion", "-t", "0.0"])
+        assert result.exit_code == 0, result.output
+        payload = json.loads(result.stdout)
+        assert payload["is_anomaly"] is True
+        assert payload["threshold_used"] == 0.0
+        assert payload["threshold_source"] == "cli_override"
+
+    def test_threshold_one_forces_anomaly_false_on_fusion(self, tmp_path: Path) -> None:
+        import json
+
+        from click.testing import CliRunner
+
+        from omni_mercury_engine.cli import main
+
+        csv = self._csv(tmp_path)
+        result = CliRunner().invoke(main, ["detect", "-i", csv, "-d", "fusion", "-t", "1.0"])
+        assert result.exit_code == 0, result.output
+        payload = json.loads(result.stdout)
+        assert payload["is_anomaly"] is False
+        assert payload["threshold_used"] == 1.0
+
+    def test_threshold_out_of_range_rejected(self, tmp_path: Path) -> None:
+        from click.testing import CliRunner
+
+        from omni_mercury_engine.cli import main
+
+        csv = self._csv(tmp_path)
+        result = CliRunner().invoke(main, ["detect", "-i", csv, "-d", "fusion", "-t", "1.5"])
+        assert result.exit_code != 0
+        assert "must be in [0, 1]" in result.output
