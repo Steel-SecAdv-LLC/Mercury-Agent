@@ -161,6 +161,38 @@ class TestNanoScaleEnhancements:
         assert isinstance(score, (float, np.floating))
         assert 0 <= score <= 1
 
+    def test_failed_dimensional_subscore_is_excluded_not_blended(self) -> None:
+        """A failed nano sub-score is omitted, not averaged in as a 0.0 (F18).
+
+        Regression: _dimensional_downsampling_detection returned 0.0 on failure,
+        so a persistent failure diluted the nano blend downward (missed
+        detections). It now returns None and _nano_scale_detection excludes it.
+        """
+        from unittest.mock import patch
+
+        detector = SigmaDirectiveDetector()
+        data = np.random.randn(40, 8)
+
+        # Sanity: on the success path the sub-score is present.
+        ok = detector._nano_scale_detection(data)
+        assert "dimensional_micro_score" in ok
+
+        # Force the dimensional sub-detector to fail -> None -> excluded.
+        with patch.object(
+            detector, "_dimensional_downsampling_detection", return_value=None
+        ):
+            excluded = detector._nano_scale_detection(data)
+        assert "dimensional_micro_score" not in excluded
+        # The other sub-scores are still present (blend uses only real scores).
+        assert "micro_anomaly_score" in excluded
+        assert "molecular_hash_entropy" in excluded
+
+    def test_dimensional_downsampling_returns_none_on_failure(self) -> None:
+        """Degenerate input that breaks the internal SVD yields None, not 0.0."""
+        detector = SigmaDirectiveDetector()
+        bad = np.full((3, 3), np.nan)
+        assert detector._dimensional_downsampling_detection(bad) is None
+
 
 class TestKemDemEncryption:
     """Test ML-KEM-1024 + AES-256-GCM encryption (AMA is the sole PQC backend)"""
