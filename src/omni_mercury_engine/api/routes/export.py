@@ -715,12 +715,29 @@ async def export_audit_logs(
     description="Export system metrics and performance data.",
 )
 async def export_metrics(
-    format: ExportFormat = Query(default=ExportFormat.JSON, description="Export format"),
+    format: ExportFormat = Query(
+        default=ExportFormat.JSON,
+        description="Export format. Metrics are a JSON summary object; only json is supported.",
+    ),
     start_time: datetime | None = Query(default=None, description="Start of time range"),
     end_time: datetime | None = Query(default=None, description="End of time range"),
     user: User = Depends(_get_current_user),
 ) -> dict[str, Any]:
     """Export system metrics."""
+    # This endpoint returns an aggregate summary object, not tabular records, so
+    # the row-oriented formats (csv/jsonl/parquet) have no meaning here. Reject
+    # them explicitly rather than silently returning JSON regardless (the old
+    # behavior — the format parameter was accepted and ignored).
+    if format != ExportFormat.JSON:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Metrics export is a JSON summary object; format={format.value} is not "
+                "supported. Use format=json (or the record-level export endpoints for "
+                "tabular csv/jsonl)."
+            ),
+        )
+
     store = get_data_store()
 
     is_admin = user.has_permission(Permission.ADMIN)
