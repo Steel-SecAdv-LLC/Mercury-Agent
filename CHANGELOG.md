@@ -317,6 +317,41 @@ install the mocked commit was never awaited and the test failed spuriously;
 and the `.coveragerc` comment naming the CI coverage floors was trued to the
 current `ci.yml` values (CORE 25 / FULL 50, not 15 / 35).
 
+### Detection interconnect + analysis extraction
+
+Detection is now reachable through one consistent contract on every surface
+(CLI / HTTP / MCP), and two attribution analyses that previously had no runtime
+entry point are exposed. Each change is additive — no existing endpoint changed
+behaviour — and carries tests.
+
+- **Detector-tier ensemble has a real entry point.**
+  `detectors.detection_tier.run_tier_ensemble()` builds → fits → scores the
+  torch-free streaming / statistical / state-space tier in one call (calibrated
+  per-point scores, flags, cross-detector uncertainty, optional distribution-free
+  conformal false-positive control). Wired to `mercury-agent tier-detect`, the
+  `POST /api/v1/detect/tier` route, and the `mercury_tier_detect` MCP tool.
+- **The flagship neuro-symbolic fusion engine is unified across surfaces.** The
+  full `OmniMercuryEngine` path (trained fusion network + GOSNN scalar
+  integration + the σ_Immutable hard ethical gate) — previously reachable only
+  from `mercury-agent detect -d fusion` — is now `POST /api/v1/detect/flagship`
+  and the `mercury_detect_fusion` MCP tool. HTTP builds the (non-thread-safe)
+  engine once and serializes detections through a lock via a threadpool; an
+  ethical-gate refusal fails closed as **HTTP 403** (never a silent allow).
+- **Graph-based root-cause localization is exposed** (`localize_root_cause`,
+  over the tier's `RootCauseGraphDetector`): given a multivariate anomaly it
+  ranks which node (sensor / service / channel) most likely originated it, with
+  optional node labels. Reachable via `mercury-agent rca`,
+  `POST /api/v1/detect/rca`, and the `mercury_localize_root_cause` MCP tool.
+- **Per-detector attribution for the tier** (`include_attribution=True` /
+  `tier-detect --attribution`): returns the calibrated per-detector score matrix
+  so callers see *which* members drove each flag, not just the blend.
+- **`GET /export/metrics` now serves CSV and JSON-Lines in addition to JSON**,
+  and its JSON summary is enriched (score percentiles, per-method breakdowns,
+  and time-series buckets via a `bucket` param). The multi-format export is a
+  deliberate capability for the STEM / medical / meteorological / space
+  researchers Mercury serves — collecting event and request data in a tabular
+  format is an advantage, not a footgun to reject.
+
 ### Fixed — `CachedBenevolenceScorer` threshold setter (drop-in fidelity)
 
 `CachedBenevolenceScorer` (the LRU wrapper the engine now places on its ethics
