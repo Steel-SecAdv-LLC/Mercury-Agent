@@ -773,6 +773,19 @@ class VolcanicEruptionDetector:
         self.insar_detector = InSARDeformationDetector() if enable_insar else None
         self.eruption_model = EruptionForecastModel()
 
+        # Anti-theater guard (mirrors SchumannResonanceDetector): the
+        # EruptionForecastModel and the SeismicSwarmDetector LSTM ship with random
+        # weights and no labelled eruption corpus exists to train them. Until real
+        # weights are loaded via load_neural_weights(), their softmax/regression
+        # outputs are noise, so this detector must NOT derive eruption
+        # probability, VEI, or swarm detection from them. It falls back to a
+        # deterministic assessment computed from the OBSERVED physics -- seismic
+        # amplitude statistics, gas degassing index, InSAR displacement, thermal
+        # radiant heat, and the HMM state belief (see _forecast_eruption_physics
+        # and _detect_swarm_physics). No input is ever fabricated.
+        self._neural_trained = False
+        self._warned_untrained = False
+
         # HMM for volcanic state transitions
         self.state_hmm = VolcanicStateHMM() if enable_hmm else None
 
@@ -780,6 +793,38 @@ class VolcanicEruptionDetector:
         self.refactoring_optimizer = RefactoringAdaptiveOptimizer() if enable_refactoring else None
 
         self.logger = logging.getLogger(__name__)
+
+    def load_neural_weights(self, checkpoint_path: str) -> None:
+        """Load trained weights for the eruption + seismic-swarm networks.
+
+        Until this is called the networks are untrained and the detector runs on
+        the deterministic-physics path (see :meth:`_forecast_eruption_physics`).
+        Calling this with a genuine checkpoint flips ``_neural_trained`` on so the
+        learned models drive the forecast.
+
+        Args:
+            checkpoint_path: Path to a torch checkpoint with ``eruption_model``
+                (and optionally ``seismic_detector``) state dicts.
+        """
+        checkpoint = torch.load(checkpoint_path, map_location="cpu")
+        self.eruption_model.load_state_dict(checkpoint["eruption_model"])
+        if self.seismic_detector is not None and "seismic_detector" in checkpoint:
+            self.seismic_detector.load_state_dict(checkpoint["seismic_detector"])
+        self._neural_trained = True
+        self.logger.info(
+            "Volcanic neural weights loaded from %s; using learned forecast", checkpoint_path
+        )
+
+    def _warn_untrained_once(self) -> None:
+        """Emit a single WARNING that the untrained NNs are bypassed for physics."""
+        if not self._warned_untrained:
+            self.logger.warning(
+                "VolcanicEruptionDetector neural models are untrained (no checkpoint "
+                "loaded); forecasting from deterministic physics of the observed "
+                "seismic/gas/deformation/thermal indicators instead of the NN. Call "
+                "load_neural_weights() once a trained checkpoint exists."
+            )
+            self._warned_untrained = True
 
     def predict_eruption(self, volcano_data: dict[str, Any]) -> VolcanicPredictionResult:
         """Comprehensive volcanic eruption prediction.
@@ -807,12 +852,16 @@ class VolcanicEruptionDetector:
 
         indicators_detected: float = 0
 
+        # Observed precursor magnitudes fed to the deterministic physics forecast.
+        signals: dict[str, float] = {}
+
         # Binary observations for HMM: [seismic, thermal, gas, deformation]
         hmm_observations = np.array([False, False, False, False])
 
         if self.enable_seismic and "seismic_sequence" in volcano_data:
             seismic_result = self._analyze_seismic(volcano_data["seismic_sequence"])
             result.seismic_swarm_detected = seismic_result["swarm_detected"]
+            signals["seismic_confidence"] = seismic_result["confidence"]
             hmm_observations[0] = seismic_result["swarm_detected"]
             if seismic_result["swarm_detected"]:
                 indicators_detected += 1
@@ -827,6 +876,7 @@ class VolcanicEruptionDetector:
                 volcano_data["thermal_data"]
             )
             result.thermal_anomaly_detected = thermal_result["anomaly_detected"]
+            signals["radiant_heat_mw"] = thermal_result.get("radiant_heat_mw", 0.0)
             hmm_observations[1] = thermal_result["anomaly_detected"]
             if thermal_result["anomaly_detected"]:
                 indicators_detected += 1
@@ -834,6 +884,7 @@ class VolcanicEruptionDetector:
         if self.enable_gas and "gas_data" in volcano_data and self.gas_analyzer is not None:
             gas_result = self.gas_analyzer.analyze_gas_emissions(volcano_data["gas_data"])
             result.gas_flux_anomaly = gas_result["so2_anomaly"] or gas_result["co2_anomaly"]
+            signals["degassing_index"] = gas_result["degassing_index"]
             hmm_observations[2] = result.gas_flux_anomaly
             if result.gas_flux_anomaly:
                 indicators_detected += 1
@@ -841,6 +892,8 @@ class VolcanicEruptionDetector:
         if self.enable_insar and "insar_data" in volcano_data and self.insar_detector is not None:
             insar_result = self.insar_detector.detect_deformation(volcano_data["insar_data"])
             result.deformation_detected = insar_result["deformation_detected"]
+            signals["total_displacement_cm"] = insar_result["total_displacement_cm"]
+            signals["deformation_rate_cm_day"] = insar_result.get("deformation_rate_cm_day", 0.0)
             hmm_observations[3] = insar_result["deformation_detected"]
             if insar_result["deformation_detected"]:
                 indicators_detected += 1
@@ -857,6 +910,7 @@ class VolcanicEruptionDetector:
             self.state_hmm.update_belief(hmm_observations)
             state_idx, state_name, state_prob = self.state_hmm.get_most_likely_state()
             hmm_eruption_prob = self.state_hmm.get_eruption_probability()
+            signals["hmm_eruption_prob"] = float(hmm_eruption_prob)
 
             hmm_state_info = {
                 "current_state": state_name,
@@ -873,7 +927,7 @@ class VolcanicEruptionDetector:
                 indicators_detected += 0.5
 
         if "fused_features" in volcano_data or indicators_detected >= 2:
-            eruption_forecast = self._forecast_eruption(volcano_data, indicators_detected)
+            eruption_forecast = self._forecast_eruption(volcano_data, indicators_detected, signals)
             result.eruption_imminent = eruption_forecast["eruption_imminent"]
             result.confidence = max(result.confidence, eruption_forecast["confidence"])
             result.time_to_eruption_hours = eruption_forecast["time_to_eruption_hours"]
@@ -911,9 +965,19 @@ class VolcanicEruptionDetector:
         return result
 
     def _analyze_seismic(self, seismic_sequence: np.ndarray[Any, Any]) -> dict[str, Any]:
-        """Analyze seismic swarm activity."""
+        """Analyze seismic swarm activity.
+
+        Uses the trained LSTM swarm detector only when real weights have been
+        loaded (:meth:`load_neural_weights`); otherwise falls back to the
+        deterministic amplitude-statistics detector so an untrained network can
+        never fabricate a swarm probability.
+        """
         if self.seismic_detector is None:
             return {"swarm_detected": False, "confidence": 0.0, "attention_weights": []}
+
+        if not self._neural_trained:
+            self._warn_untrained_once()
+            return self._detect_swarm_physics(seismic_sequence)
 
         seq_tensor = torch.tensor(seismic_sequence, dtype=torch.float32).unsqueeze(0)
 
@@ -927,6 +991,34 @@ class VolcanicEruptionDetector:
             "swarm_detected": swarm_detected,
             "confidence": float(swarm_prob[0].item()),
             "attention_weights": attention[0].numpy().tolist(),
+        }
+
+    @staticmethod
+    def _detect_swarm_physics(seismic_sequence: np.ndarray[Any, Any]) -> dict[str, Any]:
+        """Deterministic seismic-swarm detection from amplitude statistics.
+
+        A volcanic swarm is a cluster of elevated-amplitude events. Using a
+        robust (median/MAD) outlier fraction avoids the untrained LSTM: the more
+        of the record that sits far above the robust baseline, the stronger the
+        swarm. Fully deterministic -- identical input yields identical output.
+        """
+        arr = np.asarray(seismic_sequence, dtype=float).ravel()
+        arr = arr[np.isfinite(arr)]
+        if arr.size < 4:
+            return {"swarm_detected": False, "confidence": 0.0, "attention_weights": []}
+        median = float(np.median(arr))
+        mad = float(np.median(np.abs(arr - median)))
+        scale = 1.4826 * mad if mad > 0 else (float(np.std(arr)) or 1.0)
+        exceed_fraction = float(np.mean(np.abs(arr - median) / scale > 3.0))
+        # 10% of the record exceeding 3 robust-sigma saturates confidence; a
+        # swarm is flagged once a small but non-trivial fraction is elevated.
+        confidence = float(min(exceed_fraction / 0.10, 1.0))
+        swarm_detected = exceed_fraction > 0.02
+        return {
+            "swarm_detected": swarm_detected,
+            "confidence": confidence,
+            "attention_weights": [],
+            "method": "physics",
         }
 
     def _correlate_schumann_elf(self, schumann_data: np.ndarray[Any, Any]) -> float:
@@ -945,35 +1037,81 @@ class VolcanicEruptionDetector:
 
         return float(correlation)
 
-    def _forecast_eruption(self, volcano_data: dict[str, Any], indicators: float) -> dict[str, Any]:
-        """Forecast eruption using ML model."""
-        if "fused_features" in volcano_data:
-            features = volcano_data["fused_features"]
-        else:
-            features = self._rng.randn(128) * 0.3 + indicators / 4.0
+    def _forecast_eruption(
+        self, volcano_data: dict[str, Any], indicators: float, signals: dict[str, float]
+    ) -> dict[str, Any]:
+        """Forecast eruption from a trained model when available, else physics.
 
-        features_tensor = torch.tensor(features, dtype=torch.float32).unsqueeze(0)
+        The learned :class:`EruptionForecastModel` is consulted only when real
+        weights have been loaded (:meth:`load_neural_weights`) AND a genuine
+        ``fused_features`` vector is supplied. Otherwise the forecast is computed
+        deterministically from the observed precursor magnitudes -- the previous
+        ``randn(128)`` feature fabrication (which fed an untrained network) is
+        gone: input is never synthesized.
+        """
+        if self._neural_trained and "fused_features" in volcano_data:
+            features_tensor = torch.tensor(
+                volcano_data["fused_features"], dtype=torch.float32
+            ).unsqueeze(0)
+            self.eruption_model.eval()
+            with torch.no_grad():
+                eruption_prob, vei_logits, time_norm = self.eruption_model(features_tensor)
+            vei_estimate = int(torch.argmax(torch.softmax(vei_logits[0], dim=0)).item())
+            eruption_types = ["strombolian", "vulcanian", "plinian", "hawaiian_effusive"]
+            return {
+                "eruption_imminent": float(eruption_prob[0].item()) > 0.7,
+                "confidence": float(eruption_prob[0].item()),
+                "time_to_eruption_hours": float(time_norm[0].item()) * 168.0,
+                "vei_estimate": vei_estimate,
+                "eruption_type": eruption_types[min(vei_estimate // 2, 3)],
+                "method": "neural",
+            }
 
-        self.eruption_model.eval()
-        with torch.no_grad():
-            eruption_prob, vei_logits, time_norm = self.eruption_model(features_tensor)
+        self._warn_untrained_once()
+        return self._forecast_eruption_physics(signals)
 
-        eruption_imminent = float(eruption_prob[0].item()) > 0.7
+    @staticmethod
+    def _forecast_eruption_physics(signals: dict[str, float]) -> dict[str, Any]:
+        """Deterministic multi-parameter eruption forecast from observed precursors.
 
-        vei_probs = torch.softmax(vei_logits[0], dim=0)
-        vei_estimate = int(torch.argmax(vei_probs).item())
+        Each precursor is normalised to a ``[0, 1]`` severity against a
+        volcanological reference (degassing index vs 5× baseline = critical,
+        InSAR displacement vs 20 cm = critical, thermal radiant heat, robust
+        seismic-swarm strength, HMM eruption belief). A **noisy-OR** over the
+        severities is the eruption probability -- any single strong precursor
+        raises it and concurrent precursors compound, the standard shape for
+        multi-parameter monitoring. VEI is a coarse precursor-magnitude proxy
+        (documented as such, not a physical VEI prediction), and the lead time
+        shortens as probability rises. Deterministic: identical input → identical
+        output, no RNG.
+        """
+        seismic = min(max(signals.get("seismic_confidence", 0.0), 0.0), 1.0)
+        gas = min(max(signals.get("degassing_index", 0.0) / 5.0, 0.0), 1.0)
+        deform = min(max(signals.get("total_displacement_cm", 0.0) / 20.0, 0.0), 1.0)
+        thermal = min(max(signals.get("radiant_heat_mw", 0.0) / 1000.0, 0.0), 1.0)
+        hmm = min(max(signals.get("hmm_eruption_prob", 0.0), 0.0), 1.0)
+        terms = [seismic, gas, deform, thermal, hmm]
 
-        time_hours = float(time_norm[0].item()) * 168.0  # Up to 7 days
+        complement = 1.0
+        for t in terms:
+            complement *= 1.0 - t
+        eruption_probability = 1.0 - complement
+        eruption_imminent = eruption_probability > 0.7
 
+        peak_severity = max(terms)
+        vei_estimate = int(min(max(round(1 + peak_severity * 5), 1), 6)) if eruption_imminent else 0
+        time_hours = float(np.clip(168.0 * (1.0 - eruption_probability), 6.0, 168.0))
         eruption_types = ["strombolian", "vulcanian", "plinian", "hawaiian_effusive"]
-        eruption_type = eruption_types[min(vei_estimate // 2, 3)]
-
+        eruption_type = (
+            eruption_types[min(vei_estimate // 2, 3)] if vei_estimate > 0 else "no_eruption"
+        )
         return {
             "eruption_imminent": eruption_imminent,
-            "confidence": float(eruption_prob[0].item()),
+            "confidence": float(eruption_probability),
             "time_to_eruption_hours": time_hours,
             "vei_estimate": vei_estimate,
             "eruption_type": eruption_type,
+            "method": "physics",
         }
 
     def _determine_alert_level(self, indicators: float, confidence: float) -> str:
