@@ -237,10 +237,41 @@ class MemoryKnowledgeGraph:
             "timestamp": time.time(),
         }
 
+        # networkx's add_edge auto-creates missing endpoints. An auto-created
+        # node would never enter ``_node_order`` and so would permanently
+        # escape the FIFO node cap, silently re-opening the unbounded-growth
+        # hole the cap exists to close. Register any missing endpoint through
+        # ``add_memory_node`` first, so every node is tracked and evictable.
+        for endpoint in (source_id, target_id):
+            if NETWORKX_AVAILABLE:
+                known = self.graph.has_node(endpoint)
+            else:
+                known = endpoint in self.nodes
+            if not known:
+                # add_memory_node prefixes ids with "mem_"; register the raw
+                # endpoint id directly through the same tracked path.
+                self._node_order.append(endpoint)
+                if NETWORKX_AVAILABLE:
+                    self.graph.add_node(
+                        endpoint,
+                        memory_type="placeholder",
+                        content={},
+                        importance=0.0,
+                        timestamp=time.time(),
+                    )
+                else:
+                    self.nodes[endpoint] = {
+                        "memory_type": "placeholder",
+                        "content": {},
+                        "importance": 0.0,
+                        "timestamp": time.time(),
+                    }
+
         if NETWORKX_AVAILABLE:
             self.graph.add_edge(source_id, target_id, **edge_data)
         else:
             self.edges.append((source_id, target_id, edge_data))
+        self._evict_if_over_capacity()
 
         return edge_id
 

@@ -545,3 +545,25 @@ class TestHMMHistoryBounded:
         assert len(hmm.observation_history) == cap
         # Still functional after the cap.
         assert hmm.predict_next_state()[0] is not None
+
+
+class TestRelationshipEndpointsAreCapped:
+    """Edges to unknown endpoints must not mint nodes that escape the cap."""
+
+    def test_auto_created_endpoints_are_tracked_and_evictable(self) -> None:
+        from omni_mercury_engine.cognitive.anomaly_detection_enhanced import (
+            MemoryKnowledgeGraph,
+        )
+
+        graph = MemoryKnowledgeGraph(max_nodes=10)
+        # Every edge references two endpoints that were never add_memory_node'd;
+        # without endpoint tracking these would accumulate past any cap.
+        for i in range(30):
+            graph.add_relationship(f"ghost_src_{i}", f"ghost_dst_{i}", "related")
+
+        if hasattr(graph, "graph"):  # networkx path
+            assert graph.graph.number_of_nodes() == 10
+            assert not graph.graph.has_node("ghost_src_0")  # oldest evicted
+        else:  # pure-dict fallback
+            assert len(graph.nodes) == 10
+            assert "ghost_src_0" not in graph.nodes
