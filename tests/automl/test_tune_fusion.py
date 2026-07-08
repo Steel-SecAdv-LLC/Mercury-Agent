@@ -122,15 +122,17 @@ def test_tune_fusion_raises_when_all_trials_fail() -> None:
 
 
 @pytest.mark.parametrize(
-    ("kwargs", "message"),
+    ("n_trials", "tuning_epochs", "message"),
     [
-        ({"n_trials": 0}, "n_trials"),
-        ({"n_trials": -3}, "n_trials"),
-        ({"tuning_epochs": 0}, "tuning_epochs"),
-        ({"tuning_epochs": -1}, "tuning_epochs"),
+        (0, 1, "n_trials"),
+        (-3, 1, "n_trials"),
+        (1, 0, "tuning_epochs"),
+        (1, -1, "tuning_epochs"),
     ],
 )
-def test_tune_fusion_rejects_degenerate_budgets(kwargs: dict[str, int], message: str) -> None:
+def test_tune_fusion_rejects_degenerate_budgets(
+    n_trials: int, tuning_epochs: int, message: str
+) -> None:
     """n_trials/tuning_epochs < 1 fail fast with ValueError, not a confusing
     zero-trials RuntimeError (after which the CLI could save an untrained model)."""
     from omni_mercury_engine.engine import OmniMercuryEngine
@@ -139,7 +141,13 @@ def test_tune_fusion_rejects_degenerate_budgets(kwargs: dict[str, int], message:
     y = np.array([0.0, 1.0] * 20)
     X = np.column_stack([y, rng.normal(size=(40, 3))])
     with pytest.raises(ValueError, match=message):
-        OmniMercuryEngine.tune_fusion(cast("OmniMercuryEngine", _StubEngine()), X, y, **kwargs)
+        OmniMercuryEngine.tune_fusion(
+            cast("OmniMercuryEngine", _StubEngine()),
+            X,
+            y,
+            n_trials=n_trials,
+            tuning_epochs=tuning_epochs,
+        )
 
 
 def test_tune_fusion_requires_both_classes() -> None:
