@@ -142,6 +142,42 @@ class TestMercuryCrypto:
         assert package.data_hash == package2.data_hash
 
 
+class TestSixLayerVerify:
+    """MercuryCrypto can verify the 6-layer AMA packages it emits (F8)."""
+
+    @staticmethod
+    def _content(data: dict) -> bytes:
+        import json
+
+        return json.dumps(data, sort_keys=True, default=str).encode()
+
+    def test_verify_roundtrip_all_valid(self) -> None:
+        crypto = MercuryCrypto()
+        data = {"detector": "fusion", "score": 0.91, "is_anomaly": True}
+        pkg = crypto.create_crypto_package(data, CryptoPackageConfig(use_six_layer=True))
+
+        verdict = crypto.verify_crypto_package(self._content(data), pkg)
+        assert verdict["all_valid"] is True
+
+    def test_verify_detects_tamper(self) -> None:
+        crypto = MercuryCrypto()
+        data = {"detector": "fusion", "score": 0.91}
+        pkg = crypto.create_crypto_package(data, CryptoPackageConfig(use_six_layer=True))
+
+        # Verify against different content — integrity/signature layers must fail.
+        verdict = crypto.verify_crypto_package(self._content(data) + b"tamper", pkg)
+        assert verdict["all_valid"] is False
+
+    def test_verify_requires_six_layer_package(self) -> None:
+        crypto = MercuryCrypto()
+        data = {"a": 1}
+        # A standard (non-six-layer) package carries no AMA payload to verify.
+        pkg = crypto.create_crypto_package(data, CryptoPackageConfig(use_six_layer=False))
+
+        with pytest.raises(ValueError, match="six-layer"):
+            crypto.verify_crypto_package(self._content(data), pkg)
+
+
 class TestKeyPairDataClass:
     """Tests for KeyPair data structure."""
 
