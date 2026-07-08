@@ -614,8 +614,6 @@ module = [
     # Machine learning frameworks
     "mamba_ssm",
     "mamba_ssm.*",
-    "stable_baselines3",
-    "stable_baselines3.*",
     "numba",
     "numba.*",
     # Explainability libraries

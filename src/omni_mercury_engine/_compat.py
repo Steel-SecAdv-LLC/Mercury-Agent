@@ -95,11 +95,6 @@ HAS_HYPOTHESIS: bool = find_spec("hypothesis") is not None
 HAS_MATPLOTLIB: bool = find_spec("matplotlib") is not None
 
 # ---------------------------------------------------------------------------
-# Reinforcement learning
-# ---------------------------------------------------------------------------
-HAS_STABLE_BASELINES: bool = find_spec("stable_baselines3") is not None
-
-# ---------------------------------------------------------------------------
 # Math / science
 # ---------------------------------------------------------------------------
 HAS_SYMPY: bool = find_spec("sympy") is not None

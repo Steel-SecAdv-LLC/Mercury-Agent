@@ -27,10 +27,8 @@ __all__ = [
     "AstrophysicalEncoder",
     "AuxiliaryMaxVariance",
     "BiometricEncoder",
-    "CheckpointCallback",
     "CompressionMethod",
     "ConceptDriftEvaluator",
-    "ConvergenceMonitor",
     # Cortical Network (Neuroscience-inspired)
     "CorticalColumn",
     "CorticalConfig",
@@ -56,13 +54,10 @@ __all__ = [
     "MetaLearningAdapter",
     "MetaLearningAlgorithm",
     "ModelCompressor",
-    "MultiEnvPPOTrainer",
     "MultiHeadDetectorAttention",
     "NisslAnalyzer",
     "OmniFusionModel",
     "OnlineLearningPipeline",
-    "PPOConfig",
-    "PPOTrainer",
     "ParallelExecutor",
     "PrototypicalNetworks",
     "QuantumEncoder",
@@ -79,7 +74,6 @@ __all__ = [
     "ThreeRAnomalyTrainer",
     "ThreeRAnomalyTransformer",
     "ThreeRAttentionBlock",
-    "TrainingStats",
     "WeigertAnalyzer",
     "apply_all_optimizations",
     "compute_fairness_score",
@@ -150,14 +144,6 @@ if HAS_TORCH or TYPE_CHECKING:
     )
     from omni_mercury_engine.ml.fusion_network import OmniFusionModel
     from omni_mercury_engine.ml.inference import FusionInference
-    from omni_mercury_engine.ml.ppo_trainer import (
-        CheckpointCallback,
-        ConvergenceMonitor,
-        MultiEnvPPOTrainer,
-        PPOConfig,
-        PPOTrainer,
-        TrainingStats,
-    )
     from omni_mercury_engine.ml.three_r_attention import (
         ThreeRAnomalyTransformer,
         ThreeRAttentionBlock,
