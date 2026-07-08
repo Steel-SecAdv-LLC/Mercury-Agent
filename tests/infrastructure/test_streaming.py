@@ -422,6 +422,47 @@ class TestKafkaConsumerCommit:
         (committed,), _ = consumer._consumer.commit.call_args
         assert list(committed.values()) == [42]
 
+    @pytest.mark.asyncio
+    async def test_commit_missing_aiokafka_raises_import_error(self) -> None:
+        """A missing aiokafka surfaces as ImportError, not a swallowed log line.
+
+        Regression: the ``TopicPartition`` import lived inside commit()'s
+        ``try/except Exception``, so an absent dependency was logged as
+        "Kafka commit failed" and the consumer group's offset cursor silently
+        stopped advancing. The import now sits outside the try and must
+        propagate.
+        """
+        import builtins
+        from unittest.mock import AsyncMock
+
+        from omni_mercury_engine.infrastructure.streaming import KafkaStreamConsumer
+
+        real_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name == "aiokafka" or name.startswith("aiokafka."):
+                raise ImportError("No module named 'aiokafka'")
+            return real_import(name, *args, **kwargs)
+
+        consumer = KafkaStreamConsumer(auto_commit=False)
+        consumer._consumer = AsyncMock()
+
+        msg = StreamMessage(
+            topic="t",
+            key=None,
+            value={"x": 1},
+            timestamp=datetime.now(),
+            partition=0,
+            offset=7,
+        )
+
+        with (
+            patch.object(builtins, "__import__", side_effect=mock_import),
+            pytest.raises(ImportError, match="aiokafka"),
+        ):
+            await consumer.commit(msg)
+        consumer._consumer.commit.assert_not_called()
+
 
 class TestRedisProducerMocked:
     """Tests for Redis producer with mocked redis."""
