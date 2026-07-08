@@ -221,11 +221,24 @@ class RealTimeThreatDetector(LoggerMixin):
         Returns:
             Self
         """
+        fitted_count = 0
         for name, detector in self.detectors.items():
             try:
                 detector.fit(X)
+                fitted_count += 1
             except Exception as e:
                 self.logger.warning("Failed to fit %s: %s", name, e)
+
+        if fitted_count == 0:
+            # Fail closed: entering a fitted state with zero working detectors
+            # would make detect_threat() report "no threat / LOW" for every
+            # input — a security detector silently blind. Refuse instead.
+            raise RuntimeError(
+                f"RealTimeThreatDetector.fit: all {len(self.detectors)} sub-detectors "
+                "failed to fit; refusing to enter a fitted state that would report "
+                "'no threat' for every input. Check the training data shape/dtype "
+                "and detector dependencies."
+            )
 
         # Compute reference score distribution from training data
         ref_scores_list: list[np.ndarray[Any, Any]] = []
@@ -275,15 +288,14 @@ class RealTimeThreatDetector(LoggerMixin):
                 self.logger.warning("Failed to predict with %s: %s", name, e)
 
         if not scores:
-            return {
-                "is_threat": False,
-                "threat_indices": [],
-                "ensemble_scores": [],
-                "individual_predictions": {},
-                "threat_level": "LOW",
-                "num_threats": 0,
-                "timestamp": datetime.now().isoformat(),
-            }
+            # Fitted, but every sub-detector errored at inference. This is a
+            # detection FAILURE, not a "no threat" result — returning LOW here
+            # would let a blind detector assert safety. Fail closed.
+            raise RuntimeError(
+                "RealTimeThreatDetection failed: all sub-detectors errored during "
+                "prediction, so threat cannot be assessed. This is NOT a 'no threat' "
+                "result — treat it as a detector outage."
+            )
 
         ensemble_score = np.mean(list(scores.values()), axis=0)
 
