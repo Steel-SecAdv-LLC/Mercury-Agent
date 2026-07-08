@@ -309,6 +309,58 @@ class TestDetectionRoutes:
         )
         assert response.status_code == 400
 
+    def test_flagship_detection(self, client: Any) -> None:
+        """The flagship OmniMercuryEngine fusion path is reachable over HTTP.
+
+        This is the same neuro-symbolic engine the ``detect -d fusion`` CLI runs
+        (trained checkpoint + GOSNN + σ_Immutable gate), unified onto HTTP -- not
+        the lightweight statistical ``/fusion``.
+        """
+        pytest.importorskip("torch")
+        rng = np.random.default_rng(0)
+        matrix = rng.normal(size=(30, 5)).tolist()
+        response = client.post(
+            "/api/v1/detect/flagship",
+            json={"request": {"data": matrix}},
+        )
+        assert response.status_code == 200, response.text
+        result = response.json()
+        # The calibrated flagship contract, distinct from /fusion's fused_score.
+        assert set(result).issuperset(
+            {"anomaly_prob", "is_anomaly", "severity", "detector_importance", "gosnn_metadata"}
+        )
+        assert 0.0 <= float(result["anomaly_prob"]) <= 1.0
+        assert "sigma_immutable_score" in result["gosnn_metadata"]
+
+    def test_flagship_detection_bad_shape(self, client: Any) -> None:
+        """A 1-D series is rejected by the 2-D matrix contract (422)."""
+        response = client.post(
+            "/api/v1/detect/flagship",
+            json={"request": {"data": [1.0, 2.0, 3.0]}},
+        )
+        assert response.status_code == 422
+
+    def test_flagship_blocked_by_ethical_gate_returns_403(
+        self, client: Any, monkeypatch: Any
+    ) -> None:
+        """A detection the hard ethical gate refuses is a 403 fail-closed, never a silent allow."""
+        pytest.importorskip("torch")
+        from omni_mercury_engine.api.routes import detection as det
+        from omni_mercury_engine.engine import EthicalConstraintViolationError
+
+        def _blocked(matrix: Any, domain: Any, explain: Any) -> dict[str, Any]:
+            raise EthicalConstraintViolationError(
+                "blocked matrix", 0.10, 0.96, check="sigma_immutable"
+            )
+
+        monkeypatch.setattr(det, "_run_flagship_detection", _blocked)
+        response = client.post(
+            "/api/v1/detect/flagship",
+            json={"request": {"data": [[1.0, 2.0], [3.0, 4.0]]}},
+        )
+        assert response.status_code == 403
+        assert "sigma_immutable" in response.json()["detail"]
+
 
 # =============================================================================
 # Batch Routes Tests
