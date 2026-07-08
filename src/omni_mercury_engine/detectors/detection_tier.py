@@ -48,6 +48,8 @@ from omni_mercury_engine.detectors._calibration import bound_finite, finite_scor
 from omni_mercury_engine.detectors.detection_config import DetectionConfig
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     import torch
 
     from omni_mercury_engine.core.base import BaseDetector
@@ -66,6 +68,7 @@ __all__ = [
     "conformal_flags",
     "conformal_threshold",
     "rca_localize",
+    "run_tier_ensemble",
     "store_tier_features",
 ]
 
@@ -705,6 +708,92 @@ def conformal_flags(
     """
     threshold = conformal_threshold(calibration_scores, alpha=alpha)
     return np.asarray(scores, dtype=np.float64).ravel() > threshold
+
+
+def run_tier_ensemble(
+    series: np.ndarray[Any, Any],
+    labels: np.ndarray[Any, Any] | None = None,
+    *,
+    subset: Sequence[str] | None = None,
+    method: str | None = None,
+    contamination: float = 0.05,
+    calibration: str | None = None,
+    conformal_alpha: float | None = None,
+) -> dict[str, Any]:
+    """Build → fit → score the streaming detector-tier ensemble in one call.
+
+    A single, torch-free runtime entrypoint for the streaming / statistical /
+    state-space detector tier's calibrated ensemble
+    (:class:`StreamingScoreEnsemble` over :func:`build_tier_detectors`). It is
+    what the ``mercury-agent tier-detect`` CLI command and the
+    ``/api/v1/detect/tier`` route call, so the tier -- previously reachable only
+    by hand-assembling the pieces -- has a real, tested surface.
+
+    Args:
+        series: 1-D anomaly series (the tier's native temporal contract).
+        labels: Optional per-point 0/1 labels. When present the members are fit
+            on the normal points only and the default combiner is ``stacking``;
+            without labels the default is the label-free ``average``.
+        subset: Detector names to include (default: the full ``STREAMING_TIER``).
+        method: Combiner override (``stacking`` / ``bma`` / ``average`` /
+            ``consensus``).
+        contamination: Expected anomaly fraction for threshold calibration.
+        calibration: Per-detector score transform (``rank`` / ``ecdf`` /
+            ``isotonic`` / ``platt`` / ``none``); ``None`` resolves from config.
+        conformal_alpha: When set, also returns flags with a distribution-free
+            false-positive guarantee (FPR ``<= alpha``). The known-normal
+            calibration stream is the label-0 subset when labels are given, else
+            the observed scores (an in-sample proxy under exchangeability).
+
+    Returns:
+        A JSON-serialisable dict: ``method``, ``members``, ``threshold``,
+        per-point ``scores`` (calibrated ``[0, 1]``), ``flags`` (0/1),
+        ``uncertainty`` (cross-detector disagreement), ``n_points``,
+        ``n_flagged``; ``bma_weights`` when ``method="bma"``; and the
+        ``conformal_*`` fields when ``conformal_alpha`` is set.
+    """
+    detectors = build_tier_detectors(subset)
+    resolved_method = method or ("stacking" if labels is not None else "average")
+    ensemble = StreamingScoreEnsemble(
+        detectors,
+        method=resolved_method,
+        contamination=contamination,
+        calibration=calibration,
+    )
+    ensemble.fit(series, labels=labels)
+
+    scores = np.asarray(ensemble.score(series), dtype=float)
+    flags = np.asarray(ensemble.predict(series), dtype=int)
+    uncertainty = np.asarray(ensemble.ensemble_uncertainty(series), dtype=float)
+
+    result: dict[str, Any] = {
+        "method": resolved_method,
+        "members": list(detectors.keys()),
+        "threshold": float(ensemble.threshold),
+        "scores": scores.tolist(),
+        "flags": flags.tolist(),
+        "uncertainty": uncertainty.tolist(),
+        "n_points": int(scores.size),
+        "n_flagged": int(flags.sum()),
+    }
+    if resolved_method == "bma":
+        result["bma_weights"] = ensemble.bma_weights()
+
+    if conformal_alpha is not None:
+        if labels is not None:
+            lab = np.asarray(labels).astype(int).ravel()
+            calibration_scores = scores[lab == 0] if (lab == 0).any() else scores
+        else:
+            calibration_scores = scores
+        cflags = conformal_flags(scores, calibration_scores, alpha=conformal_alpha)
+        result["conformal_alpha"] = float(conformal_alpha)
+        result["conformal_threshold"] = float(
+            conformal_threshold(calibration_scores, alpha=conformal_alpha)
+        )
+        result["conformal_flags"] = cflags.astype(int).tolist()
+        result["n_conformal_flagged"] = int(cflags.sum())
+
+    return result
 
 
 def rca_localize(
