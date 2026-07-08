@@ -46,9 +46,14 @@ class TestJWTAuthMissingKey:
 
             auth = JWTAuth(allow_dev_fallback=True)
 
-            # Should use fallback key
+            # Should use the ephemeral per-process fallback key: not the old
+            # published constant, a proper 32-byte random hex, and stable within
+            # the process so two instances can sign/verify each other's tokens.
             assert auth.using_fallback is True
-            assert auth.secret_key == JWTAuth._DEV_FALLBACK_KEY
+            assert auth.secret_key == JWTAuth._get_dev_fallback_key()
+            assert auth.secret_key != "MERCURY_AGENT_DEV_FALLBACK_KEY_DO_NOT_USE_IN_PRODUCTION"
+            assert len(auth.secret_key) == 64  # secrets.token_hex(32)
+            assert JWTAuth(allow_dev_fallback=True).secret_key == auth.secret_key
 
     def test_jwt_auth_missing_key_no_fallback_raises(self) -> None:
         """Test JWT auth raises error when key missing and fallback disabled."""
@@ -523,7 +528,7 @@ class TestProductionFlagAlignment:
                 self._reset_singleton()
 
             assert auth.using_fallback is False
-            assert auth.secret_key != JWTAuth._DEV_FALLBACK_KEY
+            assert auth.secret_key != JWTAuth._get_dev_fallback_key()
             assert auth.secret_key is not None and len(auth.secret_key) > 0
 
     def test_canonical_flag_wins_over_legacy_alias(self) -> None:
