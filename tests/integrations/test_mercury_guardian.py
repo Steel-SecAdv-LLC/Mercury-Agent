@@ -22,6 +22,26 @@ from typing import Any
 import numpy as np
 import pytest
 
+
+@pytest.fixture(autouse=True)
+def _reset_gosnn_singleton() -> Any:
+    """Isolate the process-global GOSNN singleton around every test here.
+
+    The adapter registers SECURITY-group scalars into GOSNN (timing anomalies,
+    posture rotations, algorithm switches). Left in place, those scalars bleed
+    into the σ_Immutable ethical gate of an unrelated ``detect_with_fusion``
+    running later on the same xdist worker and force a spurious fail-closed
+    (score→0.0). Resetting the singleton before and after each test contains
+    that leakage. The underlying cross-request scalar bleed is tracked as the
+    GOSNN hardening item (F10) and is out of scope for this file's tests.
+    """
+    from omni_mercury_engine.core.global_omni_scalar_network import reset_global_network
+
+    reset_global_network()
+    yield
+    reset_global_network()
+
+
 # =============================================================================
 # MercuryGuardianAdapter Tests
 # =============================================================================
