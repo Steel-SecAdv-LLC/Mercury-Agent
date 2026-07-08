@@ -228,6 +228,41 @@ def _restore_engine_logger_propagation() -> Iterator[None]:
         logger.propagate = previous_propagate
 
 
+@pytest.fixture(autouse=True)
+def _isolate_gosnn_singleton() -> Iterator[None]:
+    """Reset the process-global GOSNN singleton around every test.
+
+    The Global Omni-Scalar Network is a process-wide singleton, and components
+    register SECURITY/ETHICAL scalars into it (crypto posture, timing anomalies,
+    detector state). Those scalars are read by the σ_Immutable ethical gate, so
+    a scalar left behind by one test bleeds into the gate's input for an
+    unrelated ``detect_with_fusion`` running later in the same worker process —
+    which under ``pytest-xdist`` (``-n``) manifests as a spurious fail-closed
+    ``EthicalConstraintViolationError`` (score→0.0) in whichever engine test
+    happens to share the worker. That made the parallel suite distribution-
+    dependent: green or red depending only on how xdist sharded the tests.
+
+    Resetting the singleton before and after each test makes every test start
+    from clean GOSNN state, so the suite is deterministic regardless of
+    sharding. This generalizes the per-file "freshly reset GOSNN singleton"
+    fixtures several test modules already declare. It is test-isolation only:
+    the underlying cross-request scalar bleed in the runtime is the GOSNN
+    hardening item (F10), tracked for its own change. Best-effort — if the
+    GOSNN module is unavailable (thin install), the reset is skipped.
+    """
+    try:
+        from omni_mercury_engine.core.global_omni_scalar_network import reset_global_network
+    except Exception:
+        yield
+        return
+
+    reset_global_network()
+    try:
+        yield
+    finally:
+        reset_global_network()
+
+
 @pytest.fixture
 def deterministic_rng() -> DeterministicRNG:
     """
