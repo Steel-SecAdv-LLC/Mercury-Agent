@@ -450,17 +450,44 @@ class TestExportRoutes:
             data = response.json()
             assert "total_detections" in data
 
-    def test_export_metrics_rejects_non_json_format(self, client: Any, auth_headers: Any) -> None:
-        """Metrics is a JSON summary; a csv request must 400, not silently return JSON (F17)."""
+    def test_export_metrics_csv(self, client: Any, auth_headers: Any) -> None:
+        """Metrics export honours format=csv with tidy metric,value rows (F17)."""
         response = client.get(
             "/api/v1/export/metrics",
             headers=auth_headers,
             params={"format": "csv"},
         )
-        # 400 for the unsupported format (429 possible under rate-limit ordering).
-        assert response.status_code in (400, 429)
-        if response.status_code == 400:
-            assert "not supported" in response.json()["detail"]
+        assert response.status_code in (200, 429)
+        if response.status_code == 200:
+            assert "text/csv" in response.headers["content-type"]
+            body = response.text
+            # Empty stores still emit a valid header row.
+            assert body == "" or "metric" in body.splitlines()[0]
+
+    def test_export_metrics_jsonl(self, client: Any, auth_headers: Any) -> None:
+        """Metrics export honours format=jsonl (F17)."""
+        response = client.get(
+            "/api/v1/export/metrics",
+            headers=auth_headers,
+            params={"format": "jsonl"},
+        )
+        assert response.status_code in (200, 429)
+        if response.status_code == 200:
+            assert "ndjson" in response.headers["content-type"]
+
+    def test_export_metrics_json_is_rich(self, client: Any, auth_headers: Any) -> None:
+        """The JSON summary carries the enriched surfaces researchers consume."""
+        response = client.get("/api/v1/export/metrics", headers=auth_headers)
+        assert response.status_code in (200, 429)
+        if response.status_code == 200:
+            data = response.json()
+            for key in (
+                "total_detections",
+                "score_percentiles",
+                "method_breakdown",
+                "time_series",
+            ):
+                assert key in data
 
 
 # =============================================================================
