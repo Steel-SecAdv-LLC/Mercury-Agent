@@ -731,9 +731,14 @@ class KafkaStreamConsumer(StreamConsumer):
             )
             return
 
-        try:
-            from aiokafka import TopicPartition
+        # Import OUTSIDE the try: a connected consumer guarantees aiokafka is
+        # importable (connect() imports it and raises loudly otherwise), so a
+        # failure here is an environment defect that must surface as
+        # ImportError — not be logged as "commit failed" while the consumer
+        # group's offset cursor silently stops advancing.
+        from aiokafka import TopicPartition
 
+        try:
             tp = TopicPartition(message.topic, message.partition)
             await self._consumer.commit({tp: message.offset + 1})
         except Exception as e:

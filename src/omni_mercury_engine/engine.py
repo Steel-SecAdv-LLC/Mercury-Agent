@@ -3068,8 +3068,25 @@ class OmniMercuryEngine(LoggerMixin):
         enable_ipb: bool = True,
         enable_cbr: bool = True,
         enable_indicators: bool = True,
+        enable_curiosity: bool = False,
+        enable_enhanced_detection: bool = False,
     ) -> None:
-        """Enable the cognitive orchestrator as a post-fusion feedback stage."""
+        """Enable the cognitive orchestrator as a post-fusion feedback stage.
+
+        Args:
+            enable_plasticity: Enable dynamic knowledge adaptation.
+            enable_causal: Enable causal discovery.
+            enable_ipb: Enable intelligence preparation.
+            enable_cbr: Enable case-based reasoning.
+            enable_indicators: Enable indicator development.
+            enable_curiosity: Enable curiosity-driven novelty scoring of
+                detected anomalies (measured Mahalanobis distance from the
+                observed distribution). Off by default — opt-in keeps the
+                default analyze() output unchanged.
+            enable_enhanced_detection: Enable the Bayesian/HMM
+                predictive-memory augmentation over detected anomalies.
+                Off by default; the runtime path performs no network I/O.
+        """
         from omni_mercury_engine.cognitive.orchestrator import CognitiveOrchestrator
 
         self.cognitive_orchestrator = CognitiveOrchestrator(
@@ -3078,6 +3095,8 @@ class OmniMercuryEngine(LoggerMixin):
             enable_ipb=enable_ipb,
             enable_cbr=enable_cbr,
             enable_indicators=enable_indicators,
+            enable_curiosity=enable_curiosity,
+            enable_enhanced_detection=enable_enhanced_detection,
         )
         logger.info("Cognitive analysis enabled")
 
