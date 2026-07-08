@@ -734,3 +734,77 @@ async def detect_flagship(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An internal error occurred during flagship detection.",
         ) from e
+
+
+class RootCauseRequest(BaseModel):
+    """Request for multivariate root-cause localization."""
+
+    observations: list[list[float]] = Field(
+        ...,
+        min_length=1,
+        description="Rows x nodes; the last row is the anomaly to localise.",
+    )
+    adjacency: list[list[float]] | None = Field(
+        default=None,
+        description="Optional (n_nodes x n_nodes) non-negative causal adjacency.",
+    )
+    train: list[list[float]] | None = Field(
+        default=None,
+        description="Optional normal-behaviour rows for the per-node baselines.",
+    )
+    top_k: int | None = Field(default=None, ge=1, description="Return only the top-K root causes.")
+    node_names: list[str] | None = Field(
+        default=None, description="Optional labels (one per node)."
+    )
+
+
+@router.post(
+    "/rca",
+    summary="Root-Cause Localization",
+    description="""
+Attribute a multivariate anomaly to its most likely root-cause nodes.
+
+Runs the tier's graph-based root-cause analysis (a reverse personalised random
+walk over a causal / service adjacency): given ``(n_rows x n_nodes)``
+observations whose last row is anomalous, it ranks which node (sensor, service,
+channel) most likely originated the fault. Torch-free. The same analysis behind
+``mercury-agent rca`` and the ``mercury_localize_root_cause`` MCP tool.
+""",
+)
+async def detect_rca(
+    request: RootCauseRequest,
+    user: User | None = Depends(_get_optional_user),
+) -> dict[str, Any]:
+    """Localise the root cause of a multivariate anomaly."""
+    try:
+        from omni_mercury_engine.detectors.detection_tier import localize_root_cause
+
+        result = localize_root_cause(
+            request.observations,
+            adjacency=request.adjacency,
+            train=request.train,
+            top_k=request.top_k,
+            node_names=request.node_names,
+        )
+
+        user_id = user.id if user else "anonymous"
+        await record_detection(
+            user_id=user_id,
+            method="root_cause",
+            data=request.observations,
+            results={
+                "n_nodes": result["n_nodes"],
+                "top_root_cause": result["top_root_cause"],
+            },
+        )
+        return result
+
+    except ValueError as e:
+        # Bad request: non-2-D observations, mismatched node_names length.
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    except Exception as e:
+        logger.error("Root-cause localization failed: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An internal error occurred during root-cause localization.",
+        ) from e

@@ -363,6 +363,32 @@ class TestDetectionInterconnectTools:
         )
         assert result["isError"] is True
 
+    def test_localize_root_cause_ranks_the_chain(self) -> None:
+        server = MercuryMCPServer()
+        rng = np.random.default_rng(0)
+        base = rng.normal(0, 1, (300, 4))
+        base[:, 1] += 0.8 * base[:, 0]
+        base[:, 2] += 0.8 * base[:, 1]
+        obs = base.copy()
+        obs[-1, 0] += 8.0
+        obs[-1, 1] += 6.0
+        obs[-1, 2] += 4.0
+        result = _call(
+            server,
+            "mercury_localize_root_cause",
+            {"observations": obs.tolist(), "train": base[:-1].tolist(), "top_k": 3},
+        )
+        assert result["isError"] is False
+        payload = json.loads(result["content"][0]["text"])
+        assert payload["n_nodes"] == 4
+        assert len(payload["ranked"]) == 3
+        assert payload["top_root_cause"]["node"] in {0, 1, 2}  # a chain node, not the independent 3
+
+    def test_localize_root_cause_bad_input_is_error(self) -> None:
+        server = MercuryMCPServer()
+        result = _call(server, "mercury_localize_root_cause", {"observations": [1.0, 2.0, 3.0]})
+        assert result["isError"] is True
+
     def test_detect_fusion_real_engine_end_to_end(self) -> None:
         """No injection: the tool builds the real flagship engine and scores a matrix."""
         pytest.importorskip("torch")

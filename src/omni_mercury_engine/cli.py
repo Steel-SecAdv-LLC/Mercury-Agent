@@ -194,6 +194,59 @@ def tier_detect(
         click.echo(text)
 
 
+@main.command("rca")
+@click.option(
+    "--input",
+    "-i",
+    required=True,
+    help="Observations file (.csv/.npy/.json); rows x nodes, last row is the anomaly",
+)
+@click.option(
+    "--train",
+    default=None,
+    help="Optional normal-behaviour rows for the per-node baselines (default: --input)",
+)
+@click.option(
+    "--adjacency",
+    default=None,
+    help="Optional (n_nodes x n_nodes) causal adjacency (default: inferred from correlations)",
+)
+@click.option("--top-k", "-k", default=None, type=int, help="Return only the top-K root causes")
+@click.option("--node-names", default=None, help="Comma-separated node labels (one per column)")
+@click.option("--output", "-o", default=None, help="Output JSON file (stdout if omitted)")
+def rca(
+    input: str,
+    train: str | None,
+    adjacency: str | None,
+    top_k: int | None,
+    node_names: str | None,
+    output: str | None,
+) -> None:
+    """Attribute a multivariate anomaly to its root-cause nodes (torch-free).
+
+    Runs the tier's graph-based root-cause analysis: a reverse personalised
+    random walk over a causal / service adjacency ranks which node (sensor,
+    service, channel) most likely originated the anomaly in the final row.
+    """
+    from omni_mercury_engine.detectors.detection_tier import localize_root_cause
+
+    observations = np.asarray(_load_data(input), dtype=float)
+    train_rows = np.asarray(_load_data(train), dtype=float) if train else None
+    adj = np.asarray(_load_data(adjacency), dtype=float) if adjacency else None
+    names = [s.strip() for s in node_names.split(",")] if node_names else None
+
+    result = localize_root_cause(
+        observations, adjacency=adj, train=train_rows, top_k=top_k, node_names=names
+    )
+
+    text = json.dumps(result, indent=2, default=str)
+    if output:
+        Path(output).write_text(text)
+        click.echo(f"Wrote root-cause analysis to {output}", err=True)
+    else:
+        click.echo(text)
+
+
 @main.command()
 @click.option("--reference", "-r", required=True, help="Reference face image")
 @click.option("--test", "-t", help="Test face image to match")

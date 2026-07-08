@@ -7,7 +7,10 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from omni_mercury_engine.detectors.detection_tier import run_tier_ensemble
+from omni_mercury_engine.detectors.detection_tier import (
+    localize_root_cause,
+    run_tier_ensemble,
+)
 
 
 def test_runner_scores_and_flags_a_burst() -> None:
@@ -40,3 +43,54 @@ def test_runner_stacking_requires_labels() -> None:
     rng = np.random.default_rng(2)
     with pytest.raises(ValueError):
         run_tier_ensemble(rng.normal(0, 1, 100), method="stacking", subset=("spectral_residual",))
+
+
+def _causal_chain_fault(seed: int = 0) -> tuple[np.ndarray, np.ndarray]:
+    """A 4-node system where a fault originates at node 0 and propagates 0->1->2.
+
+    Node 3 is independent, so root-cause attribution must rank the causal-chain
+    nodes far above node 3.
+    """
+    rng = np.random.default_rng(seed)
+    base = rng.normal(0, 1, (300, 4))
+    base[:, 1] += 0.8 * base[:, 0]
+    base[:, 2] += 0.8 * base[:, 1]
+    obs = base.copy()
+    obs[-1, 0] += 8.0
+    obs[-1, 1] += 6.0
+    obs[-1, 2] += 4.0
+    return obs, base[:-1]
+
+
+def test_localize_root_cause_attributes_the_causal_chain() -> None:
+    obs, train = _causal_chain_fault()
+    result = localize_root_cause(obs, train=train)
+
+    assert result["n_nodes"] == 4
+    assert result["n_rows"] == obs.shape[0]
+    # Ranked descending by attribution, one entry per node.
+    attributions = [e["attribution"] for e in result["ranked"]]
+    assert attributions == sorted(attributions, reverse=True)
+    # The independent node 3 must be the least-attributed, well below the chain.
+    by_node = {e["node"]: e["attribution"] for e in result["ranked"]}
+    assert by_node[3] == min(by_node.values())
+    assert by_node[3] < max(by_node.values()) / 3
+
+
+def test_localize_root_cause_top_k_and_names() -> None:
+    obs, train = _causal_chain_fault(1)
+    result = localize_root_cause(
+        obs, train=train, top_k=2, node_names=["pump", "valve", "tank", "aux"]
+    )
+    assert len(result["ranked"]) == 2
+    # Names are attached and index-consistent.
+    for entry in result["ranked"]:
+        assert entry["name"] == ["pump", "valve", "tank", "aux"][entry["node"]]
+    assert result["top_root_cause"] == result["ranked"][0]
+
+
+def test_localize_root_cause_rejects_bad_input() -> None:
+    with pytest.raises(ValueError, match=r"2-D"):
+        localize_root_cause(np.zeros(5))
+    with pytest.raises(ValueError, match=r"node_names"):
+        localize_root_cause(np.zeros((3, 4)), node_names=["a", "b"])
