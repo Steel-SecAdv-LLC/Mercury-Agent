@@ -21,6 +21,7 @@ import hashlib
 import io
 import json
 import logging
+import math
 import os
 import uuid
 from dataclasses import dataclass, field
@@ -709,35 +710,182 @@ async def export_audit_logs(
     )
 
 
+def _nearest_rank_percentile(sorted_values: list[float], pct: float) -> float:
+    """Nearest-rank percentile of a pre-sorted list (pct in [0, 100])."""
+    if not sorted_values:
+        return 0.0
+    rank = max(1, math.ceil(pct / 100.0 * len(sorted_values)))
+    return float(sorted_values[min(rank, len(sorted_values)) - 1])
+
+
+def _truncate_to_bucket(ts: datetime, bucket: str) -> datetime:
+    """Floor a timestamp to the start of its time bucket."""
+    if bucket == "day":
+        return ts.replace(hour=0, minute=0, second=0, microsecond=0)
+    if bucket == "minute":
+        return ts.replace(second=0, microsecond=0)
+    # default: hour
+    return ts.replace(minute=0, second=0, microsecond=0)
+
+
+def _compute_metrics_summary(
+    detections: list[DetectionRecord],
+    start_time: datetime | None,
+    end_time: datetime | None,
+    bucket: str,
+) -> dict[str, Any]:
+    """Aggregate detection records into a rich metrics summary.
+
+    Beyond the headline counts this exposes score percentiles, per-method
+    statistics, and a time-bucketed series — the surfaces a researcher analysing
+    STEM / medical / meteorological / space detection runs actually plots. Every
+    field is derived from the real ``DetectionRecord`` data, nothing synthetic.
+    """
+    if not detections:
+        return {
+            "period": {
+                "start": start_time.isoformat() if start_time else None,
+                "end": end_time.isoformat() if end_time else None,
+            },
+            "total_detections": 0,
+            "total_anomalies_found": 0,
+            "anomaly_rate": 0.0,
+            "avg_max_score": 0.0,
+            "score_percentiles": {},
+            "method_breakdown": {},
+            "batch_vs_realtime": {"batch": 0, "realtime": 0},
+            "score_distribution": {},
+            "time_series": [],
+        }
+
+    total = len(detections)
+    total_anomalies = sum(d.anomaly_count for d in detections)
+    scores = sorted(d.max_score for d in detections)
+    avg_score = sum(scores) / total
+
+    # Per-method statistics: count, avg score, total anomalies.
+    method_stats: dict[str, dict[str, Any]] = {}
+    for d in detections:
+        m = method_stats.setdefault(d.method, {"count": 0, "score_sum": 0.0, "anomalies": 0})
+        m["count"] += 1
+        m["score_sum"] += d.max_score
+        m["anomalies"] += d.anomaly_count
+    method_breakdown = {
+        name: {
+            "count": s["count"],
+            "avg_max_score": round(s["score_sum"] / s["count"], 4),
+            "total_anomalies": s["anomalies"],
+        }
+        for name, s in sorted(method_stats.items())
+    }
+
+    # Time-bucketed series (detections + anomalies per bucket).
+    series_map: dict[datetime, dict[str, int]] = {}
+    for d in detections:
+        key = _truncate_to_bucket(d.timestamp, bucket)
+        b = series_map.setdefault(key, {"detections": 0, "anomalies": 0})
+        b["detections"] += 1
+        b["anomalies"] += d.anomaly_count
+    time_series = [
+        {
+            "bucket_start": k.isoformat(),
+            "detections": v["detections"],
+            "anomalies": v["anomalies"],
+            "anomaly_rate": round(v["anomalies"] / v["detections"], 4) if v["detections"] else 0.0,
+        }
+        for k, v in sorted(series_map.items())
+    ]
+
+    return {
+        "period": {
+            "start": min(d.timestamp for d in detections).isoformat(),
+            "end": max(d.timestamp for d in detections).isoformat(),
+        },
+        "total_detections": total,
+        "total_anomalies_found": total_anomalies,
+        "anomaly_rate": round(total_anomalies / total, 4) if total > 0 else 0.0,
+        "avg_max_score": round(avg_score, 4),
+        "score_percentiles": {
+            "min": round(scores[0], 4),
+            "p50": round(_nearest_rank_percentile(scores, 50), 4),
+            "p90": round(_nearest_rank_percentile(scores, 90), 4),
+            "p95": round(_nearest_rank_percentile(scores, 95), 4),
+            "p99": round(_nearest_rank_percentile(scores, 99), 4),
+            "max": round(scores[-1], 4),
+        },
+        "method_breakdown": method_breakdown,
+        "batch_vs_realtime": {
+            "batch": sum(1 for d in detections if d.is_batch),
+            "realtime": sum(1 for d in detections if not d.is_batch),
+        },
+        "score_distribution": {
+            "0.0-0.25": sum(1 for d in detections if d.max_score < 0.25),
+            "0.25-0.50": sum(1 for d in detections if 0.25 <= d.max_score < 0.50),
+            "0.50-0.75": sum(1 for d in detections if 0.50 <= d.max_score < 0.75),
+            "0.75-1.0": sum(1 for d in detections if d.max_score >= 0.75),
+        },
+        "time_series": time_series,
+    }
+
+
+def _flatten_metrics_to_rows(summary: dict[str, Any]) -> list[dict[str, Any]]:
+    """Flatten the nested metrics summary into tidy ``{metric, value}`` rows.
+
+    A long/tidy two-column shape loads directly into pandas / R for the tabular
+    formats. Nested keys become dotted (``method_breakdown.zscore.count``); the
+    time series is emitted one metric per bucket field.
+    """
+    rows: list[dict[str, Any]] = []
+
+    def _walk(prefix: str, value: Any) -> None:
+        if isinstance(value, dict):
+            for k, v in value.items():
+                _walk(f"{prefix}.{k}" if prefix else str(k), v)
+        elif isinstance(value, list):
+            for item in value:
+                if isinstance(item, dict) and "bucket_start" in item:
+                    stamp = item["bucket_start"]
+                    for field_name, field_value in item.items():
+                        if field_name == "bucket_start":
+                            continue
+                        rows.append(
+                            {"metric": f"{prefix}.{stamp}.{field_name}", "value": field_value}
+                        )
+                else:
+                    _walk(prefix, item)
+        else:
+            rows.append({"metric": prefix, "value": value})
+
+    _walk("", summary)
+    return rows
+
+
 @router.get(
     "/metrics",
     summary="Export Metrics",
-    description="Export system metrics and performance data.",
+    description="Export system detection metrics (json summary, or tidy csv/jsonl rows).",
 )
 async def export_metrics(
     format: ExportFormat = Query(
         default=ExportFormat.JSON,
-        description="Export format. Metrics are a JSON summary object; only json is supported.",
+        description="Export format: json (nested summary), or csv/jsonl (tidy metric,value rows).",
+    ),
+    bucket: str = Query(
+        default="hour",
+        pattern="^(minute|hour|day)$",
+        description="Time-series bucket granularity for the metrics time series.",
     ),
     start_time: datetime | None = Query(default=None, description="Start of time range"),
     end_time: datetime | None = Query(default=None, description="End of time range"),
     user: User = Depends(_get_current_user),
-) -> dict[str, Any]:
-    """Export system metrics."""
-    # This endpoint returns an aggregate summary object, not tabular records, so
-    # the row-oriented formats (csv/jsonl/parquet) have no meaning here. Reject
-    # them explicitly rather than silently returning JSON regardless (the old
-    # behavior — the format parameter was accepted and ignored).
-    if format != ExportFormat.JSON:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                f"Metrics export is a JSON summary object; format={format.value} is not "
-                "supported. Use format=json (or the record-level export endpoints for "
-                "tabular csv/jsonl)."
-            ),
-        )
+) -> Any:
+    """Export system detection metrics in json/csv/jsonl.
 
+    Researchers across Mercury's domains (STEM, medical, meteorological, space, …)
+    consume detection metrics in whatever format their analysis stack expects, so
+    the summary is offered as a nested JSON object *and* as tidy two-column
+    csv/jsonl (``metric,value``) that loads straight into pandas / R.
+    """
     store = get_data_store()
 
     is_admin = user.has_permission(Permission.ADMIN)
@@ -750,44 +898,31 @@ async def export_metrics(
         limit=100000,
     )
 
-    if not detections:
-        return {
-            "period": {
-                "start": start_time.isoformat() if start_time else None,
-                "end": end_time.isoformat() if end_time else None,
-            },
-            "total_detections": 0,
-            "anomaly_rate": 0.0,
-            "avg_score": 0.0,
-            "method_breakdown": {},
-        }
+    summary = _compute_metrics_summary(detections, start_time, end_time, bucket)
 
-    total = len(detections)
-    total_anomalies = sum(d.anomaly_count for d in detections)
-    avg_score = sum(d.max_score for d in detections) / total
+    if format == ExportFormat.JSON:
+        return summary
 
-    method_counts: dict[str, int] = {}
-    for d in detections:
-        method_counts[d.method] = method_counts.get(d.method, 0) + 1
+    rows = _flatten_metrics_to_rows(summary)
+    ext = format.value
+    filename = f"metrics_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{ext}"
+    if format == ExportFormat.JSONL:
+        stream = _stream_jsonl(rows, lambda r: r)
+        media_type = "application/x-ndjson"
+    elif format == ExportFormat.CSV:
+        stream = _stream_csv(rows, lambda r: r)
+        media_type = "text/csv"
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Unsupported metrics export format: {format.value}. "
+                "Use one of: json, csv, jsonl."
+            ),
+        )
 
-    return {
-        "period": {
-            "start": min(d.timestamp for d in detections).isoformat(),
-            "end": max(d.timestamp for d in detections).isoformat(),
-        },
-        "total_detections": total,
-        "total_anomalies_found": total_anomalies,
-        "anomaly_rate": total_anomalies / total if total > 0 else 0.0,
-        "avg_max_score": round(avg_score, 4),
-        "method_breakdown": method_counts,
-        "batch_vs_realtime": {
-            "batch": sum(1 for d in detections if d.is_batch),
-            "realtime": sum(1 for d in detections if not d.is_batch),
-        },
-        "score_distribution": {
-            "0.0-0.25": sum(1 for d in detections if d.max_score < 0.25),
-            "0.25-0.50": sum(1 for d in detections if 0.25 <= d.max_score < 0.50),
-            "0.50-0.75": sum(1 for d in detections if 0.50 <= d.max_score < 0.75),
-            "0.75-1.0": sum(1 for d in detections if d.max_score >= 0.75),
-        },
-    }
+    return StreamingResponse(
+        stream,
+        media_type=media_type,
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
