@@ -295,6 +295,19 @@ def detect(data, thresh=0.5):
 
 ### Formatting and Linting
 
+Before pushing, run the exact CI quality-gate matrix in one command — it mirrors
+the blocking Code Quality + Type Checking lanes in `.github/workflows/ci.yml`
+(black, ruff, flake8, canonical headers, pydocstyle, and all **three** mypy
+lanes, including the lenient `tests/` lane and the graduated strict lane that
+the individual commands below do not cover):
+
+```bash
+bash scripts/run_ci_gates.sh          # full matrix (what CI will run)
+bash scripts/run_ci_gates.sh --fast   # skip the mypy lanes for a quick loop
+```
+
+Individual tools, for targeted iteration:
+
 ```bash
 # Format code
 black src/ tests/
