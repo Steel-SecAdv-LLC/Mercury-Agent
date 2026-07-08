@@ -255,6 +255,50 @@ class MercuryMCPServer:
                 handler=self._tool_tier_detect,
             ),
             ToolSpec(
+                name="mercury_localize_root_cause",
+                description=(
+                    "Attribute a multivariate anomaly to its most likely root-cause "
+                    "nodes (torch-free). Runs the tier's graph-based root-cause analysis "
+                    "-- a reverse personalised random walk over a causal / service "
+                    "adjacency -- over an (n_rows x n_nodes) observation matrix whose "
+                    "last row is anomalous, ranking which node (sensor, service, channel) "
+                    "originated the fault. The same analysis behind 'mercury-agent rca' "
+                    "and 'POST /detect/rca'."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "observations": {
+                            "type": "array",
+                            "description": "Rows x nodes; the last row is the anomaly.",
+                            "items": {"type": "array", "items": {"type": "number"}},
+                        },
+                        "adjacency": {
+                            "type": "array",
+                            "description": "Optional (n_nodes x n_nodes) causal adjacency.",
+                            "items": {"type": "array", "items": {"type": "number"}},
+                        },
+                        "train": {
+                            "type": "array",
+                            "description": "Optional normal-behaviour rows for baselines.",
+                            "items": {"type": "array", "items": {"type": "number"}},
+                        },
+                        "top_k": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "description": "Return only the top-K root causes.",
+                        },
+                        "node_names": {
+                            "type": "array",
+                            "description": "Optional labels, one per node.",
+                            "items": {"type": "string"},
+                        },
+                    },
+                    "required": ["observations"],
+                },
+                handler=self._tool_localize_root_cause,
+            ),
+            ToolSpec(
                 name="mercury_score_ethics",
                 description=(
                     "Score an action against Mercury's benevolence/harm gate. Returns "
@@ -602,6 +646,35 @@ class MercuryMCPServer:
                     if args.get("conformal_alpha") is not None
                     else None
                 ),
+            )
+        except (ValueError, TypeError) as exc:
+            raise ToolError(str(exc)) from exc
+        return json.dumps(result)
+
+    @staticmethod
+    def _tool_localize_root_cause(args: dict[str, Any]) -> str:
+        obs = MercuryMCPServer._coerce_matrix(args.get("observations"))
+        adjacency = args.get("adjacency")
+        train = args.get("train")
+        node_names = args.get("node_names")
+        if node_names is not None and (
+            not isinstance(node_names, list) or not all(isinstance(s, str) for s in node_names)
+        ):
+            raise ToolError("'node_names' must be an array of strings")
+        top_k = args.get("top_k")
+        if top_k is not None and not isinstance(top_k, int):
+            raise ToolError("'top_k' must be an integer")
+        try:
+            from omni_mercury_engine.detectors.detection_tier import localize_root_cause
+        except Exception as exc:  # pragma: no cover - slim-install path
+            raise ToolError(f"root-cause stack unavailable in this environment: {exc}") from exc
+        try:
+            result = localize_root_cause(
+                obs,
+                adjacency=adjacency,
+                train=train,
+                top_k=top_k,
+                node_names=node_names,
             )
         except (ValueError, TypeError) as exc:
             raise ToolError(str(exc)) from exc

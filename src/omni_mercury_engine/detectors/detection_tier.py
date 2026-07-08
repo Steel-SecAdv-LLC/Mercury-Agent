@@ -67,6 +67,7 @@ __all__ = [
     "build_tier_detectors",
     "conformal_flags",
     "conformal_threshold",
+    "localize_root_cause",
     "rca_localize",
     "run_tier_ensemble",
     "store_tier_features",
@@ -828,6 +829,73 @@ def rca_localize(
     detector.fit(observations if train is None else train)
     ranked = detector.rank_root_causes(observations)
     return ranked if top_k is None else ranked[:top_k]
+
+
+def localize_root_cause(
+    observations: np.ndarray[Any, Any] | Sequence[Sequence[float]],
+    *,
+    adjacency: np.ndarray[Any, Any] | Sequence[Sequence[float]] | None = None,
+    train: np.ndarray[Any, Any] | Sequence[Sequence[float]] | None = None,
+    top_k: int | None = None,
+    node_names: Sequence[str] | None = None,
+) -> dict[str, Any]:
+    """Attribute a multivariate anomaly to its most likely root-cause nodes.
+
+    A single, JSON-serialisable runtime entrypoint over :func:`rca_localize`
+    (the tier's graph-based root-cause attribution -- a reverse personalised
+    random walk over a causal / service adjacency, per
+    :class:`~omni_mercury_engine.detectors.rca.RootCauseGraphDetector`). It is
+    what the ``mercury-agent rca`` CLI, the ``/api/v1/detect/rca`` route, and the
+    ``mercury_localize_root_cause`` MCP tool call, so this analysis -- previously
+    reachable only by hand-assembling the detector -- has one tested surface.
+
+    Args:
+        observations: ``(n_rows, n_nodes)`` signal; the last row is the anomaly
+            being localised (each column is a node / sensor / service).
+        adjacency: Optional ``(n_nodes, n_nodes)`` non-negative causal adjacency
+            (``A[i, j] > 0`` => ``i`` influences ``j``); inferred from training
+            correlations when omitted.
+        train: Optional normal-behaviour rows for the per-node baselines
+            (defaults to ``observations`` itself).
+        top_k: Return only the ``top_k`` highest-attribution nodes when given.
+        node_names: Optional labels (one per node) attached to each ranked entry
+            so callers see meaningful names, not bare indices.
+
+    Returns:
+        ``{"n_nodes", "n_rows", "ranked": [{"node", "attribution"[, "name"]}...],
+        "top_root_cause"}`` -- ranked descending by attribution.
+
+    Raises:
+        ValueError: If ``observations`` is not 2-D, or ``node_names`` length does
+            not match the node count.
+    """
+    obs = np.asarray(observations, dtype=float)
+    if obs.ndim != 2:
+        raise ValueError("observations must be 2-D (rows x nodes)")
+    n_nodes = int(obs.shape[1])
+    names: list[str] | None = None
+    if node_names is not None:
+        names = list(node_names)
+        if len(names) != n_nodes:
+            raise ValueError(f"node_names length {len(names)} != n_nodes {n_nodes}")
+    adj = np.asarray(adjacency, dtype=float) if adjacency is not None else None
+    tr = np.asarray(train, dtype=float) if train is not None else None
+
+    ranked = rca_localize(obs, adjacency=adj, train=tr, top_k=top_k)
+
+    def _entry(idx: int, attribution: float) -> dict[str, Any]:
+        entry: dict[str, Any] = {"node": int(idx), "attribution": round(float(attribution), 6)}
+        if names is not None:
+            entry["name"] = names[int(idx)]
+        return entry
+
+    ranked_out = [_entry(i, a) for i, a in ranked]
+    return {
+        "n_nodes": n_nodes,
+        "n_rows": int(obs.shape[0]),
+        "ranked": ranked_out,
+        "top_root_cause": ranked_out[0] if ranked_out else None,
+    }
 
 
 class TierStreamingScorer:

@@ -361,6 +361,42 @@ class TestDetectionRoutes:
         assert response.status_code == 403
         assert "sigma_immutable" in response.json()["detail"]
 
+    def test_root_cause_localization(self, client: Any) -> None:
+        """Graph-based root-cause attribution is reachable over HTTP."""
+        rng = np.random.default_rng(0)
+        base = rng.normal(0, 1, (300, 4))
+        base[:, 1] += 0.8 * base[:, 0]
+        base[:, 2] += 0.8 * base[:, 1]
+        obs = base.copy()
+        obs[-1, 0] += 8.0
+        obs[-1, 1] += 6.0
+        obs[-1, 2] += 4.0
+        response = client.post(
+            "/api/v1/detect/rca",
+            json={
+                "request": {
+                    "observations": obs.tolist(),
+                    "train": base[:-1].tolist(),
+                    "node_names": ["pump", "valve", "tank", "aux"],
+                }
+            },
+        )
+        assert response.status_code == 200, response.text
+        result = response.json()
+        assert result["n_nodes"] == 4
+        by_node = {e["node"]: e["attribution"] for e in result["ranked"]}
+        # The independent node 3 ranks lowest; the top cause carries a label.
+        assert by_node[3] == min(by_node.values())
+        assert result["top_root_cause"]["name"] in {"pump", "valve", "tank"}
+
+    def test_root_cause_bad_shape(self, client: Any) -> None:
+        """A 1-D observation array is rejected by the rows x nodes contract (422)."""
+        response = client.post(
+            "/api/v1/detect/rca",
+            json={"request": {"observations": [1.0, 2.0, 3.0]}},
+        )
+        assert response.status_code == 422
+
 
 # =============================================================================
 # Batch Routes Tests
