@@ -134,3 +134,39 @@ class TestDetectThreshold:
         result = CliRunner().invoke(main, ["detect", "-i", csv, "-d", "fusion", "-t", "1.5"])
         assert result.exit_code != 0
         assert "must be in [0, 1]" in result.output
+
+
+class TestTierDetect:
+    """`mercury-agent tier-detect` runs the torch-free detector-tier ensemble."""
+
+    def test_tier_detect_flags_injected_burst(self, tmp_path: Path) -> None:
+        import json
+
+        import numpy as np
+        from click.testing import CliRunner
+
+        from omni_mercury_engine.cli import main
+
+        rng = np.random.default_rng(0)
+        series = rng.normal(0, 1, 200)
+        series[100:108] += 7.0
+        csv = tmp_path / "series.csv"
+        np.savetxt(csv, series, delimiter=",")
+
+        result = CliRunner().invoke(
+            main,
+            [
+                "tier-detect",
+                "-i",
+                str(csv),
+                "--subset",
+                "spectral_residual,spot_evt,bocpd",
+                "--conformal-alpha",
+                "0.05",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        payload = json.loads(result.stdout)
+        assert payload["n_points"] == 200
+        flagged = {i for i, f in enumerate(payload["conformal_flags"]) if f}
+        assert flagged & set(range(95, 115))

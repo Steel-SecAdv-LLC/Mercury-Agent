@@ -502,3 +502,90 @@ async def detect_three_r(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An internal error occurred during detection.",
         )
+
+
+class TierDetectRequest(BaseModel):
+    """Request for the streaming detector-tier ensemble."""
+
+    data: list[float] = Field(
+        ...,
+        min_length=8,
+        description="1-D anomaly series (the tier's native temporal contract)",
+    )
+    labels: list[int] | None = Field(
+        default=None,
+        description="Optional per-point 0/1 labels (enables supervised stacking/BMA)",
+    )
+    subset: list[str] | None = Field(
+        default=None,
+        description="Detector names to include (default: the full streaming tier)",
+    )
+    method: str | None = Field(
+        default=None,
+        description="Combiner: stacking | bma | average | consensus (default: auto)",
+    )
+    contamination: float = Field(default=0.05, ge=0.0, le=0.5, description="Anomaly fraction")
+    conformal_alpha: float | None = Field(
+        default=None,
+        gt=0.0,
+        lt=1.0,
+        description="Distribution-free false-positive rate; adds conformal flags",
+    )
+
+
+@router.post(
+    "/tier",
+    summary="Streaming Detector-Tier Ensemble",
+    description="""
+Run the streaming / statistical / state-space detector-tier calibrated ensemble.
+
+Returns per-point calibrated anomaly probabilities, flags at the calibrated
+threshold, cross-detector uncertainty, and (when ``conformal_alpha`` is set)
+flags with a distribution-free false-positive guarantee. Torch-free.
+""",
+)
+async def detect_tier(
+    request: TierDetectRequest,
+    user: User | None = Depends(_get_optional_user),
+) -> dict[str, Any]:
+    """Run the detector-tier ensemble on a 1-D series."""
+    try:
+        from omni_mercury_engine.detectors.detection_tier import run_tier_ensemble
+
+        series = np.asarray(request.data, dtype=float).ravel()
+        labels = None if request.labels is None else np.asarray(request.labels, dtype=int)
+        subset = tuple(request.subset) if request.subset else None
+
+        result = run_tier_ensemble(
+            series,
+            labels=labels,
+            subset=subset,
+            method=request.method,
+            contamination=request.contamination,
+            conformal_alpha=request.conformal_alpha,
+        )
+
+        user_id = user.id if user else "anonymous"
+        await record_detection(
+            user_id=user_id,
+            method="detector_tier",
+            data=request.data,
+            results={
+                "n_flagged": result["n_flagged"],
+                "n_points": result["n_points"],
+                "threshold": result["threshold"],
+                "combiner": result["method"],
+                "max_score": max(result["scores"]) if result["scores"] else 0.0,
+            },
+        )
+        return result
+
+    except ValueError as e:
+        # Bad request: unknown detector name, stacking-without-labels, bad alpha.
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        logger.error("Tier detection failed: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An internal error occurred during tier detection.",
+        )

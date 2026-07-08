@@ -274,6 +274,41 @@ class TestDetectionRoutes:
         assert "weights" in result
         assert "harmonic_analysis" in result
 
+    def test_tier_detection(self, client: Any) -> None:
+        """The detector-tier ensemble is reachable over HTTP and flags a burst."""
+        rng = np.random.default_rng(0)
+        series = rng.normal(0, 1, 200).tolist()
+        for i in range(100, 108):
+            series[i] += 7.0
+        response = client.post(
+            "/api/v1/detect/tier",
+            json={
+                "request": {
+                    "data": series,
+                    "subset": ["spectral_residual", "spot_evt", "bocpd"],
+                    "conformal_alpha": 0.05,
+                }
+            },
+        )
+        assert response.status_code == 200
+        result = response.json()
+        assert result["n_points"] == 200
+        assert set(result).issuperset(
+            {"scores", "flags", "uncertainty", "threshold", "conformal_flags"}
+        )
+        # Conformal flags concentrate near the injected burst.
+        flagged = {i for i, f in enumerate(result["conformal_flags"]) if f}
+        assert flagged & set(range(95, 115))
+
+    def test_tier_detection_bad_request(self, client: Any) -> None:
+        """stacking without labels is a 400 (surfaced ValueError), not a 500."""
+        rng = np.random.default_rng(1)
+        response = client.post(
+            "/api/v1/detect/tier",
+            json={"request": {"data": rng.normal(0, 1, 60).tolist(), "method": "stacking"}},
+        )
+        assert response.status_code == 400
+
 
 # =============================================================================
 # Batch Routes Tests

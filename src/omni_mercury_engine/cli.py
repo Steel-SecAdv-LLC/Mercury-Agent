@@ -123,6 +123,77 @@ def detect(input: str, detector: str, output: str, threshold: float | None) -> N
         click.echo(json.dumps(results, indent=2, default=str))
 
 
+@main.command("tier-detect")
+@click.option(
+    "--input", "-i", required=True, help="Input data file (.csv/.npy/.json); a 1-D series"
+)
+@click.option(
+    "--labels",
+    "-l",
+    default=None,
+    help="Optional 0/1 labels file (enables supervised stacking / BMA)",
+)
+@click.option(
+    "--method",
+    "-m",
+    default=None,
+    type=click.Choice(["stacking", "bma", "average", "consensus"]),
+    help="Ensemble combiner (default: stacking with labels, else average)",
+)
+@click.option(
+    "--subset",
+    default=None,
+    help="Comma-separated detector names (default: the full streaming tier)",
+)
+@click.option(
+    "--contamination", "-c", default=0.05, type=float, help="Expected anomaly fraction [0,1]"
+)
+@click.option(
+    "--conformal-alpha",
+    default=None,
+    type=float,
+    help="Distribution-free false-positive rate (e.g. 0.05); adds conformal flags",
+)
+@click.option("--output", "-o", default=None, help="Output JSON file (stdout if omitted)")
+def tier_detect(
+    input: str,
+    labels: str | None,
+    method: str | None,
+    subset: str | None,
+    contamination: float,
+    conformal_alpha: float | None,
+    output: str | None,
+) -> None:
+    """Run the streaming detector-tier ensemble on a 1-D series (torch-free).
+
+    Exposes the statistical / state-space / streaming detector tier's calibrated
+    ensemble — per-point anomaly probabilities, flags, cross-detector
+    uncertainty, and optional distribution-free (conformal) false-positive
+    control — without requiring the [ml] extra.
+    """
+    from omni_mercury_engine.detectors.detection_tier import run_tier_ensemble
+
+    series = np.asarray(_load_data(input), dtype=float).ravel()
+    y = _load_labels(labels) if labels else None
+    subset_names = tuple(s.strip() for s in subset.split(",")) if subset else None
+
+    result = run_tier_ensemble(
+        series,
+        labels=y,
+        subset=subset_names,
+        method=method,
+        contamination=contamination,
+        conformal_alpha=conformal_alpha,
+    )
+
+    text = json.dumps(result, indent=2, default=str)
+    if output:
+        Path(output).write_text(text)
+        click.echo(f"Wrote tier detection result to {output}", err=True)
+    else:
+        click.echo(text)
+
+
 @main.command()
 @click.option("--reference", "-r", required=True, help="Reference face image")
 @click.option("--test", "-t", help="Test face image to match")
