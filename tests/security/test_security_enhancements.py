@@ -16,23 +16,25 @@ from omni_mercury_engine.security.realtime_threat_detection import (
 
 
 class TestQuantumResistantEncryption:
-    """Test quantum-resistant encryption."""
+    """Test post-quantum encryption (ML-KEM-1024 + AES-256-GCM via AMA)."""
 
     def test_key_generation(self) -> None:
-        """Test lattice-based key generation."""
+        """ML-KEM-1024 keypairs are non-empty, distinct byte strings."""
         qr = QuantumResistantEncryption(security_level=128)
 
-        public_key, private_key = qr._generate_lattice_key()
+        public_key, private_key = qr.generate_keypair()
 
-        A, b = public_key
-        assert A.shape == (128, 128)
-        assert b.shape == (128,)
-        assert private_key.shape == (128,)
+        # Kyber-1024 (ML-KEM-1024) fixed sizes: pk 1568 B, sk 3168 B.
+        assert isinstance(public_key, bytes)
+        assert isinstance(private_key, bytes)
+        assert len(public_key) == 1568
+        assert len(private_key) == 3168
+        assert public_key != private_key
 
     def test_encryption_decryption(self) -> None:
         """Test encrypt/decrypt cycle."""
         qr = QuantumResistantEncryption(security_level=128)
-        public_key, private_key = qr._generate_lattice_key()
+        public_key, private_key = qr.generate_keypair()
 
         plaintext = b"Test quantum-resistant encryption"
 
@@ -44,6 +46,32 @@ class TestQuantumResistantEncryption:
         decrypted = qr.decrypt_hybrid(ciphertext, private_key)
 
         assert decrypted == plaintext
+
+    def test_tamper_is_rejected(self) -> None:
+        """AES-256-GCM authentication fails closed on a flipped ciphertext bit."""
+        qr = QuantumResistantEncryption()
+        public_key, private_key = qr.generate_keypair()
+
+        envelope = bytearray(qr.encrypt_hybrid(b"integrity matters", public_key))
+        envelope[-1] ^= 0x01  # flip a bit in the AES-GCM ciphertext tail
+
+        with pytest.raises(ValueError):
+            qr.decrypt_hybrid(bytes(envelope), private_key)
+
+    def test_wrong_key_cannot_decrypt(self) -> None:
+        """A payload sealed to one keypair does not open under another.
+
+        ML-KEM implicit rejection yields a pseudo-random shared secret under
+        the wrong secret key, so the AES-256-GCM tag fails to authenticate.
+        """
+        qr = QuantumResistantEncryption()
+        public_key, _ = qr.generate_keypair()
+        _, other_secret = qr.generate_keypair()
+
+        envelope = qr.encrypt_hybrid(b"confidential", public_key)
+
+        with pytest.raises(ValueError):
+            qr.decrypt_hybrid(envelope, other_secret)
 
     def test_secure_data_handler(self) -> None:
         """Test SecureDataHandler with quantum-resistant encryption."""
