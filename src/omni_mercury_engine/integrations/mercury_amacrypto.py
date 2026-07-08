@@ -323,6 +323,10 @@ class MercuryGuardianAdapter:
             hd_derivation=hd_derivation,
         )
         self._last_posture_evaluation: PostureEvaluation | None = None
+        # Consecutive posture-evaluation failures. When the evaluator is
+        # failing we must NOT keep reporting NOMINAL (a falsely reassuring
+        # "healthy crypto posture" during an attack); get_status surfaces this.
+        self._posture_eval_failures = 0
 
     def is_available(self) -> bool:
         """Check if AMA Cryptography PQC is available."""
@@ -381,12 +385,26 @@ class MercuryGuardianAdapter:
             "timing_monitor_enabled": self.timing_monitor is not None,
             "gosnn_synapse_enabled": self.gosnn_synapse_enabled,
             "anomaly_count": len(self.anomaly_history),
-            "posture_threat_level": (
-                self._last_posture_evaluation.threat_level.name
-                if self._last_posture_evaluation
-                else ThreatLevel.NOMINAL.name
-            ),
+            "posture_threat_level": self._reported_posture_level(),
+            "posture_evaluation_healthy": self._posture_eval_failures == 0,
+            "posture_eval_consecutive_failures": self._posture_eval_failures,
         }
+
+    def _reported_posture_level(self) -> str:
+        """Posture level for status, honest about a broken evaluator.
+
+        * A successful evaluation → its threat level (last known good).
+        * No evaluation yet but the evaluator is failing → ``UNKNOWN`` — we
+          cannot assert NOMINAL when the thing that would detect a threat is
+          itself down.
+        * Never evaluated, no failures → ``NOMINAL`` (genuine quiescent
+          baseline).
+        """
+        if self._last_posture_evaluation is not None:
+            return str(self._last_posture_evaluation.threat_level.name)
+        if self._posture_eval_failures > 0:
+            return "UNKNOWN"
+        return str(ThreatLevel.NOMINAL.name)
 
     def _record_anomaly(self, anomaly: CryptoAnomaly) -> None:
         """Record anomaly, trigger GOSNN synapse, and evaluate posture."""
@@ -449,6 +467,7 @@ class MercuryGuardianAdapter:
             report = self._build_posture_report(security_scalars, ethical_scalars)
             evaluation = self._posture_evaluator.evaluate(report)
             self._last_posture_evaluation = evaluation
+            self._posture_eval_failures = 0
 
             # Register posture decisions back into GOSNN as SECURITY scalars.
             # Mappings are module-level (THREAT_LEVEL_MAP / ACTION_MAP) so
@@ -482,7 +501,15 @@ class MercuryGuardianAdapter:
         except ImportError:
             logger.debug("GOSNN not available for posture evaluation")
         except Exception as e:
-            logger.warning(f"Posture evaluation from GOSNN failed: {e}")
+            # A failing evaluator must degrade the reported posture, not leave
+            # it silently pinned at the last value (or NOMINAL). Count the
+            # failure so get_status can surface an UNKNOWN/degraded posture.
+            self._posture_eval_failures += 1
+            logger.warning(
+                "Posture evaluation from GOSNN failed (%d consecutive): %s",
+                self._posture_eval_failures,
+                e,
+            )
 
     def _build_posture_report(
         self,
