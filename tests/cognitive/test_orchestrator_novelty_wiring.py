@@ -81,4 +81,9 @@ def test_predictor_observes_non_anomalies_too() -> None:
     result = orch.analyze(_ANOMALY, raw_data=np.zeros((8, 4)), context={"domain": "cyber"})
     forecast = result.to_dict()["predictive_forecast"]
     assert forecast  # anomaly -> forecast surfaced
-    assert forecast["probability"] < 0.9  # not driven to 1.0 by a success-only stream
+    # The surfaced probability is the CALIBRATED Bayesian estimate: after ~20
+    # normals and 1 anomaly the base rate is low, so it tracks near it -- not the
+    # HMM-saturated blend (which is kept separately as blended_score).
+    assert forecast["probability"] < 0.4
+    assert "blended_score" in forecast
+    assert 0.0 <= forecast["probability"] <= 1.0

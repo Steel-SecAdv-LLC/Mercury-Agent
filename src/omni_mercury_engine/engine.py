@@ -1568,6 +1568,10 @@ class OmniMercuryEngine(LoggerMixin):
                 ``y`` does not contain both classes, ``validation_split`` is not in
                 ``(0, 1)``, or any class has fewer than 2 samples (required for the
                 stratified held-out split).
+            RuntimeError: If every trial fails. Each trial resets the fusion
+                model, so on all-fail the engine is left untrained and must be
+                re-fit or reloaded before serving; the error is raised rather
+                than returning a ``None`` AUC a caller might overlook.
         """
         from omni_mercury_engine.automl import (
             BayesianOptimizer,
@@ -1660,15 +1664,27 @@ class OmniMercuryEngine(LoggerMixin):
         result = optimizer.optimize()
 
         best_config = _coerce(result.best_config) if result.best_config else {}
-        if best_config:
-            # From-scratch final fit so the delivered model matches the measured
-            # trial (same reset as each trial), not the last trial's leftover state.
-            self._init_fusion()
-            self.fit_fusion(X, y, epochs=tuning_epochs, **best_config)
+        if not best_config:
+            # Every trial failed (the optimizer only records a best for COMPLETED
+            # trials). Each trial called _init_fusion(), so the engine is now
+            # holding a reset, untrained fusion model. Fail loudly rather than
+            # return a None AUC a caller might ignore while unknowingly serving a
+            # broken model; the caller must re-fit or reload a checkpoint.
+            raise RuntimeError(
+                f"tune_fusion: all {result.n_trials} trials failed, so no "
+                "configuration could be selected; the fusion model has been reset "
+                "and must be re-fit (call fit_fusion) or reloaded before serving. "
+                "Check the training data and hyperparameter ranges."
+            )
+        # From-scratch final fit so the delivered model matches the measured
+        # trial (same reset as each trial), not the last trial's leftover state.
+        self._init_fusion()
+        self.fit_fusion(X, y, epochs=tuning_epochs, **best_config)
 
+        # best_config is guaranteed non-empty here (all-fail raised above).
         return {
             "best_config": best_config,
-            "best_auc": -float(result.best_metric) if result.best_config else None,
+            "best_auc": -float(result.best_metric),
             "n_trials": result.n_trials,
             "convergence_history": [-float(m) for m in result.convergence_history],
         }
@@ -5141,22 +5157,49 @@ class OmniMercuryEngine(LoggerMixin):
                 dtype=np.float64,
             )
 
-        if self._fusion_background is not None and self._fusion_background.shape[0] > 0:
-            background = self._fusion_background.mean(axis=0, keepdims=True)
+        n_features = int(instance.shape[0])
+        # Bind the background once (avoid a train/serve TOCTOU where a concurrent
+        # fit_fusion nulls it between checks) and require it to match this
+        # instance's width -- a different training entry point (e.g.
+        # fit_fusion_pooled) may have left a stale background of another width,
+        # which would otherwise crash the explainer.
+        stored_background = self._fusion_background
+        if (
+            stored_background is not None
+            and stored_background.ndim == 2
+            and stored_background.shape[0] > 0
+            and stored_background.shape[1] == n_features
+        ):
+            background = stored_background.mean(axis=0, keepdims=True)
         else:
-            # No stored training background (engine used without a fit_fusion, or
-            # fit on non-2-D data). Using the instance as its own background
-            # would make every SHAP attribution ~0 -- the marginalisation
-            # baseline would equal the point being explained. Fall back to a
-            # zero-vector reference so attributions are measured against a
-            # neutral baseline (matching the IG path's zero baseline) and the
-            # report carries real signal rather than a degenerate all-zero one.
-            background = np.zeros((1, instance.shape[0]), dtype=np.float64)
-        threshold = float(result.get("threshold_used") or result.get("threshold") or 0.5)
+            # No usable stored background (absent, or a stale different-width one).
+            # Using the instance as its own background would make every SHAP
+            # attribution ~0 (the marginalisation baseline would equal the point
+            # explained), so fall back to a zero-vector reference of the right
+            # width -- a neutral baseline (like the IG path) that carries signal.
+            background = np.zeros((1, n_features), dtype=np.float64)
+
+        # Only label features when the stored drift names match this instance's
+        # width; a mismatched _drift_feature_names (a different feature space)
+        # would crash the report or mislabel the factors.
+        drift_names = getattr(self, "_drift_feature_names", None)
+        feature_names = (
+            drift_names if drift_names is not None and len(drift_names) == n_features else None
+        )
+
+        # Use an explicit None check, not ``or``: a genuine threshold of 0.0 is
+        # falsy and must not silently become 0.5 (which would flip the report's
+        # adverse/normal verdict versus the engine's own decision).
+        threshold_value = result.get("threshold_used")
+        if threshold_value is None:
+            threshold_value = result.get("threshold")
+        if threshold_value is None:
+            threshold_value = 0.5
+        threshold = float(threshold_value)
         explainer = MercuryExplainer(
             model=_fusion_predict,
             background_data=np.asarray(background, dtype=np.float64),
-            feature_names=getattr(self, "_drift_feature_names", None),
+            feature_names=feature_names,
             threshold=threshold,
             model_id="omni_fusion",
             model_version="1.0",

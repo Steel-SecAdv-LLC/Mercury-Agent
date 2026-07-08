@@ -130,6 +130,60 @@ def test_interaction_matrix_none_with_too_few_instances() -> None:
     assert single.get_interaction_values() is None
 
 
+def test_deep_tree_does_not_overflow_the_stack() -> None:
+    """A tree deeper than Python's recursion limit must still explain (no crash).
+
+    The conditional-expectation value function is iterative, so a legitimately
+    deep tree (sklearn defaults to max_depth=None) does not raise RecursionError.
+    """
+    depth = 2000
+    n = 2 * depth + 1
+    feature = np.full(n, -2)
+    threshold = np.full(n, -2.0)
+    left = np.full(n, -1)
+    right = np.full(n, -1)
+    cov = np.ones(n)
+    value = np.zeros((n, 1, 1))
+    node, nxt = 0, 1
+    for d in range(depth):
+        feature[node] = 0
+        threshold[node] = 0.0
+        lc, rc = nxt, nxt + 1
+        nxt += 2
+        left[node] = lc
+        right[node] = rc
+        value[lc] = [[float(d)]]  # left leaf
+        cov[node] = float(depth - d + 1)
+        node = rc  # descend right
+    value[node] = [[999.0]]
+    tree_ = SimpleNamespace(
+        node_count=n,
+        feature=feature,
+        threshold=threshold,
+        children_left=left,
+        children_right=right,
+        value=value,
+        weighted_n_node_samples=cov,
+    )
+    model = SimpleNamespace(tree_=tree_, predict=lambda X: np.zeros(len(X)))
+    explainer = TreeShapExplainer(model, seed=0)
+    exp = explainer.explain(np.array([1.0]))  # x[0]=1 > 0 -> always right -> 999
+    total = exp.base_value + float(np.sum(exp.shap_values))
+    assert total == pytest.approx(999.0, abs=1e-6)
+
+
+def test_leaf_value_distinguishes_regression_from_classification_by_shape() -> None:
+    """(n_outputs, 1) multi-output regression and (1, n_classes) classification
+    must be reduced differently despite raveling to the same size."""
+    explainer = TreeShapExplainer(_fake_tree_model(), seed=0)
+    # Multi-output regression leaf (2 outputs, last axis == 1) -> first output.
+    reg = explainer._leaf_value({"value": np.array([[[7.0], [8.0]]])}, 0)
+    assert reg == pytest.approx(7.0)
+    # Binary classification leaf (1 output, 2 classes) -> P(class 1).
+    clf = explainer._leaf_value({"value": np.array([[[8.0, 2.0]]])}, 0)
+    assert clf == pytest.approx(0.2)
+
+
 def test_tree_shap_multi_tree_ensemble_additivity() -> None:
     """Ensemble decomposition (estimators_) averages per-tree SHAP and stays additive."""
     forest = SimpleNamespace(

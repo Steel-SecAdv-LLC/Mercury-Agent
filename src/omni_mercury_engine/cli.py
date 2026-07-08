@@ -221,11 +221,11 @@ def tune(data: str, labels: str, output: str, n_trials: int, sampler: str, epoch
             f"Tuning fusion hyperparameters: {n_trials} trials ({sampler}) on "
             f"{len(X)} samples from {data}..."
         )
+        # tune_fusion refits on the winning config and raises RuntimeError if
+        # every trial failed (no model to save), which the handler below turns
+        # into a clean non-zero exit -- so reaching here means a real tuned model.
         result = engine.tune_fusion(X, y, n_trials=n_trials, sampler=sampler, tuning_epochs=epochs)
-        best_auc = result.get("best_auc")
-        click.echo(
-            f"Best held-out AUC: {best_auc:.4f}" if best_auc is not None else "No trial succeeded"
-        )
+        click.echo(f"Best held-out AUC: {result['best_auc']:.4f}")
         for key, value in result.get("best_config", {}).items():
             click.echo(f"  {key}: {value}")
         engine.save_model(output)

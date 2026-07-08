@@ -116,12 +116,17 @@ class CuriosityEngine:
         """Coerce supported inputs to a 1-D float vector, or ``None``.
 
         Accepts a mapping of scalar values (bools excluded), or any
-        array-like. Returns ``None`` when no numeric content is present.
+        array-like. Returns ``None`` when there is no usable numeric content.
 
         Mapping keys are read in sorted order, not insertion order, so two
         equivalent dicts built with different key orderings yield the same
         feature vector -- otherwise the Mahalanobis novelty score would depend
         on how the caller happened to construct the observation dict.
+
+        Non-finite inputs (NaN/inf, e.g. a missing sensor value or the
+        ``mean`` of an empty batch) are rejected and yield ``None``: they would
+        otherwise emit a NaN novelty score into the result (invalid JSON) and
+        permanently poison the running mean/variance estimate.
         """
         if data is None:
             return None
@@ -131,12 +136,19 @@ class CuriosityEngine:
                 for k in sorted(data)
                 if isinstance(data[k], (int, float, np.number)) and not isinstance(data[k], bool)
             ]
-            return np.asarray(values, dtype=float) if values else None
-        try:
-            arr = np.asarray(data, dtype=float).reshape(-1)
-        except (TypeError, ValueError):
+            if not values:
+                return None
+            arr = np.asarray(values, dtype=float)
+        else:
+            try:
+                arr = np.asarray(data, dtype=float).reshape(-1)
+            except (TypeError, ValueError):
+                return None
+            if arr.size == 0:
+                return None
+        if not np.all(np.isfinite(arr)):
             return None
-        return arr if arr.size else None
+        return arr
 
     def _variance(self) -> np.ndarray[Any, Any] | None:
         if self._m2 is None or self._count < 2:

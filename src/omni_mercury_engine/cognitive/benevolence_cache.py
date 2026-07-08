@@ -96,6 +96,12 @@ class CachedBenevolenceScorer:
         self._hits = 0
         self._misses = 0
         self._violations_uncached = 0
+        # Bumped whenever the threshold changes (see the setter). A cache miss
+        # captures this under the lock before it computes outside the lock, and
+        # only inserts if it is unchanged -- so a score computed under an old
+        # threshold can never be inserted after a concurrent threshold change
+        # (which would otherwise be served as a stale, wrong-threshold hit).
+        self._generation = 0
         # Track the last ruleset version we saw so we can purge stale-version
         # entries when the constant is bumped (e.g. by an operator deploying
         # a new ruleset, or by a test monkey-patching the value).
@@ -140,12 +146,15 @@ class CachedBenevolenceScorer:
         ``BenevolenceScorer.enforce`` always re-evaluates against the current
         threshold; clearing on write keeps the wrapper faithful to that contract.
         """
-        # Update the threshold and invalidate the cache under a single lock hold
-        # so a concurrent ``enforce`` cannot observe a cache hit computed under
-        # the old threshold in the window between the two operations.
+        # Update the threshold, clear the cache, and bump the generation under a
+        # single lock hold. The generation bump additionally fences any cache
+        # miss already computing outside the lock under the old threshold: that
+        # miss captured the old generation and will refuse to insert its now
+        # stale result (see ``enforce``), so it cannot be served as a hit.
         with self._lock:
             self._scorer.benevolence_threshold = value
             self._cache.clear()
+            self._generation += 1
 
     @property
     def stats(self) -> dict[str, int]:
@@ -217,6 +226,9 @@ class CachedBenevolenceScorer:
                 self._cache.move_to_end(key)
                 self._hits += 1
                 return cached
+            # Capture the generation under the lock so a threshold change during
+            # the (unlocked) scoring below is detected before we insert.
+            generation_at_miss = self._generation
 
         # Cache miss: call the underlying scorer outside the lock so a slow
         # scoring run can't serialise other lookups.
@@ -228,8 +240,11 @@ class CachedBenevolenceScorer:
             raise
 
         with self._lock:
-            # Re-check under lock in case a concurrent caller already inserted.
-            if key not in self._cache:
+            # Only insert if the threshold has not changed since the miss began;
+            # otherwise this result was computed under a now-stale threshold and
+            # must not be cached (it would be served as a wrong-threshold hit).
+            # The caller still receives the freshly computed result.
+            if self._generation == generation_at_miss and key not in self._cache:
                 self._cache[key] = result
                 self._cache.move_to_end(key)
                 if len(self._cache) > self._capacity:

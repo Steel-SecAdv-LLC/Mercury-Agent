@@ -104,6 +104,40 @@ def test_constant_feature_does_not_peg_novelty() -> None:
     assert outlier.is_novel is True
 
 
+def test_non_finite_input_is_rejected_and_does_not_poison_estimate() -> None:
+    """NaN/inf observations must not emit NaN novelty or corrupt the estimate.
+
+    A NaN would otherwise flow into the serialized result (invalid JSON) and
+    fold into the running mean/variance, permanently killing those dimensions.
+    """
+    engine = CuriosityEngine()
+    rng = np.random.default_rng(0)
+    for vec in rng.normal(0.0, 1.0, (30, 2)):
+        engine.explore("obs", {"a": float(vec[0]), "b": float(vec[1])})
+    healthy_count = engine.observations_seen
+
+    nan_result = engine.explore("obs", {"a": float("nan"), "b": 1.0})
+    assert nan_result.novelty_score == 0.0
+    assert nan_result.is_novel is False
+    # Estimate is untouched (not folded in, not corrupted).
+    assert engine.observations_seen == healthy_count
+    assert engine._mean is not None and bool(np.all(np.isfinite(engine._mean)))
+
+    inf_result = engine.explore("obs", np.array([np.inf, 1.0]))
+    assert inf_result.novelty_score == 0.0
+
+    # A genuine out-of-distribution point still scores after the rejected inputs.
+    outlier = engine.explore("obs", {"a": 12.0, "b": -12.0})
+    assert outlier.is_novel is True
+
+
+def test_empty_observation_is_rejected() -> None:
+    engine = CuriosityEngine()
+    result = engine.explore("obs", np.zeros((0,)))
+    assert result.novelty_score == 0.0
+    assert engine.observations_seen == 0
+
+
 def test_non_numeric_input_yields_no_measured_novelty() -> None:
     engine = CuriosityEngine()
     result = engine.explore("obs", data=None)

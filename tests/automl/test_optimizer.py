@@ -104,6 +104,17 @@ def test_all_samplers_return_valid_bounded_configs() -> None:
         assert np.isfinite(result.best_metric)
 
 
+def test_time_budget_rejects_nonpositive_and_nan() -> None:
+    space = SearchSpace()
+    space.add(UniformParameter("x", -1.0, 1.0))
+    for bad in (0.0, -5.0, float("nan")):
+        with pytest.raises(ValueError, match="positive number of seconds"):
+            BayesianOptimizer(space, lambda c: 0.0, n_trials=1, time_budget=bad)
+    for bad in (0.0, float("nan")):
+        with pytest.raises(ValueError, match="positive number of seconds"):
+            MercuryAutoML(time_budget=bad)
+
+
 def test_time_budget_stops_before_all_trials() -> None:
     space = SearchSpace()
     space.add(UniformParameter("x", -5.0, 5.0))

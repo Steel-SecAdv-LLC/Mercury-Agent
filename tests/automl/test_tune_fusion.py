@@ -94,6 +94,27 @@ def test_tune_fusion_wiring_without_torch() -> None:
     assert len(result["convergence_history"]) == 4
 
 
+def test_tune_fusion_raises_when_all_trials_fail() -> None:
+    """All-trials-fail must raise, not silently return None with a wiped model."""
+
+    class _FailingEngine(_StubEngine):
+        def fit_fusion(self, X, y, **kwargs):  # noqa: ANN001
+            self.fit_calls.append({"n": len(X), "config": kwargs})
+            raise RuntimeError("simulated per-trial training failure")
+
+    from omni_mercury_engine.engine import OmniMercuryEngine
+
+    rng = np.random.default_rng(0)
+    labels = (rng.random(80) > 0.5).astype(float)
+    features = np.column_stack([labels, rng.normal(size=(80, 5))])
+
+    stub = _FailingEngine()
+    with pytest.raises(RuntimeError, match="all .* trials failed"):
+        OmniMercuryEngine.tune_fusion(
+            stub, features, labels, n_trials=3, tuning_epochs=1, sampler="random", seed=0
+        )
+
+
 def test_tune_fusion_requires_both_classes() -> None:
     from omni_mercury_engine.engine import OmniMercuryEngine
 

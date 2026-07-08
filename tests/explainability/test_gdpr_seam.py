@@ -102,6 +102,41 @@ def test_gdpr_report_non_degenerate_without_background() -> None:
     assert any(c > 1e-9 for c in contributions), "attributions collapsed to zero (degenerate)"
 
 
+def test_gdpr_threshold_zero_is_not_flipped_to_half() -> None:
+    """A genuine threshold of 0.0 must not silently become 0.5 (falsy-`or` bug),
+    which would flip an adverse decision to 'Normal' in the report."""
+    engine, x_pos = _fitted_engine()
+    instance = x_pos[0]
+    # score 0.3 with threshold 0.0 -> adverse (Anomaly); with 0.5 -> Normal.
+    report = engine._gdpr_explain_fusion_decision(
+        instance, "s", {"anomaly_prob": 0.3, "threshold_used": 0.0}
+    )
+    decision = report.get("decision", {})
+    value = decision.get("value") or decision.get("decision") or str(report)
+    assert "Anomaly" in str(value)
+
+
+def test_gdpr_report_survives_stale_width_background() -> None:
+    """A background from a different-width training run must not crash the report;
+    the helper falls back to a neutral zero baseline."""
+    engine, x_pos = _fitted_engine()  # width-6 engine
+    engine._fusion_background = np.zeros((10, 3))  # stale, wrong width (3 != 6)
+    result = engine.detect_with_fusion(
+        x_pos[:1], domain="general", gdpr_report=True, subject_id="s"
+    )
+    assert "gdpr_report" in result  # produced, not crashed
+
+
+def test_gdpr_report_ignores_mismatched_feature_names() -> None:
+    """Drift feature-names of a different width must be ignored, not crash."""
+    engine, x_pos = _fitted_engine()  # width-6 instances
+    engine._drift_feature_names = [f"f{i}" for i in range(9)]  # wrong length
+    result = engine.detect_with_fusion(
+        x_pos[:1], domain="general", gdpr_report=True, subject_id="s"
+    )
+    assert "gdpr_report" in result
+
+
 def test_gdpr_report_absent_by_default() -> None:
     engine, x_pos = _fitted_engine()
     result = engine.detect_with_fusion(x_pos[:1], domain="general")

@@ -374,3 +374,48 @@ def test_clear_drops_all_entries() -> None:
 
     assert scorer.enforce_calls == 2
     assert cache.stats["size"] == 1
+
+
+def test_setter_fences_in_flight_miss_under_old_threshold() -> None:
+    """A miss computed under the old threshold is not cached after a concurrent
+    threshold change, so it can never be served as a stale wrong-threshold hit.
+
+    Deterministic via an event-gated scorer: thread A begins a miss under the
+    old threshold and blocks mid-scoring; the operator raises the threshold and
+    clears; A resumes and tries to insert. The generation fence must drop it.
+    """
+    import threading
+
+    scoring_started = threading.Event()
+    allow_finish = threading.Event()
+
+    class _GatedScorer(BenevolenceScorer):
+        def __init__(self) -> None:
+            super().__init__(benevolence_threshold=0.70)
+            self.calls = 0
+
+        def enforce(self, action: str, context: dict[str, Any]) -> EthicalScore:
+            self.calls += 1
+            scoring_started.set()
+            allow_finish.wait(timeout=5)
+            return _make_permissible_score(action, score_id_suffix=str(self.calls))
+
+    scorer = _GatedScorer()
+    cache = CachedBenevolenceScorer(scorer=scorer)
+    action, ctx = _permissible_action()
+
+    thread = threading.Thread(target=lambda: cache.enforce(action, ctx))
+    thread.start()
+    assert scoring_started.wait(timeout=5)  # A is mid-scoring under the old threshold
+
+    cache.benevolence_threshold = 0.99  # operator raises the bar + clears + bumps gen
+    allow_finish.set()  # let A finish and attempt its insert
+    thread.join(timeout=5)
+    assert not thread.is_alive()
+
+    # A's stale result was fenced out, so the cache is empty...
+    assert cache.stats["size"] == 0
+    # ...and a fresh identical enforce recomputes rather than serving a stale hit.
+    calls_before = scorer.calls
+    cache.enforce(action, ctx)
+    assert scorer.calls == calls_before + 1

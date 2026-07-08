@@ -537,12 +537,15 @@ class CognitiveOrchestrator(LoggerMixin):
         # batch) as the observation; fall back to (score, severity).
         if self.curiosity and anomaly_detected:
             try:
-                if raw_data is not None:
-                    features = np.asarray(raw_data, dtype=float)
-                    observation: Any = (
+                observation: Any
+                features = np.asarray(raw_data, dtype=float) if raw_data is not None else None
+                if features is not None and features.size > 0:
+                    # Mean over the batch for 2-D input; the raw vector otherwise.
+                    observation = (
                         features.mean(axis=0) if features.ndim == 2 else features.reshape(-1)
                     )
                 else:
+                    # No usable raw features (None or empty) -> score/severity.
                     observation = {"score": anomaly_score, "severity": severity}
                 exploration = self.curiosity.explore(
                     f"anomaly:{context.get('domain', _DEFAULT_DOMAIN)}", observation
@@ -575,14 +578,24 @@ class CognitiveOrchestrator(LoggerMixin):
                         {"score": anomaly_score, "severity": severity, "domain": domain_label},
                     )
                     forecast = self.enhanced_detector.predict(domain_label, include_external=False)
-                    interval = getattr(forecast, "confidence_interval", None)
+                    # forecast.probability is a Bayesian+HMM *blend* whose HMM
+                    # term saturates toward 1.0 via self-transition, so it is not
+                    # a base-rate estimate. Surface the calibrated Bayesian
+                    # probability (+ its interval) as the anomaly probability,
+                    # and keep the blend as a separate, honestly-labelled score.
+                    bayes_prob, bayes_interval = self.enhanced_detector.bayesian_predictor.predict(
+                        domain_label
+                    )
                     result.predictive_forecast = {
                         "prediction_type": getattr(
                             forecast.prediction_type, "value", str(forecast.prediction_type)
                         ),
-                        "probability": float(forecast.probability),
+                        "probability": float(bayes_prob),
+                        "blended_score": float(forecast.probability),
                         "confidence_interval": (
-                            [float(v) for v in interval] if interval is not None else None
+                            [float(v) for v in bayes_interval]
+                            if bayes_interval is not None
+                            else None
                         ),
                     }
             except Exception as e:

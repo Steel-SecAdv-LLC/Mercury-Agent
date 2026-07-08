@@ -411,6 +411,12 @@ class HiddenMarkovPredictor:
     Lightweight implementation for detecting state transitions that may indicate anomalies.
     """
 
+    #: Cap on retained state/observation history. The predictor only reads the
+    #: last two states, but STEP 10 of the cognitive orchestrator calls
+    #: ``observe()`` on every ``analyze()``, so unbounded lists would leak memory
+    #: for the life of the process; a bounded deque keeps ample history capped.
+    _HISTORY_MAXLEN = 1000
+
     def __init__(self, n_states: int = 3, seed: int | None = 42) -> None:
         """Initialize HMM predictor.
 
@@ -429,8 +435,10 @@ class HiddenMarkovPredictor:
         self.emission_probs: dict[str, np.ndarray[Any, Any]] = {}
         self.initial_probs = np.ones(n_states) / n_states
 
-        self.state_history: list[int] = []
-        self.observation_history: list[str] = []
+        # Bounded (only the last two states are ever read) so the always-on
+        # STEP-10 observe() call cannot grow memory without limit.
+        self.state_history: deque[int] = deque(maxlen=self._HISTORY_MAXLEN)
+        self.observation_history: deque[str] = deque(maxlen=self._HISTORY_MAXLEN)
 
     def observe(self, observation: str) -> int:
         """Process an observation and update state.

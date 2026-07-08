@@ -527,3 +527,21 @@ class TestMemoryGraphEviction:
 
         graph = MemoryKnowledgeGraph()
         assert graph._max_nodes == MemoryKnowledgeGraph.DEFAULT_MAX_NODES
+
+
+class TestHMMHistoryBounded:
+    """HMM histories must be bounded — STEP 10 calls observe() every analyze()."""
+
+    def test_observe_history_is_capped(self) -> None:
+        from omni_mercury_engine.cognitive.anomaly_detection_enhanced import (
+            HiddenMarkovPredictor,
+        )
+
+        hmm = HiddenMarkovPredictor()
+        cap = HiddenMarkovPredictor._HISTORY_MAXLEN
+        for i in range(cap + 500):
+            hmm.observe(f"sev_{i % 11}")
+        assert len(hmm.state_history) == cap
+        assert len(hmm.observation_history) == cap
+        # Still functional after the cap.
+        assert hmm.predict_next_state()[0] is not None

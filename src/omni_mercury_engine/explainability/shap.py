@@ -547,11 +547,13 @@ class TreeShapExplainer(ShapExplainer):
         Args:
             model: Tree-based model (must have tree structure accessible)
             feature_names: Optional feature names
-            seed: Optional seed forwarded to the base ``BaseSHAPExplainer``
-                ``Generator`` (Tree SHAP itself is deterministic given a
-                fixed input, but the base class uses the RNG for any
-                tie-breaking permutation).  ``None`` (default) uses OS
-                entropy.
+            seed: Optional seed for the ``Generator`` used by the
+                permutation-sampling branch. Exact Tree SHAP (a tree with at
+                most ``_MAX_EXACT_TREE_FEATURES`` used features) is deterministic
+                given a fixed input; wider trees fall back to a seeded
+                ``n_permutations`` estimate whose values are additive and
+                unbiased but seed-dependent, so pass a fixed ``seed`` for
+                reproducibility. ``None`` (default) uses OS entropy.
         """
         super().__init__(model, feature_names, seed=seed)
         self._model = model
@@ -677,17 +679,30 @@ class TreeShapExplainer(ShapExplainer):
     def _leaf_value(self, tree_info: dict[str, Any], node: int) -> float:
         """Scalar output of a leaf node.
 
-        Regression trees carry a single value; classification trees carry class
-        counts, which we reduce to the positive-class probability (the last
-        class), matching ``predict_proba[:, 1]`` for the common binary case.
+        The regression-vs-classification distinction is made from the *last*
+        axis of the tree's ``value`` array (the ``n_classes`` dimension in the
+        standard ``tree_`` layout), not from the flattened size -- otherwise a
+        multi-output-regression leaf of shape ``(n_outputs, 1)`` and a binary
+        classification leaf of shape ``(1, 2)`` are indistinguishable after
+        ``ravel()``. For regression (last axis 1) the leaf's first output value
+        is returned; for classification the positive-class (last-class)
+        probability of the last output's class counts is returned
+        (``predict_proba[:, -1]`` for the common binary case). Multi-output
+        regression is reduced to its first output (a documented scalar-SHAP
+        limitation, kept self-consistent so additivity still holds).
         """
-        value = np.asarray(tree_info["value"][node]).ravel()
-        if value.size == 1:
-            return float(value[0])
-        total = float(value.sum())
+        node_value = np.asarray(tree_info["value"][node])
+        n_classes = int(np.asarray(tree_info["value"]).shape[-1])
+        if n_classes == 1:
+            # Regression: the (first) output value directly.
+            return float(node_value.reshape(-1)[0])
+        # Classification: positive-class probability from the last output's
+        # class counts. reshape(-1)[-n_classes:] selects that last output row.
+        counts = node_value.reshape(-1)[-n_classes:]
+        total = float(counts.sum())
         if total <= 0.0:
-            return float(value[-1])
-        return float(value[-1] / total)
+            return 0.0
+        return float(counts[-1] / total)
 
     def _cond_expectation(
         self,
@@ -700,6 +715,13 @@ class TreeShapExplainer(ShapExplainer):
         Features in ``present`` follow the instance down its split; absent
         features are marginalised by taking the coverage-weighted mean of both
         children (Lundberg et al. 2020, path-dependent feature perturbation).
+
+        Implemented with an explicit work-stack rather than recursion: a legit
+        deep tree (sklearn defaults to ``max_depth=None``) can exceed Python's
+        recursion limit, so a recursive value function would raise
+        ``RecursionError`` on any explanation of such a tree. The stack
+        accumulates each reached leaf's value weighted by the path probability,
+        which is exactly the recursive coverage-weighted mean by linearity.
         """
         left = tree_info["children_left"]
         right = tree_info["children_right"]
@@ -707,23 +729,31 @@ class TreeShapExplainer(ShapExplainer):
         thr = tree_info["threshold"]
         cov = tree_info["weighted_n_node_samples"]
 
-        def recurse(node: int) -> float:
+        total_value = 0.0
+        stack: list[tuple[int, float]] = [(0, 1.0)]
+        while stack:
+            node, weight = stack.pop()
             f = int(feat[node])
             if f < 0 or int(left[node]) < 0:  # leaf (standard tree_ sentinel: feature == -2)
-                return self._leaf_value(tree_info, node)
+                total_value += weight * self._leaf_value(tree_info, node)
+                continue
             lc = int(left[node])
             rc = int(right[node])
             if present[f]:
                 child = lc if x[f] <= thr[node] else rc
-                return recurse(child)
+                stack.append((child, weight))
+                continue
             wl = float(cov[lc])
             wr = float(cov[rc])
-            total = wl + wr
-            if total <= 0.0:
-                return 0.5 * (recurse(lc) + recurse(rc))
-            return (wl * recurse(lc) + wr * recurse(rc)) / total
+            branch_total = wl + wr
+            if branch_total <= 0.0:
+                stack.append((lc, weight * 0.5))
+                stack.append((rc, weight * 0.5))
+            else:
+                stack.append((lc, weight * wl / branch_total))
+                stack.append((rc, weight * wr / branch_total))
 
-        return recurse(0)
+        return total_value
 
     def _tree_shap_single(
         self,
