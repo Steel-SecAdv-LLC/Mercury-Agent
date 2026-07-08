@@ -26,8 +26,8 @@
 # everything the CI matrix would show, instead of one failure per push.
 #
 # Usage:
-#   bash scripts/run_ci_gates.sh            # all gates
-#   bash scripts/run_ci_gates.sh --fast     # skip the three mypy lanes (~min)
+#   bash scripts/run_ci_gates.sh            # all gates (mypy lanes dominate; ~5-10 minutes)
+#   bash scripts/run_ci_gates.sh --fast     # skip the three mypy lanes (finishes in ~1 minute)
 set -uo pipefail
 
 FAST=0

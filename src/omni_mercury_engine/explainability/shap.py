@@ -591,9 +591,20 @@ class TreeShapExplainer(ShapExplainer):
             coverage = np.ones(n_nodes, dtype=float)
         else:
             coverage = np.asarray([], dtype=float)
+        feature_arr = np.asarray(tree.feature) if hasattr(tree, "feature") else np.asarray([])
         return {
             "n_nodes": n_nodes,
-            "feature": np.asarray(tree.feature) if hasattr(tree, "feature") else np.asarray([]),
+            "feature": feature_arr,
+            # Sorted unique split-feature indices, computed once per tree at
+            # extraction: the bounds check, the full-coalition `present` mask,
+            # and the per-tree Shapley enumeration all consume this, and
+            # recomputing it from the per-node array on every explanation is
+            # avoidable O(n_nodes) work for large trees/ensembles.
+            "used_features": (
+                np.unique(feature_arr[feature_arr >= 0]).astype(int)
+                if feature_arr.size
+                else np.asarray([], dtype=int)
+            ),
             "threshold": (
                 np.asarray(tree.threshold, dtype=float)
                 if hasattr(tree, "threshold")
@@ -641,8 +652,8 @@ class TreeShapExplainer(ShapExplainer):
         # feature index the instance vector cannot address (e.g. the caller passed
         # a reduced feature set the model was not trained on).
         for tree_info in self._tree_info:
-            feats = tree_info["feature"]
-            max_feat = max((int(f) for f in feats if int(f) >= 0), default=-1)
+            used_features = tree_info["used_features"]
+            max_feat = int(used_features[-1]) if used_features.size else -1
             if max_feat >= n_features:
                 raise ValueError(
                     f"tree splits on feature index {max_feat} but the instance has "
@@ -659,8 +670,7 @@ class TreeShapExplainer(ShapExplainer):
             shap_values += self._tree_shap_single(x, tree_info)
             base_sum += self._cond_expectation(tree_info, x, empty)
             used = np.zeros(n_features, dtype=bool)
-            feat = tree_info["feature"]
-            used[[int(f) for f in feat if int(f) >= 0]] = True
+            used[tree_info["used_features"]] = True
             pred_sum += self._cond_expectation(tree_info, x, used)
 
         n_trees = max(1, len(self._tree_info))
@@ -771,7 +781,7 @@ class TreeShapExplainer(ShapExplainer):
         """
         n_features = len(x)
         shap_values = np.zeros(n_features)
-        used = sorted({int(f) for f in tree_info["feature"] if int(f) >= 0})
+        used = tree_info["used_features"].tolist()  # cached sorted-unique at extraction
         if not used:
             return shap_values
 
