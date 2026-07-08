@@ -1564,10 +1564,11 @@ class OmniMercuryEngine(LoggerMixin):
             ``{"best_config", "best_auc", "n_trials", "convergence_history"}``.
 
         Raises:
-            ValueError: If ``X`` is not 2-D with >= 4 samples, labels mismatch,
-                ``y`` does not contain both classes, ``validation_split`` is not in
-                ``(0, 1)``, or any class has fewer than 2 samples (required for the
-                stratified held-out split).
+            ValueError: If ``n_trials`` or ``tuning_epochs`` is < 1, ``X`` is not
+                2-D with >= 4 samples, labels mismatch, ``y`` does not contain
+                both classes, ``validation_split`` is not in ``(0, 1)``, or any
+                class has fewer than 2 samples (required for the stratified
+                held-out split).
             RuntimeError: If every trial fails. Each trial resets the fusion
                 model, so on all-fail the engine is left untrained and must be
                 re-fit or reloaded before serving; the error is raised rather
@@ -1582,6 +1583,15 @@ class OmniMercuryEngine(LoggerMixin):
             UniformParameter,
         )
         from omni_mercury_engine.evaluation.metrics import compute_auc_roc
+
+        # Fail fast on degenerate budgets: n_trials <= 0 would run zero trials
+        # and surface as a confusing "all 0 trials failed" RuntimeError (after
+        # which the CLI could save an untrained model), and tuning_epochs <= 0
+        # would make every trial a no-op fit scored on random weights.
+        if n_trials < 1:
+            raise ValueError(f"n_trials must be >= 1, got {n_trials}")
+        if tuning_epochs < 1:
+            raise ValueError(f"tuning_epochs must be >= 1, got {tuning_epochs}")
 
         X = np.asarray(X, dtype=np.float64)
         y = np.asarray(y)
@@ -5132,11 +5142,15 @@ class OmniMercuryEngine(LoggerMixin):
 
         The report is decomposed against a single reference row -- the mean of
         the training sample stored by :meth:`fit_fusion` (a standard SHAP
-        baseline, analogous to the IG baseline), or this instance itself when no
-        fit background is available. A one-row reference keeps the Shapley
-        marginalisation tractable over the full ``score_fusion`` stack; the full
-        matrix would multiply the per-coalition model evaluations by its row
-        count and make the opt-in report far slower.
+        baseline, analogous to the IG baseline). When no usable fit background
+        is available (never fit, or a stale different-width one), the fallback
+        is a zero-vector reference of the instance's width -- deliberately NOT
+        the instance itself, which would make the marginalisation baseline equal
+        the point being explained and collapse every attribution to ~0. A
+        one-row reference keeps the Shapley marginalisation tractable over the
+        full ``score_fusion`` stack; the full matrix would multiply the
+        per-coalition model evaluations by its row count and make the opt-in
+        report far slower.
 
         Args:
             data: The same input passed to :meth:`detect_with_fusion`.
