@@ -162,6 +162,50 @@ class TestRealTimeThreatDetector:
         assert signature.severity == 0.8
         assert len(detector.threat_history) == 1
 
+    def test_fit_fails_closed_when_all_detectors_fail(self) -> None:
+        """Zero fitted sub-detectors must refuse to enter a fitted state (F12).
+
+        Regression: fit() set is_fitted=True unconditionally, so a total fit
+        failure produced a detector that reported "no threat / LOW" for every
+        input — silently blind.
+        """
+        detector = RealTimeThreatDetector(contamination=0.1)
+        normal_data = np.random.randn(50, 8)
+
+        # Make every sub-detector's fit raise.
+        for det in detector.detectors.values():
+            det.fit = _raise_fit  # type: ignore[method-assign]
+
+        with pytest.raises(RuntimeError, match=r"all .* sub-detectors failed to fit"):
+            detector.fit(normal_data)
+        assert detector.is_fitted is False
+
+    def test_detect_fails_closed_when_all_predicts_fail(self) -> None:
+        """A blind detector at inference must raise, not report LOW (F12)."""
+        detector = RealTimeThreatDetector(contamination=0.1)
+        normal_data = np.random.randn(80, 8)
+        detector.fit(normal_data)
+        assert detector.is_fitted is True
+
+        # Break every sub-detector's inference methods.
+        for det in detector.detectors.values():
+            det.predict = _raise_predict  # type: ignore[method-assign]
+            if hasattr(det, "score_samples"):
+                det.score_samples = _raise_predict  # type: ignore[method-assign]
+            if hasattr(det, "decision_function"):
+                det.decision_function = _raise_predict  # type: ignore[method-assign]
+
+        with pytest.raises(RuntimeError, match="all sub-detectors errored"):
+            detector.detect_threat(np.random.randn(10, 8))
+
+
+def _raise_fit(X):
+    raise ValueError("synthetic fit failure")
+
+
+def _raise_predict(X):
+    raise ValueError("synthetic inference failure")
+
     def test_threat_statistics(self) -> None:
         """Test threat statistics generation."""
         detector = RealTimeThreatDetector()
