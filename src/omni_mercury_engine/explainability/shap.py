@@ -107,8 +107,28 @@ class GlobalExplanation:
         return dict(zip(names, self.mean_abs_shap.tolist()))
 
     def get_interaction_values(self) -> np.ndarray[Any, Any] | None:
-        """Get feature interaction values (if computed)."""
-        return None
+        """Global feature-interaction matrix from SHAP-contribution covariance.
+
+        Returns an ``(n_features, n_features)`` symmetric matrix whose ``(i, j)``
+        entry is the covariance of feature ``i``'s and feature ``j``'s SHAP
+        contributions across the explained instances. Two features whose
+        attributions move together (or in opposition) across the dataset carry a
+        large-magnitude off-diagonal entry, which is a legitimate *global*
+        interaction signal; the diagonal is each feature's attribution variance.
+
+        This is a covariance-based interaction proxy, not the exact Shapley
+        interaction index (which requires re-querying the model over feature
+        pairs and is not available from a materialised global explanation). It
+        is defined for any explainer, so it is computed here rather than left
+        unpopulated. Returns ``None`` only when there are too few instances
+        (< 2) for covariance to be defined.
+        """
+        shap_matrix = np.asarray(self.shap_values, dtype=float)
+        if shap_matrix.ndim != 2 or shap_matrix.shape[0] < 2:
+            return None
+        # rowvar=False -> variables are columns (features), observations are rows.
+        interaction = np.cov(shap_matrix, rowvar=False)
+        return np.atleast_2d(interaction)
 
 
 class ShapExplainer(ABC):
@@ -511,6 +531,11 @@ class TreeShapExplainer(ShapExplainer):
     Provides exact and efficient computation of SHAP values for tree ensemble models.
     """
 
+    #: Max number of *used* features in a single tree for which the Shapley sum
+    #: is enumerated exactly (2**k coalitions). Above this the per-tree value is
+    #: estimated by permutation sampling instead, keeping the cost bounded.
+    _MAX_EXACT_TREE_FEATURES = 12
+
     def __init__(
         self,
         model: Any,
@@ -522,11 +547,13 @@ class TreeShapExplainer(ShapExplainer):
         Args:
             model: Tree-based model (must have tree structure accessible)
             feature_names: Optional feature names
-            seed: Optional seed forwarded to the base ``BaseSHAPExplainer``
-                ``Generator`` (Tree SHAP itself is deterministic given a
-                fixed input, but the base class uses the RNG for any
-                tie-breaking permutation).  ``None`` (default) uses OS
-                entropy.
+            seed: Optional seed for the ``Generator`` used by the
+                permutation-sampling branch. Exact Tree SHAP (a tree with at
+                most ``_MAX_EXACT_TREE_FEATURES`` used features) is deterministic
+                given a fixed input; wider trees fall back to a seeded
+                ``n_permutations`` estimate whose values are additive and
+                unbiased but seed-dependent, so pass a fixed ``seed`` for
+                reproducibility. ``None`` (default) uses OS entropy.
         """
         super().__init__(model, feature_names, seed=seed)
         self._model = model
@@ -544,14 +571,55 @@ class TreeShapExplainer(ShapExplainer):
             return []
 
     def _extract_single_tree(self, tree: Any) -> dict[str, Any]:
-        """Extract structure from a single tree."""
+        """Extract structure from a single tree.
+
+        ``weighted_n_node_samples`` is the training coverage of each node and
+        is what path-dependent Tree SHAP uses as the implicit background: when a
+        feature is "absent" from a coalition the tree marginalises over its
+        split by taking the coverage-weighted average of the two children. Falls
+        back to ``n_node_samples`` and then to uniform ones if a tree object
+        exposes neither (so any tree exposing the standard ``tree_`` array
+        interface still yields defined values).
+        """
+        n_nodes = int(tree.node_count) if hasattr(tree, "node_count") else 0
+        coverage = None
+        if hasattr(tree, "weighted_n_node_samples"):
+            coverage = np.asarray(tree.weighted_n_node_samples, dtype=float)
+        elif hasattr(tree, "n_node_samples"):
+            coverage = np.asarray(tree.n_node_samples, dtype=float)
+        elif n_nodes:
+            coverage = np.ones(n_nodes, dtype=float)
+        else:
+            coverage = np.asarray([], dtype=float)
+        feature_arr = np.asarray(tree.feature) if hasattr(tree, "feature") else np.asarray([])
         return {
-            "n_nodes": tree.node_count if hasattr(tree, "node_count") else 0,
-            "feature": tree.feature if hasattr(tree, "feature") else [],
-            "threshold": tree.threshold if hasattr(tree, "threshold") else [],
-            "children_left": tree.children_left if hasattr(tree, "children_left") else [],
-            "children_right": tree.children_right if hasattr(tree, "children_right") else [],
-            "value": tree.value if hasattr(tree, "value") else [],
+            "n_nodes": n_nodes,
+            "feature": feature_arr,
+            # Sorted unique split-feature indices, computed once per tree at
+            # extraction: the bounds check, the full-coalition `present` mask,
+            # and the per-tree Shapley enumeration all consume this, and
+            # recomputing it from the per-node array on every explanation is
+            # avoidable O(n_nodes) work for large trees/ensembles.
+            "used_features": (
+                np.unique(feature_arr[feature_arr >= 0]).astype(int)
+                if feature_arr.size
+                else np.asarray([], dtype=int)
+            ),
+            "threshold": (
+                np.asarray(tree.threshold, dtype=float)
+                if hasattr(tree, "threshold")
+                else np.asarray([])
+            ),
+            "children_left": (
+                np.asarray(tree.children_left) if hasattr(tree, "children_left") else np.asarray([])
+            ),
+            "children_right": (
+                np.asarray(tree.children_right)
+                if hasattr(tree, "children_right")
+                else np.asarray([])
+            ),
+            "value": np.asarray(tree.value) if hasattr(tree, "value") else np.asarray([]),
+            "weighted_n_node_samples": coverage,
         }
 
     def explain(self, X: np.ndarray[Any, Any]) -> ShapExplanation | list[ShapExplanation]:
@@ -568,42 +636,182 @@ class TreeShapExplainer(ShapExplainer):
         return [self._explain_single_tree(x) for x in X]
 
     def _explain_single_tree(self, x: np.ndarray[Any, Any]) -> ShapExplanation:
-        """Compute Tree SHAP for a single instance."""
+        """Compute Tree SHAP for a single instance.
+
+        The ensemble decomposition is computed entirely in the tree's own
+        output space (the coverage-marginalised conditional expectation), so the
+        SHAP additivity property holds *exactly*: ``base_value + sum(shap) ==
+        prediction`` for every instance, where ``prediction`` is the trees'
+        averaged path-dependent output and ``base_value`` is the averaged
+        empty-coalition expectation. Averaging across the ensemble preserves
+        additivity because each tree satisfies it individually.
+        """
         n_features = len(x)
-        shap_values = np.zeros(n_features)
-
-        predictions = self._predict(x.reshape(1, -1))
-        instance_pred = float(predictions[0])
-
-        base_value = 0.0
-        if hasattr(self._model, "intercept_"):
-            base_value = self._model.intercept_
-        elif hasattr(self._model, "base_score"):
-            base_value = self._model.base_score
-
+        # Fail fast with an actionable message rather than an opaque IndexError
+        # deep in the recursion / boolean-mask assignment when a tree splits on a
+        # feature index the instance vector cannot address (e.g. the caller passed
+        # a reduced feature set the model was not trained on).
         for tree_info in self._tree_info:
-            tree_shap = self._tree_shap_single(x, tree_info)
-            shap_values += tree_shap
+            used_features = tree_info["used_features"]
+            max_feat = int(used_features[-1]) if used_features.size else -1
+            if max_feat >= n_features:
+                raise ValueError(
+                    f"tree splits on feature index {max_feat} but the instance has "
+                    f"only {n_features} features; the explainer was built for a model "
+                    "trained on more features than were supplied"
+                )
 
-        if len(self._tree_info) > 1:
-            shap_values /= len(self._tree_info)
+        shap_values = np.zeros(n_features)
+        base_sum = 0.0
+        pred_sum = 0.0
+
+        empty = np.zeros(n_features, dtype=bool)
+        for tree_info in self._tree_info:
+            shap_values += self._tree_shap_single(x, tree_info)
+            base_sum += self._cond_expectation(tree_info, x, empty)
+            used = np.zeros(n_features, dtype=bool)
+            used[tree_info["used_features"]] = True
+            pred_sum += self._cond_expectation(tree_info, x, used)
+
+        n_trees = max(1, len(self._tree_info))
+        shap_values /= n_trees
+        base_value = base_sum / n_trees
+        prediction = pred_sum / n_trees
 
         return ShapExplanation(
             instance=x,
             shap_values=shap_values,
-            base_value=base_value,
+            base_value=float(base_value),
             feature_names=self._feature_names,
-            prediction=instance_pred,
+            prediction=float(prediction),
         )
+
+    def _leaf_value(self, tree_info: dict[str, Any], node: int) -> float:
+        """Scalar output of a leaf node.
+
+        The regression-vs-classification distinction is made from the *last*
+        axis of the tree's ``value`` array (the ``n_classes`` dimension in the
+        standard ``tree_`` layout), not from the flattened size -- otherwise a
+        multi-output-regression leaf of shape ``(n_outputs, 1)`` and a binary
+        classification leaf of shape ``(1, 2)`` are indistinguishable after
+        ``ravel()``. For regression (last axis 1) the leaf's first output value
+        is returned; for classification the positive-class (last-class)
+        probability of the last output's class counts is returned
+        (``predict_proba[:, -1]`` for the common binary case). Multi-output
+        regression is reduced to its first output (a documented scalar-SHAP
+        limitation, kept self-consistent so additivity still holds).
+        """
+        node_value = np.asarray(tree_info["value"][node])
+        n_classes = int(np.asarray(tree_info["value"]).shape[-1])
+        if n_classes == 1:
+            # Regression: the (first) output value directly.
+            return float(node_value.reshape(-1)[0])
+        # Classification: positive-class probability from the last output's
+        # class counts. reshape(-1)[-n_classes:] selects that last output row.
+        counts = node_value.reshape(-1)[-n_classes:]
+        total = float(counts.sum())
+        if total <= 0.0:
+            return 0.0
+        return float(counts[-1] / total)
+
+    def _cond_expectation(
+        self,
+        tree_info: dict[str, Any],
+        x: np.ndarray[Any, Any],
+        present: np.ndarray[Any, Any],
+    ) -> float:
+        """Path-dependent conditional expectation ``E[tree(x) | x_S]``.
+
+        Features in ``present`` follow the instance down its split; absent
+        features are marginalised by taking the coverage-weighted mean of both
+        children (Lundberg et al. 2020, path-dependent feature perturbation).
+
+        Implemented with an explicit work-stack rather than recursion: a legit
+        deep tree (sklearn defaults to ``max_depth=None``) can exceed Python's
+        recursion limit, so a recursive value function would raise
+        ``RecursionError`` on any explanation of such a tree. The stack
+        accumulates each reached leaf's value weighted by the path probability,
+        which is exactly the recursive coverage-weighted mean by linearity.
+        """
+        left = tree_info["children_left"]
+        right = tree_info["children_right"]
+        feat = tree_info["feature"]
+        thr = tree_info["threshold"]
+        cov = tree_info["weighted_n_node_samples"]
+
+        total_value = 0.0
+        stack: list[tuple[int, float]] = [(0, 1.0)]
+        while stack:
+            node, weight = stack.pop()
+            f = int(feat[node])
+            if f < 0 or int(left[node]) < 0:  # leaf (standard tree_ sentinel: feature == -2)
+                total_value += weight * self._leaf_value(tree_info, node)
+                continue
+            lc = int(left[node])
+            rc = int(right[node])
+            if present[f]:
+                child = lc if x[f] <= thr[node] else rc
+                stack.append((child, weight))
+                continue
+            wl = float(cov[lc])
+            wr = float(cov[rc])
+            branch_total = wl + wr
+            if branch_total <= 0.0:
+                stack.append((lc, weight * 0.5))
+                stack.append((rc, weight * 0.5))
+            else:
+                stack.append((lc, weight * wl / branch_total))
+                stack.append((rc, weight * wr / branch_total))
+
+        return total_value
 
     def _tree_shap_single(
         self,
         x: np.ndarray[Any, Any],
         tree_info: dict[str, Any],
     ) -> np.ndarray[Any, Any]:
-        """Compute SHAP values for a single tree."""
+        """Exact (small trees) or sampled path-dependent SHAP for one tree.
+
+        Only features that actually appear in the tree's split nodes can carry
+        non-zero attribution, so the coalition space is over those used features
+        alone. When there are few enough of them the Shapley sum is enumerated
+        exactly; otherwise it is estimated by permutation sampling over the same
+        conditional-expectation value function (no external background needed --
+        the tree's node coverage is the background).
+        """
         n_features = len(x)
         shap_values = np.zeros(n_features)
+        used = tree_info["used_features"].tolist()  # cached sorted-unique at extraction
+        if not used:
+            return shap_values
+
+        if len(used) <= self._MAX_EXACT_TREE_FEATURES:
+            n = len(used)
+            for feature_idx in used:
+                others = [u for u in used if u != feature_idx]
+                phi = 0.0
+                for size in range(len(others) + 1):
+                    weight = math.factorial(size) * math.factorial(n - size - 1) / math.factorial(n)
+                    for combo in combinations(others, size):
+                        present = np.zeros(n_features, dtype=bool)
+                        present[list(combo)] = True
+                        without = self._cond_expectation(tree_info, x, present)
+                        present[feature_idx] = True
+                        with_feature = self._cond_expectation(tree_info, x, present)
+                        phi += weight * (with_feature - without)
+                shap_values[feature_idx] = phi
+        else:
+            n_permutations = 128
+            for _ in range(n_permutations):
+                order = self._rng.permutation(used)
+                present = np.zeros(n_features, dtype=bool)
+                prev = self._cond_expectation(tree_info, x, present)
+                for feature_idx in order:
+                    present[feature_idx] = True
+                    current = self._cond_expectation(tree_info, x, present)
+                    shap_values[feature_idx] += current - prev
+                    prev = current
+            shap_values /= n_permutations
 
         return shap_values
 

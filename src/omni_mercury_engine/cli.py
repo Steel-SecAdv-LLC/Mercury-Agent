@@ -179,6 +179,62 @@ def train(data: str, labels: str | None, output: str, epochs: int) -> None:
         raise SystemExit(1) from e
 
 
+@main.command("tune")
+@click.option(
+    "--data",
+    "-d",
+    required=True,
+    help="Raw input samples as .csv or .npy (shape [n_samples, n_features]).",
+)
+@click.option(
+    "--labels",
+    "-l",
+    required=True,
+    help="Labels file (.csv/.npy/.json, 1=anomaly/0=normal). Required: tuning "
+    "scores each trial by held-out AUC, which needs both classes.",
+)
+@click.option("--output", "-o", required=True, help="Output path for the tuned model")
+@click.option("--n-trials", default=20, type=int, help="Hyperparameter configs to try")
+@click.option(
+    "--sampler",
+    default="tpe",
+    type=click.Choice(["tpe", "gp", "random"]),
+    help="Bayesian sampler (default: tpe).",
+)
+@click.option("--epochs", default=10, type=int, help="Epochs per trial (and final refit)")
+def tune(data: str, labels: str, output: str, n_trials: int, sampler: str, epochs: int) -> None:
+    """Bayesian hyperparameter search for the fusion model (maximise held-out AUC).
+
+    Runs Mercury's own Bayesian optimizer over the ``fit_fusion`` hyperparameters
+    (learning rate, batch size, focal-loss params, early-stopping patience,
+    symbolic weight), scoring each configuration by the ROC-AUC of the calibrated
+    fusion probability on a held-out split. The engine is refit on the full
+    dataset with the best configuration and saved to ``--output``.
+    """
+    try:
+        engine = _get_engine(mode="fusion")
+        X = _load_data(data)
+        y = _load_labels(labels)
+        if len(y) != len(X):
+            raise ValueError(f"Label count ({len(y)}) does not match sample count ({len(X)}).")
+        click.echo(
+            f"Tuning fusion hyperparameters: {n_trials} trials ({sampler}) on "
+            f"{len(X)} samples from {data}..."
+        )
+        # tune_fusion refits on the winning config and raises RuntimeError if
+        # every trial failed (no model to save), which the handler below turns
+        # into a clean non-zero exit -- so reaching here means a real tuned model.
+        result = engine.tune_fusion(X, y, n_trials=n_trials, sampler=sampler, tuning_epochs=epochs)
+        click.echo(f"Best held-out AUC: {result['best_auc']:.4f}")
+        for key, value in result.get("best_config", {}).items():
+            click.echo(f"  {key}: {value}")
+        engine.save_model(output)
+        click.echo(f"Tuned model saved to {output}")
+    except (RuntimeError, ValueError, OSError) as e:
+        click.echo(f"Error: {e}", err=True)
+        raise SystemExit(1) from e
+
+
 @main.command("build-features")
 @click.option(
     "--data",

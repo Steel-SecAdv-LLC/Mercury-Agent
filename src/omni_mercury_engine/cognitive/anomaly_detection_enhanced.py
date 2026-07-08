@@ -24,6 +24,7 @@ from __future__ import annotations
 import logging
 import time
 from abc import ABC, abstractmethod
+from collections import deque
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import Enum
@@ -124,14 +125,27 @@ class MemoryKnowledgeGraph:
     predictive analysis.
     """
 
-    def __init__(self) -> None:
-        """Initialize memory knowledge graph."""
+    #: Default cap on retained memory nodes. A long-running detection process
+    #: adds a node per observation, so the graph must be bounded or it grows
+    #: without limit; the oldest nodes are evicted FIFO once the cap is reached.
+    DEFAULT_MAX_NODES = 2000
+
+    def __init__(self, max_nodes: int = DEFAULT_MAX_NODES) -> None:
+        """Initialize memory knowledge graph.
+
+        Args:
+            max_nodes: Maximum number of memory nodes retained. When exceeded,
+                the oldest node (and its incident edges) is evicted FIFO so the
+                graph cannot grow without bound in a long-running process.
+        """
         if NETWORKX_AVAILABLE:
             self.graph = nx.DiGraph()
         else:
             self.nodes: dict[str, dict[str, Any]] = {}
             self.edges: list[tuple[str, str, dict[str, Any]]] = []
 
+        self._max_nodes = max(1, int(max_nodes))
+        self._node_order: deque[str] = deque()
         self._node_counter = 0
         self._edge_counter = 0
 
@@ -156,6 +170,7 @@ class MemoryKnowledgeGraph:
         node_id = f"mem_{memory_id}"
 
         if NETWORKX_AVAILABLE:
+            is_new = not self.graph.has_node(node_id)
             self.graph.add_node(
                 node_id,
                 memory_type=memory_type,
@@ -164,6 +179,7 @@ class MemoryKnowledgeGraph:
                 timestamp=time.time(),
             )
         else:
+            is_new = node_id not in self.nodes
             self.nodes[node_id] = {
                 "memory_type": memory_type,
                 "content": content,
@@ -171,8 +187,24 @@ class MemoryKnowledgeGraph:
                 "timestamp": time.time(),
             }
 
+        if is_new:
+            self._node_order.append(node_id)
         self._node_counter += 1
+        self._evict_if_over_capacity()
         return node_id
+
+    def _evict_if_over_capacity(self) -> None:
+        """Evict oldest nodes (and their incident edges) FIFO past ``max_nodes``."""
+        while len(self._node_order) > self._max_nodes:
+            oldest = self._node_order.popleft()
+            if NETWORKX_AVAILABLE:
+                if self.graph.has_node(oldest):
+                    self.graph.remove_node(oldest)  # also drops incident edges
+            else:
+                self.nodes.pop(oldest, None)
+                self.edges = [
+                    edge for edge in self.edges if edge[0] != oldest and edge[1] != oldest
+                ]
 
     def add_relationship(
         self,
@@ -205,10 +237,41 @@ class MemoryKnowledgeGraph:
             "timestamp": time.time(),
         }
 
+        # networkx's add_edge auto-creates missing endpoints. An auto-created
+        # node would never enter ``_node_order`` and so would permanently
+        # escape the FIFO node cap, silently re-opening the unbounded-growth
+        # hole the cap exists to close. Register any missing endpoint through
+        # ``add_memory_node`` first, so every node is tracked and evictable.
+        for endpoint in (source_id, target_id):
+            if NETWORKX_AVAILABLE:
+                known = self.graph.has_node(endpoint)
+            else:
+                known = endpoint in self.nodes
+            if not known:
+                # add_memory_node prefixes ids with "mem_"; register the raw
+                # endpoint id directly through the same tracked path.
+                self._node_order.append(endpoint)
+                if NETWORKX_AVAILABLE:
+                    self.graph.add_node(
+                        endpoint,
+                        memory_type="placeholder",
+                        content={},
+                        importance=0.0,
+                        timestamp=time.time(),
+                    )
+                else:
+                    self.nodes[endpoint] = {
+                        "memory_type": "placeholder",
+                        "content": {},
+                        "importance": 0.0,
+                        "timestamp": time.time(),
+                    }
+
         if NETWORKX_AVAILABLE:
             self.graph.add_edge(source_id, target_id, **edge_data)
         else:
             self.edges.append((source_id, target_id, edge_data))
+        self._evict_if_over_capacity()
 
         return edge_id
 
@@ -379,6 +442,12 @@ class HiddenMarkovPredictor:
     Lightweight implementation for detecting state transitions that may indicate anomalies.
     """
 
+    #: Cap on retained state/observation history. The predictor only reads the
+    #: last two states, but STEP 10 of the cognitive orchestrator calls
+    #: ``observe()`` on every ``analyze()``, so unbounded lists would leak memory
+    #: for the life of the process; a bounded deque keeps ample history capped.
+    _HISTORY_MAXLEN = 1000
+
     def __init__(self, n_states: int = 3, seed: int | None = 42) -> None:
         """Initialize HMM predictor.
 
@@ -397,8 +466,10 @@ class HiddenMarkovPredictor:
         self.emission_probs: dict[str, np.ndarray[Any, Any]] = {}
         self.initial_probs = np.ones(n_states) / n_states
 
-        self.state_history: list[int] = []
-        self.observation_history: list[str] = []
+        # Bounded (only the last two states are ever read) so the always-on
+        # STEP-10 observe() call cannot grow memory without limit.
+        self.state_history: deque[int] = deque(maxlen=self._HISTORY_MAXLEN)
+        self.observation_history: deque[str] = deque(maxlen=self._HISTORY_MAXLEN)
 
     def observe(self, observation: str) -> int:
         """Process an observation and update state.

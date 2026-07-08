@@ -96,6 +96,12 @@ class CachedBenevolenceScorer:
         self._hits = 0
         self._misses = 0
         self._violations_uncached = 0
+        # Bumped whenever the threshold changes (see the setter). A cache miss
+        # captures this under the lock before it computes outside the lock, and
+        # only inserts if it is unchanged -- so a score computed under an old
+        # threshold can never be inserted after a concurrent threshold change
+        # (which would otherwise be served as a stale, wrong-threshold hit).
+        self._generation = 0
         # Track the last ruleset version we saw so we can purge stale-version
         # entries when the constant is bumped (e.g. by an operator deploying
         # a new ruleset, or by a test monkey-patching the value).
@@ -118,6 +124,37 @@ class CachedBenevolenceScorer:
     def benevolence_threshold(self) -> float:
         """Pass-through for callers that introspect the gate threshold."""
         return self._scorer.benevolence_threshold
+
+    @benevolence_threshold.setter
+    def benevolence_threshold(self, value: float) -> None:
+        """Set the gate threshold on the wrapped scorer and invalidate the cache.
+
+        The wrapper is documented as a drop-in replacement for
+        :class:`BenevolenceScorer` at the engine's boundary call site, and the
+        boundary scorer's threshold is a runtime-tunable knob (operators — and
+        ``tests/ethical/test_hard_enforcement.py`` — assign to it to move the
+        gate). Without this setter that assignment raised ``AttributeError`` the
+        moment the boundary scorer was wrapped by default (the benevolence-cache
+        wiring), so the pass-through property is completed here.
+
+        Delegating the assignment preserves the underlying
+        ``MINIMUM_BENEVOLENCE_FLOOR`` clamp (the plain scorer's setter still runs).
+        The cache is then cleared because a cached :class:`EthicalScore` is keyed
+        only by ``(ruleset_version, action, context)`` — not by the threshold in
+        force when it was computed — so raising the bar must not let a decision
+        ruled permissible under the *old* threshold be served as a hit. A plain
+        ``BenevolenceScorer.enforce`` always re-evaluates against the current
+        threshold; clearing on write keeps the wrapper faithful to that contract.
+        """
+        # Update the threshold, clear the cache, and bump the generation under a
+        # single lock hold. The generation bump additionally fences any cache
+        # miss already computing outside the lock under the old threshold: that
+        # miss captured the old generation and will refuse to insert its now
+        # stale result (see ``enforce``), so it cannot be served as a hit.
+        with self._lock:
+            self._scorer.benevolence_threshold = value
+            self._cache.clear()
+            self._generation += 1
 
     @property
     def stats(self) -> dict[str, int]:
@@ -189,6 +226,9 @@ class CachedBenevolenceScorer:
                 self._cache.move_to_end(key)
                 self._hits += 1
                 return cached
+            # Capture the generation under the lock so a threshold change during
+            # the (unlocked) scoring below is detected before we insert.
+            generation_at_miss = self._generation
 
         # Cache miss: call the underlying scorer outside the lock so a slow
         # scoring run can't serialise other lookups.
@@ -200,8 +240,11 @@ class CachedBenevolenceScorer:
             raise
 
         with self._lock:
-            # Re-check under lock in case a concurrent caller already inserted.
-            if key not in self._cache:
+            # Only insert if the threshold has not changed since the miss began;
+            # otherwise this result was computed under a now-stale threshold and
+            # must not be cached (it would be served as a wrong-threshold hit).
+            # The caller still receives the freshly computed result.
+            if self._generation == generation_at_miss and key not in self._cache:
                 self._cache[key] = result
                 self._cache.move_to_end(key)
                 if len(self._cache) > self._capacity:

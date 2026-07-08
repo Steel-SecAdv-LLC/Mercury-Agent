@@ -33,8 +33,10 @@ from typing import Any
 
 import numpy as np
 
+from omni_mercury_engine.cognitive.anomaly_detection_enhanced import EnhancedAnomalyDetector
 from omni_mercury_engine.cognitive.case_based_reasoning import Case, CaseBasedReasoner, CaseOutcome
 from omni_mercury_engine.cognitive.causal_discovery import CausalDiscoveryEngine
+from omni_mercury_engine.cognitive.cognitive_evolution_engine import CuriosityEngine
 from omni_mercury_engine.cognitive.ethical_bounding import (
     BenevolenceScorer,
     EthicalConstraintViolationError,
@@ -95,6 +97,19 @@ class CognitiveAnalysisResult:
     symbolic_consistency: dict[str, Any] = field(default_factory=dict)
     feedback_signals: dict[str, Any] = field(default_factory=dict)
 
+    # Curiosity-driven novelty (opt-in): measured distance of this observation
+    # from the distribution the CuriosityEngine has seen. None until the
+    # curiosity component actually scores an observation; to_dict() omits the
+    # keys while None so the default analyze() payload schema is byte-for-byte
+    # unchanged when the opt-in component is off.
+    novelty_score: float | None = None
+    is_novel: bool | None = None
+
+    # Predictive-memory forecast (opt-in): Bayesian/HMM prediction from the
+    # EnhancedAnomalyDetector for this domain. Empty until a forecast is
+    # produced; to_dict() omits the key while empty (same schema guarantee).
+    predictive_forecast: dict[str, Any] = field(default_factory=dict)
+
     # Ethical gate
     benevolence_score: float = 0.0
     ethical_permissible: bool = True
@@ -103,8 +118,15 @@ class CognitiveAnalysisResult:
     analysis_time_ms: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
-        """To dict."""
-        return {
+        """To dict.
+
+        The opt-in curiosity/predictive keys are included only when their
+        component actually produced content, so the default ``analyze()``
+        payload schema (both components off) is unchanged from before those
+        components existed -- consumers with strict schemas see new keys only
+        after opting in.
+        """
+        payload: dict[str, Any] = {
             "anomaly_detected": self.anomaly_detected,
             "anomaly_score": self.anomaly_score,
             "severity": self.severity,
@@ -124,6 +146,12 @@ class CognitiveAnalysisResult:
             "ethical_permissible": self.ethical_permissible,
             "analysis_time_ms": self.analysis_time_ms,
         }
+        if self.novelty_score is not None:
+            payload["novelty_score"] = self.novelty_score
+            payload["is_novel"] = self.is_novel
+        if self.predictive_forecast:
+            payload["predictive_forecast"] = self.predictive_forecast
+        return payload
 
 
 # Whitelist of caller-supplied ``context["domain"]`` values that are
@@ -178,6 +206,8 @@ class CognitiveOrchestrator(LoggerMixin):
         enable_ipb: bool = True,
         enable_cbr: bool = True,
         enable_indicators: bool = True,
+        enable_curiosity: bool = False,
+        enable_enhanced_detection: bool = False,
         strict_ethics: bool = True,
     ):
         """Initialize Cognitive Orchestrator.
@@ -188,6 +218,13 @@ class CognitiveOrchestrator(LoggerMixin):
             enable_ipb: Enable intelligence preparation
             enable_cbr: Enable case-based reasoning
             enable_indicators: Enable indicator development
+            enable_curiosity: Enable curiosity-driven novelty scoring of detected
+                anomalies (measured distance from the observed distribution).
+                Off by default; opt-in so existing analyze() output is unchanged.
+            enable_enhanced_detection: Enable the Bayesian/HMM predictive-memory
+                augmentation (:class:`EnhancedAnomalyDetector`) over detected
+                anomalies. Off by default; constructed with no simulated/external
+                sources so it performs no network I/O on the runtime path.
             strict_ethics: **Deprecated and ignored.**  Ethics enforcement
                 at the orchestrator decision boundary is unconditional:
                 :meth:`analyze` always scores the analysis action and raises
@@ -251,6 +288,13 @@ class CognitiveOrchestrator(LoggerMixin):
         self.ipb = IPBEngine() if enable_ipb else None
         self.cbr = CaseBasedReasoner() if enable_cbr else None
         self.indicators = IndicatorDevelopmentSystem() if enable_indicators else None
+        self.curiosity = CuriosityEngine() if enable_curiosity else None
+        # No simulated/external sources on the runtime path -> no network I/O.
+        self.enhanced_detector = (
+            EnhancedAnomalyDetector(use_simulated_sources=False)
+            if enable_enhanced_detection
+            else None
+        )
 
         # State
         self._analysis_count = 0
@@ -262,7 +306,8 @@ class CognitiveOrchestrator(LoggerMixin):
         logger.info(
             f"CognitiveOrchestrator initialized ("
             f"plasticity={enable_plasticity}, causal={enable_causal}, "
-            f"ipb={enable_ipb}, cbr={enable_cbr}, indicators={enable_indicators})"
+            f"ipb={enable_ipb}, cbr={enable_cbr}, indicators={enable_indicators}, "
+            f"curiosity={enable_curiosity}, enhanced_detection={enable_enhanced_detection})"
         )
 
     def _initialize_core_knowledge(self) -> None:
@@ -499,6 +544,76 @@ class CognitiveOrchestrator(LoggerMixin):
                     "elevated": True,
                     "recommendation": "Conduct full IPB assessment",
                 }
+
+        # === STEP 9: CURIOSITY-DRIVEN NOVELTY ===
+        # Score how unusual this observation is relative to the distribution the
+        # CuriosityEngine has seen. Prefer the raw feature vector (mean over the
+        # batch) as the observation; fall back to (score, severity).
+        if self.curiosity and anomaly_detected:
+            try:
+                observation: Any
+                features = np.asarray(raw_data, dtype=float) if raw_data is not None else None
+                if features is not None and features.size > 0:
+                    # Mean over the batch for 2-D input; the raw vector otherwise.
+                    observation = (
+                        features.mean(axis=0) if features.ndim == 2 else features.reshape(-1)
+                    )
+                else:
+                    # No usable raw features (None or empty) -> score/severity.
+                    observation = {"score": anomaly_score, "severity": severity}
+                exploration = self.curiosity.explore(
+                    f"anomaly:{context.get('domain', _DEFAULT_DOMAIN)}", observation
+                )
+                result.novelty_score = exploration.novelty_score
+                result.is_novel = exploration.is_novel
+            except Exception as e:
+                logger.debug(f"Curiosity novelty scoring skipped: {e}")
+
+        # === STEP 10: PREDICTIVE-MEMORY AUGMENTATION ===
+        # Fold every observation into the Bayesian/HMM predictive memory and, for
+        # detected anomalies, surface a forecast. include_external=False keeps the
+        # runtime path free of I/O.
+        if self.enhanced_detector is not None:
+            try:
+                domain_label = str(context.get("domain", _DEFAULT_DOMAIN))
+                # Update the predictors on EVERY analysis so they observe both
+                # anomalies (success) and normal cases (failure). Updating only
+                # on anomalies would feed the Beta-Bernoulli predictor a
+                # success-only stream and drive its forecast toward 1.0.
+                self.enhanced_detector.update_predictor(
+                    domain_label, success=bool(anomaly_detected)
+                )
+                self.enhanced_detector.observe_sequence(f"sev_{int(severity * 10)}")
+                # Heavier memory storage + forecast generation only for anomalies.
+                if anomaly_detected:
+                    self.enhanced_detector.add_memory(
+                        f"obs_{self._analysis_count:06d}",
+                        "observation",
+                        {"score": anomaly_score, "severity": severity, "domain": domain_label},
+                    )
+                    forecast = self.enhanced_detector.predict(domain_label, include_external=False)
+                    # forecast.probability is a Bayesian+HMM *blend* whose HMM
+                    # term saturates toward 1.0 via self-transition, so it is not
+                    # a base-rate estimate. Surface the calibrated Bayesian
+                    # probability (+ its interval) as the anomaly probability,
+                    # and keep the blend as a separate, honestly-labelled score.
+                    bayes_prob, bayes_interval = self.enhanced_detector.bayesian_predictor.predict(
+                        domain_label
+                    )
+                    result.predictive_forecast = {
+                        "prediction_type": getattr(
+                            forecast.prediction_type, "value", str(forecast.prediction_type)
+                        ),
+                        "probability": float(bayes_prob),
+                        "blended_score": float(forecast.probability),
+                        "confidence_interval": (
+                            [float(v) for v in bayes_interval]
+                            if bayes_interval is not None
+                            else None
+                        ),
+                    }
+            except Exception as e:
+                logger.debug(f"Enhanced predictive analysis skipped: {e}")
 
         # Store in history for future CBR
         self._anomaly_history.append(
@@ -751,5 +866,9 @@ class CognitiveOrchestrator(LoggerMixin):
             stats["indicators"] = self.indicators.get_statistics()
         if self.ipb:
             stats["ipb"] = self.ipb.get_statistics()
+        if self.curiosity:
+            stats["curiosity"] = self.curiosity.get_statistics()
+        if self.enhanced_detector:
+            stats["enhanced_detection"] = self.enhanced_detector.get_statistics()
 
         return stats

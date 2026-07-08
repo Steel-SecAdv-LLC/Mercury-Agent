@@ -41,6 +41,8 @@ Components:
 
 from __future__ import annotations
 
+from omni_mercury_engine.cognitive.anomaly_detection_enhanced import EnhancedAnomalyDetector
+from omni_mercury_engine.cognitive.benevolence_cache import CachedBenevolenceScorer
 from omni_mercury_engine.cognitive.case_based_reasoning import Case, CaseBasedReasoner
 from omni_mercury_engine.cognitive.causal_discovery import CausalDiscoveryEngine, CausalGraph
 from omni_mercury_engine.cognitive.chain_of_hindsight import (
@@ -55,6 +57,10 @@ from omni_mercury_engine.cognitive.chain_of_thought import (
     ChainOfThoughtEngine,
     ReasoningStrategy,
     ThoughtGenerator,
+)
+from omni_mercury_engine.cognitive.cognitive_evolution_engine import (
+    CuriosityEngine,
+    ExplorationResult,
 )
 from omni_mercury_engine.cognitive.differentiable_logic import (
     DifferentiableLogicEngine,
@@ -137,6 +143,7 @@ __all__ = [
     "BattlefieldAssessment",
     # Ethical framework
     "BenevolenceScorer",
+    "CachedBenevolenceScorer",
     "Case",
     "CaseBasedReasoner",
     "CausalDiscoveryEngine",
@@ -152,15 +159,18 @@ __all__ = [
     "ConsensusProtocol",
     "ConstraintSolver",
     "CreditAssignment",
+    "CuriosityEngine",
     "DetectionAgent",
     "DifferentiableLogicEngine",
     "DifferentiableTNorm",
+    "EnhancedAnomalyDetector",
     # Differentiable Logic
     "EthicalConstraintViolationError",
     "ExperienceMemory",
     # Explainability
     "ExplainabilityEngine",
     "ExplanationType",
+    "ExplorationResult",
     "FeedbackProcessor",
     # Formal Verification
     "FormalVerificationEngine",

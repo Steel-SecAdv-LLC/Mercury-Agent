@@ -119,6 +119,54 @@ def test_cache_threshold_passthrough() -> None:
     assert cache.benevolence_threshold == scorer.benevolence_threshold
 
 
+def test_threshold_setter_delegates_to_wrapped_scorer() -> None:
+    """Assigning the wrapper's threshold writes through to the wrapped scorer.
+
+    The wrapper is a drop-in for ``BenevolenceScorer`` at the engine boundary;
+    once the boundary scorer is wrapped by default, ``scorer.benevolence_threshold
+    = x`` (used by operators and ``test_hard_enforcement``) must keep working.
+    """
+    scorer = BenevolenceScorer(benevolence_threshold=0.99)
+    cache = CachedBenevolenceScorer(scorer=scorer)
+
+    cache.benevolence_threshold = 1.01
+
+    assert cache.benevolence_threshold == 1.01
+    assert scorer.benevolence_threshold == 1.01  # write reached the wrapped scorer
+
+
+def test_threshold_setter_preserves_floor_clamp() -> None:
+    """The delegated assignment still runs the wrapped scorer's floor clamp."""
+    from omni_mercury_engine.cognitive.ethical_bounding import MINIMUM_BENEVOLENCE_FLOOR
+
+    cache = CachedBenevolenceScorer(scorer=BenevolenceScorer(benevolence_threshold=0.99))
+    cache.benevolence_threshold = 0.0  # below the absolute floor
+
+    assert cache.benevolence_threshold == MINIMUM_BENEVOLENCE_FLOOR
+
+
+def test_threshold_setter_invalidates_cache() -> None:
+    """Raising the bar must not serve a decision cached under the old threshold.
+
+    The cache key is ``(ruleset_version, action, context)`` — it does not encode
+    the threshold in force at compute time — so a threshold change has to clear
+    the cache or a now-impermissible action could still be served as a hit.
+    """
+    scorer = _CountingScorer()
+    cache = CachedBenevolenceScorer(scorer=scorer)
+    action, ctx = _permissible_action()
+
+    cache.enforce(action, ctx)
+    assert scorer.enforce_calls == 1
+    assert cache.stats["size"] == 1
+
+    cache.benevolence_threshold = 1.0  # tune the gate -> cache must drop
+
+    assert cache.stats["size"] == 0, "threshold change did not invalidate the cache"
+    cache.enforce(action, ctx)
+    assert scorer.enforce_calls == 2, "post-tune enforce must recompute, not hit a stale entry"
+
+
 # ---------------------------------------------------------------------------
 # (b) Identical input hits the cache
 # ---------------------------------------------------------------------------
@@ -326,3 +374,48 @@ def test_clear_drops_all_entries() -> None:
 
     assert scorer.enforce_calls == 2
     assert cache.stats["size"] == 1
+
+
+def test_setter_fences_in_flight_miss_under_old_threshold() -> None:
+    """A miss computed under the old threshold is not cached after a concurrent
+    threshold change, so it can never be served as a stale wrong-threshold hit.
+
+    Deterministic via an event-gated scorer: thread A begins a miss under the
+    old threshold and blocks mid-scoring; the operator raises the threshold and
+    clears; A resumes and tries to insert. The generation fence must drop it.
+    """
+    import threading
+
+    scoring_started = threading.Event()
+    allow_finish = threading.Event()
+
+    class _GatedScorer(BenevolenceScorer):
+        def __init__(self) -> None:
+            super().__init__(benevolence_threshold=0.70)
+            self.calls = 0
+
+        def enforce(self, action: str, context: dict[str, Any]) -> EthicalScore:
+            self.calls += 1
+            scoring_started.set()
+            allow_finish.wait(timeout=5)
+            return _make_permissible_score(action, score_id_suffix=str(self.calls))
+
+    scorer = _GatedScorer()
+    cache = CachedBenevolenceScorer(scorer=scorer)
+    action, ctx = _permissible_action()
+
+    thread = threading.Thread(target=lambda: cache.enforce(action, ctx))
+    thread.start()
+    assert scoring_started.wait(timeout=5)  # A is mid-scoring under the old threshold
+
+    cache.benevolence_threshold = 0.99  # operator raises the bar + clears + bumps gen
+    allow_finish.set()  # let A finish and attempt its insert
+    thread.join(timeout=5)
+    assert not thread.is_alive()
+
+    # A's stale result was fenced out, so the cache is empty...
+    assert cache.stats["size"] == 0
+    # ...and a fresh identical enforce recomputes rather than serving a stale hit.
+    calls_before = scorer.calls
+    cache.enforce(action, ctx)
+    assert scorer.calls == calls_before + 1

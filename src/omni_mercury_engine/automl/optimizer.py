@@ -119,7 +119,7 @@ class RandomSampler(Sampler):
         n_samples: int = 1,
     ) -> list[dict[str, Any]]:
         """Sample random configurations."""
-        return [search_space.sample() for _ in range(n_samples)]
+        return [search_space.sample(self._rng) for _ in range(n_samples)]
 
     def tell(
         self,
@@ -167,7 +167,7 @@ class TPESampler(Sampler):
     ) -> list[dict[str, Any]]:
         """Sample configurations using TPE."""
         if len(self._observations) < self._n_startup:
-            return [search_space.sample() for _ in range(n_samples)]
+            return [search_space.sample(self._rng) for _ in range(n_samples)]
 
         configs = []
         for _ in range(n_samples):
@@ -191,7 +191,7 @@ class TPESampler(Sampler):
             above_values = [c.get(name) for c in above_configs if name in c]
 
             if not below_values or not above_values:
-                config[name] = param.sample()
+                config[name] = param.sample(self._rng)
                 continue
 
             config[name] = self._sample_param_tpe(param, below_values, above_values)
@@ -209,7 +209,7 @@ class TPESampler(Sampler):
         ei_values = []
 
         for _ in range(self._n_ei_candidates):
-            candidate = param.sample()
+            candidate = param.sample(self._rng)
             candidates.append(candidate)
 
             l_below = self._parzen_estimator(candidate, below_values, param)
@@ -309,7 +309,7 @@ class GaussianProcessSampler(Sampler):
         self._param_names = list(search_space.parameters.keys())
 
         if len(self._X) < self._n_startup:
-            return [search_space.sample() for _ in range(n_samples)]
+            return [search_space.sample(self._rng) for _ in range(n_samples)]
 
         configs = []
         for _ in range(n_samples):
@@ -329,7 +329,7 @@ class GaussianProcessSampler(Sampler):
 
         candidates = []
         for _ in range(self._n_candidates):
-            config = search_space.sample()
+            config = search_space.sample(self._rng)
             x = self._config_to_vector(config)
             candidates.append((config, x))
 
@@ -346,7 +346,7 @@ class GaussianProcessSampler(Sampler):
                 best_ei = ei
                 best_config = config
 
-        return best_config if best_config else search_space.sample()
+        return best_config if best_config else search_space.sample(self._rng)
 
     def _config_to_vector(self, config: dict[str, Any]) -> np.ndarray[Any, Any]:
         """Convert config to numerical vector."""
@@ -462,6 +462,7 @@ class BayesianOptimizer:
         n_trials: int = 100,
         n_jobs: int = 1,
         seed: int | None = None,
+        time_budget: float | None = None,
     ) -> None:
         """Initialize Bayesian optimizer.
 
@@ -474,6 +475,10 @@ class BayesianOptimizer:
             n_trials: Maximum number of trials
             n_jobs: Number of parallel jobs (currently sequential only)
             seed: Random seed
+            time_budget: Optional wall-clock budget in seconds. When set, the
+                optimization stops after the current trial once the elapsed time
+                reaches the budget, even if ``n_trials`` trials have not run.
+                ``None`` (default) means run all ``n_trials``.
         """
         self._search_space = search_space
         self._objective = objective
@@ -481,6 +486,11 @@ class BayesianOptimizer:
         self._n_trials = n_trials
         self._n_jobs = n_jobs
         self._seed = seed
+        if time_budget is not None and not time_budget > 0:  # rejects <=0 and NaN
+            raise ValueError(
+                f"time_budget must be a positive number of seconds when set, got {time_budget}"
+            )
+        self._time_budget = time_budget
 
         self._sampler = self._create_sampler(sampler, seed)
         self._scheduler = self._create_scheduler(scheduler)
@@ -560,6 +570,15 @@ class BayesianOptimizer:
                 convergence_history.append(self._best_trial.metric)
             else:
                 convergence_history.append(metric)
+
+            if self._time_budget is not None and (time.time() - start_time) >= self._time_budget:
+                logger.info(
+                    "Stopping optimization after %d/%d trials: time budget " "%.1fs reached",
+                    trial_idx + 1,
+                    self._n_trials,
+                    self._time_budget,
+                )
+                break
 
         total_duration = time.time() - start_time
 
@@ -660,6 +679,10 @@ class MercuryAutoML:
 
         self._task = task
         self._metric = metric
+        if time_budget is not None and not time_budget > 0:  # rejects <=0 and NaN
+            raise ValueError(
+                f"time_budget must be a positive number of seconds when set, got {time_budget}"
+            )
         self._time_budget = time_budget
         self._n_trials = n_trials
         self._sampler = sampler
@@ -787,6 +810,7 @@ class MercuryAutoML:
             direction="minimize",
             n_trials=self._n_trials,
             seed=self._seed,
+            time_budget=self._time_budget,
         )
 
         self._result = optimizer.optimize()
@@ -831,7 +855,15 @@ class MercuryAutoML:
     ) -> float:
         """Evaluate model using the specified metric."""
         if self._task == "anomaly_detection":
-            if hasattr(model, "predict"):
+            # Ranking metrics (AUC / average precision) need a *continuous*
+            # score to rank instances; feeding them thresholded 0/1 predictions
+            # collapses AUC toward 0.5. Prefer ``decision_function`` for those,
+            # and keep the binary ``predict`` for threshold metrics (accuracy,
+            # precision, recall, f1).
+            ranking_metric = self._metric in ("auc", "average_precision")
+            if ranking_metric and hasattr(model, "decision_function"):
+                predictions = model.decision_function(X_val)
+            elif hasattr(model, "predict"):
                 predictions = model.predict(X_val)
             elif hasattr(model, "decision_function"):
                 predictions = model.decision_function(X_val)
@@ -871,10 +903,17 @@ class MercuryAutoML:
             return float(tp / (tp + fn + 1e-10))
 
         elif self._metric == "f1":
-            precision = self._compute_metric(y_true, y_pred_binary)
-            self._metric = "recall"
-            recall = self._compute_metric(y_true, y_pred_binary)
-            self._metric = "f1"
+            # Compute precision and recall inline. A previous implementation
+            # recursed via ``self._compute_metric`` while temporarily mutating
+            # ``self._metric`` -- but the first recursive call ran before the
+            # mutation, re-entering the ``"f1"`` branch and recursing until
+            # ``RecursionError``. Inlining is correct, allocation-free and keeps
+            # ``self._metric`` immutable (so it is safe under concurrent trials).
+            tp = np.sum((y_pred_binary == 1) & (y_true == 1))
+            fp = np.sum((y_pred_binary == 1) & (y_true == 0))
+            fn = np.sum((y_pred_binary == 0) & (y_true == 1))
+            precision = tp / (tp + fp + 1e-10)
+            recall = tp / (tp + fn + 1e-10)
             return float(2 * precision * recall / (precision + recall + 1e-10))
 
         elif self._metric in ["mse", "loss"]:

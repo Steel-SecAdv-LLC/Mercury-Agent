@@ -175,6 +175,7 @@ if TYPE_CHECKING:
 
     from omni_mercury_engine.agentic.orchestration import MultiAgentOrchestrator
     from omni_mercury_engine.agentic.subagents.fleet import SubAgentFleet
+    from omni_mercury_engine.cognitive.benevolence_cache import CachedBenevolenceScorer
     from omni_mercury_engine.cognitive.ethical_bounding import BenevolenceScorer
     from omni_mercury_engine.cognitive.orchestrator import CognitiveOrchestrator
     from omni_mercury_engine.decision import DecisionAbstentionResponder, DecisionLedger
@@ -773,6 +774,7 @@ class OmniMercuryEngine(LoggerMixin):
         auto_load_checkpoint: bool = False,
         equation_profile: str | None = None,
         require_explicit_fit: bool = True,
+        cache_ethical_decisions: bool = True,
     ) -> None:
         """Initialize the OmniMercuryEngine.
 
@@ -803,6 +805,14 @@ class OmniMercuryEngine(LoggerMixin):
                 calibrated neural score with the frozen OAE R/H/O equation
                 signal at serve time (see
                 :mod:`omni_mercury_engine.core.equation_profiles`).
+            cache_ethical_decisions: When True (default), the benevolence
+                boundary scorer is wrapped in a
+                :class:`~omni_mercury_engine.cognitive.benevolence_cache.CachedBenevolenceScorer`
+                so repeated identical ``enforce(action, context)`` calls at the
+                detection boundary return the memoised ``EthicalScore`` instead
+                of re-running the full scoring pipeline. Semantics are
+                preserved: violations are never cached, and a ruleset-version
+                bump invalidates the cache. Set False to always recompute.
 
         Raises:
             ValueError: If device is 'cuda' but CUDA is not available.
@@ -835,6 +845,10 @@ class OmniMercuryEngine(LoggerMixin):
         # only DEFER on drift). None = disabled (exact legacy behaviour).
         self._adaptive_conformal: Any = None
         self._recalibration_warmup: int = 30
+        # Bounded sample of the fusion training features, captured by
+        # fit_fusion(). Used as the SHAP background for the opt-in GDPR report
+        # (detect_with_fusion(gdpr_report=True)); None until a fit has run.
+        self._fusion_background: np.ndarray[Any, Any] | None = None
 
         if not TORCH_AVAILABLE:
             raise ImportError(
@@ -867,9 +881,24 @@ class OmniMercuryEngine(LoggerMixin):
             BenevolenceScorer as _BenevolenceScorer,
         )
 
-        self._boundary_scorer: BenevolenceScorer = _BenevolenceScorer(
-            benevolence_threshold=_MINIMUM_BENEVOLENCE_FLOOR
-        )
+        # The boundary scorer is hit on every ``detect_with_fusion`` call with a
+        # deterministic (action, context) derived from the sanitised domain and
+        # data shape, so identical serve-path requests recompute the same
+        # EthicalScore. When ``cache_ethical_decisions`` is on we wrap it in an
+        # LRU cache that memoises those repeats. The wrapper is a strict
+        # superset of the scorer surface (``enforce``/``score_action``/
+        # ``benevolence_threshold``), never caches violations, and self-purges
+        # on a ruleset-version bump, so the swap is semantics-preserving.
+        _real_boundary_scorer = _BenevolenceScorer(benevolence_threshold=_MINIMUM_BENEVOLENCE_FLOOR)
+        self._boundary_scorer: BenevolenceScorer | CachedBenevolenceScorer
+        if cache_ethical_decisions:
+            from omni_mercury_engine.cognitive.benevolence_cache import (
+                CachedBenevolenceScorer as _CachedBenevolenceScorer,
+            )
+
+            self._boundary_scorer = _CachedBenevolenceScorer(scorer=_real_boundary_scorer)
+        else:
+            self._boundary_scorer = _real_boundary_scorer
 
         # σ_Immutable second hard ethical gate (Wave B item 1).  Loaded
         # eagerly for the same reason as the benevolence scorer above:
@@ -1466,7 +1495,209 @@ class OmniMercuryEngine(LoggerMixin):
             metrics["symbolic_weight_resolved"] = float(symbolic_weight_eff)
             metrics["symbolic_n_positive"] = n_positive
 
+        # Retain a bounded, uniformly-sampled subset of the raw training
+        # features as the SHAP background for the opt-in GDPR report. Raw ``X``
+        # is the space ``score_fusion`` (hence the report's prediction function)
+        # consumes, so this is dimensionally aligned with the per-call instance.
+        # Sampling uniformly (rather than the first N rows) avoids biasing the
+        # baseline when the data is ordered (grouped by label/time); the field
+        # is reset to None when ``X`` is not a usable 2-D array so a prior fit's
+        # background is never served stale.
+        try:
+            background_source: np.ndarray[Any, Any] | None = np.asarray(X, dtype=np.float64)
+        except (TypeError, ValueError):
+            background_source = None
+        if (
+            background_source is not None
+            and background_source.ndim == 2
+            and background_source.shape[0] > 0
+        ):
+            n_background = min(100, background_source.shape[0])
+            sample_idx = np.random.default_rng(0).choice(
+                background_source.shape[0], size=n_background, replace=False
+            )
+            self._fusion_background = background_source[np.sort(sample_idx)].copy()
+        else:
+            self._fusion_background = None
+
         return metrics
+
+    def tune_fusion(
+        self,
+        X: np.ndarray[Any, Any],
+        y: np.ndarray[Any, Any],
+        *,
+        n_trials: int = 20,
+        tuning_epochs: int = 10,
+        sampler: str = "tpe",
+        scheduler: str | None = None,
+        seed: int | None = None,
+        validation_split: float = 0.25,
+        search_space: Any = None,
+    ) -> dict[str, Any]:
+        """Bayesian hyperparameter search over ``fit_fusion``, max held-out AUC.
+
+        Runs Mercury's own :class:`~omni_mercury_engine.automl.BayesianOptimizer`
+        over the real ``fit_fusion`` training hyperparameters, scoring each trial
+        by the ROC-AUC of the calibrated ``score_fusion`` probability on a
+        held-out split (Mercury's own ``evaluation.metrics.compute_auc_roc``).
+        The engine is left fit on the *full* ``(X, y)`` with the best
+        configuration when the search finds one.
+
+        Args:
+            X: Raw training features, shape ``(n_samples, n_features)``.
+            y: Binary labels (both classes required to score AUC).
+            n_trials: Number of hyperparameter configurations to evaluate.
+            tuning_epochs: Epochs per trial's ``fit_fusion`` (kept small so the
+                search is affordable); the final refit uses the same value.
+            sampler: ``"tpe"``, ``"gp"`` or ``"random"``.
+            scheduler: Optional ``"asha"``/``"hyperband"``/``"median"`` pruner;
+                ``None`` (default) evaluates every trial.
+            seed: Seed for the split and the sampler.
+            validation_split: Fraction held out for AUC scoring.
+            search_space: Optional custom
+                :class:`~omni_mercury_engine.automl.SearchSpace`; the default
+                spans learning rate, batch size, focal loss params, early-stopping
+                patience and symbolic weight.
+
+        Returns:
+            ``{"best_config", "best_auc", "n_trials", "convergence_history"}``.
+
+        Raises:
+            ValueError: If ``n_trials`` or ``tuning_epochs`` is < 1, ``X`` is not
+                2-D with >= 4 samples, labels mismatch, ``y`` does not contain
+                both classes, ``validation_split`` is not in ``(0, 1)``, or any
+                class has fewer than 2 samples (required for the stratified
+                held-out split).
+            RuntimeError: If every trial fails. Each trial resets the fusion
+                model, so on all-fail the engine is left untrained and must be
+                re-fit or reloaded before serving; the error is raised rather
+                than returning a ``None`` AUC a caller might overlook.
+        """
+        from omni_mercury_engine.automl import (
+            BayesianOptimizer,
+            CategoricalParameter,
+            IntUniformParameter,
+            LogUniformParameter,
+            SearchSpace,
+            UniformParameter,
+        )
+        from omni_mercury_engine.evaluation.metrics import compute_auc_roc
+
+        # Fail fast on degenerate budgets: n_trials <= 0 would run zero trials
+        # and surface as a confusing "all 0 trials failed" RuntimeError (after
+        # which the CLI could save an untrained model), and tuning_epochs <= 0
+        # would make every trial a no-op fit scored on random weights.
+        if n_trials < 1:
+            raise ValueError(f"n_trials must be >= 1, got {n_trials}")
+        if tuning_epochs < 1:
+            raise ValueError(f"tuning_epochs must be >= 1, got {tuning_epochs}")
+
+        X = np.asarray(X, dtype=np.float64)
+        y = np.asarray(y)
+        if X.ndim != 2 or X.shape[0] < 4:
+            raise ValueError("tune_fusion requires a 2-D X with at least 4 samples")
+        if len(y) != len(X):
+            raise ValueError(f"label count ({len(y)}) != sample count ({len(X)})")
+        if len(np.unique(y)) < 2:
+            raise ValueError("tune_fusion needs both classes present in y to score AUC")
+
+        if not 0.0 < validation_split < 1.0:
+            raise ValueError(f"validation_split must be in (0, 1), got {validation_split}")
+        classes, counts = np.unique(y, return_counts=True)
+        if int(counts.min()) < 2:
+            raise ValueError(
+                "tune_fusion needs at least 2 samples per class for a stratified "
+                "held-out split that keeps both classes in train and validation"
+            )
+        # Stratified split: hold out ``validation_split`` of *each* class so both
+        # y_train and y_val always carry both classes. An unstratified split can
+        # leave a single-class validation fold -- held-out ROC-AUC is then
+        # undefined (``compute_auc_roc`` returns 0.5) and the search objective goes
+        # blind -- or starve a split entirely when ``validation_split`` is near 0/1.
+        # Per-class ``k`` is clamped so every class keeps >= 1 sample on each side,
+        # so each split holds >= 2 samples regardless of ``validation_split``.
+        rng = np.random.default_rng(seed)
+        train_parts, val_parts = [], []
+        for c in classes:
+            c_idx = rng.permutation(np.flatnonzero(y == c))
+            k = min(len(c_idx) - 1, max(1, round(validation_split * len(c_idx))))
+            val_parts.append(c_idx[:k])
+            train_parts.append(c_idx[k:])
+        val_idx = np.concatenate(val_parts)
+        train_idx = np.concatenate(train_parts)
+        x_train, y_train = X[train_idx], y[train_idx]
+        x_val, y_val = X[val_idx], y[val_idx]
+
+        if search_space is None:
+            search_space = (
+                SearchSpace()
+                .add(LogUniformParameter("learning_rate", 1e-5, 1e-1))
+                .add(CategoricalParameter("batch_size", [16, 32, 64, 128]))
+                .add(UniformParameter("focal_alpha", 0.5, 0.95))
+                .add(UniformParameter("focal_gamma", 0.0, 3.0))
+                .add(IntUniformParameter("early_stopping_patience", 3, 15))
+                .add(UniformParameter("symbolic_weight", 0.0, 0.5))
+            )
+
+        def _coerce(config: dict[str, Any]) -> dict[str, Any]:
+            return {
+                "learning_rate": float(config["learning_rate"]),
+                "batch_size": int(config["batch_size"]),
+                "focal_alpha": float(config["focal_alpha"]),
+                "focal_gamma": float(config["focal_gamma"]),
+                "early_stopping_patience": int(config["early_stopping_patience"]),
+                "symbolic_weight": float(config["symbolic_weight"]),
+            }
+
+        def objective(config: dict[str, Any]) -> float:
+            # Reset to a fresh, untrained fusion model before each trial. fit_fusion
+            # trains ``self.fusion_model`` in place, so without this every trial
+            # would inherit the previous trial's weights/calibration and the
+            # objective would depend on evaluation order -- the reported best_config
+            # would then not reproduce from an independent, from-scratch fit.
+            self._init_fusion()
+            self.fit_fusion(x_train, y_train, epochs=tuning_epochs, **_coerce(config))
+            scores = np.asarray(self.score_fusion(x_val), dtype=np.float64).reshape(-1)
+            # Minimise negative AUC -> maximise held-out ranking quality.
+            return -float(compute_auc_roc(y_val, scores))
+
+        optimizer = BayesianOptimizer(
+            search_space=search_space,
+            objective=objective,
+            sampler=sampler,
+            scheduler=scheduler,
+            direction="minimize",
+            n_trials=n_trials,
+            seed=seed,
+        )
+        result = optimizer.optimize()
+
+        best_config = _coerce(result.best_config) if result.best_config else {}
+        if not best_config:
+            # Every trial failed (the optimizer only records a best for COMPLETED
+            # trials). Each trial called _init_fusion(), so the engine is now
+            # holding a reset, untrained fusion model. Fail loudly rather than
+            # return a None AUC a caller might ignore while unknowingly serving a
+            # broken model; the caller must re-fit or reload a checkpoint.
+            raise RuntimeError(
+                f"tune_fusion: all {result.n_trials} trials failed, so no "
+                "configuration could be selected; the fusion model has been reset "
+                "and must be re-fit (call fit_fusion) or reloaded before serving. "
+                "Check the training data and hyperparameter ranges."
+            )
+        # From-scratch final fit so the delivered model matches the measured
+        # trial (same reset as each trial), not the last trial's leftover state.
+        self._init_fusion()
+        self.fit_fusion(X, y, epochs=tuning_epochs, **best_config)
+
+        # best_config is guaranteed non-empty here (all-fail raised above).
+        return {
+            "best_config": best_config,
+            "best_auc": -float(result.best_metric),
+            "n_trials": result.n_trials,
+            "convergence_history": [-float(m) for m in result.convergence_history],
+        }
 
     def _fit_fusion_on_features(
         self,
@@ -4375,6 +4606,8 @@ class OmniMercuryEngine(LoggerMixin):
         _enable_gosnn: bool = True,
         explain: bool = False,
         equation_profile: str | None = None,
+        gdpr_report: bool = False,
+        subject_id: str | None = None,
     ) -> dict[str, Any]:
         """Detect anomalies using ML fusion with GOSNN synaptic integration.
 
@@ -4425,6 +4658,17 @@ class OmniMercuryEngine(LoggerMixin):
                 selected R/H/O equation profile before thresholding, and the
                 blend metadata is attached under ``result["equation_profile"]``.
                 ``None`` (default) leaves the calibrated probability unchanged.
+            gdpr_report: When ``True``, attach a ``gdpr_report`` field — a GDPR
+                Article 22 explanation of this decision (top contributing
+                factors via the from-scratch Shapley engine, actionable
+                counterfactual changes, and the data-subject rights narrative)
+                built over the same ``score_fusion`` serve path. Off by default
+                because it runs SHAP + counterfactual optimisation per call.
+            subject_id: Optional data-subject identifier recorded in the GDPR
+                report's audit trail. Only consulted when ``gdpr_report=True``;
+                a unique per-report id (``anon-<hex>``) is generated when omitted,
+                so distinct data-subject audits never collapse onto one identifier
+                (the generated id is surfaced in the report's ``subject_id`` field).
 
         Returns:
             Dictionary containing:
@@ -4436,6 +4680,9 @@ class OmniMercuryEngine(LoggerMixin):
                 - mode: Detection mode ('fusion')
                 - explanation: (only when ``explain=True``) Integrated-Gradients
                   feature attribution + faithfulness scores for this sample
+                - gdpr_report: (only when ``gdpr_report=True``) GDPR Article 22
+                  decision explanation — top factors, counterfactual actions,
+                  and data-subject rights narrative for this sample
                 - gosnn_metadata: GOSNN + σ_Immutable evaluation metadata:
                     - sigma_immutable_score: σ_Immutable score
                     - ethical_gate_passed: σ_Immutable threshold check
@@ -4819,6 +5066,16 @@ class OmniMercuryEngine(LoggerMixin):
         if explain and isinstance(data, (np.ndarray, torch.Tensor)):
             result["explanation"] = self._explain_fusion_decision(data)
 
+        # GDPR Article 22 report (opt-in): a data-subject-facing explanation of
+        # this automated decision — top contributing factors (Shapley),
+        # actionable counterfactual changes, and the rights narrative — built
+        # over the same ``score_fusion`` serve path. Distinct from ``explain``:
+        # that attaches an IG attribution for engineers; this attaches the
+        # compliance/recourse report neither the cognitive nor ml explainer
+        # provides. Opt-in because it runs SHAP + counterfactual optimisation.
+        if gdpr_report and isinstance(data, (np.ndarray, torch.Tensor)):
+            result["gdpr_report"] = self._gdpr_explain_fusion_decision(data, subject_id, result)
+
         # Decision / abstention / response layer: close the loop from the
         # calibrated certificate just assembled (probability + conformal set +
         # ethical verdict + symbolic agreement + drift) to a bounded,
@@ -4868,6 +5125,115 @@ class OmniMercuryEngine(LoggerMixin):
             _fusion_predict, instance, explanation
         )
         return explanation.to_dict()
+
+    def _gdpr_explain_fusion_decision(
+        self,
+        data: np.ndarray[Any, Any] | torch.Tensor,
+        subject_id: str | None,
+        result: dict[str, Any],
+    ) -> dict[str, Any]:
+        """GDPR Article 22 report for the serve-path fusion decision.
+
+        Builds a :class:`~omni_mercury_engine.explainability.MercuryExplainer`
+        over the same ``score_fusion`` probability the result reports, and
+        returns its report as a JSON-serialisable dict: top contributing factors
+        (from the from-scratch Shapley engine), actionable counterfactual
+        changes, and the data-subject rights narrative.
+
+        The report is decomposed against a single reference row -- the mean of
+        the training sample stored by :meth:`fit_fusion` (a standard SHAP
+        baseline, analogous to the IG baseline). When no usable fit background
+        is available (never fit, or a stale different-width one), the fallback
+        is a zero-vector reference of the instance's width -- deliberately NOT
+        the instance itself, which would make the marginalisation baseline equal
+        the point being explained and collapse every attribution to ~0. A
+        one-row reference keeps the Shapley marginalisation tractable over the
+        full ``score_fusion`` stack; the full matrix would multiply the
+        per-coalition model evaluations by its row count and make the opt-in
+        report far slower.
+
+        Args:
+            data: The same input passed to :meth:`detect_with_fusion`.
+            subject_id: Optional data-subject id for the audit trail.
+            result: The in-progress detection result (for anomaly_prob/threshold).
+
+        Returns:
+            ``ExplanationReport.to_dict()`` for attachment to the result.
+        """
+        from omni_mercury_engine.explainability import MercuryExplainer
+
+        arr = data.detach().cpu().numpy() if isinstance(data, torch.Tensor) else np.asarray(data)
+        instance = np.atleast_2d(arr.astype(np.float64))[0]
+
+        def _fusion_predict(x: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+            return np.asarray(
+                self.score_fusion(np.atleast_2d(np.asarray(x, dtype=np.float32))),
+                dtype=np.float64,
+            )
+
+        n_features = int(instance.shape[0])
+        # Bind the background once (avoid a train/serve TOCTOU where a concurrent
+        # fit_fusion nulls it between checks) and require it to match this
+        # instance's width -- a different training entry point (e.g.
+        # fit_fusion_pooled) may have left a stale background of another width,
+        # which would otherwise crash the explainer.
+        stored_background = self._fusion_background
+        if (
+            stored_background is not None
+            and stored_background.ndim == 2
+            and stored_background.shape[0] > 0
+            and stored_background.shape[1] == n_features
+        ):
+            background = stored_background.mean(axis=0, keepdims=True)
+        else:
+            # No usable stored background (absent, or a stale different-width one).
+            # Using the instance as its own background would make every SHAP
+            # attribution ~0 (the marginalisation baseline would equal the point
+            # explained), so fall back to a zero-vector reference of the right
+            # width -- a neutral baseline (like the IG path) that carries signal.
+            background = np.zeros((1, n_features), dtype=np.float64)
+
+        # Only label features when the stored drift names match this instance's
+        # width; a mismatched _drift_feature_names (a different feature space)
+        # would crash the report or mislabel the factors.
+        drift_names = getattr(self, "_drift_feature_names", None)
+        feature_names = (
+            drift_names if drift_names is not None and len(drift_names) == n_features else None
+        )
+
+        # Use an explicit None check, not ``or``: a genuine threshold of 0.0 is
+        # falsy and must not silently become 0.5 (which would flip the report's
+        # adverse/normal verdict versus the engine's own decision).
+        threshold_value = result.get("threshold_used")
+        if threshold_value is None:
+            threshold_value = result.get("threshold")
+        if threshold_value is None:
+            threshold_value = 0.5
+        threshold = float(threshold_value)
+        explainer = MercuryExplainer(
+            model=_fusion_predict,
+            background_data=np.asarray(background, dtype=np.float64),
+            feature_names=feature_names,
+            threshold=threshold,
+            model_id="omni_fusion",
+            model_version="1.0",
+            shap_method="auto",
+            counterfactual_method="wachter",
+            seed=0,
+        )
+        # Generate a unique per-report id when the caller omits ``subject_id`` so
+        # unrelated data-subject audits keep distinct identifiers instead of all
+        # collapsing onto one constant. The explicit-id path is unchanged.
+        if not subject_id:
+            from uuid import uuid4
+
+            subject_id = f"anon-{uuid4().hex[:16]}"
+        report = explainer.generate_report(
+            instance,
+            subject_id=subject_id,
+            anomaly_score=float(result["anomaly_prob"]),
+        )
+        return report.to_dict()
 
     def detect_with_fusion_calibrated(
         self,
