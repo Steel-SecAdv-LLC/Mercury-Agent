@@ -180,4 +180,33 @@ def test_result_is_serialisable() -> None:
         "is_novel",
         "standardized_distance",
         "n_observations",
+        "measured",
     }
+
+
+def test_undetermined_score_is_never_novel_regardless_of_threshold() -> None:
+    """Warm-up / all-constant scores are undetermined and must not satisfy any
+    threshold: with novelty_threshold < 0.5 the neutral 0.5 placeholder would
+    otherwise be flagged as a novelty on the very first observation."""
+    low_threshold = CuriosityEngine(novelty_threshold=0.3)
+    first = low_threshold.explore("obs", {"a": 1.0, "b": 2.0})
+    assert first.novelty_score == 0.5  # neutral placeholder...
+    assert first.measured is False  # ...explicitly undetermined...
+    assert first.is_novel is False  # ...and never novel, despite 0.5 >= 0.3
+
+    # All-constant history -> still undetermined, still never novel.
+    constant = CuriosityEngine(novelty_threshold=0.1)
+    for _ in range(10):
+        constant.explore("obs", {"a": 5.0, "b": 5.0})
+    result = constant.explore("obs", {"a": 5.0, "b": 5.0})
+    assert result.measured is False
+    assert result.is_novel is False
+
+    # A genuinely measured score still trips the low threshold as intended.
+    rng = np.random.default_rng(0)
+    engine = CuriosityEngine(novelty_threshold=0.3)
+    for vec in rng.normal(0.0, 1.0, (40, 2)):
+        engine.explore("obs", {"a": float(vec[0]), "b": float(vec[1])})
+    outlier = engine.explore("obs", {"a": 9.0, "b": -9.0})
+    assert outlier.measured is True
+    assert outlier.is_novel is True

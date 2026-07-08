@@ -24,6 +24,30 @@ def test_components_off_by_default() -> None:
     assert orch.enhanced_detector is None
 
 
+def test_default_analyze_payload_schema_is_unchanged() -> None:
+    """With both opt-in components off, to_dict() must not carry the new keys.
+
+    Emitting them unconditionally would change the default analyze() JSON
+    schema for strict consumers even though nothing was opted into.
+    """
+    orch = CognitiveOrchestrator()
+    result = orch.analyze(_ANOMALY, raw_data=np.zeros((8, 4)), context={"domain": "cyber"})
+    payload = result.to_dict()
+    assert "novelty_score" not in payload
+    assert "is_novel" not in payload
+    assert "predictive_forecast" not in payload
+
+
+def test_enabled_components_add_their_keys() -> None:
+    """Opting in surfaces the keys — presence tracks the component running."""
+    orch = CognitiveOrchestrator(enable_curiosity=True, enable_enhanced_detection=True)
+    result = orch.analyze(_ANOMALY, raw_data=np.zeros((8, 4)), context={"domain": "cyber"})
+    payload = result.to_dict()
+    assert "novelty_score" in payload
+    assert "is_novel" in payload
+    assert "predictive_forecast" in payload
+
+
 def test_curiosity_invoked_in_analyze() -> None:
     orch = CognitiveOrchestrator(enable_curiosity=True)
     assert orch.curiosity is not None
@@ -44,6 +68,7 @@ def test_curiosity_flags_out_of_distribution_observations() -> None:
     # ...then a wildly out-of-distribution one should score as novel.
     outlier = orch.analyze(_ANOMALY, raw_data=np.full((8, 4), 25.0), context={"domain": "cyber"})
     assert outlier.is_novel is True
+    assert outlier.novelty_score is not None  # curiosity ran -> field populated
     assert outlier.novelty_score > 0.7
 
 

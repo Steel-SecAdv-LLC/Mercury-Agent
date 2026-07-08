@@ -43,11 +43,17 @@ class ExplorationResult:
             standardized distance from the observed distribution; ``0.5`` during
             warm-up (fewer than two prior observations, so no variance estimate
             exists yet -- an honestly *undetermined* score, not a measured one).
-        is_novel: ``novelty_score >= novelty_threshold``.
+        is_novel: ``measured and novelty_score >= novelty_threshold``. An
+            undetermined score is never novel, regardless of the threshold --
+            otherwise a threshold below 0.5 would flag the neutral warm-up
+            placeholder as a novelty.
         standardized_distance: The raw RMS standardized deviation the score is
             derived from (``0.0`` during warm-up). A diagnostic, unbounded value.
         n_observations: How many observations have informed the running estimate
             (including this one).
+        measured: ``True`` when the score came from a real variance estimate;
+            ``False`` for warm-up / all-constant / unusable observations, so a
+            consumer can distinguish a measured ``0.5`` from the placeholder.
         timestamp: Wall-clock creation time.
     """
 
@@ -57,6 +63,7 @@ class ExplorationResult:
     is_novel: bool
     standardized_distance: float
     n_observations: int
+    measured: bool = True
     timestamp: float = field(default_factory=time.time)
 
     def to_dict(self) -> dict[str, Any]:
@@ -68,6 +75,7 @@ class ExplorationResult:
             "is_novel": self.is_novel,
             "standardized_distance": self.standardized_distance,
             "n_observations": self.n_observations,
+            "measured": self.measured,
         }
 
 
@@ -155,11 +163,17 @@ class CuriosityEngine:
             return None
         return self._m2 / (self._count - 1)
 
-    def _score(self, x: np.ndarray[Any, Any]) -> tuple[float, float]:
-        """Return ``(novelty, standardized_distance)`` for ``x`` pre-update."""
+    def _score(self, x: np.ndarray[Any, Any]) -> tuple[float, float, bool]:
+        """Return ``(novelty, standardized_distance, measured)`` for ``x`` pre-update.
+
+        ``measured`` is ``False`` when no variance estimate exists yet (warm-up,
+        or every dimension constant): the neutral score returned in that case is
+        explicitly *undetermined*, and callers must not treat it as a measured
+        novelty (in particular, it must never satisfy a novelty threshold).
+        """
         variance = self._variance()
         if self._mean is None or variance is None:
-            return self._WARMUP_NOVELTY, 0.0
+            return self._WARMUP_NOVELTY, 0.0, False
         std = np.sqrt(variance)
         # Only dimensions with real variance can be standardized. A constant
         # feature has std ~ 0; dividing by it would blow the whole score to 1.0
@@ -168,11 +182,11 @@ class CuriosityEngine:
         # is constant, novelty is undetermined (neutral warm-up score).
         valid = std > 1e-12
         if not np.any(valid):
-            return self._WARMUP_NOVELTY, 0.0
+            return self._WARMUP_NOVELTY, 0.0, False
         z = (x[valid] - self._mean[valid]) / std[valid]
         distance = float(np.sqrt(np.mean(np.square(z))))
         novelty = float(1.0 - np.exp(-distance))
-        return novelty, distance
+        return novelty, distance, True
 
     def _update(self, x: np.ndarray[Any, Any]) -> None:
         """Fold ``x`` into the online mean/variance estimate (Welford)."""
@@ -208,6 +222,7 @@ class CuriosityEngine:
                 is_novel=False,
                 standardized_distance=0.0,
                 n_observations=self._count,
+                measured=False,
             )
 
         # Distances are only comparable within one feature space; reset if the
@@ -217,16 +232,20 @@ class CuriosityEngine:
             self._mean = None
             self._m2 = None
 
-        novelty, distance = self._score(x)
+        novelty, distance, measured = self._score(x)
         self._update(x)
 
         return ExplorationResult(
             exploration_id=exploration_id,
             target=target,
             novelty_score=novelty,
-            is_novel=novelty >= self.novelty_threshold,
+            # An undetermined (warm-up / all-constant) score is never novel,
+            # regardless of where the threshold sits: with a threshold below
+            # 0.5 the neutral placeholder would otherwise be flagged novel.
+            is_novel=measured and novelty >= self.novelty_threshold,
             standardized_distance=distance,
             n_observations=self._count,
+            measured=measured,
         )
 
     def get_statistics(self) -> dict[str, Any]:

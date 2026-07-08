@@ -98,12 +98,16 @@ class CognitiveAnalysisResult:
     feedback_signals: dict[str, Any] = field(default_factory=dict)
 
     # Curiosity-driven novelty (opt-in): measured distance of this observation
-    # from the distribution the CuriosityEngine has seen.
-    novelty_score: float = 0.0
-    is_novel: bool = False
+    # from the distribution the CuriosityEngine has seen. None until the
+    # curiosity component actually scores an observation; to_dict() omits the
+    # keys while None so the default analyze() payload schema is byte-for-byte
+    # unchanged when the opt-in component is off.
+    novelty_score: float | None = None
+    is_novel: bool | None = None
 
     # Predictive-memory forecast (opt-in): Bayesian/HMM prediction from the
-    # EnhancedAnomalyDetector for this domain.
+    # EnhancedAnomalyDetector for this domain. Empty until a forecast is
+    # produced; to_dict() omits the key while empty (same schema guarantee).
     predictive_forecast: dict[str, Any] = field(default_factory=dict)
 
     # Ethical gate
@@ -114,8 +118,15 @@ class CognitiveAnalysisResult:
     analysis_time_ms: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
-        """To dict."""
-        return {
+        """To dict.
+
+        The opt-in curiosity/predictive keys are included only when their
+        component actually produced content, so the default ``analyze()``
+        payload schema (both components off) is unchanged from before those
+        components existed -- consumers with strict schemas see new keys only
+        after opting in.
+        """
+        payload: dict[str, Any] = {
             "anomaly_detected": self.anomaly_detected,
             "anomaly_score": self.anomaly_score,
             "severity": self.severity,
@@ -131,13 +142,16 @@ class CognitiveAnalysisResult:
             "knowledge_updates": self.knowledge_updates,
             "symbolic_consistency": self.symbolic_consistency,
             "feedback_signals": self.feedback_signals,
-            "novelty_score": self.novelty_score,
-            "is_novel": self.is_novel,
-            "predictive_forecast": self.predictive_forecast,
             "benevolence_score": self.benevolence_score,
             "ethical_permissible": self.ethical_permissible,
             "analysis_time_ms": self.analysis_time_ms,
         }
+        if self.novelty_score is not None:
+            payload["novelty_score"] = self.novelty_score
+            payload["is_novel"] = self.is_novel
+        if self.predictive_forecast:
+            payload["predictive_forecast"] = self.predictive_forecast
+        return payload
 
 
 # Whitelist of caller-supplied ``context["domain"]`` values that are
