@@ -168,6 +168,7 @@ def test_deep_tree_does_not_overflow_the_stack() -> None:
     model = SimpleNamespace(tree_=tree_, predict=lambda X: np.zeros(len(X)))
     explainer = TreeShapExplainer(model, seed=0)
     exp = explainer.explain(np.array([1.0]))  # x[0]=1 > 0 -> always right -> 999
+    assert isinstance(exp, ShapExplanation)  # single instance -> scalar explanation
     total = exp.base_value + float(np.sum(exp.shap_values))
     assert total == pytest.approx(999.0, abs=1e-6)
 
