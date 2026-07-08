@@ -728,9 +728,26 @@ class JWTAuth:
             return {"user": user.username}
     """
 
-    # Development fallback key - NEVER use in production
-    _DEV_FALLBACK_KEY = "MERCURY_AGENT_DEV_FALLBACK_KEY_DO_NOT_USE_IN_PRODUCTION"
+    # Development fallback signing key. Generated ONCE per process (lazily) —
+    # deliberately NOT a published constant. A hard-coded key in source control
+    # (the old behavior) is CWE-798: any deployment that reached this dev path
+    # by misconfiguration (forgot both MERCURY_ENV and JWT_SECRET_KEY) could
+    # have its admin tokens minted by anyone reading the repo. A per-process
+    # random key removes that: tokens are valid within one process (dev works),
+    # cannot be forged from a known value, and do NOT verify across workers /
+    # replicas / restarts — so a multi-replica production deployment that forgot
+    # to set a key fails VISIBLY (auth breaks) instead of silently accepting
+    # forged tokens. NEVER rely on this in production; set JWT_SECRET_KEY or
+    # AMA_MASTER_SEED.
+    _dev_fallback_key: str | None = None
     _warned_about_fallback = False
+
+    @classmethod
+    def _get_dev_fallback_key(cls) -> str:
+        """Return this process's ephemeral dev signing key, creating it once."""
+        if cls._dev_fallback_key is None:
+            cls._dev_fallback_key = secrets.token_hex(32)
+        return cls._dev_fallback_key
 
     def __init__(
         self,
@@ -796,15 +813,20 @@ class JWTAuth:
                         f"HD derivation error: {e}"
                     ) from e
             elif allow_dev_fallback:
-                # Use fallback key for development only
-                self.secret_key = self._DEV_FALLBACK_KEY
+                # Use an ephemeral per-process key for development only. Not a
+                # published constant (see _get_dev_fallback_key): unforgeable
+                # from source, and non-portable so a misconfigured multi-replica
+                # deployment fails visibly rather than silently.
+                self.secret_key = self._get_dev_fallback_key()
                 self.using_fallback = True
 
                 # Log warning only once per class (not per instance)
                 if not JWTAuth._warned_about_fallback:
                     logger.warning(
-                        "JWT_SECRET_KEY not set — using insecure dev fallback key "
-                        "(dev only; set JWT_SECRET_KEY before production)."
+                        "JWT_SECRET_KEY not set — using an ephemeral per-process dev "
+                        "signing key. Tokens will not verify across workers/replicas/"
+                        "restarts. Set JWT_SECRET_KEY (`openssl rand -hex 32`) or "
+                        "AMA_MASTER_SEED before production."
                     )
                     JWTAuth._warned_about_fallback = True
             else:
