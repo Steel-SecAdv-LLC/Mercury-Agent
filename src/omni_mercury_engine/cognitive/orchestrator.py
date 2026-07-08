@@ -574,9 +574,7 @@ class CognitiveOrchestrator(LoggerMixin):
                         "observation",
                         {"score": anomaly_score, "severity": severity, "domain": domain_label},
                     )
-                    forecast = self.enhanced_detector.predict(
-                        domain_label, include_external=False
-                    )
+                    forecast = self.enhanced_detector.predict(domain_label, include_external=False)
                     interval = getattr(forecast, "confidence_interval", None)
                     result.predictive_forecast = {
                         "prediction_type": getattr(

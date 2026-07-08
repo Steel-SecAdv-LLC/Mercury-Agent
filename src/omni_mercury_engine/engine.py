@@ -1504,15 +1504,19 @@ class OmniMercuryEngine(LoggerMixin):
         # is reset to None when ``X`` is not a usable 2-D array so a prior fit's
         # background is never served stale.
         try:
-            x_arr: np.ndarray[Any, Any] | None = np.asarray(X, dtype=np.float64)
+            background_source: np.ndarray[Any, Any] | None = np.asarray(X, dtype=np.float64)
         except (TypeError, ValueError):
-            x_arr = None
-        if x_arr is not None and x_arr.ndim == 2 and x_arr.shape[0] > 0:
-            n_background = min(100, x_arr.shape[0])
+            background_source = None
+        if (
+            background_source is not None
+            and background_source.ndim == 2
+            and background_source.shape[0] > 0
+        ):
+            n_background = min(100, background_source.shape[0])
             sample_idx = np.random.default_rng(0).choice(
-                x_arr.shape[0], size=n_background, replace=False
+                background_source.shape[0], size=n_background, replace=False
             )
-            self._fusion_background = x_arr[np.sort(sample_idx)].copy()
+            self._fusion_background = background_source[np.sort(sample_idx)].copy()
         else:
             self._fusion_background = None
 
