@@ -26,6 +26,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from omni_mercury_engine.datasets.exceptions import DataSourceUnavailableError
 from omni_mercury_engine.datasets.security import NSLKDDLoader as _NSLKDDDataset
 from omni_mercury_engine.loaders.base import BaseDomainLoader
 
@@ -335,10 +336,20 @@ class NetworkSecurityLoader(BaseDomainLoader):
         if df.empty:
             return np.array([], dtype=np.int64)
 
-        if "label" in df.columns:
-            labels = df["label"].values.astype(np.int64)
-        else:
-            labels = np.zeros(len(df), dtype=np.int64)
+        if "label" not in df.columns:
+            # Ground truth genuinely cannot be derived. Fabricating an
+            # all-normal vector here (the old behavior) silently corrupts every
+            # benchmark that trusts these labels — a mute detector scores a
+            # perfect run and a working one scores all false positives. The
+            # method contract is "labels derived directly from the dataset";
+            # fail loud instead of inventing them.
+            raise DataSourceUnavailableError(
+                f"network_security: cannot derive ground-truth labels for "
+                f"{event_id!r} — dataset-infrastructure loaders were unavailable "
+                f"and the fetched dataframe has no 'label' column "
+                f"(columns: {list(df.columns)}). Refusing to fabricate labels."
+            )
+        labels = df["label"].values.astype(np.int64)
 
         logger.info(
             "network_security: ground truth for '%s' -- " "%d anomalies / %d total.",
@@ -481,11 +492,16 @@ class NetworkSecurityLoader(BaseDomainLoader):
                 return labels.astype(np.int64)
 
         except Exception as exc:
-            logger.debug(
+            # Elevated from debug: a broken dataset loader (schema drift, missing
+            # file) is an infrastructure failure the operator must see, not hide
+            # below the default log level while the caller falls through toward a
+            # degraded label path.
+            logger.warning(
                 "network_security: could not load labels via dataset "
                 "infrastructure for '%s': %s",
                 event_id,
                 exc,
+                exc_info=True,
             )
         return None
 
