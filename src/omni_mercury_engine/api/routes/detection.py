@@ -573,6 +573,10 @@ class TierDetectRequest(BaseModel):
         lt=1.0,
         description="Distribution-free false-positive rate; adds conformal flags",
     )
+    include_attribution: bool = Field(
+        default=False,
+        description="Also return the calibrated per-detector score matrix (which detectors fired)",
+    )
 
 
 @router.post(
@@ -605,6 +609,7 @@ async def detect_tier(
             method=request.method,
             contamination=request.contamination,
             conformal_alpha=request.conformal_alpha,
+            include_attribution=request.include_attribution,
         )
 
         user_id = user.id if user else "anonymous"

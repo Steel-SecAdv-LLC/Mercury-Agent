@@ -249,6 +249,10 @@ class MercuryMCPServer:
                             "exclusiveMaximum": 1.0,
                             "description": "Distribution-free FP rate; adds conformal flags.",
                         },
+                        "include_attribution": {
+                            "type": "boolean",
+                            "description": "Also return the calibrated per-detector score matrix.",
+                        },
                     },
                     "required": ["data"],
                 },
@@ -646,6 +650,7 @@ class MercuryMCPServer:
                     if args.get("conformal_alpha") is not None
                     else None
                 ),
+                include_attribution=bool(args.get("include_attribution", False)),
             )
         except (ValueError, TypeError) as exc:
             raise ToolError(str(exc)) from exc

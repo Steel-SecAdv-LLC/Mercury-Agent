@@ -45,6 +45,21 @@ def test_runner_stacking_requires_labels() -> None:
         run_tier_ensemble(rng.normal(0, 1, 100), method="stacking", subset=("spectral_residual",))
 
 
+def test_runner_attribution_exposes_per_detector_scores() -> None:
+    rng = np.random.default_rng(3)
+    series = rng.normal(0, 1, 300)
+    series[150:158] += 8.0
+    subset = ("spectral_residual", "spot_evt", "bocpd")
+    r = run_tier_ensemble(series, subset=subset, include_attribution=True)
+
+    assert r["detector_names"] == list(subset)
+    matrix = np.asarray(r["per_detector_scores"])
+    assert matrix.shape == (300, len(subset))  # n_points x n_detectors
+    assert np.all((matrix >= 0.0) & (matrix <= 1.0))
+    # Attribution is not returned unless requested.
+    assert "per_detector_scores" not in run_tier_ensemble(series, subset=subset)
+
+
 def _causal_chain_fault(seed: int = 0) -> tuple[np.ndarray, np.ndarray]:
     """A 4-node system where a fault originates at node 0 and propagates 0->1->2.
 

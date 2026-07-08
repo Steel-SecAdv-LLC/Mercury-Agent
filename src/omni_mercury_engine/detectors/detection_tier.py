@@ -643,6 +643,23 @@ class StreamingScoreEnsemble:
             raise RuntimeError("call fit() before ensemble_uncertainty()")
         return self._calibrate(self._score_matrix(_to_1d_series(series))).std(axis=1)
 
+    def per_detector_scores(
+        self, series: np.ndarray[Any, Any] | torch.Tensor
+    ) -> tuple[list[str], np.ndarray[Any, Any]]:
+        """Return each member's *calibrated* per-point score (the attribution view).
+
+        Unlike :meth:`score` (which collapses the members into one number), this
+        exposes the ``(n_points, n_detectors)`` calibrated ``[0, 1]`` matrix that
+        the combiner sees, alongside the ordered member names. It answers "which
+        detector(s) drove this flag" -- a spectral-residual spike, a changepoint,
+        an extreme-value exceedance -- which is what an analyst extracts after a
+        point is flagged.
+        """
+        if not self._fitted:
+            raise RuntimeError("call fit() before per_detector_scores()")
+        matrix = self._calibrate(self._score_matrix(_to_1d_series(series)))
+        return list(self._names), matrix
+
     def bma_weights(self) -> dict[str, tuple[float, float]]:
         """BMA weight ± bootstrap-uncertainty per detector (``{}`` if not BMA)."""
         if self.method != "bma":
@@ -720,6 +737,7 @@ def run_tier_ensemble(
     contamination: float = 0.05,
     calibration: str | None = None,
     conformal_alpha: float | None = None,
+    include_attribution: bool = False,
 ) -> dict[str, Any]:
     """Build → fit → score the streaming detector-tier ensemble in one call.
 
@@ -745,13 +763,20 @@ def run_tier_ensemble(
             false-positive guarantee (FPR ``<= alpha``). The known-normal
             calibration stream is the label-0 subset when labels are given, else
             the observed scores (an in-sample proxy under exchangeability).
+        include_attribution: When ``True``, also return the calibrated
+            per-detector score matrix (``detector_names`` +
+            ``per_detector_scores``, ``n_points`` × ``n_detectors``) so a caller
+            can see *which* members drove each point -- the detector-level
+            attribution behind the blended score.
 
     Returns:
         A JSON-serialisable dict: ``method``, ``members``, ``threshold``,
         per-point ``scores`` (calibrated ``[0, 1]``), ``flags`` (0/1),
         ``uncertainty`` (cross-detector disagreement), ``n_points``,
-        ``n_flagged``; ``bma_weights`` when ``method="bma"``; and the
-        ``conformal_*`` fields when ``conformal_alpha`` is set.
+        ``n_flagged``; ``bma_weights`` when ``method="bma"``; the
+        ``conformal_*`` fields when ``conformal_alpha`` is set; and
+        ``detector_names`` + ``per_detector_scores`` when
+        ``include_attribution`` is set.
     """
     detectors = build_tier_detectors(subset)
     resolved_method = method or ("stacking" if labels is not None else "average")
@@ -779,6 +804,11 @@ def run_tier_ensemble(
     }
     if resolved_method == "bma":
         result["bma_weights"] = ensemble.bma_weights()
+
+    if include_attribution:
+        detector_names, calibrated = ensemble.per_detector_scores(series)
+        result["detector_names"] = detector_names
+        result["per_detector_scores"] = np.asarray(calibrated, dtype=float).tolist()
 
     if conformal_alpha is not None:
         if labels is not None:

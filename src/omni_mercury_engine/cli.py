@@ -154,6 +154,12 @@ def detect(input: str, detector: str, output: str, threshold: float | None) -> N
     type=float,
     help="Distribution-free false-positive rate (e.g. 0.05); adds conformal flags",
 )
+@click.option(
+    "--attribution",
+    is_flag=True,
+    default=False,
+    help="Also emit the calibrated per-detector score matrix (which detectors fired)",
+)
 @click.option("--output", "-o", default=None, help="Output JSON file (stdout if omitted)")
 def tier_detect(
     input: str,
@@ -162,14 +168,15 @@ def tier_detect(
     subset: str | None,
     contamination: float,
     conformal_alpha: float | None,
+    attribution: bool,
     output: str | None,
 ) -> None:
     """Run the streaming detector-tier ensemble on a 1-D series (torch-free).
 
     Exposes the statistical / state-space / streaming detector tier's calibrated
     ensemble — per-point anomaly probabilities, flags, cross-detector
-    uncertainty, and optional distribution-free (conformal) false-positive
-    control — without requiring the [ml] extra.
+    uncertainty, optional distribution-free (conformal) false-positive control,
+    and optional per-detector attribution — without requiring the [ml] extra.
     """
     from omni_mercury_engine.detectors.detection_tier import run_tier_ensemble
 
@@ -184,6 +191,7 @@ def tier_detect(
         method=method,
         contamination=contamination,
         conformal_alpha=conformal_alpha,
+        include_attribution=attribution,
     )
 
     text = json.dumps(result, indent=2, default=str)
