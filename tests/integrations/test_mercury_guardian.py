@@ -577,3 +577,42 @@ class TestGOSNNScalars:
         scalars = adapter.get_gosnn_scalars()
         assert "omni_crypto_avg_severity" in scalars
         assert scalars["omni_crypto_avg_severity"] > 0
+
+
+class TestAdaptivePostureRotationWiring:
+    """The adaptive-posture controller is wired to real AMA key rotation (F2).
+
+    Regression: CryptoPostureController was constructed with rotation_manager=
+    None and hd_derivation=None, so a ROTATE_KEYS decision could not rotate any
+    key material — the response loop was inert.
+    """
+
+    def test_controller_has_real_rotation_machinery(self) -> None:
+        from omni_mercury_engine.integrations.mercury_amacrypto import (
+            MercuryGuardianAdapter,
+        )
+
+        adapter = MercuryGuardianAdapter()
+        ctrl = adapter._posture_controller
+        assert ctrl.rotation_manager is not None
+        assert ctrl.hd_derivation is not None
+
+    def test_controller_shares_the_auth_key_manager_rotation_state(self) -> None:
+        from omni_mercury_engine.api.auth import get_auth_key_manager
+        from omni_mercury_engine.integrations.mercury_amacrypto import (
+            MercuryGuardianAdapter,
+        )
+
+        adapter = MercuryGuardianAdapter()
+        assert adapter._posture_controller.rotation_manager is get_auth_key_manager().rotation_manager
+
+    def test_rotation_executes_without_error(self) -> None:
+        from omni_mercury_engine.integrations.mercury_amacrypto import (
+            MercuryGuardianAdapter,
+        )
+
+        adapter = MercuryGuardianAdapter()
+        ctrl = adapter._posture_controller
+        before = ctrl._rotation_count
+        ctrl._trigger_rotation()  # exercises the real KeyRotationManager path
+        assert ctrl._rotation_count == before + 1
