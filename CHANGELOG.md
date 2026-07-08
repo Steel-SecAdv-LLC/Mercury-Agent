@@ -27,6 +27,85 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security & robustness hardening (real-backend audit pass)
+
+A deliberate audit + fix pass built and tested end-to-end against the real AMA
+Cryptography v3.3.0 native backend (KATs green). Each fix carries regression
+tests; no behavior was suppressed or cosmetically patched.
+
+**Security — cryptography**
+
+- **Replaced a cryptographically broken "quantum-resistant" encryptor with real
+  AMA ML-KEM-1024 + AES-256-GCM.** `security/encryption.py`'s
+  `QuantumResistantEncryption` (exported as `SecureDataHandler`) used zero-noise
+  LWE (secret key recoverable by Gaussian elimination), a repeating-XOR
+  keystream, and a non-constant-time signature compare. It is now a proper
+  KEM-DEM over `MercuryCrypto` (Kyber-1024 encapsulation + AES-256-GCM AEAD);
+  `sign_data` uses native HMAC with constant-time verification. Public API
+  preserved.
+- **Replaced the hard-coded JWT dev fallback key with an ephemeral per-process
+  key** (CWE-798). A deployment that forgot both `MERCURY_ENV` and
+  `JWT_SECRET_KEY` signed admin tokens with a constant published in source.
+  The fallback is now a per-process random key: unforgeable from source, and
+  non-portable so a misconfigured multi-replica deploy fails visibly instead of
+  silently accepting forged tokens.
+- **PQC import gate now consults AMA's FIPS 140-3 power-on self-test.** The gate
+  checked algorithm flags + version but not the POST verdict, so a build whose
+  self-tests failed could still start. It now fails closed unless
+  `ama_cryptography.check_operational()` reports OPERATIONAL.
+- **`MercuryCrypto.verify_crypto_package`** exposed — Mercury could seal 6-layer
+  AMA packages but had no way to verify them.
+- **Audit hash-chain key derived from AMA HD key management** (`audit_sign`)
+  instead of a per-process random key, so audit chains verify across
+  workers/replicas/restarts when `AMA_MASTER_SEED` is set.
+- **Adaptive-posture controller wired to real AMA key rotation** — it was
+  constructed with `rotation_manager=None`, so a ROTATE_KEYS decision was a
+  no-op; it now drives the real `KeyRotationManager`.
+
+**Robustness — fail-loud / fail-closed**
+
+- **Streaming pipeline no longer loses alerts on a failed publish**: a failed
+  `send()` now vetoes the input-offset commit (at-least-once) and increments a
+  visible `publish_failures` metric, instead of committing and dropping the
+  detected anomaly. The Kafka `commit()` dependency import was hoisted so a
+  missing `aiokafka` surfaces loudly rather than being logged as "commit failed".
+- **Integration adapters (HTTP, OpenTelemetry) stop reporting connected/
+  delivered when the transport dependency is missing** — they now fail loud and
+  no longer leak a session on a failed health probe.
+- **`RealTimeThreatDetector` fails closed when blind** — it no longer marks
+  itself fitted with zero working sub-detectors, nor reports "LOW / no threat"
+  when every sub-detector errors at inference.
+- **Crypto posture reports `UNKNOWN` (not a falsely-reassuring `NOMINAL`) when
+  the evaluator is failing**, with `posture_evaluation_healthy` /
+  `posture_eval_consecutive_failures` surfaced.
+- **A failed nano detection sub-score is excluded from the fusion blend** rather
+  than averaged in as a spurious `0.0` that depressed the fused anomaly score.
+- **A configured fail-closed `nan_policy` is honoured** even when
+  `DetectionConfig.resolve` fails on an unrelated key (was silently reverting to
+  the permissive env default).
+- **Ground-truth labels are never fabricated** — `NetworkSecurityLoader` raises
+  instead of returning an all-normal label vector when labels can't be derived.
+- **Oracle checkpoint-restore failures are surfaced** (`restore_failed` in the
+  Oracle metadata + WARNING) instead of leaving the detector silently scoring
+  without its Oracle component.
+- Several swallowed security-audit events and silent degradations were elevated
+  from DEBUG to WARNING.
+
+**API / CLI**
+
+- **`mercury-agent detect --threshold` now governs the fusion decision** (it was
+  parsed and ignored); out-of-range values are rejected and the statistical
+  path reports it as inapplicable.
+- **`GET /export/metrics` rejects a non-JSON `format`** with 400 instead of
+  silently returning JSON.
+
+### Removed
+
+- **`ml/ppo_trainer.py`** — dead in every supported install (no `stable_baselines3`
+  extra, no `gymnasium`), broken even with SB3 hand-installed, and its surviving
+  paths fabricated training results. No runtime caller, no tests. See
+  DEPRECATION.md §6.6.
+
 ## [2.1.0] - 2026-07-08
 
 Feature-additive over 2.0.0 — the detector-tier surface below is new public

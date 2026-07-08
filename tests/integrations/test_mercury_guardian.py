@@ -604,7 +604,9 @@ class TestAdaptivePostureRotationWiring:
         )
 
         adapter = MercuryGuardianAdapter()
-        assert adapter._posture_controller.rotation_manager is get_auth_key_manager().rotation_manager
+        assert (
+            adapter._posture_controller.rotation_manager is get_auth_key_manager().rotation_manager
+        )
 
     def test_rotation_executes_without_error(self) -> None:
         from omni_mercury_engine.integrations.mercury_amacrypto import (
@@ -645,9 +647,7 @@ class TestPostureStatusHonestyOnEvaluatorFailure:
         )
 
         adapter = MercuryGuardianAdapter()
-        with patch.object(
-            adapter._posture_evaluator, "evaluate", side_effect=RuntimeError("boom")
-        ):
+        with patch.object(adapter._posture_evaluator, "evaluate", side_effect=RuntimeError("boom")):
             adapter._evaluate_posture_from_gosnn()
 
         status = adapter.get_pqc_status()
