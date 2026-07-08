@@ -233,3 +233,43 @@ class TestFiniteFeatures:
     def test_preserves_ordinary_values(self) -> None:
         out = finite_features(np.array([1.5, -2.5, 0.0]))
         assert out == pytest.approx(np.array([1.5, -2.5, 0.0], dtype=np.float32))
+
+
+class TestBoundFiniteConfigResolutionFailure:
+    """A configured fail-closed nan_policy must survive a config-resolution error.
+
+    Regression: ``bound_finite_config`` silently reverted to the permissive
+    env-only guard on ANY ``DetectionConfig.resolve`` exception, so a detector
+    that explicitly requested ``nan_policy="raise"`` would quietly correct
+    non-finite input instead of raising when an unrelated config key had a typo.
+    """
+
+    class _BadConfigDetector:
+        # A ``_config`` that resolves-fails (bogus key type) yet explicitly sets
+        # a fail-closed nan_policy. name/_detection_config left unset.
+        name = "bad_config_detector"
+
+        def __init__(self, policy: str) -> None:
+            # ``nan_policy`` is honoured explicitly; the poison key forces
+            # DetectionConfig.resolve to raise so we exercise the except branch.
+            self._config = {"nan_policy": policy, "max_magnitude": object()}
+
+    def test_explicit_raise_policy_is_honoured_on_resolution_failure(self) -> None:
+        from omni_mercury_engine.detectors._calibration import bound_finite_config
+        from omni_mercury_engine.detectors.detection_config import NonFinitePolicyError
+
+        det = self._BadConfigDetector("raise")
+        arr = np.array([1.0, np.nan, 3.0])
+
+        # Must fail closed rather than silently correcting the NaN.
+        with pytest.raises(NonFinitePolicyError):
+            bound_finite_config(det, arr)
+
+    def test_neutral_policy_still_sanitises_on_resolution_failure(self) -> None:
+        from omni_mercury_engine.detectors._calibration import bound_finite_config
+
+        det = self._BadConfigDetector("neutral")
+        arr = np.array([1.0, np.nan, 3.0])
+
+        out = bound_finite_config(det, arr)
+        assert np.all(np.isfinite(out))

@@ -31,6 +31,7 @@ stays always-importable with no optional dependency.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import numpy as np
@@ -43,6 +44,8 @@ from omni_mercury_engine.detectors.detection_config import (
     active_nan_policy,
     record_nonfinite_correction,
 )
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "FINITE_CAP",
@@ -193,7 +196,29 @@ def bound_finite_config(
 
             cfg = DetectionConfig.resolve(getattr(detector_obj, "_config", None))
             detector_obj._detection_config = cfg
-        except Exception:  # pragma: no cover - fall back to the env-only guard
+        except Exception as exc:
+            # Resolution failed (e.g. a typo in an unrelated config key). Do not
+            # silently revert to the permissive env default: if the operator
+            # explicitly set a fail-closed nan_policy, dropping it would void
+            # their contract on the data-sanitisation path with zero signal.
+            raw_cfg = getattr(detector_obj, "_config", None)
+            requested_policy = raw_cfg.get("nan_policy") if isinstance(raw_cfg, dict) else None
+            logger.warning(
+                "Detection config resolution failed for detector %s (%s); "
+                "falling back to the env-only non-finite guard%s.",
+                name,
+                exc,
+                (
+                    f" while honouring the explicitly configured nan_policy={requested_policy!r}"
+                    if requested_policy
+                    else ""
+                ),
+                exc_info=True,
+            )
+            if requested_policy is not None:
+                # Honour the operator's explicit policy directly; an invalid
+                # value fails loudly in NaNPolicy.coerce rather than degrading.
+                return bound_finite(arr, detector=name, policy=requested_policy)
             return bound_finite(arr, detector=name)
     return bound_finite(arr, detector=name, policy=cfg.nan_policy, max_magnitude=cfg.max_magnitude)
 
