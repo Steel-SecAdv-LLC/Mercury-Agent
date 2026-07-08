@@ -178,9 +178,7 @@ class TestNanoScaleEnhancements:
         assert "dimensional_micro_score" in ok
 
         # Force the dimensional sub-detector to fail -> None -> excluded.
-        with patch.object(
-            detector, "_dimensional_downsampling_detection", return_value=None
-        ):
+        with patch.object(detector, "_dimensional_downsampling_detection", return_value=None):
             excluded = detector._nano_scale_detection(data)
         assert "dimensional_micro_score" not in excluded
         # The other sub-scores are still present (blend uses only real scores).
