@@ -521,7 +521,48 @@ class LandslideDetector:
         self.recursion_analyzer = RecursionMultiScaleAnalyzer() if enable_recursion else None
         self.lag_extractor = TemporalLagFeatureExtractor() if enable_recursion else None
 
+        # Anti-theater guard (mirrors SchumannResonanceDetector): the
+        # SlopeStabilityModel ships with random weights and no labelled failure
+        # corpus exists to train it. Until real weights are loaded via
+        # load_neural_weights(), its failure probability / type outputs are
+        # noise, so slope stability is assessed from the OBSERVED geotechnical
+        # fields instead -- slope angle, soil saturation, displacement rate, and
+        # the trigger states (see _assess_slope_stability_physics).
+        self._neural_trained = False
+        self._warned_untrained = False
+
         self.logger = logging.getLogger(__name__)
+
+    def load_neural_weights(self, checkpoint_path: str) -> None:
+        """Load trained weights for the slope-stability model.
+
+        Until this is called the network is untrained and stability is assessed
+        from the deterministic geotechnical physics.
+
+        Args:
+            checkpoint_path: Path to a torch checkpoint containing a
+                ``stability_model`` state dict.
+        """
+        if self.stability_model is None:
+            raise RuntimeError("slope-stability modelling is disabled on this detector")
+        checkpoint = torch.load(checkpoint_path, map_location="cpu")
+        self.stability_model.load_state_dict(checkpoint["stability_model"])
+        self._neural_trained = True
+        self.logger.info(
+            "Landslide neural weights loaded from %s; using learned stability model",
+            checkpoint_path,
+        )
+
+    def _warn_untrained_once(self) -> None:
+        """Emit a single WARNING that the untrained NN is bypassed for physics."""
+        if not self._warned_untrained:
+            self.logger.warning(
+                "LandslideDetector's SlopeStabilityModel is untrained (no checkpoint "
+                "loaded); assessing stability from geotechnical physics (slope angle, "
+                "saturation, displacement, triggers) instead of the NN. Call "
+                "load_neural_weights() once a trained checkpoint exists."
+            )
+            self._warned_untrained = True
 
     def predict_landslide(self, landslide_data: dict[str, Any]) -> LandslidePredictionResult:
         """Comprehensive landslide prediction.
@@ -578,16 +619,8 @@ class LandslideDetector:
             if result.snowmelt_trigger:
                 triggers_detected += 0.5
 
-        if self.enable_stability and "slope_features" in landslide_data:
-            stability_result = self._assess_slope_stability(landslide_data["slope_features"])
-            result.slope_failure_probability = stability_result["failure_probability"]
-            result.landslide_type = stability_result["landslide_type"]
-            result.confidence = max(result.confidence, stability_result["failure_probability"])
-
-        result.landslide_imminent = (
-            triggers_detected >= 1 and result.slope_failure_probability > 0.6
-        )
-
+        # Parse the observed geotechnical fields BEFORE the stability assessment
+        # so the physics path can consume them.
         if "sensor_data" in landslide_data:
             result.soil_saturation_pct = landslide_data["sensor_data"].get("soil_saturation_pct")
             result.displacement_rate_mm_day = landslide_data["sensor_data"].get(
@@ -596,6 +629,23 @@ class LandslideDetector:
 
         if "slope_data" in landslide_data:
             result.slope_angle_deg = landslide_data["slope_data"].get("slope_angle_deg")
+
+        if self.enable_stability:
+            if self._neural_trained and "slope_features" in landslide_data:
+                stability_result = self._assess_slope_stability(landslide_data["slope_features"])
+            else:
+                # Physics path: works from the real geotechnical fields, so it
+                # runs even without an opaque slope_features vector (previously
+                # landslide_imminent could NEVER fire without one).
+                self._warn_untrained_once()
+                stability_result = self._assess_slope_stability_physics(result)
+            result.slope_failure_probability = stability_result["failure_probability"]
+            result.landslide_type = stability_result["landslide_type"]
+            result.confidence = max(result.confidence, stability_result["failure_probability"])
+
+        result.landslide_imminent = (
+            triggers_detected >= 1 and result.slope_failure_probability > 0.6
+        )
 
         result.risk_level = self._determine_risk_level(triggers_detected, result)
         result.evacuation_zones = self._identify_evacuation_zones(result)
@@ -633,6 +683,50 @@ class LandslideDetector:
         return {
             "failure_probability": failure_probability,
             "landslide_type": landslide_type,
+        }
+
+    @staticmethod
+    def _assess_slope_stability_physics(result: LandslidePredictionResult) -> dict[str, Any]:
+        """Deterministic stability assessment from observed geotechnical fields.
+
+        Grounded in standard slope-failure mechanics rather than an untrained
+        network: an accelerating displacement rate is the strongest single
+        precursor (saturating around 50 mm/day of creep), and the interaction of
+        slope angle with soil saturation (both are required -- a saturated flat
+        field does not slide, a dry moderate slope rarely does) forms the
+        geotechnical term. The two combine with a noisy-OR. Missing fields
+        contribute zero severity -- nothing is imputed or fabricated. The failure
+        type follows the observed trigger: snowmelt → snow avalanche, seismic on
+        a steep slope → rock slide, rainfall on saturated ground → mud/debris
+        flow, otherwise earth flow / rotational slide by saturation.
+        """
+        slope = result.slope_angle_deg or 0.0
+        saturation = (result.soil_saturation_pct or 0.0) / 100.0
+        displacement = result.displacement_rate_mm_day or 0.0
+
+        slope_severity = float(np.clip((slope - 15.0) / 30.0, 0.0, 1.0))
+        displacement_severity = float(np.clip(displacement / 50.0, 0.0, 1.0))
+        geotechnical = slope_severity * float(np.clip(saturation, 0.0, 1.0))
+
+        failure_probability = float(1.0 - (1.0 - displacement_severity) * (1.0 - geotechnical))
+
+        if result.snowmelt_trigger:
+            landslide_type = "snow_avalanche"
+        elif result.seismic_trigger and slope >= 35.0:
+            landslide_type = "rock_slide"
+        elif result.rainfall_trigger and saturation >= 0.8:
+            landslide_type = "mud_flow"
+        elif result.rainfall_trigger:
+            landslide_type = "debris_flow"
+        elif saturation >= 0.6:
+            landslide_type = "earth_flow"
+        else:
+            landslide_type = "rotational_slide"
+
+        return {
+            "failure_probability": failure_probability,
+            "landslide_type": landslide_type,
+            "method": "physics_geotechnical",
         }
 
     def _determine_risk_level(self, triggers: float, result: LandslidePredictionResult) -> str:

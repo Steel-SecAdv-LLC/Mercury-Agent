@@ -236,7 +236,6 @@ class TestHurricanePredictionResult:
             harmonic_patterns=[0.05, 0.1, 0.2],
             storm_surge_risk="high",
             rainfall_potential_inches=15.0,
-            landfall_probability=0.75,
             warning_actions=["Evacuate coastal areas"],
             evacuation_zones=["Zone A", "Zone B"],
         )
