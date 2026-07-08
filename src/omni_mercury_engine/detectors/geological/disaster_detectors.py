@@ -130,7 +130,9 @@ class EarthquakePredictionResult:
 
     earthquake_detected: bool
     confidence: float
-    estimated_magnitude: float
+    # None when no trained model is loaded: an uncalibrated single station has
+    # no honest Richter estimate (magnitude_class is "undetermined" then).
+    estimated_magnitude: float | None
     magnitude_class: str
 
     p_wave_detected: bool = False
@@ -520,9 +522,49 @@ class TsunamiDetector:
         self.waveform_analyzer = WaveformFFTAnalyzer().to(self.device)
         self.waveform_analyzer.eval()
 
+        # Anti-theater guard (mirrors SchumannResonanceDetector): the
+        # WaveformFFTAnalyzer ships with random weights and no labelled tsunami
+        # corpus exists to train it. Until real weights are loaded via
+        # load_neural_weights(), its probability/wave-height outputs are noise,
+        # so predict_tsunami derives both from the OBSERVED record instead: the
+        # wave height is the peak sea-level deviation from the median baseline
+        # (what a DART bottom-pressure recorder actually measures) and the
+        # confidence is a noisy-OR of that amplitude severity with the
+        # tsunami-band FFT resonance score.
+        self._neural_trained = False
+        self._warned_untrained = False
+
         self.tsunami_frequencies = [0.001, 0.005, 0.01, 0.02]
 
         logger.info(f"TsunamiDetector initialized: threshold={detection_threshold}")
+
+    def load_neural_weights(self, checkpoint_path: str) -> None:
+        """Load trained weights for the waveform analyzer.
+
+        Until this is called the network is untrained and detection runs on the
+        deterministic amplitude + resonance physics of the observed waveform.
+
+        Args:
+            checkpoint_path: Path to a torch checkpoint containing a
+                ``waveform_analyzer`` state dict.
+        """
+        checkpoint = torch.load(checkpoint_path, map_location="cpu")
+        self.waveform_analyzer.load_state_dict(checkpoint["waveform_analyzer"])
+        self._neural_trained = True
+        logger.info(
+            "Tsunami neural weights loaded from %s; using learned analyzer", checkpoint_path
+        )
+
+    def _warn_untrained_once(self) -> None:
+        """Emit a single WARNING that the untrained NN is bypassed for physics."""
+        if not self._warned_untrained:
+            logger.warning(
+                "TsunamiDetector's WaveformFFTAnalyzer is untrained (no checkpoint "
+                "loaded); deriving wave height and confidence from the observed "
+                "waveform amplitude + tsunami-band resonance instead of the NN. "
+                "Call load_neural_weights() once a trained checkpoint exists."
+            )
+            self._warned_untrained = True
 
     def predict_tsunami(
         self,
@@ -562,15 +604,40 @@ class TsunamiDetector:
                     resonance_score += 0.25
                     dominant_freqs.append(float(freqs[idx]))
 
-        with torch.no_grad():
-            tsunami_prob, wave_height = self.waveform_analyzer(waveform_data)
-
-        confidence = float(tsunami_prob[0].item())
-        confidence = min(1.0, confidence + resonance_score * 0.3)
+        if self._neural_trained:
+            with torch.no_grad():
+                tsunami_prob, wave_height = self.waveform_analyzer(waveform_data)
+            confidence = float(tsunami_prob[0].item())
+            confidence = min(1.0, confidence + resonance_score * 0.3)
+            wave_height_m = float(wave_height[0].item())
+        else:
+            # Physics path: the wave height IS the observed peak sea-level
+            # deviation from the median baseline, and the confidence is a
+            # noisy-OR of the robust amplitude severity with the tsunami-band
+            # resonance score. Deterministic; nothing is fabricated.
+            self._warn_untrained_once()
+            record = waveform_data.cpu().numpy()[0]
+            median = float(np.median(record))
+            wave_height_m = float(np.max(np.abs(record - median)))
+            # Noise floor from the QUIETEST segment of the record, not the whole
+            # record -- a long-period tsunami excursion would otherwise inflate
+            # its own baseline (self-masking). Deterministic.
+            n_segments = max(1, min(8, len(record) // 64))
+            segment_scales = []
+            for seg in np.array_split(record, n_segments):
+                seg_mad = float(np.median(np.abs(seg - np.median(seg))))
+                if seg_mad > 0:
+                    segment_scales.append(1.4826 * seg_mad)
+            scale = min(segment_scales) if segment_scales else (float(np.std(record)) or 1.0)
+            z_peak = wave_height_m / scale
+            # z 5 (ordinary extreme of noise) → 0; z 20 (unambiguous long-period
+            # excursion) saturates. Resonance compounds via noisy-OR.
+            amplitude_severity = float(np.clip((z_peak - 5.0) / 15.0, 0.0, 1.0))
+            confidence = 1.0 - (1.0 - amplitude_severity) * (1.0 - resonance_score)
 
         tsunami_detected = confidence > self.detection_threshold
 
-        severity = self._determine_severity(float(wave_height[0].item()))
+        severity = self._determine_severity(wave_height_m)
 
         arrival_time = None
         if source_info and "distance_km" in source_info:
@@ -584,7 +651,7 @@ class TsunamiDetector:
             tsunami_detected=tsunami_detected,
             confidence=confidence,
             severity=severity,
-            estimated_wave_height_m=float(wave_height[0].item()),
+            estimated_wave_height_m=wave_height_m,
             arrival_time_minutes=arrival_time,
             source_distance_km=source_info.get("distance_km") if source_info else None,
             source_magnitude=source_info.get("magnitude") if source_info else None,
@@ -704,10 +771,52 @@ class EarthquakeDetector:
         self.seismic_analyzer = SeismicWaveAnalyzer().to(self.device)
         self.seismic_analyzer.eval()
 
+        # Anti-theater guard (mirrors SchumannResonanceDetector): the
+        # SeismicWaveAnalyzer ships with random weights and no labelled seismic
+        # corpus exists to train it. Worse than fabricating, the untrained
+        # network previously GATED the real physics: P/S-wave detection came
+        # from its random p_prob/s_prob heads, deciding whether the genuine
+        # STA/LTA arrival picker even ran. Until real weights are loaded via
+        # load_neural_weights(), detection now runs directly on the
+        # field-standard physics -- STA/LTA triggering, S-P epicenter distance,
+        # band resonance -- and NO magnitude is estimated (a single uncalibrated
+        # station cannot honestly produce a Richter magnitude).
+        self._neural_trained = False
+        self._warned_untrained = False
+
         self.p_wave_velocity = 6.0
         self.s_wave_velocity = 3.5
 
         logger.info(f"EarthquakeDetector initialized: threshold={detection_threshold}")
+
+    def load_neural_weights(self, checkpoint_path: str) -> None:
+        """Load trained weights for the seismic analyzer.
+
+        Until this is called the network is untrained and detection runs on the
+        deterministic STA/LTA + spectral physics of the observed waveform.
+
+        Args:
+            checkpoint_path: Path to a torch checkpoint containing a
+                ``seismic_analyzer`` state dict.
+        """
+        checkpoint = torch.load(checkpoint_path, map_location="cpu")
+        self.seismic_analyzer.load_state_dict(checkpoint["seismic_analyzer"])
+        self._neural_trained = True
+        logger.info(
+            "Earthquake neural weights loaded from %s; using learned analyzer", checkpoint_path
+        )
+
+    def _warn_untrained_once(self) -> None:
+        """Emit a single WARNING that the untrained NN is bypassed for physics."""
+        if not self._warned_untrained:
+            logger.warning(
+                "EarthquakeDetector's SeismicWaveAnalyzer is untrained (no "
+                "checkpoint loaded); detecting from STA/LTA + spectral physics and "
+                "emitting no magnitude estimate (estimated_magnitude=None) -- an "
+                "uncalibrated single station cannot honestly produce one. Call "
+                "load_neural_weights() once a trained checkpoint exists."
+            )
+            self._warned_untrained = True
 
     def predict_earthquake(
         self,
@@ -739,37 +848,58 @@ class EarthquakeDetector:
         Sxx_log = np.log10(Sxx + 1e-10)
         Sxx_norm = (Sxx_log - Sxx_log.mean()) / (Sxx_log.std() + 1e-10)
 
-        spectrogram_tensor = torch.from_numpy(Sxx_norm).float().unsqueeze(0).unsqueeze(0)
-        spectrogram_tensor = spectrogram_tensor.to(self.device)
-
-        with torch.no_grad():
-            eq_prob, magnitude, p_prob, s_prob = self.seismic_analyzer(spectrogram_tensor)
-
-        confidence = float(eq_prob[0].item())
-        estimated_mag = float(magnitude[0].item()) * 4 + 2
-
-        p_wave_detected = float(p_prob[0].item()) > 0.5
-        s_wave_detected = float(s_prob[0].item()) > 0.5
-
         resonance_score = self._compute_resonance_score(Sxx, f)
 
-        confidence = min(1.0, confidence + resonance_score * 0.2)
+        # The STA/LTA arrival picker is the field-standard trigger; run it
+        # unconditionally on both paths (previously the untrained network's
+        # random p_prob/s_prob heads gated whether it ran at all). The S pick
+        # searches after the P trigger plus one second -- on a single trace the
+        # lower S threshold would otherwise fire at-or-before the P pick.
+        p_arrival = self._detect_wave_arrival(seismic_data[0], "p")
+        s_min_index = (p_arrival + int(self.sampling_rate)) if p_arrival is not None else 0
+        s_arrival = self._detect_wave_arrival(seismic_data[0], "s", min_index=s_min_index)
+
+        estimated_mag: float | None
+        if self._neural_trained:
+            spectrogram_tensor = torch.from_numpy(Sxx_norm).float().unsqueeze(0).unsqueeze(0)
+            spectrogram_tensor = spectrogram_tensor.to(self.device)
+
+            with torch.no_grad():
+                eq_prob, magnitude, p_prob, s_prob = self.seismic_analyzer(spectrogram_tensor)
+
+            confidence = float(eq_prob[0].item())
+            estimated_mag = float(magnitude[0].item()) * 4 + 2
+            p_wave_detected = float(p_prob[0].item()) > 0.5
+            s_wave_detected = float(s_prob[0].item()) > 0.5
+            confidence = min(1.0, confidence + resonance_score * 0.2)
+            magnitude_class = self._classify_magnitude(estimated_mag)
+            aftershock_probability = min(0.9, estimated_mag / 10)
+        else:
+            # Physics path: detection strength is the peak STA/LTA trigger ratio
+            # blended with the seismic-band resonance; P/S detection is the
+            # picker itself. No magnitude is fabricated -- an uncalibrated
+            # single station has no honest Richter estimate, so
+            # estimated_magnitude stays None ("undetermined").
+            self._warn_untrained_once()
+            p_wave_detected = p_arrival is not None
+            s_wave_detected = s_arrival is not None and (p_arrival is None or s_arrival > p_arrival)
+            peak_ratio = self._peak_sta_lta(seismic_data[0])
+            trigger_severity = float(np.clip((peak_ratio - 2.5) / 7.5, 0.0, 1.0))
+            confidence = min(1.0, trigger_severity + resonance_score * 0.2)
+            estimated_mag = None
+            magnitude_class = "undetermined"
+            aftershock_probability = 0.0
 
         earthquake_detected = confidence > self.detection_threshold
 
-        magnitude_class = self._classify_magnitude(estimated_mag)
-
         epicenter_distance = None
-        if p_wave_detected and s_wave_detected:
-            p_arrival = self._detect_wave_arrival(seismic_data[0], "p")
-            s_arrival = self._detect_wave_arrival(seismic_data[0], "s")
-            if p_arrival is not None and s_arrival is not None:
-                time_diff = (s_arrival - p_arrival) / self.sampling_rate
-                epicenter_distance = (
-                    time_diff
-                    * (self.p_wave_velocity * self.s_wave_velocity)
-                    / (self.p_wave_velocity - self.s_wave_velocity)
-                )
+        if p_arrival is not None and s_arrival is not None and s_arrival > p_arrival:
+            time_diff = (s_arrival - p_arrival) / self.sampling_rate
+            epicenter_distance = (
+                time_diff
+                * (self.p_wave_velocity * self.s_wave_velocity)
+                / (self.p_wave_velocity - self.s_wave_velocity)
+            )
 
         warnings = self._generate_warnings(earthquake_detected, magnitude_class)
 
@@ -780,12 +910,27 @@ class EarthquakeDetector:
             magnitude_class=magnitude_class,
             p_wave_detected=p_wave_detected,
             s_wave_detected=s_wave_detected,
+            p_wave_arrival_time=(p_arrival / self.sampling_rate if p_arrival is not None else None),
+            s_wave_arrival_time=(s_arrival / self.sampling_rate if s_arrival is not None else None),
             epicenter_distance_km=epicenter_distance,
             resonance_score=resonance_score,
             spectral_anomalies=self._find_spectral_anomalies(Sxx, f),
             warning_actions=warnings,
-            aftershock_probability=min(0.9, estimated_mag / 10),
+            aftershock_probability=aftershock_probability,
         )
+
+    def _peak_sta_lta(self, data: np.ndarray[Any, Any]) -> float:
+        """Peak STA/LTA trigger ratio over the record (0.0 if too short)."""
+        sta_len = int(0.5 * self.sampling_rate)
+        lta_len = int(5.0 * self.sampling_rate)
+        if len(data) < lta_len + sta_len:
+            return 0.0
+        peak = 0.0
+        for i in range(lta_len, len(data) - sta_len):
+            sta = np.mean(np.abs(data[i : i + sta_len]))
+            lta = np.mean(np.abs(data[i - lta_len : i]))
+            peak = max(peak, float(sta / (lta + 1e-10)))
+        return peak
 
     def _compute_resonance_score(
         self, Sxx: np.ndarray[Any, Any], freqs: np.ndarray[Any, Any]
@@ -823,8 +968,19 @@ class EarthquakeDetector:
         else:
             return EarthquakeMagnitude.GREAT.value
 
-    def _detect_wave_arrival(self, data: np.ndarray[Any, Any], wave_type: str) -> int | None:
-        """Detect P or S wave arrival time using STA/LTA."""
+    def _detect_wave_arrival(
+        self, data: np.ndarray[Any, Any], wave_type: str, min_index: int = 0
+    ) -> int | None:
+        """Detect P or S wave arrival time using STA/LTA.
+
+        Args:
+            data: The seismic trace.
+            wave_type: ``"p"`` (threshold 3.0) or ``"s"`` (threshold 2.0).
+            min_index: Ignore triggers before this sample. Required for a
+                meaningful S pick on a single trace: the lower S threshold
+                otherwise always fires at-or-before the P trigger, so the S
+                search must start after the P arrival.
+        """
         sta_len = int(0.5 * self.sampling_rate)
         lta_len = int(5.0 * self.sampling_rate)
 
@@ -838,9 +994,9 @@ class EarthquakeDetector:
             sta_lta[i] = sta / (lta + 1e-10)
 
         threshold = 3.0 if wave_type == "p" else 2.0
-        arrivals = np.where(sta_lta > threshold)[0]
+        arrivals = np.where(sta_lta[min_index:] > threshold)[0]
 
-        return int(arrivals[0]) if len(arrivals) > 0 else None
+        return int(arrivals[0]) + min_index if len(arrivals) > 0 else None
 
     def _find_spectral_anomalies(
         self, Sxx: np.ndarray[Any, Any], freqs: np.ndarray[Any, Any]
@@ -911,7 +1067,7 @@ class EarthquakeDetector:
 
         result = self.predict_earthquake(seismic_data)
         features[8] = result.confidence
-        features[9] = result.estimated_magnitude / 10
+        features[9] = (result.estimated_magnitude or 0.0) / 10
         features[10] = result.resonance_score
 
         return features
