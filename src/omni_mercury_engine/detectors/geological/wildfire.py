@@ -561,7 +561,49 @@ class WildfireDetector:
         self.resonance_analyzer = ResonanceFrequencyAnalyzer() if enable_resonance else None
         self.enhanced_cnn = WildfireCNN() if enable_enhanced_cnn else None
 
+        # Anti-theater guard (mirrors SchumannResonanceDetector): the
+        # FireIgnitionDetector CNN ships with random weights and no labelled fire
+        # corpus exists to train it. Until real weights are loaded via
+        # load_neural_weights(), its fire probability is noise, so
+        # _detect_ignition derives detection from the OBSERVED thermal field
+        # instead, using VIIRS/MODIS-style brightness-temperature criteria
+        # (absolute threshold + contextual contrast against the background).
+        self._neural_trained = False
+        self._warned_untrained = False
+
         self.logger = logging.getLogger(__name__)
+
+    def load_neural_weights(self, checkpoint_path: str) -> None:
+        """Load trained weights for the ignition detector (and optional CNN).
+
+        Until this is called the networks are untrained and ignition detection
+        runs on the deterministic thermal physics.
+
+        Args:
+            checkpoint_path: Path to a torch checkpoint containing an
+                ``ignition_detector`` (and optionally ``enhanced_cnn``) state dict.
+        """
+        if self.ignition_detector is None:
+            raise RuntimeError("ignition detection is disabled on this detector")
+        checkpoint = torch.load(checkpoint_path, map_location="cpu")
+        self.ignition_detector.load_state_dict(checkpoint["ignition_detector"])
+        if self.enhanced_cnn is not None and "enhanced_cnn" in checkpoint:
+            self.enhanced_cnn.load_state_dict(checkpoint["enhanced_cnn"])
+        self._neural_trained = True
+        self.logger.info(
+            "Wildfire neural weights loaded from %s; using learned detector", checkpoint_path
+        )
+
+    def _warn_untrained_once(self) -> None:
+        """Emit a single WARNING that the untrained NN is bypassed for physics."""
+        if not self._warned_untrained:
+            self.logger.warning(
+                "WildfireDetector's FireIgnitionDetector is untrained (no checkpoint "
+                "loaded); detecting from VIIRS-style brightness-temperature physics "
+                "instead of the CNN. Call load_neural_weights() once a trained "
+                "checkpoint exists."
+            )
+            self._warned_untrained = True
 
     def predict_wildfire(self, wildfire_data: dict[str, Any]) -> WildfirePredictionResult:
         """Comprehensive wildfire prediction.
@@ -597,13 +639,23 @@ class WildfireDetector:
         return result
 
     def _detect_ignition(self, thermal_image: np.ndarray[Any, Any]) -> dict[str, Any]:
-        """Detect fire ignition."""
+        """Detect fire ignition.
+
+        Uses the trained CNN only when real weights have been loaded
+        (:meth:`load_neural_weights`); otherwise falls back to the deterministic
+        brightness-temperature physics so an untrained network can never
+        fabricate (or mask) a fire.
+        """
         if self.ignition_detector is None:
             return {
                 "fire_detected": False,
                 "confidence": 0.0,
                 "hotspot_count": 0,
             }
+
+        if not self._neural_trained:
+            self._warn_untrained_once()
+            return self._detect_ignition_physics(thermal_image)
 
         if len(thermal_image.shape) == 2:
             thermal_image = thermal_image.reshape(1, 1, *thermal_image.shape)
@@ -623,6 +675,39 @@ class WildfireDetector:
             "fire_detected": fire_detected,
             "confidence": float(fire_prob[0].item()),
             "hotspot_count": hotspot_count,
+        }
+
+    @staticmethod
+    def _detect_ignition_physics(thermal_image: np.ndarray[Any, Any]) -> dict[str, Any]:
+        """Deterministic active-fire detection from brightness temperature (K).
+
+        VIIRS/MODIS-style contextual criteria: a pixel is fire either absolutely
+        (brightness temperature above ~360 K, unambiguous combustion) or
+        contextually (above ~330 K AND standing far above the scene background,
+        median + 4·MAD-scale). Confidence grows with both the peak temperature
+        above 330 K and the fraction of hot pixels. Deterministic: identical
+        input → identical output.
+        """
+        arr = np.asarray(thermal_image, dtype=float)
+        arr = arr[np.isfinite(arr)] if arr.size else arr
+        if arr.size == 0:
+            return {"fire_detected": False, "confidence": 0.0, "hotspot_count": 0}
+        max_temp = float(np.max(arr))
+        background = float(np.median(arr))
+        mad = float(np.median(np.abs(arr - background)))
+        scale = 1.4826 * mad if mad > 0 else max(float(np.std(arr)), 1.0)
+        contextual = max_temp > 330.0 and (max_temp - background) > 4.0 * scale
+        absolute = max_temp > 360.0
+        fire_detected = absolute or contextual
+        hotspot_count = int(np.sum(arr > 350.0))
+        temp_severity = float(np.clip((max_temp - 330.0) / 60.0, 0.0, 1.0))
+        hot_fraction = float(np.clip(np.mean(arr > 350.0) * 20.0, 0.0, 1.0))
+        confidence = float(1.0 - (1.0 - temp_severity) * (1.0 - hot_fraction))
+        return {
+            "fire_detected": fire_detected,
+            "confidence": confidence if fire_detected else min(confidence, 0.5),
+            "hotspot_count": hotspot_count,
+            "method": "physics_brightness_temperature",
         }
 
     def _assess_fire_risk(

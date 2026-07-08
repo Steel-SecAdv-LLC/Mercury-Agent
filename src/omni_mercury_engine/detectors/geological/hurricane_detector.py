@@ -98,9 +98,14 @@ class HurricanePredictionResult:
     storm_surge_risk: str = "low"
     rainfall_potential_inches: float = 0.0
 
-    track_forecast: list[dict[str, Any]] = field(default_factory=list)
-    landfall_probability: float = 0.0
-    time_to_landfall_hours: float | None = None
+    # Observed wind-field kinematics (populated when a wind field is supplied).
+    max_relative_vorticity_s1: float | None = None
+    closed_circulation: bool = False
+
+    # NOTE: track_forecast / landfall_probability / time_to_landfall_hours were
+    # removed deliberately: they were declared but never computed anywhere, and
+    # an honest track forecast requires steering-flow data and a track model
+    # this detector does not have. Advertising uncomputed skill is theater.
 
     warning_actions: list[str] = field(default_factory=list)
     evacuation_zones: list[str] = field(default_factory=list)
@@ -396,7 +401,34 @@ class HurricaneDetector:
         self.resonance_engine = ResonanceEngine(sampling_rate=1.0)
         self.refactoring_engine = RefactoringEngine()
 
+        # Anti-theater guard (mirrors SchumannResonanceDetector): the
+        # WindPatternAnalyzer CNN+LSTM ships with random weights, no labelled
+        # cyclone corpus exists to train it -- and it was never even called, so
+        # supplied wind data was silently ignored. Wind fields are now analysed
+        # with deterministic kinematics (observed maximum wind + relative
+        # vorticity, the standard measure of organized cyclonic circulation);
+        # the network is consulted only after load_neural_weights().
+        self._neural_trained = False
+        self._warned_untrained = False
+
         self.logger = logging.getLogger(__name__)
+
+    def load_neural_weights(self, checkpoint_path: str) -> None:
+        """Load trained weights for the wind-pattern analyzer.
+
+        Args:
+            checkpoint_path: Path to a torch checkpoint containing a
+                ``wind_analyzer`` state dict.
+        """
+        if self.wind_analyzer is None:
+            raise RuntimeError("wind analysis is disabled on this detector")
+        checkpoint = torch.load(checkpoint_path, map_location="cpu")
+        self.wind_analyzer.load_state_dict(checkpoint["wind_analyzer"])
+        self._neural_trained = True
+        self.logger.info(
+            "Hurricane wind neural weights loaded from %s; using learned analyzer",
+            checkpoint_path,
+        )
 
     def predict_hurricane(self, cyclone_data: dict[str, Any]) -> HurricanePredictionResult:
         """Comprehensive tropical cyclone prediction.
@@ -448,6 +480,20 @@ class HurricaneDetector:
             if pressure_result["rapid_intensification"]:
                 indicators_detected += 1
 
+        if self.enable_wind and "wind_field" in cyclone_data:
+            wind_result = self._analyze_wind_field(cyclone_data["wind_field"])
+            result.max_relative_vorticity_s1 = wind_result["max_relative_vorticity_s1"]
+            result.closed_circulation = wind_result["closed_circulation"]
+            # The observed field can only raise the wind estimate, never mask a
+            # stronger pressure-derived value.
+            result.max_wind_speed_kt = max(
+                result.max_wind_speed_kt, wind_result["max_wind_speed_kt"]
+            )
+            if wind_result["closed_circulation"]:
+                indicators_detected += 1
+            elif wind_result["max_relative_vorticity_s1"] > 5e-4:
+                indicators_detected += 0.5
+
         if self.enable_resonance and "signal_data" in cyclone_data:
             assert self.resonance_amplifier is not None, "Resonance amplifier must be initialized"
             resonance_result = self.resonance_amplifier.amplify_signals(cyclone_data["signal_data"])
@@ -498,6 +544,55 @@ class HurricaneDetector:
         )
 
         return result
+
+    def _analyze_wind_field(self, wind_field: dict[str, Any]) -> dict[str, Any]:
+        """Deterministic cyclone kinematics from an observed u/v wind field.
+
+        Previously the supplied wind data was silently ignored (the untrained
+        WindPatternAnalyzer was never called). This computes the two standard
+        kinematic measures directly from the field:
+
+        * the observed maximum wind speed ``max sqrt(u² + v²)`` (m/s → kt), and
+        * the peak relative vorticity ``ζ = ∂v/∂x − ∂u/∂y`` -- organized
+          cyclonic circulation shows |ζ| of order 1e-3 s⁻¹ and above at the
+          core; 2e-3 s⁻¹ is treated as a closed circulation.
+
+        Args:
+            wind_field: ``{"u": 2-D array, "v": 2-D array}`` wind components in
+                m/s, plus optional ``grid_spacing_m`` (defaults to 4000 m, a
+                typical analysis-grid resolution).
+
+        Returns:
+            ``max_wind_speed_kt``, ``max_relative_vorticity_s1``, and
+            ``closed_circulation``. Deterministic; missing/1-D components yield
+            zero vorticity rather than anything imputed.
+        """
+        u = np.asarray(wind_field.get("u", []), dtype=float)
+        v = np.asarray(wind_field.get("v", []), dtype=float)
+        spacing = float(wind_field.get("grid_spacing_m", 4000.0))
+
+        if u.size == 0 or v.size == 0 or u.shape != v.shape:
+            return {
+                "max_wind_speed_kt": 0.0,
+                "max_relative_vorticity_s1": 0.0,
+                "closed_circulation": False,
+            }
+
+        speed_ms = np.sqrt(u**2 + v**2)
+        max_wind_kt = float(np.nanmax(speed_ms) * 1.9438)
+
+        max_vorticity = 0.0
+        if u.ndim == 2 and min(u.shape) >= 2:
+            dv_dx = np.gradient(v, spacing, axis=1)
+            du_dy = np.gradient(u, spacing, axis=0)
+            zeta = dv_dx - du_dy
+            max_vorticity = float(np.nanmax(np.abs(zeta)))
+
+        return {
+            "max_wind_speed_kt": max_wind_kt,
+            "max_relative_vorticity_s1": max_vorticity,
+            "closed_circulation": max_vorticity >= 2e-3,
+        }
 
     def _classify_category(self, max_wind_kt: float) -> str:
         """Classify cyclone using Saffir-Simpson scale."""

@@ -449,6 +449,17 @@ class TornadoDetector:
         self.resonance_analyzer = ResonancePatternAnalyzer() if enable_resonance else None
         self.recursive_extractor = RecursiveFeatureExtractor() if enable_recursion else None
 
+        # Anti-theater guard (mirrors SchumannResonanceDetector): the
+        # DopplerRadarAnalyzer LSTM ships with random weights and no labelled
+        # mesocyclone corpus exists to train it. Until real weights are loaded
+        # via load_neural_weights(), its probability/rotation outputs are noise,
+        # so _analyze_radar derives both from the OBSERVED Doppler velocity
+        # field instead: the rotational (couplet) velocity is
+        # (Vmax - Vmin) / 2 -- the standard mesocyclone strength measure -- and
+        # detection follows the operational threshold (~15 m/s).
+        self._neural_trained = False
+        self._warned_untrained = False
+
         self.recursion_engine = RecursionEngine(max_depth=5)
         self.resonance_engine = ResonanceEngine(sampling_rate=1.0)
         self.refactoring_engine = RefactoringEngine()
@@ -591,8 +602,48 @@ class TornadoDetector:
 
         return result
 
+    def load_neural_weights(self, checkpoint_path: str) -> None:
+        """Load trained weights for the Doppler radar analyzer.
+
+        Until this is called the network is untrained and mesocyclone detection
+        runs on the deterministic velocity-couplet physics.
+
+        Args:
+            checkpoint_path: Path to a torch checkpoint containing a
+                ``radar_analyzer`` state dict.
+        """
+        if self.radar_analyzer is None:
+            raise RuntimeError("radar analysis is disabled on this detector")
+        checkpoint = torch.load(checkpoint_path, map_location="cpu")
+        self.radar_analyzer.load_state_dict(checkpoint["radar_analyzer"])
+        self._neural_trained = True
+        self.logger.info(
+            "Tornado radar neural weights loaded from %s; using learned analyzer", checkpoint_path
+        )
+
+    def _warn_untrained_once(self) -> None:
+        """Emit a single WARNING that the untrained NN is bypassed for physics."""
+        if not self._warned_untrained:
+            self.logger.warning(
+                "TornadoDetector's DopplerRadarAnalyzer is untrained (no checkpoint "
+                "loaded); detecting mesocyclones from the Doppler velocity-couplet "
+                "physics instead of the NN. Call load_neural_weights() once a "
+                "trained checkpoint exists."
+            )
+            self._warned_untrained = True
+
     def _analyze_radar(self, radar_sequence: np.ndarray[Any, Any]) -> dict[str, Any]:
-        """Analyze Doppler radar data for mesocyclone signatures."""
+        """Analyze Doppler radar data for mesocyclone signatures.
+
+        Uses the trained LSTM only when real weights have been loaded
+        (:meth:`load_neural_weights`); otherwise falls back to the deterministic
+        velocity-couplet physics so an untrained network can never fabricate (or
+        mask) a mesocyclone.
+        """
+        if not self._neural_trained:
+            self._warn_untrained_once()
+            return self._analyze_radar_physics(radar_sequence)
+
         seq_tensor = torch.tensor(radar_sequence, dtype=torch.float32)
         if seq_tensor.dim() == 2:
             seq_tensor = seq_tensor.unsqueeze(0)
@@ -608,6 +659,34 @@ class TornadoDetector:
             "mesocyclone_detected": mesocyclone_detected,
             "confidence": float(meso_prob[0].item()),
             "rotation_velocity": float(rotation_vel[0].item()) * 50,
+        }
+
+    @staticmethod
+    def _analyze_radar_physics(radar_sequence: np.ndarray[Any, Any]) -> dict[str, Any]:
+        """Deterministic mesocyclone detection from the Doppler velocity couplet.
+
+        A mesocyclone appears in Doppler velocity data as a couplet of inbound /
+        outbound velocities; its strength is the rotational velocity
+        ``V_rot = (V_max - V_min) / 2``. Operational (WSR-88D-style) practice
+        flags a mesocyclone at roughly ``V_rot >= 15 m/s``. The rotational
+        velocity is taken per time step and the median over the sequence is used
+        so a single noisy frame can neither trigger nor mask a detection.
+        Deterministic: identical input → identical output.
+        """
+        arr = np.asarray(radar_sequence, dtype=float)
+        if arr.ndim == 1:
+            arr = arr.reshape(1, -1)
+        finite = np.where(np.isfinite(arr), arr, 0.0)
+        # V_rot per frame over the leading (time) axis, then the median.
+        per_frame = [(np.max(frame) - np.min(frame)) / 2.0 for frame in finite]
+        v_rot = float(np.median(per_frame)) if per_frame else 0.0
+        # 15 m/s = operational mesocyclone threshold; 30 m/s saturates (strong).
+        confidence = float(np.clip((v_rot - 5.0) / 25.0, 0.0, 1.0))
+        return {
+            "mesocyclone_detected": v_rot >= 15.0,
+            "confidence": confidence,
+            "rotation_velocity": v_rot,
+            "method": "physics_velocity_couplet",
         }
 
     def _determine_threat_level(self, indicators: float, result: TornadoPredictionResult) -> str:
