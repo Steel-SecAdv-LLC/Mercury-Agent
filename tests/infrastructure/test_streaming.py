@@ -11,6 +11,7 @@ Tests for the SaaS streaming infrastructure including:
 
 from __future__ import annotations
 
+import importlib.util
 from datetime import datetime
 from unittest.mock import patch
 
@@ -28,6 +29,8 @@ from omni_mercury_engine.infrastructure.streaming import (
     StreamMessage,
     StreamProducerFactory,
 )
+
+_HAS_AIOKAFKA = importlib.util.find_spec("aiokafka") is not None
 
 
 class TestStreamMessage:
@@ -387,6 +390,15 @@ class TestKafkaConsumerCommit:
         consumer._consumer.commit.assert_not_called()
 
     @pytest.mark.asyncio
+    @pytest.mark.skipif(
+        not _HAS_AIOKAFKA,
+        reason=(
+            "commit()'s int-offset path imports aiokafka.TopicPartition at call "
+            "time; without aiokafka the ImportError is swallowed by the commit "
+            "error handler and the mocked commit is never awaited. Requires the "
+            "[streaming] extra."
+        ),
+    )
     async def test_commit_int_offset_commits_next(self) -> None:
         """A normal int offset commits ``offset + 1`` (aiokafka semantics)."""
         from unittest.mock import AsyncMock

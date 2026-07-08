@@ -27,6 +27,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-07-08
+
+Feature-additive over 2.0.0 — the detector-tier surface below is new public
+API, so this cut is a SemVer **minor**, not a patch. Release hygiene included
+in this cut: `tests/infrastructure/test_streaming.py::test_commit_int_offset_commits_next`
+now skips when `aiokafka` (the `[streaming]` extra) is absent — its int-offset
+commit path imports `aiokafka.TopicPartition` at call time, so on a base
+install the mocked commit was never awaited and the test failed spuriously;
+and the `.coveragerc` comment naming the CI coverage floors was trued to the
+current `ci.yml` values (CORE 25 / FULL 50, not 15 / 35).
+
 ### Fixed — `CachedBenevolenceScorer` threshold setter (drop-in fidelity)
 
 `CachedBenevolenceScorer` (the LRU wrapper the engine now places on its ethics
@@ -5228,7 +5239,8 @@ and regression tests:
 ### Note
 **All benchmarks based on simulated data. Real-world validation recommended before production use.**
 
-[Unreleased]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.7.0...v2.0.0
 [1.7.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.5.1...v1.6.0
