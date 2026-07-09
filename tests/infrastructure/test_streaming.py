@@ -270,6 +270,48 @@ class TestInMemoryStreamBroker:
         await consumer_a.disconnect()
 
     @pytest.mark.asyncio
+    async def test_factories_thread_broker_to_memory_backend(self) -> None:
+        """The factory seam must reach the broker isolation, not swallow it.
+
+        Regression: ``StreamProducerFactory.create(..., broker=...)`` used to
+        drop ``broker`` in its generic kwargs-to-config loop (``StreamConfig``
+        has no such field), so factory- and pipeline-built producers could
+        only ever share the default broker.
+        """
+        broker = InMemoryStreamBroker()
+        producer = StreamProducerFactory.create(backend="memory", broker=broker)
+        consumer = StreamConsumerFactory.create(backend="memory", broker=broker)
+        assert isinstance(producer, InMemoryStreamProducer)
+        assert producer.broker is broker
+        assert isinstance(consumer, InMemoryStreamConsumer)
+        assert consumer.broker is broker
+
+        await producer.connect()
+        await producer.send("factory-topic", {"v": 1})
+        assert [m.value for m in broker.get_messages("factory-topic")] == [{"v": 1}]
+        assert get_default_broker().get_messages("factory-topic") == []
+        await producer.disconnect()
+
+    def test_factories_reject_broker_for_non_memory_backends(self) -> None:
+        """broker= must fail loud, not be ignored, for kafka/redis."""
+        broker = InMemoryStreamBroker()
+        with pytest.raises(ValueError, match="memory backend only"):
+            StreamProducerFactory.create(backend="kafka", broker=broker)
+        with pytest.raises(ValueError, match="memory backend only"):
+            StreamConsumerFactory.create(backend="redis", broker=broker)
+
+    @pytest.mark.asyncio
+    async def test_pipeline_broker_isolation(self) -> None:
+        """Two pipelines on distinct brokers must not cross-talk."""
+        broker_a = InMemoryStreamBroker()
+        broker_b = InMemoryStreamBroker()
+        pipeline_a = StreamingAnomalyPipeline("in", "out", backend="memory", broker=broker_a)
+        pipeline_b = StreamingAnomalyPipeline("in", "out", backend="memory", broker=broker_b)
+        assert pipeline_a._producer.broker is broker_a  # type: ignore[union-attr]
+        assert pipeline_b._producer.broker is broker_b  # type: ignore[union-attr]
+        assert pipeline_a._consumer.broker is broker_a  # type: ignore[union-attr]
+
+    @pytest.mark.asyncio
     async def test_default_broker_shared_between_producer_and_consumer(self) -> None:
         """Without an explicit broker, produce-here/consume-there still works."""
         producer = InMemoryStreamProducer()

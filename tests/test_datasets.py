@@ -118,6 +118,19 @@ class TestDatasetConfig:
 
             assert config1.get_cache_key() == config2.get_cache_key()
 
+    def test_cache_key_field_boundaries_cannot_collide(self) -> None:
+        """Distinct (name, version) pairs must never share a cache file.
+
+        Regression: the old underscore-joined key prefix let
+        ``name="a_1", version="latest"`` and ``name="a", version="1_latest"``
+        serialize to identical key material, silently sharing one cache.
+        The canonical-JSON key material makes field boundaries unambiguous.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config1 = DatasetConfig(name="a_1", version="latest", data_dir=tmpdir, cache_dir=tmpdir)
+            config2 = DatasetConfig(name="a", version="1_latest", data_dir=tmpdir, cache_dir=tmpdir)
+            assert config1.get_cache_key() != config2.get_cache_key()
+
 
 class _SplitProbeLoader(DatasetLoader):
     """Minimal in-test loader with deterministic in-memory raw data.

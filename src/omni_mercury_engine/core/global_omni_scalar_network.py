@@ -2135,15 +2135,25 @@ def get_global_scalar_network(
     with _global_network_lock:
         live = _global_network or GlobalOmniScalarNetwork._instance
         if live is None or not getattr(live, "_initialized", False):
-            _global_network = GlobalOmniScalarNetwork(
-                device=device,
-                quantum_mode=quantum_mode,
-                max_dimensions=max_dimensions,
-                domain=domain,
-                num_attention_heads=num_attention_heads,
-                enable_triadic_phi=enable_triadic_phi,
-            )
-            return _global_network
+            try:
+                _global_network = GlobalOmniScalarNetwork(
+                    device=device,
+                    quantum_mode=quantum_mode,
+                    max_dimensions=max_dimensions,
+                    domain=domain,
+                    num_attention_heads=num_attention_heads,
+                    enable_triadic_phi=enable_triadic_phi,
+                )
+                return _global_network
+            except ValueError:
+                # Raced a concurrent FIRST direct construction: the singleton
+                # __new__ handed back the instance that call initialized, and
+                # our materially different kwargs tripped the re-init check.
+                # This accessor is documented non-raising, so recover to
+                # accessor semantics (warn + return the live instance below).
+                live = GlobalOmniScalarNetwork._instance
+                if live is None or not getattr(live, "_initialized", False):
+                    raise
 
         # Adopt an instance created via direct construction so both caches
         # agree, then surface (never silently swallow) any materially
@@ -2175,9 +2185,17 @@ def get_global_scalar_network(
 
 
 def reset_global_network() -> None:
-    """Reset the global GOSNN instance (primarily for testing)."""
+    """Reset the global GOSNN instance (primarily for testing).
+
+    Takes the module accessor lock and then the class construction lock (the
+    same order the accessor implies, so no deadlock): clearing ``_instance``
+    without the class lock could interleave with a concurrent ``__new__`` /
+    ``__init__`` and leave one thread initializing an instance the registry
+    no longer points at.
+    """
     global _global_network
     with _global_network_lock:
-        GlobalOmniScalarNetwork._instance = None
+        with GlobalOmniScalarNetwork._lock:
+            GlobalOmniScalarNetwork._instance = None
         _global_network = None
         _accessor_divergence_warned.clear()

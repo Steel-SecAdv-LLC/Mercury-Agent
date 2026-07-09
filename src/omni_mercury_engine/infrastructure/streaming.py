@@ -1203,6 +1203,7 @@ class StreamProducerFactory:
     def create(
         backend: str | StreamingBackend = StreamingBackend.MEMORY,
         config: StreamConfig | None = None,
+        broker: InMemoryStreamBroker | None = None,
         **kwargs: Any,
     ) -> StreamProducer:
         """Create a stream producer for the specified backend.
@@ -1210,10 +1211,18 @@ class StreamProducerFactory:
         Args:
             backend: "kafka", "redis", or "memory"
             config: Optional StreamConfig
+            broker: Memory backend only — the isolated
+                :class:`InMemoryStreamBroker` the producer publishes to
+                (defaults to the shared default broker). Previously this
+                kwarg was silently swallowed, making the F16 isolation seam
+                unreachable through the factory.
             **kwargs: Backend-specific configuration overrides
 
         Returns:
             StreamProducer instance
+
+        Raises:
+            ValueError: ``broker`` was passed for a non-memory backend.
         """
         if isinstance(backend, str):
             backend = StreamingBackend(backend.lower())
@@ -1225,12 +1234,17 @@ class StreamProducerFactory:
             if hasattr(config, key):
                 setattr(config, key, value)
 
+        if broker is not None and backend != StreamingBackend.MEMORY:
+            raise ValueError(
+                f"broker= applies to the memory backend only (got backend={backend.value!r})"
+            )
+
         if backend == StreamingBackend.KAFKA:
             return KafkaStreamProducer(config)
         elif backend == StreamingBackend.REDIS:
             return RedisStreamProducer(config)
         else:
-            return InMemoryStreamProducer(config)
+            return InMemoryStreamProducer(config, broker=broker)
 
 
 class StreamConsumerFactory:
@@ -1241,6 +1255,7 @@ class StreamConsumerFactory:
         backend: str | StreamingBackend = StreamingBackend.MEMORY,
         config: StreamConfig | None = None,
         group_id: str = "mercury-agent",
+        broker: InMemoryStreamBroker | None = None,
         **kwargs: Any,
     ) -> StreamConsumer:
         """Create a stream consumer for the specified backend.
@@ -1249,10 +1264,18 @@ class StreamConsumerFactory:
             backend: "kafka", "redis", or "memory"
             config: Optional StreamConfig
             group_id: Consumer group ID for load balancing
+            broker: Memory backend only — the isolated
+                :class:`InMemoryStreamBroker` the consumer reads from
+                (defaults to the shared default broker). Previously this
+                kwarg was silently swallowed, making the F16 isolation seam
+                unreachable through the factory.
             **kwargs: Backend-specific configuration overrides
 
         Returns:
             StreamConsumer instance
+
+        Raises:
+            ValueError: ``broker`` was passed for a non-memory backend.
         """
         if isinstance(backend, str):
             backend = StreamingBackend(backend.lower())
@@ -1264,12 +1287,17 @@ class StreamConsumerFactory:
             if hasattr(config, key):
                 setattr(config, key, value)
 
+        if broker is not None and backend != StreamingBackend.MEMORY:
+            raise ValueError(
+                f"broker= applies to the memory backend only (got backend={backend.value!r})"
+            )
+
         if backend == StreamingBackend.KAFKA:
             return KafkaStreamConsumer(config, group_id=group_id)
         elif backend == StreamingBackend.REDIS:
             return RedisStreamConsumer(config, group_id=group_id)
         else:
-            return InMemoryStreamConsumer(config, group_id=group_id)
+            return InMemoryStreamConsumer(config, group_id=group_id, broker=broker)
 
 
 # =============================================================================
@@ -1304,8 +1332,21 @@ class StreamingAnomalyPipeline:
         config: StreamConfig | None = None,
         detector: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
         group_id: str = "mercury-pipeline",
+        broker: InMemoryStreamBroker | None = None,
     ):
-        """Initialize the instance."""
+        """Initialize the instance.
+
+        Args:
+            input_topic: Topic the pipeline consumes raw messages from.
+            output_topic: Topic anomaly results are published to.
+            backend: "kafka", "redis", or "memory".
+            config: Optional stream configuration.
+            detector: Callable applied to each message payload.
+            group_id: Consumer group id.
+            broker: Memory backend only — isolates this pipeline's topics on
+                its own :class:`InMemoryStreamBroker` instead of the shared
+                default broker.
+        """
         self.input_topic = input_topic
         self.output_topic = output_topic
         self.detector = detector or self._default_detector
@@ -1322,11 +1363,13 @@ class StreamingAnomalyPipeline:
         self._producer = StreamProducerFactory.create(
             backend=self.config.backend,
             config=self.config,
+            broker=broker,
         )
         self._consumer = StreamConsumerFactory.create(
             backend=self.config.backend,
             config=self.config,
             group_id=self.group_id,
+            broker=broker,
         )
 
         self._running = False

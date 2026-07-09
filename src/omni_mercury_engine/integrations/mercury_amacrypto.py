@@ -362,7 +362,11 @@ class MercuryGuardianAdapter:
         poison downstream attention/optimizer math.  This helper:
 
         * Coerces values to ``float`` when possible.
-        * Replaces ``NaN``/``+Inf``/``-Inf`` with ``0.0``.
+        * Drops ``NaN``/``+Inf``/``-Inf`` values loudly — never clamps them
+          to ``0.0``, because a fabricated zero registered into the SECURITY
+          scalar group is indistinguishable from a measured quiet reading
+          downstream (the F10 never-clamp principle; GOSNN's own σ-gate
+          validation applies the same exclusion rule).
         * Drops keys whose values cannot be coerced to ``float`` (with a log).
 
         Defensive only — callers should still validate inputs upstream.
@@ -387,11 +391,13 @@ class MercuryGuardianAdapter:
                 continue
             if not math.isfinite(fvalue):
                 logger.warning(
-                    "Sanitizing non-finite scalar %r (value=%s) to 0.0 before GOSNN registration",
+                    "Dropping non-finite scalar %r (value=%s) before GOSNN "
+                    "registration: never clamped to 0.0 — a fabricated zero in "
+                    "the SECURITY group would read as a measured quiet value",
                     key,
                     fvalue,
                 )
-                fvalue = 0.0
+                continue
             clean[key] = fvalue
         return clean
 

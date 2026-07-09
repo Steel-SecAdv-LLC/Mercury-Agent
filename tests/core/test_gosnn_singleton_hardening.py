@@ -427,6 +427,45 @@ class TestReinitHonesty:
         ]
         assert len(divergence_records) == 1, "accessor divergence WARNING must fire once"
 
+    def test_accessor_survives_racing_first_direct_construction(
+        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """The documented non-raising accessor must not leak ValueError.
+
+        Simulates the race where a direct ``GlobalOmniScalarNetwork(...)``
+        construction wins between the accessor's null-check and its own
+        construction call: singleton ``__new__`` hands back the freshly
+        initialized instance and the accessor's materially different kwargs
+        trip the re-init ValueError. The accessor must recover to its
+        documented semantics (warn + return the live instance).
+        """
+        import omni_mercury_engine.core.global_omni_scalar_network as gos
+
+        real = _fresh_network()  # default config (32 heads)
+        # Open the race window: both caches look empty to the accessor...
+        monkeypatch.setattr(gos, "_global_network", None)
+        monkeypatch.setattr(GlobalOmniScalarNetwork, "_instance", None)
+
+        original_new = GlobalOmniScalarNetwork.__new__
+
+        def racing_new(cls: type, *args: object, **kwargs: object) -> GlobalOmniScalarNetwork:
+            # ...but the concurrent direct construction lands first.
+            cls._instance = real  # type: ignore[attr-defined]
+            return real
+
+        monkeypatch.setattr(GlobalOmniScalarNetwork, "__new__", racing_new)
+        try:
+            with caplog.at_level(logging.WARNING, logger=_GOSNN_LOGGER):
+                result = get_global_scalar_network(num_attention_heads=16)
+        finally:
+            monkeypatch.setattr(GlobalOmniScalarNetwork, "__new__", original_new)
+
+        assert result is real
+        assert any(
+            "differs materially from the live GOSNN singleton" in record.getMessage()
+            for record in caplog.records
+        )
+
 
 class TestAdapterLifecycle:
     """MercuryGuardianAdapter.close() scopes its GOSNN registrations."""

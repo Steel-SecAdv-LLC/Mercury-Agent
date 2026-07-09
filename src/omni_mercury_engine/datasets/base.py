@@ -276,14 +276,33 @@ class DatasetConfig:
         the same arrays regardless of how it arrived), and ``credentials_path``
         (access control for the same upstream source).
 
+        The key material is one canonical JSON document (sorted keys), so no
+        two distinct configurations can serialize to the same bytes — the
+        previous underscore-joined prefix let ``name="a_1", version="latest"``
+        and ``name="a", version="1_latest"`` collide onto one cache file.
+        json.dumps renders floats via repr (shortest round-trip form), which
+        is deterministic across processes and platforms in Python 3.
+
+        Upgrade note: any change to this key format (including the F5
+        ``split_ratios`` inclusion) orphans ALL pre-existing cache files —
+        the next load transparently re-downloads/re-splits (safe direction:
+        rebuild, never stale reuse) and old ``.npz`` files in ``cache_dir``
+        can be deleted by the operator to reclaim disk.
+
         Returns:
             16-hex-character deterministic key, stable across processes.
         """
-        key_data = f"{self.name}_{self.version}_{self.max_samples}_{self.random_seed}"
-        key_data += json.dumps(self.preprocessing, sort_keys=True)
-        # json.dumps renders floats via repr (shortest round-trip form), which
-        # is deterministic across processes and platforms in Python 3.
-        key_data += json.dumps(list(self.split_ratios))
+        key_data = json.dumps(
+            {
+                "name": self.name,
+                "version": self.version,
+                "max_samples": self.max_samples,
+                "random_seed": self.random_seed,
+                "preprocessing": self.preprocessing,
+                "split_ratios": list(self.split_ratios),
+            },
+            sort_keys=True,
+        )
         # Using SHA3-256 for AMA Cryptography alignment
         # Note: This is non-cryptographic use for cache key generation
         return hashlib.sha3_256(key_data.encode()).hexdigest()[:16]

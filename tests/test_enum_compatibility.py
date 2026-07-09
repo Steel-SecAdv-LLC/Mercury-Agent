@@ -151,7 +151,13 @@ class TestSanitizeScalars:
         clean = adapter._sanitize_scalars({"a": 0.0, "b": 1.5, "c": -2.25})
         assert clean == {"a": 0.0, "b": 1.5, "c": -2.25}
 
-    def test_replaces_nan_and_inf_with_zero(self, mercury_amacrypto: ModuleType) -> None:
+    def test_drops_nan_and_inf_never_clamps(self, mercury_amacrypto: ModuleType) -> None:
+        """Non-finite scalars are EXCLUDED, never clamped to 0.0.
+
+        Regression: these used to be sanitized to 0.0 and registered into the
+        SECURITY scalar group, where a fabricated zero is indistinguishable
+        from a measured quiet value (F10 never-clamp principle).
+        """
         adapter = self._adapter(mercury_amacrypto)
         clean = adapter._sanitize_scalars(
             {
@@ -161,10 +167,7 @@ class TestSanitizeScalars:
                 "ok": 0.42,
             }
         )
-        assert clean["nan"] == 0.0
-        assert clean["pos_inf"] == 0.0
-        assert clean["neg_inf"] == 0.0
-        assert clean["ok"] == 0.42
+        assert clean == {"ok": 0.42}
 
     def test_coerces_int_and_bool_to_float(self, mercury_amacrypto: ModuleType) -> None:
         adapter = self._adapter(mercury_amacrypto)
@@ -199,7 +202,6 @@ class TestSanitizeScalars:
         # caller's dict left intact
         assert math.isnan(source["a"])
         assert source["b"] == 1.0
-        # returned dict has the sanitised value
-        assert clean["a"] == 0.0
-        assert clean["b"] == 1.0
+        # returned dict excludes the non-finite value (dropped loudly)
+        assert clean == {"b": 1.0}
         assert clean is not source
