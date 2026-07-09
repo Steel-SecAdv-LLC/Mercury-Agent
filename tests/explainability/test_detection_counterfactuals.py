@@ -384,3 +384,38 @@ class TestSymbolicAdapter:
                 )[0]
             )
         assert consensus <= 0.5 + 1e-6
+
+
+class TestCommittedValidationResults:
+    """The committed validation results must meet the pre-registered bar.
+
+    ``benchmarks/counterfactual_validation.py`` (real ADBench WBC
+    true-positive detections, all five methods, seeded): wachter and
+    genetic must hold flip-rate >= 0.9 with 100% re-scored minimality.
+    dice / growing_spheres underperforming on this piecewise black-box
+    regime is a recorded structural result, not a gate.
+    """
+
+    def test_results_meet_preregistered_bar(self) -> None:
+        import json
+        from pathlib import Path
+
+        path = (
+            Path(__file__).parent.parent.parent
+            / "benchmarks"
+            / "counterfactual_validation_results.json"
+        )
+        results = json.loads(path.read_text())
+        assert results["dataset"] == "WBC"
+        assert results["provenance"]["commit"]
+        for method in ("wachter", "genetic", "prototype"):
+            record = results["per_method"][method]
+            assert record["flip_rate"] >= 0.9, method
+            assert record["minimality_verified_rate"] == 1.0, method
+        assert set(results["per_method"]) == {
+            "wachter",
+            "dice",
+            "growing_spheres",
+            "prototype",
+            "genetic",
+        }

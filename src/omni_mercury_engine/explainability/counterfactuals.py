@@ -636,7 +636,13 @@ class DiCECounterfactual(CounterfactualGenerator):
             proximity_loss = 0.0
 
             for cf in cfs:
-                pred = self._predict(cf.reshape(1, -1))[0]
+                pred = float(self._predict(cf.reshape(1, -1))[0])
+                if not np.isfinite(pred):
+                    # Infeasibility barrier: a region where the model cannot
+                    # score (sub-detector overflow on extreme inputs) must
+                    # repel the search with a large FINITE penalty — a NaN
+                    # propagating into L-BFGS aborts the whole optimization.
+                    return 1e9 + float(np.sum((cf - original) ** 2))
                 validity_loss += (pred - target_pred) ** 2
                 proximity_loss += np.sum((cf - original) ** 2)
 
@@ -1078,10 +1084,13 @@ class GeneticCounterfactual(CounterfactualGenerator):
 
         coverage = sum(1 for cf in counterfactuals if cf.validity) / max(1, n_counterfactuals)
         return CounterfactualSet(
+            original=original,
             counterfactuals=counterfactuals,
-            method=CounterfactualMethod.GENETIC,
+            original_prediction=original_pred,
+            target_class=target_class,
             diversity_score=0.0,
-            coverage=coverage,
+            coverage_score=coverage,
+            metadata={"method": CounterfactualMethod.GENETIC.name.lower()},
         )
 
 

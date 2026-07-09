@@ -48,7 +48,19 @@ logger = logging.getLogger("counterfactual_validation")
 #: across five methods.
 DATASET = "WBC"
 METHODS = ("wachter", "dice", "growing_spheres", "prototype", "genetic")
-MAX_EXPLANATIONS_PER_METHOD = 12
+
+#: Bounded per-method search budgets: every candidate evaluation is a full
+#: batch re-score through the real detector, so unbounded defaults are
+#: minutes-per-explanation. These budgets are part of the pre-registered
+#: protocol and recorded in the results.
+METHOD_BUDGETS: dict[str, dict[str, Any]] = {
+    "wachter": {"max_iterations": 120},
+    "dice": {"max_iterations": 60},
+    "growing_spheres": {"n_samples": 200, "step_size": 0.25, "max_iterations": 40},
+    "prototype": {},
+    "genetic": {"population_size": 40, "max_generations": 30},
+}
+MAX_EXPLANATIONS_PER_METHOD = 8
 SEED = 0
 
 
@@ -108,15 +120,17 @@ def main() -> int:
         t0 = time.perf_counter()
         for idx in chosen:
             score_fn = make_statistical_score_fn(detector, X, int(idx))
-            kwargs: dict[str, Any] = {}
+            kwargs: dict[str, Any] = dict(METHOD_BUDGETS.get(method, {}))
             if method == "prototype":
-                kwargs = {"training_data": X, "training_labels": y}
+                kwargs.update({"training_data": X, "training_labels": y})
             cf = explain_detection_counterfactual(
                 score_fn,
                 X[int(idx)],
                 threshold=threshold,
                 method=method,
                 seed=SEED,
+                n_restarts=2,
+                max_pair_evals=60,
                 **kwargs,
             )
             if cf.flipped:
@@ -149,6 +163,8 @@ def main() -> int:
         "explanations_per_method": int(chosen.size),
         "seed": SEED,
         "threshold": threshold,
+        "method_budgets": METHOD_BUDGETS,
+        "n_restarts": 2,
         "per_method": per_method,
         "provenance": {"commit": _git_commit()},
     }

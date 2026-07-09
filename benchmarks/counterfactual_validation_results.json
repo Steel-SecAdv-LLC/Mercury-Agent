@@ -1,0 +1,74 @@
+{
+  "protocol": "fit MercuryAnomalyDetector on the normal split of a real ADBench dataset; explain its strongest true-positive detections with every method; flip/minimality are re-scored through the real detect() path",
+  "dataset": "WBC",
+  "n_samples": 223,
+  "n_features": 9,
+  "n_true_positive_detections": 10,
+  "explanations_per_method": 8,
+  "seed": 0,
+  "threshold": 0.31184545827209575,
+  "method_budgets": {
+    "wachter": {
+      "max_iterations": 120
+    },
+    "dice": {
+      "max_iterations": 60
+    },
+    "growing_spheres": {
+      "n_samples": 200,
+      "step_size": 0.25,
+      "max_iterations": 40
+    },
+    "prototype": {},
+    "genetic": {
+      "population_size": 40,
+      "max_generations": 30
+    }
+  },
+  "n_restarts": 2,
+  "per_method": {
+    "wachter": {
+      "explanations": 8,
+      "flip_rate": 1.0,
+      "minimality_verified_rate": 1.0,
+      "mean_sparsity": 6.25,
+      "mean_distance": 14.13941756602136,
+      "wall_seconds": 16.69
+    },
+    "dice": {
+      "explanations": 8,
+      "flip_rate": 0.0,
+      "minimality_verified_rate": 0.0,
+      "mean_sparsity": null,
+      "mean_distance": null,
+      "wall_seconds": 531.17
+    },
+    "growing_spheres": {
+      "explanations": 8,
+      "flip_rate": 0.0,
+      "minimality_verified_rate": 0.0,
+      "mean_sparsity": null,
+      "mean_distance": null,
+      "wall_seconds": 273.77
+    },
+    "prototype": {
+      "explanations": 8,
+      "flip_rate": 1.0,
+      "minimality_verified_rate": 1.0,
+      "mean_sparsity": 7.75,
+      "mean_distance": 11.099437248587185,
+      "wall_seconds": 1.76
+    },
+    "genetic": {
+      "explanations": 8,
+      "flip_rate": 1.0,
+      "minimality_verified_rate": 1.0,
+      "mean_sparsity": 6.625,
+      "mean_distance": 11.410940150464501,
+      "wall_seconds": 21.48
+    }
+  },
+  "provenance": {
+    "commit": "c43ba2c6e444329a253ecda6d4e15f193f21ad5a"
+  }
+}
