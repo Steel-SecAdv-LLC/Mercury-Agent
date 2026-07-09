@@ -312,15 +312,131 @@ class StreamConsumer(ABC):
 # =============================================================================
 # In-Memory Implementation (for testing)
 # =============================================================================
+class InMemoryStreamBroker:
+    """In-memory message broker backing the ``memory`` streaming backend.
+
+    Owns the per-topic message log and the lock that guards appends —
+    topics are *broker*-scoped, mirroring the pub/sub semantics of a real
+    Kafka/Redis deployment where producers and consumers rendezvous on a
+    broker, not on a class object. Two producers attached to distinct
+    brokers are therefore fully isolated from each other.
+
+    This replaces the previous design where the topic dict lived as a
+    class attribute on :class:`InMemoryStreamProducer`: that state
+    outlived every producer instance, leaked across tests, and made two
+    isolated in-memory pipelines in one process impossible.
+
+    The internal ``asyncio.Lock`` is created per broker in ``__init__``.
+    Since Python 3.10, ``asyncio.Lock`` binds to an event loop lazily (on
+    first contended acquire), so constructing a broker outside a running
+    loop is safe; a per-broker lock also avoids the old import-time class
+    lock that was shared across every event loop for the process's life.
+    """
+
+    def __init__(self) -> None:
+        """Initialize an empty broker."""
+        self._streams: dict[str, list[StreamMessage]] = {}
+        self._lock = asyncio.Lock()
+
+    async def append(
+        self,
+        topic: str,
+        value: dict[str, Any],
+        key: str | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> StreamMessage:
+        """Append a message to a topic, assigning the next offset atomically.
+
+        Args:
+            topic: Target topic name (created on first append).
+            value: Message payload.
+            key: Optional message key.
+            headers: Optional message headers.
+
+        Returns:
+            The stored :class:`StreamMessage` with its broker-assigned offset.
+        """
+        async with self._lock:
+            log = self._streams.setdefault(topic, [])
+            message = StreamMessage(
+                topic=topic,
+                key=key,
+                value=value,
+                headers=headers or {},
+                offset=len(log),
+            )
+            log.append(message)
+            return message
+
+    def get_messages(self, topic: str) -> list[StreamMessage]:
+        """Return a snapshot of all messages currently stored for a topic.
+
+        Args:
+            topic: Topic name to read.
+
+        Returns:
+            A copy of the topic's message list (empty if the topic does not
+            exist). Mutating the returned list does not affect broker state.
+        """
+        return list(self._streams.get(topic, ()))
+
+    def clear(self) -> None:
+        """Remove all topics and messages from this broker."""
+        self._streams.clear()
+
+
+# Module-level default broker: producers and consumers that are not given an
+# explicit broker all share this one, preserving the out-of-the-box
+# produce-in-one-place / consume-in-another semantic.
+_default_broker = InMemoryStreamBroker()
+
+
+def get_default_broker() -> InMemoryStreamBroker:
+    """Return the process-wide default in-memory broker.
+
+    Returns:
+        The shared :class:`InMemoryStreamBroker` used by producers and
+        consumers constructed without an explicit ``broker`` argument.
+    """
+    return _default_broker
+
+
+def reset_default_broker() -> InMemoryStreamBroker:
+    """Clear the default broker's state (primarily for test isolation).
+
+    The broker instance is cleared in place rather than replaced, so
+    producers and consumers that already captured the default broker keep
+    pointing at the same (now empty) broker — no stale aliases.
+
+    Returns:
+        The (cleared) default broker.
+    """
+    _default_broker.clear()
+    return _default_broker
+
+
 class InMemoryStreamProducer(StreamProducer):
-    """In-memory producer for testing and development."""
+    """In-memory producer for testing and development.
 
-    _streams: dict[str, list[StreamMessage]] = {}
-    _lock: asyncio.Lock = asyncio.Lock()
+    Messages are appended to an :class:`InMemoryStreamBroker`. By default
+    all producers and consumers share the module-level default broker;
+    pass an explicit ``broker`` to isolate pipelines from each other.
+    """
 
-    def __init__(self, config: StreamConfig | None = None):
-        """Initialize the instance."""
+    def __init__(
+        self,
+        config: StreamConfig | None = None,
+        broker: InMemoryStreamBroker | None = None,
+    ):
+        """Initialize the instance.
+
+        Args:
+            config: Optional stream configuration.
+            broker: Broker to publish to. Defaults to the shared default
+                broker returned by :func:`get_default_broker`.
+        """
         self.config = config or StreamConfig()
+        self.broker = broker if broker is not None else get_default_broker()
         self._connected = False
 
     async def connect(self) -> None:
@@ -340,21 +456,10 @@ class InMemoryStreamProducer(StreamProducer):
         key: str | None = None,
         headers: dict[str, str] | None = None,
     ) -> bool:
-        """Send message to in-memory stream."""
-        async with self._lock:
-            if topic not in self._streams:
-                self._streams[topic] = []
-
-            message = StreamMessage(
-                topic=topic,
-                key=key,
-                value=value,
-                headers=headers or {},
-                offset=len(self._streams[topic]),
-            )
-            self._streams[topic].append(message)
-            logger.debug(f"InMemory: Sent message to topic '{topic}'")
-            return True
+        """Send message to this producer's broker."""
+        await self.broker.append(topic, value, key=key, headers=headers)
+        logger.debug(f"InMemory: Sent message to topic '{topic}'")
+        return True
 
     async def send_batch(
         self,
@@ -374,22 +479,51 @@ class InMemoryStreamProducer(StreamProducer):
 
     @classmethod
     def get_messages(cls, topic: str) -> list[StreamMessage]:
-        """Get all messages from a topic (for testing)."""
-        return cls._streams.get(topic, [])
+        """Get all messages from a topic on the *default* broker.
+
+        Back-compat shim: delegates to :func:`get_default_broker`.
+        Messages published through a producer constructed with an explicit
+        ``broker`` are not visible here — read them via
+        ``producer.broker.get_messages(topic)`` instead.
+        """
+        return get_default_broker().get_messages(topic)
 
     @classmethod
     def clear(cls) -> None:
-        """Clear all streams (for testing)."""
-        cls._streams.clear()
+        """Clear all streams on the *default* broker.
+
+        Back-compat shim: delegates to :func:`reset_default_broker`.
+        Brokers passed explicitly to producers/consumers are unaffected —
+        clear those via ``broker.clear()``.
+        """
+        reset_default_broker()
 
 
 class InMemoryStreamConsumer(StreamConsumer):
-    """In-memory consumer for testing and development."""
+    """In-memory consumer for testing and development.
 
-    def __init__(self, config: StreamConfig | None = None, group_id: str = "default"):
-        """Initialize the instance."""
+    Reads from an :class:`InMemoryStreamBroker`. By default all producers
+    and consumers share the module-level default broker; pass an explicit
+    ``broker`` to isolate pipelines from each other.
+    """
+
+    def __init__(
+        self,
+        config: StreamConfig | None = None,
+        group_id: str = "default",
+        broker: InMemoryStreamBroker | None = None,
+    ):
+        """Initialize the instance.
+
+        Args:
+            config: Optional stream configuration.
+            group_id: Consumer group identifier.
+            broker: Broker to consume from. Defaults to the shared default
+                broker returned by :func:`get_default_broker`.
+        """
         self.config = config or StreamConfig()
         self.group_id = group_id
+        self.broker = broker if broker is not None else get_default_broker()
         self._subscribed_topics: list[str] = []
         self._offsets: dict[str, int] = {}
         self._connected = False
@@ -419,7 +553,7 @@ class InMemoryStreamConsumer(StreamConsumer):
         start = time.time()
         while (time.time() - start) * 1000 < timeout_ms:
             for topic in self._subscribed_topics:
-                messages = InMemoryStreamProducer._streams.get(topic, [])
+                messages = self.broker.get_messages(topic)
                 offset = self._offsets.get(topic, 0)
 
                 if offset < len(messages):
@@ -1567,6 +1701,7 @@ class StreamingAnomalyPipeline:
 __all__ = [
     "CircuitBreaker",
     "CircuitState",
+    "InMemoryStreamBroker",
     "InMemoryStreamConsumer",
     "InMemoryStreamProducer",
     "KafkaStreamConsumer",
@@ -1581,4 +1716,6 @@ __all__ = [
     "StreamProducerFactory",
     "StreamingAnomalyPipeline",
     "StreamingBackend",
+    "get_default_broker",
+    "reset_default_broker",
 ]
