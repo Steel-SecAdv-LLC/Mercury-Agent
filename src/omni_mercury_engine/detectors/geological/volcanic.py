@@ -37,13 +37,22 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import torch
 from torch import nn
 
+from omni_mercury_engine.data_sources.base import DataSourceType
+from omni_mercury_engine.data_sources.live_ingestion import (
+    LiveFetch,
+    fetch_live_datapoints,
+    require_live_client,
+)
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
+
+if TYPE_CHECKING:
+    from omni_mercury_engine.data_sources.earth_science import USGSVolcanoSource
 
 
 class VolcanicActivityLevel(Enum):
@@ -91,6 +100,10 @@ class VolcanicPredictionResult:
 
     early_warning_actions: list[str] = field(default_factory=list)
     evacuation_recommendations: list[str] = field(default_factory=list)
+
+    source_id: str | None = None
+    data_provenance: str | None = None
+    live_context: dict[str, Any] | None = None
 
 
 class SeismicSwarmDetector(nn.Module):
@@ -745,8 +758,16 @@ class VolcanicEruptionDetector:
         enable_hmm: bool = True,
         enable_refactoring: bool = True,
         rng: DeterministicRNG | None = None,
+        data_source: USGSVolcanoSource | None = None,
     ):
         """Initialize volcanic eruption detector.
+
+        Live-ingestion pattern (uniform across hazard detectors): pass an
+        optional USGS HANS volcano client via ``data_source`` (dependency
+        injection; default None = fully offline). :meth:`fetch_live_data`
+        exposes a provenance-checked fetch and :meth:`detect_live` reports
+        the real observatory alert state -- official alert levels are never
+        turned into synthetic seismic/gas/thermal measurements.
 
         Args:
             enable_seismic: Enable seismic swarm detection
@@ -757,6 +778,7 @@ class VolcanicEruptionDetector:
             enable_hmm: Enable HMM state transitions for activity modeling
             enable_refactoring: Enable 3R Refactoring for adaptive optimization
             rng: Deterministic RNG for reproducibility
+            data_source: Optional USGS HANS volcano-status client.
         """
         self.enable_seismic = enable_seismic
         self.enable_thermal = enable_thermal
@@ -792,6 +814,8 @@ class VolcanicEruptionDetector:
         # 3R Refactoring for adaptive optimization
         self.refactoring_optimizer = RefactoringAdaptiveOptimizer() if enable_refactoring else None
 
+        self._volcano_source = data_source
+
         self.logger = logging.getLogger(__name__)
 
     def load_neural_weights(self, checkpoint_path: str) -> None:
@@ -825,6 +849,114 @@ class VolcanicEruptionDetector:
                 "load_neural_weights() once a trained checkpoint exists."
             )
             self._warned_untrained = True
+
+    def fetch_live_data(self, *, allow_simulated: bool = False, **kwargs: Any) -> LiveFetch:
+        """Fetch live USGS HANS volcano statuses through the injected client.
+
+        Args:
+            allow_simulated: Explicit opt-in for simulated sources (the HANS
+                feed is real, so this normally stays False).
+            **kwargs: Passed to the client fetch.
+
+        Returns:
+            Provenance-checked LiveFetch of VOLCANO data points.
+
+        Raises:
+            LiveDataError: No volcano client injected, or the fetch failed.
+        """
+        client = require_live_client(
+            self._volcano_source, "VolcanicEruptionDetector", "USGS HANS volcano"
+        )
+        return fetch_live_datapoints(
+            client,
+            allow_simulated=allow_simulated,
+            source_types=[DataSourceType.VOLCANO],
+            **kwargs,
+        )
+
+    def detect_live(
+        self,
+        *,
+        volcano_name: str | None = None,
+        allow_simulated: bool = False,
+        **fetch_kwargs: Any,
+    ) -> VolcanicPredictionResult:
+        """Report the live observatory alert state from the USGS HANS feed.
+
+        This is an ALERT-STATE assessment: ``alert_level`` is the highest
+        official USGS observatory alert among the fetched volcanoes (or the
+        named volcano), and ``eruption_imminent`` reflects a WARNING-level
+        statement. VEI, time-to-eruption and the instrument anomaly flags stay
+        at their absent defaults -- observatory statements are never converted
+        into synthetic seismic, gas, thermal or deformation measurements.
+
+        Args:
+            volcano_name: Optional case-insensitive volcano name filter.
+            allow_simulated: Explicit opt-in for simulated sources.
+            **fetch_kwargs: Extra client fetch parameters.
+
+        Returns:
+            VolcanicPredictionResult with ``source_id`` / ``data_provenance``
+            / ``live_context`` populated from the real alert state.
+
+        Raises:
+            LiveDataError: No volcano client injected, or the fetch failed.
+        """
+        fetch = self.fetch_live_data(allow_simulated=allow_simulated, **fetch_kwargs)
+
+        points = fetch.data_points
+        if volcano_name is not None:
+            wanted = volcano_name.strip().lower()
+            points = [dp for dp in points if str(dp.data.get("name", "")).lower() == wanted]
+
+        level_rank = {"normal": 0, "advisory": 1, "watch": 2, "warning": 3}
+        level_counts: dict[str, int] = {}
+        worst_rank = -1
+        worst: dict[str, Any] | None = None
+        for dp in points:
+            level = str(dp.data.get("alert_level", "unassigned")).lower()
+            level_counts[level] = level_counts.get(level, 0) + 1
+            rank = level_rank.get(level, -1)
+            if rank > worst_rank:
+                worst_rank = rank
+                worst = dp.data
+
+        live_context: dict[str, Any] = {
+            "volcanoes_reported": len(points),
+            "alert_level_counts": level_counts,
+        }
+        if worst is not None:
+            live_context["highest_alert_volcano"] = {
+                "name": worst.get("name"),
+                "alert_level": worst.get("alert_level"),
+                "aviation_color_code": worst.get("aviation_color_code"),
+                "observatory": worst.get("observatory"),
+                "notice_url": worst.get("notice_url"),
+            }
+
+        # Official observatory alert statements: confidence mirrors the source
+        # client's stated confidence for HANS statements (0.98) when any
+        # volcano is elevated; a quiet feed asserts nothing.
+        alert_level = "normal" if worst_rank < 0 else str(worst.get("alert_level", "normal"))
+        eruption_imminent = worst_rank == 3
+        confidence = 0.98 if worst_rank >= 1 else 0.0
+        actions: list[str] = []
+        if worst is not None and worst_rank >= 2:
+            actions.append(
+                f"USGS {str(worst.get('alert_level', '')).upper()} for "
+                f"{worst.get('name')}: follow {worst.get('observatory') or 'observatory'} guidance."
+            )
+
+        return VolcanicPredictionResult(
+            eruption_imminent=eruption_imminent,
+            confidence=confidence,
+            alert_level=alert_level,
+            eruption_type="undetermined" if worst_rank >= 2 else "no_eruption",
+            early_warning_actions=actions,
+            source_id=fetch.source_id,
+            data_provenance=fetch.data_provenance,
+            live_context=live_context,
+        )
 
     def predict_eruption(self, volcano_data: dict[str, Any]) -> VolcanicPredictionResult:
         """Comprehensive volcanic eruption prediction.

@@ -5,8 +5,21 @@
 Implements detection systems for:
 - Tsunami: Oceanic waveform FFT analysis with Resonance integration
 - Earthquake: P/S-wave spectrogram analysis via Scipy.signal
-- Meteor: Optical/radar Bayesian filter with NOAA stub
-- Solar Flare: X-ray flux predictors with geomagnetic HMM
+- Meteor: Optical/radar Bayesian filter fused with NASA/JPL data_sources
+  clients (JPLFireballSource, NASANeoWsSource, JPLSentrySource)
+
+The SolarFlareDetector that used to live here was a name-only duplicate of
+:class:`omni_mercury_engine.space.solar_storm_detector.SolarFlareDetector`;
+the canonical class (and its SolarFlarePredictionResult) is re-exported from
+this module for import compatibility. Likewise the private NASA CNEOS HTTP
+loaders were consolidated into ``data_sources/jpl_ssd.py`` and their
+dataclasses are re-exported here.
+
+Live ingestion follows the uniform pattern in
+:mod:`omni_mercury_engine.data_sources.live_ingestion`: constructors accept an
+optional data_sources client (default None = offline), ``fetch_live_data``
+fails loud, and the ``*_live`` conveniences stamp ``source_id`` /
+``data_provenance`` / ``live_context`` on the native result dataclasses.
 
 All detectors integrate with the 3R mechanism:
 - Recursion: Multi-scale hierarchical feature extraction
@@ -26,7 +39,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
@@ -49,10 +62,41 @@ else:
 from scipy import signal
 from scipy.fft import fft, fftfreq
 
+from omni_mercury_engine.data_sources.jpl_ssd import (
+    CloseApproachEvent,
+    FireballEvent,
+    JPLFireballSource,
+    JPLSentrySource,
+    SentryImpactRisk,
+    close_approaches_from_neows_datapoints,
+    fireball_events_from_datapoints,
+    sentry_risks_from_datapoints,
+)
+from omni_mercury_engine.data_sources.live_ingestion import (
+    LiveDataError,
+    fetch_live_datapoints,
+    haversine_km,
+    require_live_client,
+)
+from omni_mercury_engine.data_sources.space_weather import NASANeoWsSource
 from omni_mercury_engine.resilience.api_circuit_breakers import get_data_loader_breaker
 from omni_mercury_engine.security.input_validation import TrustedEndpoints
 from omni_mercury_engine.security.safe_http import SafeHTTPClient
+
+# Canonical solar-flare detector (deduplicated): re-exported from here for
+# import compatibility. The class that used to live in this module carried
+# fabricated per-HMM-state Kp/Dst lookup tables; the canonical implementation
+# derives storm fields only from a REAL observed planetary Kp (see its
+# docstring and DEPRECATION.md).
+from omni_mercury_engine.space.solar_storm_detector import (  # noqa: F401
+    SolarFlareDetector,
+    SolarFlarePredictionResult,
+)
 from omni_mercury_engine.utils.rng import get_global_rng
+
+if TYPE_CHECKING:
+    from omni_mercury_engine.data_sources.earth_science import USGSEarthquakeSource
+    from omni_mercury_engine.data_sources.live_ingestion import LiveFetch
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +138,14 @@ class MeteorThreatLevel(Enum):
 
 
 class SolarFlareClass(Enum):
-    """Solar flare classification (GOES X-ray flux)."""
+    """Solar flare classification (GOES X-ray flux) -- LEGACY LABELS.
+
+    Deprecated: the canonical
+    :class:`omni_mercury_engine.space.solar_storm_detector.SolarFlareDetector`
+    reports NOAA letter labels ("A".."X", matching the space-module
+    ``SolarFlareClass`` enum). This "a_class"-style enum is preserved for
+    import compatibility only (see DEPRECATION.md).
+    """
 
     A = "a_class"  # < 10^-7 W/m^2
     B = "b_class"  # 10^-7 to 10^-6
@@ -123,6 +174,11 @@ class TsunamiPredictionResult:
     warning_actions: list[str] = field(default_factory=list)
     evacuation_zones: list[str] = field(default_factory=list)
 
+    # Live-ingestion provenance (populated only by predict_tsunami_live()).
+    source_id: str | None = None
+    data_provenance: str | None = None
+    live_context: dict[str, Any] | None = None
+
 
 @dataclass
 class EarthquakePredictionResult:
@@ -149,6 +205,11 @@ class EarthquakePredictionResult:
     warning_actions: list[str] = field(default_factory=list)
     aftershock_probability: float = 0.0
 
+    # Live-ingestion provenance (populated only by detect_live()).
+    source_id: str | None = None
+    data_provenance: str | None = None
+    live_context: dict[str, Any] | None = None
+
 
 @dataclass
 class MeteorPredictionResult:
@@ -171,27 +232,10 @@ class MeteorPredictionResult:
 
     warning_actions: list[str] = field(default_factory=list)
 
-
-@dataclass
-class SolarFlarePredictionResult:
-    """Solar flare prediction results."""
-
-    flare_detected: bool
-    confidence: float
-    flare_class: str
-
-    x_ray_flux: float = 0.0
-    proton_flux: float = 0.0
-    geomagnetic_storm_probability: float = 0.0
-
-    kp_index_predicted: float = 0.0
-    dst_index_predicted: float = 0.0
-
-    hmm_state: int = 0
-    transition_probability: float = 0.0
-
-    warning_actions: list[str] = field(default_factory=list)
-    affected_systems: list[str] = field(default_factory=list)
+    # Live-ingestion provenance (populated only when live clients were used).
+    source_id: str | None = None
+    data_provenance: str | None = None
+    live_context: dict[str, Any] | None = None
 
 
 if TYPE_CHECKING or TORCH_AVAILABLE:
@@ -429,77 +473,6 @@ class BayesianMeteorFilter:
         return posterior
 
 
-class GeomagneticHMM:
-    """Hidden Markov Model for solar flare and geomagnetic storm prediction."""
-
-    def __init__(self, n_states: int = 5) -> None:
-        """Initialize the instance."""
-        self.n_states = n_states
-
-        self.transition_matrix = np.array(
-            [
-                [0.90, 0.08, 0.02, 0.00, 0.00],
-                [0.05, 0.85, 0.08, 0.02, 0.00],
-                [0.02, 0.05, 0.83, 0.08, 0.02],
-                [0.01, 0.02, 0.05, 0.82, 0.10],
-                [0.00, 0.01, 0.02, 0.07, 0.90],
-            ]
-        )
-
-        self.emission_means = np.array([1e-8, 1e-7, 1e-6, 1e-5, 1e-4])
-        self.emission_stds = np.array([5e-9, 5e-8, 5e-7, 5e-6, 5e-5])
-
-        self.state_names = ["Quiet", "B-class", "C-class", "M-class", "X-class"]
-        self.current_state = 0
-
-    def predict_next_state(self, current_state: int | None = None) -> tuple[int, float]:
-        """Predict most likely next state.
-
-        Args:
-            current_state: Current state index (uses internal if None)
-
-        Returns:
-            Tuple of (predicted_state, transition_probability)
-        """
-        state = current_state if current_state is not None else self.current_state
-        probs = self.transition_matrix[state]
-        predicted_state = int(np.argmax(probs))
-        return predicted_state, probs[predicted_state]
-
-    def update_state(self, x_ray_flux: float) -> int:
-        """Update state based on observed X-ray flux.
-
-        Args:
-            x_ray_flux: Observed X-ray flux in W/m^2
-
-        Returns:
-            Most likely current state
-        """
-        log_likelihoods = np.zeros(self.n_states)
-
-        for i in range(self.n_states):
-            diff = np.log10(max(x_ray_flux, 1e-10)) - np.log10(self.emission_means[i])
-            log_likelihoods[i] = -0.5 * (diff / 0.5) ** 2
-
-        log_likelihoods += np.log(self.transition_matrix[self.current_state] + 1e-10)
-
-        self.current_state = int(np.argmax(log_likelihoods))
-        return self.current_state
-
-    def get_storm_probability(self, state: int | None = None) -> float:
-        """Get probability of geomagnetic storm given current state.
-
-        Args:
-            state: State index (uses current if None)
-
-        Returns:
-            Storm probability [0, 1]
-        """
-        s = state if state is not None else self.current_state
-        storm_probs = [0.01, 0.05, 0.15, 0.45, 0.85]
-        return storm_probs[s]
-
-
 class TsunamiDetector:
     """Tsunami detector using oceanic waveform FFT analysis.
 
@@ -512,12 +485,31 @@ class TsunamiDetector:
         sampling_rate: float = 1.0,
         detection_threshold: float = 0.96,
         device: str = "cpu",
+        data_source: USGSEarthquakeSource | None = None,
     ):
-        """Initialize the instance."""
+        """Initialize the instance.
+
+        Live-ingestion pattern (uniform across hazard detectors): pass an
+        optional USGS earthquake-catalog client via ``data_source``
+        (dependency injection; default None = fully offline).
+        :meth:`fetch_live_data` exposes a provenance-checked fetch and
+        :meth:`predict_tsunami_live` enriches the waveform physics with a
+        live candidate source event (magnitude + epicentral distance), never
+        inventing a waveform.
+
+        Args:
+            sampling_rate: Waveform sampling rate (Hz).
+            detection_threshold: Confidence threshold for detection.
+            device: Torch device for the (optional) neural analyzer.
+            data_source: Optional USGS earthquake-catalog client.
+        """
+        if not TORCH_AVAILABLE:
+            raise ImportError("TsunamiDetector requires PyTorch. Install with: pip install torch")
         self.sampling_rate = sampling_rate
         self.detection_threshold = detection_threshold
         self.device = torch.device(device)
         self.rng = get_global_rng()
+        self._catalog_source = data_source
 
         self.waveform_analyzer = WaveformFFTAnalyzer().to(self.device)
         self.waveform_analyzer.eval()
@@ -662,6 +654,92 @@ class TsunamiDetector:
             evacuation_zones=zones,
         )
 
+    def fetch_live_data(self, *, allow_simulated: bool = False, **kwargs: Any) -> LiveFetch:
+        """Fetch live USGS earthquake-catalog events through the injected client.
+
+        Args:
+            allow_simulated: Explicit opt-in for simulated sources (the USGS
+                catalog is a real feed, so this normally stays False).
+            **kwargs: Passed to the client fetch (e.g. ``min_magnitude=``).
+
+        Returns:
+            Provenance-checked LiveFetch.
+
+        Raises:
+            LiveDataError: No catalog client injected, or the fetch failed.
+        """
+        client = require_live_client(self._catalog_source, "TsunamiDetector", "USGS earthquake")
+        return fetch_live_datapoints(client, allow_simulated=allow_simulated, **kwargs)
+
+    def predict_tsunami_live(
+        self,
+        waveform_data: np.ndarray[Any, Any] | torch.Tensor,
+        station_lat: float,
+        station_lon: float,
+        *,
+        min_magnitude: float = 6.5,
+        allow_simulated: bool = False,
+    ) -> TsunamiPredictionResult:
+        """Predict tsunami from an observed waveform + live USGS catalog context.
+
+        Maps live catalog events onto the existing :meth:`predict_tsunami`
+        input contract: the waveform physics is unchanged (the waveform must
+        come from the caller's gauge -- it is NEVER invented from catalog
+        metadata), while the ``source_info`` argument (source magnitude +
+        epicentral distance, which drive the arrival-time estimate) is
+        populated from the most tsunamigenic recent catalog event: a
+        tsunami-flagged event if any, else the largest magnitude event at or
+        above ``min_magnitude``.
+
+        Args:
+            waveform_data: Sea level / bottom-pressure waveform from the
+                caller's instrument.
+            station_lat: Gauge latitude (degrees) for epicentral distance.
+            station_lon: Gauge longitude (degrees) for epicentral distance.
+            min_magnitude: Catalog magnitude floor for candidate sources.
+            allow_simulated: Explicit opt-in for simulated sources.
+
+        Returns:
+            TsunamiPredictionResult with ``source_id`` / ``data_provenance`` /
+            ``live_context`` populated.
+
+        Raises:
+            LiveDataError: No catalog client injected, or the fetch failed.
+        """
+        fetch = self.fetch_live_data(allow_simulated=allow_simulated, min_magnitude=min_magnitude)
+
+        candidates = [dp for dp in fetch.data_points if dp.location is not None]
+        source_info: dict[str, Any] | None = None
+        candidate_context: dict[str, Any] | None = None
+        if candidates:
+            tsunami_flagged = [dp for dp in candidates if dp.data.get("tsunami")]
+            pool = tsunami_flagged or candidates
+            strongest = max(pool, key=lambda dp: float(dp.data.get("magnitude", 0.0)))
+            lat, lon, _depth = strongest.location  # type: ignore[misc]
+            distance_km = haversine_km(station_lat, station_lon, lat, lon)
+            source_info = {
+                "distance_km": distance_km,
+                "magnitude": float(strongest.data.get("magnitude", 0.0)),
+            }
+            candidate_context = {
+                "event_id": strongest.event_id,
+                "place": strongest.data.get("place"),
+                "magnitude": strongest.data.get("magnitude"),
+                "tsunami_flagged": bool(strongest.data.get("tsunami")),
+                "distance_km": distance_km,
+                "event_time": strongest.timestamp.isoformat(),
+            }
+
+        result = self.predict_tsunami(waveform_data, source_info)
+        result.source_id = fetch.source_id
+        result.data_provenance = fetch.data_provenance
+        result.live_context = {
+            "catalog_events": len(fetch.data_points),
+            "min_magnitude": min_magnitude,
+            "candidate_source_event": candidate_context,
+        }
+        return result
+
     def _determine_severity(self, wave_height: float) -> str:
         """Determine tsunami severity from wave height."""
         if wave_height < 0.1:
@@ -761,12 +839,33 @@ class EarthquakeDetector:
         sampling_rate: float = 100.0,
         detection_threshold: float = 0.96,
         device: str = "cpu",
+        data_source: USGSEarthquakeSource | None = None,
     ):
-        """Initialize the instance."""
+        """Initialize the instance.
+
+        Live-ingestion pattern (uniform across hazard detectors): pass an
+        optional USGS earthquake-catalog client via ``data_source``
+        (dependency injection; default None = fully offline).
+        :meth:`fetch_live_data` exposes a provenance-checked fetch and
+        :meth:`detect_live` builds an event-stream assessment (observed
+        catalog magnitudes, rate and clustering features) -- catalog metadata
+        is never turned into synthetic waveforms.
+
+        Args:
+            sampling_rate: Waveform sampling rate (Hz).
+            detection_threshold: Confidence threshold for detection.
+            device: Torch device for the (optional) neural analyzer.
+            data_source: Optional USGS earthquake-catalog client.
+        """
+        if not TORCH_AVAILABLE:
+            raise ImportError(
+                "EarthquakeDetector requires PyTorch. Install with: pip install torch"
+            )
         self.sampling_rate = sampling_rate
         self.detection_threshold = detection_threshold
         self.device = torch.device(device)
         self.rng = get_global_rng()
+        self._catalog_source = data_source
 
         self.seismic_analyzer = SeismicWaveAnalyzer().to(self.device)
         self.seismic_analyzer.eval()
@@ -918,6 +1017,158 @@ class EarthquakeDetector:
             warning_actions=warnings,
             aftershock_probability=aftershock_probability,
         )
+
+    def fetch_live_data(self, *, allow_simulated: bool = False, **kwargs: Any) -> LiveFetch:
+        """Fetch live USGS earthquake-catalog events through the injected client.
+
+        Args:
+            allow_simulated: Explicit opt-in for simulated sources (the USGS
+                catalog is a real feed, so this normally stays False).
+            **kwargs: Passed to the client fetch (e.g. ``min_magnitude=``,
+                geographic bounds).
+
+        Returns:
+            Provenance-checked LiveFetch.
+
+        Raises:
+            LiveDataError: No catalog client injected, or the fetch failed.
+        """
+        client = require_live_client(self._catalog_source, "EarthquakeDetector", "USGS earthquake")
+        return fetch_live_datapoints(client, allow_simulated=allow_simulated, **kwargs)
+
+    def detect_live(
+        self,
+        *,
+        min_magnitude: float | None = None,
+        station_lat: float | None = None,
+        station_lon: float | None = None,
+        allow_simulated: bool = False,
+        **fetch_kwargs: Any,
+    ) -> EarthquakePredictionResult:
+        """Assess live seismicity from the USGS event catalog.
+
+        This is an EVENT-STREAM assessment, feeding what the physics actually
+        consumes from a catalog: observed magnitudes, occurrence rate and
+        space-time clustering. Catalog metadata is never converted into
+        synthetic waveforms, so the waveform fields (P/S picks, resonance,
+        spectral anomalies) are absent/zero here and ``estimated_magnitude``
+        is the LARGEST OBSERVED catalog magnitude -- a real USGS measurement,
+        not a model estimate (the untrained-network magnitude fabrication was
+        removed in the honesty wave). ``aftershock_probability`` stays 0.0:
+        no calibrated Reasenberg-Jones parameters are available, so no
+        forecast is fabricated. Rate/clustering features (events/day,
+        maximum-likelihood b-value per Aki 1965, clustered-event fraction)
+        are reported in ``live_context``.
+
+        Args:
+            min_magnitude: Optional catalog magnitude floor.
+            station_lat: Optional station latitude for epicentral distance.
+            station_lon: Optional station longitude for epicentral distance.
+            allow_simulated: Explicit opt-in for simulated sources.
+            **fetch_kwargs: Extra client fetch parameters (e.g. bounds).
+
+        Returns:
+            EarthquakePredictionResult with ``source_id`` /
+            ``data_provenance`` / ``live_context`` populated.
+
+        Raises:
+            LiveDataError: No catalog client injected, or the fetch failed.
+        """
+        if min_magnitude is not None:
+            fetch_kwargs["min_magnitude"] = min_magnitude
+        fetch = self.fetch_live_data(allow_simulated=allow_simulated, **fetch_kwargs)
+
+        events = [dp for dp in fetch.data_points if dp.data.get("magnitude") is not None]
+        events.sort(key=lambda dp: dp.timestamp)
+
+        if not events:
+            return EarthquakePredictionResult(
+                earthquake_detected=False,
+                confidence=0.0,
+                estimated_magnitude=None,
+                magnitude_class="undetermined",
+                source_id=fetch.source_id,
+                data_provenance=fetch.data_provenance,
+                live_context={"event_count": 0},
+            )
+
+        magnitudes = np.array([float(dp.data["magnitude"]) for dp in events])
+        strongest = events[int(np.argmax(magnitudes))]
+        max_magnitude = float(magnitudes.max())
+
+        # Occurrence rate over the observed window (>= 1 h to avoid a
+        # single-event zero-span blowup).
+        span_days = max(
+            (events[-1].timestamp - events[0].timestamp).total_seconds() / 86400.0,
+            1.0 / 24.0,
+        )
+        events_per_day = len(events) / span_days
+
+        # Maximum-likelihood b-value (Aki 1965): b = log10(e) / (mean(M) -
+        # (Mc - dM/2)) with completeness Mc taken as the smallest observed
+        # magnitude and 0.1-unit binning. Only meaningful with enough events.
+        b_value: float | None = None
+        if len(magnitudes) >= 10:
+            mc = float(magnitudes.min())
+            mean_excess = float(magnitudes.mean()) - (mc - 0.05)
+            if mean_excess > 0:
+                b_value = float(np.log10(np.e) / mean_excess)
+
+        # Clustered fraction: events with a preceding event within 100 km and
+        # 72 h (a deterministic space-time clustering measure, not a forecast).
+        clustered = 0
+        for i, dp in enumerate(events):
+            if dp.location is None:
+                continue
+            for prior in events[:i]:
+                if prior.location is None:
+                    continue
+                dt_hours = (dp.timestamp - prior.timestamp).total_seconds() / 3600.0
+                if dt_hours > 72.0:
+                    continue
+                dist = haversine_km(
+                    dp.location[0], dp.location[1], prior.location[0], prior.location[1]
+                )
+                if dist <= 100.0:
+                    clustered += 1
+                    break
+        clustered_fraction = clustered / len(events)
+
+        epicenter_distance = None
+        if station_lat is not None and station_lon is not None and strongest.location is not None:
+            epicenter_distance = haversine_km(
+                station_lat, station_lon, strongest.location[0], strongest.location[1]
+            )
+
+        magnitude_class = self._classify_magnitude(max_magnitude)
+        result = EarthquakePredictionResult(
+            earthquake_detected=True,
+            confidence=float(strongest.confidence),
+            estimated_magnitude=max_magnitude,  # observed catalog magnitude
+            magnitude_class=magnitude_class,
+            epicenter_distance_km=epicenter_distance,
+            depth_km=(strongest.location[2] if strongest.location is not None else None),
+            warning_actions=self._generate_warnings(True, magnitude_class),
+            source_id=fetch.source_id,
+            data_provenance=fetch.data_provenance,
+            live_context={
+                "event_count": len(events),
+                "events_per_day": events_per_day,
+                "window_days": span_days,
+                "max_magnitude": max_magnitude,
+                "mean_magnitude": float(magnitudes.mean()),
+                "b_value": b_value,
+                "clustered_fraction": clustered_fraction,
+                "strongest_event": {
+                    "event_id": strongest.event_id,
+                    "place": strongest.data.get("place"),
+                    "magnitude": max_magnitude,
+                    "time": strongest.timestamp.isoformat(),
+                    "tsunami_flagged": bool(strongest.data.get("tsunami")),
+                },
+            },
+        )
+        return result
 
     def _peak_sta_lta(self, data: np.ndarray[Any, Any]) -> float:
         """Peak STA/LTA trigger ratio over the record (0.0 if too short)."""
@@ -1074,16 +1325,30 @@ class EarthquakeDetector:
 
 
 class MeteorDetector:
-    """Meteor detector using optical/radar Bayesian filter with NASA CNEOS integration.
+    """Meteor detector using optical/radar Bayesian filter with NASA/JPL integration.
 
     Combines optical and radar observations with Bayesian inference
     for meteor/asteroid detection and trajectory estimation.
 
     Production Features:
-        - NASA CNEOS Fireball API integration for real atmospheric impact data
-        - NASA Close Approach Data (CAD) for near-Earth object tracking
-        - NASA Sentry impact monitoring for potential future impacts
+        - JPLFireballSource (data_sources) for real atmospheric impact data
+        - NASANeoWsSource (data_sources) for near-Earth object close approaches
+        - JPLSentrySource (data_sources) for potential future impact risks
         - Bayesian sensor fusion for optical/radar observations
+
+    Live-ingestion pattern (uniform across hazard detectors): the constructor
+    accepts optional data_sources client instances (dependency injection).
+    ``use_nasa_data=True`` (the default, historical behaviour) constructs the
+    default clients when none are injected; ``use_nasa_data=False`` with no
+    injected clients means fully offline. The former private module-level HTTP
+    loaders are gone -- ALL network access flows through the clients, whose
+    own ``CacheConfig`` (6 h TTL) preserves the historical refresh cadence.
+    :meth:`get_recent_fireballs` / :meth:`get_upcoming_close_approaches` /
+    :meth:`get_impact_risks` fail loud (:class:`LiveDataError`) when their
+    fetch fails; :meth:`predict_meteor` treats NASA/JPL data as optional
+    corroborating evidence, logs fetch failures and stamps ``source_id`` /
+    ``data_provenance`` / ``live_context`` on the result when live data was
+    actually consulted.
     """
 
     def __init__(
@@ -1091,98 +1356,126 @@ class MeteorDetector:
         detection_threshold: float = 0.7,
         prior_probability: float = 1e-6,
         use_nasa_data: bool = True,
+        fireball_source: JPLFireballSource | None = None,
+        neo_source: NASANeoWsSource | None = None,
+        sentry_source: JPLSentrySource | None = None,
     ):
         """Initialize MeteorDetector.
 
         Args:
             detection_threshold: Confidence threshold for meteor detection (0-1)
             prior_probability: Prior probability of meteor occurrence for Bayesian filter
-            use_nasa_data: Whether to fetch real-time data from NASA CNEOS APIs
+            use_nasa_data: Construct default NASA/JPL clients when none are
+                injected (historical knob; False + no clients = offline)
+            fireball_source: Optional injected JPL Fireball client
+            neo_source: Optional injected NASA NeoWs close-approach client
+            sentry_source: Optional injected JPL Sentry impact-risk client
         """
         self.detection_threshold = detection_threshold
         self.bayesian_filter = BayesianMeteorFilter(prior_probability=prior_probability)
         self.rng = get_global_rng()
-        self.use_nasa_data = use_nasa_data
 
-        # Cached NASA data
-        self._fireball_cache: list[Any] | None = None
-        self._close_approach_cache: list[Any] | None = None
-        self._sentry_cache: list[Any] | None = None
-        self._cache_timestamp: datetime | None = None
-        self._cache_ttl_hours: int = 6  # Refresh NASA data every 6 hours
+        any_injected = any(s is not None for s in (fireball_source, neo_source, sentry_source))
+        self.use_nasa_data = use_nasa_data or any_injected
+
+        if self.use_nasa_data:
+            self._fireball_source = fireball_source or JPLFireballSource(days_back=30)
+            self._neo_source = neo_source or NASANeoWsSource(days_forward=7)
+            self._sentry_source = sentry_source or JPLSentrySource()
+        else:
+            self._fireball_source = None
+            self._neo_source = None
+            self._sentry_source = None
 
         logger.info(
             f"MeteorDetector initialized: threshold={detection_threshold}, "
-            f"nasa_data={use_nasa_data}"
+            f"nasa_data={self.use_nasa_data}"
         )
 
-    def _refresh_nasa_cache(self) -> None:
-        """Refresh NASA data cache if expired or empty."""
-        now = datetime.now()
+    def fetch_live_data(
+        self, client_name: str = "fireball", *, allow_simulated: bool = False, **kwargs: Any
+    ) -> LiveFetch:
+        """Fetch live data points through one of the injected clients.
 
-        # Check if cache needs refresh
-        if (
-            self._cache_timestamp is not None
-            and (now - self._cache_timestamp).total_seconds() < self._cache_ttl_hours * 3600
-        ):
-            return  # Cache is still valid
+        Args:
+            client_name: One of ``"fireball"``, ``"neo"``, ``"sentry"``.
+            allow_simulated: Explicit opt-in for simulated sources (all three
+                NASA/JPL clients are real feeds, so this normally stays False).
+            **kwargs: Passed through to the client fetch.
 
-        logger.info("Refreshing NASA CNEOS data cache...")
+        Returns:
+            Provenance-checked LiveFetch.
 
-        # Load all NASA data sources
-        self._fireball_cache = load_nasa_fireball_data(days_back=30)
-        self._close_approach_cache = load_nasa_close_approach_data(days_forward=30)
-        self._sentry_cache = load_nasa_sentry_data()
-        self._cache_timestamp = now
+        Raises:
+            LiveDataError: Unknown/unwired client, or the fetch failed.
+        """
+        clients = {
+            "fireball": self._fireball_source,
+            "neo": self._neo_source,
+            "sentry": self._sentry_source,
+        }
+        if client_name not in clients:
+            raise LiveDataError(
+                f"MeteorDetector: unknown live client {client_name!r} "
+                f"(expected one of {sorted(clients)})"
+            )
+        client = require_live_client(
+            clients[client_name], "MeteorDetector", f"NASA/JPL {client_name}"
+        )
+        return fetch_live_datapoints(client, allow_simulated=allow_simulated, **kwargs)
 
-    def get_recent_fireballs(self, days: int = 7) -> list[Any]:
-        """Get recent fireball events from NASA CNEOS.
+    def get_recent_fireballs(self, days: int = 7) -> list[FireballEvent]:
+        """Get recent fireball events from the JPL Fireball API.
 
         Args:
             days: Number of days back to look
 
         Returns:
             List of FireballEvent objects from the last N days
+
+        Raises:
+            LiveDataError: The fireball client is unwired or its fetch failed
+                (fail-loud: no silent empty list on network failure).
         """
         if not self.use_nasa_data:
             return []
 
-        self._refresh_nasa_cache()
+        fetch = self.fetch_live_data("fireball", start_time=datetime.now(UTC) - timedelta(days=30))
+        events = fireball_events_from_datapoints(fetch.data_points)
+        cutoff = datetime.now(UTC) - timedelta(days=days)
+        return [fb for fb in events if fb.date >= cutoff]
 
-        if self._fireball_cache is None:
-            return []
-
-        cutoff = datetime.now() - timedelta(days=days)
-        return [fb for fb in self._fireball_cache if fb.date >= cutoff]
-
-    def get_upcoming_close_approaches(self) -> list[Any]:
-        """Get upcoming near-Earth object close approaches.
+    def get_upcoming_close_approaches(self) -> list[CloseApproachEvent]:
+        """Get upcoming near-Earth object close approaches via NASA NeoWs.
 
         Returns:
-            List of CloseApproachEvent objects
+            List of CloseApproachEvent objects sorted by approach date.
+
+        Raises:
+            LiveDataError: The NeoWs client is unwired or its fetch failed.
         """
         if not self.use_nasa_data:
             return []
 
-        self._refresh_nasa_cache()
-        return self._close_approach_cache or []
+        fetch = self.fetch_live_data("neo")
+        return close_approaches_from_neows_datapoints(fetch.data_points)
 
-    def get_impact_risks(self) -> list[Any]:
-        """Get current impact risk assessments from NASA Sentry.
+    def get_impact_risks(self) -> list[SentryImpactRisk]:
+        """Get current impact risk assessments from JPL Sentry.
 
         Returns:
             List of SentryImpactRisk objects sorted by Palermo scale
+            (higher = more concerning).
+
+        Raises:
+            LiveDataError: The Sentry client is unwired or its fetch failed.
         """
         if not self.use_nasa_data:
             return []
 
-        self._refresh_nasa_cache()
-
-        if self._sentry_cache is None:
-            return []
-
-        # Sort by Palermo scale (higher = more concerning)
-        return sorted(self._sentry_cache, key=lambda x: x.palermo_scale, reverse=True)
+        fetch = self.fetch_live_data("sentry")
+        risks = sentry_risks_from_datapoints(fetch.data_points)
+        return sorted(risks, key=lambda x: x.palermo_scale, reverse=True)
 
     def predict_meteor(
         self,
@@ -1226,45 +1519,56 @@ class MeteorDetector:
             optical_detection = optical_detection or noaa_stub.get("optical_alert", False)
             radar_detection = radar_detection or noaa_stub.get("radar_alert", False)
 
-        # Check NASA CNEOS data for recent significant events
+        # Check NASA/JPL data_sources clients for recent significant events.
+        # Live data here is optional corroborating evidence for the local
+        # sensor fusion: a failed fetch is logged (never silently faked) and
+        # the detector proceeds sensor-only with data_provenance left None.
         nasa_fireball_alert = False
         nasa_close_approach_alert = False
         nasa_size_estimate = None
         nasa_velocity_estimate = None
         nasa_impact_probability = 0.0
+        live_sources_used: list[str] = []
+        live_context: dict[str, Any] = {}
 
         if self.use_nasa_data:
-            self._refresh_nasa_cache()
-
-            # Check for recent fireballs (last 24 hours with significant energy)
-            if self._fireball_cache:
-                recent_cutoff = datetime.now() - timedelta(hours=24)
-                recent_fireballs = [
+            # Recent fireballs (last 24 hours with significant energy).
+            try:
+                fireballs = self.get_recent_fireballs(days=1)
+                live_sources_used.append(self._fireball_source.source_id)  # type: ignore[union-attr]
+                significant = [
                     fb
-                    for fb in self._fireball_cache
-                    if fb.date >= recent_cutoff
-                    and fb.calculated_total_impact_energy_kt is not None
+                    for fb in fireballs
+                    if fb.calculated_total_impact_energy_kt is not None
                     and fb.calculated_total_impact_energy_kt > 0.1  # > 100 tons TNT
                 ]
-                if recent_fireballs:
+                live_context["recent_fireballs_24h"] = len(fireballs)
+                if significant:
                     nasa_fireball_alert = True
                     # Use the most energetic recent fireball for estimates
                     biggest = max(
-                        recent_fireballs,
+                        significant,
                         key=lambda x: x.calculated_total_impact_energy_kt or 0,
                     )
                     nasa_size_estimate = biggest.estimated_size_m
                     nasa_velocity_estimate = biggest.velocity_km_s
+            except LiveDataError as e:
+                logger.warning(f"MeteorDetector: fireball feed unavailable: {e}")
+                live_context["fireball_error"] = str(e)
 
-            # Check for imminent close approaches (within 1 lunar distance)
-            if self._close_approach_cache:
+            # Imminent close approaches (within 1 lunar distance, next 7 days).
+            try:
+                approaches = self.get_upcoming_close_approaches()
+                live_sources_used.append(self._neo_source.source_id)  # type: ignore[union-attr]
                 lunar_distance_km = 384400
                 imminent = [
                     ca
-                    for ca in self._close_approach_cache
+                    for ca in approaches
                     if ca.nominal_distance_km < lunar_distance_km
-                    and ca.close_approach_date <= datetime.now() + timedelta(days=7)
+                    and ca.close_approach_date <= datetime.now(UTC) + timedelta(days=7)
                 ]
+                live_context["upcoming_close_approaches"] = len(approaches)
+                live_context["imminent_close_approaches"] = len(imminent)
                 if imminent:
                     nasa_close_approach_alert = True
                     # Estimate impact probability from closest approach
@@ -1273,16 +1577,28 @@ class MeteorDetector:
                     nasa_impact_probability = (
                         max(0, 1 - closest.nominal_distance_km / lunar_distance_km) * 0.001
                     )
+            except LiveDataError as e:
+                logger.warning(f"MeteorDetector: close-approach feed unavailable: {e}")
+                live_context["close_approach_error"] = str(e)
 
-            # Check Sentry for elevated impact risks
-            if self._sentry_cache:
-                high_risk = [s for s in self._sentry_cache if s.palermo_scale > -3]
+            # Sentry elevated impact risks.
+            try:
+                risks = self.get_impact_risks()
+                live_sources_used.append(self._sentry_source.source_id)  # type: ignore[union-attr]
+                high_risk = [s for s in risks if s.palermo_scale > -3]
+                live_context["sentry_high_risk_objects"] = len(high_risk)
                 if high_risk:
-                    # Highest risk object
-                    max_risk = max(high_risk, key=lambda x: x.palermo_scale)
+                    # Never understate a published cumulative impact probability:
+                    # the highest-Palermo object (energy/time weighted) is not
+                    # necessarily the one with the largest raw probability, so
+                    # floor at the max probability across all elevated objects.
                     nasa_impact_probability = max(
-                        nasa_impact_probability, max_risk.impact_probability
+                        nasa_impact_probability,
+                        *(s.impact_probability for s in high_risk),
                     )
+            except LiveDataError as e:
+                logger.warning(f"MeteorDetector: Sentry feed unavailable: {e}")
+                live_context["sentry_error"] = str(e)
 
         # Update Bayesian posterior with all detection sources
         # NASA data provides additional evidence
@@ -1346,6 +1662,9 @@ class MeteorDetector:
                 0.9 if nasa_close_approach_alert else (0.8 if combined_radar else 0.3)
             ),
             warning_actions=warnings,
+            source_id=",".join(live_sources_used) if live_sources_used else None,
+            data_provenance="live" if live_sources_used else None,
+            live_context=live_context or None,
         )
 
     def _assess_threat(
@@ -1425,240 +1744,6 @@ class MeteorDetector:
         features[6] = result.confidence
         features[7] = 1.0 if result.optical_detection else 0.0
         features[8] = 1.0 if result.radar_detection else 0.0
-
-        return features
-
-
-class SolarFlareDetector:
-    """Solar flare detector using X-ray flux and geomagnetic HMM.
-
-    Predicts solar flares and geomagnetic storms using Hidden Markov Model for state transitions and
-    X-ray flux analysis.
-    """
-
-    def __init__(
-        self,
-        detection_threshold: float = 0.7,
-        proton_flux_agg_method: str = "max",
-    ):
-        """Initialize SolarFlareDetector.
-
-        Args:
-            detection_threshold: Confidence threshold for flare detection (0-1)
-            proton_flux_agg_method: Aggregation method for proton flux arrays.
-                'max' (default) - Use peak value for detecting flare threats
-                'mean' - Use average value for general monitoring
-                'median' - Use median for robust estimation
-        """
-        self.detection_threshold = detection_threshold
-        self.proton_flux_agg_method = proton_flux_agg_method
-        self.hmm = GeomagneticHMM()
-        self.rng = get_global_rng()
-
-        self.flux_thresholds = {
-            "A": 1e-8,
-            "B": 1e-7,
-            "C": 1e-6,
-            "M": 1e-5,
-            "X": 1e-4,
-        }
-
-        # Aggregation function mapping
-        self._agg_funcs: dict[str, Any] = {
-            "max": np.max,
-            "mean": np.mean,
-            "median": np.median,
-        }
-
-        logger.info(
-            f"SolarFlareDetector initialized: threshold={detection_threshold}, "
-            f"proton_flux_agg={proton_flux_agg_method}"
-        )
-
-    def predict_solar_flare(
-        self,
-        x_ray_flux: float | np.ndarray[Any, Any],
-        proton_flux: float | None = None,
-        magnetometer_data: np.ndarray[Any, Any] | None = None,
-    ) -> SolarFlarePredictionResult:
-        """Predict solar flare from X-ray and proton flux data.
-
-        Args:
-            x_ray_flux: X-ray flux in W/m^2 (scalar or time series)
-            proton_flux: Optional proton flux
-            magnetometer_data: Optional magnetometer readings
-
-        Returns:
-            SolarFlarePredictionResult with detection details
-        """
-        if isinstance(x_ray_flux, np.ndarray):
-            current_flux = float(x_ray_flux[-1])
-            flux_trend = np.diff(x_ray_flux).mean() if len(x_ray_flux) > 1 else 0
-        else:
-            current_flux = float(x_ray_flux)
-            flux_trend = 0
-
-        current_state = self.hmm.update_state(current_flux)
-        next_state, transition_prob = self.hmm.predict_next_state()
-
-        flare_class = self._classify_flare(current_flux)
-
-        confidence = self._compute_confidence(current_flux, current_state, flux_trend)
-
-        flare_detected = confidence > self.detection_threshold
-
-        storm_prob = self.hmm.get_storm_probability(current_state)
-
-        kp_predicted = self._predict_kp_index(current_state, storm_prob)
-        dst_predicted = self._predict_dst_index(current_state, storm_prob)
-
-        warnings = self._generate_warnings(flare_detected, flare_class, storm_prob)
-        affected = self._identify_affected_systems(flare_class, storm_prob)
-
-        return SolarFlarePredictionResult(
-            flare_detected=flare_detected,
-            confidence=confidence,
-            flare_class=flare_class,
-            x_ray_flux=current_flux,
-            proton_flux=self._aggregate_proton_flux(proton_flux),
-            geomagnetic_storm_probability=storm_prob,
-            kp_index_predicted=kp_predicted,
-            dst_index_predicted=dst_predicted,
-            hmm_state=current_state,
-            transition_probability=transition_prob,
-            warning_actions=warnings,
-            affected_systems=affected,
-        )
-
-    def _aggregate_proton_flux(self, proton_flux: float | np.ndarray[Any, Any] | None) -> float:
-        """Aggregate proton flux using configured method.
-
-        For time-series threats like solar flares, peak detection (max) is
-        recommended as it captures the most dangerous flux levels. Mean is
-        suitable for general monitoring, while median provides robust estimation.
-
-        Args:
-            proton_flux: Proton flux value(s) - scalar, array, or None
-
-        Returns:
-            Aggregated proton flux value (0.0 if None)
-        """
-        if proton_flux is None:
-            return 0.0
-
-        if isinstance(proton_flux, np.ndarray):
-            agg_func = self._agg_funcs.get(self.proton_flux_agg_method, np.max)
-            return float(agg_func(proton_flux))
-        else:
-            return float(proton_flux)
-
-    def _classify_flare(self, flux: float) -> str:
-        """Classify solar flare based on X-ray flux."""
-        if flux >= self.flux_thresholds["X"]:
-            return SolarFlareClass.X.value
-        elif flux >= self.flux_thresholds["M"]:
-            return SolarFlareClass.M.value
-        elif flux >= self.flux_thresholds["C"]:
-            return SolarFlareClass.C.value
-        elif flux >= self.flux_thresholds["B"]:
-            return SolarFlareClass.B.value
-        else:
-            return SolarFlareClass.A.value
-
-    def _compute_confidence(self, flux: float, state: int, trend: float) -> float:
-        """Compute detection confidence."""
-        base_confidence = state / 4.0
-
-        if flux >= self.flux_thresholds["M"]:
-            base_confidence += 0.3
-        elif flux >= self.flux_thresholds["C"]:
-            base_confidence += 0.1
-
-        if trend > 0:
-            base_confidence += min(0.2, trend * 1e6)
-
-        return min(1.0, base_confidence)
-
-    def _predict_kp_index(self, state: int, storm_prob: float) -> float:
-        """Predict Kp geomagnetic index."""
-        base_kp = [1, 2, 4, 6, 8]
-        return base_kp[state] + storm_prob * 2
-
-    def _predict_dst_index(self, state: int, storm_prob: float) -> float:
-        """Predict Dst geomagnetic index."""
-        base_dst = [0, -10, -30, -100, -300]
-        return base_dst[state] - storm_prob * 50
-
-    def _generate_warnings(self, detected: bool, flare_class: str, storm_prob: float) -> list[str]:
-        """Generate warning actions."""
-        if not detected:
-            return []
-
-        warnings = ["Monitor NOAA Space Weather Prediction Center"]
-
-        if flare_class in [SolarFlareClass.X.value, SolarFlareClass.M.value]:
-            warnings.extend(
-                [
-                    "Significant solar flare detected",
-                    "Possible HF radio blackouts",
-                    "Satellite operators: monitor for anomalies",
-                ]
-            )
-
-        if storm_prob > 0.5:
-            warnings.extend(
-                [
-                    "Geomagnetic storm likely",
-                    "Power grid operators: prepare for GIC",
-                    "Aviation: possible GPS/communication issues",
-                ]
-            )
-
-        return warnings
-
-    def _identify_affected_systems(self, flare_class: str, storm_prob: float) -> list[str]:
-        """Identify systems potentially affected."""
-        affected = []
-
-        if flare_class in [SolarFlareClass.X.value, SolarFlareClass.M.value]:
-            affected.extend(["HF Radio", "Satellites", "GPS"])
-
-        if storm_prob > 0.3:
-            affected.extend(["Power Grids", "Pipelines"])
-
-        if storm_prob > 0.6:
-            affected.extend(["Aviation Navigation", "Spacecraft Operations"])
-
-        return affected
-
-    def extract_features(
-        self,
-        x_ray_flux: float | np.ndarray[Any, Any],
-        proton_flux: float | None = None,
-    ) -> np.ndarray[Any, Any]:
-        """Extract features for fusion pipeline."""
-        features = np.zeros(FEATURE_DIM)
-
-        if isinstance(x_ray_flux, np.ndarray):
-            features[0] = np.mean(x_ray_flux)
-            features[1] = np.std(x_ray_flux)
-            features[2] = np.max(x_ray_flux)
-            features[3] = np.log10(np.max(x_ray_flux) + 1e-10) + 10
-        else:
-            features[0] = x_ray_flux
-            features[3] = np.log10(x_ray_flux + 1e-10) + 10
-
-        if proton_flux is not None:
-            if isinstance(proton_flux, np.ndarray):
-                features[4] = np.mean(proton_flux)
-            else:
-                features[4] = proton_flux
-
-        result = self.predict_solar_flare(x_ray_flux, proton_flux)
-        features[5] = result.confidence
-        features[6] = result.hmm_state / 4.0
-        features[7] = result.geomagnetic_storm_probability
-        features[8] = result.kp_index_predicted / 9.0
 
         return features
 
@@ -1800,15 +1885,6 @@ NOAA_TSUNAMI_API_URL = TrustedEndpoints.NOAA_TSUNAMI_EVENTS
 
 # USGS Earthquake Catalog API (via TrustedEndpoints for SSRF prevention)
 USGS_EARTHQUAKE_API_URL = TrustedEndpoints.USGS_EARTHQUAKE
-
-# NASA CNEOS Fireball API (via TrustedEndpoints for SSRF prevention)
-NASA_CNEOS_FIREBALL_URL = TrustedEndpoints.NASA_CNEOS_FIREBALL
-
-# NASA CNEOS Close Approach Data API
-NASA_CNEOS_CAD_URL = TrustedEndpoints.NASA_CNEOS_CAD
-
-# NASA Sentry Impact Monitoring API
-NASA_SENTRY_URL = TrustedEndpoints.NASA_SENTRY
 
 
 def load_dart_buoy_data(
@@ -2033,344 +2109,6 @@ def load_usgs_earthquake_catalog(
         return result
     except Exception as e:
         logger.warning(f"Failed to load USGS earthquake catalog: {e}. Using synthetic fallback.")
-        return None
-
-
-# =============================================================================
-# NASA CNEOS Fireball and Near-Earth Object Data Loaders
-# =============================================================================
-
-
-@dataclass
-class FireballEvent:
-    """NASA CNEOS Fireball event data.
-
-    Represents a bolide (fireball) detected by US Government sensors.
-    Data source: NASA JPL Center for Near Earth Object Studies (CNEOS)
-    https://cneos.jpl.nasa.gov/fireballs/
-    """
-
-    date: datetime
-    latitude: float | None
-    longitude: float | None
-    altitude_km: float | None
-    velocity_km_s: float | None
-    total_radiated_energy_j: float | None
-    calculated_total_impact_energy_kt: float | None
-
-    @property
-    def estimated_size_m(self) -> float | None:
-        """Estimate size from impact energy using empirical relation.
-
-        Based on: E = 4.185 × 10^10 × D^3 (Brown et al., 2002)
-        Where E is energy in Joules and D is diameter in meters.
-        """
-        if self.calculated_total_impact_energy_kt is None:
-            return None
-        # Convert kt TNT to Joules (1 kt = 4.184e12 J)
-        energy_j = self.calculated_total_impact_energy_kt * 4.184e12
-        # Solve for diameter: D = (E / 4.185e10)^(1/3)
-        diameter = (energy_j / 4.185e10) ** (1 / 3)
-        return float(diameter)
-
-
-@dataclass
-class CloseApproachEvent:
-    """NASA CNEOS Close Approach event data.
-
-    Represents a near-Earth object (NEO) close approach event.
-    Data source: NASA JPL CNEOS Close Approach Data API
-    https://ssd-api.jpl.nasa.gov/doc/cad.html
-    """
-
-    designation: str
-    close_approach_date: datetime
-    nominal_distance_au: float
-    nominal_distance_km: float
-    relative_velocity_km_s: float
-    absolute_magnitude_h: float | None
-    estimated_diameter_km: float | None
-
-
-@dataclass
-class SentryImpactRisk:
-    """NASA Sentry impact monitoring data.
-
-    Represents a potential future Earth impact event monitored by Sentry.
-    Data source: NASA JPL Sentry Impact Monitoring System
-    https://cneos.jpl.nasa.gov/sentry/
-    """
-
-    designation: str
-    potential_impacts: int
-    impact_probability: float
-    palermo_scale: float
-    torino_scale: int
-    estimated_diameter_km: float | None
-    next_impact_date: datetime | None
-
-
-def load_nasa_fireball_data(
-    days_back: int = 365,
-    min_energy_kt: float = 0.0,
-) -> list[FireballEvent] | None:
-    """Load fireball/bolide data from NASA CNEOS Fireball API.
-
-    Data source: NASA JPL Center for Near Earth Object Studies (CNEOS)
-    https://ssd-api.jpl.nasa.gov/doc/fireball.html
-
-    This API provides data on fireballs and bolides detected by US Government
-    sensors. The data includes location, velocity, and energy estimates.
-
-    Args:
-        days_back: Number of days of historical data to fetch
-        min_energy_kt: Minimum impact energy in kilotons TNT
-
-    Returns:
-        List of FireballEvent objects or None if API unavailable
-    """
-    circuit_breaker = get_data_loader_breaker("nasa_fireball")
-
-    def _fetch_fireball_data() -> list[FireballEvent]:
-        end_date = datetime.utcnow()
-        start_date = end_date - timedelta(days=days_back)
-
-        data = SafeHTTPClient.get_json(
-            NASA_CNEOS_FIREBALL_URL,
-            params={
-                "date-min": start_date.strftime("%Y-%m-%d"),
-                "date-max": end_date.strftime("%Y-%m-%d"),
-                "req-loc": "true",
-            },
-            headers={"User-Agent": "Mercury-Agent/1.0"},
-            timeout=30,
-        )
-
-        if "data" not in data or not data["data"]:
-            logger.info("NASA Fireball API returned no events")
-            return []
-
-        # Parse field indices from response
-        fields = {f: i for i, f in enumerate(data.get("fields", []))}
-
-        events: list[FireballEvent] = []
-        for row in data["data"]:
-            try:
-                # Parse date
-                date_str = row[fields.get("date", 0)]
-                event_date = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
-
-                # Parse location (may be None if not available)
-                lat = float(row[fields.get("lat", 1)]) if row[fields.get("lat", 1)] else None
-                lon = float(row[fields.get("lon", 2)]) if row[fields.get("lon", 2)] else None
-                lat_dir = row[fields.get("lat-dir", 3)]
-                lon_dir = row[fields.get("lon-dir", 4)]
-
-                if lat is not None and lat_dir == "S":
-                    lat = -lat
-                if lon is not None and lon_dir == "W":
-                    lon = -lon
-
-                # Parse other fields
-                alt = float(row[fields.get("alt", 5)]) if row[fields.get("alt", 5)] else None
-                vel = float(row[fields.get("vel", 6)]) if row[fields.get("vel", 6)] else None
-                energy_rad = (
-                    float(row[fields.get("energy", 7)]) if row[fields.get("energy", 7)] else None
-                )
-                energy_impact = (
-                    float(row[fields.get("impact-e", 8)])
-                    if row[fields.get("impact-e", 8)]
-                    else None
-                )
-
-                # Filter by minimum energy
-                if min_energy_kt > 0 and (energy_impact is None or energy_impact < min_energy_kt):
-                    continue
-
-                events.append(
-                    FireballEvent(
-                        date=event_date,
-                        latitude=lat,
-                        longitude=lon,
-                        altitude_km=alt,
-                        velocity_km_s=vel,
-                        total_radiated_energy_j=energy_rad,
-                        calculated_total_impact_energy_kt=energy_impact,
-                    )
-                )
-            except (ValueError, IndexError, KeyError) as e:
-                logger.debug(f"Skipping malformed fireball record: {e}")
-                continue
-
-        return events
-
-    try:
-        result: list[FireballEvent] = circuit_breaker.call(_fetch_fireball_data)
-        logger.info(f"Loaded {len(result)} NASA CNEOS fireball events")
-        return result
-    except Exception as e:
-        logger.warning(f"Failed to load NASA fireball data: {e}")
-        return None
-
-
-def load_nasa_close_approach_data(
-    days_forward: int = 60,
-    distance_max_au: float = 0.05,
-) -> list[CloseApproachEvent] | None:
-    """Load close approach data from NASA CNEOS Close Approach API.
-
-    Data source: NASA JPL CNEOS Close Approach Data API
-    https://ssd-api.jpl.nasa.gov/doc/cad.html
-
-    This API provides predicted close approach data for near-Earth objects
-    (asteroids and comets) with Earth.
-
-    Args:
-        days_forward: Number of days to look ahead for close approaches
-        distance_max_au: Maximum close approach distance in AU (1 AU = ~150M km)
-
-    Returns:
-        List of CloseApproachEvent objects or None if API unavailable
-    """
-    circuit_breaker = get_data_loader_breaker("nasa_cad")
-
-    def _fetch_cad_data() -> list[CloseApproachEvent]:
-        start_date = datetime.utcnow()
-        end_date = start_date + timedelta(days=days_forward)
-
-        data = SafeHTTPClient.get_json(
-            NASA_CNEOS_CAD_URL,
-            params={
-                "date-min": start_date.strftime("%Y-%m-%d"),
-                "date-max": end_date.strftime("%Y-%m-%d"),
-                "dist-max": str(distance_max_au),
-                "body": "Earth",
-            },
-            headers={"User-Agent": "Mercury-Agent/1.0"},
-            timeout=30,
-        )
-
-        if "data" not in data or not data["data"]:
-            logger.info("NASA CAD API returned no close approaches")
-            return []
-
-        fields = {f: i for i, f in enumerate(data.get("fields", []))}
-
-        events: list[CloseApproachEvent] = []
-        for row in data["data"]:
-            try:
-                designation = row[fields.get("des", 0)]
-                date_str = row[fields.get("cd", 3)]
-                ca_date = datetime.strptime(date_str, "%Y-%b-%d %H:%M")
-
-                dist_au = float(row[fields.get("dist", 4)])
-                dist_km = dist_au * 149597870.7  # AU to km
-
-                v_rel = float(row[fields.get("v_rel", 7)])
-                h_mag = float(row[fields.get("h", 10)]) if row[fields.get("h", 10)] else None
-
-                # Estimate diameter from absolute magnitude H
-                # D = 1329 / sqrt(albedo) * 10^(-H/5)
-                # Assuming albedo = 0.15 (typical for rocky asteroids)
-                diameter_km = None
-                if h_mag is not None:
-                    diameter_km = 1329 / (0.15**0.5) * (10 ** (-h_mag / 5))
-
-                events.append(
-                    CloseApproachEvent(
-                        designation=designation,
-                        close_approach_date=ca_date,
-                        nominal_distance_au=dist_au,
-                        nominal_distance_km=dist_km,
-                        relative_velocity_km_s=v_rel,
-                        absolute_magnitude_h=h_mag,
-                        estimated_diameter_km=diameter_km,
-                    )
-                )
-            except (ValueError, IndexError, KeyError) as e:
-                logger.debug(f"Skipping malformed CAD record: {e}")
-                continue
-
-        return events
-
-    try:
-        result: list[CloseApproachEvent] = circuit_breaker.call(_fetch_cad_data)
-        logger.info(f"Loaded {len(result)} NASA CNEOS close approach events")
-        return result
-    except Exception as e:
-        logger.warning(f"Failed to load NASA close approach data: {e}")
-        return None
-
-
-def load_nasa_sentry_data() -> list[SentryImpactRisk] | None:
-    """Load potential impact data from NASA Sentry Impact Monitoring API.
-
-    Data source: NASA JPL Sentry Impact Monitoring System
-    https://ssd-api.jpl.nasa.gov/doc/sentry.html
-
-    Sentry is a highly automated collision monitoring system that continually
-    scans the most current asteroid catalog for possibilities of future impact
-    with Earth over the next 100 years.
-
-    Returns:
-        List of SentryImpactRisk objects or None if API unavailable
-    """
-    circuit_breaker = get_data_loader_breaker("nasa_sentry")
-
-    def _fetch_sentry_data() -> list[SentryImpactRisk]:
-        data = SafeHTTPClient.get_json(
-            NASA_SENTRY_URL,
-            params={"all": "1"},
-            headers={"User-Agent": "Mercury-Agent/1.0"},
-            timeout=30,
-        )
-
-        if "data" not in data or not data["data"]:
-            logger.info("NASA Sentry API returned no impact risks (good news!)")
-            return []
-
-        risks: list[SentryImpactRisk] = []
-        for obj in data["data"]:
-            try:
-                designation = obj.get("des", "Unknown")
-                n_imp = int(obj.get("n_imp", 0))
-                ip = float(obj.get("ip", 0))
-                ps = float(obj.get("ps", -10))
-                ts = int(obj.get("ts", 0))
-                diameter = float(obj.get("diameter", 0)) if obj.get("diameter") else None
-
-                # Parse next impact date if available
-                next_impact = None
-                if obj.get("range"):
-                    try:
-                        date_str = obj["range"].split("-")[0].strip()
-                        next_impact = datetime.strptime(date_str, "%Y")
-                    except (ValueError, AttributeError):
-                        pass
-
-                risks.append(
-                    SentryImpactRisk(
-                        designation=designation,
-                        potential_impacts=n_imp,
-                        impact_probability=ip,
-                        palermo_scale=ps,
-                        torino_scale=ts,
-                        estimated_diameter_km=diameter,
-                        next_impact_date=next_impact,
-                    )
-                )
-            except (ValueError, KeyError) as e:
-                logger.debug(f"Skipping malformed Sentry record: {e}")
-                continue
-
-        return risks
-
-    try:
-        result: list[SentryImpactRisk] = circuit_breaker.call(_fetch_sentry_data)
-        logger.info(f"Loaded {len(result)} NASA Sentry impact risk objects")
-        return result
-    except Exception as e:
-        logger.warning(f"Failed to load NASA Sentry data: {e}")
         return None
 
 

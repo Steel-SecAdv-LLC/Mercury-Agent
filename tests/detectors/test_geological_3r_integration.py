@@ -383,7 +383,6 @@ class TestFloodDetector3RIntegration:
             enable_precipitation=True,
             enable_river_gauge=True,
             enable_soil=True,
-            enable_runoff=True,
             enable_resonance=True,
             enable_recursion=True,
             enable_refactoring=True,

@@ -52,6 +52,10 @@ Until these criteria are met, deprecated items operate via compatibility shims t
 | `strict_ethics=False` engine flag | _no replacement_ | **Removed in v1.7** - dual hard gates are non-negotiable (see §6) |
 | `result["gosnn_metadata"]["fallback_mode"] is True` path | `EthicalConstraintViolationError(check="gosnn_unavailable")` | **Removed in v1.7** - σ_Immutable second hard gate (see §6) |
 | `ml.ppo_trainer` (`PPOTrainer` / `MultiEnvPPOTrainer` / `PPOConfig` / `TrainingStats` / `ConvergenceMonitor` / `CheckpointCallback`) | `agentic.agentic_autonomy.AgenticAutonomy` (RL-style workflow adaptation); `automl.BayesianOptimizer` / `engine.tune_fusion` (hyperparameter search) | **Removed in v2.1** - correctness exception (see §6) |
+| Geological `SolarFlareDetector` duplicate + `GeomagneticHMM` | Canonical `space.solar_storm_detector.SolarFlareDetector` (re-exported from `detectors.geological`) | **Removed in v2.1** - correctness exception (see §6.7) |
+| `load_nasa_fireball_data` / `load_nasa_close_approach_data` / `load_nasa_sentry_data` | `data_sources.jpl_ssd.JPLFireballSource` / `NASANeoWsSource` / `data_sources.jpl_ssd.JPLSentrySource` | **Removed in v2.1** - correctness exception (see §6.8) |
+| `USGSVolcanoSource.US_VOLCANOES` simulated volcano table | Real USGS HANS public API in the same class | **Removed in v2.1** - correctness exception (see §6.9) |
+| `flood_detector.TopographicRunoffPredictor` + `enable_runoff` | `SoilSaturationModel` physics runoff coefficient (unchanged existing path) | **Removed in v2.1** - correctness exception (see §6.10) |
 
 ---
 
@@ -410,6 +414,88 @@ added. New code must use the `compliance.` import path.
   hyperparameter search. Neither niche benefits from on-policy PPO at
   Mercury's trial budgets.
 * **Regression test:** `tests/ml/test_removed_ppo.py`
+
+### 6.7 Geological `SolarFlareDetector` duplicate + `GeomagneticHMM`
+
+* **Removed by:** v2.1 live-wiring wave (July 2026)
+* **Override criterion:** §2 (Fundamental Incompatibility) with the
+  no-fabricated-data doctrine. Two unrelated classes named
+  `SolarFlareDetector` existed (space vs geological). The geological
+  copy filled `kp_index_predicted` / `dst_index_predicted` from
+  hand-authored per-HMM-state lookup tables
+  (`base_kp=[1,2,4,6,8]`, `base_dst=[0,-10,-30,-100,-300]`) — invented
+  geomagnetic indices presented as predictions — and `GeomagneticHMM`
+  carried a hand-authored transition matrix plus per-state
+  storm-probability priors whose "state" was just the GOES flux class.
+* **Replacement:** the canonical
+  `omni_mercury_engine.space.solar_storm_detector.SolarFlareDetector`
+  (re-exported from `detectors.geological.disaster_detectors` and
+  `detectors.geological`, so existing imports keep working). Storm
+  fields are populated only from a REAL observed planetary Kp (NOAA
+  SWPC live feed or `observed_kp=`); Dst is estimated via the
+  documented NOAA G-scale / Loewe & Prölss (1997) mapping. Field
+  changes on `SolarFlarePredictionResult`: `hmm_state` /
+  `transition_probability` are gone (`flux_class_index` replaces them);
+  `flare_class` now carries NOAA letters (`"X"`), not `"x_class"`
+  labels (the legacy `SolarFlareClass` enum with `"x_class"` values is
+  preserved in `disaster_detectors` for import compatibility);
+  `geomagnetic_storm_probability` / `kp_index_predicted` /
+  `dst_index_predicted` are `float | None` and `None` offline.
+* **Regression test:** `tests/test_live_wiring_space.py`,
+  `tests/detectors/test_live_wiring_geological.py`
+
+### 6.8 Private NASA CNEOS loaders in `disaster_detectors`
+
+* **Removed by:** v2.1 live-wiring wave (July 2026)
+* **Override criterion:** §2 (Fundamental Incompatibility) — private
+  module-level HTTP loaders (`load_nasa_fireball_data`,
+  `load_nasa_close_approach_data`, `load_nasa_sentry_data`) duplicated
+  the `data_sources` stack without its rate limiting/caching/circuit
+  breaking, and two of them were quietly broken against the live APIs:
+  the Sentry loader read nonexistent `ps`/`ts` keys (always emitting
+  its `-10`/`0` fallbacks) and the fireball loader mislabelled the
+  API's ×10¹⁰ J radiated-energy unit as joules.
+* **Replacement:** `data_sources.jpl_ssd.JPLFireballSource` /
+  `JPLSentrySource` (new real clients) and the existing
+  `data_sources.space_weather.NASANeoWsSource` for close approaches.
+  The `FireballEvent` / `CloseApproachEvent` / `SentryImpactRisk`
+  dataclasses moved to `data_sources.jpl_ssd` and are re-exported from
+  `disaster_detectors` for import compatibility. `MeteorDetector`
+  consumes only these clients (6 h refresh preserved via their
+  `CacheConfig`); `use_nasa_data=True` still means "construct default
+  clients".
+* **Regression test:** `tests/test_live_wiring_sources.py`,
+  `tests/detectors/test_live_wiring_geological.py`
+
+### 6.9 `USGSVolcanoSource.US_VOLCANOES` static table
+
+* **Removed by:** v2.1 live-wiring wave (July 2026)
+* **Override criterion:** §2 (Fundamental Incompatibility) with the
+  no-fabricated-data doctrine — the source looped a hardcoded 10-entry
+  volcano dict and emitted `alert_level="normal"` /
+  `aviation_color_code="green"` for every volcano on every fetch:
+  fabricated all-clear alerts presentable as real monitoring.
+* **Replacement:** the same class now queries the real USGS HANS public
+  API (`getMonitoredVolcanoes` / `getElevatedVolcanoes`) and reports
+  the official observatory alert levels and aviation color codes.
+* **Regression test:** `tests/test_live_wiring_sources.py::TestUSGSVolcanoHANS`
+
+### 6.10 `flood_detector.TopographicRunoffPredictor`
+
+* **Removed by:** v2.1 live-wiring wave (July 2026)
+* **Override criterion:** §2 (Fundamental Incompatibility) with the
+  no-fabricated-data doctrine. The class was an untrained neural network
+  that `FloodDetector` instantiated (`enable_runoff=True`) but **never
+  invoked** — dead surface whose only possible future use was emitting
+  random-weight runoff/discharge numbers. No caller, no checkpoint, no
+  labelled runoff corpus.
+* **Replacement:** `FloodDetector` already derives its
+  `runoff_coefficient` from the `SoilSaturationModel` physics
+  (infiltration-based, deterministic); that path is unchanged. The
+  `enable_runoff` constructor parameter was removed with the class (it
+  gated only the dead attribute).
+* **Regression test:**
+  `tests/detectors/test_live_wiring_geological.py::TestFloodDetectorLiveWiring::test_dead_runoff_network_is_gone`
 
 ---
 

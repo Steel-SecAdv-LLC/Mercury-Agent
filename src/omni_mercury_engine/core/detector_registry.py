@@ -536,6 +536,14 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         DetectorCategory.SPACE,
         "Solar storm prediction",
     ),
+    DetectorManifestEntry(
+        "solar_flare",
+        "omni_mercury_engine.space.solar_storm_detector",
+        "SolarFlareDetector",
+        DetectorCategory.SPACE,
+        "GOES X-ray flare classification with observed-Kp geomagnetic context",
+        tags=["disaster", "space-weather", "live-wiring"],
+    ),
     # -- Medical detectors ----------------------------------------------------
     DetectorManifestEntry(
         "medical_abms",
@@ -592,6 +600,30 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "Flood prediction with refactoring engine optimization",
         feature_dim=20,
         tags=["disaster", "weather", "3r-refactoring"],
+    ),
+    DetectorManifestEntry(
+        "earthquake",
+        "omni_mercury_engine.detectors.geological.disaster_detectors",
+        "EarthquakeDetector",
+        DetectorCategory.GEOLOGICAL,
+        "P/S-wave spectrogram + STA/LTA earthquake detection (USGS live catalog wiring)",
+        tags=["disaster", "seismic", "live-wiring"],
+    ),
+    DetectorManifestEntry(
+        "tsunami",
+        "omni_mercury_engine.detectors.geological.disaster_detectors",
+        "TsunamiDetector",
+        DetectorCategory.GEOLOGICAL,
+        "Waveform-spectrum tsunami detection from observed sea-level series",
+        tags=["disaster", "marine", "live-wiring"],
+    ),
+    DetectorManifestEntry(
+        "meteor",
+        "omni_mercury_engine.detectors.geological.disaster_detectors",
+        "MeteorDetector",
+        DetectorCategory.GEOLOGICAL,
+        "Bayesian meteor/NEO threat assessment over NASA NeoWs + JPL fireball/Sentry",
+        tags=["disaster", "space", "live-wiring"],
     ),
     # -- Economic detectors ---------------------------------------------------
     DetectorManifestEntry(
