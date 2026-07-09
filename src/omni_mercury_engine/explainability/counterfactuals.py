@@ -23,7 +23,7 @@ import numpy as np
 from scipy.optimize import minimize
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Sequence
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +35,114 @@ class DistanceMetric(Enum):
     L2 = auto()
     MAD = auto()
     GOWER = auto()
+
+
+#: Feature-type labels accepted by :func:`gower_distance` and the generators'
+#: ``feature_types`` parameter.
+FEATURE_TYPE_NUMERIC = "numeric"
+FEATURE_TYPE_CATEGORICAL = "categorical"
+_VALID_FEATURE_TYPES = frozenset({FEATURE_TYPE_NUMERIC, FEATURE_TYPE_CATEGORICAL})
+
+
+def _validate_feature_metadata(
+    feature_types: Sequence[str] | None,
+    feature_ranges: np.ndarray[Any, Any] | Sequence[float] | None,
+    n_features: int | None = None,
+) -> tuple[list[str] | None, np.ndarray[Any, Any] | None]:
+    """Validate mixed-type feature metadata shared by Gower and the generators.
+
+    Args:
+        feature_types: Optional per-feature labels, each ``"numeric"`` or
+            ``"categorical"``.
+        feature_ranges: Optional per-feature positive scales used to
+            range-normalize numeric differences.
+        n_features: Expected feature count, when known.
+
+    Returns:
+        ``(types, ranges)`` normalized to ``list[str]`` / ``float64`` array
+        (or ``None`` where absent).
+
+    Raises:
+        ValueError: On an unknown type label, a non-positive/non-finite
+            range, or a length mismatch.
+    """
+    types: list[str] | None = None
+    if feature_types is not None:
+        types = [str(t).strip().lower() for t in feature_types]
+        unknown = sorted(set(types) - _VALID_FEATURE_TYPES)
+        if unknown:
+            raise ValueError(
+                f"invalid feature_types {unknown}; expected one of "
+                f"{sorted(_VALID_FEATURE_TYPES)} per feature"
+            )
+        if n_features is not None and len(types) != n_features:
+            raise ValueError(f"feature_types length {len(types)} != n_features {n_features}")
+
+    ranges: np.ndarray[Any, Any] | None = None
+    if feature_ranges is not None:
+        ranges = np.asarray(feature_ranges, dtype=np.float64).reshape(-1)
+        if not np.all(np.isfinite(ranges)) or np.any(ranges <= 0.0):
+            raise ValueError("feature_ranges must be positive and finite")
+        if n_features is not None and ranges.size != n_features:
+            raise ValueError(f"feature_ranges length {ranges.size} != n_features {n_features}")
+        if types is not None and ranges.size != len(types):
+            raise ValueError(
+                f"feature_ranges length {ranges.size} != feature_types length {len(types)}"
+            )
+    return types, ranges
+
+
+def gower_distance(
+    x1: np.ndarray[Any, Any] | Sequence[float],
+    x2: np.ndarray[Any, Any] | Sequence[float],
+    feature_types: Sequence[str] | None = None,
+    feature_ranges: np.ndarray[Any, Any] | Sequence[float] | None = None,
+) -> float:
+    """Gower distance for mixed numeric / categorical feature vectors.
+
+    Per feature ``i`` the dissimilarity is
+
+    * numeric: ``|x1_i - x2_i| / range_i`` (range-normalized L1), and
+    * categorical: ``0`` when the encoded values match, else ``1``,
+
+    and the distance is the mean over features (Gower, 1971).
+
+    Args:
+        x1: First vector.
+        x2: Second vector (same length).
+        feature_types: Per-feature ``"numeric"`` / ``"categorical"`` labels.
+            When absent, every feature is treated as numeric (documented
+            fallback for callers without type metadata).
+        feature_ranges: Per-feature positive scales for the numeric terms.
+            When absent, numeric terms fall back to plain ``|diff|`` (range
+            1.0); pass the observed value ranges for the canonical Gower
+            normalization.  In-range inputs then yield per-feature terms in
+            ``[0, 1]``; out-of-range inputs are NOT clipped, so a candidate
+            outside the observed range honestly scores > 1.
+
+    Returns:
+        The Gower distance (mean per-feature dissimilarity).
+
+    Raises:
+        ValueError: If the vectors differ in length or the metadata is
+            invalid / mismatched.
+    """
+    a = np.asarray(x1, dtype=np.float64).reshape(-1)
+    b = np.asarray(x2, dtype=np.float64).reshape(-1)
+    if a.size != b.size:
+        raise ValueError(f"vector lengths differ: {a.size} != {b.size}")
+    if a.size == 0:
+        raise ValueError("vectors must be non-empty")
+    types, ranges = _validate_feature_metadata(feature_types, feature_ranges, n_features=a.size)
+
+    scale = ranges if ranges is not None else np.ones(a.size, dtype=np.float64)
+    per_feature = np.abs(a - b) / scale
+    if types is not None:
+        categorical = np.array([t == FEATURE_TYPE_CATEGORICAL for t in types], dtype=bool)
+        if categorical.any():
+            mismatch = (~np.isclose(a, b, rtol=1e-09, atol=1e-12)).astype(np.float64)
+            per_feature = np.where(categorical, mismatch, per_feature)
+    return float(per_feature.mean())
 
 
 class CounterfactualMethod(Enum):
@@ -133,6 +241,9 @@ class CounterfactualGenerator(ABC):
         feature_names: list[str] | None = None,
         feature_constraints: list[FeatureConstraint] | None = None,
         seed: int | None = None,
+        *,
+        feature_types: Sequence[str] | None = None,
+        feature_ranges: np.ndarray[Any, Any] | Sequence[float] | None = None,
     ) -> None:
         """Initialize counterfactual generator.
 
@@ -144,6 +255,12 @@ class CounterfactualGenerator(ABC):
                 with all subclasses for initial-point sampling, growing-
                 spheres directions and DiCE candidate selection.  ``None``
                 (default) uses OS entropy.
+            feature_types: Optional per-feature ``"numeric"`` /
+                ``"categorical"`` labels for mixed-type (Gower) distance.
+                When absent, every feature is treated as numeric.
+            feature_ranges: Optional per-feature positive scales used to
+                range-normalize numeric differences (Gower / the genetic
+                search).  When absent, numeric terms use range 1.0.
         """
         self._rng: np.random.Generator = np.random.default_rng(seed)
         if callable(model):
@@ -159,6 +276,10 @@ class CounterfactualGenerator(ABC):
 
         self._feature_names = feature_names
         self._constraints = feature_constraints or []
+        n_features = len(feature_names) if feature_names is not None else None
+        self._feature_types, self._feature_ranges = _validate_feature_metadata(
+            feature_types, feature_ranges, n_features=n_features
+        )
 
     @abstractmethod
     def generate(
@@ -177,7 +298,21 @@ class CounterfactualGenerator(ABC):
         metric: DistanceMetric = DistanceMetric.L2,
         feature_weights: np.ndarray[Any, Any] | None = None,
     ) -> float:
-        """Compute distance between two instances."""
+        """Compute distance between two instances.
+
+        ``GOWER`` uses the generator's ``feature_types`` / ``feature_ranges``
+        metadata (all-numeric / range 1.0 when absent, as documented on
+        :func:`gower_distance`); ``feature_weights`` applies to the
+        elementwise-difference metrics only.
+        """
+        if metric == DistanceMetric.GOWER:
+            return gower_distance(
+                x1,
+                x2,
+                feature_types=self._feature_types,
+                feature_ranges=self._feature_ranges,
+            )
+
         diff = x1 - x2
 
         if feature_weights is not None:
@@ -189,8 +324,7 @@ class CounterfactualGenerator(ABC):
             return float(np.sqrt(np.sum(diff**2)))
         elif metric == DistanceMetric.MAD:
             return float(np.sum(np.abs(diff)))
-        else:
-            return float(np.sqrt(np.sum(diff**2)))
+        raise ValueError(f"unhandled distance metric: {metric!r}")
 
     def _get_feature_changes(
         self,
