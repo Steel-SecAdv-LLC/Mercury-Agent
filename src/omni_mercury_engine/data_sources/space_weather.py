@@ -592,8 +592,14 @@ class NASANeoWsSource(DataSourceBase):
 class SWPCProduct(Enum):
     """NOAA SWPC data products."""
 
+    # Historical DSCOVR product paths; SWPC removed products/solar-wind/* in
+    # 2026 (they now 404). Kept for compatibility -- fetches fail loudly and
+    # PROPAGATED_SOLAR_WIND below is the maintained replacement.
     SOLAR_WIND_PLASMA = "solar-wind/plasma-7-day.json"
     SOLAR_WIND_MAG = "solar-wind/mag-7-day.json"
+    # Maintained combined plasma+IMF product (speed, density, temperature,
+    # bx/by/bz/bt in one row), verified live 2026-07.
+    PROPAGATED_SOLAR_WIND = "geospace/propagated-solar-wind-1-hour.json"
     KP_INDEX = "noaa-planetary-k-index.json"
     ALERTS = "alerts.json"
     XRAY_FLUX = "primary/xrays-7-day.json"
@@ -645,7 +651,7 @@ class NOAASWPCSource(DataSourceBase):
         self._products = products or [
             SWPCProduct.KP_INDEX,
             SWPCProduct.ALERTS,
-            SWPCProduct.SOLAR_WIND_PLASMA,
+            SWPCProduct.PROPAGATED_SOLAR_WIND,
         ]
 
     @property
@@ -667,6 +673,7 @@ class NOAASWPCSource(DataSourceBase):
         mapping = {
             SWPCProduct.SOLAR_WIND_PLASMA: DataSourceType.SOLAR_WIND,
             SWPCProduct.SOLAR_WIND_MAG: DataSourceType.SOLAR_WIND,
+            SWPCProduct.PROPAGATED_SOLAR_WIND: DataSourceType.SOLAR_WIND,
             SWPCProduct.KP_INDEX: DataSourceType.GEOMAGNETIC_STORM,
             SWPCProduct.ALERTS: DataSourceType.WEATHER_ALERT,
             SWPCProduct.XRAY_FLUX: DataSourceType.SOLAR_FLARE,
@@ -721,6 +728,8 @@ class NOAASWPCSource(DataSourceBase):
             data_points = self._parse_alerts(data, source_type)
         elif product in (SWPCProduct.SOLAR_WIND_PLASMA, SWPCProduct.SOLAR_WIND_MAG):
             data_points = self._parse_solar_wind(data, source_type, product)
+        elif product == SWPCProduct.PROPAGATED_SOLAR_WIND:
+            data_points = self._parse_propagated_solar_wind(data, source_type)
         elif product == SWPCProduct.XRAY_FLUX:
             data_points = self._parse_xray_flux(data, source_type)
 
@@ -728,23 +737,48 @@ class NOAASWPCSource(DataSourceBase):
 
     def _parse_kp_index(
         self,
-        data: list[list[Any]],
+        data: list[Any],
         source_type: DataSourceType,
     ) -> list[DataPoint]:
-        """Parse Kp index data."""
+        """Parse the planetary K-index product.
+
+        Handles both serialisations SWPC has shipped for
+        ``products/noaa-planetary-k-index.json``:
+
+        - current (verified live 2026-07): a list of dict rows
+          ``{"time_tag", "Kp", "a_running", "station_count"}``
+        - legacy: header row + list rows
+          ``[time_tag, Kp, estimated_Kp, a_running, station_count]``
+        """
         data_points: list[DataPoint] = []
 
-        # Skip header row
-        for row in data[1:]:
+        for row in data:
             try:
-                # Format: [time_tag, Kp, estimated_Kp, a_running, station_count]
-                if len(row) < 2:
-                    continue
+                if isinstance(row, dict):
+                    time_str = row.get("time_tag")
+                    if not time_str:
+                        continue
+                    kp_value = float(row.get("Kp") or 0.0)
+                    extra = {
+                        "estimated_kp": row.get("estimated_kp"),
+                        "a_running": row.get("a_running"),
+                        "station_count": row.get("station_count"),
+                    }
+                else:
+                    # Legacy list rows; skip the header row.
+                    if len(row) < 2 or row[0] == "time_tag":
+                        continue
+                    time_str = row[0]
+                    kp_value = float(row[1]) if row[1] else 0.0
+                    extra = {
+                        "estimated_kp": row[2] if len(row) > 2 else None,
+                        "a_running": row[3] if len(row) > 3 else None,
+                        "station_count": row[4] if len(row) > 4 else None,
+                    }
 
-                time_str = row[0]
-                kp_value = float(row[1]) if row[1] else 0.0
-
-                timestamp = datetime.fromisoformat(time_str.replace("Z", "+00:00"))
+                timestamp = datetime.fromisoformat(str(time_str).replace("Z", "+00:00"))
+                if timestamp.tzinfo is None:
+                    timestamp = timestamp.replace(tzinfo=UTC)
 
                 data_points.append(
                     DataPoint(
@@ -752,19 +786,14 @@ class NOAASWPCSource(DataSourceBase):
                         source_type=source_type,
                         event_id=f"kp_{timestamp.isoformat()}",
                         timestamp=timestamp,
-                        data={
-                            "kp_index": kp_value,
-                            "estimated_kp": row[2] if len(row) > 2 else None,
-                            "a_running": row[3] if len(row) > 3 else None,
-                            "station_count": row[4] if len(row) > 4 else None,
-                        },
+                        data={"kp_index": kp_value, **extra},
                         alert_level=self._parse_kp_alert_level(kp_value),
                         confidence=0.95,
                         metadata={"product": "kp_index"},
                     )
                 )
 
-            except (ValueError, IndexError) as e:
+            except (ValueError, IndexError, TypeError) as e:
                 logger.debug(f"Failed to parse Kp row: {e}")
                 continue
 
@@ -887,15 +916,153 @@ class NOAASWPCSource(DataSourceBase):
 
         return data_points
 
-    def _parse_xray_flux(
+    def _parse_propagated_solar_wind(
         self,
         data: list[list[Any]],
         source_type: DataSourceType,
     ) -> list[DataPoint]:
-        """Parse X-ray flux data."""
+        """Parse the propagated solar wind product (plasma + IMF combined).
+
+        Format (verified live 2026-07): header row then list rows keyed by
+        ``["time_tag", "speed", "density", "temperature", "bx", "by", "bz",
+        "bt", "vx", "vy", "vz", "propagated_time_tag"]``.
+        """
         data_points: list[DataPoint] = []
 
-        # Get recent data
+        if not isinstance(data, list) or len(data) < 2 or not isinstance(data[0], list):
+            return data_points
+
+        header = [str(h) for h in data[0]]
+        rows = data[1:]
+        recent_rows = rows[-24:] if len(rows) > 24 else rows
+
+        for row in recent_rows:
+            try:
+                record = dict(zip(header, row, strict=False))
+                time_str = record.get("time_tag")
+                if not time_str:
+                    continue
+                timestamp = datetime.fromisoformat(str(time_str).replace("Z", "+00:00"))
+                if timestamp.tzinfo is None:
+                    timestamp = timestamp.replace(tzinfo=UTC)
+
+                def _f(key: str, rec: dict[str, Any] = record) -> float | None:
+                    value = rec.get(key)
+                    return float(value) if value is not None else None
+
+                point_data = {
+                    "speed": _f("speed"),
+                    "density": _f("density"),
+                    "temperature": _f("temperature"),
+                    "bx": _f("bx"),
+                    "by": _f("by"),
+                    "bz": _f("bz"),
+                    "bt": _f("bt"),
+                }
+
+                alert_level = AlertLevel.NONE
+                speed = point_data.get("speed")
+                bz = point_data.get("bz")
+                if speed and speed > 800:
+                    alert_level = AlertLevel.STRONG
+                elif (speed and speed > 600) or (bz is not None and bz < -10):
+                    alert_level = AlertLevel.MODERATE
+
+                data_points.append(
+                    DataPoint(
+                        source_id=self.source_id,
+                        source_type=source_type,
+                        event_id=f"sw_propagated_{timestamp.isoformat()}",
+                        timestamp=timestamp,
+                        data=point_data,
+                        alert_level=alert_level,
+                        confidence=0.9,
+                        metadata={"product": SWPCProduct.PROPAGATED_SOLAR_WIND.value},
+                    )
+                )
+
+            except (ValueError, IndexError, TypeError) as e:
+                logger.debug(f"Failed to parse propagated solar wind row: {e}")
+                continue
+
+        return data_points
+
+    @staticmethod
+    def _xray_alert_level(long_flux: float) -> AlertLevel:
+        """Alert level from the GOES 0.1-0.8 nm flare-classification channel."""
+        # M-class: 1e-5 to 1e-4 W/m^2; X-class: > 1e-4 W/m^2
+        if long_flux > 1e-4:
+            return AlertLevel.STRONG  # X-class
+        elif long_flux > 1e-5:
+            return AlertLevel.MODERATE  # M-class
+        elif long_flux > 1e-6:
+            return AlertLevel.MINOR  # C-class
+        return AlertLevel.NONE
+
+    def _parse_xray_flux(
+        self,
+        data: list[Any],
+        source_type: DataSourceType,
+    ) -> list[DataPoint]:
+        """Parse GOES X-ray flux data.
+
+        Handles both serialisations SWPC has shipped for
+        ``json/goes/primary/xrays-7-day.json``:
+
+        - current (verified live 2026-07): a list of dict rows
+          ``{"time_tag", "satellite", "flux", "energy"}`` where ``energy`` is
+          ``"0.1-0.8nm"`` (long channel, the flare-classification channel) or
+          ``"0.05-0.4nm"`` (short channel), one row per channel per time tag
+        - legacy: header row + list rows ``[time, short_flux, long_flux]``
+        """
+        data_points: list[DataPoint] = []
+        if not data:
+            return data_points
+
+        if isinstance(data[0], dict):
+            # Current format: pair short/long channels per time tag.
+            by_time: dict[str, dict[str, float]] = {}
+            for row in data:
+                time_str = row.get("time_tag")
+                energy = row.get("energy")
+                flux = row.get("flux")
+                if not time_str or flux is None:
+                    continue
+                slot = by_time.setdefault(str(time_str), {})
+                if energy == "0.1-0.8nm":
+                    slot["long"] = float(flux)
+                elif energy == "0.05-0.4nm":
+                    slot["short"] = float(flux)
+
+            recent_tags = sorted(by_time)[-24:]
+            for time_str in recent_tags:
+                try:
+                    timestamp = datetime.fromisoformat(time_str.replace("Z", "+00:00"))
+                    if timestamp.tzinfo is None:
+                        timestamp = timestamp.replace(tzinfo=UTC)
+                    fluxes = by_time[time_str]
+                    long_flux = fluxes.get("long", 0.0)
+                    short_flux = fluxes.get("short", 0.0)
+
+                    data_points.append(
+                        DataPoint(
+                            source_id=self.source_id,
+                            source_type=source_type,
+                            event_id=f"xray_{timestamp.isoformat()}",
+                            timestamp=timestamp,
+                            data={"short_flux": short_flux, "long_flux": long_flux},
+                            alert_level=self._xray_alert_level(long_flux),
+                            confidence=0.95,
+                            metadata={"product": "xray_flux"},
+                        )
+                    )
+                except ValueError as e:
+                    logger.debug(f"Failed to parse X-ray record: {e}")
+                    continue
+
+            return data_points
+
+        # Legacy list-of-lists format.
         recent_data = data[1:25] if len(data) > 25 else data[1:]
 
         for row in recent_data:
@@ -909,17 +1076,6 @@ class NOAASWPCSource(DataSourceBase):
                 short_flux = float(row[1]) if row[1] else 0
                 long_flux = float(row[2]) if row[2] else 0
 
-                # Determine flare class from flux
-                # M-class: 1e-5 to 1e-4 W/m^2
-                # X-class: > 1e-4 W/m^2
-                alert_level = AlertLevel.NONE
-                if long_flux > 1e-4:
-                    alert_level = AlertLevel.STRONG  # X-class
-                elif long_flux > 1e-5:
-                    alert_level = AlertLevel.MODERATE  # M-class
-                elif long_flux > 1e-6:
-                    alert_level = AlertLevel.MINOR  # C-class
-
                 data_points.append(
                     DataPoint(
                         source_id=self.source_id,
@@ -930,7 +1086,7 @@ class NOAASWPCSource(DataSourceBase):
                             "short_flux": short_flux,
                             "long_flux": long_flux,
                         },
-                        alert_level=alert_level,
+                        alert_level=self._xray_alert_level(long_flux),
                         confidence=0.95,
                         metadata={"product": "xray_flux"},
                     )

@@ -1,0 +1,503 @@
+{
+ "type": "FeatureCollection",
+ "metadata": {
+  "generated": 1783575896000,
+  "url": "https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=2026-07-02T00:00:00&endtime=2026-07-09T00:00:00&minmagnitude=4.5&limit=30&orderby=time",
+  "title": "USGS Earthquakes",
+  "status": 200,
+  "api": "2.7.0",
+  "limit": 30,
+  "offset": 1,
+  "count": 12
+ },
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "mag": 5,
+    "place": "1 km NNW of Xunchang, China",
+    "time": 1783554253741,
+    "updated": 1783556538663,
+    "tz": null,
+    "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000sz3z",
+    "detail": "https://earthquake.usgs.gov/fdsnws/event/1/query?eventid=us7000sz3z&format=geojson",
+    "felt": 1,
+    "cdi": 2,
+    "mmi": null,
+    "alert": null,
+    "status": "reviewed",
+    "tsunami": 0,
+    "sig": 385,
+    "net": "us",
+    "code": "7000sz3z",
+    "ids": ",us7000sz3z,usauto7000sz3z,",
+    "sources": ",us,usauto,",
+    "types": ",dyfi,internal-moment-tensor,moment-tensor,origin,phase-data,",
+    "nst": 81,
+    "dmin": 7.513,
+    "rms": 0.7,
+    "gap": 64,
+    "magType": "mww",
+    "type": "earthquake",
+    "title": "M 5.0 - 1 km NNW of Xunchang, China"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     104.7074,
+     28.4707,
+     10
+    ]
+   },
+   "id": "us7000sz3z"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "mag": 4.9,
+    "place": "69 km NE of Sulangan, Philippines",
+    "time": 1783542724403,
+    "updated": 1783543768040,
+    "tz": null,
+    "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000sz31",
+    "detail": "https://earthquake.usgs.gov/fdsnws/event/1/query?eventid=us7000sz31&format=geojson",
+    "felt": null,
+    "cdi": null,
+    "mmi": null,
+    "alert": null,
+    "status": "reviewed",
+    "tsunami": 0,
+    "sig": 369,
+    "net": "us",
+    "code": "7000sz31",
+    "ids": ",us7000sz31,",
+    "sources": ",us,",
+    "types": ",origin,phase-data,",
+    "nst": 80,
+    "dmin": 4.288,
+    "rms": 0.7,
+    "gap": 108,
+    "magType": "mb",
+    "type": "earthquake",
+    "title": "M 4.9 - 69 km NE of Sulangan, Philippines"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     126.335,
+     11.319,
+     10
+    ]
+   },
+   "id": "us7000sz31"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "mag": 5.5,
+    "place": "Balleny Islands region",
+    "time": 1783537630909,
+    "updated": 1783546621536,
+    "tz": null,
+    "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000sz2b",
+    "detail": "https://earthquake.usgs.gov/fdsnws/event/1/query?eventid=us7000sz2b&format=geojson",
+    "felt": null,
+    "cdi": null,
+    "mmi": 0,
+    "alert": "green",
+    "status": "reviewed",
+    "tsunami": 0,
+    "sig": 465,
+    "net": "us",
+    "code": "7000sz2b",
+    "ids": ",usauto7000sz2b,us7000sz2b,",
+    "sources": ",usauto,us,",
+    "types": ",internal-moment-tensor,losspager,origin,phase-data,shakemap,",
+    "nst": 29,
+    "dmin": 7.608,
+    "rms": 0.87,
+    "gap": 124,
+    "magType": "mww",
+    "type": "earthquake",
+    "title": "M 5.5 - Balleny Islands region"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     154.8869,
+     -61.7788,
+     10
+    ]
+   },
+   "id": "us7000sz2b"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "mag": 4.5,
+    "place": "7 km NNW of \u0100bd\u0101n\u0101n, Iran",
+    "time": 1783524154759,
+    "updated": 1783525583040,
+    "tz": null,
+    "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tazy",
+    "detail": "https://earthquake.usgs.gov/fdsnws/event/1/query?eventid=us6000tazy&format=geojson",
+    "felt": null,
+    "cdi": null,
+    "mmi": null,
+    "alert": null,
+    "status": "reviewed",
+    "tsunami": 0,
+    "sig": 312,
+    "net": "us",
+    "code": "6000tazy",
+    "ids": ",us6000tazy,",
+    "sources": ",us,",
+    "types": ",origin,phase-data,",
+    "nst": 104,
+    "dmin": 2.34,
+    "rms": 0.72,
+    "gap": 59,
+    "magType": "mb",
+    "type": "earthquake",
+    "title": "M 4.5 - 7 km NNW of \u0100bd\u0101n\u0101n, Iran"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     47.3941,
+     33.0578,
+     10
+    ]
+   },
+   "id": "us6000tazy"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "mag": 5.3,
+    "place": "Chagos Archipelago region",
+    "time": 1783515670891,
+    "updated": 1783529792070,
+    "tz": null,
+    "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tay7",
+    "detail": "https://earthquake.usgs.gov/fdsnws/event/1/query?eventid=us6000tay7&format=geojson",
+    "felt": null,
+    "cdi": null,
+    "mmi": 0,
+    "alert": "green",
+    "status": "reviewed",
+    "tsunami": 0,
+    "sig": 432,
+    "net": "us",
+    "code": "6000tay7",
+    "ids": ",usauto6000tay7,us6000tay7,",
+    "sources": ",usauto,us,",
+    "types": ",internal-moment-tensor,losspager,moment-tensor,origin,phase-data,shakemap,",
+    "nst": 125,
+    "dmin": 3.852,
+    "rms": 0.57,
+    "gap": 54,
+    "magType": "mww",
+    "type": "earthquake",
+    "title": "M 5.3 - Chagos Archipelago region"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     68.7,
+     -6.427,
+     10
+    ]
+   },
+   "id": "us6000tay7"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "mag": 5.4,
+    "place": "245 km S of \u2018Ohonua, Tonga",
+    "time": 1783513139673,
+    "updated": 1783529539950,
+    "tz": null,
+    "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000taww",
+    "detail": "https://earthquake.usgs.gov/fdsnws/event/1/query?eventid=us6000taww&format=geojson",
+    "felt": null,
+    "cdi": null,
+    "mmi": 0,
+    "alert": "green",
+    "status": "reviewed",
+    "tsunami": 0,
+    "sig": 449,
+    "net": "us",
+    "code": "6000taww",
+    "ids": ",us6000taww,",
+    "sources": ",us,",
+    "types": ",losspager,origin,phase-data,shakemap,",
+    "nst": 62,
+    "dmin": 8.72,
+    "rms": 1.05,
+    "gap": 75,
+    "magType": "mb",
+    "type": "earthquake",
+    "title": "M 5.4 - 245 km S of \u2018Ohonua, Tonga"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -174.9716,
+     -23.5549,
+     10
+    ]
+   },
+   "id": "us6000taww"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "mag": 5.2,
+    "place": "109 km SW of Isangel, Vanuatu",
+    "time": 1783510971921,
+    "updated": 1783512037040,
+    "tz": null,
+    "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tawt",
+    "detail": "https://earthquake.usgs.gov/fdsnws/event/1/query?eventid=us6000tawt&format=geojson",
+    "felt": null,
+    "cdi": null,
+    "mmi": null,
+    "alert": null,
+    "status": "reviewed",
+    "tsunami": 0,
+    "sig": 416,
+    "net": "us",
+    "code": "6000tawt",
+    "ids": ",usauto6000tawt,us6000tawt,",
+    "sources": ",usauto,us,",
+    "types": ",internal-moment-tensor,moment-tensor,origin,phase-data,",
+    "nst": 52,
+    "dmin": 2.53,
+    "rms": 1.19,
+    "gap": 88,
+    "magType": "mwr",
+    "type": "earthquake",
+    "title": "M 5.2 - 109 km SW of Isangel, Vanuatu"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     168.6887,
+     -20.3518,
+     10
+    ]
+   },
+   "id": "us6000tawt"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "mag": 5,
+    "place": "110 km SE of Kimbe, Papua New Guinea",
+    "time": 1783509784023,
+    "updated": 1783510956040,
+    "tz": null,
+    "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tawr",
+    "detail": "https://earthquake.usgs.gov/fdsnws/event/1/query?eventid=us6000tawr&format=geojson",
+    "felt": null,
+    "cdi": null,
+    "mmi": null,
+    "alert": null,
+    "status": "reviewed",
+    "tsunami": 0,
+    "sig": 385,
+    "net": "us",
+    "code": "6000tawr",
+    "ids": ",us6000tawr,",
+    "sources": ",us,",
+    "types": ",origin,phase-data,",
+    "nst": 56,
+    "dmin": 2.34,
+    "rms": 0.58,
+    "gap": 123,
+    "magType": "mb",
+    "type": "earthquake",
+    "title": "M 5.0 - 110 km SE of Kimbe, Papua New Guinea"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     150.91,
+     -6.1834,
+     25.506
+    ]
+   },
+   "id": "us6000tawr"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "mag": 5.8,
+    "place": "91 km SSW of Isangel, Vanuatu",
+    "time": 1783504223421,
+    "updated": 1783513324431,
+    "tz": null,
+    "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tawe",
+    "detail": "https://earthquake.usgs.gov/fdsnws/event/1/query?eventid=us6000tawe&format=geojson",
+    "felt": null,
+    "cdi": null,
+    "mmi": 3.86,
+    "alert": "green",
+    "status": "reviewed",
+    "tsunami": 0,
+    "sig": 518,
+    "net": "us",
+    "code": "6000tawe",
+    "ids": ",usauto6000tawe,atthuoo3,us6000tawe,",
+    "sources": ",usauto,at,us,",
+    "types": ",internal-moment-tensor,internal-origin,losspager,moment-tensor,origin,phase-data,shakemap,",
+    "nst": 67,
+    "dmin": 2.678,
+    "rms": 0.93,
+    "gap": 86,
+    "magType": "mww",
+    "type": "earthquake",
+    "title": "M 5.8 - 91 km SSW of Isangel, Vanuatu"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     168.8353,
+     -20.2559,
+     10
+    ]
+   },
+   "id": "us6000tawe"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "mag": 4.8,
+    "place": "64 km W of Tobelo, Indonesia",
+    "time": 1783499766960,
+    "updated": 1783500625040,
+    "tz": null,
+    "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tavx",
+    "detail": "https://earthquake.usgs.gov/fdsnws/event/1/query?eventid=us6000tavx&format=geojson",
+    "felt": null,
+    "cdi": null,
+    "mmi": null,
+    "alert": null,
+    "status": "reviewed",
+    "tsunami": 0,
+    "sig": 354,
+    "net": "us",
+    "code": "6000tavx",
+    "ids": ",us6000tavx,",
+    "sources": ",us,",
+    "types": ",origin,phase-data,",
+    "nst": 50,
+    "dmin": 5.543,
+    "rms": 0.59,
+    "gap": 74,
+    "magType": "mb",
+    "type": "earthquake",
+    "title": "M 4.8 - 64 km W of Tobelo, Indonesia"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     127.4396,
+     1.8113,
+     141.091
+    ]
+   },
+   "id": "us6000tavx"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "mag": 4.7,
+    "place": "8 km ENE of Noda, Japan",
+    "time": 1783496151628,
+    "updated": 1783499006040,
+    "tz": null,
+    "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tavs",
+    "detail": "https://earthquake.usgs.gov/fdsnws/event/1/query?eventid=us6000tavs&format=geojson",
+    "felt": null,
+    "cdi": null,
+    "mmi": null,
+    "alert": null,
+    "status": "reviewed",
+    "tsunami": 0,
+    "sig": 340,
+    "net": "us",
+    "code": "6000tavs",
+    "ids": ",us6000tavs,",
+    "sources": ",us,",
+    "types": ",origin,phase-data,",
+    "nst": 53,
+    "dmin": 0.906,
+    "rms": 0.84,
+    "gap": 169,
+    "magType": "mb",
+    "type": "earthquake",
+    "title": "M 4.7 - 8 km ENE of Noda, Japan"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     141.8982,
+     40.1437,
+     58.199
+    ]
+   },
+   "id": "us6000tavs"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "mag": 4.7,
+    "place": "25 km NNE of Santa Rosa, Peru",
+    "time": 1783486832411,
+    "updated": 1783495091522,
+    "tz": null,
+    "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tauz",
+    "detail": "https://earthquake.usgs.gov/fdsnws/event/1/query?eventid=us6000tauz&format=geojson",
+    "felt": 1,
+    "cdi": 5.3,
+    "mmi": null,
+    "alert": null,
+    "status": "reviewed",
+    "tsunami": 0,
+    "sig": 340,
+    "net": "us",
+    "code": "6000tauz",
+    "ids": ",us6000tauz,",
+    "sources": ",us,",
+    "types": ",dyfi,origin,phase-data,",
+    "nst": 39,
+    "dmin": 2.384,
+    "rms": 0.89,
+    "gap": 84,
+    "magType": "mb",
+    "type": "earthquake",
+    "title": "M 4.7 - 25 km NNE of Santa Rosa, Peru"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -74.7855,
+     -10.7092,
+     10
+    ]
+   },
+   "id": "us6000tauz"
+  }
+ ],
+ "bbox": [
+  -176.2826,
+  -61.7788,
+  10,
+  177.4292,
+  71.1194,
+  172.427
+ ]
+}

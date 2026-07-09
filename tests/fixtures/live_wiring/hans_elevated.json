@@ -1,0 +1,58 @@
+[
+ {
+  "obs_fullname": "Alaska Volcano Observatory",
+  "obs_abbr": "avo",
+  "volcano_name": "Great Sitkin",
+  "vnum": "311120",
+  "notice_type_cd": "DU",
+  "notice_identifier": "DOI-USGS-AVO-2026-07-08T19:18:46+00:00",
+  "sent_utc": "2026-07-08 19:25:37",
+  "sent_unixtime": 1783538737,
+  "color_code": "ORANGE",
+  "alert_level": "WATCH",
+  "notice_url": "https://volcanoes.usgs.gov/hans-public/notice/DOI-USGS-AVO-2026-07-08T19:18:46+00:00",
+  "notice_data": "https://volcanoes.usgs.gov/hans-public/api/notice/getNotice/DOI-USGS-AVO-2026-07-08T19:18:46+00:00"
+ },
+ {
+  "obs_fullname": "Alaska Volcano Observatory",
+  "obs_abbr": "avo",
+  "volcano_name": "Kupreanof",
+  "vnum": "312060",
+  "notice_type_cd": "DU",
+  "notice_identifier": "DOI-USGS-AVO-2026-07-08T19:18:46+00:00",
+  "sent_utc": "2026-07-08 19:25:37",
+  "sent_unixtime": 1783538737,
+  "color_code": "YELLOW",
+  "alert_level": "ADVISORY",
+  "notice_url": "https://volcanoes.usgs.gov/hans-public/notice/DOI-USGS-AVO-2026-07-08T19:18:46+00:00",
+  "notice_data": "https://volcanoes.usgs.gov/hans-public/api/notice/getNotice/DOI-USGS-AVO-2026-07-08T19:18:46+00:00"
+ },
+ {
+  "obs_fullname": "Alaska Volcano Observatory",
+  "obs_abbr": "avo",
+  "volcano_name": "Shishaldin",
+  "vnum": "311360",
+  "notice_type_cd": "DU",
+  "notice_identifier": "DOI-USGS-AVO-2026-07-08T19:18:46+00:00",
+  "sent_utc": "2026-07-08 19:25:37",
+  "sent_unixtime": 1783538737,
+  "color_code": "YELLOW",
+  "alert_level": "ADVISORY",
+  "notice_url": "https://volcanoes.usgs.gov/hans-public/notice/DOI-USGS-AVO-2026-07-08T19:18:46+00:00",
+  "notice_data": "https://volcanoes.usgs.gov/hans-public/api/notice/getNotice/DOI-USGS-AVO-2026-07-08T19:18:46+00:00"
+ },
+ {
+  "obs_fullname": "Hawaiian Volcano Observatory",
+  "obs_abbr": "hvo",
+  "volcano_name": "Kilauea",
+  "vnum": "332010",
+  "notice_type_cd": "DU",
+  "notice_identifier": "DOI-USGS-HVO-2026-07-08T18:06:11+00:00",
+  "sent_utc": "2026-07-08 18:55:08",
+  "sent_unixtime": 1783536908,
+  "color_code": "YELLOW",
+  "alert_level": "ADVISORY",
+  "notice_url": "https://volcanoes.usgs.gov/hans-public/notice/DOI-USGS-HVO-2026-07-08T18:06:11+00:00",
+  "notice_data": "https://volcanoes.usgs.gov/hans-public/api/notice/getNotice/DOI-USGS-HVO-2026-07-08T18:06:11+00:00"
+ }
+]

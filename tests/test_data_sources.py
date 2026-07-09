@@ -546,11 +546,42 @@ class TestUSGSVolcanoSource:
         assert source.source_id == "usgs_volcano"
         assert DataSourceType.VOLCANO in source.default_source_types
 
-    def test_us_volcanoes(self) -> None:
-        """Test US volcano definitions."""
-        volcanoes = USGSVolcanoSource.US_VOLCANOES
-        assert "kilauea" in volcanoes
-        assert "yellowstone" in volcanoes
+    def test_hans_endpoints(self) -> None:
+        """Test HANS public API endpoint configuration."""
+        source = USGSVolcanoSource()
+        assert source.base_url.startswith("https://volcanoes.usgs.gov/hans-public/")
+        assert USGSVolcanoSource.MONITORED_ENDPOINT == "getMonitoredVolcanoes"
+        assert USGSVolcanoSource.ELEVATED_ENDPOINT == "getElevatedVolcanoes"
+
+    def test_alert_level_mapping(self) -> None:
+        """Test official alert-level string to AlertLevel mapping."""
+        source = USGSVolcanoSource()
+        assert source._alert_level_to_level("WARNING") == AlertLevel.SEVERE
+        assert source._alert_level_to_level("WATCH") == AlertLevel.STRONG
+        assert source._alert_level_to_level("ADVISORY") == AlertLevel.MODERATE
+        assert source._alert_level_to_level("NORMAL") == AlertLevel.NONE
+        assert source._alert_level_to_level("UNASSIGNED") == AlertLevel.NONE
+
+    def test_parse_hans_entry(self) -> None:
+        """Test parsing of a recorded HANS monitored-volcano entry."""
+        source = USGSVolcanoSource()
+        point = source._parse_hans_entry(
+            {
+                "volcano_name": "Great Sitkin",
+                "vnum": "311120",
+                "alert_level": "WATCH",
+                "color_code": "ORANGE",
+                "sent_unixtime": 1783538737,
+                "obs_fullname": "Alaska Volcano Observatory",
+                "obs_abbr": "avo",
+            }
+        )
+        assert point is not None
+        assert point.data["name"] == "Great Sitkin"
+        assert point.data["alert_level"] == "watch"
+        assert point.data["aviation_color_code"] == "orange"
+        assert point.alert_level == AlertLevel.STRONG
+        assert point.location is None  # HANS list endpoints carry no coordinates
 
 
 class TestNOAANWPSSource:

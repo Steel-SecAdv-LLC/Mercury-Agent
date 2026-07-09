@@ -1,0 +1,17 @@
+[
+ {
+  "product_id": "K04W",
+  "issue_datetime": "2026-07-08 05:29:41.360",
+  "message": "Space Weather Message Code: WARK04\r\nSerial Number: 5380\r\nIssue Time: 2026 Jul 08 0529 UTC\r\n\r\nWARNING: Geomagnetic K-index of 4 expected \nValid From: 2026 Jul 08 0528 UTC\nValid To: 2026 Jul 08 1200 UTC\nWarning Conditions: Onset\nComment: \r\n\n\r\n\r\nNOAA Space Weather Scale descriptions can be found at\r\nwww.swpc.noaa.gov/noaa-scales-explanation\r\n\r\nPotential Impacts: Area of impact primarily poleward of 65 degrees Geomagnetic Latitude.\r\nInduced Currents - Weak power grid fluctuations can occur.\r\nAurora - Aurora may be visible at high latitudes such as Canada and Alaska."
+ },
+ {
+  "product_id": "TIIA",
+  "issue_datetime": "2026-07-07 23:18:39.870",
+  "message": "Space Weather Message Code: ALTTP2\r\nSerial Number: 1514\r\nIssue Time: 2026 Jul 07 2318 UTC\r\n\r\nALERT: Type II Radio Emission \nBegin Time: 2026 Jul 07 2256 UTC\nEstimate Velocity: 1441 km/s\nComment: \r\n\n"
+ },
+ {
+  "product_id": "TIVA",
+  "issue_datetime": "2026-07-07 14:56:18.523",
+  "message": "Space Weather Message Code: ALTTP4\r\nSerial Number: 713\r\nIssue Time: 2026 Jul 07 1456 UTC\r\n\r\nALERT: Type IV Radio Emission \nBegin Time: 2026 Jul 07 1435 UTC\nComment: \r\n\n"
+ }
+]
