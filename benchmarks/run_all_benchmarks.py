@@ -51,6 +51,11 @@ AUC_GATES: dict[str, float] = {
     "marine": 0.60,
     "network_security": 0.75,  # Higher bar — already at 0.972
     "fema": 0.60,
+    # Measured 2026-07-09 on live DONKI/SWPC + NeoWs/CNEOS data (5 events each):
+    # space_weather mean AUC 0.9647 (std 0.0172, min 0.9429) -> gate 0.85;
+    # meteor mean AUC 0.7705 (std 0.1418, min 0.5582) -> gate 0.60 on the mean.
+    "space_weather": 0.85,
+    "meteor": 0.60,
 }
 
 
@@ -88,6 +93,8 @@ def _get_loader(domain: str) -> Any:
         "marine": "MarineLoader",
         "network_security": "NetworkSecurityLoader",
         "fema": "FEMALoader",
+        "space_weather": "SpaceWeatherLoader",
+        "meteor": "MeteorLoader",
     }
 
     class_name = class_name_map.get(domain)

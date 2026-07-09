@@ -19,9 +19,11 @@ from omni_mercury_engine.loaders.flood_loader import FloodLoader
 from omni_mercury_engine.loaders.hurricane_loader import HurricaneLoader
 from omni_mercury_engine.loaders.landslide_loader import LandslideLoader
 from omni_mercury_engine.loaders.marine_loader import MarineLoader
+from omni_mercury_engine.loaders.meteor_loader import MeteorLoader
 from omni_mercury_engine.loaders.network_security_loader import NetworkSecurityLoader
 from omni_mercury_engine.loaders.pandemic_loader import PandemicLoader
 from omni_mercury_engine.loaders.sepsis_loader import SepsisLoader
+from omni_mercury_engine.loaders.space_weather_loader import SpaceWeatherLoader
 from omni_mercury_engine.loaders.tornado_loader import TornadoLoader
 from omni_mercury_engine.loaders.transforms import prepare_for_detector
 from omni_mercury_engine.loaders.tsunami_loader import TsunamiLoader
@@ -38,9 +40,11 @@ __all__ = [
     "HurricaneLoader",
     "LandslideLoader",
     "MarineLoader",
+    "MeteorLoader",
     "NetworkSecurityLoader",
     "PandemicLoader",
     "SepsisLoader",
+    "SpaceWeatherLoader",
     "TornadoLoader",
     "TsunamiLoader",
     "VolcanicLoader",
