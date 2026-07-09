@@ -798,9 +798,18 @@ class SolarStormDetector:
         self._neural_trained = False
         self._warned_untrained = False
 
+        # Feature contract carried by trained checkpoints (see
+        # omni_mercury_engine.ml.hazard_training.features): standardization
+        # statistics + fill values from the training years. None until a
+        # checkpoint that declares them is loaded.
+        self._feature_spec: str | None = None
+        self._feature_mean: np.ndarray[Any, Any] | None = None
+        self._feature_std: np.ndarray[Any, Any] | None = None
+        self._feature_fill: dict[str, float] | None = None
+
         self.logger = logging.getLogger(__name__)
 
-    def load_neural_weights(self, checkpoint_path: str) -> None:
+    def load_neural_weights(self, checkpoint_path: str | None = None) -> None:
         """Load trained weights for the geomagnetic storm predictor.
 
         Until this is called the network is untrained and Kp is derived from the
@@ -808,16 +817,34 @@ class SolarStormDetector:
 
         Args:
             checkpoint_path: Path to a torch checkpoint containing a
-                ``geomag_predictor`` state dict.
+                ``geomag_predictor`` state dict. ``None`` loads the shipped
+                default checkpoint (``solar_storm_geomag``), whose provenance
+                sidecar is logged; missing or corrupt files raise instead of
+                degrading silently.
         """
-        checkpoint = torch.load(checkpoint_path, map_location="cpu")
         if self.geomag_predictor is None:
             raise RuntimeError("geomagnetic prediction is disabled on this detector")
+        if checkpoint_path is None:
+            from omni_mercury_engine.models.checkpoint_paths import load_shipped_checkpoint
+
+            checkpoint, _provenance = load_shipped_checkpoint("solar_storm_geomag")
+            source = "shipped default 'solar_storm_geomag'"
+        else:
+            checkpoint = torch.load(checkpoint_path, map_location="cpu")
+            source = checkpoint_path
         self.geomag_predictor.load_state_dict(checkpoint["geomag_predictor"])
+        if "feature_mean" in checkpoint and "feature_std" in checkpoint:
+            self._feature_spec = str(checkpoint.get("feature_spec", "unknown"))
+            self._feature_mean = np.asarray(checkpoint["feature_mean"], dtype=np.float32)
+            self._feature_std = np.asarray(checkpoint["feature_std"], dtype=np.float32)
+            fill = checkpoint.get("feature_fill") or {}
+            self._feature_fill = {str(k): float(v) for k, v in fill.items()}
         self._neural_trained = True
         self.logger.info(
-            "Geomagnetic neural weights loaded from %s; using learned Kp prediction",
-            checkpoint_path,
+            "Geomagnetic neural weights loaded from %s (feature spec: %s); "
+            "using learned Kp prediction",
+            source,
+            self._feature_spec or "raw features, no standardization",
         )
 
     def _warn_untrained_once(self) -> None:
@@ -1018,13 +1045,25 @@ class SolarStormDetector:
             return self._predict_geomagnetic_storm_physics(magnetosphere_data)
 
         if "features" in magnetosphere_data:
-            features = magnetosphere_data["features"]
+            features = np.asarray(magnetosphere_data["features"], dtype=np.float32)
+        elif self._feature_spec is not None:
+            # Build the exact feature vector the checkpoint was trained on
+            # (train/serve parity); fills come from the training-year medians
+            # carried by the checkpoint.
+            from omni_mercury_engine.ml.hazard_training.features import (
+                build_geomag_feature_vector,
+            )
+
+            features = build_geomag_feature_vector(magnetosphere_data, fill=self._feature_fill)
         else:
             solar_wind_speed = magnetosphere_data.get("solar_wind_speed_km_s", 400)
             bz_imf = magnetosphere_data.get("bz_imf_nt", 0)
 
             features = np.array([solar_wind_speed / 1000.0, bz_imf])
             features = np.pad(features, (0, 30), mode="constant")
+
+        if self._feature_mean is not None and self._feature_std is not None:
+            features = (features - self._feature_mean) / self._feature_std
 
         features_tensor = torch.tensor(features, dtype=torch.float32).unsqueeze(0)
 

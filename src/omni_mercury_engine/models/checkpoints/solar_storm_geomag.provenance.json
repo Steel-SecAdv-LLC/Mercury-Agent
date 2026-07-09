@@ -1,0 +1,147 @@
+{
+  "checkpoint": "solar_storm_geomag.pt",
+  "checkpoint_sha256": "adec433c3c3a40f11b9ab1b7ad43bb0c5912e0cb895849e1a2aa0f5a964f0af9",
+  "created_utc": "2026-07-09T07:56:41+00:00",
+  "data_sources": [
+    {
+      "description": "NASA SPDF OMNI2 hourly solar wind/IMF/Kp, 2005",
+      "sha256": "9b99d08300d8e2a2cbeaeab073b2e0d83e31b5c925c0f465860430602ad07102",
+      "url": "https://spdf.gsfc.nasa.gov/pub/data/omni/low_res_omni/omni2_2005.dat"
+    },
+    {
+      "description": "NASA SPDF OMNI2 hourly solar wind/IMF/Kp, 2006",
+      "sha256": "27db7ba84a0889b0438fd4428e26128a2235bcf9e30b2a77bf678fab531bf4ea",
+      "url": "https://spdf.gsfc.nasa.gov/pub/data/omni/low_res_omni/omni2_2006.dat"
+    },
+    {
+      "description": "NASA SPDF OMNI2 hourly solar wind/IMF/Kp, 2007",
+      "sha256": "2bdae448301e6de3863e78643178628e3bcd39dee2aea111fe523d1e393217e7",
+      "url": "https://spdf.gsfc.nasa.gov/pub/data/omni/low_res_omni/omni2_2007.dat"
+    },
+    {
+      "description": "NASA SPDF OMNI2 hourly solar wind/IMF/Kp, 2008",
+      "sha256": "3115c8f3c1d28eaca6a4ada84ca2f36865d36d2b2db1c4f8a4c4ba667ac1e274",
+      "url": "https://spdf.gsfc.nasa.gov/pub/data/omni/low_res_omni/omni2_2008.dat"
+    },
+    {
+      "description": "NASA SPDF OMNI2 hourly solar wind/IMF/Kp, 2009",
+      "sha256": "1b8e29b6fd31b6b187dbad5499367526c8b34744f87dcc5aaaedb47c9e50f651",
+      "url": "https://spdf.gsfc.nasa.gov/pub/data/omni/low_res_omni/omni2_2009.dat"
+    },
+    {
+      "description": "NASA SPDF OMNI2 hourly solar wind/IMF/Kp, 2010",
+      "sha256": "5a70010684b553f740b95b31fb56d6ab99b0d545c6f02b11dd84141bbd8b60cb",
+      "url": "https://spdf.gsfc.nasa.gov/pub/data/omni/low_res_omni/omni2_2010.dat"
+    },
+    {
+      "description": "NASA SPDF OMNI2 hourly solar wind/IMF/Kp, 2011",
+      "sha256": "9a93c0e8b563a8ca6ae9c76448d2140ad00574ef65abc7a6504fdad1c3a196ce",
+      "url": "https://spdf.gsfc.nasa.gov/pub/data/omni/low_res_omni/omni2_2011.dat"
+    },
+    {
+      "description": "NASA SPDF OMNI2 hourly solar wind/IMF/Kp, 2012",
+      "sha256": "342612e8ed98fcc5952e4f33e3de92c657d6682728722716d68930b981f87faf",
+      "url": "https://spdf.gsfc.nasa.gov/pub/data/omni/low_res_omni/omni2_2012.dat"
+    },
+    {
+      "description": "NASA SPDF OMNI2 hourly solar wind/IMF/Kp, 2013",
+      "sha256": "46db595b661833960638cb1c44a9c90df55769907bdf1473ad5d9feb68e3d0d9",
+      "url": "https://spdf.gsfc.nasa.gov/pub/data/omni/low_res_omni/omni2_2013.dat"
+    },
+    {
+      "description": "NASA SPDF OMNI2 hourly solar wind/IMF/Kp, 2014",
+      "sha256": "8078580877128e53904084bf22cd712b347deb33c8db5133876baa19be2f57c0",
+      "url": "https://spdf.gsfc.nasa.gov/pub/data/omni/low_res_omni/omni2_2014.dat"
+    },
+    {
+      "description": "NASA SPDF OMNI2 hourly solar wind/IMF/Kp, 2015",
+      "sha256": "aaa291634e011715066ddcf59028e4db16d92495ebca88e4ac034edd1f0f4b19",
+      "url": "https://spdf.gsfc.nasa.gov/pub/data/omni/low_res_omni/omni2_2015.dat"
+    },
+    {
+      "description": "NASA SPDF OMNI2 hourly solar wind/IMF/Kp, 2016",
+      "sha256": "9a2be4f3e975ff307fcfcca5fc1a5d4cb9f04942a0aae47d9c3529303b51c51e",
+      "url": "https://spdf.gsfc.nasa.gov/pub/data/omni/low_res_omni/omni2_2016.dat"
+    },
+    {
+      "description": "NASA SPDF OMNI2 hourly solar wind/IMF/Kp, 2017",
+      "sha256": "b53494bc4fa719da1a5e6914c93307d2c9cfa1fa77abb3883e5925bfc9e0b3bc",
+      "url": "https://spdf.gsfc.nasa.gov/pub/data/omni/low_res_omni/omni2_2017.dat"
+    },
+    {
+      "description": "NASA SPDF OMNI2 hourly solar wind/IMF/Kp, 2018",
+      "sha256": "2f4b43cc5106d856a4765581eaf277f10506c002d72d927b21eca85776ae0b04",
+      "url": "https://spdf.gsfc.nasa.gov/pub/data/omni/low_res_omni/omni2_2018.dat"
+    },
+    {
+      "description": "NASA SPDF OMNI2 hourly solar wind/IMF/Kp, 2019",
+      "sha256": "8f4e57f313687b4fb86865dbb2df06adf414c7e496b99893b86013d91744b48e",
+      "url": "https://spdf.gsfc.nasa.gov/pub/data/omni/low_res_omni/omni2_2019.dat"
+    },
+    {
+      "description": "NASA SPDF OMNI2 hourly solar wind/IMF/Kp, 2020",
+      "sha256": "11c2de98f1fd1ebe0156ca36c439fd4063d28c95e3706ec8752e7f59eea41700",
+      "url": "https://spdf.gsfc.nasa.gov/pub/data/omni/low_res_omni/omni2_2020.dat"
+    },
+    {
+      "description": "NASA SPDF OMNI2 hourly solar wind/IMF/Kp, 2021",
+      "sha256": "c7a68a97abddd6842f26225b6ac5761cdb2f375aca2b5f53b752f7158ed2f211",
+      "url": "https://spdf.gsfc.nasa.gov/pub/data/omni/low_res_omni/omni2_2021.dat"
+    },
+    {
+      "description": "NASA SPDF OMNI2 hourly solar wind/IMF/Kp, 2022",
+      "sha256": "413ac4895d24cab0af4861710c437f12efab44f3cd6c814a614815fa0f2c8d88",
+      "url": "https://spdf.gsfc.nasa.gov/pub/data/omni/low_res_omni/omni2_2022.dat"
+    },
+    {
+      "description": "NASA SPDF OMNI2 hourly solar wind/IMF/Kp, 2023",
+      "sha256": "df74e09c22b126841835c0add8c46933b93118c33a1978f7e977f9488cf7d743",
+      "url": "https://spdf.gsfc.nasa.gov/pub/data/omni/low_res_omni/omni2_2023.dat"
+    },
+    {
+      "description": "NASA SPDF OMNI2 hourly solar wind/IMF/Kp, 2024",
+      "sha256": "41f3b5891ce3f1220719d5c1ea808f3014f28a1704557d3363eefb5ee7c249b1",
+      "url": "https://spdf.gsfc.nasa.gov/pub/data/omni/low_res_omni/omni2_2024.dat"
+    },
+    {
+      "description": "GFZ Potsdam definitive Kp, 2023-04-20..30 (parser cross-check)",
+      "sha256": "71601ad51c0eca0159df66ebf616e65c5e0f8803d6f61c59e7ca34c001f66fb3",
+      "url": "https://kp.gfz.de/app/json/?start=2023-04-20T00:00:00Z&end=2023-04-30T00:00:00Z&index=Kp"
+    }
+  ],
+  "evaluation": {
+    "extras": {
+      "comparison": "identical held-out OMNI2 hours through SolarStormDetector.predict_solar_storm, physics fallback vs loaded checkpoint",
+      "test_storm_fraction": 0.026309680193662643
+    },
+    "higher_is_better": false,
+    "hook": "solar_storm_geomag",
+    "learned": {
+      "false_alarm_rate_kp5": 0.0008741953429229914,
+      "g_bucket_accuracy": 0.9757022363228353,
+      "kp_mae": 0.5742663251280619,
+      "kp_rmse": 0.7537715022076086,
+      "storm_auc": 0.9716830247158865,
+      "storm_recall_kp5": 0.3044117647058823
+    },
+    "learned_beats_physics": true,
+    "n_test_samples": 25846,
+    "physics": {
+      "false_alarm_rate_kp5": 0.031391560041325595,
+      "g_bucket_accuracy": 0.9483092161262865,
+      "kp_mae": 1.0536682437391807,
+      "kp_rmse": 1.3437883141203117,
+      "storm_auc": 0.8449684681947165,
+      "storm_recall_kp5": 0.5735294117647058
+    },
+    "primary_metric": "kp_mae",
+    "test_years": [
+      2022,
+      2023,
+      2024
+    ]
+  },
+  "git_commit": "d983c0d54a6849235af5350e3ce4b512f5a2d7e5",
+  "hook": "solar_storm_geomag",
+  "seed": 20260709
+}
