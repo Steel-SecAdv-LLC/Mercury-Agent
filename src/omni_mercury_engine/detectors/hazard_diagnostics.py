@@ -169,14 +169,13 @@ class HazardDiagnostics:
         Args:
             path: Destination file path.
         """
-        np.savez_compressed(
-            Path(path),
+        members: dict[str, np.ndarray[Any, Any]] = {
             **self.arrays,
-            **{
-                _NPZ_HAZARD_KEY: np.array(self.hazard),
-                _NPZ_CONTEXT_KEY: np.array(json.dumps(self.context)),
-            },
-        )
+            _NPZ_HAZARD_KEY: np.array(self.hazard),
+            _NPZ_CONTEXT_KEY: np.array(json.dumps(self.context)),
+        }
+        # numpy's stub folds **kwds into allow_pickle's type; the call is valid.
+        np.savez_compressed(Path(path), **members)  # type: ignore[arg-type]
 
     @classmethod
     def from_npz(cls, path: str | Path) -> HazardDiagnostics:

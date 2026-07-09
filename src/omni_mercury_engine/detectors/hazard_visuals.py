@@ -74,7 +74,7 @@ def _new_figure() -> Figure:
 
 def _finish(fig: Figure) -> bytes:
     """Serialize a figure to deterministic PNG bytes."""
-    fig.set_tight_layout(True)
+    fig.set_layout_engine("tight")
     buf = io.BytesIO()
     fig.savefig(buf, format="png", dpi=_DPI, metadata=dict(_PNG_METADATA))
     return buf.getvalue()
