@@ -1,0 +1,99 @@
+# Mercury-Agent Hazard Regression Gate
+# Fails CI if any hazard detector's skill (POD/FAR/CSI/HSS, warning lead
+# time, S-P distance error, alert-level accuracy, flare-class accuracy,
+# Boyle-index Kp MAE) regresses below the floors pinned in
+# benchmarks/hazard_domain_baseline.json. Deterministic and fully OFFLINE:
+# the scenario sets are committed and hash-pinned (real recorded NOAA SWPC
+# data for solar; seeded constructed physics scenarios elsewhere -- see
+# benchmarks/hazard_scenarios/manifest.json for per-set provenance).
+#
+# Branch protection: add "ci/hazard-regression" as a REQUIRED status check
+# (the ``hazard-regression`` job below) so a hazard-skill regression cannot
+# merge. Mirrors the fusion-regression.yml lane structurally.
+# Copyright (C) 2025 Steel Security Advisors LLC
+
+name: Hazard Regression Gate
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hazard-regression-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+on:
+  pull_request:
+    branches: [main, develop]
+    # Only paths that can move the gated metrics: the detectors themselves,
+    # the metric primitives, the guard + its pinned scenario sets/baseline,
+    # and this workflow.
+    paths:
+      - "src/omni_mercury_engine/detectors/**"
+      - "src/omni_mercury_engine/space/**"
+      - "src/omni_mercury_engine/evaluation/**"
+      - "benchmarks/hazard_regression_guard.py"
+      - "benchmarks/hazard_domain_baseline.json"
+      - "benchmarks/hazard_scenarios/**"
+      - "tests/benchmarks/test_hazard_regression_guard.py"
+      - "tests/evaluation/test_hazard_metrics.py"
+      - ".github/workflows/hazard-regression.yml"
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.12"
+  # Fail closed: the hazard detectors require the ML extra (torch) even on
+  # their untrained-physics paths (module import instantiates the guarded
+  # networks).
+  MERCURY_REQUIRES_ML: "1"
+
+jobs:
+  hazard-regression:
+    name: Hazard Skill Floors (POD/FAR/CSI, lead time, Kp/flare, S-P distance)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Mercury [ml] + test tooling
+        run: |
+          python -m pip install --upgrade "pip>=26.1"
+          pip install -e ".[ml]"
+          # pytest-asyncio registers the ``asyncio_mode`` ini option that the
+          # repo's pytest config sets; without it ``--strict-config`` aborts
+          # collection (pytest >= 9.1 escalates the unknown option to an error).
+          pip install pytest pytest-asyncio scikit-learn hypothesis
+
+      # AMA Cryptography is the mandatory PQC backend; the package fails closed
+      # at import without it, so it must be built before anything imports
+      # omni_mercury_engine.
+      - name: Build AMA Cryptography (native PQC)
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v3.3.0
+
+      # Metric primitives: every skill-score formula verified against a
+      # worked literature example (Finley 1884 contingency table, NOAA
+      # G-scale thresholds, exact haversine geometry, Brier hand values).
+      - name: Hazard metric unit tests
+        run: pytest tests/evaluation/test_hazard_metrics.py -q
+
+      # Guard tests: baseline provenance, manifest integrity, NON-VACUOUS
+      # floors (degenerate always-alarm / majority-class / climatology
+      # predictors must violate the pinned bounds), gate-logic fail paths,
+      # plus the slow tier (live deterministic measurement + seeded
+      # scenario-regeneration reproducibility) -- all offline.
+      - name: Hazard guard tests (incl. slow offline tier)
+        run: pytest tests/benchmarks/test_hazard_regression_guard.py -q
+
+      # The real gate: run every guarded hazard detector over the pinned
+      # scenario sets and fail if any metric crosses its floor/ceiling vs
+      # benchmarks/hazard_domain_baseline.json.
+      - name: Hazard regression gate
+        run: python benchmarks/hazard_regression_guard.py --check

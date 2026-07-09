@@ -679,6 +679,12 @@ module = [
     "weapons_gate_adversarial",
     "cal_core",
     "meaning_level_model_double",
+    # Hazard-guard scenario tooling: ``benchmarks/hazard_regression_guard.py``
+    # and ``hazard_scenarios/generate_scenarios.py`` import these siblings via
+    # sys.path manipulation (same first-party-outside-src pattern as above).
+    "hazard_scenarios",
+    "hazard_scenarios.*",
+    "scenario_io",
     # Optional in-tree modules the tools surface ``try/except``-imports.
     # The ML detector and federated aggregator surfaces ship behind
     # ``[ml]`` / ``[federated]`` extras and are *expected* to be absent

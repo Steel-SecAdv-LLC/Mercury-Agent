@@ -1,0 +1,606 @@
+{
+  "provenance": {
+    "fetched_at": "2026-07-09T05:43:00Z",
+    "label_source": "measured",
+    "labels": "NOAA class of each 6 h window's measured peak GOES 0.1-0.8 nm flux. DEFINITIONAL label (the NOAA class is a flux threshold): this set gates the classification chain end-to-end on real measurements, not forecast skill.",
+    "sources": [
+      {
+        "rows": 20156,
+        "sha256": "e14c5c16d7f7d62a22525a9aae2c9166a3f570f669bb80936578701b7f12f3dd",
+        "url": "https://services.swpc.noaa.gov/json/goes/primary/xrays-7-day.json"
+      },
+      {
+        "rows": 85,
+        "sha256": "88048f600964a51d7c4cbae41d5357f13d8886a8263b94e8e08bae43d5006e6f",
+        "url": "https://services.swpc.noaa.gov/json/goes/primary/xray-flares-7-day.json"
+      }
+    ]
+  },
+  "windows": [
+    {
+      "flare_class": "M",
+      "n_minutes_long": 360,
+      "peak_flux_long_wm2": 2.870921525754966e-05,
+      "peak_flux_short_wm2": 6.093127922213171e-06,
+      "swpc_flare_events": [
+        {
+          "max_class": "C5.6",
+          "max_time": "2026-07-02T06:09:00Z"
+        },
+        {
+          "max_class": "C6.3",
+          "max_time": "2026-07-02T07:22:00Z"
+        },
+        {
+          "max_class": "M2.8",
+          "max_time": "2026-07-02T10:26:00Z"
+        }
+      ],
+      "window_start": "2026-07-02T06:00:00Z"
+    },
+    {
+      "flare_class": "C",
+      "n_minutes_long": 360,
+      "peak_flux_long_wm2": 3.611917463786085e-06,
+      "peak_flux_short_wm2": 1.5235173123073764e-07,
+      "swpc_flare_events": [],
+      "window_start": "2026-07-02T12:00:00Z"
+    },
+    {
+      "flare_class": "M",
+      "n_minutes_long": 360,
+      "peak_flux_long_wm2": 1.2482528291002382e-05,
+      "peak_flux_short_wm2": 1.869920879471465e-06,
+      "swpc_flare_events": [
+        {
+          "max_class": "M1.2",
+          "max_time": "2026-07-02T23:12:00Z"
+        }
+      ],
+      "window_start": "2026-07-02T18:00:00Z"
+    },
+    {
+      "flare_class": "C",
+      "n_minutes_long": 360,
+      "peak_flux_long_wm2": 5.585059170698514e-06,
+      "peak_flux_short_wm2": 3.128209016267647e-07,
+      "swpc_flare_events": [
+        {
+          "max_class": "C4.3",
+          "max_time": "2026-07-03T00:47:00Z"
+        },
+        {
+          "max_class": "C4.1",
+          "max_time": "2026-07-03T02:35:00Z"
+        },
+        {
+          "max_class": "C4.3",
+          "max_time": "2026-07-03T02:48:00Z"
+        }
+      ],
+      "window_start": "2026-07-03T00:00:00Z"
+    },
+    {
+      "flare_class": "C",
+      "n_minutes_long": 360,
+      "peak_flux_long_wm2": 9.53942617343273e-06,
+      "peak_flux_short_wm2": 6.899495588186255e-07,
+      "swpc_flare_events": [],
+      "window_start": "2026-07-03T06:00:00Z"
+    },
+    {
+      "flare_class": "M",
+      "n_minutes_long": 360,
+      "peak_flux_long_wm2": 1.4668492440250702e-05,
+      "peak_flux_short_wm2": 2.121256329701282e-06,
+      "swpc_flare_events": [
+        {
+          "max_class": "M1.4",
+          "max_time": "2026-07-03T13:13:00Z"
+        },
+        {
+          "max_class": "C5.7",
+          "max_time": "2026-07-03T14:24:00Z"
+        },
+        {
+          "max_class": "C6.3",
+          "max_time": "2026-07-03T14:33:00Z"
+        },
+        {
+          "max_class": "C5.8",
+          "max_time": "2026-07-03T15:01:00Z"
+        },
+        {
+          "max_class": "C6.5",
+          "max_time": "2026-07-03T16:51:00Z"
+        },
+        {
+          "max_class": "C6.3",
+          "max_time": "2026-07-03T17:36:00Z"
+        }
+      ],
+      "window_start": "2026-07-03T12:00:00Z"
+    },
+    {
+      "flare_class": "M",
+      "n_minutes_long": 360,
+      "peak_flux_long_wm2": 6.741574907209724e-05,
+      "peak_flux_short_wm2": 1.4014611224411055e-05,
+      "swpc_flare_events": [
+        {
+          "max_class": "M6.7",
+          "max_time": "2026-07-03T18:11:00Z"
+        },
+        {
+          "max_class": "M6.3",
+          "max_time": "2026-07-03T18:59:00Z"
+        },
+        {
+          "max_class": "M1.5",
+          "max_time": "2026-07-03T20:08:00Z"
+        },
+        {
+          "max_class": "C8.4",
+          "max_time": "2026-07-03T22:35:00Z"
+        }
+      ],
+      "window_start": "2026-07-03T18:00:00Z"
+    },
+    {
+      "flare_class": "M",
+      "n_minutes_long": 360,
+      "peak_flux_long_wm2": 4.078448182553984e-05,
+      "peak_flux_short_wm2": 7.815689059498254e-06,
+      "swpc_flare_events": [
+        {
+          "max_class": "M2.0",
+          "max_time": "2026-07-04T00:00:00Z"
+        },
+        {
+          "max_class": "M2.3",
+          "max_time": "2026-07-04T00:23:00Z"
+        },
+        {
+          "max_class": "M2.1",
+          "max_time": "2026-07-04T01:13:00Z"
+        },
+        {
+          "max_class": "M1.2",
+          "max_time": "2026-07-04T02:01:00Z"
+        },
+        {
+          "max_class": "M3.7",
+          "max_time": "2026-07-04T03:32:00Z"
+        },
+        {
+          "max_class": "M1.3",
+          "max_time": "2026-07-04T05:15:00Z"
+        },
+        {
+          "max_class": "C9.5",
+          "max_time": "2026-07-04T05:52:00Z"
+        }
+      ],
+      "window_start": "2026-07-04T00:00:00Z"
+    },
+    {
+      "flare_class": "M",
+      "n_minutes_long": 360,
+      "peak_flux_long_wm2": 3.26449990097899e-05,
+      "peak_flux_short_wm2": 6.246898010431323e-06,
+      "swpc_flare_events": [
+        {
+          "max_class": "C7.4",
+          "max_time": "2026-07-04T06:20:00Z"
+        },
+        {
+          "max_class": "C5.3",
+          "max_time": "2026-07-04T07:42:00Z"
+        },
+        {
+          "max_class": "M1.8",
+          "max_time": "2026-07-04T08:07:00Z"
+        },
+        {
+          "max_class": "M1.0",
+          "max_time": "2026-07-04T08:52:00Z"
+        },
+        {
+          "max_class": "M3.2",
+          "max_time": "2026-07-04T11:12:00Z"
+        }
+      ],
+      "window_start": "2026-07-04T06:00:00Z"
+    },
+    {
+      "flare_class": "M",
+      "n_minutes_long": 360,
+      "peak_flux_long_wm2": 3.2445761462440714e-05,
+      "peak_flux_short_wm2": 7.075250778143527e-06,
+      "swpc_flare_events": [
+        {
+          "max_class": "M3.2",
+          "max_time": "2026-07-04T13:51:00Z"
+        },
+        {
+          "max_class": "C8.3",
+          "max_time": "2026-07-04T14:30:00Z"
+        },
+        {
+          "max_class": "C8.5",
+          "max_time": "2026-07-04T14:38:00Z"
+        },
+        {
+          "max_class": "C8.0",
+          "max_time": "2026-07-04T15:34:00Z"
+        },
+        {
+          "max_class": "M1.1",
+          "max_time": "2026-07-04T16:06:00Z"
+        },
+        {
+          "max_class": "C7.5",
+          "max_time": "2026-07-04T17:02:00Z"
+        }
+      ],
+      "window_start": "2026-07-04T12:00:00Z"
+    },
+    {
+      "flare_class": "X",
+      "n_minutes_long": 360,
+      "peak_flux_long_wm2": 0.000130521206301637,
+      "peak_flux_short_wm2": 4.198401438770816e-05,
+      "swpc_flare_events": [
+        {
+          "max_class": "M1.9",
+          "max_time": "2026-07-04T18:48:00Z"
+        },
+        {
+          "max_class": "M1.5",
+          "max_time": "2026-07-04T19:36:00Z"
+        },
+        {
+          "max_class": "X1.3",
+          "max_time": "2026-07-04T20:41:00Z"
+        },
+        {
+          "max_class": "M1.1",
+          "max_time": "2026-07-04T22:24:00Z"
+        },
+        {
+          "max_class": "C9.3",
+          "max_time": "2026-07-04T23:41:00Z"
+        }
+      ],
+      "window_start": "2026-07-04T18:00:00Z"
+    },
+    {
+      "flare_class": "M",
+      "n_minutes_long": 360,
+      "peak_flux_long_wm2": 2.7092890377389267e-05,
+      "peak_flux_short_wm2": 5.066082394478144e-06,
+      "swpc_flare_events": [
+        {
+          "max_class": "M1.3",
+          "max_time": "2026-07-05T00:31:00Z"
+        },
+        {
+          "max_class": "C8.3",
+          "max_time": "2026-07-05T01:21:00Z"
+        },
+        {
+          "max_class": "C4.1",
+          "max_time": "2026-07-05T03:24:00Z"
+        },
+        {
+          "max_class": "M1.3",
+          "max_time": "2026-07-05T04:32:00Z"
+        },
+        {
+          "max_class": "M1.0",
+          "max_time": "2026-07-05T04:47:00Z"
+        },
+        {
+          "max_class": "M2.7",
+          "max_time": "2026-07-05T05:39:00Z"
+        }
+      ],
+      "window_start": "2026-07-05T00:00:00Z"
+    },
+    {
+      "flare_class": "M",
+      "n_minutes_long": 360,
+      "peak_flux_long_wm2": 1.689659256953746e-05,
+      "peak_flux_short_wm2": 2.9717930374317802e-06,
+      "swpc_flare_events": [
+        {
+          "max_class": "C7.8",
+          "max_time": "2026-07-05T06:19:00Z"
+        },
+        {
+          "max_class": "C7.7",
+          "max_time": "2026-07-05T07:15:00Z"
+        },
+        {
+          "max_class": "C9.9",
+          "max_time": "2026-07-05T07:26:00Z"
+        },
+        {
+          "max_class": "C4.2",
+          "max_time": "2026-07-05T08:26:00Z"
+        },
+        {
+          "max_class": "C5.7",
+          "max_time": "2026-07-05T08:59:00Z"
+        },
+        {
+          "max_class": "C5.2",
+          "max_time": "2026-07-05T10:53:00Z"
+        },
+        {
+          "max_class": "M1.4",
+          "max_time": "2026-07-05T11:00:00Z"
+        },
+        {
+          "max_class": "C9.9",
+          "max_time": "2026-07-05T11:10:00Z"
+        }
+      ],
+      "window_start": "2026-07-05T06:00:00Z"
+    },
+    {
+      "flare_class": "M",
+      "n_minutes_long": 360,
+      "peak_flux_long_wm2": 5.3936186304781586e-05,
+      "peak_flux_short_wm2": 1.4877437934046611e-05,
+      "swpc_flare_events": [
+        {
+          "max_class": "C9.5",
+          "max_time": "2026-07-05T12:01:00Z"
+        },
+        {
+          "max_class": "C8.1",
+          "max_time": "2026-07-05T12:58:00Z"
+        },
+        {
+          "max_class": "C4.1",
+          "max_time": "2026-07-05T14:23:00Z"
+        },
+        {
+          "max_class": "C4.9",
+          "max_time": "2026-07-05T14:35:00Z"
+        },
+        {
+          "max_class": "C6.9",
+          "max_time": "2026-07-05T15:20:00Z"
+        },
+        {
+          "max_class": "C7.4",
+          "max_time": "2026-07-05T15:44:00Z"
+        },
+        {
+          "max_class": "M1.4",
+          "max_time": "2026-07-05T16:32:00Z"
+        },
+        {
+          "max_class": "M1.4",
+          "max_time": "2026-07-05T16:45:00Z"
+        },
+        {
+          "max_class": "C5.0",
+          "max_time": "2026-07-05T17:40:00Z"
+        },
+        {
+          "max_class": "M5.3",
+          "max_time": "2026-07-05T17:57:00Z"
+        }
+      ],
+      "window_start": "2026-07-05T12:00:00Z"
+    },
+    {
+      "flare_class": "M",
+      "n_minutes_long": 360,
+      "peak_flux_long_wm2": 3.604197991080582e-05,
+      "peak_flux_short_wm2": 6.4331761677749455e-06,
+      "swpc_flare_events": [
+        {
+          "max_class": "M1.4",
+          "max_time": "2026-07-05T19:07:00Z"
+        },
+        {
+          "max_class": "C7.3",
+          "max_time": "2026-07-05T20:17:00Z"
+        },
+        {
+          "max_class": "M1.0",
+          "max_time": "2026-07-05T21:22:00Z"
+        },
+        {
+          "max_class": "C9.5",
+          "max_time": "2026-07-05T21:42:00Z"
+        }
+      ],
+      "window_start": "2026-07-05T18:00:00Z"
+    },
+    {
+      "flare_class": "C",
+      "n_minutes_long": 360,
+      "peak_flux_long_wm2": 9.624824997445103e-06,
+      "peak_flux_short_wm2": 1.3209526059654308e-06,
+      "swpc_flare_events": [
+        {
+          "max_class": "C5.9",
+          "max_time": "2026-07-06T00:44:00Z"
+        },
+        {
+          "max_class": "C9.6",
+          "max_time": "2026-07-06T02:21:00Z"
+        },
+        {
+          "max_class": "C6.1",
+          "max_time": "2026-07-06T05:11:00Z"
+        }
+      ],
+      "window_start": "2026-07-06T00:00:00Z"
+    },
+    {
+      "flare_class": "C",
+      "n_minutes_long": 360,
+      "peak_flux_long_wm2": 7.259226549649611e-06,
+      "peak_flux_short_wm2": 4.864518245994987e-07,
+      "swpc_flare_events": [],
+      "window_start": "2026-07-06T06:00:00Z"
+    },
+    {
+      "flare_class": "C",
+      "n_minutes_long": 360,
+      "peak_flux_long_wm2": 3.758874754566932e-06,
+      "peak_flux_short_wm2": 1.591675271583881e-07,
+      "swpc_flare_events": [],
+      "window_start": "2026-07-06T12:00:00Z"
+    },
+    {
+      "flare_class": "C",
+      "n_minutes_long": 360,
+      "peak_flux_long_wm2": 3.8108075841591926e-06,
+      "peak_flux_short_wm2": 4.5440242502081674e-07,
+      "swpc_flare_events": [
+        {
+          "max_class": "C3.8",
+          "max_time": "2026-07-06T18:40:00Z"
+        },
+        {
+          "max_class": "C3.7",
+          "max_time": "2026-07-06T18:56:00Z"
+        }
+      ],
+      "window_start": "2026-07-06T18:00:00Z"
+    },
+    {
+      "flare_class": "C",
+      "n_minutes_long": 360,
+      "peak_flux_long_wm2": 2.2289066237135557e-06,
+      "peak_flux_short_wm2": 9.084214980248362e-08,
+      "swpc_flare_events": [
+        {
+          "max_class": "C1.8",
+          "max_time": "2026-07-07T03:40:00Z"
+        }
+      ],
+      "window_start": "2026-07-07T00:00:00Z"
+    },
+    {
+      "flare_class": "C",
+      "n_minutes_long": 360,
+      "peak_flux_long_wm2": 1.8159101955461665e-06,
+      "peak_flux_short_wm2": 6.318745704447792e-08,
+      "swpc_flare_events": [],
+      "window_start": "2026-07-07T06:00:00Z"
+    },
+    {
+      "flare_class": "M",
+      "n_minutes_long": 360,
+      "peak_flux_long_wm2": 4.046955655212514e-05,
+      "peak_flux_short_wm2": 9.95727714325767e-06,
+      "swpc_flare_events": [
+        {
+          "max_class": "C1.6",
+          "max_time": "2026-07-07T12:12:00Z"
+        },
+        {
+          "max_class": "M4.0",
+          "max_time": "2026-07-07T14:19:00Z"
+        }
+      ],
+      "window_start": "2026-07-07T12:00:00Z"
+    },
+    {
+      "flare_class": "C",
+      "n_minutes_long": 360,
+      "peak_flux_long_wm2": 1.8714722500590142e-06,
+      "peak_flux_short_wm2": 1.8129814804979105e-07,
+      "swpc_flare_events": [
+        {
+          "max_class": "C1.8",
+          "max_time": "2026-07-07T22:49:00Z"
+        }
+      ],
+      "window_start": "2026-07-07T18:00:00Z"
+    },
+    {
+      "flare_class": "B",
+      "n_minutes_long": 360,
+      "peak_flux_long_wm2": 8.068836336860841e-07,
+      "peak_flux_short_wm2": 3.168818452081723e-08,
+      "swpc_flare_events": [],
+      "window_start": "2026-07-08T00:00:00Z"
+    },
+    {
+      "flare_class": "C",
+      "n_minutes_long": 360,
+      "peak_flux_long_wm2": 2.1801806724397466e-06,
+      "peak_flux_short_wm2": 1.774447611069263e-07,
+      "swpc_flare_events": [
+        {
+          "max_class": "C1.2",
+          "max_time": "2026-07-08T07:41:00Z"
+        },
+        {
+          "max_class": "C2.1",
+          "max_time": "2026-07-08T09:55:00Z"
+        },
+        {
+          "max_class": "C1.0",
+          "max_time": "2026-07-08T11:25:00Z"
+        }
+      ],
+      "window_start": "2026-07-08T06:00:00Z"
+    },
+    {
+      "flare_class": "M",
+      "n_minutes_long": 360,
+      "peak_flux_long_wm2": 1.5556937796645798e-05,
+      "peak_flux_short_wm2": 2.451402906444855e-06,
+      "swpc_flare_events": [
+        {
+          "max_class": "M1.5",
+          "max_time": "2026-07-08T17:56:00Z"
+        }
+      ],
+      "window_start": "2026-07-08T12:00:00Z"
+    },
+    {
+      "flare_class": "C",
+      "n_minutes_long": 360,
+      "peak_flux_long_wm2": 9.587750355422031e-06,
+      "peak_flux_short_wm2": 1.141692337114364e-06,
+      "swpc_flare_events": [],
+      "window_start": "2026-07-08T18:00:00Z"
+    },
+    {
+      "flare_class": "M",
+      "n_minutes_long": 339,
+      "peak_flux_long_wm2": 1.17419849630096e-05,
+      "peak_flux_short_wm2": 1.7341252487312886e-06,
+      "swpc_flare_events": [
+        {
+          "max_class": "M1.1",
+          "max_time": "2026-07-09T02:27:00Z"
+        },
+        {
+          "max_class": "B8.7",
+          "max_time": "2026-07-09T04:11:00Z"
+        },
+        {
+          "max_class": "B6.9",
+          "max_time": "2026-07-09T05:09:00Z"
+        },
+        {
+          "max_class": "B6.6",
+          "max_time": "2026-07-09T05:25:00Z"
+        }
+      ],
+      "window_start": "2026-07-09T00:00:00Z"
+    }
+  ]
+}
