@@ -317,6 +317,87 @@ install the mocked commit was never awaited and the test failed spuriously;
 and the `.coveragerc` comment naming the CI coverage floors was trued to the
 current `ci.yml` values (CORE 25 / FULL 50, not 15 / 35).
 
+### Hazard visualization & diagnostics (T3)
+
+The intermediate arrays hazard detectors compute were persisted (opt-in
+`keep_diagnostics=True`) instead of discarded — earthquake spectrograms +
+STA/LTA series, tsunami FFT spectra, tornado Doppler fields, hurricane
+wind/vorticity fields, wildfire thermal/hotspot masks (with
+`ignition_locations` / fire area now actually populated from the mask — the
+declared-but-never-filled fields were a real bug), volcanic spectra, meteor
+Doppler profiles, Schumann harmonic spectra. `detectors/hazard_visuals.py`
+renders them deterministically (PNG via Agg, RFC 7946 GeoJSON for zonal
+outputs), exposed as `mercury-agent hazard-viz`, `POST
+/api/v1/hazard/visualize`, the `mercury_hazard_visualize` MCP tool, and new
+hazard panels in the visualization dashboard. Hurricane track cones are NOT
+rendered — no track model exists; only real computed fields are drawn.
+
+### New hazard domains (T4): 15 detectors + 4 cascades + 5 loaders
+
+All physics literature-anchored, untrained-network-free, with citations in
+docstrings and worked-example tests:
+
+- **Space weather**: CME arrival (Gopalswamy ESA + Vršnak drag-based model),
+  SEP radiation storms (NOAA S-scale over GOES integral proton flux),
+  ionospheric scintillation (real S4/σφ computation + labelled climatological
+  risk), GIC-to-grid (dB/dt metrics + plane-wave geoelectric proxy), and the
+  solar→GIC cascade (DONKI flare/CME → arrival window → Kp watch → measured
+  dB/dt escalation state machine).
+- **Meteorological**: drought (SPI/McKee, Thornthwaite PET + SPEI, USDM
+  D0–D4), heatwave (CTX90pct + Excess Heat Factor + full NWS Rothfusz heat
+  index), atmospheric river (trapezoidal IVT + Ralph 2019 AR1–AR5 scale),
+  lightning (Schultz 2009 2-σ lightning jump), hail (SPC SHIP), winter/ice
+  storm (partial thickness, Stull wet-bulb, FRAM-style accretion, blizzard
+  criteria), derecho (Johns & Hirt / Corfidi criteria with great-circle
+  swath math), dust storm (WMO visibility classes, Fécan friction-velocity
+  threshold, haboob gust-front signature), and the hurricane→surge→flood
+  cascade (real CO-OPS observed-minus-predicted surge residual + NWPS gauge
+  gates).
+- **Geophysical**: subsidence/sinkhole precursors over InSAR-style series
+  (Theil–Sen velocity, model-comparison acceleration, clustering), avalanche
+  (SK38 skier-stability, critical loading, TG metamorphism, EAWS levels),
+  rockfall (freeze–thaw cycling, Fukuzono inverse-velocity failure
+  forecasting), plus the earthquake→tsunami cascade (PTWC-style screening on
+  real USGS events incl. the recorded Tōhoku fixture) and wildfire→debris
+  flow (the published USGS Staley et al. 2017 M1 coefficients + Cannon I-D
+  thresholds).
+- **Board**: SpaceWeatherLoader (USGS geomag minute data + DONKI GST observed
+  Kp), MeteorLoader (JPL CNEOS fireballs ≥1 kt + NeoWs), DroughtLoader /
+  HeatwaveLoader (NCEI GSOM/GSOD station archives), HailLoader (SPC reports)
+  — all with provenance-registry entries and measured-not-invented AUC gates
+  in `run_all_benchmarks.py` (space_weather 0.9647→gate 0.85, meteor
+  0.7705→0.60, heatwave 0.6757→0.63, drought 0.5728→0.54, hail 0.6132→0.55).
+
+### Counterfactual anomaly reasoning on the detection path
+
+- Verified minimal counterfactuals as first-class detection explanations:
+  correctness and minimality are re-scored through the REAL detection paths
+  (never the search method's own claim). Tier detections explain a flagged
+  point over its contextual window with candidates anchored at real normal
+  windows from the same series; exposed via `tier-detect --counterfactual`,
+  `POST /detect/tier {include_counterfactual}`, and `mercury_tier_detect`.
+- The engine's dormant `gdpr_report` explanation path (Wachter
+  counterfactuals) is finally reachable: `POST /detect/flagship
+  {gdpr_report, subject_id}` + `mercury_detect_fusion`.
+- `CounterfactualMethod.GENETIC` and `DistanceMetric.GOWER` implemented for
+  real (they were bare enum values): a seeded evolutionary search and the
+  standard mixed-type distance, selectable everywhere with unit tests.
+
+### Genetic rule evolution grounded in held-out detection F1
+
+`ml/rule_evolution.py`: a deterministic GA over the neuro-symbolic rule
+graph (evolved predicates resolve into the existing `Rule`/`RuleGraph`
+representation and are scored by the same deployed
+`SymbolicConstraintModule` path — no train/serve skew). Fitness is mean
+held-out VALIDATION F1 across pre-registered real ADBench datasets with the
+hand-written consensus graph seeded into the population; the TEST split is
+touched exactly once. Result (`benchmarks/rule_evolution_results.json`):
+evolved graph beats the consensus baseline on held-out test F1, mean 0.5439
+vs 0.4119 (+0.1320; cardio +0.296, thyroid +0.227, WBC tie, Pima +0.005),
+AUC better on all four. The champion ships as a schema-versioned artifact
+loadable via `resolve_rule_graph("evolved:…")` with a serve-path
+reproduction check.
+
 ### Detection interconnect + analysis extraction
 
 Detection is now reachable through one consistent contract on every surface
