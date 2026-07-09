@@ -1,0 +1,312 @@
+{
+  "baseline_val_fitness": 0.5799813644955362,
+  "budget": {
+    "early_stop": false,
+    "generations_budget": 30,
+    "generations_run": 30,
+    "patience": 10,
+    "population": 40
+  },
+  "common_channels": [
+    "affective",
+    "astrophysical",
+    "consciousness",
+    "dimensional",
+    "directive",
+    "multiverse",
+    "neural",
+    "neurosymbolic",
+    "quantum",
+    "spatial",
+    "statistical",
+    "temporal"
+  ],
+  "complexity_penalty": 0.0001,
+  "datasets_evaluated": [
+    "cardio",
+    "thyroid",
+    "WBC",
+    "Pima"
+  ],
+  "evolved_beats_baseline": true,
+  "evolved_rules": [
+    {
+      "antecedent": "x1<=0.209181",
+      "consequent": "Anomalous",
+      "name": "EV0"
+    },
+    {
+      "antecedent": "x2<=0.028015",
+      "consequent": "NotAnomalous",
+      "name": "EV1"
+    },
+    {
+      "antecedent": "x3<=0.137591&x11>=0.631114",
+      "consequent": "Anomalous",
+      "name": "EV2"
+    }
+  ],
+  "evolved_val_fitness": 0.7107429392446635,
+  "margin": 0.1319940539796432,
+  "mean_test_f1": {
+    "baseline_consensus": 0.4119169349558926,
+    "evolved": 0.5439109889355358
+  },
+  "preregistered_datasets": [
+    "cardio",
+    "thyroid",
+    "WBC",
+    "Pima"
+  ],
+  "protocol": {
+    "fitness": "mean val F1 across datasets, threshold fit on val only",
+    "scoring_path": "SymbolicConstraintModule.score_samples (fitness == deployment)",
+    "split": {
+      "stratified": true,
+      "test_frac": 0.4,
+      "val_frac": 0.2
+    },
+    "test_policy": "test split scored exactly once, after the search finished"
+  },
+  "provenance": {
+    "commit": "01bea3b76971d3f2016fee5f0d54d57d88614465",
+    "created_utc": "2026-07-09T06:13:15.446283+00:00",
+    "graph_artifact": "benchmarks/evolved_rule_graph.json"
+  },
+  "seed": 0,
+  "test_results": [
+    {
+      "baseline_consensus_auc": 0.7262192490289168,
+      "baseline_consensus_f1": 0.366412213740458,
+      "baseline_consensus_threshold": 0.47922508132578145,
+      "dataset": "cardio",
+      "delta_f1": 0.29608778625954196,
+      "evolved_auc": 0.9521040138109624,
+      "evolved_f1": 0.6625,
+      "evolved_threshold": 0.6287278171741602
+    },
+    {
+      "baseline_consensus_auc": 0.8631389541715628,
+      "baseline_consensus_f1": 0.26666666666666666,
+      "baseline_consensus_threshold": 0.5027929544448853,
+      "dataset": "thyroid",
+      "delta_f1": 0.22683982683982684,
+      "evolved_auc": 0.9666935957696827,
+      "evolved_f1": 0.4935064935064935,
+      "evolved_threshold": 0.6198864832068934
+    },
+    {
+      "baseline_consensus_auc": 0.9205882352941176,
+      "baseline_consensus_f1": 0.5,
+      "baseline_consensus_threshold": 0.512287457784017,
+      "dataset": "WBC",
+      "delta_f1": 0.0,
+      "evolved_auc": 0.9529411764705883,
+      "evolved_f1": 0.5,
+      "evolved_threshold": 0.6295313504007128
+    },
+    {
+      "baseline_consensus_auc": 0.5871962616822429,
+      "baseline_consensus_f1": 0.5145888594164456,
+      "baseline_consensus_threshold": 0.44007630239833484,
+      "dataset": "Pima",
+      "delta_f1": 0.00504860281920394,
+      "evolved_auc": 0.6192990654205608,
+      "evolved_f1": 0.5196374622356495,
+      "evolved_threshold": 0.4969262182712555
+    }
+  ],
+  "val_fitness_history": [
+    {
+      "best_fitness": 0.655673260738052,
+      "best_val_f1": 0.656373260738052,
+      "generation": 0,
+      "mean_fitness": 0.28964386537516373
+    },
+    {
+      "best_fitness": 0.655673260738052,
+      "best_val_f1": 0.656373260738052,
+      "generation": 1,
+      "mean_fitness": 0.3851654779766007
+    },
+    {
+      "best_fitness": 0.6776135397692774,
+      "best_val_f1": 0.6791135397692774,
+      "generation": 2,
+      "mean_fitness": 0.4860917843979811
+    },
+    {
+      "best_fitness": 0.6781616791248276,
+      "best_val_f1": 0.6794616791248276,
+      "generation": 3,
+      "mean_fitness": 0.5486824097656715
+    },
+    {
+      "best_fitness": 0.6781616791248276,
+      "best_val_f1": 0.6794616791248276,
+      "generation": 4,
+      "mean_fitness": 0.5717255718770269
+    },
+    {
+      "best_fitness": 0.6781616791248276,
+      "best_val_f1": 0.6794616791248276,
+      "generation": 5,
+      "mean_fitness": 0.5925935702855467
+    },
+    {
+      "best_fitness": 0.6781616791248276,
+      "best_val_f1": 0.6794616791248276,
+      "generation": 6,
+      "mean_fitness": 0.6108607586892898
+    },
+    {
+      "best_fitness": 0.6892255117642434,
+      "best_val_f1": 0.6900255117642434,
+      "generation": 7,
+      "mean_fitness": 0.6179838560985466
+    },
+    {
+      "best_fitness": 0.691048593565131,
+      "best_val_f1": 0.6918485935651311,
+      "generation": 8,
+      "mean_fitness": 0.6191984146309599
+    },
+    {
+      "best_fitness": 0.691048593565131,
+      "best_val_f1": 0.6918485935651311,
+      "generation": 9,
+      "mean_fitness": 0.6105266685683292
+    },
+    {
+      "best_fitness": 0.6952249093546048,
+      "best_val_f1": 0.6961249093546048,
+      "generation": 10,
+      "mean_fitness": 0.6023064921391079
+    },
+    {
+      "best_fitness": 0.7038674091323277,
+      "best_val_f1": 0.7046674091323277,
+      "generation": 11,
+      "mean_fitness": 0.5995736638997322
+    },
+    {
+      "best_fitness": 0.7038674091323277,
+      "best_val_f1": 0.7046674091323277,
+      "generation": 12,
+      "mean_fitness": 0.610786034320245
+    },
+    {
+      "best_fitness": 0.7051305862675885,
+      "best_val_f1": 0.7058305862675885,
+      "generation": 13,
+      "mean_fitness": 0.6190307988899997
+    },
+    {
+      "best_fitness": 0.7094915055178698,
+      "best_val_f1": 0.7106915055178697,
+      "generation": 14,
+      "mean_fitness": 0.6020497927431088
+    },
+    {
+      "best_fitness": 0.7094915055178698,
+      "best_val_f1": 0.7106915055178697,
+      "generation": 15,
+      "mean_fitness": 0.617929744801275
+    },
+    {
+      "best_fitness": 0.7094915055178698,
+      "best_val_f1": 0.7106915055178697,
+      "generation": 16,
+      "mean_fitness": 0.6226933021270595
+    },
+    {
+      "best_fitness": 0.7094915055178698,
+      "best_val_f1": 0.7106915055178697,
+      "generation": 17,
+      "mean_fitness": 0.6064823021326881
+    },
+    {
+      "best_fitness": 0.7102429392446635,
+      "best_val_f1": 0.7114429392446635,
+      "generation": 18,
+      "mean_fitness": 0.6310997042535199
+    },
+    {
+      "best_fitness": 0.7102429392446635,
+      "best_val_f1": 0.7114429392446635,
+      "generation": 19,
+      "mean_fitness": 0.6254375507331704
+    },
+    {
+      "best_fitness": 0.7102429392446635,
+      "best_val_f1": 0.7114429392446635,
+      "generation": 20,
+      "mean_fitness": 0.6095093707398436
+    },
+    {
+      "best_fitness": 0.7102429392446635,
+      "best_val_f1": 0.7114429392446635,
+      "generation": 21,
+      "mean_fitness": 0.6063193289291929
+    },
+    {
+      "best_fitness": 0.7102429392446635,
+      "best_val_f1": 0.7114429392446635,
+      "generation": 22,
+      "mean_fitness": 0.6505394981382857
+    },
+    {
+      "best_fitness": 0.7103429392446635,
+      "best_val_f1": 0.7114429392446635,
+      "generation": 23,
+      "mean_fitness": 0.6521689736769952
+    },
+    {
+      "best_fitness": 0.7103429392446635,
+      "best_val_f1": 0.7114429392446635,
+      "generation": 24,
+      "mean_fitness": 0.5963533609241225
+    },
+    {
+      "best_fitness": 0.7107429392446635,
+      "best_val_f1": 0.7114429392446635,
+      "generation": 25,
+      "mean_fitness": 0.628191431456826
+    },
+    {
+      "best_fitness": 0.7107429392446635,
+      "best_val_f1": 0.7114429392446635,
+      "generation": 26,
+      "mean_fitness": 0.6421964059089325
+    },
+    {
+      "best_fitness": 0.7107429392446635,
+      "best_val_f1": 0.7114429392446635,
+      "generation": 27,
+      "mean_fitness": 0.6382950567076264
+    },
+    {
+      "best_fitness": 0.7107429392446635,
+      "best_val_f1": 0.7114429392446635,
+      "generation": 28,
+      "mean_fitness": 0.6218088044768468
+    },
+    {
+      "best_fitness": 0.7107429392446635,
+      "best_val_f1": 0.7114429392446635,
+      "generation": 29,
+      "mean_fitness": 0.6339647387452622
+    }
+  ],
+  "verdict": "EVOLVED graph beats the consensus baseline on held-out test F1 (mean 0.5439 vs 0.4119, margin +0.1320)",
+  "wall_times_s": {
+    "evolution": 21.22,
+    "extraction_per_dataset": {
+      "Pima": 4.17,
+      "WBC": 3.33,
+      "cardio": 45.03,
+      "thyroid": 7.83
+    },
+    "total": 97.85
+  }
+}
