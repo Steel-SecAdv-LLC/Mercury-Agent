@@ -102,6 +102,7 @@ class DetectorCategory(Enum):
     # Advanced Physics-Inspired categories (v1.4.0)
     PHYSICS = "physics"  # Physics-inspired detectors (spectral, dynamics, kinematics)
     UIUX = "uiux"  # UI/UX behavioral anomaly detection
+    METEOROLOGICAL = "meteorological"  # Hydro-climate hazards (drought, heatwave, AR, lightning)
 
 
 class DetectorProtocol(Protocol):
@@ -624,6 +625,44 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         DetectorCategory.GEOLOGICAL,
         "Bayesian meteor/NEO threat assessment over NASA NeoWs + JPL fireball/Sentry",
         tags=["disaster", "space", "live-wiring"],
+    ),
+    # -- Meteorological / hydro-climate detectors -----------------------------
+    DetectorManifestEntry(
+        "drought",
+        "omni_mercury_engine.detectors.meteorological.drought_detector",
+        "DroughtDetector",
+        DetectorCategory.METEOROLOGICAL,
+        "SPI/SPEI drought index detector (McKee et al. 1993; Vicente-Serrano et al. 2010)",
+        feature_dim=20,
+        tags=["disaster", "weather", "drought", "hydro-climate"],
+    ),
+    DetectorManifestEntry(
+        "heatwave",
+        "omni_mercury_engine.detectors.meteorological.heatwave_detector",
+        "HeatwaveDetector",
+        DetectorCategory.METEOROLOGICAL,
+        "Percentile-climatology heatwave detector with Excess Heat Factor "
+        "(Perkins & Alexander 2013; Nairn & Fawcett 2015)",
+        feature_dim=20,
+        tags=["disaster", "weather", "heatwave", "hydro-climate"],
+    ),
+    DetectorManifestEntry(
+        "atmospheric_river",
+        "omni_mercury_engine.detectors.meteorological.atmospheric_river_detector",
+        "AtmosphericRiverDetector",
+        DetectorCategory.METEOROLOGICAL,
+        "IVT computation and Ralph et al. (2019) AR-scale classification",
+        feature_dim=20,
+        tags=["disaster", "weather", "atmospheric-river", "hydro-climate"],
+    ),
+    DetectorManifestEntry(
+        "lightning",
+        "omni_mercury_engine.detectors.meteorological.lightning_detector",
+        "LightningDetector",
+        DetectorCategory.METEOROLOGICAL,
+        "2-sigma lightning jump severe-weather precursor (Schultz et al. 2009)",
+        feature_dim=20,
+        tags=["disaster", "weather", "lightning", "hydro-climate"],
     ),
     # -- Economic detectors ---------------------------------------------------
     DetectorManifestEntry(

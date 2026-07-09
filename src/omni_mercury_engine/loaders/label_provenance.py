@@ -178,6 +178,16 @@ LABEL_PROVENANCE_REGISTRY: dict[str, tuple[str, str]] = {
         "feature; NEO labels = JPL PHA designation (MOID <= 0.05 au AND H <= 22), "
         "a threshold rule on the scored H/geometry features.",
     ),
+    "drought_loader.DroughtLoader": (
+        "statistical",
+        "Labels = SPI-6 <= -1.3 (USDM D2) where the SPI is derived from the same "
+        "monthly PRCP series that is feature[0] and its rolling sums.",
+    ),
+    "heatwave_loader.HeatwaveLoader": (
+        "statistical",
+        "Labels = membership in >= 3-day runs of Tmax > calendar-day 90th "
+        "percentile; the same Tmax series is feature[0].",
+    ),
 }
 
 

@@ -1,0 +1,148 @@
+{
+  "timestamp": "2026-07-09T07:39:18.346346+00:00",
+  "domains": {
+    "drought": {
+      "domain": "drought",
+      "timestamp": "2026-07-09T07:39:20.942495+00:00",
+      "source_url": "https://www.ncei.noaa.gov/data/gsom/access/",
+      "events": {
+        "texas_2011": {
+          "status": "success",
+          "auc": 0.5424,
+          "f1": 0.0282,
+          "precision": 0.0328,
+          "recall": 0.0247,
+          "n_samples": 792,
+          "n_features": 6,
+          "n_anomalies_true": 81,
+          "n_anomalies_pred": 61,
+          "elapsed_seconds": 1.04,
+          "provenance": {
+            "domain": "drought",
+            "event_id": "texas_2011",
+            "timestamp": "2026-07-09T07:39:21.982544+00:00",
+            "data_hash": "19684920ea01f7211c0bfb5aac7ed21f2bd84309cc42c93fec5fa92458443dc0",
+            "data_shape": [
+              792,
+              6
+            ],
+            "git_commit": "22b24eb306a443dcf6d575aad968813c66523cfe",
+            "mercury_version": "dev",
+            "source_url": "https://www.ncei.noaa.gov/data/gsom/access/"
+          }
+        },
+        "california_2012_2016": {
+          "status": "success",
+          "auc": 0.6032,
+          "f1": 0.0506,
+          "precision": 0.0488,
+          "recall": 0.0526,
+          "n_samples": 804,
+          "n_features": 6,
+          "n_anomalies_true": 76,
+          "n_anomalies_pred": 82,
+          "elapsed_seconds": 0.63,
+          "provenance": {
+            "domain": "drought",
+            "event_id": "california_2012_2016",
+            "timestamp": "2026-07-09T07:39:22.611357+00:00",
+            "data_hash": "9b7f2f4759e6c521932047721324394a5c78a3c2af2597333b0ff06aa46d8d7a",
+            "data_shape": [
+              804,
+              6
+            ],
+            "git_commit": "22b24eb306a443dcf6d575aad968813c66523cfe",
+            "mercury_version": "dev",
+            "source_url": "https://www.ncei.noaa.gov/data/gsom/access/"
+          }
+        }
+      },
+      "summary": {
+        "status": "complete",
+        "events_benchmarked": 2,
+        "events_attempted": 2,
+        "mean_auc": 0.5728,
+        "std_auc": 0.0304,
+        "mean_f1": 0.0394,
+        "min_auc": 0.5424,
+        "max_auc": 0.6032
+      }
+    },
+    "heatwave": {
+      "domain": "heatwave",
+      "timestamp": "2026-07-09T07:39:22.615456+00:00",
+      "source_url": "https://www.ncei.noaa.gov/data/global-summary-of-the-day/access/",
+      "events": {
+        "texas_2011": {
+          "status": "success",
+          "auc": 0.6915,
+          "f1": 0.4189,
+          "precision": 0.4769,
+          "recall": 0.3735,
+          "n_samples": 365,
+          "n_features": 3,
+          "n_anomalies_true": 83,
+          "n_anomalies_pred": 65,
+          "elapsed_seconds": 2.24,
+          "provenance": {
+            "domain": "heatwave",
+            "event_id": "texas_2011",
+            "timestamp": "2026-07-09T07:39:24.861606+00:00",
+            "data_hash": "bf8e7877228958fb7d8959874ac12c4e57578c7c1641b4edd6f67b33a60cf1eb",
+            "data_shape": [
+              365,
+              3
+            ],
+            "git_commit": "22b24eb306a443dcf6d575aad968813c66523cfe",
+            "mercury_version": "dev",
+            "source_url": "https://www.ncei.noaa.gov/data/global-summary-of-the-day/access/"
+          }
+        },
+        "texas_2009": {
+          "status": "success",
+          "auc": 0.6598,
+          "f1": 0.4262,
+          "precision": 0.4333,
+          "recall": 0.4194,
+          "n_samples": 365,
+          "n_features": 3,
+          "n_anomalies_true": 62,
+          "n_anomalies_pred": 60,
+          "elapsed_seconds": 0.97,
+          "provenance": {
+            "domain": "heatwave",
+            "event_id": "texas_2009",
+            "timestamp": "2026-07-09T07:39:25.833203+00:00",
+            "data_hash": "6dd0c10118ea459fb6a705cde3f112feeb87ee1e95d71e739356209992e5f9e7",
+            "data_shape": [
+              365,
+              3
+            ],
+            "git_commit": "22b24eb306a443dcf6d575aad968813c66523cfe",
+            "mercury_version": "dev",
+            "source_url": "https://www.ncei.noaa.gov/data/global-summary-of-the-day/access/"
+          }
+        }
+      },
+      "summary": {
+        "status": "complete",
+        "events_benchmarked": 2,
+        "events_attempted": 2,
+        "mean_auc": 0.6757,
+        "std_auc": 0.0159,
+        "mean_f1": 0.4226,
+        "min_auc": 0.6598,
+        "max_auc": 0.6915
+      }
+    }
+  },
+  "summary": {
+    "total_domains": 2,
+    "successful_domains": 2,
+    "mean_auc_all_domains": 0.6242,
+    "gate_failures": [
+      "drought: AUC 0.573 < gate 0.600"
+    ],
+    "total_elapsed_seconds": 7.5
+  }
+}

@@ -56,6 +56,13 @@ AUC_GATES: dict[str, float] = {
     # meteor mean AUC 0.7705 (std 0.1418, min 0.5582) -> gate 0.60 on the mean.
     "space_weather": 0.85,
     "meteor": 0.60,
+    # Measured 2026-07-09 on the 2-event live catalogs (regression floors set
+    # just under measured, mirroring the guard pattern — not aspirations):
+    # drought mean AUC 0.5728 (min 0.5424) -> gate 0.54; near-random today,
+    # the gate protects the real labeled pipeline from regressing to chance.
+    # heatwave mean AUC 0.6757 (min 0.6598) -> gate 0.63.
+    "drought": 0.54,
+    "heatwave": 0.63,
 }
 
 
@@ -95,6 +102,8 @@ def _get_loader(domain: str) -> Any:
         "fema": "FEMALoader",
         "space_weather": "SpaceWeatherLoader",
         "meteor": "MeteorLoader",
+        "drought": "DroughtLoader",
+        "heatwave": "HeatwaveLoader",
     }
 
     class_name = class_name_map.get(domain)
