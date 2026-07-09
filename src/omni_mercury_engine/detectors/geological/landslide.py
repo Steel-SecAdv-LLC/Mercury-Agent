@@ -1,14 +1,25 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Landslide & Avalanche Detector - Slope Instability Analysis.
+"""Landslide Detector - Soil Slope Instability Analysis.
 
-Comprehensive slope failure detection for humanitarian early warning:
+Comprehensive soil slope failure detection for humanitarian early warning:
 - Slope stability monitoring (rainfall-triggered, seismic-triggered)
 - Debris flow prediction
-- Snow avalanche forecasting
 - Soil saturation analysis
 - Ground displacement tracking
 - Multi-hazard cascade detection (earthquake → landslide → dam failure)
+
+Scope note (avalanche carve-out):
+    Snow avalanche forecasting no longer lives here. Snowpack failure is
+    governed by weak-layer shear strength, skier/overburden stress and snow
+    metamorphism — not by the soil mechanics this module models — so the
+    dedicated snow-stability physics (SK38 skier stability index, critical
+    new-snow loading, temperature-gradient metamorphism, rain-on-snow) is in
+    :mod:`omni_mercury_engine.detectors.geological.avalanche_detector`.
+    ``LandslideType.SNOW_AVALANCHE`` is retained only as a legacy class label
+    of the neural type classifier; new avalanche assessments must use
+    :class:`~omni_mercury_engine.detectors.geological.avalanche_detector.
+    AvalancheDetector`.
 
 Integrations:
 - Weather data (rainfall intensity, snowmelt)
