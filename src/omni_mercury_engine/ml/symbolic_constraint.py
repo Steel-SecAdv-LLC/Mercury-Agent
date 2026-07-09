@@ -433,13 +433,52 @@ _RULE_GRAPHS = {
 }
 
 
+_EVOLVED_GRAPH_PREFIX = "evolved:"
+
+
 def resolve_rule_graph(name: str | RuleGraph) -> RuleGraph:
-    """Resolve a rule-graph name (or an explicit graph) to a :class:`RuleGraph`."""
+    """Resolve a rule-graph name (or an explicit graph) to a :class:`RuleGraph`.
+
+    Accepted specifications:
+
+    * A :class:`RuleGraph` instance -- returned unchanged.
+    * A registry name -- ``"consensus"`` or ``"consensus_salience"``.
+    * ``"evolved:<path>"`` -- load a genetically evolved rule graph from the
+      JSON artifact written by
+      :func:`omni_mercury_engine.ml.rule_evolution.save_evolved_rule_graph`
+      (path case is preserved; the prefix is case-insensitive).  This is the
+      seam by which the engine selects an evolved graph exactly like the
+      hand-written consensus graphs, e.g.
+      ``fit_fusion(..., symbolic_rule_graph="evolved:benchmarks/evolved_rule_graph.json")``.
+
+    Args:
+        name: Rule-graph specification as described above.
+
+    Returns:
+        The resolved rule graph.
+
+    Raises:
+        ValueError: If the name is not a known registry name, a valid
+            ``evolved:`` spec, or a :class:`RuleGraph`.
+    """
     if isinstance(name, RuleGraph):
         return name
-    key = name.strip().lower()
+    stripped = name.strip()
+    if stripped.lower().startswith(_EVOLVED_GRAPH_PREFIX):
+        path = stripped[len(_EVOLVED_GRAPH_PREFIX) :].strip()
+        if not path:
+            raise ValueError("evolved rule-graph spec requires a path: 'evolved:<path>'")
+        # Local import: rule_evolution imports this module at top level, so
+        # the reverse dependency must stay function-local to avoid a cycle.
+        from omni_mercury_engine.ml.rule_evolution import load_evolved_rule_graph
+
+        return load_evolved_rule_graph(path)
+    key = stripped.lower()
     if key not in _RULE_GRAPHS:
-        raise ValueError(f"unknown rule graph {name!r}; expected one of {sorted(_RULE_GRAPHS)}")
+        raise ValueError(
+            f"unknown rule graph {name!r}; expected one of {sorted(_RULE_GRAPHS)} "
+            "or 'evolved:<path>'"
+        )
     return _RULE_GRAPHS[key]()
 
 
